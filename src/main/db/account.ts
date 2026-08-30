@@ -40,23 +40,57 @@ function fileFor(): string {
   return join(app.getPath('userData'), 'account-session.json')
 }
 
+// DEC-060 — caches, because this module sits on the hot path.
+//
+// `loadAccountState()` is called by localActor(), which is called by
+// emitObjectEvent — so EVERY Object Event was doing a synchronous macOS
+// Keychain decrypt. On a boot replay that is hundreds of round trips to
+// securityd, and the first one raises the authorization prompt that blocked the
+// main thread before the window was ever shown: the app looked dead, CDP went
+// unresponsive, and the prompt itself had no visible parent window.
+//
+// Main is the only writer of this file, so caching the parse is safe; both
+// caches are dropped in write().
+let stateCache: AccountState | null = null
+let tokenCache: { cipher: string; plain: string | null } | null = null
+
+// DEC-060 — the tripwire.
+//
+// A Keychain read before the window is on screen is the shape of the bug that
+// cost days to find: safeStorage blocks the main thread waiting on securityd,
+// macOS raises an authorization prompt, and the prompt has no visible parent to
+// attach to. The app is not crashed and not busy — it sits at 0% CPU with the
+// port open and nothing painted, which reads as "hung for no reason".
+//
+// The cause is fixed (nothing on the boot path decrypts any more), so this only
+// fires if a future change puts it back. Loud beats silent: this line in the log
+// names the problem outright instead of leaving someone to sample the process.
+let uiVisible = false
+export function markUiVisible(): void {
+  uiVisible = true
+}
+
 function read(): AccountState {
+  if (stateCache) return stateCache
   const path = fileFor()
   if (!existsSync(path)) return { ...EMPTY }
   try {
     const raw = readFileSync(path, 'utf8')
     const parsed = JSON.parse(raw) as Partial<AccountState>
-    return {
+    stateCache = {
       encryptedToken: parsed.encryptedToken ?? null,
       skippedAt: parsed.skippedAt ?? null,
       cachedEmail: parsed.cachedEmail ?? null
     }
+    return stateCache
   } catch {
     return { ...EMPTY }
   }
 }
 
 function write(state: AccountState): void {
+  stateCache = null
+  tokenCache = null
   const path = fileFor()
   mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, JSON.stringify(state, null, 2), 'utf8')
@@ -72,10 +106,40 @@ export interface PublicAccountState {
   cachedEmail: string | null
 }
 
+/**
+ * DEC-060 — the email, WITHOUT touching the OS keychain.
+ *
+ * `cachedEmail` is stored in plaintext by design (see the field comment: "safe
+ * to surface unauthenticated"), so reading it never needed a decrypt. But every
+ * caller went through loadAccountState(), which eagerly decrypts the session
+ * token whether or not the caller wants it — so identifying the local actor for
+ * an Event paid for a Keychain round trip it had no use for.
+ *
+ * Anything that only needs to know WHO the user is should call this. Only a
+ * caller that genuinely needs the session token should reach for
+ * loadAccountState().
+ */
+export function accountEmail(): string | null {
+  return read().cachedEmail
+}
+
 export function loadAccountState(): PublicAccountState {
   const state = read()
   let sessionToken: string | null = null
   if (state.encryptedToken) {
+    // Decrypt once per stored ciphertext. A repeat call is answered from memory
+    // rather than by asking securityd again.
+    if (tokenCache && tokenCache.cipher === state.encryptedToken) {
+      return { sessionToken: tokenCache.plain, skippedAt: state.skippedAt, cachedEmail: state.cachedEmail }
+    }
+    if (!uiVisible) {
+      console.warn(
+        '[account] DEC-060: OS keychain decrypt requested BEFORE the window was shown. ' +
+          'If the OS prompts for authorization here it will block the main thread ' +
+          'behind a dialog with no visible parent, and the app will appear hung. ' +
+          'Move this read after the window is visible, or use accountEmail().'
+      )
+    }
     try {
       if (safeStorage.isEncryptionAvailable()) {
         const buf = Buffer.from(state.encryptedToken, 'base64')
@@ -90,6 +154,7 @@ export function loadAccountState(): PublicAccountState {
     } catch {
       sessionToken = null
     }
+    tokenCache = { cipher: state.encryptedToken, plain: sessionToken }
   }
   return {
     sessionToken,

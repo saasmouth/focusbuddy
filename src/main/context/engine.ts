@@ -8,7 +8,7 @@
 import type Database from 'better-sqlite3'
 import { getDb } from '../db/database'
 import { getActiveOrgId } from '../db/activeOrg'
-import { loadAccountState } from '../db/account'
+import { accountEmail } from '../db/account'
 import { createEventStore, ensureEventSchema, type AppendInput, type EventStore, type SqlDb } from '../db/eventStore'
 import { createRelationshipStore, type RelationshipStore } from '../db/relationshipStore'
 import { createDecisionStore, type DecisionStore } from '../db/decisionStore'
@@ -53,12 +53,19 @@ let engine: Engine | null = null
 // The local principal for this session. A signed-in user is identified by their
 // email; otherwise a stable local principal. Never an agent (PLX-DOM-040 lives in
 // the Decision store, but user CRUD is genuinely user-authored here).
+// DEC-060 — accountEmail(), never loadAccountState(). This function is on the
+// path of EVERY Object Event (emitObjectEvent -> localActor), and
+// loadAccountState eagerly decrypts the session token — a synchronous macOS
+// Keychain call — to hand back a plaintext field that needed no decrypting.
+// That put securityd in the middle of every event emit, and on a boot replay
+// the first call raised an authorization prompt that blocked the main thread
+// before the window had been shown.
 export function localActor(): string {
-  const email = loadAccountState().cachedEmail
+  const email = accountEmail()
   return email ? `user:${email}` : 'user:local'
 }
 function localUserId(): string {
-  return loadAccountState().cachedEmail ?? 'local'
+  return accountEmail() ?? 'local'
 }
 
 export function getContextEngine(): Engine {
@@ -180,7 +187,7 @@ export interface FlagDecisionInput {
 // human principal; an agent can never own a Decision.
 export function createDecision(input: FlagDecisionInput): Decision {
   const e = getContextEngine()
-  const email = loadAccountState().cachedEmail
+  const email = accountEmail()
   const owner: ActorRef = { kind: 'user', id: localUserId(), displayName: email ?? undefined }
   return e.decisions.create({
     organisationId: getActiveOrgId() || 'local',
@@ -197,7 +204,7 @@ export function createDecision(input: FlagDecisionInput): Decision {
 // at risk. Used to undo a "flag as a decision". Human actor, emits DecisionSuperseded.
 export function cancelDecision(id: string): void {
   const e = getContextEngine()
-  const email = loadAccountState().cachedEmail
+  const email = accountEmail()
   const owner: ActorRef = { kind: 'user', id: localUserId(), displayName: email ?? undefined }
   e.decisions.supersede(id, null, owner, e.events, new Date().toISOString())
 }

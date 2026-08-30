@@ -1,3 +1,4 @@
+import type { WriteOrigin } from '../shared/writeOrigin'
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   ActionProposal,
@@ -115,11 +116,13 @@ const api = {
   nodes: {
     list: (): Promise<FbNode[]> => ipcRenderer.invoke('nodes:list'),
     get: (id: string): Promise<FbNode | null> => ipcRenderer.invoke('nodes:get', id),
-    create: (draft: NodeDraft): Promise<FbNode> => ipcRenderer.invoke('nodes:create', draft),
-    update: (id: string, patch: NodePatch): Promise<FbNode | null> =>
-      ipcRenderer.invoke('nodes:update', id, patch),
+    create: (draft: NodeDraft, origin?: WriteOrigin): Promise<FbNode> =>
+      ipcRenderer.invoke('nodes:create', draft, origin),
+    update: (id: string, patch: NodePatch, origin?: WriteOrigin): Promise<FbNode | null> =>
+      ipcRenderer.invoke('nodes:update', id, patch, origin),
     // Soft-delete: returns the trashed ids (the node + its subtree) for undo.
-    delete: (id: string): Promise<string[]> => ipcRenderer.invoke('nodes:delete', id),
+    delete: (id: string, origin?: WriteOrigin): Promise<string[]> =>
+      ipcRenderer.invoke('nodes:delete', id, origin),
     // DEC-021 (D2): immediate hard-delete + memory purge — the dialog's
     // "Delete everything permanently" choice. No trash window, no undo.
     deletePermanent: (
@@ -204,12 +207,14 @@ const api = {
       ipcRenderer.invoke('widgets:listByTask', taskId),
     listByKind: (kind: Widget['kind']): Promise<Widget[]> =>
       ipcRenderer.invoke('widgets:listByKind', kind),
-    create: (draft: WidgetDraft): Promise<Widget> => ipcRenderer.invoke('widgets:create', draft),
+    create: (draft: WidgetDraft, origin?: WriteOrigin): Promise<Widget> =>
+      ipcRenderer.invoke('widgets:create', draft, origin),
     createOptional: (draft: WidgetDraft): Promise<Widget | null> =>
       ipcRenderer.invoke('widgets:createOptional', draft),
-    update: (id: string, patch: WidgetPatch): Promise<Widget | null> =>
-      ipcRenderer.invoke('widgets:update', id, patch),
-    delete: (id: string): Promise<boolean> => ipcRenderer.invoke('widgets:delete', id),
+    update: (id: string, patch: WidgetPatch, origin?: WriteOrigin): Promise<Widget | null> =>
+      ipcRenderer.invoke('widgets:update', id, patch, origin),
+    delete: (id: string, origin?: WriteOrigin): Promise<boolean> =>
+      ipcRenderer.invoke('widgets:delete', id, origin),
     restore: (id: string): Promise<boolean> => ipcRenderer.invoke('widgets:restore', id),
     bringToFront: (id: string): Promise<Widget | null> =>
       ipcRenderer.invoke('widgets:bringToFront', id)
@@ -709,8 +714,8 @@ const api = {
     }> => ipcRenderer.invoke('ai:topUpCredits', amountUsd)
   },
   history: {
-    record: (url: string, title: string, taskId: string | null): Promise<void> =>
-      ipcRenderer.invoke('history:record', url, title, taskId),
+    record: (url: string, title: string, taskId: string | null, countsAsVisit?: boolean): Promise<void> =>
+      ipcRenderer.invoke('history:record', url, title, taskId, countsAsVisit),
     recent: (limit: number, taskId?: string | null): Promise<BrowsingHistoryEntry[]> =>
       ipcRenderer.invoke('history:recent', limit, taskId ?? null)
   },

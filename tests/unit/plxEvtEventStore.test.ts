@@ -154,3 +154,48 @@ describe('plx_evt_045 — large state carried as a digest', () => {
     expect(isDigestRef(small.currentState)).toBe(false)
   })
 })
+
+// DEC-056 — retention exists for the delivery queue and NOWHERE else.
+describe('dec_056 — outbox retention never reaches the Event log', () => {
+  it('dec_056_prune_outbox_caps_queue_and_leaves_events_intact', () => {
+    const es = store()
+    const ids = Array.from({ length: 12 }, (_, i) =>
+      es.append({ ...base, deskId: 'desk-1', currentState: { v: i } }).id
+    )
+    expect(es.db.prepare('SELECT COUNT(*) AS n FROM event_outbox').get()).toEqual({ n: 12 })
+
+    const removed = es.pruneOutbox(5)
+
+    // The queue is capped...
+    expect(removed).toBe(7)
+    expect(es.db.prepare('SELECT COUNT(*) AS n FROM event_outbox').get()).toEqual({ n: 5 })
+    // ...and it kept the NEWEST five, not an arbitrary five.
+    const kept = (es.db.prepare('SELECT event_id FROM event_outbox').all() as { event_id: string }[]).map(
+      (r) => r.event_id
+    )
+    expect(kept.sort()).toEqual(ids.slice(-5).sort())
+
+    // ...while every Event survives, because the queue is bookkeeping and the
+    // log is history (PLX-EVT-030). This is the assertion that matters: the
+    // count is unchanged AND the oldest Event — the one whose queue row was
+    // just released — is still replayable (PLX-EVT-031).
+    expect(es.db.prepare('SELECT COUNT(*) AS n FROM events').get()).toEqual({ n: 12 })
+    expect(es.replayDesk('desk-1').map((e) => e.id)).toEqual(ids)
+  })
+
+  it('dec_056_no_event_pruning_interface_exists', () => {
+    const es = store()
+    // PLX-EVT-030 forbids ANY interface that deletes a written Event, so the
+    // absence of one is the requirement — not an oversight to be helpfully
+    // filled in later. Retention is allowed to name the outbox and nothing else.
+    const surface = Object.keys(es as unknown as Record<string, unknown>)
+    expect(surface.filter((k) => /prune|purge|delete|truncate|compact/i.test(k))).toEqual(['pruneOutbox'])
+  })
+
+  it('dec_056_prune_is_a_noop_when_under_the_cap', () => {
+    const es = store()
+    es.append({ ...base, deskId: 'desk-1' })
+    expect(es.pruneOutbox(5_000)).toBe(0)
+    expect(es.db.prepare('SELECT COUNT(*) AS n FROM event_outbox').get()).toEqual({ n: 1 })
+  })
+})

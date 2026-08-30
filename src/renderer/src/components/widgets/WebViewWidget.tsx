@@ -158,12 +158,31 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
 
   // Every main-frame navigation, from the shared core: record the trail and
   // persist where the user actually is. (History recording lives in the core.)
-  function handleNav({ url, title }: BrowserNavState): void {
-    void window.api.trail.record({
-      taskId: widget.taskId,
-      kind: 'browser_nav',
-      payload: { url, title, host: hostnameOf(url), widgetId: widget.id }
-    })
+  //
+  // The trail row is gated (DEC-058). The core funnels four webview events into
+  // one onNav — did-navigate, did-navigate-in-page, did-finish-load,
+  // did-redirect-navigation — so a single page load arrives here three times,
+  // and the 20s workspace-sync tick reloads the webview underneath us. Ungated,
+  // a desk nobody was touching wrote 39,762 rows carrying 15 distinct URLs in
+  // one 19-hour session. `persistNavUrl` below has always skipped the redundant
+  // write with its own `url === lastPersistedUrl` check; this is the same
+  // question asked on behalf of the activity log, which never asked it.
+  //
+  // Deliberately NOT reset when this component unmounts: the sync refresh
+  // remounts browser widgets, so a per-mount trail would be cleared by the very
+  // thing it exists to absorb. The gate is module-scoped and bounds its own
+  // memory with an LRU over widget ids.
+  function handleNav({ url, title, admitted }: BrowserNavState): void {
+    // DEC-061 — the verdict rides the event now. Calling admit() again here
+    // would consume the gate a second time for one navigation and answer false,
+    // silently dropping the trail row this branch exists to write.
+    if (admitted) {
+      void window.api.trail.record({
+        taskId: widget.taskId,
+        kind: 'browser_nav',
+        payload: { url, title, host: hostnameOf(url), widgetId: widget.id }
+      })
+    }
     persistNavUrl(url, title)
   }
 
@@ -546,6 +565,7 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
         </form>
       ) : (
         <BrowserSurface
+          surfaceId={widget.id}
           src={webviewSrc}
           partition={partition}
           taskId={widget.taskId}

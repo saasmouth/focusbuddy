@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { navTrailGate } from '@shared/navTrail'
 import Icon from '../Icon'
 import EnginePickerChip from './EnginePickerChip'
 import { useWebPanel } from '../../stores/webPanel'
@@ -38,9 +39,28 @@ export interface WebviewEl extends HTMLElement {
 export interface BrowserNavState {
   url: string
   title: string
+  /**
+   * DEC-061 — whether the nav-trail gate admitted this navigation.
+   *
+   * The gate is STATEFUL: an admitted call updates the trail, so asking twice
+   * about the same event answers false the second time. The decision therefore
+   * has to be made once, here, where the event originates — and handed to
+   * consumers rather than re-asked. Both writers (browsing_history's count and
+   * the activity trail) then agree by construction instead of by coincidence.
+   */
+  admitted: boolean
 }
 
 interface Props {
+  /**
+   * DEC-061 — a STABLE identity for this surface, supplied by the caller.
+   *
+   * Deliberately not useId() or anything mounted-scoped: the workspace-sync
+   * tick remounts browser widgets, and a per-mount identity would be reset by
+   * the very thing the gate exists to absorb — which is precisely how 39,762
+   * rows and a 14,096 "visit" count were written in one 19-hour session.
+   */
+  surfaceId: string
   // The address this surface was asked to show, already sanitized. Changing
   // it triggers a loadURL sync; the webview navigates freely in between.
   src: string
@@ -79,6 +99,7 @@ export function hostnameOf(url: string): string {
 }
 
 export default function BrowserSurface({
+  surfaceId,
   src,
   partition,
   taskId = null,
@@ -136,10 +157,18 @@ export default function BrowserSurface({
       } catch {
         // ignore
       }
+      // DEC-061 — ONE gate decision per navigation, made here and shared.
+      //
+      // The count is gated; the metadata write is not. Each pass of the
+      // four-event fan-in carries a better getTitle(), and the upsert takes the
+      // better one — so the record still sharpens while the counter stops
+      // lying. See recordVisit for why the two had to be separated rather than
+      // the whole call suppressed.
+      const admitted = navTrailGate.admit({ widgetId: surfaceId, url }, Date.now())
       // One history for one browser: every surface records, attributed to its
       // desk when it has one (null taskId is the panel — the handler accepts it).
-      void window.api.history.record(url, pageTitle, taskId)
-      onNavRef.current?.({ url, title: pageTitle })
+      void window.api.history.record(url, pageTitle, taskId, admitted)
+      onNavRef.current?.({ url, title: pageTitle, admitted })
     }
     const onTitle = (e: Event): void => {
       const t = (e as unknown as { title?: string }).title

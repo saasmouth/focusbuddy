@@ -172,6 +172,8 @@ export default function WebPanel(): React.JSX.Element | null {
       }
     >
       <BrowserSurface
+        // The panel is a singleton surface, so a constant is a stable identity.
+        surfaceId="web-panel"
         src={src}
         partition="persist:webview-default"
         taskId={null}

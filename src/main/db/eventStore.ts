@@ -147,6 +147,7 @@ export interface EventStore {
   processOnce: (consumer: string, eventId: string, fn: () => void) => boolean
   pendingOutbox: (limit?: number) => PlexiEvent[]
   markPublished: (eventIds: string[]) => void
+  pruneOutbox: (keep?: number) => number
   db: SqlDb
 }
 
@@ -319,5 +320,31 @@ export function createEventStore(db: SqlDb, organisationId?: string | (() => str
     db.transaction(() => eventIds.forEach((id) => stmt.run(id)))()
   }
 
-  return { append, appendWithMutation, replayDesk, resolveState, processOnce, pendingOutbox, markPublished, db }
+  // DEC-056 — retention for the DELIVERY QUEUE ONLY. There is deliberately no
+  // equivalent for `events`: PLX-EVT-030 forbids ANY interface, "including
+  // administrative and database-level access", from deleting a written Event,
+  // and PLX-EVT-031 requires replay to reconstruct any Desk at any point in its
+  // history. Writing a pruneEvents() would itself be the prohibited interface,
+  // so it does not exist and must not be added — the events_no_delete trigger
+  // is the enforcement, this comment is the reason.
+  //
+  // `event_outbox` carries no history. Each row is delivery bookkeeping — a
+  // pointer saying "this Event still needs publishing" — and the Event it
+  // points at stays in `events`, replayable. Capping the backlog therefore
+  // destroys nothing the spec protects. The cap matters because the outbox
+  // gains a row per Event and only sheds one when a publisher drains it; with
+  // no bus attached it grows forever (764,373 rows / 51.6 MB on the operator's
+  // machine, every one still unpublished).
+  const pruneOutbox: EventStore['pruneOutbox'] = (keep = 5000) => {
+    const info = db
+      .prepare(
+        `DELETE FROM event_outbox WHERE event_id NOT IN (
+           SELECT event_id FROM event_outbox ORDER BY created_at DESC, event_id DESC LIMIT ?
+         )`
+      )
+      .run(keep) as { changes?: number } | undefined
+    return Number(info?.changes ?? 0)
+  }
+
+  return { append, appendWithMutation, replayDesk, resolveState, processOnce, pendingOutbox, markPublished, pruneOutbox, db }
 }
