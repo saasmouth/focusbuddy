@@ -124,7 +124,10 @@ describe('M2b — three renderings, Commitments default', () => {
 
 describe('M2b — the record persists', () => {
   it('record_json rides fb_meetings; patch carries it', () => {
-    expect(read('main/db/database.ts')).toContain("ensureColumn(db, 'fb_meetings', 'record_json', 'TEXT')")
+    // ensureColumn calls moved to migrations.ts with the rest of the phase.
+    expect(
+      read('main/db/database.ts') + read('main/db/migrations.ts')
+    ).toContain("ensureColumn(db, 'fb_meetings', 'record_json', 'TEXT')")
     expect(read('main/db/meetings.ts')).toContain('record: parseRecord(row.record_json)')
     expect(read('shared/meetings.ts')).toContain('record?: MeetingRecord | null')
   })

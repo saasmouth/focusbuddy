@@ -39,7 +39,10 @@
     "spec:trace": "node scripts/spec-trace.mjs",
     "hooks:install": "sh scripts/install-git-hooks.sh",
     "verify:liveness": "node ../plexii-probe/bin/liveness.mjs",
-    "audit": "node ../plexii-probe/bin/probe.mjs"
+    "audit": "node ../plexii-probe/bin/probe.mjs",
+    "web:dev": "vite --config vite.web.config.ts",
+    "web:build": "node scripts/derive-web-channel-map.cjs && vite build --config vite.web.config.ts",
+    "web:preview": "vite preview --config vite.web.config.ts --port 5180"
   },
   "engines": {
     "node": ">=20.0.0 <23.0.0"
@@ -55,6 +58,7 @@
     "@fontsource/atkinson-hyperlegible": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@fontsource/patrick-hand": "^5.2.8",
+    "@sqlite.org/sqlite-wasm": "^3.53.4-build1",
     "@tiptap/extension-character-count": "^3.23.6",
     "@tiptap/extension-code-block-lowlight": "^3.23.6",
     "@tiptap/extension-collaboration": "^3.23.6",

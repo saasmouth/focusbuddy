@@ -123,7 +123,9 @@ describe('M2a — meeting audio never leaves the machine (CR-11)', () => {
 
 describe('M2a — the segments have a home', () => {
   it('the schema: attributed, timestamped, nullable confidence', () => {
-    const db = read('main/db/database.ts')
+    // Schema + migrations now live beside database.ts so both runtimes can run
+    // them; read all three so this pins content rather than a file path.
+    const db = read('main/db/database.ts') + read('main/db/migrations.ts') + read('main/db/schema.ts')
     expect(db).toContain('CREATE TABLE IF NOT EXISTS fb_transcript_segments')
     expect(db).toContain('speaker_account_id TEXT,')
     expect(db).toContain('confidence REAL,')

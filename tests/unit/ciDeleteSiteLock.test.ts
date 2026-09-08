@@ -85,6 +85,12 @@ describe('the closed four-site hard-delete enumeration', () => {
     // Every declaration widens what a nodes hard-delete destroys. Additions
     // must consciously update this pin AND the detach-and-revive reasoning.
     const hits = scan(/REFERENCES nodes\s*\(\s*id\s*\)\s*ON DELETE CASCADE/i)
+    // The invariant is the TOTAL: that is what bounds what a hard delete
+    // destroys. The per-file breakdown below is a reviewing aid and moves when
+    // files are reorganised -- as it did when the schema and its migrations
+    // were split out of database.ts so the cloud runtime could run them too,
+    // which redistributed these 12 declarations without adding or removing one.
+    expect(hits.length).toBe(12)
     const byFile = new Map<string, number>()
     for (const h of hits) byFile.set(h.file, (byFile.get(h.file) ?? 0) + 1)
     expect(Object.fromEntries([...byFile.entries()].sort())).toMatchSnapshot()

@@ -90,7 +90,11 @@ describe('the surfaces share the one grid (DEC-052 §0)', () => {
 })
 
 describe('DEC-052 foundation — the columns the planner and connector need', () => {
-  const db = read('src/main/db/database.ts')
+  // The schema and its migrations moved out of database.ts when the cloud
+  // runtime needed to run them too (src/main/db/migrations.ts, ./schema.ts).
+  // Reading all three keeps this pinned to the content, not to a filename.
+  const db =
+    read('src/main/db/database.ts') + read('src/main/db/migrations.ts') + read('src/main/db/schema.ts')
   const tb = read('src/main/db/timeBlocks.ts')
 
   it('time_blocks carries origin/locked/push_policy and the external round-trip set', () => {

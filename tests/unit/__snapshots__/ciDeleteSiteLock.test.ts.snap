@@ -2,6 +2,7 @@
 
 exports[`the closed four-site hard-delete enumeration > the inbound ON DELETE CASCADE set into nodes is pinned 1`] = `
 {
-  "db/database.ts": 12,
+  "db/migrations.ts": 3,
+  "db/schema.ts": 9,
 }
 `;

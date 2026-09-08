@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plexii</title>
+    <style>
+      html, body, #root { height: 100%; margin: 0; background: #0f1115; }
+      /* The gate is a fixed overlay, never part of the flow. As a block element
+         it kept its full viewport height after emptying, which pushed #root
+         exactly one screen down: the app rendered correctly and off the bottom
+         of the window, looking for all the world like a blank canvas. */
+      #boot { position: fixed; inset: 0; z-index: 40; }
+      #boot:empty { display: none; }
+    </style>
+  </head>
+  <body class="bg-desk-50">
+    <!-- The renderer mounts into #root exactly as it does on the desktop; #boot
+         holds the sign-in gate that runs before it and then gets out of the way. -->
+    <div id="boot"></div>
+    <div id="root"></div>
+    <script type="module" src="/boot.tsx"></script>
+  </body>
+</html>
