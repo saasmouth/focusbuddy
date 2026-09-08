@@ -1,4 +1,4 @@
-import { useEffect, useState, type JSX } from 'react'
+import { useEffect, useRef, useState, type JSX } from 'react'
 import { useLiveDeskPublisher } from '../lib/useLiveDeskPublisher'
 
 // Keeps every published desk current, for as long as the app is running.
@@ -25,14 +25,25 @@ function DeskPublisher({ deskId }: { deskId: string }): null {
 
 export default function LiveDeskPublisherHost(): JSX.Element | null {
   const [deskIds, setDeskIds] = useState<string[]>([])
+  // Tracks what was last announced so the note fires on a real change only --
+  // including the first announcement, even when it carries nothing. Noting on
+  // every fifteen-second heartbeat overwrote what each publisher recorded;
+  // noting only on a set change made "announced nothing" and "never announced"
+  // look identical.
+  const announcedRef = useRef<number>(-1)
 
   useEffect(() => {
     void window.api.liveDesk.note('*', 'renderer: host listening')
     return window.api.liveDesk.onDesks((rows) => {
       const next = rows.map((r) => r.deskId).sort()
-      void window.api.liveDesk.note('*', `renderer: announced ${rows.length}`)
       // Replaced only on a real change, so publishers are not torn down and
-      // remounted on every announcement.
+      // remounted on every announcement -- and only noted on a real change, so
+      // a fifteen-second heartbeat does not overwrite what each publisher
+      // recorded about its own decisions.
+      if (announcedRef.current !== rows.length) {
+        announcedRef.current = rows.length
+        void window.api.liveDesk.note('*', `renderer: announced ${rows.length}`)
+      }
       setDeskIds((prev) => (prev.join(',') === next.join(',') ? prev : next))
     })
   }, [])
