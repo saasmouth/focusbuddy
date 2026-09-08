@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 const CANON = join(here, '..', '..', 'haptyx-shared', 'src')
 const DEST = join(here, '..', 'src', 'shared')
-export const FILES = ['publicDesk.ts', 'publicDeskValidate.ts']
+export const FILES = ['publicDesk.ts', 'publicDeskValidate.ts', 'workspaceClient.ts']
 
 export const HEADER = `// GENERATED FILE -- DO NOT EDIT.
 // Vendored from projects/haptyx-shared/src by scripts/sync-contract.mjs.
