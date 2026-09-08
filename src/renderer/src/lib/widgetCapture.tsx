@@ -121,14 +121,33 @@ function defuseControls(root: HTMLElement): void {
 }
 
 const MAX_CAPTURE_BYTES = 512 * 1024
-/** Rendering is asynchronous; give effects a moment to put content on screen. */
-const SETTLE_MS = 450
+/**
+ * Above this many elements a widget is left to its structural render. A
+ * thousand-row table is not a likeness worth minutes of the renderer's time,
+ * and the list view shows its contents properly anyway.
+ */
+const MAX_CAPTURE_ELEMENTS = 1500
+/**
+ * Rendering is asynchronous; give effects time to put content on screen. Too
+ * short and a widget is photographed mid-load, showing the empty state it
+ * offers before its content arrives -- a markdown note captured as "Set up
+ * with AI" rather than as what the owner wrote.
+ */
+const SETTLE_MS = 1200
 
 /**
  * Render one widget off-screen and return its sanitised markup, or null when it
  * produced nothing worth publishing. Never throws into a publish.
  */
 export async function captureWidgetHtml(widget: Widget): Promise<string | null> {
+  // What the widget is known to say, for kinds whose content is plain prose.
+  // A capture that does not contain it photographed an empty state, and the
+  // structural render is a better likeness than an empty box.
+  // Only kinds whose content IS the prose on screen. A scratchpad holds pen
+  // strokes, so looking for its content in the rendered text can never succeed.
+  const expected = ['sticky', 'note', 'markdown'].includes(widget.kind)
+    ? (widget.content || '').trim().slice(0, 24)
+    : ''
   const host = document.createElement('div')
   // Off-screen rather than display:none, so layout still resolves and the
   // computed styles we inline are the real ones.
@@ -151,13 +170,20 @@ export async function captureWidgetHtml(widget: Widget): Promise<string | null> 
     // 3.9MB Material Symbols font, and a ligature without its font renders as
     // the literal word -- a deck button reading "play_pause", a toolbar reading
     // "rectangle Rect". The text label beside each icon says the same thing.
-    for (const el of Array.from(host.querySelectorAll<HTMLElement>('*'))) {
-      if (/material (symbols|icons)/i.test(getComputedStyle(el).fontFamily)) el.remove()
+    //
+    // Selected by class rather than computed font-family: asking for the
+    // computed style of every element forces a style recalculation per element,
+    // and across a whole desk of widgets that was enough to lock the renderer
+    // up and stop publishing entirely.
+    for (const el of Array.from(host.querySelectorAll('[class*="material-symbols"],[class*="material-icons"]'))) {
+      el.remove()
     }
     defuseControls(host)
 
     // Nothing visible is not worth a card; the placeholder says more.
     if (!host.innerText.trim() && !host.querySelector('img')) return null
+    if (host.querySelectorAll('*').length > MAX_CAPTURE_ELEMENTS) return null
+    if (expected && !host.innerText.includes(expected)) return null
     const clean = sanitizeCapturedHtml(host)
     if (!clean || clean.length > MAX_CAPTURE_BYTES) return null
     return clean

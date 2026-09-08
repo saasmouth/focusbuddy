@@ -56,7 +56,8 @@ const WIDGET_FIELDS = [
   'zIndex',
   'color',
   'parentSectionId',
-  'render'
+  'render',
+  'captureAssetId'
 ]
 
 const ROOT_FIELDS = [
@@ -157,6 +158,15 @@ export function validatePublicDeskProjection(input: unknown): ValidationResult {
         errors.push(`${at}.parentSectionId: expected a string or null`)
       }
       checkRect(w.rect, `${at}.rect`, errors)
+      // A capture may only exist for a kind allowed to publish its markup, and
+      // the server does not take the desktop's word for which those are.
+      if (w.captureAssetId != null) {
+        if (typeof w.captureAssetId !== 'string' || w.captureAssetId === '') {
+          errors.push(`${at}.captureAssetId: expected a non-empty asset id`)
+        } else if (typeof w.kind === 'string' && !mayCapture(w.kind)) {
+          errors.push(`${at}.captureAssetId: kind "${w.kind}" may not publish its markup`)
+        }
+      }
       for (const k of unknownKeys(w, WIDGET_FIELDS)) errors.push(`${at}.${k}: unknown field`)
 
       // Render payload

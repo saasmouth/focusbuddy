@@ -129,18 +129,37 @@ export function projectWidget(w: Widget, r: ProjectionResolvers = NULL_RESOLVERS
   const family = PUBLIC_RENDER_POLICY[w.kind as string]
   let render: PublicRender
 
+  const captureAssetId = mayCapture(w.kind) ? r.capture(w.id) : null
+
   if (!isPubliclyRenderable(w.kind)) {
     // No structural projector. If this kind is on the capture allowlist and its
     // markup was captured, publish that; otherwise say so plainly. A kind that
     // is not on the allowlist can never reach the capture branch, whatever the
     // resolver returns.
-    const captured = mayCapture(w.kind) ? r.capture(w.id) : null
-    render = captured ? { type: 'capture', assetId: captured, kind: w.kind } : placeholder(w.kind)
+    render = captureAssetId
+      ? { type: 'capture', assetId: captureAssetId, kind: w.kind }
+      : placeholder(w.kind)
   } else {
     switch (family) {
-      case 'text':
-        render = textOf(w, w.kind === 'markdown' ? 'markdown' : 'plain')
+      case 'text': {
+        // Only some of these hold prose. A card and a custom block hold a JSON
+        // object, and a scratchpad holds pen strokes -- dumping `content` for
+        // those published raw stroke coordinates and object literals as if they
+        // were something a person wrote.
+        if (w.kind === 'card' || w.kind === 'custom-block') {
+          const c = json<{ title?: string; body?: string }>(w.content)
+          const body = [c?.title, c?.body].filter((x) => typeof x === 'string' && x.trim()).join('\n\n')
+          render = body
+            ? { type: 'text', body: body.slice(0, MAX_PUBLIC_TEXT_CHARS), format: 'plain' }
+            : placeholder(w.kind)
+        } else if (w.kind === 'scratchpad') {
+          // A drawing has no text form. The capture carries what it looks like.
+          render = placeholder(w.kind)
+        } else {
+          render = textOf(w, w.kind === 'markdown' ? 'markdown' : 'plain')
+        }
         break
+      }
 
       case 'doc': {
         const doc = r.document(w.content)
@@ -297,6 +316,9 @@ export function projectWidget(w: Widget, r: ProjectionResolvers = NULL_RESOLVERS
     zIndex: w.zIndex ?? 0,
     color: w.color ?? null,
     parentSectionId: w.parentSectionId ?? null,
+    // Carried alongside the structural render, so the canvas can show the
+    // widget as the app draws it while the list view keeps real text.
+    ...(captureAssetId && render.type !== 'capture' ? { captureAssetId } : {}),
     render
   }
 }

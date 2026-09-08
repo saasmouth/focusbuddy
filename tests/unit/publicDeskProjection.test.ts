@@ -55,8 +55,13 @@ function widget(kind: WidgetKind, content = SECRET): Widget {
   } as unknown as Widget
 }
 
-/** The kinds whose content IS the user's prose, so echoing it is the point. */
-const TEXT_KINDS: WidgetKind[] = ['sticky', 'note', 'markdown', 'scratchpad', 'card', 'custom-block']
+/**
+ * The kinds whose content IS the user's prose, so echoing it is the point.
+ * A card and a custom block hold a JSON object and a scratchpad holds pen
+ * strokes; those are not prose and publishing `content` for them shipped raw
+ * stroke coordinates and object literals as if a person had written them.
+ */
+const TEXT_KINDS: WidgetKind[] = ['sticky', 'note', 'markdown']
 
 describe('public desk projection — disclosure surface', () => {
   it('covers every widget kind in the union', () => {
@@ -88,8 +93,30 @@ describe('public desk projection — disclosure surface', () => {
     }
   )
 
+  it.each(['card', 'custom-block', 'scratchpad'] as WidgetKind[])(
+    '%s publishes no raw content, because its content is not prose',
+    (kind) => {
+      const out = projectWidget(widget(kind), NULL_RESOLVERS)
+      expect(JSON.stringify(out)).not.toContain(SECRET)
+    }
+  )
+
+  it('reads a card as its title and body, not as a JSON blob', () => {
+    const content = JSON.stringify({ title: 'Card widget', body: 'A titled callout' })
+    const out = projectWidget(widget('card', content), NULL_RESOLVERS)
+    expect(out.render.type).toBe('text')
+    if (out.render.type === 'text') {
+      expect(out.render.body).toContain('Card widget')
+      expect(out.render.body).toContain('A titled callout')
+      expect(out.render.body).not.toContain('{')
+    }
+  })
+
   it('projects a kind into the family the shared policy names', () => {
     const resolvers: ProjectionResolvers = {
+      // No capture in this fixture: the point is which structural family each
+      // kind projects into, which is what the list view and a reader get.
+      capture: () => null,
       table: () => ({ columns: [{ id: 'c1', name: 'Name', kind: 'text' }], rows: [{ id: 'r1', cells: ['Ada'] }], truncated: false }),
       document: () => ({ html: '<p>hello</p>', pageCount: 1 }),
       slides: () => ({ slides: [{ id: 's1', html: '<h1>One</h1>' }] }),
@@ -98,9 +125,15 @@ describe('public desk projection — disclosure surface', () => {
       file: () => ({ name: 'notes.txt', mime: 'text/plain' })
     }
     for (const kind of ALL_KINDS.filter(isPubliclyRenderable)) {
-      const content = kind === 'webview' || kind === 'portal' || kind === 'gdoc' || kind === 'gsheet' || kind === 'gslide'
-        ? 'https://example.com/page'
-        : SECRET
+      const content =
+        kind === 'webview' || kind === 'portal' || kind === 'gdoc' || kind === 'gsheet' || kind === 'gslide'
+          ? 'https://example.com/page'
+          : kind === 'card' || kind === 'custom-block'
+            ? JSON.stringify({ title: 'T', body: 'B' })
+            : SECRET
+      // A scratchpad is a drawing: it has no structural form and is carried by
+      // its capture instead.
+      if (kind === 'scratchpad') continue
       const out = projectWidget(widget(kind, content), resolvers)
       expect(out.render.type, `${kind} should render as ${PUBLIC_RENDER_POLICY[kind]}`).toBe(
         PUBLIC_RENDER_POLICY[kind]

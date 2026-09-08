@@ -29,11 +29,22 @@ function widget(kind: string, id = `w_${kind}`): Widget {
 const withCapture = (assetId: string): ProjectionResolvers => ({ ...NULL_RESOLVERS, capture: () => assetId })
 
 describe('what may be captured', () => {
-  it('only covers kinds that have no structural projector', () => {
-    for (const kind of PUBLIC_CAPTURE_ALLOWED) {
-      expect(isPubliclyRenderable(kind), `${kind} has a projector and should use it`).toBe(false)
+  it('covers the owner\'s own content, whether or not it has a projector', () => {
+    // Capture used to be a fallback for kinds nobody had written a renderer
+    // for. That had it backwards: the widgets WITHOUT projectors looked
+    // faithful and the ones WITH them looked plain, because a hand-written
+    // renderer of somebody else's widget is a worse likeness than the widget.
+    for (const kind of ['sticky', 'note', 'table', 'doc', 'chart'] as const) {
+      expect(PUBLIC_CAPTURE_ALLOWED.has(kind), `${kind} should be capturable`).toBe(true)
     }
   })
+
+  it.each(['webview', 'portal', 'gdoc', 'gsheet', 'gslide'])(
+    'never captures %s -- it is a view of somewhere else, rendered with the owner\'s session',
+    (kind) => {
+      expect(mayCapture(kind)).toBe(false)
+    }
+  )
 
   it.each(['agent', 'webhook', 'inbound-hook'])('never captures %s — it renders secrets', (kind) => {
     expect(mayCapture(kind)).toBe(false)
@@ -47,14 +58,28 @@ describe('what may be captured', () => {
     expect(JSON.stringify(out)).not.toContain('Dear Bob')
   })
 
-  it.each([...PUBLIC_CAPTURE_ALLOWED])('publishes a capture for %s when one exists', (kind) => {
-    const out = projectWidget(widget(kind), withCapture('<div>visible</div>'))
-    expect(out.render.type).toBe('capture')
+  it.each([...PUBLIC_CAPTURE_ALLOWED])('carries a capture for %s when one exists', (kind) => {
+    const out = projectWidget(widget(kind), withCapture('cap_1'))
+    if (isPubliclyRenderable(kind)) {
+      // A kind with a projector keeps its structural render -- that is what the
+      // list view and a screen reader read -- and carries the capture beside it.
+      expect(out.captureAssetId).toBe('cap_1')
+      expect(out.render.type).not.toBe('capture')
+    } else {
+      // A kind without one has nothing else to show, so the capture IS its render.
+      expect(out.render.type).toBe('capture')
+    }
   })
 
   it('falls back to a placeholder when nothing was captured', () => {
     // A desk that could not render the widget says so, rather than an empty box.
     expect(projectWidget(widget('calculator'), NULL_RESOLVERS).render.type).toBe('placeholder')
+  })
+
+  it('never carries a capture for a kind that may not publish its markup', () => {
+    for (const kind of ['agent', 'webhook', 'email', 'chat-thread', 'webview']) {
+      expect(projectWidget(widget(kind), withCapture('cap_x')).captureAssetId).toBeUndefined()
+    }
   })
 })
 
@@ -157,7 +182,27 @@ describe('the capture itself', () => {
     // The viewer carries the app's stylesheet but not its 3.9MB Material
     // Symbols font, and a ligature without its font renders as the literal
     // word: a deck button reading "play_pause". The text label says the same.
-    expect(src).toContain('material (symbols|icons)')
+    expect(src).toContain('[class*="material-symbols"]')
+  })
+
+  it('finds icons by class, not by computing every element\'s style', () => {
+    // getComputedStyle per element forces a style recalculation each time, and
+    // across a desk of widgets that was enough to lock the renderer up and stop
+    // publishing altogether.
+    expect(src).not.toContain('getComputedStyle(el).fontFamily')
+  })
+
+  it('rejects a capture that photographed an empty state', () => {
+    // Widgets load their content asynchronously; captured too early, a markdown
+    // note came out as the "Set up with AI" prompt it shows before its content
+    // arrives. The structural render is a better likeness than an empty box.
+    expect(src).toContain("if (expected && !host.innerText.includes(expected)) return null")
+  })
+
+  it('leaves an enormous widget to its structural render', () => {
+    // A thousand-row table is not a likeness worth minutes of the renderer's
+    // time, and the list view shows its contents properly anyway.
+    expect(src).toContain('MAX_CAPTURE_ELEMENTS')
   })
 
   it('refuses images that are not self-contained', () => {

@@ -234,6 +234,17 @@ export type PublicRenderType = PublicRender['type']
 
 export interface PublicWidget {
   id: string
+  /**
+   * The widget's own rendered markup, as a token-scoped asset.
+   *
+   * Present in ADDITION to `render`, never instead of it. The canvas shows this
+   * when it exists, because a hand-written renderer of somebody else's widget
+   * is always a worse likeness than the widget itself -- a shared desk that
+   * does not look like the desk is not worth sharing. The structural `render`
+   * stays because it is what the list view reads, what a screen reader gets,
+   * and what remains when a capture could not be taken.
+   */
+  captureAssetId?: string | null
   /** The originating widget kind, for labelling only. */
   kind: string
   title: string
@@ -354,18 +365,24 @@ export const PUBLIC_PLACEHOLDER_REASON: Readonly<Record<string, string>> = Objec
  *   agent, webhook, inbound-hook   render instructions, URLs and secrets
  *   email, chat-thread             private correspondence
  *   meeting-record                 provenance-tiered private record
- *   minimap                        viewer-local chrome, meaningless publicly
+ *   webview, portal, gdoc,         embedded views of somewhere else, rendered
+ *   gsheet, gslide                 with the owner's session -- capturing one
+ *                                  would publish a page only they can see
+ *   minimap, section               viewer-local chrome and containers
  */
 export const PUBLIC_CAPTURE_ALLOWED: ReadonlySet<string> = new Set([
-  'calculator',
-  'streamdeck',
-  'local-app-launcher',
-  'design',
-  'attention'
+  // The owner's own content, rendered by the app that owns it.
+  'sticky', 'note', 'markdown', 'card', 'scratchpad', 'custom-block',
+  'page', 'doc', 'living-doc', 'table', 'sheet', 'slides',
+  'chart', 'field', 'task-link', 'timer', 'color', 'shape',
+  'image', 'image-gen', 'video', 'voice-recorder', 'pdf', 'file', 'drive',
+  'mindmap', 'diagram', 'map', 'design',
+  // Control surfaces: they show what they do, and do nothing once captured.
+  'calculator', 'streamdeck', 'local-app-launcher', 'attention'
 ])
 
 export function mayCapture(kind: string): boolean {
-  return !isPubliclyRenderable(kind) && PUBLIC_CAPTURE_ALLOWED.has(kind)
+  return PUBLIC_CAPTURE_ALLOWED.has(kind)
 }
 
 export function placeholderReasonFor(kind: string): string {

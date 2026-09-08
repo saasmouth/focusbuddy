@@ -192,9 +192,34 @@ export async function warmCache(
 
   for (const w of widgets) {
     const id = w.content
-    // A capture is keyed by the widget, not its content: a calculator or a
-    // launcher has no content id and would otherwise be skipped entirely.
-    if (!id && !mayCapture(w.kind)) continue
+    // Capture first, and for every kind allowed to publish its markup -- not
+    // only the ones without a projector. A hand-written renderer of somebody
+    // else's widget is a worse likeness than the widget itself, and a desk that
+    // does not look like the desk is not worth sharing. Keyed by widget rather
+    // than content, since a calculator has no content id.
+    if (mayCapture(w.kind) && !cache.has(`c:${w.id}`)) {
+      try {
+        const { captureWidgetHtml } = await import('./widgetCapture')
+        const html = await captureWidgetHtml(w)
+        if (html) {
+          const assetId = `cap${hashOf(w.id + html)}`
+          const up = await window.api.liveDesk.uploadAsset(
+            deskId,
+            assetId,
+            'text/plain',
+            new TextEncoder().encode(html)
+          )
+          if (up.ok) note(`c:${w.id}`, assetId)
+        }
+      } catch {
+        // A widget that will not render off-screen keeps its structural form.
+      }
+      // Hand the frame back between captures. Publishing runs on the same
+      // thread, and a desk's worth of off-screen renders taken back to back
+      // starved it completely.
+      await new Promise((r) => setTimeout(r, 0))
+    }
+    if (!id) continue
     try {
       if (w.kind === 'table' && !cache.has(`t:${id}`)) {
         const [tbl, rows] = await Promise.all([
@@ -235,23 +260,6 @@ export async function warmCache(
             rows: (body.rows ?? []).map((cells, i) => ({ id: `r${i}`, cells })),
             truncated: false
           })
-        }
-      } else if (mayCapture(w.kind) && !cache.has(`c:${w.id}`)) {
-        // Rendered off-screen rather than read off the canvas, so a desk that
-        // is not open still publishes what it looks like.
-        // Loaded on demand: the capture pulls in the whole widget tree, and a
-        // desk with nothing to capture should not pay for it.
-        const { captureWidgetHtml } = await import('./widgetCapture')
-        const html = await captureWidgetHtml(w)
-        if (html) {
-          // Uploaded rather than inlined. Inline, captures were 74% of one
-          // desk's payload and were resent on every revision; as an asset the
-          // markup is fetched once and cached, and the id is content-derived so
-          // an unchanged capture keeps the same one.
-          const assetId = `cap${hashOf(w.id + html)}`
-          const bytes = new TextEncoder().encode(html)
-          const up = await window.api.liveDesk.uploadAsset(deskId, assetId, 'text/plain', bytes)
-          if (up.ok) note(`c:${w.id}`, assetId)
         }
       } else if (ASSET_KINDS.has(w.kind) && !cache.has(`a:${id}`)) {
         const got = await assetBytes(id)
