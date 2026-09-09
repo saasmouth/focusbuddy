@@ -9,6 +9,7 @@ import {
   type DeskInvite
 } from '../lib/deskShareClient'
 import SharePeoplePicker, { type SharePick } from './SharePeoplePicker'
+import DeskClaimLinks from './DeskClaimLinks'
 import { usePeopleStore } from '../lib/peopleDirectory'
 import { useOrgStore, PERSONAL_ORG_ID } from '../stores/org'
 import { useAccountStore } from '../stores/account'
@@ -138,6 +139,11 @@ export default function LiveDeskSharing({
           ) : undefined
         }
       />
+
+      {/* Sharing with someone whose email you do not know. Placed after the
+          people picker because naming a person is the commoner act; this is the
+          fallback when you cannot. */}
+      <DeskClaimLinks rootId={rootId} />
 
       {anyone && (
         <div className="space-y-0.5 pt-1 border-t border-[var(--edge-soft)]">

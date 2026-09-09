@@ -71,3 +71,17 @@ function readEnv(): SignalConfig {
 }
 
 export const signalConfig: SignalConfig = readEnv()
+
+/**
+ * Where the browser app lives, for building links that open it.
+ *
+ * A claim link is only useful if the person receiving it can reach the page it
+ * points at, which makes this a deployment fact rather than a code one -- hence
+ * the build-time override. Empty means no cloud app has been published yet, and
+ * callers should say so rather than mint a link to nowhere: a share link that
+ * 404s is worse than no share button, because the sender does not find out.
+ */
+export function cloudAppUrl(): string {
+  const raw = (import.meta.env.VITE_CLOUD_APP_URL as string | undefined) ?? ''
+  return raw.trim().replace(/\/+$/, '')
+}
