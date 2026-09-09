@@ -82,10 +82,17 @@ desktop's own `applyRemote` into real rows with every column intact -- proven by
 
 ## What does not, and why
 
-**Provider keys are absent.** On the desktop these live in the OS keychain via
-`safeStorage`. `localStorage` is readable by any script that reaches the page,
-so BYOK stays a desktop capability until keys are held server-side against the
-account and used by Signal on the user's behalf. Features needing a key say so.
+**Only Anthropic's key can be set from the browser.** The way to have BYOK in a
+browser is for the key never to be in the browser: it goes from the input box to
+Signal over HTTPS, is encrypted at rest (AES-256-GCM, master key in the server's
+environment, never in the database), and is used in-process when Signal proxies
+the call. Nothing reads it back -- the routes report only whether a key is
+configured and its last four characters. A user's own key is not billed as
+credits; without one, calls fall back to platform credits as before.
+
+OpenAI, Tenor, Pexels and remove.bg still refuse, and will until each has a
+proxy of its own. Storing a key the server cannot use on the caller's behalf
+would move the risk somewhere new without buying anything.
 
 **No Drive file bytes.** There is no disk, and OPFS is not a substitute for the
 paths the desktop hands to native tooling. Chunk retrieval therefore covers

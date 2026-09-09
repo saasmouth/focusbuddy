@@ -16,6 +16,7 @@
 import { INVOKE_CHANNELS, LISTEN_CHANNELS } from './channelMap.generated'
 import { accountNamespace } from './session'
 import { platformNamespaces } from './platform'
+import { settingsNamespace } from './providerKeys'
 import { dbCall, dbSubscribe, startCoordinator, unservedChannels } from './dbClient'
 
 export { unservedChannels, isDatabaseLeader } from './dbClient'
@@ -51,6 +52,10 @@ export function createBrowserApi(): Record<string, Record<string, unknown>> {
   for (const [ns, members] of Object.entries(platformNamespaces())) {
     api[ns] = { ...(api[ns] ?? {}), ...members }
   }
+  // Provider keys travel from the page to Signal directly and are never stored
+  // here, so they are served on the main thread too -- routing them through the
+  // Worker would put a key in a second place for no benefit.
+  api.settings = { ...(api.settings ?? {}), ...settingsNamespace() }
 
   return api
 }
