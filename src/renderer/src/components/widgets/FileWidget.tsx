@@ -11,6 +11,7 @@ import { useFilesStore } from '../../stores/files'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
+import { fileSrc } from '../../lib/fileUrl'
 
 interface Props {
   widget: Widget
@@ -247,7 +248,7 @@ export default function FileWidget({ widget, inline = false }: Props): JSX.Eleme
 
   // ── Local file mode ────────────────────────────────────────────────────
   const kind: FileKind = file ? fileKindFromMime(file.mimeType, file.ext) : 'generic'
-  const url = `fb-file://${fileId}`
+  const url = fileSrc(fileId)
   const body = (
     <div
       className="h-full w-full bg-[var(--surface-sunken)] overflow-hidden"

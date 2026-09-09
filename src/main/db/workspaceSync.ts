@@ -283,7 +283,17 @@ export function collectPending(): { upserts: PendingUpsert[]; deletes: PendingDe
   // A shared-desk row (shared_root_id set) syncs ONLY via the shared path, so it is
   // excluded here even though it still lives in the personal org locally — that is
   // what keeps the personal and shared scopes mutually exclusive (no double-push).
-  for (const itemType of ['node', 'timeblock', 'table'] as ItemType[]) {
+  // 'file' belongs here and was missing. fb_files has carried sync_rev,
+  // needs_sync, a dirty trigger and an index since cross-member Drive sync was
+  // built for the org loop -- every piece of machinery except membership of the
+  // personal one. So a Drive file has never synced between a person's own
+  // devices, which on a desktop-only product was invisible: the bytes were
+  // always already on the one machine that wanted them.
+  //
+  // The browser made it visible and total. It arrives with an empty database, so
+  // an image on a personal desk had no row and no bytes, and rendered blank with
+  // nothing reporting a fault -- sync had done exactly what it was told.
+  for (const itemType of ['node', 'timeblock', 'table', 'file'] as ItemType[]) {
     const table = TABLE[itemType]
     const sharedGuard = SHARED_COL_TABLES.has(table) ? ' AND shared_root_id IS NULL' : ''
     const rows = db

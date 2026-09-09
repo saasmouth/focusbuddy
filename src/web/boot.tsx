@@ -8,7 +8,7 @@
 // evaluate against an api that is not there yet.
 import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
-import { installBrowserApi } from './api/bridge'
+import { installBrowserApi, installFileServer } from './api/bridge'
 import { login, signup, resolveSession, type CloudAccount } from './api/session'
 import {
   claimTokenFromUrl, previewClaim, claimDesk, clearClaimFromUrl, type ClaimPreview
@@ -145,10 +145,14 @@ function Boot(): React.JSX.Element {
   useEffect(() => {
     if (state !== 'loading') return
     installBrowserApi()
-    // Dynamic, and only now: importing the renderer statically would evaluate
-    // its module graph -- and its window.api reads -- during this file's own
-    // import, before the line above had run.
-    import('@renderer/main')
+    // The file server must be controlling the page before any widget renders an
+    // image, so it is awaited alongside the renderer import rather than raced
+    // with it.
+    void installFileServer()
+      // Dynamic, and only now: importing the renderer statically would evaluate
+      // its module graph -- and its window.api reads -- during this file's own
+      // import, before installBrowserApi had run.
+      .then(() => import('@renderer/main'))
       .then(() => setState('ready'))
       .catch((err: Error) => { setDetail(err.message); setState('failed') })
   }, [state])

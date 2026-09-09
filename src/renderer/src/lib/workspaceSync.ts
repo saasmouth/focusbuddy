@@ -300,6 +300,87 @@ async function deleteOrgBlob(token: string, orgId: string, id: string): Promise<
   }
 }
 
+
+// ── Personal Drive file bytes ───────────────────────────────────────────────
+// A file's metadata rides the ordinary personal sync as a 'file' item; the bytes
+// need this side channel. The org loop has had one since cross-member Drive
+// sync. The personal loop never did, because on the desktop the bytes were
+// always already on the machine that wanted them -- an assumption the browser
+// breaks completely: it arrives with an empty database and no files at all, so
+// an image synced its row, found no bytes, and rendered blank.
+
+async function personalBlobExists(token: string, id: string): Promise<boolean> {
+  try {
+    const res = await fetch(urlFor(`/workspace/files/${id}?meta=1`), {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!res.ok) return false
+    const json = (await res.json()) as { exists?: boolean }
+    return json.exists === true
+  } catch {
+    // Unreachable is not "absent": returning true here would skip the upload and
+    // leave the file permanently byte-less, so an unknown answer must not be
+    // read as "already there".
+    return false
+  }
+}
+
+async function uploadPersonalBlob(
+  token: string,
+  id: string,
+  ext: string,
+  mimeType: string,
+  bytes: Uint8Array
+): Promise<void> {
+  const qs = `?ext=${encodeURIComponent(ext || '')}&mime=${encodeURIComponent(mimeType || '')}`
+  try {
+    await fetch(urlFor(`/workspace/files/${id}${qs}`), {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/octet-stream' },
+      body: bytes as unknown as BodyInit
+    })
+  } catch {
+    // The next cycle retries: the metadata row is unchanged, so the existence
+    // check above will still say the bytes are missing.
+  }
+}
+
+async function downloadPersonalBlob(token: string, id: string): Promise<Uint8Array | null> {
+  try {
+    const res = await fetch(urlFor(`/workspace/files/${id}`), {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!res.ok) return null
+    return new Uint8Array(await res.arrayBuffer())
+  } catch {
+    return null
+  }
+}
+
+/** After a file's metadata pushes, make sure its bytes are on the server too. */
+async function ensurePersonalBlobUploaded(
+  token: string,
+  id: string,
+  body: Record<string, unknown>
+): Promise<void> {
+  if (body.kind !== 'file') return
+  if (await personalBlobExists(token, id)) return
+  const local = await window.api.workspaceSync.fileBytesForPush(id)
+  if (!local || !local.bytes || local.bytes.length === 0) return
+  await uploadPersonalBlob(token, id, local.ext, local.mimeType, local.bytes)
+}
+
+/** After a batch applies, fetch bytes for any pulled file this device lacks. */
+async function fetchMissingPersonalBlobs(token: string, items: ServerItem[]): Promise<void> {
+  for (const it of items) {
+    if (it.itemType !== 'file' || it.deleted || !it.body) continue
+    if (it.body.kind !== 'file') continue
+    if (await window.api.workspaceSync.hasLocalFileBytes(it.id)) continue
+    const bytes = await downloadPersonalBlob(token, it.id)
+    if (bytes && bytes.length > 0) await window.api.workspaceSync.writeSyncedFileBytes(it.id, bytes)
+  }
+}
+
 // After a file's metadata pushes, make sure its bytes are on the server. Only real
 // files (kind 'file') have bytes; folders don't. Skips the upload when the server
 // already has the blob (metadata-only change), so a rename doesn't re-ship bytes.
@@ -670,7 +751,10 @@ export async function syncWorkspaceOnce(): Promise<number> {
     const pending = await window.api.workspaceSync.pending()
     for (const u of pending.upserts) {
       const res = await putItem(token, u.id, u.itemType, u.body, u.baseRev)
-      if (res.ok) await window.api.workspaceSync.markPushed(u.itemType, u.id, res.rev)
+      if (res.ok) {
+        await window.api.workspaceSync.markPushed(u.itemType, u.id, res.rev)
+        if (u.itemType === 'file') await ensurePersonalBlobUploaded(token, u.id, u.body)
+      }
       else if (res.conflict) {
         // Server is newer: take its copy (last-write-wins, server wins).
         await window.api.workspaceSync.applyRemote([
@@ -715,6 +799,11 @@ export async function syncWorkspaceOnce(): Promise<number> {
     // then freeze sync for good, which is worse than losing it, so after a few
     // fruitless attempts the cursor moves on and the failure is surfaced rather
     // than hidden.
+    // Bytes for any file this device has just learned about. Done before the
+    // cursor moves, so a failure here is retried with the batch rather than
+    // leaving a file that exists but can never be opened.
+    if (pulled.items.length > 0) await fetchMissingPersonalBlobs(token, pulled.items)
+
     if (failed === 0) {
       applyStalls = 0
       await window.api.workspaceSync.setCursor(pulled.now)

@@ -4,6 +4,7 @@ import WidgetErrorBoundary from '../WidgetErrorBoundary'
 import StickyWidget from './StickyWidget'
 import ImageGenWidget from './ImageGenWidget'
 import WebViewWidget from './WebViewWidget'
+import EmbeddedSiteWidget from './EmbeddedSiteWidget'
 import NoteWidget from './NoteWidget'
 import MarkdownWidget from './MarkdownWidget'
 import TaskLinkWidget from './TaskLinkWidget'
@@ -49,6 +50,10 @@ import PortalWidget from './PortalWidget'
 // render degrades to a small in-place "hit a problem" card instead of unmounting
 // the whole canvas. Section children route through renderWidget too (see the
 // 'section' case), so they are isolated the same way.
+// True in the browser runtime, set by src/web/api/bridge.ts before the renderer
+// mounts. Read at render time rather than captured, so it is never stale.
+const isWeb = (): boolean => (globalThis as { __PLEXII_WEB__?: boolean }).__PLEXII_WEB__ === true
+
 export function renderWidget(w: Widget): JSX.Element | null {
   const inner = renderWidgetInner(w)
   if (inner === null) return null
@@ -149,7 +154,11 @@ function renderWidgetInner(w: Widget): JSX.Element | null {
     case 'gsheet':
     case 'gslide':
     case 'email':
-      return <WebViewWidget widget={w} />
+      // WebViewWidget is an Electron <webview>: a real embedded browser with
+      // its own cookie jar and navigation events, none of which exists in a
+      // tab. There it renders nothing at all, which is what made every browser
+      // widget on a synced desk come up blank in the cloud app.
+      return isWeb() ? <EmbeddedSiteWidget widget={w} /> : <WebViewWidget widget={w} />
     case 'chat-thread':
       return <ChatThreadWidget widget={w} />
     default:

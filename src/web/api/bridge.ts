@@ -60,8 +60,33 @@ export function createBrowserApi(): Record<string, Record<string, unknown>> {
   return api
 }
 
+/**
+ * Bring up the Service Worker that serves Drive file bytes.
+ *
+ * Awaited before the renderer mounts, because an <img> whose src is committed
+ * before the worker is controlling the page gets a 404 it will not retry -- the
+ * image stays blank until something forces a remount, which for a widget on a
+ * desk is essentially never.
+ *
+ * Failure is not fatal: everything except file bytes works without it, and a
+ * browser that refuses Service Workers (a private window in some browsers) is
+ * better off with a working app and blank images than no app at all.
+ */
+export async function installFileServer(): Promise<void> {
+  if (!('serviceWorker' in navigator)) return
+  try {
+    await navigator.serviceWorker.register('/fb-file-sw.js', { scope: '/' })
+    await navigator.serviceWorker.ready
+  } catch (err) {
+    console.warn('[plexii] file server unavailable; images and media will not load', err)
+  }
+}
+
 /** Install as window.api. Called before the renderer's entry module runs. */
 export function installBrowserApi(): void {
+  // Tells the shared renderer which runtime it is in, so a Drive file id
+  // becomes a URL this page can actually fetch (see lib/fileUrl.ts).
+  ;(globalThis as { __PLEXII_WEB__?: boolean }).__PLEXII_WEB__ = true
   startCoordinator()
   ;(window as unknown as { api: unknown }).api = createBrowserApi()
   // Reachable from the console for support: which calls this session asked for

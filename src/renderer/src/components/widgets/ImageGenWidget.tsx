@@ -3,6 +3,7 @@ import type { Widget } from '@shared/types'
 import { useWidgetStore } from '../../stores/widgets'
 import { catalogFor } from '../../lib/widgetCatalog'
 import Icon from '../Icon'
+import { fileSrc } from '../../lib/fileUrl'
 
 // Prompt-to-image on the desk, via OpenAI's gpt-image-1.
 //
@@ -93,7 +94,7 @@ export default function ImageGenWidget({
 
   if (inline) {
     return fileId ? (
-      <img src={`fb-file://${fileId}`} alt={prompt || 'Generated image'} className="w-full h-full object-contain" />
+      <img src={fileSrc(fileId)} alt={prompt || 'Generated image'} className="w-full h-full object-contain" />
     ) : (
       <div className="fb-t-caption text-[var(--ink-50)] p-2">Image generator</div>
     )
@@ -109,7 +110,7 @@ export default function ImageGenWidget({
       <div className="flex-1 min-h-0 relative bg-[var(--surface-sunken)]">
         {fileId ? (
           <img
-            src={`fb-file://${fileId}`}
+            src={fileSrc(fileId)}
             alt={prompt || 'Generated image'}
             className="absolute inset-0 w-full h-full object-contain"
             data-testid="image-gen-result"

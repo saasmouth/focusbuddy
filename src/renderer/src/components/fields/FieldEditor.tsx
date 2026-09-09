@@ -13,6 +13,7 @@ import { useViewStore } from '../../stores/view'
 import Icon from '../Icon'
 import DocPickerModal from '../DocPickerModal'
 import { useDocMetas, primeDocMeta } from '../../lib/docMetaCache'
+import { fileSrc } from '../../lib/fileUrl'
 
 // One field editor used everywhere a typed value is edited: standalone canvas
 // field widgets, table cells, page-block fields. The component is variant-
@@ -558,7 +559,7 @@ function AttachmentChip({
     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-[var(--surface-sunken)]">
       <Icon name="attach_file" size={10} />
       <a
-        href={`fb-file://${fileId}`}
+        href={fileSrc(fileId)}
         target="_blank"
         rel="noreferrer"
         className="max-w-[100px] truncate underline-offset-2 hover:underline"
