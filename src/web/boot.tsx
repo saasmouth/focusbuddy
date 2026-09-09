@@ -38,10 +38,12 @@ function ClaimOffer({ preview }: { preview: ClaimPreview }): React.JSX.Element {
 
 function SignIn({
   onDone,
-  offer
+  offer,
+  claimToken
 }: {
   onDone: (a: CloudAccount | null) => void
   offer?: ClaimPreview | null
+  claimToken?: string | null
 }): React.JSX.Element {
   // Someone arriving from a share link almost certainly has no account, so the
   // form opens on sign-up for them and on sign-in for everyone else.
@@ -57,7 +59,8 @@ function SignIn({
     e.preventDefault()
     setBusy(true)
     setError(null)
-    const result = mode === 'in' ? await login(email, password, code || undefined) : await signup(email, password)
+    const result =
+      mode === 'in' ? await login(email, password, code || undefined) : await signup(email, password, claimToken)
     setBusy(false)
     if (result.ok) { onDone(result.account ?? null); return }
     if (result.needsCode) { setNeedsCode(true); return }
@@ -91,9 +94,21 @@ function SignIn({
         <button style={{ ...S.button, opacity: busy ? 0.6 : 1 }} type="submit" disabled={busy}>
           {busy ? 'Working…' : offer ? (mode === 'up' ? 'Create account and add desk' : 'Sign in and add desk') : mode === 'in' ? 'Sign in' : 'Create account'}
         </button>
-        <button style={S.link} type="button" onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setError(null) }}>
-          {mode === 'in' ? 'Create an account instead' : 'I already have an account'}
-        </button>
+        {/* Creating an account is offered only to someone who arrived with a
+            share link. A visitor who simply found the address gets a sign-in
+            box: the app is reachable so that shared links work, which is not
+            the same as being open to sign up for. */}
+        {(offer || mode === 'up') && (
+          <button style={S.link} type="button" onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setError(null) }}>
+            {mode === 'in' ? 'Create an account instead' : 'I already have an account'}
+          </button>
+        )}
+        {!offer && mode === 'in' && (
+          <div style={S.quiet}>
+            Plexii is invite-only. If someone shared a desk with you, open their link and you can
+            create an account from there.
+          </div>
+        )}
       </form>
     </div>
   )
@@ -155,6 +170,7 @@ function Boot(): React.JSX.Element {
     return (
       <SignIn
         offer={offer}
+        claimToken={token}
         onDone={() => setState(token && offer ? 'claiming' : 'loading')}
       />
     )
@@ -216,7 +232,8 @@ const S: Record<string, React.CSSProperties> = {
   },
   offerWho: { fontSize: 12, opacity: 0.75, letterSpacing: 0.2 },
   offerTitle: { fontSize: 17, fontWeight: 600 },
-  offerWhat: { fontSize: 12, opacity: 0.7, lineHeight: 1.45 }
+  offerWhat: { fontSize: 12, opacity: 0.7, lineHeight: 1.45 },
+  quiet: { fontSize: 11, opacity: 0.5, lineHeight: 1.5, textAlign: 'center' }
 }
 
 ReactDOM.createRoot(document.getElementById('boot') as HTMLElement).render(

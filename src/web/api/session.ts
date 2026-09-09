@@ -72,13 +72,20 @@ export async function login(email: string, password: string, code?: string): Pro
   return { ok: true, account: body.account }
 }
 
-export async function signup(email: string, password: string): Promise<LoginResult> {
+/**
+ * Create an account.
+ *
+ * `claimToken` is the desk link the person is holding, passed through so the
+ * server can see they were invited. It matters only when signup is closed; when
+ * it is open the server ignores it entirely.
+ */
+export async function signup(email: string, password: string, claimToken?: string | null): Promise<LoginResult> {
   let res: Response
   try {
     res = await fetch(`${base()}/accounts/signup`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email, password, ...(claimToken ? { claimToken } : {}) })
     })
   } catch {
     return { ok: false, error: 'Could not reach Plexii. Check your connection and try again.' }
