@@ -10,9 +10,42 @@ import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import { installBrowserApi } from './api/bridge'
 import { login, signup, resolveSession, type CloudAccount } from './api/session'
+import {
+  claimTokenFromUrl, previewClaim, claimDesk, clearClaimFromUrl, type ClaimPreview
+} from './api/claim'
 
-function SignIn({ onDone }: { onDone: (a: CloudAccount | null) => void }): React.JSX.Element {
-  const [mode, setMode] = useState<'in' | 'up'>('in')
+/**
+ * What a claim link offers, shown before anything is asked of the visitor.
+ *
+ * Someone arriving here has been handed a URL by a person they know and has
+ * never heard of Plexii. Being asked to create an account before being told
+ * what is on the other side is how a share link gets closed, so the offer comes
+ * first and the sign-up form sits underneath it.
+ */
+function ClaimOffer({ preview }: { preview: ClaimPreview }): React.JSX.Element {
+  return (
+    <div style={S.offer}>
+      <div style={S.offerWho}>{preview.ownerName} shared a desk with you</div>
+      <div style={S.offerTitle}>{preview.title || 'A desk'}</div>
+      <div style={S.offerWhat}>
+        {preview.permission === 'edit'
+          ? 'You will be able to edit it, and your changes sync back.'
+          : 'You will be able to see it, and it stays up to date as they work.'}
+      </div>
+    </div>
+  )
+}
+
+function SignIn({
+  onDone,
+  offer
+}: {
+  onDone: (a: CloudAccount | null) => void
+  offer?: ClaimPreview | null
+}): React.JSX.Element {
+  // Someone arriving from a share link almost certainly has no account, so the
+  // form opens on sign-up for them and on sign-in for everyone else.
+  const [mode, setMode] = useState<'in' | 'up'>(offer ? 'up' : 'in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
@@ -35,7 +68,16 @@ function SignIn({ onDone }: { onDone: (a: CloudAccount | null) => void }): React
     <div style={S.shell}>
       <form style={S.card} onSubmit={submit}>
         <div style={S.brand}>Plexii</div>
-        <div style={S.sub}>{mode === 'in' ? 'Sign in to your workspace' : 'Create your workspace'}</div>
+        {offer && <ClaimOffer preview={offer} />}
+        <div style={S.sub}>
+          {offer
+            ? mode === 'up'
+              ? 'Create an account to add it'
+              : 'Sign in to add it'
+            : mode === 'in'
+              ? 'Sign in to your workspace'
+              : 'Create your workspace'}
+        </div>
         <input style={S.input} type="email" placeholder="Email" value={email} autoComplete="username"
           onChange={(e) => setEmail(e.target.value)} required />
         <input style={S.input} type="password" placeholder="Password" value={password}
@@ -47,7 +89,7 @@ function SignIn({ onDone }: { onDone: (a: CloudAccount | null) => void }): React
         )}
         {error && <div style={S.error}>{error}</div>}
         <button style={{ ...S.button, opacity: busy ? 0.6 : 1 }} type="submit" disabled={busy}>
-          {busy ? 'Working…' : mode === 'in' ? 'Sign in' : 'Create account'}
+          {busy ? 'Working…' : offer ? (mode === 'up' ? 'Create account and add desk' : 'Sign in and add desk') : mode === 'in' ? 'Sign in' : 'Create account'}
         </button>
         <button style={S.link} type="button" onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setError(null) }}>
           {mode === 'in' ? 'Create an account instead' : 'I already have an account'}
@@ -58,12 +100,44 @@ function SignIn({ onDone }: { onDone: (a: CloudAccount | null) => void }): React
 }
 
 function Boot(): React.JSX.Element {
-  const [state, setState] = useState<'checking' | 'signin' | 'loading' | 'ready' | 'failed'>('checking')
+  const [state, setState] = useState<'checking' | 'signin' | 'claiming' | 'loading' | 'ready' | 'failed'>('checking')
   const [detail, setDetail] = useState('')
+  const [offer, setOffer] = useState<ClaimPreview | null>(null)
+  const [claimError, setClaimError] = useState<string | null>(null)
+  const token = claimTokenFromUrl()
 
   useEffect(() => {
-    void resolveSession().then((account) => setState(account ? 'loading' : 'signin'))
-  }, [])
+    let cancelled = false
+    void (async () => {
+      // The preview is fetched first and without credentials, so a visitor sees
+      // what they have been offered whether or not they are signed in.
+      const preview = token ? await previewClaim(token) : null
+      if (cancelled) return
+      if (preview && !preview.ok) setClaimError(preview.error)
+      if (preview?.ok) setOffer(preview)
+      const account = await resolveSession()
+      if (cancelled) return
+      // Already signed in with a link in hand: claim it now rather than asking
+      // them to sign in to an account they are already in.
+      if (account && token && preview?.ok) setState('claiming')
+      else setState(account ? 'loading' : 'signin')
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  // Claiming happens after authentication, whichever way it was reached.
+  useEffect(() => {
+    if (state !== 'claiming' || !token) return
+    void claimDesk(token).then((res) => {
+      if (!res.ok) setClaimError(res.error ?? 'Could not add this desk.')
+      // Either way the app opens: a failed claim should not strand someone
+      // outside a workspace they now have an account for.
+      clearClaimFromUrl()
+      setState('loading')
+    })
+  }, [state, token])
 
   useEffect(() => {
     if (state !== 'loading') return
@@ -77,7 +151,21 @@ function Boot(): React.JSX.Element {
   }, [state])
 
   if (state === 'checking') return <div style={S.shell}><div style={S.sub}>Checking your session…</div></div>
-  if (state === 'signin') return <SignIn onDone={() => setState('loading')} />
+  if (state === 'signin') {
+    return (
+      <SignIn
+        offer={offer}
+        onDone={() => setState(token && offer ? 'claiming' : 'loading')}
+      />
+    )
+  }
+  if (state === 'claiming') {
+    return (
+      <div style={S.shell}>
+        <div style={S.sub}>Adding {offer?.title || 'the desk'} to your workspace…</div>
+      </div>
+    )
+  }
   if (state === 'failed') {
     return (
       <div style={S.shell}>
@@ -92,7 +180,21 @@ function Boot(): React.JSX.Element {
   // 'loading' covers the page until the renderer mounts beneath; 'ready' means
   // the renderer owns the document and the gate renders nothing at all, which
   // lets #boot:empty take it out of the layout.
-  return state === 'loading' ? <div style={S.shell}><div style={S.sub}>Opening your workspace…</div></div> : <></>
+  if (state === 'loading') {
+    return (
+      <div style={S.shell}>
+        <div style={S.card}>
+          <div style={S.brand}>Plexii</div>
+          <div style={S.sub}>Opening your workspace…</div>
+          {/* A claim that failed after sign-up is said out loud here rather
+              than swallowed: the visitor has an account but not the desk they
+              came for, and needs to know to ask for a fresh link. */}
+          {claimError && <div style={S.error}>{claimError}</div>}
+        </div>
+      </div>
+    )
+  }
+  return <></>
 }
 
 const S: Record<string, React.CSSProperties> = {
@@ -107,7 +209,14 @@ const S: Record<string, React.CSSProperties> = {
   button: { padding: '10px 12px', borderRadius: 8, border: 'none', background: '#4f7cff',
     color: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer' },
   link: { background: 'none', border: 'none', color: '#8fa6ff', fontSize: 13, cursor: 'pointer', padding: 0 },
-  error: { color: '#ff8a8a', fontSize: 13, lineHeight: 1.4 }
+  error: { color: '#ff8a8a', fontSize: 13, lineHeight: 1.4 },
+  offer: {
+    display: 'flex', flexDirection: 'column', gap: 4, padding: '12px 14px', borderRadius: 10,
+    background: '#12203a', border: '1px solid #24406e', marginBottom: 4
+  },
+  offerWho: { fontSize: 12, opacity: 0.75, letterSpacing: 0.2 },
+  offerTitle: { fontSize: 17, fontWeight: 600 },
+  offerWhat: { fontSize: 12, opacity: 0.7, lineHeight: 1.45 }
 }
 
 ReactDOM.createRoot(document.getElementById('boot') as HTMLElement).render(
