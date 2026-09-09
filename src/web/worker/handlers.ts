@@ -47,6 +47,7 @@ import { getRecentHistory, recordVisit } from '../../main/db/browsing'
 import { recordActivity, getRecentActivity } from '../../main/db/activity'
 import { listClustersForTask, saveCluster, deleteCluster } from '../../main/db/focusClusters'
 import { listLinksByTask, createLink, updateLink, deleteLink } from '../../main/db/widgetLinks'
+import { captureDocSnapshot } from '../../main/db/docSnapshots'
 import {
   createSnapshot, listSnapshots, getSnapshot, restoreSnapshot, branchSnapshot
 } from '../../main/db/canvasSnapshots'
@@ -56,6 +57,21 @@ import {
 } from '../../main/db/changeLog'
 import { refreshCredits, getAiStatus } from '../../main/ai/creditMode'
 import { getDb } from '../../main/db/database'
+import {
+  getFile, deleteFile, ingestFromBuffer, readFileBytes,
+  listEntries as listFileEntries, getEntry as getFileEntry, folderPath as fileFolderPath,
+  createFolder as createFileFolder, renameEntry as renameFileEntry, moveEntry as moveFileEntry,
+  deleteEntry as deleteFileEntry, restoreEntries as restoreFileEntries,
+  listTrashedEntries as listTrashedFileEntries, restoreEntryDeep as restoreFileEntryDeep,
+  purgeEntry as purgeFileEntry, searchEntries as searchFileEntries,
+  tagsFor as fileTagsFor, addTags as addFileTags, removeTag as removeFileTag,
+  allTags as allFileTags, entriesByTag as fileEntriesByTag, entriesByTags as fileEntriesByTags,
+  untaggedEntries as untaggedFileEntries, listSmartFolders as listFileSmartFolders,
+  createSmartFolder as createFileSmartFolder, deleteSmartFolder as deleteFileSmartFolder,
+  smartFolderEntries as fileSmartFolderEntries, fileDocument, locateDocument,
+  unfiledDocuments, moveFileToOrg, hasFileBytes, readFileBytesForSync, writeSyncedFileBytes
+} from '../../main/db/files'
+import { extractFileText } from '../../main/fileText'
 
 // Memoised exactly as the desktop's registerIpcHandlers does: one store per
 // database handle, built on first use.
@@ -91,6 +107,12 @@ export const PARITY: ReadonlyArray<{ channel: string; missing: string }> = [
   { channel: 'documents:delete', missing: 'answer-cache invalidation' }
 ]
 
+// `_origin` appears on several write handlers and is deliberately unused: the
+// desktop reads it to decide whether a write is a local edit or a sync apply,
+// and so whether to emit a Context Engine event. This runtime emits none (see
+// PARITY), but the renderer still sends the argument, and a handler that
+// declared fewer parameters than the caller passes is the shape of the bug the
+// signature test exists to catch.
 type Handler = (...args: never[]) => unknown
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -100,9 +122,9 @@ export const HANDLERS: Record<string, Handler> = {
   // ── nodes ────────────────────────────────────────────────────────────────
   'nodes:list': h(() => listNodes()),
   'nodes:get': h((id: string) => getNode(id)),
-  'nodes:create': h((draft: never) => createNode(draft)),
-  'nodes:update': h((id: string, patch: never) => updateNode(id, patch)),
-  'nodes:delete': h((id: string) => deleteNode(id)),
+  'nodes:create': h((draft: never, _origin?: string) => createNode(draft)),
+  'nodes:update': h((id: string, patch: never, _origin?: string) => updateNode(id, patch)),
+  'nodes:delete': h((id: string, _origin?: string) => deleteNode(id)),
   'nodes:deletePermanent': h((id: string) => deleteNodePermanent(String(id || ''))),
   'nodes:restore': h((ids: string[]) => restoreNodes(ids)),
   'nodes:listTrash': h(() => listTrash()),
@@ -114,10 +136,10 @@ export const HANDLERS: Record<string, Handler> = {
   'widgets:get': h((id: string) => getWidget(id)),
   'widgets:listByTask': h((taskId: string) => listWidgetsByTask(taskId)),
   'widgets:listByKind': h((kind: never) => listWidgetsByKind(kind)),
-  'widgets:create': h((draft: never) => createWidget(draft)),
+  'widgets:create': h((draft: never, _origin?: string) => createWidget(draft)),
   'widgets:createOptional': h((draft: never) => createWidgetIfTaskExists(draft)),
-  'widgets:update': h((id: string, patch: never) => updateWidget(id, patch)),
-  'widgets:delete': h((id: string) => deleteWidget(id)),
+  'widgets:update': h((id: string, patch: never, _origin?: string) => updateWidget(id, patch)),
+  'widgets:delete': h((id: string, _origin?: string) => deleteWidget(id)),
   'widgets:restore': h((id: string) => restoreWidget(id)),
   'widgets:bringToFront': h((id: string) => bringToFront(id)),
   'widgets:countsByTask': h((taskIds: string[]) => widgetCountsByTask(taskIds)),
@@ -145,7 +167,7 @@ export const HANDLERS: Record<string, Handler> = {
   'workspace:markPushed': h((itemType: never, id: string, rev: number) => markPushed(itemType, id, rev)),
   'workspace:applyRemote': h((items: never) => applyRemote(items)),
   'workspace:applyRemoteOrg': h((items: never, orgId: string) => applyRemoteOrg(items, orgId)),
-  'workspace:applyRemoteShared': h((items: never, owners?: never) => applyRemoteShared(items, owners)),
+  'workspace:applyRemoteShared': h((items: never, ownerHandles?: never) => applyRemoteShared(items, ownerHandles)),
   'workspace:advanceBaseRev': h((itemType: never, id: string, rev: number) => advanceBaseRev(itemType, id, rev)),
   'workspace:getCursor': h(() => getSyncCursor()),
   'workspace:setCursor': h((n: number) => setSyncCursor(n)),
@@ -162,7 +184,15 @@ export const HANDLERS: Record<string, Handler> = {
   'documents:list': h(() => listDocuments()),
   'documents:get': h((id: string) => getDocument(id)),
   'documents:create': h((draft: never) => createDocument(draft)),
-  'documents:update': h((id: string, patch: never) => updateDocument(id, patch)),
+  'documents:update': h((id: string, patch: { body?: unknown }, snapshotLabel?: string) => {
+    const doc = updateDocument(id, patch as never)
+    // Version history, as on the desktop: a body save accrues a snapshot, and a
+    // label bypasses the interval gate so the entry is distinguishable later.
+    // Dropping the label would have lost "AI edit" from the history panel while
+    // everything else appeared to work.
+    if (doc && patch?.body !== undefined) captureDocSnapshot(id, snapshotLabel ?? '')
+    return doc
+  }),
   'documents:delete': h((id: string) => trashDocument(id)),
   'documents:listTrashed': h(() => listTrashedDocuments()),
   'documents:restore': h((id: string) => restoreDocument(id)),
@@ -186,7 +216,7 @@ export const HANDLERS: Record<string, Handler> = {
   'connectedApps:delete': h((id: string) => deleteConnectedApp(id)),
   'connectedApps:reorder': h((ids: string[]) => reorderConnectedApps(ids)),
   'connectedApps:touch': h((id: string) => touchConnectedApp(id)),
-  'connectedApps:findByHostname': h((host: string) => findConnectedAppByHostname(host)),
+  'connectedApps:findByHostname': h((hostname: string) => findConnectedAppByHostname(hostname)),
 
   // ── vault ────────────────────────────────────────────────────────────────
   // Metadata only. The crypto refuses, for the reason set out in the browser
@@ -226,7 +256,8 @@ export const HANDLERS: Record<string, Handler> = {
   'snapshots:branch': h((id: string, title: string) => branchSnapshot(id, title)),
 
   'widgetLinks:listByTask': h((taskId: string) => listLinksByTask(taskId)),
-  'widgetLinks:create': h((draft: never) => createLink(draft)),
+  'widgetLinks:create': h((sourceWidgetId: string, targetWidgetId: string, taskId: string, type?: never, id?: string) =>
+    createLink(sourceWidgetId, targetWidgetId, taskId, type ?? 'context', id)),
   'widgetLinks:update': h((id: string, patch: never) => updateLink(id, patch)),
   'widgetLinks:delete': h((id: string) => deleteLink(id)),
 
@@ -244,7 +275,11 @@ export const HANDLERS: Record<string, Handler> = {
 
   'crdt:record': h((input: never) => recordEvent(input)),
   'crdt:unsynced': h((limit?: number) => unsyncedEvents(limit)),
-  'crdt:markSynced': h((ids: string[]) => markSynced(ids)),
+  // Entries, not ids: markSynced reads e.id and e.seq off each one. Wired with
+  // a string[] this matched no rows, so nothing was ever marked synced and the
+  // same entries re-pushed on every cycle -- the failure that reached sync_rev
+  // 7,319 on a widget once before.
+  'crdt:markSynced': h((entries: Array<{ id: string; seq?: number | null }>) => markSynced(entries)),
   'crdt:knownIds': h((ids: string[]) => knownIds(ids)),
   'crdt:eventsForObject': h((objectId: string) => eventsForObject(objectId)),
 
@@ -252,7 +287,75 @@ export const HANDLERS: Record<string, Handler> = {
   // Credits are the browser's AI path: with no keychain there is no BYOK here,
   // so the account balance is the whole story.
   'ai:refreshCredits': h(() => refreshCredits()),
-  'ai:getStatus': h(() => getAiStatus())
+  'ai:getStatus': h(() => getAiStatus()),
+
+  // ── Drive ────────────────────────────────────────────────────────────────
+  // The same db/files.ts the desktop runs: folders, tags, smart folders, trash
+  // and search are shared code. Only where the bytes sit differs, and that is
+  // one swapped module (src/web/worker/main/fileBlobs.ts, on OPFS).
+  //
+  // Absent: ingestPath, importFolder, pickAndIngest, open, reveal and thumbnail.
+  // Each of those starts from a filesystem path or hands one to the OS, and a
+  // tab is never given one -- it gets a File from a picker or a drop, whose
+  // bytes it reads itself and passes to files:ingestBuffer.
+  'files:get': h((id: string) => getFile(id)),
+  'files:delete': h((id: string) => deleteFile(id)),
+  'files:extractText': h((id: string) => extractFileText(id)),
+  'files:ingestBuffer': h((input: { buffer: ArrayBuffer; originalName: string; mimeType: string; parentId?: string | null }) =>
+    ingestFromBuffer({
+      buffer: new Uint8Array(input.buffer),
+      originalName: input.originalName,
+      mimeType: input.mimeType,
+      parentId: input.parentId ?? null
+    })),
+  'files:read': h(async (id: string) => {
+    const r = await readFileBytes(id)
+    if (!r) return null
+    return {
+      mimeType: r.mimeType,
+      buffer: r.bytes.buffer.slice(r.bytes.byteOffset, r.bytes.byteOffset + r.bytes.byteLength)
+    }
+  }),
+
+  'fileManager:list': h((parentId: string | null) => listFileEntries(parentId)),
+  'fileManager:get': h((id: string) => getFileEntry(id)),
+  'fileManager:path': h((id: string | null) => fileFolderPath(id)),
+  'fileManager:createFolder': h((parentId: string | null, name: string, explicitId?: string) =>
+    createFileFolder(parentId, name, explicitId)),
+  'fileManager:rename': h((id: string, name: string) => renameFileEntry(id, name)),
+  'fileManager:move': h((id: string, newParentId: string | null) => moveFileEntry(id, newParentId)),
+  'fileManager:delete': h((id: string) => deleteFileEntry(id)),
+  'fileManager:restore': h((ids: string[]) => restoreFileEntries(ids)),
+  'fileManager:listTrashed': h(() => listTrashedFileEntries()),
+  'fileManager:restoreDeep': h((id: string) => restoreFileEntryDeep(id)),
+  'fileManager:purge': h((id: string) => purgeFileEntry(id)),
+  'fileManager:search': h((query: string) => searchFileEntries(query)),
+  'fileManager:tagsFor': h((fileId: string) => fileTagsFor(fileId)),
+  'fileManager:addTags': h((fileId: string, tags: string[], source?: 'user' | 'ai') =>
+    addFileTags(fileId, tags, source)),
+  'fileManager:removeTag': h((fileId: string, tag: string) => removeFileTag(fileId, tag)),
+  'fileManager:allTags': h(() => allFileTags()),
+  'fileManager:entriesByTag': h((tag: string) => fileEntriesByTag(tag)),
+  'fileManager:entriesByTags': h((tags: string[]) => fileEntriesByTags(tags)),
+  'fileManager:untaggedEntries': h(() => untaggedFileEntries()),
+  'fileManager:listSmartFolders': h(() => listFileSmartFolders()),
+  'fileManager:createSmartFolder': h((name: string, tags: string[], search?: string) =>
+    createFileSmartFolder(name, tags, search)),
+  'fileManager:deleteSmartFolder': h((id: string) => deleteFileSmartFolder(id)),
+  'fileManager:smartFolderEntries': h((tags: string[], search?: string) =>
+    fileSmartFolderEntries(tags, search)),
+  'fileManager:fileDocument': h((docId: string, parentId: string | null) => fileDocument(docId, parentId)),
+  'fileManager:locateDocument': h((docId: string) => locateDocument(docId)),
+  'fileManager:unfiledDocuments': h(() => unfiledDocuments()),
+  'fileManager:moveToOrg': h((id: string, orgId: string, teamId?: string | null) =>
+    moveFileToOrg(String(id || ''), String(orgId || ''), teamId ?? null)),
+
+  // Cross-member file bytes now have somewhere to live, so the sync loop's
+  // byte half works here too.
+  'workspace:fileBytesForPush': h((id: string) => readFileBytesForSync(String(id || ''))),
+  'workspace:hasLocalFileBytes': h((id: string) => hasFileBytes(String(id || ''))),
+  'workspace:writeSyncedFileBytes': h((id: string, bytes: Uint8Array) =>
+    writeSyncedFileBytes(String(id || ''), bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)))
 }
 
 /** Channels this runtime answers. The renderer asks before it calls. */

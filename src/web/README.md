@@ -94,10 +94,6 @@ OpenAI, Tenor, Pexels and remove.bg still refuse, and will until each has a
 proxy of its own. Storing a key the server cannot use on the caller's behalf
 would move the risk somewhere new without buying anything.
 
-**No Drive file bytes.** There is no disk, and OPFS is not a substitute for the
-paths the desktop hands to native tooling. Chunk retrieval therefore covers
-widgets, documents, tables and chats, but not file contents.
-
 **The Attention layer is off.** `ensureWorkItemSchema` needs preferences and an
 active org that the browser has not wired yet; claiming it were on would send
 `nodes.ts` down work-item paths against tables that do not exist here.
@@ -109,6 +105,30 @@ not affect what is written or synced. The list is `PARITY` in
 
 **Onboarding does not persist**, because the channel that stores its completion
 is not served yet -- so it reappears on reload.
+
+## The Drive
+
+Files work, bytes and all. `db/files.ts` -- folders, tags, smart folders, trash,
+search, some 900 lines -- is the same code on both runtimes; only where the
+bytes sit differs, and that is one swapped module. The desktop writes them into
+userData; the browser writes them to OPFS under `plexii-files/`, named by the
+same id + extension, so a file synced from one lands where the other looks.
+
+That swap is why `FileBlobStore` is asynchronous on both. OPFS is navigated
+through promises and no amount of pre-opening makes `getFileHandle` synchronous,
+so the interface follows the constraint rather than pretending it away; the
+desktop's implementation is synchronous underneath and resolves immediately.
+
+Not present, and not a gap to close: `files:ingestPath`, `fileManager:importFolder`,
+`pickAndIngest`, `open`, `reveal` and `thumbnail`. Each begins from a filesystem
+path or hands one to the OS, and a tab is never given one -- it gets a File from
+a picker or a drop, reads the bytes itself, and passes them to
+`files:ingestBuffer`. Those functions live in `db/filesFromDisk.ts` now, kept out
+of the shared module so a browser build cannot drag `fs` and `electron` back in.
+
+OCR is the one real loss: scanned PDFs need page rasterisation through native
+tooling. Everything whose text is already text -- plain files, markdown, JSON,
+PDFs with a text layer, Word, spreadsheets -- extracts here as it does there.
 
 ## The parity gap, measured
 

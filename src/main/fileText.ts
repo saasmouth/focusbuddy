@@ -14,8 +14,13 @@ import { getFile, readFileBytes } from './db/files'
 const MAX_CHARS = 12000
 
 // The core: bytes + a type hint → text (or null if it's a binary with no text).
+//
+// Uint8Array rather than Buffer, because this runs in the browser too, where
+// Buffer is not a global. Every parser below is fed the shape it wants from
+// that one input; only mammoth genuinely differs between the runtimes, and it
+// says so at the call.
 export async function extractTextFromBuffer(
-  buf: Buffer,
+  buf: Uint8Array,
   ext: string,
   mime: string
 ): Promise<string | null> {
@@ -24,7 +29,7 @@ export async function extractTextFromBuffer(
   try {
     if (e === 'pdf' || m.includes('pdf')) {
       const { PDFParse } = await import('pdf-parse')
-      const parser = new PDFParse({ data: new Uint8Array(buf) })
+      const parser = new PDFParse({ data: buf })
       let text = ''
       let pageCount = 0
       try {
@@ -53,12 +58,18 @@ export async function extractTextFromBuffer(
     }
     if (e === 'docx' || m.includes('wordprocessingml')) {
       const mammoth = (await import('mammoth')).default
-      const res = await mammoth.extractRawText({ buffer: buf })
+      // mammoth's Node entry takes a Buffer and its browser entry an
+      // ArrayBuffer; there is no single input both accept.
+      const res = await mammoth.extractRawText(
+        typeof Buffer !== 'undefined'
+          ? { buffer: Buffer.from(buf) }
+          : ({ arrayBuffer: buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) } as never)
+      )
       return (res.value || '').trim().slice(0, MAX_CHARS)
     }
     if (e === 'xlsx' || e === 'xls' || e === 'csv' || m.includes('spreadsheet') || m.includes('excel')) {
       const XLSX = await import('xlsx')
-      const wb = XLSX.read(buf, { type: 'buffer' })
+      const wb = XLSX.read(buf, { type: 'array' })
       const parts: string[] = []
       for (const name of wb.SheetNames.slice(0, 8)) {
         const csv = XLSX.utils.sheet_to_csv(wb.Sheets[name])
@@ -71,7 +82,7 @@ export async function extractTextFromBuffer(
       m.startsWith('text/') ||
       m.includes('json')
     ) {
-      return buf.toString('utf8').trim().slice(0, MAX_CHARS)
+      return new TextDecoder().decode(buf).trim().slice(0, MAX_CHARS)
     }
   } catch (err) {
     return `(couldn't read this ${e || 'file'}: ${err instanceof Error ? err.message : String(err)})`
@@ -83,7 +94,7 @@ export async function extractTextFromBuffer(
 export async function extractFileText(fileId: string): Promise<string | null> {
   const file = getFile(fileId)
   if (!file) return null
-  const read = readFileBytes(fileId)
+  const read = await readFileBytes(fileId)
   if (!read) return null
   return extractTextFromBuffer(read.bytes, file.ext ?? '', read.mimeType)
 }

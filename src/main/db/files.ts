@@ -1,28 +1,9 @@
 import { randomUUID } from 'crypto'
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-  unlinkSync,
-  writeFileSync
-} from 'fs'
-import { join, extname, basename } from 'path'
-import { app } from 'electron'
+import { extname } from 'path'
 import { getDb } from './database'
+import { fileBlobs } from './fileBlobs'
 import { getActiveOrgId } from './activeOrg'
 import type { FbFile, FileEntry } from '@shared/fields'
-
-// All uploaded files live in userData/files. We deliberately use the file's
-// own UUID + original extension as the on-disk name so the OS preview pane
-// (Quick Look, etc.) still works if the user ever navigates to the folder.
-function filesDir(): string {
-  const dir = join(app.getPath('userData'), 'files')
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  return dir
-}
 
 interface FileRow {
   id: string
@@ -40,55 +21,26 @@ function rowToFile(row: FileRow): FbFile {
     mimeType: row.mime_type,
     sizeBytes: row.size_bytes,
     ext: row.ext,
-    storedPath: join(filesDir(), `${row.id}${row.ext}`),
+    storedPath: fileBlobs.locate(row.id, row.ext),
     createdAt: row.created_at
   }
 }
 
-/**
- * Ingest a file from a source path on disk. Copies it into userData/files
- * with a fresh UUID, records metadata, and returns the FbFile. Original is
- * left untouched.
- */
-export function ingestFromPath(
-  sourcePath: string,
-  opts: { originalName?: string; mimeType?: string; parentId?: string | null } = {}
-): FbFile {
-  if (!existsSync(sourcePath)) {
-    throw new Error(`File not found: ${sourcePath}`)
-  }
-  const stats = statSync(sourcePath)
-  const original = opts.originalName ?? basename(sourcePath)
-  const ext = extname(original).toLowerCase()
-  const id = randomUUID()
-  const dest = join(filesDir(), `${id}${ext}`)
-  copyFileSync(sourcePath, dest)
-  return insertFileRow({
-    id,
-    originalName: original,
-    mimeType: opts.mimeType ?? mimeFromExt(ext),
-    sizeBytes: stats.size,
-    ext,
-    createdAt: Date.now(),
-    parentId: opts.parentId ?? null
-  })
-}
 
 /**
  * Ingest from raw bytes — e.g. when the renderer reads the file via the File
  * API and ships the ArrayBuffer over IPC. Used for HTML5 drag-drop of files
  * that don't expose a real .path (Electron 32+ removed File.path).
  */
-export function ingestFromBuffer(input: {
+export async function ingestFromBuffer(input: {
   buffer: Uint8Array
   originalName: string
   mimeType: string
   parentId?: string | null
-}): FbFile {
+}): Promise<FbFile> {
   const ext = extname(input.originalName).toLowerCase()
   const id = randomUUID()
-  const dest = join(filesDir(), `${id}${ext}`)
-  writeFileSync(dest, input.buffer)
+  await fileBlobs.write(id, ext, input.buffer)
   return insertFileRow({
     id,
     originalName: input.originalName,
@@ -100,7 +52,7 @@ export function ingestFromBuffer(input: {
   })
 }
 
-function insertFileRow(meta: {
+export function insertFileRow(meta: {
   id: string
   originalName: string
   mimeType: string
@@ -185,14 +137,10 @@ function pokeFileChunks(ids: string[], force = false): void {
     .catch(() => {})
 }
 
-export function deleteFile(id: string): boolean {
+export async function deleteFile(id: string): Promise<boolean> {
   const file = getFile(id)
   if (!file) return false
-  try {
-    unlinkSync(file.storedPath)
-  } catch {
-    // best-effort — DB row removal is the source of truth
-  }
+  await fileBlobs.remove(file.id, file.ext)
   const db = getDb()
   const r = db.prepare('DELETE FROM fb_files WHERE id = ?').run(id)
   if (r.changes > 0) pokeFileChunks([id]) // resolves to removal: the row is gone
@@ -204,15 +152,11 @@ export function deleteFile(id: string): boolean {
  * to show an image via blob URL). We pass through the on-disk read; there's
  * no cache layer, but files are small enough and rare enough that it's fine.
  */
-export function readFileBytes(id: string): { mimeType: string; bytes: Buffer } | null {
+export async function readFileBytes(id: string): Promise<{ mimeType: string; bytes: Uint8Array } | null> {
   const file = getFile(id)
   if (!file) return null
-  try {
-    const bytes = readFileSync(file.storedPath)
-    return { mimeType: file.mimeType, bytes }
-  } catch {
-    return null
-  }
+  const bytes = await fileBlobs.read(file.id, file.ext)
+  return bytes ? { mimeType: file.mimeType, bytes } : null
 }
 
 // ── Cross-member sync byte helpers ───────────────────────────────────────────
@@ -222,33 +166,29 @@ export function readFileBytes(id: string): { mimeType: string; bytes: Buffer } |
 // writeSyncedBytes lands a pulled blob on disk under the same id+ext naming the
 // rest of this module uses, so getFile/readFileBytes/extractFileText find it.
 
-export function hasFileBytes(id: string): boolean {
+export async function hasFileBytes(id: string): Promise<boolean> {
   const file = getFile(id)
   if (!file) return false
-  return existsSync(file.storedPath)
+  return fileBlobs.exists(file.id, file.ext)
 }
 
-export function readFileBytesForSync(
+export async function readFileBytesForSync(
   id: string
-): { ext: string; mimeType: string; bytes: Uint8Array } | null {
+): Promise<{ ext: string; mimeType: string; bytes: Uint8Array } | null> {
   const file = getFile(id)
-  if (!file || !existsSync(file.storedPath)) return null
-  try {
-    return { ext: file.ext, mimeType: file.mimeType, bytes: readFileSync(file.storedPath) }
-  } catch {
-    return null
-  }
+  if (!file) return null
+  const bytes = await fileBlobs.read(file.id, file.ext)
+  return bytes ? { ext: file.ext, mimeType: file.mimeType, bytes } : null
 }
 
-export function writeSyncedFileBytes(id: string, bytes: Uint8Array): boolean {
+export async function writeSyncedFileBytes(id: string, bytes: Uint8Array): Promise<boolean> {
   const file = getFile(id)
   // The fb_files row is applied before its bytes are fetched, so it exists here
   // and gives us the canonical stored path (id + sanitised ext). If it somehow
   // doesn't, refuse rather than guess a path.
   if (!file) return false
   try {
-    mkdirSync(filesDir(), { recursive: true })
-    writeFileSync(file.storedPath, bytes)
+    await fileBlobs.write(file.id, file.ext, bytes)
     // The bytes changed but the row (and so the cheap version stamp) did not —
     // force the re-extract.
     pokeFileChunks([id], true)
@@ -258,71 +198,6 @@ export function writeSyncedFileBytes(id: string, bytes: Uint8Array): boolean {
   }
 }
 
-// Recursively import a local folder tree into the Drive under `parentId`,
-// mirroring its structure as fb_files folders and ingesting each file (which the
-// brain then indexes on its next sync). Skips hidden entries and the usual heavy
-// build dirs, caps file size and total count so a stray huge tree can't wedge the
-// import, and never throws on a single unreadable entry. Returns what it did.
-export function importFolderTree(
-  sourceDir: string,
-  parentId: string | null,
-  opts?: { maxFiles?: number; maxFileBytes?: number }
-): { files: number; folders: number; skipped: number; rootId: string | null } {
-  const maxFiles = opts?.maxFiles ?? 5000
-  const maxFileBytes = opts?.maxFileBytes ?? 100 * 1024 * 1024
-  const SKIP_DIRS = new Set(['node_modules', '.git', '.svn', '.hg', '__pycache__', '.DS_Store'])
-  const stats = { files: 0, folders: 0, skipped: 0, rootId: null as string | null }
-  if (!existsSync(sourceDir)) return stats
-
-  // Create a top folder named after the imported directory, so the import lands as
-  // one tidy folder rather than dumping its contents into the current view.
-  const root = createFolder(parentId, basename(sourceDir) || 'Imported folder')
-  stats.folders++
-  stats.rootId = root.id
-
-  const walk = (dir: string, parent: string): void => {
-    if (stats.files >= maxFiles) return
-    let entries: string[] = []
-    try {
-      entries = readdirSync(dir)
-    } catch {
-      return
-    }
-    for (const name of entries) {
-      if (stats.files >= maxFiles) return
-      if (name.startsWith('.') || SKIP_DIRS.has(name)) {
-        stats.skipped++
-        continue
-      }
-      const full = join(dir, name)
-      let st: ReturnType<typeof statSync>
-      try {
-        st = statSync(full)
-      } catch {
-        stats.skipped++
-        continue
-      }
-      if (st.isDirectory()) {
-        const folder = createFolder(parent, name)
-        stats.folders++
-        walk(full, folder.id)
-      } else if (st.isFile()) {
-        if (st.size > maxFileBytes) {
-          stats.skipped++
-          continue
-        }
-        try {
-          ingestFromPath(full, { parentId: parent })
-          stats.files++
-        } catch {
-          stats.skipped++
-        }
-      }
-    }
-  }
-  walk(sourceDir, root.id)
-  return stats
-}
 
 // Share a personal file/folder/drive (and everything inside it) with an org — the
 // Drive equivalent of moving a desk to the team. Re-scopes the fb_files subtree's
@@ -615,11 +490,7 @@ export function purgeEntry(id: string): boolean {
     .all(...ids) as Array<{ id: string; kind: string; ext: string }>
   for (const r of rows) {
     if (r.kind === 'file') {
-      try {
-        unlinkSync(join(filesDir(), `${r.id}${r.ext}`))
-      } catch {
-        // best-effort
-      }
+      void fileBlobs.remove(r.id, r.ext)
     }
   }
   const del = db.prepare('DELETE FROM fb_files WHERE id = ?')
@@ -668,11 +539,7 @@ export function purgeOldTrash(maxAgeMs = 7 * 24 * 60 * 60 * 1000): void {
   if (!rows.length) return
   for (const r of rows) {
     if (r.kind === 'file') {
-      try {
-        unlinkSync(join(filesDir(), `${r.id}${r.ext}`))
-      } catch {
-        // best-effort
-      }
+      void fileBlobs.remove(r.id, r.ext)
     }
   }
   const del = db.prepare('DELETE FROM fb_files WHERE id = ?')
@@ -939,7 +806,7 @@ export function unfiledDocuments(): Array<{ id: string; title: string; docType: 
 // Lightweight MIME guesser for the dozen extensions we actually care about.
 // We don't want a full mime-types dependency for the handful of cases that
 // matter for previews.
-function mimeFromExt(ext: string): string {
+export function mimeFromExt(ext: string): string {
   const e = ext.replace(/^\./, '').toLowerCase()
   const map: Record<string, string> = {
     png: 'image/png',

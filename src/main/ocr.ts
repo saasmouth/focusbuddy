@@ -90,7 +90,7 @@ export async function terminateOcrWorker(): Promise<void> {
 // Render a PDF's first pages to PNG and OCR them. Returns the concatenated text
 // (possibly empty). Never throws for a readable-but-empty scan; genuine failures
 // (corrupt PDF, missing training data) propagate so the caller can fall back.
-export async function ocrPdfBuffer(buf: Buffer, maxPages = MAX_OCR_PAGES): Promise<string> {
+export async function ocrPdfBuffer(buf: Uint8Array, maxPages = MAX_OCR_PAGES): Promise<string> {
   const mod = (await import('pdf-to-png-converter')) as unknown as {
     pdfToPng?: (data: Uint8Array, opts: Record<string, unknown>) => Promise<Array<{ content?: Buffer }>>
     default?: { pdfToPng: (data: Uint8Array, opts: Record<string, unknown>) => Promise<Array<{ content?: Buffer }>> }

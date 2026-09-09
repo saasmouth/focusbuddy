@@ -295,7 +295,6 @@ import {
   deleteFile,
   getFile,
   ingestFromBuffer,
-  ingestFromPath,
   readFileBytes,
   listEntries as listFileEntries,
   getEntry as getFileEntry,
@@ -327,8 +326,8 @@ import {
   readFileBytesForSync,
   writeSyncedFileBytes,
   moveFileToOrg,
-  importFolderTree
 } from '../db/files'
+import { ingestFromPath, importFolderTree } from '../db/filesFromDisk'
 import { extractFileText } from '../fileText'
 import { ingestWorkspaceIntoBrain } from '../brainIngest'
 import { extractDocText, retrieveSources, relatedDocuments } from '../workspaceSearch'
@@ -2295,8 +2294,8 @@ export function registerIpcHandlers(): void {
   // Sync the whole workspace (desks, documents, notes/pages, Drive files) into the
   // PlexiBrain knowledge base. Idempotent; returns honest counts.
   ipcMain.handle('brain:ingestWorkspace', () => ingestWorkspaceIntoBrain())
-  ipcMain.handle('files:read', (_e, id: string) => {
-    const r = readFileBytes(id)
+  ipcMain.handle('files:read', async (_e, id: string) => {
+    const r = await readFileBytes(id)
     if (!r) return null
     // Buffer → ArrayBuffer for the IPC bridge so the renderer can wrap in a Blob.
     return {

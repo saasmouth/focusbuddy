@@ -48,11 +48,14 @@ const MODULE_SWAPS: Record<string, string> = {
   'src/main/tableEvents.ts': 'src/web/worker/main/tableEvents.ts',
       // Attention layer: off until its preferences move to server-held state.
   'src/main/workItemsPref.ts': 'src/web/worker/main/workItemsPref.ts',
-  // Drive file bytes: no disk in a tab. Reached from the retrieval index, which
-  // widgets.ts pokes on every write, so it is in the graph whether or not the
-  // cloud runtime serves a single file channel.
-  'src/main/db/files.ts': 'src/web/worker/main/files.ts',
-  'src/main/fileText.ts': 'src/web/worker/main/fileText.ts',
+  // Drive file bytes live on OPFS rather than on a disk. Only the byte store is
+  // swapped -- db/files.ts itself, all 900 lines of folders, tags, smart
+  // folders, trash and search, is the same code on both runtimes.
+  'src/main/db/fileBlobs.ts': 'src/web/worker/main/fileBlobs.ts',
+  // OCR rasterises pages through native tooling; a tab has none. Only the
+  // scanned-PDF fallback goes through here, so extraction still works for
+  // everything whose text is already text.
+  'src/main/ocr.ts': 'src/web/worker/main/ocr.ts',
   // The Vault: metadata is real, the crypto refuses. Its PBKDF2 and AES-GCM are
   // synchronous and the browser offers them only asynchronously, and a
   // hand-written cipher is not an acceptable way around that.
@@ -69,6 +72,7 @@ export default defineConfig({
       '@office': resolve('src/renderer/src/office'),
       '@runtime': resolve('src/renderer/src/runtime'),
       crypto: resolve('src/web/shims/crypto.ts'),
+      path: resolve('src/web/shims/path.ts'),
       'node:crypto': resolve('src/web/shims/crypto.ts'),
       'better-sqlite3': resolve('src/web/shims/betterSqlite3.ts')
     }

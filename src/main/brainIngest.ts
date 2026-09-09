@@ -139,7 +139,7 @@ export async function ingestWorkspaceIntoBrain(): Promise<BrainIngestStats> {
         // empty (name-only) entry that a later sync never refreshes. Skipping
         // (without marking it live) leaves it to be indexed on the next sync once
         // the bytes arrive.
-        if (!hasFileBytes(e.id)) continue
+        if (!(await hasFileBytes(e.id))) continue
         let body = ''
         try {
           body = (await extractFileText(e.id)) ?? ''

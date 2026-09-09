@@ -120,7 +120,7 @@ export async function generateImageToFile(input: {
         .replace(/^-+|-+$/g, '')
         .slice(0, 48) || 'generated-image'
     const ext = mimeType.includes('jpeg') ? '.jpg' : mimeType.includes('webp') ? '.webp' : '.png'
-    const file = ingestFromBuffer({
+    const file = await ingestFromBuffer({
       buffer: bytes,
       originalName: `${slug}${ext}`,
       mimeType

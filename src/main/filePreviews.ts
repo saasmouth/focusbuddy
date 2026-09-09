@@ -13,7 +13,8 @@
 import { app, dialog, nativeImage, shell } from 'electron'
 import { existsSync, mkdirSync, statSync, writeFileSync, readFileSync } from 'fs'
 import { extname, join, basename } from 'path'
-import { getFile, ingestFromPath } from './db/files'
+import { getFile } from './db/files'
+import { ingestFromPath } from './db/filesFromDisk'
 import type { FbFile } from '@shared/fields'
 
 // Generated thumbnails live in userData/thumbnails/<file-id>.png. The cache
