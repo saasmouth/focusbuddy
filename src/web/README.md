@@ -74,11 +74,60 @@ call is recoverable; silently duplicating a write is not.
 ## What works
 
 Sign-in and sign-up against Signal (including a second factor), the full app
-shell, the desk canvas, the New Desk flow, several tabs at once, and the
+shell, the desk canvas, the New Desk flow, several tabs at once, the Drive with
+real file bytes, provider keys held server-side, desk claim links, and the
 workspace sync loop in both directions. A desk created in a tab reaches the server and is applied by the
 desktop's own `applyRemote` into real rows with every column intact -- proven by
 `scripts/verify-cloud-roundtrip.mjs` feeding
 `tests/unit/cloudDesktopRoundTrip.test.ts`.
+
+## Sharing a desk with someone who is not here yet
+
+This is the thing the cloud runtime made possible. Before it, "add this desk to
+your account" meant "download a desktop app first", which is a brutal ask of
+someone who has just clicked a link from a colleague.
+
+There are three ways to share, and they answer different questions:
+
+| | who it is for | what they get |
+| --- | --- | --- |
+| Public projection | anyone, no account | a rendered read-only view |
+| Invite by email | someone whose address you know | live access, once they sign in |
+| Claim link | someone you cannot name yet | live access, after they sign up |
+
+The claim link is the new one. The owner mints it choosing the terms -- view or
+edit, single-use or open, optional expiry -- and whoever opens it sees what is
+being offered *before* being asked for anything: who shared it, what the desk is
+called, whether they will be able to edit. "Create an account to find out what
+this is" is how a share link gets closed. That preview is unauthenticated and
+deliberately thin, and it does not use `displayName()`, which falls back to the
+email address and then the account id: both fine between teammates, both wrong
+on a page anyone holding a forwarded link can open.
+
+Claiming converts the token into an ordinary `resource_acls` grant, and from
+that moment nothing about the share is special. It appears in the access list,
+rides `/workspace/shared/sync`, and is revoked like any other grant. A sharing
+mechanism that keeps its own parallel notion of access is one that eventually
+disagrees with the real one.
+
+Revoking a link stops it being claimed again and does **not** touch the access
+of people who already used it -- they are ordinary grantees now.
+
+### Two gates, and they are not the same gate
+
+Signing up is open to anyone. Reaching a desk is not, and never by anything
+other than the owner's own act of sharing. Those were briefly conflated, with
+the second enforced by closing the first; that was wrong in both directions and
+is gone.
+
+The desk gate has a rule worth knowing about: **only someone who holds a desk
+may share it.** Registering a desk root decides which bucket its rows live in
+and who may share it, and it used to be first-come -- knowing a desk id was
+enough to take one, which let a stranger permanently prevent the real owner from
+ever sharing their own desk. Possession is now required, and the proof is the
+personal bucket: a desk you have is a desk you have synced. Both sharing paths
+therefore sync before they register, so a desk created moments ago can still be
+shared. `focusbuddy-signal/tests/deskOwnershipFlow.mjs` holds this.
 
 ## What does not, and why
 
@@ -105,6 +154,12 @@ not affect what is written or synced. The list is `PARITY` in
 
 **Onboarding does not persist**, because the channel that stores its completion
 is not served yet -- so it reappears on reload.
+
+**A claim link needs somewhere to point.** `VITE_CLOUD_APP_URL` is the address
+of the deployed browser app, and with it unset the sharing controls disable
+themselves and say so. Minting a link that 404s for the recipient while looking
+perfectly fine to the sender is the worst kind of broken, because the sender
+never finds out.
 
 ## The Drive
 
