@@ -51,21 +51,36 @@ npm run web:dev        # vite dev server
 `window.api` path -> IPC channel map, so a channel renamed on the desktop cannot
 silently stop working here.
 
+## Many tabs, one database
+
+OPFS access handles are exclusive: the tab that opens the workspace holds it,
+and a second tab asking for the same file is refused. The tidy answer -- a
+SharedWorker owning the single connection -- does not work, because
+`createSyncAccessHandle` is dedicated-worker only and `SharedWorkerGlobalScope`
+genuinely lacks it (measured, not assumed).
+
+So exactly one tab holds a Web Lock, owns the Worker and therefore the database.
+Every other tab sends its calls there over a `BroadcastChannel`. When the leader
+closes, its lock releases, another tab wins it and opens the database itself.
+
+The one edge that cannot be hidden is a call that was already running when the
+leader vanished: its answer is lost, and re-sending it would be at-least-once
+delivery on top of writes -- a closed tab could turn one `nodes:create` into two
+desks. So a call that was merely *queued* is passed to the new leader, and a
+call that was genuinely *in flight* fails with a message saying so. Losing a
+call is recoverable; silently duplicating a write is not.
+`tests/unit/dbClientLeadership.test.ts` pins that distinction.
+
 ## What works
 
 Sign-in and sign-up against Signal (including a second factor), the full app
-shell, the desk canvas, the New Desk flow, and the workspace sync loop in both
-directions. A desk created in a tab reaches the server and is applied by the
+shell, the desk canvas, the New Desk flow, several tabs at once, and the
+workspace sync loop in both directions. A desk created in a tab reaches the server and is applied by the
 desktop's own `applyRemote` into real rows with every column intact -- proven by
 `scripts/verify-cloud-roundtrip.mjs` feeding
 `tests/unit/cloudDesktopRoundTrip.test.ts`.
 
 ## What does not, and why
-
-**One tab per profile.** OPFS sync access handles are exclusive, so a second tab
-on the same browser profile cannot open the database and fails on load. This
-needs real work -- a SharedWorker holding the single connection, or a Web Locks
-handoff -- and until it exists the browser runtime is single-tab.
 
 **Provider keys are absent.** On the desktop these live in the OS keychain via
 `safeStorage`. `localStorage` is readable by any script that reaches the page,
