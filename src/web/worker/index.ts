@@ -12,11 +12,26 @@
 // point here.
 import { openWorkspaceDatabase } from './database'
 import { HANDLERS } from './handlers'
+import { adoptSession } from './main/account'
 
 export interface WorkerRequest {
   id: number
   channel: string
   args: unknown[]
+}
+
+/**
+ * Sent once, before any call, to hand the Worker the signed-in session.
+ *
+ * The session lives on the main thread, in localStorage, because it belongs to
+ * the browser rather than to the database -- but the data layer asks for it
+ * through loadAccountState(), and code that needs a token to reach Signal
+ * (credits, live desks) would otherwise see an empty account and quietly behave
+ * as if signed out.
+ */
+export interface WorkerInit {
+  kind: 'init'
+  session: { sessionToken: string | null; skippedAt: number | null; cachedEmail: string | null }
 }
 
 export interface WorkerResponse {
@@ -37,8 +52,12 @@ const ready = openWorkspaceDatabase().then(
   (err: Error) => err
 )
 
-self.onmessage = async (event: MessageEvent<WorkerRequest>): Promise<void> => {
-  const { id, channel, args } = event.data
+self.onmessage = async (event: MessageEvent<WorkerRequest | WorkerInit>): Promise<void> => {
+  if ((event.data as WorkerInit).kind === 'init') {
+    adoptSession((event.data as WorkerInit).session)
+    return
+  }
+  const { id, channel, args } = event.data as WorkerRequest
   const reply = (r: Omit<WorkerResponse, 'id' | 'channel'>): void => self.postMessage({ id, channel, ...r })
 
   const failure = await ready
@@ -64,6 +83,11 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>): Promise<void> => {
   try {
     reply({ ok: true, value: await (handler as (...a: unknown[]) => unknown)(...args) })
   } catch (err) {
-    reply({ ok: false, error: err instanceof Error ? err.message : String(err) })
+    // Name the channel. A handler's own message -- "Cannot read properties of
+    // undefined (reading 'length')" -- says nothing about which of a hundred
+    // calls produced it, and both sides of this boundary are minified in a
+    // build, so the stack does not either.
+    const detail = err instanceof Error ? err.message : String(err)
+    reply({ ok: false, error: `${channel}: ${detail}` })
   }
 }

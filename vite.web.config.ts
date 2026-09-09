@@ -52,7 +52,11 @@ const MODULE_SWAPS: Record<string, string> = {
   // widgets.ts pokes on every write, so it is in the graph whether or not the
   // cloud runtime serves a single file channel.
   'src/main/db/files.ts': 'src/web/worker/main/files.ts',
-  'src/main/fileText.ts': 'src/web/worker/main/fileText.ts'
+  'src/main/fileText.ts': 'src/web/worker/main/fileText.ts',
+  // The Vault: metadata is real, the crypto refuses. Its PBKDF2 and AES-GCM are
+  // synchronous and the browser offers them only asynchronously, and a
+  // hand-written cipher is not an acceptable way around that.
+  'src/main/db/vault.ts': 'src/web/worker/main/vault.ts'
 }
 
 export default defineConfig({

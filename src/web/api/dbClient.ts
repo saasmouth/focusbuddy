@@ -36,6 +36,22 @@ interface Waiter {
   dispatched: boolean
 }
 
+/**
+ * The session as the page holds it. Read here rather than imported from
+ * session.ts to keep this module free of anything that touches the network.
+ */
+function readSession(): { sessionToken: string | null; skippedAt: number | null; cachedEmail: string | null } {
+  const read = (k: string): string | null => {
+    try { return localStorage.getItem(k) } catch { return null }
+  }
+  const skipped = read('plexii.session.skippedAt')
+  return {
+    sessionToken: read('plexii.session.token'),
+    skippedAt: skipped ? Number(skipped) : null,
+    cachedEmail: read('plexii.session.email')
+  }
+}
+
 const tabId = globalThis.crypto.randomUUID()
 const waiters = new Map<number, Waiter>()
 const listeners = new Map<string, Set<Listener>>()
@@ -88,6 +104,10 @@ function deliverPush(event: string, args: unknown[]): void {
 
 function startWorker(): Worker {
   const w = new Worker(new URL('../worker/index.ts', import.meta.url), { type: 'module' })
+  // Hand over the session before anything can ask for it. Sent unconditionally,
+  // including when signed out, so the Worker always knows which it is rather
+  // than defaulting to "no account" and looking the same either way.
+  w.postMessage({ kind: 'init', session: readSession() })
   w.onmessage = (ev: MessageEvent): void => {
     const { id, ok, value, error, channel, unserved: wasUnserved, event, args } = ev.data ?? {}
     if (event) {

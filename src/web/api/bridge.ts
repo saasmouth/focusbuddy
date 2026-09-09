@@ -15,6 +15,7 @@
 // database lives in whichever tab holds the lock, and this one may not be it.
 import { INVOKE_CHANNELS, LISTEN_CHANNELS } from './channelMap.generated'
 import { accountNamespace } from './session'
+import { platformNamespaces } from './platform'
 import { dbCall, dbSubscribe, startCoordinator, unservedChannels } from './dbClient'
 
 export { unservedChannels, isDatabaseLeader } from './dbClient'
@@ -43,10 +44,13 @@ export function createBrowserApi(): Record<string, Record<string, unknown>> {
     ;(api[ns] ??= {})[method] = (cb: Listener) => dbSubscribe(channel, cb)
   }
 
-  // The session belongs to the browser, not to the database, so account is
-  // served here rather than in the Worker. Overlaid last so it wins over the
-  // generated entries for the same four channels.
+  // The session and the platform questions belong to the page, not the
+  // database, so they are served here rather than in the Worker. Overlaid last
+  // so they win over the generated entries for the same channels.
   api.account = { ...(api.account ?? {}), ...accountNamespace() }
+  for (const [ns, members] of Object.entries(platformNamespaces())) {
+    api[ns] = { ...(api[ns] ?? {}), ...members }
+  }
 
   return api
 }

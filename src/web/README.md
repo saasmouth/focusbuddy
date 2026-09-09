@@ -105,20 +105,31 @@ is not served yet -- so it reappears on reload.
 
 ## The parity gap, measured
 
-A full boot, sign-up, desk creation and widget creation reaches for **15**
-channels this runtime does not serve:
+A full boot, sign-up, desk creation and widget creation now reaches for exactly
+**one** channel this runtime does not serve:
 
 ```
-model:set              app:setZoomFactor      liveDesk:note
-connectedApps:list     shares:listAll         update:get-state
-mail:getAccount        auth:get-pending       share:get-pending
-meet:get-pending       mdext:get-pending      templates:list
-vault:meta             documents:list         ai:refreshCredits
+mail:getAccount
 ```
 
-Some are desktop-only by nature (`app:setZoomFactor`, `mail:getAccount`,
-`mdext:get-pending`, `update:get-state`). The rest are the work queue.
+That one is not a gap to close: it opens an IMAP connection over TCP, which a
+browser tab cannot do at all. Mail in the cloud would mean Signal holding the
+mailbox connection, which is a different feature rather than a port.
+
+It was 15 when the runtime first booted. The ones that went were not stubbed --
+they are the same db modules the desktop calls, wired up: documents, templates,
+shares, connected apps, model routing, credits, desk layout, canvas snapshots,
+widget links, focus clusters, the activity trail, browsing history and the
+change log. 107 channels are served.
 
 A refused channel rejects with its own name rather than resolving `undefined`,
-so the gap is measurable from a session rather than estimated -- see
-`unservedChannels()` in `src/web/api/bridge.ts`.
+so this is measured from a session rather than estimated -- `plexiiUnserved()`
+in the console, or `unservedChannels()` in `src/web/api/dbClient.ts`. Errors
+thrown inside a handler are prefixed with the channel too, because both sides of
+the boundary are minified in a build and a bare "Cannot read properties of
+undefined" says nothing about which of a hundred calls produced it.
+
+`tests/unit/webHandlerChannels.test.ts` holds the table to channels that really
+exist. Both failure modes it guards against were real: serving `ai:status` when
+the channel is `ai:getStatus` (dead code that looks like coverage), and passing
+`snapshots:create` a label where it wanted the widgets to snapshot.

@@ -28,6 +28,43 @@ import {
   createRow, updateRow, deleteRow, restoreRow, reorderRows
 } from '../../main/db/tables'
 import {
+  listDocuments, getDocument, createDocument, updateDocument, trashDocument,
+  listTrashedDocuments, restoreDocument, deleteDocument
+} from '../../main/db/documents'
+import { listTemplates, deleteTemplate } from '../../main/db/templates'
+import {
+  listAllShareLinks, revokeShareLink, setShareLinkScope, deleteShareLink,
+  listSharedWithMe, removeSharedItem
+} from '../../main/db/shares'
+import {
+  listConnectedApps, createConnectedApp, deleteConnectedApp,
+  reorderConnectedApps, touchConnectedApp, findConnectedAppByHostname
+} from '../../main/db/connectedApps'
+import { getVaultMeta, isUnlocked, lockVault, listEntries } from '../../main/db/vault'
+import { getModelMode, setModelMode } from '../../main/ai/modelRouting'
+import { noteCheck, liveDeskFor, allLiveDesks } from '../../main/livePublisher'
+import { getRecentHistory, recordVisit } from '../../main/db/browsing'
+import { recordActivity, getRecentActivity } from '../../main/db/activity'
+import { listClustersForTask, saveCluster, deleteCluster } from '../../main/db/focusClusters'
+import { listLinksByTask, createLink, updateLink, deleteLink } from '../../main/db/widgetLinks'
+import {
+  createSnapshot, listSnapshots, getSnapshot, restoreSnapshot, branchSnapshot
+} from '../../main/db/canvasSnapshots'
+import { createDeskLayoutStore } from '../../main/db/deskLayoutStore'
+import {
+  recordEvent, unsyncedEvents, markSynced, knownIds, eventsForObject
+} from '../../main/db/changeLog'
+import { refreshCredits, getAiStatus } from '../../main/ai/creditMode'
+import { getDb } from '../../main/db/database'
+
+// Memoised exactly as the desktop's registerIpcHandlers does: one store per
+// database handle, built on first use.
+let _deskLayoutStore: ReturnType<typeof createDeskLayoutStore> | null = null
+function deskLayoutStore(): ReturnType<typeof createDeskLayoutStore> {
+  if (!_deskLayoutStore) _deskLayoutStore = createDeskLayoutStore(getDb() as never)
+  return _deskLayoutStore
+}
+import {
   collectPending, collectPendingOrg, collectPendingShared, markPushed,
   applyRemote, applyRemoteOrg, applyRemoteShared, advanceBaseRev,
   getSyncCursor, setSyncCursor, getSyncCursorOrg, setSyncCursorOrg,
@@ -48,7 +85,10 @@ export const PARITY: ReadonlyArray<{ channel: string; missing: string }> = [
   { channel: 'widgets:update', missing: 'Context Engine WidgetUpdated event' },
   { channel: 'widgets:delete', missing: 'Context Engine ObjectDeleted event' },
   { channel: 'nodes:relate', missing: 'relation mirroring into the graph' },
-  { channel: 'tables:update', missing: 'table-rename propagation to the desk widget' }
+  { channel: 'tables:update', missing: 'table-rename propagation to the desk widget' },
+  { channel: 'documents:create', missing: 'embedding the new document for semantic search' },
+  { channel: 'documents:update', missing: 'a named snapshot, and re-embedding' },
+  { channel: 'documents:delete', missing: 'answer-cache invalidation' }
 ]
 
 type Handler = (...args: never[]) => unknown
@@ -116,7 +156,103 @@ export const HANDLERS: Record<string, Handler> = {
   'workspace:stampSharedDesk': h((rootId: string) => stampSharedDesk(rootId)),
   'workspace:adoptSharedDesk': h((rootId: string) => adoptSharedDesk(rootId)),
   'workspace:pruneSharedDesk': h((rootId: string) => pruneSharedDesk(rootId)),
-  'workspace:localSharedRoots': h(() => listLocalSharedRoots())
+  'workspace:localSharedRoots': h(() => listLocalSharedRoots()),
+
+  // ── documents ────────────────────────────────────────────────────────────
+  'documents:list': h(() => listDocuments()),
+  'documents:get': h((id: string) => getDocument(id)),
+  'documents:create': h((draft: never) => createDocument(draft)),
+  'documents:update': h((id: string, patch: never) => updateDocument(id, patch)),
+  'documents:delete': h((id: string) => trashDocument(id)),
+  'documents:listTrashed': h(() => listTrashedDocuments()),
+  'documents:restore': h((id: string) => restoreDocument(id)),
+  'documents:purge': h((id: string) => deleteDocument(id)),
+
+  // ── templates ────────────────────────────────────────────────────────────
+  'templates:list': h(() => listTemplates()),
+  'templates:delete': h((id: string) => deleteTemplate(id)),
+
+  // ── shares ───────────────────────────────────────────────────────────────
+  'shares:listAll': h(() => listAllShareLinks()),
+  'shares:revoke': h((id: string) => revokeShareLink(id)),
+  'shares:setScope': h((id: string, scope: 'view' | 'copy') => setShareLinkScope(id, scope)),
+  'shares:delete': h((id: string) => deleteShareLink(id)),
+  'shares:inbox': h(() => listSharedWithMe()),
+  'shares:removeInbox': h((id: string) => removeSharedItem(id)),
+
+  // ── connected apps ───────────────────────────────────────────────────────
+  'connectedApps:list': h(() => listConnectedApps()),
+  'connectedApps:create': h((draft: never) => createConnectedApp(draft)),
+  'connectedApps:delete': h((id: string) => deleteConnectedApp(id)),
+  'connectedApps:reorder': h((ids: string[]) => reorderConnectedApps(ids)),
+  'connectedApps:touch': h((id: string) => touchConnectedApp(id)),
+  'connectedApps:findByHostname': h((host: string) => findConnectedAppByHostname(host)),
+
+  // ── vault ────────────────────────────────────────────────────────────────
+  // Metadata only. The crypto refuses, for the reason set out in the browser
+  // variant: its PBKDF2 and AES-GCM are synchronous and the browser's are not.
+  'vault:meta': h(() => getVaultMeta()),
+  'vault:isUnlocked': h(() => isUnlocked()),
+  'vault:lock': h(() => lockVault()),
+  'vault:listEntries': h(() => listEntries()),
+
+  // ── model routing ────────────────────────────────────────────────────────
+  'model:get': h(() => getModelMode()),
+  'model:set': h((mode: never) => setModelMode(mode)),
+
+  // ── live desks ───────────────────────────────────────────────────────────
+  // The read side and the diagnostic note. Publishing stays on the desktop for
+  // now: it captures widget markup from a live renderer, which is the desk the
+  // owner has open, not a projection this runtime can rebuild on its own.
+  'liveDesk:get': h((deskId: string) => liveDeskFor(deskId)),
+  'liveDesk:list': h(() => allLiveDesks()),
+  'liveDesk:note': h((deskId: string, skip: string | null) => noteCheck(deskId, skip)),
+
+  // ── desk layout, snapshots, links, clusters ──────────────────────────────
+  // The per-desk state the canvas writes as you use it: where the camera was,
+  // what is linked to what, the snapshots you can go back to. Without these a
+  // desk opens correctly and then forgets everything you did on it.
+  'deskLayout:load': h((userId: string, deskId: string, deviceClass: never) =>
+    deskLayoutStore().load(userId, deskId, deviceClass)),
+  'deskLayout:save': h((layout: never) => deskLayoutStore().save(layout, new Date().toISOString())),
+
+  // createSnapshot takes the widgets to snapshot, not just a label -- the
+  // desktop handler reads them first, and so must this.
+  'snapshots:create': h((taskId: string, label?: string) =>
+    createSnapshot(taskId, listWidgetsByTask(taskId), label ?? '')),
+  'snapshots:list': h((taskId: string) => listSnapshots(taskId)),
+  'snapshots:get': h((id: string) => getSnapshot(id)),
+  'snapshots:restore': h((id: string) => restoreSnapshot(id)),
+  'snapshots:branch': h((id: string, title: string) => branchSnapshot(id, title)),
+
+  'widgetLinks:listByTask': h((taskId: string) => listLinksByTask(taskId)),
+  'widgetLinks:create': h((draft: never) => createLink(draft)),
+  'widgetLinks:update': h((id: string, patch: never) => updateLink(id, patch)),
+  'widgetLinks:delete': h((id: string) => deleteLink(id)),
+
+  'clusters:list': h((taskId: string) => listClustersForTask(taskId)),
+  'clusters:save': h((draft: never) => saveCluster(draft)),
+  'clusters:delete': h((id: string) => deleteCluster(id)),
+
+  // ── activity trail, browsing history, change log ─────────────────────────
+  'trail:record': h((draft: never) => recordActivity(draft)),
+  'trail:recent': h((taskId: string | null, sinceMs: number, limit: number) =>
+    getRecentActivity({ taskId, sinceMs, limit })),
+  'history:recent': h((limit: number, taskId?: string | null) => getRecentHistory(limit, taskId)),
+  'history:record': h((url: string, title: string, taskId: string | null, countsAsVisit?: boolean) =>
+    recordVisit(url, title, taskId, countsAsVisit ?? true)),
+
+  'crdt:record': h((input: never) => recordEvent(input)),
+  'crdt:unsynced': h((limit?: number) => unsyncedEvents(limit)),
+  'crdt:markSynced': h((ids: string[]) => markSynced(ids)),
+  'crdt:knownIds': h((ids: string[]) => knownIds(ids)),
+  'crdt:eventsForObject': h((objectId: string) => eventsForObject(objectId)),
+
+  // ── AI credits ───────────────────────────────────────────────────────────
+  // Credits are the browser's AI path: with no keychain there is no BYOK here,
+  // so the account balance is the whole story.
+  'ai:refreshCredits': h(() => refreshCredits()),
+  'ai:getStatus': h(() => getAiStatus())
 }
 
 /** Channels this runtime answers. The renderer asks before it calls. */
