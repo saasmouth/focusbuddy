@@ -45,6 +45,14 @@ export async function shareDeskLive(
   const t = token()
   if (!t) return { ok: false, error: 'Not signed in.' }
   try {
+  // Push the desk to the server BEFORE asking to share it. The server will only
+  // register a desk root for someone who demonstrably holds that desk, and the
+  // proof it accepts is the desk being in their own synced workspace -- which
+  // stops anyone who merely knows a desk id from registering it and locking the
+  // real owner out. A desk created moments ago has not synced yet, so without
+  // this the first share of a brand-new desk would be refused.
+  const { syncWorkspaceOnce } = await import('./workspaceSync')
+  await syncWorkspaceOnce()
     await window.api.workspaceSync.stampSharedDesk(rootId)
     const res = await fetch(urlFor('/workspace/desk/share'), {
       method: 'POST',
@@ -53,8 +61,7 @@ export async function shareDeskLive(
     })
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; access?: DeskAccess; error?: string }
     if (!res.ok || !json.ok) return { ok: false, error: json.error || 'Could not share the desk.' }
-    // Push the freshly-stamped desk to the server now, so grantees can pull it.
-    const { syncWorkspaceOnce } = await import('./workspaceSync')
+    // Push the freshly-stamped desk down the shared path, so grantees can pull it.
     void syncWorkspaceOnce()
     // Seed the desk's existing wires onto the substrate. The poll's shared cycle
     // carries widgets/nodes/tables/rows but not widget_links, so without this a
@@ -96,6 +103,14 @@ export async function createDeskClaimLink(
   const t = token()
   if (!t) return { ok: false, error: 'Not signed in.' }
   try {
+  // Push the desk to the server BEFORE asking to share it. The server will only
+  // register a desk root for someone who demonstrably holds that desk, and the
+  // proof it accepts is the desk being in their own synced workspace -- which
+  // stops anyone who merely knows a desk id from registering it and locking the
+  // real owner out. A desk created moments ago has not synced yet, so without
+  // this the first share of a brand-new desk would be refused.
+  const { syncWorkspaceOnce } = await import('./workspaceSync')
+  await syncWorkspaceOnce()
     await window.api.workspaceSync.stampSharedDesk(rootId)
     const res = await fetch(urlFor(`/workspace/desk/${rootId}/claim-link`), {
       method: 'POST',
@@ -113,7 +128,6 @@ export async function createDeskClaimLink(
     }
     // Push the freshly-stamped desk now, so the first person to claim finds
     // something there rather than an empty desk that fills in a minute later.
-    const { syncWorkspaceOnce } = await import('./workspaceSync')
     void syncWorkspaceOnce()
     crdtSeedDeskLinks(rootId)
     return { ok: true, link: json.link }

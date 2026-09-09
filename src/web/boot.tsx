@@ -94,21 +94,9 @@ function SignIn({
         <button style={{ ...S.button, opacity: busy ? 0.6 : 1 }} type="submit" disabled={busy}>
           {busy ? 'Working…' : offer ? (mode === 'up' ? 'Create account and add desk' : 'Sign in and add desk') : mode === 'in' ? 'Sign in' : 'Create account'}
         </button>
-        {/* Creating an account is offered only to someone who arrived with a
-            share link. A visitor who simply found the address gets a sign-in
-            box: the app is reachable so that shared links work, which is not
-            the same as being open to sign up for. */}
-        {(offer || mode === 'up') && (
-          <button style={S.link} type="button" onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setError(null) }}>
-            {mode === 'in' ? 'Create an account instead' : 'I already have an account'}
-          </button>
-        )}
-        {!offer && mode === 'in' && (
-          <div style={S.quiet}>
-            Plexii is invite-only. If someone shared a desk with you, open their link and you can
-            create an account from there.
-          </div>
-        )}
+        <button style={S.link} type="button" onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setError(null) }}>
+          {mode === 'in' ? 'Create an account instead' : 'I already have an account'}
+        </button>
       </form>
     </div>
   )
@@ -232,8 +220,7 @@ const S: Record<string, React.CSSProperties> = {
   },
   offerWho: { fontSize: 12, opacity: 0.75, letterSpacing: 0.2 },
   offerTitle: { fontSize: 17, fontWeight: 600 },
-  offerWhat: { fontSize: 12, opacity: 0.7, lineHeight: 1.45 },
-  quiet: { fontSize: 11, opacity: 0.5, lineHeight: 1.5, textAlign: 'center' }
+  offerWhat: { fontSize: 12, opacity: 0.7, lineHeight: 1.45 }
 }
 
 ReactDOM.createRoot(document.getElementById('boot') as HTMLElement).render(
