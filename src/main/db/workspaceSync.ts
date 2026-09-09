@@ -668,12 +668,25 @@ export function shouldApplyTombstone(
   return true
 }
 
-export function applyRemote(items: RemoteItem[]): { applied: number } {
+export function applyRemote(items: RemoteItem[]): { applied: number; failed: number } {
   const db = getDb()
   // Nodes first: widgets and time blocks may reference them by foreign key.
   const rank = (t: ItemType): number => (t === 'node' ? 0 : 1)
   const ordered = [...items].sort((a, b) => rank(a.itemType) - rank(b.itemType))
+  // And within the nodes, a parent before its children -- nodes.parent_id points
+  // back into nodes, so a Desk applied before the Room containing it violates the
+  // foreign key and the row is dropped.
+  //
+  // The org arm has always done this. The personal arm did not, and got away with
+  // it because a desktop applying its own workspace already has every parent on
+  // disk. A browser does not: it signs in against an empty database and pulls the
+  // whole workspace in one unordered batch, so children routinely arrive first.
+  // Every one of them failed, was skipped, and -- because the cursor advanced
+  // past the batch regardless -- was never offered again.
+  topoSortSelfReferential(ordered, 'node')
+  topoSortSelfReferential(ordered, 'file')
   let applied = 0
+  let failed = 0
   const changes: RemoteApplied[] = []
   const tx = db.transaction(() => {
     for (const item of ordered) {
@@ -745,8 +758,11 @@ export function applyRemote(items: RemoteItem[]): { applied: number } {
         normalizeIfWorkItem(db, table, item)
       } catch (err) {
         // One bad row (e.g. a foreign key whose parent has not synced yet)
-        // must not abort the whole batch; the next cycle retries it — EXCEPT a
-        // kind the local schema rejects, which is parked + surfaced (§2.1).
+        // must not abort the whole batch — EXCEPT a kind the local schema
+        // rejects, which is parked + surfaced (§2.1). Counted either way: a
+        // caller that advances its cursor past a batch needs to know some of it
+        // did not land, and this used to be silent.
+        failed++
         maybeParkApplyFailure(err, table, item)
       }
     }
@@ -763,7 +779,7 @@ export function applyRemote(items: RemoteItem[]): { applied: number } {
     )
   }
   emitRemoteChangeEvents(changes)
-  return { applied }
+  return { applied, failed }
 }
 
 // Apply rows pulled from the ORG endpoint. Mirror of applyRemote, widened in

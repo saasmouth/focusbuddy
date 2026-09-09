@@ -1989,7 +1989,10 @@ const api = {
       ipcRenderer.invoke('workspace:markPushed', itemType, id, rev),
     applyRemote: (
       items: Array<{ id: string; itemType: 'node' | 'widget' | 'timeblock' | 'document' | 'table' | 'row' | 'file'; body: Record<string, unknown> | null; rev: number; deleted: boolean }>
-    ): Promise<{ applied: number }> => ipcRenderer.invoke('workspace:applyRemote', items),
+      // `failed` is what lets the caller decide whether its cursor may advance:
+      // a window that did not fully apply must be offered again, or the rows
+      // that failed are lost for good.
+    ): Promise<{ applied: number; failed: number }> => ipcRenderer.invoke('workspace:applyRemote', items),
     getCursor: (): Promise<number> => ipcRenderer.invoke('workspace:getCursor'),
     setCursor: (n: number): Promise<void> => ipcRenderer.invoke('workspace:setCursor', n),
     // Org-shared variants (cross-member sync). The active org id selects the scope

@@ -54,6 +54,21 @@ export function platformNamespaces(): Record<string, Record<string, unknown>> {
       downloadAndInstall: async () => ({ ok: true as const })
     },
 
+    mail: {
+      // There is no mailbox here, and saying so is the true answer rather than
+      // a stand-in: the desktop returns exactly this shape when no account has
+      // been connected, and a browser cannot open an IMAP socket at all.
+      //
+      // Refusing instead was correct but unhelpful. The mail store calls this
+      // on boot and does not catch, so every load of the cloud app threw an
+      // uncaught rejection into the console -- alarming, and it buried the
+      // errors that actually mattered.
+      //
+      // Only this one channel. Listing, sending or connecting would be a lie,
+      // so those still refuse by name.
+      getAccount: async () => ({ configured: false, host: '', port: 993, secure: true, user: '', email: '' })
+    },
+
     // Deep-link handoffs. On the desktop the OS hands the app a URL it was
     // opened with and these drain it. A tab is opened with its own URL instead,
     // so there is genuinely nothing pending -- null, not an error.

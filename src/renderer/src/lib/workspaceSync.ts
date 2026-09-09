@@ -34,6 +34,12 @@ type SyncItemType = 'node' | 'widget' | 'timeblock' | 'document' | 'table' | 'ro
 
 const FLAG_KEY = 'fb.workspace.sync'
 const SYNC_INTERVAL_MS = 20_000
+// How many consecutive fruitless retries of the same window before giving up on
+// it. Small: the case this exists for -- a child whose parent is later in the
+// same batch -- is fixed by ordering, so a persistent failure here is a genuine
+// problem to surface rather than to keep retrying quietly.
+const MAX_APPLY_STALLS = 3
+let applyStalls = 0
 
 function enabled(): boolean {
   if (previewSyncBlocked()) return false
@@ -691,11 +697,41 @@ export async function syncWorkspaceOnce(): Promise<number> {
       return 0
     }
     let applied = 0
+    let failed = 0
     if (pulled.items.length > 0) {
       const r = await window.api.workspaceSync.applyRemote(pulled.items)
       applied = r.applied
+      failed = r.failed ?? 0
     }
-    await window.api.workspaceSync.setCursor(pulled.now)
+    // Only step the cursor past a window every item of which landed.
+    //
+    // It used to advance unconditionally, so a row that failed to apply -- a
+    // child node whose parent was not in the local database yet, most often --
+    // was skipped and then never offered again, because the cursor had moved
+    // beyond it. The workspace was quietly missing pieces and nothing said so.
+    //
+    // Holding the cursor re-offers the same window next cycle, which is what
+    // lets a row land once its parent has. But a row that can NEVER apply would
+    // then freeze sync for good, which is worse than losing it, so after a few
+    // fruitless attempts the cursor moves on and the failure is surfaced rather
+    // than hidden.
+    if (failed === 0) {
+      applyStalls = 0
+      await window.api.workspaceSync.setCursor(pulled.now)
+    } else if (applied > 0 || applyStalls < MAX_APPLY_STALLS) {
+      // Progress was made, or there is still patience left: keep the cursor so
+      // the remainder is offered again.
+      applyStalls = applied > 0 ? 0 : applyStalls + 1
+      console.warn(`[sync] ${failed} item(s) did not apply; holding the cursor to retry them`)
+    } else {
+      applyStalls = 0
+      await window.api.workspaceSync.setCursor(pulled.now)
+      console.error(
+        `[sync] ${failed} item(s) could not be applied after ${MAX_APPLY_STALLS} attempts; ` +
+          'moving past them. Some of this workspace is missing locally.'
+      )
+      useSyncStatus.getState().setError(`${failed} item(s) could not be synced to this device.`)
+    }
 
     // Cycle verdict: a push that hit a server error still lands here (the pull
     // may have succeeded), so honour any error/offline note from the push loop.
