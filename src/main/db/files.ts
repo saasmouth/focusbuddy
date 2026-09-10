@@ -3,6 +3,7 @@ import { extname } from 'path'
 import { getDb } from './database'
 import { fileBlobs } from './fileBlobs'
 import { downsampleImage } from './imageDownsample'
+import { MAX_SYNCED_FILE_BYTES } from '@shared/fileSyncLimits'
 import { getActiveOrgId } from './activeOrg'
 import type { FbFile, FileEntry } from '@shared/fields'
 
@@ -177,6 +178,44 @@ export async function readFileBytes(id: string): Promise<{ mimeType: string; byt
 // blob channel; hasBytes tells the pull side whether it still needs to fetch;
 // writeSyncedBytes lands a pulled blob on disk under the same id+ext naming the
 // rest of this module uses, so getFile/readFileBytes/extractFileText find it.
+
+/**
+ * File rows on this device whose bytes are not here yet.
+ *
+ * Asked of the database rather than remembered from a sync batch, and that is
+ * the whole point. The first version queued ids as their rows arrived in a
+ * pull, which fails in two ways that both leave a file permanently empty: the
+ * cursor moves past a row and it is never offered again, and the queue is in
+ * memory so a reload forgets it. A browser that had already synced its rows
+ * before byte transfer existed would never fetch a single one.
+ *
+ * Derived from state, it is self-healing: however a row got here, and whatever
+ * happened to any queue, a file without its bytes turns up here until it has
+ * them. `limit` keeps the answer small, so the caller can drain a few per
+ * cycle without ever holding a long list.
+ */
+export async function filesMissingBytes(limit = 8): Promise<string[]> {
+  const db = getDb()
+  // Newest first: the file someone is most likely looking at right now.
+  const rows = db
+    .prepare(
+      `SELECT id, ext, size_bytes FROM fb_files
+        WHERE kind = 'file' AND trashed_at IS NULL
+        ORDER BY COALESCE(updated_at, created_at) DESC
+        LIMIT 400`
+    )
+    .all() as Array<{ id: string; ext: string; size_bytes: number }>
+  const out: string[] = []
+  for (const r of rows) {
+    // A file the server would refuse is not missing, it is undeliverable.
+    // Asking for it every cycle forever would be a pointless request loop.
+    if ((r.size_bytes ?? 0) > MAX_SYNCED_FILE_BYTES) continue
+    if (await fileBlobs.exists(r.id, r.ext)) continue
+    out.push(r.id)
+    if (out.length >= limit) break
+  }
+  return out
+}
 
 export async function hasFileBytes(id: string): Promise<boolean> {
   const file = getFile(id)

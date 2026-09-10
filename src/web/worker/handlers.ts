@@ -69,7 +69,7 @@ import {
   untaggedEntries as untaggedFileEntries, listSmartFolders as listFileSmartFolders,
   createSmartFolder as createFileSmartFolder, deleteSmartFolder as deleteFileSmartFolder,
   smartFolderEntries as fileSmartFolderEntries, fileDocument, locateDocument,
-  unfiledDocuments, moveFileToOrg, hasFileBytes, readFileBytesForSync, writeSyncedFileBytes
+  unfiledDocuments, moveFileToOrg, hasFileBytes, filesMissingBytes, readFileBytesForSync, writeSyncedFileBytes
 } from '../../main/db/files'
 import { extractFileText } from '../../main/fileText'
 
@@ -367,6 +367,7 @@ export const HANDLERS: Record<string, Handler> = {
   // byte half works here too.
   'workspace:fileBytesForPush': h((id: string) => readFileBytesForSync(String(id || ''))),
   'workspace:hasLocalFileBytes': h((id: string) => hasFileBytes(String(id || ''))),
+  'workspace:filesMissingBytes': h((limit?: number) => filesMissingBytes(typeof limit === 'number' ? limit : 8)),
   'workspace:writeSyncedFileBytes': h((id: string, bytes: Uint8Array) =>
     writeSyncedFileBytes(String(id || ''), bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)))
 }

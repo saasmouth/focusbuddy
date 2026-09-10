@@ -323,6 +323,7 @@ import {
   unfiledDocuments,
   locateDocument,
   hasFileBytes,
+  filesMissingBytes,
   readFileBytesForSync,
   writeSyncedFileBytes,
   moveFileToOrg,
@@ -3661,6 +3662,9 @@ export function registerIpcHandlers(): void {
   // downloaded bytes under the canonical id+ext path.
   ipcMain.handle('workspace:fileBytesForPush', (_e, id: string) => readFileBytesForSync(String(id || '')))
   ipcMain.handle('workspace:hasLocalFileBytes', (_e, id: string) => hasFileBytes(String(id || '')))
+  ipcMain.handle('workspace:filesMissingBytes', (_e, limit?: number) =>
+    filesMissingBytes(typeof limit === 'number' ? limit : 8)
+  )
   ipcMain.handle('workspace:writeSyncedFileBytes', (_e, id: string, bytes: Uint8Array) =>
     writeSyncedFileBytes(String(id || ''), bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes))
   )

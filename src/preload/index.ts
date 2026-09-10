@@ -2037,6 +2037,11 @@ const api = {
       ipcRenderer.invoke('workspace:fileBytesForPush', id),
     hasLocalFileBytes: (id: string): Promise<boolean> =>
       ipcRenderer.invoke('workspace:hasLocalFileBytes', id),
+    // File rows on this device whose bytes have not arrived. Asked of the
+    // database each cycle rather than remembered, so it survives a reload and
+    // covers rows that synced before byte transfer existed.
+    filesMissingBytes: (limit?: number): Promise<string[]> =>
+      ipcRenderer.invoke('workspace:filesMissingBytes', limit),
     writeSyncedFileBytes: (id: string, bytes: Uint8Array): Promise<boolean> =>
       ipcRenderer.invoke('workspace:writeSyncedFileBytes', id, bytes)
   },
