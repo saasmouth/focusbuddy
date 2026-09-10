@@ -378,6 +378,10 @@ async function ensurePersonalBlobUploaded(
 // row without its bytes is still a valid row; the picture can appear a cycle
 // later.
 const MAX_BLOB_FETCHES_PER_CYCLE = 6
+// Files whose bytes could not be fetched, and when. A failure must not block
+// the files behind it, and must not be retried every twenty seconds forever.
+const blobFetchFailures = new Map<string, number>()
+const BLOB_RETRY_COOLDOWN_MS = 5 * 60 * 1000
 const MAX_BLOB_UPLOADS_PER_CYCLE = 6
 
 /**
@@ -396,12 +400,33 @@ const MAX_BLOB_UPLOADS_PER_CYCLE = 6
  * bytes keeps turning up here until it has them.
  */
 async function fetchSomeMissingBlobs(token: string): Promise<void> {
-  const ids = await window.api.workspaceSync.filesMissingBytes(MAX_BLOB_FETCHES_PER_CYCLE)
-  for (const id of ids) {
+  // Ask for far more candidates than will be fetched, and skip the ones that
+  // recently failed.
+  //
+  // Without this the loop cannot make progress past a file it cannot get. The
+  // database returns the same deterministic first N every cycle -- newest
+  // first -- so if any of them has no bytes on the server, those same N are
+  // retried forever and file N+1 is never reached. Observed exactly that: some
+  // images arrived, then nothing more, because four files whose bytes never
+  // uploaded sat at the head of the list blocking everything behind them.
+  const candidates = await window.api.workspaceSync.filesMissingBytes(MAX_BLOB_FETCHES_PER_CYCLE * 10)
+  const now = Date.now()
+  let budget = MAX_BLOB_FETCHES_PER_CYCLE
+  for (const id of candidates) {
+    if (budget <= 0) break
+    const failedAt = blobFetchFailures.get(id)
+    if (failedAt != null && now - failedAt < BLOB_RETRY_COOLDOWN_MS) continue
+    budget--
     const bytes = await downloadPersonalBlob(token, id)
-    // A file whose bytes are not on the server yet is simply left; the next
-    // cycle asks again, because the database still says it is missing.
-    if (bytes && bytes.length > 0) await window.api.workspaceSync.writeSyncedFileBytes(id, bytes)
+    if (bytes && bytes.length > 0) {
+      await window.api.workspaceSync.writeSyncedFileBytes(id, bytes)
+      blobFetchFailures.delete(id)
+    } else {
+      // Most likely the other device has not uploaded it yet. Stand it down for
+      // a while rather than dropping it -- it stays in the database's answer,
+      // so it is retried once the cooldown passes.
+      blobFetchFailures.set(id, now)
+    }
   }
 }
 
