@@ -160,7 +160,7 @@ export async function pickFilesIntoFolder(parentId: string | null): Promise<FbFi
     try {
       if (!existsSync(sourcePath) || statSync(sourcePath).isDirectory()) continue
       out.push(
-        ingestFromPath(sourcePath, {
+        await ingestFromPath(sourcePath, {
           originalName: basename(sourcePath),
           mimeType: mimeFromExt(extname(sourcePath).toLowerCase()),
           parentId

@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { extname } from 'path'
 import { getDb } from './database'
 import { fileBlobs } from './fileBlobs'
+import { downsampleImage } from './imageDownsample'
 import { getActiveOrgId } from './activeOrg'
 import type { FbFile, FileEntry } from '@shared/fields'
 
@@ -40,12 +41,23 @@ export async function ingestFromBuffer(input: {
 }): Promise<FbFile> {
   const ext = extname(input.originalName).toLowerCase()
   const id = randomUUID()
-  await fileBlobs.write(id, ext, input.buffer)
+  const mimeType = input.mimeType || mimeFromExt(ext)
+  // Shrink an oversized image before it is stored, so the saving applies
+  // everywhere at once: on this disk, on the wire, on the server's volume, and
+  // on every other device that later pulls it. Doing it here rather than at
+  // display time is the difference between paying for the pixels once and
+  // paying for them on every device forever.
+  //
+  // Conservative by design, and it declines far more often than it acts -- see
+  // ./imageDownsample.ts. A file it will not touch comes back byte-identical.
+  const shrunk = await downsampleImage(input.buffer, mimeType, ext)
+  const bytes = shrunk.bytes
+  await fileBlobs.write(id, ext, bytes)
   return insertFileRow({
     id,
     originalName: input.originalName,
-    mimeType: input.mimeType || mimeFromExt(ext),
-    sizeBytes: input.buffer.length,
+    mimeType,
+    sizeBytes: bytes.length,
     ext,
     createdAt: Date.now(),
     parentId: input.parentId ?? null

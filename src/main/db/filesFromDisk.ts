@@ -8,9 +8,10 @@
 // exactly that reason: a browser build that pulled them in would drag `fs` and
 // `electron` into a graph that is otherwise free of both.
 import { randomUUID } from 'crypto'
-import { copyFileSync, existsSync, readdirSync, statSync } from 'fs'
+import { copyFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs'
 import { join, extname, basename } from 'path'
 import { fileBlobs } from './fileBlobs'
+import { downsampleImage, isDownsampleable } from './imageDownsample'
 import { createFolder, insertFileRow, mimeFromExt } from './files'
 import type { FbFile } from '@shared/fields'
 
@@ -19,10 +20,10 @@ import type { FbFile } from '@shared/fields'
  * with a fresh UUID, records metadata, and returns the FbFile. Original is
  * left untouched.
  */
-export function ingestFromPath(
+export async function ingestFromPath(
   sourcePath: string,
   opts: { originalName?: string; mimeType?: string; parentId?: string | null } = {}
-): FbFile {
+): Promise<FbFile> {
   if (!existsSync(sourcePath)) {
     throw new Error(`File not found: ${sourcePath}`)
   }
@@ -31,12 +32,23 @@ export function ingestFromPath(
   const ext = extname(original).toLowerCase()
   const id = randomUUID()
   const dest = fileBlobs.locate(id, ext)
-  copyFileSync(sourcePath, dest)
+  // An image is read, shrunk and written; anything else is copied as before.
+  // The copy path stays for non-images because streaming a large video through
+  // memory to achieve nothing would be a poor trade.
+  let sizeBytes = stats.size
+  if (isDownsampleable(opts.mimeType ?? mimeFromExt(ext), ext)) {
+    const src = readFileSync(sourcePath)
+    const shrunk = await downsampleImage(src, opts.mimeType ?? mimeFromExt(ext), ext)
+    writeFileSync(dest, shrunk.bytes)
+    sizeBytes = shrunk.bytes.length
+  } else {
+    copyFileSync(sourcePath, dest)
+  }
   return insertFileRow({
     id,
     originalName: original,
     mimeType: opts.mimeType ?? mimeFromExt(ext),
-    sizeBytes: stats.size,
+    sizeBytes,
     ext,
     createdAt: Date.now(),
     parentId: opts.parentId ?? null

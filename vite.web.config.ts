@@ -56,6 +56,9 @@ const MODULE_SWAPS: Record<string, string> = {
   // scanned-PDF fallback goes through here, so extraction still works for
   // everything whose text is already text.
   'src/main/ocr.ts': 'src/web/worker/main/ocr.ts',
+  // Image downsampling: same rules, different encoder. The desktop has
+  // Electron's nativeImage; a Worker has OffscreenCanvas.
+  'src/main/db/imageDownsample.ts': 'src/web/worker/main/imageDownsample.ts',
   // The Vault: metadata is real, the crypto refuses. Its PBKDF2 and AES-GCM are
   // synchronous and the browser offers them only asynchronously, and a
   // hand-written cipher is not an acceptable way around that.
