@@ -3,6 +3,7 @@ import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
+import { resolveMediaSrc } from '../../lib/fileUrl'
 
 function hostnameOf(url: string): string {
   try {
@@ -65,7 +66,7 @@ export default function ImageWidget({ widget, inline = false }: Props): JSX.Elem
       ) : (
         <>
           <img
-            src={widget.content}
+            src={resolveMediaSrc(widget.content)}
             alt=""
             className="max-h-full max-w-full object-contain select-none"
             draggable={false}

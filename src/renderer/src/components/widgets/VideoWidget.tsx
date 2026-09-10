@@ -3,6 +3,7 @@ import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
+import { resolveMediaSrc } from '../../lib/fileUrl'
 
 function hostnameOf(url: string): string {
   try {
@@ -65,7 +66,7 @@ export default function VideoWidget({ widget, inline = false }: Props): JSX.Elem
       ) : (
         <>
           <video
-            src={widget.content}
+            src={resolveMediaSrc(widget.content)}
             controls
             className="max-h-full max-w-full"
           />
