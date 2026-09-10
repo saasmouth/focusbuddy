@@ -19,6 +19,7 @@ import ShareDialog from '../ShareDialog'
 import type { ShareableKind } from '@shared/types'
 import Icon from '../Icon'
 import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
+import { exceedsSyncLimit, syncLimitLabel } from '@shared/fileSyncLimits'
 
 const ENTRY_MIME = 'application/fb-entry-id'
 
@@ -574,7 +575,22 @@ function ListRow({ entry, ...h }: { entry: FileEntry } & RowHandlers & { onRenam
         </div>
       </td>
       <td className="px-2 py-1.5 text-[var(--ink-50)]">{typeLabel(entry)}</td>
-      <td className="px-2 py-1.5 text-[var(--ink-50)] tabular-nums">{formatSize(entry)}</td>
+      <td className="px-2 py-1.5 text-[var(--ink-50)] tabular-nums whitespace-nowrap">
+        {formatSize(entry)}
+        {/* A file above the cap keeps its bytes on this device forever. It used
+            to look identical to every other file here, and only turned out to be
+            different when someone opened it on another machine and found
+            nothing. Saying so costs one word. */}
+        {entry.kind === 'file' && exceedsSyncLimit(entry.sizeBytes) && (
+          <span
+            className="ml-1.5 text-[10px] uppercase tracking-wide text-amber-600"
+            title={`Over the ${syncLimitLabel()} limit, so this file's contents stay on this device. Its name and type still appear on your other devices.`}
+            data-testid="file-too-large-to-sync"
+          >
+            on this device only
+          </span>
+        )}
+      </td>
       <td className="px-2 py-1.5 text-[var(--ink-50)]">{formatDate(entry.createdAt)}</td>
       <td className="px-2 py-1.5 text-[var(--ink-50)]">{formatDate(entry.updatedAt)}</td>
     </tr>

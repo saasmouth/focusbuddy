@@ -12,6 +12,7 @@ import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
 import { fileSrc } from '../../lib/fileUrl'
+import { exceedsSyncLimit, syncLimitLabel } from '@shared/fileSyncLimits'
 
 interface Props {
   widget: Widget
@@ -251,7 +252,7 @@ export default function FileWidget({ widget, inline = false }: Props): JSX.Eleme
   const url = fileSrc(fileId)
   const body = (
     <div
-      className="h-full w-full bg-[var(--surface-sunken)] overflow-hidden"
+      className="relative h-full w-full bg-[var(--surface-sunken)] overflow-hidden"
       onContextMenu={(e) => {
         if (e.shiftKey) return
         e.preventDefault()
@@ -259,6 +260,17 @@ export default function FileWidget({ widget, inline = false }: Props): JSX.Eleme
         setCtxMenu({ x: e.clientX, y: e.clientY, selectionText: seed })
       }}
     >
+      {file && exceedsSyncLimit(file.sizeBytes) && (
+        // Shown to the owner, on the device that has it. On any other device
+        // the bytes never arrive, so this is the one place the warning can be
+        // seen by someone able to act on it.
+        <div
+          className="absolute top-0 inset-x-0 z-10 px-2 py-1 text-[10px] text-amber-700 bg-amber-500/15 border-b border-amber-500/30"
+          data-testid="file-widget-too-large"
+        >
+          Over {syncLimitLabel()} — stays on this device
+        </div>
+      )}
       <FileRenderer
         kind={kind}
         url={url}

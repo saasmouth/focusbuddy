@@ -1,4 +1,5 @@
 import type { FbNode, NodeKind, SectionLayout, Widget, DocType } from '@shared/types'
+import { MAX_SYNCED_FILE_BYTES } from '@shared/fileSyncLimits'
 
 // Snapshot shapes — the on-the-wire contract between desktop, signal
 // server, and public viewer. Versioned via `_version` so we can evolve
@@ -318,11 +319,11 @@ export async function buildWidgetSnapshot(
   }
 }
 
-// Largest raw file we host on a public link. Matches the server's
-// MAX_LIVE_FILE_BYTES so a file that fits the org-blob path also fits a public
-// link. Files above this share their metadata (name/type/size) with hosted:false
-// and the viewer explains they are too large to preview publicly.
-export const MAX_PUBLIC_FILE_BYTES = 50 * 1024 * 1024
+// Largest raw file we host on a public link. The same limit the server applies
+// to synced bytes, and now literally the same constant -- two copies of one
+// number is one copy too many, and this one already carried a comment saying it
+// had to match.
+export const MAX_PUBLIC_FILE_BYTES = MAX_SYNCED_FILE_BYTES
 
 // Build a metadata snapshot for a raw Drive file. The bytes themselves are
 // uploaded separately (by the shares store, against the minted token) so they
