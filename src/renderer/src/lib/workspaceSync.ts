@@ -370,14 +370,50 @@ async function ensurePersonalBlobUploaded(
   await uploadPersonalBlob(token, id, local.ext, local.mimeType, local.bytes)
 }
 
-/** After a batch applies, fetch bytes for any pulled file this device lacks. */
-async function fetchMissingPersonalBlobs(token: string, items: ServerItem[]): Promise<void> {
+// Files whose rows have arrived but whose bytes have not. Queued rather than
+// fetched inline, and drained a few at a time.
+//
+// The first version of this walked the pulled batch and downloaded every
+// missing file in series, before the cursor advanced. On a first sign-in that
+// batch is the ENTIRE Drive, so it became hundreds of sequential round trips --
+// two to the worker and one to the network, each -- holding the sync cycle open
+// for minutes and competing with everything the person was trying to do. Bytes
+// are not worth that: a file row without its bytes is still a valid row, and
+// the picture can appear a cycle later.
+const awaitingBytes = new Set<string>()
+const MAX_BLOB_FETCHES_PER_CYCLE = 6
+const MAX_BLOB_UPLOADS_PER_CYCLE = 6
+
+/** Note which pulled files still need bytes. Cheap: no IO, just bookkeeping. */
+function queueMissingPersonalBlobs(items: ServerItem[]): void {
   for (const it of items) {
     if (it.itemType !== 'file' || it.deleted || !it.body) continue
     if (it.body.kind !== 'file') continue
-    if (await window.api.workspaceSync.hasLocalFileBytes(it.id)) continue
-    const bytes = await downloadPersonalBlob(token, it.id)
-    if (bytes && bytes.length > 0) await window.api.workspaceSync.writeSyncedFileBytes(it.id, bytes)
+    awaitingBytes.add(it.id)
+  }
+}
+
+/**
+ * Fetch a few queued files' bytes. Bounded per cycle so a large Drive fills in
+ * over a minute or two instead of monopolising one cycle, and deliberately not
+ * on the path that decides the cursor -- byte transfer is not what makes a pull
+ * complete.
+ */
+async function drainPersonalBlobQueue(token: string): Promise<void> {
+  let budget = MAX_BLOB_FETCHES_PER_CYCLE
+  for (const id of [...awaitingBytes]) {
+    if (budget <= 0) return
+    awaitingBytes.delete(id)
+    if (await window.api.workspaceSync.hasLocalFileBytes(id)) continue
+    budget--
+    const bytes = await downloadPersonalBlob(token, id)
+    if (bytes && bytes.length > 0) {
+      await window.api.workspaceSync.writeSyncedFileBytes(id, bytes)
+    } else {
+      // Not there yet -- the owner may not have uploaded it. Try again later
+      // rather than dropping it, but at the back of the queue.
+      awaitingBytes.add(id)
+    }
   }
 }
 
@@ -749,11 +785,18 @@ export async function syncWorkspaceOnce(): Promise<number> {
 
     // ── Push local changes (personal scope) ──
     const pending = await window.api.workspaceSync.pending()
+    let blobUploadBudget = MAX_BLOB_UPLOADS_PER_CYCLE
     for (const u of pending.upserts) {
       const res = await putItem(token, u.id, u.itemType, u.body, u.baseRev)
       if (res.ok) {
         await window.api.workspaceSync.markPushed(u.itemType, u.id, res.rev)
-        if (u.itemType === 'file') await ensurePersonalBlobUploaded(token, u.id, u.body)
+        // Bounded for the same reason as the download side: a first push of a
+        // large Drive would otherwise be one existence check plus one upload per
+        // file, in series, before anything else could happen.
+        if (u.itemType === 'file' && blobUploadBudget > 0) {
+          blobUploadBudget--
+          await ensurePersonalBlobUploaded(token, u.id, u.body)
+        }
       }
       else if (res.conflict) {
         // Server is newer: take its copy (last-write-wins, server wins).
@@ -799,10 +842,9 @@ export async function syncWorkspaceOnce(): Promise<number> {
     // then freeze sync for good, which is worse than losing it, so after a few
     // fruitless attempts the cursor moves on and the failure is surfaced rather
     // than hidden.
-    // Bytes for any file this device has just learned about. Done before the
-    // cursor moves, so a failure here is retried with the batch rather than
-    // leaving a file that exists but can never be opened.
-    if (pulled.items.length > 0) await fetchMissingPersonalBlobs(token, pulled.items)
+    // Note which files still need bytes; the actual downloads happen after the
+    // cursor decision, a few per cycle.
+    if (pulled.items.length > 0) queueMissingPersonalBlobs(pulled.items)
 
     if (failed === 0) {
       applyStalls = 0
@@ -821,6 +863,9 @@ export async function syncWorkspaceOnce(): Promise<number> {
       )
       useSyncStatus.getState().setError(`${failed} item(s) could not be synced to this device.`)
     }
+
+    // A few files' bytes, off the critical path.
+    await drainPersonalBlobQueue(token)
 
     // Cycle verdict: a push that hit a server error still lands here (the pull
     // may have succeeded), so honour any error/offline note from the push loop.
