@@ -1131,6 +1131,17 @@ const api = {
       width: number
       height: number
     } | null> => ipcRenderer.invoke('files:thumbnail', id, opts),
+    // Store a linked image in the Drive. Desktop only: a main-process fetch has
+    // no CORS to satisfy, which a browser tab would not get past for most hosts.
+    ingestUrl: (
+      url: string,
+      parentId?: string | null
+    ): Promise<{ ok: boolean; file?: FbFile; error?: string }> =>
+      ipcRenderer.invoke('files:ingestUrl', url, parentId),
+    internaliseDeskImages: (
+      deskId: string
+    ): Promise<{ stored: number; failed: Array<{ widgetId: string; url: string; error: string }> }> =>
+      ipcRenderer.invoke('files:internaliseDeskImages', deskId),
     // Open a local file in the user's default app (Preview/Word/VS Code/etc.)
     open: (id: string): Promise<{ ok: true } | { ok: false; error: string }> =>
       ipcRenderer.invoke('files:open', id),

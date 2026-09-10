@@ -329,6 +329,7 @@ import {
   moveFileToOrg,
 } from '../db/files'
 import { ingestFromPath, importFolderTree } from '../db/filesFromDisk'
+import { ingestImageFromUrl, internaliseDeskImages } from '../db/filesFromUrl'
 import { extractFileText } from '../fileText'
 import { ingestWorkspaceIntoBrain } from '../brainIngest'
 import { extractDocText, retrieveSources, relatedDocuments } from '../workspaceSearch'
@@ -2136,6 +2137,14 @@ export function registerIpcHandlers(): void {
       })
   )
   ipcMain.handle('files:get', (_e, id: string) => getFile(id))
+  // Store a linked image in the Drive so the desk owns it, rather than
+  // depending on a host and often a login that is not ours.
+  ipcMain.handle('files:ingestUrl', (_e, url: string, parentId?: string | null) =>
+    ingestImageFromUrl(String(url || ''), { parentId: parentId ?? null })
+  )
+  ipcMain.handle('files:internaliseDeskImages', (_e, deskId: string) =>
+    internaliseDeskImages(String(deskId || ''))
+  )
   ipcMain.handle('files:delete', (_e, id: string) => deleteFile(id))
 
   // Document export — the markdown widget (and any rich-text surface) hands us

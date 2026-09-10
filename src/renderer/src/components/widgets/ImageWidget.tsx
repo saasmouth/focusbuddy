@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
@@ -20,6 +20,37 @@ interface Props {
 
 export default function ImageWidget({ widget, inline = false }: Props): JSX.Element {
   const update = useWidgetStore((s) => s.update)
+  // Guards against re-attempting the same widget on every render.
+  const internalisedRef = useRef<string | null>(null)
+
+  // A linked image is stored in the Drive the first time it is rendered, so the
+  // desk owns the picture rather than depending on a host -- and often a login
+  // -- that is not ours. A widget pointing at a chat session renders for the
+  // person who dropped it there and for nobody else, including that same person
+  // in the cloud app or anyone the desk is shared with.
+  //
+  // Best-effort and silent on failure: if the fetch does not work the widget is
+  // exactly as it was, still showing the link, which is no worse than before and
+  // keeps the only clue about where the picture came from. Runs on the desktop
+  // only -- the same fetch from a browser tab is refused by CORS for most hosts,
+  // so the browser keeps rendering the link and inherits the rewrite when it
+  // syncs back.
+  useEffect(() => {
+    const url = (widget.content ?? '').trim()
+    if (!/^https?:\/\//i.test(url)) return
+    if (!window.api?.files?.ingestUrl) return // browser runtime: not available
+    if (internalisedRef.current === widget.id) return
+    internalisedRef.current = widget.id
+    let cancelled = false
+    void window.api.files.ingestUrl(url, null).then((res) => {
+      if (cancelled || !res?.ok || !res.file) return
+      void update(widget.id, { content: `fb-file://${res.file.id}` })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [widget.id, widget.content])
+
   const [editing, setEditing] = useState(!widget.content)
   const [draft, setDraft] = useState(widget.content)
 

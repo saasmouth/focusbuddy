@@ -136,6 +136,8 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'files:extractText': [{ kind: 'string', optional: false, nullable: false }],
   'files:get': [{ kind: 'string', optional: false, nullable: false }],
   'files:ingestPath': [{ kind: 'string', optional: false, nullable: false }],
+  'files:ingestUrl': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: true, nullable: true }],
+  'files:internaliseDeskImages': [{ kind: 'string', optional: false, nullable: false }],
   'files:open': [{ kind: 'string', optional: false, nullable: false }],
   'files:openExternal': [{ kind: 'string', optional: false, nullable: false }],
   'files:read': [{ kind: 'string', optional: false, nullable: false }],
