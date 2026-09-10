@@ -16,7 +16,7 @@
 // columns, and therefore syncs to the desktop as a node the desktop recognises.
 import {
   listNodes, getNode, createNode, updateNode, deleteNode, deleteNodePermanent,
-  restoreNodes, listTrash, restoreTree, moveNodeToOrg
+  restoreNodes, listTrash, restoreTree, moveNodeToOrg, ensureSharedContainer
 } from '../../main/db/nodes'
 import {
   getWidget, listWidgetsByTask, listWidgetsByKind, createWidget,
@@ -167,7 +167,20 @@ export const HANDLERS: Record<string, Handler> = {
   'workspace:markPushed': h((itemType: never, id: string, rev: number) => markPushed(itemType, id, rev)),
   'workspace:applyRemote': h((items: never) => applyRemote(items)),
   'workspace:applyRemoteOrg': h((items: never, orgId: string) => applyRemoteOrg(items, orgId)),
-  'workspace:applyRemoteShared': h((items: never, ownerHandles?: never) => applyRemoteShared(items, ownerHandles)),
+  // The second argument is an options object, NOT the owner handles: it also
+  // carries sharedContainerId, the node every shared desk is parented under.
+  // Passing ownerHandles straight through left that undefined, so a shared desk
+  // arrived with no parent -- and then any widget created on it failed its
+  // foreign key, because the desk it belonged to was not really there.
+  //
+  // The signature check did not catch this. Both functions take two arguments
+  // and both call the second one 'ownerHandles', so names and arity agreed
+  // while the meaning did not. That is the limit of comparing signatures.
+  'workspace:applyRemoteShared': h((items: never, ownerHandles?: Record<string, string>) =>
+    applyRemoteShared(Array.isArray(items) ? items : [], {
+      sharedContainerId: ensureSharedContainer(),
+      ownerHandles: ownerHandles && typeof ownerHandles === 'object' ? ownerHandles : undefined
+    })),
   'workspace:advanceBaseRev': h((itemType: never, id: string, rev: number) => advanceBaseRev(itemType, id, rev)),
   'workspace:getCursor': h(() => getSyncCursor()),
   'workspace:setCursor': h((n: number) => setSyncCursor(n)),

@@ -54,6 +54,62 @@ export function platformNamespaces(): Record<string, Record<string, unknown>> {
       downloadAndInstall: async () => ({ ok: true as const })
     },
 
+    files: {
+      /**
+       * A real thumbnail, generated here.
+       *
+       * The desktop rasterises with native tooling and can preview a PDF, a Word
+       * document or a video frame. The browser can only do what it can decode --
+       * images -- so anything else returns null, which is the contract's own way
+       * of saying "no thumbnail", and the Files view already draws a file-type
+       * icon for it.
+       *
+       * The bytes come through the Service Worker rather than the database,
+       * because that path already exists and already knows the MIME type.
+       */
+      thumbnail: async (
+        id: string,
+        opts?: { size?: number }
+      ): Promise<{ base64: string; mimeType: 'image/png'; width: number; height: number } | null> => {
+        const size = Math.max(16, Math.min(opts?.size ?? 256, 1024))
+        try {
+          const res = await fetch(`/fb-file/${encodeURIComponent(id)}`)
+          if (!res.ok) return null
+          const type = res.headers.get('content-type') ?? ''
+          // SVG decodes, but drawing one to a canvas taints it in some browsers
+          // and it scales perfectly on its own anyway.
+          if (!type.startsWith('image/') || type.includes('svg')) return null
+          const bitmap = await createImageBitmap(await res.blob())
+          // Fit inside the box, never upscale: a 32px icon blown up to 256 looks
+          // worse than the icon the caller would have drawn instead.
+          const scale = Math.min(size / bitmap.width, size / bitmap.height, 1)
+          const width = Math.max(1, Math.round(bitmap.width * scale))
+          const height = Math.max(1, Math.round(bitmap.height * scale))
+          const canvas = new OffscreenCanvas(width, height)
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            bitmap.close()
+            return null
+          }
+          ctx.drawImage(bitmap, 0, 0, width, height)
+          bitmap.close()
+          const blob = await canvas.convertToBlob({ type: 'image/png' })
+          const buf = new Uint8Array(await blob.arrayBuffer())
+          let binary = ''
+          // Chunked: a single spread of a few hundred thousand bytes overflows
+          // the argument limit on some engines.
+          for (let i = 0; i < buf.length; i += 0x8000) {
+            binary += String.fromCharCode(...buf.subarray(i, i + 0x8000))
+          }
+          return { base64: btoa(binary), mimeType: 'image/png', width, height }
+        } catch {
+          // A file with no bytes here yet, or a format this browser will not
+          // decode. Null is the honest answer and the caller handles it.
+          return null
+        }
+      }
+    },
+
     mail: {
       // There is no mailbox here, and saying so is the true answer rather than
       // a stand-in: the desktop returns exactly this shape when no account has

@@ -25,20 +25,39 @@ const realChannels = new Set(Object.values(INVOKE_CHANNELS))
  * parameters before the first optional one and so cannot tell `(a, b?)` from
  * `(a)` -- precisely the confusion this is meant to catch.
  */
+/** Split a parameter list on commas that are not inside <>, (), [] or {}. */
+function splitTopLevel(text: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let current = ''
+  for (const c of text) {
+    if ('<([{'.includes(c)) depth++
+    else if ('>)]}'.includes(c)) depth--
+    if (c === ',' && depth === 0) {
+      parts.push(current.trim())
+      current = ''
+      continue
+    }
+    current += c
+  }
+  if (current.trim()) parts.push(current.trim())
+  return parts.filter(Boolean)
+}
+
 function browserHandlerParams(): Record<string, string[]> {
   const src = readFileSync(resolve(__dirname, '../../src/web/worker/handlers.ts'), 'utf-8')
   const out: Record<string, string[]> = {}
   const re = /'([a-zA-Z]+:[a-zA-Z0-9_-]+)':\s*h\(\s*(?:async\s*)?\(([^)]*)\)/g
   let m: RegExpExecArray | null
   while ((m = re.exec(src))) {
-    // Same identifier extraction the generator uses, so `label?: string` and
-    // `label: string` compare equal -- optionality is not part of the contract
-    // being checked here, position and count are.
-    out[m[1]] = m[2]
-      .split(',')
-      .map((p) => p.trim())
-      .filter(Boolean)
-      .map((p) => /^([A-Za-z_$][\w$]*)/.exec(p)?.[1] ?? p)
+    // Split at paren depth, not on every comma: a parameter typed
+    // Record<string, string> contains one, and splitting there invents an
+    // argument that does not exist. The generator learned this the same way.
+    //
+    // Then the same identifier extraction it uses, so `label?: string` and
+    // `label: string` compare equal -- optionality is not the contract being
+    // checked here, position and count are.
+    out[m[1]] = splitTopLevel(m[2]).map((p) => /^([A-Za-z_$][\w$]*)/.exec(p)?.[1] ?? p)
   }
   return out
 }
