@@ -16,7 +16,7 @@
 // from the desktop and dropped those columns without an error anywhere. The
 // symptom would have been widgets quietly losing their pinned state and
 // deletions failing to stick, seen only after a round trip.
-import { applySchemaAndMigrations } from '../../main/db/migrations'
+import { applyBrowserSchema } from './schemaInit'
 import { initSqlite, openDatabase, type SqliteDb } from './sqlite'
 
 const DB_NAME = 'plexii.db'
@@ -34,7 +34,7 @@ export async function openWorkspaceDatabase(): Promise<void> {
   handle.pragma('foreign_keys = ON')
   // WAL is deliberately not set: the OPFS pool VFS is single-connection, so WAL
   // buys nothing here and its sidecar files are not free in that VFS.
-  applySchemaAndMigrations(handle as never)
+  applyBrowserSchema(handle)
   db = handle
 }
 

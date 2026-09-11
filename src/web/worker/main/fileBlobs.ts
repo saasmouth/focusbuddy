@@ -31,7 +31,11 @@ export const fileBlobs = {
       // A fresh writable truncates, so a rewrite replaces rather than overlays --
       // which matters for writeSyncedFileBytes landing a shorter version of a
       // file that already exists here.
-      await writable.write(bytes)
+      // The DOM types accept only ArrayBuffer-backed views, excluding
+      // SharedArrayBuffer. Nothing here can produce one: the pool VFS was
+      // chosen precisely so cross-origin isolation is not required, and
+      // without COOP/COEP SharedArrayBuffer is unavailable in the first place.
+      await writable.write(bytes as Uint8Array<ArrayBuffer>)
     } finally {
       await writable.close()
     }

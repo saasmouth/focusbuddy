@@ -2,14 +2,17 @@
 //
 // The desktop keeps these in a JSON file beside the database and gates the
 // Attention layer on them. The cloud runtime reports the feature off, and that
-// is a real answer rather than a placeholder: openWorkspaceDatabase does not
-// call ensureWorkItemSchema, because that function reaches for preferences and
-// an active org the browser has not wired yet. Claiming the feature were on
-// would mean nodes.ts taking work-item code paths against tables that do not
-// exist here.
+// is a real answer rather than a placeholder.
 //
-// Turning it on is a matter of porting the preference file and the org
-// attestation to server-held state, at which point these stop being constants.
+// What is missing is the preferences, not the tables: applySchemaAndMigrations
+// calls ensureWorkItemSchema, so wi_local, wi_deliveries and the work_item
+// columns on nodes are all present in a browser database. The desktop reads the
+// gate from a JSON file beside the database, and a tab has no such file -- so
+// there is nowhere to record a per-user answer and nowhere to hold the per-org
+// attestation that the migration requires.
+//
+// Turning it on means porting both to server-held state, at which point these
+// stop being constants. Until then they return the truth: off.
 export function isWorkItemsEnabled(): boolean {
   return false
 }

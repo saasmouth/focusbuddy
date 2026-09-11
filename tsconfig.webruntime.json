@@ -1,0 +1,30 @@
+{
+  // The browser runtime (Worker + its API shim) was built by Vite but checked by
+  // nothing: neither tsconfig.node.json nor tsconfig.web.json includes src/web,
+  // and esbuild strips types without reading them. That is how a handler could
+  // call a db function with the wrong argument shape and still ship -- the
+  // reason tests/unit/webHandlerChannels.test.ts had to exist at all. This
+  // project closes the hole; the test still guards what types cannot see
+  // (channel names, and arguments passed in the wrong order at the same arity).
+  "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
+  "include": [
+    "src/web/**/*",
+    "src/shared/**/*",
+    "src/main/**/*",
+    "src/renderer/src/**/*",
+    "src/preload/index.d.ts"
+  ],
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "moduleResolution": "bundler",
+    "types": ["vite/client"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "paths": {
+      "@shared/*": ["./src/shared/*"],
+      "@renderer/*": ["./src/renderer/src/*"],
+      "@office": ["./src/renderer/src/office/index.ts"],
+      "@runtime": ["./src/renderer/src/runtime/index.ts"]
+    }
+  }
+}

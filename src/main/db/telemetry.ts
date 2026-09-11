@@ -3,7 +3,6 @@
 // counter, and shapes them into a snapshot the renderer reports to the signal
 // server. Aggregate numbers only, never titles or content.
 
-import { app } from 'electron'
 import { getDb } from './database'
 import { estimateCostMicros } from '../ai/aiCost'
 
@@ -151,7 +150,7 @@ export function collectTelemetry(): TelemetrySnapshot {
   }
 
   return {
-    appVersion: app.getVersion(),
+    appVersion: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev',
     platform: process.platform === 'darwin' ? 'mac' : process.platform === 'win32' ? 'windows' : process.platform,
     widgetTotal,
     widgetsByKind,

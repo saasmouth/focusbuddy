@@ -68,7 +68,7 @@ runtimes; a kind marked ✅ behaves identically.
 | agent | ❌ | Agents execute on the machine — filesystem, shell, local models. **Chosen**: running them on our servers is a different product with different trust. |
 | webhook | ❌ | Outbound POSTs go through the main process to sidestep CORS; a tab would be refused by many endpoints. *Not yet* — a relay through Signal restores it. |
 | inbound-hook | ❌ | Already server-backed: it registers a hook with Signal, which relays payloads over the socket. Only the `webhooks` channel is unserved. *Not yet* |
-| attention | ❌ | The Attention layer needs preferences and an active org the cloud runtime has not wired. *Not yet* |
+| attention | ❌ | Not for want of tables — `applySchemaAndMigrations` creates them here too. The gate is the problem: the desktop reads it from a JSON file beside the database and holds the per-org migration attestation there, and a tab has neither. *Not yet* — both must move to server-held state. |
 
 ---
 
@@ -94,17 +94,27 @@ runtimes; a kind marked ✅ behaves identically.
 | Open a file in its native app / reveal in Finder | ❌ | **Cannot** |
 | Import a folder tree | ❌ | A tab is never given a filesystem path. Dropping files works. **Cannot** |
 | Storing a linked image as a real file | ❌ | The desktop fetches and stores it; a tab is refused by CORS. Once the desktop stores it, the cloud shows it. **Cannot** (in the tab), solved by the pair. |
+| **PlexiProjects** (plans, Gantt, dependencies, baselines, resource levelling) | ⚠️ | Works. **Export to Microsoft Project XML** goes through a native save dialog — *Not yet*, a browser download restores it. Its "open" and "reveal in Finder" buttons are the native ones above. |
+| **PlexiBrain — knowledge** | ⚠️ | Entries are created, edited, searched by keyword and synced. **Semantic search** is not: it embeds through a local model on `localhost:11434` — from a tab, the *viewer's* machine — or OpenAI directly with a key a browser must never hold. Entries saved here are embedded the next time the desktop opens PlexiBrain, which is what `knowledge:reindex` is for. **Chosen** |
+| **PlexiBrain — memory** | ⚠️ | Remembering, listing and forgetting work. **Extracting memories from documents** runs through the same local model. **Chosen** |
+| **AI chat threads** | ⚠️ | The thread *store* is complete: conversations, messages, modes, the web-search toggle and desk links are all created, read and synced. **Sending a message to the assistant** is not served — `chat:sendStream` streams over a per-request channel (`chat:stream:<id>`) and the Worker bridge carries only a fixed set of subscriptions. *Not yet* — a streaming bridge restores it. |
+| **Focus sessions, energy log, habit garden** | ✅ | |
+| **Time blocks / calendar** | ✅ | Repeating series materialise on read, as on the desktop. |
+| **Dashboard layouts** | ✅ | |
+| **Connected apps** | ✅ | |
+| **Signals** (the arrival router's record) | ✅ | |
+| **Notifications** | ✅ | The durable substrate, same store. |
 | App auto-update | ➖ | Not applicable — the browser app is whatever was last deployed. |
-| Onboarding completion remembered | ⚠️ | Reappears on reload. *Not yet* |
+| Onboarding completion remembered | ✅ | `onboarding:record` writes the same `usage_counters` rows as the desktop. |
 
 ---
 
 ## The measured gap
 
-The browser serves **107 of the ~527** channels the desktop exposes. That
-number sounds worse than it is: a full session — sign-up, desk creation, widget
-editing, file upload, sharing — reaches for exactly **one** channel it does not
-have, `mail:getAccount`, and that one cannot exist.
+The browser serves **197 of the 529** channels the desktop exposes, up from 141.
+That number sounds worse than it is: a full session — sign-up, desk creation,
+widget editing, file upload, sharing — reaches for exactly **one** channel it
+does not have, `mail:getAccount`, and that one cannot exist.
 
 The rest of the unserved channels belong to features nobody touched in that
 session. They are reached in order of what people actually use.
@@ -127,3 +137,12 @@ than ❌: it calls `exportDoc`, but only to export.
 
 Regenerate the raw mapping with the query in this file's history, or check any
 row by grepping the component for `api.<namespace>.`.
+
+The counts are measured, not estimated: `Object.keys(HANDLERS).length` against
+the channel map derived from the preload. Two tests hold this page honest —
+`tests/unit/webHandlerChannels.test.ts` rejects a served channel that is not
+real or whose arguments disagree with the desktop's, and
+`tests/unit/webNewChannelsRun.test.ts` calls each served channel against a real
+migrated browser database and requires every namespace to be *wholly* served or
+to name the reason a channel is missing. A ⚠️ that says "not served" therefore
+has a matching entry in that test, or the suite fails.

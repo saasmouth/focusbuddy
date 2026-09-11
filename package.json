@@ -12,7 +12,7 @@
     "start": "node scripts/dev.cjs preview",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
-    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web && npm run typecheck:webruntime",
     "lint:hooks": "node scripts/check-hooks.mjs",
     "rebuild": "electron-builder install-app-deps",
     "dist": "npm run build && electron-builder --mac --publish never",
@@ -42,7 +42,8 @@
     "audit": "node ../plexii-probe/bin/probe.mjs",
     "web:dev": "vite --config vite.web.config.ts",
     "web:build": "node scripts/derive-web-channel-map.cjs && vite build --config vite.web.config.ts",
-    "web:preview": "vite preview --config vite.web.config.ts --port 5180"
+    "web:preview": "vite preview --config vite.web.config.ts --port 5180",
+    "typecheck:webruntime": "tsc --noEmit -p tsconfig.webruntime.json"
   },
   "engines": {
     "node": ">=20.0.0 <23.0.0"

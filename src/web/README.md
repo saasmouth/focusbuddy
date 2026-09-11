@@ -143,17 +143,22 @@ OpenAI, Tenor, Pexels and remove.bg still refuse, and will until each has a
 proxy of its own. Storing a key the server cannot use on the caller's behalf
 would move the risk somewhere new without buying anything.
 
-**The Attention layer is off.** `ensureWorkItemSchema` needs preferences and an
-active org that the browser has not wired yet; claiming it were on would send
-`nodes.ts` down work-item paths against tables that do not exist here.
+**The Attention layer is off.** Not for want of tables --
+`applySchemaAndMigrations` calls `ensureWorkItemSchema`, so a browser database
+has `wi_local`, `wi_deliveries` and the `work_item` columns on `nodes`. What is
+missing is the gate: the desktop reads it from a JSON file beside the database
+and holds the per-org migration attestation there too, and a tab has neither.
+Turning it on means porting both to server-held state.
 
 **Context Engine events are not emitted.** The desktop's handlers emit them
 alongside the write; these call the same db functions without that step. It does
 not affect what is written or synced. The list is `PARITY` in
 `src/web/worker/handlers.ts`.
 
-**Onboarding does not persist**, because the channel that stores its completion
-is not served yet -- so it reappears on reload.
+**Onboarding persists.** `onboarding:record` is served, writing the same
+`usage_counters` rows as the desktop. (`db/telemetry.ts` reads the app version
+from the `__APP_VERSION__` define rather than Electron's `app`, which is what
+lets it load here at all.)
 
 **A claim link needs somewhere to point.** `VITE_CLOUD_APP_URL` is the address
 of the deployed browser app, and with it unset the sharing controls disable

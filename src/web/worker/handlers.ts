@@ -87,6 +87,27 @@ import {
   getSyncCursorShared, setSyncCursorShared, stampSharedDesk, adoptSharedDesk,
   pruneSharedDesk, listLocalSharedRoots
 } from '../../main/db/workspaceSync'
+import { createConversation as createAiChatConversation, setConversationMode as setAiChatConversationMode, appendMessage as appendAiChatMessage, deleteConversation as deleteAiChatConversation, getConversation as getAiChatConversation, linkDesk as linkAiChatDesk, listConversations as listAiChatConversations, renameConversation as renameAiChatConversation, setConversationWebSearch as setAiChatConversationWebSearch, setMessageApplied as setAiChatMessageApplied } from '../../main/db/aiChat'
+import { createApp, deleteApp, getApp, listApps, updateApp } from '../../main/db/apps'
+import { deleteDashboardLayout, getDashboardLayout, setDashboardLayout } from '../../main/db/dashboardLayouts'
+import { deleteEmbedding } from '../../main/db/embeddings'
+import { currentEnergy, logEnergy, recentEnergy } from '../../main/db/energy'
+import { completeFocusSession, listRecentSessions, startFocusSession } from '../../main/db/focusSessions'
+import { createKnowledge, deleteKnowledge, getKnowledge, listKnowledge, updateKnowledge } from '../../main/db/knowledge'
+import { addMemory, forgetMemory, listMemories } from '../../main/db/memory'
+import { addDependency, captureBaseline, getProjectPlan, levelResources, listBaselines, listProjectSummaries, loadProjectCalendar, removeDependency, rescheduleProject, saveProjectCalendar, setDependency, setTaskPlan } from '../../main/db/projectPlan'
+import { listSignals, markPrompted, matchState, recordSignal, recordOutcome as recordSignalOutcome } from '../../main/db/signals'
+import { createTimeBlock, deleteTimeBlock, updateTimeBlock, listBlocksInRange, materializeRecurringBlocks } from '../../main/db/timeBlocks'
+import { postNotification } from '../../main/notifications/substrate'
+import { setPeopleDirectory } from '../../main/peopleDirectory'
+import { setOnboardingSummary } from '../../main/db/telemetry'
+import type { PlexiAppDraft, PlexiAppPatch } from '@shared/apps'
+import type { KnowledgeDraft, KnowledgePatch } from '@shared/knowledge'
+import type { DepType, PlanTaskPatch } from '@shared/projects'
+import type { AiChatConversationContext, AiChatMode, ActionProposal, AppliedProposal, ChatMentionRef, ChatQuestion, ChatSource, DashboardCardKind, DashboardLayoutInput, EnergyLevel, FocusSessionCompletePatch, FocusSessionStartDraft, MemoryKind, StoredTrace, TimeBlockDraft, TimeBlockPatch } from '@shared/types'
+import type { WorkingCalendar } from '@shared/workingCalendar'
+import type { PostInput } from '../../main/notifications/substrate'
+import type { DirectoryPerson } from '../../main/peopleDirectory'
 
 /**
  * Behaviour the desktop's handlers have and these do not, stated once so it can
@@ -104,7 +125,9 @@ export const PARITY: ReadonlyArray<{ channel: string; missing: string }> = [
   { channel: 'tables:update', missing: 'table-rename propagation to the desk widget' },
   { channel: 'documents:create', missing: 'embedding the new document for semantic search' },
   { channel: 'documents:update', missing: 'a named snapshot, and re-embedding' },
-  { channel: 'documents:delete', missing: 'answer-cache invalidation' }
+  { channel: 'documents:delete', missing: 'answer-cache invalidation' },
+  { channel: 'knowledge:create', missing: 'embedding the new entry for semantic search' },
+  { channel: 'knowledge:update', missing: 're-embedding the edited entry' }
 ]
 
 // `_origin` appears on several write handlers and is deliberately unused: the
@@ -369,7 +392,125 @@ export const HANDLERS: Record<string, Handler> = {
   'workspace:hasLocalFileBytes': h((id: string) => hasFileBytes(String(id || ''))),
   'workspace:filesMissingBytes': h((limit?: number) => filesMissingBytes(typeof limit === 'number' ? limit : 8)),
   'workspace:writeSyncedFileBytes': h((id: string, bytes: Uint8Array) =>
-    writeSyncedFileBytes(String(id || ''), bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)))
+    writeSyncedFileBytes(String(id || ''), bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes))),
+
+  // ── AI chat threads ──
+  'aiChat:appendMessage': h((conversationId: string, message: {
+    role: 'user' | 'assistant' | 'system'
+    content: string
+    ts: number
+    proposals?: ActionProposal[]
+    applied?: Record<string, AppliedProposal>
+      sources?: ChatSource[]
+      question?: ChatQuestion | null
+      trace?: StoredTrace | null
+      mentions?: ChatMentionRef[]
+    }) => appendAiChatMessage(conversationId, message)),
+  'aiChat:createConversation': h((input: {
+    taskId: string | null
+    title?: string
+    context?: AiChatConversationContext | null
+    mode?: AiChatMode
+    webSearch?: boolean
+  }) => createAiChatConversation(input)),
+  'aiChat:setConversationMode': h((id: string, mode: AiChatMode) => setAiChatConversationMode(id, mode)),
+  'aiChat:deleteConversation': h((id: string) => deleteAiChatConversation(id)),
+  'aiChat:getConversation': h((id: string) => getAiChatConversation(id)),
+  'aiChat:linkDesk': h((conversationId: string, taskId: string, makePrimary?: boolean) => linkAiChatDesk(conversationId, taskId, makePrimary)),
+  'aiChat:listConversations': h(() => listAiChatConversations()),
+  'aiChat:renameConversation': h((id: string, title: string) => renameAiChatConversation(id, title)),
+  'aiChat:setConversationWebSearch': h((id: string, on: boolean) => setAiChatConversationWebSearch(id, !!on)),
+  'aiChat:setMessageApplied': h((conversationId: string, messageId: string, applied: Record<string, AppliedProposal>) => setAiChatMessageApplied(messageId, conversationId, applied)),
+
+  // ── Connected apps registry ──
+  'apps:create': h((draft: PlexiAppDraft) => createApp(draft)),
+  'apps:delete': h((id: string) => deleteApp(id)),
+  'apps:get': h((id: string) => getApp(id)),
+  'apps:list': h(() => listApps()),
+  'apps:update': h((id: string, patch: PlexiAppPatch) => updateApp(id, patch)),
+
+  // ── Dashboard layouts ──
+  'dashboard:getLayout': h((key: string) => getDashboardLayout(key)),
+  'dashboard:resetLayout': h((key: string) => deleteDashboardLayout(key)),
+  'dashboard:setLayout': h((key: string, input: DashboardCardKind[] | DashboardLayoutInput) => setDashboardLayout(key, input)),
+
+  // ── Energy log ──
+  'energy:current': h(() => currentEnergy()),
+  'energy:log': h((level: EnergyLevel) => logEnergy(level)),
+  'energy:recent': h((hours: number) => recentEnergy(hours)),
+
+  // ── Focus sessions ──
+  'focus:complete': h((id: string, patch: FocusSessionCompletePatch) => completeFocusSession(id, patch)),
+  'focus:recent': h((limit: number, taskId?: string | null) => listRecentSessions(limit, taskId ?? null)),
+  'focus:start': h((draft: FocusSessionStartDraft) => startFocusSession(draft)),
+
+  // ── Knowledge base (PlexiBrain entries) ──
+  'knowledge:get': h((id: string) => getKnowledge(id)),
+  'knowledge:list': h(() => listKnowledge()),
+  // Saved and synced, but not embedded here -- see PARITY. The desktop's
+  // knowledge:reindex backfills any entry that lacks a vector.
+  'knowledge:create': h((draft: KnowledgeDraft) => createKnowledge(draft)),
+  'knowledge:update': h((id: string, patch: KnowledgePatch) => updateKnowledge(id, patch)),
+  'knowledge:delete': h((id: string) => {
+    deleteEmbedding('knowledge', id)
+    return deleteKnowledge(id)
+  }),
+
+  // ── Remembered facts ──
+  'memory:forget': h((id: string) => forgetMemory(id)),
+  'memory:list': h(() => listMemories()),
+  'memory:remember': h((input: { kind: MemoryKind; text: string; subject?: string; due?: string }) => addMemory({ ...input, source: 'user', confidence: 1 })),
+
+  // ── PlexiProjects: plans, schedule, dependencies, baselines ──
+  'projects:addDep': h((predId: string, succId: string, type?: DepType, lag?: number) => addDependency(predId, succId, type ?? 'FS', lag ?? 0)),
+  'projects:captureBaseline': h((projectId: string, name: string) => captureBaseline(projectId, name)),
+  'projects:getCalendar': h((projectId: string) => loadProjectCalendar(projectId)),
+  'projects:level': h((projectId: string) => levelResources(projectId)),
+  'projects:list': h(() => listProjectSummaries()),
+  'projects:listBaselines': h((projectId: string) => listBaselines(projectId)),
+  'projects:plan': h((projectId: string) => getProjectPlan(projectId)),
+  'projects:removeDep': h((predId: string, succId: string) => removeDependency(predId, succId)),
+  'projects:reschedule': h((projectId: string) => rescheduleProject(projectId)),
+  'projects:setCalendar': h((projectId: string, cal: WorkingCalendar) => saveProjectCalendar(projectId, cal)),
+  'projects:setDep': h((predId: string, succId: string, type: DepType, lag: number) => setDependency(predId, succId, type, lag)),
+  'projects:setTaskPlan': h((taskId: string, patch: PlanTaskPatch) => setTaskPlan(taskId, patch)),
+
+  // ── Time blocks ──
+  // Materialising first is the desktop's behaviour, not an extra: a repeating
+  // series only exists as rows once something reads the calendar.
+  'timeblocks:list': h((fromMs: number, toMs: number) => {
+    materializeRecurringBlocks()
+    return listBlocksInRange(fromMs, toMs)
+  }),
+  'timeblocks:create': h((draft: TimeBlockDraft) => createTimeBlock(draft)),
+  'timeblocks:delete': h((id: string, scope?: 'one' | 'series') => deleteTimeBlock(id, scope ?? 'one')),
+  'timeblocks:update': h((id: string, patch: TimeBlockPatch) => updateTimeBlock(id, patch)),
+
+  // ── Signals: the arrival router's record of what came in ──
+  'signals:record': h((input: { kind: string; targetKind?: string; targetRef?: string; payload?: string }) =>
+    recordSignal({
+      kind: String(input?.kind ?? ''),
+      targetKind: input?.targetKind ?? null,
+      targetRef: input?.targetRef ?? null,
+      payload: input?.payload ?? null
+    })),
+  'signals:list': h((sinceMs: number) => listSignals(Number(sinceMs) || 0)),
+  'signals:matchState': h((signalId: string, itemId: string) => matchState(String(signalId), String(itemId))),
+  'signals:markPrompted': h((signalId: string, itemId: string, confidence: number) =>
+    markPrompted(String(signalId), String(itemId), Number(confidence) || 0)),
+  'signals:outcome': h((signalId: string, itemId: string, outcome: string) =>
+    recordSignalOutcome(String(signalId), String(itemId), String(outcome))),
+
+  // ── Onboarding progress ──
+  // Pure db: it writes usage_counters, which is why telemetry.ts no longer
+  // needs electron. Without this the walkthrough reappeared on every reload.
+  'onboarding:record': h((summary: { coreCompleted: boolean; modulesCompleted: number }) =>
+    setOnboardingSummary(summary)),
+
+  // ── Notifications, and the people directory the renderer loads for @-mentions ──
+  'notifications:post': h((input: PostInput) => postNotification(getDb() as never, input)),
+  'people:setDirectory': h((people: DirectoryPerson[]) =>
+    setPeopleDirectory(Array.isArray(people) ? people : [])),
 }
 
 /** Channels this runtime answers. The renderer asks before it calls. */

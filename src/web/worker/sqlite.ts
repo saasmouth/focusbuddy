@@ -20,7 +20,16 @@
 // exec, transaction, pragma, close. It uses no iterate, no pluck, no custom
 // functions and no extensions, so the surface below is complete rather than a
 // subset that will surprise someone later.
-import sqlite3InitModule from '@sqlite.org/sqlite-wasm'
+import sqlite3InitModuleUntyped from '@sqlite.org/sqlite-wasm'
+
+// The package declares `init(): Promise<Sqlite3Static>`, but the runtime is an
+// Emscripten module factory and does accept the standard config object -- which
+// is how the noisy default logging gets silenced below. The shipped types are
+// simply incomplete, so the real signature is restored here rather than the
+// call being bent to fit them.
+const sqlite3InitModule = sqlite3InitModuleUntyped as unknown as (
+  config?: { print?: (msg: string) => void; printErr?: (msg: string) => void }
+) => Promise<Awaited<ReturnType<typeof sqlite3InitModuleUntyped>>>
 
 type Params = unknown[]
 type Row = Record<string, unknown>
