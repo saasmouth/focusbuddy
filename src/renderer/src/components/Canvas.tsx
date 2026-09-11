@@ -1,3 +1,4 @@
+import { patternOffset, patternScale } from '../lib/deskPattern'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { effectiveShortcutToKind } from '../lib/keymap'
 import { quickAddAllowed, deepActiveElement } from '../lib/quickAddFocus'
@@ -206,8 +207,17 @@ export default function Canvas(): JSX.Element {
   const focusOn = useWidgetStore((s) => s.focusOn)
   const centerToken = useWidgetStore((s) => s.centerToken)
   const zoom = useWidgetStore((s) => s.zoom)
-  // Quantised zoom for the paper pattern only — see the desk-paper style vars.
-  const patternZoom = Math.max(0.05, Math.round(zoom * 20) / 20)
+  // The paper pattern scales with the camera exactly. It used to be quantised
+  // to 5% steps to spare the paper a repaint on every zoom frame, but a cell
+  // size is a geometry, not a shade: a 2.5% error is invisible on a single cell
+  // and compounds with distance, so the whole dot field jumped ~70px across a
+  // 1400px viewport each time the camera crossed a step. On a Mac trackpad a
+  // pinch arrives as ctrl+wheel during ordinary two-finger scrolling, so those
+  // steps were being crossed while the user believed they were only panning.
+  // The repaint it was avoiding is now avoided by geometry instead: the layer's
+  // inset is a constant, so a zoom changes only this layer's paint, never its
+  // layout, and panning still moves nothing but a composited transform.
+  const patternZoom = patternScale(zoom)
   const panX = useWidgetStore((s) => s.panX)
   const panY = useWidgetStore((s) => s.panY)
   const setZoom = useWidgetStore((s) => s.setZoom)
@@ -2208,15 +2218,11 @@ export default function Canvas(): JSX.Element {
             {
               overscrollBehavior: 'none',
               cursor: grabbing ? 'grabbing' : spaceReady ? 'grab' : undefined,
-              // Cell size + coverage inset for the .desk-pattern-layer child.
-              // 168 is the LCM of the 42px dot and 56px grid cells, so a
-              // translation wrapped to one 168px super-tile is invisible for
-              // both patterns. The pattern tracks zoom in 5% steps
-              // (patternZoom) so a zoom gesture repaints the paper a handful
-              // of times instead of every frame — the ≤5% scale lag during
-              // the gesture is imperceptible, and the final settle is exact.
-              '--fb-desk-zoom': patternZoom,
-              '--fb-desk-tile': `${168 * patternZoom}px`
+              // Cell size for the .desk-pattern-layer child. Its coverage
+              // inset is a constant in the stylesheet (one super-tile at
+              // maximum zoom), so this variable changes a paint and never a
+              // layout.
+              '--fb-desk-zoom': patternZoom
             } as React.CSSProperties
           }
         >
@@ -2231,11 +2237,7 @@ export default function Canvas(): JSX.Element {
             aria-hidden
             className="desk-pattern-layer"
             style={{
-              transform: (() => {
-                const tile = 168 * patternZoom
-                const wrap = (v: number): number => ((v % tile) + tile) % tile
-                return `translate(${wrap(panX)}px, ${wrap(panY)}px)`
-              })()
+              transform: `translate(${patternOffset(panX, zoom)}px, ${patternOffset(panY, zoom)}px)`
             }}
           />
 

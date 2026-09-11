@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useWidgetStore } from '../stores/widgets'
 import { computeSectionFrame, effectiveLayout } from '../lib/sectionGeometry'
+import { mappedBox, mappedScale, viewportIndicator } from '../lib/minimapGeometry'
 import WidgetPreview from './WidgetPreview'
 import Icon from './Icon'
 
 const PANEL_W = 160
 const PANEL_H = 100
 const PADDING = 5
+const PANEL = { width: PANEL_W, height: PANEL_H, padding: PADDING }
 
 // Always-present minimap button in the canvas bottom-right.
 // Click the icon to pin the panel open; panel also auto-opens for 2.2s
@@ -100,41 +102,57 @@ export default function CanvasMinimapFAB(): JSX.Element {
     [widgets]
   )
 
-  const bbox = useMemo(() => {
+  // Children indexed once per widget change. The section frames below used to
+  // scan the whole widget list per section, which is quadratic on exactly the
+  // desks this panel is meant to help with.
+  const childrenBySection = useMemo(() => {
+    const byParent = new Map<string, typeof widgets>()
+    for (const w of widgets) {
+      if (w.parentSectionId === null) continue
+      const list = byParent.get(w.parentSectionId)
+      if (list) list.push(w)
+      else byParent.set(w.parentSectionId, [w])
+    }
+    return byParent
+  }, [widgets])
+
+  const sizeOf = useCallback(
+    (w: (typeof widgets)[number]): { width: number; height: number } => {
+      if (w.kind !== 'section') return { width: w.width, height: w.height }
+      const fr = computeSectionFrame(childrenBySection.get(w.id) ?? [], effectiveLayout(w.layout))
+      return { width: fr.width, height: fr.height }
+    },
+    [childrenBySection]
+  )
+
+  // What the desk contains. Deliberately not a function of the camera, so
+  // panning never re-walks the widget list.
+  const contentBox = useMemo(() => {
     if (visible.length === 0) return null
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const w of visible) {
-      let width = w.width, height = w.height
-      if (w.kind === 'section') {
-        const ch = widgets.filter((c) => c.parentSectionId === w.id)
-        const fr = computeSectionFrame(ch, effectiveLayout(w.layout))
-        width = fr.width; height = fr.height
-      }
+      const { width, height } = sizeOf(w)
       minX = Math.min(minX, w.x); minY = Math.min(minY, w.y)
       maxX = Math.max(maxX, w.x + width); maxY = Math.max(maxY, w.y + height)
     }
-    const vw = canvasViewport.w / zoom, vh = canvasViewport.h / zoom
-    return { minX: minX - vw / 2, minY: minY - vh / 2, maxX: maxX + vw / 2, maxY: maxY + vh / 2 }
-  }, [visible, widgets, canvasViewport, zoom])
+    return { minX, minY, maxX, maxY }
+  }, [visible, sizeOf])
 
-  const scale = useMemo(() => {
-    if (!bbox) return 1
-    const sx = (PANEL_W - 2 * PADDING) / Math.max(1, bbox.maxX - bbox.minX)
-    const sy = (PANEL_H - 2 * PADDING) / Math.max(1, bbox.maxY - bbox.minY)
-    return Math.min(sx, sy)
-  }, [bbox])
+  const camera = useMemo(
+    () => ({
+      panX, panY, zoom,
+      viewportWidth: canvasViewport.w,
+      viewportHeight: canvasViewport.h
+    }),
+    [panX, panY, zoom, canvasViewport]
+  )
 
-  const viewportRect = useMemo(() => {
-    if (!bbox) return null
-    const wx = -panX / zoom, wy = -panY / zoom
-    const ww = canvasViewport.w / zoom, wh = canvasViewport.h / zoom
-    return {
-      x: PADDING + (wx - bbox.minX) * scale,
-      y: PADDING + (wy - bbox.minY) * scale,
-      w: ww * scale,
-      h: wh * scale
-    }
-  }, [bbox, panX, panY, zoom, canvasViewport, scale])
+  const bbox = useMemo(() => mappedBox(contentBox, camera), [contentBox, camera])
+  const scale = useMemo(() => mappedScale(bbox, PANEL), [bbox])
+  const viewportRect = useMemo(
+    () => viewportIndicator(bbox, camera, scale, PANEL),
+    [bbox, camera, scale]
+  )
 
   const draggingRef = useRef(false)
   useEffect(() => {
@@ -216,12 +234,7 @@ export default function CanvasMinimapFAB(): JSX.Element {
                 onMouseMove={(e) => { if (draggingRef.current) panFromPoint(e) }}
               >
                 {bbox && visible.map((w) => {
-                  let width = w.width, height = w.height
-                  if (w.kind === 'section') {
-                    const ch = widgets.filter((c) => c.parentSectionId === w.id)
-                    const fr = computeSectionFrame(ch, effectiveLayout(w.layout))
-                    width = fr.width; height = fr.height
-                  }
+                  const { width, height } = sizeOf(w)
                   const x = PADDING + (w.x - bbox.minX) * scale
                   const y = PADDING + (w.y - bbox.minY) * scale
                   const ww = Math.max(2, width * scale)
@@ -247,9 +260,8 @@ export default function CanvasMinimapFAB(): JSX.Element {
                 })}
                 {viewportRect && (
                   <rect
-                    x={Math.max(0, viewportRect.x)} y={Math.max(0, viewportRect.y)}
-                    width={Math.min(PANEL_W - Math.max(0, viewportRect.x), viewportRect.w)}
-                    height={Math.min(PANEL_H - Math.max(0, viewportRect.y), viewportRect.h)}
+                    x={viewportRect.x} y={viewportRect.y}
+                    width={viewportRect.w} height={viewportRect.h}
                     fill="rgb(var(--accent) / 0.12)" stroke="rgb(var(--accent))"
                     strokeWidth={1.25} rx={2} pointerEvents="none" />
                 )}

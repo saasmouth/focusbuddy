@@ -19,10 +19,15 @@ const read = (f: string): string => readFileSync(join(C, f), 'utf8')
 describe('preview surfaces are decorative to assistive technology', () => {
   it('WidgetPreview hides its whole subtree', () => {
     const src = read('WidgetPreview.tsx')
-    const wrapper = src.slice(src.indexOf('export default function WidgetPreview'))
-    expect(wrapper.slice(0, 400)).toContain('aria-hidden="true"')
+    const impl = src.indexOf('function WidgetPreviewImpl')
+    expect(impl, 'the preview implementation has been renamed').toBeGreaterThan(-1)
+    expect(src.slice(impl, impl + 400)).toContain('aria-hidden="true"')
     // The switch must stay behind the wrapper, or new branches leak again.
     expect(src).toContain('function renderPreview(')
+    // The export is that implementation memoised -- nothing may be exported
+    // that bypasses the aria-hidden wrapper checked above.
+    expect(src).toMatch(/const WidgetPreview = memo\(WidgetPreviewImpl\)/)
+    expect(src).toContain('export default WidgetPreview')
   })
 
   it('DeskMiniature hides both its rendered and empty states', () => {

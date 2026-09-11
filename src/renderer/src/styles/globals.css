@@ -386,8 +386,14 @@ body {
   }
   .desk-pattern-layer {
     position: absolute;
-    top: calc(-1 * var(--fb-desk-tile, 200px));
-    left: calc(-1 * var(--fb-desk-tile, 200px));
+    /* One 168px super-tile at maximum zoom (Z_MAX = 2). The pan transform is
+       wrapped to one super-tile at the CURRENT zoom, which is never larger
+       than this, so the layer always covers the surface however far it has
+       been translated. Holding the inset constant is what lets the cell size
+       follow the camera exactly: --fb-desk-zoom changes this layer's paint
+       and never its layout. */
+    top: -336px;
+    left: -336px;
     right: 0;
     bottom: 0;
     pointer-events: none;

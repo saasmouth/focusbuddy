@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { Widget } from '@shared/types'
 import { WIDGET_CATALOG } from '../lib/widgetCatalog'
 import Icon from './Icon'
@@ -61,13 +62,24 @@ function Fallback({ widget, icon, label }: { widget: Widget; icon?: string; labe
  * document text, URLs, prompts) for every desk in a collection, including the
  * ones scrolled off screen. The surfaces that use it carry their own names.
  */
-export default function WidgetPreview({ widget }: { widget: Widget }): JSX.Element {
+function WidgetPreviewImpl({ widget }: { widget: Widget }): JSX.Element {
   return (
     <div aria-hidden="true" className="h-full w-full">
       {renderPreview(widget)}
     </div>
   )
 }
+
+/**
+ * Memoised on the widget object, which the store replaces rather than mutates.
+ *
+ * The minimap draws one of these per object inside a <foreignObject> and
+ * re-renders on every pan frame, because it reads the camera to place the
+ * viewport indicator. Without this, dragging across a desk re-rendered every
+ * preview subtree sixty times a second for a picture that had not changed.
+ */
+const WidgetPreview = memo(WidgetPreviewImpl)
+export default WidgetPreview
 
 function renderPreview(widget: Widget): JSX.Element {
   const c = widget.content ?? ''
