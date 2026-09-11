@@ -10,12 +10,24 @@
 //   - this file owns OS-level shell/dialog/QuickLook integration
 // Two responsibilities, two files. The IPC layer wires them together.
 
-import { app, dialog, nativeImage, shell } from 'electron'
+import { app, BrowserWindow, dialog, nativeImage, shell } from 'electron'
 import { existsSync, mkdirSync, statSync, writeFileSync, readFileSync } from 'fs'
 import { extname, join, basename } from 'path'
 import { getFile } from './db/files'
 import { ingestFromPath } from './db/filesFromDisk'
 import type { FbFile } from '@shared/fields'
+
+/**
+ * The window a file dialog should hang off.
+ *
+ * Every other dialog in the app passes one; these two did not, and on macOS
+ * that is the difference between a sheet attached to the window and a
+ * free-floating panel that opens unfocused and can sit BEHIND the app -- which
+ * to the person clicking looks exactly like a button that does nothing.
+ */
+function dialogParent(): BrowserWindow | undefined {
+  return BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+}
 
 // Generated thumbnails live in userData/thumbnails/<file-id>.png. The cache
 // is content-addressed by file id, NOT mtime, because our stored files are
@@ -121,7 +133,10 @@ export async function pickAndIngestFile(opts: {
   }
   let result: Electron.OpenDialogReturnValue
   try {
-    result = await dialog.showOpenDialog(dialogOpts)
+    const parent = dialogParent()
+    result = parent
+      ? await dialog.showOpenDialog(parent, dialogOpts)
+      : await dialog.showOpenDialog(dialogOpts)
   } catch (err) {
     console.error('[files:pick] dialog failed:', err)
     throw err
@@ -146,10 +161,14 @@ export async function pickAndIngestFile(opts: {
 export async function pickFilesIntoFolder(parentId: string | null): Promise<FbFile[]> {
   let result: Electron.OpenDialogReturnValue
   try {
-    result = await dialog.showOpenDialog({
+    const parent = dialogParent()
+    const opts: Electron.OpenDialogOptions = {
       title: 'Add files',
       properties: ['openFile', 'multiSelections']
-    })
+    }
+    result = parent
+      ? await dialog.showOpenDialog(parent, opts)
+      : await dialog.showOpenDialog(opts)
   } catch (err) {
     console.error('[fileManager:pick] dialog failed:', err)
     throw err

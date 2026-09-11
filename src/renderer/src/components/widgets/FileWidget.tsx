@@ -52,6 +52,9 @@ export default function FileWidget({ widget, inline = false }: Props): JSX.Eleme
 
   const [dropping, setDropping] = useState(false)
   const [urlDraft, setUrlDraft] = useState('')
+  // A failed pick used to be invisible: the click handler dropped the rejection
+  // with `void`, so a refusing channel and a cancelled dialog looked identical.
+  const [pickError, setPickError] = useState<string | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{
     x: number
     y: number
@@ -101,9 +104,16 @@ export default function FileWidget({ widget, inline = false }: Props): JSX.Eleme
   }
 
   async function handlePickClick(): Promise<void> {
-    const ingested = await pickAndIngest({ title: 'Choose a file' })
-    if (!ingested) return
-    void update(widget.id, { content: ingested.id, title: ingested.originalName })
+    setPickError(null)
+    try {
+      const ingested = await pickAndIngest({ title: 'Choose a file' })
+      // Null is a cancelled picker, which is not a failure and says nothing.
+      if (!ingested) return
+      void update(widget.id, { content: ingested.id, title: ingested.originalName })
+    } catch (err) {
+      console.error('[file-widget] could not attach that file:', err)
+      setPickError((err as Error)?.message || 'Could not attach that file.')
+    }
   }
 
   function handleUrlSubmit(): void {
@@ -147,6 +157,11 @@ export default function FileWidget({ widget, inline = false }: Props): JSX.Eleme
         >
           Choose file…
         </button>
+        {pickError && (
+          <div className="fb-t-caption text-amber-600 leading-snug max-w-[280px]" data-testid="file-pick-error">
+            {pickError}
+          </div>
+        )}
         <div className="flex items-stretch gap-1 w-full max-w-[280px] mt-1">
           <input
             type="url"

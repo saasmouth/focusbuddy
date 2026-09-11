@@ -1,3 +1,7 @@
+import type { FbFile } from '@shared/fields'
+import { dbCall } from './dbClient'
+import { pickAndIngest, pickFilesIntoFolder } from './filePicker'
+
 // The parts of window.api that are about the platform rather than the data.
 //
 // These are served on the main thread, next to the session, because they are
@@ -19,6 +23,15 @@
 function setZoomFactor(factor: number): void {
   const f = typeof factor === 'number' && factor > 0 ? Math.min(Math.max(factor, 0.5), 3) : 1
   document.documentElement.style.setProperty('font-size', `${16 * f}px`)
+}
+
+function ingestBuffer(input: {
+  buffer: ArrayBuffer
+  originalName: string
+  mimeType: string
+  parentId?: string | null
+}): Promise<FbFile> {
+  return dbCall('files:ingestBuffer', [input]) as Promise<FbFile>
 }
 
 export function platformNamespaces(): Record<string, Record<string, unknown>> {
@@ -55,6 +68,20 @@ export function platformNamespaces(): Record<string, Record<string, unknown>> {
     },
 
     files: {
+      /**
+       * The file chooser.
+       *
+       * The desktop opens a native dialog in the main process and ingests from
+       * the path; a tab has no path, so `files:pickAndIngest` is not served by
+       * the Worker. Without this the File widget's "Choose file…" button called
+       * a channel that refused and the rejection went nowhere — the button did
+       * nothing at all, and dropping a file was the only way to attach one.
+       *
+       * Any kind of file, as on the desktop: the input carries no `accept` and
+       * the native dialog is opened with no filters.
+       */
+      pickAndIngest: (opts?: { parentId?: string | null }) => pickAndIngest(ingestBuffer, opts),
+
       /**
        * A real thumbnail, generated here.
        *
@@ -108,6 +135,11 @@ export function platformNamespaces(): Record<string, Record<string, unknown>> {
           return null
         }
       }
+    },
+
+    // The Drive's own multi-select "Add files", by the same route.
+    fileManager: {
+      pickFiles: (parentId: string | null) => pickFilesIntoFolder(ingestBuffer, parentId)
     },
 
     mail: {
