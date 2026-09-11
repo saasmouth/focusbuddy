@@ -1,3 +1,4 @@
+import { isShareRecipient } from './shareMode'
 import { signalConfig } from './signalConfig'
 import { rootsToPrune } from '@shared/sharedDesks'
 import { initPreviewGuard, previewSyncBlocked } from './previewGuard'
@@ -42,6 +43,11 @@ const MAX_APPLY_STALLS = 3
 let applyStalls = 0
 
 function enabled(): boolean {
+  // A 48-hour share is a one-way copy. The recipient has no account, so every
+  // request would fail anyway -- but this is the promise the product makes, and
+  // a promise that rests on a missing credential is one an unrelated change can
+  // break without noticing. Stated here instead.
+  if (isShareRecipient()) return false
   if (previewSyncBlocked()) return false
   return localStorage.getItem(FLAG_KEY) !== '0'
 }

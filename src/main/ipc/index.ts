@@ -434,6 +434,7 @@ import {
   importWorkspaceJson,
   defaultWorkspaceExportName
 } from '../db/workspaceExport'
+import { buildDeskBundle, importDeskBundle } from '../db/deskBundle'
 import { recordInvocation } from '../ai/agentHistory'
 import { localModelStatus } from '../ai/localModel'
 import { getDocMetadata } from '../db/docMetadata'
@@ -2178,6 +2179,30 @@ export function registerIpcHandlers(): void {
   // about what it omits. A .fbbackup answers "restore yesterday"; this answers
   // "let me leave with my work", which is a different promise and needs a
   // different file.
+  // One desk, packed for a 48-hour share. Built here because it reads the
+  // database and the file bytes; the renderer posts it to Signal, which is
+  // where the account token lives.
+  ipcMain.handle('shares:buildDeskBundle', async (_e, deskId: string) => {
+    try {
+      const bundle = await buildDeskBundle(String(deskId || ''))
+      return {
+        ok: true as const,
+        json: JSON.stringify(bundle),
+        title: bundle.desk.title,
+        counts: bundle.counts,
+        filesOmitted: bundle.filesOmitted
+      }
+    } catch (e) {
+      return { ok: false as const, error: (e as Error).message }
+    }
+  })
+
+  // A bundle that arrived as data. The desktop reaches this when a recipient
+  // opens a desk file they were given; the browser reaches it from a share link.
+  ipcMain.handle('shares:importBundle', async (_e, bundle: unknown) =>
+    importDeskBundle(bundle as never)
+  )
+
   ipcMain.handle('workspace:exportJson', async () => {
     const parent = BrowserWindow.getFocusedWindow()
     const opts = {

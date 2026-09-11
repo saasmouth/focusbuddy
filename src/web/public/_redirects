@@ -1,0 +1,7 @@
+# Every share link is a client-side route.
+#
+# /s/<token> is resolved by the app, not by a file on disk. Without this rule a
+# static host answers 404 for every link this feature mints -- and it fails for
+# the RECIPIENT, who has no way to tell the difference between a broken host and
+# an expired share. Netlify and Cloudflare Pages read this file.
+/*    /index.html   200

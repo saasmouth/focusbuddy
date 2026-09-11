@@ -314,6 +314,27 @@ const api = {
     }> => ipcRenderer.invoke('wires:runTransform', sourceId, targetId, verb, liveText)
   },
   shares: {
+    // Ephemeral desk shares: the desk is packed here, posted to Signal by the
+    // renderer, which is where the account token lives.
+    buildDeskBundle: (
+      deskId: string
+    ): Promise<
+      | { ok: true; json: string; title: string; counts: Record<string, number>; filesOmitted: Array<{ id: string; name: string; sizeBytes: number; why: string }> }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('shares:buildDeskBundle', deskId),
+    // The other direction: a bundle that arrived as data rather than as a file.
+    // The browser's share flow fetches one over the network; the desktop's own
+    // import reads a file through a dialog and does not come through here.
+    importBundle: (
+      bundle: unknown
+    ): Promise<{
+      ok: boolean
+      deskId?: string
+      imported: number
+      skipped: number
+      filesWritten: number
+      reason?: string
+    }> => ipcRenderer.invoke('shares:importBundle', bundle),
     listAll: (): Promise<ShareLink[]> => ipcRenderer.invoke('shares:listAll'),
     listForEntity: (
       kind: ShareableKind,
@@ -966,6 +987,8 @@ const api = {
     recent: (hours: number): Promise<EnergyLogEntry[]> =>
       ipcRenderer.invoke('energy:recent', hours)
   },
+  // Ephemeral desk shares: the desk is packed here, posted to Signal by the
+  // renderer (which holds the account token).
   timeBlocks: {
     list: (fromMs: number, toMs: number): Promise<TimeBlock[]> =>
       ipcRenderer.invoke('timeblocks:list', fromMs, toMs),

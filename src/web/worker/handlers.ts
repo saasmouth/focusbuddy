@@ -101,6 +101,7 @@ import { createTimeBlock, deleteTimeBlock, updateTimeBlock, listBlocksInRange, m
 import { postNotification } from '../../main/notifications/substrate'
 import { setPeopleDirectory } from '../../main/peopleDirectory'
 import { setOnboardingSummary } from '../../main/db/telemetry'
+import { importDeskBundle } from '../../main/db/deskBundle'
 import type { PlexiAppDraft, PlexiAppPatch } from '@shared/apps'
 import type { KnowledgeDraft, KnowledgePatch } from '@shared/knowledge'
 import type { DepType, PlanTaskPatch } from '@shared/projects'
@@ -500,6 +501,12 @@ export const HANDLERS: Record<string, Handler> = {
     markPrompted(String(signalId), String(itemId), Number(confidence) || 0)),
   'signals:outcome': h((signalId: string, itemId: string, outcome: string) =>
     recordSignalOutcome(String(signalId), String(itemId), String(outcome))),
+
+  // ── A shared desk, unpacked into this browser ──
+  // Not a channel the desktop has: the desktop imports a bundle from a file
+  // through its own dialog. Here the bytes arrive over the network, so the
+  // renderer hands the parsed bundle straight to the same importer.
+  'shares:importBundle': h((bundle: never) => importDeskBundle(bundle)),
 
   // ── Onboarding progress ──
   // Pure db: it writes usage_counters, which is why telemetry.ts no longer

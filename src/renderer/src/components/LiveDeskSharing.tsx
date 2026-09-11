@@ -10,6 +10,7 @@ import {
 } from '../lib/deskShareClient'
 import SharePeoplePicker, { type SharePick } from './SharePeoplePicker'
 import DeskClaimLinks from './DeskClaimLinks'
+import EphemeralDeskShare from './EphemeralDeskShare'
 import { usePeopleStore } from '../lib/peopleDirectory'
 import { useOrgStore, PERSONAL_ORG_ID } from '../stores/org'
 import { useAccountStore } from '../stores/account'
@@ -143,6 +144,7 @@ export default function LiveDeskSharing({
       {/* Sharing with someone whose email you do not know. Placed after the
           people picker because naming a person is the commoner act; this is the
           fallback when you cannot. */}
+      <EphemeralDeskShare rootId={rootId} />
       <DeskClaimLinks rootId={rootId} />
 
       {anyone && (

@@ -1,0 +1,5 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "comment": "Share links are client-side routes; without this rewrite every /s/<token> is a 404. Vercel reads this from the deployment root.",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}

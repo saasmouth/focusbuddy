@@ -1,230 +1,267 @@
 // Entry point for Plexii in the browser.
 //
-// Three things happen before the app exists, in an order that matters. A cloud
-// session is resolved, because there is no workspace to show without one.
-// window.api is installed, because the renderer's very first module reads it.
-// Only then is the renderer imported -- dynamically, so that its import graph,
-// which touches window.api at module scope in several places, cannot begin to
-// evaluate against an api that is not there yet.
-import React, { useEffect, useState } from 'react'
+// The cloud app is not a product. It is the delivery end of one feature: someone
+// was sent a desk, and for 48 hours they can open it here without installing
+// anything or creating an account. Everything else about this app — sign-in,
+// sign-up, two-way sync, a workspace of your own — is gone, because the answer
+// to "can I use Plexii in a browser" is no, and the honest place to say so is
+// the front door.
+//
+// So there are exactly two things this file can show:
+//
+//   a live share token  → unpack the desk and hand the renderer over to it
+//   anything else       → the download page
+//
+// The order still matters underneath. window.api is installed before the
+// renderer is imported, because the renderer's first modules read it at module
+// scope; and the file server is up before any widget renders a picture.
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import { installBrowserApi, installFileServer } from './api/bridge'
-import { login, signup, resolveSession, type CloudAccount } from './api/session'
 import {
-  claimTokenFromUrl, previewClaim, claimDesk, clearClaimFromUrl, type ClaimPreview
-} from './api/claim'
+  shareTokenFromUrl, previewShare, fetchShareBundle, alreadyImported, markImported,
+  wipeLocalCopy, countdown, msLeft, downloadBundle, type ShareOffer, type ShareRefusal
+} from './api/share'
+import { markShareRecipient } from '@renderer/lib/shareMode'
 
-/**
- * What a claim link offers, shown before anything is asked of the visitor.
- *
- * Someone arriving here has been handed a URL by a person they know and has
- * never heard of Plexii. Being asked to create an account before being told
- * what is on the other side is how a share link gets closed, so the offer comes
- * first and the sign-up form sits underneath it.
- */
-function ClaimOffer({ preview }: { preview: ClaimPreview }): React.JSX.Element {
+const DESKTOP_DOWNLOAD_URL = 'https://plexii.app/download'
+
+/** The page for everyone who did not arrive with a live link. */
+function DownloadPage({ reason }: { reason?: ShareRefusal }): React.JSX.Element {
+  const line =
+    reason === 'expired'
+      ? 'That share has expired. Shared desks are available for 48 hours, then they are deleted.'
+      : reason === 'revoked'
+        ? 'That share was turned off by the person who sent it.'
+        : reason === 'offline'
+          ? 'That link could not be reached just now. Check your connection and try again.'
+          : reason === 'unknown'
+            ? 'That link is not a share we recognise. It may have already been deleted.'
+            : 'Plexii is a desktop app. Your desks, files and notes live on your own machine.'
+
   return (
-    <div style={S.offer}>
-      <div style={S.offerWho}>{preview.ownerName} shared a desk with you</div>
-      <div style={S.offerTitle}>{preview.title || 'A desk'}</div>
-      <div style={S.offerWhat}>
-        {preview.permission === 'edit'
-          ? 'You will be able to edit it, and your changes sync back.'
-          : 'You will be able to see it, and it stays up to date as they work.'}
+    <div style={S.shell}>
+      <div style={S.card}>
+        <div style={S.brand}>Plexii</div>
+        <div style={S.sub}>{line}</div>
+        <a style={S.primary} href={DESKTOP_DOWNLOAD_URL}>Download Plexii for desktop</a>
+        {reason && (
+          <div style={S.fine}>
+            If you still need this desk, ask whoever sent it for a fresh link.
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
-function SignIn({
-  onDone,
-  offer,
-  claimToken
-}: {
-  onDone: (a: CloudAccount | null) => void
-  offer?: ClaimPreview | null
-  claimToken?: string | null
-}): React.JSX.Element {
-  // Someone arriving from a share link almost certainly has no account, so the
-  // form opens on sign-up for them and on sign-in for everyone else.
-  const [mode, setMode] = useState<'in' | 'up'>(offer ? 'up' : 'in')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [code, setCode] = useState('')
-  const [needsCode, setNeedsCode] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const submit = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault()
-    setBusy(true)
-    setError(null)
-    const result =
-      mode === 'in' ? await login(email, password, code || undefined) : await signup(email, password, claimToken)
-    setBusy(false)
-    if (result.ok) { onDone(result.account ?? null); return }
-    if (result.needsCode) { setNeedsCode(true); return }
-    setError(result.error ?? 'Sign-in failed.')
-  }
-
+/** The offer, before the desk is downloaded. */
+function ShareOfferCard({
+  offer, busy, onOpen
+}: { offer: ShareOffer; busy: boolean; onOpen: () => void }): React.JSX.Element {
   return (
     <div style={S.shell}>
-      <form style={S.card} onSubmit={submit}>
+      <div style={S.card}>
         <div style={S.brand}>Plexii</div>
-        {offer && <ClaimOffer preview={offer} />}
-        <div style={S.sub}>
-          {offer
-            ? mode === 'up'
-              ? 'Create an account to add it'
-              : 'Sign in to add it'
-            : mode === 'in'
-              ? 'Sign in to your workspace'
-              : 'Create your workspace'}
+        <div style={S.offer}>
+          <div style={S.offerWho}>A desk has been shared with you</div>
+          <div style={S.offerTitle}>{offer.title || 'A desk'}</div>
+          <div style={S.offerWhat}>
+            {countdown(offer.expiresAt)} · {(offer.sizeBytes / 1e6).toFixed(1)} MB
+          </div>
         </div>
-        <input style={S.input} type="email" placeholder="Email" value={email} autoComplete="username"
-          onChange={(e) => setEmail(e.target.value)} required />
-        <input style={S.input} type="password" placeholder="Password" value={password}
-          autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
-          onChange={(e) => setPassword(e.target.value)} required />
-        {needsCode && (
-          <input style={S.input} placeholder="Two-factor code" value={code} inputMode="numeric"
-            onChange={(e) => setCode(e.target.value)} required />
-        )}
-        {error && <div style={S.error}>{error}</div>}
-        <button style={{ ...S.button, opacity: busy ? 0.6 : 1 }} type="submit" disabled={busy}>
-          {busy ? 'Working…' : offer ? (mode === 'up' ? 'Create account and add desk' : 'Sign in and add desk') : mode === 'in' ? 'Sign in' : 'Create account'}
+        <div style={S.sub}>
+          You can open it here and change anything you like — it is your own copy, and nothing
+          you do travels back. After 48 hours it is deleted.
+        </div>
+        <button style={S.primary} onClick={onOpen} disabled={busy}>
+          {busy ? 'Opening the desk…' : 'Open the desk'}
         </button>
-        <button style={S.link} type="button" onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setError(null) }}>
-          {mode === 'in' ? 'Create an account instead' : 'I already have an account'}
-        </button>
-      </form>
+        <div style={S.fine}>No account needed.</div>
+      </div>
     </div>
   )
 }
 
+/**
+ * The bar that sits above the desk for as long as the copy lives.
+ *
+ * It is not decoration. It is the only thing telling someone that what they are
+ * editing is temporary, and the only route to keeping it.
+ */
+function ExpiryBar({
+  offer, bundle, onExpired
+}: { offer: ShareOffer; bundle: string | null; onExpired: () => void }): React.JSX.Element {
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      if (msLeft(offer.expiresAt) === 0) onExpired()
+      else tick((n) => n + 1)
+    }, 30_000)
+    return () => window.clearInterval(t)
+  }, [offer.expiresAt, onExpired])
+
+  const left = msLeft(offer.expiresAt)
+  const urgent = left < 4 * 60 * 60 * 1000
+  return (
+    <div style={{ ...S.bar, background: urgent ? '#3a2216' : '#171a21' }}>
+      <span style={S.barText}>
+        <strong>{offer.title || 'Shared desk'}</strong> · {countdown(offer.expiresAt)}
+        <span style={S.barFine}> — this copy is deleted when the timer ends</span>
+      </span>
+      <span style={S.barActions}>
+        {bundle && (
+          <button style={S.barGhost} onClick={() => downloadBundle(bundle, offer.title)}>
+            Save desk file
+          </button>
+        )}
+        <a style={S.barPrimary} href={DESKTOP_DOWNLOAD_URL}>Keep it — get the desktop app</a>
+      </span>
+    </div>
+  )
+}
+
+type State =
+  | { kind: 'checking' }
+  | { kind: 'download'; reason?: ShareRefusal }
+  | { kind: 'offer'; offer: ShareOffer }
+  | { kind: 'opening'; offer: ShareOffer }
+  | { kind: 'ready'; offer: ShareOffer }
+  | { kind: 'failed'; detail: string }
+
 function Boot(): React.JSX.Element {
-  const [state, setState] = useState<'checking' | 'signin' | 'claiming' | 'loading' | 'ready' | 'failed'>('checking')
-  const [detail, setDetail] = useState('')
-  const [offer, setOffer] = useState<ClaimPreview | null>(null)
-  const [claimError, setClaimError] = useState<string | null>(null)
-  const token = claimTokenFromUrl()
+  const [state, setState] = useState<State>({ kind: 'checking' })
+  const [busy, setBusy] = useState(false)
+  const bundleRef = useRef<string | null>(null)
+  const token = shareTokenFromUrl()
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      // The preview is fetched first and without credentials, so a visitor sees
-      // what they have been offered whether or not they are signed in.
-      const preview = token ? await previewClaim(token) : null
+      if (!token) {
+        // No link: this app has nothing else to offer, and says so.
+        await wipeLocalCopy()
+        if (!cancelled) setState({ kind: 'download' })
+        return
+      }
+      const preview = await previewShare(token)
       if (cancelled) return
-      if (preview && !preview.ok) setClaimError(preview.error)
-      if (preview?.ok) setOffer(preview)
-      const account = await resolveSession()
-      if (cancelled) return
-      // Already signed in with a link in hand: claim it now rather than asking
-      // them to sign in to an account they are already in.
-      if (account && token && preview?.ok) setState('claiming')
-      else setState(account ? 'loading' : 'signin')
+      if (!preview.ok) {
+        // A dead link takes its copy with it. Offline is the exception: the
+        // share may be perfectly alive and the network is not.
+        if (preview.reason !== 'offline') await wipeLocalCopy()
+        setState({ kind: 'download', reason: preview.reason })
+        return
+      }
+      markShareRecipient(token)
+      setState({ kind: 'offer', offer: preview.offer })
     })()
     return () => {
       cancelled = true
     }
   }, [token])
 
-  // Claiming happens after authentication, whichever way it was reached.
-  useEffect(() => {
-    if (state !== 'claiming' || !token) return
-    void claimDesk(token).then((res) => {
-      if (!res.ok) setClaimError(res.error ?? 'Could not add this desk.')
-      // Either way the app opens: a failed claim should not strand someone
-      // outside a workspace they now have an account for.
-      clearClaimFromUrl()
-      setState('loading')
-    })
+  const open = useCallback(() => {
+    if (state.kind !== 'offer' || !token) return
+    setBusy(true)
+    const offer = state.offer
+    void (async () => {
+      try {
+        installBrowserApi()
+        await installFileServer()
+
+        if (!alreadyImported(token)) {
+          const text = await fetchShareBundle(token)
+          if (!text) {
+            // It was alive a moment ago at the preview, so this is the share
+            // being revoked or expiring between the two calls.
+            await wipeLocalCopy()
+            setState({ kind: 'download', reason: 'expired' })
+            return
+          }
+          bundleRef.current = text
+          const res = (await window.api.shares.importBundle(JSON.parse(text))) as { ok?: boolean; reason?: string }
+          if (!res?.ok) throw new Error(res?.reason ?? 'the desk could not be unpacked')
+          markImported(token)
+        } else {
+          // Re-opened later: the desk is already here, but the file is still
+          // wanted for the "save desk file" button.
+          bundleRef.current = await fetchShareBundle(token)
+        }
+
+        setState({ kind: 'opening', offer })
+        await import('@renderer/main')
+        setState({ kind: 'ready', offer })
+      } catch (err) {
+        setState({ kind: 'failed', detail: (err as Error).message })
+      } finally {
+        setBusy(false)
+      }
+    })()
   }, [state, token])
 
-  useEffect(() => {
-    if (state !== 'loading') return
-    installBrowserApi()
-    // The file server must be controlling the page before any widget renders an
-    // image, so it is awaited alongside the renderer import rather than raced
-    // with it.
-    void installFileServer()
-      // Dynamic, and only now: importing the renderer statically would evaluate
-      // its module graph -- and its window.api reads -- during this file's own
-      // import, before installBrowserApi had run.
-      .then(() => import('@renderer/main'))
-      .then(() => setState('ready'))
-      .catch((err: Error) => { setDetail(err.message); setState('failed') })
-  }, [state])
+  const expire = useCallback(() => {
+    void (async () => {
+      await wipeLocalCopy()
+      window.location.replace('/')
+    })()
+  }, [])
 
-  if (state === 'checking') return <div style={S.shell}><div style={S.sub}>Checking your session…</div></div>
-  if (state === 'signin') {
-    return (
-      <SignIn
-        offer={offer}
-        claimToken={token}
-        onDone={() => setState(token && offer ? 'claiming' : 'loading')}
-      />
-    )
+  if (state.kind === 'checking') {
+    return <div style={S.shell}><div style={S.sub}>Checking that link…</div></div>
   }
-  if (state === 'claiming') {
-    return (
-      <div style={S.shell}>
-        <div style={S.sub}>Adding {offer?.title || 'the desk'} to your workspace…</div>
-      </div>
-    )
-  }
-  if (state === 'failed') {
+  if (state.kind === 'download') return <DownloadPage reason={state.reason} />
+  if (state.kind === 'offer') return <ShareOfferCard offer={state.offer} busy={busy} onOpen={open} />
+  if (state.kind === 'failed') {
     return (
       <div style={S.shell}>
         <div style={S.card}>
           <div style={S.brand}>Plexii</div>
-          <div style={S.sub}>The workspace could not start.</div>
-          <div style={S.error}>{detail}</div>
+          <div style={S.sub}>That desk could not be opened.</div>
+          <div style={S.error}>{state.detail}</div>
+          <a style={S.primary} href={DESKTOP_DOWNLOAD_URL}>Download Plexii for desktop</a>
         </div>
       </div>
     )
   }
-  // 'loading' covers the page until the renderer mounts beneath; 'ready' means
-  // the renderer owns the document and the gate renders nothing at all, which
-  // lets #boot:empty take it out of the layout.
-  if (state === 'loading') {
-    return (
-      <div style={S.shell}>
-        <div style={S.card}>
-          <div style={S.brand}>Plexii</div>
-          <div style={S.sub}>Opening your workspace…</div>
-          {/* A claim that failed after sign-up is said out loud here rather
-              than swallowed: the visitor has an account but not the desk they
-              came for, and needs to know to ask for a fresh link. */}
-          {claimError && <div style={S.error}>{claimError}</div>}
-        </div>
-      </div>
-    )
+  if (state.kind === 'opening') {
+    return <div style={S.shell}><div style={S.card}><div style={S.brand}>Plexii</div><div style={S.sub}>Opening {state.offer.title || 'the desk'}…</div></div></div>
   }
-  return <></>
+  // Ready: the renderer owns the document underneath. Only the expiry bar is
+  // still ours, and it is rendered into its own node so #boot can be empty and
+  // drop out of the layout -- a full-height #boot once pushed the app a whole
+  // viewport down the page.
+  return <ExpiryBar offer={state.offer} bundle={bundleRef.current} onExpired={expire} />
 }
 
 const S: Record<string, React.CSSProperties> = {
   shell: { position: 'fixed', inset: 0, display: 'grid', placeItems: 'center',
-    background: '#0f1115', color: '#e7e9ee', fontFamily: 'Inter, system-ui, sans-serif' },
-  card: { display: 'flex', flexDirection: 'column', gap: 12, width: 320, padding: 28,
+    background: '#0f1115', color: '#e7e9ee', fontFamily: 'Inter, system-ui, sans-serif', zIndex: 40 },
+  card: { display: 'flex', flexDirection: 'column', gap: 12, width: 380, padding: 28,
     background: '#171a21', border: '1px solid #262b36', borderRadius: 14 },
   brand: { fontSize: 26, fontWeight: 600, letterSpacing: -0.4 },
-  sub: { fontSize: 14, opacity: 0.7, marginBottom: 4 },
-  input: { padding: '10px 12px', borderRadius: 8, border: '1px solid #2c313d',
-    background: '#0f1115', color: '#e7e9ee', fontSize: 14, outline: 'none' },
-  button: { padding: '10px 12px', borderRadius: 8, border: 'none', background: '#4f7cff',
-    color: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer' },
-  link: { background: 'none', border: 'none', color: '#8fa6ff', fontSize: 13, cursor: 'pointer', padding: 0 },
+  sub: { fontSize: 14, opacity: 0.75, lineHeight: 1.5 },
+  fine: { fontSize: 12, opacity: 0.55, lineHeight: 1.45 },
+  primary: { padding: '11px 12px', borderRadius: 8, border: 'none', background: '#4f7cff',
+    color: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer', textAlign: 'center',
+    textDecoration: 'none', display: 'block' },
   error: { color: '#ff8a8a', fontSize: 13, lineHeight: 1.4 },
-  offer: {
-    display: 'flex', flexDirection: 'column', gap: 4, padding: '12px 14px', borderRadius: 10,
-    background: '#12203a', border: '1px solid #24406e', marginBottom: 4
-  },
+  offer: { display: 'flex', flexDirection: 'column', gap: 4, padding: '12px 14px', borderRadius: 10,
+    background: '#12203a', border: '1px solid #24406e' },
   offerWho: { fontSize: 12, opacity: 0.75, letterSpacing: 0.2 },
-  offerTitle: { fontSize: 17, fontWeight: 600 },
-  offerWhat: { fontSize: 12, opacity: 0.7, lineHeight: 1.45 }
+  offerTitle: { fontSize: 18, fontWeight: 600 },
+  offerWhat: { fontSize: 12, opacity: 0.7 },
+  bar: { position: 'fixed', top: 0, left: 0, right: 0, height: 40, zIndex: 60,
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+    padding: '0 12px', borderBottom: '1px solid #262b36', color: '#e7e9ee',
+    fontFamily: 'Inter, system-ui, sans-serif', fontSize: 13 },
+  barText: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  barFine: { opacity: 0.6 },
+  barActions: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 },
+  barGhost: { padding: '5px 10px', borderRadius: 6, border: '1px solid #39404f',
+    background: 'transparent', color: '#e7e9ee', fontSize: 12, cursor: 'pointer' },
+  barPrimary: { padding: '5px 10px', borderRadius: 6, background: '#4f7cff', color: 'white',
+    fontSize: 12, fontWeight: 600, textDecoration: 'none' }
 }
 
 ReactDOM.createRoot(document.getElementById('boot') as HTMLElement).render(

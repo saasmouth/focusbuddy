@@ -247,6 +247,7 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'setup:buildFromPrompt': [{ kind: 'object', optional: false, nullable: true }],
   'setup:suggest': [{ kind: 'string', optional: false, nullable: false }],
   'shares:accept': [{ kind: 'object', optional: false, nullable: false }],
+  'shares:buildDeskBundle': [{ kind: 'string', optional: false, nullable: false }],
   'shares:delete': [{ kind: 'string', optional: false, nullable: false }],
   'shares:listForEntity': [{ kind: 'any', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }],
   'shares:removeInbox': [{ kind: 'string', optional: false, nullable: false }],
