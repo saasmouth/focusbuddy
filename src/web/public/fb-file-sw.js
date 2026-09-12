@@ -10,7 +10,10 @@
 // committed to. The alternative -- creating blob: URLs before render and
 // revoking them after -- has to be done per element, per mount, and leaks
 // whichever way you get it wrong.
-const PREFIX = '/fb-file/'
+// Derived from where this script was served, so the same file works whether the
+// app sits at the root or under a path on another site. self.location is the
+// worker's own URL: /share/fb-file-sw.js gives a prefix of /share/fb-file/.
+const PREFIX = new URL('./fb-file/', self.location.href).pathname
 const DIR = 'plexii-files'
 
 // OPFS reports no MIME type of its own, and a <video> handed the wrong one

@@ -67,6 +67,12 @@ const MODULE_SWAPS: Record<string, string> = {
 
 export default defineConfig({
   root: 'src/web',
+  // Where this build will be served from. '/' for a root of its own; a path when
+  // it is mounted inside another site, which is how it ships today: under
+  // /share/ on the marketing site. Everything base-sensitive reads it back at
+  // runtime through import.meta.env.BASE_URL -- the asset URLs, the Service
+  // Worker's scope, and the /fb-file/ prefix that worker answers.
+  base: process.env.VITE_WEB_BASE ?? '/',
   plugins: [react(), swapModules(MODULE_SWAPS)],
   resolve: {
     alias: {

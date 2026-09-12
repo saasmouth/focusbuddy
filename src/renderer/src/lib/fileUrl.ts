@@ -14,9 +14,24 @@
 // including in CSS, and it survives being copied into markup.
 const WEB = (): boolean => (globalThis as { __PLEXII_WEB__?: boolean }).__PLEXII_WEB__ === true
 
+/**
+ * The base the browser build is served from, with a trailing slash.
+ *
+ * It is not always '/'. The cloud app is mounted under a path on the marketing
+ * site, and every one of these has to agree: the URL an <img> asks for, the
+ * scope the Service Worker claims, and the prefix that worker matches. A worker
+ * only controls pages INSIDE its scope, so a root-absolute /fb-file/ under a
+ * prefixed deployment is a request no worker ever sees and an image that never
+ * loads.
+ */
+export function webBase(): string {
+  const raw = (import.meta.env?.BASE_URL as string | undefined) ?? '/'
+  return raw.endsWith('/') ? raw : `${raw}/`
+}
+
 /** Where this file's bytes can be fetched from, in whichever runtime we are. */
 export function fileSrc(fileId: string): string {
-  return WEB() ? `/fb-file/${encodeURIComponent(fileId)}` : `fb-file://${fileId}`
+  return WEB() ? `${webBase()}fb-file/${encodeURIComponent(fileId)}` : `fb-file://${fileId}`
 }
 
 /**

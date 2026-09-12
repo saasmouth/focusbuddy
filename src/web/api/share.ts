@@ -32,7 +32,10 @@ const urlFor = (path: string): string => signalConfig.httpUrl.replace(/\/+$/, ''
 export function shareTokenFromUrl(href = window.location.href): string | null {
   try {
     const url = new URL(href)
-    const m = /^\/s\/([A-Za-z0-9_-]{8,})\/?$/.exec(url.pathname)
+    // Not anchored at the start: the app is mounted under a path on the
+    // marketing site, so the link is /share/s/<token> there and /s/<token> when
+    // it is served from a root of its own.
+    const m = /\/s\/([A-Za-z0-9_-]{8,})\/?$/.exec(url.pathname)
     if (m) return m[1]
     const q = url.searchParams.get('share')
     return q && /^[A-Za-z0-9_-]{8,}$/.test(q) ? q : null

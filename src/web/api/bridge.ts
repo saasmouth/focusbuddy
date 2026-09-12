@@ -13,6 +13,7 @@
 //
 // Where the call actually runs is dbClient's problem, not this file's: the
 // database lives in whichever tab holds the lock, and this one may not be it.
+import { webBase } from '@renderer/lib/fileUrl'
 import { INVOKE_CHANNELS, LISTEN_CHANNELS } from './channelMap.generated'
 import { accountNamespace } from './session'
 import { platformNamespaces } from './platform'
@@ -75,7 +76,12 @@ export function createBrowserApi(): Record<string, Record<string, unknown>> {
 export async function installFileServer(): Promise<void> {
   if (!('serviceWorker' in navigator)) return
   try {
-    await navigator.serviceWorker.register('/fb-file-sw.js', { scope: '/' })
+    // Registered at the app's own base, not at the root. A worker scoped to '/'
+    // from a page served under a prefix is refused outright, and a worker scoped
+    // to the prefix cannot control a page outside it -- which is why the share
+    // route lives under the same prefix as the app.
+    const base = webBase()
+    await navigator.serviceWorker.register(`${base}fb-file-sw.js`, { scope: base })
     await navigator.serviceWorker.ready
   } catch (err) {
     console.warn('[plexii] file server unavailable; images and media will not load', err)

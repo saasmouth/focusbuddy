@@ -19,6 +19,9 @@ import { markShareRecipient, isShareRecipient, shareRecipientToken } from '../..
 describe('finding the share in a link', () => {
   it.each([
     ['https://cloud.plexii.app/s/abcd1234efgh', 'abcd1234efgh'],
+    // Mounted under a path on the marketing site, which is how it ships.
+    ['https://haptyx-web.vercel.app/share/s/abcd1234efgh', 'abcd1234efgh'],
+    ['https://haptyx-web.vercel.app/share/s/abcd1234efgh/', 'abcd1234efgh'],
     ['https://cloud.plexii.app/s/abcd1234efgh/', 'abcd1234efgh'],
     // Chat clients mangle paths; a query fallback that works beats a clean one
     // that does not.
@@ -89,5 +92,37 @@ describe('the promise that edits do not travel back', () => {
     expect(body).toContain('isShareRecipient()')
     // And it must come FIRST: a later return could shadow it.
     expect(body.indexOf('isShareRecipient()')).toBeLessThan(body.indexOf('localStorage'))
+  })
+})
+
+// Three things have to agree about where this app is served from, and they are
+// written in three different files: the URL an <img> asks for, the scope the
+// Service Worker claims, and the prefix that worker answers. Disagreement is
+// invisible in development (everything is at '/') and shows up in production as
+// pictures that never load.
+describe('serving the app from a path rather than a root', () => {
+  it('derives the worker prefix from wherever the worker itself was served', () => {
+    // The line in fb-file-sw.js, evaluated the way the browser evaluates it.
+    const prefixFor = (swHref: string): string => new URL('./fb-file/', swHref).pathname
+    expect(prefixFor('https://x/fb-file-sw.js')).toBe('/fb-file/')
+    expect(prefixFor('https://haptyx-web.vercel.app/share/fb-file-sw.js')).toBe('/share/fb-file/')
+  })
+
+  it('keeps the worker file and its prefix in step in the shipped source', async () => {
+    const { readFileSync } = await import('fs')
+    const { resolve } = await import('path')
+    const sw = readFileSync(resolve(__dirname, '../../src/web/public/fb-file-sw.js'), 'utf8')
+    // A hard-coded root prefix is the regression: it works at '/' and silently
+    // serves nothing under a path.
+    expect(sw).not.toMatch(/const PREFIX = ['"]\/fb-file\/['"]/)
+    expect(sw).toContain("new URL('./fb-file/', self.location.href)")
+  })
+
+  it('asks for file bytes under the same base the app was served from', async () => {
+    const { readFileSync } = await import('fs')
+    const { resolve } = await import('path')
+    const src = readFileSync(resolve(__dirname, '../../src/renderer/src/lib/fileUrl.ts'), 'utf8')
+    expect(src).toContain('webBase()')
+    expect(src).not.toContain('`/fb-file/${encodeURIComponent(fileId)}`')
   })
 })
