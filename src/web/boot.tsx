@@ -71,8 +71,9 @@ function ShareOfferCard({
           </div>
         </div>
         <div style={S.sub}>
-          You can read it here, in full. It cannot be edited — download Plexii to make it
-          yours and work on it. After 48 hours this link is deleted.
+          Explore it here in full — zoom in, move things around, put two widgets side by
+          side. What they <em>say</em> stays as the sender left it. Download Plexii to make
+          it yours and edit it. After 48 hours this link is deleted.
         </div>
         <button style={S.primary} onClick={onOpen} disabled={busy}>
           {busy ? 'Opening the desk…' : 'Open the desk'}
@@ -107,7 +108,7 @@ function ExpiryBar({
     <div style={{ ...S.bar, background: urgent ? '#3a2216' : '#171a21' }}>
       <span style={S.barText}>
         <strong>{offer.title || 'Shared desk'}</strong> · {countdown(offer.expiresAt)}
-        <span style={S.barFine}> — read-only, and deleted when the timer ends</span>
+        <span style={S.barFine}> — yours to explore, not to edit · deleted when the timer ends</span>
       </span>
       <span style={S.barActions}>
         {bundle && (

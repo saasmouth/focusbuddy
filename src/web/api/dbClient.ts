@@ -23,7 +23,7 @@
 // was genuinely in flight is failed with a message that says what happened.
 // Losing a call is recoverable; silently duplicating a write is not.
 import { isShareRecipient } from '@renderer/lib/shareMode'
-import { isWriteChannel, ReadOnlyShareError } from './readOnly'
+import { decideCall, ReadOnlyShareError } from './readOnly'
 
 const LOCK_NAME = 'plexii.db.leader'
 const CHANNEL_NAME = 'plexii.db'
@@ -245,8 +245,12 @@ export function dbCall(channel: string, args: unknown[]): Promise<unknown> {
   // write reaches the database however the visitor got to it -- a menu, a
   // shortcut, a drag, a paste -- and a mutating channel added later is refused
   // without anyone remembering to think about sharing.
-  if (isShareRecipient() && isWriteChannel(channel)) {
-    return Promise.reject(new ReadOnlyShareError(channel))
+  if (isShareRecipient()) {
+    const decision = decideCall(channel, args)
+    if (!decision.allowed) return Promise.reject(new ReadOnlyShareError(channel, decision.why))
+    // Narrowed rather than refused: a drag carries geometry this viewer may
+    // change, and a widget patch can carry both in one call.
+    args = decision.args
   }
   const id = seq++
   return new Promise((resolve, reject) => {
