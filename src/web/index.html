@@ -10,8 +10,21 @@
          it kept its full viewport height after emptying, which pushed #root
          exactly one screen down: the app rendered correctly and off the bottom
          of the window, looking for all the world like a blank canvas. */
-      #boot { position: fixed; inset: 0; z-index: 40; }
+      /* The gate layer: sign-in-style screens before the app, and the share
+         countdown bar alongside it.
+
+         It is full-viewport and it is NOT always empty, so it must not capture
+         events. A share window keeps a 40px bar in here for the life of the
+         session, and while :empty hid the layer for every other case, with the
+         bar present this became an invisible sheet over the whole desk -- the
+         canvas could not be panned, zoomed or clicked at all, because nothing
+         reached it. pointer-events are handed back by the children, so a
+         full-screen gate card still works and the bar still takes its clicks. */
+      #boot { position: fixed; inset: 0; z-index: 100; pointer-events: none; }
+      #boot > * { pointer-events: auto; }
       #boot:empty { display: none; }
+      /* With the bar showing, the app starts below it rather than under it. */
+      html.fb-share-bar #root { padding-top: 40px; box-sizing: border-box; height: 100%; }
     </style>
   </head>
   <body class="bg-desk-50">

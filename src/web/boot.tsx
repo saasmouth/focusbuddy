@@ -93,6 +93,10 @@ function ShareOfferCard({
 function ExpiryBar({
   offer, bundle, onExpired
 }: { offer: ShareOffer; bundle: string | null; onExpired: () => void }): React.JSX.Element {
+  useEffect(() => {
+    document.documentElement.classList.add('fb-share-bar')
+    return () => document.documentElement.classList.remove('fb-share-bar')
+  }, [])
   const [, tick] = useState(0)
   useEffect(() => {
     const t = window.setInterval(() => {
@@ -231,10 +235,10 @@ function Boot(): React.JSX.Element {
   if (state.kind === 'opening') {
     return <div style={S.shell}><div style={S.card}><div style={S.brand}>Plexii</div><div style={S.sub}>Opening {state.offer.title || 'the desk'}…</div></div></div>
   }
-  // Ready: the renderer owns the document underneath. Only the expiry bar is
-  // still ours, and it is rendered into its own node so #boot can be empty and
-  // drop out of the layout -- a full-height #boot once pushed the app a whole
-  // viewport down the page.
+  // Ready: the renderer owns the document underneath and only the bar is still
+  // ours. #boot stays mounted to hold it, which is why that layer must not
+  // capture pointer events -- see index.html. The class insets the app so the
+  // desk begins below the bar instead of behind it.
   return <ExpiryBar offer={state.offer} bundle={bundleRef.current} onExpired={expire} />
 }
 

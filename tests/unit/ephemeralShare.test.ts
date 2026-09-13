@@ -177,3 +177,45 @@ describe('opening the desk that was sent', () => {
     expect(block).not.toContain('setActive')
   })
 })
+
+// A recipient could open the desk and then do nothing with it -- no pan, no
+// zoom, no click. Nothing in the data or the policy was wrong: #boot is a
+// full-viewport fixed layer, hidden only while :empty, and a share window keeps
+// a 40px countdown bar in it for the whole session. The bar was visible, the
+// sheet around it was not, and every event landed on the sheet.
+//
+// No logic test could have caught it, so this reads the stylesheet.
+describe('the gate layer does not sit on top of the desk', () => {
+  const html = (): string => {
+    const { readFileSync } = require('fs') as typeof import('fs')
+    const { resolve } = require('path') as typeof import('path')
+    return readFileSync(resolve(__dirname, '../../src/web/index.html'), 'utf8')
+  }
+
+  it('lets events through, because it is not always empty', () => {
+    const css = html()
+    const rule = css.slice(css.indexOf('#boot {'), css.indexOf('#boot:empty'))
+    expect(rule).toContain('pointer-events: none')
+  })
+
+  it('gives its children their events back, so the bar and the gates still work', () => {
+    expect(html()).toContain('#boot > * { pointer-events: auto; }')
+  })
+
+  it('still hides itself entirely when there is nothing in it', () => {
+    expect(html()).toContain('#boot:empty { display: none; }')
+  })
+
+  it('starts the app below the bar rather than behind it', () => {
+    expect(html()).toMatch(/html\.fb-share-bar #root \{[^}]*padding-top: 40px/)
+  })
+
+  it('adds that class only while the bar is mounted', async () => {
+    const { readFileSync } = await import('fs')
+    const { resolve } = await import('path')
+    const boot = readFileSync(resolve(__dirname, '../../src/web/boot.tsx'), 'utf8')
+    const fn = boot.slice(boot.indexOf('function ExpiryBar('))
+    expect(fn.slice(0, 600)).toContain("classList.add('fb-share-bar')")
+    expect(fn.slice(0, 600)).toContain("classList.remove('fb-share-bar')")
+  })
+})
