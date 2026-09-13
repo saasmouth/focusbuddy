@@ -11,6 +11,7 @@
 // than passed because the modules that must honour it are deep in the renderer
 // and have no business taking a parameter for it.
 const KEY = 'fb.share.recipient'
+const DESK_KEY = 'fb.share.desk'
 
 /** Mark this window a share recipient. Never unset for the life of the tab. */
 export function markShareRecipient(token: string): void {
@@ -37,4 +38,32 @@ export function shareRecipientToken(): string | null {
 
 export function isShareRecipient(): boolean {
   return shareRecipientToken() !== null
+}
+
+/**
+ * Which desk this window was sent.
+ *
+ * The recipient's workspace holds exactly one, but the app still opens on its
+ * home view by default -- so without this a share link loaded Plexii and left
+ * the visitor looking at an empty dashboard, wondering where the desk was.
+ */
+let deskMemo: string | null = null
+
+export function setShareDeskId(deskId: string): void {
+  try {
+    sessionStorage.setItem(DESK_KEY, deskId)
+  } catch {
+    /* private mode; the in-memory value still serves this tab */
+  }
+  deskMemo = deskId
+}
+
+export function shareDeskId(): string | null {
+  if (deskMemo) return deskMemo
+  try {
+    deskMemo = sessionStorage.getItem(DESK_KEY)
+  } catch {
+    deskMemo = null
+  }
+  return deskMemo
 }

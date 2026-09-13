@@ -54,6 +54,7 @@ import { useAccountStore } from './stores/account'
 import { personDisplayName, personInitials } from './lib/personName'
 import { installInboxPoller } from './lib/inboxPoller'
 import { startWorkspaceSync, stopWorkspaceSync } from './lib/workspaceSync'
+import { isShareRecipient, shareDeskId } from './lib/shareMode'
 import { initCrdtSync, stopCrdtSync } from './lib/crdtSync'
 import { applyCustomization, applyFont, applyTheme, loadCustomization, loadTheme, useTheme } from './lib/theme'
 import { typingClick } from './lib/audioBeep'
@@ -127,6 +128,28 @@ export default function App(): JSX.Element {
   // phantom empty strip where the hidden dock would be. Same predicate the
   // overlay uses: focus mode genuinely showing, not a stale focusedWidgetId.
   const focusedWidgetId = useWidgetStore((s) => s.focusedWidgetId)
+  // A 48-hour share shows the desk and nothing else. The recipient has no
+  // workspace of their own to navigate, so a sidebar of desks they do not have,
+  // a titlebar of tools they cannot keep and a footer are all noise around the
+  // one thing they were sent. The countdown and the download call-to-action are
+  // rendered by the cloud entry, above this.
+  const shareView = isShareRecipient()
+
+  // A share window opens on the desk it was sent, not on a home view of a
+  // workspace the visitor does not have. Runs once the nodes are loaded, since
+  // setActive on an id the store has never seen would select nothing.
+  const nodesForShare = useNodeStore((n) => n.nodes)
+  const setActiveForShare = useNodeStore((n) => n.setActive)
+  const activeForShare = useNodeStore((n) => n.activeTaskId)
+  useEffect(() => {
+    if (!shareView || activeForShare) return
+    const wanted = shareDeskId()
+    const desk = wanted
+      ? nodesForShare.find((n) => n.id === wanted)
+      : nodesForShare.find((n) => n.kind === 'task')
+    if (desk) setActiveForShare(desk.id)
+  }, [shareView, activeForShare, nodesForShare, setActiveForShare])
+
   const focusModeShowing =
     (currentView.kind === 'task' || currentView.kind === 'project-dashboard') &&
     focusedWidgetId !== null
@@ -495,6 +518,7 @@ export default function App(): JSX.Element {
       {releaseEntry && (
         <ReleaseModal entry={releaseEntry} onClose={() => setReleaseEntry(null)} />
       )}
+      {!shareView && (
       <header
         className={`titlebar-drag fb-glass-chrome h-10 flex items-center justify-between pr-3 border-b border-[color:var(--glass-chrome-border)] transition-colors ${
           isMac ? 'pl-[78px]' : 'pl-3'
@@ -636,7 +660,11 @@ export default function App(): JSX.Element {
           </Tooltip>
         </div>
       </header>
-      <main className="flex-1 min-h-0 relative flex bg-[var(--surface-base)]" style={mainPad}>
+      )}
+      <main
+        className="flex-1 min-h-0 relative flex bg-[var(--surface-base)]"
+        style={shareView ? undefined : mainPad}
+      >
         {segmentTakeover ? (
           // Grow the segment shell to fill <main> up to the reserved assistant
           // strip, the same wrapper the MainPane branch uses. Without this the
@@ -660,14 +688,16 @@ export default function App(): JSX.Element {
               behind it, while the inset margin lets the desk surface show around
               the card so it reads as floating above the surface. Minimising it
               collapses the column entirely, giving the content the full width. */}
-          <SidebarDock collapsed={sidebarMinimized} onToggle={toggleSidebar} fullBleed={canvasFullBleed} />
+          {!shareView && (
+            <SidebarDock collapsed={sidebarMinimized} onToggle={toggleSidebar} fullBleed={canvasFullBleed} />
+          )}
           {/* The assistant no longer lives in a desk-only split here — it is a
               global overlay (AssistantOverlay, mounted below) so it exists on
               every screen. Sidebar mode reserves its width via mainPad above. */}
           <div
-            className={canvasFullBleed ? 'absolute inset-y-0' : 'flex-1 min-w-0 h-full'}
+            className={canvasFullBleed && !shareView ? 'absolute inset-y-0' : 'flex-1 min-w-0 h-full'}
             style={
-              canvasFullBleed
+              canvasFullBleed && !shareView
                 ? { left: mainPad.paddingLeft ?? 0, right: mainPad.paddingRight ?? 0 }
                 : undefined
             }
@@ -677,7 +707,7 @@ export default function App(): JSX.Element {
         </>
         )}
       </main>
-      <Footer />
+      {!shareView && <Footer />}
 
       <FocusSessionOverlay />
       <CallOverlay />

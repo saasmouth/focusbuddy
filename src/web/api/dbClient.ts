@@ -22,6 +22,9 @@
 // dispatched, so never executed) is sent on to the new leader, and a call that
 // was genuinely in flight is failed with a message that says what happened.
 // Losing a call is recoverable; silently duplicating a write is not.
+import { isShareRecipient } from '@renderer/lib/shareMode'
+import { isWriteChannel, ReadOnlyShareError } from './readOnly'
+
 const LOCK_NAME = 'plexii.db.leader'
 const CHANNEL_NAME = 'plexii.db'
 
@@ -237,6 +240,14 @@ export function startCoordinator(): void {
 
 /** Make a call against the workspace database, wherever it happens to live. */
 export function dbCall(channel: string, args: unknown[]): Promise<unknown> {
+  // A shared desk is read-only, and this is the one place that can guarantee it:
+  // every call the renderer makes arrives here. Refusing at the source means no
+  // write reaches the database however the visitor got to it -- a menu, a
+  // shortcut, a drag, a paste -- and a mutating channel added later is refused
+  // without anyone remembering to think about sharing.
+  if (isShareRecipient() && isWriteChannel(channel)) {
+    return Promise.reject(new ReadOnlyShareError(channel))
+  }
   const id = seq++
   return new Promise((resolve, reject) => {
     const waiter: Waiter = { resolve, reject, channel, args, dispatched: false }

@@ -22,7 +22,7 @@ import {
   shareTokenFromUrl, previewShare, fetchShareBundle, alreadyImported, markImported,
   wipeLocalCopy, countdown, msLeft, downloadBundle, type ShareOffer, type ShareRefusal
 } from './api/share'
-import { markShareRecipient } from '@renderer/lib/shareMode'
+import { markShareRecipient, setShareDeskId } from '@renderer/lib/shareMode'
 
 const DESKTOP_DOWNLOAD_URL = 'https://plexii.app/download'
 
@@ -71,8 +71,8 @@ function ShareOfferCard({
           </div>
         </div>
         <div style={S.sub}>
-          You can open it here and change anything you like — it is your own copy, and nothing
-          you do travels back. After 48 hours it is deleted.
+          You can read it here, in full. It cannot be edited — download Plexii to make it
+          yours and work on it. After 48 hours this link is deleted.
         </div>
         <button style={S.primary} onClick={onOpen} disabled={busy}>
           {busy ? 'Opening the desk…' : 'Open the desk'}
@@ -107,7 +107,7 @@ function ExpiryBar({
     <div style={{ ...S.bar, background: urgent ? '#3a2216' : '#171a21' }}>
       <span style={S.barText}>
         <strong>{offer.title || 'Shared desk'}</strong> · {countdown(offer.expiresAt)}
-        <span style={S.barFine}> — this copy is deleted when the timer ends</span>
+        <span style={S.barFine}> — read-only, and deleted when the timer ends</span>
       </span>
       <span style={S.barActions}>
         {bundle && (
@@ -115,7 +115,7 @@ function ExpiryBar({
             Save desk file
           </button>
         )}
-        <a style={S.barPrimary} href={DESKTOP_DOWNLOAD_URL}>Keep it — get the desktop app</a>
+        <a style={S.barPrimary} href={DESKTOP_DOWNLOAD_URL}>Get Plexii — create and edit your own desks</a>
       </span>
     </div>
   )
@@ -154,6 +154,9 @@ function Boot(): React.JSX.Element {
         return
       }
       markShareRecipient(token)
+      // The desk to open once the renderer is up; the app would otherwise
+      // land on its home view and show an empty workspace.
+      setShareDeskId(preview.offer.rootId)
       setState({ kind: 'offer', offer: preview.offer })
     })()
     return () => {
