@@ -54,7 +54,7 @@ import { useAccountStore } from './stores/account'
 import { personDisplayName, personInitials } from './lib/personName'
 import { installInboxPoller } from './lib/inboxPoller'
 import { startWorkspaceSync, stopWorkspaceSync } from './lib/workspaceSync'
-import { isShareRecipient, shareDeskId } from './lib/shareMode'
+import { isShareRecipient, shareDeskId, deskToOpen } from './lib/shareMode'
 import { initCrdtSync, stopCrdtSync } from './lib/crdtSync'
 import { applyCustomization, applyFont, applyTheme, loadCustomization, loadTheme, useTheme } from './lib/theme'
 import { typingClick } from './lib/audioBeep'
@@ -135,20 +135,24 @@ export default function App(): JSX.Element {
   // rendered by the cloud entry, above this.
   const shareView = isShareRecipient()
 
-  // A share window opens on the desk it was sent, not on a home view of a
-  // workspace the visitor does not have. Runs once the nodes are loaded, since
-  // setActive on an id the store has never seen would select nothing.
+  // A share window opens on the desk it was sent, not on the dashboard of a
+  // workspace the visitor does not have.
+  //
+  // It has to move the VIEW, not the active desk. An effect below syncs
+  // activeTaskId from currentView, so setting the desk directly was overwritten
+  // on the next render by whatever the view still said -- which was the
+  // dashboard, and that is exactly what a recipient saw. Runs once the nodes
+  // are loaded, because navigating to an id the store has not seen shows
+  // nothing.
   const nodesForShare = useNodeStore((n) => n.nodes)
-  const setActiveForShare = useNodeStore((n) => n.setActive)
-  const activeForShare = useNodeStore((n) => n.activeTaskId)
+  const shareOpened = useRef(false)
   useEffect(() => {
-    if (!shareView || activeForShare) return
-    const wanted = shareDeskId()
-    const desk = wanted
-      ? nodesForShare.find((n) => n.id === wanted)
-      : nodesForShare.find((n) => n.kind === 'task')
-    if (desk) setActiveForShare(desk.id)
-  }, [shareView, activeForShare, nodesForShare, setActiveForShare])
+    if (!shareView || shareOpened.current) return
+    const desk = deskToOpen(nodesForShare, shareDeskId())
+    if (!desk) return
+    shareOpened.current = true
+    useViewStore.getState().goTask(desk)
+  }, [shareView, nodesForShare])
 
   const focusModeShowing =
     (currentView.kind === 'task' || currentView.kind === 'project-dashboard') &&

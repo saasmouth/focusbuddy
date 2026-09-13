@@ -126,3 +126,54 @@ describe('serving the app from a path rather than a root', () => {
     expect(src).not.toContain('`/fb-file/${encodeURIComponent(fileId)}`')
   })
 })
+
+// A recipient opened their link and got the PlexiSuite dashboard. The desk had
+// imported perfectly -- 47 widgets, 6 tables, the lot -- and the window simply
+// never went to it.
+describe('opening the desk that was sent', () => {
+  const nodes = [
+    { id: 'folder', kind: 'folder' },
+    { id: 'desk-a', kind: 'task' },
+    { id: 'desk-b', kind: 'task' }
+  ]
+
+  it('opens the desk the share names', async () => {
+    const { deskToOpen } = await import('../../src/renderer/src/lib/shareMode')
+    expect(deskToOpen(nodes, 'desk-b')).toBe('desk-b')
+  })
+
+  it('falls back to the only desk when the id did not travel', async () => {
+    // A link minted before the id was carried, or a browser refusing
+    // sessionStorage. The workspace is built from the bundle alone, so the
+    // first desk in it is the right answer rather than a guess.
+    const { deskToOpen } = await import('../../src/renderer/src/lib/shareMode')
+    expect(deskToOpen(nodes, null)).toBe('desk-a')
+    expect(deskToOpen(nodes, 'not-here')).toBe('desk-a')
+  })
+
+  it('says "not yet" while the nodes are still loading', async () => {
+    const { deskToOpen } = await import('../../src/renderer/src/lib/shareMode')
+    // Navigating to a desk the store has not seen shows an empty canvas, which
+    // looks exactly like the bug being fixed here.
+    expect(deskToOpen([], 'desk-a')).toBeNull()
+    expect(deskToOpen([{ id: 'f', kind: 'folder' }], null)).toBeNull()
+  })
+
+  it('skips an archived desk', async () => {
+    const { deskToOpen } = await import('../../src/renderer/src/lib/shareMode')
+    expect(deskToOpen([{ id: 'old', kind: 'task', archived: true }, { id: 'live', kind: 'task' }], null)).toBe('live')
+  })
+
+  it('moves the VIEW, which is the thing that decides what is on screen', async () => {
+    const { readFileSync } = await import('fs')
+    const { resolve } = await import('path')
+    const src = readFileSync(resolve(__dirname, '../../src/renderer/src/App.tsx'), 'utf8')
+    const i = src.indexOf('A share window opens on the desk it was sent')
+    expect(i).toBeGreaterThan(-1)
+    const block = src.slice(i, i + 1200)
+    // setActive was the first attempt and it did nothing: an effect below syncs
+    // activeTaskId FROM currentView, so the dashboard won on the next render.
+    expect(block).toContain('goTask')
+    expect(block).not.toContain('setActive')
+  })
+})

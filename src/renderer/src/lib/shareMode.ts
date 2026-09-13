@@ -67,3 +67,27 @@ export function shareDeskId(): string | null {
   }
   return deskMemo
 }
+
+/**
+ * Which desk a share window should open.
+ *
+ * The bundle names one, but a recipient's workspace is built from that bundle
+ * alone, so falling back to the only desk in it is both safe and the right
+ * answer when the id is missing — a link minted before the id travelled, or a
+ * browser that refused sessionStorage.
+ *
+ * Returns null while the nodes are still loading, which the caller must treat
+ * as "not yet" rather than "nothing": navigating to a desk the store has not
+ * seen shows an empty canvas.
+ */
+export function deskToOpen(
+  nodes: ReadonlyArray<{ id: string; kind: string; archived?: boolean | null }>,
+  wantedId: string | null
+): string | null {
+  if (wantedId) {
+    const exact = nodes.find((n) => n.id === wantedId)
+    if (exact) return exact.id
+  }
+  const desks = nodes.filter((n) => n.kind === 'task' && !n.archived)
+  return desks.length > 0 ? desks[0].id : null
+}
