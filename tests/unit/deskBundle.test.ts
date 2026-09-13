@@ -67,6 +67,19 @@ function seed(): void {
   blobs.set('file-1.png', new Uint8Array([1, 2, 3]))
   blobs.set('file-2.png', new Uint8Array([9, 8, 7, 6]))
 
+  // A desk filed inside a folder -- half of a real workspace looks like this.
+  db.prepare(`INSERT INTO nodes (id,parent_id,kind,title,description,status,priority,interest,importance,sort_order,created_at,updated_at,extensions_minutes,org_id)
+              VALUES ('folder-1',NULL,'folder','A folder','','open',3,3,3,0,?,?,0,'personal')`).run(NOW, NOW)
+  db.prepare(`INSERT INTO nodes (id,parent_id,kind,title,description,status,priority,interest,importance,sort_order,created_at,updated_at,extensions_minutes,org_id)
+              VALUES ('desk-nested','folder-1','task','Nested desk','','open',3,3,3,0,?,?,0,'personal')`).run(NOW, NOW)
+  w('w-nested', 'desk-nested', 'sticky', 'inside a folder')
+
+  // A link reaching a widget on a desk that is not being shared.
+  db.prepare(`INSERT INTO widget_links (id,source_widget_id,target_widget_id,task_id,created_at)
+              VALUES ('link-in','w-nested','w-nested','desk-nested',?)`).run(NOW)
+  db.prepare(`INSERT INTO widget_links (id,source_widget_id,target_widget_id,task_id,created_at)
+              VALUES ('link-out','w-nested','w-other','desk-nested',?)`).run(NOW)
+
   db.prepare(`INSERT INTO fb_tables (id,task_id,title,schema_json,created_at,updated_at,org_id)
               VALUES ('t-1','desk-1','Pipeline','{"columns":[{"id":"c1","type":"text-short","label":"P","config":{}}]}',?,?,'personal')`).run(NOW, NOW)
   db.prepare(`INSERT INTO fb_rows (id,table_id,cells_json,sort_order,created_at,updated_at)
@@ -197,5 +210,81 @@ describe('base64', () => {
     const bytes = new Uint8Array(1024)
     for (let i = 0; i < bytes.length; i++) bytes[i] = i % 256
     expect(mod.fromBase64(mod.toBase64(bytes))).toEqual(bytes)
+  })
+})
+
+// The failure a recipient actually saw: "import failed and was rolled back:
+// SQLITE_CONSTRAINT_FOREIGNKEY". Deferring foreign keys to COMMIT is what makes
+// the import work at all -- rows arrive table by table -- but it also means a
+// reference pointing OUT of the bundle is not caught until the very end, and
+// the error names nothing you can act on.
+describe('a desk that points outside itself', () => {
+  it('arrives at the top level, because its folder is not coming with it', async () => {
+    const b = await mod.buildDeskBundle('desk-nested')
+    const root = b.tables.nodes.find((n) => n.id === 'desk-nested')!
+    expect(root.parent_id).toBeNull()
+    // Only the root is re-homed; a child keeps the parent it travels with.
+    const bundle1 = await mod.buildDeskBundle('desk-1')
+    expect(bundle1.tables.nodes.find((n) => n.id === 'desk-child')!.parent_id).toBe('desk-1')
+  })
+
+  it('does not take the sender\'s folder along', async () => {
+    const b = await mod.buildDeskBundle('desk-nested')
+    expect(b.tables.nodes.map((n) => n.id)).not.toContain('folder-1')
+  })
+
+  it('leaves behind a link whose other end is not in the bundle', async () => {
+    const b = await mod.buildDeskBundle('desk-nested')
+    const ids = b.tables.widget_links.map((l) => l.id)
+    expect(ids).toContain('link-in')
+    expect(ids).not.toContain('link-out')
+  })
+
+  it('imports into a database that ENFORCES the keys, which is where it broke', async () => {
+    const bundle = await mod.buildDeskBundle('desk-nested')
+    const target = openMemoryDatabase()
+    // The whole point: without foreign_keys ON this test passes while broken.
+    target.pragma('foreign_keys = ON')
+    const { applyBrowserSchema } = await import('../../src/web/worker/schemaInit')
+    applyBrowserSchema(target)
+    const sender = db
+    db = target
+    const res = await mod.importDeskBundle(bundle)
+    db = sender
+    expect(res.ok, res.reason).toBe(true)
+    expect(res.reason).toBeUndefined()
+    const desk = target.prepare("SELECT parent_id FROM nodes WHERE id='desk-nested'").get() as { parent_id: string | null }
+    expect(desk.parent_id).toBeNull()
+  })
+})
+
+describe('when a bundle is malformed, it says what is wrong', () => {
+  it('names the reference rather than leaving a bare constraint code', async () => {
+    const bundle = await mod.buildDeskBundle('desk-nested')
+    // Put the dangling parent back, exactly as the bug produced it.
+    const root = bundle.tables.nodes.find((n) => n.id === 'desk-nested')!
+    root.parent_id = 'folder-1'
+
+    expect(mod.danglingReferences(bundle)).toEqual([
+      'node desk-nested ("Nested desk") is filed under folder-1, which is not in the bundle'
+    ])
+
+    const target = openMemoryDatabase()
+    target.pragma('foreign_keys = ON')
+    const { applyBrowserSchema } = await import('../../src/web/worker/schemaInit')
+    applyBrowserSchema(target)
+    const sender = db
+    db = target
+    const res = await mod.importDeskBundle(bundle)
+    db = sender
+    expect(res.ok).toBe(false)
+    // The bit a person can act on.
+    expect(res.reason).toContain('point outside this desk')
+    expect(res.reason).toContain('folder-1')
+  })
+
+  it('finds nothing to complain about in a bundle that is sound', async () => {
+    expect(mod.danglingReferences(await mod.buildDeskBundle('desk-nested'))).toEqual([])
+    expect(mod.danglingReferences(await mod.buildDeskBundle('desk-1'))).toEqual([])
   })
 })

@@ -174,9 +174,25 @@ export async function buildDeskBundle(
   const nodeIds = deskSubtreeIds(deskId)
   const tables: Record<string, Array<Record<string, unknown>>> = {}
 
-  tables.nodes = selectIn(db, 'nodes', 'id', nodeIds)
+  // The shared desk arrives at the top level of the recipient's workspace.
+  //
+  // Its parent_id points at a folder in the SENDER's tree, and nodes.parent_id
+  // is a real foreign key -- so a nested desk (half of them are) produced a
+  // bundle that imported cleanly row by row and then failed at COMMIT with a
+  // constraint error naming nothing in particular. Descendants keep their
+  // parents, which are all in the bundle; only the root is re-homed.
+  tables.nodes = selectIn(db, 'nodes', 'id', nodeIds).map((n) =>
+    n.id === deskId ? { ...n, parent_id: null } : n
+  )
   tables.widgets = selectIn(db, 'widgets', 'task_id', nodeIds)
-  tables.widget_links = selectIn(db, 'widget_links', 'task_id', nodeIds)
+
+  // A link is only carried when BOTH of its ends are. Its endpoints are foreign
+  // keys onto widgets, and a link reaching a widget on a desk that is not being
+  // shared would fail the same way -- at COMMIT, after everything looked fine.
+  const widgetIds = new Set(tables.widgets.map((w) => String(w.id)))
+  tables.widget_links = selectIn(db, 'widget_links', 'task_id', nodeIds).filter(
+    (l) => widgetIds.has(String(l.source_widget_id)) && widgetIds.has(String(l.target_widget_id))
+  )
   tables.fb_tables = selectIn(db, 'fb_tables', 'task_id', nodeIds)
   tables.fb_rows = selectIn(
     db,
@@ -252,6 +268,43 @@ export async function buildDeskBundle(
   }
 }
 
+/**
+ * References in the bundle that point at something it does not contain.
+ *
+ * Deferring foreign keys to COMMIT is what lets rows arrive table by table, but
+ * it also means a reference pointing OUT of the bundle surfaces as
+ * "SQLITE_CONSTRAINT_FOREIGNKEY" at the very end, naming no table, no row and
+ * no column. That message was a real dead end for a real recipient. This walks
+ * the same three relationships SQLite would and says which row is unsatisfied.
+ */
+export function danglingReferences(bundle: DeskBundle): string[] {
+  const t = bundle.tables ?? {}
+  const ids = (table: string): Set<string> =>
+    new Set((t[table] ?? []).map((r) => String(r.id)))
+  const nodeIds = ids('nodes')
+  const widgetIds = ids('widgets')
+  const tableIds = ids('fb_tables')
+  const out: string[] = []
+
+  for (const n of t.nodes ?? []) {
+    if (n.parent_id != null && !nodeIds.has(String(n.parent_id))) {
+      out.push(`node ${n.id} ("${String(n.title ?? '')}") is filed under ${n.parent_id}, which is not in the bundle`)
+    }
+  }
+  for (const w of t.widgets ?? []) {
+    if (!nodeIds.has(String(w.task_id))) out.push(`widget ${w.id} belongs to desk ${w.task_id}, which is not in the bundle`)
+  }
+  for (const l of t.widget_links ?? []) {
+    for (const end of ['source_widget_id', 'target_widget_id'] as const) {
+      if (!widgetIds.has(String(l[end]))) out.push(`link ${l.id} reaches widget ${l[end]}, which is not in the bundle`)
+    }
+  }
+  for (const r of t.fb_rows ?? []) {
+    if (!tableIds.has(String(r.table_id))) out.push(`row ${r.id} belongs to table ${r.table_id}, which is not in the bundle`)
+  }
+  return out
+}
+
 export interface BundleImportResult {
   ok: boolean
   deskId?: string
@@ -322,7 +375,12 @@ export async function importDeskBundle(bundle: DeskBundle): Promise<BundleImport
     } catch {
       /* already unwound */
     }
-    return { ...empty, reason: `import failed and was rolled back: ${(e as Error).message}` }
+    // Say what is actually wrong. The raw constraint error names nothing.
+    const dangling = danglingReferences(bundle)
+    const detail = dangling.length
+      ? ` — ${dangling.length} reference${dangling.length === 1 ? '' : 's'} point outside this desk: ${dangling.slice(0, 3).join('; ')}${dangling.length > 3 ? `; and ${dangling.length - 3} more` : ''}`
+      : ''
+    return { ...empty, reason: `import failed and was rolled back: ${(e as Error).message}${detail}` }
   }
 
   // Bytes last, and outside the transaction: the blob store is not part of it,
