@@ -713,50 +713,66 @@ export default function App(): JSX.Element {
       </main>
       {!shareView && <Footer />}
 
-      <FocusSessionOverlay />
-      <CallOverlay />
-      <MeetingOverlay />
-      <GuestCaptureBar />
-      <MeetingLaunchDialog />
-      <WrapupOverlay />
-      <KnockOverlay />
-      <BringMeBack />
-      <HyperfocusGuardian />
-      <PreTaskBridge />
-      <CursorSpotlight />
-      <CommandCenter
-        onOpenBodyDouble={() => setBodyDoubleOpen(true)}
-        onOpenSmartStack={() => canSmartStack && setSmartStackOpen(true)}
-        canSmartStack={canSmartStack}
-      />
-      <FirstRunOnboarding />
-      <OnboardingTour />
-      <FeatureSpotlightPopup />
-      <OnboardingHub />
-      <UndoToast />
-      <CompletionToast />
-      <NoticeToast />
-      {/* DEC-075 — yesterday's never-completed blocks greet the launch once. */}
-      <MissedTriagePrompt />
-      <CaptureConsole />
-      <PromptDialogHost />
-      <DocHistoryPanelHost />
-      {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
-      <LaunchSignInModal />
-      <UpgradePromptModal />
-      <MetricsOverlay />
-      {/* The assistant: a pill on every screen, opening into sidebar /
-          floating / fullscreen over one conversation. */}
-      <AssistantOverlay />
-      {/* The universal pin layer (spec §7): a persistent tray of globally pinned
-          items, reachable on every surface, droppable onto the current desk. */}
-      <PinTray />
-      {/* The bottom-center voice bar retired with A3 (R7): voice lives in the
-          mascot now — hold the pill or Cmd+Shift+Space (AssistantOverlay). */}
-      {smartStackOpen && <SmartStackModal onClose={() => setSmartStackOpen(false)} />}
-      <RelatedDesksModal />
-      {bodyDoubleOpen && (
-        <PeerBodyDoubleDialog onClose={() => setBodyDoubleOpen(false)} />
+      {/* Everything Plexii does BESIDES showing this desk.
+
+          A share window is one desk and nothing else, and these are the
+          "nothing else": focus sessions, meetings, the assistant, the command
+          centre, onboarding tours, capture, toasts, the pin tray. None of them
+          mean anything to someone who was sent a link and has no workspace.
+
+          Suppressing them is not tidiness. The pre-task bridge -- "what would
+          make this 10% easier right now?" -- fires when a desk is opened and
+          renders a full-screen scrim at z-280, so a recipient got the desk and
+          then could not touch it. FirstRunOnboarding would have done the same
+          on any fresh browser profile. */}
+      {!shareView && (
+        <>
+        <FocusSessionOverlay />
+        <CallOverlay />
+        <MeetingOverlay />
+        <GuestCaptureBar />
+        <MeetingLaunchDialog />
+        <WrapupOverlay />
+        <KnockOverlay />
+        <BringMeBack />
+        <HyperfocusGuardian />
+        <PreTaskBridge />
+        <CursorSpotlight />
+        <CommandCenter
+          onOpenBodyDouble={() => setBodyDoubleOpen(true)}
+          onOpenSmartStack={() => canSmartStack && setSmartStackOpen(true)}
+          canSmartStack={canSmartStack}
+        />
+        <FirstRunOnboarding />
+        <OnboardingTour />
+        <FeatureSpotlightPopup />
+        <OnboardingHub />
+        <UndoToast />
+        <CompletionToast />
+        <NoticeToast />
+        {/* DEC-075 — yesterday's never-completed blocks greet the launch once. */}
+        <MissedTriagePrompt />
+        <CaptureConsole />
+        <PromptDialogHost />
+        <DocHistoryPanelHost />
+        {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
+        <LaunchSignInModal />
+        <UpgradePromptModal />
+        <MetricsOverlay />
+        {/* The assistant: a pill on every screen, opening into sidebar /
+            floating / fullscreen over one conversation. */}
+        <AssistantOverlay />
+        {/* The universal pin layer (spec §7): a persistent tray of globally pinned
+            items, reachable on every surface, droppable onto the current desk. */}
+        <PinTray />
+        {/* The bottom-center voice bar retired with A3 (R7): voice lives in the
+            mascot now — hold the pill or Cmd+Shift+Space (AssistantOverlay). */}
+        {smartStackOpen && <SmartStackModal onClose={() => setSmartStackOpen(false)} />}
+        <RelatedDesksModal />
+        {bodyDoubleOpen && (
+          <PeerBodyDoubleDialog onClose={() => setBodyDoubleOpen(false)} />
+        )}
+        </>
       )}
 
       {settingsOpen && (
