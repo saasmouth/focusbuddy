@@ -24,6 +24,7 @@
 // Losing a call is recoverable; silently duplicating a write is not.
 import { isShareRecipient } from '@renderer/lib/shareMode'
 import { decideCall, ReadOnlyShareError } from './readOnly'
+import { noteShareEdit } from './shareEdits'
 
 const LOCK_NAME = 'plexii.db.leader'
 const CHANNEL_NAME = 'plexii.db'
@@ -247,9 +248,12 @@ export function dbCall(channel: string, args: unknown[]): Promise<unknown> {
   // without anyone remembering to think about sharing.
   if (isShareRecipient()) {
     const decision = decideCall(channel, args)
-    if (!decision.allowed) return Promise.reject(new ReadOnlyShareError(channel, decision.why))
-    // Narrowed rather than refused: a drag carries geometry this viewer may
-    // change, and a widget patch can carry both in one call.
+    if (!decision.allowed) {
+      return Promise.reject(new ReadOnlyShareError(channel, decision.why ?? 'Not available here.'))
+    }
+    // The first change is when the warning matters: an edit that quietly
+    // evaporates in 48 hours is worse than one that was refused outright.
+    if (decision.edits) noteShareEdit()
     args = decision.args
   }
   const id = seq++

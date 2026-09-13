@@ -23,6 +23,7 @@ import {
   wipeLocalCopy, countdown, msLeft, downloadBundle, type ShareOffer, type ShareRefusal
 } from './api/share'
 import { markShareRecipient, setShareDeskId } from '@renderer/lib/shareMode'
+import { SHARE_EDIT_EVENT, hasEditedShare } from './api/shareEdits'
 
 const DESKTOP_DOWNLOAD_URL = 'https://plexii.app/download'
 
@@ -71,9 +72,9 @@ function ShareOfferCard({
           </div>
         </div>
         <div style={S.sub}>
-          Explore it here in full — zoom in, move things around, put two widgets side by
-          side. What they <em>say</em> stays as the sender left it. Download Plexii to make
-          it yours and edit it. After 48 hours this link is deleted.
+          Explore it in full — zoom in, rearrange it, change anything you like. Nothing you
+          do reaches the sender, and nothing is kept: this copy and everything in it is
+          deleted after 48 hours. Plexii is free, and keeps it for good.
         </div>
         <button style={S.primary} onClick={onOpen} disabled={busy}>
           {busy ? 'Opening the desk…' : 'Open the desk'}
@@ -90,9 +91,41 @@ function ShareOfferCard({
  * It is not decoration. It is the only thing telling someone that what they are
  * editing is temporary, and the only route to keeping it.
  */
+/**
+ * Said once, at the first change.
+ *
+ * The offer card already explained this, but nobody re-reads a card they
+ * dismissed two minutes ago, and finding out afterwards is the version that
+ * makes people feel tricked. It appears when they start working and stays until
+ * they close it.
+ */
+function EditWarning({ onClose }: { onClose: () => void }): React.JSX.Element {
+  return (
+    <div style={S.warn} role="status">
+      <span style={S.warnText}>
+        <strong>Nothing here is being saved.</strong> This copy is deleted when the link expires —
+        get Plexii free to keep this desk and everything you do to it.
+      </span>
+      <span style={S.barActions}>
+        <a style={S.barPrimary} href={DESKTOP_DOWNLOAD_URL}>Get Plexii — free</a>
+        <button style={S.barGhost} onClick={onClose} aria-label="Dismiss">Dismiss</button>
+      </span>
+    </div>
+  )
+}
+
 function ExpiryBar({
   offer, bundle, onExpired
 }: { offer: ShareOffer; bundle: string | null; onExpired: () => void }): React.JSX.Element {
+  // Seeded from the flag, not only from the event: a change made before this
+  // bar mounted would otherwise go unannounced.
+  const [warned, setWarned] = useState(hasEditedShare)
+  const [dismissed, setDismissed] = useState(false)
+  useEffect(() => {
+    const onEdit = (): void => setWarned(true)
+    window.addEventListener(SHARE_EDIT_EVENT, onEdit)
+    return () => window.removeEventListener(SHARE_EDIT_EVENT, onEdit)
+  }, [])
   useEffect(() => {
     document.documentElement.classList.add('fb-share-bar')
     return () => document.documentElement.classList.remove('fb-share-bar')
@@ -109,10 +142,12 @@ function ExpiryBar({
   const left = msLeft(offer.expiresAt)
   const urgent = left < 4 * 60 * 60 * 1000
   return (
+    <>
+    {warned && !dismissed && <EditWarning onClose={() => setDismissed(true)} />}
     <div style={{ ...S.bar, background: urgent ? '#3a2216' : '#171a21' }}>
       <span style={S.barText}>
         <strong>{offer.title || 'Shared desk'}</strong> · {countdown(offer.expiresAt)}
-        <span style={S.barFine}> — yours to explore, not to edit · deleted when the timer ends</span>
+        <span style={S.barFine}> — changes are not saved · deleted when the timer ends</span>
       </span>
       <span style={S.barActions}>
         {bundle && (
@@ -120,9 +155,10 @@ function ExpiryBar({
             Save desk file
           </button>
         )}
-        <a style={S.barPrimary} href={DESKTOP_DOWNLOAD_URL}>Get Plexii — create and edit your own desks</a>
+        <a style={S.barPrimary} href={DESKTOP_DOWNLOAD_URL}>Get Plexii — free</a>
       </span>
     </div>
+    </>
   )
 }
 
@@ -137,6 +173,7 @@ type State =
 function Boot(): React.JSX.Element {
   const [state, setState] = useState<State>({ kind: 'checking' })
   const [busy, setBusy] = useState(false)
+  const [reopen, setReopen] = useState(false)
   const bundleRef = useRef<string | null>(null)
   const token = shareTokenFromUrl()
 
@@ -162,6 +199,14 @@ function Boot(): React.JSX.Element {
       // The desk to open once the renderer is up; the app would otherwise
       // land on its home view and show an empty workspace.
       setShareDeskId(preview.offer.rootId)
+      // Already unpacked here, so this is a reload rather than an arrival.
+      // Making somebody re-accept a desk they are in the middle of reading is
+      // a door that locks behind them.
+      if (alreadyImported(token)) {
+        setState({ kind: 'offer', offer: preview.offer })
+        setReopen(true)
+        return
+      }
       setState({ kind: 'offer', offer: preview.offer })
     })()
     return () => {
@@ -207,6 +252,11 @@ function Boot(): React.JSX.Element {
       }
     })()
   }, [state, token])
+
+  // A reload of a desk already unpacked goes straight back to it.
+  useEffect(() => {
+    if (reopen && state.kind === 'offer' && !busy) open()
+  }, [reopen, state.kind, busy, open])
 
   const expire = useCallback(() => {
     void (async () => {
@@ -268,6 +318,11 @@ const S: Record<string, React.CSSProperties> = {
   barActions: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 },
   barGhost: { padding: '5px 10px', borderRadius: 6, border: '1px solid #39404f',
     background: 'transparent', color: '#e7e9ee', fontSize: 12, cursor: 'pointer' },
+  warn: { position: 'fixed', top: 40, left: 0, right: 0, zIndex: 61,
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+    padding: '10px 12px', background: '#3a2216', borderBottom: '1px solid #5a3a20',
+    color: '#ffe9d6', fontFamily: 'Inter, system-ui, sans-serif', fontSize: 13 },
+  warnText: { lineHeight: 1.45 },
   barPrimary: { padding: '5px 10px', borderRadius: 6, background: '#4f7cff', color: 'white',
     fontSize: 12, fontWeight: 600, textDecoration: 'none' }
 }

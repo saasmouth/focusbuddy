@@ -214,8 +214,14 @@ describe('the gate layer does not sit on top of the desk', () => {
     const { readFileSync } = await import('fs')
     const { resolve } = await import('path')
     const boot = readFileSync(resolve(__dirname, '../../src/web/boot.tsx'), 'utf8')
-    const fn = boot.slice(boot.indexOf('function ExpiryBar('))
-    expect(fn.slice(0, 600)).toContain("classList.add('fb-share-bar')")
-    expect(fn.slice(0, 600)).toContain("classList.remove('fb-share-bar')")
+    // Bounded by the next top-level declaration, not by the first '\n}':
+    // ExpiryBar's destructured parameters close with a brace at line start, so
+    // that cut the body at 47 characters and the assertion passed on nothing.
+    const from = boot.indexOf('function ExpiryBar(')
+    const after = boot.indexOf('\ntype State', from)
+    const body = boot.slice(from, after > -1 ? after : boot.length)
+    expect(body.length).toBeGreaterThan(500)
+    expect(body).toContain("classList.add('fb-share-bar')")
+    expect(body).toContain("classList.remove('fb-share-bar')")
   })
 })
