@@ -1,3 +1,5 @@
+import { GRID } from '../../lib/canvasGrid'
+import { snapEnabled } from '../../lib/gridPref'
 import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Rnd } from 'react-rnd'
@@ -214,6 +216,14 @@ export default function WidgetFrame({
   // key-change re-mount. Re-mounting is fatal for <webview> children
   // because Electron creates a fresh process and the URL fully reloads.
   const rndRef = useRef<Rnd | null>(null)
+  // Read live rather than once: the toggle is a global, and a desk already open
+  // should start snapping the moment it is turned on.
+  const [snapOn, setSnapOn] = useState(snapEnabled)
+  useEffect(() => {
+    const sync = (): void => setSnapOn(snapEnabled())
+    window.addEventListener('fb:snap-changed', sync)
+    return () => window.removeEventListener('fb:snap-changed', sync)
+  }, [])
   // Auto-grow: the body's content height drives the widget height for kinds that
   // grow (everything except long-form text, the browser, and the geometry-
   // computed kinds). Self-gates by kind / section-child / pinned.
@@ -679,6 +689,12 @@ export default function WidgetFrame({
       }
       minWidth={180}
       minHeight={120}
+      // Snap while dragging and while resizing. Rnd does this natively, which
+      // keeps the rounding in one place instead of correcting a position after
+      // the fact -- correcting afterwards is what makes a widget appear to
+      // jump out from under the cursor on release.
+      dragGrid={snapOn ? [GRID, GRID] : undefined}
+      resizeGrid={snapOn ? [GRID, GRID] : undefined}
       dragHandleClassName={draggableHandleClass}
       // The header label is a drag handle, but the rename affordance inside it
       // must NOT start a drag — otherwise react-draggable swallows the

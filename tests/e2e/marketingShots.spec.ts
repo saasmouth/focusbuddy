@@ -251,6 +251,16 @@ test('every widget, cropped to itself', async () => {
       chart: JSON.stringify({ tableId: table.id, type: 'bar', xColumnId: 'c-stage', series: [{ columnId: 'c-guide', agg: 'sum' }] }),
       field: JSON.stringify({ def: { id: 'f1', type: 'number', label: 'Days on market', config: {} }, value: 27 }),
       calculator: '51700',
+      'stat-card': JSON.stringify({
+        title: 'Median price',
+        series: [
+          { label: 'Sales', caption: 'Median sale price · 12 months', display: '$5.2M',
+            points: [4.6, 4.7, 4.65, 4.8, 4.9, 4.88, 5.0, 5.05, 5.1, 5.0, 5.15, 5.2] },
+          { label: 'Rentals', caption: 'Median weekly rent · 12 months', display: '$1,240',
+            points: [1080, 1100, 1120, 1115, 1160, 1180, 1175, 1200, 1210, 1225, 1230, 1240] }
+        ],
+        activeIndex: 0
+      }),
       color: '#f2b705',
       shape: JSON.stringify({ fill: '#bfe3d4', label: 'Phase one' }),
       scratchpad: 'quick sums, and a number worth keeping\n0412 345 678',

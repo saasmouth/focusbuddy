@@ -23,6 +23,44 @@ export interface WidgetCatalogEntry {
 
 export const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   {
+    // One number, its direction, and the readings behind it. The sparkline is
+    // the point: an arrow without a line is an assertion nobody can check.
+    kind: 'stat-card',
+    category: 'Tools',
+    label: 'Stat card',
+    icon: 'monitoring',
+    hint: 'A number worth watching, and how it got there',
+    defaultWidth: 340,
+    defaultHeight: 240,
+    // Seeded with a readable example rather than an empty card: a stat card with
+    // nothing in it cannot show what it is for, and this is the widget whose
+    // point is hardest to guess from its name.
+    defaultContent: JSON.stringify({
+      title: 'Median price',
+      series: [
+        { label: 'Sales', caption: 'Median sale price · 12 months', display: '$5.2M',
+          points: [4.6, 4.7, 4.65, 4.8, 4.9, 4.88, 5.0, 5.05, 5.1, 5.0, 5.15, 5.2] },
+        { label: 'Rentals', caption: 'Median weekly rent · 12 months', display: '$1,240',
+          points: [1080, 1100, 1120, 1115, 1160, 1180, 1175, 1200, 1210, 1225, 1230, 1240] }
+      ],
+      activeIndex: 0
+    }),
+    isWebBased: false
+  },
+  {
+    // A set of pictures read as a set. One image widget per photo turns a desk
+    // into a filing cabinet.
+    kind: 'gallery',
+    category: 'Files',
+    label: 'Gallery',
+    icon: 'photo_library',
+    hint: 'A grid of pictures, kept in this workspace',
+    defaultWidth: 460,
+    defaultHeight: 340,
+    defaultContent: JSON.stringify({ fileIds: [] }),
+    isWebBased: false
+  },
+  {
     // DEC-045: the same command-center face the home screen has, placeable on
     // any desk. Defaults to THIS desk's items; one tap widens to all.
     kind: 'attention',

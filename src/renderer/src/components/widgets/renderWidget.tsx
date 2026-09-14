@@ -1,3 +1,5 @@
+import StatCardWidget from './StatCardWidget'
+import GalleryWidget from './GalleryWidget'
 import type { JSX } from 'react'
 import type { Widget } from '@shared/types'
 import WidgetErrorBoundary from '../WidgetErrorBoundary'
@@ -66,6 +68,10 @@ export function renderWidget(w: Widget): JSX.Element | null {
 
 function renderWidgetInner(w: Widget): JSX.Element | null {
   switch (w.kind) {
+    case 'stat-card':
+      return <StatCardWidget widget={w} />
+    case 'gallery':
+      return <GalleryWidget widget={w} />
     case 'sticky':
       return <StickyWidget widget={w} />
     case 'image-gen':

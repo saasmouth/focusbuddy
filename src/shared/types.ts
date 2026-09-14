@@ -22,6 +22,12 @@ export type SectionLayout = 'free' | 'grid' | 'stacks' | 'icons' | 'list'
 export type PinZone = 'tl' | 'tr' | 'bl' | 'br'
 
 export type WidgetKind =
+  // A single number that is being watched, with its direction of travel and a
+  // sparkline of how it got there. Content is JSON: see StatCardContent.
+  | 'stat-card'
+  // A grid of pictures, which is how a set of images is usually actually read
+  // -- one image widget per photo makes a desk into a filing cabinet.
+  | 'gallery'
   // Prompt-to-image on the canvas. Content is the fb_files id of the generated
   // image (never the image bytes — see generateImageToFile), so it renders
   // through the same fb-file:// path as any other image on a desk.
