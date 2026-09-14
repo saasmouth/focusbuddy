@@ -1,9 +1,17 @@
-# Plexii on the desktop and Plexii in a browser
+# Plexii on the desktop, and a desk in a browser
 
-The two run **the same renderer**. Not a port, not a cut-down edition: the cloud
-app builds the desktop's own interface and gives it the desktop's own data
-layer, compiled to WebAssembly. That is why this document is short on
-differences and specific about the ones that exist.
+**Plexii is a desktop app.** The browser is not a second edition of it and is not
+somewhere you can have a workspace. It does exactly one job: when somebody is
+sent a desk, they can open it for 48 hours without installing anything or
+creating an account. Then it is deleted.
+
+What they open is nonetheless **the same renderer** — the desktop's own interface
+on the desktop's own data layer, compiled to WebAssembly — which is why the
+widget table below is worth having: it says what a recipient actually sees.
+
+Sharing between people who already have accounts, and within an organisation, is
+unchanged and lives on the desktop: those desks sync both ways and keep syncing.
+The browser is only for sharing with somebody who is not a user yet.
 
 Where they differ, it is for one of three reasons, and telling them apart is the
 whole point of this page:
@@ -77,12 +85,13 @@ runtimes; a kind marked ✅ behaves identically.
 | Capability | Cloud | Why |
 | --- | --- | --- |
 | Desks, rooms, widgets, canvas | ✅ | Same renderer, same database. |
-| Two-way sync with the desktop | ✅ | Same loop, same conflict rules. |
+| Two-way sync with the desktop | ➖ | Not in a share window. The desktop syncs with the desktop; a shared desk is one-way by design. |
 | Drive files, folders, tags, trash, search | ✅ | Bytes live in OPFS; the 900 lines of Drive logic are shared code. |
 | Multiple tabs at once | ✅ | One tab holds the database and the rest talk to it. |
 | Offline use | ✅ | The database is local, as on the desktop. |
-| Sign-in, second factor, orgs, sharing | ✅ | |
-| Desk claim links | ✅ | Better than the desktop, in fact — a recipient needs no install. |
+| **Sign-in, orgs, a workspace of your own** | ➖ | Deliberately absent. The browser is not a place to keep work, so there is nothing to sign in to. Account and organisation sharing happens between installed apps. |
+| **48-hour desk shares** | ✅ | The reason the browser build exists. The recipient needs no account and no install, can rearrange and edit their copy, and is told plainly that it is not being kept. |
+| **Two-way sync from a shared desk** | ➖ | By design. A recipient's copy reaches nobody: it is a snapshot, not a seat at the desk. |
 | **Embedded browsing** | ⚠️ | The desktop embeds a real browser with its own cookie jar. A tab can only use an `<iframe>`, and most sites refuse framing outright. Shows the address and an "Open" button so a refusal is legible. **Cannot** |
 | **Mail (IMAP)** | ❌ | IMAP is a raw TCP protocol. A browser has no sockets. **Cannot** — would need Signal to hold the mailbox, which is a feature rather than a port. |
 | **The Vault** | ⚠️ | Shows whether a vault exists, always locked. Its PBKDF2 and AES-GCM are synchronous; the browser offers them only asynchronously. Hand-writing a cipher for the module that holds passwords is not acceptable. **Not yet** — the fix is to make the Vault's crypto async on both runtimes. |

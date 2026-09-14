@@ -9,7 +9,6 @@ import {
   type DeskInvite
 } from '../lib/deskShareClient'
 import SharePeoplePicker, { type SharePick } from './SharePeoplePicker'
-import DeskClaimLinks from './DeskClaimLinks'
 import EphemeralDeskShare from './EphemeralDeskShare'
 import { usePeopleStore } from '../lib/peopleDirectory'
 import { useOrgStore, PERSONAL_ORG_ID } from '../stores/org'
@@ -145,7 +144,6 @@ export default function LiveDeskSharing({
           people picker because naming a person is the commoner act; this is the
           fallback when you cannot. */}
       <EphemeralDeskShare rootId={rootId} />
-      <DeskClaimLinks rootId={rootId} />
 
       {anyone && (
         <div className="space-y-0.5 pt-1 border-t border-[var(--edge-soft)]">

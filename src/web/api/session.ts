@@ -47,59 +47,7 @@ export function sessionToken(): string | null {
   return read(TOKEN_KEY)
 }
 
-export async function login(email: string, password: string, code?: string): Promise<LoginResult> {
-  let res: Response
-  try {
-    res = await fetch(`${base()}/accounts/login`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email, password, ...(code ? { code } : {}) })
-    })
-  } catch {
-    // Distinguish "could not reach the server" from "credentials rejected".
-    // Collapsing the two is how a user ends up retyping a correct password
-    // while offline.
-    return { ok: false, error: 'Could not reach Plexii. Check your connection and try again.' }
-  }
-  const body = (await res.json().catch(() => ({}))) as {
-    ok?: boolean; sessionToken?: string; account?: CloudAccount; error?: string; needsCode?: boolean
-  }
-  if (!res.ok || !body.ok || !body.sessionToken) {
-    return { ok: false, error: body.error || `Sign-in failed (${res.status})`, needsCode: body.needsCode }
-  }
-  write(TOKEN_KEY, body.sessionToken)
-  write(EMAIL_KEY, body.account?.email ?? email)
-  return { ok: true, account: body.account }
-}
 
-/**
- * Create an account.
- *
- * `claimToken` is the desk link the person is holding, passed through so the
- * server can see they were invited. It matters only when signup is closed; when
- * it is open the server ignores it entirely.
- */
-export async function signup(email: string, password: string, claimToken?: string | null): Promise<LoginResult> {
-  let res: Response
-  try {
-    res = await fetch(`${base()}/accounts/signup`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email, password, ...(claimToken ? { claimToken } : {}) })
-    })
-  } catch {
-    return { ok: false, error: 'Could not reach Plexii. Check your connection and try again.' }
-  }
-  const body = (await res.json().catch(() => ({}))) as {
-    ok?: boolean; sessionToken?: string; account?: CloudAccount; error?: string
-  }
-  if (!res.ok || !body.ok || !body.sessionToken) {
-    return { ok: false, error: body.error || `Could not create the account (${res.status})` }
-  }
-  write(TOKEN_KEY, body.sessionToken)
-  write(EMAIL_KEY, body.account?.email ?? email)
-  return { ok: true, account: body.account }
-}
 
 /** Confirm a stored token is still good before booting the app behind it. */
 export async function resolveSession(): Promise<CloudAccount | null> {

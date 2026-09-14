@@ -75,7 +75,7 @@ call is recoverable; silently duplicating a write is not.
 
 Sign-in and sign-up against Signal (including a second factor), the full app
 shell, the desk canvas, the New Desk flow, several tabs at once, the Drive with
-real file bytes, provider keys held server-side, desk claim links, and the
+real file bytes, provider keys held server-side, 48-hour desk shares, and the
 workspace sync loop in both directions. A desk created in a tab reaches the server and is applied by the
 desktop's own `applyRemote` into real rows with every column intact -- proven by
 `scripts/verify-cloud-roundtrip.mjs` feeding
@@ -95,14 +95,11 @@ There are three ways to share, and they answer different questions:
 | Invite by email | someone whose address you know | live access, once they sign in |
 | Claim link | someone you cannot name yet | live access, after they sign up |
 
-The claim link is the new one. The owner mints it choosing the terms -- view or
-edit, single-use or open, optional expiry -- and whoever opens it sees what is
-being offered *before* being asked for anything: who shared it, what the desk is
-called, whether they will be able to edit. "Create an account to find out what
-this is" is how a share link gets closed. That preview is unauthenticated and
-deliberately thin, and it does not use `displayName()`, which falls back to the
-email address and then the account id: both fine between teammates, both wrong
-on a page anyone holding a forwarded link can open.
+A 48-hour share is the only way in. The owner mints one from the desktop; the
+recipient opens it with no account, reads and rearranges their own copy, and is
+told it is not being kept. It replaced desk claim links, which minted a
+permanent grant for a stranger who signed up -- a forwarded URL becoming lasting
+access to a live desk.
 
 Claiming converts the token into an ordinary `resource_acls` grant, and from
 that moment nothing about the share is special. It appears in the access list,
@@ -160,7 +157,7 @@ not affect what is written or synced. The list is `PARITY` in
 from the `__APP_VERSION__` define rather than Electron's `app`, which is what
 lets it load here at all.)
 
-**A claim link needs somewhere to point.** `VITE_CLOUD_APP_URL` is the address
+**A share link needs somewhere to point.** `VITE_CLOUD_APP_URL` is the address
 of the deployed browser app, and with it unset the sharing controls disable
 themselves and say so. Minting a link that 404s for the recipient while looking
 perfectly fine to the sender is the worst kind of broken, because the sender
