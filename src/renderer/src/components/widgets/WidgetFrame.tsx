@@ -1,6 +1,7 @@
+import { WIDGET_CATALOG } from '../../lib/widgetCatalog'
 import { GRID } from '../../lib/canvasGrid'
 import { snapEnabled } from '../../lib/gridPref'
-import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { Rnd } from 'react-rnd'
 import { useWidgetSurface } from '../../lib/widgetSurface'
@@ -83,6 +84,10 @@ export default function WidgetFrame({
   // through every kind-specific widget component.
   // A dashboard renders the same object with the same component; it just has to
   // fill its card instead of sitting at its desk coordinates.
+  const catalogIcon = useMemo(
+    () => WIDGET_CATALOG.find((e) => e.kind === widget.kind)?.icon ?? 'widgets',
+    [widget.kind]
+  )
   const embedded = useWidgetSurface() === 'embedded'
   const contextZonePosition = useZonePosition(widget.id)
   const zonePosition = zonePositionProp ?? contextZonePosition
@@ -988,14 +993,20 @@ export default function WidgetFrame({
           </span>
         )}
         <div
-          className={`${draggableHandleClass} ${headerAccent} flex items-center justify-between px-2 py-1 cursor-move select-none border-b border-[color:var(--edge-soft)] backdrop-blur-sm`}
+          data-widget-header
+          className={`${draggableHandleClass} ${headerAccent} fb-widget-header flex items-center justify-between px-2 py-1 cursor-move select-none border-b border-[color:var(--edge-soft)] backdrop-blur-sm`}
           onContextMenu={(e) => {
             e.preventDefault()
             e.stopPropagation()
             setHeaderCtxMenu({ x: e.clientX, y: e.clientY })
           }}
         >
-          <span className="text-[10px] uppercase tracking-[0.08em] font-medium text-[var(--ink-70)] truncate flex items-center gap-1.5">
+          <span className="fb-widget-title text-[10px] uppercase tracking-[0.08em] font-medium text-[var(--ink-70)] truncate flex items-center gap-1.5">
+            {/* The kind's own icon, in a tinted chip. Hidden in the classic
+                skin, which identifies a widget by its label alone. */}
+            <span className="fb-widget-chip" aria-hidden>
+              <Icon name={catalogIcon} size={11} />
+            </span>
             {isActive && (
               <span
                 className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500"
@@ -1125,7 +1136,7 @@ export default function WidgetFrame({
               />
             )}
           </span>
-          <div className="flex items-center gap-0.5">
+          <div className="fb-widget-actions flex items-center gap-0.5">
             {!titleEditing && (
               <button
                 onMouseDown={(e) => e.stopPropagation()}

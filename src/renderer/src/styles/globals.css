@@ -2946,3 +2946,102 @@ body {
 .fb-stat-seg {
   background-image: linear-gradient(180deg, rgb(255 255 255 / 0.25) 0%, rgb(255 255 255 / 0) 60%);
 }
+
+/* ── Widget skins ──────────────────────────────────────────────────────────
+   An experiment in the lighter card chrome from the reference desk. Written
+   as overrides of the classic look rather than as a replacement, so 'classic'
+   is byte-identical to what shipped and the loser of the two gets deleted
+   instead of living on as a fork of the header.
+
+   What the reference actually does, and this copies:
+     - a tinted icon chip identifying the kind, instead of a shouty uppercase
+       label doing that work
+     - sentence case at a readable size: a widget title is a name, not a
+       category heading
+     - a white header with a hairline under it, rather than a tinted bar
+     - a larger radius and a softer, wider shadow, so cards read as paper
+       rather than as panels */
+
+/* The chip is classic's only addition, and classic does not want it. */
+.fb-widget-chip { display: none; }
+
+html[data-widget-skin='studio'] .fb-widget-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 5px;
+  background: rgb(var(--accent) / 0.12);
+  color: rgb(var(--accent));
+}
+
+html[data-widget-skin='studio'] .fb-widget-header {
+  /* The kind is carried by the chip now, so the label can be a name. */
+  background: var(--surface-raised) !important;
+  padding: 7px 8px 7px 8px;
+  backdrop-filter: none;
+}
+
+html[data-widget-skin='studio'] .fb-widget-title {
+  font-size: 12.5px;
+  line-height: 1.1;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 550;
+  color: var(--ink-90);
+  gap: 7px;
+}
+
+/* Paper, not panels: more radius, a hairline instead of a border, and a shadow
+   that falls further and fainter. */
+html[data-widget-skin='studio'] .fb-card,
+html[data-widget-skin='studio'] [data-widget-id] > .fb-card {
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px oklch(20% 0.01 264 / 0.07),
+    0 1px 2px oklch(20% 0.01 264 / 0.04),
+    0 10px 24px -12px oklch(20% 0.01 264 / 0.14);
+}
+
+html.dark[data-widget-skin='studio'] .fb-widget-chip {
+  background: rgb(var(--accent) / 0.18);
+}
+html.dark[data-widget-skin='studio'] .fb-card,
+html.dark[data-widget-skin='studio'] [data-widget-id] > .fb-card {
+  box-shadow:
+    0 0 0 1px oklch(100% 0 0 / 0.08),
+    0 1px 2px oklch(0% 0 0 / 0.3),
+    0 10px 24px -12px oklch(0% 0 0 / 0.5);
+}
+
+/* The reference's headers carry a name and one or two actions. Plexii's carry
+   seven, which on a 240px sticky leaves the title about fifty pixels and it
+   truncates to a single letter — the chip made an existing crowding visible
+   rather than causing it. In studio the tools wait for the pointer, which is
+   also how the reference reads at rest: a wall of named cards, not a wall of
+   toolbars. They stay reachable by hover, focus and keyboard. */
+html[data-widget-skin='studio'] .fb-widget-header {
+  position: relative;
+}
+html[data-widget-skin='studio'] .fb-widget-actions {
+  /* Out of flow, not merely invisible: opacity alone still reserves the width,
+     which is what kept a sticky's title at one letter after the tools were
+     hidden. Absolute here gives the name the whole header at rest. */
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  pointer-events: none;
+  padding-left: 14px;
+  background: linear-gradient(to right, transparent, var(--surface-raised) 14px);
+  transition: opacity 120ms ease;
+}
+html[data-widget-skin='studio'] [data-widget-id]:hover .fb-widget-actions,
+html[data-widget-skin='studio'] .fb-widget-header:hover .fb-widget-actions,
+html[data-widget-skin='studio'] .fb-widget-actions:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}

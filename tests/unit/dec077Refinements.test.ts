@@ -103,7 +103,10 @@ describe('dec_077 — the bell fills and sits by the title', () => {
 
   it('dec_077_bell_and_circle_precede_the_right_side_control_array', () => {
     const bellAt = frame.indexOf('widget-bell-')
-    const rightClusterAt = frame.indexOf('"flex items-center gap-0.5"')
+    // Anchored on the cluster's own class rather than on an exact Tailwind
+    // string: the utility list is edited whenever the header is restyled, and
+    // an ordering test should not fail for a class being added beside it.
+    const rightClusterAt = frame.indexOf('fb-widget-actions')
     expect(bellAt).toBeGreaterThan(0)
     expect(rightClusterAt).toBeGreaterThan(0)
     expect(bellAt).toBeLessThan(rightClusterAt)

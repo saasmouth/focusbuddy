@@ -55,6 +55,7 @@ import { personDisplayName, personInitials } from './lib/personName'
 import { installInboxPoller } from './lib/inboxPoller'
 import { startWorkspaceSync, stopWorkspaceSync } from './lib/workspaceSync'
 import { isShareRecipient, shareDeskId, deskToOpen } from './lib/shareMode'
+import { applyWidgetSkin } from './lib/widgetSkin'
 import { initCrdtSync, stopCrdtSync } from './lib/crdtSync'
 import { applyCustomization, applyFont, applyTheme, loadCustomization, loadTheme, useTheme } from './lib/theme'
 import { typingClick } from './lib/audioBeep'
@@ -133,6 +134,12 @@ export default function App(): JSX.Element {
   // a titlebar of tools they cannot keep and a footer are all noise around the
   // one thing they were sent. The countdown and the download call-to-action are
   // rendered by the cloud entry, above this.
+  // Stamp the widget skin on the document once, so the CSS overrides apply
+  // before the first widget paints rather than after a flash of the other one.
+  useEffect(() => {
+    applyWidgetSkin()
+  }, [])
+
   const shareView = isShareRecipient()
 
   // A share window opens on the desk it was sent, not on the dashboard of a
