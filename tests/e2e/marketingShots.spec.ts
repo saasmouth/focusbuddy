@@ -20,10 +20,27 @@ const SCREENS = join(OUT, 'screens')
 const WIDGETS = join(OUT, 'widgets')
 
 
-/** The frame every screen is captured in. */
+/**
+ * A true 1920x1080 stage.
+ *
+ * The app ships at 0.9 page zoom, so a window sized to 1920x1080 gives a CSS
+ * viewport of 2133x1136 -- and every coordinate Playwright computes is then off
+ * by that factor. Element screenshots came back showing a widget shifted up and
+ * left with bare canvas along the other two edges, which reads as "the crop is
+ * wrong" and is really "the page is not the size anyone thinks it is".
+ *
+ * Zoom is reset first, then the viewport, and the result is asserted rather
+ * than assumed: a silent mismatch here corrupts every shot in the run.
+ */
 async function stage(window: import('@playwright/test').Page): Promise<void> {
+  await window.evaluate(async () => {
+    await (window as unknown as { api: typeof window.api }).api.app.setZoomFactor(1)
+  })
+  await window.waitForTimeout(300)
   await window.setViewportSize({ width: 1920, height: 1080 })
-  await window.waitForTimeout(400)
+  await window.waitForTimeout(500)
+  const css = await window.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }))
+  expect(css.w, 'the CSS viewport must be the size we are capturing at').toBe(1920)
 }
 
 let launched: LaunchedApp | null = null
@@ -187,7 +204,33 @@ test('every widget, cropped to itself', async () => {
     const doc = await api.documents.create({ docType: 'doc', title: 'Positioning note' })
     const sheet = await api.documents.create({ docType: 'sheet', title: 'Q3 forecast' })
     const slides = await api.documents.create({ docType: 'slides', title: 'Launch deck' })
+    // A table with no rows photographs as an empty state, which is honest but
+    // makes a poor showcase -- and the chart widget plots this table, so an
+    // empty one leaves the chart blank too.
     const table = await api.tables.create({ taskId: desk.id, title: 'Pipeline' })
+    await api.tables.update(table.id, {
+      schema: {
+        columns: [
+          { id: 'c-prop', type: 'text-short', label: 'Property', config: {} },
+          { id: 'c-stage', type: 'single-select', label: 'Stage', config: { options: [
+            { id: 'o-live', label: 'Campaign live', color: '#f2b705' },
+            { id: 'o-offer', label: 'Under offer', color: '#fb923c' },
+            { id: 'o-exch', label: 'Exchanged', color: '#34d399' }
+          ] } },
+          { id: 'c-guide', type: 'number', label: 'Guide ($m)', config: {} }
+        ]
+      }
+    } as never)
+    const ROWS = [
+      { 'c-prop': '12/8 Bay Street', 'c-stage': 'o-live', 'c-guide': 2.35 },
+      { 'c-prop': '6 Transvaal Avenue', 'c-stage': 'o-offer', 'c-guide': 7.9 },
+      { 'c-prop': '3/21 Kiaora Road', 'c-stage': 'o-live', 'c-guide': 1.95 },
+      { 'c-prop': '2/14 Manning Road', 'c-stage': 'o-exch', 'c-guide': 3.15 },
+      { 'c-prop': '41 Ocean Avenue', 'c-stage': 'o-live', 'c-guide': 6.4 }
+    ]
+    for (const cells of ROWS) {
+      await api.tables.createRow({ tableId: table.id, cells } as never)
+    }
 
     const tiptap = (t: string): string =>
       JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: t }] }] })
@@ -205,7 +248,7 @@ test('every widget, cropped to itself', async () => {
       design: '',
       map: '',
       table: table.id,
-      chart: JSON.stringify({ tableId: table.id, type: 'bar', xColumnId: 'c1', series: [{ columnId: 'c1', agg: 'count' }] }),
+      chart: JSON.stringify({ tableId: table.id, type: 'bar', xColumnId: 'c-stage', series: [{ columnId: 'c-guide', agg: 'sum' }] }),
       field: JSON.stringify({ def: { id: 'f1', type: 'number', label: 'Days on market', config: {} }, value: 27 }),
       calculator: '51700',
       color: '#f2b705',
@@ -259,8 +302,16 @@ test('every widget, cropped to itself', async () => {
   let shot = 0
   const missing: string[] = []
   const clipped: string[] = []
-  const CX = 220
-  const CY = 140
+  // Where a widget is parked to be photographed.
+  //
+  // Not the top-left: the sidebar FLOATS OVER the canvas rather than sitting
+  // beside it, so a widget at x=220 is measured correctly, reported correctly,
+  // and drawn with its left third behind the sidebar. Every crop looked like a
+  // cropping bug and was really a stacking one. Clear of the sidebar (~270),
+  // below the desk toolbar (~110), and left of the minimap that opens itself
+  // in the bottom-right corner after every pan.
+  const CX = 520
+  const CY = 260
   // The canvas surface starts below the app's title bar.
   const BAR = await window.evaluate(() => {
     const el = document.querySelector('[data-canvas-surface="true"]')
@@ -283,6 +334,9 @@ test('every widget, cropped to itself', async () => {
       },
       { x, y, CX, CY }
     )
+    // Park the pointer off the widget: hovering one raises its toolbar, which
+    // then appears in the portrait as chrome nobody asked for.
+    await window.mouse.move(1750, 180)
     await window.waitForTimeout(700)
     const el = window.locator(`[data-widget-id="${id}"]`)
     try {
@@ -291,20 +345,43 @@ test('every widget, cropped to itself', async () => {
       await el.screenshot({ path: join(WIDGETS, `${kind}.png`), timeout: 8000 })
       shot++
     } catch {
-      // A few widgets do not use the shared frame and so carry no
-      // data-widget-id -- image-gen and chat-thread render their own bare div.
-      // They are on screen, just not findable by that selector, and because the
-      // camera above was set deliberately their rectangle is known exactly:
-      // pan puts the widget's top-left at (800-160, 500-120) at zoom 1.
-      try {
-        await window.screenshot({
-          path: join(WIDGETS, `${kind}.png`),
-          clip: { x: CX, y: CY + BAR, width, height }
-        })
-        shot++
-        clipped.push(kind)
-      } catch {
-        missing.push(kind)
+      // A couple of widgets do not use the shared frame and carry no
+      // data-widget-id, so they are on screen but not findable that way. Each
+      // names its own root instead.
+      const BY_KIND: Record<string, string> = {
+        'image-gen': '[data-testid="image-gen-widget"]',
+        // Signed out, this widget is a bare div holding one sentence, with no
+        // testid of its own. That sentence IS its root, so it is the handle.
+        // The shot therefore shows the signed-out state, which is the honest
+        // thing to show for a capture that runs without an account.
+        'chat-thread': 'text=Sign in to use chat on this desk.'
+      }
+      const alt = BY_KIND[kind]
+      let done = false
+      if (alt) {
+        try {
+          const a = window.locator(alt).first()
+          await a.waitFor({ state: 'visible', timeout: 3000 })
+          await a.screenshot({ path: join(WIDGETS, `${kind}.png`), timeout: 8000 })
+          shot++
+          done = true
+          clipped.push(`${kind} (own root)`)
+        } catch { /* fall through to the clip */ }
+      }
+      if (!done) {
+        // Last resort. The camera was set deliberately, so the rectangle is
+        // known -- but a clip cannot tell whether anything is IN it, which is
+        // why the audit below re-reads every file.
+        try {
+          await window.screenshot({
+            path: join(WIDGETS, `${kind}.png`),
+            clip: { x: CX, y: CY + BAR, width, height }
+          })
+          shot++
+          clipped.push(`${kind} (clipped)`)
+        } catch {
+          missing.push(kind)
+        }
       }
     }
   }
