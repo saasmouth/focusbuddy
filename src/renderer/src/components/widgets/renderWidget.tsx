@@ -1,3 +1,6 @@
+import TaskListWidget from './TaskListWidget'
+import MetricsWidget from './MetricsWidget'
+import ContactsWidget from './ContactsWidget'
 import StatCardWidget from './StatCardWidget'
 import GalleryWidget from './GalleryWidget'
 import type { JSX } from 'react'
@@ -68,6 +71,12 @@ export function renderWidget(w: Widget): JSX.Element | null {
 
 function renderWidgetInner(w: Widget): JSX.Element | null {
   switch (w.kind) {
+    case 'task-list':
+      return <TaskListWidget widget={w} />
+    case 'metrics':
+      return <MetricsWidget widget={w} />
+    case 'contacts':
+      return <ContactsWidget widget={w} />
     case 'stat-card':
       return <StatCardWidget widget={w} />
     case 'gallery':

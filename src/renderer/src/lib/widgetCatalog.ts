@@ -23,6 +23,39 @@ export interface WidgetCatalogEntry {
 
 export const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   {
+    kind: 'task-list',
+    category: 'Tools',
+    label: 'Tasks',
+    icon: 'task_alt',
+    hint: "This desk's own tasks, with the whole workspace one click away",
+    defaultWidth: 360,
+    defaultHeight: 320,
+    defaultContent: JSON.stringify({ scope: 'desk', filter: 'open' }),
+    isWebBased: false
+  },
+  {
+    kind: 'metrics',
+    category: 'Tools',
+    label: 'Metrics',
+    icon: 'insights',
+    hint: 'Several numbers read together, each with its own history',
+    defaultWidth: 420,
+    defaultHeight: 280,
+    defaultContent: JSON.stringify({ cells: [] }),
+    isWebBased: false
+  },
+  {
+    kind: 'contacts',
+    category: 'Comms',
+    label: 'Contacts',
+    icon: 'group',
+    hint: 'The handful of people this desk is about',
+    defaultWidth: 340,
+    defaultHeight: 300,
+    defaultContent: JSON.stringify({ contacts: [] }),
+    isWebBased: false
+  },
+  {
     // One number, its direction, and the readings behind it. The sparkline is
     // the point: an arrow without a line is an assertion nobody can check.
     kind: 'stat-card',

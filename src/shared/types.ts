@@ -22,6 +22,13 @@ export type SectionLayout = 'free' | 'grid' | 'stacks' | 'icons' | 'list'
 export type PinZone = 'tl' | 'tr' | 'bl' | 'br'
 
 export type WidgetKind =
+  // The desk's own tasks. The only part of the "desk as a lens" idea that needs
+  // no new storage: a desk is a node and its tasks are its children.
+  | 'task-list'
+  // Several numbers read together, each with the readings behind it.
+  | 'metrics'
+  // The handful of people this desk is actually about.
+  | 'contacts'
   // A single number that is being watched, with its direction of travel and a
   // sparkline of how it got there. Content is JSON: see StatCardContent.
   | 'stat-card'
