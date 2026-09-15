@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useViewStore } from '../../stores/view'
+import TaskOpenChoice from './TaskOpenChoice'
 import {
   QUEUE_ORDER,
   QUEUE_LABEL,
@@ -96,6 +98,14 @@ export default function TaskListWidget({ widget }: { widget: Widget }): JSX.Elem
   const scope: Scope = model.scope ?? 'desk'
   const filter: Filter = model.filter ?? 'open'
   const [draft, setDraft] = useState('')
+  // Which tasks actually have a canvas behind them.
+  //
+  // A task and a desk are the same node kind, so "does this have a desk" is not
+  // a flag to read -- it is whether anything was ever put on it. Widgets are
+  // that answer, and asking the question only when the answer is yes is what
+  // keeps the chooser from becoming a dialog people click through.
+  const [widgetCounts, setWidgetCounts] = useState<Record<string, number>>({})
+  const [choosing, setChoosing] = useState<FbNode | null>(null)
 
   const view: ViewMode = model.view ?? 'list'
   const group: GroupMode = model.group ?? 'none'
@@ -205,6 +215,47 @@ export default function TaskListWidget({ widget }: { widget: Widget }): JSX.Elem
     }
     return [{ key: 'all', label: '', items: [...tasks] }]
   }, [tasks, group, nowMs])
+
+  // Refreshed whenever the visible set changes: a task that just gained a desk
+  // must start asking, and one whose widgets were all removed must stop.
+  const taskIdsKey = tasks.map((t) => t.id).join(',')
+  useEffect(() => {
+    const ids = taskIdsKey ? taskIdsKey.split(',') : []
+    if (ids.length === 0) {
+      setWidgetCounts({})
+      return
+    }
+    let alive = true
+    const api = (window as unknown as { api?: { widgets?: Record<string, any> } }).api
+    void api?.widgets
+      ?.countsByTask?.(ids)
+      .then((c: Record<string, number>) => {
+        if (alive) setWidgetCounts(c ?? {})
+      })
+      .catch(() => {
+        // Unknown counts mean no chooser rather than a chooser on everything:
+        // a question asked wrongly is worse than one not asked.
+        if (alive) setWidgetCounts({})
+      })
+    return () => {
+      alive = false
+    }
+  }, [taskIdsKey])
+
+  /**
+   * What a click on a task means.
+   *
+   * With no desk behind it there is nothing to choose between, so it opens in
+   * place. With one, the app asks rather than silently navigating away from the
+   * desk somebody is working on.
+   */
+  const openTask = (n: FbNode): void => {
+    if ((widgetCounts[n.id] ?? 0) > 0) {
+      setChoosing(n)
+      return
+    }
+    toggleExpanded(n.id)
+  }
 
   const setModel = (patch: TaskListContent): void => {
     void updateWidget(widget.id, { content: JSON.stringify({ ...model, ...patch }) })
@@ -382,7 +433,7 @@ export default function TaskListWidget({ widget }: { widget: Widget }): JSX.Elem
                       {done && <Icon name="check" size={10} />}
                     </button>
                     <button
-                      onClick={() => toggleExpanded(n.id)}
+                      onClick={() => openTask(n)}
                       className={`flex-1 min-w-0 text-left text-[12px] truncate ${
                         done ? 'text-[var(--ink-40)] line-through' : 'text-[var(--ink-90)]'
                       }`}
@@ -503,6 +554,23 @@ export default function TaskListWidget({ widget }: { widget: Widget }): JSX.Elem
                           Wake now
                         </button>
                       )}
+                      {/* A desk exists because somebody asked for one. Until
+                          then this task is a task, and clicking it opens it
+                          here rather than taking you somewhere else. */}
+                      <button
+                        type="button"
+                        className="widget-nodrag ml-auto inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[var(--ink-50)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-90)]"
+                        data-testid="task-make-desk"
+                        onClick={() => useViewStore.getState().goTask(n.id)}
+                        title={
+                          (widgetCounts[n.id] ?? 0) > 0
+                            ? 'Open this task’s desk'
+                            : 'Open this task as a desk and start putting things on it'
+                        }
+                      >
+                        <Icon name="space_dashboard" size={11} />
+                        {(widgetCounts[n.id] ?? 0) > 0 ? 'Its desk' : 'Give it a desk'}
+                      </button>
                     </div>
                   )}
                   {isOpen && (
@@ -536,6 +604,25 @@ export default function TaskListWidget({ widget }: { widget: Widget }): JSX.Elem
           </div>
         )}
       </div>
+
+      {choosing && (
+        <TaskOpenChoice
+          task={choosing}
+          widgetCount={widgetCounts[choosing.id] ?? 0}
+          onOpenHere={() => {
+            toggleExpanded(choosing.id)
+            setChoosing(null)
+          }}
+          onGoToDesk={() => {
+            // Through the VIEW store, not setActive: an effect syncs
+            // activeTaskId FROM the current view, so setting it directly is
+            // overwritten on the next render and nothing appears to happen.
+            useViewStore.getState().goTask(choosing.id)
+            setChoosing(null)
+          }}
+          onClose={() => setChoosing(null)}
+        />
+      )}
     </WidgetFrame>
   )
 }
