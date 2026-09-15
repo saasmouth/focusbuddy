@@ -5,6 +5,7 @@ import Icon from '../Icon'
 import { useWidgetStore } from '../../stores/widgets'
 import { useNodeStore } from '../../stores/nodes'
 import { useViewStore } from '../../stores/view'
+import { useMailModalStore } from '../../stores/mailModal'
 import {
   applyRules,
   describeRules,
@@ -180,10 +181,14 @@ export default function InboxWidget({ widget }: { widget: Widget }): JSX.Element
 
   const setRules = (next: InboxRules): void => save({ rules: next })
 
-  // goMail takes the uid, so a click here opens THAT message rather than
-  // dropping the user at the top of an inbox they just filtered.
-  const openMail = (uid?: number): void => {
-    useViewStore.getState().goMail(uid)
+  // A click opens the message in place. Leaving the desk to read one email --
+  // and having to find your way back -- is exactly what this widget exists to
+  // avoid; the full mailbox is still one click away for anything else.
+  const openMessage = (uid: number): void => {
+    useMailModalStore.getState().open(uid)
+  }
+  const openMailbox = (): void => {
+    useViewStore.getState().goMail()
   }
 
   const body = ((): JSX.Element => {
@@ -271,7 +276,7 @@ export default function InboxWidget({ widget }: { widget: Widget }): JSX.Element
           icon="mail_lock"
           title="No mailbox connected"
           note="Connect an account in Mail and this desk will filter it."
-          action={{ label: 'Open Mail', onClick: () => openMail() }}
+          action={{ label: 'Open Mail', onClick: openMailbox }}
         />
       )
     }
@@ -306,7 +311,7 @@ export default function InboxWidget({ widget }: { widget: Widget }): JSX.Element
           <li
             key={m.uid}
             className="flex cursor-pointer items-start gap-2 border-b border-[var(--line)] px-3 py-2 last:border-b-0 hover:bg-[var(--surface-sunken)]"
-            onClick={() => openMail(m.uid)}
+            onClick={() => openMessage(m.uid)}
             title="Open in Mail"
           >
             <span

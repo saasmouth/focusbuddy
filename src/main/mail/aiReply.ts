@@ -56,7 +56,9 @@ async function ensureToneProfile(config: MailAccountConfig): Promise<string | nu
  */
 export async function suggestReply(
   config: MailAccountConfig,
-  incoming: { subject: string; from: string; body: string }
+  incoming: { subject: string; from: string; body: string },
+  /** Earlier messages in the same conversation, oldest first. */
+  trail?: Array<{ from: string; date?: number; body: string }>
 ): Promise<EmailReplyDraftResult> {
   const profile = await ensureToneProfile(config)
   return draftReply(
@@ -65,6 +67,9 @@ export async function suggestReply(
       from: incoming.from,
       body: sanitizeBody(incoming.body)
     },
-    profile
+    profile,
+    // The trail goes through the same sanitiser as the incoming body: quoted
+    // blocks and signatures are noise that crowds out the actual exchange.
+    trail?.map((m) => ({ ...m, body: sanitizeBody(m.body) }))
   )
 }

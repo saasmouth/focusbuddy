@@ -2165,11 +2165,12 @@ const api = {
       ipcRenderer.invoke('mail:markSeen', uid),
     send: (input: MailSendInput): Promise<MailSendResult> =>
       ipcRenderer.invoke('mail:send', input),
-    suggestReply: (incoming: {
-      subject: string
-      from: string
-      body: string
-    }): Promise<EmailReplyDraftResult> => ipcRenderer.invoke('mail:suggestReply', incoming)
+    suggestReply: (
+      incoming: { subject: string; from: string; body: string },
+      /** Earlier messages in the same conversation, oldest first. */
+      trail?: Array<{ from: string; date?: number; body: string }>
+    ): Promise<EmailReplyDraftResult> =>
+      ipcRenderer.invoke('mail:suggestReply', incoming, trail)
   },
   // Office documents — standalone doc / sheet / slides files, created with AI
   // and edited full-screen. CRUD plus the AI "create" generator.
@@ -2710,7 +2711,17 @@ const api = {
     removeBackground: (input: { dataUrl: string }): Promise<{ ok: boolean; dataUrl?: string; error?: string; needsKey?: boolean }> =>
       ipcRenderer.invoke('design:removeBackground', input)
   },
-  // PlexiDraw export — one diagram out to .svg / .png / .jpg / .pdf.
+  // PlexiDraw (the vector + painting studio) — export one artwork out to
+  // .png / .svg / .pdf.
+  draw: {
+    export: (input: {
+      draw: import('@shared/draw').DrawBody
+      title: string
+      format: 'png' | 'svg' | 'pdf'
+    }): Promise<{ ok: boolean; path?: string; error?: string }> => ipcRenderer.invoke('draw:export', input)
+  },
+  // PlexiDiagrams export — one diagram out to .svg / .png / .jpg / .pdf. The IPC
+  // channel keeps its historic 'map:' prefix; only the product name changed.
   map: {
     export: (input: {
       map: import('@shared/types').MapBody

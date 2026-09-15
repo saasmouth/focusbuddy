@@ -4691,9 +4691,57 @@ export async function buildToneProfile(
  * for newsletters / no-reply senders / nothing-to-reply-to (an expected, not
  * error, outcome). Routed to Sonnet for the voice-vs-no-fakery balance.
  */
+/**
+ * The user turn sent to the model when drafting a reply.
+ *
+ * Exported and pure so the promise on the button -- "drafted from the thread"
+ * -- is actually checkable. A trail that is gathered, passed across IPC and
+ * then dropped before the request looks identical from the outside and produces
+ * exactly the replies this exists to prevent.
+ */
+export function buildReplyPrompt(
+  incoming: { subject: string; from: string; body: string },
+  profileText: string,
+  trail?: Array<{ from: string; date?: number; body: string }>
+): string {
+  // Earlier messages are truncated from the OLDEST end: when a thread does not
+  // fit, the recent exchange is what a reply actually turns on.
+  const trailText =
+    trail && trail.length > 0
+      ? 'Earlier messages in this thread, oldest first. Use them for context; do not ' +
+        'restate them and do not invent anything they do not say:\n\n' +
+        trail
+          .slice(-8)
+          .map(
+            (m) =>
+              `From: ${m.from}${m.date ? ` (${new Date(m.date).toISOString().slice(0, 10)})` : ''}\n` +
+              `${(m.body ?? '').slice(0, 1200)}`
+          )
+          .join('\n\n---\n\n') +
+        '\n\n'
+      : ''
+
+  return (
+    `Style profile for this user:\n${profileText}\n\n` +
+    trailText +
+    `Incoming email to reply to:\nSubject: ${incoming.subject}\nFrom: ${incoming.from}\n\n` +
+    `${incoming.body.slice(0, 3000)}\n\nDraft the reply now.`
+  )
+}
+
 export async function draftReply(
   incoming: { subject: string; from: string; body: string },
-  toneProfile: string | null
+  toneProfile: string | null,
+  /**
+   * Earlier messages in the same conversation, oldest first.
+   *
+   * A reply to the latest message in a five-message thread that has not read
+   * the other four is the thing people notice immediately -- it re-asks a
+   * settled question, or re-introduces someone already introduced. The trail is
+   * CONTEXT only: the constraints below still forbid inventing anything, and
+   * facts from earlier messages may be referred to but not embellished.
+   */
+  trail?: Array<{ from: string; date?: number; body: string }>
 ): Promise<EmailReplyDraftResult> {
   const c = getClient()
   if (!c)
@@ -4711,7 +4759,8 @@ export async function draftReply(
     'cannot answer without inventing information, acknowledge the question and say the user will follow ' +
     'up — never invent an answer.\n' +
     '2. Do NOT invent dates, times, numbers, dollar amounts, meeting details, third-party names, ' +
-    'promises, or commitments. You may reflect back ones the incoming email states; you may not add new ones.\n' +
+    'promises, or commitments. You may reflect back ones the incoming email or the earlier messages ' +
+    'in the thread state; you may not add new ones.\n' +
     '3. Do NOT add pleasantries, sign-offs, or closings the style profile does not show the user using.\n' +
     '4. If the email is a newsletter, automated notification, marketing message, or from a no-reply ' +
     'sender, return ONLY {"skip": true, "reason": "..."}. Do not draft a reply.\n' +
@@ -4731,10 +4780,7 @@ export async function draftReply(
       ? toneProfile.trim()
       : 'No distinct style sample is available. Write a clear, concise, professional reply.'
 
-  const body =
-    `Style profile for this user:\n${profileText}\n\n` +
-    `Incoming email to reply to:\nSubject: ${incoming.subject}\nFrom: ${incoming.from}\n\n` +
-    `${incoming.body.slice(0, 3000)}\n\nDraft the reply now.`
+  const body = buildReplyPrompt(incoming, profileText, trail)
 
   try {
     const resp = await c.messages.create({

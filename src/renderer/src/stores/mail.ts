@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { trailFor } from '../lib/replyTrail'
 import { notifyExternal } from '../lib/notify'
 import { useViewStore } from './view'
 import type {
@@ -207,11 +208,48 @@ export const useMailStore = create<MailStore>((set, get) => ({
       ? `${msg.fromName} <${msg.fromAddress}>`
       : msg.fromName || 'Unknown sender'
     try {
-      const r = await window.api.mail.suggestReply({
-        subject: msg.subject,
-        from,
-        body: msg.text
-      })
+      // The rest of the conversation, oldest first. A reply drafted from the
+      // latest message alone re-asks questions the thread already settled, so
+      // the trail goes with it. Building it needs each earlier body, and a
+      // failure to fetch one costs context rather than the draft.
+      let trail: Array<{ from: string; date?: number; body: string }> = []
+      try {
+        const earlier = trailFor(
+          {
+            uid: msg.uid,
+            subject: msg.subject,
+            date: msg.date,
+            messageId: msg.messageId,
+            inReplyTo: null,
+            references: (msg.references ?? []).join(' ')
+          } as never,
+          get().messages
+        )
+        trail = (
+          await Promise.all(
+            earlier.map(async (m) => {
+              const full = await window.api.mail.get(m.uid)
+              return full.ok
+                ? {
+                    from: m.fromAddress || m.fromName,
+                    date: m.date,
+                    body: full.message.text
+                  }
+                : null
+            })
+          )
+        ).filter((x): x is { from: string; date: number; body: string } => x !== null)
+      } catch {
+        trail = []
+      }
+      const r = await window.api.mail.suggestReply(
+        {
+          subject: msg.subject,
+          from,
+          body: msg.text
+        },
+        trail
+      )
       // A newer open may have superseded this draft while the call was in flight.
       if (get().draftUid !== msg.uid) return
       set({ replyDraft: r, loadingDraft: false })

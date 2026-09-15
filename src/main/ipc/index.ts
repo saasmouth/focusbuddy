@@ -174,11 +174,13 @@ import type { DeskLayout, DeviceClass } from '@shared/deskLayout'
 import { generateDocument, processMeetingEnd, generateDesignContent, generateDesignVariations, setConversationSnapshot } from '../ai/anthropic'
 import { generateImage, generateImageToFile } from '../imageGen'
 import { exportDesign } from '../designExport'
+import { exportDraw } from '../drawExport'
 import { exportMap } from '../mapExport'
 import { importVsdx } from '../mapImport'
 import { searchStockPhotos, fetchImageDataUrl, removeBackground } from '../stockMedia'
 import { setPeopleDirectory, type DirectoryPerson } from '../peopleDirectory'
 import type { DesignBody } from '@shared/design'
+import type { DrawBody } from '@shared/draw'
 import { getBrandKit, saveBrandKit, hasBrandKit } from '../db/brandKit'
 import type { OrgBrandKit } from '@shared/brandKit'
 import type { DocType, DocumentDraft, DocumentPatch, FbDocument, MailSendInput } from '@shared/types'
@@ -1851,6 +1853,9 @@ export function registerIpcHandlers(): void {
     generateImageToFile(input)
   )
   ipcMain.handle('design:export', (_e, input: { design: DesignBody; title: string; format: 'png' | 'pdf' }) => exportDesign(input))
+  // The argument type is written inline rather than as Parameters<typeof …> so
+  // the generated IPC contract registry can derive a real shape for it.
+  ipcMain.handle('draw:export', (_e, input: { draw: DrawBody; title: string; format: 'png' | 'svg' | 'pdf' }) => exportDraw(input))
   ipcMain.handle('map:export', (_e, input: Parameters<typeof exportMap>[0]) => exportMap(input))
   ipcMain.handle('map:import', () => importVsdx())
   ipcMain.handle('design:searchPhotos', (_e, input: { query: string; perPage?: number }) => searchStockPhotos(input))
@@ -3250,15 +3255,33 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(
     'mail:suggestReply',
-    async (_e, incoming: { subject: string; from: string; body: string }) => {
+    async (
+      _e,
+      incoming: { subject: string; from: string; body: string },
+      trail?: Array<{ from: string; date?: number; body: string }>
+    ) => {
       const acc = await currentMailAccount()
       if (!acc.ok) return { ok: false as const, error: acc.error }
       try {
-        return await suggestReply(acc.config, {
-          subject: incoming?.subject ?? '',
-          from: incoming?.from ?? '',
-          body: incoming?.body ?? ''
-        })
+        return await suggestReply(
+          acc.config,
+          {
+            subject: incoming?.subject ?? '',
+            from: incoming?.from ?? '',
+            body: incoming?.body ?? ''
+          },
+          // Defensive: the trail crosses IPC, so each entry is normalised
+          // rather than trusted into the prompt.
+          Array.isArray(trail)
+            ? trail
+                .filter((m) => m && typeof m.body === 'string')
+                .map((m) => ({
+                  from: String(m.from ?? ''),
+                  date: typeof m.date === 'number' ? m.date : undefined,
+                  body: String(m.body ?? '')
+                }))
+            : undefined
+        )
       } catch (err) {
         return { ok: false as const, error: (err as Error).message }
       }
@@ -3587,10 +3610,15 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     'documents:generate',
     (_e, input: { docType: DocType; prompt: string; audience?: string }) => {
-      // Designs have their own AI path (design:generateContent); this handler
-      // covers the text-document kinds only.
+      // Designs and artwork have their own paths (design:generateContent, and
+      // the draw studio's own tools); this handler covers the text-document
+      // kinds only. Saying so plainly beats generating a body for a schema the
+      // model would get wrong.
       if (input.docType === 'design') {
         return Promise.resolve({ ok: false, error: 'Designs are generated through the design tools.' })
+      }
+      if (input.docType === 'draw') {
+        return Promise.resolve({ ok: false, error: 'Artwork is created in the PlexiDraw studio, not generated from a prompt.' })
       }
       return generateDocument({ ...input, docType: input.docType })
     }

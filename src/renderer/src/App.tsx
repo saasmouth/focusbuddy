@@ -4,6 +4,7 @@ import PlexiiLogo from './components/PlexiiLogo'
 import { FLOATING_MENU_INSET, SIDEBAR_MIN, SIDEBAR_MAX } from './components/chrome/floatingMenuStyle'
 import { useMinimizable, useSidebarWidth } from './components/chrome/floatingMenu'
 import MainPane from './components/MainPane'
+import MailMessageModal from './components/mail/MailMessageModal'
 import PlexiOfficeShell from './components/office/PlexiOfficeShell'
 import { PlexiDeskShell, PlexiPeopleShell, PlexiBrainShell } from './components/segment/segments'
 import AssistantOverlay from './components/assistant/AssistantOverlay'
@@ -734,6 +735,12 @@ export default function App(): JSX.Element {
           on any fresh browser profile. */}
       {!shareView && (
         <>
+        {/* The mail reader. Mounted once here because it is opened from places
+            that do not know about each other -- an inbox widget on a desk, the
+            mail view, a search hit -- and none of them should navigate away to
+            show one message. Suppressed in a share window like everything else
+            that is not the desk. */}
+        <MailMessageModal />
         <FocusSessionOverlay />
         <CallOverlay />
         <MeetingOverlay />
