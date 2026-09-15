@@ -255,15 +255,21 @@ export function setWorkItemStateCore(
       .prepare('SELECT p.kind AS kind FROM nodes n JOIN nodes p ON p.id = n.parent_id WHERE n.id = ?')
       .get(id) as { kind: string } | undefined
     if (parent?.kind !== 'task') return false
-    // Only `status` is written: for a task status IS the truth, and stamping
-    // work_item_state onto it would create the second, drifting copy this
-    // unification exists to remove. The desk's own task list reads the same
-    // row and sees the change immediately.
-    d.prepare('UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?').run(
-      statusForWorkItemState(state),
-      Date.now(),
-      id
-    )
+    // BOTH are written, and that is a correction of an earlier mistake.
+    //
+    // Writing only `status` looked like the careful choice -- one truth per
+    // row -- but status is a four-value coarsening, so "waiting", "blocked"
+    // and "delegated" all collapsed into 'open' and read back as "Not
+    // started". The inline status control simply did not stick, which is a
+    // worse failure than the drift it was avoiding.
+    //
+    // There is no second truth here as long as status is never set
+    // independently: work_item_state is the fact, status is its projection,
+    // and every writer of one writes the other (see updateNode, which clears a
+    // state that no longer matches a directly-patched status).
+    d.prepare(
+      'UPDATE nodes SET work_item_state = ?, status = ?, updated_at = ? WHERE id = ?'
+    ).run(state, statusForWorkItemState(state), Date.now(), id)
     logActor(`setState:${state}`, id, actor)
     return true
   }

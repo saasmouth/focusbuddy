@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { DatabaseSync } from 'node:sqlite'
 import { ensureWorkItemSchema, setWorkItemStateCore } from '../../src/main/db/workItems'
+import { statusForWorkItemState } from '../../src/shared/workItems'
 import type { LifecycleDb } from '../../src/main/db/nodeLifecycle'
 
 // One record, not two.
@@ -61,12 +62,30 @@ describe('closing a desk task from Attention', () => {
     expect(statusOf(raw, 'task')).toBe('done')
   })
 
-  it('does NOT stamp a work_item_state onto a task', () => {
-    // That second value is exactly the drifting copy this unification removes:
-    // the desk reads `status`, so a task carrying both would have two answers.
+  it('writes the state AND its status projection, which are one fact', () => {
+    // This test used to assert the opposite -- that a task carried no
+    // work_item_state -- on the reasoning that a second column meant a second
+    // truth. That reasoning was wrong, and it caused a real bug: `status` is a
+    // four-value coarsening, so waiting / blocked / delegated all collapsed
+    // into 'open' and the inline status control silently did not stick.
+    //
+    // There is only one fact as long as nothing sets status independently:
+    // the state, and status as its projection. updateNode enforces the other
+    // half by clearing a state a direct status write has contradicted.
     const { raw, db } = freshDb()
-    setWorkItemStateCore(db, 'task', 'completed')
-    expect(wiStateOf(raw, 'task')).toBeNull()
+    setWorkItemStateCore(db, 'task', 'waiting')
+    expect(wiStateOf(raw, 'task')).toBe('waiting')
+    expect(statusOf(raw, 'task')).toBe(statusForWorkItemState('waiting'))
+  })
+
+  it('keeps states that coarsen to the same status distinguishable', () => {
+    const { raw, db } = freshDb()
+    setWorkItemStateCore(db, 'task', 'waiting')
+    expect(statusOf(raw, 'task')).toBe('open')
+    setWorkItemStateCore(db, 'task', 'blocked')
+    expect(statusOf(raw, 'task')).toBe('open')
+    // Same coarse status, different fact — which is the whole point.
+    expect(wiStateOf(raw, 'task')).toBe('blocked')
   })
 
   it('works on a subtask, which is still work on a desk', () => {

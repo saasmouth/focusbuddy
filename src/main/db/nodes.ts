@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import { WORK_ITEM_COLUMNS } from '@shared/workItems'
 import { getDb } from './database'
+import { statusForWorkItemState } from '@shared/workItems'
 import { getActiveOrgId, PERSONAL_ORG_ID } from './activeOrg'
 import { emitAutomationEvent } from './automationEvents'
 import {
@@ -310,6 +311,17 @@ export function updateNode(id: string, patch: NodePatch): FbNode | null {
   if (patch.isPlan !== undefined) {
     fields.push('is_plan = @isPlan')
     params.isPlan = patch.isPlan ? 1 : 0
+  }
+  // A status set directly (the task table, the calendar modal, a checkbox)
+  // must not leave a finer work_item_state behind that no longer agrees with
+  // it. The pair is one fact -- the state, and its coarse projection -- so a
+  // status that the stored state no longer projects to clears that state
+  // rather than letting the row hold two answers.
+  if (patch.status !== undefined && existing.kind === 'task') {
+    const held = (existing as { workItemState?: string | null }).workItemState
+    if (held && statusForWorkItemState(held) !== patch.status) {
+      fields.push('work_item_state = NULL')
+    }
   }
   if (patch.status === 'in_progress' && existing.status !== 'in_progress') {
     fields.push('started_at = @now')
