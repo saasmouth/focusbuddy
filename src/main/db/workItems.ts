@@ -783,6 +783,34 @@ export function updateWorkItemFieldsCore(
   const row = d.prepare('SELECT kind FROM nodes WHERE id = ?').get(id) as
     | { kind: string }
     | undefined
+
+  if (row?.kind === 'task') {
+    // A desk task, reclassified from the Tasks widget.
+    //
+    // Same boundary as setWorkItemStateCore: a task filed ON a desk, never a
+    // desk itself (a desk is kind='task' too, and a desk has no queue).
+    const parent = d
+      .prepare('SELECT p.kind AS kind FROM nodes n JOIN nodes p ON p.id = n.parent_id WHERE n.id = ?')
+      .get(id) as { kind: string } | undefined
+    if (parent?.kind !== 'task') return false
+
+    // ONLY the queue. The rest of the work-item manifest -- work_item_state,
+    // groupId, wiUrgency, approvalState -- is a machine a task does not run:
+    // its `status` is the truth, and stamping a second state onto it is the
+    // drifting copy the tasks/Attention unification exists to prevent.
+    const canonical =
+      patch.intentClass === undefined ? undefined : canonicalIntentClass(patch.intentClass)
+    if (patch.intentClass !== undefined && !canonical) return false
+    if (canonical === undefined) return false
+    d.prepare('UPDATE nodes SET intent_class = ?, updated_at = ? WHERE id = ?').run(
+      canonical,
+      Date.now(),
+      id
+    )
+    logActor('reclassify', id, actor)
+    return true
+  }
+
   if (row?.kind !== 'work_item') return false
   if (patch.intentClass !== undefined) {
     // Only the eight primaries land in intent_class; legacy values map

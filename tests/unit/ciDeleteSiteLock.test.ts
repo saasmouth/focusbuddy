@@ -107,7 +107,11 @@ describe('the closed four-site hard-delete enumeration', () => {
 describe('standing S1 pins', () => {
   it('listNodes excludes work_items at the query', () => {
     const nodes = readFileSync(join(MAIN, 'db', 'nodes.ts'), 'utf-8')
-    expect(nodes).toMatch(/SELECT \* FROM nodes WHERE trashed_at IS NULL AND kind != 'work_item'/)
+    // The invariant is the EXCLUSION, not the exact SELECT list: listNodes now
+    // joins wi_local for snooze_until (device-local satellite state), so a
+    // snoozed task reads as snoozed on a desk and not only in Attention.
+    expect(nodes).toMatch(/n\.trashed_at IS NULL AND n\.kind != 'work_item'/)
+    expect(nodes).toMatch(/LEFT JOIN wi_local/)
   })
 
   it('nodes.assignee stays Plan-domain: no work-item module touches it (GAP-016)', () => {

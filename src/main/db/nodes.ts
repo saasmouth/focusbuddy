@@ -155,12 +155,17 @@ export function listNodes(): FbNode[] {
   // work_item exclusion (S1, the census's highest-leverage single fix): this
   // query feeds useNodeStore and through it every desk/room surface. Work
   // items are listed by their own query (workItems:list, S3), never here.
+  // snooze_until rides along from wi_local. It is device-local satellite state
+  // (never synced, never in a body) and was only ever joined by the work-item
+  // query -- so a snoozed TASK looked un-snoozed everywhere a desk read it, and
+  // putting something down for a week did nothing outside Attention. One join
+  // on an indexed primary key, and the exclusion below is untouched.
   const rows = db
     .prepare(
-      "SELECT * FROM nodes WHERE trashed_at IS NULL AND kind != 'work_item' AND org_id = ? ORDER BY sort_order ASC, created_at ASC"
+      "SELECT n.*, l.snooze_until AS _snooze_until FROM nodes n LEFT JOIN wi_local l ON l.item_id = n.id WHERE n.trashed_at IS NULL AND n.kind != 'work_item' AND n.org_id = ? ORDER BY n.sort_order ASC, n.created_at ASC"
     )
-    .all(getActiveOrgId()) as NodeRow[]
-  return rows.map(rowToNode)
+    .all(getActiveOrgId()) as Array<NodeRow & { _snooze_until: number | null }>
+  return rows.map((r) => ({ ...rowToNode(r), snoozeUntil: r._snooze_until ?? null }))
 }
 
 export function getNode(id: string): FbNode | null {
