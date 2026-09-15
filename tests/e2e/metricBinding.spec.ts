@@ -118,3 +118,44 @@ test('a bound card shows a dash, not a zero, when nothing is numeric', async () 
   await expect(card).toContainText('—')
   await expect(card).not.toContainText('$0')
 })
+
+test('a fresh metrics widget can be configured from its empty state', async () => {
+  // It was a dead end: the configure control is per-cell, so with no cells
+  // there was nothing to click.
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+
+  const deskId = await window.evaluate(async () => {
+    const api = (window as unknown as { api: Record<string, any> }).api
+    const desk = await api.nodes.create({ parentId: null, kind: 'task', title: 'Metrics desk' })
+    const table = await api.tables.create({
+      taskId: desk.id,
+      title: 'Deals',
+      schema: { columns: [{ id: 'amt', type: 'number', label: 'Amount', config: {} }] }
+    })
+    await api.tables.createRow({ tableId: table.id, cells: { amt: 120 } })
+    await api.widgets.create({
+      taskId: desk.id, kind: 'metrics' as never, title: 'Metrics',
+      content: JSON.stringify({ cells: [] }), x: 120, y: 120, width: 420, height: 300
+    })
+    return desk.id
+  })
+  await window.reload()
+  await waitForReady(window)
+  await window.evaluate((id) => {
+    const w = window as unknown as { __fbView?: { getState: () => { goTask: (i: string) => void } } }
+    w.__fbView?.getState().goTask(id)
+  }, deskId)
+
+  const widget = window.locator('[data-widget-kind="metrics"]').first()
+  await expect(widget).toBeVisible({ timeout: 10_000 })
+  await expect(widget).toContainText('No figures yet')
+
+  await widget.getByTestId('metrics-add-cell').click()
+  // Adding a number opens the binding editor straight away, so there is a
+  // path from an empty widget to a real number without guessing.
+  await expect(widget.getByTestId('metric-binding-editor')).toBeVisible({ timeout: 5000 })
+  await expect(widget.getByTestId('metric-search')).toBeVisible()
+  await expect(widget).toContainText('Deals')
+})

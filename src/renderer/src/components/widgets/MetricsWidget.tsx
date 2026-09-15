@@ -119,6 +119,20 @@ export default function MetricsWidget({ widget }: { widget: Widget }): JSX.Eleme
     void update(widget.id, { content: JSON.stringify({ ...model, cells }) })
   }
 
+  /**
+   * Add a cell and open its editor.
+   *
+   * Without this a fresh widget was a dead end: the configure control is
+   * per-cell, so with no cells there was nothing to click and no way to point
+   * the widget at anything.
+   */
+  const addCell = (): void => {
+    const cells = [...model.cells, { label: 'New figure', value: 0 }]
+    void update(widget.id, {
+      content: JSON.stringify({ ...model, cells, editingCell: cells.length - 1 })
+    })
+  }
+
   /** A cell's number: computed when bound, otherwise the one that was typed. */
   const readCell = (c: MetricCell): { text: string; points: number[]; note?: string } => {
     if (!c.binding) {
@@ -157,6 +171,14 @@ export default function MetricsWidget({ widget }: { widget: Widget }): JSX.Eleme
           <div className="text-[10px] text-[var(--ink-40)] leading-snug max-w-[220px]">
             A few numbers that are read together, each with the readings behind it.
           </div>
+          <button
+            type="button"
+            onClick={addCell}
+            data-testid="metrics-add-cell"
+            className="widget-nodrag mt-1 rounded-md border border-[var(--line)] px-2 py-1 text-[10px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
+          >
+            Add a number
+          </button>
         </div>
       </WidgetFrame>
     )
@@ -209,6 +231,15 @@ export default function MetricsWidget({ widget }: { widget: Widget }): JSX.Eleme
             )
           })}
         </div>
+
+        <button
+          type="button"
+          onClick={addCell}
+          data-testid="metrics-add-cell"
+          className="widget-nodrag self-start px-2.5 py-1 text-[10px] text-[var(--ink-45)] hover:text-[var(--ink-80)]"
+        >
+          + Add a number
+        </button>
 
         {model.bars && model.bars.length > 0 && (
           <div className="px-2.5 pt-2.5 pb-2">
