@@ -45,6 +45,7 @@ const initials = (name: string): string =>
 type Api = {
   listForNode: (nodeId: string) => Promise<Contact[]>
   create: (draft: Record<string, unknown>) => Promise<Contact>
+  update: (id: string, patch: Record<string, unknown>) => Promise<Contact | null>
   remove: (id: string) => Promise<boolean>
   link: (contactId: string, nodeId: string) => Promise<boolean>
   unlink: (contactId: string, nodeId: string) => Promise<boolean>
@@ -69,6 +70,53 @@ export default function ContactsWidget({ widget }: { widget: Widget }): JSX.Elem
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
+  // Editing an existing contact. This was simply missing: you could create a
+  // person and remove them, but never correct a misspelt name or add the
+  // phone number you only learned afterwards -- which is most of what a
+  // contacts list is actually for.
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [edit, setEdit] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: '',
+    company: '',
+    address: ''
+  })
+
+  const startEdit = (c: Contact): void => {
+    setEditingId(c.id)
+    setEdit({
+      name: c.name ?? '',
+      email: c.email ?? '',
+      phone: c.phone ?? '',
+      role: c.role ?? '',
+      company: c.company ?? '',
+      address: c.address ?? ''
+    })
+  }
+
+  const saveEdit = async (): Promise<void> => {
+    if (!api || !editingId) return
+    setBusy(true)
+    setError(null)
+    try {
+      await api.update(editingId, {
+        name: edit.name.trim() || 'Unnamed',
+        email: edit.email.trim() || null,
+        phone: edit.phone.trim() || null,
+        role: edit.role.trim() || null,
+        company: edit.company.trim() || null,
+        address: edit.address.trim() || null
+      })
+      setEditingId(null)
+      await refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const refresh = useCallback(async (): Promise<void> => {
     if (!api || !deskId) {
@@ -432,7 +480,71 @@ export default function ContactsWidget({ widget }: { widget: Widget }): JSX.Elem
                     </span>
                   )}
                 </button>
-                {openId === c.id && (
+                {openId === c.id && editingId === c.id && (
+                  <div className="flex flex-col gap-1 px-2 pb-2" data-testid="contact-edit">
+                    <div className="flex gap-1">
+                      <input
+                        className="widget-nodrag min-w-0 flex-1 rounded border border-[var(--line)] bg-[var(--surface)] px-1.5 py-1"
+                        placeholder="Name"
+                        value={edit.name}
+                        onChange={(e) => setEdit({ ...edit, name: e.target.value })}
+                      />
+                      <input
+                        className="widget-nodrag min-w-0 flex-1 rounded border border-[var(--line)] bg-[var(--surface)] px-1.5 py-1"
+                        placeholder="Email"
+                        value={edit.email}
+                        onChange={(e) => setEdit({ ...edit, email: e.target.value })}
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      <input
+                        className="widget-nodrag min-w-0 flex-1 rounded border border-[var(--line)] bg-[var(--surface)] px-1.5 py-1"
+                        placeholder="Phone"
+                        value={edit.phone}
+                        onChange={(e) => setEdit({ ...edit, phone: e.target.value })}
+                      />
+                      <input
+                        className="widget-nodrag min-w-0 flex-1 rounded border border-[var(--line)] bg-[var(--surface)] px-1.5 py-1"
+                        placeholder="Role"
+                        value={edit.role}
+                        onChange={(e) => setEdit({ ...edit, role: e.target.value })}
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      <input
+                        className="widget-nodrag min-w-0 flex-1 rounded border border-[var(--line)] bg-[var(--surface)] px-1.5 py-1"
+                        placeholder="Company"
+                        value={edit.company}
+                        onChange={(e) => setEdit({ ...edit, company: e.target.value })}
+                      />
+                      <input
+                        className="widget-nodrag min-w-0 flex-1 rounded border border-[var(--line)] bg-[var(--surface)] px-1.5 py-1"
+                        placeholder="Address"
+                        value={edit.address}
+                        onChange={(e) => setEdit({ ...edit, address: e.target.value })}
+                      />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => void saveEdit()}
+                        disabled={busy}
+                        data-testid="contact-edit-save"
+                        className="widget-nodrag rounded bg-[var(--accent)] px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(null)}
+                        className="widget-nodrag rounded px-2 py-0.5 text-[10px] text-[var(--ink-50)] hover:text-[var(--ink-90)]"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {openId === c.id && editingId !== c.id && (
                   <div className="flex flex-wrap gap-1 px-2 pb-2">
                     {c.address && (
                       <div className="w-full whitespace-pre-wrap text-[10px] leading-snug text-[var(--ink-60)]">
@@ -473,6 +585,15 @@ export default function ContactsWidget({ widget }: { widget: Widget }): JSX.Elem
                       className="widget-nodrag inline-flex items-center gap-0.5 rounded border border-[var(--line)] px-1.5 py-0.5 text-[10px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)] disabled:opacity-50"
                     >
                       <Icon name="share" size={10} /> Share this desk
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => startEdit(c)}
+                      data-testid="contact-edit-open"
+                      title="Edit this person’s details"
+                      className="widget-nodrag inline-flex items-center gap-0.5 rounded border border-[var(--line)] px-1.5 py-0.5 text-[10px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
+                    >
+                      <Icon name="edit" size={10} /> Edit
                     </button>
                     <button
                       type="button"

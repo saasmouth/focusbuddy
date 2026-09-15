@@ -72,6 +72,23 @@ export default function NewNodeDialog({
   const updateNode = useNodeStore((s) => s.update)
   const setActive = useNodeStore((s) => s.setActive)
   const allNodes = useNodeStore((s) => s.nodes)
+  const activeTaskId = useNodeStore((s) => s.activeTaskId)
+
+  // Where a new task goes.
+  //
+  // This dialog only ever made a top-level node, which in this model IS a desk
+  // -- its own canvas, its own sidebar row. So "new task" from the app chrome
+  // could not produce a task at all, only another desk, and there was no way
+  // to add one to the desk you were looking at.
+  //
+  // Offered only when a desk is actually open, because otherwise there is
+  // nothing to choose between.
+  const activeDesk = useMemo(
+    () => allNodes.find((n) => n.id === activeTaskId && n.kind === 'task') ?? null,
+    [allNodes, activeTaskId]
+  )
+  const canPlaceOnDesk = !isEdit && effectiveKind === 'task' && Boolean(activeDesk)
+  const [placement, setPlacement] = useState<'thisDesk' | 'newDesk'>('newDesk')
   const createWidget = useWidgetStore((s) => s.create)
   const templates = useTemplateStore((s) => s.templates)
   const refreshTemplates = useTemplateStore((s) => s.refresh)
@@ -176,7 +193,10 @@ export default function NewNodeDialog({
       // opened with; a task uses the destination the user picked, creating a
       // new folder first when they asked for one.
       let resolvedParent = parentId
-      if (effectiveKind === 'task') {
+      // A task ON the desk in view: a child of it, not another canvas.
+      if (canPlaceOnDesk && placement === 'thisDesk' && activeDesk) {
+        resolvedParent = activeDesk.id
+      } else if (effectiveKind === 'task') {
         if (destParent === NEW_FOLDER) {
           const name = newFolderName.trim()
           if (!name) {
@@ -342,6 +362,42 @@ export default function NewNodeDialog({
             placeholder={effectiveKind === 'folder' ? 'Name this Room…' : 'What needs to happen?'}
             className="w-full bg-transparent border-0 p-0 text-[20px] font-semibold text-[var(--ink-100)] placeholder:text-[var(--ink-30)] placeholder:font-medium focus:outline-none focus:ring-0"
           />
+          {canPlaceOnDesk && (
+            <div className="mt-3 flex gap-1.5" data-testid="newnode-placement">
+              <button
+                type="button"
+                onClick={() => setPlacement('thisDesk')}
+                data-testid="newnode-this-desk"
+                className={`flex-1 rounded-lg border px-2.5 py-2 text-left transition-colors ${
+                  placement === 'thisDesk'
+                    ? 'border-accent bg-accent/10'
+                    : 'border-[var(--line)] hover:bg-[var(--surface-sunken)]'
+                }`}
+              >
+                <span className="block text-[12px] font-medium text-[var(--ink-90)]">
+                  A task on this desk
+                </span>
+                <span className="block truncate text-[11px] text-[var(--ink-50)]">
+                  {activeDesk?.title || 'Untitled desk'}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlacement('newDesk')}
+                data-testid="newnode-new-desk"
+                className={`flex-1 rounded-lg border px-2.5 py-2 text-left transition-colors ${
+                  placement === 'newDesk'
+                    ? 'border-accent bg-accent/10'
+                    : 'border-[var(--line)] hover:bg-[var(--surface-sunken)]'
+                }`}
+              >
+                <span className="block text-[12px] font-medium text-[var(--ink-90)]">
+                  A new desk
+                </span>
+                <span className="block text-[11px] text-[var(--ink-50)]">Its own canvas</span>
+              </button>
+            </div>
+          )}
           {!isEdit && effectiveKind === 'task' && existingTasks.length > 0 && (
             <div ref={jumpRef} className="relative mt-3">
               <div className="flex items-center gap-2 rounded-lg bg-[var(--surface-sunken)] px-2.5 focus-within:ring-1 focus-within:ring-[rgb(var(--accent)/0.4)]">
