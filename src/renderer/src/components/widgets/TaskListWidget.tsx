@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import type { Widget, FbNode, TaskStatus } from '@shared/types'
+import { parseAttachments, derivedStart } from '@shared/taskPlanning'
 import WidgetFrame from './WidgetFrame'
 import Icon from '../Icon'
+import TaskDetail, { STATUSES } from './TaskDetail'
 import { useNodeStore } from '../../stores/nodes'
 import { useWidgetStore } from '../../stores/widgets'
 
@@ -24,6 +26,8 @@ type Filter = 'open' | 'done' | 'all'
 interface TaskListContent {
   scope?: Scope
   filter?: Filter
+  /** Task ids whose detail panel is open, so it survives a re-render. */
+  expanded?: string[]
 }
 
 function parse(raw: string | null | undefined): TaskListContent {
@@ -67,12 +71,47 @@ export default function TaskListWidget({ widget }: { widget: Widget }): JSX.Elem
   const filter: Filter = model.filter ?? 'open'
   const [draft, setDraft] = useState('')
 
+  const expanded = useMemo(() => new Set(model.expanded ?? []), [model.expanded])
+  const toggleExpanded = (id: string): void => {
+    const next = new Set(expanded)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setModel({ expanded: [...next] })
+  }
+
   const deskId = widget.taskId
+
+  // Subtasks belong under their parent, not loose in the list -- otherwise a
+  // task broken into six steps reads as seven unrelated tasks.
+  const childrenOf = useMemo(() => {
+    const m = new Map<string, FbNode[]>()
+    for (const n of nodes) {
+      if (n.kind !== 'task' || n.archived || !n.parentId) continue
+      const list = m.get(n.parentId)
+      if (list) list.push(n)
+      else m.set(n.parentId, [n])
+    }
+    for (const list of m.values()) list.sort((a, b) => a.sortOrder - b.sortOrder)
+    return m
+  }, [nodes])
 
   const tasks = useMemo(() => {
     const pool = scope === 'desk' && deskId ? descendantsOf(nodes, deskId) : nodes
     return pool
       .filter((n) => n.kind === 'task' && !n.archived)
+      // Which of these is a SUBTASK rather than a task in its own right?
+      //
+      // A desk and a task are the same node kind here -- a desk is just a task
+      // you have opened as a canvas -- so "my parent is a task, therefore I am
+      // a subtask" would swallow every task on the desk, the desk being their
+      // parent. The boundary is the desk root: its own children are the list,
+      // and anything deeper is a subtask of the row above it.
+      .filter((n) => {
+        if (!n.parentId) return true
+        if (n.parentId === deskId) return true
+        const parent = nodes.find((p) => p.id === n.parentId)
+        return !parent || parent.kind !== 'task'
+      })
       .filter((n) => (filter === 'all' ? true : filter === 'done' ? n.status === DONE : n.status !== DONE))
       .sort((a, b) => {
         // Done sinks; then by due date, soonest first; then by the order they
@@ -151,29 +190,89 @@ export default function TaskListWidget({ widget }: { widget: Widget }): JSX.Elem
             </div>
           ) : (
             tasks.map((n) => {
-              const d = due(n.dueDate)
+              const subs = childrenOf.get(n.id) ?? []
+              const isOpen = expanded.has(n.id)
               const done = n.status === DONE
+              // The row shows the start when it is known, because a task that
+              // cannot begin for three weeks is not the same as one due then.
+              const predecessor = n.dependsOn ? nodes.find((p) => p.id === n.dependsOn) ?? null : null
+              const start = derivedStart(n, predecessor?.dueDate ?? null)
+              const d = due(n.dueDate)
+              const atts = parseAttachments(n.attachmentsJson).length
+              const statusMeta = STATUSES.find((st) => st.value === n.status)
+              const subsDone = subs.filter((c) => c.status === DONE).length
               return (
-                <div key={n.id} className="group flex items-center gap-2 px-1.5 py-[5px] rounded hover:bg-[var(--surface-sunken)]">
-                  <button
-                    onClick={() => toggle(n)}
-                    aria-label={done ? 'Mark not done' : 'Mark done'}
-                    className={`h-[15px] w-[15px] rounded-[4px] shrink-0 inline-flex items-center justify-center border transition-colors ${
-                      done ? 'bg-accent border-transparent text-white' : 'border-[var(--ink-30)] hover:border-accent'
-                    }`}
-                  >
-                    {done && <Icon name="check" size={10} />}
-                  </button>
-                  <button
-                    onClick={() => setActiveTask(n.id)}
-                    className={`flex-1 min-w-0 text-left text-[12px] truncate ${
-                      done ? 'text-[var(--ink-40)] line-through' : 'text-[var(--ink-90)]'
-                    }`}
-                    title={n.title}
-                  >
-                    {n.title || 'Untitled'}
-                  </button>
-                  {d && <span className={`text-[10px] shrink-0 ${done ? 'text-[var(--ink-30)]' : d.tone}`}>{d.label}</span>}
+                <div key={n.id} className="rounded">
+                  <div className="group flex items-center gap-1.5 px-1.5 py-[5px] rounded hover:bg-[var(--surface-sunken)]">
+                    <button
+                      onClick={() => toggle(n)}
+                      aria-label={done ? 'Mark not done' : 'Mark done'}
+                      className={`h-[15px] w-[15px] rounded-[4px] shrink-0 inline-flex items-center justify-center border transition-colors ${
+                        done ? 'bg-accent border-transparent text-white' : 'border-[var(--ink-30)] hover:border-accent'
+                      }`}
+                    >
+                      {done && <Icon name="check" size={10} />}
+                    </button>
+                    <button
+                      onClick={() => setActiveTask(n.id)}
+                      onDoubleClick={() => toggleExpanded(n.id)}
+                      className={`flex-1 min-w-0 text-left text-[12px] truncate ${
+                        done ? 'text-[var(--ink-40)] line-through' : 'text-[var(--ink-90)]'
+                      }`}
+                      title={n.title}
+                    >
+                      {n.title || 'Untitled'}
+                    </button>
+
+                    {/* At-a-glance facts, each only shown when it exists. An
+                        always-present row of dashes reads as missing data. */}
+                    {n.assignee && (
+                      <span
+                        className="shrink-0 rounded-full bg-[var(--surface-sunken)] px-1.5 text-[9px] text-[var(--ink-60)]"
+                        title={`Assigned to ${n.assignee}`}
+                      >
+                        {n.assignee.split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')}
+                      </span>
+                    )}
+                    {atts > 0 && (
+                      <span className="shrink-0 inline-flex items-center text-[9px] text-[var(--ink-40)]" title={`${atts} attachment${atts === 1 ? '' : 's'}`}>
+                        <Icon name="attach_file" size={10} />
+                        {atts}
+                      </span>
+                    )}
+                    {subs.length > 0 && (
+                      <span className="shrink-0 text-[9px] tabular-nums text-[var(--ink-40)]" title={`${subsDone} of ${subs.length} subtasks done`}>
+                        {subsDone}/{subs.length}
+                      </span>
+                    )}
+                    {!done && statusMeta && n.status !== 'open' && (
+                      <span className={`h-[6px] w-[6px] shrink-0 rounded-full ${statusMeta.dot}`} title={statusMeta.label} />
+                    )}
+                    {start && !done && (
+                      <span className="shrink-0 text-[9px] text-[var(--ink-40)]" title="Starts">
+                        {new Date(start).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} →
+                      </span>
+                    )}
+                    {d && <span className={`text-[10px] shrink-0 ${done ? 'text-[var(--ink-30)]' : d.tone}`}>{d.label}</span>}
+                    <button
+                      onClick={() => toggleExpanded(n.id)}
+                      aria-label={isOpen ? 'Hide details' : 'Show details'}
+                      title={isOpen ? 'Hide details' : 'Show details'}
+                      className={`shrink-0 rounded text-[var(--ink-30)] transition-opacity hover:text-[var(--ink-70)] ${isOpen ? '' : 'opacity-0 group-hover:opacity-100'}`}
+                    >
+                      <Icon name={isOpen ? 'expand_less' : 'expand_more'} size={13} />
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <TaskDetail
+                      task={n}
+                      siblings={tasks}
+                      subtasks={subs}
+                      onPatch={(id, p) => void updateNode(id, p)}
+                      onAddSubtask={(parentId, title) => void createNode({ parentId, kind: 'task', title })}
+                      onOpenTask={(id) => setActiveTask(id)}
+                    />
+                  )}
                 </div>
               )
             })

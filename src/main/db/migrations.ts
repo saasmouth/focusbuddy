@@ -19,6 +19,7 @@ import { SCHEMA } from './schema'
 import { migrateNodesKindCheckV2, type NodesKindMigrationResult } from './migrateNodesKind'
 import { migrateIntentTaxonomyV2 } from './migrateIntentTaxonomy'
 import { repairBrowsingHistoryCounts } from './migrateBrowsingHistoryCounts'
+import { ensureTaskPlanningSchema } from './taskPlanningSchema'
 import { ensureWorkItemSchema } from './workItems'
 import { ensureNotificationSchema } from '../notifications/substrate'
 
@@ -66,6 +67,10 @@ export function applySchemaAndMigrations(db: Database.Database): NodesKindMigrat
   // work_item columns + satellite tables + orphan reconciliation (S2, §2.2/§2.4)
   // — strictly AFTER the kind migration above, per its two-sided pin.
   ensureWorkItemSchema(db)
+  // Task planning columns (start / assignee / dependency / lag / attachments).
+  // Same ALTER-if-absent shape as the work_item manifest above, and read from
+  // the same kind of single source so DDL, mapper and writer cannot drift.
+  ensureTaskPlanningSchema(db)
   // The notification substrate's durable store (S4, §5).
   ensureNotificationSchema(db)
   // Taxonomy alignment: rewrite legacy intent_class values to the eight

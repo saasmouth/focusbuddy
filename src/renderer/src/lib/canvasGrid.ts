@@ -13,7 +13,15 @@
 // second implementation of that was written here before anybody looked, and
 // deleted once somebody did.
 
-/** The unit everything lands on. Small enough to feel free, big enough to align. */
+/**
+ * The unit everything lands on -- position AND size.
+ *
+ * Small enough to feel free, big enough to align. What matters more than the
+ * number is that it is ONE number: dragging, resizing and the drop commit
+ * disagreed before -- Rnd stepped in 20s while the commit rounded to 8 -- so a
+ * widget dragged to a tidy spot was quietly moved off it on release, which is
+ * exactly the drift a grid exists to prevent.
+ */
 export const GRID = 20
 
 export interface GridBox {

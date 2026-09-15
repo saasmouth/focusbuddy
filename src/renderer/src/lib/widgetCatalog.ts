@@ -56,6 +56,41 @@ export const WIDGET_CATALOG: WidgetCatalogEntry[] = [
     isWebBased: false
   },
   {
+    kind: 'inbox',
+    category: 'Comms',
+    label: 'Inbox',
+    icon: 'inbox',
+    hint: 'Your mail, narrowed to what this desk is about by a rule you write',
+    defaultWidth: 380,
+    defaultHeight: 360,
+    // No rules in the default content: the widget seeds them from the desk's
+    // own title on first render, which needs the desk it has been dropped on.
+    defaultContent: JSON.stringify({ scan: 200 }),
+    isWebBased: false
+  },
+  {
+    kind: 'location-map',
+    category: 'Files',
+    label: 'Map',
+    icon: 'location_on',
+    hint: 'A real address on a real map — search, pan and zoom (OpenStreetMap)',
+    defaultWidth: 420,
+    defaultHeight: 340,
+    defaultContent: JSON.stringify({ zoom: 16 }),
+    isWebBased: false
+  },
+  {
+    kind: 'calendar',
+    category: 'Tools',
+    label: 'Calendar',
+    icon: 'calendar_month',
+    hint: 'The month, marked with this desk’s due dates and booked time',
+    defaultWidth: 360,
+    defaultHeight: 400,
+    defaultContent: JSON.stringify({ scope: 'desk' }),
+    isWebBased: false
+  },
+  {
     // One number, its direction, and the readings behind it. The sparkline is
     // the point: an arrow without a line is an assertion nobody can check.
     kind: 'stat-card',

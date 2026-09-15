@@ -1119,7 +1119,9 @@ body {
       transparent 65%
     ),
     #060816 !important;
-  background-size: 24px 24px, 24px 24px, auto, auto !important;
+  /* Matches GRID in lib/canvasGrid.ts -- a hint grid that isn't the snap grid
+     promises a precision the drop will not honour. */
+  background-size: 20px 20px, 20px 20px, auto, auto !important;
 }
 
 /* Primary buttons get a calm violet glow — present at rest, brighter on
@@ -2405,7 +2407,9 @@ body {
     linear-gradient(to bottom, rgb(var(--accent) / 0.06) 1px, transparent 1px),
     radial-gradient(ellipse 52% 36% at 50% 50%, rgb(var(--accent) / 0.04) 0%, transparent 66%),
     #05060a !important;
-  background-size: 24px 24px, 24px 24px, auto, auto !important;
+  /* Matches GRID in lib/canvasGrid.ts -- a hint grid that isn't the snap grid
+     promises a precision the drop will not honour. */
+  background-size: 20px 20px, 20px 20px, auto, auto !important;
 }
 
 /* Primary buttons — a polished gem cabochon in the accent colour, with a

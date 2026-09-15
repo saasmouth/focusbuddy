@@ -53,6 +53,11 @@ interface NodeRow {
   resume_markdown: string | null
   resume_updated_at: number | null
   due_date: number | null
+  planned_start_at: number | null
+  assignee: string | null
+  depends_on: string | null
+  lag_days: number | null
+  attachments_json: string | null
   archived: number | null
   is_plan: number | null
   shared_from_handle: string | null
@@ -104,6 +109,11 @@ function rowToNode(row: NodeRow): FbNode {
     resumeMarkdown: row.resume_markdown,
     resumeUpdatedAt: row.resume_updated_at,
     dueDate: row.due_date,
+    plannedStartAt: row.planned_start_at ?? null,
+    assignee: row.assignee ?? null,
+    dependsOn: row.depends_on ?? null,
+    lagDays: row.lag_days ?? null,
+    attachmentsJson: row.attachments_json ?? null,
     archived: row.archived === 1,
     isPlan: row.is_plan === 1,
     sharedFromHandle: row.shared_from_handle ?? null,
@@ -268,7 +278,12 @@ export function updateNode(id: string, patch: NodePatch): FbNode | null {
     ['extensionsMinutes', 'extensions_minutes'],
     ['resumeMarkdown', 'resume_markdown'],
     ['resumeUpdatedAt', 'resume_updated_at'],
-    ['dueDate', 'due_date']
+    ['dueDate', 'due_date'],
+    ['plannedStartAt', 'planned_start_at'],
+    ['assignee', 'assignee'],
+    ['dependsOn', 'depends_on'],
+    ['lagDays', 'lag_days'],
+    ['attachmentsJson', 'attachments_json']
   ]
   // Leaf invariant (§2.5.5): the parentId patch column is a parent_id writer.
   if (patch.parentId !== undefined) assertParentAcceptsChildren(db, patch.parentId)

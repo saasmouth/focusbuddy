@@ -1,6 +1,9 @@
 import TaskListWidget from './TaskListWidget'
 import MetricsWidget from './MetricsWidget'
 import ContactsWidget from './ContactsWidget'
+import InboxWidget from './InboxWidget'
+import LocationMapWidget from './LocationMapWidget'
+import CalendarWidget from './CalendarWidget'
 import StatCardWidget from './StatCardWidget'
 import GalleryWidget from './GalleryWidget'
 import type { JSX } from 'react'
@@ -77,6 +80,12 @@ function renderWidgetInner(w: Widget): JSX.Element | null {
       return <MetricsWidget widget={w} />
     case 'contacts':
       return <ContactsWidget widget={w} />
+    case 'inbox':
+      return <InboxWidget widget={w} />
+    case 'location-map':
+      return <LocationMapWidget widget={w} />
+    case 'calendar':
+      return <CalendarWidget widget={w} />
     case 'stat-card':
       return <StatCardWidget widget={w} />
     case 'gallery':

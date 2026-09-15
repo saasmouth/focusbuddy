@@ -568,9 +568,15 @@ export default function WidgetFrame({
     // widget instead, which fought the user's deliberate placement — the
     // opposite of what "I put it there" should mean. Sections are treated as
     // immovable blockers (pushed widgets avoid them; a section itself doesn't
-    // shuffle when a small widget lands near it). Optional snap-to-grid rounds
-    // the drop to an 8px grid first.
-    const grid = getNavPrefs().snapToGridEnabled ? 8 : 1
+    // shuffle when a small widget lands near it).
+    //
+    // Snap-to-grid rounds the drop onto the SAME grid Rnd stepped along during
+    // the drag (GRID), not a finer one. Rnd's dragGrid is relative to where the
+    // gesture started, so a widget already off-grid would step in perfect
+    // hundreds forever without ever landing on a hundred; rounding absolutely
+    // here is what puts it back. A widget already on-grid is unmoved by this --
+    // the correction happens once, then never again.
+    const grid = getNavPrefs().snapToGridEnabled ? GRID : 1
     const rawX = Math.round(newX / grid) * grid
     const rawY = Math.round(newY / grid) * grid
     const topLevelSiblings = latestWidgets.filter(
@@ -692,6 +698,8 @@ export default function WidgetFrame({
           ? { position: 'relative', width: '100%', height: '100%', pointerEvents: 'auto' }
           : { zIndex: widget.zIndex, position: 'absolute', pointerEvents: 'auto' }
       }
+      // Both are multiples of GRID, so the floor is itself a legal size --
+      // otherwise the smallest a widget can get is a width no neighbour shares.
       minWidth={180}
       minHeight={120}
       // Snap while dragging and while resizing. Rnd does this natively, which
@@ -860,22 +868,36 @@ export default function WidgetFrame({
           const topLevelSiblings = latestWidgets.filter(
             (w) => w.id !== widget.id && !w.pinned && !w.parentSectionId
           )
-          const rawX = Math.round(pos.x)
-          const rawY = Math.round(pos.y)
+          // Land the rect on the absolute grid, both corners. Rnd resized in
+          // GRID steps from wherever this widget already was, so without this
+          // a widget that started at an odd size keeps that oddness forever --
+          // and a column of widgets whose widths differ by 43px has no gaps
+          // worth the name. Both the size and the origin are rounded, because
+          // dragging the top or left edge moves x/y as well as w/h.
+          const g = snapOn ? GRID : 1
+          const snappedW = Math.max(g, Math.round(newW / g) * g)
+          const snappedH = Math.max(g, Math.round(newH / g) * g)
+          const rawX = Math.round(pos.x / g) * g
+          const rawY = Math.round(pos.y / g) * g
           const placed = findNonOverlapPosition(
-            { x: rawX, y: rawY, width: newW, height: newH },
+            { x: rawX, y: rawY, width: snappedW, height: snappedH },
             effectiveSiblingsForCheck(topLevelSiblings, latestWidgets)
           )
           void update(widget.id, {
-            width: newW,
-            height: newH,
+            width: snappedW,
+            height: snappedH,
             x: placed.x,
             y: placed.y
           })
-          if (Math.abs(rawX - placed.x) > 12 || Math.abs(rawY - placed.y) > 12) {
+          if (
+            Math.abs(rawX - placed.x) > 12 ||
+            Math.abs(rawY - placed.y) > 12 ||
+            snappedW !== newW ||
+            snappedH !== newH
+          ) {
             // Imperative — Rnd's internal state updates without a re-
             // mount, so the webview child keeps its session + URL.
-            applyRndSizeAndPosition(newW, newH, placed.x, placed.y)
+            applyRndSizeAndPosition(snappedW, snappedH, placed.x, placed.y)
           }
         }
       }}

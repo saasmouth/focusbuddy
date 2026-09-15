@@ -29,6 +29,13 @@ export type WidgetKind =
   | 'metrics'
   // The handful of people this desk is actually about.
   | 'contacts'
+  // The inbox narrowed to what this desk is about, by a rule the user writes
+  // and can see. Content is JSON: see InboxContent.
+  | 'inbox'
+  // A real location, on a real map, for the address this desk is about.
+  | 'location-map'
+  // What is due on this desk, on a month grid, alongside dates the user adds.
+  | 'calendar'
   // A single number that is being watched, with its direction of travel and a
   // sparkline of how it got there. Content is JSON: see StatCardContent.
   | 'stat-card'
@@ -244,6 +251,13 @@ export interface FbNode {
   updatedAt: number
   startedAt: number | null
   completedAt: number | null
+  // Planning fields (see shared/taskPlanning.ts). Optional everywhere: a task
+  // is allowed to be nothing but a title, and most are.
+  plannedStartAt?: number | null
+  assignee?: string | null
+  dependsOn?: string | null
+  lagDays?: number | null
+  attachmentsJson?: string | null
   estimateMinutes: number | null
   extensionsMinutes: number
   resumeMarkdown: string | null
@@ -305,6 +319,11 @@ export interface NodePatch {
   resumeMarkdown?: string | null
   resumeUpdatedAt?: number | null
   dueDate?: number | null
+  plannedStartAt?: number | null
+  assignee?: string | null
+  dependsOn?: string | null
+  lagDays?: number | null
+  attachmentsJson?: string | null
   archived?: boolean
   // Promote a Room to a Plan or demote it back. Lets the user say "this is a
   // plan" / "this is just a room" without recreating the node.
