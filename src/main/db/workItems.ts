@@ -23,6 +23,7 @@ import { isWorkItemsEnabled } from '../workItemsPref'
 import { mapNodeRow, type NodeRow } from './nodes'
 import { postNotification } from '../notifications/substrate'
 import { attentionPrecision } from '../meta/metrics'
+import { asAttentionItem } from '@shared/attentionProjection'
 import type { FbNode } from '@shared/types'
 import type { LifecycleDb } from './nodeLifecycle'
 import {
@@ -243,6 +244,29 @@ export function setWorkItemStateCore(
   const row = d.prepare('SELECT kind FROM nodes WHERE id = ?').get(id) as
     | { kind: string }
     | undefined
+  if (row?.kind === 'task') {
+    // A desk task closed from Attention -- but ONLY a task filed on a desk.
+    // The write path applies the same rule as the read path (a task whose
+    // parent is also a task), because a desk is itself kind='task' and a desk
+    // is not an item to be done. Without this, an id that Attention can never
+    // show could still be closed through it, and read and write would disagree
+    // about what an attention item is.
+    const parent = d
+      .prepare('SELECT p.kind AS kind FROM nodes n JOIN nodes p ON p.id = n.parent_id WHERE n.id = ?')
+      .get(id) as { kind: string } | undefined
+    if (parent?.kind !== 'task') return false
+    // Only `status` is written: for a task status IS the truth, and stamping
+    // work_item_state onto it would create the second, drifting copy this
+    // unification exists to remove. The desk's own task list reads the same
+    // row and sees the change immediately.
+    d.prepare('UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?').run(
+      statusForWorkItemState(state),
+      Date.now(),
+      id
+    )
+    logActor(`setState:${state}`, id, actor)
+    return true
+  }
   if (row?.kind !== 'work_item') return false
   d.prepare(
     'UPDATE nodes SET work_item_state = ?, status = ?, updated_at = ? WHERE id = ?'
@@ -494,20 +518,34 @@ export function sourceTypeSuppressed(sourceType: string): boolean {
 
 export function listWorkItems(): FbNode[] {
   const db = getDb()
+  // Work items AND the tasks filed on desks: one record seen through one lens.
+  //
+  // A desk task is selected by its PARENT being a task, because a desk and a
+  // task are the same node kind here -- a desk is a task you opened as a canvas
+  // -- and a desk is not itself an item to be done. Projection (not a second
+  // row) fills in the fields Attention reads; see shared/attentionProjection.
   const rows = db
     .prepare(
       `SELECT n.*, l.detached_from_id AS _detached_from_id, l.snooze_until AS _snooze_until
-       FROM nodes n LEFT JOIN wi_local l ON l.item_id = n.id
-       WHERE n.kind = 'work_item' AND n.trashed_at IS NULL AND n.org_id = ?
+       FROM nodes n
+       LEFT JOIN wi_local l ON l.item_id = n.id
+       LEFT JOIN nodes p ON p.id = n.parent_id
+       WHERE n.trashed_at IS NULL AND n.org_id = ?
+         AND (
+           n.kind = 'work_item'
+           OR (n.kind = 'task' AND COALESCE(n.archived, 0) = 0 AND p.kind = 'task')
+         )
        ORDER BY n.created_at DESC`
     )
     .all(getActiveOrgId()) as Array<NodeRow & { _detached_from_id: string | null; _snooze_until: number | null }>
-  return rows.map((r) => ({
-    ...mapNodeRow(r),
-    // Device-local satellite fields ride the read model only (§2.4).
-    detachedFromId: r._detached_from_id ?? null,
-    snoozeUntil: r._snooze_until ?? null
-  }))
+  return rows.map((r) =>
+    asAttentionItem({
+      ...mapNodeRow(r),
+      // Device-local satellite fields ride the read model only (§2.4).
+      detachedFromId: r._detached_from_id ?? null,
+      snoozeUntil: r._snooze_until ?? null
+    })
+  )
 }
 
 export function getWorkItem(id: string): FbNode | null {
