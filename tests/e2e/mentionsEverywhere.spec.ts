@@ -149,3 +149,36 @@ test('@ works in a rich-text document, and the link navigates', async () => {
   })
   expect(view?.taskId).toBe(ids.targetId)
 })
+
+test('the picker opens beside the @, not under the widget', async () => {
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  const deskId = await seed(window, ['note'])
+  await open(window, deskId)
+
+  const widget = window.locator('[data-widget-kind="note"]').first()
+  await expect(widget).toBeVisible({ timeout: 10_000 })
+  const field = widget.locator('textarea').first()
+  await field.click()
+  // Several lines, so "under the field" and "beside the caret" are far apart.
+  await field.type('line one\nline two\nline three\nnow see @ridge')
+
+  const picker = window.locator('[data-testid="mention-picker"]')
+  await expect(picker).toBeVisible({ timeout: 5000 })
+
+  const box = await window.evaluate(() => {
+    const p = document.querySelector('[data-testid="mention-picker"]')?.getBoundingClientRect()
+    const w = document.querySelector('[data-widget-kind="note"]')?.getBoundingClientRect()
+    const ta = document.querySelector('[data-widget-kind="note"] textarea')?.getBoundingClientRect()
+    return p && w && ta
+      ? { pTop: p.top, pLeft: p.left, wBottom: w.bottom, taTop: ta.top, taLeft: ta.left }
+      : null
+  })
+  expect(box).not.toBeNull()
+  // It must sit INSIDE the widget's vertical span, near the caret — not below
+  // the whole widget, which is where it used to appear.
+  expect(box!.pTop).toBeLessThan(box!.wBottom)
+  // ...and indented from the field's left edge, because the caret is mid-line.
+  expect(box!.pLeft).toBeGreaterThan(box!.taLeft)
+})

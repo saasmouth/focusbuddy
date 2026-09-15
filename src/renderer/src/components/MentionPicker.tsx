@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import type { MentionAutocomplete } from '../lib/useMentionAutocomplete'
 import { MENTION_ICON } from './MentionText'
 import Icon from './Icon'
@@ -7,18 +8,38 @@ import Icon from './Icon'
 // Extracted so adding mentions to a field is a hook call and one element
 // rather than sixty lines of list markup copied per widget -- which is how the
 // same feature ends up behaving slightly differently in five places.
+//
+// Anchored to the CARET, and portalled to <body>. Both matter: a menu under
+// the whole field opens inches from what you are typing in a tall note, and
+// one positioned inside a scrolling widget gets clipped by it.
 
 export default function MentionPicker({
   mentions,
-  className
+  className,
+  at
 }: {
   mentions: MentionAutocomplete
   className?: string
+  /** Viewport coordinates of the `@`. Omitted falls back to below the field. */
+  at?: { left: number; bottom: number } | null
 }): JSX.Element | null {
   if (!mentions.open) return null
-  return (
+
+  const list = (
     <div
-      className={`absolute left-0 top-full z-[80] mt-1 max-h-[200px] w-[250px] overflow-y-auto rounded-md border border-[var(--line)] bg-[var(--surface-raised)] py-1 shadow-lg ${className ?? ''}`}
+      className={`max-h-[200px] w-[250px] overflow-y-auto rounded-md border border-[var(--line)] bg-[var(--surface-raised)] py-1 shadow-lg ${
+        at ? 'fixed z-[300]' : 'absolute left-0 top-full z-[80] mt-1'
+      } ${className ?? ''}`}
+      style={
+        at
+          ? {
+              // Kept inside the window: a menu that runs off the right edge is
+              // unreachable, and one below the fold is worse than none.
+              left: Math.round(Math.min(at.left, window.innerWidth - 258)),
+              top: Math.round(Math.min(at.bottom + 4, window.innerHeight - 210))
+            }
+          : undefined
+      }
       // mousedown, not click: blur fires first and would close the picker
       // before a click could ever land on it.
       onMouseDown={(e) => e.preventDefault()}
@@ -46,4 +67,6 @@ export default function MentionPicker({
       ))}
     </div>
   )
+
+  return at ? createPortal(list, document.body) : list
 }

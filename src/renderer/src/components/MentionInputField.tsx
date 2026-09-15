@@ -1,5 +1,6 @@
-import { forwardRef, useImperativeHandle, useRef, type InputHTMLAttributes } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState, type InputHTMLAttributes } from 'react'
 import { useMentionAutocomplete } from '../lib/useMentionAutocomplete'
+import { caretCoordinates } from '../lib/caretCoordinates'
 import MentionPicker from './MentionPicker'
 
 // An <input> that understands `@`. The one-line sibling of MentionTextarea,
@@ -19,6 +20,9 @@ const MentionInputField = forwardRef<HTMLInputElement, MentionInputFieldProps>(
     ref
   ) {
     const inner = useRef<HTMLInputElement | null>(null)
+    // Where the `@` is on screen, so the menu opens beside it rather than
+    // under the whole field.
+    const [caret, setCaret] = useState<{ left: number; bottom: number } | null>(null)
     useImperativeHandle(ref, () => inner.current as HTMLInputElement)
 
     const mentions = useMentionAutocomplete(value, (next, caret) => {
@@ -38,6 +42,19 @@ const MentionInputField = forwardRef<HTMLInputElement, MentionInputFieldProps>(
       })
     })
 
+    const measure = (index: number): { left: number; bottom: number } | null => {
+      const el = inner.current
+      if (!el) return null
+      try {
+        const p = caretCoordinates(el, index)
+        return { left: p.left, bottom: p.bottom }
+      } catch {
+        // Measurement failing must not cost the picker; it falls back to
+        // sitting under the field.
+        return null
+      }
+    }
+
     return (
       <div className={`relative ${wrapperClassName ?? ''}`}>
         <input
@@ -46,13 +63,14 @@ const MentionInputField = forwardRef<HTMLInputElement, MentionInputFieldProps>(
           value={value}
           onChange={(e) => {
             onChange(e)
-            mentions.onInput(e.target.value, e.target.selectionStart ?? e.target.value.length)
+            const i = e.target.selectionStart ?? e.target.value.length
+            mentions.onInput(e.target.value, i)
+            setCaret(measure(i))
           }}
           onKeyUp={(e) => {
-            mentions.onInput(
-              e.currentTarget.value,
-              e.currentTarget.selectionStart ?? e.currentTarget.value.length
-            )
+            const i = e.currentTarget.selectionStart ?? e.currentTarget.value.length
+            mentions.onInput(e.currentTarget.value, i)
+            setCaret(measure(i))
             onKeyUp?.(e)
           }}
           onKeyDown={(e) => {
@@ -67,7 +85,7 @@ const MentionInputField = forwardRef<HTMLInputElement, MentionInputFieldProps>(
             onBlur?.(e)
           }}
         />
-        <MentionPicker mentions={mentions} />
+        <MentionPicker mentions={mentions} at={caret} />
       </div>
     )
   }
