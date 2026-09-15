@@ -1,9 +1,61 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import Icon from '../Icon'
+import MetricBindingEditor from './MetricBindingEditor'
 import { useWidgetStore } from '../../stores/widgets'
 import { compact, delta } from '../../lib/sparkline'
+import type { FbRow } from '@shared/fields'
+import { computeMetric, formatMetricValue, type MetricBinding } from '@shared/metricBinding'
+
+/**
+ * Live rows for every table any cell is bound to.
+ *
+ * Fetched once per distinct table rather than once per cell -- four cells off
+ * the same table is the normal case, and four identical reads of it is not.
+ */
+function useBoundRows(cells: MetricCell[]): Record<string, FbRow[]> {
+  const [rowsByTable, setRowsByTable] = useState<Record<string, FbRow[]>>({})
+  const tableIds = useMemo(
+    () =>
+      [...new Set(cells.map((c) => c.binding?.source.tableId).filter((x): x is string => Boolean(x)))].sort(),
+    [cells]
+  )
+  const key = tableIds.join(',')
+
+  useEffect(() => {
+    if (tableIds.length === 0) {
+      setRowsByTable({})
+      return
+    }
+    const api = (window as { api?: Record<string, any> }).api
+    let alive = true
+    const load = async (): Promise<void> => {
+      const out: Record<string, FbRow[]> = {}
+      for (const id of tableIds) {
+        try {
+          out[id] = (await api?.tables?.listRows?.(id)) ?? []
+        } catch {
+          // A table that cannot be read contributes no rows, so its cells show
+          // a dash rather than a number left over from last time.
+          out[id] = []
+        }
+      }
+      if (alive) setRowsByTable(out)
+    }
+    void load()
+    const off = api?.tables?.onRowsChanged?.((changed: string) => {
+      if (tableIds.includes(changed)) void load()
+    })
+    return () => {
+      alive = false
+      if (typeof off === 'function') off()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+
+  return rowsByTable
+}
 
 // Several numbers that are read together.
 //
@@ -18,6 +70,11 @@ import { compact, delta } from '../../lib/sparkline'
 export interface MetricCell {
   label: string
   value: number
+  /**
+   * Where this cell's number comes from, when it is measured rather than typed.
+   * A bound cell recomputes from the table; an unbound one keeps `value`.
+   */
+  binding?: MetricBinding | null
   /** Shown instead of the computed value when the figure is not a plain count. */
   display?: string
   /** Readings behind the number, oldest first. The change is derived from these. */
@@ -25,6 +82,8 @@ export interface MetricCell {
 }
 
 interface MetricsContent {
+  /** The cell currently being pointed at a data source, by index. */
+  editingCell?: number | null
   title?: string
   cells: MetricCell[]
   /** Optional bars under the cells: a period-by-period read of the headline. */
@@ -46,7 +105,48 @@ function parse(raw: string | null | undefined): MetricsContent {
 
 export default function MetricsWidget({ widget }: { widget: Widget }): JSX.Element {
   const model = useMemo(() => parse(widget.content), [widget.content])
-  useWidgetStore((s) => s.update) // subscribe: content edits repaint the panel
+  const update = useWidgetStore((s) => s.update)
+  const rowsByTable = useBoundRows(model.cells)
+
+  const editingCell = model.editingCell ?? null
+  const setEditingCell = (i: number | null): void => {
+    void update(widget.id, { content: JSON.stringify({ ...model, editingCell: i }) })
+  }
+  const setCellBinding = (i: number, binding: MetricBinding | null, title?: string): void => {
+    const cells = model.cells.map((c, k) =>
+      k === i ? { ...c, binding, label: title ?? c.label } : c
+    )
+    void update(widget.id, { content: JSON.stringify({ ...model, cells }) })
+  }
+
+  /** A cell's number: computed when bound, otherwise the one that was typed. */
+  const readCell = (c: MetricCell): { text: string; points: number[]; note?: string } => {
+    if (!c.binding) {
+      return { text: c.display ?? compact(c.value), points: c.points ?? [] }
+    }
+    const res = computeMetric(rowsByTable[c.binding.source.tableId] ?? [], c.binding)
+    return {
+      text: formatMetricValue(res.value, c.binding),
+      points: res.series.map((p) => p.value),
+      note: res.total === 0 ? 'no rows' : `${res.matched}/${res.total}`
+    }
+  }
+
+  if (editingCell !== null && model.cells[editingCell]) {
+    return (
+      <WidgetFrame
+        widget={widget}
+        headerLabel={model.title || 'Metrics'}
+        headerAccent="bg-indigo-200/50 dark:bg-indigo-400/10"
+      >
+        <MetricBindingEditor
+          binding={model.cells[editingCell].binding ?? null}
+          onChange={(b, title) => setCellBinding(editingCell, b, title)}
+          onClose={() => setEditingCell(null)}
+        />
+      </WidgetFrame>
+    )
+  }
 
   if (model.cells.length === 0) {
     return (
@@ -69,17 +169,28 @@ export default function MetricsWidget({ widget }: { widget: Widget }): JSX.Eleme
       <div className="h-full w-full flex flex-col bg-[var(--surface-raised)] overflow-auto">
         <div className="grid grid-cols-2 gap-px bg-[color:var(--edge-soft)]">
           {model.cells.map((c, i) => {
-            const d = c.points && c.points.length > 1 ? delta(c.points) : null
+            const read = readCell(c)
+            const d = read.points.length > 1 ? delta(read.points) : null
             const tone =
               d?.direction === 'up' ? 'text-emerald-600'
                 : d?.direction === 'down' ? 'text-rose-600'
                   : 'text-[var(--ink-50)]'
             return (
-              <div key={c.label + i} className="bg-[var(--surface-raised)] px-2.5 py-2">
-                <div className="fb-t-caption text-[var(--ink-50)] truncate">{c.label}</div>
+              <div key={c.label + i} className="group/cell bg-[var(--surface-raised)] px-2.5 py-2">
+                <div className="flex items-center gap-1">
+                  <span className="fb-t-caption truncate text-[var(--ink-50)]">{c.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => setEditingCell(i)}
+                    title={c.binding ? 'Change this cell’s data source' : 'Connect this cell to a table'}
+                    className="widget-nodrag ml-auto rounded p-0.5 text-[var(--ink-30)] opacity-0 transition-opacity hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-80)] group-hover/cell:opacity-100"
+                  >
+                    <Icon name="tune" size={11} />
+                  </button>
+                </div>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
                   <span className="text-[19px] leading-none font-semibold text-[var(--ink-100)] tracking-tight">
-                    {c.display ?? compact(c.value)}
+                    {read.text}
                   </span>
                   {d && (
                     <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${tone}`}>
@@ -91,6 +202,9 @@ export default function MetricsWidget({ widget }: { widget: Widget }): JSX.Eleme
                     </span>
                   )}
                 </div>
+                {read.note && (
+                  <div className="mt-0.5 text-[9px] text-[var(--ink-35)]">{read.note} rows</div>
+                )}
               </div>
             )
           })}

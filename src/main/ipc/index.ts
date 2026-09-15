@@ -1,4 +1,5 @@
 import { widgetCountsByTask, syncTableWidgetTitles } from '../db/widgets'
+import { buildMetricBinding } from '../ai/anthropic'
 import {
   listCalendars as listExternalCalendars,
   getCalendar as getExternalCalendar,
@@ -2120,6 +2121,28 @@ export function registerIpcHandlers(): void {
   // here: no handler ever returns a token, in any shape. The renderer learns
   // that an account exists and what its email is; the credential stays in the
   // main process, encrypted.
+  // Turn a sentence into a metric binding. The schema is assembled HERE rather
+  // than trusted from the renderer, so the model can only ever be shown tables
+  // that exist and the answer can be checked against them.
+  ipcMain.handle('metricBinding:build', async (_e, request: string) => {
+    try {
+      const tables = listTables()
+      const schema = tables.map((t) => ({
+        id: t.id,
+        title: t.title,
+        columns: (t.schema?.columns ?? []).map((c) => ({
+          id: c.id,
+          label: c.label,
+          type: String(c.type)
+        })),
+        rowCount: listRows(t.id).length
+      }))
+      return await buildMetricBinding(String(request ?? ''), schema)
+    } catch (err) {
+      return { ok: false as const, error: (err as Error).message }
+    }
+  })
+
   ipcMain.handle('extcal:list', () => listExternalCalendars())
   ipcMain.handle('extcal:listEvents', (_e, fromMs: number, toMs: number) =>
     listExternalEvents(fromMs, toMs)

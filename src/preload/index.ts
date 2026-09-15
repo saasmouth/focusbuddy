@@ -1695,6 +1695,20 @@ const api = {
       | { ok: false; error: string; reason?: 'no_key' | 'api' | 'parse' | 'no_agents' }
     > => ipcRenderer.invoke('mindmap:suggestAgents', input)
   },
+  // Turn a sentence into a metric binding against a real table. Named apart
+  // from `metrics` above, which is process telemetry and an unrelated thing.
+  metricBindings: {
+    build: (
+      request: string
+    ): Promise<{
+      ok: boolean
+      binding?: unknown
+      title?: string
+      note?: string
+      error?: string
+      needsApiKey?: boolean
+    }> => ipcRenderer.invoke('metrics:buildBinding', request)
+  },
   tables: {
     list: (): Promise<FbTable[]> => ipcRenderer.invoke('tables:list'),
     get: (id: string): Promise<FbTable | null> => ipcRenderer.invoke('tables:get', id),

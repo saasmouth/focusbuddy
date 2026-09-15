@@ -5503,3 +5503,127 @@ export async function processMeetingEnd(input: {
     return { ok: false, reason: 'api', error: `Could not process the meeting: ${e instanceof Error ? e.message : String(e)}` }
   }
 }
+
+// ── Metric bindings from a sentence ─────────────────────────────────────────
+
+export interface MetricSchemaTable {
+  id: string
+  title: string
+  columns: Array<{ id: string; label: string; type: string }>
+  rowCount: number
+}
+
+export interface MetricBindingResult {
+  ok: boolean
+  binding?: unknown
+  title?: string
+  note?: string
+  error?: string
+  needsApiKey?: boolean
+}
+
+/**
+ * The prompt that turns "total won deals this quarter" into a binding.
+ *
+ * Exported and pure for the same reason as buildReplyPrompt: the model can only
+ * pick a column that exists if it was shown the columns, and a schema quietly
+ * omitted produces confident nonsense that looks like a working card.
+ */
+export function buildMetricBindingPrompt(request: string, tables: MetricSchemaTable[]): string {
+  const schema = tables
+    .map(
+      (t) =>
+        `Table "${t.title}" (id: ${t.id}, ${t.rowCount} rows)\n` +
+        t.columns.map((c) => `  - ${c.label} (id: ${c.id}, type: ${c.type})`).join('\n')
+    )
+    .join('\n\n')
+  return (
+    `Available tables:\n\n${schema || '(none)'}\n\n` +
+    `What the user asked for: ${request}\n\n` +
+    'Return the binding now.'
+  )
+}
+
+const METRIC_SYSTEM =
+  'You turn a plain-English request into a JSON binding that computes ONE number from a table.\n\n' +
+  'ABSOLUTE CONSTRAINTS:\n' +
+  '1. Use ONLY table ids and column ids that appear in the schema given to you. Never invent an id.\n' +
+  '2. If no table can answer the request, return {"ok": false, "error": "one sentence saying why"}. ' +
+  'Do NOT pick a loosely related table and hope.\n' +
+  '3. Never invent filter values that are not implied by the request.\n' +
+  '4. Arithmetic aggregations (sum, avg, min, max) are only valid on number columns. ' +
+  'Use countTrue for checkboxes, count or countDistinct for text.\n\n' +
+  'SHAPE — return a single JSON object, first character {, last character }:\n' +
+  '{"ok": true, "title": "short card title", "binding": {\n' +
+  '  "source": {"kind": "table", "tableId": "..."},\n' +
+  '  "agg": "count|sum|avg|min|max|countDistinct|countTrue",\n' +
+  '  "columnId": "... (omit for count)",\n' +
+  '  "filters": [{"columnId": "...", "op": "eq|ne|contains|gt|gte|lt|lte|isEmpty|notEmpty|isTrue|isFalse", "value": ...}],\n' +
+  '  "groupBy": {"columnId": "...", "bucket": "day|week|month|quarter|year"},\n' +
+  '  "format": "plain|currency|percent", "compact": true|false, "decimals": 0\n' +
+  '}, "note": "one sentence on any assumption you made"}\n\n' +
+  'Include groupBy ONLY when the request implies a trend over time or a breakdown. ' +
+  'Omit any field you have no basis for.'
+
+/** Ask the model for a binding. Never returns a binding it was not given ids for. */
+export async function buildMetricBinding(
+  request: string,
+  tables: MetricSchemaTable[]
+): Promise<MetricBindingResult> {
+  const c = getClient()
+  if (!c)
+    return {
+      ok: false,
+      needsApiKey: true,
+      error: 'No Anthropic API key set. Open Settings → AI · API keys to paste one.'
+    }
+  if (tables.length === 0) {
+    return { ok: false, error: 'There are no tables in this workspace to measure yet.' }
+  }
+  try {
+    const resp = await c.messages.create({
+      model: resolveModel('email_reply_draft'),
+      max_tokens: 800,
+      system: METRIC_SYSTEM,
+      messages: [{ role: 'user', content: buildMetricBindingPrompt(request, tables) }]
+    })
+    const text = resp.content
+      .filter((b) => b.type === 'text')
+      .map((b) => ('text' in b ? b.text : ''))
+      .join('')
+      .trim()
+    const json = extractJson(text)
+    if (!json) return { ok: false, error: 'Could not read the model’s answer.' }
+    const parsed = json as {
+      ok?: boolean
+      error?: string
+      title?: string
+      note?: string
+      binding?: { source?: { tableId?: string }; columnId?: string; filters?: unknown[]; groupBy?: { columnId?: string } }
+    }
+    if (parsed.ok === false) return { ok: false, error: parsed.error || 'No table can answer that.' }
+
+    // Verify every id against the schema we actually sent. A hallucinated column
+    // would otherwise produce a card that renders a confident dash forever.
+    const table = tables.find((t) => t.id === parsed.binding?.source?.tableId)
+    if (!table) return { ok: false, error: 'The model chose a table that does not exist.' }
+    const colIds = new Set(table.columns.map((c2) => c2.id))
+    const bad: string[] = []
+    if (parsed.binding?.columnId && !colIds.has(parsed.binding.columnId)) bad.push(parsed.binding.columnId)
+    for (const f of (parsed.binding?.filters ?? []) as Array<{ columnId?: string }>) {
+      if (f?.columnId && !colIds.has(f.columnId)) bad.push(f.columnId)
+    }
+    if (parsed.binding?.groupBy?.columnId && !colIds.has(parsed.binding.groupBy.columnId)) {
+      bad.push(parsed.binding.groupBy.columnId)
+    }
+    if (bad.length > 0) {
+      return {
+        ok: false,
+        error: `The model referred to columns that are not in “${table.title}”: ${bad.join(', ')}.`
+      }
+    }
+    return { ok: true, binding: parsed.binding, title: parsed.title, note: parsed.note }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}

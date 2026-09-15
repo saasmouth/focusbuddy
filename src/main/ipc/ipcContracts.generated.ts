@@ -213,6 +213,7 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'meetings:setSeriesPrefs': [{ kind: 'string', optional: false, nullable: false }, { kind: 'object', optional: true, nullable: false }],
   'meetings:update': [{ kind: 'string', optional: false, nullable: false }, { kind: 'object', optional: false, nullable: false }],
   'memory:forget': [{ kind: 'string', optional: false, nullable: false }],
+  'metricBinding:build': [{ kind: 'string', optional: false, nullable: false }],
   'model:set': [{ kind: 'string', optional: false, nullable: false }],
   'nodes:create': [{ kind: 'object', optional: false, nullable: false }, { kind: 'string', optional: true, nullable: false }],
   'nodes:delete': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: true, nullable: false }],
