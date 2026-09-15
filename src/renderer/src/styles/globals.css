@@ -3016,32 +3016,17 @@ html.dark[data-widget-skin='studio'] [data-widget-id] > .fb-card {
     0 10px 24px -12px oklch(0% 0 0 / 0.5);
 }
 
-/* The reference's headers carry a name and one or two actions. Plexii's carry
-   seven, which on a 240px sticky leaves the title about fifty pixels and it
-   truncates to a single letter — the chip made an existing crowding visible
-   rather than causing it. In studio the tools wait for the pointer, which is
-   also how the reference reads at rest: a wall of named cards, not a wall of
-   toolbars. They stay reachable by hover, focus and keyboard. */
-html[data-widget-skin='studio'] .fb-widget-header {
-  position: relative;
-}
-html[data-widget-skin='studio'] .fb-widget-actions {
-  /* Out of flow, not merely invisible: opacity alone still reserves the width,
-     which is what kept a sticky's title at one letter after the tools were
-     hidden. Absolute here gives the name the whole header at rest. */
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0;
-  pointer-events: none;
-  padding-left: 14px;
-  background: linear-gradient(to right, transparent, var(--surface-raised) 14px);
-  transition: opacity 120ms ease;
-}
-html[data-widget-skin='studio'] [data-widget-id]:hover .fb-widget-actions,
-html[data-widget-skin='studio'] .fb-widget-header:hover .fb-widget-actions,
-html[data-widget-skin='studio'] .fb-widget-actions:focus-within {
-  opacity: 1;
-  pointer-events: auto;
-}
+/* The header tools stay in the header.
+   
+   They were hidden at rest and revealed on hover, which looked much closer to
+   the reference -- and made every one of them unclickable. A control that is
+   pointer-events:none until :hover matches has a gap between the pointer
+   arriving and the rule applying, and a click that lands in that gap does
+   nothing at all. Reported as "can't add, edit or delete anything, the menu
+   doesn't work", which is exactly what it feels like from the outside.
+   
+   So: always present, always clickable. The title loses the space again on a
+   narrow widget, and a truncated title is a far smaller problem than a button
+   that ignores you. If the clean-header look is worth having, the way to get it
+   is fewer tools in the header -- a product decision -- not the same seven made
+   intermittently interactive. */

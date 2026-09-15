@@ -56,3 +56,41 @@ describe('where the snap is applied', () => {
     expect(frame()).toContain("window.addEventListener('fb:snap-changed'")
   })
 })
+
+// The studio skin hid the header tools at rest and revealed them on hover, with
+// pointer-events toggling alongside the opacity. Every control in every widget
+// became unclickable: the menu opened and did nothing, buttons ignored clicks,
+// and the desk could be panned but not used. A control that is only interactive
+// while a hover rule matches has a gap between the pointer arriving and the
+// rule applying, and a click in that gap is swallowed.
+//
+// So the rule is simple and worth holding: the skin may change how the tools
+// LOOK, never whether they can be pressed.
+describe('a skin never makes a control unclickable', () => {
+  const css = (): string => {
+    const { readFileSync } = require('fs') as typeof import('fs')
+    const { resolve } = require('path') as typeof import('path')
+    return readFileSync(resolve(__dirname, '../../src/renderer/src/styles/globals.css'), 'utf8')
+  }
+
+  it('does not take pointer events away from the header tools', () => {
+    const s = css()
+    const skinBlocks = [...s.matchAll(/html[^{]*data-widget-skin[^{]*\{([^}]*)\}/g)].map((m) => m[0])
+    const offenders = skinBlocks.filter(
+      (b) => b.includes('fb-widget-actions') && /pointer-events:\s*none/.test(b)
+    )
+    expect(offenders).toEqual([])
+  })
+
+  it('does not hide them behind opacity either', () => {
+    // Invisible-but-present is the other half of the same trap: it reserves the
+    // layout, which is what truncated the title to one letter in the first
+    // place and started this.
+    const s = css()
+    const skinBlocks = [...s.matchAll(/html[^{]*data-widget-skin[^{]*\{([^}]*)\}/g)].map((m) => m[0])
+    const hidden = skinBlocks.filter(
+      (b) => b.includes('fb-widget-actions') && /opacity:\s*0\b/.test(b)
+    )
+    expect(hidden).toEqual([])
+  })
+})
