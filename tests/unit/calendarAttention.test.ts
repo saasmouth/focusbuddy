@@ -21,8 +21,13 @@ describe('CalendarView — rewired to the Attention layer', () => {
     expect(view).not.toContain("from '../../lib/dashboardScope'")
   })
 
-  it('offers day / 3-day / week / month, persisted', () => {
-    expect(view).toContain("{ day: 1, '3day': 3, week: 7 }")
+  it('offers day / 3-day / 5-day / week / month / year, persisted', () => {
+    // Five spans render as an hour grid; month and year are overviews and
+    // deliberately carry no day count.
+    for (const span of ["day: 1", "'3day': 3", "'5day': 5", "week: 7"]) {
+      expect(view).toContain(span)
+    }
+    expect(view).toContain("'day' | '3day' | '5day' | 'week' | 'month' | 'year'")
     expect(view).toContain("localStorage.getItem('calendar.mode')")
   })
 

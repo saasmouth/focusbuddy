@@ -3,6 +3,7 @@ import type { FbNode, TimeBlock } from '@shared/types'
 import { useNodeStore } from '../../stores/nodes'
 import { useWorkItemStore } from '../../stores/workItems'
 import { useTimeBlockStore } from '../../stores/timeBlocks'
+import { useExternalEventStore } from '../../stores/externalEvents'
 import { useFocusSessionStore } from '../../stores/focusSession'
 import { useViewStore } from '../../stores/view'
 import { futuristicPowerOn } from '../../lib/audioBeep'
@@ -122,6 +123,9 @@ export default function WeekTimeGrid({
   const nodes = useNodeStore((s) => s.nodes)
   const blocks = useTimeBlockStore((s) => s.blocks)
   const loadRange = useTimeBlockStore((s) => s.loadRange)
+  // Subscribed calendars ride the same window as the blocks.
+  const externalEvents = useExternalEventStore((s) => s.events)
+  const loadExternal = useExternalEventStore((s) => s.loadRange)
   const createBlock = useTimeBlockStore((s) => s.create)
   const updateBlock = useTimeBlockStore((s) => s.update)
   const removeBlock = useTimeBlockStore((s) => s.remove)
@@ -136,7 +140,8 @@ export default function WeekTimeGrid({
 
   useEffect(() => {
     void loadRange(weekFrom, weekTo)
-  }, [weekFrom, weekTo, loadRange])
+    void loadExternal(weekFrom, weekTo)
+  }, [weekFrom, weekTo, loadRange, loadExternal])
 
   // A block can link to ANY node — a task (focusable), a folder (jump-to), or
   // (DEC-052) a WORK ITEM. Work items never pass through the node store by
@@ -1023,6 +1028,34 @@ export default function WeekTimeGrid({
                     {fmtTime(sel.startMs)} – {fmtTime(sel.endMs)}
                   </div>
                 )}
+                {/* Subscribed events: real entries from somebody's Google or
+                    Outlook calendar. Drawn flat and unclickable-for-edit
+                    because they cannot be changed from here -- a block you can
+                    drag and an event you cannot must not look alike. */}
+                {externalEvents
+                  .filter((e) => e.startMs >= dStart && e.startMs < dStart + DAY_MS && !e.allDay)
+                  .map((e) => {
+                    const top =
+                      ((e.startMs - (dStart + START_HOUR * 3_600_000)) / 3_600_000) * hourPx
+                    const height = ((e.endMs - e.startMs) / 3_600_000) * hourPx
+                    return (
+                      <div
+                        key={`ext:${e.id}`}
+                        data-testid="external-event"
+                        onClick={(ev) => ev.stopPropagation()}
+                        className="absolute left-0.5 right-0.5 overflow-hidden rounded-[var(--radius-chip)] border-l-[3px] border-sky-500 bg-sky-500/[0.10] px-1.5 py-1 fb-t-caption text-[var(--ink-80)]"
+                        style={{ top: Math.max(0, top), height: Math.max(16, height) }}
+                        title={[e.title, e.location, e.organizer].filter(Boolean).join(' — ')}
+                      >
+                        <div className="truncate font-medium leading-[1.25]">
+                          {e.title || 'Untitled event'}
+                        </div>
+                        {height >= 34 && e.location && (
+                          <div className="truncate text-[9.5px] opacity-70">{e.location}</div>
+                        )}
+                      </div>
+                    )
+                  })}
                 {(ghosts ?? [])
                   .filter((g) => g.startMs >= dStart && g.startMs < dStart + DAY_MS)
                   .map((g) => {

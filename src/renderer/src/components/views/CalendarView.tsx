@@ -7,6 +7,7 @@ import { useTimeBlockStore } from '../../stores/timeBlocks'
 import { useViewStore } from '../../stores/view'
 import Icon from '../Icon'
 import WeekTimeGrid, { type GridGhost } from './WeekTimeGrid'
+import ExternalCalendarsPanel from '../calendar/ExternalCalendarsPanel'
 import {
   loadPlannerSettings,
   planDay,
@@ -58,9 +59,19 @@ import {
 // ranker the queues use, so the two surfaces can never disagree about what
 // matters today.
 
-type CalMode = 'day' | '3day' | 'week' | 'month'
+type CalMode = 'day' | '3day' | '5day' | 'week' | 'month' | 'year'
 
-const MODE_DAYS: Record<Exclude<CalMode, 'month'>, number> = { day: 1, '3day': 3, week: 7 }
+// The spans that render as an hour grid. Month and year are overviews with no
+// hour axis, so they are absent here rather than given a fake span.
+const MODE_DAYS: Record<Exclude<CalMode, 'month' | 'year'>, number> = {
+  day: 1,
+  '3day': 3,
+  '5day': 5,
+  week: 7
+}
+
+const isGridMode = (m: CalMode): m is Exclude<CalMode, 'month' | 'year'> =>
+  m !== 'month' && m !== 'year'
 
 function mondayOf(d: Date): Date {
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate())
@@ -130,6 +141,23 @@ export default function CalendarView(): JSX.Element {
   const [mode, setMode] = useState<CalMode>(
     () => (localStorage.getItem('calendar.mode') as CalMode) || 'week'
   )
+  /**
+   * Open one day in full.
+   *
+   * The month and year grids can only ever show the first few entries in a
+   * cell, so a day with anything real on it has to be openable -- otherwise
+   * the overview is a dead end and the "+3 more" is a taunt.
+   */
+  const openDay = (d: Date): void => {
+    setAnchor(new Date(d.getFullYear(), d.getMonth(), d.getDate()))
+    localStorage.setItem('calendar.mode', 'day')
+    setMode('day')
+  }
+
+  // The subscriptions sheet. Kept out of global settings on purpose: adding a
+  // calendar is something you do while looking at your calendar.
+  const [showCalendars, setShowCalendars] = useState(false)
+
   const pickMode = (m: CalMode): void => {
     localStorage.setItem('calendar.mode', m)
     setMode(m)
@@ -157,12 +185,17 @@ export default function CalendarView(): JSX.Element {
   const rangeStart = useMemo(() => {
     if (mode === 'week') return mondayOf(anchor)
     if (mode === 'month') return new Date(anchor.getFullYear(), anchor.getMonth(), 1)
+    if (mode === 'year') return new Date(anchor.getFullYear(), 0, 1)
+    // Five days means the working week, so it starts on Monday rather than
+    // five days from wherever the anchor happens to sit.
+    if (mode === '5day') return mondayOf(anchor)
     return dayStart(anchor)
   }, [anchor, mode])
 
   function shift(dir: -1 | 1): void {
     const a = new Date(anchor)
     if (mode === 'month') a.setMonth(a.getMonth() + dir)
+    else if (mode === 'year') a.setFullYear(a.getFullYear() + dir)
     else a.setDate(a.getDate() + dir * MODE_DAYS[mode])
     setAnchor(a)
   }
@@ -273,9 +306,15 @@ export default function CalendarView(): JSX.Element {
 
   /** The day being planned: the visible day, or today when the week shows. */
   const planDayMs = useMemo(() => {
-    if (mode === 'week' || mode === 'month') {
+    // Any span wider than a day plans TODAY when today is inside it, and the
+    // first day of the span otherwise — planning a day you cannot see is the
+    // one behaviour that is never wanted.
+    if (mode === 'week' || mode === 'month' || mode === '5day' || mode === 'year') {
       const t = dayMs(new Date())
-      const end = rangeStart.getTime() + (mode === 'week' ? 7 : 31) * 86_400_000
+      const end =
+        mode === 'year'
+          ? new Date(rangeStart.getFullYear() + 1, 0, 1).getTime()
+          : rangeStart.getTime() + (mode === 'month' ? 31 : mode === 'week' ? 7 : 5) * 86_400_000
       return t >= rangeStart.getTime() && t < end ? t : rangeStart.getTime()
     }
     return rangeStart.getTime()
@@ -611,6 +650,7 @@ export default function CalendarView(): JSX.Element {
   const rangeLabel = useMemo(() => {
     if (mode === 'month')
       return rangeStart.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+    if (mode === 'year') return String(rangeStart.getFullYear())
     const end = new Date(rangeStart)
     end.setDate(rangeStart.getDate() + MODE_DAYS[mode] - 1)
     const s = rangeStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -731,8 +771,10 @@ export default function CalendarView(): JSX.Element {
                 [
                   ['day', 'Day'],
                   ['3day', '3-Day'],
+                  ['5day', '5-Day'],
                   ['week', 'Week'],
-                  ['month', 'Month']
+                  ['month', 'Month'],
+                  ['year', 'Year']
                 ] as Array<[CalMode, string]>
               ).map(([m, label]) => (
                 <button
@@ -748,6 +790,16 @@ export default function CalendarView(): JSX.Element {
                 </button>
               ))}
             </div>
+
+            <button
+              type="button"
+              onClick={() => setShowCalendars(true)}
+              title="Add or manage subscribed calendars"
+              className="h-8 px-2.5 shrink-0 rounded-[var(--radius-field)] fb-glass-row fb-t-label fb-press text-[var(--ink-50)] hover:text-[var(--ink-100)] inline-flex items-center gap-1"
+            >
+              <Icon name="event_available" size={14} />
+              Calendars
+            </button>
 
             <div className="flex items-center gap-1 shrink-0">
               <button onClick={() => shift(-1)} className="icon-btn !h-9 !w-9" title="Earlier">
@@ -1059,7 +1111,90 @@ export default function CalendarView(): JSX.Element {
                 )}
               </div>
             )}
-            {mode === 'month' ? (
+            {mode === 'year' ? (
+              /* The year: twelve months, each day carrying a real density mark
+                 rather than a decorative one -- a dot only where something is
+                 actually due, so an empty year reads as empty. Clicking any day
+                 opens it. */
+              <div
+                className="rounded-[var(--radius-card)] fb-glass-card p-3 flex-1 min-h-[240px] overflow-y-auto"
+                data-testid="calendar-year"
+              >
+                <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]">
+                  {Array.from({ length: 12 }, (_, m) => {
+                    const first = new Date(rangeStart.getFullYear(), m, 1)
+                    // Monday-first offset, then six weeks so every month has
+                    // the same height and the grid does not jump.
+                    const lead = (first.getDay() + 6) % 7
+                    const cells = Array.from({ length: 42 }, (_, i) => {
+                      const d = new Date(rangeStart.getFullYear(), m, 1 - lead + i)
+                      return d
+                    })
+                    return (
+                      <div key={m} data-testid="calendar-year-month" className="flex flex-col gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAnchor(first)
+                            localStorage.setItem('calendar.mode', 'month')
+                            setMode('month')
+                          }}
+                          title={`Open ${first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}`}
+                          className="fb-t-label text-left font-semibold text-[var(--ink-70)] hover:text-[var(--ink-100)] fb-press"
+                        >
+                          {first.toLocaleDateString(undefined, { month: 'long' })}
+                        </button>
+                        <div className="grid grid-cols-7 gap-px">
+                          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((w, i) => (
+                            <div
+                              key={i}
+                              className="text-center text-[9px] font-medium text-[var(--ink-35)]"
+                            >
+                              {w}
+                            </div>
+                          ))}
+                          {cells.map((d) => {
+                            const key = dayMs(d)
+                            const inMonth = d.getMonth() === m
+                            const isToday = d.toDateString() === today.toDateString()
+                            const count =
+                              (dueItemsByDay.get(key)?.length ?? 0) +
+                              (dueDesksByDay.get(key)?.length ?? 0)
+                            return (
+                              <button
+                                key={key}
+                                type="button"
+                                onClick={() => openDay(d)}
+                                title={
+                                  count > 0
+                                    ? `${d.toLocaleDateString()} — ${count} due`
+                                    : d.toLocaleDateString()
+                                }
+                                className={`relative aspect-square rounded-[3px] text-[9px] leading-none fb-press flex items-start justify-center pt-[3px] transition-colors ${
+                                  inMonth ? 'text-[var(--ink-60)]' : 'text-[var(--ink-25)]'
+                                } ${
+                                  isToday
+                                    ? 'bg-accent/[0.18] font-semibold text-accent'
+                                    : 'hover:bg-accent/[0.10]'
+                                }`}
+                              >
+                                {d.getDate()}
+                                {count > 0 && inMonth && (
+                                  <span
+                                    aria-hidden
+                                    className="absolute bottom-[2px] left-1/2 -translate-x-1/2 h-[3px] w-[3px] rounded-full bg-accent"
+                                  />
+                                )}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : mode === 'month' ? (
               /* DEC-134 — the month fills the window too: the weekday row is
                  pinned, and the six weeks share whatever height is left
                  (`minmax(max-content, 1fr)` — never shorter than a cell's own
@@ -1101,13 +1236,16 @@ export default function CalendarView(): JSX.Element {
                             : 'fb-glass-row'
                         } ${inMonth ? '' : 'opacity-40'}`}
                       >
-                        <div
-                          className={`fb-t-caption fb-tabular ${
+                        <button
+                          type="button"
+                          onClick={() => openDay(d)}
+                          title={`Open ${d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}`}
+                          className={`fb-t-caption fb-tabular text-left fb-press rounded px-1 -mx-1 hover:bg-accent/[0.10] ${
                             isToday ? 'text-accent font-semibold' : 'text-[var(--ink-40)]'
                           }`}
                         >
                           {d.getDate()}
-                        </div>
+                        </button>
                         {due.slice(0, 3).map((i) => (
                           <button
                             key={i.id}
@@ -1131,8 +1269,9 @@ export default function CalendarView(): JSX.Element {
                         ))}
                         {due.length > 3 && (
                           <button
-                            onClick={goAttention}
-                            className="fb-t-caption text-[var(--ink-40)] text-left fb-press"
+                            onClick={() => openDay(d)}
+                            title="Open this day"
+                            className="fb-t-caption text-[var(--ink-40)] text-left fb-press hover:text-[var(--ink-80)]"
                           >
                             +{due.length - 3} more
                           </button>
@@ -1163,7 +1302,7 @@ export default function CalendarView(): JSX.Element {
               <WeekTimeGrid
                 fill
                 weekStart={rangeStart}
-                days={MODE_DAYS[mode]}
+                days={isGridMode(mode) ? MODE_DAYS[mode] : 1}
                 filterQueue={classFilter === 'all' ? undefined : classFilter}
                 onBlockDragOut={handleBlockDragOut}
                 onBlockDragActive={setBlockDragging}
@@ -1191,6 +1330,32 @@ export default function CalendarView(): JSX.Element {
           could see THAT three blocks were proposed and never which items, when
           each landed, or why the planner chose them. Every one of those facts
           already existed on PlannedProposal; none of them were shown. */}
+      {showCalendars && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30 p-6"
+          onClick={() => setShowCalendars(false)}
+        >
+          <div
+            className="w-full max-w-[560px] max-h-[80vh] overflow-y-auto rounded-[var(--radius-card)] bg-[var(--surface-raised)] shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            data-testid="calendars-sheet"
+          >
+            <div className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3">
+              <span className="fb-t-label font-semibold text-[var(--ink-90)]">Calendars</span>
+              <button
+                type="button"
+                onClick={() => setShowCalendars(false)}
+                className="rounded p-1 text-[var(--ink-40)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-90)]"
+                aria-label="Close"
+              >
+                <Icon name="close" size={16} />
+              </button>
+            </div>
+            <ExternalCalendarsPanel />
+          </div>
+        </div>
+      )}
+
       {editItem && (
         <AttentionItemEditor
           item={editItem}
