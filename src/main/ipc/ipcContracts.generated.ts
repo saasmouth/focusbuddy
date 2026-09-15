@@ -76,6 +76,7 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'bodyDouble:tick': [{ kind: 'string', optional: false, nullable: true }, { kind: 'any', optional: false, nullable: false }],
   'brand:set': [{ kind: 'object', optional: false, nullable: false }],
   'browserAgent:consent': [{ kind: 'string', optional: false, nullable: false }, { kind: 'boolean', optional: false, nullable: false }, { kind: 'boolean', optional: false, nullable: false }],
+  'browserAgent:deliver': [{ kind: 'object', optional: false, nullable: false }],
   'browserAgent:start': [{ kind: 'object', optional: false, nullable: false }],
   'browserAgent:stop': [{ kind: 'string', optional: false, nullable: false }],
   'browserConsent:revoke': [{ kind: 'string', optional: false, nullable: false }],

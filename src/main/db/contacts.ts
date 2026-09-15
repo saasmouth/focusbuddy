@@ -25,6 +25,7 @@ export function ensureContactsSchema(db: { exec(sql: string): void }): void {
       phone TEXT,
       company TEXT,
       role TEXT,
+      address TEXT,
       notes TEXT,
       -- 'guest' (external) or 'member' (mirrors an org account).
       kind TEXT NOT NULL DEFAULT 'guest',
@@ -46,6 +47,17 @@ export function ensureContactsSchema(db: { exec(sql: string): void }): void {
     );
     CREATE INDEX IF NOT EXISTS idx_contact_links_node ON contact_links (node_id);
   `)
+
+  // Additive columns for databases created before they existed. Nullable with
+  // no default, so an existing contact keeps meaning exactly what it meant.
+  const have = new Set(
+    (
+      (db as unknown as { prepare(s: string): { all(): Array<{ name: string }> } })
+        .prepare('PRAGMA table_info(contacts)')
+        .all() ?? []
+    ).map((c) => c.name)
+  )
+  if (!have.has('address')) db.exec('ALTER TABLE contacts ADD COLUMN address TEXT')
 }
 
 interface Row {
@@ -55,6 +67,7 @@ interface Row {
   phone: string | null
   company: string | null
   role: string | null
+  address: string | null
   notes: string | null
   kind: string
   account_id: string | null
@@ -70,6 +83,7 @@ const toContact = (r: Row): Contact => ({
   phone: r.phone,
   company: r.company,
   role: r.role,
+  address: r.address ?? null,
   notes: r.notes,
   kind: (r.kind === 'member' ? 'member' : 'guest') as Contact['kind'],
   accountId: r.account_id,
@@ -108,8 +122,8 @@ export function createContact(draft: ContactDraft): Contact {
   const now = Date.now()
   getDb()
     .prepare(
-      `INSERT INTO contacts (id, name, email, phone, company, role, notes, kind, account_id, tags, created_at, updated_at)
-       VALUES (@id, @name, @email, @phone, @company, @role, @notes, @kind, @accountId, @tags, @now, @now)`
+      `INSERT INTO contacts (id, name, email, phone, company, role, address, notes, kind, account_id, tags, created_at, updated_at)
+       VALUES (@id, @name, @email, @phone, @company, @role, @address, @notes, @kind, @accountId, @tags, @now, @now)`
     )
     .run({
       id,
@@ -118,6 +132,7 @@ export function createContact(draft: ContactDraft): Contact {
       phone: draft.phone?.trim() || null,
       company: draft.company?.trim() || null,
       role: draft.role?.trim() || null,
+      address: draft.address?.trim() || null,
       notes: draft.notes?.trim() || null,
       kind: draft.kind === 'member' ? 'member' : 'guest',
       accountId: draft.accountId ?? null,
@@ -135,6 +150,7 @@ export function updateContact(id: string, patch: ContactPatch): Contact | null {
     ['phone', 'phone'],
     ['company', 'company'],
     ['role', 'role'],
+    ['address', 'address'],
     ['notes', 'notes'],
     ['accountId', 'account_id'],
     ['kind', 'kind']

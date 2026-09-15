@@ -405,6 +405,17 @@ export interface TimeBlock {
   origin: 'manual' | 'auto'
   locked: boolean
   pushPolicy: 'local' | 'push'
+  /**
+   * The internal calendar this block belongs to, which decides its colour and
+   * whether it is pushed out. Null means the default internal calendar.
+   */
+  calendarId?: string | null
+  /**
+   * Set once a block has been written to a linked calendar: the provider's own
+   * event id, so a later edit updates that event instead of creating a second.
+   */
+  externalEventId?: string | null
+  externalCalendarId?: string | null
   createdAt: number
   updatedAt: number
 }
@@ -420,6 +431,8 @@ export interface Contact {
   phone: string | null
   company: string | null
   role: string | null
+  /** Postal address, free-text: addresses are not a schema anyone wins at. */
+  address: string | null
   notes: string | null
   kind: 'guest' | 'member'
   /** Set when this contact is an org member. */
@@ -436,6 +449,7 @@ export interface ContactDraft {
   phone?: string | null
   company?: string | null
   role?: string | null
+  address?: string | null
   notes?: string | null
   kind?: 'guest' | 'member'
   accountId?: string | null
@@ -450,6 +464,7 @@ export interface ContactPatch {
   phone?: string | null
   company?: string | null
   role?: string | null
+  address?: string | null
   notes?: string | null
   kind?: 'guest' | 'member'
   accountId?: string | null
@@ -460,7 +475,40 @@ export interface ContactPatch {
 // A calendar that lives somewhere else and is mirrored here. Events from one
 // are READ-ONLY in Plexii: they are a reflection of a fact held elsewhere, and
 // pretending otherwise would let a sync quietly overwrite an edit.
-export type ExternalCalendarProvider = 'ics' | 'google' | 'microsoft'
+/**
+ * Where a calendar's entries come from.
+ *
+ * 'internal' is a calendar Plexii itself owns — time blocks live on one, and it
+ * is listed and coloured beside the linked ones so a week reads as one diary.
+ * The other three are mirrors of a calendar held somewhere else.
+ */
+export type ExternalCalendarProvider = 'internal' | 'ics' | 'google' | 'microsoft'
+
+/**
+ * Which directions a calendar can move entries.
+ *
+ *   'read'  pull only. An ICS feed is a published file: there is no way to write
+ *           back to it, so offering two-way there would be a lie.
+ *   'write' push only — Plexii blocks go out, nothing comes back.
+ *   'both'  pull AND push. Only available on an OAuth account with write scope.
+ *
+ * Stored per calendar so the UI can say what a given calendar will actually do.
+ */
+export type CalendarSyncMode = 'read' | 'write' | 'both'
+
+/** The colours a calendar can be given, chosen to stay legible on the grid. */
+export const CALENDAR_COLORS = [
+  '#2563eb',
+  '#0891b2',
+  '#059669',
+  '#65a30d',
+  '#ca8a04',
+  '#ea580c',
+  '#dc2626',
+  '#db2777',
+  '#7c3aed',
+  '#475569'
+] as const
 
 export interface ExternalCalendar {
   id: string
@@ -474,6 +522,18 @@ export interface ExternalCalendar {
   lastSyncAt: number | null
   /** The reason the last sync failed, shown to the user verbatim. */
   lastSyncError: string | null
+  /**
+   * Which way entries move. A provider that cannot write is pinned to 'read'
+   * regardless of what is stored, so a feed can never claim to be two-way.
+   */
+  syncMode: CalendarSyncMode
+  /**
+   * For an internal calendar with a push direction: the linked calendar its
+   * blocks are written to. Null means Plexii keeps them to itself.
+   */
+  pushTargetId: string | null
+  /** An internal calendar that new time blocks land on when none is chosen. */
+  isDefault: boolean
   createdAt: number
   updatedAt: number
 }
@@ -485,6 +545,9 @@ export interface ExternalCalendarDraft {
   sourceRef: string
   color?: string | null
   accountId?: string | null
+  syncMode?: CalendarSyncMode
+  pushTargetId?: string | null
+  isDefault?: boolean
 }
 
 export interface ExternalEvent {
@@ -534,6 +597,12 @@ export interface TimeBlockPatch {
   meeting?: TimeBlockMeeting | null
   locked?: boolean
   pushPolicy?: 'local' | 'push'
+  /** Move a block to a different internal calendar (and so a different colour). */
+  calendarId?: string | null
+  // Set by the push engine once a block exists on a linked calendar, so the next
+  // push updates that event rather than creating a second copy of the meeting.
+  externalEventId?: string | null
+  externalCalendarId?: string | null
 }
 
 export interface Widget {

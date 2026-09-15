@@ -6,6 +6,7 @@ import { usePeopleStore, personName } from '../../lib/peopleDirectory'
 import { useAccountStore } from '../../stores/account'
 import { useOrgStore, PERSONAL_ORG_ID } from '../../stores/org'
 import { inviteMember } from '../../lib/orgsClient'
+import { suggestContacts, type ContactSuggestion } from '@shared/contactSuggestions'
 
 // The people on this desk.
 //
@@ -61,7 +62,9 @@ export default function ContactsWidget({ widget }: { widget: Widget }): JSX.Elem
 
   const [contacts, setContacts] = useState<Contact[] | null>(null)
   const [adding, setAdding] = useState(false)
-  const [draft, setDraft] = useState({ name: '', email: '', role: '', company: '' })
+  const [draft, setDraft] = useState({ name: '', email: '', role: '', company: '', address: '' })
+  // People the workspace can already see you working with.
+  const [suggestions, setSuggestions] = useState<ContactSuggestion[]>([])
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -109,11 +112,12 @@ export default function ContactsWidget({ widget }: { widget: Widget }): JSX.Elem
               email: draft.email.trim() || null,
               role: draft.role.trim() || null,
               company: draft.company.trim() || null,
+              address: draft.address.trim() || null,
               kind: 'guest',
               nodeId: deskId
             }
       )
-      setDraft({ name: '', email: '', role: '', company: '' })
+      setDraft({ name: '', email: '', role: '', company: '', address: '' })
       setAdding(false)
       await refresh()
     } catch (e) {
@@ -198,14 +202,74 @@ export default function ContactsWidget({ widget }: { widget: Widget }): JSX.Elem
     }
   }
 
-  // Colleagues not yet on this desk, offered as one-click adds.
-  const suggestions = useMemo(() => {
-    const have = new Set((contacts ?? []).map((c) => c.accountId).filter(Boolean))
-    return people
-      .filter((p) => !have.has(p.accountId))
-      .slice(0, 4)
-      .map((p) => ({ accountId: p.accountId, name: personName(p), email: p.email }))
-  }, [people, contacts])
+  // Build the suggestions from what the workspace actually holds: who emails
+  // you, who tasks here are assigned to, who organised a meeting, and who is in
+  // the org. Each carries its reason, so the list can never be mistaken for a
+  // list of people who exist -- it is people who appeared in your own data.
+  useEffect(() => {
+    if (!deskId || contacts === null) return
+    let alive = true
+    void (async () => {
+      const api = (window as unknown as { api?: Record<string, any> }).api
+      const [mailRes, nodes, events] = await Promise.all([
+        api?.mail?.list?.(200).catch(() => null),
+        api?.nodes?.list?.().catch(() => []),
+        api?.externalCalendars
+          ?.listEvents?.(Date.now() - 60 * 86_400_000, Date.now() + 60 * 86_400_000)
+          .catch(() => [])
+      ])
+      if (!alive) return
+
+      const inDesk = new Set<string>([deskId])
+      for (const n of (nodes ?? []) as Array<{ id: string; parentId: string | null }>) {
+        if (n.parentId && inDesk.has(n.parentId)) inDesk.add(n.id)
+      }
+      const account = await api?.mail?.getAccount?.().catch(() => null)
+
+      setSuggestions(
+        suggestContacts({
+          mail: mailRes?.ok ? mailRes.items : [],
+          assignees: ((nodes ?? []) as Array<{ id: string; assignee?: string | null }>)
+            .filter((n) => inDesk.has(n.id))
+            .map((n) => n.assignee ?? '')
+            .filter(Boolean),
+          organisers: ((events ?? []) as Array<{ organizer: string | null }>)
+            .map((e) => e.organizer ?? '')
+            .filter(Boolean),
+          orgMembers: people.map((p) => ({
+            accountId: p.accountId,
+            name: personName(p),
+            email: p.email
+          })),
+          existing: contacts,
+          self: [account?.email, account?.user].filter(Boolean) as string[]
+        })
+      )
+    })()
+    return () => {
+      alive = false
+    }
+  }, [deskId, contacts, people])
+
+  const addSuggested = async (sg: ContactSuggestion): Promise<void> => {
+    if (!api || !deskId) return
+    setBusy(true)
+    try {
+      await api.create({
+        name: sg.name,
+        email: sg.email,
+        kind: sg.accountId ? 'member' : 'guest',
+        accountId: sg.accountId ?? null,
+        // Where this person came from, kept on the record. A contact that
+        // appeared by itself should be able to say why.
+        notes: `Added from ${sg.source} — ${sg.reason}`,
+        nodeId: deskId
+      })
+      await refresh()
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const shown = contacts ?? []
   const group = model.activeGroup ?? 'All'
@@ -289,17 +353,32 @@ export default function ContactsWidget({ widget }: { widget: Widget }): JSX.Elem
                 Add
               </button>
             </div>
+            <input
+              className="widget-nodrag w-full rounded border border-[var(--line)] bg-[var(--surface)] px-1.5 py-1"
+              placeholder="Address"
+              value={draft.address}
+              onChange={(e) => setDraft({ ...draft, address: e.target.value })}
+            />
             {suggestions.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1 pt-0.5">
-                <span className="text-[9px] text-[var(--ink-40)]">From your team:</span>
-                {suggestions.map((p) => (
+              <div className="flex flex-col gap-1 pt-1" data-testid="contact-suggestions">
+                <span className="text-[9px] text-[var(--ink-40)]">
+                  People already on this work
+                </span>
+                {suggestions.map((sg) => (
                   <button
-                    key={p.accountId}
+                    key={sg.key}
                     type="button"
-                    onClick={() => void add(p)}
-                    className="widget-nodrag rounded-full bg-[var(--surface-sunken)] px-1.5 py-0.5 text-[10px] text-[var(--ink-70)] hover:text-[var(--ink-90)]"
+                    onClick={() => void addSuggested(sg)}
+                    disabled={busy}
+                    className="widget-nodrag flex items-center gap-1.5 rounded px-1 py-0.5 text-left hover:bg-[var(--surface-sunken)] disabled:opacity-50"
                   >
-                    + {p.name}
+                    <Icon name="add" size={10} className="shrink-0 text-[var(--ink-40)]" />
+                    <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--ink-80)]">
+                      {sg.name}
+                    </span>
+                    {/* The reason, always. A suggested person with no
+                        provenance is indistinguishable from an invented one. */}
+                    <span className="shrink-0 text-[9px] text-[var(--ink-40)]">{sg.reason}</span>
                   </button>
                 ))}
               </div>
@@ -355,6 +434,14 @@ export default function ContactsWidget({ widget }: { widget: Widget }): JSX.Elem
                 </button>
                 {openId === c.id && (
                   <div className="flex flex-wrap gap-1 px-2 pb-2">
+                    {c.address && (
+                      <div className="w-full whitespace-pre-wrap text-[10px] leading-snug text-[var(--ink-60)]">
+                        {c.address}
+                      </div>
+                    )}
+                    {c.notes && (
+                      <div className="w-full text-[9px] text-[var(--ink-40)]">{c.notes}</div>
+                    )}
                     {c.email && (
                       <a
                         href={`mailto:${c.email}`}
