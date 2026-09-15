@@ -1,6 +1,8 @@
 // Type-only import (erased at build, no runtime cycle) so a document body can be
-// a PlexiDesign canvas. DesignBody is owned by ./design alongside its helpers.
+// a PlexiDesign canvas. DesignBody is owned by ./design alongside its helpers,
+// and DrawBody by ./draw.
 import type { DesignBody } from './design'
+import type { DrawBody } from './draw'
 import type { ChartCore } from './chart'
 
 export type AxisValue = 1 | 2 | 3 | 4 | 5
@@ -78,13 +80,19 @@ export type WidgetKind =
   | 'doc'
   | 'sheet'
   | 'slides'
-  // PlexiMaps — a node/edge diagram & workflow map document, embeddable on the
-  // canvas like the other office docs (backed by an fb_documents row of type 'map').
+  // PlexiDiagrams — a node/edge diagram & workflow document, embeddable on the
+  // canvas like the other office docs (backed by an fb_documents row of type
+  // 'map' — the stored value predates the PlexiDiagrams name and stays put).
   | 'map'
-  // PlexiDesign — a Canva/Publisher-class design canvas (arbitrary-size pages of
-  // freely-placed elements), embeddable on the desk like the other office docs
-  // (backed by an fb_documents row of type 'design').
+  // PlexiDesign — a Publisher/InDesign-class page-layout canvas (arbitrary-size
+  // pages of freely-placed elements, master pages and threaded text frames),
+  // embeddable on the desk like the other office docs (backed by an fb_documents
+  // row of type 'design').
   | 'design'
+  // PlexiDraw — the vector + painting studio (bezier paths, pathfinder booleans,
+  // brush and eraser on raster layers), backed by an fb_documents row of type
+  // 'draw'.
+  | 'draw'
   // The meeting Record on its desk (C5, S3-DEC-020's last sliver): content
   // holds the meeting id; renders the Record's spans with their provenance
   // tiers and doors into PlexiMeet. Minted by the wrap-up beside the
@@ -393,6 +401,53 @@ export interface TimeBlock {
   pushPolicy: 'local' | 'push'
   createdAt: number
   updatedAt: number
+}
+
+// ── Contacts ────────────────────────────────────────────────────────────────
+// A person the workspace deals with. 'member' mirrors somebody in the org (the
+// server stays the authority on their access); 'guest' is everybody else, which
+// on most real work is half the people involved.
+export interface Contact {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  company: string | null
+  role: string | null
+  notes: string | null
+  kind: 'guest' | 'member'
+  /** Set when this contact is an org member. */
+  accountId: string | null
+  tags: string[]
+  createdAt: number
+  updatedAt: number
+}
+
+export interface ContactDraft {
+  id?: string
+  name: string
+  email?: string | null
+  phone?: string | null
+  company?: string | null
+  role?: string | null
+  notes?: string | null
+  kind?: 'guest' | 'member'
+  accountId?: string | null
+  tags?: string[]
+  /** Link the new contact to this desk in the same call. */
+  nodeId?: string | null
+}
+
+export interface ContactPatch {
+  name?: string
+  email?: string | null
+  phone?: string | null
+  company?: string | null
+  role?: string | null
+  notes?: string | null
+  kind?: 'guest' | 'member'
+  accountId?: string | null
+  tags?: string[]
 }
 
 // ── External calendars (Google / Outlook / any ICS feed) ────────────────────
@@ -1212,7 +1267,7 @@ export type ActionProposal =
       // rather than a canvas widget.
       id: string
       kind: 'create-document'
-      docType: 'doc' | 'sheet' | 'slides' | 'map' | 'design'
+      docType: 'doc' | 'sheet' | 'slides' | 'map' | 'design' | 'draw'
       title: string
       reason?: string
     }
@@ -2014,7 +2069,11 @@ export type MailSendResult = { ok: true } | { ok: false; error: string }
 // Standalone files created and edited as first-class artifacts. One table, one
 // list, one AI-create flow; the body shape switches on docType.
 
-export type DocType = 'doc' | 'sheet' | 'slides' | 'map' | 'design'
+// 'map' is PlexiDiagrams (the flowchart / diagram surface) and 'draw' is
+// PlexiDraw (the vector + painting studio). The stored value for diagrams stays
+// 'map' deliberately: it is written into every existing document row, and
+// renaming a product is not a reason to rewrite a user's database.
+export type DocType = 'doc' | 'sheet' | 'slides' | 'map' | 'design' | 'draw'
 
 // A single global-search result. `type` decides how the renderer routes a click;
 // `taskId` is the canvas to open for widget / table-row hits, `docType` the
@@ -2298,6 +2357,16 @@ interface SlideElementBase {
   opacity?: number
   // Entrance animation played when the slide appears in present mode.
   anim?: SlideAnim
+  // ── PlexiDesign page-layout fields ─────────────────────────────────────────
+  // All optional, so a slide deck (which shares this element model) is
+  // completely unaffected by their existence.
+  //
+  // The document layer this element belongs to. Absent means the base layer.
+  layerId?: string
+  // Text wrap: when set to 'square', threaded story text flows AROUND this
+  // element's bounding box instead of running underneath it. `offset` is the
+  // gap kept on every side, in logical px.
+  wrap?: { mode: 'none' | 'square'; offset?: number }
 }
 export interface SlideTextElement extends SlideElementBase {
   type: 'text'
@@ -2306,6 +2375,30 @@ export interface SlideTextElement extends SlideElementBase {
   fill?: SlideFill
   border?: SlideBorder
   vAlign?: 'top' | 'middle' | 'bottom'
+  // ── PlexiDesign threaded text ──────────────────────────────────────────────
+  // When set, this frame is one link in a story chain: its visible text is not
+  // its own `paragraphs` but a slice of the story, worked out by the flow engine
+  // from the whole chain's geometry. The story's text lives once, in
+  // DesignBody.stories[storyId].
+  storyId?: string
+  // The frame's position in its chain. Lower numbers are filled first.
+  storyOrder?: number
+  // The flow engine's output for this frame, in frame-local coordinates. This is
+  // a CACHE the editor rewrites whenever the story, the chain geometry or the
+  // wrap obstacles change — it exists so the exporter draws exactly the lines
+  // the screen showed rather than re-deriving them with a different measurer.
+  flowLines?: Array<{ x: number; y: number; w: number; text: string; lastOfPara: boolean }>
+  // True when the LAST frame of a chain still has text left over, so the editor
+  // can show the classic red overset marker.
+  overset?: boolean
+  // Paragraph typography applied to a threaded frame (the whole story shares one
+  // style; per-run styling stays on `paragraphs` for unthreaded frames).
+  fontSize?: number
+  lineHeight?: number
+  align?: 'left' | 'center' | 'right' | 'justify'
+  color?: string
+  paragraphSpacing?: number
+  firstLineIndent?: number
 }
 export interface SlideImageElement extends SlideElementBase {
   type: 'image'
@@ -2477,7 +2570,7 @@ export interface FbDocument {
   id: string
   docType: DocType
   title: string
-  body: DocBody | SheetBody | SlidesBody | MapBody | DesignBody
+  body: DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody
   archived: boolean
   createdAt: number
   updatedAt: number
@@ -2502,12 +2595,12 @@ export interface DocumentDraft {
   id?: string
   docType: DocType
   title: string
-  body?: DocBody | SheetBody | SlidesBody | MapBody | DesignBody
+  body?: DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody
 }
 
 export interface DocumentPatch {
   title?: string
-  body?: DocBody | SheetBody | SlidesBody | MapBody | DesignBody
+  body?: DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody
   archived?: boolean
 }
 

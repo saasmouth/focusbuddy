@@ -21,6 +21,7 @@ import { migrateIntentTaxonomyV2 } from './migrateIntentTaxonomy'
 import { repairBrowsingHistoryCounts } from './migrateBrowsingHistoryCounts'
 import { ensureTaskPlanningSchema } from './taskPlanningSchema'
 import { ensureExternalCalendarSchema } from './externalCalendars'
+import { ensureContactsSchema } from './contacts'
 import { ensureWorkItemSchema } from './workItems'
 import { ensureNotificationSchema } from '../notifications/substrate'
 
@@ -75,6 +76,8 @@ export function applySchemaAndMigrations(db: Database.Database): NodesKindMigrat
   // External calendars (Google / Outlook / any ICS feed) and their mirrored
   // events. Separate tables from time_blocks on purpose -- see the module.
   ensureExternalCalendarSchema(db)
+  // The people a workspace deals with, and which desks they are on.
+  ensureContactsSchema(db)
   // The notification substrate's durable store (S4, §5).
   ensureNotificationSchema(db)
   // Taxonomy alignment: rewrite legacy intent_class values to the eight

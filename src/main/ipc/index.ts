@@ -1,4 +1,15 @@
 import { widgetCountsByTask, syncTableWidgetTitles } from '../db/widgets'
+import {
+  listContacts,
+  listContactsForNode,
+  createContact,
+  updateContact,
+  deleteContact,
+  linkContact,
+  unlinkContact,
+  listNodesForContact
+} from '../db/contacts'
+import type { ContactDraft, ContactPatch } from '@shared/types'
 import { buildMetricBinding } from '../ai/anthropic'
 import {
   listCalendars as listExternalCalendars,
@@ -2142,6 +2153,22 @@ export function registerIpcHandlers(): void {
       return { ok: false as const, error: (err as Error).message }
     }
   })
+
+  // ── Contacts ──────────────────────────────────────────────────────────────
+  ipcMain.handle('contacts:list', () => listContacts())
+  ipcMain.handle('contacts:listForNode', (_e, nodeId: string) => listContactsForNode(nodeId))
+  ipcMain.handle('contacts:create', (_e, draft: ContactDraft) => createContact(draft))
+  ipcMain.handle('contacts:update', (_e, id: string, patch: ContactPatch) =>
+    updateContact(id, patch)
+  )
+  ipcMain.handle('contacts:remove', (_e, id: string) => deleteContact(id))
+  ipcMain.handle('contacts:link', (_e, contactId: string, nodeId: string) =>
+    linkContact(contactId, nodeId)
+  )
+  ipcMain.handle('contacts:unlink', (_e, contactId: string, nodeId: string) =>
+    unlinkContact(contactId, nodeId)
+  )
+  ipcMain.handle('contacts:desks', (_e, contactId: string) => listNodesForContact(contactId))
 
   ipcMain.handle('extcal:list', () => listExternalCalendars())
   ipcMain.handle('extcal:listEvents', (_e, fromMs: number, toMs: number) =>

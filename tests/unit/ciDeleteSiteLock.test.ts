@@ -89,8 +89,15 @@ describe('the closed four-site hard-delete enumeration', () => {
     // destroys. The per-file breakdown below is a reviewing aid and moves when
     // files are reorganised -- as it did when the schema and its migrations
     // were split out of database.ts so the cloud runtime could run them too,
-    // which redistributed these 12 declarations without adding or removing one.
-    expect(hits.length).toBe(12)
+    // which redistributed 12 declarations without adding or removing one.
+    //
+    // 13th: contact_links.node_id (db/contacts.ts). Deliberate, and the
+    // reasoning it has to satisfy -- what does a nodes hard-delete now also
+    // destroy? Only the LINK rows joining a person to that desk, which is
+    // exactly right: a link to a desk that no longer exists means nothing.
+    // The contacts themselves hang off contact_id and are untouched, so
+    // deleting a desk removes the people FROM it and never removes the people.
+    expect(hits.length).toBe(13)
     const byFile = new Map<string, number>()
     for (const h of hits) byFile.set(h.file, (byFile.get(h.file) ?? 0) + 1)
     expect(Object.fromEntries([...byFile.entries()].sort())).toMatchSnapshot()

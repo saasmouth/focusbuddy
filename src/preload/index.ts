@@ -24,6 +24,9 @@ import type {
   EnergyLogEntry,
   TimeBlock,
   TimeBlockDraft,
+  Contact,
+  ContactDraft,
+  ContactPatch,
   ExternalCalendar,
   ExternalCalendarDraft,
   ExternalCalendarSyncResult,
@@ -1708,6 +1711,25 @@ const api = {
       error?: string
       needsApiKey?: boolean
     }> => ipcRenderer.invoke('metrics:buildBinding', request)
+  },
+  // The people a workspace deals with: org members are fetched from the signal
+  // server, everybody else lives here. A contact can be linked to a desk, which
+  // is what lets a widget show "the people on THIS work".
+  contacts: {
+    list: (): Promise<Contact[]> => ipcRenderer.invoke('contacts:list'),
+    listForNode: (nodeId: string): Promise<Contact[]> =>
+      ipcRenderer.invoke('contacts:listForNode', nodeId),
+    create: (draft: ContactDraft): Promise<Contact> =>
+      ipcRenderer.invoke('contacts:create', draft),
+    update: (id: string, patch: ContactPatch): Promise<Contact | null> =>
+      ipcRenderer.invoke('contacts:update', id, patch),
+    remove: (id: string): Promise<boolean> => ipcRenderer.invoke('contacts:remove', id),
+    link: (contactId: string, nodeId: string): Promise<boolean> =>
+      ipcRenderer.invoke('contacts:link', contactId, nodeId),
+    unlink: (contactId: string, nodeId: string): Promise<boolean> =>
+      ipcRenderer.invoke('contacts:unlink', contactId, nodeId),
+    desks: (contactId: string): Promise<string[]> =>
+      ipcRenderer.invoke('contacts:desks', contactId)
   },
   tables: {
     list: (): Promise<FbTable[]> => ipcRenderer.invoke('tables:list'),
