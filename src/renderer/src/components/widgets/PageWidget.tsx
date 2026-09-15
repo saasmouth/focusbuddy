@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import MentionTextarea from '../MentionTextarea'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TaskList from '@tiptap/extension-task-list'
@@ -464,7 +465,7 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
           </div>
           {/* Prompt input — always visible so the user can revise the prompt
               even after seeing a staged preview. */}
-          <textarea
+          <MentionTextarea
             autoFocus
             value={aiPrompt}
             onChange={(e) => setAiPrompt(e.target.value)}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import MentionTextarea from '../MentionTextarea'
 import { renderInlineText as renderInline } from '../../lib/renderInlineText'
 import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
@@ -148,7 +149,7 @@ export default function NoteWidget({ widget, inline = false }: Props): JSX.Eleme
   )
 
   const editor = (
-    <textarea
+    <MentionTextarea
       ref={textareaRef}
       value={text}
       onChange={(e) => setText(e.target.value)}
@@ -164,6 +165,7 @@ export default function NoteWidget({ widget, inline = false }: Props): JSX.Eleme
         const sel = window.getSelection()?.toString() ?? ''
         setCtxMenu({ x: e.clientX, y: e.clientY, selectionText: sel })
       }}
+      wrapperClassName="h-full w-full"
       className={`w-full h-full resize-none bg-transparent text-stone-800 leading-relaxed placeholder:text-stone-500/60 font-serif ${
         'fb-body'
       }`}

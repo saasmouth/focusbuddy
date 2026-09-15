@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import MentionTextarea from '../MentionTextarea'
 import type { ActionProposal, GoToTarget, Widget, WidgetKind } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import UnifiedConnectedMenu from '../contextMenu/UnifiedConnectedMenu'
@@ -2062,7 +2063,7 @@ function AgentBuilderModal({
             </div>
           </Field>
           <Field label="Purpose — what should it do?">
-            <textarea
+            <MentionTextarea
               value={purpose}
               onChange={(e) => setPurpose(e.target.value)}
               rows={5}

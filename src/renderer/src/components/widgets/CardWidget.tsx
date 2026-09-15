@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { parseMentionText } from '@shared/mentionText'
+import { MentionChip } from '../MentionText'
+import MentionTextarea from '../MentionTextarea'
 import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
@@ -31,7 +34,19 @@ function renderBody(body: string): ReactNode {
             {t.text}
           </a>
         )
-      return <span key={k}>{t.value}</span>
+      // Plain runs may still hold @-mentions, which are drawn as chips rather
+      // than left as the markup somebody would otherwise be reading.
+      return (
+        <span key={k}>
+          {parseMentionText(t.value).map((seg, j) =>
+            seg.type === 'mention' ? (
+              <MentionChip key={`${k}-m${j}`} mention={seg.mention} />
+            ) : (
+              <span key={`${k}-t${j}`}>{seg.text}</span>
+            )
+          )}
+        </span>
+      )
     })
   return body.split('\n').map((line, idx) => {
     const bullet = /^[-*]\s+(.*)$/.exec(line.trim())
@@ -181,15 +196,21 @@ export default function CardWidget({ widget, inline = false }: Props): JSX.Eleme
           </div>
         )}
         {bodyEditing || data.body.trim() === '' ? (
-          <textarea
+          <MentionTextarea
             ref={bodyRef}
             value={data.body}
             autoFocus={bodyEditing}
             onChange={(e) => set({ body: e.target.value })}
             onMouseDown={(e) => e.stopPropagation()}
+            // Focusing the field IS editing it. Without this the editor was
+            // only open because the body happened to be empty, so the first
+            // character typed made it non-empty and unmounted the field
+            // mid-keystroke.
+            onFocus={() => setBodyEditing(true)}
             onBlur={() => setBodyEditing(false)}
             placeholder="Write something… **bold**, *italic*, paste a link"
-            className="flex-1 min-h-0 w-full resize-none bg-transparent text-[13px] leading-relaxed text-[var(--ink-70)] placeholder:text-[var(--ink-40)]"
+            wrapperClassName="flex-1 min-h-0 flex flex-col"
+            className="h-full w-full resize-none bg-transparent text-[13px] leading-relaxed text-[var(--ink-70)] placeholder:text-[var(--ink-40)]"
           />
         ) : (
           <div

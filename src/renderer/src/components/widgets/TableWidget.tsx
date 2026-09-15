@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import MentionTextarea from '../MentionTextarea'
 import type { Widget } from '@shared/types'
 import type {
   FbRow,
@@ -1204,7 +1205,7 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
               <Icon name="close" size={12} />
             </button>
           </div>
-          <textarea
+          <MentionTextarea
             autoFocus
             value={aiPrompt}
             onChange={(e) => setAiPrompt(e.target.value)}

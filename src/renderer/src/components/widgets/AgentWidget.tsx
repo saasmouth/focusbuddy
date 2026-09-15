@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import MentionTextarea from '../MentionTextarea'
 import { eligibleDestinations, destinationLabel } from '../../lib/agentDestination'
 import { catalogFor } from '../../lib/widgetCatalog'
 import type { Widget, WidgetKind } from '@shared/types'
@@ -412,7 +413,7 @@ export default function AgentWidget({ widget }: Props): JSX.Element {
             </div>
           </div>
         )}
-        <textarea
+        <MentionTextarea
           value={edit.instruction}
           onChange={(e) => set({ instruction: e.target.value })}
           placeholder="Standing instruction, e.g. keep a running summary of the wired notes"

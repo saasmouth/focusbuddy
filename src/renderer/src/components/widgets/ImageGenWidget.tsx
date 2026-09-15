@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import MentionTextarea from '../MentionTextarea'
 import type { Widget } from '@shared/types'
 import { useWidgetStore } from '../../stores/widgets'
 import { catalogFor } from '../../lib/widgetCatalog'
@@ -133,7 +134,7 @@ export default function ImageGenWidget({
       )}
 
       <div className="px-2.5 py-1.5 border-t border-[var(--edge-soft)] flex flex-col gap-1.5">
-        <textarea
+        <MentionTextarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onMouseDown={(e) => e.stopPropagation()}

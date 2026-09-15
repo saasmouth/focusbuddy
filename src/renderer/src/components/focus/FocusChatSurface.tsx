@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import MentionTextarea from '../MentionTextarea'
 import { useChatStore, NEW_CHAT_KEY } from '../../stores/chat'
 import { deriveAssistantBlocks } from '../../lib/chatBlocks'
 import ChatBlockView from './ChatBlockView'
@@ -334,7 +335,7 @@ export default function FocusChatSurface({ onOpenWidget }: Props): JSX.Element {
                     <span className="truncate">Your workspace</span>
                   </span>
                 </div>
-                <textarea
+                <MentionTextarea
                   ref={taRef}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}

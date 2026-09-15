@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import MentionTextarea from '../MentionTextarea'
 import type { FbNode, TaskStatus } from '@shared/types'
 import { parseAttachments, derivedStart, durationDays, type TaskAttachment } from '@shared/taskPlanning'
 import Icon from '../Icon'
@@ -243,7 +244,7 @@ export default function TaskDetail({
       </div>
 
       <Labeled label="Notes">
-        <textarea
+        <MentionTextarea
           className="widget-nodrag min-h-[46px] w-full resize-y rounded border border-[var(--line)] bg-[var(--surface)] px-1.5 py-1 text-[11px] leading-snug text-[var(--ink-80)] outline-none placeholder:text-[var(--ink-35)]"
           placeholder="Anything worth remembering about this task"
           value={notes}
