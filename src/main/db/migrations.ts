@@ -22,6 +22,7 @@ import { repairBrowsingHistoryCounts } from './migrateBrowsingHistoryCounts'
 import { ensureTaskPlanningSchema } from './taskPlanningSchema'
 import { ensureExternalCalendarSchema } from './externalCalendars'
 import { ensureContactsSchema } from './contacts'
+import { reconcileNodeOrphans } from './reconcileOrphans'
 import { ensureWorkItemSchema } from './workItems'
 import { ensureNotificationSchema } from '../notifications/substrate'
 
@@ -78,6 +79,12 @@ export function applySchemaAndMigrations(db: Database.Database): NodesKindMigrat
   ensureExternalCalendarSchema(db)
   // The people a workspace deals with, and which desks they are on.
   ensureContactsSchema(db)
+  // Sweep rows left pointing at deleted nodes by the FK-off table rebuild
+  // above. Idempotent, and a no-op on a healthy database.
+  const sweptOrphans = reconcileNodeOrphans(db as never)
+  if (Object.keys(sweptOrphans).length > 0) {
+    console.warn('[migrations] removed orphaned rows:', sweptOrphans)
+  }
   // The notification substrate's durable store (S4, §5).
   ensureNotificationSchema(db)
   // Taxonomy alignment: rewrite legacy intent_class values to the eight
@@ -622,6 +629,13 @@ export function applySchemaAndMigrations(db: Database.Database): NodesKindMigrat
   ensureColumn(db, 'time_blocks', 'visibility', 'TEXT')
   ensureColumn(db, 'time_blocks', 'external_event_id', 'TEXT')
   ensureColumn(db, 'time_blocks', 'external_calendar_id', 'TEXT')
+  // The internal calendar a block belongs to, which gives it its colour and
+  // decides whether it is pushed out. Null falls back to the default calendar.
+  ensureColumn(db, 'time_blocks', 'calendar_id', 'TEXT')
+  // Calendars gained a direction and, for internal ones, a push target.
+  ensureColumn(db, 'external_calendars', 'sync_mode', "TEXT NOT NULL DEFAULT 'read'")
+  ensureColumn(db, 'external_calendars', 'push_target_id', 'TEXT')
+  ensureColumn(db, 'external_calendars', 'is_default', 'INTEGER NOT NULL DEFAULT 0')
   ensureColumn(db, 'time_blocks', 'external_etag', 'TEXT')
   ensureColumn(db, 'time_blocks', 'sync_state', 'TEXT')
   ensureColumn(db, 'time_blocks', 'last_synced_at', 'INTEGER')

@@ -121,7 +121,21 @@ export const useMailStore = create<MailStore>((set, get) => ({
   refresh: async () => {
     if (!get().account) return
     set({ loadingList: true, error: null })
-    const r = await window.api.mail.list(40)
+    // An IPC can REJECT as well as answer badly: a slow IMAP fetch that is
+    // still in flight when the window reloads or closes comes back as
+    // "reply was never sent". Unguarded that is an unhandled rejection --
+    // eleven of them are in the crash log -- and the store already has the
+    // right place to put a failure, so it goes there instead.
+    let r: Awaited<ReturnType<typeof window.api.mail.list>>
+    try {
+      r = await window.api.mail.list(40)
+    } catch (err) {
+      set({
+        loadingList: false,
+        error: err instanceof Error ? err.message : 'The mailbox did not answer.'
+      })
+      return
+    }
     if (!r.ok) {
       set({ loadingList: false, error: r.error })
       return
@@ -132,7 +146,17 @@ export const useMailStore = create<MailStore>((set, get) => ({
   openMessage: async (uid) => {
     // Opening a different message clears any draft for the previous one.
     set({ loadingOpen: true, openUid: uid, error: null, replyDraft: null, draftUid: null })
-    const r = await window.api.mail.get(uid)
+    // Same reasoning as refresh: a rejection is a failure, not a crash.
+    let r: Awaited<ReturnType<typeof window.api.mail.get>>
+    try {
+      r = await window.api.mail.get(uid)
+    } catch (err) {
+      set({
+        loadingOpen: false,
+        error: err instanceof Error ? err.message : 'That message could not be opened.'
+      })
+      return
+    }
     if (!r.ok) {
       set({ loadingOpen: false, error: r.error })
       return
