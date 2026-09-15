@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import MentionInputField from '../../MentionInputField'
 import type { ActionProposal, AppliedProposal } from '@shared/types'
 import ProposalCards from '../../ProposalCards'
 import Icon from '../../Icon'
@@ -22,7 +23,7 @@ interface WsSource {
   cited: boolean
 }
 
-const OPENABLE_DOC_TYPES = new Set(['doc', 'sheet', 'slides', 'map', 'design'])
+const OPENABLE_DOC_TYPES = new Set(['doc', 'sheet', 'slides', 'map', 'design', 'draw'])
 
 export default function WorkspaceAsk({
   getDocText,
@@ -235,7 +236,7 @@ export default function WorkspaceAsk({
       )}
 
       <div className="flex items-center gap-1.5">
-        <input
+        <MentionInputField
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => {

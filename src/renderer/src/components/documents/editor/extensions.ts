@@ -7,6 +7,7 @@
 // because the editor and the converter always agree on the schema.
 
 import type { Extension, Mark, Node } from '@tiptap/core'
+import { DocMentions, type DocMentionHooks } from './docMentions'
 import StarterKit from '@tiptap/starter-kit'
 import {
   TextStyle,
@@ -60,6 +61,10 @@ interface BuildOptions {
   collab?: YDoc
   // When set alongside collab, render other people's live cursors/selections.
   awareness?: Awareness
+  // `@` mentions. Interactive editors pass hooks and mount a DocMentionPicker;
+  // the headless converter passes nothing, and the extension then does nothing
+  // -- a mention in a document is a plain link, so conversion needs no help.
+  mentionHooks?: DocMentionHooks | null
   // The local user's label + colour shown on their caret to peers.
   user?: { name: string; color: string }
 }
@@ -76,7 +81,17 @@ export function buildDocExtensions(opts: BuildOptions = {}): AnyExt[] {
     StarterKit.configure({
       codeBlock: false,
       heading: { levels: [1, 2, 3, 4, 5, 6] },
-      link: { openOnClick: false, autolink: true },
+      link: {
+        openOnClick: false,
+        autolink: true,
+        // `plexii` is ours, and the Link mark drops hrefs whose scheme it does
+        // not know -- so an @-mention inserted as a link silently arrived as
+        // plain text. Registering the protocol is what makes a mention survive
+        // being written, saved, exported and read back.
+        protocols: ['http', 'https', 'mailto', 'plexii'],
+        isAllowedUri: (url: string, ctx: { defaultValidate: (u: string) => boolean }) =>
+          url.startsWith('plexii://') || ctx.defaultValidate(url)
+      },
       // Collaboration brings its own CRDT-aware undo/redo; StarterKit's would
       // fight it, so disable it in collab mode.
       ...(collab ? { undoRedo: false } : {})
@@ -164,6 +179,10 @@ export function buildDocExtensions(opts: BuildOptions = {}): AnyExt[] {
         }) as AnyExt
       )
     }
+  }
+
+  if (interactive && opts.mentionHooks) {
+    exts.push(DocMentions.configure({ hooks: opts.mentionHooks }) as AnyExt)
   }
 
   return exts

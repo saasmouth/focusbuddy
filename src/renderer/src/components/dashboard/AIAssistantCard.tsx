@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import MentionInputField from '../MentionInputField'
 import type { ChatMessage } from '@shared/types'
 import Icon from '../Icon'
 
@@ -127,7 +128,7 @@ export default function AIAssistantCard(): JSX.Element {
 
       {/* Free-form input */}
       <div className="flex items-center gap-2">
-        <input
+        <MentionInputField
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {

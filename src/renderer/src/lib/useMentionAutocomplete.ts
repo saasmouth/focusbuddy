@@ -75,6 +75,7 @@ export function useMentionAutocomplete(
   onCommit: (next: string, caret: number) => void
 ): MentionAutocomplete {
   const nodes = useNodeStore((s) => s.nodes)
+  const refreshNodes = useNodeStore((s) => s.refresh)
   const widgets = useWidgetStore((s) => s.widgets)
   const people = usePeopleStore((s) => s.people)
   const loadPeople = usePeopleStore((s) => s.load)
@@ -90,6 +91,9 @@ export function useMentionAutocomplete(
 
   useEffect(() => {
     void loadPeople()
+    // A full-screen document view never loads the node tree -- it is not a
+    // desk -- so without this the picker offered nothing at all there.
+    if (nodes.length === 0) void refreshNodes().catch(() => {})
     // Documents and tables are fetched once when a picker is first used rather
     // than kept live: a mention list a few seconds stale is fine, and polling
     // for it would not be.
@@ -99,6 +103,7 @@ export function useMentionAutocomplete(
       ?.list?.()
       .then((t: Array<{ id: string; title: string }>) => setTables(t ?? []))
       .catch(() => setTables([]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadPeople, refreshDocuments])
 
   const candidates = useMemo(

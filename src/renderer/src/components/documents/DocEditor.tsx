@@ -1,4 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import DocMentionPicker from './editor/DocMentionPicker'
+import type { DocMentionQuery } from './editor/docMentions'
 import { EditorContent, useEditor, type Editor } from '@tiptap/react'
 import { buildDocExtensions } from './editor/extensions'
 import { htmlToDocContent } from '../../lib/docHtml'
@@ -187,6 +189,10 @@ export default function DocEditor({
   userName
 }: Props): JSX.Element {
   const [findOpen, setFindOpen] = useState(false)
+  // `@` in the document body. The query the extension reports, and a handler
+  // the picker registers so Enter picks a mention instead of breaking the line.
+  const [mentionQuery, setMentionQuery] = useState<DocMentionQuery | null>(null)
+  const mentionKeyRef = useRef<((e: KeyboardEvent) => boolean) | null>(null)
   const [focusMode, setFocusMode] = useState(false)
   // Track Changes (suggesting mode) toggle, and whether the doc currently carries
   // any suggestion (drives the Accept/Reject-all controls).
@@ -244,7 +250,16 @@ export default function DocEditor({
   const scopeClass = 'doc-hs-' + useId().replace(/[:]/g, '')
 
   const editor = useEditor({
-    extensions: buildDocExtensions({ interactive: true, collab: ydoc, awareness, user }),
+    extensions: buildDocExtensions({
+      interactive: true,
+      collab: ydoc,
+      awareness,
+      user,
+      mentionHooks: {
+        onQuery: (q) => setMentionQuery(q),
+        onKeyDown: (e) => mentionKeyRef.current?.(e) ?? false
+      }
+    }),
     // In collab mode the CRDT owns the content; passing `content` too would
     // double-insert it on top of what Collaboration loads from the Yjs doc.
     ...(ydoc ? {} : { content: (initial.doc as object) ?? { type: 'doc', content: [{ type: 'paragraph' }] } }),
@@ -521,6 +536,19 @@ export default function DocEditor({
 
   return (
     <div className={`relative flex h-full ${scopeClass} ${focusMode ? 'fb-focus-mode' : ''}`}>
+      {/* `@` in the body. Mounted at the root rather than beside one of the two
+          EditorContent branches, because either may be the one on screen and a
+          picker attached to the wrong branch simply never appears. Portalled to
+          <body> at the caret, so the document's own scroll container cannot
+          clip it. */}
+      <DocMentionPicker
+        editor={editor}
+        query={mentionQuery}
+        onClose={() => setMentionQuery(null)}
+        registerKeyHandler={(h) => {
+          mentionKeyRef.current = h
+        }}
+      />
       {tableMenu && (
         <>
           {/* Click-away closes without changing anything. */}

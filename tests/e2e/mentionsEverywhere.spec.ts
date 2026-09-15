@@ -100,3 +100,52 @@ test('@ offers candidates in a task’s notes', async () => {
   await notes.type('about @ridge')
   await expect(window.locator('[data-testid="mention-picker"]')).toBeVisible({ timeout: 5000 })
 })
+
+test('@ works in a rich-text document, and the link navigates', async () => {
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+
+  const ids = await window.evaluate(async () => {
+    const api = (window as unknown as { api: Record<string, any> }).api
+    const target = await api.nodes.create({ parentId: null, kind: 'task', title: 'Ridgeway Campaign' })
+    const doc = await api.documents.create({ docType: 'doc', title: 'Brief' })
+    return { targetId: target.id, docId: doc.id }
+  })
+
+  await window.evaluate((id) => {
+    const w = window as unknown as { __fbView?: { getState: () => { goDocument: (i: string) => void } } }
+    w.__fbView?.getState().goDocument(id)
+  }, ids.docId)
+  await window.waitForTimeout(2500)
+
+  const body = window.locator('.ProseMirror').first()
+  await expect(body).toBeVisible({ timeout: 15_000 })
+  await body.click()
+  await window.keyboard.type('see @ridge')
+
+  const picker = window.locator('[data-testid="mention-picker"]')
+  await expect(picker).toBeVisible({ timeout: 5000 })
+  await expect(picker).toContainText('Ridgeway Campaign')
+
+  await picker.getByText('Ridgeway Campaign').click()
+  await window.waitForTimeout(500)
+
+  // It becomes a real link, so it renders, copies and exports with no special
+  // handling — and it carries the plexii href.
+  const href = await window.evaluate(
+    () =>
+      (document.querySelector('.ProseMirror a[href^="plexii://"]') as HTMLAnchorElement | null)
+        ?.getAttribute('href') ?? null
+  )
+  expect(href).toContain(`plexii://desk/${ids.targetId}`)
+
+  // And clicking it goes there, rather than opening the link-edit popover.
+  await window.locator('.ProseMirror a[href^="plexii://"]').first().click()
+  await window.waitForTimeout(800)
+  const view = await window.evaluate(() => {
+    const w = window as unknown as { __fbView?: { getState: () => { view: { taskId?: string } } } }
+    return w.__fbView?.getState().view
+  })
+  expect(view?.taskId).toBe(ids.targetId)
+})
