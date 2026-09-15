@@ -3,7 +3,14 @@ import type { ExternalEvent, FbNode, TimeBlock, Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import Icon from '../Icon'
 import { useNodeStore } from '../../stores/nodes'
-import { useViewStore } from '../../stores/view'
+import CalendarEntryModal, { type DayItem } from '../calendar/CalendarEntryModal'
+import {
+  applyCalendarFilter,
+  describeCalendarFilter,
+  sourceEnabled,
+  type CalendarEntry,
+  type CalendarFilter
+} from '@shared/calendarFilter'
 import { useWidgetStore } from '../../stores/widgets'
 
 // The month, made of things that actually exist.
@@ -17,10 +24,30 @@ import { useWidgetStore } from '../../stores/widgets'
 // is the dates belonging to THIS work, not a second copy of the main calendar.
 
 interface CalendarContent {
-  scope?: 'desk' | 'all'
   /** Month being viewed, as ms at its first day. Absent = the current month. */
   month?: number
+  /** What this calendar is about. See shared/calendarFilter. */
+  filter?: CalendarFilter
+  /** Whether the criteria editor is open. */
+  editing?: boolean
+  // Legacy shape, still read so an existing widget keeps working: these were
+  // the whole of the configuration before criteria existed.
+  scope?: 'desk' | 'all'
   show?: { due?: boolean; blocks?: boolean }
+}
+
+/** Fold the old two-switch config into the criteria model. */
+function filterOf(model: CalendarContent): CalendarFilter {
+  if (model.filter) return model.filter
+  return {
+    scope: model.scope ?? 'desk',
+    sources: {
+      task: model.show?.due !== false,
+      block: model.show?.blocks !== false,
+      external: true
+    },
+    taskStatus: 'all'
+  }
 }
 
 function parse(raw: string | null | undefined): CalendarContent {
@@ -91,8 +118,10 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
   const nodes = useNodeStore((s) => s.nodes)
   const model = useMemo(() => parse(widget.content), [widget.content])
 
-  const scope = model.scope ?? 'desk'
-  const show = { due: model.show?.due !== false, blocks: model.show?.blocks !== false }
+  const filter = useMemo(() => filterOf(model), [model])
+  const scope = filter.scope ?? 'desk'
+  const [openDay, setOpenDay] = useState<number | null>(null)
+  const [reloadTick, setReloadTick] = useState(0)
   const [month, setMonth] = useState(() => model.month ?? startOfMonth(Date.now()))
   const [selected, setSelected] = useState<number | null>(() => startOfDay(Date.now()))
   const [blocks, setBlocks] = useState<TimeBlock[] | null>(null)
@@ -110,6 +139,10 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
   // itself as the user pages through months.
   const gridStart = useMemo(() => startOfDay(month) - dowIndex(month) * DAY, [month])
   const gridEnd = gridStart + 42 * DAY
+
+  // Bumped whenever the modal edits something, so the grid reflects the change
+  // immediately rather than at the next month page.
+  const refresh = useCallback(() => setReloadTick((n) => n + 1), [])
 
   const loadBlocks = useCallback(async (): Promise<void> => {
     const api = (window as { api?: Record<string, unknown> }).api
@@ -130,7 +163,8 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
       setBlocks(null)
       setBlockError(e instanceof Error ? e.message : String(e))
     }
-  }, [gridStart, gridEnd])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gridStart, gridEnd, reloadTick])
 
   useEffect(() => {
     void loadBlocks()
@@ -156,7 +190,7 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
     return () => {
       alive = false
     }
-  }, [gridStart, gridEnd])
+  }, [gridStart, gridEnd, reloadTick])
 
   const inScope = useMemo(
     () => (scope === 'all' ? null : descendantsOf(nodes, widget.taskId)),
@@ -176,32 +210,66 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
       }
       return m
     }
-    if (show.due) {
-      for (const n of nodes) {
-        if (!n.dueDate || n.archived) continue
-        if (n.kind === 'folder') continue
-        if (inScope && !inScope.has(n.id)) continue
-        if (n.dueDate < gridStart || n.dueDate >= gridEnd) continue
-        at(n.dueDate).due.push(n)
-      }
+    // Everything is reduced to one shape and put through ONE filter, so the
+    // criteria cannot mean different things to a task and a booking.
+    const entries: Array<{ entry: CalendarEntry; put: () => void }> = []
+
+    for (const n of nodes) {
+      if (!n.dueDate || n.archived) continue
+      if (n.kind === 'folder') continue
+      if (n.dueDate < gridStart || n.dueDate >= gridEnd) continue
+      entries.push({
+        entry: {
+          id: n.id,
+          source: 'task',
+          title: n.title ?? '',
+          startMs: n.dueDate,
+          status: n.status,
+          assignee: n.assignee ?? null,
+          inScope: !inScope || inScope.has(n.id)
+        },
+        put: () => at(n.dueDate as number).due.push(n)
+      })
     }
-    // Subscribed events are not scoped to a desk: they come from a calendar,
-    // not from this workspace's tree, so scoping them would silently hide them.
+
+    for (const b of blocks ?? []) {
+      if (b.startMs < gridStart || b.startMs >= gridEnd) continue
+      entries.push({
+        entry: {
+          id: b.id,
+          source: 'block',
+          title: b.title ?? '',
+          startMs: b.startMs,
+          // A generic block with no task belongs to nobody's desk in
+          // particular, so it only counts as in-scope in the whole-workspace
+          // view.
+          inScope: !inScope ? true : Boolean(b.taskId && inScope.has(b.taskId))
+        },
+        put: () => at(b.startMs).blocks.push(b)
+      })
+    }
+
     for (const e of external) {
       if (e.startMs < gridStart || e.startMs >= gridEnd) continue
-      at(e.startMs).external.push(e)
+      entries.push({
+        entry: {
+          id: e.id,
+          source: 'external',
+          title: e.title ?? '',
+          startMs: e.startMs,
+          calendarId: e.calendarId,
+          inScope: true
+        },
+        put: () => at(e.startMs).external.push(e)
+      })
     }
-    if (show.blocks && blocks) {
-      for (const b of blocks) {
-        if (inScope && b.taskId && !inScope.has(b.taskId)) continue
-        // A generic block with no task belongs to nobody's desk in particular,
-        // so it only shows in the whole-workspace view.
-        if (inScope && !b.taskId) continue
-        at(b.startMs).blocks.push(b)
-      }
+
+    const keep = new Set(applyCalendarFilter(entries.map((x) => x.entry), filter).map((e) => `${e.source}:${e.id}`))
+    for (const x of entries) {
+      if (keep.has(`${x.entry.source}:${x.entry.id}`)) x.put()
     }
     return map
-  }, [nodes, blocks, external, inScope, gridStart, gridEnd, show.due, show.blocks])
+  }, [nodes, blocks, external, inScope, gridStart, gridEnd, filter])
 
   const today = startOfDay(Date.now())
   const monthLabel = new Date(month).toLocaleDateString(undefined, {
@@ -215,15 +283,28 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
     save({ month: next })
   }
 
+  /** Everything on a day, in the shape the modal edits. */
+  const itemsFor = (day: number): DayItem[] => {
+    const m = marks.get(day)
+    if (!m) return []
+    return [
+      ...m.blocks
+        .slice()
+        .sort((a, b) => a.startMs - b.startMs)
+        .map((block) => ({ kind: 'block', block }) as DayItem),
+      ...m.external
+        .slice()
+        .sort((a, b) => a.startMs - b.startMs)
+        .map((event) => ({ kind: 'external', event }) as DayItem),
+      ...m.due.map((node) => ({ kind: 'task', node }) as DayItem)
+    ]
+  }
+
   const selectedMark = selected ? marks.get(selected) : undefined
   const selectedTotal =
     (selectedMark?.due.length ?? 0) +
     (selectedMark?.blocks.length ?? 0) +
     (selectedMark?.external.length ?? 0)
-
-  const openTask = (id: string): void => {
-    useViewStore.getState().goTask(id)
-  }
 
   return (
     <WidgetFrame
@@ -266,13 +347,42 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
           </button>
           <button
             type="button"
-            className="widget-nodrag rounded px-1.5 py-0.5 text-[10px] text-[var(--ink-50)] hover:bg-[var(--surface-sunken)]"
+            className={`widget-nodrag rounded px-1 py-0.5 hover:bg-[var(--surface-sunken)] ${
+              model.editing ? 'text-[var(--accent)]' : 'text-[var(--ink-40)]'
+            }`}
+            title="Filter criteria"
+            data-testid="calendar-filter-toggle"
+            onClick={() => save({ editing: !model.editing })}
+          >
+            <Icon name="tune" className="text-[13px]" />
+          </button>
+          <button
+            type="button"
+            className="widget-nodrag hidden rounded px-1.5 py-0.5 text-[10px] text-[var(--ink-50)] hover:bg-[var(--surface-sunken)]"
             title={scope === 'desk' ? 'Showing this desk' : 'Showing everything'}
-            onClick={() => save({ scope: scope === 'desk' ? 'all' : 'desk' })}
+            onClick={() => save({ filter: { ...filter, scope: scope === 'desk' ? 'all' : 'desk' } })}
           >
             {scope === 'desk' ? 'This desk' : 'All'}
           </button>
         </div>
+
+        {model.editing ? (
+          <FilterEditor
+            filter={filter}
+            onChange={(f) => save({ filter: f })}
+            onDone={() => save({ editing: false })}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => save({ editing: true })}
+            title="Filter criteria"
+            className="widget-nodrag flex items-center gap-1 px-2 py-0.5 text-left text-[9px] text-[var(--ink-45)] hover:text-[var(--ink-70)]"
+          >
+            <Icon name="filter_alt" className="text-[10px]" />
+            <span className="truncate">{describeCalendarFilter(filter)}</span>
+          </button>
+        )}
 
         <div className="grid grid-cols-7 px-1 pt-1 text-center text-[9px] font-medium text-[var(--ink-40)]">
           {DOW.map((d, i) => (
@@ -293,6 +403,8 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
                 key={day}
                 type="button"
                 onClick={() => setSelected(day)}
+                onDoubleClick={() => setOpenDay(day)}
+                title={count > 0 ? `${count} on this day — double-click to open` : undefined}
                 className={`flex flex-col items-center justify-start rounded-[3px] py-0.5 text-[10px] leading-none transition-colors ${
                   isSel
                     ? 'bg-[color-mix(in_oklab,var(--accent)_15%,transparent)] ring-1 ring-[var(--accent)]'
@@ -335,8 +447,17 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
                     month: 'short'
                   })}
                 </span>
-                {selectedTotal === 0 && (
+                {selectedTotal === 0 ? (
                   <span className="text-[10px] text-[var(--ink-40)]">Nothing scheduled</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setOpenDay(selected)}
+                    data-testid="calendar-open-day"
+                    className="widget-nodrag ml-auto rounded px-1 text-[10px] text-[var(--ink-45)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-80)]"
+                  >
+                    Open day
+                  </button>
                 )}
               </div>
               <ul className="flex flex-col gap-1">
@@ -344,10 +465,12 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
                   .slice()
                   .sort((a, b) => a.startMs - b.startMs)
                   .map((b) => (
-                    <li
-                      key={b.id}
-                      className="flex items-center gap-1.5 text-[11px] text-[var(--ink-70)]"
-                    >
+                    <li key={b.id}>
+                     <button
+                      type="button"
+                      onClick={() => setOpenDay(selected)}
+                      className="widget-nodrag flex w-full items-center gap-1.5 text-left text-[11px] text-[var(--ink-70)] hover:text-[var(--ink-90)]"
+                     >
                       <span className="h-[6px] w-[6px] shrink-0 rounded-full bg-violet-500" />
                       <span className="shrink-0 tabular-nums text-[var(--ink-50)]">
                         {new Date(b.startMs).toLocaleTimeString(undefined, {
@@ -359,17 +482,20 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
                       <span className="ml-auto shrink-0 text-[10px] text-[var(--ink-40)]">
                         {b.durationMin}m
                       </span>
+                     </button>
                     </li>
                   ))}
                 {selectedMark?.external
                   .slice()
                   .sort((a, b2) => a.startMs - b2.startMs)
                   .map((e) => (
-                    <li
-                      key={e.id}
-                      className="flex items-center gap-1.5 text-[11px] text-[var(--ink-70)]"
+                    <li key={e.id}>
+                     <button
+                      type="button"
+                      onClick={() => setOpenDay(selected)}
+                      className="widget-nodrag flex w-full items-center gap-1.5 text-left text-[11px] text-[var(--ink-70)] hover:text-[var(--ink-90)]"
                       title={e.location ? `${e.title} — ${e.location}` : e.title}
-                    >
+                     >
                       <span className="h-[6px] w-[6px] shrink-0 rounded-full bg-sky-500" />
                       <span className="shrink-0 tabular-nums text-[var(--ink-50)]">
                         {e.allDay
@@ -380,6 +506,7 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
                             })}
                       </span>
                       <span className="truncate">{e.title || 'Untitled event'}</span>
+                     </button>
                     </li>
                   ))}
                 {selectedMark?.due.map((n) => (
@@ -387,8 +514,8 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
                     <button
                       type="button"
                       className="widget-nodrag flex w-full items-center gap-1.5 text-left text-[11px] text-[var(--ink-70)] hover:text-[var(--ink-90)]"
-                      onClick={() => openTask(n.id)}
-                      title="Open task"
+                      onClick={() => setOpenDay(selected)}
+                      title="Open for detail"
                     >
                       <span className="h-[6px] w-[6px] shrink-0 rounded-full bg-emerald-500" />
                       <span
@@ -406,7 +533,7 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
                   Time blocks unavailable: {blockError}
                 </p>
               )}
-              {blockError === 'unavailable' && show.blocks && (
+              {blockError === 'unavailable' && sourceEnabled(filter, 'block') && (
                 <p className="mt-1 text-[10px] text-[var(--ink-40)]">
                   Time blocks need the desktop app — only due dates are shown.
                 </p>
@@ -415,6 +542,118 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
           )}
         </div>
       </div>
+
+      {openDay !== null && (
+        <CalendarEntryModal
+          dayMs={openDay}
+          items={itemsFor(openDay)}
+          onClose={() => setOpenDay(null)}
+          onChanged={refresh}
+        />
+      )}
     </WidgetFrame>
+  )
+}
+
+/** The criteria editor: what this calendar is about. */
+function FilterEditor({
+  filter,
+  onChange,
+  onDone
+}: {
+  filter: CalendarFilter
+  onChange: (f: CalendarFilter) => void
+  onDone: () => void
+}): JSX.Element {
+  const terms = (t: string[] | undefined): string => (t ?? []).join(', ')
+  const parse = (v: string): string[] =>
+    v.split(',').map((x) => x.trim()).filter(Boolean)
+  const set = (p: Partial<CalendarFilter>): void => onChange({ ...filter, ...p })
+
+  return (
+    <div className="flex flex-col gap-1.5 border-b border-[var(--line)] px-2 py-2 text-[10px]">
+      <div className="flex items-center gap-1">
+        {(['desk', 'all'] as const).map((sc) => (
+          <button
+            key={sc}
+            type="button"
+            onClick={() => set({ scope: sc })}
+            className={`widget-nodrag rounded-full px-2 py-0.5 ${
+              (filter.scope ?? 'desk') === sc
+                ? 'bg-accent/10 font-medium text-accent'
+                : 'text-[var(--ink-50)] hover:text-[var(--ink-80)]'
+            }`}
+          >
+            {sc === 'desk' ? 'This desk' : 'Everywhere'}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={onDone}
+          data-testid="calendar-filter-done"
+          className="widget-nodrag ml-auto rounded bg-[var(--accent)] px-2 py-0.5 font-medium text-white"
+        >
+          Done
+        </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {(
+          [
+            ['task', 'Due dates'],
+            ['block', 'Time blocks'],
+            ['external', 'Subscribed']
+          ] as const
+        ).map(([k, label]) => (
+          <label key={k} className="widget-nodrag flex items-center gap-1 text-[var(--ink-60)]">
+            <input
+              type="checkbox"
+              checked={sourceEnabled(filter, k)}
+              onChange={(e) =>
+                set({ sources: { ...(filter.sources ?? {}), [k]: e.target.checked } })
+              }
+            />
+            {label}
+          </label>
+        ))}
+      </div>
+
+      <input
+        className="widget-nodrag rounded border border-[var(--line)] bg-[var(--surface)] px-1.5 py-1"
+        placeholder="About… ridge st, auction (commas mean “or”)"
+        value={terms(filter.match)}
+        onChange={(e) => set({ match: parse(e.target.value) })}
+        data-testid="calendar-filter-match"
+      />
+      <input
+        className="widget-nodrag rounded border border-[var(--line)] bg-[var(--surface)] px-1.5 py-1"
+        placeholder="But not… draft, internal"
+        value={terms(filter.exclude)}
+        onChange={(e) => set({ exclude: parse(e.target.value) })}
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-1">
+          <span className="text-[var(--ink-50)]">Tasks</span>
+          <select
+            className="widget-nodrag rounded border border-[var(--line)] bg-[var(--surface)] px-1 py-0.5"
+            value={filter.taskStatus ?? 'open'}
+            onChange={(e) => set({ taskStatus: e.target.value as CalendarFilter['taskStatus'] })}
+          >
+            <option value="open">open only</option>
+            <option value="done">done only</option>
+            <option value="all">any status</option>
+          </select>
+        </label>
+        <label className="flex min-w-0 flex-1 items-center gap-1">
+          <span className="shrink-0 text-[var(--ink-50)]">For</span>
+          <input
+            className="widget-nodrag min-w-0 flex-1 rounded border border-[var(--line)] bg-[var(--surface)] px-1 py-0.5"
+            placeholder="anyone"
+            value={terms(filter.assignees)}
+            onChange={(e) => set({ assignees: parse(e.target.value) })}
+          />
+        </label>
+      </div>
+    </div>
   )
 }
