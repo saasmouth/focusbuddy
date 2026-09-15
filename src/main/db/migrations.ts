@@ -20,6 +20,7 @@ import { migrateNodesKindCheckV2, type NodesKindMigrationResult } from './migrat
 import { migrateIntentTaxonomyV2 } from './migrateIntentTaxonomy'
 import { repairBrowsingHistoryCounts } from './migrateBrowsingHistoryCounts'
 import { ensureTaskPlanningSchema } from './taskPlanningSchema'
+import { ensureExternalCalendarSchema } from './externalCalendars'
 import { ensureWorkItemSchema } from './workItems'
 import { ensureNotificationSchema } from '../notifications/substrate'
 
@@ -71,6 +72,9 @@ export function applySchemaAndMigrations(db: Database.Database): NodesKindMigrat
   // Same ALTER-if-absent shape as the work_item manifest above, and read from
   // the same kind of single source so DDL, mapper and writer cannot drift.
   ensureTaskPlanningSchema(db)
+  // External calendars (Google / Outlook / any ICS feed) and their mirrored
+  // events. Separate tables from time_blocks on purpose -- see the module.
+  ensureExternalCalendarSchema(db)
   // The notification substrate's durable store (S4, §5).
   ensureNotificationSchema(db)
   // Taxonomy alignment: rewrite legacy intent_class values to the eight

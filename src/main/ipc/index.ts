@@ -1,5 +1,23 @@
 import { widgetCountsByTask, syncTableWidgetTitles } from '../db/widgets'
 import {
+  listCalendars as listExternalCalendars,
+  getCalendar as getExternalCalendar,
+  createCalendar as createExternalCalendar,
+  updateCalendar as updateExternalCalendar,
+  deleteCalendar as deleteExternalCalendar,
+  listEvents as listExternalEvents
+} from '../db/externalCalendars'
+import { syncCalendar, syncAll, feedUrlProblem } from '../calendar/sync'
+import {
+  connect as connectOAuth,
+  listAccounts as listOAuthAccounts,
+  deleteAccount as deleteOAuthAccount,
+  getProviderConfig,
+  setProviderConfig,
+  listRemoteCalendars
+} from '../calendar/oauth'
+import type { ExternalCalendarDraft } from '@shared/types'
+import {
   createLiveDesk,
   publishProjection,
   queuePublish,
@@ -2092,6 +2110,52 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('energy:recent', (_e, hours: number) => recentEnergy(hours))
 
   // ── Calendar time blocks ────────────────────────────────────────────────
+  // ── External calendars ────────────────────────────────────────────────────
+  // Read-only mirrors of Google / Outlook / ICS calendars. Note what is NOT
+  // here: no handler ever returns a token, in any shape. The renderer learns
+  // that an account exists and what its email is; the credential stays in the
+  // main process, encrypted.
+  ipcMain.handle('extcal:list', () => listExternalCalendars())
+  ipcMain.handle('extcal:listEvents', (_e, fromMs: number, toMs: number) =>
+    listExternalEvents(fromMs, toMs)
+  )
+  ipcMain.handle('extcal:add', async (_e, draft: ExternalCalendarDraft) => {
+    if (draft.provider === 'ics') {
+      const problem = feedUrlProblem(draft.sourceRef)
+      if (problem) return { ok: false as const, error: problem }
+    }
+    const cal = createExternalCalendar(draft)
+    // Sync immediately: an empty calendar that "will fill in later" is
+    // indistinguishable from one that is broken.
+    const result = await syncCalendar(cal.id)
+    return { ok: true as const, calendar: getExternalCalendar(cal.id), result }
+  })
+  ipcMain.handle('extcal:update', (_e, id: string, patch: Record<string, unknown>) =>
+    updateExternalCalendar(id, patch)
+  )
+  ipcMain.handle('extcal:remove', (_e, id: string) => deleteExternalCalendar(id))
+  ipcMain.handle('extcal:sync', (_e, id: string) => syncCalendar(id))
+  ipcMain.handle('extcal:syncAll', () => syncAll())
+
+  // OAuth
+  ipcMain.handle('extcal:accounts', () => listOAuthAccounts())
+  ipcMain.handle('extcal:removeAccount', (_e, id: string) => deleteOAuthAccount(id))
+  ipcMain.handle('extcal:getProviderConfig', (_e, provider: 'google' | 'microsoft') => ({
+    configured: Boolean(getProviderConfig(provider)?.clientId),
+    clientId: getProviderConfig(provider)?.clientId ?? ''
+  }))
+  ipcMain.handle(
+    'extcal:setProviderConfig',
+    (_e, provider: 'google' | 'microsoft', clientId: string) => {
+      setProviderConfig(provider, clientId ? { clientId } : null)
+      return { ok: true as const }
+    }
+  )
+  ipcMain.handle('extcal:connect', (_e, provider: 'google' | 'microsoft') => connectOAuth(provider))
+  ipcMain.handle('extcal:remoteCalendars', (_e, accountId: string) =>
+    listRemoteCalendars(accountId)
+  )
+
   ipcMain.handle('timeblocks:list', (_e, fromMs: number, toMs: number) => {
     // Keep repeating series materialised ahead whenever the calendar is read;
     // idempotent and cheap (each series continues from its newest row).

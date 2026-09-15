@@ -8,6 +8,7 @@ import { markUiVisible } from './db/account'
 import { runRetentionSweep } from './db/retention'
 import { autoBackupOnLaunch } from './db/backup'
 import { registerIpcHandlers } from './ipc'
+import { startCalendarSyncLoop } from './calendar/sync'
 import { registerMdExternal } from './mdExternal'
 import { decidePopup } from './popupRouter'
 import { isAgentDrivenWc } from './ai/browserActions'
@@ -590,6 +591,10 @@ app.whenReady().then(() => {
   // The notification substrate's scheduler (Attention S4): app-start sweep +
   // 30s cadence; durable rows mean scheduled banners survive restarts.
   startNotificationScheduler()
+  // External calendars: one refresh shortly after boot, then every 15 minutes.
+  // A mirror that only updates when somebody opens the settings screen is a
+  // mirror of last Tuesday.
+  startCalendarSyncLoop()
   // Stream Deck focus handoff — caches the previously-frontmost app so
   // ⌘C / ⌘V / ⌘⇧4 / type-text land in the user's actual workspace
   // rather than in FocusBuddy itself.

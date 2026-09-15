@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { FbNode, TimeBlock, Widget } from '@shared/types'
+import type { ExternalEvent, FbNode, TimeBlock, Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import Icon from '../Icon'
 import { useNodeStore } from '../../stores/nodes'
@@ -83,6 +83,7 @@ function descendantsOf(nodes: FbNode[], rootId: string | null): Set<string> {
 interface DayMark {
   due: FbNode[]
   blocks: TimeBlock[]
+  external: ExternalEvent[]
 }
 
 export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Element {
@@ -96,6 +97,9 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
   const [selected, setSelected] = useState<number | null>(() => startOfDay(Date.now()))
   const [blocks, setBlocks] = useState<TimeBlock[] | null>(null)
   const [blockError, setBlockError] = useState<string | null>(null)
+  // Events mirrored from Google / Outlook / an ICS feed. Read-only here: they
+  // belong to a calendar somewhere else.
+  const [external, setExternal] = useState<ExternalEvent[]>([])
 
   const save = (next: Partial<CalendarContent>): void => {
     void update(widget.id, { content: JSON.stringify({ ...model, ...next }) })
@@ -132,6 +136,28 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
     void loadBlocks()
   }, [loadBlocks])
 
+  useEffect(() => {
+    const api = (window as { api?: Record<string, unknown> }).api
+    const ext = api?.externalCalendars as
+      | { listEvents?: (f: number, t: number) => Promise<ExternalEvent[]> }
+      | undefined
+    if (!ext?.listEvents) return
+    let alive = true
+    void ext
+      .listEvents(gridStart, gridEnd)
+      .then((rows) => {
+        if (alive) setExternal(rows ?? [])
+      })
+      .catch(() => {
+        // A failed read leaves the subscribed events out rather than showing a
+        // stale copy; the calendars panel carries the actual error.
+        if (alive) setExternal([])
+      })
+    return () => {
+      alive = false
+    }
+  }, [gridStart, gridEnd])
+
   const inScope = useMemo(
     () => (scope === 'all' ? null : descendantsOf(nodes, widget.taskId)),
     [nodes, widget.taskId, scope]
@@ -145,7 +171,7 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
       const key = startOfDay(ts)
       let m = map.get(key)
       if (!m) {
-        m = { due: [], blocks: [] }
+        m = { due: [], blocks: [], external: [] }
         map.set(key, m)
       }
       return m
@@ -159,6 +185,12 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
         at(n.dueDate).due.push(n)
       }
     }
+    // Subscribed events are not scoped to a desk: they come from a calendar,
+    // not from this workspace's tree, so scoping them would silently hide them.
+    for (const e of external) {
+      if (e.startMs < gridStart || e.startMs >= gridEnd) continue
+      at(e.startMs).external.push(e)
+    }
     if (show.blocks && blocks) {
       for (const b of blocks) {
         if (inScope && b.taskId && !inScope.has(b.taskId)) continue
@@ -169,7 +201,7 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
       }
     }
     return map
-  }, [nodes, blocks, inScope, gridStart, gridEnd, show.due, show.blocks])
+  }, [nodes, blocks, external, inScope, gridStart, gridEnd, show.due, show.blocks])
 
   const today = startOfDay(Date.now())
   const monthLabel = new Date(month).toLocaleDateString(undefined, {
@@ -184,7 +216,10 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
   }
 
   const selectedMark = selected ? marks.get(selected) : undefined
-  const selectedTotal = (selectedMark?.due.length ?? 0) + (selectedMark?.blocks.length ?? 0)
+  const selectedTotal =
+    (selectedMark?.due.length ?? 0) +
+    (selectedMark?.blocks.length ?? 0) +
+    (selectedMark?.external.length ?? 0)
 
   const openTask = (id: string): void => {
     useViewStore.getState().goTask(id)
@@ -250,7 +285,7 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
             const day = gridStart + i * DAY
             const inMonth = new Date(day).getMonth() === new Date(month).getMonth()
             const m = marks.get(day)
-            const count = (m?.due.length ?? 0) + (m?.blocks.length ?? 0)
+            const count = (m?.due.length ?? 0) + (m?.blocks.length ?? 0) + (m?.external.length ?? 0)
             const isToday = day === today
             const isSel = day === selected
             return (
@@ -278,6 +313,9 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
                     )}
                     {(m?.blocks.length ?? 0) > 0 && (
                       <span className="h-[4px] w-[4px] rounded-full bg-violet-500" />
+                    )}
+                    {(m?.external.length ?? 0) > 0 && (
+                      <span className="h-[4px] w-[4px] rounded-full bg-sky-500" />
                     )}
                   </span>
                 )}
@@ -321,6 +359,27 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
                       <span className="ml-auto shrink-0 text-[10px] text-[var(--ink-40)]">
                         {b.durationMin}m
                       </span>
+                    </li>
+                  ))}
+                {selectedMark?.external
+                  .slice()
+                  .sort((a, b2) => a.startMs - b2.startMs)
+                  .map((e) => (
+                    <li
+                      key={e.id}
+                      className="flex items-center gap-1.5 text-[11px] text-[var(--ink-70)]"
+                      title={e.location ? `${e.title} — ${e.location}` : e.title}
+                    >
+                      <span className="h-[6px] w-[6px] shrink-0 rounded-full bg-sky-500" />
+                      <span className="shrink-0 tabular-nums text-[var(--ink-50)]">
+                        {e.allDay
+                          ? 'all day'
+                          : new Date(e.startMs).toLocaleTimeString(undefined, {
+                              hour: 'numeric',
+                              minute: '2-digit'
+                            })}
+                      </span>
+                      <span className="truncate">{e.title || 'Untitled event'}</span>
                     </li>
                   ))}
                 {selectedMark?.due.map((n) => (

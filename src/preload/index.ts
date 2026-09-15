@@ -24,6 +24,10 @@ import type {
   EnergyLogEntry,
   TimeBlock,
   TimeBlockDraft,
+  ExternalCalendar,
+  ExternalCalendarDraft,
+  ExternalCalendarSyncResult,
+  ExternalEvent,
   TimeBlockPatch,
   FbNode,
   HapticFeel,
@@ -989,6 +993,51 @@ const api = {
   },
   // Ephemeral desk shares: the desk is packed here, posted to Signal by the
   // renderer (which holds the account token).
+  // External calendars — Google, Outlook, or any ICS feed. Events are a
+  // read-only mirror; nothing here can return or accept a credential.
+  externalCalendars: {
+    list: (): Promise<ExternalCalendar[]> => ipcRenderer.invoke('extcal:list'),
+    listEvents: (fromMs: number, toMs: number): Promise<ExternalEvent[]> =>
+      ipcRenderer.invoke('extcal:listEvents', fromMs, toMs),
+    add: (
+      draft: ExternalCalendarDraft
+    ): Promise<
+      | { ok: true; calendar: ExternalCalendar | null; result: ExternalCalendarSyncResult }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('extcal:add', draft),
+    update: (
+      id: string,
+      patch: { name?: string; color?: string | null; enabled?: boolean }
+    ): Promise<ExternalCalendar | null> => ipcRenderer.invoke('extcal:update', id, patch),
+    remove: (id: string): Promise<boolean> => ipcRenderer.invoke('extcal:remove', id),
+    sync: (id: string): Promise<ExternalCalendarSyncResult> => ipcRenderer.invoke('extcal:sync', id),
+    syncAll: (): Promise<ExternalCalendarSyncResult[]> => ipcRenderer.invoke('extcal:syncAll'),
+
+    // OAuth accounts. `connect` opens the system browser and resolves when the
+    // provider redirects back to a loopback port.
+    accounts: (): Promise<Array<{ id: string; provider: string; email: string | null }>> =>
+      ipcRenderer.invoke('extcal:accounts'),
+    removeAccount: (id: string): Promise<boolean> =>
+      ipcRenderer.invoke('extcal:removeAccount', id),
+    getProviderConfig: (
+      provider: 'google' | 'microsoft'
+    ): Promise<{ configured: boolean; clientId: string }> =>
+      ipcRenderer.invoke('extcal:getProviderConfig', provider),
+    setProviderConfig: (
+      provider: 'google' | 'microsoft',
+      clientId: string
+    ): Promise<{ ok: true }> => ipcRenderer.invoke('extcal:setProviderConfig', provider, clientId),
+    connect: (
+      provider: 'google' | 'microsoft'
+    ): Promise<{ ok: boolean; accountId?: string; email?: string; error?: string }> =>
+      ipcRenderer.invoke('extcal:connect', provider),
+    remoteCalendars: (
+      accountId: string
+    ): Promise<
+      | { ok: true; calendars: Array<{ id: string; name: string; color?: string; primary?: boolean }> }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('extcal:remoteCalendars', accountId)
+  },
   timeBlocks: {
     list: (fromMs: number, toMs: number): Promise<TimeBlock[]> =>
       ipcRenderer.invoke('timeblocks:list', fromMs, toMs),

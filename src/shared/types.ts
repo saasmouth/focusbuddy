@@ -395,6 +395,62 @@ export interface TimeBlock {
   updatedAt: number
 }
 
+// ── External calendars (Google / Outlook / any ICS feed) ────────────────────
+// A calendar that lives somewhere else and is mirrored here. Events from one
+// are READ-ONLY in Plexii: they are a reflection of a fact held elsewhere, and
+// pretending otherwise would let a sync quietly overwrite an edit.
+export type ExternalCalendarProvider = 'ics' | 'google' | 'microsoft'
+
+export interface ExternalCalendar {
+  id: string
+  provider: ExternalCalendarProvider
+  name: string
+  color: string | null
+  /** ICS: the feed URL. OAuth: the provider's own calendar id. */
+  sourceRef: string
+  accountId: string | null
+  enabled: boolean
+  lastSyncAt: number | null
+  /** The reason the last sync failed, shown to the user verbatim. */
+  lastSyncError: string | null
+  createdAt: number
+  updatedAt: number
+}
+
+export interface ExternalCalendarDraft {
+  id?: string
+  provider: ExternalCalendarProvider
+  name: string
+  sourceRef: string
+  color?: string | null
+  accountId?: string | null
+}
+
+export interface ExternalEvent {
+  id: string
+  calendarId: string
+  uid: string
+  title: string
+  description: string | null
+  location: string | null
+  startMs: number
+  endMs: number
+  allDay: boolean
+  status: string | null
+  organizer: string | null
+  url: string | null
+  updatedAt: number
+}
+
+export interface ExternalCalendarSyncResult {
+  calendarId: string
+  ok: boolean
+  events: number
+  error?: string
+  /** Rules the feed used that we could not expand; surfaced, never hidden. */
+  warnings?: string[]
+}
+
 export interface TimeBlockDraft {
   // Optional client-provided id (WS01 sync substrate) for idempotent create.
   id?: string
