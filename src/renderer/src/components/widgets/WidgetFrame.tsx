@@ -1,5 +1,6 @@
 import { WIDGET_CATALOG } from '../../lib/widgetCatalog'
 import { GRID } from '../../lib/canvasGrid'
+import { stripMentions } from '@shared/mentionText'
 import { snapEnabled } from '../../lib/gridPref'
 import { useContext, useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
@@ -1298,7 +1299,11 @@ export default function WidgetFrame({
           // title is blank, then the kind as a last resort.
           seedTitle={
             widget.title ||
-            (widget.content ? widget.content.replace(/\s+/g, ' ').slice(0, 80) : '') ||
+            (widget.content
+              ? // Mentions become their titles: a task called
+                // "@[Ridge St](plexii://desk/abc)" would be markup, not a name.
+                stripMentions(widget.content).replace(/\s+/g, ' ').slice(0, 80)
+              : '') ||
             widget.kind
           }
           // Pass the widget so the dialog can offer to clone it into the

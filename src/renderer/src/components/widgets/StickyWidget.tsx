@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { parseMentionText } from '@shared/mentionText'
+import { MentionChip } from '../MentionText'
+import { useMentionAutocomplete } from '../../lib/useMentionAutocomplete'
 import { useGrowToFit, GROW_MAX_HEIGHT } from '../../lib/useGrowToFit'
 import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
@@ -25,17 +28,25 @@ interface Props {
 // else is plain text. Kept deliberately tiny so a sticky stays a sticky and
 // never turns into a full editor.
 function renderInline(s: string): ReactNode[] {
+  // Mentions are resolved FIRST, so a title containing ** is not mangled into
+  // bold halfway through a link.
   const out: ReactNode[] = []
-  const re = /\*\*(.+?)\*\*/g
-  let last = 0
   let key = 0
-  let m: RegExpExecArray | null
-  while ((m = re.exec(s)) !== null) {
-    if (m.index > last) out.push(s.slice(last, m.index))
-    out.push(<strong key={key++}>{m[1]}</strong>)
-    last = m.index + m[0].length
+  for (const seg of parseMentionText(s)) {
+    if (seg.type === 'mention') {
+      out.push(<MentionChip key={`m${key++}`} mention={seg.mention} />)
+      continue
+    }
+    const re = /\*\*(.+?)\*\*/g
+    let last = 0
+    let m: RegExpExecArray | null
+    while ((m = re.exec(seg.text)) !== null) {
+      if (m.index > last) out.push(seg.text.slice(last, m.index))
+      out.push(<strong key={key++}>{m[1]}</strong>)
+      last = m.index + m[0].length
+    }
+    if (last < seg.text.length) out.push(seg.text.slice(last))
   }
-  if (last < s.length) out.push(s.slice(last))
   return out.length ? out : [s]
 }
 
@@ -45,6 +56,12 @@ const BULLET_RE = STICKY_BULLET_RE
 export default function StickyWidget({ widget, inline = false }: Props): JSX.Element {
   const update = useWidgetStore((s) => s.update)
   const [text, setText] = useState(widget.content)
+  // `@` anywhere in the note. setText is the commit target, and the caret is
+  // restored after React writes the value or the next keystroke lands wrong.
+  const mentions = useMentionAutocomplete(text, (next, caret) => {
+    setText(next)
+    requestAnimationFrame(() => textareaRef.current?.setSelectionRange(caret, caret))
+  })
   const lastSavedRef = useRef(widget.content)
   // Mirror the latest text each render so the unmount-flush closure reads the
   // CURRENT value; hold the debounce timer in a ref so the flush can cancel it.
@@ -247,12 +264,30 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
   )
 
   const editor = (
+    <div className="relative">
     <textarea
       ref={textareaRef}
       value={text}
       autoFocus={editing}
-      onChange={(e) => setText(e.target.value)}
-      onBlur={() => setEditing(false)}
+      onChange={(e) => {
+        setText(e.target.value)
+        mentions.onInput(e.target.value, e.target.selectionStart ?? e.target.value.length)
+      }}
+      onKeyUp={(e) =>
+        mentions.onInput(
+          e.currentTarget.value,
+          e.currentTarget.selectionStart ?? e.currentTarget.value.length
+        )
+      }
+      onKeyDown={(e) => {
+        // The picker consumes Enter and the arrows while it is open; without
+        // this, Enter both picks a mention and breaks the line.
+        mentions.onKeyDown(e)
+      }}
+      onBlur={() => {
+        mentions.close()
+        setEditing(false)
+      }}
       placeholder="Write a note… **bold**, - bullet, [ ] task"
       onContextMenu={(e) => {
         if (e.shiftKey) return
@@ -266,6 +301,31 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
         'fb-body'
       }`}
     />
+    {mentions.open && (
+      <div
+        className="absolute left-0 top-full z-[60] mt-1 max-h-[190px] w-[240px] overflow-y-auto rounded-md border border-[var(--line)] bg-[var(--surface-raised)] py-1 shadow-lg"
+        onMouseDown={(e) => e.preventDefault()}
+        data-testid="mention-picker"
+      >
+        {mentions.candidates.map((c, i) => (
+          <button
+            key={`${c.kind}:${c.id}`}
+            type="button"
+            onClick={() => mentions.choose(c)}
+            className={`flex w-full items-center gap-1.5 px-2 py-1 text-left text-[11px] ${
+              i === mentions.activeIndex
+                ? 'bg-accent/10 text-[var(--ink-90)]'
+                : 'text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]'
+            }`}
+          >
+            <Icon name={c.icon} size={12} className="shrink-0 text-[var(--ink-40)]" />
+            <span className="min-w-0 flex-1 truncate">{c.title}</span>
+            {c.detail && <span className="shrink-0 text-[9px] text-[var(--ink-35)]">{c.detail}</span>}
+          </button>
+        ))}
+      </div>
+    )}
+    </div>
   )
 
   const content = (
