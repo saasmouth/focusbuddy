@@ -31,6 +31,7 @@ import type { ActionProposal, ChatQuestion } from '@shared/types'
 // stay legal mid-discovery; none of them builds the desk.
 export const CREATION_KINDS: ReadonlySet<string> = new Set([
   'create-task',
+  'add-subtask',
   'create-work-item',
   'create-widget',
   'create-todo-list',

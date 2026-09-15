@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import TaskTable from './TaskTable'
 import type { Widget, FbNode, TaskStatus } from '@shared/types'
 import { parseAttachments, derivedStart } from '@shared/taskPlanning'
 import WidgetFrame from './WidgetFrame'
@@ -23,9 +24,13 @@ import { useWidgetStore } from '../../stores/widgets'
 type Scope = 'desk' | 'all'
 type Filter = 'open' | 'done' | 'all'
 
+type ViewMode = 'list' | 'table'
+
 interface TaskListContent {
   scope?: Scope
   filter?: Filter
+  /** List reads as a to-do; table shows every planning field at once. */
+  view?: ViewMode
   /** Task ids whose detail panel is open, so it survives a re-render. */
   expanded?: string[]
 }
@@ -71,6 +76,7 @@ export default function TaskListWidget({ widget }: { widget: Widget }): JSX.Elem
   const filter: Filter = model.filter ?? 'open'
   const [draft, setDraft] = useState('')
 
+  const view: ViewMode = model.view ?? 'list'
   const expanded = useMemo(() => new Set(model.expanded ?? []), [model.expanded])
   const toggleExpanded = (id: string): void => {
     const next = new Set(expanded)
@@ -168,16 +174,39 @@ export default function TaskListWidget({ widget }: { widget: Widget }): JSX.Elem
             </button>
           ))}
           <button
+            onClick={() => setModel({ view: view === 'list' ? 'table' : 'list' })}
+            title={view === 'list' ? 'Show every field as a table' : 'Back to the list'}
+            data-testid="task-view-toggle"
+            className="ml-auto px-1.5 py-0.5 rounded text-[10px] text-[var(--ink-50)] hover:text-[var(--ink-80)] inline-flex items-center gap-1"
+          >
+            <Icon name={view === 'list' ? 'table_rows' : 'list'} size={11} />
+            {view === 'list' ? 'Table' : 'List'}
+          </button>
+          <button
             onClick={() => setModel({ scope: scope === 'desk' ? 'all' : 'desk' })}
             title={scope === 'desk' ? 'Showing this desk — click for the whole workspace' : 'Showing everything — click for this desk only'}
-            className="ml-auto px-2 py-0.5 rounded-full text-[10px] text-[var(--ink-50)] hover:text-[var(--ink-80)] inline-flex items-center gap-1"
+            className="px-2 py-0.5 rounded-full text-[10px] text-[var(--ink-50)] hover:text-[var(--ink-80)] inline-flex items-center gap-1"
           >
             <Icon name={scope === 'desk' ? 'filter_alt' : 'public'} size={11} />
             {scope === 'desk' ? 'This desk' : 'Everywhere'}
           </button>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-auto px-1 pb-1">
+        {view === 'table' && tasks.length > 0 ? (
+          <TaskTable
+            tasks={tasks}
+            nodes={nodes}
+            childrenOf={childrenOf}
+            onPatch={(id, p) => void updateNode(id, p)}
+            onOpen={(id) => toggleExpanded(id)}
+          />
+        ) : null}
+
+        <div
+          className={`flex-1 min-h-0 overflow-auto px-1 pb-1 ${
+            view === 'table' && tasks.length > 0 ? 'hidden' : ''
+          }`}
+        >
           {tasks.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center gap-1 text-center px-4">
               <Icon name="task_alt" size={18} className="text-[var(--ink-40)]" />

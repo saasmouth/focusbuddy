@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import type React from 'react'
 import {
   findMentionQuery,
   insertMention,
@@ -7,6 +8,7 @@ import {
 import { mentionCandidates, type MentionCandidate } from './mentionCandidates'
 import { useNodeStore } from '../stores/nodes'
 import { useWidgetStore } from '../stores/widgets'
+import { useDocumentsStore } from '../stores/documents'
 import { usePeopleStore, personName } from './peopleDirectory'
 
 // The `@` behaviour, once, for every input that wants it.
@@ -34,6 +36,40 @@ export interface MentionAutocomplete {
   close: () => void
 }
 
+/**
+ * The handlers a plain <textarea> or <input> needs to understand `@`.
+ *
+ * Spread onto the field. Everything a caller must not forget lives here: the
+ * caret has to be read on keyup as well as change (arrows and clicks move it
+ * without changing the value), and keydown has to be able to CONSUME a key so
+ * Enter does not both pick a mention and submit the form.
+ */
+export function mentionFieldProps(
+  mentions: MentionAutocomplete,
+  onChange: (next: string) => void,
+  opts: { onKeyDown?: (e: React.KeyboardEvent) => void } = {}
+): {
+  onChange: (e: { target: { value: string; selectionStart: number | null } }) => void
+  onKeyUp: (e: { currentTarget: { value: string; selectionStart: number | null } }) => void
+  onKeyDown: (e: React.KeyboardEvent) => void
+} {
+  return {
+    onChange: (e) => {
+      onChange(e.target.value)
+      mentions.onInput(e.target.value, e.target.selectionStart ?? e.target.value.length)
+    },
+    onKeyUp: (e) =>
+      mentions.onInput(
+        e.currentTarget.value,
+        e.currentTarget.selectionStart ?? e.currentTarget.value.length
+      ),
+    onKeyDown: (e) => {
+      if (mentions.onKeyDown(e)) return
+      opts.onKeyDown?.(e)
+    }
+  }
+}
+
 export function useMentionAutocomplete(
   value: string,
   onCommit: (next: string, caret: number) => void
@@ -42,13 +78,28 @@ export function useMentionAutocomplete(
   const widgets = useWidgetStore((s) => s.widgets)
   const people = usePeopleStore((s) => s.people)
   const loadPeople = usePeopleStore((s) => s.load)
+  // Docs, sheets, slides, diagrams, designs and drawings are all documents, so
+  // one source covers every PlexiOffice kind -- including ones added later.
+  const documents = useDocumentsStore((s) => s.list)
+  const refreshDocuments = useDocumentsStore((s) => s.refresh)
+  // Tables, so "@Enquiries" reaches the data as well as the desk it sits on.
+  const [tables, setTables] = useState<Array<{ id: string; title: string }>>([])
 
   const [query, setQuery] = useState<{ start: number; end: number; query: string } | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
 
   useEffect(() => {
     void loadPeople()
-  }, [loadPeople])
+    // Documents and tables are fetched once when a picker is first used rather
+    // than kept live: a mention list a few seconds stale is fine, and polling
+    // for it would not be.
+    void refreshDocuments().catch(() => {})
+    const api = (window as { api?: Record<string, any> }).api
+    void api?.tables
+      ?.list?.()
+      .then((t: Array<{ id: string; title: string }>) => setTables(t ?? []))
+      .catch(() => setTables([]))
+  }, [loadPeople, refreshDocuments])
 
   const candidates = useMemo(
     () =>
@@ -57,6 +108,12 @@ export function useMentionAutocomplete(
             {
               nodes,
               widgets,
+              documents: [
+                ...documents.map((d) => ({ id: d.id, title: d.title, docType: d.docType })),
+                // A table is referenced the same way a document is; labelling
+                // it as one keeps the resolver's job unchanged.
+                ...tables.map((t) => ({ id: t.id, title: t.title, docType: 'table' }))
+              ],
               people: people.map((p) => ({
                 accountId: p.accountId,
                 name: personName(p),
@@ -66,7 +123,7 @@ export function useMentionAutocomplete(
             query.query
           )
         : [],
-    [query, nodes, widgets, people]
+    [query, nodes, widgets, people, documents, tables]
   )
 
   useEffect(() => setActiveIndex(0), [query?.query])

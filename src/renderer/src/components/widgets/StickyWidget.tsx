@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { parseMentionText } from '@shared/mentionText'
-import { MentionChip } from '../MentionText'
+import { useEffect, useRef, useState } from 'react'
+import { renderInlineText as renderInline } from '../../lib/renderInlineText'
 import { useMentionAutocomplete } from '../../lib/useMentionAutocomplete'
 import { useGrowToFit, GROW_MAX_HEIGHT } from '../../lib/useGrowToFit'
 import type { Widget } from '@shared/types'
@@ -27,28 +26,6 @@ interface Props {
 // Render one line's inline markdown-lite: **bold** becomes bold. Everything
 // else is plain text. Kept deliberately tiny so a sticky stays a sticky and
 // never turns into a full editor.
-function renderInline(s: string): ReactNode[] {
-  // Mentions are resolved FIRST, so a title containing ** is not mangled into
-  // bold halfway through a link.
-  const out: ReactNode[] = []
-  let key = 0
-  for (const seg of parseMentionText(s)) {
-    if (seg.type === 'mention') {
-      out.push(<MentionChip key={`m${key++}`} mention={seg.mention} />)
-      continue
-    }
-    const re = /\*\*(.+?)\*\*/g
-    let last = 0
-    let m: RegExpExecArray | null
-    while ((m = re.exec(seg.text)) !== null) {
-      if (m.index > last) out.push(seg.text.slice(last, m.index))
-      out.push(<strong key={key++}>{m[1]}</strong>)
-      last = m.index + m[0].length
-    }
-    if (last < seg.text.length) out.push(seg.text.slice(last))
-  }
-  return out.length ? out : [s]
-}
 
 const CHECK_RE = STICKY_CHECK_RE
 const BULLET_RE = STICKY_BULLET_RE

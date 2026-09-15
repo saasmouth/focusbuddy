@@ -30,7 +30,7 @@ import { readFileSync } from 'fs'
 import type Anthropic from '@anthropic-ai/sdk'
 import { getModelClient } from './modelClient'
 import { randomUUID } from 'crypto'
-import { CREATE_TASK_DEFINITION } from './vocabulary'
+import { ADD_SUBTASK_DEFINITION, CREATE_TASK_DEFINITION } from './vocabulary'
 import { normalizeIntentClass } from '@shared/workItems'
 import type { ActionProposal } from '@shared/types'
 import { resolveAnthropicKey } from '../settingsStore'
@@ -143,6 +143,9 @@ export async function invokeAgent(
     '  "reply": "<plain-text reply explaining what you propose and why, 1-4 short paragraphs>",\n' +
     '  "proposals": [\n' +
     '    /* zero or more ActionProposal items. Each MUST be one of these shapes: */\n' +
+    '    {"kind":"add-subtask","title":"…","notes":"…","reason":"…"},  /* ' +
+    ADD_SUBTASK_DEFINITION +
+    ' */\n' +
     '    {"kind":"create-task","title":"…","notes":"…","reason":"…"},  /* ' +
     CREATE_TASK_DEFINITION +
     ' */\n' +
@@ -382,6 +385,15 @@ function parseInvokeResult(raw: string): ParseOk | ParseErr {
         title: pp.title,
         notes: typeof pp.notes === 'string' ? pp.notes : undefined,
         intentClass: normalizeIntentClass(pp.intentClass),
+        reason: typeof pp.reason === 'string' ? pp.reason : undefined
+      })
+    } else if (kind === 'add-subtask' && typeof pp.title === 'string') {
+      proposals.push({
+        id,
+        kind: 'add-subtask',
+        title: pp.title,
+        notes: typeof pp.notes === 'string' ? pp.notes : undefined,
+        parentId: typeof pp.parentId === 'string' ? pp.parentId : undefined,
         reason: typeof pp.reason === 'string' ? pp.reason : undefined
       })
     } else if (kind === 'create-task' && typeof pp.title === 'string') {

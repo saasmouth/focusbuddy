@@ -93,6 +93,8 @@ export async function applyProposal(
       return applyCreatePage(proposal, ctx)
     case 'create-task':
       return applyCreateTask(proposal, ctx)
+    case 'add-subtask':
+      return applyAddSubtask(proposal, ctx)
     case 'create-work-item':
       return applyCreateWorkItem(proposal, ctx)
     case 'start-focus-session':
@@ -884,7 +886,41 @@ async function applyCreateTask(
   // Register the real id so a sibling schedule-event can bind to this task
   // symbolically in the same batch.
   ctx?.resolvedIds?.set(p.id, node.id)
-  return { ok: true, message: `Created task "${p.title}"` }
+  return { ok: true, message: `Created desk "${p.title}"` }
+}
+
+/**
+ * A task on the desk the user is already on.
+ *
+ * Refuses rather than guessing when there is no desk in view: silently making
+ * one would be the exact behaviour this verb exists to stop.
+ */
+async function applyAddSubtask(
+  p: Extract<ActionProposal, { kind: 'add-subtask' }>,
+  ctx?: { resolvedIds?: Map<string, string>; activeTaskId?: string | null }
+): Promise<ApplyResult> {
+  const parentId = p.parentId ?? ctx?.activeTaskId ?? null
+  if (!parentId) {
+    return {
+      ok: false,
+      message: 'Open a desk first — a task needs a desk to live on.'
+    }
+  }
+  const node = await useNodeStore.getState().create({
+    parentId,
+    kind: 'task',
+    title: p.title,
+    description: p.notes ?? ''
+  })
+  if (!node) return { ok: false, message: 'Could not add the task.' }
+  if (p.dueDate != null || p.assignee != null) {
+    await useNodeStore.getState().update(node.id, {
+      ...(p.dueDate != null ? { dueDate: p.dueDate } : {}),
+      ...(p.assignee != null ? { assignee: p.assignee } : {})
+    })
+  }
+  ctx?.resolvedIds?.set(p.id, node.id)
+  return { ok: true, message: `Added task "${p.title}"` }
 }
 
 async function applyStartFocusSession(
@@ -1491,6 +1527,8 @@ export function describeProposal(
       return { icon: 'description', verb: 'Add page', subject: p.title }
     case 'create-task':
       return { icon: 'task_alt', verb: 'New desk', subject: p.title }
+    case 'add-subtask':
+      return { icon: 'task_alt', verb: 'New task', subject: p.title }
     case 'create-work-item':
       return { icon: 'notifications', verb: 'To Attention', subject: p.title }
     case 'start-focus-session':

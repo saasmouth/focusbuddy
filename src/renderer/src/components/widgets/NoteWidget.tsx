@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { renderInlineText as renderInline } from '../../lib/renderInlineText'
 import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
@@ -13,20 +14,6 @@ interface Props {
 // Render one line's inline markdown-lite: **bold** becomes bold, everything
 // else is plain text. Kept tiny so a note stays a note; the heavy lifting
 // (full rich text) is what the Page widget is for.
-function renderInline(s: string): ReactNode[] {
-  const out: ReactNode[] = []
-  const re = /\*\*(.+?)\*\*/g
-  let last = 0
-  let key = 0
-  let m: RegExpExecArray | null
-  while ((m = re.exec(s)) !== null) {
-    if (m.index > last) out.push(s.slice(last, m.index))
-    out.push(<strong key={key++}>{m[1]}</strong>)
-    last = m.index + m[0].length
-  }
-  if (last < s.length) out.push(s.slice(last))
-  return out.length ? out : [s]
-}
 
 export default function NoteWidget({ widget, inline = false }: Props): JSX.Element {
   const update = useWidgetStore((s) => s.update)

@@ -35,16 +35,13 @@ export function openMention(m: TextMention): void {
 }
 
 /** Is there anywhere to go? Drives whether the chip looks clickable. */
-export function mentionIsNavigable(m: TextMention): boolean {
-  return (
-    m.kind === 'desk' ||
-    m.kind === 'room' ||
-    m.kind === 'document' ||
-    (m.kind === 'widget' && Boolean(m.taskId))
-  )
-}
-
-const ICON: Record<string, string> = {
+/**
+ * Icons by kind, exported so a picker and a chip agree.
+ *
+ * A mention that looks like one thing in the list and another in the text is
+ * the sort of small inconsistency that makes people distrust the link.
+ */
+export const MENTION_ICON: Record<string, string> = {
   desk: 'space_dashboard',
   room: 'folder',
   widget: 'widgets',
@@ -52,6 +49,15 @@ const ICON: Record<string, string> = {
   person: 'person',
   file: 'draft',
   knowledge: 'menu_book'
+}
+
+export function mentionIsNavigable(m: TextMention): boolean {
+  return (
+    m.kind === 'desk' ||
+    m.kind === 'room' ||
+    m.kind === 'document' ||
+    (m.kind === 'widget' && Boolean(m.taskId))
+  )
 }
 
 export default function MentionText({
@@ -94,7 +100,7 @@ export function MentionChip({ mention }: { mention: TextMention }): JSX.Element 
           : 'cursor-default bg-[var(--surface-sunken)] text-[var(--ink-60)]'
       }`}
     >
-      <Icon name={ICON[mention.kind] ?? 'link'} size={10} className="shrink-0 translate-y-[1px]" />
+      <Icon name={MENTION_ICON[mention.kind] ?? 'link'} size={10} className="shrink-0 translate-y-[1px]" />
       <span className="truncate">{mention.title}</span>
     </button>
   )

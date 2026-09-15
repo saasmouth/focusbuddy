@@ -44,6 +44,7 @@ import { createChatStreamConsumer } from './chatStreamConsumer'
 import { renderAttachments } from './chatAttachments'
 import { renderMentions } from './chatMentions'
 import { mentionedDeskIds, reportResolutions, resolveMentions } from './mentionResolver'
+import { extractMentions } from '@shared/mentionText'
 import { resolveModel } from './modelRouting'
 import { recordAiUsage } from '../db/telemetry'
 import { parseSheetRows, parseSheetColumns } from './sheetParse'
@@ -76,6 +77,7 @@ import type {
   ChatQuestion,
   ChatUiBlock,
   ChatRequest,
+  ChatMentionRef,
   ChatResponse,
   ChatRetrievalTrace,
   ChatSource,
@@ -1146,17 +1148,60 @@ interface PreparedChatCall {
   searched: { workspace: boolean; web: boolean }
 }
 
+
+/**
+ * Lift @-mentions out of the message text and merge them with the explicit ones.
+ *
+ * Only the LAST user message is scanned. Earlier turns already had their
+ * references resolved when they were sent, and re-including them would grow the
+ * forced context without bound as a conversation went on -- the model would be
+ * handed the same document five times because it was mentioned five turns ago.
+ *
+ * Explicit references win on a tie: the picker carried a taskId the text form
+ * may not have.
+ */
+export function mergeTextMentions(
+  explicit: ChatMentionRef[] | undefined,
+  messages: readonly { role: string; content: string }[] | undefined
+): ChatMentionRef[] | undefined {
+  const lastUser = [...(messages ?? [])].reverse().find((m) => m.role === 'user')
+  if (!lastUser?.content) return explicit
+  const fromText = extractMentions(lastUser.content)
+  if (fromText.length === 0) return explicit
+
+  const out: ChatMentionRef[] = [...(explicit ?? [])]
+  const seen = new Set(out.map((m) => `${m.kind}:${m.id}`))
+  for (const m of fromText) {
+    const key = `${m.kind}:${m.id}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ kind: m.kind, id: m.id, title: m.title, taskId: m.taskId ?? null })
+  }
+  return out
+}
+
 async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
   // @-mentions (Phase 4.2) resolve BEFORE retrieval, because what they resolve
   // to decides two things about it: which desks the narrowable pool is limited
   // to, and which retrieved sources would merely repeat material the user has
   // already put in front of the model.
-  const resolvedMentions = resolveMentions(req.mentions)
+  // Mentions arrive two ways, and both must count.
+  //
+  // The assistant's own picker sends a structured list. But an @ typed into any
+  // ORDINARY text -- a sticky, a task note, a table cell, a prompt box that
+  // knows nothing about mentions -- lives inside the string as
+  // @[Title](plexii://kind/id). Those are the same references and deserve the
+  // same context, so they are lifted out of the message text here.
+  //
+  // Doing it in one place is the point: every input that can hold text gets
+  // @-context without being taught about mentions at all.
+  const mergedMentions = mergeTextMentions(req.mentions, req.messages)
+  const resolvedMentions = resolveMentions(mergedMentions)
   const renderedMentions = renderMentions(resolvedMentions)
   const mentionReport = reportResolutions(resolvedMentions, renderedMentions.admitted)
   // Only references that GENUINELY rendered may influence retrieval. A deleted
   // desk must not silently narrow the search to nothing.
-  const admittedRefs = (req.mentions ?? []).filter((m) =>
+  const admittedRefs = (mergedMentions ?? []).filter((m) =>
     renderedMentions.admitted.has(`${m.kind}:${m.id}`)
   )
   const mentionDeskIds = mentionedDeskIds(admittedRefs)
@@ -5625,5 +5670,92 @@ export async function buildMetricBinding(
     return { ok: true, binding: parsed.binding, title: parsed.title, note: parsed.note }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
+  }
+}
+
+// ── PlexiDesign: the layout planner ──────────────────────────────────────────
+//
+// Chooses how a document should be SET, never what it should say. The model is
+// given an outline — block kinds, word counts and a 90-character preview of each
+// — and replies with arrangement decisions only: which style, how many columns,
+// and which block indexes are worth lifting a pull quote from. The renderer then
+// pulls a VERBATIM sentence out of the block the model named.
+//
+// That shape is deliberate. A planner that returned quote text could invent a
+// sentence the author never wrote; one that returns an index cannot.
+
+export interface LayoutPlanResult {
+  ok: boolean
+  plan?: {
+    styleId: string
+    columns?: number
+    pullQuoteBlocks?: number[]
+    reason?: string
+  }
+  error?: string
+  needsApiKey?: boolean
+}
+
+export async function planDesignLayout(input: {
+  outline: Array<{ i: number; kind: string; words: number; preview: string }>
+  styles: Array<{ id: string; name: string; blurb: string; columns: number }>
+  page: { width: number; height: number; label: string }
+}): Promise<LayoutPlanResult> {
+  const c = getClient()
+  if (!c) return { ok: false, needsApiKey: true, error: 'No Anthropic API key set. Open Settings → AI · API keys to paste one.' }
+  if (!input.outline.length) return { ok: false, error: 'There is no content to plan a layout for.' }
+
+  const styleList = input.styles.map((s) => `- ${s.id} (${s.name}, ${s.columns} column${s.columns === 1 ? '' : 's'}): ${s.blurb}`).join('\n')
+  const totalWords = input.outline.reduce((n, b) => n + b.words, 0)
+  const system =
+    'You are a book and magazine designer choosing how to SET a document that is already written. ' +
+    'You never write, rewrite, summarise or suggest copy. You only choose the arrangement.\n\n' +
+    `Available styles:\n${styleList}\n\n` +
+    'Reply with ONLY a JSON object of the form ' +
+    '{"styleId": string, "columns"?: number, "pullQuoteBlocks"?: number[], "reason": string}. ' +
+    'styleId must be one of the ids above. columns is optional and must be between 1 and 4; omit it to use the style default. ' +
+    'pullQuoteBlocks lists at most 3 indexes of PARAGRAPH blocks substantial enough that lifting one sentence out would improve the page — omit it or use an empty array when none would. ' +
+    'reason is one short sentence, under 20 words, explaining the choice to the author. ' +
+    'No prose outside the JSON, no code fences, no markdown.'
+
+  const outlineText = input.outline
+    .map((b) => `${b.i}. [${b.kind}, ${b.words}w] ${b.preview.replace(/\s+/g, ' ')}`)
+    .join('\n')
+
+  try {
+    const resp = await c.messages.create({
+      model: resolveModel('document'),
+      max_tokens: 600,
+      system,
+      messages: [
+        {
+          role: 'user',
+          content: `Page: ${input.page.label} (${input.page.width}x${input.page.height}px). Total ${totalWords} words.\n\nOutline:\n${outlineText}`
+        }
+      ]
+    })
+    if ((resp.stop_reason as string) === 'refusal') return { ok: false, error: 'Claude declined this request.' }
+    if ((resp.stop_reason as string) === 'model_context_window_exceeded')
+      return { ok: false, error: 'That document is too long for the planner. Lay it out with the built-in planner instead.' }
+    const text = resp.content
+      .filter((b) => b.type === 'text')
+      .map((b) => ('text' in b ? b.text : ''))
+      .join('\n')
+    const parsed = extractJsonObject(text) as Record<string, unknown>
+
+    const styleId = typeof parsed.styleId === 'string' && input.styles.some((s) => s.id === parsed.styleId) ? parsed.styleId : null
+    if (!styleId) return { ok: false, error: 'The planner did not choose a layout we recognise.' }
+    const columns = typeof parsed.columns === 'number' && parsed.columns >= 1 && parsed.columns <= 4 ? Math.round(parsed.columns) : undefined
+    // Indexes are checked against the real outline here as well as in the
+    // renderer: a hallucinated index must never reach the layout engine.
+    const valid = new Set(input.outline.filter((b) => b.kind === 'paragraph').map((b) => b.i))
+    const pullQuoteBlocks = Array.isArray(parsed.pullQuoteBlocks)
+      ? (parsed.pullQuoteBlocks as unknown[]).filter((n): n is number => typeof n === 'number' && valid.has(n)).slice(0, 3)
+      : []
+    const reason = typeof parsed.reason === 'string' && parsed.reason.trim() ? parsed.reason.trim() : undefined
+
+    return { ok: true, plan: { styleId, columns, pullQuoteBlocks, reason } }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
   }
 }

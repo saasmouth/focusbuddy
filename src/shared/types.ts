@@ -3,6 +3,7 @@
 // and DrawBody by ./draw.
 import type { DesignBody } from './design'
 import type { DrawBody } from './draw'
+import type { FlowLine } from './designFlow'
 import type { ChartCore } from './chart'
 
 export type AxisValue = 1 | 2 | 3 | 4 | 5
@@ -159,6 +160,11 @@ export type WidgetKind =
   // the user lays out themselves; doubles as a data-entry form. Layout + values
   // serialised to widget.content as JSON; can be saved as a reusable template.
   | 'custom-block'
+  // A widget the user described in plain language and the AI wrote. The code is
+  // a self-contained HTML document that runs in a sandboxed iframe with no
+  // same-origin access, so "no limitations" applies to what it can BE, not to
+  // what it can REACH. Content is JSON: see CustomWidgetContent.
+  | 'custom'
   // Desk agent — a standing AI agent placed on the canvas. Its "senses" are the
   // live wires drawn INTO it (each wired-in widget's content is an input); it
   // holds a standing instruction and a trigger (manual / interval / on a wired
@@ -1023,6 +1029,29 @@ export type ActionProposal =
       reason?: string
     }
   | {
+      /**
+       * A task ON the desk the user is already looking at.
+       *
+       * Distinct from create-task, which is a frozen wire verb meaning a DESK
+       * -- a whole canvas -- and which saved Flows persist with that meaning.
+       * Redefining it would have changed what every stored Flow does, so the
+       * "task on this desk" case needed its own verb rather than a new default.
+       *
+       * This is the one the assistant should reach for almost always: most
+       * tasks belong on the desk in front of you, and a desk nobody asked for
+       * clutters the sidebar permanently.
+       */
+      id: string
+      kind: 'add-subtask'
+      title: string
+      notes?: string
+      /** Defaults to the current desk. A task id makes it a subtask of that. */
+      parentId?: string | null
+      dueDate?: number | null
+      assignee?: string | null
+      reason?: string
+    }
+  | {
       // Reserved by the Attention layer (S0): a work_item — a routable,
       // to-do-like attention item, NOT a desk. Parsed and creation-gated
       // everywhere from day one so nothing can squat on the kind name; the
@@ -1381,6 +1410,7 @@ export type AIPurpose =
   // into one of the eight intent classes, small JSON out, fires per capture.
   | 'intent_classify'
   | 'capture_cleanup'
+  | 'custom_widget'
 
 // Result of asking AI to draft a reply to an open email in the user's voice.
 // `skip` is the expected, non-error outcome for newsletters / no-reply senders /
@@ -2387,7 +2417,9 @@ export interface SlideTextElement extends SlideElementBase {
   // a CACHE the editor rewrites whenever the story, the chain geometry or the
   // wrap obstacles change — it exists so the exporter draws exactly the lines
   // the screen showed rather than re-deriving them with a different measurer.
-  flowLines?: Array<{ x: number; y: number; w: number; text: string; lastOfPara: boolean }>
+  // Each line carries its own resolved type, because one story sets headings,
+  // body, lists and quotes and every line may differ from its neighbour.
+  flowLines?: FlowLine[]
   // True when the LAST frame of a chain still has text left over, so the editor
   // can show the classic red overset marker.
   overset?: boolean
@@ -2851,3 +2883,57 @@ export type ChatBlock =
   | { kind: 'sources'; sources: ChatSource[] }
   // A model-emitted interactive block (Plexii P4) riding the derived thread.
   | { kind: 'ui'; block: ChatUiBlock }
+
+// ── Custom (AI-built) widget ────────────────────────────────────────────────
+// The user describes what they want; the model writes a complete, self-contained
+// HTML document. It runs in an iframe sandboxed WITHOUT allow-same-origin, which
+// puts it on a unique opaque origin: it cannot read this app's storage, reach
+// window.api / IPC, touch the filesystem, or navigate the top frame. Everything
+// it needs from the host arrives over postMessage through the tiny bridge the
+// host injects (state, title, height).
+export interface CustomWidgetContent {
+  // What the user asked for, verbatim. Kept so the widget can be refined later
+  // and so retrieval can find it by intent rather than by generated markup.
+  spec: string
+  // The generated document. Self-contained: inline CSS and JS, no external
+  // fetches unless the user has explicitly allowed network for this widget.
+  code: string
+  // The widget's own persisted data, written by the sandboxed code through
+  // plexi.setState(). Opaque to the host — we only bound its size.
+  state?: Record<string, unknown>
+  // Network access for the generated code. Off by default: a widget that holds
+  // what the user typed into it should not be able to post that anywhere
+  // without the user turning it on deliberately.
+  net?: boolean
+  // Previous generations, newest first, so a refine that makes things worse is
+  // always revertible. Capped — see CUSTOM_WIDGET_HISTORY_LIMIT.
+  history?: Array<{ code: string; spec: string; at: number }>
+  // Set when this instance came from the saved library, for provenance.
+  savedId?: string
+}
+
+// How many prior generations a custom widget keeps. Enough to undo a bad refine
+// without turning widget.content into an archive that syncs on every keystroke.
+export const CUSTOM_WIDGET_HISTORY_LIMIT = 5
+
+// Hard ceiling on a generated document. Large enough for a genuinely rich
+// mini-app, small enough that a runaway generation cannot bloat the row.
+export const CUSTOM_WIDGET_MAX_CODE_BYTES = 200_000
+
+// Hard ceiling on plexi.setState() payloads, enforced host-side.
+export const CUSTOM_WIDGET_MAX_STATE_BYTES = 64_000
+
+// A saved custom widget in the user's personal library, reusable on any desk.
+export interface SavedCustomWidget {
+  id: string
+  name: string
+  spec: string
+  code: string
+  icon: string
+  net: boolean
+  width: number
+  height: number
+  createdAt: number
+  updatedAt: number
+  useCount: number
+}

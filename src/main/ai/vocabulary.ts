@@ -30,6 +30,20 @@ export const CREATE_TASK_DEFINITION =
   'creates a new DESK — a whole workspace/canvas the user opens and works in. ' +
   'NOT a to-do, checklist entry, or action-item line; for line-items use create-todo-list'
 
+/**
+ * The verb for a task on the desk the user is already on.
+ *
+ * Exists because create-task is frozen: it means a DESK on the wire and saved
+ * Flows persist that meaning, so "add a task here" could not simply become its
+ * new default without changing what every stored Flow does.
+ */
+export const ADD_SUBTASK_DEFINITION =
+  'adds a task TO THE DESK THE USER IS ALREADY ON. This is the normal way to ' +
+  'add a task — prefer it over create-task, which builds a whole new desk the ' +
+  'user must then navigate to and which clutters their sidebar permanently. ' +
+  'Use create-task ONLY when the user explicitly asks for a new desk, ' +
+  'workspace or canvas'
+
 /** Appended to the update-task catalog entry. */
 export const UPDATE_TASK_DEFINITION =
   'edits the CURRENT desk’s own fields — "task" in this verb’s name means the desk'
