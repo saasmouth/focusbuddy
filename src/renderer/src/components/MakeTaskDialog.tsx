@@ -86,6 +86,22 @@ export default function MakeTaskDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Where this task goes.
+  //
+  // A desk and a task are the same node kind here, and the difference is where
+  // it sits: a top-level one gets its own canvas and shows up in the sidebar as
+  // a desk. This dialog used to make one of those EVERY time, so "make a task
+  // from this" quietly produced a new desk on each use and the sidebar filled
+  // with them. Adding it to the desk you are on is what people mean almost
+  // always; a new desk is now something you ask for.
+  const activeDesk = useMemo(
+    () => nodes.find((n) => n.id === activeTaskId && n.kind === 'task') ?? null,
+    [nodes, activeTaskId]
+  )
+  const [placement, setPlacement] = useState<'thisDesk' | 'newDesk'>(
+    activeDesk ? 'thisDesk' : 'newDesk'
+  )
+
   async function handleSubmit(): Promise<void> {
     if (busy) return
     const title = taskTitle.trim()
@@ -96,6 +112,17 @@ export default function MakeTaskDialog({
     setBusy(true)
     setError(null)
     try {
+      // A task on the desk you are looking at: a child of it, not a new canvas.
+      if (placement === 'thisDesk' && activeDesk) {
+        const newTask = await create({
+          parentId: activeDesk.id,
+          kind: 'task',
+          title
+        } as Parameters<typeof create>[0])
+        onClose()
+        void newTask
+        return
+      }
       let parentId: string
       if (folderSel === NEW_FOLDER_VALUE) {
         const folderName = newFolderName.trim()
@@ -200,6 +227,50 @@ export default function MakeTaskDialog({
               placeholder="What is the desk for?"
             />
           </div>
+          {activeDesk && (
+            <div role="group" aria-labelledby="make-task-placement-label">
+              <label
+                id="make-task-placement-label"
+                className="block text-[10px] uppercase tracking-wider text-[var(--ink-50)] mb-1"
+              >
+                Add it
+              </label>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setPlacement('thisDesk')}
+                  data-testid="make-task-this-desk"
+                  className={`flex-1 rounded-md border px-2 py-1.5 text-left text-[11px] ${
+                    placement === 'thisDesk'
+                      ? 'border-accent bg-accent/10 text-[var(--ink-90)]'
+                      : 'border-[var(--line)] text-[var(--ink-60)] hover:bg-[var(--surface-sunken)]'
+                  }`}
+                >
+                  <span className="block font-medium">To this desk</span>
+                  <span className="block truncate text-[10px] text-[var(--ink-45)]">
+                    {activeDesk.title || 'Untitled desk'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlacement('newDesk')}
+                  data-testid="make-task-new-desk"
+                  className={`flex-1 rounded-md border px-2 py-1.5 text-left text-[11px] ${
+                    placement === 'newDesk'
+                      ? 'border-accent bg-accent/10 text-[var(--ink-90)]'
+                      : 'border-[var(--line)] text-[var(--ink-60)] hover:bg-[var(--surface-sunken)]'
+                  }`}
+                >
+                  <span className="block font-medium">As a new desk</span>
+                  <span className="block text-[10px] text-[var(--ink-45)]">
+                    Its own canvas
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {placement === 'newDesk' && (
           <div role="group" aria-labelledby="make-desk-folder-label">
             <label
               id="make-desk-folder-label"
@@ -280,7 +351,8 @@ export default function MakeTaskDialog({
               </div>
             )}
           </div>
-          {sourceWidget && (
+          )}
+          {sourceWidget && placement === 'newDesk' && (
             <div className="pt-1 border-t border-[var(--edge-soft)] space-y-1.5">
               <label className="flex items-start gap-2 cursor-pointer">
                 <input

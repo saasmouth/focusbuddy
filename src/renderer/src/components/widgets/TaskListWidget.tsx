@@ -214,12 +214,11 @@ export default function TaskListWidget({ widget }: { widget: Widget }): JSX.Elem
                       {done && <Icon name="check" size={10} />}
                     </button>
                     <button
-                      onClick={() => setActiveTask(n.id)}
-                      onDoubleClick={() => toggleExpanded(n.id)}
+                      onClick={() => toggleExpanded(n.id)}
                       className={`flex-1 min-w-0 text-left text-[12px] truncate ${
                         done ? 'text-[var(--ink-40)] line-through' : 'text-[var(--ink-90)]'
                       }`}
-                      title={n.title}
+                      title={`${n.title} — click for dates, subtasks and attachments`}
                     >
                       {n.title || 'Untitled'}
                     </button>
@@ -258,7 +257,10 @@ export default function TaskListWidget({ widget }: { widget: Widget }): JSX.Elem
                       onClick={() => toggleExpanded(n.id)}
                       aria-label={isOpen ? 'Hide details' : 'Show details'}
                       title={isOpen ? 'Hide details' : 'Show details'}
-                      className={`shrink-0 rounded text-[var(--ink-30)] transition-opacity hover:text-[var(--ink-70)] ${isOpen ? '' : 'opacity-0 group-hover:opacity-100'}`}
+                      data-testid="task-expand"
+                      className={`shrink-0 rounded transition-colors hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-80)] ${
+                        isOpen ? 'text-[var(--accent)]' : 'text-[var(--ink-40)]'
+                      }`}
                     >
                       <Icon name={isOpen ? 'expand_less' : 'expand_more'} size={13} />
                     </button>
