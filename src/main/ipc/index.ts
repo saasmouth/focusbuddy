@@ -10,7 +10,7 @@ import {
   listNodesForContact
 } from '../db/contacts'
 import type { ContactDraft, ContactPatch } from '@shared/types'
-import { buildMetricBinding } from '../ai/anthropic'
+import { buildMetricBinding, refineDashboardPlan } from '../ai/anthropic'
 import {
   listCalendars as listExternalCalendars,
   getCalendar as getExternalCalendar,
@@ -2135,7 +2135,7 @@ export function registerIpcHandlers(): void {
   // Turn a sentence into a metric binding. The schema is assembled HERE rather
   // than trusted from the renderer, so the model can only ever be shown tables
   // that exist and the answer can be checked against them.
-  ipcMain.handle('metricBinding:build', async (_e, request: string) => {
+  ipcMain.handle('metrics:buildBinding', async (_e, request: string) => {
     try {
       const tables = listTables()
       const schema = tables.map((t) => ({
@@ -2153,6 +2153,36 @@ export function registerIpcHandlers(): void {
       return { ok: false as const, error: (err as Error).message }
     }
   })
+
+  // The dashboard wizard's optional last pass. The renderer has already built a
+  // working arrangement deterministically and sends it here along with the real
+  // widget catalogue for that dashboard; the model may only reorder, resize and
+  // drop within that catalogue, and the renderer re-checks everything it says
+  // against the catalogue on the way back. With no API key the wizard simply
+  // keeps the arrangement it already had.
+  ipcMain.handle(
+    'dashboardWizard:refine',
+    async (
+      _e,
+      input: {
+        surfaceLabel?: string
+        answers?: string
+        catalogue?: Array<{ id: string; name: string; blurb: string; sizes: string[]; column: 'main' | 'rail' }>
+        current?: Array<{ widget: string; size: string }>
+      }
+    ) => {
+      try {
+        return await refineDashboardPlan({
+          surfaceLabel: String(input?.surfaceLabel ?? 'Dashboard'),
+          answers: String(input?.answers ?? ''),
+          catalogue: Array.isArray(input?.catalogue) ? input.catalogue : [],
+          current: Array.isArray(input?.current) ? input.current : []
+        })
+      } catch (err) {
+        return { ok: false as const, error: (err as Error).message }
+      }
+    }
+  )
 
   // ── Contacts ──────────────────────────────────────────────────────────────
   ipcMain.handle('contacts:list', () => listContacts())

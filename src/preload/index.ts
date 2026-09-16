@@ -1735,6 +1735,22 @@ const api = {
       needsApiKey?: boolean
     }> => ipcRenderer.invoke('metrics:buildBinding', request)
   },
+  // The dashboard configuration wizard's optional AI pass. The deterministic
+  // plan is built in the renderer and works without this; this only refines it.
+  dashboardWizard: {
+    refine: (input: {
+      surfaceLabel: string
+      answers: string
+      catalogue: Array<{ id: string; name: string; blurb: string; sizes: string[]; column: 'main' | 'rail' }>
+      current: Array<{ widget: string; size: string }>
+    }): Promise<{
+      ok: boolean
+      widgets?: Array<{ widget: string; size?: string; reason?: string }>
+      note?: string
+      error?: string
+      needsApiKey?: boolean
+    }> => ipcRenderer.invoke('dashboardWizard:refine', input)
+  },
   // The people a workspace deals with: org members are fetched from the signal
   // server, everybody else lives here. A contact can be linked to a desk, which
   // is what lets a widget show "the people on THIS work".

@@ -30,6 +30,7 @@ import { RailCard } from '../plexi'
 import Modal from '../plexi/Modal'
 import StandupHome from './StandupHome'
 import StartOrAskPlexi from './StartOrAskPlexi'
+import DashboardWizardOverlay from './DashboardWizardOverlay'
 import Icon from '../Icon'
 import {
   AttentionPulseBlock,
@@ -396,6 +397,10 @@ export default function HomeDashboard({
   const [customize, setCustomize] = useState(false)
   // The center-screen widget picker, over a blurred home page.
   const [gallery, setGallery] = useState(false)
+  // The configuration wizard: a few questions, then a dashboard built from
+  // the answers. Opens from the header and writes through commitFlat like any
+  // other arrangement change, so Reset layout still undoes it.
+  const [wizard, setWizard] = useState(false)
   // The instance just added from the picker: enters with a spring and a
   // short-lived glow so the eye lands where the widget did.
   const [justPlaced, setJustPlaced] = useState<string | null>(null)
@@ -665,6 +670,7 @@ export default function HomeDashboard({
     if (!customize) return
     const onKey = (e: KeyboardEvent): void => {
       if (e.key !== 'Escape') return
+      if (wizard) return
       if (dragInfoRef.current) cancelDragRef.current()
       else if (gallery) setGallery(false)
       else if (swapKey) setSwapKey(null)
@@ -672,7 +678,7 @@ export default function HomeDashboard({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [customize, swapKey, gallery])
+  }, [customize, swapKey, gallery, wizard])
 
   // One widget = one tile. The renderer owns the chrome; content adapts to the
   // instance's size (row caps, column counts) so every size is designed, not
@@ -1162,6 +1168,7 @@ export default function HomeDashboard({
               }}
               className="relative group/slot min-w-0"
               data-widget-key={inst.key}
+              data-widget-kind={inst.widget}
               onPointerDown={(e) => beginCardDrag(e, inst)}
             >
               {lifted ? (
@@ -1320,6 +1327,15 @@ export default function HomeDashboard({
               </button>
             )}
             <button
+              onClick={() => setWizard(true)}
+              data-testid="home-wizard-open"
+              title="Answer a few questions and let Plexii arrange this dashboard"
+              className="inline-flex items-center gap-2 h-9 px-3.5 fb-t-body font-medium fb-btn-surface fb-press text-[var(--ink-80)]"
+            >
+              <Icon name="auto_awesome" size={16} />
+              Set up with Plexii
+            </button>
+            <button
               onClick={() => {
                 if (customize) {
                   setCustomize(false)
@@ -1436,6 +1452,28 @@ export default function HomeDashboard({
             }}
             onClearSwap={() => setSwapKey(null)}
             onClose={() => setGallery(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* The configuration wizard. Its preview renders the real widgets through
+          the same renderer the board uses, so what it shows is what applying it
+          produces -- not a mockup of it. */}
+      <AnimatePresence>
+        {wizard && (
+          <DashboardWizardOverlay
+            surface={surface}
+            renderPreview={renderWidget}
+            cellW={gridMetrics()?.cellW ?? 132}
+            cellH={SUBROW_H}
+            gap={GRID.gap}
+            cols={cols * SUBDIV}
+            onApply={(instances) => {
+              commitFlat(instances)
+              setWizard(false)
+              setSwapKey(null)
+            }}
+            onClose={() => setWizard(false)}
           />
         )}
       </AnimatePresence>

@@ -5759,3 +5759,130 @@ export async function planDesignLayout(input: {
     return { ok: false, error: (e as Error).message }
   }
 }
+
+// ── Dashboard configuration wizard ───────────────────────────────────────────
+// The wizard asks a handful of questions and builds a dashboard from them. That
+// much is deterministic and happens in the renderer (components/views/
+// dashboardWizard.ts) so the wizard finishes with no API key and no network.
+//
+// This is the optional last pass: the model sees the same answers and the plan
+// that was already built, and may REORDER, RESIZE and DROP. It may not invent.
+// Everything it returns is checked against the real widget catalogue on the way
+// back in (refineWithPlan), so the worst a bad answer here can do is leave the
+// deterministic plan exactly as it was.
+
+export interface DashboardWidgetOption {
+  id: string
+  name: string
+  blurb: string
+  sizes: string[]
+  column: 'main' | 'rail'
+}
+
+export interface DashboardPlanResult {
+  ok: boolean
+  widgets?: Array<{ widget: string; size?: string; reason?: string }>
+  /** One sentence the wizard says out loud before showing the preview. */
+  note?: string
+  error?: string
+  needsApiKey?: boolean
+}
+
+export function buildDashboardPlanPrompt(input: {
+  surfaceLabel: string
+  answers: string
+  catalogue: DashboardWidgetOption[]
+  current: Array<{ widget: string; size: string }>
+}): string {
+  const list = input.catalogue
+    .map(
+      (w) =>
+        `- ${w.id} — ${w.name} (${w.column} column; sizes: ${w.sizes.join(', ')}): ${w.blurb}`
+    )
+    .join('\n')
+  const current = input.current.map((w) => `${w.widget} @ ${w.size}`).join(', ') || '(nothing yet)'
+  return (
+    `Dashboard: ${input.surfaceLabel}\n\n` +
+    `Widgets available on this dashboard:\n${list}\n\n` +
+    `What the person told us:\n${input.answers}\n\n` +
+    `The arrangement we already built for them: ${current}\n\n` +
+    'Improve it, or return it unchanged if it is already right.'
+  )
+}
+
+const DASHBOARD_SYSTEM =
+  'You arrange a personal dashboard. You are given the widgets that exist on it, what the person ' +
+  'said about their work, and an arrangement already built from those answers.\n\n' +
+  'ABSOLUTE CONSTRAINTS:\n' +
+  '1. Use ONLY widget ids from the list you are given. Never invent an id, and never use one that ' +
+  'is not on this particular dashboard. An id that is not on the list is discarded.\n' +
+  '2. Use ONLY a size the widget lists. Anything else is discarded.\n' +
+  '3. At most 3 main-column widgets and at most 5 rail widgets. Fewer is usually better: a ' +
+  'dashboard is something you read at a glance, not a list you scroll.\n' +
+  '4. The first main-column widget is the headline. Choose the one that answers "what do I do ' +
+  'now" for THIS person, and give it the largest size it supports.\n' +
+  '5. Do not add a widget merely because it exists. Every widget must be traceable to something ' +
+  'they actually said.\n' +
+  '6. Never claim a widget shows data you have not been told it shows. Reasons describe the ' +
+  'widget\'s purpose, never invented numbers, counts or names.\n\n' +
+  'SHAPE — return a single JSON object, first character {, last character }:\n' +
+  '{"widgets": [{"widget": "id", "size": "icon|sm|md|lg|stack", "reason": "one short sentence, ' +
+  'second person, saying why it is here"}], "note": "one warm sentence summarising the dashboard"}\n\n' +
+  'Order matters: main-column widgets first in the order they should appear, then rail widgets.'
+
+/** Ask the model to improve a plan. Never returns widgets it was not offered. */
+export async function refineDashboardPlan(input: {
+  surfaceLabel: string
+  answers: string
+  catalogue: DashboardWidgetOption[]
+  current: Array<{ widget: string; size: string }>
+}): Promise<DashboardPlanResult> {
+  const c = getClient()
+  if (!c)
+    return {
+      ok: false,
+      needsApiKey: true,
+      error: 'No Anthropic API key set. Open Settings → AI · API keys to paste one.'
+    }
+  if (input.catalogue.length === 0) {
+    return { ok: false, error: 'There are no widgets available on this dashboard.' }
+  }
+  try {
+    const resp = await c.messages.create({
+      model: resolveModel('email_reply_draft'),
+      max_tokens: 1200,
+      system: DASHBOARD_SYSTEM,
+      messages: [{ role: 'user', content: buildDashboardPlanPrompt(input) }]
+    })
+    const text = resp.content
+      .filter((b) => b.type === 'text')
+      .map((b) => ('text' in b ? b.text : ''))
+      .join('')
+      .trim()
+    const json = extractJson(text)
+    if (!json) return { ok: false, error: 'Could not read the model’s answer.' }
+    const parsed = json as { widgets?: unknown; note?: string }
+    if (!Array.isArray(parsed.widgets) || parsed.widgets.length === 0) {
+      return { ok: false, error: 'The model did not return an arrangement.' }
+    }
+    // Shape-check only. Whether each id is real, offered on THIS dashboard, and
+    // allowed at that size is decided by refineWithPlan against the live
+    // catalogue -- the check that matters, done where the catalogue lives.
+    const widgets = parsed.widgets
+      .filter((w): w is Record<string, unknown> => !!w && typeof w === 'object')
+      .map((w) => ({
+        widget: String(w.widget ?? ''),
+        size: typeof w.size === 'string' ? w.size : undefined,
+        reason: typeof w.reason === 'string' ? w.reason : undefined
+      }))
+      .filter((w) => w.widget !== '')
+    if (widgets.length === 0) return { ok: false, error: 'The model did not name any widgets.' }
+    return {
+      ok: true,
+      widgets,
+      note: typeof parsed.note === 'string' ? parsed.note.trim() || undefined : undefined
+    }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
