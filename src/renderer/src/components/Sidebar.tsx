@@ -832,6 +832,8 @@ interface CollapsedNavIconProps {
 }
 
 function CollapsedNavIcon({ icon, label, tone, active, onClick }: CollapsedNavIconProps): JSX.Element {
+  // `tone` is accepted and deliberately unused here -- see NavRow.
+  void tone
   return (
     <button
       onClick={onClick}
@@ -839,7 +841,7 @@ function CollapsedNavIcon({ icon, label, tone, active, onClick }: CollapsedNavIc
       className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 fb-press ${
         active
           ? 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))]'
-          : `${tone ?? 'text-[var(--ink-50)]'} hover:bg-[var(--surface-sunken)]`
+          : 'text-[var(--ink-50)] hover:bg-[var(--surface-sunken)]'
       }`}
     >
       <Icon name={icon} size={16} />
@@ -859,9 +861,20 @@ interface NavRowProps {
 }
 
 function NavRow({ icon, label, tone, active, onClick, badge, testid }: NavRowProps): JSX.Element {
-  // Brand treatment: line icons coloured in the stroke itself — one hue per
-  // destination, no tile behind them. The active row still reads through the
-  // soft accent pill and label weight.
+  // ONE weight, ONE colour, and the accent reserved for where you actually are.
+  //
+  // Every row used to carry its own hue from AREA_TONES -- home indigo,
+  // calendar amber, files orange, vault rose, twelve in all. Colour that
+  // differs per row without meaning anything is noise: you never compare two
+  // nav rows, so the hue answers no question, and it left the sidebar running
+  // several visual systems at once. The active pill is the only colour that
+  // tells you something, so it is the only colour kept.
+  //
+  // `tone` stays in the props and is deliberately ignored: AREA_TONES is still
+  // the right thing on surfaces where colour DOES distinguish (the Plexii
+  // trace tells a document from a desk by hue), so the map is untouched and
+  // only this one surface stops using it.
+  void tone
   return (
     <button
       onClick={onClick}
@@ -872,7 +885,11 @@ function NavRow({ icon, label, tone, active, onClick, badge, testid }: NavRowPro
           : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
       }`}
     >
-      <span className={`inline-flex items-center justify-center w-6 h-6 shrink-0 ${tone}`}>
+      <span
+        className={`inline-flex items-center justify-center w-6 h-6 shrink-0 ${
+          active ? '' : 'text-[var(--ink-50)]'
+        }`}
+      >
         <Icon name={icon} size={17} />
       </span>
       <span className="flex-1 min-w-0 break-words leading-tight">{label}</span>

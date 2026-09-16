@@ -277,6 +277,24 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
     return () => window.removeEventListener('mouseup', up)
   }, [])
 
+  // The frame's rename now writes through to the table.
+  //
+  // Removing the inner title row removed the only way to rename a table: the
+  // existing sync runs table -> widget, never the other way. Without this, the
+  // header would accept a new name and the table would quietly keep the old
+  // one -- an edit that appears to work and does not.
+  useEffect(() => {
+    if (!table) return
+    const next = (widget.title ?? '').trim()
+    if (!next || next === table.title) return
+    // The header label carries the row count; strip it before comparing so a
+    // row being added never looks like a rename.
+    const bare = next.replace(/\s·\s\d+\s(row|rows)$/, '')
+    if (!bare || bare === table.title) return
+    renameTable(bare)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [widget.title, table?.title])
+
   if (!table) {
     const body = (
       <div className="h-full w-full flex items-center justify-center text-[11px] text-[var(--ink-50)]">
@@ -635,7 +653,6 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
 
   const viewMode: TableViewMode = table.schema.viewMode ?? 'table'
   const viewConfig: TableViewConfig = table.schema.viewConfig ?? {}
-  const currentViewMeta = VIEW_OPTIONS.find((v) => v.id === viewMode) ?? VIEW_OPTIONS[0]
 
   // Total table width = row-handle + every data column at its effective width
   // + the add-column gutter. Drives the fixed-layout table so resized columns
@@ -932,40 +949,12 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
           </button>
         </div>
       )}
-      {/* Title row */}
-      <div className="sticky top-0 z-10 px-3 py-2 bg-[color-mix(in_oklab,var(--surface-raised)_95%,transparent)] border-b border-[var(--edge-soft)] flex items-center gap-1.5">
-        <Icon name={currentViewMeta.icon} size={15} className="text-accent shrink-0" />
-        <input
-          value={table.title}
-          onChange={(e) => renameTable(e.target.value)}
-          placeholder="Untitled table"
-          className="flex-1 bg-transparent text-[14px] font-semibold text-[var(--ink-90)] placeholder-[var(--ink-30)]"
-        />
-        <span className="text-[11px] text-[var(--ink-40)] font-medium tabular-nums">
-          {rows.length} {rows.length === 1 ? 'row' : 'rows'}
-        </span>
-        <button
-          onClick={() => void handleImport()}
-          data-testid="table-import-button"
-          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-[var(--ink-50)] hover:text-accent hover:bg-accent/10 transition-colors"
-          title="Import CSV, JSON, XLS, or XLSX — map columns and upsert by a key"
-        >
-          <Icon name="upload_file" size={12} />
-          <span>Import</span>
-        </button>
-        <button
-          onClick={() => setAiOpen((v) => !v)}
-          className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${
-            aiOpen
-              ? 'bg-accent text-white'
-              : 'text-accent hover:bg-accent/10'
-          }`}
-          title="AI assistant — describe rows to generate, preview, then apply"
-        >
-          <Icon name="auto_awesome" size={12} />
-          <span>AI</span>
-        </button>
-      </div>
+      {/* The inner title row is GONE.
+          It repeated the widget's own titlebar exactly -- same title, one row
+          below it -- so a table carried two title bars and about 64px of
+          chrome before any data. The title and the row count now live in the
+          frame's header, and Import / AI in the frame's menu, where every
+          other widget keeps its actions. */}
       {importError && (
         <div className="px-2.5 py-1 text-[11px] text-rose-500 bg-rose-500/10 border-b border-rose-500/10" data-testid="import-error">
           {importError}
@@ -1459,8 +1448,22 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
   return (
     <WidgetFrame
       widget={widget}
-      headerLabel={table.title}
+      // The count rides in the one title bar rather than earning a second.
+      headerLabel={`${table.title || 'Untitled table'} · ${rows.length} ${rows.length === 1 ? 'row' : 'rows'}`}
       headerAccent="bg-[var(--edge-firm)]"
+      headerMenuExtras={[
+        {
+          label: 'Import CSV, JSON or Excel…',
+          icon: 'upload_file',
+          onClick: () => void handleImport()
+        },
+        {
+          label: aiOpen ? 'Hide the AI assistant' : 'Generate rows with AI…',
+          icon: 'auto_awesome',
+          onClick: () => setAiOpen((v) => !v)
+        },
+        { separator: true }
+      ]}
     >
       {body}
     </WidgetFrame>
