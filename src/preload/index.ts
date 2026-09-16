@@ -73,7 +73,8 @@ import type {
   WidgetLink,
   WidgetPatch,
   WireType,
-  WireRun
+  WireRun,
+  SavedCustomWidget
 } from '@shared/types'
 import type {
   FbFile,
@@ -1000,6 +1001,21 @@ const api = {
   // read-only mirror; nothing here can return or accept a credential.
   externalCalendars: {
     list: (): Promise<ExternalCalendar[]> => ipcRenderer.invoke('extcal:list'),
+    // Plexii's own calendars live in the same list under provider 'internal'.
+    addInternal: (name: string, color: string | null): Promise<ExternalCalendar> =>
+      ipcRenderer.invoke('extcal:addInternal', name, color),
+    setDefaultInternal: (id: string): Promise<ExternalCalendar[]> =>
+      ipcRenderer.invoke('extcal:setDefaultInternal', id),
+    // Write this internal calendar's blocks out to the calendar it targets.
+    pushNow: (id: string): Promise<{ ok: boolean; created: number; updated: number; error?: string }> =>
+      ipcRenderer.invoke('extcal:pushNow', id),
+    // Fires after any calendar finishes syncing, so open views refetch instead
+    // of showing the copy they read when they opened.
+    onEventsChanged: (cb: () => void): (() => void) => {
+      const listener = (): void => cb()
+      ipcRenderer.on('extcal:eventsChanged', listener)
+      return () => ipcRenderer.removeListener('extcal:eventsChanged', listener)
+    },
     listEvents: (fromMs: number, toMs: number): Promise<ExternalEvent[]> =>
       ipcRenderer.invoke('extcal:listEvents', fromMs, toMs),
     add: (
@@ -1472,6 +1488,13 @@ const api = {
       ipcRenderer.on('browserAgent:event', handler)
       return () => ipcRenderer.removeListener('browserAgent:event', handler)
     },
+    // Route a finished run's findings to whatever the task was actually for.
+    deliver: (input: {
+      task: string
+      findings: unknown
+      taskId: string | null
+    }): Promise<{ ok: boolean; reply: string; proposals: unknown[]; error?: string }> =>
+      ipcRenderer.invoke('browserAgent:deliver', input),
     listConsent: (): Promise<Array<{ host: string; grantedAt: string }>> =>
       ipcRenderer.invoke('browserConsent:list'),
     revokeConsent: (host: string): Promise<void> => ipcRenderer.invoke('browserConsent:revoke', host)
@@ -2727,6 +2750,18 @@ const api = {
       error?: string
       needsApiKey?: boolean
     }> => ipcRenderer.invoke('design:generateVariations', input),
+    // Layout planning: arrangement decisions only — the model is handed an
+    // outline, never the copy, and can only name real block indexes.
+    planLayout: (input: {
+      outline: Array<{ i: number; kind: string; words: number; preview: string }>
+      styles: Array<{ id: string; name: string; blurb: string; columns: number }>
+      page: { width: number; height: number; label: string }
+    }): Promise<{
+      ok: boolean
+      plan?: { styleId: string; columns?: number; pullQuoteBlocks?: number[]; reason?: string }
+      error?: string
+      needsApiKey?: boolean
+    }> => ipcRenderer.invoke('design:planLayout', input),
     export: (input: {
       design: import('@shared/design').DesignBody
       title: string
@@ -2746,6 +2781,41 @@ const api = {
       ipcRenderer.invoke('design:fetchImage', input),
     removeBackground: (input: { dataUrl: string }): Promise<{ ok: boolean; dataUrl?: string; error?: string; needsKey?: boolean }> =>
       ipcRenderer.invoke('design:removeBackground', input)
+  },
+  // Custom widgets: describe a tool, the model writes it, and it runs sandboxed
+  // on the desk. `save`/`list`/`delete` are the user's personal library, stored
+  // in the database so it survives a cleared web store and rides the backup.
+  customWidget: {
+    generate: (input: {
+      spec: string
+      currentCode?: string
+      net?: boolean
+      width?: number
+      height?: number
+    }): Promise<
+      { ok: true; code: string; model: string } | { ok: false; error: string; needsKey?: boolean }
+    > => ipcRenderer.invoke('customWidget:generate', input),
+    suggestName: (input: { spec: string }): Promise<{ name: string; icon: string }> =>
+      ipcRenderer.invoke('customWidget:name', input),
+    list: (): Promise<SavedCustomWidget[]> => ipcRenderer.invoke('customWidget:list'),
+    get: (id: string): Promise<SavedCustomWidget | null> =>
+      ipcRenderer.invoke('customWidget:get', id),
+    save: (input: {
+      id?: string
+      name: string
+      spec: string
+      code: string
+      icon?: string
+      net?: boolean
+      width?: number
+      height?: number
+    }): Promise<{ ok: true; widget: SavedCustomWidget } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('customWidget:save', input),
+    delete: (id: string): Promise<{ ok: boolean }> => ipcRenderer.invoke('customWidget:delete', id),
+    rename: (id: string, name: string): Promise<{ ok: boolean }> =>
+      ipcRenderer.invoke('customWidget:rename', id, name),
+    markUsed: (id: string): Promise<{ ok: boolean }> =>
+      ipcRenderer.invoke('customWidget:markUsed', id)
   },
   // PlexiDraw (the vector + painting studio) — export one artwork out to
   // .png / .svg / .pdf.
@@ -2859,6 +2929,18 @@ const api = {
     }
   },
   app: {
+    // Menu-bar events the renderer has to answer. Help / What's New / Terms
+    // moved into the macOS menu, so the window is told when one is chosen.
+    onMenuEvent: (cb: (event: string) => void): (() => void) => {
+      const whatsNew = (): void => cb('show-whats-new')
+      const terms = (): void => cb('show-terms')
+      ipcRenderer.on('app:show-whats-new', whatsNew)
+      ipcRenderer.on('app:show-terms', terms)
+      return () => {
+        ipcRenderer.removeListener('app:show-whats-new', whatsNew)
+        ipcRenderer.removeListener('app:show-terms', terms)
+      }
+    },
     // Keep the native window background in step with the theme.
     setBackgroundColor: (hex: string): Promise<boolean> =>
       ipcRenderer.invoke('app:setBackgroundColor', hex),

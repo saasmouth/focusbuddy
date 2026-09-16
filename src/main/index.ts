@@ -4,6 +4,7 @@ import { existsSync } from 'fs'
 import { pathToFileURL } from 'url'
 import { config as loadEnv } from 'dotenv'
 import { closeDb, getDb } from './db/database'
+import { composeCustomWidgetDocument, cspFor } from '@shared/customWidgetSandbox'
 import { markUiVisible } from './db/account'
 import { runRetentionSweep } from './db/retention'
 import { autoBackupOnLaunch } from './db/backup'
@@ -137,6 +138,31 @@ protocol.registerSchemesAsPrivileged([
       secure: true,
       supportFetchAPI: true,
       stream: true,
+      bypassCSP: true
+    }
+  },
+  // `fb-widget://<widget-id>/` serves one AI-built Custom widget's document.
+  //
+  // This exists because of a measured failure, not a preference. The obvious
+  // implementation -- an <iframe srcdoc> holding the generated document -- does
+  // not work: `about:srcdoc` is a local scheme, so it INHERITS the embedding
+  // page's CSP, and this app's renderer runs under `script-src 'self'`. The
+  // widget's markup rendered and every line of its JavaScript was refused. A
+  // custom scheme gives the document a real origin of its own, so the only
+  // policy that applies is the one served with it.
+  //
+  // `standard` is what makes it a real origin; `bypassCSP` lets the renderer's
+  // own `default-src 'self'` frame it. The document is still loaded into an
+  // iframe sandboxed WITHOUT allow-same-origin, so it stays on an opaque origin
+  // with no reach into this app's storage, DOM or preload bridge -- the scheme
+  // changes where the document comes from, never what it is allowed to touch.
+  {
+    scheme: 'fb-widget',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: false,
+      stream: false,
       bypassCSP: true
     }
   }
@@ -281,6 +307,32 @@ function buildAppMenu(): Electron.Menu {
         {
           label: 'Check for Updates...',
           click: () => checkForUpdates()
+        },
+        { type: 'separator' },
+        // These three used to sit in a permanent footer on every screen,
+        // carrying nothing anybody needs while working. On macOS reference
+        // material lives in the menu bar, so that is where they are now.
+        {
+          label: 'Help & Support',
+          click: () => {
+            void shell.openExternal('https://plexii.app/help')
+          }
+        },
+        {
+          label: "What's New",
+          click: () => {
+            for (const win of BrowserWindow.getAllWindows()) {
+              if (!win.isDestroyed()) win.webContents.send('app:show-whats-new')
+            }
+          }
+        },
+        {
+          label: 'Terms of Use',
+          click: () => {
+            for (const win of BrowserWindow.getAllWindows()) {
+              if (!win.isDestroyed()) win.webContents.send('app:show-terms')
+            }
+          }
         }
       ]
     }
@@ -765,6 +817,69 @@ app.whenReady().then(() => {
       })
     } catch (err) {
       return new Response(`fb-file error: ${String(err)}`, { status: 500 })
+    }
+  })
+
+  // Wire `fb-widget://<widget-id>/` → that Custom widget's composed document.
+  //
+  // Main owns this rather than the renderer handing over a blob because main
+  // already owns the database: the document is always built from the row as it
+  // stands, so a reload can never resurrect a stale generation, and the widget's
+  // saved state is inlined at compose time with no round-trip.
+  //
+  // The CSP is served as a real header here AND embedded as a meta element by
+  // the composer. Either alone would do; both means the policy survives a
+  // transport that drops headers, and when two policies are present the browser
+  // enforces their intersection -- so the redundancy can only ever tighten.
+  protocol.handle('fb-widget', async (request) => {
+    const deny = (status: number, msg: string): Response =>
+      new Response(msg, { status, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+    try {
+      const url = new URL(request.url)
+      const id = url.hostname
+      if (!id) return deny(400, 'No widget id.')
+      const row = getDb()
+        .prepare('SELECT kind, content FROM widgets WHERE id = ?')
+        .get(id) as { kind?: string; content?: string } | undefined
+      if (!row) return deny(404, 'That widget no longer exists.')
+      // Only ever serve a Custom widget through this scheme. Without this check
+      // the protocol would happily render any widget's content as a live
+      // document, which is exactly the sort of confused-deputy step that turns a
+      // note into an execution surface.
+      if (row.kind !== 'custom') return deny(403, 'Not a custom widget.')
+
+      let parsed: { code?: unknown; state?: unknown; net?: unknown } = {}
+      try {
+        parsed = JSON.parse(row.content || '{}')
+      } catch {
+        return deny(422, 'This widget could not be read.')
+      }
+      const code = typeof parsed.code === 'string' ? parsed.code : ''
+      if (!code.trim()) return deny(404, 'This widget has not been built yet.')
+      const net = parsed.net === true
+      const state =
+        parsed.state && typeof parsed.state === 'object' && !Array.isArray(parsed.state)
+          ? (parsed.state as Record<string, unknown>)
+          : {}
+
+      const html = composeCustomWidgetDocument({
+        code,
+        state,
+        net,
+        dark: url.searchParams.get('dark') === '1'
+      })
+      return new Response(html, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Content-Security-Policy': cspFor(net),
+          // The renderer busts this with a version parameter when the generated
+          // code changes; nothing else should ever be served from cache.
+          'Cache-Control': 'no-store'
+        }
+      })
+    } catch (err) {
+      return deny(500, `Could not build this widget: ${String(err)}`)
     }
   })
 

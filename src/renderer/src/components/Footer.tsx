@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useSyncStatus } from '../stores/syncStatus'
 import { CHANGELOG, hasUnseenChanges } from '../lib/changelog'
 import Icon from './Icon'
 import Tooltip from './Tooltip'
@@ -8,56 +7,6 @@ import WhatsNewPanel from './WhatsNewPanel'
 import TermsModal from './TermsModal'
 import UpdaterBanner from './UpdaterBanner'
 import TrialBadge from './TrialBadge'
-
-// Compact, always-visible sync status. The full SyncIndicator lives in the
-// desk-view sidebar, but the primary IA is the segment shells which replace
-// that sidebar, so the honest sync state also rides in the global footer where
-// it is visible everywhere. "Saved locally" when signed out (work is on disk);
-// a real error is shown so a persistent sync failure is never invisible.
-function FooterSyncChip(): JSX.Element {
-  const state = useSyncStatus((s) => s.state)
-  const lastError = useSyncStatus((s) => s.lastError)
-  const dot =
-    state === 'error'
-      ? 'bg-rose-500'
-      : state === 'offline'
-        ? 'bg-amber-500'
-        : state === 'syncing'
-          ? 'bg-sky-500'
-          : 'bg-emerald-500'
-  const label =
-    state === 'error'
-      ? 'Sync error'
-      : state === 'offline'
-        ? 'Offline'
-        : state === 'syncing'
-          ? 'Syncing'
-          : state === 'disabled'
-            ? 'Saved locally'
-            : 'Synced'
-  const title =
-    state === 'error'
-      ? `Sync is failing: ${lastError ?? 'the server rejected a request'}. Your work is saved locally and will re-sync when the connection recovers.`
-      : state === 'offline'
-        ? 'Cannot reach the sync server. Your work is saved locally and will sync when the connection returns.'
-        : state === 'disabled'
-          ? 'Your work is saved to this device.'
-          : 'Your workspace is synced.'
-  return (
-    <>
-      <span className="text-[var(--ink-30)]">·</span>
-      <span
-        className="inline-flex items-center gap-1"
-        title={title}
-        data-testid="footer-sync-chip"
-        data-sync-state={state}
-      >
-        <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
-        <span className="text-[var(--ink-50)]">{label}</span>
-      </span>
-    </>
-  )
-}
 
 export default function Footer(): JSX.Element {
   const [showWhatsNew, setShowWhatsNew] = useState(false)
@@ -68,7 +17,6 @@ export default function Footer(): JSX.Element {
     if (!showWhatsNew) setUnseen(hasUnseenChanges())
   }, [showWhatsNew])
 
-  const year = new Date().getFullYear()
   const newestEntry = CHANGELOG[0]
   const buildDate = newestEntry
     ? new Date(newestEntry.date).toISOString().slice(0, 10)
@@ -82,8 +30,14 @@ export default function Footer(): JSX.Element {
     <>
       <footer className="h-7 px-3 flex items-center justify-between text-[11px] text-[var(--ink-50)] border-t border-[var(--edge-soft)] bg-[var(--surface-sunken)] select-none">
         <div className="flex items-center gap-2 truncate">
-          <span>© {year} PlexiDesk</span>
-          <span className="text-[var(--ink-30)]">·</span>
+          {/* The copyright line is gone (teardown #7).
+              The titlebar says "plexii", the upgrade card says "PlexiDesk
+              Pro", and this said "© PlexiDesk" -- three names for one product
+              on one screen. A copyright notice is not something anybody needs
+              while working, and it was the only part of this footer carrying a
+              second product name. The version stays: it is what you read out
+              when something goes wrong, and it is the anchor for the update
+              check. */}
           <Tooltip
             placement="top"
             content={`PlexiDesk ${appVersion}${buildDate ? ` · build ${buildDate}` : ''} — click to check for updates`}
@@ -97,9 +51,10 @@ export default function Footer(): JSX.Element {
               {buildDate && ` · ${buildDate}`}
             </button>
           </Tooltip>
+          {/* Updates and the trial badge are the reason this bar exists: both
+              self-hide, and when they appear they are genuinely interrupting. */}
           <UpdaterBanner />
           <TrialBadge />
-          <FooterSyncChip />
         </div>
         <div className="flex items-center gap-1">
           <button
