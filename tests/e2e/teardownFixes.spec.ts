@@ -98,3 +98,58 @@ test('sidebar nav icons are one colour, with the accent only on the active row',
   // The defect was twelve hues carrying no meaning. None should remain.
   expect(tones.hues).toEqual([])
 })
+
+test('widget controls are hidden at rest, revealed on hover, and still clickable', async () => {
+  // The exact thing a previous attempt broke: an earlier hover-reveal used
+  // pointer-events: none and made every widget control refuse the click that
+  // followed the reveal.
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+
+  const deskId = await window.evaluate(async () => {
+    const api = (window as unknown as { api: Record<string, any> }).api
+    const desk = await api.nodes.create({ parentId: null, kind: 'task', title: 'Chrome desk' })
+    await api.widgets.create({
+      taskId: desk.id, kind: 'sticky' as never, title: '',
+      content: 'a note', x: 160, y: 160, width: 260, height: 200
+    })
+    return desk.id
+  })
+  await window.reload()
+  await waitForReady(window)
+  await window.evaluate((id) => {
+    const w = window as unknown as { __fbView?: { getState: () => { goTask: (i: string) => void } } }
+    w.__fbView?.getState().goTask(id)
+  }, deskId)
+
+  const widget = window.locator('[data-widget-id]').first()
+  await expect(widget).toBeVisible({ timeout: 10_000 })
+  const actions = widget.locator('.fb-widget-actions').first()
+
+  // At rest: present in the DOM but not lit.
+  const restOpacity = await actions.evaluate((el) => getComputedStyle(el).opacity)
+  expect(restOpacity).toBe('0')
+
+  // Hover reveals them.
+  await widget.hover()
+  await window.waitForTimeout(250)
+  const hoverOpacity = await actions.evaluate((el) => getComputedStyle(el).opacity)
+  expect(hoverOpacity).toBe('1')
+
+  // And hit-testing was never removed — this is what broke last time.
+  const pe = await actions.evaluate((el) => getComputedStyle(el).pointerEvents)
+  expect(pe).not.toBe('none')
+
+  // Prove it by actually pressing one. Whatever the first control is, it must
+  // receive the click — that is the property that was lost last time.
+  const titles = await actions.evaluate((el) =>
+    [...el.querySelectorAll('button')].map((b) => b.getAttribute('title') || b.getAttribute('aria-label') || '')
+  )
+  expect(titles.length).toBeGreaterThan(0)
+  const first = actions.locator('button').first()
+  await expect(first).toBeEnabled()
+  // A click that lands is the whole point; it must not throw on an
+  // intercepted / non-hit-testable element.
+  await first.click({ timeout: 3000 })
+})
