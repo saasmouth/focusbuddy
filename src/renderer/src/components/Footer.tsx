@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSyncStatus } from '../stores/syncStatus'
 import { CHANGELOG, hasUnseenChanges } from '../lib/changelog'
 import Icon from './Icon'
 import Tooltip from './Tooltip'
@@ -7,6 +8,62 @@ import WhatsNewPanel from './WhatsNewPanel'
 import TermsModal from './TermsModal'
 import UpdaterBanner from './UpdaterBanner'
 import TrialBadge from './TrialBadge'
+
+// Compact, always-visible sync status.
+//
+// This stayed when the copyright line went (teardown #7). Two reasons, and the
+// second is the one that matters: the e2e harness uses this chip as its "the
+// shell is up" signal for every test in the suite, because it is the one piece
+// of chrome present in every view. Removing it to de-duplicate "Saved locally"
+// broke roughly twelve hundred tests at waitForReady, which is a far worse
+// outcome than the same three words appearing twice.
+//
+// The sidebar's SyncIndicator says the same thing with a sparkline for
+// context; this is the global fallback.
+function FooterSyncChip(): JSX.Element {
+  const state = useSyncStatus((s) => s.state)
+  const lastError = useSyncStatus((s) => s.lastError)
+  const dot =
+    state === 'error'
+      ? 'bg-rose-500'
+      : state === 'offline'
+        ? 'bg-amber-500'
+        : state === 'syncing'
+          ? 'bg-sky-500'
+          : 'bg-emerald-500'
+  const label =
+    state === 'error'
+      ? 'Sync error'
+      : state === 'offline'
+        ? 'Offline'
+        : state === 'syncing'
+          ? 'Syncing'
+          : state === 'disabled'
+            ? 'Saved locally'
+            : 'Synced'
+  const title =
+    state === 'error'
+      ? `Sync is failing: ${lastError ?? 'the server rejected a request'}. Your work is saved locally and will re-sync when the connection recovers.`
+      : state === 'offline'
+        ? 'Cannot reach the sync server. Your work is saved locally and will sync when the connection returns.'
+        : state === 'disabled'
+          ? 'Your work is saved to this device.'
+          : 'Your workspace is synced.'
+  return (
+    <>
+      <span className="text-[var(--ink-30)]">·</span>
+      <span
+        className="inline-flex items-center gap-1"
+        title={title}
+        data-testid="footer-sync-chip"
+        data-sync-state={state}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+        <span className="text-[var(--ink-50)]">{label}</span>
+      </span>
+    </>
+  )
+}
 
 export default function Footer(): JSX.Element {
   const [showWhatsNew, setShowWhatsNew] = useState(false)
@@ -55,6 +112,7 @@ export default function Footer(): JSX.Element {
               self-hide, and when they appear they are genuinely interrupting. */}
           <UpdaterBanner />
           <TrialBadge />
+          <FooterSyncChip />
         </div>
         <div className="flex items-center gap-1">
           <button
