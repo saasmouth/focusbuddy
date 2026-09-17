@@ -357,6 +357,18 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
     [build, data.code, data.net, data.wizard, widget.height, widget.width, wizard]
   )
 
+  // A fresh generation from the original description, discarding code that was
+  // never finished. Deliberately NOT a refine: there is nothing in a document
+  // that stops mid-attribute worth building on.
+  const onRebuild = useCallback(() => {
+    const original = (data.spec || '').split('\n\nThen: ')[0].trim()
+    if (!original) {
+      setWizard('build')
+      return
+    }
+    void build(original, false, data.wizard)
+  }, [build, data.spec, data.wizard])
+
   const onRefine = useCallback(async () => {
     const v = await promptText({
       title: 'Change this widget',
@@ -548,8 +560,28 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
       </div>
     )
   } else if (data.code) {
+    const looksUnfinished =
+      !/<style/i.test(data.code) && !/<script/i.test(data.code) && /<[a-z]/i.test(data.code)
     body = (
       <div className="relative h-full w-full">
+        {looksUnfinished && (
+          <div
+            data-testid="custom-widget-unfinished"
+            className="absolute inset-x-0 top-0 z-10 flex items-start gap-2 border-b border-amber-300/60 bg-amber-50/95 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/90 dark:text-amber-200"
+          >
+            <Icon name="warning" size={14} className="mt-[1px] shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div>This widget was never finished — it has no styling and no behaviour.</div>
+              <button
+                className="mt-1 underline underline-offset-2 opacity-80 hover:opacity-100"
+                data-testid="custom-widget-rebuild"
+                onClick={() => onRebuild()}
+              >
+                Rebuild it from your description
+              </button>
+            </div>
+          </div>
+        )}
         <iframe
           ref={iframeRef}
           // allow-same-origin is absent on purpose: it is what keeps this code
@@ -584,6 +616,27 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
             </button>
           </div>
         )}
+        {/* Refining lived only in the header menu, which is a small ⋯ over a
+            full-bleed iframe — findable if you know it is there, invisible if
+            you do not. This is the same actions, where the widget is. */}
+        <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover/slot:opacity-100 focus-within:opacity-100">
+          <button
+            onClick={() => setWizard('edit')}
+            data-testid="custom-widget-change"
+            title="Change what this widget does"
+            className="rounded-full border border-stone-200 bg-white/95 px-2.5 py-1 text-[11px] font-medium text-stone-700 shadow-sm hover:border-indigo-300 hover:text-indigo-600 dark:border-white/15 dark:bg-stone-900/95 dark:text-stone-200"
+          >
+            Change
+          </button>
+          <button
+            onClick={() => void onRefine()}
+            data-testid="custom-widget-refine"
+            title="Describe a change in your own words"
+            className="rounded-full border border-stone-200 bg-white/95 p-1 text-stone-600 shadow-sm hover:border-indigo-300 hover:text-indigo-600 dark:border-white/15 dark:bg-stone-900/95 dark:text-stone-300"
+          >
+            <Icon name="edit" size={13} />
+          </button>
+        </div>
         {showSource && (
           <div className="absolute inset-0 flex flex-col bg-stone-950/95">
             <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">

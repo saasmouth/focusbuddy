@@ -248,8 +248,9 @@ function themeStyle(dark: boolean): string {
     --plexi-border: ${v.border}; --plexi-accent: ${v.accent}; --plexi-surface: ${v.surface};
     color-scheme: ${dark ? 'dark' : 'light'};
   }
-  html, body {
-    margin: 0; padding: 0; background: var(--plexi-bg); color: var(--plexi-fg);
+  html { margin: 0; padding: 0; }
+  body {
+    margin: 0; padding: 12px; background: var(--plexi-bg); color: var(--plexi-fg);
     font-family: ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
     font-size: 13px; line-height: 1.5;
   }

@@ -117,7 +117,8 @@ function systemPrompt(net: boolean, w: number, h: number): string {
     '  --plexi-bg  --plexi-fg  --plexi-muted  --plexi-border  --plexi-accent  --plexi-surface',
     'Aim for calm and dense: 12–13px text, generous hit targets, clear hierarchy, no',
     'decorative gradients. It should look like a native part of a quiet workspace.',
-    'Give the body 12–14px of padding yourself.',
+    'The body already has 12px of padding — do not add your own to <body>, and do',
+    'not remove it.',
     '',
     '## Quality bar',
     '- It must WORK on first render, with no console errors.',
@@ -180,10 +181,29 @@ export async function generateCustomWidget(
     const client = getModelClient(key)
     const resp = await client.messages.create({
       model,
-      max_tokens: 8000,
+      // A rich widget is a whole small application: markup, then a stylesheet,
+      // then its behaviour. 8000 was not enough for one, and because the parts
+      // arrive in that order a cut landed after the markup and before either of
+      // the other two -- which is exactly how a widget ends up looking unstyled
+      // and doing nothing.
+      max_tokens: 16000,
       system: systemPrompt(net, width, height),
       messages: [{ role: 'user', content: userMsg }]
     })
+    // A cut-off generation passes every check below: it is not empty, it does
+    // contain markup, and it is under the byte cap. So it used to be saved as a
+    // finished widget -- unstyled, inert, and truncated mid-attribute, with
+    // nothing anywhere saying why. Refusing here is the whole fix; the rest is
+    // making it less likely.
+    if ((resp.stop_reason as string) === 'max_tokens') {
+      return {
+        ok: false,
+        error:
+          'That widget was too big to finish in one go — what came back had no styling or ' +
+          'behaviour, so it has not been saved. Ask for something a bit simpler, or build it ' +
+          'in two steps: the core first, then refine it to add the rest.'
+      }
+    }
     const parts: string[] = []
     for (const block of resp.content) {
       if (block.type === 'text') parts.push(block.text)
@@ -201,6 +221,16 @@ export async function generateCustomWidget(
     return {
       ok: false,
       error: 'The model replied with text instead of a widget. Try describing it more concretely.'
+    }
+  }
+  // Independent of stop_reason, because a provider that does not report one is
+  // not a reason to hand somebody a half-written document. An odd number of
+  // angle brackets after the last complete tag means it stopped inside one.
+  const lastClose = code.lastIndexOf('>')
+  if (lastClose < code.length - 1 && code.slice(lastClose + 1).includes('<')) {
+    return {
+      ok: false,
+      error: 'That widget came back unfinished, so it has not been saved. Try asking for something simpler.'
     }
   }
   if (Buffer.byteLength(code, 'utf8') > CUSTOM_WIDGET_MAX_CODE_BYTES) {
