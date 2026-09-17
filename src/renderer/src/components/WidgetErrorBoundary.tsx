@@ -59,7 +59,7 @@ export default class WidgetErrorBoundary extends Component<Props, State> {
         data-testid="widget-error"
         className="w-full h-full min-h-[64px] flex flex-col items-center justify-center gap-2 p-4 text-center rounded-[inherit] bg-[var(--surface-raised)]"
       >
-        <span className="h-8 w-8 rounded-lg inline-flex items-center justify-center bg-amber-500/12 text-amber-600 dark:text-amber-400">
+        <span className="h-8 w-8 rounded-lg inline-flex items-center justify-center bg-amber-500/10 text-amber-600 dark:text-amber-400">
           <Icon name="warning" size={18} />
         </span>
         <div className="text-[12px] font-medium text-[var(--ink-80)]">

@@ -346,14 +346,14 @@ function flatIsStock(surface: DashboardSurface, flat: SizedInstance[]): boolean 
 // Deterministic per-room tint so the navigator reads like the colored room
 // tiles in the design reference without inventing stored data.
 const ROOM_TINTS = [
-  'bg-violet-500/12 text-violet-500',
-  'bg-sky-500/12 text-sky-500',
-  'bg-emerald-500/12 text-emerald-500',
-  'bg-amber-500/12 text-amber-600',
-  'bg-rose-500/12 text-rose-500',
-  'bg-fuchsia-500/12 text-fuchsia-500',
-  'bg-teal-500/12 text-teal-500',
-  'bg-indigo-500/12 text-indigo-500'
+  'bg-violet-500/10 text-violet-500',
+  'bg-sky-500/10 text-sky-500',
+  'bg-emerald-500/10 text-emerald-500',
+  'bg-amber-500/10 text-amber-600',
+  'bg-rose-500/10 text-rose-500',
+  'bg-fuchsia-500/10 text-fuchsia-500',
+  'bg-teal-500/10 text-teal-500',
+  'bg-indigo-500/10 text-indigo-500'
 ]
 function roomTint(id: string): string {
   let h = 0

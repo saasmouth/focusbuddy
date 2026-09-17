@@ -3083,6 +3083,10 @@ export interface CustomWidgetContent {
   history?: Array<{ code: string; spec: string; at: number }>
   // Set when this instance came from the saved library, for provenance.
   savedId?: string
+  // What the person answered in the build wizard, kept so EDITING the widget
+  // reopens their choices instead of asking them to describe the whole thing
+  // again from memory. Absent for widgets built from a free-text prompt.
+  wizard?: import('./customWidgetWizard').WidgetWizardAnswers
 }
 
 // How many prior generations a custom widget keeps. Enough to undo a bad refine

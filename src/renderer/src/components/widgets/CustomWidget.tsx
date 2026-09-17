@@ -5,6 +5,13 @@ import { CUSTOM_WIDGET_HISTORY_LIMIT, CUSTOM_WIDGET_MAX_STATE_BYTES } from '@sha
 import { parseBridgeMessage, SANDBOX_ATTR } from '@shared/customWidgetSandbox'
 import WidgetFrame from './WidgetFrame'
 import Icon from '../Icon'
+import CustomWidgetWizard from './CustomWidgetWizard'
+import {
+  composeSpec,
+  composeEditSpec,
+  EMPTY_WIDGET_ANSWERS,
+  type WidgetWizardAnswers
+} from '@shared/customWidgetWizard'
 import { useWidgetStore } from '../../stores/widgets'
 import { promptText, confirmDialog } from '../plexi/PromptDialog'
 
@@ -69,6 +76,10 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
 
   const [spec, setSpec] = useState('')
   const [busy, setBusy] = useState<false | 'build' | 'refine'>(false)
+  // The build/change wizard, when it is open. 'edit' starts from the answers
+  // given last time, so changing behaviour is picking a different option rather
+  // than describing from memory a widget you built weeks ago.
+  const [wizard, setWizard] = useState<false | 'build' | 'edit'>(false)
   const [error, setError] = useState<string | null>(null)
   const [needsKey, setNeedsKey] = useState(false)
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
@@ -193,7 +204,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
 
   // ── actions ───────────────────────────────────────────────────────────────
   const build = useCallback(
-    async (description: string, isRefine: boolean) => {
+    async (description: string, isRefine: boolean, answers?: WidgetWizardAnswers) => {
       const text = description.trim()
       if (!text) return
       setBusy(isRefine ? 'refine' : 'build')
@@ -223,7 +234,11 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
         patch({
           spec: isRefine ? `${data.spec}\n\nThen: ${text}`.trim() : text,
           code: r.code,
-          history
+          history,
+          // Keep what was answered so Edit reopens it. Only overwritten when
+          // this build came FROM the wizard; a free-text refine leaves the
+          // stored answers alone rather than blanking them.
+          ...(answers ? { wizard: answers } : {})
         })
         setSpec('')
         // Name it on first build so the header stops saying "Custom".
@@ -240,6 +255,22 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
       }
     },
     [data, patch, update, widget.height, widget.id, widget.title, widget.width]
+  )
+
+  // Finish the wizard: compose a precise brief from the answers and build.
+  // Editing composes a DIFF against the previous answers, so the model is told
+  // what changed rather than being asked to re-guess the whole widget.
+  const onWizardDone = useCallback(
+    (answers: WidgetWizardAnswers) => {
+      const ctx = { width: widget.width, height: widget.height, net: data.net }
+      const editing = wizard === 'edit' && !!data.code
+      const brief = editing
+        ? composeEditSpec(data.wizard ?? EMPTY_WIDGET_ANSWERS, answers, ctx)
+        : composeSpec(answers, ctx)
+      setWizard(false)
+      void build(brief, editing, answers)
+    },
+    [build, data.code, data.net, data.wizard, widget.height, widget.width, wizard]
   )
 
   const onRefine = useCallback(async () => {
@@ -385,6 +416,15 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
         }
       })
     }
+    if (data.code) {
+      // Structured editing, listed FIRST: the free-text refine below is the
+      // escape hatch, not the main way to change what a widget does.
+      items.unshift({
+        label: 'Change what it does…',
+        icon: 'tune',
+        onClick: () => setWizard('edit')
+      })
+    }
     items.push({ label: 'My widgets…', icon: 'grid_view', onClick: () => void openLibrary() })
     return items
   }, [data.code, data.history, data.net, onRefine, onRevert, onSave, onToggleNet, openLibrary, showSource, update, widget.id])
@@ -442,7 +482,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
           </div>
         )}
         {showSource && (
-          <div className="absolute inset-0 flex flex-col bg-stone-950/97">
+          <div className="absolute inset-0 flex flex-col bg-stone-950/95">
             <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
               <span className="text-[11px] font-medium text-stone-300">Generated source</span>
               <div className="flex items-center gap-2">
@@ -517,6 +557,15 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
             Build it
           </button>
           <button
+            onClick={() => setWizard('build')}
+            data-testid="custom-widget-wizard-open"
+            title="Answer a few questions instead of writing a description"
+            className="flex items-center gap-1.5 rounded-lg border border-stone-200 px-2.5 py-1.5 text-[12px] text-stone-600 hover:border-indigo-300 hover:text-indigo-600 dark:border-white/10 dark:text-stone-300"
+          >
+            <Icon name="auto_awesome" size={14} />
+            Guide me
+          </button>
+          <button
             onClick={() => void openLibrary()}
             className="rounded-lg border border-stone-200 px-2.5 py-1.5 text-[12px] text-stone-600 hover:border-stone-300 dark:border-white/10 dark:text-stone-300"
           >
@@ -535,8 +584,16 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
       headerMenuExtras={menuExtras}
     >
       {body}
+      {wizard && (
+        <CustomWidgetWizard
+          mode={wizard}
+          initial={wizard === 'edit' ? (data.wizard ?? EMPTY_WIDGET_ANSWERS) : EMPTY_WIDGET_ANSWERS}
+          onCancel={() => setWizard(false)}
+          onDone={onWizardDone}
+        />
+      )}
       {showLibrary && (
-        <div className="absolute inset-0 z-20 flex flex-col bg-white/97 dark:bg-stone-900/97">
+        <div className="absolute inset-0 z-20 flex flex-col bg-white/95 dark:bg-stone-900/95">
           <div className="flex items-center justify-between border-b border-stone-200 px-3 py-2 dark:border-white/10">
             <span className="text-[11px] font-medium text-stone-600 dark:text-stone-300">
               My widgets
