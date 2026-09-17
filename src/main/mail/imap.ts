@@ -12,6 +12,7 @@ import { simpleParser } from 'mailparser'
 import type { AddressObject } from 'mailparser'
 import type { MailAccountConfig } from './mailAccount'
 import { parseThreadingHeaders } from './threadingHeaders'
+import { pageOfUids, uidRange } from './mailPaging'
 
 // Flatten a mailparser address header (a single object or an array of them)
 // into the bare list of email addresses, lower-cased and de-duplicated.
@@ -250,27 +251,73 @@ export async function testConnection(
   }
 }
 
-/** The most recent `limit` INBOX messages, newest first. Carries threading
- *  headers so the renderer can group the mailbox into conversations. */
+export interface MailPage {
+  items: MailListItem[]
+  /** True when older messages remain on the server below this page. */
+  hasMore: boolean
+  /** Pass back as `beforeUid` to fetch the next page. Null when none remain. */
+  nextCursor: number | null
+  /** How many messages INBOX holds in total, right now. */
+  total: number
+}
+
+/**
+ * One page of INBOX, newest first, with threading headers so the renderer can
+ * group the mailbox into conversations.
+ *
+ * Paging walks backwards by UID, not by sequence number. The previous version
+ * fetched the sequence window `total-limit+1:*`, which is fine for a single
+ * "newest 40" call but cannot express "the 40 before those": sequence numbers
+ * renumber the moment a message is delivered or expunged, so a second window
+ * computed from a second `total` would skip or repeat messages. A UID is stable
+ * for the life of the mailbox, so `beforeUid` means the same thing on every
+ * call however much the mailbox has changed in between.
+ *
+ * The UID list comes from a search, which is cheap (uids only); the expensive
+ * envelope fetch is then bounded to exactly this page.
+ */
 export async function listInbox(
   config: MailAccountConfig,
-  limit = 40
-): Promise<MailListItem[]> {
+  opts: { limit?: number; beforeUid?: number } = {}
+): Promise<MailPage> {
+  const limit = opts.limit ?? 40
   const client = await acquireWarm(config)
   const lock = await client.getMailboxLock('INBOX')
   const items: MailListItem[] = []
   try {
     const total =
       typeof client.mailbox === 'object' && client.mailbox ? client.mailbox.exists : 0
-    if (!total) return []
-    const start = Math.max(1, total - limit + 1)
-    for await (const msg of client.fetch(`${start}:*`, {
-      uid: true,
-      envelope: true,
-      flags: true,
-      bodyStructure: true,
-      headers: ['in-reply-to', 'references']
-    })) {
+    if (!total) return { items: [], hasMore: false, nextCursor: null, total: 0 }
+
+    // Every uid in the mailbox, cheaply. `search` answers with uids because of
+    // the { uid: true } option; without it these would be sequence numbers.
+    const all = await client.search({ all: true }, { uid: true })
+    // imapflow answers `false` when the server refuses the search. Treating that
+    // as an empty list would draw an empty inbox over a mailbox we have just
+    // been told holds `total` messages -- a convincing lie. It is a failure, and
+    // it is reported as one.
+    if (all === false) {
+      throw new Error('The mail server refused to list the mailbox.')
+    }
+    const page = pageOfUids(all, limit, opts.beforeUid)
+    const range = uidRange(page.uids)
+    // An empty range is a protocol error, not an empty result, so the fetch is
+    // skipped rather than sent.
+    if (range === '') {
+      return { items: [], hasMore: false, nextCursor: null, total }
+    }
+
+    for await (const msg of client.fetch(
+      range,
+      {
+        uid: true,
+        envelope: true,
+        flags: true,
+        bodyStructure: true,
+        headers: ['in-reply-to', 'references']
+      },
+      { uid: true }
+    )) {
       const from = msg.envelope?.from?.[0]
       const flags = msg.flags ?? new Set<string>()
       const threading = parseThreadingHeaders(msg.headers)
@@ -288,12 +335,13 @@ export async function listInbox(
         references: threading.references
       })
     }
+    // Newest first.
+    items.sort((a, b) => b.date - a.date)
+    return { items, hasMore: page.hasMore, nextCursor: page.nextCursor, total }
   } finally {
     lock.release()
     releaseWarm()
   }
-  // Newest first.
-  return items.sort((a, b) => b.date - a.date)
 }
 
 // Walk the body structure looking for a part dispositioned as an attachment.

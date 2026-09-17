@@ -889,7 +889,7 @@ export const HANDLER_PARAMS: Readonly<Record<string, readonly string[]>> = {
   'mail:clearAccount': [],
   'mail:get': ['uid'],
   'mail:getAccount': [],
-  'mail:list': ['limit'],
+  'mail:list': ['limit', 'beforeUid'],
   'mail:markSeen': ['uid'],
   'mail:saveAccount': ['config'],
   'mail:send': ['input'],

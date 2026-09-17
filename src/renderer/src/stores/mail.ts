@@ -17,6 +17,12 @@ import type {
 // it drives both the dedicated Mail view and the email rows in the unified
 // Inbox feed.
 
+// How many messages one page of the mailbox holds. The first page loads on
+// open, and Show more fetches another page from the server -- the list is not a
+// window onto an already-downloaded mailbox, it is as much of it as has been
+// asked for.
+const PAGE_SIZE = 40
+
 // Seed values for the compose window — new mail, reply, reply-all or forward.
 // Lives here (not in the component) so any part of the app can open a composer
 // through the store without a circular import.
@@ -40,6 +46,14 @@ interface MailStore {
   loadingList: boolean
   loadingOpen: boolean
   error: string | null
+  // Paging. The mailbox is fetched a page at a time; `hasMore` is the server's
+  // answer about whether older mail remains, never a guess from list length --
+  // a full page that happens to be the last page is indistinguishable otherwise.
+  hasMore: boolean
+  nextCursor: number | null
+  loadingMore: boolean
+  /** Messages in INBOX on the server, so the list can say what it is showing of what. */
+  total: number
   // The compose window, when one is open. null = closed.
   composing: ComposeInitial | null
   // Proactive AI reply draft for the open message. draftUid ties the draft to
@@ -54,6 +68,8 @@ interface MailStore {
   testAccount: (config: MailAccountInput) => Promise<{ ok: boolean; error?: string }>
   disconnect: () => Promise<void>
   refresh: () => Promise<void>
+  /** Fetch the next page of older mail from the server and append it. */
+  loadMore: () => Promise<void>
   /** Move a message to the archive mailbox; removes it from the inbox list. */
   archive: (uid: number) => Promise<{ ok: boolean; error?: string }>
   openMessage: (uid: number) => Promise<void>
@@ -86,6 +102,10 @@ export const useMailStore = create<MailStore>((set, get) => ({
   loadingList: false,
   loadingOpen: false,
   error: null,
+  hasMore: false,
+  nextCursor: null,
+  loadingMore: false,
+  total: 0,
   composing: null,
   replyDraft: null,
   draftUid: null,
@@ -115,7 +135,16 @@ export const useMailStore = create<MailStore>((set, get) => ({
 
   disconnect: async () => {
     await window.api.mail.clearAccount()
-    set({ account: null, messages: [], open: null, openUid: null, error: null })
+    set({
+      account: null,
+      messages: [],
+      open: null,
+      openUid: null,
+      error: null,
+      hasMore: false,
+      nextCursor: null,
+      total: 0
+    })
   },
 
   refresh: async () => {
@@ -128,7 +157,7 @@ export const useMailStore = create<MailStore>((set, get) => ({
     // right place to put a failure, so it goes there instead.
     let r: Awaited<ReturnType<typeof window.api.mail.list>>
     try {
-      r = await window.api.mail.list(40)
+      r = await window.api.mail.list(PAGE_SIZE)
     } catch (err) {
       set({
         loadingList: false,
@@ -140,7 +169,48 @@ export const useMailStore = create<MailStore>((set, get) => ({
       set({ loadingList: false, error: r.error })
       return
     }
-    set({ messages: r.items, loadingList: false })
+    // A refresh is page one again: anything paged in is dropped rather than
+    // merged, because merging an old page under a fresh first page would leave
+    // a hole wherever mail was archived in between.
+    set({
+      messages: r.items,
+      loadingList: false,
+      hasMore: r.hasMore,
+      nextCursor: r.nextCursor,
+      total: r.total
+    })
+  },
+
+  loadMore: async () => {
+    const { account, loadingMore, loadingList, hasMore, nextCursor, messages } = get()
+    if (!account || loadingMore || loadingList || !hasMore || nextCursor === null) return
+    set({ loadingMore: true, error: null })
+    let r: Awaited<ReturnType<typeof window.api.mail.list>>
+    try {
+      r = await window.api.mail.list(PAGE_SIZE, nextCursor)
+    } catch (err) {
+      set({
+        loadingMore: false,
+        error: err instanceof Error ? err.message : 'The mailbox did not answer.'
+      })
+      return
+    }
+    if (!r.ok) {
+      set({ loadingMore: false, error: r.error })
+      return
+    }
+    // Append, skipping anything already held. Overlap should not happen -- the
+    // cursor is exclusive -- but a message re-delivered or a server that rounds
+    // a range outward would otherwise put a duplicate row in the list.
+    const held = new Set(messages.map((m) => m.uid))
+    const fresh = r.items.filter((m) => !held.has(m.uid))
+    set({
+      messages: [...messages, ...fresh].sort((a, b) => b.date - a.date),
+      loadingMore: false,
+      hasMore: r.hasMore,
+      nextCursor: r.nextCursor,
+      total: r.total
+    })
   },
 
   openMessage: async (uid) => {
@@ -288,6 +358,12 @@ export const useMailStore = create<MailStore>((set, get) => ({
     }
   }
 }))
+
+// Thin handle for debugging + e2e (same convention as __fbView/__fbNodes): the
+// real store, not a mock. Changes nothing about user behaviour.
+if (typeof window !== 'undefined') {
+  ;(window as unknown as { __fbMail?: typeof useMailStore }).__fbMail = useMailStore
+}
 
 // New-mail banners: the main process announces unseen messages found during a
 // fetch (batched, once per message per run). Clicking opens Mail on the item.

@@ -3272,12 +3272,20 @@ export function registerIpcHandlers(): void {
     return { ok: true as const }
   })
 
-  ipcMain.handle('mail:list', async (e, limit?: number) => {
+  ipcMain.handle('mail:list', async (e, limit?: number, beforeUid?: number) => {
     const acc = await currentMailAccount()
     if (!acc.ok) return { ok: false as const, error: acc.error }
     const config = acc.config
     try {
-      const items = await listInbox(config, limit ?? 40)
+      const page = await listInbox(config, { limit: limit ?? 40, beforeUid })
+      const items = page.items
+      // Only the first page is news. Paging BACKWARDS through old mail would
+      // otherwise announce long-read messages as new arrivals and overwrite the
+      // search cache with an older slice of the mailbox, so everything below is
+      // scoped to a fetch with no cursor.
+      if (beforeUid !== undefined) {
+        return { ok: true as const, items, hasMore: page.hasMore, nextCursor: page.nextCursor, total: page.total }
+      }
       // New-mail detection: any unseen uid we have not announced yet fires one
       // OS notification (batched: one banner per fetch, not one per message).
       // The cache also powers global-search mail hits (search.ts).
@@ -3294,7 +3302,7 @@ export function registerIpcHandlers(): void {
       }
       for (const m of items) if (!m.seen) announcedMailUids.add(m.uid)
       setMailSearchCache(items)
-      return { ok: true as const, items }
+      return { ok: true as const, items, hasMore: page.hasMore, nextCursor: page.nextCursor, total: page.total }
     } catch (err) {
       return { ok: false as const, error: (err as Error).message }
     }

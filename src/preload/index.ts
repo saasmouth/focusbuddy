@@ -2229,9 +2229,14 @@ const api = {
       ipcRenderer.invoke('mail:testAccount', config),
     clearAccount: (): Promise<{ ok: true }> => ipcRenderer.invoke('mail:clearAccount'),
     list: (
-      limit?: number
-    ): Promise<{ ok: true; items: MailListItem[] } | { ok: false; error: string }> =>
-      ipcRenderer.invoke('mail:list', limit),
+      limit?: number,
+      // Walk backwards through older mail: the newest `limit` messages with a
+      // uid below this one. Omit for the newest page.
+      beforeUid?: number
+    ): Promise<
+      | { ok: true; items: MailListItem[]; hasMore: boolean; nextCursor: number | null; total: number }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('mail:list', limit, beforeUid),
     get: (
       uid: number
     ): Promise<{ ok: true; message: MailFullMessage } | { ok: false; error: string }> =>

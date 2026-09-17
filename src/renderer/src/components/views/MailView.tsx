@@ -530,6 +530,10 @@ export default function MailView(): JSX.Element {
   const unread = useMailStore(selectMailUnread)
   const loadAccount = useMailStore((s) => s.loadAccount)
   const refresh = useMailStore((s) => s.refresh)
+  const loadMore = useMailStore((s) => s.loadMore)
+  const hasMore = useMailStore((s) => s.hasMore)
+  const loadingMore = useMailStore((s) => s.loadingMore)
+  const total = useMailStore((s) => s.total)
   const openMessage = useMailStore((s) => s.openMessage)
   const disconnect = useMailStore((s) => s.disconnect)
   const composing = useMailStore((s) => s.composing)
@@ -774,6 +778,39 @@ export default function MailView(): JSX.Element {
                 </button>
               )
             })
+          )}
+
+          {/* Older mail is on the server, not in the app: this fetches the next
+              page rather than revealing rows that were already downloaded. The
+              count says what is held of what exists, so "showing 40" never has
+              to be mistaken for "you have 40 emails". */}
+          {messages.length > 0 && (
+            <div className="px-3 py-3 flex flex-col items-center gap-1.5 border-t border-[var(--edge-soft)]">
+              {hasMore ? (
+                <button
+                  onClick={() => void loadMore()}
+                  disabled={loadingMore}
+                  data-testid="mail-load-more"
+                  className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg fb-t-label font-medium fb-btn-surface fb-press text-[var(--ink-80)] disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  <Icon
+                    name={loadingMore ? 'progress_activity' : 'expand_more'}
+                    size={15}
+                    className={loadingMore ? 'animate-spin' : ''}
+                  />
+                  {loadingMore ? 'Fetching from the server…' : 'Show more'}
+                </button>
+              ) : (
+                <span className="fb-t-caption" data-testid="mail-list-end">
+                  That is the whole inbox.
+                </span>
+              )}
+              {total > 0 && (
+                <span className="fb-t-caption fb-tabular" data-testid="mail-loaded-count">
+                  {messages.length} of {total} messages
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>
