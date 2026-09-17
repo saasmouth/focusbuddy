@@ -194,7 +194,7 @@ describe('answersSaySomething', () => {
   })
 })
 
-describe('reading wired sources', () => {
+describe('reading wired and mentioned sources', () => {
   it('turns "read a table" into the actual API, not a wish', () => {
     // "It should read the table" tells a generator nothing it can write code
     // against. The column-id detail is the one that decides whether the widget
@@ -208,7 +208,7 @@ describe('reading wired sources', () => {
   it('always says the list starts empty', () => {
     // A widget that invents rows before a wire is drawn looks finished and is
     // lying about having data.
-    expect(composeSpec(a({ reads: ['table'] }))).toContain('EMPTY until the user draws a wire')
+    expect(composeSpec(a({ reads: ['table'] }))).toContain('EMPTY until they do one')
   })
 
   it('states the negative too, so the generator does not reach for inputs', () => {
@@ -254,5 +254,20 @@ describe('acting in the app', () => {
   it('carries a written instruction alongside the chosen verbs', () => {
     const spec = composeSpec(a({ acts: ['rows'] }, { acts: 'only when the total goes over budget' }))
     expect(spec).toContain('only when the total goes over budget')
+  })
+})
+
+describe('@ mentions are the second way in', () => {
+  it('tells the generator both routes exist and look the same', () => {
+    // @ means "bring this thing's content" everywhere else in the app; a widget
+    // is not the one surface where it should stop meaning that.
+    const spec = composeSpec(a({ reads: ['table'] }))
+    expect(spec).toContain('@ mentioned')
+    expect(spec).toContain('via:"wire"|"mention"')
+  })
+
+  it('offers reaching outside the desk as a choice', () => {
+    const q = WIDGET_WIZARD_QUESTIONS.find((x) => x.id === 'reads')!
+    expect(q.options.map((o) => o.id)).toContain('mention')
   })
 })

@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from '../Icon'
+import MentionTextarea from '../MentionTextarea'
 import {
   WIDGET_WIZARD_QUESTIONS,
   describeAnswers,
@@ -163,7 +164,7 @@ export default function CustomWidgetWizard({
                 of acceptable answers. */}
             {otherOpen ? (
               <div className="mt-2">
-                <textarea
+                <MentionTextarea
                   ref={otherRef}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}

@@ -78,12 +78,24 @@ performs and the frame merely requests.
 
 ### Reading: `plexi.getInputs()` / `plexi.onInput(fn)`
 
-A widget sees the widgets the user has **wired into it**, and nothing else.
-There is deliberately no query interface: the access grant is the wire, drawn by
-the user, visible on the canvas as a line, and revoked by deleting it. Inputs are
-resolved in main (`db/widgetInputs.ts`) and inlined at compose time, so a widget
-renders real data on its first frame; a change to a wired source pushes a fresh
-snapshot in.
+A widget sees exactly what the user **pointed it at**, and nothing else. There
+is deliberately no query interface. The user points in one of two ways, and they
+grant the same access because they are the same act of intent:
+
+- **A wire** drawn on the canvas. Desk-local, spatial, visible as a line.
+- **An `@` mention** in the widget's own description. `@` means "bring this
+  thing's content" everywhere else in the app — a document on another desk, a
+  file, a knowledge entry — and a widget is not the one surface where it should
+  stop meaning that. The reference already reached the generator as text; this
+  is what makes it reach the *running* widget as data.
+
+Each input carries `via: 'wire' | 'mention'` so a widget, and the person reading
+it, can say where its data came from. Both are revoked the same way: delete the
+wire, or remove the `@` from the description.
+
+Inputs are resolved in main (`db/widgetInputs.ts`) and inlined at compose time,
+so a widget renders real data on its first frame; a change to a source pushes a
+fresh snapshot in.
 
 Tables arrive **structured** — columns and rows with cells keyed by column id —
 rather than flattened to text. A widget that receives rows can total a column; one
@@ -96,10 +108,11 @@ Three rules, and the second is the one that matters:
 1. **A closed verb list** (`customWidgetActions.ts`): `add-table-row`,
    `set-cell`, `create-knowledge-entry`, `open-url`. An unknown verb is refused,
    not queued for later support.
-2. **Scoped to its wires.** A widget may only act on a source wired into it.
-   Without this, granting one widget write access would grant it every table in
-   the workspace. It is enforced host-side against the database, and asserted in
-   `customWidgetBridge.spec.ts` rather than left to the policy function's shape.
+2. **Scoped to what it was pointed at.** A widget may only act on a source wired
+   into it or `@` mentioned in it. Without this, granting one widget write access
+   would grant it every table in the workspace. It is enforced host-side against
+   the database, and asserted in `customWidgetBridge.spec.ts` rather than left to
+   the policy function's shape.
 3. **Consent once, not never and not constantly.** Writes are off by default
    (`acts`, the same shape as `net`). Off, every write is put to the user. On,
    writes inside the widget's own scope run directly — because a tool that asks
@@ -113,8 +126,9 @@ the same validation and the same audit trail.
 ### What this buys, measured
 
 `tests/e2e/customWidgetBridge.spec.ts`, in the booted app: a widget reads its
-wired table's real columns and rows; a widget whose wire is cut sees `[]`; a table
-on the same desk but not wired in is absent from the widget's action scope. The
+wired table's real columns and rows; an `@` mention with no wire at all delivers
+another table's rows and grants the same action scope; a widget with neither sees
+`[]`; a table on the same desk but not pointed at is absent from the action scope. The
 same run re-asserts that `parent.document`, `parent.api` and `localStorage` are
 still `SecurityError` — because "we widened the bridge, not the sandbox" is a
 claim until the application says otherwise.

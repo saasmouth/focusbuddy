@@ -79,12 +79,13 @@ export const WIDGET_WIZARD_QUESTIONS: readonly WizardQuestion[] = [
   {
     id: 'reads',
     prompt: 'Should it read something else on this desk?',
-    why: 'It sees only what you wire into it — a line you draw on the canvas.',
+    why: 'It sees only what you point it at — a wire on the canvas, or an @ mention.',
     multi: true,
     otherPlaceholder: 'Something else it should read…',
     options: [
       { id: 'table', label: 'A table', hint: 'It gets the real rows and columns' },
       { id: 'notes', label: 'Notes or documents' },
+      { id: 'mention', label: 'Something elsewhere', hint: '@ mention it below — any desk, doc or file' },
       { id: 'none', label: 'No', hint: 'It works from what I type into it' }
     ]
   },
@@ -243,7 +244,9 @@ export function composeSpec(a: WidgetWizardAnswers, ctx: ComposeContext = {}): s
         'Render from those inputs, and subscribe with plexi.onInput(fn) so it updates ' +
         'when the source changes. A wired table arrives as {table:{columns,rows}} with ' +
         'cells keyed by COLUMN ID — compute over the rows, do not parse text. ' +
-        'The list is EMPTY until the user draws a wire: say so in the empty state.'
+        'Inputs arrive from a wire the user drew OR from anything they @ mentioned in ' +
+        'this description — both look the same and each carries via:"wire"|"mention". ' +
+        'The list is EMPTY until they do one: say so in the empty state.'
     )
   } else if (reads.includes('none')) {
     lines.push('IT READS: nothing wired in — it works only from what the user enters.')

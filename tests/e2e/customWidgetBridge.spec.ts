@@ -149,7 +149,71 @@ test('a widget reads the table wired into it, with real rows', async () => {
   }
 })
 
-test('a widget with no wires sees nothing', async () => {
+test('an @ mention in the description reaches the widget as DATA', async () => {
+  const { window, userDataDir, dispose } = await launchApp()
+  try {
+    await window.waitForTimeout(4000)
+    const { widgetId, wiredTableId, otherTableId } = seed(userDataDir, PROBE)
+
+    const db = new DatabaseSync(join(userDataDir, 'focusbuddy.db'))
+    // Cut the wire, then @ mention a DIFFERENT table in the description. The
+    // reference was already reaching the generator as text; this asserts it now
+    // reaches the running widget as rows.
+    db.prepare('DELETE FROM widget_links WHERE target_widget_id = ?').run(widgetId)
+    const otherWidgetId = randomUUID()
+    const deskId = (
+      db.prepare('SELECT task_id AS t FROM widgets WHERE id = ?').get(widgetId) as { t: string }
+    ).t
+    const now = Date.now()
+    db.prepare(
+      `INSERT INTO widgets (id,task_id,kind,title,content,x,y,width,height,z_index,color,created_at,updated_at)
+       VALUES (?,?,'table','Somewhere else',?,0,0,400,300,1,NULL,?,?)`
+    ).run(otherWidgetId, deskId, otherTableId, now, now)
+    db.prepare(
+      `INSERT INTO fb_rows (id,table_id,cells_json,sort_order,created_at,updated_at)
+       VALUES (?,?,?,0,?,?)`
+    ).run(randomUUID(), otherTableId, JSON.stringify({ 'c-client': 'Mentioned Co' }), now, now)
+
+    const spec = `A tracker for @[Somewhere else](plexii://widget/${otherWidgetId}?desk=${deskId})`
+    db.prepare('UPDATE widgets SET content = ? WHERE id = ?').run(
+      JSON.stringify({ spec, code: PROBE, state: {}, net: false }),
+      widgetId
+    )
+    db.close()
+
+    await mount(window, widgetId)
+    const frame = window.frames().find((fr) => fr.url().startsWith('fb-widget://'))
+    const probe = JSON.parse(
+      (await frame!.evaluate(() => document.documentElement.getAttribute('data-probe'))) ?? '{}'
+    ) as Record<string, string>
+
+    const inputs = JSON.parse(probe.inputs) as Array<{
+      via?: string
+      table?: { id: string; rows: Array<{ cells: Record<string, unknown> }> }
+    }>
+    expect(inputs, 'the @ mentioned table should be an input').toHaveLength(1)
+    expect(inputs[0].via).toBe('mention')
+    expect(inputs[0].table?.id).toBe(otherTableId)
+    expect(inputs[0].table?.rows[0].cells['c-client']).toBe('Mentioned Co')
+    // And the wired one is genuinely gone, so this is the mention doing the work.
+    expect(inputs[0].table?.id).not.toBe(wiredTableId)
+
+    // An @ is the user pointing at something on purpose, so it grants the same
+    // action scope a wire does.
+    const scope = await window.evaluate(
+      (id) =>
+        (window as unknown as {
+          api: { customWidgetInputs: { scope: (i: string) => Promise<{ tableIds: string[] }> } }
+        }).api.customWidgetInputs.scope(id),
+      widgetId
+    )
+    expect(scope.tableIds).toEqual([otherTableId])
+  } finally {
+    await dispose()
+  }
+})
+
+test('a widget with no wires and no mentions sees nothing', async () => {
   const { window, userDataDir, dispose } = await launchApp()
   try {
     await window.waitForTimeout(4000)

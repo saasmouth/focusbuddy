@@ -277,6 +277,15 @@ export interface WidgetInput {
   id: string
   kind: string
   title: string
+  /**
+   * How this input got here: a wire drawn on the canvas, or an @ mention in the
+   * widget's own description.
+   *
+   * Both are the user pointing at something on purpose, which is why both grant
+   * the same access. It is surfaced because a widget reading data ought to be
+   * able to say WHERE that data came from, and so can the person looking at it.
+   */
+  via?: 'wire' | 'mention'
   /** The source as plain text — always present, even for a table. */
   text: string
   /** Structured rows, when the source is a table. This is what lets a widget
