@@ -459,6 +459,7 @@ function buildSystemPrompt(
     '9. Markdown is rendered. When actions carry the work, keep "reply" to 1-2 sentences and don\'t list the widgets — let the cards speak. When the user asked a QUESTION (research, explanation, overview, comparison), the reply IS the answer: write it in full flowing markdown — headings, lists, tables where they genuinely help — it streams to the user as you write it. FORMATTING VOICE (calm, never hype): you may open a section HEADING with ONE relevant emoji — the app renders it as a native icon, so choose it for meaning. Never place emoji anywhere else (bullets, labels, sentences) unless the user\'s own content uses them. Use bold sparingly — a few genuinely load-bearing phrases per answer, never whole sentences and never every list lead.\n' +
     '10. compose-mail and post-chat ALWAYS produce a DRAFT the user reviews and sends themselves. There is no send action and never will be. NEVER say or imply in "reply" that a message was sent. Their bodies must carry only content grounded in this conversation — never invent claims, commitments, dates, names, or recipients on the user\'s behalf. Use real addresses/conversation ids from context or leave "to" empty for the user to fill.\n' +
     '11. edit-document targets a documentId from the documents list (or "$<id>" of a create-document in this same response). Omit "operation" to append; use "replace" only when the user explicitly asked to rewrite. set-cell requires a real rowId from the rowIds sample — if the row is not listed, say so in reply instead of guessing.\n' +
+    '11a. SIZE LIMIT — the whole response shares ONE output budget, and a long edit-document "body" is the only thing big enough to exhaust it. If it runs out mid-action, that action is LOST and the user sees nothing. So: at most TWO edit-document actions in one response, and if the user asked for more, or the sections are long, emit the first one or two and say plainly in "reply" which documents you have done and that you will do the rest when they ask you to continue. Never promise in "reply" work that is not in "actions" of this same response.\n' +
     '12. schedule-event uses absolute unix-ms startMs computed from the Current date/time fact above. durationMinutes is required.\n\n' +
     'CORRECT for "set up a podcast launch workspace":\n' +
     '{\n' +
@@ -649,6 +650,16 @@ export function isUnapplicableProposal(p: { kind?: string; url?: unknown }): boo
 export function parseChatJson(raw: string): {
   reply: string
   proposals: ActionProposal[]
+  /**
+   * Entries the model sent that produced no proposal — a body that was cut off
+   * mid-object, an id it invented, a kind this parser does not know.
+   *
+   * Dropping these silently is what made the assistant appear to lie: the reply
+   * says "applying it now", every action falls on the floor, and the user is
+   * shown an empty action list with no explanation. The count is what lets the
+   * caller say so.
+   */
+  dropped: number
   truncated: boolean
   // A validated follow-up question, when the model asked one. Undefined both
   // when absent and when what the model wrote fails validation — a question
@@ -698,9 +709,18 @@ export function parseChatJson(raw: string): {
   const blocks = validateChatUiBlocks(parsed.blocks)
   const actionsRaw = Array.isArray(parsed.actions) ? parsed.actions : []
   const proposals: ActionProposal[] = []
+  // How many entries the model sent that produced nothing. Measured at the
+  // boundary rather than at each of the forty-odd `break`s inside the switch,
+  // so it stays right as action kinds are added -- and so that a kind nobody
+  // has taught this parser yet is counted rather than vanishing.
+  let dropped = 0
   let i = 0
   for (const a of actionsRaw) {
-    if (!a || typeof a !== 'object') continue
+    if (!a || typeof a !== 'object') {
+      dropped += 1
+      continue
+    }
+    const before = proposals.length
     const action = a as Record<string, unknown>
     const kind = action.kind as string
     const reason =
@@ -1105,10 +1125,12 @@ export function parseChatJson(raw: string): {
         break
       }
     }
+    if (proposals.length === before) dropped += 1
   }
   return {
     reply,
     proposals,
+    dropped,
     truncated,
     question,
     blocks: blocks.length > 0 ? blocks : undefined,
@@ -1427,6 +1449,75 @@ function chatGateContext(req: ChatRequest): {
 // gets. Shared by both paths so a streamed answer and a non-streamed one are
 // assembled identically — including the truncation notice, which is the one
 // place a partial response has to explain itself.
+/**
+ * What to tell the user about actions that did not run.
+ *
+ * This exists because of a specific way the assistant could appear to lie: its
+ * reply says "applying it now", every action is dropped by the parser (cut off
+ * mid-object at the token cap, or naming a document that does not exist), and
+ * the user is shown an empty action list with no explanation. Asked three times
+ * running, it kept promising and kept delivering nothing, and nothing on screen
+ * said why.
+ *
+ * The reply text is already written and already promised the work, so when
+ * nothing survived this does not annotate -- it CONTRADICTS, in the first line,
+ * because a correction the reader has to infer is not a correction.
+ *
+ * Returns null when there is nothing to report: everything the model asked for
+ * is on offer, which is the ordinary case.
+ */
+export function actionOutcomeNotice(o: {
+  /** Proposals actually being offered to the user. */
+  applied: number
+  /**
+   * Entries the model sent that produced no proposal. Note this does NOT count
+   * an action torn in half by the token cap: salvage drops an incomplete object
+   * before the parser ever sees it, so a truncated envelope can report zero
+   * dropped and zero applied. `truncated` is what carries that case.
+   */
+  dropped: number
+  /** The envelope was cut off at the token limit. */
+  truncated: boolean
+}): string | null {
+  const { applied, dropped, truncated } = o
+
+  if (applied === 0) {
+    // Nothing survived. Everything below is the case the user actually hit.
+    if (truncated) {
+      const n = dropped > 0 ? `the ${dropped === 1 ? 'change' : `${dropped} changes`}` : 'the changes'
+      return (
+        '**Nothing above was actually applied.** ' +
+        `I ran out of room part-way through writing ${n}, so nothing came through complete. ` +
+        'Ask me to do them one at a time, or with shorter content in each.'
+      )
+    }
+    if (dropped > 0) {
+      const one = dropped === 1
+      return (
+        '**Nothing above was actually applied.** ' +
+        `I tried ${one ? 'one change' : `${dropped} changes`} and ${one ? 'it was' : 'they were'} rejected before running — ` +
+        'usually because a document or record I named does not exist. ' +
+        'Tell me which one you mean, or open it and ask again from there.'
+      )
+    }
+    // The model proposed nothing and nothing went wrong: an ordinary answer.
+    return null
+  }
+
+  // Some survived. Say what was lost so a partial build is never mistaken for
+  // the whole thing.
+  if (truncated) {
+    return dropped > 0
+      ? `I ran out of room before finishing, so ${dropped} more change${dropped === 1 ? '' : 's'} did not come through. Ask me to continue for the rest.`
+      : `Your request was large, so I set up the first ${applied} item${applied === 1 ? '' : 's'} that fit. Ask me to continue for the rest, or break the request into smaller parts.`
+  }
+  if (dropped > 0) {
+    const s = dropped === 1 ? '' : 's'
+    return `${dropped} other change${s} could not be prepared — usually something I named does not exist. Tell me which one you meant and I will redo just that.`
+  }
+  return null
+}
+
 function buildChatResponse(
   rawText: string,
   sources: ChatSource[],
@@ -1459,13 +1550,13 @@ function buildChatResponse(
     supportsQuestions: gate?.supportsQuestions
   })
   let content = parsed.reply || (gated.proposals.length > 0 ? "Here's what I can set up:" : '')
-  if (parsed.truncated && gated.proposals.length > 0) {
-    // We recovered the actions that finished before the cutoff. Tell the
-    // user the rest was dropped so they can ask for it rather than silently
-    // getting a partial build.
-    const n = gated.proposals.length
-    content +=
-      `${content ? '\n\n' : ''}Your request was large, so I set up the first ${n} item${n === 1 ? '' : 's'} that fit. Ask me to continue for the rest, or break the request into smaller parts.`
+  const outcome = actionOutcomeNotice({
+    applied: gated.proposals.length,
+    dropped: parsed.dropped,
+    truncated: parsed.truncated
+  })
+  if (outcome) {
+    content += `${content ? '\n\n' : ''}${outcome}`
   } else if (parsed.replyCut && content) {
     // The stream died mid-prose (connection drop, provider hiccup, token
     // cap). Everything that arrived is kept; say so instead of presenting a
@@ -4544,6 +4635,7 @@ export async function runDeskAgent(input: {
         '  { "kind":"create-knowledge-entry", "title":"...", "body":"..." }\n' +
         '  { "kind":"compose-mail", "subject":"...", "body":"..." }\n' +
         'Choosing a surface: a presentation or deck -> generate-document docType "slides"; a spreadsheet, tracker, budget or table of records -> "sheet"; a diagram, flowchart, mind map, org chart or process map -> "map"; a written document, brief or plan -> "doc". edit-document only works on an existing written doc (docType doc); to fill an existing slides/sheet/map OUTPUT widget, use generate-document with its "widgetId" from ACTIONABLE WIDGETS. generate-document produces the real content in a follow-up step, so its "prompt" must restate ONLY what the user asked for and what the inputs contain — never invent facts, numbers, names or data — and your "reply" must NOT claim the content already exists (only the actions do the work).\n' +
+        'SIZE LIMIT — the whole response shares one output budget and a long edit-document "body" is the only thing big enough to exhaust it; if it runs out mid-action that action is LOST and the user sees nothing. At most TWO edit-document actions per response. If more were asked for, do the first two and say in "reply" which ones are done and that the rest follow on request — never promise work that is not in this response\'s "actions".\n' +
         'Rules: only real ids from ACTIONABLE WIDGETS; set-cell needs a rowId from that table\'s rowIds (use add-table-row for new records); never invent ids, columns, or facts; leave out any change the inputs do not support. Put a short human summary in "reply" and every concrete change in "actions". If there is nothing to change, return "actions": [].'
       const actionUser =
         user + '\n\nACTIONABLE WIDGETS (the only ids you may act on):\n' + input.actionContext
@@ -4562,7 +4654,17 @@ export async function runDeskAgent(input: {
         .join('')
       const parsed = parseChatJson(raw)
       if (parsed) {
-        return { ok: true, output: parsed.reply || '(done)', proposals: parsed.proposals }
+        const notice = actionOutcomeNotice({
+          applied: parsed.proposals.length,
+          dropped: parsed.dropped,
+          truncated: parsed.truncated
+        })
+        const output = parsed.reply || (parsed.proposals.length > 0 ? '(done)' : '')
+        return {
+          ok: true,
+          output: notice ? `${output ? `${output}\n\n` : ''}${notice}` : output || '(done)',
+          proposals: parsed.proposals
+        }
       }
       // Model ignored the envelope; treat the whole text as the output.
       return { ok: true, output: raw.trim() || '(the agent returned nothing)' }
