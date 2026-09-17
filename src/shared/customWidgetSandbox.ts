@@ -76,13 +76,19 @@ export function cspFor(net: boolean): string {
  *  inside a document that has no module loader, no network and no shared origin
  *  with us. Kept deliberately small: every capability added here is a capability
  *  granted to unreviewed code. */
-function bridgeScript(initialState: string): string {
+function bridgeScript(initialState: string, initialInputs: string): string {
   return `<script>(function(){
   "use strict";
   // The host's copy of this widget's saved data, inlined at compose time so the
   // widget can render its remembered state on the very first frame with no
   // round-trip and no loading flash.
   var state = ${initialState};
+  // Resolved host-side from the wires drawn into this widget. Inlined at compose
+  // time so a widget renders real data on its first frame.
+  var inputs = ${initialInputs};
+  var inputListeners = [];
+  var actPending = {};
+  var actSeq = 0;
   var pending = null;
   function post(type, payload) {
     try { parent.postMessage({ __plexi: 1, type: type, payload: payload }, '*'); } catch (e) {}
@@ -121,10 +127,66 @@ function bridgeScript(initialState: string): string {
      *  a frame whose console nobody is reading. */
     reportError: function (msg) {
       post('error', String(msg == null ? 'Unknown error' : msg).slice(0, 500));
+    },
+    /** The widgets the user has wired INTO this one, resolved by the host.
+     *
+     *  A snapshot, not a query: a widget sees exactly what the person chose to
+     *  connect and has no way to ask for anything else. Tables arrive with their
+     *  columns and rows intact rather than flattened to text, which is what lets
+     *  a widget actually compute over desk data. */
+    getInputs: function () {
+      try { return JSON.parse(JSON.stringify(inputs)); } catch (e) { return []; }
+    },
+    /** Called whenever a wired-in source changes, so a widget can be live
+     *  rather than a snapshot of whenever it happened to load. */
+    onInput: function (fn) {
+      if (typeof fn === 'function') inputListeners.push(fn);
+      return function () {
+        var i = inputListeners.indexOf(fn);
+        if (i >= 0) inputListeners.splice(i, 1);
+      };
+    },
+    /** Ask the host to do something. The host decides: the verb must be one it
+     *  allows, the target must be wired into this widget, and unless the user
+     *  has switched this widget's write access on it is proposed for approval
+     *  rather than run. Resolves to {ok} or {ok:false, reason}. */
+    act: function (action) {
+      var id = 'a' + (++actSeq);
+      post('act', { id: id, action: action });
+      return new Promise(function (resolve) {
+        actPending[id] = resolve;
+        // Never leave a caller awaiting forever if the host goes away.
+        setTimeout(function () {
+          if (actPending[id]) {
+            delete actPending[id];
+            resolve({ ok: false, reason: 'The desk did not answer.' });
+          }
+        }, 30000);
+      });
     }
   };
   try { Object.freeze(plexi); } catch (e) {}
   window.plexi = plexi;
+
+  // The host talks back on the same channel: the result of an act(), and fresh
+  // inputs when a wired source changes. Anything else is ignored -- this frame
+  // takes no instruction from anyone.
+  window.addEventListener('message', function (e) {
+    var d = e && e.data;
+    if (!d || d.__plexiHost !== 1) return;
+    if (d.type === 'act-result' && d.id && actPending[d.id]) {
+      var resolve = actPending[d.id];
+      delete actPending[d.id];
+      try { resolve(d.payload); } catch (err) {}
+      return;
+    }
+    if (d.type === 'inputs') {
+      inputs = d.payload || [];
+      for (var i = 0; i < inputListeners.length; i++) {
+        try { inputListeners[i](plexi.getInputs()); } catch (err) {}
+      }
+    }
+  });
 
   // Surface real failures to the host. Generated code that throws on load would
   // otherwise render as an empty rectangle with no explanation.
@@ -201,6 +263,29 @@ export interface ComposeOptions {
   state?: Record<string, unknown>
   net?: boolean
   dark?: boolean
+  /** The wired-in sources, already resolved by the host. */
+  inputs?: readonly WidgetInput[]
+}
+
+/** A widget wired INTO a custom widget, as the sandbox sees it.
+ *
+ *  Resolved host-side and pushed in. The widget cannot ask for anything that is
+ *  not here, which is what keeps "read desk data" from meaning "read the
+ *  workspace": the user decides by drawing a wire, and the grant is visible on
+ *  the canvas as a line. */
+export interface WidgetInput {
+  id: string
+  kind: string
+  title: string
+  /** The source as plain text — always present, even for a table. */
+  text: string
+  /** Structured rows, when the source is a table. This is what lets a widget
+   *  compute over real desk data rather than scrape a rendering of it. */
+  table?: {
+    id: string
+    columns: Array<{ id: string; label: string; type: string }>
+    rows: Array<{ id: string; cells: Record<string, unknown> }>
+  }
 }
 
 /** Build the final srcdoc for a generated widget.
@@ -212,7 +297,7 @@ export interface ComposeOptions {
  *  cannot widen what the first policy already restricted -- when two CSP headers
  *  or meta elements are present the browser enforces the intersection. */
 export function composeCustomWidgetDocument(opts: ComposeOptions): string {
-  const { code, state, net = false, dark = false } = opts
+  const { code, state, net = false, dark = false, inputs } = opts
   let initial = '{}'
   try {
     // Escaped so no value inside the state can close the script element it is
@@ -222,12 +307,19 @@ export function composeCustomWidgetDocument(opts: ComposeOptions): string {
     initial = '{}'
   }
 
+  let initialInputs = '[]'
+  try {
+    initialInputs = JSON.stringify(inputs ?? []).replace(/</g, '\\u003c')
+  } catch {
+    initialInputs = '[]'
+  }
+
   const preamble =
     `<meta charset="utf-8">` +
     `<meta http-equiv="Content-Security-Policy" content="${cspFor(net)}">` +
     `<meta name="viewport" content="width=device-width, initial-scale=1">` +
     themeStyle(dark) +
-    bridgeScript(initial)
+    bridgeScript(initial, initialInputs)
 
   const src = (code || '').trim()
 
@@ -258,6 +350,10 @@ export type BridgeMessage =
   | { type: 'natural-height'; payload: number }
   | { type: 'error'; payload: string }
   | { type: 'ready'; payload: unknown }
+  // An action the widget is ASKING for. Carrying the request id so the host can
+  // answer the exact call that made it; the action itself is deliberately left
+  // unknown here and judged by customWidgetActions.
+  | { type: 'act'; payload: { id: string; action: unknown } }
 
 /** Validate a message arriving from the sandboxed frame.
  *
@@ -289,6 +385,14 @@ export function parseBridgeMessage(data: unknown): BridgeMessage | null {
       return { type: 'error', payload: payload.slice(0, 500) }
     case 'ready':
       return { type: 'ready', payload }
+    case 'act': {
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
+      const p = payload as Record<string, unknown>
+      // An id is required: without one the host has nowhere to send the answer
+      // and the widget's await would hang.
+      if (typeof p.id !== 'string' || !p.id || p.id.length > 64) return null
+      return { type: 'act', payload: { id: p.id, action: p.action } }
+    }
     default:
       return null
   }

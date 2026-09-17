@@ -6,6 +6,9 @@ import { parseBridgeMessage, SANDBOX_ATTR } from '@shared/customWidgetSandbox'
 import WidgetFrame from './WidgetFrame'
 import Icon from '../Icon'
 import CustomWidgetWizard from './CustomWidgetWizard'
+import { judgeWidgetAction, describeWidgetAction } from '@shared/customWidgetActions'
+import { applyProposal } from '../../lib/actionExecutor'
+import { useLinksStore } from '../../stores/links'
 import {
   composeSpec,
   composeEditSpec,
@@ -38,6 +41,7 @@ function parse(content: string): CustomWidgetContent {
       code: typeof p.code === 'string' ? p.code : '',
       state: p.state && typeof p.state === 'object' && !Array.isArray(p.state) ? p.state : {},
       net: p.net === true,
+      acts: p.acts === true,
       history: Array.isArray(p.history) ? p.history : [],
       savedId: typeof p.savedId === 'string' ? p.savedId : undefined
     }
@@ -127,6 +131,44 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
     [update, widget.content, widget.id]
   )
 
+  // Wires into this widget. When one is drawn, removed, or its source changes,
+  // the frame is handed a fresh snapshot — which is what makes a generated
+  // widget live rather than a picture of whenever it happened to load.
+  const links = useLinksStore((s) => s.links)
+  const allWidgetsForInputs = useWidgetStore((s) => s.widgets)
+  const inputSignature = useMemo(() => {
+    const sourceIds = links
+      .filter((l) => l.targetWidgetId === widget.id && l.enabled !== false)
+      .map((l) => l.sourceWidgetId)
+      .sort()
+    // Content is part of the signature: editing a wired sticky should reach the
+    // widget reading it, not wait for a wire to be redrawn.
+    return sourceIds
+      .map((id) => {
+        const w = allWidgetsForInputs.find((x) => x.id === id)
+        return `${id}:${w?.updatedAt ?? 0}:${(w?.content ?? '').length}`
+      })
+      .join('|')
+  }, [links, allWidgetsForInputs, widget.id])
+
+  useEffect(() => {
+    if (!data.code) return
+    let live = true
+    void window.api.customWidgetInputs
+      .get(widget.id)
+      .then((inputs) => {
+        if (!live) return
+        iframeRef.current?.contentWindow?.postMessage(
+          { __plexiHost: 1, type: 'inputs', payload: inputs },
+          '*'
+        )
+      })
+      .catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [inputSignature, data.code, widget.id])
+
   // ── the host half of the bridge ────────────────────────────────────────────
   useEffect(() => {
     function onMessage(e: MessageEvent): void {
@@ -137,6 +179,48 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
       if (!msg) return
 
       switch (msg.type) {
+        case 'act': {
+          // The widget is ASKING. Nothing here trusts the request: the verb must
+          // be one the policy allows, the target must be wired into this widget,
+          // and unless the user has switched this widget's write access on it is
+          // put to them before it runs.
+          const answer = (payload: { ok: boolean; reason?: string }): void => {
+            iframeRef.current?.contentWindow?.postMessage(
+              { __plexiHost: 1, type: 'act-result', id: msg.payload.id, payload },
+              '*'
+            )
+          }
+          void (async () => {
+            const scope = await window.api.customWidgetInputs
+              .scope(widget.id)
+              .catch(() => ({ tableIds: [] as string[] }))
+            const verdict = judgeWidgetAction(msg.payload.action, {
+              tableIds: scope.tableIds,
+              acts: data.acts === true
+            })
+            if (!verdict.ok) {
+              answer({ ok: false, reason: verdict.reason })
+              return
+            }
+            if (verdict.needsApproval) {
+              const ok = await confirmDialog({
+                title: `${widget.title || 'This widget'} wants to make a change`,
+                body: `${describeWidgetAction(verdict.action)}\n\nTurn on “Let this widget make changes” in its menu to stop being asked each time.`
+              })
+              if (!ok) {
+                answer({ ok: false, reason: 'You declined that change.' })
+                return
+              }
+            }
+            const res = await applyProposal(
+              { id: `cw-${msg.payload.id}`, ...verdict.action } as never,
+              { activeTaskId: widget.taskId }
+            )
+            answer(res.ok ? { ok: true } : { ok: false, reason: res.message })
+            if (!res.ok) setRuntimeError(res.message)
+          })()
+          return
+        }
         case 'state': {
           const json = JSON.stringify(msg.payload)
           if (json.length > CUSTOM_WIDGET_MAX_STATE_BYTES) {
@@ -309,6 +393,20 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
     patch({ net: !data.net })
   }, [data.net, patch])
 
+  const onToggleActs = useCallback(async () => {
+    if (!data.acts) {
+      const ok = await confirmDialog({
+        title: 'Let this widget make changes without asking?',
+        body:
+          'It will be able to add rows and update cells in the tables WIRED INTO IT, and save notes to ' +
+          'PlexiBrain — without a confirmation each time. It still cannot touch anything you have not ' +
+          'wired to it. Leave this off and it will ask you every time instead.'
+      })
+      if (!ok) return
+    }
+    patch({ acts: !data.acts })
+  }, [data.acts, patch])
+
   const onSave = useCallback(async () => {
     if (!data.code) return
     const suggestion = await window.api.customWidget
@@ -401,6 +499,11 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
         onClick: () => void onToggleNet()
       })
       items.push({
+        label: data.acts ? 'Can make changes: on' : 'Can make changes: off',
+        icon: data.acts ? 'bolt' : 'lock',
+        onClick: () => void onToggleActs()
+      })
+      items.push({
         label: 'Start over',
         icon: 'restart_alt',
         onClick: () => {
@@ -427,7 +530,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
     }
     items.push({ label: 'My widgets…', icon: 'grid_view', onClick: () => void openLibrary() })
     return items
-  }, [data.code, data.history, data.net, onRefine, onRevert, onSave, onToggleNet, openLibrary, showSource, update, widget.id])
+  }, [data.acts, data.code, data.history, data.net, onRefine, onRevert, onSave, onToggleActs, onToggleNet, openLibrary, showSource, update, widget.id])
 
   // ── render ────────────────────────────────────────────────────────────────
   let body: JSX.Element

@@ -62,3 +62,59 @@ Measured in the booted application (`tests/e2e/customWidgetSandbox.spec.ts`), fr
 - Web Workers, plugins and nested frames are unavailable (`default-src 'none'`). No widget has wanted one yet; revisit if that changes rather than pre-emptively widening.
 - `custom` is deliberately **absent** from `PUBLIC_CAPTURE_ALLOWED`. Capture publishes rendered markup to a viewer rendered by code outside this repository, and unreviewed script is not something to publish on the assumption that someone else's renderer will re-sandbox it. It projects as `'text'` instead, which discloses the user's description and entered values and executes nothing.
 - `allow-same-origin` must never be added to `SANDBOX_ATTR`. That single token collapses everything above, so `sandboxAttrIsSafe()` exists purely to fail a test if anyone tries.
+
+## Amendment — 2026-09-17: reading wired sources, and asking the host to act
+
+A widget that can only hold what the user typed into it is a notepad with a
+calculator in it. The request that prompted this asked for widgets that take
+information from elsewhere on the desk and do something with it.
+
+**Nothing above changed.** Same `fb-widget:` scheme, same `allow-scripts`
+without `allow-same-origin`, same `default-src 'none'`, same network-off
+default. `SANDBOX_ATTR` is untouched and `sandboxAttrIsSafe()` still fails a
+test if anyone widens it. What widened is the **bridge** — the `postMessage`
+channel the host already owned — so every new capability is something the host
+performs and the frame merely requests.
+
+### Reading: `plexi.getInputs()` / `plexi.onInput(fn)`
+
+A widget sees the widgets the user has **wired into it**, and nothing else.
+There is deliberately no query interface: the access grant is the wire, drawn by
+the user, visible on the canvas as a line, and revoked by deleting it. Inputs are
+resolved in main (`db/widgetInputs.ts`) and inlined at compose time, so a widget
+renders real data on its first frame; a change to a wired source pushes a fresh
+snapshot in.
+
+Tables arrive **structured** — columns and rows with cells keyed by column id —
+rather than flattened to text. A widget that receives rows can total a column; one
+that receives a rendering of a table can only scrape it.
+
+### Acting: `plexi.act(action)`
+
+Three rules, and the second is the one that matters:
+
+1. **A closed verb list** (`customWidgetActions.ts`): `add-table-row`,
+   `set-cell`, `create-knowledge-entry`, `open-url`. An unknown verb is refused,
+   not queued for later support.
+2. **Scoped to its wires.** A widget may only act on a source wired into it.
+   Without this, granting one widget write access would grant it every table in
+   the workspace. It is enforced host-side against the database, and asserted in
+   `customWidgetBridge.spec.ts` rather than left to the policy function's shape.
+3. **Consent once, not never and not constantly.** Writes are off by default
+   (`acts`, the same shape as `net`). Off, every write is put to the user. On,
+   writes inside the widget's own scope run directly — because a tool that asks
+   permission on every row is a tool nobody keeps. Turning it on widens how often
+   a widget asks, never what it can reach.
+
+Actions execute through `applyProposal` — the same executor the assistant's
+proposals use — so a widget can do nothing the assistant could not, and inherits
+the same validation and the same audit trail.
+
+### What this buys, measured
+
+`tests/e2e/customWidgetBridge.spec.ts`, in the booted app: a widget reads its
+wired table's real columns and rows; a widget whose wire is cut sees `[]`; a table
+on the same desk but not wired in is absent from the widget's action scope. The
+same run re-asserts that `parent.document`, `parent.api` and `localStorage` are
+still `SecurityError` — because "we widened the bridge, not the sandbox" is a
+claim until the application says otherwise.

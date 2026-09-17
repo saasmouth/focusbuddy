@@ -5,6 +5,7 @@ import { pathToFileURL } from 'url'
 import { config as loadEnv } from 'dotenv'
 import { closeDb, getDb } from './db/database'
 import { composeCustomWidgetDocument, cspFor } from '@shared/customWidgetSandbox'
+import { resolveWidgetInputs } from './db/widgetInputs'
 import { markUiVisible } from './db/account'
 import { runRetentionSweep } from './db/retention'
 import { autoBackupOnLaunch } from './db/backup'
@@ -866,7 +867,11 @@ app.whenReady().then(() => {
         code,
         state,
         net,
-        dark: url.searchParams.get('dark') === '1'
+        dark: url.searchParams.get('dark') === '1',
+        // Resolved here rather than sent by the renderer: main already holds the
+        // wires, the widgets and the tables, so the document is built with real
+        // data on its first frame and there is no round-trip to wait for.
+        inputs: resolveWidgetInputs(id)
       })
       return new Response(html, {
         status: 200,

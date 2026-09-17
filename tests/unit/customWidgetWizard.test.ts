@@ -193,3 +193,66 @@ describe('answersSaySomething', () => {
     expect(answersSaySomething(a({}, { kind: 'something' }))).toBe(true)
   })
 })
+
+describe('reading wired sources', () => {
+  it('turns "read a table" into the actual API, not a wish', () => {
+    // "It should read the table" tells a generator nothing it can write code
+    // against. The column-id detail is the one that decides whether the widget
+    // computes or scrapes.
+    const spec = composeSpec(a({ reads: ['table'] }))
+    expect(spec).toContain('plexi.getInputs()')
+    expect(spec).toContain('plexi.onInput')
+    expect(spec).toContain('COLUMN ID')
+  })
+
+  it('always says the list starts empty', () => {
+    // A widget that invents rows before a wire is drawn looks finished and is
+    // lying about having data.
+    expect(composeSpec(a({ reads: ['table'] }))).toContain('EMPTY until the user draws a wire')
+  })
+
+  it('states the negative too, so the generator does not reach for inputs', () => {
+    expect(composeSpec(a({ reads: ['none'] }))).toContain('nothing wired in')
+  })
+
+  it('says nothing about reading when the question was skipped', () => {
+    expect(composeSpec(a({ kind: ['tracker'] }))).not.toContain('plexi.getInputs()')
+  })
+})
+
+describe('acting in the app', () => {
+  it('names only the verbs that were chosen', () => {
+    const spec = composeSpec(a({ acts: ['rows', 'brain'] }))
+    expect(spec).toContain('add-table-row')
+    expect(spec).toContain('create-knowledge-entry')
+    expect(spec).not.toContain('set-cell')
+    expect(spec).not.toContain('open-url')
+  })
+
+  it('insists the ids come from the inputs, which is the scope rule', () => {
+    const spec = composeSpec(a({ acts: ['cells'] }))
+    expect(spec).toContain('MUST come from plexi.getInputs()')
+  })
+
+  it('warns that an action can be refused', () => {
+    // A widget that assumes success shows the user a row that was never added.
+    const spec = composeSpec(a({ acts: ['rows'] }))
+    expect(spec).toContain('check the result')
+    expect(spec).toContain('declined')
+  })
+
+  it('states the default plainly when the answer was no', () => {
+    expect(composeSpec(a({ acts: ['none'] }))).toContain('Do not call plexi.act()')
+  })
+
+  it('treats "no" plus a verb as the verb, not as silence', () => {
+    const spec = composeSpec(a({ acts: ['none', 'rows'] }))
+    expect(spec).toContain('add-table-row')
+    expect(spec).not.toContain('Do not call plexi.act()')
+  })
+
+  it('carries a written instruction alongside the chosen verbs', () => {
+    const spec = composeSpec(a({ acts: ['rows'] }, { acts: 'only when the total goes over budget' }))
+    expect(spec).toContain('only when the total goes over budget')
+  })
+})

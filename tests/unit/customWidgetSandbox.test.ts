@@ -172,3 +172,107 @@ describe('messages arriving from the sandboxed frame are untrusted', () => {
     expect((m as { payload: string }).payload.length).toBe(500)
   })
 })
+
+// ── Inputs and actions (the widened bridge) ──────────────────────────────────
+// ADR-0009's boundary is unchanged: same origin rules, same sandbox attribute,
+// same CSP. What widened is the postMessage channel the host already owned, so
+// everything new here is something the HOST decides and the frame only asks for.
+describe('the act message', () => {
+  it('is accepted with an id, because the answer has to reach the caller', () => {
+    const m = parseBridgeMessage({
+      __plexi: 1,
+      type: 'act',
+      payload: { id: 'a1', action: { kind: 'open-url', url: 'https://x.test' } }
+    })
+    expect(m).not.toBeNull()
+    expect(m?.type).toBe('act')
+  })
+
+  it('is dropped without a usable id', () => {
+    for (const id of [undefined, '', 7, null, 'x'.repeat(200)]) {
+      expect(
+        parseBridgeMessage({ __plexi: 1, type: 'act', payload: { id, action: {} } })
+      ).toBeNull()
+    }
+  })
+
+  it('is dropped when the payload is not an object', () => {
+    for (const payload of [null, 'act', 7, []]) {
+      expect(parseBridgeMessage({ __plexi: 1, type: 'act', payload })).toBeNull()
+    }
+  })
+
+  it('does not vet the action itself — that is the policy’s job', () => {
+    // Shape here, judgement in customWidgetActions. Keeping them apart means the
+    // parser cannot accidentally become the thing that decides what is allowed.
+    const m = parseBridgeMessage({
+      __plexi: 1,
+      type: 'act',
+      payload: { id: 'a1', action: { kind: 'delete-everything' } }
+    })
+    expect(m).not.toBeNull()
+  })
+
+  it('still refuses a message that is not from the bridge at all', () => {
+    expect(parseBridgeMessage({ type: 'act', payload: { id: 'a1' } })).toBeNull()
+  })
+})
+
+describe('inputs inlined at compose time', () => {
+  const input = {
+    id: 'w1',
+    kind: 'table',
+    title: 'Invoices',
+    text: 'Invoices',
+    table: {
+      id: 'tbl-1',
+      columns: [{ id: 'c1', label: 'Client', type: 'text-short' }],
+      rows: [{ id: 'r1', cells: { c1: 'Acme' } }]
+    }
+  }
+
+  it('reaches the document so a widget renders real data on its first frame', () => {
+    const html = composeCustomWidgetDocument({ code: '<div></div>', inputs: [input] })
+    expect(html).toContain('tbl-1')
+    expect(html).toContain('Acme')
+  })
+
+  it('defaults to an empty list, never undefined', () => {
+    const html = composeCustomWidgetDocument({ code: '<div></div>' })
+    expect(html).toContain('var inputs = []')
+  })
+
+  it('cannot close the script element it is inlined into', () => {
+    // The same escaping state gets. A title containing a closing tag would
+    // otherwise end the bridge script and run as markup.
+    const html = composeCustomWidgetDocument({
+      code: '<div></div>',
+      inputs: [{ ...input, title: '</script><img src=x onerror=alert(1)>' }]
+    })
+    expect(html).not.toContain('</script><img')
+    expect(html).toContain('\\u003c/script')
+  })
+
+  it('survives input that will not serialise', () => {
+    const circular: Record<string, unknown> = { id: 'w', kind: 'note', title: 't', text: 'x' }
+    circular.self = circular
+    const html = composeCustomWidgetDocument({
+      code: '<div></div>',
+      inputs: [circular as never]
+    })
+    expect(html).toContain('var inputs = []')
+  })
+})
+
+describe('the boundary ADR-0009 set is unchanged', () => {
+  it('still never grants same-origin', () => {
+    expect(SANDBOX_ATTR).toBe('allow-scripts')
+    expect(sandboxAttrIsSafe('allow-scripts allow-same-origin')).toBe(false)
+  })
+
+  it('still blocks the network by default, inputs or not', () => {
+    expect(cspFor(false)).toContain("connect-src 'none'")
+    const html = composeCustomWidgetDocument({ code: '<div></div>', inputs: [] })
+    expect(html).toContain("connect-src 'none'")
+  })
+})

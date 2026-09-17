@@ -77,6 +77,32 @@ export const WIDGET_WIZARD_QUESTIONS: readonly WizardQuestion[] = [
     ]
   },
   {
+    id: 'reads',
+    prompt: 'Should it read something else on this desk?',
+    why: 'It sees only what you wire into it — a line you draw on the canvas.',
+    multi: true,
+    otherPlaceholder: 'Something else it should read…',
+    options: [
+      { id: 'table', label: 'A table', hint: 'It gets the real rows and columns' },
+      { id: 'notes', label: 'Notes or documents' },
+      { id: 'none', label: 'No', hint: 'It works from what I type into it' }
+    ]
+  },
+  {
+    id: 'acts',
+    prompt: 'Should it be able to change things?',
+    why: 'It can only change what is wired into it, and asks first until you say otherwise.',
+    multi: true,
+    otherPlaceholder: 'Something else it should be able to do…',
+    options: [
+      { id: 'none', label: 'No — just show me', hint: 'The safe default' },
+      { id: 'rows', label: 'Add rows to the table it reads' },
+      { id: 'cells', label: 'Update cells in that table' },
+      { id: 'brain', label: 'Save notes to PlexiBrain' },
+      { id: 'links', label: 'Open a link' }
+    ]
+  },
+  {
     id: 'look',
     prompt: 'How should it read at a glance?',
     why: 'A desk widget is small — this decides what gets the space.',
@@ -205,6 +231,42 @@ export function composeSpec(a: WidgetWizardAnswers, ctx: ComposeContext = {}): s
 
   const kindNote = wrote(a, 'kind')
   if (kindNote && kindNote !== kind) lines.push(`IN THEIR WORDS: ${kindNote}`)
+
+  // Reading and acting are stated as API instructions, because "it should read
+  // the table" tells a generator nothing it can write code against.
+  const reads = picked(a, 'reads')
+  const readsSomething = reads.some((r) => r !== 'none') || wrote(a, 'reads') !== ''
+  if (readsSomething) {
+    const bits = [...labelsFor(a, 'reads').filter((l) => !/^No\b/.test(l)), wrote(a, 'reads')].filter(Boolean)
+    lines.push(
+      `IT READS: ${bits.join('; ').toLowerCase()}, through plexi.getInputs(). ` +
+        'Render from those inputs, and subscribe with plexi.onInput(fn) so it updates ' +
+        'when the source changes. A wired table arrives as {table:{columns,rows}} with ' +
+        'cells keyed by COLUMN ID — compute over the rows, do not parse text. ' +
+        'The list is EMPTY until the user draws a wire: say so in the empty state.'
+    )
+  } else if (reads.includes('none')) {
+    lines.push('IT READS: nothing wired in — it works only from what the user enters.')
+  }
+
+  const acts = picked(a, 'acts').filter((x) => x !== 'none')
+  const actNote = wrote(a, 'acts')
+  if (acts.length > 0 || actNote) {
+    const verbs: string[] = []
+    if (acts.includes('rows')) verbs.push('{kind:"add-table-row", tableId, cells}')
+    if (acts.includes('cells')) verbs.push('{kind:"set-cell", tableId, rowId, cells}')
+    if (acts.includes('brain')) verbs.push('{kind:"create-knowledge-entry", title, body}')
+    if (acts.includes('links')) verbs.push('{kind:"open-url", url}')
+    lines.push(
+      `IT ACTS: await plexi.act(...) with ${verbs.join(' or ') || 'the allowed actions'}. ` +
+        'tableId and rowId MUST come from plexi.getInputs(). ALWAYS check the result and show ' +
+        'the reason on failure — the user may not have granted write access, in which case ' +
+        'each action is put to them for approval and can be declined.' +
+        (actNote ? ` Also: ${actNote}` : '')
+    )
+  } else if (picked(a, 'acts').includes('none')) {
+    lines.push('IT ACTS: not at all. Do not call plexi.act().')
+  }
 
   if (ctx.width && ctx.height) {
     lines.push(

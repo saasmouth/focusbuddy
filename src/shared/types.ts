@@ -3074,6 +3074,14 @@ export interface CustomWidgetContent {
   // The widget's own persisted data, written by the sandboxed code through
   // plexi.setState(). Opaque to the host — we only bound its size.
   state?: Record<string, unknown>
+  // Whether this widget may make changes without asking each time. Off by
+  // default, and the same shape as `net` deliberately: consent given once, in
+  // the open, rather than either silent writes or a confirmation on every row.
+  //
+  // Switching it on is NOT a general grant. What a widget may touch is still
+  // only what the user wired into it (see customWidgetActions), so this widens
+  // how often it asks, never what it can reach.
+  acts?: boolean
   // Network access for the generated code. Off by default: a widget that holds
   // what the user typed into it should not be able to post that anywhere
   // without the user turning it on deliberately.

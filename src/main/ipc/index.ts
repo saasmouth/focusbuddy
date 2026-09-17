@@ -19,6 +19,7 @@ import {
   excludeFromFolder,
   reorderMailFolders
 } from '../db/mailFolders'
+import { resolveWidgetInputs, wiredTableIds } from '../db/widgetInputs'
 import type { ContactDraft, ContactPatch, MailFolderDraft, MailFolderPatch } from '@shared/types'
 import { buildMetricBinding, planFindingsDelivery, refineDashboardPlan } from '../ai/anthropic'
 import { normalizeFindings } from '@shared/browseFindings'
@@ -2254,6 +2255,17 @@ export function registerIpcHandlers(): void {
       }
     }
   )
+
+  // ── Custom widget inputs ──────────────────────────────────────────────────
+  // What a generated widget can see: the widgets wired INTO it, resolved here.
+  // There is deliberately no query channel — a widget reads its wires and
+  // nothing else, and the user grants that by drawing a line on the canvas.
+  ipcMain.handle('customWidget:inputs', (_e, widgetId: string) =>
+    resolveWidgetInputs(String(widgetId))
+  )
+  ipcMain.handle('customWidget:scope', (_e, widgetId: string) => ({
+    tableIds: wiredTableIds(String(widgetId))
+  }))
 
   // ── Mail folders ──────────────────────────────────────────────────────────
   // Saved criteria for looking at INBOX, optionally about a desk or task.

@@ -61,15 +61,34 @@ test('1. the wizard walks the questions and states what was chosen', async () =>
   await window.locator('[data-testid="wizard-opt-kind-tracker"]').click()
   await expect(window.locator('[data-testid="wizard-opt-holds-items"]')).toBeVisible({ timeout: 5000 })
 
-  // Q2 is multi-choice: it waits for Next.
-  await window.locator('[data-testid="wizard-opt-holds-items"]').click()
-  await window.locator('[data-testid="wizard-opt-holds-numbers"]').click()
-  await window.locator('[data-testid="wizard-next"]').click()
-
-  await window.locator('[data-testid="wizard-opt-does-progress"]').click()
-  await window.locator('[data-testid="wizard-next"]').click()
-  await window.locator('[data-testid="wizard-opt-look-list"]').click()
-  await window.locator('[data-testid="wizard-opt-memory-remember"]').click()
+  const answers: Record<string, string[]> = {
+    holds: ['items', 'numbers'],
+    does: ['progress'],
+    reads: ['table'],
+    acts: ['rows'],
+    look: ['list'],
+    memory: ['remember']
+  }
+  // Walk whatever is on screen. A fixed script breaks the moment a question is
+  // added, and that is a change to the wizard, not a regression in it.
+  for (let step = 0; step < 12; step++) {
+    if (await window.locator('[data-testid="wizard-review"]').isVisible().catch(() => false)) break
+    let clicked = false
+    for (const [qid, opts] of Object.entries(answers)) {
+      for (const opt of opts) {
+        const el = window.locator(`[data-testid="wizard-opt-${qid}-${opt}"]`)
+        if (await el.isVisible().catch(() => false)) {
+          await el.click()
+          clicked = true
+        }
+      }
+      if (clicked) break
+    }
+    const next = window.locator('[data-testid="wizard-next"]')
+    if (await next.isVisible().catch(() => false)) await next.click()
+    else if (!clicked) await window.locator('[data-testid="wizard-skip"]').click()
+    await window.waitForTimeout(220)
+  }
 
   const review = window.locator('[data-testid="wizard-review"]')
   await expect(review).toBeVisible({ timeout: 8000 })
@@ -94,7 +113,7 @@ test('2. every question takes free text, not just the listed options', async () 
   await expect(window.locator('[data-testid="custom-widget-wizard"]')).toContainText('a sprint burndown chart')
 
   // Skip the rest: free text alone must be enough to finish.
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 12; i++) {
     if (await window.locator('[data-testid="wizard-review"]').isVisible().catch(() => false)) break
     await window.locator('[data-testid="wizard-skip"]').click()
     await window.waitForTimeout(200)

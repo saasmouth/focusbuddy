@@ -1,3 +1,4 @@
+import type { WidgetInput } from '@shared/customWidgetSandbox'
 import type { WriteOrigin } from '../shared/writeOrigin'
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
@@ -1753,6 +1754,14 @@ const api = {
       error?: string
       needsApiKey?: boolean
     }> => ipcRenderer.invoke('dashboardWizard:refine', input)
+  },
+  // What a generated custom widget can see and act on. Both are derived from
+  // the wires drawn into it — there is no way to ask for anything else.
+  customWidgetInputs: {
+    get: (widgetId: string): Promise<WidgetInput[]> =>
+      ipcRenderer.invoke('customWidget:inputs', widgetId),
+    scope: (widgetId: string): Promise<{ tableIds: string[] }> =>
+      ipcRenderer.invoke('customWidget:scope', widgetId)
   },
   // Mail folders: saved criteria for looking at the inbox, optionally about a
   // desk or task. None of these touch the mail server -- a folder is a view.
