@@ -19,10 +19,12 @@ const META: Record<DocType, { label: string; importLabel: string }> = {
   doc: { label: 'Document', importLabel: 'Import a Word .docx' },
   sheet: { label: 'Spreadsheet', importLabel: 'Import an Excel .xlsx / .csv' },
   slides: { label: 'Slides', importLabel: 'Import a PowerPoint .pptx' },
-  // Maps have no external import format yet — the create-new path is the only one.
-  map: { label: 'Map', importLabel: '' },
+  // Diagrams import Visio from PlexiDiagrams itself, not from this dialog.
+  map: { label: 'Diagram', importLabel: '' },
   // Designs are created in the design studio, not imported here.
-  design: { label: 'Design', importLabel: '' }
+  design: { label: 'Design', importLabel: '' },
+  // Artwork is created in the draw studio, not imported here.
+  draw: { label: 'Artwork', importLabel: '' }
 }
 
 export default function OfficeDocAddDialog({ docType, onPicked, onClose }: Props): JSX.Element {

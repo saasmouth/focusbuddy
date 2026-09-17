@@ -1,4 +1,4 @@
-// PlexiDraw export: turn a MapBody into a real .svg, .png, .jpg or .pdf. The SVG
+// PlexiDiagrams export: turn a MapBody into a real .svg, .png, .jpg or .pdf. The SVG
 // (mapToSvg) is the single source of truth — written verbatim for .svg, and drawn
 // in an offscreen window then captured/printed for the raster and PDF formats.
 // Mirrors designExport.ts so the whole suite exports through one shape of code.

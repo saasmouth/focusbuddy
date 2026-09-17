@@ -21,10 +21,17 @@ import type { Widget, WidgetKind } from './types'
 // read" stay one list — the renderer's attachment gathering and the assistant's
 // click-to-pin rule both consume it.
 export const ATTACHABLE_WIDGET_KINDS: ReadonlySet<WidgetKind> = new Set<WidgetKind>([
-  'note', 'sticky', 'markdown', 'page', 'living-doc', 'card', 'custom-block',
+  'note', 'sticky', 'markdown', 'page', 'living-doc', 'card', 'custom-block', 'custom',
   'webview', 'pdf', 'gdoc', 'gsheet', 'gslide', 'email',
-  'doc', 'sheet', 'slides', 'map', 'design',
-  'table', 'chart', 'diagram', 'mindmap', 'agent', 'field'
+  'doc', 'sheet', 'slides', 'map', 'design', 'draw',
+  'table', 'chart', 'diagram', 'mindmap', 'agent', 'field',
+  // Content-bearing kinds that were absent from this list, so the assistant
+  // could not read them however plainly the user had pointed at them: a voice
+  // note's transcript, the figures on a stat card or metrics block, a place on
+  // a map, a gallery, and the desk views (tasks, calendar, inbox, contacts,
+  // attention) that say what they are pointed at.
+  'voice-recorder', 'stat-card', 'metrics', 'location-map', 'gallery', 'image-gen',
+  'task-list', 'calendar', 'inbox', 'contacts', 'attention', 'meeting-record'
 ])
 
 // A table reduced to the shape the summariser needs. The caller adapts its own
@@ -152,6 +159,28 @@ export function docBodyToText(docType: string, body: unknown): string {
     const out = [`Diagram with ${nodes.length} nodes, ${edges.length} connections`, labels.join(', ')]
     return squash(out.join('\n')).slice(0, 12000)
   }
+  if (docType === 'draw') {
+    // A drawing's body is LAYERS of objects, not the `elements` array the
+    // design fallback below reads — so without this branch every PlexiDraw
+    // document extracted to an empty string. What is sayable about artwork is
+    // the words actually drawn on it (type objects) plus the layer names the
+    // user chose, which is how people describe their own drawings.
+    const layers = Array.isArray(b.layers) ? (b.layers as Array<Record<string, unknown>>) : []
+    const words: string[] = []
+    const names: string[] = []
+    let objects = 0
+    for (const layer of layers) {
+      if (typeof layer.name === 'string' && layer.name.trim()) names.push(layer.name.trim())
+      const objs = Array.isArray(layer.objects) ? (layer.objects as Array<Record<string, unknown>>) : []
+      objects += objs.length
+      for (const o of objs) {
+        if (o.type === 'text' && typeof o.text === 'string' && o.text.trim()) words.push(o.text.trim())
+      }
+    }
+    const shape = `Drawing: ${layers.length} layer${layers.length === 1 ? '' : 's'}, ${objects} object${objects === 1 ? '' : 's'}`
+    const out = [shape, names.length ? `Layers: ${names.join(', ')}` : '', words.join('\n')]
+    return squash(out.filter(Boolean).join('\n')).slice(0, 12000)
+  }
   // design or unknown: best-effort element text.
   //
   // A design element carries its copy the same way a slide element does —
@@ -240,6 +269,27 @@ export function widgetToText(w: Widget, r: WidgetTextResolvers = {}): WidgetText
       return { ...base, text: squash(raw) }
     }
 
+    case 'custom': {
+      // The SPEC is what this widget is, in the user's own words. Indexing the
+      // generated markup instead would fill retrieval with div soup and make the
+      // widget findable by everything and nothing.
+      const p = safeParse<{ spec?: string; state?: Record<string, unknown> }>(raw)
+      const spec = typeof p?.spec === 'string' ? p.spec.trim() : ''
+      if (!spec) return { ...base, text: 'Custom widget (not built yet)' }
+      // Whatever the user typed INTO the widget is real content too, so a value
+      // entered in a custom tool is searchable like any other widget's.
+      const entered: string[] = []
+      for (const [k, v] of Object.entries(p?.state ?? {})) {
+        if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+          entered.push(`${k}: ${String(v)}`)
+        }
+      }
+      return {
+        ...base,
+        text: squash([`Custom widget: ${spec}`, ...entered].join('\n'))
+      }
+    }
+
     case 'custom-block': {
       const p = safeParse<{ title?: string; fields?: Array<{ label?: string; value?: unknown; type?: string }> }>(raw)
       if (p) {
@@ -296,7 +346,11 @@ export function widgetToText(w: Widget, r: WidgetTextResolvers = {}): WidgetText
     // default placeholder both consumers reject — permanently unreadable
     // (defect #10). Its content is a document id exactly like the other
     // office kinds; the docText resolver's design branch reads element text.
-    case 'design': {
+    case 'design':
+    // PlexiDraw artwork is the same story one app later: it renders through
+    // OfficeDocWidget and stores a document id, but shipped without a case
+    // here, so every drawing was unreadable to every AI surface.
+    case 'draw': {
       const docText = raw && r.docText ? r.docText(raw) : null
       return { ...base, text: docText && docText.trim() ? docText : '(empty document)' }
     }
@@ -314,7 +368,7 @@ export function widgetToText(w: Widget, r: WidgetTextResolvers = {}): WidgetText
         const dataNote = src ? ` over ${src.rows.length} rows of ${src.title ?? 'a table'}` : ''
         return { ...base, text: squash(`${p.type ?? 'chart'} chart${p.title ? ` "${p.title}"` : ''}: ${series}${dataNote}`) }
       }
-      return { ...base, text: '(chart)' }
+      return { ...base, text: '(empty chart)' }
     }
 
     case 'diagram': {
@@ -326,7 +380,7 @@ export function widgetToText(w: Widget, r: WidgetTextResolvers = {}): WidgetText
           text: squash(`Diagram: ${labels.length} shapes, ${(p.edges ?? []).length} connections\n${labels.join(', ')}`)
         }
       }
-      return { ...base, text: '(diagram)' }
+      return { ...base, text: '(empty diagram)' }
     }
 
     case 'mindmap': {
@@ -363,6 +417,139 @@ export function widgetToText(w: Widget, r: WidgetTextResolvers = {}): WidgetText
       return { ...base, text: p ? `Timer ${p.targetSec ?? 0}s (${p.state ?? 'idle'})` : '(timer)' }
     }
 
+    case 'voice-recorder': {
+      // The transcript is the whole point of a voice note, and it sits right
+      // here in content — yet this kind fell to the placeholder, so a recorded
+      // thought was invisible to every AI surface. Prefer the processed text
+      // when the user made one; it is what they chose to keep.
+      const p = safeParse<{
+        transcript?: string
+        processedText?: string
+        mode?: string
+        durationSec?: number | null
+        language?: string | null
+      }>(raw)
+      // `processedText` is the widget's own field name for the cleaned/summarised
+      // version; the raw transcript is the fallback when nothing was processed.
+      const body = (p?.processedText || p?.transcript || '').trim()
+      if (!body) return { ...base, text: '(voice recording, not transcribed yet)' }
+      const meta = [
+        p?.durationSec ? `${Math.round(p.durationSec)}s` : '',
+        p?.language ? p.language : ''
+      ].filter(Boolean).join(', ')
+      return { ...base, text: squash(`Voice note${meta ? ` (${meta})` : ''}:\n${body}`) }
+    }
+
+    case 'stat-card': {
+      // The numbers are in content. A card says whether each figure is measured
+      // (bound to a table) or typed, and that distinction rides too — a typed
+      // target must never read as a live measurement.
+      const p = safeParse<{
+        title?: string
+        series?: Array<{ label?: string; value?: number; display?: string; unit?: string; caption?: string }>
+        binding?: unknown
+      }>(raw)
+      const rows = (p?.series ?? []).map((sr) => {
+        const v = sr.display ?? (typeof sr.value === 'number' ? String(sr.value) : '')
+        return `${sr.label ?? 'Value'}: ${v}${sr.unit ? ` ${sr.unit}` : ''}${sr.caption ? ` — ${sr.caption}` : ''}`
+      })
+      if (!rows.length) return { ...base, text: p?.title ? `Stat card: ${p.title}` : '(empty stat card)' }
+      const origin = p?.binding ? 'measured from a table' : 'entered by hand'
+      return { ...base, text: squash([`Stat card${p?.title ? ` "${p.title}"` : ''} (${origin}):`, ...rows].join('\n')) }
+    }
+
+    case 'metrics': {
+      const p = safeParse<{
+        title?: string
+        cells?: Array<{ label?: string; value?: number; display?: string; binding?: unknown }>
+        barsLabel?: string
+        source?: string
+      }>(raw)
+      const rows = (p?.cells ?? []).map((c) => {
+        const v = c.display ?? (typeof c.value === 'number' ? String(c.value) : '')
+        return `${c.label ?? 'Metric'}: ${v}${c.binding ? ' (measured)' : ''}`
+      })
+      if (!rows.length) return { ...base, text: p?.title ? `Metrics: ${p.title}` : '(empty metrics)' }
+      const tail = [p?.barsLabel ? `Bars: ${p.barsLabel}` : '', p?.source ? `Source: ${p.source}` : ''].filter(Boolean)
+      return { ...base, text: squash([`Metrics${p?.title ? ` "${p.title}"` : ''}:`, ...rows, ...tail].join('\n')) }
+    }
+
+    case 'location-map': {
+      // A real place is real information; the resolved label is what the map
+      // actually matched, so a wrong match is visible rather than implied.
+      const p = safeParse<{ query?: string; label?: string; lat?: number; lon?: number }>(raw)
+      const asked = (p?.query ?? '').trim()
+      const found = (p?.label ?? '').trim()
+      if (!asked && !found) return { ...base, text: '(map, no place set)' }
+      const coords = typeof p?.lat === 'number' && typeof p?.lon === 'number' ? ` [${p.lat}, ${p.lon}]` : ''
+      if (found && asked && found !== asked) {
+        return { ...base, text: squash(`Location: ${found}${coords} (searched for "${asked}")`) }
+      }
+      return { ...base, text: squash(`Location: ${found || asked}${coords}`) }
+    }
+
+    case 'gallery': {
+      const p = safeParse<{ fileIds?: string[] }>(raw)
+      const ids = Array.isArray(p) ? (p as string[]) : (p?.fileIds ?? [])
+      return { ...base, text: ids.length ? `Image gallery: ${ids.length} image${ids.length === 1 ? '' : 's'}` : '(empty gallery)' }
+    }
+
+    case 'meeting-record': {
+      const id = raw.trim()
+      return { ...base, text: id ? `Meeting record${w.title ? `: ${w.title}` : ''} (transcript stored separately)` : '(meeting record, no meeting)' }
+    }
+
+    case 'drive': {
+      const id = raw.trim()
+      return { ...base, text: id ? `Files folder bound to this desk${w.title ? `: ${w.title}` : ''}` : '(drive, no folder bound)' }
+    }
+
+    case 'video':
+      return { ...base, text: raw ? `Video: ${raw}` : '(empty video)', source: raw || undefined }
+
+    case 'webhook': {
+      const p = safeParse<{ url?: string }>(raw)
+      return { ...base, text: p?.url ? `Outgoing webhook to ${p.url}` : '(webhook, no URL set)' }
+    }
+
+    case 'inbound-hook': {
+      const p = safeParse<{ url?: string }>(raw)
+      return { ...base, text: p?.url ? `Inbound hook receiving at ${p.url}` : '(inbound hook, not registered)' }
+    }
+
+    // The view-shaped widgets. Their content is a QUERY, not the rows — the
+    // rows live in the desk's own data, which every AI surface already receives
+    // through the desk context. So these describe honestly what they are
+    // pointed at rather than inventing rows they do not hold.
+    case 'task-list': {
+      const p = safeParse<{ scope?: string; filter?: string; group?: string; ranked?: boolean }>(raw)
+      const bits = [
+        p?.scope ? `scope ${p.scope}` : '',
+        p?.filter ? `filter ${p.filter}` : '',
+        p?.group && p.group !== 'none' ? `grouped by ${p.group}` : '',
+        p?.ranked ? 'most pressing first' : ''
+      ].filter(Boolean)
+      return { ...base, text: `Task list of this desk's tasks${bits.length ? ` (${bits.join(', ')})` : ''}` }
+    }
+
+    case 'calendar': {
+      const p = safeParse<{ scope?: string; filter?: unknown }>(raw)
+      return { ...base, text: `Calendar of what is due${p?.scope ? ` (${p.scope})` : ''}` }
+    }
+
+    case 'inbox': {
+      const p = safeParse<{ rules?: unknown; scan?: number }>(raw)
+      return { ...base, text: p?.rules ? 'Inbox filtered to this desk by a saved rule' : '(inbox, no rule set)' }
+    }
+
+    case 'contacts': {
+      const p = safeParse<{ activeGroup?: string }>(raw)
+      return { ...base, text: `People on this desk${p?.activeGroup ? ` (group: ${p.activeGroup})` : ''}` }
+    }
+
+    case 'attention':
+      return { ...base, text: "This desk's attention view: what is overdue, due and waiting" }
+
     case 'chat-thread': {
       const p = safeParse<{ channelName?: string }>(raw)
       return { ...base, text: p?.channelName ? `Chat thread: ${p.channelName}` : '(chat thread)' }
@@ -379,9 +566,9 @@ export function widgetToText(w: Widget, r: WidgetTextResolvers = {}): WidgetText
     }
 
     default:
-      // video, drive, voice-recorder, local-app-launcher, section, minimap,
-      // shape: no meaningful text; return the title or a short label rather than
-      // dumping raw JSON into the prompt.
+      // local-app-launcher, section, minimap, shape: genuine chrome. They
+      // render UI and hold no content, so they get a short honest label rather
+      // than raw JSON dumped into the prompt.
       return { ...base, text: w.title ? `(${w.kind}: ${w.title})` : `(${w.kind})` }
   }
 }

@@ -109,7 +109,9 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
             ? 'Untitled deck'
             : docType === 'design'
               ? 'Untitled design'
-              : 'Untitled map')
+              : docType === 'draw'
+                ? 'Untitled artwork'
+                : 'Untitled diagram')
     const doc = await window.api.documents.create({ docType, title })
     void pushCloudDoc(doc).catch(() => {})
     crdtEmitDocumentCreate(doc) // WS01 (flagged): materialise doc metadata on other devices

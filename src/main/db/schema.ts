@@ -440,6 +440,33 @@ CREATE INDEX IF NOT EXISTS idx_widget_links_target ON widget_links(target_widget
 -- task at a moment in time (payload = JSON Widget[]). Written debounced as the
 -- desk changes; capped + pruned per task. Lets the user scrub the desk's
 -- evolution, restore a past state, or branch a new task from one.
+-- ── Saved custom widgets ─────────────────────────────────────────────────────
+-- The user's personal library of AI-built widgets, reusable on any desk. This
+-- lives in the database rather than localStorage (where the older custom-block
+-- templates live) so a library the user spent real effort building is covered by
+-- the pre-migration backup, the workspace export, and device sync -- losing it to
+-- a cleared browser store would be losing original work.
+--
+-- "code" is a self-contained HTML document. It is never executed in the app's own
+-- origin: see CustomWidget.tsx for the sandbox. "net" records whether the user
+-- deliberately allowed this widget to reach the network.
+-- (Identifiers are quoted, not backticked: this whole schema is one JS template
+-- literal, so a backtick here would end it mid-file.)
+CREATE TABLE IF NOT EXISTS fb_custom_widgets (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL DEFAULT 'Untitled widget',
+  spec TEXT NOT NULL DEFAULT '',
+  code TEXT NOT NULL DEFAULT '',
+  icon TEXT NOT NULL DEFAULT 'widgets',
+  net INTEGER NOT NULL DEFAULT 0,
+  width INTEGER NOT NULL DEFAULT 420,
+  height INTEGER NOT NULL DEFAULT 360,
+  use_count INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_fb_custom_widgets_used ON fb_custom_widgets(updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS canvas_snapshots (
   id TEXT PRIMARY KEY,
   task_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,

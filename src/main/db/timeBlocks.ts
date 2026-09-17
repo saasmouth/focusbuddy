@@ -17,6 +17,9 @@ interface TimeBlockRow {
   origin: 'manual' | 'auto'
   locked: number
   push_policy: 'local' | 'push'
+  calendar_id: string | null
+  external_event_id: string | null
+  external_calendar_id: string | null
   created_at: number
   updated_at: number
 }
@@ -49,6 +52,9 @@ function rowToBlock(row: TimeBlockRow): TimeBlock {
     origin: row.origin === 'auto' ? 'auto' : 'manual',
     locked: !!row.locked,
     pushPolicy: row.push_policy === 'push' ? 'push' : 'local',
+    calendarId: row.calendar_id ?? null,
+    externalEventId: row.external_event_id ?? null,
+    externalCalendarId: row.external_calendar_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   }
@@ -175,7 +181,13 @@ export function updateTimeBlock(id: string, patch: TimeBlockPatch): TimeBlock | 
     // DEC-052: the pin and the per-block push choice are patchable; origin is
     // a birth fact and is not.
     ['locked', 'locked', (v) => (v ? 1 : 0)],
-    ['pushPolicy', 'push_policy', (v) => (v === 'push' ? 'push' : 'local')]
+    ['pushPolicy', 'push_policy', (v) => (v === 'push' ? 'push' : 'local')],
+    // Which internal calendar the block sits on — its colour, and whether it is
+    // pushed out.
+    ['calendarId', 'calendar_id', (v) => v ?? null],
+    // Written by the push engine, not by a person.
+    ['externalEventId', 'external_event_id', (v) => v ?? null],
+    ['externalCalendarId', 'external_calendar_id', (v) => v ?? null]
   ]
   for (const [key, col, coerce] of cols) {
     if (patch[key] !== undefined) {

@@ -59,3 +59,83 @@ test('subscribing to an ICS feed mirrors its events', async () => {
 
   await launched.dispose()
 })
+
+// The data layer is only half the promise: the events have to reach the surfaces
+// people actually look at. This subscribes to a feed with an event on TODAY, then
+// checks the desk calendar widget and the week grid really show it — the step
+// nothing covered before, so "it flows through" was a claim rather than a fact.
+test('subscribed events reach the desk calendar widget and the week grid', async () => {
+  // Subscribing, opening the calendar, reloading and opening a desk is more than
+  // one 30-second budget covers.
+  test.setTimeout(120_000)
+  // An event today, so it lands in whatever window the widget and grid open on.
+  const today = new Date()
+  const stamp = (d: Date): string =>
+    `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`
+  const ics = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Test//EN', 'X-WR-CALNAME:Ops',
+    'BEGIN:VEVENT', 'UID:today@test',
+    `DTSTART:${stamp(today)}T090000Z`, `DTEND:${stamp(today)}T100000Z`,
+    'SUMMARY:ZZFeedEventZZ', 'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n')
+
+  const server = createServer((_req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/calendar' })
+    res.end(ics)
+  })
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
+  const port = (server.address() as { port: number }).port
+
+  const launched: LaunchedApp = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+
+  const added = await window.evaluate(async (url) => {
+    const api = (window as unknown as { api: Record<string, any> }).api
+    return api.externalCalendars.add({ provider: 'ics', name: 'Ops', sourceRef: url })
+  }, `http://127.0.0.1:${port}/cal.ics`)
+  expect(added.ok).toBe(true)
+
+  // ── The full-screen calendar's week grid ─────────────────────────────────
+  await window.evaluate(() => {
+    const w = window as unknown as { __fbView?: { getState: () => Record<string, () => void> } }
+    w.__fbView?.getState().goCalendar?.()
+  })
+  await expect(window.locator('[data-testid="external-event"]').first()).toBeVisible({ timeout: 10_000 })
+  await expect(window.locator('[data-testid="external-event"]').first()).toContainText('ZZFeedEventZZ')
+
+  // ── The desk calendar widget ─────────────────────────────────────────────
+  const deskId = await window.evaluate(async () => {
+    const api = (window as unknown as { api: Record<string, any> }).api
+    const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'ZZCalendarDeskZZ' })
+    await api.widgets.create({
+      taskId: task.id,
+      kind: 'calendar',
+      title: 'Calendar',
+      content: '',
+      x: 60,
+      y: 60,
+      width: 540,
+      height: 540
+    })
+    return task.id as string
+  })
+
+  await window.reload()
+  await waitForReady(window)
+  await window.evaluate((taskId) => {
+    const w = window as unknown as { __fbView?: { getState: () => Record<string, (id: string) => void> } }
+    w.__fbView?.getState().goTask?.(taskId as string)
+  }, deskId)
+  await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 10_000 })
+
+  const widget = window.locator('[data-widget-kind="calendar"]').first()
+  await expect(widget).toBeVisible({ timeout: 10_000 })
+  // The widget marks the days that carry subscribed events and lists them for
+  // the selected day — today, which is when the feed's event falls.
+  await expect(widget).toContainText('ZZFeedEventZZ', { timeout: 10_000 })
+
+  server.close()
+  await launched.dispose()
+})

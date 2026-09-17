@@ -3,7 +3,7 @@ import type { Widget } from '@shared/types'
 import type { DocType, FbDocument } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
-import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor } from '@office'
+import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor, DrawStudio } from '@office'
 import type { MapBody, SheetBody, SlidesBody } from '@shared/types'
 
 // A document / spreadsheet / slide deck living on the canvas as a native widget.
@@ -22,14 +22,16 @@ const KIND_TO_DOCTYPE: Record<string, DocType> = {
   sheet: 'sheet',
   slides: 'slides',
   map: 'map',
-  design: 'design'
+  design: 'design',
+  draw: 'draw'
 }
 const TYPE_META: Record<DocType, { label: string; accent: string }> = {
   doc: { label: 'Document', accent: 'bg-sky-300/60 dark:bg-sky-400/25' },
   sheet: { label: 'Spreadsheet', accent: 'bg-emerald-300/60 dark:bg-emerald-400/25' },
   slides: { label: 'Slides', accent: 'bg-orange-300/60 dark:bg-orange-400/25' },
-  map: { label: 'Map', accent: 'bg-violet-300/60 dark:bg-violet-400/25' },
-  design: { label: 'Design', accent: 'bg-pink-300/60' }
+  map: { label: 'Diagram', accent: 'bg-violet-300/60 dark:bg-violet-400/25' },
+  design: { label: 'Design', accent: 'bg-pink-300/60' },
+  draw: { label: 'Artwork', accent: 'bg-fuchsia-300/60 dark:bg-fuchsia-400/25' }
 }
 
 export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.Element {
@@ -98,6 +100,8 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
     body = <SlidesEditor key={doc.id} body={doc.body as SlidesBody} title={doc.title} onChange={saveBody} />
   } else if (docType === 'design') {
     body = <DesignEditor key={doc.id} content={doc.body} title={doc.title} onChange={saveBody} />
+  } else if (docType === 'draw') {
+    body = <DrawStudio key={doc.id} content={doc.body} title={doc.title} onChange={saveBody} />
   } else {
     body = <MapEditor key={doc.id} body={doc.body as MapBody} title={doc.title} onChange={saveBody} />
   }

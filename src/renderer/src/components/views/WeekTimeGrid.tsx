@@ -4,6 +4,7 @@ import { useNodeStore } from '../../stores/nodes'
 import { useWorkItemStore } from '../../stores/workItems'
 import { useTimeBlockStore } from '../../stores/timeBlocks'
 import { useExternalEventStore } from '../../stores/externalEvents'
+import { colorOfBlock, colorOfCalendar, tint, useCalendarStore } from '../../stores/calendars'
 import { useFocusSessionStore } from '../../stores/focusSession'
 import { useViewStore } from '../../stores/view'
 import { futuristicPowerOn } from '../../lib/audioBeep'
@@ -126,6 +127,10 @@ export default function WeekTimeGrid({
   // Subscribed calendars ride the same window as the blocks.
   const externalEvents = useExternalEventStore((s) => s.events)
   const loadExternal = useExternalEventStore((s) => s.loadRange)
+  // Colours come from the calendar an entry belongs to, so a week of mixed
+  // sources reads at a glance.
+  const calendars = useCalendarStore((s) => s.calendars)
+  const loadCalendars = useCalendarStore((s) => s.load)
   const createBlock = useTimeBlockStore((s) => s.create)
   const updateBlock = useTimeBlockStore((s) => s.update)
   const removeBlock = useTimeBlockStore((s) => s.remove)
@@ -142,6 +147,21 @@ export default function WeekTimeGrid({
     void loadRange(weekFrom, weekTo)
     void loadExternal(weekFrom, weekTo)
   }, [weekFrom, weekTo, loadRange, loadExternal])
+
+  // Refetch when a background sync lands, so a calendar left open on screen does
+  // not quietly go stale between the 15-minute refreshes.
+  useEffect(() => {
+    void loadCalendars()
+  }, [loadCalendars])
+
+  useEffect(() => {
+    const api = (window as { api?: Record<string, unknown> }).api
+    const ext = api?.externalCalendars as { onEventsChanged?: (cb: () => void) => () => void } | undefined
+    return ext?.onEventsChanged?.(() => {
+      void loadExternal(weekFrom, weekTo)
+      void loadCalendars()
+    })
+  }, [weekFrom, weekTo, loadExternal, loadCalendars])
 
   // A block can link to ANY node — a task (focusable), a folder (jump-to), or
   // (DEC-052) a WORK ITEM. Work items never pass through the node store by
@@ -754,6 +774,7 @@ export default function WeekTimeGrid({
                     <div
                       key={block.id}
                       data-testid="time-block"
+                      data-calendar-id={block.calendarId ?? ''}
                       onPointerDown={(e) => beginDrag(e, block, 'move')}
                       onClick={(e) => {
                         e.stopPropagation()
@@ -793,12 +814,22 @@ export default function WeekTimeGrid({
                       style={{
                         top: Math.max(0, top),
                         height: fit.boxHeight,
+                        // A work item's queue hue wins: it says something the
+                        // calendar colour does not. Everything else takes the
+                        // colour of the Plexii calendar it belongs to, so an
+                        // own block is told apart from a subscribed one and
+                        // from the other Plexii calendars at a glance.
                         ...(wiHue && !done && !isPast
                           ? {
                               backgroundColor: queueTint(wiHue, 0.14),
                               borderColor: queueTint(wiHue, 0.45)
                             }
-                          : {})
+                          : !done && !isPast
+                            ? {
+                                backgroundColor: tint(colorOfBlock(calendars, block.calendarId), 0.15),
+                                borderColor: tint(colorOfBlock(calendars, block.calendarId), 0.45)
+                              }
+                            : {})
                       }}
                       title={`${block.title || linked?.title || 'Focus time'} · ${fmtTime(startMs)}`}
                     >
@@ -1042,9 +1073,15 @@ export default function WeekTimeGrid({
                       <div
                         key={`ext:${e.id}`}
                         data-testid="external-event"
+                        data-calendar-id={e.calendarId}
                         onClick={(ev) => ev.stopPropagation()}
-                        className="absolute left-0.5 right-0.5 overflow-hidden rounded-[var(--radius-chip)] border-l-[3px] border-sky-500 bg-sky-500/[0.10] px-1.5 py-1 fb-t-caption text-[var(--ink-80)]"
-                        style={{ top: Math.max(0, top), height: Math.max(16, height) }}
+                        className="absolute left-0.5 right-0.5 overflow-hidden rounded-[var(--radius-chip)] border-l-[3px] px-1.5 py-1 fb-t-caption text-[var(--ink-80)]"
+                        style={{
+                          top: Math.max(0, top),
+                          height: Math.max(16, height),
+                          borderLeftColor: colorOfCalendar(calendars, e.calendarId),
+                          background: tint(colorOfCalendar(calendars, e.calendarId))
+                        }}
                         title={[e.title, e.location, e.organizer].filter(Boolean).join(' — ')}
                       >
                         <div className="truncate font-medium leading-[1.25]">

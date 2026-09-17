@@ -2,7 +2,7 @@ import Icon from '../../Icon'
 import { DRAW_BLEND_MODES, solid, type DrawBlend, type DrawObject, type DrawPaint, type DrawStroke, type DrawTextObject } from '@shared/draw'
 import type { BooleanOp } from '@shared/drawGeometry'
 import type { AlignEdge, ArrangeDir } from '@shared/drawOps'
-import type { BrushSettings } from './raster'
+import { BRUSH_PRESETS, brushFromPreset, type BrushSettings } from './brushes'
 import { GOOGLE_FONTS, familyLabel, fontFamilyValue, loadGoogleFont } from '../../../lib/googleFonts'
 
 // The PlexiDraw inspector — appearance and structure for whatever is selected.
@@ -41,47 +41,139 @@ export default function DrawInspector(p: Props): JSX.Element {
   return (
     <div className="w-60 shrink-0 border-l border-[var(--edge-soft)] overflow-auto text-[12px]" data-testid="draw-inspector">
       {p.showBrush && (
-        <Section title="Brush">
-          <Row label="Size">
-            <input
-              type="range"
-              min={1}
-              max={400}
-              value={p.brush.size}
-              data-testid="draw-brush-size"
-              onChange={(e) => p.onBrush({ size: Number(e.target.value) })}
-              className="flex-1 accent-[var(--accent)]"
-            />
-            <span className="w-9 text-right fb-tabular text-[var(--ink-50)]">{Math.round(p.brush.size)}</span>
-          </Row>
-          <Row label="Hardness">
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round(p.brush.hardness * 100)}
-              data-testid="draw-brush-hardness"
-              onChange={(e) => p.onBrush({ hardness: Number(e.target.value) / 100 })}
-              className="flex-1 accent-[var(--accent)]"
-            />
-            <span className="w-9 text-right fb-tabular text-[var(--ink-50)]">{Math.round(p.brush.hardness * 100)}%</span>
-          </Row>
-          <Row label="Flow">
-            <input
-              type="range"
-              min={1}
-              max={100}
-              value={Math.round(p.brush.flow * 100)}
-              data-testid="draw-brush-flow"
-              onChange={(e) => p.onBrush({ flow: Number(e.target.value) / 100 })}
-              className="flex-1 accent-[var(--accent)]"
-            />
-            <span className="w-9 text-right fb-tabular text-[var(--ink-50)]">{Math.round(p.brush.flow * 100)}%</span>
-          </Row>
-          <Row label="Colour">
-            <ColorField value={p.brush.color} onChange={(c) => p.onBrush({ color: c })} testid="draw-brush-color" />
-          </Row>
-        </Section>
+        <>
+          <Section title="Brush">
+            <div className="grid grid-cols-4 gap-1" data-testid="draw-brush-presets">
+              {BRUSH_PRESETS.map((b) => (
+                <button
+                  key={b.id}
+                  onClick={() => p.onBrush(brushFromPreset(b, p.brush.color))}
+                  title={`${b.name} — ${b.blurb}`}
+                  aria-label={b.name}
+                  aria-pressed={p.brush.id === b.id}
+                  data-testid={`draw-brush-${b.id}`}
+                  className={`flex flex-col items-center gap-0.5 rounded py-1.5 ${
+                    p.brush.id === b.id ? 'bg-accent/15 text-accent' : 'text-[var(--ink-60)] hover:bg-[var(--surface-sunken)]'
+                  }`}
+                >
+                  <Icon name={b.icon} size={16} />
+                  <span className="text-[8px] leading-none text-center px-0.5 truncate w-full">{b.name.split(' ')[0]}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-[var(--ink-40)] leading-snug">{p.brush.blurb}</p>
+          </Section>
+
+          <Section title="Brush settings">
+            <Row label="Size">
+              <input
+                type="range"
+                min={1}
+                max={400}
+                value={Math.round(p.brush.size)}
+                data-testid="draw-brush-size"
+                onChange={(e) => p.onBrush({ size: Number(e.target.value) })}
+                className="flex-1 accent-[var(--accent)]"
+              />
+              <span className="w-9 text-right fb-tabular text-[var(--ink-50)]">{Math.round(p.brush.size)}</span>
+            </Row>
+            <Row label="Opacity">
+              <input
+                type="range"
+                min={1}
+                max={100}
+                value={Math.round(p.brush.opacity * 100)}
+                data-testid="draw-brush-opacity"
+                onChange={(e) => p.onBrush({ opacity: Number(e.target.value) / 100 })}
+                className="flex-1 accent-[var(--accent)]"
+              />
+              <span className="w-9 text-right fb-tabular text-[var(--ink-50)]">{Math.round(p.brush.opacity * 100)}%</span>
+            </Row>
+            <Row label="Flow">
+              <input
+                type="range"
+                min={1}
+                max={100}
+                value={Math.round(p.brush.flow * 100)}
+                data-testid="draw-brush-flow"
+                onChange={(e) => p.onBrush({ flow: Number(e.target.value) / 100 })}
+                className="flex-1 accent-[var(--accent)]"
+              />
+              <span className="w-9 text-right fb-tabular text-[var(--ink-50)]">{Math.round(p.brush.flow * 100)}%</span>
+            </Row>
+            <Row label="Hardness">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(p.brush.hardness * 100)}
+                data-testid="draw-brush-hardness"
+                onChange={(e) => p.onBrush({ hardness: Number(e.target.value) / 100 })}
+                className="flex-1 accent-[var(--accent)]"
+              />
+              <span className="w-9 text-right fb-tabular text-[var(--ink-50)]">{Math.round(p.brush.hardness * 100)}%</span>
+            </Row>
+            <Row label="Colour">
+              <ColorField value={p.brush.color} onChange={(c) => p.onBrush({ color: c })} testid="draw-brush-color" />
+            </Row>
+            <details className="text-[11px]">
+              <summary className="cursor-pointer text-[var(--ink-50)] select-none">Texture &amp; dynamics</summary>
+              <div className="pt-1.5 space-y-1.5">
+                <Row label="Grain">
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={Math.round(p.brush.grain * 100)}
+                    data-testid="draw-brush-grain"
+                    onChange={(e) => p.onBrush({ grain: Number(e.target.value) / 100 })}
+                    className="flex-1 accent-[var(--accent)]"
+                  />
+                </Row>
+                <Row label="Scatter">
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={Math.round(p.brush.jitter * 100)}
+                    data-testid="draw-brush-jitter"
+                    onChange={(e) => p.onBrush({ jitter: Number(e.target.value) / 100 })}
+                    className="flex-1 accent-[var(--accent)]"
+                  />
+                </Row>
+                <Row label="Spacing">
+                  <input
+                    type="range"
+                    min={2}
+                    max={60}
+                    value={Math.round(p.brush.spacing * 100)}
+                    data-testid="draw-brush-spacing"
+                    onChange={(e) => p.onBrush({ spacing: Number(e.target.value) / 100 })}
+                    className="flex-1 accent-[var(--accent)]"
+                  />
+                </Row>
+                <Row label="Angle">
+                  <input
+                    type="number"
+                    value={Math.round(p.brush.angle)}
+                    data-testid="draw-brush-angle"
+                    onChange={(e) => p.onBrush({ angle: Number(e.target.value) || 0 })}
+                    className="fb-field w-16 px-1.5 py-1"
+                  />
+                  <label className="flex items-center gap-1 text-[10px] text-[var(--ink-50)]">
+                    <input
+                      type="checkbox"
+                      checked={p.brush.pressureSize}
+                      onChange={(e) => p.onBrush({ pressureSize: e.target.checked })}
+                      className="accent-[var(--accent)]"
+                    />
+                    Pressure
+                  </label>
+                </Row>
+              </div>
+            </details>
+          </Section>
+        </>
       )}
 
       <Section title={p.selected.length ? `Fill${p.selected.length > 1 ? ` (${p.selected.length})` : ''}` : 'Fill (next shape)'}>

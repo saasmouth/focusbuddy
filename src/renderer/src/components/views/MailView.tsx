@@ -8,6 +8,7 @@ import { useViewStore } from '../../stores/view'
 import type { MailAccountInput, MailFolder, MailListItem } from '@shared/types'
 import { threadMailbox } from '../../lib/mailThreads'
 import Icon from '../Icon'
+import MailTriagePanel from '../mail/MailTriagePanel'
 import ComposeDialog from '../ComposeDialog'
 import { useQuickCreate } from '../../stores/quickCreate'
 import EmailTaskDialog from '../mail/EmailTaskDialog'
@@ -534,6 +535,8 @@ export default function MailView(): JSX.Element {
   const unread = useMailStore(selectMailUnread)
   const loadAccount = useMailStore((s) => s.loadAccount)
   const refresh = useMailStore((s) => s.refresh)
+  // The AI tidy-up review. Opening it proposes; nothing moves until pressed.
+  const [triaging, setTriaging] = useState(false)
   const loadMore = useMailStore((s) => s.loadMore)
   const folders = useMailFolderStore((s) => s.folders)
   const scope = useMailFolderStore((s) => s.scope)
@@ -721,6 +724,15 @@ export default function MailView(): JSX.Element {
             title="Compose a new message"
           >
             <Icon name="edit_square" size={15} />
+          </button>
+          <button
+            onClick={() => setTriaging(true)}
+            className="icon-btn"
+            title="Suggest a tidy-up — proposes, does not act"
+            aria-label="Suggest a tidy-up"
+            data-testid="mail-triage-open"
+          >
+            <Icon name="auto_awesome" size={15} />
           </button>
           <button onClick={() => void refresh()} className="icon-btn" title="Refresh">
             <Icon name="refresh" size={15} className={loadingList ? 'animate-spin' : ''} />
@@ -958,6 +970,19 @@ export default function MailView(): JSX.Element {
 
       {composing && (
         <ComposeDialog initial={composing} onClose={closeCompose} onSent={() => void refresh()} />
+      )}
+
+      {triaging && (
+        <MailTriagePanel
+          onClose={() => setTriaging(false)}
+          // The list is already loaded, so a row is named from what is on
+          // screen rather than fetched again.
+          describe={(uid) => {
+            const m = messages.find((x) => x.uid === uid)
+            return m ? { subject: m.subject, from: m.fromName || m.fromAddress } : null
+          }}
+          onChanged={() => void refresh()}
+        />
       )}
     </div>
   )

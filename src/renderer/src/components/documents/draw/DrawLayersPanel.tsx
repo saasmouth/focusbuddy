@@ -90,7 +90,7 @@ export default function DrawLayersPanel({
             <div
               key={l.id}
               onClick={() => onSelect(l.id)}
-              data-testid={`draw-layer-${l.id}`}
+              data-testid={`draw-layer-row-${l.id}`}
               className={`group flex items-center gap-1 px-1.5 py-1 border-b border-[var(--edge-soft)] cursor-pointer ${
                 isActive ? 'bg-accent/10' : 'hover:bg-[var(--surface-sunken)]'
               }`}

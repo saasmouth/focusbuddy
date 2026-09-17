@@ -31,7 +31,7 @@ import { polygonClipPath } from '@shared/mapExport'
 import WidgetEmbed from './embed/WidgetEmbed'
 import WidgetPickerDialog from './embed/WidgetPickerDialog'
 
-// PlexiMaps editor — a Draw.io / Lucidchart-style diagram and workflow map. Built
+// PlexiDiagrams editor — a Draw.io / Lucidchart-style diagram and workflow map. Built
 // on React Flow but persists a clean, tool-agnostic MapBody (nodes carry their
 // own position/shape/colour; edges carry an optional label + line style) so the
 // graph syncs to the cloud and stays portable. Used standalone in PlexiOffice,
@@ -940,7 +940,7 @@ function AiMapPanel({
         </div>
         <p className="text-[11px] text-[var(--ink-50)]">
           Describe a process, decision flow, or structure. The model returns the steps and
-          connections; PlexiMaps lays them out for you.
+          connections; PlexiDiagrams lays them out for you.
         </p>
         <textarea
           autoFocus

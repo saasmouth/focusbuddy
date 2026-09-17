@@ -1,6 +1,6 @@
 import type { MapBody } from '@shared/types'
 
-// Starter templates for PlexiMaps. Each returns a fully positioned MapBody so the
+// Starter templates for PlexiDiagrams. Each returns a fully positioned MapBody so the
 // user begins from something real rather than a blank canvas. Pure data — no
 // React Flow, so it is unit-testable and reusable by the AI fallback.
 

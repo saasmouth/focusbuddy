@@ -7,7 +7,7 @@
 
 import { useRef, useState } from 'react'
 import { Rnd } from 'react-rnd'
-import type { DeckTheme, Slide, SlideElement } from '@shared/types'
+import type { DeckTheme, Slide, SlideElement, SlideTextElement } from '@shared/types'
 import { SLIDE_W, SLIDE_H } from '@shared/slideThemes'
 import SlideElementView from './SlideElementView'
 import { fillToCss } from '@shared/fills'
@@ -59,6 +59,31 @@ interface Props {
   // interactive canvas (drag, resize, snap guides, marquee) works at any size.
   logicalW?: number
   logicalH?: number
+  // ── PlexiDesign page-layout extensions ─────────────────────────────────────
+  // All optional, so SlidesEditor passes none of them and behaves exactly as it
+  // always has.
+  //
+  // Elements painted BENEATH the editable ones and not interactive: a page's
+  // master furniture. Drawn at reduced contrast is the editor's business, not
+  // this component's — it simply renders and ignores clicks.
+  underlay?: SlideElement[]
+  // Extra snap lines beyond the elements themselves: margins, the column grid
+  // and the author's own ruler guides.
+  extraSnapX?: number[]
+  extraSnapY?: number[]
+  // Elements that cannot be selected, moved or resized (a locked layer).
+  lockedIds?: string[]
+  // Drawn in logical coordinates above the content: guides, the margin box, the
+  // column grid, overset markers. Pointer events are the caller's to manage.
+  overlay?: React.ReactNode
+  // Where a text element's EDITABLE text comes from. PlexiDesign supplies this
+  // for threaded frames, whose words live in a story rather than on the element.
+  textOf?: (el: SlideTextElement) => string
+  // A chance to handle the edit gesture entirely. Returning true means the owner
+  // took it (PlexiDesign puts a caret in the text) and no inline box is opened.
+  // The point is in logical canvas coordinates, so the caret can land exactly
+  // where the pointer did rather than at the start of the frame.
+  onEditRequest?: (el: SlideTextElement, point: { x: number; y: number }) => boolean
 }
 
 // Visible square handles on the selected element's corners and edge midpoints,
@@ -93,7 +118,14 @@ export default function SlideCanvas({
   onMoveMany,
   onSetText,
   logicalW = SLIDE_W,
-  logicalH = SLIDE_H
+  logicalH = SLIDE_H,
+  underlay,
+  extraSnapX,
+  extraSnapY,
+  lockedIds,
+  overlay,
+  textOf,
+  onEditRequest
 }: Props): JSX.Element {
   const lw = logicalW
   const lh = logicalH
@@ -119,8 +151,8 @@ export default function SlideCanvas({
     exclude: Set<string>
   ): { x: number; y: number; guides: Guide[] } {
     const others = elements.filter((o) => !exclude.has(o.id))
-    const xs: number[] = [0, lw / 2, lw]
-    const ys: number[] = [0, lh / 2, lh]
+    const xs: number[] = [0, lw / 2, lw, ...(extraSnapX ?? [])]
+    const ys: number[] = [0, lh / 2, lh, ...(extraSnapY ?? [])]
     for (const o of others) {
       xs.push(o.x, o.x + o.w / 2, o.x + o.w)
       ys.push(o.y, o.y + o.h / 2, o.y + o.h)
@@ -139,10 +171,11 @@ export default function SlideCanvas({
     return selectedIds.includes(id) && selectedIds.length > 1 ? selectedIds : [id]
   }
 
-  function startEdit(el: SlideElement): void {
+  function startEdit(el: SlideElement, point?: { x: number; y: number }): void {
     if (el.type !== 'text') return
+    if (onEditRequest?.(el, point ?? { x: el.x, y: el.y })) return
     setEditingId(el.id)
-    setDraft(elementText(el))
+    setDraft(textOf ? textOf(el) : elementText(el))
   }
   function commitEdit(): void {
     if (editingId) onSetText(editingId, draft)
@@ -181,6 +214,7 @@ export default function SlideCanvas({
       }
       const hit = elements
         .filter((el) => el.x < rx1 && el.x + el.w > rx0 && el.y < ry1 && el.y + el.h > ry0)
+        .filter((el) => !lockedIds || !lockedIds.includes(el.id))
         .map((el) => el.id)
       onSelectMany(hit)
     }
@@ -198,10 +232,20 @@ export default function SlideCanvas({
         onMouseDown={beginMarquee}
         style={{ width: lw, height: lh, position: "absolute", top: 0, left: 0, transform: `scale(${scale})`, transformOrigin: 'top left', color: theme.textColor }}
       >
+        {/* Master furniture: painted first so it sits under the page's own
+            content, and inert so a running head cannot be nudged by accident. */}
+        {underlay && underlay.length > 0 && (
+          <div data-testid="slide-underlay" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+            {underlay.slice().sort((a, b) => a.z - b.z).map((el) => (
+              <SlideElementView key={`u-${el.id}`} el={el} />
+            ))}
+          </div>
+        )}
         {elements.map((el) => {
           const selected = selectedIds.includes(el.id)
           const isEditing = el.id === editingId
-          const showHandles = selected && selectedIds.length === 1 && !isEditing
+          const locked = !!lockedIds && lockedIds.includes(el.id)
+          const showHandles = selected && selectedIds.length === 1 && !isEditing && !locked
           const pos = drag && drag.ids.includes(el.id) ? { x: el.x + drag.dx, y: el.y + drag.dy } : { x: el.x, y: el.y }
           return (
             <Rnd
@@ -210,11 +254,12 @@ export default function SlideCanvas({
               bounds="parent"
               size={{ width: el.w, height: el.h }}
               position={pos}
-              disableDragging={isEditing}
+              disableDragging={isEditing || locked}
               enableResizing={showHandles}
               lockAspectRatio={el.type === 'image' && !!el.lockAspect}
               resizeHandleStyles={showHandles ? HANDLE_STYLES : undefined}
               onMouseDown={(e) => {
+                if (locked) return
                 const additive = e.shiftKey || e.metaKey || e.ctrlKey
                 if (additive) onSelect(el.id, true)
                 // Keep a multi-selection intact when grabbing a member to drag it;
@@ -258,7 +303,7 @@ export default function SlideCanvas({
                 outline: selected ? '2px solid #6d5dfc' : '1px dashed rgba(120,120,120,0.35)',
                 outlineOffset: 0
               }}
-              onDoubleClick={() => startEdit(el)}
+              onDoubleClick={(ev) => startEdit(el, toSlide(ev.clientX, ev.clientY))}
             >
               {isEditing && el.type === 'text' ? (
                 <textarea
@@ -310,6 +355,8 @@ export default function SlideCanvas({
             }}
           />
         ))}
+
+        {overlay}
 
         {marquee && (
           <div

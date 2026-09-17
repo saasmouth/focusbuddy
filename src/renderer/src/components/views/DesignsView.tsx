@@ -5,6 +5,7 @@ import { useBrandStore } from '../../stores/brand'
 import {
   DESIGN_SIZES,
   blankDesign,
+  blankPublication,
   designFromTemplate,
   findDesignSize,
   templatesForCategory,
@@ -14,16 +15,27 @@ import {
 import Icon from '../Icon'
 
 // PlexiDesign hub — its own top-level module (not a tab inside Documents). Start a
-// design at any size, or from an on-brand template, or open one you already made.
-// Picking a size or template creates the design with that body and opens the
-// studio; the AI template generator lives inside the studio.
+// publication at a real page size, a design at any other size, or an on-brand
+// template, or open one you already made. Picking a size or template creates the
+// document with that body and opens the studio; the AI template generator lives
+// inside the studio.
+//
+// Publications are the page-layout path: they open multi-page, with margins, a
+// column grid and a master page already set up, because a brochure that starts
+// as a bare canvas makes you build the same scaffolding by hand every time.
 
 const CATEGORIES: { id: DesignCategory; label: string; icon: string }[] = [
+  { id: 'publication', label: 'Publications', icon: 'menu_book' },
   { id: 'social', label: 'Social media', icon: 'tag' },
   { id: 'marketing', label: 'Marketing', icon: 'campaign' },
   { id: 'presentation', label: 'Presentations', icon: 'slideshow' },
   { id: 'logo', label: 'Logos & brand', icon: 'workspace_premium' }
 ]
+
+// How many pages a new publication opens with. Four is a folded A4 sheet — the
+// smallest thing that is actually a publication rather than a flyer — and pages
+// are trivial to add or remove from the page rail.
+const PUBLICATION_PAGES = 4
 
 export default function DesignsView(): JSX.Element {
   const list = useDocumentsStore((s) => s.list)
@@ -60,22 +72,28 @@ export default function DesignsView(): JSX.Element {
           <Icon name="palette" size={22} className="text-accent" />
           <h1 className="text-[20px] font-semibold text-[var(--ink-100)]">PlexiDesign</h1>
         </div>
-        <p className="text-[13px] text-[var(--ink-50)] mb-5">
-          Create any design at any size. Start blank, start from an on-brand template, or generate options with AI inside the studio.
+        <p className="text-[13px] text-[var(--ink-50)] mb-5 max-w-[760px]">
+          A free-form page designer — somewhere between Publisher and InDesign. Place anything anywhere, thread a story through linked text frames, lay pages
+          out on master pages with real margins, columns and guides, and send it to print with bleed and crop marks.
         </p>
 
         {/* Start a blank design at a size */}
         {CATEGORIES.map((cat) => (
           <div key={cat.id} className="mb-5">
-            <div className="flex items-center gap-1.5 text-[12px] font-medium text-[var(--ink-70)] mb-2">
+            <div className="flex items-center gap-1.5 text-[12px] font-medium text-[var(--ink-70)] mb-0.5">
               <Icon name={cat.icon} size={15} className="text-[var(--ink-40)]" /> {cat.label}
             </div>
+            <p className="text-[11px] text-[var(--ink-40)] mb-2">
+              {cat.id === 'publication'
+                ? `Opens as a ${PUBLICATION_PAGES}-page document with margins, a column grid and a master page ready to use.`
+                : 'A single-page canvas at a fixed size.'}
+            </p>
             <div className="flex flex-wrap gap-2">
               {DESIGN_SIZES.filter((s) => s.category === cat.id).map((s) => (
                 <button
                   key={s.id}
                   disabled={busy}
-                  onClick={() => void create(blankDesign(s), s.label)}
+                  onClick={() => void create(cat.id === 'publication' ? blankPublication(s, PUBLICATION_PAGES) : blankDesign(s), s.label)}
                   data-testid={`designs-size-${s.id}`}
                   className="fb-btn-surface group flex flex-col items-center gap-1.5 w-[112px] p-2.5 hover:border-accent hover:shadow-sm transition disabled:opacity-50"
                 >
@@ -114,9 +132,9 @@ export default function DesignsView(): JSX.Element {
 
         {/* Existing designs */}
         <div className="mt-2">
-          <h2 className="text-[13px] font-medium text-[var(--ink-70)] mb-2">Your designs</h2>
+          <h2 className="text-[13px] font-medium text-[var(--ink-70)] mb-2">Your documents</h2>
           {designs.length === 0 ? (
-            <p className="text-[12px] text-[var(--ink-40)]">No designs yet. Pick a size or template above to start.</p>
+            <p className="text-[12px] text-[var(--ink-40)]">Nothing here yet. Pick a page size or a template above to start.</p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {designs.map((d) => (

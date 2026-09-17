@@ -4,7 +4,7 @@
 // server. Aggregate numbers only, never titles or content.
 
 import { getDb } from './database'
-import { estimateCostMicros } from '../ai/aiCost'
+import { cacheCostMicros, estimateCostMicros } from '../ai/aiCost'
 
 export interface TelemetrySnapshot {
   appVersion: string
@@ -59,9 +59,9 @@ export function recordAiUsage(
     bumpCounter('ai_output_tokens', out)
     bumpCounter('ai_cache_read_tokens', cr)
     bumpCounter('ai_cache_write_tokens', cw)
-    let micros = estimateCostMicros(model, inp, out)
-    if (cr) micros += Math.round(estimateCostMicros(model, cr, 0) * 0.1)
-    if (cw) micros += Math.round(estimateCostMicros(model, cw, 0) * 1.25)
+    // Cache traffic is priced off the model's base input rate, at multipliers
+    // that are not the same for every model — aiCost owns that detail.
+    const micros = estimateCostMicros(model, inp, out) + cacheCostMicros(model, cr, cw)
     bumpCounter('ai_cost_micros', micros)
   } catch {
     // swallow

@@ -411,7 +411,7 @@ export function DocumentPicker({
   }, [docs, query])
 
   const icon = (t: DocumentMeta['docType']): string =>
-    t === 'sheet' ? 'table_chart' : t === 'slides' ? 'slideshow' : t === 'map' ? 'account_tree' : t === 'design' ? 'brush' : 'description'
+    t === 'sheet' ? 'table_chart' : t === 'slides' ? 'slideshow' : t === 'map' ? 'account_tree' : t === 'design' ? 'palette' : t === 'draw' ? 'brush' : 'description'
 
   return (
     <Modal

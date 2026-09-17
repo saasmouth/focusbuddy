@@ -15,6 +15,7 @@ import type {
 import { migrateSlidesBody } from '@shared/slidesMigrate'
 import { normalizeMapBody, starterMapBody } from '@shared/mapGraph'
 import { normalizeDesignBody, blankDesign, findDesignSize, type DesignBody } from '@shared/design'
+import { normalizeDrawBody, blankDrawBody, findDrawSize, type DrawBody } from '@shared/draw'
 import { brandHeadingStyles } from '@shared/brandKit'
 import { getBrandKit, hasBrandKit } from './brandKit'
 
@@ -49,7 +50,7 @@ function spreadsheetColumnLabel(index: number): string {
 function parseBody(
   type: FbDocument['docType'],
   raw: string
-): DocBody | SheetBody | SlidesBody | MapBody | DesignBody {
+): DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody {
   try {
     const parsed = JSON.parse(raw)
     // Slides bodies are migrated to the v2 element model on read, so a legacy
@@ -59,6 +60,8 @@ function parseBody(
     if (type === 'map') return normalizeMapBody(parsed)
     // Designs are normalised so a bad size or missing elements still opens.
     if (type === 'design') return normalizeDesignBody(parsed)
+    // Artwork likewise: a body with no layers still opens with somewhere to draw.
+    if (type === 'draw') return normalizeDrawBody(parsed)
     return parsed
   } catch {
     // Corrupt or empty — hand back a valid empty body for the type so the
@@ -67,7 +70,7 @@ function parseBody(
   }
 }
 
-export function emptyBody(type: FbDocument['docType']): DocBody | SheetBody | SlidesBody | MapBody | DesignBody {
+export function emptyBody(type: FbDocument['docType']): DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody {
   if (type === 'sheet') {
     // A fresh spreadsheet opens at a generous 48 columns by 100 rows, like a real
     // spreadsheet, rather than a tiny starter grid.
@@ -88,6 +91,10 @@ export function emptyBody(type: FbDocument['docType']): DocBody | SheetBody | Sl
   if (type === 'design') {
     // A fresh design opens as a blank square social canvas, the most common size.
     return blankDesign(findDesignSize('ig-post')!)
+  }
+  if (type === 'draw') {
+    // A fresh artwork opens on a landscape artboard with one empty vector layer.
+    return blankDrawBody(findDrawSize('landscape-1920')!)
   }
   const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] }
   // When the org has a brand kit, a new document opens already on-brand: its
@@ -211,7 +218,7 @@ export function upsertDocument(input: {
   id: string
   docType: FbDocument['docType']
   title: string
-  body: DocBody | SheetBody | SlidesBody | MapBody | DesignBody
+  body: DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody
   archived?: boolean
   updatedAt?: number
 }): FbDocument {

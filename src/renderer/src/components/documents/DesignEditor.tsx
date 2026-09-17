@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import type { DeckTheme, Slide, SlideElement } from '@shared/types'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { DeckTheme, Slide, SlideElement, SlideTextElement } from '@shared/types'
 import SlideCanvas from './slides/SlideCanvas'
 import {
   addElement,
@@ -18,19 +18,44 @@ import {
   type AlignEdge
 } from './slides/slideOps'
 import {
+  BASE_LAYER_ID,
   DESIGN_SIZES,
   DESIGN_TEMPLATES,
   composeDesign,
   buildDesignVariations,
   designFromTemplate,
+  designLayers,
+  elementLocked,
+  elementVisible,
   findDesignSize,
+  masterForPage,
   normalizeDesignBody,
+  pageCountOf,
+  pageNumberOf,
   resizeDesign,
+  resolveMasterElements,
+  snapTargets,
+  spreadsOf,
+  storyFrames,
   templatesForCategory,
   type DesignBody,
   type DesignCategory,
+  type DesignLayer,
+  type DesignMaster,
   type DesignSize
 } from '@shared/design'
+import { applyStoryFlows, linkFrames, pruneOrphanStories, setStoryText as writeStoryText, storyText, unlinkFrame } from '@shared/designStories'
+import { LAYOUT_STYLES, findLayoutStyle } from '@shared/designAutoLayout'
+import type { ContentDoc } from '@shared/designContent'
+import RedesignWizard from './design/RedesignWizard'
+import StoryEditor from './design/StoryEditor'
+import FrameTextEditor, { caretFromClick } from './design/FrameTextEditor'
+import { paragraphsForStory } from '@shared/designStories'
+import { caretDocStart, type DocCaret, type DocSelection } from '@shared/designTextEdit'
+import type { FlowMeasurer } from '@shared/designFlow'
+import LayoutOverlay from './design/LayoutOverlay'
+import LayoutPanel from './design/LayoutPanel'
+import DesignRulers from './design/DesignRulers'
 import Icon from '../Icon'
 import SlideElementView from './slides/SlideElementView'
 import { useBrandStore } from '../../stores/brand'
@@ -67,11 +92,27 @@ const EXPORT_FORMATS: { id: 'png' | 'pdf'; label: string }[] = [
 
 
 const CATEGORIES: { id: DesignCategory; label: string }[] = [
+  { id: 'publication', label: 'Publication' },
   { id: 'social', label: 'Social' },
   { id: 'marketing', label: 'Marketing' },
   { id: 'presentation', label: 'Presentation' },
   { id: 'logo', label: 'Logo & brand' }
 ]
+
+// Glyph measurement for the flow engine, using the browser's own font engine
+// through one reused offscreen context. Returning 0 without a DOM (tests, the
+// main process) is deliberate: the caller then gets an empty flow rather than a
+// made-up one.
+let flowCtx: CanvasRenderingContext2D | null = null
+const domFlowMeasure: FlowMeasurer = (text, font) => {
+  if (!flowCtx) {
+    if (typeof document === 'undefined') return 0
+    flowCtx = document.createElement('canvas').getContext('2d')
+  }
+  if (!flowCtx) return 0
+  flowCtx.font = font
+  return flowCtx.measureText(text).width
+}
 
 // A neutral theme for the canvas; designs carry their own colors per element, so
 // the theme only supplies a fallback background and text color.
@@ -91,7 +132,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   const [design, setDesign] = useState<DesignBody>(() => normalizeDesignBody(content))
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [exportOpen, setExportOpen] = useState(false)
-  const [panel, setPanel] = useState<'none' | 'templates' | 'size' | 'ai' | 'stock'>(
+  const [panel, setPanel] = useState<'none' | 'templates' | 'size' | 'ai' | 'stock' | 'layout' | 'redesign'>(
     () => (normalizeDesignBody(content).elements.length === 0 ? 'templates' : 'none')
   )
   const [aiPrompt, setAiPrompt] = useState('')
@@ -103,6 +144,20 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   const [status, setStatus] = useState<string | null>(null)
   const [canvasW, setCanvasW] = useState(640)
   const [brandOpen, setBrandOpen] = useState(false)
+  // The non-printing layout aids — margin box, column grid, guides, wrap
+  // outlines. On by default, because a layout program that hides its grid is
+  // just a poster tool.
+  const [showLayoutAids, setShowLayoutAids] = useState(true)
+  // The story open in the story editor, or null when it is closed. Threaded copy
+  // is written here rather than in a frame on the canvas — a five-page article
+  // cannot be typed inside a two-inch column.
+  const [openStoryId, setOpenStoryId] = useState<string | null>(null)
+  // Typing on the page: which story the caret is in, and where. Null means the
+  // canvas is in its ordinary object-selection mode.
+  const [textEdit, setTextEdit] = useState<{ storyId: string; selection: DocSelection } | null>(null)
+  const textDragging = useRef(false)
+  // When the last keystroke landed, so a run of typing is one undo step.
+  const lastTypedAt = useRef(0)
   const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
   // The right-side AI Assistant panel, persistent and collapsible to match the
   // other Office editors. Open by default so the assistant is discoverable.
@@ -163,6 +218,23 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     }
   }, [design.elements, brand.fontHeading, brand.fontBody])
 
+  // Re-flow every threaded story whenever the document changes. The measurer is
+  // the browser's own font engine, so the breaks stored on each frame are the
+  // real ones — which is what lets the exporter reproduce the page exactly.
+  //
+  // applyStoryFlows returns the SAME body when nothing moved, so this settles in
+  // one pass and never loops; and the result is written with `replace`, not
+  // `commit`, because re-flowing is a consequence of an edit, not an edit.
+  useEffect(() => {
+    const next = applyStoryFlows(design, domFlowMeasure)
+    if (next !== design) {
+      designRef.current = next
+      setDesign(next)
+      onChange(next)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [design])
+
   // Fit the canvas to the available width, capped so a wide design doesn't sprawl.
   useEffect(() => {
     const el = wrapRef.current
@@ -186,6 +258,9 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   // Keep pages[activePage] in step with the live top-level elements/background,
   // so the multi-page array is always the source of truth.
   function syncActivePage(b: DesignBody): DesignBody {
+    // While a master is being edited, the top-level elements ARE the master's,
+    // so mirroring them onto the page would overwrite the page's own content.
+    if (b.editingMasterId) return b
     const active = b.activePage ?? 0
     const pages = (b.pages ?? []).map((p, i) => (i === active ? { ...p, elements: b.elements, background: b.background } : p))
     return { ...b, pages }
@@ -197,6 +272,27 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     const synced = syncActivePage(next)
     setPast([...pastRef.current.slice(-59), designRef.current])
     setFuture([])
+    designRef.current = synced
+    setDesign(synced)
+    onChange(synced)
+    lastTypedAt.current = 0
+  }
+
+  /**
+   * A keystroke. Consecutive typing COALESCES into one undo entry rather than one
+   * per character — otherwise undo would walk backwards a letter at a time,
+   * which is useless in a document of several thousand words. A pause, or any
+   * other kind of edit, closes the run.
+   */
+  function commitTyping(next: DesignBody): void {
+    const now = Date.now()
+    const synced = syncActivePage(next)
+    const continuing = now - lastTypedAt.current < 900 && pastRef.current.length > 0
+    if (!continuing) {
+      setPast([...pastRef.current.slice(-59), designRef.current])
+      setFuture([])
+    }
+    lastTypedAt.current = now
     designRef.current = synced
     setDesign(synced)
     onChange(synced)
@@ -237,9 +333,21 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     commit({ ...designRef.current, ...patch })
   }
 
-  // Run a slide-op against the design's elements/background and persist the result.
+  // Run a slide-op against whatever surface is being edited — the page's own
+  // elements, or the open master's furniture — and persist the result.
   function mutate(fn: (s: Slide) => Slide): void {
     const d = designRef.current
+    const editingId = d.editingMasterId
+    if (editingId) {
+      const m = (d.masters ?? []).find((x) => x.id === editingId)
+      if (!m) return
+      const next = fn({ id: 'master', notes: '', elements: m.elements, background: m.background, schemaVersion: 2 })
+      commit({
+        ...d,
+        masters: (d.masters ?? []).map((x) => (x.id === editingId ? { ...x, elements: next.elements ?? [], background: next.background } : x))
+      })
+      return
+    }
     const slide: Slide = { id: 'design', notes: '', elements: d.elements, background: d.background, schemaVersion: 2 }
     const next = fn(slide)
     update({ elements: next.elements ?? [], background: next.background })
@@ -354,6 +462,38 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     }
     mutate((s) => addElement(s, el))
     setSelectedIds([el.id])
+  }
+
+  /**
+   * Drop a page-number frame. On a master it carries the {#} token so every page
+   * that inherits it prints its own folio; on an ordinary page the token would
+   * only ever resolve to that page, so the frame is placed with the number
+   * already resolved and a note in the tooltip.
+   */
+  function insertPageNumberFrame(): void {
+    const onMaster = !!designRef.current.editingMasterId
+    const d = designRef.current
+    const el: SlideElement = {
+      id: elementId(),
+      type: 'text',
+      x: Math.round(d.width / 2 - 60),
+      y: Math.round(d.height - (d.margins?.bottom ?? Math.round(d.height * 0.06)) - 28),
+      w: 120,
+      h: 28,
+      z: topZ + 1,
+      fontFamily: brand.fontBody,
+      paragraphs: [
+        {
+          align: 'center',
+          runs: [{ text: onMaster ? '{#}' : String(pageNumberOf(d, d.activePage ?? 0)), fontSize: 14, color: '#57534e' }]
+        }
+      ]
+    }
+    mutate((sl) => addElement(sl, el))
+    setSelectedIds([el.id])
+    if (!onMaster) {
+      setStatus('Placed on this page only. Put it on a master page to number every page automatically.')
+    }
   }
 
   function addShape(shape: 'rect' | 'ellipse' | 'roundRect' | 'triangle'): void {
@@ -621,6 +761,213 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
 
   const selected = design.elements.find((e) => e.id === selectedIds[0]) ?? null
 
+  // ── Page-layout state and commands ─────────────────────────────────────────
+  // Everything below is what makes this a layout program rather than a poster
+  // tool: master pages, threaded stories, layers, guides and the margin grid.
+
+  const editingMasterId = design.editingMasterId ?? null
+  const editingMaster: DesignMaster | null = editingMasterId ? (design.masters ?? []).find((m) => m.id === editingMasterId) ?? null : null
+  const layers = designLayers(design)
+
+  // Which elements the canvas is editing right now: a master's own furniture
+  // while in master-edit mode, otherwise the page's content.
+  const canvasElements = editingMaster ? editingMaster.elements : design.elements
+  // Master furniture drawn beneath the page, with its page-number tokens
+  // resolved for THIS page. Absent while editing the master itself, where the
+  // furniture is the editable content.
+  const master = editingMaster ? null : masterForPage(design, (design.pages ?? [])[design.activePage ?? 0])
+  const underlay = master ? resolveMasterElements(master, { page: pageNumberOf(design, design.activePage ?? 0), pages: pageCountOf(design) }) : undefined
+
+  // Hidden layers are not rendered; locked layers are rendered but inert.
+  const visibleElements = canvasElements.filter((el) => elementVisible(design, el))
+  const lockedIds = visibleElements.filter((el) => elementLocked(design, el)).map((el) => el.id)
+  const snaps = snapTargets(design)
+
+  /** A pointer event in logical page coordinates, via the scaled stage. */
+  function stagePoint(e: React.PointerEvent): { x: number; y: number } | null {
+    const host = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const scale = canvasW / designRef.current.width
+    if (!scale) return null
+    return { x: (e.clientX - host.left) / scale, y: (e.clientY - host.top) / scale }
+  }
+
+  function patchLayout(patch: Partial<DesignBody>): void {
+    commit({ ...designRef.current, ...patch })
+  }
+
+  function addGuide(axis: 'v' | 'h', at: number): void {
+    const g = designRef.current.guides ?? { v: [], h: [] }
+    const list = axis === 'v' ? g.v : g.h
+    // A guide dropped on one that already exists is a no-op, not a duplicate.
+    if (list.some((x) => Math.abs(x - at) < 1)) return
+    patchLayout({ guides: axis === 'v' ? { ...g, v: [...g.v, at] } : { ...g, h: [...g.h, at] } })
+  }
+  function removeGuide(axis: 'v' | 'h', at: number): void {
+    const g = designRef.current.guides ?? { v: [], h: [] }
+    patchLayout({ guides: axis === 'v' ? { ...g, v: g.v.filter((x) => x !== at) } : { ...g, h: g.h.filter((y) => y !== at) } })
+  }
+
+  function addMaster(): void {
+    const masters = designRef.current.masters ?? []
+    const next: DesignMaster = { id: `master-${Date.now().toString(36)}`, name: `Master ${String.fromCharCode(65 + masters.length)}`, elements: [] }
+    patchLayout({ masters: [...masters, next] })
+  }
+  function renameMaster(id: string, name: string): void {
+    patchLayout({ masters: (designRef.current.masters ?? []).map((m) => (m.id === id ? { ...m, name } : m)) })
+  }
+  function deleteMaster(id: string): void {
+    const d = designRef.current
+    // Pages that used it are explicitly detached rather than silently falling
+    // through to a different master's furniture.
+    const pages = (d.pages ?? []).map((pg) => (pg.masterId === id ? { ...pg, masterId: null } : pg))
+    patchLayout({ masters: (d.masters ?? []).filter((m) => m.id !== id), pages, editingMasterId: d.editingMasterId === id ? null : d.editingMasterId })
+  }
+  function editMaster(id: string | null): void {
+    setSelectedIds([])
+    patchLayout({ editingMasterId: id })
+  }
+  function assignMaster(pageIndex: number, masterId: string | null): void {
+    const d = designRef.current
+    patchLayout({ pages: (d.pages ?? []).map((pg, i) => (i === pageIndex ? { ...pg, masterId } : pg)) })
+  }
+
+  function addLayer(): void {
+    const existing = designRef.current.layers ?? designLayers(designRef.current)
+    const next: DesignLayer = { id: `layer-${Date.now().toString(36)}`, name: `Layer ${existing.length + 1}`, visible: true, locked: false }
+    patchLayout({ layers: [...existing, next] })
+  }
+  function patchLayer(id: string, patch: Partial<DesignLayer>): void {
+    const existing = designRef.current.layers ?? designLayers(designRef.current)
+    patchLayout({ layers: existing.map((l) => (l.id === id ? { ...l, ...patch } : l)) })
+  }
+  function deleteLayer(id: string): void {
+    const d = designRef.current
+    const existing = d.layers ?? designLayers(d)
+    if (existing.length <= 1) return
+    // Objects on a deleted layer fall back to the base layer rather than
+    // disappearing with it.
+    const pages = (d.pages ?? []).map((pg) => ({
+      ...pg,
+      elements: pg.elements.map((el) => (el.layerId === id ? { ...el, layerId: undefined } : el))
+    }))
+    const active = pages[d.activePage ?? 0]
+    patchLayout({ layers: existing.filter((l) => l.id !== id), pages, elements: active ? active.elements : d.elements })
+  }
+  function moveSelectionToLayer(layerId: string): void {
+    if (!selectedIds.length) return
+    mutate((sl) => ({
+      ...sl,
+      elements: (sl.elements ?? []).map((el) => (selectedIds.includes(el.id) ? { ...el, layerId: layerId === BASE_LAYER_ID ? undefined : layerId } : el))
+    }))
+  }
+
+  // ── Threaded text ──────────────────────────────────────────────────────────
+  const selectedTextFrames = selectedIds
+    .map((id) => design.elements.find((e) => e.id === id))
+    .filter((e): e is SlideTextElement => !!e && e.type === 'text')
+
+  function linkSelectedFrames(): void {
+    if (selectedTextFrames.length < 2) return
+    let next = designRef.current
+    for (let i = 0; i < selectedTextFrames.length - 1; i++) {
+      next = linkFrames(next, selectedTextFrames[i].id, selectedTextFrames[i + 1].id)
+    }
+    commit(next)
+  }
+  function unlinkSelected(): void {
+    let next = designRef.current
+    for (const f of selectedTextFrames) next = unlinkFrame(next, f.id)
+    commit(pruneOrphanStories(next))
+  }
+  /**
+   * Write a story's text. This is the ONLY way threaded copy changes: a threaded
+   * frame renders the flow engine's output, so writing to the frame's own
+   * paragraphs (which is what the canvas used to do) put the text somewhere
+   * nothing ever reads.
+   */
+  function setStoryText(storyId: string, text: string): void {
+    commit(writeStoryText(designRef.current, storyId, text))
+  }
+
+  /** The story a frame belongs to, if any. */
+  function storyOfFrame(frameId: string): string | null {
+    const el = design.elements.find((e) => e.id === frameId)
+    return el && el.type === 'text' && el.storyId ? el.storyId : null
+  }
+
+  // The flowed paragraphs of the story being typed into, which is what maps a
+  // caret to a point on the page and back.
+  const editParagraphs = useMemo(
+    () => (textEdit ? paragraphsForStory(design, textEdit.storyId, brand) : []),
+    [design, textEdit?.storyId, brand]
+  )
+
+  /** Put the caret in a story at the point that was clicked. */
+  function beginTextEdit(storyId: string, point: { x: number; y: number }): void {
+    const paras = paragraphsForStory(designRef.current, storyId, brand)
+    const doc = designRef.current.stories?.[storyId]
+    if (!doc) return
+    const caret =
+      caretFromClick(designRef.current, storyId, paras, { pageIndex: designRef.current.activePage ?? 0, x: point.x, y: point.y }, domFlowMeasure) ??
+      caretDocStart(doc)
+    setSelectedIds([])
+    // The panel and the page are two ways to write the same story; only one may
+    // hold the keyboard, or they trade focus endlessly.
+    setOpenStoryId(null)
+    setTextEdit({ storyId, selection: { anchor: caret, focus: caret } })
+  }
+
+  /** Write the story back after a keystroke and keep the caret where it belongs. */
+  function applyTextEdit(nextDoc: ContentDoc, caret: DocCaret): void {
+    if (!textEdit) return
+    const d = designRef.current
+    commitTyping({ ...d, stories: { ...(d.stories ?? {}), [textEdit.storyId]: nextDoc } })
+    setTextEdit({ storyId: textEdit.storyId, selection: { anchor: caret, focus: caret } })
+  }
+
+  /** Add a page of frames threaded onto the end of a story, for overset copy. */
+  function continueStoryOnNewPage(storyId: string): void {
+    const d = syncActivePage(designRef.current)
+    const pages = d.pages ?? []
+    const template = storyFrames(d, storyId).slice(-1)[0]?.element
+    if (!template) return
+    const maxOrder = storyFrames(d, storyId).reduce((m, f) => Math.max(m, f.element.storyOrder ?? 0), 0)
+    const cols = d.columns?.count ?? 1
+    const gutter = d.columns?.gutter ?? 0
+    const m = d.margins ?? { top: 0, right: 0, bottom: 0, left: 0 }
+    const boxW = d.width - m.left - m.right
+    const colW = (boxW - gutter * (cols - 1)) / cols
+    const elements: SlideElement[] = []
+    for (let c = 0; c < cols; c++) {
+      elements.push({
+        ...template,
+        id: elementId(),
+        x: Math.round(m.left + c * (colW + gutter)),
+        y: Math.round(m.top),
+        w: Math.round(colW),
+        h: Math.round(d.height - m.top - m.bottom),
+        storyOrder: maxOrder + 1 + c,
+        flowLines: undefined,
+        overset: undefined
+      } as SlideElement)
+    }
+    const nextPages = [...pages, { id: `pg-${Date.now().toString(36)}`, background: pages[0]?.background ?? d.background, elements }]
+    commit({ ...d, pages: nextPages, activePage: nextPages.length - 1, elements, background: nextPages[nextPages.length - 1].background })
+    setSelectedIds([])
+  }
+
+  /** Replace the whole document with a freshly laid-out one from the wizard. */
+  function applyRedesign(next: DesignBody, content: ContentDoc, styleId: string): void {
+    commit({ ...next, sourceContent: content, layoutStyleId: styleId })
+    setPanel('none')
+    setSelectedIds([])
+    // The page is the primary writing surface now, so the document simply opens
+    // ready to be typed into rather than with a panel in the way.
+    setOpenStoryId(null)
+    setTextEdit(null)
+    setStatus(`Laid out ${next.pages?.length ?? 1} page${(next.pages?.length ?? 1) === 1 ? '' : 's'} in the ${findLayoutStyle(styleId).name} style.`)
+  }
+
   // ── AI Assistant panel helpers ──────────────────────────────────────────────
   // The plain text of the selected element when it is a text element, so the panel
   // can rewrite the real content. Null for any non-text selection.
@@ -672,7 +1019,23 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
             addImageFromFile: () => void addImageFromFile(),
             addWidget: () => setWidgetPickerOpen(true),
             removeBgSelected: () => void removeBgSelected(),
-            exportAs: (f) => void exportAs(f)
+            exportAs: (f) => void exportAs(f),
+            openLayout: () => setPanel('layout'),
+            addPage,
+            toggleFacing: () => patchLayout({ facing: !designRef.current.facing }),
+            facing: design.facing === true,
+            addMaster,
+            editMaster,
+            masters: (design.masters ?? []).map((m) => ({ id: m.id, name: m.name })),
+            editingMasterId,
+            linkFrames: linkSelectedFrames,
+            unlinkFrame: unlinkSelected,
+            canLink: selectedTextFrames.length >= 2,
+            canUnlink: selectedTextFrames.some((f) => !!f.storyId),
+            insertPageNumber: insertPageNumberFrame,
+            toggleAids: () => setShowLayoutAids((v) => !v),
+            aidsVisible: showLayoutAids,
+            exportPrint: () => void exportAs('pdf', true)
           }}
         />
       </div>
@@ -699,6 +1062,21 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
         <span className="w-px h-5 bg-[var(--edge-soft)] mx-1" />
         <ToolBtn icon="plexii:templates" label="Templates" active={panel === 'templates'} onClick={() => setPanel((p) => (p === 'templates' ? 'none' : 'templates'))} testid="design-templates-btn" />
         <ToolBtn icon="aspect_ratio" label={size.label} active={panel === 'size'} onClick={() => setPanel((p) => (p === 'size' ? 'none' : 'size'))} testid="design-size-btn" />
+        <ToolBtn
+          icon="auto_fix_high"
+          label="Redesign"
+          active={panel === 'redesign'}
+          onClick={() => setPanel((p) => (p === 'redesign' ? 'none' : 'redesign'))}
+          testid="design-redesign-btn"
+        />
+        <ToolBtn icon="grid_on" label="Layout" active={panel === 'layout'} onClick={() => setPanel((p) => (p === 'layout' ? 'none' : 'layout'))} testid="design-layout-btn" />
+        <ToolBtn
+          icon={showLayoutAids ? 'visibility' : 'visibility_off'}
+          label="Guides"
+          active={showLayoutAids}
+          onClick={() => setShowLayoutAids((v) => !v)}
+          testid="design-aids-toggle"
+        />
         <span className="w-px h-5 bg-[var(--edge-soft)] mx-1" />
         <ToolBtn icon="title" label="Text" onClick={addText} testid="design-add-text" />
         <ToolBtn icon="rectangle" label="Rect" onClick={() => addShape('rect')} testid="design-add-rect" />
@@ -862,6 +1240,40 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
           </div>
         </Panel>
       )}
+      {panel === 'redesign' && (
+        <Panel title="Pour in your text and lay it out">
+          <RedesignWizard
+            size={size}
+            brand={brand}
+            measure={domFlowMeasure}
+            theme={NEUTRAL_THEME}
+            initialContent={design.sourceContent ?? firstStoryContent(design)}
+            onApply={applyRedesign}
+            onCancel={() => setPanel('none')}
+          />
+        </Panel>
+      )}
+
+      {panel === 'layout' && (
+        <Panel title="Page layout">
+          <LayoutPanel
+            design={design}
+            activePage={design.activePage ?? 0}
+            onPatch={patchLayout}
+            onEditMaster={editMaster}
+            onAddMaster={addMaster}
+            onRenameMaster={renameMaster}
+            onDeleteMaster={deleteMaster}
+            onAssignMaster={assignMaster}
+            onAddLayer={addLayer}
+            onPatchLayer={patchLayer}
+            onDeleteLayer={deleteLayer}
+            onMoveSelectionToLayer={moveSelectionToLayer}
+            hasSelection={selectedIds.length > 0}
+          />
+        </Panel>
+      )}
+
       {panel === 'stock' && (
         <Panel title="Stock photos">
           <div className="flex gap-1.5 mb-2">
@@ -911,49 +1323,179 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
       <div className="flex-1 min-h-0 flex">
         <div className="flex-1 min-w-0 flex flex-col">
         <div ref={wrapRef} className="flex-1 min-w-0 overflow-auto bg-stone-200/50 dark:bg-black/30 flex items-start justify-center p-6">
-          <SlideCanvas
-            slide={{ id: 'design', notes: '', elements: design.elements, background: design.background, schemaVersion: 2 }}
-            theme={NEUTRAL_THEME}
-            width={canvasW}
-            logicalW={design.width}
-            logicalH={design.height}
-            selectedIds={selectedIds}
-            onSelect={(id, additive) => setSelectedIds(id == null ? [] : additive ? [...new Set([...selectedIds, id])] : [id])}
-            onSelectMany={setSelectedIds}
-            onUpdateElement={(id, patch) => mutate((s) => updateElement(s, id, patch))}
-            onMoveMany={(ids, dx, dy) => mutate((s) => moveElementsBy(s, ids, dx, dy))}
-            onSetText={(id, text) =>
-              mutate((s) => {
-                const e = (s.elements ?? []).find((x) => x.id === id)
-                return e && e.type === 'text' ? updateElement(s, id, setElementText(e, text)) : s
-              })
-            }
-          />
+          <div>
+            {editingMaster && (
+              <div
+                className="mb-1.5 px-2 py-1 rounded bg-accent/15 text-accent text-[11px] inline-flex items-center gap-1.5"
+                data-testid="design-master-banner"
+              >
+                <Icon name="auto_stories" size={13} />
+                Editing {editingMaster.name} — changes here appear on every page that uses it.
+                <button onClick={() => editMaster(null)} className="underline underline-offset-2">
+                  Done
+                </button>
+              </div>
+            )}
+            <DesignRulers width={design.width} height={design.height} scale={canvasW / design.width} onAddGuide={addGuide}>
+              <SlideCanvas
+                slide={{
+                  id: 'design',
+                  notes: '',
+                  elements: visibleElements,
+                  background: editingMaster ? editingMaster.background ?? design.background : design.background,
+                  schemaVersion: 2
+                }}
+                theme={NEUTRAL_THEME}
+                width={canvasW}
+                logicalW={design.width}
+                logicalH={design.height}
+                selectedIds={selectedIds}
+                underlay={underlay}
+                lockedIds={lockedIds}
+                extraSnapX={snaps.xs}
+                extraSnapY={snaps.ys}
+                overlay={
+                  <>
+                    <LayoutOverlay
+                      design={design}
+                      scale={canvasW / design.width}
+                      show={{ margins: showLayoutAids, columns: showLayoutAids, guides: showLayoutAids, wrap: showLayoutAids }}
+                      onRemoveGuide={removeGuide}
+                    />
+                    {textEdit && design.stories?.[textEdit.storyId] && (
+                      <>
+                        {/* While the caret is in text this layer owns the pointer,
+                            so clicking and dragging move the caret and select
+                            words instead of nudging the frame underneath. */}
+                        <div
+                          data-testid="design-text-surface"
+                          className="absolute inset-0"
+                          style={{ pointerEvents: 'auto', cursor: 'text', zIndex: 9995 }}
+                          onPointerDown={(e) => {
+                            const pt = stagePoint(e)
+                            if (!pt) return
+                            // A click OUTSIDE the story's own frames means the
+                            // author is done with the text and is reaching for
+                            // something else on the page. Leave text editing and
+                            // let the click through rather than swallowing it.
+                            const inFrame = storyFrames(design, textEdit.storyId).some(
+                              (f) =>
+                                f.pageIndex === activePage &&
+                                pt.x >= f.element.x &&
+                                pt.x <= f.element.x + f.element.w &&
+                                pt.y >= f.element.y &&
+                                pt.y <= f.element.y + f.element.h
+                            )
+                            if (!inFrame) {
+                              setTextEdit(null)
+                              return
+                            }
+                            e.stopPropagation()
+                            const caret = caretFromClick(design, textEdit.storyId, editParagraphs, { pageIndex: activePage, ...pt }, domFlowMeasure)
+                            if (!caret) return
+                            // A click in the text is also how focus comes back
+                            // after the author used a toolbar control.
+                            ;(document.querySelector('[data-testid="design-text-input"]') as HTMLElement | null)?.focus({ preventScroll: true })
+                            textDragging.current = true
+                            ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+                            setTextEdit({ storyId: textEdit.storyId, selection: { anchor: caret, focus: caret } })
+                          }}
+                          onPointerMove={(e) => {
+                            if (!textDragging.current) return
+                            const pt = stagePoint(e)
+                            if (!pt) return
+                            const caret = caretFromClick(design, textEdit.storyId, editParagraphs, { pageIndex: activePage, ...pt }, domFlowMeasure)
+                            if (caret) setTextEdit({ storyId: textEdit.storyId, selection: { anchor: textEdit.selection.anchor, focus: caret } })
+                          }}
+                          onPointerUp={() => {
+                            textDragging.current = false
+                          }}
+                          onDoubleClick={(e) => e.stopPropagation()}
+                        />
+                        <FrameTextEditor
+                          design={design}
+                          storyId={textEdit.storyId}
+                          doc={design.stories[textEdit.storyId]}
+                          paragraphs={editParagraphs}
+                          selection={textEdit.selection}
+                          measure={domFlowMeasure}
+                          pageIndex={activePage}
+                          scale={canvasW / design.width}
+                          onSelection={(sel) => setTextEdit({ storyId: textEdit.storyId, selection: sel })}
+                          onChange={applyTextEdit}
+                          onExit={() => setTextEdit(null)}
+                          onGoToPage={goToPage}
+                        />
+                      </>
+                    )}
+                  </>
+                }
+                onSelect={(id, additive) => setSelectedIds(id == null ? [] : additive ? [...new Set([...selectedIds, id])] : [id])}
+                onSelectMany={setSelectedIds}
+                onUpdateElement={(id, patch) => mutate((s) => updateElement(s, id, patch))}
+                onMoveMany={(ids, dx, dy) => mutate((s) => moveElementsBy(s, ids, dx, dy))}
+                onSetText={(id, text) => {
+                  // A threaded frame's words live in its story; writing them to
+                  // the frame would put them where nothing renders them.
+                  const sid = storyOfFrame(id)
+                  if (sid) {
+                    setStoryText(sid, text)
+                    return
+                  }
+                  mutate((s) => {
+                    const e = (s.elements ?? []).find((x) => x.id === id)
+                    return e && e.type === 'text' ? updateElement(s, id, setElementText(e, text)) : s
+                  })
+                }}
+                textOf={(el) => (el.storyId ? storyText(design, el.storyId) : elementText(el))}
+                onEditRequest={(el, point) => {
+                  if (!el.storyId) return false
+                  // Threaded copy is typed ON THE PAGE. The canvas hands the
+                  // gesture over and a caret appears where the pointer was.
+                  beginTextEdit(el.storyId, point)
+                  return true
+                }}
+              />
+            </DesignRulers>
+          </div>
         </div>
         {/* Page rail — switch, add, delete pages of a multi-page document. */}
         <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border-t border-[var(--edge-soft)] bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] overflow-x-auto" data-testid="design-page-rail">
-          {pages.map((pg, i) => (
-            <div key={pg.id} className="relative group/pg shrink-0">
-              <button
-                onClick={() => goToPage(i)}
-                data-testid={`design-page-${i}`}
-                className={`h-7 min-w-7 px-2 rounded text-[12px] border ${
-                  i === activePage ? 'border-accent bg-accent/10 text-accent font-medium' : 'border-[var(--edge-soft)] text-[var(--ink-60)] hover:bg-[var(--surface-sunken)]'
-                }`}
-                title={`Page ${i + 1}`}
-              >
-                {i + 1}
-              </button>
-              {pages.length > 1 && (
-                <button
-                  onClick={() => deletePage(i)}
-                  data-testid={`design-page-delete-${i}`}
-                  className="absolute -top-1 -right-1 hidden group-hover/pg:flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--surface-raised)] border border-[var(--edge-firm)] text-[var(--ink-50)] hover:text-rose-500"
-                  title={`Delete page ${i + 1}`}
-                >
-                  <Icon name="close" size={9} />
-                </button>
-              )}
+          {/* Pages, grouped into spreads when the document is set to facing
+              pages, so a booklet's rail reads the way the booklet does. Each
+              button shows the PRINTED page number and the master it inherits. */}
+          {spreadsOf(design).map((spread, si) => (
+            <div key={`sp-${si}`} className="shrink-0 flex items-center gap-0.5 px-0.5 rounded" style={design.facing ? { background: 'color-mix(in oklab, var(--edge-soft) 60%, transparent)' } : undefined}>
+              {spread.map((i) => {
+                const pg = pages[i]
+                if (!pg) return null
+                const pgMaster = masterForPage(design, pg)
+                return (
+                  <div key={pg.id} className="relative group/pg shrink-0">
+                    <button
+                      onClick={() => goToPage(i)}
+                      data-testid={`design-page-${i}`}
+                      className={`h-7 min-w-7 px-2 rounded text-[12px] border ${
+                        i === activePage ? 'border-accent bg-accent/10 text-accent font-medium' : 'border-[var(--edge-soft)] text-[var(--ink-60)] hover:bg-[var(--surface-sunken)]'
+                      }`}
+                      title={`Page ${pageNumberOf(design, i)}${pgMaster ? ` — ${pgMaster.name}` : ' — no master'}`}
+                    >
+                      {pageNumberOf(design, i)}
+                      {pgMaster && <span className="ml-0.5 text-[9px] opacity-60">{pgMaster.name.replace(/^Master\s*/, '')}</span>}
+                    </button>
+                    {pages.length > 1 && (
+                      <button
+                        onClick={() => deletePage(i)}
+                        data-testid={`design-page-delete-${i}`}
+                        className="absolute -top-1 -right-1 hidden group-hover/pg:flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--surface-raised)] border border-[var(--edge-firm)] text-[var(--ink-50)] hover:text-rose-500"
+                        title={`Delete page ${pageNumberOf(design, i)}`}
+                      >
+                        <Icon name="close" size={9} />
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           ))}
           <button
@@ -966,6 +1508,18 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
           </button>
         </div>
         </div>
+
+        {openStoryId && design.stories?.[openStoryId] && (
+          <StoryEditor
+            design={design}
+            storyId={openStoryId}
+            text={storyText(design, openStoryId)}
+            overset={storyFrames(design, openStoryId).some((f) => f.element.overset === true)}
+            onChange={(t) => setStoryText(openStoryId, t)}
+            onClose={() => setOpenStoryId(null)}
+            onAddPage={() => continueStoryOnNewPage(openStoryId)}
+          />
+        )}
 
         {selected && (
           <div className="w-56 shrink-0 border-l border-[var(--edge-soft)] p-3 overflow-auto text-[12px]" data-testid="design-inspector">
@@ -1111,6 +1665,133 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
                 className="fb-field w-full px-1.5 py-1"
               />
             </Field>
+
+            {/* ── Text wrap ───────────────────────────────────────────────── */}
+            <div className="mt-2 pt-2 border-t border-[var(--edge-soft)]" data-testid="design-wrap-controls">
+              <div className="text-[10px] uppercase tracking-wide text-[var(--ink-40)] mb-1.5">Text wrap</div>
+              <div className="flex gap-1">
+                {(
+                  [
+                    { mode: 'none' as const, icon: 'layers_clear', label: 'None — story text runs behind this' },
+                    { mode: 'square' as const, icon: 'wrap_text', label: 'Around the bounding box' }
+                  ]
+                ).map((opt) => {
+                  const on = (selected.wrap?.mode ?? 'none') === opt.mode
+                  return (
+                    <button
+                      key={opt.mode}
+                      onClick={() => mutate((sl) => updateElement(sl, selected.id, { wrap: { mode: opt.mode, offset: selected.wrap?.offset ?? 12 } }))}
+                      data-testid={`design-wrap-${opt.mode}`}
+                      title={opt.label}
+                      className={`fb-btn-surface flex-1 px-2 py-1 hover:bg-[var(--surface-sunken)] ${on ? 'border-accent text-accent' : ''}`}
+                    >
+                      <Icon name={opt.icon} size={14} />
+                    </button>
+                  )
+                })}
+              </div>
+              {selected.wrap?.mode === 'square' && (
+                <Field label="Standoff">
+                  <input
+                    type="number"
+                    min={0}
+                    value={Math.round(selected.wrap.offset ?? 12)}
+                    data-testid="design-wrap-offset"
+                    onChange={(e) =>
+                      mutate((sl) => updateElement(sl, selected.id, { wrap: { mode: 'square', offset: Math.max(0, Number(e.target.value) || 0) } }))
+                    }
+                    className="fb-field w-full px-1.5 py-1"
+                  />
+                </Field>
+              )}
+            </div>
+
+            {/* ── Threaded text ───────────────────────────────────────────── */}
+            {selected.type === 'text' && (
+              <div className="mt-2 pt-2 border-t border-[var(--edge-soft)]" data-testid="design-thread-controls">
+                <div className="text-[10px] uppercase tracking-wide text-[var(--ink-40)] mb-1.5">Story</div>
+                {selected.storyId ? (
+                  <>
+                    <p className="text-[10px] text-[var(--ink-40)] mb-1.5">
+                      Frame {selected.storyOrder ?? '?'} of a threaded story{selected.overset ? ' — this frame is full' : ''}.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setTextEdit(null)
+                        setOpenStoryId(selected.storyId!)
+                      }}
+                      data-testid="design-open-story"
+                      className="fb-btn-surface w-full px-2 py-1 text-[11px] hover:border-accent inline-flex items-center justify-center gap-1"
+                    >
+                      <Icon name="edit_note" size={13} /> Edit the story
+                    </button>
+                    <div className="grid grid-cols-2 gap-1 mt-1.5">
+                      <label className="flex items-center gap-1">
+                        <span className="text-[10px] text-[var(--ink-50)]">Cols</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={6}
+                          value={design.columns?.count ?? 1}
+                          data-testid="design-story-columns"
+                          onChange={(e) =>
+                            patchLayout({ columns: { count: Math.max(1, Math.min(6, Number(e.target.value) || 1)), gutter: design.columns?.gutter ?? 16 } })
+                          }
+                          className="fb-field w-full min-w-0 px-1 py-0.5"
+                        />
+                      </label>
+                      <label className="flex items-center gap-1">
+                        <span className="text-[10px] text-[var(--ink-50)]">Look</span>
+                        <select
+                          value={design.layoutStyleId ?? 'editorial'}
+                          data-testid="design-story-style"
+                          onChange={(e) => patchLayout({ layoutStyleId: e.target.value })}
+                          className="fb-field w-full min-w-0 px-1 py-0.5"
+                        >
+                          {LAYOUT_STYLES.map((st) => (
+                            <option key={st.id} value={st.id}>
+                              {st.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                    <button onClick={unlinkSelected} data-testid="design-unlink" className="fb-btn-surface w-full mt-1.5 px-2 py-1 text-[11px] hover:bg-[var(--surface-sunken)]">
+                      Unlink this frame
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-[10px] text-[var(--ink-40)]">
+                    Select two or more text frames and choose <strong>Link frames</strong> to pour one story through them — or use{' '}
+                    <strong>Redesign</strong> to lay a whole document out at once.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {selectedTextFrames.length >= 2 && (
+              <button onClick={linkSelectedFrames} data-testid="design-link-frames" className="fb-btn-surface w-full mt-1.5 px-2 py-1 text-[11px] hover:bg-[var(--surface-sunken)]">
+                Link {selectedTextFrames.length} frames into one story
+              </button>
+            )}
+
+            {/* ── Layer ───────────────────────────────────────────────────── */}
+            {layers.length > 1 && (
+              <Field label="Layer">
+                <select
+                  value={selected.layerId ?? BASE_LAYER_ID}
+                  data-testid="design-element-layer"
+                  onChange={(e) => mutate((sl) => updateElement(sl, selected.id, { layerId: e.target.value === BASE_LAYER_ID ? undefined : e.target.value }))}
+                  className="fb-field w-full px-1.5 py-1"
+                >
+                  {layers.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
 
             {selectedIds.length > 1 && (
               <div className="mt-2 pt-2 border-t border-[var(--edge-soft)]" data-testid="design-arrange">
@@ -1268,6 +1949,17 @@ function ToolBtn({ icon, label, onClick, active, testid }: { icon: string; label
       <Icon name={icon} size={15} /> <span>{label}</span>
     </button>
   )
+}
+
+/**
+ * The content to seed the wizard with for a document that has a story but no
+ * recorded source — an older layout, or one built by hand. Reading the story
+ * back is lossy only in that the headline lives on the page rather than in the
+ * thread, which is exactly what sourceContent exists to avoid going forward.
+ */
+function firstStoryContent(design: DesignBody): ContentDoc | undefined {
+  const first = Object.values(design.stories ?? {})[0]
+  return first && first.blocks.length ? first : undefined
 }
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }): JSX.Element {

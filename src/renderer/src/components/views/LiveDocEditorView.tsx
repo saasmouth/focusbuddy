@@ -19,7 +19,7 @@ import { notifyExternal } from '../../lib/notify'
 import CommentsPanel from './CommentsPanel'
 import type { Editor } from '@tiptap/react'
 import { listTeams, inviteTeamToDoc, type Team } from '../../lib/teamsClient'
-import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor } from '@office'
+import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor, DrawStudio } from '@office'
 import Icon from '../Icon'
 import CollaboratorBar from './CollaboratorBar'
 import { collaborators } from '../../lib/presence'
@@ -47,7 +47,7 @@ interface Props {
 
 // The whole-body JSON editors that co-edit through the reconcile engine. The doc
 // type uses the Tiptap binding instead; everything here shares one code path.
-const JSON_COEDIT_TYPES = ['sheet', 'slides', 'map', 'design'] as const
+const JSON_COEDIT_TYPES = ['sheet', 'slides', 'map', 'design', 'draw'] as const
 type JsonCoeditType = (typeof JSON_COEDIT_TYPES)[number]
 function isJsonCoedit(t: string | undefined): t is JsonCoeditType {
   return !!t && (JSON_COEDIT_TYPES as readonly string[]).includes(t)
@@ -263,7 +263,9 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
           ? 'Slides'
           : meta.docType === 'design'
             ? 'Design'
-            : 'Map'
+            : meta.docType === 'draw'
+              ? 'Artwork'
+              : 'Diagram'
   const typeIcon =
     meta.docType === 'doc'
       ? 'description'
@@ -272,8 +274,10 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
         : meta.docType === 'slides'
           ? 'slideshow'
           : meta.docType === 'design'
-            ? 'brush'
-            : 'account_tree'
+            ? 'palette'
+            : meta.docType === 'draw'
+              ? 'brush'
+              : 'account_tree'
   const isOwner = meta.ownerAccountId === myId
   // Comments are a document-only feature for now.
   const canComment = meta.docType === 'doc'
@@ -608,6 +612,12 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
         {meta.docType === 'design' &&
           (collabBody !== null ? (
             <DesignEditor key={`${meta.id}:collab`} content={collabBody} title={meta.title} onChange={onJsonChange} foldExternal />
+          ) : (
+            <div className="p-6 text-[13px] text-[var(--ink-40)]" data-testid="livedoc-connecting">Connecting live editing…</div>
+          ))}
+        {meta.docType === 'draw' &&
+          (collabBody !== null ? (
+            <DrawStudio key={`${meta.id}:collab`} content={collabBody} title={meta.title} onChange={onJsonChange} foldExternal />
           ) : (
             <div className="p-6 text-[13px] text-[var(--ink-40)]" data-testid="livedoc-connecting">Connecting live editing…</div>
           ))}

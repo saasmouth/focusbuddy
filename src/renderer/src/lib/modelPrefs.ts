@@ -60,11 +60,14 @@ export const AUTO_ROUTING_DISPLAY: Record<AIPurpose, { model: string; cost: stri
   doc_rewrite: { model: 'Sonnet', cost: '$$' },
   tone_profile: { model: 'Haiku', cost: '$' },
   email_reply_draft: { model: 'Sonnet', cost: '$$' },
+  mail_triage: { model: 'Haiku', cost: '$' },
   file_tag: { model: 'Haiku', cost: '$' },
   meeting_end: { model: 'Sonnet', cost: '$$' },
   agent_step: { model: 'Sonnet', cost: '$$' },
   memory_extract: { model: 'Haiku', cost: '$' },
-  browser_agent: { model: 'Sonnet', cost: '$$' }
+  browser_agent: { model: 'Sonnet', cost: '$$' },
+  // Mirrors AUTO_ROUTING in main/ai/modelRouting.ts, where custom_widget is OPUS.
+  custom_widget: { model: 'Opus', cost: '$$$' }
 }
 
 function readFromStorage(): ModelMode {

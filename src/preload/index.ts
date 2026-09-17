@@ -2237,6 +2237,29 @@ const api = {
     // Move a message to the account's archive mailbox.
     archive: (uid: number): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('mail:archive', uid),
+    // ── AI triage. `triage` PROPOSES; the rest are what the person applies. ──
+    triage: (
+      limit?: number
+    ): Promise<{
+      ok: boolean
+      plan: import('@shared/mailTriage').MailTriagePlan
+      unsubTargets?: Record<number, { kind: 'http' | 'mailto'; target: string }>
+      error?: string
+    }> => ipcRenderer.invoke('mail:triage', limit),
+    listFolders: (): Promise<{
+      ok: boolean
+      folders?: Array<{ path: string; name: string; specialUse: string | null; reserved: boolean }>
+      error?: string
+    }> => ipcRenderer.invoke('mail:listFolders'),
+    createFolder: (path: string): Promise<{ ok: boolean; created?: boolean; path?: string; error?: string }> =>
+      ipcRenderer.invoke('mail:createFolder', path),
+    move: (uid: number, target: string): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('mail:move', uid, target),
+    // Moves to Trash. Recoverable — nothing here expunges.
+    trash: (uid: number): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('mail:trash', uid),
+    // Moves to Junk and flags it. Teaches YOUR server; reports nothing to the
+    // sender's provider, because IMAP has no channel for that.
+    spam: (uid: number): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('mail:spam', uid),
     getAccount: (): Promise<MailAccountPublic> => ipcRenderer.invoke('mail:getAccount'),
     saveAccount: (
       config: MailAccountInput

@@ -117,7 +117,7 @@ function widgetResolvers(): WidgetTextResolvers {
 const WEB_WIDGET_KINDS = new Set(['webview', 'pdf', 'gdoc', 'gsheet', 'gslide', 'email'])
 // The office-doc kinds whose text comes through extractDocText and can land
 // exactly on its cap — the honest "longer than shown, total unknown" case.
-const DOC_WIDGET_KINDS = new Set(['doc', 'sheet', 'slides', 'map', 'design'])
+const DOC_WIDGET_KINDS = new Set(['doc', 'sheet', 'slides', 'map', 'design', 'draw'])
 
 function resolveWidget(id: string): {
   text: string | null

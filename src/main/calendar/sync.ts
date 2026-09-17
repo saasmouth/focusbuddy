@@ -1,5 +1,6 @@
-import { net } from 'electron'
+import { BrowserWindow, net } from 'electron'
 import { parseIcs } from '@shared/icsParse'
+import { pushInternalCalendar } from './push'
 import {
   listCalendars,
   getCalendar,
@@ -275,6 +276,23 @@ async function syncMicrosoft(
 }
 
 /** Sync one calendar and record the outcome on it, success or failure. */
+/**
+ * Tell every window a sync landed, so anything showing subscribed events
+ * refetches. Without this the background loop writes to the database and the
+ * screen keeps showing the copy it read when it opened — a calendar that is
+ * quietly an hour out of date is the one failure a calendar must not have.
+ */
+function notifyExternalEventsChanged(): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isDestroyed()) continue
+    try {
+      win.webContents.send('extcal:eventsChanged')
+    } catch {
+      // window may have closed mid-broadcast — ignore
+    }
+  }
+}
+
 export async function syncCalendar(id: string): Promise<ExternalCalendarSyncResult> {
   const cal = getCalendar(id)
   if (!cal) return { calendarId: id, ok: false, events: 0, error: 'That calendar is no longer here.' }
@@ -304,16 +322,44 @@ export async function syncCalendar(id: string): Promise<ExternalCalendarSyncResu
     lastSyncAt: result.ok ? Date.now() : cal.lastSyncAt,
     lastSyncError: result.ok ? null : (result.error ?? 'Sync failed.')
   })
+  if (result.ok) notifyExternalEventsChanged()
   return result
 }
 
-/** Sync every enabled calendar, one at a time to stay polite to the services. */
+/**
+ * Sync every enabled calendar, one at a time to stay polite to the services.
+ *
+ * Pull first, then push: a block edited on the far side should be reflected here
+ * before Plexii writes its own version back over the top.
+ */
 export async function syncAll(): Promise<ExternalCalendarSyncResult[]> {
   const out: ExternalCalendarSyncResult[] = []
   for (const cal of listCalendars()) {
-    if (!cal.enabled) continue
+    // An internal calendar has nothing to pull — it IS the source.
+    if (!cal.enabled || cal.provider === 'internal') continue
+    if (cal.syncMode === 'write') continue
     out.push(await syncCalendar(cal.id))
   }
+
+  for (const internal of listCalendars()) {
+    if (!internal.enabled || internal.provider !== 'internal') continue
+    if (internal.syncMode === 'read' || !internal.pushTargetId) continue
+    const res = await pushInternalCalendar(internal)
+    // A push failure is stored on the internal calendar's own row, so a
+    // permission that lapsed last week says so rather than failing silently
+    // every quarter of an hour.
+    updateCalendar(internal.id, {
+      lastSyncAt: res.ok ? Date.now() : internal.lastSyncAt,
+      lastSyncError: res.ok ? null : (res.error ?? 'Could not write to the linked calendar.')
+    })
+    out.push({
+      calendarId: internal.id,
+      ok: res.ok,
+      events: res.created + res.updated,
+      ...(res.error ? { error: res.error } : {})
+    })
+  }
+  if (out.some((r) => r.ok)) notifyExternalEventsChanged()
   return out
 }
 

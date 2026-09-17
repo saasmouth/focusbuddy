@@ -27,8 +27,13 @@ export const DOC_TYPE_CAPABILITY: Record<DocType, string> = {
   doc: 'office_docs',
   sheet: 'office_sheets',
   slides: 'office_slides',
+  // PlexiDiagrams and PlexiDraw were one product before the split, so they share
+  // the capability they have always been licensed under. Minting a new key would
+  // lock the new studio for every signed-in user until the entitlements server
+  // learned about it, which is a worse outcome than one key covering both.
   map: 'office_draw',
-  design: 'office_design'
+  design: 'office_design',
+  draw: 'office_draw'
 }
 
 // Human label per editor, used in the "<Editor> is not available" copy.
@@ -36,8 +41,9 @@ export const DOC_TYPE_LABEL: Record<DocType, string> = {
   doc: 'PlexiDocs',
   sheet: 'PlexiSheets',
   slides: 'PlexiSlides',
-  map: 'PlexiDraw',
-  design: 'PlexiDesign'
+  map: 'PlexiDiagrams',
+  design: 'PlexiDesign',
+  draw: 'PlexiDraw'
 }
 
 export function capabilityForDocType(docType: DocType): string {

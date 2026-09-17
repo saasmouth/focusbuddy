@@ -15,6 +15,7 @@ import InboxView from './views/InboxView'
 import MailView from './views/MailView'
 import DocumentsView from './views/DocumentsView'
 import DesignsView from './views/DesignsView'
+import DrawView from './views/DrawView'
 import DocumentOpen from './views/DocumentOpen'
 import LiveDocEditorView from './views/LiveDocEditorView'
 import LiveFolderView from './views/LiveFolderView'
@@ -113,6 +114,8 @@ function renderView(view: View): JSX.Element {
       return <DocumentsView />
     case 'design':
       return <DesignsView />
+    case 'draw':
+      return <DrawView />
     case 'document':
       return <DocumentOpen documentId={view.documentId} />
     case 'livedoc':

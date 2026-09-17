@@ -7,6 +7,8 @@
 
 import { create } from 'zustand'
 import { useWebPanel } from './webPanel'
+import { hasFindings, normalizeFindings, type BrowseFindings } from '@shared/browseFindings'
+import type { ActionProposal } from '@shared/types'
 
 export interface BrowserAgentEventLite {
   kind: string
@@ -24,6 +26,11 @@ export interface BrowserAgentRunState {
   pendingConsentHost: string | null
   events: BrowserAgentEventLite[]
   cost: { inputTokens: number; outputTokens: number; costMicros: number } | null
+  // What the run actually learned. The run's real product — kept so it can be
+  // routed to whatever the task was for instead of dying with the event.
+  findings: BrowseFindings | null
+  // Delivery of those findings to their destination.
+  delivery: { state: 'idle' | 'planning' | 'done' | 'error'; message: string }
 }
 
 interface BrowserAgentStore {
@@ -31,6 +38,8 @@ interface BrowserAgentStore {
   start: (input: { task: string; startUrl?: string }) => Promise<string | null>
   stop: (runId: string) => Promise<void>
   consent: (runId: string, granted: boolean, remember: boolean) => Promise<void>
+  // Hand a finished run's findings to the AI to place where the task intended.
+  deliver: (runId: string) => Promise<void>
 }
 
 export const useBrowserAgentRuns = create<BrowserAgentStore>((set) => ({
@@ -54,7 +63,9 @@ export const useBrowserAgentRuns = create<BrowserAgentStore>((set) => ({
           summary: '',
           pendingConsentHost: null,
           events: [],
-          cost: null
+          cost: null,
+          findings: null,
+          delivery: { state: 'idle', message: '' }
         }
       }
     }))
@@ -73,6 +84,57 @@ export const useBrowserAgentRuns = create<BrowserAgentStore>((set) => ({
         ? { runs: { ...s.runs, [runId]: { ...run, pendingConsentHost: null } } }
         : s
     })
+  },
+
+  // Take what the run found and put it where the task meant it to go. Main
+  // plans the destination from the user's original wording; what comes back is
+  // ordinary action proposals, applied through the same path as any other
+  // suggestion, so the user still reviews before anything is created.
+  deliver: async (runId) => {
+    const run = useBrowserAgentRuns.getState().runs[runId]
+    if (!run?.findings) return
+    const setDelivery = (delivery: BrowserAgentRunState['delivery']): void =>
+      set((s) => {
+        const r = s.runs[runId]
+        return r ? { runs: { ...s.runs, [runId]: { ...r, delivery } } } : s
+      })
+    setDelivery({ state: 'planning', message: 'Working out where this belongs…' })
+    try {
+      const { useNodeStore } = await import('./nodes')
+      const taskId = useNodeStore.getState().activeTaskId ?? null
+      const res = await window.api.browserAgent.deliver({ task: run.task, findings: run.findings, taskId })
+      if (!res.ok) {
+        setDelivery({ state: 'error', message: res.error ?? 'Could not place these results.' })
+        return
+      }
+      const proposals = (res.proposals ?? []) as ActionProposal[]
+      if (proposals.length === 0) {
+        setDelivery({ state: 'error', message: res.reply || 'Nothing to place.' })
+        return
+      }
+      const { applyProposal } = await import('../lib/actionExecutor')
+      const resolvedIds = new Map<string, string>()
+      let applied = 0
+      const failures: string[] = []
+      for (const p of proposals) {
+        const r = await applyProposal(p, { activeTaskId: taskId, resolvedIds })
+        if (r.ok) applied++
+        else failures.push(r.message)
+      }
+      // Report what actually happened, including a partial result — silently
+      // reporting success for rows that failed to land is exactly the sort of
+      // thing that made the old empty-table failure so hard to notice.
+      setDelivery(
+        failures.length === 0
+          ? { state: 'done', message: res.reply || `Placed ${applied} item${applied === 1 ? '' : 's'}.` }
+          : {
+              state: applied > 0 ? 'done' : 'error',
+              message: `${applied} of ${proposals.length} placed. ${failures[0]}`
+            }
+      )
+    } catch (e) {
+      setDelivery({ state: 'error', message: (e as Error).message })
+    }
   }
 }))
 
@@ -98,6 +160,8 @@ window.api.browserAgent.onEvent((ev) => {
     if (ev.kind === 'finished') {
       next.outcome = typeof ev.outcome === 'string' ? ev.outcome : 'finished'
       next.summary = typeof ev.summary === 'string' ? ev.summary : ''
+      const found = normalizeFindings(ev.findings)
+      next.findings = hasFindings(found) ? found : null
       next.pendingConsentHost = null
       const cost = ev.cost as BrowserAgentRunState['cost']
       next.cost = cost ?? null

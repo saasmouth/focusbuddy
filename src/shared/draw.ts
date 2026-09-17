@@ -146,6 +146,14 @@ export interface DrawTextObject extends DrawObjectBase {
   fill: DrawPaint
   stroke?: DrawStroke
   rotation?: number
+  /**
+   * The wrapped lines, as the editor measured them with the real font engine.
+   * This is a CACHE the renderer maintains on every text/width/font change, and
+   * it exists so the exporter draws the same breaks the screen showed rather
+   * than re-guessing them. Absent (an older body, or text that has never been
+   * opened) falls back to estimateWrap.
+   */
+  lines?: string[]
 }
 
 export interface DrawImageObject extends DrawObjectBase {
@@ -375,6 +383,7 @@ function normObject(v: unknown): DrawObject | null {
       ...(typeof o.lineHeight === 'number' ? { lineHeight: o.lineHeight } : {}),
       ...(typeof o.letterSpacing === 'number' ? { letterSpacing: o.letterSpacing } : {}),
       ...(typeof o.rotation === 'number' ? { rotation: o.rotation } : {}),
+      ...(Array.isArray(o.lines) ? { lines: (o.lines as unknown[]).filter((l): l is string => typeof l === 'string') } : {}),
       fill: normPaint(o.fill, solid('#1c1917')),
       ...(normStroke(o.stroke) ? { stroke: normStroke(o.stroke)! } : {})
     }
@@ -456,7 +465,7 @@ export function objectBounds(o: DrawObject): Box {
   // Text height is a function of how it wraps, which only the renderer knows.
   // The model reports the single-line height as a floor; the editor replaces it
   // with the measured box once the text has been laid out.
-  const lines = Math.max(1, o.text.split('\n').length)
+  const lines = Math.max(1, o.lines?.length ?? o.text.split('\n').length)
   return { x: o.x, y: o.y, w: o.w, h: lines * o.fontSize * (o.lineHeight ?? 1.2) }
 }
 
@@ -650,7 +659,9 @@ function objectSvg(o: DrawObject, defs: string[]): string {
   const lh = (o.lineHeight ?? 1.2) * o.fontSize
   const anchor = o.align === 'center' ? 'middle' : o.align === 'right' ? 'end' : 'start'
   const ax = o.align === 'center' ? o.x + o.w / 2 : o.align === 'right' ? o.x + o.w : o.x
-  const lines = estimateWrap(o.text, o.w, o.fontSize, o.letterSpacing ?? 0)
+  // Prefer the editor's measured breaks; estimateWrap is only the fallback for
+  // text no editor has ever laid out.
+  const lines = o.lines && o.lines.length ? o.lines : estimateWrap(o.text, o.w, o.fontSize, o.letterSpacing ?? 0)
   const tspans = lines
     .map((l, i) => `<tspan x="${ax}" y="${(o.y + o.fontSize + i * lh).toFixed(2)}">${esc(l) || ' '}</tspan>`)
     .join('')

@@ -221,6 +221,62 @@ export default function AgentRunDock(props: {
               {running ? liveLine : run.summary || OUTCOME_LINES[run.outcome] || liveLine}
             </div>
 
+            {/* What the run FOUND, and the offer to put it to work. A run used
+                to end at the line above — a sentence — with everything it had
+                read thrown away. The findings are the actual product, so they
+                are shown, and one click routes them wherever the task meant
+                them to go. */}
+            {!running && run.findings && (
+              <div
+                data-testid="agent-run-findings"
+                className="mt-2 rounded-md border border-[var(--line-20)] bg-[var(--surface-raised)] p-2"
+              >
+                <div className="text-[11px] font-medium text-[var(--ink-100)]">
+                  {run.findings.records.length > 0
+                    ? `Found ${run.findings.records.length} ${
+                        run.findings.records.length === 1 ? 'result' : 'results'
+                      }`
+                    : 'Found an answer'}
+                </div>
+                {run.findings.records.length > 0 && (
+                  <div className="mt-1 max-h-24 overflow-y-auto">
+                    {run.findings.records.slice(0, 5).map((r, i) => (
+                      <div key={i} className="truncate text-[11px] text-[var(--ink-70)]">
+                        {run.findings!.fields.filter((f) => r[f]).map((f) => r[f]).join(' · ')}
+                      </div>
+                    ))}
+                    {run.findings.records.length > 5 && (
+                      <div className="text-[11px] text-[var(--ink-70)] opacity-70">
+                        +{run.findings.records.length - 5} more
+                      </div>
+                    )}
+                  </div>
+                )}
+                {run.findings.answer && (
+                  <div className="mt-1 line-clamp-3 text-[11px] text-[var(--ink-70)]">
+                    {run.findings.answer}
+                  </div>
+                )}
+                {run.delivery.state === 'idle' ? (
+                  <button
+                    type="button"
+                    data-testid="agent-run-use-findings"
+                    className="mt-2 rounded border border-[var(--line-20)] px-2 py-1 text-[11px] font-medium text-[var(--ink-100)] hover:bg-[var(--surface-hover)]"
+                    onClick={() => void useBrowserAgentRuns.getState().deliver(run.runId)}
+                  >
+                    Use these results
+                  </button>
+                ) : (
+                  <div
+                    data-testid="agent-run-delivery"
+                    className="mt-2 text-[11px] text-[var(--ink-70)]"
+                  >
+                    {run.delivery.state === 'planning' ? 'Working out where this belongs…' : run.delivery.message}
+                  </div>
+                )}
+              </div>
+            )}
+
             {acted.length > 0 && (
               <div className="mt-2">
                 <button

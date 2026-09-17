@@ -30,16 +30,18 @@ const TYPE_ICON: Record<DocType, string> = {
   sheet: 'table_chart',
   slides: 'slideshow',
   map: 'account_tree',
-  design: 'plexii:design'
+  design: 'plexii:design',
+  draw: 'brush'
 }
 const TYPE_LABEL: Record<DocType, string> = {
   doc: 'Docs',
   sheet: 'Sheets',
   slides: 'Slides',
-  map: 'Maps',
-  design: 'Designs'
+  map: 'Diagrams',
+  design: 'Designs',
+  draw: 'Artwork'
 }
-const TYPES: DocType[] = ['doc', 'sheet', 'slides', 'map', 'design']
+const TYPES: DocType[] = ['doc', 'sheet', 'slides', 'map', 'design', 'draw']
 
 export default function DocPickerModal({
   title = 'Choose an office file',

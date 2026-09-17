@@ -1,3 +1,5 @@
+import { stampsForDot, stampsForSegment, type BrushSettings, type Stamp, type StrokePoint } from './brushes'
+
 // PlexiDraw raster engine — the Photoshop half of the studio.
 //
 // A raster layer is one <canvas> the size of the artboard. Every painting tool
@@ -7,19 +9,8 @@
 // painting at 60fps while still leaving ONE undoable change per stroke rather
 // than one per pointermove.
 
-export interface BrushSettings {
-  /** Diameter in document px. */
-  size: number
-  /** 0 = fully feathered edge, 1 = a hard circle. */
-  hardness: number
-  color: string
-  /** 0..1, applied to the whole stroke. */
-  opacity: number
-  /** 0..1, how much paint each stamp lays down. */
-  flow: number
-}
-
-export const DEFAULT_BRUSH: BrushSettings = { size: 24, hardness: 0.8, color: '#1c1917', opacity: 1, flow: 1 }
+export type { BrushSettings, BrushPreset, StrokePoint } from './brushes'
+export { BRUSH_PRESETS, DEFAULT_BRUSH, brushFromPreset, findBrushPreset } from './brushes'
 
 export function createCanvas(w: number, h: number): HTMLCanvasElement {
   const c = document.createElement('canvas')
@@ -67,71 +58,57 @@ export function isCanvasEmpty(canvas: HTMLCanvasElement): boolean {
 // ── Brush ────────────────────────────────────────────────────────────────────
 
 /**
- * One brush dab. A hardness below 1 is drawn as a radial gradient that is solid
- * out to `hardness` of the radius and fades to nothing at the rim — the same
- * construction a soft round brush uses, and the reason strokes blend instead of
- * showing a hard disc edge.
+ * Draw one stamp. A hardness below 1 is a radial gradient that is solid out to
+ * `hardness` of the radius and fades to nothing at the rim — the construction a
+ * soft round brush uses, and the reason strokes blend instead of showing a hard
+ * disc edge.
  */
-function dab(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, brush: BrushSettings): void {
-  if (radius <= 0) return
-  if (brush.hardness >= 0.999) {
-    ctx.fillStyle = brush.color
-    ctx.beginPath()
-    ctx.arc(x, y, radius, 0, Math.PI * 2)
-    ctx.fill()
-    return
+function drawStamp(ctx: CanvasRenderingContext2D, stamp: Stamp, color: string, hardness: number): void {
+  if (stamp.rx <= 0 || stamp.ry <= 0) return
+  ctx.save()
+  ctx.globalAlpha = stamp.alpha
+  ctx.translate(stamp.x, stamp.y)
+  if (stamp.angle) ctx.rotate((stamp.angle * Math.PI) / 180)
+  if (hardness >= 0.999) {
+    ctx.fillStyle = color
+  } else {
+    const g = ctx.createRadialGradient(0, 0, Math.max(0, stamp.rx * hardness), 0, 0, stamp.rx)
+    g.addColorStop(0, color)
+    g.addColorStop(1, 'transparent')
+    ctx.fillStyle = g
   }
-  const g = ctx.createRadialGradient(x, y, Math.max(0, radius * brush.hardness), x, y, radius)
-  g.addColorStop(0, brush.color)
-  g.addColorStop(1, 'transparent')
-  ctx.fillStyle = g
   ctx.beginPath()
-  ctx.arc(x, y, radius, 0, Math.PI * 2)
+  ctx.ellipse(0, 0, stamp.rx, stamp.ry, 0, 0, Math.PI * 2)
   ctx.fill()
+  ctx.restore()
 }
 
 /**
- * Paint one segment of a stroke by stamping dabs along it. Spacing is a fraction
- * of the brush diameter (the classic 1/4-diameter default), which is what makes
- * a fast flick still lay down a continuous line rather than a row of dots.
- *
- * `pressure` (0..1, from a stylus or 0.5 for a mouse) scales the radius, so a
- * pressure-sensitive pen tapers naturally.
+ * Paint one segment of a stroke onto the SCRATCH canvas. Strokes are built at
+ * full strength on scratch and composited once, on pointer-up — without that,
+ * every overlapping stamp darkens the last and a half-opacity stroke comes out
+ * blotchy instead of even.
  */
-export function paintSegment(
-  ctx: CanvasRenderingContext2D,
-  from: { x: number; y: number; pressure?: number },
-  to: { x: number; y: number; pressure?: number },
-  brush: BrushSettings,
-  erase = false
-): void {
-  const r0 = (brush.size / 2) * clamp01(from.pressure ?? 1)
-  const r1 = (brush.size / 2) * clamp01(to.pressure ?? 1)
-  const dist = Math.hypot(to.x - from.x, to.y - from.y)
-  const spacing = Math.max(0.5, brush.size * 0.18)
-  const steps = Math.max(1, Math.ceil(dist / spacing))
-
-  ctx.save()
-  ctx.globalCompositeOperation = erase ? 'destination-out' : 'source-over'
-  ctx.globalAlpha = clamp01(brush.flow)
-  for (let i = 1; i <= steps; i++) {
-    const t = i / steps
-    dab(ctx, from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t, r0 + (r1 - r0) * t, brush)
-  }
-  ctx.restore()
+export function paintSegment(ctx: CanvasRenderingContext2D, from: StrokePoint, to: StrokePoint, brush: BrushSettings): void {
+  for (const stamp of stampsForSegment(from, to, brush)) drawStamp(ctx, stamp, brush.color, brush.hardness)
 }
 
-/** The first dab of a stroke, so a single click still leaves a mark. */
-export function paintDot(ctx: CanvasRenderingContext2D, p: { x: number; y: number; pressure?: number }, brush: BrushSettings, erase = false): void {
-  ctx.save()
-  ctx.globalCompositeOperation = erase ? 'destination-out' : 'source-over'
-  ctx.globalAlpha = clamp01(brush.flow)
-  dab(ctx, p.x, p.y, (brush.size / 2) * clamp01(p.pressure ?? 1), brush)
-  ctx.restore()
+/** The mark a click with no drag leaves, so a dot is still a dot. */
+export function paintDot(ctx: CanvasRenderingContext2D, p: StrokePoint, brush: BrushSettings): void {
+  for (const stamp of stampsForDot(p, brush)) drawStamp(ctx, stamp, brush.color, brush.hardness)
 }
 
-function clamp01(n: number): number {
-  return Math.max(0, Math.min(1, n))
+/**
+ * Lay a finished scratch stroke onto its layer, once, at the stroke's opacity
+ * and blend mode. Erasing punches the scratch shape out of the layer instead.
+ */
+export function compositeStroke(layer: HTMLCanvasElement, scratch: HTMLCanvasElement, opacity: number, blend: string, erase: boolean): void {
+  const ctx = context(layer)
+  ctx.save()
+  ctx.globalAlpha = Math.max(0, Math.min(1, opacity))
+  ctx.globalCompositeOperation = erase ? 'destination-out' : blend === 'source-over' ? 'source-over' : (blend as GlobalCompositeOperation)
+  ctx.drawImage(scratch, 0, 0)
+  ctx.restore()
 }
 
 // ── Colour ───────────────────────────────────────────────────────────────────
@@ -268,7 +245,7 @@ export function floodFillPixels(
 export function compositeOnto(lower: HTMLCanvasElement, upper: HTMLCanvasElement, opacity: number, blend: string): void {
   const ctx = context(lower)
   ctx.save()
-  ctx.globalAlpha = clamp01(opacity)
+  ctx.globalAlpha = Math.max(0, Math.min(1, opacity))
   ctx.globalCompositeOperation = blend === 'normal' ? 'source-over' : (blend as GlobalCompositeOperation)
   ctx.drawImage(upper, 0, 0, lower.width, lower.height)
   ctx.restore()

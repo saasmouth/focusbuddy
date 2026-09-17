@@ -20,16 +20,20 @@ import {
   reorderMailFolders
 } from '../db/mailFolders'
 import type { ContactDraft, ContactPatch, MailFolderDraft, MailFolderPatch } from '@shared/types'
-import { buildMetricBinding, refineDashboardPlan } from '../ai/anthropic'
+import { buildMetricBinding, planFindingsDelivery, refineDashboardPlan } from '../ai/anthropic'
+import { normalizeFindings } from '@shared/browseFindings'
 import {
   listCalendars as listExternalCalendars,
   getCalendar as getExternalCalendar,
   createCalendar as createExternalCalendar,
+  ensureDefaultInternalCalendar,
+  setDefaultInternalCalendar,
   updateCalendar as updateExternalCalendar,
   deleteCalendar as deleteExternalCalendar,
   listEvents as listExternalEvents
 } from '../db/externalCalendars'
 import { syncCalendar, syncAll, feedUrlProblem } from '../calendar/sync'
+import { pushInternalCalendar } from '../calendar/push'
 import {
   connect as connectOAuth,
   listAccounts as listOAuthAccounts,
@@ -105,7 +109,10 @@ import {
   listInbox,
   getMessage,
   markSeen,
-  resetConnection as resetMailConnection, archiveMessage } from '../mail/imap'
+  resetConnection as resetMailConnection, archiveMessage,
+  listMailboxes, createMailbox, moveMessage, trashMessage, junkMessage } from '../mail/imap'
+import { triageInbox, liveTriageDeps, TRIAGE_BATCH } from '../ai/mailTriage'
+import { isUsableFolderName } from '@shared/mailTriage'
 // NOTE: mail-OAuth wiring temporarily reverted for the 4.1.1 release. The
 // ../mail/oauth and ../mail/oauthProviders modules, explainImapError, and the
 // mailAccount OAuth methods were referenced here but never committed, which broke
@@ -193,8 +200,17 @@ import {
 import { staleDesks } from '../db/nodeActivity'
 import { createDeskLayoutStore } from '../db/deskLayoutStore'
 import type { DeskLayout, DeviceClass } from '@shared/deskLayout'
-import { generateDocument, processMeetingEnd, generateDesignContent, generateDesignVariations, setConversationSnapshot } from '../ai/anthropic'
+import { generateDocument, processMeetingEnd, generateDesignContent, generateDesignVariations, planDesignLayout, setConversationSnapshot } from '../ai/anthropic'
 import { generateImage, generateImageToFile } from '../imageGen'
+import { generateCustomWidget, nameCustomWidget } from '../ai/customWidget'
+import {
+  listCustomWidgets,
+  getCustomWidget,
+  saveCustomWidget,
+  deleteCustomWidget,
+  renameCustomWidget,
+  markCustomWidgetUsed
+} from '../db/customWidgets'
 import { exportDesign } from '../designExport'
 import { exportDraw } from '../drawExport'
 import { exportMap } from '../mapExport'
@@ -648,7 +664,7 @@ import { importDocx, exportDocx, exportPdf, pickImage, type PageSetupInput } fro
 import { importSheet, exportSheet } from '../sheetIo'
 import { runSheetMacro } from '../sheetMacro'
 import { exportSlides, importPptx } from '../slidesIo'
-import { getModelMode, setModelMode } from '../ai/modelRouting'
+import {getModelMode, setModelMode, MODEL_HAIKU} from '../ai/modelRouting'
 import { describeWidgetForAgent } from '../ai/agentInputs'
 // Static import (not a lazy require): electron-vite only bundles the static import
 // graph, so a runtime require('../assistant/standupRun') throws MODULE_NOT_FOUND in
@@ -1874,12 +1890,57 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('image:generateToFile', (_e, input: { prompt: string; width?: number; height?: number }) =>
     generateImageToFile(input)
   )
+
+  // ── Custom widgets: the user describes a tool, the model writes it ─────────
+  // Generation is the only one of these that costs anything, so it is the only
+  // one that calls recordAiCall(). The library operations are local reads and
+  // writes against the user's own saved work.
+  ipcMain.handle(
+    'customWidget:generate',
+    (_e, input: { spec: string; currentCode?: string; net?: boolean; width?: number; height?: number }) => {
+      recordAiCall()
+      return generateCustomWidget(input)
+    }
+  )
+  ipcMain.handle('customWidget:name', (_e, input: { spec: string }) => {
+    recordAiCall()
+    return nameCustomWidget(input)
+  })
+  ipcMain.handle('customWidget:list', () => listCustomWidgets(getDb()))
+  ipcMain.handle('customWidget:get', (_e, id: string) => getCustomWidget(getDb(), id))
+  ipcMain.handle(
+    'customWidget:save',
+    (
+      _e,
+      input: {
+        id?: string
+        name: string
+        spec: string
+        code: string
+        icon?: string
+        net?: boolean
+        width?: number
+        height?: number
+      }
+    ) => saveCustomWidget(getDb(), input)
+  )
+  ipcMain.handle('customWidget:delete', (_e, id: string) => deleteCustomWidget(getDb(), id))
+  ipcMain.handle('customWidget:rename', (_e, id: string, name: string) =>
+    renameCustomWidget(getDb(), id, name)
+  )
+  ipcMain.handle('customWidget:markUsed', (_e, id: string) => {
+    markCustomWidgetUsed(getDb(), id)
+    return { ok: true }
+  })
   ipcMain.handle('design:export', (_e, input: { design: DesignBody; title: string; format: 'png' | 'pdf' }) => exportDesign(input))
   // The argument type is written inline rather than as Parameters<typeof …> so
   // the generated IPC contract registry can derive a real shape for it.
   ipcMain.handle('draw:export', (_e, input: { draw: DrawBody; title: string; format: 'png' | 'svg' | 'pdf' }) => exportDraw(input))
   ipcMain.handle('map:export', (_e, input: Parameters<typeof exportMap>[0]) => exportMap(input))
   ipcMain.handle('map:import', () => importVsdx())
+  ipcMain.handle('design:planLayout', (_e, input: { outline: Array<{ i: number; kind: string; words: number; preview: string }>; styles: Array<{ id: string; name: string; blurb: string; columns: number }>; page: { width: number; height: number; label: string } }) =>
+    planDesignLayout(input)
+  )
   ipcMain.handle('design:searchPhotos', (_e, input: { query: string; perPage?: number }) => searchStockPhotos(input))
   ipcMain.handle('design:fetchImage', (_e, input: { url: string }) => fetchImageDataUrl(input))
   ipcMain.handle('design:removeBackground', (_e, input: { dataUrl: string }) => removeBackground(input))
@@ -2233,7 +2294,24 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('contacts:desks', (_e, contactId: string) => listNodesForContact(contactId))
 
-  ipcMain.handle('extcal:list', () => listExternalCalendars())
+  // Listing ensures the default internal calendar exists, so a fresh install
+  // shows "Plexii" beside the linked ones without a separate setup step.
+  ipcMain.handle('extcal:list', () => {
+    ensureDefaultInternalCalendar()
+    return listExternalCalendars()
+  })
+  ipcMain.handle('extcal:addInternal', (_e, name: string, color: string | null) =>
+    createExternalCalendar({ provider: 'internal', name: name || 'Calendar', sourceRef: '', color, syncMode: 'read' })
+  )
+  ipcMain.handle('extcal:setDefaultInternal', (_e, id: string) => {
+    setDefaultInternalCalendar(id)
+    return listExternalCalendars()
+  })
+  ipcMain.handle('extcal:pushNow', async (_e, id: string) => {
+    const cal = getExternalCalendar(id)
+    if (!cal) return { ok: false, created: 0, updated: 0, error: 'That calendar is no longer here.' }
+    return pushInternalCalendar(cal)
+  })
   ipcMain.handle('extcal:listEvents', (_e, fromMs: number, toMs: number) =>
     listExternalEvents(fromMs, toMs)
   )
@@ -2997,6 +3075,18 @@ export function registerIpcHandlers(): void {
     (_e, runId: string, granted: boolean, remember: boolean) =>
       resolveBrowserConsent(runId, granted, remember)
   )
+  // Put a finished run's findings to work. The renderer hands back the run's
+  // task and findings; main plans the destination and returns ordinary action
+  // proposals for the user to review.
+  ipcMain.handle(
+    'browserAgent:deliver',
+    (_e, input: { task: string; findings: unknown; taskId: string | null }) =>
+      planFindingsDelivery({
+        task: String(input?.task ?? ''),
+        findings: normalizeFindings(input?.findings),
+        taskId: input?.taskId ?? null
+      })
+  )
   ipcMain.handle('browserConsent:list', () => listConsent())
   ipcMain.handle('browserConsent:revoke', (_e, host: string) => revokeConsent(host))
   // File import — system file picker, plus a content-aware converter
@@ -3359,6 +3449,100 @@ export function registerIpcHandlers(): void {
     try {
       await archiveMessage(acc.config, uid)
       return { ok: true as const }
+    } catch (err) {
+      return { ok: false as const, error: (err as Error).message }
+    }
+  })
+  // ── AI inbox triage (propose only) ──────────────────────────────────────
+  // Nothing in this block acts on its own. `mail:triage` returns a PLAN; the
+  // renderer shows it and the person applies what they agree with, one row at a
+  // time, through the ordinary move/trash/spam handlers below.
+  ipcMain.handle('mail:listFolders', async () => {
+    const acc = await currentMailAccount()
+    if (!acc.ok) return { ok: false as const, error: acc.error }
+    try {
+      return { ok: true as const, folders: await listMailboxes(acc.config) }
+    } catch (err) {
+      return { ok: false as const, error: (err as Error).message }
+    }
+  })
+  ipcMain.handle('mail:createFolder', async (_e, path: string) => {
+    const acc = await currentMailAccount()
+    if (!acc.ok) return { ok: false as const, error: acc.error }
+    if (!isUsableFolderName(path)) {
+      return { ok: false as const, error: `"${path}" is not a folder name this can create.` }
+    }
+    try {
+      const r = await createMailbox(acc.config, path)
+      return { ok: true as const, ...r }
+    } catch (err) {
+      return { ok: false as const, error: (err as Error).message }
+    }
+  })
+  ipcMain.handle('mail:move', async (_e, uid: number, target: string) => {
+    const acc = await currentMailAccount()
+    if (!acc.ok) return { ok: false as const, error: acc.error }
+    try {
+      await moveMessage(acc.config, uid, target)
+      return { ok: true as const }
+    } catch (err) {
+      return { ok: false as const, error: (err as Error).message }
+    }
+  })
+  ipcMain.handle('mail:trash', async (_e, uid: number) => {
+    const acc = await currentMailAccount()
+    if (!acc.ok) return { ok: false as const, error: acc.error }
+    try {
+      await trashMessage(acc.config, uid)
+      return { ok: true as const }
+    } catch (err) {
+      return { ok: false as const, error: (err as Error).message }
+    }
+  })
+  ipcMain.handle('mail:spam', async (_e, uid: number) => {
+    const acc = await currentMailAccount()
+    if (!acc.ok) return { ok: false as const, error: acc.error }
+    try {
+      await junkMessage(acc.config, uid)
+      return { ok: true as const }
+    } catch (err) {
+      return { ok: false as const, error: (err as Error).message }
+    }
+  })
+  ipcMain.handle('mail:triage', async (_e, limit?: number) => {
+    const acc = await currentMailAccount()
+    if (!acc.ok) return { ok: false as const, error: acc.error }
+    try {
+      const [page, folders] = await Promise.all([
+        listInbox(acc.config, { limit: Math.min(Math.max(1, limit ?? TRIAGE_BATCH), TRIAGE_BATCH) }),
+        listMailboxes(acc.config)
+      ])
+      const messages = page.items.map((m) => ({
+        uid: m.uid,
+        fromName: m.fromName,
+        fromAddress: m.fromAddress,
+        subject: m.subject,
+        date: m.date,
+        seen: m.seen,
+        hasUnsubscribe: Boolean(m.unsubscribe)
+      }))
+      const r = await triageInbox(
+        messages,
+        folders.filter((f) => !f.reserved).map((f) => f.path),
+        // The same key path every other AI feature uses; no key is an honest
+        // "cannot", not an empty plan.
+        liveTriageDeps(() => {
+          const key = resolveAnthropicKey()
+          return key ? (getModelClient(key) as never) : null
+        })
+      )
+      // The unsubscribe target rides back with the plan so the renderer can
+      // show WHERE it would send them — an opt-out you cannot see the
+      // destination of is one you should not be asked to approve.
+      const unsubTargets = Object.fromEntries(
+        page.items.filter((m) => m.unsubscribe).map((m) => [m.uid, m.unsubscribe])
+      )
+      return { ...r, unsubTargets }
     } catch (err) {
       return { ok: false as const, error: (err as Error).message }
     }
@@ -3926,7 +4110,7 @@ export function registerIpcHandlers(): void {
     try {
       const client = getModelClient(key)
       const response = await client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
+        model: MODEL_HAIKU,
         max_tokens: 1,
         messages: [{ role: 'user', content: 'hi' }]
       })

@@ -278,7 +278,7 @@ function DocumentMini({ docType, title }: { docType: string; title: string }): R
       <TableMini columns={[{ label: 'A' }, { label: 'B' }, { label: 'C' }]} />
     )
   }
-  const icon = docType === 'slides' ? 'slideshow' : docType === 'design' ? 'gesture' : 'description'
+  const icon = docType === 'slides' ? 'slideshow' : docType === 'design' ? 'palette' : docType === 'draw' ? 'brush' : 'description'
   return (
     <div className="max-w-[260px] rounded-[var(--radius-chip)] bg-[var(--surface-raised)] shadow-[0_0_0_1px_var(--edge-hairline),var(--shadow-soft)] px-2.5 py-2 flex items-center gap-2">
       <Icon name={icon} size={16} className={`${areaTone('office')} shrink-0`} />

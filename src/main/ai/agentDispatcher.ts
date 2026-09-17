@@ -35,6 +35,7 @@ import { normalizeIntentClass } from '@shared/workItems'
 import type { ActionProposal } from '@shared/types'
 import { resolveAnthropicKey } from '../settingsStore'
 import { recordInvocation } from './agentHistory'
+import { MODEL_HAIKU, MODEL_OPUS, MODEL_SONNET } from './modelRouting'
 
 export interface AgentInvocationContext {
   // Absolute path to the agent's .md file. The system prompt is
@@ -300,12 +301,12 @@ function extractText(resp: Anthropic.Message): string {
 function mapModelTier(tier: string): string {
   switch (tier.toLowerCase()) {
     case 'opus':
-      return 'claude-opus-4-8'
+      return MODEL_OPUS
     case 'haiku':
-      return 'claude-haiku-4-5-20251001'
+      return MODEL_HAIKU
     case 'sonnet':
     default:
-      return 'claude-sonnet-4-6'
+      return MODEL_SONNET
   }
 }
 

@@ -22,7 +22,7 @@ import {
 } from '@shared/widgetText'
 
 const WEBVIEW_KINDS = new Set<WidgetKind>(['webview', 'pdf', 'gdoc', 'gsheet', 'gslide', 'email'])
-const OFFICE_KINDS = new Set<WidgetKind>(['doc', 'sheet', 'slides', 'map', 'design'])
+const OFFICE_KINDS = new Set<WidgetKind>(['doc', 'sheet', 'slides', 'map', 'design', 'draw'])
 
 // Kinds worth sending as a FULL-text attachment (the deep channel). Canonical
 // list lives beside the shared extractor (ATTACHABLE_WIDGET_KINDS) so the
@@ -212,7 +212,48 @@ function labelForKind(kind: WidgetKind): string {
       return 'desk agent'
     case 'field':
       return 'field'
+    case 'design':
+      return 'design'
+    case 'draw':
+      return 'drawing'
+    // The kinds that only became attachable once the extractor could read them.
+    // Without a label here they all fall to the default and the assistant is
+    // told a voice note, a stat card and a map are each "a note" — which is
+    // simply untrue, and it is the label the model reasons about.
+    case 'voice-recorder':
+      return 'voice note'
+    case 'stat-card':
+      return 'stat card'
+    case 'metrics':
+      return 'metrics'
+    case 'location-map':
+      return 'location map'
+    case 'gallery':
+      return 'image gallery'
+    case 'image-gen':
+      return 'generated image'
+    case 'task-list':
+      return 'task list'
+    case 'calendar':
+      return 'calendar'
+    case 'inbox':
+      return 'inbox'
+    case 'contacts':
+      return 'contacts'
+    case 'attention':
+      return 'attention view'
+    case 'meeting-record':
+      return 'meeting record'
     default:
       return 'note'
   }
+}
+
+// Test handle (mirrors the __fbBrowserAgent probe): lets an e2e assemble the
+// real attachment set from real widgets in the real store, so "can the
+// assistant actually read this widget kind" is answered end-to-end rather than
+// at the extractor alone.
+if (typeof window !== 'undefined') {
+  ;(window as unknown as { __fbCanvasContext?: typeof gatherCanvasAttachments }).__fbCanvasContext =
+    gatherCanvasAttachments
 }

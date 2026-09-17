@@ -16,6 +16,7 @@ import { WAIT_CAP_MS } from './browserActions'
 import { extractJson } from './chatJson'
 import { coerceAgentStatus, normalizeBlocker } from './agentEnvelope'
 import type { AgentStatus } from '@shared/types'
+import { normalizeFindings, type BrowseFindings } from '@shared/browseFindings'
 
 // Model rounds per run — the loop's own budget, tighter than the bridge's
 // HARD_STEP_CEILING backstop (each round also spends observe steps).
@@ -40,6 +41,11 @@ export interface BrowserEnvelope {
   // Raw, unsanitised action object — sanitiseBrowserAction turns it into an
   // AgentAction or refuses it with null.
   action: Record<string, unknown> | null
+  // What this round LEARNED, recorded as it is read rather than remembered.
+  // The model is told the page it is looking at will be dropped from its
+  // context next round, so anything it does not record here is lost — which
+  // is exactly what used to happen to an entire run's research.
+  findings: BrowseFindings
 }
 
 export function parseBrowserEnvelope(raw: string): BrowserEnvelope | null {
@@ -58,7 +64,8 @@ export function parseBrowserEnvelope(raw: string): BrowserEnvelope | null {
     narration: typeof o.narration === 'string' ? o.narration.trim() : '',
     status: coerceAgentStatus(o.status),
     blocker: normalizeBlocker(o.blocker),
-    action
+    action,
+    findings: normalizeFindings(o.findings)
   }
 }
 
@@ -149,7 +156,32 @@ export function buildBrowserAgentSystemPrompt(): string {
     '{"narration": "one short sentence saying what you are doing and why",',
     ' "status": "working" | "done" | "blocked" | "need_input",',
     ' "blocker": null or the reason you cannot proceed,',
-    ' "action": one action object or null}',
+    ' "action": one action object or null,',
+    ' "findings": what THIS page told you (see below) or null}',
+    '',
+    'RECORDING WHAT YOU FIND — this matters as much as the browsing:',
+    'You will NOT see this page again. Each round you are shown the current page',
+    'and a RECORDED SO FAR list; earlier pages are dropped from your context. So',
+    'anything you do not write into "findings" the moment you read it is lost,',
+    'and you will waste rounds re-visiting pages to re-read it.',
+    '',
+    '"findings" is:',
+    '  {"fields": ["name","specialty","rating","website"],',
+    '   "records": [{"name":"...","specialty":"...","rating":"4.9","website":"https://..."}],',
+    '   "answer": "prose answer, for a task that asks a question rather than for a list"}',
+    'Use the same field names every round so the records line up. Record a partial',
+    'record as soon as you have it and add the missing fields when a later page',
+    'supplies them — records merge on their first field. Use "answer" for',
+    'question-shaped tasks, "records" for list-shaped ones, both when the task',
+    'wants a list plus a verdict. Send null when a page taught you nothing.',
+    '',
+    'Record only what the page actually says. Never fill a field with a guess, a',
+    'placeholder or a remembered value — leave it out and it stays absent. An',
+    'absent field is honest; an invented rating or URL is not.',
+    '',
+    'You are done when RECORDED SO FAR answers the task — not when you have',
+    'visited a certain number of pages. Check it each round: if it is already',
+    'complete, set status "done" immediately rather than browsing on.',
     '',
     'Actions (exactly one per round; status "working" requires one):',
     '  {"kind":"open_url","url":"https://..."} — navigate',
@@ -164,7 +196,7 @@ export function buildBrowserAgentSystemPrompt(): string {
     'Hard rules, enforced by the runtime whatever you reply:',
     '- Never enter passwords or card details, and never submit login or payment forms. If the task needs a sign-in or a purchase, set status "need_input" and say so — the human does that part.',
     '- Never upload or download files. Never attempt a CAPTCHA.',
-    '- When the task is complete, set status "done" with a narration that states the outcome and any answer the user asked for.',
+    '- When the task is complete, set status "done", and make sure "findings" holds the full result — the narration is a one-line status, NOT the deliverable. What you put in findings is what the user actually receives.',
     '- If an action is refused, do not retry it; re-plan or report "blocked" with the reason.',
     '- You have a limited step budget; be direct. Never invent element indices — only use numbers from the current observation.'
   ].join('\n')

@@ -142,6 +142,20 @@ export const WIDGET_CATALOG: WidgetCatalogEntry[] = [
     isWebBased: false
   },
   {
+    // Describe a tool, the model writes it, it runs sandboxed on the desk, and it
+    // can be saved to a personal library and reused anywhere. The one widget whose
+    // shape is not decided in advance.
+    kind: 'custom',
+    category: 'Tools',
+    label: 'Custom',
+    icon: 'auto_awesome_mosaic',
+    hint: 'Describe any tool you need and have it built here',
+    defaultWidth: 460,
+    defaultHeight: 400,
+    defaultContent: JSON.stringify({ spec: '', code: '' }),
+    isWebBased: false
+  },
+  {
     // Prompt-to-image on the desk. The generation already existed for the design
     // editor; this makes it a first-class canvas tool.
     kind: 'image-gen',
@@ -308,12 +322,12 @@ export const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   {
     kind: 'map',
     category: 'Files',
-    // Labelled "Flowchart" rather than "Map": go-live persona testing found "Map"
-    // reads as a location/road map, not a diagramming tool, so it wasted a core
-    // slot on a confusing word. Same PlexiMaps editor underneath.
+    // Labelled "Flowchart" rather than "Diagram": go-live persona testing found a
+    // generic word wasted a core slot, and "Flowchart" is what people search for.
+    // Same PlexiDiagrams editor underneath.
     label: 'Flowchart',
     icon: 'account_tree',
-    hint: 'Flowcharts, process maps, org charts and mind maps (PlexiMaps) — diagram by hand or generate with AI.',
+    hint: 'Flowcharts, process maps, org charts and mind maps (PlexiDiagrams) — diagram by hand or generate with AI.',
     defaultWidth: 720,
     defaultHeight: 520,
     defaultContent: '',
@@ -324,9 +338,20 @@ export const WIDGET_CATALOG: WidgetCatalogEntry[] = [
     category: 'Files',
     label: 'Design',
     icon: 'palette',
-    hint: 'A PlexiDesign canvas — posters, social posts, one-pagers and more. Size presets, brand templates, AI copy and images.',
+    hint: 'A PlexiDesign layout — brochures, posters, newsletters and one-pagers. Master pages, threaded text frames, guides and print-ready output.',
     defaultWidth: 720,
     defaultHeight: 540,
+    defaultContent: '',
+    isWebBased: false
+  },
+  {
+    kind: 'draw',
+    category: 'Files',
+    label: 'Artwork',
+    icon: 'brush',
+    hint: 'A PlexiDraw artwork — vector shapes and bezier paths alongside painted layers, with pathfinder booleans, brushes and blend modes.',
+    defaultWidth: 780,
+    defaultHeight: 560,
     defaultContent: '',
     isWebBased: false
   },

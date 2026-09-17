@@ -74,19 +74,40 @@ Lower: merged cells (M), formula-based/top-N conditional formats (S/M), multi-co
 3. Native tables — M. 4. `.pptx` import fidelity (today text-only) — L (shared #1). 5. Video/audio media — M. 6. Master slides / layouts with placeholder inheritance — L.
 7. Comments + accessibility (alt text/reading order) — M. 8. Expose rotation + gradient in the inspector — S (both already render/export; only UI missing — near-free). 9. Deck generation from a Word doc + a true Designer-class re-layout — M. 10. Speaker Coach — M.
 
-### PlexiDraw vs Visio (and Lucidchart/draw.io)
+### PlexiDiagrams vs Visio (and Lucidchart/draw.io)
+_(Renamed from PlexiDraw, 2026-09-15. The stored doc type is still `map`; only the product name changed. "PlexiDraw" is now the separate vector + painting studio below.)_
 1. `.vsdx` import — L. A Visio shop's libraries won't open at all today; the migration gate.
 2. Image/PDF/SVG export — S. There is NO export whatsoever (shared #7); highest value-per-hour fix in Draw.
 3. Rich stencil libraries (UML/BPMN/network/AWS-Azure-GCP) — L. Visio's actual moat; today 8 generic shapes.
 4. Containers/swimlanes — M (the "swimlane" template has no lanes). 5. Smart orthogonal auto-routing — M. 6. User-invokable "Arrange" auto-layout button — S (the layout engine exists, but only runs on AI output).
 7. Multi-select align/distribute/snap — M. 8. Layers — M. 9. Data-linked shapes — M. 10. Comments + collaborative cursors — M. 11. Resizable shapes — S (width/height already persist; add handles).
 
-### PlexiDesign vs Publisher + Designer + Canva
+### PlexiDesign vs Publisher + InDesign (and Canva)
 Timing gift: **Microsoft Publisher loses all support on 1 Oct 2026**, forcing a migration wave in exactly this window.
-1. Print production: bleed, crop marks, CMYK, PDF/X — M. #1 blocker for Publisher migrants and anyone who prints (ship bleed+crop marks first, CMYK second).
-2. Multi-page documents (`pages: DesignBody[]` + page rail) — L. Publisher's whole reason to exist (booklets/brochures).
-3. Template + stock breadth — M ongoing (13 templates, Pexels-only today; lead with "AI makes your template" while the library grows).
-4. Generative image edits (fill/expand/eraser) — M (only background-remove exists). 5. Text effects (curved text, shadow/outline, letter/line spacing) — S–M. 6. Comments on the design surface — S. 7. Export format breadth (SVG/JPG/WebP) — S.
+
+**Closed 2026-09-15** — PlexiDesign is now a free-form page designer rather than a fixed-size canvas:
+- ~~Multi-page documents~~ — shipped, with publication page sizes (A4, Letter, A5 booklet, tri-fold, tabloid) that open multi-page.
+- ~~Print production: bleed, crop marks~~ — shipped (CMYK / PDF-X still open).
+- Master pages with inheritance and automatic page numbers (`{#}`, `{pages}`) — shipped.
+- Threaded text frames with an honest overset marker — shipped.
+- Text wrap around objects with a per-object standoff — shipped.
+- Margins, column grid, draggable ruler guides, named layers, facing-page spreads — shipped.
+
+Still open:
+1. CMYK + PDF/X output — M. The remaining print-production blocker for a commercial printer.
+2. Template breadth — M ongoing (13 templates, Pexels-only stock; lead with "AI makes your template" while the library grows).
+3. Generative image edits (fill/expand/eraser) — M (only background-remove exists).
+4. Text effects (curved text, shadow/outline) — S–M. 5. Paragraph + character styles as reusable named styles — M. 6. Comments on the design surface — S. 7. Export format breadth (SVG/JPG/WebP) — S. 8. `.idml` / `.pub` import for migrants — L.
+
+### PlexiDraw vs Illustrator + Photoshop
+New app, 2026-09-15. One document holds vector layers and painted raster layers in a single stack.
+
+Shipped: bezier pen with editable anchors and mirrored handles; live shapes (rect, rounded rect, ellipse, polygon, star, line) that stay parametric; pencil with curve fitting; pathfinder booleans (Unite / Minus front / Intersect / Exclude) computed over flattened curves; solid and gradient fills; stroke width, caps, joins and dashes; per-object and per-layer opacity and blend modes; soft brush, eraser, paint bucket and eyedropper on raster layers; rasterize-a-vector-layer and merge-down; PNG, SVG and PDF export.
+
+Still open:
+1. Selection tools on raster layers (marquee, lasso, magic wand) — L. Photoshop's actual working model; today paint tools apply to the whole layer.
+2. Adjustment layers + non-destructive filters — L. 3. Clipping masks and layer masks — M. 4. Brush library beyond the round soft brush (texture, scatter, stabiliser) — M.
+5. Type on a path, and converting type to outlines — M. 6. Symbols / reusable components — M. 7. `.ai` / `.psd` import — L. 8. Colour management beyond sRGB — M.
 
 ## Leapfrogs to press in marketing (already real; Microsoft structurally cannot match)
 

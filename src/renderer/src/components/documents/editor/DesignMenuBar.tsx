@@ -6,10 +6,11 @@ import { useViewStore } from '../../../stores/view'
 import { launchMeeting } from '../../../lib/startMeeting'
 import { MenuBarShell, MenuModal, type MenuDef } from './menuBarKit'
 
-// A menu bar for PlexiDesign (the freeform canvas / poster editor). Its menus fit
-// what a design canvas does: place text, shapes, lines and images, arrange them,
-// remove an image background, and export the artwork as PNG or PDF. Every item is
-// wired to a real DesignEditor op or a documents-store action.
+// A menu bar for PlexiDesign — the free-form page designer. Its menus fit what a
+// layout program does: place text frames, shapes, lines and images anywhere on
+// the page; thread a story through linked frames; set margins, columns, guides
+// and master pages; and send the result to print with bleed and crop marks.
+// Every item is wired to a real DesignEditor op or a documents-store action.
 
 export interface DesignMenuActions {
   title: string
@@ -23,6 +24,23 @@ export interface DesignMenuActions {
   addWidget: () => void
   removeBgSelected: () => void
   exportAs: (format: 'png' | 'pdf') => void
+  // ── Page layout ────────────────────────────────────────────────────────────
+  openLayout: () => void
+  addPage: () => void
+  toggleFacing: () => void
+  facing: boolean
+  addMaster: () => void
+  editMaster: (id: string | null) => void
+  masters: Array<{ id: string; name: string }>
+  editingMasterId: string | null
+  linkFrames: () => void
+  unlinkFrame: () => void
+  canLink: boolean
+  canUnlink: boolean
+  insertPageNumber: () => void
+  toggleAids: () => void
+  aidsVisible: boolean
+  exportPrint: () => void
 }
 
 export default function DesignMenuBar({ actions }: { actions: DesignMenuActions }): JSX.Element {
@@ -116,13 +134,49 @@ export default function DesignMenuBar({ actions }: { actions: DesignMenuActions 
         { kind: 'item', label: 'Line', icon: 'horizontal_rule', run: a.addLine },
         { kind: 'item', label: 'Widget from a desk', icon: 'widgets', run: a.addWidget },
         { kind: 'sep' },
+        { kind: 'item', label: 'Page', icon: 'note_add', run: a.addPage },
+        { kind: 'item', label: 'Page-number frame', icon: 'tag', run: a.insertPageNumber },
+        { kind: 'sep' },
         { kind: 'item', label: 'Meeting', icon: 'videocam', run: () => void launchMeeting({ kind: 'design', id: active?.id ?? '', title: a.title || 'Design meeting' }) }
+      ]
+    },
+    {
+      id: 'layout',
+      label: 'Layout',
+      build: () => [
+        { kind: 'item', label: 'Margins, columns & layers…', icon: 'grid_on', run: a.openLayout },
+        { kind: 'item', label: 'Show layout guides', icon: a.aidsVisible ? 'visibility' : 'visibility_off', run: a.toggleAids, active: a.aidsVisible },
+        { kind: 'item', label: 'Facing pages', icon: 'auto_stories', run: a.toggleFacing, active: a.facing },
+        { kind: 'sep' },
+        {
+          kind: 'submenu',
+          label: 'Master pages',
+          icon: 'auto_stories',
+          items: [
+            { kind: 'item', label: 'New master page', icon: 'add', run: a.addMaster },
+            ...(a.masters.length ? [{ kind: 'sep' as const }] : []),
+            ...a.masters.map((m) => ({
+              kind: 'item' as const,
+              label: `Edit ${m.name}`,
+              run: () => a.editMaster(a.editingMasterId === m.id ? null : m.id),
+              active: a.editingMasterId === m.id
+            })),
+            ...(a.editingMasterId ? [{ kind: 'sep' as const }, { kind: 'item' as const, label: 'Stop editing master', run: () => a.editMaster(null) }] : [])
+          ]
+        },
+        { kind: 'sep' },
+        { kind: 'item', label: 'Link text frames into one story', icon: 'link', run: a.linkFrames, disabled: !a.canLink },
+        { kind: 'item', label: 'Unlink frame from its story', icon: 'link_off', run: a.unlinkFrame, disabled: !a.canUnlink }
       ]
     },
     {
       id: 'tools',
       label: 'Tools',
-      build: () => [{ kind: 'item', label: 'Remove image background', icon: 'auto_awesome', run: a.removeBgSelected }]
+      build: () => [
+        { kind: 'item', label: 'Remove image background', icon: 'auto_awesome', run: a.removeBgSelected },
+        { kind: 'sep' },
+        { kind: 'item', label: 'Print PDF (bleed + crop marks)', icon: 'print', run: a.exportPrint }
+      ]
     },
     {
       id: 'help',
@@ -140,7 +194,12 @@ export default function DesignMenuBar({ actions }: { actions: DesignMenuActions 
             {([
               ['Undo', '⌘Z'],
               ['Redo', '⌘⇧Z'],
-              ['Delete selection', '⌫']
+              ['Duplicate selection', '⌘D'],
+              ['Delete selection', '⌫'],
+              ['Drag from a ruler', 'adds a guide'],
+              ['Click a guide', 'removes it'],
+              ['Page number in a master', '{#}'],
+              ['Total page count', '{pages}']
             ] as [string, string][]).map(([label, keys]) => (
               <div key={label} className="flex items-center justify-between text-[13px]">
                 <span className="text-[var(--ink-70)]">{label}</span>

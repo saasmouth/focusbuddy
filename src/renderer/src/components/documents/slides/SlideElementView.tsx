@@ -29,6 +29,88 @@ function borderCss(b?: { width: number; style?: string; color: string }): string
 }
 
 function TextContent({ el }: { el: SlideTextElement }): JSX.Element {
+  // A PlexiDesign threaded frame shows the lines the flow engine measured and
+  // placed for it. Rendering the engine's own output — rather than re-wrapping
+  // here — is what guarantees the exported page breaks exactly where the screen
+  // did. An unthreaded text element takes the paragraph path below, unchanged.
+  if (el.flowLines && el.flowLines.length) {
+    return (
+      <div style={{ position: 'relative', height: '100%' }}>
+        {el.flowLines.map((ln, i) => {
+          const justified = ln.align === 'justify' && !ln.lastOfPara
+          return (
+            <div key={i}>
+              {ln.rule && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: ln.x,
+                    top: ln.y - ln.size * 0.55,
+                    width: ln.w * ln.rule.width,
+                    height: ln.rule.thickness,
+                    background: ln.rule.color
+                  }}
+                />
+              )}
+              {ln.bullet && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: ln.x - ln.size * 1.4,
+                    top: ln.y,
+                    width: ln.size * 1.15,
+                    textAlign: 'right',
+                    lineHeight: `${ln.lh}px`,
+                    fontSize: ln.size,
+                    fontFamily: ln.family,
+                    color: ln.color
+                  }}
+                >
+                  {ln.bullet}
+                </div>
+              )}
+              {ln.dropCap && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: ln.x - ln.dropCap.width - ln.size * 0.12,
+                    top: ln.y,
+                    fontSize: ln.dropCap.size,
+                    lineHeight: `${ln.dropCap.size}px`,
+                    fontFamily: ln.family,
+                    fontWeight: 700,
+                    color: ln.color
+                  }}
+                >
+                  {ln.dropCap.text}
+                </div>
+              )}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: ln.x,
+                  top: ln.y,
+                  width: ln.w,
+                  lineHeight: `${ln.lh}px`,
+                  fontSize: ln.size,
+                  fontFamily: ln.family,
+                  fontWeight: ln.bold ? 700 : undefined,
+                  fontStyle: ln.italic ? 'italic' : undefined,
+                  color: ln.color,
+                  letterSpacing: ln.letterSpacing,
+                  whiteSpace: 'pre',
+                  textAlign: justified ? 'justify' : ln.align === 'justify' ? 'left' : ln.align,
+                  textAlignLast: justified ? 'justify' : undefined
+                }}
+              >
+                {ln.text || '\u200b'}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
   const justify = el.vAlign === 'middle' ? 'center' : el.vAlign === 'bottom' ? 'flex-end' : 'flex-start'
   return (
     <div

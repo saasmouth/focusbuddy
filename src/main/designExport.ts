@@ -55,7 +55,15 @@ export async function exportDesign(input: {
     // Give embedded images and web fonts a beat to paint before capture.
     await new Promise((r) => setTimeout(r, 350))
     if (format === 'png') {
-      const img = await win.webContents.capturePage()
+      let img = await win.webContents.capturePage()
+      // capturePage follows the DISPLAY's scale factor, so the same document
+      // exported 400x300 on one machine and 800x600 on a Retina one. The
+      // document declares its pixel size, so the export is normalised to it —
+      // downscaling a hi-dpi capture, which also antialiases nicely.
+      const shot = img.getSize()
+      if (shot.width !== pageW || shot.height !== pageH) {
+        img = img.resize({ width: pageW, height: pageH, quality: 'best' })
+      }
       await writeFile(res.filePath, img.toPNG())
     } else {
       const pdf = await win.webContents.printToPDF({

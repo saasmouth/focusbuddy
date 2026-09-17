@@ -11,6 +11,7 @@ import type { Widget } from '@shared/types'
 import WidgetErrorBoundary from '../WidgetErrorBoundary'
 import StickyWidget from './StickyWidget'
 import ImageGenWidget from './ImageGenWidget'
+import CustomWidget from './CustomWidget'
 import WebViewWidget from './WebViewWidget'
 import EmbeddedSiteWidget from './EmbeddedSiteWidget'
 import NoteWidget from './NoteWidget'
@@ -119,6 +120,7 @@ function renderWidgetInner(w: Widget): JSX.Element | null {
     case 'slides':
     case 'map':
     case 'design':
+    case 'draw':
       return <OfficeDocWidget widget={w} />
     case 'calculator':
       return <CalculatorWidget widget={w} />
@@ -160,6 +162,8 @@ function renderWidgetInner(w: Widget): JSX.Element | null {
       return <CardWidget widget={w} />
     case 'custom-block':
       return <CustomBlockWidget widget={w} />
+    case 'custom':
+      return <CustomWidget widget={w} />
     case 'agent':
       return <AgentWidget widget={w} />
     case 'webhook':

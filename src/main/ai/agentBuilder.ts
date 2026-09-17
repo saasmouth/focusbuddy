@@ -15,6 +15,7 @@ import { join } from 'path'
 import { getModelClient } from './modelClient'
 import { resolveAnthropicKey } from '../settingsStore'
 import { ensureAgentsDirectory } from '../workspaceResolver'
+import { MODEL_SONNET } from './modelRouting'
 
 export type AgentModelTier = 'haiku' | 'sonnet' | 'opus'
 
@@ -150,7 +151,7 @@ export async function createAgent(
   let body: string
   try {
     const resp = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: MODEL_SONNET,
       max_tokens: 1800,
       system: SYSTEM,
       messages: [{ role: 'user', content: userMsg }]

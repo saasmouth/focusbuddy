@@ -14,6 +14,7 @@ export type AssistantContextKind =
   | 'chat'
   | 'meet'
   | 'design'
+  | 'artwork'
   | 'widget'
   | 'workspace'
 
@@ -188,6 +189,22 @@ export function useAssistantContext(): AssistantContext {
           { icon: 'contrast', text: 'Improve the colour and contrast' }
         ],
         placeholder: 'Ask about this design…'
+      }
+    case 'draw':
+      return {
+        key: 'draw',
+        serverTaskId: null,
+        kind: 'artwork',
+        label: 'this artwork',
+        title: '',
+        icon: 'brush',
+        intro: 'Ask about this artwork — talk through composition, colour and how to build a shape.',
+        suggestions: [
+          { icon: 'palette', text: 'Suggest a colour palette for this' },
+          { icon: 'architecture', text: 'How do I build this shape with the pen tool?' },
+          { icon: 'contrast', text: 'Improve the contrast and balance' }
+        ],
+        placeholder: 'Ask about this artwork…'
       }
     case 'plexii':
       // The hub is the AI's own page: workspace scope, never a lingering desk —

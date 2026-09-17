@@ -677,6 +677,21 @@ export default function MessagesView({ compact = false }: { compact?: boolean } 
     landOn(null)
   }, [landOnMessage, activeId, activeThreadId, messages, threadsByParent, compact, compactPane, openThread, landOn])
 
+  // DEC-125 — which messages an open Attention item still points at: the bell
+  // fills for those and shows its check-off circle.
+  //
+  // These sit ABOVE the signed-out early return on purpose. Below it they ran
+  // only when an account existed, so the first render after signing in called
+  // four more hooks than the one before it — the "rendered more hooks than
+  // during the previous render" crash. They depend on nothing between here and
+  // where they used to be.
+  const workItems = useWorkItemStore((s) => s.items)
+  const workItemsLoaded = useWorkItemStore((s) => s.loaded)
+  const refreshWorkItems = useWorkItemStore((s) => s.refresh)
+  useEffect(() => {
+    if (!workItemsLoaded) void refreshWorkItems()
+  }, [workItemsLoaded, refreshWorkItems])
+
   if (!account) {
     return (
       <div className={`h-full flex items-center justify-center px-6 ${compact ? '' : 'desk-paper no-tod'}`}>
@@ -805,14 +820,6 @@ export default function MessagesView({ compact = false }: { compact?: boolean } 
     )
   }
 
-  // DEC-125 — which messages an open Attention item still points at: the bell
-  // fills for those and shows its check-off circle.
-  const workItems = useWorkItemStore((s) => s.items)
-  const workItemsLoaded = useWorkItemStore((s) => s.loaded)
-  const refreshWorkItems = useWorkItemStore((s) => s.refresh)
-  useEffect(() => {
-    if (!workItemsLoaded) void refreshWorkItems()
-  }, [workItemsLoaded, refreshWorkItems])
   const markedFor = (id: string): FbNode | null => liveItemForMessage(workItems, id)
 
   // Who is currently typing in the open conversation (recent pings only).

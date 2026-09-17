@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { getDb } from './database'
-import type { ExternalCalendar, ExternalEvent, ExternalCalendarDraft } from '@shared/types'
+import type { CalendarSyncMode, ExternalCalendar, ExternalEvent, ExternalCalendarDraft } from '@shared/types'
 
 // Calendars that live somewhere else.
 //
@@ -38,6 +38,13 @@ export function ensureExternalCalendarSchema(db: {
       source_ref TEXT NOT NULL,
       account_id TEXT REFERENCES external_accounts(id) ON DELETE CASCADE,
       enabled INTEGER NOT NULL DEFAULT 1,
+      -- 'read' | 'write' | 'both'. Clamped to what the provider can really do
+      -- when it is read back, so a feed cannot claim to be two-way.
+      sync_mode TEXT NOT NULL DEFAULT 'read',
+      -- Internal calendars only: the linked calendar their blocks are written to.
+      push_target_id TEXT,
+      -- Exactly one internal calendar carries this: where new blocks land.
+      is_default INTEGER NOT NULL DEFAULT 0,
       last_sync_at INTEGER,
       last_sync_error TEXT,
       created_at INTEGER NOT NULL,
@@ -74,8 +81,31 @@ interface CalRow {
   enabled: number
   last_sync_at: number | null
   last_sync_error: string | null
+  sync_mode: string | null
+  push_target_id: string | null
+  is_default: number | null
   created_at: number
   updated_at: number
+}
+
+/**
+ * What a provider is actually CAPABLE of, regardless of what is stored. An ICS
+ * feed is a published file — there is no endpoint to write back to — so a feed
+ * can never report itself as two-way no matter what a row says.
+ */
+export function capabilityOf(provider: string): CalendarSyncMode {
+  if (provider === 'ics') return 'read'
+  return 'both'
+}
+
+function clampMode(provider: string, stored: string | null): CalendarSyncMode {
+  const want: CalendarSyncMode = stored === 'both' || stored === 'write' ? stored : 'read'
+  const can = capabilityOf(provider)
+  if (can === 'read') return 'read'
+  // An internal calendar has nothing to pull, so its only meaningful directions
+  // are keeping to itself or pushing out.
+  if (provider === 'internal') return want === 'read' ? 'read' : 'write'
+  return want
 }
 
 const toCal = (r: CalRow): ExternalCalendar => ({
@@ -88,6 +118,9 @@ const toCal = (r: CalRow): ExternalCalendar => ({
   enabled: r.enabled === 1,
   lastSyncAt: r.last_sync_at,
   lastSyncError: r.last_sync_error,
+  syncMode: clampMode(r.provider, r.sync_mode),
+  pushTargetId: r.push_target_id,
+  isDefault: r.is_default === 1,
   createdAt: r.created_at,
   updatedAt: r.updated_at
 })
@@ -111,14 +144,17 @@ export function createCalendar(draft: ExternalCalendarDraft): ExternalCalendar {
   getDb()
     .prepare(
       `INSERT INTO external_calendars
-       (id, provider, name, color, source_ref, account_id, enabled, created_at, updated_at)
-       VALUES (@id, @provider, @name, @color, @sourceRef, @accountId, 1, @now, @now)`
+       (id, provider, name, color, source_ref, account_id, enabled, sync_mode, push_target_id, is_default, created_at, updated_at)
+       VALUES (@id, @provider, @name, @color, @sourceRef, @accountId, 1, @syncMode, @pushTargetId, @isDefault, @now, @now)`
     )
     .run({
       id,
       provider: draft.provider,
       name: draft.name,
       color: draft.color ?? null,
+      syncMode: clampMode(draft.provider, draft.syncMode ?? null),
+      pushTargetId: draft.pushTargetId ?? null,
+      isDefault: draft.isDefault ? 1 : 0,
       sourceRef: draft.sourceRef,
       accountId: draft.accountId ?? null,
       now
@@ -128,11 +164,15 @@ export function createCalendar(draft: ExternalCalendarDraft): ExternalCalendar {
 
 export function updateCalendar(
   id: string,
-  patch: Partial<Pick<ExternalCalendar, 'name' | 'color' | 'enabled' | 'lastSyncAt' | 'lastSyncError'>>
+  patch: Partial<
+    Pick<ExternalCalendar, 'name' | 'color' | 'enabled' | 'lastSyncAt' | 'lastSyncError' | 'syncMode' | 'pushTargetId' | 'isDefault'>
+  >
 ): ExternalCalendar | null {
   const cols: Array<[keyof typeof patch, string]> = [
     ['name', 'name'],
     ['color', 'color'],
+    ['syncMode', 'sync_mode'],
+    ['pushTargetId', 'push_target_id'],
     ['lastSyncAt', 'last_sync_at'],
     ['lastSyncError', 'last_sync_error']
   ]
@@ -257,4 +297,59 @@ export function replaceEventsInWindow(
   })
   run()
   return events.length
+}
+
+
+// ── Internal calendars ───────────────────────────────────────────────────────
+// Plexii's own calendars live in the same table as the linked ones, under
+// provider 'internal'. One list, one colour picker, one place the week grid
+// reads from — and the honest difference between "mine" and "a mirror of
+// somebody else's" stays visible as the provider.
+
+const DEFAULT_INTERNAL_NAME = 'Plexii'
+
+/**
+ * The internal calendar new time blocks belong to, created on first use so an
+ * existing database gains one without a migration that writes rows.
+ */
+export function ensureDefaultInternalCalendar(): ExternalCalendar {
+  const existing = listCalendars().filter((c) => c.provider === 'internal')
+  const marked = existing.find((c) => c.isDefault)
+  if (marked) return marked
+  if (existing.length > 0) {
+    updateCalendar(existing[0].id, { isDefault: true })
+    return getCalendar(existing[0].id) ?? existing[0]
+  }
+  const created = createCalendar({
+    provider: 'internal',
+    name: DEFAULT_INTERNAL_NAME,
+    sourceRef: '',
+    color: '#2563eb',
+    syncMode: 'read',
+    isDefault: true
+  })
+  return created
+}
+
+export function listInternalCalendars(): ExternalCalendar[] {
+  ensureDefaultInternalCalendar()
+  return listCalendars().filter((c) => c.provider === 'internal')
+}
+
+/** Linked calendars only — the ones a sync actually talks to. */
+export function listLinkedCalendars(): ExternalCalendar[] {
+  return listCalendars().filter((c) => c.provider !== 'internal')
+}
+
+/**
+ * Exactly one internal calendar is the default. Setting a new one clears the
+ * old, so a block created without a calendar always has one place to land.
+ */
+export function setDefaultInternalCalendar(id: string): void {
+  const cal = getCalendar(id)
+  if (!cal || cal.provider !== 'internal') return
+  for (const c of listCalendars()) {
+    if (c.provider !== 'internal') continue
+    if (c.isDefault !== (c.id === id)) updateCalendar(c.id, { isDefault: c.id === id })
+  }
 }

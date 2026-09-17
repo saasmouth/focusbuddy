@@ -96,7 +96,8 @@ const DOC_TYPE_ICON: Record<DocType, string> = {
   sheet: 'table_chart',
   slides: 'slideshow',
   map: 'account_tree',
-  design: 'palette'
+  design: 'palette',
+  draw: 'brush'
 }
 
 // Cell/widget editor for the doc-ref field: chips referencing PlexiOffice

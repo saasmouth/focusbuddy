@@ -36,6 +36,67 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    // No `version` yet: landed, not shipped.
+    date: '2026-09-16T10:00:00Z',
+    title: 'Claude can work in your workspace, without your data leaving the machine',
+    tag: 'feature',
+    summary:
+      'Plexii now speaks MCP, so Claude Code and Claude Desktop can search and read your desks, work items, documents, tables, knowledge, calendar and meeting transcripts \u2014 and, if you give them a write token, add to them. The server runs on your own machine and is off until you switch it on; nothing is relayed through anyone else\u2019s cloud. What a token may do is decided by the token, not by asking the AI nicely: a read token cannot be talked into writing, because the write tools are not offered to it at all.',
+    highlights: [
+      'Turn it on under PlexiBrain \u2192 APIs and create a token: read to let Claude search and read, write to let it add things too.',
+      'Claude Code connects with one line. Claude Desktop installs a small one-click extension, because it can only run local tools \u2014 both talk to the Plexii on your machine, never to a server of ours.',
+      'A read token is structurally read-only. The write tools are hidden from it, and naming one anyway is refused before anything runs.',
+      'Nothing on this surface deletes, sends email, or calls out to the internet \u2014 including through automations. A flow that would email someone or hit an external URL is refused, and says which step blocked it. Those flows still run normally inside Plexii.',
+      'Everything Claude adds or changes is recorded as its work, not yours \u2014 every table, note, document and edit, with the tool that made it. Work items are additionally flagged AI-suggested in your Attention queue.'
+    ]
+  },
+  {
+    // No `version` yet: landed, not shipped.
+    date: '2026-09-15T21:30:00Z',
+    title: 'Browsing keeps what it finds \u2014 and costs a fraction of what it did',
+    tag: 'feature',
+    summary:
+      'When you sent Plexii off to research something, it read every page properly and then threw the whole lot away: all you got back was one sentence, and a table you had asked it to fill stayed empty. It now records what it reads as it reads it, and hands you the result \u2014 ten businesses with their ratings and websites, say \u2014 as data you can put somewhere. One click puts it where the job intended: a table, contacts, a page, notes. Because it now remembers what it found, it also stops re-opening pages it has already read, which along with a rebuilt prompt makes a long research run cost a small fraction of what it used to.',
+    highlights: [
+      'A browsing run now returns structured results, not just a summary line. You see what it found before you decide what to do with it.',
+      '\u201cUse these results\u201d puts the findings where the task meant them to go \u2014 filling the table you asked for, creating contacts, writing a page \u2014 and still shows you each step before it happens.',
+      'A run that is stopped early, or that runs out of steps, now hands back everything it had found up to that point instead of losing all of it.',
+      'Research runs cost far less. The agent used to re-send every page it had visited to the model on every single step, so a twenty-step run paid for the early pages twenty times over. It now sends the page in front of it plus a short record of what it has learned.',
+      'Long pages no longer flood the model with hundreds of links and buttons; it sees the ones that matter and is told how many were left out.',
+      'The browse step runs on a faster, cheaper model by default. If you want heavier reasoning on difficult sites, raise the model in Settings \u2192 AI.',
+      'Every AI feature moved up to the current generation of models. Chat, documents and agents are now on a model that is both better and cheaper than the one they were using, and the heavier code-generation work moved to a stronger model at exactly the same price.',
+      'The assistant can now read every widget on your desk. Thirteen kinds it could never see \u2014 voice notes, stat cards, metrics, maps, galleries, task lists, calendars, the inbox, contacts and PlexiDraw artwork \u2014 can now be pointed at with @ and read like any note or document.',
+      'A voice note\u2019s transcript is now readable by the AI. It was sitting in the widget the whole time and no AI surface could see it.',
+      'Cost figures across the app were wrong for some models \u2014 Opus work was billed on old rates and read about three times too high. Every rate now matches current pricing.'
+    ]
+  },
+  {
+    // No `version` yet: this has landed but not shipped. newestVersionedEntry()
+    // deliberately skips unversioned entries, so the first-run modal still points
+    // at the last real release until this one is cut.
+    date: '2026-09-15T16:00:00Z',
+    title: 'Three creative apps \u2014 and PlexiDesign becomes a real publishing editor',
+    tag: 'feature',
+    summary:
+      'The drawing side of PlexiOffice was one app doing two jobs badly. It is now three that each do one properly. PlexiDraw\u2019s flowcharts became PlexiDiagrams under their own name; your existing diagrams open exactly as before. PlexiDraw is now a vector and painting studio with a real pen tool, pathfinder booleans and twelve brushes. And PlexiDesign is a free-form page designer you drive two ways: pour a document in and pick from live previews of your own words in five looks, then click into the page and type. The text flows across columns and pages as you write it.',
+    highlights: [
+      'PlexiDesign \u2014 click into a column and type. A real caret on the page, selection by dragging, arrow keys, Enter, Backspace, cut and paste, and the text reflows through every linked frame as you write.',
+      'PlexiDesign \u2014 paste from Word or the web straight into the page and the headings, lists and quotes come with it.',
+      'PlexiDesign \u2014 paste a document, pick a look, get a finished multi-page publication. Every preview is your real text laid out, so the page count you see is the one you get.',
+      'PlexiDesign \u2014 five editorial looks (Editorial, Report, Magazine, Booklet, Newsletter), each with its own grid, type scale and rhythm. Import a .docx or pull the text out of a PlexiDoc.',
+      'PlexiDesign \u2014 ask the AI to choose the layout. It only ever arranges your words: it picks the style, the columns and which of YOUR sentences to lift into a pull quote, and never writes copy. With no AI key the built-in planner does the same job offline.',
+      'PlexiDesign \u2014 one story now carries headings, body, lists and quotes at their own sizes, with drop caps, bullets, heading rules, and widow and orphan control so a heading never strands at the foot of a column.',
+      'PlexiDesign \u2014 master pages with automatic page numbers, text wrap around objects, margins, a column grid, ruler guides, named layers and facing-page spreads. A full frame shows the overset marker and offers to add a page.',
+      'PlexiDiagrams \u2014 the flowchart, org-chart and process-map app, renamed. Nothing about your existing diagrams changes.',
+      'PlexiDraw \u2014 a new vector and painting studio: bezier pen, editable anchors, Unite / Minus / Intersect / Exclude, and PNG / SVG / PDF export.',
+      'PlexiDraw \u2014 twelve brushes covering real media: hard and soft round, airbrush, pencil, ink pen that tapers with speed, calligraphy nib, marker, charcoal, chalk, spray, watercolour and oil bristle. Size, opacity, flow, hardness, grain, scatter and spacing are all adjustable.',
+      'PlexiDraw \u2014 the brush used to do nothing on a new artwork, because a fresh document had no paint layer. Picking a paint tool now makes the layer it needs.',
+      'PlexiDraw \u2014 the type tool works: drag to size a box, click back into it to keep editing, and the words are drawn once rather than doubled.',
+      'Resizing a multi-page design now scales every page, its master pages, margins and guides \u2014 it used to scale only the page you were looking at.',
+      'PNG export is now exactly the size the document says it is. On a high-resolution screen it used to come out at double the pixel dimensions.'
+    ]
+  },
+  {
     version: '4.2.2',
     date: '2026-09-01T18:00:00Z',
     title: 'PlexiDesk 4.2.2 \u2014 long tables and code blocks respect the page',

@@ -3,6 +3,7 @@ import type { ExternalEvent, FbNode, TimeBlock, Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import Icon from '../Icon'
 import { useNodeStore } from '../../stores/nodes'
+import { colorOfBlock, colorOfCalendar, useCalendarStore } from '../../stores/calendars'
 import CalendarEntryModal, { type DayItem } from '../calendar/CalendarEntryModal'
 import {
   applyCalendarFilter,
@@ -129,6 +130,10 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
   // Events mirrored from Google / Outlook / an ICS feed. Read-only here: they
   // belong to a calendar somewhere else.
   const [external, setExternal] = useState<ExternalEvent[]>([])
+  // Each entry is drawn in its own calendar's colour, so a day's list says
+  // which diary each line came from.
+  const calendars = useCalendarStore((s) => s.calendars)
+  const loadCalendars = useCalendarStore((s) => s.load)
 
   const save = (next: Partial<CalendarContent>): void => {
     void update(widget.id, { content: JSON.stringify({ ...model, ...next }) })
@@ -143,6 +148,21 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
   // Bumped whenever the modal edits something, so the grid reflects the change
   // immediately rather than at the next month page.
   const refresh = useCallback(() => setReloadTick((n) => n + 1), [])
+
+  // A background sync (every 15 minutes) writes straight to the database, so
+  // without this the widget kept showing whatever it read when the desk opened.
+  useEffect(() => {
+    void loadCalendars()
+  }, [loadCalendars])
+
+  useEffect(() => {
+    const api = (window as { api?: Record<string, unknown> }).api
+    const ext = api?.externalCalendars as { onEventsChanged?: (cb: () => void) => () => void } | undefined
+    return ext?.onEventsChanged?.(() => {
+      refresh()
+      void loadCalendars()
+    })
+  }, [refresh, loadCalendars])
 
   const loadBlocks = useCallback(async (): Promise<void> => {
     const api = (window as { api?: Record<string, unknown> }).api
@@ -423,12 +443,16 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
                     {(m?.due.length ?? 0) > 0 && (
                       <span className="h-[4px] w-[4px] rounded-full bg-emerald-500" />
                     )}
-                    {(m?.blocks.length ?? 0) > 0 && (
-                      <span className="h-[4px] w-[4px] rounded-full bg-violet-500" />
-                    )}
-                    {(m?.external.length ?? 0) > 0 && (
-                      <span className="h-[4px] w-[4px] rounded-full bg-sky-500" />
-                    )}
+                    {[
+                      ...new Set([
+                        ...(m?.blocks ?? []).map((b) => colorOfBlock(calendars, b.calendarId)),
+                        ...(m?.external ?? []).map((e) => colorOfCalendar(calendars, e.calendarId))
+                      ])
+                    ]
+                      .slice(0, 3)
+                      .map((c) => (
+                        <span key={c} className="h-[4px] w-[4px] rounded-full" style={{ backgroundColor: c }} />
+                      ))}
                   </span>
                 )}
               </button>
@@ -471,7 +495,10 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
                       onClick={() => setOpenDay(selected)}
                       className="widget-nodrag flex w-full items-center gap-1.5 text-left text-[11px] text-[var(--ink-70)] hover:text-[var(--ink-90)]"
                      >
-                      <span className="h-[6px] w-[6px] shrink-0 rounded-full bg-violet-500" />
+                      <span
+                        className="h-[6px] w-[6px] shrink-0 rounded-full"
+                        style={{ backgroundColor: colorOfBlock(calendars, b.calendarId) }}
+                      />
                       <span className="shrink-0 tabular-nums text-[var(--ink-50)]">
                         {new Date(b.startMs).toLocaleTimeString(undefined, {
                           hour: 'numeric',
@@ -496,7 +523,10 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
                       className="widget-nodrag flex w-full items-center gap-1.5 text-left text-[11px] text-[var(--ink-70)] hover:text-[var(--ink-90)]"
                       title={e.location ? `${e.title} — ${e.location}` : e.title}
                      >
-                      <span className="h-[6px] w-[6px] shrink-0 rounded-full bg-sky-500" />
+                      <span
+                        className="h-[6px] w-[6px] shrink-0 rounded-full"
+                        style={{ backgroundColor: colorOfCalendar(calendars, e.calendarId) }}
+                      />
                       <span className="shrink-0 tabular-nums text-[var(--ink-50)]">
                         {e.allDay
                           ? 'all day'

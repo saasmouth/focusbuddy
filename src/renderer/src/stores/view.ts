@@ -46,6 +46,7 @@ export type View =
   // (sidebar tab, pill, Home input, ⌘⇧K); this view is the full-screen door.
   | { kind: 'plexii' }
   | { kind: 'design' }
+  | { kind: 'draw' }
   | { kind: 'document'; documentId: string }
   | { kind: 'livedoc'; liveDocId: string }
   | { kind: 'livefolder'; liveFolderId: string }
@@ -105,6 +106,7 @@ interface ViewStore {
   goPlexiBrain: (app?: string) => void
   goPlexii: () => void
   goDesign: () => void
+  goDraw: () => void
   goDocument: (documentId: string) => void
   goLiveDoc: (liveDocId: string) => void
   goLiveFolder: (liveFolderId: string) => void
@@ -240,6 +242,7 @@ export const useViewStore = create<ViewStore>((set, get) => {
     goPlexiBrain: (app) => commit({ kind: 'plexibrain', app }),
     goPlexii: () => commit({ kind: 'plexii' }),
     goDesign: () => commit({ kind: 'design' }),
+    goDraw: () => commit({ kind: 'draw' }),
     goDocument: (documentId) => commit({ kind: 'document', documentId }),
     goLiveDoc: (liveDocId) => commit({ kind: 'livedoc', liveDocId }),
     goLiveFolder: (liveFolderId) => commit({ kind: 'livefolder', liveFolderId }),

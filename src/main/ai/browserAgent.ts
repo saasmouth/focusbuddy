@@ -30,6 +30,13 @@ import { runBrowserAgentStep, type BrowserStepContent } from './anthropic'
 import { consentHostOf, hasConsent, grantConsent } from '../browserConsent'
 import { resolveModel } from './modelRouting'
 import { estimateCostMicros } from './aiCost'
+import {
+  emptyFindings,
+  findingsDigest,
+  hasFindings,
+  mergeFindings,
+  type BrowseFindings
+} from '@shared/browseFindings'
 
 export interface BrowserRunCost {
   inputTokens: number
@@ -66,6 +73,11 @@ export type BrowserAgentEvent =
       summary: string
       rounds: number
       cost: BrowserRunCost
+      // What the run actually learned. Carried on EVERY outcome, not just
+      // 'done': a run stopped by the user or cut off by the round budget has
+      // usually found most of what was asked for, and throwing that away was
+      // the reason a 22-round research run could end with nothing to show.
+      findings: BrowseFindings
     }
 
 interface LiveRun {
@@ -135,6 +147,103 @@ function elementLine(el: PageElement): string {
   return `[${el.idx}] ${tag} ${JSON.stringify(el.label)}${value}${opts}${flags ? ` (${flags})` : ''}`
 }
 
+// How many interactive elements one observation may list. Unbounded, this was
+// the single largest line item in a run's bill: a search-results or directory
+// page yields many hundreds of elements, every one of them re-sent on every
+// subsequent round. 60 comfortably covers the links and controls a page's
+// primary content exposes; the tail is nav chrome, footers and cookie banners.
+export const ELEMENT_BUDGET = 60
+
+// How many PAST rounds keep their full observation in the transcript.
+//
+// Zero, deliberately. The model needs the page it is looking at now, what its
+// last action did (lastResultLine) and what it has recorded (the findings
+// replay) — it does not need the raw text of a page it already mined. Keeping
+// even one costs a full observation every round for context the findings
+// already hold.
+//
+// Zero also has a property no other value has: with every past round frozen to
+// a digest the moment it ends, the transcript becomes strictly append-only, so
+// the whole history is a stable prefix a cache breakpoint can cover.
+//
+// Be precise about which of those two things saves the money, because they are
+// easy to conflate. The COMPACTION is what turns a long run from dollars into
+// cents: it stops each round re-sending every earlier page. The caching is a
+// bonus on top, and on the default browse model it currently contributes
+// nothing at all — Claude Haiku 4.5 will not cache a prefix under 4096 tokens
+// and this loop's prefix (a ~960-token system prompt plus ~115 tokens per
+// frozen round) does not reach that inside the round budget. It caches
+// silently, with no error and no saving. The breakpoint still earns its place:
+// it costs nothing when it misses and starts paying the moment a run is routed
+// to a model with a lower minimum (Sonnet 5 at 1024, Opus 5 at 512), which is
+// what the model-mode override does.
+export const VERBATIM_ROUNDS = 0
+
+// Prefer the elements a task can actually act on. Labelled controls beat
+// unlabelled ones (an unlabelled div tells the model nothing it can use), and
+// form controls beat links, because a stuck run is usually stuck on an input.
+function rankElement(el: PageElement): number {
+  let score = 0
+  if (el.label && el.label.trim()) score += 4
+  if (el.tag === 'input' || el.tag === 'textarea' || el.tag === 'select') score += 3
+  else if (el.tag === 'button') score += 2
+  else if (el.tag === 'a') score += 1
+  if (el.disabled) score -= 3
+  return score
+}
+
+// Cap the element list, keeping the highest-ranked and restoring DOM order so
+// indices still read top-to-bottom down the page.
+export function capElements(elements: PageElement[]): { kept: PageElement[]; dropped: number } {
+  if (elements.length <= ELEMENT_BUDGET) return { kept: elements, dropped: 0 }
+  const kept = elements
+    .map((el, i) => ({ el, i, score: rankElement(el) }))
+    .sort((a, b) => b.score - a.score || a.i - b.i)
+    .slice(0, ELEMENT_BUDGET)
+    .sort((a, b) => a.i - b.i)
+    .map((e) => e.el)
+  return { kept, dropped: elements.length - kept.length }
+}
+
+// One completed round: what the model saw, the one-line record that replaces
+// it once it ages out, and what the model replied.
+export interface Turn {
+  observation: BrowserStepContent
+  digest: string
+  reply: string
+}
+
+// Build the message list for a round.
+//
+// The transcript used to be append-only and verbatim: round 22 re-sent all 21
+// earlier observations in full, so a run's cost grew with the SQUARE of its
+// length. Here every round older than VERBATIM_ROUNDS collapses to its digest,
+// which makes per-round input roughly constant. What those pages actually said
+// is not lost — it was recorded into findings at the time, and the findings
+// list is replayed in every observation.
+//
+// The digest of a stale round never changes once written, so everything before
+// the verbatim window is an append-only prefix — which is what makes it
+// cacheable. `cacheAt` is the index of the last message in that stable prefix;
+// the caller marks it so the API can serve the whole prefix from cache at ~10%
+// of the input price instead of re-charging it every round.
+export function transcript(
+  turns: Turn[],
+  current: BrowserStepContent
+): { messages: Array<{ role: 'user' | 'assistant'; content: BrowserStepContent }>; cacheAt: number } {
+  const out: Array<{ role: 'user' | 'assistant'; content: BrowserStepContent }> = []
+  const staleCount = Math.max(0, turns.length - VERBATIM_ROUNDS)
+  turns.forEach((t, i) => {
+    out.push({ role: 'user', content: i < staleCount ? t.digest : t.observation })
+    out.push({ role: 'assistant', content: t.reply })
+  })
+  out.push({ role: 'user', content: current })
+  // The boundary round flips verbatim → digest as the window slides, so the
+  // prefix is only guaranteed stable up to the round BEFORE it.
+  const stableTurns = Math.max(0, staleCount - 1)
+  return { messages: withoutStaleImages(out), cacheAt: stableTurns * 2 - 1 }
+}
+
 // Keep only the newest screenshot in the transcript — images are the bulk
 // of a round's tokens and only the current one is actionable.
 function withoutStaleImages(
@@ -184,10 +293,15 @@ async function drive(
   emit: (ev: BrowserAgentEvent) => void
 ): Promise<void> {
   const cost: BrowserRunCost = { inputTokens: 0, outputTokens: 0, costMicros: 0 }
+  // Everything the run has learned, carried forward across rounds. This is the
+  // memory that lets old observations be dropped, and it is also the run's
+  // actual deliverable — what used to be discarded at the end. Declared before
+  // finish(), which closes over it and can fire on the very first navigation.
+  let findings: BrowseFindings = emptyFindings()
   const model = resolveModel('browser_agent')
   let rounds = 0
   const finish = (outcome: Extract<BrowserAgentEvent, { kind: 'finished' }>['outcome'], summary: string): void =>
-    emit({ kind: 'finished', runId, outcome, summary, rounds, cost })
+    emit({ kind: 'finished', runId, outcome, summary, rounds, cost, findings })
 
   emit({ kind: 'started', runId, task: input.task })
   const perform = (a: AgentAction): Promise<ActionResult> => performAgentAction(runId, a)
@@ -197,7 +311,7 @@ async function drive(
     if (nav.refused === 'run_stopped') return finish('stopped', 'Stopped before it began.')
   }
 
-  const messages: Array<{ role: 'user' | 'assistant'; content: BrowserStepContent }> = []
+  const turns: Turn[] = []
   let systemPrompt: string | undefined
   let lastResultLine = '(no action yet)'
   let priorFailed = 0
@@ -213,7 +327,8 @@ async function drive(
     if (snap.refused === 'browser_gone' || read.refused === 'browser_gone') {
       return finish('failed', 'The browser surface went away mid-run.')
     }
-    const elements = snap.elements ?? []
+    const allElements = snap.elements ?? []
+    const { kept: elements, dropped: droppedElements } = capElements(allElements)
     const coordinateMode = !snap.ok || elements.length === 0
     const url = snap.pageUrl ?? read.pageUrl ?? ''
     emit({ kind: 'round', runId, round: rounds, mode: coordinateMode ? 'screenshot' : 'dom', url })
@@ -222,6 +337,12 @@ async function drive(
       `TASK: ${input.task}`,
       `ROUND ${rounds} of ${MODEL_ROUND_BUDGET}.`,
       `RESULT OF YOUR LAST ACTION: ${lastResultLine}`,
+      '',
+      // The run's memory. Earlier pages are gone from the transcript, so this
+      // is the only record of them — and the yardstick for being finished.
+      'RECORDED SO FAR (this is what the user receives — earlier pages are no',
+      'longer in your context, so anything missing here is lost):',
+      findingsDigest(findings),
       '',
       'OBSERVATION',
       `URL: ${url || '(no page loaded)'}`,
@@ -252,27 +373,47 @@ async function drive(
       }
     } else {
       obsLines.push('ELEMENTS:', ...elements.map(elementLine))
+      if (droppedElements > 0) {
+        obsLines.push(
+          `(${droppedElements} lower-priority elements omitted — mostly nav, footer and boilerplate. Scroll or open a more specific page if what you need is not listed.)`
+        )
+      }
       content = obsLines.join('\n')
     }
-    messages.push({ role: 'user', content })
-
     // ── Plan (one model round) ────────────────────────────────────────────
-    const step = await runBrowserAgentStep({ systemPrompt, messages: withoutStaleImages(messages) })
+    const built = transcript(turns, content)
+    const step = await runBrowserAgentStep({
+      systemPrompt,
+      messages: built.messages,
+      cacheAt: built.cacheAt
+    })
     cost.inputTokens += step.usage.inputTokens
     cost.outputTokens += step.usage.outputTokens
     cost.costMicros += estimateCostMicros(model, step.usage.inputTokens, step.usage.outputTokens)
     systemPrompt = step.systemPrompt
     if (!step.ok || !step.envelope) {
-      messages.push({ role: 'assistant', content: step.rawAssistant || '(unusable reply)' })
+      turns.push({
+        observation: content,
+        digest: `ROUND ${rounds} at ${url || '(no page)'} — the reply could not be used.`,
+        reply: step.rawAssistant || '(unusable reply)'
+      })
       lastResultLine = `Your reply could not be used: ${step.error ?? 'no envelope'}. Reply with ONLY the JSON object.`
       priorFailed++
       if (step.needsApiKey) return finish('failed', step.error ?? 'No API key.')
       if (priorFailed >= 3) return finish('failed', 'The model returned unusable output three times.')
       continue
     }
-    messages.push({ role: 'assistant', content: step.rawAssistant })
-
     const env: BrowserEnvelope = step.envelope
+    // Fold this round's reading into the run's memory BEFORE anything can
+    // return — a run that ends on this round (done, blocked, budget) must
+    // still hand back everything it learned along the way.
+    if (hasFindings(env.findings)) findings = mergeFindings(findings, env.findings)
+    turns.push({
+      observation: content,
+      digest: `ROUND ${rounds} at ${url || '(no page)'} — ${env.narration || 'acted'}`,
+      reply: step.rawAssistant
+    })
+
     const action = sanitiseBrowserAction(env.action, {
       knownIndices: new Set(elements.map((e) => e.idx)),
       coordinateMode

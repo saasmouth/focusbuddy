@@ -40,6 +40,7 @@ import { isWorkItemsEnabled } from '../workItemsPref'
 import { resolveAnthropicKey, resolveOpenAIKey } from '../settingsStore'
 import { transcribeLocal, type EngineSegment } from './localWhisper'
 import { getTranscriptionProvider } from '../voiceProviderPref'
+import { MODEL_HAIKU, MODEL_SONNET } from './modelRouting'
 
 // Fourth processing mode joined the family when speaker diarisation
 // landed: 'diarised' splits the transcript into "Speaker 1: …" /
@@ -285,7 +286,7 @@ export async function processTranscript(
   try {
     if (mode === 'cleaned') {
       const resp = await client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
+        model: MODEL_HAIKU,
         max_tokens: 2048,
         system:
           'You are a transcript editor. Take a raw spoken transcript and return a cleaned version that:\n' +
@@ -310,7 +311,7 @@ export async function processTranscript(
       // under-names speakers. Sonnet's better at "is this one person
       // monologuing or two people swapping" judgements.
       const resp = await client.messages.create({
-        model: 'claude-sonnet-4-6',
+        model: MODEL_SONNET,
         max_tokens: 2048,
         system:
           'You are a transcript diariser. The input is a raw spoken transcript with no speaker labels. Output it with speaker turn labels inferred from conversational patterns.\n' +
@@ -331,7 +332,7 @@ export async function processTranscript(
     }
     // mode === 'summary'
     const resp = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: MODEL_SONNET,
       max_tokens: 1024,
       system:
         'You summarize spoken voice notes. Return:\n' +
@@ -406,7 +407,7 @@ export async function extractActionsFromTranscript(
 
   try {
     const resp = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: MODEL_SONNET,
       max_tokens: 2048,
       system: SYSTEM,
       messages: [{ role: 'user', content: transcript }]

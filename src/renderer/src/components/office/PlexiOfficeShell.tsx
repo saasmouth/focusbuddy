@@ -41,8 +41,9 @@ import {
 import type { DocType, DocumentMeta, TimeBlock } from '@shared/types'
 
 // PlexiOffice — the office segment of the system. Its own full-bleed shell with a
-// dedicated sidemenu: the place to create Docs, Sheets, Slides, Drawings and
-// Designs, and to send documents for signature (PlexiSign) with an audit trail.
+// dedicated sidemenu: the place to create Docs, Sheets, Slides, Diagrams,
+// Designs and Artwork, and to send documents for signature (PlexiSign) with an
+// audit trail.
 // Document-type apps open inline so the office sidebar stays put; Sign and Forms
 // route to their own modules.
 
@@ -65,8 +66,9 @@ const APPS: OfficeApp[] = [
   { key: 'docs', label: 'PlexiDocs', blurb: 'Create documents', icon: 'description', tint: 'bg-sky-500', tone: 'text-sky-500', docType: 'doc' },
   { key: 'sheets', label: 'PlexiSheets', blurb: 'Create spreadsheets', icon: 'table_chart', tint: 'bg-emerald-500', tone: 'text-emerald-500', docType: 'sheet' },
   { key: 'slides', label: 'PlexiSlides', blurb: 'Create presentations', icon: 'slideshow', tint: 'bg-orange-500', tone: 'text-orange-500', docType: 'slides' },
-  { key: 'draw', label: 'PlexiDraw', blurb: 'Create drawings', icon: 'gesture', tint: 'bg-violet-500', tone: 'text-violet-500', docType: 'map' },
-  { key: 'design', label: 'PlexiDesign', blurb: 'Designs, any size', icon: 'plexii:design', tint: 'bg-fuchsia-500', tone: 'text-fuchsia-500', docType: 'design' }
+  { key: 'diagrams', label: 'PlexiDiagrams', blurb: 'Flowcharts and diagrams', icon: 'account_tree', tint: 'bg-violet-500', tone: 'text-violet-500', docType: 'map' },
+  { key: 'design', label: 'PlexiDesign', blurb: 'Page layout and print', icon: 'plexii:design', tint: 'bg-fuchsia-500', tone: 'text-fuchsia-500', docType: 'design' },
+  { key: 'draw', label: 'PlexiDraw', blurb: 'Vector and painting', icon: 'brush', tint: 'bg-rose-500', tone: 'text-rose-500', docType: 'draw' }
 ]
 
 // The communication apps that now live inside PlexiOffice. Each renders its
@@ -114,8 +116,9 @@ const TYPE_ICON: Record<string, { icon: string; tint: string }> = {
   doc: { icon: 'description', tint: 'text-sky-500' },
   sheet: { icon: 'table_chart', tint: 'text-emerald-500' },
   slides: { icon: 'slideshow', tint: 'text-orange-500' },
-  map: { icon: 'gesture', tint: 'text-violet-500' },
-  design: { icon: 'plexii:design', tint: 'text-fuchsia-500' }
+  map: { icon: 'account_tree', tint: 'text-violet-500' },
+  design: { icon: 'plexii:design', tint: 'text-fuchsia-500' },
+  draw: { icon: 'brush', tint: 'text-rose-500' }
 }
 
 const PRO_FEATURES = ['Advanced collaboration', 'Premium templates', 'AI productivity tools', 'Priority support']
@@ -212,13 +215,23 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
   const [activeComms, setActiveComms] = useState<string | null>(
     initialApp && COMMS_APPS.some((a) => a.key === initialApp) ? initialApp : null
   )
+  const [tab, setTab] = useState<'all' | DocType>('all')
   useEffect(() => {
     if (initialApp && COMMS_APPS.some((a) => a.key === initialApp)) {
       setActiveComms(initialApp)
       setOpenDocId(null)
+      return
+    }
+    // A deep link to a DOCUMENT app (PlexiDiagrams, PlexiDesign, PlexiDraw…)
+    // lands on the hub filtered to that type rather than silently creating a
+    // file the user did not ask for.
+    const docApp = APPS.find((a) => a.key === initialApp)
+    if (docApp?.docType) {
+      setActiveComms(null)
+      setOpenDocId(null)
+      setTab(docApp.docType)
     }
   }, [initialApp])
-  const [tab, setTab] = useState<'all' | DocType>('all')
   const [recentTab, setRecentTab] = useState<RecentTab>('all')
   // Today's real time blocks. null = still loading; [] = loaded and genuinely
   // empty. We never seed a meeting.
@@ -254,7 +267,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
   }, [account, loadMailAccount, refreshMail, refreshInbox, refreshConversations])
 
   const officeDocs = useMemo(
-    () => list.filter((d) => ['doc', 'sheet', 'slides', 'map', 'design'].includes(d.docType)).sort((a, b) => b.updatedAt - a.updatedAt),
+    () => list.filter((d) => ['doc', 'sheet', 'slides', 'map', 'design', 'draw'].includes(d.docType)).sort((a, b) => b.updatedAt - a.updatedAt),
     [list]
   )
   const ownerName = personDisplayName(account, 'You')
@@ -314,7 +327,11 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
     if (busy) return
     setBusy(true)
     try {
-      const doc = await createBlank(app.docType, app.label.replace('Plexii', '') + ' draft')
+      // No custom title: the documents store already names a new file per type
+      // ("Untitled document", "Untitled diagram", "Untitled artwork"), which is
+      // both consistent with every other create path and better than the
+      // product-name-plus-"draft" string this used to build.
+      const doc = await createBlank(app.docType)
       await refresh()
       setActiveComms(null)
       setOpenDocId(doc.id)
@@ -483,7 +500,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                   <h2 className="text-[15px] font-semibold">Start with a template</h2>
                 </div>
                 <div className="flex flex-wrap gap-1.5 mb-3">
-                  {(['all', 'doc', 'sheet', 'slides', 'map', 'design'] as const).map((t) => (
+                  {(['all', 'doc', 'sheet', 'slides', 'map', 'design', 'draw'] as const).map((t) => (
                     <button
                       key={t}
                       onClick={() => setTab(t)}
@@ -762,10 +779,10 @@ function pageTitle(p: OfficePage): string {
   return p === 'home' ? 'Home' : p[0].toUpperCase() + p.slice(1)
 }
 function tabLabel(t: 'all' | DocType): string {
-  return t === 'all' ? 'All' : t === 'doc' ? 'Docs' : t === 'sheet' ? 'Sheets' : t === 'slides' ? 'Slides' : t === 'map' ? 'Drawings' : t === 'design' ? 'Designs' : t
+  return t === 'all' ? 'All' : t === 'doc' ? 'Docs' : t === 'sheet' ? 'Sheets' : t === 'slides' ? 'Slides' : t === 'map' ? 'Diagrams' : t === 'design' ? 'Designs' : t === 'draw' ? 'Artwork' : t
 }
 function appLabel(t: DocType): string {
-  return t === 'doc' ? 'PlexiDocs' : t === 'sheet' ? 'PlexiSheets' : t === 'slides' ? 'PlexiSlides' : t === 'map' ? 'PlexiDraw' : t === 'design' ? 'PlexiDesign' : 'PlexiOffice'
+  return t === 'doc' ? 'PlexiDocs' : t === 'sheet' ? 'PlexiSheets' : t === 'slides' ? 'PlexiSlides' : t === 'map' ? 'PlexiDiagrams' : t === 'design' ? 'PlexiDesign' : t === 'draw' ? 'PlexiDraw' : 'PlexiOffice'
 }
 function visibleDocs(docs: DocumentMeta[], page: OfficePage, starred: Set<string>): DocumentMeta[] {
   if (page === 'starred') return docs.filter((d) => starred.has(d.id))
@@ -778,7 +795,8 @@ const TEMPLATES: { id: string; label: string; docType: DocType; preview: string 
   { id: 'blank-sheet', label: 'Blank spreadsheet', docType: 'sheet', preview: 'bg-gradient-to-br from-emerald-500 to-emerald-700' },
   { id: 'blank-slides', label: 'Blank presentation', docType: 'slides', preview: 'bg-gradient-to-br from-orange-500 to-orange-700' },
   { id: 'blank-draw', label: 'Blank drawing', docType: 'map', preview: 'bg-gradient-to-br from-violet-500 to-violet-700' },
-  { id: 'blank-design', label: 'Blank design', docType: 'design', preview: 'bg-gradient-to-br from-fuchsia-500 to-fuchsia-700' }
+  { id: 'blank-design', label: 'Blank design', docType: 'design', preview: 'bg-gradient-to-br from-fuchsia-500 to-fuchsia-700' },
+  { id: 'blank-draw', label: 'Blank artwork', docType: 'draw', preview: 'bg-gradient-to-br from-rose-500 to-rose-700' }
 ]
 
 function RailCard({ title, children }: { title: string; children: React.ReactNode }): JSX.Element {

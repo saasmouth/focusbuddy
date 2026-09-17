@@ -33,6 +33,7 @@ export const VIEW_CAPABILITY: Partial<Record<string, { cap: string; label: strin
   knowledge: { cap: 'product_brain', label: 'PlexiBrain' },
   documents: { cap: 'product_office', label: 'PlexiOffice' },
   design: { cap: 'product_office', label: 'PlexiOffice' },
+  draw: { cap: 'product_office', label: 'PlexiOffice' },
   document: { cap: 'product_office', label: 'PlexiOffice' }
 }
 

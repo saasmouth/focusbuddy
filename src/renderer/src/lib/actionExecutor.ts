@@ -1670,3 +1670,15 @@ export function describeProposal(
       return { icon: 'auto_awesome', verb: 'Action', subject: '' }
   }
 }
+
+// Test handle (same convention as __fbView / __fbWidgets / __fbCanvasContext):
+// apply a proposal through the REAL executor from an e2e.
+//
+// window.api is frozen by contextBridge, so a spec cannot stub the IPC that
+// produces proposals. Without this, the half of the pipeline that turns a
+// proposal into an actual table/page/contact could only be tested by driving
+// the UI of whichever card happened to render it — which tests the card, not
+// the executor. This exposes the executor itself.
+if (typeof window !== 'undefined') {
+  ;(window as unknown as { __fbApplyProposal?: typeof applyProposal }).__fbApplyProposal = applyProposal
+}

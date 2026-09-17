@@ -4,6 +4,8 @@ import { intentNamesTopic } from '@shared/planLanguage'
 import { useNodeStore } from '../../stores/nodes'
 import { useWorkItemStore } from '../../stores/workItems'
 import { useTimeBlockStore } from '../../stores/timeBlocks'
+import { useExternalEventStore } from '../../stores/externalEvents'
+import { colorOfBlock, colorOfCalendar, tint, useCalendarStore } from '../../stores/calendars'
 import { useViewStore } from '../../stores/view'
 import Icon from '../Icon'
 import WeekTimeGrid, { type GridGhost } from './WeekTimeGrid'
@@ -117,6 +119,13 @@ export default function CalendarView(): JSX.Element {
   const refreshItems = useWorkItemStore((s) => s.refresh)
   const updateFields = useWorkItemStore((s) => s.updateFields)
   const blocks = useTimeBlockStore((s) => s.blocks)
+  // Month and year used to show deadlines only, so a subscribed calendar simply
+  // vanished when you zoomed out — the one view where "what is my month like"
+  // is the whole question.
+  const externalEvents = useExternalEventStore((s) => s.events)
+  const loadExternal = useExternalEventStore((s) => s.loadRange)
+  const calendars = useCalendarStore((s) => s.calendars)
+  const loadCalendars = useCalendarStore((s) => s.load)
   const createBlock = useTimeBlockStore((s) => s.create)
   const updateBlock = useTimeBlockStore((s) => s.update)
   const nodes = useNodeStore((s) => s.nodes)
@@ -647,6 +656,67 @@ export default function CalendarView(): JSX.Element {
     return m
   }, [nodes])
 
+  // The overview modes fetch their own span; the grid modes are covered by
+  // WeekTimeGrid, which loads the week it is showing.
+  const overviewRange = useMemo(() => {
+    if (mode === 'month') {
+      const start = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1).getTime()
+      return { from: start - 7 * 86_400_000, to: start + 45 * 86_400_000 }
+    }
+    if (mode === 'year') {
+      return {
+        from: new Date(rangeStart.getFullYear(), 0, 1).getTime(),
+        to: new Date(rangeStart.getFullYear() + 1, 0, 1).getTime()
+      }
+    }
+    return null
+  }, [mode, rangeStart])
+
+  useEffect(() => {
+    void loadCalendars()
+  }, [loadCalendars])
+
+  useEffect(() => {
+    if (!overviewRange) return
+    void loadExternal(overviewRange.from, overviewRange.to)
+    const api = (window as { api?: Record<string, unknown> }).api
+    const ext = api?.externalCalendars as { onEventsChanged?: (cb: () => void) => () => void } | undefined
+    return ext?.onEventsChanged?.(() => {
+      void loadExternal(overviewRange.from, overviewRange.to)
+      void loadCalendars()
+    })
+  }, [overviewRange, loadExternal, loadCalendars])
+
+  /** One day -> the diary entries that fall on it, Plexii's and subscribed alike. */
+  const entriesByDay = useMemo(() => {
+    const m = new Map<number, Array<{ id: string; title: string; startMs: number; color: string; external: boolean }>>()
+    const push = (key: number, entry: { id: string; title: string; startMs: number; color: string; external: boolean }): void => {
+      const list = m.get(key)
+      if (list) list.push(entry)
+      else m.set(key, [entry])
+    }
+    for (const b of blocks) {
+      push(dayMs(new Date(b.startMs)), {
+        id: `blk:${b.id}`,
+        title: b.title || 'Focus time',
+        startMs: b.startMs,
+        color: colorOfBlock(calendars, b.calendarId),
+        external: false
+      })
+    }
+    for (const e of externalEvents) {
+      push(dayMs(new Date(e.startMs)), {
+        id: `ext:${e.id}`,
+        title: e.title || 'Untitled event',
+        startMs: e.startMs,
+        color: colorOfCalendar(calendars, e.calendarId),
+        external: true
+      })
+    }
+    for (const list of m.values()) list.sort((a, b) => a.startMs - b.startMs)
+    return m
+  }, [blocks, externalEvents, calendars])
+
   const rangeLabel = useMemo(() => {
     if (mode === 'month')
       return rangeStart.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
@@ -1157,9 +1227,14 @@ export default function CalendarView(): JSX.Element {
                             const key = dayMs(d)
                             const inMonth = d.getMonth() === m
                             const isToday = d.toDateString() === today.toDateString()
-                            const count =
+                            const dueCount =
                               (dueItemsByDay.get(key)?.length ?? 0) +
                               (dueDesksByDay.get(key)?.length ?? 0)
+                            const dayEntries = entriesByDay.get(key) ?? []
+                            const count = dueCount + dayEntries.length
+                            // One dot per distinct calendar with something that
+                            // day, capped at three so a busy day stays legible.
+                            const dots = [...new Set(dayEntries.map((e) => e.color))].slice(0, 3)
                             return (
                               <button
                                 key={key}
@@ -1167,7 +1242,12 @@ export default function CalendarView(): JSX.Element {
                                 onClick={() => openDay(d)}
                                 title={
                                   count > 0
-                                    ? `${d.toLocaleDateString()} — ${count} due`
+                                    ? `${d.toLocaleDateString()} — ${[
+                                        dueCount > 0 ? `${dueCount} due` : '',
+                                        dayEntries.length > 0 ? `${dayEntries.length} in the diary` : ''
+                                      ]
+                                        .filter(Boolean)
+                                        .join(', ')}`
                                     : d.toLocaleDateString()
                                 }
                                 className={`relative aspect-square rounded-[3px] text-[9px] leading-none fb-press flex items-start justify-center pt-[3px] transition-colors ${
@@ -1179,11 +1259,23 @@ export default function CalendarView(): JSX.Element {
                                 }`}
                               >
                                 {d.getDate()}
-                                {count > 0 && inMonth && (
+                                {inMonth && (dots.length > 0 || dueCount > 0) && (
                                   <span
                                     aria-hidden
-                                    className="absolute bottom-[2px] left-1/2 -translate-x-1/2 h-[3px] w-[3px] rounded-full bg-accent"
-                                  />
+                                    data-testid="year-day-dots"
+                                    className="absolute bottom-[2px] left-1/2 -translate-x-1/2 flex gap-[1px]"
+                                  >
+                                    {dueCount > 0 && (
+                                      <span className="h-[3px] w-[3px] rounded-full bg-accent" />
+                                    )}
+                                    {dots.map((c) => (
+                                      <span
+                                        key={c}
+                                        className="h-[3px] w-[3px] rounded-full"
+                                        style={{ backgroundColor: c }}
+                                      />
+                                    ))}
+                                  </span>
                                 )}
                               </button>
                             )
@@ -1267,6 +1359,36 @@ export default function CalendarView(): JSX.Element {
                             {i.title}
                           </button>
                         ))}
+                        {/* The day's actual diary — Plexii blocks and
+                            subscribed events — each in its calendar's colour,
+                            so a month tells you whose entry is whose. */}
+                        {(entriesByDay.get(key) ?? []).slice(0, due.length > 0 ? 2 : 4).map((entry) => (
+                          <button
+                            key={entry.id}
+                            onClick={() => openDay(d)}
+                            title={`${entry.title} — ${new Date(entry.startMs).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`}
+                            data-testid={entry.external ? 'month-external-event' : 'month-block'}
+                            data-calendar-color={entry.color}
+                            className="relative w-full text-left truncate rounded-[var(--radius-chip)] pl-2.5 pr-1.5 py-1 text-[11px] leading-snug fb-press"
+                            style={{ backgroundColor: tint(entry.color, 0.13), color: 'var(--ink-80)' }}
+                          >
+                            <span
+                              aria-hidden
+                              className="absolute left-0 top-0.5 bottom-0.5 w-[2px] rounded-full"
+                              style={{ backgroundColor: entry.color }}
+                            />
+                            {entry.title}
+                          </button>
+                        ))}
+                        {(entriesByDay.get(key)?.length ?? 0) > (due.length > 0 ? 2 : 4) && (
+                          <button
+                            onClick={() => openDay(d)}
+                            title="Open this day"
+                            className="fb-t-caption text-[var(--ink-40)] text-left fb-press hover:text-[var(--ink-80)]"
+                          >
+                            +{(entriesByDay.get(key)?.length ?? 0) - (due.length > 0 ? 2 : 4)} more
+                          </button>
+                        )}
                         {due.length > 3 && (
                           <button
                             onClick={() => openDay(d)}

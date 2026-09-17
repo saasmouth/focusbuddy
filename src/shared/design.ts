@@ -1,11 +1,26 @@
-// PlexiDesign: the on-platform design studio. A design is a single arbitrary-size
-// canvas built from the same positioned elements as a slide (text, image, shape,
-// line), so it reuses the proven slide element engine and renderer. This module
-// is the pure core: the document body shape, the size presets across every design
-// family, and the brand-aware starter templates that turn a blank canvas (and the
-// org brand kit) into a finished, on-brand layout.
+// PlexiDesign: the free-form page designer — somewhere between Microsoft
+// Publisher and Adobe InDesign. A design is a multi-page document of
+// arbitrary-size pages built from freely-placed elements (text, image, shape,
+// line), reusing the proven slide element engine and renderer.
+//
+// What makes it a LAYOUT program rather than a poster tool lives here:
+//
+//   master pages   a page can inherit a master's furniture (running heads,
+//                  folios, rules) which draws beneath its own elements
+//   threaded text  a story pours through a chain of linked frames and reports
+//                  overset rather than dropping what will not fit
+//   text wrap      objects push story text aside instead of sitting on top of it
+//   guides         margins, a column grid, and draggable ruler guides
+//   layers         named document layers with their own visibility and locks
+//   facing pages   spreads, so a booklet is laid out the way it is read
+//   print output   bleed and crop marks (already present, and now per-page)
+//
+// This module is the pure core: the body shape, the size presets, the brand-aware
+// starter templates, and the HTML rendering the exporter captures.
 
 import type { SlideElement, SlideFill, SlideTextElement, SlideShapeElement } from './types'
+import { hasPageToken, resolvePageTokens } from './designFlow'
+import { normalizeContent, parsePlainText, type ContentDoc } from './designContent'
 import { type OrgBrandKit, DEFAULT_BRAND_KIT, readableTextOn, contrastRatio, hexToRgb } from './brandKit'
 import { fillToCss, gradient } from './fills'
 import { chartToSvg } from './chart'
@@ -31,15 +46,102 @@ export interface DesignBody {
   // which page is live. Legacy single-page bodies migrate to one page on load.
   pages?: DesignPage[]
   activePage?: number
+  // ── Page-layout state ──────────────────────────────────────────────────────
+  /** Master pages available to this document. */
+  masters?: DesignMaster[]
+  /** Ruler guides the author has dragged out. */
+  guides?: DesignGuides
+  /** The margin box drawn on every page; also the default text-frame column. */
+  margins?: DesignMargins
+  /** The column grid inside the margin box. */
+  columns?: DesignColumnGrid
+  /** Named layers. Absent means a single implicit base layer. */
+  layers?: DesignLayer[]
+  /** Facing pages: pages are laid out and previewed as spreads. */
+  facing?: boolean
+  /**
+   * Threaded stories, keyed by story id. A story is a structured DOCUMENT — a
+   * sequence of typed blocks (headings, body, lists, quotes) — not a lump of
+   * text, which is what lets one thread carry a 40pt heading and 10pt body and
+   * still flow as a single chain. It lives here ONCE; each frame renders the
+   * slice the flow engine gives it, so re-flowing after a geometry change is a
+   * pure recomputation rather than a risky redistribution of text.
+   */
+  stories?: Record<string, ContentDoc>
+  /** The auto-layout style this document was last built with, for re-running it. */
+  layoutStyleId?: string
+  /**
+   * The document the wizard laid out, kept whole so a re-run with a different
+   * look is lossless. The story holds only the FLOWING blocks — the title and
+   * subtitle become display type on the opener — so without this, reopening the
+   * wizard would quietly lose the headline.
+   */
+  sourceContent?: ContentDoc
+  /** The number printed on the first page. Defaults to 1. */
+  pageNumberStart?: number
+  /** Which master is being edited, or null when editing normal pages. */
+  editingMasterId?: string | null
 }
 
 export interface DesignPage {
   id: string
   background?: SlideFill
   elements: SlideElement[]
+  /**
+   * The master this page inherits. `undefined` means "the document default"
+   * (the first master, if there is one); `null` means the author explicitly
+   * detached this page, which is why the two are not collapsed.
+   */
+  masterId?: string | null
 }
 
-export type DesignCategory = 'social' | 'marketing' | 'presentation' | 'logo' | 'custom'
+/**
+ * A master page: furniture that repeats across pages. Its elements are drawn
+ * BENEATH the page's own and are not selectable while editing a normal page, so
+ * a running head cannot be nudged by accident.
+ */
+export interface DesignMaster {
+  id: string
+  name: string
+  background?: SlideFill
+  elements: SlideElement[]
+  /**
+   * For a facing-pages document, which side this master applies to. 'both' is
+   * the default and is what a single-sided document uses.
+   */
+  side?: 'both' | 'left' | 'right'
+}
+
+/** Ruler guides, in page coordinates. */
+export interface DesignGuides {
+  /** x positions of vertical guides. */
+  v: number[]
+  /** y positions of horizontal guides. */
+  h: number[]
+}
+
+export interface DesignMargins {
+  top: number
+  right: number
+  bottom: number
+  left: number
+}
+
+export interface DesignColumnGrid {
+  count: number
+  /** Space between columns, in logical px. */
+  gutter: number
+}
+
+/** A named document layer. Layer order is the array order; index 0 is the back. */
+export interface DesignLayer {
+  id: string
+  name: string
+  visible: boolean
+  locked: boolean
+}
+
+export type DesignCategory = 'publication' | 'social' | 'marketing' | 'presentation' | 'logo' | 'custom'
 
 export interface DesignSize {
   id: string
@@ -52,6 +154,16 @@ export interface DesignSize {
 // Size presets across the four families the studio ships with. Logical px chosen
 // to match each medium's real aspect ratio at a comfortable on-canvas resolution.
 export const DESIGN_SIZES: DesignSize[] = [
+  // Publications — the multi-page page-layout sizes, at 96dpi so 1 logical px is
+  // 1 CSS px and the print exporter's px-to-micron conversion is exact.
+  { id: 'a4-portrait', category: 'publication', label: 'A4 portrait', w: 794, h: 1123 },
+  { id: 'a4-landscape', category: 'publication', label: 'A4 landscape', w: 1123, h: 794 },
+  { id: 'letter-portrait', category: 'publication', label: 'US Letter portrait', w: 816, h: 1056 },
+  { id: 'letter-landscape', category: 'publication', label: 'US Letter landscape', w: 1056, h: 816 },
+  { id: 'a5-booklet', category: 'publication', label: 'A5 booklet', w: 559, h: 794 },
+  { id: 'half-letter', category: 'publication', label: 'Half Letter', w: 528, h: 816 },
+  { id: 'newsletter-tabloid', category: 'publication', label: 'Tabloid newsletter', w: 1056, h: 1632 },
+  { id: 'tri-fold', category: 'publication', label: 'Tri-fold panel', w: 372, h: 816 },
   // Social
   { id: 'ig-post', category: 'social', label: 'Instagram post', w: 1080, h: 1080 },
   { id: 'ig-story', category: 'social', label: 'Instagram story / Reel', w: 1080, h: 1920 },
@@ -99,12 +211,72 @@ export function normalizeDesignBody(raw: unknown): DesignBody {
       return {
         id: typeof pr.id === 'string' && pr.id ? pr.id : `pg-${++n}`,
         background: isFill(pr.background) ? (pr.background as SlideFill) : topBackground,
-        elements: Array.isArray(pr.elements) ? (pr.elements as SlideElement[]) : []
+        elements: Array.isArray(pr.elements) ? (pr.elements as SlideElement[]) : [],
+        ...(typeof pr.masterId === 'string' ? { masterId: pr.masterId } : pr.masterId === null ? { masterId: null } : {})
       }
     })
   if (pages.length === 0) pages.push({ id: 'pg-1', background: topBackground, elements: topElements })
   const activePage = Math.max(0, Math.min(pages.length - 1, typeof r.activePage === 'number' ? Math.round(r.activePage) : 0))
   const active = pages[activePage]
+
+  // ── Page-layout state ──────────────────────────────────────────────────────
+  const masters: DesignMaster[] = (Array.isArray(r.masters) ? (r.masters as unknown[]) : [])
+    .map((m, i) => {
+      const mr = (m && typeof m === 'object' ? m : {}) as Record<string, unknown>
+      return {
+        id: typeof mr.id === 'string' && mr.id ? mr.id : `master-${i + 1}`,
+        name: typeof mr.name === 'string' && mr.name ? mr.name : `Master ${String.fromCharCode(65 + i)}`,
+        ...(isFill(mr.background) ? { background: mr.background as SlideFill } : {}),
+        elements: Array.isArray(mr.elements) ? (mr.elements as SlideElement[]) : [],
+        ...(mr.side === 'left' || mr.side === 'right' ? { side: mr.side } : {})
+      }
+    })
+
+  const rawGuides = (r.guides && typeof r.guides === 'object' ? r.guides : {}) as Record<string, unknown>
+  const guides: DesignGuides = {
+    v: (Array.isArray(rawGuides.v) ? (rawGuides.v as unknown[]) : []).filter((n): n is number => typeof n === 'number' && Number.isFinite(n)),
+    h: (Array.isArray(rawGuides.h) ? (rawGuides.h as unknown[]) : []).filter((n): n is number => typeof n === 'number' && Number.isFinite(n))
+  }
+
+  const rawMargins = (r.margins && typeof r.margins === 'object' ? r.margins : null) as Record<string, unknown> | null
+  const margins: DesignMargins | undefined = rawMargins
+    ? {
+        top: numOr(rawMargins.top, 0),
+        right: numOr(rawMargins.right, 0),
+        bottom: numOr(rawMargins.bottom, 0),
+        left: numOr(rawMargins.left, 0)
+      }
+    : undefined
+
+  const rawCols = (r.columns && typeof r.columns === 'object' ? r.columns : null) as Record<string, unknown> | null
+  const columns: DesignColumnGrid | undefined = rawCols
+    ? { count: Math.max(1, Math.min(20, Math.round(numOr(rawCols.count, 1)))), gutter: Math.max(0, numOr(rawCols.gutter, 16)) }
+    : undefined
+
+  const layers: DesignLayer[] = (Array.isArray(r.layers) ? (r.layers as unknown[]) : [])
+    .map((l, i) => {
+      const lr = (l && typeof l === 'object' ? l : {}) as Record<string, unknown>
+      return {
+        id: typeof lr.id === 'string' && lr.id ? lr.id : `layer-${i + 1}`,
+        name: typeof lr.name === 'string' && lr.name ? lr.name : `Layer ${i + 1}`,
+        visible: lr.visible !== false,
+        locked: lr.locked === true
+      }
+    })
+
+  const stories: Record<string, ContentDoc> = {}
+  if (r.stories && typeof r.stories === 'object') {
+    for (const [k, v] of Object.entries(r.stories as Record<string, unknown>)) {
+      // A story used to be a plain string. Reading one back parses it into
+      // blocks rather than discarding it, so an older document opens with its
+      // text intact and gains structure for free.
+      if (typeof v === 'string') stories[k] = parsePlainText(v, { firstLineIsTitle: false })
+      else if (v && typeof v === 'object') {
+        const doc = normalizeContent(v)
+        if (doc.blocks.length) stories[k] = doc
+      }
+    }
+  }
 
   return {
     schemaVersion: 1,
@@ -116,8 +288,27 @@ export function normalizeDesignBody(raw: unknown): DesignBody {
     activePage,
     category: typeof r.category === 'string' ? (r.category as DesignCategory) : 'custom',
     brandApplied: r.brandApplied === true,
-    ...(typeof r.bleed === 'number' && r.bleed > 0 ? { bleed: Math.round(r.bleed) } : {})
+    ...(typeof r.bleed === 'number' && r.bleed > 0 ? { bleed: Math.round(r.bleed) } : {}),
+    ...(masters.length ? { masters } : {}),
+    ...(guides.v.length || guides.h.length ? { guides } : {}),
+    ...(margins ? { margins } : {}),
+    ...(columns ? { columns } : {}),
+    ...(layers.length ? { layers } : {}),
+    ...(r.facing === true ? { facing: true } : {}),
+    ...(Object.keys(stories).length ? { stories } : {}),
+    ...(typeof r.pageNumberStart === 'number' ? { pageNumberStart: Math.round(r.pageNumberStart) } : {}),
+    ...(typeof r.layoutStyleId === 'string' ? { layoutStyleId: r.layoutStyleId } : {}),
+    ...(r.sourceContent && typeof r.sourceContent === 'object' && normalizeContent(r.sourceContent).blocks.length
+      ? { sourceContent: normalizeContent(r.sourceContent) }
+      : {}),
+    // The master being edited is deliberately NOT persisted as a live mode: a
+    // document that reopened straight into master-editing would be a trap.
+    editingMasterId: null
   }
+}
+
+function numOr(v: unknown, dflt: number): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : dflt
 }
 
 function clampDim(n: unknown, dflt: number): number {
@@ -508,6 +699,71 @@ function elementHtml(el: SlideElement): string {
     b ? `border:${b.width}px ${b.style ?? 'solid'} ${b.color};` : ''
 
   if (el.type === 'text') {
+    // A threaded frame shows the slice of the story the flow engine gave it,
+    // as absolutely-positioned lines. Using the engine's own output (rather than
+    // re-wrapping here with a different measurer) is what makes the exported
+    // page identical to the one on screen, line break for line break.
+    if (el.flowLines && el.flowLines.length) {
+      const lines = el.flowLines
+        .map((ln) => {
+          const justified = ln.align === 'justify' && !ln.lastOfPara
+          const rule = ln.rule
+            ? `<div style="${styleStr({
+                position: 'absolute',
+                left: `${ln.x}px`,
+                top: `${ln.y - ln.size * 0.55}px`,
+                width: `${ln.w * ln.rule.width}px`,
+                height: `${ln.rule.thickness}px`,
+                background: ln.rule.color
+              })}"></div>`
+            : ''
+          const bullet = ln.bullet
+            ? `<div style="${styleStr({
+                position: 'absolute',
+                left: `${ln.x - ln.size * 1.4}px`,
+                top: `${ln.y}px`,
+                width: `${ln.size * 1.15}px`,
+                textAlign: 'right',
+                lineHeight: `${ln.lh}px`,
+                fontSize: `${ln.size}px`,
+                fontFamily: ln.family,
+                color: ln.color
+              })}">${escHtml(ln.bullet)}</div>`
+            : ''
+          const cap = ln.dropCap
+            ? `<div style="${styleStr({
+                position: 'absolute',
+                left: `${ln.x - ln.dropCap.width - ln.size * 0.12}px`,
+                top: `${ln.y}px`,
+                fontSize: `${ln.dropCap.size}px`,
+                lineHeight: `${ln.dropCap.size}px`,
+                fontFamily: ln.family,
+                fontWeight: 700,
+                color: ln.color
+              })}">${escHtml(ln.dropCap.text)}</div>`
+            : ''
+          const body = `<div style="${styleStr({
+            position: 'absolute',
+            left: `${ln.x}px`,
+            top: `${ln.y}px`,
+            width: `${ln.w}px`,
+            lineHeight: `${ln.lh}px`,
+            fontSize: `${ln.size}px`,
+            fontFamily: ln.family,
+            fontWeight: ln.bold ? 700 : undefined,
+            fontStyle: ln.italic ? 'italic' : undefined,
+            color: ln.color,
+            letterSpacing: ln.letterSpacing ? `${ln.letterSpacing}px` : undefined,
+            whiteSpace: 'pre',
+            textAlign: justified ? 'justify' : ln.align === 'justify' ? 'left' : ln.align,
+            textAlignLast: justified ? 'justify' : undefined
+          })}">${escHtml(ln.text) || '&#8203;'}</div>`
+          return rule + bullet + cap + body
+        })
+        .join('')
+      const fillCss = fillToCss(el.fill)
+      return `<div style="${base}${fillCss ? `background:${fillCss};` : ''}${border(el.border)}">${lines}</div>`
+    }
     const justify = el.vAlign === 'middle' ? 'center' : el.vAlign === 'bottom' ? 'flex-end' : 'flex-start'
     const paras = el.paragraphs
       .map((p) => {
@@ -582,15 +838,31 @@ function elementHtml(el: SlideElement): string {
   }/></svg></div>`
 }
 
+/**
+ * The elements of one page as HTML: the master's furniture first (so it sits
+ * beneath everything), then the page's own elements, each group in z order.
+ * Hidden layers are left out, exactly as they are on screen.
+ */
+export function pageElementsHtml(design: DesignBody, pageIndex: number): string {
+  const pages = design.pages ?? []
+  const page = pages[pageIndex] ?? { id: 'p1', background: design.background, elements: design.elements }
+  const master = masterForPage(design, page as DesignPage)
+  const ctx = { page: pageNumberOf(design, pageIndex), pages: pageCountOf(design) }
+  const visible = (el: SlideElement): boolean => elementVisible(design, el)
+  const masterHtml = master
+    ? resolveMasterElements(master, ctx).filter(visible).slice().sort((a, b) => a.z - b.z).map(elementHtml).join('')
+    : ''
+  const pageHtml = page.elements.filter(visible).slice().sort((a, b) => a.z - b.z).map(elementHtml).join('')
+  return masterHtml + pageHtml
+}
+
 // A full standalone HTML document rendering the design at its exact pixel size,
 // for the export pipeline (offscreen capture to PNG / print to PDF).
 export function designToHtml(design: DesignBody): string {
-  const bg = fillToCss(design.background) ?? '#ffffff'
-  const els = design.elements
-    .slice()
-    .sort((a, b) => a.z - b.z)
-    .map(elementHtml)
-    .join('')
+  const pageIndex = design.activePage ?? 0
+  const page = (design.pages ?? [])[pageIndex]
+  const bg = fillToCss(page?.background ?? design.background) ?? '#ffffff'
+  const els = pageElementsHtml(design, pageIndex)
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:${design.width}px;height:${design.height}px}</style></head><body><div style="position:relative;width:${design.width}px;height:${design.height}px;background:${bg};overflow:hidden">${els}</div></body></html>`
 }
 
@@ -620,12 +892,10 @@ export function designPrintSize(design: DesignBody, opts: { bleed?: number; crop
 export function designPrintHtml(design: DesignBody, opts: { bleed?: number; cropMarks?: boolean } = {}): string {
   const { bleed, markMargin, pageWidth, pageHeight } = designPrintSize(design, opts)
   const cropMarks = (opts.cropMarks ?? bleed > 0) && markMargin > 0
-  const bg = fillToCss(design.background) ?? '#ffffff'
-  const els = design.elements
-    .slice()
-    .sort((a, b) => a.z - b.z)
-    .map(elementHtml)
-    .join('')
+  const pageIndex = design.activePage ?? 0
+  const page = (design.pages ?? [])[pageIndex]
+  const bg = fillToCss(page?.background ?? design.background) ?? '#ffffff'
+  const els = pageElementsHtml(design, pageIndex)
 
   const trimLeft = markMargin + bleed
   const trimTop = markMargin + bleed
@@ -674,7 +944,7 @@ export function designToHtmlAllPages(design: DesignBody): string {
   const pageDivs = pages
     .map((pg, i) => {
       const bg = fillToCss(pg.background) ?? '#ffffff'
-      const els = pg.elements.slice().sort((a, b) => a.z - b.z).map(elementHtml).join('')
+      const els = pageElementsHtml(design, i)
       const brk = i < pages.length - 1 ? 'page-break-after:always;' : ''
       return `<div style="position:relative;width:${design.width}px;height:${design.height}px;background:${bg};overflow:hidden;${brk}">${els}</div>`
     })
@@ -914,11 +1184,21 @@ export function buildDesignVariations(size: DesignSize, brand: OrgBrandKit, cont
 // Magic resize: scale a whole design to a new size, repositioning and resizing
 // every element proportionally (and scaling text by the average ratio) so the
 // layout is preserved rather than the canvas just changing under fixed elements.
+/**
+ * Resize the document to a new page size, scaling everything that lives in page
+ * coordinates: EVERY page (not just the one on screen), every master page's
+ * furniture, the margin box and the ruler guides.
+ *
+ * Scaling only the active page — which is what this used to do — left the other
+ * pages of a brochure at the old geometry and stranded the master furniture and
+ * margins, so a resize silently broke a multi-page document.
+ */
 export function resizeDesign(design: DesignBody, target: DesignSize): DesignBody {
   const sx = design.width ? target.w / design.width : 1
   const sy = design.height ? target.h / design.height : 1
   const fs = (sx + sy) / 2
-  const elements: SlideElement[] = design.elements.map((el) => {
+
+  const scaleElement = (el: SlideElement): SlideElement => {
     const moved = {
       ...el,
       x: Math.round(el.x * sx),
@@ -929,18 +1209,54 @@ export function resizeDesign(design: DesignBody, target: DesignSize): DesignBody
     if (moved.type === 'text') {
       return {
         ...moved,
+        // Threaded frames are set in points on the element itself; unthreaded
+        // ones carry their size per run. Both scale.
+        ...(moved.fontSize ? { fontSize: Math.max(6, Math.round(moved.fontSize * fs)) } : {}),
+        // The cached line breaks are measured for the OLD geometry, so they are
+        // dropped rather than scaled — the next re-flow recomputes them honestly.
+        flowLines: undefined,
         paragraphs: moved.paragraphs.map((p) => ({
           ...p,
           runs: p.runs.map((r) => ({ ...r, fontSize: r.fontSize ? Math.max(6, Math.round(r.fontSize * fs)) : r.fontSize }))
-        }))
+        })),
+        ...(moved.wrap ? { wrap: { ...moved.wrap, offset: moved.wrap.offset != null ? Math.round(moved.wrap.offset * fs) : undefined } } : {})
       }
     }
     if (moved.type === 'line') {
       return { ...moved, x2: Math.round(moved.x2 * sx), y2: Math.round(moved.y2 * sy) }
     }
     return moved
-  })
-  return { ...design, width: target.w, height: target.h, category: target.category, elements }
+  }
+
+  const pages = (design.pages ?? []).map((pg) => ({ ...pg, elements: pg.elements.map(scaleElement) }))
+  const activePage = design.activePage ?? 0
+  const active = pages[activePage]
+
+  return {
+    ...design,
+    width: target.w,
+    height: target.h,
+    category: target.category,
+    // Top-level elements mirror the active page, exactly as everywhere else.
+    elements: active ? active.elements : design.elements.map(scaleElement),
+    ...(pages.length ? { pages } : {}),
+    ...(design.masters ? { masters: design.masters.map((m) => ({ ...m, elements: m.elements.map(scaleElement) })) } : {}),
+    ...(design.margins
+      ? {
+          margins: {
+            top: Math.round(design.margins.top * sy),
+            right: Math.round(design.margins.right * sx),
+            bottom: Math.round(design.margins.bottom * sy),
+            left: Math.round(design.margins.left * sx)
+          }
+        }
+      : {}),
+    ...(design.columns ? { columns: { ...design.columns, gutter: Math.round(design.columns.gutter * sx) } } : {}),
+    ...(design.guides
+      ? { guides: { v: design.guides.v.map((x) => Math.round(x * sx)), h: design.guides.h.map((y) => Math.round(y * sy)) } }
+      : {}),
+    ...(design.bleed ? { bleed: Math.max(0, Math.round(design.bleed * fs)) } : {})
+  }
 }
 
 // A blank design at a given size.
@@ -952,5 +1268,209 @@ export function blankDesign(size: DesignSize): DesignBody {
     background: { type: 'solid', color: '#ffffff' },
     elements: [],
     category: size.category
+  }
+}
+
+// ── Page-layout helpers ──────────────────────────────────────────────────────
+// Everything below is what turns the element list into a real page-layout
+// document: which master a page inherits, what a page's printed number is, which
+// frames a story threads through, and which objects text has to flow around.
+
+/** The master a page inherits, or null when it has none (or detached itself). */
+export function masterForPage(design: DesignBody, page: DesignPage | undefined): DesignMaster | null {
+  const masters = design.masters ?? []
+  if (!page || masters.length === 0) return null
+  // An explicit null means the author detached this page from its master.
+  if (page.masterId === null) return null
+  if (page.masterId) return masters.find((m) => m.id === page.masterId) ?? null
+  return masters[0] ?? null
+}
+
+/** The number PRINTED on a page, honouring a document that starts at anything but 1. */
+export function pageNumberOf(design: DesignBody, index: number): number {
+  return (design.pageNumberStart ?? 1) + index
+}
+
+export function pageCountOf(design: DesignBody): number {
+  return design.pages?.length ?? 1
+}
+
+/**
+ * A master's elements with their page-number tokens resolved for one page.
+ * Only text elements are touched, and only when they actually carry a token, so
+ * an untokenised master is returned as-is with no copying.
+ */
+export function resolveMasterElements(master: DesignMaster, ctx: { page: number; pages: number }): SlideElement[] {
+  return master.elements.map((el) => {
+    if (el.type !== 'text') return el
+    const needs = el.paragraphs.some((p) => p.runs.some((r) => hasPageToken(r.text)))
+    if (!needs) return el
+    return {
+      ...el,
+      paragraphs: el.paragraphs.map((p) => ({ ...p, runs: p.runs.map((r) => ({ ...r, text: resolvePageTokens(r.text, ctx) })) }))
+    }
+  })
+}
+
+/** Every frame of a story, across every page, in thread order. */
+export function storyFrames(design: DesignBody, storyId: string): Array<{ pageIndex: number; element: SlideTextElement }> {
+  const pages = design.pages ?? []
+  const out: Array<{ pageIndex: number; element: SlideTextElement }> = []
+  pages.forEach((pg, pageIndex) => {
+    for (const el of pg.elements) {
+      if (el.type === 'text' && el.storyId === storyId) out.push({ pageIndex, element: el })
+    }
+  })
+  // The thread order is explicit where it exists; page order is the tie-break,
+  // so a newly linked frame with no order yet still lands somewhere sensible.
+  return out.sort((a, b) => {
+    const ao = a.element.storyOrder ?? Number.MAX_SAFE_INTEGER
+    const bo = b.element.storyOrder ?? Number.MAX_SAFE_INTEGER
+    if (ao !== bo) return ao - bo
+    return a.pageIndex - b.pageIndex
+  })
+}
+
+/** Every story id present anywhere in the document. */
+export function storyIds(design: DesignBody): string[] {
+  const ids = new Set<string>()
+  for (const pg of design.pages ?? []) {
+    for (const el of pg.elements) if (el.type === 'text' && el.storyId) ids.add(el.storyId)
+  }
+  return [...ids]
+}
+
+/**
+ * The boxes story text must flow around on one page: every element set to wrap,
+ * minus the frames of the story being flowed (a frame never wraps around itself).
+ */
+export function wrapObstacles(page: DesignPage, excludeIds: string[] = []): Array<{ x: number; y: number; w: number; h: number; offset: number }> {
+  const skip = new Set(excludeIds)
+  const out: Array<{ x: number; y: number; w: number; h: number; offset: number }> = []
+  for (const el of page.elements) {
+    if (skip.has(el.id)) continue
+    if (!el.wrap || el.wrap.mode !== 'square') continue
+    out.push({ x: el.x, y: el.y, w: el.w, h: el.h, offset: el.wrap.offset ?? 0 })
+  }
+  return out
+}
+
+/** The margin box, or the whole page when no margins are set. */
+export function marginBox(design: DesignBody): { x: number; y: number; w: number; h: number } {
+  const m = design.margins
+  if (!m) return { x: 0, y: 0, w: design.width, h: design.height }
+  return {
+    x: m.left,
+    y: m.top,
+    w: Math.max(1, design.width - m.left - m.right),
+    h: Math.max(1, design.height - m.top - m.bottom)
+  }
+}
+
+/**
+ * The column rectangles inside the margin box. A text frame dropped on a column
+ * snaps to it, and the guides are drawn from the same numbers, so what you see
+ * and what you snap to can never disagree.
+ */
+export function columnBoxes(design: DesignBody): Array<{ x: number; y: number; w: number; h: number }> {
+  const box = marginBox(design)
+  const grid = design.columns
+  if (!grid || grid.count <= 1) return [box]
+  const total = box.w - grid.gutter * (grid.count - 1)
+  const colW = total / grid.count
+  if (colW <= 0) return [box]
+  return Array.from({ length: grid.count }, (_, i) => ({
+    x: box.x + i * (colW + grid.gutter),
+    y: box.y,
+    w: colW,
+    h: box.h
+  }))
+}
+
+/** Every x/y a drag should snap to: page edges and centre, margins, columns, guides. */
+export function snapTargets(design: DesignBody): { xs: number[]; ys: number[] } {
+  const xs = [0, design.width / 2, design.width]
+  const ys = [0, design.height / 2, design.height]
+  const m = design.margins
+  if (m) {
+    xs.push(m.left, design.width - m.right)
+    ys.push(m.top, design.height - m.bottom)
+  }
+  for (const c of columnBoxes(design)) xs.push(c.x, c.x + c.w)
+  xs.push(...(design.guides?.v ?? []))
+  ys.push(...(design.guides?.h ?? []))
+  return { xs, ys }
+}
+
+/** The base layer every element without an explicit layer belongs to. */
+export const BASE_LAYER_ID = 'base'
+
+export function designLayers(design: DesignBody): DesignLayer[] {
+  const layers = design.layers ?? []
+  if (layers.length) return layers
+  return [{ id: BASE_LAYER_ID, name: 'Layer 1', visible: true, locked: false }]
+}
+
+export function layerOfElement(el: SlideElement): string {
+  return el.layerId ?? BASE_LAYER_ID
+}
+
+/** True when an element's layer is currently visible. */
+export function elementVisible(design: DesignBody, el: SlideElement): boolean {
+  const layer = designLayers(design).find((l) => l.id === layerOfElement(el))
+  return layer ? layer.visible : true
+}
+
+/** True when an element cannot be selected or moved, because its layer is locked. */
+export function elementLocked(design: DesignBody, el: SlideElement): boolean {
+  const layer = designLayers(design).find((l) => l.id === layerOfElement(el))
+  return layer ? layer.locked : false
+}
+
+/**
+ * How the pages of a facing-pages document pair up into spreads. Page 1 stands
+ * alone on the right, as the cover of a bound document does; after that pages
+ * pair left/right. A single-sided document is one page per spread.
+ */
+export function spreadsOf(design: DesignBody): number[][] {
+  const count = pageCountOf(design)
+  if (!design.facing) return Array.from({ length: count }, (_, i) => [i])
+  const out: number[][] = [[0]]
+  for (let i = 1; i < count; i += 2) {
+    out.push(i + 1 < count ? [i, i + 1] : [i])
+  }
+  return out
+}
+
+/** A sensible starting margin for a page size: 5% of the short edge, rounded. */
+export function defaultMargins(width: number, height: number): DesignMargins {
+  const m = Math.round(Math.min(width, height) * 0.075)
+  return { top: m, right: m, bottom: m, left: m }
+}
+
+/** A blank multi-page publication at a given size, set up like a real document. */
+export function blankPublication(size: DesignSize, pages = 1): DesignBody {
+  const background: SlideFill = { type: 'solid', color: '#ffffff' }
+  const list: DesignPage[] = Array.from({ length: Math.max(1, pages) }, (_, i) => ({
+    id: `pg-${i + 1}`,
+    background,
+    elements: []
+  }))
+  return {
+    schemaVersion: 1,
+    width: size.w,
+    height: size.h,
+    background,
+    elements: list[0].elements,
+    pages: list,
+    activePage: 0,
+    category: size.category,
+    margins: defaultMargins(size.w, size.h),
+    columns: { count: 1, gutter: 16 },
+    masters: [{ id: 'master-1', name: 'Master A', elements: [] }],
+    layers: [{ id: BASE_LAYER_ID, name: 'Layer 1', visible: true, locked: false }],
+    guides: { v: [], h: [] },
+    pageNumberStart: 1,
+    editingMasterId: null
   }
 }

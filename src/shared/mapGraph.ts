@@ -1,6 +1,6 @@
 import type { MapBody, MapEdge, MapNode, MapShape } from './types'
 
-// Pure graph helpers for PlexiMaps (the 'map' document type). Kept free of React
+// Pure graph helpers for PlexiDiagrams (the 'map' document type). Kept free of React
 // Flow and Electron so they can run in the renderer editor AND in the main
 // process AI generator, and be unit-tested directly.
 

@@ -135,7 +135,10 @@ export function fileIdFromContent(content: string | null | undefined): string | 
 }
 
 /** Widget kinds whose content is a document id. */
-const DOCUMENT_KINDS = new Set(['doc', 'sheet', 'slides', 'map', 'design'])
+// 'draw' belongs here for the same reason as 'design': a PlexiDraw widget's
+// content IS a document id. Left out, a desk bundle carried the widget without
+// the document behind it, so the drawing arrived empty on the other side.
+const DOCUMENT_KINDS = new Set(['doc', 'sheet', 'slides', 'map', 'design', 'draw'])
 /** Widget kinds whose content points at a stored file. */
 const FILE_KINDS = new Set(['file', 'image', 'video', 'pdf', 'audio'])
 

@@ -6,7 +6,7 @@ import { listKnowledge, createKnowledge } from './db/knowledge'
 import { getFlow, runFlow } from './db/flows'
 import type { ApiScope } from '@shared/apiAccess'
 import { app } from 'electron'
-import { handleMcpBody, liveMcpDeps } from './mcpRecall'
+import { handleWorkspaceMcpBody, liveWorkspaceDeps } from './mcpServer'
 
 // The PlexiAPI local server. A small REST surface over the workspace, bound only
 // to 127.0.0.1 so it is never reachable off the machine, and gated by a bearer
@@ -124,12 +124,13 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   const scopes = authScopes(req)
   if (!scopes) return send(res, 401, { error: 'Missing or invalid bearer token.' })
 
-  // POST /mcp — Recall over MCP (Streamable HTTP, stateless JSON replies).
-  // MCP speaks POST for reads, so this route asks for the READ scope
-  // explicitly instead of riding the method-based write gate below. Every
-  // tool on the surface is read-only by contract (mcpRecall.ts states and
-  // enforces the refusals); auth, loopback and the Origin/rebind guards are
-  // the same ones every PlexiAPI request already passed.
+  // POST /mcp — Plexii over MCP (Streamable HTTP, stateless JSON replies).
+  // MCP speaks POST for reads AND writes, so this route asks for the READ
+  // scope explicitly instead of riding the method-based write gate below,
+  // and hands the token's scopes to the dispatcher: write tools are hidden
+  // from, and refused to, a read-only token (mcpServer.ts / mcpProtocol.ts).
+  // Auth, loopback and the Origin/rebind guards are the same ones every
+  // PlexiAPI request already passed.
   if (path === '/mcp') {
     if (method !== 'POST') return send(res, 405, { error: 'MCP speaks POST here.' })
     if (!scopes.includes('read') && !scopes.includes('write'))
@@ -142,7 +143,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
         error: { code: -32700, message: b.reason === 'too_large' ? 'Request too large.' : 'Parse error.' }
       })
     }
-    const reply = handleMcpBody(b.value, liveMcpDeps(app.getVersion()))
+    const reply = await handleWorkspaceMcpBody(b.value, await liveWorkspaceDeps(app.getVersion()), { scopes })
     if (reply === null) {
       res.writeHead(202)
       res.end()

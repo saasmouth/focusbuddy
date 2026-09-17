@@ -12,6 +12,7 @@ import { simpleParser } from 'mailparser'
 import type { AddressObject } from 'mailparser'
 import type { MailAccountConfig } from './mailAccount'
 import { parseThreadingHeaders } from './threadingHeaders'
+import { parseUnsubscribe } from './unsubscribe'
 import { pageOfUids, uidRange } from './mailPaging'
 
 // Flatten a mailparser address header (a single object or an array of them)
@@ -46,6 +47,12 @@ export interface MailListItem {
   messageId: string | null
   inReplyTo: string | null
   references: string[]
+  /** The sender's own List-Unsubscribe target (RFC 2369), when they published
+   *  one: an https link or a mailto. Null means this sender offered no way to
+   *  unsubscribe — which is a fact worth showing, not a gap to fill in. */
+  unsubscribe: { kind: 'http' | 'mailto'; target: string } | null
+  /** RFC 8058 one-click: the sender accepts an unsubscribe POST. */
+  oneClickUnsubscribe: boolean
 }
 
 export interface MailFullMessage {
@@ -314,7 +321,11 @@ export async function listInbox(
         envelope: true,
         flags: true,
         bodyStructure: true,
-        headers: ['in-reply-to', 'references']
+        // list-unsubscribe (RFC 2369) is fetched here so an "unsubscribe"
+        // suggestion can point at what the SENDER published rather than a link
+        // scraped out of the body. A guessed unsubscribe link is how people end
+        // up confirming an address to a spammer.
+        headers: ['in-reply-to', 'references', 'list-unsubscribe', 'list-unsubscribe-post']
       },
       { uid: true }
     )) {
@@ -332,7 +343,8 @@ export async function listInbox(
         hasAttachments: hasRealAttachment(msg.bodyStructure),
         messageId: msg.envelope?.messageId || null,
         inReplyTo: threading.inReplyTo,
-        references: threading.references
+        references: threading.references,
+        ...parseUnsubscribe(msg.headers)
       })
     }
     // Newest first.
@@ -482,6 +494,150 @@ export async function markSeen(config: MailAccountConfig, uid: number): Promise<
   const lock = await client.getMailboxLock('INBOX')
   try {
     await client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true })
+  } finally {
+    lock.release()
+    releaseWarm()
+  }
+}
+
+// ── Mailboxes and dispositions ───────────────────────────────────────────
+//
+// Everything here MOVES a message; nothing erases one. "Delete" puts a message
+// in Trash and "spam" puts it in Junk, both of which the person can open and
+// undo. Permanent removal (expunge) is deliberately absent: an AI suggestion
+// acted on in bulk is exactly the situation where an irreversible operation
+// costs someone something they cannot get back.
+
+export interface MailboxInfo {
+  path: string
+  name: string
+  /** The IMAP special-use flag, when the server publishes one (\\Sent, \\Junk…). */
+  specialUse: string | null
+  /** True for a folder this app should not file ordinary mail into. */
+  reserved: boolean
+}
+
+const RESERVED = /^(inbox|sent|drafts?|trash|deleted items|junk|spam|archive|all mail|outbox|templates|notes)$/i
+
+/** Every mailbox on the account, with the reserved ones marked. */
+/** Clean a folder name into something safe to hand an IMAP server.
+ *
+ *  Leading or trailing dots and slashes are stripped because on a server whose
+ *  hierarchy separator is '.', a name like '.Receipts' or 'Receipts/' nests the
+ *  folder somewhere the person did not ask for -- and a stray separator is the
+ *  easy typo, not a deliberate choice. Interior separators are left alone: a
+ *  deliberate 'Clients/Dolan' is a legitimate request. */
+export function normalizeMailboxPath(path: string): string {
+  const clean = path.trim().replace(/^[./]+|[./]+$/g, '')
+  if (!clean) throw new Error('A folder needs a name.')
+  return clean
+}
+
+/** Decide which mailbox a special use (Trash, Junk) actually maps to.
+ *
+ *  Kept pure and separate from the I/O because this is the decision that can
+ *  put mail somewhere the person will not find it. Order matters: the server's
+ *  own SPECIAL-USE flag beats a name match, because a localised server calls
+ *  its trash 'Papierkorb' and flags it '\\Trash' -- trusting the name first
+ *  would create an English 'Trash' alongside the real one and quietly split the
+ *  mailbox in two.
+ *
+ *  `needsCreate` is true only when nothing matched, so the caller creates a
+ *  folder solely as a last resort. */
+export function pickSpecialBox(
+  boxes: Array<{ path: string; name: string; specialUse?: string }>,
+  use: string,
+  fallbacks: RegExp,
+  create: string
+): { path: string; needsCreate: boolean } {
+  const special = boxes.find((b) => (b.specialUse ?? '') === use)
+  if (special) return { path: special.path, needsCreate: false }
+  const byName = boxes.find((b) => fallbacks.test(b.name))
+  if (byName) return { path: byName.path, needsCreate: false }
+  return { path: create, needsCreate: true }
+}
+
+export async function listMailboxes(config: MailAccountConfig): Promise<MailboxInfo[]> {
+  const client = await acquireWarm(config)
+  try {
+    const boxes = await client.list()
+    return boxes.map((b) => ({
+      path: b.path,
+      name: b.name,
+      specialUse: b.specialUse ?? null,
+      reserved: Boolean(b.specialUse) || RESERVED.test(b.name)
+    }))
+  } finally {
+    releaseWarm()
+  }
+}
+
+/** Create a mailbox. Returns false when it already exists — which is a fine
+ *  outcome, not a failure, and the caller is told which happened. */
+export async function createMailbox(config: MailAccountConfig, path: string): Promise<{ created: boolean; path: string }> {
+  const clean = normalizeMailboxPath(path)
+  const client = await acquireWarm(config)
+  try {
+    const existing = (await client.list()).find((b) => b.path.toLowerCase() === clean.toLowerCase())
+    if (existing) return { created: false, path: existing.path }
+    await client.mailboxCreate(clean)
+    return { created: true, path: clean }
+  } finally {
+    releaseWarm()
+  }
+}
+
+/** Move a message out of the inbox into `target`. */
+export async function moveMessage(config: MailAccountConfig, uid: number, target: string): Promise<void> {
+  const client = await acquireWarm(config)
+  const lock = await client.getMailboxLock('INBOX')
+  try {
+    await client.messageMove(String(uid), target, { uid: true })
+  } finally {
+    lock.release()
+    releaseWarm()
+  }
+}
+
+/** Find the server's folder for a special use, creating a sensible fallback. */
+async function specialBox(client: ImapFlow, use: string, fallbacks: RegExp, create: string): Promise<string> {
+  let boxes: Array<{ path: string; name: string; specialUse?: string }> = []
+  try {
+    boxes = await client.list()
+  } catch {
+    // Listing failed. pickSpecialBox on an empty list falls through to the
+    // default name, which is the best guess available.
+  }
+  const picked = pickSpecialBox(boxes, use, fallbacks, create)
+  if (picked.needsCreate) await client.mailboxCreate(picked.path).catch(() => undefined)
+  return picked.path
+}
+
+/** Move to Trash. Recoverable by design — nothing here expunges. */
+export async function trashMessage(config: MailAccountConfig, uid: number): Promise<void> {
+  const client = await acquireWarm(config)
+  const target = await specialBox(client, '\\Trash', /^(trash|deleted items|bin)$/i, 'Trash')
+  const lock = await client.getMailboxLock('INBOX')
+  try {
+    await client.messageMove(String(uid), target, { uid: true })
+  } finally {
+    lock.release()
+    releaseWarm()
+  }
+}
+
+/** Move to Junk and flag it, which is what "report spam" means over IMAP.
+ *
+ *  It is worth being plain that this teaches YOUR server, not the sender's
+ *  provider: IMAP has no report-abuse channel, so nothing here notifies anyone
+ *  about the sender. Saying "reported" would overstate what happened. */
+export async function junkMessage(config: MailAccountConfig, uid: number): Promise<void> {
+  const client = await acquireWarm(config)
+  const target = await specialBox(client, '\\Junk', /^(junk|spam|bulk mail)$/i, 'Junk')
+  const lock = await client.getMailboxLock('INBOX')
+  try {
+    await client.messageFlagsAdd(String(uid), ['$Junk'], { uid: true }).catch(() => undefined)
+    await client.messageMove(String(uid), target, { uid: true })
   } finally {
     lock.release()
     releaseWarm()

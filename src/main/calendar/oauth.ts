@@ -36,7 +36,11 @@ const PROVIDERS = {
   google: {
     authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
     tokenUrl: 'https://oauth2.googleapis.com/token',
+    // The read/write events scope rather than calendar.readonly: without it a
+    // push comes back 403 at the moment somebody tries it, which is the worst
+    // time to discover a permission is missing. Reading still works the same.
     scopes: [
+      'https://www.googleapis.com/auth/calendar.events',
       'https://www.googleapis.com/auth/calendar.readonly',
       'https://www.googleapis.com/auth/userinfo.email'
     ],
@@ -45,7 +49,7 @@ const PROVIDERS = {
   microsoft: {
     authUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
     tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-    scopes: ['Calendars.Read', 'offline_access', 'User.Read'],
+    scopes: ['Calendars.ReadWrite', 'offline_access', 'User.Read'],
     extraAuth: {} as Record<string, string>
   }
 } as const

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { ExternalCalendar, ExternalCalendarSyncResult } from '@shared/types'
+import { CALENDAR_COLORS, type ExternalCalendar, type ExternalCalendarSyncResult } from '@shared/types'
 import Icon from '../Icon'
 
 // Adding somebody's Google or Outlook calendar.
@@ -47,6 +47,10 @@ type Api = {
     | { ok: true; calendars: Array<{ id: string; name: string; color?: string; primary?: boolean }> }
     | { ok: false; error: string }
   >
+  // Plexii's own calendars, listed and coloured beside the linked ones.
+  addInternal?: (name: string, color: string | null) => Promise<ExternalCalendar>
+  setDefaultInternal?: (id: string) => Promise<ExternalCalendar[]>
+  pushNow?: (id: string) => Promise<{ ok: boolean; created: number; updated: number; error?: string }>
 }
 
 export default function ExternalCalendarsPanel(): JSX.Element {
@@ -182,6 +186,53 @@ export default function ExternalCalendarsPanel(): JSX.Element {
     await refresh()
   }
 
+  /** Colour is the whole point of the list: it is what tells entries apart. */
+  const setColor = async (id: string, color: string): Promise<void> => {
+    if (!api) return
+    await api.update(id, { color })
+    await refresh()
+  }
+
+  const makeDefault = async (id: string): Promise<void> => {
+    if (!api?.setDefaultInternal) return
+    await api.setDefaultInternal(id)
+    await refresh()
+  }
+
+  /**
+   * Choose where a Plexii calendar writes its blocks. Picking nothing is the
+   * honest default — Plexii keeps its own diary to itself unless told otherwise.
+   */
+  const setPushTarget = async (id: string, targetId: string | null): Promise<void> => {
+    if (!api) return
+    await api.update(id, { pushTargetId: targetId, syncMode: targetId ? 'write' : 'read' })
+    await refresh()
+  }
+
+  const pushNow = async (id: string): Promise<void> => {
+    if (!api?.pushNow) return
+    setBusy(true)
+    try {
+      const res = await api.pushNow(id)
+      setNotice(
+        res.ok
+          ? `Wrote ${res.created} new and updated ${res.updated} on the linked calendar.`
+          : (res.error ?? 'Could not write to the linked calendar.')
+      )
+      await refresh()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const addInternal = async (): Promise<void> => {
+    if (!api?.addInternal) return
+    const used = new Set(calendars?.map((c) => c.color) ?? [])
+    const next = CALENDAR_COLORS.find((c) => !used.has(c)) ?? CALENDAR_COLORS[0]
+    await api.addInternal('New calendar', next)
+    await refresh()
+  }
+
   const remove = async (cal: ExternalCalendar): Promise<void> => {
     if (!api) return
     await api.remove(cal.id)
@@ -274,49 +325,155 @@ export default function ExternalCalendarsPanel(): JSX.Element {
             None yet. Add one above and its events appear on every Plexii calendar.
           </p>
         ) : (
+          <>
+          <button
+            type="button"
+            onClick={() => void addInternal()}
+            data-testid="calendar-add-internal"
+            className="mb-1.5 self-start rounded px-2 py-1 text-[11px] text-[var(--ink-50)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-80)]"
+          >
+            + New Plexii calendar
+          </button>
           <ul className="flex flex-col divide-y divide-[var(--line)] rounded-md border border-[var(--line)]">
-            {calendars.map((c) => (
-              <li key={c.id} className="flex items-center gap-2 px-2 py-2">
-                <button
-                  type="button"
-                  onClick={() => void toggle(c)}
-                  title={c.enabled ? 'Showing — click to hide' : 'Hidden — click to show'}
-                  className={`h-3 w-3 shrink-0 rounded-full border ${
-                    c.enabled ? 'border-transparent' : 'border-[var(--ink-30)] bg-transparent'
-                  }`}
-                  style={c.enabled ? { background: c.color ?? 'var(--accent)' } : undefined}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[12px] text-[var(--ink-90)]">{c.name}</span>
-                  <span className="block truncate text-[10px] text-[var(--ink-45)]">
-                    {c.provider === 'ics' ? 'Feed' : c.provider === 'google' ? 'Google' : 'Outlook'}
-                    {c.lastSyncError
-                      ? ` · ${c.lastSyncError}`
-                      : c.lastSyncAt
-                        ? ` · updated ${new Date(c.lastSyncAt).toLocaleString()}`
-                        : ' · never synced'}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  className="shrink-0 rounded p-1 text-[var(--ink-40)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-80)]"
-                  title="Refresh now"
-                  onClick={() => void syncOne(c.id)}
-                  disabled={busy}
-                >
-                  <Icon name="refresh" size={14} />
-                </button>
-                <button
-                  type="button"
-                  className="shrink-0 rounded p-1 text-[var(--ink-40)] hover:bg-[var(--surface-sunken)] hover:text-rose-500"
-                  title="Remove"
-                  onClick={() => void remove(c)}
-                >
-                  <Icon name="close" size={14} />
-                </button>
-              </li>
-            ))}
+            {calendars.map((c) => {
+              const internal = c.provider === 'internal'
+              const writable = c.provider === 'google' || c.provider === 'microsoft'
+              return (
+                <li key={c.id} className="flex flex-col gap-1.5 px-2 py-2" data-testid={`calendar-row-${c.id}`}>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void toggle(c)}
+                      title={c.enabled ? 'Showing — click to hide' : 'Hidden — click to show'}
+                      className={`h-3 w-3 shrink-0 rounded-full border ${
+                        c.enabled ? 'border-transparent' : 'border-[var(--ink-30)] bg-transparent'
+                      }`}
+                      style={c.enabled ? { background: c.color ?? 'var(--accent)' } : undefined}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[12px] text-[var(--ink-90)]">
+                        {c.name}
+                        {internal && c.isDefault && (
+                          <span className="ml-1 text-[10px] text-[var(--ink-45)]">· default</span>
+                        )}
+                      </span>
+                      <span className="block truncate text-[10px] text-[var(--ink-45)]">
+                        {internal
+                          ? 'Plexii'
+                          : c.provider === 'ics'
+                            ? 'Feed'
+                            : c.provider === 'google'
+                              ? 'Google'
+                              : 'Outlook'}
+                        {c.lastSyncError
+                          ? ` · ${c.lastSyncError}`
+                          : c.lastSyncAt
+                            ? ` · updated ${new Date(c.lastSyncAt).toLocaleString()}`
+                            : internal
+                              ? ''
+                              : ' · never synced'}
+                      </span>
+                    </span>
+                    {!internal && (
+                      <button
+                        type="button"
+                        className="shrink-0 rounded p-1 text-[var(--ink-40)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-80)]"
+                        title="Refresh now"
+                        onClick={() => void syncOne(c.id)}
+                        disabled={busy}
+                      >
+                        <Icon name="refresh" size={14} />
+                      </button>
+                    )}
+                    {internal && !c.isDefault && (
+                      <button
+                        type="button"
+                        className="shrink-0 rounded px-1.5 py-1 text-[10px] text-[var(--ink-45)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-80)]"
+                        title="New blocks land on this calendar"
+                        data-testid={`calendar-make-default-${c.id}`}
+                        onClick={() => void makeDefault(c.id)}
+                      >
+                        Make default
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="shrink-0 rounded p-1 text-[var(--ink-40)] hover:bg-[var(--surface-sunken)] hover:text-rose-500"
+                      title={internal && c.isDefault ? 'The default calendar cannot be removed' : 'Remove'}
+                      onClick={() => void remove(c)}
+                      disabled={internal && c.isDefault}
+                    >
+                      <Icon name="close" size={14} />
+                    </button>
+                  </div>
+
+                  {/* Colour: the whole point is telling entries apart at a glance. */}
+                  <div className="flex items-center gap-1 pl-5" data-testid={`calendar-colors-${c.id}`}>
+                    {CALENDAR_COLORS.map((hex) => (
+                      <button
+                        key={hex}
+                        type="button"
+                        title={`Colour this calendar ${hex}`}
+                        aria-label={`Colour ${c.name} ${hex}`}
+                        aria-pressed={(c.color ?? '') === hex}
+                        data-testid={`calendar-color-${c.id}-${hex.slice(1)}`}
+                        onClick={() => void setColor(c.id, hex)}
+                        className={`h-4 w-4 rounded-full transition-transform ${
+                          (c.color ?? '') === hex ? 'ring-2 ring-offset-1 ring-[var(--ink-60)] ring-offset-[var(--surface)]' : 'hover:scale-110'
+                        }`}
+                        style={{ background: hex }}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Direction. A feed is read-only by protocol, so it says so
+                      instead of offering a switch that could not work. */}
+                  <div className="flex items-center gap-2 pl-5 text-[10px] text-[var(--ink-45)]">
+                    {c.provider === 'ics' ? (
+                      <span>One-way: a published feed cannot be written back to.</span>
+                    ) : internal ? (
+                      <>
+                        <span className="shrink-0">Write out to</span>
+                        <select
+                          value={c.syncMode === 'write' && c.pushTargetId ? c.pushTargetId : ''}
+                          data-testid={`calendar-push-target-${c.id}`}
+                          onChange={(e) => void setPushTarget(c.id, e.target.value || null)}
+                          className="fb-field min-w-0 flex-1 px-1 py-0.5 text-[11px]"
+                        >
+                          <option value="">Keep in Plexii</option>
+                          {calendars
+                            .filter((t) => t.provider === 'google' || t.provider === 'microsoft')
+                            .map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.name}
+                              </option>
+                            ))}
+                        </select>
+                        {c.syncMode === 'write' && c.pushTargetId && (
+                          <button
+                            type="button"
+                            onClick={() => void pushNow(c.id)}
+                            disabled={busy}
+                            data-testid={`calendar-push-now-${c.id}`}
+                            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-[var(--ink-50)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-80)]"
+                          >
+                            Write now
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <span>
+                        {writable
+                          ? 'Two-way: events here are read, and Plexii blocks can be written back.'
+                          : 'One-way.'}
+                      </span>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
           </ul>
+          </>
         )}
       </section>
 

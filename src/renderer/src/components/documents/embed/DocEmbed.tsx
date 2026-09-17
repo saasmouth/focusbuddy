@@ -14,14 +14,16 @@ const TYPE_ICON: Record<DocType, string> = {
   sheet: 'table_chart',
   slides: 'slideshow',
   map: 'account_tree',
-  design: 'palette'
+  design: 'palette',
+  draw: 'brush'
 }
 const TYPE_LABEL: Record<DocType, string> = {
   doc: 'Document',
   sheet: 'Spreadsheet',
   slides: 'Slides',
-  map: 'Map',
-  design: 'Design'
+  map: 'Diagram',
+  design: 'Design',
+  draw: 'Artwork'
 }
 
 export default function DocEmbed({ documentId }: { documentId: string }): JSX.Element {

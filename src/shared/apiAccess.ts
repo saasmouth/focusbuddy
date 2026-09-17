@@ -44,8 +44,13 @@ export const API_ENDPOINTS: ApiEndpointDoc[] = [
   { method: 'POST', path: '/api/tables/:id/rows', scope: 'write', summary: 'Add a row. Body: { "cells": { ... } }.' },
   { method: 'GET', path: '/api/knowledge', scope: 'read', summary: 'List knowledge entries.' },
   { method: 'POST', path: '/api/knowledge', scope: 'write', summary: 'Create a knowledge entry. Body: { "title": "...", "body": "..." }.' },
-  // Recall over MCP: point any MCP client (Claude Code, Claude Desktop) at
-  // this endpoint with a read token. Read-only tools: recall_search,
-  // recall_meeting, recall_recent_meetings — attributed answers, never audio.
-  { method: 'POST', path: '/mcp', scope: 'read', summary: 'MCP endpoint — search meeting transcripts from AI tools (read-only).' }
+  // Plexii over MCP: point any MCP client (Claude Code directly; Claude
+  // Desktop via the stdio bridge in tools/plexii-mcp-bridge) at this endpoint.
+  // A read token gets search + read tools over desks, work items, documents,
+  // tables, knowledge, calendar, flows and meeting Recall. A write token adds
+  // create tools (work items, desks, knowledge, documents, table rows, time
+  // blocks) and run-flow for WORKSPACE-INTERNAL flows only — a flow carrying
+  // send-email or http-request is refused, so nothing on this surface deletes,
+  // sends, or reaches off the machine. See docs/MCP.md.
+  { method: 'POST', path: '/mcp', scope: 'read', summary: 'MCP endpoint — search, read and (write token) add to the workspace from AI tools.' }
 ]

@@ -100,19 +100,25 @@ export function settingsNamespace(): Record<string, unknown> {
      * through the same proxy the app uses, so a pass here means the real path
      * works rather than that the string looked plausible.
      */
+    // Cheapest current model: this is a max_tokens:1 liveness ping, so the model
+    // only has to exist and accept the key. Mirrors what the desktop app's
+    // settings:testAnthropicKey uses. (src/web cannot import from src/main, so
+    // the id is repeated here; src/main/ai/modelRouting.ts is the source of
+    // truth for every model id the product actually runs on.)
     testAnthropicKey: async (): Promise<{ ok: boolean; model?: string; error?: string }> => {
+      const PING_MODEL = 'claude-haiku-4-5'
       try {
         const res = await fetch(`${base()}/ai/anthropic/v1/messages`, {
           method: 'POST',
           headers: { ...authHeaders(), 'content-type': 'application/json' },
           body: JSON.stringify({
-            model: 'claude-sonnet-4-6',
+            model: PING_MODEL,
             max_tokens: 1,
             messages: [{ role: 'user', content: 'hi' }]
           })
         })
         const body = (await res.json().catch(() => null)) as Record<string, unknown> | null
-        if (res.ok) return { ok: true, model: String(body?.model ?? 'claude-sonnet-4-6') }
+        if (res.ok) return { ok: true, model: String(body?.model ?? PING_MODEL) }
         const err = (body?.error ?? {}) as { message?: string }
         return { ok: false, error: err.message ?? `The provider refused the key (${res.status}).` }
       } catch {

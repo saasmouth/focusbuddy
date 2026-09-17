@@ -17,7 +17,7 @@
 // Office document kinds, from the DocType union in shared/types. Listed rather
 // than imported as a type-level check because docType arrives as a plain string
 // and this has to make a runtime decision about an unvalidated value.
-const DOCUMENT_TYPES = new Set(['doc', 'sheet', 'slides', 'map', 'design'])
+const DOCUMENT_TYPES = new Set(['doc', 'sheet', 'slides', 'map', 'design', 'draw'])
 
 // Widget kinds the chunk index retrieves (A2, #16). Like 'note', each docId is
 // the widget's own id; the desk it sits on needs a lookup by the caller.

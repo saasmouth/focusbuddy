@@ -1486,6 +1486,7 @@ export type AIPurpose =
   | 'doc_rewrite'
   | 'tone_profile'
   | 'email_reply_draft'
+  | 'mail_triage'
   | 'file_tag'
   | 'meeting_end'
   | 'agent_step'
@@ -2137,6 +2138,16 @@ export interface MailListItem {
   messageId: string | null
   inReplyTo: string | null
   references: string[]
+  /** The sender's own List-Unsubscribe target (RFC 2369), when they published
+   *  one: an https link or a mailto. Null means this sender offered no way to
+   *  unsubscribe -- a fact worth showing, not a gap to go looking in the body
+   *  to fill, since a guessed opt-out link is how an address gets confirmed to
+   *  a spammer. Carried on the list item because triage needs it for every
+   *  message at once, and refetching headers per message to learn it would cost
+   *  a round trip each. */
+  unsubscribe: { kind: 'http' | 'mailto'; target: string } | null
+  /** RFC 8058 one-click: the sender accepts an unsubscribe POST. */
+  oneClickUnsubscribe: boolean
 }
 
 // ── Mail folders ─────────────────────────────────────────────────────────────

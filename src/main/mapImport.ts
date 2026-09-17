@@ -1,4 +1,4 @@
-// Visio (.vsdx) import for PlexiDraw. A .vsdx is an OOXML zip whose pages live
+// Visio (.vsdx) import for PlexiDiagrams. A .vsdx is an OOXML zip whose pages live
 // in visio/pages/pageN.xml as ShapeSheet XML. We extract each page's 2-D shapes
 // (position, size, text) as MapNodes and its connectors (the <Connect> rows that
 // wire connector shapes to endpoints) as MapEdges, mapping shape masters to our

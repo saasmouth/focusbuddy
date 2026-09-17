@@ -84,12 +84,14 @@ export function renderWidgetInline(w: Widget): JSX.Element | null {
       return <CardWidget widget={w} inline />
     case 'custom-block':
       return <CustomBlockWidget widget={w} inline />
-    // Office documents + PlexiMaps — full editors, backed by fb_documents.
+    // Office documents, PlexiDiagrams and PlexiDraw — full editors, backed by
+    // fb_documents.
     case 'doc':
     case 'sheet':
     case 'slides':
     case 'map':
     case 'design':
+    case 'draw':
       return <OfficeDocWidget widget={w} inline />
     case 'diagram':
       return <DiagramWidget widget={w} inline />

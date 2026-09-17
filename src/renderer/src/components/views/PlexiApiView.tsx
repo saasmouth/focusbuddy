@@ -226,14 +226,19 @@ export default function PlexiApiView(): JSX.Element {
             Authenticate with a header: Authorization: Bearer your-token. Example: curl -H "Authorization: Bearer
             plx_..." {baseUrl || 'http://127.0.0.1:8787'}/api/tasks
           </p>
-          {/* Recall over MCP — the G3 round. Read-only by contract. */}
+          {/* Plexii over MCP — search/read with any token, add with a write token. */}
           <p className="mt-2 text-[11.5px] text-[var(--ink-50)]" data-testid="mcp-howto">
-            AI tools can search your meeting transcripts over MCP (read-only — attributed lines, never audio).
-            Point an MCP client at {baseUrl || 'http://127.0.0.1:8787'}/mcp with a read token, e.g.:{' '}
+            AI tools can work in your workspace over MCP: search and read desks, work items, documents, tables,
+            knowledge, the calendar and meeting transcripts with any token; a write token also lets them add work
+            items, desks, knowledge, documents, table rows and time blocks, and run flows that stay inside your
+            workspace. Nothing deletes, and nothing sends or calls out — a flow that emails or hits an external URL
+            is refused over MCP. Claude Code connects directly:{' '}
             <code className="text-[var(--ink-70)]">
-              claude mcp add --transport http plexii-recall {baseUrl || 'http://127.0.0.1:8787'}/mcp --header
+              claude mcp add --transport http plexii {baseUrl || 'http://127.0.0.1:8787'}/mcp --header
               "Authorization: Bearer plx_..."
             </code>
+            . Claude Desktop needs the Plexii bridge extension (tools/plexii-mcp-bridge in the repo) with the same URL
+            and token.
           </p>
         </div>
       </div>

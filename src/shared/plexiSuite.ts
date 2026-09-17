@@ -125,21 +125,58 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
     launch: 'documents'
   },
   {
+    key: 'plexidiagrams',
+    name: 'PlexiDiagrams',
+    group: 'office',
+    tagline: 'Flowcharts, org charts, processes and systems.',
+    status: 'ready',
+    icon: 'account_tree',
+    accent: '#8b5cf6',
+    about:
+      'Structured diagramming: flowcharts, process maps, org charts, swimlanes and system diagrams, built from a real stencil library and joined with connectors that stay attached when you move things.',
+    edges: [
+      'A proper stencil set with connectors that route and re-route themselves.',
+      'Diagrams connect to live data and tools, not just static boxes.',
+      'Opens and saves Visio .vsdx, so nobody is locked out.'
+    ],
+    insteadOf: 'Visio / Lucidchart',
+    launch: 'documents'
+  },
+  {
+    key: 'plexidesign',
+    name: 'PlexiDesign',
+    group: 'office',
+    tagline: 'Page layout, from a flyer to a forty-page brochure.',
+    status: 'ready',
+    icon: 'article_shortcut',
+    accent: '#d946ef',
+    about:
+      'A free-form page designer: place anything anywhere, thread a story through linked text frames, lay pages out on master pages with real margins, columns and guides, and send the result to print with bleed and crop marks.',
+    edges: [
+      'Master pages, threaded text frames and automatic page numbers — the layout tools a word processor has never had.',
+      'Text wraps around objects, and rulers, guides and column grids keep a multi-page document consistent.',
+      'Print-ready PDF with bleed and crop marks, not just "save as PDF".'
+    ],
+    insteadOf: 'Microsoft Publisher / Adobe InDesign',
+    launch: 'design'
+  },
+  {
     key: 'plexidraw',
     name: 'PlexiDraw',
     group: 'office',
-    tagline: 'Draw ideas, flows, diagrams and systems.',
+    tagline: 'Vector and painting in one studio.',
     status: 'ready',
-    icon: 'draw',
+    icon: 'brush',
     accent: '#ec4899',
-    about: 'Sketch freehand, drop vector shapes, or build structured flowcharts and diagrams, all on the same canvas as the rest of your work.',
+    about:
+      'Draw bezier paths with a real pen tool, combine them with pathfinder booleans, and paint on pixel layers with brushes, blend modes and a paint bucket — vector and raster in one document, one layer stack, one export.',
     edges: [
-      'Freehand ink, vector shapes and node diagrams in one place.',
-      'Diagrams connect to live data and tools, not just static boxes.',
-      'No separate Visio or Lucid licence.'
+      'Pen tool, editable anchors and Unite/Minus/Intersect/Exclude, like a proper vector editor.',
+      'Painted layers sit in the same stack as vector layers, with blend modes and per-layer opacity on both.',
+      'Exports true SVG as well as PNG and PDF — no two subscriptions to do one job.'
     ],
-    insteadOf: 'Visio / Lucidchart',
-    launch: 'canvas'
+    insteadOf: 'Adobe Illustrator / Photoshop',
+    launch: 'draw'
   },
   {
     key: 'plexiforms',

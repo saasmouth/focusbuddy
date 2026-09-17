@@ -6,7 +6,7 @@ import { useViewStore } from '../../stores/view'
 import { useMessagingStore } from '../../stores/messaging'
 import { useAccountStore } from '../../stores/account'
 import { personDisplayName } from '../../lib/personName'
-import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor } from '@office'
+import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor, DrawStudio } from '@office'
 import { promptText } from '../plexi/PromptDialog'
 import Icon from '../Icon'
 import DocFiledInChip from '../DocFiledInChip'
@@ -157,7 +157,9 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
           ? 'Slides'
           : active.docType === 'design'
             ? 'Design'
-            : 'Map'
+            : active.docType === 'draw'
+              ? 'Artwork'
+              : 'Diagram'
   const typeIcon =
     active.docType === 'doc'
       ? 'description'
@@ -167,7 +169,9 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
           ? 'slideshow'
           : active.docType === 'design'
             ? 'palette'
-            : 'account_tree'
+            : active.docType === 'draw'
+              ? 'brush'
+              : 'account_tree'
 
   return (
     <div className="h-full flex flex-col desk-paper no-tod">
@@ -258,6 +262,9 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
         )}
         {active.docType === 'design' && (
           <DesignEditor key={active.id} content={active.body} title={active.title} onChange={(b) => saveBody(b)} />
+        )}
+        {active.docType === 'draw' && (
+          <DrawStudio key={active.id} content={active.body} title={active.title} onChange={(b) => saveBody(b)} />
         )}
       </div>
       {shareOpen && (

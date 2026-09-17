@@ -45,9 +45,37 @@ function buildTypeIndex() {
   return typeIndex
 }
 
+// Collapse every brace group to `{}` so the tests below can only ever see the
+// parameter's OWN punctuation, never punctuation belonging to members inside an
+// inline object type. Repeated until stable, so nested objects flatten too.
+function stripBraceGroups(t) {
+  let prev
+  let out = t
+  do {
+    prev = out
+    out = out.replace(/\{[^{}]*\}/g, '{}')
+  } while (out !== prev)
+  return out
+}
+
 function specOf(param) {
-  const optional = /\?\s*:/.test(param) || /=/.test(param)
-  const t = (param.split(':').slice(1).join(':') || '').replace(/=.*$/, '').trim()
+  // Optionality belongs to the PARAMETER, which is the part before the first
+  // colon. Reading it from the whole string meant `input: { a?: string }` -- a
+  // REQUIRED argument whose type merely has an optional member -- was recorded as
+  // optional, and since a channel is only registered when it has at least one
+  // enforceable non-optional argument, the channel was dropped from the registry
+  // altogether. That silently un-validated 32 handlers, among them agents:invoke,
+  // chat:sendStream and files:ingestBuffer: precisely the object-taking handlers
+  // this registry exists to cover.
+  const colon = param.indexOf(':')
+  const namePart = (colon === -1 ? param : param.slice(0, colon)).trim()
+  const rawType = colon === -1 ? '' : param.slice(colon + 1).trim()
+  // `probe` is the type with inline object bodies blanked out. For any type
+  // without braces it is identical to the type itself, so this changes nothing
+  // for the primitives and named types that already derived correctly.
+  const probe = stripBraceGroups(rawType)
+  const optional = namePart.endsWith('?') || /=/.test(probe)
+  const t = probe.replace(/=.*$/, '').trim()
   const nullable = /\|\s*null/.test(t) || /\|\s*undefined/.test(t)
   const base = t.replace(/\|\s*(null|undefined)/g, '').trim()
   let kind = 'any'

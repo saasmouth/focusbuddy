@@ -37,6 +37,7 @@ import { MINDMAP_TASK_SCOPE_NOTE } from './vocabulary'
 import { getModelClient } from './modelClient'
 import { resolveAnthropicKey } from '../settingsStore'
 import { findAgentsDirectory } from '../workspaceResolver'
+import { MODEL_HAIKU, MODEL_SONNET } from './modelRouting'
 
 export type MindMapNodeKind = 'idea' | 'task' | 'question' | 'tool' | 'agent'
 
@@ -112,7 +113,7 @@ export async function expandMindMapNode(input: {
 
   try {
     const resp = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: MODEL_SONNET,
       // Generous so a rich node can return many high-quality branches without
       // being truncated mid-array (the count is decided by the idea, not a quota).
       max_tokens: 2048,
@@ -290,7 +291,7 @@ export async function suggestAgentsForNode(input: {
 
   try {
     const resp = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001', // cheap, 33-agent list × short rationale fits easily
+      model: MODEL_HAIKU, // cheap, 33-agent list × short rationale fits easily
       max_tokens: 512,
       system: SYSTEM,
       messages: [{ role: 'user', content: userMsg }]

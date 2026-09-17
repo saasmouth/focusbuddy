@@ -18,19 +18,29 @@
 //   - No audio: bytes never leave the machine (CR-11/CR-13); MCP gets text.
 //   - No reach: loopback only, token required — both inherited, both real.
 //
-// The protocol layer is hand-rolled JSON-RPC 2.0 (initialize, ping,
-// tools/list, tools/call, notifications) — the full SDK would be a
-// dependency for three read-only tools. Stateless by design: the spec lets
-// a Streamable HTTP server skip session ids, and every reply is plain JSON.
+// The protocol layer lives in mcpProtocol.ts (hand-rolled JSON-RPC 2.0,
+// shared with the workspace surface in mcpServer.ts). Stateless by design:
+// the spec lets a Streamable HTTP server skip session ids, and every reply
+// is plain JSON. This module owns only the three Recall tools.
 
 import { searchMeetingSegments, attributedLine } from './segmentRecall'
 import { getMeeting, listMeetings } from './db/meetings'
 import { listTranscriptSegments } from './db/transcripts'
 
-// Protocol versions we can honestly speak. The client's offer is echoed when
-// known; otherwise we answer with our newest and let the client decide.
-const KNOWN_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05']
-const DEFAULT_VERSION = '2025-03-26'
+import {
+  dispatchMcpBody,
+  dispatchMcpMessage,
+  text,
+  toolError,
+  num,
+  str,
+  type McpCaller,
+  type McpServerSpec,
+  type McpToolDef,
+  type McpToolResult,
+  type RpcMessage,
+  type RpcReply
+} from './mcpProtocol'
 
 export interface McpDeps {
   searchSegments: typeof searchMeetingSegments
@@ -40,16 +50,56 @@ export interface McpDeps {
   serverVersion: string
 }
 
-interface RpcMessage {
-  jsonrpc?: string
-  id?: number | string | null
-  method?: string
-  params?: Record<string, unknown>
+const TRANSCRIPT_CHAR_CAP = 24_000
+
+// Every Recall tool is read-only by contract; the annotations say so to the
+// host and `scope: 'read'` says so to the dispatcher.
+const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+
+function recallSearch(args: Record<string, unknown>, deps: McpDeps): McpToolResult {
+  const query = str(args.query)
+  if (!query) return toolError('recall_search needs a query.')
+  const limit = num(args.limit, 12, 1, 50)
+  const hits = deps.searchSegments(query, limit)
+  if (hits.length === 0) return text('No spoken lines match that query — an honest zero, not a failure.')
+  const lines = hits.map((h) => `${attributedLine(h)}\n    — in “${h.meetingTitle}” (meetingId: ${h.meetingId})`)
+  return text(lines.join('\n'))
 }
 
-type RpcReply = Record<string, unknown> | null
+function recallMeeting(args: Record<string, unknown>, deps: McpDeps): McpToolResult {
+  const id = str(args.meetingId)
+  const m = id ? deps.getMeeting(id) : null
+  if (!m) return toolError('No meeting with that id.')
+  const segs = deps.listSegments(m.id)
+  let transcript = segs.map((s) => attributedLine(s)).join('\n')
+  let truncated = false
+  if (transcript.length > TRANSCRIPT_CHAR_CAP) {
+    transcript = transcript.slice(0, TRANSCRIPT_CHAR_CAP)
+    truncated = true
+  }
+  const parts = [
+    `# ${m.title}`,
+    `Date: ${new Date(m.createdAt).toISOString()}`,
+    m.summary ? `\n## Summary\n${m.summary}` : '',
+    m.actionItems.length ? `\n## Action items\n${m.actionItems.map((a) => `- ${a}`).join('\n')}` : '',
+    segs.length
+      ? `\n## Transcript (attributed)\n${transcript}${truncated ? '\n[… truncated — the full transcript lives in Plexii]' : ''}`
+      : '\n(No attributed transcript for this meeting.)'
+  ]
+  return text(parts.filter(Boolean).join('\n'))
+}
 
-const TOOLS = [
+function recallRecentMeetings(args: Record<string, unknown>, deps: McpDeps): McpToolResult {
+  const limit = num(args.limit, 20, 1, 100)
+  const rows = deps.listMeetings().slice(0, limit)
+  if (rows.length === 0) return text('No meetings recorded yet.')
+  return text(
+    rows.map((m) => `${m.id} · ${m.title} · ${new Date(m.createdAt).toISOString().slice(0, 10)}`).join('\n')
+  )
+}
+
+/** The three Recall tools, as a group any composed server can mount. */
+export const RECALL_TOOLS: McpToolDef<McpDeps>[] = [
   {
     name: 'recall_search',
     description:
@@ -62,7 +112,10 @@ const TOOLS = [
         limit: { type: 'number', description: 'Max hits (default 12).' }
       },
       required: ['query']
-    }
+    },
+    annotations: { title: 'Search meeting transcripts', ...READ_ONLY },
+    scope: 'read',
+    run: recallSearch
   },
   {
     name: 'recall_meeting',
@@ -74,7 +127,10 @@ const TOOLS = [
         meetingId: { type: 'string', description: 'The meeting id (from recall_search or recall_recent_meetings).' }
       },
       required: ['meetingId']
-    }
+    },
+    annotations: { title: 'Read a meeting', ...READ_ONLY },
+    scope: 'read',
+    run: recallMeeting
   },
   {
     name: 'recall_recent_meetings',
@@ -82,117 +138,31 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: { limit: { type: 'number', description: 'Max meetings (default 20).' } }
-    }
+    },
+    annotations: { title: 'List recent meetings', ...READ_ONLY },
+    scope: 'read',
+    run: recallRecentMeetings
   }
 ]
 
-function text(s: string): { content: Array<{ type: 'text'; text: string }> } {
-  return { content: [{ type: 'text', text: s }] }
+/** Recall as a standalone server: the shape shipped in G3, kept so the
+ *  read-only contract has its own name and its own tests. The live /mcp route
+ *  mounts these same tools inside the workspace server (mcpServer.ts). */
+export function recallServerSpec(serverVersion: string): McpServerSpec<McpDeps> {
+  return { name: 'plexii-recall', version: serverVersion, tools: RECALL_TOOLS }
 }
 
-function toolError(s: string): Record<string, unknown> {
-  return { ...text(s), isError: true }
-}
-
-const TRANSCRIPT_CHAR_CAP = 24_000
-
-function runTool(name: string, args: Record<string, unknown>, deps: McpDeps): Record<string, unknown> {
-  if (name === 'recall_search') {
-    const query = String(args.query ?? '').trim()
-    if (!query) return toolError('recall_search needs a query.')
-    const limit = typeof args.limit === 'number' ? Math.min(Math.max(1, args.limit), 50) : 12
-    const hits = deps.searchSegments(query, limit)
-    if (hits.length === 0) return text('No spoken lines match that query — an honest zero, not a failure.')
-    const lines = hits.map(
-      (h) =>
-        `${attributedLine(h)}\n    — in “${h.meetingTitle}” (meetingId: ${h.meetingId})`
-    )
-    return text(lines.join('\n'))
-  }
-  if (name === 'recall_meeting') {
-    const id = String(args.meetingId ?? '').trim()
-    const m = id ? deps.getMeeting(id) : null
-    if (!m) return toolError('No meeting with that id.')
-    const segs = deps.listSegments(m.id)
-    let transcript = segs.map((s) => attributedLine(s)).join('\n')
-    let truncated = false
-    if (transcript.length > TRANSCRIPT_CHAR_CAP) {
-      transcript = transcript.slice(0, TRANSCRIPT_CHAR_CAP)
-      truncated = true
-    }
-    const parts = [
-      `# ${m.title}`,
-      `Date: ${new Date(m.createdAt).toISOString()}`,
-      m.summary ? `\n## Summary\n${m.summary}` : '',
-      m.actionItems.length ? `\n## Action items\n${m.actionItems.map((a) => `- ${a}`).join('\n')}` : '',
-      segs.length
-        ? `\n## Transcript (attributed)\n${transcript}${truncated ? '\n[… truncated — the full transcript lives in Plexii]' : ''}`
-        : '\n(No attributed transcript for this meeting.)'
-    ]
-    return text(parts.filter(Boolean).join('\n'))
-  }
-  if (name === 'recall_recent_meetings') {
-    const limit = typeof args.limit === 'number' ? Math.min(Math.max(1, args.limit), 100) : 20
-    const rows = deps.listMeetings().slice(0, limit)
-    if (rows.length === 0) return text('No meetings recorded yet.')
-    return text(
-      rows
-        .map((m) => `${m.id} · ${m.title} · ${new Date(m.createdAt).toISOString().slice(0, 10)}`)
-        .join('\n')
-    )
-  }
-  return toolError(`Unknown tool: ${name}`)
-}
+const READ_CALLER: McpCaller = { scopes: ['read'] }
 
 /** One JSON-RPC message in, one reply out (null = notification, no body). */
-export function handleMcpMessage(msg: RpcMessage, deps: McpDeps): RpcReply {
-  const id = msg.id ?? null
-  const reply = (result: unknown): RpcReply => ({ jsonrpc: '2.0', id, result })
-  const fail = (code: number, message: string): RpcReply => ({ jsonrpc: '2.0', id, error: { code, message } })
-
-  if (msg.jsonrpc !== '2.0' || typeof msg.method !== 'string') {
-    return fail(-32600, 'Invalid JSON-RPC 2.0 request.')
-  }
-  // Notifications carry no id and get no reply body.
-  if (msg.method.startsWith('notifications/')) return null
-
-  switch (msg.method) {
-    case 'initialize': {
-      const offered = String((msg.params?.protocolVersion as string) ?? '')
-      return reply({
-        protocolVersion: KNOWN_VERSIONS.includes(offered) ? offered : DEFAULT_VERSION,
-        capabilities: { tools: {} },
-        serverInfo: { name: 'plexii-recall', version: deps.serverVersion }
-      })
-    }
-    case 'ping':
-      return reply({})
-    case 'tools/list':
-      return reply({ tools: TOOLS })
-    case 'tools/call': {
-      const name = String(msg.params?.name ?? '')
-      const args = (msg.params?.arguments ?? {}) as Record<string, unknown>
-      try {
-        return reply(runTool(name, args, deps))
-      } catch (err) {
-        return reply(toolError(`Tool failed: ${err instanceof Error ? err.message : 'unknown error'}`))
-      }
-    }
-    default:
-      return fail(-32601, `Method not found: ${msg.method}`)
-  }
+export function handleMcpMessage(msg: RpcMessage, deps: McpDeps): Promise<RpcReply> {
+  return dispatchMcpMessage(msg, recallServerSpec(deps.serverVersion), deps, READ_CALLER)
 }
 
-/** The HTTP body handler the PlexiAPI route calls: single message or (older
- *  clients) a batch array. Returns null when nothing needs a body (202). */
-export function handleMcpBody(body: unknown, deps: McpDeps): RpcReply | RpcReply[] {
-  if (Array.isArray(body)) {
-    const replies = body
-      .map((m) => handleMcpMessage((m ?? {}) as RpcMessage, deps))
-      .filter((r): r is Record<string, unknown> => r !== null)
-    return replies.length ? replies : null
-  }
-  return handleMcpMessage((body ?? {}) as RpcMessage, deps)
+/** The HTTP body handler: single message or (older clients) a batch array.
+ *  Returns null when nothing needs a body (202). */
+export function handleMcpBody(body: unknown, deps: McpDeps): Promise<RpcReply | RpcReply[]> {
+  return dispatchMcpBody(body, recallServerSpec(deps.serverVersion), deps, READ_CALLER)
 }
 
 /** Real-store deps for the live route. */

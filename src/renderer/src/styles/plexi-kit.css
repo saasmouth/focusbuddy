@@ -1,0 +1,352 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   PLEXI KIT — the control layer
+   Append to globals.css after the existing @layer components block.
+
+   Everything below is token-driven and theme-agnostic, and follows the four
+   ratified rules: hairlines are alpha and never opaque grey (R1.5), borders are
+   the last resort (R5.4), everything pushable dips (R6.2), hover arrives fast
+   and leaves a beat slower (R6.3).
+
+   Target is Electron 33 / Chromium 130, so the modern primitives below are all
+   available without a polyfill. The two that are not are marked @supports.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Animatable custom properties ────────────────────────────────────────────
+   A bare custom property cannot be transitioned — the browser has no idea it
+   holds a number. Registering it makes shadow spread, ring width and progress
+   animate on the compositor instead of stepping. */
+@property --plx-ring {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --plx-fill {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+@layer components {
+  /* ── Focus: one ring, everywhere ───────────────────────────────────────────
+     Concentric with the element's own radius, drawn in shadow so it never
+     shifts layout and never needs `outline-none`. R6.4. */
+  .plx-focus {
+    outline: none;
+  }
+  .plx-focus:focus-visible {
+    --plx-ring: 3.5px;
+    box-shadow:
+      0 0 0 1px rgb(var(--accent)),
+      0 0 0 var(--plx-ring) rgb(var(--accent) / 0.3);
+    transition: --plx-ring var(--dur-quick) var(--ease-spring-soft);
+  }
+
+  /* ── Press: the universal dip ──────────────────────────────────────────── */
+  .plx-press {
+    transition:
+      transform var(--dur-quick) var(--ease-spring-crisp),
+      box-shadow var(--dur-base) var(--ease-spring-crisp),
+      background-color var(--dur-base) var(--ease-spring-crisp);
+  }
+  /* R6.3: in fast, out slow. The :hover rule carries the entry duration. */
+  .plx-press:hover {
+    transition-duration: var(--dur-instant), var(--dur-quick), var(--dur-quick);
+  }
+  .plx-press:active {
+    transform: scale(0.972);
+    transition-duration: var(--dur-instant);
+  }
+
+  /* ── Field ─────────────────────────────────────────────────────────────────
+     No width — a field in a toolbar row carries its own. The textarea variant
+     grows with its content instead of scrolling inside a fixed box, which is
+     the single biggest quality-of-life win available to the composer. */
+  .plx-field {
+    background: var(--surface-sunken);
+    border: 0;
+    border-radius: var(--radius-field);
+    box-shadow: 0 0 0 1px var(--edge-hairline);
+    color: var(--ink-100);
+    transition: box-shadow var(--dur-quick) var(--ease-spring-crisp);
+  }
+  .plx-field::placeholder { color: var(--ink-50); }
+  .plx-field:hover { box-shadow: 0 0 0 1px var(--edge-soft); }
+  .plx-field:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 1px rgb(var(--accent) / 0.55),
+      0 0 0 4px rgb(var(--accent) / 0.14);
+  }
+  .plx-field:disabled { color: var(--ink-50); cursor: not-allowed; }
+
+  textarea.plx-field {
+    field-sizing: content;
+    min-height: 2lh;
+    max-height: 14lh;
+    resize: none;
+  }
+  @supports not (field-sizing: content) {
+    textarea.plx-field { min-height: 4lh; resize: vertical; }
+  }
+
+  /* ── Card that knows when something inside it is focused ───────────────────
+     :has() replaces the usual onFocus/onBlur state a component would otherwise
+     carry in React just to draw a border. */
+  .plx-card {
+    background: var(--surface-raised);
+    border-radius: var(--radius-card);
+    box-shadow:
+      0 0 0 1px var(--edge-hairline),
+      var(--shadow-soft),
+      var(--shadow-inset-highlight);
+    transition: box-shadow var(--dur-base) var(--ease-spring-crisp);
+  }
+  .plx-card:has(:focus-visible) {
+    box-shadow:
+      0 0 0 1px rgb(var(--accent) / 0.4),
+      var(--shadow-cast),
+      var(--shadow-inset-highlight);
+  }
+
+  /* ── Widget frame ──────────────────────────────────────────────────────────
+     A canvas widget is resized by the user, so it must respond to its OWN width
+     and never to the viewport — this is the textbook container-query case and
+     the reason a widget currently has to be told its size in JS.
+
+     Chrome is hover-only: at rest a widget shows its title and nothing else.
+     Four widgets on a desk stop being 28 lit buttons and become four. */
+  .plx-widget {
+    container: plxwidget / inline-size;
+    background: var(--surface-raised);
+    border-radius: var(--radius-card);
+    box-shadow:
+      0 0 0 1px var(--edge-hairline),
+      var(--shadow-soft),
+      var(--shadow-inset-highlight);
+    transition: box-shadow var(--dur-base) var(--ease-spring-crisp);
+  }
+  .plx-widget:hover,
+  .plx-widget:focus-within {
+    box-shadow:
+      0 0 0 1px var(--edge-soft),
+      var(--shadow-cast),
+      var(--shadow-inset-highlight);
+    transition-duration: var(--dur-quick);
+  }
+  .plx-widget[data-selected='true'] {
+    box-shadow:
+      0 0 0 1.5px rgb(var(--accent)),
+      var(--shadow-cast),
+      var(--shadow-inset-highlight);
+  }
+
+  /* Controls fade in on hover or keyboard focus, and are always reachable by
+     tab even while invisible — visibility, not existence. */
+  .plx-widget-chrome {
+    opacity: 0;
+    transition: opacity var(--dur-base) var(--ease-spring-crisp);
+  }
+  .plx-widget:hover .plx-widget-chrome,
+  .plx-widget:focus-within .plx-widget-chrome,
+  .plx-widget-chrome:has(:focus-visible) {
+    opacity: 1;
+    transition-duration: var(--dur-instant);
+  }
+  /* Below ~15rem a widget hides secondary rows rather than crushing them. */
+  @container plxwidget (max-width: 15rem) {
+    .plx-widget-secondary { display: none; }
+  }
+
+  /* ── Popover and dialog: enter/exit with no JS and no libraries ────────────
+     @starting-style gives the "from" frame for an element that was display:none
+     a moment ago; transition-behavior: allow-discrete keeps it mounted long
+     enough to animate out. Together they replace an animation library for every
+     menu, tooltip and sheet in the app. */
+  .plx-pop {
+    background: var(--glass-panel-fill);
+    backdrop-filter: var(--glass-panel-blur);
+    -webkit-backdrop-filter: var(--glass-panel-blur);
+    border: 1px solid var(--glass-panel-border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-cast);
+    padding: 4px;
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+    transition:
+      opacity var(--dur-quick) var(--ease-spring-glide),
+      transform var(--dur-quick) var(--ease-spring-glide),
+      overlay var(--dur-quick) allow-discrete,
+      display var(--dur-quick) allow-discrete;
+  }
+  .plx-pop:popover-open {
+    opacity: 1;
+    transform: none;
+  }
+  @starting-style {
+    .plx-pop:popover-open {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.98);
+    }
+  }
+
+  /* Anchor positioning: the menu attaches itself to its trigger. No measuring,
+     no portal, no popper. The fallback keeps it usable if anchoring is off. */
+  @supports (anchor-name: --a) {
+    .plx-anchored {
+      position: absolute;
+      position-anchor: var(--plx-anchor);
+      position-area: block-end span-inline-end;
+      position-try-fallbacks: block-start span-inline-end, block-end span-inline-start;
+      margin: 6px 0 0;
+    }
+  }
+
+  .plx-dialog {
+    background: var(--glass-pillow-fill);
+    backdrop-filter: var(--glass-pillow-blur);
+    -webkit-backdrop-filter: var(--glass-pillow-blur);
+    border: 1px solid var(--glass-pillow-border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-deep);
+    color: var(--ink-100);
+    padding: 0;
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+    transition:
+      opacity var(--dur-base) var(--ease-spring-glide),
+      transform var(--dur-base) var(--ease-spring-soft),
+      overlay var(--dur-base) allow-discrete,
+      display var(--dur-base) allow-discrete;
+  }
+  .plx-dialog[open] { opacity: 1; transform: none; }
+  @starting-style {
+    .plx-dialog[open] { opacity: 0; transform: translateY(8px) scale(0.97); }
+  }
+  .plx-dialog::backdrop {
+    background: var(--scrim-fill);
+    opacity: 0;
+    transition:
+      opacity var(--dur-base) var(--ease-spring-glide),
+      overlay var(--dur-base) allow-discrete,
+      display var(--dur-base) allow-discrete;
+  }
+  .plx-dialog[open]::backdrop { opacity: 1; }
+  @starting-style { .plx-dialog[open]::backdrop { opacity: 0; } }
+
+  /* ── Segmented control ─────────────────────────────────────────────────────
+     The selected pill slides between options instead of blinking. The moving
+     part is one absolutely positioned element driven by a CSS variable, so
+     there is no per-option animation state to keep in sync. */
+  .plx-seg {
+    position: relative;
+    display: inline-flex;
+    padding: 3px;
+    border-radius: var(--radius-field);
+    background: var(--surface-sunken);
+    box-shadow: inset 0 0 0 1px var(--edge-hairline);
+    isolation: isolate;
+  }
+  .plx-seg::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset-block: 3px;
+    inset-inline-start: 3px;
+    width: var(--plx-seg-w, 0px);
+    translate: var(--plx-seg-x, 0px) 0;
+    border-radius: var(--radius-chip);
+    background: var(--surface-raised);
+    box-shadow: var(--shadow-soft), var(--shadow-inset-highlight);
+    transition:
+      translate var(--dur-base) var(--ease-spring-snap),
+      width var(--dur-base) var(--ease-spring-snap);
+  }
+
+  /* ── Meter ─────────────────────────────────────────────────────────────────
+     --plx-fill is a registered percentage, so a value change animates rather
+     than jumping — and the bar can be driven straight from a style attribute. */
+  .plx-meter {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--surface-sunken);
+    box-shadow: inset 0 0 0 1px var(--edge-hairline);
+    overflow: hidden;
+  }
+  .plx-meter > i {
+    display: block;
+    height: 100%;
+    width: var(--plx-fill);
+    border-radius: 999px;
+    background: currentColor;
+    transition: --plx-fill var(--dur-slow) var(--ease-spring-glide);
+  }
+
+  /* ── Skeleton ──────────────────────────────────────────────────────────────
+     A shape, never sample content. It says "loading", it never says "three
+     rows of data you do not have". */
+  .plx-skeleton {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-row);
+    background: var(--surface-sunken);
+  }
+  .plx-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--ink-100) 6%, transparent),
+      transparent
+    );
+    animation: plx-shimmer 1.6s var(--ease-spring-glide) infinite;
+  }
+
+  /* ── Scrollbars ────────────────────────────────────────────────────────────
+     Thin, token-coloured, and only visible over a scrollable region. One of the
+     cheapest ways an Electron app stops looking like a web page. */
+  .plx-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--edge-firm) transparent;
+    scrollbar-gutter: stable;
+  }
+  .plx-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+  .plx-scroll::-webkit-scrollbar-track { background: transparent; }
+  .plx-scroll::-webkit-scrollbar-thumb {
+    background: var(--edge-firm);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  .plx-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--ink-50);
+    background-clip: content-box;
+  }
+
+  /* ── Typography niceties ─────────────────────────────────────────────────── */
+  .plx-title { text-wrap: balance; letter-spacing: -0.022em; }
+  .plx-prose { text-wrap: pretty; }
+  .plx-num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+
+  /* ── Desk switch ───────────────────────────────────────────────────────────
+     Naming the region lets the browser cross-fade it when the desk changes,
+     which is the one transition in the app that genuinely helps — it tells you
+     the workspace swapped rather than the page re-rendered. Drive it with
+     document.startViewTransition(). */
+  .plx-view-desk { view-transition-name: plx-desk; }
+}
+
+/* ── Motion, honestly ────────────────────────────────────────────────────────
+   Not "animation off" — animation reduced to state changes without travel, so
+   nothing moves across the screen but feedback still happens. */
+@media (prefers-reduced-motion: reduce) {
+  .plx-press:active { transform: none; }
+  .plx-seg::before { transition: none; }
+  .plx-skeleton::after { animation: none; }
+  .plx-pop, .plx-dialog { transition-duration: 1ms; transform: none; }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
+}
