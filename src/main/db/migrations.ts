@@ -22,6 +22,7 @@ import { repairBrowsingHistoryCounts } from './migrateBrowsingHistoryCounts'
 import { ensureTaskPlanningSchema } from './taskPlanningSchema'
 import { ensureExternalCalendarSchema } from './externalCalendars'
 import { ensureContactsSchema } from './contacts'
+import { ensureMailFolderSchema } from './mailFolders'
 import { reconcileNodeOrphans } from './reconcileOrphans'
 import { ensureWorkItemSchema } from './workItems'
 import { ensureNotificationSchema } from '../notifications/substrate'
@@ -79,6 +80,8 @@ export function applySchemaAndMigrations(db: Database.Database): NodesKindMigrat
   ensureExternalCalendarSchema(db)
   // The people a workspace deals with, and which desks they are on.
   ensureContactsSchema(db)
+  // Mail folders: saved criteria for looking at INBOX, optionally about a desk.
+  ensureMailFolderSchema(db)
   // Sweep rows left pointing at deleted nodes by the FK-off table rebuild
   // above. Idempotent, and a no-op on a healthy database.
   const sweptOrphans = reconcileNodeOrphans(db as never)

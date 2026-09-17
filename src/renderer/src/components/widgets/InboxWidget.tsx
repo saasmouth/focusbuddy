@@ -6,6 +6,7 @@ import { useWidgetStore } from '../../stores/widgets'
 import { useNodeStore } from '../../stores/nodes'
 import { useViewStore } from '../../stores/view'
 import { useMailModalStore } from '../../stores/mailModal'
+import { useMailFolderStore } from '../../stores/mailFolders'
 import {
   applyRules,
   describeRules,
@@ -102,9 +103,26 @@ export default function InboxWidget({ widget }: { widget: Widget }): JSX.Element
     () => nodes.find((n) => n.id === widget.taskId)?.title ?? '',
     [nodes, widget.taskId]
   )
+  // A mail folder declared to be about THIS desk. When one exists, the desk and
+  // the mailbox stop being two places with two nearly-identical rules: the
+  // folder is the single criterion and this widget follows it. An explicit rule
+  // set on the widget still wins -- the user's most specific instruction is the
+  // one that counts -- and with neither, the desk title seeds a starting guess.
+  const folders = useMailFolderStore((s) => s.folders)
+  const refreshFolders = useMailFolderStore((s) => s.refresh)
+  const loadedFolders = useMailFolderStore((s) => s.loaded)
+  useEffect(() => {
+    if (!loadedFolders) void refreshFolders()
+  }, [loadedFolders, refreshFolders])
+
+  const linkedFolder = useMemo(
+    () => folders.find((f) => f.nodeId && f.nodeId === widget.taskId) ?? null,
+    [folders, widget.taskId]
+  )
+
   const rules: InboxRules = useMemo(
-    () => model.rules ?? seedRulesFromDeskTitle(deskTitle),
-    [model.rules, deskTitle]
+    () => model.rules ?? linkedFolder?.rules ?? seedRulesFromDeskTitle(deskTitle),
+    [model.rules, linkedFolder, deskTitle]
   )
 
   const [load, setLoad] = useState<Load>({ state: 'loading' })
@@ -400,9 +418,18 @@ export default function InboxWidget({ widget }: { widget: Widget }): JSX.Element
             onClick={() => setEditing(true)}
             title="Edit filter"
           >
-            <Icon name="filter_alt" className="text-[11px]" />
-            <span className="truncate">{describeRules(rules)}</span>
-            {rulesAreEmpty(rules) && <span className="shrink-0">— tap to narrow</span>}
+            <Icon
+              name={!model.rules && linkedFolder ? 'folder_managed' : 'filter_alt'}
+              className="text-[11px]"
+            />
+            <span className="truncate">
+              {!model.rules && linkedFolder
+                ? `Following the “${linkedFolder.name}” mail folder`
+                : describeRules(rules)}
+            </span>
+            {rulesAreEmpty(rules) && !linkedFolder && (
+              <span className="shrink-0">— tap to narrow</span>
+            )}
           </button>
         )}
 

@@ -51,6 +51,17 @@ const SWEEPS: ReadonlyArray<{ table: string; sql: string }> = [
   }
 ]
 
+// Repairs that UNLINK rather than remove. A mail folder whose desk is gone is
+// still the user's folder and still holds their mail; only the "about this
+// desk" part stopped being true. Deleting it would destroy categorisation as a
+// side effect of deleting a desk, which is not a thing anybody asked for.
+const UNLINKS: ReadonlyArray<{ table: string; sql: string }> = [
+  {
+    table: 'mail_folders',
+    sql: 'UPDATE mail_folders SET node_id = NULL WHERE node_id IS NOT NULL AND node_id NOT IN (SELECT id FROM nodes)'
+  }
+]
+
 export function reconcileNodeOrphans(db: Db): Record<string, number> {
   const removed: Record<string, number> = {}
   for (const { table, sql } of SWEEPS) {
@@ -60,6 +71,14 @@ export function reconcileNodeOrphans(db: Db): Record<string, number> {
     } catch {
       // A table this database does not have yet is not a problem: the sweep is
       // best-effort and must never block startup.
+    }
+  }
+  for (const { table, sql } of UNLINKS) {
+    try {
+      const n = db.prepare(sql).run().changes ?? 0
+      if (n > 0) removed[`${table} (unlinked)`] = n
+    } catch {
+      // Table not present yet on an older database: nothing to repair.
     }
   }
   return removed

@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import MailFolderRail, { COLOUR_DOT } from '../mail/MailFolderRail'
+import MailFolderEditor from '../mail/MailFolderEditor'
+import { useMailFolderStore } from '../../stores/mailFolders'
+import { uncategorised, inFolder, folderFromMessage } from '../../lib/mailFolders'
 import { useMailStore, selectMailUnread } from '../../stores/mail'
 import { useViewStore } from '../../stores/view'
-import type { MailAccountInput } from '@shared/types'
+import type { MailAccountInput, MailFolder, MailListItem } from '@shared/types'
 import { threadMailbox } from '../../lib/mailThreads'
 import Icon from '../Icon'
 import ComposeDialog from '../ComposeDialog'
@@ -531,6 +535,18 @@ export default function MailView(): JSX.Element {
   const loadAccount = useMailStore((s) => s.loadAccount)
   const refresh = useMailStore((s) => s.refresh)
   const loadMore = useMailStore((s) => s.loadMore)
+  const folders = useMailFolderStore((s) => s.folders)
+  const scope = useMailFolderStore((s) => s.scope)
+  const setScope = useMailFolderStore((s) => s.setScope)
+  const refreshFolders = useMailFolderStore((s) => s.refresh)
+  const pinToFolder = useMailFolderStore((s) => s.pin)
+  const excludeFromFolder = useMailFolderStore((s) => s.exclude)
+  // The folder editor: a folder to edit, or a seed for a new one, or closed.
+  // Which message the "file this" menu is open for.
+  const [filing, setFiling] = useState<MailListItem | null>(null)
+  const [editing, setEditing] = useState<
+    { folder: MailFolder | null; seed?: { name: string; from: string[] } | null } | null
+  >(null)
   const hasMore = useMailStore((s) => s.hasMore)
   const loadingMore = useMailStore((s) => s.loadingMore)
   const total = useMailStore((s) => s.total)
@@ -564,8 +580,30 @@ export default function MailView(): JSX.Element {
     }
   }, [quickPending, loaded, account, startCompose])
 
-  // Group the inbox into conversation threads (Gmail-style), newest first.
-  const threads = useMemo(() => threadMailbox(messages), [messages])
+  // Load the user's folders once; they outlive any particular mailbox fetch.
+  useEffect(() => {
+    void refreshFolders()
+  }, [refreshFolders])
+
+  // Narrow to whatever the rail has selected, THEN thread. Threading first and
+  // filtering after would show a conversation whose messages are not in this
+  // folder, which is how a filtered view stops meaning anything.
+  const scoped = useMemo(() => {
+    if (scope.kind === 'inbox') return messages
+    if (scope.kind === 'unsorted') return uncategorised(messages, folders)
+    const folder = folders.find((f) => f.id === scope.id)
+    return folder ? messages.filter((m) => inFolder(m, folder)) : messages
+  }, [messages, folders, scope])
+
+  // Group into conversation threads (Gmail-style), newest first.
+  const threads = useMemo(() => threadMailbox(scoped), [scoped])
+
+  const scopeName =
+    scope.kind === 'inbox'
+      ? 'Mail'
+      : scope.kind === 'unsorted'
+        ? 'Unsorted'
+        : (folders.find((f) => f.id === scope.id)?.name ?? 'Mail')
 
   // Keep the highlighted thread inside the list's visible window. The list is
   // its own scroller under a fixed header bar, and nothing used to scroll it:
@@ -589,7 +627,8 @@ export default function MailView(): JSX.Element {
       // Walking up onto the newest thread shows the top of the list — the
       // keyboard-hint line above it included — rather than parking that thread
       // flush under the header with the hint still scrolled away.
-      const first = !row.previousElementSibling?.matches('[data-testid="mail-thread"]')
+      const rows = list.querySelectorAll('[data-testid="mail-thread"]')
+      const first = rows.length > 0 && rows[0] === row
       list.scrollTop = first ? 0 : list.scrollTop - (listBox.top - rowBox.top)
     } else if (rowBox.bottom > listBox.bottom) {
       list.scrollTop += rowBox.bottom - listBox.bottom
@@ -652,16 +691,28 @@ export default function MailView(): JSX.Element {
 
   return (
     <div className="h-full flex bg-[var(--surface-base)] text-[var(--ink-100)]">
+      {/* Folders. Left of the list because it is the thing you choose BEFORE
+          reading -- and because "Unsorted" shrinking is the feedback that makes
+          the whole arrangement worth keeping up. */}
+      <MailFolderRail
+        messages={messages}
+        onEdit={(f) => setEditing({ folder: f })}
+        onCreate={(seed) => setEditing({ folder: null, seed: seed ?? null })}
+      />
+
       {/* List */}
       <div className="w-80 shrink-0 border-r border-[var(--edge-soft)] flex flex-col">
         <div className="px-3 py-3 flex items-center gap-2 border-b border-[var(--edge-soft)]">
           <Icon name="mail" size={16} className="text-accent shrink-0" />
           <div className="min-w-0 flex-1">
-            <h1 className="fb-t-body font-semibold text-[var(--ink-100)] truncate">
-              Mail{unread > 0 ? ` · ${unread} unread` : ''}
+            <h1 className="fb-t-body font-semibold text-[var(--ink-100)] truncate" data-testid="mail-scope-title">
+              {scopeName}
+              {scope.kind === 'inbox' && unread > 0 ? ` · ${unread} unread` : ''}
             </h1>
             <p className="fb-t-caption truncate">
-              {account?.email}
+              {scope.kind === 'inbox'
+                ? account?.email
+                : `${scoped.length} of ${messages.length} loaded messages`}
             </p>
           </div>
           <button
@@ -706,7 +757,7 @@ export default function MailView(): JSX.Element {
           </div>
         </div>
 
-        <div ref={listRef} className="flex-1 overflow-auto">
+        <div ref={listRef} data-testid="mail-list" className="flex-1 overflow-auto">
           {error && (
             <div className="m-2 fb-t-label text-rose-500 bg-rose-500/10 border border-rose-500/25 rounded-[var(--radius-row)] px-3 py-2">
               {error}
@@ -718,9 +769,26 @@ export default function MailView(): JSX.Element {
             </p>
           )}
           {threads.length === 0 && !loadingList ? (
-            <p className="fb-t-label text-[var(--ink-50)] px-3 py-4">
-              {error ? 'Could not load your inbox.' : 'No messages.'}
-            </p>
+            <div className="px-3 py-4">
+              <p className="fb-t-label text-[var(--ink-50)]">
+                {error
+                  ? 'Could not load your inbox.'
+                  : scope.kind === 'unsorted'
+                    ? 'Nothing unsorted. Every message you have loaded is in a folder.'
+                    : scope.kind === 'folder'
+                      ? 'Nothing in this folder yet, out of the mail you have loaded.'
+                      : 'No messages.'}
+              </p>
+              {!error && scope.kind !== 'inbox' && (
+                <button
+                  onClick={() => setScope({ kind: 'inbox' })}
+                  data-testid="mail-scope-back"
+                  className="mt-2 fb-t-label text-accent hover:underline"
+                >
+                  Show all mail
+                </button>
+              )}
+            </div>
           ) : (
             threads.map((t, i) => {
               // A thread is "active" when the open message belongs to it.
@@ -731,8 +799,8 @@ export default function MailView(): JSX.Element {
                   ? t.participants.join(', ')
                   : `${t.participants[0]}, ${t.participants[1]} +${t.participants.length - 2}`
               return (
+                <div key={t.id} className="relative group/row">
                 <button
-                  key={t.id}
                   data-testid="mail-thread"
                   data-mail-thread-active={active ? 'true' : undefined}
                   onClick={() => void openMessage(t.latest.uid)}
@@ -776,6 +844,68 @@ export default function MailView(): JSX.Element {
                     {t.subject}
                   </div>
                 </button>
+
+                {/* Filing one message by hand. The rules do the bulk of the
+                    work; this is the correction that makes them trustworthy --
+                    put this one where the rule did not, or take it out of a
+                    folder that wrongly claimed it. */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setFiling(filing?.uid === t.latest.uid ? null : t.latest)
+                  }}
+                  data-testid={`mail-file-${t.latest.uid}`}
+                  title="File this message"
+                  aria-label="File this message"
+                  className="absolute right-2 top-2 h-7 w-7 rounded-md inline-flex items-center justify-center opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 text-[var(--ink-50)] hover:text-[var(--ink-100)] hover:bg-[var(--surface-raised)] transition-opacity"
+                >
+                  <Icon name="folder_managed" size={15} />
+                </button>
+
+                {filing?.uid === t.latest.uid && (
+                  <div
+                    className="absolute right-2 top-9 z-20 w-52 rounded-[var(--radius-row)] fb-glass-panel fb-pop-in py-1 fb-t-label"
+                    onMouseLeave={() => setFiling(null)}
+                    data-testid="mail-file-menu"
+                  >
+                    {folders.length === 0 && (
+                      <p className="px-3 py-1.5 fb-t-caption">No folders yet.</p>
+                    )}
+                    {folders.map((f) => {
+                      const held = inFolder(t.latest, f)
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => {
+                            void (held
+                              ? excludeFromFolder(f.id, t.latest.uid)
+                              : pinToFolder(f.id, t.latest.uid))
+                            setFiling(null)
+                          }}
+                          data-testid={`mail-file-to-${f.id}`}
+                          className="w-full text-left px-3 py-1.5 hover:bg-[var(--surface-sunken)] text-[var(--ink-90)] fb-press flex items-center gap-2"
+                        >
+                          <span className={`h-2 w-2 rounded-full shrink-0 ${COLOUR_DOT[f.colour] ?? COLOUR_DOT.sky}`} />
+                          <span className="flex-1 min-w-0 truncate">{f.name}</span>
+                          {held && <Icon name="check" size={13} className="text-accent shrink-0" />}
+                        </button>
+                      )
+                    })}
+                    <div className="border-t border-[var(--edge-soft)] my-1" />
+                    <button
+                      onClick={() => {
+                        setEditing({ folder: null, seed: folderFromMessage(t.latest) })
+                        setFiling(null)
+                      }}
+                      data-testid="mail-file-new"
+                      className="w-full text-left px-3 py-1.5 hover:bg-[var(--surface-sunken)] text-[var(--ink-90)] fb-press flex items-center gap-2"
+                    >
+                      <Icon name="create_new_folder" size={13} className="shrink-0 text-[var(--ink-50)]" />
+                      New folder from this sender
+                    </button>
+                  </div>
+                )}
+                </div>
               )
             })
           )}
@@ -816,6 +946,15 @@ export default function MailView(): JSX.Element {
       </div>
 
       <ReadingPane />
+
+      {editing && (
+        <MailFolderEditor
+          folder={editing.folder}
+          seed={editing.seed}
+          messages={messages}
+          onClose={() => setEditing(null)}
+        />
+      )}
 
       {composing && (
         <ComposeDialog initial={composing} onClose={closeCompose} onSent={() => void refresh()} />

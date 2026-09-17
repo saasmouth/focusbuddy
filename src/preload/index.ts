@@ -41,6 +41,9 @@ import type {
   MailAccountInput,
   MailAccountPublic,
   MailListItem,
+  MailFolder,
+  MailFolderDraft,
+  MailFolderPatch,
   MailFullMessage,
   MailSendInput,
   MailSendResult,
@@ -1750,6 +1753,23 @@ const api = {
       error?: string
       needsApiKey?: boolean
     }> => ipcRenderer.invoke('dashboardWizard:refine', input)
+  },
+  // Mail folders: saved criteria for looking at the inbox, optionally about a
+  // desk or task. None of these touch the mail server -- a folder is a view.
+  mailFolders: {
+    list: (): Promise<MailFolder[]> => ipcRenderer.invoke('mailFolders:list'),
+    listForNode: (nodeId: string): Promise<MailFolder[]> =>
+      ipcRenderer.invoke('mailFolders:listForNode', nodeId),
+    create: (draft: MailFolderDraft): Promise<MailFolder> =>
+      ipcRenderer.invoke('mailFolders:create', draft),
+    update: (id: string, patch: MailFolderPatch): Promise<MailFolder | null> =>
+      ipcRenderer.invoke('mailFolders:update', id, patch),
+    remove: (id: string): Promise<boolean> => ipcRenderer.invoke('mailFolders:remove', id),
+    pin: (id: string, uid: number): Promise<MailFolder | null> =>
+      ipcRenderer.invoke('mailFolders:pin', id, uid),
+    exclude: (id: string, uid: number): Promise<MailFolder | null> =>
+      ipcRenderer.invoke('mailFolders:exclude', id, uid),
+    reorder: (ids: string[]): Promise<MailFolder[]> => ipcRenderer.invoke('mailFolders:reorder', ids)
   },
   // The people a workspace deals with: org members are fetched from the signal
   // server, everybody else lives here. A contact can be linked to a desk, which

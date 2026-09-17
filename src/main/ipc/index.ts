@@ -9,7 +9,17 @@ import {
   unlinkContact,
   listNodesForContact
 } from '../db/contacts'
-import type { ContactDraft, ContactPatch } from '@shared/types'
+import {
+  listMailFolders,
+  listMailFoldersForNode,
+  createMailFolder,
+  updateMailFolder,
+  deleteMailFolder,
+  pinToFolder,
+  excludeFromFolder,
+  reorderMailFolders
+} from '../db/mailFolders'
+import type { ContactDraft, ContactPatch, MailFolderDraft, MailFolderPatch } from '@shared/types'
 import { buildMetricBinding, refineDashboardPlan } from '../ai/anthropic'
 import {
   listCalendars as listExternalCalendars,
@@ -2182,6 +2192,29 @@ export function registerIpcHandlers(): void {
         return { ok: false as const, error: (err as Error).message }
       }
     }
+  )
+
+  // ── Mail folders ──────────────────────────────────────────────────────────
+  // Saved criteria for looking at INBOX, optionally about a desk or task.
+  // Nothing here touches the mail server: a folder is a view, which is what
+  // makes every one of these operations safe and reversible.
+  ipcMain.handle('mailFolders:list', () => listMailFolders())
+  ipcMain.handle('mailFolders:listForNode', (_e, nodeId: string) =>
+    listMailFoldersForNode(String(nodeId))
+  )
+  ipcMain.handle('mailFolders:create', (_e, draft: MailFolderDraft) => createMailFolder(draft))
+  ipcMain.handle('mailFolders:update', (_e, id: string, patch: MailFolderPatch) =>
+    updateMailFolder(String(id), patch)
+  )
+  ipcMain.handle('mailFolders:remove', (_e, id: string) => deleteMailFolder(String(id)))
+  ipcMain.handle('mailFolders:pin', (_e, id: string, uid: number) =>
+    pinToFolder(String(id), Number(uid))
+  )
+  ipcMain.handle('mailFolders:exclude', (_e, id: string, uid: number) =>
+    excludeFromFolder(String(id), Number(uid))
+  )
+  ipcMain.handle('mailFolders:reorder', (_e, ids: string[]) =>
+    reorderMailFolders(Array.isArray(ids) ? ids.map(String) : [])
   )
 
   // ── Contacts ──────────────────────────────────────────────────────────────

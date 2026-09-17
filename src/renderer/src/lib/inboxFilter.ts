@@ -3,28 +3,25 @@
 // The filter is deliberately made of the fields a mailbox actually gives us --
 // sender, subject, read state, flag, attachments, date -- and nothing else. It
 // would be easy to offer "emails about this project" as a single magic switch,
-// and it would be a lie: there is no link between a desk and a message in this
-// product, so anything beyond matching on what the headers say would be a guess
-// dressed as a filter.
+// and it would be a lie: nothing in a message says which desk it is about, so
+// anything beyond matching on what the headers say would be a guess dressed as
+// a filter.
+//
+// A mail FOLDER may be declared to be about a desk (MailFolder.nodeId), but
+// that is the user asserting the link, not this module inferring one -- and the
+// folder still decides membership with exactly these rules.
 //
 // Terms are OR within a field and AND across fields, which is how people
 // actually describe this: "from Sarah or David, about Ridge St, unread". One
 // matching sender is enough; a matching sender AND a matching subject is
 // required when both are set.
 
-import type { MailListItem } from '@shared/types'
+import type { MailListItem, InboxRules } from '@shared/types'
 
-export interface InboxRules {
-  /** Any of these appearing in the sender's name or address. */
-  from?: string[]
-  /** Any of these appearing in the subject. */
-  subject?: string[]
-  unreadOnly?: boolean
-  flaggedOnly?: boolean
-  withAttachments?: boolean
-  /** Only messages from the last N days. */
-  sinceDays?: number | null
-}
+// The rule shape lives in shared/types.ts, because a mail folder is made of
+// one and folders are persisted by the main process. Re-exported here so every
+// existing import of it keeps working.
+export type { InboxRules }
 
 const norm = (s: string): string => s.toLowerCase().trim()
 

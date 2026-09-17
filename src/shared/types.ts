@@ -2123,6 +2123,83 @@ export interface MailListItem {
   references: string[]
 }
 
+// ── Mail folders ─────────────────────────────────────────────────────────────
+// Categorising a busy inbox without asking anybody to file anything.
+//
+// A folder here is a saved CRITERION that fills itself, not a drawer you drag
+// messages into. The reason is the problem being solved: an inbox is not
+// overwhelming because it lacks folders, it is overwhelming because everything
+// arrives looking equally urgent -- and hand-filing is precisely the work that
+// stops happening when somebody is drowning. A rule costs one setup and then
+// keeps paying.
+//
+// Nothing here moves mail on the server. These are views over INBOX, which is
+// what lets one message sit in two folders at once (an invoice about the Ridge
+// St deal is both), lets a folder be undone without consequence, and keeps a
+// mistake from being destructive. IMAP folders can do none of those.
+
+/** What belongs in a folder, or what a desk's Inbox widget narrows to. */
+export interface InboxRules {
+  /** Any of these appearing in the sender's name or address. */
+  from?: string[]
+  /** Any of these appearing in the subject. */
+  subject?: string[]
+  unreadOnly?: boolean
+  flaggedOnly?: boolean
+  withAttachments?: boolean
+  /** Only messages from the last N days. */
+  sinceDays?: number | null
+}
+
+export interface MailFolder {
+  id: string
+  name: string
+  /** A tint token so a folder is findable by colour, not only by reading. */
+  colour: string
+  rules: InboxRules
+  /**
+   * The desk or task this folder is about, when it is about one. Null is the
+   * ordinary case -- a folder need not belong to anything.
+   *
+   * ON DELETE SET NULL, deliberately not CASCADE: deleting a desk must not
+   * silently destroy somebody's mail categorisation. The folder survives,
+   * having merely stopped being about that desk.
+   */
+  nodeId: string | null
+  /**
+   * Messages forced INTO this folder regardless of the rules, and forced OUT
+   * of it regardless of the rules.
+   *
+   * These are what make a self-filling folder trustworthy rather than merely
+   * clever. Without pinning, a rule that misses a message is a dead end and the
+   * user is stuck widening a rule until it over-matches. Without excluding, one
+   * stray match poisons the folder for good. Both are uid lists because a uid
+   * is stable for the life of the mailbox.
+   */
+  pinned: number[]
+  excluded: number[]
+  sortOrder: number
+  createdAt: number
+  updatedAt: number
+}
+
+export interface MailFolderDraft {
+  name: string
+  colour?: string
+  rules?: InboxRules
+  nodeId?: string | null
+}
+
+export interface MailFolderPatch {
+  name?: string
+  colour?: string
+  rules?: InboxRules
+  nodeId?: string | null
+  pinned?: number[]
+  excluded?: number[]
+  sortOrder?: number
+}
+
 export interface MailFullMessage {
   uid: number
   fromName: string

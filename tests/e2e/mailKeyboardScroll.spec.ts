@@ -83,7 +83,8 @@ interface Selection {
 async function selection(window: Page): Promise<Selection> {
   return window.evaluate(() => {
     const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="mail-thread"]'))
-    const list = rows[0].parentElement as HTMLElement
+    const list = document.querySelector<HTMLElement>('[data-testid="mail-list"]')
+    if (!list) throw new Error('no mail list')
     const listBox = list.getBoundingClientRect()
     const row = rows.find((r) => r.dataset.mailThreadActive === 'true')
     if (!row) throw new Error('no highlighted thread')
