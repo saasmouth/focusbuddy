@@ -286,3 +286,29 @@ Size: 1,036 TS/TSX files, ~255k lines under `src/`; the schema lives in
 > 9223, run the suite, then build the inventory table and ask me to rule
 > Keep / Hide / Remove / Defer before deleting anything. Nothing is pushed
 > to main without my go, and never directly.
+
+## 10. The scope sheet: where the rulings live, and what a Hide rides on
+
+Source: Claude memory, moved 2026-09-17.
+
+- **Rulings live in the sheet's own store, not in chat:** collection `rulings`, one document per row id,
+  shaped `{ruling, note, name, at}`. A later session reads them back from the artifact's data store
+  (`read_db` with `db_op: "list"`, `collection: "rulings"`) instead of asking Ryan again.
+- **Row ids carry their family:** `s.` shell, `d.` desk, `o.` office, `b.` brain, `p.` people,
+  `x.` assistant, `a.` apps, `l.` legacy, `w.` widgets, `bg.` background.
+- **The sheet was generated, not hand-written:** `build-sheet.mjs` with `rows-*.json` and `meta.json`,
+  in that session's scratchpad. Those files are gone (checked 2026-09-17). To change the sheet, rebuild
+  the rows from the code and republish to the same URL, never a second artifact, so the stored rulings
+  stay attached to their rows.
+- **What a Hide rides on:** `VIEW_CAPABILITY` in `src/renderer/src/lib/viewCapability.ts` is the one map
+  in the tree that hides a nav door and locks its surface in one place. As found on 2026-09-07 it did
+  not cover three things, and every Hide had to handle them itself: the four segment shells took over
+  the pane without mounting `MainPane` (the `segmentTakeover` branch in `App.tsx`), so no capability
+  reached them; the ⌘K palette gated only three entries; and no main-process background loop was gated
+  by anything except the activity tracker, the updater and the API server. Since 2026-09-08
+  `segments.tsx` and `PlexiOfficeShell.tsx` call `useViewKindEnabled`, so re-check each gap against the
+  code before relying on it.
+- **The memory notes §8 lists as living outside the repo are all in it now.** The name rule was already
+  at the top of `CLAUDE.md`; the push rules are in `CLAUDE.md` ("Ship policy"); the CDP procedure is
+  `docs/LIVE-VERIFICATION-CDP.md`; the silent microphone is in `CONTRIBUTING.md`; direction-not-canon is
+  in `DESIGN_SYSTEM.md`; and the DRM finding is in `docs/BROWSER-ADR-001-in-canvas-browser.md`.
