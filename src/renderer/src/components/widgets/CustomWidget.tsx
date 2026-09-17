@@ -370,15 +370,29 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
   }, [build, data.spec, data.wizard])
 
   const onRefine = useCallback(async () => {
+    // Refining means "change THIS code". When the code never finished there is
+    // nothing to change -- asking a model to improve a document that stops
+    // mid-attribute produces more of the same -- so the feedback is folded into
+    // the original description and the widget is built fresh.
+    const unfinished =
+      !!data.code && !/<style/i.test(data.code) && !/<script/i.test(data.code)
     const v = await promptText({
-      title: 'Change this widget',
-      label: 'Describe what should be different. The current version is kept so you can revert.',
+      title: unfinished ? 'What should it do differently?' : 'Change this widget',
+      label: unfinished
+        ? 'This one never finished, so it will be rebuilt from your description plus whatever you add here.'
+        : 'Describe what should be different. The current version is kept so you can revert.',
       placeholder: 'e.g. add a total row, and make overdue items red',
       multiline: true,
       confirmLabel: 'Rebuild'
     })
-    if (v) void build(v, true)
-  }, [build])
+    if (!v) return
+    if (unfinished) {
+      const original = (data.spec || '').split('\n\nThen: ')[0].trim()
+      void build(original ? `${original}\n\nAlso: ${v}` : v, false, data.wizard)
+      return
+    }
+    void build(v, true)
+  }, [build, data.code, data.spec, data.wizard])
 
   const onRevert = useCallback(async () => {
     const prev = (data.history ?? [])[0]
@@ -563,7 +577,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
     const looksUnfinished =
       !/<style/i.test(data.code) && !/<script/i.test(data.code) && /<[a-z]/i.test(data.code)
     body = (
-      <div className="relative h-full w-full">
+      <div className="group/cw relative h-full w-full">
         {looksUnfinished && (
           <div
             data-testid="custom-widget-unfinished"
@@ -572,13 +586,22 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
             <Icon name="warning" size={14} className="mt-[1px] shrink-0" />
             <div className="min-w-0 flex-1">
               <div>This widget was never finished — it has no styling and no behaviour.</div>
-              <button
-                className="mt-1 underline underline-offset-2 opacity-80 hover:opacity-100"
-                data-testid="custom-widget-rebuild"
-                onClick={() => onRebuild()}
-              >
-                Rebuild it from your description
-              </button>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <button
+                  className="underline underline-offset-2 opacity-80 hover:opacity-100"
+                  data-testid="custom-widget-rebuild"
+                  onClick={() => onRebuild()}
+                >
+                  Rebuild it from your description
+                </button>
+                <button
+                  className="underline underline-offset-2 opacity-80 hover:opacity-100"
+                  data-testid="custom-widget-rebuild-feedback"
+                  onClick={() => void onRefine()}
+                >
+                  Or say what it should do differently
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -619,22 +642,23 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
         {/* Refining lived only in the header menu, which is a small ⋯ over a
             full-bleed iframe — findable if you know it is there, invisible if
             you do not. This is the same actions, where the widget is. */}
-        <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover/slot:opacity-100 focus-within:opacity-100">
-          <button
-            onClick={() => setWizard('edit')}
-            data-testid="custom-widget-change"
-            title="Change what this widget does"
-            className="rounded-full border border-stone-200 bg-white/95 px-2.5 py-1 text-[11px] font-medium text-stone-700 shadow-sm hover:border-indigo-300 hover:text-indigo-600 dark:border-white/15 dark:bg-stone-900/95 dark:text-stone-200"
-          >
-            Change
-          </button>
+        <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1 opacity-60 transition-opacity hover:opacity-100 group-hover/cw:opacity-100 focus-within:opacity-100">
           <button
             onClick={() => void onRefine()}
             data-testid="custom-widget-refine"
-            title="Describe a change in your own words"
-            className="rounded-full border border-stone-200 bg-white/95 p-1 text-stone-600 shadow-sm hover:border-indigo-300 hover:text-indigo-600 dark:border-white/15 dark:bg-stone-900/95 dark:text-stone-300"
+            title="Tell it what to change, in your own words"
+            className="inline-flex items-center gap-1 rounded-full border border-stone-200 bg-white/95 px-2.5 py-1 text-[11px] font-medium text-stone-700 shadow-sm hover:border-indigo-300 hover:text-indigo-600 dark:border-white/15 dark:bg-stone-900/95 dark:text-stone-200"
           >
-            <Icon name="edit" size={13} />
+            <Icon name="edit" size={12} />
+            Tell it what to change
+          </button>
+          <button
+            onClick={() => setWizard('edit')}
+            data-testid="custom-widget-change"
+            title="Change what this widget does, by answering the questions again"
+            className="rounded-full border border-stone-200 bg-white/95 p-1.5 text-stone-600 shadow-sm hover:border-indigo-300 hover:text-indigo-600 dark:border-white/15 dark:bg-stone-900/95 dark:text-stone-300"
+          >
+            <Icon name="tune" size={13} />
           </button>
         </div>
         {showSource && (

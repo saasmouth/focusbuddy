@@ -19,23 +19,41 @@ const SRC = readFileSync(
   'utf-8'
 )
 
-describe('the generator refuses an unfinished widget', () => {
-  it('checks stop_reason, which is the authoritative signal', () => {
-    expect(SRC).toContain("stop_reason as string) === 'max_tokens'")
+describe('the generator finishes an unfinished widget', () => {
+  it('notices the cut at all, which is the whole thing', () => {
+    expect(SRC).toContain("stop_reason as string")
+    expect(SRC).toContain("'max_tokens'")
   })
 
-  it('refuses rather than saving, and says what to do instead', () => {
-    const at = SRC.indexOf("=== 'max_tokens'")
-    const block = SRC.slice(at, at + 700)
-    expect(block).toContain('ok: false')
-    expect(block).toContain('has not been saved')
-    expect(block).toMatch(/simpler|two steps/)
+  it('CONTINUES rather than refusing', () => {
+    // Refusing was honest and left the user stuck: a spec that is simply BIG
+    // hit the ceiling on every rebuild and was refused every time, so a broken
+    // widget stayed broken forever. The model is handed what it wrote and asked
+    // to carry on from the character it stopped on.
+    expect(SRC).toContain('MAX_CONTINUATIONS')
+    expect(SRC).toContain('Continue from EXACTLY where you left off')
+    expect(SRC).toContain("role: 'assistant', content: raw")
   })
 
-  it('has room for a whole small application, not a fragment of one', () => {
-    // 8000 was not enough for a widget with markup, a stylesheet AND behaviour.
-    const m = /max_tokens: (\d+),\n\s*system: systemPrompt/.exec(SRC)
-    expect(m, 'the widget generation call should be findable').toBeTruthy()
+  it('tells the continuation not to repeat or restart', () => {
+    // Without this it re-opens with a preamble or starts the document again,
+    // and the concatenation is garbage.
+    const at = SRC.indexOf('Continue from EXACTLY')
+    const block = SRC.slice(at, at + 600).replace(/'\s*\+\s*\n\s*'/g, '')
+    expect(block).toContain('Do not repeat')
+    expect(block).toMatch(/do not start over/i)
+    expect(block).toMatch(/code fence/i)
+  })
+
+  it('still gives up honestly if continuing does not finish it', () => {
+    expect(SRC).toContain('bigger than I can finish')
+    const at = SRC.indexOf('bigger than I can finish')
+    expect(SRC.slice(Math.max(0, at - 300), at)).toContain('ok: false')
+  })
+
+  it('has room for a whole small application per round', () => {
+    const m = /const GENERATION_TOKENS = (\d+)/.exec(SRC)
+    expect(m, 'GENERATION_TOKENS should be findable').toBeTruthy()
     expect(Number(m![1])).toBeGreaterThanOrEqual(16000)
   })
 

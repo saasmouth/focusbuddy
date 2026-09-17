@@ -131,6 +131,17 @@ function systemPrompt(net: boolean, w: number, h: number): string {
   ].join('\n')
 }
 
+// A rich widget is a whole small application: markup, then a stylesheet, then
+// its behaviour. 8000 did not fit one. This is per REQUEST, not per widget --
+// a generation that runs out is continued rather than refused, so the real
+// ceiling is this times the number of rounds below.
+const GENERATION_TOKENS = 16000
+
+// How many times a generation may be continued. Two extra rounds is ~48k tokens
+// of document, far beyond the 200k byte cap a widget may occupy, so hitting this
+// means something is wrong with the request rather than merely large.
+const MAX_CONTINUATIONS = 2
+
 export async function generateCustomWidget(
   input: GenerateCustomWidgetInput
 ): Promise<GenerateCustomWidgetResult> {
@@ -181,34 +192,62 @@ export async function generateCustomWidget(
     const client = getModelClient(key)
     const resp = await client.messages.create({
       model,
-      // A rich widget is a whole small application: markup, then a stylesheet,
-      // then its behaviour. 8000 was not enough for one, and because the parts
-      // arrive in that order a cut landed after the markup and before either of
-      // the other two -- which is exactly how a widget ends up looking unstyled
-      // and doing nothing.
-      max_tokens: 16000,
+      max_tokens: GENERATION_TOKENS,
       system: systemPrompt(net, width, height),
       messages: [{ role: 'user', content: userMsg }]
     })
-    // A cut-off generation passes every check below: it is not empty, it does
-    // contain markup, and it is under the byte cap. So it used to be saved as a
-    // finished widget -- unstyled, inert, and truncated mid-attribute, with
-    // nothing anywhere saying why. Refusing here is the whole fix; the rest is
-    // making it less likely.
-    if ((resp.stop_reason as string) === 'max_tokens') {
+    const textOf = (r: { content: Array<{ type: string } & Record<string, unknown>> }): string => {
+      const parts: string[] = []
+      for (const block of r.content) {
+        if (block.type === 'text') parts.push(String(block.text ?? ''))
+      }
+      return parts.join('\n')
+    }
+
+    let raw = textOf(resp as never)
+    let stop = resp.stop_reason as string
+
+    // A widget is written in one order -- markup, then styles, then behaviour --
+    // so a cut at the token ceiling lands after the markup and before either of
+    // the other two, and what lands is unstyled markup that does nothing.
+    //
+    // Refusing that was honest but left a broken widget broken forever: every
+    // rebuild of a spec that is simply BIG hit the same ceiling and refused
+    // again. So finish it instead. The model is handed what it has written so
+    // far and asked to continue from the exact character it stopped on.
+    for (let round = 0; round < MAX_CONTINUATIONS && stop === 'max_tokens'; round++) {
+      const more = await client.messages.create({
+        model,
+        max_tokens: GENERATION_TOKENS,
+        system: systemPrompt(net, width, height),
+        messages: [
+          { role: 'user', content: userMsg },
+          { role: 'assistant', content: raw },
+          {
+            role: 'user',
+            content:
+              'You stopped mid-way. Continue from EXACTLY where you left off — your next ' +
+              'character is the one that follows your last one. Do not repeat anything, do not ' +
+              'start over, do not add a preamble or a code fence, and do not apologise. If you ' +
+              'were part-way through a tag, an attribute or a CSS rule, finish that first.'
+          }
+        ]
+      })
+      raw += textOf(more as never)
+      stop = more.stop_reason as string
+    }
+
+    if (stop === 'max_tokens') {
+      // Still unfinished after continuing. Now it genuinely is too big, and
+      // saying so beats writing a third of an application to the desk.
       return {
         ok: false,
         error:
-          'That widget was too big to finish in one go — what came back had no styling or ' +
-          'behaviour, so it has not been saved. Ask for something a bit simpler, or build it ' +
-          'in two steps: the core first, then refine it to add the rest.'
+          'That widget is bigger than I can finish, even continuing. Ask for a smaller ' +
+          'version — the core of it first — and then refine to add the rest.'
       }
     }
-    const parts: string[] = []
-    for (const block of resp.content) {
-      if (block.type === 'text') parts.push(block.text)
-    }
-    code = unfence(parts.join('\n'))
+    code = unfence(raw)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     return { ok: false, error: msg.length > 240 ? msg.slice(0, 240) + '…' : msg }
