@@ -93,3 +93,28 @@ git push fork ryan-command-center && gh auth switch -u ryanswan313 && git push o
 rulings stay, marked SUPERSEDED, because they carry the reason the current
 design has its shape. A test pin broken by a legitimate change gets **rewritten
 to the superseding truth with its history in the comment**, never deleted.
+
+## Ship policy: `pr-only`, on every branch
+
+Source: Claude memory, moved 2026-09-17. This repo-wide rule outranks the branch-specific note above.
+
+Co-owned and public: `origin` = github.com/saasmouth/focusbuddy (push as **ryanswan313**), `fork` =
+github.com/ryan-swan/focusbuddy (push as **ryan-swan**). Two identities on one machine make a silent
+wrong-account push easy, so every push on every branch is this ritual, switching back at the end:
+
+```bash
+git push fork <branch> && gh auth switch -u ryanswan313 && git push origin <branch> && gh auth switch -u ryan-swan
+```
+
+- **Never push to `origin main` directly.** Michael Dean lands on `main` and cuts releases. `main` has
+  no branch protection or ruleset (checked 2026-09-17) and ryanswan313 can push to it, so this rule is
+  the only guard.
+- "Push it to main" or "it's ready to ship" from Ryan means a pull request to `main`, marked ready and
+  visible to Michael and Caleb. Merging is theirs unless Ryan explicitly says to merge. Landing is not a
+  release.
+- Before anything lands, check GitHub first (`main`'s last commit, other people's branches, PR reviews,
+  the event stream) and report who changed what; Ryan confirms, then it moves. Ship small increments
+  often, never batched phases (Ryan's cadence ruling, 2026-09-01).
+- Branch new work off the current active branch: since 2026-09-07 (DEC-138) that is `ryan-v1-beta`;
+  `ryan-next` and `ryan-assistant` landed and are frozen. Live state is in
+  `planning/plexii-v1-beta/HANDOFF.md`.
