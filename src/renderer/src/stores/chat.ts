@@ -764,7 +764,24 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         })
       }
     }
-    const next = [...current, userMsg]
+    // Carry what each prior assistant turn actually DID. Actions ride a
+    // separate field from the reply, so a history of reply-prose alone showed
+    // the model turns that appeared to have done nothing — and it copied that
+    // shape, writing "**Actions:**" as markdown instead of emitting any.
+    const priors = get().proposalsByMessage
+    const withActions = current.map((m) => {
+      if (m.role !== 'assistant') return m
+      const ps = priors[String(m.ts)]
+      if (!ps || ps.length === 0) return m
+      return {
+        ...m,
+        actions: ps.map((p) => ({
+          kind: p.kind,
+          label: 'title' in p && typeof p.title === 'string' ? p.title : undefined
+        }))
+      }
+    })
+    const next = [...withActions, userMsg]
     set({
       messagesByTask: { ...get().messagesByTask, [key]: next },
       liveTraceByThread: { ...get().liveTraceByThread, [key]: newTrace() },

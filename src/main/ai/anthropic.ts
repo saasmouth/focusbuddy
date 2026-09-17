@@ -459,7 +459,7 @@ function buildSystemPrompt(
     '9. Markdown is rendered. When actions carry the work, keep "reply" to 1-2 sentences and don\'t list the widgets — let the cards speak. When the user asked a QUESTION (research, explanation, overview, comparison), the reply IS the answer: write it in full flowing markdown — headings, lists, tables where they genuinely help — it streams to the user as you write it. FORMATTING VOICE (calm, never hype): you may open a section HEADING with ONE relevant emoji — the app renders it as a native icon, so choose it for meaning. Never place emoji anywhere else (bullets, labels, sentences) unless the user\'s own content uses them. Use bold sparingly — a few genuinely load-bearing phrases per answer, never whole sentences and never every list lead.\n' +
     '10. compose-mail and post-chat ALWAYS produce a DRAFT the user reviews and sends themselves. There is no send action and never will be. NEVER say or imply in "reply" that a message was sent. Their bodies must carry only content grounded in this conversation — never invent claims, commitments, dates, names, or recipients on the user\'s behalf. Use real addresses/conversation ids from context or leave "to" empty for the user to fill.\n' +
     '11. edit-document targets a documentId from the documents list (or "$<id>" of a create-document in this same response). Omit "operation" to append; use "replace" only when the user explicitly asked to rewrite. set-cell requires a real rowId from the rowIds sample — if the row is not listed, say so in reply instead of guessing.\n' +
-    '11a. SIZE LIMIT — the whole response shares ONE output budget, and a long edit-document "body" is the only thing big enough to exhaust it. If it runs out mid-action, that action is LOST and the user sees nothing. So: at most TWO edit-document actions in one response, and if the user asked for more, or the sections are long, emit the first one or two and say plainly in "reply" which documents you have done and that you will do the rest when they ask you to continue. Never promise in "reply" work that is not in "actions" of this same response.\n' +
+    '11a. A very long edit-document "body" is the only thing big enough to exhaust one response. When several documents need long sections, write the first one or two IN FULL as real actions, then say in "reply" which ones you did and offer to continue — never describe an edit you did not emit as an action, never write actions as prose or as a markdown "Actions:" list, and never mention these numbered rules to the user.\n' +
     '12. schedule-event uses absolute unix-ms startMs computed from the Current date/time fact above. durationMinutes is required.\n\n' +
     'CORRECT for "set up a podcast launch workspace":\n' +
     '{\n' +
@@ -624,6 +624,36 @@ export function setConversationSnapshot(convs: Array<{ id: string; label: string
 }
 function latestConversationSummaries(): Array<{ id: string; label: string }> {
   return conversationSnapshot
+}
+
+/**
+ * An assistant turn's content with a truthful record of what it actually did.
+ *
+ * History used to replay the reply prose alone. Actions ride a separate JSON
+ * field, so the model saw its own past turns as prose with nothing attached and
+ * no evidence that the actions channel was one it had been using successfully.
+ * Asked to "show me the actions" it wrote "**Actions:**" as markdown — and its
+ * own history then taught it that prose was the format, so it never emitted a
+ * real action again in that conversation. Every retry added another example of
+ * the wrong shape.
+ *
+ * This line is what breaks that: each prior turn now carries proof that it
+ * emitted real actions, in the same vocabulary the catalog uses.
+ */
+export function withPriorActions(m: {
+  role: string
+  content: string
+  actions?: Array<{ kind: string; label?: string }>
+}): string {
+  if (m.role !== 'assistant' || !m.actions || m.actions.length === 0) return m.content
+  const listed = m.actions
+    .slice(0, 8)
+    .map((a) => (a.label ? `${a.kind} (${a.label})` : a.kind))
+    .join(', ')
+  const more = m.actions.length > 8 ? `, +${m.actions.length - 8} more` : ''
+  // Phrased as a fact about the turn rather than an instruction, so it reads as
+  // history and not as a new rule competing with the system prompt.
+  return `${m.content}\n\n[actions emitted this turn: ${listed}${more}]`
 }
 
 // ── Parse the JSON-structured chat response ────────────────────────────────
@@ -1364,7 +1394,10 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
     ),
     msgs: req.messages
       .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+      .map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: withPriorActions(m)
+      })),
     mentions: mentionReport,
     sources: citedSources,
     retrievalMs: Date.now() - t0,
@@ -1653,6 +1686,15 @@ function unparseableChatResponse(
       ok: false,
       error:
         'That answer came back in a shape I could not read, and none of it was recoverable. Ask again — the second attempt usually lands.'
+    }
+  }
+  // An empty answer is never a valid answer. Presenting one as a success wrote
+  // a blank assistant turn with no error and no explanation — indistinguishable
+  // from the app being broken, and exactly what the user saw twice in a row.
+  if (text.trim() === '') {
+    return {
+      ok: false,
+      error: 'The model returned nothing at all. That is usually a provider hiccup — ask again, and if it keeps happening check Settings → AI.'
     }
   }
   return {

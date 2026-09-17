@@ -9,7 +9,7 @@
 // having SURVIVED. It fired when it was least needed and stayed silent when it
 // was most needed.
 import { describe, it, expect } from 'vitest'
-import { actionOutcomeNotice, parseChatJson } from '../../src/main/ai/anthropic'
+import { actionOutcomeNotice, parseChatJson, withPriorActions } from '../../src/main/ai/anthropic'
 
 describe('actionOutcomeNotice', () => {
   it('says nothing when everything the model asked for is on offer', () => {
@@ -155,5 +155,58 @@ describe('parseChatJson counts what it dropped', () => {
     const out = parseChatJson(raw)!
     expect(out.dropped).toBe(0)
     expect(actionOutcomeNotice({ applied: 0, dropped: 0, truncated: false })).toBeNull()
+  })
+})
+
+describe('withPriorActions', () => {
+  it('replays what an assistant turn actually did', () => {
+    // The root cause of the reported failure: actions ride a separate field
+    // from the reply, so a history of reply-prose alone showed the model turns
+    // that appeared to have done nothing. It copied that shape — writing
+    // "**Actions:**" as markdown — and its own history then taught it that
+    // prose was the format, so it never emitted a real action again in that
+    // conversation.
+    const out = withPriorActions({
+      role: 'assistant',
+      content: 'Creating three audit docs.',
+      actions: [
+        { kind: 'generate-document', label: 'Audit — Breadwinner' },
+        { kind: 'generate-document', label: 'Audit — Kipper' }
+      ]
+    })
+    expect(out).toContain('Creating three audit docs.')
+    expect(out).toContain('actions emitted this turn')
+    expect(out).toContain('generate-document (Audit — Breadwinner)')
+  })
+
+  it('leaves a user turn alone', () => {
+    const m = { role: 'user', content: 'update the docs', actions: [{ kind: 'x' }] }
+    expect(withPriorActions(m)).toBe('update the docs')
+  })
+
+  it('leaves an assistant turn that did nothing alone', () => {
+    expect(withPriorActions({ role: 'assistant', content: 'Here is the answer.' })).toBe(
+      'Here is the answer.'
+    )
+    expect(
+      withPriorActions({ role: 'assistant', content: 'Here is the answer.', actions: [] })
+    ).toBe('Here is the answer.')
+  })
+
+  it('handles an action with no label', () => {
+    const out = withPriorActions({
+      role: 'assistant',
+      content: 'Done.',
+      actions: [{ kind: 'start-focus-session' }]
+    })
+    expect(out).toContain('start-focus-session')
+    expect(out).not.toContain('undefined')
+  })
+
+  it('caps a long list rather than replaying a wall of history', () => {
+    const actions = Array.from({ length: 14 }, (_, i) => ({ kind: 'create-widget', label: `w${i}` }))
+    const out = withPriorActions({ role: 'assistant', content: 'Built it.', actions })
+    expect(out).toContain('+6 more')
+    expect(out).not.toContain('w9')
   })
 })

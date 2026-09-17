@@ -722,6 +722,22 @@ export interface ChatMessage {
   role: ChatRole
   content: string
   ts: number
+  /**
+   * What an assistant turn actually DID, replayed so the model can see its own
+   * work on the next turn.
+   *
+   * Actions travel in a separate JSON field from the reply, and only the reply
+   * was ever stored and replayed. So on turn two the model saw every one of its
+   * prior turns as prose with no actions attached, and had no evidence that the
+   * actions channel was one it had been using. Asked to "show me the actions",
+   * it did the reasonable thing and wrote "**Actions:**" as markdown — and from
+   * then on its own history taught it that prose was the format, so it never
+   * emitted a real action in that conversation again. Every retry added another
+   * example and made it worse.
+   *
+   * Absent on user turns and on assistant turns that proposed nothing.
+   */
+  actions?: Array<{ kind: string; label?: string }>
 }
 
 // Text pulled from a browser / doc / pdf widget on the canvas, so the assistant
