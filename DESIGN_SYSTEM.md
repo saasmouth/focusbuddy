@@ -138,3 +138,24 @@ To converge without collisions:
 The rule that keeps this safe: shared primitives and tokens are the contract; surfaces
 converge onto them incrementally. Coordinate before committing shared routing or the
 catalog, per the concurrent‑work norms.
+
+## References are direction, not canon (Ryan, 2026-09-01 and 2026-09-06)
+
+Source: Claude memory, moved 2026-09-17.
+
+On 2026-09-01 Ryan had a pasted design-canon document tested on the PlexiMeet page before adopting it
+anywhere, then rejected it: "it did not translate well… some nice additions but very minimal… just
+ignore it as any sort of canon or guidelines going forward", and it was not to be applied to Mail. On
+2026-09-06 he gave three mock-page screenshots as direction for the meeting Record, with the rule "this
+is not the trump card; this is just a design direction" (DEC-115).
+
+He judges design by how it lands on the real page, not by the document. Adopting a pasted system
+wholesale produced a weak result; extracting its principles and building them in the house material
+did not. For any UI round:
+
+- Extract the principles from the reference (organisation, tagging, linking, honest empty states).
+- Build them in the house material: `desk-paper`, `fb-card`, `fb-btn-surface`, `fb-press`, eyebrow
+  labels, the accent-versus-ink doctrine, and the plexi kit's tiles and pills.
+- Never cite or reuse the rejected canon.
+- Judge on real screenshots of the running app (`docs/LIVE-VERIFICATION-CDP.md`), and fix what reads
+  wrong (duplicates, busy pills, misleading icons) before calling it done.
