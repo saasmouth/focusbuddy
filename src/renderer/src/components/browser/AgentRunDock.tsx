@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import Icon from '../Icon'
 import { useBrowserAgentRuns, type BrowserAgentRunState } from '../../stores/browserAgentRuns'
 import { useWebPanel } from '../../stores/webPanel'
+import { useViewStore } from '../../stores/view'
 import { QUICK_TASKS } from '../../lib/browserQuickTasks'
 
 // The visible run (A6/B3, AI-05): Plexii acts inside the browser panel,
@@ -11,8 +12,17 @@ import { QUICK_TASKS } from '../../lib/browserQuickTasks'
 // Stop that always works, and the run's real cost so far. Card material,
 // not glass: the interior is read at length (the A5.5 precedent).
 
+// A number, or nothing, without ever throwing. These readouts are cosmetic —
+// a token count and a read window — and they render inside the dock that shows
+// a run's ONLY visible progress. Reaching .toLocaleString() through a field
+// that happens to be missing took the whole browser surface down to an error
+// card, which is a spectacular way to fail at displaying a number.
+function num(v: unknown): string | null {
+  return typeof v === 'number' && Number.isFinite(v) ? v.toLocaleString() : null
+}
+
 function costLabel(cost: BrowserAgentRunState['cost']): string {
-  if (!cost) return ''
+  if (!cost || typeof cost.costMicros !== 'number' || !Number.isFinite(cost.costMicros)) return ''
   const usd = cost.costMicros / 1_000_000
   return usd < 0.01 ? '<$0.01' : `$${usd.toFixed(2)}`
 }
@@ -181,8 +191,8 @@ export default function AgentRunDock(props: {
                   data-testid="agent-run-cost"
                   className="shrink-0 text-[11px] tabular-nums text-[var(--ink-70)]"
                   title={
-                    run.cost
-                      ? `${run.cost.inputTokens.toLocaleString()} in / ${run.cost.outputTokens.toLocaleString()} out tokens`
+                    num(run.cost?.inputTokens) && num(run.cost?.outputTokens)
+                      ? `${num(run.cost?.inputTokens)} in / ${num(run.cost?.outputTokens)} out tokens`
                       : undefined
                   }
                 >
@@ -281,6 +291,24 @@ export default function AgentRunDock(props: {
                     className="mt-2 text-[11px] text-[var(--ink-70)]"
                   >
                     {run.delivery.state === 'planning' ? 'Working out where this belongs…' : run.delivery.message}
+                    {/* Saying what was created without saying where it went
+                        leaves the user to go hunting for it — and the desk it
+                        used is the last ACTIVE one, which from a desk-less
+                        browser is not one they were looking at. */}
+                    {run.delivery.destination && (
+                      <button
+                        type="button"
+                        data-testid="agent-run-open-destination"
+                        onClick={() => {
+                          const d = run.delivery.destination
+                          if (d) useViewStore.getState().go(d.view)
+                        }}
+                        className="mt-1.5 flex items-center gap-1 rounded border border-[var(--line-20)] px-2 py-1 text-[11px] font-medium text-[var(--ink-100)] hover:bg-[var(--surface-hover)]"
+                      >
+                        <Icon name={run.delivery.destination.icon} size={12} />
+                        Open {run.delivery.destination.label}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -342,10 +370,10 @@ export default function AgentRunDock(props: {
                               {typeof e.url === 'string' && e.url && (
                                 <div className="truncate">On: {e.url}</div>
                               )}
-                              {rw && rw.total > 0 && (
+                              {rw && num(rw.total) && rw.total > 0 && (
                                 <div>
-                                  Saw chars {rw.start.toLocaleString()}–{rw.end.toLocaleString()} of{' '}
-                                  {rw.total.toLocaleString()}
+                                  Saw chars {num(rw.start) ?? '?'}–{num(rw.end) ?? '?'} of{' '}
+                                  {num(rw.total)}
                                   {rw.end < rw.total ? ' (more below its scroll)' : ' (the whole page)'}
                                 </div>
                               )}

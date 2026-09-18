@@ -9,6 +9,7 @@ import { create } from 'zustand'
 import { useWebPanel } from './webPanel'
 import { hasFindings, normalizeFindings, type BrowseFindings } from '@shared/browseFindings'
 import type { ActionProposal } from '@shared/types'
+import type { Destination } from '../lib/deliveryDestination'
 
 export interface BrowserAgentEventLite {
   kind: string
@@ -30,7 +31,13 @@ export interface BrowserAgentRunState {
   // routed to whatever the task was for instead of dying with the event.
   findings: BrowseFindings | null
   // Delivery of those findings to their destination.
-  delivery: { state: 'idle' | 'planning' | 'done' | 'error'; message: string }
+  delivery: {
+    state: 'idle' | 'planning' | 'done' | 'error'
+    message: string
+    // Where it landed, so the dock can offer a way there. Null when nothing
+    // that was applied has somewhere to go.
+    destination?: Destination | null
+  }
 }
 
 interface BrowserAgentStore {
@@ -124,12 +131,46 @@ export const useBrowserAgentRuns = create<BrowserAgentStore>((set) => ({
       // Report what actually happened, including a partial result — silently
       // reporting success for rows that failed to land is exactly the sort of
       // thing that made the old empty-table failure so hard to notice.
+      // Where it all went. Worked out from what was APPLIED rather than from
+      // the model's sentence, which was written before anything was placed and
+      // cannot know — the desk used is whichever was last active, which from a
+      // desk-less browser is one the user was not looking at.
+      const { destinationOf, deliveryMessage } = await import('../lib/deliveryDestination')
+      const nodes = useNodeStore.getState().nodes
+      const destination = destinationOf(proposals, resolvedIds, {
+        activeTaskId: taskId,
+        deskTitle: (id) => nodes.find((n) => n.id === id)?.title ?? null
+      })
+      // A notice as well as the dock line: the dock can be dismissed, and a
+      // result you cannot find afterwards is barely delivered. Same shape as
+      // every other "we put something somewhere" notice in the app.
+      if (applied > 0 && destination) {
+        const { useNoticeStore } = await import('./notice')
+        useNoticeStore.getState().show({
+          text: `Results placed on ${destination.label}`,
+          icon: destination.icon,
+          action: {
+            label: 'Open',
+            run: () => {
+              void import('./view').then((m) => m.useViewStore.getState().go(destination.view))
+            }
+          }
+        })
+      }
       setDelivery(
         failures.length === 0
-          ? { state: 'done', message: res.reply || `Placed ${applied} item${applied === 1 ? '' : 's'}.` }
+          ? {
+              state: 'done',
+              message: deliveryMessage(
+                res.reply || `Placed ${applied} item${applied === 1 ? '' : 's'}.`,
+                destination
+              ),
+              destination
+            }
           : {
               state: applied > 0 ? 'done' : 'error',
-              message: `${applied} of ${proposals.length} placed. ${failures[0]}`
+              message: `${applied} of ${proposals.length} placed. ${failures[0]}`,
+              destination: applied > 0 ? destination : null
             }
       )
     } catch (e) {
