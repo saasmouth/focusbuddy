@@ -1,4 +1,5 @@
 import type { View } from '../stores/view'
+import { isHubApp } from './segmentApps'
 
 // The strip of things you currently have open.
 //
@@ -83,8 +84,17 @@ export function trayKeyFor(view: View): string | null {
       // document route -- one entry, not two, whichever way you got to it.
       if (view.doc) return `document:${view.doc}`
       // An Office app you have open -- Chat, Mail, the Browser, Sign. The hub
-      // itself (no app) is a place, like the desks index.
-      return view.app ? `office:${view.app}` : null
+      // itself is a place, like the desks index.
+      return isHubApp('office', view.app) ? null : `office:${view.app}`
+    // The other three segments, by the same rule. These were invisible: their
+    // shell kept the open app in local state, so nothing outside it -- this
+    // included -- could tell what you had open.
+    case 'plexidesk':
+      return isHubApp('plexidesk', view.app) ? null : `plexidesk:${view.app}`
+    case 'plexipeople':
+      return isHubApp('plexipeople', view.app) ? null : `plexipeople:${view.app}`
+    case 'plexibrain':
+      return isHubApp('plexibrain', view.app) ? null : `plexibrain:${view.app}`
     case 'messages':
       // Chat is one context rather than one per conversation: the view carries
       // no conversation id, and inventing one here would be inventing state.

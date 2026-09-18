@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useCallback } from 'react'
 import { useViewStore } from '../../stores/view'
+import type { SegmentKind } from '../../lib/segmentApps'
 import SegmentSwitcher from './SegmentSwitcher'
 import OrgSwitcher from '../OrgSwitcher'
 import Icon from '../Icon'
@@ -33,6 +34,8 @@ export interface SegmentApp {
 }
 
 export interface SegmentDef {
+  // Which segment this is, so the shell can navigate rather than remember.
+  kind: SegmentKind
   // The wordmark shown in the sidebar (e.g. "PLEXIWORK").
   wordmark: string
   title: string
@@ -44,12 +47,28 @@ export interface SegmentDef {
 
 export default function SegmentShell({ def, initialApp }: { def: SegmentDef; initialApp?: string }): JSX.Element {
   const goHome = useViewStore((s) => s.goHome)
-  const [activeKey, setActiveKey] = useState<string | null>(initialApp ?? null)
-  // Deep-link: when an entry point opens this segment with a specific app, switch
-  // to it (the view object changes identity on each navigation).
-  useEffect(() => {
-    if (initialApp) setActiveKey(initialApp)
-  }, [initialApp])
+  // WHICH APP IS OPEN IS NAVIGATION, not local state.
+  //
+  // This was a useState, and it backed three of the four segments — every app
+  // in PlexiDesk, PlexiPeople and PlexiBrain. Nothing outside this component
+  // could tell what you had open, so none of them reached the tray, Back did
+  // nothing inside a segment, and a reload dropped you on the segment's home
+  // having lost where you were. PlexiOffice had the identical bug.
+  //
+  // The view store already had a place to put it — kind + app, with
+  // goPlexiDesk/goPlexiPeople/goPlexiBrain — and nothing was calling it.
+  const activeKey = initialApp ?? null
+  const setActiveKey = useCallback(
+    (key: string | null): void => {
+      const v = useViewStore.getState()
+      const app = key ?? undefined
+      if (def.kind === 'plexipeople') v.goPlexiPeople(app)
+      else if (def.kind === 'plexibrain') v.goPlexiBrain(app)
+      else if (def.kind === 'office') v.goOffice(app)
+      else v.goPlexiDesk(app)
+    },
+    [def.kind]
+  )
   const active = def.apps.find((a) => a.key === activeKey) ?? null
   // The segment menu floats as a rounded card and can be minimised to free the
   // area, exactly like the global Desk sidebar. Its state persists per reload.

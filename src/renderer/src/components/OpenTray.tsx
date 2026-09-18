@@ -17,6 +17,7 @@ import { useNodeStore } from '../stores/nodes'
 import { useDocumentsStore } from '../stores/documents'
 import { useOpenTrayStore } from '../stores/openTray'
 import { activeKey, documentIdOf, orderTray, type TrayEntry } from '../lib/openTray'
+import { lookupApp } from '../lib/segmentApps'
 import {
   dragCarriesDocument,
   type DocumentDragPayload,
@@ -153,26 +154,20 @@ export default function OpenTray(): JSX.Element | null {
           return { label: v.productKey, icon: 'inventory_2' }
         case 'knowledge':
           return { label: 'Knowledge', icon: 'psychology' }
-        case 'office': {
+        case 'office':
+        case 'plexidesk':
+        case 'plexipeople':
+        case 'plexibrain': {
           // A document open inside Office reads as the document, not as
           // "PlexiOffice" -- it is the thing you have open.
-          if (v.doc) return resolveDoc(v.doc)
-          const app = v.app ?? ''
-          const known: Record<string, Resolved> = {
-            mail: { label: 'Mail', icon: 'mail' },
-            inbox: { label: 'Inbox', icon: 'inbox' },
-            chat: { label: 'Chat', icon: 'forum' },
-            meet: { label: 'Meet', icon: 'video_call' },
-            sign: { label: 'Sign', icon: 'plexii:sign' },
-            browser: { label: 'Browser', icon: 'public' },
-            docs: { label: 'PlexiDocs', icon: 'description' },
-            sheets: { label: 'PlexiSheets', icon: 'table_chart' },
-            slides: { label: 'PlexiSlides', icon: 'slideshow' },
-            diagrams: { label: 'PlexiDiagrams', icon: 'account_tree' },
-            design: { label: 'PlexiDesign', icon: 'plexii:design' },
-            draw: { label: 'PlexiDraw', icon: 'brush' }
-          }
-          return known[app] ?? { label: app || 'Office', icon: 'apps' }
+          if (v.kind === 'office' && v.doc) return resolveDoc(v.doc)
+          // Names and icons come from the one registry the shells build their
+          // menus from, so a tab can never disagree with the menu that opened
+          // it -- which is exactly what a second copy of the list produced.
+          const meta = lookupApp(v.kind, v.app)
+          return meta
+            ? { label: meta.label, icon: meta.icon }
+            : { label: v.app || 'Office', icon: 'apps' }
         }
         case 'messages':
           return { label: 'Chat', icon: 'plexii:chat' }
