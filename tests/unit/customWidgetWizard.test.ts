@@ -271,3 +271,37 @@ describe('@ mentions are the second way in', () => {
     expect(q.options.map((o) => o.id)).toContain('mention')
   })
 })
+
+describe('working something out — any subject, same three failures', () => {
+  it('asks for a sound method when the widget computes', () => {
+    // Not routing-specific: ordering, packing, scheduling and allocating are
+    // the same shape of problem, and a model writing a whole app in one pass
+    // reaches for an ad-hoc guess unless told otherwise.
+    const spec = composeSpec(a({ does: ['total'] }))
+    expect(spec).toContain('METHOD:')
+    expect(spec).toMatch(/nearest-neighbour|first-fit-decreasing|topological sort/)
+  })
+
+  it('forbids calling an approximation an answer', () => {
+    // A confident wrong number is worse than an honest approximate one, because
+    // the user acts on it.
+    const spec = composeSpec(a({ does: ['progress'] }))
+    expect(spec).toContain('never "optimal" or "shortest"')
+    expect(spec).toContain('assumptions')
+  })
+
+  it('requires it to stay responsive and honest about size', () => {
+    const spec = composeSpec(a({ does: ['chart'] }))
+    expect(spec).toContain('freezes')
+    expect(spec).toContain('truncating silently')
+  })
+
+  it('says nothing about method when the widget only displays', () => {
+    const spec = composeSpec(a({ does: ['nothing'] }))
+    expect(spec).not.toContain('METHOD:')
+  })
+
+  it('says nothing about method when the question was skipped', () => {
+    expect(composeSpec(a({ kind: ['reference'] }))).not.toContain('METHOD:')
+  })
+})

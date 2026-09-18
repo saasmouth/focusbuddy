@@ -294,6 +294,24 @@ export function composeSpec(a: WidgetWizardAnswers, ctx: ComposeContext = {}): s
       'there. Zero and "nothing yet" are correct answers; a plausible-looking fake is not.'
   )
 
+  // Anything that computes has the same three failure modes whatever the
+  // subject: the wrong method, a heuristic presented as an answer, and falling
+  // over at scale. Stated here so it reaches a wizard-built widget too, not
+  // only one described in free text.
+  const computes = picked(a, 'does').some((d) => d !== 'nothing')
+  if (computes) {
+    lines.push(
+      'METHOD: if what it works out is a known problem — ordering, packing, ' +
+        'scheduling, allocating — use the known approach (nearest-neighbour then 2-opt, ' +
+        'first-fit-decreasing, topological sort) rather than inventing one. Name the ' +
+        'method where the result is shown, and label an approximation as one: ' +
+        '"suggested order", "estimated total", never "optimal" or "shortest". State the ' +
+        'assumptions that change the answer. Chunk anything heavy so the widget never ' +
+        'freezes, and if the input is larger than the method handles well, cap it and ' +
+        'say so on screen rather than truncating silently.'
+    )
+  }
+
   return lines.join('\n')
 }
 

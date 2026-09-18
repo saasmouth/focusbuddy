@@ -14,6 +14,10 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
+/** Rejoin string literals split across a `' +` concatenation or a `',` array
+ *  boundary, so an assertion tests the instruction and not its line wrapping. */
+const unwrap = (text: string): string => text.replace(/['`]\s*[,+]\s*\n\s*['`]/g, '')
+
 const SRC = readFileSync(
   join(__dirname, '..', '..', 'src', 'main', 'ai', 'customWidget.ts'),
   'utf-8'
@@ -39,7 +43,7 @@ describe('the generator finishes an unfinished widget', () => {
     // Without this it re-opens with a preamble or starts the document again,
     // and the concatenation is garbage.
     const at = SRC.indexOf('Continue from EXACTLY')
-    const block = SRC.slice(at, at + 600).replace(/'\s*\+\s*\n\s*'/g, '')
+    const block = unwrap(SRC.slice(at, at + 600))
     expect(block).toContain('Do not repeat')
     expect(block).toMatch(/do not start over/i)
     expect(block).toMatch(/code fence/i)
@@ -113,5 +117,43 @@ describe('the host gives the body padding rather than asking for it', () => {
     // is not a control. A widget flush to every edge is that failure, smaller.
     expect(SRC).not.toContain('padding of your own')
     expect(SRC).toContain('already has 12px of padding')
+  })
+})
+
+// A custom widget is a small application, and most of them COMPUTE something.
+// The prompt used to be entirely about appearance and interaction — nothing
+// about being correct at the job it does. These are the three ways a computing
+// widget is wrong, and none of them are specific to any one subject.
+describe('the generator is told how to work things out', () => {
+  it('names sound methods for the common shapes of problem', () => {
+    expect(SRC).toContain('travelling-salesman')
+    expect(SRC).toContain('bin-packing')
+    expect(SRC).toContain('topological sort')
+    expect(SRC).toContain('2-opt')
+  })
+
+  it('forbids presenting a heuristic as the answer', () => {
+    const at = SRC.indexOf('NEVER CALL AN APPROXIMATION')
+    expect(at).toBeGreaterThan(-1)
+    const block = unwrap(SRC.slice(at, at + 1400))
+    expect(block).toMatch(/not "the optimal"|"the best"|"the shortest"/)
+    expect(block).toContain('name the')
+    expect(block).toMatch(/assumptions/)
+  })
+
+  it('requires it to stay responsive rather than freeze', () => {
+    const at = SRC.indexOf('STAY RESPONSIVE')
+    expect(at).toBeGreaterThan(-1)
+    const block = unwrap(SRC.slice(at, at + 900))
+    expect(block).toMatch(/chunk/i)
+    expect(block).toMatch(/never silently\s*truncate|never silently truncate/)
+  })
+
+  it('tells it to say what it could NOT do rather than drop it quietly', () => {
+    // A widget that silently omits the hard half looks finished and is not.
+    const at = SRC.indexOf('genuinely cannot be done here')
+    expect(at).toBeGreaterThan(-1)
+    const block = unwrap(SRC.slice(at, at + 500))
+    expect(block).toMatch(/say plainly/)
   })
 })
