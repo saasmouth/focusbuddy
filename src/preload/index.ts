@@ -42,9 +42,9 @@ import type {
   MailAccountInput,
   MailAccountPublic,
   MailListItem,
-  MailFolder,
-  MailFolderDraft,
-  MailFolderPatch,
+  MailTag,
+  MailTagDraft,
+  MailTagPatch,
   MailFullMessage,
   MailSendInput,
   MailSendResult,
@@ -1765,22 +1765,24 @@ const api = {
     ): Promise<{ tableIds: string[]; taskIds: string[]; deskId: string | null }> =>
       ipcRenderer.invoke('customWidget:scope', widgetId)
   },
-  // Mail folders: saved criteria for looking at the inbox, optionally about a
-  // desk or task. None of these touch the mail server -- a folder is a view.
-  mailFolders: {
-    list: (): Promise<MailFolder[]> => ipcRenderer.invoke('mailFolders:list'),
-    listForNode: (nodeId: string): Promise<MailFolder[]> =>
-      ipcRenderer.invoke('mailFolders:listForNode', nodeId),
-    create: (draft: MailFolderDraft): Promise<MailFolder> =>
-      ipcRenderer.invoke('mailFolders:create', draft),
-    update: (id: string, patch: MailFolderPatch): Promise<MailFolder | null> =>
-      ipcRenderer.invoke('mailFolders:update', id, patch),
-    remove: (id: string): Promise<boolean> => ipcRenderer.invoke('mailFolders:remove', id),
-    pin: (id: string, uid: number): Promise<MailFolder | null> =>
-      ipcRenderer.invoke('mailFolders:pin', id, uid),
-    exclude: (id: string, uid: number): Promise<MailFolder | null> =>
-      ipcRenderer.invoke('mailFolders:exclude', id, uid),
-    reorder: (ids: string[]): Promise<MailFolder[]> => ipcRenderer.invoke('mailFolders:reorder', ids)
+  // Mail tags: saved criteria for looking at the inbox, optionally about a desk
+  // or task. None of these touch the mail server -- a tag is a view, a message
+  // can carry several, and undoing one costs nothing. Categories (above) are
+  // the opposite: real server mailboxes, one per message, and filing moves it.
+  mailTags: {
+    list: (): Promise<MailTag[]> => ipcRenderer.invoke('mailTags:list'),
+    listForNode: (nodeId: string): Promise<MailTag[]> =>
+      ipcRenderer.invoke('mailTags:listForNode', nodeId),
+    create: (draft: MailTagDraft): Promise<MailTag> =>
+      ipcRenderer.invoke('mailTags:create', draft),
+    update: (id: string, patch: MailTagPatch): Promise<MailTag | null> =>
+      ipcRenderer.invoke('mailTags:update', id, patch),
+    remove: (id: string): Promise<boolean> => ipcRenderer.invoke('mailTags:remove', id),
+    pin: (id: string, uid: number): Promise<MailTag | null> =>
+      ipcRenderer.invoke('mailTags:pin', id, uid),
+    exclude: (id: string, uid: number): Promise<MailTag | null> =>
+      ipcRenderer.invoke('mailTags:exclude', id, uid),
+    reorder: (ids: string[]): Promise<MailTag[]> => ipcRenderer.invoke('mailTags:reorder', ids)
   },
   // The people a workspace deals with: org members are fetched from the signal
   // server, everybody else lives here. A contact can be linked to a desk, which
@@ -2257,13 +2259,16 @@ const api = {
       unsubTargets?: Record<number, { kind: 'http' | 'mailto'; target: string }>
       error?: string
     }> => ipcRenderer.invoke('mail:triage', limit),
-    listFolders: (): Promise<{
+    // Categories are real mailboxes on the mail server: a message has exactly
+    // one and filing MOVES it. Distinct from `mailTags` below, which are
+    // Plexii-side views that move nothing.
+    listCategories: (): Promise<{
       ok: boolean
-      folders?: Array<{ path: string; name: string; specialUse: string | null; reserved: boolean }>
+      categories?: Array<{ path: string; name: string; specialUse: string | null; reserved: boolean }>
       error?: string
-    }> => ipcRenderer.invoke('mail:listFolders'),
-    createFolder: (path: string): Promise<{ ok: boolean; created?: boolean; path?: string; error?: string }> =>
-      ipcRenderer.invoke('mail:createFolder', path),
+    }> => ipcRenderer.invoke('mail:listCategories'),
+    createCategory: (path: string): Promise<{ ok: boolean; created?: boolean; path?: string; error?: string }> =>
+      ipcRenderer.invoke('mail:createCategory', path),
     move: (uid: number, target: string): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('mail:move', uid, target),
     // Moves to Trash. Recoverable — nothing here expunges.

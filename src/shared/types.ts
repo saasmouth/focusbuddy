@@ -2150,22 +2150,29 @@ export interface MailListItem {
   oneClickUnsubscribe: boolean
 }
 
-// ── Mail folders ─────────────────────────────────────────────────────────────
-// Categorising a busy inbox without asking anybody to file anything.
+// ── Mail tags ────────────────────────────────────────────────────────────────
+// Sorting a busy inbox without asking anybody to file anything.
 //
-// A folder here is a saved CRITERION that fills itself, not a drawer you drag
-// messages into. The reason is the problem being solved: an inbox is not
-// overwhelming because it lacks folders, it is overwhelming because everything
-// arrives looking equally urgent -- and hand-filing is precisely the work that
-// stops happening when somebody is drowning. A rule costs one setup and then
-// keeps paying.
+// A TAG is a saved CRITERION that fills itself, not a drawer you drag messages
+// into. The reason is the problem being solved: an inbox is not overwhelming
+// because it lacks folders, it is overwhelming because everything arrives
+// looking equally urgent -- and hand-filing is precisely the work that stops
+// happening when somebody is drowning. A rule costs one setup and then keeps
+// paying.
 //
 // Nothing here moves mail on the server. These are views over INBOX, which is
-// what lets one message sit in two folders at once (an invoice about the Ridge
-// St deal is both), lets a folder be undone without consequence, and keeps a
-// mistake from being destructive. IMAP folders can do none of those.
+// what lets one message carry two tags at once (an invoice about the Ridge St
+// deal is both), lets a tag be undone without consequence, and keeps a mistake
+// from being destructive.
+//
+// The other half of the vocabulary is a CATEGORY: a real mailbox on the mail
+// server, of which a message has exactly one, and filing into it MOVES the
+// message where Apple Mail and the phone will see it. Triage proposes those;
+// see shared/mailTriage.ts. Tags and categories are named apart on purpose --
+// calling both of them "folders", as this once did, is how somebody loses
+// track of where a message actually went.
 
-/** What belongs in a folder, or what a desk's Inbox widget narrows to. */
+/** What belongs in a tag, or what a desk's Inbox widget narrows to. */
 export interface InboxRules {
   /** Any of these appearing in the sender's name or address. */
   from?: string[]
@@ -2178,30 +2185,30 @@ export interface InboxRules {
   sinceDays?: number | null
 }
 
-export interface MailFolder {
+export interface MailTag {
   id: string
   name: string
-  /** A tint token so a folder is findable by colour, not only by reading. */
+  /** A tint token so a tag is findable by colour, not only by reading. */
   colour: string
   rules: InboxRules
   /**
-   * The desk or task this folder is about, when it is about one. Null is the
-   * ordinary case -- a folder need not belong to anything.
+   * The desk or task this tag is about, when it is about one. Null is the
+   * ordinary case -- a tag need not belong to anything.
    *
    * ON DELETE SET NULL, deliberately not CASCADE: deleting a desk must not
-   * silently destroy somebody's mail categorisation. The folder survives,
-   * having merely stopped being about that desk.
+   * silently destroy somebody's mail sorting. The tag survives, having merely
+   * stopped being about that desk.
    */
   nodeId: string | null
   /**
-   * Messages forced INTO this folder regardless of the rules, and forced OUT
-   * of it regardless of the rules.
+   * Messages forced INTO this tag regardless of the rules, and forced OUT of
+   * it regardless of the rules.
    *
-   * These are what make a self-filling folder trustworthy rather than merely
+   * These are what make a self-filling tag trustworthy rather than merely
    * clever. Without pinning, a rule that misses a message is a dead end and the
    * user is stuck widening a rule until it over-matches. Without excluding, one
-   * stray match poisons the folder for good. Both are uid lists because a uid
-   * is stable for the life of the mailbox.
+   * stray match poisons the tag for good. Both are uid lists because a uid is
+   * stable for the life of the mailbox.
    */
   pinned: number[]
   excluded: number[]
@@ -2210,14 +2217,14 @@ export interface MailFolder {
   updatedAt: number
 }
 
-export interface MailFolderDraft {
+export interface MailTagDraft {
   name: string
   colour?: string
   rules?: InboxRules
   nodeId?: string | null
 }
 
-export interface MailFolderPatch {
+export interface MailTagPatch {
   name?: string
   colour?: string
   rules?: InboxRules

@@ -10,17 +10,17 @@ import {
   listNodesForContact
 } from '../db/contacts'
 import {
-  listMailFolders,
-  listMailFoldersForNode,
-  createMailFolder,
-  updateMailFolder,
-  deleteMailFolder,
-  pinToFolder,
-  excludeFromFolder,
-  reorderMailFolders
-} from '../db/mailFolders'
+  listMailTags,
+  listMailTagsForNode,
+  createMailTag,
+  updateMailTag,
+  deleteMailTag,
+  pinToTag,
+  excludeFromTag,
+  reorderMailTags
+} from '../db/mailTags'
 import { resolveWidgetInputs, widgetActionScope } from '../db/widgetInputs'
-import type { ContactDraft, ContactPatch, MailFolderDraft, MailFolderPatch } from '@shared/types'
+import type { ContactDraft, ContactPatch, MailTagDraft, MailTagPatch } from '@shared/types'
 import { buildMetricBinding, planFindingsDelivery, refineDashboardPlan } from '../ai/anthropic'
 import { normalizeFindings } from '@shared/browseFindings'
 import {
@@ -113,7 +113,7 @@ import {
   resetConnection as resetMailConnection, archiveMessage,
   listMailboxes, createMailbox, moveMessage, trashMessage, junkMessage } from '../mail/imap'
 import { triageInbox, liveTriageDeps, TRIAGE_BATCH } from '../ai/mailTriage'
-import { isUsableFolderName } from '@shared/mailTriage'
+import { isUsableCategoryName } from '@shared/mailTriage'
 // NOTE: mail-OAuth wiring temporarily reverted for the 4.1.1 release. The
 // ../mail/oauth and ../mail/oauthProviders modules, explainImapError, and the
 // mailAccount OAuth methods were referenced here but never committed, which broke
@@ -2271,23 +2271,23 @@ export function registerIpcHandlers(): void {
   // Saved criteria for looking at INBOX, optionally about a desk or task.
   // Nothing here touches the mail server: a folder is a view, which is what
   // makes every one of these operations safe and reversible.
-  ipcMain.handle('mailFolders:list', () => listMailFolders())
-  ipcMain.handle('mailFolders:listForNode', (_e, nodeId: string) =>
-    listMailFoldersForNode(String(nodeId))
+  ipcMain.handle('mailTags:list', () => listMailTags())
+  ipcMain.handle('mailTags:listForNode', (_e, nodeId: string) =>
+    listMailTagsForNode(String(nodeId))
   )
-  ipcMain.handle('mailFolders:create', (_e, draft: MailFolderDraft) => createMailFolder(draft))
-  ipcMain.handle('mailFolders:update', (_e, id: string, patch: MailFolderPatch) =>
-    updateMailFolder(String(id), patch)
+  ipcMain.handle('mailTags:create', (_e, draft: MailTagDraft) => createMailTag(draft))
+  ipcMain.handle('mailTags:update', (_e, id: string, patch: MailTagPatch) =>
+    updateMailTag(String(id), patch)
   )
-  ipcMain.handle('mailFolders:remove', (_e, id: string) => deleteMailFolder(String(id)))
-  ipcMain.handle('mailFolders:pin', (_e, id: string, uid: number) =>
-    pinToFolder(String(id), Number(uid))
+  ipcMain.handle('mailTags:remove', (_e, id: string) => deleteMailTag(String(id)))
+  ipcMain.handle('mailTags:pin', (_e, id: string, uid: number) =>
+    pinToTag(String(id), Number(uid))
   )
-  ipcMain.handle('mailFolders:exclude', (_e, id: string, uid: number) =>
-    excludeFromFolder(String(id), Number(uid))
+  ipcMain.handle('mailTags:exclude', (_e, id: string, uid: number) =>
+    excludeFromTag(String(id), Number(uid))
   )
-  ipcMain.handle('mailFolders:reorder', (_e, ids: string[]) =>
-    reorderMailFolders(Array.isArray(ids) ? ids.map(String) : [])
+  ipcMain.handle('mailTags:reorder', (_e, ids: string[]) =>
+    reorderMailTags(Array.isArray(ids) ? ids.map(String) : [])
   )
 
   // ── Contacts ──────────────────────────────────────────────────────────────
@@ -3469,20 +3469,20 @@ export function registerIpcHandlers(): void {
   // Nothing in this block acts on its own. `mail:triage` returns a PLAN; the
   // renderer shows it and the person applies what they agree with, one row at a
   // time, through the ordinary move/trash/spam handlers below.
-  ipcMain.handle('mail:listFolders', async () => {
+  ipcMain.handle('mail:listCategories', async () => {
     const acc = await currentMailAccount()
     if (!acc.ok) return { ok: false as const, error: acc.error }
     try {
-      return { ok: true as const, folders: await listMailboxes(acc.config) }
+      return { ok: true as const, categories: await listMailboxes(acc.config) }
     } catch (err) {
       return { ok: false as const, error: (err as Error).message }
     }
   })
-  ipcMain.handle('mail:createFolder', async (_e, path: string) => {
+  ipcMain.handle('mail:createCategory', async (_e, path: string) => {
     const acc = await currentMailAccount()
     if (!acc.ok) return { ok: false as const, error: acc.error }
-    if (!isUsableFolderName(path)) {
-      return { ok: false as const, error: `"${path}" is not a folder name this can create.` }
+    if (!isUsableCategoryName(path)) {
+      return { ok: false as const, error: `"${path}" is not a category name this can create.` }
     }
     try {
       const r = await createMailbox(acc.config, path)

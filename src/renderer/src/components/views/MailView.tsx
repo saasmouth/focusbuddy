@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import MailFolderRail, { COLOUR_DOT } from '../mail/MailFolderRail'
-import MailFolderEditor from '../mail/MailFolderEditor'
-import { useMailFolderStore } from '../../stores/mailFolders'
-import { uncategorised, inFolder, folderFromMessage } from '../../lib/mailFolders'
+import MailTagRail, { COLOUR_DOT } from '../mail/MailTagRail'
+import MailTagEditor from '../mail/MailTagEditor'
+import { useMailTagStore } from '../../stores/mailTags'
+import { untagged, inTag, tagFromMessage } from '../../lib/mailTags'
 import { useMailStore, selectMailUnread } from '../../stores/mail'
 import { useViewStore } from '../../stores/view'
-import type { MailAccountInput, MailFolder, MailListItem } from '@shared/types'
+import type { MailAccountInput, MailTag, MailListItem } from '@shared/types'
 import { threadMailbox } from '../../lib/mailThreads'
 import Icon from '../Icon'
 import MailTriagePanel from '../mail/MailTriagePanel'
@@ -538,17 +538,17 @@ export default function MailView(): JSX.Element {
   // The AI tidy-up review. Opening it proposes; nothing moves until pressed.
   const [triaging, setTriaging] = useState(false)
   const loadMore = useMailStore((s) => s.loadMore)
-  const folders = useMailFolderStore((s) => s.folders)
-  const scope = useMailFolderStore((s) => s.scope)
-  const setScope = useMailFolderStore((s) => s.setScope)
-  const refreshFolders = useMailFolderStore((s) => s.refresh)
-  const pinToFolder = useMailFolderStore((s) => s.pin)
-  const excludeFromFolder = useMailFolderStore((s) => s.exclude)
-  // The folder editor: a folder to edit, or a seed for a new one, or closed.
+  const tags = useMailTagStore((s) => s.tags)
+  const scope = useMailTagStore((s) => s.scope)
+  const setScope = useMailTagStore((s) => s.setScope)
+  const refreshTags = useMailTagStore((s) => s.refresh)
+  const pinToTag = useMailTagStore((s) => s.pin)
+  const excludeFromTag = useMailTagStore((s) => s.exclude)
+  // The tag editor: a tag to edit, or a seed for a new one, or closed.
   // Which message the "file this" menu is open for.
   const [filing, setFiling] = useState<MailListItem | null>(null)
   const [editing, setEditing] = useState<
-    { folder: MailFolder | null; seed?: { name: string; from: string[] } | null } | null
+    { tag: MailTag | null; seed?: { name: string; from: string[] } | null } | null
   >(null)
   const hasMore = useMailStore((s) => s.hasMore)
   const loadingMore = useMailStore((s) => s.loadingMore)
@@ -583,20 +583,20 @@ export default function MailView(): JSX.Element {
     }
   }, [quickPending, loaded, account, startCompose])
 
-  // Load the user's folders once; they outlive any particular mailbox fetch.
+  // Load the user's tags once; they outlive any particular mailbox fetch.
   useEffect(() => {
-    void refreshFolders()
-  }, [refreshFolders])
+    void refreshTags()
+  }, [refreshTags])
 
   // Narrow to whatever the rail has selected, THEN thread. Threading first and
   // filtering after would show a conversation whose messages are not in this
-  // folder, which is how a filtered view stops meaning anything.
+  // tag, which is how a filtered view stops meaning anything.
   const scoped = useMemo(() => {
     if (scope.kind === 'inbox') return messages
-    if (scope.kind === 'unsorted') return uncategorised(messages, folders)
-    const folder = folders.find((f) => f.id === scope.id)
-    return folder ? messages.filter((m) => inFolder(m, folder)) : messages
-  }, [messages, folders, scope])
+    if (scope.kind === 'unsorted') return untagged(messages, tags)
+    const tag = tags.find((f) => f.id === scope.id)
+    return tag ? messages.filter((m) => inTag(m, tag)) : messages
+  }, [messages, tags, scope])
 
   // Group into conversation threads (Gmail-style), newest first.
   const threads = useMemo(() => threadMailbox(scoped), [scoped])
@@ -606,7 +606,7 @@ export default function MailView(): JSX.Element {
       ? 'Mail'
       : scope.kind === 'unsorted'
         ? 'Unsorted'
-        : (folders.find((f) => f.id === scope.id)?.name ?? 'Mail')
+        : (tags.find((f) => f.id === scope.id)?.name ?? 'Mail')
 
   // Keep the highlighted thread inside the list's visible window. The list is
   // its own scroller under a fixed header bar, and nothing used to scroll it:
@@ -694,13 +694,13 @@ export default function MailView(): JSX.Element {
 
   return (
     <div className="h-full flex bg-[var(--surface-base)] text-[var(--ink-100)]">
-      {/* Folders. Left of the list because it is the thing you choose BEFORE
+      {/* Tags. Left of the list because it is the thing you choose BEFORE
           reading -- and because "Unsorted" shrinking is the feedback that makes
           the whole arrangement worth keeping up. */}
-      <MailFolderRail
+      <MailTagRail
         messages={messages}
-        onEdit={(f) => setEditing({ folder: f })}
-        onCreate={(seed) => setEditing({ folder: null, seed: seed ?? null })}
+        onEdit={(f) => setEditing({ tag: f })}
+        onCreate={(seed) => setEditing({ tag: null, seed: seed ?? null })}
       />
 
       {/* List */}
@@ -786,9 +786,9 @@ export default function MailView(): JSX.Element {
                 {error
                   ? 'Could not load your inbox.'
                   : scope.kind === 'unsorted'
-                    ? 'Nothing unsorted. Every message you have loaded is in a folder.'
-                    : scope.kind === 'folder'
-                      ? 'Nothing in this folder yet, out of the mail you have loaded.'
+                    ? 'Nothing unsorted. Every message you have loaded carries a tag.'
+                    : scope.kind === 'tag'
+                      ? 'Nothing carries this tag yet, out of the mail you have loaded.'
                       : 'No messages.'}
               </p>
               {!error && scope.kind !== 'inbox' && (
@@ -857,44 +857,48 @@ export default function MailView(): JSX.Element {
                   </div>
                 </button>
 
-                {/* Filing one message by hand. The rules do the bulk of the
+                {/* Tagging one message by hand. The rules do the bulk of the
                     work; this is the correction that makes them trustworthy --
                     put this one where the rule did not, or take it out of a
-                    folder that wrongly claimed it. */}
+                    tag that wrongly claimed it.
+
+                    Deliberately NOT called "file": filing means moving a
+                    message into a category on the mail server, which is what
+                    triage proposes. This moves nothing. */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
                     setFiling(filing?.uid === t.latest.uid ? null : t.latest)
                   }}
-                  data-testid={`mail-file-${t.latest.uid}`}
-                  title="File this message"
-                  aria-label="File this message"
+                  data-testid={`mail-tag-open-${t.latest.uid}`}
+                  title="Tag this message"
+                  aria-label="Tag this message"
                   className="absolute right-2 top-2 h-7 w-7 rounded-md inline-flex items-center justify-center opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 text-[var(--ink-50)] hover:text-[var(--ink-100)] hover:bg-[var(--surface-raised)] transition-opacity"
                 >
-                  <Icon name="folder_managed" size={15} />
+                  <Icon name="label" size={15} />
                 </button>
 
                 {filing?.uid === t.latest.uid && (
                   <div
                     className="absolute right-2 top-9 z-20 w-52 rounded-[var(--radius-row)] fb-glass-panel fb-pop-in py-1 fb-t-label"
                     onMouseLeave={() => setFiling(null)}
-                    data-testid="mail-file-menu"
+                    data-testid="mail-tag-menu"
                   >
-                    {folders.length === 0 && (
-                      <p className="px-3 py-1.5 fb-t-caption">No folders yet.</p>
+                    {tags.length === 0 && (
+                      <p className="px-3 py-1.5 fb-t-caption">No tags yet.</p>
                     )}
-                    {folders.map((f) => {
-                      const held = inFolder(t.latest, f)
+                    {tags.map((f) => {
+                      const held = inTag(t.latest, f)
                       return (
                         <button
                           key={f.id}
                           onClick={() => {
                             void (held
-                              ? excludeFromFolder(f.id, t.latest.uid)
-                              : pinToFolder(f.id, t.latest.uid))
+                              ? excludeFromTag(f.id, t.latest.uid)
+                              : pinToTag(f.id, t.latest.uid))
                             setFiling(null)
                           }}
-                          data-testid={`mail-file-to-${f.id}`}
+                          data-testid={`mail-tag-apply-${f.id}`}
                           className="w-full text-left px-3 py-1.5 hover:bg-[var(--surface-sunken)] text-[var(--ink-90)] fb-press flex items-center gap-2"
                         >
                           <span className={`h-2 w-2 rounded-full shrink-0 ${COLOUR_DOT[f.colour] ?? COLOUR_DOT.sky}`} />
@@ -906,14 +910,14 @@ export default function MailView(): JSX.Element {
                     <div className="border-t border-[var(--edge-soft)] my-1" />
                     <button
                       onClick={() => {
-                        setEditing({ folder: null, seed: folderFromMessage(t.latest) })
+                        setEditing({ tag: null, seed: tagFromMessage(t.latest) })
                         setFiling(null)
                       }}
-                      data-testid="mail-file-new"
+                      data-testid="mail-tag-new-from-sender"
                       className="w-full text-left px-3 py-1.5 hover:bg-[var(--surface-sunken)] text-[var(--ink-90)] fb-press flex items-center gap-2"
                     >
-                      <Icon name="create_new_folder" size={13} className="shrink-0 text-[var(--ink-50)]" />
-                      New folder from this sender
+                      <Icon name="new_label" size={13} className="shrink-0 text-[var(--ink-50)]" />
+                      New tag from this sender
                     </button>
                   </div>
                 )}
@@ -960,8 +964,8 @@ export default function MailView(): JSX.Element {
       <ReadingPane />
 
       {editing && (
-        <MailFolderEditor
-          folder={editing.folder}
+        <MailTagEditor
+          tag={editing.tag}
           seed={editing.seed}
           messages={messages}
           onClose={() => setEditing(null)}

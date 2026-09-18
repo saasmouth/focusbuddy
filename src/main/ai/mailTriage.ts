@@ -7,6 +7,10 @@
 // by whoever wrote the most insistent message in it. Headers are enough to tell
 // a receipt from a contract, and they are far cheaper besides.
 //
+// A "category" here is a real mailbox on the mail server — filing MOVES the
+// message. That is distinct from a Plexii "tag", which is a self-filling view
+// that moves nothing. Triage only ever proposes categories.
+//
 // Nothing here acts. It returns a plan; the person applies it. The rules that
 // decide what may even be proposed live in shared/mailTriage.ts, deliberately
 // outside the prompt — a prompt is a request, and those need to be guarantees.
@@ -57,7 +61,7 @@ const SYSTEM = [
   'For each message choose exactly one action:',
   '  keep        — it needs a person: a reply, a decision, something addressed to them personally.',
   '  file        — it is reference: a receipt, a statement, a booking, a notification worth keeping.',
-  '                Give a "folder": an existing one where it fits, or a short new one (1-3 words).',
+  '                Give a "category": an existing one where it fits, or a short new one (1-3 words).',
   '  trash       — it is spent: an expired notice, a delivery update for something long delivered,',
   '                a duplicate. Recoverable, but still say why.',
   '  spam        — unsolicited and unwanted, from someone with no relationship to them.',
@@ -66,14 +70,14 @@ const SYSTEM = [
   '                propose this, however much it looks like a newsletter.',
   '',
   'Reply with ONLY a JSON array, no prose around it:',
-  '[{"uid": 123, "action": "file", "folder": "Receipts", "reason": "a paid invoice from Dolan"}]',
+  '[{"uid": 123, "action": "file", "category": "Receipts", "reason": "a paid invoice from Dolan"}]',
   '',
   'Rules that matter more than tidiness:',
   '- When unsure, "keep". An inbox with ten things left in it is a good outcome; a filed',
   '  contract nobody saw is not. Err toward leaving things alone.',
   '- Never propose trash or spam for anything that reads like a person writing to them',
   '  directly, an invoice, a legal or tax document, or anything about money owed either way.',
-  '- Prefer an existing folder over a new one. Propose a new folder only when several',
+  '- Prefer an existing category over a new one. Propose a new category only when several',
   '  messages genuinely share a home, and name it as a person would.',
   '- "reason" is one short clause in plain words, about THIS message. It is shown next to',
   '  the row so they can check your judgement at a glance.',
@@ -107,17 +111,17 @@ function describe(m: TriageInput, now: number): string {
  */
 export async function triageInbox(
   messages: TriageInput[],
-  existingFolders: string[],
+  existingCategories: string[],
   deps: MailTriageDeps
 ): Promise<{ ok: boolean; plan: MailTriagePlan; error?: string }> {
-  const empty: MailTriagePlan = { suggestions: [], newFolders: [], rejected: [] }
+  const empty: MailTriagePlan = { suggestions: [], newCategories: [], rejected: [] }
   if (messages.length === 0) return { ok: true, plan: empty }
 
   const batch = messages.slice(0, TRIAGE_BATCH)
   const now = deps.now()
-  const usable = existingFolders.filter((f) => f.toLowerCase() !== 'inbox')
+  const usable = existingCategories.filter((f) => f.toLowerCase() !== 'inbox')
   const user = [
-    usable.length ? `Folders that already exist: ${usable.join(', ')}` : 'There are no folders yet besides the defaults.',
+    usable.length ? `Categories that already exist: ${usable.join(', ')}` : 'There are no categories yet besides the defaults.',
     '',
     `${batch.length} message${batch.length === 1 ? '' : 's'}:`,
     ...batch.map((m) => describe(m, now))
@@ -136,7 +140,7 @@ export async function triageInbox(
   }
 
   const ctx: TriageContext = {
-    existingFolders: usable,
+    existingCategories: usable,
     unsubscribable: new Set(batch.filter((m) => m.hasUnsubscribe).map((m) => m.uid)),
     known: new Set(batch.map((m) => m.uid))
   }

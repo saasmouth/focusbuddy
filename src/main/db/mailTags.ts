@@ -1,21 +1,21 @@
 import { randomUUID } from 'crypto'
 import { getDb } from './database'
-import type { InboxRules, MailFolder, MailFolderDraft, MailFolderPatch } from '@shared/types'
+import type { InboxRules, MailTag, MailTagDraft, MailTagPatch } from '@shared/types'
 
-// Where a user's mail folders live.
+// Where a user's mail tags live.
 //
-// A folder is a saved criterion, not a drawer (see the note on MailFolder in
+// A tag is a saved criterion, not a drawer (see the note on MailTag in
 // shared/types.ts). Nothing here touches the mail server: these rows describe
-// how to LOOK at INBOX, which is what lets a message sit in two folders, lets a
-// folder be deleted with no consequence, and keeps a mis-typed rule from being
+// how to LOOK at INBOX, which is what lets a message sit in two tags, lets a
+// tag be deleted with no consequence, and keeps a mis-typed rule from being
 // destructive.
 //
 // `rules` is stored as JSON text. The main process is the persistence layer for
-// folders and has no business knowing what a rule means -- the renderer owns
+// tags and has no business knowing what a rule means -- the renderer owns
 // that vocabulary (lib/inboxFilter.ts), and keeping the semantics on one side
 // means adding a rule kind does not require a migration here.
 
-export function ensureMailFolderSchema(db: { exec(sql: string): void }): void {
+export function ensureMailTagSchema(db: { exec(sql: string): void }): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS mail_folders (
       id TEXT PRIMARY KEY,
@@ -23,11 +23,11 @@ export function ensureMailFolderSchema(db: { exec(sql: string): void }): void {
       colour TEXT NOT NULL DEFAULT 'sky',
       -- InboxRules as JSON. Opaque here on purpose; see the note above.
       rules TEXT NOT NULL DEFAULT '{}',
-      -- The desk or task this folder is about, when it is about one.
+      -- The desk or task this tag is about, when it is about one.
       --
       -- ON DELETE SET NULL, NOT CASCADE, and the difference matters: deleting a
       -- desk must never silently destroy somebody's mail categorisation. The
-      -- folder survives and merely stops being about that desk.
+      -- tag survives and merely stops being about that desk.
       node_id TEXT REFERENCES nodes(id) ON DELETE SET NULL,
       -- Comma-separated uids forced in / forced out, overriding the rules.
       pinned TEXT NOT NULL DEFAULT '',
@@ -74,12 +74,12 @@ function parseRules(raw: string | null | undefined): InboxRules {
   } catch {
     // A corrupt rule blob becomes an empty rule, which files NOTHING. The other
     // direction -- treating it as "match everything" -- would quietly sweep the
-    // whole inbox into one folder.
+    // whole inbox into one tag.
     return {}
   }
 }
 
-const toFolder = (r: Row): MailFolder => ({
+const toTag = (r: Row): MailTag => ({
   id: r.id,
   name: r.name,
   colour: r.colour || 'sky',
@@ -92,29 +92,29 @@ const toFolder = (r: Row): MailFolder => ({
   updatedAt: r.updated_at
 })
 
-export function listMailFolders(): MailFolder[] {
+export function listMailTags(): MailTag[] {
   return (
     getDb()
       .prepare('SELECT * FROM mail_folders ORDER BY sort_order, name COLLATE NOCASE')
       .all() as Row[]
-  ).map(toFolder)
+  ).map(toTag)
 }
 
-/** The folders about one desk or task. */
-export function listMailFoldersForNode(nodeId: string): MailFolder[] {
+/** The tags about one desk or task. */
+export function listMailTagsForNode(nodeId: string): MailTag[] {
   return (
     getDb()
       .prepare(
         'SELECT * FROM mail_folders WHERE node_id = ? ORDER BY sort_order, name COLLATE NOCASE'
       )
       .all(nodeId) as Row[]
-  ).map(toFolder)
+  ).map(toTag)
 }
 
-export function createMailFolder(draft: MailFolderDraft): MailFolder {
+export function createMailTag(draft: MailTagDraft): MailTag {
   const id = randomUUID()
   const now = Date.now()
-  // New folders go to the end rather than the top: an existing arrangement the
+  // New tags go to the end rather than the top: an existing arrangement the
   // user made is not rearranged by adding to it.
   const next =
     ((
@@ -129,26 +129,26 @@ export function createMailFolder(draft: MailFolderDraft): MailFolder {
     )
     .run({
       id,
-      name: draft.name?.trim() || 'New folder',
+      name: draft.name?.trim() || 'New tag',
       colour: draft.colour || 'sky',
       rules: JSON.stringify(draft.rules ?? {}),
       nodeId: draft.nodeId ?? null,
       sortOrder: next,
       now
     })
-  return getMailFolder(id)!
+  return getMailTag(id)!
 }
 
-export function getMailFolder(id: string): MailFolder | null {
+export function getMailTag(id: string): MailTag | null {
   const r = getDb().prepare('SELECT * FROM mail_folders WHERE id = ?').get(id) as Row | undefined
-  return r ? toFolder(r) : null
+  return r ? toTag(r) : null
 }
 
-export function updateMailFolder(id: string, patch: MailFolderPatch): MailFolder | null {
-  const existing = getMailFolder(id)
+export function updateMailTag(id: string, patch: MailTagPatch): MailTag | null {
+  const existing = getMailTag(id)
   if (!existing) return null
   // Only the fields actually present are written. A patch that mentions nothing
-  // must not blank the folder out.
+  // must not blank the tag out.
   const sets: string[] = []
   const args: Record<string, unknown> = { id, now: Date.now() }
   const put = (col: string, key: string, value: unknown): void => {
@@ -167,20 +167,20 @@ export function updateMailFolder(id: string, patch: MailFolderPatch): MailFolder
   getDb()
     .prepare(`UPDATE mail_folders SET ${sets.join(', ')}, updated_at = @now WHERE id = @id`)
     .run(args)
-  return getMailFolder(id)
+  return getMailTag(id)
 }
 
-export function deleteMailFolder(id: string): boolean {
-  // Deleting a folder deletes a VIEW. No mail is touched, on the server or
+export function deleteMailTag(id: string): boolean {
+  // Deleting a tag deletes a VIEW. No mail is touched, on the server or
   // anywhere else, which is what makes this safe to offer without a warning.
   return (getDb().prepare('DELETE FROM mail_folders WHERE id = ?').run(id).changes ?? 0) > 0
 }
 
-/** Force a message into a folder the rules missed. */
-export function pinToFolder(id: string, uid: number): MailFolder | null {
-  const f = getMailFolder(id)
+/** Force a message into a tag the rules missed. */
+export function pinToTag(id: string, uid: number): MailTag | null {
+  const f = getMailTag(id)
   if (!f) return null
-  return updateMailFolder(id, {
+  return updateMailTag(id, {
     pinned: [...f.pinned, uid],
     // Pinning something previously excluded is a reversal of that decision, so
     // the exclusion has to go or the pin would be silently ignored.
@@ -188,21 +188,21 @@ export function pinToFolder(id: string, uid: number): MailFolder | null {
   })
 }
 
-/** Force a message out of a folder the rules wrongly caught. */
-export function excludeFromFolder(id: string, uid: number): MailFolder | null {
-  const f = getMailFolder(id)
+/** Force a message out of a tag the rules wrongly caught. */
+export function excludeFromTag(id: string, uid: number): MailTag | null {
+  const f = getMailTag(id)
   if (!f) return null
-  return updateMailFolder(id, {
+  return updateMailTag(id, {
     excluded: [...f.excluded, uid],
     pinned: f.pinned.filter((u) => u !== uid)
   })
 }
 
-/** Persist a new order for the folder list. Ids not named keep their place. */
-export function reorderMailFolders(ids: readonly string[]): MailFolder[] {
+/** Persist a new order for the tag list. Ids not named keep their place. */
+export function reorderMailTags(ids: readonly string[]): MailTag[] {
   const db = getDb()
   const stmt = db.prepare('UPDATE mail_folders SET sort_order = ?, updated_at = ? WHERE id = ?')
   const now = Date.now()
   ids.forEach((id, i) => stmt.run(i, now, id))
-  return listMailFolders()
+  return listMailTags()
 }

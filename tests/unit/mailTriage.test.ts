@@ -1,34 +1,34 @@
 import { describe, it, expect } from 'vitest'
-import { applyTriageRules, isUsableFolderName, type TriageContext } from '../../src/shared/mailTriage'
+import { applyTriageRules, isUsableCategoryName, type TriageContext } from '../../src/shared/mailTriage'
 
 // The model reads an inbox well and knows nothing about what it is allowed to
 // do with one. These rules are where "allowed" is decided, so they are a
 // guarantee rather than a request — which a prompt could only ever be.
 
 const ctx = (over: Partial<TriageContext> = {}): TriageContext => ({
-  existingFolders: ['Clients', 'Receipts'],
+  existingCategories: ['Clients', 'Receipts'],
   unsubscribable: new Set([2]),
   known: new Set([1, 2, 3, 4]),
   ...over
 })
 
 describe('applyTriageRules', () => {
-  it('files into an existing folder, matching case-insensitively', () => {
-    const p = applyTriageRules([{ uid: 1, action: 'file', folder: 'clients', reason: 'from a client' }], ctx())
-    expect(p.suggestions[0]).toMatchObject({ uid: 1, action: 'file', folder: 'Clients', newFolder: false })
-    expect(p.newFolders).toEqual([])
+  it('files into an existing category, matching case-insensitively', () => {
+    const p = applyTriageRules([{ uid: 1, action: 'file', category: 'clients', reason: 'from a client' }], ctx())
+    expect(p.suggestions[0]).toMatchObject({ uid: 1, action: 'file', category: 'Clients', newCategory: false })
+    expect(p.newCategories).toEqual([])
   })
 
-  it('marks a folder that would be created, and lists it once', () => {
+  it('marks a category that would be created, and lists it once', () => {
     const p = applyTriageRules(
       [
-        { uid: 1, action: 'file', folder: 'Invoices', reason: 'a bill' },
-        { uid: 3, action: 'file', folder: 'Invoices', reason: 'another bill' }
+        { uid: 1, action: 'file', category: 'Invoices', reason: 'a bill' },
+        { uid: 3, action: 'file', category: 'Invoices', reason: 'another bill' }
       ],
       ctx()
     )
-    expect(p.suggestions.every((s) => s.newFolder)).toBe(true)
-    expect(p.newFolders).toEqual(['Invoices'])
+    expect(p.suggestions.every((s) => s.newCategory)).toBe(true)
+    expect(p.newCategories).toEqual(['Invoices'])
   })
 
   // The sharp one. A model will offer to unsubscribe from anything.
@@ -45,19 +45,19 @@ describe('applyTriageRules', () => {
     expect(p.rejected).toEqual([])
   })
 
-  it('refuses to file into the folders the mail client owns', () => {
-    for (const folder of ['Inbox', 'Trash', 'Junk', 'Sent', 'Archive', 'All Mail']) {
-      const p = applyTriageRules([{ uid: 1, action: 'file', folder, reason: 'x' }], ctx())
-      expect(p.suggestions, folder).toEqual([])
-      expect(p.rejected[0].because).toContain('usable folder name')
+  it('refuses to file into the categories the mail client owns', () => {
+    for (const category of ['Inbox', 'Trash', 'Junk', 'Sent', 'Archive', 'All Mail']) {
+      const p = applyTriageRules([{ uid: 1, action: 'file', category, reason: 'x' }], ctx())
+      expect(p.suggestions, category).toEqual([])
+      expect(p.rejected[0].because).toContain('usable category name')
     }
   })
 
-  it('refuses folder names that would nest somewhere unintended', () => {
-    for (const folder of ['Clients/Acme', 'a\\\\b', '', '   ', 'x'.repeat(61)]) {
-      expect(isUsableFolderName(folder), folder).toBe(false)
+  it('refuses category names that would nest somewhere unintended', () => {
+    for (const category of ['Clients/Acme', 'a\\\\b', '', '   ', 'x'.repeat(61)]) {
+      expect(isUsableCategoryName(category), category).toBe(false)
     }
-    expect(isUsableFolderName('Q4 Invoices')).toBe(true)
+    expect(isUsableCategoryName('Q4 Invoices')).toBe(true)
   })
 
   // A plan that silently drops a third of its own suggestions is one nobody
@@ -67,7 +67,7 @@ describe('applyTriageRules', () => {
       [
         { uid: 99, action: 'trash', reason: 'not in this batch' },
         { uid: 1, action: 'incinerate', reason: 'invented action' },
-        { uid: 3, action: 'file', reason: 'no folder given' }
+        { uid: 3, action: 'file', reason: 'no category given' }
       ],
       ctx()
     )
@@ -76,7 +76,7 @@ describe('applyTriageRules', () => {
     expect(p.rejected.map((r) => r.because)).toEqual([
       expect.stringContaining('not a message in this batch'),
       expect.stringContaining('not an action this surface offers'),
-      expect.stringContaining('usable folder name')
+      expect.stringContaining('usable category name')
     ])
   })
 

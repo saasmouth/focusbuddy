@@ -22,10 +22,10 @@ const deps = (reply: string | null): MailTriageDeps & { ask: ReturnType<typeof v
 
 describe('triageInbox', () => {
   it('turns a model reply into a plan', async () => {
-    const d = deps(JSON.stringify([{ uid: 1, action: 'file', folder: 'Receipts', reason: 'a paid invoice' }]))
+    const d = deps(JSON.stringify([{ uid: 1, action: 'file', category: 'Receipts', reason: 'a paid invoice' }]))
     const r = await triageInbox([msg(1)], ['Receipts'], d)
     expect(r.ok).toBe(true)
-    expect(r.plan.suggestions[0]).toMatchObject({ uid: 1, action: 'file', folder: 'Receipts', newFolder: false })
+    expect(r.plan.suggestions[0]).toMatchObject({ uid: 1, action: 'file', category: 'Receipts', newCategory: false })
   })
 
   // Bodies are written by strangers, and this model is about to propose
@@ -93,7 +93,7 @@ describe('triageInbox', () => {
     expect(user).not.toContain(`uid=${TRIAGE_BATCH + 1} `)
   })
 
-  it('offers the existing folders but never Inbox as a destination', async () => {
+  it('offers the existing categories but never Inbox as a destination', async () => {
     const d = deps('[]')
     await triageInbox([msg(1)], ['Clients', 'INBOX', 'Receipts'], d)
     const user = d.ask.mock.calls[0][1]

@@ -7,9 +7,9 @@
 // anything beyond matching on what the headers say would be a guess dressed as
 // a filter.
 //
-// A mail FOLDER may be declared to be about a desk (MailFolder.nodeId), but
+// A mail FOLDER may be declared to be about a desk (MailTag.nodeId), but
 // that is the user asserting the link, not this module inferring one -- and the
-// folder still decides membership with exactly these rules.
+// tag still decides membership with exactly these rules.
 //
 // Terms are OR within a field and AND across fields, which is how people
 // actually describe this: "from Sarah or David, about Ridge St, unread". One
@@ -18,8 +18,8 @@
 
 import type { MailListItem, InboxRules } from '@shared/types'
 
-// The rule shape lives in shared/types.ts, because a mail folder is made of
-// one and folders are persisted by the main process. Re-exported here so every
+// The rule shape lives in shared/types.ts, because a mail tag is made of
+// one and tags are persisted by the main process. Re-exported here so every
 // existing import of it keeps working.
 export type { InboxRules }
 

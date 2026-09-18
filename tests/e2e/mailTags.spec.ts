@@ -1,13 +1,13 @@
-// Mail folders, end to end.
+// Mail tags, end to end.
 //
-// The folders themselves are real here: created through the real IPC into the
+// The tags themselves are real here: created through the real IPC into the
 // real SQLite database, listed back, and used to filter. Only the MAIL is
 // seeded, because there is no IMAP server in e2e and `window.api` is a
 // contextBridge object that cannot be stubbed from the renderer.
 //
 // What matters most in this file is the Unsorted count. It is the number the
 // whole feature exists to move, and it is the one thing that cannot be faked:
-// it has to fall by exactly the number of messages a new folder claimed.
+// it has to fall by exactly the number of messages a new tag claimed.
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
@@ -72,67 +72,67 @@ async function seedInbox(window: Page): Promise<void> {
   })
 }
 
-/** Remove every folder, so each case starts from a known state. */
-async function clearFolders(window: Page): Promise<void> {
+/** Remove every tag, so each case starts from a known state. */
+async function clearTags(window: Page): Promise<void> {
   await window.evaluate(async () => {
     const w = window as unknown as {
-      api: { mailFolders: { list: () => Promise<Array<{ id: string }>>; remove: (id: string) => Promise<boolean> } }
-      __fbMailFolders: { getState: () => { refresh: () => Promise<void> } }
+      api: { mailTags: { list: () => Promise<Array<{ id: string }>>; remove: (id: string) => Promise<boolean> } }
+      __fbMailTags: { getState: () => { refresh: () => Promise<void> } }
     }
-    for (const f of await w.api.mailFolders.list()) await w.api.mailFolders.remove(f.id)
-    await w.__fbMailFolders.getState().refresh()
+    for (const f of await w.api.mailTags.list()) await w.api.mailTags.remove(f.id)
+    await w.__fbMailTags.getState().refresh()
   })
 }
 
 const unsorted = (window: Page): Promise<string> =>
   window.locator('[data-testid="mail-unsorted-count"]').innerText()
 
-test('1. a folder files mail and the unsorted pile falls by exactly that much', async () => {
+test('1. a tag files mail and the unsorted pile falls by exactly that much', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
   await openMail(window)
-  await clearFolders(window)
+  await clearTags(window)
   await seedInbox(window)
 
-  await expect(window.locator('[data-testid="mail-folder-rail"]')).toBeVisible({ timeout: 8000 })
+  await expect(window.locator('[data-testid="mail-tag-rail"]')).toBeVisible({ timeout: 8000 })
   expect(await unsorted(window)).toBe('12')
 
-  await window.locator('[data-testid="mail-folder-new"]').click()
-  await expect(window.locator('[data-testid="mail-folder-editor"]')).toBeVisible({ timeout: 5000 })
-  await window.locator('[data-testid="folder-name"]').fill('Acme')
-  await window.locator('[data-testid="folder-from"]').fill('acme.com')
-  // The editor states what the rule catches BEFORE saving, so an empty folder
+  await window.locator('[data-testid="mail-tag-new"]').click()
+  await expect(window.locator('[data-testid="mail-tag-editor"]')).toBeVisible({ timeout: 5000 })
+  await window.locator('[data-testid="tag-name"]').fill('Acme')
+  await window.locator('[data-testid="tag-from"]').fill('acme.com')
+  // The editor states what the rule catches BEFORE saving, so an empty tag
   // and a broken rule are never confused for each other.
-  await expect(window.locator('[data-testid="folder-preview-count"]')).toContainText('6 of the 12')
-  await window.locator('[data-testid="folder-save"]').click()
+  await expect(window.locator('[data-testid="tag-preview-count"]')).toContainText('6 of the 12')
+  await window.locator('[data-testid="tag-save"]').click()
 
-  await expect(window.locator('[data-testid="mail-folder-editor"]')).toHaveCount(0, { timeout: 5000 })
+  await expect(window.locator('[data-testid="mail-tag-editor"]')).toHaveCount(0, { timeout: 5000 })
   // 12 - 6 = 6. This is the number the feature exists to move.
   await expect(window.locator('[data-testid="mail-unsorted-count"]')).toHaveText('6', {
     timeout: 8000
   })
 })
 
-test('2. selecting a folder shows only its mail, and Unsorted only what nothing claimed', async () => {
+test('2. selecting a tag shows only its mail, and Unsorted only what nothing claimed', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
   await openMail(window)
-  await clearFolders(window)
+  await clearTags(window)
   await seedInbox(window)
 
-  await window.locator('[data-testid="mail-folder-new"]').click()
-  await window.locator('[data-testid="folder-name"]').fill('Beta')
-  await window.locator('[data-testid="folder-from"]').fill('beta.com')
-  await window.locator('[data-testid="folder-save"]').click()
+  await window.locator('[data-testid="mail-tag-new"]').click()
+  await window.locator('[data-testid="tag-name"]').fill('Beta')
+  await window.locator('[data-testid="tag-from"]').fill('beta.com')
+  await window.locator('[data-testid="tag-save"]').click()
   await expect(window.locator('[data-testid="mail-unsorted-count"]')).toHaveText('8', { timeout: 8000 })
 
   const betaId = await window.evaluate(async () => {
-    const w = window as unknown as { api: { mailFolders: { list: () => Promise<Array<{ id: string; name: string }>> } } }
-    return (await w.api.mailFolders.list()).find((f) => f.name === 'Beta')!.id
+    const w = window as unknown as { api: { mailTags: { list: () => Promise<Array<{ id: string; name: string }>> } } }
+    return (await w.api.mailTags.list()).find((f) => f.name === 'Beta')!.id
   })
-  await window.locator(`[data-testid="mail-folder-${betaId}"]`).click()
+  await window.locator(`[data-testid="mail-tag-${betaId}"]`).click()
   await expect(window.locator('[data-testid="mail-scope-title"]')).toHaveText('Beta')
   expect(await window.locator('[data-testid="mail-thread"]').count()).toBe(4)
 
@@ -149,21 +149,21 @@ test('3. a message the rule missed can be filed by hand, and it sticks', async (
   const { window } = launched
   await waitForReady(window)
   await openMail(window)
-  await clearFolders(window)
+  await clearTags(window)
   await seedInbox(window)
 
-  await window.locator('[data-testid="mail-folder-new"]').click()
-  await window.locator('[data-testid="folder-name"]').fill('Acme')
-  await window.locator('[data-testid="folder-from"]').fill('acme.com')
-  await window.locator('[data-testid="folder-save"]').click()
+  await window.locator('[data-testid="mail-tag-new"]').click()
+  await window.locator('[data-testid="tag-name"]').fill('Acme')
+  await window.locator('[data-testid="tag-from"]').fill('acme.com')
+  await window.locator('[data-testid="tag-save"]').click()
   await expect(window.locator('[data-testid="mail-unsorted-count"]')).toHaveText('6', { timeout: 8000 })
 
   // A personal message the acme rule cannot reach. Without a manual override a
   // rule that misses is a dead end.
   await window.locator('[data-testid="mail-scope-unsorted"]').click()
-  await window.locator('[data-testid="mail-file-301"]').click({ force: true })
-  await expect(window.locator('[data-testid="mail-file-menu"]')).toBeVisible({ timeout: 5000 })
-  await window.locator('[data-testid^="mail-file-to-"]').first().click()
+  await window.locator('[data-testid="mail-tag-open-301"]').click({ force: true })
+  await expect(window.locator('[data-testid="mail-tag-menu"]')).toBeVisible({ timeout: 5000 })
+  await window.locator('[data-testid^="mail-tag-apply-"]').first().click()
 
   await expect(window.locator('[data-testid="mail-unsorted-count"]')).toHaveText('5', { timeout: 8000 })
 
@@ -175,7 +175,7 @@ test('3. a message the rule missed can be filed by hand, and it sticks', async (
   await expect(window.locator('[data-testid="mail-unsorted-count"]')).toHaveText('5', { timeout: 8000 })
 })
 
-test('4. a folder can be about a desk, and deleting the desk keeps the folder', async () => {
+test('4. a tag can be about a desk, and deleting the desk keeps the tag', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
@@ -190,44 +190,44 @@ test('4. a folder can be about a desk, and deleting the desk keeps the folder', 
   })
 
   await openMail(window)
-  await clearFolders(window)
+  await clearTags(window)
   await seedInbox(window)
 
-  await window.locator('[data-testid="mail-folder-new"]').click()
-  await window.locator('[data-testid="folder-name"]').fill('Ridge St mail')
-  await window.locator('[data-testid="folder-from"]').fill('acme.com')
-  await window.locator('[data-testid="folder-node"]').selectOption(deskId)
-  await window.locator('[data-testid="folder-save"]').click()
+  await window.locator('[data-testid="mail-tag-new"]').click()
+  await window.locator('[data-testid="tag-name"]').fill('Ridge St mail')
+  await window.locator('[data-testid="tag-from"]').fill('acme.com')
+  await window.locator('[data-testid="tag-node"]').selectOption(deskId)
+  await window.locator('[data-testid="tag-save"]').click()
 
-  // The desk it is about is shown on the folder, not hidden in a menu.
-  await expect(window.locator(`[data-testid="mail-folder-desk-${deskId}"]`).or(
-    window.locator('[data-testid^="mail-folder-desk-"]')
+  // The desk it is about is shown on the tag, not hidden in a menu.
+  await expect(window.locator(`[data-testid="mail-tag-desk-${deskId}"]`).or(
+    window.locator('[data-testid^="mail-tag-desk-"]')
   ).first()).toHaveText('Ridge St', { timeout: 8000 })
 
   const folderId = await window.evaluate(async () => {
-    const w = window as unknown as { api: { mailFolders: { list: () => Promise<Array<{ id: string; nodeId: string | null }>> } } }
-    return (await w.api.mailFolders.list())[0].id
+    const w = window as unknown as { api: { mailTags: { list: () => Promise<Array<{ id: string; nodeId: string | null }>> } } }
+    return (await w.api.mailTags.list())[0].id
   })
 
   const folderNow = async (fid: string): Promise<{ name: string; nodeId: string | null } | null> =>
     window.evaluate(async (id) => {
       const w = window as unknown as {
-        api: { mailFolders: { list: () => Promise<Array<{ id: string; name: string; nodeId: string | null }>> } }
+        api: { mailTags: { list: () => Promise<Array<{ id: string; name: string; nodeId: string | null }>> } }
       }
-      return (await w.api.mailFolders.list()).find((f) => f.id === id) ?? null
+      return (await w.api.mailTags.list()).find((f) => f.id === id) ?? null
     }, fid)
 
   // Trashing a desk is UNDOABLE, so the link has to survive it. Unlinking here
-  // would mean restoring a desk quietly lost what its mail folder was about.
+  // would mean restoring a desk quietly lost what its mail tag was about.
   await window.evaluate(async (id) => {
     const w = window as unknown as { api: { nodes: { delete: (i: string) => Promise<unknown> } } }
     await w.api.nodes.delete(id)
   }, deskId)
   const trashed = await folderNow(folderId)
-  expect(trashed, 'the folder must survive its desk being trashed').not.toBeNull()
+  expect(trashed, 'the tag must survive its desk being trashed').not.toBeNull()
   expect(trashed!.nodeId, 'a trashed desk can come back, so the link stays').toBe(deskId)
 
-  // A permanent delete is the real hard delete. The folder must still survive —
+  // A permanent delete is the real hard delete. The tag must still survive —
   // tidying a workspace cannot take somebody's mail filing with it — but it
   // stops being about a desk that no longer exists.
   await window.evaluate(async (id) => {
@@ -235,7 +235,7 @@ test('4. a folder can be about a desk, and deleting the desk keeps the folder', 
     await w.api.nodes.deletePermanent(id)
   }, deskId)
   const purged = await folderNow(folderId)
-  expect(purged, 'the folder must survive its desk being purged').not.toBeNull()
+  expect(purged, 'the tag must survive its desk being purged').not.toBeNull()
   expect(purged!.name).toBe('Ridge St mail')
   expect(purged!.nodeId).toBeNull()
 })

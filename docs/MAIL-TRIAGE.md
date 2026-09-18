@@ -1,7 +1,16 @@
 # AI mail triage
 
-Reading an inbox and proposing what to do with it: file, trash, spam,
-unsubscribe, or leave alone.
+Reading an inbox and proposing what to do with it: file into a category,
+trash, spam, unsubscribe, or leave alone.
+
+> **Vocabulary.** Mail groups things two ways, named apart on purpose:
+> a **category** is a real mailbox on your mail server — a message has exactly
+> one, filing **moves** it, and Apple Mail and your phone see it. A **tag** is a
+> Plexii-side saved criterion that fills itself — a message can carry several,
+> nothing moves, and undoing one costs nothing. Triage proposes **categories**;
+> the left rail in Mail holds **tags**. Neither is called a "folder" any more,
+> because calling both of them that is how somebody loses track of where a
+> message went.
 
 Entry point: **Mail → the ✨ button in the toolbar**. It opens a review panel.
 Nothing is applied until the person applies it.
@@ -48,7 +57,7 @@ be guarantees**.
 | Rule | Why |
 |---|---|
 | `unsubscribe` is downgraded to `keep` unless the sender published a real `List-Unsubscribe` header | A model will cheerfully offer to unsubscribe from anything. An unsubscribe with nowhere to go is either a dead button or an invitation to go hunting for a link in the body — which is exactly how an address gets confirmed to a spammer. |
-| `file` targets are rejected if the name is reserved, contains a path separator, or is over 60 chars | Filing into Trash/Junk this way would dodge the explicit actions and their confirmations. A separator silently nests the folder somewhere nobody asked for. |
+| `file` targets are rejected if the name is reserved, contains a path separator, or is over 60 chars | Filing into Trash/Junk this way would dodge the explicit actions and their confirmations. A separator silently nests the category somewhere nobody asked for. |
 | uids not in the batch are rejected | The model does not get to invent messages. |
 | Unknown actions are rejected | The surface offers five verbs and no others. |
 
@@ -101,23 +110,29 @@ being updated.
 
 ---
 
-## Known wrinkle: two things are called "folders"
+## Resolved: the two things once both called "folders"
 
-Worth being explicit, because they look the same in the UI and are not:
+This shipped with both concepts named "folders", which was the one genuinely
+confusing thing about it. They are now named apart:
 
-| | Plexii folders (existing) | IMAP mailboxes (this feature) |
+| | **Tags** (the left rail) | **Categories** (what triage files into) |
 |---|---|---|
 | Where | Plexii's local DB | Your mail server |
-| What they are | A **saved criterion that fills itself**, plus pinned/excluded uids | A real drawer; the message physically moves |
+| What it is | A **saved criterion that fills itself**, plus pinned/excluded uids | A real mailbox; the message physically moves |
+| How many per message | Several at once | Exactly one |
 | Visible in Apple Mail / Gmail? | No | Yes |
-| Created by | The folder rail | A triage `file` suggestion |
+| Undo cost | Nothing — it is a view | A second move |
+| Created by | The tag rail | A triage `file` suggestion |
 
-The left rail's folders are the first kind. Triage's `file` action creates and
-uses the second. Both are legitimate — a self-filling view and a server-side
-move solve different problems — but a person filing mail two ways without
-knowing which is which will be confused about where something went.
+The per-message button in the message list applies a **tag** and says so; it no
+longer reads "File this message" over a folder icon, which claimed an action it
+was not performing.
 
-**This is unresolved and wants a product decision**, not a code fix.
+**Storage note:** the SQLite table is still `mail_folders`. Renaming a table in
+somebody's live database to match a product word is a migration with real
+downside and no user-visible upside, so the storage name is left as the
+historical artefact it is. `src/main/db/mailTags.ts` is the only thing that
+sees it.
 
 ---
 

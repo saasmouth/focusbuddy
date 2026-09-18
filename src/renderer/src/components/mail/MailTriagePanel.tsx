@@ -32,7 +32,7 @@ interface Props {
 }
 
 const GROUP_LABEL: Record<MailAction, string> = {
-  file: 'File into folders',
+  file: 'File into categories',
   unsubscribe: 'Unsubscribe',
   trash: 'Move to Trash',
   spam: 'Move to Junk',
@@ -106,15 +106,15 @@ export default function MailTriagePanel({ onClose, describe, onChanged }: Props)
   const apply = async (row: Row): Promise<boolean> => {
     const { suggestion: s } = row
     try {
-      if (s.action === 'file' && s.folder) {
-        if (s.newFolder) {
-          const made = await window.api.mail.createFolder(s.folder)
+      if (s.action === 'file' && s.category) {
+        if (s.newCategory) {
+          const made = await window.api.mail.createCategory(s.category)
           if (!made.ok) {
             setRowState(s.uid, 'failed', made.error)
             return false
           }
         }
-        const moved = await window.api.mail.move(s.uid, s.folder)
+        const moved = await window.api.mail.move(s.uid, s.category)
         if (!moved.ok) {
           setRowState(s.uid, 'failed', moved.error)
           return false
@@ -267,10 +267,10 @@ export default function MailTriagePanel({ onClose, describe, onChanged }: Props)
                           {row.from}
                           {s.reason ? ` · ${s.reason}` : ''}
                         </p>
-                        {s.action === 'file' && s.folder && (
+                        {s.action === 'file' && s.category && (
                           <p className="fb-t-caption text-[var(--ink-70)]">
-                            → {s.folder}
-                            {s.newFolder && <span className="text-accent"> (new folder)</span>}
+                            → {s.category}
+                            {s.newCategory && <span className="text-accent"> (new category)</span>}
                           </p>
                         )}
                         {/* An opt-out you cannot see the destination of is one

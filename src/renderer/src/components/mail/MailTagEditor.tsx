@@ -1,20 +1,20 @@
-// Editing what belongs in a folder.
+// Editing what belongs in a tag.
 //
 // The rule is shown in full and in plain words, never summarised behind a
 // "configure" button, because a filtered view that hides its own rule is one
-// you cannot trust: an empty folder and a broken rule look identical from the
+// you cannot trust: an empty tag and a broken rule look identical from the
 // outside. The live count at the bottom answers "is this rule right" before
 // anything is saved.
 
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import type { MailFolder, MailListItem, InboxRules } from '@shared/types'
+import type { MailTag, MailListItem, InboxRules } from '@shared/types'
 import Icon from '../Icon'
-import { useMailFolderStore } from '../../stores/mailFolders'
+import { useMailTagStore } from '../../stores/mailTags'
 import { useNodeStore } from '../../stores/nodes'
-import { inFolder } from '../../lib/mailFolders'
+import { inTag } from '../../lib/mailTags'
 import { describeRules } from '../../lib/inboxFilter'
-import { FOLDER_COLOURS, COLOUR_DOT } from './MailFolderRail'
+import { FOLDER_COLOURS, COLOUR_DOT } from './MailTagRail'
 
 /** A comma-separated field edited as text and stored as terms. */
 const toTerms = (raw: string): string[] =>
@@ -23,31 +23,31 @@ const toTerms = (raw: string): string[] =>
     .map((t) => t.trim())
     .filter(Boolean)
 
-export default function MailFolderEditor({
-  folder,
+export default function MailTagEditor({
+  tag,
   seed,
   messages,
   onClose
 }: {
-  /** The folder being edited, or null when making a new one. */
-  folder: MailFolder | null
-  /** Starting values for a new folder, from a suggestion or a message. */
+  /** The tag being edited, or null when making a new one. */
+  tag: MailTag | null
+  /** Starting values for a new tag, from a suggestion or a message. */
   seed?: { name: string; from: string[] } | null
   messages: readonly MailListItem[]
   onClose: () => void
 }): JSX.Element {
-  const create = useMailFolderStore((s) => s.create)
-  const update = useMailFolderStore((s) => s.update)
-  const remove = useMailFolderStore((s) => s.remove)
+  const create = useMailTagStore((s) => s.create)
+  const update = useMailTagStore((s) => s.update)
+  const remove = useMailTagStore((s) => s.remove)
   const nodes = useNodeStore((s) => s.nodes)
 
-  const [name, setName] = useState(folder?.name ?? seed?.name ?? '')
-  const [colour, setColour] = useState(folder?.colour ?? 'sky')
-  const [from, setFrom] = useState((folder?.rules.from ?? seed?.from ?? []).join(', '))
-  const [subject, setSubject] = useState((folder?.rules.subject ?? []).join(', '))
-  const [unreadOnly, setUnreadOnly] = useState(folder?.rules.unreadOnly ?? false)
-  const [withAttachments, setWithAttachments] = useState(folder?.rules.withAttachments ?? false)
-  const [nodeId, setNodeId] = useState<string | null>(folder?.nodeId ?? null)
+  const [name, setName] = useState(tag?.name ?? seed?.name ?? '')
+  const [colour, setColour] = useState(tag?.colour ?? 'sky')
+  const [from, setFrom] = useState((tag?.rules.from ?? seed?.from ?? []).join(', '))
+  const [subject, setSubject] = useState((tag?.rules.subject ?? []).join(', '))
+  const [unreadOnly, setUnreadOnly] = useState(tag?.rules.unreadOnly ?? false)
+  const [withAttachments, setWithAttachments] = useState(tag?.rules.withAttachments ?? false)
+  const [nodeId, setNodeId] = useState<string | null>(tag?.nodeId ?? null)
   const [saving, setSaving] = useState(false)
 
   const rules: InboxRules = useMemo(
@@ -61,23 +61,23 @@ export default function MailFolderEditor({
   )
 
   // What this rule catches RIGHT NOW, against the mail actually in hand. The
-  // pinned/excluded lists come along so the preview matches what the folder
+  // pinned/excluded lists come along so the preview matches what the tag
   // will really hold, not just what the rule alone would.
   const preview = useMemo(() => {
-    const probe: MailFolder = {
-      id: folder?.id ?? 'preview',
+    const probe: MailTag = {
+      id: tag?.id ?? 'preview',
       name: name || 'Preview',
       colour,
       rules,
       nodeId,
-      pinned: folder?.pinned ?? [],
-      excluded: folder?.excluded ?? [],
+      pinned: tag?.pinned ?? [],
+      excluded: tag?.excluded ?? [],
       sortOrder: 0,
       createdAt: 0,
       updatedAt: 0
     }
-    return messages.filter((m) => inFolder(m, probe))
-  }, [messages, rules, folder, name, colour, nodeId])
+    return messages.filter((m) => inTag(m, probe))
+  }, [messages, rules, tag, name, colour, nodeId])
 
   // A desk and a task are the same node kind here, so one picker covers both.
   const desks = useMemo(
@@ -98,10 +98,10 @@ export default function MailFolderEditor({
 
   const save = async (): Promise<void> => {
     setSaving(true)
-    if (folder) {
-      await update(folder.id, { name, colour, rules, nodeId })
+    if (tag) {
+      await update(tag.id, { name, colour, rules, nodeId })
     } else {
-      await create({ name: name.trim() || 'New folder', colour, rules, nodeId })
+      await create({ name: name.trim() || 'New tag', colour, rules, nodeId })
     }
     setSaving(false)
     onClose()
@@ -111,7 +111,7 @@ export default function MailFolderEditor({
     'w-full rounded-lg px-2.5 py-1.5 fb-t-label fb-field'
 
   return (
-    <div className="fixed inset-0 z-[85] flex items-center justify-center p-6" data-testid="mail-folder-editor">
+    <div className="fixed inset-0 z-[85] flex items-center justify-center p-6" data-testid="mail-tag-editor">
       <div className="fb-scrim absolute inset-0" onClick={onClose} />
       <motion.div
         initial={{ opacity: 0, y: 12, scale: 0.97 }}
@@ -123,10 +123,10 @@ export default function MailFolderEditor({
           <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${COLOUR_DOT[colour] ?? COLOUR_DOT.sky}`} />
           <div className="min-w-0 flex-1">
             <div className="text-[13.5px] font-semibold text-[var(--ink-100)] truncate">
-              {folder ? 'Edit folder' : 'New folder'}
+              {tag ? 'Edit tag' : 'New tag'}
             </div>
             <div className="fb-t-caption leading-snug">
-              Nothing moves on your mail server — a folder is a way of looking at your inbox.
+              Nothing moves on your mail server — a tag is a way of looking at your inbox.
             </div>
           </div>
           <button onClick={onClose} title="Close" aria-label="Close" className="icon-btn shrink-0">
@@ -136,15 +136,15 @@ export default function MailFolderEditor({
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           <div>
-            <label className="fb-t-caption block mb-1" htmlFor="folder-name">
+            <label className="fb-t-caption block mb-1" htmlFor="tag-name">
               Name
             </label>
             <input
-              id="folder-name"
+              id="tag-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Acme, Invoices, Ridge St…"
-              data-testid="folder-name"
+              data-testid="tag-name"
               className={field}
               autoFocus
             />
@@ -158,7 +158,7 @@ export default function MailFolderEditor({
                   key={c}
                   onClick={() => setColour(c)}
                   aria-label={c}
-                  data-testid={`folder-colour-${c}`}
+                  data-testid={`tag-colour-${c}`}
                   className={`h-6 w-6 rounded-full ${COLOUR_DOT[c]} transition-transform ${
                     colour === c ? 'ring-2 ring-offset-2 ring-offset-[var(--surface-raised)] ring-[var(--ink-60)] scale-110' : 'hover:scale-110'
                   }`}
@@ -173,28 +173,28 @@ export default function MailFolderEditor({
               matching is enough.
             </div>
             <div>
-              <label className="fb-t-caption block mb-1" htmlFor="folder-from">
+              <label className="fb-t-caption block mb-1" htmlFor="tag-from">
                 From — name, address, or a whole domain
               </label>
               <input
-                id="folder-from"
+                id="tag-from"
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
                 placeholder="acme.com, sarah@, the conveyancer"
-                data-testid="folder-from"
+                data-testid="tag-from"
                 className={field}
               />
             </div>
             <div>
-              <label className="fb-t-caption block mb-1" htmlFor="folder-subject">
+              <label className="fb-t-caption block mb-1" htmlFor="tag-subject">
                 Subject contains
               </label>
               <input
-                id="folder-subject"
+                id="tag-subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="invoice, Ridge St"
-                data-testid="folder-subject"
+                data-testid="tag-subject"
                 className={field}
               />
             </div>
@@ -204,7 +204,7 @@ export default function MailFolderEditor({
                   type="checkbox"
                   checked={unreadOnly}
                   onChange={(e) => setUnreadOnly(e.target.checked)}
-                  data-testid="folder-unread"
+                  data-testid="tag-unread"
                 />
                 Unread only
               </label>
@@ -213,7 +213,7 @@ export default function MailFolderEditor({
                   type="checkbox"
                   checked={withAttachments}
                   onChange={(e) => setWithAttachments(e.target.checked)}
-                  data-testid="folder-attachments"
+                  data-testid="tag-attachments"
                 />
                 Has an attachment
               </label>
@@ -221,14 +221,14 @@ export default function MailFolderEditor({
           </div>
 
           <div>
-            <label className="fb-t-caption block mb-1" htmlFor="folder-node">
+            <label className="fb-t-caption block mb-1" htmlFor="tag-node">
               About a desk or task (optional)
             </label>
             <select
-              id="folder-node"
+              id="tag-node"
               value={nodeId ?? ''}
               onChange={(e) => setNodeId(e.target.value || null)}
-              data-testid="folder-node"
+              data-testid="tag-node"
               className={field}
             >
               <option value="">Not about anything in particular</option>
@@ -245,10 +245,10 @@ export default function MailFolderEditor({
           </div>
 
           {/* The rule in plain words plus what it catches right now. An empty
-              folder and a broken rule look identical without this. */}
+              tag and a broken rule look identical without this. */}
           <div className="rounded-xl bg-[var(--surface-sunken)] border border-[var(--edge-soft)] px-3 py-2.5">
             <div className="fb-t-caption">{describeRules(rules)}</div>
-            <div className="fb-t-label text-[var(--ink-90)] mt-1" data-testid="folder-preview-count">
+            <div className="fb-t-label text-[var(--ink-90)] mt-1" data-testid="tag-preview-count">
               {preview.length === 0
                 ? 'Nothing in the mail you have loaded matches this yet.'
                 : `${preview.length} of the ${messages.length} messages you have loaded`}
@@ -257,19 +257,19 @@ export default function MailFolderEditor({
         </div>
 
         <div className="flex items-center justify-between gap-2 px-5 py-3.5 border-t border-[var(--edge-soft)] shrink-0">
-          {folder ? (
+          {tag ? (
             <button
               onClick={() => {
-                // No confirmation: deleting a folder deletes a view, and no
+                // No confirmation: deleting a tag deletes a view, and no
                 // mail moves anywhere. Making this scary would misrepresent it.
-                void remove(folder.id)
+                void remove(tag.id)
                 onClose()
               }}
-              data-testid="folder-delete"
+              data-testid="tag-delete"
               className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg fb-t-label text-rose-500 hover:bg-rose-500/10 transition-colors"
             >
               <Icon name="delete" size={15} />
-              Delete folder
+              Delete tag
             </button>
           ) : (
             <span />
@@ -281,11 +281,11 @@ export default function MailFolderEditor({
             <button
               onClick={() => void save()}
               disabled={saving || name.trim() === ''}
-              data-testid="folder-save"
+              data-testid="tag-save"
               className="inline-flex items-center gap-1.5 h-9 px-4 rounded-[10px] fb-t-label font-medium fb-press bg-[rgb(var(--accent))] text-white shadow-[0_1px_2px_rgb(var(--accent)/0.25)] disabled:opacity-40 disabled:pointer-events-none"
             >
               <Icon name="check" size={15} />
-              {folder ? 'Save' : 'Create folder'}
+              {tag ? 'Save' : 'Create tag'}
             </button>
           </div>
         </div>
