@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveCenteredTop, resolvePosition } from '../../src/renderer/src/lib/floatingChrome'
+import { initialMinimized, resolveCenteredTop, resolvePosition } from '../../src/renderer/src/lib/floatingChrome'
 import type { MenuRect } from '../../src/renderer/src/stores/overlay'
 
 // jsdom defaults the viewport to 1024x768.
@@ -76,5 +76,39 @@ describe('resolveCenteredTop — vertical-only dodge for centered chrome (the pi
   it('falls back to the clamped desired top when the whole column is blocked', () => {
     const fullColumn: MenuRect = { left: 0, top: 0, right: 1024, bottom: 768 }
     expect(resolveCenteredTop(60, W, H, [fullColumn])).toBe(60)
+  })
+})
+
+// Whether a minimisable panel starts out of the way.
+//
+// The document side panel (outline / comments / assistant) used to start open
+// on every surface, which spent a slice of the width on panels nobody had
+// asked for — worst on a desk, where a document widget has least room. It
+// starts minimised now, and the rule that decides it lives here.
+describe('initialMinimized', () => {
+  const wide = { breakpoint: 860, innerWidth: 1440 }
+  const narrow = { breakpoint: 860, innerWidth: 700 }
+
+  it('starts a defaultMinimized surface minimised on any window size', () => {
+    expect(initialMinimized(null, { ...wide, defaultMinimized: true })).toBe(true)
+    expect(initialMinimized(null, { ...narrow, defaultMinimized: true })).toBe(true)
+  })
+
+  it('lets what the user last chose win over the default', () => {
+    // The whole point of remembering: someone who opens the panel keeps it.
+    expect(initialMinimized('0', { ...wide, defaultMinimized: true })).toBe(false)
+    expect(initialMinimized('1', { ...wide, defaultMinimized: false })).toBe(true)
+  })
+
+  it('still falls back to window width when no surface default is declared', () => {
+    expect(initialMinimized(null, wide)).toBe(false)
+    expect(initialMinimized(null, narrow)).toBe(true)
+  })
+
+  it('treats an unreadable or unrecognised stored value as no preference', () => {
+    // localStorage can throw or hold junk; neither may override the default.
+    expect(initialMinimized(null, { ...wide, defaultMinimized: true })).toBe(true)
+    expect(initialMinimized('yes', { ...wide, defaultMinimized: true })).toBe(true)
+    expect(initialMinimized('', { ...narrow, defaultMinimized: false })).toBe(false)
   })
 })

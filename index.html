@@ -2,7 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https: fb-file: fb-dev:; media-src 'self' fb-file: fb-dev: blob: data:; connect-src 'self' ws: wss: https:;" />
+    <!-- connect-src allows https + ws/wss for the deployed signal, plus plain http
+         and ws to LOCALHOST only, so a local signal server (dev, or the 10-user
+         test harness in tools/test-org) is reachable. Localhost-scoped, so prod
+         connectivity (https://focusbuddy-signal.fly.dev) is unchanged and no
+         non-local http origin is permitted. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https: fb-file: fb-dev:; media-src 'self' fb-file: fb-dev: blob: data:; connect-src 'self' ws: wss: https: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*;" />
     <title>PlexiDesk</title>
     <!--
       Type stack (Inter, JetBrains Mono, Patrick Hand, Atkinson Hyperlegible,
@@ -11,10 +16,18 @@
       packages. They no longer load from the Google Fonts CDN, so icons and text
       render even with no network and the CSP no longer needs to allow fonts.google.
     -->
-    <script type="module" crossorigin src="./assets/index-CPncYwL9.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/globals-pX4INjWb.js">
-    <link rel="modulepreload" crossorigin href="./assets/meetingLaunch-Bc-RDNpi.js">
-    <link rel="stylesheet" crossorigin href="./assets/globals-B7ea7mRP.css">
+    <script type="module" crossorigin src="./assets/index-DxTEeedk.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/vendor-yjs-CBKatVYW.js">
+    <link rel="modulepreload" crossorigin href="./assets/vendor-editor-CIzO9K53.js">
+    <link rel="modulepreload" crossorigin href="./assets/vendor-charts-Du9XLQXR.js">
+    <link rel="modulepreload" crossorigin href="./assets/vendor-flow-BNif1Bnh.js">
+    <link rel="modulepreload" crossorigin href="./assets/globals-DbIV2wEj.js">
+    <link rel="modulepreload" crossorigin href="./assets/webPanel-wQb_TnCm.js">
+    <link rel="modulepreload" crossorigin href="./assets/browserAgentRuns-BCU4aiEP.js">
+    <link rel="modulepreload" crossorigin href="./assets/openTray-C--CV99I.js">
+    <link rel="modulepreload" crossorigin href="./assets/meetingLaunch-Dk4mO4if.js">
+    <link rel="stylesheet" crossorigin href="./assets/globals-i71IGyKg.css">
+    <link rel="stylesheet" crossorigin href="./assets/vendor-flow-CdHOcTf-.css">
     <link rel="stylesheet" crossorigin href="./assets/index-Bi0SiXCd.css">
   </head>
   <body class="bg-desk-50">

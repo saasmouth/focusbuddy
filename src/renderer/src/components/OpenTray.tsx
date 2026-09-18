@@ -12,13 +12,14 @@
 
 import { useMemo, useState } from 'react'
 import Icon from './Icon'
-import { useViewStore } from '../stores/view'
+import { useViewStore, type View } from '../stores/view'
 import { useNodeStore } from '../stores/nodes'
 import { useDocumentsStore } from '../stores/documents'
 import { useOpenTrayStore } from '../stores/openTray'
-import { activeKey, orderTray, type TrayEntry } from '../lib/openTray'
+import { activeKey, documentIdOf, orderTray, type TrayEntry } from '../lib/openTray'
 import {
   dragCarriesDocument,
+  type DocumentDragPayload,
   readDocumentDrag,
   widgetDraftFor,
   writeDocumentDrag,
@@ -47,17 +48,20 @@ export default function OpenTray(): JSX.Element | null {
   const view = useViewStore((s) => s.view)
   const nodes = useNodeStore((s) => s.nodes)
   const docs = useDocumentsStore((s) => s.list)
-  const [menuFor, setMenuFor] = useState<string | null>(null)
+  // The menu is anchored in VIEWPORT coordinates and positioned `fixed`.
+  // Absolute positioning put it inside the tray, where two things buried it:
+  // the strip scrolls horizontally, and `overflow-x` clips the other axis too,
+  // so a menu opening upwards was cut off; and the main content area paints
+  // over the tray's stacking context, so what survived the clip sat behind the
+  // page and swallowed every click. Fixed escapes both.
+  const [menuFor, setMenuFor] = useState<{ key: string; left: number; bottom: number } | null>(null)
   // The desk tab a document is currently hovering over.
   const [dropOn, setDropOn] = useState<string | null>(null)
 
   // Put a document on a desk without opening that desk first. The widget points
   // AT the document rather than copying it, so editing it here and editing it in
   // Office are the same file.
-  const dropDocumentOn = async (deskId: string, dt: DataTransfer | null): Promise<void> => {
-    const payload = readDocumentDrag(dt)
-    setDropOn(null)
-    if (!payload) return
+  const placeOnDesk = async (deskId: string, payload: DocumentDragPayload): Promise<void> => {
     const desk = nodes.find((n) => n.id === deskId)
     try {
       await window.api.widgets.create(widgetDraftFor(payload, deskId))
@@ -75,9 +79,49 @@ export default function OpenTray(): JSX.Element | null {
     }
   }
 
+  const dropDocumentOn = async (deskId: string, dt: DataTransfer | null): Promise<void> => {
+    const payload = readDocumentDrag(dt)
+    setDropOn(null)
+    if (!payload) return
+    await placeOnDesk(deskId, payload)
+  }
+
+  // The document a tab stands for, when that document can go on a desk. Drag
+  // needs it, and so does the menu that exists for everyone who never discovers
+  // the drag.
+  const draggableDoc = (v: View): DocumentDragPayload | null => {
+    const id = documentIdOf(v)
+    if (!id) return null
+    const d = docs.find((x) => x.id === id)
+    if (!d || !canPlaceOnDesk(d.docType)) return null
+    return { documentId: d.id, docType: d.docType, title: d.title || 'Untitled' }
+  }
+
+  // Every desk, not just the open ones: the point is to file something away on
+  // a desk you are not currently looking at.
+  const desks = useMemo(() => nodes.filter((n) => n.kind === 'task'), [nodes])
+
   const current = activeKey(view)
 
   const resolve = useMemo(() => {
+    const resolveDoc = (id: string): Resolved => {
+      const d = docs.find((x) => x.id === id)
+      const icon =
+        d?.docType === 'sheet'
+          ? 'table'
+          : d?.docType === 'slides'
+            ? 'slideshow'
+            : d?.docType === 'map'
+              ? 'account_tree'
+              : d?.docType === 'draw'
+                ? 'brush'
+                : d?.docType === 'design'
+                  ? 'palette'
+                  : 'description'
+      return d
+        ? { label: d.title || 'Untitled', icon }
+        : { label: 'Document', icon: 'description', missing: docs.length > 0 }
+    }
     return (e: TrayEntry): Resolved => {
       const v = e.view
       switch (v.kind) {
@@ -97,24 +141,8 @@ export default function OpenTray(): JSX.Element | null {
           const n = nodes.find((x) => x.id === v.roomId)
           return { label: n?.title || 'Room', icon: 'meeting_room' }
         }
-        case 'document': {
-          const d = docs.find((x) => x.id === v.documentId)
-          const icon =
-            d?.docType === 'sheet'
-              ? 'table'
-              : d?.docType === 'slides'
-                ? 'slideshow'
-                : d?.docType === 'map'
-                  ? 'account_tree'
-                  : d?.docType === 'draw'
-                    ? 'brush'
-                    : d?.docType === 'design'
-                      ? 'palette'
-                      : 'description'
-          return d
-            ? { label: d.title || 'Untitled', icon }
-            : { label: 'Document', icon: 'description', missing: docs.length > 0 }
-        }
+        case 'document':
+          return resolveDoc(v.documentId)
         case 'livedoc':
           return { label: 'Live doc', icon: 'sync' }
         case 'livefolder':
@@ -126,6 +154,9 @@ export default function OpenTray(): JSX.Element | null {
         case 'knowledge':
           return { label: 'Knowledge', icon: 'psychology' }
         case 'office': {
+          // A document open inside Office reads as the document, not as
+          // "PlexiOffice" -- it is the thing you have open.
+          if (v.doc) return resolveDoc(v.doc)
           const app = v.app ?? ''
           const known: Record<string, Resolved> = {
             mail: { label: 'Mail', icon: 'mail' },
@@ -191,29 +222,43 @@ export default function OpenTray(): JSX.Element | null {
               }`}
             >
               <button
-                draggable={e.view.kind === 'document'}
+                draggable={draggableDoc(e.view) !== null}
                 onDragStart={(ev) => {
-                  const v = e.view
-                  if (v.kind !== 'document') return
-                  const d = docs.find((x) => x.id === v.documentId)
-                  if (!d || !canPlaceOnDesk(d.docType)) {
+                  const d = draggableDoc(e.view)
+                  if (!d) {
                     ev.preventDefault()
                     return
                   }
-                  writeDocumentDrag(ev.dataTransfer, {
-                    documentId: d.id,
-                    docType: d.docType,
-                    title: d.title || 'Untitled'
-                  })
+                  writeDocumentDrag(ev.dataTransfer, d)
                 }}
                 onClick={() => useViewStore.getState().go(e.view)}
                 onContextMenu={(ev) => {
                   ev.preventDefault()
-                  setMenuFor(menuFor === e.key ? null : e.key)
+                  if (menuFor?.key === e.key) {
+                    setMenuFor(null)
+                    return
+                  }
+                  const r = ev.currentTarget.getBoundingClientRect()
+                  const MENU_W = 192 // w-48
+                  setMenuFor({
+                    key: e.key,
+                    // Clamped so a tab near the right edge does not push the
+                    // menu off screen.
+                    left: Math.max(8, Math.min(r.left, window.innerWidth - MENU_W - 8)),
+                    bottom: Math.max(8, window.innerHeight - r.top + 6)
+                  })
                 }}
                 data-testid={`tray-item-${e.key}`}
-                title={r.missing ? `${r.label} — no longer there` : r.label}
-                className="flex min-w-0 items-center gap-1.5 fb-t-label"
+                title={
+                  r.missing
+                    ? `${r.label} — no longer there`
+                    : draggableDoc(e.view)
+                      ? `${r.label} — drag onto a desk to put it there, or right-click`
+                      : r.label
+                }
+                className={`flex min-w-0 items-center gap-1.5 fb-t-label ${
+                  draggableDoc(e.view) ? 'cursor-grab active:cursor-grabbing' : ''
+                }`}
               >
                 {e.pinned && <Icon name="push_pin" size={11} className="shrink-0 opacity-70" />}
                 <Icon
@@ -238,9 +283,12 @@ export default function OpenTray(): JSX.Element | null {
               </button>
             </div>
 
-            {menuFor === e.key && (
+            {menuFor?.key === e.key && (
               <div
-                className="absolute bottom-full right-0 z-30 mb-1 w-48 rounded-[var(--radius-row)] fb-glass-panel fb-pop-in py-1 fb-t-label"
+                style={{ left: menuFor.left, bottom: menuFor.bottom }}
+                // z-[80]: above the page, below modals (85) and the full-screen
+                // widget focus takeover (90), both of which should cover it.
+                className="fixed z-[80] w-48 rounded-[var(--radius-row)] fb-glass-panel fb-pop-in py-1 fb-t-label"
                 onMouseLeave={() => setMenuFor(null)}
                 data-testid={`tray-menu-${e.key}`}
               >
@@ -271,6 +319,35 @@ export default function OpenTray(): JSX.Element | null {
                 >
                   Close all
                 </button>
+                {draggableDoc(e.view) && (
+                  <>
+                    <div className="my-1 border-t border-[var(--edge-soft)]" />
+                    {desks.length === 0 ? (
+                      <p className="px-3 py-1 fb-t-caption">No desks to send it to yet.</p>
+                    ) : (
+                      <>
+                        <p className="px-3 pt-0.5 pb-1 fb-t-caption">Send to desk</p>
+                        <div className="max-h-44 overflow-y-auto">
+                          {desks.map((n) => (
+                            <button
+                              key={n.id}
+                              onClick={() => {
+                                const d = draggableDoc(e.view)
+                                setMenuFor(null)
+                                if (d) void placeOnDesk(n.id, d)
+                              }}
+                              data-testid={`tray-send-${e.key}-${n.id}`}
+                              className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-[var(--surface-sunken)] text-[var(--ink-90)]"
+                            >
+                              <Icon name="desk" size={12} className="shrink-0 opacity-70" />
+                              <span className="truncate">{n.title || 'Untitled desk'}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
                 <p className="px-3 pt-1 pb-0.5 fb-t-caption">Closing only clears this strip.</p>
               </div>
             )}

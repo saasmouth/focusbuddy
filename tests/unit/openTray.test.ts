@@ -14,8 +14,7 @@ import {
   orderTray,
   pruneTray,
   MAX_TRAY,
-  type TrayEntry
-} from '../../src/renderer/src/lib/openTray'
+  type TrayEntry, documentIdOf } from '../../src/renderer/src/lib/openTray'
 import type { View } from '../../src/renderer/src/stores/view'
 
 const at = (n: number): number => 1_700_000_000_000 + n
@@ -193,5 +192,54 @@ describe('office apps in the tray', () => {
     let list = openIn([], { kind: 'office', app: 'chat' }, at(1))
     list = openIn(list, { kind: 'office', app: 'browser' }, at(2))
     expect(list.map((e) => e.key)).toEqual(['office:chat', 'office:browser'])
+  })
+})
+
+// A document open inside the Office shell.
+//
+// This is the case the tray originally missed. Office rendered documents from
+// local React state, so the document you had just created existed only inside
+// one component: the tray could not list it and the history arrows could not
+// return to it. The fix made it navigation, and these pin that down.
+describe('a document open inside Office', () => {
+  it('earns a tray entry', () => {
+    expect(trayKeyFor({ kind: 'office', doc: 'd1' })).toBe('document:d1')
+  })
+
+  it('is the SAME entry as the standalone document route', () => {
+    // One document, one tab, whichever way you got to it. Two keys here would
+    // put the same file in the tray twice.
+    expect(trayKeyFor({ kind: 'office', doc: 'd1' })).toBe(
+      trayKeyFor({ kind: 'document', documentId: 'd1' })
+    )
+  })
+
+  it('outranks the app it is open in', () => {
+    // The subject is the document, not "PlexiOffice".
+    expect(trayKeyFor({ kind: 'office', app: 'docs', doc: 'd1' })).toBe('document:d1')
+  })
+
+  it('leaves the bare Office app entry alone', () => {
+    expect(trayKeyFor({ kind: 'office', app: 'browser' })).toBe('office:browser')
+  })
+
+  it('still treats the Office hub as a place', () => {
+    expect(trayKeyFor({ kind: 'office' })).toBeNull()
+  })
+})
+
+describe('documentIdOf', () => {
+  it('finds the document on both routes', () => {
+    expect(documentIdOf({ kind: 'document', documentId: 'd1' })).toBe('d1')
+    expect(documentIdOf({ kind: 'office', doc: 'd1' })).toBe('d1')
+  })
+
+  it('is null for a view with no document', () => {
+    // Anything that drags from a tab asks this first, so a wrong answer here
+    // makes a desk tab draggable.
+    expect(documentIdOf({ kind: 'office', app: 'mail' })).toBeNull()
+    expect(documentIdOf({ kind: 'office' })).toBeNull()
+    expect(documentIdOf({ kind: 'task', taskId: 't1' })).toBeNull()
+    expect(documentIdOf({ kind: 'suite' })).toBeNull()
   })
 })

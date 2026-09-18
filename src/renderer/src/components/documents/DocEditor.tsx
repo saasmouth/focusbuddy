@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useMinimizable } from '../chrome/floatingMenu'
 import DocMentionPicker from './editor/DocMentionPicker'
 import type { DocMentionQuery } from './editor/docMentions'
 import { EditorContent, useEditor, type Editor } from '@tiptap/react'
@@ -200,7 +201,22 @@ export default function DocEditor({
   const [hasTracked, setHasTracked] = useState(false)
   // The persistent right-side panel: open/collapsed plus the active tab. The old
   // floating-outline toggle now drives this panel's Outline tab instead.
-  const [panelOpen, setPanelOpen] = useState(true)
+  //
+  // It starts MINIMISED. It used to start open, so every document -- standalone
+  // and on a desk alike -- opened with a slice of its width already spent on
+  // outline and comments nobody had asked for, which is worst exactly where
+  // room is tightest: a document widget on a desk. The toggles are still right
+  // there in the toolbar, and the choice is remembered once made.
+  const { minimized: panelMinimized, minimize: minimizePanel, restore: restorePanel } =
+    useMinimizable('fb.doc.sidePanel.minimized', { defaultMinimized: true })
+  const panelOpen = !panelMinimized
+  const setPanelOpen = useCallback(
+    (v: boolean): void => {
+      if (v) restorePanel()
+      else minimizePanel()
+    },
+    [restorePanel, minimizePanel]
+  )
   // In the main PlexiDesk app the ONE global assistant (AssistantOverlay) owns AI,
   // so the doc's in-panel AI tab is retired and its toggle opens the overlay
   // (contextual to this doc, and able to insert its answers here). The standalone
@@ -959,11 +975,11 @@ export default function DocEditor({
         <button
           onClick={() => setPanelOpen(true)}
           className="absolute top-3 right-3 z-[55] inline-flex items-center gap-1 rounded-full bg-[var(--surface-raised)] px-2.5 py-1 text-[11px] text-[var(--ink-70)] hover:text-[rgb(var(--accent))] shadow-sm"
-          title="Show the assistant panel"
+          title="Show the outline, comments and assistant panel"
           data-testid="doc-side-panel-expand"
         >
           <Icon name="chevron_left" size={14} />
-          <span>Assistant</span>
+          <span>Panel</span>
         </button>
       )}
       </div>

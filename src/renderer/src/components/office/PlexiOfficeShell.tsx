@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import HomeDashboard from '../views/HomeDashboard'
 import OfficeBrowser from './OfficeBrowser'
 import { writeDocumentDrag, canPlaceOnDesk } from '../../lib/documentDrag'
@@ -218,7 +218,17 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
     useMinimizable('fb.officeMenu.minimized')
 
   const [page, setPage] = useState<OfficePage>('home')
-  const [openDocId, setOpenDocId] = useState<string | null>(null)
+  // WHICH DOCUMENT IS OPEN IS NAVIGATION, not local state. It used to be a
+  // useState, which meant the document you had just created was invisible to
+  // everything outside this component -- the tray could not list it, the
+  // history arrows could not return to it, and nothing could tell you had it
+  // open at all. Deriving it from the view fixes all three at once.
+  const openDocId = useViewStore((s) => (s.view.kind === 'office' ? (s.view.doc ?? null) : null))
+  const setOpenDocId = useCallback((id: string | null): void => {
+    // Opening a document leaves whatever app you were in; closing returns to
+    // the hub, which is what every call site here already did by hand.
+    useViewStore.getState().goOffice(undefined, id ?? undefined)
+  }, [])
   // The active communication app (Mail / Inbox / Chat / Meet / Sign), or null
   // when the document hub is showing. Deep-linked via initialApp.
   const [activeComms, setActiveComms] = useState<string | null>(
@@ -228,7 +238,6 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
   useEffect(() => {
     if (initialApp && COMMS_APPS.some((a) => a.key === initialApp)) {
       setActiveComms(initialApp)
-      setOpenDocId(null)
       return
     }
     // A deep link to a DOCUMENT app (PlexiDiagrams, PlexiDesign, PlexiDraw…)
@@ -237,7 +246,6 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
     const docApp = APPS.find((a) => a.key === initialApp)
     if (docApp?.docType) {
       setActiveComms(null)
-      setOpenDocId(null)
       setTab(docApp.docType)
     }
   }, [initialApp])
@@ -299,15 +307,13 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
   // Open Mail and start a compose window. Routes into the office's inline Mail
   // surface, then opens the real composer.
   function composeMail(): void {
-    setOpenDocId(null)
-    setActiveComms('mail')
+    openComms('mail')
     startCompose()
   }
 
   // Open the real Meet surface inline.
   function openMeet(): void {
-    setOpenDocId(null)
-    setActiveComms('meet')
+    openComms('meet')
   }
 
   function toggleStar(id: string): void {
@@ -355,10 +361,17 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
   // until now there was no way to do it without opening the desk first.
   function docDragProps(d: { id: string; docType: DocType; title: string }): {
     draggable: boolean
+    title?: string
     onDragStart: (ev: React.DragEvent) => void
   } {
     return {
       draggable: canPlaceOnDesk(d.docType),
+      // A drag with no affordance is a feature nobody finds. The row stays a
+      // click target, so the cursor stays a pointer and the tooltip does the
+      // teaching.
+      title: canPlaceOnDesk(d.docType)
+        ? `${d.title || 'Untitled'} — open it, or drag it onto a desk in the tray below`
+        : undefined,
       onDragStart: (ev) => {
         if (!canPlaceOnDesk(d.docType)) {
           ev.preventDefault()
@@ -374,7 +387,6 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
   }
 
   function openComms(key: string): void {
-    setOpenDocId(null)
     setActiveComms(key)
     // Record it as navigation. Local state alone meant Office apps were
     // invisible to the tray and to the history arrows — you could have Chat and

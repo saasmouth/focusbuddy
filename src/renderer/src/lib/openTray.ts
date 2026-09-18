@@ -21,6 +21,20 @@ import type { View } from '../stores/view'
 // so the word used in the UI is "close", the tooltip says what it does, and
 // nothing in this module can reach a store that deletes.
 
+/**
+ * The document a view has open, whichever route it came by, or null.
+ *
+ * Office renders documents inside its own shell and the standalone route
+ * renders them on their own, but it is one document either way -- so anything
+ * that asks "is a document open here, and which" has to accept both. The tray
+ * uses it for identity and for what a tab can be dragged onto a desk.
+ */
+export function documentIdOf(view: View): string | null {
+  if (view.kind === 'document') return view.documentId
+  if (view.kind === 'office' && view.doc) return view.doc
+  return null
+}
+
 /** A view that names something specific enough to keep a place in the tray. */
 export interface TrayEntry {
   /** Stable identity for this subject — dedupes and is the close handle. */
@@ -65,6 +79,9 @@ export function trayKeyFor(view: View): string | null {
       // The knowledge INDEX is a place; a specific entry is a thing.
       return view.entryId ? `knowledge:${view.entryId}` : null
     case 'office':
+      // A document open inside Office is the SAME subject as the standalone
+      // document route -- one entry, not two, whichever way you got to it.
+      if (view.doc) return `document:${view.doc}`
       // An Office app you have open -- Chat, Mail, the Browser, Sign. The hub
       // itself (no app) is a place, like the desks index.
       return view.app ? `office:${view.app}` : null

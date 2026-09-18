@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { initialMinimized } from '../../lib/floatingChrome'
 import Icon from '../Icon'
 
 // ── Floating menu chrome ─────────────────────────────────────────────────────
@@ -134,18 +135,21 @@ export function useSidebarWidth(): {
 // the content, and open otherwise.
 export function useMinimizable(
   key: string,
-  opts: { responsiveBreakpoint?: number } = {}
+  opts: { responsiveBreakpoint?: number; defaultMinimized?: boolean } = {}
 ): { minimized: boolean; minimize: () => void; restore: () => void; toggle: () => void } {
   const breakpoint = opts.responsiveBreakpoint ?? 860
   const [minimized, setMinimized] = useState<boolean>(() => {
+    let stored: string | null = null
     try {
-      const raw = localStorage.getItem(key)
-      if (raw === '1') return true
-      if (raw === '0') return false
+      stored = localStorage.getItem(key)
     } catch {
       /* ignore */
     }
-    return typeof window !== 'undefined' && window.innerWidth < breakpoint
+    return initialMinimized(stored, {
+      breakpoint,
+      defaultMinimized: opts.defaultMinimized,
+      innerWidth: typeof window !== 'undefined' ? window.innerWidth : breakpoint
+    })
   })
 
   const persist = useCallback(

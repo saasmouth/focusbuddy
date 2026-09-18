@@ -118,3 +118,21 @@ export function resolvePosition(
   }
   return { left, top }
 }
+
+// Whether a minimisable surface starts minimised. Pure so it can be tested
+// without rendering: it decides a first impression, and the ways to get it
+// wrong (ignoring a stored preference, or letting a responsive default
+// override an explicit one) are all silent.
+export function initialMinimized(
+  stored: string | null,
+  opts: { breakpoint: number; defaultMinimized?: boolean; innerWidth: number }
+): boolean {
+  // What the user last chose always wins, on any window size.
+  if (stored === '1') return true
+  if (stored === '0') return false
+  // Failing that, a surface may declare it starts out of the way regardless of
+  // window size -- a panel nobody asked for should not be a document's first
+  // impression, least of all in a widget on a desk.
+  if (opts.defaultMinimized !== undefined) return opts.defaultMinimized
+  return opts.innerWidth < opts.breakpoint
+}

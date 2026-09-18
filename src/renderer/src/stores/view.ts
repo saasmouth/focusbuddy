@@ -32,7 +32,7 @@ export type View =
   | { kind: 'inbox' }
   | { kind: 'mail'; openUid?: number }
   | { kind: 'documents' }
-  | { kind: 'office'; app?: string }
+  | { kind: 'office'; app?: string; doc?: string }
   // The segment views carry an optional `app` so entry points elsewhere (the
   // suite launcher, the command palette, the home dashboard) can deep-link to a
   // specific app inside the segment rather than just its home. The top-level
@@ -100,7 +100,7 @@ interface ViewStore {
   goInbox: () => void
   goMail: (openUid?: number) => void
   goDocuments: () => void
-  goOffice: (app?: string) => void
+  goOffice: (app?: string, doc?: string) => void
   goPlexiDesk: (app?: string) => void
   goPlexiPeople: (app?: string) => void
   goPlexiBrain: (app?: string) => void
@@ -241,7 +241,7 @@ export const useViewStore = create<ViewStore>((set, get) => {
     goInbox: () => commit({ kind: 'inbox' }),
     goMail: (openUid) => commit({ kind: 'mail', openUid }),
     goDocuments: () => commit({ kind: 'documents' }),
-    goOffice: (app) => commit({ kind: 'office', app }),
+    goOffice: (app, doc) => commit({ kind: 'office', app, doc }),
     goPlexiDesk: (app) => commit({ kind: 'plexidesk', app }),
     goPlexiPeople: (app) => commit({ kind: 'plexipeople', app }),
     goPlexiBrain: (app) => commit({ kind: 'plexibrain', app }),
