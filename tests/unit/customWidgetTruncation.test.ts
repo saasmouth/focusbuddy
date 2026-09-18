@@ -170,3 +170,28 @@ describe('the generator is told how to work things out', () => {
     expect(block).toMatch(/say plainly/)
   })
 })
+
+describe('the generator is pointed at the helpers rather than rewriting them', () => {
+  it('names each one it is given', () => {
+    // Every line the model does not have to write is generation budget left for
+    // the widget itself — these exist partly because widgets ran out of room.
+    for (const api of ['plexi.geo.distance', 'plexi.geo.tilesFor', 'plexi.csv.parse', 'plexi.fmt.number']) {
+      expect(unwrap(SRC)).toContain(api)
+    }
+  })
+
+  it('tells it a map needs no library', () => {
+    const block = unwrap(SRC)
+    expect(block).toContain('A MAP with no library')
+    // And that it degrades honestly when the widget has no network.
+    expect(block).toMatch(/network access on/)
+  })
+
+  it('tells it not to hand-roll a CSV split', () => {
+    expect(unwrap(SRC)).toMatch(/do NOT split on/)
+  })
+
+  it('points charts at SVG rather than a library', () => {
+    expect(unwrap(SRC)).toContain('needs no library')
+  })
+})

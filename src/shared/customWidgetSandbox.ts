@@ -28,6 +28,8 @@
 // Everything below is pure string composition with no DOM and no React, so the
 // boundary can be unit-tested directly rather than inferred from a rendered tree.
 
+import { helperScript } from './customWidgetHelpers'
+
 /** The iframe sandbox tokens. allow-same-origin is absent on purpose and adding
  *  it would collapse the entire boundary -- the widget would run in the app's own
  *  origin with access to its storage. */
@@ -104,6 +106,8 @@ function bridgeScript(initialState: string, initialInputs: string): string {
     pending = null;
     post('state', state);
   }
+${helperScript()}
+
   var plexi = {
     /** This widget's saved data. Returns a copy: mutating it does nothing until
      *  setState is called, which keeps "what is saved" unambiguous. */
@@ -155,6 +159,13 @@ function bridgeScript(initialState: string, initialInputs: string): string {
      *  allows, the target must be wired into this widget, and unless the user
      *  has switched this widget's write access on it is proposed for approval
      *  rather than run. Resolves to {ok} or {ok:false, reason}. */
+    /** Distance, Mercator projection and map tiles. See the note in
+     *  customWidgetHelpers.ts for why these are here and not a library. */
+    geo: geo,
+    /** CSV that survives quoted commas and embedded newlines. */
+    csv: csv,
+    /** Intl formatting without the boilerplate; follows the user's locale. */
+    fmt: fmt,
     act: function (action) {
       var id = 'a' + (++actSeq);
       post('act', { id: id, action: action });
