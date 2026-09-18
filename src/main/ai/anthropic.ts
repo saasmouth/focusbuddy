@@ -1920,7 +1920,42 @@ export async function sendChatStream(
   // request with neither `complete` nor `error`, and the renderer would spin
   // forever waiting for an event that is never coming.
   try {
-    const text = consumer.text().trim()
+    let text = consumer.text().trim()
+
+    // A response with no text at all is not an answer, and it is not something
+    // the user can act on -- they asked a question and got a shrug. It happened
+    // twice in a row on one request here and could not be reproduced against the
+    // same prompt, which is the signature of a transient provider failure rather
+    // than anything about the request.
+    //
+    // So ask once more before giving up. Non-streamed deliberately: the point is
+    // to take a different route through the provider, and the prose has nowhere
+    // to stream to by this stage anyway. If the second attempt is also empty the
+    // honest error still stands -- this recovers a hiccup, it does not hide one.
+    if (!text && stopReason !== 'refusal' && stopReason !== 'model_context_window_exceeded') {
+      try {
+        const retry = (await c.messages.create({
+          model: resolveModel('chat'),
+          max_tokens: 16384,
+          system: prepared.system,
+          messages: prepared.msgs
+        })) as Anthropic.Message
+        text = retry.content
+          .filter((b) => b.type === 'text')
+          .map((b) => ('text' in b ? b.text : ''))
+          .join('')
+          .trim()
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[chat] empty response, retried once — recovered=${text.length > 0} ` +
+            `out=${retry.usage?.output_tokens ?? 0} stop=${retry.stop_reason}`
+        )
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[chat] retry after empty response failed:', (e as Error).message)
+      }
+    }
+
     const built = buildChatResponse(text, prepared.sources, prepared.mentions, chatGateContext(req))
     if (built) {
       cb.onComplete(built)

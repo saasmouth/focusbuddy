@@ -9,6 +9,8 @@
 // having SURVIVED. It fired when it was least needed and stayed silent when it
 // was most needed.
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 import { actionOutcomeNotice, parseChatJson, withPriorActions } from '../../src/main/ai/anthropic'
 
 describe('actionOutcomeNotice', () => {
@@ -208,5 +210,39 @@ describe('withPriorActions', () => {
     const out = withPriorActions({ role: 'assistant', content: 'Built it.', actions })
     expect(out).toContain('+6 more')
     expect(out).not.toContain('w9')
+  })
+})
+
+// An empty response is not an answer — the user asked a question and got a
+// shrug. It happened twice in a row on one real request and could not be
+// reproduced against the same prompt, which is the signature of a transient
+// provider failure rather than anything about the request.
+describe('an empty response is retried once before giving up', () => {
+  const SRC = readFileSync(
+    join(__dirname, '..', '..', 'src', 'main', 'ai', 'anthropic.ts'),
+    'utf-8'
+  )
+
+  it('retries when there is no text at all', () => {
+    expect(SRC).toContain('empty response, retried once')
+  })
+
+  it('does NOT retry a refusal or a blown context window', () => {
+    // Both are settled answers. Asking again wastes a call and cannot help.
+    const at = SRC.indexOf('empty response, retried once')
+    const before = SRC.slice(Math.max(0, at - 1600), at)
+    expect(before).toContain("stopReason !== 'refusal'")
+    expect(before).toContain("stopReason !== 'model_context_window_exceeded'")
+  })
+
+  it('still reports honestly when the retry is also empty', () => {
+    // This recovers a hiccup; it must not hide one.
+    const at = SRC.indexOf('empty response, retried once')
+    const after = SRC.slice(at, at + 1200)
+    expect(after).toContain('unparseableChatResponse')
+  })
+
+  it('keeps the honest message for the case where both attempts fail', () => {
+    expect(SRC).toContain('returned nothing at all')
   })
 })
