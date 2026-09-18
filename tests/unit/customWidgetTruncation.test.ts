@@ -144,9 +144,22 @@ describe('the generator is told how to work things out', () => {
   it('requires it to stay responsive rather than freeze', () => {
     const at = SRC.indexOf('STAY RESPONSIVE')
     expect(at).toBeGreaterThan(-1)
-    const block = unwrap(SRC.slice(at, at + 900))
+    const block = unwrap(SRC.slice(at, at + 1200))
+    // Workers are available now, so the guidance is "use one" rather than the
+    // apology it used to be.
+    expect(block).toContain('WEB WORKER')
+    expect(block).toContain('createObjectURL')
     expect(block).toMatch(/chunk/i)
-    expect(block).toMatch(/never silently\s*truncate|never silently truncate/)
+    expect(block).toMatch(/never freeze/i)
+  })
+
+  it('tells it to report a truncated input rather than total part of a table', () => {
+    // The host used to hand over 500 rows of a 3,000-row table silently, so a
+    // widget totalled those and presented it as the total.
+    const block = unwrap(SRC)
+    expect(block).toContain('rowCount')
+    expect(block).toContain('truncated')
+    expect(block).toMatch(/never present a partial\s*total as the total/i)
   })
 
   it('tells it to say what it could NOT do rather than drop it quietly', () => {

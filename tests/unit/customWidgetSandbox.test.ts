@@ -276,3 +276,28 @@ describe('the boundary ADR-0009 set is unchanged', () => {
     expect(html).toContain("connect-src 'none'")
   })
 })
+
+describe('ceilings that would stop real work', () => {
+  it('allows a Web Worker, so heavy computation does not freeze the widget', () => {
+    // Same opaque origin, same policy: a worker reaches nothing the frame could
+    // not already reach. ADR-0009 said revisit rather than pre-emptively widen,
+    // and needing to compute over a real table is the revisit.
+    expect(cspFor(false)).toContain('worker-src blob:')
+    expect(cspFor(true)).toContain('worker-src blob:')
+  })
+
+  it('still grants no network to a worker when the widget has none', () => {
+    // The worker inherits the frame's policy, so this is the assertion that the
+    // widening did not smuggle egress in through the back door.
+    expect(cspFor(false)).toContain("connect-src 'none'")
+  })
+
+  it('keeps every other door shut', () => {
+    const csp = cspFor(false)
+    expect(csp).toContain("default-src 'none'")
+    expect(csp).toContain("frame-src 'none'")
+    expect(csp).toContain("object-src 'none'")
+    expect(csp).toContain("base-uri 'none'")
+    expect(csp).toContain("form-action 'none'")
+  })
+})

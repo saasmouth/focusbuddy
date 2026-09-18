@@ -12,7 +12,12 @@ import {
   type ActionScope
 } from '../../src/shared/customWidgetActions'
 
-const wired = (acts: boolean, tableIds: string[] = ['tbl-1']): ActionScope => ({ tableIds, acts })
+const wired = (acts: boolean, tableIds: string[] = ['tbl-1']): ActionScope => ({
+  tableIds,
+  taskIds: ['task-1'],
+  deskId: 'desk-1',
+  acts
+})
 
 describe('the verb list is closed', () => {
   it('refuses anything not on it', () => {
@@ -209,5 +214,82 @@ describe('describeWidgetAction', () => {
   it('never returns an empty label', () => {
     expect(describeWidgetAction({ kind: 'add-table-row', tableId: 't', cells: { n: 1 } })).not.toBe('')
     expect(describeWidgetAction({ kind: 'set-cell', tableId: 't', rowId: 'r', cells: {} })).not.toBe('')
+  })
+})
+
+// Widening what a widget can DO must not widen what it can REACH. Every verb
+// below is one the assistant can already take, executed by the same executor;
+// the scope rule is what keeps that from becoming a general grant.
+describe('putting a result where it belongs', () => {
+  it('creates a task on the desk the widget lives on', () => {
+    const v = judgeWidgetAction({ kind: 'add-subtask', title: 'Chase the invoice' }, wired(true))
+    expect(v.ok).toBe(true)
+    if (v.ok && v.action.kind === 'add-subtask') expect(v.action.title).toBe('Chase the invoice')
+  })
+
+  it('will not create a nameless task', () => {
+    expect(judgeWidgetAction({ kind: 'add-subtask', title: '   ' }, wired(true)).ok).toBe(false)
+  })
+
+  it('only updates a task it was pointed at', () => {
+    // The same rule as a table. Without it, one consent would let a widget
+    // rewrite every task in the workspace.
+    expect(judgeWidgetAction({ kind: 'update-task', taskId: 'task-1', status: 'done' }, wired(true)).ok).toBe(true)
+    const v = judgeWidgetAction({ kind: 'update-task', taskId: 'someone-elses', status: 'done' }, wired(true))
+    expect(v.ok).toBe(false)
+    if (!v.ok) expect(v.reason).toMatch(/wired into it or @ mentioned/)
+  })
+
+  it('needs something to actually change', () => {
+    expect(judgeWidgetAction({ kind: 'update-task', taskId: 'task-1' }, wired(true)).ok).toBe(false)
+  })
+
+  it('schedules an event with a real time and a sane duration', () => {
+    const ok = judgeWidgetAction(
+      { kind: 'schedule-event', title: 'Deep work', startMs: Date.now(), durationMinutes: 60 },
+      wired(true)
+    )
+    expect(ok.ok).toBe(true)
+    for (const bad of [
+      { startMs: 0, durationMinutes: 60 },
+      { startMs: Date.now(), durationMinutes: 0 },
+      { startMs: Date.now(), durationMinutes: 5000 },
+      { startMs: NaN, durationMinutes: 60 }
+    ]) {
+      expect(judgeWidgetAction({ kind: 'schedule-event', title: 'x', ...bad }, wired(true)).ok).toBe(false)
+    }
+  })
+
+  it('drafts an email without ever sending one', () => {
+    // compose-mail opens the composer. Nothing is committed, so it does not wait
+    // on the write permission — but it is still only ever a draft.
+    const v = judgeWidgetAction(
+      { kind: 'compose-mail', to: ['a@b.com', 'nonsense', 42], subject: 'Hi', body: 'Text' },
+      wired(false)
+    )
+    expect(v.ok).toBe(true)
+    if (v.ok) {
+      expect(v.needsApproval).toBe(false)
+      if (v.action.kind === 'compose-mail') expect(v.action.to).toEqual(['a@b.com'])
+    }
+  })
+
+  it('still proposes the committing verbs when write access is off', () => {
+    for (const action of [
+      { kind: 'add-subtask', title: 't' },
+      { kind: 'update-task', taskId: 'task-1', status: 'done' },
+      { kind: 'schedule-event', title: 'e', startMs: Date.now(), durationMinutes: 30 }
+    ]) {
+      const v = judgeWidgetAction(action, wired(false))
+      expect(v.ok, JSON.stringify(action)).toBe(true)
+      if (v.ok) expect(v.needsApproval, JSON.stringify(action)).toBe(true)
+    }
+  })
+
+  it('describes each new verb in the user’s terms', () => {
+    expect(describeWidgetAction({ kind: 'add-subtask', title: 'Call Sam' })).toContain('Call Sam')
+    expect(describeWidgetAction({ kind: 'update-task', taskId: 't', label: 'the brief', status: 'done' })).toContain('the brief')
+    expect(describeWidgetAction({ kind: 'schedule-event', title: 'Review', startMs: Date.now(), durationMinutes: 30 })).toContain('Review')
+    expect(describeWidgetAction({ kind: 'compose-mail', subject: 'Update', body: '' })).toContain('Update')
   })
 })

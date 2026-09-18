@@ -32,12 +32,26 @@ export type WidgetActionKind =
   | 'set-cell'
   | 'create-knowledge-entry'
   | 'open-url'
+  | 'add-subtask'
+  | 'update-task'
+  | 'schedule-event'
+  | 'compose-mail'
 
 export const WIDGET_ACTION_KINDS: ReadonlySet<string> = new Set<WidgetActionKind>([
   'add-table-row',
   'set-cell',
   'create-knowledge-entry',
-  'open-url'
+  'open-url',
+  // A widget that works something out should be able to put the result where it
+  // belongs -- a task, a calendar entry, a draft email -- rather than showing a
+  // number the user then re-types somewhere else. Every one of these is an
+  // action the assistant can already take, executed by the same executor and
+  // gated the same way, so this widens what a widget can DO without widening
+  // what anything can reach.
+  'add-subtask',
+  'update-task',
+  'schedule-event',
+  'compose-mail'
 ])
 
 export type WidgetAction =
@@ -45,11 +59,19 @@ export type WidgetAction =
   | { kind: 'set-cell'; tableId: string; rowId: string; cells: Record<string, unknown> }
   | { kind: 'create-knowledge-entry'; title: string; body: string; tags?: string[] }
   | { kind: 'open-url'; url: string }
+  | { kind: 'add-subtask'; title: string; notes?: string; dueDate?: number | null }
+  | { kind: 'update-task'; taskId: string; label: string; status?: string; dueDate?: number | null }
+  | { kind: 'schedule-event'; title: string; startMs: number; durationMinutes: number }
+  | { kind: 'compose-mail'; to?: string[]; subject: string; body: string }
 
 /** What the host knows about this widget's wired-in sources. */
 export interface ActionScope {
-  /** Table ids reachable through a wire drawn into this widget. */
+  /** Table ids the user pointed this widget at, by wire or by @ mention. */
   tableIds: readonly string[]
+  /** Task ids likewise, for updating something it was pointed at. */
+  taskIds?: readonly string[]
+  /** The desk this widget is on. A task it creates is created here. */
+  deskId?: string | null
   /** Whether the user has switched this widget's ability to make changes on. */
   acts: boolean
 }
@@ -167,6 +189,89 @@ export function judgeWidgetAction(raw: unknown, scope: ActionScope): ActionVerdi
       }
     }
 
+    case 'add-subtask': {
+      const title = str(a.title).trim().slice(0, MAX_TITLE)
+      if (!title) return { ok: false, reason: 'A task needs a title.' }
+      const due = typeof a.dueDate === 'number' && Number.isFinite(a.dueDate) ? a.dueDate : null
+      return {
+        ok: true,
+        // Created on the desk the widget lives on -- the analogue of the scope
+        // rule for something that does not have a wire.
+        action: {
+          kind: 'add-subtask',
+          title,
+          notes: str(a.notes).slice(0, MAX_TEXT) || undefined,
+          dueDate: due
+        },
+        needsApproval: !scope.acts
+      }
+    }
+
+    case 'update-task': {
+      const taskId = str(a.taskId).trim()
+      if (!taskId) return { ok: false, reason: 'Changing a task needs a taskId.' }
+      // Same rule as a table: only something the widget was pointed at.
+      if (!(scope.taskIds ?? []).includes(taskId)) {
+        return {
+          ok: false,
+          reason:
+            'This widget can only change a task that is wired into it or @ mentioned in it.'
+        }
+      }
+      const status = str(a.status).trim()
+      const due = typeof a.dueDate === 'number' && Number.isFinite(a.dueDate) ? a.dueDate : undefined
+      if (!status && due === undefined) {
+        return { ok: false, reason: 'That action needs a status or a due date.' }
+      }
+      return {
+        ok: true,
+        action: {
+          kind: 'update-task',
+          taskId,
+          label: str(a.label).trim().slice(0, MAX_TITLE) || 'that task',
+          ...(status ? { status } : {}),
+          ...(due === undefined ? {} : { dueDate: due })
+        },
+        needsApproval: !scope.acts
+      }
+    }
+
+    case 'schedule-event': {
+      const title = str(a.title).trim().slice(0, MAX_TITLE)
+      const startMs = Number(a.startMs)
+      const durationMinutes = Number(a.durationMinutes)
+      if (!title) return { ok: false, reason: 'An event needs a title.' }
+      if (!Number.isFinite(startMs) || startMs <= 0) {
+        return { ok: false, reason: 'An event needs a real start time.' }
+      }
+      if (!Number.isFinite(durationMinutes) || durationMinutes <= 0 || durationMinutes > 1440) {
+        return { ok: false, reason: 'An event needs a duration between 1 minute and a day.' }
+      }
+      return {
+        ok: true,
+        action: { kind: 'schedule-event', title, startMs, durationMinutes: Math.round(durationMinutes) },
+        needsApproval: !scope.acts
+      }
+    }
+
+    case 'compose-mail': {
+      const subject = str(a.subject).trim().slice(0, MAX_TITLE)
+      const body = str(a.body).slice(0, MAX_TEXT)
+      if (!subject && !body) return { ok: false, reason: 'A draft needs a subject or a body.' }
+      const to = Array.isArray(a.to)
+        ? (a.to as unknown[])
+            .filter((x): x is string => typeof x === 'string' && x.includes('@'))
+            .slice(0, 20)
+        : undefined
+      // A draft is never sent by anything but the person. It opens the composer,
+      // so it does not wait on the write permission -- nothing is committed.
+      return {
+        ok: true,
+        action: { kind: 'compose-mail', to, subject: subject || '(no subject)', body },
+        needsApproval: false
+      }
+    }
+
     case 'open-url': {
       const url = str(a.url).trim()
       if (!/^https?:\/\//i.test(url)) {
@@ -195,5 +300,13 @@ export function describeWidgetAction(a: WidgetAction): string {
       return `Save “${a.title}” to PlexiBrain`
     case 'open-url':
       return `Open ${a.url.replace(/^https?:\/\//i, '').slice(0, 60)}`
+    case 'add-subtask':
+      return `Add a task: “${a.title}”`
+    case 'update-task':
+      return `Update ${a.label}${a.status ? ` to ${a.status}` : ''}`
+    case 'schedule-event':
+      return `Schedule “${a.title}” for ${new Date(a.startMs).toLocaleString()}`
+    case 'compose-mail':
+      return `Draft an email: “${a.subject}”`
   }
 }

@@ -62,6 +62,11 @@ export function cspFor(net: boolean): string {
     net ? "connect-src https:" : "connect-src 'none'",
     // No <frame>/<iframe> of its own, no plugins, and it can never break out to
     // become the top-level page.
+    // Same opaque origin, same policy, no additional reach: a worker cannot do
+    // anything the frame could not already do, it just does it off the main
+    // thread so a long computation does not freeze the widget.
+    "worker-src blob:",
+    "child-src blob:",
     "frame-src 'none'",
     "object-src 'none'",
     "base-uri 'none'",
@@ -295,6 +300,11 @@ export interface WidgetInput {
     id: string
     columns: Array<{ id: string; label: string; type: string }>
     rows: Array<{ id: string; cells: Record<string, unknown> }>
+    /** How many rows the table holds in total. */
+    rowCount: number
+    /** True when `rows` is not all of them. A widget computing over a truncated
+     *  list must say so rather than present a partial total as the total. */
+    truncated: boolean
   }
 }
 

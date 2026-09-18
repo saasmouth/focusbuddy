@@ -1760,7 +1760,9 @@ const api = {
   customWidgetInputs: {
     get: (widgetId: string): Promise<WidgetInput[]> =>
       ipcRenderer.invoke('customWidget:inputs', widgetId),
-    scope: (widgetId: string): Promise<{ tableIds: string[] }> =>
+    scope: (
+      widgetId: string
+    ): Promise<{ tableIds: string[]; taskIds: string[]; deskId: string | null }> =>
       ipcRenderer.invoke('customWidget:scope', widgetId)
   },
   // Mail folders: saved criteria for looking at the inbox, optionally about a

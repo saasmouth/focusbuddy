@@ -3101,12 +3101,19 @@ export interface CustomWidgetContent {
 // without turning widget.content into an archive that syncs on every keystroke.
 export const CUSTOM_WIDGET_HISTORY_LIMIT = 5
 
-// Hard ceiling on a generated document. Large enough for a genuinely rich
-// mini-app, small enough that a runaway generation cannot bloat the row.
-export const CUSTOM_WIDGET_MAX_CODE_BYTES = 200_000
+// Hard ceiling on a generated document. Large enough that no widget anybody
+// actually wants is refused for size -- a dense single-file application with its
+// own styling and behaviour is tens of kilobytes, not hundreds -- and still
+// bounded so a runaway generation cannot bloat the row without limit.
+export const CUSTOM_WIDGET_MAX_CODE_BYTES = 800_000
 
 // Hard ceiling on plexi.setState() payloads, enforced host-side.
-export const CUSTOM_WIDGET_MAX_STATE_BYTES = 64_000
+//
+// 64k was a widget's own data -- a few hundred rows -- and a widget that IS the
+// place the user keeps something hit it. This holds a real working set. It stays
+// bounded because widget.content syncs and backs up as one row, so an unbounded
+// state is an unbounded sync payload.
+export const CUSTOM_WIDGET_MAX_STATE_BYTES = 1_000_000
 
 // A saved custom widget in the user's personal library, reusable on any desk.
 export interface SavedCustomWidget {

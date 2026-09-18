@@ -132,3 +132,36 @@ another table's rows and grants the same action scope; a widget with neither see
 same run re-asserts that `parent.document`, `parent.api` and `localStorage` are
 still `SecurityError` — because "we widened the bridge, not the sandbox" is a
 claim until the application says otherwise.
+
+## Amendment — 2026-09-18: Web Workers, and ceilings that reported nothing
+
+The original decision left Web Workers unavailable under `default-src 'none'`
+and said: "No widget has wanted one yet; revisit if that changes rather than
+pre-emptively widening." A widget computing over a real table wants one, so this
+is the revisit.
+
+`worker-src blob:` (and `child-src blob:` for older engines) is now in the
+policy. The reasoning is that it costs nothing this ADR is protecting: a worker
+created from a blob runs on the **same opaque origin** under the **same CSP** as
+the frame that made it. It cannot fetch when the frame cannot fetch, cannot
+touch storage, cannot see the parent. It buys one thing — a long computation
+runs off the main thread instead of freezing the widget — and `customWidgetBridge.spec.ts`
+asserts both halves: that a worker runs and returns a correct result, and that
+`connect-src 'none'` still holds around it.
+
+Separately, and more seriously: the input caps were **silent**. A widget wired to
+a 3 000-row table received 500 rows with no indication, and totalled those as if
+they were everything. The host was manufacturing exactly the confident wrong
+number the generator is instructed never to produce.
+
+Caps are now set where a real workspace does not reach them (20 000 rows, 48
+inputs, 200 KB of text per input) and a table carries `rowCount` and `truncated`,
+so a widget that does hit one can say what it is working from. The rule this
+encodes: **a limit that cannot be reported should not be applied.**
+
+The action verb list also grew — `add-subtask`, `update-task`, `schedule-event`,
+`compose-mail` — so a widget can put a result where it belongs rather than
+leaving the user to retype it. Every one is an action the assistant can already
+take, executed by the same `applyProposal`, under the same two rules: scoped to
+what the user pointed the widget at, and proposed for approval unless write
+access is on. Widening what a widget can DO is not widening what it can REACH.

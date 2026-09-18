@@ -193,9 +193,11 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
           void (async () => {
             const scope = await window.api.customWidgetInputs
               .scope(widget.id)
-              .catch(() => ({ tableIds: [] as string[] }))
+              .catch(() => ({ tableIds: [] as string[], taskIds: [] as string[], deskId: null }))
             const verdict = judgeWidgetAction(msg.payload.action, {
               tableIds: scope.tableIds,
+              taskIds: scope.taskIds,
+              deskId: scope.deskId,
               acts: data.acts === true
             })
             if (!verdict.ok) {

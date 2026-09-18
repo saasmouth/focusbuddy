@@ -86,7 +86,7 @@ function systemPrompt(net: boolean, w: number, h: number): string {
     '### Reading what is wired into this widget',
     '- plexi.getInputs() -> array. The widgets the user has connected TO this one.',
     '  Each: {id, kind, title, text} and, when it is a table, also',
-    '  {table: {id, columns: [{id, label, type}], rows: [{id, cells}]}}.',
+    '  {table: {id, columns: [{id,label,type}], rows: [{id,cells}], rowCount, truncated}}.',
     '  A cell is keyed by COLUMN ID, not by label. Compute over rows directly —',
     '  totals, filters, charts — rather than parsing text.',
     '- plexi.onInput(fn) -> unsubscribe. fn(inputs) fires whenever a wired source',
@@ -103,8 +103,15 @@ function systemPrompt(net: boolean, w: number, h: number): string {
     '  Allowed actions, and nothing else:',
     '    {kind:"add-table-row", tableId, cells:{<columnId>: value}}',
     '    {kind:"set-cell", tableId, rowId, cells:{<columnId>: value}}',
+    '    {kind:"add-subtask", title, notes?, dueDate?}      (a task on this desk)',
+    '    {kind:"update-task", taskId, label, status?, dueDate?}',
+    '    {kind:"schedule-event", title, startMs, durationMinutes}',
+    '    {kind:"compose-mail", to?, subject, body}          (opens a DRAFT; never sends)',
     '    {kind:"create-knowledge-entry", title, body, tags?}',
     '    {kind:"open-url", url}  (http/https only)',
+    '- Put a result WHERE IT BELONGS rather than leaving the user to retype it: a',
+    '  worked-out deadline becomes a task, a chosen slot becomes an event, a',
+    '  summary becomes a draft email. That is usually the point of the widget.',
     '- tableId and rowId MUST come from plexi.getInputs(). A table that was neither',
     '  wired in nor @ mentioned is refused — this widget can only change what the',
     '  user pointed it at.',
@@ -143,11 +150,15 @@ function systemPrompt(net: boolean, w: number, h: number): string {
     '   worse than an honest approximate one, because the user acts on it.',
     '',
     '3. STAY RESPONSIVE AND STAY HONEST ABOUT SIZE. A loop over a few hundred rows',
-    '   is fine. Anything heavier must not freeze the widget: chunk the work with',
-    '   setTimeout / requestAnimationFrame and show progress. There are no Web',
-    '   Workers here. If the input is bigger than the method can handle well, cap',
-    '   it, say so on screen ("ordering the first 200 stops"), and never silently',
-    '   truncate.',
+    '   is fine inline. For anything heavier use a WEB WORKER — they are available:',
+    '     var w = new Worker(URL.createObjectURL(new Blob([src], {type:"text/javascript"})));',
+    '   Put the computation in `src` as a string, postMessage the data in, render',
+    '   the result when it comes back, and show progress meanwhile. Alternatively',
+    '   chunk with setTimeout. Either way the widget must never freeze.',
+    '- An input table tells you `rowCount` and `truncated`. If `truncated` is true',
+    '  you have SOME of the rows, not all of them: say so next to any total you',
+    '  show ("total of the 20,000 rows loaded, of 34,112"). Never present a partial',
+    '  total as the total.',
     '',
     'Show the working where it helps: the inputs the result came from, the total,',
     'the units. A user who cannot see why a number is what it is cannot trust it.',
@@ -176,7 +187,11 @@ const GENERATION_TOKENS = 16000
 // How many times a generation may be continued. Two extra rounds is ~48k tokens
 // of document, far beyond the 200k byte cap a widget may occupy, so hitting this
 // means something is wrong with the request rather than merely large.
-const MAX_CONTINUATIONS = 2
+// Enough rounds that "it was too big" stops being an outcome a user can hit by
+// asking for something ambitious. Six rounds is ~96k tokens of document, well
+// past any widget that is still a widget, so reaching it means the request has
+// gone wrong rather than merely being large.
+const MAX_CONTINUATIONS = 6
 
 export async function generateCustomWidget(
   input: GenerateCustomWidgetInput

@@ -28,11 +28,31 @@ interface WidgetRow {
   content: string | null
 }
 
-/** Table ids this widget may act on — the scope customWidgetActions enforces. */
+/** Everything this widget may act on — the scope customWidgetActions enforces. */
+export function widgetActionScope(widgetId: string): {
+  tableIds: string[]
+  taskIds: string[]
+  deskId: string | null
+} {
+  const inputs = resolveWidgetInputs(widgetId)
+  const deskId =
+    (
+      getDb().prepare('SELECT task_id AS t FROM widgets WHERE id = ?').get(widgetId) as
+        | { t: string }
+        | undefined
+    )?.t ?? null
+  return {
+    tableIds: inputs.map((i) => i.table?.id).filter((id): id is string => !!id),
+    // A desk or task the widget was pointed at, by @ mention. Same rule as a
+    // table: it may change what the user connected it to, and nothing else.
+    taskIds: inputs.filter((i) => i.kind === 'desk' || i.kind === 'task').map((i) => i.id),
+    deskId
+  }
+}
+
+/** @deprecated kept for the existing call site; prefer widgetActionScope. */
 export function wiredTableIds(widgetId: string): string[] {
-  return resolveWidgetInputs(widgetId)
-    .map((i) => i.table?.id)
-    .filter((id): id is string => !!id)
+  return widgetActionScope(widgetId).tableIds
 }
 
 /** Everything this widget was pointed at: its wires, and its @ mentions. */
@@ -159,6 +179,15 @@ function widgetToInput(w: WidgetRow): WidgetInput {
     columns = []
   }
 
+  // Counted before the limit, so the widget is told what it is working from
+  // rather than assuming the rows it got are all there are.
+  const total =
+    (
+      db
+        .prepare('SELECT COUNT(*) AS n FROM fb_rows WHERE table_id = ? AND trashed_at IS NULL')
+        .get(tableId) as { n: number } | undefined
+    )?.n ?? 0
+
   const rows = (
     db
       .prepare(
@@ -189,6 +218,15 @@ function widgetToInput(w: WidgetRow): WidgetInput {
       .filter(Boolean)
       .join('\n')
       .slice(0, MAX_TEXT),
-    table: { id: t.id, columns, rows }
+    table: {
+      id: t.id,
+      columns,
+      rows,
+      // What the table actually holds, and whether `rows` is all of it. A widget
+      // that totals a truncated list without knowing it is truncated reports a
+      // wrong number confidently, which is the worst kind.
+      rowCount: total,
+      truncated: total > rows.length
+    }
   }
 }

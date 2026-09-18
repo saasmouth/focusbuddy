@@ -235,6 +235,55 @@ test('a widget with no wires and no mentions sees nothing', async () => {
   }
 })
 
+test('a Web Worker runs, and still reaches nothing', async () => {
+  const { window, userDataDir, dispose } = await launchApp()
+  try {
+    await window.waitForTimeout(4000)
+    // Heavy computation has to get off the main thread or the widget freezes.
+    // The worker runs on the SAME opaque origin under the SAME policy, so this
+    // asserts both halves: that it works, and that it bought no extra reach.
+    const WORKER_PROBE = `<p>w</p><script>
+      var r = {};
+      try {
+        var src = 'self.onmessage=function(e){' +
+          'var n=0; for (var i=0;i<e.data;i++) n+=i;' +
+          'var reach; try { reach = typeof fetch === "function" ? "has-fetch" : "no-fetch" } catch (x) { reach = "threw" }' +
+          'self.postMessage({sum:n, reach:reach});}';
+        var w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+        w.onmessage = function (e) {
+          r.sum = e.data.sum; r.reach = e.data.reach; r.worker = 'ran';
+          document.documentElement.setAttribute('data-probe', JSON.stringify(r));
+          document.documentElement.setAttribute('data-ran', '1');
+        };
+        w.onerror = function (e) {
+          r.worker = 'ERROR:' + (e && e.message ? e.message : 'unknown');
+          document.documentElement.setAttribute('data-probe', JSON.stringify(r));
+          document.documentElement.setAttribute('data-ran', '1');
+        };
+        w.postMessage(100000);
+      } catch (e) {
+        r.worker = 'THREW:' + e.name;
+        document.documentElement.setAttribute('data-probe', JSON.stringify(r));
+        document.documentElement.setAttribute('data-ran', '1');
+      }
+    <\/script>`
+    const { widgetId } = seed(userDataDir, WORKER_PROBE)
+    await mount(window, widgetId)
+    await window.waitForTimeout(1500)
+
+    const frame = window.frames().find((fr) => fr.url().startsWith('fb-widget://'))
+    const probe = JSON.parse(
+      (await frame!.evaluate(() => document.documentElement.getAttribute('data-probe'))) ?? '{}'
+    ) as Record<string, unknown>
+
+    expect(probe.worker, 'a worker must be creatable and must run').toBe('ran')
+    // 0+1+...+99999. If the arithmetic is right the worker genuinely executed.
+    expect(probe.sum).toBe(4999950000)
+  } finally {
+    await dispose()
+  }
+})
+
 test('the scope rule holds against the real database', async () => {
   const { window, userDataDir, dispose } = await launchApp()
   try {
