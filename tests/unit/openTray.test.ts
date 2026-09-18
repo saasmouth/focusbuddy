@@ -1,0 +1,180 @@
+// The tray of things you have open.
+//
+// Two properties carry the whole design, and both are easy to lose in a later
+// edit: only a view that names a SUBJECT earns an entry (or the tray becomes a
+// second navigation bar at the bottom of the screen), and closing an entry
+// touches the subject not at all (or the close button is a trap).
+import { describe, it, expect } from 'vitest'
+import {
+  trayKeyFor,
+  openIn,
+  closeIn,
+  closeOthersIn,
+  togglePinIn,
+  orderTray,
+  pruneTray,
+  MAX_TRAY,
+  type TrayEntry
+} from '../../src/renderer/src/lib/openTray'
+import type { View } from '../../src/renderer/src/stores/view'
+
+const at = (n: number): number => 1_700_000_000_000 + n
+
+describe('what earns a place', () => {
+  it('keeps the things a person would say they had open', () => {
+    expect(trayKeyFor({ kind: 'task', taskId: 't1' })).toBe('task:t1')
+    expect(trayKeyFor({ kind: 'document', documentId: 'd1' })).toBe('document:d1')
+    expect(trayKeyFor({ kind: 'livedoc', liveDocId: 'l1' })).toBe('livedoc:l1')
+    expect(trayKeyFor({ kind: 'connected-app', appId: 'slack' })).toBe('app:slack')
+    expect(trayKeyFor({ kind: 'messages' })).toBe('messages')
+    expect(trayKeyFor({ kind: 'mail' })).toBe('mail')
+  })
+
+  it('refuses the places you merely go', () => {
+    // A tray listing Home and Trash is a second nav bar at the bottom.
+    for (const v of [
+      { kind: 'home' },
+      { kind: 'trash' },
+      { kind: 'calendar' },
+      { kind: 'attention' },
+      { kind: 'rooms' },
+      { kind: 'documents' },
+      { kind: 'files' }
+    ] as View[]) {
+      expect(trayKeyFor(v), v.kind).toBeNull()
+    }
+  })
+
+  it('tells a specific room from the room index', () => {
+    expect(trayKeyFor({ kind: 'desks', roomId: 'r1' })).toBe('room:r1')
+    expect(trayKeyFor({ kind: 'desks' })).toBeNull()
+  })
+
+  it('tells a knowledge entry from the knowledge index', () => {
+    expect(trayKeyFor({ kind: 'knowledge', entryId: 'k1' })).toBe('knowledge:k1')
+    expect(trayKeyFor({ kind: 'knowledge' })).toBeNull()
+  })
+})
+
+describe('opening', () => {
+  it('adds a thing once, however many times you visit it', () => {
+    let list = openIn([], { kind: 'task', taskId: 't1' }, at(1))
+    list = openIn(list, { kind: 'task', taskId: 't1' }, at(2))
+    list = openIn(list, { kind: 'task', taskId: 't1' }, at(3))
+    expect(list).toHaveLength(1)
+    expect(list[0].at).toBe(at(3))
+  })
+
+  it('does not reorder the strip when you revisit', () => {
+    // The tray is a set of POSITIONS. Re-sorting it under the cursor every time
+    // somebody glances at a desk would make it unusable for muscle memory.
+    let list = openIn([], { kind: 'task', taskId: 'a' }, at(1))
+    list = openIn(list, { kind: 'document', documentId: 'b' }, at(2))
+    list = openIn(list, { kind: 'task', taskId: 'a' }, at(3))
+    expect(list.map((e) => e.key)).toEqual(['task:a', 'document:b'])
+  })
+
+  it('ignores a view that is a place', () => {
+    expect(openIn([], { kind: 'home' }, at(1))).toEqual([])
+  })
+
+  it('keeps the newest view for an entry, so a deep link updates it', () => {
+    const list = openIn(
+      openIn([], { kind: 'mail' }, at(1)),
+      { kind: 'mail', openUid: 42 },
+      at(2)
+    )
+    expect(list).toHaveLength(1)
+    expect(list[0].view).toEqual({ kind: 'mail', openUid: 42 })
+  })
+})
+
+describe('eviction', () => {
+  const fill = (n: number): TrayEntry[] => {
+    let list: TrayEntry[] = []
+    for (let i = 0; i < n; i++) list = openIn(list, { kind: 'task', taskId: `t${i}` }, at(i))
+    return list
+  }
+
+  it('stops the tray becoming a list to read', () => {
+    expect(fill(MAX_TRAY + 5).length).toBe(MAX_TRAY)
+  })
+
+  it('drops the least recently seen', () => {
+    let list = fill(MAX_TRAY)
+    list = openIn(list, { kind: 'task', taskId: 't0' }, at(999)) // t0 is now newest
+    list = openIn(list, { kind: 'task', taskId: 'new' }, at(1000))
+    expect(list.map((e) => e.key)).toContain('task:t0')
+    expect(list.map((e) => e.key)).not.toContain('task:t1')
+  })
+
+  it('never evicts something pinned', () => {
+    let list = fill(MAX_TRAY)
+    list = togglePinIn(list, 'task:t0')
+    for (let i = 0; i < 20; i++) {
+      list = openIn(list, { kind: 'task', taskId: `x${i}` }, at(2000 + i))
+    }
+    expect(list.map((e) => e.key)).toContain('task:t0')
+  })
+
+  it('lets the tray exceed the cap rather than drop a pin the user asked for', () => {
+    let list = fill(MAX_TRAY)
+    for (const key of list.map((e) => e.key)) list = togglePinIn(list, key)
+    expect(list.every((e) => e.pinned)).toBe(true)
+    list = openIn(list, { kind: 'task', taskId: 'extra' }, at(3000))
+    expect(list.length).toBe(MAX_TRAY + 1)
+  })
+})
+
+describe('closing', () => {
+  it('removes the entry', () => {
+    const list = openIn([], { kind: 'task', taskId: 't1' }, at(1))
+    expect(closeIn(list, 'task:t1')).toEqual([])
+  })
+
+  it('is a no-op for a key that is not there', () => {
+    const list = openIn([], { kind: 'task', taskId: 't1' }, at(1))
+    expect(closeIn(list, 'task:nope')).toEqual(list)
+  })
+
+  it('closes the others but keeps pins', () => {
+    let list = openIn([], { kind: 'task', taskId: 'a' }, at(1))
+    list = openIn(list, { kind: 'task', taskId: 'b' }, at(2))
+    list = openIn(list, { kind: 'task', taskId: 'c' }, at(3))
+    list = togglePinIn(list, 'task:c')
+    expect(closeOthersIn(list, 'task:a').map((e) => e.key).sort()).toEqual(['task:a', 'task:c'])
+  })
+})
+
+describe('ordering', () => {
+  it('puts pinned first and otherwise leaves the order alone', () => {
+    let list = openIn([], { kind: 'task', taskId: 'a' }, at(1))
+    list = openIn(list, { kind: 'task', taskId: 'b' }, at(2))
+    list = openIn(list, { kind: 'task', taskId: 'c' }, at(3))
+    list = togglePinIn(list, 'task:c')
+    expect(orderTray(list).map((e) => e.key)).toEqual(['task:c', 'task:a', 'task:b'])
+  })
+})
+
+describe('pruning', () => {
+  const list = [
+    { key: 'task:gone', view: { kind: 'task', taskId: 'gone' } as View, at: at(1) },
+    { key: 'task:here', view: { kind: 'task', taskId: 'here' } as View, at: at(2) },
+    { key: 'mail', view: { kind: 'mail' } as View, at: at(3) }
+  ]
+
+  it('drops an entry whose subject is gone', () => {
+    const out = pruneTray(list, (e) => (e.key === 'task:gone' ? false : true))
+    expect(out.map((e) => e.key)).toEqual(['task:here', 'mail'])
+  })
+
+  it('KEEPS anything the resolver has no opinion about', () => {
+    // "I do not know" must never read as "it is gone", or a store that has not
+    // finished loading would quietly empty the tray on startup.
+    expect(pruneTray(list, () => undefined)).toEqual(list)
+  })
+
+  it('keeps everything when nothing is gone', () => {
+    expect(pruneTray(list, () => true)).toEqual(list)
+  })
+})

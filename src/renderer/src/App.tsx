@@ -20,6 +20,7 @@ import SettingsPanel from './components/SettingsPanel'
 import RelatedDesksModal from './components/RelatedDesksModal'
 import TeamPresenceButton from './components/TeamPresenceButton'
 import Footer from './components/Footer'
+import OpenTray from './components/OpenTray'
 import FocusSessionOverlay from './components/FocusSessionOverlay'
 import CallOverlay from './components/CallOverlay'
 import MeetingOverlay from './components/MeetingOverlay'
@@ -719,6 +720,7 @@ export default function App(): JSX.Element {
         </>
         )}
       </main>
+      {!shareView && <OpenTray />}
       {!shareView && <Footer />}
 
       {/* Everything Plexii does BESIDES showing this desk.

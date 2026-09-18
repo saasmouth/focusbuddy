@@ -190,6 +190,11 @@ export const useViewStore = create<ViewStore>((set, get) => {
   // Every navigation goes through here: record where we were, clear the forward
   // stack, persist, and switch. This is what makes Back work from any screen.
   const commit = (view: View): void => {
+    // Record it in the open tray. Imported lazily because the tray store reads
+    // this module's View type, and a static import would close the cycle.
+    void import('./openTray')
+      .then((m) => m.useOpenTrayStore.getState().open(view))
+      .catch(() => undefined)
     const cur = get().view
     if (isSameView(cur, view)) {
       persistView(view)
