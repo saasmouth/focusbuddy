@@ -14,7 +14,11 @@
 
 import { useEffect, useRef, useState } from 'react'
 import BrowserSurface, { type WebviewEl } from '../browser/BrowserSurface'
+import AgentRunDock from '../browser/AgentRunDock'
 import Icon from '../Icon'
+import { useWebPanel } from '../../stores/webPanel'
+// Side-effect: the agent-run store subscribes to main's browserAgent events.
+import '../../stores/browserAgentRuns'
 import { useViewStore } from '../../stores/view'
 import { useWidgetStore } from '../../stores/widgets'
 import { useNodeStore } from '../../stores/nodes'
@@ -39,8 +43,37 @@ export default function OfficeBrowser(): JSX.Element {
   const [title, setTitle] = useState('')
   const [sending, setSending] = useState(false)
   const desks = useNodeStore((s) => s.nodes)
+  const [askOpen, setAskOpen] = useState(false)
+  const setWcId = useWebPanel((s) => s.setWcId)
+  const [wvEl, setWvEl] = useState<WebviewEl | null>(null)
   const goTask = useViewStore((s) => s.goTask)
   const [pickDesk, setPickDesk] = useState(false)
+
+  // The agent drives a page through main and can only address a webContents by
+  // id, so this browser has to publish its own. getWebContentsId throws before
+  // the guest attaches, so poll rather than race the attach event.
+  useEffect(() => {
+    if (!wvEl) return
+    let stopped = false
+    let mine: number | null = null
+    const read = (): void => {
+      if (stopped) return
+      try {
+        mine = wvEl.getWebContentsId()
+        setWcId(mine)
+      } catch {
+        setTimeout(read, 120)
+      }
+    }
+    read()
+    return () => {
+      stopped = true
+      // Only stand down if the agent still points at OUR page. The desk web
+      // panel publishes to the same place, and clearing an id that is now its
+      // would disarm a browser that is still on screen.
+      if (mine != null && useWebPanel.getState().wcId === mine) setWcId(null)
+    }
+  }, [wvEl, setWcId])
 
   useEffect(() => {
     return () => {
@@ -99,10 +132,20 @@ export default function OfficeBrowser(): JSX.Element {
           currentUrl.current = nav.url
           if (nav.title) setTitle(nav.title)
         }}
-        onWebviewEl={(_el: WebviewEl | null) => undefined}
+        onWebviewEl={setWvEl}
         linkClicks="navigate"
         showTitle
         toolbarTrailing={
+          <>
+          <button
+            onClick={() => setAskOpen((v) => !v)}
+            data-testid="office-browser-agent"
+            title="Let Plexii do something on this page"
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 fb-t-label text-[var(--ink-70)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-100)]"
+          >
+            <Icon name="plexii:ai" size={14} />
+            Ask Plexii
+          </button>
           <button
             onClick={() => setPickDesk((v) => !v)}
             disabled={sending}
@@ -113,7 +156,17 @@ export default function OfficeBrowser(): JSX.Element {
             <Icon name="desk" size={14} />
             Send to desk
           </button>
+          </>
         }
+      />
+
+      {/* The same run dock the desk browser uses, so a run looks and behaves
+          identically wherever it was started — including Stop, the per-site
+          consent question and the step ledger. */}
+      <AgentRunDock
+        askOpen={askOpen}
+        onCloseAsk={() => setAskOpen(false)}
+        onOpenAsk={() => setAskOpen(true)}
       />
 
       {pickDesk && (

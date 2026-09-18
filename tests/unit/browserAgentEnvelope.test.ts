@@ -105,3 +105,61 @@ describe('MUTATING_KINDS — what the consent gate covers', () => {
     }
   })
 })
+
+// Harvesting links and images.
+//
+// "Collect the images on this page" was impossible before: the element walker
+// only reports things you can ACT on, and an <img> is not one of them, so the
+// model never saw a single image URL. `collect` is the door — and being a new
+// door, it has to refuse everything it is not.
+describe('the collect action', () => {
+  const ok = { knownIndices: new Set<number>(), coordinateMode: false }
+
+  test('accepts exactly the two things it can harvest', () => {
+    expect(sanitiseBrowserAction({ kind: 'collect', what: 'links' }, ok)).toEqual({
+      kind: 'collect',
+      what: 'links'
+    })
+    expect(sanitiseBrowserAction({ kind: 'collect', what: 'images' }, ok)).toEqual({
+      kind: 'collect',
+      what: 'images'
+    })
+  })
+
+  test('refuses anything else it is asked to collect', () => {
+    // No open-ended selector here: a `what` the executor does not implement
+    // must die at the door rather than reach it.
+    for (const what of ['scripts', 'cookies', 'passwords', '', 'LINKS', null, 42, undefined]) {
+      expect(sanitiseBrowserAction({ kind: 'collect', what }, ok)).toBeNull()
+    }
+    expect(sanitiseBrowserAction({ kind: 'collect' }, ok)).toBeNull()
+  })
+
+  test('needs no element index, so it works on a page with no observation', () => {
+    // It reads the whole document rather than one element — an empty
+    // knownIndices set must not block it the way it blocks click/type.
+    expect(
+      sanitiseBrowserAction(
+        { kind: 'collect', what: 'links' },
+        { knownIndices: new Set(), coordinateMode: false }
+      )
+    ).not.toBeNull()
+  })
+
+  test('is lawful in screenshot mode too', () => {
+    // Unlike click/type it is not an indexed action, so the coordinate-mode
+    // restriction has nothing to do with it.
+    expect(
+      sanitiseBrowserAction(
+        { kind: 'collect', what: 'images' },
+        { knownIndices: new Set(), coordinateMode: true }
+      )
+    ).toEqual({ kind: 'collect', what: 'images' })
+  })
+
+  test('does not count as mutating, so it never asks for site consent', () => {
+    // Reading what a page points at changes nothing on it. Gating this behind
+    // the R26 consent prompt would make "summarise this page" ask permission.
+    expect(MUTATING_KINDS.has('collect')).toBe(false)
+  })
+})

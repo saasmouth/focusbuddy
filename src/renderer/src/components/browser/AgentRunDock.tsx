@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import Icon from '../Icon'
 import { useBrowserAgentRuns, type BrowserAgentRunState } from '../../stores/browserAgentRuns'
 import { useWebPanel } from '../../stores/webPanel'
+import { QUICK_TASKS } from '../../lib/browserQuickTasks'
 
 // The visible run (A6/B3, AI-05): Plexii acts inside the browser panel,
 // visibly, cancellable. This dock floats over the bottom of the browser
@@ -97,6 +98,14 @@ export default function AgentRunDock(props: {
     const all = Object.values(runs).filter((r) => !dismissed.has(r.runId))
     return all.length ? all[all.length - 1] : null
   }, [runs, activeRunId, dismissed])
+
+  // A preset skips the input entirely: the phrasing is already right, and
+  // making someone edit it first would defeat the point of offering it.
+  const runQuick = async (t: string): Promise<void> => {
+    setTask('')
+    props.onCloseAsk()
+    await start({ task: t })
+  }
 
   const submitTask = async (): Promise<void> => {
     const t = task.trim()
@@ -401,7 +410,26 @@ export default function AgentRunDock(props: {
           <Icon name="close" size={14} />
         </button>
       </div>
-      <div className="mt-1 text-[11px] text-[var(--ink-50)]">
+      {/* The blank field is the worst way to meet a capability you have never
+          used: it asks you to guess what the agent can do AND how to say it.
+          These are the handful of things most sessions want, already phrased
+          the way the loop needs. Free text above stays the way out. */}
+      <div className="mt-2 flex flex-wrap gap-1">
+        {QUICK_TASKS.map((q) => (
+          <button
+            key={q.id}
+            type="button"
+            data-testid={`agent-quick-${q.id}`}
+            onClick={() => void runQuick(q.task)}
+            title={q.task}
+            className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-sunken)] px-2.5 py-1 text-[11px] text-[var(--ink-70)] hover:text-[var(--ink-100)] fb-press"
+          >
+            <Icon name={q.icon} size={12} />
+            {q.label}
+          </button>
+        ))}
+      </div>
+      <div className="mt-2 text-[11px] text-[var(--ink-50)]">
         Plexii drives this page step by step — everything visible, Stop any time. It never signs
         in, pays, or moves files.
       </div>

@@ -99,6 +99,12 @@ function guardDownloads(ses: Electron.Session): void {
 export type AgentAction =
   | { kind: 'open_url'; url: string }
   | { kind: 'read_page'; selector?: string }
+  // Harvest the page's links or images as a list. Reading the page text tells
+  // the model what a page SAYS; this tells it what the page POINTS AT, which
+  // is what "collect the links" and "gather the images" actually need. Images
+  // in particular were invisible before: the element walker only reports
+  // things you can act on, and an <img> is not one of them.
+  | { kind: 'collect'; what: 'links' | 'images' }
   | { kind: 'snapshot' }
   | { kind: 'click'; elementIndex: number }
   | { kind: 'type'; elementIndex: number; text: string; replace?: boolean }
@@ -138,9 +144,33 @@ export interface ActionResult {
   textStart?: number
   textTotal?: number
   elements?: PageElement[]
+  collected?: CollectedItem[]
+  // How many the page actually had, when more were found than the cap allows.
+  collectedTotal?: number
   captchaPresent?: boolean
   image?: { base64Png: string; width: number; height: number }
 }
+
+// One harvested link or image. Deliberately flat and small: these are fed
+// back to the model as text, so every field costs tokens on every round that
+// carries them.
+export interface CollectedItem {
+  /** Absolute URL. Relative hrefs are resolved in the page, where they mean something. */
+  url: string
+  /** A link's visible text, or an image's alt text. May be empty — honestly so. */
+  text: string
+  /** Natural pixel size, images only. Lets the model tell a hero shot from an icon. */
+  w?: number
+  h?: number
+}
+
+// One harvest may return this many items. A long page has thousands of links;
+// unbounded, a single collect would blow the round's whole context.
+export const MAX_COLLECTED = 60
+
+// Images below this on their long edge are icons, spacers and tracking pixels,
+// not content. Collecting them buries the real pictures in noise.
+const MIN_IMAGE_EDGE = 64
 
 // What the in-page walker reports about one interactive element. The ban
 // classification (below) runs on THIS record main-side, so it is pure and
@@ -285,6 +315,60 @@ const IN_PAGE_LIB = `
     };
   }
 `
+
+
+// The harvest script. Pure string-building so it unit-tests without a browser:
+// the ways this goes wrong (relative URLs left unresolved, tracking pixels
+// drowning the real images, an unbounded list) are all visible in the source.
+export function collectJs(what: 'links' | 'images', cap = MAX_COLLECTED): string {
+  const common = `
+    var out = [], seen = Object.create(null), total = 0;
+    var abs = function (u) {
+      // Resolved against the page, which is the only place a relative URL
+      // means anything. Anything unresolvable is dropped rather than guessed.
+      try { return new URL(u, document.baseURI).href } catch (e) { return '' }
+    };`
+  if (what === 'links') {
+    return `(() => {${common}
+      var as = document.querySelectorAll('a[href]');
+      for (var i = 0; i < as.length; i++) {
+        var rawHref = (as[i].getAttribute('href') || '').trim();
+        // A same-page anchor resolves to a perfectly good absolute URL, so the
+        // scheme test below would wave it through as a destination.
+        if (!rawHref || rawHref.charAt(0) === '#') continue;
+        var href = abs(rawHref);
+        // In-page anchors and script hrefs are navigation, not destinations.
+        if (!href || !/^https?:/i.test(href)) continue;
+        if (seen[href]) continue;
+        seen[href] = 1; total++;
+        if (out.length < ${cap}) {
+          out.push({ url: href, text: (as[i].innerText || as[i].textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 160) });
+        }
+      }
+      return { items: out, total: total };
+    })()`
+  }
+  return `(() => {${common}
+    var push = function (src, alt, w, h) {
+      var u = abs(src);
+      if (!u || !/^https?:|^data:image\\//i.test(u)) return;
+      if (seen[u]) return;
+      seen[u] = 1; total++;
+      if (out.length < ${cap}) out.push({ url: u, text: (alt || '').replace(/\\s+/g, ' ').trim().slice(0, 160), w: w, h: h });
+    };
+    var imgs = document.querySelectorAll('img');
+    for (var i = 0; i < imgs.length; i++) {
+      var im = imgs[i];
+      var w = im.naturalWidth || im.width || 0, h = im.naturalHeight || im.height || 0;
+      // Icons, spacers and tracking pixels are not what anyone means by "the
+      // images on this page". A picture that has not loaded reports 0x0, so
+      // an unknown size is kept rather than assumed tiny.
+      if (w && h && Math.max(w, h) < ${MIN_IMAGE_EDGE}) continue;
+      push(im.getAttribute('src') || im.currentSrc || '', im.getAttribute('alt') || '', w, h);
+    }
+    return { items: out, total: total };
+  })()`
+}
 
 const SNAPSHOT_JS = `(() => {${IN_PAGE_LIB}
   var els = Array.prototype.slice.call(document.querySelectorAll(FBA_SEL)).filter(fbaVisible).slice(0, 120);
@@ -464,6 +548,14 @@ export async function performAgentAction(runId: string, action: AgentAction): Pr
         textStart: r?.start ?? 0,
         textTotal: r?.total ?? 0
       })
+    }
+
+    case 'collect': {
+      const what = action.what === 'images' ? 'images' : 'links'
+      const r = await runJs<{ items: CollectedItem[]; total: number } | null>(wc, collectJs(what))
+      if (!r) return done({ ok: false, refused: 'browser_gone', detail: 'collect failed' })
+      const items = Array.isArray(r.items) ? r.items.slice(0, MAX_COLLECTED) : []
+      return done({ ok: true, collected: items, collectedTotal: r.total ?? items.length })
     }
 
     case 'snapshot': {

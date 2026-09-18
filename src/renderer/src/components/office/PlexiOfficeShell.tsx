@@ -229,25 +229,24 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
     // the hub, which is what every call site here already did by hand.
     useViewStore.getState().goOffice(undefined, id ?? undefined)
   }, [])
-  // The active communication app (Mail / Inbox / Chat / Meet / Sign), or null
-  // when the document hub is showing. Deep-linked via initialApp.
-  const [activeComms, setActiveComms] = useState<string | null>(
+  // The active communication app (Mail / Inbox / Chat / Meet / Sign / Browser),
+  // or null when the document hub is showing — derived from the view for the
+  // same reason the open document is. As local state it could not be cleared by
+  // navigating: going back to the Office hub left the app still mounted and
+  // still on screen, and in the browser's case left a live webview the agent
+  // was still pointed at.
+  const activeComms =
     initialApp && COMMS_APPS.some((a) => a.key === initialApp) ? initialApp : null
-  )
+  const setActiveComms = useCallback((key: string | null): void => {
+    useViewStore.getState().goOffice(key ?? undefined)
+  }, [])
   const [tab, setTab] = useState<'all' | DocType>('all')
   useEffect(() => {
-    if (initialApp && COMMS_APPS.some((a) => a.key === initialApp)) {
-      setActiveComms(initialApp)
-      return
-    }
     // A deep link to a DOCUMENT app (PlexiDiagrams, PlexiDesign, PlexiDraw…)
     // lands on the hub filtered to that type rather than silently creating a
     // file the user did not ask for.
     const docApp = APPS.find((a) => a.key === initialApp)
-    if (docApp?.docType) {
-      setActiveComms(null)
-      setTab(docApp.docType)
-    }
+    if (docApp?.docType) setTab(docApp.docType)
   }, [initialApp])
   const [recentTab, setRecentTab] = useState<RecentTab>('all')
   // Today's real time blocks. null = still loading; [] = loaded and genuinely
@@ -348,7 +347,6 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
       // product-name-plus-"draft" string this used to build.
       const doc = await createBlank(app.docType)
       await refresh()
-      setActiveComms(null)
       setOpenDocId(doc.id)
     } finally {
       setBusy(false)
@@ -387,11 +385,9 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
   }
 
   function openComms(key: string): void {
+    // Navigation, not local state: that is what puts it in the tray and under
+    // the history arrows, and what lets going back actually close it.
     setActiveComms(key)
-    // Record it as navigation. Local state alone meant Office apps were
-    // invisible to the tray and to the history arrows — you could have Chat and
-    // the Browser open and nothing in the app knew.
-    useViewStore.getState().goOffice(key)
   }
 
   async function createType(docType: DocType, title: string): Promise<void> {

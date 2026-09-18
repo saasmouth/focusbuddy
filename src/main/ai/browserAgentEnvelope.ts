@@ -11,7 +11,7 @@
 //   { "narration": "...", "status": "working|done|blocked|need_input",
 //     "blocker": null | "...", "action": { "kind": ... } | null }
 
-import type { AgentAction } from './browserActions'
+import type { AgentAction, CollectedItem } from './browserActions'
 import { WAIT_CAP_MS } from './browserActions'
 import { extractJson } from './chatJson'
 import { coerceAgentStatus, normalizeBlocker } from './agentEnvelope'
@@ -112,6 +112,11 @@ export function sanitiseBrowserAction(
       if (i == null || value == null) return null
       return { kind: 'select', elementIndex: i, value }
     }
+    case 'collect': {
+      // Read-only, so it is not a mutating kind and needs no site consent.
+      const what = raw.what
+      return what === 'links' || what === 'images' ? { kind: 'collect', what } : null
+    }
     case 'scroll': {
       const dy = typeof raw.dy === 'number' && Number.isFinite(raw.dy) ? raw.dy : NaN
       return Number.isNaN(dy) ? null : { kind: 'scroll', dy }
@@ -189,6 +194,7 @@ export function buildBrowserAgentSystemPrompt(): string {
     '  {"kind":"type","elementIndex":N,"text":"...","replace":true|false}',
     '  {"kind":"select","elementIndex":N,"value":"..."}',
     '  {"kind":"scroll","dy":pixels} — positive scrolls down. The page-text excerpt follows your scroll position: on a long page, scroll to read further before concluding you have seen everything.',
+    '  {"kind":"collect","what":"links"|"images"} — harvest every link or image on the page as a list of URLs. Use this when the task is to GATHER things rather than read prose: the element list only shows what you can act on, and images never appear in it at all. What comes back is a list, not a page — record what matters into findings, because the list is gone next round like everything else.',
     '  {"kind":"wait","ms":500} — let a page settle',
     '  {"kind":"press_key","key":"Enter"|"Tab"|"Escape"|"Backspace"}',
     'In screenshot mode only: {"kind":"click_at","x":N,"y":N} and {"kind":"type_text","text":"..."}.',
@@ -199,5 +205,28 @@ export function buildBrowserAgentSystemPrompt(): string {
     '- When the task is complete, set status "done", and make sure "findings" holds the full result — the narration is a one-line status, NOT the deliverable. What you put in findings is what the user actually receives.',
     '- If an action is refused, do not retry it; re-plan or report "blocked" with the reason.',
     '- You have a limited step budget; be direct. Never invent element indices — only use numbers from the current observation.'
+  ].join('\n')
+}
+
+// A harvest, rendered for the model. This is the ONLY round the list exists in
+// — like every other observation it is dropped afterwards — so the line says
+// so plainly, or a run collects fifty links and records none of them.
+export function collectResultLine(
+  what: 'links' | 'images',
+  result: { collected?: CollectedItem[]; collectedTotal?: number }
+): string {
+  const items = result.collected ?? []
+  const total = result.collectedTotal ?? items.length
+  if (items.length === 0) return `collect ${what} found none on this page.`
+  const more = total > items.length ? ` of ${total} on the page (the rest were not listed)` : ''
+  const lines = items.map((it) => {
+    const size = it.w && it.h ? ` ${it.w}x${it.h}` : ''
+    const label = it.text ? ` ${JSON.stringify(it.text)}` : ''
+    return `  - ${it.url}${label}${size}`
+  })
+  return [
+    `collect ${what} returned ${items.length}${more}:`,
+    ...lines,
+    `This list is NOT repeated next round. Put every one you need into findings now.`
   ].join('\n')
 }

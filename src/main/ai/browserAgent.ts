@@ -23,7 +23,8 @@ import {
   MODEL_ROUND_BUDGET,
   MUTATING_KINDS,
   sanitiseBrowserAction,
-  type BrowserEnvelope
+  type BrowserEnvelope,
+  collectResultLine
 } from './browserAgentEnvelope'
 import { enforceAgentStatus } from './agentEnvelope'
 import { runBrowserAgentStep, type BrowserStepContent } from './anthropic'
@@ -478,7 +479,10 @@ async function drive(
     }
     if (result.ok) {
       priorFailed = 0
-      lastResultLine = `${action.kind} succeeded${result.detail ? ` on ${JSON.stringify(result.detail)}` : ''}.`
+      lastResultLine =
+        action.kind === 'collect'
+          ? collectResultLine(action.what, result)
+          : `${action.kind} succeeded${result.detail ? ` on ${JSON.stringify(result.detail)}` : ''}.`
       // Let navigations and re-renders settle before the next observation.
       await perform({ kind: 'wait', ms: 400 })
     } else {
