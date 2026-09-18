@@ -178,3 +178,20 @@ describe('pruning', () => {
     expect(pruneTray(list, () => true)).toEqual(list)
   })
 })
+
+describe('office apps in the tray', () => {
+  it('keeps an Office app you have open', () => {
+    expect(trayKeyFor({ kind: 'office', app: 'browser' })).toBe('office:browser')
+    expect(trayKeyFor({ kind: 'office', app: 'chat' })).toBe('office:chat')
+  })
+
+  it('treats the Office hub itself as a place, not a thing', () => {
+    expect(trayKeyFor({ kind: 'office' })).toBeNull()
+  })
+
+  it('keeps each app separate, so Chat and the Browser are two tabs', () => {
+    let list = openIn([], { kind: 'office', app: 'chat' }, at(1))
+    list = openIn(list, { kind: 'office', app: 'browser' }, at(2))
+    expect(list.map((e) => e.key)).toEqual(['office:chat', 'office:browser'])
+  })
+})

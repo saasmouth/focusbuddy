@@ -17,6 +17,15 @@ import { useNodeStore } from '../stores/nodes'
 import { useDocumentsStore } from '../stores/documents'
 import { useOpenTrayStore } from '../stores/openTray'
 import { activeKey, orderTray, type TrayEntry } from '../lib/openTray'
+import {
+  dragCarriesDocument,
+  readDocumentDrag,
+  widgetDraftFor,
+  writeDocumentDrag,
+  canPlaceOnDesk
+} from '../lib/documentDrag'
+import { useWidgetStore } from '../stores/widgets'
+import { useNoticeStore } from '../stores/notice'
 
 interface Resolved {
   label: string
@@ -39,6 +48,32 @@ export default function OpenTray(): JSX.Element | null {
   const nodes = useNodeStore((s) => s.nodes)
   const docs = useDocumentsStore((s) => s.list)
   const [menuFor, setMenuFor] = useState<string | null>(null)
+  // The desk tab a document is currently hovering over.
+  const [dropOn, setDropOn] = useState<string | null>(null)
+
+  // Put a document on a desk without opening that desk first. The widget points
+  // AT the document rather than copying it, so editing it here and editing it in
+  // Office are the same file.
+  const dropDocumentOn = async (deskId: string, dt: DataTransfer | null): Promise<void> => {
+    const payload = readDocumentDrag(dt)
+    setDropOn(null)
+    if (!payload) return
+    const desk = nodes.find((n) => n.id === deskId)
+    try {
+      await window.api.widgets.create(widgetDraftFor(payload, deskId))
+      useNoticeStore.getState().show({
+        text: `“${payload.title}” added to ${desk?.title || 'the desk'}`,
+        icon: 'desk',
+        action: { label: 'Open', run: () => useViewStore.getState().goTask(deskId) }
+      })
+      const v = useViewStore.getState().view
+      if (v.kind === 'task' && v.taskId === deskId) {
+        void useWidgetStore.getState().loadForTask(deskId, { refresh: true })
+      }
+    } catch {
+      useNoticeStore.getState().show({ text: 'Could not add that to the desk.', icon: 'warning' })
+    }
+  }
 
   const current = activeKey(view)
 
@@ -90,6 +125,24 @@ export default function OpenTray(): JSX.Element | null {
           return { label: v.productKey, icon: 'inventory_2' }
         case 'knowledge':
           return { label: 'Knowledge', icon: 'psychology' }
+        case 'office': {
+          const app = v.app ?? ''
+          const known: Record<string, Resolved> = {
+            mail: { label: 'Mail', icon: 'mail' },
+            inbox: { label: 'Inbox', icon: 'inbox' },
+            chat: { label: 'Chat', icon: 'forum' },
+            meet: { label: 'Meet', icon: 'video_call' },
+            sign: { label: 'Sign', icon: 'plexii:sign' },
+            browser: { label: 'Browser', icon: 'public' },
+            docs: { label: 'PlexiDocs', icon: 'description' },
+            sheets: { label: 'PlexiSheets', icon: 'table_chart' },
+            slides: { label: 'PlexiSlides', icon: 'slideshow' },
+            diagrams: { label: 'PlexiDiagrams', icon: 'account_tree' },
+            design: { label: 'PlexiDesign', icon: 'plexii:design' },
+            draw: { label: 'PlexiDraw', icon: 'brush' }
+          }
+          return known[app] ?? { label: app || 'Office', icon: 'apps' }
+        }
         case 'messages':
           return { label: 'Chat', icon: 'plexii:chat' }
         case 'mail':
@@ -116,13 +169,43 @@ export default function OpenTray(): JSX.Element | null {
         return (
           <div key={e.key} className="relative shrink-0">
             <div
+              onDragOver={(ev) => {
+                if (e.view.kind !== 'task' || !dragCarriesDocument(ev.dataTransfer)) return
+                // preventDefault is what makes this a drop target at all.
+                ev.preventDefault()
+                ev.dataTransfer.dropEffect = 'copy'
+                setDropOn(e.key)
+              }}
+              onDragLeave={() => setDropOn((k) => (k === e.key ? null : k))}
+              onDrop={(ev) => {
+                if (e.view.kind !== 'task') return
+                ev.preventDefault()
+                void dropDocumentOn(e.view.taskId, ev.dataTransfer)
+              }}
               className={`group/tab flex items-center gap-1.5 rounded-lg pl-2 pr-1 py-1 transition-colors ${
-                on
-                  ? 'bg-[var(--surface-sunken)] text-[var(--ink-100)]'
-                  : 'text-[var(--ink-60)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-90)]'
+                dropOn === e.key
+                  ? 'bg-[rgb(var(--accent)/0.15)] ring-1 ring-[rgb(var(--accent))] text-[var(--ink-100)]'
+                  : on
+                    ? 'bg-[var(--surface-sunken)] text-[var(--ink-100)]'
+                    : 'text-[var(--ink-60)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-90)]'
               }`}
             >
               <button
+                draggable={e.view.kind === 'document'}
+                onDragStart={(ev) => {
+                  const v = e.view
+                  if (v.kind !== 'document') return
+                  const d = docs.find((x) => x.id === v.documentId)
+                  if (!d || !canPlaceOnDesk(d.docType)) {
+                    ev.preventDefault()
+                    return
+                  }
+                  writeDocumentDrag(ev.dataTransfer, {
+                    documentId: d.id,
+                    docType: d.docType,
+                    title: d.title || 'Untitled'
+                  })
+                }}
                 onClick={() => useViewStore.getState().go(e.view)}
                 onContextMenu={(ev) => {
                   ev.preventDefault()

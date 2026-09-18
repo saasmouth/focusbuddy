@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import HomeDashboard from '../views/HomeDashboard'
+import OfficeBrowser from './OfficeBrowser'
+import { writeDocumentDrag, canPlaceOnDesk } from '../../lib/documentDrag'
 import { useDocumentsStore } from '../../stores/documents'
 import { useViewStore } from '../../stores/view'
 import { useAccountStore } from '../../stores/account'
@@ -92,7 +94,12 @@ const COMMS_APPS: CommsApp[] = [
   { key: 'inbox', label: 'Inbox', blurb: 'Notifications and share invites', icon: 'inbox', tint: 'bg-amber-500', tone: 'text-amber-500', render: () => <InboxView /> },
   { key: 'chat', label: 'Chat', blurb: 'Channels and direct messages', icon: 'forum', tint: 'bg-sky-500', tone: 'text-sky-500', render: () => <MessagesView /> },
   { key: 'meet', label: 'Meet', blurb: 'Video calls and meetings', icon: 'video_call', tint: 'bg-violet-500', tone: 'text-violet-500', render: () => <PlexiMeetView /> },
-  { key: 'sign', label: 'Sign', blurb: 'Send and sign documents', icon: 'plexii:sign', tint: 'bg-teal-500', tone: 'text-teal-500', render: () => <PlexiSignView /> }
+  { key: 'sign', label: 'Sign', blurb: 'Send and sign documents', icon: 'plexii:sign', tint: 'bg-teal-500', tone: 'text-teal-500', render: () => <PlexiSignView /> },
+  // The browser that belongs to nobody. The desk browser is a widget and part
+  // of that piece of work; this is for the other kind of browsing — looking
+  // something up, keeping a reference open across several desks — which
+  // previously had nowhere to live but a desk it had nothing to do with.
+  { key: 'browser', label: 'Browser', blurb: 'Browse the web, no desk required', icon: 'public', tint: 'bg-indigo-500', tone: 'text-indigo-500', render: () => <OfficeBrowser /> }
 ]
 
 // Which OS view kind each comms app stands in for, so we gate its menu entry and
@@ -103,7 +110,9 @@ const COMMS_VIEW_KIND: Record<string, string | null> = {
   inbox: null,
   chat: 'messages',
   meet: 'meetings',
-  sign: 'sign'
+  sign: 'sign',
+  // Core: there is no separate entitlement for looking at a web page.
+  browser: null
 }
 
 function commsGate(key: string): { cap: string; label: string } | null {
@@ -341,9 +350,36 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
   }
 
   // Open a communication app inline (Mail / Inbox / Chat / Meet / Sign).
+  // Every document row is a drag source. The tray shows desks alongside these,
+  // which makes "drag it onto the desk it belongs to" the obvious gesture — and
+  // until now there was no way to do it without opening the desk first.
+  function docDragProps(d: { id: string; docType: DocType; title: string }): {
+    draggable: boolean
+    onDragStart: (ev: React.DragEvent) => void
+  } {
+    return {
+      draggable: canPlaceOnDesk(d.docType),
+      onDragStart: (ev) => {
+        if (!canPlaceOnDesk(d.docType)) {
+          ev.preventDefault()
+          return
+        }
+        writeDocumentDrag(ev.dataTransfer, {
+          documentId: d.id,
+          docType: d.docType,
+          title: d.title || 'Untitled'
+        })
+      }
+    }
+  }
+
   function openComms(key: string): void {
     setOpenDocId(null)
     setActiveComms(key)
+    // Record it as navigation. Local state alone meant Office apps were
+    // invisible to the tray and to the history arrows — you could have Chat and
+    // the Browser open and nothing in the app knew.
+    useViewStore.getState().goOffice(key)
   }
 
   async function createType(docType: DocType, title: string): Promise<void> {
@@ -569,6 +605,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                         return (
                           <div
                             key={d.id}
+                            {...docDragProps(d)}
                             onClick={() => setOpenDocId(d.id)}
                             data-testid={`office-recent-row-${d.id}`}
                             className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-2 py-2 items-center border-b border-[color-mix(in_oklab,var(--edge-soft)_60%,transparent)] cursor-pointer hover:bg-[var(--surface-sunken)] rounded"
@@ -613,6 +650,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                         return (
                           <div
                             key={d.id}
+                            {...docDragProps(d)}
                             onClick={() => setOpenDocId(d.id)}
                             data-testid={`office-file-${d.id}`}
                             className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-2 py-2 items-center border-b border-[color-mix(in_oklab,var(--edge-soft)_60%,transparent)] cursor-pointer hover:bg-[var(--surface-sunken)] rounded"
@@ -707,7 +745,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                   <p className="text-[11.5px] text-[var(--ink-50)]">Star files to pin them here.</p>
                 ) : (
                   officeDocs.filter((d) => starred.has(d.id)).slice(0, 5).map((d) => (
-                    <button key={d.id} onClick={() => setOpenDocId(d.id)} className="flex items-center gap-2 w-full text-left py-1 hover:text-[rgb(var(--accent))]">
+                    <button key={d.id} {...docDragProps(d)} onClick={() => setOpenDocId(d.id)} className="flex items-center gap-2 w-full text-left py-1 hover:text-[rgb(var(--accent))]">
                       <Icon name={(TYPE_ICON[d.docType] ?? { icon: 'description' }).icon} size={14} className={(TYPE_ICON[d.docType] ?? { tint: '' }).tint} />
                       <span className="truncate text-[12px]">{d.title || 'Untitled'}</span>
                     </button>

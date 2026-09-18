@@ -64,6 +64,10 @@ export function trayKeyFor(view: View): string | null {
     case 'knowledge':
       // The knowledge INDEX is a place; a specific entry is a thing.
       return view.entryId ? `knowledge:${view.entryId}` : null
+    case 'office':
+      // An Office app you have open -- Chat, Mail, the Browser, Sign. The hub
+      // itself (no app) is a place, like the desks index.
+      return view.app ? `office:${view.app}` : null
     case 'messages':
       // Chat is one context rather than one per conversation: the view carries
       // no conversation id, and inventing one here would be inventing state.
