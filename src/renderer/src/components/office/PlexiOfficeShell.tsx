@@ -85,7 +85,24 @@ interface CommsApp {
   tint: string
   tone: string
   render: () => JSX.Element
+  /**
+   * Which menu section lists it. This array is the RENDERING registry — what
+   * takes over the content area — and that is a separate question from where a
+   * person expects to find the thing. The Browser renders exactly like Mail
+   * does and belongs nowhere near it in a menu: browsing the web is not
+   * communicating, so it is listed with the apps. Default: 'communicate'.
+   */
+  section?: 'apps' | 'communicate'
 }
+// Listed under Apps rather than Communicate. Kept as a helper so the side menu
+// and the home grid cannot disagree about where something lives.
+export function appSectionComms(apps: CommsApp[]): CommsApp[] {
+  return apps.filter((a) => a.section === 'apps')
+}
+export function commsSectionComms(apps: CommsApp[]): CommsApp[] {
+  return apps.filter((a) => a.section !== 'apps')
+}
+
 const COMMS_APPS: CommsApp[] = [
   // Office gains a dashboard of its own: the same personalisable grid Home
   // uses, so a document you live in can sit here instead of being re-opened.
@@ -99,7 +116,7 @@ const COMMS_APPS: CommsApp[] = [
   // of that piece of work; this is for the other kind of browsing — looking
   // something up, keeping a reference open across several desks — which
   // previously had nowhere to live but a desk it had nothing to do with.
-  { key: 'browser', label: 'Browser', blurb: 'Browse the web, no desk required', icon: 'public', tint: 'bg-indigo-500', tone: 'text-indigo-500', render: () => <OfficeBrowser /> }
+  { key: 'browser', label: 'Browser', blurb: 'Browse the web, no desk required', icon: 'public', tint: 'bg-indigo-500', tone: 'text-indigo-500', section: 'apps', render: () => <OfficeBrowser /> }
 ]
 
 // Which OS view kind each comms app stands in for, so we gate its menu entry and
@@ -481,7 +498,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
 
           {/* App tiles — the document apps plus Meet, which opens the real
               meeting surface rather than creating a document. */}
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 mb-6">
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 mb-6">
             {APPS.map((a) => {
               const ent = a.docType ? docEntitlement(a.docType) : null
               const locked = !!ent && !ent.enabled
@@ -533,6 +550,24 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                 <span className="text-[10.5px] text-[var(--ink-50)] text-center leading-tight">Start a meeting</span>
               </button>
             )}
+            {/* Apps that open a surface rather than creating a document. The
+                Browser was only reachable under a "Communicate" heading it does
+                not belong to, so it was missing from the one grid people
+                actually launch things from. */}
+            {appSectionComms(COMMS_APPS).map((a) => (
+              <button
+                key={a.key}
+                onClick={() => openComms(a.key)}
+                data-testid={`office-app-${a.key}`}
+                className="fb-btn-surface flex flex-col items-center gap-2 p-3.5 hover:border-[rgb(var(--accent)/0.5)] hover:shadow-sm transition"
+              >
+                <span className={`inline-flex items-center justify-center w-11 h-11 rounded-xl ${a.tone}`} style={{ background: 'color-mix(in srgb, currentColor 12%, transparent)' }}>
+                  <Icon name={a.icon} size={22} />
+                </span>
+                <span className="text-[12.5px] font-medium">{a.label}</span>
+                <span className="text-[10.5px] text-[var(--ink-50)] text-center leading-tight">{a.blurb}</span>
+              </button>
+            ))}
           </div>
 
           <div className="flex gap-5">
@@ -987,11 +1022,29 @@ function OfficeSidebar({
             </button>
           )
         })}
+        {/* Apps that render through the comms registry but are not about
+            communicating — the Browser. Filed where someone would look for it. */}
+        {appSectionComms(visibleComms).map((a) => (
+          <button
+            key={a.key}
+            onClick={() => onComms(a.key)}
+            data-testid={`office-sideapp-${a.key}`}
+            title={a.label}
+            className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-lg text-[13px] mb-0.5 ${
+              activeComms === a.key ? 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))] font-medium' : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
+            }`}
+          >
+            <span className={`inline-flex items-center justify-center w-6 h-6 shrink-0 ${a.tone}`}>
+              <Icon name={a.icon} size={16} />
+            </span>
+            <span>{a.label}</span>
+          </button>
+        ))}
       </div>
 
       <div className="px-4 pt-3 pb-1.5 text-[10px] uppercase tracking-[0.12em] text-[var(--ink-40)] font-semibold">Communicate</div>
       <div className="px-2">
-        {visibleComms.map((a) => (
+        {commsSectionComms(visibleComms).map((a) => (
           <button
             key={a.key}
             onClick={() => onComms(a.key)}
