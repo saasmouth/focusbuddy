@@ -8,7 +8,6 @@
 import { create } from 'zustand'
 import { useWebPanel } from './webPanel'
 import { hasFindings, normalizeFindings, type BrowseFindings } from '@shared/browseFindings'
-import type { ActionProposal } from '@shared/types'
 import type { Destination } from '../lib/deliveryDestination'
 
 export interface BrowserAgentEventLite {
@@ -48,7 +47,15 @@ interface BrowserAgentStore {
   steer: (runId: string, text: string) => Promise<boolean>
   consent: (runId: string, granted: boolean, remember: boolean) => Promise<void>
   // Hand a finished run's findings to the AI to place where the task intended.
-  deliver: (runId: string) => Promise<void>
+  /**
+   * Place a finished run's results on a desk.
+   *
+   * The desk is explicit. It used to be whichever desk was last ACTIVE, which
+   * from a desk-less browser is one the user was not looking at — and when
+   * there was none at all the appliers simply refused with "Open a desk
+   * first", after the run had already been paid for.
+   */
+  deliver: (runId: string, deskId: string) => Promise<void>
 }
 
 export const useBrowserAgentRuns = create<BrowserAgentStore>((set) => ({
@@ -108,7 +115,7 @@ export const useBrowserAgentRuns = create<BrowserAgentStore>((set) => ({
   // plans the destination from the user's original wording; what comes back is
   // ordinary action proposals, applied through the same path as any other
   // suggestion, so the user still reviews before anything is created.
-  deliver: async (runId) => {
+  deliver: async (runId, deskId) => {
     const run = useBrowserAgentRuns.getState().runs[runId]
     if (!run?.findings) return
     const setDelivery = (delivery: BrowserAgentRunState['delivery']): void =>
@@ -119,15 +126,22 @@ export const useBrowserAgentRuns = create<BrowserAgentStore>((set) => ({
     setDelivery({ state: 'planning', message: 'Working out where this belongs…' })
     try {
       const { useNodeStore } = await import('./nodes')
-      const taskId = useNodeStore.getState().activeTaskId ?? null
-      const res = await window.api.browserAgent.deliver({ task: run.task, findings: run.findings, taskId })
-      if (!res.ok) {
-        setDelivery({ state: 'error', message: res.error ?? 'Could not place these results.' })
-        return
-      }
-      const proposals = (res.proposals ?? []) as ActionProposal[]
+      const taskId = deskId
+
+      // THE DATA IS BUILT HERE, NOT BY A MODEL.
+      //
+      // Findings are already a field list and a record list — which is a
+      // table. Delivery used to hand them back to a model and ask it to emit
+      // create-table plus one add-table-row per record, and a long run's
+      // results simply did not fit in the reply: they were truncated, and what
+      // landed looked complete. Every cell also passed through a model that
+      // could round a price or tidy a name it had never seen.
+      //
+      // So the widgets are planned in code, from the data, verbatim.
+      const { planFindingsProposals, describePlacement } = await import('../lib/findingsToWidgets')
+      const proposals = planFindingsProposals(run.findings, run.task, taskId)
       if (proposals.length === 0) {
-        setDelivery({ state: 'error', message: res.reply || 'Nothing to place.' })
+        setDelivery({ state: 'error', message: 'The run did not find anything to place.' })
         return
       }
       const { applyProposal } = await import('../lib/actionExecutor')
@@ -172,10 +186,7 @@ export const useBrowserAgentRuns = create<BrowserAgentStore>((set) => ({
         failures.length === 0
           ? {
               state: 'done',
-              message: deliveryMessage(
-                res.reply || `Placed ${applied} item${applied === 1 ? '' : 's'}.`,
-                destination
-              ),
+              message: deliveryMessage(describePlacement(run.findings), destination),
               destination
             }
           : {

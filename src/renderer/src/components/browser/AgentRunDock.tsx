@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import Icon from '../Icon'
 import { useBrowserAgentRuns, type BrowserAgentRunState } from '../../stores/browserAgentRuns'
 import { useWebPanel } from '../../stores/webPanel'
+import { useNodeStore } from '../../stores/nodes'
 import { useViewStore } from '../../stores/view'
 import { QUICK_TASKS } from '../../lib/browserQuickTasks'
 
@@ -98,6 +99,16 @@ export default function AgentRunDock(props: {
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(new Set())
   const [task, setTask] = useState('')
   const [steerText, setSteerText] = useState('')
+  const [pickDeskFor, setPickDeskFor] = useState<string | null>(null)
+  // Every desk, with the one you were last on first: that is usually the right
+  // answer, and it must not be the only one.
+  const nodes = useNodeStore((s) => s.nodes)
+  const activeTaskId = useNodeStore((s) => s.activeTaskId)
+  const desks = useMemo(() => {
+    const all = nodes.filter((n) => n.kind === 'task' && !n.archived)
+    const cur = all.find((n) => n.id === activeTaskId)
+    return cur ? [cur, ...all.filter((n) => n.id !== cur.id)] : all
+  }, [nodes, activeTaskId])
   const [steerSent, setSteerSent] = useState(false)
   const [stepsOpen, setStepsOpen] = useState(false)
   // AI-43: which step is expanded to its full detail (what was seen, what
@@ -323,14 +334,48 @@ export default function AgentRunDock(props: {
                   </div>
                 )}
                 {run.delivery.state === 'idle' ? (
-                  <button
-                    type="button"
-                    data-testid="agent-run-use-findings"
-                    className="mt-2 rounded border border-[var(--line-20)] px-2 py-1 text-[11px] font-medium text-[var(--ink-100)] hover:bg-[var(--surface-hover)]"
-                    onClick={() => void useBrowserAgentRuns.getState().deliver(run.runId)}
-                  >
-                    Use these results
-                  </button>
+                  <div className="relative mt-2">
+                    <button
+                      type="button"
+                      data-testid="agent-run-use-findings"
+                      className="rounded border border-[var(--line-20)] px-2 py-1 text-[11px] font-medium text-[var(--ink-100)] hover:bg-[var(--surface-hover)]"
+                      onClick={() => setPickDeskFor(pickDeskFor === run.runId ? null : run.runId)}
+                    >
+                      Put on a desk…
+                    </button>
+                    {/* The desk is CHOSEN, not assumed. It used to be whichever
+                        desk was last active — from a desk-less browser, one you
+                        were not looking at — and with none at all the whole
+                        delivery failed after the run had been paid for. */}
+                    {pickDeskFor === run.runId && (
+                      <div
+                        data-testid="agent-run-desk-picker"
+                        className="absolute bottom-full left-0 z-30 mb-1 max-h-56 w-60 overflow-y-auto rounded-[var(--radius-row)] fb-glass-panel fb-pop-in py-1"
+                        onMouseLeave={() => setPickDeskFor(null)}
+                      >
+                        <p className="px-3 py-1 fb-t-caption">Put these results on…</p>
+                        {desks.length === 0 && (
+                          <p className="px-3 py-2 text-[11px] text-[var(--ink-50)]">
+                            No desks yet — make one first.
+                          </p>
+                        )}
+                        {desks.map((d) => (
+                          <button
+                            key={d.id}
+                            data-testid={`agent-run-desk-${d.id}`}
+                            onClick={() => {
+                              setPickDeskFor(null)
+                              void useBrowserAgentRuns.getState().deliver(run.runId, d.id)
+                            }}
+                            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-[var(--ink-90)] hover:bg-[var(--surface-sunken)]"
+                          >
+                            <Icon name="desk" size={12} className="shrink-0 opacity-70" />
+                            <span className="truncate">{d.title || 'Untitled desk'}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div
                     data-testid="agent-run-delivery"
