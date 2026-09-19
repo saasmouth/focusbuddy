@@ -44,6 +44,8 @@ interface BrowserAgentStore {
   runs: Record<string, BrowserAgentRunState>
   start: (input: { task: string; startUrl?: string }) => Promise<string | null>
   stop: (runId: string) => Promise<void>
+  /** Say something to a run that is already working. */
+  steer: (runId: string, text: string) => Promise<boolean>
   consent: (runId: string, granted: boolean, remember: boolean) => Promise<void>
   // Hand a finished run's findings to the AI to place where the task intended.
   deliver: (runId: string) => Promise<void>
@@ -81,6 +83,15 @@ export const useBrowserAgentRuns = create<BrowserAgentStore>((set) => ({
 
   stop: async (runId) => {
     await window.api.browserAgent.stop(runId)
+  },
+
+  // Guide a run in flight. Main queues it and hands it to the model at the top
+  // of its next round, framed as an amendment to the task rather than a new
+  // one, so nothing it has already found is thrown away.
+  steer: async (runId, text) => {
+    const t = text.trim()
+    if (!t) return false
+    return window.api.browserAgent.steer(runId, t)
   },
 
   consent: async (runId, granted, remember) => {

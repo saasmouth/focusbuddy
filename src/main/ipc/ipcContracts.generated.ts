@@ -78,6 +78,7 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'browserAgent:consent': [{ kind: 'string', optional: false, nullable: false }, { kind: 'boolean', optional: false, nullable: false }, { kind: 'boolean', optional: false, nullable: false }],
   'browserAgent:deliver': [{ kind: 'object', optional: false, nullable: false }],
   'browserAgent:start': [{ kind: 'object', optional: false, nullable: false }],
+  'browserAgent:steer': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }],
   'browserAgent:stop': [{ kind: 'string', optional: false, nullable: false }],
   'browserConsent:revoke': [{ kind: 'string', optional: false, nullable: false }],
   'calendar:addMeetingIcs': [{ kind: 'object', optional: false, nullable: false }],

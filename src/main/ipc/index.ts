@@ -418,6 +418,7 @@ import {
   type AgentAction
 } from '../ai/browserActions'
 import { runBrowserAgent, stopBrowserAgent, resolveBrowserConsent } from '../ai/browserAgent'
+import { steerAgentRun } from '../ai/browserActions'
 import { listConsent, revokeConsent } from '../browserConsent'
 import {
   importFile,
@@ -3082,6 +3083,10 @@ export function registerIpcHandlers(): void {
     (_e, input: { wcId: number; task: string; startUrl?: string }) => runBrowserAgent(input)
   )
   ipcMain.handle('browserAgent:stop', (_e, runId: string) => stopBrowserAgent(runId))
+  // Steer a run without restarting it. Queued on the run and shown to the model
+  // at the top of its next round — Stop-and-start-again was the only way to
+  // redirect one, and that threw away everything it had found.
+  ipcMain.handle('browserAgent:steer', (_e, runId: string, text: string) => steerAgentRun(runId, text))
   ipcMain.handle(
     'browserAgent:consent',
     (_e, runId: string, granted: boolean, remember: boolean) =>

@@ -1482,6 +1482,8 @@ const api = {
     start: (input: { wcId: number; task: string; startUrl?: string }): Promise<{ runId: string }> =>
       ipcRenderer.invoke('browserAgent:start', input),
     stop: (runId: string): Promise<boolean> => ipcRenderer.invoke('browserAgent:stop', runId),
+    steer: (runId: string, text: string): Promise<boolean> =>
+      ipcRenderer.invoke('browserAgent:steer', runId, text),
     consent: (runId: string, granted: boolean, remember: boolean): Promise<boolean> =>
       ipcRenderer.invoke('browserAgent:consent', runId, granted, remember),
     onEvent: (cb: (ev: Record<string, unknown> & { kind: string; runId: string }) => void): (() => void) => {

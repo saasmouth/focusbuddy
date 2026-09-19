@@ -92,10 +92,13 @@ export default function AgentRunDock(props: {
   const runs = useBrowserAgentRuns((s) => s.runs)
   const start = useBrowserAgentRuns((s) => s.start)
   const stop = useBrowserAgentRuns((s) => s.stop)
+  const steer = useBrowserAgentRuns((s) => s.steer)
   const consent = useBrowserAgentRuns((s) => s.consent)
   const activeRunId = useWebPanel((s) => s.activeRunId)
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(new Set())
   const [task, setTask] = useState('')
+  const [steerText, setSteerText] = useState('')
+  const [steerSent, setSteerSent] = useState(false)
   const [stepsOpen, setStepsOpen] = useState(false)
   // AI-43: which step is expanded to its full detail (what was seen, what
   // was touched, what came back). One at a time keeps the ledger calm.
@@ -115,6 +118,14 @@ export default function AgentRunDock(props: {
     setTask('')
     props.onCloseAsk()
     await start({ task: t })
+  }
+
+  const sendSteer = async (runId: string): Promise<void> => {
+    const t = steerText.trim()
+    if (!t) return
+    setSteerText('')
+    const ok = await steer(runId, t)
+    setSteerSent(ok)
   }
 
   const submitTask = async (): Promise<void> => {
@@ -239,6 +250,41 @@ export default function AgentRunDock(props: {
             >
               {running ? liveLine : run.summary || OUTCOME_LINES[run.outcome] || liveLine}
             </div>
+
+            {/* Say something to a run that is already working.
+                A browsing run is the one kind of AI work you sit and WATCH, so
+                you see it heading somewhere useless a minute before it stops.
+                The only controls were Stop and start again, which threw away
+                everything it had found. This amends the task in place. */}
+            {running && (
+              <div className="mt-2 flex items-center gap-1.5">
+                <Icon name="tips_and_updates" size={13} className="shrink-0 text-[var(--ink-50)]" />
+                <input
+                  data-testid="agent-run-steer-input"
+                  className="min-w-0 flex-1 rounded border border-[var(--line-20)] bg-transparent px-2 py-1 text-[12px] text-[var(--ink-100)] placeholder:text-[var(--ink-40)] focus:outline-none focus:border-[rgb(var(--accent))]"
+                  placeholder="Guide it — e.g. “only UK suppliers”, “skip the blog posts”"
+                  value={steerText}
+                  onChange={(e) => setSteerText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void sendSteer(run.runId)
+                  }}
+                />
+                <button
+                  data-testid="agent-run-steer-send"
+                  disabled={!steerText.trim()}
+                  onClick={() => void sendSteer(run.runId)}
+                  className="btn-ghost !px-2 !py-1 !text-[12px] disabled:opacity-40"
+                >
+                  Send
+                </button>
+              </div>
+            )}
+            {steerSent && running && (
+              <div data-testid="agent-run-steer-ack" className="mt-1 text-[11px] text-[var(--ink-50)]">
+                {/* It lands between rounds, so without this it looks ignored. */}
+                Passed on — it will pick this up on its next step.
+              </div>
+            )}
 
             {/* What the run FOUND, and the offer to put it to work. A run used
                 to end at the line above — a sentence — with everything it had

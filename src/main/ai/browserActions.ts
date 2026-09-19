@@ -33,6 +33,15 @@ export interface AgentRun {
   aborted: boolean
   steps: number
   downloadsCancelled: number
+  /**
+   * Things the user has said WHILE the run is working, not yet shown to it.
+   *
+   * A browsing run is the one kind of AI work you sit and watch, so you see it
+   * heading somewhere useless a full minute before it finishes. Until now the
+   * only controls were Stop and start again — which throws away everything it
+   * had found. These are drained into the next round's observation.
+   */
+  steers: string[]
 }
 
 // Bridge-level hard ceiling — defence in depth under B2's tighter round
@@ -50,8 +59,26 @@ const runs = new Map<string, AgentRun>()
 // consulted per-download against the live run set).
 const guardedSessions = new WeakSet<Electron.Session>()
 
+/** Queue a mid-run instruction. False when the run is already over. */
+export function steerAgentRun(runId: string, text: string): boolean {
+  const run = runs.get(runId)
+  const t = text.trim().slice(0, 2000)
+  if (!run || run.aborted || !t) return false
+  // Bounded: a user hammering the box must not grow the prompt without limit.
+  if (run.steers.length >= 8) run.steers.shift()
+  run.steers.push(t)
+  return true
+}
+
+/** Take everything said since the last round and clear the queue. */
+export function drainSteers(runId: string): string[] {
+  const run = runs.get(runId)
+  if (!run || run.steers.length === 0) return []
+  return run.steers.splice(0, run.steers.length)
+}
+
 export function createAgentRun(wcId: number): AgentRun {
-  const run: AgentRun = { id: randomUUID(), wcId, aborted: false, steps: 0, downloadsCancelled: 0 }
+  const run: AgentRun = { id: randomUUID(), wcId, aborted: false, steps: 0, downloadsCancelled: 0, steers: [] }
   runs.set(run.id, run)
   const wc = liveWc(wcId)
   if (wc) guardDownloads(wc.session)
@@ -106,6 +133,9 @@ export type AgentAction =
   // things you can act on, and an <img> is not one of them.
   | { kind: 'collect'; what: 'links' | 'images' }
   | { kind: 'snapshot' }
+  // Clear consent walls out of the way before observing. Not model-choosable —
+  // it runs every round as part of observing, like snapshot and read_page.
+  | { kind: 'dismiss_overlays' }
   | { kind: 'click'; elementIndex: number }
   | { kind: 'type'; elementIndex: number; text: string; replace?: boolean }
   | { kind: 'select'; elementIndex: number; value: string }
@@ -145,6 +175,7 @@ export interface ActionResult {
   textTotal?: number
   elements?: PageElement[]
   collected?: CollectedItem[]
+  overlays?: OverlayResult
   // How many the page actually had, when more were found than the cap allows.
   collectedTotal?: number
   captchaPresent?: boolean
@@ -418,6 +449,8 @@ function hitTestJs(x: number, y: number): string {
 })()`
 }
 
+import { dismissOverlaysJs, type OverlayResult } from './browserOverlays'
+
 // ── Executing against the live webContents ───────────────────────────────
 
 function liveWc(wcId: number): Electron.WebContents | null {
@@ -556,6 +589,11 @@ export async function performAgentAction(runId: string, action: AgentAction): Pr
       if (!r) return done({ ok: false, refused: 'browser_gone', detail: 'collect failed' })
       const items = Array.isArray(r.items) ? r.items.slice(0, MAX_COLLECTED) : []
       return done({ ok: true, collected: items, collectedTotal: r.total ?? items.length })
+    }
+
+    case 'dismiss_overlays': {
+      const r = await runJs<OverlayResult | null>(wc, dismissOverlaysJs())
+      return done({ ok: true, overlays: r ?? { hidden: [], unfroze: false } })
     }
 
     case 'snapshot': {

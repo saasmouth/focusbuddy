@@ -1,4 +1,6 @@
 // The agentic-browsing loop (A6/B2, R26/R27/R28). One runtime, Plexii's:
+import { overlayNotice } from './browserOverlays'
+import { detectStall, roundSignature, stallNotice, stallSummary, steerNotice } from './browserProgress'
 // this driver runs in main, owns the round budget and the consent gate, and
 // narrates everything it does as events the chat surface renders (B3). The
 // model plans; the bridge acts; R29 lives in the bridge — a banned action
@@ -16,6 +18,7 @@ import {
   endAgentRun,
   performAgentAction,
   type ActionResult,
+  drainSteers,
   type AgentAction,
   type PageElement
 } from './browserActions'
@@ -67,6 +70,10 @@ export type BrowserAgentEvent =
       readWindow?: { start: number; end: number; total: number }
     }
   | { kind: 'needs_human'; runId: string; reason: string }
+  // The user said something mid-run and it has been handed to the model. Shown
+  // in the dock so a steer that lands between rounds is visibly received rather
+  // than seeming to vanish.
+  | { kind: 'steered'; runId: string; round: number; text: string }
   | {
       kind: 'finished'
       runId: string
@@ -119,6 +126,33 @@ export function stopBrowserAgent(runId: string): boolean {
   }
   return stopped
 }
+
+// A repeated action named plainly enough that the model cannot wave it away.
+// "Try something different" is advice; "you clicked element 14 twice and
+// nothing changed" is an observation it has to act on.
+export function describeActionBriefly(a: AgentAction): string {
+  switch (a.kind) {
+    case 'click':
+      return `click on element ${a.elementIndex}`
+    case 'type':
+      return `type into element ${a.elementIndex}`
+    case 'select':
+      return `select in element ${a.elementIndex}`
+    case 'open_url':
+      return `open ${a.url}`
+    case 'scroll':
+      return `scroll by ${a.dy}`
+    case 'press_key':
+      return `press ${a.key}`
+    case 'click_at':
+      return `click at ${a.x},${a.y}`
+    case 'collect':
+      return `collect ${a.what}`
+    default:
+      return a.kind
+  }
+}
+
 
 // The honest coverage line (AI-42): the excerpt names WHICH slice of the
 // page it is, and says so when there is more below — the model's cue that
@@ -316,11 +350,23 @@ async function drive(
   let systemPrompt: string | undefined
   let lastResultLine = '(no action yet)'
   let priorFailed = 0
+  // What the page looked like, and what was done to it, each round. A run that
+  // repeats itself into an unchanging page is stuck however well each
+  // individual action reports going.
+  const signatures: string[] = []
+  const actionKeys: string[] = []
+  let stallWarning = ''
 
   while (rounds < MODEL_ROUND_BUDGET) {
     rounds++
 
     // ── Observe (R27: DOM first, screenshot only when the DOM yields nothing)
+    // Consent walls first: they cover the content, they freeze scrolling, and
+    // the element ranker pushes their controls down the list, so a run that
+    // meets one reads nothing and clicks at it until the budget is gone.
+    const overlays = await perform({ kind: 'dismiss_overlays' })
+    if (overlays.refused === 'run_stopped') return finish('stopped', 'Stopped by the user.')
+    const overlayLine = overlayNotice(overlays.overlays ?? null)
     const snap = await perform({ kind: 'snapshot' })
     if (snap.refused === 'run_stopped') return finish('stopped', 'Stopped by the user.')
     const read = await perform({ kind: 'read_page' })
@@ -334,10 +380,22 @@ async function drive(
     const url = snap.pageUrl ?? read.pageUrl ?? ''
     emit({ kind: 'round', runId, round: rounds, mode: coordinateMode ? 'screenshot' : 'dom', url })
 
+    // Anything the user typed while this was running. Drained here so it lands
+    // at the top of the very next round rather than after the current plan.
+    const steers = drainSteers(runId)
+    const steerLine = steerNotice(steers, input.task)
+    if (steers.length) emit({ kind: 'steered', runId, round: rounds, text: steers.join(' · ') })
+
     const obsLines = [
+      // The user's own words go FIRST. Buried under a page of observation they
+      // read as one more detail; they are the most important thing in the turn.
+      steerLine,
+      steerLine ? '' : '',
       `TASK: ${input.task}`,
       `ROUND ${rounds} of ${MODEL_ROUND_BUDGET}.`,
       `RESULT OF YOUR LAST ACTION: ${lastResultLine}`,
+      stallWarning,
+      overlayLine ?? '',
       '',
       // The run's memory. Earlier pages are gone from the transcript, so this
       // is the only record of them — and the yardstick for being finished.
@@ -439,6 +497,25 @@ async function drive(
       if (priorFailed >= 4) return finish('failed', 'The model kept proposing invalid actions.')
       continue
     }
+
+    // ── Is this going anywhere? ──────────────────────────────────────────
+    // Watch the PAGE, not the return value: the actions that trap a run all
+    // report success, which is exactly why priorFailed never caught this.
+    signatures.push(
+      roundSignature({
+        url,
+        textStart: read.textStart ?? 0,
+        textSample: read.text ?? '',
+        elementCount: elements.length
+      })
+    )
+    actionKeys.push(JSON.stringify(action))
+    const stall = detectStall(signatures, actionKeys)
+    const actionLabel = describeActionBriefly(action)
+    if (stall === 'stop') {
+      return finish('failed', stallSummary(actionLabel, rounds))
+    }
+    stallWarning = stall === 'warn' ? stallNotice(actionLabel) : ''
 
     // ── Consent (R26: first mutating action on an ungranted site pauses) ──
     if (MUTATING_KINDS.has(action.kind)) {
