@@ -253,9 +253,14 @@ section.inv { page-break-before:always; }
   <p class="src">Engines whose exported functions no other source file calls. Measured by <code>callers</code>, not inferred.</p>
   <p>These are implemented and tested, and the commits that added them report the matching spec requirements as complete. But nothing in the running app calls them, so <b>the rules they encode do not govern the product that ships</b>. They are not dead code: each is a deliberate contract. What is missing is the wiring.</p>
   ${table(['Module', 'What it is meant to enforce', 'Lines', 'Test mentions'], rows.filter((r) => r.status === 'unwired').map((r) => [`<b>${esc(r.name)}</b><br><code>${esc(r.id)}</code>`, esc(r.description), r.loc, r.tests]))}
-  <div class="warn" style="margin-top:10px">
-    <p><b>The one to look at first is agent governance.</b> It encodes that an agent's permissions are a subset of its human's (AGT-001), that every agent has exactly one accountable human (AGT-005), and that delegation never escalates (AGT-014). If the desk agents that run today are not bound by it, the spec tracker says they are governed and they are not.</p>
-    <p>That is not yet established. Other modules use related concepts under different names (context/engine, relationshipStore), so part of it may be enforced elsewhere. It needs a read of the running agent path before anyone concludes either way.</p>
+  <div class="box" style="margin-top:10px">
+    <p><b>Agent governance: investigated, and the running agents ARE governed — by a different mechanism.</b></p>
+    <p>Every action a model proposes goes to a human for review; none is applied on its own. The one autonomous write a desk agent makes is a single <code>update-widget</code> to the one destination widget the user configured <i>and</i> explicitly set to auto-apply. Its kind and target are fixed in code — <code>buildDelivery</code> returns a type-narrowed update with the target id hard-coded — so the model controls only the text. AGT-001's intent holds structurally: an agent cannot do anything its human did not either approve or pre-authorise for one named widget.</p>
+    <p><b>So <code>ai/agents.ts</code> is a contract for a runtime that does not exist yet.</b> Most of its fifteen requirements govern features the live system lacks: delegation between agents (AGT-014), schema-validated inter-agent messages (AGT-010/011/012), declared tool sets (AGT-020). The dispatcher's own header lists inter-agent dispatch as unbuilt Phase 3 work. The tracker marks these complete against capabilities that have not been built.</p>
+  </div>
+  <div class="warn" style="margin-top:8px">
+    <p><b>One path to decide on deliberately: autonomous external transmission.</b> An agent on an interval trigger, auto-applying into its destination, with that destination wired into a "Send to a URL" widget, POSTs model-written content to an external address with no human in the loop. Verified, not inferred: the outbound-webhook spec passes 9/9, including a wired change POSTing its content.</p>
+    <p>Every link in that chain is something the user built, and auto-apply is an explicit opt-in, so it is consented. But AGT-021 says external transmission is <i>gated</i>, and here the gate is configuration rather than confirmation. That is a product decision, not a defect.</p>
   </div>
 </section>
 
