@@ -715,6 +715,14 @@ export const ADVANCED_KINDS: ReadonlySet<WidgetKind> = new Set<WidgetKind>([
   // Tools/data — Table + Chart + Field are core; Field is the spec's configurable
   // utility slot (one typed value, type chosen after drop). custom-block below is a
   // heavier design-your-own authoring flow and stays advanced.
+  //
+  // Stat card is Metrics with one cell: both read the SAME metric binding layer,
+  // and the picker offered three ways to put a number on a desk (Metrics, Chart,
+  // Stat card) with nothing to tell a first-time user which to take. Demoted, not
+  // folded — a single headline number is a real presentation and someone will want
+  // exactly it. Still fully creatable under Advanced, and existing ones render as
+  // normal: rendering keys on widget.kind, independent of this list.
+  'stat-card',
   'custom-block',
   'calculator',
   'color',

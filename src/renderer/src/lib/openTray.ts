@@ -36,6 +36,25 @@ export function documentIdOf(view: View): string | null {
   return null
 }
 
+/**
+ * Two routes, one subject.
+ *
+ * Several screens are reachable both as a top-level view and as an app inside a
+ * segment, and the two render differently — Mail beside your desk sidebar, or
+ * Mail inside the Office shell. That difference is deliberate: arriving from a
+ * desk keeps your desk context. What is NOT deliberate is the tray treating them
+ * as two different things, which produced two tabs both labelled "Mail" for the
+ * same screen, two history entries, and an ambiguous session restore.
+ *
+ * So the ROUTES stay distinct and the SUBJECT is unified. Clicking the one tab
+ * returns you to whichever chrome you last used, because the entry stores the
+ * view it was opened with.
+ */
+const SUBJECT_ALIASES: Readonly<Record<string, string>> = {
+  // Office's Mail app and the standalone Mail screen are the same inbox.
+  'office:mail': 'mail'
+}
+
 /** A view that names something specific enough to keep a place in the tray. */
 export interface TrayEntry {
   /** Stable identity for this subject — dedupes and is the close handle. */
@@ -85,11 +104,16 @@ export function trayKeyFor(view: View): string | null {
       if (view.doc) return `document:${view.doc}`
       // An Office app you have open -- Chat, Mail, the Browser, Sign. The hub
       // itself is a place, like the desks index.
-      return isHubApp('office', view.app) ? null : `office:${view.app}`
+      if (isHubApp('office', view.app)) return null
+      return SUBJECT_ALIASES[`office:${view.app}`] ?? `office:${view.app}`
     // The other three segments, by the same rule. These were invisible: their
     // shell kept the open app in local state, so nothing outside it -- this
     // included -- could tell what you had open.
     case 'plexidesk':
+      // "My Desk" is a route to whichever desk is ACTIVE, not a subject of its
+      // own — the desk it shows is already in the tray under its own name. It
+      // listed a second tab for the canvas you were already looking at.
+      if (view.app === 'desk') return null
       return isHubApp('plexidesk', view.app) ? null : `plexidesk:${view.app}`
     case 'plexipeople':
       return isHubApp('plexipeople', view.app) ? null : `plexipeople:${view.app}`

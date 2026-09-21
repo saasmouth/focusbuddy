@@ -33,3 +33,22 @@ describe('widget catalogue tiering (spec §2.4 partial align)', () => {
     expect(WIDGET_SHORTCUTS.design).toBeUndefined()
   })
 })
+
+// Three ways to put a number on a desk — Metrics, Chart and Stat card — were all
+// core, with nothing in the picker to tell a first-time user which to take. Stat
+// card is Metrics with one cell (they share the metric binding layer), so it is
+// demoted rather than removed: the presentation is real and someone will want it.
+describe('the numbers cluster', () => {
+  it('keeps Metrics and Chart core and demotes Stat card', () => {
+    expect(isAdvancedKind('metrics')).toBe(false)
+    expect(isAdvancedKind('chart')).toBe(false)
+    expect(isAdvancedKind('stat-card')).toBe(true)
+  })
+
+  it('still offers Stat card — demoted is not removed', () => {
+    // Guards the distinction this whole tier exists to make. A widget that
+    // vanished from the catalogue would break every canvas already holding one.
+    const all = Object.values(entriesByCategory()).flat()
+    expect(all.some((e) => e.kind === 'stat-card')).toBe(true)
+  })
+})

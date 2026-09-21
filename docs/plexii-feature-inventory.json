@@ -1,10 +1,10 @@
 {
  "meta": {
-  "generated": "2026-09-21T03:18:09.179Z",
-  "commit": "9c607a40",
+  "generated": "2026-09-21T05:37:05.662Z",
+  "commit": "e5e540f5",
   "sourceFiles": 1220,
-  "testFiles": 931,
-  "totalLoc": 308880
+  "testFiles": 932,
+  "totalLoc": 308912
  },
  "rows": [
   {
@@ -23,7 +23,7 @@
    "module": "plexidesk",
    "description": "An app inside the segment",
    "status": "active",
-   "tests": 0
+   "tests": 3
   },
   {
    "domain": "App",
@@ -41,7 +41,7 @@
    "module": "plexidesk",
    "description": "An app inside the segment",
    "status": "active",
-   "tests": 0
+   "tests": 1
   },
   {
    "domain": "App",
@@ -77,7 +77,7 @@
    "module": "plexidesk",
    "description": "An app inside the segment",
    "status": "active",
-   "tests": 0
+   "tests": 1
   },
   {
    "domain": "App",
@@ -239,7 +239,7 @@
    "module": "office",
    "description": "An app inside the segment",
    "status": "active",
-   "tests": 0
+   "tests": 1
   },
   {
    "domain": "App",
@@ -428,7 +428,7 @@
    "module": "Navigation",
    "description": "Carries: taskId",
    "status": "active",
-   "tests": 300
+   "tests": 301
   },
   {
    "domain": "Screen",
@@ -473,7 +473,7 @@
    "module": "Navigation",
    "description": "No parameters — a place, not a thing",
    "status": "active",
-   "tests": 15
+   "tests": 17
   },
   {
    "domain": "Screen",
@@ -500,7 +500,7 @@
    "module": "Navigation",
    "description": "Carries: app",
    "status": "active",
-   "tests": 2
+   "tests": 3
   },
   {
    "domain": "Screen",
@@ -761,7 +761,7 @@
    "module": "Desk canvas / Tools",
    "description": "Several numbers read together, each with its own history",
    "status": "active",
-   "tests": 3
+   "tests": 4
   },
   {
    "domain": "Widget",
@@ -806,7 +806,7 @@
    "module": "Desk canvas / Tools",
    "description": "A number worth watching, and how it got there",
    "status": "active",
-   "tests": 4
+   "tests": 5
   },
   {
    "domain": "Widget",
@@ -932,7 +932,7 @@
    "module": "Desk canvas / Tools",
    "description": "PlexiDash — bar, line, area, pie or KPI charts from a table. Several on a desk make a dashboard.",
    "status": "active",
-   "tests": 10
+   "tests": 11
   },
   {
    "domain": "Widget",
@@ -2260,7 +2260,7 @@
    "status": "active",
    "dependents": 124,
    "loc": 281,
-   "tests": 389
+   "tests": 390
   },
   {
    "domain": "State",
@@ -2601,7 +2601,7 @@
    "status": "active",
    "dependents": 6,
    "loc": 380,
-   "tests": 138
+   "tests": 140
   },
   {
    "domain": "State",

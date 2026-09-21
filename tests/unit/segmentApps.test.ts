@@ -15,12 +15,28 @@ const src = (p: string): string => readFileSync(join(process.cwd(), p), 'utf8')
 // could tell what you had open, so the tray could not list it, Back did nothing,
 // and a reload lost it. These exist so there is not a fourth time.
 describe('segment apps reach the tray', () => {
+  // Two apps are deliberately not subjects of their own. Named here rather than
+  // skipped silently, so demoting a third is a decision someone has to write down.
+  const NOT_OWN_SUBJECT: Record<string, string> = {
+    // A route to whichever desk is ACTIVE — that desk already trays under its
+    // own name, so this listed a second tab for the canvas you were on.
+    'plexidesk:desk': 'null',
+    // The same inbox as the standalone Mail screen; one subject, two chromes.
+    'office:mail': 'mail'
+  }
+
   it('gives every non-hub app a tray identity', () => {
     for (const kind of KINDS) {
       for (const app of SEGMENT_APPS[kind]) {
-        const key = trayKeyFor({ kind, app: app.key } as never)
         if (app.hub) continue
-        expect(key, `${kind}:${app.key} should be listable`).toBe(`${kind}:${app.key}`)
+        const id = `${kind}:${app.key}`
+        const key = trayKeyFor({ kind, app: app.key } as never)
+        if (id in NOT_OWN_SUBJECT) {
+          const want = NOT_OWN_SUBJECT[id]
+          expect(key, `${id} should resolve to ${want}`).toBe(want === 'null' ? null : want)
+          continue
+        }
+        expect(key, `${id} should be listable`).toBe(id)
       }
     }
   })

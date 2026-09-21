@@ -243,3 +243,36 @@ describe('documentIdOf', () => {
     expect(documentIdOf({ kind: 'suite' })).toBeNull()
   })
 })
+
+// One screen, one tab — however you got there.
+//
+// Several screens are reachable both as a top-level view and as an app inside a
+// segment, and the two render differently on purpose: Mail beside your desk
+// sidebar, or Mail inside the Office shell. Arriving from a desk keeping your
+// desk context is a feature. The tray treating them as two SUBJECTS was not: it
+// listed two tabs both saying "Mail" for the same inbox.
+describe('screens reachable two ways get one tray entry', () => {
+  it('gives Office Mail and the standalone Mail one identity', () => {
+    expect(trayKeyFor({ kind: 'office', app: 'mail' })).toBe(trayKeyFor({ kind: 'mail' }))
+  })
+
+  it('does not list "My Desk" as a second tab for the desk you are on', () => {
+    // plexidesk:desk is a route to whichever desk is ACTIVE, not a subject —
+    // that desk is already in the tray under its own name.
+    expect(trayKeyFor({ kind: 'plexidesk', app: 'desk' })).toBeNull()
+  })
+
+  it('leaves the other segment apps with their own identity', () => {
+    // Only genuine duplicates collapse. Plans and Files are not reachable as
+    // traying top-level views, so they keep their own tabs.
+    expect(trayKeyFor({ kind: 'plexidesk', app: 'plans' })).toBe('plexidesk:plans')
+    expect(trayKeyFor({ kind: 'plexidesk', app: 'files' })).toBe('plexidesk:files')
+    expect(trayKeyFor({ kind: 'office', app: 'chat' })).toBe('office:chat')
+  })
+
+  it('keeps Office Chat and the Chat screen separate — they are different views', () => {
+    // office:chat renders MessagesView; view.messages renders FlowView. Same
+    // word, different screens, so collapsing them would hide one.
+    expect(trayKeyFor({ kind: 'office', app: 'chat' })).not.toBe(trayKeyFor({ kind: 'messages' }))
+  })
+})
