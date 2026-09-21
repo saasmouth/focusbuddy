@@ -53,6 +53,65 @@ function testsNaming(term) {
   return n
 }
 
+
+/**
+ * Whether anything in the product actually CALLS this module.
+ *
+ * `dependents` counts static `from '.../name'` imports, and that is blind to a
+ * module reached through a barrel, a dynamic import or an IPC handler. Worse,
+ * the review built on it called three modules "possibly dead" that were in fact
+ * spec-conformance contracts — and called a fourth unused that was simply named
+ * differently. This asks the more useful question: does any other source file
+ * mention any of this module's exported functions by name? Zero means the code
+ * is implemented, and perhaps tested, but governs nothing that ships.
+ */
+function callers(file) {
+  const src = SRC_TEXT.get(file) || ''
+  const exported = [...src.matchAll(/^export (?:async )?function (\w+)/gm)].map((m) => m[1])
+  if (exported.length === 0) return null // types/constants only — not applicable
+  let n = 0
+  for (const [f, t] of SRC_TEXT) {
+    if (f === file) continue
+    if (exported.some((fn) => new RegExp(`\\b${fn}\\b`).test(t))) n++
+  }
+  return n
+}
+
+
+/**
+ * A module's own description: its leading comment block, as prose.
+ *
+ * The first version took only the first comment line, and module headers wrap
+ * at 80 columns — so descriptions stopped mid-sentence ("Agents act on behalf
+ * of a human and"). This joins the leading block and ends on a sentence
+ * boundary, so a row in the database reads as a complete statement.
+ */
+function headerOf(file, max = 260) {
+  // Imports first, comment second, is how 64 of the 71 stores are written, so
+  // the imports are removed — multi-line ones included — before looking. The
+  // first version stopped at the first import and discarded all of those
+  // descriptions, filling the rows with "Zustand store".
+  const body = (SRC_TEXT.get(file) || '')
+    .replace(/^import[\s\S]*?from\s+['"][^'"]+['"];?[ \t]*$/gm, '')
+    .replace(/^import\s+['"][^'"]+['"];?[ \t]*$/gm, '')
+  const lines = body.split('\n')
+  const block = []
+  for (const l of lines) {
+    const m = l.match(/^\s*\/\/\s?(.*)$/)
+    if (m) { block.push(m[1].trim()); continue }
+    if (block.length) break // the first block has ended
+    if (l.trim() === '') continue
+    break // code before any comment: this module has no header
+  }
+  const text = block.join(' ').replace(/\s+/g, ' ').trim()
+  if (text.length <= max) return text
+  // Prefer ending on a sentence; fall back to a word boundary with an ellipsis.
+  const cut = text.slice(0, max)
+  const stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('.) '))
+  if (stop > 80) return cut.slice(0, stop + 1).trim()
+  return cut.slice(0, cut.lastIndexOf(' ')).trim() + '…'
+}
+
 const loc = (file) => (SRC_TEXT.get(file) || '').split('\n').length
 
 // ── 1. Widgets: the desk's building blocks ──────────────────────────────────
@@ -186,13 +245,12 @@ function capabilities() {
 function stores() {
   return SRC.filter((f) => /^src\/renderer\/src\/stores\/[^/]+\.ts$/.test(f)).map((f) => {
     const name = basename(f, '.ts')
-    const head = (SRC_TEXT.get(f) || '').split('\n').find((l) => l.startsWith('// ')) || ''
     return {
       domain: 'State',
       id: `store.${name}`,
       name,
       module: 'Renderer state',
-      description: head.replace(/^\/\/\s*/, '') || 'Zustand store',
+      description: headerOf(f),
       status: 'active',
       dependents: importedBy(f),
       loc: loc(f),
@@ -206,14 +264,16 @@ function engines() {
   return SRC.filter((f) => /^src\/main\/(ai|db|mail)\/[^/]+\.ts$/.test(f))
     .map((f) => {
       const name = basename(f, '.ts')
-      const head = (SRC_TEXT.get(f) || '').split('\n').find((l) => l.startsWith('// ')) || ''
+      const c = callers(f)
       return {
         domain: 'Engine',
         id: `engine.${name}`,
         name,
         module: `Main / ${f.split('/')[2]}`,
-        description: head.replace(/^\/\/\s*/, '') || '',
-        status: 'active',
+        description: headerOf(f),
+        // Unwired: implemented, maybe tested, called by nothing in the product.
+        status: c === 0 ? 'unwired' : 'active',
+        callers: c,
         dependents: importedBy(f),
         loc: loc(f),
         tests: testsNaming(name)
@@ -236,7 +296,7 @@ const meta = {
 writeFileSync(resolve(ROOT, 'docs/plexii-feature-inventory.json'), JSON.stringify({ meta, rows }, null, 1))
 
 // CSV is the point: a PDF cannot be loaded into a database.
-const COLS = ['id', 'domain', 'name', 'module', 'description', 'status', 'surface', 'dependents', 'loc', 'tests']
+const COLS = ['id', 'domain', 'name', 'module', 'description', 'status', 'surface', 'callers', 'dependents', 'loc', 'tests']
 const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
 writeFileSync(
   resolve(ROOT, 'docs/plexii-feature-inventory.csv'),

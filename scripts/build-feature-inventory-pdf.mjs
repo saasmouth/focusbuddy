@@ -139,9 +139,10 @@ const COLUMNS = [
   ['description', 'What it is', 'Derived', 'From the catalogue hint or the module’s own header comment — the code’s words, not mine.'],
   ['status', 'active / legacy', 'Derived', 'Legacy rows are still rendered for existing data but hidden from pickers.'],
   ['surface', 'Operation count (capabilities)', 'Derived', 'How many IPC operations the namespace exposes. A rough proxy for how much of the product depends on it.'],
-  ['dependents', 'How many source files import it', 'Derived', 'THE CHANGE-IMPACT COLUMN. High means a change here reaches a lot.'],
+  ['callers', 'Source files calling any of its functions', 'Derived', 'Engines only. ZERO means implemented but called by nothing that ships — see "Unwired" below.'],
+  ['dependents', 'Source files statically importing it', 'Derived', 'The change-impact column. Counts static imports only, so it can read low for a module reached another way — check callers alongside it.'],
   ['loc', 'Lines of code', 'Derived', 'Size, not quality. Useful for spotting where complexity sits.'],
-  ['tests', 'Test files naming it', 'Derived', 'A coverage SIGNAL, not a percentage. Zero is worth a look; it does not prove absence of tests.'],
+  ['tests', 'Test files that mention it by name', 'Derived', 'A weak signal, and it UNDERCOUNTS: tests that refer to a thing by a different name are missed. It called calendar sync untested when it had five test files. Never act on it alone.'],
   ['weight', 'Importance 1-10', 'YOU', 'Deliberately empty. See the note below.'],
   ['owner', 'Who owns it', 'YOU', 'Empty.'],
   ['marketing_description', 'Positioning copy', 'YOU', 'Empty per row; the areas worth selling are written up in this document.'],
@@ -157,13 +158,15 @@ function table(headers, body, cls = '') {
 const inventory = DOMAINS.map(([d, title, source]) => {
   const list = by(d)
   const hasNums = d === 'State' || d === 'Engine'
+  const hasCallers = d === 'Engine'
   const hasSurface = d === 'Capability'
-  const heads = ['Name', 'Module', 'What it is', ...(hasSurface ? ['Ops'] : []), ...(hasNums ? ['Deps', 'LOC'] : []), 'Tests']
+  const heads = ['Name', 'Module', 'What it is', ...(hasSurface ? ['Ops'] : []), ...(hasCallers ? ['Callers'] : []), ...(hasNums ? ['Deps', 'LOC'] : []), 'Test mentions']
   const body = list.map((r) => [
     `<b>${esc(r.name)}</b> <code>${esc(r.id)}</code>`,
     esc(r.module),
     esc(r.description).slice(0, 190) + (r.status !== 'active' ? ` <i>(${esc(r.status)})</i>` : ''),
     ...(hasSurface ? [r.surface ?? ''] : []),
+    ...(hasCallers ? [r.callers === 0 ? '<b style="color:#c0392b">0</b>' : (r.callers ?? '—')] : []),
     ...(hasNums ? [r.dependents ?? '', r.loc ?? ''] : []),
     r.tests ?? ''
   ])
@@ -242,6 +245,18 @@ section.inv { page-break-before:always; }
     <p class="pitch">${esc(a.pitch)}</p>
     <div class="imp"><b>Depends on:</b> ${esc(a.depends)}<br><b>Impact of change:</b> ${esc(a.impact)}</div>
   </div>`).join('')}
+</section>
+
+
+<section>
+  <h2>Unwired spec contracts <span class="cnt">${rows.filter((r) => r.status === 'unwired').length}</span></h2>
+  <p class="src">Engines whose exported functions no other source file calls. Measured by <code>callers</code>, not inferred.</p>
+  <p>These are implemented and tested, and the commits that added them report the matching spec requirements as complete. But nothing in the running app calls them, so <b>the rules they encode do not govern the product that ships</b>. They are not dead code: each is a deliberate contract. What is missing is the wiring.</p>
+  ${table(['Module', 'What it is meant to enforce', 'Lines', 'Test mentions'], rows.filter((r) => r.status === 'unwired').map((r) => [`<b>${esc(r.name)}</b><br><code>${esc(r.id)}</code>`, esc(r.description), r.loc, r.tests]))}
+  <div class="warn" style="margin-top:10px">
+    <p><b>The one to look at first is agent governance.</b> It encodes that an agent's permissions are a subset of its human's (AGT-001), that every agent has exactly one accountable human (AGT-005), and that delegation never escalates (AGT-014). If the desk agents that run today are not bound by it, the spec tracker says they are governed and they are not.</p>
+    <p>That is not yet established. Other modules use related concepts under different names (context/engine, relationshipStore), so part of it may be enforced elsewhere. It needs a read of the running agent path before anyone concludes either way.</p>
+  </div>
 </section>
 
 ${inventory}
