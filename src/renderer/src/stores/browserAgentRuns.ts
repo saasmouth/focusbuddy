@@ -24,6 +24,9 @@ export interface BrowserAgentRunState {
   summary: string
   // The host awaiting an R26 consent answer, when paused.
   pendingConsentHost: string | null
+  // False when the page has no web address: nothing can be remembered, so the
+  // prompt must not offer "Always allow".
+  pendingConsentRememberable?: boolean
   events: BrowserAgentEventLite[]
   cost: { inputTokens: number; outputTokens: number; costMicros: number } | null
   // What the run actually learned. The run's real product — kept so it can be
@@ -218,7 +221,11 @@ window.api.browserAgent.onEvent((ev) => {
       ...prev,
       events: [...prev.events, ev as BrowserAgentEventLite]
     }
-    if (ev.kind === 'consent_required' && typeof ev.host === 'string') next.pendingConsentHost = ev.host
+    if (ev.kind === 'consent_required' && typeof ev.host === 'string') {
+      next.pendingConsentHost = ev.host
+      // Default true keeps older mains (which never sent it) offering the choice.
+      next.pendingConsentRememberable = ev.rememberable !== false
+    }
     if (ev.kind === 'acted' && ev.cost) next.cost = ev.cost as BrowserAgentRunState['cost']
     if (ev.kind === 'finished') {
       next.outcome = typeof ev.outcome === 'string' ? ev.outcome : 'finished'

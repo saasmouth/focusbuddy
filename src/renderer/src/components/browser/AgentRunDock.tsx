@@ -172,24 +172,30 @@ export default function AgentRunDock(props: {
               <Icon name="plexii:ai" size={15} />
               Let Plexii act on {run.pendingConsentHost}?
             </div>
-            <div className="mt-1 text-[12px] text-[var(--ink-70)]">
-              First time on this site. Everything it does stays visible here, and you can revoke
-              this any time in Settings.
+            <div className="mt-1 text-[12px] text-[var(--ink-70)]" data-testid="agent-consent-copy">
+              {run.pendingConsentRememberable === false
+                ? /* Nothing can be stored for a page with no address, so saying
+                     "revoke this in Settings" would be a promise with nothing
+                     behind it. */
+                  'This page has no web address, so Plexii will ask each time rather than remember your answer. Everything it does stays visible here.'
+                : 'First time on this site. Everything it does stays visible here, and you can revoke this any time in Settings.'}
             </div>
             <div className="mt-2.5 flex items-center gap-2">
+              {run.pendingConsentRememberable !== false && (
+                <button
+                  className="btn-primary !text-[12px]"
+                  data-testid="agent-consent-always"
+                  onClick={() => void consent(run.runId, true, true)}
+                >
+                  Always allow
+                </button>
+              )}
               <button
-                className="btn-primary !text-[12px]"
-                data-testid="agent-consent-always"
-                onClick={() => void consent(run.runId, true, true)}
-              >
-                Always allow
-              </button>
-              <button
-                className="btn-ghost !text-[12px]"
+                className={`${run.pendingConsentRememberable === false ? 'btn-primary' : 'btn-ghost'} !text-[12px]`}
                 data-testid="agent-consent-once"
                 onClick={() => void consent(run.runId, true, false)}
               >
-                Just this once
+                {run.pendingConsentRememberable === false ? 'Allow' : 'Just this once'}
               </button>
               <button
                 className="btn-ghost !text-[12px]"

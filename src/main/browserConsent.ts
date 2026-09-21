@@ -89,6 +89,42 @@ export function listConsent(): ConsentGrant[] {
     .sort((a, b) => a.host.localeCompare(b.host))
 }
 
+/**
+ * What the loop must do before a MUTATING action on this page.
+ *
+ * FAILS CLOSED. The gate used to read `if (host && !hasConsent(host)) ask()`,
+ * so when the host could not be determined the condition was simply false and
+ * the click or keystroke went ahead with nobody asked. That is every page with
+ * no hostname — a data: URL (which can carry a live form), a file:// page,
+ * about:blank — and, more often, the ordinary transient where neither the
+ * snapshot nor the read reported a URL and the loop fell back to ''. A safety
+ * gate that opens whenever it cannot see is not a gate.
+ *
+ * An unknown site now asks every time and is never remembered: there is no
+ * stable key to store a grant under, and inventing one would let a grant made
+ * on one blank page silently cover the next.
+ */
+export type ConsentGate =
+  | { ask: false }
+  | {
+      ask: true
+      /** The key a grant would be stored under; '' when there is none. */
+      host: string
+      /** What to show the human. */
+      label: string
+      /** Whether "remember this site" can mean anything here. */
+      rememberable: boolean
+    }
+
+export function consentGate(url: string): ConsentGate {
+  const host = consentHostOf(url)
+  if (!host) {
+    return { ask: true, host: '', label: 'this page (it has no web address)', rememberable: false }
+  }
+  if (hasConsent(host)) return { ask: false }
+  return { ask: true, host, label: host, rememberable: true }
+}
+
 // Test seam: forget the cache so a spec can point app.getPath at a fresh dir.
 export function _resetConsentCache(): void {
   cache = null

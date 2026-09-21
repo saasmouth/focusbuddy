@@ -31,7 +31,7 @@ import {
 } from './browserAgentEnvelope'
 import { enforceAgentStatus } from './agentEnvelope'
 import { runBrowserAgentStep, type BrowserStepContent } from './anthropic'
-import { consentHostOf, hasConsent, grantConsent } from '../browserConsent'
+import { consentGate, grantConsent } from '../browserConsent'
 import { resolveModel } from './modelRouting'
 import { estimateCostMicros } from './aiCost'
 import {
@@ -51,7 +51,9 @@ export interface BrowserRunCost {
 export type BrowserAgentEvent =
   | { kind: 'started'; runId: string; task: string }
   | { kind: 'round'; runId: string; round: number; mode: 'dom' | 'screenshot'; url: string }
-  | { kind: 'consent_required'; runId: string; host: string }
+  // rememberable: false for a page with no web address — there is no key to
+  // store a standing grant under, so the prompt must not offer one.
+  | { kind: 'consent_required'; runId: string; host: string; rememberable: boolean }
   | {
       kind: 'acted'
       runId: string
@@ -519,14 +521,16 @@ async function drive(
 
     // ── Consent (R26: first mutating action on an ungranted site pauses) ──
     if (MUTATING_KINDS.has(action.kind)) {
-      const host = consentHostOf(url)
-      if (host && !hasConsent(host)) {
-        emit({ kind: 'consent_required', runId, host })
+      // Fails closed: a page whose site cannot be determined asks every time
+      // rather than slipping through — see consentGate.
+      const gate = consentGate(url)
+      if (gate.ask) {
+        emit({ kind: 'consent_required', runId, host: gate.label, rememberable: gate.rememberable })
         const granted = await new Promise<boolean>((resolve) => {
           live.consentWaiter = resolve
         })
-        if (!granted) return finish('denied', `You declined to let Plexii act on ${host}.`)
-        if (live.remember) grantConsent(host)
+        if (!granted) return finish('denied', `You declined to let Plexii act on ${gate.label}.`)
+        if (live.remember && gate.rememberable) grantConsent(gate.host)
       }
     }
 
