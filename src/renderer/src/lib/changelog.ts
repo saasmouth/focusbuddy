@@ -36,6 +36,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.0',
+    date: '2026-09-24T09:00:00Z',
+    title: 'PlexiDesk 4.3.0 \u2014 a browser that works for you, and everything you have open in one strip',
+    tag: 'feature',
+    summary:
+      'PlexiOffice gains a full web browser that does not need a desk \u2014 for looking something up, or keeping a reference open across several pieces of work. Plexii can drive it for you: ask it to summarise a page, gather the links or images, pull a listing into a table, or go and compare options, and watch each step as it happens. You can type new instructions to a run while it is still going, and it treats them as a change to the job rather than starting over. What it finds arrives on the desk you choose as a real table, with every row it found and the values exactly as they appeared on the page. Underneath all of that, a strip above the footer now lists everything you have open \u2014 desks, documents, chats, apps \u2014 so moving between them is one click instead of retracing your steps.',
+    highlights: [
+      'A browser in PlexiOffice that belongs to no desk, listed with the apps. Send any page to a desk when it turns out to matter.',
+      'Ask Plexii to work on a page: Summarise, Links, Images, Extract data, Find similar or Research \u2014 one click each, or your own instruction.',
+      'Guide a run while it works. What you type updates the task and keeps everything it has already found.',
+      'Cookie and consent walls are cleared out of the way so a run can read the page. Plexii never answers them on your behalf.',
+      'Results land on a desk you pick, as a table with every row \u2014 ratings become number columns, links stay clickable, nothing is invented.',
+      'A tray above the footer holds every desk, document, chat and app you have open, across all four segments.',
+      'Drag a document onto a desk in the tray to file it there \u2014 or right-click and choose the desk by name. It stays the same file, not a copy.',
+      'Documents now open with the outline and comments panel out of the way, and remember your choice.'
+    ]
+  },
+  {
     // No `version` yet: landed, not shipped.
     date: '2026-09-16T10:00:00Z',
     title: 'Claude can work in your workspace, without your data leaving the machine',

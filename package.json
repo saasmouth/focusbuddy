@@ -1,6 +1,6 @@
 {
   "name": "focusbuddy",
-  "version": "4.2.2",
+  "version": "4.3.0",
   "private": true,
   "description": "Task-scoped digital work environment for people with ADHD and high distractibility.",
   "main": "./out/main/index.js",
