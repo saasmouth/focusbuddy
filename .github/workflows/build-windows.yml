@@ -9,16 +9,27 @@ name: Build Windows installer
 # on both platforms from one place.
 
 on:
-  # Manual run from the Actions tab (or `gh workflow run`) — produces the
-  # installer as a run artifact, which we download and attach to the matching
-  # GitHub Release by hand. This is the ONLY trigger on purpose: a `push: tags`
-  # trigger that auto-published collided with the hand-uploaded release assets
-  # and failed the publish step on every tag (v2.5.3–v2.5.5), generating noise
-  # without affecting the actual installer. The dispatch build is what ships.
+  # Manual run from the Actions tab (or `gh workflow run`). Dispatching against a
+  # BRANCH builds the installer and leaves it as a run artifact; dispatching
+  # against a TAG also publishes it to that tag's GitHub Release, which is how a
+  # release gets its Windows half.
+  #
+  # This stays the only trigger on purpose: a `push: tags` trigger that
+  # auto-published collided with the hand-uploaded release assets and failed on
+  # every tag (v2.5.3–v2.5.5).
   workflow_dispatch:
 
 jobs:
   build:
+    # electron-builder's `--publish always` path POSTs to the Releases API, and
+    # the default GITHUB_TOKEN is read-only, so without this the tag build dies
+    # on "HttpError: 403 Forbidden ... Resource not accessible by integration"
+    # after doing all twenty-odd minutes of work. That is what happened on
+    # v4.3.1's first run, and it is very likely the real cause of the v2.5.3–
+    # v2.5.5 publish failures the trigger comment above blames on collisions.
+    # contents:write is the least this needs; nothing here wants more.
+    permissions:
+      contents: write
     # Pinned to windows-2022 on purpose: windows-latest moved to a runner image
     # with Visual Studio 18, which the node-gyp bundled with Electron 37 does not
     # recognise ("find VS unknown version undefined"), so the native-module
@@ -91,7 +102,12 @@ jobs:
             npx electron-builder --win --publish never
           fi
 
+      # always(): if the publish step fails, the installer itself is usually
+      # fine — it is the upload to GitHub that broke. Without this the artifact
+      # step is skipped on failure and twenty minutes of Windows build output is
+      # thrown away, leaving nothing to attach by hand either.
       - name: Upload installer artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: haptyx-windows-installer
