@@ -152,7 +152,24 @@ export const CAPABILITY_DEFAULTS: Record<string, Record<TierId, CapabilityValue>
   file_manager: { free: true, pro: true, team: true },
   file_auto_tagging: { free: true, pro: true, team: true },
   password_vault: { free: true, pro: true, team: true },
-  vault_backup: { free: false, pro: true, team: true }
+  vault_backup: { free: false, pro: true, team: true },
+  // 4.3.0 — browsing, the open tray, and the gaps from 4.2.x
+  office_browser: { free: true, pro: true, team: true },
+  ai_browse_drive: { free: false, pro: true, team: true },
+  ai_browse_tasks: { free: false, pro: true, team: true },
+  ai_browse_steer: { free: false, pro: true, team: true },
+  ai_browse_findings: { free: false, pro: true, team: true },
+  ai_browse_consent: { free: true, pro: true, team: true },
+  open_tray: { free: true, pro: true, team: true },
+  doc_to_desk: { free: true, pro: true, team: true },
+  widget_custom_ai: { free: false, pro: true, team: true },
+  mail_folders: { free: true, pro: true, team: true },
+  mail_paging: { free: true, pro: true, team: true },
+  mail_triage: { free: false, pro: true, team: true },
+  attention_queue: { free: true, pro: true, team: true },
+  attention_capture: { free: true, pro: true, team: true },
+  day_planning: { free: false, pro: true, team: true },
+
 }
 
 /** Resolve a capability value for a tier from the local defaults snapshot. */
