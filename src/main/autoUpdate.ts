@@ -22,7 +22,13 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import https from 'node:https'
-import { macAssetUrl, appBundlePath, isTranslocated, MAC_INSTALL_SCRIPT } from './updaterInstall'
+import {
+  macAssetUrl,
+  appBundlePath,
+  isTranslocated,
+  MAC_INSTALL_SCRIPT,
+  MAC_UPDATE_ARCH
+} from './updaterInstall'
 
 // macOS builds are ad-hoc signed (no Apple Developer ID), and Squirrel.Mac
 // refuses to apply an update unless it is signed by the same Developer ID. So
@@ -103,7 +109,9 @@ export async function downloadAndInstallMacUpdate(): Promise<void> {
     return
   }
 
-  const arch = process.arch
+  // The mac build is one universal artifact — see MAC_UPDATE_ARCH. Using
+  // process.arch here would ask for a per-arch asset that no longer exists.
+  const arch = MAC_UPDATE_ARCH
   try {
     broadcast({ kind: 'downloading', percent: 0 })
     const url = macAssetUrl(version, arch)

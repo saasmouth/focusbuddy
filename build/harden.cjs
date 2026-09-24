@@ -65,17 +65,42 @@ const FUSES = {
   // five other changes. Tracked in the roadmap, not smuggled in here.
 }
 
-async function harden(appPath, platform) {
+async function harden(appPath, platform, { adHocSign = true } = {}) {
   // eslint-disable-next-line no-console
   console.log(`[harden] flipping fuses on ${appPath}`)
   await flipFuses(appPath, {
     ...FUSES,
-    // The macOS binary is re-signed below (or by electron-builder), so let the
-    // fuse tool skip its own resign step and avoid signing twice.
-    resetAdHocDarwinSignature: platform === 'darwin'
+    // NOTE: true means the fuse tool DOES run `codesign --sign - --force --deep`
+    // itself (see @electron/fuses dist/index.js). An earlier comment here had it
+    // backwards. It is wanted for a single-arch mac build — flipping a fuse
+    // invalidates whatever signature was on the binary, and Apple Silicon will
+    // not execute a wholly unsigned one — but it must be OFF for a universal
+    // slice, because a --deep signature makes the two slices' CodeResources
+    // differ and @electron/universal then refuses to merge them.
+    resetAdHocDarwinSignature: platform === 'darwin' && adHocSign
   })
   // eslint-disable-next-line no-console
   console.log('[harden] fuses set: RunAsNode=off NodeOptions=off NodeCliInspect=off')
+}
+
+// A universal mac build packs each architecture into its own temp directory and
+// then merges the two with @electron/universal. That merge requires every
+// non-binary file to be byte-identical in both slices, and signing is what
+// breaks that: `codesign --deep` writes
+// Frameworks/Electron Framework.framework/.../_CodeSignature/CodeResources
+// containing hashes of that slice's binaries, so the two copies necessarily
+// differ and the merge aborts with "Expected all non-binary files to have
+// identical SHAs".
+//
+// So the work is split across the two stages. Fuses are flipped per slice,
+// before the merge, because flipping rewrites bytes inside the Electron binary
+// and the merged binary is a lipo of the two slices — each slice must already
+// be hardened. Signing then happens once, on the merged app, which is also the
+// order electron-builder's own Developer ID path uses.
+const universalStageOf = (appOutDir) => {
+  if (/mac-universal-(x64|arm64)-temp\/?$/.test(appOutDir)) return 'slice'
+  if (/mac-universal\/?$/.test(appOutDir)) return 'merged'
+  return null
 }
 
 exports.default = async function afterPack(context) {
@@ -89,7 +114,24 @@ exports.default = async function afterPack(context) {
         ? join(context.appOutDir, `${productFilename}.exe`)
         : join(context.appOutDir, productFilename)
 
-  await harden(binary, platform)
+  const stage = platform === 'darwin' ? universalStageOf(context.appOutDir) : null
+
+  if (stage === 'slice') {
+    // Harden this slice and stop. Signing it would defeat the merge.
+    await harden(binary, platform, { adHocSign: false })
+    // eslint-disable-next-line no-console
+    console.log('[harden] universal slice — leaving it unsigned so the merge can proceed')
+    return
+  }
+
+  if (stage === 'merged') {
+    // Fuses were already flipped in each slice and survive the lipo, so
+    // re-flipping here would rewrite the merged binary for no reason.
+    // eslint-disable-next-line no-console
+    console.log('[harden] merged universal app — fuses already set in each slice')
+  } else {
+    await harden(binary, platform)
+  }
 
   if (platform !== 'darwin') return
 

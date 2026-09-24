@@ -19,13 +19,22 @@ VERSION="${1:-$(node -p "require('$(cd "$(dirname "$0")/.." && pwd)/package.json
 REPO="${REPO:-saasmouth/focusbuddy}"
 TAG="v${VERSION}"
 BASE="https://github.com/${REPO}/releases/download/${TAG}"
+# Which mac slice this release ships. 4.3.1 onward is `universal` so the build
+# runs on Intel as well as Apple Silicon; older releases were `arm64`.
+MAC_ARCH="${MAC_ARCH:-universal}"
 
 # Required assets. The .yml files are the ones whose absence breaks updates; the
 # binaries + blockmaps are what they point at.
+#
+# The .dmg is in here because it is what the website's download button points at.
+# It used to be outside this gate entirely — uploaded by hand per RELEASE.md and
+# never verified — so a release could pass every check while the link real users
+# click returned 404.
 REQUIRED=(
   "latest-mac.yml"
-  "Haptyx-${VERSION}-mac-arm64.zip"
-  "Haptyx-${VERSION}-mac-arm64.zip.blockmap"
+  "Haptyx-${VERSION}-mac-${MAC_ARCH}.zip"
+  "Haptyx-${VERSION}-mac-${MAC_ARCH}.zip.blockmap"
+  "Haptyx-${VERSION}-mac-${MAC_ARCH}.dmg"
   "latest.yml"
   "Haptyx-${VERSION}-win-x64.exe"
 )

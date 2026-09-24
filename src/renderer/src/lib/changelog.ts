@@ -36,6 +36,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.1',
+    date: '2026-09-24T18:00:00Z',
+    title: 'PlexiDesk 4.3.1 \u2014 now runs on Intel Macs',
+    tag: 'fix',
+    summary:
+      'PlexiDesk is now one universal build that runs on both Apple Silicon and Intel Macs. Every release up to and including 4.3.0 was built for Apple Silicon only, so an Intel Mac refused to open it at all \u2014 macOS rejects the architecture before any of the app runs, which is why the only thing you saw was "this application is not supported on the Mac", with nothing to explain it. Sequoia still supports Intel hardware, so this was a straightforward gap rather than an old-machine problem. Nothing changes on Apple Silicon beyond the download being larger, because the one file now carries both. The release gate checks the shipped binary really does carry both architectures, so this cannot quietly regress.',
+    highlights: [
+      'The mac download is a single universal build \u2014 one .dmg that installs on Apple Silicon and Intel alike.',
+      'Fixes "You can\u2019t open the application PlexiDesk because this application is not supported on the Mac" on Intel Macs.',
+      'The database, haptics, OCR and image addons are all built for both architectures, so nothing degrades on Intel.',
+      'The release gate now verifies the .dmg exists and that the binary is genuinely universal before a release can pass.'
+    ]
+  },
+  {
     version: '4.3.0',
     date: '2026-09-24T09:00:00Z',
     title: 'PlexiDesk 4.3.0 \u2014 a browser that works for you, and everything you have open in one strip',

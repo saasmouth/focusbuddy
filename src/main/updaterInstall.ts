@@ -3,7 +3,19 @@
 
 const REPO = 'saasmouth/focusbuddy'
 
-// The release asset URL for a given version and arch.
+// The mac slice named in release assets. From 4.3.1 the mac build is a single
+// universal artifact, so there is no longer a per-arch asset to choose between
+// and process.arch must NOT be used to build the URL: an arm64 machine asking
+// for Haptyx-<v>-mac-arm64.zip would 404 on every release from 4.3.1 onward and
+// the one-click update would fail with nothing wrong on the release itself.
+//
+// Releases up to 4.3.0 shipped Haptyx-<v>-mac-arm64.zip and nothing else, which
+// is also why 4.3.1's release carries an arm64-named copy of the universal zip:
+// clients already running 4.3.0 build their URL with the old code and cannot be
+// changed retroactively.
+export const MAC_UPDATE_ARCH = 'universal'
+
+// The release asset URL for a given version and mac slice.
 export function macAssetUrl(version: string, arch: string): string {
   return `https://github.com/${REPO}/releases/download/v${version}/Haptyx-${version}-mac-${arch}.zip`
 }

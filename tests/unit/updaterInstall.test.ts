@@ -7,7 +7,8 @@ import {
   macAssetUrl,
   appBundlePath,
   isTranslocated,
-  MAC_INSTALL_SCRIPT
+  MAC_INSTALL_SCRIPT,
+  MAC_UPDATE_ARCH
 } from '../../src/main/updaterInstall'
 
 describe('macAssetUrl', () => {
@@ -15,6 +16,29 @@ describe('macAssetUrl', () => {
     expect(macAssetUrl('2.5.18', 'arm64')).toBe(
       'https://github.com/saasmouth/focusbuddy/releases/download/v2.5.18/Haptyx-2.5.18-mac-arm64.zip'
     )
+  })
+
+  it('names the universal asset the mac build actually publishes', () => {
+    expect(macAssetUrl('4.3.1', MAC_UPDATE_ARCH)).toBe(
+      'https://github.com/saasmouth/focusbuddy/releases/download/v4.3.1/Haptyx-4.3.1-mac-universal.zip'
+    )
+  })
+})
+
+describe('MAC_UPDATE_ARCH', () => {
+  // The mac build is a single universal artifact from 4.3.1, so there is no
+  // per-arch asset to pick. Deriving this from process.arch — which is what the
+  // updater used to do — makes every one-click mac update 404, because
+  // Haptyx-<v>-mac-arm64.zip and -mac-x64.zip are no longer published.
+  it('is the universal slice, never the running process arch', () => {
+    expect(MAC_UPDATE_ARCH).toBe('universal')
+    expect(MAC_UPDATE_ARCH).not.toBe(process.arch)
+  })
+
+  it('is what the updater asks for, so the URL never carries a per-arch name', () => {
+    const url = macAssetUrl('4.3.1', MAC_UPDATE_ARCH)
+    expect(url).not.toContain('mac-arm64')
+    expect(url).not.toContain('mac-x64')
   })
 })
 

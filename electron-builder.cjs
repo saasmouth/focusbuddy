@@ -119,10 +119,43 @@ module.exports = {
     // (what a new user downloads and double-clicks to install — and, unlike a raw
     // .app-in-.zip, a dmg does not get its code signature corrupted by the
     // browser download + Archive Utility unzip that caused the launch hang).
+    // Universal (x86_64 + arm64), not arm64-only. An arm64-only build is refused
+    // outright by Intel Macs with "this application is not supported on the
+    // Mac", which is what an Intel user hit on 4.3.0 — macOS rejects the
+    // architecture before any of our code runs, so there is nothing the app can
+    // do to explain itself. Sequoia still supports Intel hardware, so shipping
+    // one universal artifact is the only way the download works for everyone.
+    //
+    // This depends on the compiled addons already being fat: `npmRebuild: false`
+    // below means electron-builder packs whatever .node is in node_modules
+    // rather than rebuilding per arch, so without a fat addon one of the two
+    // slices would ship the wrong architecture. Run
+    // `npm run natives:universal` first — `npm run dist:mac:universal` does.
     target: [
-      { target: 'zip', arch: ['arm64'] },
-      { target: 'dmg', arch: ['arm64'] }
+      { target: 'zip', arch: ['universal'] },
+      { target: 'dmg', arch: ['universal'] }
     ],
+    // Do NOT let @electron/universal merge the two asars. Its mergeASARs step
+    // re-packs the combined asar and passes @electron/asar a single brace glob
+    // listing every unpacked file by absolute path:
+    //     unpack = `{${resolvedUnpack.join(',')}}`
+    // This app unpacks sharp, pdf-to-png-converter, tesseract.js, pdf-parse,
+    // better-sqlite3 and @napi-rs — 1,375 files — which makes that pattern
+    // ~186,000 characters against minimatch's 65,536 limit, and the build dies
+    // with a bare "pattern is too long" TypeError.
+    //
+    // With merging off, @electron/universal instead compares the two asars and,
+    // when they are identical, keeps the single one as-is. Ours ARE identical,
+    // because every compiled addon is already a fat binary (see
+    // scripts/build-mac-universal-natives.mjs) and the per-arch prebuilt
+    // packages all ship in both slices. So this costs nothing: no second asar,
+    // no duplicated payload, no loader shim.
+    //
+    // The dependency runs the other way round though — if the addons ever stop
+    // being universal the asars will differ, and this setting means the build
+    // quietly splits into app-x64.asar + app-arm64.asar and grows by ~270MB
+    // rather than failing. `npm run natives:check` is what catches that.
+    mergeASARs: false,
     // macOS permission strings. Without these in Info.plist macOS silently denies
     // getUserMedia for camera + microphone — the user never sees the system
     // prompt. NSCameraUsageDescription is what fixes the video-note capture.

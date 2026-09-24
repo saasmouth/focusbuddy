@@ -43,16 +43,20 @@ Therefore:
 cd projects/focusbuddy
 
 # 1. Bump version in package.json, commit, tag, push the branch.
-# 2. Build the signed mac zip (produces zip + blockmap + latest-mac.yml in release/).
+# 2. Build the signed UNIVERSAL mac artifacts (zip + dmg + blockmaps +
+#    latest-mac.yml in release/). This also rebuilds every compiled native
+#    addon for both architectures and lipos them into fat binaries, which is
+#    what makes a universal app possible at all — see the long note on
+#    `mergeASARs` in electron-builder.cjs.
 VITE_USE_REMOTE_SIGNAL=true \
 VITE_SIGNAL_HTTP_URL=https://focusbuddy-signal.fly.dev \
 VITE_SIGNAL_WS_URL=wss://focusbuddy-signal.fly.dev/ws \
 VITE_VIEWER_URL=https://focusbuddy-viewer.vercel.app \
-  npm run dist:zip
+  npm run dist:mac:universal
 
 # 3. Build Windows via CI and wait for it, then create the release with the mac zip:
 gh workflow run build-windows.yml --ref rebrand/archeon
-gh release create vX.Y.Z release/Haptyx-X.Y.Z-mac-arm64.zip --title "Haptyx X.Y.Z" --notes "..."
+gh release create vX.Y.Z release/Haptyx-X.Y.Z-mac-universal.zip --title "Haptyx X.Y.Z" --notes "..."
 
 # 4. Attach the COMPLETE mac update set + run the gate (this is the step that
 #    used to be skipped). Defaults the version from package.json:
@@ -93,19 +97,30 @@ gate prevents for mac/win. So every release that bumps the version MUST also att
 the office set to the same tag and pass `npm run release:verify:office`. Office is
 mac arm64 only today (no Windows office build in CI yet).
 
-`npm run release:mac` uploads `Haptyx-X.Y.Z-mac-arm64.zip`, its `.blockmap`, and
-`latest-mac.yml` (with `--clobber`, so re-running is safe), then runs the gate.
+`npm run release:mac` uploads `Haptyx-X.Y.Z-mac-universal.zip`, its `.blockmap`,
+the `.dmg` and `latest-mac.yml` (with `--clobber`, so re-running is safe), plus an
+arm64-named copy of the zip for clients older than 4.3.1 — those build their own
+per-arch download URL from `process.arch`, so without that alias their one-click
+update 404s. It then refuses to upload unless the built binary really is
+universal, and runs the gate.
 `npm run release:verify` independently re-checks the whole release for both
 platforms: every asset reachable (HTTP 200) and the sha512 inside each manifest
 matching the binary GitHub actually serves.
 
 ## What gets published (the complete set)
 
-Per the arm64 zip target, electron-builder writes three mac files into
-`release/`, and all three must reach the release:
+The mac build is UNIVERSAL (x86_64 + arm64) from 4.3.1 onward. Up to 4.3.0 it was
+arm64-only, which an Intel Mac refuses to open at all — macOS rejects the
+architecture before any app code runs, so the user sees only "this application is
+not supported on the Mac" and the app cannot explain itself. Everything below
+must reach the release:
 
-- `Haptyx-X.Y.Z-mac-arm64.zip` — the app bundle that installs
-- `Haptyx-X.Y.Z-mac-arm64.zip.blockmap` — differential-update map
+- `Haptyx-X.Y.Z-mac-universal.zip` — the app bundle the updater installs
+- `Haptyx-X.Y.Z-mac-universal.zip.blockmap` — differential-update map
+- `Haptyx-X.Y.Z-mac-universal.dmg` — **what the website's download button serves**;
+  it used to be uploaded by hand and checked by nothing
+- `Haptyx-X.Y.Z-mac-arm64.zip` (+ `.blockmap`) — a copy of the universal zip under
+  the name pre-4.3.1 clients ask for
 - `latest-mac.yml` — the manifest electron-updater reads; **its absence is the
   bug that breaks updates**
 
@@ -171,15 +186,15 @@ Then attach the full mac set as usual (`npm run release:mac`) AND upload the dmg
 to the same release so new users can download-and-double-click:
 
 ```bash
-gh release upload vX.Y.Z release/Haptyx-X.Y.Z-mac-arm64.dmg --clobber
+gh release upload vX.Y.Z release/Haptyx-X.Y.Z-mac-universal.dmg --clobber
 ```
 
 Verify it actually notarised before shipping (this is the equivalent of the
 release gate for signing — do not skip):
 
 ```bash
-spctl -a -vvv "release/mac-arm64/PlexiDesk.app"   # must say: accepted, source=Notarized Developer ID
-codesign -dvv "release/mac-arm64/PlexiDesk.app" 2>&1 | grep -i Signature   # must NOT say adhoc
+spctl -a -vvv "release/mac-universal/PlexiDesk.app"   # must say: accepted, source=Notarized Developer ID
+codesign -dvv "release/mac-universal/PlexiDesk.app" 2>&1 | grep -i Signature   # must NOT say adhoc
 ```
 
 Distribute the **.dmg** as the download link on the landing page. The .zip stays
