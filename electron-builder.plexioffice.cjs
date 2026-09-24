@@ -113,6 +113,15 @@ module.exports = {
 
   win: { target: [{ target: 'nsis', arch: ['x64'] }] },
 
+  // Same reason electron-builder.cjs sets this: the in-builder native rebuild
+  // hangs. It stalls in @electron/rebuild's node-gyp worker at
+  // "preparing moduleName=better-sqlite3" with the process asleep at 0% CPU and
+  // no compiler child, and sits there indefinitely — the main config turned this
+  // off long ago but this one was left on, so every office build hung until it
+  // was killed by hand. Rebuild natives beforehand instead:
+  //   npm run natives:universal   (or: npx @electron/rebuild -f -a arm64 -v <electron>)
+  npmRebuild: false,
+
   nsis: {
     oneClick: false,
     perMachine: false,
