@@ -36,6 +36,45 @@ export function groundingBlock(s: GroundingSource, i: number): string {
 // single open canvas widget could ride at 8000.
 export const SOURCE_PROMPT_CAP = 6000
 
+/**
+ * Total characters of retrieved material one answer may carry.
+ *
+ * The real constraint is the prompt, not the source count, so this is where
+ * thoroughness is actually bounded. ~140k characters is roughly 35k tokens: large
+ * against a 200k context, and deliberately so — a question that touches a dozen
+ * files should be answered from a dozen files. Twenty short notes cost a fraction
+ * of two long contracts, and a source COUNT cannot tell those apart, which is why
+ * capping the count was the wrong lever.
+ */
+export const RETRIEVAL_TOTAL_CHAR_BUDGET = 140_000
+
+/**
+ * Take as many sources as the budget allows, in the order they were ranked.
+ *
+ * Must run BEFORE the sources are numbered. The numbered list in the prompt, the
+ * citation chips in the UI and the text the model can actually read have to be
+ * the same set: drop a source afterwards and the model can legitimately cite [25]
+ * having never been shown it, which is indistinguishable from a hallucinated
+ * citation and impossible to debug.
+ *
+ * Always keeps at least one source. A single item over budget is still better
+ * grounding than none, and the per-source cap already bounds how bad that gets.
+ */
+export function packSources<T extends { text: string }>(
+  sources: T[],
+  budget = RETRIEVAL_TOTAL_CHAR_BUDGET
+): { kept: T[]; dropped: number } {
+  const kept: T[] = []
+  let used = 0
+  for (const s of sources) {
+    const cost = Math.min(s.text.length, SOURCE_PROMPT_CAP)
+    if (kept.length > 0 && used + cost > budget) break
+    kept.push(s)
+    used += cost
+  }
+  return { kept, dropped: sources.length - kept.length }
+}
+
 // One numbered source line of the chat retrieval block. Pure and exported so a
 // unit test can assert what ACTUALLY reaches the prompt — the gate the defect
 // audit demanded after the 600-char cut survived invisible to every spec.

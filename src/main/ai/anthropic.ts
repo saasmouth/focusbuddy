@@ -65,7 +65,7 @@ import {
   isCreditClient,
   isStreamingUnsupported
 } from './creditMode'
-import { groundingBlock, retrievalSourceLine, type GroundingSource } from './grounding'
+import { groundingBlock, retrievalSourceLine, packSources, type GroundingSource } from './grounding'
 import {
   cachedSystem,
   cachedUserContent,
@@ -1552,7 +1552,13 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
       // away both orderings to produce a third nobody asked for.
       const withMail = [...rawSources, ...mailGround.sources]
       // Drop anything the user already put in front of the model by name.
-      const sources = withMail.filter((s) => !admittedIds.has(s.docId))
+      const admitted = withMail.filter((s) => !admittedIds.has(s.docId))
+      // Pack to the prompt budget BEFORE numbering. The numbered list in the
+      // prompt, the citation chips in the UI and the text the model can actually
+      // read must be ONE set — trim afterwards and the model can cite [25] having
+      // never been shown it, which is indistinguishable from a hallucination.
+      const packed = packSources(admitted)
+      const sources = packed.kept
       if (sources.length > 0 || webResults.length > 0) {
         // Honest about demote-not-exclude, and it only claims a related-desk
         // network when one exists (#13: relatedScopeIds always contains the
@@ -1610,6 +1616,12 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
           // reaches the prompt (M1: the old inline 600-char cut threw away 90%
           // of every retrieved passage, invisibly to every spec).
           sources.map((s, i) => retrievalSourceLine(s, i)).join('\n') +
+          // Never silently. If matches were left out for space the model is told,
+          // so it can say the answer may be partial rather than implying it read
+          // everything that matched.
+          (packed.dropped > 0
+            ? `\n(${packed.dropped} further match${packed.dropped === 1 ? '' : 'es'} were found but did not fit; say so if the answer may be incomplete.)`
+            : '') +
           webBlock +
           '\n--- END RETRIEVED MATERIAL ---'
       }

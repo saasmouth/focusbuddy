@@ -29,12 +29,25 @@ import { meetingRecallSources } from './segmentRecall'
 export type { WorkspaceSource } from './workspaceRank'
 export { extractDocText } from './workspaceRank'
 
-// How many sources ground an answer (M1 defect #4). The old 6, round-robined
-// across three pools, meant AT MOST 2 documents could ever reach the assistant
-// no matter how many matched. 10 slots let ~4 documents through while
-// tasks/tables/notes and knowledge keep their fair rounds; the per-source
-// prompt cap (grounding.ts SOURCE_PROMPT_CAP) bounds the total prompt cost.
-export const RETRIEVAL_SOURCE_LIMIT = 10
+// How many sources ground an answer (M1 defect #4).
+//
+// The arithmetic is what matters, and it kept being underestimated. Slots are
+// filled round-robin across SEVEN pools — knowledge, documents, tasks/tables/
+// notes, widgets, files, chats, meetings — so the number of ROUNDS is what
+// decides how many documents can be read, not the total. At 6 slots each pool got
+// one round: at most 2 documents, whatever matched. At 10 it was still only one
+// full round plus three stragglers, so "why did it only look at two of my files?"
+// remained the honest answer.
+//
+// 28 is four clean rounds of seven. Four documents, four notes, four widgets, four
+// meetings, and so on — enough that a question spanning a handful of files is
+// actually grounded in all of them.
+//
+// Thoroughness is bounded by a CHARACTER BUDGET rather than by starving the slot
+// count: see RETRIEVAL_TOTAL_CHAR_BUDGET in grounding.ts. A count is the wrong
+// lever — twenty short notes cost less than two long contracts, and capping the
+// count punishes the cheap case to protect against the expensive one.
+export const RETRIEVAL_SOURCE_LIMIT = 28
 
 export async function retrieveSources(
   query: string,
