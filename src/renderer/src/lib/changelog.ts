@@ -36,6 +36,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.2',
+    date: '2026-09-28T10:00:00Z',
+    title: 'PlexiDesk 4.3.2 \u2014 Plexii can see inside your widgets, and its suggestions reach you',
+    tag: 'fix',
+    summary:
+      'Two things were quietly broken. Ask Plexii to open something in focus view, show you where a widget is, go to your documents or tick an item off a checklist, and it would answer as though it had done it while no card ever appeared for you to accept \u2014 eight actions were fully built and had no way to be read back from a reply. And the widgets whose whole point is a list told Plexii only what they were pointed at, never what was in them: asking about the emails on a desk got you a description of a filter rule. Both are fixed, and Plexii can now file an email as well as read one.',
+    highlights: [
+      'Suggested actions appear as cards again \u2014 open in focus view, show me where X is, go to my documents, make me a document, tick an item off, add a subtask, tidy this desk, group these widgets.',
+      'Plexii reads what is actually in an inbox, a contacts list, an attention view and a gallery, instead of describing the filter they run.',
+      'It can mark read, archive, move, trash or flag one email as spam \u2014 always as a card you accept, never on its own.',
+      'Email is read as senders, subjects and dates only. Bodies are never fed to the assistant, because a body is written by whoever sent it.',
+      'An inbox nobody has opened yet reads as "not loaded", not as "you have no email".'
+    ]
+  },
+  {
     version: '4.3.1',
     date: '2026-09-24T18:00:00Z',
     title: 'PlexiDesk 4.3.1 \u2014 now runs on Intel Macs',
