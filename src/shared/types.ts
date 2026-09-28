@@ -1046,35 +1046,47 @@ export interface MemoryItem {
 
 // Where the navigate-to proposal can send the user. Each value maps to a
 // useViewStore go* action in actionExecutor's applyNavigateTo.
-export type NavigateTarget =
-  | 'home'
-  | 'rooms'
-  | 'desks'
-  | 'shared'
-  | 'documents'
-  | 'files'
-  | 'mail'
-  | 'messages'
-  | 'inbox'
-  | 'calendar'
-  | 'meetings'
-  | 'forms'
-  | 'vault'
-  | 'search'
-  | 'reports'
-  | 'insights'
-  | 'org'
-  | 'peoplemap'
-  | 'knowledge'
-  | 'apps'
-  | 'sign'
-  | 'projects'
-  | 'flows'
-  | 'marketplace'
-  | 'design'
-  | 'task'
-  | 'document'
-  | 'product'
+// The places navigate-to can go. A runtime array with the type derived FROM it,
+// not a bare union: the chat parser has to validate a target that arrived as
+// untyped JSON, and a hand-copied second list is exactly the kind of drift that
+// left navigate-to advertised to the model and unparseable for a whole release.
+export const NAVIGATE_TARGETS = [
+  'home',
+  'rooms',
+  'desks',
+  'shared',
+  'documents',
+  'files',
+  'mail',
+  'messages',
+  'inbox',
+  'calendar',
+  'meetings',
+  'forms',
+  'vault',
+  'search',
+  'reports',
+  'insights',
+  'org',
+  'peoplemap',
+  'knowledge',
+  'apps',
+  'sign',
+  'projects',
+  'flows',
+  'marketplace',
+  'design',
+  'task',
+  'document',
+  'product',
+] as const
+export type NavigateTarget = (typeof NAVIGATE_TARGETS)[number]
+
+// The office surfaces create-document can make. Runtime array with the type
+// derived from it, for the same reason as NAVIGATE_TARGETS: the chat parser has
+// to check a docType that arrived as untyped JSON.
+export const CREATE_DOCUMENT_TYPES = ['doc', 'sheet', 'slides', 'map', 'design', 'draw'] as const
+export type CreateDocumentType = (typeof CREATE_DOCUMENT_TYPES)[number]
 
 export type ActionProposal =
   | {
@@ -1381,7 +1393,7 @@ export type ActionProposal =
       // rather than a canvas widget.
       id: string
       kind: 'create-document'
-      docType: 'doc' | 'sheet' | 'slides' | 'map' | 'design' | 'draw'
+      docType: CreateDocumentType
       title: string
       reason?: string
     }

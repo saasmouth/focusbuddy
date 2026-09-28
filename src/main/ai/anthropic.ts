@@ -51,6 +51,8 @@ import { parseSheetRows, parseSheetColumns } from './sheetParse'
 import { migrateSlidesBody } from '@shared/slidesMigrate'
 import { resolveTheme, applyThemeToDeck, BUILTIN_THEMES } from '@shared/slideThemes'
 import { normalizeMapBody, autoLayout } from '@shared/mapGraph'
+import { NAVIGATE_TARGETS, CREATE_DOCUMENT_TYPES } from '@shared/types'
+import type { NavigateTarget } from '@shared/types'
 import type { MapShape } from '@shared/types'
 import type { SlidesBody } from '@shared/types'
 import { resolveAnthropicKey } from '../settingsStore'
@@ -387,7 +389,7 @@ function taskBlock(taskId: string): string {
 // prompt and the agent-loop prompt so a newly-added ActionProposal kind can never
 // be documented to one brain and not the other. Contains NO envelope-field refs
 // (those differ: chat uses "reply", the agent uses "narration").
-const ACTION_KINDS_CATALOG =
+export const ACTION_KINDS_CATALOG =
   'Each action object has a "kind" plus its required fields. Valid kinds:\n' +
   '\n' +
   '  { "kind": "create-todo-list", "title": "Launch checklist", "items": ["Buy hosting", "Record pilot"], "reason": "checklist for launch" }\n' +
@@ -395,6 +397,10 @@ const ACTION_KINDS_CATALOG =
   '  { "kind": "drill-in-widget", "widgetId": "the id from the desk index", "label": "Email sequences", "reason": "..." }  (Opens ONE widget full-screen in focus mode. This is what "open X in focus view", "show me X full screen", "zoom into X" mean.)\n' +
   '  { "kind": "focus-widget", "widgetId": "the id from the desk index", "label": "Email sequences", "reason": "..." }  (Scrolls the canvas to a widget and highlights it, leaving the desk in view. Use when the user wants to be SHOWN where something is rather than to open it.)\n' +
   '  { "kind": "navigate-to", "target": "documents"|"desks"|"files"|"mail"|"calendar"|"knowledge"|"home", "targetId": "optional exact id", "label": "Documents", "reason": "..." }  (Goes to a place in Plexii. For a specific document use target "documents" with its id.)\n' +
+  '  { "kind": "toggle-todo-item", "widgetId": "the id from the desk index", "widgetLabel": "Launch checklist", "itemMatch": "Record pilot", "checked": true, "reason": "..." }  (Ticks or un-ticks ONE item in a Markdown or Page widget\'s task list. "itemMatch" is a distinctive piece of the item\'s text, matched case-insensitively as a substring — quote enough of the line to be unambiguous. This is what "mark X as done", "tick off X", "uncheck X" mean.)\n' +
+  '  { "kind": "add-subtask", "title": "Call the vendor", "notes": "optional detail", "parentId": "optional task id, omit for the desk the user is on", "dueDate": 1790000000000, "assignee": "optional", "reason": "..." }  (Adds a subtask under the desk the user is already on. Use this, NOT create-task, when they want another item on the thing in front of them — create-task makes a whole new desk.)\n' +
+  '  { "kind": "arrange-widgets", "widgetIds": ["optional ids"], "label": "Tidy up", "reason": "..." }  (Auto-layouts widgets into a tidy grid. Omit "widgetIds" to arrange every unpinned widget on the desk, which is what "tidy this up" / "clean up this desk" mean.)\n' +
+  '  { "kind": "create-section", "name": "Research", "widgetIds": ["id1","id2"], "reason": "..." }  (Groups EXISTING widgets into a labelled Section on the desk. Both fields are required — a section needs a name and something to hold.)\n' +
   '  { "kind": "agent-browse", "task": "Search this site for a 2-bedroom under $2400 and open the best listing", "url": "https://...", "reason": "..." }  (Plexii drives the in-app browser step by step — visible, stoppable, consent-gated. Use when the user asks you to DO something on a website: search within it, fill a form, walk a flow. For simply showing a web page, use open-url. It never signs in, pays, solves CAPTCHAs, or moves files — if the task needs that, say that part is theirs. "url" is where to start; omit it to act on the page already open.)\n' +
   '  { "kind": "create-widget", "widgetKind": "sticky"|"note"|"markdown"|"calculator"|"color"|"timer", "title": "...", "content": "...", "reason": "..." }\n' +
   '  { "kind": "create-page", "title": "Project brief", "sections": [{"heading":"Goals","body":"..."}], "deskId": "optional — the desk id this belongs on", "reason": "..." }  (A Page is a DOCUMENT inside Plexii, not a web address. This is what "make me a page", "a page to write in", and "a page for an agent to write to" all mean.)\n' +
@@ -419,6 +425,7 @@ const ACTION_KINDS_CATALOG =
   '  { "kind": "create-knowledge-entry", "title": "Brand voice rule", "body": "We write in first-person plural and never use em dashes.", "tags": ["brand"], "reason": "user stated this as a rule" }\n' +
   '  { "kind": "edit-document", "documentId": "<from the documents list>", "label": "the Q3 brief", "body": "New section text...", "operation": "append", "reason": "..." }\n' +
   '  { "kind": "generate-document", "docType": "slides"|"sheet"|"map"|"doc", "title": "Q3 launch deck", "prompt": "<what to make, grounded only in the request/context>", "reason": "..." }  (slides=presentation, sheet=spreadsheet, map=diagram/flowchart/mind map/org chart, doc=written document; the real content is generated in a follow-up step, so the prompt must restate only what was asked and invent nothing, and your text must not claim it already exists)\n' +
+  '  { "kind": "create-document", "docType": "doc"|"sheet"|"slides"|"map"|"design"|"draw", "title": "Q3 budget", "reason": "..." }  (An EMPTY office surface for the user to fill in themselves. Prefer generate-document above whenever you know what should go in it — an empty spreadsheet is rarely what someone asking for "a budget" wants. Use this only when they explicitly ask for a blank one, or when what belongs in it is genuinely theirs to decide. It is also the only way to make a design or draw surface.)\n' +
   '  { "kind": "set-cell", "tableId": "<from canvas summary>", "rowId": "<from rowIds>", "cells": {"Status":"Live"}, "reason": "..." }\n' +
   '  { "kind": "schedule-event", "title": "Deep work: brief", "startMs": 1780000000000, "durationMinutes": 60, "recurrence": null, "reason": "..." }\n' +
   '  { "kind": "compose-mail", "to": ["ana@example.com"], "subject": "Q3 brief attached", "body": "Hi Ana, ...", "reason": "..." }\n' +
@@ -1157,6 +1164,148 @@ export function parseChatJson(raw: string): {
           conversationLabel:
             typeof action.conversationLabel === 'string' ? action.conversationLabel : undefined,
           body,
+          reason
+        })
+        break
+      }
+      // ── Kinds below were defined, given appliers, and (four of them) advertised
+      // to the model, with no case here to read them back. The applier side is
+      // protected by a `never` exhaustiveness check; a parser reading untyped
+      // JSON gets no such help, so the gap was silent: the model emitted the
+      // kind it was told to use, this switch had nothing for it, `dropped` went
+      // up, and the reply had already promised the work. See
+      // tests/unit/actionKindContract.test.ts, which now fails if it recurs.
+      case 'navigate-to': {
+        // Validated against the real target list rather than trusted: an
+        // unrecognised target would apply to nothing, so offering a card for it
+        // is offering a dead end.
+        const target = action.target
+        if (typeof target !== 'string') break
+        if (!(NAVIGATE_TARGETS as readonly string[]).includes(target)) break
+        proposals.push({
+          id: makeProposalId('nav', i++),
+          kind: 'navigate-to',
+          target: target as NavigateTarget,
+          targetId:
+            typeof action.targetId === 'string' && action.targetId.trim()
+              ? (action.targetId as string)
+              : undefined,
+          // A label is presentation only. Falling back to the target's own name
+          // beats dropping a navigation the user asked for over a missing string.
+          label: typeof action.label === 'string' && action.label.trim() ? (action.label as string) : target,
+          reason
+        })
+        break
+      }
+      case 'drill-in-widget':
+      case 'focus-widget': {
+        // Both address one widget by the id from the desk index; they differ only
+        // in whether it opens full-screen or is highlighted in place.
+        const widgetId = typeof action.widgetId === 'string' ? action.widgetId.trim() : ''
+        if (!widgetId) break
+        proposals.push({
+          id: makeProposalId(kind === 'focus-widget' ? 'focus' : 'drill', i++),
+          kind,
+          widgetId,
+          label:
+            typeof action.label === 'string' && action.label.trim()
+              ? (action.label as string)
+              : 'this widget',
+          reason
+        })
+        break
+      }
+      case 'create-document': {
+        const docType = action.docType
+        if (typeof docType !== 'string') break
+        if (!(CREATE_DOCUMENT_TYPES as readonly string[]).includes(docType)) break
+        const title = typeof action.title === 'string' ? action.title.trim() : ''
+        if (!title) break
+        proposals.push({
+          id: makeProposalId('doc', i++),
+          kind: 'create-document',
+          docType: docType as (typeof CREATE_DOCUMENT_TYPES)[number],
+          title,
+          reason
+        })
+        break
+      }
+      case 'toggle-todo-item': {
+        const widgetId = typeof action.widgetId === 'string' ? action.widgetId.trim() : ''
+        // itemMatch is how the renderer finds the line to flip. Empty would match
+        // the first line of the list, so it must be refused rather than guessed.
+        const itemMatch = typeof action.itemMatch === 'string' ? action.itemMatch.trim() : ''
+        if (!widgetId || !itemMatch) break
+        if (typeof action.checked !== 'boolean') break
+        proposals.push({
+          id: makeProposalId('todo', i++),
+          kind: 'toggle-todo-item',
+          widgetId,
+          widgetLabel:
+            typeof action.widgetLabel === 'string' && action.widgetLabel.trim()
+              ? (action.widgetLabel as string)
+              : 'this list',
+          itemMatch,
+          checked: action.checked,
+          reason
+        })
+        break
+      }
+      case 'add-subtask': {
+        const title = typeof action.title === 'string' ? action.title.trim() : ''
+        if (!title) break
+        proposals.push({
+          id: makeProposalId('sub', i++),
+          kind: 'add-subtask',
+          title,
+          notes: typeof action.notes === 'string' ? (action.notes as string) : undefined,
+          // null is meaningful for both: it means "the current desk" / "no date",
+          // as distinct from undefined meaning the model did not say.
+          parentId:
+            typeof action.parentId === 'string' || action.parentId === null
+              ? (action.parentId as string | null)
+              : undefined,
+          dueDate:
+            typeof action.dueDate === 'number' || action.dueDate === null
+              ? (action.dueDate as number | null)
+              : undefined,
+          assignee:
+            typeof action.assignee === 'string' || action.assignee === null
+              ? (action.assignee as string | null)
+              : undefined,
+          reason
+        })
+        break
+      }
+      case 'arrange-widgets': {
+        const ids = Array.isArray(action.widgetIds)
+          ? (action.widgetIds as unknown[]).filter((x): x is string => typeof x === 'string' && !!x.trim())
+          : null
+        proposals.push({
+          id: makeProposalId('arrange', i++),
+          kind: 'arrange-widgets',
+          // Omitted means every non-pinned widget on the active desk, which is the
+          // ordinary "tidy this up" request, so an absent list is not a failure.
+          widgetIds: ids && ids.length > 0 ? ids : null,
+          label:
+            typeof action.label === 'string' && action.label.trim() ? (action.label as string) : 'Tidy up',
+          reason
+        })
+        break
+      }
+      case 'create-section': {
+        const name = typeof action.name === 'string' ? action.name.trim() : ''
+        const ids = Array.isArray(action.widgetIds)
+          ? (action.widgetIds as unknown[]).filter((x): x is string => typeof x === 'string' && !!x.trim())
+          : []
+        // A section with no widgets groups nothing; the name is its identity, so
+        // neither can be defaulted.
+        if (!name || ids.length === 0) break
+        proposals.push({
+          id: makeProposalId('section', i++),
+          kind: 'create-section',
+          name,
+          widgetIds: ids,
           reason
         })
         break
