@@ -26,6 +26,7 @@ import QuestionCard from './assistant/QuestionCard'
 import { activeQuestionFor } from '../lib/assistantQuestion'
 import { useAssistantContext } from '../lib/assistantContext'
 import { useWidgetStore } from '../stores/widgets'
+import { useMailModalStore } from '../stores/mailModal'
 import { chimeIn } from '../lib/audioBeep'
 import CanvasContextMenu, { type CtxMenuItem } from './CanvasContextMenu'
 import { FLOATING_MENU_ASIDE, FLOATING_MENU_STYLE } from './chrome/floatingMenu'
@@ -818,6 +819,13 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
         break
       case 'knowledge':
         view.goKnowledge(target.entryId)
+        break
+      case 'email':
+        // Open the message itself, in the shared reader, rather than dropping the
+        // user at the inbox to search for it again. goMail first so the reader has
+        // its surface; the store is what actually shows the message.
+        view.goMail()
+        useMailModalStore.getState().open(target.uid)
         break
       case 'url':
         // A web source opens in the in-app browser panel (A2, R4/R13): the

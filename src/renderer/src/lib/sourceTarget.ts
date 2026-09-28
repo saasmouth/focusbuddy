@@ -53,6 +53,12 @@ export type SourceTarget =
   // A meeting transcript (M4, SPEC-003 P4) — docId is the meeting id; opens
   // the meeting in PlexiMeet, where the Thread carries the cited lines.
   | { kind: 'meeting'; meetingId: string }
+  // One email. docId is `mail:<uid>`; opens THAT message in the shared reader.
+  //
+  // The uid is the whole point. Sending a citation to the inbox and leaving the
+  // user to find the message again is not a citation, it is a hint — and for a
+  // mailbox of thousands, a useless one.
+  | { kind: 'email'; uid: number }
   // Nothing we know how to open. Better to render a citation as plain text than
   // to offer a click that goes nowhere.
   | null
@@ -72,6 +78,15 @@ export function targetForSource(source: { docId: string; docType: string }): Sou
   if (type === 'file') return { kind: 'file', fileId: id }
   if (type === 'chat') return { kind: 'chat', conversationId: id }
   if (type === 'meeting') return { kind: 'meeting', meetingId: id }
+  if (type === 'email') {
+    // `mail:<uid>` — parsed strictly. A uid that is not a whole number cannot
+    // address a message, and a citation that opens the WRONG email is worse than
+    // one that does not open at all.
+    const m = /^mail:(\d+)$/.exec(id)
+    if (!m) return null
+    const uid = Number(m[1])
+    return Number.isSafeInteger(uid) ? { kind: 'email', uid } : null
+  }
   if (DOCUMENT_TYPES.has(type)) return { kind: 'document', documentId: id }
   return null
 }
