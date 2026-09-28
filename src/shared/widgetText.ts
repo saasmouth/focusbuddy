@@ -42,6 +42,55 @@ export interface ResolvedTable {
   rows: Array<Record<string, unknown>>
 }
 
+/**
+ * One message in an inbox widget, HEADERS ONLY.
+ *
+ * Deliberately no body and no snippet. The reasoning is already written down in
+ * src/main/ai/mailTriage.ts: "a body is the part of an email written by a
+ * stranger, and feeding a few hundred of them to a model that is about to
+ * propose deleting things is how you get an inbox sorted by whoever wrote the
+ * most insistent message in it." That applies with more force here than there,
+ * because this text reaches the main assistant prompt, which can propose
+ * actions — so an instruction buried in a marketing email would be read by
+ * something able to act on it. Sender, subject, date and read state are enough
+ * to answer what is in an inbox and what to do with it.
+ */
+export interface ResolvedMailItem {
+  /** Stable for the life of the mailbox; what a mail action addresses. */
+  uid: number
+  fromName?: string
+  fromAddress?: string
+  subject?: string
+  date?: number
+  seen?: boolean
+  flagged?: boolean
+  hasAttachments?: boolean
+}
+
+/** One person in a contacts widget. */
+export interface ResolvedContact {
+  name: string
+  email?: string
+  phone?: string
+  role?: string
+  company?: string
+  tags?: string[]
+}
+
+/** One item in an attention widget. */
+export interface ResolvedWorkItem {
+  title: string
+  state?: string
+  /** ISO date string, as FbNode stores it — not epoch ms. */
+  dueAt?: string | null
+}
+
+/** One entry in a gallery or drive widget. */
+export interface ResolvedFileRef {
+  name: string
+  mimeType?: string
+}
+
 export interface WidgetTextResolvers {
   // A table widget's content is a table id; resolve it to columns + rows.
   table?: (tableId: string) => ResolvedTable | null
@@ -49,6 +98,16 @@ export interface WidgetTextResolvers {
   docText?: (docId: string) => string | null
   // A live browser/pdf/doc webview's rendered page text, when the caller has it.
   liveText?: (widgetId: string) => string | null
+  // The messages an inbox widget is showing. Returning null means "not known
+  // right now", which is reported differently from an empty inbox — see the
+  // 'inbox' case. Headers only, by policy; see ResolvedMailItem.
+  mailItems?: (w: Widget) => ResolvedMailItem[] | null
+  // The people a contacts widget is showing.
+  contacts?: (w: Widget) => ResolvedContact[] | null
+  // The items an attention widget is showing.
+  workItems?: (w: Widget) => ResolvedWorkItem[] | null
+  // Names for the files a gallery or drive widget holds.
+  fileRefs?: (w: Widget) => ResolvedFileRef[] | null
 }
 
 export interface WidgetText {
@@ -62,6 +121,10 @@ export interface WidgetText {
 
 const MAX_TABLE_ROWS = 40
 const MAX_MINDMAP_NODES = 200
+const MAX_MAIL_ITEMS = 40
+const MAX_CONTACTS = 60
+const MAX_WORK_ITEMS = 40
+const MAX_FILE_REFS = 40
 
 // Collapse runs of whitespace; trim. Keeps single newlines out of the way for
 // the compact prompt paths while leaving the text intact for the full paths.
@@ -491,7 +554,13 @@ export function widgetToText(w: Widget, r: WidgetTextResolvers = {}): WidgetText
     case 'gallery': {
       const p = safeParse<{ fileIds?: string[] }>(raw)
       const ids = Array.isArray(p) ? (p as string[]) : (p?.fileIds ?? [])
-      return { ...base, text: ids.length ? `Image gallery: ${ids.length} image${ids.length === 1 ? '' : 's'}` : '(empty gallery)' }
+      if (!ids.length) return { ...base, text: '(empty gallery)' }
+      const refs = r.fileRefs?.(w) ?? null
+      const count = `Image gallery: ${ids.length} image${ids.length === 1 ? '' : 's'}`
+      if (!refs || refs.length === 0) return { ...base, text: count }
+      const shown = refs.slice(0, MAX_FILE_REFS)
+      const more = refs.length > shown.length ? `, +${refs.length - shown.length} more` : ''
+      return { ...base, text: `${count}: ${shown.map((f) => f.name).join(', ')}${more}` }
     }
 
     case 'meeting-record': {
@@ -501,7 +570,15 @@ export function widgetToText(w: Widget, r: WidgetTextResolvers = {}): WidgetText
 
     case 'drive': {
       const id = raw.trim()
-      return { ...base, text: id ? `Files folder bound to this desk${w.title ? `: ${w.title}` : ''}` : '(drive, no folder bound)' }
+      if (!id) return { ...base, text: '(drive, no folder bound)' }
+      const head = `Files folder bound to this desk${w.title ? `: ${w.title}` : ''}`
+      const refs = r.fileRefs?.(w) ?? null
+      if (!refs) return { ...base, text: head }
+      if (refs.length === 0) return { ...base, text: `${head} — empty.` }
+      const shown = refs.slice(0, MAX_FILE_REFS)
+      const lines = shown.map((f) => `- ${f.name}${f.mimeType ? ` (${f.mimeType})` : ''}`)
+      const more = refs.length > shown.length ? `\n(+${refs.length - shown.length} more files)` : ''
+      return { ...base, text: `${head}:\n${lines.join('\n')}${more}` }
     }
 
     case 'video':
@@ -539,16 +616,66 @@ export function widgetToText(w: Widget, r: WidgetTextResolvers = {}): WidgetText
 
     case 'inbox': {
       const p = safeParse<{ rules?: unknown; scan?: number }>(raw)
-      return { ...base, text: p?.rules ? 'Inbox filtered to this desk by a saved rule' : '(inbox, no rule set)' }
+      const rule = p?.rules ? 'Inbox filtered to this desk by a saved rule' : 'Inbox (no rule set)'
+      const items = r.mailItems?.(w) ?? null
+      // Three genuinely different states, told apart because they lead somewhere
+      // different. "Not loaded" must not read as "empty": answering "nothing in
+      // your inbox" about mail nobody has fetched would be a confident lie.
+      if (items === null) return { ...base, text: `${rule}. (Messages not loaded, so their contents are unknown.)` }
+      if (items.length === 0) return { ...base, text: `${rule}. No messages.` }
+      const shown = items.slice(0, MAX_MAIL_ITEMS)
+      const unread = items.filter((m) => m.seen === false).length
+      const lines = shown.map((m) => {
+        const who = m.fromName || m.fromAddress || 'unknown sender'
+        const bits = [
+          m.seen === false ? 'UNREAD' : '',
+          m.flagged ? 'flagged' : '',
+          m.hasAttachments ? 'attachment' : ''
+        ].filter(Boolean)
+        return `- [uid ${m.uid}] ${who}: ${m.subject || '(no subject)'}${
+          m.date ? ` — ${new Date(m.date).toISOString().slice(0, 10)}` : ''
+        }${bits.length ? ` (${bits.join(', ')})` : ''}`
+      })
+      const more = items.length > shown.length ? `\n(+${items.length - shown.length} more messages)` : ''
+      // The uid is printed because it is what a mail action addresses; without it
+      // the model can describe a message but not act on the right one.
+      return {
+        ...base,
+        text: `${rule}. ${items.length} message${items.length === 1 ? '' : 's'}, ${unread} unread. Subjects and senders only — bodies are not read.\n${lines.join('\n')}${more}`
+      }
     }
 
     case 'contacts': {
       const p = safeParse<{ activeGroup?: string }>(raw)
-      return { ...base, text: `People on this desk${p?.activeGroup ? ` (group: ${p.activeGroup})` : ''}` }
+      const head = `People on this desk${p?.activeGroup ? ` (group: ${p.activeGroup})` : ''}`
+      const people = r.contacts?.(w) ?? null
+      if (people === null) return { ...base, text: head }
+      if (people.length === 0) return { ...base, text: `${head}: none yet.` }
+      const shown = people.slice(0, MAX_CONTACTS)
+      const lines = shown.map((c) => {
+        const detail = [c.role, c.company, c.email, c.phone].filter(Boolean).join(', ')
+        const tags = c.tags && c.tags.length ? ` [${c.tags.join(', ')}]` : ''
+        return `- ${c.name}${detail ? ` — ${detail}` : ''}${tags}`
+      })
+      const more = people.length > shown.length ? `\n(+${people.length - shown.length} more people)` : ''
+      return { ...base, text: `${head}:\n${lines.join('\n')}${more}` }
     }
 
-    case 'attention':
-      return { ...base, text: "This desk's attention view: what is overdue, due and waiting" }
+    case 'attention': {
+      const head = "This desk's attention view: what is overdue, due and waiting"
+      const items = r.workItems?.(w) ?? null
+      if (items === null) return { ...base, text: head }
+      if (items.length === 0) return { ...base, text: `${head}. Nothing outstanding.` }
+      const shown = items.slice(0, MAX_WORK_ITEMS)
+      const lines = shown.map(
+        (it) =>
+          `- ${it.title}${it.state ? ` (${it.state})` : ''}${
+            it.dueAt ? ` — due ${it.dueAt.slice(0, 10)}` : ''
+          }`
+      )
+      const more = items.length > shown.length ? `\n(+${items.length - shown.length} more)` : ''
+      return { ...base, text: `${head}:\n${lines.join('\n')}${more}` }
+    }
 
     case 'chat-thread': {
       const p = safeParse<{ channelName?: string }>(raw)

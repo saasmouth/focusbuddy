@@ -28,6 +28,14 @@ interface CachedMailItem {
   fromAddress: string
   subject: string
   snippet?: string
+  // Kept alongside the search fields so an inbox widget can be described to the
+  // assistant: "3 unread, oldest from Tuesday" needs read state and dates, and
+  // the mail:list handler already has them — the previous mapping simply threw
+  // them away. See getCachedMailItems.
+  date?: number
+  seen?: boolean
+  flagged?: boolean
+  hasAttachments?: boolean
 }
 let mailCache: CachedMailItem[] = []
 export function setMailSearchCache(items: Array<CachedMailItem & { snippet?: string }>): void {
@@ -36,8 +44,29 @@ export function setMailSearchCache(items: Array<CachedMailItem & { snippet?: str
     fromName: m.fromName,
     fromAddress: m.fromAddress,
     subject: m.subject,
-    snippet: m.snippet
+    snippet: m.snippet,
+    date: m.date,
+    seen: m.seen,
+    flagged: m.flagged,
+    hasAttachments: m.hasAttachments
   }))
+}
+
+/**
+ * The inbox page the app has actually fetched this session, or null when none
+ * has been.
+ *
+ * null and [] mean different things to a caller and must stay distinguishable:
+ * nobody has opened mail yet, versus the inbox is genuinely empty. Reporting the
+ * first as the second would have the assistant state there is no mail when it
+ * simply has not looked.
+ *
+ * Deliberately returns no snippets. Callers that put this in front of a model
+ * get headers only — the reasoning is in src/main/ai/mailTriage.ts.
+ */
+export function getCachedMailItems(): Array<Omit<CachedMailItem, 'snippet'>> | null {
+  if (mailCache.length === 0) return null
+  return mailCache.map(({ snippet: _snippet, ...rest }) => rest)
 }
 const ESC = " ESCAPE '\\'"
 

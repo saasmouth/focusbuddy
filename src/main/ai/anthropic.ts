@@ -252,8 +252,35 @@ function formatActivityForPrompt(events: ActivityEvent[]): string {
 // Widgets listed in the structural desk index (M1 defect #21). At 14, widget
 // #15 did not exist as far as the assistant knew — "delete the widget called X"
 // answered "I don't see it". Index lines are one short line each (content is
-// capped at 600 chars below), so 40 stays cheap.
+// capped below), so 40 stays cheap.
 const DESK_INDEX_WIDGET_CAP = 40
+
+// How much of each widget's text the desk index carries.
+//
+// 600 is the general cap and stays: for prose, a diagram or a stat card, the
+// first 600 characters say what the widget is, and the focused/pinned attachment
+// path carries the whole thing at 8 000 when the user is actually pointing at it.
+//
+// It is the wrong cap for a widget whose entire content is a LIST OF ADDRESSABLE
+// ITEMS. An inbox of 40 emails or a table of 40 rows renders to a few thousand
+// characters, so 600 shows roughly the first ten and silently hides the rest —
+// and "archive the newsletters" or "mark that row done" needs the specific item,
+// with its uid or row id, to be present at all. Truncation there does not cost
+// detail, it costs the ability to act.
+//
+// This is a deliberate token trade: a desk full of list widgets costs more to
+// describe. It is bounded by DESK_INDEX_WIDGET_CAP above, and in practice a desk
+// holds one inbox, not ten.
+const DESK_INDEX_CONTENT_CAP = 600
+const DESK_INDEX_LIST_CAP = 1800
+const LIST_SHAPED_KINDS: ReadonlySet<WidgetKind> = new Set<WidgetKind>([
+  'inbox',
+  'contacts',
+  'attention',
+  'table',
+  'drive',
+  'gallery'
+])
 
 function summarizeWidgets(widgets: Widget[]): string {
   if (widgets.length === 0) return '(no widgets on the canvas yet)'
@@ -262,11 +289,19 @@ function summarizeWidgets(widgets: Widget[]): string {
   for (const w of widgets.slice(0, DESK_INDEX_WIDGET_CAP)) {
     const title = w.title ? `"${w.title}"` : ''
     // Real readable content for EVERY widget kind (tables become rows, office
-    // docs become their body, charts/diagrams/mindmaps become summaries), via
-    // the one shared extractor. A wider cap than the old 180 chars so the model
-    // actually sees the content; the full text is also available on demand
-    // through the attachment path for the focused widgets.
-    const content = widgetToText(w, resolvers).text.replace(/\s+/g, ' ').slice(0, 600)
+    // docs become their body, inboxes become their messages, charts/diagrams/
+    // mindmaps become summaries), via the one shared extractor. A wider cap than
+    // the old 180 chars so the model actually sees the content; the full text is
+    // also available on demand through the attachment path for the focused
+    // widgets.
+    const isList = LIST_SHAPED_KINDS.has(w.kind)
+    const rawText = widgetToText(w, resolvers).text
+    // A list keeps its line breaks, indented to sit under its widget's line: the
+    // items have to stay separable for the model to name one. Collapsing them to
+    // a single line is what made an inbox read as one long sentence.
+    const content = isList
+      ? rawText.replace(/[ \t]+/g, ' ').slice(0, DESK_INDEX_LIST_CAP).replace(/\n/g, '\n      ')
+      : rawText.replace(/\s+/g, ' ').slice(0, DESK_INDEX_CONTENT_CAP)
     const meta = content ? `: ${content}` : ''
     // Include the FULL widget.id — Claude needs to pass it back verbatim to
     // propose_update_widget / propose_delete_widget / propose_add_table_row.
