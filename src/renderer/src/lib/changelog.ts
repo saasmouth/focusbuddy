@@ -36,6 +36,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.6',
+    date: '2026-09-29T09:00:00Z',
+    title: 'PlexiDesk 4.3.6 \u2014 search your mail, and Plexii reads more of your work',
+    tag: 'feature',
+    summary:
+      'You can now search your mailbox \u2014 by sender, subject, body text, or the contents of an attachment \u2014 with filters for unread, flagged, has-a-file and a time window. It searches the local store rather than the mail server, so it is instant, works offline, and can find a phrase buried in a PDF, which a mail server cannot do. Every result says how much of your mailbox was actually searched, so "no matches" is never mistaken for "not there". Alongside it, Plexii now grounds an answer in far more of your work, and a cited email opens that email rather than dropping you at the inbox.',
+    highlights: [
+      'Search your mail by sender, subject, body or attachment text \u2014 including inside PDFs, Word files and spreadsheets.',
+      'Filter by unread, flagged, has an attachment, and last 7 days / 30 days / year.',
+      'Results say what was searched: "24 matches in 1,240 messages back to March \u00b7 still reading older mail".',
+      'No matches while the sweep is still running says so, instead of implying the email is not there.',
+      'Plexii grounds an answer in up to 28 sources rather than 10, so a question spanning a dozen files is answered from a dozen files.',
+      'Clicking a cited email opens that message, not the inbox.'
+    ]
+  },
+  {
     version: '4.3.5',
     date: '2026-09-28T22:00:00Z',
     title: 'PlexiDesk 4.3.5 \u2014 your whole mailbox, not just the recent bit',

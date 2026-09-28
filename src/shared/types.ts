@@ -2223,6 +2223,53 @@ export interface InboxRules {
   sinceDays?: number | null
 }
 
+/**
+ * Narrowing for a mailbox search.
+ *
+ * Extends InboxRules rather than restating it, so a search and a saved tag speak
+ * one vocabulary: a search can become a tag, a tag can be previewed as a search,
+ * and neither drifts when the other gains a field.
+ */
+export interface MailSearchFilter extends InboxRules {
+  /** Absolute bounds for a picked range. `after` inclusive, `before` exclusive. */
+  after?: number | null
+  before?: number | null
+}
+
+/**
+ * One row of a mailbox search result.
+ *
+ * A full MailListItem on purpose, not a reduced shape: results are rendered by the
+ * same list, threading and tag-scoping as a live listing, and all of that reads
+ * these fields. A narrower type would have meant a second renderer, or searched
+ * messages quietly losing their threading and unsubscribe affordances.
+ */
+export interface MailSearchResultItem extends MailListItem {
+  /** Start of the body, so a row can show why it matched. */
+  snippet?: string
+}
+
+/**
+ * How much of the mailbox the local store has actually read.
+ *
+ * Returned with every search so the UI can say "searched 1,240 messages back to
+ * March" instead of implying it looked at everything. A store part-way through its
+ * sweep answering as though it were complete is the same class of lie as an empty
+ * state pretending to be a real one.
+ */
+export interface MailCoverage {
+  connected: boolean
+  messages: number
+  withBodies: number
+  attachments: number
+  /** True once the sweep has reached the oldest message on the server. */
+  headersComplete: boolean
+  oldestDate: number | null
+  newestDate: number | null
+  /** The sweep stood down this session because the server pushed back. */
+  backedOff: boolean
+}
+
 export interface MailTag {
   id: string
   name: string

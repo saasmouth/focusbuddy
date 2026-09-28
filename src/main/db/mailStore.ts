@@ -23,6 +23,10 @@
 // (account_key, mailbox, uid). account_key is the IMAP login, lowercased, so two
 // accounts on one machine cannot collide.
 
+// Type-only, so it is erased at compile time and this module stays free of
+// runtime dependencies — which is what lets it be tested against node:sqlite.
+import type { MailSearchFilter } from '@shared/types'
+
 // The subset of the database API this module touches. Both better-sqlite3 (the
 // app) and node:sqlite's DatabaseSync (the tests) satisfy it. Taken as an
 // argument rather than reached for via getDb() for the same reason chunkIndex.ts
@@ -66,6 +70,10 @@ export interface StoredMail {
   bodyText: string | null
   headersAt: number
   bodyAt: number | null
+  unsubscribe: { kind: 'http' | 'mailto'; target: string } | null
+  oneClickUnsubscribe: boolean
+  inReplyTo: string | null
+  references: string[]
 }
 
 export interface StoredAttachment {
@@ -79,6 +87,10 @@ export interface StoredAttachment {
 
 export interface MailHeaderInput {
   uid: number
+  /** The sender's published List-Unsubscribe target, when they published one. */
+  unsubscribe?: { kind: 'http' | 'mailto'; target: string } | null
+  /** RFC 8058 one-click: the sender accepts an unsubscribe POST. */
+  oneClickUnsubscribe?: boolean
   fromName?: string
   fromAddress?: string
   subject?: string
@@ -140,6 +152,22 @@ export function ensureMailStoreSchema(db: MailDb): void {
   db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS mail_fts USING fts5(
       rowkey UNINDEXED, subject, sender, body, attachments
     )`)
+
+  // Columns added after 4.3.4 shipped this table, so they must be added rather than
+  // declared: an existing install already has mail_messages without them, and
+  // CREATE TABLE IF NOT EXISTS would silently skip the wider definition.
+  //
+  // Unsubscribe is stored because a search result is rendered by the same list as a
+  // live listing. Leave it out and a searched message quietly loses its unsubscribe
+  // affordance — a difference the user would notice and could not explain.
+  for (const [col, ddl] of [
+    ['unsubscribe_kind', 'TEXT'],
+    ['unsubscribe_target', 'TEXT'],
+    ['one_click_unsub', 'INTEGER NOT NULL DEFAULT 0']
+  ] as const) {
+    const cols = db.prepare(`PRAGMA table_info(mail_messages)`).all() as Array<{ name: string }>
+    if (!cols.find((c) => c.name === col)) db.exec(`ALTER TABLE mail_messages ADD COLUMN ${col} ${ddl}`)
+  }
 
   // How far the background sweep has got. Without this, every launch re-walks a
   // mailbox it has already read to the bottom — thousands of pointless round
@@ -246,8 +274,9 @@ export function upsertMailHeaders(
   const stmt = db.prepare(`
     INSERT INTO mail_messages (
       account_key, mailbox, uid, message_id, from_name, from_address,
-      subject, date, seen, flagged, has_attachments, headers_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      subject, date, seen, flagged, has_attachments, headers_at,
+      unsubscribe_kind, unsubscribe_target, one_click_unsub
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(account_key, mailbox, uid) DO UPDATE SET
       message_id = COALESCE(excluded.message_id, mail_messages.message_id),
       from_name = excluded.from_name,
@@ -257,7 +286,10 @@ export function upsertMailHeaders(
       seen = excluded.seen,
       flagged = excluded.flagged,
       has_attachments = excluded.has_attachments,
-      headers_at = excluded.headers_at`)
+      headers_at = excluded.headers_at,
+      unsubscribe_kind = COALESCE(excluded.unsubscribe_kind, mail_messages.unsubscribe_kind),
+      unsubscribe_target = COALESCE(excluded.unsubscribe_target, mail_messages.unsubscribe_target),
+      one_click_unsub = excluded.one_click_unsub`)
   const body = (rows: MailHeaderInput[]): void => {
     for (const m of rows) {
       stmt.run(
@@ -272,7 +304,10 @@ export function upsertMailHeaders(
         m.seen ? 1 : 0,
         m.flagged ? 1 : 0,
         m.hasAttachments ? 1 : 0,
-        now
+        now,
+        m.unsubscribe?.kind ?? null,
+        m.unsubscribe?.target ?? null,
+        m.oneClickUnsubscribe ? 1 : 0
       )
       reindex(db, accountKey, mailbox, m.uid)
     }
@@ -365,7 +400,21 @@ function rowToStored(r: Record<string, unknown>): StoredMail {
     hasAttachments: !!r.has_attachments,
     bodyText: (r.body_text as string | null) ?? null,
     headersAt: (r.headers_at as number) ?? 0,
-    bodyAt: (r.body_at as number | null) ?? null
+    bodyAt: (r.body_at as number | null) ?? null,
+    unsubscribe:
+      r.unsubscribe_target && r.unsubscribe_kind
+        ? { kind: r.unsubscribe_kind as 'http' | 'mailto', target: r.unsubscribe_target as string }
+        : null,
+    oneClickUnsubscribe: !!r.one_click_unsub,
+    inReplyTo: (r.in_reply_to as string | null) ?? null,
+    references: (() => {
+      try {
+        const parsed = JSON.parse((r.refs as string) ?? '[]') as unknown
+        return Array.isArray(parsed) ? (parsed as string[]) : []
+      } catch {
+        return []
+      }
+    })()
   }
 }
 
@@ -552,38 +601,121 @@ export interface MailSearchHit {
  * `beforeDate` walks further back, so a caller can keep going until it has what
  * it needs or runs out of history.
  */
+/**
+ * Search stored mail — NEWEST FIRST — by text, by filter, or by both.
+ *
+ * Ordered by date rather than relevance on purpose. A mailbox answers "what did
+ * they say about X" with the most RECENT thing said about X; ranking purely by
+ * relevance surfaces a five-year-old thread because it happened to repeat the word
+ * more often. Relevance decides whether something is a match at all; recency
+ * decides the order.
+ *
+ * An empty query is a first-class case, not an error: "unread, with an attachment,
+ * last 30 days" is a perfectly good search with no text in it, and returning
+ * nothing for it would be wrong.
+ *
+ * `beforeDate` pages further back, so a caller can keep going until it has what it
+ * needs or runs out of history.
+ */
 export function searchStoredMail(
   db: MailDb,
-  question: string,
-  opts: { accountKey: string; mailbox?: string; limit?: number; beforeDate?: number }
+  query: string,
+  opts: {
+    accountKey: string
+    mailbox?: string
+    limit?: number
+    beforeDate?: number
+    filter?: MailSearchFilter
+  }
 ): MailSearchHit[] {
-  const match = toMailFtsQuery(question)
-  if (!match) return []
   const accountKey = norm(opts.accountKey)
   const mailbox = opts.mailbox ?? 'INBOX'
-  const limit = Math.max(1, Math.min(opts.limit ?? 12, 100))
-  const prefix = `${accountKey}\u0000${mailbox}\u0000`
-  const params: unknown[] = [match, prefix]
-  let dateClause = ''
+  const limit = Math.max(1, Math.min(opts.limit ?? 12, 500))
+  const raw = opts.filter ?? {}
+  // Normalise FIRST, then decide whether a filter exists. A list of blanks is not
+  // a filter: a UI that splits "a, ,b" on commas hands over empty strings, and
+  // counting those as present added no WHERE clause while claiming to be narrowed
+  // — which returned the entire mailbox.
+  const f: MailSearchFilter = {
+    ...raw,
+    from: (raw.from ?? []).map((x) => x.trim()).filter(Boolean),
+    subject: (raw.subject ?? []).map((x) => x.trim()).filter(Boolean)
+  }
+  const match = query.trim() ? toMailFtsQuery(query) : null
+
+  // A query that reduces to nothing (all stopwords, or punctuation only) with no
+  // filters either is a no-op, NOT "match everything". Returning the whole mailbox
+  // for "what about the" would bury whatever the user meant.
+  const hasFilter =
+    (f.from?.length ?? 0) > 0 ||
+    (f.subject?.length ?? 0) > 0 ||
+    !!f.unreadOnly ||
+    !!f.flaggedOnly ||
+    !!f.withAttachments ||
+    (f.sinceDays ?? null) !== null ||
+    (f.after ?? null) !== null ||
+    (f.before ?? null) !== null
+  if (!match && !hasFilter) return []
+
+  const where: string[] = ['m.account_key = ?', 'm.mailbox = ?']
+  const params: unknown[] = [accountKey, mailbox]
+
   if (opts.beforeDate) {
-    dateClause = ' AND m.date < ?'
+    where.push('m.date < ?')
     params.push(opts.beforeDate)
   }
+  if (f.unreadOnly) where.push('m.seen = 0')
+  if (f.flaggedOnly) where.push('m.flagged = 1')
+  if (f.withAttachments) where.push('m.has_attachments = 1')
+  if ((f.sinceDays ?? null) !== null) {
+    where.push('m.date >= ?')
+    params.push(Date.now() - (f.sinceDays as number) * 86_400_000)
+  }
+  if ((f.after ?? null) !== null) {
+    where.push('m.date >= ?')
+    params.push(f.after)
+  }
+  if ((f.before ?? null) !== null) {
+    where.push('m.date < ?')
+    params.push(f.before)
+  }
+  // from/subject are ANY-of within a field and AND across fields, matching how
+  // InboxRules reads: "from any of these people, about any of these subjects".
+  const anyLike = (col: string, needles: string[]): void => {
+    if (needles.length === 0) return
+    where.push(`(${needles.map(() => `${col} LIKE ? COLLATE NOCASE`).join(' OR ')})`)
+    for (const n of needles) params.push(`%${n}%`)
+  }
+  if (f.from?.length) anyLike("(m.from_name || ' ' || m.from_address)", f.from)
+  if (f.subject?.length) anyLike('m.subject', f.subject)
+
+  let sql: string
+  if (match) {
+    // Joined through the flattened composite key; the prefix keeps one account's
+    // index rows out of another's results.
+    where.push("mail_fts.rowkey LIKE ? || '%'")
+    params.push(`${accountKey}\u0000${mailbox}\u0000`)
+    sql =
+      `SELECT m.*, bm25(mail_fts) AS bm
+       FROM mail_fts
+       JOIN mail_messages m
+         ON m.account_key || char(0) || m.mailbox || char(0) || m.uid = mail_fts.rowkey
+       WHERE mail_fts MATCH ? AND ${where.join(' AND ')}
+       ORDER BY m.date DESC
+       LIMIT ?`
+    params.unshift(match)
+  } else {
+    sql =
+      `SELECT m.*, 0 AS bm FROM mail_messages m
+       WHERE ${where.join(' AND ')}
+       ORDER BY m.date DESC
+       LIMIT ?`
+  }
   params.push(limit)
+
   let rows: Array<Record<string, unknown>>
   try {
-    rows = db
-      .prepare(
-        `SELECT m.*, bm25(mail_fts) AS bm
-         FROM mail_fts
-         JOIN mail_messages m
-           ON m.account_key || char(0) || m.mailbox || char(0) || m.uid = mail_fts.rowkey
-         WHERE mail_fts MATCH ?
-           AND mail_fts.rowkey LIKE ? || '%'${dateClause}
-         ORDER BY m.date DESC
-         LIMIT ?`
-      )
-      .all(...params) as Array<Record<string, unknown>>
+    rows = db.prepare(sql).all(...params) as Array<Record<string, unknown>>
   } catch {
     // A malformed MATCH is a bad question, not a broken database. Returning
     // nothing lets the caller fall back rather than failing the whole answer.

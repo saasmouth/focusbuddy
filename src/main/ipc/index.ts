@@ -134,6 +134,10 @@ import { captureDocSnapshot, listDocSnapshots, restoreDocSnapshot } from '../db/
 import { listDocComments, addDocComment, resolveDocComment } from '../db/docComments'
 import { searchAll, setMailSearchCache } from '../db/search'
 import { ingestHeaderPage, backfillBodies } from '../mail/mailIngest'
+import { searchStoredMail } from '../db/mailStore'
+import type { MailSearchFilter } from '@shared/types'
+import { mailSyncProgress } from '../mail/mailSync'
+import { getAccountKey as getMailAccountKey } from '../mail/mailAccount'
 
 // Unseen mail uids already announced with a desktop notification, so a banner
 // fires once per message per app run (the renderer polls mail:list).
@@ -3477,6 +3481,53 @@ export function registerIpcHandlers(): void {
       return { ok: false as const, error: (err as Error).message }
     }
   })
+
+  // Search the LOCAL store, not IMAP. Instant, works offline, and covers the body
+  // and attachment text of everything the sweep has read — an IMAP SEARCH cannot
+  // look inside a PDF. Coverage is returned alongside, because a store that has
+  // read 200 of 4,000 messages must not answer as though it searched the mailbox.
+  ipcMain.handle(
+    'mail:searchStored',
+    (
+      _e,
+      query: string,
+      filter?: MailSearchFilter,
+      opts?: { limit?: number; beforeDate?: number }
+    ) => {
+      const accountKey = getMailAccountKey()
+      if (!accountKey) return { ok: false as const, error: 'No mail account connected.' }
+      try {
+        const hits = searchStoredMail(getDb() as never, query ?? '', {
+          accountKey,
+          limit: opts?.limit ?? 60,
+          beforeDate: opts?.beforeDate,
+          filter
+        })
+        const items = hits.map((h) => ({
+          uid: h.message.uid,
+          fromName: h.message.fromName,
+          fromAddress: h.message.fromAddress,
+          subject: h.message.subject,
+          date: h.message.date,
+          seen: h.message.seen,
+          flagged: h.message.flagged,
+          hasAttachments: h.message.hasAttachments,
+          // The threading + unsubscribe fields too, so a result renders through the
+          // same list, threading and tag-scoping as a live listing.
+          messageId: h.message.messageId,
+          inReplyTo: h.message.inReplyTo,
+          references: h.message.references,
+          unsubscribe: h.message.unsubscribe,
+          oneClickUnsubscribe: h.message.oneClickUnsubscribe,
+          // What matched, so a result row can show why it is there.
+          snippet: (h.message.bodyText ?? '').replace(/\s+/g, ' ').slice(0, 180)
+        }))
+        return { ok: true as const, items, coverage: mailSyncProgress() }
+      } catch (err) {
+        return { ok: false as const, error: (err as Error).message }
+      }
+    }
+  )
 
   ipcMain.handle('mail:archive', async (_e, uid: number) => {
     const acc = await currentMailAccount()

@@ -1,14 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import MailTagRail, { COLOUR_DOT } from '../mail/MailTagRail'
 import MailTagEditor from '../mail/MailTagEditor'
 import { useMailTagStore } from '../../stores/mailTags'
 import { untagged, inTag, tagFromMessage } from '../../lib/mailTags'
 import { useMailStore, selectMailUnread } from '../../stores/mail'
 import { useViewStore } from '../../stores/view'
-import type { MailAccountInput, MailTag, MailListItem } from '@shared/types'
+import type {
+  MailAccountInput,
+  MailTag,
+  MailListItem,
+  MailSearchResultItem,
+  MailCoverage
+} from '@shared/types'
 import { threadMailbox } from '../../lib/mailThreads'
 import Icon from '../Icon'
 import MailTriagePanel from '../mail/MailTriagePanel'
+import MailSearchBar from '../mail/MailSearchBar'
 import ComposeDialog from '../ComposeDialog'
 import { useQuickCreate } from '../../stores/quickCreate'
 import EmailTaskDialog from '../mail/EmailTaskDialog'
@@ -588,15 +595,34 @@ export default function MailView(): JSX.Element {
     void refreshTags()
   }, [refreshTags])
 
+  // Search results, when a search is running. null means "not searching", which is
+  // distinct from "searched and found nothing" — the first shows the mailbox, the
+  // second shows an empty result, and conflating them would hide the difference
+  // between no matches and no search.
+  const [searchResults, setSearchResults] = useState<MailSearchResultItem[] | null>(null)
+  const [searchCoverage, setSearchCoverage] = useState<MailCoverage | null>(null)
+  const onSearchResults = useCallback(
+    (items: MailSearchResultItem[] | null, coverage: MailCoverage | null) => {
+      setSearchResults(items)
+      setSearchCoverage(coverage)
+    },
+    []
+  )
+
+  // A search result IS a MailListItem, so everything downstream — tag scoping,
+  // threading, the row renderer, the reader — works on it unchanged. That is why
+  // the search returns full list items rather than a reduced shape.
+  const base: MailListItem[] = searchResults ?? messages
+
   // Narrow to whatever the rail has selected, THEN thread. Threading first and
   // filtering after would show a conversation whose messages are not in this
   // tag, which is how a filtered view stops meaning anything.
   const scoped = useMemo(() => {
-    if (scope.kind === 'inbox') return messages
-    if (scope.kind === 'unsorted') return untagged(messages, tags)
+    if (scope.kind === 'inbox') return base
+    if (scope.kind === 'unsorted') return untagged(base, tags)
     const tag = tags.find((f) => f.id === scope.id)
-    return tag ? messages.filter((m) => inTag(m, tag)) : messages
-  }, [messages, tags, scope])
+    return tag ? base.filter((m) => inTag(m, tag)) : base
+  }, [base, tags, scope])
 
   // Group into conversation threads (Gmail-style), newest first.
   const threads = useMemo(() => threadMailbox(scoped), [scoped])
@@ -713,9 +739,16 @@ export default function MailView(): JSX.Element {
               {scope.kind === 'inbox' && unread > 0 ? ` · ${unread} unread` : ''}
             </h1>
             <p className="fb-t-caption truncate">
-              {scope.kind === 'inbox'
-                ? account?.email
-                : `${scoped.length} of ${messages.length} loaded messages`}
+              {searchResults
+                ? // Say plainly that this is a result set and not the mailbox. A
+                  // filtered list that looks like an inbox is how somebody concludes
+                  // an email has gone missing.
+                  `${scoped.length} ${scoped.length === 1 ? 'result' : 'results'}${
+                    searchCoverage && !searchCoverage.headersComplete ? ' · still reading older mail' : ''
+                  }`
+                : scope.kind === 'inbox'
+                  ? account?.email
+                  : `${scoped.length} of ${messages.length} loaded messages`}
             </p>
           </div>
           <button
@@ -770,6 +803,7 @@ export default function MailView(): JSX.Element {
         </div>
 
         <div ref={listRef} data-testid="mail-list" className="flex-1 overflow-auto">
+          <MailSearchBar onResults={onSearchResults} />
           {error && (
             <div className="m-2 fb-t-label text-rose-500 bg-rose-500/10 border border-rose-500/25 rounded-[var(--radius-row)] px-3 py-2">
               {error}
@@ -785,11 +819,21 @@ export default function MailView(): JSX.Element {
               <p className="fb-t-label text-[var(--ink-50)]">
                 {error
                   ? 'Could not load your inbox.'
-                  : scope.kind === 'unsorted'
-                    ? 'Nothing unsorted. Every message you have loaded carries a tag.'
-                    : scope.kind === 'tag'
-                      ? 'Nothing carries this tag yet, out of the mail you have loaded.'
-                      : 'No messages.'}
+                  : searchResults
+                    ? // "No messages." here would read as an empty INBOX, which is a
+                      // different and untrue claim. And while the sweep is still
+                      // running "no matches" is genuinely provisional — saying so is
+                      // the difference between "it is not there" and "it is not there
+                      // YET", which is exactly what sent somebody hunting for a levy
+                      // notice that was sitting in the mailbox all along.
+                      searchCoverage && !searchCoverage.headersComplete
+                      ? 'No matches yet in the mail read so far — older messages are still being read.'
+                      : 'No matches for that search.'
+                    : scope.kind === 'unsorted'
+                      ? 'Nothing unsorted. Every message you have loaded carries a tag.'
+                      : scope.kind === 'tag'
+                        ? 'Nothing carries this tag yet, out of the mail you have loaded.'
+                        : 'No messages.'}
               </p>
               {!error && scope.kind !== 'inbox' && (
                 <button

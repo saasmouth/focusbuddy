@@ -48,6 +48,8 @@ const MAX_WIDEN_ROUNDS = 4
 
 export interface IngestHeaderItem {
   uid: number
+  unsubscribe?: { kind: 'http' | 'mailto'; target: string } | null
+  oneClickUnsubscribe?: boolean
   fromName?: string
   fromAddress?: string
   subject?: string

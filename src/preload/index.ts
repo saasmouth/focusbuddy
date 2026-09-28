@@ -42,6 +42,9 @@ import type {
   MailAccountInput,
   MailAccountPublic,
   MailListItem,
+  MailSearchFilter,
+  MailSearchResultItem,
+  MailCoverage,
   MailTag,
   MailTagDraft,
   MailTagPatch,
@@ -2250,6 +2253,18 @@ const api = {
       return () => ipcRenderer.removeListener('mail:newMail', listener)
     },
     // Move a message to the account's archive mailbox.
+    // Search the LOCAL mail store: instant, offline-capable, and it reaches the
+    // body and attachment text of everything the sweep has read. `coverage` says
+    // how much of the mailbox that actually is, so the UI never implies it
+    // searched mail it has not read.
+    searchStored: (
+      query: string,
+      filter?: MailSearchFilter,
+      opts?: { limit?: number; beforeDate?: number }
+    ): Promise<
+      | { ok: true; items: MailSearchResultItem[]; coverage: MailCoverage }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('mail:searchStored', query, filter, opts),
     archive: (uid: number): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('mail:archive', uid),
     // ── AI triage. `triage` PROPOSES; the rest are what the person applies. ──
