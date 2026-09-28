@@ -27,6 +27,7 @@ import { uiBlocksSection, validateChatUiBlocks } from './chatUiBlocks'
 import { discoverySection } from './discoveryMode'
 import { turnRetrieval } from './retrievalIntent'
 import { buildGreenLit, gateCreation } from './creationGate'
+import { claimsCompletedWork, unbackedClaimNotice } from './claimCheck'
 import {
   CREATE_TASK_DEFINITION,
   UPDATE_TASK_DEFINITION,
@@ -1771,7 +1772,7 @@ export function actionOutcomeNotice(o: {
   return null
 }
 
-function buildChatResponse(
+export function buildChatResponse(
   rawText: string,
   sources: ChatSource[],
   // What each @-mention produced (Phase 4.2). Threaded as a parameter rather
@@ -1787,6 +1788,12 @@ function buildChatResponse(
   // R8's deterministic backstop: a discovery response may not build before the
   // transcript green-lights it. Held builds are stated in the reply and, where
   // the surface renders question cards, replaced by an explicit offer.
+  // Counted, not just filtered. These used to vanish between the parser and the
+  // cards without touching `dropped`, so a reply whose only action was an
+  // unapplicable open-url reported nothing wrong and offered nothing — the exact
+  // silence this notice exists to prevent.
+  const applicable = parsed.proposals.filter((p) => !isUnapplicableProposal(p))
+  const unapplicable = parsed.proposals.length - applicable.length
   const gated = gateCreation({
     // Drop proposals that cannot possibly apply before they become cards.
     //
@@ -1796,7 +1803,7 @@ function buildChatResponse(
     // action card that was never going to work. A card that cannot succeed is
     // worse than no card: it reads as the app being broken. The reply text
     // still stands, so the model's explanation survives.
-    proposals: parsed.proposals.filter((p) => !isUnapplicableProposal(p)),
+    proposals: applicable,
     question: parsed.question,
     discovery: gate?.discovery ?? false,
     greenLit: gate?.greenLit ?? true,
@@ -1805,7 +1812,7 @@ function buildChatResponse(
   let content = parsed.reply || (gated.proposals.length > 0 ? "Here's what I can set up:" : '')
   const outcome = actionOutcomeNotice({
     applied: gated.proposals.length,
-    dropped: parsed.dropped,
+    dropped: parsed.dropped + unapplicable,
     truncated: parsed.truncated
   })
   if (outcome) {
@@ -1818,6 +1825,22 @@ function buildChatResponse(
   }
   if (gated.notice) {
     content += `${content ? '\n\n' : ''}${gated.notice}`
+  }
+  // Last line of defence, and the one that catches what every check above
+  // misses: the model emitted NO actions, nothing was malformed, nothing was
+  // truncated, nothing was held — and the prose still says the work is done.
+  // Every other notice needs something to have gone measurably wrong; this one
+  // needs only that the reply made a claim the response cannot back. A question
+  // is exempt: the model asking something IS the affordance, and the offer is
+  // not a claim.
+  if (
+    !outcome &&
+    !gated.notice &&
+    gated.proposals.length === 0 &&
+    !gated.question &&
+    claimsCompletedWork(content)
+  ) {
+    content += `${content ? '\n\n' : ''}${unbackedClaimNotice()}`
   }
   return {
     ok: true,

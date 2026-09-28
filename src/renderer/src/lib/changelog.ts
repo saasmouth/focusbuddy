@@ -36,6 +36,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.3',
+    date: '2026-09-28T16:00:00Z',
+    title: 'PlexiDesk 4.3.3 \u2014 Plexii can no longer tell you it built something it did not',
+    tag: 'fix',
+    summary:
+      'If Plexii said it had added a widget, made a table or updated a desk, and no card appeared for you to accept, you had no way to tell whether something had gone wrong or you had missed it. Every check in the response path needed something to have measurably failed \u2014 a malformed action, a reply cut off \u2014 and the worst case tripped none of them: no action emitted at all, nothing broken, and prose that reads like finished work. Now a reply that claims it created something while offering no card says so outright, in its first line, instead of leaving the sentence standing.',
+    highlights: [
+      'A reply that claims completed work with no card to apply now contradicts itself plainly rather than letting the claim stand.',
+      'Actions refused as unapplicable are counted and reported, instead of disappearing between the parser and the cards.',
+      'Offers are untouched \u2014 "I can build you a tracker" or "shall I set up a desk?" is not a claim, and is left exactly as it was.'
+    ]
+  },
+  {
     version: '4.3.2',
     date: '2026-09-28T10:00:00Z',
     title: 'PlexiDesk 4.3.2 \u2014 Plexii can see inside your widgets, and its suggestions reach you',
