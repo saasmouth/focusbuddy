@@ -11,6 +11,7 @@ import { runRetentionSweep } from './db/retention'
 import { autoBackupOnLaunch } from './db/backup'
 import { registerIpcHandlers } from './ipc'
 import { startCalendarSyncLoop } from './calendar/sync'
+import { startMailSyncLoop } from './mail/mailSync'
 import { registerMdExternal } from './mdExternal'
 import { decidePopup } from './popupRouter'
 import { isAgentDrivenWc } from './ai/browserActions'
@@ -648,6 +649,12 @@ app.whenReady().then(() => {
   // A mirror that only updates when somebody opens the settings screen is a
   // mirror of last Tuesday.
   startCalendarSyncLoop()
+  // The mail sweep. Same reasoning as the calendar loop above: a store holding
+  // only what the user happened to scroll past cannot answer about the levy
+  // notice from six months ago, which is the entire point of having one. Walks
+  // headers to the bottom of the mailbox, then fills bodies newest-first, in
+  // small throttled batches on somebody's real connection.
+  startMailSyncLoop()
   // Stream Deck focus handoff — caches the previously-frontmost app so
   // ⌘C / ⌘V / ⌘⇧4 / type-text land in the user's actual workspace
   // rather than in FocusBuddy itself.

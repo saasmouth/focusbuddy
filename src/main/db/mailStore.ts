@@ -140,6 +140,56 @@ export function ensureMailStoreSchema(db: MailDb): void {
   db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS mail_fts USING fts5(
       rowkey UNINDEXED, subject, sender, body, attachments
     )`)
+
+  // How far the background sweep has got. Without this, every launch re-walks a
+  // mailbox it has already read to the bottom — thousands of pointless round
+  // trips, and a sweep that never finishes because it keeps starting again.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS mail_sync_state (
+      account_key TEXT NOT NULL,
+      mailbox TEXT NOT NULL DEFAULT 'INBOX',
+      headers_complete INTEGER NOT NULL DEFAULT 0,
+      last_swept_at INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (account_key, mailbox)
+    )`)
+}
+
+export interface MailSyncState {
+  headersComplete: boolean
+  lastSweptAt: number
+}
+
+export function getMailSyncState(
+  db: MailDb,
+  opts: { accountKey: string; mailbox?: string }
+): MailSyncState {
+  const r = db
+    .prepare(`SELECT headers_complete, last_swept_at FROM mail_sync_state WHERE account_key = ? AND mailbox = ?`)
+    .get(norm(opts.accountKey), opts.mailbox ?? 'INBOX') as
+    | { headers_complete: number; last_swept_at: number }
+    | undefined
+  return { headersComplete: !!r?.headers_complete, lastSweptAt: r?.last_swept_at ?? 0 }
+}
+
+export function setMailSyncState(
+  db: MailDb,
+  opts: { accountKey: string; mailbox?: string; headersComplete?: boolean }
+): void {
+  const accountKey = norm(opts.accountKey)
+  const mailbox = opts.mailbox ?? 'INBOX'
+  db.prepare(
+    `INSERT INTO mail_sync_state (account_key, mailbox, headers_complete, last_swept_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(account_key, mailbox) DO UPDATE SET
+       headers_complete = COALESCE(?, mail_sync_state.headers_complete),
+       last_swept_at = excluded.last_swept_at`
+  ).run(
+    accountKey,
+    mailbox,
+    opts.headersComplete ? 1 : 0,
+    Date.now(),
+    opts.headersComplete === undefined ? null : opts.headersComplete ? 1 : 0
+  )
 }
 
 const keyOf = (accountKey: string, mailbox: string, uid: number): string =>

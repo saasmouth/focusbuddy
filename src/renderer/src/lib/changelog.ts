@@ -36,6 +36,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.5',
+    date: '2026-09-28T22:00:00Z',
+    title: 'PlexiDesk 4.3.5 \u2014 your whole mailbox, not just the recent bit',
+    tag: 'fix',
+    summary:
+      '4.3.4 gave mail a home but only filled it with what a listing happened to show: the newest page, plus whatever you had scrolled past, plus a little reaching back when you asked a question. So an invoice or a levy notice from six months ago was still invisible, which is not what "Plexii can answer about mail you never opened" is supposed to mean. There is now a background sweep that walks your whole inbox \u2014 headers to the very bottom, then message bodies newest-first \u2014 in small throttled batches, resuming where it left off and never re-reading a mailbox it has already finished.',
+    highlights: [
+      'A background sweep reads your whole inbox over time, not just the newest page.',
+      'Headers first, so the mailbox becomes searchable by sender and subject quickly; bodies follow, newest first.',
+      'Throttled and resumable \u2014 small batches with real gaps, it picks up where it stopped, and it does not re-read a mailbox it has already finished.',
+      'Backs off for the session if your mail server pushes back, rather than retrying into a rate limit.',
+      'Coverage is reportable, so "I have read this much of your mail" can be a fact rather than an implication.'
+    ]
+  },
+  {
     version: '4.3.4',
     date: '2026-09-28T20:00:00Z',
     title: 'PlexiDesk 4.3.4 \u2014 Plexii can read your mail, including the attachments',
