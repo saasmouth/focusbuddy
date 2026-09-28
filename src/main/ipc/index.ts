@@ -133,6 +133,7 @@ import {
 import { captureDocSnapshot, listDocSnapshots, restoreDocSnapshot } from '../db/docSnapshots'
 import { listDocComments, addDocComment, resolveDocComment } from '../db/docComments'
 import { searchAll, setMailSearchCache } from '../db/search'
+import { ingestHeaderPage, backfillBodies } from '../mail/mailIngest'
 
 // Unseen mail uids already announced with a desktop notification, so a banner
 // fires once per message per app run (the renderer polls mail:list).
@@ -3419,6 +3420,17 @@ export function registerIpcHandlers(): void {
     try {
       const page = await listInbox(config, { limit: limit ?? 40, beforeUid })
       const items = page.items
+      // Record every page in the local store, INCLUDING the backwards-paged ones.
+      // The store is the whole point of paging back: notifications and the search
+      // cache below are about what is NEW, but history is about what is old, and a
+      // message scrolled past in March is exactly what a question in June is about.
+      // Cheap — the listing already happened.
+      try {
+        ingestHeaderPage(items, config)
+      } catch {
+        // A store write must never fail a mail listing: the UI does not depend on
+        // it, and the next page upserts the same rows again.
+      }
       // Only the first page is news. Paging BACKWARDS through old mail would
       // otherwise announce long-read messages as new arrivals and overwrite the
       // search cache with an older slice of the mailbox, so everything below is
@@ -3442,6 +3454,12 @@ export function registerIpcHandlers(): void {
       }
       for (const m of items) if (!m.seen) announcedMailUids.add(m.uid)
       setMailSearchCache(items)
+      // Fill bodies in behind the listing, newest first and on a budget. NOT
+      // awaited: a mail list must not wait on a dozen round trips, and whatever
+      // this pass misses stays queued because body_at is still NULL.
+      void backfillBodies(config).catch(() => {
+        // Offline, or the server refused. The next listing tries again.
+      })
       return { ok: true as const, items, hasMore: page.hasMore, nextCursor: page.nextCursor, total: page.total }
     } catch (err) {
       return { ok: false as const, error: (err as Error).message }

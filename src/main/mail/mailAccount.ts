@@ -111,6 +111,19 @@ export function getPublic(): MailAccountPublic {
 }
 
 /** The full config including the decrypted password — main-process only. */
+/**
+ * The connected login, lowercased, or null when no mailbox is connected.
+ *
+ * Separate from getFull() because the local mail store needs only the account KEY
+ * — to know which partition of the store to read — and getFull() decrypts the
+ * password to hand back a whole config. Decrypting a secret to read a username is
+ * the wrong trade when it happens on every widget summary.
+ */
+export function getAccountKey(): string | null {
+  const env = read()
+  return env ? env.user.trim().toLowerCase() : null
+}
+
 export function getFull(): MailAccountConfig | null {
   const env = read()
   if (!env) return null

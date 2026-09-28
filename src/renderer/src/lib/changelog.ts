@@ -36,6 +36,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.4',
+    date: '2026-09-28T20:00:00Z',
+    title: 'PlexiDesk 4.3.4 \u2014 Plexii can read your mail, including the attachments',
+    tag: 'feature',
+    summary:
+      'Mail now has a home on your machine. Every listing records what it saw \u2014 including pages you scroll back through \u2014 and bodies and attachment text are filled in behind you, so Plexii can answer about a message you have never opened. Ask it something and it searches your mail newest first and keeps reaching further back until it finds the answer, rather than answering from whatever happened to be loaded. Text inside PDFs, Word files and spreadsheets is searched too, so "what was the break clause?" is answered by the attachment that contains it.',
+    highlights: [
+      'A local mail store: headers, bodies and the text inside attachments, kept on your device and never synced.',
+      'Plexii can answer about mail you have never opened \u2014 no more "not loaded".',
+      'Questions search newest first and widen backwards through history until answered, so a recent reply is never buried under an older thread that repeated the word more often.',
+      'Attachment contents are searched: PDFs (with OCR for scanned ones), Word, Excel and CSV.',
+      'Emails are cited like any other source, so you can see exactly which message an answer came from.',
+      'Bodies reach Plexii only when a question is actually about mail, fenced and labelled as text written by the sender \u2014 and every mail action is still a card you accept.'
+    ]
+  },
+  {
     version: '4.3.3',
     date: '2026-09-28T16:00:00Z',
     title: 'PlexiDesk 4.3.3 \u2014 Plexii can no longer tell you it built something it did not',

@@ -3,7 +3,9 @@ import { getDocument } from '../db/documents'
 import { listContactsForNode } from '../db/contacts'
 import { listWorkItems } from '../db/workItems'
 import { getFile } from '../db/files'
-import { getCachedMailItems } from '../db/search'
+import { listStoredMail } from '../db/mailStore'
+import { getDb } from '../db/database'
+import { getAccountKey } from '../mail/mailAccount'
 import type { Widget } from '@shared/types'
 import {
   widgetToText,
@@ -41,11 +43,35 @@ export function mainWidgetResolvers(): WidgetTextResolvers {
       return docBodyToText(d.docType, d.body)
     },
 
-    // Headers only, and no snippet — getCachedMailItems strips it. Mail has no
-    // local store, so this is the inbox page the app has actually fetched; null
-    // when none has been, which the extractor reports as "not loaded" rather
-    // than as an empty inbox.
-    mailItems: () => getCachedMailItems(),
+    // From the LOCAL MAIL STORE now, not a session cache. That is the difference
+    // between "the assistant knows about mail you have opened in this session"
+    // and "the assistant knows what is in your inbox" — the store is filled by
+    // every listing, including pages the user scrolled back through.
+    //
+    // Still headers only HERE. This text goes into the desk index of every prompt,
+    // so it is a listing, not a reading: bodies belong to the question-time path
+    // (findInMail), which fetches them only when a question is actually about mail
+    // and can fence them as third-party text. Putting every body in every prompt
+    // would cost a fortune and widen the injection surface to every turn.
+    //
+    // null when nothing has been ingested at all, which the extractor reports as
+    // "not loaded" rather than as an empty inbox.
+    mailItems: () => {
+      const accountKey = getAccountKey()
+      if (!accountKey) return null
+      const rows = listStoredMail(getDb() as never, { accountKey, limit: 60 })
+      if (rows.length === 0) return null
+      return rows.map((m) => ({
+        uid: m.uid,
+        fromName: m.fromName,
+        fromAddress: m.fromAddress,
+        subject: m.subject,
+        date: m.date,
+        seen: m.seen,
+        flagged: m.flagged,
+        hasAttachments: m.hasAttachments
+      }))
+    },
 
     contacts: (w: Widget) => {
       if (!w.taskId) return null

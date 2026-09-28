@@ -23,6 +23,7 @@ import { ensureTaskPlanningSchema } from './taskPlanningSchema'
 import { ensureExternalCalendarSchema } from './externalCalendars'
 import { ensureContactsSchema } from './contacts'
 import { ensureMailTagSchema } from './mailTags'
+import { ensureMailStoreSchema } from './mailStore'
 import { reconcileNodeOrphans } from './reconcileOrphans'
 import { ensureWorkItemSchema } from './workItems'
 import { ensureNotificationSchema } from '../notifications/substrate'
@@ -82,6 +83,10 @@ export function applySchemaAndMigrations(db: Database.Database): NodesKindMigrat
   ensureContactsSchema(db)
   // Mail folders: saved criteria for looking at INBOX, optionally about a desk.
   ensureMailTagSchema(db)
+  // The local mail store (headers, bodies, attachment text). Deliberately here
+  // and not in SCHEMA: that is shared with the cloud runtime and its tables ride
+  // in sync bodies, and mail must stay on the device it was fetched to.
+  ensureMailStoreSchema(db)
   // Sweep rows left pointing at deleted nodes by the FK-off table rebuild
   // above. Idempotent, and a no-op on a healthy database.
   const sweptOrphans = reconcileNodeOrphans(db as never)

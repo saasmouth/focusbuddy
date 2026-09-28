@@ -419,6 +419,85 @@ export async function getMessage(
   }
 }
 
+/** One attachment with its bytes, for local ingestion only. */
+export interface IngestAttachment {
+  filename: string
+  contentType: string
+  size: number
+  content: Uint8Array
+}
+
+/** Everything the local mail store wants from one message. */
+export interface IngestMessage {
+  uid: number
+  fromName: string
+  fromAddress: string
+  toText: string
+  subject: string
+  date: number
+  text: string
+  messageId: string | null
+  inReplyTo: string | null
+  references: string[]
+  attachments: IngestAttachment[]
+}
+
+/**
+ * Fetch one message for the LOCAL STORE, attachment bytes included.
+ *
+ * Deliberately separate from getMessage rather than an option on it. getMessage
+ * returns MailFullMessage, which is a shared type that crosses IPC to the
+ * renderer, and attachment buffers must never travel that way — a mailbox of
+ * PDFs serialised through IPC on every read is a performance bug waiting to be
+ * filed. This shape is main-process-only: the bytes are read here, turned into
+ * text here, and discarded here.
+ */
+export async function getMessageForIngest(
+  config: MailAccountConfig,
+  uid: number
+): Promise<IngestMessage | null> {
+  const client = await acquireWarm(config)
+  const lock = await client.getMailboxLock('INBOX')
+  try {
+    const fetched = await client.fetchOne(String(uid), { source: true }, { uid: true })
+    if (!fetched || !fetched.source) return null
+    const parsed = await simpleParser(fetched.source)
+    const from = parsed.from?.value?.[0]
+    const toText =
+      parsed.to && !Array.isArray(parsed.to)
+        ? parsed.to.text
+        : Array.isArray(parsed.to)
+          ? parsed.to.map((t) => t.text).join(', ')
+          : ''
+    const references = Array.isArray(parsed.references)
+      ? parsed.references
+      : parsed.references
+        ? [parsed.references]
+        : []
+    return {
+      uid,
+      fromName: from?.name || from?.address || 'Unknown sender',
+      fromAddress: from?.address || '',
+      toText: toText || '',
+      subject: parsed.subject || '(no subject)',
+      date: parsed.date ? parsed.date.getTime() : 0,
+      text: parsed.text || '',
+      messageId: parsed.messageId || null,
+      inReplyTo: parsed.inReplyTo || null,
+      references,
+      attachments: (parsed.attachments || []).map((a) => ({
+        filename: a.filename || 'attachment',
+        contentType: a.contentType || 'application/octet-stream',
+        size: a.size || 0,
+        content: a.content instanceof Uint8Array ? a.content : new Uint8Array()
+      }))
+    }
+  } finally {
+    lock.release()
+    releaseWarm()
+  }
+}
+
 /**
  * Pull the plain-text bodies of the user's most recent Sent messages, used to
  * learn their writing voice for AI reply drafting. Finds the Sent mailbox by

@@ -28,6 +28,7 @@ import { discoverySection } from './discoveryMode'
 import { turnRetrieval } from './retrievalIntent'
 import { buildGreenLit, gateCreation } from './creationGate'
 import { claimsCompletedWork, unbackedClaimNotice } from './claimCheck'
+import { mailGroundingForQuestion } from './mailGrounding'
 import {
   CREATE_TASK_DEFINITION,
   UPDATE_TASK_DEFINITION,
@@ -1526,7 +1527,8 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
       // the web pass is keyless, best-effort, and skipped for short follow-ups
       // (see WEB_SEARCH_MIN_QUERY). Web results continue the same [n] space so
       // one numbering rules every citation, internal or web.
-      const [rawSources, webResults, semanticOn] = await Promise.all([
+      const emptyMail = { sources: [], rounds: 0, exhausted: false, fetched: 0 }
+      const [rawSources, webResults, semanticOn, mailGround] = await Promise.all([
         retrieveSources(lastUser, undefined, scope.length ? scope : undefined, {
           excludeChatId: req.conversationId
         }),
@@ -1534,11 +1536,23 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
         // resolves empty without ever making the request.
         gate.web ? searchWeb(lastUser, 5).catch(() => []) : Promise.resolve([]),
         // Availability probe, in parallel so disclosure costs no latency.
-        embeddingConfigured().catch(() => false)
+        embeddingConfigured().catch(() => false),
+        // Mail is its own pool. The local store answers most questions with no
+        // round trip at all; when it cannot, the search reaches further back
+        // through history rather than settling for whatever happens to be cached.
+        // Gated on the same workspace decision as the rest of retrieval, so a
+        // pure ideation turn never touches the mail server.
+        gate.workspace ? mailGroundingForQuestion(lastUser).catch(() => emptyMail) : Promise.resolve(emptyMail)
       ])
       semanticAvailable = semanticOn
+      // Mail joins the workspace pool BEFORE numbering, so an email is cited [n]
+      // exactly like a document and the model has one numbering to obey. Appended
+      // rather than interleaved: retrieveSources has already ranked its own pool,
+      // and mail arrives pre-ordered newest-first, so merging by score would throw
+      // away both orderings to produce a third nobody asked for.
+      const withMail = [...rawSources, ...mailGround.sources]
       // Drop anything the user already put in front of the model by name.
-      const sources = rawSources.filter((s) => !admittedIds.has(s.docId))
+      const sources = withMail.filter((s) => !admittedIds.has(s.docId))
       if (sources.length > 0 || webResults.length > 0) {
         // Honest about demote-not-exclude, and it only claims a related-desk
         // network when one exists (#13: relatedScopeIds always contains the
