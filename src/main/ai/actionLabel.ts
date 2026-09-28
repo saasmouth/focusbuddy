@@ -34,6 +34,7 @@ const KIND_TITLE: Record<string, string> = {
   'create-page': 'Page',
   'create-task': 'Desk',
   'create-work-item': 'Attention item',
+  'mail-action': 'Mail',
   'start-focus-session': 'Focus session',
   'delete-widget': 'Remove widget',
   'update-widget': 'Update widget',
@@ -112,6 +113,13 @@ function subjectOf(kind: string, a: Record<string, unknown>): string {
     if (to.length === 1) return recipientName(to[0])
     if (to.length > 1) return `${recipientName(to[0])} +${to.length - 1}`
     return str(a.subject)
+  }
+  if (kind === 'mail-action') {
+    // The op is the half that matters in a trace: "Mail — Invoice" does not say
+    // whether the inbox is about to be tidied or emptied.
+    const op = str(a.op)
+    const subj = str(a.subject) || (typeof a.uid === 'number' ? `message ${a.uid}` : '')
+    return op ? (subj ? `${op} · ${subj}` : op) : subj
   }
   if (kind === 'post-chat') return str(a.conversationLabel) || str(a.conversationId)
   if (kind === 'open-url') return str(a.url)

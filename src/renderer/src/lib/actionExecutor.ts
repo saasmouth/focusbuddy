@@ -139,6 +139,8 @@ export async function applyProposal(
       return applyComposeMail(proposal)
     case 'post-chat':
       return applyPostChat(proposal)
+    case 'mail-action':
+      return applyMailAction(proposal)
     case 'navigate-to':
       return applyNavigateTo(proposal)
     default: {
@@ -161,6 +163,7 @@ export async function applyProposal(
 const GATED_KINDS: ReadonlySet<ActionProposal['kind']> = new Set<ActionProposal['kind']>([
   'delete-widget', // destructive; the only existing confirm lives in ProposalCards.applyAll, not here
   'schedule-event', // commits real calendar time on the user's actual day
+  'mail-action', // moves or flags real mail on a real server
   'compose-mail', // primes a live external channel + hijacks the foreground view
   'post-chat', // primes a live external channel + hijacks the foreground view
   'start-focus-session' // starts a real timer on the user's behalf
@@ -374,6 +377,66 @@ async function applyScheduleEvent(
 // DRAFT ONLY: opens the composer pre-filled; the human reviews and sends.
 // Deliberately never touches the undo timeline (nothing was mutated) and never
 // sends — the same contract as PlexiDesk Mail's own reply drafts.
+// Acts on ONE message that already exists, addressed by uid.
+//
+// Gated (see GATED_KINDS): every op changes real mail on a real server, so a
+// person has to accept the card — the agent loop never applies these on its own.
+// Nothing here is irrecoverable: archive/trash/spam all MOVE the message to a
+// mailbox, and nothing expunges.
+async function applyMailAction(
+  p: Extract<ActionProposal, { kind: 'mail-action' }>
+): Promise<ApplyResult> {
+  // Same capability gate as compose-mail: this can be proposed from any surface.
+  const mailEnt = entitlementFor('mail', 'Mail')
+  if (!mailEnt.enabled) return { ok: false, message: mailEnt.reason }
+  const mail = useMailStore.getState()
+  if (!mail.account && mail.loadedAccount) {
+    return { ok: false, message: 'Connect a mailbox in Mail first.' }
+  }
+  const label = p.subject || `message ${p.uid}`
+  try {
+    switch (p.op) {
+      case 'mark-read': {
+        const r = await window.api.mail.markSeen(p.uid)
+        if (!r.ok) return { ok: false, message: r.error || 'Could not mark it read.' }
+        return { ok: true, message: `Marked "${label}" as read` }
+      }
+      case 'archive': {
+        const r = await window.api.mail.archive(p.uid)
+        if (!r.ok) return { ok: false, message: r.error || 'Could not archive it.' }
+        return { ok: true, message: `Archived "${label}"` }
+      }
+      case 'move': {
+        // The parser refuses a move with no mailbox; this covers a proposal that
+        // reached here from somewhere else.
+        if (!p.mailbox) return { ok: false, message: 'No destination mailbox was given.' }
+        const r = await window.api.mail.move(p.uid, p.mailbox)
+        if (!r.ok) return { ok: false, message: r.error || 'Could not move it.' }
+        return { ok: true, message: `Moved "${label}" to ${p.mailbox}` }
+      }
+      case 'trash': {
+        const r = await window.api.mail.trash(p.uid)
+        if (!r.ok) return { ok: false, message: r.error || 'Could not move it to Trash.' }
+        return { ok: true, message: `Moved "${label}" to Trash` }
+      }
+      case 'spam': {
+        const r = await window.api.mail.spam(p.uid)
+        if (!r.ok) return { ok: false, message: r.error || 'Could not mark it as spam.' }
+        return { ok: true, message: `Marked "${label}" as spam` }
+      }
+      default: {
+        const _exhaustive: never = p.op
+        void _exhaustive
+        return { ok: false, message: 'Unknown mail operation.' }
+      }
+    }
+  } finally {
+    // Whatever happened, the list the user is looking at is now stale: the
+    // message moved, or its read state flipped.
+    void mail.refresh?.()
+  }
+}
+
 async function applyComposeMail(
   p: Extract<ActionProposal, { kind: 'compose-mail' }>
 ): Promise<ApplyResult> {
@@ -1567,6 +1630,24 @@ export function describeProposal(
       return { icon: 'drafts', verb: 'Draft email', subject: p.subject || p.to?.join(', ') || 'new message' }
     case 'post-chat':
       return { icon: 'chat', verb: 'Draft message', subject: p.conversationLabel ?? 'a conversation' }
+    case 'mail-action': {
+      // Per-op wording, because "Mail action" on a card tells the user nothing
+      // about what accepting it will do to their mailbox.
+      const mailSubject = p.subject || `message ${p.uid}`
+      switch (p.op) {
+        case 'mark-read':
+          return { icon: 'mark_email_read', verb: 'Mark read', subject: mailSubject }
+        case 'archive':
+          return { icon: 'archive', verb: 'Archive', subject: mailSubject }
+        case 'move':
+          return { icon: 'drive_file_move', verb: `Move to ${p.mailbox ?? 'a mailbox'}`, subject: mailSubject }
+        case 'trash':
+          return { icon: 'delete', verb: 'Move to Trash', subject: mailSubject }
+        case 'spam':
+          return { icon: 'report', verb: 'Mark as spam', subject: mailSubject }
+      }
+      return { icon: 'mail', verb: 'Mail', subject: mailSubject }
+    }
     case 'navigate-to':
       return { icon: 'north_east', verb: 'Open', subject: p.label }
     case 'create-table':

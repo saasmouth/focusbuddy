@@ -1088,6 +1088,13 @@ export type NavigateTarget = (typeof NAVIGATE_TARGETS)[number]
 export const CREATE_DOCUMENT_TYPES = ['doc', 'sheet', 'slides', 'map', 'design', 'draw'] as const
 export type CreateDocumentType = (typeof CREATE_DOCUMENT_TYPES)[number]
 
+// What Plexii may do to a message that already exists. Only operations the mail
+// layer actually exposes (see the preload mail bridge): there is no mark-unread
+// IPC, so there is no mark-unread op — advertising one would be a verb the model
+// emits and nothing can carry out.
+export const MAIL_ACTION_OPS = ['mark-read', 'archive', 'move', 'trash', 'spam'] as const
+export type MailActionOp = (typeof MAIL_ACTION_OPS)[number]
+
 export type ActionProposal =
   | {
       id: string
@@ -1452,6 +1459,25 @@ export type ActionProposal =
       durationMinutes: number
       taskId?: string | null
       recurrence?: 'daily' | 'weekly' | 'monthly' | null
+      reason?: string
+    }
+  | {
+      // Act on ONE message already in the mailbox. The counterpart to
+      // compose-mail: that one writes, this one files.
+      //
+      // Every op moves or flags real mail on a real server, so this is gated —
+      // never auto-applied by the agent loop, only by a person accepting the
+      // card. None of them destroys anything: trash and spam MOVE the message to
+      // a mailbox, and nothing here expunges.
+      id: string
+      kind: 'mail-action'
+      op: MailActionOp
+      /** Stable for the life of the mailbox; what the IMAP op addresses. */
+      uid: number
+      /** Shown on the card so the user can see WHICH email before accepting. */
+      subject: string
+      /** The destination mailbox. Required for 'move', ignored otherwise. */
+      mailbox?: string
       reason?: string
     }
   | {

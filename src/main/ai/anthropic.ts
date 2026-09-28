@@ -51,8 +51,8 @@ import { parseSheetRows, parseSheetColumns } from './sheetParse'
 import { migrateSlidesBody } from '@shared/slidesMigrate'
 import { resolveTheme, applyThemeToDeck, BUILTIN_THEMES } from '@shared/slideThemes'
 import { normalizeMapBody, autoLayout } from '@shared/mapGraph'
-import { NAVIGATE_TARGETS, CREATE_DOCUMENT_TYPES } from '@shared/types'
-import type { NavigateTarget } from '@shared/types'
+import { NAVIGATE_TARGETS, CREATE_DOCUMENT_TYPES, MAIL_ACTION_OPS } from '@shared/types'
+import type { NavigateTarget, MailActionOp } from '@shared/types'
 import type { MapShape } from '@shared/types'
 import type { SlidesBody } from '@shared/types'
 import { resolveAnthropicKey } from '../settingsStore'
@@ -464,6 +464,7 @@ export const ACTION_KINDS_CATALOG =
   '  { "kind": "set-cell", "tableId": "<from canvas summary>", "rowId": "<from rowIds>", "cells": {"Status":"Live"}, "reason": "..." }\n' +
   '  { "kind": "schedule-event", "title": "Deep work: brief", "startMs": 1780000000000, "durationMinutes": 60, "recurrence": null, "reason": "..." }\n' +
   '  { "kind": "compose-mail", "to": ["ana@example.com"], "subject": "Q3 brief attached", "body": "Hi Ana, ...", "reason": "..." }\n' +
+  '  { "kind": "mail-action", "op": "mark-read"|"archive"|"move"|"trash"|"spam", "uid": 1234, "subject": "the subject line, so the card shows which one", "mailbox": "only for move — the destination mailbox", "reason": "..." }  (Files or flags ONE email that already exists. "uid" MUST be a uid you were actually shown in an inbox widget — never invent one, and never guess from a subject, because two emails can share a subject and the wrong one would be filed. Emit one action per message. Nothing here deletes irrecoverably: trash and spam move the message. For WRITING an email use compose-mail instead.)\n' +
   '  { "kind": "post-chat", "conversationId": "<from chat conversations>", "conversationLabel": "#launch", "body": "Draft update: ...", "reason": "..." }\n' +
   '\n' +
   PROTOCOL_VOCAB_NOTE +
@@ -1210,6 +1211,34 @@ export function parseChatJson(raw: string): {
       // kind it was told to use, this switch had nothing for it, `dropped` went
       // up, and the reply had already promised the work. See
       // tests/unit/actionKindContract.test.ts, which now fails if it recurs.
+      case 'mail-action': {
+        const op = action.op
+        if (typeof op !== 'string') break
+        if (!(MAIL_ACTION_OPS as readonly string[]).includes(op)) break
+        // uid is the only thing that identifies the message. A subject is not a
+        // handle — two emails can share one — so an action without a real uid is
+        // refused rather than applied to whatever matched.
+        const uid = typeof action.uid === 'number' && Number.isInteger(action.uid) ? action.uid : null
+        if (uid === null || uid < 0) break
+        const mailbox = typeof action.mailbox === 'string' ? action.mailbox.trim() : ''
+        // A move with nowhere to move to would file the message into the void.
+        if (op === 'move' && !mailbox) break
+        proposals.push({
+          id: makeProposalId('mail', i++),
+          kind: 'mail-action',
+          op: op as MailActionOp,
+          uid,
+          // The subject is what the card shows, so the user can see which email
+          // they are approving. Its absence is cosmetic, not disqualifying.
+          subject:
+            typeof action.subject === 'string' && action.subject.trim()
+              ? (action.subject as string)
+              : '(no subject)',
+          mailbox: op === 'move' ? mailbox : undefined,
+          reason
+        })
+        break
+      }
       case 'navigate-to': {
         // Validated against the real target list rather than trusted: an
         // unrecognised target would apply to nothing, so offering a card for it
