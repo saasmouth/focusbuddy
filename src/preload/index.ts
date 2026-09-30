@@ -2271,6 +2271,8 @@ const api = {
       mode?: 'one' | 'thread'
       uids?: number[]
       rootMessageId?: string | null
+      /** The mailbox it was pinned from; falls back to the connected one. */
+      accountKey?: string
     }): Promise<
       { ok: true; messages: PinnedMailMessage[] } | { ok: false; error: string }
     > => ipcRenderer.invoke('mail:storedThread', content),

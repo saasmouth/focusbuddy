@@ -12,6 +12,7 @@ import { app, safeStorage } from 'electron'
 import { existsSync, readFileSync, writeFileSync, unlinkSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 import { getActiveOrgId, PERSONAL_ORG_ID } from '../db/activeOrg'
+import { mailAccountKey } from '../../shared/mailAccountKey'
 
 export interface MailAccountConfig {
   // IMAP server, e.g. imap.gmail.com / outlook.office365.com / mail.fastmail.com
@@ -121,7 +122,7 @@ export function getPublic(): MailAccountPublic {
  */
 export function getAccountKey(): string | null {
   const env = read()
-  return env ? env.user.trim().toLowerCase() : null
+  return env ? mailAccountKey(env.user) : null
 }
 
 export function getFull(): MailAccountConfig | null {

@@ -20,6 +20,7 @@ import type { MailAccountConfig } from './mailAccount'
 import { listInbox, getMessageForIngest, type IngestAttachment } from './imap'
 import { extractTextFromBuffer } from '../fileText'
 import { getDb } from '../db/database'
+import { mailAccountKey } from '../../shared/mailAccountKey'
 import {
   upsertMailHeaders,
   upsertMailBody,
@@ -33,7 +34,7 @@ import {
 } from '../db/mailStore'
 
 /** The IMAP login identifies the store's partition. */
-export const accountKeyOf = (config: MailAccountConfig): string => config.user.trim().toLowerCase()
+export const accountKeyOf = (config: MailAccountConfig): string => mailAccountKey(config.user)
 
 const db = (): MailDb => getDb() as unknown as MailDb
 

@@ -3536,8 +3536,21 @@ export function registerIpcHandlers(): void {
   // point of putting the lease on the desk is that it stays there.
   ipcMain.handle(
     'mail:storedThread',
-    (_e, content: { mode?: 'one' | 'thread'; uids?: number[]; rootMessageId?: string | null }) => {
-      const accountKey = getMailAccountKey()
+    (
+      _e,
+      content: {
+        mode?: 'one' | 'thread'
+        uids?: number[]
+        rootMessageId?: string | null
+        accountKey?: string
+      }
+    ) => {
+      // The pinned account wins. Resolving against the connected mailbox would
+      // orphan the widget the moment a different account is connected, and would
+      // refuse to render anything at all with no mailbox connected -- both wrong
+      // for a widget whose entire promise is that the email stays on the desk.
+      const pinned = content?.accountKey?.trim().toLowerCase()
+      const accountKey = pinned || getMailAccountKey()
       if (!accountKey) return { ok: false as const, error: 'No mail account connected.' }
       try {
         const rows = storedThread(getDb() as never, {

@@ -4,7 +4,8 @@ import { useMailModalStore } from '../../stores/mailModal'
 import { useViewStore } from '../../stores/view'
 import { useWidgetStore } from '../../stores/widgets'
 import { splitQuoted } from '../../lib/mailBodyText'
-import type { MailThreadContent, PinnedMailMessage, Widget } from '@shared/types'
+import { parseMailThreadContent } from '../../lib/mailThreadContent'
+import type { PinnedMailMessage, Widget } from '@shared/types'
 
 // An email on a desk, read as a document.
 //
@@ -74,21 +75,7 @@ function MessageBody({ body }: { body: string | null }): JSX.Element {
 }
 
 export default function MailThreadWidget({ widget }: { widget: Widget }): JSX.Element {
-  const content = useMemo<MailThreadContent>(() => {
-    try {
-      const p = JSON.parse(widget.content || '{}') as MailThreadContent
-      return {
-        mode: p.mode === 'thread' ? 'thread' : 'one',
-        uids: Array.isArray(p.uids) ? p.uids.filter((u) => Number.isSafeInteger(u)) : [],
-        rootMessageId: p.rootMessageId ?? null,
-        subject: p.subject,
-        fromName: p.fromName,
-        collapsed: p.collapsed
-      }
-    } catch {
-      return { mode: 'one', uids: [] }
-    }
-  }, [widget.content])
+  const content = useMemo(() => parseMailThreadContent(widget.content), [widget.content])
 
   const [messages, setMessages] = useState<PinnedMailMessage[] | null>(null)
   const [error, setError] = useState<string | null>(null)

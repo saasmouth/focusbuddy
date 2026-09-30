@@ -9,6 +9,7 @@ import { useNodeStore } from '../../stores/nodes'
 import { useWidgetStore } from '../../stores/widgets'
 import { useNoticeStore } from '../../stores/notice'
 import { catalogFor } from '../../lib/widgetCatalog'
+import { mailAccountKey } from '@shared/mailAccountKey'
 import type {
   MailAccountInput,
   MailTag,
@@ -304,10 +305,14 @@ function ReadingPane(): JSX.Element {
     setPinning(true)
     try {
       const entry = catalogFor('mail-thread')
+      // Which mailbox this message lives in, recorded now rather than inferred
+      // later. See MailThreadContent.accountKey.
+      const acct = await window.api.mail.getAccount().catch(() => null)
       const content: MailThreadContent = {
         mode,
         uids: [msg.uid],
         rootMessageId: msg.messageId ?? null,
+        accountKey: acct?.user ? mailAccountKey(acct.user) : undefined,
         // Snapshotted so the card is never anonymous, even later when the message
         // cannot be resolved from the local copy.
         subject: msg.subject || '(no subject)',

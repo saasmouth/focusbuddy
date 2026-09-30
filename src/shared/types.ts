@@ -2285,6 +2285,17 @@ export interface MailThreadContent {
   fromName?: string
   /** Collapse the quoted history by default; a long reply chain buries the point. */
   collapsed?: boolean
+  /**
+   * The mailbox this was pinned from, as mailAccountKey() computes it.
+   *
+   * Recorded rather than looked up at read time. The store is partitioned by
+   * account, so resolving against whatever mailbox happens to be connected now
+   * means a widget stops finding its own message the moment the user connects a
+   * different account -- while the message is still sitting in the store under
+   * the old key. It also means a pinned email still renders with no mailbox
+   * connected at all, which is the whole premise: it stays on the desk.
+   */
+  accountKey?: string
 }
 
 export interface MailSearchFilter extends InboxRules {
