@@ -103,7 +103,13 @@ export default function MailThreadWidget({ widget }: { widget: Widget }): JSX.El
   // A 'thread' widget regathers on every load, so a reply that arrived since is
   // picked up. Refresh is offered explicitly rather than polled: a desk with ten
   // pinned threads must not sit in a loop querying the database.
-  const title = content.subject || widget.title || 'Email'
+  // Snapshot first, then the user's own widget title (a rename must stick), then
+  // the message we actually loaded. That last fallback is not hypothetical: the
+  // pin flow always records a subject, but a widget proposed by Plexii need only
+  // carry uids, and without this such a card sat on the desk labelled "Email"
+  // while the message it was showing had a perfectly good subject line.
+  const title =
+    content.subject || widget.title || messages?.find((m) => m.subject)?.subject || 'Email'
   const single = messages && messages.length === 1 ? messages[0] : null
   const anchorUid = content.uids[0] ?? single?.uid ?? null
 

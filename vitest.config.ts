@@ -2,13 +2,35 @@ import { defineConfig } from 'vitest/config'
 import { resolve } from 'path'
 import { availableParallelism } from 'os'
 
-// Unit tests cover the deterministic, framework-free pieces: pure sorts, builders,
-// hostname matchers. UI + Electron integration is handled by Playwright (see
-// playwright.config.ts) — keep those concerns separated so vitest stays fast.
+// Unit tests cover the deterministic pieces: pure sorts, builders, hostname
+// matchers — and, since the environment is already a DOM, mounting a single leaf
+// component with its stores mocked. Anything that needs the app running, a real
+// database, Electron main, or more than one component wired together belongs in
+// Playwright (see playwright.config.ts).
+//
+// The line is drawn at cost, not at "no UI": a mocked leaf mount is a few
+// milliseconds and catches the one class of bug no logic test can see, which is
+// a component that renders nothing at all. Both of this suite's blank-render
+// bugs -- a conditional hook after an early return, and an unhandled widget
+// kind falling through to `return null` -- were invisible to every unit test of
+// the pieces involved.
 export default defineConfig({
+  // JSX has to be compiled here or a .tsx test -- and any .tsx it imports --
+  // fails to load at all. The renderer's tsconfig leaves the transform to a
+  // plugin, which electron-vite supplies for the app build and this config does
+  // not.
+  //
+  // It is set on `oxc` and NOT via @vitejs/plugin-react, which looks like the
+  // obvious answer and silently does nothing: vitest 4 ships rolldown-vite,
+  // which transforms with oxc, and the plugin configures `esbuild` instead --
+  // vite says so plainly ("esbuild options will be ignored") and then reports
+  // the failure as "invalid JS syntax" pointing at the component, with a hint
+  // about a tsconfig jsx setting that is not the cause. Two different wrong
+  // trails from one missing line.
+  oxc: { jsx: 'automatic' },
   test: {
     environment: 'happy-dom',
-    include: ['tests/unit/**/*.test.ts'],
+    include: ['tests/unit/**/*.test.ts', 'tests/unit/**/*.test.tsx'],
     setupFiles: ['tests/unit/setup.ts'],
     globals: true,
     // A TIMEOUT CATCHES A HANG. IT SHOULD NOT MEASURE HOW BUSY THE MACHINE IS.
