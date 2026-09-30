@@ -31,7 +31,9 @@ export const ATTACHABLE_WIDGET_KINDS: ReadonlySet<WidgetKind> = new Set<WidgetKi
   // a map, a gallery, and the desk views (tasks, calendar, inbox, contacts,
   // attention) that say what they are pointed at.
   'voice-recorder', 'stat-card', 'metrics', 'location-map', 'gallery', 'image-gen',
-  'task-list', 'calendar', 'inbox', 'contacts', 'attention', 'meeting-record'
+  'task-list', 'calendar', 'inbox', 'contacts', 'attention', 'meeting-record',
+  // A pinned email is content, so it can be pinned into a request like a doc.
+  'mail-thread'
 ])
 
 // A table reduced to the shape the summariser needs. The caller adapts its own
@@ -675,6 +677,38 @@ export function widgetToText(w: Widget, r: WidgetTextResolvers = {}): WidgetText
       )
       const more = items.length > shown.length ? `\n(+${items.length - shown.length} more)` : ''
       return { ...base, text: `${head}:\n${lines.join('\n')}${more}` }
+    }
+
+    case 'mail-thread': {
+      // A pinned email is CONTENT, so it reads as content. The inbox widget beside
+      // it is a query and reads as one; this is the lease, and the assistant should
+      // be able to answer about it without the user pointing at it again.
+      //
+      // Resolved through the same mailItems resolver as the inbox, filtered to the
+      // uids this widget pinned — so a caller that can read mail at all can read
+      // this, and one that cannot gets an honest label instead of a blank.
+      const p = safeParse<{ mode?: string; uids?: number[]; subject?: string; fromName?: string }>(raw)
+      const uids = Array.isArray(p?.uids) ? p!.uids : []
+      const label = p?.subject ? `Email: ${p.subject}` : 'A pinned email'
+      const who = p?.fromName ? ` from ${p.fromName}` : ''
+      const kindNote = p?.mode === 'thread' ? ' (the whole thread)' : ''
+      if (uids.length === 0) return { ...base, text: `${label}${who}${kindNote}` }
+      const all = r.mailItems?.(w) ?? null
+      if (all === null) return { ...base, text: `${label}${who}${kindNote}` }
+      const mine = all.filter((m) => uids.includes(m.uid))
+      if (mine.length === 0) {
+        return { ...base, text: `${label}${who}${kindNote} — not in the local mail copy.` }
+      }
+      const lines = mine.map(
+        (m) =>
+          `- [uid ${m.uid}] ${m.fromName || m.fromAddress || 'unknown sender'}: ${m.subject || '(no subject)'}${
+            m.date ? ` — ${new Date(m.date).toISOString().slice(0, 10)}` : ''
+          }`
+      )
+      return {
+        ...base,
+        text: `${label}${who}${kindNote}. Pinned to this desk. Subjects and senders only here — the full text is read when a question needs it.\n${lines.join('\n')}`
+      }
     }
 
     case 'chat-thread': {

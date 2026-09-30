@@ -330,7 +330,7 @@ export const PUBLIC_RENDER_POLICY: Readonly<Record<string, PublicRenderType>> = 
   //   agent, webhook, inbound-hook  (executable / secret-bearing)
   //   streamdeck, local-app-launcher (executes local software)
   //   calculator                     (stateful control surface)
-  //   email, chat-thread             (private correspondence)
+  //   email, chat-thread, mail-thread (private correspondence)
   //   meeting-record                 (provenance-tiered private record)
   //   minimap, attention             (viewer-local chrome, not content)
   //   design                         (a freely-placed canvas with no public
@@ -349,6 +349,10 @@ export const PUBLIC_PLACEHOLDER_REASON: Readonly<Record<string, string>> = Objec
   calculator: 'Calculator — not available publicly',
   email: 'Mail — not available publicly',
   'chat-thread': 'Chat thread — not available publicly',
+  // Somebody's correspondence. A pinned email is MORE sensitive than the
+  // inbox widget, not less: the inbox is a query that may match nothing,
+  // while this is one specific message someone chose to keep.
+  'mail-thread': 'Email — not available publicly',
   'meeting-record': 'Meeting record — not available publicly',
   minimap: 'Minimap — not available publicly',
   design: 'Design — not available publicly',
@@ -363,7 +367,7 @@ export const PUBLIC_PLACEHOLDER_REASON: Readonly<Record<string, string>> = Objec
  *
  * Deliberately NOT here, and why:
  *   agent, webhook, inbound-hook   render instructions, URLs and secrets
- *   email, chat-thread             private correspondence
+ *   email, chat-thread, mail-thread private correspondence
  *   meeting-record                 provenance-tiered private record
  *   webview, portal, gdoc,         embedded views of somewhere else, rendered
  *   gsheet, gslide                 with the owner's session -- capturing one

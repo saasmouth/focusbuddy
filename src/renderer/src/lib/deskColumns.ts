@@ -161,7 +161,7 @@ const KIND_GROUP: Partial<Record<WidgetKind, string>> = {
   webview: 'Web & links', pdf: 'Web & links', email: 'Web & links', portal: 'Web & links',
   file: 'Files', drive: 'Files', image: 'Files', video: 'Files', 'voice-recorder': 'Files',
   calculator: 'Tools', color: 'Tools', timer: 'Tools', streamdeck: 'Tools', 'local-app-launcher': 'Tools', shape: 'Tools', chart: 'Tools',
-  agent: 'AI', 'chat-thread': 'AI', 'task-link': 'Links'
+  agent: 'AI', 'chat-thread': 'AI', 'mail-thread': 'Comms', 'task-link': 'Links'
 }
 export function kindGroupLabel(kind: WidgetKind): string {
   return KIND_GROUP[kind] ?? 'Other'

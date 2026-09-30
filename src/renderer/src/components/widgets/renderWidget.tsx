@@ -24,6 +24,7 @@ import FieldWidget from './FieldWidget'
 import PageWidget from './PageWidget'
 import LivingDocWidget from './LivingDocWidget'
 import ChatThreadWidget from './ChatThreadWidget'
+import MailThreadWidget from './MailThreadWidget'
 import TableWidget from './TableWidget'
 import ChartWidget from './ChartWidget'
 import OfficeDocWidget from './OfficeDocWidget'
@@ -62,6 +63,32 @@ import PortalWidget from './PortalWidget'
 // True in the browser runtime, set by src/web/api/bridge.ts before the renderer
 // mounts. Read at render time rather than captured, so it is never stale.
 const isWeb = (): boolean => (globalThis as { __PLEXII_WEB__?: boolean }).__PLEXII_WEB__ === true
+
+/**
+ * A kind this build has no renderer for.
+ *
+ * The switch used to end `default: return null`, which drew nothing at all —
+ * and a blank rectangle is the least informative thing a desk can show. The
+ * case is real and reachable: desks sync between devices, so an older install
+ * opening a desk from a newer one hits exactly this branch, and the widget
+ * someone deliberately placed simply appeared to be missing.
+ *
+ * Naming the kind matters too. "mail-thread" in the card is what turns "my desk
+ * is broken" into "this Mac is on an older version", without anyone having to
+ * ask. The widget's own title is kept, because the user wrote it.
+ */
+function UnknownKindWidget({ widget }: { widget: Widget }): JSX.Element {
+  return (
+    <div className="h-full flex flex-col items-center justify-center gap-1 px-3 py-2 text-center border border-dashed border-[var(--edge-soft)] rounded-lg">
+      <p className="fb-t-caption font-semibold text-[var(--ink-100)] break-words">
+        {widget.title || 'Widget'}
+      </p>
+      <p className="fb-t-caption text-[var(--ink-50)]">
+        This build has no renderer for “{widget.kind}”. Update PlexiDesk to see it.
+      </p>
+    </div>
+  )
+}
 
 export function renderWidget(w: Widget): JSX.Element | null {
   const inner = renderWidgetInner(w)
@@ -189,7 +216,10 @@ function renderWidgetInner(w: Widget): JSX.Element | null {
       return isWeb() ? <EmbeddedSiteWidget widget={w} /> : <WebViewWidget widget={w} />
     case 'chat-thread':
       return <ChatThreadWidget widget={w} />
+    case 'mail-thread':
+      return <MailThreadWidget widget={w} />
     default:
-      return null
+      // Honest, not blank. See UnknownKindWidget.
+      return <UnknownKindWidget widget={w} />
   }
 }

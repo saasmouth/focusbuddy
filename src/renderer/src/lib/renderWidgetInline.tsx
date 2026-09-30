@@ -35,6 +35,7 @@ import InboundHookWidget from '../components/widgets/InboundHookWidget'
 import PortalWidget from '../components/widgets/PortalWidget'
 import ScratchpadWidget from '../components/widgets/ScratchpadWidget'
 import ChatThreadWidget from '../components/widgets/ChatThreadWidget'
+import MailThreadWidget from '../components/widgets/MailThreadWidget'
 
 export function renderWidgetInline(w: Widget): JSX.Element | null {
   switch (w.kind) {
@@ -110,6 +111,9 @@ export function renderWidgetInline(w: Widget): JSX.Element | null {
     case 'chat-thread':
       // ChatThreadWidget renders its own body (no WidgetFrame), so no inline prop.
       return <ChatThreadWidget widget={w} />
+    case 'mail-thread':
+      // Same as ChatThreadWidget: renders its own body, so no inline prop.
+      return <MailThreadWidget widget={w} />
     case 'section':
       return null
     case 'webview':

@@ -243,6 +243,7 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'mail:searchStored': [{ kind: 'string', optional: false, nullable: false }, { kind: 'object', optional: true, nullable: false }, { kind: 'object', optional: true, nullable: false }],
   'mail:send': [{ kind: 'object', optional: false, nullable: false }],
   'mail:spam': [{ kind: 'number', optional: false, nullable: false }],
+  'mail:storedThread': [{ kind: 'object', optional: false, nullable: false }],
   'mail:suggestReply': [{ kind: 'object', optional: false, nullable: false }, { kind: 'any', optional: true, nullable: false }],
   'mail:testAccount': [{ kind: 'object', optional: false, nullable: false }],
   'mail:trash': [{ kind: 'number', optional: false, nullable: false }],

@@ -5,12 +5,17 @@ import { useMailTagStore } from '../../stores/mailTags'
 import { untagged, inTag, tagFromMessage } from '../../lib/mailTags'
 import { useMailStore, selectMailUnread } from '../../stores/mail'
 import { useViewStore } from '../../stores/view'
+import { useNodeStore } from '../../stores/nodes'
+import { useWidgetStore } from '../../stores/widgets'
+import { useNoticeStore } from '../../stores/notice'
+import { catalogFor } from '../../lib/widgetCatalog'
 import type {
   MailAccountInput,
   MailTag,
   MailListItem,
   MailSearchResultItem,
-  MailCoverage
+  MailCoverage,
+  MailThreadContent
 } from '@shared/types'
 import { threadMailbox } from '../../lib/mailThreads'
 import Icon from '../Icon'
@@ -280,6 +285,61 @@ function ReadingPane(): JSX.Element {
   const [taskState, setTaskState] = useState<'idle' | 'making' | 'done'>('idle')
   const [taskError, setTaskError] = useState<string | null>(null)
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
+  // Putting an email on a desk.
+  //
+  // A desk PICKER rather than "the active desk", because Mail is its own view: the
+  // desk you last had open is not evidence of where this message belongs, and
+  // quietly assuming it is how a lease ends up pinned to last week's standup.
+  const [pickDesk, setPickDesk] = useState(false)
+  const [pinning, setPinning] = useState(false)
+  const allNodes = useNodeStore((s) => s.nodes)
+  const openDesks = useMemo(
+    () => allNodes.filter((n) => n.kind === 'task' && !n.archived).slice(0, 40),
+    [allNodes]
+  )
+
+  const pinToDesk = async (deskId: string, mode: 'one' | 'thread'): Promise<void> => {
+    const msg = useMailStore.getState().open
+    if (!msg) return
+    setPinning(true)
+    try {
+      const entry = catalogFor('mail-thread')
+      const content: MailThreadContent = {
+        mode,
+        uids: [msg.uid],
+        rootMessageId: msg.messageId ?? null,
+        // Snapshotted so the card is never anonymous, even later when the message
+        // cannot be resolved from the local copy.
+        subject: msg.subject || '(no subject)',
+        fromName: msg.fromName || msg.fromAddress
+      }
+      await window.api.widgets.create({
+        taskId: deskId,
+        kind: 'mail-thread',
+        title: msg.subject || 'Email',
+        content: JSON.stringify(content),
+        width: entry?.defaultWidth ?? 380,
+        height: entry?.defaultHeight ?? 420
+      })
+      const desk = openDesks.find((d) => d.id === deskId)
+      useNoticeStore.getState().show({
+        text: `${mode === 'thread' ? 'Thread' : 'Email'} sent to ${desk?.title || 'the desk'}`,
+        icon: 'mail',
+        action: { label: 'Open', run: () => useViewStore.getState().goTask(deskId) }
+      })
+      // Refresh the target desk when it is the one on screen, so it appears now
+      // rather than on the next visit.
+      const v = useViewStore.getState().view
+      if (v.kind === 'task' && v.taskId === deskId) {
+        void useWidgetStore.getState().loadForTask(deskId, { refresh: true })
+      }
+    } catch {
+      useNoticeStore.getState().show({ text: 'Could not send that email to the desk.', icon: 'warning' })
+    } finally {
+      setPinning(false)
+      setPickDesk(false)
+    }
+  }
   const [draftDismissed, setDraftDismissed] = useState(false)
   // Block remote content by default: HTML email that loads remote images or CSS
   // discloses the recipient's IP and a read-receipt to the sender (tracking
@@ -377,6 +437,53 @@ function ReadingPane(): JSX.Element {
             <Icon name="forward" size={13} />
             Forward
           </button>
+          <div className="relative">
+            <button
+              onClick={() => setPickDesk((v) => !v)}
+              disabled={pinning}
+              data-testid="mail-send-to-desk"
+              title="Keep this email on a desk, read like a document"
+              className="fb-t-label px-2.5 py-1 fb-btn-surface fb-press text-[var(--ink-70)] inline-flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <Icon name="desk" size={13} />
+              Send to desk
+            </button>
+            {pickDesk && (
+              <div
+                className="absolute left-0 top-9 z-20 w-72 rounded-[var(--radius-row)] fb-glass-panel fb-pop-in py-1 max-h-72 overflow-y-auto"
+                onMouseLeave={() => setPickDesk(false)}
+                data-testid="mail-desk-picker"
+              >
+                {openDesks.length === 0 ? (
+                  <p className="px-3 py-2 fb-t-caption text-[var(--ink-50)]">
+                    No desks yet — make one and this email can live on it.
+                  </p>
+                ) : (
+                  openDesks.map((d) => (
+                    <div key={d.id} className="px-1">
+                      <p className="px-2 pt-1.5 fb-t-caption truncate text-[var(--ink-60)]">{d.title}</p>
+                      <div className="flex gap-1 px-1 pb-1.5">
+                        {/* Both offered at the moment of choosing: which one you want is
+                            obvious then, and a nuisance to change afterwards. */}
+                        <button
+                          onClick={() => void pinToDesk(d.id, 'one')}
+                          className="flex-1 fb-t-caption px-2 py-1 rounded fb-btn-surface fb-press text-[var(--ink-70)]"
+                        >
+                          This email
+                        </button>
+                        <button
+                          onClick={() => void pinToDesk(d.id, 'thread')}
+                          className="flex-1 fb-t-caption px-2 py-1 rounded fb-btn-surface fb-press text-[var(--ink-70)]"
+                        >
+                          Whole thread
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
           <button
             onClick={() => setTaskDialogOpen(true)}
             data-testid="mail-make-task"

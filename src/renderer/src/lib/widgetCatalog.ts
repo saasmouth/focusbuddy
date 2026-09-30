@@ -454,6 +454,20 @@ export const WIDGET_CATALOG: WidgetCatalogEntry[] = [
     hideFromPicker: true
   },
   {
+    kind: 'mail-thread',
+    category: 'Comms',
+    label: 'Email',
+    icon: 'mail',
+    hint: 'One email, or its whole thread, kept on the desk and read like a document',
+    defaultWidth: 380,
+    defaultHeight: 420,
+    defaultContent: '',
+    isWebBased: false,
+    // Not offered by the picker: an empty one would be a card with no message in
+    // it. It is created FROM a message — the reader's "Send to desk".
+    hideFromPicker: true
+  },
+  {
     kind: 'chat-thread',
     category: 'Comms',
     label: 'Chat',

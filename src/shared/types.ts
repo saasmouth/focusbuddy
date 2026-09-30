@@ -61,6 +61,20 @@ export type WidgetKind =
   // A pinned PlexiChat conversation: stores { conversationId, channelName } in
   // content, renders a compact live view of the thread with an Open button.
   | 'chat-thread'
+  // A pinned EMAIL, or the thread it belongs to: stores MailThreadContent in
+  // content and renders the message the way a document reads, not the way an
+  // inbox reads.
+  //
+  // Distinct from 'inbox', which is a live QUERY over the mailbox, and from
+  // 'email', which is a webview pointed at a webmail URL. This one is a piece of
+  // correspondence that has been put on a desk because it is part of that work —
+  // the lease, the quote, the levy notice — and it belongs there whether or not it
+  // still matches any filter.
+  //
+  // It renders from the LOCAL mail store, which is what makes it durable: the
+  // message survives on the desk even when it has been archived, filed or deleted
+  // on the server, because the desk is not holding a pointer into a live mailbox.
+  | 'mail-thread'
   | 'calculator'
   | 'color'
   | 'image'
@@ -2230,6 +2244,49 @@ export interface InboxRules {
  * one vocabulary: a search can become a tag, a tag can be previewed as a search,
  * and neither drifts when the other gains a field.
  */
+/**
+ * What a 'mail-thread' widget stores.
+ *
+ * `mode` is the whole distinction the user cares about:
+ *   'one'    — this exact message, and only it. Pinning a quote does not mean
+ *              pinning the twelve replies that came after.
+ *   'thread' — the conversation, resolved from the store each render, so a reply
+ *              that arrives tomorrow appears without anyone re-adding the widget.
+ *
+ * `uids` anchors it. For 'thread' it is the seed; the rest of the conversation is
+ * found through the RFC 5322 headers, which is why the store keeps them.
+ *
+ * `subject` and `fromName` are a SNAPSHOT for the widget's own title, so a desk
+ * still reads sensibly when the message cannot be resolved — a blank card telling
+ * you nothing is worse than a titled card saying the message is gone.
+ */
+/** One message as a pinned mail-thread widget reads it. */
+export interface PinnedMailMessage {
+  uid: number
+  fromName: string
+  fromAddress: string
+  toText: string
+  subject: string
+  date: number
+  seen: boolean
+  hasAttachments: boolean
+  /** null means the body has not been fetched yet — reported, never shown blank. */
+  bodyText: string | null
+  attachments: Array<{ filename: string; contentType: string; sizeBytes: number }>
+}
+
+export interface MailThreadContent {
+  mode: 'one' | 'thread'
+  uids: number[]
+  /** Message-ID of the anchor, used to regather a thread and to survive a re-sync. */
+  rootMessageId?: string | null
+  /** Snapshot for the title, so the card is never anonymous. */
+  subject?: string
+  fromName?: string
+  /** Collapse the quoted history by default; a long reply chain buries the point. */
+  collapsed?: boolean
+}
+
 export interface MailSearchFilter extends InboxRules {
   /** Absolute bounds for a picked range. `after` inclusive, `before` exclusive. */
   after?: number | null

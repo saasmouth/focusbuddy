@@ -134,7 +134,7 @@ import { captureDocSnapshot, listDocSnapshots, restoreDocSnapshot } from '../db/
 import { listDocComments, addDocComment, resolveDocComment } from '../db/docComments'
 import { searchAll, setMailSearchCache } from '../db/search'
 import { ingestHeaderPage, backfillBodies } from '../mail/mailIngest'
-import { searchStoredMail } from '../db/mailStore'
+import { searchStoredMail, storedThread, getStoredAttachments } from '../db/mailStore'
 import type { MailSearchFilter } from '@shared/types'
 import { mailSyncProgress } from '../mail/mailSync'
 import { getAccountKey as getMailAccountKey } from '../mail/mailAccount'
@@ -3523,6 +3523,50 @@ export function registerIpcHandlers(): void {
           snippet: (h.message.bodyText ?? '').replace(/\s+/g, ' ').slice(0, 180)
         }))
         return { ok: true as const, items, coverage: mailSyncProgress() }
+      } catch (err) {
+        return { ok: false as const, error: (err as Error).message }
+      }
+    }
+  )
+
+  // The messages behind a pinned mail-thread widget, read from the LOCAL store.
+  //
+  // Local on purpose: it is what makes the widget durable. A desk holding a pointer
+  // into a live mailbox goes blank the day the message is archived, and the whole
+  // point of putting the lease on the desk is that it stays there.
+  ipcMain.handle(
+    'mail:storedThread',
+    (_e, content: { mode?: 'one' | 'thread'; uids?: number[]; rootMessageId?: string | null }) => {
+      const accountKey = getMailAccountKey()
+      if (!accountKey) return { ok: false as const, error: 'No mail account connected.' }
+      try {
+        const rows = storedThread(getDb() as never, {
+          accountKey,
+          mode: content?.mode === 'thread' ? 'thread' : 'one',
+          uids: Array.isArray(content?.uids) ? content.uids.filter((u) => Number.isSafeInteger(u)) : [],
+          rootMessageId: content?.rootMessageId ?? null
+        })
+        return {
+          ok: true as const,
+          messages: rows.map((m) => ({
+            uid: m.uid,
+            fromName: m.fromName,
+            fromAddress: m.fromAddress,
+            toText: m.toText,
+            subject: m.subject,
+            date: m.date,
+            seen: m.seen,
+            hasAttachments: m.hasAttachments,
+            // The body is the document. null means the sweep has not fetched it
+            // yet, which the widget reports rather than rendering as blank.
+            bodyText: m.bodyText,
+            attachments: getStoredAttachments(getDb() as never, m.uid, { accountKey }).map((a) => ({
+              filename: a.filename,
+              contentType: a.contentType,
+              sizeBytes: a.sizeBytes
+            }))
+          }))
+        }
       } catch (err) {
         return { ok: false as const, error: (err as Error).message }
       }

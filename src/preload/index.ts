@@ -45,6 +45,7 @@ import type {
   MailSearchFilter,
   MailSearchResultItem,
   MailCoverage,
+  PinnedMailMessage,
   MailTag,
   MailTagDraft,
   MailTagPatch,
@@ -2265,6 +2266,14 @@ const api = {
       | { ok: true; items: MailSearchResultItem[]; coverage: MailCoverage }
       | { ok: false; error: string }
     > => ipcRenderer.invoke('mail:searchStored', query, filter, opts),
+    // The messages behind a pinned mail-thread widget, from the local store.
+    storedThread: (content: {
+      mode?: 'one' | 'thread'
+      uids?: number[]
+      rootMessageId?: string | null
+    }): Promise<
+      { ok: true; messages: PinnedMailMessage[] } | { ok: false; error: string }
+    > => ipcRenderer.invoke('mail:storedThread', content),
     archive: (uid: number): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('mail:archive', uid),
     // ── AI triage. `triage` PROPOSES; the rest are what the person applies. ──

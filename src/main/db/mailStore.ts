@@ -731,6 +731,70 @@ export function searchStoredMail(
   })
 }
 
+/**
+ * The messages behind a pinned 'mail-thread' widget.
+ *
+ * `mode: 'one'` returns exactly the uids named and nothing else. Pinning a quote
+ * must not silently grow into the twelve replies that followed it.
+ *
+ * `mode: 'thread'` regathers the conversation on every read, so a reply that
+ * arrives tomorrow appears on the desk without anyone re-adding the widget. The
+ * gather is by RFC 5322 headers — a message belongs if it IS the root, is a reply
+ * to it, or carries it in References — which is why the store keeps them. Subject
+ * matching is deliberately NOT used: "Re: invoice" is not evidence of anything, and
+ * two unrelated invoices would be merged into one conversation.
+ *
+ * Oldest first, because a conversation reads downwards. Every other read in this
+ * module is newest-first; a thread is the exception because it is a document.
+ */
+export function storedThread(
+  db: MailDb,
+  opts: {
+    accountKey: string
+    mailbox?: string
+    mode: 'one' | 'thread'
+    uids: number[]
+    rootMessageId?: string | null
+    limit?: number
+  }
+): StoredMail[] {
+  const accountKey = norm(opts.accountKey)
+  const mailbox = opts.mailbox ?? 'INBOX'
+  const limit = Math.max(1, Math.min(opts.limit ?? 50, 200))
+  if (opts.uids.length === 0 && !opts.rootMessageId) return []
+
+  if (opts.mode === 'one') {
+    const rows = opts.uids
+      .map((uid) => getStoredMail(db, uid, { accountKey, mailbox }))
+      .filter((m): m is StoredMail => m !== null)
+    return rows.sort((a, b) => a.date - b.date)
+  }
+
+  // Seed with the named uids so a thread still shows its anchor even when the
+  // headers are missing (a message with no Message-ID is rare but real).
+  const byUid = new Map<number, StoredMail>()
+  for (const uid of opts.uids) {
+    const m = getStoredMail(db, uid, { accountKey, mailbox })
+    if (m) byUid.set(uid, m)
+  }
+  const root = opts.rootMessageId ?? [...byUid.values()][0]?.messageId ?? null
+  if (root) {
+    const rows = db
+      .prepare(
+        `SELECT * FROM mail_messages
+         WHERE account_key = ? AND mailbox = ?
+           AND (message_id = ? OR in_reply_to = ? OR refs LIKE ?)
+         ORDER BY date ASC LIMIT ?`
+      )
+      .all(accountKey, mailbox, root, root, `%${root}%`, limit) as Array<Record<string, unknown>>
+    for (const r of rows) {
+      const m = rowToStored(r)
+      byUid.set(m.uid, m)
+    }
+  }
+  return [...byUid.values()].sort((a, b) => a.date - b.date).slice(0, limit)
+}
+
 /** Drop everything for an account — used when a mailbox is disconnected. */
 export function clearStoredMail(db: MailDb, opts: { accountKey: string; mailbox?: string }): void {
   const accountKey = norm(opts.accountKey)
