@@ -527,9 +527,22 @@ export default function ProposalCards({
                 <div className="fb-t-label font-medium text-[var(--ink-100)] truncate">
                   {desc.subject}
                 </div>
-                {p.reason && (
+                {/* The reason is the field the user actually decides from, so
+                    its ABSENCE is information too. This used to render nothing
+                    when the model omitted it, which left a card asking you to
+                    approve a change on trust with no visible sign that anything
+                    was missing -- and that reads as the assistant being
+                    arbitrary rather than as the assistant being quiet. */}
+                {p.reason?.trim() ? (
                   <div className="fb-t-caption text-[var(--ink-50)] mt-0.5 leading-snug">
                     {p.reason}
+                  </div>
+                ) : (
+                  <div
+                    className="fb-t-caption text-[var(--ink-50)] mt-0.5 leading-snug italic"
+                    data-testid="proposal-no-reason"
+                  >
+                    Plexii gave no reason for this one — worth a look before you apply it.
                   </div>
                 )}
                 {/* The miniature (F3): the real thing this card would create,

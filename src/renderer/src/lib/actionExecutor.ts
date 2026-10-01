@@ -7,6 +7,7 @@
 // Each handler returns { ok, message } so the chat UI can show a confirmation
 // chip ("✓ Created Project tracker" / "✗ Couldn't open URL") inline.
 
+import { attributedNotes } from './proposalReason'
 import type { ActionProposal, Widget, WidgetKind, WidgetPatch, NodePatch, TaskStatus } from '@shared/types'
 import type { FieldDefinition, TableSchema } from '@shared/fields'
 import { defaultConfig, defaultValue } from '@shared/fields'
@@ -1011,9 +1012,21 @@ async function applyCreateWorkItem(
 ): Promise<ApplyResult> {
   try {
     const { useWorkItemStore } = await import('../stores/workItems')
+    // Carry the reason into the item itself.
+    //
+    // The user approved this card BECAUSE of the reason on it, and that sentence
+    // was then thrown away: nothing here read p.reason, so the row that arrived
+    // in Attention could say no more than "Suggested by Plexii". A week later
+    // the only honest answer to "why is this on my list?" was a shrug.
+    //
+    // Attributed, not blended into the user's own notes, because it is Plexii's
+    // account of why and not theirs. A dedicated column would be better than
+    // notes -- it would survive editing and could be shown as provenance rather
+    // than prose -- but that means WORK_ITEM_COLUMNS, the CRDT allowlists and
+    // the sync parity test, which is a bigger change than this one.
     const item = await useWorkItemStore.getState().create({
       title: p.title,
-      notes: p.notes,
+      notes: attributedNotes(p.notes, p.reason),
       intentClass: p.intentClass,
       wiOrigin: 'ai',
       approvalState: 'approved',

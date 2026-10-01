@@ -422,6 +422,30 @@ function taskBlock(taskId: string): string {
   return lines.join('\n')
 }
 
+// What a "reason" has to say, stated once and shared by every prompt that emits
+// an action card.
+//
+// The field already existed, was parsed, and was rendered. It was simply taught
+// to be worthless: thirty of the catalog's own examples below used to read
+// "reason": "...", which showed the model that a placeholder was acceptable, and
+// the single concrete one ("checklist for launch") restated the title instead of
+// giving a reason. The result was the complaint that Plexii cannot explain the
+// value of what it suggests -- it had nowhere it was asked to.
+//
+// This is the field the user actually decides from. A card with a good title and
+// no reason is a request to approve a change on trust.
+export const REASON_CONTRACT =
+  'THE "reason" FIELD IS HOW THE USER DECIDES. Treat it as the most important\n' +
+  'thing you write, not a label:\n' +
+  '  - Say why this helps THEM, now, in their situation: the gap it fills, the\n' +
+  '    work it saves, or what is currently wrong or out of date.\n' +
+  '  - One short sentence of plain language. Do not restate the title, do not\n' +
+  '    describe the mechanics ("creates a table"), and do not pad it.\n' +
+  '  - Ground it in what you actually saw in their workspace or asked about.\n' +
+  '  - If you cannot say why it helps, DO NOT PROPOSE THE ACTION. A proposal you\n' +
+  '    cannot justify is the weak suggestion the user has to read and dismiss.\n' +
+  '\n'
+
 // The catalog of valid action-object JSON shapes. Shared verbatim by the chat
 // prompt and the agent-loop prompt so a newly-added ActionProposal kind can never
 // be documented to one brain and not the other. Contains NO envelope-field refs
@@ -429,46 +453,47 @@ function taskBlock(taskId: string): string {
 export const ACTION_KINDS_CATALOG =
   'Each action object has a "kind" plus its required fields. Valid kinds:\n' +
   '\n' +
-  '  { "kind": "create-todo-list", "title": "Launch checklist", "items": ["Buy hosting", "Record pilot"], "reason": "checklist for launch" }\n' +
-  '  { "kind": "open-url", "url": "https://docs.google.com/...", "title": "Brief draft", "reason": "..." }  (An EXTERNAL web address only — the url MUST begin http:// or https://. Never use this for anything INSIDE Plexii: to make a page use create-page, and to OPEN something that already exists use drill-in-widget / focus-widget / navigate-to below.)\n' +
-  '  { "kind": "drill-in-widget", "widgetId": "the id from the desk index", "label": "Email sequences", "reason": "..." }  (Opens ONE widget full-screen in focus mode. This is what "open X in focus view", "show me X full screen", "zoom into X" mean.)\n' +
-  '  { "kind": "focus-widget", "widgetId": "the id from the desk index", "label": "Email sequences", "reason": "..." }  (Scrolls the canvas to a widget and highlights it, leaving the desk in view. Use when the user wants to be SHOWN where something is rather than to open it.)\n' +
-  '  { "kind": "navigate-to", "target": "documents"|"desks"|"files"|"mail"|"calendar"|"knowledge"|"home", "targetId": "optional exact id", "label": "Documents", "reason": "..." }  (Goes to a place in Plexii. For a specific document use target "documents" with its id.)\n' +
-  '  { "kind": "toggle-todo-item", "widgetId": "the id from the desk index", "widgetLabel": "Launch checklist", "itemMatch": "Record pilot", "checked": true, "reason": "..." }  (Ticks or un-ticks ONE item in a Markdown or Page widget\'s task list. "itemMatch" is a distinctive piece of the item\'s text, matched case-insensitively as a substring — quote enough of the line to be unambiguous. This is what "mark X as done", "tick off X", "uncheck X" mean.)\n' +
-  '  { "kind": "add-subtask", "title": "Call the vendor", "notes": "optional detail", "parentId": "optional task id, omit for the desk the user is on", "dueDate": 1790000000000, "assignee": "optional", "reason": "..." }  (Adds a subtask under the desk the user is already on. Use this, NOT create-task, when they want another item on the thing in front of them — create-task makes a whole new desk.)\n' +
-  '  { "kind": "arrange-widgets", "widgetIds": ["optional ids"], "label": "Tidy up", "reason": "..." }  (Auto-layouts widgets into a tidy grid. Omit "widgetIds" to arrange every unpinned widget on the desk, which is what "tidy this up" / "clean up this desk" mean.)\n' +
-  '  { "kind": "create-section", "name": "Research", "widgetIds": ["id1","id2"], "reason": "..." }  (Groups EXISTING widgets into a labelled Section on the desk. Both fields are required — a section needs a name and something to hold.)\n' +
-  '  { "kind": "agent-browse", "task": "Search this site for a 2-bedroom under $2400 and open the best listing", "url": "https://...", "reason": "..." }  (Plexii drives the in-app browser step by step — visible, stoppable, consent-gated. Use when the user asks you to DO something on a website: search within it, fill a form, walk a flow. For simply showing a web page, use open-url. It never signs in, pays, solves CAPTCHAs, or moves files — if the task needs that, say that part is theirs. "url" is where to start; omit it to act on the page already open.)\n' +
-  '  { "kind": "create-widget", "widgetKind": "sticky"|"note"|"markdown"|"calculator"|"color"|"timer", "title": "...", "content": "...", "reason": "..." }\n' +
-  '  { "kind": "create-page", "title": "Project brief", "sections": [{"heading":"Goals","body":"..."}], "deskId": "optional — the desk id this belongs on", "reason": "..." }  (A Page is a DOCUMENT inside Plexii, not a web address. This is what "make me a page", "a page to write in", and "a page for an agent to write to" all mean.)\n' +
+  '  { "kind": "create-todo-list", "title": "Launch checklist", "items": ["Buy hosting", "Record pilot"], "reason": "the launch has seven moving parts and nothing is tracking them" }\n' +
+  '  { "kind": "open-url", "url": "https://docs.google.com/...", "title": "Brief draft", "reason": "this is the brief you referred to, so you do not have to find it again" }  (An EXTERNAL web address only — the url MUST begin http:// or https://. Never use this for anything INSIDE Plexii: to make a page use create-page, and to OPEN something that already exists use drill-in-widget / focus-widget / navigate-to below.)\n' +
+  '  { "kind": "drill-in-widget", "widgetId": "the id from the desk index", "label": "Email sequences", "reason": "you are working inside this one, and full screen hides the rest" }  (Opens ONE widget full-screen in focus mode. This is what "open X in focus view", "show me X full screen", "zoom into X" mean.)\n' +
+  '  { "kind": "focus-widget", "widgetId": "the id from the desk index", "label": "Email sequences", "reason": "you asked where it is, so this points at it rather than opening it" }  (Scrolls the canvas to a widget and highlights it, leaving the desk in view. Use when the user wants to be SHOWN where something is rather than to open it.)\n' +
+  '  { "kind": "navigate-to", "target": "documents"|"desks"|"files"|"mail"|"calendar"|"knowledge"|"home", "targetId": "optional exact id", "label": "Documents", "reason": "the document you just asked about lives here" }  (Goes to a place in Plexii. For a specific document use target "documents" with its id.)\n' +
+  '  { "kind": "toggle-todo-item", "widgetId": "the id from the desk index", "widgetLabel": "Launch checklist", "itemMatch": "Record pilot", "checked": true, "reason": "you said the pilot is recorded, so the checklist is out of date" }  (Ticks or un-ticks ONE item in a Markdown or Page widget\'s task list. "itemMatch" is a distinctive piece of the item\'s text, matched case-insensitively as a substring — quote enough of the line to be unambiguous. This is what "mark X as done", "tick off X", "uncheck X" mean.)\n' +
+  '  { "kind": "add-subtask", "title": "Call the vendor", "notes": "optional detail", "parentId": "optional task id, omit for the desk the user is on", "dueDate": 1790000000000, "assignee": "optional", "reason": "this came up as a follow-up and would otherwise be lost in the thread" }  (Adds a subtask under the desk the user is already on. Use this, NOT create-task, when they want another item on the thing in front of them — create-task makes a whole new desk.)\n' +
+  '  { "kind": "arrange-widgets", "widgetIds": ["optional ids"], "label": "Tidy up", "reason": "eleven widgets overlap, so the desk is hard to read" }  (Auto-layouts widgets into a tidy grid. Omit "widgetIds" to arrange every unpinned widget on the desk, which is what "tidy this up" / "clean up this desk" mean.)\n' +
+  '  { "kind": "create-section", "name": "Research", "widgetIds": ["id1","id2"], "reason": "these four are all research and clutter the desk separately" }  (Groups EXISTING widgets into a labelled Section on the desk. Both fields are required — a section needs a name and something to hold.)\n' +
+  '  { "kind": "agent-browse", "task": "Search this site for a 2-bedroom under $2400 and open the best listing", "url": "https://...", "reason": "the listing details are not in your files, so they have to be fetched" }  (Plexii drives the in-app browser step by step — visible, stoppable, consent-gated. Use when the user asks you to DO something on a website: search within it, fill a form, walk a flow. For simply showing a web page, use open-url. It never signs in, pays, solves CAPTCHAs, or moves files — if the task needs that, say that part is theirs. "url" is where to start; omit it to act on the page already open.)\n' +
+  '  { "kind": "create-widget", "widgetKind": "sticky"|"note"|"markdown"|"calculator"|"color"|"timer", "title": "...", "content": "...", "reason": "somewhere to keep the figures you just quoted" }\n' +
+  '  { "kind": "create-page", "title": "Project brief", "sections": [{"heading":"Goals","body":"..."}], "deskId": "optional — the desk id this belongs on", "reason": "the brief is spread across three messages and has no home" }  (A Page is a DOCUMENT inside Plexii, not a web address. This is what "make me a page", "a page to write in", and "a page for an agent to write to" all mean.)\n' +
   '  (DESK PLACEMENT: create-page, create-widget, create-todo-list and create-table all accept an optional "deskId". ' +
   'When the user names a desk, or the request plainly belongs to one in the roster above, SET IT to that exact id — ' +
   'the action then applies straight to that desk instead of stopping to ask the user where it goes. ' +
   'Omit it when the user means the desk they are already on, and never guess an id that is not in the roster.)\n' +
-  '  { "kind": "create-task", "title": "Q1 rebrand", "notes": "scope notes", "reason": "..." }  (' +
+  '  { "kind": "create-task", "title": "Q1 rebrand", "notes": "scope notes", "reason": "this is a separate piece of work with its own deadline" }  (' +
   CREATE_TASK_DEFINITION +
   ')\n' +
-  '  { "kind": "create-table", "id": "tbl-1", "title": "Episodes", "columns": [{"label":"Title","type":"text-short"},{"label":"Status","type":"single-select","options":["Draft","Recorded","Live"]}], "reason": "..." }\n' +
-  '  { "kind": "add-table-row", "tableId": "$tbl-1", "cells": {"Title":"Pilot","Status":"Draft"}, "reason": "..." }\n' +
-  '  { "kind": "create-field", "label": "Energy", "fieldType": "single-select", "options": ["Low","Med","High"], "reason": "..." }\n' +
+  '  { "kind": "create-table", "id": "tbl-1", "title": "Episodes", "columns": [{"label":"Title","type":"text-short"},{"label":"Status","type":"single-select","options":["Draft","Recorded","Live"]}], "reason": "nine episodes each with a status is a table, not a list" }\n' +
+  '  { "kind": "add-table-row", "tableId": "$tbl-1", "cells": {"Title":"Pilot","Status":"Draft"}, "reason": "the pilot is missing from the episode list you are tracking" }\n' +
+  '  { "kind": "create-field", "label": "Energy", "fieldType": "single-select", "options": ["Low","Med","High"], "reason": "you sort these by energy but there is no field for it" }\n' +
   '  { "kind": "create-agent", "id": "agent-1", "title": "Lead researcher", "instruction": "For each row in the leads table, research the company and add a one-line summary of what they do.", "trigger": "manual", "reason": "automates the research" }\n' +
   '  { "kind": "link-widgets", "sourceWidgetId": "$tbl-1", "targetWidgetId": "$agent-1", "sourceLabel": "leads table", "targetLabel": "research agent", "wireType": "context", "verb": "research", "reason": "feed the table into the agent" }\n' +
-  '  { "kind": "update-widget", "widgetId": "<from canvas summary>", "label": "the launch checklist", "title": "...", "content": "...", "reason": "..." }\n' +
-  '  { "kind": "delete-widget", "widgetId": "<from canvas summary>", "label": "the empty sticky", "reason": "..." }\n' +
-  '  { "kind": "start-focus-session", "minutes": 5, "reason": "..." }\n' +
+  '  { "kind": "update-widget", "widgetId": "<from canvas summary>", "label": "the launch checklist", "title": "...", "content": "...", "reason": "the checklist still says Q2 and the dates have moved" }\n' +
+  '  { "kind": "delete-widget", "widgetId": "<from canvas summary>", "label": "the empty sticky", "reason": "it is empty and has been since the desk was made" }\n' +
+  '  { "kind": "start-focus-session", "minutes": 5, "reason": "you have twenty-five minutes before the call and one thing left" }\n' +
   '  { "kind": "update-task", "taskId": "<the Desk id shown above>", "label": "this desk", "status": "done", "dueDate": null, "title": "new title", "reason": "user marked it complete" }  (' +
   UPDATE_TASK_DEFINITION +
   ')\n' +
   '  { "kind": "create-knowledge-entry", "title": "Brand voice rule", "body": "We write in first-person plural and never use em dashes.", "tags": ["brand"], "reason": "user stated this as a rule" }\n' +
-  '  { "kind": "edit-document", "documentId": "<from the documents list>", "label": "the Q3 brief", "body": "New section text...", "operation": "append", "reason": "..." }\n' +
-  '  { "kind": "generate-document", "docType": "slides"|"sheet"|"map"|"doc", "title": "Q3 launch deck", "prompt": "<what to make, grounded only in the request/context>", "reason": "..." }  (slides=presentation, sheet=spreadsheet, map=diagram/flowchart/mind map/org chart, doc=written document; the real content is generated in a follow-up step, so the prompt must restate only what was asked and invent nothing, and your text must not claim it already exists)\n' +
-  '  { "kind": "create-document", "docType": "doc"|"sheet"|"slides"|"map"|"design"|"draw", "title": "Q3 budget", "reason": "..." }  (An EMPTY office surface for the user to fill in themselves. Prefer generate-document above whenever you know what should go in it — an empty spreadsheet is rarely what someone asking for "a budget" wants. Use this only when they explicitly ask for a blank one, or when what belongs in it is genuinely theirs to decide. It is also the only way to make a design or draw surface.)\n' +
-  '  { "kind": "set-cell", "tableId": "<from canvas summary>", "rowId": "<from rowIds>", "cells": {"Status":"Live"}, "reason": "..." }\n' +
-  '  { "kind": "schedule-event", "title": "Deep work: brief", "startMs": 1780000000000, "durationMinutes": 60, "recurrence": null, "reason": "..." }\n' +
-  '  { "kind": "compose-mail", "to": ["ana@example.com"], "subject": "Q3 brief attached", "body": "Hi Ana, ...", "reason": "..." }\n' +
-  '  { "kind": "mail-action", "op": "mark-read"|"archive"|"move"|"trash"|"spam", "uid": 1234, "subject": "the subject line, so the card shows which one", "mailbox": "only for move — the destination mailbox", "reason": "..." }  (Files or flags ONE email that already exists. "uid" MUST be a uid you were actually shown in an inbox widget — never invent one, and never guess from a subject, because two emails can share a subject and the wrong one would be filed. Emit one action per message. Nothing here deletes irrecoverably: trash and spam move the message. For WRITING an email use compose-mail instead.)\n' +
-  '  { "kind": "post-chat", "conversationId": "<from chat conversations>", "conversationLabel": "#launch", "body": "Draft update: ...", "reason": "..." }\n' +
+  '  { "kind": "edit-document", "documentId": "<from the documents list>", "label": "the Q3 brief", "body": "New section text...", "operation": "append", "reason": "the brief is missing the scope you just described" }\n' +
+  '  { "kind": "generate-document", "docType": "slides"|"sheet"|"map"|"doc", "title": "Q3 launch deck", "prompt": "<what to make, grounded only in the request/context>", "reason": "you have the figures already, so this only needs assembling" }  (slides=presentation, sheet=spreadsheet, map=diagram/flowchart/mind map/org chart, doc=written document; the real content is generated in a follow-up step, so the prompt must restate only what was asked and invent nothing, and your text must not claim it already exists)\n' +
+  '  { "kind": "create-document", "docType": "doc"|"sheet"|"slides"|"map"|"design"|"draw", "title": "Q3 budget", "reason": "somewhere for the budget to live before the numbers arrive" }  (An EMPTY office surface for the user to fill in themselves. Prefer generate-document above whenever you know what should go in it — an empty spreadsheet is rarely what someone asking for "a budget" wants. Use this only when they explicitly ask for a blank one, or when what belongs in it is genuinely theirs to decide. It is also the only way to make a design or draw surface.)\n' +
+  '  { "kind": "set-cell", "tableId": "<from canvas summary>", "rowId": "<from rowIds>", "cells": {"Status":"Live"}, "reason": "you said it went live, so the table is out of date" }\n' +
+  '  { "kind": "schedule-event", "title": "Deep work: brief", "startMs": 1780000000000, "durationMinutes": 60, "recurrence": null, "reason": "the brief needs an hour and your afternoon is free" }\n' +
+  '  { "kind": "compose-mail", "to": ["ana@example.com"], "subject": "Q3 brief attached", "body": "Hi Ana, ...", "reason": "Ana is waiting on this and the brief is now ready" }\n' +
+  '  { "kind": "mail-action", "op": "mark-read"|"archive"|"move"|"trash"|"spam", "uid": 1234, "subject": "the subject line, so the card shows which one", "mailbox": "only for move — the destination mailbox", "reason": "it is dealt with, so it does not need to stay in the inbox" }  (Files or flags ONE email that already exists. "uid" MUST be a uid you were actually shown in an inbox widget — never invent one, and never guess from a subject, because two emails can share a subject and the wrong one would be filed. Emit one action per message. Nothing here deletes irrecoverably: trash and spam move the message. For WRITING an email use compose-mail instead.)\n' +
+  '  { "kind": "post-chat", "conversationId": "<from chat conversations>", "conversationLabel": "#launch", "body": "Draft update: ...", "reason": "the team is waiting on this update in #launch" }\n' +
   '\n' +
+  REASON_CONTRACT +
   PROTOCOL_VOCAB_NOTE +
   '\n'
 
@@ -2821,14 +2846,15 @@ export async function suggestWorkspaceActions(
     'The user reviews and approves each one before anything is created, so only propose things that are clearly useful and directly implied by the exchange. ' +
     'Propose AT MOST 4. Prefer returning an empty list over a weak or generic suggestion. ' +
     'Never fabricate facts, numbers, names or dates: any content you put in a proposal must come from the question or your answer. ' +
+    REASON_CONTRACT +
     'Return ONLY a single JSON object, no prose and no code fences. Schema: {"actions":[ ... ]} where each action is exactly one of:\n' +
-    '  {"kind":"create-document","docType":"doc|sheet|slides|map|design","title":"...","reason":"why this helps"}  (doc=written document, sheet=spreadsheet, slides=deck, map=diagram/flowchart, design=design canvas)\n' +
-    '  {"kind":"create-task","title":"Q1 rebrand","notes":"optional detail","reason":"..."}  (' +
+    '  {"kind":"create-document","docType":"doc|sheet|slides|map|design","title":"...","reason": "somewhere for the budget to live before the numbers arrive"}  (doc=written document, sheet=spreadsheet, slides=deck, map=diagram/flowchart, design=design canvas)\n' +
+    '  {"kind":"create-task","title":"Q1 rebrand","notes":"optional detail","reason": "this is a separate piece of work with its own deadline"}  (' +
     CREATE_TASK_DEFINITION +
     ')\n' +
-    '  {"kind":"create-table","title":"...","columns":[{"label":"Name","type":"text-short"}],"reason":"..."}  (column type is one of text-short,text-long,number,checkbox,single-select,multi-select,date; add "options":["a","b"] for select types)\n' +
-    '  {"kind":"create-knowledge-entry","title":"...","body":"the real fact/decision to save","tags":["optional"],"reason":"..."}\n' +
-    '  {"kind":"schedule-event","title":"...","startMs":<absolute unix ms>,"durationMinutes":30,"reason":"..."}  (the current time is ' +
+    '  {"kind":"create-table","title":"...","columns":[{"label":"Name","type":"text-short"}],"reason": "nine episodes each with a status is a table, not a list"}  (column type is one of text-short,text-long,number,checkbox,single-select,multi-select,date; add "options":["a","b"] for select types)\n' +
+    '  {"kind":"create-knowledge-entry","title":"...","body":"the real fact/decision to save","tags":["optional"],"reason": "a rule you will want applied next time, not just today"}\n' +
+    '  {"kind":"schedule-event","title":"...","startMs":<absolute unix ms>,"durationMinutes":30,"reason": "the brief needs an hour and your afternoon is free"}  (the current time is ' +
     nowMs +
     ' ms; only schedule when the user clearly wants time set aside, and put startMs in the near future)'
   const ctxLines = context.slice(0, 12).map((d) => `- ${d.docType}: ${d.title}`).join('\n')
@@ -5893,10 +5919,11 @@ Shape:
   "deliverables": [ /* 0 to 10 deliverable objects, see kinds below */ ]
 }
 
+${REASON_CONTRACT}
 Each deliverable is exactly one of:
 ${workItemsOn ? MEETING_WORK_ITEM_DELIVERABLE : ''}  { "kind": "create-task", "title": "short desk title", "notes": "optional detail", "reason": "what in the transcript calls for this" }
-  { "kind": "create-knowledge-entry", "title": "fact or decision title", "body": "the real content from the conversation", "tags": ["optional"], "reason": "..." }
-  { "kind": "create-document", "docType": "doc", "title": "document title", "reason": "..." }   // docType is one of doc (a written document), sheet (a spreadsheet), slides (a deck), map (a diagram / flowchart), design (a design canvas)
+  { "kind": "create-knowledge-entry", "title": "fact or decision title", "body": "the real content from the conversation", "tags": ["optional"], "reason": "a rule you will want applied next time, not just today" }
+  { "kind": "create-document", "docType": "doc", "title": "document title", "reason": "somewhere for the budget to live before the numbers arrive" }   // docType is one of doc (a written document), sheet (a spreadsheet), slides (a deck), map (a diagram / flowchart), design (a design canvas)
 
 HARD RULES:
 - The summary and every deliverable MUST be grounded in the transcript. Never invent facts, names, numbers, owners, dates, or decisions that were not stated.
