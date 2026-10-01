@@ -977,7 +977,23 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
           highlighted; clicking switches without losing data. Each non-
           table view uses TableSchema.viewConfig to remember which column
           drives its grouping (kanban lanes / calendar date / etc.). */}
-      <div className="sticky top-[44px] z-[9] px-2.5 py-1.5 border-b border-[var(--edge-soft)] bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] flex items-center gap-0.5 overflow-x-auto">
+      {/* ── The table's sticky header: view switcher + filter/group ──────────
+          ONE sticky group, pinned to the top of this scroll container.
+
+          It used to be two independent sticky rows with hand-tuned offsets, and
+          the view switcher carried `sticky top-[44px]`. That 44px was meant to
+          clear the widget frame's header -- but the frame header is OUTSIDE this
+          scroll container, so the offset was measured from a container that
+          already begins below it. The switcher was pinned 44px down from the
+          moment it rendered, while the filter bar that FOLLOWS it in the DOM
+          stayed at its natural position above, and the switcher painted over
+          it: "Filter" sat behind the Table pill and "Group" behind List.
+
+          Grouping them removes the arithmetic. Two rows that must never overlap
+          are now one element that cannot, and the offset they both need is
+          zero. */}
+      <div className="sticky top-0 z-20 bg-[var(--surface-raised)]">
+      <div className="px-2.5 py-1.5 border-b border-[var(--edge-soft)] bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] flex items-center gap-0.5 overflow-x-auto">
         {VIEW_OPTIONS.map((v) => {
           const active = v.id === viewMode
           return (
@@ -1009,6 +1025,7 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
         filteredCount={filteredRows.length}
         totalCount={rows.length}
       />
+      </div>
 
       {/* Alternate views — each reads the same schema + rows and routes
           edits back through commitCell / addRow / deleteRow so the data
@@ -1589,7 +1606,7 @@ function ColumnHeader({
       <div
         onMouseDown={onResizeStart}
         onClick={(e) => e.stopPropagation()}
-        className="absolute top-0 right-0 h-full w-[5px] cursor-col-resize hover:bg-accent/40 z-10"
+        className="absolute top-0 right-0 h-full w-[5px] cursor-col-resize hover:bg-accent/40 z-[1]"
         title="Drag to resize column"
       />
       {open && (
