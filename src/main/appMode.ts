@@ -42,10 +42,18 @@ export function detectPreviewBuild(opts: {
   appName: string
 }): boolean {
   const path = opts.execPath.toLowerCase()
+  // Both generations match. The preview was renamed 3 -> 4 with the product, and
+  // the old names stay recognised on purpose: an installed "PlexiDesk 3 Preview"
+  // that stops being detected as a preview build would silently fall through to
+  // the production userData directory and open the real database -- the exact
+  // accident this whole detector exists to prevent.
   return (
     opts.plexiAppEnv === 'preview3' ||
+    opts.plexiAppEnv === 'preview4' ||
     path.includes('plexidesk 3 preview') ||
     path.includes('plexidesk3preview') ||
+    path.includes('plexidesk 4 preview') ||
+    path.includes('plexidesk4preview') ||
     opts.appName.toLowerCase().includes('preview')
   )
 }

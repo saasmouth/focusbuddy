@@ -1,21 +1,22 @@
-# Electron-builder config for the side-by-side "PlexiDesk 3 Preview" build —
-# the Plexi3.0 branch packaged so it can be tested end to end NEXT TO a
+# Electron-builder config for the side-by-side "PlexiDesk 4 Preview" build —
+# the current branch packaged so it can be tested end to end NEXT TO a
 # production PlexiDesk install, without touching its data.
 #
 # What keeps it independent:
-#  - appId app.plexidesk3.preview → its own LaunchServices identity, so macOS
+#  - appId app.plexidesk4.preview → its own LaunchServices identity, so macOS
 #    treats it as a different app (it installs alongside, never upgrades the
 #    production install).
-#  - productName "PlexiDesk 3 Preview" → the bundle name the main process's
+#  - productName "PlexiDesk 4 Preview" → the bundle name the main process's
 #    detectPreviewBuild() recognises from execPath, which switches it to its
-#    own userData directory (…/Application Support/PlexiDesk3Preview), its own
+#    own userData directory (…/Application Support/PlexiDesk3Preview —
+#    kept under the old name so existing preview workspaces survive the rename), its own
 #    single-instance lock, no haptyx:// protocol claim, and a disabled updater.
 #  - NO publish block and no update manifests: this build is never released or
 #    auto-updated. Testers rebuild with `npm run dist:preview`.
-appId: app.plexidesk3.preview
-productName: PlexiDesk 3 Preview
+appId: app.plexidesk4.preview
+productName: PlexiDesk 4 Preview
 copyright: Copyright © 2026 PlexiDesk
-artifactName: PlexiDesk3Preview-${version}-${os}-${arch}.${ext}
+artifactName: PlexiDesk4Preview-${version}-${os}-${arch}.${ext}
 
 directories:
   output: release-preview
@@ -79,6 +80,6 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: PlexiDesk 3 Preview
+  shortcutName: PlexiDesk 4 Preview
 
 npmRebuild: false

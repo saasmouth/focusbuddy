@@ -73,7 +73,7 @@ const isPreviewBuild =
     execPath: process.execPath,
     appName: app.getName()
   })
-if (isPreviewBuild) app.setName('PlexiDesk 3 Preview')
+if (isPreviewBuild) app.setName('PlexiDesk 4 Preview')
 
 if (process.env.FB_TEST_USER_DATA) {
   app.setPath('userData', process.env.FB_TEST_USER_DATA)
@@ -82,6 +82,12 @@ if (process.env.FB_TEST_USER_DATA) {
   // dev — so it can never open the production install's database (which the
   // legacy-Haptyx pinning below would otherwise hand it) and never contends
   // for its single-instance lock. Delete this directory to reset the preview.
+  //
+  // The directory keeps its "3" after the preview was renamed to 4, and that is
+  // deliberate. Renaming it would strand every existing preview workspace behind
+  // an app that now looks empty -- the same trap the Haptyx -> PlexiDesk rename
+  // below avoids, handled the same way: keep using the directory in place, no
+  // copy and no move, so there is nothing to go wrong.
   app.setPath('userData', join(app.getPath('appData'), 'PlexiDesk3Preview'))
 } else if (isOfficeBuild) {
   // PlexiOffice gets its OWN userData directory. Without this it inherits

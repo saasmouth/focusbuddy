@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { detectOfficeBuild } from '../../src/main/appMode'
+import { detectOfficeBuild, detectPreviewBuild } from '../../src/main/appMode'
 
 // Regression guard for the bug where PlexiOffice quit on launch whenever PlexiDesk
 // was open: the packaged bundle reports app.getName()="focusbuddy" for BOTH apps,
@@ -60,6 +60,35 @@ describe('detectOfficeBuild', () => {
         plexiAppEnv: undefined,
         execPath: '/repo/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron',
         appName: 'focusbuddy'
+      })
+    ).toBe(false)
+  })
+})
+
+describe('detectPreviewBuild', () => {
+  // The preview build was renamed 3 -> 4 along with the product. Both
+  // generations must keep matching, and that is not cosmetic: a preview install
+  // that stops being recognised falls through to the PRODUCTION userData
+  // directory and opens the real database — the precise accident this detector
+  // exists to prevent. There was no test here before the rename.
+  it.each([
+    ['preview3', '/Applications/PlexiDesk 3 Preview.app/Contents/MacOS/PlexiDesk 3 Preview'],
+    ['preview4', '/Applications/PlexiDesk 4 Preview.app/Contents/MacOS/PlexiDesk 4 Preview']
+  ])('recognises the %s build by env and by path', (env, execPath) => {
+    expect(
+      detectPreviewBuild({ plexiAppEnv: env, execPath: '/x/Production.app', appName: 'PlexiDesk' })
+    ).toBe(true)
+    expect(
+      detectPreviewBuild({ plexiAppEnv: undefined, execPath, appName: 'PlexiDesk' })
+    ).toBe(true)
+  })
+
+  it('leaves a production build alone', () => {
+    expect(
+      detectPreviewBuild({
+        plexiAppEnv: undefined,
+        execPath: '/Applications/PlexiDesk.app/Contents/MacOS/PlexiDesk',
+        appName: 'PlexiDesk'
       })
     ).toBe(false)
   })
