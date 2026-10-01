@@ -36,6 +36,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.7',
+    date: '2026-10-01T09:00:00Z',
+    title: 'PlexiDesk 4.3.7 \u2014 steer the desk with the arrow keys, and keep an email on it',
+    tag: 'feature',
+    summary:
+      'Two ways to get around a busy desk. The arrow keys now move the camera from widget to widget, centring each one and setting the zoom so it is a size you can actually work in \u2014 without taking the desk away the way focus mode does. A quick two-finger flick on the trackpad does the same. And an email can now live on a desk as a document: pin one message, or a whole thread, from Mail, and it stays there whether or not it is still in your inbox.',
+    highlights: [
+      'Arrow keys move the camera to the widget in that direction, centred and framed at a usable size.',
+      'A quick two-finger flick jumps to the next widget; slower two-finger movement still pans as before.',
+      'A widget larger than the window is zoomed out until all of it fits, rather than cropping its controls.',
+      'Settings \u203a Navigation tunes how large a jump makes a widget, and can switch the swipe gesture off.',
+      'Send one email, or a whole thread, from Mail to a desk \u2014 it reads as a document, with quoted reply history tucked away.',
+      'A pinned email stays on the desk after it is archived, works offline, and survives switching mailbox.'
+    ]
+  },
+  {
     version: '4.3.6',
     date: '2026-09-29T09:00:00Z',
     title: 'PlexiDesk 4.3.6 \u2014 search your mail, and Plexii reads more of your work',
