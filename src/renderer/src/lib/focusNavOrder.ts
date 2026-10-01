@@ -22,7 +22,12 @@ const SECTION_PADDING_APPROX = 48
 // stores x/y relative to its parent; translate to canvas space so it sorts near
 // its section rather than at the desk origin. Falls back to the widget's own x/y
 // if the parent isn't found (defensive).
-function effectivePos(w: Widget, byId: Map<string, Widget>): { x: number; y: number } {
+//
+// Exported because deskCameraNav needs the same translation to aim the camera.
+// Two copies of this would drift, and the symptom would be arrow keys and the
+// focus-mode dock disagreeing about where a widget is -- the kind of bug nobody
+// reports clearly because it only shows up on desks that use sections.
+export function effectivePos(w: Widget, byId: Map<string, Widget>): { x: number; y: number } {
   if (!w.parentSectionId) return { x: w.x, y: w.y }
   const parent = byId.get(w.parentSectionId)
   if (!parent) return { x: w.x, y: w.y }

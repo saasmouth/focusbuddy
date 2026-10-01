@@ -15,6 +15,7 @@ import {
 } from '../lib/crdtBridge'
 import { recordAction, recordActionWithToast } from './actionHistory'
 import { focusNavOrder, isFocusable } from '../lib/focusNavOrder'
+import { clampZoom } from '../lib/deskCameraNav'
 import { useAccountStore } from './account'
 import { currentDeviceClass } from '../lib/deviceClass'
 import type { DeskLayout } from '@shared/deskLayout'
@@ -139,9 +140,10 @@ interface WidgetStore {
   resetView: () => void
 }
 
-const Z_MIN = 0.25
-const Z_MAX = 2
-const clampZoom = (z: number): number => Math.max(Z_MIN, Math.min(Z_MAX, z))
+// Zoom bounds and the clamp live in lib/deskCameraNav, which is the pure module
+// that also has to respect them when it picks a zoom to navigate at. They were
+// defined here and, separately and WRONGLY, in ZoomControls -- see the note
+// there.
 
 export const useWidgetStore = create<WidgetStore>((set, get) => ({
   widgets: [],

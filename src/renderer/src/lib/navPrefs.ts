@@ -21,6 +21,21 @@ export interface NavPrefs {
   wheelSensitivity: number // 0.3..2.5 — two-finger / wheel pan speed (1 = 1:1)
   // ── Zoom ──
   zoomSensitivity: number // 0.3..2.5 — ⌘/pinch zoom speed (1 = default)
+  // ── Arrow-key / swipe widget navigation ──
+  /**
+   * A decisive two-finger flick jumps to the neighbouring widget instead of
+   * panning. Gentle two-finger movement still pans freely, so this costs
+   * nothing until you actually flick -- but it is a toggle because a trackpad
+   * gesture that sometimes snaps is worth being able to turn off.
+   */
+  swipeToWidget: boolean
+  /**
+   * 1..2 — how far an arrow-key or swipe jump may magnify a widget to make it
+   * usable. 1 means never bigger than its designed size. The ceiling is the
+   * canvas's own 2x; past about 1.5 a jump starts to feel like focus mode,
+   * which is the thing this navigation exists to avoid.
+   */
+  navZoom: number
   // ── Layout ──
   snapToGridEnabled: boolean // round a dragged widget's drop position to an 8px grid
 }
@@ -36,6 +51,8 @@ export const NAV_DEFAULTS: NavPrefs = {
   edgePanSpeed: 1,
   wheelSensitivity: 1,
   zoomSensitivity: 1,
+  swipeToWidget: true,
+  navZoom: 1.25,
   snapToGridEnabled: false
 }
 
@@ -65,6 +82,8 @@ function readFromStorage(): NavPrefs {
       edgePanSpeed: clamp(p.edgePanSpeed, 0.3, 2.5, NAV_DEFAULTS.edgePanSpeed),
       wheelSensitivity: clamp(p.wheelSensitivity, 0.3, 2.5, NAV_DEFAULTS.wheelSensitivity),
       zoomSensitivity: clamp(p.zoomSensitivity, 0.3, 2.5, NAV_DEFAULTS.zoomSensitivity),
+      swipeToWidget: bool(p.swipeToWidget, NAV_DEFAULTS.swipeToWidget),
+      navZoom: clamp(p.navZoom, 1, 2, NAV_DEFAULTS.navZoom),
       snapToGridEnabled: bool(p.snapToGridEnabled, NAV_DEFAULTS.snapToGridEnabled)
     }
   } catch {

@@ -6,16 +6,21 @@
 // trackpad a pinch arrives as ctrl+wheel during ordinary two-finger scrolling,
 // so the camera crossed them without the user meaning to zoom at all.
 import { describe, it, expect } from 'vitest'
+// Still needed: the stylesheet-literal test below reads globals.css.
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import {
   DOT_CELL, GRID_CELL, SUPER_TILE, PATTERN_INSET_PX, patternOffset, superTilePx, dotCellPx
 } from '../../src/renderer/src/lib/deskPattern'
-
 // The camera's limits, which are what make the constant inset below correct.
-const store = readFileSync(resolve(__dirname, '../../src/renderer/src/stores/widgets.ts'), 'utf8')
-const Z_MIN = Number(/const Z_MIN = ([\d.]+)/.exec(store)![1])
-const Z_MAX = Number(/const Z_MAX = ([\d.]+)/.exec(store)![1])
+//
+// Imported, not scraped. This used to regex `const Z_MIN = ...` out of the
+// widgets store's source text, and when the bounds moved into deskCameraNav the
+// regex returned null -- so the file threw while LOADING, reported zero tests,
+// and the run summary still read "all passed" because a suite that collects
+// nothing fails nothing. A guard that can stop guarding silently is worse than
+// no guard.
+import { ZOOM_MAX as Z_MAX, ZOOM_MIN as Z_MIN } from '../../src/renderer/src/lib/deskCameraNav'
 
 describe('desk pattern', () => {
   it('wraps by a whole number of cells, so the wrap is invisible', () => {

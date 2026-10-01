@@ -28,6 +28,11 @@ const GLOBAL_ROWS: Row[] = [
 ]
 
 const CANVAS_ROWS: Row[] = [
+  {
+    keys: '← ↑ → ↓',
+    label:
+      'Move the camera to the next widget in that direction, framed at a size you can work in. Unmodified only — ⌘← / ⌘→ stay as back / forward. A widget you have clicked into keeps its own arrow keys; press Esc first.'
+  },
   { keys: '⌘] / ⌘[', label: 'Zoom in / out' },
   { keys: '⌘0', label: 'Reset the view' },
   { keys: '⌘H', label: 'Centre on home' },

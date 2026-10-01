@@ -36,6 +36,16 @@ import CanvasEdgeIndicators from './CanvasEdgeIndicators'
 import { useEdgePan } from '../lib/useEdgePan'
 import { useOverlayStore, selectAnyMenuOpen } from '../stores/overlay'
 import { useNavPrefs, frictionFromGlide } from '../lib/navPrefs'
+import { getNavPrefs } from '../lib/navPrefs'
+import {
+  navCamera,
+  navigableWidgets,
+  nearestToPoint,
+  nextInDirection,
+  viewportCentreInCanvas,
+  widgetBox,
+  type CameraDir
+} from '../lib/deskCameraNav'
 import { launchMeeting } from '../lib/startMeeting'
 import Icon from './Icon'
 import { useChatStore } from '../stores/chat'
@@ -891,6 +901,208 @@ export default function Canvas(): JSX.Element {
     window.setTimeout(() => setAnimatingPan(false), 280)
   }
 
+  // ── Walking the desk with the arrow keys and trackpad swipes ───────────────
+  //
+  // Finding something on a busy desk meant either dragging the camera around or
+  // opening focus mode, and focus mode is the wrong tool for looking: it covers
+  // the desk with one widget, so you lose the sense of where you are and have to
+  // close it to carry on. This moves the camera instead. The desk stays the
+  // desk, and the widget you arrive at is simply in front of you, framed at a
+  // size you can work in.
+  //
+  /**
+   * Where an arrow press starts from: the selected widget, or whatever is in the
+   * middle of the screen.
+   *
+   * The selection is the whole state this needs, because every camera step
+   * selects what it lands on -- so a run of arrow presses carries its own place
+   * without anything being remembered separately.
+   *
+   * It was remembered separately at first, in a ref, and that ref took
+   * precedence over the selection. The bug: arrow over to one widget, then CLICK
+   * a different one, then press an arrow -- and the camera stepped from the
+   * widget you had arrowed to, ignoring the one you had just clicked. Your last
+   * explicit act has to be the one that counts.
+   */
+  const navAnchorId = useCallback((): { id: string; fromSelection: boolean } | null => {
+    const st = useWidgetStore.getState()
+    const live = new Set(navigableWidgets(st.widgets).map((w) => w.id))
+    // Exactly one selected widget means "I am here". A multi-selection is a
+    // different intent (align, move, delete) and should not steer the camera.
+    if (st.selectedIds.length === 1 && live.has(st.selectedIds[0])) {
+      return { id: st.selectedIds[0], fromSelection: true }
+    }
+    if (!dropRef.current) return null
+    const rect = dropRef.current.getBoundingClientRect()
+    const centre = viewportCentreInCanvas(
+      { panX: st.panX, panY: st.panY, zoom: st.zoom },
+      { width: rect.width, height: rect.height, dockInset: st.dockInset }
+    )
+    const near = nearestToPoint(st.widgets, centre)
+    return near ? { id: near.id, fromSelection: false } : null
+  }, [])
+
+  /** Move the camera to a widget and frame it at a usable size. */
+  const goToWidgetCamera = useCallback(
+    (target: Widget): void => {
+      if (!dropRef.current) return
+      const st = useWidgetStore.getState()
+      const rect = dropRef.current.getBoundingClientRect()
+      const byId = new Map(st.widgets.map((w) => [w.id, w]))
+      // getNavPrefs rather than the `nav` from the hook: this callback is kept
+      // stable so the key listener never goes stale, which would also freeze the
+      // preference at whatever it was on mount.
+      const cam = navCamera(
+        widgetBox(target, byId),
+        { width: rect.width, height: rect.height, dockInset: st.dockInset },
+        { maxMagnify: getNavPrefs().navZoom }
+      )
+      setAnimatingPan(true)
+      st.setZoom(cam.zoom)
+      st.setPan(cam.panX, cam.panY)
+      // Selected, NOT activated. Selection shows where you landed; activating
+      // would hand the arrow keys to the widget and strand the navigation after
+      // a single press.
+      st.setSelection([target.id])
+      window.setTimeout(() => setAnimatingPan(false), 280)
+    },
+    []
+  )
+
+  /**
+   * Step the camera one widget in a direction. True if it moved.
+   *
+   * With nothing selected there is no "here" to step from, so the press ARRIVES
+   * at whatever is nearest the middle of the screen instead of stepping past it.
+   * That makes the feature introduce itself -- press an arrow, land on the desk
+   * -- and avoids the alternative, where the widget you were already looking at
+   * is the one thing the arrow keys skip.
+   */
+  const stepCamera = useCallback(
+    (dir: CameraDir): boolean => {
+      const st = useWidgetStore.getState()
+      const anchor = navAnchorId()
+      if (anchor === null) return false
+      if (!anchor.fromSelection) {
+        const here = st.widgets.find((w) => w.id === anchor.id)
+        if (here) {
+          goToWidgetCamera(here)
+          return true
+        }
+      }
+      const next = nextInDirection(st.widgets, anchor.id, dir)
+      if (!next) return false
+      goToWidgetCamera(next)
+      return true
+    },
+    [navAnchorId, goToWidgetCamera]
+  )
+
+  // Arrow keys. Unmodified only — ⌘←/→ and friends belong to text and history.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent): void {
+      const dir: CameraDir | null =
+        e.key === 'ArrowRight'
+          ? 'right'
+          : e.key === 'ArrowLeft'
+            ? 'left'
+            : e.key === 'ArrowUp'
+              ? 'up'
+              : e.key === 'ArrowDown'
+                ? 'down'
+                : null
+      if (dir === null) return
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
+      const el = document.activeElement as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+
+      const st = useWidgetStore.getState()
+      // Focus mode already walks these widgets with the arrow keys, by opening
+      // each one. While it is up, it owns them.
+      if (st.focusedWidgetId !== null) return
+      // So does an ACTIVE widget. This is a deliberate departure from edge-pan,
+      // which pointedly does NOT stand down for an active widget (see its note
+      // above): moving the mouse to a screen edge cannot mean anything else,
+      // whereas pressing → inside a table, a list or a sheet very obviously
+      // belongs to the widget. Click bare canvas, or press Escape, and the
+      // arrows are the camera's again.
+      if (st.activeWidgetId !== null) return
+      if (anyMenuOpen) return
+
+      if (stepCamera(dir)) e.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [stepCamera, anyMenuOpen])
+
+  // A decisive two-finger flick steps to the next widget; anything gentler still
+  // pans freely. See trySwipeNav.
+  const swipeRef = useRef({ ax: 0, ay: 0, peak: 0, last: 0, until: 0 })
+
+  /**
+   * Should this wheel event be consumed as a widget-to-widget swipe?
+   *
+   * The hard part is that a trackpad swipe and a trackpad pan are the same
+   * event stream, and panning is an established feature with its own
+   * sensitivity preference — so this has to be sure before it takes a gesture
+   * away. Three things have to hold at once: the gesture is fast (a crawl is
+   * someone positioning the camera by hand), it is clearly along one axis (a
+   * diagonal is a pan), and it has travelled far enough to be a flick rather
+   * than a twitch. Then one step fires and the remainder of the flick is
+   * swallowed, so a single gesture cannot skip three widgets.
+   *
+   * The thresholds below are a considered starting point, not a measured one —
+   * they want a few minutes on a real trackpad to settle, which is why the whole
+   * behaviour sits behind a preference.
+   */
+  function trySwipeNav(e: React.WheelEvent<HTMLDivElement>): boolean {
+    const FLICK_PEAK = 24 // px in one event — distinguishes a flick from a crawl
+    const FLICK_DIST = 160 // px accumulated before a step fires
+    const AXIS_RATIO = 2 // how dominant the main axis must be
+    const COOLDOWN_MS = 420
+    const GESTURE_GAP_MS = 160
+
+    const now = performance.now()
+    const sw = swipeRef.current
+    // Still inside the flick that already moved us: swallow it, or the tail of
+    // the gesture pans the camera straight off the widget it just framed.
+    if (now < sw.until) return true
+    if (now - sw.last > GESTURE_GAP_MS) {
+      sw.ax = 0
+      sw.ay = 0
+      sw.peak = 0
+    }
+    sw.last = now
+    sw.ax += e.deltaX
+    sw.ay += e.deltaY
+    sw.peak = Math.max(sw.peak, Math.abs(e.deltaX), Math.abs(e.deltaY))
+
+    if (sw.peak < FLICK_PEAK) return false
+    const absX = Math.abs(sw.ax)
+    const absY = Math.abs(sw.ay)
+    const horizontal = absX >= absY * AXIS_RATIO
+    const vertical = absY >= absX * AXIS_RATIO
+    if (!horizontal && !vertical) return false
+    if ((horizontal ? absX : absY) < FLICK_DIST) return false
+
+    // Sign follows the existing pan mapping: panBy(-deltaX, -deltaY), so a
+    // two-finger scroll with positive deltaX moves the camera to the right.
+    const dir: CameraDir = horizontal
+      ? sw.ax > 0
+        ? 'right'
+        : 'left'
+      : sw.ay > 0
+        ? 'down'
+        : 'up'
+
+    if (!stepCamera(dir)) return false
+    sw.ax = 0
+    sw.ay = 0
+    sw.peak = 0
+    sw.until = now + COOLDOWN_MS
+    return true
+  }
+
   // Keyboard: Cmd+] zoom in, Cmd+[ zoom out, Cmd+0 reset, Cmd+H home, Esc deactivate widget
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
@@ -941,6 +1153,13 @@ export default function Canvas(): JSX.Element {
       zoomTowardPoint(zoom * factor, cursorX, cursorY)
     } else {
       e.preventDefault()
+      // A decisive flick jumps to the neighbouring widget rather than panning.
+      // Checked before panning so the gesture is never applied twice, and it
+      // returns false for everything that is not unmistakably a flick, which
+      // leaves ordinary two-finger panning exactly as it was.
+      if (nav.swipeToWidget && useWidgetStore.getState().focusedWidgetId === null) {
+        if (trySwipeNav(e)) return
+      }
       panBy(-e.deltaX * nav.wheelSensitivity, -e.deltaY * nav.wheelSensitivity)
     }
   }

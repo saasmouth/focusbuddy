@@ -1,7 +1,14 @@
 import { useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useWidgetStore } from '../stores/widgets'
+import { clampZoom } from '../lib/deskCameraNav'
 import Icon from './Icon'
+
+// These buttons used to clamp to 0.1 and 4, which are not the canvas's bounds --
+// the store re-clamped to 0.25/2, so the numbers here were simply wrong and had
+// no effect. Harmless by luck, and exactly the sort of thing that bites the day
+// somebody reads them as the real limits. One clamp now, imported.
+const ZOOM_STEP = 0.1
 
 const EASE_ENTER = [0.34, 1.2, 0.64, 1] as const
 const EASE_EXIT = [0.4, 0, 1, 1] as const
@@ -48,7 +55,7 @@ export default function ZoomControls(): JSX.Element {
             className="overflow-hidden flex items-stretch"
           >
             <button
-              onClick={() => setZoom(Math.max(0.1, zoom - 0.1))}
+              onClick={() => setZoom(clampZoom(zoom - ZOOM_STEP))}
               className="h-7 w-6 inline-flex items-center justify-center text-[var(--ink-70)] hover:bg-[var(--surface-sunken)] transition-colors"
               title="Zoom out (⌘[)"
               aria-label="Zoom out"
@@ -79,7 +86,7 @@ export default function ZoomControls(): JSX.Element {
             className="overflow-hidden flex items-stretch"
           >
             <button
-              onClick={() => setZoom(Math.min(4, zoom + 0.1))}
+              onClick={() => setZoom(clampZoom(zoom + ZOOM_STEP))}
               className="h-7 w-6 inline-flex items-center justify-center text-[var(--ink-70)] hover:bg-[var(--surface-sunken)] transition-colors"
               title="Zoom in (⌘])"
               aria-label="Zoom in"
