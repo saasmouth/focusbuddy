@@ -258,18 +258,32 @@ function DiagramInner({ widget, inline = false }: Props): JSX.Element {
   }
 
   function onPickImage(e: React.ChangeEvent<HTMLInputElement>): void {
-    const f = e.target.files?.[0]
+    // Every picked image becomes a node, instead of only the first.
+    const picked = Array.from(e.target.files ?? [])
     e.target.value = ''
-    if (!f) return
-    if (f.size > 1_500_000) {
-      // Keep the widget JSON sane — large images bloat persistence.
-      // eslint-disable-next-line no-alert
-      window.alert('Image is large (>1.5MB). Please use a smaller icon/image.')
-      return
+    if (picked.length === 0) return
+
+    // Keep the widget JSON sane — large images bloat persistence.
+    const ok = picked.filter((f) => f.size <= 1_500_000)
+    const tooBig = picked.filter((f) => f.size > 1_500_000)
+    for (const f of ok) {
+      const reader = new FileReader()
+      reader.onload = () => addNode('image', String(reader.result))
+      reader.readAsDataURL(f)
     }
-    const reader = new FileReader()
-    reader.onload = () => addNode('image', String(reader.result))
-    reader.readAsDataURL(f)
+    if (tooBig.length > 0) {
+      // Say which ones were skipped and keep the rest. The old version refused
+      // the whole pick on one oversized file, which with multi-select would
+      // mean one 2MB photo silently costing you the other nine.
+      // eslint-disable-next-line no-alert
+      window.alert(
+        tooBig.length === picked.length
+          ? `Too large (over 1.5MB): ${tooBig.map((f) => f.name).join(', ')}. Nothing was added.`
+          : `Added ${ok.length} of ${picked.length}. Too large (over 1.5MB): ${tooBig
+              .map((f) => f.name)
+              .join(', ')}.`
+      )
+    }
   }
 
   const tools: { shape: ShapeKind; icon: string; label: string }[] = [
@@ -300,7 +314,7 @@ function DiagramInner({ widget, inline = false }: Props): JSX.Element {
           <Icon name="add_photo_alternate" size={14} />
           Image
         </button>
-        <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={onPickImage} />
+        <input ref={fileInputRef} type="file" accept="image/*" multiple hidden onChange={onPickImage} />
         <div className="w-px h-4 bg-[var(--surface-sunken)] mx-0.5" />
         {NODE_COLORS.map((c) => (
           // Swatch containment: a literal hairline holds arbitrary colours.

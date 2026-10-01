@@ -501,17 +501,47 @@ function Attachment({
   onCommit
 }: SubProps<string[]>): JSX.Element {
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const [attachError, setAttachError] = useState<string | null>(null)
   async function onPick(e: React.ChangeEvent<HTMLInputElement>): Promise<void> {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const buffer = await file.arrayBuffer()
-    const ingested = await window.api.files.ingestBuffer({
-      buffer,
-      originalName: file.name,
-      mimeType: file.type || 'application/octet-stream'
-    })
-    onCommit([...value, ingested.id])
+    // Every file the user picked, not just the first.
+    //
+    // Attaching five files to a record used to mean opening the picker five
+    // times, because this read files[0] and dropped the rest without a word.
+    const picked = Array.from(e.target.files ?? [])
     if (inputRef.current) inputRef.current.value = ''
+    if (picked.length === 0) return
+
+    // Sequential rather than Promise.all: ingestBuffer writes to disk and the
+    // database, and twenty parallel writes of a large file is how you get a
+    // spinner that never ends. The ids are collected and committed ONCE, so a
+    // multi-file attach is a single undoable change rather than five.
+    const ids: string[] = []
+    const failed: string[] = []
+    for (const file of picked) {
+      try {
+        const ingested = await window.api.files.ingestBuffer({
+          buffer: await file.arrayBuffer(),
+          originalName: file.name,
+          mimeType: file.type || 'application/octet-stream'
+        })
+        ids.push(ingested.id)
+      } catch {
+        // One bad file must not lose the others. Named, not swallowed.
+        failed.push(file.name)
+      }
+    }
+    if (ids.length > 0) onCommit([...value, ...ids])
+    if (failed.length > 0) {
+      // Honest about the gap: silently attaching 3 of 5 is how someone later
+      // discovers the other two were never there.
+      setAttachError(
+        failed.length === picked.length
+          ? `Could not attach ${failed.length === 1 ? failed[0] : `any of these ${failed.length} files`}.`
+          : `Attached ${ids.length} of ${picked.length}. Could not attach: ${failed.join(', ')}.`
+      )
+    } else {
+      setAttachError(null)
+    }
   }
   async function onRemove(id: string): Promise<void> {
     onCommit(value.filter((v) => v !== id))
@@ -532,9 +562,15 @@ function Attachment({
       <input
         ref={inputRef}
         type="file"
+        multiple
         className="hidden"
         onChange={(e) => void onPick(e)}
       />
+      {attachError && (
+        <p className="fb-t-caption text-[var(--danger)] mt-1" data-testid="attach-error">
+          {attachError}
+        </p>
+      )}
     </div>
   )
 }
