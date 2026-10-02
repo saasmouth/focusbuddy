@@ -36,6 +36,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.8',
+    date: '2026-10-02T09:00:00Z',
+    title: 'PlexiDesk 4.3.8 \u2014 Plexii says why, and a citation opens where you are',
+    tag: 'feature',
+    summary:
+      'Two changes aimed at the same thing: being able to judge what Plexii puts in front of you. Every suggestion now has to say why it helps you, in your situation \u2014 and if it cannot say why, it is told not to suggest it at all. And a cited reference now opens in place, where you can read and work in it, instead of taking you away from what you were doing. Alongside those, you can pick several files at once wherever you attach them, and a table\u2019s filters no longer hide behind its view tabs.',
+    highlights: [
+      'Every suggestion carries a reason written for your situation, not a restatement of its own title.',
+      'Where Plexii gives no reason, the card says so rather than leaving a blank \u2014 and the reason now stays attached to whatever the suggestion creates.',
+      'Clicking a cited widget, table or email opens it in place, with \u201cOpen where it lives\u201d one click away.',
+      'Attach several files at once \u2014 attachment fields and diagram images take the whole selection, and say which ones they could not take.',
+      'A table\u2019s Filter and Group controls no longer sit behind its view tabs.'
+    ]
+  },
+  {
     version: '4.3.7',
     date: '2026-10-01T09:00:00Z',
     title: 'PlexiDesk 4.3.7 \u2014 steer the desk with the arrow keys, and keep an email on it',
