@@ -158,6 +158,10 @@ describe('M4 wiring pins', () => {
   const sourceTarget = read('src/renderer/src/lib/sourceTarget.ts')
   const sourceIdentity = read('src/renderer/src/lib/sourceIdentity.ts')
   const chatPanel = read('src/renderer/src/components/ChatPanel.tsx')
+  // The reference router moved out of ChatPanel into its own module when a
+  // second caller appeared (the in-place peek's "Open where it lives"). The
+  // door this test guards is the same door; it is just no longer in the panel.
+  const refRouter = read('src/renderer/src/lib/goToSourceTarget.ts')
   const meetView = read('src/renderer/src/components/views/PlexiMeetView.tsx')
   const ipc = read('src/main/ipc/index.ts')
 
@@ -166,11 +170,14 @@ describe('M4 wiring pins', () => {
     expect(workspaceSearch).toContain('chatSources, meetingSources]')
   })
 
-  it('a meeting citation routes: target, identity, and the ChatPanel door', () => {
+  it('a meeting citation routes: target, identity, and the door out of the panel', () => {
     expect(sourceTarget).toContain("if (type === 'meeting') return { kind: 'meeting', meetingId: id }")
     expect(sourceIdentity).toContain("meeting: { icon: 'video_call', tone: areaTone('office'), location: 'PlexiMeet' }")
-    expect(chatPanel).toContain("case 'meeting':")
-    expect(chatPanel).toContain("new CustomEvent('fb:open-meeting', { detail: { id: target.meetingId } })")
+    expect(refRouter).toContain("case 'meeting':")
+    expect(refRouter).toContain("new CustomEvent('fb:open-meeting', { detail: { id: target.meetingId } })")
+    // And the panel still reaches it: a citation click must end up in the
+    // router, whether it peeks first or goes straight there.
+    expect(chatPanel).toContain('goToSourceTarget')
   })
 
   it('the Meet view renders Recall hits and lands the Thread on the cited line', () => {

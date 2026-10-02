@@ -4,9 +4,11 @@ import type { AppliedProposal, ChatMessage, ChatSource } from '@shared/types'
 import { useNodeStore } from '../stores/nodes'
 import { useViewStore } from '../stores/view'
 import { targetForSource } from '../lib/sourceTarget'
+import { canPeek } from '../lib/sourcePeek'
+import { goToSourceTarget } from '../lib/goToSourceTarget'
+import { useSourcePeek } from '../stores/sourcePeek'
 import { useChatStore, appliedKey, NEW_CHAT_KEY } from '../stores/chat'
 import { useAccountStore } from '../stores/account'
-import { useFileManagerStore } from '../stores/fileManager'
 import MentionComposer from './assistant/MentionComposer'
 import MentionRefRow from './assistant/MentionRefRow'
 import ConversationList from './assistant/ConversationList'
@@ -18,7 +20,6 @@ import ChatBlockView from './focus/ChatBlockView'
 import RetrievalTrace from './assistant/RetrievalTrace'
 import StreamingProse from './assistant/StreamingProse'
 import { cascadeDurationMs } from '../lib/traceView'
-import { useWebPanel } from '../stores/webPanel'
 import { useDocumentsStore } from '../stores/documents'
 import { composerOmniIntents, type OmniIntent, type OmniTarget } from '../lib/omniIntent'
 import { performOmniIntent as performOmniIntentAct } from '../lib/omniPerform'
@@ -26,7 +27,6 @@ import QuestionCard from './assistant/QuestionCard'
 import { activeQuestionFor } from '../lib/assistantQuestion'
 import { useAssistantContext } from '../lib/assistantContext'
 import { useWidgetStore } from '../stores/widgets'
-import { useMailModalStore } from '../stores/mailModal'
 import { chimeIn } from '../lib/audioBeep'
 import CanvasContextMenu, { type CtxMenuItem } from './CanvasContextMenu'
 import { FLOATING_MENU_ASIDE, FLOATING_MENU_STYLE } from './chrome/floatingMenu'
@@ -805,91 +805,15 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
   async function openSource(source: ChatSource): Promise<void> {
     const target = targetForSource(source)
     if (!target) return
-    // Nothing to pin any more: a conversation is no longer replaced by the
-    // screen, so following a citation cannot lose the conversation that
-    // produced the link. That was the entire job of pinnedThread.
-    const view = useViewStore.getState()
-    const openDesk = (taskId: string): void => {
-      useNodeStore.getState().setActive(taskId)
-      view.goTask(taskId)
+    // Show it here if it can be shown here; otherwise go to it, exactly as
+    // before. Following a citation to check something used to cost you your
+    // place in the conversation — which is the wrong trade when the reference
+    // is the evidence behind a decision you are in the middle of making.
+    if (canPeek(target)) {
+      useSourcePeek.getState().open(target, source.title ?? null)
+      return
     }
-    switch (target.kind) {
-      case 'document':
-        view.goDocument(target.documentId)
-        break
-      case 'knowledge':
-        view.goKnowledge(target.entryId)
-        break
-      case 'email':
-        // Open the message itself, in the shared reader, rather than dropping the
-        // user at the inbox to search for it again. goMail first so the reader has
-        // its surface; the store is what actually shows the message.
-        view.goMail()
-        useMailModalStore.getState().open(target.uid)
-        break
-      case 'url':
-        // A web source opens in the in-app browser panel (A2, R4/R13): the
-        // web never leaves Plexii. The panel's toolbar carries the explicit
-        // system-browser escape.
-        useWebPanel.getState().openWeb(target.url)
-        break
-      case 'desk':
-        openDesk(target.taskId)
-        break
-      case 'widget': {
-        // widgets.get is newer than the rest of this bridge, so an Electron
-        // process still running an older preload won't have it. Say so rather
-        // than throwing a TypeError into a click handler — a silent dead link is
-        // exactly the kind of thing that costs an hour to track down.
-        if (typeof window.api.widgets.get !== 'function') {
-          console.warn(
-            '[assistant] window.api.widgets.get is missing, so a cited widget cannot be ' +
-              'resolved to its desk. Restart the Electron process (npm run dev) to pick up ' +
-              'the current preload bundle.'
-          )
-          return
-        }
-        const widget = await window.api.widgets.get(target.widgetId)
-        if (!widget?.taskId) return
-        openDesk(widget.taskId)
-        // Select it so the desk opens with the cited widget picked out rather
-        // than leaving you to find it among everything else on the canvas.
-        useWidgetStore.getState().setSelection([target.widgetId])
-        break
-      }
-      case 'table': {
-        const table = await window.api.tables.get(target.tableId)
-        if (!table?.taskId) return
-        openDesk(table.taskId)
-        break
-      }
-      case 'file': {
-        // Reveal the cited file in the Drive: its folder opens with the file
-        // selected, mirroring what a search hit does.
-        const entry =
-          typeof window.api.fileManager?.get === 'function'
-            ? await window.api.fileManager.get(target.fileId).catch(() => null)
-            : null
-        view.goFiles()
-        const fm = useFileManagerStore.getState()
-        await fm.openFolder(entry?.parentId ?? null)
-        fm.select(target.fileId)
-        break
-      }
-      case 'chat':
-        // A cited past conversation opens as the panel's live conversation,
-        // exactly like picking it from the history rail.
-        await useChatStore.getState().openConversation(target.conversationId)
-        break
-      case 'meeting':
-        // A cited meeting opens in PlexiMeet at that meeting — the same door
-        // an Attention item's meeting chip uses (DEC-079's seam).
-        view.goMeetings()
-        window.dispatchEvent(
-          new CustomEvent('fb:open-meeting', { detail: { id: target.meetingId } })
-        )
-        break
-    }
+    await goToSourceTarget(target)
   }
 
   async function copyTurn(content: string): Promise<void> {

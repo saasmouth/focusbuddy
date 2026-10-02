@@ -75,6 +75,7 @@ import MissedTriagePrompt from './components/MissedTriagePrompt'
 import { PromptDialogHost, confirmDialog } from './components/plexi/PromptDialog'
 import { DocHistoryPanelHost } from './components/documents/DocHistoryPanel'
 import ShortcutsOverlay from './components/ShortcutsOverlay'
+import SourcePeekModal from './components/SourcePeekModal'
 import CaptureConsole from './components/CaptureConsole'
 import AttentionBadge from './components/AttentionBadge'
 import './lib/timeOfDay' // side-effect: pushes --tod-* CSS vars to :root + ticks every 60s
@@ -772,6 +773,11 @@ export default function App(): JSX.Element {
         <PromptDialogHost />
         <DocHistoryPanelHost />
         {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
+        {/* Looking at a cited reference without leaving the conversation.
+            Mounted once, globally: a citation can be clicked from the assistant
+            panel, a focus-mode chat block or a proposal card, and all of them
+            should open the same viewer rather than each growing their own. */}
+        <SourcePeekModal />
         <LaunchSignInModal />
         <UpgradePromptModal />
         <MetricsOverlay />
