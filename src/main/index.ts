@@ -6,7 +6,7 @@ import { config as loadEnv } from 'dotenv'
 import { closeDb, getDb } from './db/database'
 import { composeCustomWidgetDocument, cspFor } from '@shared/customWidgetSandbox'
 import { resolveWidgetInputs } from './db/widgetInputs'
-import { markUiVisible } from './db/account'
+import { markUiVisible, recordAnonLaunch } from './db/account'
 import { runRetentionSweep } from './db/retention'
 import { autoBackupOnLaunch } from './db/backup'
 import { registerIpcHandlers } from './ipc'
@@ -381,6 +381,10 @@ function createCommandCenter(): BrowserWindow {
   win.on('ready-to-show', () => {
     win.show()
     markUiVisible()
+  // Count this start if nobody is signed in. Done here rather than at process
+  // boot because this module must not be touched before the window is visible
+  // (DEC-060): a keychain prompt behind no parent window looks like a hang.
+  recordAnonLaunch()
   })
 
   // DEC-060 — safety-net reveal. `ready-to-show` fires when the renderer has

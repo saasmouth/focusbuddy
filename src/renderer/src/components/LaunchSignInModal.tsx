@@ -25,10 +25,20 @@ import Icon from './Icon'
 
 const SKIP_TTL_MS = 7 * 24 * 60 * 60 * 1000 // one week
 
+// Three opens without an account are free. On the fourth, the modal stops
+// offering a way past itself.
+//
+// The ask is deliberately late. Someone who has opened PlexiDesk four times has
+// come back three times after the first look — the prompt lands on a person who
+// has decided they like it, not on a stranger being charged a toll at the door.
+// Earlier would convert worse and read worse.
+const FREE_LAUNCHES = 3
+
 export default function LaunchSignInModal(): JSX.Element | null {
   const bootStatus = useAccountStore((s) => s.bootStatus)
   const account = useAccountStore((s) => s.account)
   const skippedAt = useAccountStore((s) => s.skippedAt)
+  const anonLaunches = useAccountStore((s) => s.anonLaunches)
   const cachedEmail = useAccountStore((s) => s.cachedEmail)
   const signupAction = useAccountStore((s) => s.signup)
   const loginAction = useAccountStore((s) => s.login)
@@ -78,7 +88,11 @@ export default function LaunchSignInModal(): JSX.Element | null {
   if (!manualOpen && onboardingStatus === 'active') return null
   // A manual open (from Settings) overrides the skip/dismiss throttling — the
   // user explicitly asked to sign in, so always show it in that case.
-  if (!manualOpen) {
+  // Past the free launches, an account is required: the skip, the weekly
+  // throttle and the per-session dismiss all stop applying, because every one
+  // of them is a way out and there is no longer meant to be one.
+  const required = anonLaunches > FREE_LAUNCHES
+  if (!manualOpen && !required) {
     if (dismissedThisSession) return null
     if (skippedAt && Date.now() - skippedAt < SKIP_TTL_MS) return null
   }
@@ -176,14 +190,28 @@ export default function LaunchSignInModal(): JSX.Element | null {
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-[15px] font-semibold text-stone-100 tracking-[0.04em]">
-              {mode === 'login' ? 'Welcome back' : 'Sign in to PlexiDesk'}
+              {required
+                ? 'You seem to like us'
+                : mode === 'login'
+                  ? 'Welcome back'
+                  : 'Sign in to PlexiDesk'}
             </h2>
             <p className="text-[11px] text-stone-400">
-              {mode === 'login'
-                ? 'Sign in to sync shared items across your devices.'
-                : 'Create an account to receive shares and sync across your devices.'}
+              {/* Says what an account actually does. "Protect your work" on its
+                  own would promise a backup nobody has turned on — sync is
+                  opt-in — and a promise the product does not keep is a bad
+                  first thing to say to someone on their fourth visit. */}
+              {required
+                ? 'Create an account to protect your work on Plexii — so it can be recovered, synced and shared, rather than living only on this machine.'
+                : mode === 'login'
+                  ? 'Sign in to sync shared items across your devices.'
+                  : 'Create an account to receive shares and sync across your devices.'}
             </p>
           </div>
+          {/* The close button is the other way past this modal, so it goes too.
+              A gate with a working X is not a gate — and leaving it visible but
+              inert would just look broken. */}
+          {!required && (
           <button
             type="button"
             onClick={handleClose}
@@ -193,6 +221,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
           >
             <Icon name="close" size={16} />
           </button>
+          )}
         </div>
 
         {/* Mode toggle */}
@@ -372,14 +401,23 @@ export default function LaunchSignInModal(): JSX.Element | null {
           )}
 
           <div className="pt-1 flex items-center justify-between gap-2">
-            <button
-              type="button"
-              onClick={() => void handleSkip()}
-              className="text-[11px] text-stone-400 hover:text-stone-100 transition-colors"
-              title="Use PlexiDesk locally without an account. You can sign in later from Settings."
-            >
-              Continue without account
-            </button>
+            {required ? (
+              // No skip past this point. Leaving a disabled or hidden-but-present
+              // control here would read as a bug; saying plainly that the free
+              // opens are used up is the honest version of the same screen.
+              <span className="text-[11px] text-stone-500" data-testid="account-required-note">
+                Your first {FREE_LAUNCHES} opens were on us.
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void handleSkip()}
+                className="text-[11px] text-stone-400 hover:text-stone-100 transition-colors"
+                title="Use PlexiDesk locally without an account. You can sign in later from Settings."
+              >
+                Continue without account
+              </button>
+            )}
             <button
               type="submit"
               disabled={busy || !email || !password || (mode === 'login' && twoFactor && !code.trim())}

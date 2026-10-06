@@ -444,6 +444,8 @@ const api = {
       sessionToken: string | null
       skippedAt: number | null
       cachedEmail: string | null
+      /** App starts made with no account. The 4th is where signing up stops being optional. */
+      anonLaunches: number
     }> => ipcRenderer.invoke('account:load'),
     saveSession: (input: { token: string; email: string | null }): Promise<void> =>
       ipcRenderer.invoke('account:saveSession', input),

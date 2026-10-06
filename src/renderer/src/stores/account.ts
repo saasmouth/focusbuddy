@@ -36,6 +36,9 @@ interface AccountStore {
   // Wall-clock ms when the user last clicked "Continue without account"
   // in the launch modal. Lets the modal throttle re-prompts to ~weekly.
   skippedAt: number | null
+  // App starts made with no account. Past ANON_LAUNCH_LIMIT, the launch modal
+  // stops offering a way past itself.
+  anonLaunches: number
   cachedEmail: string | null
   // Loaded once on app boot. Validates the cached session, populates
   // account. Idempotent; safe to call multiple times.
@@ -72,6 +75,7 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
   sessionToken: null,
   account: null,
   skippedAt: null,
+  anonLaunches: 0,
   cachedEmail: null,
 
   init: async () => {
@@ -81,6 +85,7 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
       const cached = await window.api.account.load()
       set({
         skippedAt: cached.skippedAt,
+        anonLaunches: cached.anonLaunches ?? 0,
         cachedEmail: cached.cachedEmail
       })
       if (!cached.sessionToken) {

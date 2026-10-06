@@ -28,13 +28,26 @@ interface AccountState {
   // safe to surface unauthenticated. Used as the default value in the
   // login field after a sign-out so the user only re-types their password.
   cachedEmail: string | null
+  // How many times the app has started with NO account. The first three are
+  // free; the fourth asks for an account and means it.
+  //
+  // Kept here rather than in localStorage deliberately: this file is the same
+  // place the session lives, so the count cannot be reset by clearing site
+  // data, and it travels with the user's profile rather than the renderer.
+  anonLaunches: number
 }
 
 const EMPTY: AccountState = {
   encryptedToken: null,
   skippedAt: null,
-  cachedEmail: null
+  cachedEmail: null,
+  anonLaunches: 0
 }
+
+// The launch at which an account stops being optional. Three free opens, so
+// the ask lands on the fourth — by which point someone has come back twice
+// and the prompt is a fair one rather than a toll gate on a stranger.
+export const ANON_LAUNCH_LIMIT = 3
 
 function fileFor(): string {
   return join(app.getPath('userData'), 'account-session.json')
@@ -80,7 +93,8 @@ function read(): AccountState {
     stateCache = {
       encryptedToken: parsed.encryptedToken ?? null,
       skippedAt: parsed.skippedAt ?? null,
-      cachedEmail: parsed.cachedEmail ?? null
+      cachedEmail: parsed.cachedEmail ?? null,
+      anonLaunches: parsed.anonLaunches ?? 0
     }
     return stateCache
   } catch {
@@ -104,6 +118,9 @@ export interface PublicAccountState {
   sessionToken: string | null
   skippedAt: number | null
   cachedEmail: string | null
+  // App starts made without an account. The renderer uses this to decide when
+  // signing up stops being optional.
+  anonLaunches: number
 }
 
 /**
@@ -130,7 +147,12 @@ export function loadAccountState(): PublicAccountState {
     // Decrypt once per stored ciphertext. A repeat call is answered from memory
     // rather than by asking securityd again.
     if (tokenCache && tokenCache.cipher === state.encryptedToken) {
-      return { sessionToken: tokenCache.plain, skippedAt: state.skippedAt, cachedEmail: state.cachedEmail }
+      return {
+        sessionToken: tokenCache.plain,
+        skippedAt: state.skippedAt,
+        cachedEmail: state.cachedEmail,
+        anonLaunches: state.anonLaunches ?? 0
+      }
     }
     if (!uiVisible) {
       console.warn(
@@ -159,8 +181,26 @@ export function loadAccountState(): PublicAccountState {
   return {
     sessionToken,
     skippedAt: state.skippedAt,
-    cachedEmail: state.cachedEmail
+    cachedEmail: state.cachedEmail,
+    // ?? 0 because an install that predates this field has no count, and a
+    // missing count must read as "new", never as "already past the limit".
+    anonLaunches: state.anonLaunches ?? 0
   }
+}
+
+/**
+ * Count one app start made without an account, and report the new total.
+ *
+ * Called once per launch from the main process. A signed-in start does not
+ * count and does not reset the total: someone who signs out is back where they
+ * were, not handed three more free opens.
+ */
+export function recordAnonLaunch(): number {
+  const state = read()
+  if (state.encryptedToken) return state.anonLaunches ?? 0
+  const next = (state.anonLaunches ?? 0) + 1
+  write({ ...state, anonLaunches: next })
+  return next
 }
 
 export function saveSession(token: string, email: string | null): void {
@@ -177,7 +217,10 @@ export function saveSession(token: string, email: string | null): void {
     // Saving a session implicitly clears the skip flag — the user is
     // now actively engaged with their account.
     skippedAt: null,
-    cachedEmail: email ?? cur.cachedEmail
+    cachedEmail: email ?? cur.cachedEmail,
+    // Signing in does NOT reset the count: a later sign-out returns the user
+    // to where they were, not to three fresh free opens.
+    anonLaunches: cur.anonLaunches
   })
 }
 
@@ -186,7 +229,8 @@ export function clearSession(): void {
   write({
     encryptedToken: null,
     skippedAt: cur.skippedAt,
-    cachedEmail: cur.cachedEmail
+    cachedEmail: cur.cachedEmail,
+    anonLaunches: cur.anonLaunches
   })
 }
 
@@ -197,7 +241,8 @@ export function setSkipped(skipped: boolean): void {
   write({
     encryptedToken: cur.encryptedToken,
     skippedAt: skipped ? Date.now() : null,
-    cachedEmail: cur.cachedEmail
+    cachedEmail: cur.cachedEmail,
+    anonLaunches: cur.anonLaunches
   })
 }
 
@@ -208,6 +253,7 @@ export function setCachedEmail(email: string | null): void {
   write({
     encryptedToken: cur.encryptedToken,
     skippedAt: cur.skippedAt,
-    cachedEmail: email
+    cachedEmail: email,
+    anonLaunches: cur.anonLaunches
   })
 }
