@@ -102,8 +102,14 @@ describe('canCreateMore — numeric limit logic', () => {
     expect(limitFor(unlimited, 'multiple_desks')).toBeNull()
     expect(canCreateMore(unlimited, 'multiple_desks', 999)).toBe(true)
   })
-  it('free tier is unlimited desks under current pricing', () => {
-    expect(limitFor(defaultsForTier('free'), 'multiple_desks')).toBeNull()
+  it('free tier is capped at three desks under current pricing', () => {
+    // Was asserted as unlimited, which is what the configuration said while the
+    // creation path carried a check and a comment describing a three-desk cap.
+    // The test was faithful to the config and the config was the thing that was
+    // wrong, so neither could catch it. Pricing now matches the intent.
+    expect(limitFor(defaultsForTier('free'), 'multiple_desks')).toBe(3)
+    expect(canCreateMore(defaultsForTier('free'), 'multiple_desks', 2)).toBe(true)
+    expect(canCreateMore(defaultsForTier('free'), 'multiple_desks', 3)).toBe(false)
   })
 })
 
