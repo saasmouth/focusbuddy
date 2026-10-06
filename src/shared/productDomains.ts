@@ -58,3 +58,31 @@ export const ACTIVE: ProductDomains = CURRENT
 export function wsUrlFor(apiOrigin: string): string {
   return `${apiOrigin.replace(/^http/, 'ws').replace(/\/+$/, '')}/ws`
 }
+
+/**
+ * The URL a release asset is downloaded from.
+ *
+ * Both the website's download buttons and the macOS in-app updater resolve an
+ * asset through here. macOS does NOT use electron-updater's feed — it builds
+ * this URL itself and fetches the zip — so this function is the mac update
+ * channel, not just a convenience.
+ *
+ * The shape differs per origin, which is why this is a function and not a
+ * concatenation at each call site: GitHub Releases nests assets under
+ * `/download/v<version>/`, while an object store like R2 serves them from a
+ * flat prefix. Moving origin means editing this one function.
+ *
+ * THE CONSTRAINT THAT GOVERNS ANY MOVE: this URL is compiled into every
+ * installer. A user on 4.3.8 asks GitHub for its update forever, because that
+ * is what their copy was built with. So a new origin cannot replace the old one
+ * — the old one has to keep serving every version still expected to update
+ * in place, which in practice means publishing to both until those clients are
+ * gone.
+ */
+export function releaseAssetUrl(origin: string, version: string, filename: string): string {
+  const base = origin.replace(/\/+$/, '')
+  // GitHub Releases: /releases/download/<tag>/<asset>
+  if (/github\.com/.test(base)) return `${base}/download/v${version}/${filename}`
+  // Object store (R2, S3, a CDN): a flat per-version prefix.
+  return `${base}/v${version}/${filename}`
+}

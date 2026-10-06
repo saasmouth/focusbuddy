@@ -1,7 +1,9 @@
 // Pure pieces of the macOS one-click updater, split out so they can be unit
 // tested without importing electron. autoUpdate.ts imports these.
-
-const REPO = 'saasmouth/focusbuddy'
+//
+// productDomains is pure TypeScript with no electron import, so bringing it in
+// keeps that property.
+import { ACTIVE, releaseAssetUrl } from '../shared/productDomains'
 
 // The mac slice named in release assets. From 4.3.1 the mac build is a single
 // universal artifact, so there is no longer a per-arch asset to choose between
@@ -16,8 +18,13 @@ const REPO = 'saasmouth/focusbuddy'
 export const MAC_UPDATE_ARCH = 'universal'
 
 // The release asset URL for a given version and mac slice.
+//
+// Resolved through the shared download origin rather than built here, so the
+// mac update channel moves with the other three surfaces instead of being the
+// one that gets forgotten. It IS a channel: macOS does not use
+// electron-updater's feed, it fetches this zip itself.
 export function macAssetUrl(version: string, arch: string): string {
-  return `https://github.com/${REPO}/releases/download/v${version}/Haptyx-${version}-mac-${arch}.zip`
+  return releaseAssetUrl(ACTIVE.downloads, version, `Haptyx-${version}-mac-${arch}.zip`)
 }
 
 // The .app bundle path from the running executable path, or null if we are not

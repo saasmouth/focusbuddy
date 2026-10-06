@@ -11,7 +11,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { ACTIVE, CURRENT, PRODUCTION, wsUrlFor } from '../../src/shared/productDomains'
+import { ACTIVE, CURRENT, PRODUCTION, releaseAssetUrl, wsUrlFor } from '../../src/shared/productDomains'
 
 const root = join(__dirname, '..', '..')
 const read = (rel: string): string => readFileSync(join(root, rel), 'utf8')
@@ -80,5 +80,34 @@ describe('nothing hardcodes a surface behind the config', () => {
     expect(src).toContain('src/shared/productDomains.ts')
     expect(src).toContain('export const ACTIVE')
     expect(src).not.toMatch(/VITE_SIGNAL_HTTP_URL: 'https:\/\//)
+  })
+})
+
+describe('the download origin, which is also the mac update channel', () => {
+  // macOS does not use electron-updater's feed: autoUpdate.ts builds this URL
+  // and fetches the zip itself. So this function is how a mac updates, and a
+  // wrong value here is a silent 404 on every in-place update.
+  it('keeps today\'s GitHub shape exactly', () => {
+    expect(releaseAssetUrl(CURRENT.downloads, '4.3.8', 'Haptyx-4.3.8-mac-universal.zip')).toBe(
+      'https://github.com/saasmouth/focusbuddy/releases/download/v4.3.8/Haptyx-4.3.8-mac-universal.zip'
+    )
+  })
+
+  it('uses a flat per-version prefix for an object store', () => {
+    expect(releaseAssetUrl(PRODUCTION.downloads, '4.3.8', 'Haptyx-4.3.8-mac-universal.zip')).toBe(
+      'https://dl.plexiidesk.com/v4.3.8/Haptyx-4.3.8-mac-universal.zip'
+    )
+  })
+
+  it('does not double a slash on a trailing-slash origin', () => {
+    expect(releaseAssetUrl('https://dl.plexiidesk.com/', '1.0.0', 'a.zip')).toBe(
+      'https://dl.plexiidesk.com/v1.0.0/a.zip'
+    )
+  })
+
+  it('is the only place the mac updater builds its URL', () => {
+    const src = readFileSync(join(root, 'src/main/updaterInstall.ts'), 'utf8')
+    expect(src).toContain('releaseAssetUrl(ACTIVE.downloads')
+    expect(src, 'updaterInstall still hardcodes github.com').not.toMatch(/https:\/\/github\.com/)
   })
 })
