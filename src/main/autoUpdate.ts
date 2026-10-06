@@ -22,6 +22,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import https from 'node:https'
+import { ACTIVE } from '../shared/productDomains'
 import {
   macAssetUrl,
   appBundlePath,
@@ -37,7 +38,16 @@ import {
 // instead we detect the new version and offer a one-click download of the
 // release. Windows installs in place as normal.
 const IS_MAC = process.platform === 'darwin'
-const RELEASES_URL = 'https://github.com/saasmouth/focusbuddy/releases/latest'
+// Where a user is sent when the in-place update cannot run — app outside
+// /Applications, an unexpected bundle layout, or a failed swap.
+//
+// The product's own download page, not the code host. That was always the
+// better destination (it is where a human expects to download software), and it
+// becomes the only correct one the moment the repo goes private: a GitHub
+// releases page behind auth shows a 404 to the very user who has just been told
+// to download manually. This string is compiled into the binary, so it has to be
+// right in the build that ships before the repo is closed.
+const RELEASES_URL = `${ACTIVE.site}/download`
 
 export function openDownloadPage(): void {
   void shell.openExternal(RELEASES_URL)

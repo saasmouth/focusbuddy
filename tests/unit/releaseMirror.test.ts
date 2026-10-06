@@ -65,3 +65,16 @@ describe('the cutover is not half-done', () => {
     expect(domains).toMatch(/export const ACTIVE: ProductDomains = CURRENT/)
   })
 })
+
+describe('the manual-download fallback', () => {
+  const updater = readFileSync(join(root, 'src/main/autoUpdate.ts'), 'utf8')
+
+  it('sends the user to the product page, not the code host', () => {
+    // Reached when the in-place update cannot run. A GitHub releases page
+    // behind auth shows a 404 to exactly the user who has just been told to
+    // download manually — and this string is compiled into the binary, so it
+    // has to be right in the build that ships BEFORE the repo closes.
+    expect(updater).toMatch(/RELEASES_URL = `\$\{ACTIVE\.site\}\/download`/)
+    expect(updater, 'still points at github').not.toMatch(/github\.com\/saasmouth/)
+  })
+})
