@@ -89,6 +89,61 @@ function push(file, name) {
   return false
 }
 
+// ── The R2 mirror ───────────────────────────────────────────────────────────
+//
+// Why both, and in this order.
+//
+// The download URL is COMPILED INTO every installer. Someone running 4.3.8 asks
+// GitHub for its update forever, because that is what their copy was built
+// with. So R2 cannot replace GitHub by being switched on — GitHub has to keep
+// serving until every client still expected to update in place has taken a
+// build that points at R2. Until then, each release goes to both.
+//
+// Skipped cleanly when the bucket is not configured, so this does nothing at
+// all until R2 exists, rather than failing a release that is otherwise fine.
+async function mirrorToR2(files) {
+  const bucket = process.env.R2_BUCKET
+  const account = process.env.R2_ACCOUNT_ID
+  const key = process.env.R2_ACCESS_KEY_ID
+  const secret = process.env.R2_SECRET_ACCESS_KEY
+  if (!bucket || !account || !key || !secret) {
+    console.log('r2: not configured (R2_BUCKET / R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY) — skipping mirror')
+    return true
+  }
+  const endpoint = `https://${account}.r2.cloudflarestorage.com`
+  // Fail loudly rather than silently skipping: once R2 is configured, a missing
+  // uploader means the mirror did not happen, and a release that reports success
+  // while half the clients' download origin is empty is the failure this whole
+  // file exists to prevent.
+  if (spawnSync('aws', ['--version'], { encoding: 'utf8' }).status !== 0) {
+    console.log('  r2 FAIL: R2 is configured but the aws CLI is not installed (brew install awscli)')
+    return false
+  }
+  let ok = true
+  for (const name of files) {
+    const src = join(DIR, name)
+    if (!existsSync(src)) continue
+    // Flat per-version prefix, matching releaseAssetUrl's object-store shape in
+    // src/shared/productDomains.ts. The two must agree or the updater asks for
+    // a path nothing was ever written to.
+    const remote = `v${VERSION}/${name}`
+    const r = spawnSync('aws', [
+      's3', 'cp', src, `s3://${bucket}/${remote}`,
+      '--endpoint-url', endpoint, '--checksum-algorithm', 'CRC32'
+    ], {
+      encoding: 'utf8',
+      env: { ...process.env, AWS_ACCESS_KEY_ID: key, AWS_SECRET_ACCESS_KEY: secret, AWS_DEFAULT_REGION: 'auto' }
+    })
+    if (r.status === 0) {
+      console.log(`  r2 OK   ${remote}`)
+    } else {
+      console.log(`  r2 FAIL ${remote}: ${(r.stderr || '').trim().split('\n').slice(-1)[0]}`)
+      ok = false
+    }
+  }
+  return ok
+}
+
 const u = `Haptyx-${VERSION}-mac-universal`
 // The arm64-named aliases exist for clients up to 4.3.0, which build their
 // update URL from process.arch. The universal zip runs fine on arm64.
@@ -103,5 +158,13 @@ for (const name of [
 ]) {
   if (!push(join(DIR, name), name)) ok = false
 }
+const MIRRORED = [
+  `${u}.zip`, `${u}.zip.blockmap`, `${u}.dmg`, `${u}.dmg.blockmap`,
+  `Haptyx-${VERSION}-mac-arm64.zip`, `Haptyx-${VERSION}-mac-arm64.zip.blockmap`,
+  'latest-mac.yml', 'latest.yml', `Haptyx-${VERSION}-win-x64.exe`
+]
+const mirrored = await mirrorToR2(MIRRORED)
+if (!mirrored) ok = false
+
 console.log(`UPLOAD_DONE ok=${ok}`)
 process.exit(ok ? 0 : 1)
