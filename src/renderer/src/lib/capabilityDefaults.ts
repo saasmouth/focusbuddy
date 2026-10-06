@@ -21,7 +21,7 @@ export const CAPABILITY_DEFAULTS: Record<string, Record<TierId, CapabilityValue>
   office_draw: { free: true, pro: true, team: true },
   office_design: { free: true, pro: true, team: true },
   workspace_canvas: { free: true, pro: true, team: true },
-  multiple_desks: { free: 'Unlimited', pro: 'Unlimited', team: 'Unlimited' },
+  multiple_desks: { free: 3, pro: 'Unlimited', team: 'Unlimited' },
   desk_themes: { free: true, pro: true, team: true },
   edge_pan: { free: true, pro: true, team: true },
   widget_drag_drop: { free: true, pro: true, team: true },
