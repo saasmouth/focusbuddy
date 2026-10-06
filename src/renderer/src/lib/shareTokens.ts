@@ -22,9 +22,11 @@ export function generateShareToken(): string {
 // viewer; override at build time with VITE_VIEWER_URL (e.g. a custom domain
 // like https://view.haptyx.app). Trailing slashes are trimmed so the
 // `${base}/share/${token}` join is always clean.
+import { ACTIVE } from '@shared/productDomains'
+
 const VIEWER_BASE = (
   (import.meta.env.VITE_VIEWER_URL as string | undefined) ||
-  'https://focusbuddy-viewer.vercel.app'
+  ACTIVE.viewer
 ).replace(/\/+$/, '')
 
 // The viewer URL for a share token. This is what the user copies and sends,

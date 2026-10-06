@@ -20,6 +20,8 @@
 //    VITE_SIGNAL_HTTP_URL=https://host   # explicit host (wins over any default)
 //    VITE_SIGNAL_WS_URL=wss://host/ws
 
+import { ACTIVE, wsUrlFor } from '@shared/productDomains'
+
 interface SignalConfig {
   useRemote: boolean
   httpUrl: string
@@ -34,8 +36,8 @@ const LOCAL_WS = 'ws://localhost:8787/ws'
 // the env var (the Windows CI build did) could not reach the server at all and
 // signup/login failed with "can't connect". When api.focusbuddy.app is set up
 // as a DNS alias to this host, this can move back to it.
-const PROD_HTTP = 'https://focusbuddy-signal.fly.dev'
-const PROD_WS = 'wss://focusbuddy-signal.fly.dev/ws'
+const PROD_HTTP = ACTIVE.api
+const PROD_WS = wsUrlFor(ACTIVE.api)
 
 // Sanitize a URL from a build-time env var: trim, and take only the first
 // whitespace-delimited token. This guards against an env-quoting glitch at build

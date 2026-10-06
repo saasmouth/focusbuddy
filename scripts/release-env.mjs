@@ -56,11 +56,30 @@ if (existsSync(envPath)) {
 // The live backend, baked into the renderer. Without these the shipped app falls
 // back to signalConfig's default host and cannot reach the server at all — signup,
 // login, sharing and plan checks all fail with "can't connect".
+//
+// Read from src/shared/productDomains.ts rather than repeated here. This file
+// cannot import TypeScript, so it parses that module's ACTIVE set; a contract
+// test fails if the two ever disagree. Two copies of a hostname that is COMPILED
+// INTO the installer is not a bug you fix in a deploy — it is one you fix in a
+// release, after someone cannot sign in.
+const domainsSrc = readFileSync(join(root, 'src/shared/productDomains.ts'), 'utf8')
+const activeIs = /export const ACTIVE: ProductDomains = ([A-Z]+)/.exec(domainsSrc)?.[1]
+const pick = (set, key) => {
+  const block = new RegExp(`export const ${set}: ProductDomains = \\{([\\s\\S]*?)\\}`).exec(domainsSrc)?.[1] ?? ''
+  return new RegExp(`${key}:\\s*'([^']+)'`).exec(block)?.[1]
+}
+const api = pick(activeIs, 'api')
+const viewer = pick(activeIs, 'viewer')
+if (!api || !viewer) {
+  console.error('FATAL: could not read ACTIVE domains from src/shared/productDomains.ts')
+  process.exit(2)
+}
+console.log(`domains: ${activeIs} (api ${api})`)
 Object.assign(env, {
   VITE_USE_REMOTE_SIGNAL: 'true',
-  VITE_SIGNAL_HTTP_URL: 'https://focusbuddy-signal.fly.dev',
-  VITE_SIGNAL_WS_URL: 'wss://focusbuddy-signal.fly.dev/ws',
-  VITE_VIEWER_URL: 'https://focusbuddy-viewer.vercel.app'
+  VITE_SIGNAL_HTTP_URL: api,
+  VITE_SIGNAL_WS_URL: `${api.replace(/^http/, 'ws').replace(/\/+$/, '')}/ws`,
+  VITE_VIEWER_URL: viewer
 })
 
 // Names only, never values.
