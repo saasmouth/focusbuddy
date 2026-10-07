@@ -140,6 +140,35 @@ export function accountEmail(): string | null {
   return read().cachedEmail
 }
 
+/**
+ * Drop the stored session so this launch starts signed out.
+ *
+ * Called once at startup, deliberately NOT on quit. A quit handler does not run
+ * on a crash, a force-quit or a power loss — precisely the cases where a
+ * forgotten session matters most — so clearing on exit would leave a usable
+ * token on disk exactly when it was least wanted. Clearing on entry is
+ * unconditional.
+ *
+ * What is kept, and why:
+ *   cachedEmail   so the login form can prefill and the user types a password,
+ *                 not their whole identity, every time. Plaintext by design
+ *                 already (see the field comment) and not a credential.
+ *   anonLaunches  the pre-account launch counter. Losing it would hand every
+ *                 launch a fresh set of free opens and the fourth-open account
+ *                 requirement would never trigger.
+ *   skippedAt     same reasoning: it paces the prompt.
+ *
+ * No decryption happens here — it only writes a null — so this cannot trigger
+ * an OS keychain prompt, and is safe to call before the window is visible.
+ */
+export function clearSessionForNewLaunch(): { hadSession: boolean } {
+  const state = read()
+  if (!state.encryptedToken) return { hadSession: false }
+  write({ ...state, encryptedToken: null })
+  tokenCache = null
+  return { hadSession: true }
+}
+
 export function loadAccountState(): PublicAccountState {
   const state = read()
   let sessionToken: string | null = null

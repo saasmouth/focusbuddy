@@ -48,9 +48,25 @@ describe('every way past the modal closes', () => {
     expect(modal).toContain('account-required-note')
   })
 
-  it('removes the close button', () => {
-    expect(modal).toMatch(/\{!required && \(/)
+  it('removes the close button, with exactly one exception', () => {
+    // The gate is inescapable past the free launches — except when the server
+    // cannot be reached. The app is local-first and the session is no longer
+    // kept across launches, so without that exception a single outage locks
+    // every user out of their own local desks.
+    //
+    // Pinned as an exact expression on purpose: a third condition added here
+    // would be a new way past the gate, and should fail this test until someone
+    // justifies it the way the offline case is justified above.
+    expect(modal).toMatch(/\{\(!required \|\| serverUnreachable\) && \(/)
     expect(modal).toContain('data-testid="signin-close"')
+  })
+
+  it('opens that exception only for an unreachable server', () => {
+    // Not for a rejected password, not for a 2FA prompt, not for an unexpected
+    // response — any of which would turn "wrong password" into a free pass.
+    expect(modal).toMatch(/result\.code === 'NETWORK'[\s\S]{0,200}setServerUnreachable\(true\)/)
+    const sets = modal.match(/setServerUnreachable\(true\)/g) ?? []
+    expect(sets.length, 'the offline escape is unlocked from more than one place').toBe(1)
   })
 })
 
@@ -81,13 +97,39 @@ describe('the counter', () => {
     // expression merely appeared, which stays true when one of the four write
     // sites resets the count and the other three preserve it — exactly the
     // mutation that has to fail here.
-    const writesFromCurrent = store.match(/anonLaunches: cur\.anonLaunches/g) ?? []
-    const writeSites = store.match(/\bwrite\(\{/g) ?? []
-    // Every write site but recordAnonLaunch's own (which sets the new value)
-    // must carry the existing count forward.
-    expect(writesFromCurrent.length, 'a write site drops the launch count').toBe(
-      writeSites.length - 1
-    )
+    // Checked per site rather than by arithmetic. Counting
+    // `anonLaunches: cur.anonLaunches` against the number of write({ calls
+    // broke the moment a write preserved the field by spreading the previous
+    // state instead — a legitimate second idiom that the count read as a
+    // dropped counter. Each site is now inspected for either form.
+    const sites: string[] = []
+    for (let i = 0; i < store.length; ) {
+      const at = store.indexOf('write({', i)
+      if (at === -1) break
+      // Balance braces from the opening one so nested objects are included.
+      let depth = 0
+      let end = store.indexOf('{', at)
+      for (let j = end; j < store.length; j++) {
+        if (store[j] === '{') depth++
+        else if (store[j] === '}') {
+          depth--
+          if (depth === 0) {
+            end = j
+            break
+          }
+        }
+      }
+      sites.push(store.slice(at, end + 1))
+      i = end + 1
+    }
+    expect(sites.length, 'no write sites found — the matcher is broken').toBeGreaterThan(1)
+    for (const site of sites) {
+      const carries =
+        /anonLaunches:/.test(site) || /\.\.\.(state|cur|current)\b/.test(site)
+      expect(carries, `a write site neither spreads nor names anonLaunches:\n${site}`).toBe(
+        true
+      )
+    }
     expect(store, 'a write site zeroes the count').not.toMatch(
       /anonLaunches: 0\s*\n\s*\}\)/
     )

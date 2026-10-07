@@ -63,6 +63,12 @@ export default function LaunchSignInModal(): JSX.Element | null {
   const [lastName, setLastName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Set when an attempt failed because the server could not be reached, as
+  // opposed to being rejected. It unlocks the offline escape below: the app is
+  // local-first, so an outage must not stand between someone and their own
+  // desks, and the session is no longer carried across launches — which means
+  // without this, one unreachable server locks every user out of local data.
+  const [serverUnreachable, setServerUnreachable] = useState(false)
   // Set once the server says this account has 2FA on; reveals the code field.
   const [twoFactor, setTwoFactor] = useState(false)
   const [code, setCode] = useState('')
@@ -134,8 +140,12 @@ export default function LaunchSignInModal(): JSX.Element | null {
         return
       }
       if (result.code === 'NETWORK') {
+        // This message used to be a lie past the free launches: the close button
+        // is hidden when an account is required, so there was no way to
+        // "continue" at all.
+        setServerUnreachable(true)
         setError(
-          'Could not reach the PlexiDesk server. You can continue without an account and try again later.'
+          'Could not reach the PlexiDesk server. Your desks are on this machine, so you can carry on offline and sign in when it is back.'
         )
         return
       }
@@ -211,7 +221,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
           {/* The close button is the other way past this modal, so it goes too.
               A gate with a working X is not a gate — and leaving it visible but
               inert would just look broken. */}
-          {!required && (
+          {(!required || serverUnreachable) && (
           <button
             type="button"
             onClick={handleClose}
@@ -432,6 +442,16 @@ export default function LaunchSignInModal(): JSX.Element | null {
                   : 'Create account'}
             </button>
           </div>
+          {serverUnreachable && (
+            <button
+              type="button"
+              onClick={handleClose}
+              data-testid="signin-continue-offline"
+              className="mt-2 w-full text-[11px] text-stone-400 hover:text-stone-200 underline decoration-stone-600 underline-offset-2 transition-colors"
+            >
+              Continue offline for now
+            </button>
+          )}
         </form>
 
         <p className="mt-4 pt-3 border-t border-white/[0.04] text-[10px] text-stone-500 leading-relaxed">

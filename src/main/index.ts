@@ -6,7 +6,7 @@ import { config as loadEnv } from 'dotenv'
 import { closeDb, getDb } from './db/database'
 import { composeCustomWidgetDocument, cspFor } from '@shared/customWidgetSandbox'
 import { resolveWidgetInputs } from './db/widgetInputs'
-import { markUiVisible, recordAnonLaunch } from './db/account'
+import { clearSessionForNewLaunch, markUiVisible, recordAnonLaunch } from './db/account'
 import { runRetentionSweep } from './db/retention'
 import { autoBackupOnLaunch } from './db/backup'
 import { registerIpcHandlers } from './ipc'
@@ -113,6 +113,27 @@ if (process.env.FB_TEST_USER_DATA) {
     // If anything goes wrong, fall through to the default path rather than crash.
   }
 }
+
+// Every launch starts signed out. The session is not carried across an app
+// close, so opening PlexiDesk asks for a password again rather than resuming
+// whoever used it last.
+//
+// WHERE THIS RUNS, and why not the two obvious alternatives:
+//
+//   Not on quit — a quit handler does not run on a crash, a force-quit or a
+//   power loss, which is exactly when a forgotten session matters. Clearing on
+//   entry is unconditional.
+//
+//   Not in ready-to-show, where recordAnonLaunch() sits under DEC-060 — the
+//   renderer can read account state before that fires, and would then be handed
+//   the previous session for the whole launch, defeating this entirely. It has
+//   to happen before any renderer exists.
+//
+// DEC-060 is about the KEYCHAIN prompt in loadAccountState's decrypt path. This
+// writes a null and never decrypts, so it cannot prompt and is safe here. It
+// must, however, run AFTER the userData path above is settled, or it would
+// clear the wrong profile's session.
+clearSessionForNewLaunch()
 
 // Register `fb-file://` as a privileged custom protocol so renderers can use it
 // in <img>, <video>, <audio>, <iframe>, and CSS background-image. Must happen
