@@ -3,6 +3,7 @@ import Modal from './plexi/Modal'
 import { useUpgradePromptStore } from '../stores/upgradePrompt'
 import { useStoredTier } from '../stores/capabilities'
 import { PRICING_URL } from '../lib/siteUrls'
+import { useState } from 'react'
 import { useAccountStore } from '../stores/account'
 import { startUpgrade } from '../lib/accountClient'
 
@@ -24,6 +25,10 @@ export default function UpgradePromptModal(): JSX.Element | null {
   const requiredTier = useUpgradePromptStore((s) => s.requiredTier)
   const dismiss = useUpgradePromptStore((s) => s.dismiss)
   const storedTier = useStoredTier()
+  // Yearly is two months free on both paid plans ($9.95x12 = $119.40 against
+  // $99; $14.95x12 = $179.40 against $149). The prices existed and the pricing
+  // page advertised the saving, but nothing could actually buy it.
+  const [interval, setInterval] = useState<'month' | 'year'>('month')
 
   if (!reason) return null
 
@@ -43,7 +48,7 @@ export default function UpgradePromptModal(): JSX.Element | null {
       openPricing()
       return
     }
-    const started = await startUpgrade(tier, 'month', token).catch(() => null)
+    const started = await startUpgrade(tier, interval, token).catch(() => null)
     if (started && (started.action === 'redirect' || started.action === 'portal') && started.url) {
       window.open(started.url, '_blank', 'noopener,noreferrer')
       dismiss()
@@ -86,6 +91,24 @@ export default function UpgradePromptModal(): JSX.Element | null {
             ? `It's included on ${tierName}. Your 14-day trial unlocks everything if it's still active.`
             : `It's included on ${tierName}.`}
         </p>
+        <div className="flex items-center gap-1 pt-3 mt-1">
+          {(['month', 'year'] as const).map((iv) => (
+            <button
+              key={iv}
+              type="button"
+              onClick={() => setInterval(iv)}
+              aria-pressed={interval === iv}
+              data-testid={`upgrade-interval-${iv}`}
+              className={`text-[11px] px-2 py-1 rounded-md transition-colors ${
+                interval === iv
+                  ? 'bg-[var(--surface-sunken)] text-[var(--ink)]'
+                  : 'text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]'
+              }`}
+            >
+              {iv === 'month' ? 'Monthly' : 'Yearly — 2 months free'}
+            </button>
+          ))}
+        </div>
         <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--edge-soft)]">
           <button
             onClick={dismiss}
