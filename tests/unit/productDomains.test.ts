@@ -72,14 +72,40 @@ describe('nothing hardcodes a surface behind the config', () => {
   })
 
   it('the release script derives the same values', () => {
-    // It cannot import TypeScript, so it parses the module. If that parse ever
-    // silently returns the wrong set, every build after it ships the wrong
-    // backend — so the script exits non-zero rather than guessing, and this
-    // pins that it reads the file at all.
+    // Neither consumer can import TypeScript, so the module is parsed — but by
+    // ONE parser, scripts/read-active-domains.cjs, shared by release-env.mjs and
+    // electron-builder.cjs. They used to carry a regex each, and when ACTIVE
+    // became `{ ...CURRENT, downloads: PRODUCTION.downloads }` release-env's
+    // `= ([A-Z]+)` simply stopped matching and aborted the build at step one.
     const src = read('scripts/release-env.mjs')
-    expect(src).toContain('src/shared/productDomains.ts')
-    expect(src).toContain('export const ACTIVE')
+    expect(src).toContain('read-active-domains.cjs')
     expect(src).not.toMatch(/VITE_SIGNAL_HTTP_URL: 'https:\/\//)
+
+    // The shared parser is the one that must actually read the module.
+    const resolver = read('scripts/read-active-domains.cjs')
+    expect(resolver).toContain('src/shared/productDomains.ts')
+    expect(resolver).toContain('export const ACTIVE')
+  })
+
+  it('the shared parser refuses a shape it does not understand', () => {
+    // It must never fall back to a default. A wrong answer here is compiled
+    // into the installer, so it throws and the build stops.
+    const resolver = read('scripts/read-active-domains.cjs')
+    expect(resolver).toMatch(/throw new Error/)
+    expect(resolver).toMatch(/shape this parser does not understand/)
+  })
+
+  it('the build feed is derived from ACTIVE, not hardcoded', () => {
+    // electron-builder bakes `publish` into app-update.yml, which is what
+    // electron-updater reads to DETECT updates. If that stayed on github while
+    // ACTIVE.downloads moved to R2, detection and download would point at
+    // different origins and taking the repo private would break detection.
+    const builder = read('electron-builder.cjs')
+    expect(builder).toContain('read-active-domains.cjs')
+    expect(builder).toMatch(/usesGithubReleases\(ACTIVE_DOMAINS\.downloads\)/)
+    expect(builder, 'publish block still hardcodes github').not.toMatch(
+      /publish: \{\s*provider: 'github'/
+    )
   })
 })
 

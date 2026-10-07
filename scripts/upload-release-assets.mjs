@@ -147,14 +147,7 @@ async function mirrorToR2(files) {
     console.log('  r2 FAIL: R2 is configured but the aws CLI is not installed (brew install awscli)')
     return false
   }
-  let ok = true
-  for (const name of files) {
-    const src = join(DIR, name)
-    if (!existsSync(src)) continue
-    // Flat per-version prefix, matching releaseAssetUrl's object-store shape in
-    // src/shared/productDomains.ts. The two must agree or the updater asks for
-    // a path nothing was ever written to.
-    const remote = `v${VERSION}/${name}`
+  const put = (src, remote) => {
     const r = spawnSync('aws', [
       's3', 'cp', src, `s3://${bucket}/${remote}`,
       '--endpoint-url', endpoint, '--checksum-algorithm', 'CRC32'
@@ -164,9 +157,38 @@ async function mirrorToR2(files) {
     })
     if (r.status === 0) {
       console.log(`  r2 OK   ${remote}`)
-    } else {
-      console.log(`  r2 FAIL ${remote}: ${(r.stderr || '').trim().split('\n').slice(-1)[0]}`)
-      ok = false
+      return true
+    }
+    console.log(`  r2 FAIL ${remote}: ${(r.stderr || '').trim().split('\n').slice(-1)[0]}`)
+    return false
+  }
+
+  // Every release is written TWICE, and the order matters.
+  //
+  //   v<version>/<file>   Immutable, one prefix per release. This is the shape
+  //                       releaseAssetUrl() builds, so it is what the website's
+  //                       download buttons and the macOS installer step fetch.
+  //
+  //   <file> at the root  The rolling "latest", overwritten each release. This
+  //                       is the electron-updater `generic` feed that
+  //                       electron-builder bakes into app-update.yml, and it has
+  //                       to be FLAT: electron-updater reads <root>/latest.yml
+  //                       and resolves that manifest's `path` beside it. A
+  //                       versioned prefix cannot be the feed, because the feed
+  //                       URL is compiled into the installer and would have to
+  //                       name the NEXT version's prefix.
+  //
+  // MANIFESTS LAST. The root copies are a live feed being read by installed
+  // clients. A client that polls mid-upload and reads a new latest.yml naming an
+  // artifact still uploading gets a 404 and a failed update, so the manifest
+  // that points at the artifacts is written only once they are all there.
+  const present = files.filter((n) => existsSync(join(DIR, n)))
+  const manifests = present.filter((n) => n.endsWith('.yml'))
+  const artifacts = present.filter((n) => !n.endsWith('.yml'))
+  let ok = true
+  for (const name of [...artifacts, ...manifests]) {
+    for (const remote of [`v${VERSION}/${name}`, name]) {
+      if (!put(join(DIR, name), remote)) ok = false
     }
   }
   return ok

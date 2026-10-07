@@ -11,7 +11,14 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { PRODUCTION, releaseAssetUrl } from '../../src/shared/productDomains'
+import {
+  ACTIVE,
+  CURRENT,
+  PRODUCTION,
+  releaseAssetUrl,
+  updateFeedUrl,
+  usesGithubReleases
+} from '../../src/shared/productDomains'
 
 const root = join(__dirname, '..', '..')
 const uploader = readFileSync(join(root, 'scripts/upload-release-assets.mjs'), 'utf8')
@@ -87,13 +94,85 @@ describe('the R2 mirror', () => {
   })
 })
 
-describe('the cutover is not half-done', () => {
-  it('still points clients at GitHub for now', () => {
-    const domains = readFileSync(join(root, 'src/shared/productDomains.ts'), 'utf8')
-    // ACTIVE must stay on CURRENT until a release has shipped that points at
-    // R2. Flipping it before the mirror runs gives every new install a download
-    // origin with nothing in it.
-    expect(domains).toMatch(/export const ACTIVE: ProductDomains = CURRENT/)
+describe('the cutover is deliberately partial', () => {
+  // This replaces an earlier tripwire that asserted ACTIVE === CURRENT. That
+  // guard existed to stop a cutover shipping before the mirror worked. The
+  // mirror now works and has been verified against the live bucket, so the
+  // guard becomes the opposite: assert the BRIDGE state exactly, surface by
+  // surface, so neither half of it can drift unnoticed.
+
+  it('downloads have moved to R2', () => {
+    // Required for this release to be a bridge at all. Until a build ships
+    // whose download origin is R2, every client asks GitHub forever and taking
+    // the repo private strands all of them.
+    expect(ACTIVE.downloads).toBe(PRODUCTION.downloads)
+  })
+
+  it('the site has NOT moved, because /download does not exist there yet', () => {
+    // autoUpdate.ts compiles the manual-download fallback as
+    // `${ACTIVE.site}/download`. www.plexiidesk.com serves a GoDaddy builder
+    // page and returns 404 on that path; haptyx-web.vercel.app returns 200.
+    // Shipping the broken one is a release to redo, and it is reached by
+    // exactly the user who has just been told to download manually.
+    expect(ACTIVE.site).toBe(CURRENT.site)
+  })
+
+  it('the api and viewer have NOT moved', () => {
+    // Both production hosts resolve and serve — api.plexiidesk.com/healthz
+    // returns 200. They are held back on purpose: the api carries signup,
+    // login, sharing and plan checks for every user, so it moves in a release
+    // that exists to move it, not one about download origins.
+    expect(ACTIVE.api).toBe(CURRENT.api)
+    expect(ACTIVE.viewer).toBe(CURRENT.viewer)
+  })
+})
+
+describe('detection and download cannot diverge', () => {
+  // The subtlety that nearly shipped. electron-builder bakes its `publish`
+  // block into Resources/app-update.yml, and THAT is what electron-updater
+  // reads to detect an update, on both platforms. Where macOS downloads from is
+  // a separate path through updaterInstall.ts and ACTIVE.downloads.
+  //
+  // Flipping ACTIVE.downloads to R2 while publish still said `provider: github`
+  // would give a client that downloads from R2 but asks GitHub whether an
+  // update exists — so taking the repo private would break detection for
+  // everyone, including the release meant to be the bridge off GitHub.
+  const builderConfig = require('../../electron-builder.cjs') as {
+    publish: { provider: string; url?: string; channel?: string; owner?: string; repo?: string }
+  }
+
+  it('the baked feed follows ACTIVE.downloads', () => {
+    if (usesGithubReleases(ACTIVE.downloads)) {
+      expect(builderConfig.publish.provider).toBe('github')
+    } else {
+      expect(builderConfig.publish.provider).toBe('generic')
+      expect(builderConfig.publish.url).toBe(ACTIVE.downloads.replace(/\/+$/, ''))
+    }
+  })
+
+  it('reads the feed from the bucket root, not a versioned prefix', () => {
+    // The feed URL is compiled into the installer, so it cannot name the next
+    // version's prefix — it has to be a fixed directory whose contents roll.
+    if (usesGithubReleases(ACTIVE.downloads)) return
+    expect(builderConfig.publish.url).toBe(updateFeedUrl(ACTIVE.downloads))
+    expect(builderConfig.publish.url, 'feed points at a versioned prefix').not.toMatch(/\/v\d/)
+  })
+})
+
+describe('the bucket layout', () => {
+  it('writes every asset to both the versioned prefix and the root', () => {
+    // v<version>/<file> is the immutable archive that releaseAssetUrl builds;
+    // <file> at the root is the flat directory electron-updater's generic feed
+    // needs beside its manifest. Dropping either breaks one of the two paths.
+    expect(uploader).toContain('`v${VERSION}/${name}`, name')
+  })
+
+  it('uploads manifests LAST', () => {
+    // The root copies are a live feed. A client polling mid-upload that reads a
+    // new latest.yml naming an artifact still uploading gets a 404 and a failed
+    // update.
+    expect(uploader).toMatch(/\.endsWith\('\.yml'\)/)
+    expect(uploader).toContain('[...artifacts, ...manifests]')
   })
 })
 

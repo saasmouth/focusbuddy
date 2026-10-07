@@ -10,17 +10,31 @@ import {
   MAC_INSTALL_SCRIPT,
   MAC_UPDATE_ARCH
 } from '../../src/main/updaterInstall'
+import { ACTIVE, releaseAssetUrl } from '../../src/shared/productDomains'
 
 describe('macAssetUrl', () => {
-  it('builds the release asset URL for a version and arch', () => {
+  // This is the mac update channel, not a convenience: macOS does not use
+  // electron-updater's feed to download, it builds this URL and fetches the zip.
+  //
+  // Two kinds of assertion below, deliberately. The first pins the WIRING — that
+  // the URL tracks ACTIVE.downloads — and never needs editing. The second pins
+  // the literal string that is compiled into the installer, and is MEANT to fail
+  // at a cutover, so that moving the origin is a decision rather than a drift.
+  it('tracks ACTIVE.downloads rather than any hardcoded host', () => {
     expect(macAssetUrl('2.5.18', 'arm64')).toBe(
-      'https://github.com/saasmouth/focusbuddy/releases/download/v2.5.18/Haptyx-2.5.18-mac-arm64.zip'
+      releaseAssetUrl(ACTIVE.downloads, '2.5.18', 'Haptyx-2.5.18-mac-arm64.zip')
+    )
+    expect(macAssetUrl('4.3.1', MAC_UPDATE_ARCH)).toBe(
+      releaseAssetUrl(ACTIVE.downloads, '4.3.1', 'Haptyx-4.3.1-mac-universal.zip')
     )
   })
 
-  it('names the universal asset the mac build actually publishes', () => {
+  it('resolves to R2, which is where this release mirrors to', () => {
+    expect(macAssetUrl('2.5.18', 'arm64')).toBe(
+      'https://dl.plexiidesk.com/v2.5.18/Haptyx-2.5.18-mac-arm64.zip'
+    )
     expect(macAssetUrl('4.3.1', MAC_UPDATE_ARCH)).toBe(
-      'https://github.com/saasmouth/focusbuddy/releases/download/v4.3.1/Haptyx-4.3.1-mac-universal.zip'
+      'https://dl.plexiidesk.com/v4.3.1/Haptyx-4.3.1-mac-universal.zip'
     )
   })
 })

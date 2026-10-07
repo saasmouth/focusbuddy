@@ -56,6 +56,36 @@ const macSigning = hasNotaryCreds
     }
 
 /** @type {import('electron-builder').Configuration} */
+// THE UPDATE FEED, derived from ACTIVE.downloads rather than hardcoded.
+//
+// electron-builder bakes this block into the app as Resources/app-update.yml,
+// and that file is what electron-updater reads to DETECT an update — on both
+// platforms. It is a separate thing from where macOS DOWNLOADS the update,
+// which updaterInstall.ts builds from ACTIVE.downloads via releaseAssetUrl.
+//
+// Those two have to move together, and the reason is easy to miss: flipping
+// ACTIVE.downloads to R2 while this still said `provider: github` would give a
+// client that downloads from R2 but still asks GitHub whether an update exists.
+// Taking the repo private then breaks detection for everyone, including the
+// release that was supposed to be the bridge off GitHub.
+//
+// GitHub Releases cannot serve a `generic` feed: electron-updater fetches
+// <url>/latest-mac.yml and resolves each asset's `path` beside it, while GitHub
+// nests assets under /download/<tag>/. So the provider follows the origin.
+const { readActiveDomains, usesGithubReleases } = require('./scripts/read-active-domains.cjs')
+const { domains: ACTIVE_DOMAINS, describe: ACTIVE_DESCRIBE } = readActiveDomains(__dirname)
+const publishTarget = usesGithubReleases(ACTIVE_DOMAINS.downloads)
+  ? { provider: 'github', owner: 'saasmouth', repo: 'focusbuddy', releaseType: 'release' }
+  : // The feed is the bucket ROOT, not a versioned prefix: the URL is compiled
+    // into the installer, so it cannot name the next version's prefix. The
+    // rolling copies at the root are what scripts/upload-release-assets.mjs
+    // writes alongside the immutable v<version>/ ones.
+    { provider: 'generic', url: ACTIVE_DOMAINS.downloads.replace(/\/+$/, ''), channel: 'latest' }
+console.log(
+  `[electron-builder] update feed: ${publishTarget.provider} ` +
+    `${publishTarget.url || `${publishTarget.owner}/${publishTarget.repo}`} (ACTIVE = ${ACTIVE_DESCRIBE})`
+)
+
 module.exports = {
   appId: 'app.haptyx.desktop',
   productName: 'PlexiDesk',
@@ -95,12 +125,7 @@ module.exports = {
   // Copied into the app's Resources so ocr.ts can read it via process.resourcesPath.
   extraResources: [{ from: 'resources/tessdata', to: 'tessdata' }],
 
-  publish: {
-    provider: 'github',
-    owner: 'saasmouth',
-    repo: 'focusbuddy',
-    releaseType: 'release'
-  },
+  publish: publishTarget,
 
   protocols: [
     {

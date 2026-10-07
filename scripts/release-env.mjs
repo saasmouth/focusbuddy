@@ -17,6 +17,7 @@
 
 import { spawnSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -62,16 +63,22 @@ if (existsSync(envPath)) {
 // test fails if the two ever disagree. Two copies of a hostname that is COMPILED
 // INTO the installer is not a bug you fix in a deploy — it is one you fix in a
 // release, after someone cannot sign in.
-const domainsSrc = readFileSync(join(root, 'src/shared/productDomains.ts'), 'utf8')
-const activeIs = /export const ACTIVE: ProductDomains = ([A-Z]+)/.exec(domainsSrc)?.[1]
-const pick = (set, key) => {
-  const block = new RegExp(`export const ${set}: ProductDomains = \\{([\\s\\S]*?)\\}`).exec(domainsSrc)?.[1] ?? ''
-  return new RegExp(`${key}:\\s*'([^']+)'`).exec(block)?.[1]
+// Resolved by scripts/read-active-domains.cjs, not by a regex here. This file
+// used to match `= ([A-Z]+)`, which silently stopped matching the moment ACTIVE
+// became `{ ...CURRENT, downloads: PRODUCTION.downloads }` — and a release build
+// that aborts at step one is the lucky outcome. One parser, one place to fix.
+const { readActiveDomains } = createRequire(import.meta.url)('./read-active-domains.cjs')
+let api, viewer, activeIs
+try {
+  const resolved = readActiveDomains(root)
+  ;({ api, viewer } = resolved.domains)
+  activeIs = resolved.describe
+} catch (e) {
+  console.error(`FATAL: could not read ACTIVE domains from src/shared/productDomains.ts\n${e.message}`)
+  process.exit(2)
 }
-const api = pick(activeIs, 'api')
-const viewer = pick(activeIs, 'viewer')
 if (!api || !viewer) {
-  console.error('FATAL: could not read ACTIVE domains from src/shared/productDomains.ts')
+  console.error('FATAL: ACTIVE resolved but api/viewer are missing')
   process.exit(2)
 }
 console.log(`domains: ${activeIs} (api ${api})`)
