@@ -31,11 +31,16 @@ interface SignalConfig {
 const LOCAL_HTTP = 'http://localhost:8787'
 const LOCAL_WS = 'ws://localhost:8787/ws'
 // The deployed signal server. This is the FALLBACK used when a build does not
-// set VITE_SIGNAL_HTTP_URL. It must point at a host that actually exists: the
-// old default api.focusbuddy.app was never deployed, so any build that missed
-// the env var (the Windows CI build did) could not reach the server at all and
-// signup/login failed with "can't connect". When api.focusbuddy.app is set up
-// as a DNS alias to this host, this can move back to it.
+// set VITE_SIGNAL_HTTP_URL. It must point at a host that actually exists: an
+// earlier default named a domain that was never deployed, so any build that
+// missed the env var (the Windows CI build did) could not reach the server at
+// all and signup/login failed with "can't connect".
+//
+// api.plexiidesk.com is now live and verified (/healthz returns 200, matching
+// the Fly origin), so the alias this comment used to wait for exists. The move
+// is held for a release that exists to make it — see ACTIVE in
+// productDomains.ts — because this one constant carries signup, login, sharing
+// and plan checks for every user, and it is compiled in.
 const PROD_HTTP = ACTIVE.api
 const PROD_WS = wsUrlFor(ACTIVE.api)
 

@@ -1,7 +1,7 @@
 // haptyx:// deep-link auth handoff.
 //
 // Flow:
-//   1. User signs in or signs up at https://haptyx.app/account/login.
+//   1. User signs in or signs up at https://www.plexiidesk.com/account/login.
 //   2. Brochure POSTs to signal-server /accounts/login, receives a session
 //      token + account row.
 //   3. Brochure renders an "Open in Plexii" button that links to

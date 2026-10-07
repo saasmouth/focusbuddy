@@ -20,7 +20,7 @@ export function generateShareToken(): string {
 
 // The viewer base URL where share links resolve. Defaults to the hosted
 // viewer; override at build time with VITE_VIEWER_URL (e.g. a custom domain
-// like https://view.haptyx.app). Trailing slashes are trimmed so the
+// like https://view.plexiidesk.com). Trailing slashes are trimmed so the
 // `${base}/share/${token}` join is always clean.
 import { ACTIVE } from '@shared/productDomains'
 
