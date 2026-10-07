@@ -4,7 +4,7 @@
 //   1. User signs in or signs up at https://haptyx.app/account/login.
 //   2. Brochure POSTs to signal-server /accounts/login, receives a session
 //      token + account row.
-//   3. Brochure renders an "Open in Haptyx" button that links to
+//   3. Brochure renders an "Open in Plexii" button that links to
 //      haptyx://auth?token=<sessionToken>&email=<email>&handle=<handle>.
 //   4. macOS routes that URL to this app (or launches it first), and the
 //      handlers below capture the token and forward it to the renderer

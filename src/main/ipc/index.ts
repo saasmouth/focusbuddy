@@ -3277,7 +3277,7 @@ export function registerIpcHandlers(): void {
   // ── haptyx:// deep-link auth handoff ─────────────────────────────────────
   // The renderer calls `auth:get-pending` on mount to drain any token that
   // arrived before the window was ready (cold-start case where the user
-  // clicked the brochure "Open in Haptyx" button while the app wasn't
+  // clicked the brochure "Open in Plexii" button while the app wasn't
   // running). Subsequent tokens arrive via the `auth:incoming-token`
   // event broadcast from authProtocol.ts.
   ipcMain.handle('auth:get-pending', () => consumePendingAuthHandoff())
