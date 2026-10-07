@@ -29,6 +29,7 @@ import { runDueReports } from './db/reports'
 import { installMainCrashHandlers, recordCrash } from './db/crashLog'
 import { installIpcErrorBoundary } from './ipc/errorBoundary'
 import { startNotificationScheduler } from './notifications/scheduler'
+import { ACTIVE } from '../shared/productDomains'
 
 // Capture uncaught errors + unhandled rejections from the main process before
 // anything else runs, so a startup failure is recorded instead of lost. The
@@ -344,7 +345,9 @@ function buildAppMenu(): Electron.Menu {
         {
           label: 'Help & Support',
           click: () => {
-            void shell.openExternal('https://plexii.app/help')
+            // plexii.app has no DNS and never did. Follow ACTIVE.site, which is
+            // checked and serves /help, instead of a literal nobody owns.
+            void shell.openExternal(`${ACTIVE.site}/help`)
           }
         },
         {

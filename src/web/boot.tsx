@@ -16,6 +16,7 @@
 // renderer is imported, because the renderer's first modules read it at module
 // scope; and the file server is up before any widget renders a picture.
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { ACTIVE } from '@shared/productDomains'
 import ReactDOM from 'react-dom/client'
 import { installBrowserApi, installFileServer } from './api/bridge'
 import {
@@ -25,7 +26,10 @@ import {
 import { markShareRecipient, setShareDeskId } from '@renderer/lib/shareMode'
 import { SHARE_EDIT_EVENT, hasEditedShare } from './api/shareEdits'
 
-const DESKTOP_DOWNLOAD_URL = 'https://plexii.app/download'
+// plexii.app has no DNS, so this button went to a browser error page for every
+// visitor who opened the web runtime without a live share link — the one
+// audience the page exists to convert. Follow the configured site instead.
+const DESKTOP_DOWNLOAD_URL = `${ACTIVE.site}/download`
 
 /** The page for everyone who did not arrive with a live link. */
 function DownloadPage({ reason }: { reason?: ShareRefusal }): React.JSX.Element {

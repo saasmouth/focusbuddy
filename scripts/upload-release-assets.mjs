@@ -53,8 +53,13 @@ for (const line of existsSync(join(root, '.env'))
   if (v && !process.env[k]) process.env[k] = v
 }
 
+// A plan-only mode, so the file selection can be checked without uploading
+// anything to a live release or a live download origin.
+const DRY_RUN = process.env.DRY_RUN === '1' || process.argv.includes('--dry-run')
 const REPO = process.env.REPO ?? 'saasmouth/focusbuddy'
-const DIR = join(root, 'release')
+// Overridable so the file-selection logic can be exercised against a fixture
+// directory rather than only against a real build output.
+const DIR = process.env.RELEASE_DIR ?? join(root, 'release')
 const TAG = `v${VERSION}`
 const ATTEMPTS = 4
 
@@ -68,7 +73,7 @@ const token = gh(['auth', 'token']).stdout.trim() // never printed
 // fallback once captured the error JSON concatenated with the real id.
 const relId = (gh(['api', `repos/${REPO}/releases`, '--paginate', '--jq',
   `.[] | select(.tag_name=="${TAG}") | .id`]).stdout || '').trim().split('\n')[0]
-if (!/^\d+$/.test(relId)) {
+if (!/^\d+$/.test(relId) && !DRY_RUN) {
   console.error(`FATAL: no numeric release id for ${TAG} (got: '${relId}')`)
   process.exit(2)
 }
@@ -182,12 +187,23 @@ async function mirrorToR2(files) {
   // clients. A client that polls mid-upload and reads a new latest.yml naming an
   // artifact still uploading gets a 404 and a failed update, so the manifest
   // that points at the artifacts is written only once they are all there.
-  const present = files.filter((n) => existsSync(join(DIR, n)))
-  const manifests = present.filter((n) => n.endsWith('.yml'))
-  const artifacts = present.filter((n) => !n.endsWith('.yml'))
+  // Every file asked for must exist. This used to filter to whatever happened
+  // to be present, which hid the whole Windows half: the caller always listed
+  // latest.yml and the .exe, the mac runner never has either, so they were
+  // dropped without a word and the release reported success. The caller now
+  // asks only for the platform it actually built, so a missing file here is a
+  // broken build, not a different platform.
+  const absent = files.filter((n) => !existsSync(join(DIR, n)))
+  if (absent.length) {
+    console.log(`r2 FATAL: expected files not in ${DIR}: ${absent.join(', ')}`)
+    return false
+  }
+  const manifests = files.filter((n) => n.endsWith('.yml'))
+  const artifacts = files.filter((n) => !n.endsWith('.yml'))
   let ok = true
   for (const name of [...artifacts, ...manifests]) {
     for (const remote of [`v${VERSION}/${name}`, name]) {
+      if (DRY_RUN) { console.log(`  r2 DRY  ${remote}`); continue }
       if (!put(join(DIR, name), remote)) ok = false
     }
   }
@@ -195,25 +211,51 @@ async function mirrorToR2(files) {
 }
 
 const u = `Haptyx-${VERSION}-mac-universal`
+
+// WHICH PLATFORM BUILT THIS, decided by what is on disk rather than assumed.
+//
+// mac and Windows are built on different machines — Windows in CI — so each run
+// of this script sees only its own artifacts. Treating the mac set as mandatory
+// made the script unusable on the Windows runner in the most abrupt way: the
+// arm64 aliasing below is a bare copyFileSync, so it threw ENOENT before a
+// single byte was uploaded.
+const hasMac = existsSync(join(DIR, `${u}.zip`))
+const hasWin = existsSync(join(DIR, `Haptyx-${VERSION}-win-x64.exe`))
+if (!hasMac && !hasWin) {
+  console.error(`FATAL: ${DIR} holds neither ${u}.zip nor Haptyx-${VERSION}-win-x64.exe`)
+  process.exit(2)
+}
+
 // The arm64-named aliases exist for clients up to 4.3.0, which build their
 // update URL from process.arch. The universal zip runs fine on arm64.
-copyFileSync(join(DIR, `${u}.zip`), join(DIR, `Haptyx-${VERSION}-mac-arm64.zip`))
-copyFileSync(join(DIR, `${u}.zip.blockmap`), join(DIR, `Haptyx-${VERSION}-mac-arm64.zip.blockmap`))
+if (hasMac) {
+  copyFileSync(join(DIR, `${u}.zip`), join(DIR, `Haptyx-${VERSION}-mac-arm64.zip`))
+  copyFileSync(join(DIR, `${u}.zip.blockmap`), join(DIR, `Haptyx-${VERSION}-mac-arm64.zip.blockmap`))
+}
 
-let ok = true
-for (const name of [
+const MAC_FILES = [
   `${u}.zip`, `${u}.zip.blockmap`, `${u}.dmg`, `${u}.dmg.blockmap`,
   `Haptyx-${VERSION}-mac-arm64.zip`, `Haptyx-${VERSION}-mac-arm64.zip.blockmap`,
   'latest-mac.yml'
-]) {
+]
+// latest.yml is the Windows update feed. electron-updater's generic provider
+// reads <root>/latest.yml and resolves its `path` beside it, so without this
+// file in R2 every Windows client built against the R2 origin asks for a 404
+// forever and auto-update silently never finds anything.
+const WIN_FILES = [`Haptyx-${VERSION}-win-x64.exe`, 'latest.yml']
+
+const FILES = [...(hasMac ? MAC_FILES : []), ...(hasWin ? WIN_FILES : [])]
+console.log(`platform artifacts: ${hasMac ? 'mac' : ''}${hasMac && hasWin ? ' + ' : ''}${hasWin ? 'windows' : ''}`)
+
+let ok = true
+// GitHub still gets every release. Clients already installed were built with
+// the github provider and ask it for updates forever; R2 only serves the ones
+// built after the cutover.
+for (const name of FILES) {
+  if (DRY_RUN) { console.log(`  gh DRY  ${name}`); continue }
   if (!push(join(DIR, name), name)) ok = false
 }
-const MIRRORED = [
-  `${u}.zip`, `${u}.zip.blockmap`, `${u}.dmg`, `${u}.dmg.blockmap`,
-  `Haptyx-${VERSION}-mac-arm64.zip`, `Haptyx-${VERSION}-mac-arm64.zip.blockmap`,
-  'latest-mac.yml', 'latest.yml', `Haptyx-${VERSION}-win-x64.exe`
-]
-const mirrored = await mirrorToR2(MIRRORED)
+const mirrored = await mirrorToR2(FILES)
 if (!mirrored) ok = false
 
 console.log(`UPLOAD_DONE ok=${ok}`)

@@ -100,11 +100,50 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         shell: bash
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            npx electron-builder --win --publish always
-          else
-            npx electron-builder --win --publish never
-          fi
+          # --publish never, always. The publish provider is now `generic` (the
+          # R2 origin), and generic is a DOWNLOAD provider: electron-builder
+          # emits no request at all for it, so `--publish always` has been a
+          # silent no-op since the download origin moved to R2. It still writes
+          # release/latest.yml, which is what the mirror step below needs.
+          npx electron-builder --win --publish never
+
+      # Put the Windows release where clients actually look for it.
+      #
+      # This step exists because electron-builder cannot: see the publish note
+      # above. Before it, a tagged Windows build produced an installer that
+      # reached neither destination — the exe and latest.yml stayed on the
+      # runner, dl.plexiidesk.com had no latest.yml at all, and Windows
+      # auto-update could only ever 404.
+      #
+      # BOTH destinations, deliberately. The GitHub release serves clients
+      # already installed, which were built with the github provider and ask it
+      # forever; R2 serves the ones built after the cutover.
+      - name: Publish Windows release to R2 and the GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # An unconfigured bucket is an inert skip inside the uploader, by
+          # design, so that it does nothing until R2 exists. In CI that would be
+          # a green build that mirrored nothing, which is the failure mode this
+          # whole step is fixing. Assert instead.
+          for v in R2_BUCKET R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::$v is not set as a repository secret. The Windows release would not reach dl.plexiidesk.com and Windows auto-update would 404."
+              exit 1
+            fi
+          done
+          # The mirror shells out to `aws s3 cp`. Checked rather than assumed:
+          # if the runner image ever drops it, fail here with a clear reason
+          # instead of inside the uploader.
+          aws --version || { echo "::error::aws CLI not available on this runner; the R2 mirror cannot run."; exit 1; }
+          node scripts/upload-release-assets.mjs "${GITHUB_REF_NAME#v}"
 
       # always(): if the publish step fails, the installer itself is usually
       # fine — it is the upload to GitHub that broke. Without this the artifact
