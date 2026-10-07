@@ -1,4 +1,4 @@
-// plexii:// deep-link auth handoff (haptyx:// still accepted).
+// plexii:// deep-link auth handoff (plexii:// still accepted).
 //
 // Flow:
 //   1. User signs in or signs up at https://www.plexiidesk.com/account/login.
@@ -40,10 +40,10 @@ export interface AuthHandoff {
 }
 
 let pending: AuthHandoff | null = null
-// A share deep link (haptyx://share?token=...) that arrived before a window was
+// A share deep link (plexii://share?token=...) that arrived before a window was
 // ready. Drained by the renderer on load, same pattern as the auth handoff.
 let pendingShareToken: string | null = null
-// A meeting-join deep link (haptyx://meet?room=...) from a meeting invite email,
+// A meeting-join deep link (plexii://meet?room=...) from a meeting invite email,
 // same drain-on-ready pattern.
 let pendingMeetRoom: string | null = null
 
@@ -65,7 +65,7 @@ function parseDeepLinkUrl(url: string): Omit<AuthHandoff, 'origin'> | null {
   }
 }
 
-// haptyx://share?token=<shareToken> — the "Open in PlexiDesk" link from the
+// plexii://share?token=<shareToken> — the "Open in PlexiDesk" link from the
 // share-notification email. Returns the share token to hand to the renderer,
 // which accepts it into the workspace and opens it.
 function parseShareUrl(url: string): string | null {
@@ -103,7 +103,7 @@ export function consumePendingShareToken(): string | null {
   return t
 }
 
-// haptyx://meet?room=<roomId> — the "Join the meeting" link from a meeting
+// plexii://meet?room=<roomId> — the "Join the meeting" link from a meeting
 // invite email. Returns the room id for the renderer to join.
 function parseMeetUrl(url: string): string | null {
   try {
@@ -115,7 +115,7 @@ function parseMeetUrl(url: string): string | null {
   }
 }
 
-// haptyx://edit-md?path=<absolute .md path> — open an external markdown
+// plexii://edit-md?path=<absolute .md path> — open an external markdown
 // document (an ops-console artifact) in the PlexiDocs editor (ws-v-3). The
 // path is only a REQUEST here; the mdext IPC layer enforces the allowed root.
 let pendingMdEditPath: string | null = null
@@ -207,14 +207,14 @@ function handleAuthUrl(url: string, origin: AuthHandoff['origin']) {
     broadcast({ ...parsed, origin })
     return
   }
-  // Also route share deep links (haptyx://share?token=...) from the share
+  // Also route share deep links (plexii://share?token=...) from the share
   // notification email so an existing user can open the shared item in-app.
   const shareToken = parseShareUrl(url)
   if (shareToken) {
     broadcastShare(shareToken)
     return
   }
-  // And meeting-join links (haptyx://meet?room=...) from an invite email.
+  // And meeting-join links (plexii://meet?room=...) from an invite email.
   const meetRoom = parseMeetUrl(url)
   if (meetRoom) {
     broadcastMeet(meetRoom)
@@ -235,14 +235,14 @@ export function consumePendingAuthHandoff(): AuthHandoff | null {
 
 export function registerDeepLinkProtocol(opts: { claimProtocol?: boolean } = {}) {
   const { claimProtocol = true } = opts
-  // Ask macOS / Windows to route haptyx:// URLs to this binary.
+  // Ask macOS / Windows to route plexii:// URLs to this binary.
   // In dev (electron-vite) the running binary is `node_modules/electron/.../Electron`
   // which doesn't survive a restart — the brochure flow only works end-to-end
   // from a packaged build. The registration is still safe to call in dev.
   // Skipped for PlexiOffice (claimProtocol=false): two apps can't both own the
   // scheme, and it belongs to PlexiDesk's auth handoff.
   if (claimProtocol) {
-    // Register the legacy scheme too, or an existing haptyx:// link stops
+    // Register the legacy scheme too, or an existing plexii:// link stops
     // opening the app the moment a user updates.
     for (const scheme of ALL_SCHEMES) {
       if (process.defaultApp && process.argv.length >= 2) {
@@ -272,7 +272,7 @@ export function registerDeepLinkProtocol(opts: { claimProtocol?: boolean } = {})
     if (url) handleAuthUrl(url, 'second-instance')
   })
 
-  // Cold-start case — the app was launched by clicking a haptyx:// link.
+  // Cold-start case — the app was launched by clicking a plexii:// link.
   // On macOS this comes through open-url after whenReady; on Windows it
   // shows up in argv. Both branches are handled.
   const argvUrl = process.argv.find(isDeepLinkArg)

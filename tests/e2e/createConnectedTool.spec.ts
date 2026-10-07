@@ -24,7 +24,7 @@ test('right-click on a sticky → Create + Connect → new tool and persisted li
   launched = await launchApp()
   const { window } = launched
 
-  // Wait for app boot. We can't gate on the "FocusBuddy" heading
+  // Wait for app boot. We can't gate on the "PlexiDesk" heading
   // because the launch sign-in modal also shows one and strict mode
   // trips. Wait for window.api to be exposed by the preload bridge —
   // that's the readiness signal we actually need.

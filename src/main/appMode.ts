@@ -32,7 +32,7 @@ export function detectOfficeBuild(opts: {
 // env var (dev), then the executable path (packaged: the bundle is
 // "PlexiDesk 3 Preview.app" / "PlexiDesk 3 Preview.exe"), then the app name.
 // The preview runs the full PlexiDesk renderer but with its OWN userData
-// directory, its own single-instance lock, no claim on the haptyx:// protocol,
+// directory, its own single-instance lock, no claim on the plexii:// protocol,
 // and the auto-updater disabled — so it can be tested end to end alongside a
 // production install without touching its data or being "updated" back to the
 // release channel.

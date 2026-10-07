@@ -60,7 +60,7 @@ interface AccountStore {
   // Tell main to remember the user dismissed the launch modal.
   setSkipped: (skipped: boolean) => Promise<void>
   // Adopt a session token handed off from the web flow via the
-  // haptyx:// URL scheme. Validates the token against the server,
+  // plexii:// URL scheme. Validates the token against the server,
   // persists it locally if valid, returns the new account. The token
   // is the same shape as `signup`/`login` produce, so this method is
   // just "skip the password step because the web already proved it."

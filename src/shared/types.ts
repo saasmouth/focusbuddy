@@ -374,7 +374,7 @@ export type TimeBlockStatus = 'planned' | 'done' | 'missed' | 'skipped'
 // When a time block is a scheduled meeting, it carries the room to join and the
 // people invited to it. The room id is stable so the same link works for the
 // host and every invitee: the join email, the calendar "Join" button, and the
-// haptyx://meet?room= deep link all open this one room.
+// plexii://meet?room= deep link all open this one room.
 export interface TimeBlockMeeting {
   roomId: string
   invitees: string[] // email addresses the invite was sent to

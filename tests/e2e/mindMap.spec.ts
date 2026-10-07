@@ -18,7 +18,7 @@ import { launchApp, type LaunchedApp } from './_helpers'
 //
 // AI expand + agent suggestion are exercised at the IPC contract level
 // only — the actual Claude responses are out of scope for E2E. The
-// widget's defensive "If you just shipped new code, quit Haptyx (⌘Q)"
+// widget's defensive "If you just shipped new code, quit PlexiDesk (⌘Q)"
 // branch ensures a missing-IPC failure mode is at least surfaced.
 
 let launched: LaunchedApp | null = null

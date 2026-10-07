@@ -56,7 +56,7 @@ if (!process.env.FB_TEST_USER_DATA) {
 
 // Test-isolation hook: when running under Playwright we want a throwaway
 // userData (separate DB, separate cookies) so tests don't touch the developer's
-// real FocusBuddy data. Must be set BEFORE app.whenReady() so getPath('userData')
+// real PlexiDesk data. Must be set BEFORE app.whenReady() so getPath('userData')
 // picks up the override on first access.
 // Which product is this binary? See detectOfficeBuild for why app.getName() alone
 // is not enough. Set the app name early so getName(), the menu, the renderer
@@ -82,12 +82,12 @@ if (process.env.FB_TEST_USER_DATA) {
 } else if (isPreviewBuild) {
   // The preview build ALWAYS gets its own userData directory — packaged AND
   // dev — so it can never open the production install's database (which the
-  // legacy-Haptyx pinning below would otherwise hand it) and never contends
+  // legacy-PlexiDesk pinning below would otherwise hand it) and never contends
   // for its single-instance lock. Delete this directory to reset the preview.
   //
   // The directory keeps its "3" after the preview was renamed to 4, and that is
   // deliberate. Renaming it would strand every existing preview workspace behind
-  // an app that now looks empty -- the same trap the Haptyx -> PlexiDesk rename
+  // an app that now looks empty -- the same trap the PlexiDesk -> PlexiDesk rename
   // below avoids, handled the same way: keep using the directory in place, no
   // copy and no move, so there is nothing to go wrong.
   app.setPath('userData', join(app.getPath('appData'), 'PlexiDesk3Preview'))
@@ -99,7 +99,7 @@ if (process.env.FB_TEST_USER_DATA) {
   // database, so a separate local cache is exactly right.
   app.setPath('userData', join(app.getPath('appData'), 'PlexiOffice'))
 } else if (app.isPackaged) {
-  // Haptyx -> PlexiDesk, moved once rather than pinned forever. The decision is
+  // PlexiDesk -> PlexiDesk, moved once rather than pinned forever. The decision is
   // in userDataMigration.ts as a pure function so every branch of it is unit
   // tested; see that file for why each outcome is what it is.
   try {
@@ -291,13 +291,13 @@ function applyDisplayMediaHandler(ses: Electron.Session): void {
   )
 }
 
-// Register haptyx:// before whenReady so the OS knows we own the
+// Register plexii:// before whenReady so the OS knows we own the
 // protocol scheme. Also handles second-instance / open-url events for
 // the web→desktop auth handoff. See authProtocol.ts.
-// PlexiOffice must not claim the haptyx:// scheme — only one app can own it, and
+// PlexiOffice must not claim the plexii:// scheme — only one app can own it, and
 // it belongs to PlexiDesk's web→desktop auth handoff. PlexiOffice still takes its
 // own single-instance lock (on its own userData) inside this call.
-// The preview must not steal haptyx:// deep links from the production install.
+// The preview must not steal plexii:// deep links from the production install.
 registerDeepLinkProtocol({ claimProtocol: !isOfficeBuild && !isPreviewBuild })
 
 // Send a zoom command to the focused window's renderer, which owns the app-wide
@@ -654,7 +654,7 @@ app.on('web-contents-created', (_, contents) => {
     }
 
     // Non-editable content: suppress the native menu and hand off to the
-    // renderer's unified Haptyx menu, which classifies the target (text / image
+    // renderer's unified PlexiDesk menu, which classifies the target (text / image
     // / link / video / empty) and offers the same sections as everywhere else.
     const mainWin = BrowserWindow.getAllWindows()[0]
     mainWin?.webContents.send('webview:context-menu', {
@@ -703,9 +703,9 @@ app.whenReady().then(() => {
   startMailSyncLoop()
   // Stream Deck focus handoff — caches the previously-frontmost app so
   // ⌘C / ⌘V / ⌘⇧4 / type-text land in the user's actual workspace
-  // rather than in FocusBuddy itself.
+  // rather than in PlexiDesk itself.
   installFocusTracker()
-  // Activity tracker — polls frontmost app while FocusBuddy is open so
+  // Activity tracker — polls frontmost app while PlexiDesk is open so
   // the AI macro suggestor can later analyse repetitive workflows and
   // propose macros. Off by default; the user opts in from the Stream
   // Deck widget.

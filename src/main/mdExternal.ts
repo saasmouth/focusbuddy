@@ -5,7 +5,7 @@ import { isAbsolute, normalize, sep } from 'node:path'
 // ws-v-3 suite convergence: edit an EXTERNAL markdown document (an artifact of
 // the local agentic ops console) in PlexiDocs, saving straight back to disk.
 //
-// Trust model: the deep link (haptyx://edit-md?path=...) is world-invokable, so
+// Trust model: the deep link (plexii://edit-md?path=...) is world-invokable, so
 // arbitrary paths must never be readable or writable. The allowed root is not
 // hardcoded — it is learned from the local ops console itself (its /api/health
 // reports its workspace root), which only answers on localhost. No console

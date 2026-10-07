@@ -104,7 +104,7 @@ export async function startArtifactMeeting(origin: MeetingOrigin): Promise<strin
 
 // Join a specific, already-known room — the host and every invitee of a
 // scheduled calendar meeting open the SAME room id, so this is what the "Join"
-// button on a calendar meeting and the haptyx://meet?room= deep link both call.
+// button on a calendar meeting and the plexii://meet?room= deep link both call.
 export async function joinMeetingRoom(
   roomId: string,
   title?: string,

@@ -4,7 +4,7 @@ import { launchApp, waitForReady } from './_helpers'
 
 // ws-v-3 external markdown editing (mdExternal.ts + authProtocol.ts +
 // ExternalMdEditorView.tsx). Verifies against the BUILT app:
-//   1. Deep-link round trip: haptyx://edit-md?path=<seeded .md> opens the
+//   1. Deep-link round trip: plexii://edit-md?path=<seeded .md> opens the
 //      editor surface, a typed sentence autosaves back to the same file on
 //      disk as markdown, header shows "Saved to file".
 //   2. Scope: a path outside the ops workspace root shows the honest
@@ -13,8 +13,8 @@ import { launchApp, waitForReady } from './_helpers'
 //      write-without-prior-read are all refused with the real error.
 //
 // Deep-link delivery note: the operator's production PlexiDesk.app is
-// installed and RUNNING on this machine and owns the haptyx:// scheme in
-// LaunchServices, so a shell `open "haptyx://..."` would be routed to the
+// installed and RUNNING on this machine and owns the plexii:// scheme in
+// LaunchServices, so a shell `open "plexii://..."` would be routed to the
 // production app, not this isolated test instance. We therefore deliver the
 // URL by emitting the same 'open-url' event macOS itself fires — which is
 // the exact entry point authProtocol.ts registers — and everything from URL
@@ -43,7 +43,7 @@ test('deep link opens seeded md; typed sentence autosaves to disk as markdown', 
   const { app, window, dispose } = await launchApp()
   try {
     await waitForReady(window)
-    await sendDeepLink(app, `haptyx://edit-md?path=${SEEDED}`)
+    await sendDeepLink(app, `plexii://edit-md?path=${SEEDED}`)
 
     // Editor surface opens on the file: header carries name + full path.
     await expect(window.locator('text=mdext-roundtrip-test.md').first()).toBeVisible({
@@ -89,7 +89,7 @@ test('path outside the workspace root is refused with the honest error; file unt
   const { app, window, dispose } = await launchApp()
   try {
     await waitForReady(window)
-    await sendDeepLink(app, `haptyx://edit-md?path=${OUTSIDE}`)
+    await sendDeepLink(app, `plexii://edit-md?path=${OUTSIDE}`)
 
     await expect(window.locator('text=Cannot open this document')).toBeVisible({
       timeout: 10_000
@@ -143,7 +143,7 @@ test('non-md, traversal, relative and write-without-read are all refused', async
     // Deep link to an in-root path that is not .md → honest refusal screen.
     await sendDeepLink(
       app,
-      'haptyx://edit-md?path=/Applications/agentic-starter-kit-main/projects/worksuite/outputs/notes.txt'
+      'plexii://edit-md?path=/Applications/agentic-starter-kit-main/projects/worksuite/outputs/notes.txt'
     )
     await expect(window.locator('text=Cannot open this document')).toBeVisible({
       timeout: 10_000

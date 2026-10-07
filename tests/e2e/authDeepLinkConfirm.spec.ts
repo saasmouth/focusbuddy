@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
 
 // End-to-end proof of the MEDIUM fix in App.tsx: a LIVE incoming
-// haptyx://auth?token=... deep link (which any website can trigger while the
+// plexii://auth?token=... deep link (which any website can trigger while the
 // app is open — a session-fixation / forced-login vector) must no longer be
 // adopted silently. It must show an explicit confirm dialog naming the
 // account, and only proceed to adoptHandoff() (which calls the signal
@@ -35,7 +35,7 @@ test('incoming auth deep link requires explicit confirm; cancel never calls the 
     await route.fulfill({ status: 401, contentType: 'application/json', body: '{"ok":false}' })
   })
 
-  // Fire the real IPC event main sends on a live haptyx://auth deep link.
+  // Fire the real IPC event main sends on a live plexii://auth deep link.
   await app.evaluate(({ BrowserWindow }) => {
     const win = BrowserWindow.getAllWindows()[0]
     win.webContents.send('auth:incoming-token', {

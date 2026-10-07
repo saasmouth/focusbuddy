@@ -811,7 +811,7 @@ export function registerIpcHandlers(): void {
   // ── Body-double cross-window relay ──────────────────────────────────────
   // BroadcastChannel is per-renderer-process — fine for two browser tabs,
   // useless for two Electron windows. The bridge below lets the local-mock
-  // matcher work across multiple FocusBuddy windows on the same machine:
+  // matcher work across multiple PlexiDesk windows on the same machine:
   // when one renderer sends a `fb:body-double-bus` message, main forwards
   // it to every OTHER renderer. The wire format is whatever the matcher
   // wants — main treats payloads as opaque blobs.
@@ -3274,14 +3274,14 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('sign:decline', (_e, id: string, signerId: string, reason: string) => declineSignRequest(id, signerId, reason))
   ipcMain.handle('sign:void', (_e, id: string) => voidSignRequest(id))
 
-  // ── haptyx:// deep-link auth handoff ─────────────────────────────────────
+  // ── plexii:// deep-link auth handoff ─────────────────────────────────────
   // The renderer calls `auth:get-pending` on mount to drain any token that
   // arrived before the window was ready (cold-start case where the user
   // clicked the brochure "Open in Plexii" button while the app wasn't
   // running). Subsequent tokens arrive via the `auth:incoming-token`
   // event broadcast from authProtocol.ts.
   ipcMain.handle('auth:get-pending', () => consumePendingAuthHandoff())
-  // Same drain-pending pattern for a share deep link (haptyx://share?token=...).
+  // Same drain-pending pattern for a share deep link (plexii://share?token=...).
   ipcMain.handle('share:get-pending', () => consumePendingShareToken())
   ipcMain.handle('meet:get-pending', () => consumePendingMeetRoom())
   ipcMain.handle('mdext:get-pending', () => consumePendingMdEditPath())

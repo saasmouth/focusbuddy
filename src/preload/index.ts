@@ -919,7 +919,7 @@ const api = {
   webview: {
     // Fired when a <webview> inside a connected app or canvas widget tries to
     // open a target=_blank link. The renderer turns these into canvas widgets
-    // so users keep clicked links inside FocusBuddy.
+    // so users keep clicked links inside PlexiDesk.
     onLinkClicked: (
       cb: (payload: { sourceWebContentsId: number; url: string }) => void
     ): (() => void) => {
@@ -1162,7 +1162,7 @@ const api = {
       return () => ipcRenderer.removeListener('context-menu:action', handler)
     },
     // Fired when a NON-editable right-click happens inside a browser widget. The
-    // renderer opens the unified Haptyx menu for the classified target.
+    // renderer opens the unified PlexiDesk menu for the classified target.
     onWebviewContextMenu: (
       cb: (payload: {
         webContentsId: number
@@ -1180,7 +1180,7 @@ const api = {
     }
   },
   // Cross-window IPC bus used by the body-double BridgeMatcher. Two
-  // FocusBuddy windows on the same machine share this channel — main
+  // PlexiDesk windows on the same machine share this channel — main
   // process broadcasts everything one renderer sends to every other.
   bodyDoubleBus: {
     send: (payload: unknown): void => {
@@ -1664,7 +1664,7 @@ const api = {
     }> => ipcRenderer.invoke('agents:undoLast'),
     // Workspace path override — when set, the resolver pushes this
     // path to the front of its probe list. Used by Settings to let
-    // users point Haptyx at their workspace if auto-detect missed it.
+    // users point PlexiDesk at their workspace if auto-detect missed it.
     getWorkspaceOverride: (): Promise<string | null> =>
       ipcRenderer.invoke('agents:getWorkspaceOverride'),
     setWorkspaceOverride: (
@@ -1672,7 +1672,7 @@ const api = {
     ): Promise<{ ok: true }> =>
       ipcRenderer.invoke('agents:setWorkspaceOverride', path),
     // Reveal a path in Finder. Wraps shell.showItemInFolder so the
-    // renderer can offer "show me where Haptyx is reading agents from"
+    // renderer can offer "show me where PlexiDesk is reading agents from"
     // affordances without needing the Electron API directly.
     revealInFinder: (
       path: string
@@ -2679,9 +2679,9 @@ const api = {
     apply: (key: string): Promise<import('@shared/templates').ApplyTemplateResult> =>
       ipcRenderer.invoke('marketplace:apply', key)
   },
-  // haptyx:// deep-link auth handoff. The brochure at haptyx.app/account/*
+  // plexii:// deep-link auth handoff. The brochure at www.plexiidesk.com/account/*
   // signs the user in against the signal server, then redirects to
-  // haptyx://auth?token=...&email=...&handle=... — main process catches
+  // plexii://auth?token=...&email=...&handle=... — main process catches
   // that URL and forwards it here. The renderer either gets the token
   // immediately via `onIncomingToken`, or drains the pending one via
   // `getPending` on mount (cold-start case).
@@ -2710,7 +2710,7 @@ const api = {
       return () => ipcRenderer.removeListener('auth:incoming-token', handler)
     }
   },
-  // Share deep links (haptyx://share?token=...) from the "Open in PlexiDesk"
+  // Share deep links (plexii://share?token=...) from the "Open in PlexiDesk"
   // notification email. Same drain-pending + subscribe pattern as auth.
   share: {
     getPending: (): Promise<string | null> => ipcRenderer.invoke('share:get-pending'),
@@ -2720,7 +2720,7 @@ const api = {
       return () => ipcRenderer.removeListener('share:incoming-token', handler)
     }
   },
-  // Meeting-join deep link (haptyx://meet?room=...) from an invite email —
+  // Meeting-join deep link (plexii://meet?room=...) from an invite email —
   // same drain-on-mount + live-event pattern as share.
   meet: {
     getPending: (): Promise<string | null> => ipcRenderer.invoke('meet:get-pending'),

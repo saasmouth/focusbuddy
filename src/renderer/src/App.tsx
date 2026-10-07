@@ -282,15 +282,15 @@ export default function App(): JSX.Element {
     void loadMailAccount()
   }, [loadMailAccount])
 
-  // Web→desktop auth handoff. The brochure sign-in flow at haptyx.app/account/*
-  // produces a session token, then deep-links to haptyx://auth?token=...
+  // Web→desktop auth handoff. The brochure sign-in flow at www.plexiidesk.com/account/*
+  // produces a session token, then deep-links to plexii://auth?token=...
   // which main forwards over IPC. We adopt the token here.
   useEffect(() => {
     let detach: (() => void) | null = null
     async function consumeAndSubscribe(): Promise<void> {
       const pending = await window.api.auth.getPending()
       if (pending) await adoptHandoff({ sessionToken: pending.sessionToken, email: pending.email })
-      // A haptyx://auth deep link can be triggered by ANY website while the app
+      // A plexii://auth deep link can be triggered by ANY website while the app
       // is open, so a live incoming token is a forced-login (session-fixation)
       // vector. Require an explicit confirmation naming the account before
       // adopting it. The startup getPending path above is the user's own
@@ -311,7 +311,7 @@ export default function App(): JSX.Element {
     return () => { detach?.() }
   }, [adoptHandoff])
 
-  // Share deep link (haptyx://share?token=...) from the "Open in PlexiDesk"
+  // Share deep link (plexii://share?token=...) from the "Open in PlexiDesk"
   // notification email → accept the share into "Shared with me" so it appears in
   // the app, exactly as the paste-a-link flow does. Same drain-pending +
   // subscribe pattern as the auth handoff.
@@ -336,7 +336,7 @@ export default function App(): JSX.Element {
     }
   }, [])
 
-  // Meeting-join deep link (haptyx://meet?room=...) from an invite email → open
+  // Meeting-join deep link (plexii://meet?room=...) from an invite email → open
   // the meeting view and join that room. Same drain-pending + subscribe pattern.
   useEffect(() => {
     let detach: (() => void) | null = null
@@ -359,7 +359,7 @@ export default function App(): JSX.Element {
     }
   }, [])
 
-  // External markdown deep link (haptyx://edit-md?path=...) from the ops
+  // External markdown deep link (plexii://edit-md?path=...) from the ops
   // console: open the file as a PlexiDocs surface (ws-v-3).
   useEffect(() => {
     let detach: (() => void) | undefined

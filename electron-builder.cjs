@@ -16,10 +16,24 @@
 //      is therefore byte-for-byte the same as before, so nothing breaks while we
 //      wait on the Apple Developer account.
 //
-// appId stays app.haptyx.desktop on purpose: it is the OS/LaunchServices upgrade
-// identity, so keeping it lets an existing Haptyx install upgrade IN PLACE to the
-// renamed PlexiDesk build. Asset filenames stay "Haptyx-…" so the hardcoded
-// auto-update URL in shipped clients keeps resolving across the rename.
+// appId stays app.haptyx.desktop, and this is the ONE legacy identifier that is
+// not merely inertia. It is the macOS bundle identifier, which means:
+//
+//   - TCC permission grants are keyed to it. Screen Recording, Accessibility,
+//     Microphone and Camera consent would all be revoked, and every existing
+//     user would have to re-grant them. There is no API to migrate a grant.
+//   - safeStorage encrypts against a keychain item tied to the app identity, so
+//     anything already encrypted — including the API keys users paste into
+//     Settings — could become undecryptable.
+//   - LaunchServices treats a changed bundle id as a different application, so
+//     an in-place upgrade becomes a second app rather than an update.
+//
+// None of that is recoverable by code, and users never see this string. So it
+// stays until someone decides the cost is worth paying, deliberately.
+//
+// Asset filenames DID move to "PlexiDesk-…" — see artifactName below. The old
+// names are published alongside them as aliases, because the auto-update URL
+// compiled into shipped clients is built from the old pattern.
 
 // Notarisation can authenticate two ways, both of which electron-builder reads
 // from the environment and passes to notarytool:
