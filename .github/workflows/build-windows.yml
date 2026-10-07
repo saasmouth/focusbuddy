@@ -156,5 +156,6 @@ jobs:
           name: haptyx-windows-installer
           path: |
             release/*.exe
+            release/*.exe.blockmap
             release/latest.yml
           if-no-files-found: error
