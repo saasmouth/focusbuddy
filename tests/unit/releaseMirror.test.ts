@@ -128,12 +128,22 @@ describe('the cutover is deliberately partial', () => {
     expect(ACTIVE.viewer).toBe(PRODUCTION.viewer)
   })
 
-  it('the api has NOT moved', () => {
-    // api.plexiidesk.com resolves and /healthz returns 200, matching the Fly
-    // origin. It is held back on purpose: it carries signup, login, sharing and
-    // plan checks for every user, so it moves in a release that exists to move
-    // it and can be tested as such.
-    expect(ACTIVE.api).toBe(CURRENT.api)
+  it('the api has moved too, so the cutover is complete', () => {
+    // The last one. Held back because it carries signup, login, sharing and
+    // plan checks for every user; settled by the name being DNS-only and
+    // resolving to the SAME IP as the Fly host, so it is the same origin under
+    // a different name rather than a new hop.
+    expect(ACTIVE.api).toBe(PRODUCTION.api)
+  })
+
+  it('leaves no surface on a legacy host', () => {
+    // The point of the whole exercise, asserted as one statement rather than
+    // four: nothing the app compiles in still names fly.dev, vercel.app or a
+    // haptyx/focusbuddy domain.
+    for (const [key, value] of Object.entries(ACTIVE)) {
+      expect(value, key).toMatch(/^https:\/\/[a-z]+\.plexiidesk\.com$/)
+    }
+    expect(ACTIVE).toEqual(PRODUCTION)
   })
 
   it('every surface is either where it was or where it is going, never a third thing', () => {

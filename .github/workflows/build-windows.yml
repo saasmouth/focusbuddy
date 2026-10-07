@@ -80,8 +80,8 @@ jobs:
       - name: Build renderer + main
         env:
           VITE_USE_REMOTE_SIGNAL: 'true'
-          VITE_SIGNAL_HTTP_URL: 'https://focusbuddy-signal.fly.dev'
-          VITE_SIGNAL_WS_URL: 'wss://focusbuddy-signal.fly.dev/ws'
+          VITE_SIGNAL_HTTP_URL: 'https://api.plexiidesk.com'
+          VITE_SIGNAL_WS_URL: 'wss://api.plexiidesk.com/ws'
           # Compiled into the installer: every share link a Windows user
           # creates names this host. It has to match ACTIVE.viewer in
           # src/shared/productDomains.ts, or Windows and macOS mint links

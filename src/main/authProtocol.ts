@@ -1,11 +1,11 @@
-// haptyx:// deep-link auth handoff.
+// plexii:// deep-link auth handoff (haptyx:// still accepted).
 //
 // Flow:
 //   1. User signs in or signs up at https://www.plexiidesk.com/account/login.
 //   2. Brochure POSTs to signal-server /accounts/login, receives a session
 //      token + account row.
 //   3. Brochure renders an "Open in Plexii" button that links to
-//      haptyx://auth?token=<sessionToken>&email=<email>&handle=<handle>.
+//      plexii://auth?token=<sessionToken>&email=<email>&handle=<handle>.
 //   4. macOS routes that URL to this app (or launches it first), and the
 //      handlers below capture the token and forward it to the renderer
 //      over IPC as the `auth:incoming-token` event.
@@ -23,8 +23,13 @@
 // fans out a single IPC message to every BrowserWindow.
 
 import { app, BrowserWindow } from 'electron'
+import { ALL_DEEP_LINK_SCHEMES, isDeepLinkArg, isKnownDeepLinkProtocol } from '@shared/deepLink'
 
-const SCHEME = 'haptyx'
+// Named in shared/deepLink.ts, because the renderer generates these links too
+// and the two must not drift. See that file for why both schemes are answered
+// and only one is generated.
+const ALL_SCHEMES = ALL_DEEP_LINK_SCHEMES
+const hasKnownScheme = isKnownDeepLinkProtocol
 
 export interface AuthHandoff {
   sessionToken: string
@@ -42,11 +47,11 @@ let pendingShareToken: string | null = null
 // same drain-on-ready pattern.
 let pendingMeetRoom: string | null = null
 
-function parseHaptyxUrl(url: string): Omit<AuthHandoff, 'origin'> | null {
+function parseDeepLinkUrl(url: string): Omit<AuthHandoff, 'origin'> | null {
   try {
     const parsed = new URL(url)
-    if (parsed.protocol !== `${SCHEME}:`) return null
-    // Expect haptyx://auth?token=... The host portion is the "action".
+    if (!hasKnownScheme(parsed.protocol)) return null
+    // Expect plexii://auth?token=... The host portion is the "action".
     if (parsed.host !== 'auth') return null
     const token = parsed.searchParams.get('token')
     if (!token) return null
@@ -66,7 +71,7 @@ function parseHaptyxUrl(url: string): Omit<AuthHandoff, 'origin'> | null {
 function parseShareUrl(url: string): string | null {
   try {
     const parsed = new URL(url)
-    if (parsed.protocol !== `${SCHEME}:` || parsed.host !== 'share') return null
+    if (!hasKnownScheme(parsed.protocol) || parsed.host !== 'share') return null
     return parsed.searchParams.get('token')
   } catch {
     return null
@@ -103,7 +108,7 @@ export function consumePendingShareToken(): string | null {
 function parseMeetUrl(url: string): string | null {
   try {
     const parsed = new URL(url)
-    if (parsed.protocol !== `${SCHEME}:` || parsed.host !== 'meet') return null
+    if (!hasKnownScheme(parsed.protocol) || parsed.host !== 'meet') return null
     return parsed.searchParams.get('room')
   } catch {
     return null
@@ -118,7 +123,7 @@ let pendingMdEditPath: string | null = null
 function parseEditMdUrl(url: string): string | null {
   try {
     const parsed = new URL(url)
-    if (parsed.protocol !== `${SCHEME}:` || parsed.host !== 'edit-md') return null
+    if (!hasKnownScheme(parsed.protocol) || parsed.host !== 'edit-md') return null
     return parsed.searchParams.get('path')
   } catch {
     return null
@@ -197,7 +202,7 @@ function broadcast(handoff: AuthHandoff) {
 }
 
 function handleAuthUrl(url: string, origin: AuthHandoff['origin']) {
-  const parsed = parseHaptyxUrl(url)
+  const parsed = parseDeepLinkUrl(url)
   if (parsed) {
     broadcast({ ...parsed, origin })
     return
@@ -228,7 +233,7 @@ export function consumePendingAuthHandoff(): AuthHandoff | null {
   return p
 }
 
-export function registerHaptyxAuthProtocol(opts: { claimProtocol?: boolean } = {}) {
+export function registerDeepLinkProtocol(opts: { claimProtocol?: boolean } = {}) {
   const { claimProtocol = true } = opts
   // Ask macOS / Windows to route haptyx:// URLs to this binary.
   // In dev (electron-vite) the running binary is `node_modules/electron/.../Electron`
@@ -237,10 +242,14 @@ export function registerHaptyxAuthProtocol(opts: { claimProtocol?: boolean } = {
   // Skipped for PlexiOffice (claimProtocol=false): two apps can't both own the
   // scheme, and it belongs to PlexiDesk's auth handoff.
   if (claimProtocol) {
-    if (process.defaultApp && process.argv.length >= 2) {
-      app.setAsDefaultProtocolClient(SCHEME, process.execPath, [process.argv[1]])
-    } else {
-      app.setAsDefaultProtocolClient(SCHEME)
+    // Register the legacy scheme too, or an existing haptyx:// link stops
+    // opening the app the moment a user updates.
+    for (const scheme of ALL_SCHEMES) {
+      if (process.defaultApp && process.argv.length >= 2) {
+        app.setAsDefaultProtocolClient(scheme, process.execPath, [process.argv[1]])
+      } else {
+        app.setAsDefaultProtocolClient(scheme)
+      }
     }
   }
 
@@ -259,14 +268,14 @@ export function registerHaptyxAuthProtocol(opts: { claimProtocol?: boolean } = {
     return
   }
   app.on('second-instance', (_event, argv) => {
-    const url = argv.find((arg) => arg.startsWith(`${SCHEME}://`))
+    const url = argv.find(isDeepLinkArg)
     if (url) handleAuthUrl(url, 'second-instance')
   })
 
   // Cold-start case — the app was launched by clicking a haptyx:// link.
   // On macOS this comes through open-url after whenReady; on Windows it
   // shows up in argv. Both branches are handled.
-  const argvUrl = process.argv.find((arg) => arg.startsWith(`${SCHEME}://`))
+  const argvUrl = process.argv.find(isDeepLinkArg)
   if (argvUrl) {
     // Defer until whenReady so any window can receive the broadcast.
     app.whenReady().then(() => handleAuthUrl(argvUrl, 'argv'))

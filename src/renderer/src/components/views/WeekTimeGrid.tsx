@@ -22,6 +22,7 @@ import { joinMeetingRoom } from '../../lib/startMeeting'
 import { useGuestCaptureStore } from '../../stores/guestCapture'
 import { googleCalendarUrl } from '@shared/ics'
 import Icon from '../Icon'
+import { meetingDeepLink } from '@shared/deepLink'
 
 // Week time-grid — the time-blocking surface. Twenty-four hour rows × seven
 // day columns, midnight to midnight. Click an empty slot to book a block (tie
@@ -1228,7 +1229,7 @@ export default function WeekTimeGrid({
                     title: b.title || 'Meeting',
                     startMs: b.startMs,
                     durationMin: b.durationMin,
-                    joinUrl: `haptyx://meet?room=${encodeURIComponent(b.meeting!.roomId)}`
+                    joinUrl: meetingDeepLink(b.meeting!.roomId)
                   })
                 )
                 setCalMenu(null)

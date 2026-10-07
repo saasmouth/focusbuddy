@@ -48,11 +48,30 @@ describe('the updater asks for the slice the build actually produces', () => {
   })
 
   it('the artifact name pattern still produces the filename the URL is built from', () => {
-    // macAssetUrl hand-assembles Haptyx-<version>-mac-<arch>.zip. If artifactName
-    // changed shape, the updater would ask for a file the build never wrote.
-    expect(BUILDER).toContain("artifactName: 'Haptyx-${version}-${os}-${arch}.${ext}'")
+    // macAssetUrl hand-assembles PlexiDesk-<version>-mac-<arch>.zip. If
+    // artifactName changed shape, the updater would ask for a file the build
+    // never wrote. Both halves are pinned so they cannot drift apart.
+    expect(BUILDER).toContain("artifactName: 'PlexiDesk-${version}-${os}-${arch}.${ext}'")
     const url = macAssetUrl(PKG.version, MAC_UPDATE_ARCH)
-    expect(url).toContain(`Haptyx-${PKG.version}-mac-${MAC_UPDATE_ARCH}.zip`)
+    expect(url).toContain(`PlexiDesk-${PKG.version}-mac-${MAC_UPDATE_ARCH}.zip`)
+  })
+
+  it('the pre-rename name is still published, or installed clients cannot update', () => {
+    // The rename from Haptyx- is only safe while the old names keep resolving:
+    // a shipped client builds its URL with the OLD prefix and cannot be taught
+    // otherwise. Three places have to agree about that, and nothing else makes
+    // them — so all three are asserted here rather than trusted.
+    const uploader = readFileSync(join(ROOT, 'scripts/upload-release-assets.mjs'), 'utf-8')
+    expect(uploader).toContain('LEGACY_PREFIX')
+    expect(uploader).toMatch(/legacyNameFor/)
+
+    const releaseMac = readFileSync(join(ROOT, 'scripts/release-mac.sh'), 'utf-8')
+    expect(releaseMac).toContain('LEGACY_PREFIX="Haptyx-${VERSION}"')
+
+    // The gate is the one that makes it non-optional: a release missing the old
+    // names fails here rather than shipping and breaking every update.
+    const gate = readFileSync(join(ROOT, 'scripts/verify-release-assets.sh'), 'utf-8')
+    expect(gate).toContain('"Haptyx-${VERSION}-mac-${MAC_ARCH}.zip"')
   })
 
   it('names the version currently in package.json, so a release cannot point at the previous one', () => {

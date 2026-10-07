@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Release completeness gate. A Haptyx desktop release is NOT done until this
+# Release completeness gate. A PlexiDesk desktop release is NOT done until this
 # script exits 0. It exists because the auto-updater silently 404s when the
 # per-platform update metadata is missing: electron-updater reads latest-mac.yml
 # (mac) / latest.yml (win) from the newest GitHub release, and a release that
@@ -32,11 +32,16 @@ MAC_ARCH="${MAC_ARCH:-universal}"
 # click returned 404.
 REQUIRED=(
   "latest-mac.yml"
+  "PlexiDesk-${VERSION}-mac-${MAC_ARCH}.zip"
+  "PlexiDesk-${VERSION}-mac-${MAC_ARCH}.zip.blockmap"
+  "PlexiDesk-${VERSION}-mac-${MAC_ARCH}.dmg"
+  # The pre-rename names. These are not optional: every installed client builds
+  # its own update URL from the old prefix, so a release missing them breaks
+  # one-click update for everyone already on the app.
   "Haptyx-${VERSION}-mac-${MAC_ARCH}.zip"
   "Haptyx-${VERSION}-mac-${MAC_ARCH}.zip.blockmap"
-  "Haptyx-${VERSION}-mac-${MAC_ARCH}.dmg"
   "latest.yml"
-  "Haptyx-${VERSION}-win-x64.exe"
+  "PlexiDesk-${VERSION}-win-x64.exe"
 )
 
 fail=0

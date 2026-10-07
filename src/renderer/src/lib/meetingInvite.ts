@@ -4,6 +4,8 @@
 // room in PlexiDesk. If no mailbox is connected we say so honestly rather than
 // pretending the invites went out.
 
+import { meetingDeepLink } from '@shared/deepLink'
+
 export interface MeetingInviteResult {
   sent: number
   failed: string[]
@@ -13,7 +15,7 @@ export interface MeetingInviteResult {
 // The deep link that opens (or joins) the meeting room in the desktop app. The
 // same link is used by the host's calendar "Join" button and by every invitee.
 export function meetingJoinLink(roomId: string): string {
-  return `haptyx://meet?room=${encodeURIComponent(roomId)}`
+  return meetingDeepLink(roomId)
 }
 
 /** The invite's text — a pure function so the suite can read every line.

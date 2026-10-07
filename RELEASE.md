@@ -49,8 +49,8 @@ cd projects/focusbuddy
 #    what makes a universal app possible at all — see the long note on
 #    `mergeASARs` in electron-builder.cjs.
 VITE_USE_REMOTE_SIGNAL=true \
-VITE_SIGNAL_HTTP_URL=https://focusbuddy-signal.fly.dev \
-VITE_SIGNAL_WS_URL=wss://focusbuddy-signal.fly.dev/ws \
+VITE_SIGNAL_HTTP_URL=https://api.plexiidesk.com \
+VITE_SIGNAL_WS_URL=wss://api.plexiidesk.com/ws \
 VITE_VIEWER_URL=https://view.plexiidesk.com \
   npm run dist:mac:universal
 
@@ -176,8 +176,8 @@ Cut a notarised mac build (produces a notarised `.zip` for auto-update AND a
 ```bash
 export APPLE_ID=... APPLE_APP_SPECIFIC_PASSWORD=... APPLE_TEAM_ID=...
 VITE_USE_REMOTE_SIGNAL=true \
-VITE_SIGNAL_HTTP_URL=https://focusbuddy-signal.fly.dev \
-VITE_SIGNAL_WS_URL=wss://focusbuddy-signal.fly.dev/ws \
+VITE_SIGNAL_HTTP_URL=https://api.plexiidesk.com \
+VITE_SIGNAL_WS_URL=wss://api.plexiidesk.com/ws \
 VITE_VIEWER_URL=https://view.plexiidesk.com \
   npm run dist:mac:signed        # zip + blockmap + latest-mac.yml + dmg, all notarised
 ```

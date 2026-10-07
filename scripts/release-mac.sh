@@ -5,8 +5,8 @@
 # leaves clients unable to update because latest-mac.yml is absent.
 #
 # electron-builder writes three mac files into release/ for an arm64 zip target:
-#   Haptyx-<v>-mac-arm64.zip            the app payload
-#   Haptyx-<v>-mac-arm64.zip.blockmap  differential-update map
+#   PlexiDesk-<v>-mac-arm64.zip            the app payload
+#   PlexiDesk-<v>-mac-arm64.zip.blockmap  differential-update map
 #   latest-mac.yml                     the update manifest the updater READS
 # All three must be on the release. latest-mac.yml is the one whose absence
 # silently breaks updates, so this script refuses to proceed without it.
@@ -26,9 +26,13 @@ TAG="v${VERSION}"
 # releases were `arm64`.
 MAC_ARCH="${MAC_ARCH:-universal}"
 
-ZIP="${DIR}/Haptyx-${VERSION}-mac-${MAC_ARCH}.zip"
+PREFIX="PlexiDesk-${VERSION}"
+# The pre-rename prefix. Artifacts are published under BOTH names: a shipped
+# client builds its own update URL and asks for the old one forever.
+LEGACY_PREFIX="Haptyx-${VERSION}"
+ZIP="${DIR}/${PREFIX}-mac-${MAC_ARCH}.zip"
 BLOCKMAP="${ZIP}.blockmap"
-DMG="${DIR}/Haptyx-${VERSION}-mac-${MAC_ARCH}.dmg"
+DMG="${DIR}/${PREFIX}-mac-${MAC_ARCH}.dmg"
 YML="${DIR}/latest-mac.yml"
 APP="${DIR}/mac-${MAC_ARCH}/PlexiDesk.app"
 
@@ -84,6 +88,8 @@ gh release upload "$TAG" "$ZIP" "$BLOCKMAP" "$DMG" "$YML" --repo "$REPO" --clobb
 # On macOS the one-click updater builds its own download URL rather than using
 # latest-mac.yml, and every client up to 4.3.0 builds it from process.arch —
 # so an installed 4.3.0 on Apple Silicon asks for Haptyx-<v>-mac-arm64.zip.
+# From 4.3.11 the prefix changed too, so BOTH the arm64 name and the old
+# Haptyx- prefix have to keep resolving.
 # Current code asks for -mac-universal.zip (see MAC_UPDATE_ARCH), but the old
 # clients are already out there and cannot be changed retroactively. Without an
 # asset under the name they expect, their update fails on a 404 and they have to
@@ -94,11 +100,18 @@ gh release upload "$TAG" "$ZIP" "$BLOCKMAP" "$DMG" "$YML" --repo "$REPO" --clobb
 if [ "$MAC_ARCH" = "universal" ]; then
   COMPAT_DIR="$(mktemp -d)"
   trap 'rm -rf "$COMPAT_DIR"' EXIT
-  COMPAT_ZIP="${COMPAT_DIR}/Haptyx-${VERSION}-mac-arm64.zip"
+  COMPAT_ZIP="${COMPAT_DIR}/${PREFIX}-mac-arm64.zip"
   cp "$ZIP" "$COMPAT_ZIP"
   cp "$BLOCKMAP" "${COMPAT_ZIP}.blockmap"
+  # The pre-rename names, same bytes.
+  LEGACY_ZIP="${COMPAT_DIR}/${LEGACY_PREFIX}-mac-${MAC_ARCH}.zip"
+  LEGACY_ARM="${COMPAT_DIR}/${LEGACY_PREFIX}-mac-arm64.zip"
+  cp "$ZIP" "$LEGACY_ZIP"; cp "$BLOCKMAP" "${LEGACY_ZIP}.blockmap"
+  cp "$ZIP" "$LEGACY_ARM"; cp "$BLOCKMAP" "${LEGACY_ARM}.blockmap"
   echo "Uploading arm64-named alias for pre-4.3.1 clients…"
-  gh release upload "$TAG" "$COMPAT_ZIP" "${COMPAT_ZIP}.blockmap" --repo "$REPO" --clobber
+  gh release upload "$TAG" "$COMPAT_ZIP" "${COMPAT_ZIP}.blockmap" \
+    "$LEGACY_ZIP" "${LEGACY_ZIP}.blockmap" "$LEGACY_ARM" "${LEGACY_ARM}.blockmap" \
+    --repo "$REPO" --clobber
 fi
 
 echo "Running the release completeness gate…"

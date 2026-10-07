@@ -76,18 +76,23 @@ export const CURRENT: ProductDomains = {
  *   serving — with the same fix deployed to it — until those links age out. It
  *   cannot simply be switched off.
  *
- * - api STAYS, deliberately, though api.plexiidesk.com is live and verified
- *   (/healthz returns 200 and matches the Fly origin on every path). It carries
- *   signup, login, sharing and plan checks for every user, so it should move in
- *   a release that exists to move it and can be tested as such — not folded
- *   into a release about anything else.
+ * - api -> api.plexiidesk.com, the last one to move. It was held back because
+ *   it carries signup, login, sharing and plan checks for every user. What
+ *   settled it: the name is DNS-only, not a proxy, and resolves to the SAME IP
+ *   as focusbuddy-signal.fly.dev (66.241.125.86). It is the same origin reached
+ *   by a different name, so there is no new hop to fail.
+ *
+ *   Verified rather than assumed, because a mistake here signs nobody in:
+ *   /healthz, /share/<unknown> and POST /accounts/login return identical status
+ *   codes through both names; a CORS preflight from view.plexiidesk.com is
+ *   answered correctly; and a REAL WebSocket handshake to wss://.../ws connects
+ *   through both. The WS check mattered most — curl cannot prove it, and live
+ *   sync is the thing that would have broken silently.
+ *
+ * CURRENT is kept below as the record of where these were, not as a fallback.
+ * Nothing reads it but the tests that assert this cutover is complete.
  */
-export const ACTIVE: ProductDomains = {
-  ...CURRENT,
-  site: PRODUCTION.site,
-  viewer: PRODUCTION.viewer,
-  downloads: PRODUCTION.downloads
-}
+export const ACTIVE: ProductDomains = PRODUCTION
 
 /** The WebSocket URL for an API origin: https -> wss, http -> ws, plus /ws. */
 export function wsUrlFor(apiOrigin: string): string {

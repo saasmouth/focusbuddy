@@ -17,7 +17,7 @@ export { HELP_BASE }
 
 export interface ChangelogLink {
   label: string
-  href: string // a haptyx.app/help/<slug> support page (opened in the browser)
+  href: string // a <ACTIVE.site>/help/<slug> support page (opened in the browser)
 }
 
 export interface ChangelogEntry {

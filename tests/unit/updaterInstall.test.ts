@@ -22,20 +22,30 @@ describe('macAssetUrl', () => {
   // at a cutover, so that moving the origin is a decision rather than a drift.
   it('tracks ACTIVE.downloads rather than any hardcoded host', () => {
     expect(macAssetUrl('2.5.18', 'arm64')).toBe(
-      releaseAssetUrl(ACTIVE.downloads, '2.5.18', 'Haptyx-2.5.18-mac-arm64.zip')
+      releaseAssetUrl(ACTIVE.downloads, '2.5.18', 'PlexiDesk-2.5.18-mac-arm64.zip')
     )
     expect(macAssetUrl('4.3.1', MAC_UPDATE_ARCH)).toBe(
-      releaseAssetUrl(ACTIVE.downloads, '4.3.1', 'Haptyx-4.3.1-mac-universal.zip')
+      releaseAssetUrl(ACTIVE.downloads, '4.3.1', 'PlexiDesk-4.3.1-mac-universal.zip')
     )
   })
 
   it('resolves to R2, which is where this release mirrors to', () => {
     expect(macAssetUrl('2.5.18', 'arm64')).toBe(
-      'https://dl.plexiidesk.com/v2.5.18/Haptyx-2.5.18-mac-arm64.zip'
+      'https://dl.plexiidesk.com/v2.5.18/PlexiDesk-2.5.18-mac-arm64.zip'
     )
     expect(macAssetUrl('4.3.1', MAC_UPDATE_ARCH)).toBe(
-      'https://dl.plexiidesk.com/v4.3.1/Haptyx-4.3.1-mac-universal.zip'
+      'https://dl.plexiidesk.com/v4.3.1/PlexiDesk-4.3.1-mac-universal.zip'
     )
+  })
+
+  it('asks for the product name, which is what new releases publish', () => {
+    // The rename from Haptyx- is only safe because the uploader publishes
+    // Haptyx-named copies too: a client already installed builds its URL with
+    // the OLD pattern and cannot be changed retroactively. This asserts the
+    // half that lives in the app; scripts/upload-release-assets.mjs owns the
+    // aliases, and its ALIAS_OF map is what keeps them resolving.
+    expect(macAssetUrl('4.3.11', MAC_UPDATE_ARCH)).toContain('PlexiDesk-4.3.11-mac-universal.zip')
+    expect(macAssetUrl('4.3.11', MAC_UPDATE_ARCH)).not.toContain('Haptyx')
   })
 })
 

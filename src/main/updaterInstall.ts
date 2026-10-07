@@ -24,7 +24,7 @@ export const MAC_UPDATE_ARCH = 'universal'
 // one that gets forgotten. It IS a channel: macOS does not use
 // electron-updater's feed, it fetches this zip itself.
 export function macAssetUrl(version: string, arch: string): string {
-  return releaseAssetUrl(ACTIVE.downloads, version, `Haptyx-${version}-mac-${arch}.zip`)
+  return releaseAssetUrl(ACTIVE.downloads, version, `PlexiDesk-${version}-mac-${arch}.zip`)
 }
 
 // The .app bundle path from the running executable path, or null if we are not

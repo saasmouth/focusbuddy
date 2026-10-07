@@ -1,9 +1,10 @@
 import { app, BrowserWindow, desktopCapturer, ipcMain, Menu, MenuItem, protocol, session, shell, net } from 'electron'
 import { join, resolve as resolvePath, sep } from 'path'
-import { existsSync } from 'fs'
+import { existsSync, readdirSync, renameSync } from 'fs'
 import { pathToFileURL } from 'url'
 import { config as loadEnv } from 'dotenv'
 import { closeDb, getDb } from './db/database'
+import { resolveUserDataDir } from './userDataMigration'
 import { composeCustomWidgetDocument, cspFor } from '@shared/customWidgetSandbox'
 import { resolveWidgetInputs } from './db/widgetInputs'
 import { clearSessionForNewLaunch, markUiVisible, recordAnonLaunch } from './db/account'
@@ -19,7 +20,7 @@ import { cleanWebviewUserAgent } from './userAgent'
 import { getFile } from './db/files'
 import { installFocusTracker } from './streamdeckActions'
 import { installActivityTracker } from './activityTracker'
-import { registerHaptyxAuthProtocol } from './authProtocol'
+import { registerDeepLinkProtocol } from './authProtocol'
 import { installAutoUpdater, checkForUpdates } from './autoUpdate'
 import { detectOfficeBuild, detectPreviewBuild } from './appMode'
 import { runDueFlows } from './db/flows'
@@ -98,18 +99,26 @@ if (process.env.FB_TEST_USER_DATA) {
   // database, so a separate local cache is exactly right.
   app.setPath('userData', join(app.getPath('appData'), 'PlexiOffice'))
 } else if (app.isPackaged) {
-  // Data-safe rename: the app was renamed Haptyx → PlexiDesk, which would
-  // otherwise move userData from "…/Application Support/Haptyx" to "…/PlexiDesk"
-  // and orphan every existing user's database, vault and settings. So if the
-  // legacy Haptyx data directory exists, keep using it in place (no copy, no
-  // move — zero risk). Fresh installs (no legacy dir) use the default PlexiDesk
-  // directory. Cross-platform: getPath('appData') is the per-user app-data root
-  // on macOS and Windows alike. Must run BEFORE app.whenReady()/getDb().
+  // Haptyx -> PlexiDesk, moved once rather than pinned forever. The decision is
+  // in userDataMigration.ts as a pure function so every branch of it is unit
+  // tested; see that file for why each outcome is what it is.
   try {
-    const legacyUserData = join(app.getPath('appData'), 'Haptyx')
-    if (existsSync(legacyUserData)) {
-      app.setPath('userData', legacyUserData)
-    }
+    const { dir } = resolveUserDataDir(
+      app.getPath('appData'),
+      {
+        exists: (p) => existsSync(p),
+        rename: (from, to) => renameSync(from, to),
+        isNonEmpty: (p) => {
+          try {
+            return readdirSync(p).length > 0
+          } catch {
+            return false
+          }
+        }
+      },
+      join
+    )
+    if (dir) app.setPath('userData', dir)
   } catch {
     // If anything goes wrong, fall through to the default path rather than crash.
   }
@@ -289,7 +298,7 @@ function applyDisplayMediaHandler(ses: Electron.Session): void {
 // it belongs to PlexiDesk's web→desktop auth handoff. PlexiOffice still takes its
 // own single-instance lock (on its own userData) inside this call.
 // The preview must not steal haptyx:// deep links from the production install.
-registerHaptyxAuthProtocol({ claimProtocol: !isOfficeBuild && !isPreviewBuild })
+registerDeepLinkProtocol({ claimProtocol: !isOfficeBuild && !isPreviewBuild })
 
 // Send a zoom command to the focused window's renderer, which owns the app-wide
 // UI scale (lib/uiScale.ts). Driving zoom from the menu this way keeps the
@@ -662,7 +671,10 @@ app.on('web-contents-created', (_, contents) => {
 
 app.whenReady().then(() => {
   if (process.platform === 'win32') {
-    app.setAppUserModelId('agency.saasmouth.focusbuddy')
+    // Windows taskbar/notification identity. Renaming it can detach an
+    // existing pinned taskbar shortcut from the running app, which the user
+    // re-pins once; nothing persistent is keyed to it.
+    app.setAppUserModelId('agency.saasmouth.plexidesk')
   }
   getDb()
   // Rotating safety-net snapshot of the database, at most once per 12h. Runs

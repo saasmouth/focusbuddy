@@ -210,7 +210,21 @@ async function mirrorToR2(files) {
   return ok
 }
 
-const u = `Haptyx-${VERSION}-mac-universal`
+// Release artifacts are named PlexiDesk-<v>-... from 4.3.11, because that is
+// the filename a user sees in their Downloads folder.
+//
+// THE OLD NAMES MUST KEEP RESOLVING. A shipped client builds its own update URL
+// (src/main/updaterInstall.ts), so every copy out there asks for
+// Haptyx-<next version>-mac-universal.zip and cannot be taught otherwise. Drop
+// the old name and every installed mac client's one-click update 404s — on the
+// release that was supposed to fix the branding.
+//
+// So each artifact is published twice, under both names. Same bytes, two keys.
+const LEGACY_PREFIX = `Haptyx-${VERSION}`
+const CURRENT_PREFIX = `PlexiDesk-${VERSION}`
+/** The pre-rename name for an artifact, or null if it needs no alias. */
+const legacyNameFor = (name) =>
+  name.startsWith(CURRENT_PREFIX) ? LEGACY_PREFIX + name.slice(CURRENT_PREFIX.length) : null
 
 // WHICH PLATFORM BUILT THIS, decided by what is on disk rather than assumed.
 //
@@ -219,32 +233,67 @@ const u = `Haptyx-${VERSION}-mac-universal`
 // made the script unusable on the Windows runner in the most abrupt way: the
 // arm64 aliasing below is a bare copyFileSync, so it threw ENOENT before a
 // single byte was uploaded.
-const hasMac = existsSync(join(DIR, `${u}.zip`))
-const hasWin = existsSync(join(DIR, `Haptyx-${VERSION}-win-x64.exe`))
+// WHICH NAMING this directory uses, per platform, decided by what is on disk.
+//
+// Builds before 4.3.11 produced Haptyx-named artifacts, and re-running this
+// against an older release directory is a real recovery case — the script
+// exists because a release step once silently did nothing. So the prefix is
+// discovered rather than assumed, and the aliasing below is skipped when the
+// artifacts are already legacy-named (there is nothing to alias them to).
+const prefixFor = (suffix) =>
+  existsSync(join(DIR, `${CURRENT_PREFIX}-${suffix}`))
+    ? CURRENT_PREFIX
+    : existsSync(join(DIR, `${LEGACY_PREFIX}-${suffix}`))
+      ? LEGACY_PREFIX
+      : null
+
+const macPrefix = prefixFor('mac-universal.zip')
+const winPrefix = prefixFor('win-x64.exe')
+const hasMac = macPrefix !== null
+const hasWin = winPrefix !== null
+const u = `${macPrefix}-mac-universal`
 if (!hasMac && !hasWin) {
-  console.error(`FATAL: ${DIR} holds neither ${u}.zip nor Haptyx-${VERSION}-win-x64.exe`)
+  console.error(
+    `FATAL: ${DIR} holds no release artifacts. Looked for ` +
+      `${CURRENT_PREFIX}-mac-universal.zip, ${LEGACY_PREFIX}-mac-universal.zip, ` +
+      `${CURRENT_PREFIX}-win-x64.exe and ${LEGACY_PREFIX}-win-x64.exe.`
+  )
   process.exit(2)
 }
 
 // The arm64-named aliases exist for clients up to 4.3.0, which build their
 // update URL from process.arch. The universal zip runs fine on arm64.
 if (hasMac) {
-  copyFileSync(join(DIR, `${u}.zip`), join(DIR, `Haptyx-${VERSION}-mac-arm64.zip`))
-  copyFileSync(join(DIR, `${u}.zip.blockmap`), join(DIR, `Haptyx-${VERSION}-mac-arm64.zip.blockmap`))
+  copyFileSync(join(DIR, `${u}.zip`), join(DIR, `${macPrefix}-mac-arm64.zip`))
+  copyFileSync(join(DIR, `${u}.zip.blockmap`), join(DIR, `${macPrefix}-mac-arm64.zip.blockmap`))
 }
 
 const MAC_FILES = [
   `${u}.zip`, `${u}.zip.blockmap`, `${u}.dmg`, `${u}.dmg.blockmap`,
-  `Haptyx-${VERSION}-mac-arm64.zip`, `Haptyx-${VERSION}-mac-arm64.zip.blockmap`,
+  `${macPrefix}-mac-arm64.zip`, `${macPrefix}-mac-arm64.zip.blockmap`,
   'latest-mac.yml'
 ]
 // latest.yml is the Windows update feed. electron-updater's generic provider
 // reads <root>/latest.yml and resolves its `path` beside it, so without this
 // file in R2 every Windows client built against the R2 origin asks for a 404
 // forever and auto-update silently never finds anything.
-const WIN_FILES = [`Haptyx-${VERSION}-win-x64.exe`, 'latest.yml']
+const WIN_FILES = [`${winPrefix}-win-x64.exe`, 'latest.yml']
 
-const FILES = [...(hasMac ? MAC_FILES : []), ...(hasWin ? WIN_FILES : [])]
+const PRIMARY = [...(hasMac ? MAC_FILES : []), ...(hasWin ? WIN_FILES : [])]
+
+// The aliases, created on disk so both destinations treat them as ordinary
+// files. Manifests are NOT aliased: latest.yml and latest-mac.yml are read by
+// name and their contents already point at the primary artifacts.
+const ALIAS_OF = new Map()
+for (const name of PRIMARY) {
+  if (name.endsWith('.yml')) continue
+  const legacy = legacyNameFor(name)
+  if (!legacy) continue
+  copyFileSync(join(DIR, name), join(DIR, legacy))
+  ALIAS_OF.set(legacy, name)
+}
+const FILES = [...PRIMARY, ...ALIAS_OF.keys()]
+console.log(`publishing ${PRIMARY.length} artifacts + ${ALIAS_OF.size} legacy-named aliases`)
 console.log(`platform artifacts: ${hasMac ? 'mac' : ''}${hasMac && hasWin ? ' + ' : ''}${hasWin ? 'windows' : ''}`)
 
 let ok = true

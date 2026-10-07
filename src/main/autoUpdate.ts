@@ -57,7 +57,7 @@ export function openDownloadPage(): void {
 // reporting download progress as a percent.
 function downloadFile(url: string, dest: string, onProgress: (pct: number) => void): Promise<void> {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: { 'User-Agent': 'Haptyx-Updater' } }, (res) => {
+    const req = https.get(url, { headers: { 'User-Agent': 'PlexiDesk-Updater' } }, (res) => {
       const status = res.statusCode ?? 0
       if (status >= 300 && status < 400 && res.headers.location) {
         res.resume()
@@ -125,7 +125,7 @@ export async function downloadAndInstallMacUpdate(): Promise<void> {
   try {
     broadcast({ kind: 'downloading', percent: 0 })
     const url = macAssetUrl(version, arch)
-    const work = mkdtempSync(join(tmpdir(), 'haptyx-update-'))
+    const work = mkdtempSync(join(tmpdir(), 'plexidesk-update-'))
     const zipPath = join(work, 'update.zip')
     try {
       await downloadFile(url, zipPath, (pct) => broadcast({ kind: 'downloading', percent: pct }))

@@ -90,7 +90,12 @@ module.exports = {
   appId: 'app.haptyx.desktop',
   productName: 'PlexiDesk',
   copyright: 'Copyright © 2026 PlexiDesk',
-  artifactName: 'Haptyx-${version}-${os}-${arch}.${ext}',
+  // The filename a user downloads and sees in their Downloads folder, so it
+  // carries the product's name. scripts/upload-release-assets.mjs publishes
+  // Haptyx-named copies alongside these: a shipped client builds its own
+  // update URL from that pattern (see src/main/updaterInstall.ts) and cannot
+  // be changed retroactively, so the old names have to keep resolving.
+  artifactName: 'PlexiDesk-${version}-${os}-${arch}.${ext}',
 
   directories: {
     output: 'release',
@@ -127,9 +132,17 @@ module.exports = {
 
   publish: publishTarget,
 
+  // Both schemes are registered. plexii:// is what the app generates;
+  // haptyx:// is still claimed so a deep link sent before the rename keeps
+  // opening the app. See src/shared/deepLink.ts.
   protocols: [
     {
-      name: 'Haptyx Protocol',
+      name: 'PlexiDesk Protocol',
+      schemes: ['plexii'],
+      role: 'Viewer'
+    },
+    {
+      name: 'PlexiDesk Protocol (legacy)',
       schemes: ['haptyx'],
       role: 'Viewer'
     }
