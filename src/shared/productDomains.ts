@@ -48,32 +48,46 @@ export const CURRENT: ProductDomains = {
 /**
  * THE CUTOVER SWITCH, mid-cutover.
  *
- * `downloads` has moved to R2; `site`, `api` and `viewer` have not. Each is a
+ * `downloads`, `site` and `viewer` have moved; `api` has not. Each is a
  * deliberate decision, not an oversight:
  *
- * - downloads -> R2, because this is the bridge release. Until a build ships
+ * - downloads -> R2, because the bridge release shipped. Until a build ships
  *   whose download origin is R2, every client asks GitHub forever, and taking
  *   the repo private strands all of them. GitHub keeps serving in parallel so
- *   clients already installed can reach this release in the first place.
+ *   clients already installed can reach that release in the first place.
  *
- * - site STAYS, because autoUpdate.ts builds the manual-download fallback as
- *   `${ACTIVE.site}/download`, and that path does not exist on the new domain
- *   yet: www.plexiidesk.com still serves a GoDaddy builder page and returns 404
- *   there, while haptyx-web.vercel.app/download returns 200. That URL is
- *   compiled into the installer, so shipping it broken is a release to redo,
- *   reached by exactly the user who has already been told to download manually.
- *   Flip it once the site is on Cloudflare Pages with a /download route.
+ * - site -> www.plexiidesk.com. It was held back because autoUpdate.ts builds
+ *   the manual-download fallback as `${ACTIVE.site}/download` and the new
+ *   domain served a GoDaddy builder page there. The site is now on Cloudflare
+ *   Pages and every path this app asks for was checked on www specifically,
+ *   not just the apex: /download, /account/signup, /account/login, /help,
+ *   /privacy, /terms, /refunds, /changelog and /contact all return 200 with no
+ *   redirect. That is the whole of what siteUrls.ts and autoUpdate.ts build.
+ *
+ * - viewer -> view.plexiidesk.com, and this one was not cosmetic. The Vercel
+ *   viewer's bundle contains three links to https://focusbuddy.app — a
+ *   DIFFERENT, live product owned by someone else — one of them behind a button
+ *   marked "download". Every share link this app generated pointed there, so
+ *   the recipient of a shared desk was being handed to a competitor. The Pages
+ *   viewer is fixed and verified (0 occurrences in the served bundle); this
+ *   flip is what stops NEW links going to the old one.
+ *
+ *   Links already in circulation still name the Vercel host, so it has to keep
+ *   serving — with the same fix deployed to it — until those links age out. It
+ *   cannot simply be switched off.
  *
  * - api STAYS, deliberately, though api.plexiidesk.com is live and verified
  *   (/healthz returns 200 and matches the Fly origin on every path). It carries
  *   signup, login, sharing and plan checks for every user, so it should move in
  *   a release that exists to move it and can be tested as such — not folded
- *   into a release about download origins.
- *
- * - viewer STAYS for the same reason: view.plexiidesk.com resolves and serves,
- *   but shared links already in circulation point at the Vercel host.
+ *   into a release about anything else.
  */
-export const ACTIVE: ProductDomains = { ...CURRENT, downloads: PRODUCTION.downloads }
+export const ACTIVE: ProductDomains = {
+  ...CURRENT,
+  site: PRODUCTION.site,
+  viewer: PRODUCTION.viewer,
+  downloads: PRODUCTION.downloads
+}
 
 /** The WebSocket URL for an API origin: https -> wss, http -> ws, plus /ws. */
 export function wsUrlFor(apiOrigin: string): string {
