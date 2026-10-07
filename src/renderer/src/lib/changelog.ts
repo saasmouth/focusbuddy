@@ -36,6 +36,48 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.11',
+    date: '2026-10-07T23:00:00Z',
+    title: 'PlexiDesk 4.3.11 \u2014 one name, everywhere',
+    tag: 'polish',
+    summary:
+      'The app has been called PlexiDesk for a while, but parts of it still said Haptyx or FocusBuddy \u2014 the file you downloaded, the links you sent people, the folder your workspace lives in. This release finishes that, and it does it without asking anything of you. Your workspace moves itself, links you have already sent keep working, and updates keep arriving as normal.',
+    highlights: [
+      'Your workspace folder is renamed from Haptyx to PlexiDesk on first launch. Nothing is copied and nothing is left behind \u2014 if the move cannot be made safely it is not attempted, and the app carries on exactly as before.',
+      'Downloads are now named PlexiDesk rather than Haptyx, so the installer in your Downloads folder says what it is.',
+      'Links that open the app are now plexii:// \u2014 and the old haptyx:// links still work, so anything already sitting in an inbox still opens.',
+      'A shared desk link no longer shows a different product\u2019s name to whoever you sent it to.',
+      'Sign-in, sharing and sync now go through plexiidesk.com instead of the old hosting addresses.'
+    ]
+  },
+  {
+    version: '4.3.10',
+    date: '2026-10-07T06:30:00Z',
+    title: 'PlexiDesk 4.3.10 \u2014 yearly billing, and a password every time',
+    tag: 'feature',
+    summary:
+      'Yearly plans can actually be bought now \u2014 the option was shown but nothing was behind it. And PlexiDesk asks for your password each time it starts, rather than resuming whoever used it last.',
+    highlights: [
+      'Pay yearly and get two months free. The option existed before this release but could not be completed.',
+      'Opening PlexiDesk asks for your password. The session is not carried across a close, a crash or a restart.',
+      'If the server cannot be reached at launch you can carry on offline instead of being locked out of your own machine.',
+      'An existing account can upgrade without creating a second one.'
+    ]
+  },
+  {
+    version: '4.3.9',
+    date: '2026-10-07T04:00:00Z',
+    title: 'PlexiDesk 4.3.9 \u2014 downloads and updates on our own address',
+    tag: 'polish',
+    summary:
+      'Installers and updates now come from dl.plexiidesk.com rather than a code-hosting site. Nothing changes in how you update; the files simply come from us.',
+    highlights: [
+      'Downloads and in-app updates are served from dl.plexiidesk.com.',
+      '\u201cDownload manually\u201d now opens the download page rather than a source-code release listing.',
+      'If you have been using PlexiDesk without an account, it asks you to create one on the fourth open rather than nagging every time.'
+    ]
+  },
+  {
     version: '4.3.8',
     date: '2026-10-02T09:00:00Z',
     title: 'PlexiDesk 4.3.8 \u2014 Plexii says why, and a citation opens where you are',

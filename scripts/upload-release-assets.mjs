@@ -277,7 +277,15 @@ const MAC_FILES = [
 // reads <root>/latest.yml and resolves its `path` beside it, so without this
 // file in R2 every Windows client built against the R2 origin asks for a 404
 // forever and auto-update silently never finds anything.
-const WIN_FILES = [`${winPrefix}-win-x64.exe`, 'latest.yml']
+// The blockmap is listed, not optional. electron-updater uses it to fetch only
+// the changed blocks; without it every Windows user downloads the whole 240 MB
+// installer again. CI did not even carry it out of the runner until the
+// artifact pattern was fixed, so requiring it here is what keeps that fixed.
+const WIN_FILES = [
+  `${winPrefix}-win-x64.exe`,
+  `${winPrefix}-win-x64.exe.blockmap`,
+  'latest.yml'
+]
 
 const PRIMARY = [...(hasMac ? MAC_FILES : []), ...(hasWin ? WIN_FILES : [])]
 
