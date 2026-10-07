@@ -38,7 +38,19 @@ function literalSet(src, name) {
  */
 function readActiveDomains(root) {
   const path = join(root, 'src/shared/productDomains.ts')
-  const src = readFileSync(path, 'utf8')
+  // Normalise line endings before any regex touches the source.
+  //
+  // This is not hygiene, it is the fix for a broken Windows build. GitHub's
+  // Windows runner checks out with core.autocrlf=true, so every line ends
+  // "\r\n". The expression captured for ACTIVE was then "PRODUCTION\r", which
+  // matches none of the shapes below, and the build died with "ACTIVE is a
+  // shape this parser does not understand" — naming a shape that is in fact
+  // supported, which is the least helpful possible error.
+  //
+  // It passed on macOS and failed only on Windows, and the Windows build is
+  // infrequent, so it sat broken from the moment this parser landed until the
+  // next Windows release was attempted.
+  const src = readFileSync(path, 'utf8').replace(/\r\n/g, '\n')
 
   // The ACTIVE initialiser: everything after `=` up to the end of the statement.
   const m = /export const ACTIVE: ProductDomains = ([\s\S]*?)\n\n/.exec(src + '\n\n')
