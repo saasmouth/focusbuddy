@@ -22,7 +22,7 @@
 //
 // Usage:  node scripts/upload-release-assets.mjs <version>   e.g. 4.3.8
 import { spawnSync } from 'node:child_process'
-import { existsSync, copyFileSync, statSync } from 'node:fs'
+import { existsSync, copyFileSync, statSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -30,6 +30,29 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const VERSION = process.argv[2] ?? JSON.parse(
   spawnSync('cat', [join(root, 'package.json')], { encoding: 'utf8' }).stdout
 ).version
+// The R2 credentials live in .env, and nothing loads that file for this script:
+// it is invoked directly, as `node scripts/upload-release-assets.mjs <version>`.
+// Without this, mirrorToR2 finds process.env empty, takes its "not configured"
+// branch, and the release reports success while the R2 download origin stays
+// empty — the exact silent skip the rest of this file exists to prevent.
+//
+// Parsed, not sourced, and only these four keys. .env contains a bare value on a
+// line of its own, with no `KEY=`, which a shell executes when it sources the
+// file; scripts/release-env.mjs carries the same warning and the same parser.
+const R2_KEYS = ['R2_BUCKET', 'R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY']
+for (const line of existsSync(join(root, '.env'))
+  ? readFileSync(join(root, '.env'), 'utf8').split('\n')
+  : []) {
+  const t = line.trim()
+  if (!t || t.startsWith('#') || !t.includes('=')) continue
+  const i = t.indexOf('=')
+  const k = t.slice(0, i).trim()
+  if (!R2_KEYS.includes(k)) continue
+  const v = t.slice(i + 1).trim().replace(/^["']|["']$/g, '')
+  // A key present but empty is a placeholder awaiting a value, not configuration.
+  if (v && !process.env[k]) process.env[k] = v
+}
+
 const REPO = process.env.REPO ?? 'saasmouth/focusbuddy'
 const DIR = join(root, 'release')
 const TAG = `v${VERSION}`
@@ -102,13 +125,18 @@ function push(file, name) {
 // Skipped cleanly when the bucket is not configured, so this does nothing at
 // all until R2 exists, rather than failing a release that is otherwise fine.
 async function mirrorToR2(files) {
-  const bucket = process.env.R2_BUCKET
-  const account = process.env.R2_ACCOUNT_ID
-  const key = process.env.R2_ACCESS_KEY_ID
-  const secret = process.env.R2_SECRET_ACCESS_KEY
-  if (!bucket || !account || !key || !secret) {
-    console.log('r2: not configured (R2_BUCKET / R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY) — skipping mirror')
+  const [bucket, account, key, secret] = R2_KEYS.map((n) => process.env[n])
+  const missing = R2_KEYS.filter((n) => !process.env[n])
+  if (missing.length === R2_KEYS.length) {
+    console.log(`r2: not configured (${R2_KEYS.join(' / ')}) — skipping mirror`)
     return true
+  }
+  // Partially configured is NOT the inert case. Something is set, so someone
+  // meant this to run; skipping would leave the download origin empty while the
+  // release reports success. That is the failure this file was written for.
+  if (missing.length) {
+    console.log(`  r2 FAIL: partially configured — missing ${missing.join(', ')}`)
+    return false
   }
   const endpoint = `https://${account}.r2.cloudflarestorage.com`
   // Fail loudly rather than silently skipping: once R2 is configured, a missing

@@ -42,6 +42,37 @@ describe('the R2 mirror', () => {
     expect(uploader).toMatch(/R2_BUCKET/)
   })
 
+  it('loads the R2 credentials from .env by itself', () => {
+    // Nothing else does. This script is invoked directly as
+    // `node scripts/upload-release-assets.mjs <version>`, so without its own
+    // parser process.env holds no R2 keys, mirrorToR2 takes the inert branch,
+    // and the release reports success with the download origin empty.
+    expect(uploader).toMatch(/readFileSync\(join\(root, '\.env'\)/)
+    expect(uploader).toMatch(/R2_KEYS\.includes\(k\)/)
+  })
+
+  it('reads .env by parsing it, never by sourcing it', () => {
+    // .env holds a bare value on a line of its own, with no `KEY=`, which a
+    // shell executes when it sources the file. Same trap as release-env.mjs.
+    expect(uploader).toMatch(/!t\.includes\('='\)/)
+  })
+
+  it('treats a key that is present but empty as unconfigured', () => {
+    // .env ships R2_ACCESS_KEY_ID= and R2_SECRET_ACCESS_KEY= as placeholders
+    // awaiting values. Taking '' as configuration would make the mirror attempt
+    // an unauthenticated upload instead of reporting that it cannot run.
+    expect(uploader).toMatch(/if \(v && !process\.env\[k\]\)/)
+  })
+
+  it('fails on PARTIAL configuration instead of skipping', () => {
+    // The dangerous middle state: bucket and account set, secrets still blank.
+    // The original guard was `if (!bucket || !account || !key || !secret)`,
+    // which took the "not configured, skipping" branch and returned true — so a
+    // release with a half-filled .env reported success and mirrored nothing.
+    expect(uploader).toMatch(/partially configured/)
+    expect(uploader).toMatch(/missing\.length === R2_KEYS\.length/)
+  })
+
   it('fails loudly once it IS configured but cannot run', () => {
     // The opposite risk: configured, tooling missing, mirror silently skipped,
     // and the release reports success with half the origin empty.
