@@ -173,13 +173,29 @@ Credentials required (from the Apple Developer account):
 Cut a notarised mac build (produces a notarised `.zip` for auto-update AND a
 `.dmg` for first-download install):
 
+Run it through `release-env.mjs`, which loads the Apple credentials from `.env`.
+npm does NOT load `.env`, and electron-builder's two modes mean a build without
+those variables sets `identity: null` and produces an ad-hoc signed app —
+exit 0, right filenames, right sizes, rejected by Gatekeeper on the user's
+machine. `scripts/require-signing-env.mjs` now refuses that build rather than
+letting it happen quietly, but the wrapper is still how you get the creds in.
+
 ```bash
-export APPLE_ID=... APPLE_APP_SPECIFIC_PASSWORD=... APPLE_TEAM_ID=...
 VITE_USE_REMOTE_SIGNAL=true \
 VITE_SIGNAL_HTTP_URL=https://api.plexiidesk.com \
 VITE_SIGNAL_WS_URL=wss://api.plexiidesk.com/ws \
 VITE_VIEWER_URL=https://view.plexiidesk.com \
-  npm run dist:mac:signed        # zip + blockmap + latest-mac.yml + dmg, all notarised
+  node scripts/release-env.mjs npm run dist:mac:signed
+# zip + blockmap + latest-mac.yml + dmg, all notarised
+```
+
+Then CHECK it, because the build reports success either way:
+
+```bash
+spctl -a -vvv -t install release/mac-universal/PlexiDesk.app   # must say: accepted
+xcrun stapler validate release/PlexiDesk-*-mac-universal.dmg   # must say: validated
+codesign -dv --verbose=2 release/mac-universal/PlexiDesk.app 2>&1 | grep TeamIdentifier
+# must print TeamIdentifier=AHU8G4V9HD, not "not set"
 ```
 
 Then attach the full mac set as usual (`npm run release:mac`) AND upload the dmg
