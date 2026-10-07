@@ -18,7 +18,8 @@ interface ImportMetaEnv {
   readonly VITE_SIGNAL_HTTP_URL?: string
   readonly VITE_SIGNAL_WS_URL?: string
   // Base URL of the hosted share viewer. Used to build the share links the
-  // user copies. Defaults to https://focusbuddy-viewer.vercel.app.
+  // user copies. Unset, it follows ACTIVE.viewer in shared/productDomains.ts
+  // (https://view.plexiidesk.com) rather than a literal repeated here.
   readonly VITE_VIEWER_URL?: string
 }
 

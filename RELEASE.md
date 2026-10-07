@@ -51,7 +51,7 @@ cd projects/focusbuddy
 VITE_USE_REMOTE_SIGNAL=true \
 VITE_SIGNAL_HTTP_URL=https://focusbuddy-signal.fly.dev \
 VITE_SIGNAL_WS_URL=wss://focusbuddy-signal.fly.dev/ws \
-VITE_VIEWER_URL=https://focusbuddy-viewer.vercel.app \
+VITE_VIEWER_URL=https://view.plexiidesk.com \
   npm run dist:mac:universal
 
 # 3. Build Windows via CI and wait for it, then create the release with the mac zip:
@@ -178,7 +178,7 @@ export APPLE_ID=... APPLE_APP_SPECIFIC_PASSWORD=... APPLE_TEAM_ID=...
 VITE_USE_REMOTE_SIGNAL=true \
 VITE_SIGNAL_HTTP_URL=https://focusbuddy-signal.fly.dev \
 VITE_SIGNAL_WS_URL=wss://focusbuddy-signal.fly.dev/ws \
-VITE_VIEWER_URL=https://focusbuddy-viewer.vercel.app \
+VITE_VIEWER_URL=https://view.plexiidesk.com \
   npm run dist:mac:signed        # zip + blockmap + latest-mac.yml + dmg, all notarised
 ```
 

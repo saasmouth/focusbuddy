@@ -108,22 +108,42 @@ describe('the cutover is deliberately partial', () => {
     expect(ACTIVE.downloads).toBe(PRODUCTION.downloads)
   })
 
-  it('the site has NOT moved, because /download does not exist there yet', () => {
+  it('the site has moved, now that /download exists there', () => {
     // autoUpdate.ts compiles the manual-download fallback as
-    // `${ACTIVE.site}/download`. www.plexiidesk.com serves a GoDaddy builder
-    // page and returns 404 on that path; haptyx-web.vercel.app returns 200.
-    // Shipping the broken one is a release to redo, and it is reached by
-    // exactly the user who has just been told to download manually.
-    expect(ACTIVE.site).toBe(CURRENT.site)
+    // `${ACTIVE.site}/download`. This was held back because www.plexiidesk.com
+    // served a GoDaddy builder page and returned 404 on that path. The site is
+    // now on Cloudflare Pages and every path this app builds was checked on
+    // www specifically: /download, /account/signup, /account/login, /help,
+    // /privacy, /terms, /refunds, /changelog and /contact all return 200 with
+    // no redirect.
+    expect(ACTIVE.site).toBe(PRODUCTION.site)
   })
 
-  it('the api and viewer have NOT moved', () => {
-    // Both production hosts resolve and serve — api.plexiidesk.com/healthz
-    // returns 200. They are held back on purpose: the api carries signup,
-    // login, sharing and plan checks for every user, so it moves in a release
-    // that exists to move it, not one about download origins.
+  it('the viewer has moved, because the old one advertised a competitor', () => {
+    // Not cosmetic. The Vercel viewer's bundle carried three links to
+    // focusbuddy.app — a different, live product owned by someone else — one
+    // behind a button marked "download". ACTIVE.viewer is what share links are
+    // built from, so while it named that host every shared desk handed its
+    // recipient to a competitor.
+    expect(ACTIVE.viewer).toBe(PRODUCTION.viewer)
+  })
+
+  it('the api has NOT moved', () => {
+    // api.plexiidesk.com resolves and /healthz returns 200, matching the Fly
+    // origin. It is held back on purpose: it carries signup, login, sharing and
+    // plan checks for every user, so it moves in a release that exists to move
+    // it and can be tested as such.
     expect(ACTIVE.api).toBe(CURRENT.api)
-    expect(ACTIVE.viewer).toBe(CURRENT.viewer)
+  })
+
+  it('every surface is either where it was or where it is going, never a third thing', () => {
+    // The cutover switch is a spread of CURRENT with named overrides. A typo in
+    // one of those overrides would produce a host that is in neither record,
+    // and nothing else here would catch it: each test above pins one surface,
+    // so a fifth surface or a mistyped literal slips through.
+    for (const key of ['site', 'api', 'viewer', 'downloads'] as const) {
+      expect([CURRENT[key], PRODUCTION[key]]).toContain(ACTIVE[key])
+    }
   })
 })
 

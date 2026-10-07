@@ -29,7 +29,7 @@ import LiveDocSharing from './LiveDocSharing'
 // One flow regardless of the entity kind: pick scope (view-only or
 // collaborator-copy), mint a link, copy it, see existing links + revoke.
 //
-// The link URL points at the hosted viewer (`https://focusbuddy-viewer.vercel.app/share/…`).
+// The link URL points at the hosted viewer (`https://view.plexiidesk.com/share/…`).
 // In local-mock mode the URL won't resolve yet — there's an honest banner
 // telling the user that. Once the matching/viewer service ships, the SAME
 // links start working without any change to the dialog.

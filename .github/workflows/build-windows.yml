@@ -82,7 +82,11 @@ jobs:
           VITE_USE_REMOTE_SIGNAL: 'true'
           VITE_SIGNAL_HTTP_URL: 'https://focusbuddy-signal.fly.dev'
           VITE_SIGNAL_WS_URL: 'wss://focusbuddy-signal.fly.dev/ws'
-          VITE_VIEWER_URL: 'https://focusbuddy-viewer.vercel.app'
+          # Compiled into the installer: every share link a Windows user
+          # creates names this host. It has to match ACTIVE.viewer in
+          # src/shared/productDomains.ts, or Windows and macOS mint links
+          # pointing at different viewers from the same release.
+          VITE_VIEWER_URL: 'https://view.plexiidesk.com'
         run: npm run build
 
       # Publish only on a tag push; manual runs stay unpublished. Code signing

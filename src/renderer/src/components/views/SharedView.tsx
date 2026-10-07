@@ -39,7 +39,7 @@ export default function SharedView(): JSX.Element {
     setError(null)
     const url = await promptText({
       title: 'Paste a share link',
-      placeholder: 'https://focusbuddy-viewer.vercel.app/share/…',
+      placeholder: 'https://view.plexiidesk.com/share/…',
       confirmLabel: 'Add share'
     })
     if (!url) return
