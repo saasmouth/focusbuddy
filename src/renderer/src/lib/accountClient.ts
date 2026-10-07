@@ -171,6 +171,41 @@ export async function login(input: {
   }
 }
 
+/**
+ * Start a paid upgrade for the signed-in account.
+ *
+ * Returns what the caller should do:
+ *   'redirect' — open `url`, a Stripe Checkout page, in the browser
+ *   'portal'   — open `url`, Stripe's Billing Portal, because this account
+ *                already has a subscription and wants to change it rather than
+ *                buy a second one
+ *   'pending'  — Stripe is not configured on the server, so there is nothing to
+ *                open. The caller must say so rather than appear to succeed.
+ *
+ * Before this existed the upgrade button opened the public pricing page, whose
+ * Pro link goes to /account/signup — asking a signed-in user to create a second
+ * account in order to pay for the one they already had.
+ */
+export interface UpgradeStart {
+  action: 'redirect' | 'portal' | 'pending'
+  url?: string
+  plan?: string
+}
+
+export async function startUpgrade(
+  plan: 'pro' | 'team',
+  interval: 'month' | 'year',
+  token: string
+): Promise<UpgradeStart | null> {
+  const { res, json } = await postJson<{ ok: boolean; action?: string; url?: string; plan?: string }>(
+    '/billing/checkout',
+    { plan, interval },
+    token
+  )
+  if (!res.ok || !json?.ok || !json.action) return null
+  return { action: json.action as UpgradeStart['action'], url: json.url, plan: json.plan }
+}
+
 export async function logout(token: string): Promise<void> {
   try {
     await postJson('/accounts/logout', {}, token)

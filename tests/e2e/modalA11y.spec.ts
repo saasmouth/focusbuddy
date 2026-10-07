@@ -219,7 +219,7 @@ test('UpgradePromptModal: dialog semantics, Escape closes, focus restores to the
     'AI task setup is a Pro feature.'
   )
   await expect(upgradeDialog.locator('[data-testid="upgrade-later"]')).toBeVisible()
-  await expect(upgradeDialog.locator('[data-testid="upgrade-see-pricing"]')).toBeVisible()
+  await expect(upgradeDialog.locator('[data-testid="upgrade-start-checkout"]')).toBeVisible()
 
   await window.keyboard.press('Escape')
   await expect(upgradeDialog).toBeHidden({ timeout: 5_000 })

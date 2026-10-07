@@ -3,13 +3,22 @@ import Modal from './plexi/Modal'
 import { useUpgradePromptStore } from '../stores/upgradePrompt'
 import { useStoredTier } from '../stores/capabilities'
 import { PRICING_URL } from '../lib/siteUrls'
+import { useAccountStore } from '../stores/account'
+import { startUpgrade } from '../lib/accountClient'
 
 // Single global modal for capability gates. Driven by useUpgradePromptStore;
 // any gated action calls promptUpgrade('<reason>') and this renders. Mounted
 // once in App so every gate shares one modal + consistent copy.
 //
-// Mirrors the TrialBadge TierPickerModal styling. Links out to the brochure
-// pricing page (the Stripe checkout flow will replace that link later).
+// Mirrors the TrialBadge TierPickerModal styling.
+//
+// The button starts a real Stripe checkout for the signed-in account. It used to
+// open the public pricing page, whose Pro link goes to /account/signup — so a
+// signed-in user who hit a gate was asked to create a SECOND account in order to
+// pay for the one they already had, and no existing account could ever upgrade.
+//
+// Signed out, or Stripe not configured on the server, still falls back to the
+// pricing page: that is the honest option when there is no checkout to open.
 export default function UpgradePromptModal(): JSX.Element | null {
   const reason = useUpgradePromptStore((s) => s.reason)
   const requiredTier = useUpgradePromptStore((s) => s.requiredTier)
@@ -18,10 +27,30 @@ export default function UpgradePromptModal(): JSX.Element | null {
 
   if (!reason) return null
 
-  const tierName = requiredTier === 'team' ? 'Team' : 'Pro'
+  // requiredTier is nullable in the store; the modal only renders with a
+  // reason set, but narrow it here so the checkout call is well typed.
+  const tier: 'pro' | 'team' = requiredTier === 'team' ? 'team' : 'pro'
+  const tierName = tier === 'team' ? 'Team' : 'Pro'
   const openPricing = (): void => {
     window.open(PRICING_URL, '_blank', 'noopener,noreferrer')
     dismiss()
+  }
+  const startCheckout = async (): Promise<void> => {
+    const token = useAccountStore.getState().sessionToken
+    if (!token) {
+      // No session to attach a subscription to. The pricing page's signup flow
+      // is the right destination for someone who is not signed in.
+      openPricing()
+      return
+    }
+    const started = await startUpgrade(tier, 'month', token).catch(() => null)
+    if (started && (started.action === 'redirect' || started.action === 'portal') && started.url) {
+      window.open(started.url, '_blank', 'noopener,noreferrer')
+      dismiss()
+      return
+    }
+    // 'pending' (Stripe unconfigured) or an error. Don't pretend it worked.
+    openPricing()
   }
 
   return (
@@ -66,11 +95,11 @@ export default function UpgradePromptModal(): JSX.Element | null {
             Maybe later
           </button>
           <button
-            onClick={openPricing}
+            onClick={() => void startCheckout()}
             className="text-xs px-3 py-1.5 rounded-md bg-accent text-white hover:opacity-90 transition-opacity"
-            data-testid="upgrade-see-pricing"
+            data-testid="upgrade-start-checkout"
           >
-            See {tierName} pricing
+            Upgrade to {tierName}
           </button>
         </div>
     </Modal>
