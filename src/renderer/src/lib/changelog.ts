@@ -36,6 +36,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.12',
+    date: '2026-10-08T04:00:00Z',
+    title: 'PlexiDesk 4.3.12 \u2014 scrolling, selections and the right plan',
+    tag: 'fix',
+    summary:
+      'Four things that were quietly wrong. Scrolling the desk with a mouse jumped to the next widget instead of scrolling; the arrow keys that were meant to walk the desk did nothing at all; selecting across cells in a document table showed no highlight; and the app could tell you that you were on a plan you had not bought.',
+    highlights: [
+      'Scrolling the desk with a mouse wheel scrolls again. A trackpad flick still steps between widgets \u2014 that gesture was treating every wheel notch as a flick, and then swallowing the next 420ms of scrolling.',
+      'The arrow keys walk the desk. They were disabled whenever any widget had been clicked, which in practice meant always; they now stand aside only for a widget the keys actually belong to, like a table or a sheet you are working inside.',
+      'Selecting across cells in a document table is visible. The selection was always there and the keyboard acted on it \u2014 there was simply nothing drawn, so it looked like it vanished when you let go of the mouse.',
+      'Dragging a column edge in a document table now shows the handle you are dragging.',
+      'Your plan is reported as the plan you are on. A trial grants Team-level features, and the app had been naming the plan after them \u2014 so a Pro subscriber was told they were on Team.',
+      'The upgrade card no longer appears for people who have already paid.'
+    ]
+  },
+  {
     version: '4.3.11',
     date: '2026-10-07T23:00:00Z',
     title: 'PlexiDesk 4.3.11 \u2014 one name, everywhere',

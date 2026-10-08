@@ -1,6 +1,6 @@
 {
   "name": "plexidesk",
-  "version": "4.3.11",
+  "version": "4.3.12",
   "private": true,
   "description": "Task-scoped digital work environment for people with ADHD and high distractibility.",
   "main": "./out/main/index.js",
