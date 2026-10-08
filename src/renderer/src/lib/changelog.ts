@@ -36,6 +36,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.13',
+    date: '2026-10-08T05:00:00Z',
+    title: 'PlexiDesk 4.3.13 \u2014 scrolling, conversations and typing',
+    tag: 'fix',
+    summary:
+      'Scrolling the desk with a mouse no longer snaps to whatever it passes over. Your conversations with Plexii have moved into the assistant, where you can search them. And password fields can no longer be handed characters you did not type.',
+    highlights: [
+      'Scrolling and swiping the desk always pans, on every mouse and trackpad. On an Apple mouse a swipe would snap onto a widget and seem to freeze there. Walking from widget to widget is the arrow keys\u2019 job now \u2014 nothing else does it, so nothing else can do it by accident.',
+      'Your conversations live in the assistant. The Plexii row in the sidebar no longer lists a few recent chats; instead, \u201cYour conversations\u201d in the assistant\u2019s header opens all of them \u2014 grouped by day, with a search box, and a click to reopen any one. In the narrow assistant modes there was previously no way to get back to an older conversation at all.',
+      'Password fields no longer fight your keyboard. Automatic capitalisation, smart punctuation and text replacement are now switched off for every password and email box, so what you type is what the box receives.',
+      'You can see the password you are typing. The sign-in box has a show/hide button \u2014 useful when a long password is being refused and you cannot tell why.',
+      'The Plexii wordmark now reads as \u201cPlexii\u201d to a screen reader. In the assistant and the sidebar it was silent.'
+    ]
+  },
+  {
     version: '4.3.12',
     date: '2026-10-08T04:00:00Z',
     title: 'PlexiDesk 4.3.12 \u2014 scrolling, selections and the right plan',
