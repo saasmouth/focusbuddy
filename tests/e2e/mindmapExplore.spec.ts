@@ -108,18 +108,15 @@ test('Explore a node → creates a task, switches canvas, shows breadcrumb', asy
   // The active canvas is the node's own task — its title is the current crumb.
   expect(await window.evaluate(() => document.body.innerText)).toContain('Build the API')
 
-  // The way back to the map is the breadcrumb ancestor chain — collapsed by
-  // default, revealed on hover. Expanding it surfaces the host task as a real
-  // clickable crumb, which is the actual "back to the map" affordance.
-  await window.locator('[data-testid="canvas-breadcrumb"]').hover()
-  // The ancestor crumb is the back-to-map link ("Open \"Mindmap host\""). Target
-  // it by title: hovering also opens the stage-manager desk switcher, which lists
-  // a second "Mindmap host" button, so a name-only match would be ambiguous.
-  await expect(
-    window
-      .locator('[data-testid="canvas-breadcrumb"]')
-      .locator('button[title=\'Open "Mindmap host"\']')
-  ).toBeVisible({ timeout: 5_000 })
+  // The way back to the map is the ancestor in the desk context menu. This used
+  // to be a breadcrumb pill that expanded ON HOVER, which is why the old
+  // version of this assertion had to hover and then disambiguate against the
+  // stage-manager switcher the same hover opened. The trail is a vertical list
+  // now: open the menu and the host task is simply a row in it.
+  await window.locator('[data-testid="desk-context-trigger"]').click()
+  const trail = window.locator('[data-testid="desk-context-trail"]')
+  await expect(trail).toBeVisible({ timeout: 5_000 })
+  await expect(trail).toContainText('Mindmap host')
 
   // Sanity: the host task still exists (we didn't replace it).
   expect(typeof taskId).toBe('string')

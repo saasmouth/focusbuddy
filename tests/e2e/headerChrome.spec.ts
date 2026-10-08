@@ -1,6 +1,11 @@
-// The desk trail and the presence bar belong in the header, not floating on the
-// desk. Asked for 2026-10-09: "move both top floating bars containing
-// breadcrumbs and red border menu to the header bar and combine them".
+// The desk trail and the presence bar belong in the header as ONE menu, not as
+// two controls and not floating on the desk.
+//
+// First pass put them side by side in the header, which was relocation rather
+// than combination and was corrected: "for both the red border floating menu
+// and the one with breadcrumbs to be combined into a menu that utilises
+// vertical lists and is more user friendly". So there is one slot, one trigger,
+// and the lists live inside it.
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
 
@@ -29,32 +34,29 @@ test('the trail and presence render inside the header, not over the canvas', asy
     w.__fbView?.getState().goTask(i)
   }, id)
 
-  const crumb = window.locator('[data-testid="canvas-breadcrumb"]').first()
-  await expect(crumb).toBeVisible({ timeout: 8000 })
+  const trigger = window.locator('[data-testid="desk-context-trigger"]').first()
+  await expect(trigger).toBeVisible({ timeout: 8000 })
 
   const placement = await window.evaluate(() => {
     const header = document.querySelector('header')
     const trailSlot = document.getElementById('fb-header-trail')
-    const presenceSlot = document.getElementById('fb-header-presence')
-    const crumbEl = document.querySelector('[data-testid="canvas-breadcrumb"]')
+    const triggerEl = document.querySelector('[data-testid="desk-context-trigger"]')
     return {
-      slotsExist: !!trailSlot && !!presenceSlot,
-      slotsInHeader: !!header && !!trailSlot && header.contains(trailSlot) && !!presenceSlot && header.contains(presenceSlot),
-      crumbInHeader: !!header && !!crumbEl && header.contains(crumbEl),
-      // The old floating wrappers must not also be painting.
-      floatingTrailCount: document.querySelectorAll(
-        '[data-floating-menu].absolute.top-4'
-      ).length,
-      // The trail must sit left of presence, reading as one row.
-      trailLeftOfPresence:
-        !!trailSlot && !!presenceSlot &&
-        trailSlot.getBoundingClientRect().left < presenceSlot.getBoundingClientRect().left
+      slotExists: !!trailSlot,
+      slotInHeader: !!header && !!trailSlot && header.contains(trailSlot),
+      triggerInHeader: !!header && !!triggerEl && header.contains(triggerEl),
+      // There is no second slot any more — presence is a section in the menu.
+      presenceSlotGone: !document.getElementById('fb-header-presence'),
+      // And neither old floating wrapper is painting.
+      floatingBars: document.querySelectorAll(
+        '[data-floating-menu].absolute.top-4, [data-floating-menu].absolute.top-3'
+      ).length
     }
   })
 
-  expect(placement.slotsExist, 'the header exposes both slots').toBe(true)
-  expect(placement.slotsInHeader, 'both slots are inside the header element').toBe(true)
-  expect(placement.crumbInHeader, 'the breadcrumb renders into the header').toBe(true)
-  expect(placement.floatingTrailCount, 'the old floating trail bar is not also rendered').toBe(0)
-  expect(placement.trailLeftOfPresence, 'trail reads before presence').toBe(true)
+  expect(placement.slotExists, 'the header exposes the slot').toBe(true)
+  expect(placement.slotInHeader, 'the slot is inside the header element').toBe(true)
+  expect(placement.triggerInHeader, 'the desk context trigger renders into the header').toBe(true)
+  expect(placement.presenceSlotGone, 'there is no separate presence slot — it is one menu').toBe(true)
+  expect(placement.floatingBars, 'neither old floating bar is rendered').toBe(0)
 })

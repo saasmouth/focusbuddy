@@ -122,7 +122,7 @@ test('capture full-bleed desk chrome screenshots + sanity checks (UI-driven)', a
   // ── 1. Whole desk, full-bleed ─────────────────────────────────────────────
   const header = window.locator('[data-testid="canvas-task-header"]')
   await expect(header).toBeVisible({ timeout: 5_000 })
-  const breadcrumb = window.locator('[data-testid="canvas-breadcrumb"]')
+  const breadcrumb = window.locator('[data-testid="desk-context-trigger"]')
   await expect(breadcrumb).toBeVisible({ timeout: 5_000 })
   const pill = window.locator('[data-testid="floating-pill"]')
   await expect(pill).toBeVisible({ timeout: 5_000 }).catch(() => {})

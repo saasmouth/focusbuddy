@@ -36,6 +36,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.19',
+    date: '2026-10-09T12:00:00Z',
+    title: 'PlexiDesk 4.3.19 \u2014 one menu for the desk you are on',
+    tag: 'design',
+    summary:
+      'Where you are, who is here, and what you can do to this desk are one menu in the header, written as lists you can read rather than a pill you had to hover.',
+    highlights: [
+      'The breadcrumb and the who-is-here bar are one menu. They were two strips floating over the desk, and in the last release they were two controls side by side in the header \u2014 which was moving them, not combining them.',
+      'The trail is a vertical list: Workspace home, then each room, then the desk you are on, marked. The old pill only showed the trail while you pointed at it, and reading it meant reading sideways.',
+      'Who is on the desk is a section in the same menu, with live dots on the button so you can still tell at a glance without opening anything.',
+      'Rename, Share and Move to a room are rows in that menu instead of icons crowded into the pill.',
+      'The view switcher stays beside it. It changes how the desk is drawn rather than describing the desk, and it is its own menu \u2014 putting it inside would have recreated the menu-inside-a-menu the pill had.'
+    ]
+  },
+  {
     version: '4.3.18',
     date: '2026-10-09T10:00:00Z',
     title: 'PlexiDesk 4.3.18 \u2014 one header, a clear desk',

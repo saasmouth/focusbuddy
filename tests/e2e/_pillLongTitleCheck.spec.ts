@@ -96,7 +96,7 @@ test('FloatingPill sits strictly below breadcrumb + header at long desk title (U
     await window.waitForTimeout(300)
   }
 
-  const breadcrumb = window.locator('[data-testid="canvas-breadcrumb"]')
+  const breadcrumb = window.locator('[data-testid="desk-context-trigger"]')
   const header = window.locator('[data-testid="canvas-task-header"]')
   const floatingPill = window.locator('[data-testid="floating-pill"]')
 

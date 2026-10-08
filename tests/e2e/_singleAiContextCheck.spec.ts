@@ -283,7 +283,7 @@ test('single AI assistant + context-aware subtitle/suggestions + overlap fixes (
   console.log('Saved test-results/overlap-minimap.png')
 
   // ── CHECK 3b — FloatingPill expand no longer overlaps the breadcrumb pill ─
-  const breadcrumb = window.locator('[data-testid="canvas-breadcrumb"]')
+  const breadcrumb = window.locator('[data-testid="desk-context-trigger"]')
   const floatingPill = window.locator('[data-testid="floating-pill"]')
   await expect(breadcrumb).toBeVisible({ timeout: 5_000 })
   await expect(floatingPill).toBeVisible({ timeout: 5_000 })

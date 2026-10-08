@@ -138,7 +138,7 @@ test('restyled folders/desks/tasks surfaces: functional flows still work', async
 
     // Click the task row — assert it opens the canvas (breadcrumb + toolbar chrome).
     await taskListRow.click()
-    await expect(window.locator('[data-testid="canvas-breadcrumb"]')).toBeVisible({
+    await expect(window.locator('[data-testid="desk-context-trigger"]')).toBeVisible({
       timeout: 6_000
     })
     console.log('Clicking a task row in All Tasks opens the canvas: OK')

@@ -103,38 +103,81 @@ describe('the signed-in name is a footer fact, not a titlebar action', () => {
   })
 })
 
-describe('the two floating desk bars moved into the header', () => {
+describe('the two floating desk bars became ONE vertical menu', () => {
   const canvas = read('src/renderer/src/components/Canvas.tsx')
   const slot = read('src/renderer/src/components/chrome/HeaderSlot.tsx')
+  const menu = read('src/renderer/src/components/desk/DeskContextMenu.tsx')
 
-  it('the header exposes a slot for each', () => {
+  it('one header slot, not two', () => {
+    // The first attempt put the two bars side by side in the header. That was
+    // relocation, not combination, and was corrected.
     expect(app).toContain('id="fb-header-trail"')
-    expect(app).toContain('id="fb-header-presence"')
+    expect(app).not.toContain('id="fb-header-presence"')
   })
 
-  it('the canvas fills them rather than floating its own bars', () => {
-    expect(canvas).toContain('<HeaderSlot')
-    expect(canvas).toContain("id=\"fb-header-trail\"")
-    expect(canvas).toContain("id=\"fb-header-presence\"")
+  it('the canvas renders the combined menu and no floating bars', () => {
+    expect(canvas).toContain('<DeskContextMenu')
+    expect(canvas).not.toContain('<CanvasBreadcrumb')
+    expect(canvas).not.toContain('<DeskPresenceBar')
   })
 
-  it('the trail is defined ONCE and used for both placements', () => {
-    // The fallback and the slot must not drift apart.
+  it('the hover-expanding pill is gone from the codebase, not just unmounted', () => {
+    // 554 lines whose whole job was revealing the trail on hover. Keeping it
+    // around unused would leave two answers to "how do I read the trail".
+    expect(() => read('src/renderer/src/components/CanvasBreadcrumb.tsx')).toThrow()
+  })
+
+  it('the menu is vertical lists under headings', () => {
+    for (const h of ['Where you are', "Who&apos;s here", 'This desk']) {
+      expect(menu).toContain(h)
+    }
+    expect(menu).toContain('data-testid="desk-context-trail"')
+    expect(menu).toContain('role="menuitem"')
+  })
+
+  it('the trail is still derived from the node tree, work items excluded', () => {
+    // Same walk the pill used. A work item is never a place you navigate to.
+    expect(menu).toContain("if (cur.kind !== 'work_item') out.unshift(cur)")
+  })
+
+  it('every capability the pill carried is still reachable', () => {
+    for (const t of [
+      'desk-context-home',
+      'desk-context-current',
+      'desk-context-rename',
+      'desk-context-share',
+      'desk-context-move',
+      'desk-context-new-room'
+    ]) {
+      expect(menu).toContain(t)
+    }
+  })
+
+  it('presence keeps its glance — live dots on the trigger', () => {
+    // Folding the presence bar into a menu would otherwise trade an
+    // at-a-glance fact for a click.
+    expect(menu).toContain('data-testid="desk-context-presence-dots"')
+    // Same source and same entitlement gate as the bar, so they cannot disagree.
+    expect(menu).toContain("useCapabilityEnabled('presence')")
+    expect(menu).toContain("pp.location?.kind === 'desk'")
+  })
+
+  it('the view switcher stays OUTSIDE the menu', () => {
+    // It changes how the desk is drawn, not what the desk is, and it is its own
+    // popover — nesting it would recreate the pill's dropdown-in-a-dropdown.
+    expect(canvas).toContain('<ViewSelector taskId={activeTaskId} />')
+    expect(menu).not.toContain('ViewSelector')
+  })
+
+  it('a surface with no header still gets a working control', () => {
+    expect(canvas).toContain('fallback={')
+    expect(slot).toContain('if (!host) return fallback')
+    expect(slot).toContain('MutationObserver')
+  })
+
+  it('the trail is defined once and used for both placements', () => {
     expect(canvas).toContain('const deskTrail = !activeTask ? null : (')
     expect((canvas.match(/\{deskTrail\}/g) ?? []).length).toBeGreaterThanOrEqual(2)
-  })
-
-  it('a surface with no header still gets the old floating position', () => {
-    // The standalone PlexiOffice build renders this canvas without the shell.
-    expect(canvas).toContain('fallback={')
-    expect(slot).toContain('fallback')
-    expect(slot).toContain('if (!host) return fallback')
-  })
-
-  it('the slot waits for the header instead of looking once', () => {
-    // The header and the canvas mount in the same commit, so a bare
-    // getElementById drops the content on first paint.
-    expect(slot).toContain('MutationObserver')
   })
 })
 

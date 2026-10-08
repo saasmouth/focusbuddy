@@ -224,7 +224,7 @@ test('Plexi3.0 reconciliation: single AI panel, pill+resume, Ryan chrome intact,
   console.log('CHECK4 CanvasMinimapFAB count (want exactly 1):', minimapFabCount)
   expect(minimapFabCount).toBe(1)
 
-  const breadcrumb = window.locator('[data-testid="canvas-breadcrumb"]')
+  const breadcrumb = window.locator('[data-testid="desk-context-trigger"]')
   await expect(breadcrumb).toBeVisible({ timeout: 5_000 })
   // Hover the current-item segment (last chevron+title span) to open the
   // Stage Manager desk-switcher dropdown.

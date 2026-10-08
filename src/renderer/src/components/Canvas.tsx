@@ -7,7 +7,6 @@ import { useWidgetStore } from '../stores/widgets'
 import { useMessagingStore } from '../stores/messaging'
 import { useConnectedAppsStore } from '../stores/connectedApps'
 import { CONNECTED_APP_DRAG_MIME } from './Sidebar'
-import DeskPresenceBar from './DeskPresenceBar'
 import OfficeDocAddDialog from './widgets/OfficeDocAddDialog'
 import WidgetFocusMode from './WidgetFocusMode'
 import ExtensionPrompt from './ExtensionPrompt'
@@ -90,8 +89,8 @@ import MindmapStartingKit from './MindmapStartingKit'
 import SyncWidgetPicker from './SyncWidgetPicker'
 import HistoryPanel from './HistoryPanel'
 import ResumeModal from './ResumeModal'
-import CanvasBreadcrumb from './CanvasBreadcrumb'
 import HeaderSlot from './chrome/HeaderSlot'
+import DeskContextMenu from './desk/DeskContextMenu'
 import ContextHealthStrip from './ContextHealthStrip'
 import CanvasLinearView from './CanvasLinearView'
 import FloatingPill from './FloatingPill'
@@ -1080,23 +1079,29 @@ export default function Canvas(): JSX.Element {
   // placements can never drift apart.
   // Null when there is no desk open: the breadcrumb needs a task, and the old
   // position inherited that guarantee from the block it sat in.
+  // One control for "what am I looking at": the trail, who is here, and the
+  // things you do to this desk — see desk/DeskContextMenu.tsx.
+  //
+  // This replaced TWO horizontal strips floating over the canvas (a
+  // hover-expanding breadcrumb pill, and a presence bar at the other corner).
+  // Putting them side by side in the header first was not what was asked for
+  // and was not an improvement: still two controls, just higher up.
+  //
+  // The view switcher stays beside it rather than inside it. It changes how the
+  // desk is DRAWN, not what the desk is, and it is its own popover — nesting it
+  // would recreate the hover-dropdown-inside-a-dropdown problem the pill had.
   const deskTrail = !activeTask ? null : (
     <>
-
-              <CanvasBreadcrumb
-                activeTask={activeTask}
-                trailing={activeTaskId && isCanvasMode ? <ViewSelector taskId={activeTaskId} /> : undefined}
-                nodes={nodes}
-                onOpenTask={(id) => setActiveTask(id)}
-                onHome={() => setActiveTask(null)}
-                fromMindmap={!!nodeOrigin}
-                onRenameTask={(id, title) => void updateNode(id, { title })}
-                onAssignToRoom={(deskId, roomId) => void assignToRoom(deskId, roomId)}
-                onCreateRoomFromDesk={(deskId) => void createRoomAndAssign(deskId)}
-              />
-              {/* The breadcrumb selector shows only in canvas mode; every overlay
-                  view (columns + data views) carries its own in-view selector, so
-                  exactly one is present at a time (no duplicate testid). */}
+      <DeskContextMenu
+        activeTask={activeTask}
+        nodes={nodes}
+        onOpenTask={(id) => setActiveTask(id)}
+        onHome={() => setActiveTask(null)}
+        onRenameTask={(id, title) => void updateNode(id, { title })}
+        onAssignToRoom={(deskId, roomId) => void assignToRoom(deskId, roomId)}
+        onCreateRoomFromDesk={(deskId) => void createRoomAndAssign(deskId)}
+      />
+      {activeTaskId && isCanvasMode && <ViewSelector taskId={activeTaskId} />}
     </>
   )
 
@@ -2780,21 +2785,9 @@ export default function Canvas(): JSX.Element {
               timerOverdue={isOverdue}
             />
           )}
-          {/* Desk presence — in the header now, beside the trail. This was the
-              second floating strip over the desk; see the note on deskTrail. */}
-          <HeaderSlot
-            id="fb-header-presence"
-            fallback={
-              <div
-                data-floating-menu
-                className="fb-floating-chrome absolute top-3 right-3 z-[45] pointer-events-auto"
-              >
-                <DeskPresenceBar taskId={activeTask.id} />
-              </div>
-            }
-          >
-            <DeskPresenceBar taskId={activeTask.id} />
-          </HeaderSlot>
+          {/* Desk presence is no longer a strip of its own. It is a section in
+              DeskContextMenu, with live dots on that menu's trigger so the
+              glance survives — see the note on deskTrail. */}
           {activeId && !linkSourceId && (
             <div className="absolute bottom-3 left-[calc(50%+var(--fb-dock-inset,0px)/2)] -translate-x-1/2 px-2.5 py-1 rounded-full fb-glass-chrome border text-[11px] text-[var(--ink-90)] shadow-[var(--shadow-soft)] flex items-center gap-1.5 pointer-events-none">
               <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />

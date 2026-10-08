@@ -528,7 +528,13 @@ export default function App(): JSX.Element {
       )}
       {!shareView && (
       <header
-        className={`titlebar-drag fb-glass-chrome h-10 flex items-center justify-between pr-3 border-b border-[color:var(--glass-chrome-border)] transition-colors ${
+        // `relative z-[100]` so menus OPENED FROM the header paint over the
+        // canvas. The header had no stacking context, and <main> is a later
+        // sibling, so the canvas surface won on paint order no matter what
+        // z-index the menu itself used — the desk context menu was visible but
+        // every click on it was intercepted by the canvas. Above the canvas's
+        // own layers (45–60) and below modals (200+).
+        className={`titlebar-drag fb-glass-chrome relative z-[100] h-10 flex items-center justify-between pr-3 border-b border-[color:var(--glass-chrome-border)] transition-colors ${
           isMac ? 'pl-[78px]' : 'pl-3'
         }`}
       >
@@ -545,10 +551,9 @@ export default function App(): JSX.Element {
               standing fact about this window, like those two — not an action.
               Sign out lives there with it. See components/Footer.tsx. */}
 
-          {/* Where you are. The desk breadcrumb used to float on the canvas
-              surface in its own bar; it is filled from Canvas through
-              HeaderSlot so the wiring stays where the data is. Ordered
-              left-to-right as a sentence: history, then the trail it produced. */}
+          {/* The desk context menu fills this — where you are, who is here, and
+              what you can do, in one vertical menu. Filled from Canvas through
+              HeaderSlot so the wiring stays where the data already is. */}
           <div id="fb-header-trail" className="flex items-center gap-2 min-w-0" />
         </div>
         {/* The "Plexii 2.0" lockup is gone from the titlebar (2026-10-09).
@@ -558,11 +563,9 @@ export default function App(): JSX.Element {
             app on every screen while telling nobody anything. The real version
             is in the footer, where it is read out when something goes wrong. */}
         <div className="titlebar-nodrag flex items-center gap-1">
-          {/* Who else is here. Was a second floating bar at the top-right of
-              the canvas; it belongs beside the trail, not on the desk. Sits
-              before the actions because it is context, and the actions are
-              what you reach for. */}
-          <div id="fb-header-presence" className="flex items-center min-w-0" />
+          {/* Presence is no longer a slot of its own — it is a section inside
+              the desk context menu that fills #fb-header-trail, with live dots
+              on that menu's trigger. One control, not two. */}
           {/* The header Build button retired in the Plexii consolidation
               (Caleb's ruling, 2026-08-21): with the sidebar tab, the pill, the
               Home input and ⌘⇧K all opening the one conversational engine, a

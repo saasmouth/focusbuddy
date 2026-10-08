@@ -75,7 +75,7 @@ test('test_plx_a11y_005_reduced_motion_suppresses_cursor_spotlight — and the a
   await waitForReady(window)
   await window.getByRole('button', { name: /Reduced motion desk/ }).first().click()
   await expect(window.locator('[data-canvas-surface="true"]')).toBeVisible({ timeout: 5_000 })
-  await expect(window.locator('[data-testid="canvas-breadcrumb"]')).toBeVisible()
+  await expect(window.locator('[data-testid="desk-context-trigger"]')).toBeVisible()
   void seeded
 })
 
