@@ -114,5 +114,33 @@ if [ "$MAC_ARCH" = "universal" ]; then
     --repo "$REPO" --clobber
 fi
 
+# ── Mirror to the feed the SHIPPED CLIENTS ACTUALLY READ ────────────────────
+#
+# This is the step whose absence shipped 4.3.13 and 4.3.14 to nobody on mac.
+#
+# electron-builder's publish target is `generic` with the bucket ROOT as its
+# url (see electron-builder.cjs), so an installed mac client asks
+# dl.plexiidesk.com/latest-mac.yml — NOT the GitHub release. Everything above
+# uploads to the GitHub release, which is where the website's download button
+# points and where the assets are archived, but it is not the update feed.
+#
+# So a mac release could pass the gate, look complete on GitHub, and leave
+# every installed client still being told 4.3.12 was current. It did: the feed
+# sat on 4.3.12 through two releases while "RELEASE OK" was printed, because
+# the gate was reading the GitHub release too.
+#
+# upload-release-assets.mjs already handles mac fully (universal + arm64 +
+# Haptyx- aliases + the manifest). It just was never called from here.
+if [ -n "${R2_BUCKET:-}" ]; then
+  echo "Mirroring mac assets to the update feed (R2)…"
+  RELEASE_DIR="$DIR" node "${HERE0}/upload-release-assets.mjs" "$VERSION"
+else
+  echo "R2_BUCKET is not set — SKIPPING the update-feed mirror." >&2
+  echo "The GitHub release will be complete but every installed mac client" >&2
+  echo "will keep being told the previous version is current. Export the R2_*" >&2
+  echo "values (focusbuddy/.env) and re-run before calling this released." >&2
+  exit 1
+fi
+
 echo "Running the release completeness gate…"
 exec "${HERE0}/verify-release-assets.sh" "$VERSION"

@@ -109,6 +109,37 @@ else
   fi
 fi
 
+# ── [5/5] The feed the SHIPPED CLIENTS actually read ────────────────────────
+#
+# Everything above checks the GitHub release. That is where the website's
+# download button points, and it is NOT the update feed: electron-builder
+# publishes `generic` with the R2 bucket root as its url, so an installed
+# client asks dl.plexiidesk.com/latest-mac.yml and dl.plexiidesk.com/latest.yml.
+#
+# Checking only GitHub is how 4.3.13 and 4.3.14 were both declared "RELEASE OK"
+# while every installed mac client was still being told 4.3.12 was current —
+# the mac half was never mirrored, and nothing here looked. A gate that passes
+# while users get nothing is worse than no gate, because it stops anyone
+# looking. So the version in each live feed must equal the version claimed.
+FEED="${FEED_ORIGIN:-https://dl.plexiidesk.com}"
+echo "[5/5] live update feed (${FEED})"
+for pair in "latest-mac.yml:mac" "latest.yml:win"; do
+  f="${pair%%:*}"; plat="${pair##*:}"
+  body="$(curl -fsSL "${FEED}/${f}" 2>/dev/null || true)"
+  if [ -z "$body" ]; then
+    note "UNREACHABLE  ${f} — ${plat} clients cannot check for updates at all"
+    fail=1
+    continue
+  fi
+  feedver="$(printf '%s\n' "$body" | awk '/^version:/{print $2; exit}')"
+  if [ "$feedver" = "$VERSION" ]; then
+    note "ok   ${f} serves ${VERSION}"
+  else
+    note "STALE  ${f} serves '${feedver:-none}', not ${VERSION} — installed ${plat} clients will not be offered this release"
+    fail=1
+  fi
+done
+
 if [ "$fail" -ne 0 ]; then
   echo
   echo "RELEASE INCOMPLETE — auto-update would 404 or be rejected. Fix the assets above before calling ${TAG} done."
@@ -116,4 +147,4 @@ if [ "$fail" -ne 0 ]; then
 fi
 
 echo
-echo "RELEASE OK — ${TAG} has a complete, verified updater asset set for mac + win, and an up-to-date What's New."
+echo "RELEASE OK — ${TAG} is complete on the GitHub release, the live update feed serves it on both platforms, and What's New is current."
