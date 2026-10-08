@@ -349,7 +349,11 @@ function AssistantOverlayChrome(): JSX.Element {
         <PlexiiMark
           key={`moment-${momentToken}`}
           height={24}
-          letterColor="#FFFFFF"
+          // `color` drives the ii; `letterColor` only drives the LETTERFORMS and
+          // is ignored by the icon variant, which is what this is. That is why
+          // the mark stayed accent-coloured on the purple disc after being told
+          // to be white.
+          color="#FFFFFF"
           motion={sending || voicePhase !== 'idle' ? 'off' : 'once+hover'}
           title={null}
         />

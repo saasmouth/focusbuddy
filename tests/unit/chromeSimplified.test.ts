@@ -90,7 +90,63 @@ describe('workspace and area are one control', () => {
   })
 })
 
+describe('the signed-in name is a footer fact, not a titlebar action', () => {
+  it('gone from the titlebar', () => {
+    expect(app).not.toContain('personDisplayName')
+    expect(app).not.toContain('const signOut = useAccountStore')
+  })
+
+  it('in the footer, with the sign-out it implies', () => {
+    expect(footer).toContain('data-testid="footer-account"')
+    expect(footer).toContain('personDisplayName(account')
+    expect(footer).toContain('void signOut()')
+  })
+})
+
+describe('the two floating desk bars moved into the header', () => {
+  const canvas = read('src/renderer/src/components/Canvas.tsx')
+  const slot = read('src/renderer/src/components/chrome/HeaderSlot.tsx')
+
+  it('the header exposes a slot for each', () => {
+    expect(app).toContain('id="fb-header-trail"')
+    expect(app).toContain('id="fb-header-presence"')
+  })
+
+  it('the canvas fills them rather than floating its own bars', () => {
+    expect(canvas).toContain('<HeaderSlot')
+    expect(canvas).toContain("id=\"fb-header-trail\"")
+    expect(canvas).toContain("id=\"fb-header-presence\"")
+  })
+
+  it('the trail is defined ONCE and used for both placements', () => {
+    // The fallback and the slot must not drift apart.
+    expect(canvas).toContain('const deskTrail = !activeTask ? null : (')
+    expect((canvas.match(/\{deskTrail\}/g) ?? []).length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('a surface with no header still gets the old floating position', () => {
+    // The standalone PlexiOffice build renders this canvas without the shell.
+    expect(canvas).toContain('fallback={')
+    expect(slot).toContain('fallback')
+    expect(slot).toContain('if (!host) return fallback')
+  })
+
+  it('the slot waits for the header instead of looking once', () => {
+    // The header and the canvas mount in the same commit, so a bare
+    // getElementById drops the content on first paint.
+    expect(slot).toContain('MutationObserver')
+  })
+})
+
 describe('the Plexii pill is the obvious thing in its corner', () => {
+  it('the mark is white — via `color`, which is what the ICON variant reads', () => {
+    // letterColor only drives the wordmark's letterforms and is ignored by the
+    // icon, which is why the mark stayed accent-coloured on the purple disc.
+    expect(overlay).toContain('color="#FFFFFF"')
+    const mark = read('src/renderer/src/components/brand/PlexiiMark.tsx')
+    expect(mark).toContain('<PlexiMark animated={animating} color={color}')
+  })
+
   it('bigger than the chrome circle it was, and filled with the accent', () => {
     expect(overlay).toContain('h-[52px] w-[52px]')
     expect(overlay).toContain('fb-assistant-pill')

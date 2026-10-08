@@ -3,6 +3,8 @@ import { useSyncStatus } from '../stores/syncStatus'
 import { CHANGELOG, hasUnseenChanges } from '../lib/changelog'
 import Icon from './Icon'
 import { useVaultStore } from '../stores/vault'
+import { useAccountStore } from '../stores/account'
+import { personDisplayName, personInitials } from '../lib/personName'
 import Tooltip from './Tooltip'
 import { HELP_BASE } from '../lib/siteUrls'
 import WhatsNewPanel from './WhatsNewPanel'
@@ -67,6 +69,8 @@ function FooterSyncChip(): JSX.Element {
 }
 
 export default function Footer(): JSX.Element {
+  const account = useAccountStore((a) => a.account)
+  const signOut = useAccountStore((a) => a.signOut)
   const vaultMeta = useVaultStore((v) => v.meta)
   const vaultUnlocked = useVaultStore((v) => v.unlocked)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
@@ -122,6 +126,33 @@ export default function Footer(): JSX.Element {
               belongs beside the version and the sync state rather than in the
               bar you act from. Still hidden until a vault exists: a chip about
               a vault nobody has set up is noise. */}
+          {/* Who you are signed in as — moved out of the titlebar (2026-10-09).
+              It is a standing fact about this window, like the version and
+              where the data lives, rather than something you act on while
+              working. Sign out stays attached to it, because that is the one
+              action it implies and hiding it elsewhere would be worse. */}
+          {account && (
+            <Tooltip placement="top" content={`Signed in as ${account.email} — click to sign out`}>
+              <button
+                type="button"
+                data-testid="footer-account"
+                onClick={() => {
+                  const ok = window.confirm(
+                    `Sign out of ${account.email}? Your local data stays on this device. Shared items in your inbox will stay until you remove them.`
+                  )
+                  if (ok) void signOut()
+                }}
+                className="inline-flex items-center gap-1 max-w-[180px] text-accent hover:brightness-110 transition-colors"
+              >
+                <span className="h-3.5 w-3.5 shrink-0 rounded-full bg-accent/25 inline-flex items-center justify-center text-[8px] font-mono uppercase">
+                  {personInitials(account).slice(0, 1)}
+                </span>
+                <span className="truncate">
+                  {personDisplayName(account, account.email.split('@')[0])}
+                </span>
+              </button>
+            </Tooltip>
+          )}
           {vaultMeta?.exists && (
             <Tooltip
               placement="top"

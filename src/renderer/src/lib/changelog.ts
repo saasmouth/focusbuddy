@@ -36,6 +36,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.18',
+    date: '2026-10-09T10:00:00Z',
+    title: 'PlexiDesk 4.3.18 \u2014 one header, a clear desk',
+    tag: 'design',
+    summary:
+      'Where you are and who else is here have moved off the desk and into the header bar, together. Your name sits in the footer with the other standing facts, and the Plexii mark is white on its purple button.',
+    highlights: [
+      'The breadcrumb and the people-on-this-desk bar are one row in the header. They used to be two strips floating over your work \u2014 one top-left, one top-right \u2014 both answering the same question. The desk surface is now just the desk.',
+      'Your name moved to the footer, next to the version and \u201cLocal \u00b7 encrypted\u201d. Signing out is still there with it.',
+      'The ii on the Plexii button is white. It was still tinted, which on a purple button read as a smudge rather than a mark.'
+    ]
+  },
+  {
     version: '4.3.17',
     date: '2026-10-09T08:00:00Z',
     title: 'PlexiDesk 4.3.17 \u2014 a quieter frame, a louder assistant',

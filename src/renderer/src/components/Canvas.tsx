@@ -91,6 +91,7 @@ import SyncWidgetPicker from './SyncWidgetPicker'
 import HistoryPanel from './HistoryPanel'
 import ResumeModal from './ResumeModal'
 import CanvasBreadcrumb from './CanvasBreadcrumb'
+import HeaderSlot from './chrome/HeaderSlot'
 import ContextHealthStrip from './ContextHealthStrip'
 import CanvasLinearView from './CanvasLinearView'
 import FloatingPill from './FloatingPill'
@@ -1073,6 +1074,31 @@ export default function Canvas(): JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom, setZoom, resetView, activeId, setActive, widgets])
+
+  // The breadcrumb trail, built once and rendered either into the header slot
+  // or (with no header) into its old floating bar. One definition so the two
+  // placements can never drift apart.
+  // Null when there is no desk open: the breadcrumb needs a task, and the old
+  // position inherited that guarantee from the block it sat in.
+  const deskTrail = !activeTask ? null : (
+    <>
+
+              <CanvasBreadcrumb
+                activeTask={activeTask}
+                trailing={activeTaskId && isCanvasMode ? <ViewSelector taskId={activeTaskId} /> : undefined}
+                nodes={nodes}
+                onOpenTask={(id) => setActiveTask(id)}
+                onHome={() => setActiveTask(null)}
+                fromMindmap={!!nodeOrigin}
+                onRenameTask={(id, title) => void updateNode(id, { title })}
+                onAssignToRoom={(deskId, roomId) => void assignToRoom(deskId, roomId)}
+                onCreateRoomFromDesk={(deskId) => void createRoomAndAssign(deskId)}
+              />
+              {/* The breadcrumb selector shows only in canvas mode; every overlay
+                  view (columns + data views) carries its own in-view selector, so
+                  exactly one is present at a time (no duplicate testid). */}
+    </>
+  )
 
   const screenToCanvas = useCallback(
     (screenX: number, screenY: number): { x: number; y: number } => {
@@ -2409,25 +2435,35 @@ export default function Canvas(): JSX.Element {
             }}
           />
 
-          {/* Breadcrumb — floated top-left of the canvas surface so it
-              sits on the desk itself rather than in a header bar above it. */}
-          <div data-floating-menu className="fb-floating-chrome absolute top-4 left-[calc(var(--fb-dock-inset,0px)+1rem)] z-[45] flex items-center gap-2">
-            <CanvasBreadcrumb
-              activeTask={activeTask}
-              trailing={activeTaskId && isCanvasMode ? <ViewSelector taskId={activeTaskId} /> : undefined}
-              nodes={nodes}
-              onOpenTask={(id) => setActiveTask(id)}
-              onHome={() => setActiveTask(null)}
-              fromMindmap={!!nodeOrigin}
-              onRenameTask={(id, title) => void updateNode(id, { title })}
-              onAssignToRoom={(deskId, roomId) => void assignToRoom(deskId, roomId)}
-              onCreateRoomFromDesk={(deskId) => void createRoomAndAssign(deskId)}
-            />
-            {/* The breadcrumb selector shows only in canvas mode; every overlay
-                view (columns + data views) carries its own in-view selector, so
-                exactly one is present at a time (no duplicate testid). */}
+          {/* Where you are, and who else is here — ONE row in the header now
+              (2026-10-09), not two strips floating over the desk.
 
-          </div>
+              It was a bar at the top-left (this) and a second at the top-right
+              (DeskPresenceBar), both hovering on the canvas surface and both
+              answering the same question. They are portalled into the header's
+              slots instead, so the layout changes without any of this wiring
+              moving: the breadcrumb still needs the node tree, rename,
+              assign-to-room and create-room-from-desk, and all of that stays
+              here where it already is. See chrome/HeaderSlot.tsx.
+
+              The fallback keeps the old floating position for a surface with no
+              header to portal into — the standalone PlexiOffice build renders
+              this canvas without the app shell around it. */}
+          {deskTrail && (
+          <HeaderSlot
+            id="fb-header-trail"
+            fallback={
+              <div
+                data-floating-menu
+                className="fb-floating-chrome absolute top-4 left-[calc(var(--fb-dock-inset,0px)+1rem)] z-[45] flex items-center gap-2"
+              >
+                {deskTrail}
+              </div>
+            }
+          >
+            {deskTrail}
+          </HeaderSlot>
+          )}
           {/* Context Health (plexi-4.0): floats just under the breadcrumb, showing
               what changed since last visit and related desks needing attention.
               Renders nothing when the desk is calm. */}
@@ -2744,10 +2780,21 @@ export default function Canvas(): JSX.Element {
               timerOverdue={isOverdue}
             />
           )}
-          {/* Desk presence — who else is on this desk, floated top-right of canvas surface */}
-          <div data-floating-menu className="fb-floating-chrome absolute top-3 right-3 z-[45] pointer-events-auto">
+          {/* Desk presence — in the header now, beside the trail. This was the
+              second floating strip over the desk; see the note on deskTrail. */}
+          <HeaderSlot
+            id="fb-header-presence"
+            fallback={
+              <div
+                data-floating-menu
+                className="fb-floating-chrome absolute top-3 right-3 z-[45] pointer-events-auto"
+              >
+                <DeskPresenceBar taskId={activeTask.id} />
+              </div>
+            }
+          >
             <DeskPresenceBar taskId={activeTask.id} />
-          </div>
+          </HeaderSlot>
           {activeId && !linkSourceId && (
             <div className="absolute bottom-3 left-[calc(50%+var(--fb-dock-inset,0px)/2)] -translate-x-1/2 px-2.5 py-1 rounded-full fb-glass-chrome border text-[11px] text-[var(--ink-90)] shadow-[var(--shadow-soft)] flex items-center gap-1.5 pointer-events-none">
               <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />

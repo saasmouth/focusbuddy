@@ -52,7 +52,6 @@ import { useNodeStore } from './stores/nodes'
 import { useTemplateStore } from './stores/templates'
 import { useVaultStore } from './stores/vault'
 import { useAccountStore } from './stores/account'
-import { personDisplayName, personInitials } from './lib/personName'
 import { installInboxPoller } from './lib/inboxPoller'
 import { startWorkspaceSync, stopWorkspaceSync } from './lib/workspaceSync'
 import { isShareRecipient, shareDeskId, deskToOpen } from './lib/shareMode'
@@ -233,7 +232,6 @@ export default function App(): JSX.Element {
   const accountInit = useAccountStore((s) => s.init)
   const account = useAccountStore((s) => s.account)
   const sessionToken = useAccountStore((s) => s.sessionToken)
-  const signOut = useAccountStore((s) => s.signOut)
   const adoptHandoff = useAccountStore((s) => s.adoptHandoff)
   // Messaging: open the persistent, authenticated socket while signed in so
   // DMs + shared-space chat arrive in real time; tear it down on sign-out.
@@ -542,28 +540,16 @@ export default function App(): JSX.Element {
               not something that changes while you work, and the titlebar is for
               the things you act on. It now sits next to the other standing
               facts. See components/Footer.tsx. */}
-          {/* Account chip — visible when signed in. Click to sign out
-              (with confirm). Server-validated session means this chip
-              only renders for users with a verified live token. */}
-          {account && (
-            <button
-              onClick={() => {
-                const ok = window.confirm(
-                  `Sign out of ${account.email}? Your local data stays on this device. Shared items in your inbox will stay until you remove them.`
-                )
-                if (ok) void signOut()
-              }}
-              className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-accent/15 dark:bg-accent/15 text-accent border border-accent/30 hover:brightness-110 transition-colors"
-              title={`Signed in as ${account.email}. Click to sign out.`}
-            >
-              <span className="h-3.5 w-3.5 rounded-full bg-accent/30 inline-flex items-center justify-center text-[8px] font-mono text-accent uppercase">
-                {personInitials(account).slice(0, 1)}
-              </span>
-              <span className="max-w-[120px] truncate">
-                {personDisplayName(account, account.email.split('@')[0])}
-              </span>
-            </button>
-          )}
+          {/* The signed-in name moved to the footer (2026-10-09), next to the
+              version and "Local · encrypted". Who you are signed in as is a
+              standing fact about this window, like those two — not an action.
+              Sign out lives there with it. See components/Footer.tsx. */}
+
+          {/* Where you are. The desk breadcrumb used to float on the canvas
+              surface in its own bar; it is filled from Canvas through
+              HeaderSlot so the wiring stays where the data is. Ordered
+              left-to-right as a sentence: history, then the trail it produced. */}
+          <div id="fb-header-trail" className="flex items-center gap-2 min-w-0" />
         </div>
         {/* The "Plexii 2.0" lockup is gone from the titlebar (2026-10-09).
             The wordmark was already at the top of the desk menu, so the header
@@ -572,6 +558,11 @@ export default function App(): JSX.Element {
             app on every screen while telling nobody anything. The real version
             is in the footer, where it is read out when something goes wrong. */}
         <div className="titlebar-nodrag flex items-center gap-1">
+          {/* Who else is here. Was a second floating bar at the top-right of
+              the canvas; it belongs beside the trail, not on the desk. Sits
+              before the actions because it is context, and the actions are
+              what you reach for. */}
+          <div id="fb-header-presence" className="flex items-center min-w-0" />
           {/* The header Build button retired in the Plexii consolidation
               (Caleb's ruling, 2026-08-21): with the sidebar tab, the pill, the
               Home input and ⌘⇧K all opening the one conversational engine, a
