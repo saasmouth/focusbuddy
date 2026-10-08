@@ -36,6 +36,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.15',
+    date: '2026-10-08T07:00:00Z',
+    title: 'PlexiDesk 4.3.15 \u2014 updates arrive when they are released',
+    tag: 'fix',
+    summary:
+      'The app now looks for a new version every five minutes instead of every four hours, so a release shows up in the footer when it is actually out.',
+    highlights: [
+      'Updates appear within about five minutes of being released. The app used to check only every four hours, so a new version could be out and the footer would show nothing \u2014 which looks the same as there being no update at all.',
+      'A check never interrupts a download that is already running, or clears an update you have already been offered. It only asks again when there is nothing in progress.',
+      'Separately, and the reason this came up: 4.3.13 and 4.3.14 were published to the website but not to the channel the app itself reads, so installed Macs were never offered them. Both are now, and the release process checks the real channel before it can report success.'
+    ]
+  },
+  {
     version: '4.3.14',
     date: '2026-10-08T06:00:00Z',
     title: 'PlexiDesk 4.3.14 \u2014 a room shows what is in it',

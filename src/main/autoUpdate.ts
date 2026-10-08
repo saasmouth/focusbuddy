@@ -270,10 +270,36 @@ export function installAutoUpdater(): void {
     broadcast({ kind: 'error', message: err.message })
   )
 
-  // Kick off the first check shortly after boot so the user doesn't
-  // wait. Then poll every 4 hours.
+  // Kick off the first check shortly after boot so the user doesn't wait, then
+  // poll every 5 minutes.
+  //
+  // It was 4 hours, which meant a release took up to 4 hours to appear for
+  // anyone already running the app — and the footer showed nothing in the
+  // meantime, so the update looked missing rather than pending. That is
+  // exactly how it was reported.
+  //
+  // The cost of 5 minutes is one conditional GET of latest-mac.yml / latest.yml
+  // per client, a few hundred bytes, which is nothing next to a release nobody
+  // is offered.
+  //
+  // THE GUARD MATTERS MORE THAN THE INTERVAL. A poll this short must not fire
+  // while something is already happening:
+  //   - on Windows autoDownload is on, so a found update is already pulling a
+  //     ~240MB installer; re-checking over the top of that is how you get
+  //     overlapping downloads and a progress bar that jumps backwards.
+  //   - on macOS the banner is showing 'available' and the user may have
+  //     started the one-click download themselves; a fresh check broadcasts
+  //     'checking' and would blank that out from under them.
+  //   - 'ready' means it is downloaded and waiting for a restart. There is
+  //     nothing left to learn.
+  // So only idle / none / error are polled — the states where asking again is
+  // the useful thing to do.
   const FIRST_CHECK_MS = 30 * 1000
-  const POLL_MS = 4 * 60 * 60 * 1000
+  const POLL_MS = 5 * 60 * 1000
+  const POLLABLE = new Set<UpdateState['kind']>(['idle', 'none', 'error'])
   setTimeout(() => checkForUpdates(), FIRST_CHECK_MS)
-  setInterval(() => checkForUpdates(), POLL_MS)
+  setInterval(() => {
+    if (!POLLABLE.has(current.kind)) return
+    checkForUpdates()
+  }, POLL_MS)
 }
