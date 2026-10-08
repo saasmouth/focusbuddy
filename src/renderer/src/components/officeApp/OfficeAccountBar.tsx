@@ -85,6 +85,9 @@ export default function OfficeAccountBar(): JSX.Element {
             className="fb-field w-full bg-[var(--surface-raised)] px-2 py-1 text-[12px]"
           />
           <input
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
             type="password"
             placeholder="Password"
             value={password}

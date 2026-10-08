@@ -73,7 +73,7 @@ test.describe('Plexii hub (Phase 1)', () => {
     ).toContainText('Plan a wedding', { timeout: 10_000 })
   })
 
-  test('sidebar sublist shows recent conversations and reopens one', async () => {
+  test('the assistant panel is where conversations are found and reopened', async () => {
     const { window } = launched
     // Seed one conversation through the hero door.
     await gotoHome()
@@ -82,22 +82,86 @@ test.describe('Plexii hub (Phase 1)', () => {
     await input.fill('Track job applications')
     await window.locator('[data-testid="start-or-ask-go"]').click()
     await expect(window.locator('[data-testid="plexii-hub"]')).toBeVisible()
-    // Wait for the conversation to persist and the shared store to refresh.
     await expect(
-      window.locator('[data-testid="sidebar-plexii-conversation"]').first()
+      window.locator('[data-testid="conversation-row"]').first()
     ).toContainText('Track job applications', { timeout: 10_000 })
 
-    // Walk away, then come back through the sublist row.
+    // The nav carries no conversation rows any more (2026-10-08). History is
+    // the assistant's, so this is the assertion that the move actually
+    // happened rather than being duplicated in two places.
+    await expect(window.locator('[data-testid="sidebar-plexii-conversation"]')).toHaveCount(0)
+
+    // Walk away from the hub so the only chat on screen is the panel's.
     await window.evaluate(() => {
       const w = window as unknown as { __fbView?: { getState: () => { goHome: () => void } } }
       w.__fbView?.getState().goHome()
     })
     await expect(window.locator('[data-testid="plexii-hub"]')).toHaveCount(0)
-    await window.locator('[data-testid="sidebar-plexii-conversation"]').first().click()
-    await expect(window.locator('[data-testid="plexii-hub"]')).toBeVisible()
+
+    // Open the assistant in sidebar mode — the mode with no rail, which is
+    // exactly the case that had no door to history before.
+    await window.evaluate(() => {
+      const w = window as unknown as {
+        __fbAssistantChrome?: {
+          getState: () => {
+            openPanel: () => void
+            setMode: (m: string) => void
+            setTab: (t: string) => void
+          }
+        }
+      }
+      const st = w.__fbAssistantChrome?.getState()
+      st?.setMode('sidebar')
+      st?.setTab('chat')
+      st?.openPanel()
+    })
+    await expect(window.locator('[data-testid="assistant-panel"]')).toBeVisible()
+    await expect(window.locator('[data-testid="conversation-rail"]')).toHaveCount(0)
+
+    // The header button opens the list; search narrows it, which is the whole
+    // reason the list moved here.
+    await window.locator('[data-testid="assistant-history-toggle"]').click()
+    const list = window.locator('[data-testid="conversation-overlay"]')
+    await expect(list).toBeVisible()
+    await list.locator('[data-testid="conversation-search"]').fill('job applications')
+    await expect(list.locator('[data-testid="conversation-row"]')).toHaveCount(1)
+    await list.locator('[data-testid="conversation-row"]').first().click()
+
+    // Picking dismisses the overlay and lands on the thread.
+    await expect(list).toHaveCount(0)
     await expect(window.locator('[data-testid="user-turn"]').first()).toContainText(
       'Track job applications'
     )
+  })
+
+  test('Escape and the close button both dismiss the history overlay', async () => {
+    const { window } = launched
+    await window.evaluate(() => {
+      const w = window as unknown as {
+        __fbAssistantChrome?: {
+          getState: () => {
+            openPanel: () => void
+            setMode: (m: string) => void
+            setTab: (t: string) => void
+          }
+        }
+      }
+      const st = w.__fbAssistantChrome?.getState()
+      st?.setMode('sidebar')
+      st?.setTab('chat')
+      st?.openPanel()
+    })
+    const list = window.locator('[data-testid="conversation-overlay"]')
+
+    await window.locator('[data-testid="assistant-history-toggle"]').click()
+    await expect(list).toBeVisible()
+    await list.locator('[data-testid="conversation-close"]').click()
+    await expect(list).toHaveCount(0)
+
+    await window.locator('[data-testid="assistant-history-toggle"]').click()
+    await expect(list).toBeVisible()
+    await window.keyboard.press('Escape')
+    await expect(list).toHaveCount(0)
   })
 
   // ── Phase 4: interactive blocks ──────────────────────────────────────────
@@ -284,7 +348,12 @@ test.describe('Plexii hub (Phase 1)', () => {
   test('the assistant surfaces carry the Plexii name', async () => {
     const { window } = launched
     await window.locator('[data-testid="sidebar-plexii"]').click()
-    await expect(window.getByRole('heading', { name: 'Plexii', exact: true })).toBeVisible()
+    // DEC-120 replaced the "Plexii" <h2> with the animated wordmark, and this
+    // assertion went on asking for the heading — so it had been red ever
+    // since, for a reason that was never a bug in the app. The name now lives
+    // on the mark itself (PlexiiMark: role="img" aria-label="Plexii"), which
+    // is both what a screen reader needs and what makes this checkable.
+    await expect(window.getByRole('img', { name: 'Plexii', exact: true }).first()).toBeVisible()
     // The retired names are gone from the chrome.
     await expect(window.getByRole('heading', { name: 'Assistant', exact: true })).toHaveCount(0)
     await expect(window.getByText('Ask PlexiBrain')).toHaveCount(0)

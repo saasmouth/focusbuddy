@@ -8,13 +8,20 @@ import { useNodeStore } from '../../stores/nodes'
 // The assistant's header (operator direction, 2026-09-06). The wordmark that
 // lives at the top-left of the desk sidebar — the SAME PlexiiLogo, the same
 // blink-once-and-wink-on-hover mark — in place of "Plexii / your workspace",
-// and, from the right: Minimize, Display mode, "What was I doing?", New chat.
-// Body double and Your conversations left this bar on the same instruction:
-// body double keeps its doors in the app header and the command centre; the
-// conversation list stays the fullscreen rail. The tab strip sits BELOW this
-// bar, so the header is the panel's first line on every tab. The page (the
-// hub) wears the same bar without the two chrome doors — it is not
-// re-dressable and has nothing to minimize into.
+// and, from the right: Minimize, Display mode, Your conversations, "What was I
+// doing?", New chat. Body double keeps its doors in the app header and the
+// command centre. The tab strip sits BELOW this bar, so the header is the
+// panel's first line on every tab. The page (the hub) wears the same bar
+// without the chrome doors — it is not re-dressable and has nothing to
+// minimize into.
+//
+// Your conversations came BACK to this bar (operator direction, 2026-10-08).
+// It had been removed on the reasoning that the list "stays the fullscreen
+// rail" — but the recent-conversation sublist in the desk sidebar was the only
+// other way to reach history, and that has now gone from the nav. Without this
+// door, anyone working in sidebar or floating mode could not reach an old
+// conversation at all. Fullscreen still has the rail, so the button hides
+// there rather than offering a second, redundant list.
 
 // The three display modes, in Notion's order and with Notion's labels. The
 // button shows the current mode's icon; the dropdown lists all three with a
@@ -34,6 +41,8 @@ export default function AssistantHeader({ chrome }: { chrome: boolean }): JSX.El
   const setMode = useAssistantChrome((s) => s.setMode)
   const setTab = useAssistantChrome((s) => s.setTab)
   const close = useAssistantChrome((s) => s.close)
+  const historyOpen = useAssistantChrome((s) => s.historyOpen)
+  const toggleHistory = useAssistantChrome((s) => s.toggleHistory)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
@@ -54,6 +63,22 @@ export default function AssistantHeader({ chrome }: { chrome: boolean }): JSX.El
       {/* The desk sidebar's mark, verbatim — one wordmark, one motion. */}
       <PlexiiLogo height={20} />
       <div className="ml-auto flex items-center gap-1">
+        {chrome && mode !== 'fullscreen' && (
+          <button
+            onClick={() => {
+              setTab('chat')
+              toggleHistory()
+            }}
+            className="icon-btn"
+            data-testid="assistant-history-toggle"
+            title="Your conversations — search and reopen an earlier chat"
+            aria-label="Your conversations"
+            aria-expanded={historyOpen}
+            aria-pressed={historyOpen}
+          >
+            <Icon name="forum" size={16} className={historyOpen ? 'text-accent' : undefined} />
+          </button>
+        )}
         <button
           onClick={() => {
             newConversation()

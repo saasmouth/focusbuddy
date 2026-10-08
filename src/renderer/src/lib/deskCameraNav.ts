@@ -207,118 +207,22 @@ export function viewportCentreInCanvas(
     y: (viewport.height / 2 - camera.panY) / camera.zoom
   }
 }
-
-// ── The trackpad swipe, as a pure decision ──────────────────────────────────
+// ── Why there is no swipe-to-widget gesture here ────────────────────────────
 //
-// WHY THIS MOVED OUT OF THE COMPONENT. It shipped inside Canvas.tsx holding its
-// accumulator in a ref, which made it untestable, and it was wrong in a way
-// nobody could have caught by reading it: the thresholds were chosen for a
-// trackpad and a MOUSE WHEEL clears all of them on contact.
+// There was one: a decisive two-finger flick stepped to the neighbouring
+// widget instead of panning. It is gone, and it should not come back in this
+// shape.
 //
-// One wheel notch is a single event of roughly 100px (120 on Windows), with
-// deltaX exactly 0. So the peak test (24px, meant to separate a flick from a
-// crawl) passed on the first tick, the axis test passed trivially because a
-// wheel has no horizontal component at all, and the distance test (160px) was
-// met by the third notch. Ordinary scrolling therefore jumped to another
-// widget — and then the post-step cooldown swallowed every wheel event for
-// 420ms, which is why smooth scrolling appeared to stop as well.
+// The gesture had to tell a flick from a pan using only the wheel event
+// stream, which is the same stream for both. Tuning that boundary by magnitude
+// never worked. A mouse wheel cleared every threshold on contact (one notch is
+// ~100px with deltaX exactly 0), so ordinary scrolling jumped widgets and the
+// post-step cooldown then swallowed 420ms of events, which read as scrolling
+// having frozen. Detecting the device fixed the wheel but not an Apple Magic
+// Mouse, whose swipe is pixel-mode with a real deltaX — indistinguishable from
+// a trackpad flick by shape, yet used for plain scrolling.
 //
-// A trackpad is a different signal: deltas ramp from small values, arrive far
-// more often, and carry some cross-axis movement from the hand. The fix is not
-// to retune the numbers — no threshold separates "three wheel notches" from "a
-// deliberate flick" by magnitude alone — but to recognise the device.
-
-/** Carried between wheel events. Create with `freshSwipe()`. */
-export interface SwipeState {
-  ax: number
-  ay: number
-  peak: number
-  last: number
-  until: number
-}
-
-export const freshSwipe = (): SwipeState => ({ ax: 0, ay: 0, peak: 0, last: 0, until: 0 })
-
-/** The parts of a wheel event this needs. */
-export interface WheelSample {
-  deltaX: number
-  deltaY: number
-  /** 0 = pixels, 1 = lines, 2 = pages. */
-  deltaMode: number
-}
-
-/**
- * Is this a mouse wheel rather than a trackpad?
- *
- * Deliberately errs towards "yes". A false positive costs the swipe gesture on
- * one event; a false negative steals the user's scroll, which is the bug this
- * exists to fix.
- */
-export function isMouseWheel(e: WheelSample): boolean {
-  // Line and page modes are only ever emitted by a wheel.
-  if (e.deltaMode !== 0) return true
-  // A wheel notch is a large, perfectly single-axis quantum. A trackpad flick
-  // large enough to reach 100px in one event is essentially always carrying
-  // some horizontal component too.
-  return e.deltaX === 0 && Math.abs(e.deltaY) >= 100
-}
-
-export const SWIPE_FLICK_PEAK = 24
-export const SWIPE_FLICK_DIST = 160
-export const SWIPE_AXIS_RATIO = 2
-export const SWIPE_COOLDOWN_MS = 420
-export const SWIPE_GESTURE_GAP_MS = 160
-
-export interface SwipeDecision {
-  /** Consume the event — do not pan the camera with it. */
-  consume: boolean
-  /** Step the camera this way, if set. */
-  dir: CameraDir | null
-}
-
-/**
- * Fold one wheel event into the gesture, mutating `s`, and say what to do.
- *
- * `stepped` tells it whether the caller actually moved: a step that finds no
- * widget in that direction must not start the cooldown, or the gesture would
- * go dead for 420ms having done nothing.
- */
-export function swipeStep(
-  s: SwipeState,
-  e: WheelSample,
-  now: number,
-  canStep: (dir: CameraDir) => boolean
-): SwipeDecision {
-  // A wheel never contributes to the gesture, and never gets swallowed.
-  if (isMouseWheel(e)) return { consume: false, dir: null }
-
-  if (now < s.until) return { consume: true, dir: null }
-  if (now - s.last > SWIPE_GESTURE_GAP_MS) {
-    s.ax = 0
-    s.ay = 0
-    s.peak = 0
-  }
-  s.last = now
-  s.ax += e.deltaX
-  s.ay += e.deltaY
-  s.peak = Math.max(s.peak, Math.abs(e.deltaX), Math.abs(e.deltaY))
-
-  if (s.peak < SWIPE_FLICK_PEAK) return { consume: false, dir: null }
-  const absX = Math.abs(s.ax)
-  const absY = Math.abs(s.ay)
-  const horizontal = absX >= absY * SWIPE_AXIS_RATIO
-  const vertical = absY >= absX * SWIPE_AXIS_RATIO
-  if (!horizontal && !vertical) return { consume: false, dir: null }
-  if ((horizontal ? absX : absY) < SWIPE_FLICK_DIST) return { consume: false, dir: null }
-
-  // Sign follows the existing pan mapping: panBy(-deltaX, -deltaY), so a
-  // two-finger scroll with positive deltaX moves the camera to the right.
-  const dir: CameraDir = horizontal ? (s.ax > 0 ? 'right' : 'left') : s.ay > 0 ? 'down' : 'up'
-  if (!canStep(dir)) return { consume: false, dir: null }
-
-  s.ax = 0
-  s.ay = 0
-  s.peak = 0
-  s.until = now + SWIPE_COOLDOWN_MS
-  return { consume: true, dir }
-}
+// That is the lesson: "flick" is not a property of the event stream, it is a
+// property of the user's intent, and no threshold recovers it. Stepping between
+// widgets is therefore a keyboard gesture only — the arrow keys, which say
+// exactly one thing. Scroll and swipe always pan, on every device.

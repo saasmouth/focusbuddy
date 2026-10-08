@@ -89,7 +89,15 @@ export default function PlexiiMark({
   }
 
   return (
+    // The mark carries the product name as its accessible name. Both the SVGs
+    // below are pure artwork with no text node and no <title>, so without this
+    // the wordmark standing in for a heading — which is what it does in the
+    // assistant header and the desk sidebar — announced nothing at all, and
+    // the name "Plexii" was absent from the accessibility tree on every
+    // surface that wears it.
     <span
+      role="img"
+      aria-label="Plexii"
       className={`inline-flex items-center select-none ${className}`}
       onPointerEnter={hoverable ? () => apply(pointerEnter(machine.current, modeRef.current)) : undefined}
       onPointerLeave={hoverable ? () => apply(pointerLeave(machine.current, modeRef.current)) : undefined}

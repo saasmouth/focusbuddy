@@ -9,7 +9,6 @@ import { useConnectedAppsStore } from '../stores/connectedApps'
 import SyncIndicator from './SyncIndicator'
 import UpgradeCard from './UpgradeCard'
 import { useViewStore, type View } from '../stores/view'
-import { useChatStore } from '../stores/chat'
 import { catalogFor } from '../lib/widgetCatalog'
 import SegmentSwitcher from './segment/SegmentSwitcher'
 import OrgSwitcher from './OrgSwitcher'
@@ -135,18 +134,12 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
   const goPlexiBrain = useViewStore((s) => s.goPlexiBrain)
   const goPlexii = useViewStore((s) => s.goPlexii)
 
-  // The Plexii row's sublist: the 3 most recent AI conversations, straight from
-  // the one conversation store the pill and the hub already share. The list
-  // arrives newest-first from the store; refresh once so a fresh session shows
-  // history without having opened the assistant.
-  const conversations = useChatStore((s) => s.conversations)
-  const activeConversationId = useChatStore((s) => s.activeConversationId)
-  const refreshConversations = useChatStore((s) => s.refreshConversations)
-  const openConversation = useChatStore((s) => s.openConversation)
-  const recentConversations = useMemo(() => conversations.slice(0, 3), [conversations])
-  useEffect(() => {
-    void refreshConversations()
-  }, [refreshConversations])
+  // No conversation sublist here any more (operator direction, 2026-10-08).
+  // The Plexii row used to expand to the three most recent chats, which made
+  // the nav a second, truncated history competing with the assistant's own
+  // list. Conversations now live in ONE place — the assistant panel, where
+  // "Your conversations" opens the full grouped list with search. This row is
+  // just the door to the hub.
 
   // Hide desk-nav entries that lead to a now-gated surface, using the same
   // view-kind -> capability map MainPane's CapabilityGate enforces, so nav and
@@ -180,7 +173,6 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
 
   // Section collapse state for the remaining sections.
   const [roomsNavOpen, setRoomsNavOpen] = useState(true)
-  const [plexiiNavOpen, setPlexiiNavOpen] = useState(true)
   const [appsOpen, setAppsOpen] = useState(true)
 
   // Shared-with-me inbox — loaded once on mount, drives the "Shared" nav badge.
@@ -533,53 +525,22 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
               }}
             />
           )}
-          {/* Plexii — the AI hub. Clicking opens the hub page; the chevron
-              expands to the 3 most recent conversations (Rooms sublist
-              pattern). AI carries the accent hue per the destination-hue
-              system; the double-i mark is the Plexii AI signature. */}
-          <div className="flex items-center">
-            <div className="flex-1 min-w-0">
-              <NavRow
-                icon="plexii:ai"
-                label="Plexii"
-                tone="text-[rgb(var(--accent))]"
-                active={viewIsActive({ kind: 'plexii' })}
-                testid="sidebar-plexii"
-                onClick={() => {
-                  setActive(null)
-                  goPlexii()
-                }}
-              />
-            </div>
-            {recentConversations.length > 0 && (
-              <button
-                onClick={() => setPlexiiNavOpen((v) => !v)}
-                title={plexiiNavOpen ? 'Collapse' : 'Expand'}
-                className="icon-btn !h-6 !w-6 shrink-0 -ml-1"
-              >
-                <Icon name={plexiiNavOpen ? 'expand_more' : 'chevron_right'} size={16} />
-              </button>
-            )}
-          </div>
-          {plexiiNavOpen && recentConversations.length > 0 && (
-            <div className="ml-4 pl-2 border-l border-[var(--edge-soft)]">
-              {recentConversations.map((c) => (
-                <NavRow
-                  key={c.id}
-                  icon="forum"
-                  label={c.title || 'Untitled conversation'}
-                  tone="text-[var(--ink-50)]"
-                  active={viewIsActive({ kind: 'plexii' }) && activeConversationId === c.id}
-                  testid="sidebar-plexii-conversation"
-                  onClick={() => {
-                    setActive(null)
-                    void openConversation(c.id)
-                    goPlexii()
-                  }}
-                />
-              ))}
-            </div>
-          )}
+          {/* Plexii — the AI hub. One row, one destination: it opens the hub.
+              AI carries the accent hue per the destination-hue system; the
+              double-i mark is the Plexii AI signature. Conversation history is
+              the assistant's, not the nav's — see the note by the store
+              selectors above. */}
+          <NavRow
+            icon="plexii:ai"
+            label="Plexii"
+            tone="text-[rgb(var(--accent))]"
+            active={viewIsActive({ kind: 'plexii' })}
+            testid="sidebar-plexii"
+            onClick={() => {
+              setActive(null)
+              goPlexii()
+            }}
+          />
           {/* Rooms — the workspace organiser. Clicking opens All Rooms; the
               chevron expands to the two index pages (All Rooms, All Desks). */}
           <div className="flex items-center">

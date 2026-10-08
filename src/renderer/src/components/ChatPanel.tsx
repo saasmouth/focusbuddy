@@ -434,6 +434,8 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
   // Display mode (sidebar / floating / fullscreen) — chrome state, not
   // conversation state; the switch itself lives in AssistantHeader now.
   const chromeMode = useAssistantChrome((s) => s.mode)
+  const historyOpen = useAssistantChrome((s) => s.historyOpen)
+  const setHistoryOpen = useAssistantChrome((s) => s.setHistoryOpen)
   // Fullscreen with an empty thread renders as Notion's AI home (3a.4):
   // greeting and composer centered as a group, capability row and suggestion
   // cards under the input. Same panel, same nodes — only layout classes
@@ -864,8 +866,8 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
             ? // A5.5 (AI-39): in floating mode the OVERLAY wrapper is the
               // rounded card (tab strip included) — a card inside a card read
               // as a box with an inner outline, which is what Caleb saw.
-              'fb-chat-container h-full w-full flex flex-col overflow-hidden bg-[var(--surface-raised)] text-[var(--ink-100)]'
-            : `fb-chat-container ${FLOATING_MENU_ASIDE}`
+              'fb-chat-container relative h-full w-full flex flex-col overflow-hidden bg-[var(--surface-raised)] text-[var(--ink-100)]'
+            : `fb-chat-container relative ${FLOATING_MENU_ASIDE}`
       }
       style={isFullscreen || chromeMode === 'floating' ? undefined : FLOATING_MENU_STYLE}
       data-testid="assistant-panel"
@@ -874,7 +876,14 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
           beside the chat (plan D10). The narrow modes cannot give a rail the
           width without taking it from the conversation, so they get the same
           list as an overlay, toggled from the header. One component either
-          way — two containers, not two implementations. */}
+          way — two containers, not two implementations.
+
+          The overlay half of that sentence was described here but never
+          actually rendered, so for as long as history lived in the desk
+          sidebar nobody noticed. It is wired now (the sidebar sublist is
+          gone), which is what makes the assistant the one place conversations
+          live. Opening one closes the overlay, so a pick returns you straight
+          to the thread. */}
       <div className={isFullscreen ? 'flex-1 min-h-0 flex' : 'contents'}>
       {isFullscreen && (
         <ConversationList
@@ -884,6 +893,23 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
           onOpen={(id) => void openConversation(id)}
           onNew={newConversation}
           onDelete={(id) => void deleteConversation(id)}
+        />
+      )}
+      {!isFullscreen && historyOpen && (
+        <ConversationList
+          variant="overlay"
+          conversations={conversations}
+          activeId={activeConversationId}
+          onOpen={(id) => {
+            void openConversation(id)
+            setHistoryOpen(false)
+          }}
+          onNew={() => {
+            newConversation()
+            setHistoryOpen(false)
+          }}
+          onDelete={(id) => void deleteConversation(id)}
+          onClose={() => setHistoryOpen(false)}
         />
       )}
       <div className={isFullscreen ? 'flex-1 min-w-0 flex flex-col relative' : 'contents'}>

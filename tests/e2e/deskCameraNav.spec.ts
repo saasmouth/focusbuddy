@@ -284,111 +284,64 @@ async function hoverCanvas(window: Page): Promise<void> {
   await window.mouse.move(r.x, r.y)
 }
 
-test('a decisive two-finger flick steps a widget; a gentle one still pans', async () => {
+test('no scroll gesture steps a widget — every shape of it only pans', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
   const { idOf } = await seedDesk(window, { a: ROW.a, b: ROW.b })
-  await startFrom(window, idOf.a)
   await hoverCanvas(window)
 
-  // A flick: fast (each event well past the per-event threshold) and clearly
-  // along one axis. Real wheel events, so this exercises the same handler a
-  // trackpad drives -- what it cannot tell us is how the thresholds FEEL, which
-  // is why the behaviour sits behind a preference.
-  for (let i = 0; i < 5; i++) await window.mouse.wheel(45, 0)
-  await window.waitForTimeout(500)
-  let cam = await camera(window)
-  expect(cam.at).toBe('b')
-  expect(cam.zoom).toBeCloseTo(1.25, 2)
-
-  // A crawl must NOT step. Two-finger panning is an established feature with
-  // its own sensitivity setting, and silently turning it into a carousel would
-  // be a worse outcome than not having swipe navigation at all.
+  // Three gestures that a threshold-based swipe detector classified
+  // differently, and that the user never meant differently. Each one must pan
+  // the camera and leave the framed widget alone.
   //
-  // Dispatched inside the page rather than through 30 mouse.wheel round trips.
-  // The round-trip version passed with the per-event threshold set to ZERO,
-  // because the protocol latency between events exceeded the window in which a
-  // gesture accumulates -- so every event started a fresh gesture and nothing
-  // could ever have stepped. It was asserting latency, not the threshold.
+  //  - flick:  fast, single-axis, pixel mode — the shape the old detector
+  //            treated as "a deliberate two-finger flick".
+  //  - wheel:  one notch, ~100px, deltaX exactly 0. Cleared every threshold on
+  //            contact, so plain scrolling jumped widgets.
+  //  - magic:  an Apple Magic Mouse swipe. Pixel mode with a real deltaX, so
+  //            device detection read it as a trackpad — but it is how that
+  //            mouse scrolls, and it froze the view on whatever it passed over.
+  const gestures = [
+    { name: 'flick', dx: 45, dy: 0, n: 5, mode: 0 },
+    { name: 'wheel', dx: 0, dy: 100, n: 4, mode: 0 },
+    { name: 'magic', dx: 38, dy: 7, n: 6, mode: 0 }
+  ]
+
+  for (const g of gestures) {
+    await startFrom(window, idOf.a)
+    const before = await camera(window)
+    await window.evaluate((g) => {
+      const el = document.querySelector<HTMLElement>('[data-canvas-surface="true"]')!
+      const b = el.getBoundingClientRect()
+      for (let i = 0; i < g.n; i++) {
+        el.dispatchEvent(
+          new WheelEvent('wheel', {
+            deltaX: g.dx,
+            deltaY: g.dy,
+            deltaMode: g.mode,
+            clientX: b.x + b.width / 2,
+            clientY: b.y + b.height / 2,
+            bubbles: true,
+            cancelable: true
+          })
+        )
+      }
+    }, g)
+    await window.waitForTimeout(400)
+    const cam = await camera(window)
+    expect(cam.at, `${g.name} must not step a widget`).toBe('a')
+    expect(cam.zoom, `${g.name} must not re-zoom`).toBeCloseTo(before.zoom, 6)
+    // It panned: the camera moved, and kept moving for as long as the gesture
+    // lasted. A cooldown that swallowed the tail of a gesture is what made
+    // scrolling feel like it had seized up.
+    const moved =
+      Math.abs(cam.centre.x - before.centre.x) + Math.abs(cam.centre.y - before.centre.y)
+    expect(moved, `${g.name} must pan`).toBeGreaterThan(20)
+  }
+
+  // And the arrow keys still step, which is now the only thing that does.
   await startFrom(window, idOf.a)
-  const before = await camera(window)
-  await window.evaluate(() => {
-    const el = document.querySelector<HTMLElement>('[data-canvas-surface="true"]')!
-    const b = el.getBoundingClientRect()
-    for (let i = 0; i < 30; i++) {
-      el.dispatchEvent(
-        new WheelEvent('wheel', {
-          deltaX: 6,
-          deltaY: 0,
-          clientX: b.x + b.width / 2,
-          clientY: b.y + b.height / 2,
-          bubbles: true,
-          cancelable: true
-        })
-      )
-    }
-  })
-  await window.waitForTimeout(400)
-  cam = await camera(window)
-  expect(cam.at).toBe('a')
-  expect(cam.zoom).toBeCloseTo(before.zoom, 6)
-  // It panned instead: the camera moved, but it did not jump to a widget.
-  expect(Math.abs(cam.centre.x - before.centre.x)).toBeGreaterThan(20)
-
-  // Nor may a fast DIAGONAL drag step. A diagonal is someone moving the camera
-  // across the desk, not picking a direction, and guessing which axis they
-  // "meant" would send the view somewhere they did not ask for.
-  await startFrom(window, idOf.a)
-  const beforeDiag = await camera(window)
-  await window.evaluate(() => {
-    const el = document.querySelector<HTMLElement>('[data-canvas-surface="true"]')!
-    const b = el.getBoundingClientRect()
-    for (let i = 0; i < 8; i++) {
-      el.dispatchEvent(
-        new WheelEvent('wheel', {
-          deltaX: 45,
-          deltaY: 45,
-          clientX: b.x + b.width / 2,
-          clientY: b.y + b.height / 2,
-          bubbles: true,
-          cancelable: true
-        })
-      )
-    }
-  })
-  await window.waitForTimeout(400)
-  cam = await camera(window)
-  expect(cam.at).toBe('a')
-  expect(cam.zoom).toBeCloseTo(beforeDiag.zoom, 6)
-})
-
-test('swipe navigation can be turned off, and then only pans', async () => {
-  launched = await launchApp()
-  const { window } = launched
-  await waitForReady(window)
-
-  // Written the way the Settings toggle writes it, and written BEFORE the desk
-  // is seeded so the reload seedDesk already does is the one that picks it up --
-  // an extra reload here raced the debounced desk-layout save and tripped the
-  // main process mid-write.
-  await window.evaluate(() => {
-    const raw = localStorage.getItem('fb.nav.prefs')
-    const p = raw ? JSON.parse(raw) : {}
-    p.swipeToWidget = false
-    localStorage.setItem('fb.nav.prefs', JSON.stringify(p))
-  })
-
-  const { idOf } = await seedDesk(window, { a: ROW.a, b: ROW.b })
-  await startFrom(window, idOf.a)
-  await hoverCanvas(window)
-
-  for (let i = 0; i < 5; i++) await window.mouse.wheel(45, 0)
-  await window.waitForTimeout(500)
-  const cam = await camera(window)
-  expect(cam.at).toBe('a')
-
-  // The arrow keys are unaffected — the toggle is about the trackpad only.
   const stepped = await step(window, 'ArrowRight')
   expect(stepped.at).toBe('b')
 })

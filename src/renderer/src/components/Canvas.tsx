@@ -41,9 +41,7 @@ import {
   navCamera,
   navigableWidgets,
   nearestToPoint,
-  freshSwipe,
   nextInDirection,
-  swipeStep,
   viewportCentreInCanvas,
   widgetBox,
   type CameraDir
@@ -1048,31 +1046,6 @@ export default function Canvas(): JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   }, [stepCamera, anyMenuOpen])
 
-  // A decisive two-finger flick steps to the next widget; anything gentler still
-  // pans freely. See trySwipeNav.
-  const swipeRef = useRef(freshSwipe())
-
-  /**
-   * Should this wheel event be consumed as a widget-to-widget swipe?
-   *
-   * The hard part is that a trackpad swipe and a trackpad pan are the same
-   * event stream, and panning is an established feature with its own
-   * sensitivity preference — so this has to be sure before it takes a gesture
-   * away. Three things have to hold at once: the gesture is fast (a crawl is
-   * someone positioning the camera by hand), it is clearly along one axis (a
-   * diagonal is a pan), and it has travelled far enough to be a flick rather
-   * than a twitch. Then one step fires and the remainder of the flick is
-   * swallowed, so a single gesture cannot skip three widgets.
-   *
-   * The thresholds below are a considered starting point, not a measured one —
-   * they want a few minutes on a real trackpad to settle, which is why the whole
-   * behaviour sits behind a preference.
-   */
-  function trySwipeNav(e: React.WheelEvent<HTMLDivElement>): boolean {
-    const d = swipeStep(swipeRef.current, e, performance.now(), stepCamera)
-    return d.consume
-  }
-
   // Keyboard: Cmd+] zoom in, Cmd+[ zoom out, Cmd+0 reset, Cmd+H home, Esc deactivate widget
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
@@ -1123,13 +1096,10 @@ export default function Canvas(): JSX.Element {
       zoomTowardPoint(zoom * factor, cursorX, cursorY)
     } else {
       e.preventDefault()
-      // A decisive flick jumps to the neighbouring widget rather than panning.
-      // Checked before panning so the gesture is never applied twice, and it
-      // returns false for everything that is not unmistakably a flick, which
-      // leaves ordinary two-finger panning exactly as it was.
-      if (nav.swipeToWidget && useWidgetStore.getState().focusedWidgetId === null) {
-        if (trySwipeNav(e)) return
-      }
+      // Scroll and swipe always pan — on a trackpad, a wheel and a Magic
+      // Mouse alike. Stepping between widgets is the arrow keys' job; see the
+      // note at the foot of lib/deskCameraNav.ts for why no gesture can tell a
+      // deliberate flick from a scroll.
       panBy(-e.deltaX * nav.wheelSensitivity, -e.deltaY * nav.wheelSensitivity)
     }
   }

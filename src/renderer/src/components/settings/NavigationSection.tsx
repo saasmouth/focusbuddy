@@ -367,15 +367,9 @@ export default function NavigationSection(): JSX.Element {
         format={x}
         onChange={(v) => setNavPrefs({ zoomSensitivity: v })}
       />
-      <Toggle
-        label="Swipe between widgets"
-        desc="A quick two-finger flick jumps to the next widget instead of panning. Slower two-finger movement still pans freely."
-        checked={nav.swipeToWidget}
-        onChange={(v) => setNavPrefs({ swipeToWidget: v })}
-      />
       <Slider
         label="Arrow-key zoom"
-        desc="How large a widget is made when you arrow or swipe to it. 1× keeps it at its designed size; higher fills more of the screen. A widget too big to fit is always zoomed out to fit."
+        desc="How large a widget is made when you arrow to it. 1× keeps it at its designed size; higher fills more of the screen. A widget too big to fit is always zoomed out to fit."
         value={nav.navZoom}
         min={1}
         max={2}

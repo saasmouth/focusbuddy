@@ -196,6 +196,9 @@ export default function FirstRunOnboarding(): JSX.Element | null {
               <span>Get a key from the Anthropic console</span>
             </button>
             <input
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               type="password"
               value={key}
               onChange={(e) => {

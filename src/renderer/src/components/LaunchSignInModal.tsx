@@ -59,6 +59,9 @@ export default function LaunchSignInModal(): JSX.Element | null {
   // their password). Sync once cachedEmail is loaded.
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  // Reveal is per-open, never remembered: a password left on screen because
+  // of a setting chosen days ago is a worse default than one extra click.
+  const [showPassword, setShowPassword] = useState(false)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [busy, setBusy] = useState(false)
@@ -275,6 +278,9 @@ export default function LaunchSignInModal(): JSX.Element | null {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               required
               autoFocus
               className="w-full px-3 py-2 rounded-md text-stone-100 placeholder:text-stone-500"
@@ -326,20 +332,56 @@ export default function LaunchSignInModal(): JSX.Element | null {
             <label className="block text-[10px] uppercase tracking-wider text-stone-400 font-semibold mb-1">
               Password
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={mode === 'signup' ? 8 : undefined}
-              className="w-full px-3 py-2 rounded-md text-stone-100 placeholder:text-stone-500"
-              style={{
-                background: 'rgba(0,0,0,0.32)',
-                border: '1px solid rgba(255,255,255,0.08)'
-              }}
-              placeholder={mode === 'signup' ? 'at least 8 characters' : 'your password'}
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            />
+            {/* Reveal, and the macOS substitution opt-outs.
+
+                Reported 2026-10-08: a password with mixed case and symbols
+                "wasn't typing properly", while pasting it worked. The field
+                itself was cleared by test: it keeps every character at a 0ms
+                typing delay, with Shift held across runs of letters and
+                symbols, and with the main thread stalled 70ms out of every
+                90ms. But those tests inject key events through the debug
+                protocol, which bypasses the macOS layout and text-input layer
+                entirely — so they can prove the app is innocent and still
+                cannot see a substitution happening above Chromium. This
+                machine has Text Replacement switched on with short triggers,
+                which is exactly that layer.
+
+                So: opt the field out of every automatic substitution (the
+                attributes below), and let the user SEE what is landing. A
+                password field that silently takes the wrong characters is
+                unfalsifiable from the user's side, which is why this was hard
+                to report in the first place. */}
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={mode === 'signup' ? 8 : undefined}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                data-testid="signin-password"
+                className="w-full pl-3 pr-10 py-2 rounded-md text-stone-100 placeholder:text-stone-500"
+                style={{
+                  background: 'rgba(0,0,0,0.32)',
+                  border: '1px solid rgba(255,255,255,0.08)'
+                }}
+                placeholder={mode === 'signup' ? 'at least 8 characters' : 'your password'}
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                data-testid="signin-password-reveal"
+                title={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showPassword}
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 grid place-items-center rounded-md text-stone-400 hover:text-stone-100 transition-colors"
+              >
+                <Icon name={showPassword ? 'visibility_off' : 'visibility'} size={16} />
+              </button>
+            </div>
             {mode === 'login' && (
               <div className="text-right mt-1">
                 <button

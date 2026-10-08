@@ -98,11 +98,22 @@ interface AssistantChromeStore {
   // Sidebar-mode dock width in px, clamped to [ASSISTANT_MIN, ASSISTANT_MAX].
   width: number
   activeTab: AssistantTab
+  /**
+   * Whether the conversation history is showing in the narrow modes.
+   *
+   * Deliberately NOT persisted. In sidebar and floating the history is an
+   * overlay sitting on top of the conversation, so restoring it open would
+   * hide the thread behind a list every time the app started. Fullscreen has
+   * the permanent rail instead and ignores this entirely.
+   */
+  historyOpen: boolean
   openPanel: () => void
   close: () => void
   toggle: () => void
   setTab: (tab: AssistantTab) => void
   setMode: (mode: AssistantMode) => void
+  toggleHistory: () => void
+  setHistoryOpen: (open: boolean) => void
   // Live during a drag — clamps but does not persist (that's persistWidth's
   // job when the drag settles, mirroring useSidebarWidth).
   setWidth: (px: number) => void
@@ -114,6 +125,7 @@ export const useAssistantChrome = create<AssistantChromeStore>((set, get) => ({
   mode: loadMode(),
   width: loadWidth(),
   activeTab: loadTab(),
+  historyOpen: false,
   openPanel: () => {
     persist(OPEN_KEY, '1')
     set({ open: true })
@@ -133,8 +145,12 @@ export const useAssistantChrome = create<AssistantChromeStore>((set, get) => ({
   },
   setMode: (mode) => {
     persist(MODE_KEY, mode)
-    set({ mode })
+    // Fullscreen carries the permanent rail, so an overlay left open from a
+    // narrow mode would double the list. Close it on the way in.
+    set({ mode, historyOpen: mode === 'fullscreen' ? false : get().historyOpen })
   },
+  toggleHistory: () => set({ historyOpen: !get().historyOpen }),
+  setHistoryOpen: (open) => set({ historyOpen: open }),
   setWidth: (px) => set({ width: clampAssistantWidth(px) }),
   persistWidth: () => persist(WIDTH_KEY, String(get().width))
 }))

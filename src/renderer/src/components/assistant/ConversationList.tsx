@@ -9,8 +9,15 @@
 // search field sits at the top (commissioned by Caleb at plan approval).
 // Everything a row used to print — where it started, exactly when — moves to
 // its tooltip, so the information survives without the noise.
+//
+// The search field used to appear only past five conversations. It is
+// unconditional now: with the desk sidebar's recent-conversation sublist gone
+// (2026-10-08) this list is the only way to reach an old chat, and a field
+// that comes and goes with the row count is a field you cannot learn to reach
+// for. The overlay variant also carries its own close button and answers
+// Escape, because unlike the rail it covers the conversation it sits on.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Icon from '../Icon'
 import type { AiChatConversationMeta } from '@shared/types'
 
@@ -22,6 +29,8 @@ interface Props {
   onDelete: (id: string) => void
   // Fullscreen renders this as a rail; the other modes float it over the panel.
   variant: 'rail' | 'overlay'
+  /** Overlay only — dismiss without picking anything. */
+  onClose?: () => void
 }
 
 function bucketLabel(ts: number): string {
@@ -48,10 +57,23 @@ export default function ConversationList({
   onOpen,
   onNew,
   onDelete,
-  variant
+  variant,
+  onClose
 }: Props): JSX.Element {
   const isRail = variant === 'rail'
   const [query, setQuery] = useState('')
+  // Escape dismisses the overlay. The rail is permanent furniture and must not
+  // answer Escape, or it would vanish from the AI home with no way back.
+  useEffect(() => {
+    if (isRail || !onClose) return
+    function onKey(e: KeyboardEvent): void {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      onClose!()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isRail, onClose])
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return conversations
@@ -64,10 +86,27 @@ export default function ConversationList({
       className={
         isRail
           ? 'w-[220px] shrink-0 h-full flex flex-col border-r border-[var(--edge-soft)] bg-[color-mix(in_oklab,var(--surface-sunken)_40%,transparent)]'
-          : 'absolute inset-x-2 top-11 z-30 max-h-[60%] flex flex-col rounded-[var(--radius-card)] border border-[var(--edge-firm)] bg-[var(--surface-raised)] shadow-[var(--shadow-cast)] overflow-hidden'
+          : 'absolute inset-x-2 top-2 z-30 max-h-[70%] flex flex-col rounded-[var(--radius-card)] border border-[var(--edge-firm)] bg-[var(--surface-raised)] shadow-[var(--shadow-cast)] overflow-hidden'
       }
     >
       <div className="shrink-0 p-2 flex flex-col gap-1.5">
+        {!isRail && onClose && (
+          <div className="flex items-center gap-1">
+            <span className="fb-t-caption uppercase tracking-[0.06em] text-[var(--ink-40)] select-none">
+              Your conversations
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close conversations"
+              title="Close (Esc)"
+              data-testid="conversation-close"
+              className="ml-auto icon-btn !h-6 !w-6 shrink-0"
+            >
+              <Icon name="close" size={14} />
+            </button>
+          </div>
+        )}
         <button
           type="button"
           onClick={onNew}
@@ -79,7 +118,7 @@ export default function ConversationList({
           <span>New chat</span>
           <span className="ml-auto fb-t-caption font-mono text-[var(--ink-40)]">⌘O</span>
         </button>
-        {conversations.length > 5 && (
+        {conversations.length > 0 && (
           <div className="relative">
             <Icon
               name="search"

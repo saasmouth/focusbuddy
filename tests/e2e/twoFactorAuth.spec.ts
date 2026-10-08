@@ -42,14 +42,14 @@ test('twofa-toggle is absent when signed out (TwoFactorSettings guards on token)
   await expect(settingsBtn).toBeVisible({ timeout: 5_000 })
   await settingsBtn.click()
 
-  const settingsPanel = window.locator('.fixed.z-\\[200\\].overflow-y-auto').first()
+  const settingsPanel = window.locator('[role="dialog"][aria-label="Settings"]')
   await expect(settingsPanel).toBeVisible({ timeout: 5_000 })
 
-  // Scroll to where AccountSection (and TwoFactorSettings) would appear.
-  await window.evaluate(() => {
-    const el = document.querySelector('[data-testid="account-signin"]')
-    if (el) el.scrollIntoView({ block: 'nearest' })
-  })
+  // Mount AccountSection by selecting its tab. Without this the assertions
+  // below were vacuous — they checked that controls were absent from a panel
+  // that had never rendered them, so they would have passed against any app.
+  await window.locator('[data-testid="settings-tab-account"]').click()
+  await expect(window.locator('[data-testid="account-signin"]')).toBeVisible({ timeout: 5_000 })
 
   // Signed-out state: TwoFactorSettings returns null when no token, so neither
   // twofa-toggle nor twofa-confirm-code should exist in the DOM.
@@ -72,8 +72,13 @@ test('sign-in modal does NOT show 2fa-code field by default (only after twoFacto
   // Open Settings, scroll to account section, click "Sign in or create account".
   const settingsBtn = window.getByRole('button', { name: /appearance settings/i })
   await settingsBtn.click()
-  const settingsPanel = window.locator('.fixed.z-\\[200\\].overflow-y-auto').first()
+  const settingsPanel = window.locator('[role="dialog"][aria-label="Settings"]')
   await expect(settingsPanel).toBeVisible({ timeout: 5_000 })
+  // The panel is tabbed, and AccountSection only mounts on the Account tab
+  // (`{tab === 'account' && <AccountSection />}`). These two tests predate the
+  // tabs and went on scrolling to a button that was never in the DOM, so they
+  // had been red for reasons that were never a bug in the app.
+  await window.locator('[data-testid="settings-tab-account"]').click()
   await window.evaluate(() => {
     const el = document.querySelector('[data-testid="account-signin"]')
     if (el) el.scrollIntoView({ block: 'nearest' })
