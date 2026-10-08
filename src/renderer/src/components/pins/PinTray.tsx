@@ -20,7 +20,7 @@ export default function PinTray(): JSX.Element | null {
   const activeTaskId = useNodeStore((s) => s.activeTaskId)
   const setActive = useNodeStore((s) => s.setActive)
   const goTask = useViewStore((s) => s.goTask)
-  const goProject = useViewStore((s) => s.goProject)
+  const goRoom = useViewStore((s) => s.goRoom)
   const goDocument = useViewStore((s) => s.goDocument)
   const createWidget = useWidgetStore((s) => s.create)
 
@@ -44,7 +44,8 @@ export default function PinTray(): JSX.Element | null {
       setActive(item.refId)
       goTask(item.refId)
     } else if (item.kind === 'room') {
-      goProject(item.refId)
+      // A room shows its desks (see goRoom in stores/view.ts), not a canvas.
+      goRoom(item.refId)
     } else if (item.kind === 'document') {
       goDocument(item.refId)
     } else if ((item.kind === 'widget' || item.kind === 'activity') && item.deskId) {

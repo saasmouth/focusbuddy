@@ -173,7 +173,7 @@ Prefer surfacing patterns the user can't see at a glance: themes across folders,
 // no-surprise-spending rule for the BYO API key.
 export default function WorkspaceHealthCard({ taskIds, nodes }: Props): JSX.Element {
   const goTask = useViewStore((s) => s.goTask)
-  const goProject = useViewStore((s) => s.goProject)
+  const goRoom = useViewStore((s) => s.goRoom)
   const [aiInsights, setAiInsights] = useState<HealthInsight[] | null>(null)
   const [aiBusy, setAiBusy] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
@@ -201,7 +201,8 @@ export default function WorkspaceHealthCard({ taskIds, nodes }: Props): JSX.Elem
       (n) => n.id === wanted || n.id.startsWith(wanted)
     )
     if (!node) return
-    if (node.kind === 'folder') goProject(node.id)
+    // A room shows its desks (see goRoom in stores/view.ts), not a canvas.
+    if (node.kind === 'folder') goRoom(node.id)
     else goTask(node.id)
   }
 

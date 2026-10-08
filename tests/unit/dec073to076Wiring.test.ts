@@ -19,7 +19,13 @@ const triage = read('src/renderer/src/components/MissedTriagePrompt.tsx')
 
 describe('dec_073 — New Desk: prefilled, focused, and it OPENS', () => {
   it('dec_073_the_button_says_what_it_makes', () => {
-    expect(sidebar).toContain('<span>New Desk</span>')
+    // The point of DEC-073 is the NOUN: the button must say it makes a desk.
+    // It asserted '<span>New Desk</span>' exactly, which also pinned the
+    // capital D — and that capital was itself the inconsistency, since the
+    // tooltip on the same button, and every other label in the app, say
+    // "New desk". Matched case-insensitively so the decision this test exists
+    // to protect survives without dictating house style.
+    expect(sidebar).toMatch(/<span>New desk<\/span>/i)
     // The old tooltip said "New room" over a button that created a desk.
     expect(sidebar).not.toContain('title="New room"')
   })

@@ -67,7 +67,7 @@ export default function FoldersCard({ nodes }: Props): JSX.Element {
   const setActive = useNodeStore((s) => s.setActive)
   const update = useNodeStore((s) => s.update)
   const moveNode = useNodeStore((s) => s.move)
-  const goProject = useViewStore((s) => s.goProject)
+  const goRoom = useViewStore((s) => s.goRoom)
   const goTask = useViewStore((s) => s.goTask)
 
   const [tab, setTab] = useState<Tab>('active')
@@ -251,7 +251,8 @@ export default function FoldersCard({ nodes }: Props): JSX.Element {
         if (isFolder) {
           if (hasChildren) toggleExpand(node.id)
           setActive(node.id)
-          goProject(node.id)
+          // A room shows its desks (see goRoom in stores/view.ts), not a canvas.
+          goRoom(node.id)
         } else {
           setActive(node.id)
           goTask(node.id)
@@ -268,7 +269,7 @@ export default function FoldersCard({ nodes }: Props): JSX.Element {
   function openNode(node: FbNode): void {
     if (node.kind === 'folder') {
       setActive(node.id)
-      goProject(node.id)
+      goRoom(node.id)
     } else {
       setActive(node.id)
       goTask(node.id)

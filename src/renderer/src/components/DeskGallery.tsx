@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FbNode, Widget } from '@shared/types'
 import { useNodeStore } from '../stores/nodes'
+import { requestNewDesk } from '../lib/newDesk'
 import { useViewStore } from '../stores/view'
 import DeskMiniature from './DeskMiniature'
 import Icon from './Icon'
@@ -62,7 +63,7 @@ export default function DeskGallery(): JSX.Element {
 
   function newDesk(): void {
     // Reuse the sidebar's create flow (opens the new-desk dialog).
-    window.dispatchEvent(new CustomEvent('fb:command-new-task'))
+    requestNewDesk(null)
   }
 
   // Genuinely empty workspace: no desks at all yet.

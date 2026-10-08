@@ -36,7 +36,9 @@ export default function StageManagerStrip({ roomId, activeId }: Props): JSX.Elem
   const setActive = useNodeStore((s) => s.setActive)
   const goTask = useViewStore((s) => s.goTask)
   const goProject = useViewStore((s) => s.goProject)
-  const goRoom = useViewStore((s) => s.goProject)
+  // Was aliased to goProject, which opened the room as a single canvas. Going
+  // "back to the room" now shows the desks in it, like every other room door.
+  const goRoom = useViewStore((s) => s.goRoom)
   const goHome = useViewStore((s) => s.goHome)
   const [widgetsByDesk, setWidgetsByDesk] = useState<Record<string, Widget[]>>({})
   const [transitioning, setTransitioning] = useState(false)

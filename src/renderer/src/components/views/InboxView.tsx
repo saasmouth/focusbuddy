@@ -48,6 +48,7 @@ export default function InboxView(): JSX.Element {
   const goMessages = useViewStore((s) => s.goMessages)
   const goTask = useViewStore((s) => s.goTask)
   const goProject = useViewStore((s) => s.goProject)
+  const goRoom = useViewStore((s) => s.goRoom)
   const setActive = useNodeStore((s) => s.setActive)
   const acceptByToken = useSharesStore((s) => s.acceptByToken)
 
@@ -64,7 +65,8 @@ export default function InboxView(): JSX.Element {
         const item = await acceptByToken(token)
         const res = await acceptShareIntoWorkspace(item.snapshot)
         if (res.rootKind === 'folder') {
-          goProject(res.rootNodeId)
+          // A shared room opens as the desks it contains, like any other room.
+          goRoom(res.rootNodeId)
         } else {
           setActive(res.rootNodeId)
           goTask(res.rootNodeId)

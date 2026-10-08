@@ -1,4 +1,5 @@
 import Icon from '../Icon'
+import { requestNewDesk } from '../../lib/newDesk'
 import { useViewStore } from '../../stores/view'
 import { useAccountStore } from '../../stores/account'
 import { personFirstName } from '../../lib/personName'
@@ -211,6 +212,8 @@ export default function PlexiSuiteHome(): JSX.Element {
   const viewEnabled = useViewKindEnabled()
 
   async function newDesk(): Promise<void> {
+    // The sidebar's set-up dialog, so New desk means the same thing here.
+    if (requestNewDesk(null)) return
     const desk = await createNode({ parentId: null, kind: 'task', title: 'New desk' })
     setActive(desk.id)
     v.goTask(desk.id)

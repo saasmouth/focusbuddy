@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Reorder } from 'framer-motion'
+import { requestNewDesk } from '../../lib/newDesk'
 import { useViewStore } from '../../stores/view'
 import { useNodeStore } from '../../stores/nodes'
 import { useDocumentsStore } from '../../stores/documents'
@@ -1813,6 +1814,8 @@ export function CreateWidget(): JSX.Element {
     v.goDocument(doc.id)
   }
   const newDesk = async (): Promise<void> => {
+    // The sidebar's set-up dialog, so New desk means the same thing here.
+    if (requestNewDesk(null)) return
     try {
       const node = await createNode({ parentId: null, kind: 'task', title: 'New desk' })
       setActive(node.id)

@@ -83,9 +83,22 @@ interface ViewStore {
   goHome: () => void
   goAllTasks: () => void
   goRooms: () => void
-  // Canonical way to open a Room. A room opens as its spatial folder-canvas
-  // (kind 'project-dashboard'); every room opener routes through this so there is
-  // one room destination, not three.
+  // Canonical way to open a Room. A room opens as THE DESKS IT CONTAINS
+  // (kind 'desks', scoped by roomId); every room opener routes through this so
+  // there is one room destination, not three.
+  //
+  // Changed 2026-10-08 on operator direction: "rooms shouldn't be desks. When
+  // someone clicks on a room it should show the desks in the room, not a
+  // desk." It used to commit 'project-dashboard', which is a single
+  // desk-shaped canvas — so opening a room put you on one surface instead of
+  // showing you what was in the room, and the room's actual desks were
+  // reachable only from the Rooms index. A room is a container; opening a
+  // container shows its contents.
+  //
+  // A PLAN room is the one exception and does not come through here: it has a
+  // genuine dashboard of its own (dates, dependencies, milestones), so
+  // RoomsView sends plans to goProject instead. That is a different surface,
+  // not a desk masquerading as a room.
   goRoom: (roomId: string) => void
   goDesks: (roomId?: string) => void
   goShared: () => void
@@ -227,7 +240,7 @@ export const useViewStore = create<ViewStore>((set, get) => {
     goHome: () => commit({ kind: 'home' }),
     goAllTasks: () => commit({ kind: 'all-tasks' }),
     goRooms: () => commit({ kind: 'rooms' }),
-    goRoom: (roomId) => commit({ kind: 'project-dashboard', projectId: roomId }),
+    goRoom: (roomId) => commit({ kind: 'desks', roomId }),
     goDesks: (roomId) => commit({ kind: 'desks', roomId }),
     goShared: () => commit({ kind: 'shared' }),
     goTrash: () => commit({ kind: 'trash' }),

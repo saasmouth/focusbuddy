@@ -5,6 +5,7 @@ import { useNodeStore } from '../../stores/nodes'
 import { useWorkItemStore } from '../../stores/workItems'
 import { isTerminalState } from '../../lib/attentionQueues'
 import { useOrgStore, PERSONAL_ORG_ID } from '../../stores/org'
+import { requestNewDesk } from '../../lib/newDesk'
 import { useViewStore } from '../../stores/view'
 import { useDeskWidgets, realWidgetCount } from '../../lib/useDeskWidgets'
 import { formatRelativeTime } from '../../lib/changelog'
@@ -245,6 +246,9 @@ export default function DesksView({ roomId }: { roomId?: string }): JSX.Element 
     },
     newLabel: 'New desk',
     onNew: () => {
+      // Same set-up dialog as the sidebar's New desk, pre-filed into the room
+      // being viewed. This used to create an untitled "New desk" outright.
+      if (requestNewDesk(roomId ?? null)) return
       void (async () => {
         try {
           const node = await create({ parentId: roomId ?? null, kind: 'task', title: 'New desk' })

@@ -36,6 +36,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.14',
+    date: '2026-10-08T06:00:00Z',
+    title: 'PlexiDesk 4.3.14 \u2014 a room shows what is in it',
+    tag: 'fix',
+    summary:
+      'Opening a room used to drop you onto a single canvas, as though the room were itself a desk. Clicking a room now shows the desks inside it. Scrolling the desk no longer sticks under a widget, and New desk does the same thing wherever you click it.',
+    highlights: [
+      'Clicking a room shows the desks in that room. Before, a room opened as one desk-shaped canvas \u2014 so you landed on a surface instead of seeing what the room contained, and the room\u2019s actual desks could only be found from the Rooms page.',
+      'This applies wherever you click a room: the Rooms page, the Home folders list, the workspace health card, a pinned room, a room someone shared with you, and the way back to a room from a desk you were working in.',
+      'Plans are unchanged. A plan still opens its own dashboard with dates, dependencies and milestones \u2014 that is a real plan view, not a desk.',
+      'Scrolling the desk no longer sticks when the pointer passes over a widget. A widget keeps the scroll only while it still has somewhere to scroll \u2014 so a widget with a long note in it scrolls, and one with nothing to scroll lets the desk move underneath it, instead of swallowing the gesture.',
+      'New desk now opens the same set-up every time. From the Desks page, the Home create button and the launcher it used to make an untitled desk filed nowhere and drop you into it; all of them now open the set-up you get from the menu, and the Desks page files the new desk into the room you are looking at.',
+      'The New desk button beside the wordmark no longer squeezes at narrow menu widths.'
+    ]
+  },
+  {
     version: '4.3.13',
     date: '2026-10-08T05:00:00Z',
     title: 'PlexiDesk 4.3.13 \u2014 scrolling, conversations and typing',

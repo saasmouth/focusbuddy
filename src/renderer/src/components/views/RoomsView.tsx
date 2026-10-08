@@ -49,7 +49,9 @@ export default function RoomsView(): JSX.Element {
   // team org exists.
   const sharedOrgs = useMemo(() => orgs.filter((o) => !o.personal), [orgs])
   const canShare = activeOrgId === PERSONAL_ORG_ID && sharedOrgs.length > 0
-  const goRoom = useViewStore((s) => s.goRoom)
+  // Plans keep their own dashboard; every other room opens its desks. See the
+  // note on goRoom in stores/view.ts.
+  const goProject = useViewStore((s) => s.goProject)
   const goDesks = useViewStore((s) => s.goDesks)
   const openObjectChannel = useMessagingStore((s) => s.openObjectChannel)
   // Public share-link target (a room shared as a 'folder' snapshot with its
@@ -194,7 +196,7 @@ export default function RoomsView(): JSX.Element {
     // gesture this page's header promises). A room that is a PLAN keeps its
     // plan dashboard — that canvas has content; a plain room's would be blank
     // (the operator-reported bug this line fixes).
-    onOpen: (r) => (r.isPlan ? goRoom(r.id) : goDesks(r.id)),
+    onOpen: (r) => (r.isPlan ? goProject(r.id) : goDesks(r.id)),
     newLabel: 'New room',
     onNew: () => {
       void (async () => {
@@ -282,7 +284,7 @@ export default function RoomsView(): JSX.Element {
         key: 'open',
         icon: 'chevron_right',
         label: r.isPlan ? 'Open plan' : 'Open room',
-        onClick: () => (r.isPlan ? goRoom(r.id) : goDesks(r.id))
+        onClick: () => (r.isPlan ? goProject(r.id) : goDesks(r.id))
       },
       // Lifecycle (DEC-021): the ONE shared definition — archive/trash for
       // personal rooms; Archive-for-me / Leave-share + the reason for shared.

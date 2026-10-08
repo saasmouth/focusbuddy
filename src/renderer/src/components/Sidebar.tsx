@@ -202,6 +202,8 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
         parentId: detail?.parentId ?? null,
         kind: detail?.kind ?? 'task'
       })
+      // Claim it, so requestNewDesk() can tell the dialog exists here.
+      if (e.cancelable) e.preventDefault()
     }
     window.addEventListener('fb:command-new-task', onCmd)
     // The Attention capture seam (S3/S5, DEC-019): a dispatch WITH a title
@@ -453,22 +455,30 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
     <aside className={asideClass} style={asideStyle} data-testid="desk-sidebar">
       {/* Header — same silhouette as the PlexiOffice menu: the wordmark on the
           left, then the desk's own actions (New desk, hide) on the right. */}
-      <div className="flex items-center gap-2 px-4 h-14 border-b border-[var(--edge-soft)]">
+      {/* Measured, not guessed: at the 232px minimum sidebar width this row had
+          exactly zero slack (53px wordmark + 8px gap + 128px actions = the 189px
+          of inner width), so flex solved it by compressing the New desk button
+          to 87px against its natural 96px and squeezing the label. The button
+          now refuses to deform (shrink-0 + whitespace-nowrap) and the row buys
+          back the space it needs from its own padding and the divider's
+          margins, which is spare. Re-measure with
+          tests/e2e/_sidebarHeaderFit.spec.ts if anything here changes. */}
+      <div className="flex items-center gap-2 px-3 h-14 border-b border-[var(--edge-soft)] min-w-0">
         <PlexiiLogo height={22} />
-        <div className="ml-auto flex items-center">
+        <div className="ml-auto flex items-center shrink-0">
           <button
             onClick={requestCreateDesk}
             title="New desk — opens set-up with today's date pre-filled; Enter creates and opens it"
-            className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-[rgb(var(--accent))] text-white text-[12px] font-medium hover:bg-[rgb(var(--accent-hover))]"
+            className="inline-flex items-center gap-1 h-7 px-2 rounded-lg bg-[rgb(var(--accent))] text-white text-[12px] font-medium whitespace-nowrap shrink-0 hover:bg-[rgb(var(--accent-hover))]"
           >
-            <Icon name="add" size={14} />
-            <span>New Desk</span>
+            <Icon name="add" size={14} className="shrink-0" />
+            <span>New desk</span>
           </button>
           {/* The minimise control is window chrome, not a desk action — a
               hairline and real spacing keep it from reading as part of New. */}
           {onToggle && (
             <>
-              <span aria-hidden className="w-px h-4 bg-[var(--edge-soft)] ml-2.5 mr-1.5" />
+              <span aria-hidden className="w-px h-4 bg-[var(--edge-soft)] ml-2 mr-1 shrink-0" />
               <MenuMinimizeButton onClick={onToggle} title="Minimise the menu to free the desk" />
             </>
           )}

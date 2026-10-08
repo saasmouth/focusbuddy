@@ -35,6 +35,7 @@ import ZoomControls from './ZoomControls'
 import CanvasEdgeIndicators from './CanvasEdgeIndicators'
 import { useEdgePan } from '../lib/useEdgePan'
 import { useOverlayStore, selectAnyMenuOpen } from '../stores/overlay'
+import { chainCanAbsorb, collectScrollChain, readScrollBox } from '../lib/wheelChaining'
 import { useNavPrefs, frictionFromGlide } from '../lib/navPrefs'
 import { getNavPrefs } from '../lib/navPrefs'
 import {
@@ -1081,10 +1082,18 @@ export default function Canvas(): JSX.Element {
   )
 
   function handleWheel(e: React.WheelEvent<HTMLDivElement>): void {
-    // If an active widget contains the wheel target, leave it alone — its content scrolls
+    // Hand the gesture to the active widget only while something inside it can
+    // still scroll the way the gesture points — scroll chaining, the same rule
+    // browsers use for nested scrollers. Position alone used to decide it,
+    // which meant a widget that could not scroll ate the gesture and the desk
+    // stopped moving under the pointer. See lib/wheelChaining.ts.
     if (activeId !== null) {
       const target = e.target as HTMLElement
-      if (target.closest(`[data-widget-id="${activeId}"]`)) return
+      const root = target.closest(`[data-widget-id="${activeId}"]`)
+      if (root) {
+        const chain = collectScrollChain(target, root, readScrollBox)
+        if (chainCanAbsorb(chain, e.deltaX, e.deltaY)) return
+      }
     }
     // ⌘/Ctrl + wheel = zoom toward cursor; otherwise pan (works for trackpad swipe)
     if (e.ctrlKey || e.metaKey) {
