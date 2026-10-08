@@ -41,7 +41,9 @@ import {
   navCamera,
   navigableWidgets,
   nearestToPoint,
+  freshSwipe,
   nextInDirection,
+  swipeStep,
   viewportCentreInCanvas,
   widgetBox,
   type CameraDir
@@ -1020,13 +1022,24 @@ export default function Canvas(): JSX.Element {
       // Focus mode already walks these widgets with the arrow keys, by opening
       // each one. While it is up, it owns them.
       if (st.focusedWidgetId !== null) return
-      // So does an ACTIVE widget. This is a deliberate departure from edge-pan,
-      // which pointedly does NOT stand down for an active widget (see its note
-      // above): moving the mouse to a screen edge cannot mean anything else,
-      // whereas pressing → inside a table, a list or a sheet very obviously
-      // belongs to the widget. Click bare canvas, or press Escape, and the
-      // arrows are the camera's again.
-      if (st.activeWidgetId !== null) return
+      // So does a widget the arrows actually belong to — but "active" alone is
+      // not that test, and using it meant this feature was unreachable.
+      //
+      // activeWidgetId is set by CLICKING a widget and cleared only by Escape
+      // or a click on bare canvas. In ordinary use something is almost always
+      // active, so every arrow press returned here and the keys appeared dead.
+      //
+      // The real question is whether the keystroke is already spoken for.
+      // Text fields are handled above. What remains is a grid-like widget —
+      // a table, a list, a sheet — where → means "next cell", and that is true
+      // precisely when the focus is INSIDE that widget. If focus sits on the
+      // body because the user clicked a widget's chrome and moved on, the
+      // arrows are the camera's.
+      if (st.activeWidgetId !== null) {
+        const focused = document.activeElement
+        const activeEl = document.querySelector(`[data-widget-id="${st.activeWidgetId}"]`)
+        if (focused && activeEl && activeEl.contains(focused)) return
+      }
       if (anyMenuOpen) return
 
       if (stepCamera(dir)) e.preventDefault()
@@ -1037,7 +1050,7 @@ export default function Canvas(): JSX.Element {
 
   // A decisive two-finger flick steps to the next widget; anything gentler still
   // pans freely. See trySwipeNav.
-  const swipeRef = useRef({ ax: 0, ay: 0, peak: 0, last: 0, until: 0 })
+  const swipeRef = useRef(freshSwipe())
 
   /**
    * Should this wheel event be consumed as a widget-to-widget swipe?
@@ -1056,51 +1069,8 @@ export default function Canvas(): JSX.Element {
    * behaviour sits behind a preference.
    */
   function trySwipeNav(e: React.WheelEvent<HTMLDivElement>): boolean {
-    const FLICK_PEAK = 24 // px in one event — distinguishes a flick from a crawl
-    const FLICK_DIST = 160 // px accumulated before a step fires
-    const AXIS_RATIO = 2 // how dominant the main axis must be
-    const COOLDOWN_MS = 420
-    const GESTURE_GAP_MS = 160
-
-    const now = performance.now()
-    const sw = swipeRef.current
-    // Still inside the flick that already moved us: swallow it, or the tail of
-    // the gesture pans the camera straight off the widget it just framed.
-    if (now < sw.until) return true
-    if (now - sw.last > GESTURE_GAP_MS) {
-      sw.ax = 0
-      sw.ay = 0
-      sw.peak = 0
-    }
-    sw.last = now
-    sw.ax += e.deltaX
-    sw.ay += e.deltaY
-    sw.peak = Math.max(sw.peak, Math.abs(e.deltaX), Math.abs(e.deltaY))
-
-    if (sw.peak < FLICK_PEAK) return false
-    const absX = Math.abs(sw.ax)
-    const absY = Math.abs(sw.ay)
-    const horizontal = absX >= absY * AXIS_RATIO
-    const vertical = absY >= absX * AXIS_RATIO
-    if (!horizontal && !vertical) return false
-    if ((horizontal ? absX : absY) < FLICK_DIST) return false
-
-    // Sign follows the existing pan mapping: panBy(-deltaX, -deltaY), so a
-    // two-finger scroll with positive deltaX moves the camera to the right.
-    const dir: CameraDir = horizontal
-      ? sw.ax > 0
-        ? 'right'
-        : 'left'
-      : sw.ay > 0
-        ? 'down'
-        : 'up'
-
-    if (!stepCamera(dir)) return false
-    sw.ax = 0
-    sw.ay = 0
-    sw.peak = 0
-    sw.until = now + COOLDOWN_MS
-    return true
+    const d = swipeStep(swipeRef.current, e, performance.now(), stepCamera)
+    return d.consume
   }
 
   // Keyboard: Cmd+] zoom in, Cmd+[ zoom out, Cmd+0 reset, Cmd+H home, Esc deactivate widget
