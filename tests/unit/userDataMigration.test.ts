@@ -47,18 +47,31 @@ function fakeFs(
 }
 
 describe('resolveUserDataDir', () => {
-  it('leaves a fresh install on the default path', () => {
+  it('names the pinned directory for a fresh install', () => {
     const { fs, renames } = fakeFs({})
-    expect(resolveUserDataDir(APP_DATA, fs, join)).toEqual({ dir: null, outcome: 'default' })
+    // A concrete path, never null: returning null meant "use Electron's
+    // default", and that default follows `name` in package.json, which is how
+    // a rename of that field moved every existing workspace.
+    expect(resolveUserDataDir(APP_DATA, fs, join)).toEqual({ dir: CURRENT, outcome: 'default' })
     // A fresh install must not be "migrated" into existence.
     expect(renames).toEqual([])
   })
 
-  it('leaves an already-migrated install alone', () => {
-    // The legacy name is gone, so there is nothing to decide.
+  it('names the pinned directory for an already-migrated install', () => {
     const { fs, renames } = fakeFs({ [CURRENT]: 12 })
-    expect(resolveUserDataDir(APP_DATA, fs, join)).toEqual({ dir: null, outcome: 'default' })
+    expect(resolveUserDataDir(APP_DATA, fs, join)).toEqual({ dir: CURRENT, outcome: 'default' })
     expect(renames).toEqual([])
+  })
+
+  it('never defers to a path that depends on the app name', () => {
+    // The whole point: whatever the starting state, a concrete directory comes
+    // back, so nothing downstream can be decided by app.getName().
+    for (const start of [{}, { [LEGACY]: 9 }, { [CURRENT]: 3 }, { [LEGACY]: 9, [CURRENT]: 3 }]) {
+      const { fs } = fakeFs({ ...start })
+      const { dir } = resolveUserDataDir(APP_DATA, fs, join)
+      expect(typeof dir, JSON.stringify(start)).toBe('string')
+      expect(dir).toMatch(/\/(Haptyx|focusbuddy)$/)
+    }
   })
 
   it('moves the legacy directory once, and reports the new path', () => {
@@ -110,8 +123,9 @@ describe('resolveUserDataDir', () => {
       for (const opts of [{}, { renameThrows: true }, { landsEmpty: true }]) {
         const { fs, dirs } = fakeFs({ ...start }, opts)
         const { dir } = resolveUserDataDir(APP_DATA, fs, join)
-        if (dir === null) {
-          // Default path only when no legacy directory was there to move.
+        if (!(dir in dirs)) {
+          // A fresh install: the pinned directory does not exist yet, which is
+          // correct — Electron creates it.
           expect(start[LEGACY]).toBeUndefined()
         } else {
           expect(dirs[dir], `${JSON.stringify(start)} ${JSON.stringify(opts)} -> ${dir}`).toBeGreaterThan(0)

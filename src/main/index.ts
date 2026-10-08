@@ -118,7 +118,9 @@ if (process.env.FB_TEST_USER_DATA) {
       },
       join
     )
-    if (dir) app.setPath('userData', dir)
+    // Always set it. Falling through to Electron's default would put the path
+    // back under the control of `name` in package.json, which is the bug.
+    app.setPath('userData', dir)
   } catch {
     // If anything goes wrong, fall through to the default path rather than crash.
   }

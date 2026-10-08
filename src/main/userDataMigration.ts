@@ -33,13 +33,41 @@ export type UserDataOutcome =
   | 'rolled-back'
 
 export interface UserDataDecision {
-  /** The directory to use, or null to leave Electron's default alone. */
-  dir: string | null
+  /**
+   * The directory to use. ALWAYS a concrete path, never null.
+   *
+   * It used to return null to mean "leave Electron's default alone", and that
+   * default is derived from `name` in package.json — which is how a rename of
+   * that field moved everyone's workspace. There is no case where this should
+   * defer to a value that can change for unrelated reasons.
+   */
+  dir: string
   outcome: UserDataOutcome
 }
 
 export const LEGACY_DIR_NAME = 'Haptyx'
-export const CURRENT_DIR_NAME = 'PlexiDesk'
+
+/**
+ * The directory the standard build keeps its workspace in.
+ *
+ * PINNED, and deliberately not the product's name.
+ *
+ * Electron derives the default userData path from `app.getName()`, which comes
+ * from `name` in package.json. That made a field nobody thinks of as
+ * load-bearing — it is never shown to a user — silently decide where every
+ * user's database, vault and files live.
+ *
+ * Renaming it from 'focusbuddy' to 'plexidesk' as part of the rebrand did
+ * exactly that: 4.3.11 started against an empty directory, and a workspace with
+ * five months of work in it was still on disk but no longer opened. The rename
+ * bought nothing visible and cost the thing that matters most.
+ *
+ * So the path is stated here instead of inherited. It keeps the historical name
+ * because the data is already there and moving 14GB to make a string prettier
+ * is not a trade worth making. `name` in package.json belongs with appId on the
+ * list of identifiers that look cosmetic and are not.
+ */
+export const CURRENT_DIR_NAME = 'focusbuddy'
 
 /**
  * Where the workspace lives, and whether it had to move to get there.
@@ -55,7 +83,7 @@ export function resolveUserDataDir(
   const legacy = join(appData, LEGACY_DIR_NAME)
   const current = join(appData, CURRENT_DIR_NAME)
 
-  if (!fs.exists(legacy)) return { dir: null, outcome: 'default' }
+  if (!fs.exists(legacy)) return { dir: current, outcome: 'default' }
 
   // Ambiguous: a fresh install plus a restored backup, say. Merging two
   // databases is how data actually gets lost, so leave it for a human.

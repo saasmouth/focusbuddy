@@ -48,7 +48,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Selecting across cells in a document table is visible. The selection was always there and the keyboard acted on it \u2014 there was simply nothing drawn, so it looked like it vanished when you let go of the mouse.',
       'Dragging a column edge in a document table now shows the handle you are dragging.',
       'Your plan is reported as the plan you are on. A trial grants Team-level features, and the app had been naming the plan after them \u2014 so a Pro subscriber was told they were on Team.',
-      'The upgrade card no longer appears for people who have already paid.'
+      'The upgrade card no longer appears for people who have already paid.',
+      'If 4.3.11 opened an empty workspace, this restores it. 4.3.11 moved where the app keeps your data, so it started fresh and your desks, documents and files looked lost \u2014 they were untouched on disk the whole time, just no longer being opened. The location is now pinned so it cannot move again.'
     ]
   },
   {
