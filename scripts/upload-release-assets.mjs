@@ -91,9 +91,26 @@ const assets = () => {
 function push(file, name) {
   if (!existsSync(file)) { console.log(`  SKIP  ${name} (no local file)`); return false }
   const want = statSync(file).size
+  // A MANIFEST IS NEVER "ALREADY UPLOADED".
+  //
+  // The size check below is how this script avoids re-sending 380MB it has
+  // already sent. It is wrong for latest.yml and latest-mac.yml, because they
+  // change CONTENT without changing LENGTH: both builds of 4.3.11 produced a
+  // 531-byte latest-mac.yml and a 354-byte latest.yml, differing only in the
+  // sha512, which is a fixed-width base64 string.
+  //
+  // So on a re-upload the manifests were judged already done and kept, while
+  // every artifact beside them was replaced. The feed then advertised the old
+  // build's hash for the new build's file, and electron-updater rejects a
+  // download whose hash does not match — an update that fails for everyone, on
+  // a release that reported complete.
+  //
+  // R2 did not have the problem because `aws s3 cp` simply overwrites. This is
+  // the GitHub half, where an asset has to be deleted before its name is free.
+  const isManifest = name.endsWith('.yml')
   for (let a = 1; a <= ATTEMPTS; a++) {
     const found = assets().find((x) => x.name === name)
-    if (found?.state === 'uploaded' && found.size === want) {
+    if (!isManifest && found?.state === 'uploaded' && found.size === want) {
       console.log(`  OK    ${name} (${want} bytes, uploaded)`); return true
     }
     if (found) {
@@ -112,6 +129,14 @@ function push(file, name) {
       `https://uploads.github.com/repos/${REPO}/releases/${relId}/assets?name=${name}`],
       { encoding: 'utf8' })
     console.log(`    http ${(r.stdout || '').trim() || r.status}`)
+    if (isManifest) {
+      // Size cannot confirm a manifest landed, so confirm by presence of a
+      // fresh record instead of looping forever on an equal-size match.
+      const after = assets().find((x) => x.name === name)
+      if (after?.state === 'uploaded' && after.size === want) {
+        console.log(`  OK    ${name} (${want} bytes, replaced)`); return true
+      }
+    }
   }
   console.log(`  FAILED ${name} after ${ATTEMPTS} attempts`)
   return false
