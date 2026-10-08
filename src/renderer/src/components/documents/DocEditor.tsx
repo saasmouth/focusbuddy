@@ -65,6 +65,70 @@ function overflowCss(scope: string): string {
 `
 }
 
+// Tables: the stylesheet prosemirror-tables requires, which was never present.
+//
+// THE BUG THIS FIXES. Selecting across cells in a document looked like nothing
+// happened — or the highlight appeared while dragging and vanished the moment
+// the mouse was released. That is not a selection failure. Dragging across
+// cells makes prosemirror-tables replace the browser's text selection with a
+// CellSelection, and a CellSelection has NO native appearance: it is drawn
+// entirely by `.selectedCell:after`. With no such rule anywhere in the app, the
+// browser painted its own selection during the drag and ProseMirror swapped in
+// an invisible one on mouseup. The selection was real and the keyboard acted on
+// it; it simply could not be seen.
+//
+// prosemirror-tables ships this CSS at prosemirror-tables/style/tables.css and
+// nothing imported it. Written out here rather than imported so the colours are
+// the app's accent instead of the library's hardcoded #adf and
+// rgba(200,200,255,.4), which would read as a foreign blue on both the themed
+// view and the white page.
+//
+// THE PARTS THAT ARE NOT DECORATION:
+//
+//   position: relative on td/th — the overlay and the resize handle are
+//     absolutely positioned inside the cell. Without it they escape to the
+//     nearest positioned ancestor, so even a styled overlay lands in the wrong
+//     place.
+//   table-layout: fixed — column resizing sets explicit widths; with auto
+//     layout the browser recomputes them and the drag appears to do nothing.
+//   --default-cell-min-width — the library's own min-width rule reads this
+//     variable, and it was undefined, so the declaration resolved to nothing.
+//
+// Also styles .column-resize-handle, which was invisible for the same reason:
+// tables are configured with resizable: true, so the handle exists and could be
+// dragged, with nothing on screen to say so.
+function tableCss(scope: string): string {
+  return `
+.${scope} .ProseMirror table { table-layout: fixed; border-collapse: collapse; width: 100%; }
+.${scope} .ProseMirror td,
+.${scope} .ProseMirror th { position: relative; vertical-align: top; box-sizing: border-box; }
+.${scope} .ProseMirror { --default-cell-min-width: 56px; }
+.${scope} .ProseMirror td:not([data-colwidth]):not(.column-resize-dragging),
+.${scope} .ProseMirror th:not([data-colwidth]):not(.column-resize-dragging) {
+  min-width: var(--default-cell-min-width);
+}
+.${scope} .ProseMirror .selectedCell { caret-color: transparent; }
+.${scope} .ProseMirror .selectedCell:after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 0; bottom: 0;
+  background: rgb(var(--accent) / 0.22);
+  box-shadow: inset 0 0 0 1px rgb(var(--accent) / 0.45);
+  pointer-events: none;
+  z-index: 2;
+}
+.${scope} .ProseMirror .column-resize-handle {
+  position: absolute;
+  right: -2px; top: 0; bottom: 0;
+  width: 4px;
+  background: rgb(var(--accent) / 0.75);
+  pointer-events: none;
+  z-index: 20;
+}
+.${scope} .ProseMirror.resize-cursor { cursor: ew-resize; cursor: col-resize; }
+`
+}
+
 // Page view shows real paper: the sheet is always white with dark ink, in any app
 // theme (like Word and Google Docs), rather than inverting to a dark sheet in dark
 // mode. Scoped to the page canvas only, so continuous view still follows the
@@ -590,6 +654,7 @@ export default function DocEditor({
       <style dangerouslySetInnerHTML={{ __html: FOCUS_CSS }} />
       <style dangerouslySetInnerHTML={{ __html: COMMENT_CSS }} />
       <style dangerouslySetInnerHTML={{ __html: overflowCss(scopeClass) }} />
+      <style dangerouslySetInnerHTML={{ __html: tableCss(scopeClass) }} />
       <style dangerouslySetInnerHTML={{ __html: pagePaperCss(scopeClass) }} />
 
       <div className="relative flex-1 min-w-0 overflow-auto">
