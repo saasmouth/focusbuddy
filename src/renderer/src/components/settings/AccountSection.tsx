@@ -7,7 +7,8 @@
 import { useEffect, useState } from 'react'
 import { useAccountStore } from '../../stores/account'
 import { useSignInPrompt } from '../../stores/signInPrompt'
-import { useCapabilityStore } from '../../stores/capabilities'
+import { useCapabilityStore, useStoredTier, useTrial } from '../../stores/capabilities'
+import { planLabel, trialSuffix } from '../../lib/planDisplay'
 import { personDisplayName, personInitials } from '../../lib/personName'
 import Icon from '../Icon'
 import TwoFactorSettings from './TwoFactorSettings'
@@ -17,7 +18,13 @@ export default function AccountSection(): JSX.Element {
   const signOut = useAccountStore((s) => s.signOut)
   const updateName = useAccountStore((s) => s.updateName)
   const requestSignIn = useSignInPrompt((s) => s.requestOpen)
-  const effectiveTier = useCapabilityStore((s) => s.effectiveTier)
+  // The plan the user is ON, not what they can currently DO. An active trial
+  // lifts effectiveTier to 'team' for everyone, so labelling from it told a
+  // paying Pro subscriber they were on Team — and told a free trialist the
+  // same. Entitlement checks still use effectiveTier; this is a statement of
+  // fact about the account, so it comes from storedTier.
+  const storedTier = useStoredTier()
+  const trial = useTrial()
   const refreshCaps = useCapabilityStore((s) => s.refresh)
   const [busy, setBusy] = useState(false)
 
@@ -63,8 +70,8 @@ export default function AccountSection(): JSX.Element {
     }
   }
 
-  const planLabel =
-    effectiveTier === 'team' ? 'Team' : effectiveTier === 'pro' ? 'Pro' : 'Free'
+  const label = planLabel(storedTier)
+  const trialNote = trialSuffix(trial)
 
   return (
     <div className="px-3 py-3 border-t border-[var(--edge-soft)] space-y-3">
@@ -88,7 +95,10 @@ export default function AccountSection(): JSX.Element {
               <div className="fb-t-caption text-[var(--ink-50)] truncate">
                 {account.email}
                 <span className="mx-1.5 text-[var(--ink-40)]">·</span>
-                <span data-testid="account-plan">{planLabel} plan</span>
+                <span data-testid="account-plan">
+                  {label} plan
+                  {trialNote}
+                </span>
               </div>
             </div>
             <button

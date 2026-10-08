@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import Icon from './Icon'
 import { promptUpgrade } from '../stores/upgradePrompt'
+import { useStoredTier } from '../stores/capabilities'
+import { showsProUpsell } from '../lib/planDisplay'
 
 // One shared Pro upsell card for the foot of every side menu (Desk sidebar,
 // PlexiOffice, and the segment shells), so they all end the same way.
@@ -10,7 +12,16 @@ import { promptUpgrade } from '../stores/upgradePrompt'
 const DISMISS_KEY = 'fb.upgradeCard.dismissed'
 
 export default function UpgradeCard({ label }: { label: string }): JSX.Element | null {
+  // This checked nothing at all, and it is rendered unconditionally by the
+  // sidebar, the PlexiOffice shell and every segment shell — so a paying Pro
+  // or Team subscriber was asked to upgrade to Pro, on every screen, forever.
+  //
+  // storedTier, not effectiveTier: an active trial lifts effectiveTier to
+  // 'team' for everybody, and hiding the upsell from people on a trial would
+  // remove it from exactly the audience it exists for.
+  const storedTier = useStoredTier()
   const [dismissed, setDismissed] = useState(() => sessionStorage.getItem(DISMISS_KEY) === '1')
+  if (!showsProUpsell(storedTier)) return null
   if (dismissed) return null
   return (
     <div
