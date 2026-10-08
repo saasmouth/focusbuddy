@@ -52,7 +52,13 @@ export interface MintResult {
  * bytes); only the finished bundle crosses to here, and only the account token
  * crosses to Signal.
  */
-export async function mintEphemeralShare(deskId: string): Promise<MintResult> {
+export async function mintEphemeralShare(
+  deskId: string,
+  // Absent keeps the server's 48-hour default. Passed through for demo desks,
+  // which have to still open when someone comes back to them next week; the
+  // server clamps it to MAX_SHARE_TTL_MS.
+  ttlMs?: number | null
+): Promise<MintResult> {
   const t = token()
   if (!t) return { ok: false, error: 'Sign in to share a desk.' }
 
@@ -63,7 +69,12 @@ export async function mintEphemeralShare(deskId: string): Promise<MintResult> {
     const res = await fetch(urlFor('/shares/ephemeral'), {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
-      body: JSON.stringify({ rootId: deskId, title: built.title, bundle: built.json })
+      body: JSON.stringify({
+        rootId: deskId,
+        title: built.title,
+        bundle: built.json,
+        ...(typeof ttlMs === 'number' && ttlMs > 0 ? { ttlMs } : {})
+      })
     })
     const body = (await res.json()) as { ok?: boolean; share?: EphemeralShare; error?: string }
     if (!res.ok || !body?.ok || !body.share) {

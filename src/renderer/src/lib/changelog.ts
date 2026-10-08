@@ -36,6 +36,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.16',
+    date: '2026-10-09T06:00:00Z',
+    title: 'PlexiDesk 4.3.16 \u2014 one way to share a desk',
+    tag: 'design',
+    summary:
+      'Sharing a desk asked you to choose between five controls that overlapped. It now asks two questions: who can open it, and what they get. Nothing you could do before has gone away.',
+    highlights: [
+      'Sharing a desk is one sheet with two questions. Before, the dialog stacked five separate controls \u2014 live sharing, a 48-hour link buried inside it, a public live view, a one-click public copy, and a permission picker that made the same link again \u2014 plus a paragraph explaining which was which.',
+      'First: who can open this? Specific people, or anyone with the link.',
+      'Then, for a link: what do they get? A desk they can use in their browser with no account or install, a live view that follows your changes, or a snapshot they can read. Each option says what the person on the other end actually receives.',
+      'Public links no longer have to expire in 48 hours. Never is the default, with 48 hours, 7 days and 30 days available \u2014 a demo link that died mid-trial was the old behaviour and there was no way to change it.',
+      'Emailing a desk still works, and is now just a Send box under whichever link you made rather than a separate section competing with the others.',
+      'Removed a note claiming the share viewer had not shipped yet. It had; the links worked. It only made people doubt a link they had just sent.'
+    ]
+  },
+  {
     version: '4.3.15',
     date: '2026-10-08T07:00:00Z',
     title: 'PlexiDesk 4.3.15 \u2014 updates arrive when they are released',

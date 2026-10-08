@@ -9,7 +9,6 @@ import {
   type DeskInvite
 } from '../lib/deskShareClient'
 import SharePeoplePicker, { type SharePick } from './SharePeoplePicker'
-import EphemeralDeskShare from './EphemeralDeskShare'
 import { usePeopleStore } from '../lib/peopleDirectory'
 import { useOrgStore, PERSONAL_ORG_ID } from '../stores/org'
 import { useAccountStore } from '../stores/account'
@@ -140,10 +139,12 @@ export default function LiveDeskSharing({
         }
       />
 
-      {/* Sharing with someone whose email you do not know. Placed after the
-          people picker because naming a person is the commoner act; this is the
-          fallback when you cannot. */}
-      <EphemeralDeskShare rootId={rootId} />
+      {/* The 48-hour link that used to sit here has moved up a level. It was
+          nested under "live sharing with named people" while being neither live
+          nor to a named person — it mints a public link to a usable copy in the
+          browser, which is the same question as every other public link. It is
+          now one of the three answers to "what do they get?" in DeskShareSheet,
+          where it can be compared against them. */}
 
       {anyone && (
         <div className="space-y-0.5 pt-1 border-t border-[var(--edge-soft)]">

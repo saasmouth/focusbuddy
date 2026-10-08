@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import LiveWebViewPanel from './LiveWebViewPanel'
 import { showCopyFallback } from './plexi/PromptDialog'
 import Modal from './plexi/Modal'
 import { createPortal } from 'react-dom'
@@ -22,7 +21,7 @@ import {
 } from '../lib/shareSnapshot'
 import { buildDocumentSnapshot, buildFolderShareSnapshot } from '../lib/officeShareSnapshot'
 import Icon from './Icon'
-import LiveDeskSharing from './LiveDeskSharing'
+import DeskShareSheet from './share/DeskShareSheet'
 import LiveDocSharing from './LiveDocSharing'
 
 // Universal share dialog — opens from a folder, task, or widget right-click.
@@ -49,6 +48,9 @@ export default function ShareDialog({
   label,
   onClose
 }: Props): JSX.Element {
+  // A desk or a room. Both are node kinds and both share the same way; the
+  // other kinds (document, widget, file) keep the snapshot-link flow.
+  const isDesk = kind === 'folder' || kind === 'task'
   const createFor = useSharesStore((s) => s.createFor)
   const revoke = useSharesStore((s) => s.revoke)
   const remove = useSharesStore((s) => s.remove)
@@ -293,65 +295,30 @@ export default function ShareDialog({
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
-          {/* Live sharing (real-time, per-desk ACL) — the primary path for a desk.
-              A desk is a folder or task node whose id is the desk root id. */}
-          {(kind === 'folder' || kind === 'task') && (
-            <LiveDeskSharing rootId={entityId} roomRootId={roomInfo?.id} roomTitle={roomInfo?.title} />
+          {/* Sharing a desk or a room is ONE sheet with two questions, where it
+              used to be five stacked controls. The transports underneath are
+              unchanged — see share/shareAudience.ts for what was wrong, and why
+              the public path still needs a second question rather than one
+              merged option. */}
+          {isDesk && (
+            <DeskShareSheet
+              kind={kind as 'folder' | 'task'}
+              entityId={entityId}
+              label={label}
+              roomRootId={roomInfo?.id}
+              roomTitle={roomInfo?.title}
+            />
           )}
-
-          {/* Public live web view — a sanitized, read-only projection anyone with
-              the link can open in a browser. Distinct from LiveDeskSharing above,
-              which grants named accounts real access to the desk itself. */}
-          {kind === 'task' && <LiveWebViewPanel deskId={entityId} />}
-
           {/* An office file promotes to a live co-edited document and invites the
               chosen people, via the same shared picker. */}
           {kind === 'document' && <LiveDocSharing documentId={entityId} onClose={onClose} />}
 
-          {/* Guardrail: on a desk/room both paths are offered, so make it
-              unmistakable that the link below is a FROZEN snapshot, not live — this
-              is the footgun where someone shares a link expecting live updates. */}
-          {(kind === 'folder' || kind === 'task') && (
-            <div className="flex items-start gap-2 rounded-md bg-[var(--surface-sunken)] p-2.5">
-              <Icon name="info" size={14} className="text-[var(--ink-40)] mt-0.5 shrink-0" />
-              <div className="text-[11px] text-[var(--ink-60)] leading-snug">
-                <span className="font-semibold text-[var(--ink-80)]">Or send a read-only snapshot link.</span>{' '}
-                A link is a frozen copy of this {KIND_LABEL[kind]} as it is right now. It does not update and
-                changes are not shared back. For people who should see each other&apos;s changes live, add them
-                under <span className="font-semibold text-[var(--ink-80)]">Live sharing</span> above instead.
-              </div>
-            </div>
-          )}
-
-          {/* One-click public duplicate link — the growth path. Mints a
-              copy-scope snapshot and copies the public viewer URL, so anyone can
-              open it with no login or install and duplicate it into their own
-              workspace. The granular permission picker below stays for choosing
-              view-only instead. */}
-          <div className="space-y-1">
-            <button
-              onClick={() => void handleCreate('copy')}
-              disabled={busy}
-              className="w-full text-[13px] py-2.5 rounded-md bg-accent text-white hover:brightness-110 disabled:opacity-60 inline-flex items-center justify-center gap-1.5 font-semibold"
-            >
-              {busy ? (
-                <>
-                  <Icon name="autorenew" size={14} className="animate-spin" />
-                  Generating…
-                </>
-              ) : (
-                <>
-                  <Icon name="link" size={14} />
-                  Copy a public link anyone can duplicate
-                </>
-              )}
-            </button>
-            <p className="text-[11px] text-[var(--ink-50)] leading-snug px-0.5">
-              Opens in any browser with no login or install, and can be duplicated into
-              their own workspace in one click.
-            </p>
-          </div>
-
+          {/* Documents, widgets and files still use the snapshot-link flow
+              below. A desk never reaches it: everything it offered for a desk
+              now lives in the sheet above, and showing both was the
+              duplication. */}
+          {!isDesk && (
+            <>
           {/* Read-only link + snapshot sharing below. */}
           {/* Scope picker */}
           <div>
@@ -564,16 +531,8 @@ export default function ShareDialog({
               </div>
             </div>
           )}
-
-          {/* Honesty banner about local-mock mode */}
-          <div className="text-[10px] text-[var(--ink-50)] leading-relaxed bg-[var(--surface-sunken)] p-2 rounded">
-            <strong className="text-[var(--ink-70)]">v1 note:</strong>{' '}
-            The link points to the future hosted viewer. The token is real and
-            unique — once the PlexiDesk share service ships, the same link
-            will resolve. For now you can share it manually with someone using
-            PlexiDesk on the same network (they can paste it into{' '}
-            <em>Sidebar → Shared with me → Paste a share link</em>).
-          </div>
+            </>
+          )}
         </div>
     </Modal>,
     document.body
