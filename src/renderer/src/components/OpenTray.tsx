@@ -10,7 +10,7 @@
 // renaming a desk renames its tab, and an entry whose subject has been deleted
 // can say so instead of lying about a name it cached.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from './Icon'
 import { useViewStore, type View } from '../stores/view'
 import { useNodeStore } from '../stores/nodes'
@@ -37,6 +37,7 @@ interface Resolved {
 }
 
 export default function OpenTray(): JSX.Element | null {
+  const trayRef = useRef<HTMLDivElement | null>(null)
   // Select the raw array — a selector that orders would hand zustand a new
   // identity on every read and re-render without end.
   const raw = useOpenTrayStore((s) => s.entries)
@@ -181,10 +182,53 @@ export default function OpenTray(): JSX.Element | null {
 
   // Hidden entirely until there is something in it: an empty strip is chrome
   // that costs height and says nothing.
-  if (entries.length === 0) return null
+  const shown = entries.length > 0
+
+  // Publish where the bottom chrome STARTS, so fixed chrome can sit clear of
+  // it. The Plexii pill is fixed to the bottom-right and was landing on the
+  // tray's last tab on every desk.
+  //
+  // This publishes a position, not a height, and that distinction is the whole
+  // fix. The first attempt published the tray's height and had the pill use
+  // `calc(42px + var(...))`. It did not work, and the reason is worth keeping:
+  // the app applies a user UI scale to the root, so a length written in CSS px
+  // and a length measured with getBoundingClientRect are NOT in the same space
+  // — the calc resolved to 52.6px where the arithmetic said 87px. Adding a
+  // measured number to an authored one is the bug.
+  //
+  // So both numbers now come from the same place: measure the gap from the
+  // viewport bottom to the top of this strip, add the gap we want, and publish
+  // the finished offset. Nothing downstream does arithmetic on it.
+  useEffect(() => {
+    const root = document.documentElement
+    const clear = (): void => { root.style.removeProperty("--fb-pill-bottom") }
+    if (!shown) {
+      clear()
+      return
+    }
+    const el = trayRef.current
+    if (!el) return
+    const publish = (): void => {
+      const top = el.getBoundingClientRect().top
+      if (!Number.isFinite(top)) return
+      root.style.setProperty('--fb-pill-bottom', `${Math.round(window.innerHeight - top + 14)}px`)
+    }
+    publish()
+    const ro = new ResizeObserver(publish)
+    ro.observe(el)
+    window.addEventListener('resize', publish)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', publish)
+      clear()
+    }
+  }, [shown])
+
+  if (!shown) return null
 
   return (
     <div
+      ref={trayRef}
       className="shrink-0 flex items-center gap-1 border-t border-[var(--edge-soft)] bg-[var(--surface-raised)] px-2 py-1 overflow-x-auto"
       data-testid="open-tray"
       aria-label="Open items"

@@ -10,8 +10,6 @@ import SyncIndicator from './SyncIndicator'
 import UpgradeCard from './UpgradeCard'
 import { useViewStore, type View } from '../stores/view'
 import { catalogFor } from '../lib/widgetCatalog'
-import SegmentSwitcher from './segment/SegmentSwitcher'
-import OrgSwitcher from './OrgSwitcher'
 import { useViewKindEnabled } from '../lib/viewCapability'
 
 import { chimeIn } from '../lib/audioBeep'
@@ -22,6 +20,7 @@ import AISetupDialog from './AISetupDialog'
 import AddConnectedAppDialog from './AddConnectedAppDialog'
 import { useSharesStore } from '../stores/shares'
 import Icon from './Icon'
+import WorkspaceSwitcher from './WorkspaceSwitcher'
 import AppLogo from './AppLogo'
 import {
   FLOATING_MENU_ASIDE,
@@ -486,13 +485,10 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
       </div>
 
       <div className="flex-1 overflow-auto py-1">
-        {/* The organisation switcher sits at the very top of the menu, next to
-            the wordmark above. Switching org swaps the whole workspace. */}
-        <OrgSwitcher />
-        {/* One consistent area switcher at the top, the same one the Office /
-            People / Brain menus show, so the nice contextual menu and its
-            switcher live on every view, not only inside the segments. */}
-        <SegmentSwitcher />
+        {/* Workspace and area are ONE control. An area lives inside an
+            organisation, so two stacked peers misdescribed the relationship and
+            cost two rows to do it. See components/WorkspaceSwitcher.tsx. */}
+        <WorkspaceSwitcher />
 
         {/* Desk nav — one clean, single list in the same style as the Office /
             People / Brain menus, not a stack of labelled sections. */}

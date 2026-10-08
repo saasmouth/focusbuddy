@@ -1,9 +1,8 @@
 import { useCallback } from 'react'
 import { useViewStore } from '../../stores/view'
 import type { SegmentKind } from '../../lib/segmentApps'
-import SegmentSwitcher from './SegmentSwitcher'
-import OrgSwitcher from '../OrgSwitcher'
 import Icon from '../Icon'
+import WorkspaceSwitcher from '../WorkspaceSwitcher'
 import UpgradeCard from '../UpgradeCard'
 import {
   FLOATING_MENU_ASIDE_SCROLL,
@@ -96,8 +95,10 @@ export default function SegmentShell({ def, initialApp }: { def: SegmentDef; ini
           </div>
         </div>
 
-        <OrgSwitcher />
-        <SegmentSwitcher />
+        {/* Workspace and area are ONE control. An area lives inside an
+            organisation, so two stacked peers misdescribed the relationship and
+            cost two rows to do it. See components/WorkspaceSwitcher.tsx. */}
+        <WorkspaceSwitcher />
 
         <nav className="px-2 pt-1 pb-3">
           <button

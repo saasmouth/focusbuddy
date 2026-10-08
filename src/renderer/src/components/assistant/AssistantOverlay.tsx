@@ -322,8 +322,15 @@ function AssistantOverlayChrome(): JSX.Element {
         title="Plexii — click to open, hold to talk"
         aria-label="Open Plexii (hold to talk)"
         data-testid="assistant-pill"
-        className="fb-floating-chrome fixed right-[14px] bottom-[42px] z-[120] h-10 w-10 rounded-full grid place-items-center border border-[var(--edge-soft)] bg-[var(--surface-raised)] text-accent hover:border-[rgb(var(--accent)/0.5)] transition-all duration-200 motion-safe:hover:-translate-y-[2px] motion-safe:active:translate-y-0"
-        style={FLOATING_MENU_STYLE}
+        className="fb-assistant-pill fixed right-[14px] z-[120] h-[52px] w-[52px] rounded-full grid place-items-center text-white transition-all duration-200 motion-safe:hover:-translate-y-[2px] motion-safe:active:translate-y-0"
+        style={{
+          // Clear of the open-item tray. The tray publishes a FINISHED offset
+          // (see OpenTray) rather than a height, because the root carries a
+          // user UI scale and mixing an authored px with a measured one
+          // silently resolves wrong. 42px is the no-tray case and clears the
+          // footer on its own.
+          bottom: 'var(--fb-pill-bottom, 42px)'
+        }}
       >
         {/* Brand motion Phase 1 + AI-18: the pill wears the ii mark — one
             blink on mount (the boot greeting), a wink on hover, and one
@@ -334,9 +341,15 @@ function AssistantOverlayChrome(): JSX.Element {
             flight (the ping dot below) OR a capture is live (the ring), the
             mark holds still. Decorative (title null): the button's
             aria-label already names it. */}
+        {/* The halo that makes this findable lives in CSS (.fb-assistant-pill
+            ::after) so it animates on the compositor instead of repainting
+            this subtree every frame. Collision law still holds: the halo is
+            chrome, and the MARK holds still whenever something is actually in
+            flight (sending, or a live capture). */}
         <PlexiiMark
           key={`moment-${momentToken}`}
-          height={18}
+          height={24}
+          letterColor="#FFFFFF"
           motion={sending || voicePhase !== 'idle' ? 'off' : 'once+hover'}
           title={null}
         />

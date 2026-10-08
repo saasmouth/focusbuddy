@@ -36,6 +36,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.17',
+    date: '2026-10-09T08:00:00Z',
+    title: 'PlexiDesk 4.3.17 \u2014 a quieter frame, a louder assistant',
+    tag: 'design',
+    summary:
+      'The title bar has stopped repeating itself, the two switchers at the top of the menu are now one, and the Plexii button is impossible to miss.',
+    highlights: [
+      'The title bar no longer carries a second copy of the wordmark or a \u201c2.0\u201d badge. The wordmark is at the top of the menu where it always was, and the real version is in the footer, where you read it out when something goes wrong.',
+      '\u201cLocal \u00b7 encrypted\u201d sits in the footer next to the version now. It says where your data lives, which is a standing fact rather than something that changes while you work, so it belongs with the other standing facts instead of in the bar you act from.',
+      'The workspace and area switchers are one control. They used to be two stacked rows both answering \u201cwhere am I?\u201d \u2014 but an area lives inside an organisation, so it now reads \u201cWorkspace \u203a Area\u201d and opens a single menu with the workspace on the left and its areas on the right. Choosing a workspace re-scopes the areas, so a locked area is never a guess.',
+      'The Plexii button is purple, larger, and gently pulses. It was a grey circle among other grey circles.',
+      'It also no longer sits on top of the row of open items along the bottom. It now follows that strip\u2019s real position, so it stays clear whether you have one thing open or ten.'
+    ]
+  },
+  {
     version: '4.3.16',
     date: '2026-10-09T06:00:00Z',
     title: 'PlexiDesk 4.3.16 \u2014 one way to share a desk',

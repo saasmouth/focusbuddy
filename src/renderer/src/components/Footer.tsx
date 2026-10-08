@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSyncStatus } from '../stores/syncStatus'
 import { CHANGELOG, hasUnseenChanges } from '../lib/changelog'
 import Icon from './Icon'
+import { useVaultStore } from '../stores/vault'
 import Tooltip from './Tooltip'
 import { HELP_BASE } from '../lib/siteUrls'
 import WhatsNewPanel from './WhatsNewPanel'
@@ -66,6 +67,8 @@ function FooterSyncChip(): JSX.Element {
 }
 
 export default function Footer(): JSX.Element {
+  const vaultMeta = useVaultStore((v) => v.meta)
+  const vaultUnlocked = useVaultStore((v) => v.unlocked)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
   const [unseen, setUnseen] = useState<boolean>(() => hasUnseenChanges())
@@ -113,6 +116,32 @@ export default function Footer(): JSX.Element {
           <UpdaterBanner />
           <TrialBadge />
           <FooterSyncChip />
+          {/* "Local · encrypted" — the trust chip, moved out of the titlebar
+              (2026-10-09). It states where the data lives, which is a standing
+              fact rather than something that changes while you work, so it
+              belongs beside the version and the sync state rather than in the
+              bar you act from. Still hidden until a vault exists: a chip about
+              a vault nobody has set up is noise. */}
+          {vaultMeta?.exists && (
+            <Tooltip
+              placement="top"
+              content={
+                vaultUnlocked
+                  ? 'Vault unlocked. Your secrets stay on this device — PlexiDesk never sees them.'
+                  : 'Vault is locked. Unlock it from the Vault view to use saved credentials.'
+              }
+            >
+              <span
+                data-testid="footer-trust-chip"
+                className={`inline-flex items-center gap-1 ${
+                  vaultUnlocked ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--ink-40)]'
+                }`}
+              >
+                <Icon name={vaultUnlocked ? 'lock_open' : 'lock'} size={11} />
+                <span>Local · encrypted</span>
+              </span>
+            </Tooltip>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button

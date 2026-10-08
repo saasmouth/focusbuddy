@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import Sidebar from './components/Sidebar'
-import PlexiiLogo from './components/PlexiiLogo'
 import { FLOATING_MENU_INSET, SIDEBAR_MIN, SIDEBAR_MAX } from './components/chrome/floatingMenuStyle'
 import { useMinimizable, useSidebarWidth } from './components/chrome/floatingMenu'
 import MainPane from './components/MainPane'
@@ -225,12 +224,9 @@ export default function App(): JSX.Element {
   const canSmartStack = !!activeTaskId && unsectionedCount >= 3
   const theme = useTheme()
   const activeWidgetId = useWidgetStore((s) => s.activeWidgetId)
-  // Vault state powers the "Local · encrypted" chip in the header. We
-  // refresh meta on mount so the chip can reflect whether the vault has
-  // been initialised at all (no chip = surprising; chip with a "set up
-  // vault" hint = informative).
-  const vaultMeta = useVaultStore((s) => s.meta)
-  const vaultUnlocked = useVaultStore((s) => s.unlocked)
+  // The vault's meta is still refreshed here, on mount, because this is the
+  // component that boots. What READS it moved to the footer along with the
+  // "Local · encrypted" chip.
   const refreshVaultMeta = useVaultStore((s) => s.refreshMeta)
   // Account boot — kicked off once on mount. The LaunchSignInModal reads
   // bootStatus to know when it's safe to render.
@@ -541,27 +537,11 @@ export default function App(): JSX.Element {
         <div className="titlebar-nodrag flex items-center gap-2">
           {/* Back/forward through the view history — the true back button. */}
           <HistoryNav />
-          {/* "Local · encrypted" — the trust chip. Reflects whether the
-              user has set up the vault (and unlocked it). Reinforces the
-              BYO-key promise without nagging. Hidden on a fresh install
-              with no vault yet to avoid noise. */}
-          {vaultMeta?.exists && (
-            <div
-              className={`hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                vaultUnlocked
-                  ? 'bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300/50 dark:border-emerald-800/50'
-                  : 'bg-stone-100/70 dark:bg-stone-800/70 text-stone-600 dark:text-stone-300 border border-stone-300/50 dark:border-stone-700/50'
-              }`}
-              title={
-                vaultUnlocked
-                  ? 'Vault unlocked. Your secrets stay on this device — PlexiDesk never sees them.'
-                  : 'Vault is locked. Unlock from the Vault view to use saved credentials.'
-              }
-            >
-              <Icon name={vaultUnlocked ? 'lock_open' : 'lock'} size={10} />
-              <span>Local · encrypted</span>
-            </div>
-          )}
+          {/* "Local · encrypted" moved to the footer, beside the version
+              (2026-10-09). It is a standing fact about where the data lives,
+              not something that changes while you work, and the titlebar is for
+              the things you act on. It now sits next to the other standing
+              facts. See components/Footer.tsx. */}
           {/* Account chip — visible when signed in. Click to sign out
               (with confirm). Server-validated session means this chip
               only renders for users with a verified live token. */}
@@ -585,12 +565,12 @@ export default function App(): JSX.Element {
             </button>
           )}
         </div>
-        <h1 className="select-none flex items-center gap-1.5">
-          <PlexiiLogo height={16} />
-          <span className="text-[9px] font-mono text-accent px-1 py-px rounded bg-accent/10 border border-accent/20">
-            2.0
-          </span>
-        </h1>
+        {/* The "Plexii 2.0" lockup is gone from the titlebar (2026-10-09).
+            The wordmark was already at the top of the desk menu, so the header
+            was a second copy of it, and the "2.0" beside it was a version
+            badge in the chrome of a product that ships a 4.3.x — it dated the
+            app on every screen while telling nobody anything. The real version
+            is in the footer, where it is read out when something goes wrong. */}
         <div className="titlebar-nodrag flex items-center gap-1">
           {/* The header Build button retired in the Plexii consolidation
               (Caleb's ruling, 2026-08-21): with the sidebar tab, the pill, the

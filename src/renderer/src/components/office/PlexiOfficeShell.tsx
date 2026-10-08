@@ -6,9 +6,7 @@ import { useDocumentsStore } from '../../stores/documents'
 import { useViewStore } from '../../stores/view'
 import { useAccountStore } from '../../stores/account'
 import { personDisplayName } from '../../lib/personName'
-import SegmentSwitcher from '../segment/SegmentSwitcher'
 import PageEnter from '../chrome/pageEnter'
-import OrgSwitcher from '../OrgSwitcher'
 import UpgradeCard from '../UpgradeCard'
 import { useMailStore, selectMailUnread } from '../../stores/mail'
 import { useMessagingStore } from '../../stores/messaging'
@@ -32,6 +30,7 @@ import MessagesView from '../views/MessagesView'
 import PlexiMeetView from '../views/PlexiMeetView'
 import PlexiSignView from '../views/PlexiSignView'
 import Icon from '../Icon'
+import WorkspaceSwitcher from '../WorkspaceSwitcher'
 import {
   FLOATING_MENU_ASIDE_SCROLL,
   FLOATING_MENU_INSET,
@@ -973,8 +972,10 @@ function OfficeSidebar({
         </div>
       </div>
 
-      <OrgSwitcher />
-      <SegmentSwitcher />
+      {/* Workspace and area are ONE control. An area lives inside an
+          organisation, so two stacked peers misdescribed the relationship and
+          cost two rows to do it. See components/WorkspaceSwitcher.tsx. */}
+      <WorkspaceSwitcher />
 
       <nav className="px-2 pt-1 pb-3">
         {NAV.map((n) => (
