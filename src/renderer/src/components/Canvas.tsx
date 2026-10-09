@@ -1,4 +1,5 @@
 import { patternOffset, patternScale } from '../lib/deskPattern'
+import { useAssistantChrome } from '../stores/assistantChrome'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { effectiveShortcutToKind } from '../lib/keymap'
 import { quickAddAllowed, deepActiveElement } from '../lib/quickAddFocus'
@@ -255,6 +256,12 @@ export default function Canvas(): JSX.Element {
   // virtualisation (PLX-APP-012) can recompute the mounted-Object set when the
   // window or side panels resize. Zero until first measure = "not measured yet".
   const [viewportSize, setViewportSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 })
+  // The assistant panel covers the canvas rather than shrinking it, so its
+  // geometry has to come from somewhere. Its own store is that somewhere —
+  // the same shape as useSidebarDockInset reading the dock.
+  const assistantOpen = useAssistantChrome((s) => s.open)
+  const assistantMode = useAssistantChrome((s) => s.mode)
+  const assistantWidth = useAssistantChrome((s) => s.width)
   useEffect(() => {
     const el = dropRef.current
     if (!el) return
@@ -280,21 +287,48 @@ export default function Canvas(): JSX.Element {
         return prev.w === w && prev.h === h ? prev : { w, h }
       })
     }
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    // The panel mounts and unmounts rather than resizing the surface, so a
-    // ResizeObserver on the canvas alone never hears about it. Watching the
-    // subtree for the panel appearing is what keeps the inset honest.
-    const mo = new MutationObserver(measure)
-    mo.observe(document.body, { childList: true, subtree: true })
-    window.addEventListener('resize', measure)
-    return () => {
-      ro.disconnect()
-      mo.disconnect()
-      window.removeEventListener('resize', measure)
+    // Coalesced to one measurement per frame. measure() forces layout twice,
+    // so a burst of callbacks must not become a burst of synchronous reflows.
+    let frame = 0
+    const schedule = (): void => {
+      if (frame !== 0) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        measure()
+      })
     }
+
+    measure()
+    const ro = new ResizeObserver(schedule)
+    ro.observe(el)
+    window.addEventListener('resize', schedule)
+    return () => {
+      if (frame !== 0) cancelAnimationFrame(frame)
+      ro.disconnect()
+      window.removeEventListener('resize', schedule)
+    }
+    // The assistant's own state is the dependency, so opening, closing,
+    // changing mode or dragging its width all re-measure.
+    //
+    // This used to be a MutationObserver on document.body with subtree: true,
+    // which ran measure() — two getBoundingClientRect calls — on EVERY DOM
+    // mutation anywhere in the app. On a swipe the canvas mutates continuously
+    // while virtualisation mounts and unmounts widgets, so every frame's
+    // mutations each forced a synchronous reflow, and the renderer could be
+    // driven into a layout-thrash storm that took the window white.
+  }, [assistantOpen, assistantMode, assistantWidth])
+  // See handleWheel: React's own wheel listener is passive, so the handler is
+  // attached here instead. A ref keeps the effect from re-binding on every
+  // render while still calling the current closure.
+  const wheelRef = useRef<(e: WheelEvent) => void>(() => {})
+  useEffect(() => {
+    const el = dropRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent): void => wheelRef.current(e)
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
   }, [])
+
   const setPan = useWidgetStore((s) => s.setPan)
   const dockInset = useWidgetStore((s) => s.dockInset)
   const [savingTemplate] = useState(false)
@@ -1130,7 +1164,17 @@ export default function Canvas(): JSX.Element {
     [panX, panY, zoom]
   )
 
-  function handleWheel(e: React.WheelEvent<HTMLDivElement>): void {
+  // Attached natively with { passive: false }, NOT via React's onWheel.
+  //
+  // React attaches its wheel listener at the root as PASSIVE, so a
+  // preventDefault() inside onWheel never took effect — Chromium logged
+  // "Unable to preventDefault inside passive event listener invocation" for
+  // every wheel event and then performed its default scroll anyway. That is
+  // where the surface's scrollLeft came from: the canvas is overflow-hidden
+  // but still scrollable, so the browser scrolled it while we believed we had
+  // prevented that. pinSurfaceScroll stays as a second line of defence, but
+  // this is the cause.
+  function handleWheel(e: WheelEvent): void {
     // Hand the gesture to the active widget only while something inside it can
     // still scroll the way the gesture points — scroll chaining, the same rule
     // browsers use for nested scrollers. Position alone used to decide it,
@@ -1147,7 +1191,7 @@ export default function Canvas(): JSX.Element {
     // ⌘/Ctrl + wheel = zoom toward cursor; otherwise pan (works for trackpad swipe)
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault()
-      const rect = e.currentTarget.getBoundingClientRect()
+      const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
       const factor = Math.exp(-e.deltaY * 0.005 * nav.zoomSensitivity)
       const cursorX = e.clientX - rect.left
       const cursorY = e.clientY - rect.top
@@ -1161,6 +1205,8 @@ export default function Canvas(): JSX.Element {
       panBy(-e.deltaX * nav.wheelSensitivity, -e.deltaY * nav.wheelSensitivity)
     }
   }
+  // Keep the natively-bound listener pointing at the current closure.
+  wheelRef.current = handleWheel
 
   function handleCanvasClick(e: React.MouseEvent<HTMLDivElement>): void {
     // Clicks on bare-canvas areas (not on a widget) deactivate the active widget
@@ -2542,7 +2588,6 @@ export default function Canvas(): JSX.Element {
           onScroll={pinSurfaceScroll}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          onWheel={handleWheel}
           onClick={handleCanvasClick}
           onContextMenu={handleCanvasContextMenu}
           onPointerDown={handleCanvasPointerDown}
