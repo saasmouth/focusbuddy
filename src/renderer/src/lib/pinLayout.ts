@@ -21,7 +21,9 @@ export interface ZoneRect {
  * the persistent chrome.
  *
  * Each value is the cumulative inset for that side. A "right: 296" inset
- * (≈ AI rail 280 + gap 16) pushes anything pinned to TR or BR leftward
+ * pushes anything pinned to TR or BR leftward. Nothing sets one today —
+ * the AI rail it existed for is gone — but the mechanism stays for a future
+ * dock or control strip
  * by 296px relative to the container's right edge.
  */
 export interface ChromeInsets {

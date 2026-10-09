@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp } from './_helpers'
+import { hoverToolbar, launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // Chrome layout — verifies three coordinated changes:
 //   1. The "Desk objects" palette is now a single "+ Add" button that
@@ -59,25 +59,32 @@ test('Palette renders as a single "+ Add" button — the legacy full-width strip
   await bootAndOpenTask(launched)
 
   // The new compact palette is a single button with data-testid.
+  // The rail only mounts the palette while hovered — see hoverToolbar.
+  await hoverToolbar(launched.window)
   const addBtn = launched.window.locator('[data-testid="palette-add-button"]').first()
   await expect(addBtn).toBeVisible({ timeout: 5_000 })
 
-  // The legacy "Desk objects" header label that lived inside the
-  // collapsed strip should no longer be in the persistent toolbar.
-  // It now only appears INSIDE the popover when the button is clicked.
-  const persistentHeader = launched.window.getByText('Desk objects', { exact: true }).first()
-  // Before clicking — header should not be visible (popover is closed).
-  await expect(persistentHeader).not.toBeVisible({ timeout: 1000 }).catch(() => {})
+  // The legacy full-width strip carried a persistent "Desk objects" heading.
+  // The popover's visible heading is now "Add to this desk" — "Desk objects"
+  // survives only as the dialog's aria-label — so that is what this asserts:
+  // nothing before the click, and a heading inside the popover after it.
+  const popoverHeading = launched.window.getByText('Add to this desk', { exact: true }).first()
+  await expect(popoverHeading).toHaveCount(0)
 
-  // Clicking opens the popover; the header IS visible inside it.
   await addBtn.click()
-  await expect(persistentHeader).toBeVisible({ timeout: 2000 })
+  await expect(popoverHeading).toBeVisible({ timeout: 2000 })
+  // The picker is still announced as the desk-objects dialog.
+  await expect(
+    launched.window.locator('[role="dialog"][aria-label="Desk objects"]')
+  ).toBeVisible()
 })
 
 test('Picker shows File or link but hides the folded redundant kinds (image / video / pdf / gdoc / gsheet / gslide / email)', async () => {
   launched = await launchApp()
   await bootAndOpenTask(launched)
 
+  // The rail only mounts the palette while hovered — see hoverToolbar.
+  await hoverToolbar(launched.window)
   const addBtn = launched.window.locator('[data-testid="palette-add-button"]').first()
   await addBtn.click()
   await launched.window.waitForTimeout(150)
@@ -99,50 +106,55 @@ test('Picker shows File or link but hides the folded redundant kinds (image / vi
   }
 })
 
-test('AI rail collapse/expand shifts the BR-pinned minimap horizontally — wider gap when rail is open', async () => {
+test('a right-pinned widget reaches the right edge — no phantom rail inset', async () => {
   launched = await launchApp()
   const taskId = await bootAndOpenTask(launched)
-  await launched.window.waitForTimeout(500) // auto-create
+  const { window } = launched
 
-  // The minimap is auto-created pinned to BR on first task open.
-  const minimaps = await launched.window.evaluate(async (tid: string) => {
+  // This replaces a test that opened and collapsed the AI rail and asserted
+  // the BR-pinned minimap glided by >100px. That rail no longer exists —
+  // nothing renders it and nothing could set its collapsed flag — yet the
+  // pinned layer still reserved 292px of the right edge for it, so everything
+  // pinned right sat 292px short of where it belonged. The inset is now zero,
+  // and this is the assertion that keeps it honest.
+  const widgetId = await window.evaluate(async (tid: string) => {
     const api = (window as unknown as { api: typeof window.api }).api
-    const widgets = await api.widgets.listByTask(tid)
-    return widgets.filter((w) => w.kind === 'minimap').map((w) => ({ id: w.id }))
+    const w = await api.widgets.create({
+      taskId: tid,
+      kind: 'sticky',
+      title: 'pinned BR',
+      content: '',
+      x: 40,
+      y: 40,
+      width: 240,
+      height: 180
+    })
+    await api.widgets.update(w.id, { pinned: true, pinnedZone: 'br' })
+    return w.id
   }, taskId)
-  expect(minimaps.length).toBe(1)
-  const minimapId = minimaps[0].id
 
-  // Force the AI rail OPEN by clearing the localStorage flag + dispatching
-  // the custom event chromeState listens for.
-  await launched.window.evaluate(() => {
-    localStorage.removeItem('fb.ai-rail.collapsed')
-    window.dispatchEvent(new CustomEvent('fb:ai-rail-changed'))
-  })
-  await launched.window.waitForTimeout(200)
-  const openRect = await launched.window.evaluate((id: string) => {
+  // The widget was created through IPC, so the renderer's store only learns
+  // about it on a reload.
+  await window.reload()
+  await waitForReady(window)
+  await window.evaluate((tid: string) => {
+    const w = window as unknown as { __fbView?: { getState: () => { goTask: (x: string) => void } } }
+    w.__fbView?.getState().goTask(tid)
+  }, taskId)
+  await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 8000 })
+  await window.waitForTimeout(800)
+
+  const geo = await window.evaluate((id: string) => {
     const el = document.querySelector<HTMLElement>(`[data-widget-id="${id}"]`)
-    return el ? el.getBoundingClientRect() : null
-  }, minimapId)
-  expect(openRect).not.toBeNull()
+    const surf = document.querySelector<HTMLElement>('[data-canvas-surface="true"]')
+    if (!el || !surf) return null
+    return {
+      gapRight: Math.round(surf.getBoundingClientRect().right - el.getBoundingClientRect().right)
+    }
+  }, widgetId)
 
-  // Collapse the rail by setting the flag + dispatching.
-  await launched.window.evaluate(() => {
-    localStorage.setItem('fb.ai-rail.collapsed', '1')
-    window.dispatchEvent(new CustomEvent('fb:ai-rail-changed'))
-  })
-  await launched.window.waitForTimeout(200)
-  const collapsedRect = await launched.window.evaluate((id: string) => {
-    const el = document.querySelector<HTMLElement>(`[data-widget-id="${id}"]`)
-    return el ? el.getBoundingClientRect() : null
-  }, minimapId)
-  expect(collapsedRect).not.toBeNull()
-
-  // When the rail is open it occupies ~280px on the right. When collapsed
-  // it shrinks to ~32px. The minimap's right edge therefore moves at least
-  // ~200px to the right (closer to the screen edge) when the rail
-  // collapses. We require >100px shift to allow for sub-pixel drift /
-  // animation easing windows.
-  const shift = collapsedRect!.right - openRect!.right
-  expect(shift).toBeGreaterThan(100)
+  expect(geo, 'the pinned widget and the surface are both present').not.toBeNull()
+  // PADDING in pinLayout is 16; allow for a scrollbar gutter. Anything near
+  // 292 would mean the phantom rail inset is back.
+  expect(geo!.gapRight).toBeLessThan(64)
 })

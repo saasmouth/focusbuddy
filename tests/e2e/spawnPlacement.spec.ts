@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { hoverToolbar, launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // Change 1 verification: new widget from the "+" palette add button should land
 // beside the active widget (right or left), not hundreds/thousands of px away.
@@ -63,6 +63,8 @@ test('palette-add spawns new widget beside the active widget, not off-screen', a
   // position is correct and NOT at viewport centre.
 
   // Open the palette and add a sticky.
+  // The rail only mounts the palette while hovered — see hoverToolbar.
+  await hoverToolbar(window)
   await window.locator('[data-testid="palette-add-button"]').click()
   await window.waitForTimeout(300)
 
@@ -137,6 +139,8 @@ test('palette-add without an active widget falls back to viewport centre, not of
   await window.waitForTimeout(500)
 
   // Open palette and add a sticky without clicking any widget first.
+  // The rail only mounts the palette while hovered — see hoverToolbar.
+  await hoverToolbar(window)
   await window.locator('[data-testid="palette-add-button"]').click()
   await window.waitForTimeout(300)
   await window.locator('[data-testid="palette-add-sticky"]').click()

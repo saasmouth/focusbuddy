@@ -62,18 +62,16 @@ test('minimap renders + edge-pan moves the canvas', async () => {
   await window.getByRole('button', { name: 'Canvas UI regression' }).first().click()
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
 
-  // 1. Minimap is in the DOM — promoted from a hardcoded fixed-position
-  //    element to a regular widget kind ('minimap') auto-created pinned
-  //    to BR on first task open. We verify a kind=minimap widget exists
-  //    for this task; its dedicated specs in minimapWidget.spec.ts
-  //    cover the rest of the behaviour (pin zone, resize, dismissed flag).
+  // 1. The minimap is present as built-in chrome.
+  //
+  //    It used to be a regular widget kind ('minimap') auto-created pinned to
+  //    BR on first task open. It is now a FAB, and Canvas actively REMOVES any
+  //    legacy minimap widget it finds (see the migration sweep in Canvas.tsx),
+  //    so asserting a kind=minimap widget exists now asserts the opposite of
+  //    what the app does. Its anchoring is covered by canvasSurfaceAnchor
+  //    CS-1 and its open/close behaviour by minimapFab.spec.ts.
   await window.waitForTimeout(500)
-  const minimapCount = await window.evaluate(async (tid: string) => {
-    const api = (window as unknown as { api: typeof window.api }).api
-    const widgets = await api.widgets.listByTask(tid)
-    return widgets.filter((w) => w.kind === 'minimap').length
-  }, seeded.taskId)
-  expect(minimapCount).toBe(1)
+  await expect(window.locator('[data-minimap-fab]')).toHaveCount(1)
 
   // 2. Edge-pan: capture initial panX, mouse-move toward the right edge
   //    for ~600ms, expect panX to have decreased (canvas moves left to

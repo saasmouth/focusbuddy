@@ -19,7 +19,7 @@
 // browser has completed layout before asserting SVG content.
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { hoverToolbar, launchApp, waitForReady, type LaunchedApp } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -148,6 +148,8 @@ test('1 — widget picker lists Chart under Tools and adding it mounts a chart w
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 8_000 })
 
   // Open the palette.
+  // The rail only mounts the palette while hovered — see hoverToolbar.
+  await hoverToolbar(window)
   await window.locator('[data-testid="palette-add-button"]').click()
   await window.waitForTimeout(300)
 

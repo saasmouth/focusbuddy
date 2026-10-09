@@ -100,13 +100,9 @@ import type { StandardApp } from '../lib/standardApps'
 import {
   PinLayoutContext,
   computeZonePinPositions,
+  ZERO_INSETS,
   type ChromeInsets
 } from '../lib/pinLayout'
-import {
-  AI_RAIL_BUTTON_SIZE,
-  AI_RAIL_WIDTH,
-  useAIRailCollapsed
-} from '../lib/chromeState'
 import LinkOverlay, { type PendingLinkPick } from './LinkOverlay'
 import { tidyPositions, type TidyOptions } from '../lib/autoArrange'
 import { useLinksStore } from '../stores/links'
@@ -202,6 +198,8 @@ export default function Canvas(): JSX.Element {
   // Office-document add chooser (create / import / select-existing) + drop point.
   const [officeAdd, setOfficeAdd] = useState<{ entry: WidgetCatalogEntry; x: number; y: number } | null>(null)
   const [syncPickerOpen, setSyncPickerOpen] = useState(false)
+  // Surfaced when a file import fails, so a refusal is never silent.
+  const [importNotice, setImportNotice] = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [showResume, setShowResume] = useState(false)
   const widgets = useWidgetStore((s) => s.widgets)
@@ -1852,6 +1850,74 @@ export default function Canvas(): JSX.Element {
     })
   }
 
+  // "Import file…" in the palette. The main process already had the whole
+  // importer — fileImport.pick() for the dialog and fileImport.run() for the
+  // parse, with e2e coverage in fileImport.spec.ts — but NOTHING in the
+  // renderer ever called it. The palette's button was wired to onImport, and
+  // Canvas passed setSyncPickerOpen for that prop, so a button labelled
+  // "Import file… .txt / .md → note · .csv / .json → table" opened the
+  // bring-a-synced-widget picker instead. Meanwhile onBringSynced was never
+  // passed at all, so the button that SHOULD open that picker never rendered.
+  //
+  // run() returns a draft rather than creating anything, so the widget is
+  // created here, at the same spawn position the picker uses.
+  async function handlePaletteFileImport(): Promise<void> {
+    if (!activeTaskId) return
+    const path = await window.api.fileImport.pick()
+    if (!path) return // dialog cancelled — not a failure
+    const draft = await window.api.fileImport.run({ path })
+    // The failure member is the only one without `kind`, so this narrows to
+    // the three draft shapes as well as reporting honestly.
+    if (!('kind' in draft)) {
+      setImportNotice(draft.error || 'That file could not be imported.')
+      return
+    }
+    if (draft.kind === 'table') {
+      const table = await window.api.tables.create({
+        taskId: activeTaskId,
+        title: draft.title,
+        schema: draft.schema
+      })
+      for (const cells of draft.rows) {
+        await window.api.tables.createRow({ tableId: table.id, cells })
+      }
+      const entry = catalogFor('table')
+      const width = entry?.defaultWidth ?? 560
+      const height = entry?.defaultHeight ?? 380
+      const { x, y } = spawnPositionFor(width, height)
+      await createWidget({
+        taskId: activeTaskId,
+        kind: 'table',
+        title: draft.title,
+        content: table.id,
+        x,
+        y,
+        width,
+        height,
+        color: null
+      })
+      return
+    }
+    // 'text' carries the kind the importer chose (note / markdown / page);
+    // 'page-from-json' is always a page.
+    const kind: WidgetKind = draft.kind === 'page-from-json' ? 'page' : draft.targetKind
+    const entry = catalogFor(kind)
+    const width = entry?.defaultWidth ?? 360
+    const height = entry?.defaultHeight ?? 280
+    const { x, y } = spawnPositionFor(width, height)
+    await createWidget({
+      taskId: activeTaskId,
+      kind,
+      title: draft.title,
+      content: draft.content,
+      x,
+      y,
+      width,
+      height,
+      color: null
+    })
+  }
+
   function handleClickAdd(entry: WidgetCatalogEntry): void {
     // Snap the new widget beside the last-touched widget (right, else left),
     // falling back to the centre of the current viewport. Replaces the old
@@ -2758,9 +2824,27 @@ export default function Canvas(): JSX.Element {
           <LinkDragContext.Provider value={linkDragController}>
             <PinnedLayer widgets={widgets} focusedId={focusedId} renderWidget={renderWidget} />
           </LinkDragContext.Provider>
+          {importNotice && (
+            <div
+              className="fb-glass-panel rounded-[var(--radius-row)] fb-pop-in absolute top-3 left-1/2 -translate-x-1/2 z-[120] flex items-center gap-2 px-3 py-1.5 text-[12px]"
+              data-testid="canvas-import-notice"
+              role="status"
+            >
+              <Icon name="error" size={13} className="text-rose-500" />
+              <span className="text-[var(--ink-70)]">{importNotice}</span>
+              <button
+                onClick={() => setImportNotice(null)}
+                className="text-[var(--ink-40)] hover:text-[var(--ink-70)]"
+                aria-label="Dismiss"
+              >
+                <Icon name="close" size={12} />
+              </button>
+            </div>
+          )}
           <FloatingToolbar
             onAddWidget={handleClickAdd}
-            onImport={() => setSyncPickerOpen(true)}
+            onImport={() => void handlePaletteFileImport()}
+            onBringSynced={() => setSyncPickerOpen(true)}
             paletteDisabled={!activeTaskId}
             onHistory={() => setHistoryOpen(true)}
             historyDisabled={!activeTaskId}
@@ -2996,21 +3080,20 @@ function PinnedLayer({
 }): JSX.Element {
   const layerRef = useRef<HTMLDivElement | null>(null)
   const [bounds, setBounds] = useState({ width: 0, height: 0 })
-  // Subscribe to the AI rail's collapsed state so any change re-runs the
-  // pin-position memo. When the rail opens, BR/TR widgets glide left by
-  // AI_RAIL_WIDTH + gap; when it collapses to the small icon, they glide
-  // back. ChromeInsets is the single point where rail width + (later)
-  // dock height + zoom-controls inset get composed.
-  const railCollapsed = useAIRailCollapsed()
-  const insets: ChromeInsets = useMemo(
-    () => ({
-      top: 0,
-      right: railCollapsed ? AI_RAIL_BUTTON_SIZE + 8 : AI_RAIL_WIDTH + 12,
-      bottom: 0,
-      left: 0
-    }),
-    [railCollapsed]
-  )
+  // No chrome inset is reserved any more.
+  //
+  // This used to reserve the right edge for the AI rail: 292px while it was
+  // open, 40px while collapsed, so BR/TR pinned widgets glided clear of it.
+  // The rail itself is gone — nothing renders it, and nothing could even set
+  // its collapsed flag (setAIRailCollapsed had no callers) — so the "open"
+  // branch was always the one taken. The result was 292px of the right edge
+  // permanently reserved for a panel that is not there, pushing every
+  // right-pinned widget inward with nothing beside it.
+  //
+  // ChromeInsets remains the single composition point if a dock height or a
+  // zoom-controls inset ever needs reserving; ZERO_INSETS is the honest value
+  // today.
+  const insets: ChromeInsets = ZERO_INSETS
 
   useEffect(() => {
     const el = layerRef.current

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { hoverToolbar, launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // Phase 4: "Bring a synced widget from another task." From task B, the +Add
 // palette → "Bring a synced widget…" → pick task A → pick its sticky → a
@@ -42,6 +42,8 @@ test('bring a synced widget from another task onto this canvas', async () => {
   await window.waitForTimeout(300)
 
   // Open the + Add palette → "Bring a synced widget…"
+  // The rail only mounts the palette while hovered — see hoverToolbar.
+  await hoverToolbar(window)
   await window.locator('[data-testid="palette-add-button"]').click()
   await window.waitForTimeout(200)
   await window.locator('[data-testid="palette-bring-synced"]').click()
