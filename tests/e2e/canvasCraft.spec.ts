@@ -181,7 +181,11 @@ test('Snap-to-grid toggle via CommandCenter does not crash', async () => {
     const items = Array.from(
       document.querySelectorAll('[role="option"], [role="menuitem"], [data-command-item]')
     )
-    const item = items.find((el) => el.textContent?.toLowerCase().includes('snap'))
+    // "Snap to grid: off (turn on)" / "...: on (turn off)" is the command's
+    // label. Matching bare 'snap' could land on any other row that happens to
+    // contain the word, which is how this ended up clicking something that
+    // never called setNavPrefs.
+    const item = items.find((el) => el.textContent?.toLowerCase().includes('snap to grid'))
     if (!item) return false
     ;(item as HTMLElement).click()
     return true
@@ -195,9 +199,12 @@ test('Snap-to-grid toggle via CommandCenter does not crash', async () => {
 
   // Confirm the snap toggle survives by checking navPrefs via evaluate.
   const snapState = await window.evaluate(() => {
-    // navPrefs are persisted to localStorage under 'navPrefs' key.
+    // The palette's toggle-snap command calls setNavPrefs, which persists
+    // under 'fb.nav.prefs' — not 'navPrefs', which is a key nothing writes, so
+    // this check could only ever read null. (lib/gridPref.ts keeps a separate
+    // canvas snap under 'fb.canvas.snap'; the palette does not touch it.)
     try {
-      const raw = localStorage.getItem('navPrefs')
+      const raw = localStorage.getItem('fb.nav.prefs')
       if (!raw) return null
       return JSON.parse(raw)?.snapToGridEnabled ?? null
     } catch {

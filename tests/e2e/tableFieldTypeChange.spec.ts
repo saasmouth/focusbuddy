@@ -432,6 +432,24 @@ test('T2c — row reorder drag: grip affordance exists in flat table view (row r
   expect(rowDragInfo.gripsFound, 'every data row has a grip').toBe(rowDragInfo.rowCount)
 })
 
+// The contract T3 guards: these controls must set their OWN text colour, so
+// text never inherits a colour that goes invisible on a dark or futuristic
+// surface. It was originally written as the Tailwind pair
+// `text-stone-900 dark:text-stone-100`; the table has since moved to the
+// `text-[var(--ink-*)]` tokens, which is the same guarantee expressed once
+// instead of twice (one token adapts, rather than two hardcoded classes).
+// Either satisfies it — an element with neither does not.
+function expectsExplicitTextColour(className: string | null, label: string): void {
+  expect(className, `${label} found`).not.toBeNull()
+  const hasTokenColour = /text-\[var\(--ink-/.test(className!)
+  const hasStonePair =
+    className!.includes('text-stone-900') && className!.includes('dark:text-stone-100')
+  expect(
+    hasTokenColour || hasStonePair,
+    `${label} must set its own text colour (an --ink token or the stone pair); got "${className}"`
+  ).toBe(true)
+}
+
 test('T3 — text-color fix: four table controls carry explicit text-color classes', async () => {
   // Before the fix, the AI assistant textarea had no text color class, causing text to
   // appear black (invisible) on dark/futuristic surfaces. The fix added
@@ -465,12 +483,8 @@ test('T3 — text-color fix: four table controls carry explicit text-color class
     }
   }, { wid: seed.widgetId })
 
-  expect(popoverClasses.renameInput, 'rename input found in popover').not.toBeNull()
-  expect(popoverClasses.typeSelect, 'type <select> found in popover').not.toBeNull()
-  expect(popoverClasses.renameInput, 'rename input has text-stone-900').toContain('text-stone-900')
-  expect(popoverClasses.renameInput, 'rename input has dark:text-stone-100').toContain('dark:text-stone-100')
-  expect(popoverClasses.typeSelect, 'type select has text-stone-900').toContain('text-stone-900')
-  expect(popoverClasses.typeSelect, 'type select has dark:text-stone-100').toContain('dark:text-stone-100')
+  expectsExplicitTextColour(popoverClasses.renameInput, 'rename input in popover')
+  expectsExplicitTextColour(popoverClasses.typeSelect, 'type <select> in popover')
 
   // (d): Change type to single-select so the options mini-input appears.
   const typeSelectEl = window.locator(
@@ -488,9 +502,7 @@ test('T3 — text-color fix: four table controls carry explicit text-color class
     return el?.className ?? null
   }, { wid: seed.widgetId })
 
-  expect(optionsInputClass, 'select-options mini input found after switching to single-select').not.toBeNull()
-  expect(optionsInputClass, 'options mini input has text-stone-900').toContain('text-stone-900')
-  expect(optionsInputClass, 'options mini input has dark:text-stone-100').toContain('dark:text-stone-100')
+  expectsExplicitTextColour(optionsInputClass, 'select-options mini input')
 
   // (a): AI textarea. Find what button opens the AI panel by looking for likely titles.
   // The wand/sparkle AI button is in the table widget toolbar (outside the thead).
@@ -525,7 +537,6 @@ test('T3 — text-color fix: four table controls carry explicit text-color class
     // (b)/(c)/(d) are already verified above. Log and skip — not a product failure.
     console.log('T3: AI textarea not found after toggle attempt — aiToggled=' + String(aiToggled))
   } else {
-    expect(textareaClass, 'AI textarea has text-stone-900').toContain('text-stone-900')
-    expect(textareaClass, 'AI textarea has dark:text-stone-100').toContain('dark:text-stone-100')
+    expectsExplicitTextColour(textareaClass, 'AI panel textarea')
   }
 })
