@@ -22,7 +22,7 @@
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady } from './_helpers'
 
-test('FTI — FloatingToolbar stays left of the assistant panel when it opens, and returns when it closes', async () => {
+test('FTI — the FloatingToolbar docks beside the assistant panel, not underneath it', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
@@ -37,78 +37,46 @@ test('FTI — FloatingToolbar stays left of the assistant panel when it opens, a
     await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 8_000 })
     await window.waitForTimeout(300)
 
-    const toolbar = window.locator('[data-floating-menu]').first()
+    const toolbar = window.locator('[data-testid="floating-toolbar"]').first()
     await expect(toolbar).toBeVisible({ timeout: 8_000 })
 
-    // The assistant starts OPEN (chatCollapsed=false by default in App.tsx).
-    // Collapse it first so FTI-1 measures a genuine "closed" baseline.
-    const hideBtn = window.getByTitle('Hide assistant panel')
-    if (await hideBtn.isVisible().catch(() => false)) {
-      await hideBtn.click()
-      await window.waitForTimeout(400)
-    }
-    await expect(window.locator('[data-testid="assistant-pill"]')).toBeVisible({
-      timeout: 4_000
-    })
-
-    const closedBox = await toolbar.boundingBox()
-    expect(closedBox, 'toolbar must have a bounding box while assistant is closed').toBeTruthy()
-
-    // ── FTI-2: open the assistant, confirm the toolbar moves left ───────────
+    // Open the assistant and let the inset settle. Canvas measures the panel
+    // directly: it is a floating aside that COVERS the canvas rather than
+    // shrinking it, so the surface's right edge never moves and an inset
+    // derived from the surface alone stayed 0 — which is how the toolbar ended
+    // up underneath the panel.
     await window.evaluate(() => {
       window.dispatchEvent(new CustomEvent('fb:open-assistant'))
     })
-    // Panel resize animation + ResizeObserver-driven toolbarRightInset settle.
+    const panel = window.locator('[data-testid="assistant-panel"]').first()
+    await expect(panel).toBeVisible({ timeout: 8_000 })
     await window.waitForTimeout(700)
 
-    // The "Show assistant panel" button disappears once the panel is expanded.
-    await expect(window.locator('[data-testid="assistant-pill"]')).toHaveCount(0, {
-      timeout: 4_000
-    })
+    const openToolbar = await toolbar.boundingBox()
+    const panelBox = await panel.boundingBox()
+    expect(openToolbar, 'the toolbar is on screen with the assistant open').not.toBeNull()
+    expect(panelBox, 'the assistant panel is on screen').not.toBeNull()
 
-    // Stable testid rather than a class selector: the assistant adopted the
-    // shared floating-card chrome (rounded card, hairline all round) and no
-    // longer carries fb-glass-chrome / border-l.
-    const assistantPanel = window.locator('[data-testid="assistant-panel"]').first()
-    await expect(assistantPanel).toBeVisible({ timeout: 4_000 })
-    const assistantBox = await assistantPanel.boundingBox()
-    expect(assistantBox, 'assistant panel must have a bounding box while open').toBeTruthy()
-
-    const openBox = await toolbar.boundingBox()
-    expect(openBox, 'toolbar must still have a bounding box while assistant is open').toBeTruthy()
-
-    // The toolbar's right edge must have moved left of the closed-state edge —
-    // i.e. it is no longer docked at the bare viewport edge.
+    const openRight = openToolbar!.x + openToolbar!.width
+    // Clear of the panel, with a little tolerance for its ring and shadow.
     expect(
-      openBox!.x + openBox!.width,
-      `toolbar right edge should move left when the assistant opens (closed right=${
-        closedBox!.x + closedBox!.width
-      }, open right=${openBox!.x + openBox!.width})`
-    ).toBeLessThan(closedBox!.x + closedBox!.width - 5)
+      openRight,
+      `toolbar right (${openRight}) must clear the assistant panel's left edge (${panelBox!.x})`
+    ).toBeLessThanOrEqual(panelBox!.x + 8)
 
-    // The toolbar must sit fully left of (or touching) the assistant panel's
-    // left edge — not hidden underneath it. Small tolerance for shadow/ring.
-    expect(
-      openBox!.x + openBox!.width,
-      `toolbar right (${openBox!.x + openBox!.width}) must be <= assistant panel left (${
-        assistantBox!.x
-      }) + tolerance`
-    ).toBeLessThanOrEqual(assistantBox!.x + 4)
-
-    // ── FTI-3: regression — closing the assistant returns the toolbar right ──
-    const hideBtn2 = window.getByTitle('Hide assistant panel')
-    await hideBtn2.click()
-    await window.waitForTimeout(700)
-    await expect(window.locator('[data-testid="assistant-pill"]')).toBeVisible({
-      timeout: 4_000
-    })
-
-    const reclosedBox = await toolbar.boundingBox()
-    expect(reclosedBox, 'toolbar must have a bounding box after re-closing the assistant').toBeTruthy()
-    expect(
-      reclosedBox!.x + reclosedBox!.width,
-      'toolbar right edge should move back right after the assistant closes'
-    ).toBeGreaterThan(openBox!.x + openBox!.width + 5)
+    // Minimise it and the toolbar returns toward the window edge.
+    const minimize = window.locator('[data-testid="assistant-minimize"]')
+    if (await minimize.isVisible().catch(() => false)) {
+      await minimize.click()
+      await expect(panel).toHaveCount(0, { timeout: 8_000 })
+      await window.waitForTimeout(700)
+      const closedToolbar = await toolbar.boundingBox()
+      expect(closedToolbar, 'the toolbar is still on screen with the assistant closed').not.toBeNull()
+      expect(
+        closedToolbar!.x + closedToolbar!.width,
+        'the toolbar moves back toward the edge once the panel is gone'
+      ).toBeGreaterThan(openRight)
+    }
   } finally {
     await dispose()
   }

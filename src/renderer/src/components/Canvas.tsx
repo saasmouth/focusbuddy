@@ -260,7 +260,20 @@ export default function Canvas(): JSX.Element {
     if (!el) return
     const measure = (): void => {
       const rect = el.getBoundingClientRect()
-      setToolbarRightInset(Math.max(0, Math.round(window.innerWidth - rect.right)))
+      // The gap between the canvas's right edge and the window edge, PLUS the
+      // assistant panel when it is open.
+      //
+      // The panel is a floating aside: it covers the canvas rather than
+      // shrinking it, so the surface's own right edge never moves and this
+      // inset stayed 0 whether the assistant was open or not. The toolbar then
+      // sat underneath it instead of docking beside it — the thing the inset
+      // exists to prevent.
+      const surfaceGap = Math.max(0, window.innerWidth - rect.right)
+      const panel = document.querySelector<HTMLElement>('[data-testid="assistant-panel"]')
+      const panelGap = panel
+        ? Math.max(0, window.innerWidth - panel.getBoundingClientRect().left)
+        : 0
+      setToolbarRightInset(Math.round(Math.max(surfaceGap, panelGap)))
       setViewportSize((prev) => {
         const w = Math.round(rect.width)
         const h = Math.round(rect.height)
@@ -270,9 +283,15 @@ export default function Canvas(): JSX.Element {
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
+    // The panel mounts and unmounts rather than resizing the surface, so a
+    // ResizeObserver on the canvas alone never hears about it. Watching the
+    // subtree for the panel appearing is what keeps the inset honest.
+    const mo = new MutationObserver(measure)
+    mo.observe(document.body, { childList: true, subtree: true })
     window.addEventListener('resize', measure)
     return () => {
       ro.disconnect()
+      mo.disconnect()
       window.removeEventListener('resize', measure)
     }
   }, [])
