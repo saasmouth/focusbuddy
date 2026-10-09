@@ -121,7 +121,7 @@ describe('the cutover is deliberately partial', () => {
 
   it('the viewer has moved, because the old one advertised a competitor', () => {
     // Not cosmetic. The Vercel viewer's bundle carried three links to
-    // focusbuddy.app — a different, live product owned by someone else — one
+    // plexii.app — a different, live product owned by someone else — one
     // behind a button marked "download". ACTIVE.viewer is what share links are
     // built from, so while it named that host every shared desk handed its
     // recipient to a competitor.

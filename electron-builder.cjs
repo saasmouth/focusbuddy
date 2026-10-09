@@ -89,7 +89,7 @@ const macSigning = hasNotaryCreds
 const { readActiveDomains, usesGithubReleases } = require('./scripts/read-active-domains.cjs')
 const { domains: ACTIVE_DOMAINS, describe: ACTIVE_DESCRIBE } = readActiveDomains(__dirname)
 const publishTarget = usesGithubReleases(ACTIVE_DOMAINS.downloads)
-  ? { provider: 'github', owner: 'saasmouth', repo: 'focusbuddy', releaseType: 'release' }
+  ? { provider: 'github', owner: 'saasmouth', repo: 'plexii', releaseType: 'release' }
   : // The feed is the bucket ROOT, not a versioned prefix: the URL is compiled
     // into the installer, so it cannot name the next version's prefix. The
     // rolling copies at the root are what scripts/upload-release-assets.mjs

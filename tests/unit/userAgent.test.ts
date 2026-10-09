@@ -12,8 +12,12 @@ describe('cleanWebviewUserAgent', () => {
     expect(ua).not.toMatch(/Electron/i)
   })
 
-  it('removes the app-name token (focusbuddy/Haptyx)', () => {
+  it('removes the app-name token, for every name the app has had', () => {
     expect(cleanWebviewUserAgent(ELECTRON_UA)).not.toMatch(/focusbuddy/i)
+    // The current name. Electron derives this token from package.json `name`,
+    // so each rename adds one more that must still be stripped.
+    const plexiiUA = ELECTRON_UA.replace('focusbuddy/2.4.3', 'plexii/4.3.23')
+    expect(cleanWebviewUserAgent(plexiiUA)).not.toMatch(/plexii/i)
     const haptyxUA = ELECTRON_UA.replace('focusbuddy/2.4.3', 'Haptyx/2.4.3')
     expect(cleanWebviewUserAgent(haptyxUA)).not.toMatch(/Haptyx/i)
   })

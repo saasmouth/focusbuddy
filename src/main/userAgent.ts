@@ -21,10 +21,14 @@
 // (same pattern as popupRouter.ts).
 
 /** Tokens we strip: `Electron/<ver>`, and the app-name token, which has been
- *  `focusbuddy/`, `Haptyx/`, and now `PlexiDesk/` across renames. Strip all so
- *  the webview presents as plain desktop Chrome regardless of which build. */
+ *  `Haptyx/`, `focusbuddy/`, `PlexiDesk/` and now `plexii/` across renames.
+ *  Every past name stays in this list: the token comes from Electron's default
+ *  UA, so an older build still emits its own, and a webview that leaks one of
+ *  them is fingerprintable as this app. Strip all so the webview presents as
+ *  plain desktop Chrome regardless of which build is running. */
 const STRIP_PATTERNS: RegExp[] = [
   / Electron\/[^ ]+/gi,
+  / plexii\/[^ ]+/gi,
   / focusbuddy\/[^ ]+/gi,
   / Haptyx\/[^ ]+/gi,
   / PlexiDesk\/[^ ]+/gi

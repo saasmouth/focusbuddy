@@ -35,7 +35,7 @@ What works today:
 - The hard part is solved. `streamdeckActions.ts` tracks the previously
   frontmost macOS app and hands focus back to it before sending a keystroke, so
   Cmd+C actually copies in the user's editor rather than no-opping inside
-  FocusBuddy. Most cheap macro tools get this wrong.
+  Plexii. Most cheap macro tools get this wrong.
 - Two scopes per widget. A "Task" deck stored in `widget.content` that lives
   with the canvas, and a "Universal" deck in `userData` via the Zustand store in
   `src/renderer/src/stores/speeddeck.ts` that the same buttons follow across

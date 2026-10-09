@@ -26,7 +26,7 @@ test.beforeAll(async () => {
 })
 
 async function launch(label: string): Promise<{ app: ElectronApplication; window: Page; dispose: () => Promise<void> }> {
-  const userDataDir = mkdtempSync(join(tmpdir(), `focusbuddy-orgdocroute-${label}-`))
+  const userDataDir = mkdtempSync(join(tmpdir(), `plexii-orgdocroute-${label}-`))
   const cleanEnv: NodeJS.ProcessEnv = { ...process.env }
   delete cleanEnv.ELECTRON_RUN_AS_NODE
   delete cleanEnv.ANTHROPIC_API_KEY

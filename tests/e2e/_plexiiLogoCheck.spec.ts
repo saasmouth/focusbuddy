@@ -56,7 +56,7 @@ test('Plexii logo renders in titlebar + sidebar, survives theme toggle, and show
       // exactly one match confirms the forced-white-variant code path.
       const modalLogoCount = await modalLogo.count()
       signInLogoIsWhiteVariant = modalLogoCount === 1
-      await window.screenshot({ path: 'test-results/plexii-signin-modal.png' })
+      await window.screenshot({ path: 'test-results/focusbuddy-signin-modal.png' })
       // Dismiss so we can inspect the shell underneath.
       await signInModal.click().catch(() => {})
     }
@@ -80,7 +80,7 @@ test('Plexii logo renders in titlebar + sidebar, survives theme toggle, and show
         const box = visible ? await img.boundingBox().catch(() => null) : null
         boxes.push(box)
       }
-      await window.screenshot({ path: `test-results/plexii-shell-${themeLabel}.png` })
+      await window.screenshot({ path: `test-results/focusbuddy-shell-${themeLabel}.png` })
       return { count, visibleCount, boxes }
     }
 

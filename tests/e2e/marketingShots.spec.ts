@@ -15,7 +15,7 @@ import { join } from 'path'
 // moment a widget renders a pixel taller than expected; asking the element for
 // its own picture cannot.
 
-const OUT = process.env.SHOT_DIR ?? '/tmp/plexii-shots'
+const OUT = process.env.SHOT_DIR ?? '/tmp/focusbuddy-shots'
 const SCREENS = join(OUT, 'screens')
 const WIDGETS = join(OUT, 'widgets')
 

@@ -41,6 +41,24 @@ function backupBeforeMigrating(d: Database.Database): void {
 
 // The on-disk path of the live database. Single source of truth so the backup
 // module and getDb never drift on where the data actually lives.
+//
+// THE FILENAME IS PINNED AND IS NOT THE PRODUCT'S NAME. Do not "tidy" it.
+//
+// The project was renamed focusbuddy -> plexii, and the userData DIRECTORY was
+// moved with it (see userDataMigration.ts, which does that once, verifies it,
+// and leaves a pointer behind for older builds). The database file inside it was
+// deliberately left alone.
+//
+// Renaming it would mean moving three files together — the .db, its -wal and its
+// -shm — because a WAL holds committed transactions that have not been
+// checkpointed yet. Move the .db without its WAL and those transactions are
+// orphaned: the app opens, the database is valid, and the most recent work is
+// simply gone. That is a real risk taken for a string no user ever sees, inside
+// a directory that already carries the brand.
+//
+// If it is ever renamed anyway, it needs the same treatment as the directory: a
+// pure, unit-tested decision function, all three files moved, verified before
+// it is trusted, and nothing deleted.
 export function databaseFilePath(): string {
   return join(app.getPath('userData'), 'focusbuddy.db')
 }

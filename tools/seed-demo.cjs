@@ -21,7 +21,7 @@ const { randomUUID } = require('crypto')
 
 const DB_PATH =
   process.env.DB_PATH ||
-  path.join(os.homedir(), 'Library', 'Application Support', 'focusbuddy', 'focusbuddy.db')
+  path.join(os.homedir(), 'Library', 'Application Support', 'plexii', 'focusbuddy.db')
 
 const db = new Database(DB_PATH)
 db.pragma('journal_mode = WAL')

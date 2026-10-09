@@ -9,7 +9,7 @@
 # The matrix lives in three files (see projects/NEW_FEATURE_PLAYBOOK.md):
 #   1. haptyx-shared/src/capabilities.ts                     (canonical)
 #   2. focusbuddy-signal/src/capabilities.ts                 (server)
-#   3. focusbuddy/src/renderer/src/lib/capabilityDefaults.ts (app — this repo)
+#   3. plexii/src/renderer/src/lib/capabilityDefaults.ts (app — this repo)
 #
 # The check tool lives in the sibling focusbuddy-signal project. If that
 # sibling isn't checked out / installed next to this repo (e.g. a partial

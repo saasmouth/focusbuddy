@@ -68,7 +68,7 @@ Rough edges, and they are the honest centre of this doc:
   the Table widget, which an agent can read and rewrite. Slides is opaque.
 - It depends entirely on Google being reachable and the user being signed in. It
   is not local-first in any meaningful sense, which sits awkwardly against the
-  rest of FocusBuddy. A `.pptx` or `.key` file on disk has no home here at all.
+  rest of Plexii. A `.pptx` or `.key` file on disk has no home here at all.
 
 ## Best-of-breed landscape
 

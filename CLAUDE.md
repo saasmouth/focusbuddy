@@ -1,4 +1,4 @@
-# Plexii / focusbuddy — working context
+# Plexii / plexii — working context
 
 **The name is spelled "Plexii" — two i's — everywhere, always** (operator
 ruling, 2026-08-30). "Plexii Meet", "inside Plexii", "Plexii 4.0", the wake

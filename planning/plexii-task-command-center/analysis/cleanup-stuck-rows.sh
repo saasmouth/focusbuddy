@@ -4,7 +4,7 @@
 # hard-delete them locally (they are already user-trashed demo residue; widgets cascade).
 # The other dirty nodes are REPORTED, not touched. Log + backup land next to this script.
 set -u
-DB="$HOME/Library/Application Support/focusbuddy/focusbuddy.db"
+DB="$HOME/Library/Application Support/plexii/focusbuddy.db"
 DIR="$HOME/focusbuddy-plexi/planning/plexii-task-command-center/analysis"
 LOG="$DIR/cleanup-stuck-rows.log"
 exec > >(tee "$LOG") 2>&1

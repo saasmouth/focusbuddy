@@ -51,7 +51,7 @@ interface Launched {
 }
 
 async function launchWithCertBypass(label: string): Promise<Launched> {
-  const userDataDir = mkdtempSync(join(tmpdir(), `focusbuddy-deskbadge-${label}-`))
+  const userDataDir = mkdtempSync(join(tmpdir(), `plexii-deskbadge-${label}-`))
   const cleanEnv: NodeJS.ProcessEnv = { ...process.env }
   delete cleanEnv.ELECTRON_RUN_AS_NODE
   delete cleanEnv.ANTHROPIC_API_KEY

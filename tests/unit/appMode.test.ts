@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { detectOfficeBuild, detectPreviewBuild } from '../../src/main/appMode'
 
 // Regression guard for the bug where PlexiOffice quit on launch whenever PlexiDesk
-// was open: the packaged bundle reports app.getName()="focusbuddy" for BOTH apps,
+// was open: the packaged bundle reports app.getName()="plexii" for BOTH apps,
 // so office detection must come from the env or the executable path, not the name.
 
 describe('detectOfficeBuild', () => {
@@ -11,19 +11,19 @@ describe('detectOfficeBuild', () => {
       detectOfficeBuild({
         plexiAppEnv: 'office',
         execPath: '/Applications/agentic/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron',
-        appName: 'focusbuddy'
+        appName: 'plexii'
       })
     ).toBe(true)
   })
 
   it('detects the packaged office build from the macOS executable path', () => {
     // The crucial case: no env var, and app.getName() is the misleading
-    // "focusbuddy" — detection must still succeed from the bundle path.
+    // "plexii" — detection must still succeed from the bundle path.
     expect(
       detectOfficeBuild({
         plexiAppEnv: undefined,
         execPath: '/Applications/PlexiOffice.app/Contents/MacOS/PlexiOffice',
-        appName: 'focusbuddy'
+        appName: 'plexii'
       })
     ).toBe(true)
   })
@@ -33,7 +33,7 @@ describe('detectOfficeBuild', () => {
       detectOfficeBuild({
         plexiAppEnv: undefined,
         execPath: 'C:\\Users\\me\\AppData\\Local\\Programs\\PlexiOffice\\PlexiOffice.exe',
-        appName: 'focusbuddy'
+        appName: 'plexii'
       })
     ).toBe(true)
   })
@@ -49,7 +49,7 @@ describe('detectOfficeBuild', () => {
       detectOfficeBuild({
         plexiAppEnv: undefined,
         execPath: '/Applications/PlexiDesk.app/Contents/MacOS/PlexiDesk',
-        appName: 'focusbuddy'
+        appName: 'plexii'
       })
     ).toBe(false)
   })
@@ -59,7 +59,7 @@ describe('detectOfficeBuild', () => {
       detectOfficeBuild({
         plexiAppEnv: undefined,
         execPath: '/repo/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron',
-        appName: 'focusbuddy'
+        appName: 'plexii'
       })
     ).toBe(false)
   })

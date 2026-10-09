@@ -1,5 +1,5 @@
 // The public desk contract is owned by projects/haptyx-shared, one level above
-// this repository. focusbuddy is cloned standalone (it is a submodule of the
+// this repository. plexii is cloned standalone (it is a submodule of the
 // ecosystem repo), so it cannot import across that boundary any more than the
 // signal server can. The contract is vendored into src/shared as committed
 // files and tests/unit/contractSync.test.ts fails if they drift.

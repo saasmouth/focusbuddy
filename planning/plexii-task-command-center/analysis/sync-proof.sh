@@ -4,7 +4,7 @@
 # personal org scope (your devices only), full cleanup at the end.
 # Log: planning/plexii-task-command-center/analysis/sync-proof-run.log
 set -u
-DB="$HOME/Library/Application Support/focusbuddy/focusbuddy.db"
+DB="$HOME/Library/Application Support/plexii/focusbuddy.db"
 LOG="$HOME/focusbuddy-plexi/planning/plexii-task-command-center/analysis/sync-proof-run.log"
 exec > >(tee "$LOG") 2>&1
 say() { echo "[$(date +%H:%M:%S)] $*"; }

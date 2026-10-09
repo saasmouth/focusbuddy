@@ -16,8 +16,8 @@ test('polish shots: renamed sidebar sections + assistant chips', async () => {
     await waitForReady(window)
     // Clear any persisted layout so new slim defaults apply; set futuristic theme.
     await window.evaluate(() => {
-      localStorage.removeItem('focusbuddy-main')
-      localStorage.removeItem('focusbuddy-main-v2')
+      localStorage.removeItem('plexii-main')
+      localStorage.removeItem('plexii-main-v2')
       localStorage.setItem('fb.theme.mode', 'futuristic')
     })
     await window.reload()

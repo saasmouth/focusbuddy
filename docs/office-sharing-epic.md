@@ -14,14 +14,14 @@ sequenced epic, not one change.
 
 Three projects cooperate, all present in this workspace:
 
-- `focusbuddy` (desktop): `ShareDialog` + `lib/shareSnapshot.ts` mint a snapshot
+- `plexii` (desktop): `ShareDialog` + `lib/shareSnapshot.ts` mint a snapshot
   and a token; `lib/docCollabClient.ts` already speaks the check-out collaboration
   protocol (`POST /livedocs`, `/livedocs/:id/lock`, `/release`, `/body`, `/title`,
   `/invite`). The file manager (`fb_files`) now backs the office Drive too.
 - `focusbuddy-signal` (server): `/share` + `/inbox` for snapshot sharing;
   `live_docs` + `live_doc_members` (roles owner/editor) + `live_doc_locks` for
   check-out collaboration; account/session auth.
-- `focusbuddy-viewer` (web SPA, view.focusbuddy.app): `SnapshotView.tsx` renders
+- `focusbuddy-viewer` (web SPA, view.plexii.app): `SnapshotView.tsx` renders
   share kinds `folder` / `task` / `widget`, plus an "add to workspace" path.
 
 Gaps for office specifically: the snapshot builder and the viewer only know desk

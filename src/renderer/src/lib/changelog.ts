@@ -212,7 +212,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: 'PlexiDesk 4.3.11 \u2014 one name, everywhere',
     tag: 'polish',
     summary:
-      'The app has been called PlexiDesk for a while, but parts of it still said Haptyx or FocusBuddy \u2014 the file you downloaded, the links you sent people, the folder your workspace lives in. This release finishes that, and it does it without asking anything of you. Your workspace moves itself, links you have already sent keep working, and updates keep arriving as normal.',
+      'The app has been called PlexiDesk for a while, but parts of it still said Haptyx or Plexii \u2014 the file you downloaded, the links you sent people, the folder your workspace lives in. This release finishes that, and it does it without asking anything of you. Your workspace moves itself, links you have already sent keep working, and updates keep arriving as normal.',
     highlights: [
       'Your workspace folder is renamed from Haptyx to PlexiDesk on first launch. Nothing is copied and nothing is left behind \u2014 if the move cannot be made safely it is not attempted, and the app carries on exactly as before.',
       'Downloads are now named PlexiDesk rather than Haptyx, so the installer in your Downloads folder says what it is.',
@@ -2546,7 +2546,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     summary:
       'The app has a new name: PlexiDesk. Same product, same data, nothing for you to do. This release also makes the built-in browser work with far more sites, and lets you drag tasks straight onto the calendar.',
     highlights: [
-      'New name, your data intact: FocusBuddy / Haptyx is now PlexiDesk. Your existing tasks, vault and settings carry over exactly as they were, and updates keep working as normal.',
+      'New name, your data intact: Plexii / Haptyx is now PlexiDesk. Your existing tasks, vault and settings carry over exactly as they were, and updates keep working as normal.',
       'The browser handles more of the web: it runs on a much newer engine, so you hit far fewer "verify you are human" checks, and menus that open a new tab — like Google Docs "open a file" — now work instead of doing nothing.',
       'Plan your day on the calendar: drag any task or folder onto the Week view to book time for it, and jump straight back to the task or folder from its calendar block.'
     ],

@@ -1,6 +1,6 @@
 import { app, BrowserWindow, desktopCapturer, ipcMain, Menu, MenuItem, protocol, session, shell, net } from 'electron'
 import { join, resolve as resolvePath, sep } from 'path'
-import { existsSync, readdirSync, renameSync } from 'fs'
+import { existsSync, readdirSync, renameSync, symlinkSync } from 'fs'
 import { pathToFileURL } from 'url'
 import { config as loadEnv } from 'dotenv'
 import { closeDb, getDb } from './db/database'
@@ -114,7 +114,11 @@ if (process.env.FB_TEST_USER_DATA) {
           } catch {
             return false
           }
-        }
+        },
+        // Leave a pointer at the old name after a verified move, so an older
+        // build (which pins the old name) still opens this workspace rather
+        // than a new empty one. Best-effort: the data is already moved.
+        linkBack: (target, at) => symlinkSync(target, at, 'dir')
       },
       join
     )

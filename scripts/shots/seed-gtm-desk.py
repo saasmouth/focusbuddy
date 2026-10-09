@@ -155,8 +155,8 @@ ASSETS = table('Assets', [
     {'id':'a-status','type':'text-short','label':'Status','config':{}},
     {'id':'a-where','type':'text-short','label':'Where','config':{}},
 ], [
- {'a-name':'Product screenshots (39)','a-kind':'Image set','a-status':'Done','a-where':'~/Desktop/plexii marketing screens and widgets new'},
- {'a-name':'Widget showcase (44)','a-kind':'Image set','a-status':'Done','a-where':'~/Desktop/plexii marketing screens and widgets new'},
+ {'a-name':'Product screenshots (39)','a-kind':'Image set','a-status':'Done','a-where':'~/Desktop/focusbuddy marketing screens and widgets new'},
+ {'a-name':'Widget showcase (44)','a-kind':'Image set','a-status':'Done','a-where':'~/Desktop/focusbuddy marketing screens and widgets new'},
  {'a-name':'90-second demo video','a-kind':'Video','a-status':'Not started','a-where':''},
  {'a-name':'Landing page','a-kind':'Web','a-status':'In progress','a-where':'haptyx-web (Vercel)'},
  {'a-name':'Shared-desk experience','a-kind':'Web','a-status':'Live','a-where':'haptyx-web.vercel.app/share'},

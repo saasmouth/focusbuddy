@@ -38,7 +38,7 @@ export async function launchApp(opts?: {
   // unaffected.
   extraArgs?: string[]
 }): Promise<LaunchedApp> {
-  const userDataDir = opts?.userDataDir ?? mkdtempSync(join(tmpdir(), 'focusbuddy-e2e-'))
+  const userDataDir = opts?.userDataDir ?? mkdtempSync(join(tmpdir(), 'plexii-e2e-'))
   const ownsDir = !opts?.userDataDir
   // ELECTRON_RUN_AS_NODE=1 makes Electron boot as a plain Node process — which
   // is what happens when these tests run from inside another Electron host
@@ -113,7 +113,7 @@ export async function launchApp(opts?: {
  * Single source of truth for "the app is ready to drive" so future
  * rebrands / wordmark changes only require an edit in one place. The
  * sidebar wordmark heading is the canary (its accessible name is
- * "FOCUSBUDDY" after the futuristic-theme rebrand — matched via regex
+ * "PLEXII" after the futuristic-theme rebrand — matched via regex
  * so a future rename doesn't break every spec again).
  */
 export async function waitForReady(

@@ -1,8 +1,8 @@
 // Which product is this binary — PlexiDesk or the standalone PlexiOffice app?
 //
 // Both apps are built from this one codebase and are meant to run AT THE SAME
-// TIME. The packaged bundle embeds package.json `name: "focusbuddy"` with no
-// `productName`, so Electron's app.getName() returns "focusbuddy" for BOTH builds.
+// TIME. The packaged bundle embeds package.json `name: "plexii"` with no
+// `productName`, so Electron's app.getName() returns "plexii" for BOTH builds.
 // If we relied on that, PlexiOffice would default to PlexiDesk's userData
 // directory and therefore share its single-instance lock, which makes PlexiOffice
 // quit on launch whenever PlexiDesk is already open. So office detection must not
@@ -28,7 +28,7 @@ export function detectOfficeBuild(opts: {
 
 // Is this binary the side-by-side "PlexiDesk 3 Preview" build? Same detection
 // strategy as detectOfficeBuild and for the same reason: the packaged bundle's
-// app.getName() is "focusbuddy" until setName runs, so we look at the PLEXI_APP
+// app.getName() is "plexii" until setName runs, so we look at the PLEXI_APP
 // env var (dev), then the executable path (packaged: the bundle is
 // "PlexiDesk 3 Preview.app" / "PlexiDesk 3 Preview.exe"), then the app name.
 // The preview runs the full PlexiDesk renderer but with its OWN userData

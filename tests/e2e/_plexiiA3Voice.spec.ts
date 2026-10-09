@@ -33,10 +33,10 @@ test('voice engine: real speech through local Whisper', async () => {
 
   // ── Pre-seed the whisper model cache from the live profile (42MB, APFS
   // clone) so the local provider loads instantly instead of downloading. ──
-  const userDataDir = mkdtempSync(join(tmpdir(), 'focusbuddy-e2e-voice-'))
+  const userDataDir = mkdtempSync(join(tmpdir(), 'plexii-e2e-voice-'))
   const liveCache = join(
     process.env.HOME ?? '',
-    'Library/Application Support/focusbuddy/whisper-cache'
+    'Library/Application Support/plexii/whisper-cache'
   )
   if (existsSync(liveCache)) {
     cpSync(liveCache, join(userDataDir, 'whisper-cache'), { recursive: true })
@@ -82,10 +82,10 @@ test('voice engine: real speech through local Whisper', async () => {
 
 test('mascot voice chrome: the bar is gone, the pill holds to talk, staging fills the composer', async () => {
   test.setTimeout(180_000)
-  const userDataDir = mkdtempSync(join(tmpdir(), 'focusbuddy-e2e-voice2-'))
+  const userDataDir = mkdtempSync(join(tmpdir(), 'plexii-e2e-voice2-'))
   const liveCache = join(
     process.env.HOME ?? '',
-    'Library/Application Support/focusbuddy/whisper-cache'
+    'Library/Application Support/plexii/whisper-cache'
   )
   if (existsSync(liveCache)) {
     cpSync(liveCache, join(userDataDir, 'whisper-cache'), { recursive: true })

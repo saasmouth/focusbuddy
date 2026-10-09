@@ -103,7 +103,7 @@ async function openDesk(window: Page, deskId: string): Promise<void> {
 
 test('camera + selection overlay: round-trips on Desk switch, survives app reload, fresh Desk opens at origin, stale selection is dropped, resetView still works, no errors', async ({}, testInfo) => {
   testInfo.setTimeout(120_000)
-  const userDataDir = mkdtempSync(join(tmpdir(), 'focusbuddy-e2e-desklayout-'))
+  const userDataDir = mkdtempSync(join(tmpdir(), 'plexii-e2e-desklayout-'))
   let deskAId = ''
   let deskBId = ''
   let widgetId = ''

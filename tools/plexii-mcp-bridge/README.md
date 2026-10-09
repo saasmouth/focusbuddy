@@ -11,7 +11,7 @@ npm install -g @anthropic-ai/mcpb        # once
 cd tools/plexii-mcp-bridge
 node scripts/gen-manifest.mjs            # from repo root if run there: node tools/plexii-mcp-bridge/scripts/gen-manifest.mjs
 mcpb validate manifest.json
-mcpb pack . ../../dist/plexii.mcpb
+mcpb pack . ../../dist/focusbuddy.mcpb
 ```
 
 Signing (`mcpb sign`) is optional for personal use and required for org-managed distribution; see the [MCPB README](https://github.com/modelcontextprotocol/mcpb).

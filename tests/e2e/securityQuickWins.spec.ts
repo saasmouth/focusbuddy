@@ -56,18 +56,18 @@ test('A: cleanWebviewUserAgent applied to live UA strips Electron/focusbuddy/Hap
   expect(rawUA).toContain('Mozilla/5.0')
 
   // Now apply the same cleaning logic the main process uses for webview sessions.
-  // The strip patterns from userAgent.ts: / Electron\/[^ ]+/gi, / focusbuddy\/[^ ]+/gi,
+  // The strip patterns from userAgent.ts: / Electron\/[^ ]+/gi, / plexii\/[^ ]+/gi,
   // / Haptyx\/[^ ]+/gi, then collapse double-spaces.
   const cleaned = rawUA
     .replace(/ Electron\/[^ ]+/gi, '')
-    .replace(/ focusbuddy\/[^ ]+/gi, '')
+    .replace(/ plexii\/[^ ]+/gi, '')
     .replace(/ Haptyx\/[^ ]+/gi, '')
     .replace(/\s{2,}/g, ' ')
     .trim()
 
   // The cleaned UA must not contain any of the blocked tokens
   expect(cleaned).not.toMatch(/Electron\//i)
-  expect(cleaned).not.toMatch(/focusbuddy\//i)
+  expect(cleaned).not.toMatch(/plexii\//i)
   expect(cleaned).not.toMatch(/Haptyx\//i)
   // Must still be a valid desktop-Chrome UA string
   expect(cleaned).toContain('Chrome/')
@@ -136,7 +136,7 @@ test('A3: cleanWebviewUserAgent is imported and called in the main process', asy
   // And the cleaning function IS correct (proven by unit test) — so any webview
   // session that gets the same raw UA will produce a clean output.
   // This is the full proof chain: unit test (string transforms) + E2E (correct input).
-  expect(mainUA).toMatch(/focusbuddy\//i)  // raw UA has app name
+  expect(mainUA).toMatch(/plexii\//i)  // raw UA has app name
 })
 
 // ── B: setActive does NOT increment centerToken ───────────────────────────────

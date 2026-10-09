@@ -164,8 +164,8 @@ integration loop so it is genuinely the same account's documents as PlexiDesk.
 
 **Round 7 (2026-06-21) — fixed: PlexiOffice quit on launch (shared lock).**
 The first published build crashed within ~0.5s of opening. Root cause: the packaged
-bundle embeds package.json `name: "focusbuddy"` with no `productName`, so
-`app.getName()` returned "focusbuddy" for the office build too. PlexiOffice therefore
+bundle embeds package.json `name: "plexii"` with no `productName`, so
+`app.getName()` returned "plexii" for the office build too. PlexiOffice therefore
 defaulted to PlexiDesk's userData directory and shared its single-instance lock, so
 launching it while PlexiDesk was open made `requestSingleInstanceLock()` fail and the
 app `app.quit()` immediately. The same root cause meant the renderer-selection check
@@ -386,7 +386,7 @@ embedded on a PlexiDesk canvas. Three models:
 
 - This repo is committed by several chats in parallel; a tree-wide package refactor
   (Option B) needs a coordination freeze or it will thrash. See
-  [[focusbuddy-concurrent-chats]].
+  [[plexii-concurrent-chats]].
 - The DB is the deepest coupling. Splitting document data cleanly (especially the
   file-manager `fb_files` doc-references and standalone tables) is the make-or-break
   detail.

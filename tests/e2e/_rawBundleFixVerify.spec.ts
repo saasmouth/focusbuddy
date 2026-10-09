@@ -26,7 +26,7 @@ test('fix verify: poisoned webview content never resolves to a file:// or /asset
   // Own the temp dir ourselves — passing it explicitly to launchApp makes each
   // boot's dispose() a no-op on the directory (ownsDir only deletes when the
   // caller did NOT supply a userDataDir), so data survives across the two boots.
-  const userDataDir = mkdtempSync(join(tmpdir(), 'focusbuddy-fixverify-'))
+  const userDataDir = mkdtempSync(join(tmpdir(), 'plexii-fixverify-'))
   const boot1 = await launchApp({ userDataDir })
   let taskId = ''
   try {

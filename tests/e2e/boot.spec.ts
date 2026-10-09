@@ -19,7 +19,7 @@ test('app boots and renders the React shell', async () => {
 
   // waitForReady gates on (a) window.api being exposed and (b) the
   // sidebar wordmark heading being visible. Anchors via a regex so
-  // the post-rebrand "FOCUSBUDDY" string still matches.
+  // the post-rebrand "PLEXII" string still matches.
   await waitForReady(window)
 
   // window.api must be exposed via the contextBridge — otherwise renderer code

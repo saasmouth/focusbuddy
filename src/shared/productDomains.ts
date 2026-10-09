@@ -65,7 +65,7 @@ export const CURRENT: ProductDomains = {
  *   redirect. That is the whole of what siteUrls.ts and autoUpdate.ts build.
  *
  * - viewer -> view.plexiidesk.com, and this one was not cosmetic. The Vercel
- *   viewer's bundle contains three links to https://focusbuddy.app — a
+ *   viewer's bundle contains three links to https://plexii.app — a
  *   DIFFERENT, live product owned by someone else — one of them behind a button
  *   marked "download". Every share link this app generated pointed there, so
  *   the recipient of a shared desk was being handed to a competitor. The Pages

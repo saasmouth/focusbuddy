@@ -1,7 +1,7 @@
 // Workspace path resolution for the agent system.
 //
 // Why this exists: in dev mode the Electron main process boots with
-// `process.cwd()` pointing at the focusbuddy project — walking up 6
+// `process.cwd()` pointing at the plexii project — walking up 6
 // directories conveniently lands inside `agentic-starter-kit-main`
 // and finds `.claude/agents/`. In a packaged build (or anything
 // launched via Finder / Spotlight / Dock), `process.cwd()` is the

@@ -9,7 +9,7 @@ test.setTimeout(60_000)
 test('layout slim proportions screenshot', async () => {
   // launchApp always uses a fresh isolated userData dir (mkdtemp), so no old
   // panel layout can be restored from a previous session. The new
-  // focusbuddy-main-v2 autoSaveId defaults take effect on first boot.
+  // plexii-main-v2 autoSaveId defaults take effect on first boot.
   const { app, window, dispose } = await launchApp()
   await app.evaluate(({ BrowserWindow }) => {
     const w = BrowserWindow.getAllWindows()[0]
@@ -21,8 +21,8 @@ test('layout slim proportions screenshot', async () => {
     // hot reloads, then reload so the new default sizes are applied fresh.
     await window.evaluate(() => {
       // Remove both the old and new autoSaveId keys to be safe.
-      localStorage.removeItem('focusbuddy-main')
-      localStorage.removeItem('focusbuddy-main-v2')
+      localStorage.removeItem('plexii-main')
+      localStorage.removeItem('plexii-main-v2')
       localStorage.setItem('fb.theme.mode', 'futuristic')
     })
     await window.reload()

@@ -31,7 +31,7 @@ test.afterEach(async () => {
 })
 
 function makeScratch(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'focusbuddy-import-e2e-'))
+  const dir = mkdtempSync(join(tmpdir(), 'plexii-import-e2e-'))
   scratch = dir
   return dir
 }

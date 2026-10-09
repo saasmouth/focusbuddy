@@ -1,4 +1,4 @@
-# FocusBuddy
+# Plexii
 
 Task-scoped digital work environment for people with ADHD and high distractibility.
 

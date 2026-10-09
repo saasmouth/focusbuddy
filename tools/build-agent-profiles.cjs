@@ -1,6 +1,6 @@
 /* eslint-disable */
 // Converts the starter-kit agent definitions (.claude/agents/*.md) into
-// FocusBuddy desk-agent PROFILES. Each agent's "## Identity" persona becomes a
+// Plexii desk-agent PROFILES. Each agent's "## Identity" persona becomes a
 // profile's systemPrompt (its expertise + approach), with kit-specific
 // machinery (workflow_run / manifest / file paths / operator) stripped out — a
 // profile only shapes HOW an agent works, never how its output is applied.

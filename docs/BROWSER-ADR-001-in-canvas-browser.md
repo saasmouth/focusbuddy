@@ -35,7 +35,7 @@ This is a sophisticated, real-Chromium browser. The reported "it's terrible" exp
 
 | # | Root cause | Verdict | Status |
 |---|---|---|---|
-| R1 | **No `setUserAgent` anywhere** — the webview advertised `…focusbuddy/2.4.3 … Electron/33.x …`. Identity providers fingerprint that and return `disallowed_useragent` / "this browser may not be secure," **hard-blocking sign-in**. | CONFIRMED (no-UA fact); consequence is well-known industry behaviour | ✅ **Fixed** |
+| R1 | **No `setUserAgent` anywhere** — the webview advertised `…plexii/2.4.3 … Electron/33.x …`. Identity providers fingerprint that and return `disallowed_useragent` / "this browser may not be secure," **hard-blocking sign-in**. | CONFIRMED (no-UA fact); consequence is well-known industry behaviour | ✅ **Fixed** |
 | R2 | **Click-to-interact overlay ate the first click *and* yanked the camera** — `showOverlay` rendered a full-bleed overlay whose `onClick` called `focusOn` (which pans), so the first click never reached the page and the canvas jumped. | CONFIRMED | ✅ **Fixed** (`setActive`) |
 | R3 | **Vault autofill had no origin check** — decrypted credentials were injected into *whatever* page the webview showed, including a redirect/link to a hostile origin. | CONFIRMED (0.93) | ✅ **Fixed** (origin-gated) |
 | R4 | **Popups inherited the broken UA** — `popupRouter` shares the parent session but never set a UA. | CONFIRMED | ✅ **Fixed transitively** (UA is set on the shared *session*, so popups inherit it) |

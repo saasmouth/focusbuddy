@@ -11,7 +11,7 @@
 //   node scripts/persona-demos/seed.cjs --dry-run           build + write into a temp copy of the DB
 //   node scripts/persona-demos/seed.cjs                     seed the main workspace (app must be quit)
 //   node scripts/persona-demos/seed.cjs --remove            trash everything this script seeded
-//   --profile <dir name>   another workspace under ~/Library/Application Support (default: focusbuddy)
+//   --profile <dir name>   another workspace under ~/Library/Application Support (default: plexii)
 //   --db <path>            an explicit database file
 //
 // Safe to re-run. Ids are deterministic, so a re-seed updates the same rows in
@@ -252,7 +252,7 @@ function main() {
     return
   }
 
-  const profile = opt('--profile') ?? 'focusbuddy'
+  const profile = opt('--profile') ?? 'plexii'
   const live = opt('--db') ?? join(homedir(), 'Library', 'Application Support', profile, 'focusbuddy.db')
   if (!fs.existsSync(live)) {
     console.error(`No database at ${live}`)

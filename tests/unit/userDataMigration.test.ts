@@ -1,4 +1,5 @@
-// Every branch of the Haptyx -> PlexiDesk workspace move.
+// Every branch of the workspace move, across the whole name chain
+// (Haptyx -> focusbuddy -> plexii).
 //
 // This is the logic that decides where a user's database, vault and settings
 // are read from. Getting it wrong does not throw: the app opens, finds nothing,
@@ -9,6 +10,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CURRENT_DIR_NAME,
   LEGACY_DIR_NAME,
+  LEGACY_DIR_NAMES,
   resolveUserDataDir,
   type UserDataFs
 } from '../../src/main/userDataMigration'
@@ -21,9 +23,20 @@ const join = (...p: string[]): string => p.join('/')
 /** A filesystem of directory name -> entry count. */
 function fakeFs(
   dirs: Record<string, number>,
-  opts: { renameThrows?: boolean; landsEmpty?: boolean; reverseThrows?: boolean } = {}
-): { fs: UserDataFs; renames: Array<[string, string]>; dirs: Record<string, number> } {
+  opts: {
+    renameThrows?: boolean
+    landsEmpty?: boolean
+    reverseThrows?: boolean
+    linkThrows?: boolean
+  } = {}
+): {
+  fs: UserDataFs
+  renames: Array<[string, string]>
+  links: Array<[string, string]>
+  dirs: Record<string, number>
+} {
   const renames: Array<[string, string]> = []
+  const links: Array<[string, string]> = []
   const fs: UserDataFs = {
     exists: (p) => p in dirs,
     rename: (from, to) => {
@@ -41,9 +54,14 @@ function fakeFs(
     isNonEmpty: (p) =>
       opts.landsEmpty && p === `${APP_DATA}/${CURRENT_DIR_NAME}` && renames.length === 1
         ? false
-        : (dirs[p] ?? 0) > 0
+        : (dirs[p] ?? 0) > 0,
+    linkBack: (target, at) => {
+      if (opts.linkThrows) throw new Error('EPERM')
+      links.push([target, at])
+      dirs[at] = dirs[target] ?? 0
+    }
   }
-  return { fs, renames, dirs }
+  return { fs, renames, links, dirs }
 }
 
 describe('resolveUserDataDir', () => {
@@ -70,17 +88,20 @@ describe('resolveUserDataDir', () => {
       const { fs } = fakeFs({ ...start })
       const { dir } = resolveUserDataDir(APP_DATA, fs, join)
       expect(typeof dir, JSON.stringify(start)).toBe('string')
-      expect(dir).toMatch(/\/(Haptyx|focusbuddy)$/)
+      expect(dir).toMatch(new RegExp(`/(${[...LEGACY_DIR_NAMES, CURRENT_DIR_NAME].join('|')})$`))
     }
   })
 
   it('moves the legacy directory once, and reports the new path', () => {
-    const { fs, renames, dirs } = fakeFs({ [LEGACY]: 9 })
+    const { fs, renames, links, dirs } = fakeFs({ [LEGACY]: 9 })
     expect(resolveUserDataDir(APP_DATA, fs, join)).toEqual({ dir: CURRENT, outcome: 'migrated' })
+    // Moved, not copied: exactly one rename, and the data is at the new name.
     expect(renames).toEqual([[LEGACY, CURRENT]])
-    // The data moved rather than being copied: the old name no longer exists.
-    expect(dirs[LEGACY]).toBeUndefined()
     expect(dirs[CURRENT]).toBe(9)
+    // The old name is then re-created as a POINTER to the new one, so an older
+    // build still opens this workspace. That is a link, not a second copy —
+    // the single rename above is what proves nothing was duplicated.
+    expect(links).toEqual([[CURRENT, LEGACY]])
   })
 
   it('touches nothing when both names exist, because merging loses data', () => {
@@ -132,5 +153,55 @@ describe('resolveUserDataDir', () => {
         }
       }
     }
+  })
+
+  // ── The chain, and the pointer left for a downgrade ──────────────────────
+
+  it('migrates an install sitting on the NEWER legacy name', () => {
+    const FOCUSBUDDY = `${APP_DATA}/focusbuddy`
+    const { fs, renames, dirs } = fakeFs({ [FOCUSBUDDY]: 12 })
+    const { dir, outcome } = resolveUserDataDir(APP_DATA, fs, join)
+    expect(outcome).toBe('migrated')
+    expect(dir).toBe(CURRENT)
+    expect(renames[0]).toEqual([FOCUSBUDDY, CURRENT])
+    expect(dirs[CURRENT]).toBe(12)
+  })
+
+  it('prefers the newest legacy name when more than one is on disk', () => {
+    // Someone who ran Haptyx long ago and focusbuddy recently: the live
+    // workspace is the focusbuddy one, and moving the Haptyx one over it would
+    // bury the newer data.
+    const HAPTYX = `${APP_DATA}/Haptyx`
+    const FOCUSBUDDY = `${APP_DATA}/focusbuddy`
+    const { fs, renames } = fakeFs({ [HAPTYX]: 3, [FOCUSBUDDY]: 12 })
+    const { dir, outcome } = resolveUserDataDir(APP_DATA, fs, join)
+    expect(outcome).toBe('migrated')
+    expect(dir).toBe(CURRENT)
+    expect(renames[0]![0], 'moved the newer workspace, not the older one').toBe(FOCUSBUDDY)
+  })
+
+  it('leaves a pointer at the old name so a downgrade still finds the data', () => {
+    const FOCUSBUDDY = `${APP_DATA}/focusbuddy`
+    const { fs, links } = fakeFs({ [FOCUSBUDDY]: 12 })
+    const { outcome } = resolveUserDataDir(APP_DATA, fs, join)
+    expect(outcome).toBe('migrated')
+    expect(links).toEqual([[CURRENT, FOCUSBUDDY]])
+  })
+
+  it('still reports success when the pointer cannot be created', () => {
+    // The data is already moved by then, so this build is fine either way —
+    // only a downgrade would start empty.
+    const FOCUSBUDDY = `${APP_DATA}/focusbuddy`
+    const { fs, links } = fakeFs({ [FOCUSBUDDY]: 12 }, { linkThrows: true })
+    const { dir, outcome } = resolveUserDataDir(APP_DATA, fs, join)
+    expect(outcome).toBe('migrated')
+    expect(dir).toBe(CURRENT)
+    expect(links).toEqual([])
+  })
+
+  it('leaves no pointer when nothing moved', () => {
+    const { fs, links } = fakeFs({ [CURRENT]: 4 })
+    expect(resolveUserDataDir(APP_DATA, fs, join).outcome).toBe('default')
+    expect(links).toEqual([])
   })
 })

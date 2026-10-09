@@ -271,7 +271,7 @@ test('form blocks are canonical and their fields do not overlap', () => {
 })
 
 // ── SQL write path, against a copy of a real workspace ──────────────────────
-const LIVE = join(homedir(), 'Library', 'Application Support', 'focusbuddy', 'focusbuddy.db')
+const LIVE = join(homedir(), 'Library', 'Application Support', 'plexii', 'focusbuddy.db')
 test('seeding is idempotent, trashes what the specs drop, and spares user rows', { skip: !fs.existsSync(LIVE) && 'no local workspace' }, () => {
   const { DatabaseSync } = require('node:sqlite')
   const dir = fs.mkdtempSync(join(tmpdir(), 'persona-demo-test-'))

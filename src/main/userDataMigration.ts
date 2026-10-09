@@ -18,6 +18,13 @@ export interface UserDataFs {
   rename(from: string, to: string): void
   /** True if the directory exists and has at least one entry. */
   isNonEmpty(path: string): boolean
+  /**
+   * Leave a pointer at `at` that resolves to `target` (a symlink, in practice).
+   *
+   * OPTIONAL and best-effort: a failure here must never change the outcome,
+   * because the data is already safely at `target` by the time it is called.
+   */
+  linkBack?(target: string, at: string): void
 }
 
 export type UserDataOutcome =
@@ -45,29 +52,45 @@ export interface UserDataDecision {
   outcome: UserDataOutcome
 }
 
-export const LEGACY_DIR_NAME = 'Haptyx'
+/**
+ * Every directory name this app has kept its workspace under, oldest first.
+ *
+ * It is a CHAIN rather than one name because an install can be sitting on any
+ * of them: someone who last ran the Haptyx build has never seen 'focusbuddy',
+ * and both must end up at the current name.
+ */
+export const LEGACY_DIR_NAMES = ['Haptyx', 'focusbuddy'] as const
+
+/** @deprecated Use LEGACY_DIR_NAMES. Kept so older callers still resolve. */
+export const LEGACY_DIR_NAME = LEGACY_DIR_NAMES[0]
 
 /**
  * The directory the standard build keeps its workspace in.
  *
- * PINNED, and deliberately not the product's name.
+ * PINNED, and deliberately not inherited from the app's name.
  *
  * Electron derives the default userData path from `app.getName()`, which comes
  * from `name` in package.json. That made a field nobody thinks of as
  * load-bearing — it is never shown to a user — silently decide where every
  * user's database, vault and files live.
  *
- * Renaming it from 'focusbuddy' to 'plexidesk' as part of the rebrand did
- * exactly that: 4.3.11 started against an empty directory, and a workspace with
- * five months of work in it was still on disk but no longer opened. The rename
- * bought nothing visible and cost the thing that matters most.
+ * Renaming it from 'focusbuddy' to 'plexidesk' as part of an earlier rebrand
+ * did exactly that: 4.3.11 started against an empty directory, and a workspace
+ * with five months of work in it was still on disk but no longer opened. That
+ * is why the path is stated here instead of inherited, and why `name` in
+ * package.json belongs with appId on the list of identifiers that look
+ * cosmetic and are not.
  *
- * So the path is stated here instead of inherited. It keeps the historical name
- * because the data is already there and moving 14GB to make a string prettier
- * is not a trade worth making. `name` in package.json belongs with appId on the
- * list of identifiers that look cosmetic and are not.
+ * It is now 'plexii', moved deliberately and once, with the operator's explicit
+ * go-ahead — not as a side effect of renaming a field. The move is verified
+ * before it is trusted (see below), nothing is deleted, and a pointer is left
+ * at the old name so a DOWNGRADE still works: an older build pins its own
+ * current name, so without that pointer it would find nothing and present an
+ * empty workspace — the same accident in the other direction. Versioned
+ * bundles are kept side by side for testing here, so that is a real path, not
+ * a hypothetical one.
  */
-export const CURRENT_DIR_NAME = 'focusbuddy'
+export const CURRENT_DIR_NAME = 'plexii'
 
 /**
  * Where the workspace lives, and whether it had to move to get there.
@@ -80,10 +103,17 @@ export function resolveUserDataDir(
   fs: UserDataFs,
   join: (...parts: string[]) => string
 ): UserDataDecision {
-  const legacy = join(appData, LEGACY_DIR_NAME)
   const current = join(appData, CURRENT_DIR_NAME)
 
-  if (!fs.exists(legacy)) return { dir: current, outcome: 'default' }
+  // Newest legacy name first: an install that has both 'Haptyx' and
+  // 'focusbuddy' on disk was last used as 'focusbuddy', so that is the one
+  // holding the live workspace.
+  const legacy = [...LEGACY_DIR_NAMES]
+    .reverse()
+    .map((name) => join(appData, name))
+    .find((dir) => fs.exists(dir))
+
+  if (legacy === undefined) return { dir: current, outcome: 'default' }
 
   // Ambiguous: a fresh install plus a restored backup, say. Merging two
   // databases is how data actually gets lost, so leave it for a human.
@@ -100,7 +130,18 @@ export function resolveUserDataDir(
   }
 
   // Trust the filesystem only after looking.
-  if (fs.isNonEmpty(current)) return { dir: current, outcome: 'migrated' }
+  if (fs.isNonEmpty(current)) {
+    // The data is safely at `current` now. Leave a pointer behind at the old
+    // name so an older build — which pins that name — still opens this
+    // workspace instead of a new, empty one. Best-effort on purpose: if it
+    // cannot be created, the current build is still correct.
+    try {
+      fs.linkBack?.(current, legacy)
+    } catch {
+      /* a downgrade would start empty; this build is unaffected */
+    }
+    return { dir: current, outcome: 'migrated' }
+  }
 
   try {
     fs.rename(current, legacy)

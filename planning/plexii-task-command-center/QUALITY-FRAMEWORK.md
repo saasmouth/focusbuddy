@@ -134,7 +134,7 @@ So "live verification" in the Phase-6 gate now means a **copy of the operator's
 real database**, never a fresh one:
 
 ```bash
-P=$(mktemp -d); cp ~/Library/Application\ Support/focusbuddy/focusbuddy.db "$P/"
+P=$(mktemp -d); cp ~/Library/Application\ Support/plexii/focusbuddy.db "$P/"
 FB_TEST_USER_DATA="$P" npm run preview
 ```
 

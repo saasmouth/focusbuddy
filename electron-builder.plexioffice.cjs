@@ -59,7 +59,7 @@ module.exports = {
   publish: {
     provider: 'github',
     owner: 'saasmouth',
-    repo: 'focusbuddy',
+    repo: 'plexii',
     releaseType: 'release',
     channel: 'office'
   },

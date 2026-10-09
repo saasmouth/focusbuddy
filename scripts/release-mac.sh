@@ -138,7 +138,7 @@ else
   echo "R2_BUCKET is not set — SKIPPING the update-feed mirror." >&2
   echo "The GitHub release will be complete but every installed mac client" >&2
   echo "will keep being told the previous version is current. Export the R2_*" >&2
-  echo "values (focusbuddy/.env) and re-run before calling this released." >&2
+  echo "values (plexii/.env) and re-run before calling this released." >&2
   exit 1
 fi
 

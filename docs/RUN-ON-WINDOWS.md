@@ -39,7 +39,7 @@ working branch:
 
 ```powershell
 git clone https://github.com/saasmouth/focusbuddy.git
-cd focusbuddy
+cd plexii
 git checkout rebrand/archeon
 ```
 
@@ -114,7 +114,7 @@ That's it — the app is now running locally on Windows.
   equivalent). Each browser widget is its own renderer process; the overlay now
   labels each process with the widget that owns it.
 - Your data (the SQLite DB, cookies, settings) lives under
-  `%APPDATA%\Haptyx` (or `\focusbuddy` depending on the build's product name).
+  `%APPDATA%\Haptyx` (or `\plexii` depending on the build's product name).
   Delete that folder for a clean slate.
 
 ## What's limited on Windows vs macOS

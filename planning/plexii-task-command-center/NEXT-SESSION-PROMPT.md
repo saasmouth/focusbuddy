@@ -309,7 +309,7 @@ Read in order:
 
 Pre-flight:
 ```bash
-cd ~/focusbuddy-plexi && git fetch origin --prune && git fetch fork --prune && git status --short --branch && npm run typecheck && npx vitest run tests/unit
+cd ~/plexii-plexi && git fetch origin --prune && git fetch fork --prune && git status --short --branch && npm run typecheck && npx vitest run tests/unit
 ```
 
 ---

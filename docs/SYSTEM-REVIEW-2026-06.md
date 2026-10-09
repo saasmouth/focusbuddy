@@ -1,8 +1,8 @@
-# FocusBuddy — Complete System Review
+# Plexii — Complete System Review
 
-**Date:** 2026-06-05  ·  **Version reviewed:** focusbuddy `2.4.3`  ·  **Reviewer:** Operator (Claude) + 28 specialist sub-agents
+**Date:** 2026-06-05  ·  **Version reviewed:** plexii `2.4.3`  ·  **Reviewer:** Operator (Claude) + 28 specialist sub-agents
 
-> Commissioned brief (verbatim): *"a complete system review. Functionality, widgets, browsers … navigation, toolbars, click-and-drag canvas navigation, and anything else that will make FocusBuddy more elite and ready for market. I need epic, perfect, industry-leading work. No second chances."*
+> Commissioned brief (verbatim): *"a complete system review. Functionality, widgets, browsers … navigation, toolbars, click-and-drag canvas navigation, and anything else that will make Plexii more elite and ready for market. I need epic, perfect, industry-leading work. No second chances."*
 
 This document is the honest answer. It is paired with two companions:
 - **[BROWSER-ADR-001](./BROWSER-ADR-001-in-canvas-browser.md)** — the in-canvas browser engine decision (the headline ask).
@@ -32,7 +32,7 @@ Six high-leverage, low-risk fixes were implemented and **proven** (`plexidesk-te
 
 | # | Fix | Files | Closes |
 |---|---|---|---|
-| 1 | **Clean desktop-Chrome User-Agent** on every webview session (strips `Electron/`, `focusbuddy/`, `Haptyx/` tokens) | `src/main/userAgent.ts` (new, unit-tested), `src/main/index.ts` | The #1 root cause of "logins don't work" — `disallowed_useragent` blocks |
+| 1 | **Clean desktop-Chrome User-Agent** on every webview session (strips `Electron/`, `plexii/`, `Haptyx/` tokens) | `src/main/userAgent.ts` (new, unit-tested), `src/main/index.ts` | The #1 root cause of "logins don't work" — `disallowed_useragent` blocks |
 | 2 | **Origin-gated vault autofill** — credentials only inject on the bound host (or a subdomain), with an in-page `location.hostname` guard as defence-in-depth, failing closed | `vaultAutofill.ts`, `WebViewWidget.tsx`, `views/ConnectedAppView.tsx` | **CONFIRMED credential-exfiltration vulnerability** (CVE-class) |
 | 3 | **Overlay first-click no longer yanks the camera** — `setActive` instead of `focusOn` | `WebViewWidget.tsx` | "clicking the login button does nothing / the canvas jumps" |
 | 4 | **Permission denylist** on default + webview sessions — denies geolocation/HID/serial/USB/MIDI-sysex/idle-detection; media (voice) stays granted | `src/main/index.ts` | Embedded sites silently auto-granted device/location access |
@@ -51,7 +51,7 @@ Everything below §0 is the diagnosis. Most of it is **not yet fixed** — it is
 
 **Market-readiness: 38/100. Not shippable as a paid product today — but a high-ceiling product on an unsound base.**
 
-FocusBuddy is genuinely differentiated and shows real craft per-surface: a mathematically-correct zoom-to-cursor canvas, a well-engineered edge-pan system, engagement-gated focus timers, a clean capability matrix, a production-grade Stripe scaffold on the server. The ideas are good and, in places, unique.
+Plexii is genuinely differentiated and shows real craft per-surface: a mathematically-correct zoom-to-cursor canvas, a well-engineered edge-pan system, engagement-gated focus timers, a clean capability matrix, a production-grade Stripe scaffold on the server. The ideas are good and, in places, unique.
 
 But three independent classes of problem each *alone* block a paid public launch:
 
@@ -97,7 +97,7 @@ On top of those, the two **headline** features are broken: the in-canvas browser
 
 **C-BROWSER-1 · No User-Agent set** — Verdict: **CONFIRMED** (the no-UA fact; the "providers block it" consequence is well-established industry behaviour, worth the live spot-check). → **Fixed this session (§0/#1).**
 
-**C-BRAND-1 · Split brand identity** — the app is "FocusBuddy" (package.json, window title, sidebar) but ~20 user-facing strings say "Haptyx" (`Footer.tsx:32/38`, `ApiKeysSection`, `MindMapWidget`, `VoiceRecorderWidget`, `UpdaterBanner`), the version badge is hardcoded `2.0` (`App.tsx:250`) against a real `2.4.3`, and two trust surfaces make **contradictory privacy claims** (`LaunchSignInModal` "only shared items touch our server" vs `TermsModal` "there are no FocusBuddy servers"). Verdict: **CONFIRMED**. Trust is undermined in the first 60 seconds. → Roadmap #11.
+**C-BRAND-1 · Split brand identity** — the app is "Plexii" (package.json, window title, sidebar) but ~20 user-facing strings say "Haptyx" (`Footer.tsx:32/38`, `ApiKeysSection`, `MindMapWidget`, `VoiceRecorderWidget`, `UpdaterBanner`), the version badge is hardcoded `2.0` (`App.tsx:250`) against a real `2.4.3`, and two trust surfaces make **contradictory privacy claims** (`LaunchSignInModal` "only shared items touch our server" vs `TermsModal` "there are no Plexii servers"). Verdict: **CONFIRMED**. Trust is undermined in the first 60 seconds. → Roadmap #11.
 
 ---
 
@@ -223,7 +223,7 @@ Each subsystem: how it works · what's genuinely good · the issues that matter 
 1. **Security posture is the deepest debt.** A product that embeds arbitrary websites *and* stores credentials is one giant trust boundary, currently with `sandbox:false`, no IPC validation, no permission allowlist (denylist now shipped), no `will-navigate` guard, no fuses, ad-hoc-only signing, and two code/command paths. Nothing else matters until this is closed.
 2. **Data is not safe.** No backup, export, schema versioning, vault re-key, or sync; hard deletes with no tombstones; debounced text was lost on remount (now fixed). The product holds months of irreplaceable work with none of the durability primitives a paid tool requires.
 3. **The business model doesn't close.** Gating is client-side and bypassable; the trial is farmable; the costliest feature (AI) is free to all tiers and can't be server-enforced as built; there is no in-app pay path.
-4. **Polish/coherence debt from rapid iteration.** Orphaned dead code, a changelog advertising removed features, a split FocusBuddy/Haptyx brand, a hardcoded version badge, contradictory privacy copy. Real craft per-surface; the surfaces don't agree with each other.
+4. **Polish/coherence debt from rapid iteration.** Orphaned dead code, a changelog advertising removed features, a split Plexii/Haptyx brand, a hardcoded version badge, contradictory privacy copy. Real craft per-surface; the surfaces don't agree with each other.
 5. **Performance won't scale.** Remount-everything-on-layout-bump, every widget subscribing to zoom, no culling, off-screen webviews mounted, `backgroundThrottling` left on (degrading the very focus timers that are the point).
 6. **Zero tests on the differentiators and the risky paths.** The AI subsystem, every signature focus feature, and the security-sensitive IPC have no automated coverage — exactly where a "no second chances" launch will regress.
 

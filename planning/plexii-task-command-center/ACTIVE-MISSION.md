@@ -327,7 +327,7 @@ room routing, the 409 baseRev floor — all live for Michael + Caleb, with the
 repo's FIRST green CI runs (push + PR, 2m33s). Side discoveries recorded:
 `ryanswan313`'s token lacks the `workflow` scope (workflow-file ops need the
 browser or a scope refresh done while signed in as that account); the
-groundwork worktree lives at `~/focusbuddy-groundwork` for future fix splits.
+groundwork worktree lives at `~/plexii-groundwork` for future fix splits.
 **Fork↔main merge DONE (836e0bb1 + repair 13da3c34):** the branch now contains
 main @ 5d1ef8d8; five predicted conflicts resolved keep-branch; the auto-merge
 briefly duplicated the F010 functions + a preload property (caught by typecheck,

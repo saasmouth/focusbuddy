@@ -1,4 +1,4 @@
-# FocusBuddy — Review & Roadmap (2026-06)
+# Plexii — Review & Roadmap (2026-06)
 
 A complete, evidence-backed system review commissioned for a "no second chances" market-readiness assessment. Produced by 28 specialist agents (11 subsystem surveys + 3 browser-architecture analyses + 8 adversarial verifications + market critic), with the load-bearing claims independently verified against the real code, and six fixes implemented and proven (66 unit + 18 e2e GREEN).
 

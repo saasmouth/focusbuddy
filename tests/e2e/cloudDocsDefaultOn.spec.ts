@@ -52,7 +52,7 @@ test.afterEach(async () => {
 })
 
 test('fresh profile: cloud-docs sync default-on pushes a personal doc; opt-out toggle stops it', async () => {
-  userDataDir = mkdtempSync(join(tmpdir(), 'focusbuddy-clouddocs-e2e-'))
+  userDataDir = mkdtempSync(join(tmpdir(), 'plexii-clouddocs-e2e-'))
   const cleanEnv: NodeJS.ProcessEnv = { ...process.env }
   delete cleanEnv.ELECTRON_RUN_AS_NODE
   delete cleanEnv.ANTHROPIC_API_KEY
