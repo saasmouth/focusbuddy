@@ -36,6 +36,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.20',
+    date: '2026-10-09T14:00:00Z',
+    title: 'PlexiDesk 4.3.20 \u2014 jump to anything, and an Add button you can see',
+    tag: 'feature',
+    summary:
+      'Hover the minimap and every item on the desk is listed by name, newest touched first, each one a click away. The desk toolbar\u2019s quick actions moved into the header, and Add widget is no longer hidden behind a hover.',
+    highlights: [
+      'Hovering the minimap lists everything on the desk, with the thing you touched most recently at the top. Click any of them to fly the camera straight to it. The map shows you where things are; this tells you what they are, which is the part a 160-pixel-wide map cannot.',
+      'Pinned items are listed too, marked as pinned \u2014 they are fixed to the screen rather than the canvas, so there is nowhere to fly to, but leaving them out made the list look like it had lost something.',
+      'The Add widget button is always visible in the right-hand tool rail. It was already purple, but it lived inside the panel that only appears when you hover the rail \u2014 so the main way to put something on a desk was hidden behind a construction icon that did nothing itself.',
+      'The desk\u2019s quick actions \u2014 status, focus, chat, meeting, tidy, build, save as template, resume and the load ring \u2014 are a row in the header instead of a pill floating over your work.'
+    ]
+  },
+  {
     version: '4.3.19',
     date: '2026-10-09T12:00:00Z',
     title: 'PlexiDesk 4.3.19 \u2014 one menu for the desk you are on',

@@ -4,6 +4,7 @@ import { useWidgetStore } from '../stores/widgets'
 import { computeSectionFrame, effectiveLayout } from '../lib/sectionGeometry'
 import { mappedBox, mappedScale, viewportIndicator } from '../lib/minimapGeometry'
 import WidgetPreview from './WidgetPreview'
+import DeskJumpList from './DeskJumpList'
 import Icon from './Icon'
 
 const PANEL_W = 160
@@ -68,6 +69,7 @@ export default function CanvasMinimapFAB(): JSX.Element {
 
   const isOpen = open || navOpen
 
+
   // Canvas viewport for viewport-rect calculation
   const [canvasViewport, setCanvasViewport] = useState<{ w: number; h: number }>({
     w: window.innerWidth,
@@ -96,6 +98,39 @@ export default function CanvasMinimapFAB(): JSX.Element {
       if (ro) ro.disconnect()
     }
   }, [])
+
+  // Hovering the minimap reveals a named list of everything on the desk.
+  // Delayed close, because the pointer has to cross a gap to reach the list —
+  // closing on the first mouseleave would make it unreachable, the same trap
+  // the tidy-modes menu documents.
+  const [jumpOpen, setJumpOpen] = useState(false)
+  const jumpTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  function holdJump(): void {
+    if (jumpTimer.current !== undefined) clearTimeout(jumpTimer.current)
+    setJumpOpen(true)
+  }
+  function releaseJump(): void {
+    if (jumpTimer.current !== undefined) clearTimeout(jumpTimer.current)
+    jumpTimer.current = setTimeout(() => setJumpOpen(false), 220)
+  }
+  useEffect(() => () => {
+    if (jumpTimer.current !== undefined) clearTimeout(jumpTimer.current)
+  }, [])
+
+  // Centre the camera on a widget — the same arithmetic panFromPoint uses, so
+  // a click in the list lands exactly where a click on the map would.
+  const jumpTo = useCallback(
+    (w: { x: number; y: number; width: number; height: number; pinned: boolean }) => {
+      // A pinned widget is fixed to the SCREEN, not the canvas: it is already
+      // in view and has no canvas position to fly to. Moving the camera would
+      // scroll the desk out from under something that did not move.
+      if (w.pinned) return
+      const cx = w.x + w.width / 2
+      const cy = w.y + w.height / 2
+      setPan(canvasViewport.w / 2 - cx * zoom, canvasViewport.h / 2 - cy * zoom)
+    },
+    [setPan, canvasViewport.w, canvasViewport.h, zoom]
+  )
 
   const visible = useMemo(
     () => widgets.filter((w) => !w.archived && !w.pinned && w.parentSectionId === null && w.kind !== 'minimap'),
@@ -187,10 +222,15 @@ export default function CanvasMinimapFAB(): JSX.Element {
 
   return (
     <div
-      className="fb-floating-chrome absolute bottom-3 right-3 z-[46] pointer-events-auto"
+      className="fb-floating-chrome absolute bottom-3 right-3 z-[46] pointer-events-auto flex flex-col items-end gap-1.5"
       data-minimap-fab
       data-floating-menu
+      onMouseEnter={holdJump}
+      onMouseLeave={releaseJump}
     >
+      {/* The named list sits ABOVE the map, so the map stays where the muscle
+          memory expects it and the list grows away from the corner. */}
+      {jumpOpen && <DeskJumpList widgets={widgets} onJump={jumpTo} />}
       {/* mode="popLayout": exiting element leaves layout immediately so entering
           element can grow from the same corner — creates the bloom/unravel effect. */}
       <AnimatePresence mode="popLayout" initial={false}>

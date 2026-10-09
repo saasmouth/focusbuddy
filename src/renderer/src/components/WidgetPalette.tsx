@@ -20,7 +20,7 @@ interface Props {
   // 'toolbar' is the compact accent chip in the desk toolbar. 'fab' is a large
   // round always-visible button anchored on the canvas surface, so adding a
   // widget is discoverable even when the toolbar wraps off on a small window.
-  variant?: 'toolbar' | 'fab'
+  variant?: 'toolbar' | 'fab' | 'rail'
 }
 
 // Compact desk-objects picker.
@@ -172,7 +172,29 @@ export default function WidgetPalette({
 
   return (
     <>
-      {variant === 'fab' ? (
+      {variant === 'rail' ? (
+        // The always-visible add button in the right-hand tool rail.
+        //
+        // The labelled "Add widget" button below is, and always was, accent on
+        // white — but it lived inside the rail's HOVER-expanded panel, so the
+        // primary "put something on this desk" action was invisible until you
+        // pointed at a construction icon that did nothing itself. Being purple
+        // does not help a control nobody can see. This one sits in the
+        // collapsed header, which is the part that is always on screen.
+        <button
+          ref={buttonRef}
+          onClick={() => !disabled && setOpen((v) => !v)}
+          disabled={disabled}
+          className="h-8 w-8 mx-1 inline-flex items-center justify-center rounded-xl bg-[rgb(var(--accent))] text-white shadow-[0_2px_8px_-1px_rgb(var(--accent)/0.6)] hover:bg-[rgb(var(--accent-hover))] disabled:opacity-40 disabled:cursor-not-allowed transition-colors active:scale-95"
+          title="Add a widget or object to this desk"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label="Add a widget or object"
+          data-testid="palette-rail-button"
+        >
+          <Icon name={open ? 'close' : 'add'} size={18} />
+        </button>
+      ) : variant === 'fab' ? (
         <button
           ref={buttonRef}
           onClick={() => !disabled && setOpen((v) => !v)}
