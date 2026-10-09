@@ -223,15 +223,27 @@ test('regression: FloatingPill (fb-pill) still resolves and Resume opens the Res
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 8_000 })
   await window.waitForTimeout(800)
 
-  // CHECK 4 — single "Assistant" heading, no duplicate rail.
-  const assistantHeadingCount = await window
-    .getByRole('heading', { name: 'Plexii', exact: true })
-    .count()
-  console.log('Assistant heading count (want 1):', assistantHeadingCount)
-  expect(assistantHeadingCount).toBe(1)
+  // CHECK 4 — at most one assistant surface, no duplicate rail.
+  //
+  // This counted elements with a heading named exactly "Plexii". The assistant
+  // header shows the PlexiiLogo mark now instead of that text heading, and the
+  // mark is legitimately used in several places in the chrome (the header
+  // wordmark, the assistant header, the minimised pill), so a global count of
+  // the name says nothing about duplication. The assistant panel is not even
+  // open at this point in this test.
+  //
+  // What is asserted here instead is the thing this test can actually see: no
+  // more than one assistant panel is mounted. The duplicate-assistant-rail
+  // regression itself is owned by assistantChrome.spec.ts and plexiiHub.spec.ts,
+  // which open the assistant and inspect it properly.
+  const assistantPanels = await window.locator('[data-testid="assistant-panel"]').count()
+  console.log('Assistant panels mounted (want 0 or 1):', assistantPanels)
+  expect(assistantPanels).toBeLessThanOrEqual(1)
 
-  // FloatingPill root carries the fb-pill class.
-  const floatingPill = window.locator('[data-testid="floating-pill"]')
+  // The desk action bar is docked in the header now ("desk-action-bar");
+  // "floating-pill" survives only in HeaderSlot's fallback. It still carries
+  // the fb-pill compact-density hook, which is what this regression guards.
+  const floatingPill = window.locator('[data-testid="desk-action-bar"]')
   await expect(floatingPill).toBeVisible({ timeout: 5_000 })
   const hasPillClass = await floatingPill.evaluate((el) => el.classList.contains('fb-pill'))
   console.log('FloatingPill has fb-pill class:', hasPillClass)

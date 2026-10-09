@@ -47,7 +47,7 @@ test('FTI — FloatingToolbar stays left of the assistant panel when it opens, a
       await hideBtn.click()
       await window.waitForTimeout(400)
     }
-    await expect(window.getByRole('button', { name: 'Show assistant panel' })).toBeVisible({
+    await expect(window.locator('[data-testid="assistant-pill"]')).toBeVisible({
       timeout: 4_000
     })
 
@@ -62,7 +62,7 @@ test('FTI — FloatingToolbar stays left of the assistant panel when it opens, a
     await window.waitForTimeout(700)
 
     // The "Show assistant panel" button disappears once the panel is expanded.
-    await expect(window.getByRole('button', { name: 'Show assistant panel' })).toHaveCount(0, {
+    await expect(window.locator('[data-testid="assistant-pill"]')).toHaveCount(0, {
       timeout: 4_000
     })
 
@@ -99,7 +99,7 @@ test('FTI — FloatingToolbar stays left of the assistant panel when it opens, a
     const hideBtn2 = window.getByTitle('Hide assistant panel')
     await hideBtn2.click()
     await window.waitForTimeout(700)
-    await expect(window.getByRole('button', { name: 'Show assistant panel' })).toBeVisible({
+    await expect(window.locator('[data-testid="assistant-pill"]')).toBeVisible({
       timeout: 4_000
     })
 

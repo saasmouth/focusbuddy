@@ -486,7 +486,14 @@ export default function FloatingPill({
   // live and how they are laid out.
   if (docked) {
     return (
-      <div className="flex items-center" data-testid="desk-action-bar">
+      <div
+        // fb-pill is the compact-density hook (tokens.css tightens padding and
+        // button height under data-density="compact"). It came across with the
+        // bar when it docked into the header; without it, compact density
+        // stopped reaching these buttons.
+        className="fb-pill flex items-center"
+        data-testid="desk-action-bar"
+      >
         {buttonRow}
       </div>
     )

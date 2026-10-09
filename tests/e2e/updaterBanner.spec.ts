@@ -123,11 +123,13 @@ test('error state renders the retry affordance without crashing', async () => {
 
   await sendUpdateState(launched, { kind: 'error', message: 'signature check failed' })
 
-  // The banner should show a retry button — not blank, not crashed.
-  // Text is "Update check failed — retry" (with an em-dash in production
-  // copy — we match loosely so the test survives copy tweaks).
+  // The banner shows the real reason inline plus two escapes — retry, and
+  // download manually — so a failure is never a dead end. The copy is
+  // "Update failed: <reason>"; the retry affordance carries a testid, so this
+  // asserts that rather than the wording.
+  await expect(window.getByText(/update failed/i).first()).toBeVisible({ timeout: 5000 })
   await expect(
-    window.locator('button', { hasText: /update check failed/i })
+    window.locator('[data-testid="updater-retry"]')
   ).toBeVisible({ timeout: 5_000 })
 })
 

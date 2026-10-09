@@ -20,6 +20,18 @@ test('TeamPresenceButton renders in header and shows honest empty state', async 
   try {
     await waitForReady(window)
 
+    // Live presence is a Team-tier capability: TeamPresenceButton renders
+    // nothing without it, rather than showing an empty team. That gating is
+    // asserted first, then granted — otherwise this test was asserting the
+    // header entry of an edition the test environment does not have.
+    await expect(window.getByRole('button', { name: /team presence/i })).toHaveCount(0)
+    await window.evaluate(() => {
+      const w = window as unknown as {
+        __fbCapabilities?: { setState: (s: { capabilities: Record<string, unknown> }) => void }
+      }
+      w.__fbCapabilities!.setState({ capabilities: { presence: true } })
+    })
+
     // The button must be visible in the header.
     const btn = window.getByRole('button', { name: /team presence/i })
     await expect(btn).toBeVisible({ timeout: 8000 })
