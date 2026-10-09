@@ -57,7 +57,7 @@ const VIEW_OPTIONS: Array<{ id: TableViewMode; label: string; icon: string }> = 
 // per-column widthHint and fall back to DEFAULT_COL_WIDTH. Resizing never goes
 // below MIN_COL_WIDTH so a column can't collapse to nothing.
 const ROW_HANDLE_WIDTH = 32
-const ADD_COL_WIDTH = 40
+const ADD_COL_WIDTH = 64 // the add-column "+" and the AI button sit side by side
 const DEFAULT_COL_WIDTH = 160
 const MIN_COL_WIDTH = 64
 
@@ -1127,7 +1127,22 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
                 />
               ))}
               <th className="px-1 py-1.5">
-                <ColumnAdder onAdd={addColumn} />
+                {/* Add a column by hand, or ask the AI to propose some. The AI
+                    was reachable only from the widget's header menu, while the
+                    empty state told the user to "use the AI button" — a button
+                    that did not exist anywhere in the table. */}
+                <div className="flex items-center justify-end gap-0.5">
+                  <ColumnAdder onAdd={addColumn} />
+                  <button
+                    onClick={() => setAiOpen(true)}
+                    className="inline-flex items-center justify-center h-5 w-5 rounded text-accent hover:bg-accent/10 transition-colors"
+                    title="Ask AI for columns"
+                    aria-label="Ask AI for columns"
+                    data-testid="table-ai-columns"
+                  >
+                    <Icon name="auto_awesome" size={12} />
+                  </button>
+                </div>
               </th>
             </tr>
           </thead>
@@ -1179,13 +1194,25 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
             {/* Add-row footer */}
             <tr>
               <td colSpan={table.schema.columns.length + 2} className="p-1.5 border-t border-[var(--edge-soft)]">
-                <button
-                  onClick={() => void addRow(table.id)}
-                  className="w-full inline-flex items-center justify-center gap-1 text-[12px] py-1.5 rounded text-[var(--ink-50)] hover:text-accent hover:bg-accent/5 transition-colors"
-                >
-                  <Icon name="add" size={14} />
-                  <span>Add row</span>
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => void addRow(table.id)}
+                    className="flex-1 inline-flex items-center justify-center gap-1 text-[12px] py-1.5 rounded text-[var(--ink-50)] hover:text-accent hover:bg-accent/5 transition-colors"
+                  >
+                    <Icon name="add" size={14} />
+                    <span>Add row</span>
+                  </button>
+                  <button
+                    onClick={() => setAiOpen(true)}
+                    className="inline-flex items-center gap-1 text-[12px] py-1.5 px-2.5 rounded bg-accent text-white hover:brightness-110 transition-[filter]"
+                    title="Generate rows with AI"
+                    aria-label="Generate rows with AI"
+                    data-testid="table-ai-rows"
+                  >
+                    <Icon name="auto_awesome" size={13} />
+                    <span>AI</span>
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -1198,7 +1225,7 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
           <div className="flex items-center gap-1.5">
             <Icon name="auto_awesome" size={13} className="text-accent" />
             <span className="text-[10px] uppercase tracking-wider font-semibold text-accent">
-              AI assistant — generate rows
+              AI assistant — columns and rows
             </span>
             <button
               onClick={() => {
@@ -1475,7 +1502,7 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
           onClick: () => void handleImport()
         },
         {
-          label: aiOpen ? 'Hide the AI assistant' : 'Generate rows with AI…',
+          label: aiOpen ? 'Hide the AI assistant' : 'Generate columns and rows with AI…',
           icon: 'auto_awesome',
           onClick: () => setAiOpen((v) => !v)
         },
