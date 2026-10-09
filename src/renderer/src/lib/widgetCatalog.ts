@@ -21,6 +21,73 @@ export interface WidgetCatalogEntry {
   hideFromPicker?: boolean
 }
 
+// ── Use-case groups for the pickers ───────────────────────────────────────────
+//
+// `category` above is the rail picker's taxonomy and is kept as it is. It does
+// not help someone CHOOSING a widget: 'Tools' holds 22 of the 47 visible kinds
+// — Calc, Timer, Mind map, Desk agent and the URL hooks among them — while
+// 'Web' holds one. These groups answer "what am I trying to do" instead, which
+// is what a menu of 47 things needs.
+//
+// Ordered most-reached-for first. A kind may appear in exactly ONE group; the
+// unit test asserts that, and that none is missing.
+export interface WidgetUseCaseGroup {
+  name: string
+  kinds: WidgetKind[]
+}
+
+export const WIDGET_USE_CASE_GROUPS: WidgetUseCaseGroup[] = [
+  {
+    name: 'Write & capture',
+    kinds: ['sticky', 'note', 'markdown', 'page', 'card', 'living-doc', 'voice-recorder']
+  },
+  { name: 'Plan & track', kinds: ['task-list', 'calendar', 'timer', 'attention'] },
+  {
+    name: 'Numbers & data',
+    kinds: ['table', 'sheet', 'chart', 'metrics', 'stat-card', 'calculator']
+  },
+  { name: 'Files & documents', kinds: ['file', 'doc', 'slides', 'drive', 'gallery'] },
+  {
+    // Everything whose output is a picture: hand-drawn, diagrammed or generated.
+    name: 'Draw & diagram',
+    kinds: ['design', 'draw', 'diagram', 'mindmap', 'map', 'scratchpad', 'shape', 'image-gen', 'color']
+  },
+  { name: 'People & messages', kinds: ['contacts', 'inbox', 'chat-thread'] },
+  { name: 'Web & apps', kinds: ['webview', 'streamdeck', 'local-app-launcher', 'location-map'] },
+  {
+    name: 'Build & automate',
+    kinds: ['custom', 'custom-block', 'field', 'agent', 'webhook', 'inbound-hook']
+  },
+  // Things that arrange the desk or point at another one.
+  { name: 'Desk layout', kinds: ['section', 'portal', 'task-link'] }
+]
+
+/** The group a kind belongs to, or null when it has not been grouped yet. */
+export function useCaseGroupOf(kind: WidgetKind): string | null {
+  for (const g of WIDGET_USE_CASE_GROUPS) if (g.kinds.includes(kind)) return g.name
+  return null
+}
+
+/**
+ * Picker entries bucketed into use-case groups, in group order, with each
+ * group's entries in catalog order. Groups with nothing in them are dropped.
+ *
+ * Anything missing from WIDGET_USE_CASE_GROUPS lands in a trailing "More"
+ * group rather than disappearing: forgetting to group a newly added widget
+ * should look untidy, never make the widget unreachable.
+ */
+export function groupedPickerEntries(
+  entries: WidgetCatalogEntry[] = WIDGET_CATALOG.filter((e) => !e.hideFromPicker)
+): Array<{ name: string; entries: WidgetCatalogEntry[] }> {
+  const out = WIDGET_USE_CASE_GROUPS.map((g) => ({
+    name: g.name,
+    entries: entries.filter((e) => g.kinds.includes(e.kind))
+  })).filter((g) => g.entries.length > 0)
+  const ungrouped = entries.filter((e) => useCaseGroupOf(e.kind) === null)
+  if (ungrouped.length > 0) out.push({ name: 'More', entries: ungrouped })
+  return out
+}
+
 export const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   {
     kind: 'task-list',

@@ -5,6 +5,14 @@ import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
 // Asked for 2026-10-09: "add a purple add widget button to the header menu in
 // the centre. It should drop down and be horizontal, with references to the
 // quick add keyboard shortcuts in lighter grey".
+//
+// Revised later the same day: "for grouped widgets, organise vertically in
+// columns based on category they belong to". So the menu is no longer one flat
+// horizontal row. It is a row OF COLUMNS: the columns sit side by side and
+// each column's items are stacked. The horizontal-ness now lives in the group
+// axis, which is what the geometry check below asserts.
+// Grouping, search and scroll isolation are covered in
+// headerAddWidgetGroups.spec.ts.
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
   await launched?.app.close()
@@ -53,16 +61,23 @@ test('the add button is centred, purple, and its menu teaches the shortcuts', as
   const menu = window.locator('[data-testid="header-add-widget-menu"]')
   await expect(menu).toBeVisible()
 
-  // Horizontal: the first two items sit side by side, not stacked.
+  // A row of columns: group columns side by side, items stacked inside one.
   const geo = await menu.evaluate((el) => {
-    const items = Array.from(el.querySelectorAll('[data-testid^="add-widget-"]'))
+    const cols = Array.from(el.querySelectorAll('[data-testid="add-widget-group"]'))
+    const c0 = cols[0].getBoundingClientRect()
+    const c1 = cols[1].getBoundingClientRect()
+    const items = Array.from(cols[0].querySelectorAll('[data-testid^="add-widget-"]'))
     const a = items[0].getBoundingClientRect()
     const b = items[1].getBoundingClientRect()
-    return { sameRow: Math.abs(a.top - b.top) < 2, bIsRight: b.left > a.left, count: items.length }
+    return {
+      columnsSideBySide: Math.abs(c0.top - c1.top) < 2 && c1.left > c0.left,
+      itemsStacked: b.top > a.top && Math.abs(a.left - b.left) < 2,
+      total: el.querySelectorAll('[data-testid^="add-widget-"]').length
+    }
   })
-  expect(geo.sameRow, 'laid out in a row, not a column').toBe(true)
-  expect(geo.bIsRight).toBe(true)
-  expect(geo.count).toBeGreaterThan(5)
+  expect(geo.columnsSideBySide, 'group columns sit side by side').toBe(true)
+  expect(geo.itemsStacked, "a column's items are stacked vertically").toBe(true)
+  expect(geo.total).toBeGreaterThan(5)
 
   // The shortcut keys are shown, they are the REAL ones, and they are quieter
   // than the label beside them.
