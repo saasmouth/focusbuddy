@@ -1,0 +1,360 @@
+{
+  "number": 9,
+  "slug": "marketing-content",
+  "persona": "Marketing and content professionals",
+  "category": "Primary early adopters",
+  "room": {
+    "title": "Marketing and Content",
+    "description": "How a content marketer runs a launch calendar and a live campaign review side by side — briefs, approvals, creative, weekly numbers and the decisions they drive, all on one surface instead of six tabs."
+  },
+  "desks": [
+    {
+      "title": "Cold brew launch — 6-week content calendar",
+      "description": "Fourteen pieces across six channels for the new canned cold brew: who's making what, what's waiting on sign-off, the creative palette and the message map behind it all.",
+      "dueInDays": 6,
+      "brief": "## Cold brew launch — content calendar\n\n**Brand** Ember Lane Coffee · roaster, online shop and subscriptions\n**Product** canned cold brew, 4-packs and 12-packs\n**Launch day** @+6d · **Calendar** 6 weeks, 14 pieces, 6 channels\n**Sign-off** Nadia, for every line about caffeine or health\n\n### The message\nOur coffee, cold. Single origin, roasted for it, brewed for 18 hours. Not a sugar drink and not an energy drink.\n\n### Goals for the six weeks\n- 1,500 four-packs sold, 40% of them (600) to existing customers\n- 300 subscribers add cold brew to their regular order\n- 20 café partners stocking it by week 4\n\n### Where it stands\nThe teaser is live and the early-access email is scheduled for @+1d. **Launch week is the crunch:** five pieces publish in week 2 and none is approved yet. Weeks 3–6 are briefed but not started — fine, as long as launch week lands.",
+      "callout": {
+        "title": "Bottleneck: launch-week sign-off",
+        "body": "Five pieces publish in launch week and none is approved. Send the launch email and the blog post to Nadia together @+2d, so the caffeine claims are checked once, not twice.",
+        "accent": "#ec4899",
+        "icon": "🚦"
+      },
+      "table": {
+        "title": "Content calendar",
+        "columns": [
+          { "id": "piece", "label": "Piece", "type": "text-short" },
+          { "id": "channel", "label": "Channel", "type": "single-select", "options": ["Instagram", "TikTok", "Email", "Blog", "Paid social", "PR"] },
+          { "id": "week", "label": "Week", "type": "single-select", "options": ["Wk 1", "Wk 2", "Wk 3", "Wk 4", "Wk 5", "Wk 6"] },
+          { "id": "publish", "label": "Publishes", "type": "text-short" },
+          { "id": "owner", "label": "Owner", "type": "text-short" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Brief", "Drafting", "In review", "Approved", "Scheduled", "Live"] }
+        ],
+        "rows": [
+          { "piece": "Teaser reel — 'something cold is coming'", "channel": "Instagram", "week": "Wk 1", "publish": "@-2d", "owner": "Mia", "status": "Live" },
+          { "piece": "Subscriber early-access email", "channel": "Email", "week": "Wk 1", "publish": "@+1d", "owner": "Sol", "status": "Scheduled" },
+          { "piece": "Press kit + samples to 12 editors", "channel": "PR", "week": "Wk 1", "publish": "@+2d", "owner": "Arjun", "status": "Approved" },
+          { "piece": "Café partner launch kit", "channel": "PR", "week": "Wk 2", "publish": "@+3d", "owner": "Arjun", "status": "In review" },
+          { "piece": "Launch film — 30s and 15s cuts", "channel": "Paid social", "week": "Wk 2", "publish": "@+6d", "owner": "Mia", "status": "In review" },
+          { "piece": "Launch day email", "channel": "Email", "week": "Wk 2", "publish": "@+6d", "owner": "Sol", "status": "Drafting" },
+          { "piece": "'How we brew it' blog post", "channel": "Blog", "week": "Wk 2", "publish": "@+6d", "owner": "Bea", "status": "Drafting" },
+          { "piece": "Behind-the-roastery video", "channel": "TikTok", "week": "Wk 2", "publish": "@+8d", "owner": "Mia", "status": "Brief" },
+          { "piece": "Recipe carousel — three ways to serve", "channel": "Instagram", "week": "Wk 3", "publish": "@+12d", "owner": "Bea", "status": "Brief" },
+          { "piece": "Retargeting ad set", "channel": "Paid social", "week": "Wk 3", "publish": "@+13d", "owner": "Sol", "status": "Brief" },
+          { "piece": "Customer photo round-up", "channel": "Instagram", "week": "Wk 4", "publish": "@+19d", "owner": "Mia", "status": "Brief" },
+          { "piece": "Cold brew vs iced coffee explainer", "channel": "Blog", "week": "Wk 4", "publish": "@+21d", "owner": "Bea", "status": "Brief" },
+          { "piece": "Add cold brew to your subscription", "channel": "Email", "week": "Wk 5", "publish": "@+26d", "owner": "Sol", "status": "Brief" },
+          { "piece": "Launch recap + review request", "channel": "Email", "week": "Wk 6", "publish": "@+33d", "owner": "Sol", "status": "Brief" }
+        ]
+      },
+      "chart": {
+        "title": "Pieces publishing per week",
+        "type": "area",
+        "x": "week",
+        "series": [{ "column": "piece", "agg": "count", "label": "Pieces" }]
+      },
+      "mindmap": {
+        "title": "Message map",
+        "root": {
+          "label": "Ember Lane cold brew",
+          "children": [
+            { "label": "Who it's for", "children": [
+              { "label": "Subscribers who trust our beans", "kind": "idea" },
+              { "label": "Café partners' takeaway fridges", "kind": "idea" },
+              { "label": "Iced-coffee buyers trading up", "kind": "idea" }
+            ]},
+            { "label": "What we say", "children": [
+              { "label": "Single origin, roasted for cold", "kind": "idea" },
+              { "label": "Brewed 18 hours, nothing added", "kind": "idea" },
+              { "label": "Can we say 'smoother'?", "kind": "question" }
+            ]},
+            { "label": "What we don't say", "children": [
+              { "label": "No energy or health claims", "kind": "task" },
+              { "label": "No 'best' or 'healthiest'", "kind": "task" }
+            ]},
+            { "label": "Proof", "children": [
+              { "label": "Roaster's tasting notes", "kind": "tool" },
+              { "label": "Café partner quotes", "kind": "tool" },
+              { "label": "Blind taste test at the roastery?", "kind": "question" }
+            ]},
+            { "label": "Channels", "children": [
+              { "label": "Instagram + TikTok for reach", "kind": "idea" },
+              { "label": "Email for subscribers", "kind": "idea" },
+              { "label": "PR kit for café partners", "kind": "task" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Launch film — creative brief",
+        "blocks": [
+          { "h3": "Launch film — creative brief" },
+          { "p": "**Deliverables:** 30s and 15s cuts, in 9:16 and 1:1. **Publishes** @+6d on paid social and Instagram." },
+          { "h4": "The one thing to get across" },
+          { "p": "It's our coffee, cold. Same beans, same care — just brewed for 18 hours instead of four minutes." },
+          { "h4": "Shots we need" },
+          { "ol": [
+            "Beans going into the roaster — the hero shot",
+            "The 18-hour brew as a timelapse, not a stopwatch graphic",
+            "Can opened and poured over ice",
+            "Someone drinking it outside a café partner, not in a studio"
+          ]},
+          { "h4": "Mandatories" },
+          { "ul": [
+            "Logo in Ember orange on the end card",
+            "No caffeine or health claims on screen or in the voice-over",
+            "Subtitles burned in — most views are on mute"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Feedback to fold in",
+          "body": "From the first-cut review:\n\n- Nadia: end card too busy — logo and 'Out now' only\n- Arjun: café partners want a still from the film for their counters\n- Mia: the timelapse needs a re-shoot, the jar looks cloudy\n- Sol: subject line test for launch day — 'It's here' vs 'Our coffee, cold'\n\nNext cut due @+3d, final lock @+4d."
+        }
+      ],
+      "stickies": [
+        { "title": "Launch week", "body": "5 pieces\n0 approved\nEmail + blog to Nadia @+2d", "color": "#fbcfe8" },
+        { "title": "Idea bin", "body": "Coffee ice cubes as a fourth serve in the week 3 recipe carousel?", "color": "#bae6fd" }
+      ],
+      "fields": [
+        { "label": "Approved, scheduled or live", "type": "number", "value": 3, "suffix": " / 14" },
+        { "label": "Launch readiness", "type": "single-select", "options": ["On track", "At risk", "Slipping"], "value": "At risk" }
+      ],
+      "timer": { "title": "Copy sprint", "minutes": 45 },
+      "palette": [
+        { "hex": "#1f2a44", "label": "Midnight — can" },
+        { "hex": "#c8553d", "label": "Ember orange — logo" },
+        { "hex": "#e8d5b5", "label": "Oat — label" },
+        { "hex": "#7fb7be", "label": "Ice blue — accents" },
+        { "hex": "#f4f1ea", "label": "Paper — backgrounds" }
+      ],
+      "browsers": [
+        {
+          "title": "FSANZ — Nutrition, health and related claims",
+          "url": "https://www.foodstandards.gov.au/business/labelling/nutrition-health-and-related-claims"
+        },
+        {
+          "title": "NSW Fair Trading — Misleading or deceptive conduct",
+          "url": "https://www.nsw.gov.au/legal-and-justice/consumer-rights-and-protection/advertising-product-packaging-and-pricing-laws/misleading-or-deceptive-conduct"
+        }
+      ],
+      "images": [
+        {
+          "title": "Cold brew moodboard, flat-lay",
+          "aspect": "square",
+          "prompt": "Overhead flat-lay photograph of a packaging moodboard for a canned cold brew coffee launch, laid out on warm off-white paper: three plain matte midnight-navy aluminium cans with completely bare, unprinted surfaces, a small scatter of dark roasted coffee beans, a glass tumbler of cold brew over clear ice cubes, oat-coloured uncoated card swatches, a folded pale ice-blue linen offcut and a single burnt-orange paint chip. Soft diffused daylight from the top left, gentle natural shadows, tidy grid composition with generous negative space, calm editorial styling"
+        },
+        {
+          "title": "Launch film still, café table",
+          "aspect": "portrait",
+          "prompt": "Vertical documentary-style photograph on a small weathered timber table outside a suburban Australian café in early-morning sun: a standard slim aluminium drinks can in plain unprinted matte midnight navy, so dark it is almost blue-black, stands upright, its silver top lid sealed and intact with the ring-pull tab just opened, beside a tall glass of cold brew coffee poured over ice. Condensation beading on the glass and the can, the dark coffee glowing amber where the low sun passes through it, a blurred terracotta wall and street-tree leaves behind, warm raking light across the table, shallow depth of field, a quiet unhurried mood, no people"
+        }
+      ],
+      "diagram": {
+        "title": "Claims sign-off path",
+        "nodes": [
+          { "id": "draft", "label": "Draft copy", "shape": "box", "color": "#64748b" },
+          { "id": "claim", "label": "Caffeine or health line?", "shape": "circle", "color": "#d97706" },
+          { "id": "nadia", "label": "Nadia's sign-off", "shape": "box", "color": "#7c3aed" },
+          { "id": "cut", "label": "Cut the line, no resubmit", "shape": "box", "color": "#dc2626" },
+          { "id": "approved", "label": "Approved to schedule", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "draft", "to": "claim" },
+          { "from": "claim", "to": "approved", "label": "no" },
+          { "from": "claim", "to": "nadia", "label": "yes" },
+          { "from": "nadia", "to": "approved", "label": "passes" },
+          { "from": "nadia", "to": "cut", "label": "fails" },
+          { "from": "cut", "to": "approved", "label": "line cut" }
+        ]
+      },
+      "calculator": {
+        "title": "Four-packs to existing customers (40%)",
+        "expression": "1500 * 40 / 100",
+        "result": 600
+      },
+      "form": {
+        "title": "Claims check — launch week",
+        "fields": [
+          { "type": "heading", "label": "Launch email + blog post · to Nadia" },
+          { "type": "text", "label": "Reviewer", "value": "Nadia" },
+          { "type": "date", "label": "Send for sign-off", "value": "@+2d" },
+          { "type": "select", "label": "Claims in the copy", "options": ["None", "Taste only", "Caffeine", "Health"], "value": "Caffeine" },
+          { "type": "number", "label": "Launch-week pieces", "value": "5" },
+          { "type": "number", "label": "Approved so far", "value": "0" },
+          { "type": "checkbox", "label": "Checked against the 'don't say' list", "value": true },
+          { "type": "checkbox", "label": "Signed off by Nadia", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "Subscription drive — week 6 performance review",
+      "description": "Six weeks of paid social for the half-price first bag offer: what each week cost, which creative carried it, and where the last $5,000 should go.",
+      "brief": "## Subscription drive — week 6 review\n\n**Offer** first bag half price, then a delivery every 2 or 4 weeks\n**Budget** $20,000 over 8 weeks · **Spent** $15,000\n**Goal** 400 paid subscribers at $50 or less each\n**So far** 300 paid · $50 each, blended · 43% of trials convert\n\n### What six weeks say\n- Week 4 dipped hard: the roaster video tired in its second week as the lead ad, and cost per subscriber hit $90\n- Customer videos took over in week 5 and are the best performers so far, at $35–40 a subscriber\n- Trial-to-paid barely moved (40–45% every week), so the problem was never the coffee — it was the ad\n\n### Decision this week\nPut the last $5,000 behind the customer videos and two new ones, or hold some back for a refer-a-friend test? Weeks 5–6 averaged 64 paid a week — two more like that clears the goal. Even at $40 a subscriber, the last $5,000 buys 125 more: 425 by week 8.",
+      "callout": {
+        "title": "Recommendation: back the customer videos",
+        "body": "Move the remaining $5,000 to the customer videos and retire the roaster ad. Release $1,000 of it for a refer-a-friend test only if week 7 costs stay under $45 a subscriber.",
+        "accent": "#10b981",
+        "icon": "📈"
+      },
+      "table": {
+        "title": "Weekly results — paid social",
+        "columns": [
+          { "id": "week", "label": "Week", "type": "text-short" },
+          { "id": "spend", "label": "Ad spend", "type": "number", "prefix": "$" },
+          { "id": "visits", "label": "Landing visits", "type": "number" },
+          { "id": "trials", "label": "Trials started", "type": "number" },
+          { "id": "paid", "label": "Paid subscribers", "type": "number" },
+          { "id": "cpa", "label": "Cost per paid sub", "type": "number", "prefix": "$" },
+          { "id": "creative", "label": "Lead creative", "type": "text-short" }
+        ],
+        "rows": [
+          { "week": "Wk 1", "spend": 2400, "visits": 3050, "trials": 96, "paid": 40, "cpa": 60, "creative": "Bag pour — static" },
+          { "week": "Wk 2", "spend": 2500, "visits": 3600, "trials": 118, "paid": 50, "cpa": 50, "creative": "Bag pour — static" },
+          { "week": "Wk 3", "spend": 2600, "visits": 3700, "trials": 121, "paid": 52, "cpa": 50, "creative": "Roaster video" },
+          { "week": "Wk 4", "spend": 2700, "visits": 2650, "trials": 74, "paid": 30, "cpa": 90, "creative": "Roaster video — tiring" },
+          { "week": "Wk 5", "spend": 2400, "visits": 3900, "trials": 139, "paid": 60, "cpa": 40, "creative": "Customer video — morning routine" },
+          { "week": "Wk 6", "spend": 2400, "visits": 4150, "trials": 152, "paid": 68, "cpa": 35, "creative": "Customer video — morning routine" }
+        ]
+      },
+      "chart": {
+        "title": "Trials and paid subscribers by week",
+        "type": "line",
+        "x": "week",
+        "series": [
+          { "column": "trials", "agg": "sum", "label": "Trials started" },
+          { "column": "paid", "agg": "sum", "label": "Paid subscribers" }
+        ]
+      },
+      "mindmap": {
+        "title": "Weeks 7–8 — what to test",
+        "root": {
+          "label": "Last two weeks, last $5,000",
+          "children": [
+            { "label": "Creative", "children": [
+              { "label": "Two new customer videos", "kind": "task" },
+              { "label": "Retire the roaster ad", "kind": "task" },
+              { "label": "Would a price-led ad beat them?", "kind": "question" }
+            ]},
+            { "label": "Offer", "children": [
+              { "label": "Half-price first bag (control)", "kind": "idea" },
+              { "label": "Free grinder on a 3-month plan?", "kind": "question" }
+            ]},
+            { "label": "Channels", "children": [
+              { "label": "Paid social carries the drive", "kind": "idea" },
+              { "label": "Referral link in the welcome email", "kind": "task" },
+              { "label": "Podcast read — too slow to measure", "kind": "idea" }
+            ]},
+            { "label": "Measurement", "children": [
+              { "label": "UTM tags on every ad", "kind": "tool" },
+              { "label": "Day-60 retention by cohort", "kind": "tool" },
+              { "label": "Do video subscribers stay longer?", "kind": "question" }
+            ]},
+            { "label": "Guardrails", "children": [
+              { "label": "Pause any ad over $60 for 3 days", "kind": "task" },
+              { "label": "Week 7 check @+4d", "kind": "task" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Week 6 summary for Nadia",
+        "blocks": [
+          { "h3": "Subscription drive — week 6" },
+          { "p": "**Headline:** 300 paid subscribers from $15,000 — exactly on the $50 target, with two weeks and $5,000 to go." },
+          { "h4": "What worked" },
+          { "ul": [
+            "Customer videos: 128 paid subscribers in two weeks at $35–40 each",
+            "Trial-to-paid held at 40–45% every week, even in the bad one"
+          ]},
+          { "h4": "What didn't" },
+          { "ul": [
+            "The roaster video — $50 a subscriber in week 3, $90 by week 4",
+            "Landing visits rose 6% in week 6 on flat spend, and we can't yet say why"
+          ]},
+          { "h4": "Next two weeks" },
+          { "ol": [
+            "All remaining spend on customer videos; roaster ad off @today",
+            "Two new customer videos live @+2d",
+            "Week 7 check @+4d — refer-a-friend test only if cost stays under $45"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Questions for the week 7 check",
+          "body": "- Are the video subscribers staying? Pull cancellations before the second bag for the week 5 cohort @+4d\n- Week 6 visits up 6% on flat spend — is the cold brew teaser sending people our way?\n- Is $50 still the right target if fortnightly subscribers are worth more than four-weekly?\n- Ask Mia for two more customer videos before the current ones tire too\n- Refer-a-friend: subscribers share their own link — we never email the friend ourselves, because we have no consent to (Spam Act)"
+        }
+      ],
+      "stickies": [
+        { "title": "Rule of thumb", "body": "An ad lasts about two weeks before it tires. Have the next one ready before you need it.", "color": "#fed7aa" },
+        { "title": "Today", "body": "Roaster ad off\nBrief two customer videos\nSend week 6 summary", "color": "#fef08a" }
+      ],
+      "fields": [
+        { "label": "Paid subscribers", "type": "number", "value": 300, "suffix": " / 400" },
+        { "label": "Blended cost per subscriber", "type": "number", "value": 50, "prefix": "$" },
+        { "label": "Budget spent ($k)", "type": "number", "value": 15, "suffix": " / 20" }
+      ],
+      "browsers": [
+        {
+          "title": "Analytics Help — Collect campaign data with custom URLs",
+          "url": "https://support.google.com/analytics/answer/10917952"
+        },
+        {
+          "title": "business.gov.au — Promoting your business by email or text",
+          "url": "https://business.gov.au/marketing-and-advertising/promoting-your-business-by-email-or-text-messages"
+        }
+      ],
+      "images": [
+        {
+          "title": "Customer video shoot, morning routine",
+          "aspect": "landscape",
+          "prompt": "Candid documentary photograph of a home kitchen bench at sunrise in an Australian weatherboard house: a person seen only from behind and slightly to the side, their hands pouring hot water from a gooseneck kettle into a pour-over coffee dripper above a ceramic mug, a plain unprinted kraft paper coffee bag folded shut beside it, and a smartphone on a small tabletop tripod filming the scene with its back to the viewer. Warm golden window light, steam rising, everyday kitchen clutter softly out of focus, natural colours"
+        },
+        {
+          "title": "First bag on the doorstep",
+          "aspect": "landscape",
+          "prompt": "Editorial still life photograph of a coffee subscription delivery on the timber front step of an Australian home: an opened plain brown cardboard mailer box with a plain unprinted kraft paper coffee bag standing inside on crumpled packing paper, a potted rosemary beside the door, soft morning light and the long shadow of a verandah post, muted natural tones, shot low at step height with shallow depth of field"
+        }
+      ],
+      "calculator": {
+        "title": "Paid subscribers by week 8 at $40 each",
+        "expression": "300 + 5000 / 40",
+        "result": 425
+      },
+      "diagram": {
+        "title": "Spend rules for weeks 7–8",
+        "nodes": [
+          { "id": "live", "label": "Customer videos live", "shape": "box", "color": "#2563eb" },
+          { "id": "over", "label": "Over $60 for 3 days?", "shape": "circle", "color": "#d97706" },
+          { "id": "pause", "label": "Pause it, swap in a new one", "shape": "box", "color": "#dc2626" },
+          { "id": "check", "label": "Week 7 check", "shape": "box", "color": "#64748b" },
+          { "id": "under", "label": "Under $45 a subscriber?", "shape": "circle", "color": "#d97706" },
+          { "id": "referral", "label": "$1,000 to refer-a-friend", "shape": "box", "color": "#16a34a" },
+          { "id": "allin", "label": "All $5,000 on the videos", "shape": "box", "color": "#0891b2" }
+        ],
+        "edges": [
+          { "from": "live", "to": "over" },
+          { "from": "over", "to": "pause", "label": "yes" },
+          { "from": "over", "to": "check", "label": "no" },
+          { "from": "check", "to": "under" },
+          { "from": "under", "to": "referral", "label": "yes" },
+          { "from": "under", "to": "allin", "label": "no" }
+        ]
+      },
+      "form": {
+        "title": "Brief — two new customer videos",
+        "fields": [
+          { "type": "heading", "label": "Customer videos · weeks 7–8" },
+          { "type": "text", "label": "Producer", "value": "Mia" },
+          { "type": "number", "label": "Videos", "value": "2" },
+          { "type": "date", "label": "Live by", "value": "@+2d" },
+          { "type": "select", "label": "Cuts", "options": ["9:16", "1:1", "9:16 and 1:1"], "value": "9:16 and 1:1" },
+          { "type": "number", "label": "Target cost per paid sub ($)", "value": "40" },
+          { "type": "textarea", "label": "Angle", "value": "Morning routine, like the week 5–6 winner: a real subscriber in their own kitchen, making the first cup of the day." },
+          { "type": "checkbox", "label": "UTM tags set on both ads", "value": false }
+        ]
+      }
+    }
+  ]
+}

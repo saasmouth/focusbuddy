@@ -1,0 +1,12 @@
+{
+  "persona": "Real estate agents and property managers",
+  "desk": "14 Banksia Crescent — auction campaign, week 3",
+  "title": "Front of the house, late afternoon",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Architectural exterior photograph of a renovated single-storey 1970s face-brick family home on a quiet leafy street in suburban Sydney: wide mown lawn, tidy native garden beds, a single garage with a plain timber door, and a tall stand of eucalyptus bushland rising behind the roofline. Warm late-afternoon autumn light, soft long shadows, clear pale sky. Shot from across the street at eye level, straight-on and calm, in the style of high-end real estate photography. No signboards, no cars, no people.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 50,
+  "bytes": 278865,
+  "generatedAt": "2026-10-08T07:14:08.995Z"
+}

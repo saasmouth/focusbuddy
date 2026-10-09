@@ -1,0 +1,12 @@
+{
+  "persona": "Operations professionals",
+  "desk": "Fulfilment cutover — Riverside warehouse to the Eastgate 3PL",
+  "title": "Glassware breakage on the receiving bench",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Editorial still-life photograph from a high three-quarter angle of an opened plain corrugated carton on a stainless steel receiving bench in a warehouse: rows of clear tumblers nested in cardboard divider cells, two of them cracked and broken with a few glass shards lying in their cells, crumpled brown packing paper around the edges, a pair of grey cut-resistant work gloves resting beside the carton, soft even overhead light, muted neutral palette, crisp detail on the glass edges",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 68,
+  "bytes": 286175,
+  "generatedAt": "2026-10-08T07:09:52.906Z"
+}

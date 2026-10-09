@@ -1,0 +1,12 @@
+{
+  "persona": "Project and product managers",
+  "desk": "Next-quarter roadmap — scoring the shortlist",
+  "title": "Basement kitchen, no phone signal",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Architectural interior photograph of a narrow basement commercial kitchen beneath an inner-city restaurant: low ceiling with exposed pipes, stainless-steel benches and wire shelving, white tiled walls, warm pass lamps mixed with cool overhead light, a single cook seen from behind in a dark apron walking away down the galley, a small wall-mounted tablet beside the doorway with a dark switched-off screen, plain unbadged stainless-steel fridges and ovens with no plates, stickers or labels, unlabelled squeeze bottles and containers, slightly gritty documentary feel, natural colours, vertical framing looking down the length of the kitchen.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 201437,
+  "generatedAt": "2026-10-08T07:28:46.338Z"
+}

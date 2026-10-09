@@ -1,0 +1,38 @@
+{
+  "https://www.aicd.com.au/board-of-directors/meeting/packs.html": {
+    "ok": true,
+    "status": 200,
+    "title": "Board Packs | AICD",
+    "bytes": 118491,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "AICD — Board packs",
+    "checkedAt": "2026-10-08T08:55:12.438Z"
+  },
+  "https://en.wikipedia.org/wiki/Theory_of_constraints": {
+    "ok": true,
+    "status": 200,
+    "title": "Theory of constraints - Wikipedia",
+    "bytes": 327059,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "Wikipedia — Theory of constraints",
+    "checkedAt": "2026-10-08T08:55:13.396Z"
+  },
+  "https://www.nsw.gov.au/housing-and-construction/compliance-and-regulation/security-of-payment/making-a-payment-claim": {
+    "ok": true,
+    "status": 200,
+    "title": "Making a payment claim under Security of Payment laws | NSW Government",
+    "bytes": 150857,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "NSW Government — Making a payment claim",
+    "checkedAt": "2026-10-08T08:55:13.396Z"
+  },
+  "https://awards.fairwork.gov.au/MA000029.html": {
+    "ok": true,
+    "status": 200,
+    "title": "Joinery and Building Trades Award 2020 [MA000029] - Fair Work Ombudsman",
+    "bytes": 400000,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "Fair Work Ombudsman — Joinery and Building Trades Award",
+    "checkedAt": "2026-10-08T08:55:13.396Z"
+  }
+}

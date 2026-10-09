@@ -1,0 +1,346 @@
+{
+  "number": 6,
+  "slug": "freelancers-consultants",
+  "persona": "Freelancers and consultants",
+  "category": "Primary early adopters",
+  "room": {
+    "title": "Freelancers and Consultants",
+    "description": "How a solo practitioner runs the business around the work: four clients' hours, invoices and scope creep on one desk, next quarter's pipeline and a live proposal on another — nothing lost between the inbox, the timesheet and the spreadsheet."
+  },
+  "desks": [
+    {
+      "title": "Client load this month — hours, scope and invoices",
+      "description": "Four clients, a retainer running over, a naming job that blew its estimate and an invoice 12 days overdue — the month's work and the month's money in the same view.",
+      "dueInDays": 9,
+      "brief": "## Client load this month\n\n**Practice** independent content strategist and copywriter, working solo\n**Rates** $140 an hour · $1,100 a day · **Month end** @+9d\n**Clients** Bluewren Credit Union (retainer) · Magpie Lane Brewing · Bright Lane Childcare · Coolabah Shire Council\n\n### The month in numbers\n- $11,510 of work booked across 8 billable jobs\n- 66 of 80.5 budgeted billable hours used, with 9 days to go\n- $3,000 received · $3,340 invoiced and unpaid · $3,070 to invoice at month end · $2,100 Magpie Lane balance on sign-off\n\n### What needs a decision\n- The Bluewren retainer is 1 hour over its 14 — scope creep on the home-loan page (see the note)\n- Beer-range naming ran 3 hours over a fixed fee: $100 an hour instead of $140\n- **Coolabah's invoice is 12 days overdue**",
+      "callout": {
+        "title": "Chase: Coolabah invoice, 12 days overdue",
+        "body": "$1,100 for the plain-language workshop. Their accounts team needs a purchase order number on every invoice — reissue it with the PO @today, then a polite nudge @+3d if it isn't scheduled for payment. Still nothing after that: a letter of demand.",
+        "accent": "#ef4444",
+        "icon": "⏰"
+      },
+      "table": {
+        "title": "Jobs this month",
+        "columns": [
+          { "id": "job", "label": "Job", "type": "text-short" },
+          { "id": "client", "label": "Client", "type": "single-select", "options": ["Bluewren Credit Union", "Magpie Lane Brewing", "Bright Lane Childcare", "Coolabah Shire Council", "My business"] },
+          { "id": "billing", "label": "Billing", "type": "single-select", "options": ["Retainer", "Fixed fee", "Day rate", "Unbilled"] },
+          { "id": "budget", "label": "Hours budgeted", "type": "number" },
+          { "id": "used", "label": "Hours used", "type": "number" },
+          { "id": "invoice", "label": "Invoice", "type": "single-select", "options": ["Paid", "Deposit paid", "Sent", "Overdue", "Not yet", "No invoice"] },
+          { "id": "fee", "label": "Fee", "type": "number", "prefix": "$" }
+        ],
+        "rows": [
+          { "job": "Member newsletter — issue 9", "client": "Bluewren Credit Union", "billing": "Retainer", "budget": 8, "used": 7, "invoice": "Not yet", "fee": 1120 },
+          { "job": "Home-loan page rewrite", "client": "Bluewren Credit Union", "billing": "Retainer", "budget": 6, "used": 8, "invoice": "Not yet", "fee": 840 },
+          { "job": "Brewery website — 14 pages", "client": "Magpie Lane Brewing", "billing": "Fixed fee", "budget": 30, "used": 18, "invoice": "Deposit paid", "fee": 4200 },
+          { "job": "Beer-range naming", "client": "Magpie Lane Brewing", "billing": "Fixed fee", "budget": 6, "used": 9, "invoice": "Paid", "fee": 900 },
+          { "job": "Enrolment pack copy", "client": "Bright Lane Childcare", "billing": "Fixed fee", "budget": 16, "used": 16, "invoice": "Sent", "fee": 2240 },
+          { "job": "Parent FAQ page", "client": "Bright Lane Childcare", "billing": "Fixed fee", "budget": 4, "used": 1, "invoice": "Not yet", "fee": 560 },
+          { "job": "Plain-language workshop", "client": "Coolabah Shire Council", "billing": "Day rate", "budget": 7, "used": 7, "invoice": "Overdue", "fee": 1100 },
+          { "job": "Workshop follow-up guide", "client": "Coolabah Shire Council", "billing": "Day rate", "budget": 3.5, "used": 0, "invoice": "Not yet", "fee": 550 },
+          { "job": "Proposals and discovery calls", "client": "My business", "billing": "Unbilled", "budget": 8, "used": 7, "invoice": "No invoice", "fee": 0 },
+          { "job": "Invoicing and bookkeeping", "client": "My business", "billing": "Unbilled", "budget": 4, "used": 2, "invoice": "No invoice", "fee": 0 }
+        ]
+      },
+      "chart": {
+        "title": "Fees booked this month",
+        "type": "kpi",
+        "x": null,
+        "series": [{ "column": "fee", "agg": "sum", "label": "Fees booked this month ($)" }]
+      },
+      "mindmap": {
+        "title": "Month at a glance — by client",
+        "root": {
+          "label": "This month",
+          "children": [
+            { "label": "Bluewren (retainer)", "children": [
+              { "label": "14 h budgeted, 15 used", "kind": "idea" },
+              { "label": "Calculator tooltips: new scope?", "kind": "question" }
+            ]},
+            { "label": "Magpie Lane Brewing", "children": [
+              { "label": "Website: 12 h left", "kind": "task" },
+              { "label": "Naming ran 3 h over", "kind": "idea" },
+              { "label": "Quote naming at 1.5× next time", "kind": "tool" }
+            ]},
+            { "label": "Bright Lane Childcare", "children": [
+              { "label": "Enrolment pack — invoiced", "kind": "idea" },
+              { "label": "FAQ page — 3 h left", "kind": "task" }
+            ]},
+            { "label": "Coolabah Shire Council", "children": [
+              { "label": "Reissue invoice with the PO", "kind": "task" },
+              { "label": "Follow-up guide — 3.5 h", "kind": "task" }
+            ]},
+            { "label": "My business", "children": [
+              { "label": "Water-utility proposal @+2d", "kind": "task" },
+              { "label": "Quarterly BAS @+20d", "kind": "task" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Month-end checklist",
+        "blocks": [
+          { "h3": "Month end — @+9d" },
+          { "p": "Forty-five minutes on the last working day, before any client work." },
+          { "ol": [
+            "Log any missing hours from the calendar — every client call counts",
+            "Invoice the Bluewren retainer ($1,960) and any finished fixed-fee jobs",
+            "Chase anything more than 7 days past due — Coolabah today, not at month end",
+            "Mark paid invoices as paid and reconcile against the bank feed",
+            "Move 30% of everything received into the tax account",
+            "Check next month's capacity against the pipeline desk"
+          ]},
+          { "h4": "Rules I set after last quarter" },
+          { "ul": [
+            "Naming and taglines are quoted at 1.5× my first estimate",
+            "A retainer overrun of 2 hours or more gets raised in the month it happens",
+            "A deposit before starting any fixed fee over $2,000"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Scope creep — Bluewren home-loan page",
+          "body": "Briefed as one page. It's now the page plus three calculator tooltips and a rate-change disclaimer.\n\n- Page: 8 h logged against 6\n- Retainer overall: 15 h against 14\n\nOption A: absorb the extra hour as goodwill and quote the tooltips separately — 3 h, $420.\nOption B: fold the tooltips into next month's retainer and say so in writing.\n\nLeaning A. Reply to Farah today."
+        }
+      ],
+      "stickies": [
+        { "title": "Today", "body": "1. Reissue Coolabah invoice with the PO\n2. Magpie Lane pages 10–11\n3. Reply to Farah about the tooltips", "color": "#fef08a" },
+        { "title": "Tax", "body": "30% of every payment into the tax account. Received this month: $3,000, so $900 set aside.", "color": "#bae6fd" }
+      ],
+      "fields": [
+        { "label": "Billable hours", "type": "number", "value": 66, "suffix": " / 80.5 h" },
+        { "label": "Owed to me", "type": "number", "value": 3340, "prefix": "$" },
+        { "label": "Overdue", "type": "number", "value": 1100, "prefix": "$" }
+      ],
+      "browsers": [
+        {
+          "title": "business.gov.au — When you haven't been paid",
+          "url": "https://business.gov.au/finance/financial-trouble/what-to-do-when-you-havent-been-paid"
+        },
+        {
+          "title": "business.gov.au — How to invoice",
+          "url": "https://business.gov.au/finance/payments-and-invoicing/how-to-invoice"
+        }
+      ],
+      "images": [
+        {
+          "title": "Month-end desk, home office",
+          "aspect": "square",
+          "prompt": "Overhead flat-lay photograph of a freelance writer's pale timber desk in a sunlit Brisbane home office at month end: a closed silver laptop, a spiral notebook lying open to completely blank cream pages with a pencil resting across it, a neat stack of plain unmarked kraft folders, a ceramic mug of black coffee, folded reading glasses, a small glass with a sprig of eucalyptus, soft morning window shadows falling across the surface, warm natural tones, calm and organised mood"
+        },
+        {
+          "title": "Council meeting room after the workshop",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a regional Australian shire council meeting room just after a half-day writing workshop: a loose ring of empty moulded chairs, a long trestle table with water jugs, glasses and scattered blank index cards, large sheets of blank butcher's paper taped to a pale brick wall, late-afternoon light through tall timber-framed windows with gum trees outside, nobody in the room, quiet and unposed, muted natural colours"
+        }
+      ],
+      "diagram": {
+        "title": "Chasing an overdue invoice",
+        "nodes": [
+          { "id": "overdue", "label": "Invoice 12 days overdue", "shape": "box", "color": "#dc2626" },
+          { "id": "reissue", "label": "Reissue with the PO", "shape": "box", "color": "#2563eb" },
+          { "id": "nudge", "label": "Nudge 3 days later", "shape": "box", "color": "#2563eb" },
+          { "id": "paid", "label": "Paid or scheduled?", "shape": "circle", "color": "#d97706" },
+          { "id": "reconcile", "label": "Reconcile, 30% to tax", "shape": "box", "color": "#16a34a" },
+          { "id": "demand", "label": "Letter of demand", "shape": "box", "color": "#dc2626" }
+        ],
+        "edges": [
+          { "from": "overdue", "to": "reissue" },
+          { "from": "reissue", "to": "nudge" },
+          { "from": "nudge", "to": "paid" },
+          { "from": "paid", "to": "reconcile", "label": "yes" },
+          { "from": "paid", "to": "demand", "label": "no" }
+        ]
+      },
+      "calculator": {
+        "title": "Month check — paid, owed, to bill, balance",
+        "expression": "3000 + 3340 + 3070 + 2100",
+        "result": 11510
+      },
+      "form": {
+        "title": "Scope change — Bluewren tooltips",
+        "fields": [
+          { "type": "heading", "label": "Bluewren · home-loan page" },
+          { "type": "text", "label": "Requested by", "value": "Farah" },
+          { "type": "select", "label": "Handling", "options": ["A — quote separately", "B — fold into next retainer"], "value": "A — quote separately" },
+          { "type": "number", "label": "Extra hours", "value": "3" },
+          { "type": "number", "label": "Quote ($)", "value": "420" },
+          { "type": "date", "label": "Reply to client by", "value": "@today" },
+          { "type": "checkbox", "label": "Agreed in writing", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "Next quarter's pipeline — and the proposal that fills it",
+      "description": "Eleven leads weighted by likelihood, two proposals out and a thin patch two months from now — plus the water-utility proposal that would fill month three, due @+2d.",
+      "dueInDays": 2,
+      "brief": "## Next quarter's pipeline\n\n**Target** $9,000 billed a month · the Bluewren renewal would cover $1,960 of that for six months\n**Pipeline** 11 leads · $27,910 weighted · 2 proposals out, a third due @+2d\n\n### Where work comes from\n8 of 11 leads came from past clients or referrals. The newsletter brought one good lead (the museum); social and a cold enquiry brought one each, both early-stage.\n\n### The shape of it\n- Work starting next month is covered: $14,604 weighted, most of it the Bluewren renewal\n- Work starting in two months is thin: $5,726 weighted\n- Month three leans on one lead — without the water utility it is $1,980 weighted\n\n### This week\n**Send the water-utility proposal @+2d.** It is the biggest lead in the pipeline and the only thing that fills month three.",
+      "callout": {
+        "title": "Next proposal out: water utility, $14,000",
+        "body": "Due @+2d. A plain-language rewrite of 6 bill and notice templates, in two fixed-fee stages so they can stop after the audit. Rated 40% likely, worth $5,600 weighted — most of what starts in three months.",
+        "accent": "#6366f1",
+        "icon": "📝"
+      },
+      "table": {
+        "title": "Leads",
+        "columns": [
+          { "id": "lead", "label": "Lead", "type": "text-short" },
+          { "id": "source", "label": "Source", "type": "single-select", "options": ["Past client", "Referral", "Newsletter", "Social", "Cold enquiry"] },
+          { "id": "stage", "label": "Stage", "type": "single-select", "options": ["Enquiry", "Discovery call", "Proposal sent", "Negotiating", "Won", "Lost"] },
+          { "id": "start", "label": "Would start", "type": "single-select", "options": ["Next month", "In 2 months", "In 3 months"] },
+          { "id": "value", "label": "Value", "type": "number", "prefix": "$" },
+          { "id": "chance", "label": "Chance", "type": "number", "suffix": "%" },
+          { "id": "weighted", "label": "Weighted", "type": "number", "prefix": "$" }
+        ],
+        "rows": [
+          { "lead": "Bluewren — 6-month retainer renewal", "source": "Past client", "stage": "Negotiating", "start": "Next month", "value": 11760, "chance": 90, "weighted": 10584 },
+          { "lead": "Magpie Lane — tap-room menu and signage", "source": "Past client", "stage": "Won", "start": "Next month", "value": 1680, "chance": 100, "weighted": 1680 },
+          { "lead": "Coolabah — second workshop", "source": "Past client", "stage": "Proposal sent", "start": "Next month", "value": 1100, "chance": 60, "weighted": 660 },
+          { "lead": "Vet clinic group — service pages", "source": "Referral", "stage": "Discovery call", "start": "Next month", "value": 5600, "chance": 30, "weighted": 1680 },
+          { "lead": "Bellfield Museum — exhibition labels", "source": "Newsletter", "stage": "Proposal sent", "start": "In 2 months", "value": 6300, "chance": 50, "weighted": 3150 },
+          { "lead": "Solar installer — 4 case studies", "source": "Social", "stage": "Enquiry", "start": "In 2 months", "value": 2800, "chance": 20, "weighted": 560 },
+          { "lead": "Bright Lane — second centre launch", "source": "Past client", "stage": "Discovery call", "start": "In 2 months", "value": 3360, "chance": 60, "weighted": 2016 },
+          { "lead": "Wool co-op — brand voice guide", "source": "Referral", "stage": "Lost", "start": "In 2 months", "value": 4200, "chance": 0, "weighted": 0 },
+          { "lead": "Water utility — plain-language bills", "source": "Referral", "stage": "Discovery call", "start": "In 3 months", "value": 14000, "chance": 40, "weighted": 5600 },
+          { "lead": "Accounting firm — newsletter retainer", "source": "Cold enquiry", "stage": "Enquiry", "start": "In 3 months", "value": 7200, "chance": 10, "weighted": 720 },
+          { "lead": "Magpie Lane — website phase 2", "source": "Past client", "stage": "Enquiry", "start": "In 3 months", "value": 4200, "chance": 30, "weighted": 1260 }
+        ]
+      },
+      "chart": {
+        "title": "Weighted value by start month",
+        "type": "area",
+        "x": "start",
+        "series": [{ "column": "weighted", "agg": "sum", "label": "Weighted value ($)" }]
+      },
+      "mindmap": {
+        "title": "Proposal — plain-language bills",
+        "root": {
+          "label": "Water-utility proposal",
+          "children": [
+            { "label": "What they asked for", "children": [
+              { "label": "Bills customers can read", "kind": "idea" },
+              { "label": "Fewer what-does-this-mean calls", "kind": "idea" }
+            ]},
+            { "label": "Scope", "children": [
+              { "label": "Stage 1: audit 6 templates", "kind": "task" },
+              { "label": "Stage 2: rewrite, test with 12 customers", "kind": "task" },
+              { "label": "Out: billing system changes", "kind": "idea" }
+            ]},
+            { "label": "Price", "children": [
+              { "label": "Stage 1 — 30 h, $4,200", "kind": "idea" },
+              { "label": "Stage 2 — 70 h, $9,800", "kind": "idea" },
+              { "label": "Extra workshops at the day rate", "kind": "idea" }
+            ]},
+            { "label": "Risks", "children": [
+              { "label": "How long will legal review take?", "kind": "question" },
+              { "label": "Who signs off — CX or legal?", "kind": "question" }
+            ]},
+            { "label": "Proof", "children": [
+              { "label": "Coolabah workshop as a case study", "kind": "tool" },
+              { "label": "Bluewren home-loan page, before/after", "kind": "tool" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Proposal outline",
+        "blocks": [
+          { "h3": "Plain-language bills — proposal outline" },
+          { "p": "For Mandla, customer experience lead. Two stages, fixed fee, with a clean stop point after stage 1. Total $14,000 for 100 hours at my $140 hourly rate." },
+          { "h4": "Stage 1 — audit (3 weeks, $4,200)" },
+          { "ul": [
+            "Read-through of 6 bill and notice templates against plain-language guidelines",
+            "Two half-days listening in the call centre to hear what customers actually ask",
+            "Findings report with a rewrite plan and a fixed price for stage 2"
+          ]},
+          { "h4": "Stage 2 — rewrite and test (7 weeks, $9,800)" },
+          { "ul": [
+            "Rewrite all 6 templates",
+            "Test with 12 customers over two rounds",
+            "A handover guide for the in-house team"
+          ]},
+          { "h4": "Terms" },
+          { "p": "30% deposit to start each stage, balance on sign-off. Time spent waiting on legal review sits outside the timeline." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Discovery call — water utility",
+          "body": "- Bill complaints doubled after the new tariff letters went out\n- The call centre keeps a list of the top 20 customer questions — ask for it\n- Budget is set for this financial year; their exec decides @+21d\n- Mandla wants a stop point; legal wants to see every word\n- Competing with one agency — lean on one person, start to finish"
+        }
+      ],
+      "stickies": [
+        { "title": "This week", "body": "1. Utility proposal out @+2d\n2. Follow up Bellfield Museum\n3. Book the Bright Lane discovery call", "color": "#fef08a" },
+        { "title": "Lost — wool co-op", "body": "They hired in-house. Check in after 6 months and ask how it's going.", "color": "#fbcfe8" }
+      ],
+      "fields": [
+        { "label": "Weighted pipeline", "type": "number", "value": 27910, "prefix": "$" },
+        { "label": "Proposals out", "type": "number", "value": 2 },
+        { "label": "Utility proposal sent", "type": "checkbox", "value": false }
+      ],
+      "browsers": [
+        {
+          "title": "Digital NSW — Plain and inclusive language",
+          "url": "https://digital.nsw.gov.au/delivery/accessibility-and-inclusivity-toolkit/communication/plain-and-inclusive-language"
+        },
+        {
+          "title": "WebAIM — Writing Clearly and Simply",
+          "url": "https://webaim.org/techniques/writing/"
+        }
+      ],
+      "images": [
+        {
+          "title": "Planning wall, three months out",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a home-studio planning wall: completely blank pastel sticky notes in yellow, pink and pale blue arranged in three loose vertical columns on a white-painted brick wall, a few notes curling slightly at the corners, a short strip of plain masking tape, the warm glow of a desk lamp in the lower corner, an out-of-focus potted fiddle-leaf fig in the foreground, soft overcast daylight from the side, shallow depth of field, calm working atmosphere"
+        },
+        {
+          "title": "Kitchen bench on bill day",
+          "aspect": "portrait",
+          "prompt": "Editorial still-life photograph on a pale laminate kitchen bench in an Australian suburban home: a clear glass of tap water catching morning light, a plain unmarked white envelope lying face down beside it, a pair of folded reading glasses resting on the envelope, a chrome kitchen tap softly out of focus behind, gentle side light from a window, quiet domestic mood, muted blues and whites, shallow depth of field"
+        }
+      ],
+      "diagram": {
+        "title": "Two stages, one clean stop point",
+        "nodes": [
+          { "id": "exec", "label": "Exec decides", "shape": "circle", "color": "#d97706" },
+          { "id": "stage1", "label": "Audit · $4,200", "shape": "box", "color": "#7c3aed" },
+          { "id": "later", "label": "Revisit next FY", "shape": "box", "color": "#64748b" },
+          { "id": "stage2", "label": "Rewrite + test · $9,800", "shape": "box", "color": "#2563eb" },
+          { "id": "stop", "label": "Stop with the findings", "shape": "box", "color": "#0891b2" },
+          { "id": "legal", "label": "Legal review, off the clock", "shape": "box", "color": "#dc2626" },
+          { "id": "handover", "label": "Handover guide", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "exec", "to": "stage1", "label": "yes · 30% deposit" },
+          { "from": "exec", "to": "later", "label": "no" },
+          { "from": "stage1", "to": "stage2", "label": "go · 30% deposit" },
+          { "from": "stage1", "to": "stop", "label": "stop" },
+          { "from": "stage2", "to": "legal" },
+          { "from": "legal", "to": "handover" }
+        ]
+      },
+      "calculator": {
+        "title": "Utility proposal: 100 h at $140",
+        "expression": "30 * 140 + 70 * 140",
+        "result": 14000
+      },
+      "form": {
+        "title": "Proposal send checklist",
+        "fields": [
+          { "type": "heading", "label": "Water utility · plain-language bills" },
+          { "type": "text", "label": "Prepared for", "value": "Mandla, CX lead" },
+          { "type": "number", "label": "Total fixed fee ($)", "value": "14000" },
+          { "type": "select", "label": "Structure", "options": ["One fixed fee", "Two stages, stop after 1", "Day rate"], "value": "Two stages, stop after 1" },
+          { "type": "date", "label": "Send by", "value": "@+2d" },
+          { "type": "date", "label": "Exec decides", "value": "@+21d" },
+          { "type": "checkbox", "label": "Deposit and stop point in terms", "value": true },
+          { "type": "checkbox", "label": "Top-20 questions list requested", "value": false },
+          { "type": "checkbox", "label": "Case studies attached", "value": false }
+        ]
+      }
+    }
+  ]
+}

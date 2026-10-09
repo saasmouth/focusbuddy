@@ -1,0 +1,321 @@
+{
+  "number": 8,
+  "slug": "project-product-managers",
+  "persona": "Project and product managers",
+  "category": "Primary early adopters",
+  "room": {
+    "title": "Project and Product Managers",
+    "description": "How a product manager holds one product's roadmap, the sprint in flight and the people who need to hear about it on one surface — the scores, the scope, the stakeholder notes and the reasons behind each decision."
+  },
+  "desks": [
+    {
+      "title": "Next-quarter roadmap — scoring the shortlist",
+      "description": "Nine candidate bets scored with RICE against 26 person-weeks of capacity, the customer evidence behind each one, and the decision record for the roadmap review.",
+      "dueInDays": 5,
+      "brief": "## Next-quarter roadmap — scoring the shortlist\n\n**Product** Corella · rostering and timesheets for hospitality venues\n**Customers** about 1,400 venues · **Roadmap review** @+5d with Marcus, sales and support\n**Capacity** 26 person-weeks of new work — 4 engineers × 13 weeks, half kept back for support, bugs and the shift-swap tail\n\n### How we're scoring\nRICE = reach × impact × confidence ÷ effort. Reach is venues likely to use it in a quarter; impact runs 0.25–3; effort is person-weeks including design and QA. **The scores rank the list. They don't make the decision.**\n\n### The proposal\n- **Now (19 person-weeks):** shift-swap general release, availability from the staff app, payroll export, missed-break alerts, offline clock-in\n- **Next:** pay rules engine, multi-venue roster view\n- **Later / not doing:** labour-cost forecast, reporting rebuild\n- 7 person-weeks left unallocated on purpose — the last two quarters ran 25–30% over estimate\n\n### Still open\nWhether the pay rules engine jumps the queue. Sales say two multi-venue groups will sign if it's on the roadmap; the evidence from everyone else is thin.",
+      "callout": {
+        "title": "Decision for the review: pay rules engine",
+        "body": "Dylan wants it Now for two multi-venue groups. It scores 70 at 50% confidence and would take 12 of our 26 weeks. Proposal: keep it Next and fund a 2-week discovery spike out of the buffer.",
+        "accent": "#6366f1",
+        "icon": "🧭"
+      },
+      "table": {
+        "title": "Roadmap shortlist — RICE",
+        "columns": [
+          { "id": "opportunity", "label": "Opportunity", "type": "text-short" },
+          { "id": "theme", "label": "Theme", "type": "single-select", "options": ["Scheduling", "Payroll", "Mobile", "Compliance", "Integrations", "Reporting"] },
+          { "id": "reach", "label": "Reach (venues/qtr)", "type": "number" },
+          { "id": "impact", "label": "Impact", "type": "number" },
+          { "id": "confidence", "label": "Confidence (%)", "type": "number" },
+          { "id": "effort", "label": "Effort (person-wks)", "type": "number" },
+          { "id": "rice", "label": "RICE", "type": "number" },
+          { "id": "decision", "label": "Decision", "type": "single-select", "options": ["Now", "Next", "Later", "Not doing"] }
+        ],
+        "rows": [
+          { "opportunity": "Shift swaps — general release", "theme": "Scheduling", "reach": 900, "impact": 2, "confidence": 80, "effort": 4, "rice": 360, "decision": "Now" },
+          { "opportunity": "Availability from the staff app", "theme": "Mobile", "reach": 1000, "impact": 0.5, "confidence": 100, "effort": 2, "rice": 250, "decision": "Now" },
+          { "opportunity": "Timesheet export to payroll", "theme": "Integrations", "reach": 700, "impact": 2, "confidence": 80, "effort": 5, "rice": 224, "decision": "Now" },
+          { "opportunity": "Missed-break alerts", "theme": "Compliance", "reach": 1100, "impact": 1, "confidence": 80, "effort": 4, "rice": 220, "decision": "Now" },
+          { "opportunity": "Offline clock-in", "theme": "Mobile", "reach": 400, "impact": 1, "confidence": 80, "effort": 4, "rice": 80, "decision": "Now" },
+          { "opportunity": "Pay rules engine", "theme": "Payroll", "reach": 560, "impact": 3, "confidence": 50, "effort": 12, "rice": 70, "decision": "Next" },
+          { "opportunity": "Multi-venue roster view", "theme": "Scheduling", "reach": 180, "impact": 3, "confidence": 80, "effort": 8, "rice": 54, "decision": "Next" },
+          { "opportunity": "Labour cost vs sales forecast", "theme": "Reporting", "reach": 350, "impact": 2, "confidence": 50, "effort": 7, "rice": 50, "decision": "Later" },
+          { "opportunity": "Reporting dashboard rebuild", "theme": "Reporting", "reach": 240, "impact": 0.5, "confidence": 50, "effort": 6, "rice": 10, "decision": "Not doing" }
+        ]
+      },
+      "chart": {
+        "title": "Effort by decision (person-weeks)",
+        "type": "bar",
+        "x": "decision",
+        "series": [{ "column": "effort", "agg": "sum", "label": "Person-weeks" }]
+      },
+      "mindmap": {
+        "title": "Evidence behind the shortlist",
+        "root": {
+          "label": "What venues told us",
+          "children": [
+            { "label": "Rosters eat Sunday nights", "children": [
+              { "label": "Swaps agreed in group chats, re-keyed", "kind": "idea" },
+              { "label": "Availability arrives by text", "kind": "idea" }
+            ]},
+            { "label": "Payroll is the painful handover", "children": [
+              { "label": "Timesheets re-keyed into payroll", "kind": "idea" },
+              { "label": "Pay rules kept in spreadsheets", "kind": "idea" },
+              { "label": "How many venues have complex rules?", "kind": "question" }
+            ]},
+            { "label": "Compliance worries", "children": [
+              { "label": "Missed breaks found at audit time", "kind": "idea" },
+              { "label": "Alert the manager on the day", "kind": "task" }
+            ]},
+            { "label": "Mobile gaps", "children": [
+              { "label": "Basement kitchens have no signal", "kind": "idea" },
+              { "label": "Clock in offline, sync later", "kind": "task" }
+            ]},
+            { "label": "Asked for, rarely used", "children": [
+              { "label": "Reporting rebuild: 3 asks in a year", "kind": "idea" },
+              { "label": "Would a forecast change rosters?", "kind": "question" }
+            ]},
+            { "label": "Sources", "children": [
+              { "label": "Support ticket tags, last 90 days", "kind": "tool" },
+              { "label": "38 customer calls", "kind": "tool" },
+              { "label": "Usage data — export clicks", "kind": "tool" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Decision record — roadmap review",
+        "blocks": [
+          { "h3": "Roadmap review — decision record" },
+          { "p": "Written before the meeting so the review is spent on the open question, not on re-reading the list. Outcomes get added on the day." },
+          { "h4": "Agreed in advance" },
+          { "ul": [
+            "Shift swaps go to general release first — the most requested feature, and the beta reaches five venues this sprint",
+            "Payroll export and missed-break alerts ship together; both change timesheets",
+            "Reporting rebuild is not doing — three requests in a year, all from one group"
+          ]},
+          { "h4": "To decide on the day" },
+          { "ol": [
+            "Pay rules engine: Next with a 2-week spike, or Now in place of offline clock-in and break alerts (23 of 26 weeks)?",
+            "Do we hold the 7-week buffer, or let sales spend some of it?"
+          ]},
+          { "h4": "Outcome" },
+          { "p": "To be filled in at the review @+5d." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Pre-reads and lobbying",
+          "body": "Who has said what before the review:\n\n- Dylan (sales): pay rules or we lose the two groups — ask him for the actual deal size\n- Grace (support): break alerts would cut the compliance tickets she escalates every week\n- Ines (design): offline clock-in needs a field test in a real basement kitchen, not the office\n- Marcus: wants one slide, not nine rows — the chart over the table is the slide\n\nSend the decision record to all four @+3d."
+        }
+      ],
+      "stickies": [
+        { "title": "Before the review", "body": "1. Deal size from Dylan\n2. Payroll export estimate re-checked with Joon\n3. Decision record out @+3d", "color": "#fef08a" },
+        { "title": "Rule", "body": "Scores rank the list. People make the call — and write down why.", "color": "#bae6fd" }
+      ],
+      "fields": [
+        { "label": "Committed", "type": "number", "value": 19, "suffix": " / 26 person-wks" },
+        { "label": "Buffer kept", "type": "number", "value": 7, "suffix": " person-wks" },
+        { "label": "Decision record sent", "type": "checkbox", "value": false }
+      ],
+      "timer": { "title": "Pre-read writing", "minutes": 45 },
+      "browsers": [
+        { "title": "NN/g — Prioritisation methods in roadmapping", "url": "https://www.nngroup.com/articles/prioritization-methods/" },
+        { "title": "Fair Work — Hospitality Industry (General) Award 2020", "url": "https://awards.fairwork.gov.au/MA000009.html" }
+      ],
+      "images": [
+        {
+          "title": "Roadmap wall before the review",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a product team's planning wall in a small Melbourne office meeting room the afternoon before a roadmap review: three loose vertical columns of blank square sticky notes in yellow, pale blue and green on a white wall, the columns separated by strips of masking tape, a few notes clustered and slightly overlapping, a capped marker and a coffee cup on a pale timber table in the foreground, soft late-afternoon window light from the left, shallow depth of field, calm and orderly mood. Every sticky note is completely blank."
+        },
+        {
+          "title": "Basement kitchen, no phone signal",
+          "aspect": "portrait",
+          "prompt": "Architectural interior photograph of a narrow basement commercial kitchen beneath an inner-city restaurant: low ceiling with exposed pipes, stainless-steel benches and wire shelving, white tiled walls, warm pass lamps mixed with cool overhead light, a single cook seen from behind in a dark apron walking away down the galley, a small wall-mounted tablet beside the doorway with a dark switched-off screen, plain unbadged stainless-steel fridges and ovens with no plates, stickers or labels, unlabelled squeeze bottles and containers, slightly gritty documentary feel, natural colours, vertical framing looking down the length of the kitchen."
+        }
+      ],
+      "diagram": {
+        "title": "Pay rules engine — Now or Next?",
+        "nodes": [
+          { "id": "sales", "label": "Dylan: two groups will sign", "shape": "box", "color": "#64748b" },
+          { "id": "rice", "label": "RICE 70 at 50% confidence", "shape": "box", "color": "#6366f1" },
+          { "id": "fork", "label": "Now or Next?", "shape": "circle", "color": "#d97706" },
+          { "id": "cut", "label": "Cut clock-in + break alerts", "shape": "box", "color": "#dc2626" },
+          { "id": "full", "label": "23 of 26 weeks committed", "shape": "box", "color": "#dc2626" },
+          { "id": "spike", "label": "Next + 2-week spike", "shape": "box", "color": "#16a34a" },
+          { "id": "rescore", "label": "Re-score with evidence", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "sales", "to": "rice" },
+          { "from": "rice", "to": "fork" },
+          { "from": "fork", "to": "cut", "label": "Now (12 weeks)" },
+          { "from": "cut", "to": "full" },
+          { "from": "fork", "to": "spike", "label": "Next (proposal)" },
+          { "from": "spike", "to": "rescore", "label": "paid from buffer" }
+        ]
+      },
+      "calculator": {
+        "title": "RICE check: pay rules engine",
+        "expression": "560 * 3 * 0.5 / 12",
+        "result": 70
+      }
+    },
+    {
+      "title": "Sprint 14 — shift-swap beta into five venues",
+      "description": "A two-week sprint to get shift swaps live in five pilot venues: the backlog, who needs to hear what, the stakeholder update and the one story that could push the date.",
+      "dueInDays": 6,
+      "brief": "## Sprint 14 — shift-swap beta\n\n**Sprint goal** shift swaps live for staff and managers in five pilot venues by @+6d\n**Team** Joon, Farah, Luis, Kemi (engineering) · Ines (design)\n**Committed** 34 points · **Done** 18 · **Left** 16\n\n### In scope\n- Staff request a swap from their shift; eligible colleagues are notified\n- Managers approve or decline in one tap; roster and timesheet update together\n- Venue owners can see the swap history\n\n### Out of scope this sprint\n- Swaps between venues\n- Blocking swaps that push someone into overtime — warned about, not blocked\n\n### Where it stands\nThe build is on track; the venues are the risk. Three of five pilot venues have signed the beta agreement and Grace trains their managers @+2d. The overtime warning is blocked on pay rules data — the same gap behind the pay rules engine on the roadmap desk.",
+      "callout": {
+        "title": "At risk: overtime warning (3 pts)",
+        "body": "Joon can't finish the overtime check without each venue's pay rules, which live in payroll settings we don't read yet. Proposal: ship the beta with a plain 'this may be overtime' flag and log the gap.",
+        "accent": "#f59e0b",
+        "icon": "⚠️"
+      },
+      "table": {
+        "title": "Sprint backlog",
+        "columns": [
+          { "id": "story", "label": "Story", "type": "text-short" },
+          { "id": "area", "label": "Area", "type": "single-select", "options": ["Staff app", "Manager web", "Backend", "Notifications", "Beta ops"] },
+          { "id": "owner", "label": "Owner", "type": "text-short" },
+          { "id": "points", "label": "Points", "type": "number" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Done", "In review", "In progress", "Blocked", "To do"] }
+        ],
+        "rows": [
+          { "story": "Request a swap from the shift card", "area": "Staff app", "owner": "Farah", "points": 5, "status": "Done" },
+          { "story": "Match eligible colleagues", "area": "Backend", "owner": "Joon", "points": 5, "status": "Done" },
+          { "story": "Push + SMS for swap offers", "area": "Notifications", "owner": "Luis", "points": 3, "status": "Done" },
+          { "story": "Manager approve / decline in one tap", "area": "Manager web", "owner": "Kemi", "points": 5, "status": "Done" },
+          { "story": "Roster + timesheet update on approval", "area": "Backend", "owner": "Joon", "points": 5, "status": "In review" },
+          { "story": "Beta flag per venue + kill switch", "area": "Beta ops", "owner": "Luis", "points": 2, "status": "In review" },
+          { "story": "Accept / decline offer screen", "area": "Staff app", "owner": "Farah", "points": 2, "status": "In progress" },
+          { "story": "Swap history for venue owners", "area": "Manager web", "owner": "Kemi", "points": 2, "status": "In progress" },
+          { "story": "Overtime warning on swap", "area": "Backend", "owner": "Joon", "points": 3, "status": "Blocked" },
+          { "story": "Help copy + empty states", "area": "Staff app", "owner": "Ines", "points": 2, "status": "To do" }
+        ]
+      },
+      "chart": {
+        "title": "Points by status",
+        "type": "pie",
+        "x": "status",
+        "series": [{ "column": "points", "agg": "sum", "label": "Points" }]
+      },
+      "mindmap": {
+        "title": "Stakeholder map",
+        "root": {
+          "label": "Shift-swap beta — who needs what",
+          "children": [
+            { "label": "Decides", "children": [
+              { "label": "Marcus — go / no-go per venue", "kind": "task" },
+              { "label": "What's the bar for general release?", "kind": "question" }
+            ]},
+            { "label": "Builds", "children": [
+              { "label": "Engineering — 34 points", "kind": "idea" },
+              { "label": "Ines — copy and empty states", "kind": "idea" }
+            ]},
+            { "label": "Supports", "children": [
+              { "label": "Grace trains pilot managers @+2d", "kind": "task" },
+              { "label": "Support macro for swap questions", "kind": "task" }
+            ]},
+            { "label": "Sells", "children": [
+              { "label": "Dylan wants a demo for two groups", "kind": "idea" },
+              { "label": "Demo before general release?", "kind": "question" }
+            ]},
+            { "label": "Pilot venues", "children": [
+              { "label": "3 of 5 agreements signed", "kind": "idea" },
+              { "label": "Weekly check-in call", "kind": "task" },
+              { "label": "In-app feedback form", "kind": "tool" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Stakeholder update — sprint 14",
+        "blocks": [
+          { "h3": "Shift-swap beta — status: Amber" },
+          { "p": "**Goal:** shift swaps live in five pilot venues by @+6d. **Confidence:** medium — the build is on track, the venues are not there yet." },
+          { "h4": "Done since the last update" },
+          { "ul": [
+            "Staff can request a swap and eligible colleagues are notified",
+            "Managers approve or decline in one tap",
+            "18 of 34 points complete; two more stories in review"
+          ]},
+          { "h4": "Risks" },
+          { "ul": [
+            "Overtime warning is blocked on pay rules data — proposing a plain warning flag instead",
+            "Only 3 of 5 pilot venues have signed; Dylan is chasing the other two"
+          ]},
+          { "h4": "Asks" },
+          { "ol": [
+            "Marcus: OK to ship the beta with the plain overtime flag?",
+            "Dylan: two more signed agreements by @+2d, or we switch to the reserve venues"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Things I've promised people",
+          "body": "Easy to lose between the board and the chat threads:\n\n- Grace: beta FAQ draft before her training session @+2d\n- Dylan: a 10-minute demo slot for his two groups — after the beta, not before\n- Kemi: a decision on whether swap history shows declined requests\n- Joon: a named contact in the payroll team for the pay rules data\n\nNone of these are tickets. All of them cost trust if they slip."
+        }
+      ],
+      "stickies": [
+        { "title": "Sprint", "body": "16 points left\nEnds @+6d\nBlocked: overtime warning", "color": "#fef08a" },
+        { "title": "Reserve venues", "body": "If two pilots don't sign: Harbour Street Kitchen and The Larder — both asked to join.", "color": "#bbf7d0" }
+      ],
+      "fields": [
+        { "label": "Points done", "type": "number", "value": 18, "suffix": " / 34" },
+        { "label": "Pilot venues signed", "type": "number", "value": 3, "suffix": " / 5" },
+        { "label": "Sprint health", "type": "single-select", "options": ["Green", "Amber", "Red"], "value": "Amber" }
+      ],
+      "browsers": [
+        { "title": "Scrum Guides — The Scrum Guide", "url": "https://scrumguides.org/scrum-guide.html" },
+        { "title": "business.gov.au — Employees' pay, leave and entitlements", "url": "https://business.gov.au/people/employees/employees-pay-leave-and-entitlements" }
+      ],
+      "images": [
+        {
+          "title": "Swap request before a Friday shift",
+          "aspect": "square",
+          "prompt": "Editorial close-up photograph in a hospitality venue staff room just before an evening shift: a pair of hands holding a smartphone whose screen glows with soft, abstract, out-of-focus colour blocks, black aprons hanging on hooks and a row of grey metal lockers blurred behind, a folded tea towel on a timber bench, warm tungsten light mixed with cool daylight from a small high window, shallow depth of field, candid and quiet moment."
+        },
+        {
+          "title": "Pilot venue manager training",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a small training session in a suburban Australian café after closing time: three people seen from behind and the side sitting around a timber table with an open laptop turned away from the camera and two phones lying face down, coffee cups and a water jug, chairs upturned on the other tables, warm pendant lights on, dusk-blue light through the front windows, relaxed and focused atmosphere, wide framing with the rest of the room in soft focus."
+        }
+      ],
+      "diagram": {
+        "title": "Shift swap — beta flow",
+        "nodes": [
+          { "id": "request", "label": "Staff requests a swap", "shape": "box", "color": "#2563eb" },
+          { "id": "match", "label": "Match eligible colleagues", "shape": "box", "color": "#6366f1" },
+          { "id": "accept", "label": "Colleague accepts offer", "shape": "box", "color": "#0891b2" },
+          { "id": "flag", "label": "Flag if it may be overtime", "shape": "box", "color": "#f59e0b" },
+          { "id": "approve", "label": "Manager approves?", "shape": "circle", "color": "#d97706" },
+          { "id": "update", "label": "Roster + timesheet updated", "shape": "box", "color": "#16a34a" },
+          { "id": "declined", "label": "Declined — shift unchanged", "shape": "box", "color": "#dc2626" }
+        ],
+        "edges": [
+          { "from": "request", "to": "match" },
+          { "from": "match", "to": "accept", "label": "push + SMS" },
+          { "from": "accept", "to": "flag", "label": "warn, not block" },
+          { "from": "flag", "to": "approve" },
+          { "from": "approve", "to": "update", "label": "one tap: approve" },
+          { "from": "approve", "to": "declined", "label": "decline" }
+        ]
+      },
+      "form": {
+        "title": "Beta go-live checklist",
+        "fields": [
+          { "type": "heading", "label": "Shift-swap beta · five pilot venues" },
+          { "type": "number", "label": "Pilot venues signed (of 5)", "value": "3" },
+          { "type": "date", "label": "Manager training with Grace", "value": "@+2d" },
+          { "type": "checkbox", "label": "Beta FAQ sent to Grace", "value": false },
+          { "type": "checkbox", "label": "Kill switch tested per venue", "value": false },
+          { "type": "select", "label": "Overtime handling (proposed)", "options": ["Full check", "Plain flag", "Not shown"], "value": "Plain flag" },
+          { "type": "select", "label": "Go / no-go (Marcus)", "options": ["Go", "No-go", "Pending"], "value": "Pending" },
+          { "type": "date", "label": "Beta live", "value": "@+6d" }
+        ]
+      }
+    }
+  ]
+}

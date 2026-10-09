@@ -1,0 +1,12 @@
+{
+  "persona": "Accountants and finance professionals",
+  "desk": "Month-end close — day 3, $53k still unexplained",
+  "title": "Close week, after hours",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Editorial still-life photograph of a finance manager's desk late in a month-end close: a laptop half closed with a soft glow escaping, a neat stack of lever-arch folders with plain unlabelled spines, a ceramic mug of tea, reading glasses resting on a closed hardback notebook, a brass desk lamp throwing a warm pool of light, a dark office window behind with out-of-focus city lights at dusk, muted navy and warm amber palette, shallow depth of field, quiet and orderly",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 192672,
+  "generatedAt": "2026-10-08T07:13:49.706Z"
+}

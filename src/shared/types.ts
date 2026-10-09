@@ -1677,16 +1677,19 @@ export interface BodyDoubleResponse {
 
 // How much interaction the user wants during the session. Both partners
 // must agree on a mode (compatible matching only — see matcher logic).
+//
+// A pairing of two signed-in members runs inside a private PlexiiMeet room
+// (camera for presence); the mode decides the microphone and the chat:
 export type BodyDoubleMode =
-  | 'silent' // names + presence dot only; no chat, no audio
-  | 'greetings' // exchange one hello + "what are you working on", then quiet
-  | 'light' // text chat available, occasional progress pings welcome
-  | 'open' // full conversation; text + audio (when audio ships)
+  | 'silent' // camera only: no microphone is ever opened, no chat
+  | 'greetings' // intros only: mic on to say hello, auto-muted after the intro; chat
+  | 'light' // a little chat is fine: mic starts muted; text chat
+  | 'open' // happy to talk: mic on; text chat
 
 // The handle shown to a partner — pseudonymous "FocusedFalcon" style names
-// generated client-side. No real identity, no auth. A user MAY choose a
-// persistent handle later via Settings; v1 generates a fresh one per
-// session for total deniability.
+// generated client-side, fresh per session. The partner never sees the
+// account's real name or email: the server introduces each side, in chat and
+// in the meeting room alike, only by this handle.
 export interface BodyDoublePartner {
   handle: string
   // Optional one-line context: "drafting Q3 brief", "studying for finals".
@@ -1704,6 +1707,27 @@ export interface BodyDoubleRequest {
   // Local handle — generated when the request is created. Tells the matcher
   // who to introduce on the other side.
   handle: string
+  // The account session token. The server checks it for the body_double
+  // capability and, when two members pair, mints their private meeting room.
+  // Null only for the local dev mock, which has no server to check it.
+  token?: string | null
+}
+
+// The private PlexiiMeet room the server minted for a signed-in pairing.
+export interface BodyDoubleMeeting {
+  roomId: string
+}
+
+// Why the matching service refused a request, as a code the UI can act on.
+//   bd_sign_in       — no session token, or it expired
+//   bd_not_entitled  — the plan does not include body double
+//   bd_bad_request   — mode or handle failed validation (an outdated client)
+//   bd_unreachable   — the matching service could not be reached
+export type BodyDoubleErrorCode = 'bd_sign_in' | 'bd_not_entitled' | 'bd_bad_request' | 'bd_unreachable'
+
+export interface BodyDoubleError {
+  code: BodyDoubleErrorCode
+  message: string
 }
 
 // Status of the local user's session. Drives the UI: which panel renders,

@@ -1,0 +1,30 @@
+{
+  "https://www.gs1au.org/standards/barcodes": {
+    "ok": true,
+    "title": "Discover Different 1D & 2D Barcode Types | GS1 Australia",
+    "finalUrl": "https://www.gs1au.org/standards/barcodes",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://www.gs1au.org/standards/id-keys/sscc": {
+    "ok": true,
+    "title": "Serial Shipping Container Code SSCC | GS1 Australia",
+    "finalUrl": "https://www.gs1au.org/standards/id-keys/sscc",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://www.afp.gov.au/news-centre/feature/clickfit-business-email-compromise-bec": {
+    "ok": true,
+    "title": "ClickFit: Business Email Compromise (BEC) | Australian Federal Police",
+    "finalUrl": "https://www.afp.gov.au/news-centre/feature/clickfit-business-email-compromise-bec",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  },
+  "https://nata.com.au/accreditation/nata-test-reports-explained/": {
+    "ok": true,
+    "title": "NATA Test Reports Explained - NATA",
+    "finalUrl": "https://nata.com.au/accreditation/nata-test-reports-explained/",
+    "where": "desks[1].browsers[1]",
+    "pass": true
+  }
+}

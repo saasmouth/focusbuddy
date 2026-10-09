@@ -1,0 +1,1007 @@
+{
+  "number": 16,
+  "slug": "business-analysts",
+  "persona": "Business analysts",
+  "category": "Professional use cases",
+  "room": {
+    "title": "Business Analysts",
+    "description": "How a business analyst takes a change initiative from evidence to signed-off requirements on one surface — the data pull, the process as it really runs, the requirements backlog and the open questions all in view at once."
+  },
+  "desks": [
+    {
+      "title": "Claims intake — why 31% of claims need rework",
+      "description": "Current-state analysis for a claims modernisation: 12 weeks of intake data, the process as it really runs, and a hand-coded set of 200 reworked claims.",
+      "dueInDays": 5,
+      "brief": "## Claims intake — current-state analysis\n\n**Initiative** Claims intake modernisation · Kestrel Mutual, home and contents\n**Sponsor** Helena, GM Claims · **Steering group** @+5d\n**Evidence** 12 weeks of lodged claims from the claims system, 200 reworked claims coded by hand, and interviews with the triage team\n\n### What the data says\n- **25,560 claims lodged, 7,931 reworked — 31%.** Rework means triage sent the claim back for more information before assessment could start\n- The storm in week 7 lifted volume by three-quarters, and rework rose to 34% with it\n- Days to first contact average 2.8, and go above 4 in the storm weeks\n- Three causes account for two-thirds of rework: missing photos, policy number mismatch and the wrong claim type\n\n### What it means\nRework is a lodgement problem, not an assessment one. Most of it could be caught on the form, before a claim ever reaches triage. If the form caught all three top causes, rework would fall to about 10.5% at best — which is why release 1 aims for under 15%, not zero.\n\n### Still to confirm\nWhether phone lodgements rework more than online ones. The extract has channel totals by week but not channel per claim — IT is adding the field @+2d.",
+      "callout": {
+        "title": "Two-thirds of rework comes from three causes",
+        "body": "Missing photos (58), policy number mismatch (41) and wrong claim type (33): 132 of the 200 coded claims. All three can be checked on the lodgement form before triage sees the claim.",
+        "accent": "#0ea5e9",
+        "icon": "🔍"
+      },
+      "table": {
+        "title": "Claims extract — last 12 weeks",
+        "columns": [
+          {
+            "id": "week",
+            "label": "Week",
+            "type": "text-short"
+          },
+          {
+            "id": "lodged",
+            "label": "Lodged",
+            "type": "number"
+          },
+          {
+            "id": "reworked",
+            "label": "Reworked",
+            "type": "number"
+          },
+          {
+            "id": "rate",
+            "label": "Rework rate",
+            "type": "number",
+            "suffix": "%"
+          },
+          {
+            "id": "contact",
+            "label": "Days to first contact",
+            "type": "number"
+          },
+          {
+            "id": "online",
+            "label": "Lodged online",
+            "type": "number",
+            "suffix": "%"
+          }
+        ],
+        "rows": [
+          {
+            "week": "Wk 1",
+            "lodged": 1840,
+            "reworked": 540,
+            "rate": 29.3,
+            "contact": 2.1,
+            "online": 62
+          },
+          {
+            "week": "Wk 2",
+            "lodged": 1910,
+            "reworked": 575,
+            "rate": 30.1,
+            "contact": 2.2,
+            "online": 61
+          },
+          {
+            "week": "Wk 3",
+            "lodged": 1780,
+            "reworked": 541,
+            "rate": 30.4,
+            "contact": 2.0,
+            "online": 63
+          },
+          {
+            "week": "Wk 4",
+            "lodged": 1865,
+            "reworked": 560,
+            "rate": 30.0,
+            "contact": 2.1,
+            "online": 62
+          },
+          {
+            "week": "Wk 5",
+            "lodged": 1950,
+            "reworked": 585,
+            "rate": 30.0,
+            "contact": 2.3,
+            "online": 61
+          },
+          {
+            "week": "Wk 6",
+            "lodged": 2020,
+            "reworked": 610,
+            "rate": 30.2,
+            "contact": 2.4,
+            "online": 60
+          },
+          {
+            "week": "Wk 7 · storm",
+            "lodged": 3410,
+            "reworked": 1160,
+            "rate": 34.0,
+            "contact": 4.6,
+            "online": 55
+          },
+          {
+            "week": "Wk 8",
+            "lodged": 2880,
+            "reworked": 935,
+            "rate": 32.5,
+            "contact": 4.1,
+            "online": 57
+          },
+          {
+            "week": "Wk 9",
+            "lodged": 2140,
+            "reworked": 671,
+            "rate": 31.4,
+            "contact": 2.9,
+            "online": 60
+          },
+          {
+            "week": "Wk 10",
+            "lodged": 1990,
+            "reworked": 600,
+            "rate": 30.2,
+            "contact": 2.4,
+            "online": 62
+          },
+          {
+            "week": "Wk 11",
+            "lodged": 1905,
+            "reworked": 583,
+            "rate": 30.6,
+            "contact": 2.2,
+            "online": 63
+          },
+          {
+            "week": "Wk 12",
+            "lodged": 1870,
+            "reworked": 571,
+            "rate": 30.5,
+            "contact": 2.1,
+            "online": 62
+          }
+        ]
+      },
+      "chart": {
+        "title": "Lodged against reworked, by week",
+        "type": "area",
+        "x": "week",
+        "series": [
+          {
+            "column": "lodged",
+            "agg": "sum",
+            "label": "Lodged"
+          },
+          {
+            "column": "reworked",
+            "agg": "sum",
+            "label": "Reworked"
+          }
+        ]
+      },
+      "mindmap": {
+        "title": "Claims intake — as it runs today",
+        "root": {
+          "label": "Claims intake today",
+          "children": [
+            {
+              "label": "1 Lodge",
+              "children": [
+                {
+                  "label": "Online form — 60% of claims",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Phone — an agent keys it in",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Customer picks from 14 claim types",
+                  "kind": "idea"
+                }
+              ]
+            },
+            {
+              "label": "2 Triage",
+              "children": [
+                {
+                  "label": "Policy number checked by hand",
+                  "kind": "idea"
+                },
+                {
+                  "label": "31% sent back for rework",
+                  "kind": "idea"
+                }
+              ]
+            },
+            {
+              "label": "3 Request information",
+              "children": [
+                {
+                  "label": "Email, then a call after 2 days",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Photos asked for here, not at lodgement",
+                  "kind": "idea"
+                }
+              ]
+            },
+            {
+              "label": "4 Assess",
+              "children": [
+                {
+                  "label": "Starts only when the file is complete",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Is assessor workload a bottleneck too?",
+                  "kind": "question"
+                }
+              ]
+            },
+            {
+              "label": "Open questions",
+              "children": [
+                {
+                  "label": "Do phone claims rework more?",
+                  "kind": "question"
+                },
+                {
+                  "label": "Is the storm pattern typical?",
+                  "kind": "question"
+                }
+              ]
+            },
+            {
+              "label": "Evidence",
+              "children": [
+                {
+                  "label": "Claims system extract",
+                  "kind": "tool"
+                },
+                {
+                  "label": "200 coded reworked claims",
+                  "kind": "tool"
+                },
+                {
+                  "label": "Triage team interviews",
+                  "kind": "tool"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "page": {
+        "title": "Findings — why claims are reworked",
+        "blocks": [
+          {
+            "h3": "Why claims are reworked"
+          },
+          {
+            "p": "200 reworked claims drawn at random from the 12 weeks, each coded by the first reason triage sent it back. Coded by me, checked independently by Tavita in triage."
+          },
+          {
+            "ol": [
+              "Missing photos or receipts — 58 (29%)",
+              "Policy number doesn't match the customer — 41 (20.5%)",
+              "Wrong claim type chosen — 33 (16.5%)",
+              "Incident date outside the cover period — 22 (11%)",
+              "Duplicate lodgement — 19 (9.5%)",
+              "Bank details missing — 15 (7.5%)",
+              "Other — 12 (6%)"
+            ]
+          },
+          {
+            "h4": "What this tells us"
+          },
+          {
+            "p": "The top three causes are 66% of rework, and all three can be checked at lodgement. Incident date and duplicates (20.5% together) are rule checks the system could make. Bank details are disputed — see the requirements desk."
+          },
+          {
+            "h4": "Caveats"
+          },
+          {
+            "ul": [
+              "First reason only — a claim can have more than one problem",
+              "Excludes claims withdrawn before triage",
+              "Storm weeks are represented roughly in proportion to their volume"
+            ]
+          }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Triage team interviews — 5 people",
+          "body": "What the triage team told me, paraphrased:\n\n- A large part of each day goes on chasing photos that could have come with the claim\n- Customers often type the old policy number from last year's renewal letter\n- There are 14 claim types; storm damage and water damage get mixed up constantly\n- They keep a side list of repeat callers that isn't in any system\n- Nobody measures time spent on rework, only the volume of it"
+        }
+      ],
+      "stickies": [
+        {
+          "title": "Assumption to test",
+          "body": "Phone claims rework more than online ones. Needs channel per claim — IT @+2d.",
+          "color": "#bae6fd"
+        },
+        {
+          "title": "Today",
+          "body": "1. Coding check with Tavita\n2. Steering group summary\n3. Confirm the channel field with IT",
+          "color": "#fef08a"
+        }
+      ],
+      "fields": [
+        {
+          "label": "Rework rate",
+          "type": "number",
+          "value": 31,
+          "suffix": "%"
+        },
+        {
+          "label": "Claims analysed",
+          "type": "number",
+          "value": 25560
+        },
+        {
+          "label": "Reworked claims coded",
+          "type": "number",
+          "value": 200
+        }
+      ],
+      "timer": {
+        "title": "Analysis block",
+        "minutes": 50
+      },
+      "browsers": [
+        {
+          "title": "Wikipedia — Pareto chart",
+          "url": "https://en.wikipedia.org/wiki/Pareto_chart"
+        },
+        {
+          "title": "Legal Aid NSW — Insurance claims after a disaster",
+          "url": "https://www.legalaid.nsw.gov.au/ways-to-get-help/publications-and-resources/insurance-claims-after-a-disaster"
+        }
+      ],
+      "images": [
+        {
+          "title": "The morning after the week 7 storm",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a quiet suburban Australian street the morning after a severe summer storm: a weatherboard house on low stumps with a bright blue tarpaulin roped over part of its corrugated iron roof, fallen gum branches and scattered eucalyptus leaves across the front lawn and footpath, a plain timber fence, puddles reflecting a clearing grey sky, a single distant figure seen from behind dragging a branch to the kerb, soft overcast light, natural muted colours, eye-level 35mm framing"
+        },
+        {
+          "title": "Rework reasons, grouped on the wall",
+          "aspect": "square",
+          "prompt": "Editorial photograph of a business analyst's working wall in a bright open-plan Australian office: a large whiteboard covered in blank square sticky notes in yellow, pink and pale blue, sorted into seven vertical columns that step down in height from left to right like a bar chart, the tallest column on the left, hand-drawn marker circles and arrows linking groups with no writing anywhere, an anonymous hand in the foreground placing one more blank note, a laptop and coffee cup softly out of focus on a desk below, soft daylight from tall windows, shallow depth of field"
+        }
+      ],
+      "diagram": {
+        "title": "Intake as it runs — the rework loop",
+        "nodes": [
+          {
+            "id": "online",
+            "label": "Online form · 60%",
+            "shape": "box",
+            "color": "#2563eb"
+          },
+          {
+            "id": "phone",
+            "label": "Phone — agent keys it",
+            "shape": "box",
+            "color": "#2563eb"
+          },
+          {
+            "id": "triage",
+            "label": "Triage checks by hand",
+            "shape": "box",
+            "color": "#64748b"
+          },
+          {
+            "id": "complete",
+            "label": "File complete?",
+            "shape": "circle",
+            "color": "#d97706"
+          },
+          {
+            "id": "request",
+            "label": "Request information",
+            "shape": "box",
+            "color": "#dc2626"
+          },
+          {
+            "id": "reply",
+            "label": "Customer replies",
+            "shape": "box",
+            "color": "#dc2626"
+          },
+          {
+            "id": "requeue",
+            "label": "Back into the triage queue",
+            "shape": "text",
+            "color": "#dc2626"
+          },
+          {
+            "id": "assess",
+            "label": "Assessment starts",
+            "shape": "box",
+            "color": "#16a34a"
+          }
+        ],
+        "edges": [
+          {
+            "from": "online",
+            "to": "triage"
+          },
+          {
+            "from": "phone",
+            "to": "triage"
+          },
+          {
+            "from": "triage",
+            "to": "complete"
+          },
+          {
+            "from": "complete",
+            "to": "request",
+            "label": "no · 31% rework"
+          },
+          {
+            "from": "request",
+            "to": "reply",
+            "label": "email, call day 2"
+          },
+          {
+            "from": "reply",
+            "to": "requeue"
+          },
+          {
+            "from": "complete",
+            "to": "assess",
+            "label": "yes · 69%"
+          }
+        ]
+      },
+      "calculator": {
+        "title": "Rework rate if the top three are caught",
+        "expression": "(7931 - 7931 * 132 / 200) / 25560 * 100",
+        "result": 10.5498435055
+      },
+      "form": {
+        "title": "Data request — channel per claim",
+        "fields": [
+          {
+            "type": "heading",
+            "label": "IT data request · lodgement channel"
+          },
+          {
+            "type": "text",
+            "label": "Field needed",
+            "value": "Lodgement channel on every claim"
+          },
+          {
+            "type": "text",
+            "label": "Question it answers",
+            "value": "Do phone claims rework more?"
+          },
+          {
+            "type": "select",
+            "label": "Extract period",
+            "options": [
+              "Last 12 weeks",
+              "Last 6 months",
+              "Last 12 months"
+            ],
+            "value": "Last 12 weeks"
+          },
+          {
+            "type": "number",
+            "label": "Claims in scope",
+            "value": "25560"
+          },
+          {
+            "type": "date",
+            "label": "Needed by",
+            "value": "@+2d"
+          },
+          {
+            "type": "checkbox",
+            "label": "Accepted by IT",
+            "value": true
+          },
+          {
+            "type": "checkbox",
+            "label": "Field in the weekly extract",
+            "value": false
+          }
+        ]
+      }
+    },
+    {
+      "title": "Claims lodgement portal — requirements sign-off",
+      "description": "Turning the rework findings into a release 1 backlog: 12 requirements traced to their source, a 50-day build budget, and one disputed requirement to settle at sign-off.",
+      "dueInDays": 3,
+      "brief": "## Claims lodgement portal — release 1 requirements\n\n**Sponsor** Helena, GM Claims · **Delivery lead** Arjun · **Sign-off meeting** @+3d\n**Build budget** 50 days for release 1\n**Goal** rework from 31% to under 15% within three months of go-live\n\n### Where it stands\nTwelve requirements, seven agreed. Must and Should together come to **46 days**, inside the budget with four to spare. Live chat (7 days) doesn't fit unless REQ-05, REQ-07 or REQ-08 drops — losing REQ-06 alone frees only two days. Fraud scoring is agreed as a Won't for this release.\n\n### Traceability\nEvery Must traces to a rework cause from the current-state findings or to a compliance obligation. Nothing is in because someone asked loudly. The three biggest causes in the 200 coded claims — missing photos (58), policy number mismatch (41) and wrong claim type (33) — are answered by REQ-02, REQ-01 and REQ-03.\n\n### To settle at sign-off\n- **REQ-06 bank details at lodgement** — triage wants them up front to pay faster; compliance wants them collected only at settlement, when they are actually needed (APP 3). Disputed\n- **REQ-02 photo threshold** — $1,000 or $500?\n- **REQ-03 guided claim type** — triage still reviewing the question flow\n- **REQ-09 phone-assisted lodgement** — the phone team hasn't seen the screens yet",
+      "callout": {
+        "title": "46 of 50 build days committed",
+        "body": "Must (29 days) + Should (17 days) = 46. The four days left cover estimate risk, not new scope. Live chat stays a Could unless Helena drops REQ-05, REQ-07 or REQ-08 at sign-off.",
+        "accent": "#6366f1",
+        "icon": "📐"
+      },
+      "table": {
+        "title": "Release 1 requirements",
+        "columns": [
+          {
+            "id": "req",
+            "label": "Requirement",
+            "type": "text-short"
+          },
+          {
+            "id": "priority",
+            "label": "Priority",
+            "type": "single-select",
+            "options": [
+              "Must",
+              "Should",
+              "Could",
+              "Won't"
+            ]
+          },
+          {
+            "id": "source",
+            "label": "Traces to",
+            "type": "single-select",
+            "options": [
+              "Rework findings",
+              "Compliance",
+              "Triage team",
+              "Customer research",
+              "IT"
+            ]
+          },
+          {
+            "id": "estimate",
+            "label": "Estimate (days)",
+            "type": "number"
+          },
+          {
+            "id": "status",
+            "label": "Status",
+            "type": "single-select",
+            "options": [
+              "Agreed",
+              "In review",
+              "Disputed",
+              "Draft"
+            ]
+          }
+        ],
+        "rows": [
+          {
+            "req": "REQ-01 Live policy lookup at lodgement",
+            "priority": "Must",
+            "source": "Rework findings",
+            "estimate": 8,
+            "status": "Agreed"
+          },
+          {
+            "req": "REQ-02 Photos required for contents over $1,000",
+            "priority": "Must",
+            "source": "Rework findings",
+            "estimate": 5,
+            "status": "In review"
+          },
+          {
+            "req": "REQ-03 Guided questions set the claim type",
+            "priority": "Must",
+            "source": "Rework findings",
+            "estimate": 6,
+            "status": "In review"
+          },
+          {
+            "req": "REQ-04 Incident date checked against cover",
+            "priority": "Must",
+            "source": "Compliance",
+            "estimate": 3,
+            "status": "Agreed"
+          },
+          {
+            "req": "REQ-05 Duplicate check — same policy within 7 days",
+            "priority": "Should",
+            "source": "Rework findings",
+            "estimate": 4,
+            "status": "Agreed"
+          },
+          {
+            "req": "REQ-06 Bank details captured at lodgement",
+            "priority": "Should",
+            "source": "Triage team",
+            "estimate": 2,
+            "status": "Disputed"
+          },
+          {
+            "req": "REQ-07 Save and resume a part-finished claim",
+            "priority": "Should",
+            "source": "Customer research",
+            "estimate": 5,
+            "status": "Agreed"
+          },
+          {
+            "req": "REQ-08 Claim status tracker after lodgement",
+            "priority": "Should",
+            "source": "Customer research",
+            "estimate": 6,
+            "status": "Agreed"
+          },
+          {
+            "req": "REQ-09 Same form and checks for phone staff",
+            "priority": "Must",
+            "source": "Rework findings",
+            "estimate": 4,
+            "status": "In review"
+          },
+          {
+            "req": "REQ-10 Meets WCAG 2.2 AA",
+            "priority": "Must",
+            "source": "Compliance",
+            "estimate": 3,
+            "status": "Agreed"
+          },
+          {
+            "req": "REQ-11 Live chat on the form",
+            "priority": "Could",
+            "source": "Customer research",
+            "estimate": 7,
+            "status": "Draft"
+          },
+          {
+            "req": "REQ-12 Fraud scoring at lodgement",
+            "priority": "Won't",
+            "source": "IT",
+            "estimate": 15,
+            "status": "Agreed"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Build days by priority",
+        "type": "bar",
+        "x": "priority",
+        "series": [
+          {
+            "column": "estimate",
+            "agg": "sum",
+            "label": "Estimate (days)"
+          }
+        ]
+      },
+      "mindmap": {
+        "title": "Release 1 — scope and people",
+        "root": {
+          "label": "Claims portal — release 1",
+          "children": [
+            {
+              "label": "In scope",
+              "children": [
+                {
+                  "label": "Home and contents claims",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Online and phone-assisted lodgement",
+                  "kind": "idea"
+                }
+              ]
+            },
+            {
+              "label": "Out of scope",
+              "children": [
+                {
+                  "label": "Motor claims — release 2",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Fraud scoring — release 2",
+                  "kind": "idea"
+                }
+              ]
+            },
+            {
+              "label": "Stakeholders",
+              "children": [
+                {
+                  "label": "Helena — approves scope",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Compliance — cover and privacy rules",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Triage team — first users",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Arjun — delivery lead",
+                  "kind": "idea"
+                }
+              ]
+            },
+            {
+              "label": "Open questions",
+              "children": [
+                {
+                  "label": "Bank details: lodgement or settlement?",
+                  "kind": "question"
+                },
+                {
+                  "label": "Photo threshold: $1,000 or $500?",
+                  "kind": "question"
+                },
+                {
+                  "label": "Who maintains the claim-type questions?",
+                  "kind": "question"
+                }
+              ]
+            },
+            {
+              "label": "Measures",
+              "children": [
+                {
+                  "label": "Rework under 15%",
+                  "kind": "task"
+                },
+                {
+                  "label": "First contact within 1 day",
+                  "kind": "task"
+                },
+                {
+                  "label": "Online share up from 60%",
+                  "kind": "task"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "page": {
+        "title": "Business rules — lodgement checks",
+        "blocks": [
+          {
+            "h3": "Business rules — lodgement checks"
+          },
+          {
+            "p": "The rules behind REQ-01 to REQ-05, written so the build team and compliance read them the same way."
+          },
+          {
+            "h4": "BR-01 Policy match"
+          },
+          {
+            "p": "The policy number must exist, be active on the incident date, and belong to the person lodging. If it doesn't match, the customer can search by name and address. A claim can't be submitted unmatched."
+          },
+          {
+            "h4": "BR-02 Evidence"
+          },
+          {
+            "p": "Contents claims over **$1,000** need at least one photo or receipt per item before submission. Threshold to be confirmed at sign-off."
+          },
+          {
+            "h4": "BR-03 Cover period"
+          },
+          {
+            "p": "The incident date must fall within the policy's cover period. If it doesn't, the claim is accepted and flagged for a claims officer — never rejected automatically."
+          },
+          {
+            "h4": "BR-04 Duplicates"
+          },
+          {
+            "p": "Same policy, same claim type, incident dates within 7 days: warn the customer and show the existing claim. Don't block it — some customers genuinely have two events."
+          }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Sign-off meeting — agenda",
+          "body": "45 minutes, Helena chairing. Decisions, not discussion.\n\n1. REQ-06 bank details: lodgement or settlement? Triage and compliance get five minutes each\n2. REQ-02 photo threshold: $1,000 (my recommendation) or $500\n3. Confirm live chat stays a Could\n4. Sign off the seven agreed requirements\n\nPre-read goes out @+1d with the current-state findings attached."
+        }
+      ],
+      "stickies": [
+        {
+          "title": "Trace it",
+          "body": "Every Must traces to a rework cause or a compliance rule. If it can't, it isn't a Must.",
+          "color": "#bbf7d0"
+        },
+        {
+          "title": "Parked",
+          "body": "Motor claims are release 2. Don't let them creep into release 1.",
+          "color": "#bae6fd"
+        }
+      ],
+      "fields": [
+        {
+          "label": "Requirements agreed",
+          "type": "number",
+          "value": 7,
+          "suffix": " / 12"
+        },
+        {
+          "label": "Must + Should",
+          "type": "number",
+          "value": 46,
+          "suffix": " / 50 days"
+        },
+        {
+          "label": "Sign-off",
+          "type": "single-select",
+          "options": [
+            "Draft",
+            "Circulated",
+            "Signed off"
+          ],
+          "value": "Circulated"
+        }
+      ],
+      "browsers": [
+        {
+          "title": "Wikipedia — Privacy Act 1988",
+          "url": "https://en.wikipedia.org/wiki/Privacy_Act_1988"
+        },
+        {
+          "title": "Wikipedia — MoSCoW method",
+          "url": "https://en.wikipedia.org/wiki/MoSCoW_method"
+        }
+      ],
+      "images": [
+        {
+          "title": "Sign-off room, before the meeting",
+          "aspect": "landscape",
+          "prompt": "Architectural interior photograph of a small glass-walled meeting room in an Australian corporate office early in the morning, no people: a pale timber table set for six, at each place a closed plain grey card folder with a completely blank cover and a pencil beside it, a closed laptop, water glasses and a carafe, a wall-mounted screen switched off and dark, low winter sun raking across the table through venetian blinds, generic office towers softly out of focus beyond the window, calm and orderly mood, wide-angle framing, natural colours"
+        },
+        {
+          "title": "Water-damaged contents, laid out for photos",
+          "aspect": "square",
+          "prompt": "Overhead flat-lay editorial still life on worn timber floorboards: household contents damaged by a burst pipe laid out neatly in a loose grid as if ready to be photographed for an insurance claim — a water-stained corner of a woven wool rug, a swollen hardback book with a plain unmarked cloth cover, a soaked linen cushion, a small table lamp with a warped shade and a pair of scuffed leather shoes, one anonymous hand entering from the edge of frame holding a plain matte black phone with its blank back to the camera, soft diffused daylight, muted natural tones"
+        }
+      ],
+      "diagram": {
+        "title": "Top three rework causes, traced to Musts",
+        "nodes": [
+          {
+            "id": "photos",
+            "label": "Missing photos · 58",
+            "shape": "box",
+            "color": "#dc2626"
+          },
+          {
+            "id": "policy",
+            "label": "Policy mismatch · 41",
+            "shape": "box",
+            "color": "#dc2626"
+          },
+          {
+            "id": "claimtype",
+            "label": "Wrong claim type · 33",
+            "shape": "box",
+            "color": "#dc2626"
+          },
+          {
+            "id": "req02",
+            "label": "REQ-02 Photos over $1,000",
+            "shape": "box",
+            "color": "#4f46e5"
+          },
+          {
+            "id": "req01",
+            "label": "REQ-01 Live policy lookup",
+            "shape": "box",
+            "color": "#4f46e5"
+          },
+          {
+            "id": "req03",
+            "label": "REQ-03 Guided claim type",
+            "shape": "box",
+            "color": "#4f46e5"
+          },
+          {
+            "id": "goal",
+            "label": "Rework under 15%",
+            "shape": "circle",
+            "color": "#16a34a"
+          }
+        ],
+        "edges": [
+          {
+            "from": "photos",
+            "to": "req02",
+            "label": "29% of rework"
+          },
+          {
+            "from": "policy",
+            "to": "req01",
+            "label": "20.5% of rework"
+          },
+          {
+            "from": "claimtype",
+            "to": "req03",
+            "label": "16.5% of rework"
+          },
+          {
+            "from": "req02",
+            "to": "goal",
+            "label": "5 build days"
+          },
+          {
+            "from": "req01",
+            "to": "goal",
+            "label": "8 build days"
+          },
+          {
+            "from": "req03",
+            "to": "goal",
+            "label": "6 build days"
+          }
+        ]
+      },
+      "calculator": {
+        "title": "Build days left after Must + Should",
+        "expression": "50 - (8 + 5 + 6 + 3 + 4 + 3) - (4 + 2 + 5 + 6)",
+        "result": 4
+      },
+      "form": {
+        "title": "Decision record — REQ-06",
+        "fields": [
+          {
+            "type": "heading",
+            "label": "REQ-06 · Bank details at lodgement"
+          },
+          {
+            "type": "select",
+            "label": "Priority",
+            "options": [
+              "Must",
+              "Should",
+              "Could",
+              "Won't"
+            ],
+            "value": "Should"
+          },
+          {
+            "type": "select",
+            "label": "Status",
+            "options": [
+              "Agreed",
+              "In review",
+              "Disputed",
+              "Draft"
+            ],
+            "value": "Disputed"
+          },
+          {
+            "type": "text",
+            "label": "Triage position",
+            "value": "At lodgement — pays claims faster"
+          },
+          {
+            "type": "text",
+            "label": "Compliance position",
+            "value": "At settlement only — APP 3"
+          },
+          {
+            "type": "number",
+            "label": "Estimate (days)",
+            "value": "2"
+          },
+          {
+            "type": "select",
+            "label": "Capture bank details at",
+            "options": [
+              "Not yet decided",
+              "Lodgement",
+              "Settlement"
+            ],
+            "value": "Not yet decided"
+          },
+          {
+            "type": "text",
+            "label": "Decision owner",
+            "value": "Helena"
+          },
+          {
+            "type": "date",
+            "label": "Decide at sign-off",
+            "value": "@+3d"
+          }
+        ]
+      }
+    }
+  ]
+}

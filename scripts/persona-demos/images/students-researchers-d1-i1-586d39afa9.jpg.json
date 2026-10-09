@@ -1,0 +1,12 @@
+{
+  "persona": "Students and researchers",
+  "desk": "Semester exams — 18-day revision plan",
+  "title": "Study group room, library",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a small glass-walled group study room in an Australian university library in the afternoon: three students seen from behind and side-on, softly out of focus, gathered at a round timber table with open notebooks and laptops angled away from the camera, a whiteboard on the far wall covered in hand-drawn scatter plots of dots with a straight trend line through them and a few arrows, no writing on the whiteboard, no signage on the glass, soft daylight from a tall window, muted timber and grey tones, shallow depth of field",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 221224,
+  "generatedAt": "2026-10-08T07:10:00.203Z"
+}

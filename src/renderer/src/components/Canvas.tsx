@@ -2423,6 +2423,30 @@ export default function Canvas(): JSX.Element {
     })
   }
 
+  // The desk surface pans and zooms by transform, so its own scroll offset
+  // must always be zero. It is overflow-hidden, but hidden overflow is still
+  // *scrollable* — widgets sit at large positive coordinates, so scrollWidth
+  // runs well past clientWidth (5052 vs 1600 at zoom 2 with 24 widgets), and
+  // anything that scrolls a container programmatically will move it:
+  // element.focus(), scrollIntoView, placing a caret in an off-screen text
+  // widget, arrow-key navigation.
+  //
+  // When that happened there was no scrollbar and no gesture that could put it
+  // back. Every child shifted by the scroll offset while the transform-panned
+  // widget layer stayed put, so the minimap and the floating chrome ended up
+  // stranded mid-screen and the pattern layer showed a hard rectangular edge
+  // sliding over the canvas — the "fixed-size canvas edge over an infinite
+  // canvas underneath". The displacement grew with widget count and zoom
+  // because both grow the scroll range.
+  //
+  // Scroll is not cancellable, so this runs after the fact; the reset lands in
+  // the same frame and is not visible.
+  const pinSurfaceScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget
+    if (el.scrollLeft !== 0) el.scrollLeft = 0
+    if (el.scrollTop !== 0) el.scrollTop = 0
+  }
+
   return (
     <>
       <div className="h-full flex flex-col">
@@ -2430,6 +2454,7 @@ export default function Canvas(): JSX.Element {
           ref={dropRef}
           data-bare-canvas
           data-canvas-surface="true"
+          onScroll={pinSurfaceScroll}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
           onWheel={handleWheel}

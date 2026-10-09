@@ -1,0 +1,360 @@
+{
+  "number": 23,
+  "slug": "startup-small-business-teams",
+  "persona": "Startup and small-business teams",
+  "category": "Team and buying personas",
+  "room": {
+    "title": "Startup and Small-Business Teams",
+    "description": "How a 13-person team runs its week and ships a launch together on one surface — this week's priorities, who's blocked, the launch checklist and the decisions behind it, so nobody needs a status meeting to find out where things are."
+  },
+  "desks": [
+    {
+      "title": "Weekly priorities — Monday kickoff to Friday wins",
+      "description": "Twelve commitments for the week across product, growth, customer success, sales and ops: who owns each, what's blocked, what carried over, and what we'll show at Friday wins.",
+      "brief": "## Weekly priorities — Monday kickoff to Friday wins\n\n**Team** Mossbank · 13 people building booking software for physio clinics\n**This week** 12 priorities · 28 person-days committed\n**Kickoff** Monday 9:00, 15 minutes · **Wins** Friday 16:00, 30 minutes\n\n### How the week works\nOne priority per person, small enough to finish by Friday. Marco keeps his week clear to review and unblock. Owners fill their rows before kickoff, so kickoff is about trade-offs, not read-outs. Anything blocked gets a named unblocker the same day. Wins are written on this desk before Friday's call, so anyone who can't join still sees them.\n\n### This week's shape\n- **Product** carries the most: the waitlist beta for five pilot clinics, plus the SMS provider move\n- **Customer success** is onboarding the six clinics signed last week\n- Two items carried over from last week — both are in their second week, so at Friday wins each is done, cut or split\n\n### The one thing that matters\nWaitlist beta in front of five pilot clinics this week. If something has to drop, it's the pricing page rewrite, not the beta.",
+      "callout": {
+        "title": "Blocked: SMS sender ID",
+        "body": "Lin can't finish the SMS provider move until the new provider registers our branded sender ID on the ACMA register — without it, reminders can't go out under our name. Marco is chasing. If it isn't approved by @+2d, the waitlist beta ships on the current provider. The move is already in its second week, so it's split, not carried: Lin finishes the integration this week and the cut-over waits for the sender ID.",
+        "accent": "#ef4444",
+        "icon": "🚧"
+      },
+      "table": {
+        "title": "This week's priorities",
+        "columns": [
+          { "id": "priority", "label": "Priority", "type": "text-short" },
+          { "id": "team", "label": "Team", "type": "single-select", "options": ["Product", "Growth", "Customer success", "Sales", "Ops & founders"] },
+          { "id": "owner", "label": "Owner", "type": "text-short" },
+          { "id": "days", "label": "Days", "type": "number" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Not started", "In progress", "Blocked", "Done"] },
+          { "id": "carried", "label": "Carried over", "type": "checkbox" }
+        ],
+        "rows": [
+          { "priority": "Waitlist beta live for 5 pilot clinics", "team": "Product", "owner": "Jide", "days": 4, "status": "In progress", "carried": false },
+          { "priority": "Waitlist booking screens — final pass", "team": "Product", "owner": "Elif", "days": 3, "status": "In progress", "carried": false },
+          { "priority": "Move SMS reminders to the new provider", "team": "Product", "owner": "Lin", "days": 3, "status": "Blocked", "carried": true },
+          { "priority": "Fix reminder times after daylight saving", "team": "Product", "owner": "Sofia", "days": 1, "status": "Done", "carried": false },
+          { "priority": "Physio association webinar — slides + rehearsal", "team": "Growth", "owner": "Rani", "days": 2, "status": "In progress", "carried": false },
+          { "priority": "Pricing page rewrite for annual plans", "team": "Growth", "owner": "Callum", "days": 2, "status": "Not started", "carried": true },
+          { "priority": "Onboard the 6 clinics signed last week", "team": "Customer success", "owner": "Amara", "days": 4, "status": "In progress", "carried": false },
+          { "priority": "Support queue under 20 open tickets", "team": "Customer success", "owner": "Theo", "days": 2, "status": "Done", "carried": false },
+          { "priority": "Renewal calls — 9 clinics due this month", "team": "Customer success", "owner": "Joon", "days": 2, "status": "In progress", "carried": false },
+          { "priority": "Close 3 multi-site trials", "team": "Sales", "owner": "Omar", "days": 3, "status": "In progress", "carried": false },
+          { "priority": "Quarterly BAS and payroll", "team": "Ops & founders", "owner": "Bea", "days": 1, "status": "Not started", "carried": false },
+          { "priority": "Investor update — draft for review", "team": "Ops & founders", "owner": "Hana", "days": 1, "status": "Not started", "carried": false }
+        ]
+      },
+      "chart": {
+        "title": "Person-days by team",
+        "type": "pie",
+        "x": "team",
+        "series": [{ "column": "days", "agg": "sum" }]
+      },
+      "mindmap": {
+        "title": "Our operating rhythm",
+        "root": {
+          "label": "How the week runs",
+          "children": [
+            { "label": "Monday — kickoff, 15 min", "children": [
+              { "label": "Rows filled before 9:00", "kind": "task" },
+              { "label": "Over capacity — what drops?", "kind": "question" }
+            ]},
+            { "label": "Daily — written check-in", "children": [
+              { "label": "Three lines in the chat tool", "kind": "tool" },
+              { "label": "Blocked? Name the unblocker", "kind": "task" }
+            ]},
+            { "label": "Wednesday — customer calls", "children": [
+              { "label": "Review two recorded calls, 30 min", "kind": "task" },
+              { "label": "Feeds next week's priorities", "kind": "idea" }
+            ]},
+            { "label": "Friday — wins, 30 min", "children": [
+              { "label": "Wins written here first", "kind": "task" },
+              { "label": "Carry over or cut?", "kind": "question" }
+            ]},
+            { "label": "Monthly — numbers", "children": [
+              { "label": "MRR, churn, activation", "kind": "idea" },
+              { "label": "Investor update drafted from this desk", "kind": "task" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Working agreement",
+        "blocks": [
+          { "h3": "How we run the week" },
+          { "p": "Agreed by the whole team at the last offsite. We change it when something stops working, not on a schedule." },
+          { "ol": [
+            "One priority per person, small enough to finish by Friday",
+            "Rows are filled before kickoff — kickoff is for trade-offs",
+            "Blocked means named: who can unblock it, and by when",
+            "Carried over twice means it gets cut or split — there is no third week",
+            "Wins are written down before Friday's call, so nobody has to attend to know"
+          ]},
+          { "h4": "Why one each" },
+          { "p": "Before the cap we listed 30-odd things a week and finished about half. With one each we finish 9 or 10 of 12, and the two or three we won't finish are visible by Wednesday instead of Friday afternoon." },
+          { "h4": "What we stopped doing" },
+          { "ul": [
+            "The hour-long Monday status round",
+            "Separate priority lists per team, in separate tools",
+            "Asking 'where's this at?' in DMs"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Kickoff — trade-offs we made",
+          "body": "- Product holds 11 of 28 days. Marco stays off the list to review waitlist code and chase the sender ID\n- Callum's pricing page is carried for the second week — if it slips again it's cut and split into 'annual toggle' and 'copy'\n- Amara takes all six onboardings; Joon covers her support shifts\n- Bea needs 30 minutes with Hana to sign off the BAS before lodging"
+        },
+        {
+          "title": "Friday wins — last week",
+          "body": "Written before the call:\n\n- Sofia: reminders now go 24h and 2h before — no-shows at the two pilot clinics down from 9% to 6%\n- Amara + Joon: five clinics live; six more signed and queued for this week\n- Omar: two multi-site trials started, three to close\n- Rani: webinar booked with the physio association, 140 registered\n- Carried: SMS move (Lin), pricing page (Callum)"
+        }
+      ],
+      "stickies": [
+        { "title": "Unblocker this week", "body": "Marco — no priority of his own. Ping him first.", "color": "#fef08a" },
+        { "title": "Friday show-and-tell", "body": "Jide shows the waitlist working on a pilot clinic's real calendar. Five minutes.", "color": "#fbcfe8" }
+      ],
+      "fields": [
+        { "label": "Priorities done", "type": "number", "value": 2, "suffix": " / 12" },
+        { "label": "Blocked", "type": "number", "value": 1 },
+        { "label": "Carried over", "type": "number", "value": 2 }
+      ],
+      "browsers": [
+        {
+          "title": "business.gov.au — Promoting your business by email or text",
+          "url": "https://business.gov.au/marketing-and-advertising/promoting-your-business-by-email-or-text-messages"
+        },
+        {
+          "title": "business.gov.au — Lodge and pay tax",
+          "url": "https://business.gov.au/finance/tax/lodge-and-pay-tax"
+        }
+      ],
+      "images": [
+        {
+          "title": "Monday kickoff at the planning wall",
+          "aspect": "landscape",
+          "prompt": "Candid documentary photograph of a small startup team's Monday morning kickoff in a converted red-brick warehouse office in Melbourne: five people seen from behind and slightly to the side, standing loosely in a half-circle facing a whitewashed wall covered in rows of completely blank coloured sticky notes in five colour bands, one person reaching up to move a note, takeaway coffee cups in hand, worn timber floor, tall steel-framed windows letting in soft early light, shallow depth of field, natural muted colours, relaxed and focused mood"
+        },
+        {
+          "title": "Twelve priority cards, one each",
+          "aspect": "square",
+          "prompt": "Overhead flat-lay photograph on a pale oak meeting table: twelve completely blank white index cards laid out in a neat grid of three rows of four, a few of them marked only with a small round coloured dot sticker in green, amber or red, two black marker pens with their caps on, a ceramic cup of flat white coffee, a closed spiral notebook and a phone lying face-down, soft diffused morning daylight from one side, gentle shadows, calm minimal editorial style"
+        }
+      ],
+      "diagram": {
+        "title": "Blocked, carried or won",
+        "nodes": [
+          { "id": "kickoff", "label": "Monday kickoff", "shape": "box", "color": "#64748b" },
+          { "id": "blocked", "label": "Blocked?", "shape": "circle", "color": "#d97706" },
+          { "id": "unblock", "label": "Name the unblocker", "shape": "box", "color": "#dc2626" },
+          { "id": "done", "label": "Done by Friday?", "shape": "circle", "color": "#d97706" },
+          { "id": "wins", "label": "Written up for Friday wins", "shape": "box", "color": "#16a34a" },
+          { "id": "carried", "label": "Carried before?", "shape": "circle", "color": "#d97706" },
+          { "id": "carry", "label": "Carry one more week", "shape": "box", "color": "#2563eb" },
+          { "id": "cut", "label": "Cut or split it", "shape": "box", "color": "#dc2626" }
+        ],
+        "edges": [
+          { "from": "kickoff", "to": "blocked" },
+          { "from": "blocked", "to": "unblock", "label": "yes" },
+          { "from": "blocked", "to": "done", "label": "no" },
+          { "from": "unblock", "to": "done", "label": "same day" },
+          { "from": "done", "to": "wins", "label": "yes" },
+          { "from": "done", "to": "carried", "label": "no" },
+          { "from": "carried", "to": "carry", "label": "no" },
+          { "from": "carried", "to": "cut", "label": "yes — no third week" }
+        ]
+      },
+      "calculator": {
+        "title": "Product's share of this week's days (%)",
+        "expression": "11 / 28 * 100",
+        "result": 39.2857142857
+      },
+      "form": {
+        "title": "Blocker record",
+        "fields": [
+          { "type": "heading", "label": "Blocked · SMS provider move" },
+          { "type": "text", "label": "Owner", "value": "Lin" },
+          { "type": "text", "label": "Unblocker", "value": "Marco" },
+          { "type": "select", "label": "Waiting on", "options": ["Sender ID registration", "Code review", "Customer", "Supplier contract"], "value": "Sender ID registration" },
+          { "type": "date", "label": "Decide by", "value": "@+2d" },
+          { "type": "number", "label": "Days committed", "value": "3" },
+          { "type": "checkbox", "label": "Carried over", "value": true },
+          { "type": "textarea", "label": "Fallback", "value": "Beta ships on the current provider. Second week already, so split, not carried: integration done this week, cut-over waits for the sender ID." }
+        ]
+      }
+    },
+    {
+      "title": "Clinic waitlist launch — everyone ships it together",
+      "description": "General release of the waitlist feature to all 180 clinics: one checklist across product, growth, customer success, sales and ops, the go/no-go criteria and the questions still open.",
+      "dueInDays": 16,
+      "brief": "## Clinic waitlist — general release\n\n**Launch** @+16d to all 180 clinics · pilot with 5 clinics starting this week\n**Owner** Jide (product) · every team has rows on the checklist\n**Go/no-go** @+14d, 20 minutes, whole team\n\n### What ships\nWhen a booked slot is cancelled, the next patient on the waitlist gets an SMS and can claim it in one tap. Clinics choose how long the offer stays open.\n\n### Why it matters\nEach pilot clinic loses about 11 appointments a week to late cancellations. At a $95 average consult, filling 40% of them — the go/no-go bar — is worth about $418 a week to a clinic. That's the clearest revenue story we have for renewals — Joon has nine due this month.\n\n### Launching together\nNobody waits for a launch meeting to find out what's left: every row has an owner, a due date and the hours remaining, and the total is on the chart. A critical row that isn't done at go/no-go moves the date.\n\n### Where it stands\n11 of 14 items still open, 49 hours of work left. Five critical items are open; the go/no-go hinges on the pilot feedback and the load test.",
+      "callout": {
+        "title": "Go/no-go criteria",
+        "body": "Go @+16d only if pilot clinics fill at least 40% of late-cancelled slots, there are no double-claimed slots, and the load test holds 180 clinics sending at once. Otherwise: ship to the 5 pilots plus 20 volunteer clinics and try again a fortnight later.",
+        "accent": "#10b981",
+        "icon": "🚦"
+      },
+      "table": {
+        "title": "Launch checklist",
+        "columns": [
+          { "id": "item", "label": "Item", "type": "text-short" },
+          { "id": "team", "label": "Team", "type": "single-select", "options": ["Product", "Growth", "Customer success", "Sales", "Ops"] },
+          { "id": "owner", "label": "Owner", "type": "text-short" },
+          { "id": "due", "label": "Due", "type": "text-short" },
+          { "id": "hours", "label": "Hours left", "type": "number" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["To do", "Doing", "Done"] },
+          { "id": "critical", "label": "Go/no-go critical", "type": "checkbox" }
+        ],
+        "rows": [
+          { "item": "Claim flow — SMS + one-tap claim", "team": "Product", "owner": "Jide", "due": "@+4d", "hours": 6, "status": "Doing", "critical": true },
+          { "item": "Offer-window setting for clinics", "team": "Product", "owner": "Sofia", "due": "@+7d", "hours": 5, "status": "Doing", "critical": true },
+          { "item": "Waitlist screens in clinic dashboard", "team": "Product", "owner": "Elif", "due": "@+4d", "hours": 4, "status": "Doing", "critical": true },
+          { "item": "Load test: 180 clinics sending at once", "team": "Product", "owner": "Lin", "due": "@+11d", "hours": 6, "status": "To do", "critical": true },
+          { "item": "Pilot feedback from 5 clinics", "team": "Customer success", "owner": "Amara", "due": "@+13d", "hours": 5, "status": "To do", "critical": true },
+          { "item": "Help article + 2-minute video", "team": "Customer success", "owner": "Theo", "due": "@+12d", "hours": 6, "status": "To do", "critical": false },
+          { "item": "Support macros for waitlist questions", "team": "Customer success", "owner": "Joon", "due": "@+12d", "hours": 2, "status": "To do", "critical": false },
+          { "item": "Launch email to all clinic owners", "team": "Growth", "owner": "Callum", "due": "@+15d", "hours": 4, "status": "To do", "critical": false },
+          { "item": "Webinar segment — waitlist walkthrough", "team": "Growth", "owner": "Rani", "due": "@+10d", "hours": 3, "status": "Doing", "critical": false },
+          { "item": "Case study from the best pilot clinic", "team": "Growth", "owner": "Rani", "due": "@+20d", "hours": 5, "status": "To do", "critical": false },
+          { "item": "Renewal one-pager — waitlist payback", "team": "Sales", "owner": "Omar", "due": "@+9d", "hours": 3, "status": "To do", "critical": false },
+          { "item": "Pricing: included in every plan", "team": "Sales", "owner": "Hana", "due": "@-2d", "hours": 0, "status": "Done", "critical": false },
+          { "item": "SMS cost model per clinic", "team": "Ops", "owner": "Bea", "due": "@-1d", "hours": 0, "status": "Done", "critical": true },
+          { "item": "Pilot clinics chosen and briefed", "team": "Customer success", "owner": "Amara", "due": "@-3d", "hours": 0, "status": "Done", "critical": true }
+        ]
+      },
+      "chart": {
+        "title": "Hours of launch work left",
+        "type": "kpi",
+        "x": null,
+        "series": [{ "column": "hours", "agg": "sum" }]
+      },
+      "mindmap": {
+        "title": "Launch plan",
+        "root": {
+          "label": "Waitlist launch",
+          "children": [
+            { "label": "Pilot — 5 clinics", "children": [
+              { "label": "Claim flow live", "kind": "task" },
+              { "label": "Is 30 min the right default window?", "kind": "question" },
+              { "label": "Target: fill 40% of late cancellations", "kind": "idea" }
+            ]},
+            { "label": "Product readiness", "children": [
+              { "label": "Load test at 180 clinics", "kind": "task" },
+              { "label": "Guard against double claims", "kind": "task" },
+              { "label": "SMS cost per clinic — modelled", "kind": "tool" }
+            ]},
+            { "label": "Tell clinics", "children": [
+              { "label": "Launch email to owners", "kind": "task" },
+              { "label": "Webinar walkthrough segment", "kind": "task" },
+              { "label": "In-app banner, or email only?", "kind": "question" }
+            ]},
+            { "label": "Support ready", "children": [
+              { "label": "Help article + 2-min video", "kind": "task" },
+              { "label": "Macros for the top 5 questions", "kind": "tool" }
+            ]},
+            { "label": "Sell it", "children": [
+              { "label": "Renewal one-pager", "kind": "task" },
+              { "label": "Pilot case study", "kind": "task" },
+              { "label": "Cap SMS above 300 a month?", "kind": "question" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Launch decisions",
+        "blocks": [
+          { "h3": "Decided" },
+          { "ul": [
+            "Waitlist is included in every plan — no add-on price (Hana, @-2d)",
+            "SMS costs absorbed up to 300 messages a clinic a month; Bea's model says 92% of clinics stay under that",
+            "Offer window defaults to 30 minutes; clinics can set anything from 10 to 120"
+          ]},
+          { "h3": "Still open" },
+          { "ul": [
+            "Switch it on for existing clinics, or let them opt in?",
+            "In-app banner, or email only — so front desks aren't surprised mid-shift?",
+            "What happens to clinics that go over 300 SMS a month?"
+          ]},
+          { "h4": "Who decides what" },
+          { "p": "Jide decides product questions, Hana decides pricing, and go/no-go is a whole-team call @+14d. If a question is still open at go/no-go, we take the safer option and note it here." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Pilot clinics — what we're watching",
+          "body": "Five clinics, chosen for different shapes:\n\n- Two single-practitioner clinics (high cancellations, no front desk)\n- Two 4–6 practitioner clinics on the busiest plan\n- One three-site group — Omar's multi-site trial\n\nAmara calls each on day 3 and day 8. Questions: did the front desk notice? Did anyone claim a slot they couldn't make? Would they switch it off?"
+        }
+      ],
+      "stickies": [
+        { "title": "Launch rule", "body": "Critical row not done at go/no-go = the date moves. No heroics.", "color": "#fbcfe8" },
+        { "title": "Ask Bea", "body": "Alert us when a clinic passes 300 SMS in a month?", "color": "#bae6fd" }
+      ],
+      "fields": [
+        { "label": "Critical items open", "type": "number", "value": 5, "suffix": " / 7" },
+        { "label": "Pilot clinics live", "type": "number", "value": 0, "suffix": " / 5" },
+        { "label": "Go/no-go", "type": "single-select", "options": ["Not yet", "Go", "Go with conditions", "No-go"], "value": "Not yet" }
+      ],
+      "timer": { "title": "Go/no-go call", "minutes": 20 },
+      "browsers": [
+        {
+          "title": "Grafana k6 docs — Spike testing",
+          "url": "https://grafana.com/docs/k6/latest/testing-guides/test-types/spike-testing/"
+        },
+        {
+          "title": "WebAIM — Captions, transcripts and audio descriptions",
+          "url": "https://webaim.org/techniques/captions/"
+        }
+      ],
+      "images": [
+        {
+          "title": "Pilot clinic front desk, opening time",
+          "aspect": "landscape",
+          "prompt": "Architectural interior photograph of a small suburban Australian physiotherapy clinic reception at opening time: a curved blond timber front counter with a potted fiddle-leaf fig, a closed laptop and a phone lying face-down, four empty waiting chairs in sage green upholstery, bare white walls with no signage, through an open doorway a treatment room with a padded plinth and a folded towel, polished concrete floor, soft morning sun through tall windows, clean, calm and uncluttered"
+        },
+        {
+          "title": "Treatment room after a late cancellation",
+          "aspect": "portrait",
+          "prompt": "Quiet editorial photograph of an empty physiotherapy treatment room in the afternoon, vertical framing: a padded treatment plinth covered with a fresh white paper roll, a rolled towel at one end, a foam roller on the floor and coloured resistance bands hanging from a wall hook, a small wooden stool, venetian blinds casting soft striped light across a pale wall, a single potted plant, still and slightly expectant mood, natural warm tones"
+        }
+      ],
+      "diagram": {
+        "title": "How a cancelled slot gets claimed",
+        "nodes": [
+          { "id": "cancel", "label": "Late cancellation", "shape": "box", "color": "#64748b" },
+          { "id": "sms", "label": "SMS to next on waitlist", "shape": "box", "color": "#2563eb" },
+          { "id": "claimed", "label": "Claimed in time?", "shape": "circle", "color": "#d97706" },
+          { "id": "lock", "label": "Slot locked to first tap", "shape": "box", "color": "#7c3aed" },
+          { "id": "next", "label": "Offer moves to next patient", "shape": "box", "color": "#0891b2" },
+          { "id": "booked", "label": "Booked, clinic notified", "shape": "box", "color": "#16a34a" },
+          { "id": "taken", "label": "Second tap: slot taken", "shape": "box", "color": "#dc2626" }
+        ],
+        "edges": [
+          { "from": "cancel", "to": "sms" },
+          { "from": "sms", "to": "claimed", "label": "30-min window" },
+          { "from": "claimed", "to": "lock", "label": "yes" },
+          { "from": "claimed", "to": "next", "label": "no reply" },
+          { "from": "lock", "to": "booked", "label": "first tap" },
+          { "from": "lock", "to": "taken", "label": "double claim" }
+        ]
+      },
+      "calculator": {
+        "title": "Waitlist payback per clinic ($ a week)",
+        "expression": "11 * 0.4 * 95",
+        "result": 418
+      },
+      "form": {
+        "title": "Go/no-go record",
+        "fields": [
+          { "type": "heading", "label": "Waitlist general release · go/no-go" },
+          { "type": "date", "label": "Go/no-go call", "value": "@+14d" },
+          { "type": "select", "label": "Decision", "options": ["Not yet", "Go", "Go with conditions", "No-go"], "value": "Not yet" },
+          { "type": "number", "label": "Clinics in release", "value": "180" },
+          { "type": "number", "label": "Target fill rate (%)", "value": "40" },
+          { "type": "checkbox", "label": "Load test held 180 at once", "value": false },
+          { "type": "checkbox", "label": "No double-claimed slots", "value": false },
+          { "type": "checkbox", "label": "Pilot feedback from 5 clinics", "value": false },
+          { "type": "textarea", "label": "If no-go", "value": "Ship to the 5 pilots plus 20 volunteer clinics and try again a fortnight later." }
+        ]
+      }
+    }
+  ]
+}

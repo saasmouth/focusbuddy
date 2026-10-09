@@ -1,0 +1,12 @@
+{
+  "persona": "Executive assistants",
+  "desk": "Singapore trip — itinerary, briefing and cover",
+  "title": "Cold-chain loading dock, Tuas site visit",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a refrigerated warehouse loading dock on a tropical industrial estate in the humid late afternoon: a row of open roller doors hung with heavy clear plastic strip curtains, pallets of shrink-wrapped plain brown cartons, a parked forklift, a faint haze of condensation where the cold air meets the heat, two anonymous workers in hi-vis vests and hard hats seen from behind in the middle distance, wet concrete reflecting a grey-gold sky, palm trees beyond the perimeter fence, wide angle, natural colour, plain unmarked walls",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 296303,
+  "generatedAt": "2026-10-08T07:21:52.427Z"
+}

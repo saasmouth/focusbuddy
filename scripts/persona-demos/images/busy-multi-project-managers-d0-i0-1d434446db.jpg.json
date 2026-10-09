@@ -1,0 +1,12 @@
+{
+  "persona": "Busy managers balancing several projects",
+  "desk": "Portfolio view — five projects, one week",
+  "title": "Level 3 fit-out, the week before handover",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Architectural interior photograph of a newly fitted-out open-plan office floor in a mid-rise Australian building the week before handover: rows of empty white desks with new task chairs, fresh charcoal carpet tiles, simple pendant lights, floor-to-ceiling windows with soft overcast daylight over low suburban rooftops and gum trees, small squares of blue painter's tape on a white wall and a door frame marking defects, a folded drop sheet and a stepladder in one corner, no people, wide-angle at eye level, clean and calm, natural colours",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 252560,
+  "generatedAt": "2026-10-08T07:16:09.498Z"
+}

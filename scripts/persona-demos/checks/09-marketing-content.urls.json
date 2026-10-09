@@ -1,0 +1,38 @@
+{
+  "https://www.foodstandards.gov.au/business/labelling/nutrition-health-and-related-claims": {
+    "ok": true,
+    "status": 200,
+    "title": "Nutrition, health and related claims | Food Standards Australia New Zealand",
+    "bytes": 175244,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "FSANZ — Nutrition, health and related claims",
+    "checkedAt": "2026-10-08T08:55:01.941Z"
+  },
+  "https://www.nsw.gov.au/legal-and-justice/consumer-rights-and-protection/advertising-product-packaging-and-pricing-laws/misleading-or-deceptive-conduct": {
+    "ok": true,
+    "status": 200,
+    "title": "Misleading or deceptive conduct | NSW Government",
+    "bytes": 162267,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "NSW Fair Trading — Misleading or deceptive conduct",
+    "checkedAt": "2026-10-08T08:55:04.632Z"
+  },
+  "https://support.google.com/analytics/answer/10917952": {
+    "ok": true,
+    "status": 200,
+    "title": "URL builders: Collect campaign data with custom URLs - Analytics Help",
+    "bytes": 400000,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "Analytics Help — Collect campaign data with custom URLs",
+    "checkedAt": "2026-10-08T08:55:04.632Z"
+  },
+  "https://business.gov.au/marketing-and-advertising/promoting-your-business-by-email-or-text-messages": {
+    "ok": true,
+    "status": 200,
+    "title": "Promoting your business by email or text messages | business.gov.au",
+    "bytes": 350147,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "business.gov.au — Promoting your business by email or text",
+    "checkedAt": "2026-10-08T08:55:04.632Z"
+  }
+}

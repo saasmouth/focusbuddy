@@ -1,0 +1,38 @@
+{
+  "https://en.wikipedia.org/wiki/Erlang_(unit)": {
+    "ok": true,
+    "status": 200,
+    "title": "Erlang (unit) - Wikipedia",
+    "bytes": 180270,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "Wikipedia — Erlang (unit) and the Erlang C formula",
+    "checkedAt": "2026-10-08T08:55:13.396Z"
+  },
+  "https://awards.fairwork.gov.au/MA000002.html": {
+    "ok": true,
+    "status": 200,
+    "title": "Clerks—Private Sector Award 2020 [MA000002] - Fair Work Ombudsman",
+    "bytes": 400000,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "Fair Work — Clerks—Private Sector Award 2020",
+    "checkedAt": "2026-10-08T08:55:16.436Z"
+  },
+  "https://en.wikipedia.org/wiki/Objectives_and_key_results": {
+    "ok": true,
+    "status": 200,
+    "title": "Objectives and key results - Wikipedia",
+    "bytes": 136123,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "Wikipedia — Objectives and key results",
+    "checkedAt": "2026-10-08T08:55:16.436Z"
+  },
+  "https://handbook.gitlab.com/handbook/leadership/1-1/": {
+    "ok": true,
+    "status": 200,
+    "title": "1-1 | The GitLab Handbook",
+    "bytes": 400000,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "GitLab Handbook — 1-1 meetings",
+    "checkedAt": "2026-10-08T08:55:16.436Z"
+  }
+}

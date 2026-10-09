@@ -1,0 +1,12 @@
+{
+  "persona": "Graphic, product and creative designers",
+  "desk": "Sign-up flow redesign — usability round 2",
+  "title": "Synthesis wall after six sessions",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Photograph of a white studio wall during usability research synthesis: square sticky notes in yellow, pink and pale blue arranged in five loose vertical columns, every note completely blank, the fourth column noticeably fuller with a tight cluster of pink notes, a few lengths of thin red string pinned between columns, one anonymous hand entering from the right edge to move a note, soft even daylight, slight angle, documentary style, calm and orderly.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 111833,
+  "generatedAt": "2026-10-08T07:10:50.565Z"
+}

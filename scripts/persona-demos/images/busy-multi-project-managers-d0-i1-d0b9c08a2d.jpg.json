@@ -1,0 +1,12 @@
+{
+  "persona": "Busy managers balancing several projects",
+  "desk": "Portfolio view — five projects, one week",
+  "title": "Service floor during the phone cutover test",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Candid documentary photograph looking down the aisle of a customer service floor in an Australian office during a phone system test, mid-afternoon: rows of desks with call headsets, three agents seen only from behind wearing headsets, monitors showing soft out-of-focus abstract colour blocks, a team lead standing in the aisle seen from behind holding an open laptop, mix of window daylight and overhead office light, shallow depth of field, muted blues and greys, vertical framing, unposed",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 185055,
+  "generatedAt": "2026-10-08T07:16:10.600Z"
+}

@@ -1,0 +1,12 @@
+{
+  "persona": "Business analysts",
+  "desk": "Claims intake — why 31% of claims need rework",
+  "title": "The morning after the week 7 storm",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a quiet suburban Australian street the morning after a severe summer storm: a weatherboard house on low stumps with a bright blue tarpaulin roped over part of its corrugated iron roof, fallen gum branches and scattered eucalyptus leaves across the front lawn and footpath, a plain timber fence, puddles reflecting a clearing grey sky, a single distant figure seen from behind dragging a branch to the kerb, soft overcast light, natural muted colours, eye-level 35mm framing",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 50,
+  "bytes": 253450,
+  "generatedAt": "2026-10-08T07:15:55.775Z"
+}

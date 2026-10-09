@@ -1,0 +1,38 @@
+{
+  "https://en.wikipedia.org/wiki/Information_security_standards": {
+    "ok": true,
+    "status": 200,
+    "title": "Information security standards - Wikipedia",
+    "bytes": 229512,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "Wikipedia — Information security standards",
+    "checkedAt": "2026-10-08T08:55:06.581Z"
+  },
+  "https://business.gov.au/online-and-digital/cyber-security/protect-your-customers-information": {
+    "ok": true,
+    "status": 200,
+    "title": "Protect your customers' information | business.gov.au",
+    "bytes": 359231,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "business.gov.au — Protect your customers' information",
+    "checkedAt": "2026-10-08T08:55:06.886Z"
+  },
+  "https://en.wikipedia.org/wiki/Churn_rate": {
+    "ok": true,
+    "status": 200,
+    "title": "Churn rate - Wikipedia",
+    "bytes": 101057,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "Wikipedia — Churn rate",
+    "checkedAt": "2026-10-08T08:55:06.886Z"
+  },
+  "https://business.gov.au/people/employees/employee-records": {
+    "ok": true,
+    "status": 200,
+    "title": "Employee records | business.gov.au",
+    "bytes": 358786,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "business.gov.au — Employee records",
+    "checkedAt": "2026-10-08T08:55:06.886Z"
+  }
+}

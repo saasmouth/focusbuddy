@@ -1,0 +1,348 @@
+{
+  "number": 19,
+  "slug": "educators-course-creators",
+  "persona": "Educators and course creators",
+  "category": "Professional use cases",
+  "room": {
+    "title": "Educators and Course Creators",
+    "description": "How a course creator designs the next course and runs the live cohort on one surface — the outcomes, the week-by-week plan, learner progress and what the cohort is stuck on, all side by side."
+  },
+  "desks": [
+    {
+      "title": "Course build — Data Storytelling for Analysts",
+      "description": "Designing a six-week cohort course: learning outcomes, the week-by-week plan and workload, the capstone and its rubric, and what's left to record before enrolment opens.",
+      "dueInDays": 14,
+      "brief": "## Course build — Data Storytelling for Analysts\n\n**Format** 6-week cohort · 5 video modules · 3 live sessions · capstone project\n**Enrolment opens** @+14d · **Cohort starts** @+35d · **Seats** 30\n**Who it's for** analysts who can build the chart but lose the room when they present it\n\n### Learning outcomes\nBy the end, a learner can:\n1. State the one decision their analysis supports, in a sentence\n2. Choose and declutter a chart for that decision\n3. Structure a five-minute data story for a senior audience\n4. Take critique and revise a draft in a single pass\n\n### Design rules\n- No week over 150 minutes of learner time\n- Videos cut into segments under 12 minutes\n- Every concept gets an exercise in the same week\n\n### Where it stands\nThree of five video modules recorded. The week-by-week load is uneven — see the callout. **Recording finishes @+10d so the trailer and sales page are ready when enrolment opens.**",
+      "callout": {
+        "title": "Weeks 2 and 5 break the 150-minute rule",
+        "body": "Week 5 carries 160 min because the capstone draft lands there; week 2 is 155. Fix: move the reading to week 3, pull a 30-min capstone outline into week 4 and trim the chart swap to 40. Weeks 2–5 then land at 150, 130, 135 and 130.",
+        "accent": "#f59e0b",
+        "icon": "📐"
+      },
+      "table": {
+        "title": "Course plan",
+        "columns": [
+          { "id": "item", "label": "Item", "type": "text-short" },
+          { "id": "week", "label": "Week", "type": "single-select", "options": ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5", "Week 6"] },
+          { "id": "format", "label": "Format", "type": "single-select", "options": ["Video", "Live", "Exercise", "Reading", "Project"] },
+          { "id": "minutes", "label": "Learner time (min)", "type": "number" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Published", "Edited", "Recorded", "Scripted", "Not started"] }
+        ],
+        "rows": [
+          { "item": "Find the one question", "week": "Week 1", "format": "Video", "minutes": 35, "status": "Published" },
+          { "item": "Audience map exercise", "week": "Week 1", "format": "Exercise", "minutes": 40, "status": "Published" },
+          { "item": "Choosing the right chart", "week": "Week 2", "format": "Video", "minutes": 50, "status": "Edited" },
+          { "item": "Live 1: critique clinic", "week": "Week 2", "format": "Live", "minutes": 60, "status": "Scripted" },
+          { "item": "Chart swap exercise", "week": "Week 2", "format": "Exercise", "minutes": 45, "status": "Edited" },
+          { "item": "Decluttering", "week": "Week 3", "format": "Video", "minutes": 40, "status": "Recorded" },
+          { "item": "Before-and-after makeover", "week": "Week 3", "format": "Exercise", "minutes": 60, "status": "Scripted" },
+          { "item": "Narrative structure", "week": "Week 4", "format": "Video", "minutes": 45, "status": "Scripted" },
+          { "item": "Live 2: outline review", "week": "Week 4", "format": "Live", "minutes": 60, "status": "Not started" },
+          { "item": "Reading: three memos that worked", "week": "Week 4", "format": "Reading", "minutes": 30, "status": "Scripted" },
+          { "item": "Presenting to executives", "week": "Week 5", "format": "Video", "minutes": 40, "status": "Not started" },
+          { "item": "Capstone draft", "week": "Week 5", "format": "Project", "minutes": 120, "status": "Not started" },
+          { "item": "Live 3: capstone showcase", "week": "Week 6", "format": "Live", "minutes": 90, "status": "Not started" },
+          { "item": "Capstone final and reflection", "week": "Week 6", "format": "Project", "minutes": 60, "status": "Not started" }
+        ]
+      },
+      "chart": {
+        "title": "Learner time per week (min)",
+        "type": "line",
+        "x": "week",
+        "series": [{ "column": "minutes", "agg": "sum" }]
+      },
+      "mindmap": {
+        "title": "Capstone design",
+        "root": {
+          "label": "Capstone: a five-minute data story",
+          "children": [
+            { "label": "The brief", "children": [
+              { "label": "Learner brings their own dataset", "kind": "idea" },
+              { "label": "Fallback dataset for anyone without one", "kind": "task" },
+              { "label": "Allow confidential work data?", "kind": "question" }
+            ]},
+            { "label": "Milestones", "children": [
+              { "label": "Outline — week 4", "kind": "task" },
+              { "label": "Draft — week 5", "kind": "task" },
+              { "label": "Showcase — week 6", "kind": "task" }
+            ]},
+            { "label": "Feedback", "children": [
+              { "label": "Peer review in pairs", "kind": "idea" },
+              { "label": "Rubric with four criteria", "kind": "task" },
+              { "label": "Video feedback through the LMS", "kind": "tool" }
+            ]},
+            { "label": "Assessment", "children": [
+              { "label": "Pass = every outcome evidenced", "kind": "idea" },
+              { "label": "Certificate only on a pass?", "kind": "question" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Capstone rubric",
+        "blocks": [
+          { "h3": "Capstone rubric" },
+          { "p": "Four criteria, one per learning outcome, each scored 1–4. A pass needs **3 or more on every criterion** — not an average, so a strong chart can't carry a missing decision. Anything below 3 comes back with written feedback and one resubmit." },
+          { "h4": "1. The decision" },
+          { "p": "**4** — one sentence, a named decision-maker, a clear ask. **2** — a topic rather than a decision." },
+          { "h4": "2. The chart" },
+          { "p": "**4** — the chart type fits the comparison, and nothing on it goes unused by the story. **2** — default formatting, with the legend doing the work." },
+          { "h4": "3. The structure" },
+          { "p": "**4** — context, tension, answer and ask inside five minutes. **2** — walks through the analysis in the order it was done." },
+          { "h4": "4. The revision" },
+          { "p": "**4** — feedback from the peer review of the draft is visibly acted on. **2** — the same deck in new colours." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Waitlist — what they told us",
+          "body": "Asked the 212 people on the waitlist one question: what goes wrong when you present data?\n\nMost common answers, in order:\n- 'They ask a question I wasn't ready for'\n- 'Too many charts, no point'\n- 'I run out of time before the recommendation'\n\nThe third is why structure gets its own week, and why the capstone has a hard five-minute limit.\n\nThirty seats means about 14% of the waitlist has to enrol to sell out before the cohort starts."
+        }
+      ],
+      "stickies": [
+        { "title": "This week", "body": "1. Record Narrative structure\n2. Edit Decluttering\n3. Sales page draft", "color": "#fef08a" },
+        { "title": "Idea", "body": "Fortnightly office hours instead of a fourth live session?", "color": "#bbf7d0" }
+      ],
+      "fields": [
+        { "label": "Videos recorded", "type": "number", "value": 3, "suffix": " / 5" },
+        { "label": "Total learner time", "type": "number", "value": 775, "suffix": " min" },
+        { "label": "Launch stage", "type": "single-select", "options": ["Designing", "Recording", "Enrolment open", "Running"], "value": "Recording" }
+      ],
+      "timer": { "title": "Recording block", "minutes": 45 },
+      "palette": [
+        { "hex": "#f97316", "label": "Highlight — the one thing to see" },
+        { "hex": "#94a3b8", "label": "Context — everything else" },
+        { "hex": "#1e293b", "label": "Annotation ink" },
+        { "hex": "#f8fafc", "label": "Slide background" }
+      ],
+      "browsers": [
+        {
+          "title": "NSW Education — Creating accessible videos",
+          "url": "https://education.nsw.gov.au/about-us/how-we-communicate/accessibility-basics/creating-accessible-videos"
+        },
+        {
+          "title": "Analysis Function — Data visualisation: charts",
+          "url": "https://analysisfunction.civilservice.gov.uk/policy-store/data-visualisation-charts/"
+        }
+      ],
+      "images": [
+        {
+          "title": "Spare-room studio, recording day",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a small home recording studio set up in the spare room of an Australian weatherboard house: a plain camera on a tripod facing an empty timber stool, a large square softbox light, a small microphone on a desk stand, grey acoustic foam panels on one wall, a potted fiddle-leaf fig in the corner, soft morning light through timber venetian blinds, cables neatly taped along the floorboards, calm and uncluttered, natural colours, shallow depth of field"
+        },
+        {
+          "title": "Storyboarding the narrative module",
+          "aspect": "square",
+          "prompt": "Overhead flat-lay editorial still life on a pale oak desk: a neat grid of blank white index cards laid out in rows like a storyboard, several cards carrying simple hand-sketched pencil bar charts and line graphs with no axis labels and no writing, one bar on one card filled in with a single bright orange marker stroke, a mechanical pencil, a few blank pale yellow sticky notes, a ceramic cup of black coffee at the edge, soft diffuse daylight, muted greys with one orange accent"
+        }
+      ],
+      "diagram": {
+        "title": "Capstone path to a pass",
+        "nodes": [
+          { "id": "outline", "label": "Outline — week 4", "shape": "box", "color": "#64748b" },
+          { "id": "draft", "label": "Draft — week 5", "shape": "box", "color": "#2563eb" },
+          { "id": "peer", "label": "Peer review in pairs", "shape": "box", "color": "#7c3aed" },
+          { "id": "showcase", "label": "Showcase and final — week 6", "shape": "box", "color": "#2563eb" },
+          { "id": "rubric", "label": "3+ on all four?", "shape": "circle", "color": "#d97706" },
+          { "id": "pass", "label": "Pass — outcomes evidenced", "shape": "box", "color": "#16a34a" },
+          { "id": "resubmit", "label": "Feedback, one resubmit", "shape": "box", "color": "#dc2626" }
+        ],
+        "edges": [
+          { "from": "outline", "to": "draft" },
+          { "from": "draft", "to": "peer" },
+          { "from": "peer", "to": "showcase", "label": "act on feedback" },
+          { "from": "showcase", "to": "rubric", "label": "scored 1–4" },
+          { "from": "rubric", "to": "pass", "label": "yes" },
+          { "from": "rubric", "to": "resubmit", "label": "any criterion < 3" }
+        ]
+      },
+      "calculator": {
+        "title": "Waitlist share needed to fill 30 seats (%)",
+        "expression": "30 / 212 * 100",
+        "result": 14.1509433962
+      },
+      "form": {
+        "title": "Video module record — Narrative structure",
+        "fields": [
+          { "type": "heading", "label": "Week 4 · video module 4 of 5" },
+          { "type": "select", "label": "Status", "options": ["Published", "Edited", "Recorded", "Scripted", "Not started"], "value": "Scripted" },
+          { "type": "number", "label": "Learner time (min)", "value": "45" },
+          { "type": "number", "label": "Segments (each under 12 min)", "value": "5" },
+          { "type": "date", "label": "Record by", "value": "@+3d" },
+          { "type": "checkbox", "label": "Script read aloud and timed", "value": true },
+          { "type": "checkbox", "label": "Captions checked", "value": false },
+          { "type": "checkbox", "label": "Transcript posted", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "Cohort 7 live — SQL for Product Managers",
+      "description": "Week 4 of 6 with fourteen learners: who's on track, who's gone quiet, where the cohort is stuck, and the run sheet for this week's live session.",
+      "dueInDays": 2,
+      "brief": "## SQL for Product Managers — Cohort 7\n\n**Week** 4 of 6 · **Learners** 14 · **Live session** weekly, 75 min, next @+2d\n**Average progress** 58% · on pace would be 67% by the end of this week\n\n### This week\n- Module 4: joins, and why your numbers double\n- Lab 3 feedback back to everyone by @+1d\n- Live session 4: bring a query from your own job\n\n### Who needs a nudge\nEight learners are on track. Three are a lab behind, two have gone quiet for six days or more, and Jolene has paused to defer to Cohort 8. Three quiet days triggers the LMS reminder email; six means a personal message and a 1:1 offer.\n\n**The two quiet ones get a personal message today — another reminder email won't do it.**",
+      "callout": {
+        "title": "Gustavo and Lerato: quiet for 6+ days",
+        "body": "Both submitted lab 1 and stalled on lab 2, which is taking most people 90 minutes, not the 45 planned. Offer each a 20-minute 1:1 before the live session @+2d instead of another reminder.",
+        "accent": "#f59e0b",
+        "icon": "📣"
+      },
+      "table": {
+        "title": "Learner tracker",
+        "columns": [
+          { "id": "learner", "label": "Learner", "type": "text-short" },
+          { "id": "progress", "label": "Progress (%)", "type": "number" },
+          { "id": "labs", "label": "Labs in (of 3)", "type": "number" },
+          { "id": "lives", "label": "Live sessions (of 3)", "type": "number" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["On track", "Behind", "At risk", "Paused"] },
+          { "id": "active", "label": "Last active", "type": "text-short" }
+        ],
+        "rows": [
+          { "learner": "Aisha", "progress": 84, "labs": 3, "lives": 3, "status": "On track", "active": "@today" },
+          { "learner": "Bruno", "progress": 72, "labs": 3, "lives": 2, "status": "On track", "active": "@-1d" },
+          { "learner": "Chiara", "progress": 68, "labs": 3, "lives": 3, "status": "On track", "active": "@today" },
+          { "learner": "Daniyar", "progress": 62, "labs": 3, "lives": 3, "status": "On track", "active": "@-1d" },
+          { "learner": "Emeka", "progress": 44, "labs": 2, "lives": 2, "status": "Behind", "active": "@-4d" },
+          { "learner": "Freya", "progress": 88, "labs": 3, "lives": 3, "status": "On track", "active": "@today" },
+          { "learner": "Gustavo", "progress": 26, "labs": 1, "lives": 1, "status": "At risk", "active": "@-9d" },
+          { "learner": "Hoa", "progress": 66, "labs": 3, "lives": 2, "status": "On track", "active": "@-2d" },
+          { "learner": "Ishaan", "progress": 50, "labs": 2, "lives": 1, "status": "Behind", "active": "@-3d" },
+          { "learner": "Jolene", "progress": 22, "labs": 1, "lives": 1, "status": "Paused", "active": "@-12d" },
+          { "learner": "Keanu", "progress": 64, "labs": 3, "lives": 3, "status": "On track", "active": "@-1d" },
+          { "learner": "Lerato", "progress": 38, "labs": 1, "lives": 2, "status": "At risk", "active": "@-6d" },
+          { "learner": "Mateus", "progress": 76, "labs": 3, "lives": 3, "status": "On track", "active": "@today" },
+          { "learner": "Noor", "progress": 52, "labs": 2, "lives": 2, "status": "Behind", "active": "@-2d" }
+        ]
+      },
+      "chart": {
+        "title": "Cohort average progress",
+        "type": "kpi",
+        "x": null,
+        "series": [{ "column": "progress", "agg": "avg", "label": "Average progress (%)" }]
+      },
+      "mindmap": {
+        "title": "Where learners get stuck",
+        "root": {
+          "label": "Sticking points — Cohort 7",
+          "children": [
+            { "label": "Joins (week 4)", "children": [
+              { "label": "Row counts doubling", "kind": "idea" },
+              { "label": "Draw the tables before writing SQL", "kind": "idea" },
+              { "label": "Live walkthrough of a bad join", "kind": "task" }
+            ]},
+            { "label": "Their own data", "children": [
+              { "label": "No database access at work", "kind": "idea" },
+              { "label": "Practice database in the LMS", "kind": "tool" }
+            ]},
+            { "label": "Time", "children": [
+              { "label": "Labs take 90 min, not 45", "kind": "idea" },
+              { "label": "Trim lab 4 to the core query", "kind": "task" }
+            ]},
+            { "label": "Confidence", "children": [
+              { "label": "Afraid to ask 'basic' questions", "kind": "idea" },
+              { "label": "Anonymous question form", "kind": "tool" },
+              { "label": "Would office hours help?", "kind": "question" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Live session 4 — run sheet",
+        "blocks": [
+          { "h3": "Live session 4 — @+2d, 18:00, 75 min" },
+          { "ol": [
+            "18:00 Welcome and wins from lab 3 (5 min)",
+            "18:05 The doubling join — live walkthrough of what goes wrong (15 min)",
+            "18:20 Breakouts in threes: fix a broken query (20 min)",
+            "18:40 Hot seat: two learners share a query from work (20 min)",
+            "19:00 Lab 4 brief and what 'done' looks like (10 min)",
+            "19:10 Questions and close (5 min)"
+          ]},
+          { "h4": "Hot seat" },
+          { "p": "Freya and Daniyar have said yes. Ask Noor too — she's a lab behind, but her forum question this week was the best one anyone asked." },
+          { "h4": "Remember" },
+          { "ul": [
+            "Recording posted within 24 hours",
+            "Breakouts pre-assigned: mix on-track learners with those behind",
+            "Jolene stays enrolled but off the reminder list"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Lab 3 — feedback themes",
+          "body": "Eight in, six marked so far:\n\n- Four used SELECT * and then filtered in a spreadsheet\n- Three forgot to GROUP BY the second column\n- Freya's query is the cleanest — ask if it can be the model answer\n\nFeedback to all eight by @+1d."
+        }
+      ],
+      "stickies": [
+        { "title": "Today", "body": "1. Message Gustavo and Lerato\n2. Mark the last two lab 3s\n3. Ask Noor about the hot seat", "color": "#fef08a" },
+        { "title": "For Cohort 8", "body": "Move joins to week 3. It's where everyone stalls, and week 4 is too late to recover.", "color": "#bbf7d0" }
+      ],
+      "fields": [
+        { "label": "Learners on track", "type": "number", "value": 8, "suffix": " / 14" },
+        { "label": "Lab 3 marked", "type": "number", "value": 6, "suffix": " / 8" },
+        { "label": "Current week", "type": "single-select", "options": ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5", "Week 6"], "value": "Week 4" }
+      ],
+      "browsers": [
+        {
+          "title": "PostgreSQL docs — Joins Between Tables",
+          "url": "https://www.postgresql.org/docs/current/tutorial-join.html"
+        },
+        {
+          "title": "PostgreSQL docs — Aggregate Functions",
+          "url": "https://www.postgresql.org/docs/current/tutorial-agg.html"
+        }
+      ],
+      "images": [
+        {
+          "title": "Whiteboard: draw the tables first",
+          "aspect": "landscape",
+          "prompt": "Close-up editorial photograph of a whiteboard in a small, bright training room, covered in hand-drawn marker sketches of three empty rectangular grids, like database tables, connected to each other by curved arrows, drawn in blue and red marker with no writing at all, a single hand holding a marker entering the frame from the right, an eraser resting on the ledge below, even overhead light, slightly angled view, clean and clear"
+        },
+        {
+          "title": "Before the evening live session",
+          "aspect": "landscape",
+          "prompt": "Moody documentary photograph of an educator getting ready for an evening online class at a home desk, seen from behind and slightly to one side, a laptop screen showing a soft out-of-focus grid of coloured video tiles with no recognisable faces, a headset resting beside an open notebook and a mug of tea, warm desk-lamp light against deep blue dusk through a window with distant suburban lights, quiet anticipatory mood"
+        }
+      ],
+      "diagram": {
+        "title": "When a learner goes quiet",
+        "nodes": [
+          { "id": "reminder", "label": "Day 3: reminder email", "shape": "box", "color": "#64748b" },
+          { "id": "quiet", "label": "Still quiet at day 6?", "shape": "circle", "color": "#d97706" },
+          { "id": "message", "label": "Personal message", "shape": "box", "color": "#7c3aed" },
+          { "id": "oneone", "label": "20-min 1:1 before the live", "shape": "box", "color": "#0891b2" },
+          { "id": "back", "label": "Back on track", "shape": "box", "color": "#16a34a" },
+          { "id": "defer", "label": "Pause and defer to Cohort 8", "shape": "box", "color": "#dc2626" }
+        ],
+        "edges": [
+          { "from": "reminder", "to": "quiet" },
+          { "from": "quiet", "to": "back", "label": "no — active again" },
+          { "from": "quiet", "to": "message", "label": "yes" },
+          { "from": "message", "to": "oneone" },
+          { "from": "oneone", "to": "back", "label": "takes the 1:1" },
+          { "from": "oneone", "to": "defer", "label": "can't catch up" }
+        ]
+      },
+      "calculator": {
+        "title": "On-pace progress, end of week 4 (%)",
+        "expression": "4 / 6 * 100",
+        "result": 66.6666666667
+      },
+      "form": {
+        "title": "Learner check-in — Gustavo",
+        "fields": [
+          { "type": "heading", "label": "At risk · quiet since lab 1" },
+          { "type": "select", "label": "Status", "options": ["On track", "Behind", "At risk", "Paused"], "value": "At risk" },
+          { "type": "number", "label": "Progress (%)", "value": "26" },
+          { "type": "number", "label": "Days since last active", "value": "9" },
+          { "type": "number", "label": "Labs in (of 3)", "value": "1" },
+          { "type": "number", "label": "1:1 length (min)", "value": "20" },
+          { "type": "date", "label": "1:1 offered for", "value": "@+1d" },
+          { "type": "checkbox", "label": "Personal message sent", "value": false },
+          { "type": "textarea", "label": "What to open with", "value": "Lab 2 is taking most people 90 minutes, not the 45 we planned, so stalling there is normal. Twenty minutes before the live and we finish it together." }
+        ]
+      }
+    }
+  ]
+}

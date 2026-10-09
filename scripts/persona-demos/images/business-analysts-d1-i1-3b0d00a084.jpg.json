@@ -1,0 +1,12 @@
+{
+  "persona": "Business analysts",
+  "desk": "Claims lodgement portal — requirements sign-off",
+  "title": "Water-damaged contents, laid out for photos",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay editorial still life on worn timber floorboards: household contents damaged by a burst pipe laid out neatly in a loose grid as if ready to be photographed for an insurance claim — a water-stained corner of a woven wool rug, a swollen hardback book with a plain unmarked cloth cover, a soaked linen cushion, a small table lamp with a warped shade and a pair of scuffed leather shoes, one anonymous hand entering from the edge of frame holding a plain matte black phone with its blank back to the camera, soft diffused daylight, muted natural tones",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 50,
+  "bytes": 251375,
+  "generatedAt": "2026-10-08T07:16:00.998Z"
+}

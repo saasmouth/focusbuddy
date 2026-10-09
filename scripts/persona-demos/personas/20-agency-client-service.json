@@ -1,0 +1,345 @@
+{
+  "number": 20,
+  "slug": "agency-client-service",
+  "persona": "Agency owners and client-service teams",
+  "category": "Professional use cases",
+  "room": {
+    "title": "Agency Owners and Client Service",
+    "description": "How an agency owner keeps the client book, team capacity and a live pitch on one surface — retainer burn, utilisation, the brief and the pitch story in view together instead of across the CRM, the timesheet tool and a deck."
+  },
+  "desks": [
+    {
+      "title": "Retainer health and capacity — month-end review",
+      "description": "Ten retainers checked against the hours actually spent: where we're over-servicing, which clients have gone quiet, two renewals coming up, and whether next month needs a freelancer.",
+      "dueInDays": 3,
+      "brief": "## Retainer health and capacity — month-end review\n\n**Agency** Saltbush Studio · 14 people, 9 in delivery\n**Retainers** 10 clients · $88k a month\n**This month** 684 hours used against 675 sold · utilisation 87% against an 80% target\n\n### What this review is for\n- Catch over-servicing before it becomes the norm\n- Get ahead of two renewals and one client who has gone quiet\n- Decide whether next month needs a freelancer or a hire\n\n### Headlines\n- Kelpie Pet Insurance and Copperpot Kitchens ran **39 hours over** between them — about $4.9k of unbilled time at $125 an hour\n- Glasshouse Gyms used 41 of 56 hours: approvals are slow and their marketing lead has stopped coming to status calls\n- Ridgeline Credit Union renews @+21d, Riverbend Water @+30d\n\n### Capacity\n1,080 billable hours available across the delivery team. Retainers took 684 and project work 256, so 940 booked.",
+      "callout": {
+        "title": "Kelpie: 131 hours on a 110-hour retainer",
+        "body": "Three rounds of changes to the quote-flow pages that weren't in scope. Rescope meeting with their head of digital @+3d: either a change request at $125 an hour, or phase 2 moves out a month.",
+        "accent": "#ef4444",
+        "icon": "⏱️"
+      },
+      "table": {
+        "title": "Client retainers — this month",
+        "columns": [
+          { "id": "client", "label": "Client", "type": "text-short" },
+          { "id": "service", "label": "Service", "type": "single-select", "options": ["Brand", "Content", "Performance", "Social", "Web"] },
+          { "id": "fee", "label": "Monthly fee ($k)", "type": "number" },
+          { "id": "sold", "label": "Hours sold", "type": "number" },
+          { "id": "used", "label": "Hours used", "type": "number" },
+          { "id": "health", "label": "Health", "type": "single-select", "options": ["Healthy", "Over-servicing", "At risk", "Renewal due"] }
+        ],
+        "rows": [
+          { "client": "Wattle Street Dental", "service": "Content", "fee": 8, "sold": 64, "used": 61, "health": "Healthy" },
+          { "client": "Copperpot Kitchens", "service": "Social", "fee": 6, "sold": 48, "used": 66, "health": "Over-servicing" },
+          { "client": "Ridgeline Credit Union", "service": "Brand", "fee": 12, "sold": 90, "used": 88, "health": "Renewal due" },
+          { "client": "Tamarind Hotels", "service": "Performance", "fee": 10, "sold": 70, "used": 58, "health": "Healthy" },
+          { "client": "Kelpie Pet Insurance", "service": "Web", "fee": 14, "sold": 110, "used": 131, "health": "Over-servicing" },
+          { "client": "Larchmont Legal", "service": "Content", "fee": 5, "sold": 40, "used": 39, "health": "Healthy" },
+          { "client": "Glasshouse Gyms", "service": "Social", "fee": 7, "sold": 56, "used": 41, "health": "At risk" },
+          { "client": "Cedarvale Schools", "service": "Web", "fee": 9, "sold": 72, "used": 74, "health": "Healthy" },
+          { "client": "Pebble Bay Wines", "service": "Brand", "fee": 6, "sold": 45, "used": 47, "health": "Healthy" },
+          { "client": "Riverbend Water", "service": "Performance", "fee": 11, "sold": 80, "used": 79, "health": "Renewal due" }
+        ]
+      },
+      "chart": {
+        "title": "Hours sold vs used, by client",
+        "type": "bar",
+        "x": "client",
+        "series": [
+          { "column": "sold", "agg": "sum" },
+          { "column": "used", "agg": "sum" }
+        ]
+      },
+      "mindmap": {
+        "title": "Next month — capacity plan",
+        "root": {
+          "label": "Capacity next month",
+          "children": [
+            { "label": "Pressure points", "children": [
+              { "label": "Dev at 104% — Kelpie rework", "kind": "idea" },
+              { "label": "Design steady at 85%", "kind": "idea" },
+              { "label": "Social over on Copperpot", "kind": "idea" }
+            ]},
+            { "label": "Options", "children": [
+              { "label": "Freelance developer, 60 hours", "kind": "task" },
+              { "label": "Move Kelpie phase 2 out a month", "kind": "idea" },
+              { "label": "Hire a mid-level developer?", "kind": "question" }
+            ]},
+            { "label": "Protect margin", "children": [
+              { "label": "Change-request template in the CRM", "kind": "tool" },
+              { "label": "Scope check at every status call", "kind": "task" }
+            ]},
+            { "label": "Clients", "children": [
+              { "label": "Glasshouse: owner-to-owner call", "kind": "task" },
+              { "label": "Ridgeline renewal proposal", "kind": "task" },
+              { "label": "Riverbend: add paid social?", "kind": "question" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Month-end decisions",
+        "blocks": [
+          { "h3": "Month-end review — decisions" },
+          { "p": "Held with Priyanka (client services) and Owen (creative director). Every decision has an owner and a date." },
+          { "h4": "Over-servicing" },
+          { "ul": [
+            "Kelpie: rescope meeting @+3d; no unscoped changes from today (Priyanka)",
+            "Copperpot: 18 hours over on social — community management moves to its own fee next month (Priyanka)"
+          ]},
+          { "h4": "Retention" },
+          { "ul": [
+            "Glasshouse: I call their owner this week, not the account manager",
+            "Ridgeline: renewal proposal with a 6% rate rise, sent @+7d (Owen)",
+            "Riverbend: propose adding paid social at $3k a month (Priyanka)"
+          ]},
+          { "h4": "Capacity" },
+          { "p": "Book a freelance developer for 60 hours next month rather than hiring. **Revisit the hire if development stays above 95% for a second month.**" }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Status calls — what I heard",
+          "body": "- Kelpie's head of digital thinks the quote-flow changes were 'fixes', not new work. They weren't — the signed brief is clear\n- Copperpot loves the community replies and has no idea they're 18 extra hours\n- Glasshouse's marketing lead has missed three status calls in a row\n- Ridgeline wants a brand refresh next year — that's a project, not retainer work"
+        }
+      ],
+      "stickies": [
+        { "title": "Today", "body": "1. Kelpie scope pack\n2. Call Glasshouse's owner\n3. Book the freelance dev", "color": "#fef08a" },
+        { "title": "Rule", "body": "Anything not in the brief gets a change request — even the small ones.", "color": "#fbcfe8" }
+      ],
+      "fields": [
+        { "label": "Retainer revenue", "type": "number", "value": 88, "prefix": "$", "suffix": "k / month" },
+        { "label": "Utilisation", "type": "number", "value": 87, "suffix": "%" },
+        { "label": "Hours over, two clients", "type": "number", "value": 39, "suffix": " h" }
+      ],
+      "browsers": [
+        { "title": "Wikipedia — Scope creep", "url": "https://en.wikipedia.org/wiki/Scope_creep" },
+        { "title": "business.gov.au — Hiring contractors", "url": "https://business.gov.au/people/contractors/hiring-contractors" }
+      ],
+      "images": [
+        {
+          "title": "Capacity board, month-end",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph inside a small Australian creative agency studio at month-end: a large whiteboard wall ruled into a neat grid with thin black tape, filled with rows of blank coloured magnetic cards in yellow, coral pink and pale blue, a few rows visibly overcrowded with cards spilling past the tape line. One anonymous hand, seen from the side, moves a card from a crowded row to an emptier one. Exposed brick, a trailing pothos plant on a shelf, soft morning daylight from tall warehouse windows, shallow depth of field, natural colours, calm and organised mood. The cards and the board are completely blank, with no writing or marks."
+        },
+        {
+          "title": "The studio floor, late afternoon",
+          "aspect": "portrait",
+          "prompt": "Architectural interior photograph of a small independent design and marketing agency in a converted Melbourne warehouse, late afternoon. Long shared timber desks carry closed laptops, a few closed sketchbooks, mugs and a jar of pencils. Three people are seen from behind and slightly out of focus: one stands at a cork pinboard of plain colour swatches and fabric offcuts, two talk quietly at the far end of the desk. No computer screens are visible anywhere. Bare whitewashed brick walls with nothing hung on them except that pinboard, potted fiddle-leaf figs, polished concrete floor, steel-framed windows with warm low sun raking across the room and long shadows. Quiet, unhurried atmosphere, muted earthy palette, vertical composition looking down the length of the studio."
+        }
+      ],
+      "diagram": {
+        "title": "Out-of-scope requests — the rule",
+        "nodes": [
+          { "id": "ask", "label": "Client asks for a change", "shape": "box", "color": "#64748b" },
+          { "id": "brief", "label": "In the signed brief?", "shape": "circle", "color": "#d97706" },
+          { "id": "cr", "label": "Change request at $125/h", "shape": "box", "color": "#2563eb" },
+          { "id": "retainer", "label": "Do it inside the retainer", "shape": "box", "color": "#16a34a" },
+          { "id": "unbilled", "label": "Done anyway: 39 h unbilled", "shape": "box", "color": "#dc2626" },
+          { "id": "approve", "label": "Client approves?", "shape": "circle", "color": "#d97706" },
+          { "id": "book", "label": "Book the hours, then start", "shape": "box", "color": "#16a34a" },
+          { "id": "park", "label": "Park it for phase 2", "shape": "box", "color": "#64748b" }
+        ],
+        "edges": [
+          { "from": "ask", "to": "brief" },
+          { "from": "brief", "to": "cr", "label": "no" },
+          { "from": "brief", "to": "retainer", "label": "yes" },
+          { "from": "brief", "to": "unbilled", "label": "no, CR skipped" },
+          { "from": "cr", "to": "approve" },
+          { "from": "approve", "to": "book", "label": "yes" },
+          { "from": "approve", "to": "park", "label": "not now" }
+        ]
+      },
+      "calculator": {
+        "title": "Unbilled time: Kelpie + Copperpot at $125/h",
+        "expression": "(131 - 110 + 66 - 48) * 125",
+        "result": 4875
+      },
+      "form": {
+        "title": "Change request — Kelpie quote flow",
+        "fields": [
+          { "type": "heading", "label": "Kelpie Pet Insurance · quote-flow pages" },
+          { "type": "text", "label": "Raised by", "value": "Priyanka" },
+          { "type": "date", "label": "Rescope meeting", "value": "@+3d" },
+          { "type": "number", "label": "Hours outside the brief", "value": "21" },
+          { "type": "number", "label": "Rate ($ an hour)", "value": "125" },
+          { "type": "select", "label": "Route", "options": ["Change request", "Phase 2 out a month", "Client to choose"], "value": "Client to choose" },
+          { "type": "textarea", "label": "What changed", "value": "Three rounds of changes to the quote-flow pages. None of them is in the signed brief." },
+          { "type": "checkbox", "label": "Signed brief attached", "value": true },
+          { "type": "checkbox", "label": "Head of digital has seen the hours", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "Pitch — Bramble Ridge Outdoor rebrand and launch",
+      "description": "A competitive pitch for a 38-store outdoor retailer: what they told us, the story we're taking in, the scope and fee against their ceiling, and the run sheet for the room.",
+      "dueInDays": 5,
+      "brief": "## Pitch — Bramble Ridge Outdoor\n\n**Prospect** 38-store outdoor gear retailer, family-owned, 30 years trading\n**Ask** rebrand and a launch campaign, live in six months · **Budget** up to $240k\n**Pitch** @+5d, 60 minutes, at one of their stores · **Up against** two larger agencies\n\n### What they told us\n- The brand looks like a discount store; their best customers are serious hikers\n- Online is 22% of sales and growing; the stores still matter most\n- Esme, the founder's daughter, now runs marketing and owns the decision\n\n### Our angle\nThey don't need a new logo as much as a reason to choose them over the big-box chains — and that reason is their staff. **Lead with the people, not the gear.**\n\n### Where it stands\nStory agreed. Identity route A is in progress; its palette is on this desk. Scope prices at $247k, which is $7k over their ceiling.",
+      "callout": {
+        "title": "$7k over their ceiling",
+        "body": "Scope prices at $247k against $240k. Proposal: deliver store signage as an $8k toolkit instead of the $16k full manual, saving $8k, and land at $239k. Decide with Owen @+1d.",
+        "accent": "#f59e0b",
+        "icon": "💰"
+      },
+      "table": {
+        "title": "Proposed scope and fees",
+        "columns": [
+          { "id": "workstream", "label": "Workstream", "type": "text-short" },
+          { "id": "phase", "label": "Phase", "type": "single-select", "options": ["Discovery", "Brand", "Campaign", "Digital", "Support"] },
+          { "id": "lead", "label": "Lead", "type": "text-short" },
+          { "id": "weeks", "label": "Weeks", "type": "number" },
+          { "id": "fee", "label": "Fee ($k)", "type": "number" }
+        ],
+        "rows": [
+          { "workstream": "Stakeholder interviews (12)", "phase": "Discovery", "lead": "Priyanka", "weeks": 2, "fee": 14 },
+          { "workstream": "Customer research in 8 stores", "phase": "Discovery", "lead": "Priyanka", "weeks": 3, "fee": 22 },
+          { "workstream": "Brand strategy and positioning", "phase": "Brand", "lead": "Owen", "weeks": 3, "fee": 28 },
+          { "workstream": "Identity system", "phase": "Brand", "lead": "Tui", "weeks": 5, "fee": 46 },
+          { "workstream": "Store signage guidelines", "phase": "Brand", "lead": "Tui", "weeks": 2, "fee": 16 },
+          { "workstream": "Launch campaign concept", "phase": "Campaign", "lead": "Sione", "weeks": 3, "fee": 32 },
+          { "workstream": "Launch film and stills", "phase": "Campaign", "lead": "Sione", "weeks": 4, "fee": 38 },
+          { "workstream": "Website reskin", "phase": "Digital", "lead": "Mika", "weeks": 6, "fee": 30 },
+          { "workstream": "Paid media set-up for launch", "phase": "Digital", "lead": "Ravi", "weeks": 2, "fee": 9 },
+          { "workstream": "Launch-month support", "phase": "Support", "lead": "Priyanka", "weeks": 4, "fee": 12 }
+        ]
+      },
+      "chart": {
+        "title": "Fee by phase ($k)",
+        "type": "pie",
+        "x": "phase",
+        "series": [{ "column": "fee", "agg": "sum" }]
+      },
+      "mindmap": {
+        "title": "Pitch story",
+        "root": {
+          "label": "Ask someone who's been there",
+          "children": [
+            { "label": "Their problem", "children": [
+              { "label": "Looks like a discount store", "kind": "idea" },
+              { "label": "Big-box chains win on price", "kind": "idea" },
+              { "label": "Staff know more than anyone", "kind": "idea" }
+            ]},
+            { "label": "Our answer", "children": [
+              { "label": "Staff as the voice of the brand", "kind": "idea" },
+              { "label": "Gear notes tested on real trails", "kind": "idea" },
+              { "label": "Launch film shot with their own staff", "kind": "idea" }
+            ]},
+            { "label": "Proof", "children": [
+              { "label": "Pebble Bay Wines cellar-door rebrand", "kind": "task" },
+              { "label": "Results slide — client OK needed?", "kind": "question" }
+            ]},
+            { "label": "In the room", "children": [
+              { "label": "Owen opens, Tui shows identity", "kind": "task" },
+              { "label": "Sione walks through the film", "kind": "task" },
+              { "label": "Who answers on price?", "kind": "question" }
+            ]},
+            { "label": "Risks", "children": [
+              { "label": "Two bigger agencies in the mix", "kind": "idea" },
+              { "label": "Does the founder still have a veto?", "kind": "question" },
+              { "label": "New mark clear to register?", "kind": "question" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Pitch run sheet",
+        "blocks": [
+          { "h3": "Run sheet — @+5d, 60 minutes" },
+          { "ol": [
+            "0–5: Owen — why we asked to meet in a store, not a boardroom",
+            "5–15: What we heard — their words played back to them",
+            "15–30: The idea — 'Ask someone who's been there'",
+            "30–40: Identity route A, first look — Tui",
+            "40–50: Launch film treatment — Sione",
+            "50–60: Scope, timeline, fee and questions — Priyanka"
+          ]},
+          { "h4": "Leave-behind" },
+          { "p": "A printed 12-page booklet and the scope at **$239k**. No deck emailed until after their decision." },
+          { "h4": "Before we go" },
+          { "ul": [
+            "Timed rehearsal @+3d, with Priyanka playing Esme",
+            "Find out whether the founder will be in the room",
+            "Store-visit photos into the booklet by @+2d",
+            "Contrast-check route A: Granite type on Chalk, Chalk on Trail green"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Discovery call — what Esme told us",
+          "body": "- 'We look like we sell tents to people who've never camped'\n- Several of their store staff have walked the long trails; no customer knows that\n- Their last agency delivered a logo and left — she wants a partner after launch\n- Budget is firm at $240k; launch in six months\n- Decision by @+12d"
+        }
+      ],
+      "stickies": [
+        { "title": "This week", "body": "1. Fee decision with Owen\n2. Identity route A review\n3. Book the rehearsal room", "color": "#fef08a" },
+        { "title": "Don't forget", "body": "Bring the store-visit photos. They're the strongest thing we have.", "color": "#bbf7d0" }
+      ],
+      "fields": [
+        { "label": "Scope priced", "type": "number", "value": 247, "prefix": "$", "suffix": "k" },
+        { "label": "Their ceiling", "type": "number", "value": 240, "prefix": "$", "suffix": "k" },
+        { "label": "Pitch stage", "type": "single-select", "options": ["Brief received", "Story agreed", "Creative in progress", "Rehearsed", "Pitched"], "value": "Creative in progress" }
+      ],
+      "timer": { "title": "Rehearsal run-through", "minutes": 60 },
+      "palette": [
+        { "hex": "#2f4f3a", "label": "Trail green — primary" },
+        { "hex": "#c58b2a", "label": "Ochre — highlights" },
+        { "hex": "#5b6670", "label": "Granite — type" },
+        { "hex": "#f4f1ea", "label": "Chalk — background" }
+      ],
+      "browsers": [
+        { "title": "IP Australia — Before applying for a trade mark", "url": "https://www.ipaustralia.gov.au/trade-marks/how-to-apply-for-a-trade-mark/what-to-consider-before-applying-for-a-trade-mark" },
+        { "title": "MDN — Colour contrast", "url": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Understanding_WCAG/Perceivable/Color_contrast" }
+      ],
+      "images": [
+        {
+          "title": "Store visit, the boot wall",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph inside an independent, family-owned outdoor gear shop in a regional Australian town: a timber wall of plain unbranded leather hiking boots on shelves, rucksacks hanging from pegs, coiled climbing rope and a rack of rain shells in muted greens and ochres. In the middle distance a shop assistant, seen from behind, adjusts the hip belt of a rucksack on a customer whose face is turned away. Warm shop lighting mixed with daylight from the street door, worn floorboards, honest and unstaged feel, 35mm film look. Every item is plain, with no logos, tags or labels."
+        },
+        {
+          "title": "Identity route A, moodboard",
+          "aspect": "square",
+          "prompt": "Overhead flat-lay of a brand identity moodboard on a sheet of rough chalk-white watercolour paper: plain unprinted colour swatch cards in deep forest green, warm ochre and granite grey, a square of waxed canvas, a coil of worn boot lace, a pressed eucalyptus leaf, a small brass carabiner, a graphite pencil, and a torn scrap of paper printed with an abstract topographic contour-line pattern that has no labels or numbers. Soft diffused daylight from one side, gentle natural shadows, editorial still-life styling, calm earthy palette, generous space between objects."
+        }
+      ],
+      "diagram": {
+        "title": "Fee route into the room",
+        "nodes": [
+          { "id": "over", "label": "$247k over $240k ceiling?", "shape": "circle", "color": "#d97706" },
+          { "id": "toolkit", "label": "Signage as an $8k toolkit", "shape": "box", "color": "#2563eb" },
+          { "id": "hold", "label": "Table $247k: likely out", "shape": "box", "color": "#dc2626" },
+          { "id": "owen", "label": "Owen signs off, @+1d", "shape": "box", "color": "#7c3aed" },
+          { "id": "pitch", "label": "Pitch in store, @+5d", "shape": "box", "color": "#16a34a" },
+          { "id": "decide", "label": "Esme decides, @+12d", "shape": "circle", "color": "#0891b2" }
+        ],
+        "edges": [
+          { "from": "over", "to": "toolkit", "label": "yes, by $7k" },
+          { "from": "over", "to": "hold", "label": "hold the price" },
+          { "from": "toolkit", "to": "owen", "label": "saves $8k" },
+          { "from": "owen", "to": "pitch", "label": "$239k tabled" },
+          { "from": "pitch", "to": "decide", "label": "7 days later" }
+        ]
+      },
+      "calculator": {
+        "title": "Fee with signage as a toolkit ($k)",
+        "expression": "247 - 16 + 8",
+        "result": 239
+      },
+      "form": {
+        "title": "Pitch day checklist",
+        "fields": [
+          { "type": "heading", "label": "Bramble Ridge Outdoor · pitch" },
+          { "type": "date", "label": "Pitch", "value": "@+5d" },
+          { "type": "number", "label": "Minutes in the room", "value": "60" },
+          { "type": "text", "label": "Venue", "value": "One of their 38 stores" },
+          { "type": "select", "label": "Fee to table", "options": ["$239k — signage toolkit", "$247k — full manual"], "value": "$239k — signage toolkit" },
+          { "type": "date", "label": "Timed rehearsal", "value": "@+3d" },
+          { "type": "checkbox", "label": "Fee signed off with Owen", "value": false },
+          { "type": "checkbox", "label": "Store-visit photos in the booklet", "value": false },
+          { "type": "checkbox", "label": "Founder attending confirmed", "value": false }
+        ]
+      }
+    }
+  ]
+}

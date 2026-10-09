@@ -1,0 +1,30 @@
+{
+  "https://business.gov.au/people/customers/handle-customer-complaints": {
+    "ok": true,
+    "title": "Handle customer complaints | business.gov.au",
+    "finalUrl": "https://business.gov.au/people/customers/handle-customer-complaints",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://en.wikipedia.org/wiki/Big_bang_adoption": {
+    "ok": true,
+    "title": "Big bang adoption - Wikipedia",
+    "finalUrl": "https://en.wikipedia.org/wiki/Big_bang_adoption",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://en.wikipedia.org/wiki/Responsibility_assignment_matrix": {
+    "ok": true,
+    "title": "Responsibility assignment matrix - Wikipedia",
+    "finalUrl": "https://en.wikipedia.org/wiki/Responsibility_assignment_matrix",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  },
+  "https://en.wikipedia.org/wiki/Time_management": {
+    "ok": true,
+    "title": "Time management - Wikipedia",
+    "finalUrl": "https://en.wikipedia.org/wiki/Time_management",
+    "where": "desks[1].browsers[1]",
+    "pass": true
+  }
+}

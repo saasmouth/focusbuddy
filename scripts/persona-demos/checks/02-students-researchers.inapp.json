@@ -1,0 +1,30 @@
+{
+  "https://datasets.seed.nsw.gov.au/dataset/nsw-urban-heat-island-to-modified-mesh-block-2016": {
+    "ok": true,
+    "title": "NSW Urban Heat Island to Modified Mesh Block 2016 | SEED",
+    "finalUrl": "https://datasets.seed.nsw.gov.au/dataset/nsw-urban-heat-island-to-modified-mesh-block-2016",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://guides.library.uq.edu.au/referencing/apa7/indirect-cite": {
+    "ok": true,
+    "title": "Secondary source (indirect citation) - APA 7th referencing style - Library Guides at University of Queensland Library",
+    "finalUrl": "https://guides.library.uq.edu.au/referencing/apa7/indirect-cite",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://openstax.org/books/biology-2e/pages/7-4-oxidative-phosphorylation": {
+    "ok": true,
+    "title": "7.4 Oxidative Phosphorylation - Biology 2e | OpenStax",
+    "finalUrl": "https://openstax.org/books/biology-2e/pages/7-4-oxidative-phosphorylation",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  },
+  "https://www.unsw.edu.au/student/managing-your-studies/academic-life/assessments-exams-resources/exams/preparation": {
+    "ok": true,
+    "title": "Exam preparation | Current Students – UNSW Sydney",
+    "finalUrl": "https://www.unsw.edu.au/student/managing-your-studies/academic-life/assessments-exams-resources/exams/preparation",
+    "where": "desks[1].browsers[1]",
+    "pass": true
+  }
+}

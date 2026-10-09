@@ -1,0 +1,344 @@
+{
+  "number": 10,
+  "slug": "busy-multi-project-managers",
+  "persona": "Busy managers balancing several projects",
+  "category": "Primary early adopters",
+  "room": {
+    "title": "Managers Juggling Several Projects",
+    "description": "How a manager running five projects alongside the day job keeps the whole portfolio in one view — what each project needs this week, where the hours actually go, and the loose ends that would otherwise live in their head."
+  },
+  "desks": [
+    {
+      "title": "Portfolio view — five projects, one week",
+      "description": "Every project on one canvas: where it is, the next milestone, hours planned against hours used, and the one thing each needs from me — so switching takes minutes, not a morning.",
+      "brief": "## Portfolio view — five projects, one week\n\n**Role** Customer experience manager, Brushbox Energy · 60-person service team\n**Running** 5 projects alongside the day job\n**This week** 40 hours: 24 on projects, 16 on the team and day-to-day\n\n### The rule for this desk\nEvery project gets one line: where it is, its next milestone, and the single thing it needs from me. If a project needs more than one thing from me, that's the signal it needs its own desk.\n\n### Where things stand\n- **Phone system migration** — testing; go-live @+12d, soft-launch call still open\n- **Office move** — handover @+3d, defects list to sign\n- **Complaints audit** — report to the risk committee @+3d, findings not written yet\n- **Survey overhaul** — on track, three questions waiting on my approval\n- **Help centre rewrite** — 26 of 40 articles done; the writer is on leave and @+15d won't hold\n\n### This week's trade-off\nThe complaints audit gets the hours. The help centre gets a scope decision instead of my time.",
+      "callout": {
+        "title": "Collision @+3d",
+        "body": "The office handover and the complaints audit report land on the same day. The audit can't move — it goes to the risk committee. Tariq walks the handover with the builder; I sign the defects list @+2d.",
+        "accent": "#ef4444",
+        "icon": "⚠️"
+      },
+      "table": {
+        "title": "Portfolio — this week",
+        "columns": [
+          { "id": "project", "label": "Project", "type": "text-short" },
+          { "id": "stage", "label": "Stage", "type": "single-select", "options": ["Planning", "Building", "Testing", "Landing", "Closing", "Ongoing"] },
+          { "id": "health", "label": "Health", "type": "single-select", "options": ["On track", "At risk", "Off track"] },
+          { "id": "milestone", "label": "Next milestone", "type": "text-short" },
+          { "id": "planned", "label": "Hours planned", "type": "number" },
+          { "id": "used", "label": "Hours used", "type": "number" },
+          { "id": "ask", "label": "What it needs from me", "type": "text-short" }
+        ],
+        "rows": [
+          { "project": "Phone system migration", "stage": "Testing", "health": "At risk", "milestone": "Go-live @+12d", "planned": 8, "used": 6, "ask": "Soft launch with one team, or all 60 agents?" },
+          { "project": "Office move — level 3", "stage": "Landing", "health": "On track", "milestone": "Handover @+3d", "planned": 4, "used": 5, "ask": "Sign the defects list @+2d" },
+          { "project": "Complaints audit", "stage": "Closing", "health": "At risk", "milestone": "Report to risk committee @+3d", "planned": 6, "used": 2, "ask": "Write the two-page findings summary" },
+          { "project": "Survey overhaul", "stage": "Building", "health": "On track", "milestone": "Pilot survey live @+20d", "planned": 3, "used": 1, "ask": "Approve the three survey questions" },
+          { "project": "Help centre rewrite", "stage": "Building", "health": "Off track", "milestone": "40 articles by @+15d", "planned": 3, "used": 0, "ask": "Cut to 30 articles or fund a contractor" },
+          { "project": "Team and day-to-day", "stage": "Ongoing", "health": "On track", "milestone": "Fortnightly 1:1s", "planned": 16, "used": 11, "ask": "Keep Friday afternoon clear" }
+        ]
+      },
+      "chart": {
+        "title": "Hours planned vs used, by project",
+        "type": "bar",
+        "x": "project",
+        "series": [
+          { "column": "planned", "agg": "sum", "label": "Planned" },
+          { "column": "used", "agg": "sum", "label": "Used" }
+        ]
+      },
+      "mindmap": {
+        "title": "What each project needs from me",
+        "root": {
+          "label": "This week — my part",
+          "children": [
+            { "label": "Phone migration", "children": [
+              { "label": "Soft launch or everyone at once?", "kind": "question" },
+              { "label": "Vendor cutover checklist", "kind": "tool" },
+              { "label": "Brief the team leads @+5d", "kind": "task" }
+            ]},
+            { "label": "Office move", "children": [
+              { "label": "Sign the defects list @+2d", "kind": "task" },
+              { "label": "Tariq walks the handover", "kind": "task" }
+            ]},
+            { "label": "Complaints audit", "children": [
+              { "label": "Two-page findings summary", "kind": "task" },
+              { "label": "Which finding leads the report?", "kind": "question" }
+            ]},
+            { "label": "Survey overhaul", "children": [
+              { "label": "Approve three questions", "kind": "task" },
+              { "label": "Drop the old NPS email entirely?", "kind": "question" }
+            ]},
+            { "label": "Help centre", "children": [
+              { "label": "Second writer, or cut to 30?", "kind": "question" },
+              { "label": "Top 30 articles by search volume", "kind": "tool" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Weekly update to my GM",
+        "blocks": [
+          { "h3": "Weekly update — five projects" },
+          { "p": "Worst news first, three lines each." },
+          { "h4": "Help centre rewrite — off track" },
+          { "p": "26 of 40 articles done. The writer is on leave until @+10d, so @+15d won't hold. **Ask:** approve cutting to the 30 most-searched articles, or fund a contractor for two weeks." },
+          { "h4": "Complaints audit — at risk" },
+          { "p": "Evidence gathered, findings not yet written. The report goes to the risk committee @+3d; I've blocked tomorrow morning to write it." },
+          { "h4": "Phone system migration — at risk" },
+          { "p": "Testing found call recordings missing on transferred calls; the vendor's fix is promised @+5d. Go-live @+12d holds only if it lands." },
+          { "h4": "On track" },
+          { "ul": [
+            "Office move — handover @+3d, Tariq walking it with the builder",
+            "Survey overhaul — three questions with me for approval; pilot @+20d"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Re-entry notes — where I left each one",
+          "body": "Read before switching, so I don't start from zero:\n\n- Phone: stopped at the transfer test results — the recording gap starts at test 14\n- Office: the builder's defects list v3 is current; v2 is wrong\n- Audit: 112 complaint files sampled; billing themes drafted, service themes not started\n- Survey: Leila's three questions are in the shared doc, comments open\n- Help centre: top 30 list sorted by search volume; nothing cut yet; Zoe owes me a two-week contractor rate @+1d"
+        }
+      ],
+      "stickies": [
+        { "title": "Today — three things", "body": "1. Audit findings — first draft\n2. Help centre: cut or contract?\n3. Vendor call on the recording fix", "color": "#fef08a" },
+        { "title": "Delegated", "body": "Tariq — handover walk-through\nLeila — survey pilot setup\nBen — phone training plan", "color": "#bbf7d0" }
+      ],
+      "fields": [
+        { "label": "Projects on track", "type": "number", "value": 2, "suffix": " / 5" },
+        { "label": "Hours used this week", "type": "number", "value": 25, "suffix": " / 40" }
+      ],
+      "timer": { "title": "One-project focus block", "minutes": 50 },
+      "browsers": [
+        {
+          "title": "business.gov.au — Handle customer complaints",
+          "url": "https://business.gov.au/people/customers/handle-customer-complaints"
+        },
+        {
+          "title": "Wikipedia — Big bang adoption",
+          "url": "https://en.wikipedia.org/wiki/Big_bang_adoption"
+        }
+      ],
+      "images": [
+        {
+          "title": "Level 3 fit-out, the week before handover",
+          "aspect": "landscape",
+          "prompt": "Architectural interior photograph of a newly fitted-out open-plan office floor in a mid-rise Australian building the week before handover: rows of empty white desks with new task chairs, fresh charcoal carpet tiles, simple pendant lights, floor-to-ceiling windows with soft overcast daylight over low suburban rooftops and gum trees, small squares of blue painter's tape on a white wall and a door frame marking defects, a folded drop sheet and a stepladder in one corner, no people, wide-angle at eye level, clean and calm, natural colours"
+        },
+        {
+          "title": "Service floor during the phone cutover test",
+          "aspect": "portrait",
+          "prompt": "Candid documentary photograph looking down the aisle of a customer service floor in an Australian office during a phone system test, mid-afternoon: rows of desks with call headsets, three agents seen only from behind wearing headsets, monitors showing soft out-of-focus abstract colour blocks, a team lead standing in the aisle seen from behind holding an open laptop, mix of window daylight and overhead office light, shallow depth of field, muted blues and greys, vertical framing, unposed"
+        }
+      ],
+      "diagram": {
+        "title": "Phone go-live — the path to @+12d",
+        "nodes": [
+          { "id": "fix", "label": "Vendor fix due @+5d", "shape": "box", "color": "#64748b" },
+          { "id": "landed", "label": "Fix landed?", "shape": "circle", "color": "#d97706" },
+          { "id": "slip", "label": "Go-live slips", "shape": "box", "color": "#dc2626" },
+          { "id": "retest", "label": "Retest transfer calls", "shape": "box", "color": "#0891b2" },
+          { "id": "soft", "label": "Soft launch?", "shape": "circle", "color": "#d97706" },
+          { "id": "one", "label": "One team live @+12d", "shape": "box", "color": "#16a34a" },
+          { "id": "all", "label": "60 agents live @+12d", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "fix", "to": "landed" },
+          { "from": "landed", "to": "slip", "label": "no" },
+          { "from": "landed", "to": "retest", "label": "yes" },
+          { "from": "retest", "to": "slip", "label": "gaps remain" },
+          { "from": "retest", "to": "soft", "label": "no recording gaps" },
+          { "from": "soft", "to": "one", "label": "yes" },
+          { "from": "soft", "to": "all", "label": "no" }
+        ]
+      },
+      "calculator": {
+        "title": "Hours left this week",
+        "expression": "40 - (6 + 5 + 2 + 1 + 0 + 11)",
+        "result": 15
+      },
+      "form": {
+        "title": "Help centre — scope decision",
+        "fields": [
+          { "type": "heading", "label": "Help centre rewrite · off track" },
+          { "type": "number", "label": "Articles done", "value": "26" },
+          { "type": "number", "label": "Articles in scope", "value": "40" },
+          { "type": "date", "label": "Writer back from leave", "value": "@+10d" },
+          { "type": "date", "label": "Current deadline", "value": "@+15d" },
+          { "type": "select", "label": "Decision", "options": ["Pending", "Cut to the top 30", "Fund a contractor"], "value": "Pending" },
+          { "type": "date", "label": "GM decision due", "value": "@+2d" },
+          { "type": "checkbox", "label": "Top 30 sorted by search volume", "value": true },
+          { "type": "checkbox", "label": "Contractor rate in from Zoe", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "Open loops — every follow-up across five projects",
+      "description": "The loose ends from five projects in one list — decisions I owe, things I'm waiting on, follow-ups I promised — worked every Friday so nothing lives only in my head.",
+      "brief": "## Open loops — five projects\n\n**What counts as a loop** anything I've promised, anything I'm waiting on, any decision only I can make\n**Reviewed** every Friday afternoon, 30 minutes, before the weekly update goes out\n**Right now** 12 open · 4 decisions I owe · 4 waiting on others · oldest 14 days\n\n### How I work the list\n1. Decisions I owe first — each one is holding someone else up\n2. Waiting-ons get one nudge, then go on the agenda for that project's next meeting\n3. Anything older than 10 days is closed, delegated or escalated — no fourth option\n\n### This week\nThe complaints audit and the phone migration hold half the list between them. Two loops are past the 10-day line: the survey tool contract (14 days; renewal due @+18d, two days before the survey pilot goes live @+20d) and the level 3 car park passes (11 days).",
+      "callout": {
+        "title": "Four decisions are waiting on me",
+        "body": "Four decisions sit with me and three are due by @+2d. Each one is holding up someone else's work — clear them before chasing anyone for theirs.",
+        "accent": "#6366f1",
+        "icon": "🔁"
+      },
+      "table": {
+        "title": "Open loops",
+        "columns": [
+          { "id": "loop", "label": "Loop", "type": "text-short" },
+          { "id": "project", "label": "Project", "type": "single-select", "options": ["Phone migration", "Office move", "Complaints audit", "Survey overhaul", "Help centre"] },
+          { "id": "type", "label": "Type", "type": "single-select", "options": ["Decision I owe", "Waiting on", "Follow-up I promised", "Risk to watch"] },
+          { "id": "with", "label": "With", "type": "text-short" },
+          { "id": "due", "label": "Due", "type": "text-short" },
+          { "id": "age", "label": "Days open", "type": "number" }
+        ],
+        "rows": [
+          { "loop": "Soft launch or all 60 agents at go-live", "project": "Phone migration", "type": "Decision I owe", "with": "Ben", "due": "@+3d", "age": 6 },
+          { "loop": "Vendor fix for transfer recordings", "project": "Phone migration", "type": "Waiting on", "with": "Phone vendor", "due": "@+5d", "age": 4 },
+          { "loop": "Headsets for 12 new starters", "project": "Phone migration", "type": "Follow-up I promised", "with": "Ben", "due": "@+2d", "age": 9 },
+          { "loop": "Sign the defects list", "project": "Office move", "type": "Decision I owe", "with": "Tariq", "due": "@+2d", "age": 3 },
+          { "loop": "Car park passes for level 3", "project": "Office move", "type": "Waiting on", "with": "Building manager", "due": "@+6d", "age": 11 },
+          { "loop": "Two-page findings summary", "project": "Complaints audit", "type": "Follow-up I promised", "with": "Risk committee", "due": "@+3d", "age": 5 },
+          { "loop": "Billing data extract", "project": "Complaints audit", "type": "Waiting on", "with": "Omar (finance)", "due": "@+1d", "age": 8 },
+          { "loop": "An owner for each finding", "project": "Complaints audit", "type": "Risk to watch", "with": "Team leads", "due": "@+10d", "age": 2 },
+          { "loop": "Approve the three survey questions", "project": "Survey overhaul", "type": "Decision I owe", "with": "Leila", "due": "@+1d", "age": 7 },
+          { "loop": "Survey tool contract renewal", "project": "Survey overhaul", "type": "Risk to watch", "with": "Procurement", "due": "@+18d", "age": 14 },
+          { "loop": "Cut to 30 articles or fund a contractor", "project": "Help centre", "type": "Decision I owe", "with": "GM", "due": "@+2d", "age": 5 },
+          { "loop": "Contractor rate for two weeks of writing", "project": "Help centre", "type": "Waiting on", "with": "Zoe (talent team)", "due": "@+1d", "age": 6 }
+        ]
+      },
+      "chart": {
+        "title": "Open loops by project",
+        "type": "pie",
+        "x": "project",
+        "series": [{ "column": "loop", "agg": "count", "label": "Open loops" }]
+      },
+      "mindmap": {
+        "title": "Friday sort",
+        "root": {
+          "label": "Every open loop",
+          "children": [
+            { "label": "Do it (under 15 min)", "children": [
+              { "label": "Approve the survey questions", "kind": "task" },
+              { "label": "Sign the defects list", "kind": "task" }
+            ]},
+            { "label": "Delegate", "children": [
+              { "label": "Headset order → Ben", "kind": "task" },
+              { "label": "Car park passes → Tariq", "kind": "task" }
+            ]},
+            { "label": "Escalate", "children": [
+              { "label": "Survey contract — 14 days, no reply", "kind": "task" },
+              { "label": "Help centre call — mine or the GM's?", "kind": "question" }
+            ]},
+            { "label": "Defer", "children": [
+              { "label": "Finding owners — after the committee", "kind": "idea" }
+            ]},
+            { "label": "How", "children": [
+              { "label": "Friday 30-minute review", "kind": "tool" },
+              { "label": "One-line nudge template", "kind": "tool" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Friday review",
+        "blocks": [
+          { "h3": "Friday review" },
+          { "p": "Thirty minutes, same order every week. The goal is a clear head for the weekend, not an empty list." },
+          { "h4": "Checklist" },
+          { "ol": [
+            "Add anything from this week's notes, emails and meetings that isn't on the list",
+            "Close what's done — and tell the person who was waiting",
+            "Make the decisions I owe, or book the time to make them",
+            "Nudge every waiting-on once",
+            "Anything over 10 days: close, delegate or escalate"
+          ]},
+          { "h4": "Last week" },
+          { "ul": [
+            "Started with 15 loops, closed 9, added 6 — 12 open now",
+            "Escalated: none (should have been the survey contract)",
+            "Slipped: the headset order, promised to Ben 9 days ago"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Captured, not yet sorted",
+          "body": "Dropped in during meetings — sort at the Friday review:\n\n- Ben: new starters need logins before headsets matter\n- Leila wants to pilot the survey on the billing queue first\n- Building manager says level 3 swipe cards come from head office, not them\n- Omar's extract might miss reopened complaints — check the date filter"
+        }
+      ],
+      "stickies": [
+        { "title": "Rule", "body": "Older than 10 days? Close it, delegate it or escalate it.", "color": "#fed7aa" },
+        { "title": "Nudge template", "body": "Quick one — where's this at? If it's stuck, tell me what would unstick it.", "color": "#bae6fd" }
+      ],
+      "fields": [
+        { "label": "Open loops", "type": "number", "value": 12 },
+        { "label": "Decisions I owe", "type": "number", "value": 4 },
+        { "label": "Friday review done", "type": "checkbox", "value": false }
+      ],
+      "browsers": [
+        {
+          "title": "Wikipedia — Responsibility assignment matrix",
+          "url": "https://en.wikipedia.org/wiki/Responsibility_assignment_matrix"
+        },
+        {
+          "title": "Wikipedia — Time management (Eisenhower method)",
+          "url": "https://en.wikipedia.org/wiki/Time_management"
+        }
+      ],
+      "images": [
+        {
+          "title": "Friday 4pm, the 30-minute review",
+          "aspect": "landscape",
+          "prompt": "Editorial still life photograph of a tidy work desk by a window late on a Friday afternoon: an open notebook with blank cream pages, a black pen resting across it, blank white index cards sorted into four small neat piles, a half-finished flat white in a pale ceramic cup, a closed laptop pushed to one side, low golden sunlight casting long soft shadows across a pale timber desktop, shot from a three-quarter angle above, calm and unhurried, warm natural tones"
+        },
+        {
+          "title": "Headsets for the new starters",
+          "aspect": "square",
+          "prompt": "Clean product photograph of a row of plain black over-ear call-centre headsets with boom microphones laid out neatly on a pale grey office table, beside a small stack of plain unmarked brown cardboard boxes and a coiled cable, soft diffused side light from a window, overhead three-quarter view, minimal and orderly, quiet empty office softly out of focus behind"
+        }
+      ],
+      "diagram": {
+        "title": "How each loop gets worked",
+        "nodes": [
+          { "id": "age", "label": "Over 10 days?", "shape": "circle", "color": "#d97706" },
+          { "id": "hard", "label": "Close, delegate or escalate", "shape": "box", "color": "#dc2626" },
+          { "id": "mine", "label": "Mine to decide?", "shape": "circle", "color": "#d97706" },
+          { "id": "decide", "label": "Decide, or book the time", "shape": "box", "color": "#6366f1" },
+          { "id": "waiting", "label": "Waiting on someone?", "shape": "circle", "color": "#d97706" },
+          { "id": "nudge", "label": "One nudge", "shape": "box", "color": "#0891b2" },
+          { "id": "doit", "label": "Do it if under 15 min", "shape": "box", "color": "#16a34a" },
+          { "id": "agenda", "label": "On next meeting's agenda", "shape": "box", "color": "#2563eb" }
+        ],
+        "edges": [
+          { "from": "age", "to": "hard", "label": "yes" },
+          { "from": "age", "to": "mine", "label": "no" },
+          { "from": "mine", "to": "decide", "label": "yes" },
+          { "from": "mine", "to": "waiting", "label": "no" },
+          { "from": "waiting", "to": "nudge", "label": "yes" },
+          { "from": "waiting", "to": "doit", "label": "no" },
+          { "from": "nudge", "to": "agenda", "label": "still stuck" }
+        ]
+      },
+      "calculator": {
+        "title": "Average days a loop has been open",
+        "expression": "(6 + 4 + 9 + 3 + 11 + 5 + 8 + 2 + 7 + 14 + 5 + 6) / 12",
+        "result": 6.6666666667
+      },
+      "form": {
+        "title": "Escalation — survey tool contract",
+        "fields": [
+          { "type": "heading", "label": "Past the 10-day line" },
+          { "type": "text", "label": "Loop", "value": "Survey tool contract renewal" },
+          { "type": "number", "label": "Days open", "value": "14" },
+          { "type": "text", "label": "Waiting on", "value": "Procurement" },
+          { "type": "date", "label": "Renewal due", "value": "@+18d" },
+          { "type": "select", "label": "Route", "options": ["Close", "Delegate", "Escalate"], "value": "Escalate" },
+          { "type": "text", "label": "Escalate to", "value": "GM" },
+          { "type": "checkbox", "label": "Nudged once already", "value": true },
+          { "type": "textarea", "label": "The ask", "value": "Fourteen days with no reply from procurement. The survey pilot goes live @+20d, so the renewal needs a yes or no by @+18d." }
+        ]
+      }
+    }
+  ]
+}

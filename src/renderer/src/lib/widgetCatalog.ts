@@ -100,19 +100,12 @@ export const WIDGET_CATALOG: WidgetCatalogEntry[] = [
     hint: 'A number worth watching, and how it got there',
     defaultWidth: 340,
     defaultHeight: 240,
-    // Seeded with a readable example rather than an empty card: a stat card with
-    // nothing in it cannot show what it is for, and this is the widget whose
-    // point is hardest to guess from its name.
-    defaultContent: JSON.stringify({
-      title: 'Median price',
-      series: [
-        { label: 'Sales', caption: 'Median sale price · 12 months', display: '$5.2M',
-          points: [4.6, 4.7, 4.65, 4.8, 4.9, 4.88, 5.0, 5.05, 5.1, 5.0, 5.15, 5.2] },
-        { label: 'Rentals', caption: 'Median weekly rent · 12 months', display: '$1,240',
-          points: [1080, 1100, 1120, 1115, 1160, 1180, 1175, 1200, 1210, 1225, 1230, 1240] }
-      ],
-      activeIndex: 0
-    }),
+    // Starts empty, on purpose. It used to be seeded with an unlabelled example
+    // ("Median price", $5.2M and twelve invented readings), so every stat card
+    // added from the picker showed made-up figures as if they were data. The empty
+    // state says what the card is for and offers to connect it to a table, which
+    // explains it without inventing anything.
+    defaultContent: JSON.stringify({ series: [] }),
     isWebBased: false
   },
   {

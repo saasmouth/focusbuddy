@@ -1,0 +1,38 @@
+{
+  "https://treasury.gov.au/national-innovation-and-science-agenda/tax-incentives-for-early-stage-investors": {
+    "ok": true,
+    "status": 200,
+    "title": "Tax incentives for early stage investors | Treasury.gov.au",
+    "bytes": 30227,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "Treasury — Tax incentives for early stage investors",
+    "checkedAt": "2026-10-08T08:54:58.717Z"
+  },
+  "https://en.wikipedia.org/wiki/Simple_agreement_for_future_equity": {
+    "ok": true,
+    "status": 200,
+    "title": "Simple agreement for future equity - Wikipedia",
+    "bytes": 122442,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "Wikipedia — Simple agreement for future equity",
+    "checkedAt": "2026-10-08T08:54:59.554Z"
+  },
+  "https://business.gov.au/products-and-services/choose-a-pricing-strategy": {
+    "ok": true,
+    "status": 200,
+    "title": "Choose a pricing strategy | business.gov.au",
+    "bytes": 387489,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "business.gov.au — Choose a pricing strategy",
+    "checkedAt": "2026-10-08T08:54:59.554Z"
+  },
+  "https://en.wikipedia.org/wiki/Van_Westendorp%27s_Price_Sensitivity_Meter": {
+    "ok": true,
+    "status": 200,
+    "title": "Van Westendorp's Price Sensitivity Meter - Wikipedia",
+    "bytes": 79184,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "Wikipedia — Van Westendorp price sensitivity meter",
+    "checkedAt": "2026-10-08T08:54:59.554Z"
+  }
+}

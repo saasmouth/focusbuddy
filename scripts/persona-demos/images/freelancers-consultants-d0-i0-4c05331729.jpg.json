@@ -1,0 +1,12 @@
+{
+  "persona": "Freelancers and consultants",
+  "desk": "Client load this month — hours, scope and invoices",
+  "title": "Month-end desk, home office",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay photograph of a freelance writer's pale timber desk in a sunlit Brisbane home office at month end: a closed silver laptop, a spiral notebook lying open to completely blank cream pages with a pencil resting across it, a neat stack of plain unmarked kraft folders, a ceramic mug of black coffee, folded reading glasses, a small glass with a sprig of eucalyptus, soft morning window shadows falling across the surface, warm natural tones, calm and organised mood",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 62,
+  "bytes": 282666,
+  "generatedAt": "2026-10-08T07:08:00.728Z"
+}

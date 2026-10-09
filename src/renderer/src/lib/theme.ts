@@ -183,7 +183,7 @@ export interface ThemeCustomization {
 export const DEFAULT_CUSTOMIZATION: ThemeCustomization = {
   deskBgMode: 'default',
   deskPattern: 'dots',
-  deskColor: '#fbf7ee',
+  deskColor: '#f1f2f4',
   gradFrom: '#7c3aed',
   gradTo: '#0ea5e9',
   gradAngle: 135,
@@ -307,10 +307,13 @@ export function applyTheme(mode: ThemeMode, accent: AccentColor, customHex?: str
     root.style.setProperty('--accent-hover', palette.hover)
   }
   // Mirror the theme onto the NATIVE window background. The BrowserWindow is
-  // created with the light cream (#fbf7ee); without this, any moment Chromium
-  // exposes the window background (occlusion recovery, resize, webview churn)
-  // flashes cream over a dark desk — one of the reported "blink" mechanisms.
-  const nativeBg = effective === 'dark' ? '#0c0a09' : '#fbf7ee'
+  // created with the light canvas grey (#f1f2f4); without this, any moment
+  // Chromium exposes the window background (occlusion recovery, resize,
+  // webview churn) flashes that grey over a dark desk — one of the reported
+  // "blink" mechanisms. Both values track the --fb-canvas-* tokens in
+  // globals.css, so the native background always matches the canvas it sits
+  // behind.
+  const nativeBg = effective === 'dark' ? '#150c2b' : '#f1f2f4'
   void window.api?.app?.setBackgroundColor?.(nativeBg)?.catch?.(() => {})
 }
 

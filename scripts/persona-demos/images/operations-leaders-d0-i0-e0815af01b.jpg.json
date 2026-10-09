@@ -1,0 +1,12 @@
+{
+  "persona": "Operations leaders responsible for how work gets done",
+  "desk": "Operating cadence redesign — forums, reporting and decisions",
+  "title": "Exec room, set for the weekly review",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Architectural interior photograph of a compact executive meeting room in a mid-sized Australian company's office, early on a weekday morning before the weekly business review: a long pale oak table with eight empty upholstered chairs, a single sheet of plain white paper lying face-down at each place, a glass carafe of water and tumblers, a large wall screen switched off and dark, floor-to-ceiling windows with soft low sunlight and blurred eucalyptus trees beyond, clean lines, calm and orderly, natural colours, photographed wide from the doorway at eye level",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 263503,
+  "generatedAt": "2026-10-08T07:29:39.205Z"
+}

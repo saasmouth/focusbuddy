@@ -1,0 +1,1022 @@
+{
+  "number": 18,
+  "slug": "vc-investment",
+  "persona": "Venture capital and investment professionals",
+  "category": "Professional use cases",
+  "room": {
+    "title": "Venture Capital and Investment",
+    "description": "How an investor keeps a live deal and the whole portfolio on one surface — the thesis, the diligence findings, the open questions and the reserves decision in view together, not split across the CRM, a shared drive and six inboxes."
+  },
+  "desks": [
+    {
+      "title": "Series A diligence — Tidewell (climate logistics)",
+      "description": "Thirteen diligence workstreams ahead of investment committee: what has to be true, what the customer calls said, and the one number that decides the recommendation.",
+      "dueInDays": 6,
+      "brief": "## Series A diligence — Tidewell\n\n**What they do** emissions tracking and route optimisation for mid-sized road freight carriers\n**Round** $10M Series A at $30M pre ($40M post) · **We'd lead** $6M for 15%\n**Deal team** Amara (partner), Joon, Felix · **Investment committee** @+6d\n\n### Thesis in one line\nCarriers running 50–500 trucks will need audited emissions data to keep their enterprise shippers, and Tidewell is the cheapest way to get it — with fuel savings that pay for the software.\n\n### What has to be true\n- Net revenue retention stays above 120% as cohorts age\n- Gross margin per carrier reaches 60% once onboarding is productised\n- The emissions methodology survives a shipper's auditor, with diesel factors that reconcile to the NGER Measurement Determination\n\n### Where it stands\nSeven of thirteen workstreams done. Team and commercial look strong. **Unit economics is the open question:** margin per carrier is 41% today, and the committee will ask why that changes.",
+      "callout": {
+        "title": "Swing factor: margin per carrier",
+        "body": "41% today against 60% in the plan. If the self-serve telematics connector cuts onboarding from three weeks to one, the model gets there by month 18. Joon has the test data @+2d — that answer decides the recommendation.",
+        "accent": "#ef4444",
+        "icon": "🔍"
+      },
+      "table": {
+        "title": "Diligence workstreams",
+        "columns": [
+          {
+            "id": "workstream",
+            "label": "Workstream",
+            "type": "text-short"
+          },
+          {
+            "id": "area",
+            "label": "Area",
+            "type": "single-select",
+            "options": [
+              "Commercial",
+              "Financial",
+              "Product",
+              "Team",
+              "Market",
+              "Legal"
+            ]
+          },
+          {
+            "id": "owner",
+            "label": "Owner",
+            "type": "text-short"
+          },
+          {
+            "id": "score",
+            "label": "Score (1–5)",
+            "type": "number"
+          },
+          {
+            "id": "status",
+            "label": "Status",
+            "type": "single-select",
+            "options": [
+              "Done",
+              "In progress",
+              "Not started"
+            ]
+          }
+        ],
+        "rows": [
+          {
+            "workstream": "Customer calls (8 of 10)",
+            "area": "Commercial",
+            "owner": "Amara",
+            "score": 4,
+            "status": "In progress"
+          },
+          {
+            "workstream": "Pipeline and win-rate review",
+            "area": "Commercial",
+            "owner": "Joon",
+            "score": 3,
+            "status": "Done"
+          },
+          {
+            "workstream": "Revenue retention by cohort",
+            "area": "Financial",
+            "owner": "Felix",
+            "score": 4,
+            "status": "Done"
+          },
+          {
+            "workstream": "Burn and runway model",
+            "area": "Financial",
+            "owner": "Felix",
+            "score": 3,
+            "status": "Done"
+          },
+          {
+            "workstream": "Unit economics per carrier",
+            "area": "Financial",
+            "owner": "Joon",
+            "score": 2,
+            "status": "In progress"
+          },
+          {
+            "workstream": "Product walkthrough and roadmap",
+            "area": "Product",
+            "owner": "Joon",
+            "score": 4,
+            "status": "Done"
+          },
+          {
+            "workstream": "Emissions methodology review",
+            "area": "Product",
+            "owner": "Ines",
+            "score": 3,
+            "status": "In progress"
+          },
+          {
+            "workstream": "Founder references (6 calls)",
+            "area": "Team",
+            "owner": "Amara",
+            "score": 5,
+            "status": "Done"
+          },
+          {
+            "workstream": "Hiring plan for a VP Sales",
+            "area": "Team",
+            "owner": "Amara",
+            "score": 3,
+            "status": "In progress"
+          },
+          {
+            "workstream": "Bottom-up market sizing",
+            "area": "Market",
+            "owner": "Felix",
+            "score": 3,
+            "status": "Done"
+          },
+          {
+            "workstream": "Competitive landscape",
+            "area": "Market",
+            "owner": "Felix",
+            "score": 4,
+            "status": "Done"
+          },
+          {
+            "workstream": "Cap table and SAFE conversion",
+            "area": "Legal",
+            "owner": "Rhea",
+            "score": 4,
+            "status": "In progress"
+          },
+          {
+            "workstream": "IP and data licences",
+            "area": "Legal",
+            "owner": "Rhea",
+            "status": "Not started"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Average score by area",
+        "type": "bar",
+        "x": "area",
+        "series": [
+          {
+            "column": "score",
+            "agg": "avg"
+          }
+        ]
+      },
+      "mindmap": {
+        "title": "Investment case — argument map",
+        "root": {
+          "label": "Invest in Tidewell?",
+          "kind": "question",
+          "children": [
+            {
+              "label": "Why now",
+              "children": [
+                {
+                  "label": "Shipper emissions reporting from next year",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Carriers losing tenders without data",
+                  "kind": "idea"
+                }
+              ]
+            },
+            {
+              "label": "Why them",
+              "children": [
+                {
+                  "label": "Founders ran fleet ops for nine years",
+                  "kind": "idea"
+                },
+                {
+                  "label": "NRR 128% on the oldest cohort",
+                  "kind": "idea"
+                }
+              ]
+            },
+            {
+              "label": "Risks",
+              "children": [
+                {
+                  "label": "Can onboarding be productised?",
+                  "kind": "question"
+                },
+                {
+                  "label": "Methodology vs a shipper's auditor",
+                  "kind": "question"
+                },
+                {
+                  "label": "Telematics vendors build it themselves",
+                  "kind": "idea"
+                }
+              ]
+            },
+            {
+              "label": "Before committee",
+              "children": [
+                {
+                  "label": "Finish the unit economics model",
+                  "kind": "task"
+                },
+                {
+                  "label": "Call the two churned carriers",
+                  "kind": "task"
+                },
+                {
+                  "label": "Methodology review back from Ines",
+                  "kind": "task"
+                }
+              ]
+            },
+            {
+              "label": "Terms",
+              "children": [
+                {
+                  "label": "$6M of $10M at $30M pre",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Board seat and pro rata rights",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Option pool top-up to 12%?",
+                  "kind": "question"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "page": {
+        "title": "Committee memo — draft",
+        "blocks": [
+          {
+            "h3": "Recommendation (draft)"
+          },
+          {
+            "p": "Lead the $10M Series A with $6M at a $30M pre-money valuation, **subject to** the unit economics model showing a credible path to 60% gross margin per carrier within 18 months."
+          },
+          {
+            "h4": "The business today"
+          },
+          {
+            "ul": [
+              "ARR $2.4M across 86 carriers",
+              "Net revenue retention 128% on the oldest cohort, 117% blended",
+              "Burn $310k a month; 14 months of runway before this round"
+            ]
+          },
+          {
+            "h4": "What the customer calls said"
+          },
+          {
+            "p": "Eight calls, eight planned renewals. Fuel savings come up before emissions data, which means the product sells on cost even before regulation bites."
+          },
+          {
+            "h4": "The key risk"
+          },
+          {
+            "p": "**Margin per carrier is 41%.** Onboarding still needs a solutions engineer for three weeks per carrier. Joon is testing whether the new self-serve connector cuts that to one week; results @+2d."
+          },
+          {
+            "h4": "What would change our mind"
+          },
+          {
+            "ul": [
+              "Connector test shows onboarding stays above two weeks",
+              "Either churned carrier left over data quality rather than price"
+            ]
+          }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Customer calls — patterns",
+          "body": "Eight of ten done:\n\n- All eight plan to renew; three want to add depots\n- Fuel savings mentioned before emissions in six of eight\n- Two complained about onboarding length — matches the margin problem\n- None has been asked by an auditor yet, which cuts both ways\n\nStill to call: the two carriers who churned. The founder has sent their contacts without being asked, which is a good sign."
+        }
+      ],
+      "stickies": [
+        {
+          "title": "Before committee",
+          "body": "1. Margin model @+2d\n2. Two churned-carrier calls\n3. Memo to partners @+4d",
+          "color": "#fef08a"
+        },
+        {
+          "title": "Parked",
+          "body": "Board composition — after the term sheet, not before.",
+          "color": "#bae6fd"
+        }
+      ],
+      "fields": [
+        {
+          "label": "Workstreams done",
+          "type": "number",
+          "value": 7,
+          "suffix": " / 13"
+        },
+        {
+          "label": "Leaning",
+          "type": "single-select",
+          "options": [
+            "Undecided",
+            "Lean invest",
+            "Lean pass",
+            "Invest",
+            "Pass"
+          ],
+          "value": "Lean invest"
+        },
+        {
+          "label": "Our cheque",
+          "type": "number",
+          "value": 6,
+          "prefix": "$",
+          "suffix": "M"
+        }
+      ],
+      "timer": {
+        "title": "Memo writing block",
+        "minutes": 90
+      },
+      "browsers": [
+        {
+          "title": "ASIC — Sustainability reporting",
+          "url": "https://www.asic.gov.au/regulatory-resources/sustainability-reporting"
+        },
+        {
+          "title": "Clean Energy Regulator — NGER scheme",
+          "url": "https://cer.gov.au/schemes/national-greenhouse-and-energy-reporting-scheme"
+        }
+      ],
+      "images": [
+        {
+          "title": "Carrier depot at first light",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a mid-sized road freight depot on the edge of an Australian regional town at first light: a row of plain white generic prime movers hitched to plain grey curtain-sider trailers, parked parallel on a wide concrete apron and photographed exactly side-on from about forty metres away, so only the long plain sides of the rigs show and no front grilles, badges or plates are in view, a single small driver seen from behind walking along the row carrying a thermos, a low corrugated-iron shed and gum trees behind, long golden shadows and a little dust hanging in the air, natural colours, eye-level 35mm framing, quiet early-morning mood"
+        },
+        {
+          "title": "Telematics connector on the test bench",
+          "aspect": "square",
+          "prompt": "Editorial still life of a small matte black telematics box about the size of a deck of cards, with a smooth completely unmarked casing, a short coiled cable and a vehicle diagnostic plug, resting on a worn timber workbench beside a bundle of cable ties, a small screwdriver and a mug of tea, soft window light from the left, shallow depth of field, muted palette of charcoal, brushed steel and warm wood, calm and precise mood"
+        }
+      ],
+      "diagram": {
+        "title": "What decides the recommendation",
+        "nodes": [
+          {
+            "id": "test",
+            "label": "Connector test results",
+            "shape": "box",
+            "color": "#64748b"
+          },
+          {
+            "id": "onboard",
+            "label": "1-week onboarding?",
+            "shape": "circle",
+            "color": "#d97706"
+          },
+          {
+            "id": "margin",
+            "label": "60% margin by month 18",
+            "shape": "box",
+            "color": "#16a34a"
+          },
+          {
+            "id": "stuck",
+            "label": "Margin stays near 41%",
+            "shape": "box",
+            "color": "#dc2626"
+          },
+          {
+            "id": "churn",
+            "label": "Why did two carriers churn?",
+            "shape": "circle",
+            "color": "#d97706"
+          },
+          {
+            "id": "lead",
+            "label": "Lead $6M at $30M pre",
+            "shape": "box",
+            "color": "#16a34a"
+          },
+          {
+            "id": "pass",
+            "label": "Lean pass",
+            "shape": "box",
+            "color": "#dc2626"
+          }
+        ],
+        "edges": [
+          {
+            "from": "test",
+            "to": "onboard",
+            "label": "Joon, @+2d"
+          },
+          {
+            "from": "onboard",
+            "to": "margin",
+            "label": "yes"
+          },
+          {
+            "from": "onboard",
+            "to": "stuck",
+            "label": "over 2 weeks"
+          },
+          {
+            "from": "margin",
+            "to": "churn"
+          },
+          {
+            "from": "churn",
+            "to": "lead",
+            "label": "price"
+          },
+          {
+            "from": "churn",
+            "to": "pass",
+            "label": "data quality"
+          },
+          {
+            "from": "stuck",
+            "to": "pass"
+          }
+        ]
+      },
+      "calculator": {
+        "title": "Our stake: $6M of $40M post-money (%)",
+        "expression": "6 / (30 + 10) * 100",
+        "result": 15
+      },
+      "form": {
+        "title": "Investment committee submission",
+        "fields": [
+          {
+            "type": "heading",
+            "label": "Tidewell · Series A"
+          },
+          {
+            "type": "number",
+            "label": "Round size ($M)",
+            "value": "10"
+          },
+          {
+            "type": "number",
+            "label": "Our cheque ($M)",
+            "value": "6"
+          },
+          {
+            "type": "number",
+            "label": "Pre-money valuation ($M)",
+            "value": "30"
+          },
+          {
+            "type": "number",
+            "label": "Ownership at close (%)",
+            "value": "15"
+          },
+          {
+            "type": "date",
+            "label": "Investment committee",
+            "value": "@+6d"
+          },
+          {
+            "type": "select",
+            "label": "Leaning",
+            "options": [
+              "Undecided",
+              "Lean invest",
+              "Lean pass",
+              "Invest",
+              "Pass"
+            ],
+            "value": "Lean invest"
+          },
+          {
+            "type": "checkbox",
+            "label": "Founder references done",
+            "value": true
+          },
+          {
+            "type": "checkbox",
+            "label": "Unit economics signed off",
+            "value": false
+          }
+        ]
+      }
+    },
+    {
+      "title": "Fund II quarterly portfolio review",
+      "description": "The quarterly pass over twelve portfolio companies: runway, who's raising, who needs help, and where the last $16M of follow-on reserves should go before the partners meet.",
+      "dueInDays": 10,
+      "brief": "## Fund II quarterly portfolio review\n\n**Fund** Southerly Ventures Fund II · $60M ESVCLP · 12 active companies\n**Partners' reserves meeting** @+10d · **LP letter** due @+21d\n**Reserves left** $16M · $14.5M earmarked · $1.5M unallocated\n\n### What this review decides\n- Which companies get follow-on, and how much, from the $16M left\n- Where partner time goes next quarter\n- What we tell LPs, before they hear it somewhere else\n\n### Headlines\n- Combined ARR of $27.7M across the twelve\n- Four companies have nine months of runway or less; two are raising now\n- Fieldmarket has four months, no lead investor and two flat quarters\n\n**The hard conversation this quarter is Fieldmarket. Everything else is a sizing question.**",
+      "callout": {
+        "title": "Fieldmarket: bridge or wind down",
+        "body": "Four months of runway, no lead, growth flat for two quarters. Reserve stays at zero until the founders' plan lands @+3d. Amara and I meet them @+4d; the $1.5M unallocated is the most we'd put into a bridge.",
+        "accent": "#ef4444",
+        "icon": "🧭"
+      },
+      "table": {
+        "title": "Fund II portfolio",
+        "columns": [
+          {
+            "id": "company",
+            "label": "Company",
+            "type": "text-short"
+          },
+          {
+            "id": "sector",
+            "label": "Sector",
+            "type": "single-select",
+            "options": [
+              "Fintech",
+              "Health",
+              "Marketplace",
+              "B2B SaaS",
+              "Climate"
+            ]
+          },
+          {
+            "id": "arr",
+            "label": "ARR ($M)",
+            "type": "number"
+          },
+          {
+            "id": "runway",
+            "label": "Runway (months)",
+            "type": "number"
+          },
+          {
+            "id": "status",
+            "label": "Status",
+            "type": "single-select",
+            "options": [
+              "On track",
+              "Raising",
+              "Watch",
+              "Needs support"
+            ]
+          },
+          {
+            "id": "reserve",
+            "label": "Follow-on reserve ($M)",
+            "type": "number"
+          }
+        ],
+        "rows": [
+          {
+            "company": "Ledgerleaf",
+            "sector": "Fintech",
+            "arr": 3.8,
+            "runway": 22,
+            "status": "On track",
+            "reserve": 2
+          },
+          {
+            "company": "Morrow Health",
+            "sector": "Health",
+            "arr": 1.2,
+            "runway": 9,
+            "status": "Raising",
+            "reserve": 1.5
+          },
+          {
+            "company": "Pallet Loop",
+            "sector": "Marketplace",
+            "arr": 2.1,
+            "runway": 15,
+            "status": "On track",
+            "reserve": 1
+          },
+          {
+            "company": "Quillstack",
+            "sector": "B2B SaaS",
+            "arr": 5.6,
+            "runway": 30,
+            "status": "On track",
+            "reserve": 2.5
+          },
+          {
+            "company": "Ohmline",
+            "sector": "Climate",
+            "arr": 0.9,
+            "runway": 7,
+            "status": "Needs support",
+            "reserve": 1
+          },
+          {
+            "company": "Tern Clinics",
+            "sector": "Health",
+            "arr": 2.7,
+            "runway": 18,
+            "status": "Watch",
+            "reserve": 1
+          },
+          {
+            "company": "Tallyroom",
+            "sector": "B2B SaaS",
+            "arr": 1.6,
+            "runway": 12,
+            "status": "Watch",
+            "reserve": 0.5
+          },
+          {
+            "company": "Saltmarsh Carbon",
+            "sector": "Climate",
+            "arr": 0.4,
+            "runway": 20,
+            "status": "On track",
+            "reserve": 1
+          },
+          {
+            "company": "Fernpay",
+            "sector": "Fintech",
+            "arr": 6.9,
+            "runway": 26,
+            "status": "Raising",
+            "reserve": 3
+          },
+          {
+            "company": "Gridnest Homes",
+            "sector": "Climate",
+            "arr": 1.1,
+            "runway": 6,
+            "status": "Needs support",
+            "reserve": 0.5
+          },
+          {
+            "company": "Rotaline",
+            "sector": "B2B SaaS",
+            "arr": 0.8,
+            "runway": 11,
+            "status": "Watch",
+            "reserve": 0.5
+          },
+          {
+            "company": "Fieldmarket",
+            "sector": "Marketplace",
+            "arr": 0.6,
+            "runway": 4,
+            "status": "Needs support",
+            "reserve": 0
+          }
+        ]
+      },
+      "chart": {
+        "title": "Follow-on reserves by status ($M)",
+        "type": "pie",
+        "x": "status",
+        "series": [
+          {
+            "column": "reserve",
+            "agg": "sum"
+          }
+        ]
+      },
+      "mindmap": {
+        "title": "Where partner time goes next quarter",
+        "root": {
+          "label": "Portfolio support — next quarter",
+          "children": [
+            {
+              "label": "Raising now",
+              "children": [
+                {
+                  "label": "Fernpay: intros to five growth funds",
+                  "kind": "task"
+                },
+                {
+                  "label": "Morrow Health: bridge if the round slips?",
+                  "kind": "question"
+                }
+              ]
+            },
+            {
+              "label": "Needs support",
+              "children": [
+                {
+                  "label": "Ohmline: CFO search",
+                  "kind": "task"
+                },
+                {
+                  "label": "Gridnest: plan to reach 12 months runway",
+                  "kind": "task"
+                },
+                {
+                  "label": "Fieldmarket: bridge or wind down?",
+                  "kind": "question"
+                }
+              ]
+            },
+            {
+              "label": "Watch",
+              "children": [
+                {
+                  "label": "Tern Clinics: lost two regional contracts",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Tallyroom: sales hire not landing",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Rotaline: per-site pricing change",
+                  "kind": "idea"
+                }
+              ]
+            },
+            {
+              "label": "Platform help",
+              "children": [
+                {
+                  "label": "Shared fractional CFO pool",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Founder dinner @+30d",
+                  "kind": "task"
+                },
+                {
+                  "label": "Benchmark pack from the LP portal",
+                  "kind": "tool"
+                }
+              ]
+            },
+            {
+              "label": "LP letter",
+              "children": [
+                {
+                  "label": "Lead with Quillstack and Fernpay",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Be straight about Fieldmarket",
+                  "kind": "task"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "page": {
+        "title": "Reserves proposal",
+        "blocks": [
+          {
+            "h3": "Follow-on reserves — proposal for the partners"
+          },
+          {
+            "p": "Fund II has $16M of reserves left. This proposal earmarks **$14.5M** and holds **$1.5M** back for a bridge decision that hasn't been made yet."
+          },
+          {
+            "h4": "Back fully — $7.5M"
+          },
+          {
+            "ul": [
+              "Fernpay $3M — pro rata in the Series B; highest ARR in the fund at $6.9M",
+              "Quillstack $2.5M — 30 months of runway, but the next round will be competitive",
+              "Ledgerleaf $2M — steady, 22 months of runway"
+            ]
+          },
+          {
+            "h4": "Back with conditions — $3M"
+          },
+          {
+            "ul": [
+              "Morrow Health $1.5M — only alongside a new lead",
+              "Ohmline $1M — once a CFO is in the seat",
+              "Gridnest Homes $0.5M — tied to the burn plan"
+            ]
+          },
+          {
+            "h4": "Smaller and steady — $4M"
+          },
+          {
+            "p": "Pallet Loop, Saltmarsh Carbon and Tern Clinics at $1M each; Tallyroom and Rotaline at $0.5M each."
+          },
+          {
+            "h4": "Hold"
+          },
+          {
+            "p": "Fieldmarket stays at zero until we see the founders' plan @+3d. Any bridge comes from the $1.5M unallocated, and only with another investor alongside."
+          },
+          {
+            "h4": "Before the partners meet"
+          },
+          {
+            "p": "Confirm every follow-on above still meets the ESVCLP eligibility rules. If Fieldmarket's plan doesn't hold, our board seat there means taking advice on directors' duties before any wind-down conversation."
+          }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Signals since last quarter",
+          "body": "- Fernpay: term sheet from a growth fund; founder wants our pro rata confirmed by @+7d\n- Tern Clinics: lost two regional contracts, NRR down from 112% to 98%\n- Ohmline: CFO resigned; the founder is running finance\n- Saltmarsh Carbon: first credits issued; credit sales start next quarter, on top of $0.4M ARR from site monitoring\n- Rotaline: moving from per-seat to per-site pricing"
+        }
+      ],
+      "stickies": [
+        {
+          "title": "This week",
+          "body": "1. Fieldmarket plan review\n2. Fernpay pro rata memo\n3. Ohmline CFO shortlist",
+          "color": "#fef08a"
+        },
+        {
+          "title": "LP letter",
+          "body": "Draft by @+14d. Same format as last quarter, plus the reserves table.",
+          "color": "#fbcfe8"
+        }
+      ],
+      "fields": [
+        {
+          "label": "Combined ARR",
+          "type": "number",
+          "value": 27.7,
+          "prefix": "$",
+          "suffix": "M"
+        },
+        {
+          "label": "Reserves unallocated",
+          "type": "number",
+          "value": 1.5,
+          "prefix": "$",
+          "suffix": "M"
+        },
+        {
+          "label": "Runway of 9 months or less",
+          "type": "number",
+          "value": 4,
+          "suffix": " companies"
+        }
+      ],
+      "browsers": [
+        {
+          "title": "ASIC — Insolvency for directors",
+          "url": "https://www.asic.gov.au/regulatory-resources/insolvency/insolvency-for-directors"
+        },
+        {
+          "title": "business.gov.au — ESVCLP program",
+          "url": "https://business.gov.au/grants-and-programs/early-stage-venture-capital-limited-partnerships"
+        }
+      ],
+      "images": [
+        {
+          "title": "Saltmarsh restoration site, from above",
+          "aspect": "landscape",
+          "prompt": "Aerial drone photograph looking straight down on a coastal saltmarsh restoration site in southern Australia at low tide: winding tidal creeks cutting silver channels through low green and russet saltmarsh plants, an old straight earth levee breached in one place so the tide can flow back in, a few wading birds as tiny white specks, soft overcast light, muted palette of greens, ochres and pewter water, calm and expansive mood"
+        },
+        {
+          "title": "Partners' room before the reserves meeting",
+          "aspect": "portrait",
+          "prompt": "Architectural interior photograph of a small venture firm's meeting room early in the morning before a partners' meeting: a long pale timber table with eight empty chairs, a glass water jug and tumblers, plain closed leather notebooks and neat stacks of blank white paper at each place, no laptops or devices, a wall screen switched off, floor-to-ceiling windows onto a leafy street with soft diffused light, potted plants, warm minimal interior, vertical composition, calm and expectant mood"
+        }
+      ],
+      "diagram": {
+        "title": "Where the last $16M of reserves goes",
+        "nodes": [
+          {
+            "id": "reserves",
+            "label": "$16M reserves left",
+            "shape": "box",
+            "color": "#64748b"
+          },
+          {
+            "id": "held",
+            "label": "Unallocated: $1.5M",
+            "shape": "box",
+            "color": "#7c3aed"
+          },
+          {
+            "id": "full",
+            "label": "Back fully: $7.5M",
+            "shape": "box",
+            "color": "#16a34a"
+          },
+          {
+            "id": "cond",
+            "label": "With conditions: $3M",
+            "shape": "box",
+            "color": "#d97706"
+          },
+          {
+            "id": "steady",
+            "label": "Smaller and steady: $4M",
+            "shape": "box",
+            "color": "#2563eb"
+          },
+          {
+            "id": "plan",
+            "label": "Fieldmarket plan holds?",
+            "shape": "circle",
+            "color": "#d97706"
+          },
+          {
+            "id": "bridge",
+            "label": "Bridge with a co-investor",
+            "shape": "box",
+            "color": "#16a34a"
+          },
+          {
+            "id": "wind",
+            "label": "Wind down",
+            "shape": "box",
+            "color": "#dc2626"
+          }
+        ],
+        "edges": [
+          {
+            "from": "reserves",
+            "to": "held"
+          },
+          {
+            "from": "reserves",
+            "to": "full"
+          },
+          {
+            "from": "reserves",
+            "to": "cond"
+          },
+          {
+            "from": "reserves",
+            "to": "steady"
+          },
+          {
+            "from": "held",
+            "to": "plan",
+            "label": "plan due @+3d"
+          },
+          {
+            "from": "plan",
+            "to": "bridge",
+            "label": "yes"
+          },
+          {
+            "from": "plan",
+            "to": "wind",
+            "label": "no"
+          }
+        ]
+      },
+      "calculator": {
+        "title": "Reserves unallocated after earmarks ($M)",
+        "expression": "16 - (3 + 2.5 + 2 + 1.5 + 1 + 0.5 + 1 + 1 + 1 + 0.5 + 0.5)",
+        "result": 1.5
+      },
+      "form": {
+        "title": "Fieldmarket — bridge decision",
+        "fields": [
+          {
+            "type": "heading",
+            "label": "Fieldmarket · bridge or wind down"
+          },
+          {
+            "type": "number",
+            "label": "Runway (months)",
+            "value": "4"
+          },
+          {
+            "type": "number",
+            "label": "Most we'd bridge ($M)",
+            "value": "1.5"
+          },
+          {
+            "type": "date",
+            "label": "Founders' plan due",
+            "value": "@+3d"
+          },
+          {
+            "type": "date",
+            "label": "Meeting with founders",
+            "value": "@+4d"
+          },
+          {
+            "type": "select",
+            "label": "Decision",
+            "options": [
+              "Undecided",
+              "Bridge",
+              "Wind down"
+            ],
+            "value": "Undecided"
+          },
+          {
+            "type": "text",
+            "label": "Partner attending",
+            "value": "Amara"
+          },
+          {
+            "type": "checkbox",
+            "label": "Plan received",
+            "value": false
+          },
+          {
+            "type": "checkbox",
+            "label": "Co-investor lined up",
+            "value": false
+          }
+        ]
+      }
+    }
+  ]
+}

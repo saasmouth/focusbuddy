@@ -1,0 +1,12 @@
+{
+  "persona": "Neurodivergent knowledge workers and visual thinkers",
+  "desk": "Weekly reset — every open loop in one place",
+  "title": "Workshop room before the walk-through",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Architectural interior photograph of an empty community arts workshop room inside a converted timber wharf shed on an Australian harbour: worn timber floorboards, exposed roof trusses, folding tables stacked against one wall, a trolley of stacked chairs, a rolled-up rug, tall multi-paned windows looking out onto calm blue water with a few moored sailing boats and a low bush-covered headland, clear afternoon light falling across the floor, a quiet sense of an event about to be planned, natural colours, vertical framing",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 62,
+  "bytes": 275399,
+  "generatedAt": "2026-10-08T07:07:25.698Z"
+}

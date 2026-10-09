@@ -1,0 +1,38 @@
+{
+  "https://business.gov.au/people/customers/handle-customer-complaints": {
+    "ok": true,
+    "status": 200,
+    "title": "Handle customer complaints | business.gov.au",
+    "bytes": 354823,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "business.gov.au — Handle customer complaints",
+    "checkedAt": "2026-10-08T08:55:04.632Z"
+  },
+  "https://en.wikipedia.org/wiki/Big_bang_adoption": {
+    "ok": true,
+    "status": 200,
+    "title": "Big bang adoption - Wikipedia",
+    "bytes": 102041,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "Wikipedia — Big bang adoption",
+    "checkedAt": "2026-10-08T08:55:05.532Z"
+  },
+  "https://en.wikipedia.org/wiki/Responsibility_assignment_matrix": {
+    "ok": true,
+    "status": 200,
+    "title": "Responsibility assignment matrix - Wikipedia",
+    "bytes": 121773,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "Wikipedia — Responsibility assignment matrix",
+    "checkedAt": "2026-10-08T08:55:05.532Z"
+  },
+  "https://en.wikipedia.org/wiki/Time_management": {
+    "ok": true,
+    "status": 200,
+    "title": "Time management - Wikipedia",
+    "bytes": 212771,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "Wikipedia — Time management (Eisenhower method)",
+    "checkedAt": "2026-10-08T08:55:05.532Z"
+  }
+}

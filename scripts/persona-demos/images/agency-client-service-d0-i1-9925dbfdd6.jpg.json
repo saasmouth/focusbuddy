@@ -1,0 +1,12 @@
+{
+  "persona": "Agency owners and client-service teams",
+  "desk": "Retainer health and capacity — month-end review",
+  "title": "The studio floor, late afternoon",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Architectural interior photograph of a small independent design and marketing agency in a converted Melbourne warehouse, late afternoon. Long shared timber desks carry closed laptops, a few closed sketchbooks, mugs and a jar of pencils. Three people are seen from behind and slightly out of focus: one stands at a cork pinboard of plain colour swatches and fabric offcuts, two talk quietly at the far end of the desk. No computer screens are visible anywhere. Bare whitewashed brick walls with nothing hung on them except that pinboard, potted fiddle-leaf figs, polished concrete floor, steel-framed windows with warm low sun raking across the room and long shadows. Quiet, unhurried atmosphere, muted earthy palette, vertical composition looking down the length of the studio.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 235631,
+  "generatedAt": "2026-10-08T07:23:20.359Z"
+}

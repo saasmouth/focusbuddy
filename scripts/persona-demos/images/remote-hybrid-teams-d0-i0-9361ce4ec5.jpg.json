@@ -1,0 +1,12 @@
+{
+  "persona": "Remote and hybrid teams",
+  "desk": "Three-hub handover — enterprise implementations",
+  "title": "Melbourne, reading the overnight handover",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Candid documentary photograph of an implementation consultant seen from behind and slightly to one side, at a desk in a quiet Melbourne co-working space just after seven in the morning, reading on a laptop whose screen is a soft out-of-focus blur of abstract pale blocks, a reusable coffee cup and an open notebook with blank pages beside it, a large window with pale early-morning light over low-rise inner-city rooftops and bare plane trees, cool blue and warm amber tones, shallow depth of field, calm and unhurried",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 206486,
+  "generatedAt": "2026-10-08T07:25:36.175Z"
+}

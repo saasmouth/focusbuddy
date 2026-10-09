@@ -1,0 +1,12 @@
+{
+  "persona": "Remote and hybrid teams",
+  "desk": "Three-hub handover — enterprise implementations",
+  "title": "Freight depot loading dock, cut-over week",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a regional Australian freight depot at first light: a long concrete loading dock with a row of plain unbranded white semi-trailers backed up to roller doors, a forklift carrying shrink-wrapped pallets, one distant worker in a plain unmarked high-visibility vest walking away from the camera, wet asphalt reflecting the last of the yard lights, low grey cloud breaking to pink, eucalyptus trees beyond a chain-link fence, muted industrial colours, natural light",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 219642,
+  "generatedAt": "2026-10-08T07:25:32.888Z"
+}

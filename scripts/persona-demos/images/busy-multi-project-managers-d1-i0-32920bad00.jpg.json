@@ -1,0 +1,12 @@
+{
+  "persona": "Busy managers balancing several projects",
+  "desk": "Open loops — every follow-up across five projects",
+  "title": "Friday 4pm, the 30-minute review",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Editorial still life photograph of a tidy work desk by a window late on a Friday afternoon: an open notebook with blank cream pages, a black pen resting across it, blank white index cards sorted into four small neat piles, a half-finished flat white in a pale ceramic cup, a closed laptop pushed to one side, low golden sunlight casting long soft shadows across a pale timber desktop, shot from a three-quarter angle above, calm and unhurried, warm natural tones",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 230887,
+  "generatedAt": "2026-10-08T07:16:09.717Z"
+}

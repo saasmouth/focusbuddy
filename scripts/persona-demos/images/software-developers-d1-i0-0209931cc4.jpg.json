@@ -1,0 +1,12 @@
+{
+  "persona": "Software developers",
+  "desk": "Incident review — checkout timeouts",
+  "title": "On call, 7pm",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Moody documentary photograph of an engineer on call in the early evening, seen from behind and slightly to the side at a home desk, laptop screen glowing with an abstract blurred dashboard, phone face-down beside a notebook, warm lamp light against blue dusk through a window, quiet focused atmosphere",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 129455,
+  "generatedAt": "2026-10-08T06:55:55.909Z"
+}

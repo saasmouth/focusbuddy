@@ -1,0 +1,12 @@
+{
+  "persona": "Project and product managers",
+  "desk": "Sprint 14 — shift-swap beta into five venues",
+  "title": "Pilot venue manager training",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a small training session in a suburban Australian café after closing time: three people seen from behind and the side sitting around a timber table with an open laptop turned away from the camera and two phones lying face down, coffee cups and a water jug, chairs upturned on the other tables, warm pendant lights on, dusk-blue light through the front windows, relaxed and focused atmosphere, wide framing with the rest of the room in soft focus.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 233477,
+  "generatedAt": "2026-10-08T07:07:24.388Z"
+}

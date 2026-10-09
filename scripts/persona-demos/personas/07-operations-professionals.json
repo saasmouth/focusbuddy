@@ -1,0 +1,352 @@
+{
+  "number": 7,
+  "slug": "operations-professionals",
+  "persona": "Operations professionals",
+  "category": "Primary early adopters",
+  "room": {
+    "title": "Operations Professionals",
+    "description": "How an operations coordinator runs a warehouse cutover and a supplier onboarding push in the same week — the counts, the run-book, the compliance checks and what's still being chased, all on one surface."
+  },
+  "desks": [
+    {
+      "title": "Fulfilment cutover — Riverside warehouse to the Eastgate 3PL",
+      "description": "Moving 79 pallets and every live order out of our own warehouse and into the 3PL: transfer counts, the go-live run-book and the barcode gap that could stall receiving.",
+      "dueInDays": 6,
+      "brief": "## Fulfilment cutover — Riverside to Eastgate\n\n**Business** Larchmere Home · homewares, online and wholesale\n**Go-live** orders route to the Eastgate 3PL from @+6d\n**Order hold** 48 hours before go-live — nothing dispatches while the last pallets move\n**Riverside lease** ends @+20d, so there is no second attempt\n\n### What moves\n- 79 pallets, 15,820 units, 10 product lines, 612 active SKUs\n- Open wholesale orders and the returns stock\n- Carrier pickups switch from Riverside to Eastgate's dock\n\n### Definition of done\n- Every pallet counted in at Eastgate, unit variance under 0.5%\n- First 200 orders picked at 99.5% accuracy or better\n- Same-day dispatch for orders in by 2pm, from day one\n\n### Where it stands\n38 of 79 pallets are counted in. Variance on those is 30 units (0.37%), inside tolerance — glassware is the exception, with 18 broken units now on a freight claim. **The real risk is 41 SKUs with no barcode**: Eastgate can't receive them until they're labelled.",
+      "callout": {
+        "title": "Blocking: 41 SKUs with no barcode",
+        "body": "Eastgate's system won't receive a SKU it can't scan. 41 SKUs, mostly gift sets and storage jars, need labels printed and applied before the storage pallets leave Riverside @+2d. Labels are the Cobalt trial order on the supplier desk.",
+        "accent": "#ef4444",
+        "icon": "⚠️"
+      },
+      "table": {
+        "title": "Stock transfer by product line",
+        "columns": [
+          { "id": "line", "label": "Product line", "type": "text-short" },
+          { "id": "pallets", "label": "Pallets", "type": "number" },
+          { "id": "out", "label": "Units out (Riverside count)", "type": "number" },
+          { "id": "in", "label": "Units in (Eastgate count)", "type": "number" },
+          { "id": "variance", "label": "Variance", "type": "number" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Counted in", "In transit", "Booked", "Not booked"] },
+          { "id": "note", "label": "Note", "type": "text-short" }
+        ],
+        "rows": [
+          { "line": "Cookware", "pallets": 14, "out": 2240, "in": 2236, "variance": -4, "status": "Counted in", "note": "4 short — recount @+1d" },
+          { "line": "Bakeware", "pallets": 9, "out": 1620, "in": 1620, "variance": 0, "status": "Counted in", "note": "Clean" },
+          { "line": "Glassware", "pallets": 11, "out": 3300, "in": 3282, "variance": -18, "status": "Counted in", "note": "18 broken — freight claim lodged" },
+          { "line": "Knives & boards", "pallets": 4, "out": 860, "in": 852, "variance": -8, "status": "Counted in", "note": "8 short — check the returns cage" },
+          { "line": "Tableware", "pallets": 12, "out": 2880, "status": "In transit", "note": "Arrives @today" },
+          { "line": "Linen & textiles", "pallets": 6, "out": 1450, "status": "In transit", "note": "Arrives @+1d" },
+          { "line": "Storage & jars", "pallets": 8, "out": 2100, "status": "Booked", "note": "Pickup @+2d — barcodes first" },
+          { "line": "Small appliances", "pallets": 7, "out": 420, "status": "Booked", "note": "Pickup @+2d" },
+          { "line": "Gift sets", "pallets": 5, "out": 640, "status": "Not booked", "note": "Barcodes outstanding" },
+          { "line": "Returns & seconds", "pallets": 3, "out": 310, "status": "Not booked", "note": "Grade before moving" }
+        ]
+      },
+      "chart": {
+        "title": "Pallets by transfer status",
+        "type": "pie",
+        "x": "status",
+        "series": [{ "column": "pallets", "agg": "sum", "label": "Pallets" }]
+      },
+      "mindmap": {
+        "title": "Cutover plan",
+        "root": {
+          "label": "Riverside → Eastgate cutover",
+          "children": [
+            { "label": "Before the hold", "children": [
+              { "label": "Barcode the 41 SKUs", "kind": "task" },
+              { "label": "Book gift sets + returns pickup", "kind": "task" },
+              { "label": "SKU master loaded at Eastgate", "kind": "task" },
+              { "label": "Carrier pickup address change", "kind": "task" }
+            ]},
+            { "label": "48h order hold", "children": [
+              { "label": "Banner + checkout message live", "kind": "task" },
+              { "label": "Wholesale customers told", "kind": "task" },
+              { "label": "What about express orders?", "kind": "question" }
+            ]},
+            { "label": "Go-live day", "children": [
+              { "label": "10 test orders, 3 carriers", "kind": "task" },
+              { "label": "Pick accuracy on the first 200", "kind": "task" },
+              { "label": "Order sync every 15 min", "kind": "tool" }
+            ]},
+            { "label": "First fortnight", "children": [
+              { "label": "Daily variance + late-order report", "kind": "task" },
+              { "label": "Returns address on packing slips", "kind": "task" },
+              { "label": "Who signs off SLA credits?", "kind": "question" }
+            ]},
+            { "label": "Riverside exit", "children": [
+              { "label": "Racking: sell or scrap?", "kind": "question" },
+              { "label": "Final sweep + keys back @+20d", "kind": "task" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Go-live run-book",
+        "blocks": [
+          { "h3": "Go-live day — run-book" },
+          { "p": "One owner per step. If a step fails, stop and call the next name before moving on — orders stay held until step 6 is done." },
+          { "ol": [
+            "06:00 — Rhys confirms the last pallets are counted in and the variance is logged",
+            "07:00 — Order sync switched from Riverside to Eastgate in the store admin; old pick list disabled",
+            "07:30 — Ten test orders across all three carriers; Carmen confirms they land in the 3PL queue",
+            "09:00 — Test parcels scanned out; tracking numbers reach the customer emails",
+            "10:00 — Hana publishes the 'where is my order' macro for the hold backlog",
+            "11:00 — Hold released; about 640 held orders pick in order-date sequence"
+          ]},
+          { "h4": "If it goes wrong" },
+          { "p": "If test orders haven't synced by 09:00, the hold extends by one day. **No orders route back to Riverside once stock has left** — Carmen and Rhys make the call together." },
+          { "h4": "Who to call" },
+          { "ul": [
+            "Eastgate dock and receiving — Carmen",
+            "Riverside floor and the last pallets — Rhys",
+            "Customer service macro and backlog emails — Hana",
+            "Store admin and order sync — me"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Ops stand-up — what I'm holding",
+          "body": "Context I'd otherwise lose between the dock and the inbox:\n\n- Glassware claim: photos sent to the carrier, they want the pallet labels too\n- Cookware 4 short, knives 8 short — probably the returns cage; recount @+1d before raising anything\n- Carmen says Eastgate's real cutoff is 1:30pm to make the 2pm promise\n- Packing slips still print the Riverside returns address\n\nAsk Eastgate: can they apply barcodes on receipt, and what does it cost per unit?"
+        }
+      ],
+      "stickies": [
+        { "title": "Today", "body": "1. Barcode list to Cobalt\n2. Book gift sets pickup\n3. Recount cookware + knives\n4. 2pm call with Carmen", "color": "#fef08a" },
+        { "title": "Don't forget", "body": "Returns address on the website, packing slips and the auto-reply — before go-live.", "color": "#fed7aa" }
+      ],
+      "fields": [
+        { "label": "Pallets counted in", "type": "number", "value": 38, "suffix": " / 79" },
+        { "label": "Variance on counted lines", "type": "number", "value": 0.37, "suffix": "%" },
+        { "label": "Cutover stage", "type": "single-select", "options": ["Planning", "Stock moving", "Order hold", "Live on 3PL"], "value": "Stock moving" }
+      ],
+      "browsers": [
+        { "title": "GS1 Australia — Barcode types", "url": "https://www.gs1au.org/standards/barcodes" },
+        { "title": "GS1 Australia — Serial Shipping Container Code (SSCC)", "url": "https://www.gs1au.org/standards/id-keys/sscc" }
+      ],
+      "images": [
+        {
+          "title": "Wrapped pallets on the Riverside dock",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a small Australian homewares warehouse in its final moving week: rows of shrink-wrapped pallets stacked with plain unmarked brown cartons staged across a concrete loading dock, a roller door open to an overcast morning with a plain white truck backed up to the dock edge, half-empty steel pallet racking behind, a hand pallet jack in the foreground, one worker in a hi-vis vest seen from behind in the far distance, cool daylight mixed with warm overhead lights, slightly wide angle, realistic and unstaged"
+        },
+        {
+          "title": "Glassware breakage on the receiving bench",
+          "aspect": "square",
+          "prompt": "Editorial still-life photograph from a high three-quarter angle of an opened plain corrugated carton on a stainless steel receiving bench in a warehouse: rows of clear tumblers nested in cardboard divider cells, two of them cracked and broken with a few glass shards lying in their cells, crumpled brown packing paper around the edges, a pair of grey cut-resistant work gloves resting beside the carton, soft even overhead light, muted neutral palette, crisp detail on the glass edges"
+        }
+      ],
+      "diagram": {
+        "title": "Go-live day — the 09:00 decision",
+        "nodes": [
+          { "id": "counted", "label": "06:00 Last pallets counted", "shape": "box", "color": "#64748b" },
+          { "id": "sync", "label": "07:00 Order sync switched", "shape": "box", "color": "#2563eb" },
+          { "id": "tests", "label": "07:30 Ten test orders", "shape": "box", "color": "#2563eb" },
+          { "id": "synced", "label": "Synced by 09:00?", "shape": "circle", "color": "#d97706" },
+          { "id": "scanned", "label": "09:00 Parcels scanned out", "shape": "box", "color": "#0891b2" },
+          { "id": "macro", "label": "10:00 Backlog macro live", "shape": "box", "color": "#0891b2" },
+          { "id": "release", "label": "11:00 Hold released", "shape": "box", "color": "#16a34a" },
+          { "id": "extend", "label": "Hold extends one day", "shape": "box", "color": "#dc2626" }
+        ],
+        "edges": [
+          { "from": "counted", "to": "sync" },
+          { "from": "sync", "to": "tests" },
+          { "from": "tests", "to": "synced", "label": "3 carriers" },
+          { "from": "synced", "to": "scanned", "label": "yes" },
+          { "from": "scanned", "to": "macro" },
+          { "from": "macro", "to": "release", "label": "~640 orders" },
+          { "from": "synced", "to": "extend", "label": "no" },
+          { "from": "extend", "to": "tests", "label": "retest next day" }
+        ]
+      },
+      "calculator": {
+        "title": "Unit variance on counted lines (%)",
+        "expression": "(4 + 0 + 18 + 8) / (2240 + 1620 + 3300 + 860) * 100",
+        "result": 0.3740648379
+      },
+      "form": {
+        "title": "Freight claim — glassware",
+        "fields": [
+          { "type": "heading", "label": "Glassware · 11 pallets to Eastgate" },
+          { "type": "number", "label": "Units out (Riverside count)", "value": "3300" },
+          { "type": "number", "label": "Units in (Eastgate count)", "value": "3282" },
+          { "type": "number", "label": "Units broken", "value": "18" },
+          { "type": "select", "label": "Claim status", "options": ["Drafted", "Lodged", "Under assessment", "Paid", "Declined"], "value": "Lodged" },
+          { "type": "date", "label": "Lodged", "value": "@-1d" },
+          { "type": "checkbox", "label": "Damage photos sent", "value": true },
+          { "type": "checkbox", "label": "Pallet labels sent", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "Supplier onboarding — eight vendors for the Coastal range",
+      "description": "Getting eight new suppliers from first email to first purchase order: documents, compliance checks, trial orders and the one test report that gates the ceramics order.",
+      "dueInDays": 9,
+      "brief": "## Supplier onboarding — Coastal range\n\n**Scope** 8 new suppliers · packaging, freight, product and services\n**Gate** trial orders only (under $2k) until a supplier is Approved in the finance system\n**Ceramics PO** must be raised by @+9d — 10-week lead time to make the range launch\n\n### Six documents from every supplier\n- Signed supplier agreement, payment terms 30 days end of month\n- Tax and business registration details\n- Bank details, verified by a call-back to a number we found ourselves\n- Certificate of insurance — public and product liability\n- Ethical sourcing questionnaire\n- Product test reports, or a site induction for on-site services\n\n### Where it stands\n33 of 48 documents are in. One supplier is approved and two are running trial orders. Estimated annual spend across all eight is $409k.\n\n**Tidewater Ceramics is the one to watch.** Their food-contact test report is three years old and our limit is two, so the ceramics PO can't be raised until a current report arrives. At $126k a year, Tidewater is 31% of that $409k.",
+      "callout": {
+        "title": "Gate: Tidewater's test report",
+        "body": "Food-contact (lead and cadmium) test reports must be under two years old. Theirs is three. Their lab quotes 7 days for a retest — if it isn't booked by @+2d, the @+9d order date slips and the range launches without ceramics.",
+        "accent": "#f59e0b",
+        "icon": "⏳"
+      },
+      "table": {
+        "title": "Supplier onboarding tracker",
+        "columns": [
+          { "id": "supplier", "label": "Supplier", "type": "text-short" },
+          { "id": "category", "label": "Category", "type": "single-select", "options": ["Packaging", "Freight", "Product", "Services"] },
+          { "id": "stage", "label": "Stage", "type": "single-select", "options": ["Docs requested", "Compliance check", "Trial order", "Approved", "On hold"] },
+          { "id": "docs", "label": "Docs in (of 6)", "type": "number" },
+          { "id": "spend", "label": "Est. annual spend ($k)", "type": "number" },
+          { "id": "owner", "label": "Owner", "type": "text-short" },
+          { "id": "next", "label": "Next step", "type": "text-short" }
+        ],
+        "rows": [
+          { "supplier": "Harrier Corrugated", "category": "Packaging", "stage": "Approved", "docs": 6, "spend": 84, "owner": "Tomas", "next": "First PO raised — range cartons" },
+          { "supplier": "Cobalt Print & Label", "category": "Packaging", "stage": "Trial order", "docs": 6, "spend": 22, "owner": "Tomas", "next": "Trial = the 41 barcode labels, due @+2d" },
+          { "supplier": "Bluegum Freight", "category": "Freight", "stage": "Compliance check", "docs": 5, "spend": 61, "owner": "Aisha", "next": "Bank details call-back" },
+          { "supplier": "Spinifex Couriers", "category": "Freight", "stage": "Docs requested", "docs": 2, "spend": 38, "owner": "Aisha", "next": "Chase insurance certificate" },
+          { "supplier": "Tidewater Ceramics", "category": "Product", "stage": "Compliance check", "docs": 4, "spend": 126, "owner": "Ngozi", "next": "Current food-contact test report" },
+          { "supplier": "Jacaranda Linen Co.", "category": "Product", "stage": "Trial order", "docs": 6, "spend": 47, "owner": "Ngozi", "next": "Inspect 40-unit sample at Eastgate" },
+          { "supplier": "Mossvale Candle Works", "category": "Product", "stage": "Docs requested", "docs": 1, "spend": 19, "owner": "Ngozi", "next": "Resend pack — went to a former employee" },
+          { "supplier": "Northpoint Pallet Hire", "category": "Services", "stage": "On hold", "docs": 3, "spend": 12, "owner": "Aisha", "next": "Wait for Eastgate's pallet pooling answer" }
+        ]
+      },
+      "chart": {
+        "title": "Est. annual spend by category ($k)",
+        "type": "bar",
+        "x": "category",
+        "series": [{ "column": "spend", "agg": "sum", "label": "Annual spend ($k)" }]
+      },
+      "mindmap": {
+        "title": "Supplier risk checks",
+        "root": {
+          "label": "New supplier — what we check",
+          "children": [
+            { "label": "Money", "children": [
+              { "label": "Bank details by call-back only", "kind": "tool" },
+              { "label": "Terms: 30 days end of month", "kind": "idea" },
+              { "label": "Who may change bank details?", "kind": "question" }
+            ]},
+            { "label": "Insurance and legal", "children": [
+              { "label": "Public liability certificate", "kind": "task" },
+              { "label": "Product liability for product lines", "kind": "task" },
+              { "label": "Signed supplier agreement", "kind": "task" }
+            ]},
+            { "label": "Product compliance", "children": [
+              { "label": "Food-contact test under 2 years", "kind": "task" },
+              { "label": "Labelling and country of origin", "kind": "task" },
+              { "label": "Accept the factory's own lab?", "kind": "question" }
+            ]},
+            { "label": "Ethical sourcing", "children": [
+              { "label": "Questionnaire before first PO", "kind": "task" },
+              { "label": "Site audit above $100k spend?", "kind": "question" }
+            ]},
+            { "label": "Operations fit", "children": [
+              { "label": "Lead time and minimum order", "kind": "idea" },
+              { "label": "Delivers to Eastgate, not Riverside", "kind": "task" },
+              { "label": "Advance shipping notice format", "kind": "tool" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Onboarding run-book",
+        "blocks": [
+          { "h3": "How a supplier gets to Approved" },
+          { "p": "The same seven steps for every supplier, in this order. Nobody skips step 4, whoever is asking." },
+          { "ol": [
+            "Owner sends the onboarding pack and logs the supplier here as Docs requested",
+            "Supplier returns the six documents; owner checks each one against the brief",
+            "Finance creates the supplier record as inactive, so nothing can be paid yet",
+            "Bank details verified by phone, to a number we found independently — never one from the same email",
+            "Compliance check: insurance dates, test reports, ethical sourcing answers",
+            "Trial order under $2k, inspected on arrival at Eastgate",
+            "Ops lead approves; finance activates the record and the first PO can go out"
+          ]},
+          { "h4": "Rules that don't bend" },
+          { "ul": [
+            "A bank detail change by email is treated as fraud until a call-back proves otherwise",
+            "Expired insurance sends a supplier back to Compliance check, even mid-order",
+            "Spend estimates are re-checked after the first quarter of real orders"
+          ]},
+          { "quote": "A supplier that's slow with documents now will be slow with stock later." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Supplier calls — what I'm holding",
+          "body": "- Bluegum emailed 'updated' bank details yesterday — call-back to the number on their website, not the one in the email\n- Tidewater's lab can retest in 7 days if samples ship this week; Ngozi is pricing the courier\n- Spinifex's insurance renews @+6d — ask for the new certificate, not the expiring one\n- Northpoint is waiting on us, not the other way round\n\nDecide with finance: do we accept a test report from the factory's own lab, or only from an accredited one?"
+        }
+      ],
+      "stickies": [
+        { "title": "This week", "body": "Call-back to Bluegum\nBook Tidewater retest\nCobalt labels @+2d\nChase Spinifex insurance", "color": "#bbf7d0" },
+        { "title": "Fraud check", "body": "Any 'our bank details have changed' email: stop, and call the number we already hold.", "color": "#fbcfe8" }
+      ],
+      "fields": [
+        { "label": "Suppliers approved", "type": "number", "value": 1, "suffix": " / 8" },
+        { "label": "Documents outstanding", "type": "number", "value": 15, "suffix": " of 48" },
+        { "label": "Ceramics PO deadline", "type": "text-short", "value": "@+9d" }
+      ],
+      "timer": { "title": "Supplier call block", "minutes": 30 },
+      "browsers": [
+        { "title": "AFP — ClickFit: Business Email Compromise (BEC)", "url": "https://www.afp.gov.au/news-centre/feature/clickfit-business-email-compromise-bec" },
+        { "title": "NATA — Test reports explained", "url": "https://nata.com.au/accreditation/nata-test-reports-explained/" }
+      ],
+      "images": [
+        {
+          "title": "Tidewater stoneware samples, Coastal range",
+          "aspect": "landscape",
+          "prompt": "Editorial product still life of handmade coastal-inspired stoneware samples on a pale timber workbench beside a large window: a short stack of shallow bowls and side plates in speckled sea-glass blue, sandy white and deep ocean glazes, two pieces turned upside down to show their raw unglazed clay feet, a folded natural linen cloth beneath, soft morning daylight with gentle shadows, calm and natural mood, shallow depth of field"
+        },
+        {
+          "title": "Linen trial order, opened for inspection",
+          "aspect": "portrait",
+          "prompt": "Overhead flat-lay photograph of a supplier's trial shipment opened for inspection on a clean white table in a bright warehouse: neatly folded linen tea towels and napkins in sand, seafoam and washed navy tones laid out in tidy rows, a few loose fabric swatches with no tags, brown kraft wrapping paper peeled back at one corner, a pair of dark fabric shears, soft diffused daylight, crisp minimal composition, calm coastal palette"
+        }
+      ],
+      "diagram": {
+        "title": "How a supplier gets to Approved",
+        "nodes": [
+          { "id": "pack", "label": "Pack sent, docs requested", "shape": "box", "color": "#64748b" },
+          { "id": "docs", "label": "Six documents checked", "shape": "box", "color": "#2563eb" },
+          { "id": "inactive", "label": "Inactive finance record", "shape": "box", "color": "#7c3aed" },
+          { "id": "bank", "label": "Call-back confirms bank?", "shape": "circle", "color": "#d97706" },
+          { "id": "fraud", "label": "Treat as fraud — stop", "shape": "box", "color": "#dc2626" },
+          { "id": "compliance", "label": "Compliance check", "shape": "box", "color": "#2563eb" },
+          { "id": "trial", "label": "Trial order under $2k", "shape": "box", "color": "#0891b2" },
+          { "id": "approved", "label": "Approved — first PO", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "pack", "to": "docs" },
+          { "from": "docs", "to": "inactive" },
+          { "from": "inactive", "to": "bank" },
+          { "from": "bank", "to": "compliance", "label": "yes" },
+          { "from": "bank", "to": "fraud", "label": "no" },
+          { "from": "compliance", "to": "trial" },
+          { "from": "trial", "to": "approved", "label": "ops lead signs" },
+          { "from": "trial", "to": "compliance", "label": "insurance expired" }
+        ]
+      },
+      "calculator": {
+        "title": "Tidewater's share of est. annual spend (%)",
+        "expression": "126 / (84 + 22 + 61 + 38 + 126 + 47 + 19 + 12) * 100",
+        "result": 30.8068459658
+      },
+      "form": {
+        "title": "Bank detail change — Bluegum Freight",
+        "fields": [
+          { "type": "heading", "label": "Call-back before any payment" },
+          { "type": "select", "label": "Change requested by", "options": ["Email", "Phone", "Letter"], "value": "Email" },
+          { "type": "date", "label": "Request received", "value": "@-1d" },
+          { "type": "text", "label": "Call-back number from", "value": "Bluegum's own website" },
+          { "type": "text", "label": "Call-back owner", "value": "Aisha" },
+          { "type": "date", "label": "Call back by", "value": "@+1d" },
+          { "type": "select", "label": "Outcome", "options": ["Pending", "Confirmed", "Suspected fraud"], "value": "Pending" },
+          { "type": "checkbox", "label": "Finance record still inactive", "value": true },
+          { "type": "checkbox", "label": "Call-back completed", "value": false }
+        ]
+      }
+    }
+  ]
+}

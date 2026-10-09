@@ -1,0 +1,12 @@
+{
+  "persona": "IT administrators and workspace owners",
+  "desk": "New workspace rollout — waves, groups and access by department",
+  "title": "Toolbox talk, civil site compound",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of an early-morning toolbox talk at a civil engineering site compound in regional New South Wales: six site workers in plain unmarked orange high-visibility vests and white hard hats stand in a loose semicircle around a fold-out table, seen from behind and at a distance, one holding a tablet whose screen is only a soft glow. Gravel yard, portable site sheds and a parked excavator out of focus behind them, low golden sun, long shadows, a little dust in the air, eucalypts on the horizon, natural colours, 35mm lens feel",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 269755,
+  "generatedAt": "2026-10-08T07:26:29.364Z"
+}

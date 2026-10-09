@@ -1,0 +1,38 @@
+{
+  "https://en.wikipedia.org/wiki/Scope_creep": {
+    "ok": true,
+    "status": 200,
+    "title": "Scope creep - Wikipedia",
+    "bytes": 157089,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "Wikipedia — Scope creep",
+    "checkedAt": "2026-10-08T08:55:11.903Z"
+  },
+  "https://business.gov.au/people/contractors/hiring-contractors": {
+    "ok": true,
+    "status": 200,
+    "title": "Hiring contractors | business.gov.au",
+    "bytes": 361837,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "business.gov.au — Hiring contractors",
+    "checkedAt": "2026-10-08T08:55:12.438Z"
+  },
+  "https://www.ipaustralia.gov.au/trade-marks/how-to-apply-for-a-trade-mark/what-to-consider-before-applying-for-a-trade-mark": {
+    "ok": true,
+    "status": 200,
+    "title": "What to consider before applying for a trade mark | IP Australia",
+    "bytes": 400000,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "IP Australia — Before applying for a trade mark",
+    "checkedAt": "2026-10-08T08:55:12.438Z"
+  },
+  "https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Understanding_WCAG/Perceivable/Color_contrast": {
+    "ok": true,
+    "status": 200,
+    "title": "Color contrast - Accessibility | MDN",
+    "bytes": 170469,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "MDN — Colour contrast",
+    "checkedAt": "2026-10-08T08:55:12.438Z"
+  }
+}

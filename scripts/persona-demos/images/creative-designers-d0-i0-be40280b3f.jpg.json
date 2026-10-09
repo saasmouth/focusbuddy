@@ -1,0 +1,12 @@
+{
+  "persona": "Graphic, product and creative designers",
+  "desk": "Wandoo Hill Roasters — identity refresh",
+  "title": "Bag and sleeve proofs on the bench",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay photograph on a pale oak design-studio bench: two plain matte stand-up coffee bags with no printing, one warm cream and one muted eucalyptus green; a paper takeaway cup wearing a plain cream sleeve; a small heap of medium-roast coffee beans; a fan of plain painted paper colour chips in deep bark brown, cream, off-white, burnt orange and sage green; a sheet of tracing paper showing one continuous pencil line that traces a gentle hill ridge; a pencil and a scalpel. Soft north-facing daylight, gentle long shadows, calm editorial still life with natural paper and kraft textures.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 68,
+  "bytes": 266996,
+  "generatedAt": "2026-10-08T07:10:58.675Z"
+}

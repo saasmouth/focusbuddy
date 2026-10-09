@@ -1,0 +1,30 @@
+{
+  "https://business.gov.au/marketing-and-advertising/promoting-your-business-by-email-or-text-messages": {
+    "ok": true,
+    "title": "Promoting your business by email or text messages | business.gov.au",
+    "finalUrl": "https://business.gov.au/marketing-and-advertising/promoting-your-business-by-email-or-text-messages",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://business.gov.au/finance/tax/lodge-and-pay-tax": {
+    "ok": true,
+    "title": "Lodge and pay tax | business.gov.au",
+    "finalUrl": "https://business.gov.au/finance/tax/lodge-and-pay-tax",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://grafana.com/docs/k6/latest/testing-guides/test-types/spike-testing/": {
+    "ok": true,
+    "title": "Spike testing | Grafana k6 documentation",
+    "finalUrl": "https://grafana.com/docs/k6/latest/testing-guides/test-types/spike-testing/",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  },
+  "https://webaim.org/techniques/captions/": {
+    "ok": true,
+    "title": "WebAIM: Captions, Transcripts, and Audio Descriptions",
+    "finalUrl": "https://webaim.org/techniques/captions/",
+    "where": "desks[1].browsers[1]",
+    "pass": true
+  }
+}

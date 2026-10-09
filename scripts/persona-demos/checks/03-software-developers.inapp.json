@@ -1,0 +1,23 @@
+{
+  "https://httpwg.org/specs/rfc9110.html": {
+    "ok": true,
+    "title": "RFC 9110 - HTTP Semantics",
+    "finalUrl": "https://httpwg.org/specs/rfc9110.html",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://developer.mozilla.org/en-US/docs/Glossary/Idempotent": {
+    "ok": true,
+    "title": "Idempotent - Glossary | MDN",
+    "finalUrl": "https://developer.mozilla.org/en-US/docs/Glossary/Idempotent",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://sre.google/sre-book/postmortem-culture/": {
+    "ok": true,
+    "title": "Google SRE - Blameless Postmortem for System Resilience",
+    "finalUrl": "https://sre.google/sre-book/postmortem-culture/",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  }
+}

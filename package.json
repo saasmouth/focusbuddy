@@ -1,6 +1,6 @@
 {
   "name": "focusbuddy",
-  "version": "4.3.20",
+  "version": "4.3.22",
   "private": true,
   "description": "Task-scoped digital work environment for people with ADHD and high distractibility.",
   "main": "./out/main/index.js",
@@ -47,7 +47,8 @@
     "web:dev": "vite --config vite.web.config.ts",
     "web:build": "node scripts/derive-web-channel-map.cjs && vite build --config vite.web.config.ts",
     "web:preview": "vite preview --config vite.web.config.ts --port 5180",
-    "typecheck:webruntime": "tsc --noEmit -p tsconfig.webruntime.json"
+    "typecheck:webruntime": "tsc --noEmit -p tsconfig.webruntime.json",
+    "install:local": "bash scripts/install-local.sh"
   },
   "engines": {
     "node": ">=20.0.0 <23.0.0"

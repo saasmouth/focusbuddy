@@ -1,0 +1,12 @@
+{
+  "persona": "CEOs and business owners",
+  "desk": "Quarterly priorities and board update",
+  "title": "Hospital nurses' station joinery, installed",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Architectural interior photograph of a newly completed hospital ward nurses' station: a long gently curved counter in pale blond timber veneer with a seamless white solid-surface top and rounded edges, integrated handle-less drawers and cupboards, a lower wheelchair-height section, soft indirect lighting, bare pale walls with no signage, a quiet clean corridor beyond, no people. Calm clinical palette, wide angle at counter height, crisp detail in the timber grain.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 152918,
+  "generatedAt": "2026-10-08T07:21:38.004Z"
+}

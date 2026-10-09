@@ -1,0 +1,12 @@
+{
+  "persona": "Real estate agents and property managers",
+  "desk": "Rent roll — maintenance queue and owner approvals",
+  "title": "Storm-damaged fence, Casuarina Court",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a suburban Australian backyard the morning after a storm: a weathered grey timber paling fence with a run of palings knocked flat onto wet grass and one rail hanging loose, scattered gum leaves and small branches across the lawn, shallow puddles reflecting a grey sky that is clearing to soft light, a plain corrugated steel fence in the background. Wide eye-level framing, honest condition-report feel, no people.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 44,
+  "bytes": 278915,
+  "generatedAt": "2026-10-08T07:14:20.804Z"
+}

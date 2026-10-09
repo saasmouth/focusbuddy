@@ -1,0 +1,30 @@
+{
+  "https://education.nsw.gov.au/about-us/how-we-communicate/accessibility-basics/creating-accessible-videos": {
+    "ok": true,
+    "title": "Creating accessible videos",
+    "finalUrl": "https://education.nsw.gov.au/about-us/how-we-communicate/accessibility-basics/creating-accessible-videos",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://analysisfunction.civilservice.gov.uk/policy-store/data-visualisation-charts/": {
+    "ok": true,
+    "title": "Data visualisation: charts – Government Analysis Function",
+    "finalUrl": "https://analysisfunction.civilservice.gov.uk/policy-store/data-visualisation-charts/",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://www.postgresql.org/docs/current/tutorial-join.html": {
+    "ok": true,
+    "title": "PostgreSQL: Documentation: 18: 2.6. Joins Between Tables",
+    "finalUrl": "https://www.postgresql.org/docs/current/tutorial-join.html",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  },
+  "https://www.postgresql.org/docs/current/tutorial-agg.html": {
+    "ok": true,
+    "title": "PostgreSQL: Documentation: 18: 2.7. Aggregate Functions",
+    "finalUrl": "https://www.postgresql.org/docs/current/tutorial-agg.html",
+    "where": "desks[1].browsers[1]",
+    "pass": true
+  }
+}

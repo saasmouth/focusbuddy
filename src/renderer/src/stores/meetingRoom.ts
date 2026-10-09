@@ -14,6 +14,8 @@ import { saveMeetingNotesDoc } from '../lib/meetingWrapup'
 import { useWrapupStore } from './wrapup'
 import { useAccountStore } from './account'
 import { personDisplayName } from '../lib/personName'
+import { bodyDoubleMedia, bodyDoubleRoomTitle } from '../lib/bodyDoubleMedia'
+import type { BodyDoubleMode } from '@shared/types'
 
 // PlexiMeet live rooms: a multi-party meeting built as a WebRTC mesh. Each member
 // holds one peer connection to every other member; the signal server only relays
@@ -60,6 +62,15 @@ export interface MeetingInvite {
 // Plexii stays the focus and the user can navigate around while the call runs.
 export type MeetingLayout = 'stage' | 'collaborate'
 export type DockSide = 'left' | 'right' | 'top' | 'bottom'
+
+// A body-double room: a private two-person room the matching service minted
+// for two strangers. It is still a PlexiiMeet mesh, with stricter rules — the
+// microphone follows the agreed mode, and nothing that would expose either
+// person further (recording, invites, screen sharing, saved notes) is offered.
+export interface BodyDoubleRoom {
+  mode: BodyDoubleMode
+  partnerHandle: string
+}
 
 const DOCK_KEY = 'fb.meet.dockSide'
 function loadDockSide(): DockSide {
@@ -110,6 +121,10 @@ interface MeetingRoomStore {
    *  join time otherwise — a moment is a moment either way). */
   moments: number[]
   joinedAtMs: number | null
+  /** Set while the live room is a body-double pairing (see BodyDoubleRoom). */
+  bodyDouble: BodyDoubleRoom | null
+  /** Greetings mode: when the intro ends and the mic auto-mutes. */
+  introEndsAt: number | null
 
   init: () => void
   setLayout: (layout: MeetingLayout) => void
@@ -123,6 +138,10 @@ interface MeetingRoomStore {
   markMoment: () => void
   start: (title?: string) => Promise<string | null>
   join: (roomId: string, title?: string) => Promise<void>
+  /** Join a body-double pair room. Resolves true once in the room; false when
+   *  another meeting is live or the camera/mic could not be opened (`error`
+   *  then says which). */
+  joinBodyDouble: (roomId: string, room: BodyDoubleRoom) => Promise<boolean>
   invite: (peer: { accountId: string; handle: string }) => void
   leave: () => void
   toggleMute: () => void
@@ -153,6 +172,8 @@ let announcedScreenSid = new Map<string, string>()
 // M1 — the per-track recorder (C1, ruled foundation): one attributed take
 // per consented participant plus a mixed blob for the legacy wrap-up.
 let recorder: MeetingTrackRecorder | null = null
+// Greetings mode: the timer that mutes the mic when the intro window passes.
+let introTimer: ReturnType<typeof setTimeout> | null = null
 
 function genRoomId(): string {
   return `meet-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`
@@ -296,6 +317,8 @@ export const useMeetingRoomStore = create<MeetingRoomStore>((set, get) => {
   }
 
   function teardown(): void {
+    if (introTimer) clearTimeout(introTimer)
+    introTimer = null
     for (const id of [...peers.keys()]) dropPeer(id)
     peers = new Map()
     screenSenders = new Map()
@@ -321,9 +344,43 @@ export const useMeetingRoomStore = create<MeetingRoomStore>((set, get) => {
       notes: '',
       moments: [],
       joinedAtMs: null,
+      bodyDouble: null,
+      introEndsAt: null,
       // Next meeting starts on the stage; dockSide preference is kept.
       layout: 'stage'
     })
+  }
+
+  // Open the camera (and the mic, when asked) and announce the join. Shared by
+  // ordinary meetings and body-double rooms; resolves with status 'in' on
+  // success, or back at 'idle' with `error` saying what the OS refused.
+  async function enterRoom(
+    roomId: string,
+    title: string | null,
+    media: { audio: boolean },
+    bodyDouble: BodyDoubleRoom | null
+  ): Promise<void> {
+    set({ status: 'joining', error: null, roomId, title, participants: {}, bodyDouble })
+    try {
+      const local = await navigator.mediaDevices.getUserMedia({ audio: media.audio, video: true })
+      // M1 (S3-DEC-024) — recording is OFF until a person starts it, in the
+      // room, through the consent flow. The old behaviour (a saved
+      // preference silently starting capture at join, with no one told) is
+      // deliberately gone and must not return: no preference, calendar rule
+      // or rejoin ever starts a recording.
+      set({ localStream: local, status: 'in', incomingInvite: null, joinedAtMs: Date.now() })
+      // Announce; the server replies with the roster and we offer to each member.
+      sendSocketMessage({ type: 'meetingJoin', payload: { roomId, title: title ?? undefined } })
+    } catch {
+      set({
+        status: 'idle',
+        roomId: null,
+        bodyDouble: null,
+        error: media.audio
+          ? 'Could not access your microphone or camera. Check system permissions.'
+          : 'Could not access your camera. Check system permissions.'
+      })
+    }
   }
 
   async function flush(conn: PeerConn): Promise<void> {
@@ -518,6 +575,8 @@ export const useMeetingRoomStore = create<MeetingRoomStore>((set, get) => {
     notes: '',
     moments: [],
     joinedAtMs: null,
+    bodyDouble: null,
+    introEndsAt: null,
 
     setLayout: (layout) => set({ layout }),
     setDockSide: (side) => {
@@ -535,6 +594,8 @@ export const useMeetingRoomStore = create<MeetingRoomStore>((set, get) => {
     // default (the old code both persisted a global pref and captured every
     // peer instantly, untold; both behaviours are deliberately gone).
     setTranscribing: (on) => {
+      // A body-double partner is a stranger: their session is never recorded.
+      if (get().bodyDouble) return
       const me = useAccountStore.getState().account?.id ?? ''
       if (on && !recorder && get().status === 'in') {
         // M2 (CR-11) — meeting audio transcribes on-device, so warm the
@@ -635,25 +696,39 @@ export const useMeetingRoomStore = create<MeetingRoomStore>((set, get) => {
 
     join: async (roomId, title) => {
       if (get().status !== 'idle') return
-      set({ status: 'joining', error: null, roomId, title: title ?? null, participants: {} })
-      try {
-        const local = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
-        // M1 (S3-DEC-024) — recording is OFF until a person starts it, in the
-        // room, through the consent flow. The old behaviour (a saved
-        // preference silently starting capture at join, with no one told) is
-        // deliberately gone and must not return: no preference, calendar rule
-        // or rejoin ever starts a recording.
-        set({ localStream: local, status: 'in', incomingInvite: null, joinedAtMs: Date.now() })
-        // Announce; the server replies with the roster and we offer to each member.
-        sendSocketMessage({ type: 'meetingJoin', payload: { roomId, title: title ?? undefined } })
-      } catch {
-        set({ status: 'idle', roomId: null, error: 'Could not access your microphone or camera. Check system permissions.' })
+      await enterRoom(roomId, title ?? null, { audio: true }, null)
+    },
+
+    // A body-double room docks to the side (collaborate) so the session sits
+    // beside the work instead of covering it. The mic follows the mode.
+    joinBodyDouble: async (roomId, room) => {
+      if (get().status !== 'idle') {
+        set({ error: 'Leave your current meeting to see your body double.' })
+        return false
       }
+      const plan = bodyDoubleMedia(room.mode)
+      await enterRoom(roomId, bodyDoubleRoomTitle(room.partnerHandle), { audio: plan.audio }, room)
+      if (get().status !== 'in' || get().roomId !== roomId) return false
+      const local = get().localStream
+      if (plan.startMuted) local?.getAudioTracks().forEach((t) => (t.enabled = false))
+      set({ muted: plan.startMuted, layout: 'collaborate' })
+      if (plan.introMs !== null) {
+        set({ introEndsAt: Date.now() + plan.introMs })
+        introTimer = setTimeout(() => {
+          introTimer = null
+          if (get().roomId !== roomId) return
+          get().localStream?.getAudioTracks().forEach((t) => (t.enabled = false))
+          set({ muted: true, introEndsAt: null })
+        }, plan.introMs)
+      }
+      return true
     },
 
     invite: (peer) => {
       const { roomId, title } = get()
       if (!roomId) return
+      // Nobody is rung into a body-double room (the server refuses it too).
+      if (get().bodyDouble) return
       sendSocketMessage({ type: 'meetingInvite', payload: { roomId, to: peer.accountId, title: title ?? undefined } })
     },
 
@@ -665,6 +740,8 @@ export const useMeetingRoomStore = create<MeetingRoomStore>((set, get) => {
     // the OS permission, we surface that and stay unshared.
     startScreenShare: async () => {
       if (get().sharingScreen || get().status !== 'in') return
+      // A stranger never sees your screen; body doubling shares presence only.
+      if (get().bodyDouble) return
       let display: MediaStream
       try {
         display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
@@ -763,7 +840,7 @@ export const useMeetingRoomStore = create<MeetingRoomStore>((set, get) => {
             })
           }
         })
-      } else if (notes.trim() || moments.length) {
+      } else if (!get().bodyDouble && (notes.trim() || moments.length)) {
         // Notes without a recording are still the meeting's record — the
         // Stage is notes-first, recording-optional. Saved verbatim.
         void saveMeetingNotesDoc(title, notes, moments, Date.now())
@@ -784,6 +861,8 @@ export const useMeetingRoomStore = create<MeetingRoomStore>((set, get) => {
     toggleMute: () => {
       const s = get().localStream
       if (!s) return
+      // Silent body doubling never opened a microphone; there is nothing to unmute.
+      if (s.getAudioTracks().length === 0) return
       const next = !get().muted
       s.getAudioTracks().forEach((t) => (t.enabled = !next))
       set({ muted: next })

@@ -1,0 +1,12 @@
+{
+  "persona": "Architects and design studios",
+  "desk": "Juniper Street townhouses — DA lodgement in 9 days",
+  "title": "The corner block and its three street trees",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a quiet corner block in an established inner-suburban Australian street on an overcast morning, taken at eye level from across the road: three mature street trees with broad canopies along the grass verge, a modest older brick cottage set back behind an overgrown front garden, neighbouring red-brick houses with timber verandahs and pitched roofs continuing down the street, a concrete footpath, no people, no cars, soft flat light, natural muted colours",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 50,
+  "bytes": 256359,
+  "generatedAt": "2026-10-08T07:14:54.622Z"
+}

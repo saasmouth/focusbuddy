@@ -1,0 +1,328 @@
+{
+  "number": 21,
+  "slug": "ceos-business-owners",
+  "persona": "CEOs and business owners",
+  "category": "Team and buying personas",
+  "room": {
+    "title": "CEOs and Business Owners",
+    "description": "How the owner of an established business holds the whole thing on one surface — the quarter's priorities, the board conversation, cash and the hires that matter, side by side instead of in five reports from five people."
+  },
+  "desks": [
+    {
+      "title": "Quarterly priorities and board update",
+      "description": "Nine priorities, one owner each, at week 8 of 13: what's on track, the single cause behind the three at risk, and the CEO report the board will read @+12d.",
+      "dueInDays": 12,
+      "brief": "## Quarterly priorities and board update\n\n**Business** Tallowwood Joinery · commercial fit-out joinery · 118 people · $41M revenue\n**Quarter** week 8 of 13 · **Board meeting** @+12d · **Pack to the chair** @+5d\n\n### The nine priorities\nSet at the planning day, one owner each. Five on track, three at risk, one off track.\n\n### What the board will ask\n- Why on-time delivery is stuck at 87% when CNC line 2 was meant to fix it\n- Whether 28.5% gross margin is a pricing problem or a waste problem\n- When the job-costing replacement actually starts\n\n### My read\nThe three at-risk priorities are one problem. Line 2 is six weeks late, so we're running overtime, missing dates and eating margin. **Fix line 2 and the other two move with it.**",
+      "callout": {
+        "title": "One cause, three red flags",
+        "body": "CNC line 2 slipped six weeks waiting on the installer. Overtime is running at about $48k a month and on-time delivery is 87% against 92%. Ana has a committed recovery date of @+18d — the board update leads with it.",
+        "accent": "#ef4444",
+        "icon": "🎯"
+      },
+      "table": {
+        "title": "This quarter's priorities",
+        "columns": [
+          { "id": "priority", "label": "Priority", "type": "text-short" },
+          { "id": "area", "label": "Area", "type": "single-select", "options": ["Growth", "Operations", "Customers", "People", "Finance"] },
+          { "id": "owner", "label": "Owner", "type": "text-short" },
+          { "id": "progress", "label": "Progress (%)", "type": "number" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["On track", "At risk", "Off track", "Done"] }
+        ],
+        "rows": [
+          { "priority": "Win two hospital fit-out tenders", "area": "Growth", "owner": "Marcus", "progress": 50, "status": "On track" },
+          { "priority": "Commission CNC line 2", "area": "Operations", "owner": "Ana", "progress": 70, "status": "At risk" },
+          { "priority": "On-time delivery to 92%", "area": "Customers", "owner": "Ana", "progress": 60, "status": "At risk" },
+          { "priority": "Hire an operations manager", "area": "People", "owner": "Helen", "progress": 40, "status": "On track" },
+          { "priority": "Gross margin back to 31%", "area": "Finance", "owner": "Raj", "progress": 55, "status": "At risk" },
+          { "priority": "Replace the job-costing system", "area": "Operations", "owner": "Raj", "progress": 20, "status": "Off track" },
+          { "priority": "Zero lost-time injuries", "area": "People", "owner": "Ana", "progress": 62, "status": "On track" },
+          { "priority": "Next year's plan agreed by the board", "area": "Finance", "owner": "Helen", "progress": 30, "status": "On track" },
+          { "priority": "Renew the top three customer contracts", "area": "Customers", "owner": "Marcus", "progress": 67, "status": "On track" }
+        ]
+      },
+      "chart": {
+        "title": "Progress by priority (%)",
+        "type": "bar",
+        "x": "priority",
+        "series": [{ "column": "progress", "agg": "sum" }]
+      },
+      "mindmap": {
+        "title": "Board update — storyline",
+        "root": {
+          "label": "Board update @+12d",
+          "children": [
+            { "label": "The headline", "children": [
+              { "label": "Revenue on plan, margin behind", "kind": "idea" },
+              { "label": "Line 2 is the cause", "kind": "idea" }
+            ]},
+            { "label": "Bad news first", "children": [
+              { "label": "On-time delivery 87% vs 92%", "kind": "idea" },
+              { "label": "Job-costing project slipped", "kind": "idea" }
+            ]},
+            { "label": "Wins", "children": [
+              { "label": "First hospital tender won — $3.2M", "kind": "idea" },
+              { "label": "Two of three key contracts renewed", "kind": "idea" }
+            ]},
+            { "label": "Asks of the board", "children": [
+              { "label": "Agree the direction of next year's plan", "kind": "task" },
+              { "label": "Approve the $420k edge-bander?", "kind": "question" }
+            ]},
+            { "label": "Questions I want them on", "children": [
+              { "label": "Price rise on new quotes?", "kind": "question" },
+              { "label": "Residential work: hold or exit?", "kind": "question" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "CEO report — draft",
+        "blocks": [
+          { "h3": "CEO report — draft for the board" },
+          { "p": "Revenue for the quarter to date is $6.4M, 2% ahead of plan. Gross margin is **28.5% against a 31% target** — about $160k behind, and most of it traces back to one cause." },
+          { "h4": "Operations" },
+          { "p": "CNC line 2 is six weeks late because the installer missed two commissioning dates. Until it runs we carry about $48k a month in overtime, and on-time delivery sits at 87% against 92%. Ana has a committed recovery date of @+18d, with the penalty clause in play." },
+          { "h4": "Customers and growth" },
+          { "ul": [
+            "Won the first of two hospital fit-out tenders: $3.2M over 14 months",
+            "Decision on the second tender @+9d",
+            "Two of the top three customer contracts renewed; the third is in negotiation"
+          ]},
+          { "h4": "People and safety" },
+          { "p": "Operations manager shortlist of three, final interviews @+6d. No lost-time injuries so far this quarter." },
+          { "h4": "What I'm asking the board for" },
+          { "ol": [
+            "Agreement on the direction of next year's plan: grow hospital and education work",
+            "In-principle approval of a $420k edge-bander, paid after the plant shutdown",
+            "A first view on residential work, hold or exit — no proposal yet, I want your questions first"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "1:1s this week — what I'm holding",
+          "body": "- Ana: the installer has committed to @+18d. She wants the penalty clause enforced — agreed\n- Raj: the margin gap is roughly 60% overtime, 40% offcuts and rework. Job-costing slipped because he's been buried in that analysis\n- Marcus: second hospital tender decision @+9d; our price was sharp\n- The chair wants next year's plan as a one-page summary, not a deck"
+        }
+      ],
+      "stickies": [
+        { "title": "This week", "body": "1. Final edits to the CEO report\n2. Ops manager final interviews\n3. Call the installer's MD with Ana", "color": "#fef08a" },
+        { "title": "Residential", "body": "Raise it as a question for the board. Don't propose an answer yet.", "color": "#bae6fd" }
+      ],
+      "fields": [
+        { "label": "Priorities on track", "type": "number", "value": 5, "suffix": " / 9" },
+        { "label": "Gross margin", "type": "number", "value": 28.5, "suffix": "% (target 31%)" },
+        { "label": "On-time delivery", "type": "number", "value": 87, "suffix": "% (target 92%)" }
+      ],
+      "browsers": [
+        { "title": "AICD — Board packs", "url": "https://www.aicd.com.au/board-of-directors/meeting/packs.html" },
+        { "title": "Wikipedia — Theory of constraints", "url": "https://en.wikipedia.org/wiki/Theory_of_constraints" }
+      ],
+      "images": [
+        {
+          "title": "CNC line 2, waiting on commissioning",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph inside a large Australian commercial joinery factory: a newly installed CNC panel-processing line, partly still wrapped in clear protective film, with loops of grey cable coiled on the concrete floor and a timber pallet of plain white melamine sheets waiting beside it. Machine housings are plain pale grey and completely unmarked, with no labels, stickers, nameplates, screens or control panels. Behind, timber panels stacked on steel racks in soft focus. Cool morning light from high skylights, fine sawdust in the air, a quiet, waiting atmosphere, natural colours, eye-level wide shot, no people."
+        },
+        {
+          "title": "Hospital nurses' station joinery, installed",
+          "aspect": "landscape",
+          "prompt": "Architectural interior photograph of a newly completed hospital ward nurses' station: a long gently curved counter in pale blond timber veneer with a seamless white solid-surface top and rounded edges, integrated handle-less drawers and cupboards, a lower wheelchair-height section, soft indirect lighting, bare pale walls with no signage, a quiet clean corridor beyond, no people. Calm clinical palette, wide angle at counter height, crisp detail in the timber grain."
+        }
+      ],
+      "diagram": {
+        "title": "One cause, three red flags",
+        "nodes": [
+          { "id": "line2", "label": "CNC line 2 six weeks late", "shape": "box", "color": "#1e293b" },
+          { "id": "offcuts", "label": "Offcuts and rework", "shape": "box", "color": "#64748b" },
+          { "id": "overtime", "label": "Overtime ~$48k a month", "shape": "box", "color": "#d97706" },
+          { "id": "ontime", "label": "On-time 87% vs 92%", "shape": "box", "color": "#dc2626" },
+          { "id": "margin", "label": "Margin 28.5% vs 31%", "shape": "box", "color": "#dc2626" },
+          { "id": "costing", "label": "Job-costing slipped", "shape": "box", "color": "#dc2626" }
+        ],
+        "edges": [
+          { "from": "line2", "to": "overtime" },
+          { "from": "line2", "to": "ontime", "label": "missed dates" },
+          { "from": "overtime", "to": "margin", "label": "~60% of the gap" },
+          { "from": "offcuts", "to": "margin", "label": "~40% of the gap" },
+          { "from": "margin", "to": "costing", "label": "Raj diverted" }
+        ]
+      },
+      "calculator": {
+        "title": "Margin gap to target, quarter to date ($k)",
+        "expression": "6400 * (31 - 28.5) / 100",
+        "result": 160
+      },
+      "form": {
+        "title": "Board pack checklist",
+        "fields": [
+          { "type": "heading", "label": "What goes to the chair" },
+          { "type": "date", "label": "Pack to the chair", "value": "@+5d" },
+          { "type": "date", "label": "Board meeting", "value": "@+12d" },
+          { "type": "checkbox", "label": "Priorities scorecard (9)", "value": true },
+          { "type": "checkbox", "label": "CEO report final", "value": false },
+          { "type": "checkbox", "label": "13-week cash forecast", "value": false },
+          { "type": "checkbox", "label": "Edge-bander paper", "value": false },
+          { "type": "select", "label": "Residential work", "options": ["For noting", "For discussion", "For decision"], "value": "For discussion" },
+          { "type": "text", "label": "Next year's plan", "value": "One-page summary, not a deck" }
+        ]
+      }
+    },
+    {
+      "title": "Cash and key hires — the next 13 weeks",
+      "description": "A 13-week cash forecast next to the three hires that matter, so the board's two questions — can we afford the edge-bander, and can we afford the people — get one answer.",
+      "dueInDays": 12,
+      "brief": "## Cash and key hires — the next 13 weeks\n\n**Cash today** $1.85M · **Lowest point** $1.27M in week 13, during the plant shutdown\n**Floor** $1M before we draw on the $1.5M facility\n**Debtor days** 51 against a 40-day target\n\n### Why these sit together\nThe board will ask two questions @+12d: can we afford the edge-bander, and can we afford the hires? They're the same question, so the forecast and the hiring plan live on one desk.\n\n### The big outflows in the forecast\n- BAS, monthly at our turnover: $130k, $120k and $110k in weeks 4, 8 and 12 — $360k\n- CNC line 2 final instalment, $380k in week 6\n- Super, now paid with every payroll under Payday Super — $290k over the 13 weeks\n- Holiday pay over the shutdown in week 13 — the written leave direction goes to staff with the award's notice\n\n### My read\nUnderlying trading adds about $450k over the 13 weeks; the BAS, line 2 and super payments take $1.03M. **Collecting the two overdue builders ($640k) is worth more than any cost cut.**",
+      "callout": {
+        "title": "Edge-bander: approve now, pay after the shutdown",
+        "body": "Paying the $420k in week 10 drops the week-13 low to $850k — under the $1M floor. Paid in week 14, the low stays at $1.27M. Ask the board @+12d for approval, with payment timed for after the shutdown.",
+        "accent": "#6366f1",
+        "icon": "💡"
+      },
+      "table": {
+        "title": "13-week cash forecast",
+        "columns": [
+          { "id": "week", "label": "Week", "type": "text-short" },
+          { "id": "starts", "label": "Starts", "type": "text-short" },
+          { "id": "receipts", "label": "Receipts ($k)", "type": "number" },
+          { "id": "payments", "label": "Payments ($k)", "type": "number" },
+          { "id": "closing", "label": "Closing cash ($k)", "type": "number" },
+          { "id": "note", "label": "What's in it", "type": "text-short" }
+        ],
+        "rows": [
+          { "week": "Wk 1", "starts": "@today", "receipts": 760, "payments": 840, "closing": 1770, "note": "Payroll and super" },
+          { "week": "Wk 2", "starts": "@+7d", "receipts": 820, "payments": 410, "closing": 2180, "note": "Hospital progress claim paid" },
+          { "week": "Wk 3", "starts": "@+14d", "receipts": 640, "payments": 830, "closing": 1990, "note": "Payroll and super" },
+          { "week": "Wk 4", "starts": "@+21d", "receipts": 700, "payments": 530, "closing": 2160, "note": "Monthly BAS $130k" },
+          { "week": "Wk 5", "starts": "@+28d", "receipts": 590, "payments": 840, "closing": 1910, "note": "Payroll and super" },
+          { "week": "Wk 6", "starts": "@+35d", "receipts": 780, "payments": 800, "closing": 1890, "note": "Line 2 final instalment $380k" },
+          { "week": "Wk 7", "starts": "@+42d", "receipts": 690, "payments": 830, "closing": 1750, "note": "Payroll and super" },
+          { "week": "Wk 8", "starts": "@+49d", "receipts": 720, "payments": 520, "closing": 1950, "note": "BAS $120k; school job retention in; ops manager starts" },
+          { "week": "Wk 9", "starts": "@+56d", "receipts": 650, "payments": 850, "closing": 1750, "note": "Payroll and super; first ops manager pay" },
+          { "week": "Wk 10", "starts": "@+63d", "receipts": 610, "payments": 410, "closing": 1950, "note": "Supplier run" },
+          { "week": "Wk 11", "starts": "@+70d", "receipts": 900, "payments": 840, "closing": 2010, "note": "Payroll and super; hospital progress claim paid" },
+          { "week": "Wk 12", "starts": "@+77d", "receipts": 360, "payments": 410, "closing": 1960, "note": "BAS $110k; plant shutdown begins" },
+          { "week": "Wk 13", "starts": "@+84d", "receipts": 180, "payments": 870, "closing": 1270, "note": "Payroll, super and holiday pay; shutdown" }
+        ]
+      },
+      "chart": {
+        "title": "Closing cash by week ($k)",
+        "type": "area",
+        "x": "week",
+        "series": [{ "column": "closing", "agg": "sum" }]
+      },
+      "mindmap": {
+        "title": "Key hires — what each one fixes",
+        "root": {
+          "label": "Three hires, in order",
+          "children": [
+            { "label": "Operations manager", "children": [
+              { "label": "Owns line 2 and on-time delivery", "kind": "idea" },
+              { "label": "Final interviews @+6d", "kind": "task" },
+              { "label": "Internal candidate — Ana's view?", "kind": "question" }
+            ]},
+            { "label": "Senior estimator", "children": [
+              { "label": "Margin leaks at the quote", "kind": "idea" },
+              { "label": "Brief the recruiter @+2d", "kind": "task" },
+              { "label": "Start after the shutdown", "kind": "task" }
+            ]},
+            { "label": "Head of sales", "children": [
+              { "label": "On hold until margin is above 30%", "kind": "idea" },
+              { "label": "Marcus covers tenders meanwhile", "kind": "idea" }
+            ]},
+            { "label": "Cash guardrails", "children": [
+              { "label": "Never below $1M without the facility", "kind": "idea" },
+              { "label": "Edge-bander paid after the shutdown?", "kind": "question" },
+              { "label": "Chase two builders — $640k", "kind": "task" },
+              { "label": "Weekly forecast from the accounts system", "kind": "tool" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Key hires — the plan",
+        "blocks": [
+          { "h3": "Three roles, in this order" },
+          { "h4": "1. Operations manager — $165k package" },
+          { "p": "Owns line 2, on-time delivery and the shop-floor leads. Final interviews @+6d; planned start in week 8, first pay in week 9 — **already in the forecast**." },
+          { "h4": "2. Senior estimator — $130k package" },
+          { "p": "Margin leaks at the quote, not only on the floor. Recruiter briefed @+2d; start after the shutdown, so the cost lands outside this forecast." },
+          { "h4": "3. Head of sales — on hold" },
+          { "p": "Not until gross margin is back above 30%. Marcus covers tenders until then, with the estimator supporting pricing." },
+          { "h4": "What would change the order" },
+          { "ul": [
+            "The second hospital tender lands @+9d: bring the estimator forward to week 10. The forecast can carry it — the week-13 low drops by about $10k",
+            "Line 2 slips past @+18d: the operations manager start becomes worth a recruiter's premium to pull forward"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Debtors — who owes what",
+          "body": "Over 60 days, $640k, and neither is in the forecast:\n\n- Builder on the hospital job: $410k, disputing a variation. Raj meets their QS @+3d; if that doesn't settle it, we serve a formal payment claim under the NSW Security of Payment Act\n- Builder on the school job: $230k, 'in the next payment run' for three weeks now. I'm calling their MD\n\nIf both pay by week 3, the week-13 low becomes $1.91M."
+        }
+      ],
+      "stickies": [
+        { "title": "This week", "body": "1. Call the school builder's MD\n2. Estimator brief to the recruiter\n3. Forecast to Raj for the board pack", "color": "#fef08a" },
+        { "title": "Habit", "body": "Raj updates the forecast every week. I read it before anything else.", "color": "#bbf7d0" }
+      ],
+      "fields": [
+        { "label": "Cash today", "type": "number", "value": 1850, "prefix": "$", "suffix": "k" },
+        { "label": "Lowest point, week 13", "type": "number", "value": 1270, "prefix": "$", "suffix": "k" },
+        { "label": "Debtor days", "type": "number", "value": 51, "suffix": " (target 40)" }
+      ],
+      "browsers": [
+        { "title": "NSW Government — Making a payment claim", "url": "https://www.nsw.gov.au/housing-and-construction/compliance-and-regulation/security-of-payment/making-a-payment-claim" },
+        { "title": "Fair Work Ombudsman — Joinery and Building Trades Award", "url": "https://awards.fairwork.gov.au/MA000029.html" }
+      ],
+      "images": [
+        {
+          "title": "Workshop floor in the shutdown",
+          "aspect": "landscape",
+          "prompt": "Wide documentary photograph of a large timber joinery workshop during the end-of-year summer shutdown: panel saws and machines covered with grey dust sheets, the concrete floor swept clean, sheets of board stacked neatly in racks, overhead lights off. Late-afternoon summer sun streams through high windows and a half-open roller door, laying long warm shafts of light and shadow across the empty floor. Still, quiet, no people, natural muted colours."
+        },
+        {
+          "title": "Edge-banding rolls on the bench",
+          "aspect": "square",
+          "prompt": "Overhead editorial flat-lay on a worn hardwood workbench: small rolls of edge-banding tape in natural oak veneer, walnut and plain white, a few offcuts of white melamine-faced board showing crisp banded edges in cross-section, a carpenter's pencil, a handful of fine pale wood shavings. Soft directional daylight from the left, gentle shadows, calm muted natural palette, tidy considered arrangement with generous space between objects, no tools with markings or scales."
+        }
+      ],
+      "diagram": {
+        "title": "Edge-bander: when to pay",
+        "nodes": [
+          { "id": "decision", "label": "Edge-bander $420k: when?", "shape": "circle", "color": "#d97706" },
+          { "id": "wk10", "label": "Pay in week 10", "shape": "box", "color": "#64748b" },
+          { "id": "wk14", "label": "Pay in week 14", "shape": "box", "color": "#64748b" },
+          { "id": "low850", "label": "Week-13 low $850k", "shape": "box", "color": "#dc2626" },
+          { "id": "low1270", "label": "Week-13 low $1.27M", "shape": "box", "color": "#16a34a" },
+          { "id": "facility", "label": "Draw on the $1.5M facility", "shape": "box", "color": "#dc2626" },
+          { "id": "floor", "label": "Stays above the $1M floor", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "decision", "to": "wk10", "label": "before shutdown" },
+          { "from": "decision", "to": "wk14", "label": "after shutdown" },
+          { "from": "wk10", "to": "low850" },
+          { "from": "wk14", "to": "low1270" },
+          { "from": "low850", "to": "facility", "label": "under the floor" },
+          { "from": "low1270", "to": "floor" }
+        ]
+      },
+      "calculator": {
+        "title": "Cash bridge to the week-13 low ($k)",
+        "expression": "1850 + 450 - (360 + 380 + 290)",
+        "result": 1270
+      },
+      "form": {
+        "title": "Offer approval — operations manager",
+        "fields": [
+          { "type": "heading", "label": "Operations manager · hire 1 of 3" },
+          { "type": "number", "label": "Package ($k)", "value": "165" },
+          { "type": "number", "label": "Shortlisted", "value": "3" },
+          { "type": "date", "label": "Final interviews", "value": "@+6d" },
+          { "type": "select", "label": "Planned start", "options": ["Week 8", "Week 10", "After the shutdown"], "value": "Week 8" },
+          { "type": "text", "label": "Hiring lead", "value": "Helen" },
+          { "type": "checkbox", "label": "In the 13-week forecast", "value": true },
+          { "type": "checkbox", "label": "Ana's view on the internal candidate", "value": false }
+        ]
+      }
+    }
+  ]
+}

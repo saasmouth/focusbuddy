@@ -1,0 +1,12 @@
+{
+  "persona": "Startup founders",
+  "desk": "Customer discovery round 2 — pricing and switching",
+  "title": "Treatment rooms, Monday morning",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of the corridor in a busy suburban Australian allied-health clinic on a Monday morning: a row of plain timber treatment-room doors with no signs, one open to show a plain unbranded padded treatment table draped lengthwise with a folded white towel, its base hidden in shadow, and a neat stack of towels on a timber shelf, a practitioner in navy scrubs seen from behind and out of focus walking away down the corridor, daylight from a skylight mixing with warm interior light, calm but full-day energy, muted sage green and timber tones",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 171239,
+  "generatedAt": "2026-10-08T07:09:00.944Z"
+}

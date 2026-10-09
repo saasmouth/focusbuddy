@@ -1,0 +1,12 @@
+{
+  "persona": "Project and product managers",
+  "desk": "Sprint 14 — shift-swap beta into five venues",
+  "title": "Swap request before a Friday shift",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Editorial close-up photograph in a hospitality venue staff room just before an evening shift: a pair of hands holding a smartphone whose screen glows with soft, abstract, out-of-focus colour blocks, black aprons hanging on hooks and a row of grey metal lockers blurred behind, a folded tea towel on a timber bench, warm tungsten light mixed with cool daylight from a small high window, shallow depth of field, candid and quiet moment.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 186315,
+  "generatedAt": "2026-10-08T07:07:31.770Z"
+}

@@ -1,0 +1,332 @@
+{
+  "number": 4,
+  "slug": "creative-designers",
+  "persona": "Graphic, product and creative designers",
+  "category": "Primary early adopters",
+  "room": {
+    "title": "Graphic, Product and Creative Designers",
+    "description": "Design work where the thinking, the references and the decisions sit together: an identity system with its palette and contrast checks in view, and a product flow with its usability findings and design decisions on the same canvas."
+  },
+  "desks": [
+    {
+      "title": "Wandoo Hill Roasters — identity refresh",
+      "description": "A small-batch roaster's new mark, type and colour, taken from three concept routes to a system that works on a 250 g bag, a cup sleeve and a 16 px favicon.",
+      "dueInDays": 8,
+      "brief": "## Wandoo Hill Roasters — identity refresh\n\n**Client** Wandoo Hill Roasters · Dimitri (owner), Yasmin (head roaster)\n**Stage** Round 2 of 3 · review @+4d · bag artwork to the printer @+8d\n**Scope** mark, wordmark, colour, type and 10 applications · **Quoted** 56 hours\n\n### The problem with the old identity\nA script wordmark that disappears below 40 px, five browns nobody can tell apart on a shelf, and no rules — every café menu has drifted somewhere different.\n\n### Direction (Route B, approved in round 1)\n- A single-line hill mark that holds at 16 px\n- Two neutrals doing the work, one warm accent (Ember), and Eucalypt for the single-origin range\n- A sturdy display serif for headings, a humanist sans for everything else\n\n### Round 2\nBag range, cup sleeve and wholesale price list, on the approved mark. 42 of 56 quoted hours used, with 3 applications not started. The mark ran 2 hours over and the bags still need 6, which leaves 8 hours for the menu board and social templates against 10 quoted — **packaging gets the remaining hours, menu board and social templates get templates, not bespoke layouts.**",
+      "callout": {
+        "title": "Ember can't carry small text",
+        "body": "Ember on Paper measures 3.3:1 — large headings only. On Crema it's 2.7:1 and fails even that. Ember stays in the illustration and large headings on Paper; all small type on the sleeve, bag back panels and price list moves to Bark, 9.8:1 on Crema.",
+        "accent": "#f59e0b",
+        "icon": "🎨"
+      },
+      "table": {
+        "title": "Applications",
+        "columns": [
+          { "id": "item", "label": "Application", "type": "text-short" },
+          { "id": "type", "label": "Type", "type": "single-select", "options": ["Core", "Packaging", "Print", "Signage", "Digital"] },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Approved", "In review", "Designing", "Not started"] },
+          { "id": "rounds", "label": "Revision rounds", "type": "number" },
+          { "id": "hours", "label": "Hours logged", "type": "number" },
+          { "id": "quoted", "label": "Hours quoted", "type": "number" }
+        ],
+        "rows": [
+          { "item": "Primary mark + wordmark", "type": "Core", "status": "Approved", "rounds": 2, "hours": 14, "quoted": 12 },
+          { "item": "Colour + type system", "type": "Core", "status": "In review", "rounds": 1, "hours": 6, "quoted": 6 },
+          { "item": "250 g bag — blends", "type": "Packaging", "status": "Designing", "rounds": 1, "hours": 7, "quoted": 8 },
+          { "item": "250 g bag — single origin", "type": "Packaging", "status": "Designing", "rounds": 1, "hours": 5, "quoted": 6 },
+          { "item": "1 kg wholesale bag", "type": "Packaging", "status": "Not started", "rounds": 0, "hours": 0, "quoted": 4 },
+          { "item": "Cup sleeve", "type": "Packaging", "status": "In review", "rounds": 1, "hours": 3, "quoted": 3 },
+          { "item": "Wholesale price list", "type": "Print", "status": "In review", "rounds": 1, "hours": 4, "quoted": 4 },
+          { "item": "Café menu board", "type": "Signage", "status": "Not started", "rounds": 0, "hours": 0, "quoted": 5 },
+          { "item": "Website header + favicon", "type": "Digital", "status": "Approved", "rounds": 1, "hours": 3, "quoted": 3 },
+          { "item": "Social templates (6)", "type": "Digital", "status": "Not started", "rounds": 0, "hours": 0, "quoted": 5 }
+        ]
+      },
+      "chart": {
+        "title": "Hours logged vs quoted, by type",
+        "type": "bar",
+        "x": "type",
+        "series": [
+          { "column": "hours", "agg": "sum", "label": "Logged" },
+          { "column": "quoted", "agg": "sum", "label": "Quoted" }
+        ]
+      },
+      "mindmap": {
+        "title": "Concept routes",
+        "root": {
+          "label": "Wandoo Hill identity",
+          "children": [
+            { "label": "Route A — bark texture", "children": [
+              { "label": "Hand-cut letterforms", "kind": "idea" },
+              { "label": "Busy below 40 px — dropped", "kind": "idea" }
+            ]},
+            { "label": "Route B — hill line (chosen)", "children": [
+              { "label": "One continuous line, one weight", "kind": "idea" },
+              { "label": "Holds at 16 px", "kind": "idea" },
+              { "label": "Animate the line for social", "kind": "idea" }
+            ]},
+            { "label": "Route C — roaster's stamp", "children": [
+              { "label": "Roundel for wholesale", "kind": "idea" },
+              { "label": "Too close to the old badge?", "kind": "question" }
+            ]},
+            { "label": "Type", "children": [
+              { "label": "Display serif for headings", "kind": "tool" },
+              { "label": "Humanist sans for text", "kind": "tool" },
+              { "label": "Check the packaging licence", "kind": "task" }
+            ]},
+            { "label": "Open questions", "children": [
+              { "label": "Keep the old script anywhere?", "kind": "question" },
+              { "label": "Foil on the 1 kg bag — cost?", "kind": "question" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Design rationale — round 2",
+        "blocks": [
+          { "h3": "Why the hill line" },
+          { "p": "Route B is the only route that survives the smallest uses — a 16 px favicon and a stamped cup lid — without a second version. One line, one weight, drawn from the ridge behind the roastery." },
+          { "h4": "Colour" },
+          { "p": "Two neutrals carry everything: Bark for text, Crema and Paper for grounds. Ember is the warm accent, kept to the illustration and large headings because it can't pass contrast as small text. Eucalypt marks the single-origin range; Paper type on Eucalypt measures 5.0:1." },
+          { "h4": "Type" },
+          { "ul": [
+            "Display serif for headings, set tight, never below 24 pt",
+            "Humanist sans for text and price lists — tested at 7 pt on the sleeve proof",
+            "The old script wordmark retires; Dimitri to confirm at the review @+4d"
+          ]},
+          { "h4": "What round 2 asks the client to approve" },
+          { "ol": [
+            "Bag range: Crema for blends, Eucalypt for single origin",
+            "Cup sleeve layout",
+            "Wholesale price list"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Round 1 feedback — and what I did with it",
+          "body": "Dimitri: loves the hill line, wants it warmer.\n→ Tried Ember as the line colour. It fails contrast at small sizes, so the warmth comes from Crema grounds instead.\n\nYasmin: blends and single origins look the same on the shelf.\n→ Eucalypt for single origin, Crema for blends.\n\nBoth: worried brown-on-brown disappears.\n→ Bark only on light grounds, never on Eucalypt (2.4:1)."
+        }
+      ],
+      "stickies": [
+        { "title": "Today", "body": "1. 250 g bag — Crema ground test\n2. Kerning pass on the wordmark\n3. Export sleeve proofs at 100%", "color": "#fef08a" },
+        { "title": "Printer", "body": "Needs CMYK + spot colour refs for the bags by @+8d. Ask about uncoated stock.", "color": "#fbcfe8" }
+      ],
+      "fields": [
+        { "label": "Round", "type": "single-select", "options": ["Concepts", "Round 1", "Round 2", "Final artwork"], "value": "Round 2" },
+        { "label": "Applications approved", "type": "number", "value": 2, "suffix": " / 10" },
+        { "label": "Hours logged", "type": "number", "value": 42, "suffix": " / 56 h" }
+      ],
+      "timer": { "title": "Craft block", "minutes": 90 },
+      "palette": [
+        { "hex": "#3b2a22", "label": "Bark — text and mark" },
+        { "hex": "#ead9bd", "label": "Crema — blend bags" },
+        { "hex": "#f6f1e7", "label": "Paper — print ground" },
+        { "hex": "#d4622a", "label": "Ember — large only" },
+        { "hex": "#4f6f5a", "label": "Eucalypt — single origin" }
+      ],
+      "browsers": [
+        { "title": "WebAIM — Contrast checker, Ember on Paper", "url": "https://webaim.org/resources/contrastchecker/?fcolor=D4622A&bcolor=F6F1E7" },
+        { "title": "Wikipedia — Spot color", "url": "https://en.wikipedia.org/wiki/Spot_color" }
+      ],
+      "images": [
+        {
+          "title": "Crema and Eucalypt bag stock, colour chips",
+          "aspect": "square",
+          "prompt": "Overhead flat-lay photograph on a pale oak design-studio bench: two plain matte stand-up coffee bags with no printing, one warm cream and one muted eucalyptus green; a paper takeaway cup wearing a plain cream sleeve; a small heap of medium-roast coffee beans; a fan of plain painted paper colour chips in deep bark brown, cream, off-white, burnt orange and sage green; a sheet of tracing paper showing one continuous pencil line that traces a gentle hill ridge; a pencil and a scalpel. Soft north-facing daylight, gentle long shadows, calm editorial still life with natural paper and kraft textures."
+        },
+        {
+          "title": "The ridge behind the roastery",
+          "aspect": "landscape",
+          "prompt": "Wide landscape photograph at first light of a long, gentle ridge line in rural Western Australia, pale smooth-trunked eucalyptus trees scattered along the crest, dry golden grass and a farm track in the foreground, a small corrugated-iron shed with one metal chimney flue near the left edge, light haze in the valley, warm low sun from the right, muted earthy palette of dark bark brown, cream and sage green, quiet and spacious, documentary landscape style."
+        }
+      ],
+      "diagram": {
+        "title": "Can this colour carry type?",
+        "nodes": [
+          { "id": "pair", "label": "Type colour on a ground", "shape": "box", "color": "#64748b" },
+          { "id": "aa", "label": "4.5:1 or better?", "shape": "circle", "color": "#2563eb" },
+          { "id": "any", "label": "Any size — Bark on Crema", "shape": "box", "color": "#16a34a" },
+          { "id": "large", "label": "3:1 or better?", "shape": "circle", "color": "#2563eb" },
+          { "id": "headings", "label": "Large only — Ember on Paper", "shape": "box", "color": "#d97706" },
+          { "id": "none", "label": "No type — Ember on Crema", "shape": "box", "color": "#dc2626" }
+        ],
+        "edges": [
+          { "from": "pair", "to": "aa" },
+          { "from": "aa", "to": "any", "label": "yes · 9.8:1" },
+          { "from": "aa", "to": "large", "label": "no" },
+          { "from": "large", "to": "headings", "label": "yes · 3.3:1" },
+          { "from": "large", "to": "none", "label": "no · 2.7:1" }
+        ]
+      },
+      "calculator": {
+        "title": "Hours left for menu + social after the bags",
+        "expression": "56 - 42 - ((8 - 7) + (6 - 5) + 4)",
+        "result": 8
+      },
+      "form": {
+        "title": "Round 2 sign-off",
+        "fields": [
+          { "type": "heading", "label": "Round 2 review · Wandoo Hill" },
+          { "type": "text", "label": "Approver", "value": "Dimitri" },
+          { "type": "date", "label": "Review", "value": "@+4d" },
+          { "type": "checkbox", "label": "Bag range approved", "value": false },
+          { "type": "checkbox", "label": "Cup sleeve approved", "value": false },
+          { "type": "checkbox", "label": "Price list approved", "value": false },
+          { "type": "checkbox", "label": "Old script retirement confirmed", "value": false },
+          { "type": "date", "label": "Bag artwork to printer", "value": "@+8d" }
+        ]
+      }
+    },
+    {
+      "title": "Sign-up flow redesign — usability round 2",
+      "description": "Six moderated sessions on the new sign-up flow for a household budgeting app: what broke, how badly, and what changes in the design file before engineering picks it up.",
+      "dueInDays": 3,
+      "brief": "## Sign-up flow redesign — usability round 2\n\n**Product** Pennywell, a household budgeting app · **Flow** 5 steps, welcome to invite partner\n**Round 2** 6 moderated sessions, new users, on mobile\n**Engineering pick-up** @+3d · **Round 3** @+6d, 5 new participants, same script\n\n### What round 2 was for\nRound 1 lost people at bank connect. The redesign added a visible skip-for-now route and moved goals earlier. Round 2 checks whether that worked, and what it broke.\n\n### Result\n3 of 6 finished sign-up without help (round 1: 1 of 6). 10 findings, 2 of them blockers — both now designed. **Budget setup is the new pain point:** 3 findings, 9 participant hits.\n\n### Ready for engineering when\n- Bank connect and the keypad fix have every state drawn: default, loading, error, empty\n- Copy is final, not placeholder\n- The category list decision is made: grouped list or search-first",
+      "callout": {
+        "title": "Budget setup is the new pain point",
+        "body": "Three findings and nine participant hits — more than any other step. The keypad fix is designed; the 24-category list and the empty budget after skipping bank connect are still open, and both go into round 3.",
+        "accent": "#ef4444",
+        "icon": "🔍"
+      },
+      "table": {
+        "title": "Usability findings",
+        "columns": [
+          { "id": "finding", "label": "Finding", "type": "text-short" },
+          { "id": "screen", "label": "Step", "type": "single-select", "options": ["Welcome", "Bank connect", "Goals", "Budget setup", "Invite partner"] },
+          { "id": "severity", "label": "Severity", "type": "single-select", "options": ["Blocker", "Major", "Minor"] },
+          { "id": "affected", "label": "Participants (of 6)", "type": "number" },
+          { "id": "fix", "label": "Fix", "type": "single-select", "options": ["Designed", "Exploring", "Parked"] }
+        ],
+        "rows": [
+          { "finding": "Welcome didn't say the app is free", "screen": "Welcome", "severity": "Minor", "affected": 2, "fix": "Designed" },
+          { "finding": "Progress bar implied 8 steps, not 5", "screen": "Welcome", "severity": "Minor", "affected": 3, "fix": "Designed" },
+          { "finding": "Didn't trust bank connect — what's shared?", "screen": "Bank connect", "severity": "Blocker", "affected": 4, "fix": "Designed" },
+          { "finding": "Couldn't find skip for now", "screen": "Bank connect", "severity": "Major", "affected": 3, "fix": "Designed" },
+          { "finding": "Goal presets felt irrelevant", "screen": "Goals", "severity": "Minor", "affected": 2, "fix": "Designed" },
+          { "finding": "Wanted to set a goal later", "screen": "Goals", "severity": "Minor", "affected": 2, "fix": "Parked" },
+          { "finding": "Skipped bank connect, hit an empty budget", "screen": "Budget setup", "severity": "Major", "affected": 3, "fix": "Exploring" },
+          { "finding": "24 categories too many to scan", "screen": "Budget setup", "severity": "Major", "affected": 4, "fix": "Exploring" },
+          { "finding": "Number keypad hid the Next button", "screen": "Budget setup", "severity": "Blocker", "affected": 2, "fix": "Designed" },
+          { "finding": "Invite-partner step felt pushy", "screen": "Invite partner", "severity": "Major", "affected": 5, "fix": "Designed" }
+        ]
+      },
+      "chart": {
+        "title": "Friction along the flow",
+        "type": "line",
+        "x": "screen",
+        "series": [{ "column": "affected", "agg": "sum", "label": "Participant hits" }]
+      },
+      "mindmap": {
+        "title": "The flow, step by step",
+        "root": {
+          "label": "Sign-up flow v3",
+          "children": [
+            { "label": "1 Welcome", "children": [
+              { "label": "Say it's free, up front", "kind": "task" },
+              { "label": "Progress shows 5 steps, not 8", "kind": "task" }
+            ]},
+            { "label": "2 Bank connect", "children": [
+              { "label": "What-we-can-see panel", "kind": "idea" },
+              { "label": "Skip for now, always visible", "kind": "task" },
+              { "label": "Show providers before consent?", "kind": "question" }
+            ]},
+            { "label": "3 Goals", "children": [
+              { "label": "Four presets, not eight", "kind": "idea" },
+              { "label": "Set a goal later — parked", "kind": "idea" }
+            ]},
+            { "label": "4 Budget setup", "children": [
+              { "label": "12 categories, not 24", "kind": "idea" },
+              { "label": "Grouped list or search-first?", "kind": "question" },
+              { "label": "Empty state after skipping", "kind": "task" },
+              { "label": "Keypad never covers Next", "kind": "task" }
+            ]},
+            { "label": "5 Invite partner", "children": [
+              { "label": "Move to after the first weekly summary", "kind": "idea" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Design decisions — round 2",
+        "blocks": [
+          { "h3": "Decisions from round 2" },
+          { "h4": "1. Bank connect explains itself" },
+          { "p": "A short what-we-can-see and what-we-can't panel before the connect button. 4 of 6 hesitated here; the two who didn't had used a budgeting app before." },
+          { "h4": "2. Invite partner moves out of sign-up" },
+          { "p": "5 of 6 found it pushy before they had seen a budget. It becomes a prompt after the first weekly summary, when there is something worth sharing." },
+          { "h4": "3. Categories: 24 down to 12" },
+          { "p": "Still exploring a grouped list against search-first. Both go into round 3 as an A/B, same script." },
+          { "h4": "Not changing" },
+          { "ul": [
+            "Goal presets stay, cut from eight to four — 4 of 6 picked one",
+            "Five steps stay five; the progress bar just has to say so"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Session patterns",
+          "body": "- P1, P3, P4 and P6 paused 5+ seconds on the bank connect button; P2 and P5 had used a budgeting app before\n- Nobody used the back arrow — they tapped the progress bar instead\n- Two people asked out loud whether it costs anything\n- Five of six hesitated at invite partner; P4 said they'd do it together later, at home\n\nRound 3 keeps the same script so the numbers compare."
+        }
+      ],
+      "stickies": [
+        { "title": "Before engineering pick-up", "body": "Due @+3d:\nBank connect: all 4 states\nKeypad fix: redlines\nFinal copy for the free-app line", "color": "#fef08a" },
+        { "title": "Ask Hamid", "body": "Can bank connect list the providers before consent, or is that a compliance problem?", "color": "#fbcfe8" }
+      ],
+      "fields": [
+        { "label": "Finished unaided", "type": "number", "value": 3, "suffix": " / 6" },
+        { "label": "Findings designed", "type": "number", "value": 7, "suffix": " / 10" },
+        { "label": "Test round", "type": "single-select", "options": ["Round 1", "Round 2", "Round 3"], "value": "Round 2" }
+      ],
+      "browsers": [
+        { "title": "CDR CX Guidelines — Pre-consent", "url": "https://cx.dsb.gov.au/consent/pre-consent" },
+        { "title": "NN/g — Severity ratings for usability problems", "url": "https://www.nngroup.com/articles/how-to-rate-the-severity-of-usability-problems/" }
+      ],
+      "images": [
+        {
+          "title": "Moderated session, participant's hands",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a moderated mobile usability session in a small, bright research room in an Australian office: seen over the participant's shoulder, only their hands are visible holding a smartphone whose screen is a soft out-of-focus blur of pale colour blocks with nothing readable; across a timber table the moderator's hands rest beside a blank open notebook and a pen, a glass of water nearby, a closed laptop at the edge of frame. Natural late-morning window light, shallow depth of field, calm and attentive mood."
+        },
+        {
+          "title": "Synthesis wall after six sessions",
+          "aspect": "portrait",
+          "prompt": "Photograph of a white studio wall during usability research synthesis: square sticky notes in yellow, pink and pale blue arranged in five loose vertical columns, every note completely blank, the fourth column noticeably fuller with a tight cluster of pink notes, a few lengths of thin red string pinned between columns, one anonymous hand entering from the right edge to move a note, soft even daylight, slight angle, documentary style, calm and orderly."
+        }
+      ],
+      "diagram": {
+        "title": "Flow v3 — participant hits per step",
+        "nodes": [
+          { "id": "welcome", "label": "1 Welcome · 5 hits", "shape": "box", "color": "#2563eb" },
+          { "id": "bank", "label": "2 Bank connect · 7 hits", "shape": "box", "color": "#d97706" },
+          { "id": "goals", "label": "3 Goals · 4 hits", "shape": "box", "color": "#2563eb" },
+          { "id": "budget", "label": "4 Budget setup · 9 hits", "shape": "box", "color": "#dc2626" },
+          { "id": "summary", "label": "First weekly summary", "shape": "box", "color": "#16a34a" },
+          { "id": "empty", "label": "Empty budget — exploring", "shape": "box", "color": "#dc2626" },
+          { "id": "invite", "label": "Invite partner (was step 5)", "shape": "box", "color": "#7c3aed" }
+        ],
+        "edges": [
+          { "from": "welcome", "to": "bank" },
+          { "from": "bank", "to": "goals", "label": "connect or skip" },
+          { "from": "goals", "to": "budget" },
+          { "from": "budget", "to": "summary", "label": "a week later" },
+          { "from": "budget", "to": "empty", "label": "if bank skipped" },
+          { "from": "summary", "to": "invite", "label": "moved here" }
+        ]
+      },
+      "form": {
+        "title": "Round 3 plan",
+        "fields": [
+          { "type": "heading", "label": "Round 3 · same script as round 2" },
+          { "type": "date", "label": "Sessions", "value": "@+6d" },
+          { "type": "number", "label": "New participants", "value": "5" },
+          { "type": "select", "label": "Device", "options": ["Mobile", "Desktop"], "value": "Mobile" },
+          { "type": "select", "label": "Category list", "options": ["Grouped list", "Search-first", "A/B — both"], "value": "A/B — both" },
+          { "type": "checkbox", "label": "Script unchanged", "value": true },
+          { "type": "checkbox", "label": "Empty-budget state designed", "value": false }
+        ]
+      }
+    }
+  ]
+}

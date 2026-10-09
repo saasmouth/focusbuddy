@@ -1,0 +1,12 @@
+{
+  "persona": "Department heads and team leaders",
+  "desk": "Support goals — weekly leads review and 1:1s",
+  "title": "Walking 1:1 along the river",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of two colleagues on a walking one-on-one along a riverside path in an Australian city on a mild weekday morning, seen from behind at a middle distance, each holding a takeaway coffee cup, one gesturing mid-conversation. Gum trees and a low sandstone retaining wall line the path, the river glints beside them, soft early light with long shadows, relaxed and unhurried mood, muted natural colours, no recognisable buildings or landmarks",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 62,
+  "bytes": 271349,
+  "generatedAt": "2026-10-08T07:22:37.031Z"
+}

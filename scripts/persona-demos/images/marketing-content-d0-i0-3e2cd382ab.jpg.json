@@ -1,0 +1,12 @@
+{
+  "persona": "Marketing and content professionals",
+  "desk": "Cold brew launch — 6-week content calendar",
+  "title": "Cold brew moodboard, flat-lay",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay photograph of a packaging moodboard for a canned cold brew coffee launch, laid out on warm off-white paper: three plain matte midnight-navy aluminium cans with completely bare, unprinted surfaces, a small scatter of dark roasted coffee beans, a glass tumbler of cold brew over clear ice cubes, oat-coloured uncoated card swatches, a folded pale ice-blue linen offcut and a single burnt-orange paint chip. Soft diffused daylight from the top left, gentle natural shadows, tidy grid composition with generous negative space, calm editorial styling",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 74,
+  "bytes": 294947,
+  "generatedAt": "2026-10-08T07:08:27.543Z"
+}

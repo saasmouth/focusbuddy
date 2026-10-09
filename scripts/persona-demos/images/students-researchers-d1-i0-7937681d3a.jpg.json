@@ -1,0 +1,12 @@
+{
+  "persona": "Students and researchers",
+  "desk": "Semester exams — 18-day revision plan",
+  "title": "Revision desk, pathways pass",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay photograph of a university student's revision desk at night under a warm desk lamp: a large sheet of plain paper covered in a hand-drawn cycle of circles joined by curved arrows in three coloured pens, with no writing on it at all, a fan of blank white index cards held by a bulldog clip, three plain unbranded highlighters, a mechanical pencil, the edge of a closed laptop at the frame edge, a half-finished mug of tea, a soft pool of lamplight fading to shadow at the corners, cosy and focused mood",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 190093,
+  "generatedAt": "2026-10-08T07:09:50.801Z"
+}

@@ -1,0 +1,38 @@
+{
+  "https://business.gov.au/marketing-and-advertising/promoting-your-business-by-email-or-text-messages": {
+    "ok": true,
+    "status": 200,
+    "title": "Promoting your business by email or text messages | business.gov.au",
+    "bytes": 350147,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "business.gov.au — Promoting your business by email or text",
+    "checkedAt": "2026-10-08T08:55:16.436Z"
+  },
+  "https://business.gov.au/finance/tax/lodge-and-pay-tax": {
+    "ok": true,
+    "status": 200,
+    "title": "Lodge and pay tax | business.gov.au",
+    "bytes": 357950,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "business.gov.au — Lodge and pay tax",
+    "checkedAt": "2026-10-08T08:55:17.639Z"
+  },
+  "https://grafana.com/docs/k6/latest/testing-guides/test-types/spike-testing/": {
+    "ok": true,
+    "status": 200,
+    "title": "Spike testing | Grafana k6 documentation",
+    "bytes": 364880,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "Grafana k6 docs — Spike testing",
+    "checkedAt": "2026-10-08T08:55:17.639Z"
+  },
+  "https://webaim.org/techniques/captions/": {
+    "ok": true,
+    "status": 200,
+    "title": "WebAIM: Captions, Transcripts, and Audio Descriptions",
+    "bytes": 11618,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "WebAIM — Captions, transcripts and audio descriptions",
+    "checkedAt": "2026-10-08T08:55:17.639Z"
+  }
+}

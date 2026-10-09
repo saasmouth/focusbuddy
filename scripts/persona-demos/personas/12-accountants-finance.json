@@ -1,0 +1,348 @@
+{
+  "number": 12,
+  "slug": "accountants-finance",
+  "persona": "Accountants and finance professionals",
+  "category": "Professional use cases",
+  "room": {
+    "title": "Accountants and Finance",
+    "description": "How a finance team runs month-end close and client advisory on one surface — the reconciliations, the journals waiting for approval, the cash forecast and the questions for the client all in view at once."
+  },
+  "desks": [
+    {
+      "title": "Month-end close — day 3, $53k still unexplained",
+      "description": "Day 3 of a five-day close for a two-entity food distributor: balance sheet reconciliations, the four accounts that don't tie, and the journals waiting on the CFO.",
+      "dueInDays": 2,
+      "brief": "## Month-end close — day 3 of 5\n\n**Entity** Saltbush Provisions · wholesale food distribution · AU parent + NZ subsidiary\n**Flash P&L to Dana (CFO)** @+2d · **Board pack** @+6d\n**Materiality** $5,000 per account — payroll liabilities get fixed whatever the size\n\n### Where it stands\nSix of eleven balance sheet reconciliations are signed off. Four accounts don't tie, **$53,013 unexplained in total**:\n- Inventory — $26,840: cold-store count under the stock system\n- Trade creditors — $12,573: one packaging invoice keyed twice\n- NZ intercompany — $12,400: freight recharge not booked on the NZ side\n- Super payable — $1,200: a salary-sacrifice change accrued by hand as well as through payroll\n\n### Before the flash goes out\n- Chiller 2 recounted, and the inventory gap either confirmed or found\n- Journals J-0412 and J-0414 approved by Dana; J-0413 is under $5,000 and mine to approve\n- NZ agrees the intercompany balance, or the difference is disclosed in the pack\n\n### The number that matters\nIf all three journals post, the month's result moves by **−$14,210**. Inventory is the only one that could still change that answer.",
+      "callout": {
+        "title": "Inventory gap: recount before we book it",
+        "body": "The cold-store count is $26,840 under the stock system — about 0.6 points of gross margin this month. Recount chiller 2 with Leah at 7am @+1d, and check deliveries received after the count cut-off before anyone writes anything off.",
+        "accent": "#f59e0b",
+        "icon": "📦"
+      },
+      "table": {
+        "title": "Balance sheet reconciliations",
+        "columns": [
+          { "id": "account", "label": "Account", "type": "text-short" },
+          { "id": "area", "label": "Area", "type": "single-select", "options": ["Cash", "Receivables", "Inventory", "Payables", "Payroll", "Tax", "Intercompany"] },
+          { "id": "owner", "label": "Preparer", "type": "text-short" },
+          { "id": "ledger", "label": "Ledger balance", "type": "number", "prefix": "$" },
+          { "id": "support", "label": "Supporting balance", "type": "number", "prefix": "$" },
+          { "id": "variance", "label": "Difference", "type": "number", "prefix": "$" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Reconciled", "In review", "Open", "Blocked"] }
+        ],
+        "rows": [
+          { "account": "1010 Operating account", "area": "Cash", "owner": "Ruth", "ledger": 412386, "support": 412386, "variance": 0, "status": "Reconciled" },
+          { "account": "1020 Payroll clearing", "area": "Cash", "owner": "Ruth", "ledger": 0, "support": 0, "variance": 0, "status": "Reconciled" },
+          { "account": "1100 Trade debtors", "area": "Receivables", "owner": "Kwame", "ledger": 1846920, "support": 1846920, "variance": 0, "status": "Reconciled" },
+          { "account": "1200 Inventory", "area": "Inventory", "owner": "Kwame", "ledger": 2318450, "support": 2291610, "variance": 26840, "status": "Open" },
+          { "account": "1300 Intercompany — NZ", "area": "Intercompany", "owner": "Ruth", "ledger": 184300, "support": 171900, "variance": 12400, "status": "Blocked" },
+          { "account": "2000 Trade creditors", "area": "Payables", "owner": "Mariana", "ledger": 1203445, "support": 1190872, "variance": 12573, "status": "In review" },
+          { "account": "2100 Accrued expenses", "area": "Payables", "owner": "Mariana", "ledger": 96780, "support": 96780, "variance": 0, "status": "Reconciled" },
+          { "account": "2200 GST payable", "area": "Tax", "owner": "Ruth", "ledger": 88215, "support": 88215, "variance": 0, "status": "Reconciled" },
+          { "account": "2300 PAYG withholding", "area": "Payroll", "owner": "Sione", "ledger": 61904, "support": 61904, "variance": 0, "status": "Reconciled" },
+          { "account": "2310 Super payable", "area": "Payroll", "owner": "Sione", "ledger": 47212, "support": 46012, "variance": 1200, "status": "Open" },
+          { "account": "2400 Wages accrual", "area": "Payroll", "owner": "Sione", "ledger": 38650, "support": 38650, "variance": 0, "status": "In review" }
+        ]
+      },
+      "chart": {
+        "title": "Where the $53,013 sits",
+        "type": "pie",
+        "x": "area",
+        "series": [{ "column": "variance", "agg": "sum", "label": "Unexplained difference" }]
+      },
+      "mindmap": {
+        "title": "Close — what's left",
+        "root": {
+          "label": "Close — $53,013 to explain",
+          "children": [
+            { "label": "Inventory — $26,840", "children": [
+              { "label": "Recount chiller 2 at 7am @+1d", "kind": "task" },
+              { "label": "Deliveries after the count cut-off?", "kind": "question" },
+              { "label": "Write-off needs Dana's sign-off", "kind": "task" }
+            ]},
+            { "label": "Creditors — $12,573", "children": [
+              { "label": "Same invoice keyed twice", "kind": "idea" },
+              { "label": "J-0412 reversal drafted", "kind": "task" },
+              { "label": "Supplier statement agrees", "kind": "tool" }
+            ]},
+            { "label": "NZ intercompany — $12,400", "children": [
+              { "label": "Freight recharge not booked in NZ", "kind": "idea" },
+              { "label": "Agree the balance with the NZ team", "kind": "task" },
+              { "label": "Which FX rate did NZ use?", "kind": "question" }
+            ]},
+            { "label": "Super — $1,200", "children": [
+              { "label": "Salary sacrifice accrued twice", "kind": "idea" },
+              { "label": "J-0413 reversal", "kind": "task" }
+            ]},
+            { "label": "Flash P&L", "children": [
+              { "label": "Margin commentary", "kind": "task" },
+              { "label": "Disclose open items over $5k", "kind": "task" },
+              { "label": "Close checklist in the ledger", "kind": "tool" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Journal register — this close",
+        "blocks": [
+          { "h3": "Proposed journals" },
+          { "p": "Every adjustment for this close, with the evidence behind it. Dana approves anything over $5,000; anything under, I approve and note for her." },
+          { "h4": "J-0412 · Reverse duplicate packaging invoice · $12,573" },
+          { "ul": [
+            "Dr Trade creditors $12,573",
+            "Cr Distribution — packaging $11,430",
+            "Cr GST receivable $1,143",
+            "Evidence: the supplier statement shows one invoice; AP keyed it twice, two days apart"
+          ]},
+          { "h4": "J-0413 · Reverse super accrual · $1,200" },
+          { "p": "Dr Super payable $1,200 · Cr Superannuation expense $1,200. The salary-sacrifice change went through payroll and was also accrued by hand. Under $5,000 — approved by me, noted for Dana." },
+          { "h4": "J-0414 · Stock write-off · $26,840 (on hold)" },
+          { "p": "Dr Cost of sales — stock loss $26,840 · Cr Inventory $26,840. **Not posted until the chiller 2 recount** @+1d. The amount may change." },
+          { "h4": "Net effect on the month" },
+          { "p": "+$11,430 packaging + $1,200 super − $26,840 stock = **−$14,210** to the month's result. No journal on the AU side for intercompany — NZ books the recharge." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "For Dana's flash pack",
+          "body": "- Revenue $4.47m for the month; gross margin 21.8% before any stock write-off, 21.2% after\n- The inventory gap is the headline. If the recount confirms it, say so plainly and show the chiller 2 trend for the last three months\n- NZ intercompany: if it isn't agreed by @+2d, disclose the $12,400 as an open item rather than force it\n- Duplicate invoice: AP is turning on the duplicate invoice-number check in the ledger — worth one line\n- Wages accrual ties; it only needs my review tonight"
+        }
+      ],
+      "stickies": [
+        { "title": "Today", "body": "1. Confirm recount crew for 7am\n2. Approve J-0413\n3. Chase NZ on the freight recharge\n4. Review wages accrual\n5. Start flash commentary", "color": "#fef08a" },
+        { "title": "Rule", "body": "Under $5k: note it, don't chase it. Payroll liabilities are the exception — fix them.", "color": "#bae6fd" }
+      ],
+      "fields": [
+        { "label": "Reconciliations signed off", "type": "number", "value": 6, "suffix": " / 11" },
+        { "label": "Unexplained difference", "type": "number", "value": 53013, "prefix": "$" },
+        { "label": "Close day", "type": "single-select", "options": ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5"], "value": "Day 3" }
+      ],
+      "timer": { "title": "Reconciliation block", "minutes": 45 },
+      "browsers": [
+        { "title": "business.gov.au — Superannuation", "url": "https://business.gov.au/finance/superannuation" },
+        { "title": "RBA — Exchange rates", "url": "https://www.rba.gov.au/statistics/frequency/exchange-rates.html" }
+      ],
+      "images": [
+        {
+          "title": "Chiller 2 recount, 7am",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph inside the refrigerated cold store of an Australian wholesale food distributor at seven in the morning: tall steel pallet racking stacked with plain unmarked brown cardboard cartons and shrink-wrapped pallets of fresh produce, a faint mist hanging in the cold air, cool blue-white overhead light, one worker in a padded thermal jacket and beanie seen from behind, one gloved hand raised along a row of cartons as they count, a pallet jack on the sealed concrete floor, deep perspective down the aisle, calm early-shift mood, natural colours"
+        },
+        {
+          "title": "Close week, after hours",
+          "aspect": "portrait",
+          "prompt": "Editorial still-life photograph of a finance manager's desk late in a month-end close: a laptop half closed with a soft glow escaping, a neat stack of lever-arch folders with plain unlabelled spines, a ceramic mug of tea, reading glasses resting on a closed hardback notebook, a brass desk lamp throwing a warm pool of light, a dark office window behind with out-of-focus city lights at dusk, muted navy and warm amber palette, shallow depth of field, quiet and orderly"
+        }
+      ],
+      "diagram": {
+        "title": "What happens to a difference",
+        "nodes": [
+          { "id": "diff", "label": "Account doesn't tie", "shape": "box", "color": "#64748b" },
+          { "id": "over", "label": "Over $5,000?", "shape": "circle", "color": "#d97706" },
+          { "id": "cause", "label": "Find cause, draft journal", "shape": "box", "color": "#2563eb" },
+          { "id": "payroll", "label": "Payroll liability?", "shape": "circle", "color": "#d97706" },
+          { "id": "dana", "label": "Dana approves", "shape": "box", "color": "#7c3aed" },
+          { "id": "me", "label": "I approve, note for Dana", "shape": "box", "color": "#0891b2" },
+          { "id": "note", "label": "Note it, don't chase", "shape": "box", "color": "#94a3b8" },
+          { "id": "post", "label": "Post to ledger", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "diff", "to": "over" },
+          { "from": "over", "to": "cause", "label": "yes" },
+          { "from": "over", "to": "payroll", "label": "no" },
+          { "from": "cause", "to": "dana", "label": "J-0412, J-0414" },
+          { "from": "payroll", "to": "me", "label": "yes — J-0413" },
+          { "from": "payroll", "to": "note", "label": "no" },
+          { "from": "dana", "to": "post", "label": "J-0414 after recount" },
+          { "from": "me", "to": "post" }
+        ]
+      },
+      "calculator": {
+        "title": "Net effect of the three journals on the month",
+        "expression": "11430 + 1200 - 26840",
+        "result": -14210
+      },
+      "form": {
+        "title": "Journal approval request",
+        "fields": [
+          { "type": "heading", "label": "J-0412 · Duplicate packaging invoice" },
+          { "type": "number", "label": "Amount ($)", "value": "12573" },
+          { "type": "text", "label": "Prepared by", "value": "Mariana" },
+          { "type": "select", "label": "Approver", "options": ["Me — under $5,000", "Dana (CFO)"], "value": "Dana (CFO)" },
+          { "type": "select", "label": "Status", "options": ["Drafted", "Awaiting approval", "Approved", "Posted"], "value": "Awaiting approval" },
+          { "type": "date", "label": "Needed by", "value": "@+1d" },
+          { "type": "checkbox", "label": "Supplier statement attached", "value": true },
+          { "type": "checkbox", "label": "GST effect checked ($1,143)", "value": true },
+          { "type": "checkbox", "label": "Duplicate-invoice check turned on", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "13-week cash forecast — Fernhill Joinery over its limit in week 7",
+      "description": "Advisory work for a joinery client: a 13-week cash forecast, the overdraft breach it shows, and the two levers that fix it before the meeting with the owner.",
+      "dueInDays": 3,
+      "brief": "## 13-week cash forecast — Fernhill Joinery\n\n**Client** Fernhill Joinery · custom cabinetry and commercial fit-out · 18 staff\n**Facility** $100,000 overdraft · **Opening balance** $46,200 in credit\n**Meeting with Tama (owner)** @+3d · annual bank review in five weeks\n\n### What the forecast shows\nThe account goes overdrawn in week 4, when the quarterly BAS ($58,300) and super ($21,400) land together. It **breaches the $100,000 limit in weeks 7 and 8**, bottoming at −$126,300, before Larkspur Constructions' progress claim of $118,800 arrives in week 9.\n\n### Why\n- Larkspur paid claims 1–3 between 19 and 24 days late, so claim 4 is modelled in week 9, not week 6 when it falls due\n- A $24,000 deposit on the new edgebander is booked for week 5\n- Wages run fortnightly at $48,600 and don't move\n\n### What I'll recommend\n1. Get Larkspur to pay claim 4 on terms — on its own that keeps Fernhill inside the limit, just\n2. Push the edgebander deposit to week 10\n3. Ask the bank for a temporary limit increase now, as a backstop, not after the breach\n\n### What it doesn't fix\nOver the 13 weeks Fernhill pays out $738,000 and collects $680,000. Timing solves the breach; margin on the commercial jobs is the next conversation.",
+      "callout": {
+        "title": "Use both levers, then ask the bank",
+        "body": "Claim 4 on time keeps the account inside the limit, but with only $5,100 of headroom in week 5. Deferring the edgebander alone still breaches by $2,300 in week 7. Together, the low point is −$70,900 with $29,100 to spare.",
+        "accent": "#ef4444",
+        "icon": "⚠️"
+      },
+      "table": {
+        "title": "Cash forecast — bank basis, GST inclusive",
+        "columns": [
+          { "id": "week", "label": "Week", "type": "text-short" },
+          { "id": "receipts", "label": "Receipts", "type": "number", "prefix": "$" },
+          { "id": "payments", "label": "Payments", "type": "number", "prefix": "$" },
+          { "id": "net", "label": "Net", "type": "number", "prefix": "$" },
+          { "id": "closing", "label": "Closing balance", "type": "number", "prefix": "$" },
+          { "id": "events", "label": "What moves it", "type": "text-short" }
+        ],
+        "rows": [
+          { "week": "Wk 1", "receipts": 52400, "payments": 71300, "net": -18900, "closing": 27300, "events": "Wages $48,600 + timber order" },
+          { "week": "Wk 2", "receipts": 38900, "payments": 31500, "net": 7400, "closing": 34700, "events": "Rent $9,800 + suppliers" },
+          { "week": "Wk 3", "receipts": 41200, "payments": 70200, "net": -29000, "closing": 5700, "events": "Wages + suppliers" },
+          { "week": "Wk 4", "receipts": 29800, "payments": 79700, "net": -49900, "closing": -44200, "events": "BAS $58,300 + super $21,400" },
+          { "week": "Wk 5", "receipts": 44600, "payments": 95300, "net": -50700, "closing": -94900, "events": "Wages + edgebander deposit $24,000" },
+          { "week": "Wk 6", "receipts": 36100, "payments": 31200, "net": 4900, "closing": -90000, "events": "Rent + suppliers · claim 4 due" },
+          { "week": "Wk 7", "receipts": 33500, "payments": 69800, "net": -36300, "closing": -126300, "events": "Wages · $26,300 over limit" },
+          { "week": "Wk 8", "receipts": 40200, "payments": 22900, "net": 17300, "closing": -109000, "events": "Suppliers · $9,000 over limit" },
+          { "week": "Wk 9", "receipts": 158700, "payments": 70100, "net": 88600, "closing": -20400, "events": "Larkspur claim 4 $118,800 + wages" },
+          { "week": "Wk 10", "receipts": 47300, "payments": 32000, "net": 15300, "closing": -5100, "events": "Rent + suppliers" },
+          { "week": "Wk 11", "receipts": 51800, "payments": 70400, "net": -18600, "closing": -23700, "events": "Wages + suppliers" },
+          { "week": "Wk 12", "receipts": 49600, "payments": 22600, "net": 27000, "closing": 3300, "events": "Suppliers" },
+          { "week": "Wk 13", "receipts": 55900, "payments": 71000, "net": -15100, "closing": -11800, "events": "Wages + suppliers" }
+        ]
+      },
+      "chart": {
+        "title": "Closing balance by week (limit −$100,000)",
+        "type": "line",
+        "x": "week",
+        "series": [{ "column": "closing", "agg": "sum", "label": "Closing balance" }]
+      },
+      "mindmap": {
+        "title": "Keeping Fernhill inside the limit",
+        "root": {
+          "label": "Stay inside the $100,000 limit",
+          "children": [
+            { "label": "Larkspur claim 4 — $118,800", "children": [
+              { "label": "On time in week 6 = no breach", "kind": "idea" },
+              { "label": "Tama calls their CFO, not AP", "kind": "task" },
+              { "label": "Offer 1% for payment on terms?", "kind": "question" }
+            ]},
+            { "label": "Edgebander deposit — $24,000", "children": [
+              { "label": "Move from week 5 to week 10", "kind": "task" },
+              { "label": "Will the supplier hold the price?", "kind": "question" }
+            ]},
+            { "label": "BAS — $58,300", "children": [
+              { "label": "Lodge on time regardless", "kind": "task" },
+              { "label": "Payment plan if cash is short", "kind": "tool" }
+            ]},
+            { "label": "Bank", "children": [
+              { "label": "Temporary limit +$40,000", "kind": "task" },
+              { "label": "Send the forecast before asking", "kind": "task" }
+            ]},
+            { "label": "Trading", "children": [
+              { "label": "Deposits on new residential jobs", "kind": "idea" },
+              { "label": "Commercial job margins too thin?", "kind": "question" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Advice note for Tama",
+        "blocks": [
+          { "h3": "Cash forecast — what it means and what to do" },
+          { "p": "Prepared for our meeting @+3d. Figures are bank basis and GST inclusive, built from the debtors and creditors listings at today's date and the job schedule you sent." },
+          { "h4": "The short version" },
+          { "p": "On current timing the account is overdrawn from week 4 and over the $100,000 limit in weeks 7 and 8, by up to $26,300. It recovers in week 9 when Larkspur's claim 4 arrives." },
+          { "h4": "Recommendations" },
+          { "ol": [
+            "Call Larkspur's finance lead this week and confirm claim 4 will be paid on its due date in week 6.",
+            "Move the edgebander deposit from week 5 to week 10, if the supplier will hold the quoted price.",
+            "Ask the bank for a temporary $40,000 limit increase for 12 weeks, with this forecast attached.",
+            "Keep lodging the BAS on time. If cash is short, ask for a payment plan rather than lodging late."
+          ]},
+          { "h4": "Assumptions to confirm" },
+          { "ul": [
+            "No new residential deposits included — anything signed is upside",
+            "Wages flat at $48,600 a fortnight, no overtime",
+            "Timber and board prices as per the latest supplier quote"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Questions for Tama before I finalise",
+          "body": "- Has Larkspur said anything about claim 4, or are we assuming late again?\n- Is the edgebander deposit refundable if we push it?\n- Any residential jobs about to sign? A deposit or two would cover the week 7 hole on its own\n- Is rent still $9,800 a month, or has the landlord agreed the new terms?\n- Who else holds a card on the account — any spend I'm not seeing?"
+        }
+      ],
+      "stickies": [
+        { "title": "Today", "body": "1. Rerun weeks 5–9 with claim 4 on time\n2. Draft the advice note\n3. Send Tama the questions", "color": "#fef08a" },
+        { "title": "Bank", "body": "Banks want the forecast before the breach, not after.", "color": "#fed7aa" }
+      ],
+      "fields": [
+        { "label": "Worst week over limit", "type": "number", "value": 26300, "prefix": "$" },
+        { "label": "Weeks over limit", "type": "number", "value": 2, "suffix": " of 13" },
+        { "label": "Advice note sent", "type": "checkbox", "value": false }
+      ],
+      "browsers": [
+        { "title": "business.gov.au — Manage being in debt", "url": "https://business.gov.au/finance/financial-trouble/manage-being-in-debt" },
+        { "title": "business.gov.au — Improve your cash flow", "url": "https://business.gov.au/finance/cash-flow/improve-your-cash-flow" }
+      ],
+      "images": [
+        {
+          "title": "Fernhill workshop floor",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a custom cabinetry and joinery workshop in an Australian light-industrial unit on a weekday morning: racks of timber boards and white melamine sheets along one wall, a large plain unbranded panel saw, half-built kitchen cabinet carcasses standing on trestles, fine sawdust drifting in shafts of sunlight from high clerestory windows, one joiner in work clothes and ear muffs seen from behind at a workbench, warm natural light, honest working atmosphere, wide framing"
+        },
+        {
+          "title": "Getting ready for the meeting with Tama",
+          "aspect": "square",
+          "prompt": "Overhead flat-lay photograph on a worn timber workbench in a joinery workshop: a plain tablet lying flat whose screen shows only a single soft-focus curved line dipping and recovering on a pale background, a flat carpenter's pencil, a fanned stack of small oak veneer and laminate sample squares, a takeaway coffee in a plain keep cup, a pair of reading glasses, a few curls of wood shaving, soft daylight raking in from one side, calm practical mood, muted natural tones"
+        }
+      ],
+      "diagram": {
+        "title": "Two levers, then the bank",
+        "nodes": [
+          { "id": "breach", "label": "Over the limit, weeks 7–8", "shape": "box", "color": "#dc2626" },
+          { "id": "tama", "label": "Tama calls Larkspur's CFO", "shape": "box", "color": "#2563eb" },
+          { "id": "defer", "label": "Edgebander deposit to wk 10", "shape": "box", "color": "#2563eb" },
+          { "id": "claim", "label": "Claim 4 paid in week 6?", "shape": "circle", "color": "#d97706" },
+          { "id": "safe", "label": "Low −$70,900, $29,100 spare", "shape": "box", "color": "#16a34a" },
+          { "id": "short", "label": "Still $2,300 over in week 7", "shape": "box", "color": "#dc2626" },
+          { "id": "bank", "label": "Temporary +$40,000 limit", "shape": "box", "color": "#7c3aed" }
+        ],
+        "edges": [
+          { "from": "breach", "to": "tama", "label": "lever 1" },
+          { "from": "breach", "to": "defer", "label": "lever 2" },
+          { "from": "tama", "to": "claim" },
+          { "from": "defer", "to": "claim" },
+          { "from": "claim", "to": "safe", "label": "yes" },
+          { "from": "claim", "to": "short", "label": "no" },
+          { "from": "safe", "to": "bank", "label": "backstop only" },
+          { "from": "short", "to": "bank", "label": "needed" }
+        ]
+      },
+      "calculator": {
+        "title": "Week 5 headroom with both levers",
+        "expression": "100000 - (94900 - 24000)",
+        "result": 29100
+      },
+      "form": {
+        "title": "Temporary limit request",
+        "fields": [
+          { "type": "heading", "label": "Fernhill Joinery · overdraft facility" },
+          { "type": "number", "label": "Current limit ($)", "value": "100000" },
+          { "type": "number", "label": "Temporary increase ($)", "value": "40000" },
+          { "type": "number", "label": "Term (weeks)", "value": "12" },
+          { "type": "number", "label": "Worst week over limit ($)", "value": "26300" },
+          { "type": "select", "label": "Main reason", "options": ["Debtor timing", "Equipment purchase", "Trading losses"], "value": "Debtor timing" },
+          { "type": "checkbox", "label": "13-week forecast attached", "value": true },
+          { "type": "checkbox", "label": "Tama has approved the request", "value": false },
+          { "type": "date", "label": "Send to the bank by", "value": "@+4d" }
+        ]
+      }
+    }
+  ]
+}

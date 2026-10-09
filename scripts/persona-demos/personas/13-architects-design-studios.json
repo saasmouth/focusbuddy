@@ -1,0 +1,365 @@
+{
+  "number": 13,
+  "slug": "architects-design-studios",
+  "persona": "Architects and design studios",
+  "category": "Professional use cases",
+  "room": {
+    "title": "Architects and Design Studios",
+    "description": "How a studio keeps a project's fees, its consultants and its design reviews on one surface — the stage budget, the variation letter, the DA package and the materials palette all in view at once."
+  },
+  "desks": [
+    {
+      "title": "Marlow Lane apartments — DD fee check before the variation goes in",
+      "description": "A 24-apartment job at design development: fee spent against fee earned by stage, a variation being worked on before it's signed, and the internal design review.",
+      "dueInDays": 2,
+      "brief": "## Marlow Lane — design development fee check\n\n**Project** 24 apartments over a ground-floor tenancy · 5 storeys · client Tallow Developments\n**Stage** Design development, 60% complete · **Base fee** $540,000 ex GST\n**Team** Anika (director) · Tomás (project architect) · Wei and Hana (documentation)\n\n### The problem\nDD has used **$88,560 of its $108,000 fee — 82% of the budget at 60% complete** (492 hours at a blended $180). At this rate the stage finishes around $147,600. Most of the overrun is unit layouts redrawn twice after Tallow changed the apartment mix.\n\nSeparately, Tallow wants the ground floor to become a childcare centre instead of retail. That's Variation 03 ($24,000), and **$6,400 of V03 work is already booked without a signed variation**.\n\n### Where the project stands\nSpent to date $256,960 against $217,300 earned — **$39,660 ahead of the fee**. Concept and schematic both ran a little over, and V02 (the council RFI response) ran $1,400 over.\n\n### This week\n- V03 letter to Tallow, signed before any more childcare work\n- Internal design review of the DD set @+2d\n- Re-plan the last 40% of DD: 108 hours of budget left",
+      "callout": {
+        "title": "No more V03 work until it's signed",
+        "body": "$6,400 of childcare redesign is already booked against an unsigned variation. Tomás pauses it today, and Anika takes the letter to Tallow @+1d. If they won't sign, the ground floor stays as retail in the DD set.",
+        "accent": "#ef4444",
+        "icon": "🛑"
+      },
+      "table": {
+        "title": "Fee by stage",
+        "columns": [
+          { "id": "stage", "label": "Stage", "type": "text-short" },
+          { "id": "type", "label": "Type", "type": "single-select", "options": ["Base fee", "Variation"] },
+          { "id": "fee", "label": "Fee (ex GST)", "type": "number", "prefix": "$" },
+          { "id": "spent", "label": "Spent to date", "type": "number", "prefix": "$" },
+          { "id": "complete", "label": "Complete", "type": "number", "suffix": "%" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Complete", "In progress", "Not started", "Awaiting approval"] }
+        ],
+        "rows": [
+          { "stage": "1 Concept design", "type": "Base fee", "fee": 43200, "spent": 45900, "complete": 100, "status": "Complete" },
+          { "stage": "2 Schematic design", "type": "Base fee", "fee": 81000, "spent": 86400, "complete": 100, "status": "Complete" },
+          { "stage": "3 Design development", "type": "Base fee", "fee": 108000, "spent": 88560, "complete": 60, "status": "In progress" },
+          { "stage": "4 Contract documentation", "type": "Base fee", "fee": 172800, "spent": 0, "complete": 0, "status": "Not started" },
+          { "stage": "5 Tender and negotiation", "type": "Base fee", "fee": 27000, "spent": 0, "complete": 0, "status": "Not started" },
+          { "stage": "6 Construction phase", "type": "Base fee", "fee": 108000, "spent": 0, "complete": 0, "status": "Not started" },
+          { "stage": "V01 Basement carpark redesign", "type": "Variation", "fee": 18500, "spent": 18500, "complete": 100, "status": "Complete" },
+          { "stage": "V02 Council RFI response", "type": "Variation", "fee": 9800, "spent": 11200, "complete": 100, "status": "Complete" },
+          { "stage": "V03 Ground floor to childcare", "type": "Variation", "fee": 24000, "spent": 6400, "complete": 25, "status": "Awaiting approval" }
+        ]
+      },
+      "chart": {
+        "title": "Fee against spend, by stage",
+        "type": "bar",
+        "x": "stage",
+        "series": [
+          { "column": "fee", "agg": "sum", "label": "Fee" },
+          { "column": "spent", "agg": "sum", "label": "Spent" }
+        ]
+      },
+      "mindmap": {
+        "title": "Getting DD back on budget",
+        "root": {
+          "label": "DD back on budget",
+          "children": [
+            { "label": "Variation 03", "children": [
+              { "label": "Letter to Tallow @+1d", "kind": "task" },
+              { "label": "$6,400 at risk if unsigned", "kind": "idea" },
+              { "label": "Does childcare need a new approval?", "kind": "question" }
+            ]},
+            { "label": "Scope of the last 40%", "children": [
+              { "label": "Freeze unit layouts at the review", "kind": "task" },
+              { "label": "Façade details move to CD?", "kind": "question" },
+              { "label": "Fewer 1:20 sections at DD", "kind": "idea" }
+            ]},
+            { "label": "Resourcing", "children": [
+              { "label": "Wei to CD set-up from @+5d", "kind": "task" },
+              { "label": "Hana stays on DD", "kind": "task" },
+              { "label": "Weekly hours report from timesheets", "kind": "tool" }
+            ]},
+            { "label": "Design review @+2d", "children": [
+              { "label": "Balcony depths against the brief", "kind": "question" },
+              { "label": "Bin room door onto the driveway", "kind": "question" },
+              { "label": "Corner façade — two options", "kind": "idea" }
+            ]},
+            { "label": "Client", "children": [
+              { "label": "Decision dates in writing", "kind": "task" },
+              { "label": "Weekly 30-minute check-in", "kind": "idea" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Variation 03 — draft letter",
+        "blocks": [
+          { "h3": "Variation 03 — ground-floor change of use" },
+          { "p": "To Tallow Developments. Following your instruction to change the ground-floor tenancy from retail to a childcare centre, this letter sets out the additional services, the fee and the effect on timing." },
+          { "h4": "Additional services" },
+          { "ul": [
+            "Redesign of the ground floor for a 90-place centre, including outdoor play space",
+            "Coordination with the acoustic and traffic consultants for the new use",
+            "Revised DD drawings and area schedule",
+            "Advice on the planning approval the change of use may need"
+          ]},
+          { "h4": "Fee" },
+          { "p": "**$24,000 ex GST**, lump sum, invoiced 50% on signing and 50% when the revised DD set issues. Work completed to date ($6,400) is included in this sum." },
+          { "h4": "Timing" },
+          { "p": "Adds three weeks to design development. The start of contract documentation moves by the same amount." },
+          { "quote": "We'll pause further work on the childcare redesign until this variation is signed, so the rest of the DD set keeps moving." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "DD design review — pin-up notes",
+          "body": "Internal review @+2d, 45 minutes, Anika chairing.\n\n- Balconies on levels 2–4 are 2.2m deep; the brief asked for 2.4m. Check against living-room depth before we change it\n- Bin room door opens straight onto the driveway — needs a second look with traffic\n- Façade rhythm breaks at the corner; Tomás has two options to pin up\n- Lift overrun shows on the street elevation — can it drop?\n- Unit 3.04 has a bedroom on borrowed light only. Must fix"
+        }
+      ],
+      "stickies": [
+        { "title": "Today", "body": "1. Pause V03 work\n2. Variation letter to Anika\n3. Pin-up set printed by 4pm", "color": "#fef08a" },
+        { "title": "Fee rule", "body": "Never start a variation before it's signed. We did. Again.", "color": "#fbcfe8" }
+      ],
+      "fields": [
+        { "label": "DD fee used (60% complete)", "type": "number", "value": 82, "suffix": "%" },
+        { "label": "Spent ahead of earned", "type": "number", "value": 39660, "prefix": "$" },
+        { "label": "V03 signed", "type": "checkbox", "value": false }
+      ],
+      "browsers": [
+        {
+          "title": "NCC 2025 — Part F6 Light and ventilation",
+          "url": "https://ncc.abcb.gov.au/editions/ncc-2025/adopted/volume-one/f-health-and-amenity/part-f6-light-and-ventilation"
+        },
+        {
+          "title": "NSW Early Learning — Steps to set up a new service",
+          "url": "https://education.nsw.gov.au/early-childhood-education/operating-an-early-childhood-education-service/setting-up-a-new-service/steps-to-set-up-a-new-service"
+        }
+      ],
+      "images": [
+        {
+          "title": "Marlow Lane study model, DD review",
+          "aspect": "landscape",
+          "prompt": "Editorial still-life photograph of a white card and pale basswood architectural model of a five-storey apartment building, recessed balconies stepping across the upper four levels and a tall glazed ground-floor tenancy, sitting on a pale timber studio table beside loose rolls of yellow trace paper and two soft pencils, soft diffuse daylight from a large window at left, low three-quarter viewpoint at model eye level, shallow depth of field, calm muted palette of white, birch and warm grey"
+        },
+        {
+          "title": "Ground-floor childcare yard, mood image",
+          "aspect": "landscape",
+          "prompt": "Architectural photograph of an empty outdoor play yard for a contemporary Australian childcare centre in the ground-floor courtyard of an apartment building: smooth timber decking, a sandpit with a hardwood edge, low native planting in raised beds, a pale shade sail overhead, rounded timber play forms, a pale brick boundary wall, the undersides of upper-level balconies just visible at the top of the frame, soft early-morning light, wide eye-level shot, quiet and orderly, no people"
+        }
+      ],
+      "diagram": {
+        "title": "Variation 03 — sign before work",
+        "nodes": [
+          { "id": "ask", "label": "Tallow asks for childcare", "shape": "box", "color": "#64748b" },
+          { "id": "letter", "label": "V03 letter — $24,000", "shape": "box", "color": "#2563eb" },
+          { "id": "signed", "label": "Signed?", "shape": "circle", "color": "#d97706" },
+          { "id": "resume", "label": "Childcare redesign resumes", "shape": "box", "color": "#16a34a" },
+          { "id": "retail", "label": "Ground floor stays retail", "shape": "box", "color": "#dc2626" },
+          { "id": "issue", "label": "Revised DD set issues", "shape": "box", "color": "#16a34a" },
+          { "id": "atrisk", "label": "$6,400 at risk", "shape": "box", "color": "#dc2626" }
+        ],
+        "edges": [
+          { "from": "ask", "to": "letter" },
+          { "from": "letter", "to": "signed", "label": "Anika @+1d" },
+          { "from": "signed", "to": "resume", "label": "yes · invoice 50%" },
+          { "from": "resume", "to": "issue", "label": "+3 weeks to DD" },
+          { "from": "signed", "to": "retail", "label": "no" },
+          { "from": "retail", "to": "atrisk", "label": "already booked" }
+        ]
+      },
+      "calculator": {
+        "title": "DD budget left, in hours at $180",
+        "expression": "(108000 - 88560) / 180",
+        "result": 108
+      },
+      "form": {
+        "title": "Variation register — V03",
+        "fields": [
+          { "type": "heading", "label": "V03 · Ground floor to childcare" },
+          { "type": "text", "label": "Client", "value": "Tallow Developments" },
+          { "type": "select", "label": "Status", "options": ["Awaiting approval", "Signed", "Declined"], "value": "Awaiting approval" },
+          { "type": "number", "label": "Fee, ex GST ($)", "value": "24000" },
+          { "type": "number", "label": "Already booked, unsigned ($)", "value": "6400" },
+          { "type": "number", "label": "Added to DD (weeks)", "value": "3" },
+          { "type": "date", "label": "Letter to Tallow", "value": "@+1d" },
+          { "type": "checkbox", "label": "Signed by client", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "Juniper Street townhouses — DA lodgement in 9 days",
+      "description": "Coordinating nine consultants for a development application: who owes what, the council's pre-lodgement feedback, and the materials palette the planner will judge.",
+      "dueInDays": 9,
+      "brief": "## Juniper Street townhouses — DA package\n\n**Project** 6 townhouses on a corner block · client Hollis Family Trust · Tomás leading, Hana supporting\n**DA lodgement** @+9d · **Planning controls** 9.5m height, 0.8:1 floor space ratio\n**Site** 1,150 m² · **GFA** 897 m², so 0.78:1\n**Council pre-lodgement** held two weeks ago — notes on this desk\n\n### Where the package stands\nFour of twelve items are in. The landscape plan is overdue, and the acoustic and energy reports haven't started because both are waiting on our window schedule. That schedule is the real critical path: **it has to reach Marco and Ines by @+1d** or neither report makes lodgement.\n\n### What council told us\n- Keep all three street trees — the arborist report supports it\n- One driveway crossover only, on the secondary street\n- Materials should respond to the brick and timber character of the street\n- The 4.5m rear setback is under the 6m control and needs a written justification\n\n### Done means\nTwelve items received, every consultant comment closed, drawings and reports on the same revision, and the package lodged @+9d.",
+      "callout": {
+        "title": "Critical path: our window schedule",
+        "body": "Acoustic and energy both need final window sizes and glazing. Hana finishes the schedule today and it goes to Marco and Ines @+1d. Marco needs three days and Ines four, so every day it slips comes straight off the buffer before lodgement.",
+        "accent": "#f59e0b",
+        "icon": "📐"
+      },
+      "table": {
+        "title": "DA package — who owes what",
+        "columns": [
+          { "id": "item", "label": "Item", "type": "text-short" },
+          { "id": "by", "label": "From", "type": "text-short" },
+          { "id": "due", "label": "Due", "type": "text-short" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Received", "In draft", "Overdue", "Not started"] },
+          { "id": "comments", "label": "Open comments", "type": "number" }
+        ],
+        "rows": [
+          { "item": "Statement of environmental effects", "by": "Rhea · planning", "due": "@+5d", "status": "In draft", "comments": 3 },
+          { "item": "Landscape plan and planting schedule", "by": "Omar · landscape", "due": "@-1d", "status": "Overdue", "comments": 2 },
+          { "item": "Traffic and parking report", "by": "Grace · traffic", "due": "@+3d", "status": "In draft", "comments": 1 },
+          { "item": "Stormwater concept plan", "by": "Dev · civil", "due": "@-4d", "status": "Received", "comments": 0 },
+          { "item": "Arborist report — 3 street trees", "by": "Lena · arborist", "due": "@-6d", "status": "Received", "comments": 0 },
+          { "item": "Acoustic report — rail corridor", "by": "Marco · acoustic", "due": "@+4d", "status": "Not started", "comments": 1 },
+          { "item": "Energy and thermal assessment", "by": "Ines · ESD", "due": "@+5d", "status": "Not started", "comments": 0 },
+          { "item": "Detail and boundary survey", "by": "Kofi · surveyor", "due": "@-20d", "status": "Received", "comments": 0 },
+          { "item": "Cost estimate", "by": "Felix · QS", "due": "@-2d", "status": "Received", "comments": 1 },
+          { "item": "Waste management plan", "by": "Rhea · planning", "due": "@+5d", "status": "Not started", "comments": 0 },
+          { "item": "Shadow diagrams, winter solstice", "by": "Hana · studio", "due": "@+4d", "status": "In draft", "comments": 2 },
+          { "item": "Materials and finishes schedule", "by": "Tomás · studio", "due": "@+6d", "status": "In draft", "comments": 2 }
+        ]
+      },
+      "chart": {
+        "title": "DA package by status",
+        "type": "pie",
+        "x": "status",
+        "series": [{ "column": "item", "agg": "count", "label": "Items" }]
+      },
+      "mindmap": {
+        "title": "DA package",
+        "root": {
+          "label": "Juniper Street DA",
+          "children": [
+            { "label": "Architectural set", "children": [
+              { "label": "Plans, elevations, sections", "kind": "task" },
+              { "label": "Shadow diagrams — winter", "kind": "task" },
+              { "label": "Streetscape montage", "kind": "task" }
+            ]},
+            { "label": "Consultant reports", "children": [
+              { "label": "Window schedule unblocks two", "kind": "tool" },
+              { "label": "Landscape overdue — chase Omar", "kind": "task" },
+              { "label": "Acoustic: rail corridor glazing", "kind": "idea" }
+            ]},
+            { "label": "Council feedback", "children": [
+              { "label": "Keep all 3 street trees", "kind": "idea" },
+              { "label": "One crossover, secondary street", "kind": "idea" },
+              { "label": "Brick and timber character", "kind": "idea" }
+            ]},
+            { "label": "Planning controls", "children": [
+              { "label": "Height 9.5m — roof at 9.1m", "kind": "idea" },
+              { "label": "FSR 0.8:1 — we're at 0.78:1", "kind": "idea" },
+              { "label": "Rear setback justification", "kind": "question" }
+            ]},
+            { "label": "Lodgement", "children": [
+              { "label": "Everything on the same revision", "kind": "task" },
+              { "label": "Owner's consent signed?", "kind": "question" },
+              { "label": "Client pays the DA fee", "kind": "task" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Pre-lodgement meeting — council notes",
+        "blocks": [
+          { "h3": "Pre-lodgement meeting — notes" },
+          { "p": "With council's duty planner and tree officer, two weeks ago, 45 minutes. Rhea attended for planning; Anika and Tomás for the studio." },
+          { "h4": "What council said" },
+          { "ul": [
+            "Supportive of six dwellings if the three street trees stay",
+            "One driveway crossover only, on the secondary street",
+            "Rear setback of 4.5m is under the 6m control — needs a written justification",
+            "Materials should pick up the brick and timber of the existing houses",
+            "Bins collected from the kerb and stored behind the building line"
+          ]},
+          { "h4": "How the package answers it" },
+          { "ul": [
+            "Arborist report confirms all three trees can stay, with root protection zones",
+            "One crossover on the secondary street — traffic report to confirm the 3.6m width",
+            "Rhea's statement of environmental effects carries the setback justification",
+            "Materials palette on this desk: recycled brick, spotted gum, bronze frames, zinc roof"
+          ]},
+          { "h4": "Still open" },
+          { "p": "Whether council wants a heritage comment on the brick colour. Rhea is asking the duty planner." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Consultant call — what changed",
+          "body": "Weekly coordination call, 30 minutes.\n\n- Grace: traffic report needs the crossover width confirmed — 3.6m\n- Omar: landscape plan late because the tree protection zones moved the paths; now promised @+1d\n- Felix: cost estimate in; the client wants a version without the green roof\n- Dev: stormwater fine, but the tank sits under the courtyard deck — check with landscape\n- Ines: the thermal assessment produces the BASIX certificate that goes in with the DA, so it also waits on our glazing\n- Next call @+7d, two days before lodgement"
+        }
+      ],
+      "stickies": [
+        { "title": "Today", "body": "1. Window schedule finished\n2. Chase Omar\n3. Courier the brick to the client", "color": "#fef08a" },
+        { "title": "Lodgement rule", "body": "Every drawing and report on the same revision letter before it goes in.", "color": "#bbf7d0" }
+      ],
+      "fields": [
+        { "label": "Items received", "type": "number", "value": 4, "suffix": " / 12" },
+        { "label": "Open consultant comments", "type": "number", "value": 12 },
+        { "label": "Lodgement", "type": "single-select", "options": ["On track", "At risk", "Late"], "value": "At risk" }
+      ],
+      "palette": [
+        { "hex": "#8c3b2a", "label": "Recycled red brick" },
+        { "hex": "#a0693c", "label": "Spotted gum cladding" },
+        { "hex": "#a3a39c", "label": "Off-form concrete" },
+        { "hex": "#6e5434", "label": "Bronze anodised frames" },
+        { "hex": "#5f6b73", "label": "Standing-seam zinc roof" },
+        { "hex": "#e6dfd1", "label": "Lime-wash render" }
+      ],
+      "browsers": [
+        {
+          "title": "ABLIS — BASIX Certificate, NSW",
+          "url": "https://ablis.business.gov.au/service/nsw/basix-certificate/16758"
+        },
+        {
+          "title": "Wikipedia — Insulated glazing",
+          "url": "https://en.wikipedia.org/wiki/Insulated_glazing"
+        }
+      ],
+      "images": [
+        {
+          "title": "Juniper Street materials, flat-lay",
+          "aspect": "square",
+          "prompt": "Overhead flat-lay photograph of an architect's materials samples for a row of townhouses, laid out with generous spacing on a pale oatmeal linen surface: a single recycled red brick with worn chipped edges, a short oiled spotted gum cladding board with visible grain, a small grey off-form concrete sample block, an offcut of bronze anodised aluminium window frame, a folded piece of grey standing-seam zinc, and a square tile of warm off-white lime-wash render; soft even daylight from one side, gentle natural shadows, calm editorial still-life mood, true-to-life colours"
+        },
+        {
+          "title": "The corner block and its street trees",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a quiet corner block in an established inner-suburban Australian street on an overcast morning, taken at eye level from across the road: three mature street trees with broad canopies along the grass verge, a modest older brick cottage set back behind an overgrown front garden, neighbouring red-brick houses with timber verandahs and pitched roofs continuing down the street, a concrete footpath, no people, no cars, soft flat light, natural muted colours"
+        }
+      ],
+      "diagram": {
+        "title": "Critical path to lodgement",
+        "nodes": [
+          { "id": "windows", "label": "Window schedule — Hana", "shape": "box", "color": "#d97706" },
+          { "id": "landscape", "label": "Landscape plan — overdue", "shape": "box", "color": "#dc2626" },
+          { "id": "see", "label": "SEE + setback case — Rhea", "shape": "box", "color": "#7c3aed" },
+          { "id": "acoustic", "label": "Acoustic report — Marco", "shape": "box", "color": "#2563eb" },
+          { "id": "energy", "label": "Thermal + BASIX — Ines", "shape": "box", "color": "#2563eb" },
+          { "id": "revision", "label": "All on one revision", "shape": "box", "color": "#64748b" },
+          { "id": "lodge", "label": "Lodge DA", "shape": "circle", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "windows", "to": "acoustic", "label": "@+1d · 3 days" },
+          { "from": "windows", "to": "energy", "label": "@+1d · 4 days" },
+          { "from": "landscape", "to": "revision", "label": "promised @+1d" },
+          { "from": "see", "to": "revision", "label": "due @+5d" },
+          { "from": "acoustic", "to": "revision" },
+          { "from": "energy", "to": "revision" },
+          { "from": "revision", "to": "lodge", "label": "@+9d" }
+        ]
+      },
+      "calculator": {
+        "title": "GFA headroom under 0.8:1 FSR (m²)",
+        "expression": "1150 * 0.8 - 897",
+        "result": 23
+      },
+      "form": {
+        "title": "DA lodgement checklist",
+        "fields": [
+          { "type": "heading", "label": "Juniper Street · DA lodgement" },
+          { "type": "date", "label": "Lodgement", "value": "@+9d" },
+          { "type": "select", "label": "Status", "options": ["On track", "At risk", "Late"], "value": "At risk" },
+          { "type": "number", "label": "Items received (of 12)", "value": "4" },
+          { "type": "number", "label": "Open consultant comments", "value": "12" },
+          { "type": "checkbox", "label": "Window schedule issued", "value": false },
+          { "type": "checkbox", "label": "BASIX certificate attached", "value": false },
+          { "type": "checkbox", "label": "Owner's consent signed", "value": false },
+          { "type": "checkbox", "label": "Client has paid the DA fee", "value": false }
+        ]
+      }
+    }
+  ]
+}

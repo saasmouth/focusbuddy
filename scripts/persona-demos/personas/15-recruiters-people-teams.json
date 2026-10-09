@@ -1,0 +1,346 @@
+{
+  "number": 15,
+  "slug": "recruiters-people-teams",
+  "persona": "Recruiters and people teams",
+  "category": "Professional use cases",
+  "room": {
+    "title": "Recruiters and People Teams",
+    "description": "How a people team runs hiring and engagement on one surface — the candidate pipeline, the scorecard, the survey results and the action plan all in view at once, with the fairness rules written down where everyone can see them."
+  },
+  "desks": [
+    {
+      "title": "Hiring 2 senior data engineers — final interviews this week",
+      "description": "A live requisition: ten active candidates across screen, technical and final stages, the structured scorecard, and the salary band decision the debrief depends on.",
+      "dueInDays": 5,
+      "brief": "## Senior data engineer × 2 — data platform team\n\n**Company** Mallee Freight · **Hiring manager** Owen · **People lead** Jordan\n**Band** $165,000–$185,000 base + 12% super · **Open** 38 days · **Target** both offers out by @+5d\n**Pipeline** 146 applications · 31 screened · 10 candidates active\n\n### Where it stands\nOne offer in progress: Yuki accepted verbally and the written offer goes out @today. Four finalists interview over the next two days, and the debrief is @+3d.\n\n### The decision we need\nAisha and Mateo, the two strongest finalists so far, have both said they're looking at the top of the band. Jordan has to approve up to $185,000 for the second offer **before the debrief**, or we lose a week and probably one of them.\n\n### How we keep it fair\n- Same three final interviews and the same questions for every finalist\n- Every panellist scores against the rubric independently, before the debrief\n- No 'culture fit' as a reason — name the competency, or don't use it\n- No degree requirement; we score evidence of the work",
+      "callout": {
+        "title": "Band approval before the debrief",
+        "body": "Aisha and Mateo both expect the top of the $165–185k band. Jordan approves the second offer at up to $185,000 by @+2d, or the debrief @+3d can't make an offer on the day.",
+        "accent": "#f59e0b",
+        "icon": "⏱️"
+      },
+      "table": {
+        "title": "Candidates",
+        "columns": [
+          { "id": "candidate", "label": "Candidate", "type": "text-short" },
+          { "id": "stage", "label": "Stage", "type": "single-select", "options": ["Offer", "Final", "Technical", "Screen", "Withdrawn", "Not progressed"] },
+          { "id": "source", "label": "Source", "type": "single-select", "options": ["Referral", "Direct sourcing", "Job board", "Careers page", "Agency"] },
+          { "id": "score", "label": "Panel score (1–5)", "type": "number" },
+          { "id": "days", "label": "Days in process", "type": "number" },
+          { "id": "next", "label": "Next step", "type": "text-short" }
+        ],
+        "rows": [
+          { "candidate": "Yuki", "stage": "Offer", "source": "Job board", "score": 4.6, "days": 28, "next": "Written offer out @today" },
+          { "candidate": "Aisha", "stage": "Final", "source": "Referral", "score": 4.4, "days": 24, "next": "Final panel @+1d" },
+          { "candidate": "Mateo", "stage": "Final", "source": "Direct sourcing", "score": 4.1, "days": 19, "next": "Final panel @+1d" },
+          { "candidate": "Bao", "stage": "Final", "source": "Agency", "score": 4.0, "days": 22, "next": "Final panel @+2d" },
+          { "candidate": "Daniel", "stage": "Final", "source": "Careers page", "score": 3.9, "days": 21, "next": "Final panel @+2d" },
+          { "candidate": "Elif", "stage": "Technical", "source": "Referral", "score": 4.0, "days": 9, "next": "Take-home review @+1d" },
+          { "candidate": "Nkechi", "stage": "Technical", "source": "Agency", "score": 3.8, "days": 12, "next": "Take-home due @+2d" },
+          { "candidate": "Rohan", "stage": "Technical", "source": "Job board", "score": 3.5, "days": 10, "next": "Take-home due @+3d" },
+          { "candidate": "Lucía", "stage": "Screen", "source": "Careers page", "days": 4, "next": "Recruiter screen @+1d" },
+          { "candidate": "Tariq", "stage": "Screen", "source": "Referral", "days": 6, "next": "Recruiter screen @+2d" },
+          { "candidate": "Sofia", "stage": "Withdrawn", "source": "Job board", "score": 4.2, "days": 26, "next": "Accepted another offer" },
+          { "candidate": "Callum", "stage": "Not progressed", "source": "Direct sourcing", "score": 3.2, "days": 14, "next": "Feedback call done" }
+        ]
+      },
+      "chart": {
+        "title": "Candidates by stage",
+        "type": "bar",
+        "x": "stage",
+        "series": [{ "column": "candidate", "agg": "count", "label": "Candidates" }]
+      },
+      "mindmap": {
+        "title": "Interview loop",
+        "root": {
+          "label": "Senior data engineer loop",
+          "children": [
+            { "label": "Recruiter screen — 30 min", "children": [
+              { "label": "Motivation and logistics", "kind": "idea" },
+              { "label": "Band expectations, asked the same way", "kind": "task" }
+            ]},
+            { "label": "Technical — take-home", "children": [
+              { "label": "Pipeline design, capped at 3 hours", "kind": "tool" },
+              { "label": "Reviewed without the CV", "kind": "task" }
+            ]},
+            { "label": "Final panel — 3 interviews", "children": [
+              { "label": "System design, 60 min", "kind": "tool" },
+              { "label": "Stakeholder scenario", "kind": "tool" },
+              { "label": "Values and ways of working", "kind": "tool" }
+            ]},
+            { "label": "Debrief @+3d", "children": [
+              { "label": "Score before anyone discusses", "kind": "task" },
+              { "label": "Evidence for every score", "kind": "task" },
+              { "label": "What does a 5 in 'ownership' look like?", "kind": "question" }
+            ]},
+            { "label": "Offer", "children": [
+              { "label": "Band approval from Jordan", "kind": "task" },
+              { "label": "Two references", "kind": "task" },
+              { "label": "Start before the year-end freeze?", "kind": "question" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Scorecard — senior data engineer",
+        "blocks": [
+          { "h3": "Scorecard — what good looks like" },
+          { "p": "Every interviewer scores 1–5 on their competencies, with evidence, before the debrief. A 3 is a solid hire at this level; a 5 is rare." },
+          { "h4": "Data modelling and pipeline design" },
+          { "ul": [
+            "1 — Describes a pipeline they worked on, not one they designed",
+            "3 — Designs a reliable batch pipeline and explains the storage and cost trade-offs",
+            "5 — Plans for late data, backfills and schema change without being prompted"
+          ]},
+          { "h4": "Working with stakeholders" },
+          { "ul": [
+            "1 — Takes requirements as given",
+            "3 — Pushes back with options when a request won't scale",
+            "5 — Turns a vague ask into a measurable outcome and gets agreement on it"
+          ]},
+          { "h4": "Ownership" },
+          { "p": "Still being anchored. Owen and I agree the examples for 1, 3 and 5 @+1d, before the first final panel." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Intake with Owen — what the role really needs",
+          "body": "- Two hires, not one: the second covers on-call so the team stops depending on one person\n- Must have: batch pipelines in production, SQL depth, has worked closely with analysts\n- Nice to have: streaming. Not a must — Owen agreed to drop it from the ad\n- Not required: a degree. Evidence of the work is what we score\n- Owen's worry is speed. He lost two candidates this year to slow offers\n- He backs asking Jordan for the top of the band on offer 2 rather than lose a finalist"
+        }
+      ],
+      "stickies": [
+        { "title": "Today", "body": "1. Yuki's written offer\n2. Panel packs for @+1d\n3. Chase Jordan on the band", "color": "#fef08a" },
+        { "title": "Fairness check", "body": "Same questions for every finalist. Score before the debrief. Name the competency, not 'fit'.", "color": "#bbf7d0" }
+      ],
+      "fields": [
+        { "label": "Days open", "type": "number", "value": 38, "suffix": " days" },
+        { "label": "Offers accepted (verbal)", "type": "number", "value": 1, "suffix": " / 2" },
+        { "label": "Band approved for offer 2", "type": "checkbox", "value": false }
+      ],
+      "browsers": [
+        { "title": "business.gov.au — Interview and recruit employees", "url": "https://business.gov.au/people/employees/interview-and-recruit-employees" },
+        { "title": "Wikipedia — Structured interview", "url": "https://en.wikipedia.org/wiki/Structured_interview" }
+      ],
+      "images": [
+        {
+          "title": "Final panel room, set for three",
+          "aspect": "landscape",
+          "prompt": "Architectural interior photograph of a small meeting room set up for a job interview panel in an Australian logistics company's head office: a round pale timber table with three chairs on one side and a single chair facing them, a water jug and four glasses, closed plain notebooks and pens at each place, a small potted plant, a floor-to-ceiling window looking out over a truck yard and warehouse roofs softly out of focus, soft overcast morning light, calm neutral palette, eye-level wide shot, no people"
+        },
+        {
+          "title": "Panel packs, ready for the finals",
+          "aspect": "square",
+          "prompt": "Overhead flat-lay photograph on a light oak desk: three plain kraft-paper folders with blank covers fanned out, a short stack of blank cream index cards, two black pens, a small glass sand timer, a ceramic cup of black coffee, a pair of tortoiseshell reading glasses and a few pastel page tabs with nothing written on them, soft diffused window light from the left, gentle shadows, tidy editorial still life, muted warm palette"
+        }
+      ],
+      "diagram": {
+        "title": "Offer 2: what the band decision changes",
+        "nodes": [
+          { "id": "finals", "label": "Final panels, 4 finalists", "shape": "box", "color": "#2563eb" },
+          { "id": "jordan", "label": "Jordan's band sign-off", "shape": "box", "color": "#7c3aed" },
+          { "id": "debrief", "label": "Debrief, scores in first", "shape": "box", "color": "#64748b" },
+          { "id": "band", "label": "Band approved?", "shape": "circle", "color": "#d97706" },
+          { "id": "offer", "label": "Offer on the day", "shape": "box", "color": "#16a34a" },
+          { "id": "slip", "label": "Offer waits a week", "shape": "box", "color": "#dc2626" },
+          { "id": "refs", "label": "References, written offer", "shape": "box", "color": "#16a34a" },
+          { "id": "lost", "label": "Finalist takes another offer", "shape": "box", "color": "#dc2626" }
+        ],
+        "edges": [
+          { "from": "finals", "to": "debrief" },
+          { "from": "debrief", "to": "band" },
+          { "from": "jordan", "to": "band", "label": "due before debrief" },
+          { "from": "band", "to": "offer", "label": "yes — up to $185k" },
+          { "from": "band", "to": "slip", "label": "no" },
+          { "from": "offer", "to": "refs" },
+          { "from": "slip", "to": "lost", "label": "as twice this year" }
+        ]
+      },
+      "calculator": {
+        "title": "Offer 2 at top of band, with 12% super",
+        "expression": "185000 * 112 / 100",
+        "result": 207200
+      },
+      "form": {
+        "title": "Band approval request — offer 2",
+        "fields": [
+          { "type": "heading", "label": "Senior data engineer · offer 2" },
+          { "type": "text", "label": "Approver", "value": "Jordan, people lead" },
+          { "type": "text", "label": "Finalists in contention", "value": "Aisha and Mateo" },
+          { "type": "number", "label": "Base requested ($)", "value": "185000" },
+          { "type": "number", "label": "Package with 12% super ($)", "value": "207200" },
+          { "type": "date", "label": "Needed by", "value": "@+2d" },
+          { "type": "select", "label": "Status", "options": ["Draft", "Requested", "Approved", "Declined"], "value": "Requested" },
+          { "type": "checkbox", "label": "Inside the $165–185k band", "value": true },
+          { "type": "checkbox", "label": "Owen supports the request", "value": true }
+        ]
+      }
+    },
+    {
+      "title": "Engagement survey — acting on the 3 teams below 60",
+      "description": "Annual survey results for 260 people: scores by team against last year, the three teams that fell below 60, and the action plan going to the leadership team.",
+      "dueInDays": 4,
+      "brief": "## Engagement survey — results to action\n\n**Company** Mallee Freight · 260 people · 11 teams across warehouses, linehaul and head office\n**Responses** 188 of 260 (72%) · **Engagement** 64, down from 66\n**Leadership briefing** @+4d · **Results to all staff** @+11d\n\n### What stands out\nMost teams held or improved. Three are below 60:\n- **Sydney DC — 54 (−7).** Rosters are released two days before shifts start\n- **Linehaul drivers — 57 (−1).** Only 42% responded, so read the score with care\n- **Customer service — 58 (−8).** Same handle-time targets since the new phone system slowed every call\n\n### Rules we hold to\n- No team result shown with fewer than five responses — Legal & compliance isn't reported on its own\n- Comment themes only, never verbatims a manager could trace back to someone\n- Actions are chosen with each team, not handed to them\n\n### Done means\nEach of the three teams has one action it chose, an owner and a check-in date, and every team with five or more responses has seen its own results.",
+      "callout": {
+        "title": "Sydney DC: fix the roster, not the mood",
+        "body": "17 of 29 comments from Sydney DC are about rosters arriving too late to plan life outside work. Bec, the site manager, is willing to trial rosters two weeks ahead for eight weeks. That's the action to bring to leadership @+4d.",
+        "accent": "#6366f1",
+        "icon": "📋"
+      },
+      "table": {
+        "title": "Results by team",
+        "columns": [
+          { "id": "team", "label": "Team", "type": "text-short" },
+          { "id": "headcount", "label": "Headcount", "type": "number" },
+          { "id": "responses", "label": "Responses", "type": "number" },
+          { "id": "score", "label": "Engagement", "type": "number" },
+          { "id": "last", "label": "Last year", "type": "number" },
+          { "id": "theme", "label": "Top theme", "type": "text-short" }
+        ],
+        "rows": [
+          { "team": "Sydney DC", "headcount": 64, "responses": 41, "score": 54, "last": 61, "theme": "Rosters released late" },
+          { "team": "Brisbane DC", "headcount": 48, "responses": 37, "score": 66, "last": 65, "theme": "Team huddles working" },
+          { "team": "Linehaul drivers", "headcount": 52, "responses": 22, "score": 57, "last": 58, "theme": "Hear about changes last" },
+          { "team": "Customer service", "headcount": 26, "responses": 24, "score": 58, "last": 66, "theme": "Targets after system change" },
+          { "team": "Transport planning", "headcount": 18, "responses": 16, "score": 71, "last": 69, "theme": "Planning tools are slow" },
+          { "team": "Sales", "headcount": 14, "responses": 12, "score": 74, "last": 70, "theme": "Career paths unclear" },
+          { "team": "Finance", "headcount": 11, "responses": 10, "score": 72, "last": 76, "theme": "Month-end hours" },
+          { "team": "IT", "headcount": 9, "responses": 8, "score": 69, "last": 63, "theme": "Recognition" },
+          { "team": "Leadership team", "headcount": 8, "responses": 8, "score": 81, "last": 79, "theme": "Cross-team decisions" },
+          { "team": "People & culture", "headcount": 6, "responses": 6, "score": 77, "last": 78, "theme": "Capacity" },
+          { "team": "Legal & compliance", "headcount": 4, "responses": 4, "theme": "Not reported — under 5 responses" }
+        ]
+      },
+      "chart": {
+        "title": "Engagement by team — this year against last",
+        "type": "bar",
+        "x": "team",
+        "series": [
+          { "column": "score", "agg": "avg", "label": "This year" },
+          { "column": "last", "agg": "avg", "label": "Last year" }
+        ]
+      },
+      "mindmap": {
+        "title": "From themes to actions",
+        "root": {
+          "label": "Engagement 64 (−2)",
+          "children": [
+            { "label": "Sydney DC — 54", "children": [
+              { "label": "Rosters out 2 days ahead", "kind": "idea" },
+              { "label": "Trial rosters 2 weeks ahead", "kind": "task" },
+              { "label": "Site practice or roster system?", "kind": "question" }
+            ]},
+            { "label": "Linehaul drivers — 57", "children": [
+              { "label": "42% response — low confidence", "kind": "idea" },
+              { "label": "Depot sessions, not email", "kind": "tool" },
+              { "label": "Hear about changes last", "kind": "idea" }
+            ]},
+            { "label": "Customer service — 58", "children": [
+              { "label": "Targets unchanged after new system", "kind": "idea" },
+              { "label": "Reset handle-time targets with Carmen", "kind": "task" }
+            ]},
+            { "label": "Across the company", "children": [
+              { "label": "Career paths unclear", "kind": "idea" },
+              { "label": "Monthly 1:1s as the minimum", "kind": "task" }
+            ]},
+            { "label": "How we report", "children": [
+              { "label": "Minimum group of 5", "kind": "tool" },
+              { "label": "Themes, not verbatims", "kind": "tool" },
+              { "label": "Teams choose their own actions", "kind": "task" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Leadership briefing — you said, we'll do",
+        "blocks": [
+          { "h3": "Survey results — leadership briefing" },
+          { "p": "188 of 260 people responded (72%). Engagement is 64, down two points. Most teams held or improved; three fell below 60 and each needs a plan it owns." },
+          { "h4": "You said" },
+          { "ul": [
+            "Sydney DC: rosters arrive too late to plan life outside work",
+            "Drivers: you hear about changes after they've happened",
+            "Customer service: targets didn't change when the new phone system slowed every call"
+          ]},
+          { "h4": "We'll do" },
+          { "ol": [
+            "Sydney DC rosters published two weeks ahead, as an eight-week trial — owner: Bec, site manager",
+            "Monthly in-person depot briefings for drivers, before changes land — owner: Hamish, linehaul manager",
+            "Customer service handle-time targets reset for the new system — owner: Carmen, service manager"
+          ]},
+          { "h4": "What we won't do" },
+          { "p": "Share comments that could identify anyone, or set an action for a team without that team in the room." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Sydney DC — comment themes",
+          "body": "41 responses, 29 with comments. A comment can raise more than one theme.\n\n- Rosters published too late — 17\n- Overtime offered unevenly — 9\n- Forklift and scanner breakdowns — 7\n- Positive: team leads are supportive — 11\n\nNext: walk Bec through the themes @+2d, then take the roster trial to the Sydney DC shift huddles @+3d so the team chooses it before the leadership briefing. Themes only — no comment text leaves the people team."
+        }
+      ],
+      "stickies": [
+        { "title": "Confidentiality", "body": "Under 5 responses: no team result. No verbatims to team leads.", "color": "#fbcfe8" },
+        { "title": "Today", "body": "1. Sydney DC themes for Bec\n2. Draft the briefing\n3. Book depot sessions", "color": "#fef08a" }
+      ],
+      "fields": [
+        { "label": "Response rate", "type": "number", "value": 72, "suffix": "%" },
+        { "label": "Engagement", "type": "number", "value": 64, "suffix": " / 100" },
+        { "label": "Teams below 60", "type": "number", "value": 3 }
+      ],
+      "browsers": [
+        { "title": "Wikipedia — Shift work", "url": "https://en.wikipedia.org/wiki/Shift_work" },
+        { "title": "business.gov.au — Create a mentally healthy workplace", "url": "https://business.gov.au/risk-management/mental-health/create-a-mentally-healthy-workplace" }
+      ],
+      "images": [
+        {
+          "title": "Sydney DC floor at shift change",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph inside a large distribution centre in western Sydney just after dawn at shift change: long aisles of tall blue and orange pallet racking with no signs or labels, stacked with shrink-wrapped pallets, two parked forklifts, a few anonymous warehouse workers in plain hi-vis vests walking away from the camera in the middle distance, cool high-bay lighting mixing with warm sunrise light spilling through an open roller door, polished concrete floor, wide shot, natural colours, quiet and unstaged"
+        },
+        {
+          "title": "Action-planning wall, break room",
+          "aspect": "portrait",
+          "prompt": "Editorial photograph of a whiteboard in a warehouse staff break room during a team action-planning session: clusters of blank pastel sticky notes in yellow, pink and pale blue grouped loosely with hand-drawn marker circles and arrows, the hand and forearm of an anonymous person reaching in to place one more blank note, two plain unmarked kraft paper coffee cups on a table edge in the soft-focus foreground, warm afternoon light, shallow depth of field"
+        }
+      ],
+      "diagram": {
+        "title": "Who sees which result",
+        "nodes": [
+          { "id": "min", "label": "5+ responses?", "shape": "circle", "color": "#d97706" },
+          { "id": "company", "label": "Company total only", "shape": "box", "color": "#94a3b8" },
+          { "id": "team", "label": "Team sees results, themes", "shape": "box", "color": "#0891b2" },
+          { "id": "below", "label": "Below 60?", "shape": "circle", "color": "#d97706" },
+          { "id": "action", "label": "Team chooses one action", "shape": "box", "color": "#2563eb" },
+          { "id": "keep", "label": "Keeps what's working", "shape": "box", "color": "#64748b" },
+          { "id": "owner", "label": "Owner + check-in date", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "min", "to": "company", "label": "no — under 5" },
+          { "from": "min", "to": "team", "label": "yes — 10 teams" },
+          { "from": "team", "to": "below" },
+          { "from": "below", "to": "action", "label": "yes — 3 teams" },
+          { "from": "below", "to": "keep", "label": "no — 7 teams" },
+          { "from": "action", "to": "owner" }
+        ]
+      },
+      "calculator": {
+        "title": "Linehaul drivers — response rate (%)",
+        "expression": "22 / 52 * 100",
+        "result": 42.3076923077
+      },
+      "form": {
+        "title": "Action plan — Sydney DC",
+        "fields": [
+          { "type": "heading", "label": "Sydney DC · engagement 54, down 7" },
+          { "type": "textarea", "label": "Action", "value": "Rosters published two weeks ahead, as an eight-week trial" },
+          { "type": "text", "label": "Owner", "value": "Bec, site manager" },
+          { "type": "number", "label": "Trial length (weeks)", "value": "8" },
+          { "type": "date", "label": "Themes walk-through with Bec", "value": "@+2d" },
+          { "type": "date", "label": "Shift huddles — team chooses", "value": "@+3d" },
+          { "type": "date", "label": "Leadership briefing", "value": "@+4d" },
+          { "type": "checkbox", "label": "Owner agreed to trial", "value": true },
+          { "type": "checkbox", "label": "Chosen with the team", "value": false }
+        ]
+      }
+    }
+  ]
+}

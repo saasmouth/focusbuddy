@@ -1,0 +1,12 @@
+{
+  "persona": "Startup and small-business teams",
+  "desk": "Weekly priorities — Monday kickoff to Friday wins",
+  "title": "Twelve cards, one each",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay photograph on a pale oak meeting table: twelve completely blank white index cards laid out in a neat grid of three rows of four, a few of them marked only with a small round coloured dot sticker in green, amber or red, two black marker pens with their caps on, a ceramic cup of flat white coffee, a closed spiral notebook and a phone lying face-down, soft diffused morning daylight from one side, gentle shadows, calm minimal editorial style",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 293418,
+  "generatedAt": "2026-10-08T07:22:56.740Z"
+}

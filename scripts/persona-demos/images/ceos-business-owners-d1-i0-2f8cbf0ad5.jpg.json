@@ -1,0 +1,12 @@
+{
+  "persona": "CEOs and business owners",
+  "desk": "Cash and key hires — the next 13 weeks",
+  "title": "Workshop floor in the shutdown",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Wide documentary photograph of a large timber joinery workshop during the end-of-year summer shutdown: panel saws and machines covered with grey dust sheets, the concrete floor swept clean, sheets of board stacked neatly in racks, overhead lights off. Late-afternoon summer sun streams through high windows and a half-open roller door, laying long warm shafts of light and shadow across the empty floor. Still, quiet, no people, natural muted colours.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 285060,
+  "generatedAt": "2026-10-08T07:21:39.762Z"
+}

@@ -1,0 +1,346 @@
+{
+  "number": 17,
+  "slug": "executive-assistants",
+  "persona": "Executive assistants",
+  "category": "Professional use cases",
+  "room": {
+    "title": "Executive Assistants",
+    "description": "How an EA runs an executive's fortnight from one surface — the board pack chase, the travel, the calendar trade-offs and the inbox rules, all in view together instead of across six tabs and a notebook."
+  },
+  "desks": [
+    {
+      "title": "Board pack — quarterly board meeting",
+      "description": "Chasing twelve papers from eight contributors, assembling the pack for the chair, and running the room, catering and dial-in for meeting day.",
+      "dueInDays": 4,
+      "brief": "## Board pack — quarterly board meeting\n\n**Executive** Ingrid, CEO · Harbourline Logistics\n**Meeting** @+9d, 9:30–15:00, boardroom · 2 directors dialling in\n**Papers were due** @-1d · **Chair review** @+2d · **Pack circulates** @+4d\n\n### My job on this one\n- Get 12 papers in, on the template, by the cut-off\n- Assemble, paginate and index the pack in the board portal\n- Room, AV, lunch and the dial-in; flights and hotel for Margit\n- Agenda timings agreed with the chair and Ingrid\n\n### Where it stands\nSeven of twelve papers are in. Two are drafts waiting on Ingrid's sign-off. The warehouse automation case and the people update are both late after repeated chases, and the risk register refresh hasn't started.\n\n**The chair has agreed: if the risk paper isn't in by @+2d, it moves to the next meeting.**",
+      "callout": {
+        "title": "Late: automation case and people update",
+        "body": "Kwame (2 chases) and Nadia (3 chases) are past the cut-off. Ingrid raises both at leadership @+1d. Anything not in by @+2d goes in the pack as 'to follow' with a one-line reason.",
+        "accent": "#f59e0b",
+        "icon": "⏳"
+      },
+      "table": {
+        "title": "Board papers tracker",
+        "columns": [
+          { "id": "paper", "label": "Paper", "type": "text-short" },
+          { "id": "section", "label": "Section", "type": "single-select", "options": ["Governance", "Finance", "Strategy", "Operations", "People", "Risk"] },
+          { "id": "owner", "label": "Owner", "type": "text-short" },
+          { "id": "pages", "label": "Pages", "type": "number" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Received", "Draft in", "Chased", "Not started"] },
+          { "id": "chases", "label": "Chases sent", "type": "number" }
+        ],
+        "rows": [
+          { "paper": "Minutes of the last meeting", "section": "Governance", "owner": "Rosa", "pages": 6, "status": "Received", "chases": 0 },
+          { "paper": "Matters arising and action log", "section": "Governance", "owner": "Rosa", "pages": 2, "status": "Received", "chases": 0 },
+          { "paper": "CEO report", "section": "Strategy", "owner": "Ingrid", "pages": 8, "status": "Draft in", "chases": 1 },
+          { "paper": "Quarterly management accounts", "section": "Finance", "owner": "Tomás", "pages": 14, "status": "Received", "chases": 0 },
+          { "paper": "Next year's budget — first look", "section": "Finance", "owner": "Tomás", "pages": 10, "status": "Draft in", "chases": 1 },
+          { "paper": "Cash and covenant headroom", "section": "Finance", "owner": "Tomás", "pages": 4, "status": "Received", "chases": 0 },
+          { "paper": "Warehouse automation business case", "section": "Strategy", "owner": "Kwame", "pages": 12, "status": "Chased", "chases": 2 },
+          { "paper": "Health and safety report", "section": "Operations", "owner": "Aroha", "pages": 5, "status": "Received", "chases": 0 },
+          { "paper": "People update and engagement survey", "section": "People", "owner": "Nadia", "pages": 7, "status": "Chased", "chases": 3 },
+          { "paper": "Risk register refresh", "section": "Risk", "owner": "Dev", "pages": 6, "status": "Not started", "chases": 1 },
+          { "paper": "Remuneration committee paper", "section": "People", "owner": "Nadia", "pages": 3, "status": "Received", "chases": 0 },
+          { "paper": "Audit committee chair's report", "section": "Risk", "owner": "Margit", "pages": 4, "status": "Received", "chases": 0 }
+        ]
+      },
+      "chart": {
+        "title": "Papers by status",
+        "type": "bar",
+        "x": "status",
+        "series": [{ "column": "paper", "agg": "count" }]
+      },
+      "mindmap": {
+        "title": "Meeting-day logistics",
+        "root": {
+          "label": "Board meeting @+9d",
+          "children": [
+            { "label": "Room and AV", "children": [
+              { "label": "Boardroom held 9:00–15:30", "kind": "task" },
+              { "label": "Test dial-in with both remote directors", "kind": "task" },
+              { "label": "Second screen for the portal?", "kind": "question" }
+            ]},
+            { "label": "Directors", "children": [
+              { "label": "Margit's flights booked", "kind": "task" },
+              { "label": "Hotel for Margit, one night", "kind": "task" },
+              { "label": "Perth director: confirm local start time", "kind": "question" }
+            ]},
+            { "label": "Catering", "children": [
+              { "label": "Lunch for 9 at 12:30", "kind": "task" },
+              { "label": "Two vegetarian, one gluten-free", "kind": "idea" }
+            ]},
+            { "label": "The pack", "children": [
+              { "label": "Upload and index in the board portal", "kind": "tool" },
+              { "label": "Print three copies for the chair", "kind": "task" },
+              { "label": "Rem paper to non-executives only", "kind": "task" }
+            ]},
+            { "label": "After the meeting", "children": [
+              { "label": "Draft minutes to Rosa within 48h", "kind": "task" },
+              { "label": "Action log updated and sent", "kind": "task" },
+              { "label": "Lock the next meeting date", "kind": "question" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Agenda and timings",
+        "blocks": [
+          { "h3": "Draft agenda — for the chair's sign-off" },
+          { "p": "Timings agreed with Ingrid. The chair asked for the automation case to get a full hour, so committee reports are compressed to 20 minutes. The items total 330 minutes, which fills 9:30–15:00 exactly — any extra time for one item has to come out of another." },
+          { "ol": [
+            "9:30 Welcome, conflicts, minutes and matters arising (20 min)",
+            "9:50 CEO report (30 min)",
+            "10:20 Management accounts, cash and covenants (30 min)",
+            "10:50 Break (10 min)",
+            "11:00 Warehouse automation business case (60 min)",
+            "12:00 Health and safety (15 min)",
+            "12:15 People update (15 min)",
+            "12:30 Lunch (45 min)",
+            "13:15 Next year's budget — first look (45 min)",
+            "14:00 Risk register (20 min)",
+            "14:20 Audit and remuneration committee reports (20 min)",
+            "14:40 Non-executive session (20 min)"
+          ]},
+          { "h4": "Notes for Ingrid" },
+          { "p": "The remuneration paper goes to non-executives only and stays out of the main pack. The non-executive session means you're free from 14:40 — I've held **14:45–15:30 for the bank call**." },
+          { "h4": "Still open with the chair" },
+          { "ul": [
+            "Does the automation case need the full hour, or 45 minutes plus questions?",
+            "Risk register: confirm it moves to the next meeting if it's not in by @+2d"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Chase log",
+          "body": "- @-4d reminder to all contributors, template attached\n- @-1d cut-off: seven in\n- Kwame: says he's waiting on numbers from Tomás. Checking with Tomás directly before chasing again\n- Nadia: survey results only landed @-2d; she's asked for @+1d\n- Dev: risk paper not started; chair is fine to defer\n\nDon't chase Ingrid on the CEO report — the draft is in, she just needs 20 minutes to sign it off. Book it."
+        }
+      ],
+      "stickies": [
+        { "title": "Today", "body": "1. Ask Tomás about Kwame's numbers\n2. Confirm Margit's hotel\n3. Lunch numbers to catering\n4. Hold 14:45 for the bank call", "color": "#fef08a" },
+        { "title": "Ask Ingrid", "body": "Sign off the CEO report and the budget draft before chair review @+2d.", "color": "#fbcfe8" },
+        { "title": "Dial-in times", "body": "Perth is 2 hours behind, or 3 while NSW is on daylight saving (October to April). A 9:30 start is 7:30 or 6:30 there, so check with the Perth director.", "color": "#bae6fd" }
+      ],
+      "fields": [
+        { "label": "Papers in", "type": "number", "value": 7, "suffix": " / 12" },
+        { "label": "Pack stage", "type": "single-select", "options": ["Collecting", "Chair review", "Circulated", "Meeting done"], "value": "Collecting" },
+        { "label": "Pages, all papers (est.)", "type": "number", "value": 81 }
+      ],
+      "browsers": [
+        { "title": "AICD — Board packs", "url": "https://www.aicd.com.au/board-of-directors/meeting/packs.html" },
+        { "title": "NSW Government — Daylight saving in NSW", "url": "https://www.nsw.gov.au/about-nsw/daylight-saving" }
+      ],
+      "images": [
+        {
+          "title": "Boardroom, set for meeting day",
+          "aspect": "landscape",
+          "prompt": "Architectural interior photograph of a corporate boardroom on a high floor of an Australian city office, set up early on the morning of a board meeting: a long pale oak table with ten empty charcoal upholstered chairs, closed black ring binders squared up at each place, glass water jugs and upturned tumblers on a tray, a small grey conference speakerphone puck in the centre of the table, a large wall display switched off and completely dark, floor-to-ceiling windows with soft overcast morning light and an out-of-focus view of generic rooftops and distant water, calm and orderly, wide angle from the doorway, natural colour"
+        },
+        {
+          "title": "Three printed copies for the chair",
+          "aspect": "square",
+          "prompt": "Overhead flat-lay editorial still life on a dark walnut desk: three thick printed document bundles held with black bulldog clips, each lying face-down so only the plain white backs of the pages show, plain coloured paper index tabs in amber, teal and slate grey sticking out along one edge with nothing written on them, a strip of small blank sticky flags, a black fountain pen, folded tortoiseshell reading glasses and a ceramic cup of black coffee, soft window light from the left casting gentle shadows, muted warm tones"
+        }
+      ],
+      "diagram": {
+        "title": "How a paper gets into the pack",
+        "nodes": [
+          { "id": "cutoff", "label": "In by the cut-off?", "shape": "circle", "color": "#d97706" },
+          { "id": "received", "label": "Received on template", "shape": "box", "color": "#2563eb" },
+          { "id": "chased", "label": "Chased — in by @+2d?", "shape": "circle", "color": "#d97706" },
+          { "id": "portal", "label": "Indexed in board portal", "shape": "box", "color": "#2563eb" },
+          { "id": "tofollow", "label": "In pack as 'to follow'", "shape": "box", "color": "#dc2626" },
+          { "id": "deferred", "label": "Risk paper: next meeting", "shape": "box", "color": "#94a3b8" },
+          { "id": "chair", "label": "Chair review", "shape": "circle", "color": "#7c3aed" },
+          { "id": "circulate", "label": "Pack circulates", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "cutoff", "to": "received", "label": "yes" },
+          { "from": "cutoff", "to": "chased", "label": "no" },
+          { "from": "received", "to": "portal" },
+          { "from": "chased", "to": "portal", "label": "yes" },
+          { "from": "chased", "to": "tofollow", "label": "still missing" },
+          { "from": "chased", "to": "deferred", "label": "risk paper only" },
+          { "from": "portal", "to": "chair" },
+          { "from": "tofollow", "to": "chair" },
+          { "from": "chair", "to": "circulate", "label": "signed off" }
+        ]
+      },
+      "calculator": {
+        "title": "Agenda minutes — must fill 9:30 to 15:00",
+        "expression": "20 + 30 + 30 + 10 + 60 + 15 + 15 + 45 + 45 + 20 + 20 + 20",
+        "result": 330
+      },
+      "form": {
+        "title": "Room, AV and catering booking",
+        "fields": [
+          { "type": "heading", "label": "Boardroom · quarterly board meeting" },
+          { "type": "date", "label": "Meeting day", "value": "@+9d" },
+          { "type": "text", "label": "Room held", "value": "Boardroom, 9:00–15:30" },
+          { "type": "number", "label": "Lunch covers", "value": "9" },
+          { "type": "select", "label": "Lunch served", "options": ["12:00", "12:30", "13:00"], "value": "12:30" },
+          { "type": "text", "label": "Dietary", "value": "Two vegetarian, one gluten-free" },
+          { "type": "number", "label": "Directors dialling in", "value": "2" },
+          { "type": "checkbox", "label": "Dial-in tested with both", "value": false },
+          { "type": "checkbox", "label": "Lunch numbers sent to catering", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "Singapore trip — itinerary, briefing and cover",
+      "description": "Four days in Singapore for a customer review and a partnership meeting: the bookings, the briefing pack, what moves in the calendar and how the inbox is handled while Ingrid is away.",
+      "dueInDays": 12,
+      "brief": "## Singapore trip — @+12d to @+15d\n\n**Traveller** Ingrid, CEO · **Budget** $8,000 approved · **Costed so far** $7,445, counting the held dinner and the car to Changi · **Left** $555\n**Purpose** quarterly review with Straits Cold Chain, and a first partnership meeting with Kallang Freight Partners\n**Timing** leaves three days after the board meeting\n\n### What I'm holding\n- Flights, hotel, transfers and the dinner for six on day 2\n- The briefing pack: who she's meeting, what they want, what we want\n- Calendar: nine meetings in the trip week move, get delegated or get declined\n- Inbox cover: what I answer, what goes to Tomás, what waits\n\n### Open\nThe Tuas site visit is held, not confirmed — Straits Cold Chain's ops lead is checking site access. The bank lunch on day 3 isn't booked because Tomás may join. The SG Arrival Card can't be filed until @+10d: Singapore only takes it in the three days before arrival, counting arrival day. The dinner for six is held until I have their dietary list, and the car back to Changi is still to book. **Everything else is booked or confirmed.**",
+      "callout": {
+        "title": "Decision needed from Ingrid",
+        "body": "By @+2d: does Tomás come for the bank lunch on day 3? If yes, I book his flights this week while the fare holds, on his own travel approval. If no, I book lunch for two and brief her on the bank's agenda myself.",
+        "accent": "#6366f1",
+        "icon": "✈️"
+      },
+      "table": {
+        "title": "Trip bookings",
+        "columns": [
+          { "id": "item", "label": "Item", "type": "text-short" },
+          { "id": "type", "label": "Type", "type": "single-select", "options": ["Flight", "Hotel", "Transfer", "Meeting", "Dinner"] },
+          { "id": "day", "label": "Day", "type": "single-select", "options": ["Day 1", "Day 2", "Day 3", "Day 4"] },
+          { "id": "cost", "label": "Cost ($)", "type": "number" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Confirmed", "Booked", "Held", "To book"] }
+        ],
+        "rows": [
+          { "item": "Car to the airport, 07:45", "type": "Transfer", "day": "Day 1", "cost": 95, "status": "Booked" },
+          { "item": "SYD→SIN, 09:40, business", "type": "Flight", "day": "Day 1", "cost": 2350, "status": "Booked" },
+          { "item": "Changi to hotel", "type": "Transfer", "day": "Day 1", "cost": 80, "status": "Booked" },
+          { "item": "Hotel, 3 nights", "type": "Hotel", "day": "Day 1", "cost": 1410, "status": "Confirmed" },
+          { "item": "Straits Cold Chain quarterly review", "type": "Meeting", "day": "Day 2", "cost": 0, "status": "Confirmed" },
+          { "item": "Tuas warehouse site visit", "type": "Meeting", "day": "Day 2", "cost": 0, "status": "Held" },
+          { "item": "Dinner with their leadership, table for 6", "type": "Dinner", "day": "Day 2", "cost": 900, "status": "Held" },
+          { "item": "Kallang Freight Partners meeting", "type": "Meeting", "day": "Day 3", "cost": 0, "status": "Confirmed" },
+          { "item": "Bank relationship lunch", "type": "Meeting", "day": "Day 3", "cost": 0, "status": "To book" },
+          { "item": "Regional team breakfast, 5 people", "type": "Meeting", "day": "Day 4", "cost": 180, "status": "Booked" },
+          { "item": "Hotel to Changi, 18:00", "type": "Transfer", "day": "Day 4", "cost": 80, "status": "To book" },
+          { "item": "SIN→SYD, 20:55, overnight", "type": "Flight", "day": "Day 4", "cost": 2350, "status": "Booked" }
+        ]
+      },
+      "chart": {
+        "title": "Trip cost by type",
+        "type": "pie",
+        "x": "type",
+        "series": [{ "column": "cost", "agg": "sum" }]
+      },
+      "mindmap": {
+        "title": "Briefing pack — before she lands",
+        "root": {
+          "label": "Singapore briefing pack",
+          "children": [
+            { "label": "Straits Cold Chain", "children": [
+              { "label": "Contract renewal due next quarter", "kind": "idea" },
+              { "label": "Service credits: two late months", "kind": "idea" },
+              { "label": "Who's in the room on their side?", "kind": "question" }
+            ]},
+            { "label": "Kallang Freight Partners", "children": [
+              { "label": "Shared warehouse at Tuas", "kind": "idea" },
+              { "label": "NDA signed by legal", "kind": "task" },
+              { "label": "What's our walk-away?", "kind": "question" }
+            ]},
+            { "label": "Travel admin", "children": [
+              { "label": "Arrival card filed", "kind": "task" },
+              { "label": "Roaming on, travel notice on card", "kind": "task" },
+              { "label": "Car bookings in the travel app", "kind": "tool" }
+            ]},
+            { "label": "Back home", "children": [
+              { "label": "Tomás chairs leadership", "kind": "task" },
+              { "label": "Inbox cover rules agreed", "kind": "task" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Day-by-day itinerary",
+        "blocks": [
+          { "h3": "Singapore — day by day" },
+          { "h4": "Day 1 — @+12d" },
+          { "ul": ["07:45 car from home", "09:40 SYD→SIN, lands 15:20 local", "Transfer to the hotel; evening free"] },
+          { "h4": "Day 2 — @+13d" },
+          { "ul": ["09:00 Straits Cold Chain quarterly review (2 hours)", "13:30 Tuas warehouse site visit — to be confirmed", "19:00 dinner with their leadership, table for six"] },
+          { "h4": "Day 3 — @+14d" },
+          { "ul": ["10:00 Kallang Freight Partners, partnership meeting (90 min)", "12:30 bank relationship lunch — to book once Tomás decides"] },
+          { "h4": "Day 4 — @+15d" },
+          { "ul": ["08:00 regional team breakfast, five people", "Afternoon free for calls from the hotel", "18:00 transfer to Changi; 20:55 SIN→SYD, lands 06:15"] },
+          { "p": "**Dress** business for days 2 and 3. The site visit needs closed-toe shoes; their team provides hi-vis." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Inbox cover while she's away",
+          "body": "Rules Ingrid agreed:\n\n- Customers and board: one summary email to her at 18:00 Singapore time, daily\n- Finance approvals under $20k: Tomás signs\n- Media and speaking requests: hold until she's back\n- Recruiters, vendors, newsletters: I reply or archive\n- Anything from the chair: forward straight away and message her as well"
+        },
+        {
+          "title": "Calendar — what moved",
+          "body": "Nine meetings in the trip week:\n\n- Leadership meeting: Tomás chairs\n- Three recurring 1:1s: moved to the week after\n- Product review: delegated to Kwame\n- Two vendor demos: declined, rebook next month\n- Town hall: moved to @+18d\n- Mentoring call: kept, by phone from the hotel"
+        }
+      ],
+      "stickies": [
+        { "title": "Today", "body": "1. Ask Ingrid about Tomás and the bank lunch\n2. Chase Tuas site access\n3. Dietary list for the dinner", "color": "#bae6fd" },
+        { "title": "Remember", "body": "Aisle seat, rows 2–4. No red-eye on the way out.", "color": "#fbcfe8" }
+      ],
+      "fields": [
+        { "label": "Costed so far", "type": "number", "value": 7445, "prefix": "$" },
+        { "label": "Booked or confirmed", "type": "number", "value": 8, "suffix": " / 12" },
+        { "label": "Arrival card filed", "type": "checkbox", "value": false }
+      ],
+      "browsers": [
+        { "title": "Government of Canada — Singapore travel advice", "url": "https://travel.gc.ca/destinations/singapore" },
+        { "title": "ICA Singapore — SG Arrival Card", "url": "https://www.ica.gov.sg/enter-transit-depart/entering-singapore/sg-arrival-card" }
+      ],
+      "images": [
+        {
+          "title": "Cold-chain loading dock, Tuas site visit",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a refrigerated warehouse loading dock on a tropical industrial estate in the humid late afternoon: a row of open roller doors hung with heavy clear plastic strip curtains, pallets of shrink-wrapped plain brown cartons, a parked forklift, a faint haze of condensation where the cold air meets the heat, two anonymous workers in hi-vis vests and hard hats seen from behind in the middle distance, wet concrete reflecting a grey-gold sky, palm trees beyond the perimeter fence, wide angle, natural colour, plain unmarked walls"
+        },
+        {
+          "title": "Packed for four days away",
+          "aspect": "portrait",
+          "prompt": "Overhead flat-lay photograph of an open carry-on suitcase on a hotel bed with crisp white linen: neatly folded pale blue business shirts and a charcoal blazer, a pair of black closed-toe leather flats, a slim plain tan leather document folio closed, a compact folding navy umbrella, tortoiseshell sunglasses, a zipped grey felt pouch and a rolled silk scarf, soft morning light through sheer curtains, calm and organised, editorial travel still life, muted navy, white and tan palette"
+        }
+      ],
+      "diagram": {
+        "title": "Bank lunch — the decision tree",
+        "nodes": [
+          { "id": "ask", "label": "Ingrid decides by @+2d", "shape": "box", "color": "#6366f1" },
+          { "id": "joins", "label": "Tomás joins?", "shape": "circle", "color": "#d97706" },
+          { "id": "flights", "label": "Book his flights this week", "shape": "box", "color": "#2563eb" },
+          { "id": "two", "label": "Book lunch for two", "shape": "box", "color": "#0891b2" },
+          { "id": "three", "label": "Book lunch for three", "shape": "box", "color": "#16a34a" },
+          { "id": "brief", "label": "I brief her on the bank", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "ask", "to": "joins" },
+          { "from": "joins", "to": "flights", "label": "yes" },
+          { "from": "joins", "to": "two", "label": "no" },
+          { "from": "flights", "to": "three" },
+          { "from": "two", "to": "brief" }
+        ]
+      },
+      "calculator": {
+        "title": "Budget left after all costed items",
+        "expression": "8000 - (95 + 2350 + 80 + 1410 + 900 + 180 + 80 + 2350)",
+        "result": 555
+      },
+      "form": {
+        "title": "Travel approval — Singapore",
+        "fields": [
+          { "type": "heading", "label": "Ingrid · Singapore, four days" },
+          { "type": "date", "label": "Departs", "value": "@+12d" },
+          { "type": "date", "label": "Flies home", "value": "@+15d" },
+          { "type": "number", "label": "Approved budget ($)", "value": "8000" },
+          { "type": "number", "label": "Costed so far ($)", "value": "7445" },
+          { "type": "select", "label": "Tomás joins the bank lunch?", "options": ["Undecided", "Yes", "No"], "value": "Undecided" },
+          { "type": "date", "label": "Arrival card can be filed from", "value": "@+10d" },
+          { "type": "checkbox", "label": "Tuas site access confirmed", "value": false },
+          { "type": "checkbox", "label": "Arrival card filed", "value": false }
+        ]
+      }
+    }
+  ]
+}

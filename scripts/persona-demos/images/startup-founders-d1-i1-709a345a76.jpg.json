@@ -1,0 +1,12 @@
+{
+  "persona": "Startup founders",
+  "desk": "Customer discovery round 2 — pricing and switching",
+  "title": "Affinity wall after twelve calls",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Straight-on photograph of a white wall in a small startup office covered with completely blank, unwritten square sticky notes in two colours, butter yellow and pale blue, clustered into five loose groups with clear gaps between them, a few vertical strips of blue painter's tape dividing the groups, a black marker resting on a narrow ledge below, soft overcast daylight from a side window, clean minimal composition, no people",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 125862,
+  "generatedAt": "2026-10-08T07:07:52.301Z"
+}

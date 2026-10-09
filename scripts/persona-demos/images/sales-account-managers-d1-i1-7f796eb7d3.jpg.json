@@ -1,0 +1,12 @@
+{
+  "persona": "Sales and account managers",
+  "desk": "Renewals, next 90 days — 3 enterprise accounts at risk",
+  "title": "Prep for the COO value review",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay editorial still life on a pale oak meeting table, set out before an executive meeting: a closed silver laptop, two flat white coffees in matte ceramic cups, a blank unlined notepad with a black pen laid across it, a closed plain kraft folder, a phone lying face-down, a pair of reading glasses, a small potted succulent, soft window light from the left casting long gentle shadows, muted warm palette, minimal and composed",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 62,
+  "bytes": 277097,
+  "generatedAt": "2026-10-08T07:14:24.304Z"
+}

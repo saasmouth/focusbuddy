@@ -1,0 +1,12 @@
+{
+  "persona": "Neurodivergent knowledge workers and visual thinkers",
+  "desk": "Year 2 grant report — written in visible chunks",
+  "title": "Eight sections laid out as cards",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay photograph of a wooden kitchen table set up for one focused writing session: eight completely blank index cards in soft colours arranged in two tidy rows of four; only the four cards in the top row each carry one small green round dot sticker in the corner, and the four cards in the bottom row have no sticker at all; a sharpened pencil, a closed laptop, a mug of tea, a sprig of eucalyptus leaves, a seedling in a small recycled pot and a closed field notebook with a plain unmarked canvas cover, gentle morning window light casting soft shadows, calm and uncluttered, muted natural palette",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 74,
+  "bytes": 292241,
+  "generatedAt": "2026-10-08T07:08:32.065Z"
+}

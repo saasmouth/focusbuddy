@@ -1,0 +1,12 @@
+{
+  "persona": "Marketing and content professionals",
+  "desk": "Subscription drive — week 6 performance review",
+  "title": "Customer video shoot, morning routine",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Candid documentary photograph of a home kitchen bench at sunrise in an Australian weatherboard house: a person seen only from behind and slightly to the side, their hands pouring hot water from a gooseneck kettle into a pour-over coffee dripper above a ceramic mug, a plain unprinted kraft paper coffee bag folded shut beside it, and a smartphone on a small tabletop tripod filming the scene with its back to the viewer. Warm golden window light, steam rising, everyday kitchen clutter softly out of focus, natural colours",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 169182,
+  "generatedAt": "2026-10-08T07:08:24.044Z"
+}

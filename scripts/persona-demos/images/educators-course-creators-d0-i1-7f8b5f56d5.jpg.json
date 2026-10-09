@@ -1,0 +1,12 @@
+{
+  "persona": "Educators and course creators",
+  "desk": "Course build — Data Storytelling for Analysts",
+  "title": "Storyboarding the narrative module",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay editorial still life on a pale oak desk: a neat grid of blank white index cards laid out in rows like a storyboard, several cards carrying simple hand-sketched pencil bar charts and line graphs with no axis labels and no writing, one bar on one card filled in with a single bright orange marker stroke, a mechanical pencil, a few blank pale yellow sticky notes, a ceramic cup of black coffee at the edge, soft diffuse daylight, muted greys with one orange accent",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 277837,
+  "generatedAt": "2026-10-08T07:19:49.441Z"
+}

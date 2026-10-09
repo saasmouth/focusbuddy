@@ -1,0 +1,12 @@
+{
+  "persona": "Real estate agents and property managers",
+  "desk": "14 Banksia Crescent — auction campaign, week 3",
+  "title": "Renovated kitchen, open home morning",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Editorial interior photograph of a freshly renovated family kitchen styled for an open home: a long pale stone island bench with three timber stools, matte white cabinetry, brushed brass tapware, a bowl of lemons and a jug of native grevillea flowers on the bench, and a wide window over the sink looking out onto green eucalyptus bushland. Soft morning daylight, uncluttered surfaces, warm natural colours, shot at bench height with a gentle perspective. No people.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 220753,
+  "generatedAt": "2026-10-08T07:14:05.358Z"
+}

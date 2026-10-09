@@ -1,0 +1,12 @@
+{
+  "persona": "Agency owners and client-service teams",
+  "desk": "Pitch — Bramble Ridge Outdoor rebrand and launch",
+  "title": "Store visit, the boot wall",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph inside an independent, family-owned outdoor gear shop in a regional Australian town: a timber wall of plain unbranded leather hiking boots on shelves, rucksacks hanging from pegs, coiled climbing rope and a rack of rain shells in muted greens and ochres. In the middle distance a shop assistant, seen from behind, adjusts the hip belt of a rucksack on a customer whose face is turned away. Warm shop lighting mixed with daylight from the street door, worn floorboards, honest and unstaged feel, 35mm film look. Every item is plain, with no logos, tags or labels.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 258749,
+  "generatedAt": "2026-10-08T07:21:38.544Z"
+}

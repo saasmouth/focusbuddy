@@ -1,0 +1,12 @@
+{
+  "persona": "Startup and small-business teams",
+  "desk": "Clinic waitlist launch — everyone ships it together",
+  "title": "Pilot clinic front desk, opening time",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Architectural interior photograph of a small suburban Australian physiotherapy clinic reception at opening time: a curved blond timber front counter with a potted fiddle-leaf fig, a closed laptop and a phone lying face-down, four empty waiting chairs in sage green upholstery, bare white walls with no signage, through an open doorway a treatment room with a padded plinth and a folded towel, polished concrete floor, soft morning sun through tall windows, clean, calm and uncluttered",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 206412,
+  "generatedAt": "2026-10-08T07:22:48.304Z"
+}

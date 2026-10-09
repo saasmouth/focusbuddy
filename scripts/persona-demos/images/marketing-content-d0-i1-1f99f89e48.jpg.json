@@ -1,0 +1,12 @@
+{
+  "persona": "Marketing and content professionals",
+  "desk": "Cold brew launch — 6-week content calendar",
+  "title": "Launch film still, café table",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Vertical documentary-style photograph on a small weathered timber table outside a suburban Australian café in early-morning sun: a standard slim aluminium drinks can in plain unprinted matte midnight navy, so dark it is almost blue-black, stands upright, its silver top lid sealed and intact with the ring-pull tab just opened, beside a tall glass of cold brew coffee poured over ice. Condensation beading on the glass and the can, the dark coffee glowing amber where the low sun passes through it, a blurred terracotta wall and street-tree leaves behind, warm raking light across the table, shallow depth of field, a quiet unhurried mood, no people",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 295614,
+  "generatedAt": "2026-10-08T07:29:03.122Z"
+}

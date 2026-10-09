@@ -1,0 +1,355 @@
+{
+  "number": 22,
+  "slug": "department-heads-team-leaders",
+  "persona": "Department heads and team leaders",
+  "category": "Team and buying personas",
+  "room": {
+    "title": "Department Heads and Team Leaders",
+    "description": "How a department head runs headcount, quarterly goals and 1:1s from one surface — the hiring plan and the coverage maths behind it, the key results each lead updates, and the agenda for every 1:1, visible to the people who need them."
+  },
+  "desks": [
+    {
+      "title": "Customer Support — H1 headcount and coverage plan",
+      "description": "Eight roles to fill before the billing platform migration: the hiring pipeline, the coverage maths behind each seat, and the ramp risk the team leads are watching.",
+      "dueInDays": 63,
+      "brief": "## Customer Support — H1 headcount and coverage plan\n\n**Department** Customer Support · 28 agents in three teams · five leads\n**Approved** 6 new seats + 2 backfills · $580k fully loaded\n**Deadline** billing platform migration goes live @+63d\n\n### Why we're hiring\nWeekly contacts run at about 4,600, roughly 164 per agent. The billing migration is forecast to lift that to 5,600 for at least a quarter (+22%). At the same rate that needs 34 agents. Joel and Ana have resigned, so 26 stay: six new seats plus two backfills gets us to 34.\n\n### Where the gaps are\n- **Evenings 17:00–21:00** — 19% of contacts, 4 agents rostered\n- **Weekends** — the billing queue waits until Monday\n- **L2 technical** — escalations wait 2.5 days on average\n\n### Shared with\nThe five leads, Kemi in recruiting and Tamsin in finance. Hiring leads move their own roles through the stages here, so the Friday hiring-status email has stopped.\n\n### Where it stands\nOne role filled, two offers out, two in interviews. Plan cost is $556k, $24k under approval. New agents take six weeks to ramp, so **only the first billing hire will be fully productive at go-live**.",
+      "callout": {
+        "title": "Risk: billing ramp misses go-live",
+        "body": "Only one of three billing hires is ramped by go-live @+63d. Proposal: lend three onboarding agents to billing for the first four weeks after go-live. Needs Rosa's sign-off by @+3d.",
+        "accent": "#f59e0b",
+        "icon": "⚠️"
+      },
+      "table": {
+        "title": "Hiring plan",
+        "columns": [
+          { "id": "role", "label": "Role", "type": "text-short" },
+          { "id": "team", "label": "Team", "type": "single-select", "options": ["Billing", "Technical", "Onboarding"] },
+          { "id": "type", "label": "Type", "type": "single-select", "options": ["New seat", "Backfill"] },
+          { "id": "lead", "label": "Hiring lead", "type": "text-short" },
+          { "id": "stage", "label": "Stage", "type": "single-select", "options": ["Approved", "Sourcing", "Interviewing", "Offer", "Filled"] },
+          { "id": "start", "label": "Target start", "type": "text-short" },
+          { "id": "cost", "label": "Annual cost", "type": "number", "prefix": "$" }
+        ],
+        "rows": [
+          { "role": "Billing specialist — early shift", "team": "Billing", "type": "New seat", "lead": "Tomás", "stage": "Offer", "start": "@+21d", "cost": 66000 },
+          { "role": "Billing specialist — evening", "team": "Billing", "type": "New seat", "lead": "Tomás", "stage": "Interviewing", "start": "@+35d", "cost": 66000 },
+          { "role": "Billing specialist — weekend", "team": "Billing", "type": "New seat", "lead": "Tomás", "stage": "Sourcing", "start": "@+49d", "cost": 66000 },
+          { "role": "Tech support engineer — L2 escalations", "team": "Technical", "type": "New seat", "lead": "Aiko", "stage": "Interviewing", "start": "@+35d", "cost": 78000 },
+          { "role": "Tech support engineer — evening", "team": "Technical", "type": "New seat", "lead": "Aiko", "stage": "Approved", "start": "@+63d", "cost": 78000 },
+          { "role": "Tech support engineer (backfill for Joel)", "team": "Technical", "type": "Backfill", "lead": "Aiko", "stage": "Offer", "start": "@+21d", "cost": 78000 },
+          { "role": "Onboarding specialist — enterprise", "team": "Onboarding", "type": "New seat", "lead": "Rosa", "stage": "Sourcing", "start": "@+49d", "cost": 62000 },
+          { "role": "Onboarding specialist (backfill for Ana)", "team": "Onboarding", "type": "Backfill", "lead": "Rosa", "stage": "Filled", "start": "@+7d", "cost": 62000 }
+        ]
+      },
+      "chart": {
+        "title": "Hiring budget by team",
+        "type": "pie",
+        "x": "team",
+        "series": [{ "column": "cost", "agg": "sum" }]
+      },
+      "mindmap": {
+        "title": "Coverage gaps and options",
+        "root": {
+          "label": "Coverage at billing go-live",
+          "children": [
+            { "label": "Evening gap 17:00–21:00", "children": [
+              { "label": "Billing specialist — evening", "kind": "task" },
+              { "label": "Tech engineer — evening (on hold)", "kind": "task" },
+              { "label": "Shift-swap allowance?", "kind": "question" }
+            ]},
+            { "label": "Weekend billing queue", "children": [
+              { "label": "Billing specialist — weekend", "kind": "task" },
+              { "label": "Saturday-only rota until filled", "kind": "idea" }
+            ]},
+            { "label": "L2 escalations wait 2.5 days", "children": [
+              { "label": "Dedicated L2 engineer", "kind": "task" },
+              { "label": "Escalation form in the help desk", "kind": "tool" }
+            ]},
+            { "label": "Ramp risk", "children": [
+              { "label": "Lend 3 onboarding agents for 4 weeks", "kind": "idea" },
+              { "label": "Who covers Rosa's queue?", "kind": "question" },
+              { "label": "Buddy each new starter", "kind": "task" }
+            ]},
+            { "label": "Alternatives to hiring", "children": [
+              { "label": "Rewrite top 10 billing articles", "kind": "task" },
+              { "label": "Billing FAQ in renewal emails", "kind": "idea" },
+              { "label": "Does deflection cut 5% of contacts?", "kind": "question" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Coverage model",
+        "blocks": [
+          { "h3": "How many agents do we need?" },
+          { "p": "Built from the last 12 weeks of contact data. Kwame owns the forecast and checks the evening peak with an Erlang C queue model; the leads check it before any hiring decision moves forward." },
+          { "ul": [
+            "Contacts today: about 4,600 a week across chat, email and phone",
+            "Handled per agent: about 164 a week at 80% occupancy",
+            "Forecast after go-live: about 5,600 a week (+22%) for at least a quarter",
+            "5,600 ÷ 164 = 34 agents. We have 28, and two are leaving"
+          ]},
+          { "h4": "Where the eight seats go" },
+          { "p": "Billing gets three because the migration lands there first. Technical gets an L2 seat to stop escalations waiting 2.5 days, an evening seat, and Joel's backfill. Onboarding gets the enterprise seat and Ana's backfill." },
+          { "h4": "What would change the plan" },
+          { "ul": [
+            "Contacts land under 5,200 a week → hold the evening tech seat",
+            "Rewritten articles deflect more than 5% → hold the weekend billing seat",
+            "Go-live slips past @+63d → keep the start dates and use the extra ramp time"
+          ]},
+          { "quote": "Hire for the forecast, but keep two seats conditional: the evening tech seat on go-live volume, the weekend billing seat on what the rewritten articles deflect." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Leads sync — what I heard",
+          "body": "From this week's leads sync:\n\n- Tomás wants the early-shift offer signed now — the candidate has a competing offer\n- Aiko rates the L2 seat above the evening seat; happy to hold the evening seat if volume lands low\n- Rosa can lend three onboarding agents, but not in the last week of the month (enterprise go-lives)\n- Kemi can run two interview panels a week, not three\n\nTo decide: can the loan dates dodge Rosa's month-end?"
+        },
+        {
+          "title": "Finance check-in with Tamsin",
+          "body": "- $580k is fully loaded: salary plus 15% on-costs\n- Backfills don't need re-approval; new seats do if a start date slips a full quarter\n- Seat costs are at base rates, so evening and weekend penalty rates are not in the $556k yet\n- Can the $24k headroom fund those penalty rates plus overtime during the ramp? She'll confirm by @+5d"
+        }
+      ],
+      "stickies": [
+        { "title": "This week", "body": "1. Sign early-shift billing offer\n2. Rosa's sign-off on the agent loan\n3. L2 engineer panel\n4. Refresh forecast with last week's data", "color": "#fef08a" },
+        { "title": "On hold", "body": "Evening tech seat — release only if go-live volume holds above 5,200.", "color": "#bae6fd" }
+      ],
+      "fields": [
+        { "label": "Roles filled", "type": "number", "value": 1, "suffix": " / 8" },
+        { "label": "Offers out", "type": "number", "value": 2 },
+        { "label": "Plan cost vs approved", "type": "text-short", "value": "$556k of $580k" }
+      ],
+      "browsers": [
+        {
+          "title": "Wikipedia — Erlang (unit) and the Erlang C formula",
+          "url": "https://en.wikipedia.org/wiki/Erlang_(unit)"
+        },
+        {
+          "title": "Fair Work — Clerks—Private Sector Award 2020",
+          "url": "https://awards.fairwork.gov.au/MA000002.html"
+        }
+      ],
+      "images": [
+        {
+          "title": "Evening shift, most of the floor dark",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a long open-plan customer support floor in an Australian office at about seven in the evening: rows of empty desks fall away into shadow, and only four workstations at the far end are lit, where agents wearing headsets sit seen from behind, small in the frame. Their monitors glow as soft out-of-focus colour with nothing readable. Blue dusk through tall windows, warm pools of desk-lamp light, quiet and noticeably understaffed mood, natural colour, shallow depth of field, eye-level framing"
+        },
+        {
+          "title": "Saturday morning, no one on the floor",
+          "aspect": "square",
+          "prompt": "Architectural interior photograph of a customer support office on a Saturday morning with nobody in it: tidy rows of desks with chairs pushed in, headsets hung neatly on monitor stands, every screen dark, a single potted fiddle-leaf fig, low winter sun from tall windows casting long stripes of light and shadow across grey carpet tiles. Calm, still and slightly lonely, wide-angle lens at eye level, neutral colour grade, crisp detail"
+        }
+      ],
+      "diagram": {
+        "title": "Seat release rules",
+        "nodes": [
+          { "id": "volume", "label": "Go-live contact volume", "shape": "box", "color": "#2563eb" },
+          { "id": "over", "label": "Over 5,200 a week?", "shape": "circle", "color": "#d97706" },
+          { "id": "release", "label": "Release evening tech seat", "shape": "box", "color": "#16a34a" },
+          { "id": "hold-tech", "label": "Hold evening tech seat", "shape": "box", "color": "#94a3b8" },
+          { "id": "articles", "label": "Billing article rewrites", "shape": "box", "color": "#2563eb" },
+          { "id": "deflect", "label": "Deflect over 5%?", "shape": "circle", "color": "#d97706" },
+          { "id": "hold-weekend", "label": "Hold weekend billing seat", "shape": "box", "color": "#94a3b8" },
+          { "id": "hire-weekend", "label": "Hire weekend billing seat", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "volume", "to": "over" },
+          { "from": "over", "to": "release", "label": "yes" },
+          { "from": "over", "to": "hold-tech", "label": "no" },
+          { "from": "articles", "to": "deflect" },
+          { "from": "deflect", "to": "hold-weekend", "label": "yes" },
+          { "from": "deflect", "to": "hire-weekend", "label": "no" }
+        ]
+      },
+      "calculator": {
+        "title": "Plan cost of the eight seats",
+        "expression": "66000 * 3 + 78000 * 3 + 62000 * 2",
+        "result": 556000
+      },
+      "form": {
+        "title": "Agent loan approval",
+        "fields": [
+          { "type": "heading", "label": "Onboarding agents lent to Billing" },
+          { "type": "number", "label": "Agents lent", "value": "3" },
+          { "type": "number", "label": "Loan length (weeks)", "value": "4" },
+          { "type": "date", "label": "Loan starts (go-live)", "value": "@+63d" },
+          { "type": "date", "label": "Sign-off needed by", "value": "@+3d" },
+          { "type": "text", "label": "Approver", "value": "Rosa" },
+          { "type": "select", "label": "Status", "options": ["Proposed", "Approved", "Declined"], "value": "Proposed" },
+          { "type": "checkbox", "label": "Clear of enterprise month-end", "value": false },
+          { "type": "checkbox", "label": "Cover for Rosa's queue agreed", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "Support goals — weekly leads review and 1:1s",
+      "description": "Eight key results across three objectives, updated by the leads before Monday's review, with each lead's 1:1 agenda and the upward update drawn from the same numbers.",
+      "dueInDays": 35,
+      "brief": "## Support goals — week 8 of 13\n\n**Leads** Tomás (Billing) · Aiko (Technical) · Rosa (Onboarding) · Nadia (Quality & knowledge) · Kwame (Workforce)\n**Review** Mondays 10:00, 20 minutes\n**Quarter ends** @+35d\n\n### Objectives\n1. **Faster answers** — customers hear back sooner, especially on billing\n2. **Better answers** — fewer reopened tickets, higher CSAT\n3. **Migration ready** — every agent certified, runbook signed off before go-live\n\n### How the review works\nEach lead updates their rows before 10:00: what the number is now, progress and status. The meeting covers only rows that are **At risk** or **Off track**, and each one ends with a decision or an owner. It used to be 45 minutes of read-outs with a slide per lead; it now runs 20 and the slides are gone.\n\n### Where it stands\nFive of eight key results on track. CSAT and agent certification are at risk; help-article rewrites are off track. Average progress is 64% against 62% expected at week 8 — on pace overall, but uneven: faster answers is well ahead, the other two objectives are behind.",
+      "callout": {
+        "title": "Off track: help-article rewrites",
+        "body": "14 of 40 articles done at week 8. The other 26 in five weeks means 5.2 a week; the pace so far is under two. Nadia is the only writer and spends four days a week on QA. Decision for Monday: two protected writing days for her until quarter end, with QA sampling moving to the leads.",
+        "accent": "#ef4444",
+        "icon": "🚩"
+      },
+      "table": {
+        "title": "Key results",
+        "columns": [
+          { "id": "kr", "label": "Key result", "type": "text-short" },
+          { "id": "objective", "label": "Objective", "type": "single-select", "options": ["Faster answers", "Better answers", "Migration ready"] },
+          { "id": "owner", "label": "Owner", "type": "text-short" },
+          { "id": "now", "label": "Now", "type": "text-short" },
+          { "id": "progress", "label": "Progress", "type": "number", "suffix": "%" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["On track", "At risk", "Off track"] }
+        ],
+        "rows": [
+          { "kr": "Median first response under 1h", "objective": "Faster answers", "owner": "Kwame", "now": "1.4h (was 4.0h)", "progress": 87, "status": "On track" },
+          { "kr": "Billing backlog under 150 tickets", "objective": "Faster answers", "owner": "Tomás", "now": "290 (was 640)", "progress": 71, "status": "On track" },
+          { "kr": "95% of onboarding calls booked within 2 days", "objective": "Faster answers", "owner": "Rosa", "now": "93% (was 70%)", "progress": 92, "status": "On track" },
+          { "kr": "CSAT from 88% to 92%", "objective": "Better answers", "owner": "Nadia", "now": "90%", "progress": 50, "status": "At risk" },
+          { "kr": "Reopen rate from 11% to 7%", "objective": "Better answers", "owner": "Aiko", "now": "8%", "progress": 75, "status": "On track" },
+          { "kr": "40 help articles rewritten", "objective": "Better answers", "owner": "Nadia", "now": "14 of 40", "progress": 35, "status": "Off track" },
+          { "kr": "All 26 agents certified on new billing", "objective": "Migration ready", "owner": "Tomás", "now": "9 of 26", "progress": 35, "status": "At risk" },
+          { "kr": "Migration runbook signed off", "objective": "Migration ready", "owner": "Aiko", "now": "7 of 10 sections", "progress": 70, "status": "On track" }
+        ]
+      },
+      "chart": {
+        "title": "Average progress by objective",
+        "type": "bar",
+        "x": "objective",
+        "series": [{ "column": "progress", "agg": "avg" }]
+      },
+      "mindmap": {
+        "title": "1:1 agendas — this fortnight",
+        "root": {
+          "label": "1:1s this fortnight",
+          "children": [
+            { "label": "Tomás — Billing", "children": [
+              { "label": "Certification: 9 of 26", "kind": "task" },
+              { "label": "Certify agents in pairs?", "kind": "question" },
+              { "label": "Ready to lead a bigger team?", "kind": "question" }
+            ]},
+            { "label": "Aiko — Technical", "children": [
+              { "label": "Reopen rate win — share how", "kind": "idea" },
+              { "label": "Runbook: last 3 sections", "kind": "task" }
+            ]},
+            { "label": "Rosa — Onboarding", "children": [
+              { "label": "Agent loan vs month-end", "kind": "question" },
+              { "label": "Enterprise seat job ad", "kind": "task" }
+            ]},
+            { "label": "Nadia — Quality & knowledge", "children": [
+              { "label": "Two protected writing days", "kind": "task" },
+              { "label": "CSAT dip: billing or tone?", "kind": "question" },
+              { "label": "Hand QA sampling to leads", "kind": "idea" }
+            ]},
+            { "label": "Kwame — Workforce", "children": [
+              { "label": "Evening forecast refresh", "kind": "task" },
+              { "label": "Forecast sheet the leads can read", "kind": "tool" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Leads review — decisions log",
+        "blocks": [
+          { "h3": "Monday leads review" },
+          { "p": "Twenty minutes. Rows are updated before we start; we discuss only what is At risk or Off track, and every discussion ends in a decision or an owner." },
+          { "h4": "Last review" },
+          { "ul": [
+            "CSAT: Nadia to tag the last 60 low scores by cause before the next review",
+            "Certification: Tomás to run two pair-certification sessions a week",
+            "Evening tech seat stays on hold until go-live volume is known"
+          ]},
+          { "h4": "The review before" },
+          { "ul": [
+            "Backlog target stays at 150 — Tomás thinks 100 is reachable; revisit at week 10",
+            "Kwame posts the first-response chart in the team channel every Friday"
+          ]},
+          { "h4": "Rules we keep" },
+          { "ol": [
+            "Update your rows before the meeting, not in it",
+            "No slides",
+            "Anything on track for three weeks running drops off the agenda"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Upward update — 1:1 with the COO",
+          "body": "Three lines, straight from the rows on this desk:\n\n- Faster answers is ahead: first response down from 4.0h to 1.4h, backlog down from 640 to 290\n- Better answers is behind: articles off track (14 of 40), CSAT at 90% against a 92% target\n- Migration readiness hinges on certification — 9 of 26 agents so far\n\nIf protected writing days haven't moved the articles by week 10, ask for a contract writer for six weeks."
+        }
+      ],
+      "stickies": [
+        { "title": "Before the review", "body": "Rows updated?\nTomás — yes\nAiko — yes\nRosa — yes\nNadia — not yet\nKwame — not yet", "color": "#fef08a" },
+        { "title": "Remember", "body": "Thank Aiko's team at the all-hands: reopen rate down from 11% to 8%.", "color": "#bbf7d0" }
+      ],
+      "fields": [
+        { "label": "Week of quarter", "type": "number", "value": 8, "suffix": " / 13" },
+        { "label": "KRs on track", "type": "number", "value": 5, "suffix": " / 8" },
+        { "label": "Review length", "type": "number", "value": 20, "suffix": " min (was 45)" }
+      ],
+      "timer": { "title": "Leads review", "minutes": 20 },
+      "browsers": [
+        {
+          "title": "Wikipedia — Objectives and key results",
+          "url": "https://en.wikipedia.org/wiki/Objectives_and_key_results"
+        },
+        {
+          "title": "GitLab Handbook — 1-1 meetings",
+          "url": "https://handbook.gitlab.com/handbook/leadership/1-1/"
+        }
+      ],
+      "images": [
+        {
+          "title": "Walking 1:1 along the river",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of two colleagues on a walking one-on-one along a riverside path in an Australian city on a mild weekday morning, seen from behind at a middle distance, each holding a takeaway coffee cup, one gesturing mid-conversation. Gum trees and a low sandstone retaining wall line the path, the river glints beside them, soft early light with long shadows, relaxed and unhurried mood, muted natural colours, no recognisable buildings or landmarks"
+        },
+        {
+          "title": "Review table, two minutes before ten",
+          "aspect": "square",
+          "prompt": "Editorial still life of a high standing meeting table just before a short Monday team review: a glass sand timer with pale sand running, five mismatched ceramic coffee cups, three closed laptops whose lids are completely plain matte grey with no emblem or mark of any kind, and two plain cloth-covered notebooks with pens laid on top, a wall-mounted screen behind the table switched off and dark. No books, no paper, no signage anywhere in the room, just a potted plant by the window. Bright morning window light, pale timber and white walls, clean modern office, three-quarter overhead angle, crisp detail, calm and purposeful mood"
+        }
+      ],
+      "diagram": {
+        "title": "How a row reaches Monday's review",
+        "nodes": [
+          { "id": "rows", "label": "Leads update their rows", "shape": "box", "color": "#2563eb" },
+          { "id": "status", "label": "Status?", "shape": "circle", "color": "#d97706" },
+          { "id": "skip", "label": "On track: no discussion", "shape": "box", "color": "#16a34a" },
+          { "id": "drop", "label": "Drops off the agenda", "shape": "box", "color": "#94a3b8" },
+          { "id": "discuss", "label": "Discussed in the review", "shape": "box", "color": "#dc2626" },
+          { "id": "decide", "label": "Decision or owner", "shape": "box", "color": "#7c3aed" },
+          { "id": "coo", "label": "Upward update to the COO", "shape": "box", "color": "#0891b2" }
+        ],
+        "edges": [
+          { "from": "rows", "to": "status", "label": "before 10:00" },
+          { "from": "status", "to": "skip", "label": "On track" },
+          { "from": "skip", "to": "drop", "label": "3 weeks running" },
+          { "from": "status", "to": "discuss", "label": "At risk / Off track" },
+          { "from": "discuss", "to": "decide", "label": "same meeting" },
+          { "from": "decide", "to": "coo", "label": "via decisions log" }
+        ]
+      },
+      "calculator": {
+        "title": "Articles a week to finish by quarter end",
+        "expression": "(40 - 14) / 5",
+        "result": 5.2
+      },
+      "form": {
+        "title": "1:1 record — Nadia",
+        "fields": [
+          { "type": "heading", "label": "Quality & knowledge · fortnightly 1:1" },
+          { "type": "date", "label": "Next 1:1", "value": "@+1d" },
+          { "type": "select", "label": "Workload", "options": ["Comfortable", "Full", "Stretched", "Overloaded"], "value": "Stretched" },
+          { "type": "number", "label": "QA days a week", "value": "4" },
+          { "type": "number", "label": "Articles rewritten", "value": "14" },
+          { "type": "textarea", "label": "Agenda", "value": "Two protected writing days until quarter end. CSAT dip: billing or tone? Hand QA sampling to the leads." },
+          { "type": "checkbox", "label": "Last 60 low scores tagged", "value": false },
+          { "type": "checkbox", "label": "Rows updated before review", "value": false }
+        ]
+      }
+    }
+  ]
+}

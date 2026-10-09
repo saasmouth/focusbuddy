@@ -1,0 +1,12 @@
+{
+  "persona": "Remote and hybrid teams",
+  "desk": "Async rituals and the team decision log",
+  "title": "Toronto, logging off at dusk",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Editorial still-life photograph of an empty home-office corner at blue-hour dusk: a closed laptop on a walnut desk with over-ear headphones resting on top, a desk lamp casting a warm pool of light, a mug and a folded wool throw over the chair, a tall window behind showing autumn maple branches with orange leaves against a deep blue evening sky and the soft lit windows of distant houses, quiet, finished-for-the-day mood, no people",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 211575,
+  "generatedAt": "2026-10-08T07:25:33.124Z"
+}

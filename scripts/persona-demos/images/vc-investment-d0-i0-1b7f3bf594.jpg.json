@@ -1,0 +1,12 @@
+{
+  "persona": "Venture capital and investment professionals",
+  "desk": "Series A diligence — Tidewell (climate logistics)",
+  "title": "Carrier depot at first light",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a mid-sized road freight depot on the edge of an Australian regional town at first light: a row of plain white generic prime movers hitched to plain grey curtain-sider trailers, parked parallel on a wide concrete apron and photographed exactly side-on from about forty metres away, so only the long plain sides of the rigs show and no front grilles, badges or plates are in view, a single small driver seen from behind walking along the row carrying a thermos, a low corrugated-iron shed and gum trees behind, long golden shadows and a little dust hanging in the air, natural colours, eye-level 35mm framing, quiet early-morning mood",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 221187,
+  "generatedAt": "2026-10-08T07:22:01.630Z"
+}

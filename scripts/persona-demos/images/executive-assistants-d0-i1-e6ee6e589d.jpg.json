@@ -1,0 +1,12 @@
+{
+  "persona": "Executive assistants",
+  "desk": "Board pack — quarterly board meeting",
+  "title": "Three printed copies for the chair",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay editorial still life on a dark walnut desk: three thick printed document bundles held with black bulldog clips, each lying face-down so only the plain white backs of the pages show, plain coloured paper index tabs in amber, teal and slate grey sticking out along one edge with nothing written on them, a strip of small blank sticky flags, a black fountain pen, folded tortoiseshell reading glasses and a ceramic cup of black coffee, soft window light from the left casting gentle shadows, muted warm tones",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 272848,
+  "generatedAt": "2026-10-08T07:21:57.752Z"
+}

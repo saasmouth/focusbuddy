@@ -1,0 +1,12 @@
+{
+  "persona": "Neurodivergent knowledge workers and visual thinkers",
+  "desk": "Year 2 grant report — written in visible chunks",
+  "title": "Site 1 creek bank, autumn planting",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary landscape photograph of a community revegetation site on a gently sloping creek bank in rural south-eastern Australia in autumn: neat rows of young native seedlings in plain pale green tree guards running down through dry golden grass to a shallow, slow-moving creek lined with old river red gums, a few hardwood stakes and an empty seedling tray in the foreground, two distant volunteers seen from behind carrying trays, soft overcast morning light, muted greens, ochres and greys, eye-level wide framing, natural colours",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 56,
+  "bytes": 290239,
+  "generatedAt": "2026-10-08T07:07:33.422Z"
+}

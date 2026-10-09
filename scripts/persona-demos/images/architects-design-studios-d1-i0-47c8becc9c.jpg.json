@@ -1,0 +1,12 @@
+{
+  "persona": "Architects and design studios",
+  "desk": "Juniper Street townhouses — DA lodgement in 9 days",
+  "title": "Juniper Street materials, flat-lay",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay photograph of an architect's materials samples for a row of townhouses, laid out with generous spacing on a pale oatmeal linen surface: a single recycled red brick with worn chipped edges, a short oiled spotted gum cladding board with visible grain, a small grey off-form concrete sample block, an offcut of bronze anodised aluminium window frame, a folded piece of grey standing-seam zinc, and a square tile of warm off-white lime-wash render; soft even daylight from one side, gentle natural shadows, calm editorial still-life mood, true-to-life colours",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 62,
+  "bytes": 290623,
+  "generatedAt": "2026-10-08T07:14:57.844Z"
+}

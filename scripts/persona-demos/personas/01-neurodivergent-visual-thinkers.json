@@ -1,0 +1,328 @@
+{
+  "number": 1,
+  "slug": "neurodivergent-visual-thinkers",
+  "persona": "Neurodivergent knowledge workers and visual thinkers",
+  "category": "Primary early adopters",
+  "room": {
+    "title": "Neurodivergent Workers and Visual Thinkers",
+    "description": "How a visual thinker keeps long work and scattered commitments in sight, so nothing depends on remembering where it lives: chunked sections, re-entry notes, energy-based planning and a parking lot for stray ideas."
+  },
+  "desks": [
+    {
+      "title": "Year 2 grant report — written in visible chunks",
+      "description": "A 5,000-word funder report broken into sections you can see, each with its energy level, its blocks left and a re-entry note, so every work session starts with looking rather than searching.",
+      "dueInDays": 9,
+      "brief": "## Year 2 grant report — written in visible chunks\n\n**For** Tumble Creek Catchment Group's regional environment funder\n**Due** @+9d · **Length** 5,000 words max · **Reviewer** Ama, field coordinator\n**Working style** 25-minute blocks, one section per block, a re-entry note at every stop\n\n### Why this desk exists\nA long report is where the thread gets lost: the outline lives in one app, the figures in a spreadsheet, the feedback in an email, and every switch costs twenty minutes of finding my place again. Here the whole report is in view — sections, figures, open questions — so starting a block means looking, not searching.\n\n### Definition of done\n- All 8 sections drafted and inside their word targets\n- Every figure checked against the field-day register\n- Ama has read Outcomes before it goes\n\n### Where it stands\n4 of 8 sections drafted, 2,710 of 5,000 words. 9 focus blocks left, and 6 of them need high focus. **Next block is Outcomes** — the hardest section, so it is booked for a morning.",
+      "callout": {
+        "title": "Re-entry point: Outcomes, paragraph 3",
+        "body": "Survival rates are drafted. Next: rates by site, which the funder asked for last year. Ama's survey results land @+1d — leave that part until they do. Six of the nine blocks left need high focus, so they're booked for mornings.",
+        "accent": "#6366f1",
+        "icon": "📍"
+      },
+      "table": {
+        "title": "Report sections",
+        "columns": [
+          { "id": "section", "label": "Section", "type": "text-short" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Drafted", "In progress", "Waiting on input", "Not started"] },
+          { "id": "energy", "label": "Energy needed", "type": "single-select", "options": ["High focus", "Medium", "Low"] },
+          { "id": "words", "label": "Words drafted", "type": "number" },
+          { "id": "target", "label": "Word target", "type": "number" },
+          { "id": "blocks", "label": "Blocks left (25 min)", "type": "number" },
+          { "id": "waiting", "label": "Waiting on", "type": "text-short" }
+        ],
+        "rows": [
+          { "section": "Executive summary", "status": "Not started", "energy": "Medium", "words": 0, "target": 500, "blocks": 2, "waiting": "Write it last" },
+          { "section": "Project background", "status": "Drafted", "energy": "Low", "words": 440, "target": 450, "blocks": 0 },
+          { "section": "Activities delivered", "status": "Drafted", "energy": "Low", "words": 790, "target": 800, "blocks": 0 },
+          { "section": "Outcomes against targets", "status": "In progress", "energy": "High focus", "words": 310, "target": 1100, "blocks": 4, "waiting": "Ama — survey results" },
+          { "section": "Volunteers and community", "status": "Drafted", "energy": "Medium", "words": 580, "target": 600, "blocks": 0 },
+          { "section": "Challenges and changes", "status": "Not started", "energy": "High focus", "words": 0, "target": 500, "blocks": 2 },
+          { "section": "Budget narrative", "status": "Waiting on input", "energy": "Low", "words": 0, "target": 450, "blocks": 1, "waiting": "Tomás — final spend" },
+          { "section": "Year 3 plan", "status": "Drafted", "energy": "Medium", "words": 590, "target": 600, "blocks": 0 }
+        ]
+      },
+      "chart": {
+        "title": "Focus blocks left, by energy needed",
+        "type": "bar",
+        "x": "energy",
+        "series": [{ "column": "blocks", "agg": "sum", "label": "Blocks left (25 min)" }]
+      },
+      "mindmap": {
+        "title": "What the funder needs to see",
+        "root": {
+          "label": "Year 2 report",
+          "children": [
+            { "label": "Did we deliver?", "children": [
+              { "label": "14 field days run", "kind": "idea" },
+              { "label": "312 volunteer visits", "kind": "idea" },
+              { "label": "6,200 seedlings planted", "kind": "idea" }
+            ]},
+            { "label": "Did it work?", "children": [
+              { "label": "Site 1 — 84% survival", "kind": "idea" },
+              { "label": "Site 2 — 81% survival", "kind": "idea" },
+              { "label": "Site 3 — 62%, after the flood", "kind": "idea" },
+              { "label": "Survey: did attitudes shift?", "kind": "question" }
+            ]},
+            { "label": "What changed?", "children": [
+              { "label": "Site 3 replanted on higher ground", "kind": "idea" },
+              { "label": "Planting moved to autumn", "kind": "idea" }
+            ]},
+            { "label": "What's next?", "children": [
+              { "label": "Two new sites in Year 3", "kind": "idea" },
+              { "label": "Year 3 plan — drafted", "kind": "task" }
+            ]},
+            { "label": "Admin", "children": [
+              { "label": "Final spend from Tomás", "kind": "task" },
+              { "label": "Signed declaration", "kind": "task" },
+              { "label": "Pick 4 photos, not 12", "kind": "task" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Re-entry log",
+        "blocks": [
+          { "h3": "Where I left off" },
+          { "p": "One line at the end of every block, so the next one starts in two minutes instead of twenty." },
+          { "ul": [
+            "@-3d — Background done, 440 words. Left a gap for the site map caption.",
+            "@-2d — Activities done. 14 field days; totals match the register.",
+            "@-1d — Volunteers done. Next: Outcomes, starting with survival rates.",
+            "@today — Outcomes: survival paragraph drafted, 310 words. Stopped at rates by site."
+          ]},
+          { "h4": "Rules for this report" },
+          { "ul": [
+            "One section per block. Anything I notice elsewhere goes on the parking-lot sticky, not into the document.",
+            "High-focus sections in the morning, low-energy sections after lunch.",
+            "It's fine to stop mid-sentence — the log says where."
+          ]},
+          { "h4": "Ready to send when" },
+          { "p": "All 8 sections are drafted, every figure matches the field-day register, Tomás has confirmed the final spend and Ama has read Outcomes." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Funder feedback on last year's report",
+          "body": "What they asked for, so I don't have to dig through email again:\n\n- Fewer adjectives, more numbers\n- Survival rates by site, not one average\n- Four photos with captions, not twelve without\n- The budget narrative arrived late last year — send it with the report this time\n\nThe second and fourth points are why Outcomes and the budget narrative are the two to watch."
+        }
+      ],
+      "stickies": [
+        { "title": "Parking lot", "body": "Not for this block:\n- Newsletter story about the Site 3 flood\n- Ask about nest boxes for Year 3\n- Rename the photo folder", "color": "#fef08a" },
+        { "title": "Now / next", "body": "Now: Outcomes — rates by site\nNext: Challenges (needs a fresh morning)", "color": "#bbf7d0" }
+      ],
+      "fields": [
+        { "label": "Sections drafted", "type": "number", "value": 4, "suffix": " / 8" },
+        { "label": "Words drafted", "type": "number", "value": 2710, "suffix": " / 5,000" },
+        { "label": "Energy right now", "type": "single-select", "options": ["High", "Medium", "Low"], "value": "High" }
+      ],
+      "timer": { "title": "Focus block", "minutes": 25 },
+      "browsers": [
+        { "title": "Digital NSW — Numbers, dates and times", "url": "https://digital.nsw.gov.au/delivery/digital-service-toolkit/resources/writing-content/content-style-guide/numbers-dates-and-times" },
+        { "title": "Landscape SA — Revegetating watercourses", "url": "https://www.landscape.sa.gov.au/ny/water/managing-water-resources/watercourses/revegetating-watercourses" }
+      ],
+      "images": [
+        {
+          "title": "Site 1 creek bank, autumn planting",
+          "aspect": "landscape",
+          "prompt": "Documentary landscape photograph of a community revegetation site on a gently sloping creek bank in rural south-eastern Australia in autumn: neat rows of young native seedlings in plain pale green tree guards running down through dry golden grass to a shallow, slow-moving creek lined with old river red gums, a few hardwood stakes and an empty seedling tray in the foreground, two distant volunteers seen from behind carrying trays, soft overcast morning light, muted greens, ochres and greys, eye-level wide framing, natural colours"
+        },
+        {
+          "title": "Eight sections laid out as cards",
+          "aspect": "square",
+          "prompt": "Overhead flat-lay photograph of a wooden kitchen table set up for one focused writing session: eight completely blank index cards in soft colours arranged in two tidy rows of four; only the four cards in the top row each carry one small green round dot sticker in the corner, and the four cards in the bottom row have no sticker at all; a sharpened pencil, a closed laptop, a mug of tea, a sprig of eucalyptus leaves, a seedling in a small recycled pot and a closed field notebook with a plain unmarked canvas cover, gentle morning window light casting soft shadows, calm and uncluttered, muted natural palette"
+        }
+      ],
+      "diagram": {
+        "title": "What fits my energy right now?",
+        "nodes": [
+          { "id": "start", "label": "Start a 25-min block", "shape": "box", "color": "#64748b" },
+          { "id": "note", "label": "Read the re-entry note", "shape": "box", "color": "#6366f1" },
+          { "id": "energy", "label": "Energy right now?", "shape": "circle", "color": "#d97706" },
+          { "id": "high", "label": "Outcomes: rates by site", "shape": "box", "color": "#7c3aed" },
+          { "id": "medium", "label": "Pick and caption 4 photos", "shape": "box", "color": "#0284c7" },
+          { "id": "low", "label": "Check figures vs register", "shape": "box", "color": "#16a34a" },
+          { "id": "log", "label": "Write the re-entry line", "shape": "box", "color": "#6366f1" }
+        ],
+        "edges": [
+          { "from": "start", "to": "note" },
+          { "from": "note", "to": "energy" },
+          { "from": "energy", "to": "high", "label": "high — mornings" },
+          { "from": "energy", "to": "medium", "label": "medium" },
+          { "from": "energy", "to": "low", "label": "low — after lunch" },
+          { "from": "high", "to": "log" },
+          { "from": "medium", "to": "log" },
+          { "from": "low", "to": "log" }
+        ]
+      },
+      "calculator": {
+        "title": "Outcomes: words per block still needed",
+        "expression": "(1100 - 310) / 4",
+        "result": 197.5
+      },
+      "form": {
+        "title": "Ready-to-send checklist",
+        "fields": [
+          { "type": "heading", "label": "Year 2 report · before it goes" },
+          { "type": "date", "label": "Due to funder", "value": "@+9d" },
+          { "type": "text", "label": "Reviewer", "value": "Ama" },
+          { "type": "number", "label": "Sections drafted (of 8)", "value": "4" },
+          { "type": "checkbox", "label": "Figures match the register", "value": false },
+          { "type": "checkbox", "label": "Final spend from Tomás", "value": false },
+          { "type": "checkbox", "label": "Ama has read Outcomes", "value": false },
+          { "type": "checkbox", "label": "Four photos, captioned", "value": false },
+          { "type": "checkbox", "label": "Signed declaration", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "Weekly reset — every open loop in one place",
+      "description": "End-of-week reset: everything promised across email, chat and meetings pulled onto one board, sorted by energy and time, so next week starts with a plan rather than a scramble.",
+      "brief": "## Weekly reset — every open loop in one place\n\n**Role** communications adviser, Harbourside Arts Trust\n**When** last hour of the working week, 45 minutes · **Next reset** @+7d\n**Rule** if it isn't on this desk, it isn't a commitment yet\n\n### Why a reset\nCommitments arrive everywhere — a chat thread, an aside at the end of a meeting, an email flagged and forgotten. Things that aren't in view tend to vanish, so once a week every open loop comes out of those places and onto one list, with an energy level and a time guess beside it.\n\n### This week\n- 13 loops captured from 5 places — meetings produced the most (4)\n- 4 done or dropped. Dropping counts as a decision.\n- 9 carried forward: 7.5 hours in total, 4.5 of them high focus\n- The first three for next week are on the yellow sticky\n\n### What keeps it working\nCapture first, sort second, decide last. No doing during the reset — even a two-minute loop goes on the list.",
+      "callout": {
+        "title": "Three high-focus loops, three mornings",
+        "body": "The workshop run sheet, the newsletter feature and the case-study questions are 4.5 of the 7.5 hours carried. Each gets a protected morning; low-energy loops fill the gaps between meetings.",
+        "accent": "#10b981",
+        "icon": "🧭"
+      },
+      "table": {
+        "title": "Open loops",
+        "columns": [
+          { "id": "loop", "label": "Open loop", "type": "text-short" },
+          { "id": "source", "label": "Came from", "type": "single-select", "options": ["Email", "In my head", "Chat", "Meeting", "Calendar"] },
+          { "id": "energy", "label": "Energy", "type": "single-select", "options": ["High focus", "Medium", "Low"] },
+          { "id": "minutes", "label": "Minutes", "type": "number" },
+          { "id": "when", "label": "When", "type": "single-select", "options": ["Next up", "This week", "Later", "Done", "Dropped"] },
+          { "id": "for", "label": "For", "type": "text-short" }
+        ],
+        "rows": [
+          { "loop": "Reply to Jun about the conference abstract", "source": "Email", "energy": "Low", "minutes": 15, "when": "Next up", "for": "Jun" },
+          { "loop": "Newsletter feature on the youth programme", "source": "In my head", "energy": "High focus", "minutes": 90, "when": "This week", "for": "Nadia" },
+          { "loop": "Review Kofi's pitch deck", "source": "Chat", "energy": "Medium", "minutes": 30, "when": "Next up", "for": "Kofi" },
+          { "loop": "Book the venue walk-through", "source": "Meeting", "energy": "Low", "minutes": 10, "when": "Done", "for": "Esther" },
+          { "loop": "Update the stakeholder list", "source": "Meeting", "energy": "Low", "minutes": 50, "when": "This week", "for": "Team" },
+          { "loop": "Case-study interview questions", "source": "Email", "energy": "High focus", "minutes": 60, "when": "Next up", "for": "Lina" },
+          { "loop": "Fix broken links on the events page", "source": "Chat", "energy": "Low", "minutes": 20, "when": "Done", "for": "Kofi" },
+          { "loop": "Submit expense claim", "source": "In my head", "energy": "Low", "minutes": 15, "when": "This week", "for": "Me" },
+          { "loop": "Workshop run sheet", "source": "Meeting", "energy": "High focus", "minutes": 120, "when": "This week", "for": "Esther" },
+          { "loop": "IT software survey", "source": "Email", "energy": "Low", "minutes": 5, "when": "Dropped", "for": "IT" },
+          { "loop": "Read the audience research summary", "source": "Calendar", "energy": "Medium", "minutes": 40, "when": "This week", "for": "Nadia" },
+          { "loop": "Coffee with Amira, new starter", "source": "Chat", "energy": "Low", "minutes": 30, "when": "Later", "for": "Amira" },
+          { "loop": "Photo permissions follow-up", "source": "Meeting", "energy": "Low", "minutes": 15, "when": "Done", "for": "Lina" }
+        ]
+      },
+      "chart": {
+        "title": "Where this week's loops came from",
+        "type": "pie",
+        "x": "source",
+        "series": [{ "column": "loop", "agg": "count", "label": "Loops" }]
+      },
+      "mindmap": {
+        "title": "Next week at a glance",
+        "root": {
+          "label": "Next week",
+          "children": [
+            { "label": "First three", "children": [
+              { "label": "Reply to Jun — 15 min", "kind": "task" },
+              { "label": "Kofi's deck — 30 min", "kind": "task" },
+              { "label": "Case-study questions — 60 min", "kind": "task" }
+            ]},
+            { "label": "Protected mornings", "children": [
+              { "label": "Workshop run sheet — 2 h", "kind": "task" },
+              { "label": "Newsletter feature — 90 min", "kind": "task" }
+            ]},
+            { "label": "Waiting on others", "children": [
+              { "label": "Esther: final workshop numbers", "kind": "idea" },
+              { "label": "Nadia: which angle for the feature?", "kind": "question" }
+            ]},
+            { "label": "Let go", "children": [
+              { "label": "IT survey — dropped", "kind": "idea" },
+              { "label": "Stakeholder list: good enough wins", "kind": "idea" }
+            ]},
+            { "label": "Meeting habits", "children": [
+              { "label": "\"I'll confirm from my desk\"", "kind": "tool" },
+              { "label": "10-minute buffer between calls", "kind": "tool" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Reset routine",
+        "blocks": [
+          { "h3": "End-of-week reset — 45 minutes" },
+          { "p": "Same steps in the same order every week, so the reset itself needs no decisions." },
+          { "ol": [
+            "Capture (15 min): sweep email flags, saved chat messages, meeting notes, the calendar and the notebook. Everything goes into the table — no sorting yet.",
+            "Sort (10 min): an energy level and a minutes guess for each loop. Guess; don't research.",
+            "Decide (10 min): next up, this week, later, done or dropped. Pick three for the start of next week.",
+            "Protect (5 min): block mornings in the calendar for every high-focus loop.",
+            "Close (5 min): clear the parking lot and write one line on how the week went."
+          ]},
+          { "h4": "How this week went" },
+          { "p": "Meeting asides turned into commitments before I'd decided anything. Next week: say I'll confirm from my desk, then put it here." },
+          { "quote": "A dropped loop is a decision, not a failure." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Meeting asides that became loops",
+          "body": "Four of this week's loops came from meetings — more than any other source:\n\n- Workshop planning: venue walk-through (done) and the run sheet (2 h)\n- Team meeting: update the stakeholder list (50 min)\n- Comms catch-up: photo permissions for Lina (done)\n\nTwo of the four were finished inside the week. The run sheet is the one that would have slipped without this list."
+        }
+      ],
+      "stickies": [
+        { "title": "First three", "body": "1. Reply to Jun (15 min)\n2. Review Kofi's deck (30 min)\n3. Case-study questions (60 min, morning)", "color": "#fef08a" },
+        { "title": "Parking lot", "body": "Not this week:\n- Events page redesign?\n- Photo series idea for the newsletter", "color": "#bae6fd" },
+        { "title": "Between calls", "body": "10-minute buffer: stand up, water, write one line on what was agreed.", "color": "#bbf7d0" }
+      ],
+      "fields": [
+        { "label": "Loops carried", "type": "number", "value": 9 },
+        { "label": "Hours carried", "type": "number", "value": 7.5, "suffix": " h" },
+        { "label": "Reset done", "type": "checkbox", "value": true }
+      ],
+      "timer": { "title": "Weekly reset", "minutes": 45 },
+      "browsers": [
+        { "title": "Wikipedia — Getting Things Done", "url": "https://en.wikipedia.org/wiki/Getting_Things_Done" },
+        { "title": "Wikipedia — Timeblocking", "url": "https://en.wikipedia.org/wiki/Timeblocking" }
+      ],
+      "images": [
+        {
+          "title": "Friday board, loops sorted",
+          "aspect": "landscape",
+          "prompt": "Editorial photograph of a whiteboard wall in a small arts-organisation office late on a Friday afternoon, with only thirteen blank square sticky notes on it in total. On the left, three short neat vertical columns of blank notes in pale yellow, pale blue and soft lilac: the first column has exactly three notes, the second exactly five notes, the third a single note. Well apart on the right of the board, exactly four plain grey blank notes sit together in a small two-by-two square. Plenty of clean empty whiteboard around them. A plain unmarked capped marker resting on the ledge, a potted plant and a desk lamp standing on a plain closed timber cabinet at the edge of frame, no books, no shelves, warm low sunlight raking across the board from a window, shallow depth of field, calm and orderly mood, no people"
+        },
+        {
+          "title": "Workshop room before the walk-through",
+          "aspect": "portrait",
+          "prompt": "Architectural interior photograph of an empty community arts workshop room inside a converted timber wharf shed on an Australian harbour: worn timber floorboards, exposed roof trusses, folding tables stacked against one wall, a trolley of stacked chairs, a rolled-up rug, tall multi-paned windows looking out onto calm blue water with a few moored sailing boats and a low bush-covered headland, clear afternoon light falling across the floor, a quiet sense of an event about to be planned, natural colours, vertical framing"
+        }
+      ],
+      "diagram": {
+        "title": "Where does each loop go?",
+        "nodes": [
+          { "id": "captured", "label": "Loop captured", "shape": "box", "color": "#64748b" },
+          { "id": "worth", "label": "Still worth doing?", "shape": "circle", "color": "#d97706" },
+          { "id": "dropped", "label": "Drop it — a decision", "shape": "box", "color": "#94a3b8" },
+          { "id": "waiting", "label": "Waiting on someone?", "shape": "circle", "color": "#d97706" },
+          { "id": "listed", "label": "Add to Waiting on others", "shape": "box", "color": "#0ea5e9" },
+          { "id": "focus", "label": "Needs high focus?", "shape": "circle", "color": "#d97706" },
+          { "id": "morning", "label": "Book a protected morning", "shape": "box", "color": "#7c3aed" },
+          { "id": "gaps", "label": "Fit between meetings", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "captured", "to": "worth" },
+          { "from": "worth", "to": "dropped", "label": "no — let it go" },
+          { "from": "worth", "to": "waiting", "label": "yes" },
+          { "from": "waiting", "to": "listed", "label": "yes" },
+          { "from": "waiting", "to": "focus", "label": "no" },
+          { "from": "listed", "to": "focus", "label": "still plan it" },
+          { "from": "focus", "to": "morning", "label": "yes" },
+          { "from": "focus", "to": "gaps", "label": "no" }
+        ]
+      },
+      "calculator": {
+        "title": "Hours carried into next week",
+        "expression": "(15 + 90 + 30 + 50 + 60 + 15 + 120 + 40 + 30) / 60",
+        "result": 7.5
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "persona": "Educators and course creators",
+  "desk": "Cohort 7 live — SQL for Product Managers",
+  "title": "Whiteboard: draw the tables first",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Close-up editorial photograph of a whiteboard in a small, bright training room, covered in hand-drawn marker sketches of three empty rectangular grids, like database tables, connected to each other by curved arrows, drawn in blue and red marker with no writing at all, a single hand holding a marker entering the frame from the right, an eraser resting on the ledge below, even overhead light, slightly angled view, clean and clear",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 116550,
+  "generatedAt": "2026-10-08T07:19:41.785Z"
+}

@@ -1,0 +1,30 @@
+{
+  "https://handbook.gitlab.com/handbook/people-group/directly-responsible-individuals/": {
+    "ok": true,
+    "title": "Directly Responsible Individuals (DRI) | The GitLab Handbook",
+    "finalUrl": "https://handbook.gitlab.com/handbook/people-group/directly-responsible-individuals/",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://www.nngroup.com/articles/inverted-pyramid/": {
+    "ok": true,
+    "title": "Inverted Pyramid: Writing for Comprehension - NN/G",
+    "finalUrl": "https://www.nngroup.com/articles/inverted-pyramid/",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://www.nsw.gov.au/nsw-government/recordkeeping/secure-and-store/decommissioning-systems-guidance": {
+    "ok": true,
+    "title": "Guidance for decommissioning systems | NSW Government",
+    "finalUrl": "https://www.nsw.gov.au/nsw-government/recordkeeping/secure-and-store/decommissioning-systems-guidance",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  },
+  "https://en.wikipedia.org/wiki/Single_source_of_truth": {
+    "ok": true,
+    "title": "Single source of truth - Wikipedia",
+    "finalUrl": "https://en.wikipedia.org/wiki/Single_source_of_truth",
+    "where": "desks[1].browsers[1]",
+    "pass": true
+  }
+}

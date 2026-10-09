@@ -1,0 +1,12 @@
+{
+  "persona": "Accountants and finance professionals",
+  "desk": "Month-end close — day 3, $53k still unexplained",
+  "title": "Chiller 2 recount, 7am",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph inside the refrigerated cold store of an Australian wholesale food distributor at seven in the morning: tall steel pallet racking stacked with plain unmarked brown cardboard cartons and shrink-wrapped pallets of fresh produce, a faint mist hanging in the cold air, cool blue-white overhead light, one worker in a padded thermal jacket and beanie seen from behind, one gloved hand raised along a row of cartons as they count, a pallet jack on the sealed concrete floor, deep perspective down the aisle, calm early-shift mood, natural colours",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 68,
+  "bytes": 263659,
+  "generatedAt": "2026-10-08T07:13:51.368Z"
+}

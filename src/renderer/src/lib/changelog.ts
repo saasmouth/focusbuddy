@@ -36,6 +36,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.22',
+    date: '2026-10-09T16:00:00Z',
+    title: 'PlexiDesk 4.3.22 \u2014 the desk stays put, and body doubling you can sit in',
+    tag: 'feature',
+    summary:
+      'The canvas no longer drifts out from under its own chrome, it is grey instead of beige in the light and deep purple in the dark, and a body-double session now opens exactly the camera and microphone its mode promised.',
+    highlights: [
+      'The minimap and the floating chrome stay in the corner of the desk. The desk surface clips its overflow but was still scrollable, so anything that scrolls a container \u2014 a caret landing in an off-screen widget, focus moving, arrow-key navigation \u2014 slid the whole surface sideways with no scrollbar and no way to put it back. The map ended up stranded mid-screen, and the pattern layer showed a hard rectangular edge sliding over the canvas, which looked like a fixed-size desk floating on an infinite one. Both were the same scroll offset; the surface is now pinned, because a desk that pans by camera should never scroll.',
+      'The light canvas is a neutral grey rather than a warm beige, and the dark canvas is a deep purple with lighter violet dots. The native window background follows both, so launching and recovering from a hidden window no longer flashes the old colour over the new desk.',
+      'Body doubling opens what the mode says it does. Silent never opens the microphone at all \u2014 absent rather than muted, so nothing can be heard by accident and the system never shows a microphone-in-use indicator. Greetings opens it for the first two minutes and then mutes it for you. Light starts muted so you can unmute for a word; open is live. The camera is on in every mode, because seeing someone at their desk is the point, and either side can turn theirs off.',
+      'Partners are only ever paired with someone who chose the same mode, so neither person arrives expecting a different kind of silence.',
+      'The calculator works again. It evaluated expressions with new Function, which the renderer\u2019s content-security policy refuses \u2014 one sum could slip through early and every one after it showed \u201cerror\u201d, whatever you typed. The arithmetic is now a small parser over the keypad\u2019s own grammar, with the results JavaScript would give.',
+      'A new stat card starts empty instead of showing a median price of $5.2M and twelve invented readings. It used to arrive looking like real data for a business that was not yours; it now says what the card is for and offers to connect it to a table.',
+      'Closing the mind map\u2019s node panel keeps it closed when you come back to the desk.'
+    ]
+  },
+  {
     version: '4.3.20',
     date: '2026-10-09T14:00:00Z',
     title: 'PlexiDesk 4.3.20 \u2014 jump to anything, and an Add button you can see',

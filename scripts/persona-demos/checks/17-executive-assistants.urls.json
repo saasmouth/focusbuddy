@@ -1,0 +1,38 @@
+{
+  "https://www.aicd.com.au/board-of-directors/meeting/packs.html": {
+    "ok": true,
+    "status": 200,
+    "title": "Board Packs | AICD",
+    "bytes": 118443,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "AICD — Board packs",
+    "checkedAt": "2026-10-08T08:55:07.628Z"
+  },
+  "https://www.nsw.gov.au/about-nsw/daylight-saving": {
+    "ok": true,
+    "status": 200,
+    "title": "Daylight saving in NSW: When it starts and ends in 2026 and 2027 | NSW Government",
+    "bytes": 148123,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "NSW Government — Daylight saving in NSW",
+    "checkedAt": "2026-10-08T08:55:09.726Z"
+  },
+  "https://travel.gc.ca/destinations/singapore": {
+    "ok": true,
+    "status": 200,
+    "title": "Singapore travel advice",
+    "bytes": 81365,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "Government of Canada — Singapore travel advice",
+    "checkedAt": "2026-10-08T08:55:09.726Z"
+  },
+  "https://www.ica.gov.sg/enter-transit-depart/entering-singapore/sg-arrival-card": {
+    "ok": true,
+    "status": 200,
+    "title": "ICA | SG Arrival Card (SGAC) with Electronic Health Declaration",
+    "bytes": 38187,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "ICA Singapore — SG Arrival Card",
+    "checkedAt": "2026-10-08T08:55:09.726Z"
+  }
+}

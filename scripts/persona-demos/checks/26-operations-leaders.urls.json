@@ -1,0 +1,38 @@
+{
+  "https://handbook.gitlab.com/handbook/people-group/directly-responsible-individuals/": {
+    "ok": true,
+    "status": 200,
+    "title": "Directly Responsible Individuals (DRI) | The GitLab Handbook",
+    "bytes": 400000,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "GitLab Handbook — Directly Responsible Individuals",
+    "checkedAt": "2026-10-08T08:55:19.218Z"
+  },
+  "https://www.nngroup.com/articles/inverted-pyramid/": {
+    "ok": true,
+    "status": 200,
+    "title": "Inverted Pyramid: Writing for Comprehension - NN/G",
+    "bytes": 115711,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "NN/g — Inverted pyramid: writing for comprehension",
+    "checkedAt": "2026-10-08T08:55:20.631Z"
+  },
+  "https://www.nsw.gov.au/nsw-government/recordkeeping/secure-and-store/decommissioning-systems-guidance": {
+    "ok": true,
+    "status": 200,
+    "title": "Guidance for decommissioning systems | NSW Government",
+    "bytes": 160776,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "NSW Government — Guidance for decommissioning systems",
+    "checkedAt": "2026-10-08T08:55:20.631Z"
+  },
+  "https://en.wikipedia.org/wiki/Single_source_of_truth": {
+    "ok": true,
+    "status": 200,
+    "title": "Single source of truth - Wikipedia",
+    "bytes": 107969,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "Wikipedia — Single source of truth",
+    "checkedAt": "2026-10-08T08:55:20.631Z"
+  }
+}

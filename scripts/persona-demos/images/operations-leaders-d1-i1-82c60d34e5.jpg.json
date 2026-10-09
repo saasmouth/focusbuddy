@@ -1,0 +1,12 @@
+{
+  "persona": "Operations leaders responsible for how work gets done",
+  "desk": "Work tracking consolidation — five trackers into one",
+  "title": "Five piles of work, gathered into one",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay editorial still life on a pale timber desk by a window: five small loose stacks of blank index cards in different colours — white, butter yellow, pale blue, sage green and blush pink — fanned out around a single plain grey cardboard archive tray, a hand at the edge sliding the last stack into the tray where all the colours sit together in one tidy row, a few silver paper clips, a ceramic cup of black coffee, soft natural light with gentle shadows, minimal and calm",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 272194,
+  "generatedAt": "2026-10-08T07:29:45.435Z"
+}

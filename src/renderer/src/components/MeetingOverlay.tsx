@@ -8,6 +8,8 @@ import { useAccountStore } from '../stores/account'
 import { useVideoBlocked, CAMERA_BLOCKED_HINT } from '../lib/useVideoBlocked'
 import { usePresenceStore } from '../stores/presence'
 import { personDisplayName, personInitials } from '../lib/personName'
+import { usePeerBodyDoubleStore } from '../stores/peerBodyDouble'
+import type { BodyDoubleMode } from '@shared/types'
 
 // PlexiMeet live room, mounted once at the app root. Two presentations:
 //  - 'stage': the classic fullscreen room (video gallery + controls).
@@ -16,6 +18,31 @@ import { personDisplayName, personInitials } from '../lib/personName'
 //    keeps running (the room lives in a global store, so it survives navigation).
 // Nothing is faked: a tile shows "connecting" until its peer connection is up,
 // and a peer that drops is removed rather than frozen.
+//
+// A body-double room (store.bodyDouble) is the same room with a narrower door:
+// the partner is a stranger, so recording, invites, screen sharing and the
+// notes pane are not offered; the microphone follows the agreed mode; and
+// leaving ends the body-double session itself, with an option to block.
+
+// The mode, stated in words in the room, so neither side has to remember what
+// they agreed to. Greetings counts its intro down, then says the mic is off.
+function bodyDoubleModeLine(mode: BodyDoubleMode, introLeftMs: number | null, muted: boolean): string {
+  switch (mode) {
+    case 'silent':
+      return 'Silent · no microphone, just company'
+    case 'greetings': {
+      if (introLeftMs !== null && introLeftMs > 0) {
+        const s = Math.ceil(introLeftMs / 1000)
+        return `Intros · your mic mutes in ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+      }
+      return muted ? 'Intros done · mic muted, unmute to say goodbye' : 'Intros done · mic is on'
+    }
+    case 'light':
+      return muted ? 'A little chat · mic muted, unmute for a quick word' : 'A little chat · mic is on'
+    case 'open':
+      return 'Happy to talk · mic and chat are open'
+  }
+}
 
 function Video({
   stream,
@@ -129,6 +156,21 @@ export default function MeetingOverlay(): JSX.Element | null {
   const setDockSide = useMeetingRoomStore((s) => s.setDockSide)
   const setTranscribing = useMeetingRoomStore((s) => s.setTranscribing)
   const toggleScreenShare = useMeetingRoomStore((s) => s.toggleScreenShare)
+  const bodyDouble = useMeetingRoomStore((s) => s.bodyDouble)
+  const introEndsAt = useMeetingRoomStore((s) => s.introEndsAt)
+  const endBodyDouble = usePeerBodyDoubleStore((s) => s.endSession)
+  const blockBodyDouble = usePeerBodyDoubleStore((s) => s.blockPartner)
+
+  // Greetings: tick once a second while the intro counts down.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (introEndsAt === null) return
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [introEndsAt])
+  const modeLine = bodyDouble
+    ? bodyDoubleModeLine(bodyDouble.mode, introEndsAt === null ? null : introEndsAt - now, muted)
+    : null
 
   const presencePeers = usePresenceStore((s) => s.peers)
   const [showInvite, setShowInvite] = useState(false)
@@ -231,14 +273,17 @@ export default function MeetingOverlay(): JSX.Element | null {
 
   // Escape leaves the meeting ONLY in stage mode. In collaborate mode the user is
   // navigating Plexii with the meeting docked, so Escape must not drop the call.
+  // A body-double session is never ended by a stray Escape: it docks instead.
   useEffect(() => {
     if (status === 'idle' || layout !== 'stage') return
     function onKey(e: KeyboardEvent): void {
-      if (e.key === 'Escape') leave()
+      if (e.key !== 'Escape') return
+      if (bodyDouble) setLayout('collaborate')
+      else leave()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [status, layout, leave])
+  }, [status, layout, leave, bodyDouble, setLayout])
 
   // Incoming invite while not in a room: a compact ringing card.
   if (status === 'idle' && incomingInvite) {
@@ -522,7 +567,25 @@ export default function MeetingOverlay(): JSX.Element | null {
     </div>
   )
 
-  const controls = (small: boolean): JSX.Element => (
+  // Body-double controls: what presence with a stranger needs, and no more.
+  const bodyDoubleControls = (small: boolean): JSX.Element => (
+    <div className={`relative flex items-center justify-center gap-2 ${small ? '' : 'gap-3'}`} data-testid="body-double-controls">
+      {bodyDouble?.mode !== 'silent' && (
+        <ControlButton small={small} icon={muted ? 'mic_off' : 'mic'} label={muted ? 'Unmute' : 'Mute'} active={!muted} onClick={toggleMute} />
+      )}
+      <ControlButton small={small} icon={cameraOff ? 'videocam_off' : 'videocam'} label={cameraOff ? 'Turn camera on' : 'Turn camera off'} active={!cameraOff} onClick={toggleCamera} />
+      <ControlButton
+        small={small}
+        icon={collaborate ? 'fullscreen' : 'fullscreen_exit'}
+        label={collaborate ? 'Expand to full screen' : 'Dock to the side'}
+        onClick={() => setLayout(collaborate ? 'stage' : 'collaborate')}
+      />
+      <ControlButton small={small} icon="block" label="End and never match with them again" onClick={() => void blockBodyDouble()} />
+      <ControlButton small={small} icon="call_end" label="End body double session" danger onClick={() => void endBodyDouble()} />
+    </div>
+  )
+
+  const controls = (small: boolean): JSX.Element => bodyDouble ? bodyDoubleControls(small) : (
     <div className={`relative flex items-center justify-center gap-2 ${small ? '' : 'gap-3'}`}>
       <ControlButton small={small} icon={muted ? 'mic_off' : 'mic'} label={muted ? 'Unmute' : 'Mute'} active={!muted} onClick={toggleMute} />
       <ControlButton small={small} icon={cameraOff ? 'videocam_off' : 'videocam'} label={cameraOff ? 'Turn camera on' : 'Turn camera off'} active={!cameraOff} onClick={toggleCamera} />
@@ -594,7 +657,7 @@ export default function MeetingOverlay(): JSX.Element | null {
         data-dock-side={dockSide}
       >
         <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10 shrink-0">
-          <Icon name="groups" size={16} className="text-rose-400" filled />
+          <Icon name={bodyDouble ? 'diversity_3' : 'groups'} size={16} className={bodyDouble ? 'text-emerald-400' : 'text-rose-400'} filled />
           <span className="text-[13px] font-semibold truncate flex-1 min-w-0">{title || 'Meeting'}</span>
           <span className="text-[11px] text-white/50" data-testid="meeting-count">{tileCount}</span>
           {/* Dock-side picker */}
@@ -612,6 +675,11 @@ export default function MeetingOverlay(): JSX.Element | null {
             ))}
           </div>
         </div>
+        {modeLine && (
+          <div className="px-3 py-1 text-[10.5px] text-emerald-300/90 bg-emerald-500/10 text-center shrink-0" data-testid="body-double-mode-line">
+            {modeLine}
+          </div>
+        )}
         <div className={`flex-1 min-h-0 p-2 overflow-auto flex gap-2 ${horizontal ? 'flex-row' : 'flex-col'}`}>
           {screenTiles(true)}
           {tiles('mini')}
@@ -633,20 +701,27 @@ export default function MeetingOverlay(): JSX.Element | null {
   return (
     <div className="fixed inset-0 z-[200] bg-stone-950/95 flex flex-col" role="dialog" aria-modal="true" aria-label="Meeting" data-testid="meeting-window" data-meeting-layout="stage">
       <div className="flex items-center gap-3 px-5 py-3 text-white">
-        <Icon name="groups" size={20} className="text-rose-400" filled />
+        <Icon name={bodyDouble ? 'diversity_3' : 'groups'} size={20} className={bodyDouble ? 'text-emerald-400' : 'text-rose-400'} filled />
         <h2 className="text-[15px] font-semibold truncate">{title || 'Meeting'}</h2>
         <span className="text-[12px] text-white/50" data-testid="meeting-count">
           {tileCount} {tileCount === 1 ? 'person' : 'people'}
         </span>
         {status === 'joining' && <span className="text-[12px] text-white/50">Joining…</span>}
-        {/* M1 (§3.8) — the state named in words, for everyone, continuously. */}
-        <span
-          className={`text-[11px] inline-flex items-center gap-1.5 ${transcribing ? 'text-rose-300' : 'text-white/40'}`}
-          data-testid="consent-line"
-        >
-          {transcribing && <span className="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse" />}
-          {consentLine}
-        </span>
+        {/* M1 (§3.8) — the state named in words, for everyone, continuously.
+            A body-double room is never recorded, so it states its mode instead. */}
+        {modeLine ? (
+          <span className="text-[11px] text-emerald-300/90" data-testid="body-double-mode-line">
+            {modeLine}
+          </span>
+        ) : (
+          <span
+            className={`text-[11px] inline-flex items-center gap-1.5 ${transcribing ? 'text-rose-300' : 'text-white/40'}`}
+            data-testid="consent-line"
+          >
+            {transcribing && <span className="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse" />}
+            {consentLine}
+          </span>
+        )}
       </div>
 
       <div className="flex-1 min-h-0 px-5 pb-2 flex gap-3 overflow-hidden">
@@ -671,7 +746,7 @@ export default function MeetingOverlay(): JSX.Element | null {
             </div>
           </div>
         )}
-        {showNotes && notesPane}
+        {showNotes && !bodyDouble && notesPane}
       </div>
 
       {error && <div className="px-5 py-2 text-[12px] text-rose-300 bg-rose-500/10 text-center">{error}</div>}

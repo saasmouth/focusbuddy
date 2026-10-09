@@ -1,0 +1,12 @@
+{
+  "persona": "Accountants and finance professionals",
+  "desk": "13-week cash forecast — Fernhill Joinery over its limit in week 7",
+  "title": "Fernhill workshop floor",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a custom cabinetry and joinery workshop in an Australian light-industrial unit on a weekday morning: racks of timber boards and white melamine sheets along one wall, a large plain unbranded panel saw, half-built kitchen cabinet carcasses standing on trestles, fine sawdust drifting in shafts of sunlight from high clerestory windows, one joiner in work clothes and ear muffs seen from behind at a workbench, warm natural light, honest working atmosphere, wide framing",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 74,
+  "bytes": 280682,
+  "generatedAt": "2026-10-08T07:13:53.638Z"
+}

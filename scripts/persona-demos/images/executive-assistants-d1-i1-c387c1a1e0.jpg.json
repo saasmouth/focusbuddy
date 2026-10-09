@@ -1,0 +1,12 @@
+{
+  "persona": "Executive assistants",
+  "desk": "Singapore trip — itinerary, briefing and cover",
+  "title": "Packed for four days away",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay photograph of an open carry-on suitcase on a hotel bed with crisp white linen: neatly folded pale blue business shirts and a charcoal blazer, a pair of black closed-toe leather flats, a slim plain tan leather document folio closed, a compact folding navy umbrella, tortoiseshell sunglasses, a zipped grey felt pouch and a rolled silk scarf, soft morning light through sheer curtains, calm and organised, editorial travel still life, muted navy, white and tan palette",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 232431,
+  "generatedAt": "2026-10-08T07:25:57.474Z"
+}

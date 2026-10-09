@@ -1,0 +1,12 @@
+{
+  "persona": "Operations leaders responsible for how work gets done",
+  "desk": "Work tracking consolidation — five trackers into one",
+  "title": "Field crew tablet, first week on the job",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a field services technician seen from behind and slightly over the shoulder, standing beside the open sliding door of a plain unmarked white service van on a quiet Australian suburban street in early morning light: they hold a rugged tablet in a dark rubber case, its screen showing only soft blurred blocks of colour, a plain hi-vis vest with no markings, a canvas tool bag at their feet, gum trees and a brick house softly out of focus behind, natural colours, candid and unposed",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 260451,
+  "generatedAt": "2026-10-08T07:29:45.798Z"
+}

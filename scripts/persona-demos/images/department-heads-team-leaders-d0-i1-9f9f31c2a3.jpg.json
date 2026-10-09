@@ -1,0 +1,12 @@
+{
+  "persona": "Department heads and team leaders",
+  "desk": "Customer Support — H1 headcount and coverage plan",
+  "title": "Saturday morning, no one on the floor",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Architectural interior photograph of a customer support office on a Saturday morning with nobody in it: tidy rows of desks with chairs pushed in, headsets hung neatly on monitor stands, every screen dark, a single potted fiddle-leaf fig, low winter sun from tall windows casting long stripes of light and shadow across grey carpet tiles. Calm, still and slightly lonely, wide-angle lens at eye level, neutral colour grade, crisp detail",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 68,
+  "bytes": 282453,
+  "generatedAt": "2026-10-08T07:22:38.068Z"
+}

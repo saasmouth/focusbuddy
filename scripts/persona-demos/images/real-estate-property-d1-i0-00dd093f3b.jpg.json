@@ -1,0 +1,12 @@
+{
+  "persona": "Real estate agents and property managers",
+  "desk": "Rent roll — maintenance queue and owner approvals",
+  "title": "Failed hot water system, Lilly Pilly Lane",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a failed electric hot water storage cylinder in the cramped outdoor laundry alcove of an older brick block of units: rust streaks running down the plain unbranded white casing, a shallow puddle spreading across the concrete floor, and a plumber's gloved hands kneeling beside an open canvas tool bag holding a shiny new copper fitting. Overcast morning light, close matter-of-fact framing, muted natural colours, the feel of a condition photo taken for an owner.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 251081,
+  "generatedAt": "2026-10-08T07:14:09.258Z"
+}

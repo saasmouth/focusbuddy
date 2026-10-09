@@ -1,0 +1,12 @@
+{
+  "persona": "Architects and design studios",
+  "desk": "Marlow Lane apartments — DD fee check before the variation goes in",
+  "title": "Marlow Lane massing model, DD review",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Editorial still-life photograph of a white card and pale basswood architectural model of a five-storey apartment building, recessed balconies stepping across the upper four levels and a tall glazed ground-floor tenancy, sitting on a pale timber studio table beside loose rolls of yellow trace paper and two soft pencils, soft diffuse daylight from a large window at left, low three-quarter viewpoint at model eye level, shallow depth of field, calm muted palette of white, birch and warm grey",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 171684,
+  "generatedAt": "2026-10-08T07:14:47.896Z"
+}

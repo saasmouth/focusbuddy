@@ -1,0 +1,12 @@
+{
+  "persona": "Agency owners and client-service teams",
+  "desk": "Pitch — Bramble Ridge Outdoor rebrand and launch",
+  "title": "Identity route A, moodboard",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay of a brand identity moodboard on a sheet of rough chalk-white watercolour paper: plain unprinted colour swatch cards in deep forest green, warm ochre and granite grey, a square of waxed canvas, a coil of worn boot lace, a pressed eucalyptus leaf, a small brass carabiner, a graphite pencil, and a torn scrap of paper printed with an abstract topographic contour-line pattern that has no labels or numbers. Soft diffused daylight from one side, gentle natural shadows, editorial still-life styling, calm earthy palette, generous space between objects.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 56,
+  "bytes": 295065,
+  "generatedAt": "2026-10-08T07:21:41.616Z"
+}

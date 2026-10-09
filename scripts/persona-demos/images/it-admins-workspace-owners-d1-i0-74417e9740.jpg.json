@@ -1,0 +1,12 @@
+{
+  "persona": "IT administrators and workspace owners",
+  "desk": "Quarterly access review — licences, admins and leavers",
+  "title": "Returned leaver kit",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay editorial still life on a pale ash workbench: a closed matte charcoal laptop with a plain unmarked lid and its charger neatly coiled, a small black hardware security key, a blank white access card on a plain navy lanyard, a smartphone lying face down in a plain grey case, and an empty padded courier envelope, all arranged in a tidy grid with even spacing. Soft north-facing daylight, gentle shadows, muted neutral palette with one navy accent, calm and orderly mood",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 274142,
+  "generatedAt": "2026-10-08T07:26:29.505Z"
+}

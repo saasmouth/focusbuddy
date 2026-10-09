@@ -1,0 +1,38 @@
+{
+  "https://business.gov.au/people/employees/interview-and-recruit-employees": {
+    "ok": true,
+    "status": 200,
+    "title": "Interview and recruit employees | business.gov.au",
+    "bytes": 361944,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "business.gov.au — Interview and recruit employees",
+    "checkedAt": "2026-10-08T08:55:06.886Z"
+  },
+  "https://en.wikipedia.org/wiki/Structured_interview": {
+    "ok": true,
+    "status": 200,
+    "title": "Structured interview - Wikipedia",
+    "bytes": 165670,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "Wikipedia — Structured interview",
+    "checkedAt": "2026-10-08T08:55:07.281Z"
+  },
+  "https://en.wikipedia.org/wiki/Shift_work": {
+    "ok": true,
+    "status": 200,
+    "title": "Shift work - Wikipedia",
+    "bytes": 400000,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "Wikipedia — Shift work",
+    "checkedAt": "2026-10-08T08:55:07.281Z"
+  },
+  "https://business.gov.au/risk-management/mental-health/create-a-mentally-healthy-workplace": {
+    "ok": true,
+    "status": 200,
+    "title": "Create a mentally healthy workplace | business.gov.au",
+    "bytes": 359133,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "business.gov.au — Create a mentally healthy workplace",
+    "checkedAt": "2026-10-08T08:55:07.281Z"
+  }
+}

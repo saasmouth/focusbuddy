@@ -208,6 +208,14 @@ export default function App(): JSX.Element {
   const [bodyDoubleOpen, setBodyDoubleOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const peerStatus = usePeerBodyDoubleStore((s) => s.status)
+  // A body-double session can end while its panel is hidden (the partner
+  // left, the connection dropped, a block from the docked video). The docked
+  // video vanishing on its own would be unexplained, so the panel comes back
+  // to say what happened.
+  const peerToast = usePeerBodyDoubleStore((s) => s.toast)
+  useEffect(() => {
+    if (peerToast) setBodyDoubleOpen(true)
+  }, [peerToast])
   const settingsBtnRef = useRef<HTMLButtonElement | null>(null)
   const activeTaskId = useNodeStore((s) => s.activeTaskId)
   const unsectionedCount = useWidgetStore(

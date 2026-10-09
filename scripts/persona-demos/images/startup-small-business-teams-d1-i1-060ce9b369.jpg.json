@@ -1,0 +1,12 @@
+{
+  "persona": "Startup and small-business teams",
+  "desk": "Clinic waitlist launch — everyone ships it together",
+  "title": "Treatment room after a late cancellation",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Quiet editorial photograph of an empty physiotherapy treatment room in the afternoon, vertical framing: a padded treatment plinth covered with a fresh white paper roll, a rolled towel at one end, a foam roller on the floor and coloured resistance bands hanging from a wall hook, a small wooden stool, venetian blinds casting soft striped light across a pale wall, a single potted plant, still and slightly expectant mood, natural warm tones",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 197071,
+  "generatedAt": "2026-10-08T07:22:48.626Z"
+}

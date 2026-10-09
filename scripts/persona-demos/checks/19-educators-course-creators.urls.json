@@ -1,0 +1,38 @@
+{
+  "https://education.nsw.gov.au/about-us/how-we-communicate/accessibility-basics/creating-accessible-videos": {
+    "ok": true,
+    "status": 200,
+    "title": "Creating accessible videos",
+    "bytes": 117599,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "NSW Education — Creating accessible videos",
+    "checkedAt": "2026-10-08T08:55:10.467Z"
+  },
+  "https://analysisfunction.civilservice.gov.uk/policy-store/data-visualisation-charts/": {
+    "ok": true,
+    "status": 200,
+    "title": "Data visualisation: charts – Government Analysis Function",
+    "bytes": 143764,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "Analysis Function — Data visualisation: charts",
+    "checkedAt": "2026-10-08T08:55:11.903Z"
+  },
+  "https://www.postgresql.org/docs/current/tutorial-join.html": {
+    "ok": true,
+    "status": 200,
+    "title": "PostgreSQL: Documentation: 18: 2.6. Joins Between Tables",
+    "bytes": 22279,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "PostgreSQL docs — Joins Between Tables",
+    "checkedAt": "2026-10-08T08:55:11.903Z"
+  },
+  "https://www.postgresql.org/docs/current/tutorial-agg.html": {
+    "ok": true,
+    "status": 200,
+    "title": "PostgreSQL: Documentation: 18: 2.7. Aggregate Functions",
+    "bytes": 20663,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "PostgreSQL docs — Aggregate Functions",
+    "checkedAt": "2026-10-08T08:55:11.903Z"
+  }
+}

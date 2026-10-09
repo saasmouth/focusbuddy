@@ -1,0 +1,38 @@
+{
+  "https://ncc.abcb.gov.au/editions/ncc-2025/adopted/volume-one/f-health-and-amenity/part-f6-light-and-ventilation": {
+    "ok": true,
+    "status": 200,
+    "title": "Part F6 Light and ventilation | NCC",
+    "bytes": 261528,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "NCC 2025 — Part F6 Light and ventilation",
+    "checkedAt": "2026-10-08T08:55:06.110Z"
+  },
+  "https://education.nsw.gov.au/early-childhood-education/operating-an-early-childhood-education-service/setting-up-a-new-service/steps-to-set-up-a-new-service": {
+    "ok": true,
+    "status": 200,
+    "title": "Steps to set up a new service",
+    "bytes": 116255,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "NSW Early Learning — Steps to set up a new service",
+    "checkedAt": "2026-10-08T08:55:06.581Z"
+  },
+  "https://ablis.business.gov.au/service/nsw/basix-certificate/16758": {
+    "ok": true,
+    "status": 200,
+    "title": "BASIX Certificate - NSW - Australian Business Licence and Information Service",
+    "bytes": 38112,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "ABLIS — BASIX Certificate, NSW",
+    "checkedAt": "2026-10-08T08:55:06.581Z"
+  },
+  "https://en.wikipedia.org/wiki/Insulated_glazing": {
+    "ok": true,
+    "status": 200,
+    "title": "Insulated glazing - Wikipedia",
+    "bytes": 241950,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "Wikipedia — Insulated glazing",
+    "checkedAt": "2026-10-08T08:55:06.581Z"
+  }
+}

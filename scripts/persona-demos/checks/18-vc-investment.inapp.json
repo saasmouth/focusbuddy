@@ -1,0 +1,30 @@
+{
+  "https://www.asic.gov.au/regulatory-resources/sustainability-reporting": {
+    "ok": true,
+    "title": "Sustainability reporting | ASIC",
+    "finalUrl": "https://www.asic.gov.au/regulatory-resources/sustainability-reporting",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://cer.gov.au/schemes/national-greenhouse-and-energy-reporting-scheme": {
+    "ok": true,
+    "title": "National Greenhouse and Energy Reporting Scheme | Clean Energy Regulator",
+    "finalUrl": "https://cer.gov.au/schemes/national-greenhouse-and-energy-reporting-scheme",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://www.asic.gov.au/regulatory-resources/insolvency/insolvency-for-directors": {
+    "ok": true,
+    "title": "Insolvency for directors | ASIC",
+    "finalUrl": "https://www.asic.gov.au/regulatory-resources/insolvency/insolvency-for-directors",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  },
+  "https://business.gov.au/grants-and-programs/early-stage-venture-capital-limited-partnerships": {
+    "ok": true,
+    "title": "Early Stage Venture Capital Limited Partnerships (ESVCLP) | business.gov.au",
+    "finalUrl": "https://business.gov.au/grants-and-programs/early-stage-venture-capital-limited-partnerships",
+    "where": "desks[1].browsers[1]",
+    "pass": true
+  }
+}

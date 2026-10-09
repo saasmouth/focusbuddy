@@ -1,0 +1,12 @@
+{
+  "persona": "Recruiters and people teams",
+  "desk": "Engagement survey — acting on the 3 teams below 60",
+  "title": "Action-planning wall, break room",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Editorial photograph of a whiteboard in a warehouse staff break room during a team action-planning session: clusters of blank pastel sticky notes in yellow, pink and pale blue grouped loosely with hand-drawn marker circles and arrows, the hand and forearm of an anonymous person reaching in to place one more blank note, two plain unmarked kraft paper coffee cups on a table edge in the soft-focus foreground, warm afternoon light, shallow depth of field",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 141725,
+  "generatedAt": "2026-10-08T07:17:58.472Z"
+}

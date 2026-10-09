@@ -1,0 +1,12 @@
+{
+  "persona": "Recruiters and people teams",
+  "desk": "Engagement survey — acting on the 3 teams below 60",
+  "title": "Sydney DC floor at shift change",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph inside a large distribution centre in western Sydney just after dawn at shift change: long aisles of tall blue and orange pallet racking with no signs or labels, stacked with shrink-wrapped pallets, two parked forklifts, a few anonymous warehouse workers in plain hi-vis vests walking away from the camera in the middle distance, cool high-bay lighting mixing with warm sunrise light spilling through an open roller door, polished concrete floor, wide shot, natural colours, quiet and unstaged",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 68,
+  "bytes": 278815,
+  "generatedAt": "2026-10-08T07:15:59.806Z"
+}

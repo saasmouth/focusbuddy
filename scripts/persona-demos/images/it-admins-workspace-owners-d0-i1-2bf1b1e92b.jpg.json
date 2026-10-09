@@ -1,0 +1,12 @@
+{
+  "persona": "IT administrators and workspace owners",
+  "desk": "New workspace rollout — waves, groups and access by department",
+  "title": "Champion drop-in, engineering floor",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Architectural interior photograph of the open-plan floor of a mid-sized engineering consultancy on a weekday afternoon: long timber desks with twin monitors showing soft out-of-focus blue linework, rolled drawings held with elastic bands, a white hard hat resting on a low cabinet, potted plants. In the middle distance three staff gather around one laptop at a standing table, seen from behind, while a colleague leans in to point at the screen. Tall windows, warm diffused daylight, calm and practical mood, shallow depth of field",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 171810,
+  "generatedAt": "2026-10-08T07:26:24.428Z"
+}

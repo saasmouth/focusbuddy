@@ -1,0 +1,12 @@
+{
+  "persona": "Busy managers balancing several projects",
+  "desk": "Open loops — every follow-up across five projects",
+  "title": "Headsets for the new starters, still waiting",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Clean product photograph of a row of plain black over-ear call-centre headsets with boom microphones laid out neatly on a pale grey office table, beside a small stack of plain unmarked brown cardboard boxes and a coiled cable, soft diffused side light from a window, overhead three-quarter view, minimal and orderly, quiet empty office softly out of focus behind",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 206494,
+  "generatedAt": "2026-10-08T07:16:17.457Z"
+}

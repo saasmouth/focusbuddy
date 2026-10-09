@@ -1,0 +1,12 @@
+{
+  "persona": "IT administrators and workspace owners",
+  "desk": "Quarterly access review — licences, admins and leavers",
+  "title": "IT workroom, devices awaiting wipe",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a small IT workroom in an Australian office late on a weekday afternoon: a technician seen from behind and slightly to the side at a long bench, sleeves rolled up, working on an open laptop whose screen is an abstract blurred glow. Beside them a stack of returned laptops, each marked only with a small coloured dot sticker, chargers sorted into a shallow tray, and a metal shelving unit of plain cardboard boxes in soft focus. Bare painted wall beneath the window. Warm low sun through venetian blinds casting stripes across the bench, quiet methodical mood",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 198440,
+  "generatedAt": "2026-10-08T07:27:40.354Z"
+}

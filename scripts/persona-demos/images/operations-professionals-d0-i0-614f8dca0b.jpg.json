@@ -1,0 +1,12 @@
+{
+  "persona": "Operations professionals",
+  "desk": "Fulfilment cutover — Riverside warehouse to the Eastgate 3PL",
+  "title": "Wrapped pallets on the Riverside dock",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a small Australian homewares warehouse in its final moving week: rows of shrink-wrapped pallets stacked with plain unmarked brown cartons staged across a concrete loading dock, a roller door open to an overcast morning with a plain white truck backed up to the dock edge, half-empty steel pallet racking behind, a hand pallet jack in the foreground, one worker in a hi-vis vest seen from behind in the far distance, cool daylight mixed with warm overhead lights, slightly wide angle, realistic and unstaged",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 295324,
+  "generatedAt": "2026-10-08T07:09:45.014Z"
+}

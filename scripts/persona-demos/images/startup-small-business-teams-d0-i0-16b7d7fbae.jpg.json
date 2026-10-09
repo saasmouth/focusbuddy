@@ -1,0 +1,12 @@
+{
+  "persona": "Startup and small-business teams",
+  "desk": "Weekly priorities — Monday kickoff to Friday wins",
+  "title": "Monday kickoff at the planning wall",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Candid documentary photograph of a small startup team's Monday morning kickoff in a converted red-brick warehouse office in Melbourne: five people seen from behind and slightly to the side, standing loosely in a half-circle facing a whitewashed wall covered in rows of completely blank coloured sticky notes in five colour bands, one person reaching up to move a note, takeaway coffee cups in hand, worn timber floor, tall steel-framed windows letting in soft early light, shallow depth of field, natural muted colours, relaxed and focused mood",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 267567,
+  "generatedAt": "2026-10-08T07:22:50.459Z"
+}

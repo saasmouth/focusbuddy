@@ -1,0 +1,12 @@
+{
+  "persona": "CEOs and business owners",
+  "desk": "Quarterly priorities and board update",
+  "title": "CNC line 2, waiting on commissioning",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph inside a large Australian commercial joinery factory: a newly installed CNC panel-processing line, partly still wrapped in clear protective film, with loops of grey cable coiled on the concrete floor and a timber pallet of plain white melamine sheets waiting beside it. Machine housings are plain pale grey and completely unmarked, with no labels, stickers, nameplates, screens or control panels. Behind, timber panels stacked on steel racks in soft focus. Cool morning light from high skylights, fine sawdust in the air, a quiet, waiting atmosphere, natural colours, eye-level wide shot, no people.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 276545,
+  "generatedAt": "2026-10-08T07:42:14.763Z"
+}

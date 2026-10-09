@@ -1,0 +1,12 @@
+{
+  "persona": "Sales and account managers",
+  "desk": "Quarter-end forecast — $228k to close in 20 days",
+  "title": "Pipeline wall, three weeks out",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a sales team's glass meeting-room wall in a bright Australian office late in the quarter: five tidy vertical columns of blank pastel sticky notes in yellow, pink, pale blue and green, a few notes marked only with small coloured dot stickers, one hand reaching in from the right edge to move a note between columns, late-afternoon sun raking across the glass, generic office towers softly out of focus beyond, shallow depth of field, calm and purposeful mood, natural colours",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 166772,
+  "generatedAt": "2026-10-08T07:14:18.725Z"
+}

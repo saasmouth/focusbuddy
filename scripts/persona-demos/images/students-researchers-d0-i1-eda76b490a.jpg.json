@@ -1,0 +1,12 @@
+{
+  "persona": "Students and researchers",
+  "desk": "Thesis chapter 2 — literature review synthesis",
+  "title": "Shade line on the footpath",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Editorial photograph looking straight down at a suburban concrete footpath on a hot summer afternoon, a crisp diagonal line where the dappled shade of one large street tree meets glaring sunlight, scattered dry gum leaves and a few seed pods lying in the shaded half, a strip of browned grass verge along one edge, strong contrast between cool blue-grey shade and bleached warm concrete, minimalist composition, fine surface texture, natural colour",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 62,
+  "bytes": 283614,
+  "generatedAt": "2026-10-08T07:09:50.730Z"
+}

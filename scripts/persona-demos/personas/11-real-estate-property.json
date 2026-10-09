@@ -1,0 +1,340 @@
+{
+  "number": 11,
+  "slug": "real-estate-property",
+  "persona": "Real estate agents and property managers",
+  "category": "Professional use cases",
+  "room": {
+    "title": "Real Estate and Property Management",
+    "description": "How an agent and a property manager keep a sale campaign and a busy rent roll in view — buyers, vendor reports, maintenance quotes and owner approvals on one surface instead of a CRM, a PMS and a notebook."
+  },
+  "desks": [
+    {
+      "title": "14 Banksia Crescent — auction campaign, week 3",
+      "description": "A four-week auction campaign heading into its last stretch: every buyer and where they're at, the vendor report, and the reserve conversation that has to happen before auction day.",
+      "dueInDays": 9,
+      "brief": "## 14 Banksia Crescent — auction campaign\n\n**Property** 4 bed, 2 bath family home on 680 m² — renovated kitchen, single garage, backs onto bushland\n**Vendors** Helen and Doug · downsizing, already bought, settlement flexible\n**Auction** on site @+9d · **Price guide** $1.05m–$1.15m, the estimate in the agency agreement\n**Vendors' expectation** $1.2m\n\n### Campaign so far (week 3 of 4)\n- 3 open homes, 41 groups through, 6 private inspections\n- 11 active buyers, 6 with finance approved\n- 3 contracts requested, 1 building and pest inspection done\n\n### The problem to solve\nPrice feedback from nine buyers averages $1.06m and tops out at $1.12m. Helen and Doug's number is $1.2m. **The reserve conversation is @+5d**, and it has to be built on this table, not on hope.",
+      "callout": {
+        "title": "Reserve conversation @+5d",
+        "body": "Buyer feedback averages $1.06m, the strongest is $1.12m, and Helen and Doug want $1.2m. Go in with the buyer table, the three contract requests and a recommended reserve of $1.1m.",
+        "accent": "#f59e0b",
+        "icon": "🏡"
+      },
+      "table": {
+        "title": "Buyers — 14 Banksia Crescent",
+        "columns": [
+          { "id": "buyer", "label": "Buyer", "type": "text-short" },
+          { "id": "source", "label": "Source", "type": "single-select", "options": ["Portal", "Open home", "Database", "Signboard", "Referral"] },
+          { "id": "stage", "label": "Stage", "type": "single-select", "options": ["Enquired", "Inspected", "Second look", "Contract requested", "Building & pest", "Registered to bid"] },
+          { "id": "feedback", "label": "Price feedback ($k)", "type": "number" },
+          { "id": "finance", "label": "Finance approved", "type": "checkbox" },
+          { "id": "next", "label": "Next step", "type": "text-short" }
+        ],
+        "rows": [
+          { "buyer": "Anika and Raj", "source": "Portal", "stage": "Building & pest", "feedback": 1120, "finance": true, "next": "Report back — call @+1d" },
+          { "buyer": "Tom and Lucy", "source": "Open home", "stage": "Contract requested", "feedback": 1100, "finance": true, "next": "Their solicitor is reviewing the contract" },
+          { "buyer": "Wei", "source": "Database", "stage": "Contract requested", "feedback": 1080, "finance": true, "next": "Second inspection @+2d" },
+          { "buyer": "Samira", "source": "Open home", "stage": "Second look", "feedback": 1050, "finance": false, "next": "Broker meeting @+3d — call after" },
+          { "buyer": "Jack and Ellie", "source": "Portal", "stage": "Second look", "feedback": 1100, "finance": true, "next": "Bringing their builder @+4d" },
+          { "buyer": "Diego", "source": "Signboard", "stage": "Inspected", "feedback": 980, "finance": false, "next": "Yard too much work — townhouse list" },
+          { "buyer": "Fatima", "source": "Portal", "stage": "Inspected", "feedback": 1060, "finance": true, "next": "Comparing with a house two streets away" },
+          { "buyer": "Connor and Mae", "source": "Referral", "stage": "Inspected", "feedback": 1120, "finance": true, "next": "Selling first — needs 8-week settlement" },
+          { "buyer": "Ruth", "source": "Open home", "stage": "Inspected", "feedback": 930, "finance": false, "next": "Likely out at the guide" },
+          { "buyer": "Kenji", "source": "Database", "stage": "Enquired", "finance": false, "next": "Booked into the next open home @+2d" },
+          { "buyer": "Olivia", "source": "Portal", "stage": "Enquired", "finance": false, "next": "Floor plan and contract sent" }
+        ]
+      },
+      "chart": {
+        "title": "Average buyer price feedback ($k)",
+        "type": "kpi",
+        "x": null,
+        "series": [{ "column": "feedback", "agg": "avg", "label": "Avg price feedback ($k)" }]
+      },
+      "mindmap": {
+        "title": "Auction plan",
+        "root": {
+          "label": "14 Banksia Crescent — to auction",
+          "children": [
+            { "label": "Vendors", "children": [
+              { "label": "Reserve conversation @+5d", "kind": "task" },
+              { "label": "Would they sell at $1.1m?", "kind": "question" },
+              { "label": "Weekly written report", "kind": "task" }
+            ]},
+            { "label": "Buyers", "children": [
+              { "label": "Call every group back within 24h", "kind": "task" },
+              { "label": "Chase the building and pest result", "kind": "task" },
+              { "label": "Pre-auction offer from Anika and Raj?", "kind": "question" }
+            ]},
+            { "label": "Marketing", "children": [
+              { "label": "Refresh the portal listing", "kind": "task" },
+              { "label": "Adjust the price guide?", "kind": "question" },
+              { "label": "Signboard + brochure", "kind": "tool" }
+            ]},
+            { "label": "Auction day", "children": [
+              { "label": "Auctioneer booked", "kind": "task" },
+              { "label": "Bidder registration from 9:30", "kind": "task" },
+              { "label": "Who can pay the deposit on the day?", "kind": "question" }
+            ]},
+            { "label": "If it passes in", "children": [
+              { "label": "Negotiate with the top bidder", "kind": "idea" },
+              { "label": "Private sale plan ready", "kind": "idea" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Vendor report — week 3",
+        "blocks": [
+          { "h3": "Vendor report — week 3" },
+          { "p": "Helen and Doug — here's where the campaign stands, with the auction @+9d." },
+          { "h4": "Activity" },
+          { "ul": [
+            "41 groups through three open homes, plus 6 private inspections",
+            "11 active buyers; 3 have asked for the contract",
+            "Anika and Raj have had a building and pest inspection done"
+          ]},
+          { "h4": "What buyers are saying about price" },
+          { "p": "Nine buyers have given price feedback. It ranges from $930k to $1.12m and averages $1.06m. The two strongest, both at $1.12m, have finance approved." },
+          { "h4": "My recommendation" },
+          { "p": "A reserve of **$1.1m**. It sits just under what the two strongest buyers have told us, which gives us a real chance of two bidders on the day. We'll talk through your $1.2m when we meet @+5d." },
+          { "quote": "Price feedback isn't an offer. Three contract requests by week 3 is the stronger signal." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Open home follow-ups",
+          "body": "From the last open home (14 groups):\n\n- Jack and Ellie: loved the kitchen, worried about the retaining wall — their builder comes through @+4d\n- Diego: says the yard is too much work; added to the townhouse list\n- Samira: broker meeting @+3d, call her after\n- Two groups asked about plans for the bushland behind — check with council before anyone asks again\n\nCall every group back within 24 hours, before 10am."
+        }
+      ],
+      "stickies": [
+        { "title": "Before the vendor meeting", "body": "Print the buyer table\nComparable sales, last 6 months\nReserve to recommend: $1.1m", "color": "#fef08a" },
+        { "title": "Auction admin", "body": "Bidder registration forms and the auctioneer's run sheet to the office @+7d.\nReserve to the auctioneer in writing before bidding opens.\nDeposit on the day: 10%.", "color": "#fed7aa" }
+      ],
+      "fields": [
+        { "label": "Active buyers", "type": "number", "value": 11 },
+        { "label": "Contracts requested", "type": "number", "value": 3 },
+        { "label": "Campaign stage", "type": "single-select", "options": ["Pre-market", "On market", "Auction week", "Sold"], "value": "On market" }
+      ],
+      "timer": { "title": "Buyer call-back block", "minutes": 30 },
+      "browsers": [
+        { "title": "NSW Fair Trading — Auctions: agents' responsibilities", "url": "https://www.nsw.gov.au/housing-and-construction/property-professionals/working-as-an-agent/auctions" },
+        { "title": "NSW Fair Trading — Underquoting guidance for agents", "url": "https://www.nsw.gov.au/housing-and-construction/property-professionals/working-as-an-agent/underquoting-guidance" }
+      ],
+      "images": [
+        {
+          "title": "Front of the house, late afternoon",
+          "aspect": "landscape",
+          "prompt": "Architectural exterior photograph of a renovated single-storey 1970s face-brick family home on a quiet leafy street in suburban Sydney: wide mown lawn, tidy native garden beds, a single garage with a plain timber door, and a tall stand of eucalyptus bushland rising behind the roofline. Warm late-afternoon autumn light, soft long shadows, clear pale sky. Shot from across the street at eye level, straight-on and calm, in the style of high-end real estate photography. No signboards, no cars, no people."
+        },
+        {
+          "title": "Renovated kitchen, open home morning",
+          "aspect": "portrait",
+          "prompt": "Editorial interior photograph of a freshly renovated family kitchen styled for an open home: a long pale stone island bench with three timber stools, matte white cabinetry, brushed brass tapware, a bowl of lemons and a jug of native grevillea flowers on the bench, and a wide window over the sink looking out onto green eucalyptus bushland. Soft morning daylight, uncluttered surfaces, warm natural colours, shot at bench height with a gentle perspective. No people."
+        }
+      ],
+      "diagram": {
+        "title": "Auction day at a $1.1m reserve",
+        "nodes": [
+          { "id": "bidding", "label": "Registered bidders bid", "shape": "box", "color": "#2563eb" },
+          { "id": "reserve", "label": "Reaches $1.1m reserve?", "shape": "circle", "color": "#d97706" },
+          { "id": "sold", "label": "Sold under the hammer", "shape": "box", "color": "#16a34a" },
+          { "id": "passed", "label": "Passed in", "shape": "box", "color": "#dc2626" },
+          { "id": "negotiate", "label": "Negotiate with top bidder", "shape": "box", "color": "#7c3aed" },
+          { "id": "contract", "label": "Sign contract, 10% deposit", "shape": "box", "color": "#16a34a" },
+          { "id": "private", "label": "Private sale campaign", "shape": "box", "color": "#64748b" }
+        ],
+        "edges": [
+          { "from": "bidding", "to": "reserve" },
+          { "from": "reserve", "to": "sold", "label": "yes" },
+          { "from": "reserve", "to": "passed", "label": "no" },
+          { "from": "sold", "to": "contract", "label": "on the spot" },
+          { "from": "passed", "to": "negotiate", "label": "straight after" },
+          { "from": "negotiate", "to": "contract", "label": "price agreed" },
+          { "from": "negotiate", "to": "private", "label": "no deal" }
+        ]
+      },
+      "calculator": {
+        "title": "Average price feedback, nine buyers ($k)",
+        "expression": "(1120 + 1100 + 1080 + 1050 + 1100 + 980 + 1060 + 1120 + 930) / 9",
+        "result": 1060
+      },
+      "form": {
+        "title": "Reserve instructions",
+        "fields": [
+          { "type": "heading", "label": "14 Banksia Crescent · Helen and Doug" },
+          { "type": "number", "label": "Recommended reserve ($k)", "value": "1100" },
+          { "type": "number", "label": "Vendors' expectation ($k)", "value": "1200" },
+          { "type": "number", "label": "Strongest buyer feedback ($k)", "value": "1120" },
+          { "type": "date", "label": "Reserve meeting", "value": "@+5d" },
+          { "type": "date", "label": "Auction", "value": "@+9d" },
+          { "type": "select", "label": "Settlement", "options": ["42 days", "60 days", "90 days", "Flexible"], "value": "Flexible" },
+          { "type": "checkbox", "label": "Reserve agreed with vendors", "value": false },
+          { "type": "checkbox", "label": "Given to auctioneer in writing", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "Rent roll — maintenance queue and owner approvals",
+      "description": "A property manager's week across a 140-property rent roll: open maintenance jobs, quotes waiting on owners, one urgent repair and the routine inspections coming due.",
+      "brief": "## Maintenance queue — owner approvals\n\n**Rent roll** 140 properties · me, plus Jade on leasing and inspections\n**Approval limit** up to $500 without asking; above that, the owner approves in writing\n**Urgent repairs** straight to the trade, owner told the same day\n\n### On the board this week\n- 10 jobs: 8 open, 2 completed · $6,770 quoted\n- $4,130 of that is four quotes waiting on owners, each for over a week\n- 1 urgent: no hot water at 3/22 Lilly Pilly Lane\n- 6 routine inspections due by @+14d; entry notices out for 2\n\n### The pattern to fix\nJobs don't stall with the trades — they stall with owners. A two-line email with photos and one question gets answered from a phone; a PDF quote on its own sits in an inbox. **Every approval request goes out on the template from today.**",
+      "callout": {
+        "title": "Urgent: no hot water, owner not answering",
+        "body": "3/22 Lilly Pilly Lane — the hot water system failed and the tenant has two young children. Plumber booked @today at 2pm, $1,850 to replace. Two calls to the owner unanswered; photos and quote emailed, follow-up call @+1d.",
+        "accent": "#ef4444",
+        "icon": "🚿"
+      },
+      "table": {
+        "title": "Maintenance jobs",
+        "columns": [
+          { "id": "property", "label": "Property", "type": "text-short" },
+          { "id": "issue", "label": "Issue", "type": "text-short" },
+          { "id": "trade", "label": "Trade", "type": "single-select", "options": ["Plumber", "Electrician", "Handyman", "Roofer", "Locksmith", "Pest control"] },
+          { "id": "quote", "label": "Quote", "type": "number", "prefix": "$" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Reported", "Quoting", "Owner approval", "Booked", "Completed"] },
+          { "id": "urgent", "label": "Urgent", "type": "checkbox" },
+          { "id": "days", "label": "Days open", "type": "number" }
+        ],
+        "rows": [
+          { "property": "18 Grevillea Way", "issue": "Ceiling stain in the hallway", "trade": "Roofer", "status": "Reported", "urgent": false, "days": 1 },
+          { "property": "33 Kurrajong Street", "issue": "Termite signs in the garage", "trade": "Pest control", "status": "Quoting", "urgent": false, "days": 2 },
+          { "property": "41 Corkwood Grove", "issue": "Switchboard trips when the oven is on", "trade": "Electrician", "quote": 680, "status": "Owner approval", "urgent": false, "days": 12 },
+          { "property": "12 Casuarina Court", "issue": "Fence palings down after the storm", "trade": "Handyman", "quote": 760, "status": "Owner approval", "urgent": false, "days": 10 },
+          { "property": "7 Tuckeroo Road", "issue": "Shower recess leaking into the wall", "trade": "Plumber", "quote": 1240, "status": "Owner approval", "urgent": false, "days": 9 },
+          { "property": "26 Melaleuca Drive", "issue": "Gutters overflowing at the rear", "trade": "Roofer", "quote": 1450, "status": "Owner approval", "urgent": false, "days": 8 },
+          { "property": "3/22 Lilly Pilly Lane", "issue": "No hot water — system failed", "trade": "Plumber", "quote": 1850, "status": "Booked", "urgent": true, "days": 1 },
+          { "property": "9 Bottlebrush Avenue", "issue": "Rangehood not extracting", "trade": "Electrician", "quote": 390, "status": "Booked", "urgent": false, "days": 4 },
+          { "property": "5/18 Seaview Terrace", "issue": "Back door lock jammed", "trade": "Locksmith", "quote": 220, "status": "Completed", "urgent": false, "days": 3 },
+          { "property": "2/7 Paperbark Close", "issue": "Dripping kitchen tap", "trade": "Plumber", "quote": 180, "status": "Completed", "urgent": false, "days": 6 }
+        ]
+      },
+      "chart": {
+        "title": "Jobs by status",
+        "type": "bar",
+        "x": "status",
+        "series": [{ "column": "property", "agg": "count", "label": "Jobs" }]
+      },
+      "mindmap": {
+        "title": "Rent roll — this fortnight",
+        "root": {
+          "label": "140 properties — what's moving",
+          "children": [
+            { "label": "Maintenance", "children": [
+              { "label": "4 quotes sitting with owners", "kind": "idea" },
+              { "label": "Two-line approval email + photos", "kind": "tool" },
+              { "label": "Raise the approval limit to $750?", "kind": "question" }
+            ]},
+            { "label": "Routine inspections", "children": [
+              { "label": "6 due by @+14d", "kind": "task" },
+              { "label": "Entry notices for the other 4", "kind": "task" },
+              { "label": "Photos into the PMS the same day", "kind": "tool" }
+            ]},
+            { "label": "Leasing", "children": [
+              { "label": "5/18 Seaview Terrace vacates @+21d", "kind": "task" },
+              { "label": "Re-list at the same rent or +$20?", "kind": "question" }
+            ]},
+            { "label": "Arrears", "children": [
+              { "label": "2 tenants over 7 days behind", "kind": "idea" },
+              { "label": "Payment plan for 41 Corkwood Grove?", "kind": "question" }
+            ]},
+            { "label": "Renewals", "children": [
+              { "label": "3 leases end within 60 days", "kind": "idea" },
+              { "label": "Rent review letters to owners first", "kind": "task" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Owner approval — the email that gets answered",
+        "blocks": [
+          { "h3": "Owner approval email — template" },
+          { "p": "Short enough to answer from a phone. Photos inline, quote attached, one question." },
+          { "quote": "Hi [owner] — the shower recess at 7 Tuckeroo Road is leaking into the wall cavity (photos below). The plumber's quote to re-seal it and replace the waste is $1,240. OK to go ahead? If I haven't heard by @+3d, I'll text, and I'll call @+5d." },
+          { "h4": "Why it works" },
+          { "ul": [
+            "One property, one job, one question — owners answer questions, not updates",
+            "The cost of waiting is stated: water in a wall cavity gets dearer every week",
+            "Follow-up dates, so the next steps are a text and a call, not another email"
+          ]},
+          { "h4": "Chasing order" },
+          { "ol": [
+            "Email with photos — day 0",
+            "Text message nudge — day 3",
+            "Phone call — day 5",
+            "Past day 10: note it on the owner's file and raise it at their next review"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Calls to make today",
+          "body": "- Owner of 3/22 Lilly Pilly Lane — third try before the plumber arrives at 2pm; if no answer, text that the photos and quote are in their inbox, and call again @+1d\n- Tenant at 41 Corkwood Grove — arrears and the switchboard in the same call, gently\n- Roofer: can the Grevillea Way stain and the Melaleuca Drive gutters be one trip? Different owners, same morning\n- Jade: entry notices for the four remaining routine inspections"
+        }
+      ],
+      "stickies": [
+        { "title": "Approval limit", "body": "Up to $500: book it. Over $500: owner approves in writing. Urgent: book it, then tell them.", "color": "#bae6fd" },
+        { "title": "Inspections", "body": "6 due by @+14d\nNotices out: 2 of 6\nJade sends the rest @+1d\n7 days' written notice each time", "color": "#bbf7d0" }
+      ],
+      "fields": [
+        { "label": "Jobs waiting on owners", "type": "number", "value": 4 },
+        { "label": "Quotes awaiting approval", "type": "number", "value": 4130, "prefix": "$" },
+        { "label": "Routine inspections due", "type": "number", "value": 6 }
+      ],
+      "browsers": [
+        { "title": "NSW Fair Trading — Urgent repairs in rentals", "url": "https://www.nsw.gov.au/housing-and-construction/rules/urgent-repairs-residential-rental-properties" },
+        { "title": "NSW Fair Trading — Notice periods for entry", "url": "https://www.nsw.gov.au/housing-and-construction/rules/minimum-notice-periods-for-access-to-rental-property" }
+      ],
+      "images": [
+        {
+          "title": "Failed hot water system, Lilly Pilly Lane",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a failed electric hot water storage cylinder in the cramped outdoor laundry alcove of an older brick block of units: rust streaks running down the plain unbranded white casing, a shallow puddle spreading across the concrete floor, and a plumber's gloved hands kneeling beside an open canvas tool bag holding a shiny new copper fitting. Overcast morning light, close matter-of-fact framing, muted natural colours, the feel of a condition photo taken for an owner."
+        },
+        {
+          "title": "Storm-damaged fence, Casuarina Court",
+          "aspect": "square",
+          "prompt": "Documentary photograph of a suburban Australian backyard the morning after a storm: a weathered grey timber paling fence with a run of palings knocked flat onto wet grass and one rail hanging loose, scattered gum leaves and small branches across the lawn, shallow puddles reflecting a grey sky that is clearing to soft light, a plain corrugated steel fence in the background. Wide eye-level framing, honest condition-report feel, no people."
+        }
+      ],
+      "diagram": {
+        "title": "Maintenance approval route",
+        "nodes": [
+          { "id": "reported", "label": "Job reported", "shape": "box", "color": "#64748b" },
+          { "id": "urgent", "label": "Urgent repair?", "shape": "circle", "color": "#d97706" },
+          { "id": "book-now", "label": "Book trade, tell owner today", "shape": "box", "color": "#dc2626" },
+          { "id": "limit", "label": "Quote over $500?", "shape": "circle", "color": "#d97706" },
+          { "id": "book", "label": "Book it — within limit", "shape": "box", "color": "#16a34a" },
+          { "id": "email", "label": "Approval email + photos", "shape": "box", "color": "#2563eb" },
+          { "id": "approved", "label": "Owner approves in writing", "shape": "box", "color": "#16a34a" },
+          { "id": "chase", "label": "Text day 3, call day 5", "shape": "box", "color": "#ea580c" }
+        ],
+        "edges": [
+          { "from": "reported", "to": "urgent" },
+          { "from": "urgent", "to": "book-now", "label": "yes" },
+          { "from": "urgent", "to": "limit", "label": "no" },
+          { "from": "limit", "to": "book", "label": "no" },
+          { "from": "limit", "to": "email", "label": "yes" },
+          { "from": "email", "to": "approved", "label": "answered" },
+          { "from": "email", "to": "chase", "label": "no reply" }
+        ]
+      },
+      "calculator": {
+        "title": "Quotes waiting on owners ($)",
+        "expression": "680 + 760 + 1240 + 1450",
+        "result": 4130
+      },
+      "form": {
+        "title": "Urgent repair — 3/22 Lilly Pilly Lane",
+        "fields": [
+          { "type": "heading", "label": "Hot water system failed" },
+          { "type": "select", "label": "Repair type", "options": ["Urgent", "Non-urgent"], "value": "Urgent" },
+          { "type": "select", "label": "Trade", "options": ["Plumber", "Electrician", "Handyman", "Roofer"], "value": "Plumber" },
+          { "type": "number", "label": "Quote to replace ($)", "value": "1850" },
+          { "type": "date", "label": "Plumber booked, 2pm", "value": "@today" },
+          { "type": "number", "label": "Calls to owner unanswered", "value": "2" },
+          { "type": "date", "label": "Follow-up call to owner", "value": "@+1d" },
+          { "type": "checkbox", "label": "Photos and quote emailed", "value": true },
+          { "type": "checkbox", "label": "Owner reached", "value": false }
+        ]
+      }
+    }
+  ]
+}

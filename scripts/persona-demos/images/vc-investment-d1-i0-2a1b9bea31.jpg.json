@@ -1,0 +1,12 @@
+{
+  "persona": "Venture capital and investment professionals",
+  "desk": "Fund II quarterly portfolio review",
+  "title": "Saltmarsh restoration site, from above",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Aerial drone photograph looking straight down on a coastal saltmarsh restoration site in southern Australia at low tide: winding tidal creeks cutting silver channels through low green and russet saltmarsh plants, an old straight earth levee breached in one place so the tide can flow back in, a few wading birds as tiny white specks, soft overcast light, muted palette of greens, ochres and pewter water, calm and expansive mood",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 68,
+  "bytes": 281606,
+  "generatedAt": "2026-10-08T07:20:24.155Z"
+}

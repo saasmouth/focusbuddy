@@ -1,0 +1,12 @@
+{
+  "persona": "Operations leaders responsible for how work gets done",
+  "desk": "Operating cadence redesign — forums, reporting and decisions",
+  "title": "Cadence wall, week 2 of the pilot",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a large whiteboard wall in an operations team's open-plan office in the afternoon: the board is divided into a simple grid by hand-drawn marker lines, with neat rows of blank coloured sticky notes and short magnetic strips in indigo, amber and green arranged in a weekly rhythm, a loose cluster of notes moved off to one side to show meetings being retired, only simple hand-drawn arrows and circles connecting them, a hand in the lower corner pressing one more blank note onto the board, shallow depth of field, soft daylight",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 189663,
+  "generatedAt": "2026-10-08T07:29:46.810Z"
+}

@@ -1,0 +1,12 @@
+{
+  "persona": "Students and researchers",
+  "desk": "Thesis chapter 2 — literature review synthesis",
+  "title": "Low-canopy street, western suburbs, midday",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a wide residential street in an Australian western-suburbs neighbourhood at midday in midsummer: broad sun-bleached asphalt, concrete kerbs and a bare footpath, a few young spindly street trees giving almost no shade, single-storey brick houses with terracotta tiled roofs set back behind dry yellowing lawns, plain pale corrugated-metal side fences and bare low brick walls with completely blank surfaces, hard overhead sunlight with short shadows and a faint heat shimmer above the road, pale washed-out sky, eye-level framing looking down the length of the empty street, no cars, no street signs, no house numbers, no letterboxes in close view",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 74,
+  "bytes": 278702,
+  "generatedAt": "2026-10-08T07:31:40.694Z"
+}

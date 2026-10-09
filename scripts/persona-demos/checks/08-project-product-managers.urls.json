@@ -1,0 +1,38 @@
+{
+  "https://www.nngroup.com/articles/prioritization-methods/": {
+    "ok": true,
+    "status": 200,
+    "title": "5 Prioritization Methods in UX Roadmapping - NN/G",
+    "bytes": 140712,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "NN/g — Prioritisation methods in roadmapping",
+    "checkedAt": "2026-10-08T08:55:01.416Z"
+  },
+  "https://awards.fairwork.gov.au/MA000009.html": {
+    "ok": true,
+    "status": 200,
+    "title": "Hospitality Industry (General) Award 2020 [MA000009] - Fair Work Ombudsman",
+    "bytes": 400000,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "Fair Work — Hospitality Industry (General) Award 2020",
+    "checkedAt": "2026-10-08T08:55:01.941Z"
+  },
+  "https://scrumguides.org/scrum-guide.html": {
+    "ok": true,
+    "status": 200,
+    "title": "Scrum Guide | Scrum Guides",
+    "bytes": 34920,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "Scrum Guides — The Scrum Guide",
+    "checkedAt": "2026-10-08T08:55:01.941Z"
+  },
+  "https://business.gov.au/people/employees/employees-pay-leave-and-entitlements": {
+    "ok": true,
+    "status": 200,
+    "title": "Employees' pay, leave and entitlements | business.gov.au",
+    "bytes": 400000,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "business.gov.au — Employees' pay, leave and entitlements",
+    "checkedAt": "2026-10-08T08:55:01.941Z"
+  }
+}

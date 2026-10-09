@@ -1,0 +1,337 @@
+{
+  "number": 14,
+  "slug": "sales-account-managers",
+  "persona": "Sales and account managers",
+  "category": "Professional use cases",
+  "room": {
+    "title": "Sales and Account Managers",
+    "description": "How a seller runs quarter end and a renewal book on one surface — the pipeline, the forecast maths, the close plan and the accounts at risk all in view at once, so the forecast call is about decisions, not digging."
+  },
+  "desks": [
+    {
+      "title": "Quarter-end forecast — $228k to close in 20 days",
+      "description": "New-business pipeline at quarter end: what's won, what's committed, the $38k gap that commit doesn't cover, and the close plan for the biggest deal.",
+      "dueInDays": 20,
+      "brief": "## Quarter-end forecast — new business\n\n**Quota** $640,000 new ARR · **Closed won** $412,000 across three deals\n**Quarter ends** @+20d · **Forecast call with Renata** @+1d\n**Selling** rostering and timesheets to multi-site operators\n\n### The maths\nWon $412,000 + commit $190,000 = **$602,000, which is $38,000 short of quota**. One best-case deal has to land as well. Copperleaf Cafés ($46,000) is the likelier: their trial ends @+5d and the site managers are using it daily. Sunfield Pharmacies ($84,000) is bigger, but it needs their CFO, who hasn't met us yet.\n\n### Commit, and why\n- **Fernleigh Early Learning — $118,000.** Verbal yes from Mai, the operations director. Procurement needs our security pack and a signed close plan\n- **Alder Health — $72,000.** Legal redlines back @+2d; the only open point is the liability cap\n\n### What I won't do\nDiscount to pull Sunfield forward. If it slips to next quarter, it slips at full price.",
+      "callout": {
+        "title": "Commit leaves us $38k short",
+        "body": "One best-case deal has to close. Copperleaf's trial readout @+5d decides it: if usage holds above 80% of rostered staff, ask for the signature on that call.",
+        "accent": "#f59e0b",
+        "icon": "🎯"
+      },
+      "table": {
+        "title": "Quarter pipeline",
+        "columns": [
+          { "id": "deal", "label": "Deal", "type": "text-short" },
+          { "id": "stage", "label": "Stage", "type": "single-select", "options": ["Discovery", "Demo", "Proposal", "Negotiation", "Closed won", "Closed lost"] },
+          { "id": "forecast", "label": "Forecast", "type": "single-select", "options": ["Won", "Commit", "Best case", "Pipeline", "Lost"] },
+          { "id": "amount", "label": "ARR", "type": "number", "prefix": "$" },
+          { "id": "close", "label": "Close date", "type": "text-short" },
+          { "id": "next", "label": "Next step", "type": "text-short" }
+        ],
+        "rows": [
+          { "deal": "Ironbark Freight — 9 depots", "stage": "Closed won", "forecast": "Won", "amount": 168000, "close": "@-4d", "next": "Implementation kick-off" },
+          { "deal": "Brolga Hotels — 6 properties", "stage": "Closed won", "forecast": "Won", "amount": 96000, "close": "@-12d", "next": "Onboarding under way" },
+          { "deal": "Harbourline Aged Care — 14 sites", "stage": "Closed won", "forecast": "Won", "amount": 148000, "close": "@-21d", "next": "Live at 4 sites" },
+          { "deal": "Fernleigh Early Learning — 22 centres", "stage": "Negotiation", "forecast": "Commit", "amount": 118000, "close": "@+11d", "next": "Security pack to procurement @+1d" },
+          { "deal": "Alder Health — 5 clinics", "stage": "Negotiation", "forecast": "Commit", "amount": 72000, "close": "@+6d", "next": "Redlines back @+2d" },
+          { "deal": "Copperleaf Cafés — 12 sites", "stage": "Proposal", "forecast": "Best case", "amount": 46000, "close": "@+8d", "next": "Trial readout @+5d" },
+          { "deal": "Sunfield Pharmacies — 31 stores", "stage": "Proposal", "forecast": "Best case", "amount": 84000, "close": "@+18d", "next": "Get a CFO meeting" },
+          { "deal": "Riverbend Council — leisure centres", "stage": "Demo", "forecast": "Pipeline", "amount": 64000, "close": "@+19d", "next": "Second demo for payroll team" },
+          { "deal": "Stonechat Security — 3 regions", "stage": "Discovery", "forecast": "Pipeline", "amount": 58000, "close": "@+19d", "next": "Map the decision process" },
+          { "deal": "Marram Cleaning Group", "stage": "Demo", "forecast": "Pipeline", "amount": 38000, "close": "@+19d", "next": "Pricing for 400 casuals" },
+          { "deal": "Larch Retail — 40 stores", "stage": "Closed lost", "forecast": "Lost", "amount": 92000, "close": "@-9d", "next": "Lost to incumbent; revisit at their renewal" }
+        ]
+      },
+      "chart": {
+        "title": "ARR by forecast category",
+        "type": "bar",
+        "x": "forecast",
+        "series": [{ "column": "amount", "agg": "sum", "label": "ARR" }]
+      },
+      "mindmap": {
+        "title": "Getting to $640k",
+        "root": {
+          "label": "Get to $640,000",
+          "children": [
+            { "label": "Fernleigh — $118k commit", "children": [
+              { "label": "Security pack @+1d", "kind": "task" },
+              { "label": "Procurement panel meets @+9d", "kind": "idea" },
+              { "label": "Panel meets fortnightly — slip risk", "kind": "question" }
+            ]},
+            { "label": "Alder — $72k commit", "children": [
+              { "label": "Liability cap: 12 months' fees", "kind": "idea" },
+              { "label": "Legal call @+2d", "kind": "task" }
+            ]},
+            { "label": "Copperleaf — $46k best case", "children": [
+              { "label": "Trial readout @+5d", "kind": "task" },
+              { "label": "Champion: Ana, ops manager", "kind": "idea" },
+              { "label": "Ask for the signature on the call", "kind": "task" }
+            ]},
+            { "label": "Sunfield — $84k best case", "children": [
+              { "label": "No CFO access yet", "kind": "idea" },
+              { "label": "Exec sponsor from Renata?", "kind": "question" }
+            ]},
+            { "label": "Next quarter", "children": [
+              { "label": "Riverbend, Stonechat, Marram", "kind": "idea" },
+              { "label": "No discounts to pull deals forward", "kind": "tool" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Mutual close plan — Fernleigh",
+        "blocks": [
+          { "h3": "Mutual close plan — Fernleigh Early Learning" },
+          { "p": "Agreed with Mai, the operations director, so both sides can see what has to happen before signature. 22 centres, $118,000 ARR, three-year term." },
+          { "ol": [
+            "@+1d — We send the security pack and data-hosting statement",
+            "@+3d — Fernleigh IT returns the security questionnaire",
+            "@+5d — Pricing and terms confirmed in writing",
+            "@+9d — Procurement panel review; Mai presents",
+            "@+11d — Contract signed by Ellis, the CEO",
+            "@+18d — Kick-off; first four centres live within 30 days"
+          ]},
+          { "h4": "What could slip" },
+          { "p": "The procurement panel only meets fortnightly. If the questionnaire isn't back by @+3d, the review moves past quarter end. **Tripwire:** not in by @+4d, I tell Renata and move the deal to best case." },
+          { "h4": "Who's who" },
+          { "ul": [
+            "Mai — operations director, our champion",
+            "Ellis — CEO, signs anything over $100,000",
+            "Procurement panel — finance, IT and two centre directors"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Forecast call prep — what Renata will ask",
+          "body": "- Why is Fernleigh commit, not best case? A verbal yes, a close plan they've agreed, procurement dates in writing\n- What's my call? $648,000 — won, commit and Copperleaf. That's 101% of quota\n- What's the downside? If both commits slip we finish at $412k — 64% of quota\n- What's the upside? Copperleaf and Sunfield, $130k of best case, together take us to $732k\n- Anything I need from her? An exec sponsor for Sunfield's CFO\n- Larch Retail went to the incumbent on price; they renew in 18 months"
+        }
+      ],
+      "stickies": [
+        { "title": "Today", "body": "1. Security pack to Fernleigh\n2. Check Copperleaf trial usage\n3. Prep the forecast call", "color": "#fef08a" },
+        { "title": "Rule", "body": "No discount to pull a deal forward. It just moves the problem.", "color": "#fbcfe8" }
+      ],
+      "fields": [
+        { "label": "Closed won", "type": "number", "value": 412000, "prefix": "$" },
+        { "label": "Commit", "type": "number", "value": 190000, "prefix": "$" },
+        { "label": "Gap after commit", "type": "number", "value": 38000, "prefix": "$" }
+      ],
+      "browsers": [
+        { "title": "Wikipedia — Information security standards", "url": "https://en.wikipedia.org/wiki/Information_security_standards" },
+        { "title": "business.gov.au — Protect your customers' information", "url": "https://business.gov.au/online-and-digital/cyber-security/protect-your-customers-information" }
+      ],
+      "images": [
+        {
+          "title": "Pipeline wall, three weeks out",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a sales team's glass meeting-room wall in a bright Australian office late in the quarter: five tidy vertical columns of blank pastel sticky notes in yellow, pink, pale blue and green, a few notes marked only with small coloured dot stickers, one hand reaching in from the right edge to move a note between columns, late-afternoon sun raking across the glass, generic office towers softly out of focus beyond, shallow depth of field, calm and purposeful mood, natural colours"
+        },
+        {
+          "title": "Early learning centre, before opening",
+          "aspect": "landscape",
+          "prompt": "Architectural interior photograph of a bright, empty early learning centre room in suburban Australia just before opening: low pale-timber tables with small chairs tucked in and completely bare tabletops, open shelving with plain wooden blocks, unlabelled woven baskets and potted plants, a soft rug in muted greens, tall windows onto a shaded play yard with a gum tree, gentle morning sun on a polished concrete floor, no people, clean calm composition, natural colours"
+        }
+      ],
+      "diagram": {
+        "title": "Fernleigh — path to signature",
+        "nodes": [
+          { "id": "pack", "label": "Security pack sent", "shape": "box", "color": "#2563eb" },
+          { "id": "questionnaire", "label": "Questionnaire back?", "shape": "circle", "color": "#d97706" },
+          { "id": "pricing", "label": "Pricing in writing", "shape": "box", "color": "#2563eb" },
+          { "id": "slip", "label": "Move to best case", "shape": "box", "color": "#dc2626" },
+          { "id": "panel", "label": "Procurement panel", "shape": "box", "color": "#7c3aed" },
+          { "id": "sign", "label": "Ellis signs — $118k", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "pack", "to": "questionnaire" },
+          { "from": "questionnaire", "to": "pricing", "label": "back by @+3d" },
+          { "from": "questionnaire", "to": "slip", "label": "not in by @+4d" },
+          { "from": "pricing", "to": "panel" },
+          { "from": "panel", "to": "sign", "label": "Mai presents" }
+        ]
+      },
+      "calculator": {
+        "title": "Won + commit + Copperleaf, % of quota",
+        "expression": "(412000 + 190000 + 46000) / 640000 * 100",
+        "result": 101.25
+      },
+      "form": {
+        "title": "Forecast submission",
+        "fields": [
+          { "type": "heading", "label": "Quarter end · new business" },
+          { "type": "number", "label": "Closed won ($)", "value": "412000" },
+          { "type": "number", "label": "Commit ($)", "value": "190000" },
+          { "type": "number", "label": "Best case ($)", "value": "130000" },
+          { "type": "number", "label": "My call ($)", "value": "648000" },
+          { "type": "select", "label": "Call is built from", "options": ["Commit only", "Commit + one best case", "Commit + both best case"], "value": "Commit + one best case" },
+          { "type": "date", "label": "Forecast call with Renata", "value": "@+1d" },
+          { "type": "checkbox", "label": "Exec sponsor asked for Sunfield", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "Renewals, next 90 days — 3 enterprise accounts at risk",
+      "description": "An account manager's renewal book: $1.01m up for renewal, three big accounts at risk, and the save plan for the largest — where a new COO is reviewing every tool.",
+      "dueInDays": 10,
+      "brief": "## Renewal book — next 90 days\n\n**Book** 10 accounts · **$1,009,000 ARR** up for renewal\n**At risk** $408,000 across three accounts · **Watch** $134,000 · **Healthy** $467,000\n**Target** 95% gross retention, with Linden's expansion on top\n\n### The three at risk\n- **Corran Health — $186,000.** Champion left; the new COO is reviewing every tool; 41% of seats active\n- **Banksia Facilities — $128,000.** Budget cut; they've asked for 30% fewer seats. A right-sized renewal beats losing them\n- **Bellmere Hospitality — $94,000.** The payroll integration broke twice last quarter. Renews @+17d, the soonest of the three\n\n### What 95% means here\n95% of $1,009,000 is $958,550, so the book can lose at most $50,450. Banksia's seat cut alone costs $38,400, which leaves $12,050 of headroom. **Corran and Bellmere both have to renew in full.**\n\n### This week\nCorran value review drafted, Bellmere's fix confirmed in writing by support, Banksia's offer approved by Renata.",
+      "callout": {
+        "title": "Corran Health: 41% of seats active",
+        "body": "The champion who bought us has left, and the new COO, Farah, is reviewing every tool over $100k a year. She gets a value review by site before @+10d — usage, rostering hours saved, payroll corrections avoided. Not a discount.",
+        "accent": "#ef4444",
+        "icon": "⚠️"
+      },
+      "table": {
+        "title": "Renewal book — next 90 days",
+        "columns": [
+          { "id": "account", "label": "Account", "type": "text-short" },
+          { "id": "arr", "label": "ARR", "type": "number", "prefix": "$" },
+          { "id": "renewal", "label": "Renews", "type": "text-short" },
+          { "id": "health", "label": "Health", "type": "single-select", "options": ["Healthy", "Watch", "At risk"] },
+          { "id": "usage", "label": "Seats active", "type": "number", "suffix": "%" },
+          { "id": "plan", "label": "Next step", "type": "text-short" }
+        ],
+        "rows": [
+          { "account": "Corran Health", "arr": 186000, "renewal": "@+24d", "health": "At risk", "usage": 41, "plan": "Value review for the new COO" },
+          { "account": "Banksia Facilities", "arr": 128000, "renewal": "@+38d", "health": "At risk", "usage": 58, "plan": "Offer: 30% fewer seats, two-year term" },
+          { "account": "Bellmere Hospitality", "arr": 94000, "renewal": "@+17d", "health": "At risk", "usage": 63, "plan": "Integration fix confirmed in writing" },
+          { "account": "Redgum Mining Services", "arr": 212000, "renewal": "@+30d", "health": "Healthy", "usage": 91, "plan": "Renewal quote sent" },
+          { "account": "Linden Medical Group", "arr": 102000, "renewal": "@+70d", "health": "Healthy", "usage": 93, "plan": "Expansion: 4 new clinics" },
+          { "account": "Quayside Aged Living", "arr": 76000, "renewal": "@+45d", "health": "Watch", "usage": 72, "plan": "Train the new site managers" },
+          { "account": "Wexcombe Retail", "arr": 64000, "renewal": "@+12d", "health": "Healthy", "usage": 88, "plan": "Signature pending" },
+          { "account": "Tallis Education", "arr": 58000, "renewal": "@+52d", "health": "Watch", "usage": 69, "plan": "Business review @+6d" },
+          { "account": "Ostara Logistics", "arr": 48000, "renewal": "@+60d", "health": "Healthy", "usage": 84, "plan": "Auto-renews" },
+          { "account": "Saltmarsh Hotels", "arr": 41000, "renewal": "@+27d", "health": "Healthy", "usage": 80, "plan": "Renewal quote sent" }
+        ]
+      },
+      "chart": {
+        "title": "ARR by renewal health",
+        "type": "pie",
+        "x": "health",
+        "series": [{ "column": "arr", "agg": "sum", "label": "ARR" }]
+      },
+      "mindmap": {
+        "title": "Corran Health — who matters now",
+        "root": {
+          "label": "Corran Health renewal",
+          "children": [
+            { "label": "Farah — new COO", "children": [
+              { "label": "Economic buyer now", "kind": "idea" },
+              { "label": "Thinks in cost per site", "kind": "idea" },
+              { "label": "Meeting before @+10d", "kind": "task" }
+            ]},
+            { "label": "Site managers", "children": [
+              { "label": "Heavy use at 6 of 11 sites", "kind": "idea" },
+              { "label": "Ask two to brief Farah", "kind": "task" }
+            ]},
+            { "label": "Finance", "children": [
+              { "label": "Payroll corrections down since go-live?", "kind": "question" },
+              { "label": "Get the number from their payroll lead", "kind": "task" }
+            ]},
+            { "label": "IT", "children": [
+              { "label": "Single sign-on contract renews too", "kind": "idea" },
+              { "label": "Any open security concerns?", "kind": "question" }
+            ]},
+            { "label": "Our side", "children": [
+              { "label": "Renata as exec sponsor", "kind": "tool" },
+              { "label": "Support history is clean", "kind": "idea" },
+              { "label": "Finish rollout at 5 low-use sites", "kind": "task" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Account plan — Corran Health",
+        "blocks": [
+          { "h3": "Account plan — Corran Health" },
+          { "p": "11 sites, 640 seats, $186,000 ARR, renews @+24d. A customer for three years." },
+          { "h4": "What changed" },
+          { "p": "Jonah, the operations lead who bought the platform, left mid-year. The new COO, Farah, has started a review of every tool over $100,000 a year. Seats active have fallen from 68% to 41% since Jonah left, mostly at the five sites that never finished rollout." },
+          { "h4": "Save plan" },
+          { "ol": [
+            "Value review by site: usage, rostering hours saved, payroll corrections avoided",
+            "Finish rollout at the five low-use sites — a 30-day plan, at our cost",
+            "Two site managers tell Farah, in their words, what they'd lose",
+            "Renata joins as exec sponsor for the COO meeting"
+          ]},
+          { "h4": "Walk-away position" },
+          { "p": "Renew all 11 sites at the current price. If Farah wants fewer seats, right-size to active use — but no discount on the per-seat price." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Banksia — the right-size maths",
+          "body": "They asked for 30% fewer seats. Usage says 42% of seats sit idle, so the ask is fair.\n\n- Current: $128,000\n- 30% fewer seats: $89,600 kept, $38,400 lost\n- Losing them entirely: $128,000 lost\n\nOffer the cut with a two-year term at today's price. Renata has to approve the term. Then spend the time saved on Corran."
+        }
+      ],
+      "stickies": [
+        { "title": "This week", "body": "1. Corran value review\n2. Bellmere fix in writing\n3. Banksia offer to Renata", "color": "#fef08a" },
+        { "title": "Bellmere", "body": "Tell them about the integration fix before they ask. Renews @+17d.", "color": "#fed7aa" }
+      ],
+      "fields": [
+        { "label": "ARR at risk", "type": "number", "value": 408000, "prefix": "$" },
+        { "label": "Renewal book", "type": "number", "value": 1009000, "prefix": "$" },
+        { "label": "Exec sponsor booked for Corran", "type": "checkbox", "value": false }
+      ],
+      "browsers": [
+        { "title": "Wikipedia — Churn rate", "url": "https://en.wikipedia.org/wiki/Churn_rate" },
+        { "title": "business.gov.au — Employee records", "url": "https://business.gov.au/people/employees/employee-records" }
+      ],
+      "images": [
+        {
+          "title": "Clinic corridor at shift change",
+          "aspect": "portrait",
+          "prompt": "Quiet architectural documentary photograph of a modern community health clinic corridor in regional Australia at early-morning shift change: two staff in navy scrubs walking away from the camera far down the corridor, pale timber wall panels and a soft grey vinyl floor, an empty reception counter in the foreground with a clean, completely bare pale stone top, daylight spilling in from a courtyard window with native plants, bare walls with no signage, calm and orderly, muted clinical palette"
+        },
+        {
+          "title": "Prep for the COO value review",
+          "aspect": "square",
+          "prompt": "Overhead flat-lay editorial still life on a pale oak meeting table, set out before an executive meeting: a closed silver laptop, two flat white coffees in matte ceramic cups, a blank unlined notepad with a black pen laid across it, a closed plain kraft folder, a phone lying face-down, a pair of reading glasses, a small potted succulent, soft window light from the left casting long gentle shadows, muted warm palette, minimal and composed"
+        }
+      ],
+      "diagram": {
+        "title": "Corran Health — save path",
+        "nodes": [
+          { "id": "review", "label": "COO's tool review", "shape": "box", "color": "#64748b" },
+          { "id": "value", "label": "Value review by site", "shape": "box", "color": "#2563eb" },
+          { "id": "sites", "label": "2 site managers brief Farah", "shape": "box", "color": "#2563eb" },
+          { "id": "rollout", "label": "5-site rollout plan", "shape": "box", "color": "#2563eb" },
+          { "id": "meeting", "label": "Farah + Renata meeting", "shape": "box", "color": "#7c3aed" },
+          { "id": "decide", "label": "Renew all 11 sites?", "shape": "circle", "color": "#d97706" },
+          { "id": "renew", "label": "Renew at current price", "shape": "box", "color": "#16a34a" },
+          { "id": "rightsize", "label": "Right-size to active use", "shape": "box", "color": "#ea580c" }
+        ],
+        "edges": [
+          { "from": "review", "to": "value" },
+          { "from": "review", "to": "sites" },
+          { "from": "review", "to": "rollout" },
+          { "from": "value", "to": "meeting", "label": "before @+10d" },
+          { "from": "sites", "to": "meeting" },
+          { "from": "rollout", "to": "meeting", "label": "at our cost" },
+          { "from": "meeting", "to": "decide" },
+          { "from": "decide", "to": "renew", "label": "yes" },
+          { "from": "decide", "to": "rightsize", "label": "no — same seat price" }
+        ]
+      },
+      "calculator": {
+        "title": "Retention headroom after Banksia's cut",
+        "expression": "1009000 * 0.05 - 38400",
+        "result": 12050
+      },
+      "form": {
+        "title": "Renewal offer approval — Banksia",
+        "fields": [
+          { "type": "heading", "label": "Banksia Facilities · right-size offer" },
+          { "type": "number", "label": "Current ARR ($)", "value": "128000" },
+          { "type": "number", "label": "Seat reduction (%)", "value": "30" },
+          { "type": "number", "label": "Renewal ARR ($)", "value": "89600" },
+          { "type": "select", "label": "Term", "options": ["One year", "Two years", "Three years"], "value": "Two years" },
+          { "type": "checkbox", "label": "Per-seat price unchanged", "value": true },
+          { "type": "text", "label": "Approver", "value": "Renata" },
+          { "type": "date", "label": "Renews", "value": "@+38d" },
+          { "type": "checkbox", "label": "Approved", "value": false }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "https://business.gov.au/finance/financial-trouble/what-to-do-when-you-havent-been-paid": {
+    "ok": true,
+    "title": "What to do when you haven't been paid | business.gov.au",
+    "finalUrl": "https://business.gov.au/finance/financial-trouble/what-to-do-when-you-havent-been-paid",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://business.gov.au/finance/payments-and-invoicing/how-to-invoice": {
+    "ok": true,
+    "title": "How to invoice | business.gov.au",
+    "finalUrl": "https://business.gov.au/finance/payments-and-invoicing/how-to-invoice",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://digital.nsw.gov.au/delivery/accessibility-and-inclusivity-toolkit/communication/plain-and-inclusive-language": {
+    "ok": true,
+    "title": "Plain and inclusive language | Digital NSW",
+    "finalUrl": "https://digital.nsw.gov.au/delivery/accessibility-and-inclusivity-toolkit/communication/plain-and-inclusive-language",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  },
+  "https://webaim.org/techniques/writing/": {
+    "ok": true,
+    "title": "WebAIM: Writing Clearly and Simply",
+    "finalUrl": "https://webaim.org/techniques/writing/",
+    "where": "desks[1].browsers[1]",
+    "pass": true
+  }
+}

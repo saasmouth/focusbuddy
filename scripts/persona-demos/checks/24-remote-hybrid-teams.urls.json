@@ -1,0 +1,38 @@
+{
+  "https://www.abs.gov.au/statistics/detailed-methodology-information/concepts-sources-methods/labour-statistics-concepts-sources-and-methods/2023/methods-four-pillars-labour-statistics/administrative-data/single-touch-payroll-stp": {
+    "ok": true,
+    "status": 200,
+    "title": "Single Touch Payroll (STP) | Australian Bureau of Statistics",
+    "bytes": 106998,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "ABS — Single Touch Payroll (STP)",
+    "checkedAt": "2026-10-08T08:55:17.639Z"
+  },
+  "https://en.wikipedia.org/wiki/Follow-the-sun": {
+    "ok": true,
+    "status": 200,
+    "title": "Follow-the-sun - Wikipedia",
+    "bytes": 108998,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "Wikipedia — Follow-the-sun",
+    "checkedAt": "2026-10-08T08:55:18.640Z"
+  },
+  "https://en.wikipedia.org/wiki/Right_to_disconnect": {
+    "ok": true,
+    "status": 200,
+    "title": "Right to disconnect - Wikipedia",
+    "bytes": 186677,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "Wikipedia — Right to disconnect",
+    "checkedAt": "2026-10-08T08:55:18.640Z"
+  },
+  "https://adr.github.io/adr-templates/": {
+    "ok": true,
+    "status": 200,
+    "title": "ADR Templates | Architectural Decision Records",
+    "bytes": 21343,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "ADR — Decision record templates",
+    "checkedAt": "2026-10-08T08:55:18.640Z"
+  }
+}

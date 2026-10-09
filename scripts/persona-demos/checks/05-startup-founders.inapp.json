@@ -1,0 +1,30 @@
+{
+  "https://treasury.gov.au/national-innovation-and-science-agenda/tax-incentives-for-early-stage-investors": {
+    "ok": true,
+    "title": "Tax incentives for early stage investors | Treasury.gov.au",
+    "finalUrl": "https://treasury.gov.au/national-innovation-and-science-agenda/tax-incentives-for-early-stage-investors",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://en.wikipedia.org/wiki/Simple_agreement_for_future_equity": {
+    "ok": true,
+    "title": "Simple agreement for future equity - Wikipedia",
+    "finalUrl": "https://en.wikipedia.org/wiki/Simple_agreement_for_future_equity",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://business.gov.au/products-and-services/choose-a-pricing-strategy": {
+    "ok": true,
+    "title": "Choose a pricing strategy | business.gov.au",
+    "finalUrl": "https://business.gov.au/products-and-services/choose-a-pricing-strategy",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  },
+  "https://en.wikipedia.org/wiki/Van_Westendorp%27s_Price_Sensitivity_Meter": {
+    "ok": true,
+    "title": "Van Westendorp's Price Sensitivity Meter - Wikipedia",
+    "finalUrl": "https://en.wikipedia.org/wiki/Van_Westendorp%27s_Price_Sensitivity_Meter",
+    "where": "desks[1].browsers[1]",
+    "pass": true
+  }
+}

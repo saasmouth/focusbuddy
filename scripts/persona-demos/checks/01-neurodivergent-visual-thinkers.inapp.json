@@ -1,0 +1,30 @@
+{
+  "https://digital.nsw.gov.au/delivery/digital-service-toolkit/resources/writing-content/content-style-guide/numbers-dates-and-times": {
+    "ok": true,
+    "title": "Numbers, dates and times | Digital NSW",
+    "finalUrl": "https://digital.nsw.gov.au/delivery/digital-service-toolkit/resources/writing-content/content-style-guide/numbers-dates-and-times",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://www.landscape.sa.gov.au/ny/water/managing-water-resources/watercourses/revegetating-watercourses": {
+    "ok": true,
+    "title": "Landscape South Australia - Northern and Yorke | Revegetating…",
+    "finalUrl": "https://www.landscape.sa.gov.au/ny/water/managing-water-resources/watercourses/revegetating-watercourses",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://en.wikipedia.org/wiki/Getting_Things_Done": {
+    "ok": true,
+    "title": "Getting Things Done - Wikipedia",
+    "finalUrl": "https://en.wikipedia.org/wiki/Getting_Things_Done",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  },
+  "https://en.wikipedia.org/wiki/Timeblocking": {
+    "ok": true,
+    "title": "Timeblocking - Wikipedia",
+    "finalUrl": "https://en.wikipedia.org/wiki/Timeblocking",
+    "where": "desks[1].browsers[1]",
+    "pass": true
+  }
+}

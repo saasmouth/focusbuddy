@@ -2,74 +2,66 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { BodyDoubleMode } from '@shared/types'
 import { usePeerBodyDoubleStore } from '../stores/peerBodyDouble'
-import { generateShareToken, viewerUrlFor } from '../lib/shareTokens'
+import { useMeetingRoomStore } from '../stores/meetingRoom'
+import { useAccountStore } from '../stores/account'
+import { useSignInPrompt } from '../stores/signInPrompt'
+import { useEntitlement } from '../lib/entitlementReason'
+import { bodyDoubleMedia } from '../lib/bodyDoubleMedia'
+import { signalConfig } from '../lib/signalConfig'
 import Icon from './Icon'
 
-// Mock data for v1 — public rooms and a friend list. Once the real
-// signaling server lands these come from the API. The shape is finalised
-// now so the UI can be built and demoed.
-const PUBLIC_ROOMS = [
-  { id: 'adhd-writers', name: 'ADHD writers', topic: 'Words. Just words.', emoji: '✍️', presence: 14 },
-  { id: 'phd-grind', name: 'PhD grind', topic: 'Dissertations and despair.', emoji: '📚', presence: 22 },
-  { id: 'founders', name: 'Solo founders', topic: 'Ship it before sundown.', emoji: '🚀', presence: 9 },
-  { id: 'designers', name: 'Designers heads-down', topic: 'Figma. Coffee. Vibes.', emoji: '🎨', presence: 11 },
-  { id: 'inbox-zero', name: 'Inbox triage', topic: 'Email accountability.', emoji: '📨', presence: 6 },
-  { id: 'students', name: 'Students studying', topic: 'Exam season warriors.', emoji: '🎓', presence: 31 }
-]
-
 // Peer body double — the whole user journey lives in this one dialog:
-//   idle    → preference picker (mode + workingOn) + "Find a partner"
-//   looking → "Searching…" with cancel
-//   matched → partner intro card + "Start session" / "Skip"
-//   connected → active session UI (timer, chat or quiet, end button)
+//   idle      → preference picker (mode + workingOn) + "Find a partner"
+//   looking   → "Searching…" with cancel
+//   matched   → partner intro card + "Start session" / "Skip"
+//   connected → the session: where the video is, chat (mode permitting),
+//               End and Block
 //
-// The dialog stays mounted across status changes so the chat history and
-// the connection timer survive the matched→connected transition. Closing
-// the dialog without explicitly ending only HIDES it — the session keeps
-// running (you might want to mute the panel while you focus). The same
-// header button toggles visibility.
+// Starting the session opens the pair's private PlexiiMeet room, docked to
+// the side of the screen by the meeting overlay, so the person keeps working
+// with their partner in view. This dialog is the session's control panel; the
+// video lives in the room.
+//
+// The dialog stays mounted across status changes so the chat history survives
+// the matched→connected transition. Closing it without explicitly ending only
+// HIDES it — the session keeps running. The same header button reopens it.
 
 interface Props {
   onClose: () => void
 }
 
-const MODE_META: Record<
-  BodyDoubleMode,
-  { label: string; tagline: string; icon: string; chatAllowed: boolean }
-> = {
+// The four options, in the person's own words. The tagline says plainly what
+// each opens: the camera is on for presence in all of them, and the microphone
+// and chat are what differ (see lib/bodyDoubleMedia, which enforces this).
+export const MODE_META: Record<BodyDoubleMode, { label: string; tagline: string; icon: string }> = {
   silent: {
-    label: 'Total silence',
-    tagline: 'Just presence. No chat, no audio — we both just know the other is here.',
-    icon: 'volume_off',
-    chatAllowed: false
+    label: 'Silent',
+    tagline: 'Cameras only. No microphone and no chat, just someone else working too.',
+    icon: 'volume_off'
   },
   greetings: {
-    label: 'Greetings only',
-    tagline: 'One hello, swap what you\'re working on, then quiet. Maybe a check-in at the end.',
-    icon: 'waving_hand',
-    chatAllowed: true
+    label: 'Intros only',
+    tagline: 'Say hello and what you are working on. Mics mute after two minutes, then quiet.',
+    icon: 'waving_hand'
   },
   light: {
-    label: 'Light conversation',
-    tagline: 'Text chat available. Occasional progress updates welcome. No pressure.',
-    icon: 'forum',
-    chatAllowed: true
+    label: 'A little chat is fine',
+    tagline: 'Mics start muted. Text chat, or unmute for a quick word now and then.',
+    icon: 'forum'
   },
   open: {
-    label: 'Open communication',
-    tagline: 'Full back-and-forth chat. Audio when that ships. Co-working with a friend.',
-    icon: 'chat',
-    chatAllowed: true
+    label: 'Happy to talk',
+    tagline: 'Mics on and chat open. Co-working out loud.',
+    icon: 'chat'
   }
 }
 
-// Minimum duration to hold the "Looking…" UI even when the underlying
-// matcher finds a partner instantly. Two reasons:
-//   1. A real searching feel — instant matches in dev or in a busy room
-//      can feel suspicious / fake; a small pause makes the action read
-//      as deliberate.
-//   2. Gives the partner a beat to also see "matched" before chat opens,
-//      so neither side feels they're catching up.
+const MODE_ORDER: BodyDoubleMode[] = ['silent', 'greetings', 'light', 'open']
+
+// Minimum duration to hold the "Looking…" UI even when the matcher finds a
+// partner instantly, so a real match never flashes past unread and both sides
+// arrive at the intro card together. It only paces the display; the match
+// itself is real and already in the store.
 const MIN_LOOKING_MS = 3000
 
 export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
@@ -78,14 +70,32 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
   const workingOn = usePeerBodyDoubleStore((s) => s.workingOn)
   const myHandle = usePeerBodyDoubleStore((s) => s.myHandle)
   const partner = usePeerBodyDoubleStore((s) => s.partner)
+  const meetingRoomId = usePeerBodyDoubleStore((s) => s.meetingRoomId)
+  const videoIssue = usePeerBodyDoubleStore((s) => s.videoIssue)
   const chat = usePeerBodyDoubleStore((s) => s.chat)
   const toast = usePeerBodyDoubleStore((s) => s.toast)
+  const error = usePeerBodyDoubleStore((s) => s.error)
   const startLooking = usePeerBodyDoubleStore((s) => s.startLooking)
   const cancelLooking = usePeerBodyDoubleStore((s) => s.cancelLooking)
   const enterConnected = usePeerBodyDoubleStore((s) => s.enterConnected)
+  const retryVideo = usePeerBodyDoubleStore((s) => s.retryVideo)
   const sendChat = usePeerBodyDoubleStore((s) => s.sendChat)
   const endSession = usePeerBodyDoubleStore((s) => s.endSession)
+  const blockPartner = usePeerBodyDoubleStore((s) => s.blockPartner)
   const dismissToast = usePeerBodyDoubleStore((s) => s.dismissToast)
+  const dismissError = usePeerBodyDoubleStore((s) => s.dismissError)
+
+  const meetingRoom = useMeetingRoomStore((s) => s.roomId)
+  const meetingStatus = useMeetingRoomStore((s) => s.status)
+  const meetingLayout = useMeetingRoomStore((s) => s.layout)
+  const setMeetingLayout = useMeetingRoomStore((s) => s.setLayout)
+
+  const signedIn = useAccountStore((s) => !!s.sessionToken)
+  const requestSignIn = useSignInPrompt((s) => s.requestOpen)
+  const entitlement = useEntitlement('body_double', 'Body double')
+  // The dev mock has no server, accounts or plans; everything else needs both.
+  const needsSignIn = signalConfig.useRemote && !signedIn
+  const needsPlan = signalConfig.useRemote && signedIn && !entitlement.enabled
 
   // Preference picker local state — kept here (not in the store) so the
   // picker resets on each new request.
@@ -94,17 +104,9 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
   const [chatDraft, setChatDraft] = useState('')
   const chatScrollRef = useRef<HTMLDivElement | null>(null)
 
-  // Mock video state — if fb-dev:// can't serve the file (missing in
-  // production builds, missing on disk, codec issue), we render a calm
-  // gradient placeholder instead of a black void with no signal.
-  const [videoFailed, setVideoFailed] = useState(false)
-  const [videoReady, setVideoReady] = useState(false)
-
-  // "Hold looking" floor — when the store transitions out of `looking`
-  // sooner than MIN_LOOKING_MS, we render the looking UI for the
-  // remainder. effectiveStatus is what the body switches on; the actual
-  // store status keeps moving so chat events and partner data are ready
-  // by the time the floor elapses.
+  // "Hold looking" floor — see MIN_LOOKING_MS. effectiveStatus is what the
+  // body switches on; the store status keeps moving so chat events and partner
+  // data are ready by the time the floor elapses.
   const lookingStartedAtRef = useRef<number | null>(null)
   const [floorPassed, setFloorPassed] = useState(true)
   useEffect(() => {
@@ -120,7 +122,6 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
       const t = window.setTimeout(() => setFloorPassed(true), remaining)
       return () => window.clearTimeout(t)
     } else if (status === 'idle') {
-      // Reset so a fresh look starts the floor over.
       lookingStartedAtRef.current = null
       setFloorPassed(true)
     }
@@ -153,7 +154,15 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const chatAllowed = mode ? MODE_META[mode].chatAllowed : false
+  const chatAllowed = mode ? bodyDoubleMedia(mode).chat : false
+  const inVideo = !!meetingRoomId && meetingRoom === meetingRoomId
+  const videoOpening = inVideo && meetingStatus === 'joining'
+
+  const submitChat = (): void => {
+    if (!chatDraft.trim()) return
+    sendChat(chatDraft)
+    setChatDraft('')
+  }
 
   return createPortal(
     <div
@@ -165,6 +174,7 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
       <div
         className="fb-card w-[460px] max-h-[80vh] flex flex-col"
         onMouseDown={(e) => e.stopPropagation()}
+        data-testid="body-double-dialog"
       >
         {/* Header — stays consistent across all phases */}
         <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--edge-soft)]">
@@ -176,8 +186,8 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
               Body double
             </h2>
             <p className="text-[11px] text-[var(--ink-50)] leading-tight">
-              {effectiveStatus === 'idle' && 'Pair with a stranger to feel less alone while you work'}
-              {effectiveStatus === 'looking' && 'Looking for someone with the same vibe…'}
+              {effectiveStatus === 'idle' && 'Work alongside someone, matched at random'}
+              {effectiveStatus === 'looking' && 'Looking for someone who picked the same…'}
               {effectiveStatus === 'matched' && 'You\'re matched — say hello'}
               {effectiveStatus === 'connected' && (mode ? MODE_META[mode].label : 'Connected')}
             </p>
@@ -195,113 +205,44 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
         {/* Body switches by status */}
         <div className="flex-1 min-h-0 overflow-y-auto">
           {toast && (
-            <div className="m-3 p-2 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-[12px] text-amber-800 dark:text-amber-300 flex items-start gap-2">
+            <div className="m-3 p-2 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-[12px] text-amber-800 dark:text-amber-300 flex items-start gap-2" data-testid="body-double-toast">
               <Icon name="info" size={13} className="mt-0.5 shrink-0" />
               <span className="flex-1">{toast}</span>
-              <button
-                onClick={dismissToast}
-                className="text-amber-700 hover:text-amber-900"
-              >
+              <button onClick={dismissToast} aria-label="Dismiss" className="text-amber-700 hover:text-amber-900">
                 <Icon name="close" size={11} />
               </button>
             </div>
           )}
 
-          {/* ── IDLE: room/friends entry + mode picker ──────────────── */}
+          {error && effectiveStatus === 'idle' && (
+            <div className="m-3 p-2 rounded-md bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-[12px] text-rose-800 dark:text-rose-300 flex items-start gap-2" data-testid="body-double-error" data-code={error.code}>
+              <Icon name="error" size={13} className="mt-0.5 shrink-0" />
+              <span className="flex-1">{error.message}</span>
+              {error.code === 'bd_sign_in' && (
+                <button onClick={requestSignIn} className="font-medium underline underline-offset-2">
+                  Sign in
+                </button>
+              )}
+              {error.code === 'bd_not_entitled' && (
+                <button onClick={entitlement.onLockedClick} className="font-medium underline underline-offset-2">
+                  See plans
+                </button>
+              )}
+              <button onClick={dismissError} aria-label="Dismiss" className="text-rose-700 hover:text-rose-900">
+                <Icon name="close" size={11} />
+              </button>
+            </div>
+          )}
+
+          {/* ── IDLE: mode picker ───────────────────────────────────── */}
           {effectiveStatus === 'idle' && (
             <div className="p-4 space-y-4">
-              {/* PUBLIC ROOMS — themed always-on rooms. v1 mock data; the
-                  click handler currently just kicks off a random match in
-                  that mode. The room id will be sent to the real matcher
-                  when the server ships so users genuinely land together. */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[10px] uppercase tracking-wider font-semibold text-[var(--ink-50)]">
-                    Public rooms
-                  </label>
-                  <span className="text-[9px] text-[var(--ink-40)]">
-                    Skip the queue · always-on
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {PUBLIC_ROOMS.map((room) => (
-                    <button
-                      key={room.id}
-                      onClick={() => {
-                        // For mock purposes a public room is "light" mode —
-                        // text chat works, partner is whoever is in the
-                        // queue. Real matcher will route by room id.
-                        void startLooking('light', `In ${room.name}`)
-                      }}
-                      className="fb-btn-surface text-left p-2 hover:border-accent hover:bg-accent/5 transition-colors flex items-center gap-2"
-                    >
-                      <span className="text-[18px] shrink-0">{room.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[11px] font-medium text-[var(--ink-90)] truncate">
-                          {room.name}
-                        </div>
-                        <div className="flex items-center gap-1 text-[9px] text-[var(--ink-50)]">
-                          <span className="relative inline-flex h-1.5 w-1.5">
-                            <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
-                            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                          </span>
-                          <span className="tabular-nums">{room.presence} here</span>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* FRIENDS — invite-a-friend link + future friends list.
-                  v1 generates a personal invite token (same format as
-                  share tokens). When a friend signs up via the link they
-                  appear in the "friends pool" and get matched with you
-                  first before strangers. */}
-              <div className="border-t border-[var(--edge-soft)] pt-3">
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[10px] uppercase tracking-wider font-semibold text-[var(--ink-50)]">
-                    Bring a friend
-                  </label>
-                  <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-medium">
-                    +1 month free body double per invite
-                  </span>
-                </div>
-                <button
-                  onClick={async () => {
-                    const token = generateShareToken()
-                    const url = viewerUrlFor(token).replace(
-                      '/share/',
-                      '/buddy/'
-                    )
-                    try {
-                      await navigator.clipboard.writeText(url)
-                    } catch {
-                      // ignore
-                    }
-                    // TODO once auth exists: persist this token as a
-                    // pending friend invite so when someone signs up with
-                    // it the pair is auto-friended.
-                  }}
-                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-[var(--surface-sunken)] hover:bg-[var(--surface-sunken)] text-[12px] font-medium text-[var(--ink-90)]"
-                >
-                  <Icon name="link" size={13} />
-                  Copy invite link
-                </button>
-                <p className="text-[10px] text-[var(--ink-50)] mt-1.5 leading-snug">
-                  Share with a friend who'd body double with you. When they
-                  sign up, you'll match with each other first — before
-                  strangers — for every session.
-                </p>
-              </div>
-
-              {/* Mode picker — for random matching when you don't pick a room */}
-              <div className="border-t border-[var(--edge-soft)] pt-3">
                 <label className="block text-[10px] uppercase tracking-wider font-semibold text-[var(--ink-50)] mb-1.5">
-                  Or match with a stranger — how much interaction?
+                  How much interaction would you like?
                 </label>
                 <div className="space-y-1.5" role="radiogroup" aria-label="Interaction mode">
-                  {(Object.keys(MODE_META) as BodyDoubleMode[]).map((m) => {
+                  {MODE_ORDER.map((m) => {
                     const meta = MODE_META[m]
                     const active = pickedMode === m
                     return (
@@ -309,6 +250,7 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
                         key={m}
                         role="radio"
                         aria-checked={active}
+                        data-testid={`body-double-mode-${m}`}
                         onClick={() => setPickedMode(m)}
                         className={`w-full text-left p-2.5 rounded-md border-2 flex items-start gap-2.5 transition-colors ${
                           active
@@ -319,20 +261,10 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
                         <Icon
                           name={meta.icon}
                           size={16}
-                          className={
-                            active
-                              ? 'text-accent mt-0.5 shrink-0'
-                              : 'text-[var(--ink-40)] mt-0.5 shrink-0'
-                          }
+                          className={active ? 'text-accent mt-0.5 shrink-0' : 'text-[var(--ink-40)] mt-0.5 shrink-0'}
                         />
                         <div className="flex-1 min-w-0">
-                          <div
-                            className={`text-[13px] font-medium ${
-                              active
-                                ? 'text-accent'
-                                : 'text-[var(--ink-90)]'
-                            }`}
-                          >
+                          <div className={`text-[13px] font-medium ${active ? 'text-accent' : 'text-[var(--ink-90)]'}`}>
                             {meta.label}
                           </div>
                           <div className="text-[11px] text-[var(--ink-50)] leading-snug">
@@ -343,15 +275,16 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
                     )
                   })}
                 </div>
+                <p className="text-[10.5px] text-[var(--ink-50)] mt-1.5">
+                  You are matched only with someone who picked the same option.
+                </p>
               </div>
 
-              {(pickedMode === 'greetings' ||
-                pickedMode === 'light' ||
-                pickedMode === 'open') && (
+              {pickedMode !== 'silent' && (
                 <div>
                   <label className="block text-[10px] uppercase tracking-wider font-semibold text-[var(--ink-50)] mb-1.5">
                     What are you working on?{' '}
-                    <span className="text-[var(--ink-40)] normal-case font-normal">(shared with partner — optional)</span>
+                    <span className="text-[var(--ink-40)] normal-case font-normal">(shared with your partner — optional)</span>
                   </label>
                   <input
                     value={workingOnDraft}
@@ -365,10 +298,19 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
 
               <div className="text-[10px] text-[var(--ink-50)] leading-relaxed bg-[var(--surface-sunken)] p-2 rounded">
                 <strong className="text-[var(--ink-70)]">Privacy:</strong>{' '}
-                You'll be matched with a stranger. No real name, no audio or
-                video in v1 — just a pseudonymous handle and optional text chat
-                if your mode allows it. You can end the session any time, with
-                no record kept on either side.
+                {signalConfig.useRemote ? (
+                  <>
+                    You will be matched with someone you do not know. You see each other on camera in a private
+                    PlexiiMeet room that only the two of you can join, and you can turn your camera off at any time.
+                    They see a made-up session name like QuietCedar34, never your name or email. Nothing is
+                    recorded. End the session whenever you like, or block someone so you are never matched again.
+                  </>
+                ) : (
+                  <>
+                    Development mode: matching is local to this machine (two PlexiDesk windows), text only, with
+                    no video room.
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -384,7 +326,7 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
               </div>
               <div className="space-y-1">
                 <div className="text-[14px] font-medium text-[var(--ink-90)]">
-                  Looking for {mode ? MODE_META[mode].label.toLowerCase() : 'a partner'}…
+                  Looking for someone who picked {mode ? `“${MODE_META[mode].label}”` : 'the same'}…
                 </div>
                 <div className="text-[11px] text-[var(--ink-50)]">
                   You're <span className="font-mono text-accent">{myHandle}</span>{' '}
@@ -415,7 +357,7 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
                 <div className="text-[13px] text-[var(--ink-50)]">
                   Say hello to
                 </div>
-                <div className="text-[18px] font-semibold text-[var(--ink-100)] font-mono">
+                <div className="text-[18px] font-semibold text-[var(--ink-100)] font-mono" data-testid="body-double-partner">
                   {partner.handle}
                 </div>
               </div>
@@ -429,13 +371,10 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
               )}
               <div className="text-[11px] text-[var(--ink-50)] max-w-[320px] leading-snug">
                 You both picked{' '}
-                <strong className="text-[var(--ink-70)]">
-                  {mode ? MODE_META[mode].label : '...'}
-                </strong>
-                .{' '}
-                {mode && MODE_META[mode].chatAllowed
-                  ? 'Chat opens when you start.'
-                  : 'No chat — just shared focus.'}
+                <strong className="text-[var(--ink-70)]">{mode ? MODE_META[mode].label : '…'}</strong>.{' '}
+                {meetingRoomId
+                  ? 'Starting opens your camera in a private room, docked to the side of your screen.'
+                  : 'This session is text only.'}
               </div>
               <div className="flex gap-2 mt-2">
                 <button
@@ -445,7 +384,8 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
                   Skip
                 </button>
                 <button
-                  onClick={enterConnected}
+                  onClick={() => void enterConnected()}
+                  data-testid="body-double-start"
                   className="text-[12px] px-4 py-1.5 rounded bg-accent text-white hover:brightness-110 font-medium"
                 >
                   Start session
@@ -457,82 +397,41 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
           {/* ── CONNECTED: active session ───────────────────────────── */}
           {effectiveStatus === 'connected' && partner && (
             <div className="flex flex-col h-full">
-              {/* Mock body double video panel — placeholder for the live
-                  partner webcam that ships with WebRTC. The video file is
-                  served by the dev-only `fb-dev://` protocol; in production
-                  this slot will host the partner's WebRTC stream. The
-                  visual frame stays identical so the eventual swap is
-                  invisible to the user. Loops + muted + playsInline so it
-                  feels present without competing for audio. */}
-              <div className="relative bg-stone-900 overflow-hidden" style={{ height: 200 }}>
-                {!videoFailed ? (
-                  <video
-                    src="fb-dev://mock-videos/working-webcam.mp4"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    onCanPlay={() => setVideoReady(true)}
-                    onError={(e) => {
-                      const el = e.currentTarget
-                      // eslint-disable-next-line no-console
-                      console.warn(
-                        '[PeerBodyDoubleDialog] mock video failed to load:',
-                        {
-                          src: el.currentSrc,
-                          error: el.error,
-                          networkState: el.networkState,
-                          readyState: el.readyState
-                        }
-                      )
-                      setVideoFailed(true)
-                    }}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  // Calm placeholder: a soft gradient + breathing dot so
-                  // the user still feels a "presence" even when the mock
-                  // asset can't be served. Identical chrome (handle pill,
-                  // mock badge) layers on top.
-                  <div className="absolute inset-0 bg-gradient-to-br from-stone-800 via-stone-900 to-stone-950 flex flex-col items-center justify-center gap-2">
-                    <div className="relative inline-flex items-center justify-center">
-                      <div className="absolute inset-0 rounded-full bg-emerald-400/30 animate-ping" />
-                      <div className="relative h-10 w-10 rounded-full bg-emerald-500/30 inline-flex items-center justify-center">
-                        <Icon name="diversity_3" size={20} className="text-emerald-200" />
-                      </div>
-                    </div>
-                    <div className="text-[11px] text-stone-300">
-                      {partner.handle} is here
-                    </div>
-                    <div className="text-[9px] text-stone-500">
-                      (live video lands when WebRTC ships)
-                    </div>
-                  </div>
-                )}
-                {!videoReady && !videoFailed && (
-                  <div className="absolute inset-0 bg-stone-900/60 flex items-center justify-center pointer-events-none">
-                    <div className="text-[11px] text-stone-300 inline-flex items-center gap-1.5">
-                      <Icon name="hourglass_empty" size={12} />
-                      Loading mock feed…
-                    </div>
-                  </div>
-                )}
-                {/* Partner handle overlay — matches the chrome of the
-                    eventual WebRTC video element. */}
-                <div className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/60 backdrop-blur text-[11px] text-white font-mono">
-                  <span className="relative inline-flex items-center justify-center h-1.5 w-1.5">
-                    <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
-                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  </span>
-                  {partner.handle}
+              {/* Where the video is. The room itself is the meeting overlay;
+                  this says honestly what state it is in. */}
+              <div className="px-3 py-2.5 border-b border-[var(--edge-soft)] flex items-center gap-2.5" data-testid="body-double-video-state">
+                <Icon
+                  name={inVideo ? 'videocam' : 'videocam_off'}
+                  size={16}
+                  className={inVideo ? 'text-emerald-600 dark:text-emerald-400 shrink-0' : 'text-[var(--ink-40)] shrink-0'}
+                />
+                <div className="flex-1 min-w-0 text-[11.5px] text-[var(--ink-70)] leading-snug">
+                  {!meetingRoomId && 'Text-only session: this pairing has no video room.'}
+                  {meetingRoomId && videoOpening && 'Opening your camera…'}
+                  {meetingRoomId && inVideo && !videoOpening && 'You are on camera together. The video is docked at the side of your screen.'}
+                  {meetingRoomId && !inVideo && videoIssue}
+                  {meetingRoomId && !inVideo && !videoIssue && 'The video is closed. The session continues.'}
                 </div>
-                {/* "Mock video" tag so devs aren't fooled in the demo
-                    flow. Will be removed when WebRTC streams ship. */}
-                <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-amber-500/80 text-white text-[9px] uppercase tracking-wider font-semibold">
-                  Mock video
-                </div>
+                {meetingRoomId && inVideo && !videoOpening && (
+                  <button
+                    onClick={() => setMeetingLayout(meetingLayout === 'stage' ? 'collaborate' : 'stage')}
+                    className="text-[11px] px-2 py-1 rounded text-[var(--ink-70)] hover:bg-[var(--surface-sunken)] shrink-0"
+                  >
+                    {meetingLayout === 'stage' ? 'Dock video' : 'Full screen'}
+                  </button>
+                )}
+                {meetingRoomId && !inVideo && (
+                  <button
+                    onClick={() => void retryVideo()}
+                    data-testid="body-double-retry-video"
+                    className="text-[11px] px-2 py-1 rounded text-accent hover:bg-accent/10 shrink-0"
+                  >
+                    {videoIssue ? 'Try again' : 'Reopen video'}
+                  </button>
+                )}
               </div>
-              {/* Partner strip + presence dot */}
+
+              {/* Partner strip */}
               <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--edge-soft)]">
                 <span className="relative inline-flex items-center justify-center h-2 w-2">
                   <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
@@ -548,8 +447,19 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
                     </div>
                   )}
                 </div>
+                {meetingRoomId && (
+                  <button
+                    onClick={() => void blockPartner()}
+                    title="End the session and never be matched with them again"
+                    data-testid="body-double-block"
+                    className="text-[11px] px-2 py-1 rounded text-[var(--ink-60)] hover:bg-[var(--surface-sunken)]"
+                  >
+                    Block
+                  </button>
+                )}
                 <button
                   onClick={() => void endSession()}
+                  data-testid="body-double-end"
                   className="text-[11px] px-2 py-1 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40"
                 >
                   End session
@@ -558,28 +468,22 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
 
               {chatAllowed ? (
                 <>
-                  {/* Chat area */}
                   <div
                     ref={chatScrollRef}
                     className="flex-1 min-h-[200px] max-h-[40vh] overflow-y-auto px-3 py-2 space-y-1.5"
                   >
                     {chat.length === 0 && (
                       <div className="text-center text-[11px] text-[var(--ink-40)] py-4">
-                        Say hi to break the ice.
+                        {mode === 'greetings' ? 'Say hi and what you are working on.' : 'Say hi to break the ice.'}
                       </div>
                     )}
                     {chat.map((m) => {
                       const mine = m.senderHandle === myHandle
                       return (
-                        <div
-                          key={m.id}
-                          className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
-                        >
+                        <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                           <div
                             className={`max-w-[75%] px-2.5 py-1.5 rounded-lg text-[12px] ${
-                              mine
-                                ? 'bg-accent text-white'
-                                : 'bg-[var(--surface-sunken)] text-[var(--ink-90)]'
+                              mine ? 'bg-accent text-white' : 'bg-[var(--surface-sunken)] text-[var(--ink-90)]'
                             }`}
                           >
                             {!mine && (
@@ -594,7 +498,6 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
                     })}
                   </div>
 
-                  {/* Chat composer */}
                   <div className="border-t border-[var(--edge-soft)] p-2 flex gap-2">
                     <input
                       value={chatDraft}
@@ -602,26 +505,15 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault()
-                          if (chatDraft.trim()) {
-                            sendChat(chatDraft)
-                            setChatDraft('')
-                          }
+                          submitChat()
                         }
                       }}
-                      placeholder={
-                        mode === 'greetings'
-                          ? 'Say hi + share what you\'re working on…'
-                          : 'Send a message…'
-                      }
+                      placeholder={mode === 'greetings' ? 'Say hi + share what you\'re working on…' : 'Send a message…'}
+                      maxLength={1000}
                       className="fb-field flex-1 text-[12px] px-2.5 py-1.5"
                     />
                     <button
-                      onClick={() => {
-                        if (chatDraft.trim()) {
-                          sendChat(chatDraft)
-                          setChatDraft('')
-                        }
-                      }}
+                      onClick={submitChat}
                       disabled={!chatDraft.trim()}
                       className="text-[12px] px-3 py-1.5 rounded bg-accent text-white hover:brightness-110 disabled:opacity-50 inline-flex items-center gap-1"
                     >
@@ -631,15 +523,14 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
                   </div>
                 </>
               ) : (
-                // Silent mode — just the partner strip + a calm reassurance.
                 <div className="flex-1 flex flex-col items-center justify-center gap-2 py-10 px-6 text-center">
                   <Icon name="volume_off" size={28} className="text-[var(--ink-30)]" />
                   <div className="text-[13px] text-[var(--ink-70)] font-medium">
                     You're not alone.
                   </div>
                   <div className="text-[11px] text-[var(--ink-50)] max-w-[280px]">
-                    No chat in silent mode. Close this panel and go work — your
-                    partner is sitting beside you (figuratively).
+                    Silent session: no microphone and no chat. Close this panel and get to work. Your partner
+                    is working right there beside you.
                   </div>
                 </div>
               )}
@@ -649,22 +540,42 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
 
         {/* Footer — only on idle */}
         {effectiveStatus === 'idle' && (
-          <div className="px-4 py-3 border-t border-[var(--edge-soft)] flex justify-end gap-2">
+          <div className="px-4 py-3 border-t border-[var(--edge-soft)] flex items-center justify-end gap-2">
+            {needsPlan && (
+              <span className="flex-1 text-[10.5px] text-[var(--ink-50)] leading-snug">{entitlement.reason}</span>
+            )}
             <button
               onClick={onClose}
               className="text-[12px] px-3 py-1.5 rounded text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
             >
               Cancel
             </button>
-            <button
-              onClick={() =>
-                void startLooking(pickedMode, workingOnDraft.trim() || null)
-              }
-              className="text-[12px] px-4 py-1.5 rounded bg-accent text-white hover:brightness-110 font-medium inline-flex items-center gap-1.5"
-            >
-              <Icon name="diversity_3" size={12} />
-              Find a partner
-            </button>
+            {needsSignIn ? (
+              <button
+                onClick={requestSignIn}
+                className="text-[12px] px-4 py-1.5 rounded bg-accent text-white hover:brightness-110 font-medium inline-flex items-center gap-1.5"
+              >
+                <Icon name="login" size={12} />
+                Sign in to find a partner
+              </button>
+            ) : needsPlan ? (
+              <button
+                onClick={entitlement.onLockedClick}
+                className="text-[12px] px-4 py-1.5 rounded bg-accent text-white hover:brightness-110 font-medium inline-flex items-center gap-1.5"
+              >
+                <Icon name="lock" size={12} />
+                See plans
+              </button>
+            ) : (
+              <button
+                onClick={() => void startLooking(pickedMode, pickedMode === 'silent' ? null : workingOnDraft.trim() || null)}
+                data-testid="body-double-find"
+                className="text-[12px] px-4 py-1.5 rounded bg-accent text-white hover:brightness-110 font-medium inline-flex items-center gap-1.5"
+              >
+                <Icon name="diversity_3" size={12} />
+                Find a partner
+              </button>
+            )}
           </div>
         )}
       </div>

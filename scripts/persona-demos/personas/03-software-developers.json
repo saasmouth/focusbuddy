@@ -1,0 +1,738 @@
+{
+  "number": 3,
+  "slug": "software-developers",
+  "persona": "Software developers",
+  "category": "Primary early adopters",
+  "room": {
+    "title": "Software Developers",
+    "description": "How a developer keeps a release, an incident and the context switching between them on one surface — the spec, the PR queue, the runbook and the open questions all in view at once."
+  },
+  "desks": [
+    {
+      "title": "Payments API v2 — release week",
+      "description": "Shipping the v2 endpoints behind a flag: PR queue, rollout plan, risk register and the questions still open with the platform team.",
+      "dueInDays": 4,
+      "brief": "## Payments API v2 — release week\n\n**Team** Checkout platform · 4 engineers\n**Release** @+4d behind `payments_v2` flag, 5% → 25% → 100%\n**Rollback** flag off, no migration to reverse\n\n### What ships\n- `POST /v2/payments` with idempotency keys enforced server-side\n- Webhook signatures move from HMAC-SHA1 to HMAC-SHA256\n- Retry semantics documented and tested against the sandbox\n\n### Definition of done\n- p95 latency within 10% of v1 on the canary\n- Zero duplicate charges in the idempotency soak test\n- Partner docs published and the two pilot partners signed off\n\n### Where it stands\nSeven of eleven PRs merged. The idempotency store is the long pole — it needs the platform team's answer on TTLs before the soak test can run. **Everything else is on track for @+4d.**",
+      "callout": {
+        "title": "Blocking: idempotency key TTL",
+        "body": "Platform team owes an answer on 24h vs 72h TTL. Soak test can't start without it, and the soak gates the 5% canary. Chasing at standup @+1d.",
+        "accent": "#ef4444",
+        "icon": "⚠️"
+      },
+      "table": {
+        "title": "PR queue",
+        "columns": [
+          {
+            "id": "pr",
+            "label": "Pull request",
+            "type": "text-short"
+          },
+          {
+            "id": "area",
+            "label": "Area",
+            "type": "single-select",
+            "options": [
+              "API",
+              "Webhooks",
+              "Storage",
+              "Docs",
+              "Infra"
+            ]
+          },
+          {
+            "id": "owner",
+            "label": "Owner",
+            "type": "text-short"
+          },
+          {
+            "id": "lines",
+            "label": "Lines changed",
+            "type": "number"
+          },
+          {
+            "id": "status",
+            "label": "Status",
+            "type": "single-select",
+            "options": [
+              "Merged",
+              "In review",
+              "Changes requested",
+              "Draft"
+            ]
+          }
+        ],
+        "rows": [
+          {
+            "pr": "#412 v2 router + versioned handlers",
+            "area": "API",
+            "owner": "Sam",
+            "lines": 640,
+            "status": "Merged"
+          },
+          {
+            "pr": "#415 Idempotency middleware",
+            "area": "API",
+            "owner": "Priya",
+            "lines": 380,
+            "status": "Merged"
+          },
+          {
+            "pr": "#418 Idempotency store (Redis)",
+            "area": "Storage",
+            "owner": "Priya",
+            "lines": 290,
+            "status": "Changes requested"
+          },
+          {
+            "pr": "#419 SHA256 webhook signer",
+            "area": "Webhooks",
+            "owner": "Leo",
+            "lines": 210,
+            "status": "Merged"
+          },
+          {
+            "pr": "#421 Dual-sign window for webhooks",
+            "area": "Webhooks",
+            "owner": "Leo",
+            "lines": 160,
+            "status": "In review"
+          },
+          {
+            "pr": "#423 Retry policy + jitter",
+            "area": "API",
+            "owner": "Sam",
+            "lines": 120,
+            "status": "Merged"
+          },
+          {
+            "pr": "#424 Canary dashboards",
+            "area": "Infra",
+            "owner": "Mei",
+            "lines": 90,
+            "status": "Merged"
+          },
+          {
+            "pr": "#426 Flag wiring + kill switch",
+            "area": "Infra",
+            "owner": "Mei",
+            "lines": 70,
+            "status": "Merged"
+          },
+          {
+            "pr": "#427 Soak test harness",
+            "area": "Infra",
+            "owner": "Mei",
+            "lines": 260,
+            "status": "Draft"
+          },
+          {
+            "pr": "#428 Partner migration guide",
+            "area": "Docs",
+            "owner": "Sam",
+            "lines": 410,
+            "status": "In review"
+          },
+          {
+            "pr": "#430 Error catalogue v2",
+            "area": "Docs",
+            "owner": "Leo",
+            "lines": 180,
+            "status": "Merged"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Lines changed by area",
+        "type": "bar",
+        "x": "area",
+        "series": [
+          {
+            "column": "lines",
+            "agg": "sum"
+          }
+        ]
+      },
+      "mindmap": {
+        "title": "Rollout plan",
+        "root": {
+          "label": "payments_v2 rollout",
+          "children": [
+            {
+              "label": "Before canary",
+              "children": [
+                {
+                  "label": "Soak test — 1M requests",
+                  "kind": "task"
+                },
+                {
+                  "label": "TTL decision",
+                  "kind": "question"
+                },
+                {
+                  "label": "Dual-sign window live",
+                  "kind": "task"
+                }
+              ]
+            },
+            {
+              "label": "5% canary — 24h",
+              "children": [
+                {
+                  "label": "Watch p95 + dup-charge alarm",
+                  "kind": "task"
+                },
+                {
+                  "label": "Kill switch tested",
+                  "kind": "tool"
+                }
+              ]
+            },
+            {
+              "label": "25% — pilot partners",
+              "children": [
+                {
+                  "label": "Two partners on v2",
+                  "kind": "task"
+                },
+                {
+                  "label": "Support briefed",
+                  "kind": "task"
+                }
+              ]
+            },
+            {
+              "label": "100% + deprecate v1",
+              "children": [
+                {
+                  "label": "90-day v1 sunset notice",
+                  "kind": "task"
+                },
+                {
+                  "label": "When do we drop SHA1?",
+                  "kind": "question"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "page": {
+        "title": "Risk register",
+        "blocks": [
+          {
+            "h3": "What could go wrong"
+          },
+          {
+            "p": "Ranked by blast radius, not likelihood. Each one has an owner and a tripwire that pulls the flag."
+          },
+          {
+            "h4": "1. Duplicate charges"
+          },
+          {
+            "p": "If the idempotency store evicts early, a client retry can charge twice. **Tripwire:** any duplicate in the canary pages the on-call and flips the flag off automatically."
+          },
+          {
+            "h4": "2. Webhook signature mismatch"
+          },
+          {
+            "p": "Partners verifying with SHA1 will reject SHA256 payloads. Mitigation is the dual-sign window: both headers for 30 days."
+          },
+          {
+            "h4": "3. Latency regression"
+          },
+          {
+            "p": "The extra store lookup adds one round trip. Budget is +10% p95; the canary dashboard alarms at +8%."
+          },
+          {
+            "h4": "Not a risk (checked)"
+          },
+          {
+            "ul": [
+              "No schema migration — v1 and v2 share tables",
+              "No client SDK change required for v1 callers",
+              "Rollback is a flag flip, under a minute"
+            ]
+          }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Standup — what I'm holding",
+          "body": "Context I'd otherwise lose between meetings:\n\n- Priya's #418 needs the TTL answer, not more review\n- Leo thinks dual-sign can be 14 days, not 30 — check with partner success\n- Soak harness (#427) reuses the load-test fixtures from Q2\n- Mei's dashboards already have the dup-charge panel\n\nAsk platform: 24h or 72h? Their Redis budget is the real constraint."
+        }
+      ],
+      "stickies": [
+        {
+          "title": "Today",
+          "body": "1. Unblock #418\n2. Review #421\n3. Write canary checklist\n4. 3pm partner call",
+          "color": "#fef08a"
+        },
+        {
+          "title": "Parked",
+          "body": "Rate-limit headers for v2 — after launch, not before.",
+          "color": "#bae6fd"
+        }
+      ],
+      "fields": [
+        {
+          "label": "PRs merged",
+          "type": "number",
+          "value": 7,
+          "suffix": " / 11"
+        },
+        {
+          "label": "Canary stage",
+          "type": "single-select",
+          "options": [
+            "Not started",
+            "5%",
+            "25%",
+            "100%"
+          ],
+          "value": "Not started"
+        }
+      ],
+      "timer": {
+        "title": "Deep work block",
+        "minutes": 50
+      },
+      "browsers": [
+        {
+          "title": "HTTP Working Group — RFC 9110 Semantics",
+          "url": "https://httpwg.org/specs/rfc9110.html"
+        },
+        {
+          "title": "MDN — Idempotent methods",
+          "url": "https://developer.mozilla.org/en-US/docs/Glossary/Idempotent"
+        }
+      ],
+      "images": [
+        {
+          "title": "Release week, day 1",
+          "aspect": "landscape",
+          "prompt": "Candid documentary photograph of a small software team's release-week workspace in a bright Australian office: two engineers seen from behind at standing desks, large monitors showing abstract line graphs and dashboards rendered as soft out-of-focus shapes, sticky notes on a glass wall, coffee cups, late-morning daylight, shallow depth of field, natural colours"
+        }
+      ],
+      "diagram": {
+        "title": "Request path with idempotency",
+        "nodes": [
+          {
+            "id": "client",
+            "label": "Client retry",
+            "shape": "box",
+            "color": "#64748b"
+          },
+          {
+            "id": "gateway",
+            "label": "API gateway",
+            "shape": "box",
+            "color": "#2563eb"
+          },
+          {
+            "id": "seen",
+            "label": "Key seen?",
+            "shape": "circle",
+            "color": "#d97706"
+          },
+          {
+            "id": "store",
+            "label": "Idempotency store",
+            "shape": "box",
+            "color": "#7c3aed"
+          },
+          {
+            "id": "charge",
+            "label": "Charge processor",
+            "shape": "box",
+            "color": "#16a34a"
+          },
+          {
+            "id": "replay",
+            "label": "Replay stored response",
+            "shape": "box",
+            "color": "#0891b2"
+          }
+        ],
+        "edges": [
+          {
+            "from": "client",
+            "to": "gateway"
+          },
+          {
+            "from": "gateway",
+            "to": "seen"
+          },
+          {
+            "from": "seen",
+            "to": "replay",
+            "label": "yes"
+          },
+          {
+            "from": "seen",
+            "to": "store",
+            "label": "no — reserve key"
+          },
+          {
+            "from": "store",
+            "to": "charge"
+          }
+        ]
+      },
+      "calculator": {
+        "title": "Soak test: requests per second over 6h",
+        "expression": "1000000 / (6 * 3600)",
+        "result": 46.2962962963
+      }
+    },
+    {
+      "title": "Incident review — checkout timeouts",
+      "description": "A blameless write-up of last week's 38-minute checkout degradation: timeline, contributing factors and the follow-ups that actually close it.",
+      "brief": "## Incident review — checkout timeouts\n\n**Severity** SEV-2 · **Duration** 38 min · **Customer impact** ~6% of checkouts timed out\n**Review** @+2d, 30 min, blameless\n\n### Summary\nA connection-pool change in the payments service went out with the default pool size of 10 instead of 50. Under the evening peak the pool saturated, requests queued, and the checkout gateway timed out at 5s.\n\n### Why it got past us\n- The config change was in a shared library bump, not a payments PR\n- Staging traffic never exceeds the smaller pool\n- The saturation alert existed but routed to a muted channel\n\n### What this desk is for\nOne place for the timeline, the evidence and the follow-ups, so the review is about decisions rather than reconstructing what happened.",
+      "callout": {
+        "title": "The one follow-up that matters",
+        "body": "Pool size moves out of the shared library and into service config, with a startup check that refuses to boot below the floor. Everything else is a nice-to-have.",
+        "accent": "#10b981",
+        "icon": "✅"
+      },
+      "table": {
+        "title": "Follow-ups",
+        "columns": [
+          {
+            "id": "action",
+            "label": "Action",
+            "type": "text-short"
+          },
+          {
+            "id": "type",
+            "label": "Type",
+            "type": "single-select",
+            "options": [
+              "Prevent",
+              "Detect",
+              "Mitigate",
+              "Process"
+            ]
+          },
+          {
+            "id": "owner",
+            "label": "Owner",
+            "type": "text-short"
+          },
+          {
+            "id": "effort",
+            "label": "Effort (days)",
+            "type": "number"
+          },
+          {
+            "id": "done",
+            "label": "Done",
+            "type": "checkbox"
+          }
+        ],
+        "rows": [
+          {
+            "action": "Pool size into service config",
+            "type": "Prevent",
+            "owner": "Priya",
+            "effort": 1,
+            "done": true
+          },
+          {
+            "action": "Boot-time floor check",
+            "type": "Prevent",
+            "owner": "Priya",
+            "effort": 1,
+            "done": false
+          },
+          {
+            "action": "Route saturation alert to on-call",
+            "type": "Detect",
+            "owner": "Mei",
+            "effort": 0.5,
+            "done": true
+          },
+          {
+            "action": "Peak-shaped load test in staging",
+            "type": "Detect",
+            "owner": "Mei",
+            "effort": 3,
+            "done": false
+          },
+          {
+            "action": "Gateway timeout 5s → 8s with retry",
+            "type": "Mitigate",
+            "owner": "Sam",
+            "effort": 1,
+            "done": false
+          },
+          {
+            "action": "Library bumps need service owner review",
+            "type": "Process",
+            "owner": "Leo",
+            "effort": 0.5,
+            "done": false
+          },
+          {
+            "action": "Audit other services for pool defaults",
+            "type": "Prevent",
+            "owner": "Leo",
+            "effort": 2,
+            "done": false
+          }
+        ]
+      },
+      "chart": {
+        "title": "Follow-up effort by type",
+        "type": "pie",
+        "x": "type",
+        "series": [
+          {
+            "column": "effort",
+            "agg": "sum"
+          }
+        ]
+      },
+      "mindmap": {
+        "title": "Contributing factors",
+        "root": {
+          "label": "Checkout timeouts",
+          "kind": "question",
+          "children": [
+            {
+              "label": "Change",
+              "children": [
+                {
+                  "label": "Shared lib bump",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Pool default 10",
+                  "kind": "idea"
+                }
+              ]
+            },
+            {
+              "label": "Detection",
+              "children": [
+                {
+                  "label": "Alert to muted channel",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Found by support ticket",
+                  "kind": "idea"
+                }
+              ]
+            },
+            {
+              "label": "Testing gap",
+              "children": [
+                {
+                  "label": "Staging never saturates",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Peak load test?",
+                  "kind": "question"
+                }
+              ]
+            },
+            {
+              "label": "Recovery",
+              "children": [
+                {
+                  "label": "Rollback took 11 min",
+                  "kind": "idea"
+                },
+                {
+                  "label": "Runbook was current",
+                  "kind": "tool"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "page": {
+        "title": "Timeline",
+        "blocks": [
+          {
+            "h3": "Timeline (all times local)"
+          },
+          {
+            "ul": [
+              "18:02 — shared library v4.7 deployed to payments as part of a routine bump",
+              "18:41 — evening peak begins; pool utilisation reaches 100%",
+              "18:44 — p95 checkout latency crosses 5s; gateway starts timing out",
+              "18:52 — first support ticket: card declined but no error shown",
+              "19:03 — on-call paged manually from support escalation",
+              "19:09 — pool saturation spotted on dashboard",
+              "19:20 — rollback to v4.6 complete; latency recovers within 2 minutes"
+            ]
+          },
+          {
+            "h4": "What went well"
+          },
+          {
+            "p": "The runbook was accurate, the rollback was one command, and support escalated within ten minutes of the first ticket."
+          },
+          {
+            "h4": "What we were lucky about"
+          },
+          {
+            "p": "It happened on a Tuesday. The same change on a sale weekend would have been a SEV-1."
+          }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Questions for the review",
+          "body": "- Why was the saturation alert routed to #payments-noise? Who decided, and when?\n- Should library bumps be deployed per service, not fleet-wide?\n- Is 8s with one retry better for customers than 5s and fail fast?\n- Do we need a peak-shaped load test, or a floor check that makes it unnecessary?"
+        }
+      ],
+      "stickies": [
+        {
+          "title": "Tone",
+          "body": "Blameless. The system let a default through — fix the system.",
+          "color": "#bbf7d0"
+        }
+      ],
+      "fields": [
+        {
+          "label": "Minutes degraded",
+          "type": "number",
+          "value": 38,
+          "suffix": " min"
+        },
+        {
+          "label": "Review held",
+          "type": "checkbox",
+          "value": false
+        }
+      ],
+      "browsers": [
+        {
+          "title": "Google SRE book — Postmortem culture",
+          "url": "https://sre.google/sre-book/postmortem-culture/"
+        }
+      ],
+      "images": [
+        {
+          "title": "On call, 7pm",
+          "aspect": "landscape",
+          "prompt": "Moody documentary photograph of an engineer on call in the early evening, seen from behind and slightly to the side at a home desk, laptop screen glowing with an abstract blurred dashboard, phone face-down beside a notebook, warm lamp light against blue dusk through a window, quiet focused atmosphere"
+        }
+      ],
+      "diagram": {
+        "title": "How a default became an outage",
+        "nodes": [
+          {
+            "id": "bump",
+            "label": "Shared lib bump",
+            "shape": "box",
+            "color": "#64748b"
+          },
+          {
+            "id": "pool",
+            "label": "Pool default 10",
+            "shape": "box",
+            "color": "#dc2626"
+          },
+          {
+            "id": "peak",
+            "label": "Evening peak",
+            "shape": "circle",
+            "color": "#d97706"
+          },
+          {
+            "id": "timeouts",
+            "label": "Gateway timeouts",
+            "shape": "box",
+            "color": "#dc2626"
+          },
+          {
+            "id": "ticket",
+            "label": "Support ticket",
+            "shape": "box",
+            "color": "#2563eb"
+          },
+          {
+            "id": "rollback",
+            "label": "Rollback to v4.6",
+            "shape": "box",
+            "color": "#16a34a"
+          }
+        ],
+        "edges": [
+          {
+            "from": "bump",
+            "to": "pool"
+          },
+          {
+            "from": "pool",
+            "to": "timeouts"
+          },
+          {
+            "from": "peak",
+            "to": "timeouts",
+            "label": "saturates"
+          },
+          {
+            "from": "timeouts",
+            "to": "ticket",
+            "label": "8 min"
+          },
+          {
+            "from": "ticket",
+            "to": "rollback",
+            "label": "28 min"
+          }
+        ]
+      },
+      "form": {
+        "title": "Incident record",
+        "fields": [
+          {
+            "type": "heading",
+            "label": "SEV-2 · Checkout timeouts"
+          },
+          {
+            "type": "select",
+            "label": "Severity",
+            "options": [
+              "SEV-1",
+              "SEV-2",
+              "SEV-3"
+            ],
+            "value": "SEV-2"
+          },
+          {
+            "type": "number",
+            "label": "Minutes degraded",
+            "value": "38"
+          },
+          {
+            "type": "text",
+            "label": "Incident lead",
+            "value": "Mei"
+          },
+          {
+            "type": "date",
+            "label": "Review",
+            "value": "@+2d"
+          },
+          {
+            "type": "checkbox",
+            "label": "Customer comms sent",
+            "value": true
+          },
+          {
+            "type": "checkbox",
+            "label": "Follow-ups ticketed",
+            "value": false
+          }
+        ]
+      }
+    }
+  ]
+}

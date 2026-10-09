@@ -1,0 +1,12 @@
+{
+  "persona": "Operations professionals",
+  "desk": "Supplier onboarding — eight vendors for the Coastal range",
+  "title": "Linen trial order, opened for inspection",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay photograph of a supplier's trial shipment opened for inspection on a clean white table in a bright warehouse: neatly folded linen tea towels and napkins in sand, seafoam and washed navy tones laid out in tidy rows, a few loose fabric swatches with no tags, brown kraft wrapping paper peeled back at one corner, a pair of dark fabric shears, soft diffused daylight, crisp minimal composition, calm coastal palette",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 272429,
+  "generatedAt": "2026-10-08T07:09:48.272Z"
+}

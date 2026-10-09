@@ -1,0 +1,12 @@
+{
+  "persona": "Executive assistants",
+  "desk": "Board pack — quarterly board meeting",
+  "title": "Boardroom, set for meeting day",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Architectural interior photograph of a corporate boardroom on a high floor of an Australian city office, set up early on the morning of a board meeting: a long pale oak table with ten empty charcoal upholstered chairs, closed black ring binders squared up at each place, glass water jugs and upturned tumblers on a tray, a small grey conference speakerphone puck in the centre of the table, a large wall display switched off and completely dark, floor-to-ceiling windows with soft overcast morning light and an out-of-focus view of generic rooftops and distant water, calm and orderly, wide angle from the doorway, natural colour",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 199407,
+  "generatedAt": "2026-10-08T07:21:50.015Z"
+}

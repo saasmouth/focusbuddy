@@ -1,0 +1,12 @@
+{
+  "persona": "Neurodivergent knowledge workers and visual thinkers",
+  "desk": "Weekly reset — every open loop in one place",
+  "title": "Friday board, loops sorted",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Editorial photograph of a whiteboard wall in a small arts-organisation office late on a Friday afternoon, with only thirteen blank square sticky notes on it in total. On the left, three short neat vertical columns of blank notes in pale yellow, pale blue and soft lilac: the first column has exactly three notes, the second exactly five notes, the third a single note. Well apart on the right of the board, exactly four plain grey blank notes sit together in a small two-by-two square. Plenty of clean empty whiteboard around them. A plain unmarked capped marker resting on the ledge, a potted plant and a desk lamp standing on a plain closed timber cabinet at the edge of frame, no books, no shelves, warm low sunlight raking across the board from a window, shallow depth of field, calm and orderly mood, no people",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 114481,
+  "generatedAt": "2026-10-08T07:33:46.836Z"
+}

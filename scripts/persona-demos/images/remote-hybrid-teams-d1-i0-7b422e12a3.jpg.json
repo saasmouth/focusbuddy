@@ -1,0 +1,12 @@
+{
+  "persona": "Remote and hybrid teams",
+  "desk": "Async rituals and the team decision log",
+  "title": "Morning check-in, written not spoken",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay photograph of a home-office desk in the morning: an open notebook with blank unlined cream pages, a fountain pen, a ceramic cup of flat white, a phone lying face-down, wireless headphones, a small potted succulent and the edge of a closed laptop, all on a pale oak tabletop with long soft window shadows, editorial still-life style, natural muted palette, generous negative space",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 74,
+  "bytes": 286061,
+  "generatedAt": "2026-10-08T07:25:38.443Z"
+}

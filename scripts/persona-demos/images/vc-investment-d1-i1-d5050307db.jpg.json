@@ -1,0 +1,12 @@
+{
+  "persona": "Venture capital and investment professionals",
+  "desk": "Fund II quarterly portfolio review",
+  "title": "Partners' room before the reserves meeting",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Architectural interior photograph of a small venture firm's meeting room early in the morning before a partners' meeting: a long pale timber table with eight empty chairs, a glass water jug and tumblers, plain closed leather notebooks and neat stacks of blank white paper at each place, no laptops or devices, a wall screen switched off, floor-to-ceiling windows onto a leafy street with soft diffused light, potted plants, warm minimal interior, vertical composition, calm and expectant mood",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 221469,
+  "generatedAt": "2026-10-08T07:21:59.313Z"
+}

@@ -1,0 +1,30 @@
+{
+  "https://www.foodstandards.gov.au/business/labelling/nutrition-health-and-related-claims": {
+    "ok": true,
+    "title": "Nutrition, health and related claims | Food Standards Australia New Zealand",
+    "finalUrl": "https://www.foodstandards.gov.au/business/labelling/nutrition-health-and-related-claims",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://www.nsw.gov.au/legal-and-justice/consumer-rights-and-protection/advertising-product-packaging-and-pricing-laws/misleading-or-deceptive-conduct": {
+    "ok": true,
+    "title": "Misleading or deceptive conduct | NSW Government",
+    "finalUrl": "https://www.nsw.gov.au/legal-and-justice/consumer-rights-and-protection/advertising-product-packaging-and-pricing-laws/misleading-or-deceptive-conduct",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://support.google.com/analytics/answer/10917952": {
+    "ok": true,
+    "title": "URL builders: Collect campaign data with custom URLs - Analytics Help",
+    "finalUrl": "https://support.google.com/analytics/answer/10917952",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  },
+  "https://business.gov.au/marketing-and-advertising/promoting-your-business-by-email-or-text-messages": {
+    "ok": true,
+    "title": "Promoting your business by email or text messages | business.gov.au",
+    "finalUrl": "https://business.gov.au/marketing-and-advertising/promoting-your-business-by-email-or-text-messages",
+    "where": "desks[1].browsers[1]",
+    "pass": true
+  }
+}

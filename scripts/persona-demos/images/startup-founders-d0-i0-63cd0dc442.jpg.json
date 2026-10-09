@@ -1,0 +1,12 @@
+{
+  "persona": "Startup founders",
+  "desk": "Pre-seed raise — $600k for Fernroom",
+  "title": "Partner meeting room, before the pitch",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Architectural interior photograph of a small, quiet meeting room in a converted inner-Sydney warehouse office, minutes before an investor meeting: a long blackbutt timber table with four empty chairs, two glasses of water and a closed laptop at one end, exposed brick and tall steel-framed windows letting in soft morning light, a potted fiddle-leaf fig in the corner, calm and expectant mood, no people, natural muted colours, wide shot from table height",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 74,
+  "bytes": 290555,
+  "generatedAt": "2026-10-08T07:07:54.153Z"
+}

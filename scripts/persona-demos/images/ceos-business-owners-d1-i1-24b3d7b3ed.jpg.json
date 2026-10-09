@@ -1,0 +1,12 @@
+{
+  "persona": "CEOs and business owners",
+  "desk": "Cash and key hires — the next 13 weeks",
+  "title": "Edge-banding samples on the bench",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead editorial flat-lay on a worn hardwood workbench: small rolls of edge-banding tape in natural oak veneer, walnut and plain white, a few offcuts of white melamine-faced board showing crisp banded edges in cross-section, a carpenter's pencil, a handful of fine pale wood shavings. Soft directional daylight from the left, gentle shadows, calm muted natural palette, tidy considered arrangement with generous space between objects, no tools with markings or scales.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 74,
+  "bytes": 293969,
+  "generatedAt": "2026-10-08T07:21:47.874Z"
+}

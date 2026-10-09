@@ -1,0 +1,12 @@
+{
+  "persona": "Department heads and team leaders",
+  "desk": "Support goals — weekly leads review and 1:1s",
+  "title": "Review table, two minutes before ten",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Editorial still life of a high standing meeting table just before a short Monday team review: a glass sand timer with pale sand running, five mismatched ceramic coffee cups, three closed laptops whose lids are completely plain matte grey with no emblem or mark of any kind, and two plain cloth-covered notebooks with pens laid on top, a wall-mounted screen behind the table switched off and dark. No books, no paper, no signage anywhere in the room, just a potted plant by the window. Bright morning window light, pale timber and white walls, clean modern office, three-quarter overhead angle, crisp detail, calm and purposeful mood",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 272996,
+  "generatedAt": "2026-10-08T07:24:08.725Z"
+}

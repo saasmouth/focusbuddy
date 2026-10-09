@@ -1,0 +1,349 @@
+{
+  "number": 24,
+  "slug": "remote-hybrid-teams",
+  "persona": "Remote and hybrid teams",
+  "category": "Team and buying personas",
+  "room": {
+    "title": "Remote and Hybrid Teams",
+    "description": "How a team spread across Melbourne, Lisbon and Toronto hands work around the clock and decides things in writing — the handover log, the async rituals and the decision log, so nobody has to be awake for the meeting to know what happened."
+  },
+  "desks": [
+    {
+      "title": "Three-hub handover — enterprise implementations",
+      "description": "How 11 implementation consultants in Melbourne, Lisbon and Toronto pass live customer work around the clock: the handover log, what a clean handover needs, and today's handover note.",
+      "dueInDays": 5,
+      "brief": "## Three-hub handover — enterprise implementations\n\n**Team** Implementation · 11 consultants · Melbourne (4), Lisbon (4), Toronto (3)\n**Overlap** Lisbon–Toronto about three hours a day; Melbourne–Lisbon and Toronto–Melbourne about an hour each, at the edges of the day\n**Live implementations** 9 customers, each with one accountable owner and two hubs covering\n\n### Why handovers matter\nA customer's go-live doesn't wait for one hub to wake up. Work moves Melbourne → Lisbon → Toronto → Melbourne, and each move is a written handover on this desk. A poor handover costs a day: the next hub spends its morning asking questions of people who have logged off.\n\n### What we measure\nFor every handover: items passed, items picked up within the first hour, and questions bounced back. Since the five-heading template went in (@-3d), questions bounced back have fallen from 5–6 per handover to 1–3.\n\n### This week\nHarrow Freight goes live @+5d. Its payroll data migration is mid-flight across all three hubs, and the last Toronto → Melbourne handover bounced three questions back — see today's note. Year-to-date amounts move with the migration, so any change of BMS ID or Payroll IDs has to be reported to the ATO, or Harrow's staff see duplicate income statements.",
+      "callout": {
+        "title": "Today: Harrow Freight field mapping",
+        "body": "The last Toronto → Melbourne handover bounced back 3 questions: the payroll field mapping wasn't explained. Inês has the corrected file; it goes into today's Lisbon → Toronto handover. If Toronto can't run the test import overnight, go-live @+5d slips.",
+        "accent": "#f59e0b",
+        "icon": "🌏"
+      },
+      "table": {
+        "title": "Handover log",
+        "columns": [
+          { "id": "handover", "label": "Handover", "type": "text-short" },
+          { "id": "from", "label": "From hub", "type": "single-select", "options": ["Melbourne", "Lisbon", "Toronto"] },
+          { "id": "passed", "label": "Items passed", "type": "number" },
+          { "id": "picked", "label": "Picked up in 1h", "type": "number" },
+          { "id": "questions", "label": "Questions back", "type": "number" },
+          { "id": "quality", "label": "Quality", "type": "single-select", "options": ["Clean", "Missing context", "Dropped item"] }
+        ],
+        "rows": [
+          { "handover": "@-4d Mel → Lis", "from": "Melbourne", "passed": 7, "picked": 3, "questions": 6, "quality": "Missing context" },
+          { "handover": "@-4d Lis → Tor", "from": "Lisbon", "passed": 6, "picked": 4, "questions": 5, "quality": "Missing context" },
+          { "handover": "@-4d Tor → Mel", "from": "Toronto", "passed": 5, "picked": 2, "questions": 6, "quality": "Dropped item" },
+          { "handover": "@-3d Mel → Lis", "from": "Melbourne", "passed": 8, "picked": 6, "questions": 3, "quality": "Missing context" },
+          { "handover": "@-3d Lis → Tor", "from": "Lisbon", "passed": 6, "picked": 5, "questions": 2, "quality": "Clean" },
+          { "handover": "@-3d Tor → Mel", "from": "Toronto", "passed": 5, "picked": 4, "questions": 2, "quality": "Clean" },
+          { "handover": "@-2d Mel → Lis", "from": "Melbourne", "passed": 7, "picked": 7, "questions": 1, "quality": "Clean" },
+          { "handover": "@-2d Lis → Tor", "from": "Lisbon", "passed": 8, "picked": 7, "questions": 2, "quality": "Clean" },
+          { "handover": "@-2d Tor → Mel", "from": "Toronto", "passed": 4, "picked": 4, "questions": 1, "quality": "Clean" },
+          { "handover": "@-1d Mel → Lis", "from": "Melbourne", "passed": 9, "picked": 8, "questions": 2, "quality": "Clean" },
+          { "handover": "@-1d Lis → Tor", "from": "Lisbon", "passed": 7, "picked": 6, "questions": 1, "quality": "Clean" },
+          { "handover": "@-1d Tor → Mel", "from": "Toronto", "passed": 6, "picked": 5, "questions": 3, "quality": "Missing context" }
+        ]
+      },
+      "chart": {
+        "title": "Items passed vs questions bounced back",
+        "type": "line",
+        "x": "handover",
+        "series": [
+          { "column": "passed", "agg": "sum" },
+          { "column": "questions", "agg": "sum" }
+        ]
+      },
+      "mindmap": {
+        "title": "What a clean handover needs",
+        "root": {
+          "label": "A clean handover",
+          "children": [
+            { "label": "State", "children": [
+              { "label": "What changed since the last handover", "kind": "task" },
+              { "label": "The customer's mood, in one line", "kind": "idea" }
+            ]},
+            { "label": "Next actions", "children": [
+              { "label": "Exactly one owner per item", "kind": "task" },
+              { "label": "What can wait until I'm back?", "kind": "question" }
+            ]},
+            { "label": "Context", "children": [
+              { "label": "Link the file, don't describe it", "kind": "task" },
+              { "label": "Decisions made today → decision log", "kind": "tool" }
+            ]},
+            { "label": "Escalation", "children": [
+              { "label": "Who to wake, and for what", "kind": "task" },
+              { "label": "Is a 2am call ever worth it?", "kind": "question" }
+            ]},
+            { "label": "Close the loop", "children": [
+              { "label": "Next hub acknowledges within 1h", "kind": "task" },
+              { "label": "Questions back counted daily", "kind": "tool" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Handover template",
+        "blocks": [
+          { "h3": "Handover — customer — from hub → to hub" },
+          { "p": "Copy this into the day's handover note. Five headings, nothing else. If a heading is empty, write 'nothing' so the next hub knows it wasn't forgotten." },
+          { "ol": [
+            "**Changed today** — what moved, with links",
+            "**Your next actions** — one owner each, in priority order",
+            "**Waiting on** — customer, another team or a vendor, and since when",
+            "**Don't do** — anything that looks obvious but isn't",
+            "**Wake me if** — the one situation worth a call"
+          ]},
+          { "h4": "Why it works" },
+          { "p": "The template went in @-3d. Before it, the receiving hub spent its first hour asking questions of people who had gone to bed. 'Don't do' and 'Wake me if' are the two headings nobody wrote before, and the two that prevent the most rework." },
+          { "h4": "When it still goes wrong" },
+          { "p": "Usually when an attachment changes and the note describes it instead of linking the new version — which is exactly what happened on Harrow Freight @-1d." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Today — Lisbon → Toronto (Harrow Freight)",
+          "body": "Changed today\n- Payroll field mapping corrected (Inês) — use v3; v2 maps overtime codes wrongly, and STP Phase 2 reports overtime as its own payment type\n- Customer approved the cut-over plan\n\nYour next actions (Toronto)\n1. Owen: test import with v3 overnight\n2. Chidi: spot-check 40 payslips against last month\n\nWaiting on\n- Customer IT to allow our upload address — since @-2d\n\nDon't do\n- Don't re-run the full import; test set only\n\nWake me if\n- Test import fails on more than 2% of records — call Rafael"
+        }
+      ],
+      "stickies": [
+        { "title": "Rule", "body": "If it's not in the handover, it didn't happen. No DMs to people who are asleep.", "color": "#fbcfe8" },
+        { "title": "Harrow Freight", "body": "Go-live @+5d. Rafael accountable; all three hubs covering.", "color": "#bae6fd" }
+      ],
+      "fields": [
+        { "label": "Questions back per handover", "type": "number", "value": 1.9, "suffix": " (was 5.7)" },
+        { "label": "Live implementations", "type": "number", "value": 9 },
+        { "label": "Next go-live", "type": "text-short", "value": "Harrow Freight @+5d" }
+      ],
+      "browsers": [
+        {
+          "title": "ABS — Single Touch Payroll (STP)",
+          "url": "https://www.abs.gov.au/statistics/detailed-methodology-information/concepts-sources-methods/labour-statistics-concepts-sources-and-methods/2023/methods-four-pillars-labour-statistics/administrative-data/single-touch-payroll-stp"
+        },
+        {
+          "title": "Wikipedia — Follow-the-sun",
+          "url": "https://en.wikipedia.org/wiki/Follow-the-sun"
+        }
+      ],
+      "images": [
+        {
+          "title": "Melbourne, reading the overnight handover",
+          "aspect": "landscape",
+          "prompt": "Candid documentary photograph of an implementation consultant seen from behind and slightly to one side, at a desk in a quiet Melbourne co-working space just after seven in the morning, reading on a laptop whose screen is a soft out-of-focus blur of abstract pale blocks, a reusable coffee cup and an open notebook with blank pages beside it, a large window with pale early-morning light over low-rise inner-city rooftops and bare plane trees, cool blue and warm amber tones, shallow depth of field, calm and unhurried"
+        },
+        {
+          "title": "Freight depot loading dock, cut-over week",
+          "aspect": "portrait",
+          "prompt": "Documentary photograph of a regional Australian freight depot at first light: a long concrete loading dock with a row of plain unbranded white semi-trailers backed up to roller doors, a forklift carrying shrink-wrapped pallets, one distant worker in a plain unmarked high-visibility vest walking away from the camera, wet asphalt reflecting the last of the yard lights, low grey cloud breaking to pink, eucalyptus trees beyond a chain-link fence, muted industrial colours, natural light"
+        }
+      ],
+      "diagram": {
+        "title": "Tonight: Harrow Freight test import",
+        "nodes": [
+          { "id": "handover", "label": "Lisbon → Toronto handover", "shape": "box", "color": "#2563eb" },
+          { "id": "import", "label": "Owen: overnight test import", "shape": "box", "color": "#7c3aed" },
+          { "id": "fails", "label": "Fails on > 2%?", "shape": "circle", "color": "#d97706" },
+          { "id": "call", "label": "Call Rafael", "shape": "box", "color": "#dc2626" },
+          { "id": "check", "label": "Chidi: check 40 payslips", "shape": "box", "color": "#16a34a" },
+          { "id": "next", "label": "Toronto → Melbourne handover", "shape": "box", "color": "#2563eb" }
+        ],
+        "edges": [
+          { "from": "handover", "to": "import", "label": "v3 mapping, test set" },
+          { "from": "import", "to": "fails" },
+          { "from": "fails", "to": "call", "label": "yes" },
+          { "from": "fails", "to": "check", "label": "no" },
+          { "from": "check", "to": "next" }
+        ]
+      },
+      "calculator": {
+        "title": "Questions back per handover, since template",
+        "expression": "(3 + 2 + 2 + 1 + 2 + 1 + 2 + 1 + 3) / 9",
+        "result": 1.8888888889
+      },
+      "form": {
+        "title": "Harrow Freight go-live readiness",
+        "fields": [
+          { "type": "heading", "label": "Harrow Freight · payroll cut-over" },
+          { "type": "date", "label": "Go-live", "value": "@+5d" },
+          { "type": "text", "label": "Accountable owner", "value": "Rafael" },
+          { "type": "select", "label": "Mapping file", "options": ["v2", "v3"], "value": "v3" },
+          { "type": "number", "label": "Payslips to spot-check", "value": "40" },
+          { "type": "number", "label": "Test import failure limit (%)", "value": "2" },
+          { "type": "checkbox", "label": "Cut-over plan approved", "value": true },
+          { "type": "checkbox", "label": "Customer upload address allowed", "value": false },
+          { "type": "checkbox", "label": "Test import passed", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "Async rituals and the team decision log",
+      "description": "How the team decides in writing across three time zones: proposals, comment windows and decisions in one log, plus the rituals that moved from meetings to writing.",
+      "brief": "## Async rituals and the decision log\n\n**Team** Implementation · 11 people, three hubs, no working hour all three share\n**Rule** anything that affects more than one hub is decided in writing, here\n**Comment window** 48 hours, so every hub gets two working days to see it\n\n### How a decision works\n1. The proposer adds a row: the decision, the options and their recommendation\n2. It stays **Open for comment** for 48 hours\n3. The owner decides, writes one paragraph of why, and marks it **Decided**\n4. Reversible decisions can go ahead on fewer comments; irreversible ones need a voice from each hub\n\n### What moved from meetings to writing\nThe daily stand-up became a written check-in. The weekly team meeting dropped from 60 to 30 minutes and only covers decisions that stalled. Live time per person went from 3h 15m to 1h 30m a week — 1h 45m back each, about 19 hours a week across the 11 of us — and live slots rotate so no hub always takes the 7:00 call.\n\n### Where it stands\n12 decisions logged this quarter: 7 decided, 2 open for comment, 2 proposed, 1 being revisited.",
+      "callout": {
+        "title": "Closes @+1d: a fourth Toronto consultant",
+        "body": "Toronto has three consultants and covers the longest overnight leg for both other hubs. The comment window closes @+1d and Melbourne hasn't commented yet. Not reversible, so Grace waits for one voice from each hub.",
+        "accent": "#6366f1",
+        "icon": "🗳️"
+      },
+      "table": {
+        "title": "Decision log",
+        "columns": [
+          { "id": "decision", "label": "Decision", "type": "text-short" },
+          { "id": "area", "label": "Area", "type": "single-select", "options": ["Rituals", "Process", "Customers", "Hiring", "Tooling"] },
+          { "id": "owner", "label": "Owner", "type": "text-short" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Proposed", "Open for comment", "Decided", "Revisit"] },
+          { "id": "logged", "label": "Logged", "type": "text-short" },
+          { "id": "reversible", "label": "Reversible", "type": "checkbox" }
+        ],
+        "rows": [
+          { "decision": "Daily stand-up becomes a written check-in", "area": "Rituals", "owner": "Grace", "status": "Decided", "logged": "@-41d", "reversible": true },
+          { "decision": "Weekly team meeting: 30 min, stalled decisions only", "area": "Rituals", "owner": "Grace", "status": "Decided", "logged": "@-41d", "reversible": true },
+          { "decision": "Live meetings rotate across hub time zones", "area": "Rituals", "owner": "Rafael", "status": "Decided", "logged": "@-34d", "reversible": true },
+          { "decision": "One accountable owner per implementation", "area": "Process", "owner": "Rafael", "status": "Decided", "logged": "@-30d", "reversible": true },
+          { "decision": "No go-lives on the last working day of any hub's week", "area": "Customers", "owner": "Priyanka", "status": "Decided", "logged": "@-22d", "reversible": true },
+          { "decision": "Customer kickoff calls recorded for the other hubs", "area": "Customers", "owner": "Owen", "status": "Decided", "logged": "@-15d", "reversible": true },
+          { "decision": "Handover template — five headings", "area": "Process", "owner": "Inês", "status": "Decided", "logged": "@-5d", "reversible": true },
+          { "decision": "Hire a fourth Toronto consultant", "area": "Hiring", "owner": "Grace", "status": "Open for comment", "logged": "@-1d", "reversible": false },
+          { "decision": "One shared folder structure for customer files", "area": "Tooling", "owner": "Yusuf", "status": "Open for comment", "logged": "@-2d", "reversible": true },
+          { "decision": "Weekend on-call rotates across hubs", "area": "Process", "owner": "Tariq", "status": "Proposed", "logged": "@today", "reversible": false },
+          { "decision": "Retire the hub-only chat channels", "area": "Tooling", "owner": "Sanne", "status": "Proposed", "logged": "@today", "reversible": true },
+          { "decision": "Written check-in format: three fixed lines", "area": "Rituals", "owner": "Josh", "status": "Revisit", "logged": "@-8d", "reversible": true }
+        ]
+      },
+      "chart": {
+        "title": "Decisions by status",
+        "type": "pie",
+        "x": "status",
+        "series": [{ "column": "decision", "agg": "count" }]
+      },
+      "mindmap": {
+        "title": "Our async rituals",
+        "root": {
+          "label": "Async-first, in practice",
+          "children": [
+            { "label": "Daily", "children": [
+              { "label": "Written check-in: done, next, blocked", "kind": "task" },
+              { "label": "Read the handover before the chat", "kind": "task" }
+            ]},
+            { "label": "Weekly", "children": [
+              { "label": "30-min team meeting, rotating slot", "kind": "task" },
+              { "label": "Which decisions stalled, and why?", "kind": "question" }
+            ]},
+            { "label": "Fortnightly", "children": [
+              { "label": "Retro, live and recorded", "kind": "task" },
+              { "label": "Recorded walkthroughs, not live run-throughs", "kind": "tool" }
+            ]},
+            { "label": "Decisions", "children": [
+              { "label": "48-hour comment window", "kind": "tool" },
+              { "label": "One voice per hub if irreversible", "kind": "task" },
+              { "label": "Who breaks a tie?", "kind": "question" }
+            ]},
+            { "label": "Norms", "children": [
+              { "label": "No DMs to people who are asleep", "kind": "idea" },
+              { "label": "Reply within one working day", "kind": "idea" },
+              { "label": "Cameras optional", "kind": "idea" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Decision record — written check-ins",
+        "blocks": [
+          { "h3": "Daily stand-up becomes a written check-in" },
+          { "p": "**Owner** Grace · **Logged** @-41d · **Status** Decided; the format is being revisited" },
+          { "h4": "Context" },
+          { "p": "The 15-minute stand-up ran at 7:30 in Melbourne, which is 21:30 the night before in Lisbon and the end of the working day in Toronto. Lisbon joined after dinner, Toronto was tired, and half the updates were for people who weren't there." },
+          { "h4": "Options considered" },
+          { "ul": [
+            "Keep the live stand-up and rotate the time",
+            "Hub-level stand-ups plus a written cross-hub summary",
+            "Written check-in only, by 10:00 local time"
+          ]},
+          { "h4": "Decision" },
+          { "p": "Written check-in only. Reversible: if a blocker sits unseen for more than a day, a twice-weekly live slot comes back." },
+          { "h4": "Revisit (open)" },
+          { "p": "Josh: check-ins have crept to 200 words. Proposal: three fixed lines — done, next, blocked — with anything longer moving into the handover note." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Comments so far — fourth Toronto hire",
+          "body": "- Rafael (Lisbon): yes — Toronto picks up every Lisbon evening problem\n- Priyanka (Toronto): yes, but hire for payroll experience, not general implementation\n- Sanne (Lisbon): could a Lisbon consultant move to a later day instead?\n- Melbourne: no comments yet — Grace to nudge in their morning\n\nIrreversible, so the decision waits for one Melbourne voice."
+        },
+        {
+          "title": "Before weekend on-call opens for comment",
+          "body": "Tariq's proposal is irreversible, so settle these before the 48 hours start:\n\n- Melbourne: under Australia's right to disconnect, staff can refuse out-of-hours contact unless refusing is unreasonable, and whether on-call is paid is one of the factors. Rostered and paid, then, not assumed\n- Lisbon and Toronto have their own out-of-hours rules. Sanne and Priyanka to check\n- Toronto's Friday evening is already Saturday morning in Melbourne. Whose weekend does the rota follow?"
+        }
+      ],
+      "stickies": [
+        { "title": "Before you propose", "body": "Is it reversible? Then decide it, log it, and move on. Don't wait 48 hours.", "color": "#bbf7d0" },
+        { "title": "This week", "body": "1. Close the Toronto hire\n2. Settle the check-in format\n3. Log Harrow Freight go-live lessons", "color": "#fef08a" }
+      ],
+      "fields": [
+        { "label": "Live meeting time per person", "type": "text-short", "value": "1h 30m a week (was 3h 15m)" },
+        { "label": "Open for comment", "type": "number", "value": 2 },
+        { "label": "Comment window", "type": "number", "value": 48, "suffix": " h" }
+      ],
+      "browsers": [
+        {
+          "title": "Wikipedia — Right to disconnect",
+          "url": "https://en.wikipedia.org/wiki/Right_to_disconnect"
+        },
+        {
+          "title": "ADR — Decision record templates",
+          "url": "https://adr.github.io/adr-templates/"
+        }
+      ],
+      "images": [
+        {
+          "title": "Home desk, morning written check-in",
+          "aspect": "square",
+          "prompt": "Overhead flat-lay photograph of a home-office desk in the morning: an open notebook with blank unlined cream pages, a fountain pen, a ceramic cup of flat white, a phone lying face-down, wireless headphones, a small potted succulent and the edge of a closed laptop, all on a pale oak tabletop with long soft window shadows, editorial still-life style, natural muted palette, generous negative space"
+        },
+        {
+          "title": "Toronto, logging off at dusk",
+          "aspect": "portrait",
+          "prompt": "Editorial still-life photograph of an empty home-office corner at blue-hour dusk: a closed laptop on a walnut desk with over-ear headphones resting on top, a desk lamp casting a warm pool of light, a mug and a folded wool throw over the chair, a tall window behind showing autumn maple branches with orange leaves against a deep blue evening sky and the soft lit windows of distant houses, quiet, finished-for-the-day mood, no people"
+        }
+      ],
+      "diagram": {
+        "title": "How a decision gets made",
+        "nodes": [
+          { "id": "propose", "label": "Proposer adds a row", "shape": "box", "color": "#64748b" },
+          { "id": "window", "label": "Open for comment, 48 h", "shape": "box", "color": "#2563eb" },
+          { "id": "reversible", "label": "Reversible?", "shape": "circle", "color": "#d97706" },
+          { "id": "voices", "label": "One voice from each hub?", "shape": "circle", "color": "#d97706" },
+          { "id": "nudge", "label": "Nudge the silent hub", "shape": "box", "color": "#dc2626" },
+          { "id": "decide", "label": "Owner decides, writes why", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "propose", "to": "window" },
+          { "from": "window", "to": "reversible" },
+          { "from": "reversible", "to": "decide", "label": "yes, don't wait" },
+          { "from": "reversible", "to": "voices", "label": "no" },
+          { "from": "voices", "to": "decide", "label": "yes" },
+          { "from": "voices", "to": "nudge", "label": "no" },
+          { "from": "nudge", "to": "decide", "label": "once heard" }
+        ]
+      },
+      "calculator": {
+        "title": "Live hours back a week, whole team",
+        "expression": "11 * (195 - 90) / 60",
+        "result": 19.25
+      },
+      "form": {
+        "title": "Decision record — fourth Toronto hire",
+        "fields": [
+          { "type": "heading", "label": "Hire a fourth Toronto consultant" },
+          { "type": "text", "label": "Owner", "value": "Grace" },
+          { "type": "select", "label": "Area", "options": ["Rituals", "Process", "Customers", "Hiring", "Tooling"], "value": "Hiring" },
+          { "type": "select", "label": "Status", "options": ["Proposed", "Open for comment", "Decided", "Revisit"], "value": "Open for comment" },
+          { "type": "date", "label": "Logged", "value": "@-1d" },
+          { "type": "date", "label": "Comment window closes", "value": "@+1d" },
+          { "type": "checkbox", "label": "Reversible", "value": false },
+          { "type": "checkbox", "label": "One voice from each hub", "value": false },
+          { "type": "textarea", "label": "Recommendation", "value": "Hire. Toronto has three consultants and covers the longest overnight leg for both other hubs." }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "https://en.wikipedia.org/wiki/Pareto_chart": {
+    "ok": true,
+    "title": "Pareto chart - Wikipedia",
+    "finalUrl": "https://en.wikipedia.org/wiki/Pareto_chart",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://www.legalaid.nsw.gov.au/ways-to-get-help/publications-and-resources/insurance-claims-after-a-disaster": {
+    "ok": true,
+    "title": "Insurance claims after a disaster",
+    "finalUrl": "https://www.legalaid.nsw.gov.au/ways-to-get-help/publications-and-resources/insurance-claims-after-a-disaster",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://en.wikipedia.org/wiki/Privacy_Act_1988": {
+    "ok": true,
+    "title": "Privacy Act 1988 - Wikipedia",
+    "finalUrl": "https://en.wikipedia.org/wiki/Privacy_Act_1988",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  },
+  "https://en.wikipedia.org/wiki/MoSCoW_method": {
+    "ok": true,
+    "title": "MoSCoW method - Wikipedia",
+    "finalUrl": "https://en.wikipedia.org/wiki/MoSCoW_method",
+    "where": "desks[1].browsers[1]",
+    "pass": true
+  }
+}

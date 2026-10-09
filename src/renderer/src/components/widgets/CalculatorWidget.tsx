@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
+import { evaluateArithmetic } from '../../lib/calcExpression'
 
 const KEYS: Array<{
   label: string
@@ -31,16 +32,14 @@ const KEYS: Array<{
 
 const ALLOWED = /^[0-9+\-*/%.()\s]+$/
 
+// Evaluated by a parser, never by eval: the renderer CSP has no 'unsafe-eval',
+// so `new Function` throws and every expression showed "error" (see calcExpression).
 function safeEval(expr: string): string {
   if (!expr.trim()) return ''
   if (!ALLOWED.test(expr)) return 'err'
-  try {
-    const result = new Function(`"use strict"; return (${expr})`)()
-    if (typeof result !== 'number' || !isFinite(result)) return 'err'
-    return String(Math.round(result * 1e10) / 1e10)
-  } catch {
-    return 'err'
-  }
+  const result = evaluateArithmetic(expr)
+  if (result === null) return 'err'
+  return String(Math.round(result * 1e10) / 1e10)
 }
 
 interface Props {

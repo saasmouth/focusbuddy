@@ -1,0 +1,12 @@
+{
+  "persona": "Freelancers and consultants",
+  "desk": "Next quarter's pipeline — and the proposal that fills it",
+  "title": "Kitchen bench on bill day",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Editorial still-life photograph on a pale laminate kitchen bench in an Australian suburban home: a clear glass of tap water catching morning light, a plain unmarked white envelope lying face down beside it, a pair of folded reading glasses resting on the envelope, a chrome kitchen tap softly out of focus behind, gentle side light from a window, quiet domestic mood, muted blues and whites, shallow depth of field",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 141483,
+  "generatedAt": "2026-10-08T07:07:50.412Z"
+}

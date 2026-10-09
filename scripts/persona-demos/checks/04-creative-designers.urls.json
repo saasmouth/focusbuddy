@@ -1,0 +1,38 @@
+{
+  "https://webaim.org/resources/contrastchecker/?fcolor=D4622A&bcolor=F6F1E7": {
+    "ok": true,
+    "status": 200,
+    "title": "WebAIM: Contrast Checker",
+    "bytes": 10372,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "WebAIM — Contrast checker, Ember on Paper",
+    "checkedAt": "2026-10-08T08:54:57.229Z"
+  },
+  "https://en.wikipedia.org/wiki/Spot_color": {
+    "ok": true,
+    "status": 200,
+    "title": "Spot color - Wikipedia",
+    "bytes": 132961,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "Wikipedia — Spot color",
+    "checkedAt": "2026-10-08T08:54:58.717Z"
+  },
+  "https://cx.dsb.gov.au/consent/pre-consent": {
+    "ok": true,
+    "status": 200,
+    "title": "Pre-consent",
+    "bytes": 400000,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "CDR CX Guidelines — Pre-consent",
+    "checkedAt": "2026-10-08T08:54:58.717Z"
+  },
+  "https://www.nngroup.com/articles/how-to-rate-the-severity-of-usability-problems/": {
+    "ok": true,
+    "status": 200,
+    "title": "Severity Ratings for Usability Problems: Article by Jakob Nielsen - NN/G",
+    "bytes": 118783,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "NN/g — Severity ratings for usability problems",
+    "checkedAt": "2026-10-08T08:54:58.717Z"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "persona": "Educators and course creators",
+  "desk": "Course build — Data Storytelling for Analysts",
+  "title": "Spare-room studio, recording day",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a small home recording studio set up in the spare room of an Australian weatherboard house: a plain camera on a tripod facing an empty timber stool, a large square softbox light, a small microphone on a desk stand, grey acoustic foam panels on one wall, a potted fiddle-leaf fig in the corner, soft morning light through timber venetian blinds, cables neatly taped along the floorboards, calm and uncluttered, natural colours, shallow depth of field",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 210206,
+  "generatedAt": "2026-10-08T07:19:43.079Z"
+}

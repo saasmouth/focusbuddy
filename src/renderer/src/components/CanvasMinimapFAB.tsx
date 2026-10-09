@@ -222,15 +222,30 @@ export default function CanvasMinimapFAB(): JSX.Element {
 
   return (
     <div
-      className="fb-floating-chrome absolute bottom-3 right-3 z-[46] pointer-events-auto flex flex-col items-end gap-1.5"
+      className="fb-floating-chrome absolute bottom-3 right-3 z-[46] pointer-events-auto"
       data-minimap-fab
       data-floating-menu
       onMouseEnter={holdJump}
       onMouseLeave={releaseJump}
     >
-      {/* The named list sits ABOVE the map, so the map stays where the muscle
-          memory expects it and the list grows away from the corner. */}
-      {jumpOpen && <DeskJumpList widgets={widgets} onJump={jumpTo} />}
+      {/* The named list sits ABOVE the map, positioned ABSOLUTELY rather than
+          as a flex sibling.
+          
+          This wrapper hosts an AnimatePresence with mode="popLayout", which
+          takes the exiting child out of flow and animates the entering one
+          into the space it measured. Making the wrapper a flex column — the
+          first version of this list — gave popLayout a second child to measure
+          against, and the map was then laid out mid-screen for the whole 2.2s
+          auto-open window after any zoom change, drifting back to the corner
+          once the animation finished. That is the "minimap floats weirdly mid
+          screen when zoom is altered" report.
+          
+          Out of flow, the list cannot influence that measurement at all. */}
+      {jumpOpen && (
+        <div className="absolute bottom-full right-0 mb-1.5">
+          <DeskJumpList widgets={widgets} onJump={jumpTo} />
+        </div>
+      )}
       {/* mode="popLayout": exiting element leaves layout immediately so entering
           element can grow from the same corner — creates the bloom/unravel effect. */}
       <AnimatePresence mode="popLayout" initial={false}>

@@ -1,0 +1,12 @@
+{
+  "persona": "Architects and design studios",
+  "desk": "Marlow Lane apartments — DD fee check before the variation goes in",
+  "title": "Childcare precedent, ground-floor play yard",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Architectural photograph of an empty outdoor play yard for a contemporary Australian childcare centre in the ground-floor courtyard of an apartment building: smooth timber decking, a sandpit with a hardwood edge, low native planting in raised beds, a pale shade sail overhead, rounded timber play forms, a pale brick boundary wall, the undersides of upper-level balconies just visible at the top of the frame, soft early-morning light, wide eye-level shot, quiet and orderly, no people",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 282519,
+  "generatedAt": "2026-10-08T07:14:51.310Z"
+}

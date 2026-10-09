@@ -1,0 +1,12 @@
+{
+  "persona": "Graphic, product and creative designers",
+  "desk": "Wandoo Hill Roasters — identity refresh",
+  "title": "The ridge behind the roastery",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Wide landscape photograph at first light of a long, gentle ridge line in rural Western Australia, pale smooth-trunked eucalyptus trees scattered along the crest, dry golden grass and a farm track in the foreground, a small corrugated-iron shed with one metal chimney flue near the left edge, light haze in the valley, warm low sun from the right, muted earthy palette of dark bark brown, cream and sage green, quiet and spacious, documentary landscape style.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 68,
+  "bytes": 290937,
+  "generatedAt": "2026-10-08T07:10:53.952Z"
+}

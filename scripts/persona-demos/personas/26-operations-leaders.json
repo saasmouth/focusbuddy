@@ -1,0 +1,343 @@
+{
+  "number": 26,
+  "slug": "operations-leaders",
+  "persona": "Operations leaders responsible for how work gets done",
+  "category": "Team and buying personas",
+  "room": {
+    "title": "Operations Leaders",
+    "description": "How a head of operations redesigns the way a whole organisation runs — the operating cadence, where work is tracked, and the measures that show whether the change worked — with every team able to see the plan it's being asked to follow."
+  },
+  "desks": [
+    {
+      "title": "Operating cadence redesign — forums, reporting and decisions",
+      "description": "Rebuilding the leadership operating rhythm: which recurring forums stay, merge or become written updates, the hours that frees, and how we'll know decisions are getting made faster.",
+      "dueInDays": 28,
+      "brief": "## Operating cadence redesign\n\n**Organisation** Greythorn · 340 people, six departments, a leadership team of eight\n**Sponsor** Naledi (CEO) · **Pilot** six weeks, review @+28d\n**The problem** 577 hours a month in recurring forums, and a median of 12 days from an issue being raised to a decision\n\n### What changes\n- One **weekly business review** (WBR) replaces the monthly report pack and two cross-team syncs\n- Department and project status meetings become **written updates**, posted the day before the WBR\n- The exec meeting drops to 90 minutes and takes decisions, not updates\n- Department monthly reviews halve, with a written pre-read\n- A weekly **customer escalations review** gets its own 30 minutes instead of taking over other meetings\n\n### What it should buy us\n- 577 → 271 hours a month in recurring forums (306 freed, 53%)\n- Decisions in 5 days, not 12\n- One version of the numbers instead of nine monthly decks\n\n### Where it stands\nEnd of week 2 of the pilot. Written updates are landing on time from four of six departments, and the median time to a decision is down from 12 days to 9.",
+      "callout": {
+        "title": "Pilot: six weeks, then decide",
+        "body": "The new cadence runs for six weeks from @-14d. At the review @+28d we keep it only if median time to decision is under 7 days and department heads say written updates cost them less than the meetings did.",
+        "accent": "#6366f1",
+        "icon": "🧭"
+      },
+      "table": {
+        "title": "Recurring forums",
+        "columns": [
+          { "id": "forum", "label": "Forum", "type": "text-short" },
+          { "id": "level", "label": "Level", "type": "single-select", "options": ["Exec", "Department", "Cross-team"] },
+          { "id": "cadence", "label": "Cadence", "type": "single-select", "options": ["Weekly", "Fortnightly", "Monthly", "Quarterly"] },
+          { "id": "change", "label": "Change", "type": "single-select", "options": ["Keep", "New", "Merge", "Written update", "Cut"] },
+          { "id": "before", "label": "Hours / month before", "type": "number" },
+          { "id": "after", "label": "Hours / month after", "type": "number" },
+          { "id": "owner", "label": "Owner", "type": "text-short" }
+        ],
+        "rows": [
+          { "forum": "Exec team meeting", "level": "Exec", "cadence": "Weekly", "change": "Keep", "before": 64, "after": 48, "owner": "Naledi" },
+          { "forum": "Weekly business review", "level": "Exec", "cadence": "Weekly", "change": "New", "before": 0, "after": 40, "owner": "Ravi" },
+          { "forum": "Monthly ops report pack review", "level": "Exec", "cadence": "Monthly", "change": "Cut", "before": 30, "after": 0, "owner": "Ravi" },
+          { "forum": "Department status meetings (×6)", "level": "Department", "cadence": "Weekly", "change": "Written update", "before": 192, "after": 48, "owner": "Department heads" },
+          { "forum": "Project status meetings", "level": "Cross-team", "cadence": "Weekly", "change": "Written update", "before": 120, "after": 24, "owner": "Shona" },
+          { "forum": "Ops & finance sync", "level": "Cross-team", "cadence": "Weekly", "change": "Merge", "before": 16, "after": 0, "owner": "Felipe" },
+          { "forum": "Sales–delivery handoff meeting", "level": "Cross-team", "cadence": "Weekly", "change": "Merge", "before": 24, "after": 0, "owner": "Aroha" },
+          { "forum": "Department monthly reviews", "level": "Department", "cadence": "Monthly", "change": "Keep", "before": 72, "after": 36, "owner": "Department heads" },
+          { "forum": "Quarterly planning", "level": "Exec", "cadence": "Quarterly", "change": "Keep", "before": 40, "after": 40, "owner": "Naledi" },
+          { "forum": "Hiring committee", "level": "Cross-team", "cadence": "Fortnightly", "change": "Keep", "before": 10, "after": 10, "owner": "Mira" },
+          { "forum": "Risk & compliance committee", "level": "Exec", "cadence": "Monthly", "change": "Keep", "before": 9, "after": 9, "owner": "Felipe" },
+          { "forum": "Customer escalations review", "level": "Cross-team", "cadence": "Weekly", "change": "New", "before": 0, "after": 16, "owner": "Aroha" }
+        ]
+      },
+      "chart": {
+        "title": "Hours per month — before vs after",
+        "type": "bar",
+        "x": "forum",
+        "series": [
+          { "column": "before", "agg": "sum" },
+          { "column": "after", "agg": "sum" }
+        ]
+      },
+      "mindmap": {
+        "title": "How the cadence fits together",
+        "root": {
+          "label": "Operating cadence",
+          "children": [
+            { "label": "Weekly", "children": [
+              { "label": "Written updates, day before the WBR", "kind": "task" },
+              { "label": "WBR — one set of numbers", "kind": "task" },
+              { "label": "Exec — decisions only, 90 min", "kind": "task" }
+            ]},
+            { "label": "Monthly", "children": [
+              { "label": "Department reviews with a pre-read", "kind": "task" },
+              { "label": "Risk & compliance", "kind": "task" }
+            ]},
+            { "label": "Quarterly", "children": [
+              { "label": "Planning — goals and budget", "kind": "task" },
+              { "label": "Is this cadence still right?", "kind": "question" }
+            ]},
+            { "label": "Inputs", "children": [
+              { "label": "One owner per WBR number", "kind": "tool" },
+              { "label": "Written update template", "kind": "tool" },
+              { "label": "Numbers ready a day earlier?", "kind": "question" }
+            ]},
+            { "label": "Measures", "children": [
+              { "label": "Hours in recurring forums", "kind": "idea" },
+              { "label": "Days from issue to decision", "kind": "idea" },
+              { "label": "Do heads still read the updates?", "kind": "question" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Written update template",
+        "blocks": [
+          { "h3": "Department written update" },
+          { "p": "Posted by end of day before the WBR. Five minutes to read, fifteen to write. If it takes longer, it's too long." },
+          { "ol": [
+            "**Numbers** — the three this department owns, against target",
+            "**Decisions needed** — what, from whom, by when",
+            "**Risks** — new, or worse since last week",
+            "**Done** — three lines at most",
+            "**Help wanted** — and from which team"
+          ]},
+          { "h4": "Rules" },
+          { "ul": [
+            "No slides, and no attachment without a one-line summary",
+            "Decisions needed go to the top of the WBR agenda",
+            "If nothing changed, write 'no change' — don't skip the week"
+          ]},
+          { "h4": "Pilot check-in, week 2" },
+          { "p": "Four of six departments posted on time both weeks. Field services and Procurement posted late — both say the Numbers section needs data they don't have until the morning of the WBR." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "What I heard from department heads",
+          "body": "- Field services: the old monthly deck took most of a weekend; the written update takes 20 minutes — but the numbers need to land a day earlier\n- Finance: likes the WBR; wants the ops & finance sync back for month-end week only\n- Sales: worried the handoff meeting's relationships will fade without it — try a monthly lunch?\n- PMO: project updates are shorter, but two project leads have stopped writing them\n\nNone of this is a reason to stop the pilot. The data timing is the one to fix first."
+        }
+      ],
+      "stickies": [
+        { "title": "Pilot measures", "body": "Hours in forums\nDays from issue to decision\nUpdates on time\nHeads' rating, 1–5", "color": "#fef08a" },
+        { "title": "Don't", "body": "Don't add a meeting to fix a meeting.", "color": "#fbcfe8" }
+      ],
+      "fields": [
+        { "label": "Forum hours per month", "type": "text-short", "value": "577 → 271 planned" },
+        { "label": "Median days to decision", "type": "number", "value": 9, "suffix": " (was 12, target 5)" },
+        { "label": "Pilot stage", "type": "single-select", "options": ["Designing", "Piloting", "Reviewing", "Adopted"], "value": "Piloting" }
+      ],
+      "browsers": [
+        { "title": "GitLab Handbook — Directly Responsible Individuals", "url": "https://handbook.gitlab.com/handbook/people-group/directly-responsible-individuals/" },
+        { "title": "NN/g — Inverted pyramid: writing for comprehension", "url": "https://www.nngroup.com/articles/inverted-pyramid/" }
+      ],
+      "images": [
+        {
+          "title": "Exec room, set for the weekly review",
+          "aspect": "landscape",
+          "prompt": "Architectural interior photograph of a compact executive meeting room in a mid-sized Australian company's office, early on a weekday morning before the weekly business review: a long pale oak table with eight empty upholstered chairs, a single sheet of plain white paper lying face-down at each place, a glass carafe of water and tumblers, a large wall screen switched off and dark, floor-to-ceiling windows with soft low sunlight and blurred eucalyptus trees beyond, clean lines, calm and orderly, natural colours, photographed wide from the doorway at eye level"
+        },
+        {
+          "title": "Cadence wall, week 2 of the pilot",
+          "aspect": "square",
+          "prompt": "Documentary photograph of a large whiteboard wall in an operations team's open-plan office in the afternoon: the board is divided into a simple grid by hand-drawn marker lines, with neat rows of blank coloured sticky notes and short magnetic strips in indigo, amber and green arranged in a weekly rhythm, a loose cluster of notes moved off to one side to show meetings being retired, only simple hand-drawn arrows and circles connecting them, a hand in the lower corner pressing one more blank note onto the board, shallow depth of field, soft daylight"
+        }
+      ],
+      "diagram": {
+        "title": "From issue to decision, in a week",
+        "nodes": [
+          { "id": "issue", "label": "Issue raised", "shape": "box", "color": "#64748b" },
+          { "id": "late", "label": "Numbers land WBR morning", "shape": "box", "color": "#dc2626" },
+          { "id": "update", "label": "Written update, day before", "shape": "box", "color": "#2563eb" },
+          { "id": "wbr", "label": "WBR — one set of numbers", "shape": "box", "color": "#6366f1" },
+          { "id": "needs", "label": "Decision needed?", "shape": "circle", "color": "#d97706" },
+          { "id": "exec", "label": "Exec decides, 90 min", "shape": "box", "color": "#16a34a" },
+          { "id": "owner", "label": "Owner acts, reports back", "shape": "box", "color": "#0891b2" }
+        ],
+        "edges": [
+          { "from": "issue", "to": "update" },
+          { "from": "update", "to": "wbr", "label": "4 of 6 on time" },
+          { "from": "late", "to": "wbr", "label": "2 of 6 late" },
+          { "from": "wbr", "to": "needs" },
+          { "from": "needs", "to": "exec", "label": "yes — top of agenda" },
+          { "from": "needs", "to": "owner", "label": "no" },
+          { "from": "exec", "to": "owner", "label": "decision logged" }
+        ]
+      },
+      "calculator": {
+        "title": "Forum hours freed each month (%)",
+        "expression": "(577 - 271) / 577 * 100",
+        "result": 53.0329289428
+      },
+      "form": {
+        "title": "Pilot check-in — week 2",
+        "fields": [
+          { "type": "heading", "label": "Cadence pilot · week 2 of 6" },
+          { "type": "number", "label": "Median days to decision", "value": "9" },
+          { "type": "number", "label": "Keep if median under (days)", "value": "7" },
+          { "type": "number", "label": "Departments posting on time", "value": "4" },
+          { "type": "text", "label": "Posted late", "value": "Field services, Procurement" },
+          { "type": "checkbox", "label": "Numbers ready a day earlier", "value": false },
+          { "type": "date", "label": "Pilot review", "value": "@+28d" },
+          { "type": "select", "label": "Leaning towards", "options": ["Keep", "Adjust", "Revert"], "value": "Adjust" }
+        ]
+      }
+    },
+    {
+      "title": "Work tracking consolidation — five trackers into one",
+      "description": "Moving project and request tracking out of five overlapping tools into one shared tracker, measured week by week: where projects live, hours spent copying status, and status meetings that disappear.",
+      "dueInDays": 28,
+      "brief": "## Work tracking consolidation — five trackers into one\n\n**Scope** 142 active projects and requests across six teams\n**Old homes** PMO's project tool, the operations master spreadsheet, the field services job board, CRM task lists, the old ticketing tool\n**Target** @+28d — every active project in the shared tracker; two old tools cancelled at renewal\n\n### Why\nA project's status lived in up to three places. Project leads spent about 62 hours a week between them copying status from one tool into another, and 21 status meetings a week existed mostly to reconcile the copies.\n\n### How we're moving\n- **Pilot** with PMO and IT, then **wave 1** (operations, finance), then **wave 2** (sales handoffs, field services)\n- New projects start in the shared tracker from day one; existing ones move when they next change stage\n- Each old tracker has an owner and a retirement date\n\n### Where it stands\n112 of 142 projects are in the shared tracker. Copying is down to 17 hours a week and status meetings to 8. Two of the five old trackers are retired; the last 30 projects are in the PMO tool, the field services board and CRM tasks. Moving them by @+28d takes 7.5 a week; last week the old trackers went from 42 to 30.",
+      "callout": {
+        "title": "Measured, not assumed",
+        "body": "Copying hours come from a three-question pulse every Friday (41 of 48 project leads answered last week); status meetings are counted from the shared calendar. Target by @+28d: under 10 hours a week copying, and no project in more than one tool.",
+        "accent": "#10b981",
+        "icon": "📏"
+      },
+      "table": {
+        "title": "Migration scorecard",
+        "columns": [
+          { "id": "week", "label": "Week of", "type": "text-short" },
+          { "id": "old", "label": "Projects in old trackers", "type": "number" },
+          { "id": "shared", "label": "Projects in shared tracker", "type": "number" },
+          { "id": "copying", "label": "Hours/week copying status", "type": "number" },
+          { "id": "meetings", "label": "Status meetings/week", "type": "number" },
+          { "id": "phase", "label": "Phase", "type": "single-select", "options": ["Baseline", "Pilot", "Wave 1", "Wave 2"] }
+        ],
+        "rows": [
+          { "week": "@-49d", "old": 136, "shared": 0, "copying": 62, "meetings": 21, "phase": "Baseline" },
+          { "week": "@-42d", "old": 131, "shared": 7, "copying": 60, "meetings": 21, "phase": "Pilot" },
+          { "week": "@-35d", "old": 122, "shared": 16, "copying": 55, "meetings": 19, "phase": "Pilot" },
+          { "week": "@-28d", "old": 104, "shared": 35, "copying": 46, "meetings": 16, "phase": "Wave 1" },
+          { "week": "@-21d", "old": 86, "shared": 54, "copying": 38, "meetings": 14, "phase": "Wave 1" },
+          { "week": "@-14d", "old": 61, "shared": 80, "copying": 27, "meetings": 11, "phase": "Wave 2" },
+          { "week": "@-7d", "old": 42, "shared": 98, "copying": 21, "meetings": 9, "phase": "Wave 2" },
+          { "week": "@today", "old": 30, "shared": 112, "copying": 17, "meetings": 8, "phase": "Wave 2" }
+        ]
+      },
+      "chart": {
+        "title": "Where projects live, week by week",
+        "type": "area",
+        "x": "week",
+        "series": [
+          { "column": "old", "agg": "sum" },
+          { "column": "shared", "agg": "sum" }
+        ]
+      },
+      "mindmap": {
+        "title": "What's holding the last 30 back",
+        "root": {
+          "label": "The last 30 projects",
+          "children": [
+            { "label": "PMO tool — 14", "children": [
+              { "label": "Long projects finish where they started", "kind": "idea" },
+              { "label": "Read-only from @+21d", "kind": "task" }
+            ]},
+            { "label": "Field services board — 9", "children": [
+              { "label": "Crews don't carry laptops", "kind": "idea" },
+              { "label": "Tablet rollout @+14d", "kind": "task" },
+              { "label": "Photo uploads from site?", "kind": "question" }
+            ]},
+            { "label": "CRM tasks — 7", "children": [
+              { "label": "Sales opens handoffs in the tracker", "kind": "task" },
+              { "label": "Who closes the CRM task?", "kind": "question" }
+            ]},
+            { "label": "Habits", "children": [
+              { "label": "Status still asked for in DMs", "kind": "idea" },
+              { "label": "Link, don't copy — weekly reminder", "kind": "task" }
+            ]},
+            { "label": "Measures", "children": [
+              { "label": "Friday pulse — 3 questions", "kind": "tool" },
+              { "label": "Status meetings counted from calendar", "kind": "tool" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Retirement plan",
+        "blocks": [
+          { "h3": "Five trackers, one owner each" },
+          { "ul": [
+            "**PMO project tool** — 48 → 14 projects. Long-running projects finish there; read-only from @+21d, cancelled at renewal",
+            "**Operations master spreadsheet** — 37 → 0. Archived read-only @-10d",
+            "**Field services job board** — 22 → 9. Crews move after the tablet rollout @+14d",
+            "**CRM task lists** — 18 → 7. Sales now opens delivery handoffs in the shared tracker",
+            "**Old ticketing tool** — 11 → 0. Request intake moved @-20d; the tool is switched off"
+          ]},
+          { "h4": "What done means" },
+          { "p": "Every active project lives in one place, every status question is answered with a link, and nobody copies status from one tool into another." },
+          { "h4": "What we're not doing" },
+          { "ul": [
+            "Not migrating closed projects — each old tool stays read-only for a year, or exports them to the archive before it's cancelled",
+            "Not putting field crews on laptops — tablets first",
+            "Not adding fields 'just in case' — nine fields per project, agreed by all six teams"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Pulse comments — this week",
+          "body": "From the 41 project leads who answered:\n\n- 'Nobody has asked me for a status update in a week' (PMO)\n- 'Still copying field jobs from the board into the tracker by hand' (operations — six people said this)\n- 'Can sales see delivery dates without asking?' — yes, it's in the shared view; tell them\n- 'Too many fields' — three people; we're at nine and holding the line"
+        }
+      ],
+      "stickies": [
+        { "title": "Renewals", "body": "PMO tool renews @+45d. Read-only from @+21d leaves more than three weeks' buffer.", "color": "#fed7aa" },
+        { "title": "Next", "body": "1. Field services after tablets\n2. Cancel the ticketing contract\n3. Cut 3 more status meetings", "color": "#fef08a" }
+      ],
+      "fields": [
+        { "label": "Projects in shared tracker", "type": "number", "value": 112, "suffix": " / 142" },
+        { "label": "Hours/week copying status", "type": "number", "value": 17, "suffix": " (was 62)" },
+        { "label": "Old trackers retired", "type": "number", "value": 2, "suffix": " / 5" }
+      ],
+      "browsers": [
+        { "title": "NSW Government — Guidance for decommissioning systems", "url": "https://www.nsw.gov.au/nsw-government/recordkeeping/secure-and-store/decommissioning-systems-guidance" },
+        { "title": "Wikipedia — Single source of truth", "url": "https://en.wikipedia.org/wiki/Single_source_of_truth" }
+      ],
+      "images": [
+        {
+          "title": "Field crew tablet, ahead of the rollout",
+          "aspect": "portrait",
+          "prompt": "Documentary photograph of a field services technician seen from behind and slightly over the shoulder, standing beside the open sliding door of a plain unmarked white service van on a quiet Australian suburban street in early morning light: they hold a rugged tablet in a dark rubber case, its screen showing only soft blurred blocks of colour, a plain hi-vis vest with no markings, a canvas tool bag at their feet, gum trees and a brick house softly out of focus behind, natural colours, candid and unposed"
+        },
+        {
+          "title": "Five piles of work, gathered into one",
+          "aspect": "square",
+          "prompt": "Overhead flat-lay editorial still life on a pale timber desk by a window: five small loose stacks of blank index cards in different colours — white, butter yellow, pale blue, sage green and blush pink — fanned out around a single plain grey cardboard archive tray, a hand at the edge sliding the last stack into the tray where all the colours sit together in one tidy row, a few silver paper clips, a ceramic cup of black coffee, soft natural light with gentle shadows, minimal and calm"
+        }
+      ],
+      "diagram": {
+        "title": "Which tracker a project lives in",
+        "nodes": [
+          { "id": "start", "label": "Active project", "shape": "box", "color": "#64748b" },
+          { "id": "isnew", "label": "New project?", "shape": "circle", "color": "#d97706" },
+          { "id": "stage", "label": "Changes stage?", "shape": "circle", "color": "#d97706" },
+          { "id": "old", "label": "Stays in old tool for now", "shape": "box", "color": "#94a3b8" },
+          { "id": "readonly", "label": "Old tool goes read-only", "shape": "box", "color": "#dc2626" },
+          { "id": "shared", "label": "Shared tracker", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "start", "to": "isnew" },
+          { "from": "isnew", "to": "shared", "label": "yes — from day one" },
+          { "from": "isnew", "to": "stage", "label": "no" },
+          { "from": "stage", "to": "shared", "label": "yes — moves then" },
+          { "from": "stage", "to": "old", "label": "no" },
+          { "from": "old", "to": "readonly" },
+          { "from": "readonly", "to": "shared", "label": "moves before cut-off" }
+        ]
+      },
+      "calculator": {
+        "title": "Projects to move each week to hit target",
+        "expression": "(142 - 112) / (28 / 7)",
+        "result": 7.5
+      },
+      "form": {
+        "title": "Tracker retirement — PMO project tool",
+        "fields": [
+          { "type": "heading", "label": "PMO project tool · 48 → 14 projects" },
+          { "type": "text", "label": "Tracker owner", "value": "Shona" },
+          { "type": "number", "label": "Active projects left", "value": "14" },
+          { "type": "date", "label": "Read-only from", "value": "@+21d" },
+          { "type": "date", "label": "Renewal date", "value": "@+45d" },
+          { "type": "select", "label": "At renewal", "options": ["Renew", "Cancel"], "value": "Cancel" },
+          { "type": "checkbox", "label": "New projects blocked in old tool", "value": true },
+          { "type": "checkbox", "label": "Closed projects exported", "value": false }
+        ]
+      }
+    }
+  ]
+}

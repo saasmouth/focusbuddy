@@ -1,0 +1,12 @@
+{
+  "persona": "Accountants and finance professionals",
+  "desk": "13-week cash forecast — Fernhill Joinery over its limit in week 7",
+  "title": "Getting ready for the meeting with Tama",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay photograph on a worn timber workbench in a joinery workshop: a plain tablet lying flat whose screen shows only a single soft-focus curved line dipping and recovering on a pale background, a flat carpenter's pencil, a fanned stack of small oak veneer and laminate sample squares, a takeaway coffee in a plain keep cup, a pair of reading glasses, a few curls of wood shaving, soft daylight raking in from one side, calm practical mood, muted natural tones",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 62,
+  "bytes": 298763,
+  "generatedAt": "2026-10-08T07:15:23.574Z"
+}

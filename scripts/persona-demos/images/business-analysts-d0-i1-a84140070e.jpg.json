@@ -1,0 +1,12 @@
+{
+  "persona": "Business analysts",
+  "desk": "Claims intake — why 31% of claims need rework",
+  "title": "Rework reasons, grouped on the wall",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Editorial photograph of a business analyst's working wall in a bright open-plan Australian office: a large whiteboard covered in blank square sticky notes in yellow, pink and pale blue, sorted into seven vertical columns that step down in height from left to right like a bar chart, the tallest column on the left, hand-drawn marker circles and arrows linking groups with no writing anywhere, an anonymous hand in the foreground placing one more blank note, a laptop and coffee cup softly out of focus on a desk below, soft daylight from tall windows, shallow depth of field",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 189730,
+  "generatedAt": "2026-10-08T07:15:57.444Z"
+}

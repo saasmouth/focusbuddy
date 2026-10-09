@@ -1,0 +1,366 @@
+{
+  "number": 25,
+  "slug": "it-admins-workspace-owners",
+  "persona": "IT administrators and workspace owners",
+  "category": "Team and buying personas",
+  "room": {
+    "title": "IT Admins and Workspace Owners",
+    "description": "How an IT admin rolls a new workspace out department by department and keeps licences and leavers tidy — the wave plan, access groups and policy, the quarterly access review and the offboarding gaps, in one place the service desk works from too."
+  },
+  "desks": [
+    {
+      "title": "New workspace rollout — waves, groups and access by department",
+      "description": "Rolling a new collaboration workspace out to 262 staff in three waves: directory groups per department, champions, guest rules and activation by team, with the service desk working from the same plan.",
+      "dueInDays": 14,
+      "brief": "## New workspace rollout — waves, groups and access\n\n**Organisation** Ridgeway · 262 staff across 10 departments, plus contract drafters\n**Sign-in** through the SSO provider with multi-factor authentication, membership synced from directory groups\n**Wave 3** starts @+14d\n\n### Plan\n- **Wave 1** — IT, Operations, Finance, HR & People. Live since @-19d, 52 of 57 activated\n- **Wave 2** — Structural, Civil, Project management office. Started @-5d, 70 of 143 activated\n- **Wave 3** — Drafting & BIM, Business development, Leadership. Scheduled; Drafting is blocked on a group clean-up\n\n### Access model\nMembership comes from directory groups, never from manual invites. Each department has a champion who answers 'how do I' questions before they become tickets. Contractors and clients come in as guests with a staff sponsor and an expiry date.\n\n### Who works from this desk\nMateo on the service desk and the ten department champions. When someone asks 'is my team live yet?', the answer is a row here rather than a ticket.\n\n### Where it stands\n122 of 262 staff activated. Civil engineering is the slowest to activate, and Drafting & BIM can't start until its directory group is split.",
+      "callout": {
+        "title": "Blocked: Drafting & BIM group",
+        "body": "The directory group for Drafting & BIM mixes 34 staff with 11 contract drafters, and contractors must come in as guests, not members. Ngozi is splitting the group. Wave 3 starts @+14d either way; if the split isn't done, Drafting moves to a wave 3b.",
+        "accent": "#ef4444",
+        "icon": "🧩"
+      },
+      "table": {
+        "title": "Rollout by department",
+        "columns": [
+          { "id": "dept", "label": "Department", "type": "text-short" },
+          { "id": "wave", "label": "Wave", "type": "single-select", "options": ["Wave 1", "Wave 2", "Wave 3"] },
+          { "id": "champion", "label": "Champion", "type": "text-short" },
+          { "id": "group", "label": "Directory group mapped", "type": "checkbox" },
+          { "id": "seats", "label": "Seats", "type": "number" },
+          { "id": "activated", "label": "Activated", "type": "number" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Live", "Rolling out", "Scheduled", "Blocked"] }
+        ],
+        "rows": [
+          { "dept": "IT", "wave": "Wave 1", "champion": "Ngozi", "group": true, "seats": 8, "activated": 8, "status": "Live" },
+          { "dept": "Operations", "wave": "Wave 1", "champion": "Hamid", "group": true, "seats": 22, "activated": 20, "status": "Live" },
+          { "dept": "Finance", "wave": "Wave 1", "champion": "Clara", "group": true, "seats": 18, "activated": 15, "status": "Live" },
+          { "dept": "HR & People", "wave": "Wave 1", "champion": "Bongani", "group": true, "seats": 9, "activated": 9, "status": "Live" },
+          { "dept": "Structural engineering", "wave": "Wave 2", "champion": "Lucía", "group": true, "seats": 64, "activated": 31, "status": "Rolling out" },
+          { "dept": "Civil engineering", "wave": "Wave 2", "champion": "Arjun", "group": true, "seats": 58, "activated": 22, "status": "Rolling out" },
+          { "dept": "Project management office", "wave": "Wave 2", "champion": "Freya", "group": true, "seats": 21, "activated": 17, "status": "Rolling out" },
+          { "dept": "Drafting & BIM", "wave": "Wave 3", "champion": "Kenji", "group": false, "seats": 34, "activated": 0, "status": "Blocked" },
+          { "dept": "Business development", "wave": "Wave 3", "champion": "Zara", "group": true, "seats": 16, "activated": 0, "status": "Scheduled" },
+          { "dept": "Leadership", "wave": "Wave 3", "champion": "Ruth", "group": false, "seats": 12, "activated": 0, "status": "Scheduled" }
+        ]
+      },
+      "chart": {
+        "title": "Seats vs activated by department",
+        "type": "bar",
+        "x": "dept",
+        "series": [
+          { "column": "seats", "agg": "sum" },
+          { "column": "activated", "agg": "sum" }
+        ]
+      },
+      "mindmap": {
+        "title": "Access model",
+        "root": {
+          "label": "Who gets what",
+          "children": [
+            { "label": "Owners (2)", "children": [
+              { "label": "IT lead plus one backup", "kind": "idea" },
+              { "label": "Break-glass account in the vault", "kind": "tool" }
+            ]},
+            { "label": "Admins (3, all in IT)", "children": [
+              { "label": "Manage groups, not people", "kind": "task" },
+              { "label": "Reviewed in the quarterly access review", "kind": "task" }
+            ]},
+            { "label": "Members", "children": [
+              { "label": "From directory groups only", "kind": "tool" },
+              { "label": "Department = default team space", "kind": "idea" },
+              { "label": "People in two departments?", "kind": "question" }
+            ]},
+            { "label": "Guests", "children": [
+              { "label": "Staff sponsor + 90-day expiry", "kind": "task" },
+              { "label": "Invited to spaces, never everything", "kind": "task" },
+              { "label": "Can guests see other guests?", "kind": "question" }
+            ]},
+            { "label": "Leavers", "children": [
+              { "label": "Directory disabled → access ends", "kind": "tool" },
+              { "label": "Who inherits a leaver's content?", "kind": "question" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Access policy v1",
+        "blocks": [
+          { "h3": "Workspace access policy — v1" },
+          { "p": "Agreed with the department heads @-24d. Applies from wave 1; reviewed once wave 3 is live." },
+          { "h4": "Members" },
+          { "ul": [
+            "Access comes from the department's directory group — no manual invites",
+            "Moving department moves access automatically at the next sync",
+            "Leavers lose access when their directory account is disabled"
+          ]},
+          { "h4": "Guests" },
+          { "ul": [
+            "Every guest has a named staff sponsor",
+            "Guest access expires after 90 days unless the sponsor renews it",
+            "Guests are invited to specific spaces, never the whole workspace",
+            "Guests sign in with multi-factor authentication too — no exceptions for clients"
+          ]},
+          { "h4": "Admins and owners" },
+          { "p": "Two owners and three admins, all in IT. Admin rights are checked every quarter in the access review — the other desk in this room." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Service desk — wave 2 so far",
+          "body": "Top tickets since wave 2 started (from Mateo):\n\n- 14 × 'I can't see my project space' — group sync takes up to 40 minutes; now in the welcome email\n- 6 × 'can I invite the client?' — guest policy; champions to answer first\n- 3 × duplicate accounts from personal sign-ups before the rollout — merge by hand\n\nCivil is slowest (22 of 58). Arjun thinks site staff never saw the email — try five minutes in the site toolbox talks."
+        }
+      ],
+      "stickies": [
+        { "title": "Before wave 3", "body": "1. Split the Drafting group\n2. Map the Leadership group\n3. Champion briefing @+10d\n4. Welcome email v2", "color": "#fef08a" },
+        { "title": "Remember", "body": "Personal sign-ups from before the rollout: merge, don't delete.", "color": "#bae6fd" }
+      ],
+      "fields": [
+        { "label": "Staff activated", "type": "number", "value": 122, "suffix": " / 262" },
+        { "label": "Current wave", "type": "single-select", "options": ["Wave 1", "Wave 2", "Wave 3", "Complete"], "value": "Wave 2" },
+        { "label": "Open access requests", "type": "number", "value": 5 }
+      ],
+      "browsers": [
+        {
+          "title": "Wikipedia — System for Cross-domain Identity Management",
+          "url": "https://en.wikipedia.org/wiki/System_for_Cross-domain_Identity_Management"
+        },
+        {
+          "title": "Wikipedia — Multi-factor authentication",
+          "url": "https://en.wikipedia.org/wiki/Multi-factor_authentication"
+        }
+      ],
+      "images": [
+        {
+          "title": "Toolbox talk, civil site compound",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of an early-morning toolbox talk at a civil engineering site compound in regional New South Wales: six site workers in plain unmarked orange high-visibility vests and white hard hats stand in a loose semicircle around a fold-out table, seen from behind and at a distance, one holding a tablet whose screen is only a soft glow. Gravel yard, portable site sheds and a parked excavator out of focus behind them, low golden sun, long shadows, a little dust in the air, eucalypts on the horizon, natural colours, 35mm lens feel"
+        },
+        {
+          "title": "Champion drop-in, engineering floor",
+          "aspect": "landscape",
+          "prompt": "Architectural interior photograph of the open-plan floor of a mid-sized engineering consultancy on a weekday afternoon: long timber desks with twin monitors showing soft out-of-focus blue linework, rolled drawings held with elastic bands, a white hard hat resting on a low cabinet, potted plants. In the middle distance three staff gather around one laptop at a standing table, seen from behind, while a colleague leans in to point at the screen. Tall windows, warm diffused daylight, calm and practical mood, shallow depth of field"
+        }
+      ],
+      "diagram": {
+        "title": "Drafting & BIM: wave 3 or wave 3b",
+        "nodes": [
+          { "id": "group", "label": "Drafting & BIM group", "shape": "box", "color": "#64748b" },
+          { "id": "split", "label": "Group split in time?", "shape": "circle", "color": "#d97706" },
+          { "id": "staff", "label": "34 staff → members", "shape": "box", "color": "#2563eb" },
+          { "id": "drafters", "label": "11 drafters → guests", "shape": "box", "color": "#7c3aed" },
+          { "id": "wave3b", "label": "Drafting moves to wave 3b", "shape": "box", "color": "#dc2626" },
+          { "id": "sponsor", "label": "Sponsor + 90-day expiry", "shape": "box", "color": "#0891b2" },
+          { "id": "wave3", "label": "Wave 3 go-live", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "group", "to": "split" },
+          { "from": "split", "to": "staff", "label": "yes" },
+          { "from": "split", "to": "drafters", "label": "yes" },
+          { "from": "split", "to": "wave3b", "label": "no" },
+          { "from": "drafters", "to": "sponsor" },
+          { "from": "staff", "to": "wave3" },
+          { "from": "sponsor", "to": "wave3" }
+        ]
+      },
+      "calculator": {
+        "title": "Wave 2 activation so far (%)",
+        "expression": "(31 + 22 + 17) / (64 + 58 + 21) * 100",
+        "result": 48.951048951
+      },
+      "form": {
+        "title": "Guest access request",
+        "fields": [
+          { "type": "heading", "label": "Guest request · client engineer" },
+          { "type": "text", "label": "Guest", "value": "Declan" },
+          { "type": "text", "label": "Organisation", "value": "Marrowbank Water (client)" },
+          { "type": "text", "label": "Staff sponsor", "value": "Arjun" },
+          { "type": "select", "label": "Space", "options": ["Civil engineering", "Structural engineering", "Project management office"], "value": "Civil engineering" },
+          { "type": "date", "label": "Access expires", "value": "@+90d" },
+          { "type": "checkbox", "label": "Named spaces only", "value": true },
+          { "type": "checkbox", "label": "Sponsor confirmed", "value": true },
+          { "type": "checkbox", "label": "Approved by IT", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "Quarterly access review — licences, admins and leavers",
+      "description": "Twelve apps checked against the directory: paid seats against active users, who holds admin rights, and leavers who still have access, with the idle spend this review should recover.",
+      "dueInDays": 5,
+      "brief": "## Quarterly access review — licences, admins and leavers\n\n**Scope** 12 apps · 262 staff · 14 leavers this quarter\n**Sources** directory export, each app's user list, finance's licence register\n**Sign-off** app owners by @+5d · summary to the operations director @+7d\n\n### What the review checks\n1. **Seats** — paid seats against people active in the last 30 days\n2. **Admins** — every admin account has a written reason to exist\n3. **Leavers** — nobody who has left still has a working account\n\n### What we found\n- **$4,189 a month** in idle seats across the 12 apps; $4,011 of it is recoverable this quarter (about $48k a year)\n- **7 leaver accounts** still active — every one in an app outside the SSO provider\n- **31 admin accounts**; 9 have no current reason and are being removed\n\n### How sign-off works\nEach app owner confirms their row's action on this desk instead of replying to a spreadsheet passed around by email. Finance sees the recoverable spend as each row is agreed, not at quarter end.",
+      "callout": {
+        "title": "7 leaver accounts — all outside SSO",
+        "body": "Every leaver account still active is in an app that isn't behind the SSO provider: CRM, CAD suite, design tool, survey tool and file transfer. Disable all seven @today, then move the CRM and file transfer behind SSO before next quarter's review.",
+        "accent": "#ef4444",
+        "icon": "🚪"
+      },
+      "table": {
+        "title": "Apps under review",
+        "columns": [
+          { "id": "app", "label": "App", "type": "text-short" },
+          { "id": "sso", "label": "Behind SSO", "type": "checkbox" },
+          { "id": "paid", "label": "Paid seats", "type": "number" },
+          { "id": "active", "label": "Active (30 days)", "type": "number" },
+          { "id": "price", "label": "Per seat / month", "type": "number", "prefix": "$" },
+          { "id": "idle", "label": "Idle spend / month", "type": "number", "prefix": "$" },
+          { "id": "leavers", "label": "Leaver accounts", "type": "number" },
+          { "id": "action", "label": "Action", "type": "single-select", "options": ["Keep", "Reclaim seats", "Consolidate", "Cancel"] }
+        ],
+        "rows": [
+          { "app": "Email and office suite", "sso": true, "paid": 270, "active": 258, "price": 22, "idle": 264, "leavers": 0, "action": "Reclaim seats" },
+          { "app": "Chat tool", "sso": true, "paid": 262, "active": 241, "price": 9, "idle": 189, "leavers": 0, "action": "Reclaim seats" },
+          { "app": "Video calls", "sso": true, "paid": 80, "active": 52, "price": 15, "idle": 420, "leavers": 0, "action": "Reclaim seats" },
+          { "app": "CRM", "sso": false, "paid": 30, "active": 19, "price": 75, "idle": 825, "leavers": 2, "action": "Reclaim seats" },
+          { "app": "CAD suite", "sso": false, "paid": 48, "active": 41, "price": 210, "idle": 1470, "leavers": 1, "action": "Reclaim seats" },
+          { "app": "Design tool", "sso": false, "paid": 12, "active": 5, "price": 45, "idle": 315, "leavers": 1, "action": "Consolidate" },
+          { "app": "Diagram tool", "sso": false, "paid": 25, "active": 9, "price": 10, "idle": 160, "leavers": 0, "action": "Cancel" },
+          { "app": "E-signature", "sso": true, "paid": 15, "active": 13, "price": 30, "idle": 60, "leavers": 0, "action": "Keep" },
+          { "app": "Survey tool", "sso": false, "paid": 10, "active": 2, "price": 25, "idle": 200, "leavers": 1, "action": "Cancel" },
+          { "app": "Password manager", "sso": true, "paid": 262, "active": 250, "price": 4, "idle": 48, "leavers": 0, "action": "Keep" },
+          { "app": "Project accounting", "sso": true, "paid": 40, "active": 38, "price": 35, "idle": 70, "leavers": 0, "action": "Keep" },
+          { "app": "File transfer service", "sso": false, "paid": 20, "active": 6, "price": 12, "idle": 168, "leavers": 2, "action": "Consolidate" }
+        ]
+      },
+      "chart": {
+        "title": "Idle licence spend per month",
+        "type": "kpi",
+        "x": null,
+        "series": [{ "column": "idle", "agg": "sum" }]
+      },
+      "mindmap": {
+        "title": "Where leaver access hides",
+        "root": {
+          "label": "Where access survives offboarding",
+          "children": [
+            { "label": "Apps outside SSO", "children": [
+              { "label": "Local logins in CRM and CAD", "kind": "idea" },
+              { "label": "Move CRM behind SSO", "kind": "task" }
+            ]},
+            { "label": "Shared accounts", "children": [
+              { "label": "Social media and supplier portals", "kind": "idea" },
+              { "label": "Rotate passwords on every leaver", "kind": "task" }
+            ]},
+            { "label": "Tokens and integrations", "children": [
+              { "label": "API tokens owned by a person", "kind": "idea" },
+              { "label": "Who owns each integration?", "kind": "question" }
+            ]},
+            { "label": "Devices", "children": [
+              { "label": "Laptop wipe through the MDM", "kind": "tool" },
+              { "label": "Personal phones with work email?", "kind": "question" }
+            ]},
+            { "label": "Mail and calendar", "children": [
+              { "label": "Forwarding rules", "kind": "idea" },
+              { "label": "Calendar delegates", "kind": "idea" }
+            ]},
+            { "label": "Content", "children": [
+              { "label": "Transfer files to the manager", "kind": "task" },
+              { "label": "30-day hold, then delete", "kind": "task" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Offboarding checklist v3",
+        "blocks": [
+          { "h3": "Offboarding checklist — v3" },
+          { "p": "Runs from the HR leaver ticket. v3 adds the apps outside SSO, because this review found every remaining leaver account there." },
+          { "h4": "On the day they leave" },
+          { "ol": [
+            "Disable the directory account — this ends access to every app behind the SSO provider",
+            "Wipe or recover devices through the MDM",
+            "Remove mail forwarding and calendar delegates",
+            "Rotate any shared account password they knew"
+          ]},
+          { "h4": "Apps outside SSO — by hand until migrated" },
+          { "ul": ["CRM", "CAD suite", "Design tool", "Survey tool", "File transfer service"] },
+          { "h4": "Within 30 days" },
+          { "ul": [
+            "Transfer file ownership to their manager",
+            "Reassign integrations and API tokens",
+            "Reclaim the licence seat rather than leaving it idle"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Admin rights — what I'm cutting",
+          "body": "31 admin accounts across the 12 apps. Removing 9:\n\n- 4 in the CRM, left over from a sales ops project that ended\n- 2 in the CAD suite, held by people who moved into project roles\n- 2 in the chat tool, granted 'temporarily' for last year's migration\n- 1 in the survey tool, held by a leaver (also counted in the 7)\n\nKeeping 22, each with its reason written in the licence register."
+        },
+        {
+          "title": "Renewals inside the window",
+          "body": "- CAD suite renews @+40d — reclaim the 7 idle seats before then or pay $17,640 for them over another year\n- Diagram tool is month to month — cancel now\n- Survey tool: 2 active users. Check whether the office suite's forms cover them before cancelling"
+        }
+      ],
+      "stickies": [
+        { "title": "Today", "body": "Disable the 7 leaver accounts.\nChase 3 app owners for sign-off.", "color": "#fbcfe8" },
+        { "title": "Next quarter", "body": "CRM and file transfer behind SSO.", "color": "#bae6fd" }
+      ],
+      "fields": [
+        { "label": "Owner sign-offs", "type": "number", "value": 9, "suffix": " / 12" },
+        { "label": "Leaver accounts found", "type": "number", "value": 7 },
+        { "label": "Admin accounts", "type": "text-short", "value": "31, cutting to 22" }
+      ],
+      "browsers": [
+        {
+          "title": "Wikipedia — Principle of least privilege",
+          "url": "https://en.wikipedia.org/wiki/Principle_of_least_privilege"
+        },
+        {
+          "title": "NSW Cyber Security Policy — Detailed requirements",
+          "url": "https://digital.nsw.gov.au/delivery/cyber-security/policies/detailed-requirements"
+        }
+      ],
+      "images": [
+        {
+          "title": "Returned leaver kit",
+          "aspect": "square",
+          "prompt": "Overhead flat-lay editorial still life on a pale ash workbench: a closed matte charcoal laptop with a plain unmarked lid and its charger neatly coiled, a small black hardware security key, a blank white access card on a plain navy lanyard, a smartphone lying face down in a plain grey case, and an empty padded courier envelope, all arranged in a tidy grid with even spacing. Soft north-facing daylight, gentle shadows, muted neutral palette with one navy accent, calm and orderly mood"
+        },
+        {
+          "title": "IT workroom, devices awaiting wipe",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a small IT workroom in an Australian office late on a weekday afternoon: a technician seen from behind and slightly to the side at a long bench, sleeves rolled up, working on an open laptop whose screen is an abstract blurred glow. Beside them a stack of returned laptops, each marked only with a small coloured dot sticker, chargers sorted into a shallow tray, and a metal shelving unit of plain cardboard boxes in soft focus. Bare painted wall beneath the window. Warm low sun through venetian blinds casting stripes across the bench, quiet methodical mood"
+        }
+      ],
+      "diagram": {
+        "title": "Leaver path — where access survives",
+        "nodes": [
+          { "id": "ticket", "label": "HR leaver ticket", "shape": "box", "color": "#64748b" },
+          { "id": "disable", "label": "Disable directory account", "shape": "box", "color": "#2563eb" },
+          { "id": "sso", "label": "Behind SSO?", "shape": "circle", "color": "#d97706" },
+          { "id": "ends", "label": "Access ends automatically", "shape": "box", "color": "#16a34a" },
+          { "id": "manual", "label": "Disable by hand — 5 apps", "shape": "box", "color": "#dc2626" },
+          { "id": "seat", "label": "Reclaim the licence seat", "shape": "box", "color": "#0891b2" },
+          { "id": "hold", "label": "30-day hold, then delete", "shape": "box", "color": "#7c3aed" }
+        ],
+        "edges": [
+          { "from": "ticket", "to": "disable" },
+          { "from": "disable", "to": "sso" },
+          { "from": "sso", "to": "ends", "label": "yes" },
+          { "from": "sso", "to": "manual", "label": "no — 7 found here" },
+          { "from": "ends", "to": "seat" },
+          { "from": "manual", "to": "seat" },
+          { "from": "seat", "to": "hold" }
+        ]
+      },
+      "calculator": {
+        "title": "CAD suite: 7 idle seats for another year",
+        "expression": "7 * 210 * 12",
+        "result": 17640
+      },
+      "form": {
+        "title": "App owner sign-off",
+        "fields": [
+          { "type": "heading", "label": "CAD suite · quarterly access review" },
+          { "type": "text", "label": "App owner", "value": "Kenji" },
+          { "type": "select", "label": "Action", "options": ["Keep", "Reclaim seats", "Consolidate", "Cancel"], "value": "Reclaim seats" },
+          { "type": "number", "label": "Seats to reclaim", "value": "7" },
+          { "type": "number", "label": "Admin accounts removed", "value": "2" },
+          { "type": "number", "label": "Leaver accounts", "value": "1" },
+          { "type": "date", "label": "Renewal", "value": "@+40d" },
+          { "type": "checkbox", "label": "Leaver account disabled", "value": false },
+          { "type": "checkbox", "label": "Owner signed off", "value": true }
+        ]
+      }
+    }
+  ]
+}

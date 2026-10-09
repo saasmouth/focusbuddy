@@ -1,0 +1,12 @@
+{
+  "persona": "Business analysts",
+  "desk": "Claims lodgement portal — requirements sign-off",
+  "title": "Sign-off room, before the meeting",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Architectural interior photograph of a small glass-walled meeting room in an Australian corporate office early in the morning, no people: a pale timber table set for six, at each place a closed plain grey card folder with a completely blank cover and a pencil beside it, a closed laptop, water glasses and a carafe, a wall-mounted screen switched off and dark, low winter sun raking across the table through venetian blinds, generic office towers softly out of focus beyond the window, calm and orderly mood, wide-angle framing, natural colours",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 281698,
+  "generatedAt": "2026-10-08T07:17:03.729Z"
+}

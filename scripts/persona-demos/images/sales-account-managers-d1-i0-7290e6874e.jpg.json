@@ -1,0 +1,12 @@
+{
+  "persona": "Sales and account managers",
+  "desk": "Renewals, next 90 days — 3 enterprise accounts at risk",
+  "title": "Clinic corridor at shift change",
+  "aspect": "portrait",
+  "model": "gpt-image-2",
+  "prompt": "Quiet architectural documentary photograph of a modern community health clinic corridor in regional Australia at early-morning shift change: two staff in navy scrubs walking away from the camera far down the corridor, pale timber wall panels and a soft grey vinyl floor, an empty reception counter in the foreground with a clean, completely bare pale stone top, daylight spilling in from a courtyard window with native plants, bare walls with no signage, calm and orderly, muted clinical palette",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 193736,
+  "generatedAt": "2026-10-08T07:37:00.989Z"
+}

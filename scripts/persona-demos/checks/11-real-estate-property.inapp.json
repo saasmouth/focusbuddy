@@ -1,0 +1,30 @@
+{
+  "https://www.nsw.gov.au/housing-and-construction/property-professionals/working-as-an-agent/auctions": {
+    "ok": true,
+    "title": "Auctions – responsibilities for property agents | NSW Government",
+    "finalUrl": "https://www.nsw.gov.au/housing-and-construction/property-professionals/working-as-an-agent/auctions",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://www.nsw.gov.au/housing-and-construction/property-professionals/working-as-an-agent/underquoting-guidance": {
+    "ok": true,
+    "title": "Underquoting guidance for property professionals | NSW Government",
+    "finalUrl": "https://www.nsw.gov.au/housing-and-construction/property-professionals/working-as-an-agent/underquoting-guidance",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://www.nsw.gov.au/housing-and-construction/rules/urgent-repairs-residential-rental-properties": {
+    "ok": true,
+    "title": "Urgent repairs in residential rental properties | NSW Government",
+    "finalUrl": "https://www.nsw.gov.au/housing-and-construction/rules/urgent-repairs-residential-rental-properties",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  },
+  "https://www.nsw.gov.au/housing-and-construction/rules/minimum-notice-periods-for-access-to-rental-property": {
+    "ok": true,
+    "title": "Minimum notice periods for access to rental property | NSW Government",
+    "finalUrl": "https://www.nsw.gov.au/housing-and-construction/rules/minimum-notice-periods-for-access-to-rental-property",
+    "where": "desks[1].browsers[1]",
+    "pass": true
+  }
+}

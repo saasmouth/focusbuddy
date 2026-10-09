@@ -1,0 +1,12 @@
+{
+  "persona": "Software developers",
+  "desk": "Payments API v2 — release week",
+  "title": "Release week, day 1",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Candid documentary photograph of a small software team's release-week workspace in a bright Australian office: two engineers seen from behind at standing desks, large monitors showing abstract line graphs and dashboards rendered as soft out-of-focus shapes, sticky notes on a glass wall, coffee cups, late-morning daylight, shallow depth of field, natural colours",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 188714,
+  "generatedAt": "2026-10-08T06:55:58.398Z"
+}

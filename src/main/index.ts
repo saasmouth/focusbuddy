@@ -396,7 +396,7 @@ function createCommandCenter(): BrowserWindow {
     minWidth: 1100,
     minHeight: 680,
     title: 'PlexiDesk',
-    backgroundColor: '#fbf7ee',
+    backgroundColor: '#f1f2f4', // matches --fb-canvas-bg (light) so launch never flashes a different colour
     show: false,
     autoHideMenuBar: true,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',

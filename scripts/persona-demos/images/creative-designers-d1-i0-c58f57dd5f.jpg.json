@@ -1,0 +1,12 @@
+{
+  "persona": "Graphic, product and creative designers",
+  "desk": "Sign-up flow redesign — usability round 2",
+  "title": "Moderated session, participant's hands",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a moderated mobile usability session in a small, bright research room in an Australian office: seen over the participant's shoulder, only their hands are visible holding a smartphone whose screen is a soft out-of-focus blur of pale colour blocks with nothing readable; across a timber table the moderator's hands rest beside a blank open notebook and a pen, a glass of water nearby, a closed laptop at the edge of frame. Natural late-morning window light, shallow depth of field, calm and attentive mood.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 135316,
+  "generatedAt": "2026-10-08T07:10:49.057Z"
+}

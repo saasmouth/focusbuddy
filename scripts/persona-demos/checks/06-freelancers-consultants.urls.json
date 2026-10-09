@@ -1,0 +1,38 @@
+{
+  "https://business.gov.au/finance/financial-trouble/what-to-do-when-you-havent-been-paid": {
+    "ok": true,
+    "status": 200,
+    "title": "What to do when you haven't been paid | business.gov.au",
+    "bytes": 368419,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "business.gov.au — When you haven't been paid",
+    "checkedAt": "2026-10-08T08:54:59.554Z"
+  },
+  "https://business.gov.au/finance/payments-and-invoicing/how-to-invoice": {
+    "ok": true,
+    "status": 200,
+    "title": "How to invoice | business.gov.au",
+    "bytes": 364879,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "business.gov.au — How to invoice",
+    "checkedAt": "2026-10-08T08:55:00.631Z"
+  },
+  "https://digital.nsw.gov.au/delivery/accessibility-and-inclusivity-toolkit/communication/plain-and-inclusive-language": {
+    "ok": true,
+    "status": 200,
+    "title": "Plain and inclusive language | Digital NSW",
+    "bytes": 113281,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "Digital NSW — Plain and inclusive language",
+    "checkedAt": "2026-10-08T08:55:00.631Z"
+  },
+  "https://webaim.org/techniques/writing/": {
+    "ok": true,
+    "status": 200,
+    "title": "WebAIM: Writing Clearly and Simply",
+    "bytes": 30602,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "WebAIM — Writing Clearly and Simply",
+    "checkedAt": "2026-10-08T08:55:00.632Z"
+  }
+}

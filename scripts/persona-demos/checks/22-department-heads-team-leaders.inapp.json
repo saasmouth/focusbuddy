@@ -1,0 +1,30 @@
+{
+  "https://en.wikipedia.org/wiki/Erlang_(unit)": {
+    "ok": true,
+    "title": "Erlang (unit) - Wikipedia",
+    "finalUrl": "https://en.wikipedia.org/wiki/Erlang_(unit)",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://awards.fairwork.gov.au/MA000002.html": {
+    "ok": true,
+    "title": "Clerks—Private Sector Award 2020 [MA000002] - Fair Work Ombudsman",
+    "finalUrl": "https://awards.fairwork.gov.au/MA000002.html",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://en.wikipedia.org/wiki/Objectives_and_key_results": {
+    "ok": true,
+    "title": "Objectives and key results - Wikipedia",
+    "finalUrl": "https://en.wikipedia.org/wiki/Objectives_and_key_results",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  },
+  "https://handbook.gitlab.com/handbook/leadership/1-1/": {
+    "ok": true,
+    "title": "1-1 | The GitLab Handbook",
+    "finalUrl": "https://handbook.gitlab.com/handbook/leadership/1-1/",
+    "where": "desks[1].browsers[1]",
+    "pass": true
+  }
+}

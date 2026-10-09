@@ -1,0 +1,12 @@
+{
+  "persona": "Freelancers and consultants",
+  "desk": "Next quarter's pipeline — and the proposal that fills it",
+  "title": "Planning wall, three months out",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a home-studio planning wall: completely blank pastel sticky notes in yellow, pink and pale blue arranged in three loose vertical columns on a white-painted brick wall, a few notes curling slightly at the corners, a short strip of plain masking tape, the warm glow of a desk lamp in the lower corner, an out-of-focus potted fiddle-leaf fig in the foreground, soft overcast daylight from the side, shallow depth of field, calm working atmosphere",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 162464,
+  "generatedAt": "2026-10-08T07:07:51.360Z"
+}

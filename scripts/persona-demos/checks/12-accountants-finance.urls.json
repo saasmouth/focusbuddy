@@ -1,0 +1,38 @@
+{
+  "https://business.gov.au/finance/superannuation": {
+    "ok": true,
+    "status": 200,
+    "title": "Superannuation | business.gov.au",
+    "bytes": 372825,
+    "where": "desks[0].browsers[0]",
+    "widgetTitle": "business.gov.au — Superannuation",
+    "checkedAt": "2026-10-08T08:55:05.770Z"
+  },
+  "https://www.rba.gov.au/statistics/frequency/exchange-rates.html": {
+    "ok": true,
+    "status": 200,
+    "title": "Exchange Rates | RBA",
+    "bytes": 32215,
+    "where": "desks[0].browsers[1]",
+    "widgetTitle": "RBA — Exchange rates",
+    "checkedAt": "2026-10-08T08:55:06.110Z"
+  },
+  "https://business.gov.au/finance/financial-trouble/manage-being-in-debt": {
+    "ok": true,
+    "status": 200,
+    "title": "Manage being in debt | business.gov.au",
+    "bytes": 358230,
+    "where": "desks[1].browsers[0]",
+    "widgetTitle": "business.gov.au — Manage being in debt",
+    "checkedAt": "2026-10-08T08:55:06.110Z"
+  },
+  "https://business.gov.au/finance/cash-flow/improve-your-cash-flow": {
+    "ok": true,
+    "status": 200,
+    "title": "Improve your cash flow | business.gov.au",
+    "bytes": 367509,
+    "where": "desks[1].browsers[1]",
+    "widgetTitle": "business.gov.au — Improve your cash flow",
+    "checkedAt": "2026-10-08T08:55:06.110Z"
+  }
+}

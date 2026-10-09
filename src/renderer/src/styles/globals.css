@@ -287,14 +287,38 @@ body {
   .axis-dot-empty {
     @apply bg-transparent;
   }
+  /* ── Canvas palette ────────────────────────────────────────────────────
+     Every desk-canvas surface rule below paints from these five tokens, so a
+     palette change is one edit here instead of twelve scattered literals
+     across the base rules, the live pattern layer and each Theme-studio
+     pattern variant. Custom properties inherit, so the html.dark override
+     reaches `.dark .desk-paper` further down the file too.
+
+     Light: neutral light grey (it was a warm beige, #fbf7ee).
+     Dark:  deep purple with lighter violet dots (it was slate #17181d with
+            warm grey dots). */
+  :root {
+    --fb-canvas-bg: #f1f2f4;
+    --fb-canvas-wash-a: rgba(100, 110, 125, 0.05);
+    --fb-canvas-wash-b: rgba(100, 110, 125, 0.04);
+    --fb-canvas-dot: rgba(90, 98, 112, 0.22);
+    --fb-canvas-line: rgba(90, 98, 112, 0.14);
+  }
+  html.dark {
+    --fb-canvas-bg: #150c2b;
+    --fb-canvas-wash-a: rgba(139, 92, 246, 0.07);
+    --fb-canvas-wash-b: rgba(109, 40, 217, 0.08);
+    --fb-canvas-dot: rgba(167, 139, 250, 0.3);
+    --fb-canvas-line: rgba(167, 139, 250, 0.16);
+  }
   .desk-paper {
     position: relative; /* anchor the ::before time-of-day overlay to this container */
     isolation: isolate; /* trap the ::before stacking context so z-index:-1 stays inside */
-    background-color: #fbf7ee;
+    background-color: var(--fb-canvas-bg);
     background-image:
-      radial-gradient(circle at 20% 20%, rgba(184, 137, 63, 0.05) 0%, transparent 60%),
-      radial-gradient(circle at 80% 80%, rgba(184, 137, 63, 0.04) 0%, transparent 60%),
-      radial-gradient(rgba(120, 100, 80, 0.18) 1.7px, transparent 1.7px);
+      radial-gradient(circle at 20% 20%, var(--fb-canvas-wash-a) 0%, transparent 60%),
+      radial-gradient(circle at 80% 80%, var(--fb-canvas-wash-b) 0%, transparent 60%),
+      radial-gradient(var(--fb-canvas-dot) 1.7px, transparent 1.7px);
     background-size:
       auto,
       auto,
@@ -323,39 +347,16 @@ body {
      (data-desk-bg) wins over patterns, so these rules exclude it. */
   html[data-desk-pattern='none']:not([data-desk-bg]) .desk-paper {
     background-image:
-      radial-gradient(circle at 20% 20%, rgba(184, 137, 63, 0.05) 0%, transparent 60%),
-      radial-gradient(circle at 80% 80%, rgba(184, 137, 63, 0.04) 0%, transparent 60%);
+      radial-gradient(circle at 20% 20%, var(--fb-canvas-wash-a) 0%, transparent 60%),
+      radial-gradient(circle at 80% 80%, var(--fb-canvas-wash-b) 0%, transparent 60%);
     background-size: auto, auto;
   }
   html[data-desk-pattern='grid']:not([data-desk-bg]) .desk-paper {
     background-image:
-      radial-gradient(circle at 20% 20%, rgba(184, 137, 63, 0.05) 0%, transparent 60%),
-      radial-gradient(circle at 80% 80%, rgba(184, 137, 63, 0.04) 0%, transparent 60%),
-      linear-gradient(to right, rgba(120, 100, 80, 0.13) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(120, 100, 80, 0.13) 1px, transparent 1px);
-    background-size:
-      auto,
-      auto,
-      calc(56px * var(--fb-desk-zoom, 1)) calc(56px * var(--fb-desk-zoom, 1)),
-      calc(56px * var(--fb-desk-zoom, 1)) calc(56px * var(--fb-desk-zoom, 1));
-    background-position:
-      0 0,
-      0 0,
-      var(--fb-desk-pan, 0 0),
-      var(--fb-desk-pan, 0 0);
-  }
-  html.dark[data-desk-pattern='none']:not([data-desk-bg]) .desk-paper {
-    background-image:
-      radial-gradient(circle at 20% 20%, rgba(184, 137, 63, 0.04) 0%, transparent 60%),
-      radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.04) 0%, transparent 60%);
-    background-size: auto, auto;
-  }
-  html.dark[data-desk-pattern='grid']:not([data-desk-bg]) .desk-paper {
-    background-image:
-      radial-gradient(circle at 20% 20%, rgba(184, 137, 63, 0.04) 0%, transparent 60%),
-      radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.04) 0%, transparent 60%),
-      linear-gradient(to right, rgba(168, 162, 158, 0.12) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(168, 162, 158, 0.12) 1px, transparent 1px);
+      radial-gradient(circle at 20% 20%, var(--fb-canvas-wash-a) 0%, transparent 60%),
+      radial-gradient(circle at 80% 80%, var(--fb-canvas-wash-b) 0%, transparent 60%),
+      linear-gradient(to right, var(--fb-canvas-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--fb-canvas-line) 1px, transparent 1px);
     background-size:
       auto,
       auto,
@@ -374,16 +375,14 @@ body {
      mid-pan; only a zoom change re-rasterises it at the new cell size. */
   .desk-paper.no-static-pattern {
     background-image:
-      radial-gradient(circle at 20% 20%, rgba(184, 137, 63, 0.05) 0%, transparent 60%),
-      radial-gradient(circle at 80% 80%, rgba(184, 137, 63, 0.04) 0%, transparent 60%) !important;
+      radial-gradient(circle at 20% 20%, var(--fb-canvas-wash-a) 0%, transparent 60%),
+      radial-gradient(circle at 80% 80%, var(--fb-canvas-wash-b) 0%, transparent 60%) !important;
     background-size: auto, auto !important;
     background-position: 0 0, 0 0 !important;
   }
-  html.dark .desk-paper.no-static-pattern {
-    background-image:
-      radial-gradient(circle at 20% 20%, rgba(184, 137, 63, 0.04) 0%, transparent 60%),
-      radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.04) 0%, transparent 60%) !important;
-  }
+  /* The dark colour overrides that used to sit here are gone: every canvas
+     rule now paints from the --fb-canvas-* tokens, and those are themed on
+     html.dark, so a separate dark rule would only restate the light one. */
   .desk-pattern-layer {
     position: absolute;
     /* One 168px super-tile at maximum zoom (Z_MAX = 2). The pan transform is
@@ -399,27 +398,16 @@ body {
     pointer-events: none;
     will-change: transform;
     background-image: radial-gradient(
-      rgba(120, 100, 80, 0.18) calc(1.7px * var(--fb-desk-zoom, 1)),
+      var(--fb-canvas-dot) calc(1.7px * var(--fb-desk-zoom, 1)),
       transparent calc(1.7px * var(--fb-desk-zoom, 1))
     );
     background-size: calc(42px * var(--fb-desk-zoom, 1)) calc(42px * var(--fb-desk-zoom, 1));
   }
-  html.dark .desk-pattern-layer {
-    background-image: radial-gradient(
-      rgba(168, 162, 158, 0.16) calc(1.7px * var(--fb-desk-zoom, 1)),
-      transparent calc(1.7px * var(--fb-desk-zoom, 1))
-    );
-  }
   html[data-desk-pattern='grid'] .desk-pattern-layer {
     background-image:
-      linear-gradient(to right, rgba(120, 100, 80, 0.13) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(120, 100, 80, 0.13) 1px, transparent 1px);
+      linear-gradient(to right, var(--fb-canvas-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--fb-canvas-line) 1px, transparent 1px);
     background-size: calc(56px * var(--fb-desk-zoom, 1)) calc(56px * var(--fb-desk-zoom, 1));
-  }
-  html.dark[data-desk-pattern='grid'] .desk-pattern-layer {
-    background-image:
-      linear-gradient(to right, rgba(168, 162, 158, 0.12) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(168, 162, 158, 0.12) 1px, transparent 1px);
   }
   html[data-desk-pattern='none'] .desk-pattern-layer,
   html[data-desk-bg] .desk-pattern-layer {
@@ -433,23 +421,15 @@ body {
      background-attachment: local makes the texture scroll with the content. */
   .paper-texture {
     background-color: var(--surface-base);
-    background-image: radial-gradient(rgba(120, 100, 80, 0.18) 1.3px, transparent 1.3px);
+    background-image: radial-gradient(var(--fb-canvas-dot) 1.3px, transparent 1.3px);
     background-size: 28px 28px;
     background-attachment: local;
   }
-  html.dark .paper-texture {
-    background-image: radial-gradient(rgba(168, 162, 158, 0.16) 1.3px, transparent 1.3px);
-  }
   html[data-desk-pattern='grid'] .paper-texture {
     background-image:
-      linear-gradient(to right, rgba(120, 100, 80, 0.13) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(120, 100, 80, 0.13) 1px, transparent 1px);
+      linear-gradient(to right, var(--fb-canvas-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--fb-canvas-line) 1px, transparent 1px);
     background-size: 40px 40px;
-  }
-  html.dark[data-desk-pattern='grid'] .paper-texture {
-    background-image:
-      linear-gradient(to right, rgba(168, 162, 158, 0.12) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(168, 162, 158, 0.12) 1px, transparent 1px);
   }
   html[data-desk-pattern='none'] .paper-texture {
     background-image: none;
@@ -650,11 +630,11 @@ body {
     transition: background 120s linear;
   }
   .dark .desk-paper {
-    background-color: #17181d; /* lifted from #0c0a09 — dull slate, matches the raised dark surface tokens */
+    background-color: var(--fb-canvas-bg); /* deep purple — see the canvas palette tokens */
     background-image:
-      radial-gradient(circle at 20% 20%, rgba(184, 137, 63, 0.04) 0%, transparent 60%),
-      radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.04) 0%, transparent 60%),
-      radial-gradient(rgba(168, 162, 158, 0.16) 1.7px, transparent 1.7px);
+      radial-gradient(circle at 20% 20%, var(--fb-canvas-wash-a) 0%, transparent 60%),
+      radial-gradient(circle at 80% 80%, var(--fb-canvas-wash-b) 0%, transparent 60%),
+      radial-gradient(var(--fb-canvas-dot) 1.7px, transparent 1.7px);
     background-size:
       auto,
       auto,

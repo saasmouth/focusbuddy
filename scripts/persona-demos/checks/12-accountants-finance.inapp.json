@@ -1,0 +1,30 @@
+{
+  "https://business.gov.au/finance/superannuation": {
+    "ok": true,
+    "title": "Superannuation | business.gov.au",
+    "finalUrl": "https://business.gov.au/finance/superannuation",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://www.rba.gov.au/statistics/frequency/exchange-rates.html": {
+    "ok": true,
+    "title": "Exchange Rates | RBA",
+    "finalUrl": "https://www.rba.gov.au/statistics/frequency/exchange-rates.html",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://business.gov.au/finance/financial-trouble/manage-being-in-debt": {
+    "ok": true,
+    "title": "Manage being in debt | business.gov.au",
+    "finalUrl": "https://business.gov.au/finance/financial-trouble/manage-being-in-debt",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  },
+  "https://business.gov.au/finance/cash-flow/improve-your-cash-flow": {
+    "ok": true,
+    "title": "Improve your cash flow | business.gov.au",
+    "finalUrl": "https://business.gov.au/finance/cash-flow/improve-your-cash-flow",
+    "where": "desks[1].browsers[1]",
+    "pass": true
+  }
+}

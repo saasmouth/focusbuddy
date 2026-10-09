@@ -1,0 +1,12 @@
+{
+  "persona": "Agency owners and client-service teams",
+  "desk": "Retainer health and capacity — month-end review",
+  "title": "Capacity board, month-end",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph inside a small Australian creative agency studio at month-end: a large whiteboard wall ruled into a neat grid with thin black tape, filled with rows of blank coloured magnetic cards in yellow, coral pink and pale blue, a few rows visibly overcrowded with cards spilling past the tape line. One anonymous hand, seen from the side, moves a card from a crowded row to an emptier one. Exposed brick, a trailing pothos plant on a shelf, soft morning daylight from tall warehouse windows, shallow depth of field, natural colours, calm and organised mood. The cards and the board are completely blank, with no writing or marks.",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 188236,
+  "generatedAt": "2026-10-08T07:21:33.606Z"
+}

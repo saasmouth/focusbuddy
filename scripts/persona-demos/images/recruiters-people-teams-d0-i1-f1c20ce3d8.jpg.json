@@ -1,0 +1,12 @@
+{
+  "persona": "Recruiters and people teams",
+  "desk": "Hiring 2 senior data engineers — final interviews this week",
+  "title": "Panel packs, ready for the finals",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Overhead flat-lay photograph on a light oak desk: three plain kraft-paper folders with blank covers fanned out, a short stack of blank cream index cards, two black pens, a small glass sand timer, a ceramic cup of black coffee, a pair of tortoiseshell reading glasses and a few pastel page tabs with nothing written on them, soft diffused window light from the left, gentle shadows, tidy editorial still life, muted warm palette",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 56,
+  "bytes": 262074,
+  "generatedAt": "2026-10-08T07:16:05.205Z"
+}

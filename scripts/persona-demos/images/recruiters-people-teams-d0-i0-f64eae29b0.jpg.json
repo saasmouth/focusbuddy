@@ -1,0 +1,12 @@
+{
+  "persona": "Recruiters and people teams",
+  "desk": "Hiring 2 senior data engineers — final interviews this week",
+  "title": "Final panel room, set for three",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Architectural interior photograph of a small meeting room set up for a job interview panel in an Australian logistics company's head office: a round pale timber table with three chairs on one side and a single chair facing them, a water jug and four glasses, closed plain notebooks and pens at each place, a small potted plant, a floor-to-ceiling window looking out over a truck yard and warehouse roofs softly out of focus, soft overcast morning light, calm neutral palette, eye-level wide shot, no people",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 214493,
+  "generatedAt": "2026-10-08T07:15:55.682Z"
+}

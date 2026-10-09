@@ -1,0 +1,359 @@
+{
+  "number": 5,
+  "slug": "startup-founders",
+  "persona": "Startup founders",
+  "category": "Primary early adopters",
+  "room": {
+    "title": "Startup Founders",
+    "description": "A solo founder's own week: the pre-seed raise with its pipeline, pitch and investor answers in one view, and customer discovery turning twelve calls into a pricing decision — the evidence and the ask side by side."
+  },
+  "desks": [
+    {
+      "title": "Pre-seed raise — $600k for Fernroom",
+      "description": "Raising a first round as a solo founder: the investor pipeline, the pitch narrative, the questions every investor asks, and the one meeting that decides whether the round closes.",
+      "dueInDays": 45,
+      "brief": "## Pre-seed raise — $600k for Fernroom\n\n**Product** Fernroom — room and roster scheduling for allied-health clinics\n**Instrument** SAFE, $6m post-money cap · **Target close** @+45d\n**Use of funds** first senior engineer, 12 months of runway, 10 clinics from pilot to paid\n**Runway today** 7 months, on savings and a state innovation grant\n\n### The story in one line\nAllied-health clinics lose hours every week juggling rooms and rosters; Fernroom makes the schedule fix itself.\n\n### Traction to lead with\n- 6 pilot clinics, 4 now paying $149 a month\n- 31 discovery calls across two rounds — pricing evidence is on the discovery desk\n- More than 80% of pilot staff use it every week\n\n### Where it stands\n$175k committed from 3 angels. **The Wattle Seed Fund partner meeting @+3d is the one that moves the round** — a $250k lead plus the syndicate's $100k takes it to $525k and gives the undecided angels a reason to decide.",
+      "callout": {
+        "title": "The meeting that moves the round",
+        "body": "Wattle Seed Fund partner meeting @+3d. A $250k lead plus the syndicate's $100k takes the round to $525k of $600k. Rehearse the traction slide twice, and bring the two-tier pricing from the discovery desk — they will ask.",
+        "accent": "#6366f1",
+        "icon": "🎯"
+      },
+      "table": {
+        "title": "Investor pipeline",
+        "columns": [
+          { "id": "investor", "label": "Investor", "type": "text-short" },
+          { "id": "type", "label": "Type", "type": "single-select", "options": ["Angel", "Syndicate", "Micro-VC", "Seed fund"] },
+          { "id": "stage", "label": "Stage", "type": "single-select", "options": ["Committed", "Due diligence", "Partner meeting", "First call", "Intro asked", "Researching", "Passed"] },
+          { "id": "cheque", "label": "Cheque ($k)", "type": "number", "prefix": "$", "suffix": "k" },
+          { "id": "next", "label": "Next step", "type": "text-short" }
+        ],
+        "rows": [
+          { "investor": "Priya — angel, ran a clinic group", "type": "Angel", "stage": "Committed", "cheque": 50, "next": "SAFE signed" },
+          { "investor": "Ben — angel, clinic-software exit", "type": "Angel", "stage": "Committed", "cheque": 100, "next": "SAFE signed, funds in" },
+          { "investor": "Tom — angel, operator", "type": "Angel", "stage": "Committed", "cheque": 25, "next": "Signing @+2d" },
+          { "investor": "Health founders syndicate", "type": "Syndicate", "stage": "Due diligence", "cheque": 100, "next": "Diligence pack @+5d" },
+          { "investor": "Wattle Seed Fund", "type": "Seed fund", "stage": "Partner meeting", "cheque": 250, "next": "Partner meeting @+3d" },
+          { "investor": "Copperline Capital", "type": "Micro-VC", "stage": "First call", "cheque": 150, "next": "Wants 3 months of paid usage" },
+          { "investor": "Grace — angel", "type": "Angel", "stage": "First call", "cheque": 25, "next": "Send pilot usage data" },
+          { "investor": "Currawong Micro", "type": "Micro-VC", "stage": "Intro asked", "cheque": 150, "next": "Intro via Ben" },
+          { "investor": "Lyrebird Angel Network", "type": "Syndicate", "stage": "Intro asked", "cheque": 75, "next": "Apply for pitch night" },
+          { "investor": "Quandong Capital", "type": "Seed fund", "stage": "Researching", "cheque": 300, "next": "Find a warm intro" },
+          { "investor": "Pardalote Ventures", "type": "Seed fund", "stage": "Passed", "cheque": 300, "next": "Too early; offered 2 intros" },
+          { "investor": "Nnamdi — angel", "type": "Angel", "stage": "Passed", "cheque": 25, "next": "Not his sector" }
+        ]
+      },
+      "chart": {
+        "title": "Pipeline by stage ($k)",
+        "type": "bar",
+        "x": "stage",
+        "series": [{ "column": "cheque", "agg": "sum", "label": "Cheque size ($k)" }]
+      },
+      "mindmap": {
+        "title": "Pitch narrative — 10 slides",
+        "root": {
+          "label": "Fernroom pitch",
+          "children": [
+            { "label": "Problem", "children": [
+              { "label": "Hours lost to rosters every week", "kind": "idea" },
+              { "label": "Room clashes on Monday mornings", "kind": "idea" }
+            ]},
+            { "label": "Product", "children": [
+              { "label": "A schedule that fixes itself", "kind": "idea" },
+              { "label": "Live walk-through: room swap in two clicks", "kind": "tool" }
+            ]},
+            { "label": "Traction", "children": [
+              { "label": "6 pilots, 4 paying", "kind": "idea" },
+              { "label": "31 discovery calls", "kind": "idea" },
+              { "label": "80%+ weekly use by pilot staff", "kind": "idea" }
+            ]},
+            { "label": "Why me", "children": [
+              { "label": "Six years running clinic operations", "kind": "idea" },
+              { "label": "First version was my own spreadsheet", "kind": "idea" }
+            ]},
+            { "label": "The ask", "children": [
+              { "label": "$600k SAFE, $6m cap", "kind": "idea" },
+              { "label": "First engineer + 12 months runway", "kind": "idea" }
+            ]},
+            { "label": "Weak spots", "children": [
+              { "label": "Market size slide — bottom-up?", "kind": "question" },
+              { "label": "Rebuild the competitor slide", "kind": "task" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Investor FAQ — answers that worked",
+        "blocks": [
+          { "h3": "Questions every investor asks" },
+          { "h4": "Why won't the booking platforms just build this?" },
+          { "p": "They sell to the front desk; rosters and rooms belong to the practice manager. Different buyer, different budget line, and the booking platforms have had ten years to do it." },
+          { "h4": "How big is it?" },
+          { "p": "Built bottom-up from clinic counts in the two launch states and the price clinics named in discovery — not a top-down percentage. The working is in the data room." },
+          { "h4": "Why you?" },
+          { "p": "Six years running operations for a four-clinic physio group. The first version of Fernroom was the spreadsheet I built there to stop Monday-morning room clashes." },
+          { "h4": "What are the risks?" },
+          { "ul": [
+            "Sales cycle: clinics decide slowly, so pilots are 30 days with a paid conversion date set up front",
+            "Integrations: two booking systems cover most pilots; the rest export a CSV",
+            "Solo founder: the first hire is a senior engineer, budgeted in this round"
+          ]},
+          { "h4": "What does the round cost you?" },
+          { "p": "At the $6m post-money cap, the full $600k converts to 10% of Fernroom. Post-money means every SAFE holder knows their stake the day they sign: later SAFEs in this round dilute me, not them, until the priced round." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "After each investor call",
+          "body": "- Copperline: liked the pilots, wants 3 months of paid usage before deciding. Follow up @+30d.\n- Pardalote: passed — too early for their fund. Offered intros to two angels; chase both this week.\n- Syndicate: diligence list due @+5d — cap table, pilot contracts, usage export.\n- Pattern: every call asks why the booking platforms won't build this. The answer is on the FAQ page; it gets slide 3 in deck v7.\n- Tom asked whether Fernroom qualifies as an early stage innovation company. Work through the early-stage and innovation tests with the accountant before the diligence pack goes @+5d."
+        }
+      ],
+      "stickies": [
+        { "title": "This week", "body": "1. Deck v7 — rebuild the market slide\n2. Diligence pack to the syndicate @+5d\n3. Chase the two Pardalote intros", "color": "#fef08a" },
+        { "title": "Founder rule", "body": "No investor calls on product days. Two full days a week stay with the pilots.", "color": "#fbcfe8" }
+      ],
+      "fields": [
+        { "label": "Committed", "type": "number", "value": 175, "prefix": "$", "suffix": "k of $600k" },
+        { "label": "Runway", "type": "number", "value": 7, "suffix": " months" },
+        { "label": "Round status", "type": "single-select", "options": ["Preparing", "Raising", "Closing", "Closed"], "value": "Raising" }
+      ],
+      "timer": { "title": "Pitch run-through", "minutes": 10 },
+      "browsers": [
+        {
+          "title": "Treasury — Tax incentives for early stage investors",
+          "url": "https://treasury.gov.au/national-innovation-and-science-agenda/tax-incentives-for-early-stage-investors"
+        },
+        {
+          "title": "Wikipedia — Simple agreement for future equity",
+          "url": "https://en.wikipedia.org/wiki/Simple_agreement_for_future_equity"
+        }
+      ],
+      "images": [
+        {
+          "title": "Partner meeting room, before the pitch",
+          "aspect": "landscape",
+          "prompt": "Architectural interior photograph of a small, quiet meeting room in a converted inner-Sydney warehouse office, minutes before an investor meeting: a long blackbutt timber table with four empty chairs, two glasses of water and a closed laptop at one end, exposed brick and tall steel-framed windows letting in soft morning light, a potted fiddle-leaf fig in the corner, calm and expectant mood, no people, natural muted colours, wide shot from table height"
+        },
+        {
+          "title": "Pitch run-through, ten minutes",
+          "aspect": "square",
+          "prompt": "Editorial still-life photograph on a pale oak co-working desk, shot from slightly above: a small glass sand timer with the sand half run through, a short stack of completely blank cream index cards held by a black bulldog clip, a closed plain laptop, a flat white in a speckled ceramic cup and a loose sprig of grey-green eucalyptus leaves, nothing else on the desk, an empty room softly blurred behind with no people in it, late-afternoon window light casting long soft shadows, warm and focused mood, shallow depth of field"
+        }
+      ],
+      "diagram": {
+        "title": "How the round closes",
+        "nodes": [
+          { "id": "committed", "label": "3 angels — $175k", "shape": "box", "color": "#16a34a" },
+          { "id": "wattle", "label": "Wattle says yes?", "shape": "circle", "color": "#d97706" },
+          { "id": "lead", "label": "Wattle leads — $250k", "shape": "box", "color": "#2563eb" },
+          { "id": "syndicate", "label": "Syndicate adds $100k", "shape": "box", "color": "#2563eb" },
+          { "id": "round", "label": "$525k of $600k", "shape": "box", "color": "#16a34a" },
+          { "id": "angels", "label": "Last $75k from angels", "shape": "box", "color": "#7c3aed" },
+          { "id": "extend", "label": "Extend the close", "shape": "box", "color": "#dc2626" },
+          { "id": "chase", "label": "Chase Copperline + Quandong", "shape": "box", "color": "#64748b" }
+        ],
+        "edges": [
+          { "from": "committed", "to": "wattle" },
+          { "from": "wattle", "to": "lead", "label": "yes" },
+          { "from": "wattle", "to": "extend", "label": "no" },
+          { "from": "lead", "to": "syndicate", "label": "syndicate follows" },
+          { "from": "syndicate", "to": "round" },
+          { "from": "round", "to": "angels", "label": "reason to decide" },
+          { "from": "extend", "to": "chase" }
+        ]
+      },
+      "calculator": {
+        "title": "Stake sold at the $6m post-money cap (%)",
+        "expression": "600 / 6000 * 100",
+        "result": 10
+      },
+      "form": {
+        "title": "Wattle Seed Fund — partner meeting",
+        "fields": [
+          { "type": "heading", "label": "Partner meeting · the lead cheque" },
+          { "type": "date", "label": "Meeting", "value": "@+3d" },
+          { "type": "select", "label": "Deck", "options": ["v6", "v7"], "value": "v7" },
+          { "type": "number", "label": "Lead cheque ($k)", "value": "250" },
+          { "type": "number", "label": "Round if they lead ($k)", "value": "525" },
+          { "type": "checkbox", "label": "Traction slide rehearsed twice", "value": false },
+          { "type": "checkbox", "label": "Two-tier pricing in the deck", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "Customer discovery round 2 — pricing and switching",
+      "description": "Twelve calls with clinic managers and owners, each scored for pain, price and fit, turned into a pricing decision before the next five pilots start.",
+      "dueInDays": 3,
+      "brief": "## Customer discovery, round 2 — pricing and switching\n\n**Who** practice managers and owners at allied-health clinics\n**Calls** 12 of 12 done · 25 minutes each · same script\n**Round 1** 19 calls on the problem. This round tests price, and what stops a switch.\n\n### What I needed to learn\n- Will clinics pay more than the flat $149 the first pilots are on?\n- Who decides — the practice manager who feels the pain, or the owner who pays?\n- What would make switching from the current setup not worth it?\n\n### What I heard\n- 8 of 12 named rostering or room booking as their biggest pain\n- Clinics with 8+ practitioners named $239 a month on average; smaller clinics $121\n- Both not-a-fit clinics have fewer than 3 practitioners and care about invoicing, not schedules\n\n### Decision due\nPricing for the next 5 pilots, settled before the Wattle Seed Fund meeting @+3d.",
+      "callout": {
+        "title": "Pricing signal: size, not discipline",
+        "body": "Clinics with 8+ practitioners named $239 a month on average; smaller ones $121. A flat $149 undercharges the first group and loses the second. Proposal: $129 up to 7 practitioners, $249 for 8+ — test it on the next 5 pilots.",
+        "accent": "#f59e0b",
+        "icon": "💡"
+      },
+      "table": {
+        "title": "Round 2 calls",
+        "columns": [
+          { "id": "clinic", "label": "Clinic", "type": "text-short" },
+          { "id": "type", "label": "Discipline", "type": "single-select", "options": ["Physio", "OT", "Psychology", "Podiatry", "Multi-discipline"] },
+          { "id": "size", "label": "Practitioners", "type": "number" },
+          { "id": "pain", "label": "Biggest pain", "type": "single-select", "options": ["Rostering", "Room booking", "Cancellations", "Invoicing"] },
+          { "id": "price", "label": "Would pay ($/month)", "type": "number", "prefix": "$" },
+          { "id": "outcome", "label": "Outcome", "type": "single-select", "options": ["Pilot offered", "Follow-up", "Not a fit"] }
+        ],
+        "rows": [
+          { "clinic": "Northside Physio", "type": "Physio", "size": 8, "pain": "Rostering", "price": 199, "outcome": "Pilot offered" },
+          { "clinic": "Bayview Allied Health", "type": "Multi-discipline", "size": 14, "pain": "Room booking", "price": 299, "outcome": "Pilot offered" },
+          { "clinic": "Kinetic OT Group", "type": "OT", "size": 5, "pain": "Cancellations", "price": 99, "outcome": "Follow-up" },
+          { "clinic": "Calm Minds Psychology", "type": "Psychology", "size": 6, "pain": "Room booking", "price": 149, "outcome": "Follow-up" },
+          { "clinic": "Summit Podiatry", "type": "Podiatry", "size": 2, "pain": "Invoicing", "outcome": "Not a fit" },
+          { "clinic": "Parkside Health Hub", "type": "Multi-discipline", "size": 11, "pain": "Rostering", "price": 249, "outcome": "Pilot offered" },
+          { "clinic": "Elm Street Physio", "type": "Physio", "size": 4, "pain": "Rostering", "price": 129, "outcome": "Follow-up" },
+          { "clinic": "Greenhill Wellness", "type": "Multi-discipline", "size": 9, "pain": "Room booking", "price": 199, "outcome": "Follow-up" },
+          { "clinic": "Little Steps Paediatric OT", "type": "OT", "size": 7, "pain": "Rostering", "price": 149, "outcome": "Pilot offered" },
+          { "clinic": "Solo psychology practice", "type": "Psychology", "size": 1, "pain": "Invoicing", "outcome": "Not a fit" },
+          { "clinic": "Westgate Sports Physio", "type": "Physio", "size": 12, "pain": "Room booking", "price": 249, "outcome": "Pilot offered" },
+          { "clinic": "Coastline Podiatry", "type": "Podiatry", "size": 3, "pain": "Cancellations", "price": 79, "outcome": "Follow-up" }
+        ]
+      },
+      "chart": {
+        "title": "Biggest pain named",
+        "type": "pie",
+        "x": "pain",
+        "series": [{ "column": "clinic", "agg": "count", "label": "Clinics" }]
+      },
+      "mindmap": {
+        "title": "What round 2 told us",
+        "root": {
+          "label": "Round 2 — 12 calls",
+          "children": [
+            { "label": "Who decides", "children": [
+              { "label": "Practice manager feels the pain", "kind": "idea" },
+              { "label": "Owner signs", "kind": "idea" },
+              { "label": "Get both on the pilot call", "kind": "task" }
+            ]},
+            { "label": "Biggest pains", "children": [
+              { "label": "Rostering — 4 of 12", "kind": "idea" },
+              { "label": "Room booking — 4 of 12", "kind": "idea" },
+              { "label": "Cancellations — 2 of 12", "kind": "idea" }
+            ]},
+            { "label": "Pricing", "children": [
+              { "label": "8+ practitioners: average $239", "kind": "idea" },
+              { "label": "Under 8: average $121", "kind": "idea" },
+              { "label": "Two tiers: $129 and $249", "kind": "idea" },
+              { "label": "Per practitioner instead?", "kind": "question" }
+            ]},
+            { "label": "Switching", "children": [
+              { "label": "3 clinics export bookings by hand weekly", "kind": "tool" },
+              { "label": "Setup has to take under an hour", "kind": "task" }
+            ]},
+            { "label": "Not a fit", "children": [
+              { "label": "Under 3 practitioners", "kind": "idea" },
+              { "label": "Invoicing-first clinics", "kind": "idea" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Interview script — round 2",
+        "blocks": [
+          { "h3": "Round 2 script (25 minutes)" },
+          { "p": "Same questions in the same order, so the answers compare. No pitching until the last five minutes." },
+          { "ol": [
+            "Walk me through how next week's roster got made.",
+            "When did the room schedule last go wrong? What did it cost you?",
+            "What do you use now, and what does it cost each month?",
+            "If this problem disappeared, what would you do with the time?",
+            "What would make switching not worth it?",
+            "Last five minutes: show the pilot, then ask what they would expect to pay."
+          ]},
+          { "h4": "Rules" },
+          { "ul": [
+            "Ask about the last time it happened, not what usually happens",
+            "The price question comes after the walk-through, never before",
+            "Write the notes up within 10 minutes of hanging up"
+          ]}
+        ]
+      },
+      "notes": [
+        {
+          "title": "Patterns so far",
+          "body": "- Practice managers feel the pain; owners sign. Both need to be on the pilot call.\n- 3 clinics export their bookings to a spreadsheet by hand every week — that's the import path for pilots.\n- Nobody asked for more features. They want fewer phone calls on Monday morning.\n- Bayview and Westgate want to start within a fortnight — send their pilot agreements first."
+        }
+      ],
+      "stickies": [
+        { "title": "This week", "body": "1. Pilot agreements to Bayview + Westgate\n2. Follow up Greenhill and Calm Minds\n3. Draft the two-tier pricing page", "color": "#fef08a" },
+        { "title": "Don't", "body": "Change the price for the 4 paying pilots. Test the tiers on new clinics first.", "color": "#bae6fd" }
+      ],
+      "fields": [
+        { "label": "Calls done", "type": "number", "value": 12, "suffix": " / 12" },
+        { "label": "Pilots offered", "type": "number", "value": 5 },
+        { "label": "Pricing decided", "type": "checkbox", "value": false }
+      ],
+      "browsers": [
+        {
+          "title": "business.gov.au — Choose a pricing strategy",
+          "url": "https://business.gov.au/products-and-services/choose-a-pricing-strategy"
+        },
+        {
+          "title": "Wikipedia — Van Westendorp price sensitivity meter",
+          "url": "https://en.wikipedia.org/wiki/Van_Westendorp%27s_Price_Sensitivity_Meter"
+        }
+      ],
+      "images": [
+        {
+          "title": "Treatment rooms, Monday morning",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of the corridor in a busy suburban Australian allied-health clinic on a Monday morning: a row of plain timber treatment-room doors with no signs, one open to show a plain unbranded padded treatment table draped lengthwise with a folded white towel, its base hidden in shadow, and a neat stack of towels on a timber shelf, a practitioner in navy scrubs seen from behind and out of focus walking away down the corridor, daylight from a skylight mixing with warm interior light, calm but full-day energy, muted sage green and timber tones"
+        },
+        {
+          "title": "Affinity wall after twelve calls",
+          "aspect": "portrait",
+          "prompt": "Straight-on photograph of a white wall in a small startup office covered with completely blank, unwritten square sticky notes in two colours, butter yellow and pale blue, clustered into five loose groups with clear gaps between them, a few vertical strips of blue painter's tape dividing the groups, a black marker resting on a narrow ledge below, soft overcast daylight from a side window, clean minimal composition, no people"
+        }
+      ],
+      "diagram": {
+        "title": "Which tier a clinic lands in",
+        "nodes": [
+          { "id": "call", "label": "Discovery call", "shape": "box", "color": "#64748b" },
+          { "id": "small", "label": "Under 3 practitioners?", "shape": "circle", "color": "#d97706" },
+          { "id": "invoicing", "label": "Invoicing-first?", "shape": "circle", "color": "#d97706" },
+          { "id": "notfit", "label": "Not a fit — say so kindly", "shape": "box", "color": "#dc2626" },
+          { "id": "large", "label": "8+ practitioners?", "shape": "circle", "color": "#d97706" },
+          { "id": "tier249", "label": "$249 a month", "shape": "box", "color": "#2563eb" },
+          { "id": "tier129", "label": "$129 a month", "shape": "box", "color": "#0891b2" },
+          { "id": "pilot", "label": "30-day pilot, paid date set", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "call", "to": "small" },
+          { "from": "small", "to": "notfit", "label": "yes" },
+          { "from": "small", "to": "invoicing", "label": "no" },
+          { "from": "invoicing", "to": "notfit", "label": "yes" },
+          { "from": "invoicing", "to": "large", "label": "no" },
+          { "from": "large", "to": "tier249", "label": "yes" },
+          { "from": "large", "to": "tier129", "label": "no" },
+          { "from": "tier249", "to": "pilot" },
+          { "from": "tier129", "to": "pilot" }
+        ]
+      },
+      "calculator": {
+        "title": "8+ practitioners: average named price ($)",
+        "expression": "(199 + 299 + 249 + 199 + 249) / 5",
+        "result": 239
+      },
+      "form": {
+        "title": "Pilot offer — Bayview Allied Health",
+        "fields": [
+          { "type": "heading", "label": "Multi-discipline · 14 practitioners" },
+          { "type": "select", "label": "Proposed tier", "options": ["$129 — up to 7 practitioners", "$249 — 8+ practitioners"], "value": "$249 — 8+ practitioners" },
+          { "type": "number", "label": "Named on the call ($/month)", "value": "299" },
+          { "type": "number", "label": "Pilot length (days)", "value": "30" },
+          { "type": "date", "label": "Pilot starts", "value": "@+14d" },
+          { "type": "date", "label": "Paid conversion date", "value": "@+44d" },
+          { "type": "checkbox", "label": "Owner on the pilot call", "value": false },
+          { "type": "checkbox", "label": "Agreement sent", "value": false }
+        ]
+      }
+    }
+  ]
+}

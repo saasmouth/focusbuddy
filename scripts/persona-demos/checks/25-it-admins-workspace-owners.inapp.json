@@ -1,0 +1,30 @@
+{
+  "https://en.wikipedia.org/wiki/System_for_Cross-domain_Identity_Management": {
+    "ok": true,
+    "title": "System for Cross-domain Identity Management - Wikipedia",
+    "finalUrl": "https://en.wikipedia.org/wiki/System_for_Cross-domain_Identity_Management",
+    "where": "desks[0].browsers[0]",
+    "pass": true
+  },
+  "https://en.wikipedia.org/wiki/Multi-factor_authentication": {
+    "ok": true,
+    "title": "Multi-factor authentication - Wikipedia",
+    "finalUrl": "https://en.wikipedia.org/wiki/Multi-factor_authentication",
+    "where": "desks[0].browsers[1]",
+    "pass": true
+  },
+  "https://en.wikipedia.org/wiki/Principle_of_least_privilege": {
+    "ok": true,
+    "title": "Principle of least privilege - Wikipedia",
+    "finalUrl": "https://en.wikipedia.org/wiki/Principle_of_least_privilege",
+    "where": "desks[1].browsers[0]",
+    "pass": true
+  },
+  "https://digital.nsw.gov.au/delivery/cyber-security/policies/detailed-requirements": {
+    "ok": true,
+    "title": "Detailed requirements | Digital NSW",
+    "finalUrl": "https://digital.nsw.gov.au/delivery/cyber-security/policies/detailed-requirements",
+    "where": "desks[1].browsers[1]",
+    "pass": true
+  }
+}

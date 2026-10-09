@@ -1,0 +1,344 @@
+{
+  "number": 2,
+  "slug": "students-researchers",
+  "persona": "Students and researchers",
+  "category": "Primary early adopters",
+  "room": {
+    "title": "Students and Researchers",
+    "description": "Study and research on one surface: a thesis chapter built from a source matrix and a supervisor's notes, and an exam plan built from topic weights and honest confidence scores — the reading, the map and the plan side by side."
+  },
+  "desks": [
+    {
+      "title": "Thesis chapter 2 — literature review synthesis",
+      "description": "Turning 14 sources into an argument for a street-tree cooling thesis: the source matrix, the themes, the gap the study fills, and a draft due to the supervisor.",
+      "dueInDays": 12,
+      "brief": "## Thesis chapter 2 — literature review\n\n**Programme** Master of Environmental Science (research) · **Supervisor** Rosa\n**Draft due** @+12d · **Length** 8,000–9,000 words, aiming for 8,500\n**Research question** Does street-tree canopy lower peak summer surface temperatures equally across western-suburb streets?\n\n### What this chapter has to do\n- Show what is known about canopy cooling, and how it was measured\n- Show who benefits — the equity literature is where the gap sits\n- End on the gap this study fills: almost no street-level measurement in lower-canopy suburbs\n\n### Where it stands\n14 sources in the matrix, 10 read and noted. Cooling is crowded (5 sources); maintenance and cost has only 2. Structure agreed with Rosa @-6d. **Drafting starts @+2d, once the gap paragraph is sent: ten days to @+12d, about 850 words a day.** S11 arrives by interlibrary loan @+3d and slots into 2.3.",
+      "callout": {
+        "title": "Write the gap paragraph first",
+        "body": "Rosa's one request before the full draft: a single paragraph naming what nobody has measured. Draft 1 is in the note. Send it @+2d, then write 2.1–2.4 around it — not before.",
+        "accent": "#10b981",
+        "icon": "🔎"
+      },
+      "table": {
+        "title": "Source matrix",
+        "columns": [
+          { "id": "source", "label": "Source", "type": "text-short" },
+          { "id": "method", "label": "Method", "type": "single-select", "options": ["Remote sensing", "Field measurement", "Modelling", "Survey", "Review"] },
+          { "id": "theme", "label": "Theme", "type": "single-select", "options": ["Cooling effect", "Equity", "Maintenance & cost", "Resident views"] },
+          { "id": "relevance", "label": "Relevance (1–5)", "type": "number" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Noted", "Skimmed", "To read"] },
+          { "id": "takeaway", "label": "One-line takeaway", "type": "text-short" }
+        ],
+        "rows": [
+          { "source": "S01 Canopy and surface heat, satellite study", "method": "Remote sensing", "theme": "Cooling effect", "relevance": 5, "status": "Noted", "takeaway": "Cooling scales with canopy; weak below 15% cover" },
+          { "source": "S02 Street-level air temperatures, two summers", "method": "Field measurement", "theme": "Cooling effect", "relevance": 5, "status": "Noted", "takeaway": "Air cools less than surfaces; leafy suburbs only" },
+          { "source": "S03 Shade and pedestrian comfort model", "method": "Modelling", "theme": "Cooling effect", "relevance": 3, "status": "Noted", "takeaway": "Comfort gains depend on street orientation" },
+          { "source": "S04 Tree species and transpiration", "method": "Field measurement", "theme": "Cooling effect", "relevance": 4, "status": "Noted", "takeaway": "Species matters in dry years; leafy suburbs only" },
+          { "source": "S05 Review of urban cooling strategies", "method": "Review", "theme": "Cooling effect", "relevance": 4, "status": "Noted", "takeaway": "Trees beat cool roofs at street level" },
+          { "source": "S06 Canopy gaps by suburb income", "method": "Remote sensing", "theme": "Equity", "relevance": 5, "status": "Noted", "takeaway": "Canopy tracks income across the metro area" },
+          { "source": "S07 Heat exposure of renters", "method": "Survey", "theme": "Equity", "relevance": 4, "status": "Noted", "takeaway": "Renters can't plant; they rely on street trees" },
+          { "source": "S08 Planting records, ten councils", "method": "Review", "theme": "Equity", "relevance": 5, "status": "Skimmed", "takeaway": "Planting follows requests, which favours owners" },
+          { "source": "S09 Heat and health in western suburbs", "method": "Survey", "theme": "Equity", "relevance": 3, "status": "To read" },
+          { "source": "S10 Lifecycle cost of street trees", "method": "Modelling", "theme": "Maintenance & cost", "relevance": 4, "status": "Noted", "takeaway": "Watering in the first 3 years is the main cost" },
+          { "source": "S11 Root damage and footpath claims", "method": "Survey", "theme": "Maintenance & cost", "relevance": 2, "status": "To read" },
+          { "source": "S12 Resident attitudes to new plantings", "method": "Survey", "theme": "Resident views", "relevance": 4, "status": "Noted", "takeaway": "Support drops once leaf litter is mentioned" },
+          { "source": "S13 Why residents remove trees", "method": "Survey", "theme": "Resident views", "relevance": 3, "status": "Noted", "takeaway": "Shade on solar panels is a growing reason" },
+          { "source": "S14 Community planting trial", "method": "Field measurement", "theme": "Resident views", "relevance": 3, "status": "To read" }
+        ]
+      },
+      "chart": {
+        "title": "Sources per theme",
+        "type": "bar",
+        "x": "theme",
+        "series": [{ "column": "source", "agg": "count", "label": "Sources" }]
+      },
+      "mindmap": {
+        "title": "Chapter 2 argument",
+        "root": {
+          "label": "Chapter 2 argument",
+          "children": [
+            { "label": "2.1 Trees cool streets", "children": [
+              { "label": "Cooling scales with canopy (S01)", "kind": "idea" },
+              { "label": "Air cools less than surfaces (S02)", "kind": "idea" },
+              { "label": "Trees beat cool roofs at street level (S05)", "kind": "idea" }
+            ]},
+            { "label": "2.2 But not evenly", "children": [
+              { "label": "Canopy tracks income (S06)", "kind": "idea" },
+              { "label": "Renters rely on street trees (S07)", "kind": "idea" },
+              { "label": "Planting follows requests (S08)", "kind": "idea" }
+            ]},
+            { "label": "2.3 Keeping trees alive", "children": [
+              { "label": "Watering is the main cost (S10)", "kind": "idea" },
+              { "label": "Read S11 on root damage", "kind": "task" }
+            ]},
+            { "label": "2.4 What residents want", "children": [
+              { "label": "Support drops at leaf litter (S12)", "kind": "idea" },
+              { "label": "Solar shading drives removals (S13)", "kind": "idea" }
+            ]},
+            { "label": "2.5 The gap", "children": [
+              { "label": "No street-level data in low-canopy suburbs", "kind": "idea" },
+              { "label": "Field data only from leafy suburbs (S02, S04)", "kind": "idea" },
+              { "label": "Include the solar-panel conflict?", "kind": "question" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Supervisor meeting notes",
+        "blocks": [
+          { "h3": "Supervisor meeting — @-6d" },
+          { "p": "Thirty minutes with Rosa on the chapter structure. Outline agreed; two things cut." },
+          { "h4": "Decisions" },
+          { "ul": [
+            "Organise by theme, not chronologically",
+            "Keep cooling short — it is well covered. Spend the words on equity, where the gap is",
+            "Resident views becomes one section, not two"
+          ]},
+          { "h4": "Actions before the full draft" },
+          { "ol": [
+            "Read S09, S11 and S14; finish S08 properly",
+            "Draft the gap paragraph and send it to Rosa before writing anything else",
+            "Check APA 7th on citing a source quoted inside another source"
+          ]},
+          { "quote": "If the gap paragraph is clear, the rest of the chapter has somewhere to go." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Gap paragraph — draft 1",
+          "body": "Most of what is known about street-tree cooling comes from leafy, higher-income suburbs, measured from satellites (S01, S06) or at a handful of street sites (S02, S04). Lower-canopy western suburbs — where residents are more likely to rent and less able to plant (S07) — are almost absent from street-level measurement. This study fills that gap with a summer of street-level readings across 18 streets in three western suburbs."
+        }
+      ],
+      "stickies": [
+        { "title": "This week", "body": "1. Read S09 and S14\n2. Finish S08 properly\n3. Gap paragraph to Rosa @+2d", "color": "#fef08a" },
+        { "title": "Library", "body": "S11 full text via interlibrary loan — arrives @+3d.", "color": "#bae6fd" }
+      ],
+      "fields": [
+        { "label": "Sources noted", "type": "number", "value": 10, "suffix": " / 14" },
+        { "label": "Chapter stage", "type": "single-select", "options": ["Reading", "Outlining", "Drafting", "With supervisor"], "value": "Reading" },
+        { "label": "Gap paragraph sent", "type": "checkbox", "value": false }
+      ],
+      "timer": { "title": "Reading block", "minutes": 45 },
+      "browsers": [
+        { "title": "NSW SEED — Urban heat island by mesh block", "url": "https://datasets.seed.nsw.gov.au/dataset/nsw-urban-heat-island-to-modified-mesh-block-2016" },
+        { "title": "UQ Library — APA 7th, secondary sources", "url": "https://guides.library.uq.edu.au/referencing/apa7/indirect-cite" }
+      ],
+      "images": [
+        {
+          "title": "Low-canopy street, western suburbs, midday",
+          "aspect": "landscape",
+          "prompt": "Documentary photograph of a wide residential street in an Australian western-suburbs neighbourhood at midday in midsummer: broad sun-bleached asphalt, concrete kerbs and a bare footpath, a few young spindly street trees giving almost no shade, single-storey brick houses with terracotta tiled roofs set back behind dry yellowing lawns, plain pale corrugated-metal side fences and bare low brick walls with completely blank surfaces, hard overhead sunlight with short shadows and a faint heat shimmer above the road, pale washed-out sky, eye-level framing looking down the length of the empty street, no cars, no street signs, no house numbers, no letterboxes in close view"
+        },
+        {
+          "title": "Shade line on the footpath",
+          "aspect": "portrait",
+          "prompt": "Editorial photograph looking straight down at a suburban concrete footpath on a hot summer afternoon, a crisp diagonal line where the dappled shade of one large street tree meets glaring sunlight, scattered dry gum leaves and a few seed pods lying in the shaded half, a strip of browned grass verge along one edge, strong contrast between cool blue-grey shade and bleached warm concrete, minimalist composition, fine surface texture, natural colour"
+        }
+      ],
+      "diagram": {
+        "title": "How the literature leads to the gap",
+        "nodes": [
+          { "id": "satellite", "label": "Satellite study (S01)", "shape": "box", "color": "#64748b" },
+          { "id": "street-sites", "label": "Street sites (S02, S04)", "shape": "box", "color": "#64748b" },
+          { "id": "income", "label": "Canopy tracks income (S06)", "shape": "box", "color": "#64748b" },
+          { "id": "renters", "label": "Renters can't plant (S07)", "shape": "box", "color": "#64748b" },
+          { "id": "cooling", "label": "2.1 Trees cool streets", "shape": "box", "color": "#2563eb" },
+          { "id": "uneven", "label": "2.2 But not evenly", "shape": "box", "color": "#d97706" },
+          { "id": "gap", "label": "2.5 Gap: no street data", "shape": "box", "color": "#dc2626" },
+          { "id": "study", "label": "This study: 18 streets", "shape": "box", "color": "#16a34a" }
+        ],
+        "edges": [
+          { "from": "satellite", "to": "cooling", "label": "surface heat" },
+          { "from": "street-sites", "to": "cooling", "label": "leafy suburbs only" },
+          { "from": "income", "to": "uneven" },
+          { "from": "renters", "to": "uneven" },
+          { "from": "cooling", "to": "gap", "label": "not measured west" },
+          { "from": "uneven", "to": "gap", "label": "least canopy" },
+          { "from": "gap", "to": "study", "label": "3 western suburbs" }
+        ]
+      },
+      "calculator": {
+        "title": "Words a day: 8,500 over 10 drafting days",
+        "expression": "8500 / (12 - 2)",
+        "result": 850
+      },
+      "form": {
+        "title": "Source card — S08",
+        "fields": [
+          { "type": "heading", "label": "S08 · Planting records, ten councils" },
+          { "type": "select", "label": "Method", "options": ["Remote sensing", "Field measurement", "Modelling", "Survey", "Review"], "value": "Review" },
+          { "type": "select", "label": "Theme", "options": ["Cooling effect", "Equity", "Maintenance & cost", "Resident views"], "value": "Equity" },
+          { "type": "number", "label": "Relevance (1–5)", "value": "5" },
+          { "type": "select", "label": "Goes in section", "options": ["2.1", "2.2", "2.3", "2.4", "2.5"], "value": "2.2" },
+          { "type": "textarea", "label": "Key finding", "value": "Councils plant where residents ask for trees, and owners ask more than renters, so new canopy follows ownership rather than heat." },
+          { "type": "checkbox", "label": "Read in full", "value": false },
+          { "type": "checkbox", "label": "Page numbers noted", "value": false }
+        ]
+      }
+    },
+    {
+      "title": "Semester exams — 18-day revision plan",
+      "description": "Four units, four exams, eighteen days: topics ranked by exam weight and honest confidence, practice papers logged, and the plan built around two café shifts a week.",
+      "dueInDays": 18,
+      "brief": "## Semester exams — 18-day revision plan\n\n**Course** Bachelor of Biomedical Science, year 2\n**Exams** 4, from @+8d to @+18d · **Hours available** about 52 after two café shifts a week · **Planned** 50\n\n### How the plan was built\nEvery topic got two numbers: its weight in the exam and my confidence out of 5. High weight (35% or more) plus low confidence (2 or under) gets the hours. Topics I'm already solid on get one review pass and a question set — nothing more.\n\n### Order\n1. Statistics first — earliest exam, two topics still shaky\n2. Biochemistry — metabolic pathways is the biggest single risk\n3. Physiology and Microbiology share the last week\n\n### Where it stands\n4 of 12 topics solid. Two timed Statistics past papers done: 58%, then 64%. **Regression is the weak spot** — it gets today's first block.",
+      "callout": {
+        "title": "Biggest risk: metabolic pathways",
+        "body": "45% of the Biochemistry exam, and confidence is 2 out of 5. It gets 8 of the 50 planned hours and the mind map on this desk. First full pass by @+5d, then a timed past paper @+9d.",
+        "accent": "#ef4444",
+        "icon": "⚠️"
+      },
+      "table": {
+        "title": "Revision topics",
+        "columns": [
+          { "id": "topic", "label": "Topic", "type": "text-short" },
+          { "id": "unit", "label": "Unit", "type": "single-select", "options": ["Statistics", "Biochemistry", "Physiology", "Microbiology"] },
+          { "id": "weight", "label": "Exam weight", "type": "number", "suffix": "%" },
+          { "id": "confidence", "label": "Confidence (1–5)", "type": "number" },
+          { "id": "hours", "label": "Hours planned", "type": "number" },
+          { "id": "status", "label": "Status", "type": "single-select", "options": ["Solid", "Revising", "Not started"] }
+        ],
+        "rows": [
+          { "topic": "Hypothesis testing", "unit": "Statistics", "weight": 40, "confidence": 3, "hours": 4, "status": "Revising" },
+          { "topic": "Regression", "unit": "Statistics", "weight": 35, "confidence": 2, "hours": 5, "status": "Revising" },
+          { "topic": "Probability", "unit": "Statistics", "weight": 25, "confidence": 4, "hours": 2, "status": "Solid" },
+          { "topic": "Metabolic pathways", "unit": "Biochemistry", "weight": 45, "confidence": 2, "hours": 8, "status": "Revising" },
+          { "topic": "Enzyme kinetics", "unit": "Biochemistry", "weight": 35, "confidence": 2, "hours": 6, "status": "Not started" },
+          { "topic": "Protein structure", "unit": "Biochemistry", "weight": 20, "confidence": 4, "hours": 2, "status": "Solid" },
+          { "topic": "Cardiovascular regulation", "unit": "Physiology", "weight": 40, "confidence": 3, "hours": 5, "status": "Not started" },
+          { "topic": "Renal physiology", "unit": "Physiology", "weight": 35, "confidence": 2, "hours": 6, "status": "Not started" },
+          { "topic": "Neurophysiology", "unit": "Physiology", "weight": 25, "confidence": 4, "hours": 2, "status": "Solid" },
+          { "topic": "Immune response", "unit": "Microbiology", "weight": 45, "confidence": 2, "hours": 6, "status": "Not started" },
+          { "topic": "Bacterial genetics", "unit": "Microbiology", "weight": 30, "confidence": 3, "hours": 3, "status": "Not started" },
+          { "topic": "Lab methods", "unit": "Microbiology", "weight": 25, "confidence": 5, "hours": 1, "status": "Solid" }
+        ]
+      },
+      "chart": {
+        "title": "Hours planned by unit, in exam order",
+        "type": "area",
+        "x": "unit",
+        "series": [{ "column": "hours", "agg": "sum", "label": "Hours planned" }]
+      },
+      "mindmap": {
+        "title": "Metabolic pathways — the map",
+        "root": {
+          "label": "Metabolic pathways",
+          "children": [
+            { "label": "Glycolysis", "children": [
+              { "label": "In the cytoplasm", "kind": "idea" },
+              { "label": "Glucose → 2 pyruvate", "kind": "idea" },
+              { "label": "Net gain: 2 ATP", "kind": "idea" }
+            ]},
+            { "label": "Krebs cycle", "children": [
+              { "label": "In the mitochondrial matrix", "kind": "idea" },
+              { "label": "Produces NADH and FADH2", "kind": "idea" },
+              { "label": "Two turns per glucose", "kind": "idea" }
+            ]},
+            { "label": "Electron transport chain", "children": [
+              { "label": "Inner mitochondrial membrane", "kind": "idea" },
+              { "label": "Makes most of the ATP", "kind": "idea" },
+              { "label": "Oxygen is the final electron acceptor", "kind": "idea" }
+            ]},
+            { "label": "Control points", "children": [
+              { "label": "PFK-1: the key step in glycolysis", "kind": "idea" },
+              { "label": "High ATP slows glycolysis", "kind": "idea" }
+            ]},
+            { "label": "Practice", "children": [
+              { "label": "Why does cyanide stop ATP production?", "kind": "question" },
+              { "label": "Where does each NADH come from?", "kind": "question" },
+              { "label": "Redo past paper question 3", "kind": "task" }
+            ]}
+          ]
+        }
+      },
+      "page": {
+        "title": "Exams and logistics",
+        "blocks": [
+          { "h3": "Exam timetable" },
+          { "ul": [
+            "Statistics — @+8d, 9:00, 2 hours, non-programmable calculator allowed",
+            "Biochemistry — @+11d, 13:30, 2 hours, closed book",
+            "Physiology — @+15d, 9:00, 2.5 hours, closed book",
+            "Microbiology — @+18d, 9:00, 2 hours, one A4 page of notes allowed"
+          ]},
+          { "h4": "What worked last semester" },
+          { "ul": [
+            "Timed past papers beat re-reading every time",
+            "Explaining a pathway out loud to Tariq showed exactly where the gaps were",
+            "Two units a day at most, never three"
+          ]},
+          { "h4": "Café shifts" },
+          { "p": "Two shifts a week stay, but none in the 24 hours before an exam. The shift before Biochemistry is swapped with Mia — she takes @+10d, I take her shift @+12d." }
+        ]
+      },
+      "notes": [
+        {
+          "title": "Practice paper log",
+          "body": "- Statistics past paper A: 58% — most marks lost interpreting regression output\n- Statistics past paper B: 64% — faster, still slow choosing the right test\n- Biochemistry: none yet; first one after the pathways pass\n\nTarget: two timed papers per unit before its exam. Mark them the same day, while the mistakes still make sense."
+        }
+      ],
+      "stickies": [
+        { "title": "Today", "body": "Regression — 2 h\nPathways map — 90 min\nCafé shift 5–9 pm", "color": "#fef08a" },
+        { "title": "Study group", "body": "Regression questions with Tariq and Hana @+2d, library room 4.", "color": "#bbf7d0" }
+      ],
+      "fields": [
+        { "label": "Topics solid", "type": "number", "value": 4, "suffix": " / 12" },
+        { "label": "Hours planned", "type": "number", "value": 50, "suffix": " h" },
+        { "label": "Next exam", "type": "text-short", "value": "Statistics, @+8d" }
+      ],
+      "timer": { "title": "Revision block", "minutes": 50 },
+      "browsers": [
+        { "title": "OpenStax Biology 2e — Oxidative phosphorylation", "url": "https://openstax.org/books/biology-2e/pages/7-4-oxidative-phosphorylation" },
+        { "title": "UNSW — Exam preparation", "url": "https://www.unsw.edu.au/student/managing-your-studies/academic-life/assessments-exams-resources/exams/preparation" }
+      ],
+      "images": [
+        {
+          "title": "Revision desk, pathways pass",
+          "aspect": "landscape",
+          "prompt": "Overhead flat-lay photograph of a university student's revision desk at night under a warm desk lamp: a large sheet of plain paper covered in a hand-drawn cycle of circles joined by curved arrows in three coloured pens, with no writing on it at all, a fan of blank white index cards held by a bulldog clip, three plain unbranded highlighters, a mechanical pencil, the edge of a closed laptop at the frame edge, a half-finished mug of tea, a soft pool of lamplight fading to shadow at the corners, cosy and focused mood"
+        },
+        {
+          "title": "Study group room, library",
+          "aspect": "square",
+          "prompt": "Documentary photograph of a small glass-walled group study room in an Australian university library in the afternoon: three students seen from behind and side-on, softly out of focus, gathered at a round timber table with open notebooks and laptops angled away from the camera, a whiteboard on the far wall covered in hand-drawn scatter plots of dots with a straight trend line through them and a few arrows, no writing on the whiteboard, no signage on the glass, soft daylight from a tall window, muted timber and grey tones, shallow depth of field"
+        }
+      ],
+      "diagram": {
+        "title": "Where the hours go",
+        "nodes": [
+          { "id": "topic", "label": "Each of 12 topics", "shape": "box", "color": "#64748b" },
+          { "id": "weight", "label": "Weight ≥ 35%?", "shape": "circle", "color": "#d97706" },
+          { "id": "light", "label": "Lighter pass: 1–3 h", "shape": "box", "color": "#16a34a" },
+          { "id": "confidence", "label": "Confidence ≤ 2?", "shape": "circle", "color": "#d97706" },
+          { "id": "priority", "label": "Priority block: 5–8 h", "shape": "box", "color": "#dc2626" },
+          { "id": "steady", "label": "Steady revision: 4–5 h", "shape": "box", "color": "#2563eb" }
+        ],
+        "edges": [
+          { "from": "topic", "to": "weight" },
+          { "from": "weight", "to": "light", "label": "no · 5 topics" },
+          { "from": "weight", "to": "confidence", "label": "yes · 7 topics" },
+          { "from": "confidence", "to": "priority", "label": "yes · 5 topics" },
+          { "from": "confidence", "to": "steady", "label": "no · 2 topics" }
+        ]
+      },
+      "calculator": {
+        "title": "Spare hours: 52 available, 12 topics planned",
+        "expression": "52 - (4 + 5 + 2 + 8 + 6 + 2 + 5 + 6 + 2 + 6 + 3 + 1)",
+        "result": 2
+      },
+      "form": {
+        "title": "Statistics exam — ready check",
+        "fields": [
+          { "type": "heading", "label": "Statistics · first exam" },
+          { "type": "date", "label": "Exam date", "value": "@+8d" },
+          { "type": "text", "label": "Start time", "value": "9:00" },
+          { "type": "number", "label": "Duration (hours)", "value": "2" },
+          { "type": "select", "label": "Calculator", "options": ["Not allowed", "Non-programmable", "Any"], "value": "Non-programmable" },
+          { "type": "number", "label": "Timed past papers done", "value": "2" },
+          { "type": "number", "label": "Best past-paper score (%)", "value": "64" },
+          { "type": "checkbox", "label": "Regression re-revised", "value": false },
+          { "type": "checkbox", "label": "Study group session done", "value": false }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "persona": "Startup founders",
+  "desk": "Pre-seed raise — $600k for Fernroom",
+  "title": "Pitch run-through, ten minutes",
+  "aspect": "square",
+  "model": "gpt-image-2",
+  "prompt": "Editorial still-life photograph on a pale oak co-working desk, shot from slightly above: a small glass sand timer with the sand half run through, a short stack of completely blank cream index cards held by a black bulldog clip, a closed plain laptop, a flat white in a speckled ceramic cup and a loose sprig of grey-green eucalyptus leaves, nothing else on the desk, an empty room softly blurred behind with no people in it, late-afternoon window light casting long soft shadows, warm and focused mood, shallow depth of field",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 231983,
+  "generatedAt": "2026-10-08T07:32:21.191Z"
+}

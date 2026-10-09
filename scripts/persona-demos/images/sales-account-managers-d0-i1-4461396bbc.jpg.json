@@ -1,0 +1,12 @@
+{
+  "persona": "Sales and account managers",
+  "desk": "Quarter-end forecast — $228k to close in 20 days",
+  "title": "Early learning centre, before opening",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Architectural interior photograph of a bright, empty early learning centre room in suburban Australia just before opening: low pale-timber tables with small chairs tucked in and completely bare tabletops, open shelving with plain wooden blocks, unlabelled woven baskets and potted plants, a soft rug in muted greens, tall windows onto a shaded play yard with a gum tree, gentle morning sun on a polished concrete floor, no people, clean calm composition, natural colours",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 297204,
+  "generatedAt": "2026-10-08T07:37:01.139Z"
+}

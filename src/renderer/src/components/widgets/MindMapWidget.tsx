@@ -2552,8 +2552,15 @@ function parsePersisted(raw: string | null | undefined): PersistedState {
     const normalisedRoot = normaliseNode(parsed.root as MindMapNode)
     return {
       root: normalisedRoot,
+      // An explicit null means the node panel was closed: keep it closed. Only a
+      // missing selection (older content) falls back to the root. Treating null
+      // as missing reopened the panel on every load after the user closed it.
       selectedId:
-        typeof parsed.selectedId === 'string' ? parsed.selectedId : normalisedRoot.id,
+        parsed.selectedId === null
+          ? null
+          : typeof parsed.selectedId === 'string'
+            ? parsed.selectedId
+            : normalisedRoot.id,
       viewRootId:
         typeof parsed.viewRootId === 'string' && findNode(normalisedRoot, parsed.viewRootId)
           ? parsed.viewRootId

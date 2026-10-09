@@ -1,0 +1,12 @@
+{
+  "persona": "Department heads and team leaders",
+  "desk": "Customer Support — H1 headcount and coverage plan",
+  "title": "Evening shift, four desks lit",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a long open-plan customer support floor in an Australian office at about seven in the evening: rows of empty desks fall away into shadow, and only four workstations at the far end are lit, where agents wearing headsets sit seen from behind, small in the frame. Their monitors glow as soft out-of-focus colour with nothing readable. Blue dusk through tall windows, warm pools of desk-lamp light, quiet and noticeably understaffed mood, natural colour, shallow depth of field, eye-level framing",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 126105,
+  "generatedAt": "2026-10-08T07:22:30.594Z"
+}

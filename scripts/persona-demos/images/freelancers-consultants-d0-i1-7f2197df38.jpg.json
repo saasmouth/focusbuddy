@@ -1,0 +1,12 @@
+{
+  "persona": "Freelancers and consultants",
+  "desk": "Client load this month — hours, scope and invoices",
+  "title": "Council meeting room after the workshop",
+  "aspect": "landscape",
+  "model": "gpt-image-2",
+  "prompt": "Documentary photograph of a regional Australian shire council meeting room just after a half-day writing workshop: a loose ring of empty moulded chairs, a long trestle table with water jugs, glasses and scattered blank index cards, large sheets of blank butcher's paper taped to a pale brick wall, late-afternoon light through tall timber-framed windows with gum trees outside, nobody in the room, quiet and unposed, muted natural colours",
+  "promptSuffix": " No text, no lettering, no numbers, no logos, no brand names, no watermarks. If people appear they are anonymous and not looking at the camera.",
+  "jpegQuality": 80,
+  "bytes": 296689,
+  "generatedAt": "2026-10-08T07:07:51.978Z"
+}
