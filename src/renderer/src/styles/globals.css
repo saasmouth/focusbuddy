@@ -295,9 +295,9 @@ body {
      reaches `.dark .desk-paper` further down the file too.
 
      Light: neutral light grey (it was a warm beige, #fbf7ee).
-     Dark:  a charcoal-dark purple with lighter violet dots. Deliberately
-            desaturated — it reads as charcoal first and purple second,
-            where the earlier #150c2b read as a vivid violet. */
+     Dark:  a deep saturated purple (#220040) with lighter violet dots.
+            Operator-chosen. Earlier passes tried #150c2b and then a
+            desaturated #221b2e; this is the colour that was picked. */
   :root {
     --fb-canvas-bg: #f1f2f4;
     --fb-canvas-wash-a: rgba(100, 110, 125, 0.05);
@@ -306,7 +306,7 @@ body {
     --fb-canvas-line: rgba(90, 98, 112, 0.14);
   }
   html.dark {
-    --fb-canvas-bg: #221b2e;
+    --fb-canvas-bg: #220040;
     --fb-canvas-wash-a: rgba(139, 92, 246, 0.07);
     --fb-canvas-wash-b: rgba(109, 40, 217, 0.08);
     --fb-canvas-dot: rgba(167, 139, 250, 0.3);

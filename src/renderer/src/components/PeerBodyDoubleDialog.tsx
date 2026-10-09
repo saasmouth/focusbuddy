@@ -1,4 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import {
+  MODE_META,
+  MODE_ORDER,
+  getDefaultBodyDoubleMode,
+  setDefaultBodyDoubleMode
+} from '../lib/bodyDoubleModes'
 import { createPortal } from 'react-dom'
 import type { BodyDoubleMode } from '@shared/types'
 import { usePeerBodyDoubleStore } from '../stores/peerBodyDouble'
@@ -30,39 +36,17 @@ interface Props {
   onClose: () => void
 }
 
-// The four options, in the person's own words. The tagline says plainly what
-// each opens: the camera is on for presence in all of them, and the microphone
-// and chat are what differ (see lib/bodyDoubleMedia, which enforces this).
-export const MODE_META: Record<BodyDoubleMode, { label: string; tagline: string; icon: string }> = {
-  silent: {
-    label: 'Silent',
-    tagline: 'Cameras only. No microphone and no chat, just someone else working too.',
-    icon: 'volume_off'
-  },
-  greetings: {
-    label: 'Intros only',
-    tagline: 'Say hello and what you are working on. Mics mute after two minutes, then quiet.',
-    icon: 'waving_hand'
-  },
-  light: {
-    label: 'A little chat is fine',
-    tagline: 'Mics start muted. Text chat, or unmute for a quick word now and then.',
-    icon: 'forum'
-  },
-  open: {
-    label: 'Happy to talk',
-    tagline: 'Mics on and chat open. Co-working out loud.',
-    icon: 'chat'
-  }
-}
-
-const MODE_ORDER: BodyDoubleMode[] = ['silent', 'greetings', 'light', 'open']
 
 // Minimum duration to hold the "Looking…" UI even when the matcher finds a
 // partner instantly, so a real match never flashes past unread and both sides
 // arrive at the intro card together. It only paces the display; the match
 // itself is real and already in the store.
 const MIN_LOOKING_MS = 3000
+
+// MODE_META now lives in lib/bodyDoubleModes (Settings and the onboarding
+// module need it too). Re-exported so this remains its historical home.
+export { MODE_META }
+
 
 export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
   const status = usePeerBodyDoubleStore((s) => s.status)
@@ -99,7 +83,10 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
 
   // Preference picker local state — kept here (not in the store) so the
   // picker resets on each new request.
-  const [pickedMode, setPickedMode] = useState<BodyDoubleMode>('silent')
+  // Seeded from the saved default (Settings › Account › Body double) rather
+  // than hard-coded: picking a mode here also saves it as the default, so
+  // the next session starts where this one left off.
+  const [pickedMode, setPickedMode] = useState<BodyDoubleMode>(getDefaultBodyDoubleMode)
   const [workingOnDraft, setWorkingOnDraft] = useState('')
   const [chatDraft, setChatDraft] = useState('')
   const chatScrollRef = useRef<HTMLDivElement | null>(null)
@@ -251,7 +238,12 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
                         role="radio"
                         aria-checked={active}
                         data-testid={`body-double-mode-${m}`}
-                        onClick={() => setPickedMode(m)}
+                        onClick={() => {
+                          setPickedMode(m)
+                          // Choosing here is also the answer to "how do I
+                          // usually want to pair", so it becomes the default.
+                          setDefaultBodyDoubleMode(m)
+                        }}
                         className={`w-full text-left p-2.5 rounded-md border-2 flex items-start gap-2.5 transition-colors ${
                           active
                             ? 'border-accent bg-accent/[0.06]'

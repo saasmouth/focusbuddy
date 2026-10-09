@@ -15,7 +15,7 @@ import ReleaseModal from './components/ReleaseModal'
 import Tooltip from './components/Tooltip'
 import { getPendingReleaseEntry, advanceRunVersion, type ChangelogEntry } from './lib/changelog'
 import Icon from './components/Icon'
-import SettingsPanel from './components/SettingsPanel'
+import SettingsPanel, { type SettingsTab } from './components/SettingsPanel'
 import RelatedDesksModal from './components/RelatedDesksModal'
 import TeamPresenceButton from './components/TeamPresenceButton'
 import Footer from './components/Footer'
@@ -193,7 +193,11 @@ export default function App(): JSX.Element {
   // left of the header. Reserve room so the header's left controls (the show-
   // workspace toggle, the trust chip) never sit under them.
   const isMac = typeof window !== 'undefined' && window.api?.platform === 'darwin'
-  const [settingsOpen, setSettingsOpen] = useState<{ x: number; y: number } | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState<{
+    x: number
+    y: number
+    tab?: SettingsTab
+  } | null>(null)
   const [smartStackOpen, setSmartStackOpen] = useState(false)
   // First-run "What's new in vX.Y.Z" modal — shown once on the first launch
   // after an update. Resolved on mount; a fresh install sets the baseline
@@ -511,6 +515,19 @@ export default function App(): JSX.Element {
   // fb:open-assistant is handled by AssistantOverlay itself — any surface can
   // still summon the assistant with the same window event as before.
 
+  // fb:open-settings — open Settings on a named tab from anywhere, in the
+  // same spirit as fb:open-assistant above. The onboarding tour uses it to
+  // land the user on the real preference instead of describing where it is.
+  // Anchored where the gear sits, so it opens from the expected corner.
+  useEffect(() => {
+    function onOpen(e: Event): void {
+      const tab = (e as CustomEvent<{ tab?: SettingsTab }>).detail?.tab
+      setSettingsOpen({ x: window.innerWidth - 24, y: 48, tab })
+    }
+    window.addEventListener('fb:open-settings', onOpen)
+    return () => window.removeEventListener('fb:open-settings', onOpen)
+  }, [])
+
   function toggleSettings(): void {
     if (settingsOpen) {
       setSettingsOpen(null)
@@ -629,6 +646,7 @@ export default function App(): JSX.Element {
               onClick={() => setBodyDoubleOpen(true)}
               className="icon-btn relative"
               aria-label="Body double"
+              data-testid="header-body-double"
             >
               <Icon
                 name="diversity_3"
@@ -811,6 +829,7 @@ export default function App(): JSX.Element {
           onClose={() => setSettingsOpen(null)}
           anchorX={settingsOpen.x}
           anchorY={settingsOpen.y}
+          initialTab={settingsOpen.tab}
         />
       )}
     </div>

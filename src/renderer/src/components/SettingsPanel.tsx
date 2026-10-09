@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useCapabilityEnabled } from '../stores/capabilities'
 import { createPortal } from 'react-dom'
 import {
   ACCENT_OPTIONS,
@@ -36,6 +37,7 @@ import DocumentsSyncSection from './settings/DocumentsSyncSection'
 import ApiKeysSection from './settings/ApiKeysSection'
 import AttentionSection from './settings/AttentionSection'
 import AutonomySection from './settings/AutonomySection'
+import BodyDoubleSection from './settings/BodyDoubleSection'
 import BrowsingConsentSection from './settings/BrowsingConsentSection'
 import BackupSection from './settings/BackupSection'
 import NavigationSection from './settings/NavigationSection'
@@ -56,6 +58,8 @@ interface Props {
   onClose: () => void
   anchorX: number
   anchorY: number
+  /** Open straight onto this tab — used when a tour or a deep link asks for one. */
+  initialTab?: SettingsTab
 }
 
 // Settings is organised into tabs so each area (appearance, account,
@@ -64,7 +68,7 @@ interface Props {
 // decides which ones render for the active tab. Organisation, Templates and the
 // account/user settings all live here, which is the consolidation the roster
 // asked for.
-type SettingsTab = 'appearance' | 'account' | 'organisation' | 'ai' | 'templates' | 'data' | 'advanced'
+export type SettingsTab = 'appearance' | 'account' | 'organisation' | 'ai' | 'templates' | 'data' | 'advanced'
 const TABS: { id: SettingsTab; label: string; icon: string }[] = [
   { id: 'appearance', label: 'Appearance', icon: 'palette' },
   { id: 'account', label: 'Account', icon: 'person' },
@@ -89,11 +93,14 @@ export default function SettingsPanel({
   onResetCustomization,
   onClose,
   anchorX,
-  anchorY
+  anchorY,
+  initialTab
 }: Props): JSX.Element {
   const ref = useRef<HTMLDivElement | null>(null)
   const goOrg = useViewStore((s) => s.goOrg)
-  const [tab, setTab] = useState<SettingsTab>('appearance')
+  const [tab, setTab] = useState<SettingsTab>(initialTab ?? 'appearance')
+  // An edition without body doubling should not advertise the preference.
+  const bodyDoubleEnabled = useCapabilityEnabled('body_double')
   const [studioOpen, setStudioOpen] = useState(false)
   const [devTier, setDevTierState] = useState<TierId | null>(() => readDevForcedTier())
   const [sound, setSound] = useState<SoundPrefs>(() => getSoundPrefs())
@@ -359,7 +366,12 @@ export default function SettingsPanel({
           </>
         )}
 
-        {tab === 'account' && <AccountSection />}
+        {tab === 'account' && (
+          <>
+            <AccountSection />
+            {bodyDoubleEnabled && <BodyDoubleSection />}
+          </>
+        )}
 
         {tab === 'organisation' && (
           <OrganisationSection

@@ -301,3 +301,11 @@ export function useCanCreateMore(key: string, currentCount: number): boolean {
 export function useCanCreateWidget(kind: string): boolean {
   return useCapabilityStore((s) => canCreateWidget(s.capabilities, kind))
 }
+
+// Expose the capability store on window, the same thin handle as __fbView and
+// __fbWidgets, so e2e specs can drive an edition's feature set directly. It is
+// the real store, not a mock: nothing about how the app behaves changes.
+if (typeof window !== 'undefined') {
+  ;(window as unknown as { __fbCapabilities?: typeof useCapabilityStore }).__fbCapabilities =
+    useCapabilityStore
+}

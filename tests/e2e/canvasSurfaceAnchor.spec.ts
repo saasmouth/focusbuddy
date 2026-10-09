@@ -95,7 +95,7 @@ test('CS-2 — the canvas is light grey in light mode and deep purple in dark', 
   expect(light.dots).toContain('rgba(90, 98, 112')
 
   const dark = await read(true)
-  expect(dark.bg).toBe('rgb(34, 27, 46)') // #221b2e — charcoal-dark purple
+  expect(dark.bg).toBe('rgb(34, 0, 64)') // #220040 — deep saturated purple
   expect(dark.dots).toContain('rgba(167, 139, 250') // lighter violet dots
 })
 

@@ -253,6 +253,7 @@ export default function CanvasMinimapFAB(): JSX.Element {
           // Panel — blooms open from the icon's corner
           <motion.div
             key="panel"
+            data-testid="minimap-fab-panel"
             initial={{ scale: 0.45, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.45, opacity: 0, transition: { duration: 0.18, ease: [0.4, 0, 1, 1] } }}
@@ -327,6 +328,7 @@ export default function CanvasMinimapFAB(): JSX.Element {
           // Icon — materializes from the same corner as the panel shrinks to
           <motion.button
             key="icon"
+            data-testid="minimap-fab-toggle"
             initial={{ scale: 0.45, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.45, opacity: 0, transition: { duration: 0.14, ease: [0.4, 0, 1, 1] } }}

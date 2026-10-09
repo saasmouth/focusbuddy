@@ -1,4 +1,5 @@
 import { useViewStore } from '../../stores/view'
+import { useCapabilityStore } from '../../stores/capabilities'
 
 // The onboarding module registry. Adding a new feature tour is a matter of
 // appending an entry here: give it an id, bump-able version, a time estimate,
@@ -34,6 +35,10 @@ export interface OnboardingModule {
   // 'custom' modules render their own component (the core flow); 'steps' modules
   // are driven by the generic step overlay using `steps` below.
   kind: 'custom' | 'steps'
+  // Only offer this tour when the edition actually has the feature. A tour for
+  // something the user cannot reach is worse than no tour: it teaches them to
+  // look for a button that is not there.
+  capability?: string
   steps: OnboardingStep[]
 }
 
@@ -114,6 +119,46 @@ export const ONBOARDING_MODULES: OnboardingModule[] = [
         cta: 'Done'
       }
     ]
+  },
+  {
+    id: 'body-double',
+    version: 1,
+    title: 'Body doubling',
+    subtitle: 'Work alongside someone, on your terms',
+    icon: 'diversity_3',
+    estSeconds: 45,
+    trigger: 'feature',
+    kind: 'steps',
+    capability: 'body_double',
+    steps: [
+      {
+        icon: 'diversity_3',
+        title: 'Someone else working, too',
+        body: 'Body doubling pairs you with another member who is also working. No agenda and no meeting — just the quiet pull of someone else being at their desk. You are introduced by a made-up handle like “FocusedFalcon”, never your name or email.',
+        cta: 'How do I control it?'
+      },
+      {
+        icon: 'tune',
+        title: 'You choose how much contact',
+        body: 'Four modes, quietest first. Silent: cameras only, no microphone is ever opened. Intros only: say hello and what you are working on, then mics mute after two minutes. A little chat is fine: mics start muted, unmute for a quick word. Happy to talk: mics on. You are only ever matched with someone who picked the same mode.',
+        cta: 'Set mine'
+      },
+      {
+        icon: 'settings',
+        title: 'Pick your default here',
+        body: 'This is the setting, under Account. Choose how you usually want to pair and every session starts there — you can still change it for one session when you look for a partner. The camera is on in every mode, and either of you can turn yours off at any time.',
+        go: () => window.dispatchEvent(new CustomEvent('fb:open-settings', { detail: { tab: 'account' } })),
+        spotlight: 'settings-body-double',
+        cta: 'Where do I start one?'
+      },
+      {
+        icon: 'play_arrow',
+        title: 'Starting a session',
+        body: 'The people icon in the header opens the panel and looks for a partner. Or press ⌘K and search for “body double”. Nothing happens until you ask for it — you are never put in a queue in the background.',
+        spotlight: 'header-body-double',
+        cta: 'Done'
+      }
+    ]
   }
 ]
 
@@ -122,5 +167,18 @@ export function moduleById(id: string): OnboardingModule | undefined {
 }
 
 export function featureModules(): OnboardingModule[] {
-  return ONBOARDING_MODULES.filter((m) => m.trigger === 'feature')
+  // Capability-gated modules are dropped when the edition lacks the feature.
+  // Read non-reactively: this is called when deciding what to OFFER, not during
+  // a render, and the capability map is refreshed on sign-in and on focus.
+  const caps = useCapabilityStore.getState().capabilities
+  const has = (key: string): boolean => {
+    const v = caps[key] ?? false
+    if (typeof v === 'boolean') return v
+    if (typeof v === 'number') return v > 0
+    if (typeof v === 'string') return v.length > 0 && v.toLowerCase() !== 'off'
+    return false
+  }
+  return ONBOARDING_MODULES.filter(
+    (m) => m.trigger === 'feature' && (m.capability === undefined || has(m.capability))
+  )
 }

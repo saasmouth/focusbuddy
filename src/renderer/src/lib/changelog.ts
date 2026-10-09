@@ -41,16 +41,18 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: 'PlexiDesk 4.3.23 \u2014 a widget menu you can search, and a calmer canvas',
     tag: 'fix',
     summary:
-      'The Add widget menu is grouped into use-case columns with a search box at the top. A table gains a visible AI button beside the add-column plus and beside Add row. The desk loses the amber glow along its top edge, and the dark canvas settles into a charcoal purple.',
+      'The Add widget menu is grouped into use-case columns with a search box at the top. A table gains a visible AI button beside the add-column plus and beside Add row. The desk loses the amber glow along its top edge, and the dark canvas becomes a deep purple.',
     highlights: [
       'The table\u2019s AI assistant builds columns and rows, but the only way to reach it was the overflow menu in the widget\u2019s title bar \u2014 while the table\u2019s own empty state told you to \u201cuse the AI button to generate some\u201d. There was no AI button anywhere in the table, so the instruction pointed at something that did not exist.',
       'There is now one beside the add-column plus, for asking it to propose columns, and one beside Add row, for generating rows. Both open the same two-step assistant, which proposes columns for you to rename, add or remove, and only then generates rows to match them \u2014 nothing is written until you accept it.',
       'The assistant\u2019s own heading said \u201cgenerate rows\u201d when it had always done columns as well. It and the menu entry now both say columns and rows.',
       'The amber glow across the top of the desk is gone, in every colour mode. It was a time-of-day overlay \u2014 a sun gradient centred just above the canvas\u2019s top edge, drawn in a default hue of amber \u2014 and it sat over the new canvas colours in both light and dark. Atelier never showed it and Gemstone painted its own vignette instead, so the two modes that looked right were the ones that had already opted out.',
-      'The dark canvas is a deeper, more charcoal purple. It reads as charcoal first and purple second, where the previous shade read as a vivid violet.',
+      'The dark canvas is a deep purple rather than the old slate grey, with lighter violet dots.',
       'The header\u2019s Add widget menu is grouped by what you are trying to do \u2014 Write & capture, Plan & track, Numbers & data, Files & documents, Draw & diagram, People & messages, Web & apps, Build & automate, Desk layout \u2014 each one its own vertical column. Forty-seven widgets in a single sideways row was a lot to read and said nothing about what any of them was for.',
       'A search box at the top of that menu finds a widget by its name, by its description or by its group, so typing \u201csketch\u201d finds the Scratchpad and \u201cnumbers\u201d brings up that whole column. Enter adds the first match.',
-      'Scrolling or swiping over that menu moves the menu, not the desk behind it. The menu floats above the canvas, and the canvas was reading the same gesture \u2014 so trying to reach a column further along panned your desk instead.'
+      'Scrolling or swiping over that menu moves the menu, not the desk behind it. The menu floats above the canvas, and the canvas was reading the same gesture \u2014 so trying to reach a column further along panned your desk instead.',
+      'Body doubling has a preference of its own, under Settings \u203a Account. How you want to pair \u2014 Silent, Intros only, A little chat is fine, or Happy to talk \u2014 is now remembered, so every session starts where you left it. The mode used to be chosen inside the Find-a-partner panel and forgotten the moment it closed, which left nowhere to say \u201cthis is how I always want to pair\u201d. Changing it for one session from that panel updates the default too.',
+      'A short tour explains body doubling on editions that include it: what it is, what each of the four modes opens, and where to set yours \u2014 it opens the real setting rather than describing where to find it. Editions without the feature are never offered the tour.'
     ]
   },
   {
