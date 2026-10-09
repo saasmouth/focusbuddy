@@ -31,12 +31,25 @@ test('RM-1 — release modal shows once after an update, then not again', async 
 
   const modal = window.locator('[role="dialog"][aria-label*="What"]')
   await expect(modal).toBeVisible({ timeout: 8000 })
-  await expect(modal).toContainText('v2.5.26')
-  await expect(modal).toContainText('Learn more')
+  // The modal shows the CHANGELOG entry for the version actually running, so
+  // pinning 2.5.26 (the release this test was written for) fails on every later
+  // build. What matters is that it names a version and offers the learn-more
+  // link — and, below, that it shows once and not again.
+  await expect(modal).toContainText(/v\d+\.\d+\.\d+/)
+  // "Learn more" links are OPTIONAL per changelog entry (ChangelogEntry.links),
+  // so requiring them makes this test fail on any release that ships without
+  // one. The dismiss control is what every entry has, and what the
+  // shows-once-then-not-again behaviour below depends on.
+  await expect(modal.getByRole('button', { name: /got it|close/i }).first()).toBeVisible()
 
-  // The release version is recorded the moment the modal mounts.
+  // The release version is recorded the moment the modal mounts. Read the
+  // version the modal is actually showing rather than the literal this test
+  // was written against, so it keeps working on every later release.
+  const label = (await modal.getAttribute('aria-label')) ?? ''
+  const shownVersion = (label.match(/v(\d+\.\d+\.\d+)/) ?? [])[1]
+  expect(shownVersion, 'the modal names a version').toBeTruthy()
   const seenWhileOpen = await window.evaluate(() => localStorage.getItem('fb.app.releaseModalVersion'))
-  expect(seenWhileOpen).toBe('2.5.26')
+  expect(seenWhileOpen).toBe(shownVersion)
 
   await window.getByRole('button', { name: 'Got it' }).click()
   await expect(modal).toHaveCount(0)
@@ -63,13 +76,16 @@ test('TT-1 — hovering the Ask AI button shows a tooltip', async () => {
   await waitForReady(window)
 
   // No prior state, so no release modal is in the way.
-  const askAi = window.getByRole('button', { name: /AI command bar/i })
+  const askAi = window.getByRole('button', { name: /search and commands/i })
   await expect(askAi).toBeVisible()
   await askAi.hover()
 
   const tip = window.locator('[role="tooltip"]')
   await expect(tip).toBeVisible({ timeout: 4000 })
-  await expect(tip).toContainText('Ask AI')
+  // The one-shot "Ask AI" command bar retired in the Plexii consolidation;
+  // the surviving header control is Search and commands. What this test is for
+  // is that the portalled tooltip appears and names its control.
+  await expect(tip).toContainText(/search|command/i)
 
   // Moving away hides it.
   await window.mouse.move(5, 5)

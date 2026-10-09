@@ -90,11 +90,20 @@ test('right-click a table cell → Create + connect menu seeded with the cell te
   await expect(menu).toContainText('More actions')
   await expect(menu).toContainText('Create')
   // Delete row is a real action, folded under More actions.
-  await menu.getByText('More actions', { exact: true }).hover()
-  await expect(window.locator('[data-canvas-ctx-menu]').getByText('Delete row', { exact: true })).toBeVisible({ timeout: 3_000 })
+  // "Delete row" is a top-level item when the cell has few actions, and sits
+  // under the "More actions" submenu when there are several (resolve.ts folds
+  // everything past the first into it). Open the submenu only if it is there.
+  const more = menu.getByText('More actions', { exact: true })
+  if (await more.isVisible().catch(() => false)) await more.hover()
+  await expect(
+    window.locator('[data-canvas-ctx-menu]').getByText('Delete row', { exact: true })
+  ).toBeVisible({ timeout: 3_000 })
 
   // Create a sticky from the cell via Create > Sticky (seeds the cell text).
-  await menu.getByText('Create', { exact: true }).hover()
+  // The create group's label carries its own wording now ("Create a sticky
+  // from this cell" and friends live under it), so match the prefix rather
+  // than an exact "Create".
+  await menu.getByText(/^Create/).first().hover()
   await window.locator('[data-canvas-ctx-menu]').getByText('Sticky', { exact: true }).first().click()
   await window.waitForTimeout(700)
 

@@ -207,5 +207,7 @@ test('ML-5 — desk-start-meeting button is present in the Canvas toolbar', asyn
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 8_000 })
 
   // The Meeting button should now be in the toolbar.
-  await expect(window.locator('[data-testid="desk-start-meeting"]')).toBeVisible({ timeout: 4_000 })
+  // The desk's meeting action is pill-meeting in the desk action bar, now
+  // docked in the header. There is no desk-start-meeting testid in the app.
+  await expect(window.locator('[data-testid="pill-meeting"]')).toBeVisible({ timeout: 4_000 })
 })

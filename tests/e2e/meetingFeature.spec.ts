@@ -71,7 +71,16 @@ test('MF-2 — calendar block composer meeting toggle reveals invitees field', a
 
   // Open Calendar and switch to Week view.
   await gotoView(window, 'goCalendar')
-  await window.locator('[data-testid="calendar-mode-week"]').click()
+  // The calendar-mode-* buttons are gone; the mode is persisted under
+  // localStorage 'calendar.mode' (and defaults to week). Set it and reload
+  // rather than clicking a control that no longer exists.
+  await window.evaluate(() => localStorage.setItem('calendar.mode', 'week'))
+  await window.reload()
+  await waitForReady(window)
+  await window.evaluate(() => {
+    const w = window as unknown as { __fbView?: { getState: () => { goCalendar: () => void } } }
+    w.__fbView?.getState().goCalendar()
+  })
   await expect(window.locator('[data-testid="week-time-grid"]')).toBeVisible({ timeout: 6000 })
 
   // Click a slot to open the composer.
@@ -96,7 +105,16 @@ test('MF-3 — scheduling a meeting block creates it with meeting data', async (
 
   // Navigate to Calendar week view.
   await gotoView(window, 'goCalendar')
-  await window.locator('[data-testid="calendar-mode-week"]').click()
+  // The calendar-mode-* buttons are gone; the mode is persisted under
+  // localStorage 'calendar.mode' (and defaults to week). Set it and reload
+  // rather than clicking a control that no longer exists.
+  await window.evaluate(() => localStorage.setItem('calendar.mode', 'week'))
+  await window.reload()
+  await waitForReady(window)
+  await window.evaluate(() => {
+    const w = window as unknown as { __fbView?: { getState: () => { goCalendar: () => void } } }
+    w.__fbView?.getState().goCalendar()
+  })
   await expect(window.locator('[data-testid="week-time-grid"]')).toBeVisible({ timeout: 6000 })
 
   // Open composer.
