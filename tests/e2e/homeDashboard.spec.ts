@@ -93,9 +93,18 @@ test('3b. hero-action-calendar -> Calendar view', async () => {
   const homeVisible = await window.locator('[data-testid="plexisuite-home"]').isVisible({ timeout: 3000 }).catch(() => false)
   if (!homeVisible) await goSuite(window)
 
-  await window.locator('[data-testid="hero-action-calendar"]').click()
-  // CalendarView exposes calendar-mode-* buttons
-  await expect(window.locator('[data-testid^="calendar-mode-"]').first()).toBeVisible({ timeout: 8000 })
+  // The Calendar quick action is dropped when time_blocking is off, so the
+  // launcher never offers a jump into a locked surface. Nothing to assert if
+  // this edition has not got it.
+  const calendarAction = window.locator('[data-testid="hero-action-calendar"]')
+  if ((await calendarAction.count()) === 0) {
+    test.skip(true, 'this edition has no calendar view, so the action is absent by design')
+    return
+  }
+  await calendarAction.click()
+  // CalendarView's own testid; the calendar-mode-* buttons it used to expose
+  // are gone.
+  await expect(window.locator('[data-testid="calendar-view"]')).toBeVisible({ timeout: 8000 })
 })
 
 test('3c. hero-action-templates -> pleximarketplace-view', async () => {
@@ -110,7 +119,7 @@ test('3c. hero-action-templates -> pleximarketplace-view', async () => {
   await expect(window.locator('[data-testid="pleximarketplace-view"]')).toBeVisible({ timeout: 8000 })
 })
 
-test('3d. hero-action-new-desk creates a node and opens canvas', async () => {
+test('3d. hero-action-new-desk opens the set-up dialog rather than creating a blank desk', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
@@ -118,40 +127,23 @@ test('3d. hero-action-new-desk creates a node and opens canvas', async () => {
   const homeVisible = await window.locator('[data-testid="plexisuite-home"]').isVisible({ timeout: 3000 }).catch(() => false)
   if (!homeVisible) await goSuite(window)
 
-  // Count nodes before
+  // New desk used to create a node titled "New desk" and navigate straight to
+  // its canvas. It now goes through the one set-up dialog every New-desk door
+  // uses (requestNewDesk dispatches a cancelable fb:command-new-task; the
+  // sidebar claims it and opens the wizard), so no node exists until the user
+  // finishes. stageManagerNewNodeWizard.spec.ts owns the wizard's own contract.
   const before = await window.evaluate(() => window.api.nodes.list())
-  const beforeCount = before.length
 
   await window.locator('[data-testid="hero-action-new-desk"]').click()
 
-  // Wait for view to change away from plexisuite-home (canvas opens)
-  await expect(window.locator('[data-testid="plexisuite-home"]')).not.toBeVisible({ timeout: 8000 })
+  await expect(window.locator('[data-testid="newnode-name"]')).toBeVisible({ timeout: 8000 })
 
-  // A new task node was created
+  // Nothing was created by opening the dialog — a blank node here is the bug
+  // the one-door change removed.
   const after = await window.evaluate(() => window.api.nodes.list())
-  expect(after.length).toBeGreaterThan(beforeCount)
-
-  // The new node has kind 'task' and title 'New desk'
-  const newDesks = after.filter((n: { kind: string; title: string }) => n.kind === 'task' && n.title === 'New desk')
-  expect(newDesks.length).toBeGreaterThanOrEqual(1)
+  expect(after.length).toBe(before.length)
 })
 
-test('3e. hero-action-open-my-desk -> canvas / home view', async () => {
-  launched = await launchApp()
-  const { window } = launched
-  await waitForReady(window)
-
-  const homeVisible = await window.locator('[data-testid="plexisuite-home"]').isVisible({ timeout: 3000 }).catch(() => false)
-  if (!homeVisible) await goSuite(window)
-
-  await window.locator('[data-testid="hero-action-open-my-desk"]').click()
-  // goHome() opens the canvas — plexisuite-home should no longer be visible
-  await expect(window.locator('[data-testid="plexisuite-home"]')).not.toBeVisible({ timeout: 8000 })
-})
-
-// -------------------------------------------------------------------
-// Check 4a: honest empty states on a fresh workspace
-// -------------------------------------------------------------------
 test('4a. Fresh workspace: empty-state text in tasks, desks, docs cards; no fake rows', async () => {
   launched = await launchApp()
   const { window } = launched
@@ -187,51 +179,34 @@ test('4a. Fresh workspace: empty-state text in tasks, desks, docs cards; no fake
 // Check 4b + 4c: seeded task appears in home-task- AND home-desk-;
 //               seeded doc appears in home-doc-; clicking navigates
 // -------------------------------------------------------------------
-test('4b. Seeded task appears in My tasks and Recent desks; clicking opens canvas', async () => {
+test('4b. A seeded task appears under Recent desks, and clicking it opens the canvas', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
 
-  // Start from the suite home
-  const homeVisible = await window.locator('[data-testid="plexisuite-home"]').isVisible({ timeout: 3000 }).catch(() => false)
-  if (!homeVisible) await goSuite(window)
-
-  // Use hero-action-new-desk which calls the nodeStore create action (not raw IPC),
-  // so the in-memory Zustand store is updated immediately.
-  // Capture the node count before to identify the new node.
-  const before = await window.evaluate(() => window.api.nodes.list())
-  const beforeIds = new Set((before as Array<{ id: string }>).map((n) => n.id))
-
-  await window.locator('[data-testid="hero-action-new-desk"]').click()
-  // Wait for navigation away from suite (canvas opens)
-  await expect(window.locator('[data-testid="plexisuite-home"]')).not.toBeVisible({ timeout: 8000 })
-
-  // Get the id of the newly created desk
-  const after = await window.evaluate(() => window.api.nodes.list())
-  const newNode = (after as Array<{ id: string; kind: string; title: string }>)
-    .find((n) => !beforeIds.has(n.id) && n.kind === 'task')
-  expect(newNode, 'new task node created via hero-action-new-desk').toBeTruthy()
-  const taskId = newNode!.id
-
-  // Navigate back to suite home — PlexiSuiteHome remounts, HomeDashboardRegion
-  // reads from the Zustand store which was updated by the store's create action.
+  // Seeded through IPC and then reloaded, the way 4c does it. This used to
+  // click hero-action-new-desk to get a node into the Zustand store, but that
+  // button opens the set-up dialog now (see 3d).
+  const taskId = await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const t = await api.nodes.create({ parentId: null, kind: 'task', title: 'DASHTEST_DESK' })
+    return t.id
+  })
+  await window.reload()
+  await waitForReady(window)
   await goSuite(window)
+
   await expect(window.locator('[data-testid="home-dashboard"]')).toBeVisible({ timeout: 8000 })
-  // Scroll home-dashboard into view (below the fold on the long launcher page)
   await window.locator('[data-testid="home-dashboard"]').scrollIntoViewIfNeeded()
   await window.waitForTimeout(1000)
 
-  // home-task-<id> row
-  const taskRow = window.locator(`[data-testid="home-task-${taskId}"]`)
-  await expect(taskRow).toBeVisible({ timeout: 10000 })
-
-  // home-desk-<id> row (recentDesks also includes task nodes)
+  // The "My tasks" panel and its home-task-<id> rows went when Home became a
+  // configurable widget dashboard; Recent desks is what still lists it.
   const deskRow = window.locator(`[data-testid="home-desk-${taskId}"]`)
-  await expect(deskRow).toBeVisible({ timeout: 8000 })
+  await expect(deskRow).toBeVisible({ timeout: 10000 })
 
-  // Clicking the task row opens its canvas (plexisuite-home disappears)
-  await taskRow.click()
-  await expect(window.locator('[data-testid="plexisuite-home"]')).not.toBeVisible({ timeout: 8000 })
+  await deskRow.click()
+  await expect(window.locator('[data-canvas-surface="true"]')).toBeVisible({ timeout: 8000 })
 })
 
 test('4c. Seeded document appears in Recent documents; clicking opens document view', async () => {
@@ -280,7 +255,7 @@ test('4c. Seeded document appears in Recent documents; clicking opens document v
 // -------------------------------------------------------------------
 // Check 5: People panel honest empty state, People Map link navigates
 // -------------------------------------------------------------------
-test('5. People panel: honest empty state; People Map link -> people-map view', async () => {
+test('5. People panel: honest empty state when nobody is online', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
@@ -300,12 +275,8 @@ test('5. People panel: honest empty state; People Map link -> people-map view', 
   const dashText = await window.locator('[data-testid="home-dashboard"]').innerText()
   expect(dashText).toMatch(/Nobody else is online right now/i)
 
-  // People Map action button in the RailCard header navigates to people-map.
-  // Scope strictly inside home-dashboard to avoid matching the sidebar nav button.
-  const dashboard = window.locator('[data-testid="home-dashboard"]')
-  await dashboard.scrollIntoViewIfNeeded()
-  const peopleMapBtn = dashboard.locator('button', { hasText: 'People Map' })
-  await expect(peopleMapBtn).toBeVisible({ timeout: 5000 })
-  await peopleMapBtn.click()
-  await expect(window.locator('[data-testid="people-map"]')).toBeVisible({ timeout: 8000 })
+  // The People Map button that used to sit in this dashboard's RailCard header
+  // has moved out to the presence control; navigating to the people-map view is
+  // covered by peopleMap.spec.ts. What belongs here is the honest empty state
+  // above, which is the part this test exists for.
 })

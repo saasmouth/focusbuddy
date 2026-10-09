@@ -46,18 +46,19 @@ test('1. Home renders all sections with a real greeting name', async () => {
   // (2026-08-24) — the omnibar pill is the one door — so its absence is
   // asserted, guarding against the duplicate coming back.
   await expect(window.locator('[data-testid="home-ask-brain"]')).toHaveCount(0)
-  await expect(window.locator('[data-testid="home-insights"]')).toBeVisible()
+  await expect(window.locator('[data-testid="home-dashboard"]')).toBeVisible()
   await expect(window.locator('[data-testid="home-focus-toggle"]')).toBeVisible()
-  await expect(window.locator('[data-testid="home-quick-create"]')).toBeVisible()
-  await expect(window.locator('[data-testid="home-quick-plan"]')).toBeVisible()
-  await expect(window.locator('[data-testid="home-quick-collaborate"]')).toBeVisible()
-  await expect(window.locator('[data-testid="home-quick-automate"]')).toBeVisible()
+  // Home is a configurable widget dashboard now, so the fixed Insights panel
+  // and the four quick-action tiles (create / plan / collaborate / automate)
+  // are gone — what is on Home is what the user put there, via the gallery.
+  await expect(window.locator('[data-testid="home-widget-grid"]')).toBeVisible()
+  await expect(window.locator('[data-testid="home-customize-toggle"]')).toBeVisible()
   // The "Your desk" section always renders (it owns the New Desk tile).
   await expect(window.locator('[data-testid="home-desks"]')).toBeVisible()
   await expect(window.locator('[data-testid="home-desk-new"]')).toBeVisible()
 })
 
-test('2. Fresh workspace: Agenda and Activity show honest empty states', async () => {
+test('2. Fresh workspace: Home invents nothing', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
@@ -66,18 +67,24 @@ test('2. Fresh workspace: Agenda and Activity show honest empty states', async (
   // Give the imperative loads (timeBlocks.list + trail.recent) time to resolve.
   await window.waitForTimeout(2000)
 
-  await expect(window.locator('[data-testid="home-agenda-empty"]')).toBeVisible({ timeout: 5000 })
-  await expect(window.locator('[data-testid="home-agenda-empty"]')).toContainText(/Nothing scheduled today/i)
-
-  await expect(window.locator('[data-testid="home-activity-empty"]')).toBeVisible({ timeout: 5000 })
-  await expect(window.locator('[data-testid="home-activity-empty"]')).toContainText(/No recent activity yet/i)
-
-  // No "Continue" grid on a fresh workspace (no fake document rows).
+  // The fixed Agenda and Activity panels, and their "Nothing scheduled today"
+  // / "No recent activity yet" empty states, went when Home became a
+  // configurable widget dashboard. The assertion that still matters is the
+  // anti-fakery one those panels existed to prove: a fresh workspace shows no
+  // invented rows anywhere.
   const hasContinue = await window
     .locator('[data-testid="home-continue"]')
     .isVisible({ timeout: 500 })
     .catch(() => false)
   expect(hasContinue, 'home-continue should be absent with no documents').toBe(false)
+
+  // The desks section renders, and offers only the New Desk tile.
+  await expect(window.locator('[data-testid="home-desks"]')).toBeVisible()
+  await expect(window.locator('[data-testid="home-desk-new"]')).toBeVisible()
+
+  // And nothing on Home claims a number it cannot have.
+  const bodyText = (await window.locator('[data-testid="home-dashboard"]').innerText()) || ''
+  expect(bodyText).not.toMatch(/\b\d+ (documents|desks|tasks) ago\b/i)
 })
 
 test('3. Quick action Plan navigates to the Plans view', async () => {

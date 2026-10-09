@@ -229,7 +229,11 @@ export default function AllTasksView(): JSX.Element {
     <div className="h-full overflow-auto bg-[var(--surface-base)] text-[var(--ink-100)]">
       <div className="max-w-4xl mx-auto px-6 py-6 space-y-3">
         {/* Header */}
-        <DashboardHeader title="All Desks" subtitle="Every desk across every room, flat." />
+        {/* This is the all-TASKS view (view.kind 'all-tasks'). Its header read
+            "All Desks — Every desk across every room, flat.", copied from the
+            desks view, while the page below it listed tasks with Today /
+            Overdue / Upcoming / Done filters and tick-to-complete. */}
+        <DashboardHeader title="All Tasks" subtitle="Every task across every desk, in one list." />
 
         {/* Filter chips */}
         <div className="flex flex-wrap items-center gap-1.5">
