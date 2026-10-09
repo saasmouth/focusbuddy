@@ -109,7 +109,12 @@ export default function CanvasMinimapFAB(): JSX.Element {
     if (jumpTimer.current !== undefined) clearTimeout(jumpTimer.current)
     setJumpOpen(true)
   }
+  // Held while a name is being edited in the list. Hovering is what opens the
+  // list, so without this the pointer drifting off it mid-rename would unmount
+  // the input and lose what was typed.
+  const renamingRef = useRef(false)
   function releaseJump(): void {
+    if (renamingRef.current) return
     if (jumpTimer.current !== undefined) clearTimeout(jumpTimer.current)
     jumpTimer.current = setTimeout(() => setJumpOpen(false), 220)
   }
@@ -248,7 +253,22 @@ export default function CanvasMinimapFAB(): JSX.Element {
           Out of flow, the list cannot influence that measurement at all. */}
       {jumpOpen && (
         <div className="absolute bottom-full right-0 mb-1.5">
-          <DeskJumpList widgets={widgets} onJump={jumpTo} />
+          <DeskJumpList
+            widgets={widgets}
+            onJump={jumpTo}
+            onEditingChange={(editing) => {
+              // Only a real end-of-edit releases the list. This fires once on
+              // mount with `false`, and releasing then started the 220ms close
+              // timer the moment the list appeared — so it closed itself a
+              // fifth of a second after opening unless the pointer happened to
+              // re-enter and clear the timer.
+              const wasRenaming = renamingRef.current
+              renamingRef.current = editing
+              // Finishing an edit with the pointer already outside the list
+              // would otherwise leave it open with nothing to close it.
+              if (wasRenaming && !editing) releaseJump()
+            }}
+          />
         </div>
       )}
       {/* mode="popLayout": exiting element leaves layout immediately so entering

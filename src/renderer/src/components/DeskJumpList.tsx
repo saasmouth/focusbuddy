@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Widget } from '@shared/types'
+import { useWidgetStore } from '../stores/widgets'
 import Icon from './Icon'
 
 // Every item on the desk, newest-touched first, each one a camera shortcut.
@@ -93,13 +94,48 @@ export function jumpTargets(widgets: Widget[]): Widget[] {
 
 export default function DeskJumpList({
   widgets,
-  onJump
+  onJump,
+  onEditingChange
 }: {
   widgets: Widget[]
   /** Centre the camera on this widget. Pinned widgets report false. */
   onJump: (w: Widget) => void
+  /**
+   * Raised while a name is being edited.
+   *
+   * The list is held open by hovering the minimap, so without this the pointer
+   * drifting off it mid-rename would unmount the input and lose what was
+   * typed. The FAB suppresses its close timer while this is true.
+   */
+  onEditingChange?: (editing: boolean) => void
 }): JSX.Element | null {
   const items = useMemo(() => jumpTargets(widgets), [widgets])
+  const update = useWidgetStore((st) => st.update)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    onEditingChange?.(editingId !== null)
+  }, [editingId, onEditingChange])
+
+  useEffect(() => {
+    if (editingId !== null) inputRef.current?.select()
+  }, [editingId])
+
+  function beginRename(w: Widget): void {
+    setDraft(w.title ?? '')
+    setEditingId(w.id)
+  }
+
+  function commitRename(w: Widget): void {
+    const next = draft.trim()
+    // An unchanged name writes nothing, so renaming is not a spurious "touch"
+    // that reorders this very list under the user's pointer.
+    if (next !== (w.title ?? '')) void update(w.id, { title: next })
+    setEditingId(null)
+  }
+
   if (items.length === 0) return null
 
   return (
@@ -113,30 +149,85 @@ export default function DeskJumpList({
       <div className="px-1.5 pt-1 pb-1 fb-t-caption uppercase tracking-[0.06em] text-[var(--ink-40)] select-none">
         Jump to · last touched
       </div>
-      {items.map((w) => (
-        <button
-          key={w.id}
-          type="button"
-          role="menuitem"
-          onClick={() => onJump(w)}
-          data-testid={`desk-jump-${w.id}`}
-          title={`${w.title || kindLabel(w.kind)} — ${w.pinned ? 'pinned to the screen' : 'centre the camera here'}`}
-          className="w-full flex items-center gap-1.5 px-1.5 py-1 rounded-[var(--radius-chip)] text-left text-[11.5px] text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]"
-        >
-          <Icon
-            name={ICON[w.kind] ?? 'widgets'}
-            size={13}
-            className="shrink-0 text-[var(--ink-50)]"
-          />
-          <span className="flex-1 min-w-0 truncate">{w.title || kindLabel(w.kind)}</span>
-          {w.pinned && (
-            <Icon name="push_pin" size={11} className="shrink-0 text-[var(--ink-40)]" />
-          )}
-          <span className="shrink-0 text-[10px] tabular-nums text-[var(--ink-40)]">
-            {sinceLabel(w.updatedAt ?? 0)}
-          </span>
-        </button>
-      ))}
+      {items.map((w) =>
+        editingId === w.id ? (
+          // Renaming in place. A div, not the button: an input inside a button
+          // swallows its own clicks and keystrokes.
+          <div
+            key={w.id}
+            data-testid={`desk-jump-edit-${w.id}`}
+            className="w-full flex items-center gap-1.5 px-1.5 py-1 rounded-[var(--radius-chip)] bg-[var(--surface-sunken)]"
+          >
+            <Icon
+              name={ICON[w.kind] ?? 'widgets'}
+              size={13}
+              className="shrink-0 text-accent"
+            />
+            <input
+              ref={inputRef}
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                // Stop here: the desk binds single-key quick-add shortcuts, so
+                // typing a name must not also drop a sticky on the canvas.
+                e.stopPropagation()
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  commitRename(w)
+                } else if (e.key === 'Escape') {
+                  e.preventDefault()
+                  setEditingId(null)
+                }
+              }}
+              onBlur={() => commitRename(w)}
+              placeholder={kindLabel(w.kind)}
+              aria-label={`Rename ${w.title || kindLabel(w.kind)}`}
+              className="flex-1 min-w-0 bg-transparent text-[11.5px] text-[var(--ink-100)] placeholder:text-[var(--ink-40)] outline-none"
+            />
+          </div>
+        ) : (
+          <button
+            key={w.id}
+            type="button"
+            role="menuitem"
+            onClick={() => onJump(w)}
+            onDoubleClick={(e) => {
+              e.preventDefault()
+              beginRename(w)
+            }}
+            onContextMenu={(e) => {
+              // Right-click renames rather than opening the canvas menu.
+              e.preventDefault()
+              e.stopPropagation()
+              beginRename(w)
+            }}
+            data-testid={`desk-jump-${w.id}`}
+            title={`${w.title || kindLabel(w.kind)} — ${w.pinned ? 'pinned to the screen' : 'click to centre the camera here'}; double-click or right-click to rename`}
+            className="group w-full flex items-center gap-1.5 px-1.5 py-1 rounded-[var(--radius-chip)] text-left text-[11.5px] text-[var(--ink-80)] cursor-pointer transition-colors hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-100)]"
+          >
+            <Icon
+              name={ICON[w.kind] ?? 'widgets'}
+              size={13}
+              className="shrink-0 text-[var(--ink-50)] transition-colors group-hover:text-accent"
+            />
+            <span className="flex-1 min-w-0 truncate">{w.title || kindLabel(w.kind)}</span>
+            {w.pinned && (
+              <Icon name="push_pin" size={11} className="shrink-0 text-[var(--ink-40)]" />
+            )}
+            <span className="shrink-0 text-[10px] tabular-nums text-[var(--ink-40)]">
+              {sinceLabel(w.updatedAt ?? 0)}
+            </span>
+            {/* Appears only on hover, so the row stays quiet at rest while
+                still advertising that the name is editable. */}
+            <Icon
+              name="edit"
+              size={10}
+              className="shrink-0 text-[var(--ink-40)] opacity-0 transition-opacity group-hover:opacity-100"
+            />
+          </button>
+        )
+      )}
     </div>
   )
 }

@@ -307,8 +307,13 @@ body {
   }
   html.dark {
     --fb-canvas-bg: #220040;
-    --fb-canvas-wash-a: rgba(139, 92, 246, 0.07);
-    --fb-canvas-wash-b: rgba(109, 40, 217, 0.08);
+    /* No ambient wash in dark. The two radial gradients are still painted, but
+       with nothing in them, so the canvas reads as the flat colour above.
+       They were rgba(139,92,246,0.07) and rgba(109,40,217,0.08) — 7-8% violet
+       over #220040 composites to about rgb(41,6,77) at each gradient's centre,
+       which is why the desk looked lighter than the colour it was set to. */
+    --fb-canvas-wash-a: transparent;
+    --fb-canvas-wash-b: transparent;
     --fb-canvas-dot: rgba(167, 139, 250, 0.3);
     --fb-canvas-line: rgba(167, 139, 250, 0.16);
   }
