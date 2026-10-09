@@ -83,17 +83,27 @@ test('MF-2 — calendar block composer meeting toggle reveals invitees field', a
   })
   await expect(window.locator('[data-testid="week-time-grid"]')).toBeVisible({ timeout: 6000 })
 
-  // Click a slot to open the composer.
+  // Click a slot to open the booking surface.
+  //
+  // The inline BlockComposer was deleted by DEC-080 (34feaab1, 2026-08-30):
+  // the Book time dialog is now the create, edit and proposal surface, and a
+  // plain click on the grid opens it at the pressed slot. Its meeting toggle is
+  // the mode slider in its header (Focus time | Meeting), and the meeting-only
+  // fields — guests first — are revealed by choosing Meeting.
   await window.locator('[data-testid="day-col-2"]').click({ position: { x: 20, y: 180 } })
-  await expect(window.locator('[data-testid="block-composer"]')).toBeVisible({ timeout: 4000 })
+  const dialog = window.locator('[data-testid="book-time-dialog"]')
+  await expect(dialog).toBeVisible({ timeout: 4000 })
 
-  // Meeting toggle should be present, invitees NOT visible yet.
-  await expect(window.locator('[data-testid="composer-meeting-toggle"]')).toBeVisible()
-  await expect(window.locator('[data-testid="composer-invitees"]')).not.toBeVisible()
+  // The meeting toggle is present and starts on Focus time: no guest field yet.
+  const meetingTab = dialog.getByRole('tab', { name: 'Meeting' })
+  await expect(meetingTab).toBeVisible()
+  await expect(meetingTab).toHaveAttribute('aria-selected', 'false')
+  await expect(dialog.locator('[data-testid="guest-field"]')).toHaveCount(0)
 
-  // Toggle ON → invitees and invite-note appear.
-  await window.locator('[data-testid="composer-meeting-toggle"]').check()
-  await expect(window.locator('[data-testid="composer-invitees"]')).toBeVisible({ timeout: 2000 })
+  // Toggle ON → the invitees (guests) field appears.
+  await meetingTab.click()
+  await expect(meetingTab).toHaveAttribute('aria-selected', 'true')
+  await expect(dialog.locator('[data-testid="guest-input"]')).toBeVisible({ timeout: 2000 })
 })
 
 // ─── Goal 2c: booking a meeting block schedules it and it persists ─────────────
@@ -117,23 +127,42 @@ test('MF-3 — scheduling a meeting block creates it with meeting data', async (
   })
   await expect(window.locator('[data-testid="week-time-grid"]')).toBeVisible({ timeout: 6000 })
 
-  // Open composer.
+  // Open the booking surface (the Book time dialog — see MF-2 for why it is
+  // not the old inline composer).
   await window.locator('[data-testid="day-col-2"]').click({ position: { x: 20, y: 200 } })
-  await expect(window.locator('[data-testid="block-composer"]')).toBeVisible({ timeout: 4000 })
+  const dialog = window.locator('[data-testid="book-time-dialog"]')
+  await expect(dialog).toBeVisible({ timeout: 4000 })
 
-  // Enable meeting mode.
-  await window.locator('[data-testid="composer-meeting-toggle"]').check()
-  await expect(window.locator('[data-testid="composer-invitees"]')).toBeVisible({ timeout: 2000 })
+  // Enable meeting mode, and invite someone so the meeting carries real data.
+  await dialog.getByRole('tab', { name: 'Meeting' }).click()
+  const guests = dialog.locator('[data-testid="guest-input"]')
+  await expect(guests).toBeVisible({ timeout: 2000 })
+  await guests.fill('alice@example.com')
+  await guests.press('Enter')
+  await expect(dialog.locator('[data-testid="guest-chip"]')).toHaveCount(1)
 
   // The primary button text should read "Schedule meeting".
-  const createBtn = window.locator('[data-testid="composer-create"]')
+  const createBtn = dialog.locator('[data-testid="book-commit"]')
   await expect(createBtn).toContainText(/schedule meeting/i)
 
   // Create the block.
   await createBtn.click()
+  await expect(dialog).toHaveCount(0, { timeout: 4000 })
 
   // A block renders on the grid.
   await expect(window.locator('[data-testid="time-block"]')).toHaveCount(1, { timeout: 4000 })
+
+  // It was stored WITH its meeting data: a room to join and the invitee.
+  const stored = await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const now = Date.now()
+    const blocks = await api.timeBlocks.list(now - 8 * 86_400_000, now + 8 * 86_400_000)
+    return blocks.map((b) => ({ meeting: b.meeting }))
+  })
+  expect(stored).toHaveLength(1)
+  expect(stored[0].meeting, 'the block carries a meeting').not.toBeNull()
+  expect(stored[0].meeting?.roomId, 'a meeting is always minted a room to join').toBeTruthy()
+  expect(stored[0].meeting?.invitees).toEqual(['alice@example.com'])
 
   // The block has a join-meeting button (because it has a meeting attached).
   // It is a hover action like the block's other controls, so hover first.

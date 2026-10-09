@@ -118,7 +118,7 @@ async function seedTable(
   }, rows)
 }
 
-// Navigate to the task canvas and wait until the table import button is visible.
+// Navigate to the task canvas and wait until the table widget has mounted.
 async function navigateToTable(
   window: LaunchedApp['window'],
   taskId: string,
@@ -128,11 +128,26 @@ async function navigateToTable(
   await waitForReady(window)
   await window.getByRole('button', { name: /ImportTest/ }).first().click()
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 8_000 })
-  await window.waitForFunction(
-    (wid: string) => !!document.querySelector(`[data-widget-id="${wid}"] [data-testid="table-import-button"]`),
-    widgetId,
-    { timeout: 8_000 }
-  )
+  await window.waitForSelector(`[data-widget-id="${widgetId}"] [data-widget-header]`, { timeout: 8_000 })
+}
+
+// Open the importer the way a person does now.
+//
+// The table used to carry a second title bar of its own with an Import button
+// (data-testid "table-import-button") in it. Teardown 3.1 (196e4110,
+// 2026-09-17) removed that duplicate bar: the row count rides in the frame's one
+// title bar, and Import moved into the frame's header menu, where every other
+// widget keeps its actions. So: right-click the widget's title bar, then pick
+// the Import row. Same handler (TableWidget handleImport), same dialog.
+async function openImportFromHeaderMenu(
+  window: LaunchedApp['window'],
+  widgetId: string
+): Promise<void> {
+  const header = window.locator(`[data-widget-id="${widgetId}"] [data-widget-header]`)
+  await header.click({ button: 'right', position: { x: 40, y: 8 } })
+  const menu = window.locator('[role="menu"]')
+  await expect(menu).toBeVisible({ timeout: 4_000 })
+  await menu.getByRole('menuitem', { name: /Import CSV, JSON or Excel/ }).click()
 }
 
 // ── Test A: Upsert mode ──────────────────────────────────────────────────────
@@ -161,15 +176,7 @@ test('A — upsert mode: dialog opens, mapping auto-suggested, correct state aft
 
   await navigateToTable(window, seed.taskId, seed.widgetId)
 
-  // Click the import button via direct DOM call (canvas transform can block
-  // Playwright's synthetic click, same reason used in the markdown export test).
-  await window.evaluate((wid: string) => {
-    const btn = document.querySelector(
-      `[data-widget-id="${wid}"] [data-testid="table-import-button"]`
-    ) as HTMLButtonElement | null
-    if (!btn) throw new Error('table-import-button not found')
-    btn.click()
-  }, seed.widgetId)
+  await openImportFromHeaderMenu(window, seed.widgetId)
 
   // Dialog must appear.
   await expect(window.locator('[data-testid="table-import-dialog"]')).toBeVisible({
@@ -281,13 +288,7 @@ test('B — append mode: all rows insert, none updated', async () => {
 
   await navigateToTable(window, seed.taskId, seed.widgetId)
 
-  await window.evaluate((wid: string) => {
-    const btn = document.querySelector(
-      `[data-widget-id="${wid}"] [data-testid="table-import-button"]`
-    ) as HTMLButtonElement | null
-    if (!btn) throw new Error('table-import-button not found')
-    btn.click()
-  }, seed.widgetId)
+  await openImportFromHeaderMenu(window, seed.widgetId)
 
   await expect(window.locator('[data-testid="table-import-dialog"]')).toBeVisible({ timeout: 6_000 })
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useWidgetStore } from '../stores/widgets'
+import { isOverFloatingChrome } from './floatingChrome'
 
 // Edge-pan / "infinite map" camera control for the canvas.
 //
@@ -230,17 +231,13 @@ export function useEdgePan({
     // a pointer that left the canvas. Routing through onLeave() keeps the
     // "don't clear mid-drag" invariant so dragging a widget past a menu toward
     // the edge still pans.
-    function isOverFloatingChrome(target: EventTarget | null): boolean {
-      // Suppress while the cursor is over ANY floating menu: the docked menus
-      // (.fb-floating-chrome) and everything tagged data-floating-menu (the
-      // control pill, breadcrumb, toolbar, presence bar, minimap FAB, context
-      // menus, popovers). This is pointer-over only, so panning resumes the
-      // instant the cursor leaves the menu. It never latches edge-pan off.
-      return (
-        target instanceof Element &&
-        !!target.closest('.fb-floating-chrome, [data-floating-menu]')
-      )
-    }
+    // Suppress while the cursor is over ANY floating menu: the docked menus
+    // (.fb-floating-chrome) and everything tagged data-floating-menu (the
+    // control pill, breadcrumb, toolbar, presence bar, zoom pill, minimap FAB,
+    // context menus, popovers). This is pointer-over only, so panning resumes
+    // the instant the cursor leaves the menu. It never latches edge-pan off.
+    // The predicate lives in lib/floatingChrome so components can be tested
+    // against the same definition.
 
     function onMove(e: MouseEvent): void {
       if (isOverFloatingChrome(e.target)) {

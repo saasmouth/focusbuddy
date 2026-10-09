@@ -173,12 +173,22 @@ export default function AutomationsFAB(): JSX.Element {
 
   return (
     <div
-      className="fb-floating-chrome absolute bottom-[76px] right-3 z-[46] pointer-events-auto"
+      className="fb-floating-chrome absolute right-3 z-[46] pointer-events-auto"
       /* Stacked ABOVE the Plexii pill rather than beside it. The pill grew to
          52px and went purple to be findable (2026-10-09), and at bottom-14 this
          sat underneath it — measured, not guessed: the overlap probe reported
          `overlaps: button[automations-fab]`. The pill is the primary action in
-         that corner, so the secondary one moves. */
+         that corner, so the secondary one moves.
+
+         It moved to a fixed bottom-[76px], which cleared the pill but put this
+         button on the OPEN minimap panel (bottom-3, 100px tall, and it opens on
+         every pan): it covered the panel's close button outright, which is
+         what the WCAG target-size scan found. The pill now publishes the stack
+         height while it shows (76px, the same place as before), and the
+         minimap moves beside the pill, out of this column. With the pill
+         hidden the minimap is back in the corner, so the fallback clears the
+         open panel instead: bottom-3 (12) + PANEL_H (100) + an 8px gap. */
+      style={{ bottom: 'var(--fb-corner-stack-bottom, 120px)' }}
       data-automations-fab
       data-floating-menu
     >

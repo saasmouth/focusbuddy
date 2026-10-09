@@ -11,6 +11,7 @@ import AssistantMessagesTab from './tabs/AssistantMessagesTab'
 import AssistantAgentTab from './tabs/AssistantAgentTab'
 import AssistantCalendarTab from './tabs/AssistantCalendarTab'
 import AssistantHeader from './AssistantHeader'
+import { pillCornerVars } from './pillGeometry'
 import { useChatStore } from '../../stores/chat'
 import { useViewStore } from '../../stores/view'
 import { useWidgetStore } from '../../stores/widgets'
@@ -264,6 +265,32 @@ function AssistantOverlayChrome(): JSX.Element {
       window.removeEventListener('pointerup', onUp)
     }
   }, [resizing, setWidth, persistWidth])
+
+  // The pill owns the bottom-right corner while it is showing, so the desk's
+  // own corner chrome has to know it is there. It did not: the pill grew to
+  // 52px (2026-10-09) and sat squarely on the minimap's toggle — a click meant
+  // for the minimap opened Plexii instead — while the automations button, moved
+  // up to clear the pill, landed on the open minimap panel's close button.
+  //
+  // Published by the pill itself, like the tray's --fb-pill-bottom, so the
+  // variables exist exactly while the pill renders and never on a guess about
+  // when it might. Both are authored lengths read by authored lengths (the
+  // pill's own right-[14px] and w-[52px] — see ./pillGeometry), so no measured
+  // px is mixed in.
+  //   --fb-pill-clear-right    where the minimap sits: beside the pill, not under it
+  //   --fb-corner-stack-bottom where the automations button sits: above the pill
+  // When the pill is hidden the consumers fall back to the corner itself
+  // (CanvasMinimapFAB, AutomationsFAB).
+  const pillShowing = !open && !focusModeShowing && !hubShowing
+  useEffect(() => {
+    if (!pillShowing) return
+    const root = document.documentElement.style
+    const vars = pillCornerVars()
+    for (const [name, value] of Object.entries(vars)) root.setProperty(name, value)
+    return () => {
+      for (const name of Object.keys(vars)) root.removeProperty(name)
+    }
+  }, [pillShowing])
 
   if (focusModeShowing || hubShowing) return <></>
 

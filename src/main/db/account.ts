@@ -217,15 +217,29 @@ export function loadAccountState(): PublicAccountState {
   }
 }
 
+// Whether this process has already counted its launch. See recordAnonLaunch.
+let launchCounted = false
+
 /**
  * Count one app start made without an account, and report the new total.
  *
- * Called once per launch from the main process. A signed-in start does not
+ * Called from the main window's ready-to-show. A signed-in start does not
  * count and does not reset the total: someone who signs out is back where they
  * were, not handed three more free opens.
+ *
+ * ONCE PER PROCESS. ready-to-show is not a launch event: Electron fires it
+ * again on every renderer reload (measured on Electron 37 — two reloads, two
+ * events). View → Reload, the error screen's Reload button and a restore from
+ * backup each reload the renderer, and each was spending one of the three free
+ * opens, so a few reloads in a single sitting put someone behind the
+ * account-required wall mid-session. A launch is the process starting — the
+ * same boundary clearSessionForNewLaunch uses for the session — so the count
+ * is taken once per process, whoever calls this and however often.
  */
 export function recordAnonLaunch(): number {
   const state = read()
+  if (launchCounted) return state.anonLaunches ?? 0
+  launchCounted = true
   if (state.encryptedToken) return state.anonLaunches ?? 0
   const next = (state.anonLaunches ?? 0) + 1
   write({ ...state, anonLaunches: next })

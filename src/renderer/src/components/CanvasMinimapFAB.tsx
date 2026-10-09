@@ -222,7 +222,12 @@ export default function CanvasMinimapFAB(): JSX.Element {
 
   return (
     <div
-      className="fb-floating-chrome absolute bottom-3 right-3 z-[46] pointer-events-auto"
+      className="fb-floating-chrome absolute bottom-3 z-[46] pointer-events-auto"
+      // Beside the Plexii pill while it shows (the pill publishes where its
+      // footprint ends), in the corner itself when it does not. Under the pill,
+      // the toggle could not be clicked at all and the open panel lost its
+      // bottom-right quarter to it. See the note in AssistantOverlay.
+      style={{ right: 'var(--fb-pill-clear-right, 12px)' }}
       data-minimap-fab
       data-floating-menu
       onMouseEnter={holdJump}
@@ -261,13 +266,16 @@ export default function CanvasMinimapFAB(): JSX.Element {
             style={{ width: PANEL_W, height: PANEL_H, transformOrigin: 'bottom right', borderRadius: 10 }}
             className="overflow-hidden shadow-lg ring-1 ring-black/10 dark:ring-white/10 bg-[var(--surface-sunken)] relative select-none fb-glass-chrome"
           >
-            {/* Close button — top-right of panel */}
+            {/* Close button — top-right of panel. A 24px target (WCAG 2.5.8)
+                with the glyph kept small: at 16px it failed target-size, and
+                the panel is too small to give it spacing instead. */}
             <button
               onClick={() => { setOpen(false); setNavOpen(false) }}
-              className="absolute top-1 right-1 z-10 w-4 h-4 rounded-full flex items-center justify-center text-[var(--ink-30)] hover:text-[var(--ink-80)] transition-colors"
+              className="absolute top-0.5 right-0.5 z-10 w-6 h-6 rounded-full flex items-center justify-center text-[var(--ink-30)] hover:text-[var(--ink-80)] transition-colors"
               title="Close minimap"
+              aria-label="Close minimap"
             >
-              <Icon name="close" size={10} />
+              <Icon name="close" size={12} />
             </button>
             {/* Zoom badge */}
             <div className="absolute top-1 left-1.5 text-[9px] font-mono text-[var(--ink-35)] pointer-events-none">

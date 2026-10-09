@@ -43,6 +43,12 @@ export default function ZoomControls(): JSX.Element {
       onMouseEnter={enter}
       onMouseLeave={leave}
       data-testid="zoom-controls"
+      // Floating chrome, so edge-pan stands down over it. The pill sits at
+      // bottom-3 beside the dock: inside BOTH the bottom and the left edge-pan
+      // margins. Untagged, hovering it to reach − / + slid the desk diagonally
+      // under the pointer — measured at ~265px x and ~290px y in 600ms — and the
+      // widget you were aiming at moved before the click landed.
+      data-floating-menu
       className="absolute bottom-3 left-[calc(var(--fb-dock-inset,0px)+0.75rem)] z-30 fb-glass-chrome rounded-md border border-[color:var(--glass-chrome-border)] shadow-md flex items-stretch overflow-hidden"
     >
       {/* – slides in from the left on hover */}

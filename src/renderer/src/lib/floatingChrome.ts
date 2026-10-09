@@ -11,6 +11,21 @@ import type { MenuRect } from '../stores/overlay'
 
 const MARGIN = 8
 
+// What counts as floating chrome for the desk camera: the docked menus
+// (.fb-floating-chrome) and everything that opts in with data-floating-menu.
+// Edge-pan stands down while the pointer is over any of it (lib/useEdgePan),
+// because a control that sits inside the edge-pan margin — the zoom pill, the
+// minimap, the automations button — would otherwise slide the desk out from
+// under the pointer while someone is trying to click it.
+//
+// One definition, exported, so a component's own test can assert it is covered
+// by the same predicate the camera uses rather than by a copy of the selector.
+export const FLOATING_CHROME_SELECTOR = '.fb-floating-chrome, [data-floating-menu]'
+
+export function isOverFloatingChrome(target: EventTarget | null): boolean {
+  return target instanceof Element && !!target.closest(FLOATING_CHROME_SELECTOR)
+}
+
 // Every floating menu currently on screen except the one asking (and anything
 // inside it). Elements with zero size are skipped so a collapsed or unmounted
 // node never counts as an obstacle.

@@ -9,7 +9,8 @@ import type { AlignMode } from '../../src/renderer/src/lib/canvasAlign'
 //   2. "Align left" converges all selected widgets' x to the same value via the
 //      IPC-driven position check (window.api.widgets.listByTask).
 //   3. With 3+ selected the Distribute buttons appear.
-//   4. Toggling snap-to-grid via CommandCenter (Cmd+K) does not crash.
+//   4. On an open desk, the CommandCenter (Cmd+K) snap-to-grid command flips the
+//      persisted pref on and back off, without crashing.
 
 let launched: LaunchedApp | null = null
 
@@ -156,67 +157,59 @@ test('Distribute buttons appear when 3 widgets are selected', async () => {
 test('Snap-to-grid toggle via CommandCenter does not crash', async () => {
   launched = await launchApp()
   const { window } = launched
-  await waitForReady(window)
+  const pageErrors: string[] = []
+  window.on('pageerror', (e) => pageErrors.push(e.message))
 
-  // Open the command palette with Cmd+K.
-  await window.evaluate(() => {
-    window.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true })
-    )
-  })
-  await window.waitForTimeout(300)
+  // Snap-to-grid is a CANVAS command: CommandCenter only lists toggle-snap
+  // while a desk is open (it has sat inside `if (activeTaskId)` since it was
+  // added in 553d05b6). This test used to open the palette on Home, where the
+  // row does not exist — so it either clicked some other row that happened to
+  // say "snap" (the web-search row did) or found nothing and skipped its only
+  // real assertion behind `if (clicked)`. Open a desk, and require the row.
+  await seedWidgetsAndOpen(launched, [{ x: 200, y: 200 }])
 
-  // Type "snap" to filter to the snap-to-grid command.
-  await window.evaluate(() => {
-    const input = document.querySelector<HTMLInputElement>('input[placeholder*="command"], input[placeholder*="search"], input[type="search"], [role="combobox"]')
-    if (input) {
-      input.focus()
-    }
-  })
-  await window.keyboard.type('snap')
-  await window.waitForTimeout(200)
+  const readSnap = (): Promise<boolean | null> =>
+    window.evaluate(() => {
+      // setNavPrefs persists under 'fb.nav.prefs' (lib/navPrefs). lib/gridPref
+      // keeps a separate canvas snap under 'fb.canvas.snap'; the palette does
+      // not touch it.
+      try {
+        const raw = localStorage.getItem('fb.nav.prefs')
+        if (!raw) return null
+        return JSON.parse(raw)?.snapToGridEnabled ?? null
+      } catch {
+        return null
+      }
+    })
 
-  // Click the snap-to-grid result item (matches either "on" or "off" state).
-  const clicked = await window.evaluate(() => {
-    const items = Array.from(
-      document.querySelectorAll('[role="option"], [role="menuitem"], [data-command-item]')
-    )
-    // "Snap to grid: off (turn on)" / "...: on (turn off)" is the command's
-    // label. Matching bare 'snap' could land on any other row that happens to
-    // contain the word, which is how this ended up clicking something that
-    // never called setNavPrefs.
-    const item = items.find((el) => el.textContent?.toLowerCase().includes('snap to grid'))
-    if (!item) return false
-    ;(item as HTMLElement).click()
-    return true
-  })
-
-  // Even if the command item text search misses (different palette structure),
-  // the important thing is no crash and the app is still responsive.
-  await window.waitForTimeout(300)
-  const viewVisible = await window.locator('body').isVisible()
-  expect(viewVisible).toBe(true)
-
-  // Confirm the snap toggle survives by checking navPrefs via evaluate.
-  const snapState = await window.evaluate(() => {
-    // The palette's toggle-snap command calls setNavPrefs, which persists
-    // under 'fb.nav.prefs' — not 'navPrefs', which is a key nothing writes, so
-    // this check could only ever read null. (lib/gridPref.ts keeps a separate
-    // canvas snap under 'fb.canvas.snap'; the palette does not touch it.)
-    try {
-      const raw = localStorage.getItem('fb.nav.prefs')
-      if (!raw) return null
-      return JSON.parse(raw)?.snapToGridEnabled ?? null
-    } catch {
-      return null
-    }
-  })
-  // snapState may be true (toggled on) or null (not yet persisted in this
-  // session), but must not throw. We confirm no crash by reaching this line.
-  expect([true, false, null]).toContain(snapState)
-
-  if (clicked) {
-    // If we successfully clicked a snap item, snapToGridEnabled should now be true.
-    expect(snapState).toBe(true)
+  async function runSnapCommand(expectLabel: RegExp): Promise<void> {
+    // Open the command palette with Cmd+K, the way the app's global key
+    // handler hears it.
+    await window.evaluate(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }))
+    })
+    const input = window.locator('[data-testid="command-palette-input"]')
+    await expect(input).toBeVisible({ timeout: 4_000 })
+    await input.fill('snap')
+    // The command's own row, by its testid — not any row containing the word.
+    const row = window.locator('[data-testid="palette-row-toggle-snap"]')
+    await expect(row).toBeVisible({ timeout: 4_000 })
+    await expect(row).toContainText(expectLabel)
+    await row.click()
+    // Running the command closes the palette.
+    await expect(input).toHaveCount(0, { timeout: 4_000 })
   }
+
+  expect(await readSnap(), 'snap starts off (default)').not.toBe(true)
+
+  await runSnapCommand(/Snap to grid: off \(turn on\)/)
+  expect(await readSnap(), 'the palette command turned snap ON').toBe(true)
+
+  // And it is a toggle: the row now offers the way back, and takes it.
+  await runSnapCommand(/Snap to grid: on \(turn off\)/)
+  expect(await readSnap(), 'the palette command turned snap OFF again').toBe(false)
+
+  // The desk is still there and nothing threw.
+  await expect(window.locator('[data-canvas-surface="true"]')).toBeVisible()
+  expect(pageErrors, 'no renderer errors').toEqual([])
 })

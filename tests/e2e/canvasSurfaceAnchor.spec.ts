@@ -58,14 +58,22 @@ test('CS-1 — the desk surface never keeps a scroll offset, so the chrome stays
       scrollLeft: Math.round(el.scrollLeft),
       scrollTop: Math.round(el.scrollTop),
       gapRight: Math.round(surf.right - fab.right),
-      gapBottom: Math.round(surf.bottom - fab.bottom)
+      gapBottom: Math.round(surf.bottom - fab.bottom),
+      // Where the minimap is MEANT to sit: beside the Plexii pill while the
+      // pill shows (it publishes this), in the corner (12px) when it does not.
+      anchorRight:
+        parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fb-pill-clear-right')) || 12
     }
   })
 
   expect(after.scrollLeft).toBe(0)
   expect(after.scrollTop).toBe(0)
-  // bottom-3 right-3 is 12px; allow for a scrollbar gutter.
-  expect(after.gapRight).toBeLessThan(48)
+  // Anchored where it is meant to be, not carried off by a scroll offset (the
+  // scroll above was 1062px). bottom-3 is 12px; on the right the minimap sits
+  // beside the Plexii pill while it shows (76px — 2026-10-10, it used to sit
+  // under it), else in the corner. Allow for a scrollbar gutter either way.
+  expect(after.gapRight).toBeGreaterThanOrEqual(after.anchorRight - 2)
+  expect(after.gapRight).toBeLessThan(after.anchorRight + 36)
   expect(after.gapBottom).toBeLessThan(48)
 })
 

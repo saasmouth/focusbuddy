@@ -144,13 +144,20 @@ export async function waitForReady(
   // through to dismiss (welcome → skip key → start blank). Best-effort; absent
   // for an existing-data DB. Specs that assert on onboarding pass
   // { dismissModals: false }.
+  // Every dismissal below is best-effort, so every click is BOUNDED. An
+  // unbounded click on something another modal covers does not fail — it
+  // retries until the test's own timeout, with the .catch() swallowing why. That
+  // is how restyleVisual "timed out": its fourth boot met the account-required
+  // sign-in modal (no skip button by design), the spotlight's Dismiss sat
+  // underneath it, and the click spent 30s being intercepted in silence.
+  const BEST_EFFORT = { timeout: 5_000 }
   const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiDesk"]')
   if (await onb.isVisible().catch(() => false)) {
-    await window.getByRole('button', { name: 'Get started' }).click().catch(() => {})
-    await window.locator('[data-testid="onboarding-key-skip"]').click().catch(() => {})
+    await window.getByRole('button', { name: 'Get started' }).click(BEST_EFFORT).catch(() => {})
+    await window.locator('[data-testid="onboarding-key-skip"]').click(BEST_EFFORT).catch(() => {})
     // Tour step (surfaces overview) sits between the key step and the starter.
-    await window.locator('[data-testid="onboarding-tour-continue"]').click().catch(() => {})
-    await window.locator('[data-testid="onboarding-start-blank"]').click().catch(() => {})
+    await window.locator('[data-testid="onboarding-tour-continue"]').click(BEST_EFFORT).catch(() => {})
+    await window.locator('[data-testid="onboarding-start-blank"]').click(BEST_EFFORT).catch(() => {})
   }
 
   // Sign-in modal — dismiss with "Continue without account" so subsequent
@@ -161,7 +168,7 @@ export async function waitForReady(
     name: /continue without account|skip|not now/i
   })
   if (await skip.isVisible().catch(() => false)) {
-    await skip.click().catch(() => {})
+    await skip.click(BEST_EFFORT).catch(() => {})
   }
 
   // Feature-tour spotlight — the corner card offered on the first boot AFTER
@@ -173,7 +180,7 @@ export async function waitForReady(
   // tours skipped before reloading (see assistantPin.spec.ts).
   const spotlight = window.locator('[data-testid="feature-spotlight-dismiss"]')
   if (await spotlight.isVisible().catch(() => false)) {
-    await spotlight.click().catch(() => {})
+    await spotlight.click(BEST_EFFORT).catch(() => {})
   }
 }
 

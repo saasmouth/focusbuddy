@@ -196,3 +196,35 @@ test('MM-4 — clicking inside the panel moves the camera there', async () => {
     'the camera moved'
   ).toBeGreaterThan(20)
 })
+
+test('MM-5 — the settled minimap toggle is not under the Plexii pill', async () => {
+  // MM-3 clicks the toggle while it is still mid-transition at the panel's old
+  // corner, so it passed even when the settled toggle sat under the Plexii pill
+  // and a click on it opened Plexii instead (the 2026-10-10 WCAG target-size
+  // finding). This waits for the toggle to settle, then hit-tests it.
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  await seedDesk(window, 'Minimap corner')
+  await openDesk(window, 'Minimap corner')
+  const toggle = window.locator('[data-testid="minimap-fab-toggle"]')
+  await toggle.waitFor({ state: 'visible', timeout: 15_000 })
+  await expect.poll(() => window.evaluate(() => {
+    // Either element can be missing for a frame while the desk re-renders;
+    // that is "not settled yet", so keep polling rather than throw.
+    const t = document.querySelector('[data-testid="minimap-fab-toggle"]')?.getBoundingClientRect()
+    const s = document.querySelector('[data-canvas-surface="true"]')?.getBoundingClientRect()
+    return t && s ? Math.round(s.bottom - t.bottom) : Number.POSITIVE_INFINITY
+  }), { timeout: 8_000 }).toBeLessThanOrEqual(16)
+  const hit = await window.evaluate(() => {
+    const t = document.querySelector('[data-testid="minimap-fab-toggle"]')!.getBoundingClientRect()
+    return document.elementFromPoint(t.left + t.width / 2, t.top + t.height / 2)
+      ?.closest('[data-testid]')?.getAttribute('data-testid') ?? null
+  })
+  expect(hit, 'a click on the toggle reaches the toggle, not the Plexii pill').toBe('minimap-fab-toggle')
+  await toggle.click()
+  await expect(window.locator('[data-testid="minimap-fab-panel"]')).toBeVisible()
+  expect(await window.evaluate(() =>
+    (window as unknown as { __fbAssistantChrome?: { getState: () => { open: boolean } } }).__fbAssistantChrome?.getState().open
+  )).toBe(false)
+})

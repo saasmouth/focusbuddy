@@ -188,11 +188,24 @@ test('2 — new unbound chart shows honest empty/prompt state and opens Data pan
   )
   expect(editPanelVisible, 'Data panel (table picker) open by default on unbound chart').toBe(true)
 
-  // The chart area shows the "Pick a table" prompt, not any SVG bars.
-  const hasSvg = await window.evaluate((wid: string) =>
-    !!document.querySelector(`[data-widget-id="${wid}"] [data-testid="chart-widget"] svg`)
-  , seed.widgetId)
-  expect(hasSvg, 'no SVG rendered on unbound chart — honest empty state').toBe(false)
+  // The chart area shows the "Pick a table" prompt, not a chart.
+  //
+  // "No <svg> at all" stopped meaning "no chart" when the Plexii brand icons
+  // landed: Icon renders a brand glyph as an inline, aria-hidden <svg>
+  // (components/Icon.tsx), and the open Data panel's "Add value" button wears
+  // one. A chart is recharts' surface; an icon is decorative and aria-hidden.
+  // So: no recharts surface, and no SVG that is not a decorative icon.
+  const svgs = await window.evaluate((wid: string) => {
+    const root = document.querySelector(`[data-widget-id="${wid}"] [data-testid="chart-widget"]`)
+    const all = Array.from(root?.querySelectorAll('svg') ?? [])
+    return {
+      recharts: !!root?.querySelector('.recharts-wrapper, svg.recharts-surface'),
+      nonIcon: all.filter((s) => s.getAttribute('aria-hidden') !== 'true').map((s) => s.outerHTML.slice(0, 120)),
+      icons: all.filter((s) => s.getAttribute('aria-hidden') === 'true').length
+    }
+  }, seed.widgetId)
+  expect(svgs.recharts, 'no chart surface on an unbound chart — honest empty state').toBe(false)
+  expect(svgs.nonIcon, 'no SVG besides decorative icons on an unbound chart').toEqual([])
 
   // No fabricated numeric text (e.g. sample bar values) visible.
   const innerText = await window.evaluate((wid: string) => {

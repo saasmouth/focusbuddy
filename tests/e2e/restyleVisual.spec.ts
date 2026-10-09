@@ -21,7 +21,7 @@
  *   canvas    — Task canvas chrome (FloatingToolbar + ZoomControls + breadcrumb)
  */
 
-import { test } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady } from './_helpers'
 import { mkdirSync } from 'fs'
 import { join } from 'path'
@@ -121,6 +121,12 @@ test('restyled surfaces render correctly across all four themes', async () => {
       )
       await window.reload()
       await waitForReady(window)
+      // A capture spec with no assertions passes on ANY screen. It did: past
+      // the third reload every boot was charged as an app open, the fourth met
+      // the account-required sign-in wall, and the futuristic and atelier
+      // "surfaces" were screenshots of that modal. So each capture now checks
+      // it is looking at the surface it names, and the wall is not up.
+      await expect(window.locator('[role="dialog"][aria-label="Sign in to PlexiDesk"]')).toHaveCount(0)
 
       // (a) Sidebar with folders/tasks — go Home so the sidebar renders
       //     alongside the ordinary workspace dashboard with the seeded tree
@@ -131,11 +137,13 @@ test('restyled surfaces render correctly across all four themes', async () => {
         w.__fbView?.getState().goHome()
       })
       await window.waitForTimeout(500)
+      await expect(window.locator('[data-testid="sidebar-dock"]')).toBeVisible()
       await window.screenshot({ path: join(SHOTS_DIR, `${mode}-sidebar.png`), fullPage: false })
 
       // (b) NewNodeDialog open
       await window.evaluate(() => window.dispatchEvent(new CustomEvent('fb:command-new-task')))
       await window.waitForTimeout(400)
+      await expect(window.locator('[data-testid="newnode-name"]')).toBeVisible()
       await window.screenshot({ path: join(SHOTS_DIR, `${mode}-newnode.png`), fullPage: false })
       // Close it (Escape / click Cancel) before moving on.
       await window.keyboard.press('Escape').catch(() => {})
@@ -153,6 +161,7 @@ test('restyled surfaces render correctly across all four themes', async () => {
         w.__fbView?.getState().goAllTasks()
       })
       await window.waitForTimeout(500)
+      await expect(window.getByText('All Tasks', { exact: true })).toBeVisible()
       await window.screenshot({ path: join(SHOTS_DIR, `${mode}-alltasks.png`), fullPage: false })
 
       // (d) Desk gallery with 2+ desks
@@ -163,6 +172,7 @@ test('restyled surfaces render correctly across all four themes', async () => {
         w.__fbView?.getState().goProject('no-such-desk-restyle-visual')
       })
       await window.waitForTimeout(600)
+      await expect(window.locator('[data-testid="desk-gallery"]')).toBeVisible()
       await window.screenshot({ path: join(SHOTS_DIR, `${mode}-gallery.png`), fullPage: false })
 
       // (e) Task canvas chrome: FloatingToolbar + ZoomControls + breadcrumb
@@ -173,6 +183,7 @@ test('restyled surfaces render correctly across all four themes', async () => {
         w.__fbView?.getState().goProject(id)
       }, seeded.folderId)
       await window.waitForTimeout(700)
+      await expect(window.locator('[data-canvas-surface="true"]')).toBeVisible()
       await window.screenshot({ path: join(SHOTS_DIR, `${mode}-canvas.png`), fullPage: false })
     }
 

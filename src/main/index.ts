@@ -423,6 +423,8 @@ function createCommandCenter(): BrowserWindow {
   // Count this start if nobody is signed in. Done here rather than at process
   // boot because this module must not be touched before the window is visible
   // (DEC-060): a keychain prompt behind no parent window looks like a hang.
+  // ready-to-show fires again on every renderer reload; recordAnonLaunch counts
+  // once per process, so a reload is never charged as an app open.
   recordAnonLaunch()
   })
 

@@ -5,16 +5,29 @@
  * The restyle touched NewNodeDialog, Sidebar, DeskGallery, AllTasksView,
  * WorkspaceHeader and the canvas chrome (FloatingToolbar/ZoomControls/
  * CanvasBreadcrumb) with token/class swaps only. This spec drives the
- * real user-facing flows through each surface end to end:
+ * real user-facing flows through each surface end to end.
  *
- *   1. Create a folder + a task through NewNodeDialog, assert both land
- *      in the sidebar tree.
- *   2. Rename a node inline in the sidebar (double-click affordance),
- *      assert the styled input works and the rename persists.
- *   3. All Tasks: click through two filter chips, search, change sort,
+ * Retargeted 2026-10-10 to where those flows live now. The behaviour it
+ * protects is unchanged; the furniture moved:
+ *   - "Folders" are Rooms, and the sidebar no longer carries a folder/desk
+ *     tree (role=treeitem). Rooms are organised on the All Rooms index, which
+ *     is where a new Room appears and where it is renamed (its row action /
+ *     right-click menu opens the house prompt dialog).
+ *   - NewNodeDialog is a solid fb-card now, not the fb-glass-pillow form, and
+ *     names what it makes ("New Room" / "Create Room", "New Desk" / "Create
+ *     Desk"). A desk is filed into a Room from that Room's Desks index.
+ *   - The minimap is built-in chrome, not a widget auto-added to every desk
+ *     (Canvas sweeps legacy ones away), so an empty desk is genuinely empty
+ *     and shows its empty state without first deleting anything.
+ *
+ *   1. Create a Room through NewNodeDialog; it lands on the All Rooms index.
+ *   2. Create a desk inside that Room through NewNodeDialog, from the Room's
+ *      Desks index; it is filed under the Room.
+ *   3. Rename the Room from its index row; the rename persists.
+ *   4. All Tasks: click through two filter chips, search, change sort,
  *      click a task row and assert it opens the canvas.
- *   4. Desk gallery: reach it with no active desk, click a desk card,
- *      assert the canvas opens and the empty desk shows the restyled
+ *   5. Desk gallery: reach it with no active desk, click the Room's card,
+ *      assert its canvas opens and the empty desk shows the restyled
  *      glass-pill empty state ("Drag an object...").
  */
 
@@ -30,83 +43,99 @@ test('restyled folders/desks/tasks surfaces: functional flows still work', async
     await waitForReady(window)
 
     // ------------------------------------------------------------------ //
-    // 1. Create a folder via NewNodeDialog (fb:command-new-task opens the //
-    //    dialog in create/folder mode — same event the sidebar's own      //
-    //    "new" button and DeskGallery's "New desk" card dispatch).        //
+    // 1. Create a Room via NewNodeDialog (fb:command-new-task with kind     //
+    //    'folder' opens it in create/Room mode — the same event the stage   //
+    //    strip's "new room" dispatches).                                    //
     // ------------------------------------------------------------------ //
-    await window.evaluate(() => window.dispatchEvent(new CustomEvent('fb:command-new-task')))
+    await window.evaluate(() =>
+      window.dispatchEvent(
+        new CustomEvent('fb:command-new-task', { detail: { parentId: null, kind: 'folder' } })
+      )
+    )
 
-    const dialog1 = window.locator('form.fb-glass-pillow')
+    const nameField = window.locator('[data-testid="newnode-name"]')
+    const dialog1 = window.locator('form', { has: nameField })
     await expect(dialog1).toBeVisible({ timeout: 5_000 })
-    await expect(dialog1.getByText('New project')).toBeVisible()
-    await dialog1.locator('[data-testid="newnode-name"]').fill('Restyle Folder Alpha')
-    await dialog1.getByRole('button', { name: 'Create' }).click()
+    await expect(dialog1.getByText('New Room', { exact: true })).toBeVisible()
+    await nameField.fill('Restyle Folder Alpha')
+    await dialog1.getByRole('button', { name: 'Create Room' }).click()
     await expect(dialog1).not.toBeVisible({ timeout: 5_000 })
 
-    const sidebar = window.locator('aside').first()
-    const folderRow = sidebar.locator('[role="treeitem"]', { hasText: 'Restyle Folder Alpha' })
-    await expect(folderRow).toBeVisible({ timeout: 5_000 })
-    console.log('Folder "Restyle Folder Alpha" appears in sidebar tree: OK')
+    const nodeIdByTitle = (title: string): Promise<string | null> =>
+      window.evaluate(async (t: string) => {
+        const api = (
+          window as unknown as {
+            api: { nodes: { list: () => Promise<Array<{ id: string; title: string }>> } }
+          }
+        ).api
+        const nodes = await api.nodes.list()
+        return nodes.find((n) => n.title === t)?.id ?? null
+      }, title)
+
+    await expect.poll(() => nodeIdByTitle('Restyle Folder Alpha'), { timeout: 5_000 }).not.toBeNull()
+    const folderId = (await nodeIdByTitle('Restyle Folder Alpha'))!
+
+    await window.evaluate(() => {
+      const w = window as unknown as { __fbView?: { getState: () => { goRooms: () => void } } }
+      w.__fbView?.getState().goRooms()
+    })
+    const roomItem = window.locator(
+      `[data-testid="index-row-${folderId}"], [data-testid="index-card-${folderId}"]`
+    )
+    await expect(roomItem).toBeVisible({ timeout: 5_000 })
+    await expect(roomItem).toContainText('Restyle Folder Alpha')
+    console.log('Room "Restyle Folder Alpha" appears on the All Rooms index: OK')
 
     // ------------------------------------------------------------------ //
-    // 2. Create a task inside that folder via its hover "Add task" icon.  //
+    // 2. Create a desk inside that Room, from the Room's Desks index.     //
     // ------------------------------------------------------------------ //
-    await folderRow.hover()
-    await folderRow.locator('button[title="Add task"]').click()
+    await window.evaluate((id: string) => {
+      const w = window as unknown as { __fbView?: { getState: () => { goDesks: (r: string) => void } } }
+      w.__fbView?.getState().goDesks(id)
+    }, folderId)
+    await window.locator('[data-testid="desks-index-new"]').click()
 
-    const dialog2 = window.locator('form.fb-glass-pillow')
+    const dialog2 = window.locator('form', { has: nameField })
     await expect(dialog2).toBeVisible({ timeout: 5_000 })
-    await expect(dialog2.getByText('New task')).toBeVisible()
-    await dialog2.locator('[data-testid="newnode-name"]').fill('Restyle Task Alpha')
-    await dialog2.getByRole('button', { name: 'Create' }).click()
+    await expect(dialog2.getByText('New Desk', { exact: true })).toBeVisible()
+    await nameField.fill('Restyle Task Alpha')
+    await dialog2.getByRole('button', { name: 'Create Desk' }).click()
     await expect(dialog2).not.toBeVisible({ timeout: 5_000 })
 
-    // Expand the folder if the task row isn't already visible (new folders
-    // with a freshly-added child usually auto-expand, but don't assume it).
-    const taskRow = sidebar.locator('[role="treeitem"]', { hasText: 'Restyle Task Alpha' })
-    if (!(await taskRow.isVisible().catch(() => false))) {
-      await folderRow.click()
-      await window.waitForTimeout(300)
-    }
-    await expect(taskRow).toBeVisible({ timeout: 5_000 })
-    console.log('Task "Restyle Task Alpha" appears in sidebar tree: OK')
+    await expect.poll(() => nodeIdByTitle('Restyle Task Alpha'), { timeout: 5_000 }).not.toBeNull()
+    const taskId = (await nodeIdByTitle('Restyle Task Alpha'))!
+    const parentOfTask = await window.evaluate(async (id: string) => {
+      const api = (
+        window as unknown as {
+          api: { nodes: { list: () => Promise<Array<{ id: string; parentId: string | null }>> } }
+        }
+      ).api
+      return (await api.nodes.list()).find((n) => n.id === id)?.parentId ?? null
+    }, taskId)
+    expect(parentOfTask, 'the desk is filed under the Room it was created from').toBe(folderId)
+    console.log('Desk "Restyle Task Alpha" is created inside the Room: OK')
 
     // ------------------------------------------------------------------ //
-    // 3. Rename a node inline in the sidebar via its rename affordance.   //
-    //    NOTE (harness limitation, not a product bug): a literal          //
-    //    double-click on the row is unreliable to drive synthetically    //
-    //    here because the row's own single-click handler navigates into  //
-    //    the desk (selectProject), which reflows the sidebar (the "Add   //
-    //    to desk" widget strip appears above the tree) between the two   //
-    //    clicks of the synthetic double-click, so the second click and   //
-    //    the resulting dblclick land on the reflowed content instead of  //
-    //    the row. This is pre-existing Sidebar layout behavior untouched //
-    //    by the restyle diff, not something the restyle broke. The row's //
-    //    context-menu "Rename" item (right-click) sets the exact same    //
-    //    `renamingId` state and renders the exact same styled input, so  //
-    //    it exercises the identical rename code path deterministically.  //
+    // 3. Rename the Room from its index row (right-click → Rename room),  //
+    //    through the house prompt dialog.                                  //
     // ------------------------------------------------------------------ //
-    await folderRow.click({ button: 'right' })
-    const ctxMenu = window.locator('[role="menu"]')
-    await expect(ctxMenu).toBeVisible({ timeout: 3_000 })
-    await ctxMenu.getByText('Rename', { exact: true }).click()
-
-    // While a row is renaming, its title renders as an <input> whose value
-    // is not part of the treeitem's textContent, so a hasText filter on the
-    // treeitem no longer matches — locate the (single, unique) rename input
-    // directly instead.
-    const renameInput = sidebar.locator('[role="treeitem"] input')
-    await expect(renameInput).toBeVisible({ timeout: 3_000 })
-    await renameInput.fill('Restyle Folder Alpha Renamed')
-    await renameInput.press('Enter')
-    await expect(renameInput).not.toBeVisible({ timeout: 3_000 })
-    const renamedRow = sidebar.locator('[role="treeitem"]', {
-      hasText: 'Restyle Folder Alpha Renamed'
+    await window.evaluate(() => {
+      const w = window as unknown as { __fbView?: { getState: () => { goRooms: () => void } } }
+      w.__fbView?.getState().goRooms()
     })
-    await expect(renamedRow).toBeVisible({ timeout: 5_000 })
-    console.log('Inline rename via styled input persisted (driven via context-menu Rename, ' +
-      'since a raw double-click on the row is disrupted by the row\'s own navigate-on-click ' +
-      'reflowing the sidebar mid-gesture): OK')
+    await expect(roomItem).toBeVisible({ timeout: 5_000 })
+    await roomItem.click({ button: 'right' })
+    await window.locator('[data-testid="index-context-menu-rename"]').click()
+
+    const renameInput = window.locator('[data-testid="prompt-dialog-input"]')
+    await expect(renameInput).toBeVisible({ timeout: 3_000 })
+    await expect(renameInput).toHaveValue('Restyle Folder Alpha')
+    await renameInput.fill('Restyle Folder Alpha Renamed')
+    await window.locator('[data-testid="prompt-dialog-confirm"]').click()
+    await expect(window.locator('[data-testid="prompt-dialog"]')).toHaveCount(0, { timeout: 3_000 })
+    await expect(roomItem).toContainText('Restyle Folder Alpha Renamed', { timeout: 5_000 })
+    await expect.poll(() => nodeIdByTitle('Restyle Folder Alpha Renamed'), { timeout: 5_000 }).toBe(folderId)
+    console.log('Room rename through the styled prompt persisted: OK')
 
     // ------------------------------------------------------------------ //
     // 4. All Tasks: filter chips, search, sort, click row opens canvas.   //
@@ -124,10 +153,15 @@ test('restyled folders/desks/tasks surfaces: functional flows still work', async
     await window.getByRole('button', { name: /^All open/ }).click()
     await window.waitForTimeout(200)
 
-    // Search box.
-    await window.getByPlaceholder('Search tasks…').fill('Restyle Task Alpha')
+    // Search box. Its placeholder has read "Search desks…" since the S6
+    // renames (9320c6b3, 2026-08-25) — a "task" node is a desk.
+    await window.getByPlaceholder('Search desks…').fill('Restyle Task Alpha')
     await window.waitForTimeout(300)
-    const taskListRow = window.getByRole('button', { name: 'Restyle Task Alpha', exact: true })
+    // Scoped to the list: creating the desk opened it, so the open-item tray
+    // carries a button with the same name.
+    const taskListRow = window
+      .getByRole('listitem')
+      .getByRole('button', { name: 'Restyle Task Alpha', exact: true })
     await expect(taskListRow).toBeVisible({ timeout: 5_000 })
     console.log('Filter chips + search narrowed to the created task: OK')
 
@@ -158,16 +192,6 @@ test('restyled folders/desks/tasks surfaces: functional flows still work', async
     await expect(gallery.getByText('Your desks')).toBeVisible()
     console.log('Desk gallery renders with no active desk: OK')
 
-    // Find the id of the folder-desk we created so we can click its card.
-    const folderId = await window.evaluate(async () => {
-      const api = (
-        window as unknown as { api: { nodes: { list: () => Promise<Array<{ id: string; title: string }>> } } }
-      ).api
-      const nodes = await api.nodes.list()
-      return nodes.find((n) => n.title === 'Restyle Folder Alpha Renamed')?.id ?? null
-    })
-    expect(folderId).not.toBeNull()
-
     const deskCard = window.locator(`[data-testid="desk-card-${folderId}"]`)
     await expect(deskCard).toBeVisible({ timeout: 5_000 })
     await deskCard.click()
@@ -175,24 +199,14 @@ test('restyled folders/desks/tasks surfaces: functional flows still work', async
     await expect(gallery).not.toBeVisible({ timeout: 6_000 })
     console.log('Clicking a desk card opens its canvas: OK')
 
-    // Canvas auto-creates a pinned minimap widget the first time any desk is
-    // opened (Canvas.tsx's minimap effect), so widgets.length is never
-    // actually 0 on a brand-new desk and the true empty-state pill wouldn't
-    // show yet. Remove that one widget through the real "Remove widget"
-    // control (accepting the native confirm() dialog it raises) — the same
-    // action a user takes to dismiss the minimap — so the desk is genuinely
-    // empty and we can see the restyled empty state.
-    window.once('dialog', (d) => void d.accept())
-    const removeMinimap = window.getByRole('button', { name: 'Remove widget' })
-    await expect(removeMinimap).toBeVisible({ timeout: 6_000 })
-    await removeMinimap.click()
-
+    // An empty desk is genuinely empty: the minimap is built-in chrome now,
+    // not a widget Canvas adds on first open, so there is nothing to clear
+    // before the empty state can show.
     // Empty desk: the restyled glass-pill empty state should render.
     await expect(window.getByText('Drag an object from the palette onto the desk.')).toBeVisible({
       timeout: 5_000
     })
-    console.log('Empty-desk glass-pill empty state renders (after clearing the auto-added ' +
-      'minimap widget via its real Remove control): OK')
+    console.log('Empty-desk glass-pill empty state renders: OK')
 
     // ------------------------------------------------------------------ //
     // No uncaught console errors during the whole flow.                   //

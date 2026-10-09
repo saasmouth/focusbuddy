@@ -221,6 +221,19 @@ describe('the Plexii pill is the obvious thing in its corner', () => {
   })
 
   it('the secondary action in that corner moved above it, not under it', () => {
-    expect(read('src/renderer/src/components/AutomationsFAB.tsx')).toContain('bottom-[76px]')
+    // Rewritten 2026-10-10. This pinned a literal `bottom-[76px]` on the
+    // automations button. 76px did clear the pill, but as a fixed offset it
+    // landed on the OPEN minimap panel and covered its close button (the WCAG
+    // target-size failure), and with the pill hidden it hovered over nothing.
+    // The pill now publishes the stack height while it shows — still 76px, the
+    // same place — and the button reads it, falling back to clear the open
+    // minimap when the pill is gone. The geometry is held by
+    // tests/unit/cornerChrome.test.tsx; this keeps the original promise.
+    expect(read('src/renderer/src/components/AutomationsFAB.tsx')).toContain(
+      "bottom: 'var(--fb-corner-stack-bottom, 120px)'"
+    )
+    const geometry = read('src/renderer/src/components/assistant/pillGeometry.ts')
+    expect(geometry).toContain('PILL_STACK_BOTTOM_PX = PILL_CANVAS_INSET_PX + PILL_SIZE_PX + CORNER_GAP_PX // 76')
+    expect(overlay).toContain('pillCornerVars()')
   })
 })

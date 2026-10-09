@@ -134,8 +134,14 @@ test('AF-7 — a conversation keeps its own context and its turns as you walk ar
   await expect(rail).toBeVisible()
 
   // Speak, so the conversation becomes real and records where it began.
+  //
+  // The message has to read as a message. Since the instant-web ruling
+  // (2026-08-23, lib/omniIntent composerOmniIntents) a short bare phrase on a
+  // FRESH conversation is searchy, so Enter/Send performs "Search the web" and
+  // no chat turn is made — "a question from home" was exactly that, and the
+  // answer this waits for could never arrive. A question is never diverted.
   await stubStream(app, 'A home answer.')
-  await typeInComposer(window, 'a question from home')
+  await typeInComposer(window, 'what should I pick up from home?')
   await window.locator('button[aria-label="Send"]').click()
   await expect(window.getByText('A home answer.')).toBeVisible({ timeout: 8000 })
   await expect(rail.locator('[data-testid="conversation-row"]')).toHaveCount(1, { timeout: 8000 })
@@ -240,15 +246,37 @@ test('AF-5 — fullscreen is flat and full-bleed; floating keeps the card chrome
   await waitForReady(window)
   await openAssistant(window)
 
-  // Floating: the panel is a card — rounded, detached from the wrapper edge.
-  const radiusFloating = await panel(window).evaluate((el) => getComputedStyle(el).borderRadius)
-  expect(radiusFloating).not.toBe('0px')
+  // Floating: the assistant is a card — rounded, and detached from the window
+  // edge. Since A5.5 (AI-39, 2026-08-24) the card is the OVERLAY WRAPPER: tab
+  // strip and panel are clipped inside one radius-card surface, and the panel
+  // drops its own inner card so no outline sits inside the outer one. So the
+  // radius lives on the wrapper now, and the panel inside it is square.
+  await expect(overlay(window)).toHaveAttribute('data-mode', 'floating')
+  const floating = await overlay(window).evaluate((el) => {
+    const cs = getComputedStyle(el)
+    const r = el.getBoundingClientRect()
+    return {
+      radius: cs.borderRadius,
+      clips: cs.overflow,
+      gapRight: window.innerWidth - r.right,
+      gapBottom: window.innerHeight - r.bottom
+    }
+  })
+  expect(floating.radius).not.toBe('0px')
+  expect(floating.clips, 'the card clips its tab strip and panel to its radius').toBe('hidden')
+  expect(floating.gapRight, 'the card floats off the window edge').toBeGreaterThan(0)
+  expect(floating.gapBottom).toBeGreaterThan(0)
+  // One card, not a card inside a card.
+  const radiusPanelFloating = await panel(window).evaluate((el) => getComputedStyle(el).borderRadius)
+  expect(radiusPanelFloating).toBe('0px')
 
   await switchToFullscreen(window)
-  // Fullscreen: no card. Flat surface, no radius, and the panel spans the
-  // whole overlay — no 880px column, no inset gutter.
+  // Fullscreen: no card. Flat surface, no radius on the wrapper or the panel,
+  // and the panel spans the whole overlay — no 880px column, no inset gutter.
   const radiusFull = await panel(window).evaluate((el) => getComputedStyle(el).borderRadius)
   expect(radiusFull).toBe('0px')
+  const radiusOverlayFull = await overlay(window).evaluate((el) => getComputedStyle(el).borderRadius)
+  expect(radiusOverlayFull).toBe('0px')
   const overlayBox = (await overlay(window).boundingBox())!
   const panelBox = (await panel(window).boundingBox())!
   expect(Math.abs(panelBox.width - overlayBox.width)).toBeLessThanOrEqual(2)
@@ -324,7 +352,21 @@ test('AF-4 — on a segment takeover, fullscreen stays full-bleed', async () => 
   const { window } = launched
   await waitForReady(window)
 
-  await window.getByRole('button', { name: /Office/ }).first().click()
+  // Office is a segment takeover. It is reached through the one workspace/area
+  // switcher at the top of the desk menu now (c581655d: "Workspace and area
+  // become one control") — the old always-visible "Office" button is gone, and
+  // getByRole(/Office/) waited out the whole test for it.
+  await window.locator('[data-testid="workspace-switcher-trigger"]').click()
+  await window.locator('[data-testid="switch-office"]').click()
+  await expect
+    .poll(() =>
+      window.evaluate(
+        () =>
+          (window as unknown as { __fbView?: { getState: () => { view: { kind: string } } } }).__fbView
+            ?.getState().view.kind
+      )
+    )
+    .toBe('office')
   await openAssistant(window)
   await switchToFullscreen(window)
 

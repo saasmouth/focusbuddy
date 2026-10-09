@@ -141,21 +141,22 @@ test('EDGE-PAN-2 — edge-pan stands down over floating chrome, and resumes off 
   // useEdgePan stands down whenever the pointer is over `.fb-floating-chrome`
   // or `[data-floating-menu]`. This used to be proved by dragging the
   // FloatingPill into the right-edge margin, but the desk action bar is docked
-  // in the header now and cannot be dragged onto the canvas. The minimap FAB
-  // is the floating chrome that still lives there — it carries both hooks and
-  // sits inside the right-edge margin by design — so it is what this proves
-  // the stand-down with.
-  // Probe near the FAB's RIGHT edge, not its centre. The FAB is 32px wide
-  // collapsed and 160px with its panel open, and its panel auto-opens after
-  // any pan — so its centre can fall outside the 80px edge-pan margin while
-  // its right edge, pinned at right-3, never does.
+  // in the header now and cannot be dragged onto the canvas. Then it used the
+  // minimap FAB — until the minimap moved out from under the Plexii pill
+  // (2026-10-10): it sits BESIDE the pill now, 76px in, so only a sliver of it
+  // is inside the 80px right margin (it is still inside the bottom margin), which
+  // makes it a poor probe. The automations button is the floating chrome that
+  // still lives there — it carries both hooks and is pinned at right-3 in the
+  // column above the pill — so it is what this proves the stand-down with.
+  // Probe near its RIGHT edge, not its centre, so the point is as deep in the
+  // margin as the chrome goes.
   const fab = await window.evaluate(() => {
-    const el = document.querySelector<HTMLElement>('[data-minimap-fab]')
+    const el = document.querySelector<HTMLElement>('[data-automations-fab]')
     if (!el) return null
     const r = el.getBoundingClientRect()
     return { px: r.right - 8, cy: r.top + r.height / 2, left: r.left, top: r.top }
   })
-  expect(fab, 'the minimap FAB is present').not.toBeNull()
+  expect(fab, 'the automations button is present').not.toBeNull()
 
   // A point at the SAME x as the FAB but over bare canvas, so the only
   // difference between the two probes is what is under the pointer. The right
@@ -248,5 +249,54 @@ test('EDGE-PAN-3 — edge-pan stands down while the context menu is open, resume
 // dragged; the desk action bar is docked in the header now, so there is nothing
 // to drag off-screen and nothing on the canvas for a menu to dodge. The
 // stand-down behaviour they shared with EDGE-PAN-2 is covered above against the
-// minimap FAB, and the menu's own placement is covered by
-// contextMenuRegression.spec.ts and ctxMenuDismiss.spec.ts.
+// automations button (and by EDGE-PAN-6 against the zoom pill), and the menu's
+// own placement is covered by contextMenuRegression.spec.ts and
+// ctxMenuDismiss.spec.ts.
+
+// ---------------------------------------------------------------------------
+// EDGE-PAN-6 — the zoom pill is floating chrome too.
+//
+// It sits at bottom-3 beside the dock, which is inside BOTH the bottom and the
+// left edge-pan margins, and it was not tagged — so hovering it to reach − / +
+// panned the desk diagonally under the pointer (~265px x / ~290px y in 600ms),
+// and whatever you were about to click moved first. headerGestures' ⌘-click
+// dive kept failing on exactly that drift. Proved the same way as EDGE-PAN-2:
+// a bare-canvas point at the pill's height DOES pan, the pill itself does not.
+// ---------------------------------------------------------------------------
+
+test('EDGE-PAN-6 — edge-pan stands down over the zoom pill', async () => {
+  launched = await launchApp()
+  const { window } = launched
+  const pageErrors: string[] = []
+  window.on('pageerror', (e) => pageErrors.push(e.message))
+
+  await seedAndOpenDesk(launched, 'Edge pan zoom pill')
+  const rect = await canvasRect(window)
+  const pill = (await window.locator('[data-testid="zoom-controls"]').boundingBox())!
+  expect(pill, 'the zoom pill is present').not.toBeNull()
+  // It really is in the bottom margin — otherwise this proves nothing.
+  expect(rect.bottom - (pill.y + pill.height / 2)).toBeLessThan(80)
+
+  // Sanity: bare canvas at the pill's height, a little to its right, pans.
+  const bare = { x: pill.x + pill.width + 60, y: pill.y + pill.height / 2 }
+  const bareHit = await window.evaluate(({ x, y }) => {
+    const el = document.elementFromPoint(x, y)
+    return !!el && !el.closest('.fb-floating-chrome, [data-floating-menu]') && !!el.closest('[data-canvas-surface="true"]')
+  }, bare)
+  expect(bareHit, 'the comparison point is bare canvas').toBe(true)
+  await window.mouse.move(rect.left + rect.width / 2, rect.top + rect.height / 2)
+  await window.waitForTimeout(150)
+  const baseStart = await readPan(window)
+  await window.mouse.move(bare.x, bare.y, { steps: 3 })
+  expect(await panMovedOverWindow(window, baseStart, 400, 50), 'bare canvas at this height pans').toBe(true)
+
+  // Settle, then hover the pill itself — the camera must hold still.
+  await window.mouse.move(rect.left + rect.width / 2, rect.top + rect.height / 2)
+  await window.waitForTimeout(200)
+  const overStart = await readPan(window)
+  await window.mouse.move(pill.x + pill.width / 2, pill.y + pill.height / 2, { steps: 3 })
+  const overMoved = await panMovedOverWindow(window, overStart, 600, 50)
+  expect(overMoved, 'edge-pan stands down while the pointer is over the zoom pill').toBe(false)
+
+  expect(pageErrors, 'no renderer errors').toEqual([])
+})
