@@ -68,28 +68,26 @@ test('hovering the minimap lists every item, newest touched first, and jumps the
   }
 })
 
-test('the add-widget button is visible without hovering the tool rail', async () => {
+test('the prominent add button is in the header; the rail keeps its labelled one', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
   await openDeskWithWidgets(window)
 
-  // This is the point: it used to live inside the rail's hover-expanded panel,
-  // so the primary "put something on this desk" action was invisible until you
-  // pointed at a construction icon that did nothing itself.
-  const add = window.locator('[data-testid="palette-rail-button"]')
-  await expect(add).toBeVisible({ timeout: 8000 })
+  // The discoverable one is centred in the header and labelled. An icon-only
+  // purple plus in the rail's collapsed header was tried first and read as a
+  // bare "+" with nothing to say what it did, so the rail went back to what it
+  // was and the prominent control moved to the header.
+  const header = window.locator('[data-testid="header-add-widget"]')
+  await expect(header).toBeVisible({ timeout: 8000 })
+  await expect(header).toContainText('Add widget')
 
-  const look = await add.evaluate((el) => {
-    const cs = getComputedStyle(el)
-    return { bg: cs.backgroundColor, fg: cs.color, w: el.getBoundingClientRect().width }
-  })
-  // Accent background, white glyph.
-  expect(look.bg).not.toBe('rgba(0, 0, 0, 0)')
-  expect(look.fg).toMatch(/rgb\(255,\s*255,\s*255\)/)
-  expect(look.w).toBeGreaterThanOrEqual(28)
-
-  // And it opens the palette.
-  await add.click()
-  await expect(window.locator('[data-testid="palette-rail-button"][aria-expanded="true"]')).toBeVisible()
+  // The rail is untouched: no stray plus in its collapsed header, and the
+  // labelled palette button still appears when the rail is hovered.
+  await expect(window.locator('[data-testid="palette-rail-button"]')).toHaveCount(0)
+  const rail = window.locator('[data-testid="floating-toolbar"]')
+  if (await rail.count()) {
+    await rail.hover()
+    await expect(window.locator('[data-testid="palette-add-button"]')).toBeVisible({ timeout: 4000 })
+  }
 })

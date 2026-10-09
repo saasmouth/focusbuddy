@@ -91,6 +91,7 @@ import HistoryPanel from './HistoryPanel'
 import ResumeModal from './ResumeModal'
 import HeaderSlot from './chrome/HeaderSlot'
 import DeskContextMenu from './desk/DeskContextMenu'
+import DeskAddWidget from './desk/DeskAddWidget'
 import ContextHealthStrip from './ContextHealthStrip'
 import CanvasLinearView from './CanvasLinearView'
 import FloatingPill from './FloatingPill'
@@ -2792,6 +2793,14 @@ export default function Canvas(): JSX.Element {
               the drag handle, the dodge logic and the hover-expanding labels,
               and renders the row plainly. The fallback keeps the pill for a
               surface with no header to portal into. */}
+          {/* The prominent Add widget button, centred in the header. The rail's
+              palette stays where it was; this is the discoverable one, and its
+              menu prints each quick-add key so the shortcuts get learned. */}
+          {activeTaskId && (
+            <HeaderSlot id="fb-header-add">
+              <DeskAddWidget onAdd={handleClickAdd} disabled={!activeTaskId} />
+            </HeaderSlot>
+          )}
           {activeTaskId && (
             <HeaderSlot
               id="fb-header-actions"

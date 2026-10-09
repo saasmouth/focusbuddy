@@ -226,17 +226,8 @@ export default function FloatingToolbar({
         <div className="pt-1.5 pb-0.5 flex items-center justify-center w-full">
           <Icon name="drag_indicator" size={12} className="text-[var(--ink-25,var(--ink-30))] pointer-events-none" />
         </div>
-        {/* The add button, not a decorative construction icon. This is the
-            only part of the rail that is visible without hovering, so it is
-            the part that should carry the primary action. */}
-        <div className="mb-1">
-          <WidgetPalette
-            onAdd={onAddWidget}
-            onImport={onImport}
-            onBringSynced={onBringSynced}
-            disabled={paletteDisabled}
-            variant="rail"
-          />
+        <div className="h-8 w-8 mx-1 mb-1 inline-flex items-center justify-center rounded-xl text-[var(--ink-50)]">
+          <Icon name="construction" size={15} />
         </div>
       </div>
 
@@ -254,9 +245,20 @@ export default function FloatingToolbar({
           >
             <div className="mx-2 h-px bg-[var(--edge-soft)] mb-1" />
 
-            {/* The widget palette moved UP into the always-visible header
-                (2026-10-09). Keeping a second copy here would mean two add
-                buttons, each with its own popover state. */}
+            {/* Widget palette — the full, LABELLED button. It briefly moved to
+                the rail's collapsed header as an icon-only purple plus, which
+                lost the label and read as a bare "+". The prominent add action
+                is the centred one in the app header instead (DeskAddWidget);
+                this stays as it always was. */}
+            <div className="px-1.5 mb-0.5">
+              <WidgetPalette
+                onAdd={onAddWidget}
+                onImport={onImport}
+                onBringSynced={onBringSynced}
+                disabled={paletteDisabled}
+                variant="toolbar"
+              />
+            </div>
 
             {/* History */}
             <button

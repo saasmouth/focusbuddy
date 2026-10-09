@@ -562,6 +562,16 @@ export default function App(): JSX.Element {
             badge in the chrome of a product that ships a 4.3.x — it dated the
             app on every screen while telling nobody anything. The real version
             is in the footer, where it is read out when something goes wrong. */}
+        {/* Centred, and absolutely positioned so it is the MIDDLE of the header
+            rather than wherever the left and right groups happen to leave a
+            gap — those two change width with the desk name and the action row,
+            which would make a flex-centred button drift as you moved around.
+            pointer-events-none on the wrapper so the empty space either side
+            stays draggable titlebar. */}
+        <div className="absolute inset-x-0 flex justify-center pointer-events-none">
+          <div className="titlebar-nodrag pointer-events-auto" id="fb-header-add" />
+        </div>
+
         <div className="titlebar-nodrag flex items-center gap-1">
           {/* Presence is no longer a slot of its own — it is a section inside
               the desk context menu that fills #fb-header-trail, with live dots
