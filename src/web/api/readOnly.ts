@@ -117,7 +117,11 @@ export function isReadOnlyCall(channel: string): boolean {
 export function decideCall(channel: string, args: unknown[]): CallDecision {
   const ns = namespaceOf(channel)
 
-  // Re-sharing is the sender's decision, not the recipient's.
+  // Re-sharing is the sender's decision, not the recipient's. Unpacking the
+  // desk is the share page's own call, and so are the 'shareCopy:*' channels
+  // (worker/shareCopy.ts) that replace or remove one link's desk: a different
+  // namespace, allowed below, and never counted as the visitor's edit because
+  // 'shareCopy' is not one of CONTENT_NAMESPACES.
   if (ns === 'shares' && channel !== 'shares:importBundle') {
     return { allowed: false, args, why: 'A shared desk cannot be shared onward from here.' }
   }

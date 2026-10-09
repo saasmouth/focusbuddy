@@ -9,16 +9,20 @@ import { loadGoogleFont, familyLabel } from '../../lib/googleFonts'
 import {
   drawId,
   drawToSvg,
+  isDrawImageSrc,
   normalizeDrawBody,
+  objectGradients,
   objectBounds,
   objectsBounds,
   paintToCss,
   rasterLayer,
   shapePath,
   solid,
+  svgPaint,
   vectorLayer,
   type DrawBlend,
   type DrawBody,
+  type DrawGradientDef,
   type DrawObject,
   type DrawPaint,
   type DrawPathObject,
@@ -1613,10 +1617,20 @@ function VectorLayerView({
   /** The object currently being typed into, hidden so its text is not drawn twice. */
   hiddenId?: string | null
 }): JSX.Element {
-  // Gradients are collected as SVG markup by the same serializer the exporter
-  // uses, so a gradient can never look different on screen than in the file.
-  const defs: string[] = []
-  const nodes = layer.objects.filter((o) => o.id !== hiddenId).map((o) => <ObjectView key={o.id} o={o} defs={defs} />)
+  // Gradients come from the same description the exporter serializes
+  // (svgPaint / objectGradients in @shared/draw), so a gradient can never look
+  // different on screen than in the file.
+  //
+  // They are collected HERE, before any shape renders, and drawn as React
+  // elements. The earlier version had each ObjectView push markup into a shared
+  // array that this component joined into dangerouslySetInnerHTML -- but child
+  // components render AFTER their parent returns, so the join always saw an
+  // empty array: on-screen gradients pointed at <defs> that were never
+  // written, and the moment that ordering was "fixed" the object ids and
+  // colours of a shared drawing would have gone into innerHTML unescaped.
+  // React attributes cannot break out of their element, whatever they hold.
+  const visible = layer.objects.filter((o) => o.id !== hiddenId)
+  const gradients = visible.flatMap(objectGradients)
   return (
     <svg
       width={stageW}
@@ -1626,21 +1640,45 @@ function VectorLayerView({
       className="absolute left-0 top-0 pointer-events-none"
       style={{ opacity: layer.opacity, mixBlendMode: layer.blend as never }}
     >
-      <defs dangerouslySetInnerHTML={{ __html: defs.join('') }} />
-      {nodes}
+      <defs>
+        {gradients.map((g, i) => (
+          // Index as well as id: a duplicate id in a document from elsewhere
+          // must not make React drop or reorder a definition.
+          <GradientView key={`${i}:${g.id}`} g={g} />
+        ))}
+      </defs>
+      {visible.map((o) => (
+        <ObjectView key={o.id} o={o} />
+      ))}
     </svg>
   )
 }
 
-function ObjectView({ o, defs }: { o: DrawObject; defs: string[] }): JSX.Element | null {
+function GradientView({ g }: { g: DrawGradientDef }): JSX.Element {
+  const stops = g.stops.map((s, i) => <stop key={i} offset={s.offset} stopColor={s.color} stopOpacity={s.opacity} />)
+  if (g.kind === 'linear') {
+    return (
+      <linearGradient id={g.id} x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2}>
+        {stops}
+      </linearGradient>
+    )
+  }
+  return (
+    <radialGradient id={g.id} cx="0.5" cy="0.5" r="0.5">
+      {stops}
+    </radialGradient>
+  )
+}
+
+function ObjectView({ o }: { o: DrawObject }): JSX.Element | null {
   if (o.hidden) return null
   const style: React.CSSProperties = {}
   if (o.opacity != null && o.opacity < 1) style.opacity = o.opacity
   if (o.blend && o.blend !== 'normal') style.mixBlendMode = o.blend as never
 
   if (o.type === 'path') {
-    const f = paintRef(o.fill, defs, o.id)
-    const s = o.stroke ? paintRef(o.stroke.paint, defs, `${o.id}-s`) : null
+    const f = svgPaint(o.fill, o.id)
+    const s = o.stroke ? svgPaint(o.stroke.paint, `${o.id}-s`) : null
     return (
       <path
         d={pathToSvgD(o.path)}
@@ -1658,6 +1696,9 @@ function ObjectView({ o, defs }: { o: DrawObject; defs: string[] }): JSX.Element
     )
   }
   if (o.type === 'image') {
+    // Embedded image bytes only -- see isDrawImageSrc. A body that skipped
+    // normalisation still never makes the viewer fetch a remote address.
+    if (!isDrawImageSrc(o.src)) return null
     return (
       <image
         href={o.src}
@@ -1671,8 +1712,8 @@ function ObjectView({ o, defs }: { o: DrawObject; defs: string[] }): JSX.Element
       />
     )
   }
-  const f = paintRef(o.fill, defs, o.id)
-  const s = o.stroke ? paintRef(o.stroke.paint, defs, `${o.id}-s`) : null
+  const f = svgPaint(o.fill, o.id)
+  const s = o.stroke ? svgPaint(o.stroke.paint, `${o.id}-s`) : null
   const lh = (o.lineHeight ?? 1.2) * o.fontSize
   const lines = o.lines && o.lines.length ? o.lines : o.text.split('\n')
   const anchor = o.align === 'center' ? 'middle' : o.align === 'right' ? 'end' : 'start'
@@ -1699,28 +1740,6 @@ function ObjectView({ o, defs }: { o: DrawObject; defs: string[] }): JSX.Element
       ))}
     </text>
   )
-}
-
-function paintRef(paint: DrawPaint, defs: string[], idHint: string): { value: string; opacity?: number } {
-  if (paint.type === 'none') return { value: 'none' }
-  if (paint.type === 'solid') return { value: paint.color, opacity: paint.opacity }
-  const id = `grad-${idHint}`
-  const stops = paint.stops
-    .map((st) => `<stop offset="${(st.offset * 100).toFixed(2)}%" stop-color="${escapeAttr(st.color)}"${st.opacity != null ? ` stop-opacity="${st.opacity}"` : ''}/>`)
-    .join('')
-  if (paint.type === 'linear') {
-    const rad = ((paint.angle ?? 0) * Math.PI) / 180
-    const dx = Math.cos(rad) / 2
-    const dy = Math.sin(rad) / 2
-    defs.push(`<linearGradient id="${id}" x1="${(0.5 - dx).toFixed(4)}" y1="${(0.5 - dy).toFixed(4)}" x2="${(0.5 + dx).toFixed(4)}" y2="${(0.5 + dy).toFixed(4)}">${stops}</linearGradient>`)
-  } else {
-    defs.push(`<radialGradient id="${id}" cx="0.5" cy="0.5" r="0.5">${stops}</radialGradient>`)
-  }
-  return { value: `url(#${id})` }
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 function Overlay(props: {

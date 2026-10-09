@@ -605,6 +605,10 @@ function ReadingPane(): JSX.Element {
           <iframe
             title="Email body"
             sandbox=""
+            // A srcdoc document sends its embedder's URL as the Referer for
+            // anything it loads -- here, a sender's remote images once "Load
+            // remote content" is on. They learn nothing about this page.
+            referrerPolicy="no-referrer"
             srcDoc={mailSrcDoc}
             className="w-full h-full bg-white"
           />

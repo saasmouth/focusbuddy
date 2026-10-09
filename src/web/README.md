@@ -75,7 +75,7 @@ call is recoverable; silently duplicating a write is not.
 
 Sign-in and sign-up against Signal (including a second factor), the full app
 shell, the desk canvas, the New Desk flow, several tabs at once, the Drive with
-real file bytes, provider keys held server-side, 48-hour desk shares, and the
+real file bytes, provider keys held server-side, desk share links, and the
 workspace sync loop in both directions. A desk created in a tab reaches the server and is applied by the
 desktop's own `applyRemote` into real rows with every column intact -- proven by
 `scripts/verify-cloud-roundtrip.mjs` feeding
@@ -95,9 +95,70 @@ There are three ways to share, and they answer different questions:
 | Invite by email | someone whose address you know | live access, once they sign in |
 | Claim link | someone you cannot name yet | live access, after they sign up |
 
-A 48-hour share is the only way in. The owner mints one from the desktop; the
+A desk share link is the only way in. The owner mints one from the desktop; the
 recipient opens it with no account, reads and rearranges their own copy, and is
-told it is not being kept. It replaced desk claim links, which minted a
+told where that copy lives. A link lasts 48 hours by default, or a window the
+owner picks, or never expires -- the standing link a sender gives to every
+prospect. Signal stores "never" as a far-future sentinel and answers `expiresAt:
+null`; the page then shows no countdown and wipes nothing on a timer (a revoked
+link still takes the copy with it).
+
+The owner can replace what a link shows without changing it ("Update link" in
+the share sheet, `PUT /shares/ephemeral/:token`). A returning visitor whose copy
+is older than the link's `updatedAt` gets the new version without being asked
+if they never changed their copy, and a banner offering it if they did -- see
+`api/shareVersion.ts` for how "changed" is known. Deciding that costs the sender
+nothing: a returning visitor reads the offer (metadata, not counted as an open)
+and downloads the bundle only to unpack it or to take a newer version. "Save
+desk file" fetches it when it is clicked.
+
+Four rules hold the visitor's copy, because it is the one thing here that
+cannot be got back:
+
+- **One record, and one desk, per link.** Every link opened in a browser
+  unpacks into the same database, but each link keeps its own record
+  (`fb.share.links[token]`: version, declined, edited, rootId, offer) and its
+  own desk's rows. Replacing a link's desk removes that desk's rows first --
+  the import is `INSERT OR IGNORE`, so rows left in place would keep the old
+  version on screen -- and nothing else: other links' desks, and documents or
+  files they also show, are not touched (`worker/shareCopy.ts`, served on the
+  share page's own `shareCopy:*` channels). A desk on screen in another tab is
+  never replaced under it (Web Locks, `api/shareDesk.ts`). A first visit to a
+  link whose desk is already here -- from another link to the same desk, or
+  from an older build -- replaces it only if it is known to be untouched, and
+  otherwise keeps it and asks.
+- **Only a link that is gone takes its copy, and only its own.** Signal's own
+  404 `unknown` or 410 `revoked`/`expired` for a link this browser holds a desk
+  from takes that desk: the whole store when nothing else is in it, otherwise
+  just that desk (`share.whenRefused`, `shareDesk.dropLinkCopy`). A link this
+  browser never unpacked takes nothing -- a bare visit, a mistyped or truncated
+  token, somebody else's revoked link. A token is read exactly as Signal mints
+  it (32 base64url characters) with anything a mail client stuck on the end
+  ignored, so `/s/<token>.` and `/s/<token>)` open the link instead of looking
+  like no link at all. A 503 `unavailable` (a live link whose bundle the server
+  cannot read), a proxy page, a rate limit or a dropped connection keeps the
+  copy: a returning visitor's copy opens as they left it, under a "temporarily
+  unavailable" notice, and a new visitor is told to try again -- never that the
+  link expired (`share.refusalFrom`). A new version is fetched before anything
+  of the old desk is removed, and a version that would not import removes
+  nothing.
+- **Database first.** Emptying the whole store removes the SQLite pool
+  (`.plexii`) before the file bytes; if the database will not go, nothing else
+  is touched (`share.emptyOpfs`). A tab that has the database open never
+  empties the store itself: it removes its desk's rows and leaves the rest to
+  the start of the next load (`share.finishPendingWipe`).
+- **Older builds' copies are kept.** What earlier builds stored (one marker
+  for the whole browser) becomes that link's record on first load; desks those
+  builds unpacked without a trace are treated as present until the database
+  shows they are not (`shareVersion.migrateLegacyRecords`).
+
+What a link can carry is fixed by Signal: 8 MiB of request body. The desktop
+packs to 7.5 MiB measured as the bundle actually travels (a JSON string inside
+the JSON body, so escaped twice, with files in base64), leaves the largest files
+out first and names each one in the share sheet, and turns a 413 into a
+sentence (`deskBundle.buildDeskBundle`, `ephemeralShareClient.linkRefusal`).
+
+Desk share links replaced desk claim links, which minted a
 permanent grant for a stranger who signed up -- a forwarded URL becoming lasting
 access to a live desk.
 

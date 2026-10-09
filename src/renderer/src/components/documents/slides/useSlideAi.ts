@@ -31,9 +31,14 @@ export interface SlideAiState {
 // Strip the model's HTML down to plain text. The slide model stores plain text
 // runs, not HTML, so we never inject markup into a slide. A textarea-backed
 // element extracts textContent the same way the docs copy action does.
-function htmlToText(html: string): string {
-  const tmp = document.createElement('div')
-  tmp.innerHTML = html
+//
+// Parsed with DOMParser, NOT by setting innerHTML on a div from this document.
+// A detached div still belongs to the live page, so innerHTML on it starts
+// loading images straight away -- `<img src=x onerror=…>` in the model's output
+// (which can be steered by text in the slide it was asked about) ran in the
+// app's origin. A DOMParser document is inert: no scripts, no loads, no events.
+export function htmlToText(html: string): string {
+  const tmp = new DOMParser().parseFromString(String(html ?? ''), 'text/html').body
   // Turn block boundaries into line breaks so a multi-paragraph result keeps its
   // shape as plain text rather than collapsing onto one line.
   tmp.querySelectorAll('p, li, br, h1, h2, h3, div').forEach((el) => {

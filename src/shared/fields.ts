@@ -470,3 +470,25 @@ export function fileKindFromMime(mime: string, ext: string): FileKind {
   if (mime.startsWith('audio/') || ['mp3', 'wav', 'm4a', 'ogg', 'flac'].includes(e)) return 'audio'
   return 'generic'
 }
+
+/**
+ * The kind a File widget should RENDER a file as -- fileKindFromMime, except
+ * that a PDF is only framed when its type AND its extension both say PDF.
+ *
+ * A PDF is the one kind shown in an <iframe>, which loads the bytes as a
+ * document rather than as an image or a media stream. The two runtimes decide
+ * what those bytes are differently: the desktop's fb-file:// protocol sends the
+ * stored mime type, while the browser's file Service Worker (which has no
+ * database) goes by the extension in the blob's name. A file from a share link
+ * claiming `application/pdf` with an `.html` extension therefore arrived on the
+ * share page as text/html -- a script-running page in the share site's own
+ * origin, framed inside the desk. Requiring both to agree means whichever one a
+ * runtime trusts, it is serving a PDF. Anything else falls back to the generic
+ * preview, which never loads the bytes.
+ */
+export function fileRenderKind(mime: string, ext: string): FileKind {
+  const kind = fileKindFromMime(mime, ext)
+  if (kind !== 'pdf') return kind
+  const e = ext.replace(/^\./, '').toLowerCase()
+  return mime.toLowerCase() === 'application/pdf' && e === 'pdf' ? 'pdf' : 'generic'
+}

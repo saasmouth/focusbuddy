@@ -6,6 +6,8 @@ import { useQuickCreate } from '../../stores/quickCreate'
 import { useLandOnContent } from '../../hooks/useLandOnContent'
 import { bucketByWeek, periodDelta, countByKey } from '../../lib/dashboardMetrics'
 import { useAppsStore } from '../../stores/apps'
+import { openHttpUrl } from '../../lib/openUrl'
+import { isHttpUrl } from '@shared/safeUrl'
 import {
   type PlexiApp,
   type AppComponent,
@@ -312,7 +314,7 @@ function AppBuilder({
 
 // ── Build-mode component card (config editor) ────────────────────────────────
 
-function BuildComponent({
+export function BuildComponent({
   c,
   first,
   last,
@@ -371,6 +373,13 @@ function BuildComponent({
               <input value={c.action?.url ?? ''} onChange={(e) => onPatch({ action: { kind: 'link', url: e.target.value } })} placeholder="https://" className={inputCls} />
             )}
           </div>
+          {c.action?.kind === 'link' && c.action.url && !isHttpUrl(c.action.url) && (
+            // Said here, where it can be fixed, rather than discovered later as
+            // a button that does nothing.
+            <p className="text-[11.5px] text-amber-700 dark:text-amber-300" data-testid="plexibuild-link-refused">
+              Only web addresses (http or https) can be opened from a button.
+            </p>
+          )}
         </div>
       )}
       {c.type === 'field' && (
@@ -402,7 +411,7 @@ function BuildComponent({
 
 // ── Preview-mode component (runnable) ────────────────────────────────────────
 
-function PreviewComponent({ c }: { c: AppComponent }): JSX.Element {
+export function PreviewComponent({ c }: { c: AppComponent }): JSX.Element {
   const [val, setVal] = useState<string | boolean>(c.fieldType === 'checkbox' ? false : '')
   const inputCls =
     'fb-card w-full text-[13px] px-3 py-2 text-[var(--ink-100)] placeholder:text-[var(--ink-50)] focus:border-[rgb(var(--accent))]'
@@ -418,8 +427,13 @@ function PreviewComponent({ c }: { c: AppComponent }): JSX.Element {
       return (
         <button
           onClick={() => {
-            if (c.action?.kind === 'link' && c.action.url) window.open(c.action.url, '_blank')
+            // http(s) only, in a new tab that cannot reach back into this one
+            // (noopener) or learn its address (noreferrer). This view also runs
+            // on the public share page, where the app -- and so this address --
+            // belongs to whoever minted the link.
+            if (c.action?.kind === 'link') openHttpUrl(c.action.url)
           }}
+          title={c.action?.kind === 'link' && c.action.url && !isHttpUrl(c.action.url) ? 'This button links to an address that cannot be opened' : undefined}
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[rgb(var(--accent))] text-white text-[13px] font-semibold hover:bg-[rgb(var(--accent-hover))]"
         >
           {c.label || 'Button'}

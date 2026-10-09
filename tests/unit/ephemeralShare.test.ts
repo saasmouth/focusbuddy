@@ -16,18 +16,48 @@ import {
 } from '../../src/web/api/share'
 import { markShareRecipient, isShareRecipient, shareRecipientToken } from '../../src/renderer/src/lib/shareMode'
 
+// A token exactly as Signal mints one: randomBytes(24).toString('base64url'),
+// 32 characters of [A-Za-z0-9_-] (focusbuddy-signal/src/ephemeralShares.ts).
+const TOK = 'Ab3_-xYz0123456789abcdefGHIJKLmn'
+
 describe('finding the share in a link', () => {
+  it('uses a token of the shape Signal mints', async () => {
+    const { randomBytes } = await import('crypto')
+    for (let i = 0; i < 50; i++) {
+      const real = randomBytes(24).toString('base64url')
+      expect(real).toHaveLength(32)
+      expect(shareTokenFromUrl(`https://plexiidesk.com/share/s/${real}`)).toBe(real)
+    }
+    expect(TOK).toHaveLength(32)
+  })
+
   it.each([
-    ['https://cloud.plexii.app/s/abcd1234efgh', 'abcd1234efgh'],
+    [`https://cloud.plexii.app/s/${TOK}`, TOK],
     // Mounted under a path on the marketing site, which is how it ships.
-    ['https://haptyx-web.vercel.app/share/s/abcd1234efgh', 'abcd1234efgh'],
-    ['https://haptyx-web.vercel.app/share/s/abcd1234efgh/', 'abcd1234efgh'],
-    ['https://cloud.plexii.app/s/abcd1234efgh/', 'abcd1234efgh'],
+    [`https://plexiidesk.com/share/s/${TOK}`, TOK],
+    [`https://plexiidesk.com/share/s/${TOK}/`, TOK],
+    [`https://cloud.plexii.app/s/${TOK}/`, TOK],
+    // Mail and chat clients carry the sentence's punctuation into the link.
+    // These are the right link, and must read as it rather than as no link
+    // (which used to send the visitor to the download page) or as a longer,
+    // unknown one.
+    [`https://plexiidesk.com/share/s/${TOK}.`, TOK],
+    [`https://plexiidesk.com/share/s/${TOK})`, TOK],
+    [`https://plexiidesk.com/share/s/${TOK}),`, TOK],
+    [`https://plexiidesk.com/share/s/${TOK}%29`, TOK],
+    [`https://plexiidesk.com/share/s/${TOK}?utm_source=mail`, TOK],
+    [`https://plexiidesk.com/share/s/${TOK}#desk`, TOK],
     // Chat clients mangle paths; a query fallback that works beats a clean one
     // that does not.
-    ['https://cloud.plexii.app/?share=abcd1234efgh', 'abcd1234efgh'],
+    [`https://cloud.plexii.app/?share=${TOK}`, TOK],
+    [`https://cloud.plexii.app/?share=${TOK}.`, TOK],
     ['https://cloud.plexii.app/', null],
     ['https://cloud.plexii.app/s/short', null],
+    // Not a token Signal could have minted: too short, too long, wrong alphabet.
+    [`https://cloud.plexii.app/s/${TOK.slice(1)}`, null],
+    [`https://cloud.plexii.app/s/${TOK}x`, null],
+    [`https://cloud.plexii.app/s/${TOK.slice(0, 31)}$`, null],
+    [`https://cloud.plexii.app/?share=${TOK}x`, null],
     ['https://cloud.plexii.app/s/bad$token$here', null],
     ['not a url at all', null]
   ])('%s', (href, expected) => {

@@ -12,6 +12,7 @@
 // point here.
 import { openWorkspaceDatabase } from './database'
 import { HANDLERS } from './handlers'
+import { SHARE_COPY_HANDLERS } from './shareCopy'
 import { adoptSession } from './main/account'
 
 export interface WorkerRequest {
@@ -70,7 +71,9 @@ self.onmessage = async (event: MessageEvent<WorkerRequest | WorkerInit>): Promis
     return
   }
 
-  const handler = HANDLERS[channel]
+  // The desktop's channels first; then the share page's own, which exist only
+  // here (worker/shareCopy.ts) and so are not in the mirrored table.
+  const handler = HANDLERS[channel] ?? SHARE_COPY_HANDLERS[channel]
   if (!handler) {
     // An honest refusal, naming the channel. The desktop serves 526 of these
     // and this runtime serves a subset; a call outside the subset must say so

@@ -10,6 +10,8 @@ import {
   mintEphemeralShare,
   listEphemeralShares,
   revokeEphemeralShare,
+  updateEphemeralShare,
+  describeOmitted,
   timeLeft,
   shareUrlFor,
   type EphemeralShare
@@ -44,6 +46,16 @@ interface Props {
 
 const KIND_WORD: Record<Props['kind'], string> = { folder: 'room', task: 'desk' }
 
+/** "9 Oct, 17:05": when a link's content last changed, in the sender's own clock. */
+function whenUpdated(ms: number): string {
+  return new Date(ms).toLocaleString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit'
+  })
+}
+
 export default function DeskShareSheet({
   kind,
   entityId,
@@ -70,6 +82,19 @@ export default function DeskShareSheet({
   // The token behind the URL on screen. Needed because the server-side invite
   // addresses a share by token, not by URL.
   const [token, setToken] = useState<string | null>(null)
+  // Said when the server did not honour the expiry that was asked for -- an
+  // older Signal ignores "never" and applies its 48-hour default, and a sender
+  // who believes the link is permanent will send it to people who open it
+  // next month.
+  const [expiryNote, setExpiryNote] = useState<string | null>(null)
+  // The files a new link went out without (too large for a link, or not on this
+  // computer). Said before the link is sent, not discovered by the recipient.
+  const [omittedNote, setOmittedNote] = useState<string | null>(null)
+  // Replacing what a usable-desk link shows. One link at a time: confirm, then
+  // busy. Results are kept per link so the outcome stays beside the row it
+  // belongs to.
+  const [updating, setUpdating] = useState<{ token: string; phase: 'confirm' | 'busy' } | null>(null)
+  const [updateResults, setUpdateResults] = useState<Record<string, { ok: boolean; message: string }>>({})
 
   const createFor = useSharesStore((s) => s.createFor)
   const outgoing = useSharesStore((s) => s.outgoing)
@@ -106,6 +131,8 @@ export default function DeskShareSheet({
     setError(null)
     setCopied(false)
     setSentMsg(null)
+    setExpiryNote(null)
+    setOmittedNote(null)
   }, [mode, expiryMs, allowCopy])
 
   async function makeLink(): Promise<void> {
@@ -118,6 +145,12 @@ export default function DeskShareSheet({
         if (!res.ok || !res.url) throw new Error(res.error || 'Could not create the link.')
         setUrl(res.url)
         setToken(res.share?.token ?? null)
+        setOmittedNote(describeOmitted(res.filesOmitted) || null)
+        setExpiryNote(
+          expiryMs === null && res.share && res.share.expiresAt !== null
+            ? `The server gave this link an end date anyway (${timeLeft(res.share.expiresAt).replace(/ left$/, '')} from now): it does not support links that never expire yet.`
+            : null
+        )
         await loadEphemeral()
         return
       }
@@ -148,6 +181,35 @@ export default function DeskShareSheet({
     } finally {
       setBusy(false)
     }
+  }
+
+  // Same token, same URL, same expiry -- only what it shows changes. The bundle
+  // is rebuilt from the desk the link was made from, exactly as minting does.
+  async function runUpdate(s: EphemeralShare): Promise<void> {
+    setUpdating({ token: s.token, phase: 'busy' })
+    setUpdateResults((r) => {
+      const next = { ...r }
+      delete next[s.token]
+      return next
+    })
+    const res = await updateEphemeralShare(s.token, s.rootId)
+    if (res.ok && res.share) {
+      const omitted = res.filesOmitted?.length ? ` ${describeOmitted(res.filesOmitted)}` : ''
+      setUpdateResults((r) => ({
+        ...r,
+        [s.token]: {
+          ok: true,
+          message: `Updated ${whenUpdated(res.share!.updatedAt)}. Everyone with this link now gets this version.${omitted}`
+        }
+      }))
+      await loadEphemeral()
+    } else {
+      setUpdateResults((r) => ({
+        ...r,
+        [s.token]: { ok: false, message: res.error ?? 'Could not update the link.' }
+      }))
+    }
+    setUpdating(null)
   }
 
   async function send(): Promise<void> {
@@ -324,7 +386,18 @@ export default function DeskShareSheet({
                   {mode === 'use' && (
                     <p className="text-[10.5px] text-[var(--ink-50)] leading-snug">
                       Send this to try Plexii without installing anything. Whatever they change is
-                      theirs alone — it never comes back to this {word}.
+                      theirs alone — it never comes back to this {word}. To change what the link
+                      shows later, use Update link below; the link itself stays the same.
+                    </p>
+                  )}
+                  {expiryNote && (
+                    <p className="text-[10.5px] text-amber-600 leading-snug" role="alert" data-testid="share-expiry-note">
+                      {expiryNote}
+                    </p>
+                  )}
+                  {omittedNote && (
+                    <p className="text-[10.5px] text-amber-600 leading-snug" role="status" data-testid="share-omitted-note">
+                      {omittedNote}
                     </p>
                   )}
 
@@ -398,35 +471,100 @@ export default function DeskShareSheet({
               <div className="text-[10px] uppercase tracking-wider font-semibold text-[var(--ink-50)]">
                 Links to this {word}
               </div>
-              {ephemeral.map((s) => (
-                <div key={s.token} className="flex items-center justify-between gap-2 text-[11px]">
-                  <span className="truncate text-[var(--ink-70)]">
-                    Usable desk · {timeLeft(s.expiresAt)} · {s.opens} open{s.opens === 1 ? '' : 's'}
-                  </span>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => void copy(shareUrlFor(s.token))}
-                      className="icon-btn !h-6 !w-6"
-                      title="Copy this link"
-                    >
-                      <Icon name="content_copy" size={11} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await revokeEphemeralShare(s.token)
-                        await loadEphemeral()
-                      }}
-                      className="icon-btn !h-6 !w-6"
-                      title="Stop this link working"
-                      data-testid="share-revoke-ephemeral"
-                    >
-                      <Icon name="link_off" size={11} />
-                    </button>
+              {ephemeral.map((s) => {
+                const phase = updating?.token === s.token ? updating.phase : null
+                const result = updateResults[s.token]
+                return (
+                  <div key={s.token} className="space-y-1">
+                    <div className="flex items-center justify-between gap-2 text-[11px]">
+                      <span className="truncate text-[var(--ink-70)]" data-testid="share-ephemeral-summary">
+                        Usable desk · {timeLeft(s.expiresAt)} · {s.opens} open{s.opens === 1 ? '' : 's'}
+                        {s.updatedAt > s.createdAt && ` · updated ${whenUpdated(s.updatedAt)}`}
+                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setUpdating({ token: s.token, phase: 'confirm' })}
+                          disabled={phase !== null || (updating !== null && updating.phase === 'busy')}
+                          className="text-[10.5px] px-1.5 py-0.5 rounded border border-[var(--edge-soft)] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)] disabled:opacity-50 inline-flex items-center gap-1"
+                          title={`Show the ${word} as it is now behind this same link`}
+                          aria-expanded={phase === 'confirm'}
+                          data-testid="share-update-ephemeral"
+                        >
+                          <Icon
+                            name={phase === 'busy' ? 'autorenew' : 'upload'}
+                            size={11}
+                            className={phase === 'busy' ? 'animate-spin' : ''}
+                          />
+                          {phase === 'busy' ? 'Updating…' : 'Update link'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void copy(shareUrlFor(s.token))}
+                          className="icon-btn !h-6 !w-6"
+                          title="Copy this link"
+                          aria-label="Copy this link"
+                        >
+                          <Icon name="content_copy" size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await revokeEphemeralShare(s.token)
+                            await loadEphemeral()
+                          }}
+                          className="icon-btn !h-6 !w-6"
+                          title="Stop this link working"
+                          aria-label="Stop this link working"
+                          data-testid="share-revoke-ephemeral"
+                        >
+                          <Icon name="link_off" size={11} />
+                        </button>
+                      </div>
+                    </div>
+                    {phase === 'confirm' && (
+                      <div
+                        role="group"
+                        aria-label="Update this link"
+                        className="rounded-[var(--radius-row)] border border-[var(--edge-soft)] bg-[var(--surface-sunken)] px-2 py-1.5 space-y-1.5"
+                        data-testid="share-update-confirm-panel"
+                      >
+                        <p className="text-[10.5px] text-[var(--ink-70)] leading-snug">
+                          Everyone with this link will see the {word} as it is now. The link stays
+                          the same. Anyone who changed their own copy is asked before it is replaced.
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => void runUpdate(s)}
+                            autoFocus
+                            className="text-[11px] px-2.5 py-1 rounded bg-accent text-white hover:brightness-110"
+                            data-testid="share-update-confirm"
+                          >
+                            Update link
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setUpdating(null)}
+                            className="text-[11px] px-2.5 py-1 rounded border border-[var(--edge-firm)] text-[var(--ink-80)] hover:bg-[var(--surface-raised)]"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {result && (
+                      <p
+                        role={result.ok ? 'status' : 'alert'}
+                        className={`text-[10.5px] leading-snug ${result.ok ? 'text-[var(--ink-50)]' : 'text-red-400'}`}
+                        data-testid={result.ok ? 'share-update-done' : 'share-update-error'}
+                      >
+                        {result.message}
+                      </p>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
               {snapshotLinks.map((l) => (
                 <div key={l.id} className="flex items-center justify-between gap-2 text-[11px]">
                   <span className="truncate text-[var(--ink-70)]">

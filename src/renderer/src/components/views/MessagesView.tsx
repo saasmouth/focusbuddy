@@ -53,6 +53,7 @@ import { catalogFor } from '../../lib/widgetCatalog'
 import { spawnPositionFor } from '../../lib/spawnPosition'
 import { personDisplayName } from '../../lib/personName'
 import { useClickAway } from '../../hooks/useClickAway'
+import { openHttpUrl } from '../../lib/openUrl'
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '🎉', '✅', '👀']
 
@@ -193,7 +194,7 @@ function AttachmentView({ m, mine }: { m: ChatMessage; mine: boolean }): JSX.Ele
         alt={att.name}
         loading="lazy"
         className="mt-1 max-w-[260px] max-h-[260px] rounded-lg object-cover cursor-zoom-in"
-        onClick={() => url && window.open(url, '_blank')}
+        onClick={() => url && openHttpUrl(url)}
         data-testid={`attachment-image-${m.id}`}
       />
     )

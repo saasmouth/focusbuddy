@@ -8,6 +8,15 @@
 //
 // Once per session, not per edit. A warning that fires on every keystroke is a
 // warning nobody reads.
+//
+// The same moment is also recorded against the link this tab is showing
+// (noteCopyEdited, which reads it from shareMode), so that when the sender
+// later updates that link, a visitor who changed their copy is asked before it
+// is replaced and one who did not simply gets the new version. Other links'
+// desks in the same browser keep their own records. See shareVersion.ts for
+// why this is the signal used.
+import { noteCopyEdited } from './shareVersion'
+
 export const SHARE_EDIT_EVENT = 'plexii:share-edited'
 
 let announced = false
@@ -16,6 +25,7 @@ let announced = false
 export function noteShareEdit(): void {
   if (announced) return
   announced = true
+  noteCopyEdited()
   try {
     window.dispatchEvent(new CustomEvent(SHARE_EDIT_EVENT))
   } catch {

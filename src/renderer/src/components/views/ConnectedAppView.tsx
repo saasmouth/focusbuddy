@@ -8,6 +8,7 @@ import PlaceholderView from './PlaceholderView'
 import VaultBindPopover from './VaultBindPopover'
 import Icon from '../Icon'
 import AppLogo from '../AppLogo'
+import { openHttpUrl } from '../../lib/openUrl'
 
 interface Props {
   appId: string
@@ -148,7 +149,9 @@ export default function ConnectedAppView({ appId }: Props): JSX.Element {
     ;(wv as unknown as { reload: () => void }).reload()
   }
   function openInBrowser(): void {
-    window.open(app!.url, '_blank')
+    // http(s) only, with no opener and no referrer; the main process's
+    // window-open handler still hands it to the system browser.
+    openHttpUrl(app!.url)
   }
 
   return (

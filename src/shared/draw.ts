@@ -32,6 +32,7 @@ import {
   type DrawPath,
   type Matrix
 } from './drawGeometry'
+import { safeCssColor } from './cssColor'
 
 export type {
   Box,
@@ -248,6 +249,39 @@ export function drawId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${idCounter.toString(36)}`
 }
 
+/**
+ * The shape every layer and object id must have: letters, digits, '-' and '_'.
+ *
+ * Ids are not just keys. An object id becomes part of an SVG element id
+ * (`grad-<id>`), a `url(#grad-<id>)` paint reference and a data-testid, in the
+ * editor AND in the exported file -- and a document arriving from a share link
+ * or a peer was written by someone else. drawId() only ever produces this
+ * shape, so a real document never trips it; anything else is replaced with a
+ * fresh id at load rather than carried into markup.
+ */
+export const DRAW_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/
+
+export function isSafeDrawId(v: unknown): v is string {
+  return typeof v === 'string' && DRAW_ID_PATTERN.test(v)
+}
+
+/**
+ * Image bytes a document may embed: a data: URL of a raster or SVG image.
+ *
+ * The model has always said "data: URI" (see DrawImageObject.src); this makes it
+ * true. A remote address would have every viewer of a shared drawing fetch it
+ * -- a tracking pixel on the public share page -- and would taint the canvas
+ * the raster tools read back. SVG is safe here because an <image>/<img> renders
+ * it as a static picture with scripting disabled.
+ */
+const DRAW_IMAGE_SRC = /^data:image\/(?:png|jpe?g|gif|webp|avif|bmp|svg\+xml)[;,]/i
+
+export function isDrawImageSrc(v: unknown): v is string {
+  return typeof v === 'string' && DRAW_IMAGE_SRC.test(v)
+}
+
+const DRAW_SHAPE_KINDS: readonly DrawShapeKind[] = ['rect', 'roundRect', 'ellipse', 'polygon', 'star', 'line', 'pencil', 'pen', 'path']
+
 export function vectorLayer(name: string): DrawVectorLayer {
   return { id: drawId('lyr'), kind: 'vector', name, visible: true, locked: false, opacity: 1, blend: 'normal', objects: [] }
 }
@@ -280,6 +314,11 @@ function num01(v: unknown, dflt: number): number {
   return typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : dflt
 }
 
+/** A finite number. JSON cannot carry NaN or Infinity, but a structured clone can. */
+function isNum(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v)
+}
+
 function normBlend(v: unknown): DrawBlend {
   return typeof v === 'string' && (DRAW_BLEND_MODES as readonly string[]).includes(v) ? (v as DrawBlend) : 'normal'
 }
@@ -288,7 +327,12 @@ function normPaint(v: unknown, dflt: DrawPaint): DrawPaint {
   if (!v || typeof v !== 'object') return dflt
   const p = v as Record<string, unknown>
   if (p.type === 'none') return { type: 'none' }
-  if (p.type === 'solid') return typeof p.color === 'string' ? solid(p.color, typeof p.opacity === 'number' ? num01(p.opacity, 1) : undefined) : dflt
+  if (p.type === 'solid') {
+    // Not a colour (see cssColor.ts) means not this paint: the caller's default
+    // stands in, exactly as for a paint with no colour at all.
+    const color = safeCssColor(p.color, undefined)
+    return color ? solid(color, typeof p.opacity === 'number' ? num01(p.opacity, 1) : undefined) : dflt
+  }
   if (p.type === 'linear' || p.type === 'radial') {
     const stops = Array.isArray(p.stops)
       ? (p.stops as unknown[])
@@ -296,7 +340,7 @@ function normPaint(v: unknown, dflt: DrawPaint): DrawPaint {
             const st = (s && typeof s === 'object' ? s : {}) as Record<string, unknown>
             return {
               offset: num01(st.offset, 0),
-              color: typeof st.color === 'string' ? st.color : '#000000',
+              color: safeCssColor(st.color, '#000000'),
               ...(typeof st.opacity === 'number' ? { opacity: num01(st.opacity, 1) } : {})
             }
           })
@@ -304,7 +348,7 @@ function normPaint(v: unknown, dflt: DrawPaint): DrawPaint {
       : []
     if (stops.length < 2) return dflt
     return p.type === 'linear'
-      ? { type: 'linear', stops, ...(typeof p.angle === 'number' ? { angle: p.angle } : {}) }
+      ? { type: 'linear', stops, ...(isNum(p.angle) ? { angle: p.angle } : {}) }
       : { type: 'radial', stops }
   }
   return dflt
@@ -313,7 +357,7 @@ function normPaint(v: unknown, dflt: DrawPaint): DrawPaint {
 function normStroke(v: unknown): DrawStroke | undefined {
   if (!v || typeof v !== 'object') return undefined
   const s = v as Record<string, unknown>
-  const width = typeof s.width === 'number' && Number.isFinite(s.width) ? Math.max(0, s.width) : 1
+  const width = isNum(s.width) ? Math.max(0, s.width) : 1
   if (width <= 0) return undefined
   const paint = normPaint(s.paint, solid('#1c1917'))
   if (paint.type === 'none') return undefined
@@ -322,8 +366,8 @@ function normStroke(v: unknown): DrawStroke | undefined {
     width,
     ...(s.cap === 'round' || s.cap === 'square' || s.cap === 'butt' ? { cap: s.cap } : {}),
     ...(s.join === 'round' || s.join === 'bevel' || s.join === 'miter' ? { join: s.join } : {}),
-    ...(Array.isArray(s.dash) && s.dash.length ? { dash: (s.dash as unknown[]).filter((d): d is number => typeof d === 'number' && d >= 0) } : {}),
-    ...(typeof s.miterLimit === 'number' ? { miterLimit: s.miterLimit } : {})
+    ...(Array.isArray(s.dash) && s.dash.length ? { dash: (s.dash as unknown[]).filter((d): d is number => isNum(d) && d >= 0) } : {}),
+    ...(isNum(s.miterLimit) ? { miterLimit: s.miterLimit } : {})
   }
 }
 
@@ -338,12 +382,12 @@ function normPath(v: unknown): DrawPath {
             ? (s.nodes as unknown[])
                 .map((n) => {
                   const nn = (n && typeof n === 'object' ? n : {}) as Record<string, unknown>
-                  if (typeof nn.x !== 'number' || typeof nn.y !== 'number') return null
+                  if (!isNum(nn.x) || !isNum(nn.y)) return null
                   return {
                     x: nn.x,
                     y: nn.y,
-                    ...(typeof nn.inX === 'number' && typeof nn.inY === 'number' ? { inX: nn.inX, inY: nn.inY } : {}),
-                    ...(typeof nn.outX === 'number' && typeof nn.outY === 'number' ? { outX: nn.outX, outY: nn.outY } : {})
+                    ...(isNum(nn.inX) && isNum(nn.inY) ? { inX: nn.inX, inY: nn.inY } : {}),
+                    ...(isNum(nn.outX) && isNum(nn.outY) ? { outX: nn.outX, outY: nn.outY } : {})
                   }
                 })
                 .filter((n): n is NonNullable<typeof n> => n !== null)
@@ -358,7 +402,9 @@ function normPath(v: unknown): DrawPath {
 function normObject(v: unknown): DrawObject | null {
   if (!v || typeof v !== 'object') return null
   const o = v as Record<string, unknown>
-  const id = typeof o.id === 'string' && o.id ? o.id : drawId('obj')
+  // See DRAW_ID_PATTERN: an id that is not one this app could have minted is
+  // replaced, never carried into the markup it would otherwise end up in.
+  const id = isSafeDrawId(o.id) ? o.id : drawId('obj')
   const shared = {
     id,
     ...(typeof o.name === 'string' ? { name: o.name } : {}),
@@ -371,35 +417,38 @@ function normObject(v: unknown): DrawObject | null {
     return {
       ...shared,
       type: 'text',
-      x: typeof o.x === 'number' ? o.x : 0,
-      y: typeof o.y === 'number' ? o.y : 0,
-      w: typeof o.w === 'number' ? Math.max(8, o.w) : 200,
+      x: isNum(o.x) ? o.x : 0,
+      y: isNum(o.y) ? o.y : 0,
+      w: isNum(o.w) ? Math.max(8, o.w) : 200,
       text: typeof o.text === 'string' ? o.text : '',
-      fontSize: typeof o.fontSize === 'number' ? Math.max(1, o.fontSize) : 48,
+      fontSize: isNum(o.fontSize) ? Math.max(1, o.fontSize) : 48,
       ...(typeof o.fontFamily === 'string' ? { fontFamily: o.fontFamily } : {}),
-      ...(typeof o.fontWeight === 'number' ? { fontWeight: o.fontWeight } : {}),
+      ...(isNum(o.fontWeight) ? { fontWeight: o.fontWeight } : {}),
       ...(o.italic === true ? { italic: true } : {}),
       ...(o.align === 'center' || o.align === 'right' ? { align: o.align } : {}),
-      ...(typeof o.lineHeight === 'number' ? { lineHeight: o.lineHeight } : {}),
-      ...(typeof o.letterSpacing === 'number' ? { letterSpacing: o.letterSpacing } : {}),
-      ...(typeof o.rotation === 'number' ? { rotation: o.rotation } : {}),
+      ...(isNum(o.lineHeight) ? { lineHeight: o.lineHeight } : {}),
+      ...(isNum(o.letterSpacing) ? { letterSpacing: o.letterSpacing } : {}),
+      ...(isNum(o.rotation) ? { rotation: o.rotation } : {}),
       ...(Array.isArray(o.lines) ? { lines: (o.lines as unknown[]).filter((l): l is string => typeof l === 'string') } : {}),
       fill: normPaint(o.fill, solid('#1c1917')),
       ...(normStroke(o.stroke) ? { stroke: normStroke(o.stroke)! } : {})
     }
   }
   if (o.type === 'image') {
-    if (typeof o.src !== 'string' || !o.src) return null
+    // Embedded image bytes only (see isDrawImageSrc). Nothing in the editor
+    // makes an image object with anything else, so this only ever drops content
+    // that arrived from outside pointing somewhere it should not.
+    if (!isDrawImageSrc(o.src)) return null
     return {
       ...shared,
       type: 'image',
-      x: typeof o.x === 'number' ? o.x : 0,
-      y: typeof o.y === 'number' ? o.y : 0,
-      w: typeof o.w === 'number' ? Math.max(1, o.w) : 200,
-      h: typeof o.h === 'number' ? Math.max(1, o.h) : 200,
+      x: isNum(o.x) ? o.x : 0,
+      y: isNum(o.y) ? o.y : 0,
+      w: isNum(o.w) ? Math.max(1, o.w) : 200,
+      h: isNum(o.h) ? Math.max(1, o.h) : 200,
       src: o.src,
       ...(typeof o.alt === 'string' ? { alt: o.alt } : {}),
-      ...(typeof o.rotation === 'number' ? { rotation: o.rotation } : {})
+      ...(isNum(o.rotation) ? { rotation: o.rotation } : {})
     }
   }
   const path = normPath(o.path)
@@ -410,17 +459,19 @@ function normObject(v: unknown): DrawObject | null {
     path,
     fill: normPaint(o.fill, NO_PAINT),
     ...(normStroke(o.stroke) ? { stroke: normStroke(o.stroke)! } : {}),
-    ...(typeof o.shapeKind === 'string' ? { shapeKind: o.shapeKind as DrawShapeKind } : {}),
-    ...(typeof o.cornerRadius === 'number' ? { cornerRadius: o.cornerRadius } : {}),
-    ...(typeof o.sides === 'number' ? { sides: o.sides } : {}),
-    ...(typeof o.innerRatio === 'number' ? { innerRatio: o.innerRatio } : {})
+    ...(typeof o.shapeKind === 'string' && (DRAW_SHAPE_KINDS as readonly string[]).includes(o.shapeKind)
+      ? { shapeKind: o.shapeKind as DrawShapeKind }
+      : {}),
+    ...(isNum(o.cornerRadius) ? { cornerRadius: o.cornerRadius } : {}),
+    ...(isNum(o.sides) ? { sides: o.sides } : {}),
+    ...(isNum(o.innerRatio) ? { innerRatio: o.innerRatio } : {})
   }
 }
 
 function normLayer(v: unknown, index: number): DrawLayer {
   const l = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>
   const base = {
-    id: typeof l.id === 'string' && l.id ? l.id : drawId('lyr'),
+    id: isSafeDrawId(l.id) ? l.id : drawId('lyr'),
     name: typeof l.name === 'string' && l.name ? l.name : `Layer ${index + 1}`,
     visible: l.visible !== false,
     locked: l.locked === true,
@@ -428,7 +479,10 @@ function normLayer(v: unknown, index: number): DrawLayer {
     blend: normBlend(l.blend)
   }
   if (l.kind === 'raster') {
-    return { ...base, kind: 'raster', src: typeof l.src === 'string' ? l.src : '' }
+    // An empty layer, or embedded pixels. A remote address is treated as an
+    // empty layer: the raster tools could not read it back anyway (it taints
+    // the canvas), and loading it would ping its owner from every viewer.
+    return { ...base, kind: 'raster', src: isDrawImageSrc(l.src) ? l.src : '' }
   }
   const objects = Array.isArray(l.objects)
     ? (l.objects as unknown[]).map(normObject).filter((o): o is DrawObject => o !== null)
@@ -546,63 +600,186 @@ export function findObject(body: DrawBody, objectId: string): { layerId: string;
 
 // ── Rendering ────────────────────────────────────────────────────────────────
 
+// Everything below writes markup by hand, so every value that reaches it is
+// either escaped (esc), formatted from a finite number (num), or checked
+// against a closed set (colours, blend modes, caps, joins, ids). That holds even
+// for a body that never went through normalizeDrawBody -- the serializer does
+// not trust its caller to have done that.
+
+/** Escape a string for use as XML text or a double- or single-quoted attribute. */
 function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/** A number as markup: finite values verbatim, anything else as 0. */
+function num(v: unknown): string {
+  return typeof v === 'number' && Number.isFinite(v) ? String(v) : '0'
+}
+
+/** A number to fixed places: finite values only, anything else as 0. */
+function fixed(v: number, places: number): string {
+  return (Number.isFinite(v) ? v : 0).toFixed(places)
+}
+
+function blendOk(v: unknown): v is DrawBlend {
+  return typeof v === 'string' && (DRAW_BLEND_MODES as readonly string[]).includes(v)
 }
 
 /**
- * A paint as an SVG paint value, appending any gradient it needs to `defs`.
+ * The SVG element id for a paint's gradient. Ids are already constrained at
+ * load (DRAW_ID_PATTERN); this guarantees the same for any id that skipped it,
+ * so the result is always safe in an id attribute AND inside `url(#…)`.
+ */
+export function gradientId(idHint: string): string {
+  return `grad-${String(idHint).replace(/[^A-Za-z0-9_-]/g, '_')}`
+}
+
+/** One gradient stop, formatted for SVG. */
+export interface DrawGradientStopDef {
+  /** e.g. "37.50%" */
+  offset: string
+  /** A colour that passed isSafeCssColor. */
+  color: string
+  opacity?: string
+}
+
+/**
+ * A gradient as data rather than markup.
+ *
+ * Both the exporter and the on-screen editor draw gradients from this one
+ * description, so a gradient can never look different on screen than in the
+ * file -- and the editor can render it as React elements instead of injecting
+ * markup. Every field is already formatted and safe: the id is constrained,
+ * the colours are checked, and the numbers are fixed-point strings.
+ */
+export interface DrawGradientDef {
+  kind: 'linear' | 'radial'
+  id: string
+  /** objectBoundingBox endpoints. Linear only; a radial is always centred. */
+  x1?: string
+  y1?: string
+  x2?: string
+  y2?: string
+  stops: DrawGradientStopDef[]
+}
+
+export interface DrawSvgPaint {
+  /** The SVG paint value: a colour, 'none', or url(#<gradient id>). */
+  value: string
+  opacity?: number
+  /** The gradient `value` refers to, when it refers to one. */
+  gradient?: DrawGradientDef
+}
+
+/**
+ * A paint as an SVG paint value plus, for a gradient, its definition.
  * Gradients are declared in objectBoundingBox units so one definition scales to
  * whatever shape references it.
  */
-export function paintToSvg(paint: DrawPaint | undefined, defs: string[], idHint: string): { value: string; opacity?: number } {
+export function svgPaint(paint: DrawPaint | undefined, idHint: string): DrawSvgPaint {
   if (!paint || paint.type === 'none') return { value: 'none' }
-  if (paint.type === 'solid') return { value: paint.color, ...(paint.opacity != null ? { opacity: paint.opacity } : {}) }
-  const id = `grad-${idHint}`
-  const stops = paint.stops
-    .map((s) => `<stop offset="${(s.offset * 100).toFixed(2)}%" stop-color="${esc(s.color)}"${s.opacity != null ? ` stop-opacity="${s.opacity}"` : ''}/>`)
-    .join('')
+  if (paint.type === 'solid') {
+    const color = safeCssColor(paint.color, undefined)
+    if (!color) return { value: 'none' }
+    return { value: color, ...(isNum(paint.opacity) ? { opacity: Math.max(0, Math.min(1, paint.opacity)) } : {}) }
+  }
+  if (paint.type !== 'linear' && paint.type !== 'radial') return { value: 'none' }
+  const id = gradientId(idHint)
+  const stops: DrawGradientStopDef[] = (Array.isArray(paint.stops) ? paint.stops : []).map((s) => ({
+    offset: `${fixed(s.offset * 100, 2)}%`,
+    color: safeCssColor(s.color, '#000000'),
+    ...(isNum(s.opacity) ? { opacity: num(Math.max(0, Math.min(1, s.opacity))) } : {})
+  }))
   if (paint.type === 'linear') {
     // Angle 0 points right; rotate the unit vector into objectBoundingBox coords.
-    const rad = ((paint.angle ?? 0) * Math.PI) / 180
+    const rad = ((isNum(paint.angle) ? paint.angle : 0) * Math.PI) / 180
     const dx = Math.cos(rad) / 2
     const dy = Math.sin(rad) / 2
-    defs.push(
-      `<linearGradient id="${id}" x1="${(0.5 - dx).toFixed(4)}" y1="${(0.5 - dy).toFixed(4)}" x2="${(0.5 + dx).toFixed(4)}" y2="${(0.5 + dy).toFixed(4)}">${stops}</linearGradient>`
-    )
-  } else {
-    defs.push(`<radialGradient id="${id}" cx="0.5" cy="0.5" r="0.5">${stops}</radialGradient>`)
+    return {
+      value: `url(#${id})`,
+      gradient: { kind: 'linear', id, x1: fixed(0.5 - dx, 4), y1: fixed(0.5 - dy, 4), x2: fixed(0.5 + dx, 4), y2: fixed(0.5 + dy, 4), stops }
+    }
   }
-  return { value: `url(#${id})` }
+  return { value: `url(#${id})`, gradient: { kind: 'radial', id, stops } }
+}
+
+/** A gradient definition as SVG markup, every value escaped. */
+export function gradientToSvg(g: DrawGradientDef): string {
+  const stops = g.stops
+    .map(
+      (s) =>
+        `<stop offset="${esc(s.offset)}" stop-color="${esc(s.color)}"${s.opacity != null ? ` stop-opacity="${esc(s.opacity)}"` : ''}/>`
+    )
+    .join('')
+  if (g.kind === 'linear') {
+    return `<linearGradient id="${esc(g.id)}" x1="${esc(g.x1 ?? '0')}" y1="${esc(g.y1 ?? '0.5')}" x2="${esc(g.x2 ?? '1')}" y2="${esc(g.y2 ?? '0.5')}">${stops}</linearGradient>`
+  }
+  return `<radialGradient id="${esc(g.id)}" cx="0.5" cy="0.5" r="0.5">${stops}</radialGradient>`
+}
+
+/**
+ * Every gradient an object's paints need, fill first then stroke -- the same
+ * ids the object's own paint references use. The editor collects these BEFORE
+ * rendering the objects, so the <defs> exist when the shapes point at them.
+ */
+export function objectGradients(o: DrawObject): DrawGradientDef[] {
+  if (o.hidden || o.type === 'image') return []
+  const out: DrawGradientDef[] = []
+  const f = svgPaint(o.fill, o.id).gradient
+  if (f) out.push(f)
+  if (o.stroke) {
+    const s = svgPaint(o.stroke.paint, `${o.id}-s`).gradient
+    if (s) out.push(s)
+  }
+  return out
+}
+
+/**
+ * A paint as an SVG paint value, appending any gradient it needs to `defs` as
+ * markup. The string-building twin of svgPaint, for the exporter.
+ */
+export function paintToSvg(paint: DrawPaint | undefined, defs: string[], idHint: string): { value: string; opacity?: number } {
+  const p = svgPaint(paint, idHint)
+  if (p.gradient) defs.push(gradientToSvg(p.gradient))
+  return { value: p.value, ...(p.opacity != null ? { opacity: p.opacity } : {}) }
 }
 
 /** The CSS value for a paint, for on-screen surfaces that are not SVG. */
 export function paintToCss(paint: DrawPaint | undefined): string {
   if (!paint || paint.type === 'none') return 'transparent'
-  if (paint.type === 'solid') return paint.color
-  const stops = paint.stops.map((s) => `${s.color} ${(s.offset * 100).toFixed(1)}%`).join(', ')
-  if (paint.type === 'linear') return `linear-gradient(${(paint.angle ?? 0) + 90}deg, ${stops})`
+  if (paint.type === 'solid') return safeCssColor(paint.color, 'transparent')
+  const stops = paint.stops.map((s) => `${safeCssColor(s.color, '#000000')} ${fixed(s.offset * 100, 1)}%`).join(', ')
+  if (paint.type === 'linear') return `linear-gradient(${num((isNum(paint.angle) ? paint.angle : 0) + 90)}deg, ${stops})`
   return `radial-gradient(circle at 50% 50%, ${stops})`
 }
+
+const STROKE_CAPS = new Set(['butt', 'round', 'square'])
+const STROKE_JOINS = new Set(['miter', 'round', 'bevel'])
 
 function strokeAttrs(stroke: DrawStroke | undefined, defs: string[], idHint: string): string {
   if (!stroke) return ''
   const p = paintToSvg(stroke.paint, defs, `${idHint}-s`)
   if (p.value === 'none') return ''
+  const dash = Array.isArray(stroke.dash) ? stroke.dash.filter((d) => isNum(d) && d >= 0) : []
   return (
-    ` stroke="${p.value}" stroke-width="${stroke.width}"` +
-    (p.opacity != null ? ` stroke-opacity="${p.opacity}"` : '') +
-    (stroke.cap ? ` stroke-linecap="${stroke.cap}"` : '') +
-    (stroke.join ? ` stroke-linejoin="${stroke.join}"` : '') +
-    (stroke.dash && stroke.dash.length ? ` stroke-dasharray="${stroke.dash.join(' ')}"` : '') +
-    (stroke.miterLimit != null ? ` stroke-miterlimit="${stroke.miterLimit}"` : '')
+    ` stroke="${esc(p.value)}" stroke-width="${num(stroke.width)}"` +
+    (p.opacity != null ? ` stroke-opacity="${num(p.opacity)}"` : '') +
+    (stroke.cap && STROKE_CAPS.has(stroke.cap) ? ` stroke-linecap="${stroke.cap}"` : '') +
+    (stroke.join && STROKE_JOINS.has(stroke.join) ? ` stroke-linejoin="${stroke.join}"` : '') +
+    (dash.length ? ` stroke-dasharray="${dash.map(num).join(' ')}"` : '') +
+    (isNum(stroke.miterLimit) ? ` stroke-miterlimit="${num(stroke.miterLimit)}"` : '')
   )
 }
 
 function objectStyle(o: DrawObject): string {
   const bits: string[] = []
-  if (o.opacity != null && o.opacity < 1) bits.push(`opacity:${o.opacity}`)
-  if (o.blend && o.blend !== 'normal') bits.push(`mix-blend-mode:${o.blend}`)
+  if (isNum(o.opacity) && o.opacity < 1) bits.push(`opacity:${num(o.opacity)}`)
+  if (blendOk(o.blend) && o.blend !== 'normal') bits.push(`mix-blend-mode:${o.blend}`)
   return bits.length ? ` style="${bits.join(';')}"` : ''
 }
 
@@ -643,8 +820,8 @@ function objectSvg(o: DrawObject, defs: string[]): string {
     const d = pathToSvgD(o.path)
     if (!d) return ''
     return (
-      `<path d="${d}" fill="${f.value}"` +
-      (f.opacity != null ? ` fill-opacity="${f.opacity}"` : '') +
+      `<path d="${esc(d)}" fill="${esc(f.value)}"` +
+      (f.opacity != null ? ` fill-opacity="${num(f.opacity)}"` : '') +
       (o.path.fillRule === 'evenodd' ? ' fill-rule="evenodd"' : '') +
       strokeAttrs(o.stroke, defs, o.id) +
       objectStyle(o) +
@@ -652,8 +829,11 @@ function objectSvg(o: DrawObject, defs: string[]): string {
     )
   }
   if (o.type === 'image') {
-    const rot = o.rotation ? ` transform="rotate(${o.rotation} ${o.x + o.w / 2} ${o.y + o.h / 2})"` : ''
-    return `<image href="${esc(o.src)}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" preserveAspectRatio="none"${rot}${objectStyle(o)}/>`
+    // Only embedded image bytes are ever written out (see isDrawImageSrc); an
+    // image pointing anywhere else is left out of the file, not linked to.
+    if (!isDrawImageSrc(o.src)) return ''
+    const rot = isNum(o.rotation) && o.rotation ? ` transform="rotate(${num(o.rotation)} ${num(o.x + o.w / 2)} ${num(o.y + o.h / 2)})"` : ''
+    return `<image href="${esc(o.src)}" x="${num(o.x)}" y="${num(o.y)}" width="${num(o.w)}" height="${num(o.h)}" preserveAspectRatio="none"${rot}${objectStyle(o)}/>`
   }
   const f = paintToSvg(o.fill, defs, o.id)
   const lh = (o.lineHeight ?? 1.2) * o.fontSize
@@ -661,18 +841,18 @@ function objectSvg(o: DrawObject, defs: string[]): string {
   const ax = o.align === 'center' ? o.x + o.w / 2 : o.align === 'right' ? o.x + o.w : o.x
   // Prefer the editor's measured breaks; estimateWrap is only the fallback for
   // text no editor has ever laid out.
-  const lines = o.lines && o.lines.length ? o.lines : estimateWrap(o.text, o.w, o.fontSize, o.letterSpacing ?? 0)
+  const lines = o.lines && o.lines.length ? o.lines : estimateWrap(String(o.text ?? ''), o.w, o.fontSize, o.letterSpacing ?? 0)
   const tspans = lines
-    .map((l, i) => `<tspan x="${ax}" y="${(o.y + o.fontSize + i * lh).toFixed(2)}">${esc(l) || ' '}</tspan>`)
+    .map((l, i) => `<tspan x="${num(ax)}" y="${fixed(o.y + o.fontSize + i * lh, 2)}">${esc(String(l)) || ' '}</tspan>`)
     .join('')
-  const rot = o.rotation ? ` transform="rotate(${o.rotation} ${o.x + o.w / 2} ${o.y})"` : ''
+  const rot = isNum(o.rotation) && o.rotation ? ` transform="rotate(${num(o.rotation)} ${num(o.x + o.w / 2)} ${num(o.y)})"` : ''
   return (
-    `<text font-family="${esc(o.fontFamily ?? 'Inter, system-ui, sans-serif')}" font-size="${o.fontSize}"` +
-    (o.fontWeight ? ` font-weight="${o.fontWeight}"` : '') +
+    `<text font-family="${esc(o.fontFamily ?? 'Inter, system-ui, sans-serif')}" font-size="${num(o.fontSize)}"` +
+    (isNum(o.fontWeight) && o.fontWeight ? ` font-weight="${num(o.fontWeight)}"` : '') +
     (o.italic ? ' font-style="italic"' : '') +
-    (o.letterSpacing ? ` letter-spacing="${o.letterSpacing}"` : '') +
-    ` text-anchor="${anchor}" fill="${f.value}"` +
-    (f.opacity != null ? ` fill-opacity="${f.opacity}"` : '') +
+    (isNum(o.letterSpacing) && o.letterSpacing ? ` letter-spacing="${num(o.letterSpacing)}"` : '') +
+    ` text-anchor="${anchor}" fill="${esc(f.value)}"` +
+    (f.opacity != null ? ` fill-opacity="${num(f.opacity)}"` : '') +
     strokeAttrs(o.stroke, defs, o.id) +
     rot +
     objectStyle(o) +
@@ -682,8 +862,8 @@ function objectSvg(o: DrawObject, defs: string[]): string {
 
 function layerStyle(l: DrawLayer): string {
   const bits: string[] = []
-  if (l.opacity < 1) bits.push(`opacity:${l.opacity}`)
-  if (l.blend !== 'normal') bits.push(`mix-blend-mode:${l.blend}`)
+  if (isNum(l.opacity) && l.opacity < 1) bits.push(`opacity:${num(l.opacity)}`)
+  if (blendOk(l.blend) && l.blend !== 'normal') bits.push(`mix-blend-mode:${l.blend}`)
   return bits.length ? ` style="${bits.join(';')}"` : ''
 }
 
@@ -694,12 +874,14 @@ function layerStyle(l: DrawLayer): string {
  */
 export function drawToSvg(body: DrawBody): string {
   const defs: string[] = []
+  const w = num(body.width)
+  const h = num(body.height)
   const layers = body.layers
     .filter((l) => l.visible)
     .map((l) => {
       if (l.kind === 'raster') {
-        if (!l.src) return ''
-        return `<g${layerStyle(l)}><image href="${esc(l.src)}" x="0" y="0" width="${body.width}" height="${body.height}" preserveAspectRatio="none"/></g>`
+        if (!isDrawImageSrc(l.src)) return ''
+        return `<g${layerStyle(l)}><image href="${esc(l.src)}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="none"/></g>`
       }
       const objs = l.objects.map((o) => objectSvg(o, defs)).join('')
       if (!objs) return ''
@@ -707,10 +889,10 @@ export function drawToSvg(body: DrawBody): string {
     })
     .join('')
   const bgPaint = paintToSvg(body.background, defs, 'bg')
-  const bg = bgPaint.value === 'none' ? '' : `<rect x="0" y="0" width="${body.width}" height="${body.height}" fill="${bgPaint.value}"/>`
+  const bg = bgPaint.value === 'none' ? '' : `<rect x="0" y="0" width="${w}" height="${h}" fill="${esc(bgPaint.value)}"/>`
   const defsBlock = defs.length ? `<defs>${defs.join('')}</defs>` : ''
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${body.width}" height="${body.height}" viewBox="0 0 ${body.width} ${body.height}">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
     `${defsBlock}${bg}${layers}</svg>`
   )
 }
@@ -720,7 +902,7 @@ export function drawToHtml(body: DrawBody): string {
   const transparent = body.background.type === 'none'
   return (
     `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;box-sizing:border-box}` +
-    `html,body{width:${body.width}px;height:${body.height}px;background:${transparent ? 'transparent' : 'none'}}</style></head>` +
+    `html,body{width:${num(body.width)}px;height:${num(body.height)}px;background:${transparent ? 'transparent' : 'none'}}</style></head>` +
     `<body>${drawToSvg(body)}</body></html>`
   )
 }

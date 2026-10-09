@@ -575,7 +575,7 @@ function Attachment({
   )
 }
 
-function AttachmentChip({
+export function AttachmentChip({
   fileId,
   onRemove
 }: {
@@ -597,6 +597,13 @@ function AttachmentChip({
       <Icon name="attach_file" size={10} />
       <a
         href={fileSrc(fileId)}
+        // A download, never a page. In the browser build this address is on
+        // the share site's own origin, and the file's bytes and type were
+        // chosen by whoever made the link -- navigating to an .html or .svg
+        // attachment would run it as a page of this site. On the desktop the
+        // address is fb-file://, cross-origin, where `download` is ignored and
+        // nothing changes.
+        download={name === '…' ? '' : name}
         target="_blank"
         rel="noreferrer"
         className="max-w-[100px] truncate underline-offset-2 hover:underline"

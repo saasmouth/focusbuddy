@@ -1,4 +1,5 @@
 import type { FbFile } from '@shared/fields'
+import { webBase } from '@renderer/lib/fileUrl'
 import { dbCall } from './dbClient'
 import { pickAndIngest, pickFilesIntoFolder } from './filePicker'
 
@@ -100,7 +101,10 @@ export function platformNamespaces(): Record<string, Record<string, unknown>> {
       ): Promise<{ base64: string; mimeType: 'image/png'; width: number; height: number } | null> => {
         const size = Math.max(16, Math.min(opts?.size ?? 256, 1024))
         try {
-          const res = await fetch(`/fb-file/${encodeURIComponent(id)}`)
+          // Under the app's base, never a root-absolute /fb-file/: on the share
+          // site the worker's scope is /share/, and a request outside it goes
+          // to the host, which answers with index.html and no thumbnail.
+          const res = await fetch(`${webBase()}fb-file/${encodeURIComponent(id)}`)
           if (!res.ok) return null
           const type = res.headers.get('content-type') ?? ''
           // SVG decodes, but drawing one to a canvas taints it in some browsers

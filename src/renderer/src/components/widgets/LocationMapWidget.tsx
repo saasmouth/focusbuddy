@@ -3,6 +3,7 @@ import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import Icon from '../Icon'
 import { useWidgetStore } from '../../stores/widgets'
+import { openHttpUrl } from '../../lib/openUrl'
 import {
   tilesFor,
   tileUrl,
@@ -206,7 +207,9 @@ export default function LocationMapWidget({ widget }: { widget: Widget }): JSX.E
     const href = osmLink(centre, zoom)
     const api = (window as { api?: { files?: { openExternal?: (u: string) => void } } }).api
     if (api?.files?.openExternal) api.files.openExternal(href)
-    else window.open(href, '_blank', 'noopener')
+    // noreferrer as well as noopener: in the browser build this page's own
+    // address can be a share link, token and all.
+    else openHttpUrl(href)
   }
 
   return (

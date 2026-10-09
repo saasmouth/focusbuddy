@@ -6,6 +6,8 @@
 // injecting CSS scoped to the editor, so changing "Heading 1" updates every H1
 // in the document at once without touching individual nodes.
 
+import { safeCssColor } from '@shared/cssColor'
+
 export interface HeadingStyle {
   fontSize?: number // px
   color?: string // hex
@@ -115,9 +117,42 @@ export function parseDocBody(content: unknown): { doc: unknown; headingStyles: H
     'headingStyles' in (content as Record<string, unknown>)
   ) {
     const c = content as WrappedDocBody
-    return { doc: c.doc ?? emptyDoc(), headingStyles: c.headingStyles ?? {}, page: parsePageSetup(c.page) }
+    return { doc: c.doc ?? emptyDoc(), headingStyles: parseHeadingStyles(c.headingStyles), page: parsePageSetup(c.page) }
   }
   return { doc: content ?? emptyDoc(), headingStyles: {}, page: { ...DEFAULT_PAGE_SETUP, margin: { ...DEFAULT_MARGINS } } }
+}
+
+// The heading styles a body may carry: levels 1-6, each with a sane px size, a
+// real colour and boolean weight/slant. These values are written into a <style>
+// element (headingCss), and a document can come from a share link or a peer --
+// so a "colour" of `red}body{background:url(https://tracker…)}` must not survive
+// the trip. Anything that is not one of these shapes is dropped, field by field,
+// leaving the rest of the style intact.
+function headingFontPx(v: unknown): number | undefined {
+  // A finite, positive number -- the value itself is not otherwise changed, so
+  // every size the editor offers round-trips exactly.
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined
+}
+
+export function parseHeadingStyles(raw: unknown): HeadingStyles {
+  const out: HeadingStyles = {}
+  if (!raw || typeof raw !== 'object') return out
+  const r = raw as Record<string, unknown>
+  for (let lvl = 1; lvl <= 6; lvl++) {
+    const v = r[lvl]
+    if (!v || typeof v !== 'object') continue
+    const s = v as Record<string, unknown>
+    const fontSize = headingFontPx(s.fontSize)
+    const color = safeCssColor(s.color, undefined)
+    const style: HeadingStyle = {
+      ...(fontSize !== undefined ? { fontSize } : {}),
+      ...(color ? { color } : {}),
+      ...(typeof s.bold === 'boolean' ? { bold: s.bold } : {}),
+      ...(typeof s.italic === 'boolean' ? { italic: s.italic } : {})
+    }
+    if (Object.keys(style).length) out[lvl] = style
+  }
+  return out
 }
 
 // Build the wrapped body to persist. Page setup is omitted when it is the plain
@@ -134,8 +169,12 @@ export function headingCss(scopeClass: string, styles: HeadingStyles): string {
     const s = styles[lvl]
     if (!s) continue
     const decls: string[] = []
-    if (s.fontSize) decls.push(`font-size:${s.fontSize}px !important`)
-    if (s.color) decls.push(`color:${s.color} !important`)
+    // Checked again here, not only at parse: this string is a style sheet, and
+    // styles set in-session never went through parseHeadingStyles.
+    const fontSize = headingFontPx(s.fontSize)
+    const color = safeCssColor(s.color, undefined)
+    if (fontSize) decls.push(`font-size:${fontSize}px !important`)
+    if (color) decls.push(`color:${color} !important`)
     if (s.bold !== undefined) decls.push(`font-weight:${s.bold ? 700 : 400} !important`)
     if (s.italic !== undefined) decls.push(`font-style:${s.italic ? 'italic' : 'normal'} !important`)
     if (!decls.length) continue

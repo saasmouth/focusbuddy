@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Widget } from '@shared/types'
 import type { FbFile, FileKind } from '@shared/fields'
 import {
-  fileKindFromMime,
+  fileRenderKind,
   hostnameForUrl,
   isExternalUrlContent
 } from '@shared/fields'
@@ -263,7 +263,9 @@ export default function FileWidget({ widget, inline = false }: Props): JSX.Eleme
   }
 
   // ── Local file mode ────────────────────────────────────────────────────
-  const kind: FileKind = file ? fileKindFromMime(file.mimeType, file.ext) : 'generic'
+  // fileRenderKind, not fileKindFromMime: a PDF is framed only when its type and
+  // extension agree (see fileRenderKind for why that matters on a share page).
+  const kind: FileKind = file ? fileRenderKind(file.mimeType, file.ext) : 'generic'
   const url = fileSrc(fileId)
   const body = (
     <div
@@ -368,13 +370,7 @@ function FileRenderer({
         />
       )
     case 'pdf':
-      return (
-        <iframe
-          src={`${url}#toolbar=1&navpanes=1&view=FitH`}
-          title={file?.originalName ?? 'PDF'}
-          className="w-full h-full border-0"
-        />
-      )
+      return <PdfFrame url={url} title={file?.originalName ?? 'PDF'} />
     case 'video':
       return (
         <video
@@ -398,6 +394,75 @@ function FileRenderer({
     default:
       return <GenericFilePreview fileId={fileId} file={file} onOpen={onOpen} />
   }
+}
+
+const isWebRuntime = (): boolean => (globalThis as { __PLEXII_WEB__?: boolean }).__PLEXII_WEB__ === true
+
+/**
+ * A PDF, framed so that it can only ever render AS a PDF.
+ *
+ * Desktop: fb-file:// answers with the file's stored mime type, which
+ * fileRenderKind has already required to be application/pdf, so the protocol
+ * URL is framed directly and keeps its streaming and Range support.
+ *
+ * Browser: the bytes come from the file Service Worker, which has no database
+ * and types a response from the stored blob's NAME. On a share page that blob
+ * was named by whoever made the link, independently of the row that says
+ * "PDF" -- so framing the worker's URL framed whatever type the name implied,
+ * text/html included, as a page in the share site's own origin. Here the bytes
+ * are fetched and re-wrapped as a Blob typed application/pdf, and the frame
+ * shows that: whatever the bytes really are, they reach the frame as a PDF, and
+ * an HTML file in disguise gets the PDF viewer's error rather than a running
+ * page.
+ */
+export function PdfFrame({ url, title }: { url: string; title: string }): JSX.Element {
+  const web = isWebRuntime()
+  const [state, setState] = useState<{ src: string | null; failed: boolean }>({ src: web ? null : url, failed: false })
+
+  useEffect(() => {
+    if (!web) {
+      setState({ src: url, failed: false })
+      return
+    }
+    let cancelled = false
+    let objectUrl: string | null = null
+    setState({ src: null, failed: false })
+    void (async () => {
+      try {
+        const res = await fetch(url)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const bytes = await res.arrayBuffer()
+        if (cancelled) return
+        objectUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
+        setState({ src: objectUrl, failed: false })
+      } catch {
+        if (!cancelled) setState({ src: null, failed: true })
+      }
+    })()
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [url, web])
+
+  if (state.failed || !state.src) {
+    return (
+      <div className="h-full w-full flex items-center justify-center p-3 text-center" data-testid="file-pdf-pending">
+        <p className="text-[11px] text-[var(--ink-50)] leading-snug">
+          {state.failed ? 'This PDF could not be loaded on this device.' : 'Loading PDF…'}
+        </p>
+      </div>
+    )
+  }
+  return (
+    <iframe
+      src={`${state.src}#toolbar=1&navpanes=1&view=FitH`}
+      title={title}
+      className="w-full h-full border-0"
+      referrerPolicy="no-referrer"
+      data-testid="file-pdf-frame"
+    />
+  )
 }
 
 /**
