@@ -36,6 +36,28 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.24',
+    date: '2026-10-10T09:00:00Z',
+    title: 'PlexiDesk 4.3.24 — public links that stay up, and a tidier corner',
+    tag: 'fix',
+    summary:
+      'A public desk link set to Never now really never expires, and you can update what it shows without changing the link. Import file opens the importer again, the right edge of the desk is usable again, and the minimap no longer hides under the Plexii button.',
+    highlights: [
+      'A link to a desk that anyone can use is the one you send to prospects, again and again. The share sheet offered “Never” as its expiry, but the app never told the server, so every such link quietly stopped working after 48 hours. It now stays up until you revoke it. 48 hours, 7 days and 30 days are still there when you want a link that ends.',
+      'Update link replaces what a public link shows with the desk as it is now, under the same address, so fixing a typo no longer means sending everyone a new link. Someone who opened the link and changed their own copy is asked before theirs is replaced.',
+      'Desks with pictures up to 8 MB can be shared as a link. If a desk is larger, the biggest files are left out and named, rather than the whole link failing.',
+      'Import file opened the wrong dialog: it showed “bring a synced widget” instead of the importer for .txt, .md, .csv and .json files. It opens the importer again.',
+      'The desk kept 292 pixels along its right edge clear for an assistant rail that no longer exists, so anything pinned to the right sat well short of the edge. That space is yours again.',
+      'The All Tasks view was titled “All Desks”. It now says what it is.',
+      'The toolbar sits beside the assistant panel instead of underneath it.',
+      'Reloading the app no longer uses up one of the three free opens before you sign in. Each launch counts once.',
+      'Resting the pointer on the zoom buttons no longer slides the desk sideways.',
+      'The minimap’s button no longer sits under the Plexii button, where a click on it opened Plexii. While the Plexii button is showing, the minimap sits beside it, and its close button is larger.',
+      'Gradients in drawings now appear on screen; they only ever showed up in exports.',
+      'Shared desks are safer to open: links in a shared desk only open web pages and email, drawings and files from a shared desk cannot run code, and embedded web pages no longer receive the address of the link you opened.'
+    ]
+  },
+  {
     version: '4.3.23',
     date: '2026-10-09T18:00:00Z',
     title: 'PlexiDesk 4.3.23 \u2014 a widget menu you can search, and a calmer canvas',
