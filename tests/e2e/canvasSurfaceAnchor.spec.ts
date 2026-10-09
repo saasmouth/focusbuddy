@@ -95,6 +95,31 @@ test('CS-2 — the canvas is light grey in light mode and deep purple in dark', 
   expect(light.dots).toContain('rgba(90, 98, 112')
 
   const dark = await read(true)
-  expect(dark.bg).toBe('rgb(21, 12, 43)') // #150c2b — deep purple
+  expect(dark.bg).toBe('rgb(34, 27, 46)') // #221b2e — charcoal-dark purple
   expect(dark.dots).toContain('rgba(167, 139, 250') // lighter violet dots
+})
+
+test('CS-3 — no time-of-day glow paints over the canvas, in either theme', async () => {
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  await seedBusyDesk(window)
+
+  // The amber glow was a ::before on the desk surface, painted at --tod-hue
+  // (default 45 = amber) and centred above the top edge. Assert the overlay
+  // paints nothing at all rather than checking for a particular hue — a glow
+  // in any colour over the canvas is the thing that was unwanted.
+  for (const dark of [false, true]) {
+    await window.evaluate((d) => {
+      document.documentElement.classList.toggle('dark', d)
+    }, dark)
+    await window.waitForTimeout(150)
+    const overlay = await window.evaluate(() => {
+      const surf = document.querySelector<HTMLElement>('[data-canvas-surface="true"]')!
+      const cs = getComputedStyle(surf, '::before')
+      return { content: cs.content, backgroundImage: cs.backgroundImage }
+    })
+    expect(overlay.backgroundImage).toBe('none')
+    expect(overlay.content).toBe('none')
+  }
 })

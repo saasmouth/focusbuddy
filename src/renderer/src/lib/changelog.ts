@@ -38,14 +38,16 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '4.3.23',
     date: '2026-10-09T18:00:00Z',
-    title: 'PlexiDesk 4.3.23 \u2014 the table\u2019s AI button is where you are working',
+    title: 'PlexiDesk 4.3.23 \u2014 the table\u2019s AI button, and a calmer canvas',
     tag: 'fix',
     summary:
-      'A table now has a visible AI button in both places you would look for one \u2014 beside the add-column plus, and beside Add row.',
+      'A table now has a visible AI button in both places you would look for one \u2014 beside the add-column plus, and beside Add row. The desk loses the amber glow along its top edge, and the dark canvas settles into a charcoal purple.',
     highlights: [
       'The table\u2019s AI assistant builds columns and rows, but the only way to reach it was the overflow menu in the widget\u2019s title bar \u2014 while the table\u2019s own empty state told you to \u201cuse the AI button to generate some\u201d. There was no AI button anywhere in the table, so the instruction pointed at something that did not exist.',
       'There is now one beside the add-column plus, for asking it to propose columns, and one beside Add row, for generating rows. Both open the same two-step assistant, which proposes columns for you to rename, add or remove, and only then generates rows to match them \u2014 nothing is written until you accept it.',
-      'The assistant\u2019s own heading said \u201cgenerate rows\u201d when it had always done columns as well. It and the menu entry now both say columns and rows.'
+      'The assistant\u2019s own heading said \u201cgenerate rows\u201d when it had always done columns as well. It and the menu entry now both say columns and rows.',
+      'The amber glow across the top of the desk is gone, in every colour mode. It was a time-of-day overlay \u2014 a sun gradient centred just above the canvas\u2019s top edge, drawn in a default hue of amber \u2014 and it sat over the new canvas colours in both light and dark. Atelier never showed it and Gemstone painted its own vignette instead, so the two modes that looked right were the ones that had already opted out.',
+      'The dark canvas is a deeper, more charcoal purple. It reads as charcoal first and purple second, where the previous shade read as a vivid violet.'
     ]
   },
   {

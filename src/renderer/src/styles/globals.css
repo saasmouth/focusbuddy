@@ -295,8 +295,9 @@ body {
      reaches `.dark .desk-paper` further down the file too.
 
      Light: neutral light grey (it was a warm beige, #fbf7ee).
-     Dark:  deep purple with lighter violet dots (it was slate #17181d with
-            warm grey dots). */
+     Dark:  a charcoal-dark purple with lighter violet dots. Deliberately
+            desaturated — it reads as charcoal first and purple second,
+            where the earlier #150c2b read as a vivid violet. */
   :root {
     --fb-canvas-bg: #f1f2f4;
     --fb-canvas-wash-a: rgba(100, 110, 125, 0.05);
@@ -305,7 +306,7 @@ body {
     --fb-canvas-line: rgba(90, 98, 112, 0.14);
   }
   html.dark {
-    --fb-canvas-bg: #150c2b;
+    --fb-canvas-bg: #221b2e;
     --fb-canvas-wash-a: rgba(139, 92, 246, 0.07);
     --fb-canvas-wash-b: rgba(109, 40, 217, 0.08);
     --fb-canvas-dot: rgba(167, 139, 250, 0.3);
@@ -596,38 +597,25 @@ body {
     display: flex;
     flex-direction: column;
   }
-  /* `.no-tod` modifier — suppresses ambient overlays (time-of-day ::before AND the
-     Futuristic flowing accent-beam ::after) on surfaces where they bleed through
-     semi-transparent cards. Only the Canvas keeps these ambient effects. */
+  /* `.no-tod` modifier — suppresses ambient ::before/::after overlays on
+     surfaces where they bleed through semi-transparent cards.
+     
+     The time-of-day overlay it was named for is GONE. It painted a sun
+     gradient centred above the canvas's top edge in --tod-hue, which defaults
+     to 45 — amber. That was the orange glow across the top of every desk, in
+     light and dark alike, and in Futuristic, which only dimmed it to 0.55.
+     Atelier already suppressed it ("timeless") and Gemstone replaced it with
+     its own jewel vignette, which is why neither showed the glow.
+     
+     timeOfDay.ts still pushes the --tod-* variables to :root; no stylesheet
+     reads them now. The module stays because AgeHalo, WeekTimeGrid and
+     HomeDashboard use its other exports.
+     
+     This rule still earns its place: Futuristic's accent-beam ::after and
+     Gemstone's sparkle ::after are both ambient overlays. */
   .desk-paper.no-tod::before,
   .desk-paper.no-tod::after {
     display: none !important;
-  }
-  /* Time-of-Day Anchoring — ambient hue + traveling sun glow.
-     CSS variables on :root are updated every minute by lib/timeOfDay.ts.
-     z-index: -1 + parent `isolation: isolate` keeps the overlay behind ALL content
-     (widgets on Canvas, cards on Dashboard, etc.) but inside the desk-paper bounds. */
-  .desk-paper::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: -1;
-    background:
-      radial-gradient(
-        circle at var(--tod-sun-x, 50%) -8%,
-        hsla(var(--tod-hue, 45), 85%, 65%, var(--tod-sun-opacity, 0)) 0%,
-        hsla(var(--tod-hue, 45), 80%, 55%, calc(var(--tod-sun-opacity, 0) * 0.4)) 8%,
-        transparent 22%
-      ),
-      linear-gradient(
-        180deg,
-        hsla(var(--tod-hue, 45), 70%, 55%, calc(0.08 * var(--tod-warmth, 0.5))) 0%,
-        transparent 38%,
-        transparent 72%,
-        hsla(var(--tod-hue, 45), 55%, 35%, calc(0.05 + 0.04 * (1 - var(--tod-warmth, 0.5)))) 100%
-      );
-    transition: background 120s linear;
   }
   .dark .desk-paper {
     background-color: var(--fb-canvas-bg); /* deep purple — see the canvas palette tokens */
@@ -644,26 +632,6 @@ body {
       0 0,
       var(--fb-desk-pan, 0 0);
     filter: none;
-  }
-  .dark .desk-paper::before {
-    background:
-      radial-gradient(
-        circle at var(--tod-sun-x, 50%) -8%,
-        hsla(var(--tod-hue, 45), 80%, 55%, calc(var(--tod-sun-opacity, 0) * 0.55)) 0%,
-        hsla(var(--tod-hue, 45), 70%, 45%, calc(var(--tod-sun-opacity, 0) * 0.25)) 10%,
-        transparent 25%
-      ),
-      linear-gradient(
-        180deg,
-        hsla(var(--tod-hue, 45), 50%, 35%, calc(0.14 + 0.10 * (1 - var(--tod-warmth, 0.5)))) 0%,
-        transparent 45%,
-        transparent 72%,
-        hsla(var(--tod-hue, 45), 45%, 25%, 0.16) 100%
-      );
-  }
-  .futuristic .desk-paper::before {
-    /* In futuristic mode the aurora dominates; soften the ToD overlay so it complements without competing. */
-    opacity: 0.55;
   }
   .futuristic .desk-paper {
     background:

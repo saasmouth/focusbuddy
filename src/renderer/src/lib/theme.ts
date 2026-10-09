@@ -313,7 +313,7 @@ export function applyTheme(mode: ThemeMode, accent: AccentColor, customHex?: str
   // "blink" mechanisms. Both values track the --fb-canvas-* tokens in
   // globals.css, so the native background always matches the canvas it sits
   // behind.
-  const nativeBg = effective === 'dark' ? '#150c2b' : '#f1f2f4'
+  const nativeBg = effective === 'dark' ? '#221b2e' : '#f1f2f4'
   void window.api?.app?.setBackgroundColor?.(nativeBg)?.catch?.(() => {})
 }
 
