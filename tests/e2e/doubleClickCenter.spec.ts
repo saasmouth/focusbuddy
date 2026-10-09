@@ -60,23 +60,38 @@ function dispatch(l: LaunchedApp, id: string, type: 'click' | 'dblclick'): Promi
   )
 }
 
-test('DC-1 — single click does not move the camera; double click centres', async () => {
+test('DC-1 — a single click does not move the camera; a double click opens Focus Mode', async () => {
   launched = await launchApp()
   const id = await seedFarWidget(launched)
+  const { window } = launched
 
   const t0 = await readTranslate(launched)
   expect(t0).not.toBeNull()
 
-  // Single click — must NOT move the camera.
+  // Single click — must NOT move the camera. This is the drift bug this file
+  // exists for: clicking a widget after a pan used to re-centre the camera on
+  // it, so the desk slid out from under the pointer.
   await dispatch(launched, id, 'click')
-  await launched.window.waitForTimeout(250)
+  await window.waitForTimeout(250)
   const t1 = await readTranslate(launched)
   expect(Math.abs(t1!.x - t0!.x)).toBeLessThan(2)
   expect(Math.abs(t1!.y - t0!.y)).toBeLessThan(2)
 
-  // Double click — must centre (camera pan changes noticeably).
-  await dispatch(launched, id, 'dblclick')
-  await launched.window.waitForTimeout(450)
-  const t2 = await readTranslate(launched)
-  expect(Math.hypot(t2!.x - t0!.x, t2!.y - t0!.y)).toBeGreaterThan(30)
+  // Double click no longer centres the camera either — it opens Focus Mode on
+  // the widget. The centring was removed with the drift fix above, so a test
+  // demanding the camera move on double click was asking for the bug back.
+  //
+  // WidgetFrame detects this through React's onDoubleClick, so a real
+  // two-click gesture is used rather than a synthetic dblclick event.
+  const box = await window.locator(`[data-widget-id="${id}"]`).boundingBox()
+  expect(box, 'the widget is on screen').not.toBeNull()
+  await window.mouse.dblclick(box!.x + box!.width / 2, box!.y + box!.height / 2)
+
+  await expect(window.locator('[data-testid="widget-focus-mode"]')).toBeVisible({ timeout: 6000 })
+  const focused = await window.evaluate(
+    () =>
+      (window as unknown as { __fbWidgets: { getState: () => { focusedWidgetId: string | null } } })
+        .__fbWidgets.getState().focusedWidgetId
+  )
+  expect(focused).toBe(id)
 })

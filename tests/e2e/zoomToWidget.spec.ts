@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp } from './_helpers'
+import { hoverZoomControls, launchApp, type LaunchedApp } from './_helpers'
 
 // Feature 1 — Cmd/Ctrl+click "dive into widget" when zoomed out:
 //   • zoomToWidget(id) store action sets zoom=1, activeWidgetId=id, bumps centerToken
@@ -47,6 +47,8 @@ async function readCanvasZoom(window: import('@playwright/test').Page): Promise<
  * decreasing zoom by 0.1 (from 1.0 → 0.7 in 3 steps).
  */
 async function zoomOutBelow08(window: import('@playwright/test').Page, steps = 4): Promise<boolean> {
+  // The pill only mounts its − button while hovered.
+  await hoverZoomControls(window)
   for (let i = 0; i < steps; i++) {
     const clicked = await window.evaluate(() => {
       const btn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(

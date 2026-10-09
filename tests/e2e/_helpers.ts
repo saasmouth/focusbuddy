@@ -281,6 +281,19 @@ export async function hoverToolbar(window: Page): Promise<void> {
   }
 }
 
+// Reveal the zoom pill's − / + buttons. ZoomControls is a hover-expand pill:
+// collapsed it mounts only the percentage, and the zoom-out / zoom-in buttons
+// (title="Zoom out (⌘[)" / "Zoom in (⌘])") do not exist in the DOM at all until
+// it is hovered. Any spec that drives zoom through those buttons must hover it
+// first — the same shape as hoverToolbar above.
+export async function hoverZoomControls(window: Page): Promise<void> {
+  const pill = window.locator('[data-testid="zoom-controls"]').first()
+  if (await pill.isVisible().catch(() => false)) {
+    await pill.hover().catch(() => {})
+    await window.waitForTimeout(220) // the reveal animation is 180ms
+  }
+}
+
 // Replace the composer's contents by typing, exactly as a user would, so the
 // editor's document is genuinely updated.
 export async function typeInComposer(window: Page, text: string): Promise<void> {

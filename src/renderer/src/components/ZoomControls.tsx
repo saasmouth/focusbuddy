@@ -42,6 +42,7 @@ export default function ZoomControls(): JSX.Element {
     <div
       onMouseEnter={enter}
       onMouseLeave={leave}
+      data-testid="zoom-controls"
       className="absolute bottom-3 left-[calc(var(--fb-dock-inset,0px)+0.75rem)] z-30 fb-glass-chrome rounded-md border border-[color:var(--glass-chrome-border)] shadow-md flex items-stretch overflow-hidden"
     >
       {/* – slides in from the left on hover */}

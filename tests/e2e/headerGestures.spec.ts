@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { hoverZoomControls, launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // Gestures performed on the widget HEADER — which is react-rnd's drag handle, so
 // a normal mousedown is consumed by the drag machinery and onClick never fires.
@@ -61,6 +61,8 @@ test('Cmd-click on the header dives in (zoom→1) when zoomed out', async () => 
   const { window } = launched
   const id = await seedAndOpen(launched)
 
+  // The zoom pill only mounts its − button while hovered.
+  await hoverZoomControls(window)
   for (let i = 0; i < 8; i++) {
     await window.evaluate(() => {
       const b = Array.from(document.querySelectorAll('button')).find((x) =>
@@ -71,6 +73,32 @@ test('Cmd-click on the header dives in (zoom→1) when zoomed out', async () => 
     await window.waitForTimeout(40)
   }
   expect(await zoomNow(window)).toBeLessThan(0.8)
+
+  // Zooming out shrinks the widget and moves it, so its header can end up
+  // above the canvas surface — a click there lands on the app header instead.
+  // Centre the camera on it first; panning does not change zoom, so the
+  // zoom < 0.8 precondition this test depends on still holds.
+  await window.evaluate((wid: string) => {
+    const w = window as unknown as {
+      __fbWidgets?: {
+        getState: () => {
+          widgets: Array<{ id: string; x: number; y: number; width: number; height: number }>
+          zoom: number
+          setPan: (x: number, y: number) => void
+        }
+      }
+    }
+    const st = w.__fbWidgets!.getState()
+    const widget = st.widgets.find((x) => x.id === wid)
+    if (!widget) return
+    const surf = document.querySelector<HTMLElement>('[data-canvas-surface="true"]')!
+    const r = surf.getBoundingClientRect()
+    const cx = widget.x + widget.width / 2
+    const cy = widget.y + widget.height / 2
+    st.setPan(r.width / 2 - cx * st.zoom, r.height / 2 - cy * st.zoom)
+  }, id)
+  await window.waitForTimeout(250)
+  expect(await zoomNow(window), 'panning must not have changed zoom').toBeLessThan(0.8)
 
   const pt = await headerPoint(launched, id)
   await window.keyboard.down('Meta')
