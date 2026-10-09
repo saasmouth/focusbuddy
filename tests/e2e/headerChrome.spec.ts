@@ -59,4 +59,25 @@ test('the trail and presence render inside the header, not over the canvas', asy
   expect(placement.triggerInHeader, 'the desk context trigger renders into the header').toBe(true)
   expect(placement.presenceSlotGone, 'there is no separate presence slot — it is one menu').toBe(true)
   expect(placement.floatingBars, 'neither old floating bar is rendered').toBe(0)
+
+  // The desk's quick actions are in the header too, not on a pill floating
+  // over the canvas (2026-10-09).
+  const actions = await window.evaluate(() => {
+    const header = document.querySelector('header')
+    const bar = document.querySelector('[data-testid="desk-action-bar"]')
+    const slot = document.getElementById('fb-header-actions')
+    return {
+      barInHeader: !!header && !!bar && header.contains(bar),
+      slotInHeader: !!header && !!slot && header.contains(slot),
+      // The floating pill must not also be mounted.
+      floatingPills: document.querySelectorAll('.fb-pill').length,
+      // Every button the pill carried is still here.
+      buttons: ['pill-status', 'pill-chat', 'pill-meeting', 'pill-build', 'pill-save-template', 'pill-resume']
+        .filter((t) => !!document.querySelector(`[data-testid="${t}"]`)).length
+    }
+  })
+  expect(actions.slotInHeader, 'the actions slot is in the header').toBe(true)
+  expect(actions.barInHeader, 'the action bar renders into the header').toBe(true)
+  expect(actions.floatingPills, 'the floating pill is not also mounted').toBe(0)
+  expect(actions.buttons, 'all six pill actions survived the move').toBe(6)
 })

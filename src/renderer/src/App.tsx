@@ -566,6 +566,12 @@ export default function App(): JSX.Element {
           {/* Presence is no longer a slot of its own — it is a section inside
               the desk context menu that fills #fb-header-trail, with live dots
               on that menu's trigger. One control, not two. */}
+
+          {/* The desk's quick actions — status, focus, chat, meeting, tidy,
+              build, save-as-template, resume, and the cognitive-load ring.
+              These were a draggable pill floating over the canvas; they are a
+              plain row here. Filled from Canvas through HeaderSlot. */}
+          <div id="fb-header-actions" className="flex items-center min-w-0" />
           {/* The header Build button retired in the Plexii consolidation
               (Caleb's ruling, 2026-08-21): with the sidebar tab, the pill, the
               Home input and ⌘⇧K all opening the one conversational engine, a

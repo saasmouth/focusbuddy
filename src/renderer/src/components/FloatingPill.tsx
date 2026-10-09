@@ -24,6 +24,8 @@ interface Props {
   onMeeting: () => void
   timerText: string | null
   timerOverdue: boolean
+  /** Render as a plain row for the header instead of a floating, draggable pill. */
+  docked?: boolean
 }
 
 const EASE_ENTER = [0.34, 1.2, 0.64, 1] as const
@@ -145,7 +147,7 @@ function TidyControl({
 export default function FloatingPill({
   onTidy, tidyDisabled, onBuild, onSaveTemplate, saveDisabled, savingTemplate, onResume,
   onStatus, statusLabel, statusIcon, onFocus, focusActive,
-  onChat, onMeeting, timerText, timerOverdue
+  onChat, onMeeting, timerText, timerOverdue, docked = false
 }: Props): JSX.Element {
   const pillRef = useRef<HTMLDivElement>(null)
   // The pill is ALWAYS horizontally centered (product decision 2026-08-21):
@@ -397,24 +399,10 @@ export default function FloatingPill({
     )
   }
 
-  // ── Horizontal (default — top center or dragged mid-screen) ───────────────
-  // Single unified button row: icons always visible, labels slide in via MotionLabel.
-  // No icon strip + separate expanded section = no duplication, no competing blocks.
-  return (
-    <div
-      {...sharedOuter}
-      className={[
-        'fb-pill fixed z-[50] flex items-center fb-glass-chrome rounded-full',
-        'select-none cursor-grab active:cursor-grabbing',
-        overloaded ? 'animate-pulse' : ''
-      ].join(' ')}
-    >
-      {/* Drag affordance */}
-      <div className="pl-2 pr-0.5 py-1.5 shrink-0">
-        <Icon name="drag_indicator" size={12} className="text-[var(--ink-25,var(--ink-30))] pointer-events-none" />
-      </div>
-
-      {/* Unified button row — each button: icon always, label slides in on hover */}
+  // The button row, defined ONCE. Rendered inside the floating pill and, when
+  // docked, straight into the header. Two copies would drift the moment a
+  // button was added to one of them.
+  const buttonRow = (
       <div className="flex items-center pr-2 py-0.5 gap-0 shrink-0">
 
         <button onClick={onStatus} className="inline-flex items-center h-6 px-1.5 rounded-full text-[var(--ink-50)] hover:text-[var(--ink-100)] hover:bg-[var(--surface-sunken)] transition-colors" title={statusLabel} data-testid="pill-status">
@@ -486,6 +474,43 @@ export default function FloatingPill({
         <LoadMeter />
 
       </div>
+  )
+
+  // ── Docked (in the header) ────────────────────────────────────────────────
+  // Asked for 2026-10-09: "Integrate this into the heading menu, so its not
+  // floating over the canvas." Docked drops everything that only made sense
+  // while floating — the fixed positioning, the drag handle, the dodge logic
+  // that kept it clear of other chrome, and the hover-expanding labels — and
+  // renders the same buttons, with the same handlers and the same test ids,
+  // as a plain row. Nothing about what the buttons DO changes; only where they
+  // live and how they are laid out.
+  if (docked) {
+    return (
+      <div className="flex items-center" data-testid="desk-action-bar">
+        {buttonRow}
+      </div>
+    )
+  }
+
+  // ── Horizontal (default — top center or dragged mid-screen) ───────────────
+  // Single unified button row: icons always visible, labels slide in via MotionLabel.
+  // No icon strip + separate expanded section = no duplication, no competing blocks.
+  return (
+    <div
+      {...sharedOuter}
+      className={[
+        'fb-pill fixed z-[50] flex items-center fb-glass-chrome rounded-full',
+        'select-none cursor-grab active:cursor-grabbing',
+        overloaded ? 'animate-pulse' : ''
+      ].join(' ')}
+    >
+      {/* Drag affordance */}
+      <div className="pl-2 pr-0.5 py-1.5 shrink-0">
+        <Icon name="drag_indicator" size={12} className="text-[var(--ink-25,var(--ink-30))] pointer-events-none" />
+      </div>
+
+      {/* Unified button row — each button: icon always, label slides in on hover */}
+      {buttonRow}
     </div>
   )
 }

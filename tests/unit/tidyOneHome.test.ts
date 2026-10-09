@@ -35,14 +35,20 @@ describe('one home', () => {
 
   it('the pill owns Tidy, and passes the chosen mode through', () => {
     const canvas = read('src/renderer/src/components/Canvas.tsx')
-    expect(canvas).toContain('onTidy={(opts) => void handleAutoArrange(opts)}')
+    // The wiring is now a property on deskActionProps rather than a JSX prop,
+    // because the same props feed the docked header row and the floating
+    // fallback. What is asserted is unchanged: Canvas forwards the chosen mode
+    // straight through to handleAutoArrange.
+    expect(canvas).toContain('onTidy: (opts?: Parameters<typeof handleAutoArrange>[0]) => void handleAutoArrange(opts)')
     const pill = read('src/renderer/src/components/FloatingPill.tsx')
     expect(pill).toContain('function TidyControl')
     expect(pill).toContain("from '../lib/autoArrange'")
-    // Both pill layouts (rail + horizontal) use the SAME control — the old
-    // code had the button duplicated, which is how a menu gets added to one
-    // and forgotten on the other.
+    // Every layout uses the SAME control — the old code had the button
+    // duplicated, which is how a menu gets added to one and forgotten on the
+    // other. There are two uses: the vertical rail, and the shared buttonRow
+    // that serves BOTH the horizontal pill and the docked header bar.
     expect((pill.match(/<TidyControl/g) ?? []).length).toBe(2)
+    expect(pill).toContain('const buttonRow = (')
     expect(pill).not.toContain('onClick={onTidy} disabled={tidyDisabled}')
   })
 

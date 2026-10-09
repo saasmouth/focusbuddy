@@ -2362,6 +2362,32 @@ export default function Canvas(): JSX.Element {
 
   const timerText = isTracked ? fmtMin(remainingMin) : null
 
+  // The desk's quick actions, as props. Defined once so the docked row in the
+  // header and the floating fallback cannot drift apart.
+  const deskActionProps = {
+    onTidy: (opts?: Parameters<typeof handleAutoArrange>[0]) => void handleAutoArrange(opts),
+    tidyDisabled: !activeTaskId,
+    onBuild: () => setShowAiBuilder(true),
+    onSaveTemplate: () => setSaveTemplateOpen({ context: 'toolbar' as const }),
+    saveDisabled: !activeTaskId || savingTemplate,
+    savingTemplate,
+    onResume: () => setShowResume(true),
+    onStatus: () => void updateNode(activeTask.id, { status: status.next }),
+    statusLabel: status.label,
+    statusIcon: status.icon,
+    onFocus: () => {
+      futuristicPowerOn()
+      void startFocusSession(activeTask.id, 5 * 60, '5min')
+    },
+    focusActive: focusSessionActive,
+    onChat: () => void handleDeskChat(),
+    onMeeting: () =>
+      void launchMeeting({ kind: 'desk', nodeId: activeTask.id, title: activeTask.title }),
+    timerText,
+    timerOverdue: isOverdue
+  }
+
+
   async function handleDeskChat(): Promise<void> {
     if (!activeTask) return
     const convId = await resolveObjectChannel('desk', activeTask.id, activeTask.title || 'Desk')
@@ -2760,30 +2786,19 @@ export default function Canvas(): JSX.Element {
               return [...sectionJumps, ...staticActions]
             })()}
           />
-          {/* Floating pill — draggable hub with desk state + quick actions +
-              cognitive-load ring + canvas tools. Uses fixed positioning internally. */}
+          {/* The desk's quick actions, in the HEADER (2026-10-09) rather than
+              floating over the canvas on a draggable pill. Same buttons, same
+              handlers, same test ids — `docked` drops the fixed positioning,
+              the drag handle, the dodge logic and the hover-expanding labels,
+              and renders the row plainly. The fallback keeps the pill for a
+              surface with no header to portal into. */}
           {activeTaskId && (
-            <FloatingPill
-              onTidy={(opts) => void handleAutoArrange(opts)}
-              tidyDisabled={!activeTaskId}
-              onBuild={() => setShowAiBuilder(true)}
-              onSaveTemplate={() => setSaveTemplateOpen({ context: 'toolbar' })}
-              saveDisabled={!activeTaskId || savingTemplate}
-              savingTemplate={savingTemplate}
-              onResume={() => setShowResume(true)}
-              onStatus={() => void updateNode(activeTask.id, { status: status.next })}
-              statusLabel={status.label}
-              statusIcon={status.icon}
-              onFocus={() => {
-                futuristicPowerOn()
-                void startFocusSession(activeTask.id, 5 * 60, '5min')
-              }}
-              focusActive={focusSessionActive}
-              onChat={() => void handleDeskChat()}
-              onMeeting={() => void launchMeeting({ kind: 'desk', nodeId: activeTask.id, title: activeTask.title })}
-              timerText={timerText}
-              timerOverdue={isOverdue}
-            />
+            <HeaderSlot
+              id="fb-header-actions"
+              fallback={<FloatingPill {...deskActionProps} />}
+            >
+              <FloatingPill {...deskActionProps} docked />
+            </HeaderSlot>
           )}
           {/* Desk presence is no longer a strip of its own. It is a section in
               DeskContextMenu, with live dots on that menu's trigger so the
