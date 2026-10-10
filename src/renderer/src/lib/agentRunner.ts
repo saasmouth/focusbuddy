@@ -1,5 +1,6 @@
 import type { ActionProposal, AgentStatus, AgentStepResult, AgentActionOutcome, MailListItem } from '@shared/types'
-import { applyProposal, ensureDependencies, isAutoApplyable } from './actionExecutor'
+import { applyProposal, ensureDependencies } from './actionExecutor'
+import { ensureAutonomy, mayApplyWithoutAsking } from './autonomyGate'
 import { useNodeStore } from '../stores/nodes'
 import { useActionHistory } from '../stores/actionHistory'
 import { useAgentLoop, type AgentRunStep } from '../stores/agentLoop'
@@ -222,9 +223,11 @@ async function applyActionReal(
 }
 
 // Start an autonomous run against the current desk, wiring the real dependencies
-// and driving the shared store. Safe-default gating: any consequential kind is
-// deferred for the user's approval (surfaced as pendingApprovals), never
-// auto-applied by the loop.
+// and driving the shared store. Gating follows the operator's autonomy policy
+// (lib/autonomyGate): at 'auto' the loop applies low-risk work itself and still
+// defers every consequential kind; at 'ask' and 'manual' it defers everything.
+// Whatever is deferred surfaces as pendingApprovals for the user's approval and
+// is never applied by the loop.
 export async function startAgentRun(goal: string): Promise<AgentRunResult> {
   const store = useAgentLoop.getState()
   if (store.running) return { status: 'blocked', blocker: 'An agent run is already in progress.', rounds: 0, pendingApprovals: [] }
@@ -240,12 +243,21 @@ export async function startAgentRun(goal: string): Promise<AgentRunResult> {
     /* no mail account / mail unavailable */
   }
   const history = useActionHistory.getState()
+  // The operator's autonomy level, resolved ONCE for the whole run (and loaded
+  // first if Settings has not been opened this session). One run executes under
+  // one policy: re-resolving per proposal would let a setting changed mid-run
+  // apply to half of it.
+  //
+  // Until this was wired the loop hardcoded `!isAutoApplyable(p)`, which is the
+  // 'auto' policy written out by hand — so "Suggest only" and "Ask before
+  // acting" both still had the loop applying low-risk actions unasked.
+  const autonomy = await ensureAutonomy()
   const result = await runAgentLoop(
     { goal, taskId, context },
     {
       step: (input) => window.api.agent.step(input),
       applyAction: applyActionReal,
-      isGated: (p) => !isAutoApplyable(p),
+      isGated: (p) => !mayApplyWithoutAsking(autonomy.level, p),
       verify: (goal, applied) => window.api.agent.verify({ goal, applied }),
       onStep: (s) => useAgentLoop.getState().pushStep(s),
       beginBatch: () => history.beginBatch(),

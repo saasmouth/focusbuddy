@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ActionProposal, AppliedProposal } from '@shared/types'
 import { useActionHistory } from '../stores/actionHistory'
 import { applyProposal, describeProposal, ensureDependencies } from '../lib/actionExecutor'
@@ -8,6 +8,14 @@ import { useNodeStore } from '../stores/nodes'
 import { useViewStore } from '../stores/view'
 import { resolveGoToTarget, goToTarget } from '../lib/goToTarget'
 import { resolveProposalDesk } from '../lib/proposalDesk'
+import {
+  ensureAutonomy,
+  mayApplyWithoutAsking,
+  offersOneClickApply,
+  manualModeNote,
+  autoAppliedNote
+} from '../lib/autonomyGate'
+import type { ResolvedAutonomy } from '../lib/autonomyPolicy'
 import Icon from './Icon'
 
 // Proposal kinds that create content ON a desk canvas and therefore need an
@@ -129,6 +137,28 @@ export default function ProposalCards({
   // undo batch, a manual Apply here would fold into that batch (wrong attribution)
   // or race its applies. Disable manual apply for the duration of a run.
   const agentRunning = useAgentLoop((s) => s.running)
+
+  // The operator's autonomy level governs what this card may offer. null means
+  // "not resolved yet" and is deliberately NOT treated as permission: acting on
+  // an unloaded policy is how a "Suggest only" setting ends up applying things.
+  const [autonomy, setAutonomy] = useState<ResolvedAutonomy | null>(null)
+  useEffect(() => {
+    let alive = true
+    void ensureAutonomy().then((r) => {
+      if (alive) setAutonomy(r)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
+  const oneClick = autonomy !== null && offersOneClickApply(autonomy.level)
+  // Proposals this group has already applied on its own, so a re-render can
+  // never apply one twice.
+  const autoAppliedRef = useRef<Set<string>>(new Set())
+  // How many this group applied on its own. 'auto' is "...on its own AND TELLS
+  // YOU", so the count drives a standing line under the group — work done for
+  // you that you were not told about is indistinguishable from work you did.
+  const [autoAppliedCount, setAutoAppliedCount] = useState(0)
 
   // Placement chooser: the proposal(s) awaiting a destination. Opened either by
   // the per-card "choose where" control, or automatically when a desk-kind
@@ -336,6 +366,36 @@ export default function ProposalCards({
   const selectedProposals = pendingProposals.filter((p) => checked.has(p.id))
   const selectedCount = selectedProposals.length
 
+  // 'auto' is "handles routine, low-risk work on its own and tells you, but
+  // still asks before anything risky" — so at that level the low-risk half of
+  // the group applies itself. One at a time, because applyOne holds a single
+  // `busy` id and threads created ids through a shared resolvedIds map; firing
+  // them together would race that map. Each pass applies one and the effect
+  // re-runs when busy clears.
+  //
+  // Three things are deliberately NOT auto-applied: anything isAutoApplyable
+  // calls consequential (the risk gate), anything already applied, and anything
+  // that would need the placement chooser — being asked WHERE is a question for
+  // a person, and silently picking a desk is not "low-risk".
+  useEffect(() => {
+    if (!autonomy || autonomy.level !== 'auto') return
+    if (busy !== null || agentRunning || placeOffer) return
+    const next = pendingProposals.find((p) => {
+      if (autoAppliedRef.current.has(p.id)) return false
+      if (!mayApplyWithoutAsking(autonomy.level, p)) return false
+      const target = resolveProposalDesk(p, desks) ?? activeTaskId
+      if (!target && isDeskCapable(p.kind)) return false
+      return true
+    })
+    if (!next) return
+    autoAppliedRef.current.add(next.id)
+    setAutoAppliedCount((n) => n + 1)
+    void applyOne(next)
+    // applyOne and the desk list are stable enough for this to be driven by
+    // what actually changes: the policy, the pending set, and the locks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autonomy, pendingProposals, busy, agentRunning, placeOffer, activeTaskId])
+
   // Which destination options the current chooser should show, from the kinds of
   // the offered proposals. Desk options appear when any can live on a desk; the
   // Files option appears only when EVERY offered proposal can go to Files, so it
@@ -511,7 +571,20 @@ export default function ProposalCards({
               </button>
             )}
           <button
-            onClick={() => void applyOne(p)}
+            onClick={() => {
+              // At 'manual' the assistant must not perform the action. The card
+              // says why rather than going quiet — a control that looks live and
+              // does nothing is the bug this whole pass is about.
+              if (autonomy && !oneClick) {
+                setToast({ id: p.id, ok: false, message: manualModeNote(autonomy) })
+                setTimeout(() => setToast((t) => (t?.id === p.id ? null : t)), 3600)
+                return
+              }
+              if (!autonomy) return
+              void applyOne(p)
+            }}
+            aria-disabled={autonomy !== null && !oneClick}
+            data-autonomy={autonomy?.level ?? 'loading'}
             disabled={isBusy || agentRunning}
             data-testid={`proposal-card-${p.id}`}
             className="flex-1 min-w-0 text-left fb-card fb-press hover:bg-accent/5 hover:outline hover:outline-1 hover:outline-[rgb(var(--accent)/0.5)] hover:-outline-offset-1 px-2.5 py-1.5 transition-colors group"
@@ -598,7 +671,23 @@ export default function ProposalCards({
           </div>
         )
       })}
-      {pendingCount > 1 && (
+      {autonomy !== null && !oneClick && pendingCount > 0 && (
+        <p
+          className="fb-t-caption text-[var(--ink-50)] self-start px-1.5"
+          data-testid="proposal-manual-note"
+        >
+          {manualModeNote(autonomy)}
+        </p>
+      )}
+      {autoAppliedCount > 0 && (
+        <p
+          className="fb-t-caption text-[var(--ink-50)] self-start px-1.5"
+          data-testid="proposal-auto-note"
+        >
+          {autoAppliedNote()}
+        </p>
+      )}
+      {pendingCount > 1 && oneClick && (
         <button
           onClick={() =>
             void applyBatch(selectedCount > 0 ? selectedProposals : pendingProposals)
