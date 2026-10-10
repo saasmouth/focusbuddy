@@ -52,11 +52,14 @@ describe('the shared setup assistant covers the kinds it covers', () => {
     }
   })
 
-  it('says "Set up" when the widget is empty and "Change" when it is not', () => {
-    // "Set up" is wrong for a widget that already has content; at that point
-    // the honest offer is to change it.
-    expect(planWidgetAi(w('sticky', ''), false).label).toMatch(/set up/i)
-    expect(planWidgetAi(w('sticky', 'already written'), false).label).toMatch(/change/i)
+  it('the verb follows the kind\u2019s family, and changes with state', () => {
+    // "Set up" is wrong for a widget that already has content, and it is also
+    // vague: a sticky gets written, a browser gets found, a rule gets
+    // described. The verb comes from the family so the button says which.
+    expect(planWidgetAi(w('sticky', ''), false).label).toMatch(/write/i)
+    expect(planWidgetAi(w('sticky', 'already written'), false).label).toMatch(/rewrite/i)
+    expect(planWidgetAi(w('webview', ''), false).label).toMatch(/find/i)
+    expect(planWidgetAi(w('inbox', ''), false).label).toMatch(/describe/i)
   })
 
   it('still routes to setup once a widget has content', () => {
@@ -81,8 +84,12 @@ describe('a kind with no widget AI admits it', () => {
     expect(plan.surface).toBe('none')
   })
 
-  it('says so, instead of promising something it cannot do', () => {
-    expect(plan.purpose).toMatch(/no AI of its own yet/i)
+  it('names what it WOULD do, and that it is not wired yet', () => {
+    // Every catalogue kind is registered, so an unwired kind is unfinished work
+    // rather than an oversight — and saying which is more use than a generic
+    // "no AI here".
+    expect(plan.purpose).toMatch(/not wired up yet/i)
+    expect(plan.purpose).toMatch(/working out/i)
   })
 })
 
@@ -94,9 +101,19 @@ describe('coverage is stated honestly', () => {
     expect(KINDS_WITH_WIDGET_AI.length).toBe(SETUP_SUPPORTED_KINDS.size + 1)
   })
 
-  it('does not claim a kind it cannot serve', () => {
-    for (const kind of ['calculator', 'chart', 'clock']) {
-      expect(KINDS_WITH_WIDGET_AI).not.toContain(kind)
+  it('serves chart now that its expert is wired and validated', () => {
+    // chart was unserved when this file was written. It has a real expert now:
+    // it is handed the workspace's actual tables and columns, and its answer is
+    // checked against them before anything is written (validateChartConfig).
+    expect(KINDS_WITH_WIDGET_AI).toContain('chart')
+  })
+
+  it('still does not claim a kind it cannot serve', () => {
+    // A calculator has no configuration, and the config family's remaining
+    // kinds have no applier yet. Both must stay out of this list rather than
+    // routing the button to an expert that refuses.
+    for (const kind of ['calculator', 'color', 'metrics', 'task-list']) {
+      expect(KINDS_WITH_WIDGET_AI, kind).not.toContain(kind)
     }
   })
 })

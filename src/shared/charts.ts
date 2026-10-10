@@ -210,3 +210,97 @@ export function seriesLabel(s: ChartSeries, columns: FieldDefinition[]): string 
   const base = col?.label ?? 'Value'
   return s.agg === 'count' ? `${base} (Count)` : `${base} (${AGG_LABELS[s.agg]})`
 }
+
+// ── Validating a chart config that came from a model ────────────────────────
+//
+// A chart config is made almost entirely of REAL IDS: the fb_tables id it
+// reads, the column grouped on, and the column behind each series. A model
+// cannot invent those — and the failure when it tries is quiet, which is the
+// worst kind. An unknown tableId leaves the widget unbound and looking broken;
+// an unknown columnId renders an empty series that reads as "no data" rather
+// than "I made this up"; a text column under `sum` aggregates to an honest
+// zero, so the chart draws a flat line through nothing.
+//
+// So the expert is handed the real tables and columns to choose from, and
+// whatever comes back is checked against them here before it is ever written.
+// Refusing is the right outcome: the person sees why, instead of a chart that
+// is confidently wrong.
+//
+// Pure on purpose — no store, no IPC — so every rule below is unit testable.
+
+/** The slice of a table this validator needs. */
+export interface ChartTableShape {
+  id: string
+  title: string
+  columns: Array<{ id: string; label: string; type: FieldType }>
+}
+
+/** Column types a series can be aggregated over, per aggregation. */
+export const NUMERIC_FIELD_TYPES: ReadonlySet<FieldType> = new Set<FieldType>(['number'])
+
+export type ChartConfigProblem = { ok: false; reason: string } | { ok: true }
+
+export function validateChartConfig(
+  config: Partial<ChartConfig> | null | undefined,
+  tables: readonly ChartTableShape[]
+): ChartConfigProblem {
+  if (!config || typeof config !== 'object') return { ok: false, reason: 'No chart configuration.' }
+
+  const type = config.type
+  if (!type || !['bar', 'line', 'area', 'pie', 'kpi'].includes(type)) {
+    return { ok: false, reason: `"${String(type)}" is not a chart type.` }
+  }
+
+  if (!config.tableId) return { ok: false, reason: 'A chart needs a table to read.' }
+  const table = tables.find((t) => t.id === config.tableId)
+  if (!table) {
+    // Named rather than shrugged at: this is the model inventing an id, and the
+    // person should see that is what happened.
+    return { ok: false, reason: `There is no table with id ${config.tableId}.` }
+  }
+
+  const series = Array.isArray(config.series) ? config.series : []
+  if (series.length === 0) return { ok: false, reason: 'A chart needs at least one series.' }
+  // kpi renders series[0] only, so more than one is a misunderstanding of the
+  // shape rather than a harmless extra.
+  if (type === 'kpi' && series.length > 1) {
+    return { ok: false, reason: 'A KPI shows one number, so it takes one series.' }
+  }
+
+  for (const s of series) {
+    if (!s || typeof s.columnId !== 'string' || !s.columnId) {
+      return { ok: false, reason: 'A series is missing its column.' }
+    }
+    const col = table.columns.find((c) => c.id === s.columnId)
+    if (!col) {
+      return {
+        ok: false,
+        reason: `${table.title} has no column with id ${s.columnId}.`
+      }
+    }
+    if (!['sum', 'avg', 'count', 'min', 'max'].includes(s.agg)) {
+      return { ok: false, reason: `"${String(s.agg)}" is not an aggregation.` }
+    }
+    // `count` counts rows, so any column type labels it. Everything else does
+    // arithmetic and needs numbers — a text column under `sum` aggregates to a
+    // flat zero, which draws a chart that lies quietly.
+    if (s.agg !== 'count' && !NUMERIC_FIELD_TYPES.has(col.type)) {
+      return {
+        ok: false,
+        reason: `${col.label} holds ${col.type}, so it cannot be ${s.agg}med. Use count, or pick a number column.`
+      }
+    }
+  }
+
+  // The grouping column is optional (absent groups every row into one bucket),
+  // but if named it has to exist — and a pie with no slices to cut is not a pie.
+  if (config.xColumnId) {
+    if (!table.columns.some((c) => c.id === config.xColumnId)) {
+      return { ok: false, reason: `${table.title} has no column with id ${config.xColumnId}.` }
+    }
+  } else if (type === 'pie') {
+    return { ok: false, reason: 'A pie needs a column to slice by.' }
+  }
+
+  return { ok: true }
+}

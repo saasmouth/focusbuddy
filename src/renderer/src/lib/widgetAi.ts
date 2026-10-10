@@ -6,67 +6,41 @@
 //
 // WIDGET AI sets up and controls ONE widget, in that widget's own vocabulary.
 // A table's AI proposes columns and then rows. A browser widget's AI resolves
-// "the AWS console" to a URL. A mindmap's AI emits nodes and edges. None of
-// those are conversation, and none of them share a vocabulary with each other.
+// "the AWS console" to a URL. An inbox widget's AI writes a mail rule. None of
+// those are conversation, and none share a vocabulary with each other.
 //
-// They were conflated for one commit: the new header button opened the
-// assistant whenever a widget had no AI surface of its own. That was wrong for
-// the reason the operator gave — "they serve different purposes, and the widget
-// ai context should be unique to its requirements and use". A generic
-// `update-widget` action can write a title, a content string and a geometry,
-// and nothing more; it has no idea what a chart's content means, so asking it
-// to "show revenue by month" would make it guess at a shape nothing validates.
+// They were conflated for one commit: the header AI button opened the assistant
+// whenever a widget had no AI surface of its own. That was wrong for the reason
+// the operator gave — "they serve different purposes, and the widget ai context
+// should be unique to its requirements and use". A generic `update-widget`
+// action can write a title, a content string and a geometry, and nothing more;
+// it has no idea what a chart's content means, so asking it to "show revenue by
+// month" would make it guess at a shape nothing validates.
 //
-// This module is the registry that keeps them apart, and it is deliberately
-// honest about reach: 56 kinds exist, nine have a widget AI today. A kind with
-// none says so rather than quietly handing the job to the correspondent.
+// WHAT EACH KIND'S AI IS FOR lives in widgetAiFamilies — one registry, all 56
+// kinds. This module only decides which SURFACE answers the button, and is
+// deliberately honest about reach: a kind whose family has no applier wired yet
+// says so rather than quietly handing the job to the correspondent.
 
 import type { Widget } from '@shared/types'
 import { isSetupSupported, isWidgetEmptyForSetup } from './widgetSetup'
+import { WIDGET_AI, verbFor } from './widgetAiFamilies'
 
 /** Which surface answers the AI button for a widget. */
 export type WidgetAiSurface =
   /** The widget ships its own AI, passed to WidgetFrame as `onAi`. */
   | 'own'
-  /** The shared setup/control assistant (stores/widgetSetup). */
+  /** The shared setup/control expert (stores/widgetSetup). */
   | 'setup'
-  /** Nothing yet. The button explains, and offers the assistant as a separate thing. */
+  /** Not wired yet. The button explains, and offers the assistant separately. */
   | 'none'
 
 export interface WidgetAiPlan {
   surface: WidgetAiSurface
   /** The button's tooltip and the panel's heading. */
   label: string
-  /** One line on what this widget's AI actually does, in its own terms. */
+  /** One line on what this widget's AI does, in its own terms. */
   purpose: string
-}
-
-/**
- * What a kind's own AI is for, where it has one of its own.
- *
- * Only kinds whose widget passes `onAi` belong here — the text is what the
- * button promises, so a line here with no handler behind it would be a lie.
- */
-const OWN_AI: Readonly<Record<string, string>> = {
-  table: 'Propose columns, then generate rows to match them'
-}
-
-/**
- * What the shared setup assistant does for the kinds it reaches.
- *
- * Phrased per kind rather than generically, because "set up this widget" tells
- * someone nothing about what they are about to get. These are the eight kinds
- * SETUP_SUPPORTED_KINDS covers.
- */
-const SETUP_PURPOSE: Readonly<Record<string, string>> = {
-  sticky: 'Draft the note from what this desk is about',
-  note: 'Draft the note from what this desk is about',
-  markdown: 'Draft the text from what this desk is about',
-  card: 'Fill the card from what this desk is about',
-  mindmap: 'Propose the branches, as real nodes and edges',
-  diagram: 'Propose the shapes and the connections between them',
-  page: 'Draft the page from what this desk is about',
-  webview: 'Work out which site you meant and open it'
 }
 
 /**
@@ -76,32 +50,46 @@ const SETUP_PURPOSE: Readonly<Record<string, string>> = {
  * that by itself and must not claim an AI that is not wired up.
  */
 export function planWidgetAi(widget: Widget, hasOwnAi: boolean): WidgetAiPlan {
+  const entry = WIDGET_AI[widget.kind]
   if (hasOwnAi) {
     return {
       surface: 'own',
       label: 'AI',
-      purpose: OWN_AI[widget.kind] ?? 'Set up and change this widget'
+      purpose: entry?.purpose ?? 'Set up and change this widget'
     }
   }
   if (isSetupSupported(widget.kind)) {
     // The verb changes with state. "Set up" is wrong for a widget that already
-    // has content — at that point the honest offer is to change it.
+    // has content — at that point the honest offer is to change it — and the
+    // verb itself comes from the kind's FAMILY ("write" for a sticky, "find"
+    // for a browser, "describe" for a rule), because "set up" says nothing
+    // about what is about to happen.
     const empty = isWidgetEmptyForSetup(widget)
     return {
       surface: 'setup',
-      label: empty ? 'Set up with AI' : 'Change with AI',
-      purpose: SETUP_PURPOSE[widget.kind] ?? 'Set up this widget from what this desk is about'
+      label: verbFor(widget.kind, empty) ?? (empty ? 'Set up with AI' : 'Change with AI'),
+      purpose: entry?.purpose ?? 'Set up this widget from what this desk is about'
     }
   }
   return {
     surface: 'none',
     label: 'AI',
-    purpose: 'This widget has no AI of its own yet'
+    // Every catalogue kind is in WIDGET_AI, so this is a kind whose family has
+    // no applier wired yet rather than one nobody thought about. Say which, so
+    // the gap reads as unfinished work and not as an oversight.
+    purpose: entry
+      ? `${entry.purpose} — not wired up yet`
+      : 'This widget has no AI of its own yet'
   }
 }
 
-/** Every kind with a widget AI today — the honest coverage number. */
-export const KINDS_WITH_WIDGET_AI: readonly string[] = [
-  ...Object.keys(OWN_AI),
-  ...Object.keys(SETUP_PURPOSE)
-].sort()
+/**
+ * Kinds whose AI is actually wired to an expert today.
+ *
+ * DERIVED, never listed: two hand-kept lists of the same thing is exactly how
+ * they drift, and this file already shipped one that went stale the moment the
+ * expert registry grew.
+ */
+export const KINDS_WITH_WIDGET_AI: readonly string[] = Object.keys(WIDGET_AI)
+  .filter((k) => isSetupSupported(k) || k === 'table')
+  .sort()

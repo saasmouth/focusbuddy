@@ -1,4 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk'
+import { validateChartConfig, type ChartConfig, type ChartTableShape } from '@shared/charts'
+import { listTables } from '../db/tables'
 import { getModelClient, invalidateModelClients } from './modelClient'
 import { BROWSER_TOOLS, runBrowserTool } from './agentBrowser'
 import { getNode, listNodes } from '../db/nodes'
@@ -4336,6 +4338,15 @@ export type WidgetSetupApplyAs =
   // payload on the draft instead of the flat `items` list.
   | 'page-doc' // pageContent: a Tiptap document
   | 'webview-url' // url: a single web address
+  // text: ONE block of prose that REPLACES the content — a mail rule, an
+  // agent's standing instruction, a living-doc brief, an image prompt. Not a
+  // list to append to: the rule IS the content, and a second rule underneath
+  // the first would mean nothing.
+  | 'widget-text'
+  // chartConfig: a PlexiDash chart config, VALIDATED against the real tables
+  // before it is returned. Almost every field is a real id, so this is the one
+  // kind where an unchecked answer fails silently — see validateChartConfig.
+  | 'chart-config'
 
 export interface WidgetSetupDraft {
   ok: boolean
@@ -4347,6 +4358,8 @@ export interface WidgetSetupDraft {
   // Structured payloads — present only for the matching applyAs.
   pageContent?: object // applyAs 'page-doc'
   url?: string // applyAs 'webview-url'
+  text?: string // applyAs 'widget-text'
+  chartConfig?: object // applyAs 'chart-config'
   // A one-line, human summary of what the assistant proposes, shown above the
   // structured preview (e.g. "A research page with sections for ...").
   summary?: string
@@ -4401,6 +4414,131 @@ const WIDGET_SETUP_KINDS: Record<
     noun: 'branches',
     guidance: 'a concise mind-map branch label of a few words'
   },
+  // ── config kinds: AI chooses the settings, from the real workspace ──
+  chart: {
+    applyAs: 'chart-config',
+    noun: 'chart',
+    structured: true,
+    guidance:
+      'which table this chart reads, the shape that suits the question being asked, the column to ' +
+      'group by, and the series to plot. Prefer the table this desk is actually about; a chart of ' +
+      'something unrelated is worse than an empty one'
+  },
+
+  // ── instruction kinds: AI writes the rule, and the rule IS the content ──
+  inbox: {
+    applyAs: 'widget-text',
+    noun: 'rule',
+    structured: true,
+    guidance:
+      'the rule that narrows this mailbox to what this desk is about — who from, what subject or ' +
+      'label, how recent. Write it as the user would say it, not as a query language'
+  },
+  attention: {
+    applyAs: 'widget-text',
+    noun: 'filter',
+    structured: true,
+    guidance:
+      'which work items should surface on this desk: the states, the due window and whose they are'
+  },
+  agent: {
+    applyAs: 'widget-text',
+    noun: 'instruction',
+    structured: true,
+    guidance:
+      "the agent's standing instruction: what to do, to which inputs, and what to leave alone. " +
+      'One job stated plainly — a standing instruction that tries to do four things does none of them well'
+  },
+  'living-doc': {
+    applyAs: 'widget-text',
+    noun: 'brief',
+    structured: true,
+    guidance:
+      'the brief this document keeps its summary against: what to watch on this desk and what a ' +
+      'useful summary of it would answer'
+  },
+  custom: {
+    applyAs: 'widget-text',
+    noun: 'description',
+    structured: true,
+    guidance: 'a description of the tool this desk needs, concrete enough to be built from'
+  },
+  'image-gen': {
+    applyAs: 'widget-text',
+    noun: 'prompt',
+    structured: true,
+    guidance:
+      'the image prompt: subject, composition and style, in the plain words an image model reads best'
+  },
+  'inbound-hook': {
+    applyAs: 'widget-text',
+    noun: 'description',
+    structured: true,
+    guidance:
+      'what arrives at this webhook and what should happen when it does — the system sending it, the ' +
+      'shape to expect, and the desk it belongs to'
+  },
+  'voice-recorder': {
+    applyAs: 'widget-text',
+    noun: 'instruction',
+    structured: true,
+    guidance:
+      'what to do with a recording once it lands: transcribe in full, clean it up, or summarise — and ' +
+      'what to pull out of it'
+  },
+
+  // ── target kinds: AI resolves WHAT to point at. webview-url writes a URL as
+  //    the content, which is exactly what each of these holds. ──
+  pdf: {
+    applyAs: 'webview-url',
+    noun: 'address',
+    structured: true,
+    guidance: 'the address of the PDF this desk needs'
+  },
+  image: {
+    applyAs: 'webview-url',
+    noun: 'address',
+    structured: true,
+    guidance: 'the address of an image that suits this desk'
+  },
+  video: {
+    applyAs: 'webview-url',
+    noun: 'address',
+    structured: true,
+    guidance: 'the address of the video this desk is about'
+  },
+  gdoc: {
+    applyAs: 'webview-url',
+    noun: 'address',
+    structured: true,
+    guidance: 'the Google Docs address this desk needs'
+  },
+  gsheet: {
+    applyAs: 'webview-url',
+    noun: 'address',
+    structured: true,
+    guidance: 'the Google Sheets address this desk needs'
+  },
+  gslide: {
+    applyAs: 'webview-url',
+    noun: 'address',
+    structured: true,
+    guidance: 'the Google Slides address this desk needs'
+  },
+  webhook: {
+    applyAs: 'webview-url',
+    noun: 'address',
+    structured: true,
+    guidance: 'the URL this widget should POST to'
+  },
+
+  // ── text kinds the list appliers already serve ──
+  scratchpad: {
+    applyAs: 'note-lines',
+    noun: 'notes',
+    guidance: 'the first few thoughts to put on this sketch surface, one per line'
+  },
+
   diagram: {
     applyAs: 'diagram-nodes',
     noun: 'nodes',
@@ -4500,6 +4638,61 @@ export async function suggestWidgetSetup(input: {
 // returns a typed payload (a Tiptap document, a URL, …) rather than the flat
 // item list the text kinds use. One shared shape: every reply is a JSON object
 // with a one-line `summary` plus the kind-specific payload key.
+/**
+ * The real tables, reduced to what a chart config needs.
+ *
+ * The expert is given these and told to choose from them. Without this it has
+ * nothing to choose from and must invent ids — which is the failure mode the
+ * validator exists to catch, so it is better not to cause it in the first
+ * place. Columns keep their TYPE because that decides which aggregations are
+ * legitimate: arithmetic over a text column is a flat zero, not an error.
+ */
+function chartTableShapes(): ChartTableShape[] {
+  try {
+    return listTables().map((t) => ({
+      id: t.id,
+      title: t.title || 'Untitled table',
+      columns: (t.schema?.columns ?? []).map((c) => ({
+        id: c.id,
+        label: c.label,
+        type: c.type
+      }))
+    }))
+  } catch {
+    // No database (cloud runtime, or a very early boot). An empty list makes
+    // the validator refuse every config, which is the right answer: a chart
+    // cannot be bound to a table nobody can see.
+    return []
+  }
+}
+
+/** The chart config spec, including the real tables to choose from. */
+function chartPayloadSpec(): string {
+  const tables = chartTableShapes()
+  if (tables.length === 0) {
+    return 'There are NO tables in this workspace, so a chart cannot be configured. Say so in "summary" and return no chartConfig.'
+  }
+  const listing = tables
+    .map(
+      (t) =>
+        `  table "${t.title}" id=${t.id}\n` +
+        t.columns.map((c) => `    column "${c.label}" id=${c.id} type=${c.type}`).join('\n')
+    )
+    .join('\n')
+  return (
+    '"chartConfig" is { "tableId": "<id>", "type": "bar"|"line"|"area"|"pie"|"kpi", ' +
+    '"xColumnId": "<id>"|null, "series": [{ "columnId": "<id>", "agg": "sum"|"avg"|"count"|"min"|"max" }], "title": "..." }.\n' +
+    'USE ONLY THESE IDS, copied exactly — inventing one produces a chart that silently shows nothing:\n' +
+    listing +
+    '\n\nRULES, all of them checked before your answer is accepted: ' +
+    'a series with any aggregation except "count" MUST name a number column, because arithmetic over text or a select aggregates to a flat zero and draws a chart that lies; ' +
+    '"count" counts rows so it may name any column; ' +
+    'a pie MUST have an xColumnId to slice by; ' +
+    'a kpi takes exactly one series and ignores xColumnId; ' +
+    'xColumnId may be null for bar/line/area, which groups every row into one bucket.'
+  )
+}
+
 async function suggestStructuredWidgetSetup(input: {
   widget: NonNullable<ReturnType<typeof getWidget>>
   task: ReturnType<typeof getNode>
@@ -4516,14 +4709,26 @@ async function suggestStructuredWidgetSetup(input: {
       ? '"pageContent" is a Tiptap document: { "type": "doc", "content": [ ... ] } using only ' +
         'these node types: heading (attrs.level 1-3), paragraph, bulletList/listItem, ' +
         'taskList/taskItem (attrs.checked false), and text. Keep it focused, 4-10 nodes.'
-      : '"url" is a single full https:// web address to a real, well-known site.'
+      : cfg.applyAs === 'chart-config'
+        ? chartPayloadSpec()
+        : cfg.applyAs === 'widget-text'
+        ? '"text" is the instruction itself, in plain prose, written as the user would write it — ' +
+          'no preamble, no quotes around it, no explanation of what you are doing. Keep it to ' +
+          'what is needed and nothing more; a rule nobody can read is a rule nobody will keep.'
+        : '"url" is a single full https:// web address to a real, well-known site.'
 
   const system =
     'You set up a single empty widget for the user, based on what they are working on. ' +
     `This is a ${w.kind} widget. Propose ${cfg.guidance}. ` +
     'Reply with a SINGLE JSON object and nothing else (no prose, no code fences) of the shape ' +
     `{ "summary": "one short sentence describing what you are proposing", ${
-      cfg.applyAs === 'page-doc' ? '"pageContent": { ... }' : '"url": "https://..."'
+      cfg.applyAs === 'page-doc'
+        ? '"pageContent": { ... }'
+        : cfg.applyAs === 'chart-config'
+          ? '"chartConfig": { ... }'
+          : cfg.applyAs === 'widget-text'
+            ? '"text": "..."'
+            : '"url": "https://..."'
     } }. ${payloadSpec}`
 
   const ctxParts = [
@@ -4555,7 +4760,13 @@ async function suggestStructuredWidgetSetup(input: {
       .trim()
     const json = extractJson(text)
     if (!json) return { ok: false, error: 'Claude did not return usable setup.' }
-    let parsed: { summary?: unknown; pageContent?: unknown; url?: unknown }
+    let parsed: {
+      summary?: unknown
+      pageContent?: unknown
+      url?: unknown
+      text?: unknown
+      chartConfig?: unknown
+    }
     try {
       parsed = JSON.parse(json)
     } catch {
@@ -4569,6 +4780,34 @@ async function suggestStructuredWidgetSetup(input: {
         return { ok: false, error: 'Claude did not return a valid page document.' }
       }
       return { ok: true, kind: w.kind, applyAs: 'page-doc', noun: cfg.noun, pageContent: doc as object, summary }
+    }
+
+    if (cfg.applyAs === 'chart-config') {
+      const tables = chartTableShapes()
+      const verdict = validateChartConfig(
+        parsed.chartConfig as Partial<ChartConfig> | null,
+        tables
+      )
+      if (!verdict.ok) {
+        // The reason is the model's mistake stated plainly, not a generic
+        // failure: "Rep holds text-short, so it cannot be summed" is something
+        // the person can act on, and it is why this is checked at all.
+        return { ok: false, error: verdict.reason }
+      }
+      return {
+        ok: true,
+        kind: w.kind,
+        applyAs: 'chart-config',
+        noun: cfg.noun,
+        chartConfig: parsed.chartConfig as object,
+        summary
+      }
+    }
+
+    if (cfg.applyAs === 'widget-text') {
+      const text = typeof parsed.text === 'string' ? parsed.text.trim() : ''
+      if (!text) return { ok: false, error: 'Claude did not return an instruction.' }
+      return { ok: true, kind: w.kind, applyAs: 'widget-text', noun: cfg.noun, text, summary }
     }
 
     // webview-url

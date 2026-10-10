@@ -18,10 +18,21 @@ export type WidgetSetupApplyAs =
   // not the flat item list.
   | 'page-doc'
   | 'webview-url'
+  // One block of prose that REPLACES the content: a mail rule, an agent's
+  // standing instruction, a living-doc brief. The rule IS the content, so a
+  // second one appended underneath would mean nothing.
+  | 'widget-text'
+  // A validated PlexiDash chart config. Validated in the MAIN process against
+  // the real tables before it ever reaches here — see validateChartConfig.
+  | 'chart-config'
 
 // The draft shape the setup preview/apply consumes. Mirrors the main-process
 // WidgetSetupDraft (kept in sync by hand; the IPC return type is the contract).
 export interface SetupDraft {
+  /** applyAs 'widget-text' — the instruction itself. */
+  text?: string
+  /** applyAs 'chart-config' — already validated against the real tables. */
+  chartConfig?: object
   applyAs?: WidgetSetupApplyAs
   items?: Array<{ id: string; text: string }>
   pageContent?: object
@@ -33,13 +44,33 @@ export interface SetupDraft {
 // WIDGET_SETUP_KINDS; the main process is the authoritative gate (an unsupported
 // kind returns an error from suggestWidgetSetup).
 export const SETUP_SUPPORTED_KINDS: ReadonlySet<string> = new Set([
-  'sticky',
-  'note',
-  'markdown',
+  // MIRRORS the main process's WIDGET_SETUP_KINDS, which is the
+  // authoritative gate — a kind listed here but not there routes the AI
+  // button to an expert that refuses, which is worse than no button.
+  'agent',
+  'attention',
   'card',
-  'mindmap',
+  'chart',
+  'custom',
   'diagram',
+  'gdoc',
+  'gsheet',
+  'gslide',
+  'image',
+  'image-gen',
+  'inbound-hook',
+  'inbox',
+  'living-doc',
+  'markdown',
+  'mindmap',
+  'note',
   'page',
+  'pdf',
+  'scratchpad',
+  'sticky',
+  'video',
+  'voice-recorder',
+  'webhook',
   'webview'
 ])
 
@@ -78,7 +109,7 @@ export function isWidgetEmptyForSetup(widget: Widget): boolean {
 // Structured kinds (mindmap, diagram) are handled by their own JSON appliers.
 type TextApplyAs = Exclude<
   WidgetSetupApplyAs,
-  'mindmap-nodes' | 'diagram-nodes' | 'page-doc' | 'webview-url'
+  'mindmap-nodes' | 'diagram-nodes' | 'page-doc' | 'webview-url' | 'widget-text' | 'chart-config'
 >
 
 // Turn the approved item texts into a block of content in a text widget's
@@ -211,7 +242,14 @@ export async function applyWidgetSetup(
   }
   // Structured kinds (page, webview, …) are applied by applyStructuredSetup, not
   // here. Guard so the text formatter only sees the text apply-as values.
-  if (applyAs === 'page-doc' || applyAs === 'webview-url') return
+  if (
+    applyAs === 'page-doc' ||
+    applyAs === 'webview-url' ||
+    applyAs === 'widget-text' ||
+    applyAs === 'chart-config'
+  ) {
+    return
+  }
   const block = formatSetupItems(applyAs, items)
   if (!block) return
   const existing = (w.content || '').replace(/\s+$/, '')
@@ -232,6 +270,23 @@ export async function applyStructuredSetup(widgetId: string, draft: SetupDraft):
     await store.update(widgetId, { content: JSON.stringify(draft.pageContent) })
     return true
   }
+  if (draft.applyAs === 'chart-config') {
+    if (!draft.chartConfig) return false
+    // Written as the widget's whole content, which is where ChartWidget reads
+    // its config from. Safe to write unchecked HERE only because the main
+    // process already validated it against the real tables — the renderer is
+    // not the place that decides whether a chart config is honest.
+    await store.update(widgetId, { content: JSON.stringify(draft.chartConfig) })
+    return true
+  }
+  if (draft.applyAs === 'widget-text') {
+    const text = (draft.text || '').trim()
+    if (!text) return false
+    // REPLACES rather than appends, unlike the list appliers: a rule or a
+    // standing instruction is the whole content, not an item in it.
+    await store.update(widgetId, { content: text })
+    return true
+  }
   if (draft.applyAs === 'webview-url') {
     const url = (draft.url || '').trim()
     if (!/^https?:\/\/\S+$/i.test(url)) return false
@@ -244,5 +299,10 @@ export async function applyStructuredSetup(widgetId: string, draft: SetupDraft):
 // True when the draft is a structured kind (handled by applyStructuredSetup)
 // rather than the flat item list (applyWidgetSetup).
 export function isStructuredApplyAs(applyAs: WidgetSetupApplyAs | null | undefined): boolean {
-  return applyAs === 'page-doc' || applyAs === 'webview-url'
+  return (
+    applyAs === 'page-doc' ||
+    applyAs === 'webview-url' ||
+    applyAs === 'widget-text' ||
+    applyAs === 'chart-config'
+  )
 }
