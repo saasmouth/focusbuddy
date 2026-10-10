@@ -3,6 +3,8 @@ import { useCompletionOffer } from './completionOffer'
 import { conversationForDesk } from '../lib/deskConversation'
 import { parseAttentionCommand } from '../lib/attentionCommand'
 import { useAssistantChrome } from './assistantChrome'
+import { speakReply } from '../lib/voiceback'
+import { getVoiceCommandPrefsSync } from '../lib/voiceCommandPrefs'
 import type { JSONContent } from '@tiptap/core'
 import type {
   ActionProposal,
@@ -935,6 +937,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         // wrong.
       }
       set(updates)
+
+      // Speak the reply when the user SPOKE the question and asked for replies
+      // aloud. Both conditions are checked inside speakReply, which consumes
+      // the voice mark either way so it can never attach itself to a later
+      // typed turn. Fire-and-forget: a synthesiser that is unavailable or
+      // refuses must not affect the turn.
+      if (resp.ok && ts !== null) {
+        const replyText = get().messagesByTask[key]?.find((m) => m.ts === ts)?.content ?? ''
+        if (replyText) speakReply(replyText, { voiceback: getVoiceCommandPrefsSync().voiceback })
+      }
 
       // Persist the finished assistant turn with everything the panel shows for
       // it: the prose, its proposals, its citations, any question it asked, and

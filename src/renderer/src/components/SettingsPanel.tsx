@@ -23,6 +23,11 @@ import {
 } from '../lib/soundPrefs'
 import { previewTypingClick } from '../lib/audioBeep'
 import {
+  loadVoiceCommandPrefs,
+  patchVoiceCommandPrefs,
+  subscribeVoiceCommandPrefs
+} from '../lib/voiceCommandPrefs'
+import {
   AUTO_ROUTING_DISPLAY,
   MODEL_OPTIONS,
   useModelMode
@@ -123,10 +128,11 @@ export default function SettingsPanel({
   }, [])
 
   useEffect(() => {
-    window.api.voiceCommand
-      .getPrefs()
-      .then((p) => setVoicePrefs(p))
-      .catch(() => {})
+    // Through lib/voiceCommandPrefs, not straight to IPC: that module is what
+    // the capture engine reads, so going through it is what makes a change
+    // take effect on the next gesture instead of after a relaunch.
+    void loadVoiceCommandPrefs()
+    return subscribeVoiceCommandPrefs((p) => setVoicePrefs(p))
   }, [])
 
   async function patchVoicePrefs(
@@ -136,8 +142,7 @@ export default function SettingsPanel({
       voiceback: boolean
     }>
   ): Promise<void> {
-    const next = await window.api.voiceCommand.setPrefs(patch)
-    setVoicePrefs(next)
+    await patchVoiceCommandPrefs(patch)
   }
 
   useEffect(() => {
@@ -601,8 +606,8 @@ export default function SettingsPanel({
                         },
                         {
                           value: 'click-toggle' as const,
-                          label: 'Click to toggle',
-                          sub: 'Auto-stops on silence'
+                          label: 'Hands-free',
+                          sub: 'Keeps listening after you let go; stops on silence'
                         }
                       ]
                     ).map((o) => (
@@ -661,9 +666,12 @@ export default function SettingsPanel({
                   </span>
                 </label>
                 <p className="fb-t-caption text-[var(--ink-50)] leading-snug">
-                  Press the floating mic at the bottom of the canvas to give the AI a
-                  verbal command. It returns suggestions you can Apply or Dismiss —
-                  just like AI-generated tasks.
+                  Hold the Plexii mascot, or press ⌘⇧Space, and speak. What you said
+                  lands in the Plexii composer for you to glance at and send — nothing
+                  is acted on until you do. Speaking into a text field types the words
+                  in instead.
+                  {voicePrefs.commandMode === 'click-toggle' &&
+                    ' In hands-free mode the mic stays open when you let go; press the mascot again to stop early.'}
                 </p>
               </div>
             )}

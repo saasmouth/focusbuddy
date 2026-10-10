@@ -5,7 +5,14 @@ import WebPanel from '../browser/WebPanel'
 import PlexiiMark from '../brand/PlexiiMark'
 import { FLOATING_MENU_INSET_RIGHT, FLOATING_MENU_STYLE } from '../chrome/floatingMenu'
 import { useAssistantChrome, type AssistantTab } from '../../stores/assistantChrome'
-import { useVoiceHold, useVoiceHoldKeys, startHold, stopHold } from '../../lib/voiceHold'
+import {
+  useVoiceHold,
+  useVoiceHoldKeys,
+  startHold,
+  releaseHold,
+  toggleHold,
+  isLatched
+} from '../../lib/voiceHold'
 import AssistantAttentionTab from './tabs/AssistantAttentionTab'
 import AssistantMessagesTab from './tabs/AssistantMessagesTab'
 import AssistantAgentTab from './tabs/AssistantAgentTab'
@@ -305,6 +312,18 @@ function AssistantOverlayChrome(): JSX.Element {
         onPointerDown={(e) => {
           if (e.button !== 0) return
           e.preventDefault()
+          // Hands-free mode leaves the mic latched open after the hold ends,
+          // so a press while it is listening is the "press again to stop" half
+          // of the gesture — not the start of a second capture.
+          if (isLatched()) {
+            pillHeldRef.current = false
+            pillJustHeldRef.current = true
+            window.setTimeout(() => {
+              pillJustHeldRef.current = false
+            }, 250)
+            void toggleHold()
+            return
+          }
           pillHeldRef.current = false
           pillHoldTimer.current = window.setTimeout(() => {
             pillHeldRef.current = true
@@ -322,7 +341,7 @@ function AssistantOverlayChrome(): JSX.Element {
             window.setTimeout(() => {
               pillJustHeldRef.current = false
             }, 250)
-            void stopHold()
+            void releaseHold()
           }
         }}
         onPointerLeave={() => {
@@ -338,7 +357,7 @@ function AssistantOverlayChrome(): JSX.Element {
             window.setTimeout(() => {
               pillJustHeldRef.current = false
             }, 250)
-            void stopHold()
+            void releaseHold()
           }
         }}
         onClick={() => {
