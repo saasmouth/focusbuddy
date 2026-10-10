@@ -1083,13 +1083,71 @@ export default function WeekTimeGrid({
                           borderLeftColor: colorOfCalendar(calendars, e.calendarId),
                           background: tint(colorOfCalendar(calendars, e.calendarId))
                         }}
-                        title={[e.title, e.location, e.organizer].filter(Boolean).join(' — ')}
+                        title={[
+                          e.title,
+                          e.location,
+                          e.organizer,
+                          e.attendees.length
+                            ? `${e.attendees.length} guest${e.attendees.length === 1 ? '' : 's'}: ${e.attendees
+                                .map((a) => a.name || a.email)
+                                .join(', ')}`
+                            : null,
+                          e.selfResponse && e.selfResponse !== 'needsAction'
+                            ? `You: ${e.selfResponse}`
+                            : null
+                        ]
+                          .filter(Boolean)
+                          .join(' — ')}
                       >
-                        <div className="truncate font-medium leading-[1.25]">
-                          {e.title || 'Untitled event'}
+                        <div className="flex items-start gap-1">
+                          <div className="min-w-0 flex-1 truncate font-medium leading-[1.25]">
+                            {e.title || 'Untitled event'}
+                          </div>
+                          {/* Join the call. A mirrored meeting used to arrive as
+                              a coloured rectangle you then went to find in
+                              Google — the link was pulled but never shown. The
+                              button is only drawn when there IS a link, so its
+                              absence is honest rather than a dead control. */}
+                          {e.conferenceUrl && (
+                            <button
+                              onClick={(ev) => {
+                                ev.stopPropagation()
+                                void window.api?.files?.openExternal?.(e.conferenceUrl as string)
+                              }}
+                              onPointerDown={(ev) => ev.stopPropagation()}
+                              className="shrink-0 h-4 w-4 inline-flex items-center justify-center rounded-[var(--radius-chip)] bg-accent !text-white fb-press"
+                              title={`Join this ${
+                                e.conferenceKind === 'meet'
+                                  ? 'Google Meet'
+                                  : e.conferenceKind === 'zoom'
+                                    ? 'Zoom'
+                                    : e.conferenceKind === 'teams'
+                                      ? 'Teams'
+                                      : ''
+                              } call`.replace('  ', ' ')}
+                              data-testid="external-event-join"
+                            >
+                              <Icon name="videocam" size={9} />
+                            </button>
+                          )}
                         </div>
                         {height >= 34 && e.location && (
                           <div className="truncate text-[9.5px] opacity-70">{e.location}</div>
+                        )}
+                        {height >= 46 && e.attendees.length > 0 && (
+                          <div
+                            className="truncate text-[9.5px] opacity-70"
+                            data-testid="external-event-guests"
+                          >
+                            <Icon name="group" size={9} className="inline-block mr-0.5 -mt-px" />
+                            {e.attendees.length}
+                            {/* Your own answer, when you have given one. An
+                                un-answered invitation says nothing rather than
+                                claiming "needs action" in four pixels. */}
+                            {e.selfResponse === 'accepted' && ' · going'}
+                            {e.selfResponse === 'declined' && ' · declined'}
+                            {e.selfResponse === 'tentative' && ' · maybe'}
+                          </div>
                         )}
                       </div>
                     )

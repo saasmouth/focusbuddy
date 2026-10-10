@@ -1,6 +1,12 @@
 import { randomUUID } from 'crypto'
 import { getDb } from './database'
-import type { CalendarSyncMode, ExternalCalendar, ExternalEvent, ExternalCalendarDraft } from '@shared/types'
+import type {
+  CalendarSyncMode,
+  ExternalAttendee,
+  ExternalCalendar,
+  ExternalEvent,
+  ExternalCalendarDraft
+} from '@shared/types'
 
 // Calendars that live somewhere else.
 //
@@ -64,11 +70,43 @@ export function ensureExternalCalendarSchema(db: {
       status TEXT,
       organizer TEXT,
       url TEXT,
+      -- The meeting half. JSON for attendees because a guest list is a list and
+      -- a second table buys nothing: it is never queried across events, only
+      -- read back with the occurrence it belongs to.
+      attendees TEXT,
+      conference_url TEXT,
+      conference_kind TEXT,
+      self_response TEXT,
+      series_id TEXT,
       updated_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_ext_events_start ON external_events (start_ms);
     CREATE INDEX IF NOT EXISTS idx_ext_events_cal ON external_events (calendar_id);
   `)
+
+  // CREATE TABLE IF NOT EXISTS leaves an existing table exactly as it was, so
+  // the columns above never reach an install that already had this table —
+  // which is every install. Added explicitly.
+  //
+  // ALTER-and-swallow rather than PRAGMA-then-ALTER: this function is handed a
+  // deliberately narrow { exec } handle (the cloud runtime passes its own), and
+  // widening it to get `prepare` would reach into every caller for a migration
+  // that runs once. "duplicate column name" is the ONLY error expected here, so
+  // anything else is re-thrown rather than hidden.
+  for (const [col, ddl] of [
+    ['attendees', 'TEXT'],
+    ['conference_url', 'TEXT'],
+    ['conference_kind', 'TEXT'],
+    ['self_response', 'TEXT'],
+    ['series_id', 'TEXT']
+  ] as const) {
+    try {
+      db.exec(`ALTER TABLE external_events ADD COLUMN ${col} ${ddl}`)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (!/duplicate column name/i.test(msg)) throw e
+    }
+  }
 }
 
 interface CalRow {
@@ -216,7 +254,24 @@ interface EventRow {
   status: string | null
   organizer: string | null
   url: string | null
+  attendees: string | null
+  conference_url: string | null
+  conference_kind: string | null
+  self_response: string | null
+  series_id: string | null
   updated_at: number
+}
+
+/** A row's guest list, or none. Never throws: a corrupt cell is "no guests
+ *  reported", not a calendar that refuses to render. */
+function parseAttendees(raw: string | null): ExternalAttendee[] {
+  if (!raw) return []
+  try {
+    const v = JSON.parse(raw)
+    return Array.isArray(v) ? (v as ExternalAttendee[]).filter((a) => a && typeof a.email === 'string') : []
+  } catch {
+    return []
+  }
 }
 
 const toEvent = (r: EventRow): ExternalEvent => ({
@@ -232,6 +287,11 @@ const toEvent = (r: EventRow): ExternalEvent => ({
   status: r.status,
   organizer: r.organizer,
   url: r.url,
+  attendees: parseAttendees(r.attendees),
+  conferenceUrl: r.conference_url,
+  conferenceKind: r.conference_kind,
+  selfResponse: r.self_response,
+  seriesId: r.series_id,
   updatedAt: r.updated_at
 })
 
@@ -272,9 +332,11 @@ export function replaceEventsInWindow(
     const ins = db.prepare(
       `INSERT OR REPLACE INTO external_events
        (id, calendar_id, uid, title, description, location, start_ms, end_ms, all_day,
-        status, organizer, url, updated_at)
+        status, organizer, url, attendees, conference_url, conference_kind,
+        self_response, series_id, updated_at)
        VALUES (@id, @cal, @uid, @title, @description, @location, @start, @end, @allDay,
-               @status, @organizer, @url, @now)`
+               @status, @organizer, @url, @attendees, @conferenceUrl, @conferenceKind,
+               @selfResponse, @seriesId, @now)`
     )
     for (const e of events) {
       ins.run({
@@ -291,6 +353,14 @@ export function replaceEventsInWindow(
         status: e.status ?? null,
         organizer: e.organizer ?? null,
         url: e.url ?? null,
+        // An empty guest list is stored as NULL rather than '[]' so "no
+        // attendees" and "a provider that does not report them" read the same
+        // on the way out — neither is a meeting with nobody in it.
+        attendees: e.attendees?.length ? JSON.stringify(e.attendees) : null,
+        conferenceUrl: e.conferenceUrl ?? null,
+        conferenceKind: e.conferenceKind ?? null,
+        selfResponse: e.selfResponse ?? null,
+        seriesId: e.seriesId ?? null,
         now
       })
     }

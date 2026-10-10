@@ -117,7 +117,16 @@ async function syncIcs(
       allDay: e.allDay,
       status: e.status ?? null,
       organizer: e.organizer ?? null,
-      url: e.url ?? null
+      url: e.url ?? null,
+      // A published ICS file can carry ATTENDEE lines, but the parser does not
+      // read them and a feed has no notion of "you" — so there is no RSVP to
+      // report either. Empty, not invented: the UI shows a feed event as what
+      // it is rather than as a meeting with no guests.
+      attendees: [],
+      conferenceUrl: null,
+      conferenceKind: null,
+      selfResponse: null,
+      seriesId: null
     }))
   )
   return { calendarId: cal.id, ok: true, events: count, warnings: parsed.unsupported }
@@ -135,6 +144,55 @@ interface GoogleEvent {
   organizer?: { email?: string }
   start?: { dateTime?: string; date?: string }
   end?: { dateTime?: string; date?: string }
+  attendees?: Array<{
+    email?: string
+    displayName?: string
+    responseStatus?: string
+    optional?: boolean
+    organizer?: boolean
+    self?: boolean
+  }>
+  /** Google Meet and anything else added through the conferencing framework. */
+  conferenceData?: {
+    entryPoints?: Array<{ entryPointType?: string; uri?: string }>
+    conferenceSolution?: { name?: string; key?: { type?: string } }
+  }
+  /** The legacy Meet field, still populated on plenty of events. */
+  hangoutLink?: string
+  /** Set on an expanded occurrence: the id of the series it came from. */
+  recurringEventId?: string
+}
+
+/**
+ * The join link for an event, and what kind of call it is.
+ *
+ * conferenceData is the modern shape and carries the solution's own name, so a
+ * Zoom or Teams meeting booked through Google reports itself honestly instead of
+ * being labelled "Meet". hangoutLink is the older field and is still present on
+ * a great many events, so it is the fallback rather than being ignored.
+ */
+export function conferenceOf(ev: {
+  conferenceData?: GoogleEvent['conferenceData']
+  hangoutLink?: string
+}): { url: string | null; kind: string | null } {
+  const video = ev.conferenceData?.entryPoints?.find(
+    (e) => e.entryPointType === 'video' && typeof e.uri === 'string' && e.uri
+  )
+  const url = video?.uri ?? ev.hangoutLink ?? null
+  if (!url) return { url: null, kind: null }
+  const key = ev.conferenceData?.conferenceSolution?.key?.type ?? ''
+  // Google's own keys are hangoutsMeet / addOn / eventHangout. Fall back to the
+  // host, which is what actually tells Zoom from Teams for an addOn.
+  const kind = /hangoutsMeet|eventHangout/i.test(key)
+    ? 'meet'
+    : /meet\.google\.com/i.test(url)
+      ? 'meet'
+      : /zoom\./i.test(url)
+        ? 'zoom'
+        : /teams\.(microsoft|live)\./i.test(url)
+          ? 'teams'
+          : 'other'
+  return { url, kind }
 }
 
 async function syncGoogle(
@@ -182,6 +240,17 @@ async function syncGoogle(
           ? Date.parse(`${it.end.date}T00:00:00Z`)
           : NaN
       if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) continue
+      const attendees = (it.attendees ?? [])
+        .filter((a): a is { email: string } & typeof a => typeof a.email === 'string' && !!a.email)
+        .map((a) => ({
+          email: a.email,
+          name: a.displayName ?? null,
+          response: a.responseStatus ?? null,
+          optional: a.optional === true,
+          organizer: a.organizer === true,
+          self: a.self === true
+        }))
+      const conference = conferenceOf(it)
       out.push({
         uid: it.id,
         title: it.summary ?? '',
@@ -192,7 +261,15 @@ async function syncGoogle(
         allDay,
         status: it.status ?? null,
         organizer: it.organizer?.email ?? null,
-        url: it.htmlLink ?? null
+        url: it.htmlLink ?? null,
+        attendees,
+        conferenceUrl: conference.url,
+        conferenceKind: conference.kind,
+        // Google marks the signed-in user's own row with `self`, which is the
+        // only reliable way to know which RSVP is yours — matching on email
+        // breaks for delegated and aliased accounts.
+        selfResponse: attendees.find((a) => a.self)?.response ?? null,
+        seriesId: it.recurringEventId ?? null
       })
     }
     pageToken = body.nextPageToken
@@ -211,6 +288,15 @@ interface MsEvent {
   location?: { displayName?: string }
   start?: { dateTime?: string; timeZone?: string }
   end?: { dateTime?: string; timeZone?: string }
+  attendees?: Array<{
+    emailAddress?: { address?: string; name?: string }
+    status?: { response?: string }
+    type?: string
+  }>
+  onlineMeeting?: { joinUrl?: string }
+  onlineMeetingProvider?: string
+  seriesMasterId?: string
+  responseStatus?: { response?: string }
 }
 
 /** Graph returns naive local times plus a zone name; both are needed. */
@@ -266,7 +352,30 @@ async function syncMicrosoft(
         allDay: Boolean(it.isAllDay),
         status: null,
         organizer: it.organizer?.emailAddress?.address ?? null,
-        url: it.webLink ?? null
+        url: it.webLink ?? null,
+        attendees: (it.attendees ?? [])
+          .filter((a) => typeof a.emailAddress?.address === 'string' && a.emailAddress.address)
+          .map((a) => ({
+            email: a.emailAddress!.address!,
+            name: a.emailAddress?.name ?? null,
+            // Graph says 'none' for un-answered; Google says 'needsAction'.
+            // Normalised here so one UI reads both.
+            response: a.status?.response === 'none' ? 'needsAction' : (a.status?.response ?? null),
+            optional: a.type === 'optional',
+            organizer: a.emailAddress?.address === it.organizer?.emailAddress?.address,
+            // Graph marks no attendee as "self", so the owner's own row is not
+            // identifiable here; responseStatus below carries it instead.
+            self: false
+          })),
+        conferenceUrl: it.onlineMeeting?.joinUrl ?? null,
+        conferenceKind: it.onlineMeeting?.joinUrl
+          ? (it.onlineMeetingProvider === 'teamsForBusiness' ? 'teams' : 'other')
+          : null,
+        // Graph reports the owner's own answer on the event itself rather than
+        // inside the attendee list.
+        selfResponse:
+          it.responseStatus?.response === 'none' ? 'needsAction' : (it.responseStatus?.response ?? null),
+        seriesId: it.seriesMasterId ?? null
       })
     }
     next = body['@odata.nextLink']

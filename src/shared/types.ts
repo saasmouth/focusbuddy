@@ -564,6 +564,18 @@ export interface ExternalCalendarDraft {
   isDefault?: boolean
 }
 
+/** One guest on a mirrored event, as the provider reports them. */
+export interface ExternalAttendee {
+  email: string
+  name?: string | null
+  /** 'accepted' | 'declined' | 'tentative' | 'needsAction' */
+  response?: string | null
+  optional?: boolean
+  organizer?: boolean
+  /** True for the signed-in user's own row, which drives the RSVP control. */
+  self?: boolean
+}
+
 export interface ExternalEvent {
   id: string
   calendarId: string
@@ -577,6 +589,27 @@ export interface ExternalEvent {
   status: string | null
   organizer: string | null
   url: string | null
+  // ── The meeting half ──────────────────────────────────────────────────────
+  // A mirrored event used to arrive as a title and a time, which is enough to
+  // draw a block and nothing like enough to act on: no guest list, no way to
+  // join the call, no idea whether you had accepted. These carry that.
+  attendees: ExternalAttendee[]
+  /** The join link, when the provider exposes one (Meet, Zoom, Teams). */
+  conferenceUrl: string | null
+  /** 'meet' | 'zoom' | 'teams' | 'other' — drives the label on the button. */
+  conferenceKind: string | null
+  /** The signed-in user's own RSVP, lifted out of `attendees` for the UI. */
+  selfResponse: string | null
+  /**
+   * The series this occurrence belongs to, when it is one.
+   *
+   * Google is asked to expand recurrence (`singleEvents=true`) because its
+   * rules are the ones the person sees in Google Calendar — so Plexii mirrors
+   * OCCURRENCES. Keeping the series id means an occurrence can at least say
+   * "repeats" and be acted on as a series later, instead of the relationship
+   * being lost on the way in.
+   */
+  seriesId: string | null
   updatedAt: number
 }
 
