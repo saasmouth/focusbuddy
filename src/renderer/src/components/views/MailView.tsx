@@ -38,6 +38,55 @@ interface Preset {
   port: number
   secure: boolean
   note?: string
+  // A provider spanning several hosts (Zoho's regions and plans) claims them
+  // all, so its chip stays lit whichever one is picked.
+  covers?: (host: string) => boolean
+}
+
+// Zoho Mail's server name depends on two things, so its chip opens a second
+// row to pick them:
+//  - Region: Zoho runs a separate mail service per datacentre, on the domain the
+//    account signs in at (mail.zoho.com.au is Australia).
+//  - Plan: paid organisation accounts on their own domain use the "pro" host,
+//    imappro.zoho.<dc>; personal @zohomail.com and free-plan organisations use
+//    imap.zoho.<dc>. Zoho shows the exact pair under Settings → Mail Accounts.
+// Sending follows from the same host: smtp.ts maps imappro -> smtppro and
+// imap -> smtp on the same domain. Every host here was checked to resolve and
+// serve a matching certificate on 993 (IMAP) and 465 (SMTP).
+const ZOHO_REGIONS: { label: string; domain: string }[] = [
+  { label: 'US', domain: 'zoho.com' },
+  { label: 'EU', domain: 'zoho.eu' },
+  { label: 'UK', domain: 'zoho.uk' },
+  { label: 'India', domain: 'zoho.in' },
+  { label: 'Australia', domain: 'zoho.com.au' },
+  { label: 'Japan', domain: 'zoho.jp' },
+  { label: 'Canada', domain: 'zohocloud.ca' },
+  { label: 'Saudi Arabia', domain: 'zoho.sa' },
+  { label: 'UAE', domain: 'zoho.ae' },
+  { label: 'China', domain: 'zoho.com.cn' }
+]
+
+type ZohoPlan = 'organisation' | 'personal'
+
+const ZOHO_PLANS: { plan: ZohoPlan; label: string }[] = [
+  { plan: 'organisation', label: 'Own domain (paid plan)' },
+  { plan: 'personal', label: '@zohomail.com or free plan' }
+]
+
+const ZOHO_NOTE =
+  'Turn on IMAP Access first (Zoho Mail → Settings → Mail Accounts → IMAP). With two-factor sign-in on, it needs an app-specific password (Zoho Accounts → Security → App Passwords). Zoho does not offer IMAP on newly created free-plan accounts.'
+
+function zohoPreset(domain: string, plan: ZohoPlan): Preset {
+  const host = `${plan === 'organisation' ? 'imappro' : 'imap'}.${domain}`
+  return { label: 'Zoho', host, port: 993, secure: true, note: ZOHO_NOTE }
+}
+
+// Read a host back into its Zoho region and plan, so the Zoho chips reflect the
+// host itself — whether it was picked here or typed into the server field.
+function zohoChoice(host: string): { domain: string; plan: ZohoPlan } | null {
+  const m = /^(imappro|imap)\.(.+)$/.exec(host.trim().toLowerCase())
+  if (!m || !ZOHO_REGIONS.some((r) => r.domain === m[2])) return null
+  return { domain: m[2], plan: m[1] === 'imappro' ? 'organisation' : 'personal' }
 }
 
 // Common providers. The note nudges users toward an app-specific password,
@@ -47,8 +96,19 @@ const PRESETS: Preset[] = [
   { label: 'Outlook', host: 'outlook.office365.com', port: 993, secure: true },
   { label: 'iCloud', host: 'imap.mail.me.com', port: 993, secure: true, note: 'Needs an app-specific password from appleid.apple.com.' },
   { label: 'Fastmail', host: 'imap.fastmail.com', port: 993, secure: true, note: 'Needs an app password from Settings → Privacy & Security.' },
-  { label: 'Yahoo', host: 'imap.mail.yahoo.com', port: 993, secure: true, note: 'Needs an app password from Account Security.' }
+  { label: 'Yahoo', host: 'imap.mail.yahoo.com', port: 993, secure: true, note: 'Needs an app password from Account Security.' },
+  // Zoho starts on its US datacentre and the paid custom-domain plan; the
+  // second row under the chips changes either.
+  { ...zohoPreset('zoho.com', 'organisation'), covers: (h) => zohoChoice(h) !== null }
 ]
+
+function presetChipClass(active: boolean): string {
+  return `fb-t-label px-2.5 py-1 rounded-full border fb-press transition-colors ${
+    active
+      ? 'border-accent bg-accent/10 text-accent'
+      : 'border-[var(--edge-firm)] text-[var(--ink-60)] hover:border-[rgb(var(--accent)/0.6)]'
+  }`
+}
 
 function fmtTime(ms: number): string {
   if (!ms) return ''
@@ -80,6 +140,10 @@ function SetupForm({ onConnected }: { onConnected: () => void }): JSX.Element {
   const [busy, setBusy] = useState<'idle' | 'testing' | 'saving'>('idle')
   const [error, setError] = useState<string | null>(null)
   const [tested, setTested] = useState(false)
+  // Derived from the host, so a Zoho account being reconfigured, or a Zoho host
+  // typed by hand, still gets the region/plan row and Zoho's setup hint.
+  const zoho = zohoChoice(host)
+  const note = zoho ? ZOHO_NOTE : presetNote
 
   function applyPreset(p: Preset): void {
     setHost(p.host)
@@ -136,25 +200,66 @@ function SetupForm({ onConnected }: { onConnected: () => void }): JSX.Element {
         </div>
 
         <div className="flex flex-wrap gap-1.5 mt-5 mb-4">
-          {PRESETS.map((p) => (
-            <button
-              key={p.label}
-              onClick={() => applyPreset(p)}
-              className={`fb-t-label px-2.5 py-1 rounded-full border fb-press transition-colors ${
-                host === p.host
-                  ? 'border-accent bg-accent/10 text-accent'
-                  : 'border-[var(--edge-firm)] text-[var(--ink-60)] hover:border-[rgb(var(--accent)/0.6)]'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
+          {PRESETS.map((p) => {
+            const active = p.covers ? p.covers(host) : host === p.host
+            return (
+              <button
+                key={p.label}
+                aria-pressed={active}
+                onClick={() => {
+                  // Re-pressing a lit multi-host chip keeps the region and plan
+                  // already picked instead of snapping back to the default.
+                  if (!(p.covers && active)) applyPreset(p)
+                }}
+                className={presetChipClass(active)}
+              >
+                {p.label}
+              </button>
+            )
+          })}
         </div>
 
-        {presetNote && (
+        {zoho && (
+          <div data-testid="mail-zoho-options" className="-mt-2 mb-4 space-y-2">
+            <div>
+              <p className="fb-t-caption mb-1">Zoho account</p>
+              <div className="flex flex-wrap gap-1.5">
+                {ZOHO_PLANS.map((z) => (
+                  <button
+                    key={z.plan}
+                    aria-pressed={zoho.plan === z.plan}
+                    onClick={() => applyPreset(zohoPreset(zoho.domain, z.plan))}
+                    className={presetChipClass(zoho.plan === z.plan)}
+                  >
+                    {z.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="fb-t-caption mb-1">
+                Region: where you sign in to Zoho (mail.zoho.com.au is Australia)
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {ZOHO_REGIONS.map((r) => (
+                  <button
+                    key={r.domain}
+                    aria-pressed={zoho.domain === r.domain}
+                    onClick={() => applyPreset(zohoPreset(r.domain, zoho.plan))}
+                    className={presetChipClass(zoho.domain === r.domain)}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {note && (
           <div className="mb-4 fb-t-label text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-[var(--radius-row)] px-3 py-2 flex gap-2">
             <Icon name="info" size={14} className="shrink-0 mt-0.5" />
-            <span>{presetNote}</span>
+            <span>{note}</span>
           </div>
         )}
 

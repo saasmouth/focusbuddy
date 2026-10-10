@@ -3,8 +3,8 @@
 // app-specific password, just the sending server instead of the reading one.
 // We never ask the user for separate send settings; the SMTP host is derived
 // from the IMAP host they already connected, which is correct for every major
-// provider (Gmail, iCloud, Outlook, Fastmail, Yahoo) and a safe convention for
-// the rest.
+// provider (Gmail, iCloud, Outlook, Fastmail, Yahoo, Zoho in every datacentre)
+// and a safe convention for the rest.
 
 import nodemailer from 'nodemailer'
 import type { MailAccountConfig } from './mailAccount'
@@ -55,8 +55,13 @@ export function deriveSmtp(config: MailAccountConfig): SmtpTarget {
     if (p.match.test(host)) return p.target
   }
   // Generic convention: imap.example.com -> smtp.example.com, else prefix smtp.
-  const smtpHost = /^imap[.-]/i.test(host)
-    ? host.replace(/^imap([.-])/i, 'smtp$1')
+  // A "pro" suffix on the label carries across, because Zoho names its paid
+  // organisation (custom-domain) servers that way in every datacentre:
+  // imappro.zoho.com.au sends through smtppro.zoho.com.au, where the plain swap
+  // used to produce smtp.imappro.zoho.com.au, which does not exist. Zoho's
+  // personal and free-plan pair (imap.zoho.eu -> smtp.zoho.eu) is the plain swap.
+  const smtpHost = /^imap(pro)?[.-]/i.test(host)
+    ? host.replace(/^imap(pro)?([.-])/i, 'smtp$1$2')
     : `smtp.${host}`
   return { host: smtpHost, port: 465, secure: true }
 }
