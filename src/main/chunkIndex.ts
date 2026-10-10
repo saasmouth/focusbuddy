@@ -872,13 +872,21 @@ export function sweepChatChunks(): { indexed: number; removed: number } {
 }
 
 // The chat pool for retrieval: docType 'chat', titled by the conversation.
+//
+// Chats have carried a desk id since they were first indexed (room_id, from
+// convo.meta.taskId) and nobody was reading it, so a conversation held ON this
+// desk ranked no higher than one from six months ago about something else.
+// Scoped the same way as widgets: in-scope first, off-scope demoted, never
+// excluded (#12) — "what did we decide about this last time" has to be able to
+// reach back past the desk you are standing on.
 export function chunkSearchChats(
   query: string,
   limit = 6,
-  excludeConversationId?: string
+  excludeConversationId?: string,
+  scopeNodeIds?: string[]
 ): WorkspaceSource[] {
   try {
-    return chunkSearchChatsInner(query, limit, excludeConversationId)
+    return chunkSearchChatsInner(query, limit, excludeConversationId, scopeNodeIds)
   } catch {
     return [] // same best-effort contract as the widget pool
   }
@@ -887,22 +895,34 @@ export function chunkSearchChats(
 function chunkSearchChatsInner(
   query: string,
   limit: number,
-  excludeConversationId?: string
+  excludeConversationId?: string,
+  scopeNodeIds?: string[]
 ): WorkspaceSource[] {
   const hits = searchChunks(appDb(), query, {
     orgId: getActiveOrgId(),
     sourceType: 'chat',
-    limit: limit + 1
+    // Over-fetch when scoping so the demoted tail has something to be made of.
+    limit: (scopeNodeIds && scopeNodeIds.length > 0 ? limit * 2 : limit) + 1
   }).filter((h) => h.sourceId !== excludeConversationId)
-  return hits.slice(0, limit).map((h, i) => {
+  const scope = scopeNodeIds && scopeNodeIds.length > 0 ? new Set(scopeNodeIds) : null
+  const shaped = hits.map((h, i) => {
     const joined = h.passages.join('\n…\n')
     return {
-      docId: h.sourceId,
-      title: h.title || 'Untitled chat',
-      docType: 'chat',
-      snippet: joined.replace(/\s+/g, ' ').trim().slice(0, 200),
-      text: selectPassages(query, joined),
-      score: 1 - i * 0.01
+      source: {
+        docId: h.sourceId,
+        title: h.title || 'Untitled chat',
+        docType: 'chat',
+        snippet: joined.replace(/\s+/g, ' ').trim().slice(0, 200),
+        text: selectPassages(query, joined),
+        score: 1 - i * 0.01
+      },
+      inScope: !scope || (h.roomId != null && scope.has(h.roomId))
     }
   })
+  if (!scope) return shaped.slice(0, limit).map((s) => s.source)
+  return mergeScopedPools(
+    shaped.filter((s) => s.inScope).map((s) => s.source),
+    shaped.filter((s) => !s.inScope).map((s) => s.source),
+    limit
+  )
 }

@@ -25,6 +25,9 @@ import {
 } from './chunkIndex'
 import { collectExtraSources } from './workspaceExtras'
 import { meetingRecallSources } from './segmentRecall'
+import { deskObjectIds } from './deskAffinity'
+import { getDb } from './db/database'
+import { interleaveByAffinity, mergeScopedPools } from './workspaceRank'
 
 export type { WorkspaceSource } from './workspaceRank'
 export { extractDocText } from './workspaceRank'
@@ -84,9 +87,41 @@ export async function retrieveSources(
   // rather than a substring of a document's opening (defect #2). A fresh
   // profile before its first sweep falls back to the legacy whole-document
   // path — the same results as before, never fewer.
-  const docSources = chunkIndexActive()
-    ? chunkSearchDocuments(query, limit)
-    : await semanticSearchDocuments(query, limit)
+  // A document on the desk you are standing on is a desk object, even though
+  // the `documents` table has no desk column. A doc widget records the pairing
+  // (widgets.task_id -> the desk, widgets.content -> the document id), so
+  // deskObjectIds resolves it with one join. Without this, asking from a desk
+  // ranked every document in the workspace purely on keyword match and the desk
+  // counted for nothing — the single biggest source of "why is it reading that?"
+  // Resolved ONLY when there is a scope to resolve. Reaching for the database
+  // on the unscoped path cost nothing useful and broke every caller that drives
+  // retrieveSources without Electron's `app` behind it (getDb derives the file
+  // path from app.getPath). Wrapped too: a desk we cannot resolve is a desk
+  // with no extra objects, and ranking carries on unscoped — the same
+  // best-effort contract the chunk pools keep.
+  let deskObjects = new Set<string>()
+  if (scopeNodeIds && scopeNodeIds.length > 0) {
+    try {
+      deskObjects = deskObjectIds(getDb() as never, scopeNodeIds)
+    } catch {
+      deskObjects = new Set()
+    }
+  }
+  const scoped = deskObjects.size > 0
+  const byDeskAffinity = (pool: WorkspaceSource[]): WorkspaceSource[] =>
+    scoped
+      ? mergeScopedPools(
+          pool.filter((p) => deskObjects.has(p.docId)),
+          pool.filter((p) => !deskObjects.has(p.docId)),
+          limit
+        )
+      : pool
+
+  const docSources = byDeskAffinity(
+    chunkIndexActive()
+      ? chunkSearchDocuments(query, limit)
+      : await semanticSearchDocuments(query, limit)
+  )
 
   // Extras: tasks, tables and canvas notes — the rest of the environment, so the
   // brain is grounded in more than documents. Keyword-ranked.
@@ -100,11 +135,14 @@ export async function retrieveSources(
 
   // Files (#17): Drive files with extractable text, passage-searched. Before
   // this pool a file was @-mentionable but never FOUND.
-  const fileSources = chunkSearchFiles(query, limit)
+  // Files ride the same join: a file widget on a desk makes that file a desk
+  // object. (A file reached only through Drive stays unscoped and competes on
+  // relevance, which is right — it has no desk to belong to.)
+  const fileSources = byDeskAffinity(chunkSearchFiles(query, limit))
 
   // Chat history (#17): past Plexii conversations, minus the one being
   // answered right now — the recall mechanism #18 asked for.
-  const chatSources = chunkSearchChats(query, limit, opts?.excludeChatId)
+  const chatSources = chunkSearchChats(query, limit, opts?.excludeChatId, scopeNodeIds)
 
   // Meetings (M4, SPEC-003 P4): the transcript corpus, segment-searched so
   // every grounded line arrives WITH its speaker and timestamp — the model
@@ -121,18 +159,7 @@ export async function retrieveSources(
   const pools = [kSources, docSources, extraSources, widgetSources, fileSources, chatSources, meetingSources].map(
     (p) => relevanceGate(query, p)
   )
-  const merged: WorkspaceSource[] = []
-  const seen = new Set<string>()
-  for (let i = 0; merged.length < limit && pools.some((p) => p[i]); i++) {
-    for (const pool of pools) {
-      const s = pool[i]
-      if (s && !seen.has(s.docId) && merged.length < limit) {
-        seen.add(s.docId)
-        merged.push(s)
-      }
-    }
-  }
-  return merged
+  return interleaveByAffinity(pools, limit)
 }
 
 // The workspace connecting itself: the documents most related to this one, by

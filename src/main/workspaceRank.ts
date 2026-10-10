@@ -20,6 +20,13 @@ export interface WorkspaceSource {
   category?: string
   dates?: string[]
   entities?: string[]
+  // Desk affinity, set by the pools that can know it (every pool that routes
+  // through mergeScopedPools) and left undefined by the ones that cannot —
+  // curated knowledge and meetings have no desk of their own. The interleave
+  // in workspaceSearch reads it to decide which sources get the slots first;
+  // undefined is scope-NEUTRAL, not off-scope, so workspace-level truth is
+  // never pushed behind desk furniture.
+  inScope?: boolean
 }
 
 // Best-effort plain text from a document body, by type. Shared with the
@@ -306,8 +313,61 @@ export function mergeScopedPools(
   limit: number,
   demotion = OFF_SCOPE_DEMOTION
 ): WorkspaceSource[] {
-  const demoted = offScope.map((s) => ({ ...s, score: s.score * demotion }))
-  return [...inScope, ...demoted].sort((a, b) => b.score - a.score).slice(0, limit)
+  // Tag as well as demote. Demotion alone only reorders WITHIN a pool, and the
+  // round-robin interleave downstream then hands every pool the same number of
+  // slots whatever the question was about — so a desk with fifteen relevant
+  // widgets still surrendered slots to documents from elsewhere. The flag lets
+  // the interleave fill from the desk first.
+  const kept = inScope.map((s) => ({ ...s, inScope: true }))
+  const demoted = offScope.map((s) => ({ ...s, score: s.score * demotion, inScope: false }))
+  return [...kept, ...demoted].sort((a, b) => b.score - a.score).slice(0, limit)
+}
+
+// ── Who gets the slots ──────────────────────────────────────────────────────
+//
+// Round-robin across the pools alone handed every pool the same number of
+// rounds whatever the question was about: 28 slots across seven pools is four
+// each, so a desk with fifteen relevant widgets surrendered eleven of them to
+// documents, files and meetings from elsewhere. Demoting off-scope sources did
+// not help, because demotion only reorders WITHIN a pool — it never moves a
+// slot between pools.
+//
+// So when a desk scope is active, in-scope sources fill the slots FIRST,
+// round-robin among themselves (which keeps every kind of desk content
+// represented), and the rest of the workspace fills what is left. Both
+// symptoms of the old behaviour come from this one thing: too little from
+// here, too much from nowhere.
+//
+// Scope-NEUTRAL sources — curated PlexiBrain knowledge and meetings, which
+// have no desk of their own — ride in the FIRST pass (inScope === undefined).
+// Knowledge is company truth meant to ground every answer, and putting it
+// behind desk furniture would be a worse answer, not a more focused one. Pool
+// order is preserved within every round, so knowledge still leads.
+//
+// With no desk scope nothing is marked off-scope, so this is one pass over
+// everything and the result is byte-for-byte what plain round-robin gave.
+export function interleaveByAffinity(
+  pools: WorkspaceSource[][],
+  limit: number
+): WorkspaceSource[] {
+  const fromHere = (s: WorkspaceSource): boolean => s.inScope !== false
+  const merged: WorkspaceSource[] = []
+  const seen = new Set<string>()
+  const drain = (admit: (s: WorkspaceSource) => boolean): void => {
+    const lanes = pools.map((p) => p.filter(admit))
+    for (let i = 0; merged.length < limit && lanes.some((p) => p[i]); i++) {
+      for (const lane of lanes) {
+        const s = lane[i]
+        if (s && !seen.has(s.docId) && merged.length < limit) {
+          seen.add(s.docId)
+          merged.push(s)
+        }
+      }
+    }
+  }
+  drain(fromHere)
+  drain((s) => !fromHere(s))
+  return merged
 }
 
 // The relevance gate (A2 prep, from Caleb's live-drive feedback). Keyword
