@@ -4,6 +4,7 @@ import { existsSync, readdirSync, renameSync, symlinkSync } from 'fs'
 import { pathToFileURL } from 'url'
 import { config as loadEnv } from 'dotenv'
 import { closeDb, getDb } from './db/database'
+import { restoreExtensions } from './browserExtensions'
 import { resolveUserDataDir } from './userDataMigration'
 import { composeCustomWidgetDocument, cspFor } from '@shared/customWidgetSandbox'
 import { resolveWidgetInputs } from './db/widgetInputs'
@@ -685,6 +686,14 @@ app.whenReady().then(() => {
     app.setAppUserModelId('agency.saasmouth.plexidesk')
   }
   getDb()
+  // Browser extensions. Electron forgets loaded extensions on exit, so the
+  // registry in userData is the source of truth and every boot reloads from it.
+  // After getDb() because the connected-app partitions come from the database.
+  // Best-effort: a broken extension must never stop the app starting — it
+  // reports its reason in Settings instead.
+  void restoreExtensions().catch((e) => {
+    console.warn('[extensions] restore failed:', e instanceof Error ? e.message : e)
+  })
   // Rotating safety-net snapshot of the database, at most once per 12h. Runs
   // async, never blocks boot, and is the recovery path if the live DB is later
   // lost or corrupted.

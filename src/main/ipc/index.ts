@@ -56,6 +56,12 @@ import {
   allLiveDesks
 } from '../livePublisher'
 import { app, ipcMain, BrowserWindow, dialog, systemPreferences, webContents as allWebContents, type WebContents } from 'electron'
+import {
+  addExtension,
+  listExtensions,
+  removeExtension,
+  setExtensionEnabled
+} from '../browserExtensions'
 import { openExternalSafe } from '../safeOpenExternal'
 import { detectPreviewBuild } from '../appMode'
 import { writeFile } from 'node:fs/promises'
@@ -2352,16 +2358,37 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('extcal:syncAll', () => syncAll())
 
   // OAuth
+  // ── Browser extensions ────────────────────────────────────────────────────
+  // A folder the person chose, so the picker runs in the main process and the
+  // renderer never handles a path it did not get from the user.
+  ipcMain.handle('browserExt:list', () => listExtensions())
+  ipcMain.handle('browserExt:pick', async () => {
+    const res = await dialog.showOpenDialog({
+      title: 'Choose an unpacked extension folder',
+      message: 'Pick the folder that contains the extension\u2019s manifest.json.',
+      properties: ['openDirectory', 'createDirectory']
+    })
+    if (res.canceled || !res.filePaths[0]) return { ok: false as const, cancelled: true as const }
+    return addExtension(res.filePaths[0])
+  })
+  ipcMain.handle('browserExt:setEnabled', (_e, path: string, enabled: boolean) =>
+    setExtensionEnabled(path, enabled)
+  )
+  ipcMain.handle('browserExt:remove', (_e, path: string) => removeExtension(path))
+
   ipcMain.handle('extcal:accounts', () => listOAuthAccounts())
   ipcMain.handle('extcal:removeAccount', (_e, id: string) => deleteOAuthAccount(id))
   ipcMain.handle('extcal:getProviderConfig', (_e, provider: 'google' | 'microsoft') => ({
     configured: Boolean(getProviderConfig(provider)?.clientId),
-    clientId: getProviderConfig(provider)?.clientId ?? ''
+    clientId: getProviderConfig(provider)?.clientId ?? '',
+    // Whether one is held, never the value: the renderer only needs to know
+    // whether to show the field as already filled.
+    hasSecret: Boolean(getProviderConfig(provider)?.clientSecret)
   }))
   ipcMain.handle(
     'extcal:setProviderConfig',
-    (_e, provider: 'google' | 'microsoft', clientId: string) => {
-      setProviderConfig(provider, clientId ? { clientId } : null)
+    (_e, provider: 'google' | 'microsoft', clientId: string, clientSecret?: string) => {
+      setProviderConfig(provider, clientId ? { clientId, clientSecret } : null)
       return { ok: true as const }
     }
   )

@@ -1009,6 +1009,26 @@ const api = {
   // renderer (which holds the account token).
   // External calendars — Google, Outlook, or any ICS feed. Events are a
   // read-only mirror; nothing here can return or accept a credential.
+  browserExtensions: {
+    list: (): Promise<
+      Array<{
+        path: string
+        enabled: boolean
+        id?: string
+        name: string
+        version?: string
+        error?: string
+        browserAction?: { title?: string; popup?: string }
+      }>
+    > => ipcRenderer.invoke('browserExt:list'),
+    /** Opens the folder picker in the main process and installs what was chosen. */
+    pick: (): Promise<{ ok: boolean; cancelled?: boolean; error?: string }> =>
+      ipcRenderer.invoke('browserExt:pick'),
+    setEnabled: (path: string, enabled: boolean): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('browserExt:setEnabled', path, enabled),
+    remove: (path: string): Promise<{ ok: boolean }> =>
+      ipcRenderer.invoke('browserExt:remove', path)
+  },
   externalCalendars: {
     list: (): Promise<ExternalCalendar[]> => ipcRenderer.invoke('extcal:list'),
     // Plexii's own calendars live in the same list under provider 'internal'.
@@ -1050,12 +1070,14 @@ const api = {
       ipcRenderer.invoke('extcal:removeAccount', id),
     getProviderConfig: (
       provider: 'google' | 'microsoft'
-    ): Promise<{ configured: boolean; clientId: string }> =>
+    ): Promise<{ configured: boolean; clientId: string; hasSecret: boolean }> =>
       ipcRenderer.invoke('extcal:getProviderConfig', provider),
     setProviderConfig: (
       provider: 'google' | 'microsoft',
-      clientId: string
-    ): Promise<{ ok: true }> => ipcRenderer.invoke('extcal:setProviderConfig', provider, clientId),
+      clientId: string,
+      clientSecret?: string
+    ): Promise<{ ok: true }> =>
+      ipcRenderer.invoke('extcal:setProviderConfig', provider, clientId, clientSecret),
     connect: (
       provider: 'google' | 'microsoft'
     ): Promise<{ ok: boolean; accountId?: string; email?: string; error?: string }> =>
