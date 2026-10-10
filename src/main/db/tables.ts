@@ -208,6 +208,23 @@ export function createRow(draft: FbRowDraft): FbRow {
     const existing = db.prepare('SELECT * FROM fb_rows WHERE id = ?').get(draft.id) as RowRow | undefined
     if (existing) return rowToFbRow(existing)
   }
+  // A row must belong to a table that still exists. deleteTable is a SOFT
+  // delete -- it sets trashed_at -- so the ON DELETE CASCADE foreign key still
+  // resolves after a table is trashed, and this INSERT used to succeed. It
+  // returned a perfectly ordinary row that listRows (trashed_at IS NULL) would
+  // never hand back again, so the write was lost the moment it was made.
+  //
+  // PlexiForms is where that showed: submitting a form whose backing table had
+  // been trashed answered "Response saved" and dropped the response. The form's
+  // own code was honest about it -- it checks for a null row and catches a
+  // throw -- but it was never told anything had gone wrong.
+  //
+  // getTable already reads a trashed table as gone, and apiServer already 404s
+  // on one before it gets here; this makes the write path agree with both
+  // rather than being the one place that does not.
+  if (!getTable(draft.tableId)) {
+    throw new Error(`cannot add a row: table ${draft.tableId} does not exist or is in the trash`)
+  }
   const now = Date.now()
   db.prepare(
     `INSERT INTO fb_rows (id, table_id, cells_json, sort_order, created_at, updated_at)

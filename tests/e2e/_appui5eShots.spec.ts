@@ -65,7 +65,7 @@ test('calendar week + composer, dark', async () => {
   if (box) {
     await window.mouse.click(box.x + box.width / 2, box.y + 200)
     await window.waitForTimeout(400)
-    const composer = window.locator('[data-testid="block-composer"]')
+    const composer = window.locator('[data-testid="book-time-dialog"]')
     if (await composer.isVisible().catch(() => false)) {
       await window.screenshot({ path: `${OUT}/5e-calendar-composer-dark.png` })
       await window.keyboard.press('Escape')

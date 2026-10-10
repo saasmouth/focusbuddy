@@ -580,6 +580,10 @@ export default function ProposalCards({
                     }}
                     title="Dismiss this suggestion"
                     role="button"
+                    // The one control in this row that carried no handle, so
+                    // "I declined the suggestion" was the only outcome here
+                    // that could not be driven or asserted.
+                    data-testid={`proposal-dismiss-${p.id}`}
                     className="icon-btn !h-5 !w-5"
                   >
                     <Icon name="close" size={11} />

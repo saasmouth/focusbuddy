@@ -850,6 +850,12 @@ export default function CalendarView(): JSX.Element {
                 <button
                   key={m}
                   onClick={() => pickMode(m)}
+                  // The range a calendar is showing is the first thing a test
+                  // has to pin, and these six buttons carried no handle at all
+                  // — so four specs reached for `calendar-mode-week`, which had
+                  // never existed, and waited out their timeouts on it.
+                  data-testid={`calendar-mode-${m}`}
+                  aria-pressed={mode === m}
                   className={`min-w-[62px] px-3 h-8 fb-t-label fb-press rounded-[calc(var(--radius-field)-3px)] whitespace-nowrap transition-colors ${
                     mode === m
                       ? 'bg-accent/[0.14] text-[var(--ink-100)] shadow-[inset_0_0_0_1px_rgb(var(--accent)/0.3)]'

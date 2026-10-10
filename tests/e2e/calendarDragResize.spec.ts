@@ -7,7 +7,35 @@ import { launchApp, type LaunchedApp, waitForReady, gotoView } from './_helpers'
 // so real Playwright mouse events drive it; we assert on the persisted block
 // (real SQLite via api.timeBlocks) rather than pixels, so the proof is truthful.
 
-const HOUR_PX = 44
+// One hour in pixels, MEASURED rather than assumed. This spec hardcoded 44;
+// the grid's own HOUR_PX is 56, and 30 under compact density. So every drag
+// below was travelling the wrong distance — a "+2 hours" drag moved 88px,
+// which is 1.57 hours on a 56px grid. The seeded block is exactly 60 minutes,
+// so its rendered height IS one hour, whatever the density.
+async function hourPx(window: Page): Promise<number> {
+  return (await blockBox(window)).height
+}
+
+// The block's box, with the block SCROLLED INTO VIEW first.
+//
+// Without the scroll these drags landed on the calendar's header controls. The
+// week grid opens scrolled to the current time, so a block seeded at 09:00 sits
+// above the viewport by the afternoon — and boundingBox() still reports its
+// layout position, which by then is behind the header. Every drag below was
+// pressing on the class-filter dropdown and the block never moved, which is why
+// all four tests reported a delta of exactly 0.
+//
+// It was also time-of-day dependent: the same tests passed in the morning, when
+// 09:00 was still on screen. A test that depends on the hour it runs at is a
+// test that will eventually lie, so the scroll is not a workaround here — it is
+// what makes the drag mean anything.
+async function blockBox(window: Page): Promise<{ x: number; y: number; width: number; height: number }> {
+  const block = window.locator('[data-testid="time-block"]').first()
+  await block.scrollIntoViewIfNeeded()
+  const box = await block.boundingBox()
+  expect(box, 'the seeded block must be on screen to drag it').not.toBeNull()
+  return box!
+}
 const DAY_MS = 86_400_000
 
 let launched: LaunchedApp | null = null
@@ -56,16 +84,14 @@ test('CDR-1 — dragging a block body down by 2 hours reschedules it +2h', async
   await waitForReady(window)
   await openWeek(window)
 
-  const box = await window.locator('[data-testid="time-block"]').boundingBox()
-  expect(box).not.toBeNull()
-  if (box) {
-    const cx = box.x + box.width / 2
-    const cy = box.y + box.height / 2
-    await window.mouse.move(cx, cy)
-    await window.mouse.down()
-    await window.mouse.move(cx, cy + 2 * HOUR_PX, { steps: 8 })
-    await window.mouse.up()
-  }
+  const hour = await hourPx(window)
+  const box = await blockBox(window)
+  const cx = box.x + box.width / 2
+  const cy = box.y + box.height / 2
+  await window.mouse.move(cx, cy)
+  await window.mouse.down()
+  await window.mouse.move(cx, cy + 2 * hour, { steps: 8 })
+  await window.mouse.up()
   await window.waitForTimeout(400)
 
   const after = await readBlock(window, id)
@@ -85,16 +111,17 @@ test('CDR-2 — dragging the bottom edge down by 1 hour extends duration to 120'
   await waitForReady(window)
   await openWeek(window)
 
-  const box = await window.locator('[data-testid="time-block"]').boundingBox()
+  const hour = await hourPx(window)
+  const box = await blockBox(window)
+  void box
   const handle = await window.locator('[data-testid="block-resize-bottom"]').boundingBox()
-  expect(box).not.toBeNull()
   expect(handle).not.toBeNull()
   if (handle) {
     const cx = handle.x + handle.width / 2
     const cy = handle.y + handle.height / 2
     await window.mouse.move(cx, cy)
     await window.mouse.down()
-    await window.mouse.move(cx, cy + HOUR_PX, { steps: 8 })
+    await window.mouse.move(cx, cy + hour, { steps: 8 })
     await window.mouse.up()
   }
   await window.waitForTimeout(400)
@@ -116,6 +143,7 @@ test('CDR-3 — dragging the top edge down keeps the end fixed and clamps the st
   await waitForReady(window)
   await openWeek(window)
 
+  const hour = await hourPx(window) // also scrolls the block into view
   const handle = await window.locator('[data-testid="block-resize-top"]').boundingBox()
   expect(handle).not.toBeNull()
   if (handle) {
@@ -123,7 +151,7 @@ test('CDR-3 — dragging the top edge down keeps the end fixed and clamps the st
     const cy = handle.y + handle.height / 2
     await window.mouse.move(cx, cy)
     await window.mouse.down()
-    await window.mouse.move(cx, cy + HOUR_PX, { steps: 8 })
+    await window.mouse.move(cx, cy + hour, { steps: 8 })
     await window.mouse.up()
   }
   await window.waitForTimeout(400)
@@ -149,10 +177,9 @@ test('CDR-4 — dragging a block sideways into the neighbouring day moves it one
   await openWeek(window)
 
   // Find which day column holds the block, then target a neighbouring column.
-  const box = await window.locator('[data-testid="time-block"]').boundingBox()
-  expect(box).not.toBeNull()
-  const cx = box!.x + box!.width / 2
-  const cy = box!.y + box!.height / 2
+  const box = await blockBox(window)
+  const cx = box.x + box.width / 2
+  const cy = box.y + box.height / 2
 
   const colBoxes: Array<{ i: number; x: number; w: number }> = []
   for (let i = 0; i < 7; i++) {

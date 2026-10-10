@@ -6,7 +6,7 @@
  * PART C — Loading states + three-view render smoke (checks 6-7)
  */
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, switchArea } from './_helpers'
+import { launchApp, waitForReady, switchArea, grantCapability } from './_helpers'
 import type { Page } from '@playwright/test'
 
 // ---------------------------------------------------------------------------
@@ -56,7 +56,11 @@ test('1. PlexiForms: valid submit creates real row and shows form-submitted', as
 
     // Add a text-short field in Build tab (testid uses full type name: text-short)
     await window.locator('[data-testid="form-add-text-short"]').click()
-    await expect(window.locator('[data-testid="form-field-row"]')).toBeVisible({ timeout: 3000 })
+    // A new form arrives with one seeded 'Name' column (STARTER_SCHEMA in
+    // stores/forms.ts), so adding one field makes TWO rows. Asserting
+    // visibility on the bare locator broke Playwright's strict mode; the count
+    // is both legal and more informative.
+    await expect(window.locator('[data-testid="form-field-row"]')).toHaveCount(2, { timeout: 3000 })
 
     // Get the form id and tableId via IPC
     const forms = await window.evaluate(async () => window.api.forms.list()) as Array<{ id: string; tableId: string }>
@@ -100,7 +104,11 @@ test('2. PlexiForms: submit after table deleted shows honest error, no fake succ
 
     // Add a text-short field so the fill tab is usable
     await window.locator('[data-testid="form-add-text-short"]').click()
-    await expect(window.locator('[data-testid="form-field-row"]')).toBeVisible({ timeout: 3000 })
+    // A new form arrives with one seeded 'Name' column (STARTER_SCHEMA in
+    // stores/forms.ts), so adding one field makes TWO rows. Asserting
+    // visibility on the bare locator broke Playwright's strict mode; the count
+    // is both legal and more informative.
+    await expect(window.locator('[data-testid="form-field-row"]')).toHaveCount(2, { timeout: 3000 })
 
     // Get form + tableId
     const forms = await window.evaluate(async () => window.api.forms.list()) as Array<{ id: string; tableId: string }>
@@ -134,6 +142,9 @@ test('3. PlexiSign: switching agreements does not corrupt titles (key={selected.
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
+    // PlexiSign gates on `esign`, Pro-only since b6ad6564 (2026-07-07). These
+    // tests are about the signing flow, not the price of it, so grant it.
+    await grantCapability(window, 'esign')
     await openProduct(window, 'PlexiSign', 'plexisign')
     await expect(window.locator('[data-testid="plexisign"]')).toBeVisible({ timeout: 8000 })
 
@@ -212,6 +223,9 @@ test('4. PlexiSign: two-signer flow completes with certificate, enforces order',
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
+    // PlexiSign gates on `esign`, Pro-only since b6ad6564 (2026-07-07). These
+    // tests are about the signing flow, not the price of it, so grant it.
+    await grantCapability(window, 'esign')
     await openProduct(window, 'PlexiSign', 'plexisign')
     await expect(window.locator('[data-testid="plexisign"]')).toBeVisible({ timeout: 8000 })
 

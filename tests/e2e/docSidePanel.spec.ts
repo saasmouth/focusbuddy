@@ -18,7 +18,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, openDocSidePanel } from './_helpers'
 
 const SUMMARY_HTML = '<h2>Summary</h2><p>This is the stubbed summary.</p>'
 
@@ -57,7 +57,8 @@ async function openOfficeDoc(window: Page): Promise<void> {
   await expect(window.locator('[data-testid="office-sidebar"]')).toBeVisible({ timeout: 8_000 })
   await window.locator('[data-testid="office-app-docs"]').click()
   await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 10_000 })
-  await expect(window.locator('[data-testid="doc-side-panel"]')).toBeVisible({ timeout: 8_000 })
+  // The panel starts collapsed — this spec is about the panel, so open it.
+  await openDocSidePanel(window)
 }
 
 type DebugEditor = {

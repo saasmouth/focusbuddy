@@ -97,8 +97,13 @@ test.describe('PlexiDesign studio', () => {
     await expect(window.locator('[data-testid="design-export-menu"]')).toBeVisible()
     await expect(window.locator('[data-testid="design-export-png"]')).toBeVisible()
     await expect(window.locator('[data-testid="design-export-pdf"]')).toBeVisible()
-    // Dismiss the menu via its backdrop (top-left), not the native save dialog.
-    await window.mouse.click(5, 5)
+    // Dismiss with the toggle, not a click at (5,5): the menu's backdrop is
+    // `fixed inset-0 z-30` and the titlebar is `z-[100]` and 40px tall, so a
+    // click up there lands on a drag region ABOVE the backdrop and does
+    // nothing. The menu then stayed open, and its full-viewport backdrop
+    // blocked the toolbar for every test after this one — DS-7 through DS-13
+    // were all waiting 30s for buttons sitting under it.
+    await window.locator('[data-testid="design-export-btn"]').click()
     await expect(window.locator('[data-testid="design-export-menu"]')).toBeHidden()
   })
 

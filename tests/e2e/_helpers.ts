@@ -75,6 +75,33 @@ export async function launchApp(opts?: {
   const window = await app.firstWindow()
   await window.waitForLoadState('domcontentloaded')
 
+  // The missed-calendar triage can appear at ANY moment, not just at launch:
+  // its effect awaits a store load, it is armed once per renderer load (so
+  // every reload re-arms it), and any block seeded or booked in the past
+  // triggers it. It is a full-screen scrim at z-[330], so it silently swallows
+  // whatever the spec clicks next — TB-2 and all four calendarDragResize tests
+  // were failing on it, the drags reporting a delta of exactly 0 because the
+  // mouse never reached the grid.
+  //
+  // A one-shot check in waitForReady cannot catch something that mounts later,
+  // and polling for it would cost every spec a wait it does not need. A locator
+  // handler is the right shape: Playwright runs it only when this overlay is
+  // actually blocking an action, and it stays armed across navigations.
+  // "Later" costs nothing and returns next launch, so dismissing it changes no
+  // state the specs care about.
+  await window.addLocatorHandler(
+    window.locator('[data-testid="missed-triage"]'),
+    async (overlay) => {
+      // `exact` matters: the dialog also carries a per-row icon button titled
+      // "Later — nothing changes", so a loose name matches two elements and the
+      // handler dies on strict mode instead of dismissing anything.
+      await overlay
+        .getByRole('button', { name: 'Later', exact: true })
+        .click({ timeout: 4_000 })
+    },
+    { noWaitAfter: true }
+  )
+
   async function dispose(): Promise<void> {
     // app.close() on Electron 37 / macOS can hang indefinitely when the
     // inspector remains attached. Race it against a 5 s timeout and fall back
@@ -182,6 +209,10 @@ export async function waitForReady(
   if (await spotlight.isVisible().catch(() => false)) {
     await spotlight.click(BEST_EFFORT).catch(() => {})
   }
+
+  // The missed-calendar triage is handled by a locator handler armed in
+  // launchApp — it can mount long after this returns, so a check here would
+  // miss it.
 }
 
 // Where each former top-level product now lives under the three-segment IA.
@@ -192,52 +223,120 @@ export async function waitForReady(
 //   - `direct` products no longer have a segment home (Build / Form); navigate
 //     straight to their view through the view store so their spec coverage
 //     survives. The view renders in the global MainPane, testids unchanged.
+// ── Booking time on the week grid ───────────────────────────────────────────
+// The inline BlockComposer was deleted by DEC-080 (34feaab1, 2026-08-30): the
+// Book time dialog is now the one create / edit / proposal surface, and a plain
+// click on an empty slot opens it at the pressed slot. The old testids map
+// across as block-composer -> book-time-dialog, composer-create -> book-commit,
+// composer-meeting-toggle -> the "Meeting" tab in the dialog header (a mode
+// slider: Focus time | Meeting), and composer-invitees -> guest-input, which
+// the Meeting mode reveals.
+export async function openBookTimeDialog(
+  window: Page,
+  dayIndex = 2,
+  y = 180
+): Promise<Locator> {
+  await window.locator(`[data-testid="day-col-${dayIndex}"]`).click({ position: { x: 20, y } })
+  const dialog = window.locator('[data-testid="book-time-dialog"]')
+  await expect(dialog).toBeVisible({ timeout: 8_000 })
+  return dialog
+}
+
+// Turn a booked block into a meeting, revealing the guests field.
+export async function chooseMeetingMode(dialog: Locator): Promise<void> {
+  const meetingTab = dialog.getByRole('tab', { name: 'Meeting' })
+  await expect(meetingTab).toBeVisible()
+  await meetingTab.click()
+  await expect(meetingTab).toHaveAttribute('aria-selected', 'true')
+}
+
+// ── The document side panel ─────────────────────────────────────────────────
+// The outline/comments panel starts MINIMISED (5d6e3afe, 2026-09-18): it used
+// to open with every document, spending a slice of the width on outline and
+// comments nobody asked for — worst in a document widget on a desk. The choice
+// is remembered in localStorage, so a fresh e2e profile always starts collapsed
+// and a spec that wants the panel has to ask for it.
+export async function openDocSidePanel(window: Page): Promise<void> {
+  const panel = window.locator('[data-testid="doc-side-panel"]')
+  if (await panel.isVisible()) return
+  await window.locator('[data-testid="doc-side-panel-expand"]').click()
+  await expect(panel).toBeVisible({ timeout: 8_000 })
+}
+
+// ── Capabilities ────────────────────────────────────────────────────────────
+// Grant a capability for the rest of the session. __fbCapabilities is the real
+// store (stores/capabilities.ts exposes it for exactly this), so nothing about
+// how the app behaves changes — this is the same path a Pro/Team snapshot takes.
+// Use it for a spec whose subject is a feature's behaviour rather than its
+// entitlement; a spec about gating should drive the capability endpoint instead.
+export async function grantCapability(window: Page, cap: string): Promise<void> {
+  const ok = await window.evaluate((c: string) => {
+    const store = (
+      window as unknown as {
+        __fbCapabilities?: {
+          getState: () => { capabilities: Record<string, unknown> }
+          setState: (p: { capabilities: Record<string, unknown> }) => void
+        }
+      }
+    ).__fbCapabilities
+    if (!store) return false
+    store.setState({ capabilities: { ...store.getState().capabilities, [c]: true } })
+    return true
+  }, cap)
+  if (!ok) throw new Error(`window.__fbCapabilities not exposed — cannot grant ${cap}`)
+}
+
 // ── The area switcher ────────────────────────────────────────────────────────
-// Desk / Office / People / Brain used to be a standing four-tile row in every
-// menu. Commit c581655d folded it into the WorkspaceSwitcher dropdown, because
-// an area lives inside an organisation and the two controls were answering one
-// question. The `switch-<kind>` testids survived the move, but they now live
-// behind a trigger, so clicking one cold waits forever on a closed menu.
+// Desk / Office / People / Brain are tabs in every area's menu
+// (segment/SegmentSwitcher.tsx), each carrying `switch-<kind>`.
 //
-// Use these two helpers rather than reaching for `switch-<kind>` directly:
-// openAreaSwitcher is idempotent (it leaves an already-open menu alone), and
-// switchArea opens the menu only when it has to.
+// They spent 2026-10-09 to 2026-10-10 folded inside the WorkspaceSwitcher
+// dropdown instead (c581655d), which is why these helpers tolerate both
+// shapes: a tab that is already on screen is clicked directly, and only if it
+// is not visible do we go looking for a trigger to open. That keeps every spec
+// working whichever way the chrome is arranged, which is the whole reason the
+// fold broke forty of them at once.
 export async function openAreaSwitcher(window: Page): Promise<void> {
+  // Tabs on screen: nothing to open.
+  if (await window.locator('[data-testid="switch-office"]').first().isVisible().catch(() => false)) {
+    return
+  }
   const menu = window.locator('[data-testid="workspace-switcher-menu"]')
-  if (await menu.isVisible()) return
-  await window.locator('[data-testid="workspace-switcher-trigger"]').first().click()
-  await expect(menu).toBeVisible({ timeout: 8_000 })
+  if (await menu.isVisible().catch(() => false)) return
+  const trigger = window.locator('[data-testid="workspace-switcher-trigger"]').first()
+  if (await trigger.isVisible().catch(() => false)) {
+    await trigger.click()
+    await expect(menu).toBeVisible({ timeout: 8_000 })
+  }
 }
 
 export type AreaKind = 'plexidesk' | 'office' | 'plexipeople' | 'plexibrain'
 
-// Switch to an area. Returns once the menu has closed behind the click, so the
-// caller never races the dropdown's own teardown while hunting for the new
-// surface underneath it.
+// Switch to an area.
 export async function switchArea(window: Page, kind: AreaKind): Promise<void> {
   await openAreaSwitcher(window)
   const item = window.locator(`[data-testid="switch-${kind}"]`).first()
-  // A locked area answers the click with its upgrade reason and deliberately
-  // keeps the menu open, so only an entitled switch is expected to close it.
+  await expect(item).toBeVisible({ timeout: 8_000 })
+  // A locked area answers the click with its upgrade reason and navigates
+  // nowhere, so only an entitled switch is expected to change anything.
   const locked = (await item.getAttribute('data-locked')) === 'true'
   await item.click()
   if (locked) return
-  await expect(window.locator('[data-testid="workspace-switcher-menu"]')).toBeHidden({
-    timeout: 8_000
-  })
+  // If the click came from inside the dropdown, that dropdown closes behind it.
+  const menu = window.locator('[data-testid="workspace-switcher-menu"]')
+  if (await menu.count()) await expect(menu).toBeHidden({ timeout: 8_000 })
 }
 
-// Is an area entitlement-locked? The lock lives on a menu item, so reading it
-// means opening the menu; this leaves it closed again so the caller gets the
-// page back the way it found it.
+// Is an area entitlement-locked? Leaves the chrome as it found it.
 export async function isAreaLocked(window: Page, kind: AreaKind): Promise<boolean> {
   await openAreaSwitcher(window)
   const locked =
     (await window.locator(`[data-testid="switch-${kind}"][data-locked="true"]`).count()) > 0
-  await window.keyboard.press('Escape')
-  await expect(window.locator('[data-testid="workspace-switcher-menu"]')).toBeHidden({
-    timeout: 8_000
-  })
+  const menu = window.locator('[data-testid="workspace-switcher-menu"]')
+  if (await menu.isVisible().catch(() => false)) {
+    await window.keyboard.press('Escape')
+    await expect(menu).toBeHidden({ timeout: 8_000 })
+  }
   return locked
 }
 

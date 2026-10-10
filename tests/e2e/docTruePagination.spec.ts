@@ -23,7 +23,8 @@ import { launchApp, waitForReady, switchArea } from './_helpers'
 import { join } from 'path'
 import { mkdirSync } from 'fs'
 
-const SCREENSHOT_DIR = '/private/tmp/claude-501/-Applications-agentic-starter-kit-main/0d9ea3a0-0a94-4273-82da-09071878651b/scratchpad'
+// Beside every other spec's evidence, not in one agent session's scratchpad.
+const SCREENSHOT_DIR = 'test-results/doc-true-pagination'
 const SCREENSHOT_PATH = join(SCREENSHOT_DIR, 'doc-true-pagination.png')
 
 // ── Helper: navigate to Documents hub and open the first doc (or create one) ──
@@ -114,6 +115,32 @@ test('TRPAG-1 — true pagination: discrete sheets with gap, spacers, typing saf
     ).toBeLessThanOrEqual(4)
     // Confirm sheets are NOT overlapping and NOT a single continuous sheet.
     expect(gapPx as number, 'sheets must not overlap (gap must be positive)').toBeGreaterThan(0)
+
+    // ── Step 3b-ii: each gap is labelled with the page it begins ─────────────
+    // Carried over from docPageBreakVisual.spec.ts, which was deleted: it
+    // asserted the OLD model, where `doc-page-break` was itself a 26px band
+    // spanning the sheet. d8ebb926 replaced that band with these discrete
+    // sheets and the real gap measured above, and `doc-page-break` became the
+    // small page-number label sitting in the gap. Everything else that spec
+    // checked is covered here already; the label was the one thing that was not.
+    const breaks = window.locator('[data-testid="doc-page-break"]')
+    // One label per gap, and there is one gap fewer than there are sheets.
+    await expect(breaks).toHaveCount(sheetCount - 1)
+    await expect(breaks.first()).toBeVisible()
+    expect((await breaks.first().textContent())?.trim()).toBe('Page 2')
+
+    // The label sits INSIDE the gap it names, not on either sheet.
+    const labelInGap = await window.evaluate(() => {
+      const sheetEls = document.querySelectorAll('[data-testid="doc-page-sheet"]')
+      const label = document.querySelector('[data-testid="doc-page-break"]')
+      if (sheetEls.length < 2 || !label) return null
+      const r0 = sheetEls[0].getBoundingClientRect()
+      const r1 = sheetEls[1].getBoundingClientRect()
+      const rl = label.getBoundingClientRect()
+      // Allow a pixel of rounding at each edge of the band.
+      return rl.top >= r0.bottom - 1 && rl.bottom <= r1.top + 1
+    })
+    expect(labelInGap, 'the "Page 2" label must sit in the gap, not on a sheet').toBe(true)
 
     // ── Step 3c: fb-page-spacer elements exist inside ProseMirror ─────────────
     const spacerCount = await window.evaluate(

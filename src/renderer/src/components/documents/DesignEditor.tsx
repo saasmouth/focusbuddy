@@ -1100,7 +1100,17 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
           testid="design-ai-toggle"
         />
         <div className="relative">
-          <ToolBtn icon="download" label="Export" active={exportOpen} onClick={() => setExportOpen((v) => !v)} testid="design-export-btn" />
+          {/* The trigger has to out-rank its own dismiss backdrop. The backdrop
+              is `fixed inset-0 z-30` and a SIBLING of this button inside this
+              `relative` box, so with no z-index of its own the button sat under
+              it: once the menu was open, the control that opened it could not
+              close it, and the click was swallowed. Clicks anywhere else still
+              land on the backdrop and dismiss.
+              (Raising this whole box instead does nothing — the backdrop rides
+              up with it, being a child of the same box.) */}
+          <span className={exportOpen ? 'relative z-40' : undefined}>
+            <ToolBtn icon="download" label="Export" active={exportOpen} onClick={() => setExportOpen((v) => !v)} testid="design-export-btn" />
+          </span>
           {exportOpen && (
             <>
               <div className="fixed inset-0 z-30" onClick={() => setExportOpen(false)} />

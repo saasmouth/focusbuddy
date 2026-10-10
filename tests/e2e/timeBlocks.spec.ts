@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, gotoView } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, gotoView, openBookTimeDialog } from './_helpers'
 
 // Calendar time-blocking. Two layers: the backend round-trip (real SQLite —
 // create, range query, reschedule, complete, delete) and the week-grid UI
@@ -81,9 +81,8 @@ test('TB-2 — booking a block from the week grid renders it and it persists', a
   await expect(window.locator('[data-testid="week-time-grid"]')).toBeVisible({ timeout: 6000 })
 
   // Click an empty slot in a weekday column to open the composer, then book it.
-  await window.locator('[data-testid="day-col-2"]').click({ position: { x: 20, y: 180 } })
-  await expect(window.locator('[data-testid="block-composer"]')).toBeVisible({ timeout: 4000 })
-  await window.locator('[data-testid="composer-create"]').click()
+  const dialog = await openBookTimeDialog(window)
+  await dialog.locator('[data-testid="book-commit"]').click()
 
   // A block now renders on the grid.
   await expect(window.locator('[data-testid="time-block"]')).toHaveCount(1, { timeout: 4000 })
@@ -126,12 +125,14 @@ test('TB-3 — dragging a task onto a day column books a block for that task', a
     col.dispatchEvent(new DragEvent('drop', { ...base, dataTransfer: dt }))
   }, taskId)
 
-  // The composer opens pre-filled with that task as a read-only chip; confirm
-  // the duration to book it.
-  const composer = window.locator('[data-testid="block-composer"]')
-  await expect(composer).toBeVisible({ timeout: 4000 })
-  await expect(composer.locator('[data-testid="composer-prefill"]')).toContainText('Write the report')
-  await window.locator('[data-testid="composer-create"]').click()
+  // The booking dialog opens pre-filled: a dragged node arrives as the dialog's
+  // Attach value (BookTimeDialog seeds `attached` from prefillNode and passes
+  // its real id through as the block's taskId — the hardcoded STUB_ATTACH is
+  // explicitly excluded there, so only a real drag can book against a task).
+  const dialog = window.locator('[data-testid="book-time-dialog"]')
+  await expect(dialog).toBeVisible({ timeout: 4000 })
+  await expect(dialog.locator('[data-testid="book-attach-row"]')).toContainText('Write the report')
+  await dialog.locator('[data-testid="book-commit"]').click()
 
   // A block for that task now renders, carries the task's title, and offers a
   // jump-to-task button.

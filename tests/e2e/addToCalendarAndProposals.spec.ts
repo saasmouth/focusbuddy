@@ -12,7 +12,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, gotoView, type LaunchedApp, switchArea } from './_helpers'
+import { launchApp, waitForReady, gotoView, type LaunchedApp, switchArea, openBookTimeDialog, chooseMeetingMode } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -83,12 +83,20 @@ async function stubWorkspaceAskEmpty(app: LaunchedApp['app']): Promise<void> {
   })
 }
 
-async function openOfficeDoc(window: Page): Promise<void> {
+// WorkspaceAsk used to be reached through the document side panel's AI tab.
+// That tab is retired in the main app: the ONE global assistant owns AI here,
+// so DocEditor passes showAiTab={false} and only the standalone PlexiOffice
+// build still renders it. The component itself is very much alive — it is
+// mounted in the Sheets, Slides and Design AI panels — so these specs drive it
+// where it actually exists. The sheet's panel is open by default, which keeps
+// the walk to the subject short.
+async function openWorkspaceAsk(window: Page): Promise<void> {
   await switchArea(window, 'office')
   await expect(window.locator('[data-testid="office-sidebar"]')).toBeVisible({ timeout: 8_000 })
-  await window.locator('[data-testid="office-app-docs"]').click()
-  await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 10_000 })
-  await expect(window.locator('[data-testid="doc-side-panel"]')).toBeVisible({ timeout: 8_000 })
+  await window.locator('[data-testid="office-app-sheets"]').click()
+  await expect(window.locator('[data-testid="sheet-grid"]')).toBeVisible({ timeout: 10_000 })
+  await expect(window.locator('[data-testid="sheet-ai-panel"]')).toBeVisible({ timeout: 8_000 })
+  await expect(window.locator('[data-testid="workspace-ask"]')).toBeVisible({ timeout: 8_000 })
 }
 
 // ─── Change 1: Add to calendar ───────────────────────────────────────────────
@@ -103,12 +111,12 @@ test('ATC-1 — a meeting block shows an add-to-calendar button that opens a two
   await window.locator('[data-testid="calendar-mode-week"]').click()
   await expect(window.locator('[data-testid="week-time-grid"]')).toBeVisible({ timeout: 6000 })
 
-  // Open the composer and create a meeting block.
-  await window.locator('[data-testid="day-col-2"]').click({ position: { x: 20, y: 180 } })
-  await expect(window.locator('[data-testid="block-composer"]')).toBeVisible({ timeout: 4000 })
-  await window.locator('[data-testid="composer-meeting-toggle"]').check()
-  await expect(window.locator('[data-testid="composer-invitees"]')).toBeVisible({ timeout: 2000 })
-  await window.locator('[data-testid="composer-create"]').click()
+  // Open the booking dialog and create a meeting block. (The inline composer
+  // this used to drive was deleted by DEC-080 — see openBookTimeDialog.)
+  const dialog = await openBookTimeDialog(window)
+  await chooseMeetingMode(dialog)
+  await expect(dialog.locator('[data-testid="guest-input"]')).toBeVisible({ timeout: 2000 })
+  await dialog.locator('[data-testid="book-commit"]').click()
   await expect(window.locator('[data-testid="time-block"]')).toHaveCount(1, { timeout: 4000 })
 
   const block = window.locator('[data-testid="time-block"]')
@@ -150,9 +158,10 @@ test('ATC-2 — Google Calendar option opens a calendar.google.com TEMPLATE url 
   await expect(window.locator('[data-testid="week-time-grid"]')).toBeVisible({ timeout: 6000 })
 
   await window.locator('[data-testid="day-col-3"]').click({ position: { x: 20, y: 220 } })
-  await expect(window.locator('[data-testid="block-composer"]')).toBeVisible({ timeout: 4000 })
-  await window.locator('[data-testid="composer-meeting-toggle"]').check()
-  await window.locator('[data-testid="composer-create"]').click()
+  const dialog2 = window.locator('[data-testid="book-time-dialog"]')
+  await expect(dialog2).toBeVisible({ timeout: 4000 })
+  await chooseMeetingMode(dialog2)
+  await dialog2.locator('[data-testid="book-commit"]').click()
   await expect(window.locator('[data-testid="time-block"]')).toHaveCount(1, { timeout: 4000 })
 
   const block = window.locator('[data-testid="time-block"]')
@@ -179,10 +188,9 @@ test('ATC-3 — a non-meeting block has no add-to-calendar button', async () => 
   await window.locator('[data-testid="calendar-mode-week"]').click()
   await expect(window.locator('[data-testid="week-time-grid"]')).toBeVisible({ timeout: 6000 })
 
-  await window.locator('[data-testid="day-col-1"]').click({ position: { x: 20, y: 150 } })
-  await expect(window.locator('[data-testid="block-composer"]')).toBeVisible({ timeout: 4000 })
-  // Meeting toggle left OFF.
-  await window.locator('[data-testid="composer-create"]').click()
+  const plainDialog = await openBookTimeDialog(window, 1, 150)
+  // Meeting mode left OFF — the dialog opens on Focus time.
+  await plainDialog.locator('[data-testid="book-commit"]').click()
   await expect(window.locator('[data-testid="time-block"]')).toHaveCount(1, { timeout: 4000 })
 
   const block = window.locator('[data-testid="time-block"]')
@@ -198,9 +206,8 @@ test('WAP-1 — workspace ask renders an approvable proposal card and Create app
   const { window, app } = launched
   await waitForReady(window)
   await stubWorkspaceAskWithProposals(app)
-  await openOfficeDoc(window)
+  await openWorkspaceAsk(window)
 
-  await window.locator('[data-testid="doc-tab-ai"]').click()
   await expect(window.locator('[data-testid="workspace-ask"]')).toBeVisible()
 
   await window.locator('[data-testid="workspace-ask-input"]').fill('What should I do next on Q3 launch?')
@@ -212,19 +219,22 @@ test('WAP-1 — workspace ask renders an approvable proposal card and Create app
 
   const proposals = answer.locator('[data-testid="workspace-ask-proposals"]')
   await expect(proposals).toBeVisible({ timeout: 4000 })
-  const card = proposals.locator('[data-testid="workspace-ask-proposal"]')
+
+  // The bespoke proposal card was replaced by the shared approval surface
+  // (components/ProposalCards.tsx), where the CARD ITSELF is the apply
+  // control — there is no separate Create button — and each card is keyed by
+  // the proposal id. An applied one is re-rendered as a durable
+  // `proposal-card-applied-<id>` record reading "<verb> · done".
+  const card = proposals.locator('[data-testid="proposal-card-prop-task-1"]')
   await expect(card).toHaveCount(1)
   await expect(card).toContainText('Follow up on Q3 launch blockers')
 
-  // Consume any console errors emitted so far before the Create click.
-  const applyBtn = card.locator('[data-testid="workspace-ask-proposal-apply"]')
-  await expect(applyBtn).toBeVisible()
-  await applyBtn.click()
+  await card.click()
 
-  // The apply path creates a real task node via applyProposal → the card
-  // flips to a "Created" state (no dismiss/apply buttons left).
-  await expect(card).toContainText('Created', { timeout: 4000 })
-  await expect(card.locator('[data-testid="workspace-ask-proposal-apply"]')).toHaveCount(0)
+  const appliedCard = proposals.locator('[data-testid="proposal-card-applied-prop-task-1"]')
+  await expect(appliedCard).toContainText('done', { timeout: 4000 })
+  // The pending card is gone, so it cannot be applied twice.
+  await expect(proposals.locator('[data-testid="proposal-card-prop-task-1"]')).toHaveCount(0)
 
   // Confirm the task was actually created (no-fakery: verify the real side
   // effect, not just the UI label).
@@ -241,18 +251,19 @@ test('WAP-2 — dismiss removes a proposal card without applying it', async () =
   const { window, app } = launched
   await waitForReady(window)
   await stubWorkspaceAskWithProposals(app)
-  await openOfficeDoc(window)
+  await openWorkspaceAsk(window)
 
-  await window.locator('[data-testid="doc-tab-ai"]').click()
   await window.locator('[data-testid="workspace-ask-input"]').fill('What should I do next?')
   await window.locator('[data-testid="workspace-ask-go"]').click()
 
   const answer = window.locator('[data-testid="workspace-ask-answer"]')
   await expect(answer).toBeVisible({ timeout: 8000 })
-  const card = answer.locator('[data-testid="workspace-ask-proposal"]')
+  const card = answer.locator('[data-testid="proposal-card-prop-task-1"]')
   await expect(card).toBeVisible({ timeout: 4000 })
 
-  await card.locator('[data-testid="workspace-ask-proposal-dismiss"]').click()
+  // Dismiss sits inside the card and stops the click propagating to it, so
+  // declining a suggestion never applies it by accident.
+  await card.locator('[data-testid="proposal-dismiss-prop-task-1"]').click()
   await expect(answer.locator('[data-testid="workspace-ask-proposals"]')).toHaveCount(0)
 
   const created = await window.evaluate(async () => {
@@ -268,9 +279,8 @@ test('WAP-3 — no proposals (no-key / weak-suggestion path) renders the panel c
   const { window, app } = launched
   await waitForReady(window)
   await stubWorkspaceAskEmpty(app)
-  await openOfficeDoc(window)
+  await openWorkspaceAsk(window)
 
-  await window.locator('[data-testid="doc-tab-ai"]').click()
   await window.locator('[data-testid="workspace-ask-input"]').fill('Anything to propose?')
   await window.locator('[data-testid="workspace-ask-go"]').click()
 

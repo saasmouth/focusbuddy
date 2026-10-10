@@ -6,7 +6,7 @@
  * desk, then applies there.
  */
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, openDocSidePanel } from './_helpers'
 
 test.describe('one assistant — in a document', () => {
   let app: LaunchedApp
@@ -18,7 +18,7 @@ test.describe('one assistant — in a document', () => {
     await switchArea(window, 'office')
     await window.locator('[data-testid="office-app-docs"]').click()
     await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 10_000 })
-    await expect(window.locator('[data-testid="doc-side-panel"]')).toBeVisible({ timeout: 8_000 })
+    await openDocSidePanel(window)
     await expect(window.locator('[data-testid="doc-tab-ai"]')).toHaveCount(0)
     await expect(window.locator('[data-testid="doc-tab-comments"]')).toBeVisible()
     await expect(window.locator('[data-testid="doc-tab-outline"]')).toBeVisible()
