@@ -2,7 +2,7 @@ import { WIDGET_CATALOG } from '../../lib/widgetCatalog'
 import { GRID } from '../../lib/canvasGrid'
 import { stripMentions } from '@shared/mentionText'
 import { snapEnabled } from '../../lib/gridPref'
-import { useContext, useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react'
+import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { Rnd } from 'react-rnd'
 import { useWidgetSurface } from '../../lib/widgetSurface'
@@ -10,6 +10,11 @@ import { type CtxMenuItem } from '../CanvasContextMenu'
 import UnifiedWidgetMenu from '../contextMenu/UnifiedWidgetMenu'
 import WidgetSetupAffordance from './WidgetSetupAffordance'
 import { useAutoGrowHeight } from '../../lib/useAutoGrowHeight'
+import { useChatStore, NEW_CHAT_KEY } from '../../stores/chat'
+import { useAssistantChrome } from '../../stores/assistantChrome'
+import { mentionFromWidget } from '../../lib/assistantMentions'
+import { planWidgetAi } from '../../lib/widgetAi'
+import { useWidgetSetup } from '../../stores/widgetSetup'
 import { getNavPrefs } from '../../lib/navPrefs'
 import { useContextHealthStore } from '../../stores/contextHealth'
 import { healthFrameStyle } from '../../lib/healthFrame'
@@ -68,6 +73,17 @@ interface Props {
   // WebViewWidget passes "Pin to apps" here). Inserted at the top of the
   // generic items so kind-specific actions are immediately discoverable.
   headerMenuExtras?: CtxMenuItem[]
+  /**
+   * The widget's OWN AI surface, when it has one — the table's column/row
+   * assistant, for instance.
+   *
+   * Every widget gets the AI button either way: the header is where someone
+   * looks for it, and a button that appears on some widgets and not others is
+   * the complaint this answers. Without a handler the button opens the
+   * assistant with this widget attached, which is a real answer rather than a
+   * placeholder — the mention machinery already exists for click-to-attach.
+   */
+  onAi?: () => void
 }
 
 export default function WidgetFrame({
@@ -77,7 +93,8 @@ export default function WidgetFrame({
   headerAccent = 'bg-stone-200/70 dark:bg-white/[0.07]',
   draggableHandleClass = 'widget-handle',
   zonePosition: zonePositionProp,
-  headerMenuExtras
+  headerMenuExtras,
+  onAi
 }: Props): JSX.Element {
   // Pull from the prop first (escape hatch for callers that want to drive
   // position explicitly), then fall back to the PinLayoutContext provided
@@ -113,6 +130,25 @@ export default function WidgetFrame({
   // Every widget can be named. Until the user types a name, the header shows a
   // name inherited from the widget's own content (first line of a note, a
   // browser's hostname); double-click the header label to set a manual name.
+  // ── What the AI button does ────────────────────────────────────────────────
+  // Widget AI and the assistant are DIFFERENT THINGS and this button belongs to
+  // the first one. Widget AI sets up and controls this widget in its own
+  // vocabulary; the assistant is a conversation about the workspace. For one
+  // commit this button fell through to the assistant whenever a widget had no
+  // AI of its own, which conflated them — see lib/widgetAi for why that is
+  // wrong, and what each kind's AI actually offers.
+  const aiPlan = useMemo(() => planWidgetAi(widget, Boolean(onAi)), [widget, onAi])
+
+  // Attach the widget to the assistant. Reached ONLY from the explicit "ask the
+  // assistant instead" affordance on a kind with no widget AI — never as a
+  // silent substitute for one.
+  const askAssistantAbout = useCallback((): void => {
+    const chat = useChatStore.getState()
+    const ref = mentionFromWidget(widget, chat.activeConversationId ?? NEW_CHAT_KEY)
+    if (ref) chat.addMentionRef(ref)
+    useAssistantChrome.getState().openPanel()
+  }, [widget])
+
   const [titleEditing, setTitleEditing] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
   // Manual double-click detection. The native `dblclick` event is unreliable on
@@ -1160,6 +1196,35 @@ export default function WidgetFrame({
             )}
           </span>
           <div className="fb-widget-actions flex items-center gap-0.5">
+            {!titleEditing && (
+              // FIRST in the row, on every widget with a header, so it is in
+              // the same place every time. It used to exist on two widgets
+              // only — and on the table it was in the BODY, beside the
+              // add-column plus, which is not where anyone looks for it.
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (aiPlan.surface === 'own') onAi?.()
+                  else if (aiPlan.surface === 'setup') useWidgetSetup.getState().start(widget.id)
+                  // 'none': the widget has no AI of its own. Offer the
+                  // assistant EXPLICITLY rather than pretending this button
+                  // was its door all along.
+                  else askAssistantAbout()
+                }}
+                className="widget-nodrag h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] opacity-75 hover:opacity-100 hover:bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] hover:text-accent transition-opacity"
+                aria-label={
+                  aiPlan.surface === 'none'
+                    ? 'No AI for this widget yet — ask the assistant instead'
+                    : `${aiPlan.label} — ${aiPlan.purpose}`
+                }
+                title={`${aiPlan.label} — ${aiPlan.purpose}`}
+                data-testid="widget-ai"
+                data-ai-surface={aiPlan.surface}
+              >
+                <Icon name="auto_awesome" size={12} />
+              </button>
+            )}
             {!titleEditing && (
               <button
                 onMouseDown={(e) => e.stopPropagation()}

@@ -477,7 +477,12 @@ export const ACTION_KINDS_CATALOG =
   '  { "kind": "create-field", "label": "Energy", "fieldType": "single-select", "options": ["Low","Med","High"], "reason": "you sort these by energy but there is no field for it" }\n' +
   '  { "kind": "create-agent", "id": "agent-1", "title": "Lead researcher", "instruction": "For each row in the leads table, research the company and add a one-line summary of what they do.", "trigger": "manual", "reason": "automates the research" }\n' +
   '  { "kind": "link-widgets", "sourceWidgetId": "$tbl-1", "targetWidgetId": "$agent-1", "sourceLabel": "leads table", "targetLabel": "research agent", "wireType": "context", "verb": "research", "reason": "feed the table into the agent" }\n' +
-  '  { "kind": "update-widget", "widgetId": "<from canvas summary>", "label": "the launch checklist", "title": "...", "content": "...", "reason": "the checklist still says Q2 and the dates have moved" }\n' +
+  '  { "kind": "update-widget", "widgetId": "<from canvas summary>", "label": "the launch checklist", "title": "...", "content": "...", "reason": "the checklist still says Q2 and the dates have moved" }  (ONLY for plain text content or a title/size change \u2014 see ask-widget-ai below)\n' +
+  '  { "kind": "ask-widget-ai", "widgetId": "<from canvas summary>", "label": "the revenue chart", "intent": "plot revenue by month from the sales table", "reason": "you asked for the trend and the chart is unbound" }  ' +
+  'USE THIS, not update-widget, whenever you intend to change what a widget SHOWS, how it is CONFIGURED, or what DATA it is bound to. ' +
+  'Every widget kind has its own AI expert that speaks that widget vocabulary \u2014 a chart knows tables and axes, an inbox widget knows mail rules, an agent knows standing instructions, a mindmap knows nodes and edges. ' +
+  'You do not know those shapes and must not invent them: update-widget can only write a title, a plain content string and a geometry, so using it on a chart or a rule produces something nothing validates and the change is lost. ' +
+  'Put what the user wants in `intent`, in their own words, and the expert turns it into a real change they approve. The expert is authoritative about that widget; you are not.\n' +
   '  { "kind": "delete-widget", "widgetId": "<from canvas summary>", "label": "the empty sticky", "reason": "it is empty and has been since the desk was made" }\n' +
   '  { "kind": "start-focus-session", "minutes": 5, "reason": "you have twenty-five minutes before the call and one thing left" }\n' +
   '  { "kind": "update-task", "taskId": "<the Desk id shown above>", "label": "this desk", "status": "done", "dueDate": null, "title": "new title", "reason": "user marked it complete" }  (' +
@@ -1011,6 +1016,24 @@ export function parseChatJson(raw: string): {
             typeof action.title === 'string' ? (action.title as string) : undefined,
           content:
             typeof action.content === 'string' ? (action.content as string) : undefined,
+          reason
+        })
+        break
+      }
+      case 'ask-widget-ai': {
+        const widgetId = action.widgetId as string
+        const label = action.label as string
+        const intent = typeof action.intent === 'string' ? (action.intent as string).trim() : ''
+        // An intent is the whole payload here: without one there is nothing for
+        // the widget's expert to act on, and a card reading "Ask the chart to"
+        // would be worse than no card.
+        if (!widgetId || !label || !intent) break
+        proposals.push({
+          id: makeProposalId('wai', i++),
+          kind: 'ask-widget-ai',
+          widgetId,
+          label,
+          intent,
           reason
         })
         break

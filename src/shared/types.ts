@@ -1306,6 +1306,31 @@ export type ActionProposal =
     }
   | {
       id: string
+      /**
+       * Hand the job to the widget's own AI expert.
+       *
+       * `update-widget` can write a title, a content string and a geometry, and
+       * that is all it knows. It has no idea what a chart's content means, or
+       * an inbox rule's, or an agent's standing instruction — so asking it to
+       * "show revenue by month" makes it guess at a shape nothing validates,
+       * and the result is either wrong or silently discarded.
+       *
+       * Each kind HAS an expert that speaks its own vocabulary (see
+       * lib/widgetAiFamilies and the main process's WIDGET_SETUP_KINDS). This
+       * action carries the INTENT in plain language and lets that expert turn
+       * it into a change it can vouch for. The assistant plans; the expert
+       * decides what the widget actually becomes.
+       */
+      kind: 'ask-widget-ai'
+      widgetId: string
+      /** How to name the widget when asking the user to approve. */
+      label: string
+      /** What the user wants, in their words — not a content payload. */
+      intent: string
+      reason?: string
+    }
+  | {
+      id: string
       kind: 'link-widgets'
       // Source / target are widget ids. The voice interpreter resolves
       // user-friendly references ("the budget table") into ids before

@@ -13,6 +13,8 @@ import type { FieldDefinition, TableSchema } from '@shared/fields'
 import { defaultConfig, defaultValue } from '@shared/fields'
 import { useNodeStore } from '../stores/nodes'
 import { useWidgetStore } from '../stores/widgets'
+import { useWidgetSetup } from '../stores/widgetSetup'
+import { WIDGET_AI } from './widgetAiFamilies'
 import { useFocusSessionStore } from '../stores/focusSession'
 import { useTablesStore } from '../stores/tables'
 import { useLinksStore } from '../stores/links'
@@ -104,6 +106,8 @@ export async function applyProposal(
       return applyDeleteWidget(proposal)
     case 'update-widget':
       return applyUpdateWidget(proposal)
+    case 'ask-widget-ai':
+      return applyAskWidgetAi(proposal)
     case 'link-widgets':
       return applyLinkWidgets(proposal, ctx)
     case 'focus-widget':
@@ -1048,6 +1052,41 @@ async function applyDeleteWidget(
   return { ok: true, message: `Removed ${p.label}` }
 }
 
+/**
+ * Hand the job to the widget's own AI expert.
+ *
+ * The assistant plans; the expert decides what the widget becomes. So this does
+ * NOT write anything itself — it opens that widget's AI with the intent, and
+ * the expert produces a change the person then approves. Writing here would be
+ * the generic guess this action exists to avoid.
+ *
+ * The setup/control surface is the same one the widget's own AI button opens,
+ * so a change the assistant asked for and a change you asked for arrive through
+ * one path and look identical.
+ */
+async function applyAskWidgetAi(
+  p: Extract<ActionProposal, { kind: 'ask-widget-ai' }>
+): Promise<ApplyResult> {
+  const target = useWidgetStore.getState().widgets.find((w) => w.id === p.widgetId)
+  if (!target) {
+    return { ok: false, message: `No widget found with id ${p.widgetId.slice(0, 8)}\u2026` }
+  }
+  const entry = WIDGET_AI[target.kind]
+  if (!entry) {
+    // Every catalogue kind is registered, so this is a kind from a newer build
+    // than this registry. Say so rather than silently doing nothing.
+    return {
+      ok: false,
+      message: `No AI expert registered for a ${target.kind} widget yet.`
+    }
+  }
+  useWidgetSetup.getState().start(target.id, p.intent)
+  return {
+    ok: true,
+    message: `Asked the ${p.label} to ${p.intent}`
+  }
+}
+
 async function applyUpdateWidget(
   p: Extract<ActionProposal, { kind: 'update-widget' }>
 ): Promise<ApplyResult> {
@@ -1617,6 +1656,11 @@ export function describeProposal(
       return { icon: 'delete', verb: 'Remove', subject: p.label }
     case 'update-widget':
       return { icon: 'edit', verb: 'Update', subject: p.label }
+    case 'ask-widget-ai':
+      // Named for what it is: the widget's own AI doing the work, not a blind
+      // content write. The person sees which expert is being asked and what
+      // for, before approving.
+      return { icon: 'auto_awesome', verb: 'Ask', subject: `${p.label} \u2014 ${p.intent}` }
     case 'edit-document':
       return {
         icon: 'edit_document',

@@ -1495,6 +1495,13 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
       // The count rides in the one title bar rather than earning a second.
       headerLabel={`${table.title || 'Untitled table'} · ${rows.length} ${rows.length === 1 ? 'row' : 'rows'}`}
       headerAccent="bg-[var(--edge-firm)]"
+      // The header's AI button opens THIS table's assistant rather than the
+      // generic "ask about this widget", because the table has a real one that
+      // proposes columns and then rows. The in-body buttons beside the
+      // add-column plus and Add row stay: they are where you are already
+      // looking when you want more columns or more rows. The header is where
+      // you look when you have not started.
+      onAi={() => setAiOpen((v) => !v)}
       headerMenuExtras={[
         {
           label: 'Import CSV, JSON or Excel…',
