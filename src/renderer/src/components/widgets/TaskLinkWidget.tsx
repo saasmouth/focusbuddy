@@ -1,5 +1,7 @@
+import { useMemo, useState } from 'react'
 import type { Widget } from '@shared/types'
 import { useNodeStore } from '../../stores/nodes'
+import { useWidgetStore } from '../../stores/widgets'
 import { useFocusSessionStore } from '../../stores/focusSession'
 import { useViewStore } from '../../stores/view'
 import { futuristicPowerOn } from '../../lib/audioBeep'
@@ -21,6 +23,8 @@ export default function TaskLinkWidget({ widget, inline = false }: Props): JSX.E
   const updateNode = useNodeStore((s) => s.update)
   const startSession = useFocusSessionStore((s) => s.start)
   const goTask = useViewStore((s) => s.goTask)
+  const updateWidget = useWidgetStore((st) => st.update)
+  const [query, setQuery] = useState('')
 
   const targetId = widget.content.trim()
   const task = targetId ? nodes.find((n) => n.id === targetId && n.kind === 'task') ?? null : null
@@ -39,6 +43,19 @@ export default function TaskLinkWidget({ widget, inline = false }: Props): JSX.E
     setActive(task.id)
     goTask(task.id)
   }
+
+  // Every desk, newest first, minus this widget's own desk — pointing a desk
+  // at itself is a loop with nothing to show.
+  const desks = useMemo(
+    () => nodes.filter((n) => n.kind === 'task' && n.id !== widget.taskId),
+    [nodes, widget.taskId]
+  )
+  const candidates = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const matching = q ? desks.filter((d) => (d.title || '').toLowerCase().includes(q)) : desks
+    // Bounded: a long list in a small widget is not a picker, it is a wall.
+    return matching.slice(0, 50)
+  }, [desks, query])
 
   const path = task ? projectPath(nodes, task.id) : []
 
@@ -126,12 +143,56 @@ export default function TaskLinkWidget({ widget, inline = false }: Props): JSX.E
             </button>
           </div>
         </>
-      ) : (
+      ) : targetId ? (
+        // It HAD a target and the target is gone. Only now is this message true.
         <div className="flex flex-col items-center justify-center h-full text-center gap-1">
           <Icon name="link_off" size={20} className="text-[var(--ink-40)]" />
           <p className="text-[11px] text-[var(--ink-50)]">
-            Referenced task was deleted or moved.
+            Referenced desk was deleted or moved.
           </p>
+          <button
+            onClick={() => void updateWidget(widget.id, { content: '' })}
+            className="mt-1 text-[11px] text-accent hover:underline"
+            data-testid="task-link-rechoose"
+          >
+            Point it somewhere else
+          </button>
+        </div>
+      ) : (
+        // NEVER had one. This widget used to claim the desk "was deleted or
+        // moved" the moment it was added, which was simply untrue, and offered
+        // no way to set a target — so a task-link could only ever be created
+        // by dragging a desk onto the canvas, and was a dead end otherwise.
+        <div className="flex flex-col h-full gap-1.5" data-testid="task-link-picker">
+          <p className="text-[11px] text-[var(--ink-50)] shrink-0">
+            Which desk should this point at?
+          </p>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search desks…"
+            data-testid="task-link-search"
+            className="shrink-0 w-full rounded-md border border-[var(--edge-soft)] bg-[var(--surface-base)] px-2 py-1 text-[11px]"
+          />
+          <div className="min-h-0 flex-1 overflow-auto">
+            {candidates.length === 0 ? (
+              <p className="text-[11px] text-[var(--ink-40)] py-2">
+                {desks.length === 0 ? 'No desks yet.' : 'No desk matches that.'}
+              </p>
+            ) : (
+              candidates.map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => void updateWidget(widget.id, { content: d.id })}
+                  data-testid={`task-link-option-${d.id}`}
+                  className="w-full text-left px-2 py-1 rounded text-[11.5px] text-[var(--ink-90)] hover:bg-[var(--surface-sunken)] truncate"
+                  title={d.title || 'Untitled desk'}
+                >
+                  {d.title || 'Untitled desk'}
+                </button>
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>
