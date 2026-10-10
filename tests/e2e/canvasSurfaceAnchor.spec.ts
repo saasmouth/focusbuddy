@@ -77,34 +77,68 @@ test('CS-1 — the desk surface never keeps a scroll offset, so the chrome stays
   expect(after.gapBottom).toBeLessThan(48)
 })
 
-test('CS-2 — the canvas is light grey in light mode and deep purple in dark', async () => {
+test('CS-2 — the desk floor is the same colour as Home, in light and in dark', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
   await seedBusyDesk(window)
 
-  const read = async (dark: boolean) => {
-    await window.evaluate((d) => {
-      document.documentElement.classList.toggle('dark', d)
-    }, dark)
-    await window.waitForTimeout(150)
-    return window.evaluate(() => {
-      const cs = getComputedStyle(document.querySelector<HTMLElement>('[data-canvas-surface="true"]')!)
-      const layer = document.querySelector<HTMLElement>('.desk-pattern-layer')
-      return {
-        bg: cs.backgroundColor,
-        dots: layer ? getComputedStyle(layer).backgroundImage : ''
+  // Asserting the RELATIONSHIP, not two hardcoded colours. The desk used to
+  // carry its own colour — a warm beige, then #f1f2f4, then a deep purple — so
+  // opening a desk changed the colour of the floor under you. It now paints
+  // var(--surface-base), the token <main> paints behind Home, which every theme
+  // redefines; pinning literals here would have to be rewritten on every
+  // palette change and would say nothing about whether the two still match.
+  const floorOf = (sel: string): Promise<string> =>
+    window.evaluate((s2: string) => {
+      let el: Element | null = document.querySelector(s2)
+      while (el) {
+        const bg = getComputedStyle(el).backgroundColor
+        if (bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg
+        el = el.parentElement
       }
+      return 'none'
+    }, sel)
+
+  for (const dark of [false, true]) {
+    await window.evaluate((d) => document.documentElement.classList.toggle('dark', d), dark)
+    await window.waitForTimeout(200)
+
+    const deskFloor = await floorOf('[data-canvas-surface="true"]')
+
+    // Go Home and read the floor the dashboard sits on.
+    await window.evaluate(() => {
+      const w = window as unknown as { __fbView?: { getState: () => { goHome: () => void } } }
+      w.__fbView?.getState().goHome()
     })
+    await window.waitForSelector('[data-testid="home-dashboard"]', { timeout: 8000 })
+    await window.waitForTimeout(300)
+    const homeFloor = await floorOf('[data-testid="home-dashboard"]')
+
+    expect(deskFloor, `desk floor resolved (dark=${dark})`).not.toBe('none')
+    expect(deskFloor, `desk matches Home (dark=${dark})`).toBe(homeFloor)
+
+    // And nothing is washed over the desk floor, since Home has no wash.
+    const washes = await window.evaluate(() => {
+      const surf = document.querySelector<HTMLElement>('[data-canvas-surface="true"]')
+      return surf ? getComputedStyle(surf).backgroundImage : ''
+    })
+    if (washes) {
+      expect(washes, `no visible wash over the desk (dark=${dark})`).not.toMatch(
+        /rgba\((?!0, 0, 0, 0)/
+      )
+    }
+
+    // Back to the desk for the next iteration.
+    await window.evaluate(() => {
+      const w = window as unknown as {
+        __fbView?: { getState: () => { goTask: (x: string) => void } }
+        __fbNodes?: unknown
+      }
+      void w
+    })
+    await seedBusyDesk(window)
   }
-
-  const light = await read(false)
-  expect(light.bg).toBe('rgb(241, 242, 244)') // #f1f2f4 — grey, not beige #fbf7ee
-  expect(light.dots).toContain('rgba(90, 98, 112')
-
-  const dark = await read(true)
-  expect(dark.bg).toBe('rgb(34, 0, 64)') // #220040 — deep saturated purple
-  expect(dark.dots).toContain('rgba(167, 139, 250') // lighter violet dots
 })
 
 test('CS-3 — no time-of-day glow paints over the canvas, in either theme', async () => {

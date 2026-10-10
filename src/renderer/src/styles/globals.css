@@ -299,19 +299,28 @@ body {
             Operator-chosen. Earlier passes tried #150c2b and then a
             desaturated #221b2e; this is the colour that was picked. */
   :root {
-    --fb-canvas-bg: #f1f2f4;
-    --fb-canvas-wash-a: rgba(100, 110, 125, 0.05);
-    --fb-canvas-wash-b: rgba(100, 110, 125, 0.04);
+    /* The desk floor IS the app floor.
+       
+       --surface-base is what <main> paints behind Home, and it is redefined by
+       every theme (light, dark, and the themed palettes in tokens.css), so
+       pointing the canvas at the same token keeps the desk matching Home in
+       all of them by construction rather than by two lists of colours kept in
+       step by hand.
+       
+       The desk used to carry its own colour — a warm beige, then #f1f2f4, then
+       a deep purple — which is why opening a desk changed the colour of the
+       floor under you. */
+    --fb-canvas-bg: var(--surface-base);
+    /* No ambient wash: Home has none, so a wash here would be a difference. */
+    --fb-canvas-wash-a: transparent;
+    --fb-canvas-wash-b: transparent;
     --fb-canvas-dot: rgba(90, 98, 112, 0.22);
     --fb-canvas-line: rgba(90, 98, 112, 0.14);
   }
   html.dark {
-    --fb-canvas-bg: #220040;
-    /* No ambient wash in dark. The two radial gradients are still painted, but
-       with nothing in them, so the canvas reads as the flat colour above.
-       They were rgba(139,92,246,0.07) and rgba(109,40,217,0.08) — 7-8% violet
-       over #220040 composites to about rgb(41,6,77) at each gradient's centre,
-       which is why the desk looked lighter than the colour it was set to. */
+    /* Same token as light: whatever --surface-base is for the active theme is
+       what the desk floor is, so it can never drift from Home. */
+    --fb-canvas-bg: var(--surface-base);
     --fb-canvas-wash-a: transparent;
     --fb-canvas-wash-b: transparent;
     --fb-canvas-dot: rgba(167, 139, 250, 0.3);
