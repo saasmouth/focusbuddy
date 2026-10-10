@@ -92,14 +92,29 @@ describe('the surfaces share the one grid (DEC-052 §0)', () => {
     // Office with the inbox, because what it carries is the day's incoming
     // work rather than part of the workspace tree. Still capability-gated —
     // an edition without the calendar view must not offer a door to it.
+    //
+    // Corrected the same day: the first attempt put it in the Office HOME
+    // page's right-hand rail, which is a dashboard card, not a menu — so it
+    // was effectively missing. "Beside the email inbox" means the Communicate
+    // section of the Office MENU, which is the COMMS_APPS registry.
     const sidebar = read('src/renderer/src/components/Sidebar.tsx')
     expect(sidebar.match(/label="Calendar"/g) ?? []).toHaveLength(0)
 
     const office = read('src/renderer/src/components/office/PlexiOfficeShell.tsx')
-    expect(office).toContain('label="Calendar"')
-    expect(office).toContain("viewEnabled('calendar')")
-    // Beside the inbox, which is the row this was asked to join.
-    expect(office).toContain('label="Inbox"')
+    const comms = office.slice(office.indexOf('const COMMS_APPS'), office.indexOf('COMMS_VIEW_KIND'))
+    expect(comms).toContain("key: 'calendar'")
+    expect(comms).toContain("label: 'Calendar'")
+    // Beside the inbox, which is the row this was asked to join — and before
+    // it in the registry, so the menu reads Mail, Inbox, Calendar.
+    expect(comms).toContain("key: 'inbox'")
+    expect(comms.indexOf("key: 'inbox'")).toBeLessThan(comms.indexOf("key: 'calendar'"))
+    // Gated on the same capability the view itself checks — via the shared
+    // COMMS_VIEW_KIND mapping rather than a bespoke check, so Calendar is
+    // hidden by the identical rule that hides Mail, Chat and Sign.
+    expect(office).toContain("calendar: 'calendar'")
+    expect(office).toContain('return !vk || viewEnabled(vk)')
+    // And NOT parked in the home rail, where it could not be found.
+    expect(office).not.toContain('office-home-places')
   })
 })
 

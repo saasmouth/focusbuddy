@@ -26,6 +26,8 @@ import CapabilityGate from '../CapabilityGate'
 import DocumentEditorView from '../views/DocumentEditorView'
 import MailView from '../views/MailView'
 import InboxView from '../views/InboxView'
+import CalendarView from '../views/CalendarView'
+import FilesView from '../views/FilesView'
 import MessagesView from '../views/MessagesView'
 import PlexiMeetView from '../views/PlexiMeetView'
 import PlexiSignView from '../views/PlexiSignView'
@@ -109,6 +111,11 @@ const COMMS_APPS: CommsApp[] = [
   { key: 'home', label: 'Office Home', blurb: 'Your dashboard for documents and comms', icon: 'plexii:home', tint: 'bg-indigo-500', tone: 'text-indigo-500', render: () => <HomeDashboard surface="office" /> },
   { key: 'mail', label: 'Mail', blurb: 'Your email inbox', icon: 'mail', tint: 'bg-rose-500', tone: 'text-rose-500', render: () => <MailView /> },
   { key: 'inbox', label: 'Inbox', blurb: 'Notifications and share invites', icon: 'inbox', tint: 'bg-amber-500', tone: 'text-amber-500', render: () => <InboxView /> },
+  // Calendar sits with Mail and Inbox because it is the same kind of thing: it
+  // is where you answer people. It used to be two menus away from the inbox it
+  // belongs beside. It renders INSIDE the office shell, like every other
+  // Communicate app — opening your calendar should not throw you out of Office.
+  { key: 'calendar', label: 'Calendar', blurb: 'Your week, and what is due', icon: 'calendar_month', tint: 'bg-violet-500', tone: 'text-violet-500', render: () => <CalendarView /> },
   { key: 'chat', label: 'Chat', blurb: 'Channels and direct messages', icon: 'forum', tint: 'bg-sky-500', tone: 'text-sky-500', render: () => <MessagesView /> },
   { key: 'meet', label: 'Meet', blurb: 'Video calls and meetings', icon: 'video_call', tint: 'bg-violet-500', tone: 'text-violet-500', render: () => <PlexiMeetView /> },
   { key: 'sign', label: 'Sign', blurb: 'Send and sign documents', icon: 'plexii:sign', tint: 'bg-teal-500', tone: 'text-teal-500', render: () => <PlexiSignView /> },
@@ -116,7 +123,10 @@ const COMMS_APPS: CommsApp[] = [
   // of that piece of work; this is for the other kind of browsing — looking
   // something up, keeping a reference open across several desks — which
   // previously had nowhere to live but a desk it had nothing to do with.
-  { key: 'browser', label: 'Browser', blurb: 'Browse the web, no desk required', icon: 'public', tint: 'bg-indigo-500', tone: 'text-indigo-500', section: 'apps', render: () => <OfficeBrowser /> }
+  { key: 'browser', label: 'Browser', blurb: 'Browse the web, no desk required', icon: 'public', tint: 'bg-indigo-500', tone: 'text-indigo-500', section: 'apps', render: () => <OfficeBrowser /> },
+  // Files is an app, not a comms surface — it is listed with the Browser for
+  // the same reason: looking something up is not communicating.
+  { key: 'files', label: 'Files', blurb: 'Everything you have, in one drive', icon: 'folder', tint: 'bg-sky-500', tone: 'text-sky-500', section: 'apps', render: () => <FilesView /> }
 ]
 
 // Which OS view kind each comms app stands in for, so we gate its menu entry and
@@ -124,6 +134,8 @@ const COMMS_APPS: CommsApp[] = [
 // core (notifications and share invites) and is never gated.
 const COMMS_VIEW_KIND: Record<string, string | null> = {
   mail: 'mail',
+  calendar: 'calendar',
+  files: 'files',
   inbox: null,
   chat: 'messages',
   meet: 'meetings',
@@ -193,8 +205,6 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
   const createBlank = useDocumentsStore((s) => s.createBlank)
   const remove = useDocumentsStore((s) => s.remove)
   const goHome = useViewStore((s) => s.goHome)
-  const goCalendar = useViewStore((s) => s.goCalendar)
-  const goFiles = useViewStore((s) => s.goFiles)
   const account = useAccountStore((s) => s.account)
   // Same view-kind -> capability check the backbone uses, so office menu entries
   // and initiators that lead to a gated comms surface hide/no-op when it is off.
@@ -781,37 +791,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                         </div>
                       )}
                     </div>
-                    {/* Calendar and Files moved here from the sidebar, beside
-                        the inbox: all three are the day's incoming work rather
-                        than part of the workspace tree.
-                        
-                        OUTSIDE the unread block on purpose — that block
-                        collapses to an honest caught-up line when every count
-                        is zero, and these two are destinations, not counts, so
-                        they must not disappear with it. */}
-                    {(viewEnabled('calendar') || viewEnabled('files')) && (
-                      <div
-                        className="mt-1.5 pt-1.5 border-t border-[var(--edge-soft)] space-y-1"
-                        data-testid="office-home-places"
-                      >
-                        {viewEnabled('calendar') && (
-                          <UnreadRow
-                            icon="calendar_month"
-                            label="Calendar"
-                            count={0}
-                            onClick={() => goCalendar()}
-                          />
-                        )}
-                        {viewEnabled('files') && (
-                          <UnreadRow
-                            icon="folder"
-                            label="Files"
-                            count={0}
-                            onClick={() => goFiles()}
-                          />
-                        )}
-                      </div>
-                    )}
+
                   </RailCard>
                 </>
               )}

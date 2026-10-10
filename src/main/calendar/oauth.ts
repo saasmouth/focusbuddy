@@ -22,6 +22,18 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 
 export interface OAuthProviderConfig {
   clientId: string
+  /**
+   * Google and Microsoft both issue a "client secret" for a DESKTOP app client,
+   * and their token endpoints require it — PKCE alone is refused with
+   * `invalid_client`. It is not a secret in the usual sense: it ships inside
+   * every installed copy of any desktop app, and Google's own installed-app
+   * documentation says as much. The PKCE verifier is what actually protects
+   * the exchange.
+   *
+   * Optional because a client that genuinely does not need one (a true public
+   * client) must keep working without it.
+   */
+  clientSecret?: string
 }
 
 interface StoredTokens {
@@ -80,7 +92,12 @@ export function setProviderConfig(provider: OAuthProvider, config: OAuthProvider
   } catch {
     all = {}
   }
-  if (config?.clientId) all[provider] = { clientId: config.clientId.trim() }
+  if (config?.clientId) {
+    all[provider] = {
+      clientId: config.clientId.trim(),
+      ...(config.clientSecret?.trim() ? { clientSecret: config.clientSecret.trim() } : {})
+    }
+  }
   else delete all[provider]
   writeFileSync(configPath(), JSON.stringify(all, null, 2), 'utf8')
 }
@@ -259,6 +276,9 @@ export async function connect(provider: OAuthProvider): Promise<ConnectResult> {
 
   const token = await postForm(p.tokenUrl, {
     client_id: cfg.clientId,
+    // Required by Google and Microsoft for a desktop client. Omitted entirely
+    // when there is none, so a true public client is unaffected.
+    ...(cfg.clientSecret ? { client_secret: cfg.clientSecret } : {}),
     code,
     code_verifier: verifier,
     grant_type: 'authorization_code',
@@ -324,6 +344,10 @@ export async function accessTokenFor(
 
   const refreshed = await postForm(PROVIDERS[stored.provider].tokenUrl, {
     client_id: cfg.clientId,
+    // The refresh needs it too. Without this the connection would work for the
+    // first hour and then fail for good, which is a much worse failure than one
+    // that never connects: by then the calendar is on screen and trusted.
+    ...(cfg.clientSecret ? { client_secret: cfg.clientSecret } : {}),
     refresh_token: stored.tokens.refreshToken,
     grant_type: 'refresh_token'
   })

@@ -38,8 +38,10 @@ type Api = {
   remove: (id: string) => Promise<boolean>
   sync: (id: string) => Promise<ExternalCalendarSyncResult>
   accounts: () => Promise<Array<{ id: string; provider: string; email: string | null }>>
-  getProviderConfig: (p: Provider) => Promise<{ configured: boolean; clientId: string }>
-  setProviderConfig: (p: Provider, clientId: string) => Promise<{ ok: true }>
+  getProviderConfig: (
+    p: Provider
+  ) => Promise<{ configured: boolean; clientId: string; hasSecret: boolean }>
+  setProviderConfig: (p: Provider, clientId: string, clientSecret?: string) => Promise<{ ok: true }>
   connect: (p: Provider) => Promise<{ ok: boolean; email?: string; error?: string }>
   remoteCalendars: (
     accountId: string
@@ -66,6 +68,18 @@ export default function ExternalCalendarsPanel(): JSX.Element {
   const [showHelp, setShowHelp] = useState<string | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [clientIds, setClientIds] = useState<Record<Provider, string>>({ google: '', microsoft: '' })
+  // The desktop-client secret. Google and Microsoft both require it at the
+  // token endpoint even with PKCE, and without it the sign-in fails with
+  // `invalid_client`. Held separately and never read back from the main
+  // process — `hasSecret` only says whether one is stored.
+  const [clientSecrets, setClientSecrets] = useState<Record<Provider, string>>({
+    google: '',
+    microsoft: ''
+  })
+  const [hasSecret, setHasSecret] = useState<Record<Provider, boolean>>({
+    google: false,
+    microsoft: false
+  })
 
   const refresh = useCallback(async (): Promise<void> => {
     if (!api) {
@@ -77,6 +91,7 @@ export default function ExternalCalendarsPanel(): JSX.Element {
     for (const p of ['google', 'microsoft'] as Provider[]) {
       const cfg = await api.getProviderConfig(p)
       setClientIds((prev) => ({ ...prev, [p]: cfg?.clientId ?? '' }))
+      setHasSecret((prev) => ({ ...prev, [p]: Boolean(cfg?.hasSecret) }))
     }
   }, [api])
 
@@ -241,7 +256,14 @@ export default function ExternalCalendarsPanel(): JSX.Element {
 
   const saveClientId = async (provider: Provider): Promise<void> => {
     if (!api) return
-    await api.setProviderConfig(provider, clientIds[provider])
+    // An empty box when one is already stored means "leave it alone", not
+     // "delete it" — the field never shows the stored value back.
+    await api.setProviderConfig(
+      provider,
+      clientIds[provider],
+      clientSecrets[provider] || undefined
+    )
+    if (clientSecrets[provider]) setHasSecret((prev) => ({ ...prev, [provider]: true }))
     setNotice('Saved.')
     await refresh()
   }
@@ -512,6 +534,18 @@ export default function ExternalCalendarsPanel(): JSX.Element {
                       value={clientIds[p]}
                       onChange={(e) => setClientIds({ ...clientIds, [p]: e.target.value })}
                     />
+                  </div>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="password"
+                      autoComplete="off"
+                      className="min-w-0 flex-1 rounded-md border border-[var(--line)] bg-[var(--surface)] px-2 py-1 text-[11px]"
+                      placeholder={
+                        hasSecret[p] ? 'Client secret — stored (leave blank to keep)' : 'Client secret'
+                      }
+                      value={clientSecrets[p]}
+                      onChange={(e) => setClientSecrets({ ...clientSecrets, [p]: e.target.value })}
+                    />
                     <button
                       type="button"
                       className="rounded-md border border-[var(--line)] px-2 py-1 text-[11px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
@@ -520,6 +554,11 @@ export default function ExternalCalendarsPanel(): JSX.Element {
                       Save
                     </button>
                   </div>
+                  <p className="text-[10.5px] leading-snug text-[var(--ink-50)]">
+                    A desktop client&rsquo;s secret is required at the token endpoint and ships
+                    inside every copy of any desktop app — it is not confidential. The PKCE
+                    verifier is what protects the sign-in.
+                  </p>
                   {acct ? (
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-[var(--ink-60)]">

@@ -102,16 +102,24 @@ test.describe('side-menu moves (2026-10-10)', () => {
     await switchArea(window, 'office')
     await expect(window.locator('[data-testid="office-sidebar"]')).toBeVisible({ timeout: 8_000 })
 
-    // They sit in the Unread rail's places block, which shows whether or not
-    // the rail is otherwise caught up — a calendar with nothing unread is
-    // still somewhere you go.
-    const places = window.locator('[data-testid="office-home-places"]')
-    await expect(places).toBeVisible({ timeout: 8_000 })
-    await expect(places.getByText('Calendar', { exact: true })).toBeVisible()
-    await expect(places.getByText('Files', { exact: true })).toBeVisible()
+    // In the MENU, beside the inbox — which is what "the same section as the
+    // email inbox" means. The first version of this test asserted the Office
+    // HOME page's right-hand rail instead, so it passed while Calendar was
+    // buried in a dashboard card and effectively missing. A test that agrees
+    // with the implementation rather than the request is worse than no test.
+    const sidebar = window.locator('[data-testid="office-sidebar"]')
+    await expect(sidebar.locator('[data-testid="office-comms-app-inbox"]')).toBeVisible()
+    await expect(sidebar.locator('[data-testid="office-comms-app-calendar"]')).toBeVisible()
+    // Files is an app, not a comms surface, so it is listed with the Browser.
+    await expect(sidebar.locator('[data-testid="office-sideapp-files"]')).toBeVisible()
 
-    // The inbox they moved beside is in the same menu.
-    await expect(window.locator('[data-testid="office-comms-app-inbox"]')).toBeVisible()
+    // And NOT back in the home rail, which is where it hid the first time.
+    await expect(window.locator('[data-testid="office-home-places"]')).toHaveCount(0)
+
+    // Opening it keeps you in Office rather than throwing you out of it.
+    await sidebar.locator('[data-testid="office-comms-app-calendar"]').click()
+    await expect(window.locator('[data-testid="week-time-grid"]')).toBeVisible({ timeout: 8_000 })
+    await expect(sidebar).toBeVisible()
   })
 
   test('IA-4 the Vault is in Settings › Data', async () => {
