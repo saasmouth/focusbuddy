@@ -31,6 +31,7 @@ import PlexiMeetView from '../views/PlexiMeetView'
 import PlexiSignView from '../views/PlexiSignView'
 import Icon from '../Icon'
 import WorkspaceSwitcher from '../WorkspaceSwitcher'
+import SegmentSwitcher from '../segment/SegmentSwitcher'
 import {
   FLOATING_MENU_ASIDE_SCROLL,
   FLOATING_MENU_INSET,
@@ -1009,6 +1010,11 @@ function OfficeSidebar({
           organisation, so two stacked peers misdescribed the relationship and
           cost two rows to do it. See components/WorkspaceSwitcher.tsx. */}
       <WorkspaceSwitcher />
+        {/* The areas are tabs again, always visible, in every area's menu.
+            Folding them into the workspace dropdown (c581655d) put a dozen-
+            times-an-hour action behind a rarely-used one. The switcher above
+            answers "which organisation"; these answer "which area". */}
+        <SegmentSwitcher />
 
       <nav className="px-2 pt-1 pb-3">
         {NAV.map((n) => (

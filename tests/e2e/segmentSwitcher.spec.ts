@@ -11,12 +11,8 @@ test('SW-1 the switcher jumps to PlexiOffice and its apps (Docs) in one click', 
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
-    // The switcher lives on the Desk sidebar too, so it is there from the
-    // start. Its four areas sit in its dropdown now (c581655d folded the
-    // standing tile row into the one control), so the trigger is what shows.
-    await expect(window.locator('[data-testid="workspace-switcher-trigger"]')).toBeVisible({
-      timeout: 8_000
-    })
+    // The switcher lives on the Desk sidebar too, so it is visible from the start.
+    await expect(window.locator('[data-testid="segment-switcher"]')).toBeVisible({ timeout: 8_000 })
 
     // One click to Office; the office apps (Docs) are now reachable.
     await switchArea(window, 'office')
@@ -24,7 +20,7 @@ test('SW-1 the switcher jumps to PlexiOffice and its apps (Docs) in one click', 
 
     // And back to the desk in one click; the switcher stays put.
     await switchArea(window, 'plexidesk')
-    await expect(window.locator('[data-testid="workspace-switcher-trigger"]')).toBeVisible()
+    await expect(window.locator('[data-testid="segment-switcher"]')).toBeVisible()
   } finally {
     await dispose()
   }

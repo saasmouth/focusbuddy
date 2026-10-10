@@ -22,6 +22,7 @@ import AddConnectedAppDialog from './AddConnectedAppDialog'
 import { useSharesStore } from '../stores/shares'
 import Icon from './Icon'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
+import SegmentSwitcher from './segment/SegmentSwitcher'
 import AppLogo from './AppLogo'
 import {
   FLOATING_MENU_ASIDE,
@@ -485,6 +486,11 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
             organisation, so two stacked peers misdescribed the relationship and
             cost two rows to do it. See components/WorkspaceSwitcher.tsx. */}
         <WorkspaceSwitcher />
+        {/* The areas are tabs again, always visible, in every area's menu.
+            Folding them into the workspace dropdown (c581655d) put a dozen-
+            times-an-hour action behind a rarely-used one. The switcher above
+            answers "which organisation"; these answer "which area". */}
+        <SegmentSwitcher />
 
         {/* Desk nav — one clean, single list in the same style as the Office /
             People / Brain menus, not a stack of labelled sections. */}

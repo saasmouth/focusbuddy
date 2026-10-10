@@ -15,6 +15,7 @@ const read = (p: string): string => readFileSync(join(ROOT, p), 'utf-8')
 const app = read('src/renderer/src/App.tsx')
 const footer = read('src/renderer/src/components/Footer.tsx')
 const switcher = read('src/renderer/src/components/WorkspaceSwitcher.tsx')
+const segmentSwitcher = read('src/renderer/src/components/segment/SegmentSwitcher.tsx')
 const sidebar = read('src/renderer/src/components/Sidebar.tsx')
 const office = read('src/renderer/src/components/office/PlexiOfficeShell.tsx')
 const segment = read('src/renderer/src/components/segment/SegmentShell.tsx')
@@ -54,38 +55,48 @@ describe('"Local · encrypted" moved to the footer, beside the version', () => {
   })
 })
 
-describe('workspace and area are one control', () => {
-  it('every menu mounts the combined switcher', () => {
+describe('one control per question: which organisation, which area', () => {
+  // c581655d folded the four area tiles into the workspace dropdown, on the
+  // reasoning that an area lives inside an organisation so the two were not
+  // peers. True of the data model, wrong for the hands: an area is somewhere
+  // you go a dozen times an hour, a workspace is something you switch rarely,
+  // so the frequent action ended up behind the rare one. The tiles came back
+  // on 2026-10-10 and the dropdown kept the organisation.
+  it('every menu mounts both, and the old OrgSwitcher stays retired', () => {
     for (const [name, src] of [
       ['sidebar', sidebar],
       ['office shell', office],
       ['segment shell', segment]
     ] as const) {
       expect(src, `${name} mounts WorkspaceSwitcher`).toContain('<WorkspaceSwitcher />')
+      expect(src, `${name} mounts SegmentSwitcher`).toContain('<SegmentSwitcher />')
+      // The org half lives in WorkspaceSwitcher now; two org controls was the
+      // duplication that commit was right about.
       expect(src, `${name} no longer mounts OrgSwitcher`).not.toContain('<OrgSwitcher />')
-      expect(src, `${name} no longer mounts SegmentSwitcher`).not.toContain('<SegmentSwitcher />')
     }
   })
 
-  it('the trigger states the hierarchy, not two peers', () => {
+  it('the workspace trigger names the organisation and nothing else', () => {
     expect(switcher).toContain('data-testid="workspace-switcher-trigger"')
-    // "<workspace> › <area>"
-    expect(switcher).toContain('›')
+    // No "<workspace> › <area>" breadcrumb: the area is not this control's
+    // business any more.
+    expect(switcher).not.toContain('›')
+    expect(switcher).not.toContain('activeArea')
   })
 
   it('areas are resolved for the ACTIVE org, so the lock state is never a guess', () => {
-    expect(switcher).toContain('computeEntitlement(entInputs')
-    expect(switcher).toContain('activeOrgId')
+    expect(segmentSwitcher).toContain('computeEntitlement(entInputs')
+    expect(segmentSwitcher).toContain('activeOrgId')
     // Desk is the floor and stays reachable even with its entitlement unset.
-    expect(switcher).toContain("a.kind === 'plexidesk' || ent.enabled")
+    expect(segmentSwitcher).toContain("a.kind === 'plexidesk' || ent.enabled")
   })
 
-  it('the four areas and their test ids survive the move', () => {
+  it('the four areas and their test ids are addressable', () => {
     // The ids are built from a.kind, so assert the template plus every kind
     // that feeds it — that is what keeps `switch-office` addressable.
-    expect(switcher).toContain('data-testid={`switch-${a.kind}`}')
+    expect(segmentSwitcher).toContain('data-testid={`switch-${a.kind}`}')
     for (const k of ['plexidesk', 'office', 'plexipeople', 'plexibrain']) {
-      expect(switcher).toContain(`kind: '${k}'`)
+      expect(segmentSwitcher).toContain(`kind: '${k}'`)
     }
   })
 })
