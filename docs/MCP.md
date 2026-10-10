@@ -183,3 +183,68 @@ The dispatcher claims `tools` and `resources`. Prompts and sampling are delibera
 | `src/shared/apiAccess.ts` | Endpoint documentation shown in the app |
 | `tools/plexii-mcp-bridge/` | stdio bridge, MCPB manifest, manifest generator |
 | `tests/unit/mcpServer.test.ts`, `tests/unit/mcpRecall.test.ts` | Contract tests + source pins |
+
+## The other direction: consuming Google's Workspace MCP servers (deferred)
+
+Everything above is Plexii *serving* MCP. The counterpart is Plexii *consuming*
+it, and Google now publishes an MCP server per Workspace product. Recorded here
+as a future goal — **deferred by operator ruling on 2026-10-10 until the product
+is more established** — so the research is not repeated and the reasoning is not
+re-derived.
+
+| Product | Service name | Endpoint |
+| --- | --- | --- |
+| Gmail | `gmailmcp.googleapis.com` | `https://gmailmcp.googleapis.com/mcp/v1` |
+| Drive | `drivemcp.googleapis.com` | `https://drivemcp.googleapis.com/mcp/v1` |
+| Docs | `docsmcp.googleapis.com` | `https://docsmcp.googleapis.com/mcp/v1` |
+| Sheets | `sheetsmcp.googleapis.com` | `https://sheetsmcp.googleapis.com/mcp/v1` |
+| Slides | `slidesmcp.googleapis.com` | `https://slidesmcp.googleapis.com/mcp/v1` |
+| Calendar | `calendarmcp.googleapis.com` | `https://calendarmcp.googleapis.com/mcp/v1` |
+| Chat | `chatmcp.googleapis.com` | `https://chatmcp.googleapis.com/mcp/v1` |
+| People | `people.googleapis.com` | `https://people.googleapis.com/mcp/v1` |
+
+All authenticate with ordinary OAuth 2.0 and product scopes — Drive's list
+includes `drive.file`, so the non-restricted route survives here. Chat's own
+page describes searching messages, listing conversations, retrieving threads and
+sending on the user's behalf. Reference:
+<https://developers.google.com/workspace/guides/configure-mcp-servers>.
+
+### What it would actually buy, stated honestly
+
+One auth path, one transport and one error model across eight products, instead
+of four or more hand-written REST clients that each rot separately. Google
+maintains the surface.
+
+What it would **not** buy — and this was overstated when first proposed — is a
+tool set that grows by itself. The chat assistant deliberately does not use
+native tool-use: `src/main/ai/anthropic.ts` records that it was tried and "the
+model defaults to prose too often even when the prompt commands tools", so chat
+runs on a strict `{reply, actions}` JSON envelope with a parser. Every tool
+reached over MCP would still need prompt-side exposure in that action
+vocabulary. The saving is the plumbing, not the product surface.
+
+### Why it is deferred rather than scheduled
+
+* **Developer Preview.** All eight require Workspace Developer Preview Program
+  membership. Not a base to ship to users on, whatever its merits.
+* **Plexii has no MCP client.** It is a server only — hand-rolled JSON-RPC in
+  `mcpProtocol.ts`, no SDK dependency. Consuming these means building a client:
+  HTTP transport, bearer auth off the existing `calendar/oauth.ts` token store,
+  `initialize` / `tools/list` / `tools/call`, then wiring discovered tools into
+  the action vocabulary. Worth doing once; not worth doing twice because the
+  preview API moved.
+* **It changes none of the compliance arithmetic.** Scopes are scopes: an MCP
+  server reached with `gmail.readonly` is still a restricted scope, still needs
+  verification and a CASA assessment to publish, and its data still falls under
+  the Limited Use requirements. MCP is a transport decision, not a licensing one.
+
+### When to revisit
+
+When the servers reach GA, or when Plexii is established enough that Developer
+Preview membership is worth the coupling. At that point the sequence is: MCP
+client first (one module, injectable transport so it tests without a network,
+same pattern as `calendar/push.ts`), then Chat as the first consumer, then the
+rest as they earn their place.
+
+Until then, anything that must ship uses the ordinary REST APIs — and mail stays
+on IMAP, which needs no Google review at all.
