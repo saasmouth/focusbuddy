@@ -31,7 +31,18 @@ const WANTED = new Set([
   'APPLE_APP_SPECIFIC_PASSWORD',
   'APPLE_API_KEY',
   'APPLE_API_KEY_ID',
-  'APPLE_API_ISSUER'
+  'APPLE_API_ISSUER',
+  // The update-feed credentials. release-mac.sh REFUSES to finish without
+  // R2_BUCKET, because uploading to the GitHub release alone leaves every
+  // installed mac client being told the previous version is current — that is
+  // how 4.3.13 and 4.3.14 shipped to nobody. Loading them here means the one
+  // documented command carries everything the release needs; otherwise the
+  // operator hand-exports secrets at the shell, which is both error-prone and
+  // the sort of thing that ends up in a scrollback.
+  'R2_BUCKET',
+  'R2_ACCOUNT_ID',
+  'R2_ACCESS_KEY_ID',
+  'R2_SECRET_ACCESS_KEY'
 ])
 
 const env = { ...process.env }

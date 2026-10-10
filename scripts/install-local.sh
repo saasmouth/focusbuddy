@@ -102,8 +102,17 @@ fi
 # asar, the package predates the code and installing it would ship something
 # untested.
 ASAR="$SRC/Contents/Resources/app.asar"
-if [ -d out ] && [ -f "$ASAR" ]; then
-  NEWER="$(find out -type f -newer "$ASAR" -print -quit 2>/dev/null || true)"
+# Compare only what is actually PACKAGED. out/web is the browser build and
+# never enters the desktop asar, and electron-vite rewrites the HTML entry
+# files late enough to land a second or two after packaging — so comparing all
+# of out/ reported a stale package on a perfectly current build, which would
+# have blocked every legitimate install from here on. A guard that cries wolf
+# gets deleted, and then the real case walks through.
+#
+# The entry HTML files are excluded for the same reason: they are rewritten by
+# the build, carry no logic, and cannot be the thing that makes a package stale.
+if [ -d out/main ] && [ -f "$ASAR" ]; then
+  NEWER="$(find out/main out/preload out/renderer -type f             ! -name '*.html' -newer "$ASAR" -print 2>/dev/null | head -1 || true)"
   if [ -n "$NEWER" ]; then
     echo "[install-local] REFUSING: the packaged app is older than the built code." >&2
     echo "               $NEWER is newer than the package." >&2
