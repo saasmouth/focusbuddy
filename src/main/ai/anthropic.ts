@@ -1,6 +1,12 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { validateChartConfig, type ChartConfig, type ChartTableShape } from '@shared/charts'
 import { listTables } from '../db/tables'
+import { listEntries } from '../db/files'
+import {
+  validateWidgetRef,
+  REF_OBJECT_KIND,
+  type RefCandidate
+} from '@shared/widgetRefs'
 import { getModelClient, invalidateModelClients } from './modelClient'
 import { BROWSER_TOOLS, runBrowserTool } from './agentBrowser'
 import { getNode, listNodes } from '../db/nodes'
@@ -4347,6 +4353,15 @@ export type WidgetSetupApplyAs =
   // before it is returned. Almost every field is a real id, so this is the one
   // kind where an unchecked answer fails silently — see validateChartConfig.
   | 'chart-config'
+  // refId: an id of a real object in this workspace — the desk a task-link
+  // points at, the folder a drive widget lists, the table a table widget
+  // shows. Checked against the real objects before it is written.
+  | 'widget-ref'
+  // title: just the widget's NAME. For kinds with genuinely nothing else to
+  // configure — a calculator, a colour picker — where naming it for the desk
+  // it sits on is the only honest thing AI can offer. Writing content for
+  // these would be inventing a setting that does not exist.
+  | 'widget-title'
 
 export interface WidgetSetupDraft {
   ok: boolean
@@ -4360,6 +4375,10 @@ export interface WidgetSetupDraft {
   url?: string // applyAs 'webview-url'
   text?: string // applyAs 'widget-text'
   chartConfig?: object // applyAs 'chart-config'
+  refId?: string // applyAs 'widget-ref'
+  title?: string // applyAs 'widget-title'
+  /** What the chosen reference is called, so the preview can name it. */
+  refTitle?: string
   // A one-line, human summary of what the assistant proposes, shown above the
   // structured preview (e.g. "A research page with sections for ...").
   summary?: string
@@ -4414,6 +4433,64 @@ const WIDGET_SETUP_KINDS: Record<
     noun: 'branches',
     guidance: 'a concise mind-map branch label of a few words'
   },
+  // ── reference kinds: AI resolves WHICH object, from the real workspace ──
+  'task-link': {
+    applyAs: 'widget-ref',
+    noun: 'desk',
+    structured: true,
+    guidance: 'which desk this should reference'
+  },
+  portal: {
+    applyAs: 'widget-ref',
+    noun: 'desk',
+    structured: true,
+    guidance: 'which desk this should watch — the one whose progress matters here'
+  },
+  table: {
+    applyAs: 'widget-ref',
+    noun: 'table',
+    structured: true,
+    guidance: 'which table this widget should show'
+  },
+  drive: {
+    applyAs: 'widget-ref',
+    noun: 'folder',
+    structured: true,
+    guidance: 'which folder to pin to this desk'
+  },
+  file: {
+    applyAs: 'widget-ref',
+    noun: 'file',
+    structured: true,
+    guidance: 'which file this desk needs on it'
+  },
+
+  // ── naming kinds: no configuration exists, so a name is the honest offer ──
+  calculator: {
+    applyAs: 'widget-title',
+    noun: 'name',
+    structured: true,
+    guidance: 'a name for what is being worked out on this desk'
+  },
+  color: {
+    applyAs: 'widget-title',
+    noun: 'name',
+    structured: true,
+    guidance: 'a name for what this colour is for'
+  },
+  minimap: {
+    applyAs: 'widget-title',
+    noun: 'name',
+    structured: true,
+    guidance: 'a name for this overview'
+  },
+  section: {
+    applyAs: 'widget-title',
+    noun: 'name',
+    structured: true,
+    guidance: 'a name for the group of widgets this frame holds'
+  },
+
   // ── config kinds: AI chooses the settings, from the real workspace ──
   chart: {
     applyAs: 'chart-config',
@@ -4639,6 +4716,69 @@ export async function suggestWidgetSetup(input: {
 // item list the text kinds use. One shared shape: every reply is a JSON object
 // with a one-line `summary` plus the kind-specific payload key.
 /**
+ * The real objects a referencing widget may point at.
+ *
+ * Filtered by kind at source, so the expert is never offered a folder where a
+ * file is meant — the validator checks it again, but the cheapest way to avoid
+ * an invented id is to hand over the real ones.
+ */
+function refCandidates(widgetKind: string): RefCandidate[] {
+  try {
+    switch (REF_OBJECT_KIND[widgetKind]) {
+      case 'desk':
+        return listNodes()
+          // listNodes already excludes trashed rows.
+          .filter((n) => n.kind === 'task')
+          .map((n) => ({ id: n.id, title: n.title || 'Untitled desk', objectKind: 'desk' }))
+      case 'table':
+        return listTables().map((t) => ({
+          id: t.id,
+          title: t.title || 'Untitled table',
+          objectKind: 'table'
+        }))
+      case 'folder':
+        return listEntries(null)
+          .filter((e) => e.kind === 'folder')
+          .map((e) => ({ id: e.id, title: e.name || 'Untitled folder', objectKind: 'folder' }))
+      case 'file':
+        return listEntries(null)
+          .filter((e) => e.kind !== 'folder')
+          .map((e) => ({ id: e.id, title: e.name || 'Untitled file', objectKind: 'file' }))
+      default:
+        return []
+    }
+  } catch {
+    // No database. An empty universe makes the validator refuse everything,
+    // which is right: nothing can be referenced that nobody can see.
+    return []
+  }
+}
+
+/** The reference spec, including the real objects to choose from. */
+function refPayloadSpec(widgetKind: string): string {
+  const expected = REF_OBJECT_KIND[widgetKind] ?? 'object'
+  const candidates = refCandidates(widgetKind)
+  if (candidates.length === 0) {
+    return `There are NO ${expected}s in this workspace, so this widget cannot be pointed at one. Say so in "summary" and return no refId.`
+  }
+  // Bounded: a workspace with hundreds of desks would otherwise crowd out the
+  // rest of the prompt, and the most recently touched are the likely answer.
+  const listing = candidates
+    .slice(0, 60)
+    .map((c) => `  ${expected} "${c.title}" id=${c.id}`)
+    .join('\n')
+  return (
+    `"refId" is the id of the ${expected} this widget should point at. ` +
+    'USE ONLY THESE IDS, copied exactly — inventing one produces a widget that renders empty ' +
+    'and reads as "nothing here" rather than "wrong target":\n' +
+    listing +
+    (candidates.length > 60 ? `\n  (…and ${candidates.length - 60} more, not listed)` : '') +
+    '\n\nPick the one this desk is actually about. If none of them fits, say so in "summary" and return no refId ' +
+    'rather than choosing the closest — a confidently wrong reference is worse than an unset one.'
+  )
+}
+
+/**
  * The real tables, reduced to what a chart config needs.
  *
  * The expert is given these and told to choose from them. Without this it has
@@ -4709,8 +4849,13 @@ async function suggestStructuredWidgetSetup(input: {
       ? '"pageContent" is a Tiptap document: { "type": "doc", "content": [ ... ] } using only ' +
         'these node types: heading (attrs.level 1-3), paragraph, bulletList/listItem, ' +
         'taskList/taskItem (attrs.checked false), and text. Keep it focused, 4-10 nodes.'
-      : cfg.applyAs === 'chart-config'
-        ? chartPayloadSpec()
+      : cfg.applyAs === 'widget-title'
+        ? '"text" is the widget\u2019s name: a few words, no quotes, no trailing punctuation. ' +
+          'Name it for the job it does on THIS desk.'
+        : cfg.applyAs === 'widget-ref'
+          ? refPayloadSpec(w.kind)
+        : cfg.applyAs === 'chart-config'
+          ? chartPayloadSpec()
         : cfg.applyAs === 'widget-text'
         ? '"text" is the instruction itself, in plain prose, written as the user would write it — ' +
           'no preamble, no quotes around it, no explanation of what you are doing. Keep it to ' +
@@ -4724,8 +4869,12 @@ async function suggestStructuredWidgetSetup(input: {
     `{ "summary": "one short sentence describing what you are proposing", ${
       cfg.applyAs === 'page-doc'
         ? '"pageContent": { ... }'
-        : cfg.applyAs === 'chart-config'
-          ? '"chartConfig": { ... }'
+        : cfg.applyAs === 'widget-title'
+          ? '"text": "..."'
+          : cfg.applyAs === 'widget-ref'
+            ? '"refId": "<id>"'
+          : cfg.applyAs === 'chart-config'
+            ? '"chartConfig": { ... }'
           : cfg.applyAs === 'widget-text'
             ? '"text": "..."'
             : '"url": "https://..."'
@@ -4766,6 +4915,7 @@ async function suggestStructuredWidgetSetup(input: {
       url?: unknown
       text?: unknown
       chartConfig?: unknown
+      refId?: unknown
     }
     try {
       parsed = JSON.parse(json)
@@ -4780,6 +4930,34 @@ async function suggestStructuredWidgetSetup(input: {
         return { ok: false, error: 'Claude did not return a valid page document.' }
       }
       return { ok: true, kind: w.kind, applyAs: 'page-doc', noun: cfg.noun, pageContent: doc as object, summary }
+    }
+
+    if (cfg.applyAs === 'widget-title') {
+      const title = typeof parsed.text === 'string' ? parsed.text.trim() : ''
+      if (!title) return { ok: false, error: 'Claude did not return a name.' }
+      // A name, not an essay: this is a widget header a few words wide.
+      if (title.length > 60) {
+        return { ok: false, error: 'That name is too long for a widget header.' }
+      }
+      return { ok: true, kind: w.kind, applyAs: 'widget-title', noun: cfg.noun, title, summary }
+    }
+
+    if (cfg.applyAs === 'widget-ref') {
+      const candidates = refCandidates(w.kind)
+      const verdict = validateWidgetRef(w.kind, parsed.refId, candidates)
+      if (!verdict.ok) return { ok: false, error: verdict.reason }
+      const id = String(parsed.refId).trim()
+      return {
+        ok: true,
+        kind: w.kind,
+        applyAs: 'widget-ref',
+        noun: cfg.noun,
+        refId: id,
+        // The preview shows a NAME, not an id: "Point at the Q3 launch desk"
+        // is reviewable, a uuid is not.
+        refTitle: candidates.find((c) => c.id === id)?.title,
+        summary
+      }
     }
 
     if (cfg.applyAs === 'chart-config') {

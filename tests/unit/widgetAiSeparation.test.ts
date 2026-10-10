@@ -78,7 +78,10 @@ describe('the shared setup assistant covers the kinds it covers', () => {
 })
 
 describe('a kind with no widget AI admits it', () => {
-  const plan = planWidgetAi(w('calculator'), false)
+  // metrics parses its own JSON config shape and has no validator yet, so it
+  // is genuinely unwired. (calculator used to be the example here and is now
+  // served by the naming family, which is why this moved.)
+  const plan = planWidgetAi(w('metrics'), false)
 
   it('reports none rather than silently becoming the assistant', () => {
     expect(plan.surface).toBe('none')
@@ -89,16 +92,25 @@ describe('a kind with no widget AI admits it', () => {
     // rather than an oversight — and saying which is more use than a generic
     // "no AI here".
     expect(plan.purpose).toMatch(/not wired up yet/i)
-    expect(plan.purpose).toMatch(/working out/i)
+    expect(plan.purpose).toMatch(/numbers to read together/i)
   })
 })
 
 describe('coverage is stated honestly', () => {
-  it('lists exactly the kinds that have a widget AI', () => {
-    // Nine today: the table's own, plus the eight the setup assistant reaches.
-    expect(KINDS_WITH_WIDGET_AI).toContain('table')
+  it('lists every kind the expert registry reaches, and no others', () => {
+    // Derived from the registry, so this grows with it rather than being a
+    // number someone has to remember to bump.
     for (const kind of SETUP_SUPPORTED_KINDS) expect(KINDS_WITH_WIDGET_AI).toContain(kind)
-    expect(KINDS_WITH_WIDGET_AI.length).toBe(SETUP_SUPPORTED_KINDS.size + 1)
+    expect(KINDS_WITH_WIDGET_AI).toContain('table')
+    // `table` is itself a setup kind now (its content is a table id), so it is
+    // inside the set rather than one more beside it.
+    expect(KINDS_WITH_WIDGET_AI.length).toBe(SETUP_SUPPORTED_KINDS.size)
+  })
+
+  it('serves calculator, whose only honest offer is a name', () => {
+    // No configuration exists on a calculator, so the naming family writes its
+    // TITLE and nothing else — inventing content would invent a setting.
+    expect(KINDS_WITH_WIDGET_AI).toContain('calculator')
   })
 
   it('serves chart now that its expert is wired and validated', () => {
@@ -112,7 +124,7 @@ describe('coverage is stated honestly', () => {
     // A calculator has no configuration, and the config family's remaining
     // kinds have no applier yet. Both must stay out of this list rather than
     // routing the button to an expert that refuses.
-    for (const kind of ['calculator', 'color', 'metrics', 'task-list']) {
+    for (const kind of ['metrics', 'stat-card', 'task-list', 'gallery']) {
       expect(KINDS_WITH_WIDGET_AI, kind).not.toContain(kind)
     }
   })

@@ -104,7 +104,10 @@ describe('what it does, and that it is never a dead control', () => {
 
   it('the table routes the header button to its own column/row assistant', () => {
     const table = read('components/widgets/TableWidget.tsx')
-    expect(table).toContain('onAi={() => setAiOpen((v) => !v)}')
+    // ...but only when a table is BOUND. An unbound table widget has nothing to
+    // add columns to, and needs the "which table?" expert instead — so it
+    // passes no handler and planWidgetAi falls through to setup.
+    expect(table).toContain('onAi={table ? () => setAiOpen((v) => !v) : undefined}')
     // And keeps the in-body buttons: those are where you already are when you
     // want another column or another row.
     expect(table).toContain('data-testid="table-ai-columns"')

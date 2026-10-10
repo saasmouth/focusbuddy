@@ -25,6 +25,12 @@ export type WidgetSetupApplyAs =
   // A validated PlexiDash chart config. Validated in the MAIN process against
   // the real tables before it ever reaches here — see validateChartConfig.
   | 'chart-config'
+  // An id of a real object, already checked against the workspace in main.
+  | 'widget-ref'
+  // Just the widget's TITLE. For the kinds with genuinely nothing else to
+  // configure — a calculator, a colour picker — where naming it for the desk
+  // it sits on is the only honest thing AI can offer.
+  | 'widget-title'
 
 // The draft shape the setup preview/apply consumes. Mirrors the main-process
 // WidgetSetupDraft (kept in sync by hand; the IPC return type is the contract).
@@ -33,6 +39,12 @@ export interface SetupDraft {
   text?: string
   /** applyAs 'chart-config' — already validated against the real tables. */
   chartConfig?: object
+  /** applyAs 'widget-ref' — an id checked against the real workspace. */
+  refId?: string
+  /** What that reference is called, so the preview can name it. */
+  refTitle?: string
+  /** applyAs 'widget-title' — the proposed name. */
+  title?: string
   applyAs?: WidgetSetupApplyAs
   items?: Array<{ id: string; text: string }>
   pageContent?: object
@@ -49,10 +61,14 @@ export const SETUP_SUPPORTED_KINDS: ReadonlySet<string> = new Set([
   // button to an expert that refuses, which is worse than no button.
   'agent',
   'attention',
+  'calculator',
   'card',
   'chart',
+  'color',
   'custom',
   'diagram',
+  'drive',
+  'file',
   'gdoc',
   'gsheet',
   'gslide',
@@ -63,11 +79,16 @@ export const SETUP_SUPPORTED_KINDS: ReadonlySet<string> = new Set([
   'living-doc',
   'markdown',
   'mindmap',
+  'minimap',
   'note',
   'page',
   'pdf',
+  'portal',
   'scratchpad',
+  'section',
   'sticky',
+  'table',
+  'task-link',
   'video',
   'voice-recorder',
   'webhook',
@@ -109,7 +130,14 @@ export function isWidgetEmptyForSetup(widget: Widget): boolean {
 // Structured kinds (mindmap, diagram) are handled by their own JSON appliers.
 type TextApplyAs = Exclude<
   WidgetSetupApplyAs,
-  'mindmap-nodes' | 'diagram-nodes' | 'page-doc' | 'webview-url' | 'widget-text' | 'chart-config'
+  | 'mindmap-nodes'
+  | 'diagram-nodes'
+  | 'page-doc'
+  | 'webview-url'
+  | 'widget-text'
+  | 'chart-config'
+  | 'widget-ref'
+  | 'widget-title'
 >
 
 // Turn the approved item texts into a block of content in a text widget's
@@ -246,7 +274,9 @@ export async function applyWidgetSetup(
     applyAs === 'page-doc' ||
     applyAs === 'webview-url' ||
     applyAs === 'widget-text' ||
-    applyAs === 'chart-config'
+    applyAs === 'chart-config' ||
+    applyAs === 'widget-ref' ||
+    applyAs === 'widget-title'
   ) {
     return
   }
@@ -268,6 +298,22 @@ export async function applyStructuredSetup(widgetId: string, draft: SetupDraft):
   if (draft.applyAs === 'page-doc') {
     if (!draft.pageContent || typeof draft.pageContent !== 'object') return false
     await store.update(widgetId, { content: JSON.stringify(draft.pageContent) })
+    return true
+  }
+  if (draft.applyAs === 'widget-ref') {
+    const id = (draft.refId || '').trim()
+    if (!id) return false
+    // Safe unchecked HERE only because main validated the id against the real
+    // workspace — the renderer is not where a reference is judged honest.
+    await store.update(widgetId, { content: id })
+    return true
+  }
+  if (draft.applyAs === 'widget-title') {
+    const title = (draft.title || '').trim()
+    if (!title) return false
+    // Title ONLY. These kinds hold no configuration, so writing content would
+    // be inventing a setting that does not exist.
+    await store.update(widgetId, { title })
     return true
   }
   if (draft.applyAs === 'chart-config') {
@@ -303,6 +349,8 @@ export function isStructuredApplyAs(applyAs: WidgetSetupApplyAs | null | undefin
     applyAs === 'page-doc' ||
     applyAs === 'webview-url' ||
     applyAs === 'widget-text' ||
-    applyAs === 'chart-config'
+    applyAs === 'chart-config' ||
+    applyAs === 'widget-ref' ||
+    applyAs === 'widget-title'
   )
 }

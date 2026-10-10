@@ -1501,7 +1501,14 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
       // add-column plus and Add row stay: they are where you are already
       // looking when you want more columns or more rows. The header is where
       // you look when you have not started.
-      onAi={() => setAiOpen((v) => !v)}
+      //
+      // ONLY when a table is actually bound. An unbound table widget has
+      // nothing to add columns to, and the question it needs answering is
+      // "which table?" — so passing no handler lets planWidgetAi fall through
+      // to the setup expert, which resolves exactly that from the real tables.
+      // Passing it unconditionally sent the one case that needed the other
+      // expert to the one that could not help.
+      onAi={table ? () => setAiOpen((v) => !v) : undefined}
       headerMenuExtras={[
         {
           label: 'Import CSV, JSON or Excel…',
