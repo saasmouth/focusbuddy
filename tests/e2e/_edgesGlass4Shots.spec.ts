@@ -1,5 +1,5 @@
 import { test } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
 
 // Edges + Glass Phase 4 frames: the deferred areas join the system. Throwaway.
 //   doc      — the document editor (toolbar, fields, side panel chrome)
@@ -61,10 +61,10 @@ for (const theme of THEMES) {
         }
         await window.waitForTimeout(900)
       } else if (frame === 'office') {
-        await window.locator('[data-testid="switch-office"]').click()
+        await switchArea(window, 'office')
         await window.waitForTimeout(1_200)
       } else if (frame === 'messages') {
-        await window.locator('[data-testid="switch-office"]').click()
+        await switchArea(window, 'office')
         await window.locator('[data-testid="office-comms-app-chat"]').click()
         await window.waitForTimeout(1_200)
       }

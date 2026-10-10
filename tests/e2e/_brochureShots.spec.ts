@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, switchArea, isAreaLocked } from './_helpers'
 import { resolve } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 
@@ -316,10 +316,10 @@ test('capture brochure screenshots (UI-driven, honest content)', async () => {
     await waitForReady(window)
     await dismissChrome(window)
 
-    await window.locator('[data-testid="switch-office"]').click()
+    await switchArea(window, 'office')
     await window.waitForTimeout(600)
-    const officeLocked = await window.locator('[data-testid="switch-office"][data-locked="true"]').count()
-    if (officeLocked > 0) {
+    const officeLocked = await isAreaLocked(window, 'office')
+    if (officeLocked) {
       officeShotResult = 'SKIPPED — PlexiOffice area is entitlement-gated (data-locked=true) in this test env'
     } else {
       const docRow = window.locator(`[data-testid="office-recent-row-${docSeed.docId}"]`)
@@ -358,10 +358,10 @@ test('capture brochure screenshots (UI-driven, honest content)', async () => {
       w.__fbView?.getState().goHome?.()
     })
     await window.waitForTimeout(400)
-    await window.locator('[data-testid="switch-plexipeople"]').click()
+    await switchArea(window, 'plexipeople')
     await window.waitForTimeout(700)
-    const peopleLocked = await window.locator('[data-testid="switch-plexipeople"][data-locked="true"]').count()
-    if (peopleLocked > 0) {
+    const peopleLocked = await isAreaLocked(window, 'plexipeople')
+    if (peopleLocked) {
       peopleShotResult = 'SKIPPED — People area is entitlement-gated (data-locked=true) in this test env'
     } else {
       // Click the "Organisation Map" app tile if we land on a segment home first.
@@ -393,7 +393,7 @@ test('capture brochure screenshots (UI-driven, honest content)', async () => {
       w.__fbView?.getState().goHome?.()
     })
     await window.waitForTimeout(400)
-    await window.locator('[data-testid="switch-office"]').click()
+    await switchArea(window, 'office')
     await window.waitForTimeout(500)
     const chatTile = window.locator('[data-testid="office-comms-app-chat"]')
     const chatTileVisible = await chatTile.isVisible({ timeout: 3_000 }).catch(() => false)

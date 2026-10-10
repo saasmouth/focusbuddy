@@ -10,7 +10,7 @@
 // it has to fall by exactly the number of messages a new tag claimed.
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, switchArea } from './_helpers'
 
 test.setTimeout(120_000)
 
@@ -24,7 +24,7 @@ test.afterEach(async () => {
 })
 
 async function openMail(window: Page): Promise<void> {
-  await window.locator('[data-testid="switch-office"]').click()
+  await switchArea(window, 'office')
   await window.locator('[data-testid="office-comms-app-mail"]').click()
 }
 

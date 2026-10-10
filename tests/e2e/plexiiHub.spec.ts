@@ -4,10 +4,11 @@ import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
 // Plexii AI mission, Phase 1: the hub and its doors.
 //
 // The hub (view.kind 'plexii') is the existing conversational engine given a
-// page in the main pane. These specs drive the three doors this phase built —
-// the sidebar tab (with its recent-conversations sublist), the Home hero
-// input, and the Home header button — and lock the one-ChatPanel invariant:
-// while the hub page shows, the overlay pill is suppressed.
+// page in the main pane. These specs drive the doors that exist — the
+// assistant's own wordmark (the sidebar tab was retired on 2026-10-10: the
+// hub belongs to the assistant, not to the desk nav), the Home hero input,
+// the Home header button and cmd-shift-K — and lock the one-ChatPanel
+// invariant: while the hub page shows, the overlay pill is suppressed.
 //
 // No API key rides in e2e (stripped by _helpers), so a send takes the honest
 // no-key path: the user turn renders, the assistant turn carries the failure.
@@ -19,6 +20,17 @@ test.describe('Plexii hub (Phase 1)', () => {
 
   // A fresh profile lands on the Suite launcher, not Home — the Home-door specs
   // walk there first, the way a user's saved view would.
+  // The hub's door is the wordmark on the assistant you are already talking
+  // to. Opening the assistant first is part of the walk, not setup noise —
+  // it is how someone reaches "show me everything Plexii".
+  async function openHub(): Promise<void> {
+    const { window } = launched
+    await window.locator('[data-testid="assistant-pill"]').click()
+    const door = window.locator('[data-testid="assistant-open-hub"]')
+    await door.waitFor({ state: 'visible', timeout: 8_000 })
+    await door.click()
+  }
+
   async function gotoHome(): Promise<void> {
     await launched.window.evaluate(() => {
       const w = window as unknown as { __fbView?: { getState: () => { goHome: () => void } } }
@@ -36,12 +48,12 @@ test.describe('Plexii hub (Phase 1)', () => {
     await launched.dispose()
   })
 
-  test('sidebar tab opens the hub and suppresses the assistant pill', async () => {
+  test('the assistant wordmark opens the hub and suppresses the assistant pill', async () => {
     const { window } = launched
     // The pill exists before the hub is open (any non-hub screen).
     await expect(window.locator('[data-testid="assistant-pill"]')).toBeVisible()
 
-    await window.locator('[data-testid="sidebar-plexii"]').click()
+    await openHub()
     await expect(window.locator('[data-testid="plexii-hub"]')).toBeVisible()
     // The hub hosts the real panel in its page dressing, rail included.
     await expect(window.locator('[data-testid="assistant-panel"]')).toBeVisible()
@@ -168,7 +180,7 @@ test.describe('Plexii hub (Phase 1)', () => {
 
   test('interactive choice blocks render and a tap sends the selection', async () => {
     const { window } = launched
-    await window.locator('[data-testid="sidebar-plexii"]').click()
+    await openHub()
     await expect(window.locator('[data-testid="plexii-hub"]')).toBeVisible()
 
     // Seed an assistant turn carrying a choices block straight into the store
@@ -313,7 +325,7 @@ test.describe('Plexii hub (Phase 1)', () => {
     // a deliberate pick from its menu, sticky on the conversation. The header
     // keeps only the informational badge.
     const { window } = launched
-    await window.locator('[data-testid="sidebar-plexii"]').click()
+    await openHub()
     await expect(window.locator('[data-testid="plexii-hub"]')).toBeVisible()
     // A normal chat carries no badge, and the chip wears the default mode.
     await expect(window.locator('[data-testid="chat-mode-badge"]')).toHaveCount(0)
@@ -347,7 +359,7 @@ test.describe('Plexii hub (Phase 1)', () => {
 
   test('the assistant surfaces carry the Plexii name', async () => {
     const { window } = launched
-    await window.locator('[data-testid="sidebar-plexii"]').click()
+    await openHub()
     // DEC-120 replaced the "Plexii" <h2> with the animated wordmark, and this
     // assertion went on asking for the heading — so it had been red ever
     // since, for a reason that was never a bug in the app. The name now lives

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { AttentionFilter } from '../lib/attentionQueues'
 import { recordViewVisit } from '../lib/viewRecency'
 
 // Current pane view — replaces the assumption that the main area always shows a task canvas.
@@ -22,7 +23,7 @@ export type View =
   // The Attention surface (S6): every work item that needs the person, in
   // purpose-built queues. A lens over items that live with their desks —
   // it references work, it never owns it.
-  | { kind: 'attention' }
+  | { kind: 'attention'; filter?: AttentionFilter }
   | { kind: 'calendar' }
   | { kind: 'project-dashboard'; projectId: string }
   | { kind: 'task'; taskId: string }
@@ -103,7 +104,7 @@ interface ViewStore {
   goDesks: (roomId?: string) => void
   goShared: () => void
   goTrash: () => void
-  goAttention: () => void
+  goAttention: (filter?: AttentionFilter) => void
   goCalendar: () => void
   goProject: (projectId: string) => void
   goTask: (taskId: string) => void
@@ -244,7 +245,7 @@ export const useViewStore = create<ViewStore>((set, get) => {
     goDesks: (roomId) => commit({ kind: 'desks', roomId }),
     goShared: () => commit({ kind: 'shared' }),
     goTrash: () => commit({ kind: 'trash' }),
-    goAttention: () => commit({ kind: 'attention' }),
+    goAttention: (filter) => commit({ kind: 'attention', filter }),
     goCalendar: () => commit({ kind: 'calendar' }),
     goProject: (projectId) => commit({ kind: 'project-dashboard', projectId }),
     goTask: (taskId) => commit({ kind: 'task', taskId }),

@@ -4,10 +4,10 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
 
 async function openOffice(window: Page): Promise<void> {
-  await window.locator('[data-testid="switch-office"]').click()
+  await switchArea(window, 'office')
   await expect(window.locator('[data-testid="office-sidebar"]')).toBeVisible({ timeout: 8_000 })
 }
 
@@ -34,14 +34,15 @@ test.describe('PlexiOffice segment', () => {
     }
     // The document apps above are free-tier (office_* default free:true). The
     // Communicate apps are split: Inbox is core (notifications + share invites)
-    // and always shows, while Mail, Chat, Meet and Sign gate on their Pro
-    // capabilities (mail/chat/meet/esign default free:false). On this fresh
-    // free-tier profile only Inbox is present; the four Pro comms apps are hidden
-    // by the same capability MainPane enforces, so nav and surface never disagree.
-    await expect(window.locator('[data-testid="office-comms-app-inbox"]')).toBeVisible()
-    for (const a of ['mail', 'chat', 'meet', 'sign']) {
-      await expect(window.locator(`[data-testid="office-comms-app-${a}"]`)).toHaveCount(0)
+    // and always shows, and Mail, Chat and Meet went free on 2026-08-17
+    // (de386f8a — the second-person collaboration surface is free for
+    // adoption), so they show here too. Sign is the one still behind Pro
+    // (esign default free:false), hidden by the same capability MainPane
+    // enforces, so nav and surface never disagree.
+    for (const a of ['inbox', 'mail', 'chat', 'meet']) {
+      await expect(window.locator(`[data-testid="office-comms-app-${a}"]`)).toBeVisible()
     }
+    await expect(window.locator('[data-testid="office-comms-app-sign"]')).toHaveCount(0)
     // The Ask-AI bar and upgrade affordance are present.
     await expect(window.locator('[data-testid="office-ask-ai"]')).toBeVisible()
   })

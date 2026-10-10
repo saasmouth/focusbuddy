@@ -10,10 +10,10 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
 
 async function openDrawStudio(window: Page): Promise<void> {
-  await window.locator('[data-testid="switch-office"]').first().click()
+  await switchArea(window, 'office')
   await expect(window.locator('[data-testid="office-app-draw"]')).toBeVisible({ timeout: 8_000 })
   await window.locator('[data-testid="office-app-draw"]').click()
   await expect(window.locator('[data-testid="draw-studio"]')).toBeVisible({ timeout: 10_000 })

@@ -12,7 +12,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, gotoView, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, gotoView, type LaunchedApp, switchArea } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -84,7 +84,7 @@ async function stubWorkspaceAskEmpty(app: LaunchedApp['app']): Promise<void> {
 }
 
 async function openOfficeDoc(window: Page): Promise<void> {
-  await window.locator('[data-testid="switch-office"]').first().click()
+  await switchArea(window, 'office')
   await expect(window.locator('[data-testid="office-sidebar"]')).toBeVisible({ timeout: 8_000 })
   await window.locator('[data-testid="office-app-docs"]').click()
   await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 10_000 })

@@ -364,3 +364,107 @@ export function itemReason(i: FbNode, nowMs: number): string | null {
   if (i.wiOrigin === 'ai') return 'Suggested by Plexii'
   return null
 }
+
+// ── Attention's state/due filters ────────────────────────────────────────────
+//
+// A different axis from the queues above. QUEUE_ORDER classifies an item by
+// what it WANTS from you (To Do, Review, Decide…); these six classify it by
+// where it HAS GOT TO. Both are useful and neither replaces the other, so they
+// are kept apart rather than merged into one list.
+//
+// Defined once here because three places need the same answer: the sidebar's
+// submenu renders the labels, the view store carries the chosen id, and
+// AttentionView filters by it. A predicate in one place also means the rules
+// are unit-tested rather than re-derived per surface.
+
+export type AttentionFilter =
+  | 'open'
+  | 'due-today'
+  | 'overdue'
+  | 'in-progress'
+  | 'waiting'
+  | 'closed-7d'
+
+export const ATTENTION_FILTERS: ReadonlyArray<{
+  id: AttentionFilter
+  label: string
+  icon: string
+}> = [
+  { id: 'open', label: 'Open', icon: 'radio_button_unchecked' },
+  { id: 'due-today', label: 'Due today', icon: 'today' },
+  { id: 'overdue', label: 'Overdue', icon: 'alarm' },
+  { id: 'in-progress', label: 'In progress', icon: 'pending' },
+  { id: 'waiting', label: 'Waiting', icon: 'hourglass_empty' },
+  { id: 'closed-7d', label: 'Closed 7d', icon: 'check_circle' }
+]
+
+/**
+ * States that mean "not mine to move right now" — the ball is with someone or
+ * something else. Drawn from ACTIVE_WORK_ITEM_STATES: needs_review and
+ * needs_approval belong here too, since both are waiting on another person,
+ * not on you.
+ */
+const WAITING_STATES: ReadonlySet<string> = new Set([
+  'waiting',
+  'blocked',
+  'delegated',
+  'needs_review',
+  'needs_approval'
+])
+
+/**
+ * Does this item belong under `filter`?
+ *
+ * "Open" means live work, so it excludes terminal states AND items snoozed
+ * into the future — a snoozed item is deliberately not asking for attention
+ * yet, and showing it under Open would undo the snooze's whole point.
+ *
+ * Due today is the calendar day in the VIEWER's timezone, not "within 24
+ * hours": something due at 9am tomorrow is not due today, and an item due
+ * earlier today that is now overdue answers to both — overdue is the sharper
+ * statement, so it is also true for Due today by design.
+ */
+export function matchesAttentionFilter(
+  i: Pick<FbNode, 'workItemState' | 'dueAt' | 'snoozeUntil' | 'detachedFromId' | 'updatedAt'>,
+  filter: AttentionFilter,
+  nowMs: number
+): boolean {
+  const terminal = isTerminalState(i.workItemState)
+  const snoozed = i.snoozeUntil != null && i.snoozeUntil > nowMs
+  const live = !terminal && !snoozed && i.detachedFromId == null
+
+  if (filter === 'closed-7d') {
+    if (!terminal) return false
+    // The same exclusions recentlyClosed applies: dismissed, reclassified and
+    // archived items were not "closed", they were taken out of the flow.
+    const st = i.workItemState
+    if (st === 'dismissed' || st === 'reclassified' || st === 'archived') return false
+    const when = i.updatedAt ?? 0
+    return when > nowMs - 7 * 24 * 60 * 60 * 1000
+  }
+
+  if (!live) return false
+
+  switch (filter) {
+    case 'open':
+      return true
+    case 'in-progress':
+      return i.workItemState === 'in_progress'
+    case 'waiting':
+      return i.workItemState != null && WAITING_STATES.has(i.workItemState)
+    case 'overdue':
+      return i.dueAt != null && Date.parse(i.dueAt) < nowMs
+    case 'due-today': {
+      if (!i.dueAt) return false
+      const due = new Date(Date.parse(i.dueAt))
+      const now = new Date(nowMs)
+      return (
+        due.getFullYear() === now.getFullYear() &&
+        due.getMonth() === now.getMonth() &&
+        due.getDate() === now.getDate()
+      ) || Date.parse(i.dueAt) < nowMs
+    }
+    default:
+      return true
+  }
+}

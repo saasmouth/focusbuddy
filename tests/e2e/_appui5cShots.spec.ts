@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
 
 // Visual-review shots for App-UI phase 5c: Inbox + Mail aligned to the design
 // system (tokens replace 144 stone literals, fb-field, ramp, press, stagger).
@@ -16,7 +16,7 @@ test.afterEach(async () => {
 })
 
 async function openComms(window: import('@playwright/test').Page, app: string): Promise<void> {
-  await window.locator('[data-testid="switch-office"]').click()
+  await switchArea(window, 'office')
   await window.locator(`[data-testid="office-comms-app-${app}"]`).click()
   await window.waitForTimeout(600)
 }

@@ -33,7 +33,7 @@ import {
   hasTag,
   tagVocabulary
 } from '../../lib/itemTags'
-import { groupIntoQueues, groupByDue, groupByOrigin, recentlyClosed, archivedItems, detachedItems, itemReason, itemFullText, isTerminalState, queueOf, rankScore, clusterByDesk, PRIMARY_ACTION, QUEUE_ICON, QUEUE_ORDER, QUEUE_LABEL, QUEUE_COLOR, queueTint } from '../../lib/attentionQueues'
+import { matchesAttentionFilter, groupIntoQueues, groupByDue, groupByOrigin, recentlyClosed, archivedItems, detachedItems, itemReason, itemFullText, isTerminalState, queueOf, rankScore, clusterByDesk, PRIMARY_ACTION, QUEUE_ICON, QUEUE_ORDER, QUEUE_LABEL, QUEUE_COLOR, queueTint } from '../../lib/attentionQueues'
 import {
   MAX_GROUP_DEPTH,
   orderWithGroups,
@@ -126,7 +126,19 @@ const CONNECTOR_INSET_PX = 6
 const MAX_INDENT = 3
 
 export default function AttentionView(): JSX.Element {
-  const items = useWorkItemStore((s) => s.items)
+  const allItems = useWorkItemStore((s) => s.items)
+  // The sidebar's Attention submenu picks one of the six state/due filters and
+  // carries it on the view. Applied here, at the source, so every block below
+  // — the queues, the KPI band, Recently closed — shows the same slice rather
+  // than each one filtering differently.
+  const attentionFilter = useViewStore((s) =>
+    s.view.kind === 'attention' ? s.view.filter : undefined
+  )
+  const items = useMemo(() => {
+    if (!attentionFilter) return allItems
+    const now = Date.now()
+    return allItems.filter((i) => matchesAttentionFilter(i, attentionFilter, now))
+  }, [allItems, attentionFilter])
   const loaded = useWorkItemStore((s) => s.loaded)
   const refresh = useWorkItemStore((s) => s.refresh)
   const setState = useWorkItemStore((s) => s.setState)

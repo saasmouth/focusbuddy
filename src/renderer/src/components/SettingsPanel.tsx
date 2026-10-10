@@ -38,6 +38,8 @@ import ApiKeysSection from './settings/ApiKeysSection'
 import AttentionSection from './settings/AttentionSection'
 import AutonomySection from './settings/AutonomySection'
 import BodyDoubleSection from './settings/BodyDoubleSection'
+import ConnectedAppsSection from './settings/ConnectedAppsSection'
+import VaultSection from './settings/VaultSection'
 import BrowsingConsentSection from './settings/BrowsingConsentSection'
 import BackupSection from './settings/BackupSection'
 import NavigationSection from './settings/NavigationSection'
@@ -395,6 +397,9 @@ export default function SettingsPanel({
 
         {tab === 'data' && (
           <>
+            {/* The vault moved off the sidebar: it is a store you set up, not a
+                place you browse on the way to work. */}
+            <VaultSection />
             <BackupSection />
             <DocumentsSyncSection />
             <PrivacyHelpSection />
@@ -403,6 +408,11 @@ export default function SettingsPanel({
 
         {tab === 'advanced' && (
           <>
+            {/* The sidebar lists connected apps only while a desk is open,
+                because its rows are there to be dragged onto a canvas. Adding
+                and removing them has to work with no desk open, so it lives
+                here. */}
+            <ConnectedAppsSection />
             <div className="px-3 py-3 space-y-2">
               <div className="fb-t-caption uppercase tracking-[0.12em] font-medium mb-1">
                 Sounds

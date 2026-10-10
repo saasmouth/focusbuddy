@@ -15,7 +15,7 @@
 //      reason-aware tooltip, while the Docs tile stays a normal, clickable tile.
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp, hoverToolbar } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, hoverToolbar, switchArea, isAreaLocked } from './_helpers'
 import { CAPABILITY_DEFAULTS, type CapabilityValue } from '../../src/renderer/src/lib/capabilityDefaults'
 
 let launched: LaunchedApp | null = null
@@ -143,8 +143,8 @@ test('GUARDRAIL — with product_office OFF, a Note widget can still be added to
 
   // Sanity: Office really is locked now (proves the caps landed).
   await expect
-    .poll(async () => window.locator('[data-testid="switch-office"]').getAttribute('data-locked'), { timeout: 5_000 })
-    .toBe('true')
+    .poll(async () => await isAreaLocked(window, 'office'), { timeout: 5_000 })
+    .toBe(true)
 
   // Open the seeded canvas and add a Note widget from the palette.
   await window.getByRole('button', { name: 'Guardrail desk' }).first().click()
@@ -189,7 +189,7 @@ test('office_sheets OFF locks the Sheets tile while Docs stays available', async
   await expect.poll(getCalls, { timeout: 5_000 }).toBeGreaterThan(0)
 
   // Into the Office shell via the always-visible area switcher.
-  await window.locator('[data-testid="switch-office"]').click()
+  await switchArea(window, 'office')
 
   const sheets = window.locator('[data-testid="office-app-sheets"]')
   const docs = window.locator('[data-testid="office-app-docs"]')

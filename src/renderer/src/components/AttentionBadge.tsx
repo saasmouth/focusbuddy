@@ -45,7 +45,7 @@ export default function AttentionBadge(): JSX.Element | null {
   return (
     <Tooltip content="Attention — what needs you" placement="bottom">
       <button
-        onClick={goAttention}
+        onClick={() => goAttention()}
         className="icon-btn relative"
         aria-label={`Attention: ${headline} item${headline === 1 ? '' : 's'} need you`}
       >

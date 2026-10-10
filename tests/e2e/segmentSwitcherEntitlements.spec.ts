@@ -1,7 +1,7 @@
-// E2E: SegmentSwitcher per-user product entitlements.
+// E2E: area-switcher per-user product entitlements.
 //
-// src/renderer/src/components/segment/SegmentSwitcher.tsx now filters its
-// four areas (Desk/Office/People/Brain) by the resolved capability map
+// src/renderer/src/components/WorkspaceSwitcher.tsx filters its four areas
+// (Desk/Office/People/Brain) by the resolved capability map
 // (product_desk/product_office/product_people/product_brain), keeping Desk
 // as an always-present floor even if product_desk itself were off.
 //
@@ -12,7 +12,7 @@
 // Test 2 proves the entitlement-off path end to end through the REAL client
 // code: real accountStore.adoptHandoff() -> real getMe() (GET /accounts/me)
 // -> real capabilities store subscribe-on-sessionToken-change -> real
-// refresh() (GET /account/capabilities) -> real SegmentSwitcher filter. Only
+// refresh() (GET /account/capabilities) -> real WorkspaceSwitcher filter. Only
 // the two network hops are stubbed at the Playwright route layer (same
 // pattern as identityRealName.spec.ts and authDeepLinkConfirm.spec.ts): the
 // packaged test build's renderer loads from file:// and its CSP only allows
@@ -27,7 +27,7 @@
 // touching a live server.
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, openAreaSwitcher, waitForReady, type LaunchedApp } from './_helpers'
 import { CAPABILITY_DEFAULTS, type CapabilityValue } from '../../src/renderer/src/lib/capabilityDefaults'
 
 let launched: LaunchedApp | null = null
@@ -76,7 +76,8 @@ test('1 — default capabilities: all four segment-switcher areas render', async
   const { window } = launched
   await waitForReady(window)
 
-  const switcher = window.locator('[data-testid="segment-switcher"]')
+  await openAreaSwitcher(window)
+  const switcher = window.locator('[data-testid="workspace-switcher-menu"]')
   await expect(switcher).toBeVisible()
   await expect(switcher.locator('[data-testid="switch-plexidesk"]')).toBeVisible()
   await expect(switcher.locator('[data-testid="switch-office"]')).toBeVisible()
@@ -142,7 +143,8 @@ test('2 — product_office (licensing) and product_brain (admin) off: greyed wit
   await waitForReady(window)
 
   // Sanity: all four present before the entitlement change lands.
-  const switcher = window.locator('[data-testid="segment-switcher"]')
+  await openAreaSwitcher(window)
+  const switcher = window.locator('[data-testid="workspace-switcher-menu"]')
   await expect(switcher.locator('[data-testid="switch-office"]')).toBeVisible()
   await expect(switcher.locator('[data-testid="switch-plexibrain"]')).toBeVisible()
 
@@ -151,6 +153,10 @@ test('2 — product_office (licensing) and product_brain (admin) off: greyed wit
   // The capabilities store refreshes off the sessionToken-change subscription;
   // wait for the stubbed endpoint to actually have been hit before asserting.
   await expect.poll(() => capabilitiesCallCount, { timeout: 5_000 }).toBeGreaterThan(0)
+
+  // Signing in clicked through a dialog, and a mousedown outside the switcher
+  // closes it — reopen to read the areas after the entitlement change.
+  await openAreaSwitcher(window)
 
   // Office and Brain are no longer entitled -> still shown, but greyed/locked.
   const office = switcher.locator('[data-testid="switch-office"]')

@@ -6,7 +6,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
 
 async function exitSegment(window: Page): Promise<void> {
   // SegmentShell uses segment-exit; the PlexiOffice shell uses office-exit.
@@ -42,7 +42,7 @@ test.describe('three-segment IA', () => {
 
   test('PlexiOffice opens and its Docs app is present', async () => {
     await exitSegment(window)
-    await window.locator('[data-testid="switch-office"]').click()
+    await switchArea(window, 'office')
     // The office shell has its own sidebar with the document apps.
     await expect(window.locator('[data-testid="office-sidebar"]')).toBeVisible({ timeout: 8_000 })
     await expect(window.locator('[data-testid="office-app-docs"]')).toBeVisible()
@@ -52,7 +52,7 @@ test.describe('three-segment IA', () => {
 
   test('PlexiBrain opens and its Search app renders the search view', async () => {
     await exitSegment(window)
-    await window.locator('[data-testid="switch-plexibrain"]').click()
+    await switchArea(window, 'plexibrain')
     await expect(window.locator('[data-testid="segment-sidebar"]')).toBeVisible()
     await window.locator('[data-testid="segment-app-search"]').click()
     await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 8_000 })
@@ -60,7 +60,7 @@ test.describe('three-segment IA', () => {
 
   test('PlexiBrain Brain Map app renders a real graph or honest empty state', async () => {
     await exitSegment(window)
-    await window.locator('[data-testid="switch-plexibrain"]').click()
+    await switchArea(window, 'plexibrain')
     await window.locator('[data-testid="segment-app-map"]').click()
     await expect(window.locator('[data-testid="brain-map-view"]')).toBeVisible({ timeout: 8_000 })
     // A fresh test workspace has no knowledge entries, so the honest empty state

@@ -19,7 +19,7 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady } from './_helpers'
+import { launchApp, waitForReady, switchArea } from './_helpers'
 import { join } from 'path'
 import { mkdirSync } from 'fs'
 
@@ -30,7 +30,7 @@ const SCREENSHOT_PATH = join(SCREENSHOT_DIR, 'doc-true-pagination.png')
 
 async function navigateToDocEditor(window: import('@playwright/test').Page): Promise<void> {
   // PlexiOffice houses Documents. Use the area-switcher.
-  await window.locator('[data-testid="switch-office"]').click()
+  await switchArea(window, 'office')
   await expect(window.locator('[data-testid="office-sidebar"]')).toBeVisible({ timeout: 8_000 })
   await window.locator('[data-testid="office-app-docs"]').click()
   await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 10_000 })

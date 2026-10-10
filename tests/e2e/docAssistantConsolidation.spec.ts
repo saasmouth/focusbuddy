@@ -6,7 +6,7 @@
  * desk, then applies there.
  */
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
 
 test.describe('one assistant — in a document', () => {
   let app: LaunchedApp
@@ -15,7 +15,7 @@ test.describe('one assistant — in a document', () => {
   test.afterAll(async () => { await app.dispose() })
 
   test('doc panel has no AI tab; the assistant control opens the one overlay', async () => {
-    await window.locator('[data-testid="switch-office"]').click()
+    await switchArea(window, 'office')
     await window.locator('[data-testid="office-app-docs"]').click()
     await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 10_000 })
     await expect(window.locator('[data-testid="doc-side-panel"]')).toBeVisible({ timeout: 8_000 })

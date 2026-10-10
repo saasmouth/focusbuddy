@@ -17,7 +17,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
 
 const REWRITE_HTML = '<p>Stubbed improved copy.</p>'
 const SUGGEST_HTML = '<p>Stubbed design idea.</p>'
@@ -36,7 +36,7 @@ async function stubDesignAi(app: LaunchedApp['app']): Promise<void> {
 }
 
 async function openDesignStudio(window: Page): Promise<void> {
-  await window.locator('[data-testid="switch-office"]').first().click()
+  await switchArea(window, 'office')
   await expect(window.locator('[data-testid="office-app-design"]')).toBeVisible({ timeout: 8_000 })
   await window.locator('[data-testid="office-app-design"]').click()
   await expect(window.locator('[data-testid="design-editor"]')).toBeVisible({ timeout: 10_000 })

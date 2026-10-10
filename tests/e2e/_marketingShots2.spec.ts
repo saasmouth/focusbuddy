@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, switchArea, isAreaLocked } from './_helpers'
 import { resolve } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 
@@ -131,7 +131,7 @@ test('capture marketing screenshots batch 2 (UI-driven, honest content)', async 
   // People/Brain) in the sidebar + the app tiles grid (Docs/Sheets/Slides/
   // Draw/Design/Meet), the clearest single view of app breadth. ────────────
   try {
-    await window.locator('[data-testid="switch-office"]').click()
+    await switchArea(window, 'office')
     await expect(window.locator('[data-testid="office-sidebar"]')).toBeVisible({ timeout: 8_000 })
     await expect(window.locator('[data-testid="office-app-sheets"]')).toBeVisible({ timeout: 8_000 })
     await window.waitForTimeout(500)
@@ -173,7 +173,7 @@ test('capture marketing screenshots batch 2 (UI-driven, honest content)', async 
 
   // ── 3. shot-plans.png — the seeded Q3 Launch Plan, Gantt timeline view ──
   try {
-    await window.locator('[data-testid="switch-plexidesk"]').click().catch(() => {})
+    await switchArea(window, 'plexidesk').catch(() => {})
     await window.waitForTimeout(300)
     // The projects/plans view lives straight off the view store.
     await window.evaluate(() => {
@@ -200,7 +200,7 @@ test('capture marketing screenshots batch 2 (UI-driven, honest content)', async 
       w.__fbView?.getState().goHome?.()
     })
     await window.waitForTimeout(300)
-    await window.locator('[data-testid="switch-office"]').click()
+    await switchArea(window, 'office')
     await window.waitForTimeout(400)
     const mailTile = window.locator('[data-testid="office-comms-app-mail"]')
     const mailTileVisible = await mailTile.isVisible({ timeout: 3_000 }).catch(() => false)
@@ -225,10 +225,10 @@ test('capture marketing screenshots batch 2 (UI-driven, honest content)', async 
       w.__fbView?.getState().goHome?.()
     })
     await window.waitForTimeout(300)
-    await window.locator('[data-testid="switch-plexipeople"]').click()
+    await switchArea(window, 'plexipeople')
     await window.waitForTimeout(700)
-    const peopleLocked = await window.locator('[data-testid="switch-plexipeople"][data-locked="true"]').count()
-    if (peopleLocked > 0) {
+    const peopleLocked = await isAreaLocked(window, 'plexipeople')
+    if (peopleLocked) {
       results.people = 'SKIPPED — People area is entitlement-gated (data-locked=true) in this test env'
     } else {
       const mapTile = window.locator('[data-testid="segment-app-map"]')
@@ -259,7 +259,7 @@ test('capture marketing screenshots batch 2 (UI-driven, honest content)', async 
       w.__fbView?.getState().goHome?.()
     })
     await window.waitForTimeout(300)
-    await window.locator('[data-testid="switch-office"]').click()
+    await switchArea(window, 'office')
     await window.waitForTimeout(400)
     const chatTile = window.locator('[data-testid="office-comms-app-chat"]')
     const chatTileVisible = await chatTile.isVisible({ timeout: 3_000 }).catch(() => false)

@@ -44,7 +44,7 @@ function WidgetShell({
   return (
     <div className="w-full h-full text-left flex flex-col p-3">
       <button
-        onClick={goAttention}
+        onClick={() => goAttention()}
         title="Open Attention"
         className="flex items-center gap-2 fb-press text-left"
       >
@@ -397,7 +397,7 @@ export function AttentionWidget({
           </button>
         )}
       </div>
-      <button onClick={goAttention} className="mt-2 flex items-center gap-2 fb-press text-left">
+      <button onClick={() => goAttention()} className="mt-2 flex items-center gap-2 fb-press text-left">
         <span className="fb-t-label text-[var(--ink-70)] flex-1 min-w-0 truncate">{current.label}</span>
         <span className="fb-t-label text-[var(--ink-40)] fb-tabular">{count}</span>
       </button>

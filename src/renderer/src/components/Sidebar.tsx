@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ATTENTION_FILTERS } from '../lib/attentionQueues'
 import type { ConnectedApp, FbNode, NodeKind, WidgetSuggestion } from '@shared/types'
 import { useNodeStore } from '../stores/nodes'
 import { useWorkItemStore } from '../stores/workItems'
@@ -124,14 +125,13 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
   const goShared = useViewStore((s) => s.goShared)
   const goTrash = useViewStore((s) => s.goTrash)
   const goAttention = useViewStore((s) => s.goAttention)
-  const goCalendar = useViewStore((s) => s.goCalendar)
-  const goFiles = useViewStore((s) => s.goFiles)
+  const activeAttentionFilter = useViewStore((st) =>
+    st.view.kind === 'attention' ? st.view.filter : undefined
+  )
   const goConnectedApp = useViewStore((s) => s.goConnectedApp)
-  const goVault = useViewStore((s) => s.goVault)
   const goOffice = useViewStore((s) => s.goOffice)
   const goPlexiPeople = useViewStore((s) => s.goPlexiPeople)
   const goPlexiBrain = useViewStore((s) => s.goPlexiBrain)
-  const goPlexii = useViewStore((s) => s.goPlexii)
 
   // No conversation sublist here any more (operator direction, 2026-10-08).
   // The Plexii row used to expand to the three most recent chats, which made
@@ -173,6 +173,12 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
   // Section collapse state for the remaining sections.
   const [roomsNavOpen, setRoomsNavOpen] = useState(true)
   const [appsOpen, setAppsOpen] = useState(true)
+  // Attention's filter submenu. Collapsed by default: the row itself is
+  // "everything", and the six filters are a narrowing most sessions do not need.
+  const [attentionOpen, setAttentionOpen] = useState(false)
+  // Connected Apps show only while a desk is open: the rows are there to be
+  // dragged onto a canvas, so anywhere else they are a list you cannot use.
+  const deskOpen = useViewStore((st) => st.view.kind === 'task')
 
   // Shared-with-me inbox — loaded once on mount, drives the "Shared" nav badge.
   const sharedInbox = useSharesStore((s) => s.inbox)
@@ -359,11 +365,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
 
           <CollapsedNavIcon icon="plexii:home"  label="Home"         tone={AREA_TONES.home}  active={viewIsActive({ kind: 'home' })}       onClick={() => { setActive(null); goHome() }} />
           {/* Monochrome by plexidesk-75's rail rule: no tone, accent only when active. */}
-          <CollapsedNavIcon icon="plexii:ai"     label="Plexii"       active={viewIsActive({ kind: 'plexii' })}     onClick={() => { setActive(null); goPlexii() }} />
           <CollapsedNavIcon icon="notifications" label="Attention"    tone={AREA_TONES.desks}  active={viewIsActive({ kind: 'attention' })} onClick={() => { setActive(null); goAttention() }} />
-          {viewEnabled('calendar') && (
-            <CollapsedNavIcon icon="calendar_month" label="Calendar" tone={AREA_TONES.desks} active={viewIsActive({ kind: 'calendar' })} onClick={() => { setActive(null); goCalendar() }} />
-          )}
           <CollapsedNavIcon icon="meeting_room"  label="Rooms"        tone={AREA_TONES.rooms}     active={viewIsActive({ kind: 'rooms' })}      onClick={() => { setActive(null); goRooms() }} />
           <CollapsedNavIcon icon="desk"          label="Desks"        tone={AREA_TONES.desks}    active={viewIsActive({ kind: 'desks' })}      onClick={() => { setActive(null); goDesks() }} />
           <CollapsedNavIcon icon="folder_shared" label="Shared Desks" tone={AREA_TONES.shared} active={viewIsActive({ kind: 'shared' })}    onClick={() => { setActive(null); goShared() }} />
@@ -371,12 +373,6 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
           {/* DEC-020: Plans / Desks (flat) / Calendar tabs retired — Attention
               absorbed them (feeders carry desk + plan due dates). The views
               stay reachable via the ⌘K palette; engines untouched (DEC-009). */}
-          {viewEnabled('files') && (
-            <CollapsedNavIcon icon="folder" label="Files" tone={AREA_TONES.files} active={viewIsActive({ kind: 'files' })} onClick={() => { setActive(null); goFiles() }} />
-          )}
-          {viewEnabled('vault') && (
-            <CollapsedNavIcon icon="plexii:vault" label="Vault" tone={AREA_TONES.vault} active={viewIsActive({ kind: 'vault' })} onClick={() => { setActive(null); goVault() }} />
-          )}
 
           {/* ── Connected Apps ── */}
           <div className="w-6 h-px bg-[var(--edge-soft)] shrink-0 my-1" />
@@ -505,48 +501,60 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
           />
           {/* Attention — what needs you, top-level by design (S6): the
               surface's whole job is being one glance away. */}
-          <NavRow
-            icon="notifications"
-            label="Attention"
-            tone={AREA_TONES.desks}
-            active={viewIsActive({ kind: 'attention' })}
-            onClick={() => {
-              setActive(null)
-              goAttention()
-            }}
-          />
+          <div className="flex items-center">
+            <div className="flex-1 min-w-0">
+              <NavRow
+                icon="notifications"
+                label="Attention"
+                tone={AREA_TONES.desks}
+                active={viewIsActive({ kind: 'attention' })}
+                onClick={() => {
+                  setActive(null)
+                  goAttention()
+                }}
+              />
+            </div>
+            <button
+              onClick={() => setAttentionOpen((v) => !v)}
+              className="icon-btn !h-5 !w-5 mr-1"
+              title={attentionOpen ? 'Hide the Attention filters' : 'Show the Attention filters'}
+              aria-expanded={attentionOpen}
+              data-testid="sidebar-attention-toggle"
+            >
+              <Icon name={attentionOpen ? 'expand_less' : 'expand_more'} size={14} />
+            </button>
+          </div>
+          {/* The six state/due filters. The row above is still "everything";
+              these narrow it. Definitions live in lib/attentionQueues so the
+              sidebar, the view and the predicate cannot drift. */}
+          {attentionOpen && (
+            <div className="ml-6 border-l border-[var(--edge-soft)] pl-1" data-testid="sidebar-attention-filters">
+              {ATTENTION_FILTERS.map((f) => (
+                <NavRow
+                  key={f.id}
+                  icon={f.icon}
+                  label={f.label}
+                  tone={AREA_TONES.desks}
+                  active={viewIsActive({ kind: 'attention' }) && activeAttentionFilter === f.id}
+                  testid={`sidebar-attention-${f.id}`}
+                  onClick={() => {
+                    setActive(null)
+                    goAttention(f.id)
+                  }}
+                />
+              ))}
+            </div>
+          )}
           {/* Calendar — the planning lens on the same items (DEC-052 reverses
               DEC-020's calendar clause by operator ruling: the rebuilt surface
               is a daily ritual, not the read-only grid the retirement judged).
               Attention and Calendar sit as peers deliberately. */}
-          {viewEnabled('calendar') && (
-            <NavRow
-              icon="calendar_month"
-              label="Calendar"
-              tone={AREA_TONES.desks}
-              active={viewIsActive({ kind: 'calendar' })}
-              onClick={() => {
-                setActive(null)
-                goCalendar()
-              }}
-            />
-          )}
-          {/* Plexii — the AI hub. One row, one destination: it opens the hub.
-              AI carries the accent hue per the destination-hue system; the
-              double-i mark is the Plexii AI signature. Conversation history is
-              the assistant's, not the nav's — see the note by the store
-              selectors above. */}
-          <NavRow
-            icon="plexii:ai"
-            label="Plexii"
-            tone="text-[rgb(var(--accent))]"
-            active={viewIsActive({ kind: 'plexii' })}
-            testid="sidebar-plexii"
-            onClick={() => {
-              setActive(null)
-              goPlexii()
-            }}
-          />
+          {/* Calendar moved into Office, beside the inbox — it is a comms
+              surface in practice, and it sat here only because Attention and
+              Calendar were once peers (DEC-052). */}
+          {/* Plexii is not a nav row any more. The assistant is the one door
+              to it — its header opens the hub — so the sidebar does not offer a
+              second one. */}
           {/* Rooms — the workspace organiser. Clicking opens All Rooms; the
               chevron expands to the two index pages (All Rooms, All Desks). */}
           <div className="flex items-center">
@@ -608,33 +616,18 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
           {/* DEC-020: Plans / Desks (flat) / Calendar tabs retired — Attention
               absorbed them (feeders carry desk + plan due dates). The views
               stay reachable via the ⌘K palette; engines untouched (DEC-009). */}
-          {viewEnabled('files') && (
-            <NavRow
-              icon="folder"
-              label="Files"
-              tone={AREA_TONES.files}
-              active={viewIsActive({ kind: 'files' })}
-              onClick={() => {
-                setActive(null)
-                goFiles()
-              }}
-            />
-          )}
-          {viewEnabled('vault') && (
-            <NavRow
-              icon="plexii:vault"
-              label="Vault"
-              tone={AREA_TONES.vault}
-              active={viewIsActive({ kind: 'vault' })}
-              onClick={() => {
-                setActive(null)
-                goVault()
-              }}
-            />
-          )}
+          {/* Files moved into Office, beside the inbox. Vault moved into
+              Settings — it is a store you configure, not a place you browse. */}
+
         </div>
 
-        {/* ── CONNECTED APPS ────────────────────────────────────────────── */}
+        {/* ── CONNECTED APPS ──────────────────────────────────────────────
+            Only while a desk is open. The rows exist to be DRAGGED onto a
+            canvas, so on Home or an index page they are a list you cannot use.
+            Managing them (add, remove, pin) lives in Settings, which is
+            reachable from anywhere. */}
+        {deskOpen && (
+        <>
         <SectionHeader
           label="Connected Apps"
           open={appsOpen}
@@ -718,6 +711,8 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
               </>
             )}
           </div>
+        )}
+        </>
         )}
       </div>
 

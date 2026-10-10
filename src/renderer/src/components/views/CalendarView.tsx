@@ -917,7 +917,7 @@ export default function CalendarView(): JSX.Element {
                   {blockDragging ? 'Drop here to unschedule' : 'To schedule'}
                 </span>
                 <button
-                  onClick={goAttention}
+                  onClick={() => goAttention()}
                   className="fb-t-caption text-[var(--ink-40)] hover:text-[var(--ink-80)] fb-press shrink-0"
                 >
                   Open Attention
@@ -1341,7 +1341,7 @@ export default function CalendarView(): JSX.Element {
                         {due.slice(0, 3).map((i) => (
                           <button
                             key={i.id}
-                            onClick={goAttention}
+                            onClick={() => goAttention()}
                             title={i.title}
                             className="relative w-full text-left truncate rounded-[var(--radius-chip)] pl-2.5 pr-1.5 py-1 text-[11px] leading-snug fb-press"
                             style={{

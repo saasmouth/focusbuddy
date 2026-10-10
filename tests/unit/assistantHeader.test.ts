@@ -108,8 +108,12 @@ describe('conversation history moved out of the nav and into the assistant', () 
     ]) {
       expect(sidebar).not.toContain(gone)
     }
-    // The Plexii row itself stays — it is still the door to the hub.
-    expect(sidebar).toContain('testid="sidebar-plexii"')
+    // The Plexii row is gone too now (operator ruling 2026-10-10): the hub had
+    // two doors, a nav row and the assistant you were already talking to. The
+    // assistant's wordmark is the one that remains.
+    expect(sidebar).not.toContain('testid="sidebar-plexii"')
+    expect(header).toContain('data-testid="assistant-open-hub"')
+    expect(header).toContain('goPlexii()')
   })
 
   it('the header\'s history button is hidden in fullscreen, which has the rail', () => {

@@ -14,31 +14,33 @@ test.afterEach(async () => {
   }
 })
 
-test('seeded Connected Apps render in the sidebar', async () => {
+test('seeded Connected Apps render in the sidebar once a desk is open', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
 
   // Seed via window.api so we exercise the real IPC + the new schema columns.
+  // A desk comes with it: Connected Apps are desk furniture now, so the strip
+  // only stands in the sidebar while a desk is open (and otherwise lives in
+  // Settings). Seeding both in one pass keeps it to a single reload.
   await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     await api.connectedApps.create({ title: 'Gmail', url: 'https://mail.google.com' })
     await api.connectedApps.create({ title: 'GitHub', url: 'https://github.com' })
+    await api.nodes.create({ parentId: null, kind: 'task', title: 'Connected apps desk' })
   })
 
-  // After seeding, the store needs a refresh — the store usually reloads on
-  // sidebar mount, but we just mutated under it, so force a manual refresh.
-  await window.evaluate(async () => {
-    const api = (window as unknown as { api: typeof window.api }).api
-    // No store-level escape hatch exposed to the page — but list() pulls fresh
-    // rows and lighting the storage event isn't worth the complexity here. The
-    // assertion below uses a reload to pick up the new state cleanly.
-    await api.connectedApps.list()
-  })
+  // We mutated under the store, so reload to pick the new state up cleanly.
   await window.reload()
   await waitForReady(window)
 
-  // Both apps appear in the sidebar (favourites strip — the empty/cold list
+  // On Home — no desk open — the strip is not in the sidebar.
+  await expect(window.getByText('Gmail', { exact: true })).toHaveCount(0)
+
+  await window.getByRole('button', { name: 'Connected apps desk' }).first().click()
+  await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 8_000 })
+
+  // With the desk open both apps appear (favourites strip — the cold list
   // promotes everything since fewer than 6 apps).
   await expect(window.getByText('Gmail', { exact: true })).toBeVisible()
   await expect(window.getByText('GitHub', { exact: true })).toBeVisible()

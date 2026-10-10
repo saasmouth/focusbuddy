@@ -28,7 +28,8 @@ import {
   launchApp,
   type LaunchedApp,
   typeInComposer,
-  waitForReady
+  waitForReady,
+  switchArea
 } from './_helpers'
 
 // Far-end stub, same philosophy as the sibling suites: only chat:sendStream is
@@ -357,7 +358,7 @@ test('AF-4 — on a segment takeover, fullscreen stays full-bleed', async () => 
   // become one control") — the old always-visible "Office" button is gone, and
   // getByRole(/Office/) waited out the whole test for it.
   await window.locator('[data-testid="workspace-switcher-trigger"]').click()
-  await window.locator('[data-testid="switch-office"]').click()
+  await switchArea(window, 'office')
   await expect
     .poll(() =>
       window.evaluate(

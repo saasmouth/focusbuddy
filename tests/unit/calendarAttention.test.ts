@@ -86,11 +86,20 @@ describe('the surfaces share the one grid (DEC-052 §0)', () => {
     expect(att).toContain("e.dataTransfer.setData('text/fb-workitem', i.id)")
   })
 
-  it('Calendar returned to the rail — both states, capability-gated', () => {
+  it('Calendar lives in Office beside the inbox, not in the sidebar rail', () => {
+    // DEC-052 put Calendar back in the sidebar rail, in both the expanded and
+    // collapsed states. Reversed by operator ruling 2026-10-10: it sits in
+    // Office with the inbox, because what it carries is the day's incoming
+    // work rather than part of the workspace tree. Still capability-gated —
+    // an edition without the calendar view must not offer a door to it.
     const sidebar = read('src/renderer/src/components/Sidebar.tsx')
-    const rows = sidebar.match(/label="Calendar"/g) ?? []
-    expect(rows.length).toBe(2)
-    expect(sidebar.match(/viewEnabled\('calendar'\)/g)?.length).toBe(2)
+    expect(sidebar.match(/label="Calendar"/g) ?? []).toHaveLength(0)
+
+    const office = read('src/renderer/src/components/office/PlexiOfficeShell.tsx')
+    expect(office).toContain('label="Calendar"')
+    expect(office).toContain("viewEnabled('calendar')")
+    // Beside the inbox, which is the row this was asked to join.
+    expect(office).toContain('label="Inbox"')
   })
 })
 

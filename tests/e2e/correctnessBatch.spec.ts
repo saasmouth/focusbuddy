@@ -6,7 +6,7 @@
  * PART C — Loading states + three-view render smoke (checks 6-7)
  */
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady } from './_helpers'
+import { launchApp, waitForReady, switchArea } from './_helpers'
 import type { Page } from '@playwright/test'
 
 // ---------------------------------------------------------------------------
@@ -23,7 +23,7 @@ async function openProduct(window: Page, name: string, key: string): Promise<voi
   if (await officeExit.isVisible().catch(() => false)) await officeExit.click()
 
   if (name === 'PlexiMeet') {
-    await window.locator('[data-testid="switch-office"]').click()
+    await switchArea(window, 'office')
     await window.locator('[data-testid="office-comms-app-meet"]').click()
   } else if (name === 'PlexiForms' || name === 'PlexiBuild') {
     const go = name === 'PlexiForms' ? 'goForms' : 'goApps'

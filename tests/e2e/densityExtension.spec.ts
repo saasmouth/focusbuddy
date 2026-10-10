@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, isAreaLocked, switchArea } from './_helpers'
 
 // Plexi3.0 compact-density EXTENSION verification. The base density lever
 // (data-density on <html>, Theme Studio toggle, radius tokens) is already
@@ -80,18 +80,15 @@ test('compact density extension: fb-sidebar-fixed, fb-floating-inset, fb-nav-ite
   // Tries Office first, falls back to the Brain segment if Office is
   // entitlement-locked in this test account.
   async function measureFixedSidebarWidth(): Promise<{ area: string; width: number }> {
-    const officeSwitch = window.locator('[data-testid="switch-office"]')
-    const officeLocked = await officeSwitch.getAttribute('data-locked').catch(() => null)
-    if ((await officeSwitch.count()) > 0 && officeLocked !== 'true') {
-      await officeSwitch.click()
+    if (!(await isAreaLocked(window, 'office'))) {
+      await switchArea(window, 'office')
       await expect(window.locator('[data-testid="office-sidebar"]')).toBeVisible({ timeout: 5_000 })
       const width = await window
         .locator('[data-testid="office-sidebar"]')
         .evaluate((el) => (el.parentElement as HTMLElement).offsetWidth)
       return { area: 'office', width }
     }
-    const brainSwitch = window.locator('[data-testid="switch-plexibrain"]')
-    await brainSwitch.click()
+    await switchArea(window, 'plexibrain')
     await expect(window.locator('[data-testid="segment-sidebar"]')).toBeVisible({ timeout: 5_000 })
     const width = await window
       .locator('[data-testid="segment-sidebar"]')
@@ -117,15 +114,7 @@ test('compact density extension: fb-sidebar-fixed, fb-floating-inset, fb-nav-ite
     menuPaddingTop: string | null
     itemPaddingTop: string | null
   }> {
-    const deskSwitch = window.locator('[data-testid="switch-plexidesk"]')
-    if ((await deskSwitch.count()) > 0) {
-      await deskSwitch.click()
-    } else {
-      await window.evaluate(() => {
-        const w = window as unknown as { __fbView?: { getState: () => Record<string, () => void> } }
-        w.__fbView?.getState().goHome?.()
-      })
-    }
+    await switchArea(window, 'plexidesk')
     await window.waitForTimeout(200)
     await window.getByRole('button', { name: /Density ext desk/ }).first().click()
     const surface = window.locator('[data-canvas-surface="true"]')
@@ -167,18 +156,29 @@ test('compact density extension: fb-sidebar-fixed, fb-floating-inset, fb-nav-ite
   console.log('Comfortable context menu:', JSON.stringify(comfortableMenu))
 
   // Regression per CHECK 6 — comfortable sidebar stays ~260, FloatingPill and
-  // a single Assistant heading are present, desk still functions.
+  // exactly one assistant are present, desk still functions. (The "Plexii"
+  // <h2> this used to count was replaced by the animated wordmark in DEC-120,
+  // so the one-assistant invariant is read off its entry point instead.)
   expect(comfortableSidebar.width, 'comfortable fixed sidebar should be ~260px').toBeGreaterThanOrEqual(255)
   expect(comfortableSidebar.width).toBeLessThanOrEqual(265)
 
-  const assistantHeadingCountComfortable = await window
-    .getByRole('heading', { name: 'Plexii', exact: true })
+  const assistantCountComfortable = await window
+    .locator('[data-testid="assistant-pill"]')
     .count()
-  console.log('Comfortable Assistant heading count (want 1):', assistantHeadingCountComfortable)
-  expect(assistantHeadingCountComfortable).toBe(1)
+  console.log('Comfortable assistant count (want 1):', assistantCountComfortable)
+  expect(assistantCountComfortable).toBe(1)
 
-  const pillComfortable = window.locator('[data-testid="floating-pill"]')
-  const pillVisibleComfortable = await pillComfortable.isVisible({ timeout: 5_000 }).catch(() => false)
+  // The desk action bar has two shapes: docked into the header
+  // (`desk-action-bar`) when the header slot exists, and the floating pill
+  // (`floating-pill`) when it does not. Either one satisfies "the bar is
+  // there" — which is what this density check is about.
+  const pillComfortable = window.locator(
+    '[data-testid="desk-action-bar"], [data-testid="floating-pill"]'
+  )
+  const pillVisibleComfortable = await pillComfortable
+    .first()
+    .isVisible({ timeout: 5_000 })
+    .catch(() => false)
   console.log('Comfortable FloatingPill visible:', pillVisibleComfortable)
   expect(pillVisibleComfortable).toBe(true)
 
@@ -270,14 +270,15 @@ test('compact density extension: fb-sidebar-fixed, fb-floating-inset, fb-nav-ite
   expect(errorBoundaryHit).toBe(false)
   expect(relevantConsoleErrors).toEqual([])
 
-  // Chrome intact in compact: FloatingPill + single Assistant heading still there.
-  const assistantHeadingCountCompact = await window
-    .getByRole('heading', { name: 'Plexii', exact: true })
-    .count()
-  console.log('Compact Assistant heading count (want 1):', assistantHeadingCountCompact)
-  expect(assistantHeadingCountCompact).toBe(1)
+  // Chrome intact in compact: the desk action bar and exactly one assistant
+  // are still there (see the note on the comfortable check above).
+  const assistantCountCompact = await window.locator('[data-testid="assistant-pill"]').count()
+  console.log('Compact assistant count (want 1):', assistantCountCompact)
+  expect(assistantCountCompact).toBe(1)
 
-  const pillCompact = window.locator('[data-testid="floating-pill"]')
+  const pillCompact = window.locator(
+    '[data-testid="desk-action-bar"], [data-testid="floating-pill"]'
+  ).first()
   const pillVisibleCompact = await pillCompact.isVisible({ timeout: 5_000 }).catch(() => false)
   console.log('Compact FloatingPill visible:', pillVisibleCompact)
   expect(pillVisibleCompact).toBe(true)

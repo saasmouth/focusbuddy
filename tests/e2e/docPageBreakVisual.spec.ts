@@ -18,7 +18,7 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady } from './_helpers'
+import { launchApp, waitForReady, switchArea } from './_helpers'
 import { join } from 'path'
 import { mkdirSync } from 'fs'
 
@@ -34,7 +34,7 @@ test('PBV-1 — page-break renders as a gap band (not a thin line) with Page-2 l
 
     // Navigate to PlexiOffice → PlexiDocs (the current IA: Documents lives
     // inside the office segment, not the Desk sidebar).
-    await window.locator('[data-testid="switch-office"]').click()
+    await switchArea(window, 'office')
     await expect(window.locator('[data-testid="office-sidebar"]')).toBeVisible({ timeout: 8_000 })
     await window.locator('[data-testid="office-app-docs"]').click()
     await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({

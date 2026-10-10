@@ -125,7 +125,7 @@ function MessageBell({
       data-testid={`msg-attention-wrap-${m.id}`}
     >
       <button
-        onClick={marked ? goAttention : onCapture}
+        onClick={marked ? () => goAttention() : onCapture}
         aria-pressed={!!marked}
         aria-label={marked ? 'In Attention — open the queue' : 'Add to Attention'}
         title={

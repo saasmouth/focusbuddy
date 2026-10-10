@@ -10,7 +10,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
 
 async function exitSegment(window: Page): Promise<void> {
   const segExit = window.locator('[data-testid="segment-exit"]')
@@ -34,7 +34,7 @@ test.describe('PlexiPeople segment', () => {
 
   test('opens from the sidebar and renders the people home', async () => {
     await exitSegment(window)
-    await window.locator('[data-testid="switch-plexipeople"]').click()
+    await switchArea(window, 'plexipeople')
     await expect(window.locator('[data-testid="segment-plexipeople"]')).toBeVisible({ timeout: 8_000 })
     // The segment lands on its People Home app by default.
     await expect(window.locator('[data-testid="people-home"]')).toBeVisible({ timeout: 8_000 })
@@ -44,7 +44,7 @@ test.describe('PlexiPeople segment', () => {
 
   test('a fresh workspace shows the honest empty directory, not invented people', async () => {
     await exitSegment(window)
-    await window.locator('[data-testid="switch-plexipeople"]').click()
+    await switchArea(window, 'plexipeople')
     await window.locator('[data-testid="people-home"]').waitFor({ timeout: 8_000 })
 
     // No organisation + signed out on a fresh DB → honest empty state, never a
@@ -63,15 +63,18 @@ test.describe('PlexiPeople segment', () => {
     await expect(status.locator('text=/^128$/')).toHaveCount(0)
   })
 
-  test('the directory app and organisation map are reachable from the segment menu', async () => {
+  test('the segment menu offers what the tier entitles, and gates the rest', async () => {
     await exitSegment(window)
-    await window.locator('[data-testid="switch-plexipeople"]').click()
-    // Organisation (the directory backend / OrgAdminView) renders inline.
-    await window.locator('[data-testid="segment-app-workspaces"]').click()
-    await expect(window.locator('[data-testid="org-admin"]')).toBeVisible({ timeout: 8_000 })
-    // Organisation Map app renders the real People Map view (its empty state on a
-    // fresh workspace, never an invented org chart).
-    await window.locator('[data-testid="segment-app-map"]').click()
-    await expect(window.locator('[data-testid="people-map"]')).toBeVisible({ timeout: 8_000 })
+    await switchArea(window, 'plexipeople')
+    // The directory is free, and renders the real people view.
+    await window.locator('[data-testid="segment-app-directory"]').click()
+    await expect(window.locator('[data-testid="people-status"]')).toBeVisible({ timeout: 8_000 })
+    // Organisation (OrgAdminView) and the Organisation Map are Team-tier
+    // (org_directory and people_map went team-only in b6ad6564, 2026-07-07),
+    // so on this free-tier profile the menu does not offer them. The menu and
+    // the surface agree: nothing here opens onto a locked view.
+    for (const a of ['workspaces', 'map']) {
+      await expect(window.locator(`[data-testid="segment-app-${a}"]`)).toHaveCount(0)
+    }
   })
 })

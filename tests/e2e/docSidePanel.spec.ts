@@ -18,7 +18,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
 
 const SUMMARY_HTML = '<h2>Summary</h2><p>This is the stubbed summary.</p>'
 
@@ -53,7 +53,7 @@ async function stubWorkspaceAsk(app: LaunchedApp['app'], answer: string): Promis
 
 /** Open PlexiOffice and create + open a blank document. */
 async function openOfficeDoc(window: Page): Promise<void> {
-  await window.locator('[data-testid="switch-office"]').first().click()
+  await switchArea(window, 'office')
   await expect(window.locator('[data-testid="office-sidebar"]')).toBeVisible({ timeout: 8_000 })
   await window.locator('[data-testid="office-app-docs"]').click()
   await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 10_000 })

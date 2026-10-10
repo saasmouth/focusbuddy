@@ -3,7 +3,7 @@
 // search filtering, delete, and the PlexiSuite launcher status for PlexiBrain.
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, switchArea } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -20,7 +20,7 @@ async function openBrain(window: LaunchedApp['window']): Promise<void> {
   // 'plexibrain'; the testid is the stable handle, not the visible text) — that
   // lands on the Brain segment's app-tile home, not the knowledge view. Then the
   // "Ask Brain" app tile, which renders KnowledgeView ([data-testid="plexibrain-view"]).
-  await window.locator('[data-testid="switch-plexibrain"]').first().click()
+  await switchArea(window, 'plexibrain')
   await window.locator('[data-testid="segment-app-ask"]').first().click()
   await window.waitForSelector('[data-testid="plexibrain-view"]', { timeout: 8_000 })
 }

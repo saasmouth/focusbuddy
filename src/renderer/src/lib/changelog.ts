@@ -36,6 +36,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.25',
+    date: '2026-10-10T21:00:00Z',
+    title: 'PlexiDesk 4.3.25 \u2014 one floor under everything, and a menu that matches the work',
+    tag: 'design',
+    summary:
+      'Every screen now stands on the same floor as the Home dashboard, in light and dark alike. The side menu stops listing places that belong somewhere else: Calendar and Files move into Office beside the inbox, Vault moves into Settings, and Attention gains the six filters you actually sort by.',
+    highlights: [
+      'The desk canvas and the Home dashboard were two different colours. Walking from Home into a desk changed the floor under you, which made the desk read as a separate app rather than a room in the same one. Both now draw the same surface, and so does every other screen \u2014 in every theme, light or dark.',
+      'Calendar and Files sit in Office, next to the email inbox. A calendar is a comms surface: it is where you answer people, the same as mail is, and it was two menus away from the inbox it belongs beside.',
+      'Vault moved into Settings. It is where you look once, when something needs checking \u2014 not a place you walk to while working.',
+      'Connected apps appear in Settings, and in the side menu while a desk is open. They are desk furniture: on Home, with no desk to drop them onto, the strip was a list of links to nowhere.',
+      'Plexii is reached from the assistant itself \u2014 click the wordmark on the conversation you are already having to open the full hub. It had two doors, one in the side menu and one on the assistant, both opening the same place; the one on the assistant is where someone actually looks.',
+      'Attention opens into Open, Due today, Overdue, In progress, Waiting and Closed 7d. One undifferentiated queue told you how much there was and nothing about what to do next. Waiting gathers everything parked on somebody else \u2014 blocked, delegated, needs review, needs approval \u2014 because to you they are the same state: not your move.'
+    ]
+  },
+  {
     version: '4.3.24',
     date: '2026-10-10T09:00:00Z',
     title: 'PlexiDesk 4.3.24 — public links that stay up, and a tidier corner',

@@ -192,8 +192,57 @@ export async function waitForReady(
 //   - `direct` products no longer have a segment home (Build / Form); navigate
 //     straight to their view through the view store so their spec coverage
 //     survives. The view renders in the global MainPane, testids unchanged.
+// ── The area switcher ────────────────────────────────────────────────────────
+// Desk / Office / People / Brain used to be a standing four-tile row in every
+// menu. Commit c581655d folded it into the WorkspaceSwitcher dropdown, because
+// an area lives inside an organisation and the two controls were answering one
+// question. The `switch-<kind>` testids survived the move, but they now live
+// behind a trigger, so clicking one cold waits forever on a closed menu.
+//
+// Use these two helpers rather than reaching for `switch-<kind>` directly:
+// openAreaSwitcher is idempotent (it leaves an already-open menu alone), and
+// switchArea opens the menu only when it has to.
+export async function openAreaSwitcher(window: Page): Promise<void> {
+  const menu = window.locator('[data-testid="workspace-switcher-menu"]')
+  if (await menu.isVisible()) return
+  await window.locator('[data-testid="workspace-switcher-trigger"]').first().click()
+  await expect(menu).toBeVisible({ timeout: 8_000 })
+}
+
+export type AreaKind = 'plexidesk' | 'office' | 'plexipeople' | 'plexibrain'
+
+// Switch to an area. Returns once the menu has closed behind the click, so the
+// caller never races the dropdown's own teardown while hunting for the new
+// surface underneath it.
+export async function switchArea(window: Page, kind: AreaKind): Promise<void> {
+  await openAreaSwitcher(window)
+  const item = window.locator(`[data-testid="switch-${kind}"]`).first()
+  // A locked area answers the click with its upgrade reason and deliberately
+  // keeps the menu open, so only an entitled switch is expected to close it.
+  const locked = (await item.getAttribute('data-locked')) === 'true'
+  await item.click()
+  if (locked) return
+  await expect(window.locator('[data-testid="workspace-switcher-menu"]')).toBeHidden({
+    timeout: 8_000
+  })
+}
+
+// Is an area entitlement-locked? The lock lives on a menu item, so reading it
+// means opening the menu; this leaves it closed again so the caller gets the
+// page back the way it found it.
+export async function isAreaLocked(window: Page, kind: AreaKind): Promise<boolean> {
+  await openAreaSwitcher(window)
+  const locked =
+    (await window.locator(`[data-testid="switch-${kind}"][data-locked="true"]`).count()) > 0
+  await window.keyboard.press('Escape')
+  await expect(window.locator('[data-testid="workspace-switcher-menu"]')).toBeHidden({
+    timeout: 8_000
+  })
+  return locked
+}
+
 type ProductRoute =
-  | { mode: 'seg'; switch: string; app: string }
+  | { mode: 'seg'; switch: AreaKind; app: string }
   | { mode: 'comms'; app: string }
   | { mode: 'direct'; go: string }
 
@@ -204,8 +253,8 @@ const SEGMENT_OF: Record<string, ProductRoute> = {
   reports: { mode: 'direct', go: 'goReports' },
   // Flow / API live in the PlexiBrain area; jump there via the always-visible
   // area switcher, then click the app tile.
-  flow: { mode: 'seg', switch: 'switch-plexibrain', app: 'flows' },
-  api: { mode: 'seg', switch: 'switch-plexibrain', app: 'api' },
+  flow: { mode: 'seg', switch: 'plexibrain', app: 'flows' },
+  api: { mode: 'seg', switch: 'plexibrain', app: 'api' },
   chat: { mode: 'comms', app: 'chat' },
   meet: { mode: 'comms', app: 'meet' },
   build: { mode: 'direct', go: 'goApps' },
@@ -228,12 +277,12 @@ export async function openProduct(window: Page, product: keyof typeof SEGMENT_OF
   }
 
   if (route.mode === 'comms') {
-    await window.locator('[data-testid="switch-office"]').click()
+    await switchArea(window, 'office')
     await window.locator(`[data-testid="office-comms-app-${route.app}"]`).click()
     return
   }
 
-  await window.locator(`[data-testid="${route.switch}"]`).click()
+  await switchArea(window, route.switch)
   await window.locator(`[data-testid="segment-app-${route.app}"]`).click()
 }
 

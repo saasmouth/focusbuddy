@@ -192,6 +192,8 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
   const createBlank = useDocumentsStore((s) => s.createBlank)
   const remove = useDocumentsStore((s) => s.remove)
   const goHome = useViewStore((s) => s.goHome)
+  const goCalendar = useViewStore((s) => s.goCalendar)
+  const goFiles = useViewStore((s) => s.goFiles)
   const account = useAccountStore((s) => s.account)
   // Same view-kind -> capability check the backbone uses, so office menu entries
   // and initiators that lead to a gated comms surface hide/no-op when it is off.
@@ -778,6 +780,37 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                         </div>
                       )}
                     </div>
+                    {/* Calendar and Files moved here from the sidebar, beside
+                        the inbox: all three are the day's incoming work rather
+                        than part of the workspace tree.
+                        
+                        OUTSIDE the unread block on purpose — that block
+                        collapses to an honest caught-up line when every count
+                        is zero, and these two are destinations, not counts, so
+                        they must not disappear with it. */}
+                    {(viewEnabled('calendar') || viewEnabled('files')) && (
+                      <div
+                        className="mt-1.5 pt-1.5 border-t border-[var(--edge-soft)] space-y-1"
+                        data-testid="office-home-places"
+                      >
+                        {viewEnabled('calendar') && (
+                          <UnreadRow
+                            icon="calendar_month"
+                            label="Calendar"
+                            count={0}
+                            onClick={() => goCalendar()}
+                          />
+                        )}
+                        {viewEnabled('files') && (
+                          <UnreadRow
+                            icon="folder"
+                            label="Files"
+                            count={0}
+                            onClick={() => goFiles()}
+                          />
+                        )}
+                      </div>
+                    )}
                   </RailCard>
                 </>
               )}

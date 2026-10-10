@@ -2,7 +2,7 @@
 // test brief). No real IMAP credentials are used; the bogus-server test
 // proves the full renderer→preload→ipcMain→imapflow→error-mapping chain.
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, switchArea } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -13,7 +13,7 @@ async function openOfficeComms(
   window: import('@playwright/test').Page,
   app: 'mail' | 'inbox'
 ): Promise<void> {
-  await window.locator('[data-testid="switch-office"]').click()
+  await switchArea(window, 'office')
   await window.locator(`[data-testid="office-comms-app-${app}"]`).click()
 }
 

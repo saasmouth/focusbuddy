@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useViewStore } from '../../stores/view'
 import Icon from '../Icon'
 import PlexiiLogo from '../PlexiiLogo'
 import { useAssistantChrome, type AssistantMode } from '../../stores/assistantChrome'
@@ -33,6 +34,7 @@ export const MODE_OPTIONS: Array<{ mode: AssistantMode; label: string; icon: str
 ]
 
 export default function AssistantHeader({ chrome }: { chrome: boolean }): JSX.Element {
+  const goPlexii = useViewStore((st) => st.goPlexii)
   const newConversation = useChatStore((s) => s.newConversation)
   const recap = useChatStore((s) => s.recap)
   const recapping = useChatStore((s) => s.recapping)
@@ -60,8 +62,22 @@ export default function AssistantHeader({ chrome }: { chrome: boolean }): JSX.El
       className="shrink-0 flex items-center gap-2 px-3 h-12 border-b border-[var(--edge-soft)] bg-[var(--surface-raised)]"
       data-testid="assistant-header"
     >
-      {/* The desk sidebar's mark, verbatim — one wordmark, one motion. */}
-      <PlexiiLogo height={20} />
+      {/* The mark is the door to the Plexii hub.
+          
+          The hub used to be a sidebar row, which meant two doors to the AI: a
+          nav entry and the assistant itself. The sidebar's is gone, so this is
+          the one — clicking the wordmark on the assistant you are already
+          talking to is where someone looks for "show me everything Plexii". */}
+      <button
+        type="button"
+        onClick={() => goPlexii()}
+        data-testid="assistant-open-hub"
+        title="Open the Plexii hub"
+        aria-label="Open the Plexii hub"
+        className="shrink-0 rounded transition-opacity hover:opacity-80"
+      >
+        <PlexiiLogo height={20} />
+      </button>
       <div className="ml-auto flex items-center gap-1">
         {chrome && mode !== 'fullscreen' && (
           <button

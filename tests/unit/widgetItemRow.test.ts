@@ -56,7 +56,7 @@ describe('dec_128 — three depths in place', () => {
     expect(row).toContain("onClick={() => void setState(i.id, 'archived')}")
     expect(row).toContain('title="Open the item — the full view, right here"')
     expect(row).toContain('data-testid={`widget-item-page-${i.id}`}')
-    expect(row).toContain('onClick={goAttention}')
+    expect(row).toContain('onClick={() => goAttention()}')
     // snooze is the page's rule: tomorrow, 9am
     expect(row).toContain('d.setDate(d.getDate() + 1)\n    d.setHours(9, 0, 0, 0)')
   })

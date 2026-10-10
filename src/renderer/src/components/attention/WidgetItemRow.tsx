@@ -450,7 +450,7 @@ export function WidgetItemRow({
               <Icon name="open_in_new" size={14} />
             </button>
             <button
-              onClick={goAttention}
+              onClick={() => goAttention()}
               title="Open the Attention page"
               data-testid={`widget-item-page-${i.id}`}
               className={`${actionClass} ml-auto`}

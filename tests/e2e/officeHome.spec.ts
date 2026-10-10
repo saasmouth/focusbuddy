@@ -7,10 +7,10 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
 
 async function openOffice(window: Page): Promise<void> {
-  await window.locator('[data-testid="switch-office"]').click()
+  await switchArea(window, 'office')
   await expect(window.locator('[data-testid="office-sidebar"]')).toBeVisible({ timeout: 8_000 })
 }
 
@@ -40,13 +40,16 @@ test.describe('PlexiOffice Home', () => {
     await app.dispose()
   })
 
-  test('OH-1 the document app cards render (Meet gates on entitlement)', async () => {
+  test('OH-1 the document app cards render, Meet among them', async () => {
     await openOffice(window)
     for (const a of ['docs', 'sheets', 'slides', 'draw', 'design']) {
       await expect(window.locator(`[data-testid="office-app-${a}"]`)).toBeVisible()
     }
-    // Meet is a Pro capability, hidden on the free-tier test profile.
-    await expect(window.locator('[data-testid="office-app-meet"]')).toHaveCount(0)
+    // Meet went free on 2026-08-17 (de386f8a — the second-person
+    // collaboration surface is free for adoption), so it shows on the
+    // free-tier test profile alongside the document apps. It still gates: the
+    // card renders off the `meetings` view capability, not unconditionally.
+    await expect(window.locator('[data-testid="office-app-meet"]')).toBeVisible()
   })
 
   test('OH-2 the Recent table renders a real doc and the Sheets tab filters', async () => {

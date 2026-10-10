@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, switchArea } from './_helpers'
 
 // PlexiBrain > Decisions panel (spec §37 management view). Lists every live
 // Decision with a live at-risk status computed from decisions:withRisk ->
@@ -31,7 +31,7 @@ async function exitSegment(window: Page): Promise<void> {
 
 async function openDecisionsPanel(window: Page): Promise<void> {
   await exitSegment(window)
-  await window.locator('[data-testid="switch-plexibrain"]').click()
+  await switchArea(window, 'plexibrain')
   await expect(window.locator('[data-testid="segment-sidebar"]')).toBeVisible()
   await window.locator('[data-testid="segment-app-decisions"]').click()
   await expect(window.locator('[data-testid="decisions-view"]')).toBeVisible({ timeout: 8_000 })

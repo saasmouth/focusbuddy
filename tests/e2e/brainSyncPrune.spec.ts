@@ -20,7 +20,7 @@
 // under test.
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, switchArea } from './_helpers'
 import type { KnowledgeEntry } from '../../src/shared/knowledge'
 
 let launched: LaunchedApp | null = null
@@ -204,7 +204,7 @@ test('(d) opening the Brain Map view auto-syncs the workspace into the brain wit
   // use of the sibling `segment-app-map` / `segment-plexibrain` testids.)
   // This is the FIRST brain-map open of this Electron session, so the
   // module-level 30s debounce cannot have already fired.
-  await window.locator('[data-testid="switch-plexibrain"]').click()
+  await switchArea(window, 'plexibrain')
   await window.waitForSelector('[data-testid="segment-plexibrain"]', { timeout: 8_000 })
 
   await window.locator('[data-testid="segment-app-map"]').click()

@@ -55,7 +55,7 @@ describe('DEC-125 — the bell on a message is the widget\'s bell', () => {
     expect(messages).toContain('dataTestId={`msg-attn-complete-${m.id}`}')
     expect(messages).toContain('const verb = marked ? (PRIMARY_ACTION[queueOf(marked)] ?? PRIMARY_ACTION.to_do) : null')
     // a filled bell opens the queue; an empty one opens the capture prompt
-    expect(messages).toContain('onClick={marked ? goAttention : onCapture}')
+    expect(messages).toContain('onClick={marked ? () => goAttention() : onCapture}')
     expect(messages).toContain('const markedFor = (id: string): FbNode | null => liveItemForMessage(workItems, id)')
     expect(messages).toContain('marked={markedFor(m.id)}')
     expect(messages).toContain('marked={markedFor ? markedFor(parent.id) : null}')
