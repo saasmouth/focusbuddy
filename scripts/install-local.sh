@@ -90,6 +90,29 @@ if [ "$GOT_VER" != "$VERSION" ]; then
   exit 1
 fi
 
+# ── Is the PACKAGE actually built from the current code? ────────────────────
+#
+# The version check above is necessary and nowhere near sufficient: the version
+# only moves on a release, so between two builds of the same version it says
+# nothing at all. On 2026-10-10 that let `--no-build` install a package 21
+# minutes older than the `out/` the tests had just exercised — same version
+# string, different code, guard silent. The operator got a build nobody had run.
+#
+# So compare content freshness: if anything in out/ is newer than the packaged
+# asar, the package predates the code and installing it would ship something
+# untested.
+ASAR="$SRC/Contents/Resources/app.asar"
+if [ -d out ] && [ -f "$ASAR" ]; then
+  NEWER="$(find out -type f -newer "$ASAR" -print -quit 2>/dev/null || true)"
+  if [ -n "$NEWER" ]; then
+    echo "[install-local] REFUSING: the packaged app is older than the built code." >&2
+    echo "               $NEWER is newer than the package." >&2
+    echo "               The version string matches, so only this check catches it." >&2
+    echo "               Run without --no-build to package the current code." >&2
+    exit 1
+  fi
+fi
+
 # ── Signing gate ────────────────────────────────────────────────────────────
 # Three separate things, each of which can be absent on its own:
 #   the signature's authority chain, the stapled notarisation ticket, and what
