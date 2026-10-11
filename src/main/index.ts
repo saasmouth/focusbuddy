@@ -468,6 +468,52 @@ function createCommandCenter(): BrowserWindow {
   // classic "drop a URL and it replaces your whole app" failure), block it and
   // open it in the user's browser instead. Webview widgets are separate
   // webContents and are unaffected by this guard.
+  // Three events, not one. `will-navigate` fires only for the TOP frame and
+  // only for a navigation the page starts — which leaves two ways to the very
+  // failure the comment below describes:
+  //
+  //   will-redirect       a navigation that was allowed and then redirected
+  //                       elsewhere; the redirect target is never offered to
+  //                       will-navigate.
+  //   will-frame-navigate a SUBFRAME navigating. The file and PDF viewers are
+  //                       full-size iframes, so a subframe that lands on a
+  //                       bundle asset fills the window with source and reads
+  //                       as "the whole app is a white page of text" — the
+  //                       symptom reported against 4.3.25.
+  //
+  // The two top-frame events refuse identically, sending a genuine web link to
+  // the browser; the subframe rule below is deliberately narrower.
+  const guardNavigation = (e: { preventDefault: () => void }, url: string, via: string): void => {
+    const current = win.webContents.getURL()
+    if (url === current) return // reloading the shell to itself is fine
+    e.preventDefault()
+    // Say so. A blocked navigation is the fingerprint of the "white page full of
+    // source" report, and without a record of it the bug is unreproducible by
+    // construction: the guard silently saves the window and leaves no evidence
+    // of what tried to replace it. One line costs nothing and is the difference
+    // between diagnosing this next time and guessing again.
+    // eslint-disable-next-line no-console
+    console.warn(`[nav-guard] blocked ${via} -> ${url.slice(0, 200)}`)
+    if (/^https?:\/\//i.test(url)) void shell.openExternal(url)
+  }
+  win.webContents.on('will-redirect', (e, url) => guardNavigation(e, url, 'will-redirect'))
+  // Subframes get a NARROWER rule, because the app's own viewers are iframes:
+  // the file and PDF viewers navigate theirs to fb-file://, and a Custom widget
+  // to fb-widget://. Refusing every subframe navigation would have broken all
+  // of them — so only `file:` is refused here, which is the app's own bundle on
+  // disk and the one thing a subframe has no business loading. Everything the
+  // product actually uses (fb-file, fb-widget, fb-dev, about:blank, http(s)
+  // embeds) is left alone.
+  win.webContents.on(
+    'will-frame-navigate',
+    (details: { preventDefault: () => void; url: string; isMainFrame?: boolean }) => {
+      if (details.isMainFrame) return // the main-frame rules above own this
+      if (!/^file:/i.test(details.url)) return
+      details.preventDefault()
+      // eslint-disable-next-line no-console
+      console.warn(`[nav-guard] blocked subframe file: -> ${details.url.slice(0, 200)}`)
+    }
+  )
   win.webContents.on('will-navigate', (e, url) => {
     // The app shell must NEVER navigate its own top frame. Real in-app
     // navigation is React state and never fires will-navigate, so anything that
@@ -476,10 +522,7 @@ function createCommandCenter(): BrowserWindow {
     // (e.g. /assets/index-*.js) would otherwise load that file and Chromium
     // would render the raw minified source as plain text in the window. Block
     // every navigation; send genuine web links to the user's browser instead.
-    const current = win.webContents.getURL()
-    if (url === current) return // reloading the shell to itself is fine
-    e.preventDefault()
-    if (/^https?:\/\//i.test(url)) void shell.openExternal(url)
+    guardNavigation(e, url, 'will-navigate')
   })
 
   // Which product is this build? The PlexiOffice electron-builder config sets

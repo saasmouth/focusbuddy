@@ -49,6 +49,7 @@ export default defineConfig({
     plugins: [react()],
     define: APP_VERSION_DEFINE,
     build: {
+      minify: 'esbuild',
       rollupOptions: {
         input: {
           index: resolve('src/renderer/index.html'),
