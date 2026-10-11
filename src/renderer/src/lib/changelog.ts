@@ -36,6 +36,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.26',
+    date: '2026-10-11T16:00:00Z',
+    title: 'PlexiDesk 4.3.26 \u2014 starts faster, and three settings that now do what they say',
+    tag: 'fix',
+    summary:
+      'The app ships about a third smaller and starts faster, because the code was being packaged unminified. Also closes a rare case where a window could fill with program text instead of the app, and documents three settings that began working in 4.3.25 without being mentioned.',
+    highlights: [
+      'The app is roughly a third smaller to download and update, and starts faster. Its code had been shipping unminified \u2014 readable source rather than compiled \u2014 which made the main bundle nearly twice the size it needed to be. Nothing about how it behaves changes.',
+      'Closed a rare case where a window could fill with program text instead of the app. The protection that prevents this only watched for one kind of navigation; it now also covers redirects and the file and PDF viewers, and it records what it blocked so the cause is visible if it ever happens again.',
+      'Voice command settings work (Settings \u203a Advanced). Hands-free keeps the mic open after you let go and closes it when you stop talking, with the delay you set. Replies are read aloud only to things you actually spoke, so a typed conversation never starts talking at you.',
+      'Assistant autonomy is enforced (Settings \u203a AI). Suggest only no longer offers to act for you; Ask before acting genuinely asks; Act on low-risk handles routine work and tells you, while still asking before anything that deletes, books real calendar time, touches real mail, or opens a channel to someone else.',
+      'A task link can be pointed at a desk. It also stopped claiming the target was deleted on a link that had never been pointed anywhere.',
+      'Connecting Zoho mail asks for your region and plan, because the server name depends on both. This fixes sending for paid Zoho accounts, which failed while receiving worked.'
+    ]
+  },
+  {
     version: '4.3.25',
     date: '2026-10-10T21:00:00Z',
     title: 'PlexiDesk 4.3.25 \u2014 one floor under everything, and a menu that matches the work',

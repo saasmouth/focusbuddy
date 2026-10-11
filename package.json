@@ -1,6 +1,6 @@
 {
   "name": "plexii",
-  "version": "4.3.25",
+  "version": "4.3.26",
   "private": true,
   "description": "Task-scoped digital work environment for people with ADHD and high distractibility.",
   "main": "./out/main/index.js",
