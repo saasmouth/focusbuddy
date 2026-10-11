@@ -154,9 +154,28 @@ test('mascot voice chrome: the bar is gone, the pill holds to talk, staging fill
   })
   const errorChip = window.locator('[data-testid="voice-hold-error"]')
   const overlay = window.locator('[data-testid="assistant-overlay"]')
-  const outcome = (await errorChip.count()) > 0 ? 'error-chip' : (await overlay.count()) > 0 ? 'staged' : 'none'
+  // POLLED, not counted once. The chip clearing and the staged overlay
+  // mounting are two different renders, so reading counts the instant the chip
+  // goes means sometimes catching the gap between them and calling it 'none'.
+  // That made this spec fail roughly one run in three on identical whisper
+  // output — a flake that costs more than the assertion is worth, and which
+  // sent a release investigation looking for a regression that was not there.
+  // Either real outcome still has to arrive; only the race is gone.
+  await expect
+    .poll(
+      async () =>
+        (await errorChip.count()) > 0
+          ? 'error-chip'
+          : (await overlay.count()) > 0
+            ? 'staged'
+            : 'none',
+      { timeout: 15_000 }
+    )
+    .not.toBe('none')
+  // Settled now, so a plain read is safe — and the rest of the spec branches
+  // on which of the two ends it reached.
+  const outcome = (await errorChip.count()) > 0 ? 'error-chip' : 'staged'
   console.log('[probe] tone outcome:', outcome)
-  expect(outcome === 'error-chip' || outcome === 'staged').toBe(true)
   await window.screenshot({ path: `${OUT}/voice-3-after-release.png` })
 
   // Staging (R17), deterministic leg: the composer-stage event fills the OPEN
