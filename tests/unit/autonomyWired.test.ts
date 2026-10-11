@@ -69,8 +69,18 @@ describe('the proposal cards respect the level', () => {
     expect(cards).toContain('data-testid="proposal-manual-note"')
   })
 
-  it('does not act on a policy that has not loaded', () => {
-    expect(cards).toContain('if (!autonomy) return')
+  it('keeps offering Apply while the policy is in flight', () => {
+    // Withholding it would blank a control the user is reaching for and make
+    // their click a no-op — the dead-control bug this pass exists to remove.
+    // The user's own click is the user doing the action, which even 'manual'
+    // permits.
+    expect(cards).toContain('const oneClick = autonomy === null || offersOneClickApply(autonomy.level)')
+  })
+
+  it('but never AUTO-applies on a policy that has not loaded', () => {
+    // That is the dangerous direction: an unloaded store reports the built-in
+    // default, so acting on it would apply work for someone who chose manual.
+    expect(cards).toContain('if (!autonomy || autonomy.level !== \'auto\') return')
   })
 
   it('applies low-risk work itself at auto, and says that it did', () => {

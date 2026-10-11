@@ -151,7 +151,15 @@ export default function ProposalCards({
       alive = false
     }
   }, [])
-  const oneClick = autonomy !== null && offersOneClickApply(autonomy.level)
+  // While the policy is still in flight, keep offering Apply. The asymmetry is
+  // deliberate: the dangerous direction is ACTING on an unloaded policy, which
+  // the auto-apply effect below refuses to do. Withholding the button is the
+  // safe-looking choice that is actually worse — it blanks a control the user is
+  // reaching for and makes their click a no-op for as long as the load takes,
+  // which is the dead-control bug this pass exists to remove. A user clicking
+  // Apply is the user doing the action, which even 'manual' permits; only the
+  // one-click affordance goes away, and only once we KNOW the level is manual.
+  const oneClick = autonomy === null || offersOneClickApply(autonomy.level)
   // Proposals this group has already applied on its own, so a re-render can
   // never apply one twice.
   const autoAppliedRef = useRef<Set<string>>(new Set())
@@ -580,7 +588,6 @@ export default function ProposalCards({
                 setTimeout(() => setToast((t) => (t?.id === p.id ? null : t)), 3600)
                 return
               }
-              if (!autonomy) return
               void applyOne(p)
             }}
             aria-disabled={autonomy !== null && !oneClick}
@@ -671,7 +678,7 @@ export default function ProposalCards({
           </div>
         )
       })}
-      {autonomy !== null && !oneClick && pendingCount > 0 && (
+      {autonomy !== null && !offersOneClickApply(autonomy.level) && pendingCount > 0 && (
         <p
           className="fb-t-caption text-[var(--ink-50)] self-start px-1.5"
           data-testid="proposal-manual-note"
