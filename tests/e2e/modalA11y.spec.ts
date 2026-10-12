@@ -25,20 +25,20 @@ test('NewNodeDialog: role=dialog + aria-modal, fields render, Escape closes, foc
   const { window } = launched
   await waitForReady(window)
 
-  const projAddBtn = window.getByTitle('New top-level project').first()
-  await expect(projAddBtn).toBeVisible({ timeout: 5_000 })
-  await projAddBtn.click()
+  await window.evaluate(() => {
+    window.dispatchEvent(new CustomEvent('fb:command-new-task'))
+  })
 
   const dialog = window.locator('[role="dialog"][aria-modal="true"]').filter({
     has: window.locator('[data-testid="newnode-name"]')
   })
   await expect(dialog).toBeVisible({ timeout: 5_000 })
-  await expect(dialog).toHaveAttribute('aria-label', /new project/i)
+  await expect(dialog).toHaveAttribute('aria-label', /new desk/i)
 
   // Fields still render.
   await expect(dialog.locator('[data-testid="newnode-name"]')).toBeVisible()
-  await expect(dialog.getByPlaceholder(/e\.g\. client|marketing/i)).toBeVisible()
-  await expect(dialog.getByRole('button', { name: /^Create$/i })).toBeVisible()
+  await expect(dialog.getByPlaceholder('What needs to happen?')).toBeVisible()
+  await expect(dialog.getByRole('button', { name: /^Create Desk$/i })).toBeVisible()
   await expect(dialog.getByRole('button', { name: /^Cancel$/i })).toBeVisible()
 
   // Escape closes it.
@@ -54,7 +54,9 @@ test('NewNodeDialog: role=dialog + aria-modal, fields render, Escape closes, foc
 
   // Also close via its own Cancel button (not just Escape) to prove the
   // migration didn't break the primary dismiss path either.
-  await projAddBtn.click()
+  await window.evaluate(() => {
+    window.dispatchEvent(new CustomEvent('fb:command-new-task'))
+  })
   await expect(dialog).toBeVisible({ timeout: 5_000 })
   await dialog.getByRole('button', { name: /^Cancel$/i }).click()
   await expect(dialog).toBeHidden({ timeout: 5_000 })
@@ -87,7 +89,12 @@ async function seedStickyAndOpen(l: LaunchedApp): Promise<{ taskId: string; widg
   })
   await window.reload()
   await waitForReady(window)
-  await window.getByRole('button', { name: /Modal a11y test/ }).first().click()
+  await window.evaluate((taskId) => {
+    const view = (window as unknown as {
+      __fbView?: { getState: () => { goTask: (id: string) => void } }
+    }).__fbView
+    view?.getState().goTask(taskId)
+  }, seeded.taskId)
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
   await window.waitForSelector(`[data-widget-id="${seeded.widgetId}"]`, { timeout: 5_000 })
   await window.waitForTimeout(250)
@@ -114,13 +121,13 @@ async function openMakeTaskDialog(l: LaunchedApp, widgetId: string): Promise<voi
   await window.waitForTimeout(250)
   const clicked = await window.evaluate(() => {
     const btn = Array.from(document.querySelectorAll('[data-canvas-ctx-menu] button[role="menuitem"]')).find((b) =>
-      (b.textContent ?? '').includes('Make this a task')
+      (b.textContent ?? '').includes('Make this a Desk')
     )
     if (!btn) return false
     ;(btn as HTMLButtonElement).click()
     return true
   })
-  expect(clicked, 'Advanced submenu must expose "Make this a task..."').toBe(true)
+  expect(clicked, 'Advanced submenu must expose "Make this a Desk..."').toBe(true)
   await window.waitForTimeout(300)
 }
 
@@ -131,12 +138,13 @@ test('MakeTaskDialog: dialog semantics, Tab trap, fields intact, Escape + Cancel
 
   await openMakeTaskDialog(launched, widgetId)
 
-  const dialog = window.locator('[role="dialog"][aria-label="Make this a task"]')
+  const dialog = window.locator('[role="dialog"][aria-label="Make this a desk"]')
   await expect(dialog).toBeVisible({ timeout: 5_000 })
   await expect(dialog).toHaveAttribute('aria-modal', 'true')
 
   // Original fields survived the wrap.
-  await expect(dialog.getByPlaceholder('What is the task?')).toBeVisible()
+  await expect(dialog.getByPlaceholder('What is the desk for?')).toBeVisible()
+  await dialog.getByTestId('make-task-new-desk').click()
   await expect(dialog.getByPlaceholder(/Search folders/i)).toBeVisible()
   await expect(dialog.getByRole('button', { name: /^Cancel$/i })).toBeVisible()
   await expect(dialog.getByRole('button', { name: /^Create task$/i })).toBeVisible()
@@ -145,7 +153,7 @@ test('MakeTaskDialog: dialog semantics, Tab trap, fields intact, Escape + Cancel
   for (let i = 0; i < 12; i++) {
     await window.keyboard.press('Tab')
     const insideDialog = await window.evaluate(() => {
-      const panel = document.querySelector('[role="dialog"][aria-label="Make this a task"]')
+      const panel = document.querySelector('[role="dialog"][aria-label="Make this a desk"]')
       return !!panel && panel.contains(document.activeElement)
     })
     expect(insideDialog, `focus escaped the panel after ${i + 1} Tab presses`).toBe(true)
@@ -154,7 +162,7 @@ test('MakeTaskDialog: dialog semantics, Tab trap, fields intact, Escape + Cancel
   // Shift+Tab from the first element wraps to the last (reverse trap).
   await window.keyboard.press('Shift+Tab')
   const stillInside = await window.evaluate(() => {
-    const panel = document.querySelector('[role="dialog"][aria-label="Make this a task"]')
+    const panel = document.querySelector('[role="dialog"][aria-label="Make this a desk"]')
     return !!panel && panel.contains(document.activeElement)
   })
   expect(stillInside).toBe(true)
@@ -178,32 +186,14 @@ test('MakeTaskDialog: dialog semantics, Tab trap, fields intact, Escape + Cancel
 })
 
 // ── 3. UpgradePromptModal (shared Modal) — reachable signed-out via the
-//    "AI task setup is a Pro feature" gate inside NewNodeDialog. Also proves
-//    strict focus-restore-to-opener since the opener button stays mounted
-//    (NewNodeDialog remains open underneath the upgrade modal). ─────────────
+//    shared sidebar upgrade card. Also proves strict focus-restore-to-opener
+//    because that trigger remains mounted under the upgrade modal. ──────────
 test('UpgradePromptModal: dialog semantics, Escape closes, focus restores to the exact opener', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
 
-  await window.evaluate(async () => {
-    const api = (window as unknown as { api: typeof window.api }).api
-    await api.nodes.create({ parentId: null, kind: 'folder', title: 'Upgrade Modal Desk' })
-  })
-  await window.reload()
-  await waitForReady(window)
-
-  const row = window.getByText('Upgrade Modal Desk', { exact: true }).first()
-  await expect(row).toBeVisible({ timeout: 8_000 })
-  await row.hover()
-  await window.getByRole('button', { name: 'Add task' }).first().click()
-
-  const newTaskDialog = window.locator('[role="dialog"][aria-modal="true"]').filter({
-    has: window.locator('[data-testid="newnode-name"]')
-  })
-  await expect(newTaskDialog).toBeVisible({ timeout: 5_000 })
-
-  const opener = newTaskDialog.locator('[data-testid="ai-setup-locked"]')
+  const opener = window.getByRole('button', { name: 'Upgrade Now' }).first()
   await expect(opener).toBeVisible({ timeout: 5_000 })
   await opener.focus()
   await opener.click()
@@ -215,19 +205,16 @@ test('UpgradePromptModal: dialog semantics, Escape closes, focus restores to the
   await expect(upgradeDialog).toHaveAttribute('aria-label', /Pro feature/i)
 
   // Original content survived the wrap.
-  await expect(upgradeDialog.locator('[data-testid="upgrade-reason"]')).toHaveText(
-    'AI task setup is a Pro feature.'
-  )
+  await expect(upgradeDialog.locator('[data-testid="upgrade-reason"]')).toHaveText('PlexiDesk Pro')
   await expect(upgradeDialog.locator('[data-testid="upgrade-later"]')).toBeVisible()
   await expect(upgradeDialog.locator('[data-testid="upgrade-start-checkout"]')).toBeVisible()
 
   await window.keyboard.press('Escape')
   await expect(upgradeDialog).toBeHidden({ timeout: 5_000 })
 
-  // The opener button is still mounted (NewNodeDialog stayed open underneath)
-  // so this is a strict check: focus must have returned to it exactly.
+  // The sidebar opener remains mounted, so focus must return to it exactly.
   const restoredToOpener = await window.evaluate(() => {
-    const el = document.querySelector('[data-testid="ai-setup-locked"]')
+    const el = document.querySelector('[data-testid="upgrade-card"] button:last-child')
     return !!el && el === document.activeElement
   })
   expect(restoredToOpener, 'focus must restore to the exact opener element').toBe(true)

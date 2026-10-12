@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom'
 import { useOnboarding } from '../../stores/onboarding'
 import { moduleById } from '../../lib/onboarding/registry'
 import Icon from '../Icon'
+import { useInterruptionClear } from '../../lib/useInterruptionClear'
 
 // A small, non-intrusive corner popup that offers a short tour of a NEW feature
 // module the user has not seen yet. This is how future features get introduced:
@@ -15,13 +16,14 @@ function estLabel(seconds: number): string {
 }
 
 export default function FeatureSpotlightPopup(): JSX.Element | null {
+  const interruptionClear = useInterruptionClear('feature-spotlight', 750)
   const pendingFeatureId = useOnboarding((s) => s.pendingFeatureId)
   const activeModuleId = useOnboarding((s) => s.activeModuleId)
   const start = useOnboarding((s) => s.start)
   const dismissPending = useOnboarding((s) => s.dismissPending)
 
   // Never stack on top of an active tour or the core first-run flow.
-  if (!pendingFeatureId || activeModuleId) return null
+  if (!interruptionClear || !pendingFeatureId || activeModuleId) return null
   const mod = moduleById(pendingFeatureId)
   if (!mod) return null
 

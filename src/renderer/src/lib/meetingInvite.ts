@@ -12,6 +12,18 @@ export interface MeetingInviteResult {
   noAccount: boolean
 }
 
+/** One honest, reusable delivery summary for every meeting composer. */
+export function inviteDeliveryNote(result: MeetingInviteResult, requested: number): string | null {
+  if (requested === 0) return null
+  if (result.noAccount) {
+    return 'Connect a mailbox in Mail to email the invites. The join link is saved on the meeting.'
+  }
+  if (result.failed.length > 0) {
+    return `Invited ${result.sent}; could not email ${result.failed.join(', ')}.`
+  }
+  return `Invited ${result.sent} ${result.sent === 1 ? 'person' : 'people'} by email.`
+}
+
 // The deep link that opens (or joins) the meeting room in the desktop app. The
 // same link is used by the host's calendar "Join" button and by every invitee.
 export function meetingJoinLink(roomId: string): string {

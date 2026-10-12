@@ -200,7 +200,7 @@ export default function FocusChatSurface({ onOpenWidget }: Props): JSX.Element {
                           e.stopPropagation()
                           void deleteConversation(c.id)
                         }}
-                        className="icon-btn !h-5 !w-5 opacity-0 group-hover:opacity-100"
+                        className="icon-btn !h-6 !w-6 opacity-0 group-hover:opacity-100"
                         title="Delete chat"
                         data-testid={`focus-chat-history-delete-${c.id}`}
                       >

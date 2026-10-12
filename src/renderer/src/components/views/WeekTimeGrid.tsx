@@ -23,6 +23,7 @@ import { useGuestCaptureStore } from '../../stores/guestCapture'
 import { googleCalendarUrl } from '@shared/ics'
 import Icon from '../Icon'
 import { meetingDeepLink } from '@shared/deepLink'
+import { confirmDialog } from '../plexi/PromptDialog'
 
 // Week time-grid — the time-blocking surface. Twenty-four hour rows × seven
 // day columns, midnight to midnight. Click an empty slot to book a block (tie
@@ -1008,14 +1009,17 @@ export default function WeekTimeGrid({
                           </button>
                         )}
                         <button
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation()
                             // Repeating blocks offer this-only vs this-and-future.
                             // The Undo toast covers recovery either way.
                             if (block.seriesId) {
-                              const wholeSeries = confirm(
-                                'This block repeats. OK deletes this and all future occurrences; Cancel deletes just this one.'
-                              )
+                              const wholeSeries = await confirmDialog({
+                                title: 'Delete future occurrences too?',
+                                body: 'Delete this block and every future occurrence, or cancel to delete only this one.',
+                                confirmLabel: 'Delete this and future',
+                                danger: true
+                              })
                               void removeBlock(block.id, wholeSeries ? 'series' : 'one')
                             } else {
                               void removeBlock(block.id)

@@ -47,7 +47,7 @@ test('ONB-1 — a fresh install sees onboarding, can skip through, and it never 
   await expect(onboarding(launched)).toHaveCount(0)
 })
 
-test('ONB-2 — creating the starter workspace seeds a real folder and closes onboarding', async () => {
+test('ONB-2 — chosen starter creates a real template-backed workspace and closes onboarding', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window, { dismissModals: false })
@@ -56,10 +56,23 @@ test('ONB-2 — creating the starter workspace seeds a real folder and closes on
   await window.getByRole('button', { name: 'Get started' }).click()
   await window.locator('[data-testid="onboarding-key-skip"]').click()
   await window.locator('[data-testid="onboarding-tour-continue"]').click()
+  await expect(window.getByRole('button', { name: 'Focus today' })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  )
   await window.locator('[data-testid="onboarding-create-starter"]').click()
 
   await expect(onboarding(launched)).toHaveCount(0, { timeout: 6000 })
-  expect(await nodeTitles(launched)).toContain('Getting started')
+  const seeded = await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const nodes = await api.nodes.list()
+    const desk = nodes.find((node) => node.title === 'Start here — Daily Focus')
+    const widgets = desk ? await api.widgets.listByTask(desk.id) : []
+    return { titles: nodes.map((node) => node.title), widgetCount: widgets.length }
+  })
+  expect(seeded.titles).toContain('Daily Focus')
+  expect(seeded.titles).toContain('Start here — Daily Focus')
+  expect(seeded.widgetCount).toBeGreaterThan(0)
 })
 
 test('ONB-3 — an existing user (already has data) is grandfathered and never sees onboarding', async () => {

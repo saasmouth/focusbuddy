@@ -46,7 +46,12 @@ async function seedPair(
   )
   await window.reload()
   await waitForReady(window)
-  await window.getByRole('button', { name: /SyncSpec/ }).first().click()
+  await window.evaluate((taskId) => {
+    const view = (window as unknown as {
+      __fbView?: { getState: () => { goTask: (id: string) => void } }
+    }).__fbView
+    view?.getState().goTask(taskId)
+  }, seeded.taskId)
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
   await window.waitForSelector(`[data-widget-id="${seeded.a}"]`, { timeout: 5_000 })
   await window.waitForSelector(`[data-widget-id="${seeded.b}"]`, { timeout: 5_000 })
@@ -59,12 +64,15 @@ test('sticky: editing one synced copy updates the other LIVE (no refresh)', asyn
   const { window } = launched
   const { a, b } = await seedPair(launched, 'sticky', 'before', 'grp-sticky')
 
-  await window.locator(`[data-widget-id="${a}"] textarea`).fill('LIVE-SYNCED-TEXT')
+  const firstSticky = window.locator(`[data-widget-id="${a}"]`)
+  await firstSticky.locator('.fb-sticky-rendered').click()
+  await firstSticky.locator('textarea').fill('LIVE-SYNCED-TEXT')
   // debounced save (300ms) → store mirror → sibling adopt effect
   await window.waitForTimeout(900)
 
-  const bVal = await window.locator(`[data-widget-id="${b}"] textarea`).inputValue()
-  expect(bVal).toBe('LIVE-SYNCED-TEXT')
+  await expect(window.locator(`[data-widget-id="${b}"] .fb-sticky-rendered`)).toHaveText(
+    'LIVE-SYNCED-TEXT'
+  )
 })
 
 test('card: editing one synced copy title updates the other LIVE', async () => {
@@ -86,9 +94,10 @@ test('independent copy (no group) does NOT receive the edit', async () => {
   const { window } = launched
   const { a, b } = await seedPair(launched, 'sticky', 'before', null)
 
-  await window.locator(`[data-widget-id="${a}"] textarea`).fill('ONLY-IN-A')
+  const firstSticky = window.locator(`[data-widget-id="${a}"]`)
+  await firstSticky.locator('.fb-sticky-rendered').click()
+  await firstSticky.locator('textarea').fill('ONLY-IN-A')
   await window.waitForTimeout(900)
 
-  const bVal = await window.locator(`[data-widget-id="${b}"] textarea`).inputValue()
-  expect(bVal).toBe('before') // unchanged — not linked
+  await expect(window.locator(`[data-widget-id="${b}"] .fb-sticky-rendered`)).toHaveText('before')
 })

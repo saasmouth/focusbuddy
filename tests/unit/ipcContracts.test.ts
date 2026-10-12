@@ -89,6 +89,17 @@ describe('checkArgs', () => {
     expect(checkArgs([any], [])?.got).toBe('nothing')
   })
 
+  it('still bounds and sanitises structurally unsafe values for any signatures', () => {
+    const any: ArgSpec = { kind: 'any', optional: false, nullable: false }
+    expect(checkArgs([any], [Number.POSITIVE_INFINITY])?.got).toBe('a non-finite number')
+    expect(checkArgs([any], ['x'.repeat(8 * 1024 * 1024 + 1)])?.got).toBe('an oversized string')
+    expect(checkArgs([any], [{ prototype: 'pollute' }])?.got).toContain('forbidden')
+    expect(checkArgs([any], [new Uint8Array(16 * 1024 * 1024 + 1)])?.got).toBe('oversized binary data')
+    const cyclic: { self?: unknown } = {}
+    cyclic.self = cyclic
+    expect(checkArgs([any], [cyclic])?.got).toBe('cyclic data')
+  })
+
   it('explains the refusal without naming anything internal', () => {
     const msg = violationMessage('workItems:get', { index: 0, expected: 'string', got: 'nothing' })
     expect(msg).toContain('workItems:get')

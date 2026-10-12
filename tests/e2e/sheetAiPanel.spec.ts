@@ -74,7 +74,8 @@ test.describe('PlexiSheets AI Assistant panel', () => {
     await expect(panel).not.toContainText('HubSpot')
     await expect(panel).not.toContainText('Connected')
     // The connect affordance is disabled (coming soon), not a working integration.
-    await expect(window.locator('[data-testid="sheet-ai-connect-source"]')).toBeDisabled()
+    await expect(window.locator('[data-testid="sheet-ai-connect-source"]')).toBeEnabled()
+    await expect(window.locator('[data-testid="sheet-ai-connect-source"]')).toContainText('Import CSV or workbook')
   })
 
   test('AP-2 — empty sheet shows the honest insights empty state, not a fabricated result', async () => {

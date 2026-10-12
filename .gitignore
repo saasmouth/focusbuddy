@@ -58,3 +58,6 @@ build/spec-trace.report.json
 # that test could not load before, so this artifact never appeared).
 build/perf.report.json
 release-local/
+
+# Stray root-level bundle output; the real compiled entry lives under out/.
+/index.js

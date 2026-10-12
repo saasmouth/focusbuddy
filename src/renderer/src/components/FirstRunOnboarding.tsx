@@ -5,6 +5,7 @@ import { useNodeStore } from '../stores/nodes'
 import { useViewStore } from '../stores/view'
 import Icon from './Icon'
 import PlexiiMark from './brand/PlexiiMark'
+import { findStarterTemplate } from '../lib/starterTemplates'
 
 // First-run onboarding — shown once to a genuinely fresh install (see the
 // onboarding store, which grandfathers existing users). Three steps: a short
@@ -35,6 +36,7 @@ export default function FirstRunOnboarding(): JSX.Element | null {
   const [keyStatus, setKeyStatus] = useState<KeyStatus>({ kind: 'idle' })
   const [seeding, setSeeding] = useState(false)
   const [seedError, setSeedError] = useState<string | null>(null)
+  const [starterTemplateId, setStarterTemplateId] = useState('starter-daily-focus')
 
   const isActive = activeModuleId === CORE_MODULE_ID
   // Reset to the first step each time the core module (re)opens, so a replay
@@ -45,6 +47,7 @@ export default function FirstRunOnboarding(): JSX.Element | null {
       setKey('')
       setKeyStatus({ kind: 'idle' })
       setSeedError(null)
+      setStarterTemplateId('starter-daily-focus')
     }
   }, [isActive])
 
@@ -85,38 +88,27 @@ export default function FirstRunOnboarding(): JSX.Element | null {
     }
   }
 
-  // Seed a small, real starter so the sidebar and canvas aren't empty. Not fake
-  // data — a genuinely useful first task with an orientation note on its canvas.
+  // Seed the workflow the person chose using the same built-in templates shown
+  // elsewhere in the product. This is real, editable work—not demo data.
   async function createStarter(): Promise<void> {
     setSeeding(true)
     setSeedError(null)
     try {
+      const template = findStarterTemplate(starterTemplateId)
+      if (!template) throw new Error('Starter template unavailable')
       const folder = await window.api.nodes.create({
         parentId: null,
         kind: 'folder',
-        title: 'Getting started'
+        title: template.name
       })
       const firstTask = await window.api.nodes.create({
         parentId: folder.id,
         kind: 'task',
-        title: 'Your first focus session'
+        title: `Start here — ${template.name}`
       })
-      await window.api.nodes.create({
-        parentId: folder.id,
-        kind: 'task',
-        title: 'Try Plexii — describe a workspace and let it build'
-      })
-      await window.api.widgets.create({
-        taskId: firstTask.id,
-        kind: 'sticky',
-        title: '',
-        content:
-          'Welcome.\n\nThis is your desk. Add tools with + Widget, or ask Plexii (⌘⇧K) — describe what you want and it builds the widgets for you. Plexii is also the pill at the bottom right whenever you need help thinking through a task.\n\nPress the play button on a task to start a 5-minute focus session.',
-        x: 160,
-        y: 160,
-        width: 280,
-        height: 200
-      })
+      for (const widget of template.widgets) {
+        await window.api.widgets.create({ ...widget, taskId: firstTask.id })
+      }
       await refreshNodes()
       finish(() => goTask(firstTask.id))
     } catch {
@@ -305,10 +297,33 @@ export default function FirstRunOnboarding(): JSX.Element | null {
           <div className="px-6 py-6">
             <h2 className="text-xl font-semibold mb-2">A place to start</h2>
             <p className="text-[13px] text-stone-300 leading-relaxed mb-4">
-              Want a small starter workspace so your desk isn&apos;t empty? It adds a “Getting
-              started” folder with a first task and a short note on its canvas. You can delete it any
-              time.
+              Pick what you need to do first. Plexii creates a real, editable desk with the right
+              tools already arranged. You can change or delete everything it adds.
             </p>
+            <div className="grid grid-cols-2 gap-2 mb-4" data-testid="onboarding-starter-choices">
+              {[
+                { id: 'starter-daily-focus', icon: 'center_focus_strong', label: 'Focus today' },
+                { id: 'starter-weekly-plan', icon: 'calendar_view_week', label: 'Plan my week' },
+                { id: 'starter-project-hub', icon: 'account_tree', label: 'Run a project' },
+                { id: 'starter-research', icon: 'travel_explore', label: 'Research a topic' }
+              ].map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={starterTemplateId === option.id}
+                  onClick={() => setStarterTemplateId(option.id)}
+                  className={`min-h-11 rounded-lg border px-3 py-2 text-left text-[12.5px] font-medium transition-colors ${
+                    starterTemplateId === option.id
+                      ? 'border-accent bg-accent/15 text-white'
+                      : 'border-white/10 bg-white/5 text-stone-300 hover:bg-white/10'
+                  }`}
+                  data-testid={`onboarding-starter-${option.id}`}
+                >
+                  <Icon name={option.icon} size={15} className="mr-1.5 inline text-accent" />
+                  {option.label}
+                </button>
+              ))}
+            </div>
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => void createStarter()}
@@ -317,7 +332,7 @@ export default function FirstRunOnboarding(): JSX.Element | null {
                 data-testid="onboarding-create-starter"
               >
                 <Icon name="auto_awesome" size={14} />
-                <span>{seeding ? 'Setting up…' : 'Create a starter workspace'}</span>
+                <span>{seeding ? 'Setting up…' : 'Create my workspace'}</span>
               </button>
               <button
                 onClick={() => finish()}

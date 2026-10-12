@@ -36,6 +36,66 @@ export interface ContractViolation {
   got: string
 }
 
+const MAX_STRING_BYTES = 8 * 1024 * 1024
+const MAX_BINARY_BYTES = 16 * 1024 * 1024
+const MAX_DEPTH = 32
+const MAX_VALUES = 100_000
+const MAX_COLLECTION_ITEMS = 50_000
+const FORBIDDEN_KEYS = new Set(['__proto__', 'prototype', 'constructor'])
+
+interface PayloadBudget {
+  values: number
+  seen: WeakSet<object>
+}
+
+/**
+ * Validate the parts that a generated TypeScript contract cannot express:
+ * bounded size/depth, finite numbers, plain structured-clone data and no
+ * prototype-pollution keys. This also covers arguments whose derived kind is
+ * `any`, so a permissive signature is not an unlimited IPC payload.
+ */
+function payloadIssue(value: unknown, depth: number, budget: PayloadBudget): string | null {
+  budget.values += 1
+  if (budget.values > MAX_VALUES) return `more than ${MAX_VALUES.toLocaleString()} values`
+  if (depth > MAX_DEPTH) return `data nested more than ${MAX_DEPTH} levels deep`
+  if (value === null || value === undefined || typeof value === 'boolean') return null
+  if (typeof value === 'string') {
+    return Buffer.byteLength(value, 'utf8') > MAX_STRING_BYTES ? 'an oversized string' : null
+  }
+  if (typeof value === 'number') return Number.isFinite(value) ? null : 'a non-finite number'
+  if (typeof value !== 'object') return `an unsupported ${typeof value}`
+
+  if (value instanceof ArrayBuffer) {
+    return value.byteLength > MAX_BINARY_BYTES ? 'oversized binary data' : null
+  }
+  if (ArrayBuffer.isView(value)) {
+    return value.byteLength > MAX_BINARY_BYTES ? 'oversized binary data' : null
+  }
+  if (value instanceof Date) return Number.isFinite(value.getTime()) ? null : 'an invalid date'
+
+  if (budget.seen.has(value)) return 'cyclic data'
+  budget.seen.add(value)
+  if (Array.isArray(value)) {
+    if (value.length > MAX_COLLECTION_ITEMS) return 'an oversized array'
+    for (const item of value) {
+      const issue = payloadIssue(item, depth + 1, budget)
+      if (issue) return issue
+    }
+    return null
+  }
+
+  const prototype = Object.getPrototypeOf(value)
+  if (prototype !== Object.prototype && prototype !== null) return 'a non-plain object'
+  const entries = Object.entries(value as Record<string, unknown>)
+  if (entries.length > MAX_COLLECTION_ITEMS) return 'an object with too many fields'
+  for (const [key, item] of entries) {
+    if (FORBIDDEN_KEYS.has(key)) return `a forbidden “${key}” field`
+    const issue = payloadIssue(item, depth + 1, budget)
+    if (issue) return issue
+  }
+  return null
+}
+
 function describe(v: unknown): string {
   if (v === null) return 'null'
   if (v === undefined) return 'nothing'
@@ -45,6 +105,11 @@ function describe(v: unknown): string {
 
 /** Check one call's arguments against a spec. Returns null when acceptable. */
 export function checkArgs(spec: readonly ArgSpec[], args: readonly unknown[]): ContractViolation | null {
+  const budget: PayloadBudget = { values: 0, seen: new WeakSet() }
+  for (let i = 0; i < args.length; i++) {
+    const issue = payloadIssue(args[i], 0, budget)
+    if (issue) return { index: i, expected: 'safe structured value', got: issue }
+  }
   for (let i = 0; i < spec.length; i++) {
     const s = spec[i]
     const v = args[i]

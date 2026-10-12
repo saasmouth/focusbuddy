@@ -1770,7 +1770,13 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
         )}
       </div>
 
-        {aiPanelOpen && <SheetAiPanel ai={sheetAi} onCollapse={() => setAiPanelOpen(false)} />}
+        {aiPanelOpen && (
+          <SheetAiPanel
+            ai={sheetAi}
+            onCollapse={() => setAiPanelOpen(false)}
+            onImportSource={importFile}
+          />
+        )}
       </div>
 
       <SheetTabStrip body={body} onSwitch={switchTab} onAdd={addTab} onRename={renameTab} onDelete={deleteTab} />

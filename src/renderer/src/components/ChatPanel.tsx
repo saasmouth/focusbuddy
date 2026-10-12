@@ -28,6 +28,7 @@ import { activeQuestionFor } from '../lib/assistantQuestion'
 import { useAssistantContext } from '../lib/assistantContext'
 import { useWidgetStore } from '../stores/widgets'
 import { chimeIn } from '../lib/audioBeep'
+import { alertDialog } from './plexi/PromptDialog'
 import CanvasContextMenu, { type CtxMenuItem } from './CanvasContextMenu'
 import { FLOATING_MENU_ASIDE, FLOATING_MENU_STYLE } from './chrome/floatingMenu'
 import ModelPickerChip from './assistant/ModelPickerChip'
@@ -451,7 +452,10 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
 
   async function saveSelection(kind: 'sticky' | 'note', text: string): Promise<void> {
     if (!activeTaskId) {
-      alert('Pick a task first — the saved note attaches to whichever task is on the desk.')
+      await alertDialog({
+        title: 'Pick a task first',
+        body: 'The saved note attaches to whichever task is active on the desk.'
+      })
       return
     }
     const trimmed = text.trim()

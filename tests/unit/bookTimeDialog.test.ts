@@ -21,11 +21,21 @@ const read = (p: string): string => readFileSync(p, 'utf8')
 const src = read('src/renderer/src/components/BookTimeDialog.tsx')
 
 describe('placeholder resolution — recomputed, ordered, and it NEVER dates itself', () => {
-  const base = { mode: 'focus' as const, attachedTitle: null, guests: [] as string[], roomName: null }
+  const base = {
+    mode: 'focus' as const,
+    attachedTitle: null,
+    guests: [] as string[],
+    roomName: null
+  }
 
   it('resolution order: attached → guests → Meeting → room → Focus', () => {
     expect(
-      resolvePlaceholder({ ...base, mode: 'meeting', attachedTitle: 'CETRA deck', guests: ['Alex'] })
+      resolvePlaceholder({
+        ...base,
+        mode: 'meeting',
+        attachedTitle: 'CETRA deck',
+        guests: ['Alex']
+      })
     ).toBe('CETRA deck')
     expect(resolvePlaceholder({ ...base, mode: 'meeting', guests: ['Alex', 'Sam'] })).toBe('Alex & Sam')
     expect(resolvePlaceholder({ ...base, mode: 'meeting' })).toBe('Meeting')
@@ -104,19 +114,12 @@ describe('guest suggestions — recency of shared meetings, never the alphabet',
   })
 
   it('the person you met yesterday outranks the person you met last month', () => {
-    const ranked = rankGuestSuggestions([
-      blk(100, ['zed@x.com']),
-      blk(900, ['alex@x.com']),
-      blk(500, ['mia@x.com'])
-    ])
+    const ranked = rankGuestSuggestions([blk(100, ['zed@x.com']), blk(900, ['alex@x.com']), blk(500, ['mia@x.com'])])
     expect(ranked.map((c) => c.email)).toEqual(['alex@x.com', 'mia@x.com', 'zed@x.com'])
   })
 
   it('dedupes by address, keeping the most recent meeting; junk is dropped', () => {
-    const ranked = rankGuestSuggestions([
-      blk(100, ['alex@x.com', 'not-an-email']),
-      blk(700, ['ALEX@x.com'])
-    ])
+    const ranked = rankGuestSuggestions([blk(100, ['alex@x.com', 'not-an-email']), blk(700, ['ALEX@x.com'])])
     expect(ranked).toHaveLength(1)
     expect(ranked[0].email).toBe('alex@x.com')
   })
@@ -146,12 +149,18 @@ describe('guest entry — bare words resolve, unresolved words get the domain', 
 
   it('an explicit address passes through; with no domain the word is kept, never invented', () => {
     expect(resolveGuestEntry('Sam@Ext.IO', contacts, 'plexii.app')?.email).toBe('sam@ext.io')
-    expect(resolveGuestEntry('caleb', contacts, null)).toEqual({ email: 'caleb', name: 'caleb' })
+    expect(resolveGuestEntry('caleb', contacts, null)).toEqual({
+      email: 'caleb',
+      name: 'caleb'
+    })
     expect(resolveGuestEntry('  ', contacts, 'plexii.app')).toBeNull()
   })
 
   it('the dropdown excludes the already-invited and stays a glance (6)', () => {
-    const many = Array.from({ length: 10 }, (_, i) => ({ name: `P${i}`, email: `p${i}@x.com` }))
+    const many = Array.from({ length: 10 }, (_, i) => ({
+      name: `P${i}`,
+      email: `p${i}@x.com`
+    }))
     expect(filterSuggestions(many, '', ['p0@x.com'])).toHaveLength(6)
     expect(filterSuggestions(many, '', ['p0@x.com']).some((c) => c.email === 'p0@x.com')).toBe(false)
     expect(filterSuggestions(many, 'p9', [])).toHaveLength(1)
@@ -193,25 +202,25 @@ describe('step 4 structure — the Enter guard, autofocus, and meeting-only', ()
     expect(src).toContain('guests can')
   })
 
-  it('the Plexi Meet copy renders and wires nothing (CR-08 / CR-09)', () => {
-    expect(src).toContain('A Plexii Meet link is created and sent with the invite.')
-    expect(src).toContain("DON'T EXIST yet")
+  it('the Plexi Meet copy accurately explains delivery and the desktop join path', () => {
+    expect(src).toContain('After the 10-second undo window')
+    expect(src).toContain('opens PlexiDesk when Mail is connected')
+    expect(src).not.toContain('browser — no account needed')
   })
 })
 
-// ── Step 6 — attach (stubbed) ───────────────────────────────────────────────
+// ── Step 6 — attach (persisted) ─────────────────────────────────────────────
 
-describe('attach — both consequences live, nothing persists', () => {
-  it('the stub id can NEVER reach a real block', () => {
-    // desk_block is unruled, so an attach that cannot persist books an
-    // UNLINKED block — the commit guards the stand-in id out explicitly.
-    expect(src).toContain("attached && attached.id !== STUB_ATTACH.id ? attached.id : null")
+describe('attach — the selected node is persisted', () => {
+  it('passes the real selected node id to the time block', () => {
+    expect(src).toContain('const taskId = attached?.id ?? null')
+    expect(src).not.toContain('STUB_ATTACH')
   })
 
   it('the title placeholder inherits from the attached item (rule 1)', () => {
     // resolvePlaceholder rule 1 is already unit-covered; the wiring reads
     // the live attach state, not the prefill prop.
-    expect(src).toContain("const attachedTitle = attached?.title ?? null")
+    expect(src).toContain('const attachedTitle = attached?.title ?? null')
   })
 
   it('the Staged badge appears in a success tone, and says why it matters', () => {
@@ -220,9 +229,10 @@ describe('attach — both consequences live, nothing persists', () => {
     expect(src).toContain('prepared before this block starts')
   })
 
-  it('a drag prefill seeds the attach; clicking toggles the stub', () => {
+  it('a drag prefill seeds the attach and the live node picker selects real nodes', () => {
     expect(src).toContain('prefillNode ? { id: prefillNode.id, title: prefillNode.title } : null')
-    expect(src).toContain('setAttached((a) => (a ? null : STUB_ATTACH))')
+    expect(src).toContain('data-testid="book-attach-picker"')
+    expect(src).toContain('setAttached({ id: node.id, title: node.title })')
   })
 })
 
@@ -234,7 +244,9 @@ describe('step 7 — commit closes immediately; the toast holds the regret', () 
   it('the wording tracks the button through the whole flow', () => {
     expect(src).toContain("mode === 'meeting' ? 'Schedule meeting' : 'Book it'")
     // DEC-131: the verb rides with the booking, in lib/bookBlock
-    expect(readFileSync('src/renderer/src/lib/bookBlock.ts', 'utf8')).toContain("const verb = meeting ? 'Scheduled' : 'Booked'")
+    expect(readFileSync('src/renderer/src/lib/bookBlock.ts', 'utf8')).toContain(
+      "const verb = meeting ? 'Scheduled' : 'Booked'"
+    )
   })
 
   // DEC-131: the booking itself (create, the undo toast, the stated invite
@@ -243,7 +255,10 @@ describe('step 7 — commit closes immediately; the toast holds the regret', () 
   const book = readFileSync('src/renderer/src/lib/bookBlock.ts', 'utf8')
 
   it('closes FIRST, then creates — no spinner, no confirmation step', () => {
-    const closure = grid.slice(grid.indexOf('Step 7 — closes IMMEDIATELY'), grid.indexOf('bookBlockWithToast({ taskId, title, startMs, durationMin, meeting, recurrence })'))
+    const closure = grid.slice(
+      grid.indexOf('Step 7 — closes IMMEDIATELY'),
+      grid.indexOf('bookBlockWithToast({ taskId, title, startMs, durationMin, meeting, recurrence })')
+    )
     expect(closure).toContain('setComposer(null)')
     expect(book.indexOf('await createBlock(draft)')).toBeGreaterThan(0)
   })
@@ -254,8 +269,10 @@ describe('step 7 — commit closes immediately; the toast holds the regret', () 
     expect(grid).toContain("import { bookBlockWithToast } from '../../lib/bookBlock'")
   })
 
-  it('the invite hold is BUILT and stated, though nothing sends (CR-08/09)', () => {
+  it('the invite hold sends after expiry and Undo cancels it', () => {
     expect(book).toContain('scheduleInviteHold')
+    expect(book).toContain('sendMeetingInvites({')
+    expect(book).toContain('inviteDeliveryNote')
     expect(book).toContain('invites hold ${HOLD_INVITES_MS / 1000}s')
     expect(book).toContain('hold?.cancel()')
   })
@@ -314,9 +331,7 @@ describe('step 9 — inline create, flagged, no regressions', () => {
     const planner = read('src/renderer/src/lib/attentionPlanner.ts')
     expect(planner).toContain('inlineCreate: boolean')
     expect(planner).toContain('inlineCreate: false')
-    expect(read('src/renderer/src/components/views/CalendarView.tsx')).toContain(
-      'data-testid="inline-create-toggle"'
-    )
+    expect(read('src/renderer/src/components/views/CalendarView.tsx')).toContain('data-testid="inline-create-toggle"')
   })
 
   it('flag OFF keeps the DEC-053 path verbatim — seed and all', () => {
@@ -370,7 +385,8 @@ describe('the name is Plexii', () => {
 
 describe('double-click opens the full dialog, seeded from the block', () => {
   it('every meeting detail seeds: guests, where, link/location, agenda, repeat', () => {
-    expect(src).toContain("(editBlock?.meeting?.invitees ?? []).map((e) => ({ email: e, name: nameFromEmail(e) }))")
+    expect(src).toContain('(editBlock?.meeting?.invitees ?? []).map((e) => ({')
+    expect(src).toContain('name: nameFromEmail(e)')
     expect(src).toContain("editBlock?.meeting?.joinUrl ? 'link' : editBlock?.meeting?.location ? 'inperson' : 'plexi'")
     expect(src).toContain("useState(editBlock?.meeting?.agenda ?? '')")
     expect(src).toContain("useState<TimeBlockRecurrence | ''>(editBlock?.recurrence ?? '')")
@@ -393,7 +409,13 @@ describe('double-click opens the full dialog, seeded from the block', () => {
     expect(grid).toContain('await saveBlockEdit(prev, patch)')
     expect(lib).toContain('label: `Saved')
     const undo = lib.slice(lib.indexOf('label: `Saved'), lib.indexOf('redo: async () => {'))
-    for (const f of ['taskId: prev.taskId', 'title: prev.title', 'startMs: prev.startMs', 'durationMin: prev.durationMin', 'meeting: prev.meeting ?? null'])
+    for (const f of [
+      'taskId: prev.taskId',
+      'title: prev.title',
+      'startMs: prev.startMs',
+      'durationMin: prev.durationMin',
+      'meeting: prev.meeting ?? null'
+    ])
       expect(undo).toContain(f)
   })
 })
@@ -401,10 +423,16 @@ describe('double-click opens the full dialog, seeded from the block', () => {
 // ── Step 5, option B — the shared token grammar (operator ruling) ───────────
 
 describe('parseBlockTokens — strip what you apply, echo what you did, no @', () => {
-  const rooms = [{ id: 'r1', title: 'Design' }, { id: 'r2', title: 'LakeDash' }]
+  const rooms = [
+    { id: 'r1', title: 'Design' },
+    { id: 'r2', title: 'LakeDash' }
+  ]
 
   it('duration tokens: 45m, 30min, 2h, 1.5h — stripped, echoed', () => {
-    expect(parseBlockTokens('deck 45m ', rooms)).toMatchObject({ cleaned: 'deck ', durationMin: 45 })
+    expect(parseBlockTokens('deck 45m ', rooms)).toMatchObject({
+      cleaned: 'deck ',
+      durationMin: 45
+    })
     expect(parseBlockTokens('deck 30min ', rooms).durationMin).toBe(30)
     expect(parseBlockTokens('deck 2h ', rooms).durationMin).toBe(120)
     expect(parseBlockTokens('deck 1.5h ', rooms).durationMin).toBe(90)

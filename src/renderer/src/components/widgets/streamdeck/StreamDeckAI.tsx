@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { promptText } from '../../plexi/PromptDialog'
+import { confirmDialog, promptText } from '../../plexi/PromptDialog'
 import { createPortal } from 'react-dom'
 import type {
   ActionButton,
@@ -484,12 +484,13 @@ export default function StreamDeckAI({
   }
 
   async function wipeTracking(): Promise<void> {
-    if (
-      !window.confirm(
-        'Wipe all logged activity? This cannot be undone. Your tracking on/off setting stays the same.'
-      )
-    )
-      return
+    const confirmed = await confirmDialog({
+      title: 'Wipe all logged activity?',
+      body: 'This cannot be undone. Your tracking on/off setting stays the same.',
+      confirmLabel: 'Wipe activity',
+      danger: true
+    })
+    if (!confirmed) return
     await window.api.activity.wipe()
     const s = await window.api.activity.getState()
     setTrackingState(s)

@@ -1,4 +1,4 @@
-# Haptyx desktop — release workflow
+# PlexiDesk desktop — release workflow
 
 The desktop app auto-updates from **GitHub Releases**. electron-updater on each
 client fetches the update manifest from the newest release and, if it names a
@@ -43,7 +43,7 @@ Therefore:
 cd projects/focusbuddy
 
 # 1. Bump version in package.json, commit, tag, push the branch.
-# 2. Build the signed UNIVERSAL mac artifacts (zip + dmg + blockmaps +
+# 2. Build the signed and notarised UNIVERSAL mac artifacts (zip + dmg + blockmaps +
 #    latest-mac.yml in release/). This also rebuilds every compiled native
 #    addon for both architectures and lipos them into fat binaries, which is
 #    what makes a universal app possible at all — see the long note on
@@ -52,19 +52,22 @@ VITE_USE_REMOTE_SIGNAL=true \
 VITE_SIGNAL_HTTP_URL=https://api.plexiidesk.com \
 VITE_SIGNAL_WS_URL=wss://api.plexiidesk.com/ws \
 VITE_VIEWER_URL=https://view.plexiidesk.com \
-  npm run dist:mac:universal
+  node scripts/release-env.mjs npm run dist:mac:universal:signed
 
 # 3. Build Windows via CI and wait for it, then create the release with the mac zip:
-gh workflow run build-windows.yml --ref rebrand/archeon
-gh release create vX.Y.Z release/Haptyx-X.Y.Z-mac-universal.zip --title "Haptyx X.Y.Z" --notes "..."
+gh workflow run build-windows.yml --ref main
+gh release create vX.Y.Z release/PlexiDesk-X.Y.Z-mac-universal.zip --title "PlexiDesk X.Y.Z" --notes "..."
 
 # 4. Attach the COMPLETE mac update set + run the gate (this is the step that
 #    used to be skipped). Defaults the version from package.json:
 npm run release:mac
 
 # 5. Attach the Windows installer + its manifest from the CI artifact:
-gh run download <run-id> -n haptyx-windows-installer -D /tmp/win
-gh release upload vX.Y.Z /tmp/win/Haptyx-X.Y.Z-win-x64.exe /tmp/win/latest.yml --clobber
+gh run download <run-id> -n plexidesk-windows-installer -D /tmp/win
+gh release upload vX.Y.Z \
+  /tmp/win/PlexiDesk-X.Y.Z-win-x64.exe \
+  /tmp/win/PlexiDesk-X.Y.Z-win-x64.exe.blockmap \
+  /tmp/win/latest.yml --clobber
 
 # 6. FINAL GATE — the release is not done until this is green:
 npm run release:verify
@@ -97,12 +100,12 @@ gate prevents for mac/win. So every release that bumps the version MUST also att
 the office set to the same tag and pass `npm run release:verify:office`. Office is
 mac arm64 only today (no Windows office build in CI yet).
 
-`npm run release:mac` uploads `Haptyx-X.Y.Z-mac-universal.zip`, its `.blockmap`,
-the `.dmg` and `latest-mac.yml` (with `--clobber`, so re-running is safe), plus an
-arm64-named copy of the zip for clients older than 4.3.1 — those build their own
-per-arch download URL from `process.arch`, so without that alias their one-click
-update 404s. It then refuses to upload unless the built binary really is
-universal, and runs the gate.
+`npm run release:mac` uploads the current `PlexiDesk-X.Y.Z-mac-universal`
+artifacts and `latest-mac.yml` (with `--clobber`, so re-running is safe). It also
+publishes arm64-named and legacy `Haptyx-` aliases for already-installed clients;
+those aliases are update compatibility assets, not the customer-facing release
+name. The script refuses to upload unless the built binary is universal, mirrors
+the feed to R2, and runs the gate.
 `npm run release:verify` independently re-checks the whole release for both
 platforms: every asset reachable (HTTP 200) and the sha512 inside each manifest
 matching the binary GitHub actually serves.
@@ -115,18 +118,21 @@ architecture before any app code runs, so the user sees only "this application i
 not supported on the Mac" and the app cannot explain itself. Everything below
 must reach the release:
 
-- `Haptyx-X.Y.Z-mac-universal.zip` — the app bundle the updater installs
-- `Haptyx-X.Y.Z-mac-universal.zip.blockmap` — differential-update map
-- `Haptyx-X.Y.Z-mac-universal.dmg` — **what the website's download button serves**;
+- `PlexiDesk-X.Y.Z-mac-universal.zip` — the app bundle the updater installs
+- `PlexiDesk-X.Y.Z-mac-universal.zip.blockmap` — differential-update map
+- `PlexiDesk-X.Y.Z-mac-universal.dmg` — **what the website's download button serves**;
   it used to be uploaded by hand and checked by nothing
-- `Haptyx-X.Y.Z-mac-arm64.zip` (+ `.blockmap`) — a copy of the universal zip under
-  the name pre-4.3.1 clients ask for
+- `PlexiDesk-X.Y.Z-mac-arm64.zip` (+ `.blockmap`) — a copy of the universal zip
+  under the architecture name pre-4.3.1 clients ask for
+- matching legacy `Haptyx-` zip aliases — retained only for installed clients
+  that predate the product rename
 - `latest-mac.yml` — the manifest electron-updater reads; **its absence is the
   bug that breaks updates**
 
 Windows (built in CI) contributes:
 
-- `Haptyx-X.Y.Z-win-x64.exe` — the installer
+- `PlexiDesk-X.Y.Z-win-x64.exe` — the installer
+- `PlexiDesk-X.Y.Z-win-x64.exe.blockmap` — differential-update map
 - `latest.yml` — the Windows update manifest
 
 ## How the in-app side works
@@ -139,10 +145,11 @@ Windows (built in CI) contributes:
 
 ## Signing
 
-The app is **ad-hoc signed** (`build/adhoc-sign.cjs`). electron-updater verifies
-the downloaded payload's sha512 against the manifest, which is why a correct,
-matching `latest-mac.yml` is mandatory. With a real Apple cert later, the same
-flow continues to work.
+Public macOS releases must be signed with the PlexiDesk Developer ID certificate
+and notarised by Apple. Ad-hoc signing is for local development only and must
+never be uploaded as a customer download. `scripts/require-signing-env.mjs`
+blocks the release build when the required credentials are absent; the asset
+gate separately verifies the updater checksum and manifest.
 
 ## Scripts
 
@@ -152,15 +159,12 @@ flow continues to work.
   used by `npm run release:verify`. Runs on macOS and Linux/CI (uses `openssl`).
   Version defaults to `package.json`.
 
-## Notarised macOS builds (Developer ID) — the real fix for "won't open on download"
+## Notarised macOS builds (Developer ID)
 
-An ad-hoc-signed app is rejected by Gatekeeper on modern macOS (`spctl -a` →
-rejected), so a freshly-downloaded copy will not open without the user manually
-stripping quarantine / using "Open Anyway". The permanent fix is to sign with an
-Apple **Developer ID Application** cert and **notarise** with Apple. The build is
-already wired for this — it switches on automatically when the credentials are
-present in the environment (see electron-builder.cjs), and falls back to ad-hoc
-when they are not, so credential-less builds are unchanged.
+An ad-hoc-signed app is rejected by Gatekeeper on modern macOS. Release builds
+therefore sign with an Apple **Developer ID Application** certificate and
+**notarise** with Apple. The build is wired for this in `electron-builder.cjs`,
+and the release command refuses to continue without credentials.
 
 Credentials required (from the Apple Developer account):
 - A "Developer ID Application" certificate installed in the login keychain (or
@@ -185,7 +189,7 @@ VITE_USE_REMOTE_SIGNAL=true \
 VITE_SIGNAL_HTTP_URL=https://api.plexiidesk.com \
 VITE_SIGNAL_WS_URL=wss://api.plexiidesk.com/ws \
 VITE_VIEWER_URL=https://view.plexiidesk.com \
-  node scripts/release-env.mjs npm run dist:mac:signed
+  node scripts/release-env.mjs npm run dist:mac:universal:signed
 # zip + blockmap + latest-mac.yml + dmg, all notarised
 ```
 
@@ -202,7 +206,7 @@ Then attach the full mac set as usual (`npm run release:mac`) AND upload the dmg
 to the same release so new users can download-and-double-click:
 
 ```bash
-gh release upload vX.Y.Z release/Haptyx-X.Y.Z-mac-universal.dmg --clobber
+gh release upload vX.Y.Z release/PlexiDesk-X.Y.Z-mac-universal.dmg --clobber
 ```
 
 Verify it actually notarised before shipping (this is the equivalent of the

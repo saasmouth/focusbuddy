@@ -13,6 +13,7 @@
 
 import { useEffect, useState } from 'react'
 import LocalAiSection from './LocalAiSection'
+import { confirmDialog } from '../plexi/PromptDialog'
 
 type Status =
   | { kind: 'idle' }
@@ -566,7 +567,12 @@ function ApiKeyRow({
   }
 
   async function onClear(): Promise<void> {
-    const confirmed = confirm(config.removeWarning)
+    const confirmed = await confirmDialog({
+      title: 'Clear this API key?',
+      body: config.removeWarning,
+      confirmLabel: 'Clear key',
+      danger: true
+    })
     if (!confirmed) return
     const result = await config.api.clear()
     if (!result.ok) {

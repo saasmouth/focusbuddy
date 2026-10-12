@@ -21,10 +21,12 @@ import type { SheetAi } from './useSheetAi'
 interface Props {
   ai: SheetAi
   onCollapse: () => void
+  onImportSource: () => Promise<void>
 }
 
-export default function SheetAiPanel({ ai, onCollapse }: Props): JSX.Element {
+export default function SheetAiPanel({ ai, onCollapse, onImportSource }: Props): JSX.Element {
   const [question, setQuestion] = useState('')
+  const [importing, setImporting] = useState(false)
 
   const submitQuestion = (): void => {
     const q = question.trim()
@@ -165,25 +167,33 @@ export default function SheetAiPanel({ ai, onCollapse }: Props): JSX.Element {
             </div>
           </section>
 
-          {/* Data Connections. There are no real data-source integrations, so
-              nothing is shown as connected. The connect affordance is disabled
-              and labelled as coming soon. */}
+          {/* Snapshot imports use the editor's real XLSX/CSV import path. They
+              are deliberately described as imports, not live connections. */}
           <section className="flex flex-col gap-2">
-            <h3 className="text-[12.5px] font-semibold text-[var(--ink-90)]">Data Connections</h3>
+            <h3 className="text-[12.5px] font-semibold text-[var(--ink-90)]">Import data</h3>
             <div
               className="rounded-lg border border-dashed border-[var(--edge-soft)] p-3 text-[12px] leading-relaxed text-[var(--ink-50)]"
               data-testid="sheet-ai-connections-empty"
             >
-              No data sources connected yet.
+              Bring in a snapshot from an Excel workbook or CSV file. Importing replaces the current workbook and can
+              be undone.
             </div>
             <button
-              disabled
-              title="Connecting external data sources is coming soon."
-              className="fb-btn-surface inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-[12px] text-[var(--ink-50)] opacity-60"
+              disabled={importing}
+              title="Import an .xlsx or .csv file"
+              onClick={async () => {
+                setImporting(true)
+                try {
+                  await onImportSource()
+                } finally {
+                  setImporting(false)
+                }
+              }}
+              className="fb-btn-surface inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-[12px] text-[var(--ink-70)] disabled:opacity-60"
               data-testid="sheet-ai-connect-source"
             >
-              <Icon name="add_link" size={14} />
-              <span>Connect a source (coming soon)</span>
+              <Icon name={importing ? 'autorenew' : 'upload_file'} size={14} className={importing ? 'animate-spin' : ''} />
+              <span>{importing ? 'Importing…' : 'Import CSV or workbook'}</span>
             </button>
           </section>
         </div>

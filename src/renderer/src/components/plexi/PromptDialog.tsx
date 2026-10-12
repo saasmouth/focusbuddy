@@ -26,6 +26,8 @@ export interface PromptRequest {
   selectAll?: boolean
   /** Confirm mode: no input field; resolves 'yes' or null. Set by confirmDialog. */
   confirmOnly?: boolean
+  /** Informational mode: no input or Cancel button; resolves when acknowledged. */
+  alertOnly?: boolean
   /** Styles the confirm button red for destructive confirms. */
   danger?: boolean
   /** List-picker mode: render these as option buttons; clicking one resolves its
@@ -83,6 +85,16 @@ export function confirmDialog(req: {
   }).then((v) => v !== null)
 }
 
+/** Accessible, styled replacement for window.alert. */
+export function alertDialog(req: { title: string; body?: string; confirmLabel?: string }): Promise<void> {
+  return promptText({
+    title: req.title,
+    label: req.body,
+    confirmLabel: req.confirmLabel ?? 'OK',
+    alertOnly: true
+  }).then(() => {})
+}
+
 /**
  * Ask the user to pick one option from a list. Resolves with the chosen value, or
  * null when they cancel. Used for share-scope choices (whole org vs a group).
@@ -119,7 +131,7 @@ export function PromptDialogHost(): JSX.Element | null {
   // mode has no field, so the panel itself takes focus for Enter/Escape.
   useEffect(() => {
     if (!req) return
-    if (req.confirmOnly) {
+    if (req.confirmOnly || req.alertOnly) {
       panelRef.current?.focus()
       return
     }
@@ -197,7 +209,7 @@ export function PromptDialogHost(): JSX.Element | null {
               </button>
             ))}
           </div>
-        ) : req.confirmOnly ? null : req.multiline ? (
+        ) : req.confirmOnly || req.alertOnly ? null : req.multiline ? (
           <textarea
             ref={(el) => (fieldRef.current = el)}
             value={value}
@@ -218,12 +230,14 @@ export function PromptDialogHost(): JSX.Element | null {
           />
         )}
         <div className="mt-3 flex items-center justify-end gap-2">
-          <button
-            onClick={cancel}
-            className="px-3 py-1.5 rounded-lg text-[13px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
-          >
-            Cancel
-          </button>
+          {!req.alertOnly && (
+            <button
+              onClick={cancel}
+              className="px-3 py-1.5 rounded-lg text-[13px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
+            >
+              Cancel
+            </button>
+          )}
           {req.choices ? null : (
             <button
               onClick={confirm}

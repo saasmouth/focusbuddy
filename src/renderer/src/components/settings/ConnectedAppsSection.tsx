@@ -29,7 +29,7 @@ export default function ConnectedAppsSection(): JSX.Element {
         <button
           onClick={() => setAddOpen(true)}
           data-testid="settings-connected-apps-add"
-          className="icon-btn !h-5 !w-5"
+          className="icon-btn !h-6 !w-6"
           title="Add a connected app"
         >
           <Icon name="add" size={12} />
@@ -59,7 +59,7 @@ export default function ConnectedAppsSection(): JSX.Element {
               </span>
               <button
                 onClick={() => void togglePinned(app.id)}
-                className="icon-btn !h-5 !w-5"
+                className="icon-btn !h-6 !w-6"
                 title={app.pinned ? 'Unpin from the sidebar' : 'Pin to the sidebar'}
                 aria-pressed={app.pinned}
               >
@@ -67,7 +67,7 @@ export default function ConnectedAppsSection(): JSX.Element {
               </button>
               <button
                 onClick={() => void remove(app.id)}
-                className="icon-btn !h-5 !w-5"
+                className="icon-btn !h-6 !w-6"
                 title={`Remove ${app.title}`}
               >
                 <Icon name="delete" size={11} />

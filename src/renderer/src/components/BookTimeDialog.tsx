@@ -20,13 +20,9 @@ import { useNodeStore } from '../stores/nodes'
 import { newMeetingRoomId } from '../lib/startMeeting'
 
 // Book time — the dialog a drag-selected range opens on the Calendar.
-// Spec: the book-time contract (operator, 2026-08-30). This pass builds
-// steps 1–3 ONLY: the mode slider + meeting-field reveal, the title with
-// placeholder resolution, and the time row with duration cycling + the
-// repeat chip. Guests / Where / Agenda / parse grammar / attach / toast are
-// steps 4–9 and are NOT here yet — the reveal container holds inert
-// skeletons, and the Attach row renders against a stubbed value
-// (desk_block is unresolved, DEC-019).
+// Spec: the book-time contract (operator, 2026-08-30). The dialog owns the
+// complete flow: intent, time, guests, place, agenda and a persisted link to
+// the desk or work item that should be ready when the block begins.
 //
 // The design rule the spec leads with: mode decides which fields exist, so
 // the mode slider IS the header; the title is the act of intent, everything
@@ -41,7 +37,10 @@ function fmtDateChip(ms: number): string {
 }
 
 function fmtTimeChip(ms: number): string {
-  return new Date(ms).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  return new Date(ms).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit'
+  })
 }
 
 function toDateInputValue(ms: number): string {
@@ -86,7 +85,7 @@ export default function BookTimeDialog({
    *  yet (SPEC-002's wire name, unruled), so only the manual trigger fires
    *  this today — built now so the proposed state is native, not bolted on. */
   proposal?: { reason: string; autoBookAtMs: number }
-  /** A node dragged onto the grid — becomes the stubbed Attach value. */
+  /** A node dragged onto the grid — becomes the persisted Attach value. */
   prefillNode?: { id: string; title: string; kind: FbNode['kind'] }
   /** Placeholder rule 4's source. The Calendar page has no live room
    *  context today, so this arrives null and the rule falls to "Focus". */
@@ -117,9 +116,7 @@ export default function BookTimeDialog({
   // cycle click jumps to the nearest step rather than resetting.
   const [durationMin, setDurationMin] = useState(initialDurationMin ?? 60)
   const cycleIdx = useRef<number | null>(
-    DURATION_STEPS.includes(initialDurationMin ?? 60)
-      ? DURATION_STEPS.indexOf(initialDurationMin ?? 60)
-      : null
+    DURATION_STEPS.includes(initialDurationMin ?? 60) ? DURATION_STEPS.indexOf(initialDurationMin ?? 60) : null
   )
   const [repeat, setRepeat] = useState<TimeBlockRecurrence | ''>(editBlock?.recurrence ?? '')
   const [repeatOpen, setRepeatOpen] = useState(false)
@@ -127,7 +124,10 @@ export default function BookTimeDialog({
 
   // ── Step 4 — the meeting-only fields ────────────────────────────────────
   const [guests, setGuests] = useState<GuestChip[]>(
-    (editBlock?.meeting?.invitees ?? []).map((e) => ({ email: e, name: nameFromEmail(e) }))
+    (editBlock?.meeting?.invitees ?? []).map((e) => ({
+      email: e,
+      name: nameFromEmail(e)
+    }))
   )
   const [guestInput, setGuestInput] = useState('')
   const [guestSel, setGuestSel] = useState(0)
@@ -153,30 +153,50 @@ export default function BookTimeDialog({
       .catch(() => setContacts([]))
   }, [])
   const suggestions = useMemo(
-    () => filterSuggestions(contacts, guestInput, guests.map((g) => g.email)),
+    () =>
+      filterSuggestions(
+        contacts,
+        guestInput,
+        guests.map((g) => g.email)
+      ),
     [contacts, guestInput, guests]
   )
-  // ── Step 6 — attach, STILL STUBBED: desk_block is unruled (the spec's
-  // "DEC-019" — a SPEC-002 numbering collision; a fresh DEC rules it), so
-  // NOTHING persists. Clicking attaches a hardcoded stand-in; a drag
-  // prefill attaches the real node's title for display. Either way the two
-  // consequences are live: the title placeholder inherits (rule 1), and the
-  // Staged badge appears — the one thing here a calendar-first competitor
-  // structurally cannot copy, because none of them own a workspace to stage.
-  // (The spec's trashNode caveat is stale — nodeLifecycle.ts closed it in
-  // S1, analysis/26 §2.3 — but the stub stands on desk_block alone.)
-  const STUB_ATTACH = { id: 'stub-attach', title: 'Roadmap desk' }
-  const [attached, setAttached] = useState<{ id: string; title: string } | null>(
-    prefillNode ? { id: prefillNode.id, title: prefillNode.title } : null
-  )
+  // ── Step 6 — attach a real node. Time blocks already persist this relation
+  // as taskId, so the picker uses the live node store rather than displaying a
+  // stand-in. It accepts desks, tasks and Attention work items.
+  const nodes = useNodeStore((s) => s.nodes)
+  const [attached, setAttached] = useState<{
+    id: string
+    title: string
+  } | null>(prefillNode ? { id: prefillNode.id, title: prefillNode.title } : null)
+  const [attachOpen, setAttachOpen] = useState(false)
+  const [attachQuery, setAttachQuery] = useState('')
+  const attachableNodes = useMemo(() => {
+    const q = attachQuery.trim().toLocaleLowerCase()
+    return nodes
+      .filter((node) => !q || node.title.toLocaleLowerCase().includes(q))
+      .sort((a, b) => {
+        if (a.kind === b.kind) return a.title.localeCompare(b.title)
+        if (a.kind === 'folder') return -1
+        if (b.kind === 'folder') return 1
+        return a.title.localeCompare(b.title)
+      })
+  }, [attachQuery, nodes])
   const attachedTitle = attached?.title ?? null
+
+  // An existing block stores only the id. Resolve its current title after
+  // nodes load; a deleted node remains safely detached.
+  useEffect(() => {
+    if (prefillNode || !editBlock?.taskId) return
+    const node = nodes.find((candidate) => candidate.id === editBlock.taskId)
+    setAttached(node ? { id: node.id, title: node.title } : null)
+  }, [editBlock?.taskId, nodes, prefillNode])
 
   const titleRef = useRef<HTMLInputElement | null>(null)
   const dateRef = useRef<HTMLInputElement | null>(null)
   const timeRef = useRef<HTMLInputElement | null>(null)
 
   // Step 5 (option B) — the token grammar's room targets: real rooms only.
-  const nodes = useNodeStore((s) => s.nodes)
   const rooms = useMemo(
     () => nodes.filter((n) => n.kind === 'folder').map((n) => ({ id: n.id, title: n.title })),
     [nodes]
@@ -193,9 +213,7 @@ export default function BookTimeDialog({
       // The DEC-053 contract holds for typed durations too: display as-is,
       // enter the cycle at the nearest step on first click.
       setDurationMin(fx.durationMin)
-      cycleIdx.current = DURATION_STEPS.includes(fx.durationMin)
-        ? DURATION_STEPS.indexOf(fx.durationMin)
-        : null
+      cycleIdx.current = DURATION_STEPS.includes(fx.durationMin) ? DURATION_STEPS.indexOf(fx.durationMin) : null
     }
     if (fx.room) setAttached({ id: fx.room.id, title: fx.room.title })
     if (fx.meeting) setMode('meeting')
@@ -232,19 +250,14 @@ export default function BookTimeDialog({
 
   function cycleDuration(back: boolean): void {
     if (cycleIdx.current == null) cycleIdx.current = nearestStepIndex(durationMin)
-    else
-      cycleIdx.current = Math.min(
-        DURATION_STEPS.length - 1,
-        Math.max(0, cycleIdx.current + (back ? -1 : 1))
-      )
+    else cycleIdx.current = Math.min(DURATION_STEPS.length - 1, Math.max(0, cycleIdx.current + (back ? -1 : 1)))
     setDurationMin(DURATION_STEPS[cycleIdx.current])
   }
 
   function commitGuest(pick?: GuestChip): void {
     const chip = pick ?? resolveGuestEntry(guestInput, contacts, workspaceDomain)
     if (!chip) return
-    if (!guests.some((g) => g.email.toLowerCase() === chip.email.toLowerCase()))
-      setGuests((gs) => [...gs, chip])
+    if (!guests.some((g) => g.email.toLowerCase() === chip.email.toLowerCase())) setGuests((gs) => [...gs, chip])
     setGuestInput('')
     setGuestSel(0)
   }
@@ -332,11 +345,15 @@ export default function BookTimeDialog({
               agenda: agenda.trim() || null
             }
           : null
-      // The stub id must never reach a real block — an attach that cannot
-      // persist yet books an UNLINKED block, honestly.
-      const taskId = attached && attached.id !== STUB_ATTACH.id ? attached.id : null
+      const taskId = attached?.id ?? null
       if (isEdit && onSave) {
-        await onSave({ taskId, title: finalTitle, startMs, durationMin, meeting })
+        await onSave({
+          taskId,
+          title: finalTitle,
+          startMs,
+          durationMin,
+          meeting
+        })
       } else if (onCreate) {
         await onCreate(taskId, finalTitle, startMs, durationMin, meeting, repeat || null)
       }
@@ -366,12 +383,8 @@ export default function BookTimeDialog({
     }
   }
 
-  const thumbTransition = reduceMotion
-    ? { duration: 0 }
-    : { duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }
-  const revealTransition = reduceMotion
-    ? { duration: 0 }
-    : { duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }
+  const thumbTransition = reduceMotion ? { duration: 0 } : { duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }
+  const revealTransition = reduceMotion ? { duration: 0 } : { duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }
 
   const chip =
     'h-9 px-3 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] text-[13px] font-medium ' +
@@ -388,7 +401,10 @@ export default function BookTimeDialog({
       <motion.div
         initial={{ opacity: 0, scale: 0.985, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: reduceMotion ? 0 : 0.2, ease: [0.16, 1, 0.3, 1] }}
+        transition={{
+          duration: reduceMotion ? 0 : 0.2,
+          ease: [0.16, 1, 0.3, 1]
+        }}
         role="dialog"
         aria-modal="true"
         aria-label="Book time"
@@ -407,8 +423,7 @@ export default function BookTimeDialog({
             >
               <Icon name="bolt" size={14} className="text-[rgb(var(--accent))] shrink-0 mt-px" />
               <span className="min-w-0">
-                {proposal.reason}{' '}
-                <span className="text-[var(--ink-50)]">Esc dismisses.</span>
+                {proposal.reason} <span className="text-[var(--ink-50)]">Esc dismisses.</span>
               </span>
               <span
                 data-testid="proposal-countdown"
@@ -582,9 +597,7 @@ export default function BookTimeDialog({
               {fmtTimeChip(startMs + durationMin * 60_000)}
             </button>
             <span className="text-[12px] text-[var(--ink-50)] fb-tabular" data-testid="book-duration">
-              {durationMin >= 60 && durationMin % 60 === 0
-                ? `${durationMin / 60}h`
-                : `${durationMin}m`}
+              {durationMin >= 60 && durationMin % 60 === 0 ? `${durationMin / 60}h` : `${durationMin}m`}
             </span>
             <div className="relative ml-auto">
               <button
@@ -658,9 +671,7 @@ export default function BookTimeDialog({
                       Backspace on empty deletes the last; suggestions rank by
                       the recency of the meeting you shared. */}
                   <div className="relative">
-                    <div className="text-[10.5px] font-semibold tracking-wider text-[var(--ink-40)] mb-1">
-                      GUESTS
-                    </div>
+                    <div className="text-[10.5px] font-semibold tracking-wider text-[var(--ink-40)] mb-1">GUESTS</div>
                     <div
                       className="min-h-10 px-2 py-1.5 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] flex flex-wrap items-center gap-1.5 cursor-text"
                       onClick={(e) => {
@@ -743,9 +754,7 @@ export default function BookTimeDialog({
                       behaviour that makes a segmented control faster than
                       three stacked fields). */}
                   <div>
-                    <div className="text-[10.5px] font-semibold tracking-wider text-[var(--ink-40)] mb-1">
-                      WHERE
-                    </div>
+                    <div className="text-[10.5px] font-semibold tracking-wider text-[var(--ink-40)] mb-1">WHERE</div>
                     <div className="flex rounded-full bg-[var(--surface-sunken)] p-1 select-none">
                       {(
                         [
@@ -773,14 +782,11 @@ export default function BookTimeDialog({
                       ))}
                     </div>
                     {where === 'plexi' && (
-                      /* CR-08 / CR-09 — this copy describes outbound invites
-                         and hosted meet links that DON'T EXIST yet. Rendered,
-                         wired to nothing, per the spec's stub instruction. */
                       <div className="flex items-start gap-1.5 mt-2 text-[12px] text-[var(--ink-70)] leading-snug">
                         <Icon name="check" size={13} className="text-[rgb(var(--accent))] shrink-0 mt-px" />
                         <span>
-                          A Plexii Meet link is created and sent with the invite. Guests join in the
-                          browser — no account needed.
+                          A Plexii room is added to the meeting. After the 10-second undo window, guests are emailed a
+                          link that opens PlexiDesk when Mail is connected.
                         </span>
                       </div>
                     )}
@@ -811,9 +817,7 @@ export default function BookTimeDialog({
                   {/* AGENDA — Shift+Enter is the newline; plain Enter is
                       consumed so it can never commit the dialog from here. */}
                   <div>
-                    <div className="text-[10.5px] font-semibold tracking-wider text-[var(--ink-40)] mb-1">
-                      AGENDA
-                    </div>
+                    <div className="text-[10.5px] font-semibold tracking-wider text-[var(--ink-40)] mb-1">AGENDA</div>
                     <textarea
                       rows={2}
                       value={agenda}
@@ -831,33 +835,101 @@ export default function BookTimeDialog({
           </AnimatePresence>
 
           {/* ── Attach — quiet, last, and the reason a block can be staged. ── */}
-          <div className="self-start inline-flex items-center gap-2">
-            <button
-              type="button"
-              data-testid="book-attach-row"
-              onClick={() => setAttached((a) => (a ? null : STUB_ATTACH))}
-              onKeyDown={(e) => {
-                // Space toggles; Enter falls through and commits, per the map.
-                if (e.key === ' ') {
-                  e.preventDefault()
-                  setAttached((a) => (a ? null : STUB_ATTACH))
-                }
-              }}
-              title={
-                attached
-                  ? 'Detach (nothing persists yet — desk_block is unruled)'
-                  : 'Attach a desk or work item (stubbed — nothing persists yet)'
-              }
-              className="h-10 px-3 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] border border-[var(--edge-strong)] inline-flex items-center gap-2 text-[13px] text-[var(--ink-70)] fb-press transition-colors hover:text-[var(--ink-90)]"
-            >
-              <Icon name="folder" size={15} />
-              {attached ? attached.title : 'Attach a desk or work item'}
-              {attached && <Icon name="close" size={13} className="text-[var(--ink-40)]" />}
-            </button>
+          <div className="self-start inline-flex items-center gap-2 max-w-full">
+            <div className="relative inline-flex min-w-0">
+              <button
+                type="button"
+                data-testid="book-attach-row"
+                aria-haspopup="listbox"
+                aria-expanded={attachOpen}
+                onClick={() => setAttachOpen((open) => !open)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setAttachOpen((open) => !open)
+                  }
+                }}
+                title={attached ? `Attached to ${attached.title}` : 'Attach a desk or work item'}
+                 className="h-10 px-3 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] border border-[var(--edge-strong)] inline-flex items-center gap-2 text-[13px] text-[var(--ink-70)] fb-press transition-colors hover:text-[var(--ink-90)] max-w-[340px]"
+              >
+                <Icon name={attached ? 'link' : 'folder'} size={15} />
+                <span className="truncate">{attached ? attached.title : 'Attach a desk or work item'}</span>
+                <Icon name="expand_more" size={14} className="text-[var(--ink-40)] shrink-0" />
+              </button>
+              {attached && (
+                <button
+                  type="button"
+                  aria-label={`Detach ${attached.title}`}
+                  title="Detach"
+                  onClick={() => {
+                    setAttached(null)
+                    setAttachOpen(false)
+                  }}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  className="h-10 w-10 -ml-px rounded-r-[var(--radius-field)] bg-[var(--surface-sunken)] border border-[var(--edge-strong)] inline-flex items-center justify-center text-[var(--ink-50)] hover:text-[var(--ink-90)] fb-press"
+                >
+                  <Icon name="close" size={15} />
+                </button>
+              )}
+              {attachOpen && (
+                <div
+                  className="absolute left-0 bottom-full mb-1 z-30 w-[340px] max-w-[calc(100vw-3rem)] rounded-[var(--radius-row)] fb-glass-panel fb-pop-in p-1.5"
+                  data-testid="book-attach-picker"
+                >
+                  <input
+                    autoFocus
+                    value={attachQuery}
+                    onChange={(e) => setAttachQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      e.stopPropagation()
+                      if (e.key === 'Escape') {
+                        e.preventDefault()
+                        setAttachOpen(false)
+                      }
+                    }}
+                    placeholder="Search desks and work items"
+                    aria-label="Search desks and work items"
+                    className="mb-1 h-9 w-full rounded-[var(--radius-field)] bg-[var(--surface-sunken)] px-3 text-[13px] text-[var(--ink-100)] outline-none border border-transparent focus:border-[rgb(var(--accent))]"
+                  />
+                  <div role="listbox" aria-label="Desks and work items" className="max-h-52 overflow-y-auto">
+                    {attachableNodes.map((node) => (
+                      <button
+                        key={node.id}
+                        type="button"
+                        role="option"
+                        aria-selected={attached?.id === node.id}
+                        onClick={() => {
+                          setAttached({ id: node.id, title: node.title })
+                          setAttachOpen(false)
+                          setAttachQuery('')
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        className={`w-full min-h-9 rounded-[var(--radius-chip)] px-2 py-1.5 flex items-center gap-2 text-left text-[13px] fb-press ${
+                          attached?.id === node.id
+                            ? 'bg-accent/10 text-[rgb(var(--accent))]'
+                            : 'text-[var(--ink-90)] hover:bg-[var(--surface-sunken)]'
+                        }`}
+                      >
+                        <Icon name={node.kind === 'folder' ? 'folder' : 'check_box'} size={15} />
+                        <span className="truncate">{node.title}</span>
+                        <span className="ml-auto text-[10px] uppercase tracking-wide text-[var(--ink-40)]">
+                          {node.kind === 'folder' ? 'Desk' : node.kind === 'work_item' ? 'Attention' : 'Task'}
+                        </span>
+                      </button>
+                    ))}
+                    {attachableNodes.length === 0 && (
+                      <div className="px-2 py-3 text-center text-[12px] text-[var(--ink-50)]">
+                        No matching desks or work items
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             {attached && (
-              /* The Staged badge — success tone. The block is now something
-                 the Attendant can prepare ahead of: the desk warm, the
-                 widgets restored, before the block starts. Display-only. */
+              /* The Staged badge — the persisted relation lets the Attendant
+                 prepare the linked workspace before the block starts. */
               <span
                 data-testid="staged-badge"
                 title="Staged — the desk can be prepared before this block starts"

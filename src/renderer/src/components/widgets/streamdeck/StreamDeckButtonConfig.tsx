@@ -14,6 +14,7 @@ import {
 import { checkActionConflicts } from '@shared/macroConflicts'
 import Icon from '../../Icon'
 import StreamDeckActionEditor from './StreamDeckActionEditor'
+import { alertDialog } from '../../plexi/PromptDialog'
 
 interface Props {
   slot: number
@@ -114,7 +115,10 @@ export default function StreamDeckButtonConfig({
     // want to ingest via the existing fb-file:// pipeline; data URLs
     // bloat the widget.content blob. 256 KB upper bound here.
     if (file.size > 256 * 1024) {
-      window.alert('Image is too big (max 256 KB). Try a smaller one or use an icon.')
+      await alertDialog({
+        title: 'Image is too big',
+        body: 'The maximum is 256 KB. Try a smaller image or use an icon.'
+      })
       return
     }
     const reader = new FileReader()

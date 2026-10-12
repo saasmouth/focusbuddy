@@ -4,13 +4,13 @@ name: Merge check
 # typecheck / unit tests are red. Runs the SAME scripts/merge-check.mjs the local
 # pre-push hook runs, so "green locally" and "green in CI" mean the same thing.
 #
-# Make this a required status check in branch protection for Plexi3.0, and turn
+# Make this a required status check in branch protection for main, and turn
 # on "Require branches to be up to date before merging", so nothing stale or
 # broken can reach the shared branch.
 
 on:
   pull_request:
-    branches: [Plexi3.0]
+    branches: [main]
   workflow_dispatch:
 
 # One run per PR; a new push cancels the previous run.
@@ -43,5 +43,5 @@ jobs:
       - name: Merge-readiness (up to date + typecheck + unit tests)
         run: npm run merge-check
         env:
-          BASE_BRANCH: ${{ github.base_ref || 'Plexi3.0' }}
+          BASE_BRANCH: ${{ github.base_ref || 'main' }}
           CI: 'true'

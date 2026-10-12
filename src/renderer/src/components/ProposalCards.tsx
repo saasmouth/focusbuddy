@@ -17,6 +17,7 @@ import {
 } from '../lib/autonomyGate'
 import type { ResolvedAutonomy } from '../lib/autonomyPolicy'
 import Icon from './Icon'
+import { confirmDialog } from './plexi/PromptDialog'
 
 // Proposal kinds that create content ON a desk canvas and therefore need an
 // active desk. When the assistant proposes one of these off a desk (e.g. a table
@@ -270,9 +271,12 @@ export default function ProposalCards({
     // but a one-click bulk delete deserves a heads-up.
     const destructive = pending.filter((p) => p.kind === 'delete-widget')
     if (destructive.length > 0) {
-      const ok = window.confirm(
-        `This will delete ${destructive.length} item${destructive.length > 1 ? 's' : ''} from your canvas. You can undo it afterwards. Apply ${pending.length} change${pending.length > 1 ? 's' : ''}?`
-      )
+      const ok = await confirmDialog({
+        title: `Delete ${destructive.length} canvas item${destructive.length > 1 ? 's' : ''}?`,
+        body: `This batch applies ${pending.length} change${pending.length > 1 ? 's' : ''}. You can undo it afterwards.`,
+        confirmLabel: 'Apply changes',
+        danger: true
+      })
       if (!ok) return
     }
     const resolvedIds = batchResolvedIds.current
@@ -647,7 +651,7 @@ export default function ProposalCards({
                     title="Choose where to add this"
                     role="button"
                     data-testid={`proposal-place-${p.id}`}
-                    className="icon-btn !h-5 !w-5"
+                    className="icon-btn !h-6 !w-6"
                   >
                     <Icon name="drive_file_move" size={12} />
                   </span>
@@ -664,7 +668,7 @@ export default function ProposalCards({
                     // "I declined the suggestion" was the only outcome here
                     // that could not be driven or asserted.
                     data-testid={`proposal-dismiss-${p.id}`}
-                    className="icon-btn !h-5 !w-5"
+                    className="icon-btn !h-6 !w-6"
                   >
                     <Icon name="close" size={11} />
                   </span>

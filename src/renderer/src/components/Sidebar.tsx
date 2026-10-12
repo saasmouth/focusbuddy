@@ -95,7 +95,7 @@ function renderConnectedAppRow(
           onTogglePinned()
         }}
         title={app.pinned ? 'Unpin from Favourites' : 'Pin to Favourites'}
-        className={`icon-btn !h-5 !w-5 transition-opacity ${
+        className={`icon-btn !h-6 !w-6 transition-opacity ${
           app.pinned ? 'opacity-100 text-accent' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
         }`}
       >
@@ -522,7 +522,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
             </div>
             <button
               onClick={() => setAttentionOpen((v) => !v)}
-              className="icon-btn !h-5 !w-5 mr-1"
+              className="icon-btn !h-6 !w-6 mr-1"
               title={attentionOpen ? 'Hide the Attention filters' : 'Show the Attention filters'}
               aria-expanded={attentionOpen}
               data-testid="sidebar-attention-toggle"
@@ -644,7 +644,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
                 e.stopPropagation()
                 setAddAppOpen(true)
               }}
-              className="icon-btn !h-5 !w-5"
+              className="icon-btn !h-6 !w-6"
               title="Add a connected app"
             >
               <Icon name="add" size={12} />

@@ -166,7 +166,7 @@ export default function LayoutPanel(p: Props): JSX.Element {
               >
                 {editing ? 'Done' : 'Edit'}
               </button>
-              <button onClick={() => p.onDeleteMaster(m.id)} className="icon-btn !h-5 !w-5" title="Delete master">
+              <button onClick={() => p.onDeleteMaster(m.id)} className="icon-btn !h-6 !w-6" title="Delete master">
                 <Icon name="delete" size={12} />
               </button>
             </div>
@@ -205,7 +205,7 @@ export default function LayoutPanel(p: Props): JSX.Element {
           <div key={l.id} className="flex items-center gap-1 px-1.5 py-1 rounded border border-[var(--edge-soft)]" data-testid={`design-layer-${l.id}`}>
             <button
               onClick={() => p.onPatchLayer(l.id, { visible: !l.visible })}
-              className="icon-btn !h-5 !w-5 shrink-0"
+              className="icon-btn !h-6 !w-6 shrink-0"
               aria-label={l.visible ? `Hide ${l.name}` : `Show ${l.name}`}
               title={l.visible ? 'Hide layer' : 'Show layer'}
             >
@@ -213,7 +213,7 @@ export default function LayoutPanel(p: Props): JSX.Element {
             </button>
             <button
               onClick={() => p.onPatchLayer(l.id, { locked: !l.locked })}
-              className="icon-btn !h-5 !w-5 shrink-0"
+              className="icon-btn !h-6 !w-6 shrink-0"
               aria-label={l.locked ? `Unlock ${l.name}` : `Lock ${l.name}`}
               title={l.locked ? 'Unlock layer' : 'Lock layer'}
             >
@@ -236,7 +236,7 @@ export default function LayoutPanel(p: Props): JSX.Element {
               </button>
             )}
             {l.id !== BASE_LAYER_ID && layers.length > 1 && (
-              <button onClick={() => p.onDeleteLayer(l.id)} className="icon-btn !h-5 !w-5" title="Delete layer — its objects move to the base layer">
+              <button onClick={() => p.onDeleteLayer(l.id)} className="icon-btn !h-6 !w-6" title="Delete layer — its objects move to the base layer">
                 <Icon name="delete" size={12} />
               </button>
             )}

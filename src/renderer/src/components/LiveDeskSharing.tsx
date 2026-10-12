@@ -158,7 +158,7 @@ export default function LiveDeskSharing({
                 <span className="text-emerald-500 text-[10px] uppercase tracking-wide">live</span>
                 <button
                   onClick={() => void revokeDeskAccess(rootId, g.accountId).then((a) => a && setAccess(a))}
-                  className="icon-btn !h-5 !w-5 hover:!text-red-600"
+                  className="icon-btn !h-6 !w-6 hover:!text-red-600"
                   title="Remove access"
                 >
                   <Icon name="close" size={11} />
@@ -173,7 +173,7 @@ export default function LiveDeskSharing({
                 <span className="text-[var(--ink-40)] text-[10px] uppercase tracking-wide">granted</span>
                 <button
                   onClick={() => void revokeDeskInvite(rootId, p.email).then((a) => a && setAccess(a))}
-                  className="icon-btn !h-5 !w-5 hover:!text-red-600"
+                  className="icon-btn !h-6 !w-6 hover:!text-red-600"
                   title="Revoke access"
                 >
                   <Icon name="close" size={11} />

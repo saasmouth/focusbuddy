@@ -55,7 +55,7 @@ export default function QuestionCard({
         <button
           type="button"
           onClick={onDismiss}
-          className="icon-btn !h-5 !w-5 shrink-0"
+          className="icon-btn !h-6 !w-6 shrink-0"
           title="Dismiss — answer in your own words below, or not at all"
           aria-label="Dismiss question"
           data-testid="question-dismiss"

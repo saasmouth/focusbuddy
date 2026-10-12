@@ -411,7 +411,7 @@ function createCommandCenter(): BrowserWindow {
     ...(process.platform === 'darwin' ? { trafficLightPosition: { x: 14, y: 13 } } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
       webviewTag: true
@@ -589,6 +589,7 @@ app.on('web-contents-created', (_, contents) => {
     webPreferences.nodeIntegration = false
     webPreferences.nodeIntegrationInSubFrames = false
     webPreferences.contextIsolation = true
+    webPreferences.sandbox = true
     webPreferences.webSecurity = true
 
     // Browser widgets legitimately load arbitrary web pages, so the scheme

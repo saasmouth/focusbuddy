@@ -2,6 +2,7 @@ import type { FbNode } from '@shared/types'
 import { useFocusSessionStore } from '../../stores/focusSession'
 import { useNodeStore } from '../../stores/nodes'
 import Icon from '../Icon'
+import { alertDialog } from '../plexi/PromptDialog'
 
 interface Props {
   nodes: FbNode[]
@@ -47,7 +48,7 @@ export default function FocusSessionCard({ nodes }: Props): JSX.Element {
 
   async function handleStart(): Promise<void> {
     if (!candidateTask) {
-      window.alert('Pick a task first. Sessions need a target.')
+      await alertDialog({ title: 'Pick a task first', body: 'Focus sessions need a target.' })
       return
     }
     if (activeTaskId !== candidateTask.id) setActiveTask(candidateTask.id)

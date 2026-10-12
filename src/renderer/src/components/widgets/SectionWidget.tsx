@@ -19,6 +19,7 @@ import { chimeOut } from '../../lib/audioBeep'
 import Icon from '../Icon'
 import AgeHalo from '../AgeHalo'
 import { SectionLayoutContext } from './sectionLayoutContext'
+import { confirmDialog } from '../plexi/PromptDialog'
 
 const SECTION_COLORS = [
   '#737373',
@@ -372,13 +373,19 @@ export default function SectionWidget({
             <Icon name="push_pin" size={11} filled={isPinned} className="text-white" />
           </button>
           <button
-            onClick={(e) => {
+            onClick={async (e) => {
               e.stopPropagation()
-              const msg =
+              const body =
                 children.length > 0
-                  ? `Remove section "${widget.title || 'Section'}"? Its ${children.length} widget(s) will be ejected and remain on the canvas.`
-                  : 'Remove this section?'
-              if (confirm(msg)) {
+                  ? `Its ${children.length} widget${children.length === 1 ? '' : 's'} will remain on the canvas.`
+                  : undefined
+              const confirmed = await confirmDialog({
+                title: `Remove section “${widget.title || 'Section'}”?`,
+                body,
+                confirmLabel: 'Remove section',
+                danger: true
+              })
+              if (confirmed) {
                 for (const c of children) {
                   void update(c.id, {
                     parentSectionId: null,

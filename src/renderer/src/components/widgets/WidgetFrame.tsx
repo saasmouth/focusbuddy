@@ -23,6 +23,7 @@ import type { FrameCallbacks } from '../../lib/contextMenu/types'
 import { FrameCallbacksProvider } from '../../lib/contextMenu/frameContext'
 import MakeTaskDialog from '../MakeTaskDialog'
 import ShareDialog from '../ShareDialog'
+import { confirmDialog } from '../plexi/PromptDialog'
 import type { PinZone, Widget } from '@shared/types'
 import { PIN_ZONE_ICONS, PIN_ZONE_LABELS } from '../../lib/pinLayout'
 import { useWidgetStore } from '../../stores/widgets'
@@ -1308,9 +1309,11 @@ export default function WidgetFrame({
             />
             <button
               onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.stopPropagation()
-                if (confirm('Remove from the desk?')) void remove(widget.id)
+                if (await confirmDialog({ title: 'Remove from the desk?', confirmLabel: 'Remove', danger: true })) {
+                  void remove(widget.id)
+                }
               }}
               className="h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] hover:bg-red-100 hover:text-red-700"
               aria-label="Remove widget"

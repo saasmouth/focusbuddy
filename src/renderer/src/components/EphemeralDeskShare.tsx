@@ -117,12 +117,12 @@ export default function EphemeralDeskShare({ rootId }: { rootId: string }): JSX.
                 </span>
               </span>
               <div className="flex items-center gap-1 shrink-0 ml-auto">
-                <button onClick={() => void copy(s.token)} className="icon-btn !h-5 !w-5" title="Copy link">
+                <button onClick={() => void copy(s.token)} className="icon-btn !h-6 !w-6" title="Copy link">
                   <Icon name={copied === s.token ? 'check' : 'content_copy'} size={11} />
                 </button>
                 <button
                   onClick={() => void revokeEphemeralShare(s.token).then(() => refresh())}
-                  className="icon-btn !h-5 !w-5 hover:!text-red-600"
+                  className="icon-btn !h-6 !w-6 hover:!text-red-600"
                   title="Delete this share now"
                 >
                   <Icon name="close" size={11} />

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { useViewStore } from '../stores/view'
 import Canvas from './Canvas'
 import HomeDashboard from './views/HomeDashboard'
@@ -7,42 +8,46 @@ import DesksView from './views/DesksView'
 import SharedView from './views/SharedView'
 import TrashView from './views/TrashView'
 import AttentionView from './views/AttentionView'
-import ConnectedAppView from './views/ConnectedAppView'
-import VaultView from './views/VaultView'
-import CalendarView from './views/CalendarView'
-import FlowView from './views/FlowView'
-import InboxView from './views/InboxView'
-import MailView from './views/MailView'
-import DocumentsView from './views/DocumentsView'
-import DesignsView from './views/DesignsView'
-import DrawView from './views/DrawView'
-import DocumentOpen from './views/DocumentOpen'
-import LiveDocEditorView from './views/LiveDocEditorView'
-import LiveFolderView from './views/LiveFolderView'
-import CollaborationsView from './views/CollaborationsView'
-import InsightsView from './views/InsightsView'
-import FilesView from './views/FilesView'
-import OrgAdminView from './views/OrgAdminView'
-import PeopleMapView from './views/PeopleMapView'
-import PlexiSignView from './views/PlexiSignView'
-import PlexiSuiteHome from './suite/PlexiSuiteHome'
-import ProductHome from './suite/ProductHome'
-import KnowledgeView from './views/KnowledgeView'
-import PlexiMeetView from './views/PlexiMeetView'
-import PlexiBuildView from './views/PlexiBuildView'
-import PlexiFormsView from './views/PlexiFormsView'
-import PlexiSearchView from './views/PlexiSearchView'
-import PlexiProjectsView from './views/PlexiProjectsView'
-import PlexiReportsView from './views/PlexiReportsView'
-import PlexiFlowView from './views/PlexiFlowView'
-import PlexiApiView from './views/PlexiApiView'
-import PlexiMarketplaceView from './views/PlexiMarketplaceView'
-import ExternalMdEditorView from './views/ExternalMdEditorView'
-import PlexiiHubView from './views/PlexiiHubView'
 import CapabilityGate from './CapabilityGate'
 import PageEnter from './chrome/pageEnter'
 import { VIEW_CAPABILITY } from '../lib/viewCapability'
 import type { View } from '../stores/view'
+
+// Keep the daily desk/task shell immediate and defer feature-specific products
+// until navigation. This turns the existing Rollup vendor boundaries into a
+// real cold-start improvement rather than eagerly fetching every editor.
+const ConnectedAppView = lazy(() => import('./views/ConnectedAppView'))
+const VaultView = lazy(() => import('./views/VaultView'))
+const CalendarView = lazy(() => import('./views/CalendarView'))
+const FlowView = lazy(() => import('./views/FlowView'))
+const InboxView = lazy(() => import('./views/InboxView'))
+const MailView = lazy(() => import('./views/MailView'))
+const DocumentsView = lazy(() => import('./views/DocumentsView'))
+const DesignsView = lazy(() => import('./views/DesignsView'))
+const DrawView = lazy(() => import('./views/DrawView'))
+const DocumentOpen = lazy(() => import('./views/DocumentOpen'))
+const LiveDocEditorView = lazy(() => import('./views/LiveDocEditorView'))
+const LiveFolderView = lazy(() => import('./views/LiveFolderView'))
+const CollaborationsView = lazy(() => import('./views/CollaborationsView'))
+const InsightsView = lazy(() => import('./views/InsightsView'))
+const FilesView = lazy(() => import('./views/FilesView'))
+const OrgAdminView = lazy(() => import('./views/OrgAdminView'))
+const PeopleMapView = lazy(() => import('./views/PeopleMapView'))
+const PlexiSignView = lazy(() => import('./views/PlexiSignView'))
+const PlexiSuiteHome = lazy(() => import('./suite/PlexiSuiteHome'))
+const ProductHome = lazy(() => import('./suite/ProductHome'))
+const KnowledgeView = lazy(() => import('./views/KnowledgeView'))
+const PlexiMeetView = lazy(() => import('./views/PlexiMeetView'))
+const PlexiBuildView = lazy(() => import('./views/PlexiBuildView'))
+const PlexiFormsView = lazy(() => import('./views/PlexiFormsView'))
+const PlexiSearchView = lazy(() => import('./views/PlexiSearchView'))
+const PlexiProjectsView = lazy(() => import('./views/PlexiProjectsView'))
+const PlexiReportsView = lazy(() => import('./views/PlexiReportsView'))
+const PlexiFlowView = lazy(() => import('./views/PlexiFlowView'))
+const PlexiApiView = lazy(() => import('./views/PlexiApiView'))
+const PlexiMarketplaceView = lazy(() => import('./views/PlexiMarketplaceView'))
+const ExternalMdEditorView = lazy(() => import('./views/ExternalMdEditorView'))
+const PlexiiHubView = lazy(() => import('./views/PlexiiHubView'))
 
 // Feature surfaces that respect an entitlement live in lib/viewCapability so the
 // enforcement backbone here and every navigation surface (sidebar, per-area
@@ -73,7 +78,22 @@ function MainPaneSurface(): JSX.Element {
   // Home runs its own richer first-paint cascade; the page-level rise would
   // stack under it and double the motion. Every other view unravels in.
   if (view.kind === 'home') return renderView(view)
-  return <PageEnter id={JSON.stringify(view)}>{renderView(view)}</PageEnter>
+  return (
+    <PageEnter id={JSON.stringify(view)}>
+      <Suspense fallback={<RouteLoading />}>{renderView(view)}</Suspense>
+    </PageEnter>
+  )
+}
+
+function RouteLoading(): JSX.Element {
+  return (
+    <div className="h-full w-full flex items-center justify-center text-[13px] text-[var(--ink-50)]" role="status">
+      <span className="inline-flex items-center gap-2">
+        <span className="h-3 w-3 rounded-full border-2 border-[var(--edge-strong)] border-t-[rgb(var(--accent))] animate-spin" />
+        Opening…
+      </span>
+    </div>
+  )
 }
 
 function renderView(view: View): JSX.Element {

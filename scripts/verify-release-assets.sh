@@ -50,7 +50,7 @@ note() { printf '  %s\n' "$1"; }
 echo "Verifying release ${TAG} on ${REPO}"
 
 # 1. Every required asset must return 200 (follow redirects to the CDN).
-echo "[1/3] reachability"
+echo "[1/5] reachability"
 for f in "${REQUIRED[@]}"; do
   code=$(curl -s -o /dev/null -w "%{http_code}" -L "${BASE}/${f}")
   if [ "$code" = "200" ]; then
@@ -84,17 +84,17 @@ verify_yml() {
   fi
 }
 
-echo "[2/3] mac metadata integrity"
+echo "[2/5] mac metadata integrity"
 verify_yml "latest-mac.yml"
 
-echo "[3/3] windows metadata integrity"
+echo "[3/5] windows metadata integrity"
 verify_yml "latest.yml"
 
 # 4. The in-app "What's new" must be updated for this release. The newest
 #    versioned entry in the desktop changelog must equal the released version,
 #    otherwise users who update get an empty / stale What's New modal. This is
 #    the concrete enforcement of "update What's New on every release".
-echo "[4/4] changelog freshness"
+echo "[4/5] changelog freshness"
 CHANGELOG_FILE="$(cd "$(dirname "$0")/.." && pwd)/src/renderer/src/lib/changelog.ts"
 if [ ! -f "$CHANGELOG_FILE" ]; then
   note "could not find changelog at ${CHANGELOG_FILE}"

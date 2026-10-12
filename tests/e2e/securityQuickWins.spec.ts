@@ -33,6 +33,27 @@ test.afterEach(async () => {
   }
 })
 
+test('A0: the main renderer runs with Chromium sandboxing enabled', async () => {
+  launched = await launchApp()
+  const { app } = launched
+
+  const preferences = await app.evaluate(({ BrowserWindow }) => {
+    const main = BrowserWindow.getAllWindows()[0]
+    const prefs = main?.webContents.getLastWebPreferences()
+    return {
+      sandbox: prefs?.sandbox,
+      contextIsolation: prefs?.contextIsolation,
+      nodeIntegration: prefs?.nodeIntegration
+    }
+  })
+
+  expect(preferences).toEqual({
+    sandbox: true,
+    contextIsolation: true,
+    nodeIntegration: false
+  })
+})
+
 // ── A: UA cleaning logic verified against the live process UA ─────────────────
 // The main-process index.ts calls cleanWebviewUserAgent(ses.getUserAgent()) for
 // each webview session. The default session keeps the raw Electron UA (it's only

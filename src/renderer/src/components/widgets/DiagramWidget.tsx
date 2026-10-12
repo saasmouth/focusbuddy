@@ -20,6 +20,7 @@ import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
+import { alertDialog } from '../plexi/PromptDialog'
 
 // ── Diagram widget ──────────────────────────────────────────────────────────
 // A React Flow node/edge canvas for structured diagrams: flowcharts, entity
@@ -257,7 +258,7 @@ function DiagramInner({ widget, inline = false }: Props): JSX.Element {
     ])
   }
 
-  function onPickImage(e: React.ChangeEvent<HTMLInputElement>): void {
+  async function onPickImage(e: React.ChangeEvent<HTMLInputElement>): Promise<void> {
     // Every picked image becomes a node, instead of only the first.
     const picked = Array.from(e.target.files ?? [])
     e.target.value = ''
@@ -275,14 +276,13 @@ function DiagramInner({ widget, inline = false }: Props): JSX.Element {
       // Say which ones were skipped and keep the rest. The old version refused
       // the whole pick on one oversized file, which with multi-select would
       // mean one 2MB photo silently costing you the other nine.
-      // eslint-disable-next-line no-alert
-      window.alert(
-        tooBig.length === picked.length
-          ? `Too large (over 1.5MB): ${tooBig.map((f) => f.name).join(', ')}. Nothing was added.`
-          : `Added ${ok.length} of ${picked.length}. Too large (over 1.5MB): ${tooBig
-              .map((f) => f.name)
-              .join(', ')}.`
-      )
+      await alertDialog({
+        title: tooBig.length === picked.length ? 'Images are too large' : 'Some images were too large',
+        body:
+          tooBig.length === picked.length
+            ? `Over 1.5 MB: ${tooBig.map((f) => f.name).join(', ')}. Nothing was added.`
+            : `Added ${ok.length} of ${picked.length}. Over 1.5 MB: ${tooBig.map((f) => f.name).join(', ')}.`
+      })
     }
   }
 

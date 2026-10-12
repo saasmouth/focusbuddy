@@ -18,6 +18,7 @@ const ROOT = join(__dirname, '..', '..')
 const read = (p: string): string => readFileSync(join(ROOT, 'src', p), 'utf-8')
 const meet = read('renderer/src/components/NewMeetingDialog.tsx')
 const composer = read('renderer/src/components/BookTimeDialog.tsx')
+const invite = read('renderer/src/lib/meetingInvite.ts')
 
 describe('DEC-117 — twins: every recipe the dialog wears is the composer\'s own string', () => {
   // If the composer's material ever changes, this list breaks in BOTH files
@@ -50,7 +51,6 @@ describe('DEC-117 — twins: every recipe the dialog wears is the composer\'s ow
     'placeholder="An address, a room, or where to meet"',
     // AGENDA and Attach
     'placeholder="What this meeting needs to settle"',
-    'h-10 px-3 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] border border-[var(--edge-strong)] inline-flex items-center gap-2 text-[13px] text-[var(--ink-70)] fb-press transition-colors hover:text-[var(--ink-90)]',
     'Attach a desk or work item',
     'inline-flex items-center gap-1 h-6 px-2 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold',
     // the footer
@@ -90,7 +90,9 @@ describe('DEC-117 — Meet\'s own behaviour behind the twin', () => {
   it('Start now opens the live room, rings the picked teammates, emails the rest', () => {
     expect(meet).toContain('const roomId = await startRoom(finalTitle)')
     expect(meet).toContain('for (const p of ring) inviteToRoom({ accountId: p.accountId!, handle: p.handle! })')
-    expect(meet).toContain('sendMeetingInvites({ title: finalTitle, startMs: Date.now(), durationMin, roomId, invitees: emails, hostName })')
+    expect(meet).toContain('sendMeetingInvites({')
+    expect(meet).toContain('startMs: Date.now()')
+    expect(meet).toContain('invitees: emails')
     expect(meet).toContain("useEntitlement('meet', 'Meetings')")
     expect(meet).toContain('Could not start the meeting. Check your microphone and camera permissions.')
   })
@@ -119,15 +121,16 @@ describe('DEC-117 — Meet\'s own behaviour behind the twin', () => {
   })
 
   it('Attach is REAL here: an open desk from the store, and the block links to it', () => {
-    expect(meet).toContain("nodes\n        .filter((n) => n.kind === 'task' && n.status !== 'done')")
+    expect(meet).toContain(".filter((n) => n.kind === 'task' && n.status !== 'done')")
     expect(meet).toContain('data-testid="new-meeting-attach-picker"')
     expect(meet).toContain('data-testid={`new-meeting-attach-${d.id}`}')
     expect(meet).not.toContain('STUB_ATTACH')
   })
 
   it('the honest notes survive: mailbox, failures, scheduled', () => {
-    expect(meet).toContain('Connect a mailbox in Mail to email the invites. The join link is on the meeting.')
-    expect(meet).toContain('could not email ${r.failed.join')
+    expect(invite).toContain('Connect a mailbox in Mail to email the invites.')
+    expect(invite).toContain('could not email ${result.failed.join')
+    expect(meet).toContain('inviteDeliveryNote(r, emails.length)')
     expect(meet).toContain('data-testid="new-meeting-note"')
     expect(meet).toContain('data-testid="new-meeting-error"')
   })

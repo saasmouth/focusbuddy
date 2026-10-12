@@ -11,6 +11,7 @@ import WhatsNewPanel from './WhatsNewPanel'
 import TermsModal from './TermsModal'
 import UpdaterBanner from './UpdaterBanner'
 import TrialBadge from './TrialBadge'
+import { confirmDialog } from './plexi/PromptDialog'
 
 // Compact, always-visible sync status.
 //
@@ -136,10 +137,12 @@ export default function Footer(): JSX.Element {
               <button
                 type="button"
                 data-testid="footer-account"
-                onClick={() => {
-                  const ok = window.confirm(
-                    `Sign out of ${account.email}? Your local data stays on this device. Shared items in your inbox will stay until you remove them.`
-                  )
+                onClick={async () => {
+                  const ok = await confirmDialog({
+                    title: `Sign out of ${account.email}?`,
+                    body: 'Your local data stays on this device. Shared inbox items stay until you remove them.',
+                    confirmLabel: 'Sign out'
+                  })
                   if (ok) void signOut()
                 }}
                 className="inline-flex items-center gap-1 max-w-[180px] text-accent hover:brightness-110 transition-colors"

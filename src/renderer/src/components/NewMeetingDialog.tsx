@@ -20,7 +20,7 @@ import { usePresenceStore } from '../stores/presence'
 import { useCapabilityEnabled } from '../stores/capabilities'
 import { useNodeStore } from '../stores/nodes'
 import { newMeetingRoomId } from '../lib/startMeeting'
-import { sendMeetingInvites } from '../lib/meetingInvite'
+import { inviteDeliveryNote, sendMeetingInvites } from '../lib/meetingInvite'
 import { personDisplayName } from '../lib/personName'
 import { useEntitlement } from '../lib/entitlementReason'
 
@@ -52,11 +52,18 @@ function guestKey(g: Guest): string {
 }
 
 function fmtDateChip(ms: number): string {
-  return new Date(ms).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+  return new Date(ms).toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  })
 }
 
 function fmtTimeChip(ms: number): string {
-  return new Date(ms).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  return new Date(ms).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit'
+  })
 }
 
 function toDateInputValue(ms: number): string {
@@ -135,7 +142,12 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
     () =>
       presenceEnabled
         ? Object.values(presencePeers).map((p) => ({
-            chip: { name: personDisplayName(p, p.handle), email: '', accountId: p.accountId, handle: p.handle } as Guest,
+            chip: {
+              name: personDisplayName(p, p.handle),
+              email: '',
+              accountId: p.accountId,
+              handle: p.handle
+            } as Guest,
             status: p.status as string
           }))
         : [],
@@ -156,7 +168,13 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
       chip: chip as Guest,
       status: null as string | null
     }))
-    return [...online.map((p) => ({ chip: p.chip, status: p.status as string | null })), ...past]
+    return [
+      ...online.map((p) => ({
+        chip: p.chip,
+        status: p.status as string | null
+      })),
+      ...past
+    ]
   }, [mode, peers, contacts, guestInput, guests, chosenEmails])
 
   // ── Where / agenda / attach — the scheduled meeting's facts. A live room
@@ -168,13 +186,13 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
   const [agenda, setAgenda] = useState('')
   const nodes = useNodeStore((s) => s.nodes)
   const desks = useMemo(
-    () =>
-      nodes
-        .filter((n) => n.kind === 'task' && n.status !== 'done')
-        .sort((a, b) => b.updatedAt - a.updatedAt),
+    () => nodes.filter((n) => n.kind === 'task' && n.status !== 'done').sort((a, b) => b.updatedAt - a.updatedAt),
     [nodes]
   )
-  const [attached, setAttached] = useState<{ id: string; title: string } | null>(null)
+  const [attached, setAttached] = useState<{
+    id: string
+    title: string
+  } | null>(null)
   const [attachOpen, setAttachOpen] = useState(false)
   const [attachQuery, setAttachQuery] = useState('')
   const attachMatches = useMemo(() => {
@@ -191,7 +209,13 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
 
   const guestNames = useMemo(() => guests.map((g) => g.name), [guests])
   const placeholder = useMemo(
-    () => resolvePlaceholder({ mode: 'meeting', attachedTitle: attached?.title ?? null, guests: guestNames, roomName: null }),
+    () =>
+      resolvePlaceholder({
+        mode: 'meeting',
+        attachedTitle: attached?.title ?? null,
+        guests: guestNames,
+        roomName: null
+      }),
     [attached, guestNames]
   )
 
@@ -276,15 +300,6 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
     setStartMs(next.getTime())
   }
 
-  // One honest line for the email result: how many went out, who failed, or
-  // that a mailbox needs connecting. Null when there was nothing to send.
-  function inviteNote(r: { sent: number; failed: string[]; noAccount: boolean }, count: number): string | null {
-    if (count === 0) return null
-    if (r.noAccount) return 'Connect a mailbox in Mail to email the invites. The join link is on the meeting.'
-    if (r.failed.length > 0) return `Invited ${r.sent}; could not email ${r.failed.join(', ')}.`
-    return `Invited ${r.sent} ${r.sent === 1 ? 'person' : 'people'} by email.`
-  }
-
   /** The guest list at commit time — a typed, uncommitted address still counts. */
   function finalGuests(): Guest[] {
     const pending = guestInput.trim() ? resolveGuestEntry(guestInput, contacts, workspaceDomain) : null
@@ -294,7 +309,9 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
   async function commit(): Promise<void> {
     if (busy) return
     const all = finalGuests()
-    const emails = Array.from(new Set(all.filter((g) => g.email.includes('@')).map((g) => g.email.trim().toLowerCase())))
+    const emails = Array.from(
+      new Set(all.filter((g) => g.email.includes('@')).map((g) => g.email.trim().toLowerCase()))
+    )
     const ring = all.filter((g) => g.accountId && g.handle)
     // Empty on commit writes the placeholder value as the REAL title — the
     // user is never blocked on naming.
@@ -319,8 +336,15 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
         // Email the join link for the room we just opened, so invited guests
         // land in the same room. Delivery is reported honestly.
         if (emails.length > 0) {
-          const r = await sendMeetingInvites({ title: finalTitle, startMs: Date.now(), durationMin, roomId, invitees: emails, hostName })
-          const msg = inviteNote(r, emails.length)
+          const r = await sendMeetingInvites({
+            title: finalTitle,
+            startMs: Date.now(),
+            durationMin,
+            roomId,
+            invitees: emails,
+            hostName
+          })
+          const msg = inviteDeliveryNote(r, emails.length)
           if (msg) setNote(msg)
         }
         onClose()
@@ -372,7 +396,7 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
           joinUrl: meeting.joinUrl,
           location: meeting.location
         })
-        const im = inviteNote(r, emails.length)
+        const im = inviteDeliveryNote(r, emails.length)
         if (im) msg = `${msg} ${im}`
       }
       setNote(msg)
@@ -443,7 +467,10 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
       <motion.div
         initial={{ opacity: 0, scale: 0.985, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: reduceMotion ? 0 : 0.2, ease: [0.16, 1, 0.3, 1] }}
+        transition={{
+          duration: reduceMotion ? 0 : 0.2,
+          ease: [0.16, 1, 0.3, 1]
+        }}
         role="dialog"
         aria-modal="true"
         aria-label="New meeting"
@@ -688,7 +715,9 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
                     {guestInitials(g.name)}
                   </span>
                   {g.name}
-                  {g.accountId && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-500" title="Online now" />}
+                  {g.accountId && (
+                    <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-500" title="Online now" />
+                  )}
                   <button
                     type="button"
                     aria-label={`Remove ${g.name}`}
@@ -767,7 +796,11 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
                           ? 'border-[rgb(var(--accent))] text-[rgb(var(--accent))] bg-accent/10'
                           : 'border-[var(--edge-soft)] text-[var(--ink-70)] hover:text-[var(--ink-100)]'
                       }`}
-                      title={on ? 'Will be rung when the meeting starts — click to remove' : 'Ring them when the meeting starts'}
+                      title={
+                        on
+                          ? 'Will be rung when the meeting starts — click to remove'
+                          : 'Ring them when the meeting starts'
+                      }
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       {p.chip.name}
@@ -787,7 +820,10 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
           <div>
             <div className="text-[10.5px] font-semibold tracking-wider text-[var(--ink-40)] mb-1">WHERE</div>
             {mode === 'now' ? (
-              <div className="flex items-start gap-1.5 text-[12px] text-[var(--ink-70)] leading-snug" data-testid="new-meeting-where-now">
+              <div
+                className="flex items-start gap-1.5 text-[12px] text-[var(--ink-70)] leading-snug"
+                data-testid="new-meeting-where-now"
+              >
                 <Icon name="check" size={13} className="text-[rgb(var(--accent))] shrink-0 mt-px" />
                 <span>
                   A Plexii Meet room opens for you the moment you start. Online teammates you picked are rung; everyone
@@ -932,7 +968,10 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
                               e.stopPropagation()
                               const first = attachMatches[0]
                               if (first) {
-                                setAttached({ id: first.id, title: first.title })
+                                setAttached({
+                                  id: first.id,
+                                  title: first.title
+                                })
                                 setAttachOpen(false)
                               }
                             }
@@ -973,12 +1012,18 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
           </AnimatePresence>
 
           {note && (
-            <div className="rounded-[var(--radius-field)] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[12px] px-3 py-2" data-testid="new-meeting-note">
+            <div
+              className="rounded-[var(--radius-field)] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[12px] px-3 py-2"
+              data-testid="new-meeting-note"
+            >
               {note}
             </div>
           )}
           {error && (
-            <div className="rounded-[var(--radius-field)] bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[12px] px-3 py-2" data-testid="new-meeting-error">
+            <div
+              className="rounded-[var(--radius-field)] bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[12px] px-3 py-2"
+              data-testid="new-meeting-error"
+            >
               {error}
             </div>
           )}
@@ -987,7 +1032,9 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
         {/* ── Bottom row: Esc is the cancel; the action keeps its name. ── */}
         <div className="px-6 py-4 border-t border-[var(--edge-soft)] flex items-center gap-3 shrink-0">
           <span className="text-[12px] text-[var(--ink-50)]">
-            <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-sunken)] text-[11px] font-medium text-[var(--ink-50)]">Esc</kbd>{' '}
+            <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-sunken)] text-[11px] font-medium text-[var(--ink-50)]">
+              Esc
+            </kbd>{' '}
             to discard
           </span>
           <button

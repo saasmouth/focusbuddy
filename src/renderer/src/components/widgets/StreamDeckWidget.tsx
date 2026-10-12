@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { confirmDialog, showCopyFallback } from '../plexi/PromptDialog'
+import { alertDialog, confirmDialog, showCopyFallback } from '../plexi/PromptDialog'
 import type { Widget } from '@shared/types'
 import {
   STREAMDECK_COLUMNS,
@@ -753,7 +753,7 @@ export default function StreamDeckWidget({ widget, inline = false }: Props): JSX
               }
               setPageStack([imported.rootPageId])
             } catch (err) {
-              window.alert(`Could not import deck: ${(err as Error).message}`)
+              void alertDialog({ title: 'Could not import deck', body: (err as Error).message })
             }
             // Reset the input so the same file can be re-imported.
             if (fileInputRef.current) fileInputRef.current.value = ''

@@ -14,6 +14,7 @@ import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
+import { confirmDialog } from '../plexi/PromptDialog'
 
 function formatAge(ts: number | null): string {
   if (!ts) return 'never'
@@ -213,7 +214,12 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
   }
 
   async function convertToManual(): Promise<void> {
-    if (!confirm('Stop auto-updating this page? Its current content will become editable.')) return
+    const confirmed = await confirmDialog({
+      title: 'Stop auto-updating this page?',
+      body: 'Its current content will become editable.',
+      confirmLabel: 'Make editable'
+    })
+    if (!confirmed) return
     await update(widget.id, { livingQuery: null, livingGeneratedAt: null, livingPaused: false })
   }
 

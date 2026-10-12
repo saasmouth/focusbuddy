@@ -15,6 +15,7 @@ import {
 } from '../lib/missedTriage'
 import { PRIMARY_ACTION, queueOf, isTerminalState } from '../lib/attentionQueues'
 import Icon from './Icon'
+import { useInterruptionClear } from '../lib/useInterruptionClear'
 
 // DEC-075 — the missed-items triage. Yesterday's never-completed blocks used
 // to scroll silently out of view behind the grid; now the next launch offers
@@ -35,6 +36,7 @@ export function resetMissedTriageSession(): void {
 }
 
 export default function MissedTriagePrompt(): JSX.Element | null {
+  const interruptionClear = useInterruptionClear('missed-triage', 750)
   const [missed, setMissed] = useState<TimeBlock[] | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [dayPickFor, setDayPickFor] = useState<string | null>(null)
@@ -46,6 +48,7 @@ export default function MissedTriagePrompt(): JSX.Element | null {
   const closeWorkItem = useCloseWorkItem()
 
   useEffect(() => {
+    if (!interruptionClear) return
     if (promptedThisSession) return
     promptedThisSession = true
     const todayStart = dayStartOf(Date.now())
@@ -61,7 +64,7 @@ export default function MissedTriagePrompt(): JSX.Element | null {
         /* the prompt must never break launch */
       }
     })()
-  }, [])
+  }, [interruptionClear])
 
   const titleById = useMemo(() => {
     const m = new Map<string, string>()
@@ -173,7 +176,7 @@ export default function MissedTriagePrompt(): JSX.Element | null {
     }
   }
 
-  if (!missed || missed.length === 0) return null
+  if (!interruptionClear || !missed || missed.length === 0) return null
 
   const upcomingDays = Array.from({ length: 7 }, (_, k) => {
     const dayMs = dayStartOf(Date.now()) + k * DAY_MS
@@ -189,6 +192,7 @@ export default function MissedTriagePrompt(): JSX.Element | null {
     <div
       className="fb-scrim fixed inset-0 z-[330] flex items-center justify-center p-6"
       data-testid="missed-triage"
+      data-interruption-owner="missed-triage"
     >
       <div
         role="dialog"

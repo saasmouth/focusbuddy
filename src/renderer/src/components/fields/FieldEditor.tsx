@@ -645,11 +645,23 @@ function ButtonField({ def }: SubProps<unknown>): JSX.Element {
           r.ok ? r.message?.content ?? '(empty response)' : r.error ?? 'failed'
         )
       } else {
-        // Shell execution lives on the renderer side via a future shell IPC.
-        // For MVP we surface a friendly placeholder so the field is usable
-        // immediately even before the shell handler ships.
-        setResult('Shell execution not yet enabled — coming soon.')
+        // Reuse the Stream Deck executor. The main-process run-shell path
+        // displays a native, cancel-by-default confirmation containing the
+        // exact command before every execution and enforces a timeout.
+        const command = config.payload.trim()
+        if (!command) {
+          setResult('Add a shell command in the button setup first.')
+          return
+        }
+        const r = await window.api.streamdeck.execute({
+          type: 'run-shell',
+          command,
+          timeoutMs: 10_000
+        })
+        setResult(r.ok ? 'Command completed.' : r.error ?? 'Command failed.')
       }
+    } catch (error) {
+      setResult(error instanceof Error ? error.message : 'The action could not be completed.')
     } finally {
       setBusy(false)
     }

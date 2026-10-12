@@ -102,7 +102,7 @@ export default function DrawLayersPanel({
                 }}
                 title={l.visible ? 'Hide layer' : 'Show layer'}
                 aria-label={l.visible ? `Hide ${l.name}` : `Show ${l.name}`}
-                className="icon-btn !h-5 !w-5 shrink-0"
+                className="icon-btn !h-6 !w-6 shrink-0"
               >
                 <Icon name={l.visible ? 'visibility' : 'visibility_off'} size={13} className={l.visible ? '' : 'text-[var(--ink-30)]'} />
               </button>
@@ -113,7 +113,7 @@ export default function DrawLayersPanel({
                 }}
                 title={l.locked ? 'Unlock layer' : 'Lock layer'}
                 aria-label={l.locked ? `Unlock ${l.name}` : `Lock ${l.name}`}
-                className="icon-btn !h-5 !w-5 shrink-0"
+                className="icon-btn !h-6 !w-6 shrink-0"
               >
                 <Icon name={l.locked ? 'lock' : 'lock_open'} size={13} className={l.locked ? 'text-amber-500' : 'text-[var(--ink-30)]'} />
               </button>
@@ -147,28 +147,28 @@ export default function DrawLayersPanel({
               )}
               {l.opacity < 1 && <span className="shrink-0 fb-tabular text-[10px] text-[var(--ink-40)]">{Math.round(l.opacity * 100)}%</span>}
               <div className="shrink-0 flex opacity-0 group-hover:opacity-100 focus-within:opacity-100">
-                <button onClick={(e) => { e.stopPropagation(); onMove(l.id, 1) }} title="Move layer up" className="icon-btn !h-5 !w-5">
+                <button onClick={(e) => { e.stopPropagation(); onMove(l.id, 1) }} title="Move layer up" className="icon-btn !h-6 !w-6">
                   <Icon name="keyboard_arrow_up" size={13} />
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); onMove(l.id, -1) }} title="Move layer down" className="icon-btn !h-5 !w-5">
+                <button onClick={(e) => { e.stopPropagation(); onMove(l.id, -1) }} title="Move layer down" className="icon-btn !h-6 !w-6">
                   <Icon name="keyboard_arrow_down" size={13} />
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); onDuplicate(l.id) }} title="Duplicate layer" className="icon-btn !h-5 !w-5">
+                <button onClick={(e) => { e.stopPropagation(); onDuplicate(l.id) }} title="Duplicate layer" className="icon-btn !h-6 !w-6">
                   <Icon name="file_copy" size={12} />
                 </button>
                 {l.kind === 'vector' && (
-                  <button onClick={(e) => { e.stopPropagation(); onRasterize(l.id) }} title="Rasterize layer — turn its shapes into pixels" className="icon-btn !h-5 !w-5">
+                  <button onClick={(e) => { e.stopPropagation(); onRasterize(l.id) }} title="Rasterize layer — turn its shapes into pixels" className="icon-btn !h-6 !w-6">
                     <Icon name="grain" size={12} />
                   </button>
                 )}
-                <button onClick={(e) => { e.stopPropagation(); onMergeDown(l.id) }} title="Merge down" className="icon-btn !h-5 !w-5">
+                <button onClick={(e) => { e.stopPropagation(); onMergeDown(l.id) }} title="Merge down" className="icon-btn !h-6 !w-6">
                   <Icon name="merge" size={12} />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); onDelete(l.id) }}
                   disabled={layers.length <= 1}
                   title={layers.length <= 1 ? 'A document needs at least one layer' : 'Delete layer'}
-                  className="icon-btn !h-5 !w-5 disabled:opacity-30"
+                  className="icon-btn !h-6 !w-6 disabled:opacity-30"
                 >
                   <Icon name="delete" size={12} />
                 </button>

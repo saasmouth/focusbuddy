@@ -44,6 +44,21 @@ function carriesInternalDetail(message: string): boolean {
   return INTERNAL_DETAIL.some((re) => re.test(message))
 }
 
+/** Only the app's top-level renderer may invoke privileged channels. */
+export function isTrustedIpcSenderUrl(url: string, devRendererUrl = process.env.ELECTRON_RENDERER_URL): boolean {
+  if (!url) return false
+  try {
+    const sender = new URL(url)
+    if (devRendererUrl) {
+      const dev = new URL(devRendererUrl)
+      if (sender.origin === dev.origin) return true
+    }
+    return sender.protocol === 'file:' && sender.pathname.endsWith('/out/renderer/index.html')
+  } catch {
+    return false
+  }
+}
+
 /**
  * Build the error that actually crosses to the renderer. Never returns the
  * original: even when the message is safe, the stack is not.
@@ -85,6 +100,12 @@ export function installIpcErrorBoundary(): void {
   ): void => {
     const contract = IPC_ARG_CONTRACTS[channel]
     original(channel, async (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => {
+      const senderUrl = event.senderFrame?.url ?? event.sender.getURL()
+      if (!isTrustedIpcSenderUrl(senderUrl)) {
+        const e = new Error('This operation is not available from the current page.')
+        e.stack = `${e.name}: ${e.message}`
+        throw e
+      }
       // Refuse structurally impossible calls BEFORE the handler body runs.
       //
       // Sanitising the error was only half the fix: it stopped a raw database

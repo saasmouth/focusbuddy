@@ -595,7 +595,7 @@ function PaintEditor({ value, onChange, testid }: { value: DrawPaint; onChange: 
                 <button
                   onClick={() => onChange({ ...value, stops: value.stops.filter((_, j) => j !== i) })}
                   title="Remove stop"
-                  className="icon-btn !h-5 !w-5"
+                  className="icon-btn !h-6 !w-6"
                 >
                   <Icon name="close" size={11} />
                 </button>

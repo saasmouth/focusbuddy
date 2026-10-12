@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { showCopyFallback } from './plexi/PromptDialog'
+import { confirmDialog, showCopyFallback } from './plexi/PromptDialog'
 import Modal from './plexi/Modal'
 import { createPortal } from 'react-dom'
 import type {
@@ -126,9 +126,11 @@ export default function ShareDialog({
     // Sharing outside the organization domain asks for confirmation first.
     const domain = email.split('@')[1] ?? ''
     if (orgDomain && domain !== orgDomain.toLowerCase()) {
-      const ok = window.confirm(
-        `${email} is outside ${orgDomain}. Send this share outside the organisation?`
-      )
+      const ok = await confirmDialog({
+        title: 'Share outside the organisation?',
+        body: `${email} is outside ${orgDomain}.`,
+        confirmLabel: 'Send share'
+      })
       if (!ok) return
     }
     setInviteBusy(true)
@@ -500,7 +502,7 @@ export default function ShareDialog({
                       {!link.revoked && (
                         <button
                           onClick={() => void copyToClipboard(url, link.id)}
-                          className="icon-btn !h-5 !w-5"
+                          className="icon-btn !h-6 !w-6"
                           title="Copy"
                         >
                           <Icon
@@ -512,7 +514,7 @@ export default function ShareDialog({
                       {!link.revoked && (
                         <button
                           onClick={() => void revoke(link.id)}
-                          className="icon-btn !h-5 !w-5"
+                          className="icon-btn !h-6 !w-6"
                           title="Revoke — link stops working"
                         >
                           <Icon name="link_off" size={11} />
@@ -520,7 +522,7 @@ export default function ShareDialog({
                       )}
                       <button
                         onClick={() => void remove(link.id)}
-                        className="icon-btn !h-5 !w-5 hover:!text-red-700"
+                        className="icon-btn !h-6 !w-6 hover:!text-red-700"
                         title="Delete this link"
                       >
                         <Icon name="delete" size={11} />
