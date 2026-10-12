@@ -192,12 +192,12 @@ export default function MissedTriagePrompt(): JSX.Element | null {
     <div
       className="fb-scrim fixed inset-0 z-[330] flex items-center justify-center p-6"
       data-testid="missed-triage"
-      data-interruption-owner="missed-triage"
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Missed calendar items"
+        data-interruption-owner="missed-triage"
         onKeyDown={(e) => {
           if (e.key === 'Escape') setMissed(null)
         }}

@@ -1,9 +1,18 @@
 import { useEffect, useState } from 'react'
 
 /**
+ * An interruption owner normally wraps the modal it coordinates. Resolve from
+ * the modal itself OR its nearest wrapper so a presentational inner dialog
+ * cannot accidentally classify its own prompt as a competing interruption.
+ */
+export function interruptionOwnerOf(element: HTMLElement): string | undefined {
+  return element.closest<HTMLElement>('[data-interruption-owner]')?.dataset.interruptionOwner
+}
+
+/**
  * Lets low-priority prompts wait until the app has had a quiet, modal-free
- * window. The owner attribute prevents a prompt from detecting itself after it
- * mounts and oscillating open/closed.
+ * window. The nearest owner attribute prevents a prompt from detecting itself
+ * after it mounts and oscillating open/closed.
  */
 export function useInterruptionClear(owner: string, quietMs = 500): boolean {
   const [clear, setClear] = useState(false)
@@ -12,7 +21,7 @@ export function useInterruptionClear(owner: string, quietMs = 500): boolean {
     let timer: ReturnType<typeof setTimeout> | null = null
     const check = (): void => {
       const blocked = Array.from(document.querySelectorAll<HTMLElement>('[aria-modal="true"]')).some(
-        (element) => element.dataset.interruptionOwner !== owner
+        (element) => interruptionOwnerOf(element) !== owner
       )
       if (blocked) {
         if (timer) clearTimeout(timer)
