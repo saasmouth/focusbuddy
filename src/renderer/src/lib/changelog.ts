@@ -36,9 +36,9 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '4.3.28',
+    version: '4.3.29',
     date: '2026-10-15T18:00:00Z',
-    title: 'PlexiDesk 4.3.28 \u2014 one menu, and a desk that sets itself up properly',
+    title: 'PlexiDesk 4.3.29 \u2014 a current browser, one coloured menu, and nothing left Untitled',
     tag: 'feature',
     summary:
       'The four area menus are now one menu: Desk, Apps, People and Brain as sections of a single list, so what you want is never behind a tab you cannot see. Building a desk with AI is on by default, sets the desk up comprehensively, and every widget it suggests arrives configured \u2014 with a preview so you can see it before you accept it.',
@@ -60,6 +60,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Every button in the top toolbar explains itself on hover, and the toolbar is no longer painted under the assistant. The desk buttons \u2014 status, Focus, Chat, Meeting, Tidy, Build, Template, Resume \u2014 had only slow system tooltips that did not appear over the assistant panel, and the toolbar sat below it in stacking order so menus opened from it went behind.',
       'Things stop being called Untitled. Desks, rooms, documents, Office items and widgets that never got a name are now named from what they already contain \u2014 a heading, the opening line, a filename, a link \u2014 which happens on your machine, costs nothing and covers most of them. The few with content but no sentence worth lifting are named by the cheapest AI model, all of them together in one small request, capped per launch. Anything genuinely empty is left alone rather than given a plausible-sounding name you would then trust.',
       'This runs once over what you already have, the first time you open this version, and it never touches a name you chose. New documents name themselves from the first thing you write in them, and the desk dialog now asks for a name instead of quietly filling in \u201cUntitled desk\u201d for you \u2014 which is where most of them came from.',
+      'The Gemstone theme no longer paints a faceted lattice over the whole app. The ambient jewel room and the sparkle stay; the fixed diagonal cuts sat in front of your work rather than behind it.',
       'Fixed: the missed-work prompt could flash open and closed in a loop. It was detecting itself as a competing interruption.'
     ]
   },

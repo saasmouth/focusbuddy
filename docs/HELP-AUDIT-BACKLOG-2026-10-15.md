@@ -1,7 +1,7 @@
 # Help-centre audit backlog — raised 2026-10-15
 
 Defects and label/behaviour mismatches found while writing 379 help articles against
-the app code at `v4.3.26` (tag `0bac3dae`), with some checks at `96e575fa` (4.3.28).
+the app code at `v4.3.26` (tag `0bac3dae`), with some checks at `96e575fa` (4.3.29).
 Each article's writer recorded claim → `file:line` evidence under
 `/private/tmp/claude-501/help-evidence/<help-slug>.md`; the account/billing/shortcuts
 research is in `.../help-evidence/w4-raw/`.
@@ -32,14 +32,14 @@ or the help centre starts lying in the other direction.
 Not from this audit, but overlapping with it — recorded so the same ground is
 not re-walked:
 
-- **Connected apps were not org-scoped** (4.3.28). The listing was; every
+- **Connected apps were not org-scoped** (4.3.29). The listing was; every
   by-id mutation was not, and hostname dedupe scanned all orgs — so connecting
   an app you already had in another org silently reused that org's row *and its
   vault binding*. Fixed in `src/main/db/connectedApps.ts`.
-- **Unread badges counted conversations, not messages** (4.3.28). Page titles
+- **Unread badges counted conversations, not messages** (4.3.29). Page titles
   count threads; the per-thread counts now come from the page's accessible
   labels. `src/renderer/src/stores/appNotifications.ts`.
-- **The embedded browser was seven majors out of support** (4.3.28). Electron
+- **The embedded browser was seven majors out of support** (4.3.29). Electron
   37 → 44. Slack would have blocked the Slack webview from 2026-11-09.
 
 ---

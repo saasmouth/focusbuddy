@@ -1,11 +1,11 @@
-# 4.3.28 — manual test script
+# 4.3.29 — manual test script
 
 Written for: you, running the locally installed build. Roughly 20 minutes.
 
 Everything below is a change in this build. Where a step says **"was broken"**,
 that is the old behaviour you should *not* see any more.
 
-Install: `/Applications/PlexiDesk 4.3.28.app`.
+Install: `/Applications/PlexiDesk 4.3.29.app`.
 
 ---
 
@@ -14,12 +14,12 @@ Install: `/Applications/PlexiDesk 4.3.28.app`.
 This build jumped seven browser-engine versions. Nothing below matters if this
 step fails, so do it first.
 
-1. Launch PlexiDesk 4.3.28. It should open normally — no bouncing-then-dead
+1. Launch PlexiDesk 4.3.29. It should open normally — no bouncing-then-dead
    dock icon, no "not responding".
 2. Open a desk you already had. **Your data must still be there**: desks,
    widgets, documents, connected apps. (The database layer changed with the
    upgrade, so this is the one with real consequences.)
-3. Open **Settings › About** (or the changelog) and confirm it reads 4.3.28.
+3. Open **Settings › About** (or the changelog) and confirm it reads 4.3.29.
 
 > If the app does not start, stop and tell me — do not keep testing. The
 > previous build is recoverable.
@@ -159,7 +159,19 @@ On cost: naming happens on your machine for free wherever the content has a
 usable line. Only items with content but no usable line go to AI, all together
 in one small request, capped at 40 per launch.
 
-## 6. Vault unlock with Touch ID (4 min)
+## 6. Gemstone theme, if you use it (1 min)
+
+Not my change — it came from the other session working in this tree, and had
+been sitting uncommitted for hours. Included here because it ships in this
+build.
+
+1. Switch to the Gemstone theme. The faceted diagonal lattice that used to lie
+   over the whole window should be gone; the ambient jewel glow and the
+   sparkle should remain.
+2. Confirm nothing is painted *over* your work — that was the fault: the
+   overlay was fixed to the viewport, so it sat in front rather than behind.
+
+## 7. Vault unlock with Touch ID (4 min)
 
 1. Open **Apps › Vault** and unlock it with your master password.
 2. You should see a **"Faster ways to unlock"** panel. Read what it says about
