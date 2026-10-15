@@ -82,9 +82,6 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
   const refreshApps = useConnectedAppsStore((s) => s.refresh)
   const launchLocal = useConnectedAppsStore((s) => s.launchLocal)
   const [addAppOpen, setAddAppOpen] = useState(false)
-  // Whether the "More apps" accordion is expanded. Defaults to collapsed so the
-  // strip stays compact; the user expands it to reach the long-tail apps.
-
   useEffect(() => {
     if (!appsLoaded) void refreshApps()
   }, [appsLoaded, refreshApps])
