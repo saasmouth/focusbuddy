@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { collectMenuRects, resolveCenteredTop } from '../lib/floatingChrome'
 import { motion } from 'framer-motion'
 import Icon from './Icon'
+import Tooltip from './Tooltip'
 import { TIDY_MODES, type TidyOptions } from '../lib/autoArrange'
 import { useCognitiveLoad } from '../lib/useCognitiveLoad'
 
@@ -99,18 +100,20 @@ function TidyControl({
       }}
       onMouseLeave={scheduleClose}
     >
-      <button
-        onClick={() => onTidy()}
-        disabled={disabled}
-        className={`inline-flex items-center h-6 px-1.5 ${rounded} text-[var(--ink-50)] hover:text-[var(--ink-100)] hover:bg-[var(--surface-sunken)] disabled:opacity-30 transition-colors`}
-        title="Tidy"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        data-testid="pill-tidy"
-      >
-        <Icon name="grid_view" size={12} />
-        <MotionLabel hovered={hovered}>Tidy</MotionLabel>
-      </button>
+      <Tooltip content="Tidy the desk — arrange the widgets. Hover for layouts." placement="bottom">
+        <button
+          onClick={() => onTidy()}
+          disabled={disabled}
+          className={`inline-flex items-center h-6 px-1.5 ${rounded} text-[var(--ink-50)] hover:text-[var(--ink-100)] hover:bg-[var(--surface-sunken)] disabled:opacity-30 transition-colors`}
+          aria-label="Tidy the desk"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          data-testid="pill-tidy"
+        >
+          <Icon name="grid_view" size={12} />
+          <MotionLabel hovered={hovered}>Tidy</MotionLabel>
+        </button>
+      </Tooltip>
       {open && !disabled && (
         <div
           role="menu"
@@ -122,17 +125,17 @@ function TidyControl({
         >
           <div className="flex items-center gap-0.5">
             {TIDY_MODES.map((m) => (
-              <button
-                key={m.icon + m.label}
-                role="menuitem"
-                onClick={() => pick(m.opts)}
-                title={m.label}
-                aria-label={m.label}
-                data-testid={`tidy-mode-${m.opts.mode}`}
-                className="inline-flex items-center justify-center h-7 w-7 rounded-lg text-[var(--ink-60)] hover:text-[var(--ink-100)] hover:bg-[var(--surface-sunken)] fb-press transition-colors"
-              >
-                <Icon name={m.icon} size={15} />
-              </button>
+              <Tooltip key={m.icon + m.label} content={m.label} placement="bottom">
+                <button
+                  role="menuitem"
+                  onClick={() => pick(m.opts)}
+                  aria-label={m.label}
+                  data-testid={`tidy-mode-${m.opts.mode}`}
+                  className="inline-flex items-center justify-center h-7 w-7 rounded-lg text-[var(--ink-60)] hover:text-[var(--ink-100)] hover:bg-[var(--surface-sunken)] fb-press transition-colors"
+                >
+                  <Icon name={m.icon} size={15} />
+                </button>
+              </Tooltip>
             ))}
           </div>
         </div>
@@ -294,6 +297,110 @@ export default function FloatingPill({
     style: { ...posStyle, ...ringStyle }
   }
 
+  // The buttons, defined ONCE and laid out three ways: horizontal (floating),
+  // vertical (dragged to an edge) and docked (in the header).
+  //
+  // This used to be two copies with the comment "defined ONCE" over one of
+  // them, and they had already drifted: when every button here gained a real
+  // <Tooltip>, the vertical copy would have kept its native `title=` and
+  // silently stayed the odd one out. Now `rounded` and `vertical` are the only
+  // differences, and they are arguments.
+  const renderButtons = (rounded: 'rounded-full' | 'rounded-lg', vertical: boolean): JSX.Element => (
+      <div
+        className={
+          vertical
+            ? 'flex flex-col px-1 pb-1.5 pt-0.5 gap-0.5'
+            : 'flex items-center pr-2 py-0.5 gap-0 shrink-0'
+        }
+      >
+
+        <Tooltip content={`Your status — ${statusLabel}. Click to change it.`} placement="bottom">
+          <button onClick={onStatus} className={`inline-flex items-center h-6 px-1.5 ${rounded} text-[var(--ink-50)] hover:text-[var(--ink-100)] hover:bg-[var(--surface-sunken)] transition-colors`} aria-label={`Your status — ${statusLabel}`} data-testid="pill-status">
+            <Icon name={statusIcon} size={12} />
+            <MotionLabel hovered={hovered}>{statusLabel}</MotionLabel>
+          </button>
+        </Tooltip>
+
+        <div className={vertical ? 'h-px bg-[var(--edge-firm)] mx-1 my-0.5 shrink-0' : 'w-px h-3 bg-[var(--edge-firm)] mx-0.5 shrink-0'} />
+
+        {focusActive ? (
+          <Tooltip content="A focus session is running. End it from the focus bar." placement="bottom">
+            <span className={`inline-flex items-center h-6 px-1.5 ${rounded} text-accent cursor-default`} aria-label="Focus session active" data-testid="pill-focus-active">
+              <Icon name="bolt" size={12} filled />
+              <MotionLabel hovered={hovered}>Focused</MotionLabel>
+            </span>
+          </Tooltip>
+        ) : (
+          <Tooltip content="Start a focus session on this desk" placement="bottom">
+            <motion.button
+              onClick={onFocus}
+              animate={{
+                backgroundColor: hovered ? 'rgb(var(--accent))' : 'transparent',
+                color: hovered ? '#ffffff' : 'rgb(var(--accent))',
+              }}
+              transition={{ duration: 0.18 }}
+              className={`inline-flex items-center h-6 px-1.5 ${rounded} transition-none`}
+              aria-label="Start a focus session"
+              data-testid="pill-focus"
+            >
+              <Icon name="bolt" size={12} />
+              <MotionLabel hovered={hovered}>Focus</MotionLabel>
+            </motion.button>
+          </Tooltip>
+        )}
+
+        <Tooltip content="Open chat for this desk" placement="bottom">
+          <button onClick={onChat} className={`inline-flex items-center h-6 px-1.5 ${rounded} text-[var(--ink-50)] hover:text-accent hover:bg-[var(--surface-sunken)] transition-colors`} aria-label="Open chat for this desk" data-testid="pill-chat">
+            <Icon name="forum" size={12} />
+            <MotionLabel hovered={hovered}>Chat</MotionLabel>
+          </button>
+        </Tooltip>
+
+        <Tooltip content="Start or join a meeting in this desk's room" placement="bottom">
+          <button onClick={onMeeting} className={`inline-flex items-center h-6 px-1.5 ${rounded} text-[var(--ink-50)] hover:text-accent hover:bg-[var(--surface-sunken)] transition-colors`} aria-label="Start or join a meeting" data-testid="pill-meeting">
+            <Icon name="videocam" size={12} />
+            <MotionLabel hovered={hovered}>Meeting</MotionLabel>
+          </button>
+        </Tooltip>
+
+        {timerText && (
+          <span className={`text-[10px] font-mono tabular-nums ${vertical ? 'px-1.5' : 'px-1'} ${timerOverdue ? 'text-red-500 animate-pulse' : 'text-[var(--ink-50)]'}`}>
+            {timerText}
+          </span>
+        )}
+
+        <div className={vertical ? 'h-px bg-[var(--edge-firm)] mx-1 my-0.5 shrink-0' : 'w-px h-3 bg-[var(--edge-firm)] mx-0.5 shrink-0'} />
+
+        <TidyControl onTidy={onTidy} disabled={tidyDisabled} hovered={hovered} rounded={rounded} />
+
+        <Tooltip content="Build this desk with AI — it suggests and configures the widgets" placement="bottom">
+          <button onClick={onBuild} className={`inline-flex items-center h-6 px-1.5 ${rounded} text-[var(--ink-50)] hover:text-accent hover:bg-[var(--surface-sunken)] transition-colors`} aria-label="Build this desk with AI" data-testid="pill-build">
+            <Icon name="auto_awesome" size={12} />
+            <MotionLabel hovered={hovered}>Build</MotionLabel>
+          </button>
+        </Tooltip>
+
+        <Tooltip
+          content={savingTemplate ? 'Saving this desk as a template…' : 'Save this desk as a template you can start new desks from'}
+          placement="bottom"
+        >
+          <button onClick={onSaveTemplate} disabled={saveDisabled} className={`inline-flex items-center h-6 px-1.5 ${rounded} text-[var(--ink-50)] hover:text-[var(--ink-100)] hover:bg-[var(--surface-sunken)] disabled:opacity-30 transition-colors`} aria-label={savingTemplate ? 'Saving as template' : 'Save as template'} data-testid="pill-save-template">
+            <Icon name={savingTemplate ? 'hourglass_empty' : 'bookmark_add'} size={12} />
+            <MotionLabel hovered={hovered}>{savingTemplate ? 'Saving…' : 'Template'}</MotionLabel>
+          </button>
+        </Tooltip>
+
+        <Tooltip content="Resume handoff — the note of where you left off on this desk" placement="bottom">
+          <button onClick={onResume} className={`inline-flex items-center h-6 px-1.5 ${rounded} text-[var(--ink-50)] hover:text-[var(--ink-100)] hover:bg-[var(--surface-sunken)] transition-colors`} aria-label="Resume handoff document" data-testid="pill-resume">
+            <Icon name="description" size={12} />
+            <MotionLabel hovered={hovered}>Resume</MotionLabel>
+          </button>
+        </Tooltip>
+
+
+      </div>
+  )
+
   if (orient === 'v') {
     // ── Vertical (near left or right edge) ────────────────────────────────────
     // Single unified column: icons always visible, labels slide in to the right on hover.
@@ -312,156 +419,17 @@ export default function FloatingPill({
           <Icon name="drag_indicator" size={12} className="text-[var(--ink-25,var(--ink-30))] pointer-events-none" />
         </div>
 
-        {/* Unified button column */}
-        <div className="flex flex-col px-1 pb-1.5 pt-0.5 gap-0.5">
+        {/* Unified button column — the SAME buttons as the horizontal and
+            docked layouts, laid out vertically. Not a second copy. */}
+        {renderButtons('rounded-lg', true)}
 
-          <button onClick={onStatus} className="inline-flex items-center h-6 px-1.5 rounded-lg text-[var(--ink-50)] hover:text-[var(--ink-100)] hover:bg-[var(--surface-sunken)] transition-colors" title={statusLabel} data-testid="pill-status">
-            <Icon name={statusIcon} size={12} />
-            <MotionLabel hovered={hovered}>{statusLabel}</MotionLabel>
-          </button>
-
-          <div className="h-px bg-[var(--edge-firm)] mx-1 my-0.5 shrink-0" />
-
-          {focusActive ? (
-            <span className="inline-flex items-center h-6 px-1.5 rounded-lg text-accent cursor-default" title="Focus session active" data-testid="pill-focus-active">
-              <Icon name="bolt" size={12} filled />
-              <MotionLabel hovered={hovered}>Focused</MotionLabel>
-            </span>
-          ) : (
-            <motion.button
-              onClick={onFocus}
-              animate={{
-                backgroundColor: hovered ? 'rgb(var(--accent))' : 'transparent',
-                color: hovered ? '#ffffff' : 'rgb(var(--accent))',
-              }}
-              transition={{ duration: 0.18 }}
-              className="inline-flex items-center h-6 px-1.5 rounded-lg transition-none"
-              title="Focus"
-              data-testid="pill-focus"
-            >
-              <Icon name="bolt" size={12} />
-              <MotionLabel hovered={hovered}>Focus</MotionLabel>
-            </motion.button>
-          )}
-
-          <button onClick={onChat} className="inline-flex items-center h-6 px-1.5 rounded-lg text-[var(--ink-50)] hover:text-accent hover:bg-[var(--surface-sunken)] transition-colors" title="Chat" data-testid="pill-chat">
-            <Icon name="forum" size={12} />
-            <MotionLabel hovered={hovered}>Chat</MotionLabel>
-          </button>
-
-          <button onClick={onMeeting} className="inline-flex items-center h-6 px-1.5 rounded-lg text-[var(--ink-50)] hover:text-accent hover:bg-[var(--surface-sunken)] transition-colors" title="Meeting" data-testid="pill-meeting">
-            <Icon name="videocam" size={12} />
-            <MotionLabel hovered={hovered}>Meeting</MotionLabel>
-          </button>
-
-          {timerText && (
-            <span className={`text-[10px] font-mono tabular-nums px-1.5 ${timerOverdue ? 'text-red-500 animate-pulse' : 'text-[var(--ink-50)]'}`}>
-              {timerText}
-            </span>
-          )}
-
-          <div className="h-px bg-[var(--edge-firm)] mx-1 my-0.5 shrink-0" />
-
-          <TidyControl onTidy={onTidy} disabled={tidyDisabled} hovered={hovered} rounded="rounded-lg" />
-
-          <button onClick={onBuild} className="inline-flex items-center h-6 px-1.5 rounded-lg text-[var(--ink-50)] hover:text-accent hover:bg-[var(--surface-sunken)] transition-colors" title="Build with AI" data-testid="pill-build">
-            <Icon name="auto_awesome" size={12} />
-            <MotionLabel hovered={hovered}>Build</MotionLabel>
-          </button>
-
-          <button onClick={onSaveTemplate} disabled={saveDisabled} className="inline-flex items-center h-6 px-1.5 rounded-lg text-[var(--ink-50)] hover:text-[var(--ink-100)] hover:bg-[var(--surface-sunken)] disabled:opacity-30 transition-colors" title={savingTemplate ? 'Saving…' : 'Save as template'} data-testid="pill-save-template">
-            <Icon name={savingTemplate ? 'hourglass_empty' : 'bookmark_add'} size={12} />
-            <MotionLabel hovered={hovered}>{savingTemplate ? 'Saving…' : 'Template'}</MotionLabel>
-          </button>
-
-          <button onClick={onResume} className="inline-flex items-center h-6 px-1.5 rounded-lg text-[var(--ink-50)] hover:text-[var(--ink-100)] hover:bg-[var(--surface-sunken)] transition-colors" title="Resume handoff document" data-testid="pill-resume">
-            <Icon name="description" size={12} />
-            <MotionLabel hovered={hovered}>Resume</MotionLabel>
-          </button>
-
-          {/* The load meter moved to the header, centred beside Add widget
-              (Canvas.tsx). It is not duplicated here: two of the same
-              indicator in one window is noise, and this pill — hover-gated and
-              at the bottom edge — is exactly where it was being missed. */}
-
-        </div>
+        {/* The load meter moved to the header, centred beside Add widget
+            (Canvas.tsx). It is not duplicated here: two of the same
+            indicator in one window is noise, and this pill — hover-gated and
+            at the bottom edge — is exactly where it was being missed. */}
       </div>
     )
   }
-
-  // The button row, defined ONCE. Rendered inside the floating pill and, when
-  // docked, straight into the header. Two copies would drift the moment a
-  // button was added to one of them.
-  const buttonRow = (
-      <div className="flex items-center pr-2 py-0.5 gap-0 shrink-0">
-
-        <button onClick={onStatus} className="inline-flex items-center h-6 px-1.5 rounded-full text-[var(--ink-50)] hover:text-[var(--ink-100)] hover:bg-[var(--surface-sunken)] transition-colors" title={statusLabel} data-testid="pill-status">
-          <Icon name={statusIcon} size={12} />
-          <MotionLabel hovered={hovered}>{statusLabel}</MotionLabel>
-        </button>
-
-        <div className="w-px h-3 bg-[var(--edge-firm)] mx-0.5 shrink-0" />
-
-        {focusActive ? (
-          <span className="inline-flex items-center h-6 px-1.5 rounded-full text-accent cursor-default" title="Focus session active" data-testid="pill-focus-active">
-            <Icon name="bolt" size={12} filled />
-            <MotionLabel hovered={hovered}>Focused</MotionLabel>
-          </span>
-        ) : (
-          <motion.button
-            onClick={onFocus}
-            animate={{
-              backgroundColor: hovered ? 'rgb(var(--accent))' : 'transparent',
-              color: hovered ? '#ffffff' : 'rgb(var(--accent))',
-            }}
-            transition={{ duration: 0.18 }}
-            className="inline-flex items-center h-6 px-1.5 rounded-full transition-none"
-            title="Focus"
-            data-testid="pill-focus"
-          >
-            <Icon name="bolt" size={12} />
-            <MotionLabel hovered={hovered}>Focus</MotionLabel>
-          </motion.button>
-        )}
-
-        <button onClick={onChat} className="inline-flex items-center h-6 px-1.5 rounded-full text-[var(--ink-50)] hover:text-accent hover:bg-[var(--surface-sunken)] transition-colors" title="Chat" data-testid="pill-chat">
-          <Icon name="forum" size={12} />
-          <MotionLabel hovered={hovered}>Chat</MotionLabel>
-        </button>
-
-        <button onClick={onMeeting} className="inline-flex items-center h-6 px-1.5 rounded-full text-[var(--ink-50)] hover:text-accent hover:bg-[var(--surface-sunken)] transition-colors" title="Meeting" data-testid="pill-meeting">
-          <Icon name="videocam" size={12} />
-          <MotionLabel hovered={hovered}>Meeting</MotionLabel>
-        </button>
-
-        {timerText && (
-          <span className={`text-[10px] font-mono tabular-nums px-1 ${timerOverdue ? 'text-red-500 animate-pulse' : 'text-[var(--ink-50)]'}`}>
-            {timerText}
-          </span>
-        )}
-
-        <div className="w-px h-3 bg-[var(--edge-firm)] mx-0.5 shrink-0" />
-
-        <TidyControl onTidy={onTidy} disabled={tidyDisabled} hovered={hovered} rounded="rounded-full" />
-
-        <button onClick={onBuild} className="inline-flex items-center h-6 px-1.5 rounded-full text-[var(--ink-50)] hover:text-accent hover:bg-[var(--surface-sunken)] transition-colors" title="Build with AI" data-testid="pill-build">
-          <Icon name="auto_awesome" size={12} />
-          <MotionLabel hovered={hovered}>Build</MotionLabel>
-        </button>
-
-        <button onClick={onSaveTemplate} disabled={saveDisabled} className="inline-flex items-center h-6 px-1.5 rounded-full text-[var(--ink-50)] hover:text-[var(--ink-100)] hover:bg-[var(--surface-sunken)] disabled:opacity-30 transition-colors" title={savingTemplate ? 'Saving…' : 'Save as template'} data-testid="pill-save-template">
-          <Icon name={savingTemplate ? 'hourglass_empty' : 'bookmark_add'} size={12} />
-          <MotionLabel hovered={hovered}>{savingTemplate ? 'Saving…' : 'Template'}</MotionLabel>
-        </button>
-
-        <button onClick={onResume} className="inline-flex items-center h-6 px-1.5 rounded-full text-[var(--ink-50)] hover:text-[var(--ink-100)] hover:bg-[var(--surface-sunken)] transition-colors" title="Resume handoff document" data-testid="pill-resume">
-          <Icon name="description" size={12} />
-          <MotionLabel hovered={hovered}>Resume</MotionLabel>
-        </button>
-
-
-      </div>
-  )
 
   // ── Docked (in the header) ────────────────────────────────────────────────
   // Asked for 2026-10-09: "Integrate this into the heading menu, so its not
@@ -481,7 +449,7 @@ export default function FloatingPill({
         className="fb-pill flex items-center"
         data-testid="desk-action-bar"
       >
-        {buttonRow}
+        {renderButtons('rounded-full', false)}
       </div>
     )
   }
@@ -504,7 +472,7 @@ export default function FloatingPill({
       </div>
 
       {/* Unified button row — each button: icon always, label slides in on hover */}
-      {buttonRow}
+      {renderButtons('rounded-full', false)}
     </div>
   )
 }

@@ -558,13 +558,22 @@ export default function App(): JSX.Element {
       )}
       {!shareView && (
       <header
-        // `relative z-[100]` so menus OPENED FROM the header paint over the
+        // `relative z-[195]` so menus OPENED FROM the header paint over the
         // canvas. The header had no stacking context, and <main> is a later
         // sibling, so the canvas surface won on paint order no matter what
         // z-index the menu itself used — the desk context menu was visible but
         // every click on it was intercepted by the canvas. Above the canvas's
         // own layers (45–60) and below modals (200+).
-        className={`titlebar-drag fb-glass-chrome relative z-[100] h-10 flex items-center justify-between pr-3 border-b border-[color:var(--glass-chrome-border)] transition-colors ${
+        //
+        // RAISED FROM 100 TO 195 so the header also outranks the ASSISTANT,
+        // whose surfaces run 120 (sidebar, floating, pill) to 190 (fullscreen
+        // and right-side takeover). At 100 the header lost to every one of
+        // them: a dropdown opened from a header button painted inside the
+        // header's stacking context and so went behind the assistant, and the
+        // toolbar read as sitting under it. The assistant's panels all start at
+        // `top-10`, exactly where this h-10 header ends, so nothing is covered
+        // by the change — only the paint order is fixed. Still below modals.
+        className={`titlebar-drag fb-glass-chrome relative z-[195] h-10 flex items-center justify-between pr-3 border-b border-[color:var(--glass-chrome-border)] transition-colors ${
           isMac ? 'pl-[78px]' : 'pl-3'
         }`}
       >

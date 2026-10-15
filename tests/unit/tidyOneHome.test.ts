@@ -45,10 +45,14 @@ describe('one home', () => {
     expect(pill).toContain("from '../lib/autoArrange'")
     // Every layout uses the SAME control — the old code had the button
     // duplicated, which is how a menu gets added to one and forgotten on the
-    // other. There are two uses: the vertical rail, and the shared buttonRow
-    // that serves BOTH the horizontal pill and the docked header bar.
-    expect((pill.match(/<TidyControl/g) ?? []).length).toBe(2)
-    expect(pill).toContain('const buttonRow = (')
+    // other. It is now ONE use: `renderButtons(rounded, vertical)` serves the
+    // vertical rail, the horizontal pill AND the docked header bar, so there
+    // is no longer a second site to forget. (It was two: the vertical rail had
+    // its own copy, which had already drifted — it kept native `title=`
+    // tooltips when the shared row moved to real ones.)
+    expect((pill.match(/<TidyControl/g) ?? []).length).toBe(1)
+    expect(pill).toContain('const renderButtons = (')
+    expect(pill).not.toContain('const buttonRow = (')
     expect(pill).not.toContain('onClick={onTidy} disabled={tidyDisabled}')
   })
 
@@ -65,7 +69,10 @@ describe('one home', () => {
     const pill = read('src/renderer/src/components/FloatingPill.tsx')
     // Driven from the catalogue, so a new mode cannot appear in one place only.
     expect(pill).toContain('TIDY_MODES.map')
-    expect(pill).toContain('title={m.label}')
+    // The label reaches the user as the app's own Tooltip (portalled above the
+    // assistant) plus the accessible name — not as a native `title`, which is
+    // slow, unstyled, and was not showing over the assistant at all.
+    expect(pill).toContain('<Tooltip key={m.icon + m.label} content={m.label}')
     expect(pill).toContain('aria-label={m.label}')
     expect(pill).toContain('<Icon name={m.icon}')
     // No visible mode text in the menu.
