@@ -94,7 +94,15 @@ const electronVersion = JSON.parse(
 
 const archsOf = (file) => {
   try {
-    return execFileSync('lipo', ['-archs', file], { encoding: 'utf8' }).trim().split(/\s+/)
+    // stdio 'pipe' for stderr: lipo writes a fatal-error line for every file
+    // that is not Mach-O, and the scan below deliberately walks linux and
+    // win32 prebuilds too. Those are expected misses, not problems to print.
+    return execFileSync('lipo', ['-archs', file], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    })
+      .trim()
+      .split(/\s+/)
   } catch {
     return []
   }
@@ -114,6 +122,52 @@ const report = (label, file) => {
   const archs = archsOf(file).join(' ') || '(unreadable)'
   console.log(`  ${label} ${rel} → ${archs}`)
   return isUniversal(file)
+}
+
+/**
+ * Every single-arch native payload in node_modules, so a NEW dependency that
+ * ships per-arch binaries is caught here rather than seven minutes into a
+ * universal build.
+ *
+ * @electron/universal refuses any file that is byte-identical in both slices
+ * but is not itself universal, unless electron-builder's `x64ArchFiles`
+ * pattern names it. Finding that out one package at a time, one failed build
+ * apiece, is how this check earned its keep: canvas, then node-mac-haptics,
+ * then onnxruntime, each a separate round trip. This lists them all at once.
+ *
+ * Reports rather than fails, because most hits are devDependencies that never
+ * reach the package (rollup, lightningcss, the bundler's own binaries) and
+ * this script cannot know electron-builder's `files` rules. The point is that
+ * a human sees the list before the build does.
+ */
+const scanSingleArch = () => {
+  const hits = []
+  const walk = (dir, depth) => {
+    if (depth > 6) return
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const e of entries) {
+      const full = join(dir, e.name)
+      if (e.isDirectory()) {
+        // electron's own framework is universal-by-construction and huge.
+        if (e.name === 'electron' && depth === 0) continue
+        walk(full, depth + 1)
+      } else if (/\.(node|dylib)$/.test(e.name)) {
+        const archs = archsOf(full)
+        // Only darwin binaries matter to a mac universal merge; a linux or
+        // win32 prebuild is unreadable by lipo and is not what trips it.
+        if (archs.length === 1 && (archs[0] === 'arm64' || archs[0] === 'x86_64')) {
+          hits.push({ rel: relative(NM, full), arch: archs[0] })
+        }
+      }
+    }
+  }
+  walk(NM, 0)
+  return hits
 }
 
 // ── check mode ─────────────────────────────────────────────────────────────
@@ -137,6 +191,19 @@ if (checkOnly) {
       'universal-natives: addons are not universal — run: node scripts/build-mac-universal-natives.mjs'
     )
     process.exit(1)
+  }
+  const single = scanSingleArch()
+  if (single.length > 0) {
+    console.log(
+      `universal-natives: ${single.length} single-arch darwin binaries in node_modules.`
+    )
+    console.log(
+      '  Any of these that actually SHIP must be matched by mac.x64ArchFiles in'
+    )
+    console.log(
+      '  electron-builder.cjs, or the universal merge fails. Most are devDeps and do not ship.'
+    )
+    for (const h of single) console.log(`    [${h.arch}] ${h.rel}`)
   }
   console.log('universal-natives: all addons are x86_64 + arm64 — OK')
   process.exit(0)

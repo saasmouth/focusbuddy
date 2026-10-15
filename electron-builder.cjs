@@ -234,12 +234,17 @@ module.exports = {
     //
     //   better-sqlite3/prebuilds/*.node   (N-API, since v12)
     //   @napi-rs/canvas-darwin-*/*.node   (one npm package per platform+arch)
+    //   sharp/build/Release/*.node        (sharp-darwin-x64 / -arm64v8)
+    //   sharp/vendor/**                   (libvips, shipped per arch)
+    //   onnxruntime-node/bin/**           (bin/napi-v3/<platform>/<arch>/)
     //
     // Both arch copies end up in both slices, which is what the merge sees and
     // objects to, and is also exactly what makes the universal app work on
     // either Mac. The pattern is narrow on purpose: node-mac-haptics compiles
     // to a single path and MUST be fat, so it stays under the check.
-    x64ArchFiles: '**/{@napi-rs/canvas-darwin-*/*.node,better-sqlite3/prebuilds/*.node}',
+    x64ArchFiles:
+      '**/{@napi-rs/canvas-darwin-*/*.node,better-sqlite3/prebuilds/*.node,' +
+      'sharp/build/Release/*.node,sharp/vendor/**,onnxruntime-node/bin/**}',
     // macOS permission strings. Without these in Info.plist macOS silently denies
     // getUserMedia for camera + microphone — the user never sees the system
     // prompt. NSCameraUsageDescription is what fixes the video-note capture.
