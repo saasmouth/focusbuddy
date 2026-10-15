@@ -219,28 +219,59 @@ export default function AppNotificationHost(): JSX.Element | null {
   // The rounds. Each fills the free slots from the queue; when the queue runs
   // dry a new round is scheduled rather than looping immediately, so this is
   // idle almost all of the time.
+  //
+  // ALL SCHEDULING HAPPENS OUTSIDE `setActive`, and that is the point.
+  //
+  // It used to live inside the updater passed to setActive — which both
+  // shifted items off `queue.current` and called setTimeout from in there.
+  // React may invoke an updater more than once for a single update, and an
+  // updater is required to be pure. Invoked twice, that version consumed two
+  // queue entries while rendering one, losing an app from the round, and
+  // could leave a second round timer running. Two timers pump twice as often,
+  // and the error compounds: with 17 connected apps and a session left open
+  // overnight, that is hundreds of extra <webview> guests mounted over the
+  // hours. Each one is a real renderer process.
+  //
+  // So `activeRef` mirrors the state, every decision is made against the ref
+  // before any setState, and the updater is now a plain value.
+  const activeRef = useRef<string[]>([])
+  useEffect(() => {
+    activeRef.current = active
+  }, [active])
+
+  const pumpRef = useRef<() => void>(() => {})
+
   useEffect(() => {
     let cancelled = false
 
     const pump = (): void => {
       if (cancelled) return
-      setActive((cur) => {
-        if (cur.length >= SLOTS) return cur
-        const next = [...cur]
-        while (next.length < SLOTS && queue.current.length > 0) {
-          const id = queue.current.shift()
-          if (id && !next.includes(id)) next.push(id)
-        }
-        if (next.length === 0 && roundTimer.current === null) {
+      const cur = activeRef.current
+      if (cur.length >= SLOTS) return
+
+      const next = [...cur]
+      while (next.length < SLOTS && queue.current.length > 0) {
+        const id = queue.current.shift()
+        if (id && !next.includes(id)) next.push(id)
+      }
+
+      if (next.length === 0) {
+        // Round finished. Schedule the next one, once.
+        if (roundTimer.current === null) {
           roundTimer.current = window.setTimeout(() => {
             roundTimer.current = null
             queue.current = watchable.map((w) => w.id)
             pump()
           }, ROUND_GAP_MS)
         }
-        return next
-      })
+        return
+      }
+
+      if (next.length === cur.length) return
+      activeRef.current = next
+      setActive(next)
     }
+    pumpRef.current = pump
 
     // First round shortly after launch, not instantly: start-up has enough to
     // do without several webviews opening at once.
@@ -251,9 +282,14 @@ export default function AppNotificationHost(): JSX.Element | null {
 
     return () => {
       cancelled = true
+      pumpRef.current = () => {}
       window.clearTimeout(kickoff)
       if (roundTimer.current !== null) window.clearTimeout(roundTimer.current)
       roundTimer.current = null
+      // Drop every in-flight probe, so a change to the watched set cannot
+      // leave an orphaned guest mounted with nothing left to retire it.
+      activeRef.current = []
+      setActive([])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchable.map((w) => w.id).join(',')])
@@ -262,18 +298,9 @@ export default function AppNotificationHost(): JSX.Element | null {
     setActive((cur) => cur.filter((x) => x !== id))
   }).current
 
-  // Refill as probes retire.
+  // Refill as probes retire. Also outside the updater, for the reason above.
   useEffect(() => {
-    if (active.length < SLOTS && queue.current.length > 0) {
-      setActive((cur) => {
-        const next = [...cur]
-        while (next.length < SLOTS && queue.current.length > 0) {
-          const id = queue.current.shift()
-          if (id && !next.includes(id)) next.push(id)
-        }
-        return next
-      })
-    }
+    if (active.length < SLOTS && queue.current.length > 0) pumpRef.current()
   }, [active])
 
   if (watchable.length === 0) return null

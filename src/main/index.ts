@@ -723,6 +723,28 @@ app.on('web-contents-created', (_, contents) => {
   })
 })
 
+// A utility or GPU process dying does not kill the app, but it does break a
+// feature silently — and a GPU process that keeps dying is how a window ends
+// up blank. uncaughtException and unhandledRejection are already covered by
+// installMainCrashHandlers() above; this is the gap beside them.
+app.on('child-process-gone', (_e, details) => {
+  if (details.reason === 'clean-exit') return
+  try {
+    recordCrash({
+      source: 'main',
+      kind: 'child-process-gone',
+      message: `${details.type} ${details.reason}${
+        typeof details.exitCode === 'number' ? ` (exit ${details.exitCode})` : ''
+      }`,
+      context: details.name ?? null
+    })
+  } catch {
+    /* see above */
+  }
+  // eslint-disable-next-line no-console
+  console.error('[crash] child-process-gone', details)
+})
+
 app.whenReady().then(() => {
   if (process.platform === 'win32') {
     // Windows taskbar/notification identity. Renaming it can detach an

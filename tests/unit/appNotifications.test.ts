@@ -505,3 +505,48 @@ describe('the message sum stays generic', () => {
     }
   })
 })
+
+// ── The polling must not compound over a long session ─────────────────────
+// A session left open overnight with 17 connected apps died with a native
+// abort — no JS error, nothing in crash_events, just a SIGTRAP .ips. The
+// scheduler below is the part that could plausibly produce that: it mounts a
+// real <webview> guest per probe, so anything that makes it run more often
+// than intended multiplies renderer processes for hours.
+
+describe('the notification scheduler is pure where React requires it', () => {
+  const host = read('renderer/src/components/AppNotificationHost.tsx')
+
+  it('never mutates the queue or schedules timers inside a setState updater', () => {
+    // React may invoke an updater more than once per update, and requires it
+    // to be pure. The old version shifted `queue.current` AND called
+    // setTimeout from in there: invoked twice it dropped an app from the
+    // round and could leave a second round timer running, which then pumps
+    // twice as often — compounding for as long as the app stays open.
+    const updaters = host.match(/setActive\(\([^)]*\)\s*=>\s*\{[\s\S]*?\n  {0,6}\}\)/g) ?? []
+    for (const u of updaters) {
+      expect(u, 'setTimeout inside a setState updater').not.toContain('setTimeout')
+      expect(u, 'queue mutation inside a setState updater').not.toContain('queue.current.shift')
+    }
+  })
+
+  it('decides against a ref, then sets plain state', () => {
+    expect(host).toContain('const activeRef = useRef<string[]>([])')
+    expect(host).toContain('const cur = activeRef.current')
+    expect(host).toContain('setActive(next)')
+  })
+
+  it('schedules at most one round timer', () => {
+    expect(host).toContain('if (roundTimer.current === null) {')
+  })
+
+  it('tears down in-flight probes when the watched set changes', () => {
+    // Otherwise a guest stays mounted with nothing left to retire it.
+    expect(host).toContain('activeRef.current = []')
+    expect(host).toContain('setActive([])')
+  })
+
+  it('still holds at most SLOTS probes at once', () => {
+    expect(host).toContain('if (cur.length >= SLOTS) return')
+    expect(host).toContain('while (next.length < SLOTS')
+  })
+})

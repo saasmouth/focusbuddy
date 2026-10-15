@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ATTENTION_FILTERS } from '../lib/attentionQueues'
-import type { AiBuildSuggestion, ConnectedApp, FbNode, NodeKind } from '@shared/types'
+import type { AiBuildSuggestion, FbNode, NodeKind } from '@shared/types'
 import { useNodeStore } from '../stores/nodes'
 import { useWorkItemStore } from '../stores/workItems'
 import { useCaptureConsole, type CaptureSource } from '../stores/captureConsole'
@@ -15,7 +15,6 @@ import { useViewKindEnabled } from '../lib/viewCapability'
 
 import { chimeIn } from '../lib/audioBeep'
 import { AREA_TONES, attentionFilterTone } from '../lib/areaTones'
-import { splitFavourites } from '../lib/connectedAppSort'
 import NewNodeDialog from './NewNodeDialog'
 import AISetupDialog from './AISetupDialog'
 import AddConnectedAppDialog from './AddConnectedAppDialog'
@@ -36,75 +35,6 @@ import {
 // MIME used when dragging a Connected App row from the sidebar onto the canvas.
 // The Canvas drop handler reads this to spawn a webview widget bound to the app.
 export const CONNECTED_APP_DRAG_MIME = 'text/fb-connected-app'
-
-interface ConnectedAppRowProps {
-  active: boolean
-  onOpen: () => void
-  onTogglePinned: () => void
-}
-
-function renderConnectedAppRow(
-  app: ConnectedApp,
-  props: ConnectedAppRowProps
-): JSX.Element {
-  const { active, onOpen, onTogglePinned } = props
-  const isLocal = app.kind === 'local'
-  return (
-    <div
-      key={app.id}
-      draggable
-      onDragStart={(e) => {
-        // The connected app's id is the contract — Canvas resolves it back to a URL
-        // + partition + vault binding (web) or launcher tile (local). We also
-        // stash the URL/path as text/uri-list so dragging into a non-Canvas
-        // surface (system browser, text field) still produces something useful.
-        e.dataTransfer.setData(CONNECTED_APP_DRAG_MIME, app.id)
-        e.dataTransfer.setData('text/uri-list', app.url)
-        e.dataTransfer.setData('text/plain', app.url)
-        e.dataTransfer.effectAllowed = 'copy'
-      }}
-      className={`relative group flex items-center pr-1.5 py-0.5 px-2 ${
-        active ? 'bg-[rgb(var(--accent)/0.08)]' : ''
-      }`}
-      title={
-        isLocal
-          ? `Click to launch ${app.title} (drag onto a canvas to add a launcher tile)`
-          : `Drag onto a canvas to use ${app.title} inside a task`
-      }
-    >
-      {active && <span className="absolute left-0 h-6 w-[3px] rounded-r bg-accent" />}
-      <button
-        onClick={onOpen}
-        className={`flex-1 flex items-center gap-2 px-1.5 py-1 rounded text-left min-w-0 ${
-          active ? '' : 'hover:bg-[var(--surface-sunken)]'
-        }`}
-      >
-        <AppLogo app={app} size={20} glyphSize={12} />
-        <span
-          className={`text-[13px] flex-1 min-w-0 break-words line-clamp-2 leading-tight ${
-            active
-              ? 'text-[var(--ink-100)] font-medium'
-              : 'text-[var(--ink-90)]'
-          }`}
-        >
-          {app.title}
-        </span>
-      </button>
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onTogglePinned()
-        }}
-        title={app.pinned ? 'Unpin from Favourites' : 'Pin to Favourites'}
-        className={`icon-btn !h-6 !w-6 transition-opacity ${
-          app.pinned ? 'opacity-100 text-accent' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
-        }`}
-      >
-        <Icon name={app.pinned ? 'push_pin' : 'push_pin'} size={11} />
-      </button>
-    </div>
-  )
-}
 
 interface Props {
   collapsed?: boolean
@@ -150,16 +80,10 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
   const connectedApps = useConnectedAppsStore((s) => s.apps)
   const appsLoaded = useConnectedAppsStore((s) => s.loaded)
   const refreshApps = useConnectedAppsStore((s) => s.refresh)
-  const togglePinned = useConnectedAppsStore((s) => s.togglePinned)
   const launchLocal = useConnectedAppsStore((s) => s.launchLocal)
   const [addAppOpen, setAddAppOpen] = useState(false)
   // Whether the "More apps" accordion is expanded. Defaults to collapsed so the
   // strip stays compact; the user expands it to reach the long-tail apps.
-  const [moreAppsOpen, setMoreAppsOpen] = useState(false)
-  const { favourites: favouriteApps, more: moreApps } = useMemo(
-    () => splitFavourites(connectedApps),
-    [connectedApps]
-  )
 
   useEffect(() => {
     if (!appsLoaded) void refreshApps()
@@ -174,13 +98,11 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
 
   // Section collapse state for the remaining sections.
   const [roomsNavOpen, setRoomsNavOpen] = useState(true)
-  const [appsOpen, setAppsOpen] = useState(true)
   // Attention's filter submenu. Collapsed by default: the row itself is
   // "everything", and the six filters are a narrowing most sessions do not need.
   const [attentionOpen, setAttentionOpen] = useState(false)
   // Connected Apps show only while a desk is open: the rows are there to be
   // dragged onto a canvas, so anywhere else they are a list you cannot use.
-  const deskOpen = useViewStore((st) => st.view.kind === 'task')
 
   // Shared-with-me inbox — loaded once on mount, drives the "Shared" nav badge.
   const sharedInbox = useSharesStore((s) => s.inbox)
@@ -648,99 +570,18 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
             not c581655d with extra steps. See components/nav/AreaAccordion.tsx. */}
         <AreaAccordion deskSlot={deskNav} />
 
-        {/* ── CONNECTED APPS ──────────────────────────────────────────────
-            Only while a desk is open. The rows exist to be DRAGGED onto a
-            canvas, so on Home or an index page they are a list you cannot use.
-            Managing them (add, remove, pin) lives in Settings, which is
-            reachable from anywhere. */}
-        {deskOpen && (
-        <>
-        <SectionHeader
-          label="Connected Apps"
-          open={appsOpen}
-          onToggle={() => setAppsOpen((v) => !v)}
-          action={
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setAddAppOpen(true)
-              }}
-              className="icon-btn !h-6 !w-6"
-              title="Add a connected app"
-            >
-              <Icon name="add" size={12} />
-            </button>
-          }
-        />
-        {appsOpen && (
-          <div className="mb-2">
-            {connectedApps.length === 0 ? (
-              <div className="mx-3 mb-2 rounded-md border border-dashed border-[var(--edge-soft)] p-3 text-center">
-                <Icon
-                  name="apps"
-                  size={18}
-                  className="text-[var(--ink-40)] mx-auto mb-1"
-                />
-                <p className="text-[11px] text-[var(--ink-40)] leading-snug mb-2">
-                  Pin Spotify, Gmail, Slack, ChatGPT and others you use across every task.
-                  Drag them onto a canvas to work with them inside a task.
-                </p>
-                <button
-                  onClick={() => setAddAppOpen(true)}
-                  className="btn-ghost !text-[11px] !px-2 !py-1"
-                >
-                  <Icon name="add" size={12} />
-                  <span>Add app</span>
-                </button>
-              </div>
-            ) : (
-              <>
-                {favouriteApps.map((app) =>
-                  renderConnectedAppRow(app, {
-                    active:
-                      app.kind === 'web' &&
-                      viewIsActive({ kind: 'connected-app', appId: app.id }),
-                    onOpen: () =>
-                      app.kind === 'local'
-                        ? void launchLocal(app.id)
-                        : goConnectedApp(app.id),
-                    onTogglePinned: () => void togglePinned(app.id)
-                  })
-                )}
-                {moreApps.length > 0 && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setMoreAppsOpen((v) => !v)}
-                      className="w-full mt-1 px-3 py-1 flex items-center gap-1 text-[11px] uppercase tracking-wider text-[var(--ink-50)] hover:text-[var(--ink-90)]"
-                    >
-                      <Icon
-                        name={moreAppsOpen ? 'expand_more' : 'chevron_right'}
-                        size={12}
-                      />
-                      <span>More apps ({moreApps.length})</span>
-                    </button>
-                    {moreAppsOpen &&
-                      moreApps.map((app) =>
-                        renderConnectedAppRow(app, {
-                          active:
-                            app.kind === 'web' &&
-                            viewIsActive({ kind: 'connected-app', appId: app.id }),
-                          onOpen: () =>
-                            app.kind === 'local'
-                              ? void launchLocal(app.id)
-                              : goConnectedApp(app.id),
-                          onTogglePinned: () => void togglePinned(app.id)
-                        })
-                      )}
-                  </>
-                )}
-              </>
-            )}
-          </div>
-        )}
-        </>
-        )}
+        {/* The Connected Apps LIST that used to sit here is gone.
+            AreaAccordion above already shows every connected app as a grid of
+            icons under Apps, so this rendered each of them a second time —
+            once as a tile, once as a row with a "More apps" expander below
+            it. Two lists of the same thing, in one menu, a few hundred pixels
+            apart.
+            The grid is the one that stays: it is the one the operator asked
+            for, it carries the unread badges and the awake/asleep state, and
+            it names which organisation each app belongs to. Dragging an app
+            onto a canvas still works from the grid tiles and from the
+            collapsed rail. Add, remove and pin remain in Settings and on the
+            grid's own + . */}
       </div>
 
       {/* Pro card — the same upgrade block that sits at the foot of the
@@ -782,30 +623,6 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
         />
       )}
     </aside>
-  )
-}
-
-interface SectionHeaderProps {
-  label: string
-  open: boolean
-  onToggle: () => void
-  action?: React.ReactNode
-}
-
-function SectionHeader({ label, open, onToggle, action }: SectionHeaderProps): JSX.Element {
-  // The same quiet uppercase section label the PlexiOffice menu uses for its
-  // "Apps" / "Communicate" groups, with a chevron so the group still folds.
-  return (
-    <div className="px-4 pt-3 pb-1.5 flex items-center justify-between">
-      <button
-        onClick={onToggle}
-        className="flex items-center gap-1 text-[10px] uppercase tracking-[0.12em] font-semibold text-[var(--ink-40)] hover:text-[var(--ink-70)] transition-colors"
-      >
-        <Icon name={open ? 'expand_more' : 'chevron_right'} size={12} />
-        <span>{label}</span>
-      </button>
-      {action}
-    </div>
   )
 }
 
