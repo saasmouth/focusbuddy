@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import { getDb } from './database'
 import { getActiveOrgId } from './activeOrg'
+import { deriveTitle, isUntitled } from '@shared/titles'
 import { deleteEmbedding } from './embeddings'
 import type {
   DocBody,
@@ -179,7 +180,11 @@ export function createDocument(draft: DocumentDraft): FbDocument {
   ).run({
     id,
     docType: draft.docType,
-    title: draft.title || 'Untitled',
+    // Empty rather than the string "Untitled". The UI already renders a
+    // per-type fallback for a blank title, and storing the placeholder as a
+    // VALUE is what made it indistinguishable from a name the user chose —
+    // both here and to the backfill.
+    title: draft.title ?? '',
     body: JSON.stringify(body),
     orgId: getActiveOrgId(),
     now
@@ -201,6 +206,25 @@ export function updateDocument(id: string, patch: DocumentPatch): FbDocument | n
   if (patch.body !== undefined) {
     sets.push('body = @body')
     params.body = JSON.stringify(patch.body)
+    // Name it from what the user just wrote, if it still has no name.
+    //
+    // This is where untitled documents actually STOP accumulating. Demanding
+    // a name up front, before there is anything to name, is the wrong trade —
+    // you would be asked to title a blank page. So a document may be born
+    // untitled, and the first save that gives it a heading or an opening line
+    // gives it a name too. Free and deterministic: no model, no network, just
+    // the text already in the patch.
+    //
+    // Only ever fills a BLANK: `isUntitled` is false for anything the user
+    // typed, and once a title exists this never touches it again — including
+    // when they rename it to something this code would not have chosen.
+    if (patch.title === undefined && isUntitled(existing.title)) {
+      const derived = deriveTitle({ body: patch.body })
+      if (derived) {
+        sets.push('title = @derivedTitle')
+        params.derivedTitle = derived
+      }
+    }
   }
   if (patch.archived !== undefined) {
     sets.push('archived = @archived')

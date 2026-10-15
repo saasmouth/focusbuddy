@@ -1,3 +1,4 @@
+import { isUntitled } from '@shared/titles'
 import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { FbNode, Widget } from '@shared/types'
@@ -55,7 +56,11 @@ export default function MakeTaskDialog({
     return pid && folders.some((f) => f.id === pid) ? pid : null
   }, [nodes, activeTaskId, folders])
 
-  const [taskTitle, setTaskTitle] = useState(seedTitle.trim() || 'Untitled desk')
+  // Empty, not "Untitled desk". Pre-filling the placeholder as a real VALUE
+  // is how most untitled desks got made: the field looked filled in, the
+  // empty-title guard below could never fire, and the name shipped as-is.
+  // It is a placeholder attribute on the input instead, where it belongs.
+  const [taskTitle, setTaskTitle] = useState(seedTitle.trim())
   const [folderQuery, setFolderQuery] = useState('')
   // Default to ON when a source widget was passed — almost always what the
   // user wants from a right-click "make this a task" flow. They can untick
@@ -105,8 +110,8 @@ export default function MakeTaskDialog({
   async function handleSubmit(): Promise<void> {
     if (busy) return
     const title = taskTitle.trim()
-    if (!title) {
-      setError('Give the task a title.')
+    if (!title || isUntitled(title)) {
+      setError('Give it a name — this is how you will find it later.')
       return
     }
     setBusy(true)

@@ -52,6 +52,11 @@ const AUTO_ROUTING: Record<AIPurpose, string> = {
   // returning a small JSON object. Haiku is fast and plenty for classification,
   // and this fires on every command-bar submit, so cheap matters.
   command_route: HAIKU,
+  // Titles for items that arrived without one. Deterministic derivation from
+  // the item's own content handles the large majority for free; this routes
+  // only the remainder, batched into one call with a hard item cap. Haiku is
+  // the right tier and the cost ceiling is the point.
+  title_backfill: HAIKU,
   // The capture console's intent classifier (Attention S5) — same shape as
   // command_route: tiny classify, fires per capture, deterministic hard
   // triggers run FIRST so most captures never reach the model at all.

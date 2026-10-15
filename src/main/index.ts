@@ -10,6 +10,7 @@ import { composeCustomWidgetDocument, cspFor } from '@shared/customWidgetSandbox
 import { resolveWidgetInputs } from './db/widgetInputs'
 import { clearSessionForNewLaunch, markUiVisible, recordAnonLaunch } from './db/account'
 import { runRetentionSweep } from './db/retention'
+import { runTitleBackfill } from './titleBackfill'
 import { autoBackupOnLaunch } from './db/backup'
 import { registerIpcHandlers } from './ipc'
 import { startCalendarSyncLoop } from './calendar/sync'
@@ -742,6 +743,28 @@ app.whenReady().then(() => {
   // async, never blocks boot, and is the recovery path if the live DB is later
   // lost or corrupted.
   autoBackupOnLaunch()
+  // Name anything that was created without a name — desks, rooms, documents,
+  // widgets. Deliberately AFTER the backup above, because it rewrites titles.
+  //
+  // Delayed and detached: it is a repair pass, not part of starting up, and it
+  // must never be why the window is slow or why the app fails to open. The
+  // large majority of items are named from their own content for free; only
+  // the remainder reach a model, batched into one capped call on the cheapest
+  // tier. Runs every launch, but the log inside means a launch never pays
+  // twice for the same item.
+  setTimeout(() => {
+    void runTitleBackfill()
+      .then((s) => {
+        if (s.found > 0) {
+          console.log(
+            `[titles] ${s.found} untitled — ${s.derived} from content, ${s.byModel} by model, ${s.skipped} left`
+          )
+        }
+      })
+      .catch((e) => {
+        console.warn('[titles] backfill failed:', e instanceof Error ? e.message : e)
+      })
+  }, 12_000)
   // Harden the main renderer's session too (voice/video-note media stays
   // granted; dangerous device/location permissions are denied).
   applyPermissionPolicy(session.defaultSession)
