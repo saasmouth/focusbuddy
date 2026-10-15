@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNodeStore } from '../../stores/nodes'
 import { useWorkItemStore } from '../../stores/workItems'
 import Icon from '../Icon'
-import { confirmPermanentDelete } from '../../lib/deleteDeskFlow'
+import { confirmPermanentDelete, tombstonePurged } from '../../lib/deleteDeskFlow'
 import { promptText, confirmDialog } from '../plexi/PromptDialog'
 
 // Trash (lifecycle track L1 + DEC-021's D2). Trashed rooms and desks wait
@@ -122,6 +122,7 @@ export default function TrashView(): JSX.Element {
       for (const id of ids) {
         try {
           const r = await window.api.nodes.deletePermanent(id)
+          tombstonePurged(r) // DEC-142 — the bulk arm tombstones too
           revived += r.revived
         } catch {
           failed++

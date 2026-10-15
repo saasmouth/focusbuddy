@@ -122,3 +122,37 @@ merging; the automated gate does not open the app.
 2. Your change is a new file plus a registry line where possible, not a hub edit.
 3. `npm run merge-check` is green.
 4. Desk/UI change? The plexidesk-tester says green too.
+
+## Running the dev app: the microphone can be silent
+
+Source: Claude memory, moved 2026-09-17 (diagnosed 2026-09-07; see DEC-130).
+
+A dev app launched from a Claude Code session, or from any app without a microphone grant, inherits
+that launcher's macOS privacy (TCC) identity. macOS then hands it **digital silence, not an error**:
+`getUserMedia` succeeds, the track is enabled and unmuted, and every sample is zero. On 2026-09-07 a
+177-second "Record notes" came back as "you you you you" (cloud Whisper hallucinating on silence) with
+an empty summary, although both transcription engines transcribed a generated sample perfectly. The
+camera has the same problem (DEC-078).
+
+- **Prove it in 3 seconds** with a level probe (the peak must be above 0), not by reading `TCC.db`,
+  which a session cannot read.
+- **The fix is on the machine:** launch Plexii from the Dock or Finder, or allow the microphone for the
+  app that launches it (System Settings › Privacy & Security › Microphone).
+- **What the app does about it (DEC-130):** every recording door listens for 1.2 s first and refuses
+  digital silence with the settings door (`record-error[data-reason=mic-silent]`); a live level pill
+  watches during recording (`mic-level` / `mic-silent`); the wrap-up refuses degenerate transcripts
+  (`transcriptLooksEmpty`); and `media:micStatus` / `media:askMic` ask the system. Those two live in the
+  main process, so they only take effect after a restart: `electron-vite dev` runs without `--watch`,
+  and main or preload edits always need a manual restart.
+- **Verifying the pipeline without a working mic:** override `navigator.mediaDevices.getUserMedia` in
+  the page to return a stream from an `AudioBufferSourceNode` looping a `say`-generated 16 kHz wav.
+  Record notes then runs end to end. Clean up through the stores and bridges: the meeting
+  (`useMeetingsStore.remove`, which cascades segments and audio), the minted desk (`useNodeStore.remove`,
+  to Trash), the transcript folder (`window.api.fileManager.delete`), the document
+  (`window.api.documents.delete`), and the "Meeting brief" work item (dismissed through its store).
+- **A second fault:** on-device whisper-base decodes a take as one window and can derail on a few hard
+  seconds (a word cut mid-syllable at the end), returning "Thanks for watching." The cloud engine read
+  the same bytes perfectly. DEC-130's derail net (`lib/audioSplit.ts` and `recoverIfDerailed` in
+  `transcribeRecording.ts`) cuts at pauses and decodes the pieces.
+- After a source edit, a probe's `import('/src/lib/x.ts')` is the stale instance; add `?t=Date.now()`
+  to load the live code.

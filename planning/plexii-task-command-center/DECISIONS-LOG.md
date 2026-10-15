@@ -4564,3 +4564,304 @@ database** (a VACUUM's worth of free pages, and the append-only event store's sh
 of the file). Zero high or critical. `capability-liveness` clean — all five
 capabilities producing output, including agent outcome learning, which had been at
 zero since the feature was built.
+## DEC-138 — Landed on main; `ryan-v1-beta` opened for the v1 beta refinement
+**Date:** 2026-09-07 · **Status:** EXECUTED · **Branch:** `main` → `ryan-v1-beta` ·
+**Plan:** operator ("Check GitHub to see if there's been any other developments
+pushed to main… See if Michael has done anything recently. If not, I want to
+go ahead and push all of our updates to main and then create a new branch…
+refining the app, getting rid of all the noise and unnecessary features to
+get this thing production ready for v1 launch in beta"; "don't push anything
+until you confirm with me"; "go, name it ryan-v1-beta").
+
+**What was checked first.** Main's last commit was Michael's Release 4.2.2
+of 2026-09-01; no commits, branches, reviews or comments by Michael or Caleb
+since, and the repo's event stream since then held only our pushes.
+`ryan-next` stood 31 ahead / 0 behind main, `ryan-assistant` 53 ahead / 0
+behind and containing `ryan-next` — conflict-free. Caleb's branches were
+untouched since August (`Caleb-4.3-ui` fully in main; `Caleb-4.1-brain` 13
+old commits, 504 behind). PR #5 (`fix/platform-stability`) was found
+superseded: DEC-056…061 reached main inside the ryan-command-center merge as
+different commits, and merging it would have conflicted in 12 files. All of
+this was reported before anything moved.
+
+**What was done, on the operator's go.** PR #6 (`ryan-next` → main) merged
+with a merge commit (`80592846`); PR #7 (`ryan-assistant` → main,
+DEC-120…137) opened, CI green (typecheck-and-unit), merged (`8579cbaf`);
+PR #5 closed with the reason. Main now carries everything through DEC-137.
+Landing is not a release — Michael cuts the version and the notarised
+builds. `ryan-v1-beta` branched from main `8579cbaf` and pushed to both
+remotes; `ryan-next` and `ryan-assistant` are landed and frozen. The rules
+are unchanged: main only via PR, never a direct push; the dual-push ritual
+for every branch.
+
+**The new branch's mission.** Refine the app for the v1 beta launch — take
+out the noise and the unnecessary features, make it production-ready.
+Nothing of that has started; the next session begins by taking stock of
+what counts as noise with the operator before removing anything.
+
+
+## DEC-139 — The widget-delete `origin` bug: found here, fixed by Michael on main, our commit dropped
+**Date:** 2026-09-07, superseded 2026-09-08 · **Status:** SUPERSEDED — the fix on main is `c86111fa` (Michael Dean) · **Branch:** was `ryan-v1-beta` ·
+**Plan:** found by the v1-beta audit's main-process map and fixed on sight, because it was a one-token defect in a shipped build.
+
+**The defect (both of us diagnosed it identically).** `widgets:delete`
+(`src/main/ipc/index.ts`) carried DEC-059's real-delete guard — `if (origin
+!== 'sync' && isRealDelete(before))` — without declaring the `origin`
+parameter that `nodes:delete` declares and the preload already passes. It
+typechecked only because the node project's default lib includes DOM's global
+`origin`; in the main process the name does not exist. On every widget delete
+the row was soft-deleted FIRST, then the handler threw `ReferenceError: origin
+is not defined`, so the renderer's `await window.api.widgets.delete(id)`
+rejected and nothing after it in `stores/widgets.ts remove` ran: no CRDT
+tombstone, no store prune, no undo toast, no `WidgetDeleted` event. The widget
+stayed on the canvas while the data was already gone. 53 crash rows in the
+operator's database between 2026-09-01 and 09-07; shipped inside v4.2.0.
+
+**What happened.** We committed the one-token fix plus a source-walking pin
+here as `ecc15ff9` on 2026-09-07 and pushed it to both remotes. About fifteen
+hours later, on 2026-09-08, Michael landed the same fix directly on `main` as
+`c86111fa`, independently and with the same diagnosis, adding two behavioural
+regression specs (that the IPC RESOLVES, and that the widget leaves the canvas
+through the real Remove → Delete path), a regenerated `ipcContracts.generated.ts`,
+and a manual sweep of `src/main/ipc` confirming no other handler has the shape.
+He also recorded that the contract test could not have caught it, because the
+contract was derived FROM the broken signature.
+
+**The ruling (operator, 2026-09-08: "drop my delete fix and rebase onto
+main").** `ecc15ff9` was dropped and `ryan-v1-beta` rebased onto
+`origin/main`. Michael's fix is the one of record; there is no duplicate and
+no conflict. This entry stays because the append-only log keeps the reason a
+thing has its shape, and because the crash-row evidence above is the only
+record of how long the bug was live in the operator's own install.
+
+**One thing did not carry over.** Our commit also held
+`tests/unit/ipcHandlerOriginDeclared.test.ts`, a pin that walks all ~500
+`ipcMain.handle` callbacks and refuses any that reads `origin` without
+declaring it — the automated form of the sweep Michael did by hand. It was
+dropped with the commit rather than kept behind the operator's back; it
+survives on `backup/pre-rebase-2026-09-08` and can be added as its own commit
+on his word.
+
+## DEC-140 — The v1 beta inventory: 168 surfaces audited, put in front of the operator to rule
+**Date:** 2026-09-07 · **Status:** AWAITING OPERATOR RULINGS · **Branch:** `ryan-v1-beta` ·
+**Plan:** the handoff's first hour (`planning/plexii-v1-beta/HANDOFF.md` §9 step 5) —
+"rebuild the inventory from the code and put it in front of Ryan as a
+Keep / Hide / Remove / Defer table with a first-guess column."
+
+**Pre-flight (reported before anything moved).** `ryan-v1-beta` at `0e3546ee`
+on both remotes; `origin/main` still `8579cbaf` (Michael's Release 4.2.2 of
+2026-09-01) with no commits, branches, reviews or PRs since — the event
+stream holds only our own pushes. `fork/main` is 272 behind and carries
+nothing of its own. Suite green at the start: both typechecks clean,
+3,898 tests / 356 files. The operator's dev app was already running
+(PID 97113, CDP 9223) and was NOT navigated — one DOM read and one
+screenshot only.
+
+**The audit.** Nine read-only passes over the tree and the operator's live
+database (`mode=ro` throughout), by family: the Desk segment and Rooms;
+Brain; People; Office and the standalone PlexiOffice build; all widget
+kinds; the shell, chrome, palette and onboarding; connected apps, the
+browser stack and Settings; the assistant, AI providers, voice and the
+legacy FocusBuddy stack; and the main-process map (IPC families, tables,
+background work, external services, the signal-server dependency map,
+packaging). Full write-ups are in the session scratchpad
+(`audit-1-desk-rooms.md`, `-2-brain-people`, `-3-office`, `-4-widgets`,
+`-5a-shell`, `-5b-apps-settings`, `-5c-assistant-legacy`, `-6-main-data`).
+
+**The deliverable.** A published ruling sheet — 168 surfaces in ten
+families, each with how it is reached, what it does from the code, its
+end-to-end health, its tests, its data, its coupling to the core loop, its
+authorship, whether it is already gated, a first-guess ruling and what
+hiding it would take — plus 21 verified findings. Rulings are made on the
+page itself (Keep / Hide / Remove / Defer, keyboard K/H/R/D) and persist to
+the artifact's own store, so this session can read them back.
+**https://claude.ai/code/artifact/b3b5ad7c-318a-48be-90ce-27789500d41b**
+
+**Corrections to the handoff's §5 inventory, from the code.** The widget
+union has **45** literals, not 44 (plus a 46th out-of-union `task-list`
+with three live rows that render as nothing). The PlexiSuite catalogue has
+**27** products, not 32 — the handoff counted group names. The Desk segment
+has **no sidebar door at all** (DEC-020), and the ⌘K palette — the escape
+hatch that ruling assumed — has no row for Rooms, the Plexii hub or the
+Attention view.
+
+**The mechanism the cull will ride.** `VIEW_CAPABILITY`
+(`src/renderer/src/lib/viewCapability.ts`) is the only thing in the tree
+that already hides a nav door AND locks its surface from one map, across
+MainPane and six navigation surfaces. Three things it does not cover, all
+of which the removal method must handle: the four segment shells take over
+the pane without mounting MainPane (`App.tsx:634-648`), so a capability
+never reaches them; the command palette gates only three entries; and no
+main-process background loop is gated by any view, capability or setting
+except the activity tracker, the updater and the API server.
+
+**Nothing has been removed.** The next round starts with the operator's
+rulings, outside in, one DEC per batch, each verified live and landed
+small.
+
+## DEC-141 — Why streaming services will not play in the browser widget: no Widevine
+**Date:** 2026-09-07 · **Status:** DIAGNOSED, FIX PROVEN, AWAITING OPERATOR + MICHAEL · **Branch:** `ryan-v1-beta` ·
+**Plan:** operator report ("I can't stream streaming services within Plexii
+through a browser — Netflix, Amazon Prime Video, live sports. Figure out why.
+If there is an obvious fix, fix it. If not, let me know what the issue is").
+
+**The cause, measured.** Not Plexii's code. Plain Electron ships **no Widevine
+content decryption module**, and Netflix, Prime Video, Disney+, Max, Hulu and
+essentially every paid live-sports service require Widevine on desktop
+Chromium. Probed on a `file://` page (a secure context — a `data:` URL is not
+one and hides the EME API entirely, which gives a false "API missing" reading;
+the first run here did exactly that and was re-done):
+
+| | `electron@37.10.3` (shipped) | `castlabs/electron-releases#v37.10.3+wvcus` |
+|---|---|---|
+| `com.widevine.alpha` | **NotSupportedError** | **SUPPORTED**, `createMediaKeys` ok |
+| robustness | — | SW_SECURE_CRYPTO ok · SW_SECURE_DECODE ok · **HW_SECURE_ALL no** |
+| `decodingInfo` + Widevine | `supported:false` | `supported:true, smooth:true` |
+| `org.w3.clearkey` | supported (nothing commercial uses it) | supported |
+| CDM | absent from the bundle | 4.10.3050.0, fetched by `components.whenReady()` |
+
+**Everything else in the path was checked and is fine.** All codecs pass
+(H.264, AAC, VP9, HEVC, AV1 — MSE true, `canPlayType` "probably"); the
+permission denylist (`src/main/index.ts:147`) does not deny
+`protectedMediaIdentifier`; the webview presents a clean desktop-Chrome UA
+(`src/main/userAgent.ts`); the widget is a real `<webview>` with a persistent
+partition. **Clear video already works** — YouTube, Vimeo, Twitch-style HLS.
+The failure is exactly and only the DRM gate.
+
+**Why the fix was NOT applied.** It replaces the runtime in every user's
+binary and is not ours alone to decide: production playback needs **VMP
+signing** through castLabs' EVS, which requires an account and acceptance of
+castLabs + Google Widevine terms (not something an agent creates or accepts);
+it reorders **Michael's notarised release lane** (code sign → VMP sign →
+notarise); and the GitHub tarball install **loses macOS framework symlinks**
+on this machine (dyld "Library not loaded: @rpath/Electron Framework" —
+repaired here by recreating `Versions/Current` and the top-level links in
+every `*.framework`), so a naive `npm install` would break local dev. Even
+signed, desktop Widevine is L3, so Netflix caps at 720p.
+
+**Where it connects.** The operator's Attention queue already carries "Add
+in-browser video streaming for multiple concurrent streams in Plexii". The
+*concurrent streams* half is a separate, performance question — each webview
+is a full renderer.
+
+**Nothing in the repo was changed by this round.** The probes ran in the
+session scratchpad against an isolated castLabs install.
+
+## DEC-142 — The orphan-widget retry loop: the client stops retrying the impossible, and a permanent delete tells the workspace
+**Date:** 2026-09-08 · **Status:** EXECUTED · **Branch:** `ryan-v1-beta` ·
+**Plan:** operator, on opening the dev environment and being shown the boot
+log ("dig into it", then "do 1 and 2" of the three offered fixes).
+
+**What was wrong.** The dev app logged a `widgets:create` FOREIGN KEY
+failure 888 times a MINUTE while sitting idle — 33,823 of the log's 34,622
+lines; the previous session's log was 205,877 lines and 12 MB of the same
+thing. Traced live: one desk, "SMOKE Trash Test", created and permanently
+deleted on 2026-08-26. The purge only ever ran against this device's
+database, so the workspace still holds five widget snapshots naming that
+node. Every twenty-second poll re-offers them; each fails the FK because
+`widgets.task_id REFERENCES nodes(id)` and the node is gone; the retry
+buffer burns its budget on each and forgets them; the next poll re-arms the
+same five. Evidence: the sync frames were captured off the socket (63 parent
+task ids, exactly one absent from `nodes`), and the dead node's history was
+read from the event store ("Permanently deleted … (memory purged)").
+
+**What changed.**
+- **The client parks what cannot work** (`lib/crdtSync.ts`). A create that
+  exhausts its retry budget is parked against the id it is waiting for, and
+  the poll stops re-arming it; it is released the moment THAT id is created,
+  so a genuinely late parent still lands its dependents. A widget parks on
+  its `taskId` — the id its foreign key names. A create whose dependency is
+  unknown keeps the old behaviour exactly.
+- **A permanent delete tombstones what it erased.** `deleteNodePermanent`
+  already computed the purged node and widget ids and threw them away; it
+  returns them now, the preload contract carries them, and both permanent-
+  delete doors (`deleteDeskFlow`'s per-item flow and the Trash view's bulk
+  arm) call the new `tombstonePurged` — widget deletes first, then their
+  nodes. This stops the NEXT deleted desk from leaving orphans behind.
+
+**A wrong turn worth keeping.** The first version released parked creates
+whenever any node create succeeded. `nodes.create` is create-if-missing, so
+every already-present node reports success on every poll: the release fired
+constantly, nothing stayed parked, and the measured rate DOUBLED to 1,776 a
+minute. Parking against the specific id is the whole fix, and the test says
+why so it cannot be "simplified" back.
+
+**A pre-existing fragility this surfaced.** `dec071PlanReview.test.ts`
+awaited `import('…/planSelect')` inside five 5-second tests. Adding any one
+more test file to the pool tipped the first over its timeout — it failed in
+the full suite and passed alone. Proven mine by parking the changes and
+re-running green, then proven NOT the source change by restoring it and
+running green without the new test file. The import is hoisted to
+`beforeAll`; the cases are untouched.
+
+**Verified live** on the operator's running app, restarted so main and
+preload reload: 888 failures while the budget is spent once at boot, then
+**0 over two idle minutes** (before the fix, the same window cost 5,172 and
+47,095 log lines). The new IPC contract was checked non-destructively —
+`deletePermanent` on a non-existent id returns `nodeIds: []` / `widgetIds:
+[]` with the trash count and node count unchanged. The app renders Home
+normally, no uncaught renderer errors. Suite: 4,203 passed / 2 skipped
+across 382 files; both typechecks clean.
+
+**Not done, and why.** The five orphans ALREADY on the workspace are still
+offered on every boot, so the one-off 888 stays until they are tombstoned
+there — that was the third option and it writes to shared state, so it waits
+on the operator's word. The tombstone emit path is covered by pins and its
+contract proven live, but not exercised end to end: doing so means
+permanently deleting a real desk.
+
+## DEC-143 — The dead desk's leftovers tombstoned on the workspace
+**Date:** 2026-09-08 · **Status:** EXECUTED · **Branch:** `ryan-v1-beta` ·
+**Plan:** operator ("clean up the five orphans") — the third option offered
+in DEC-142, the one that writes to shared state, on his explicit word.
+
+**The count was wrong, and reading the raw payloads fixed it.** DEC-142 said
+five orphan widgets. The dead desk "SMOKE Trash Test"
+(`4832f885-610c-4663-915a-0d84251293a2`) actually left SIX objects of three
+kinds on the workspace, and the earlier walk had mistaken two of them for
+widgets because a table snapshot also carries a `taskId`:
+- **3 widgets** — `eb31e590…` (table), `d8dbcf94…` (table), `d8c24989…`
+  (note). These are the FOREIGN KEY failures.
+- **2 tables** — `e65d07d0…`, `3d6c9df0…`, both "Untitled table", zero data
+  rows.
+- **1 work_item** — `7a62b873…`, "SMOKE remind me to test the detach shelf".
+  **Left alone.** It is alive locally under a different parent, state
+  `completed`: detached and revived exactly as R008 requires. Its workspace
+  snapshot still names the dead desk, but work_item creates route through
+  `workItems.applySyncEvent`, never the FK path, so it was never part of the
+  noise. Tombstoning it would have destroyed one of the operator's own
+  items.
+
+**What was done.** The three widgets were tombstoned through DEC-142's own
+`tombstonePurged` (which also exercises that path end to end for the first
+time). The two tables were soft-deleted through the app's own door
+(`tables.delete` sets `trashed_at`; it is not a hard delete) and tombstoned
+with `crdtEmitTableDelete`. Five outbound `field:"delete"` frames were
+captured on the signal socket, one per object — proof of send, not
+inference. Nothing else was touched.
+
+**Verified live** by restarting the app and measuring:
+
+| | FK failures at boot | over the following idle minutes | log |
+|---|---|---|---|
+| before DEC-142 | 5,172 | 888/min | 47,095 lines |
+| DEC-142, orphans still present | 888 | 0 | 8,165 lines |
+| after this cleanup | **3** | **0** | **199 lines, 16 KB** |
+
+The residual three are one attempt per widget on the first sync pass, before
+the delete tombstone lands in the same pass; the tombstone stops every
+attempt after that. The app renders Home normally (41 nodes, 12 tiles) and
+the log carries no other handler error.
+
+**Two findings left on the table, neither acted on.**
+1. **Nine more orphan table rows** sit in `fb_tables` from other permanently
+   deleted desks (46 rows, 11 orphaned, 2 of them now ours and trashed).
+   `purgeDeskPermanently` cascades widgets through the FK but nothing
+   cascades tables, so every permanent delete has been leaving them behind —
+   the same class of gap DEC-142 closed for the sync layer, still open in
+   the purge itself.
+2. **`crdtEmitTableDelete` had never been called by anything.** It is
+   defined in `crdtBridge` and, before this round, referenced nowhere in the
+   renderer: deleting a table has always been local-only, exactly the bug
+   DEC-142 fixed for desks. A future round should wire it into the real
+   table-delete path rather than leaving it to a cleanup script.

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -89,14 +89,25 @@ describe('dec_071 — the plan opens for review', () => {
 // sized for a one-line bar, and it cut mid-word: the operator's own plan came
 // back "…Cetra pitch deck—all high-cr".
 describe('dec_071 — the planner note is bounded without being mangled', () => {
+  // DEC-142 — these five cases each awaited `import('…/planSelect')` INSIDE the
+  // test, so the module's one-time load was charged to a 5s test timeout. In a
+  // full-suite run that import can exceed it: adding any one more test file to
+  // the pool turned `dec_071_a_normal_note_passes_through_whole` red while it
+  // still passed when the file ran alone. The import is hoisted here with room
+  // to breathe; the cases themselves are unchanged.
+  let mod: typeof import('../../src/main/ai/planSelect')
+  beforeAll(async () => {
+    mod = await import('../../src/main/ai/planSelect')
+  }, 30_000)
+
   it('dec_071_a_normal_note_passes_through_whole', async () => {
-    const { trimNote } = await import('../../src/main/ai/planSelect')
+    const { trimNote } = mod
     const note = 'Strategic product work: LakeDash roadmap, user flows, UX prototype.'
     expect(trimNote(note)).toBe(note)
   })
 
   it('dec_071_the_old_120_char_cap_no_longer_truncates_a_real_sentence', async () => {
-    const { trimNote, PLAN_NOTE_MAX } = await import('../../src/main/ai/planSelect')
+    const { trimNote, PLAN_NOTE_MAX } = mod
     const note =
       'Strategic product/design work: LakeDash roadmap, user flows, UX prototype, Plexi marketing, Cetra pitch deck — all high-creativity items pulled from your rooms.'
     expect(note.length).toBeGreaterThan(120)
@@ -105,7 +116,7 @@ describe('dec_071 — the planner note is bounded without being mangled', () => 
   })
 
   it('dec_071_an_overlong_note_is_cut_on_a_word_and_marked', async () => {
-    const { trimNote, PLAN_NOTE_MAX } = await import('../../src/main/ai/planSelect')
+    const { trimNote, PLAN_NOTE_MAX } = mod
     const out = trimNote('alpha bravo '.repeat(80)) as string
     expect(out.endsWith('…')).toBe(true)
     expect(out.length).toBeLessThanOrEqual(PLAN_NOTE_MAX + 1)
@@ -114,13 +125,13 @@ describe('dec_071 — the planner note is bounded without being mangled', () => 
   })
 
   it('dec_071_a_single_giant_token_still_gets_bounded', async () => {
-    const { trimNote, PLAN_NOTE_MAX } = await import('../../src/main/ai/planSelect')
+    const { trimNote, PLAN_NOTE_MAX } = mod
     const out = trimNote('x'.repeat(900)) as string
     expect(out.length).toBeLessThanOrEqual(PLAN_NOTE_MAX + 1)
   })
 
   it('dec_071_an_empty_note_is_null_not_an_empty_bubble', async () => {
-    const { trimNote } = await import('../../src/main/ai/planSelect')
+    const { trimNote } = mod
     expect(trimNote('   ')).toBeNull()
   })
 })

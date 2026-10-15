@@ -133,3 +133,48 @@ Adopt the **phased hybrid**:
 - `tests/e2e/securityQuickWins.spec.ts` — permanent regression guard.
 
 Proven: 66/66 unit + 18/18 e2e, GREEN (`plexidesk-tester`). The one un-automated check is the live OAuth round-trip — worth a 60-second manual confirmation against a Google login.
+
+---
+
+## Addendum, 2026-09-07: DRM streaming does not play, and why
+
+Source: Claude memory, moved 2026-09-17. Measured both ways on Ryan's machine.
+
+Netflix, Prime Video, Disney+, Max, Hulu and nearly every paid live-sports service do not play in the
+browser widget. The cause is not Plexii's code: plain Electron ships **no Widevine content decryption
+module**, and those services require Widevine on desktop Chromium.
+
+| | plain `electron@37.10.3` (what Plexii ships) | castLabs `v37.10.3+wvcus` |
+|---|---|---|
+| `com.widevine.alpha` | **NotSupportedError** | **supported**, `createMediaKeys` ok |
+| robustness | none | `SW_SECURE_CRYPTO` and `SW_SECURE_DECODE` ok; `HW_SECURE_ALL` not (no L1, so a 720p cap) |
+| `mediaCapabilities.decodingInfo` with Widevine | `supported: false` | `supported: true, smooth: true` |
+| `org.w3.clearkey` | supported (no commercial service uses it) | supported |
+| CDM version | none | 4.10.3050.0, fetched at runtime by `components.whenReady()` |
+
+**Probe trap:** run the probe on a `file://` or `https` page. A `data:` URL is not a secure context; it
+hides the EME API entirely and produces a false "API missing" reading.
+
+**Everything else in the path is fine, and was checked.** Every codec passes (H.264, AAC, VP9, HEVC,
+AV1; MSE `true`, `canPlayType` "probably"); the permission denylist (`DENIED_PERMISSIONS` in
+`src/main/index.ts`) does not deny `protectedMediaIdentifier`; and the webview presents a clean desktop
+Chrome user agent (`src/main/userAgent.ts`). Clear (non-DRM) video already works: YouTube, Vimeo,
+Twitch-style HLS.
+
+**The fix is proven but not applied; it is Ryan's and Michael's call.** Swap the dependency to castLabs'
+Electron for Content Security (an exact version match exists, `v37.10.3+wvcus`) and call
+`components.whenReady()` before creating any window. Beyond that it is not a drop-in:
+
+1. **VMP signing** is required for production playback. It needs a castLabs EVS account and acceptance
+   of castLabs' and Google's Widevine terms; nobody creates that account or accepts those terms on
+   Ryan's behalf.
+2. It changes **Michael's notarised release lane**: the VMP signature is applied after code signing and
+   before notarisation.
+3. The GitHub tarball install **lost the macOS framework symlinks** on Ryan's machine (dyld: "Library
+   not loaded: @rpath/Electron Framework"). Recreate `Versions/Current` and the top-level links in every
+   `*.framework`, or the app will not boot after install.
+4. Even signed, desktop Widevine is L3, so Netflix caps at **720p**.
+
+The request on Ryan's list is in-browser video streaming for multiple concurrent streams. The concurrent
+half is a separate question: each webview is a full renderer, so several simultaneous DRM streams is a
+performance problem, not a DRM one.

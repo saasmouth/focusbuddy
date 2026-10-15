@@ -159,6 +159,9 @@ const api = {
       purgedNodes: number
       revived: number
       memory: { memoryRows: number; chunkRows: number; ledgerRows: number; reviewPoints: number }
+      // DEC-142 — the erased ids, for the caller to tombstone on the sync layer.
+      nodeIds: string[]
+      widgetIds: string[]
     }> => ipcRenderer.invoke('nodes:deletePermanent', id),
     restore: (ids: string[]): Promise<boolean> => ipcRenderer.invoke('nodes:restore', ids),
     // Trash surfacing (lifecycle L1): trashed roots + days-remaining, and

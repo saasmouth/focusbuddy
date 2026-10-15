@@ -462,6 +462,11 @@ export function deleteNodePermanent(id: string): {
   purgedNodes: number
   revived: number
   memory: MemoryPurgeSummary
+  /** DEC-142 — what was erased, so the caller can tombstone it on the sync
+   *  layer. Without these the purge is local-only, and the workspace keeps
+   *  offering the dead desk's widgets to every device for ever. */
+  nodeIds: string[]
+  widgetIds: string[]
 } {
   const db = getDb()
   const result = db.transaction(() => {
@@ -470,7 +475,13 @@ export function deleteNodePermanent(id: string): {
       nodeIds: purge.nodeIds,
       widgetIds: purge.widgetIds
     })
-    return { purgedNodes: purge.purgedNodes, revived: purge.revived, memory }
+    return {
+      purgedNodes: purge.purgedNodes,
+      revived: purge.revived,
+      memory,
+      nodeIds: purge.nodeIds,
+      widgetIds: purge.widgetIds
+    }
   })()
   // eslint-disable-next-line no-console
   console.log(

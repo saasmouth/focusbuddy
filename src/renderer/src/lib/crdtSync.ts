@@ -986,9 +986,55 @@ async function flushApplyPass(pass: ApplyPass): Promise<void> {
 interface PendingCreate {
   attempt: () => Promise<boolean> // resolves true when it succeeded (or is moot)
   tries: number
+  /** The id whose arrival would make this satisfiable (a widget's task), or
+   *  null when the dependency is not known. */
+  dependsOn: string | null
 }
 const pendingCreates = new Map<string, PendingCreate>()
 let drainTimer: ReturnType<typeof setTimeout> | null = null
+
+// DEC-142 — the budget, and what happens when it runs out.
+//
+// The buffer above assumes a missing parent is LATE. It can also be GONE: a
+// permanently deleted desk (DEC-142's other half stops making these) leaves
+// widget snapshots on the workspace naming a node no device will ever have.
+// Those creates can never succeed. Exhausting the budget used to simply
+// forget them, and twenty seconds later the poll re-offered the same
+// snapshots and re-armed the same doomed retries — measured on the
+// operator's machine at 888 failed writes a MINUTE, from one test desk
+// deleted in August, filling 97% of the dev log.
+//
+// An exhausted create is PARKED against the id it is waiting for, and the
+// poll stops re-arming it. It is released the moment THAT id is created, so
+// a genuinely late parent still lands its dependents on the next pass.
+//
+// Parking against the specific id is the whole point: releasing on any node
+// create instead looks equivalent and is not. `nodes.create` is
+// create-if-missing, so every already-present node "succeeds" on every poll
+// pass — a blanket release fires constantly and parks nothing. Measured that
+// way the loop got WORSE (1,776 failures a minute), which is how the
+// distinction was found.
+//
+// A create whose dependency is unknown keeps the old behaviour exactly:
+// forgotten at the budget, re-armed by the poll.
+const CREATE_RETRY_BUDGET = 40 // ~60s at the 1.5s drain cadence
+const parkedOn = new Map<string, string>() // create key -> id it waits for
+const parkedBy = new Map<string, Set<string>>() // id -> create keys waiting on it
+
+function parkCreate(key: string, dependsOn: string | null): void {
+  if (!dependsOn) return
+  parkedOn.set(key, dependsOn)
+  const waiting = parkedBy.get(dependsOn) ?? new Set<string>()
+  waiting.add(key)
+  parkedBy.set(dependsOn, waiting)
+}
+/** `id` exists now: anything parked waiting for it deserves another attempt. */
+function unparkFor(id: string): void {
+  const waiting = parkedBy.get(id)
+  if (!waiting) return
+  for (const key of waiting) parkedOn.delete(key)
+  parkedBy.delete(id)
+}
 
 function armDrain(): void {
   if (drainTimer || pendingCreates.size === 0) return
@@ -1001,7 +1047,10 @@ async function drainPending(): Promise<void> {
   for (const [key, p] of [...pendingCreates.entries()]) {
     const ok = await p.attempt().catch(() => false)
     if (ok) pendingCreates.delete(key)
-    else if (++p.tries >= 40) pendingCreates.delete(key) // ~60s; give up, the poll backstops
+    else if (++p.tries >= CREATE_RETRY_BUDGET) {
+      pendingCreates.delete(key)
+      parkCreate(key, p.dependsOn) // no-op when the dependency is unknown
+    }
   }
   if (pendingCreates.size) armDrain()
 }
@@ -1009,12 +1058,17 @@ async function drainPending(): Promise<void> {
 // success, poke the buffer in case the new object unblocks a waiting dependent.
 // Returns the first attempt's settle so a sync pass can wait for it (buffered
 // retries stay fire-and-forget — they are the long tail the poll backstops).
-function applyCreateGuarded(key: string, attempt: () => Promise<boolean>): Promise<void> {
+function applyCreateGuarded(
+  key: string,
+  attempt: () => Promise<boolean>,
+  dependsOn: string | null = null
+): Promise<void> {
+  if (parkedOn.has(key)) return Promise.resolve()
   return attempt().then((ok) => {
     if (ok) {
       if (pendingCreates.size) void drainPending()
     } else if (!pendingCreates.has(key)) {
-      pendingCreates.set(key, { attempt, tries: 0 })
+      pendingCreates.set(key, { attempt, tries: 0, dependsOn })
       armDrain()
     }
   })
@@ -1038,7 +1092,10 @@ async function applyGeomToWidget(id: string, geom: WidgetGeom): Promise<void> {
 function applyWidgetCreate(snapshot: Record<string, unknown>): void {
   const id = snapshot.id as string
   if (!id || tombstoned.has(id)) return
-  track(applyCreateGuarded(`widget:${id}`, () => tryCreateWidget(snapshot)))
+  // DEC-142 — a widget's FOREIGN KEY is its task, so that is the id whose
+  // arrival could ever make this create work.
+  const taskId = typeof snapshot.taskId === 'string' ? snapshot.taskId : null
+  track(applyCreateGuarded(`widget:${id}`, () => tryCreateWidget(snapshot), taskId))
 }
 async function tryCreateWidget(snapshot: Record<string, unknown>): Promise<boolean> {
   const id = snapshot.id as string
@@ -1171,6 +1228,9 @@ async function tryCreateNode(snapshot: Record<string, unknown>): Promise<boolean
   }
   if (!created) return false
   const node = created
+  // DEC-142 — this node exists now, so anything parked waiting for THIS id
+  // (a widget whose desk was merely late) gets another attempt.
+  unparkFor(node.id)
   deferUpdate(useNodeStore, (s) =>
     s.nodes.some((n) => n.id === node.id) ? {} : { nodes: [...s.nodes, node] }
   )

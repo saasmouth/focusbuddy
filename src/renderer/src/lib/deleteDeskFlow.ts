@@ -4,6 +4,7 @@ import { useNodeStore } from '../stores/nodes'
 import { useWorkItemStore } from '../stores/workItems'
 import { useAccountStore } from '../stores/account'
 import { revokeDeskAccess } from './deskShareClient'
+import { crdtEmitNodeDelete, crdtEmitWidgetDelete } from './crdtBridge'
 
 // DEC-021/DEC-022 — the delete flows (TRACK-LIFECYCLE L2, reshaped by
 // operator QA):
@@ -21,6 +22,24 @@ import { revokeDeskAccess } from './deskShareClient'
 //
 // D1: shared desks reach neither path — Archive-for-me / Leave-share instead
 // (the archived flag is scope-local on shared sync, both directions).
+
+/**
+ * DEC-142 — tell the sync layer what a permanent delete erased.
+ *
+ * The purge only ever ran against this device's database. The workspace kept
+ * the desk's widget snapshots and re-offered them to every device on every
+ * poll, where they could never be created again: their parent node was gone,
+ * so each failed a FOREIGN KEY check and retried for ever (measured at 888
+ * failed writes a minute for one desk deleted in August, filling 97% of the
+ * dev log). Tombstoning the widgets and the nodes is what makes
+ * "permanently" true beyond this machine.
+ *
+ * Children first, then their parents — the order a peer applies cleanly.
+ */
+export function tombstonePurged(purged: { nodeIds: string[]; widgetIds: string[] }): void {
+  for (const widgetId of purged.widgetIds) crdtEmitWidgetDelete(widgetId)
+  if (purged.nodeIds.length > 0) crdtEmitNodeDelete(purged.nodeIds)
+}
 
 export async function confirmPermanentDelete(entry: {
   id: string
@@ -49,6 +68,7 @@ export async function confirmPermanentDelete(entry: {
   }
 
   const result = await window.api.nodes.deletePermanent(entry.id)
+  tombstonePurged(result)
   await useNodeStore.getState().refresh()
   await useWorkItemStore.getState().refresh()
   window.dispatchEvent(new CustomEvent('fb:workitems-changed'))
