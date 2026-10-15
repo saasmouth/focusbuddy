@@ -2203,7 +2203,12 @@ export interface WidgetSuggestion {
 
 export interface SetupSuggestResponse {
   ok: boolean
-  suggestions?: WidgetSuggestion[]
+  // The RICH suggestion shape, same as the free-form builder returns. It used
+  // to be WidgetSuggestion — kind/title/content/reason and nothing else — which
+  // is why a suggested table arrived with no columns and a suggested page with
+  // no content. A suggestion that cannot carry its configuration can only ever
+  // produce a shell.
+  suggestions?: AiBuildSuggestion[]
   error?: string
   needsApiKey?: boolean
 }

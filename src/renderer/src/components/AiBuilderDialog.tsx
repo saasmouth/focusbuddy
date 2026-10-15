@@ -3,6 +3,7 @@ import type { AiBuildSuggestion, WidgetKind } from '@shared/types'
 import { catalogFor } from '../lib/widgetCatalog'
 import { useMagneticHover } from '../lib/useMagneticHover'
 import Icon from './Icon'
+import SuggestionPreview from './ai/SuggestionPreview'
 
 interface Props {
   taskId: string | null
@@ -286,8 +287,10 @@ function SuggestionCard({
   const catalog = catalogFor(suggestion.kind)
   // Same visual language as the shared ProposalCards (rounded-md, edge-soft
   // border on a raised surface, accent-tinted icon chip, 10/12/10 verb-subject-
-  // reason type scale). The checkbox + rich per-kind preview stay — they are
-  // this dialog's multi-select-and-preview job, which the standard card doesn't do.
+  // reason type scale). The checkbox + per-kind preview stay — they are this
+  // dialog's multi-select-and-preview job, which the standard card doesn't do.
+  // The preview itself is now shared with the new-desk setup dialog, which had
+  // none: ai/SuggestionPreview.
   return (
     <button
       onClick={onToggle}
@@ -315,7 +318,7 @@ function SuggestionCard({
           <div className="text-[10px] text-[var(--ink-50)] mt-0.5 leading-snug">
             {suggestion.reason}
           </div>
-          <SuggestionPreview suggestion={suggestion} />
+          <SuggestionPreview s={suggestion} />
         </div>
         <input
           type="checkbox"
@@ -329,83 +332,6 @@ function SuggestionCard({
   )
 }
 
-// Type-specific preview snippet — gives the user a sense of what's inside
-// before they commit. Columns for tables, headings for pages, type for fields.
-function SuggestionPreview({ suggestion }: { suggestion: AiBuildSuggestion }): JSX.Element | null {
-  if (suggestion.kind === 'table' && suggestion.tableSchema) {
-    const cols = suggestion.tableSchema.columns
-    return (
-      <div className="mt-1.5 flex flex-wrap gap-1">
-        {cols.slice(0, 6).map((c) => (
-          <span
-            key={c.id}
-            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-[var(--surface-sunken)] text-[var(--ink-70)]"
-          >
-            {c.label}
-            <span className="text-[var(--ink-40)]">·</span>
-            <span className="text-[var(--ink-40)]">{c.type}</span>
-          </span>
-        ))}
-        {cols.length > 6 && (
-          <span className="text-[10px] text-[var(--ink-40)]">+{cols.length - 6} more</span>
-        )}
-      </div>
-    )
-  }
-  if (suggestion.kind === 'page' && suggestion.pageContent) {
-    // Pull out heading text from the Tiptap doc for a quick preview.
-    const headings = extractHeadings(suggestion.pageContent)
-    if (headings.length === 0) return null
-    return (
-      <div className="mt-1.5 flex flex-wrap gap-1">
-        {headings.slice(0, 5).map((h, i) => (
-          <span
-            key={i}
-            className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface-sunken)] text-[var(--ink-70)]"
-          >
-            # {h}
-          </span>
-        ))}
-      </div>
-    )
-  }
-  if (suggestion.kind === 'field' && suggestion.fieldDef) {
-    return (
-      <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] text-[var(--ink-50)]">
-        <span className="px-1.5 py-0.5 rounded bg-[var(--surface-sunken)]">
-          {suggestion.fieldDef.type}
-        </span>
-      </div>
-    )
-  }
-  if (suggestion.content && suggestion.kind !== 'page' && suggestion.kind !== 'table') {
-    const preview = suggestion.content.slice(0, 80)
-    return (
-      <div className="mt-1.5 text-[10px] text-[var(--ink-50)] font-mono truncate">
-        {preview}
-        {suggestion.content.length > 80 ? '…' : ''}
-      </div>
-    )
-  }
-  return null
-}
-
-function extractHeadings(doc: unknown): string[] {
-  const out: string[] = []
-  function walk(node: unknown): void {
-    if (!node || typeof node !== 'object') return
-    const n = node as { type?: string; content?: unknown[]; text?: string }
-    if (n.type === 'heading' && Array.isArray(n.content)) {
-      const text = n.content
-        .map((c) => (c && typeof c === 'object' ? (c as { text?: string }).text ?? '' : ''))
-        .join('')
-      if (text) out.push(text)
-    }
-    if (Array.isArray(n.content)) n.content.forEach(walk)
-  }
-  walk(doc)
-  return out
-}
 
 // Currently-unused but exported in case future callers need to render the
 // kind icon outside this dialog.

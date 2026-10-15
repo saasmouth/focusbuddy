@@ -36,6 +36,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.28',
+    date: '2026-10-15T18:00:00Z',
+    title: 'PlexiDesk 4.3.28 \u2014 one menu, and a desk that sets itself up properly',
+    tag: 'feature',
+    summary:
+      'The four area menus are now one menu: Desk, Apps, People and Brain as sections of a single list, so what you want is never behind a tab you cannot see. Building a desk with AI is on by default, sets the desk up comprehensively, and every widget it suggests arrives configured \u2014 with a preview so you can see it before you accept it.',
+    highlights: [
+      'One menu instead of four. Desk, Apps, People and Brain are sections of a single vertical list, each collapsible, all open to begin with. Previously each area had its own menu behind a row of tabs, so reaching a document from a desk meant switching area first and the thing you wanted was usually in a menu you could not see. Clicking a section heading still jumps to that area in one click.',
+      'Office is now Apps, and it leads with PlexiiApps \u2014 Docs, Sheets, Slides, Diagrams, Design, Draw, Sign and Meet as a grid of icons \u2014 then your tools, then your connected apps as a second grid.',
+      'The Vault moved into Apps. It was filed under Settings on the reasoning that you only look at it when something needs checking, but a credential store is something you open while working, and Settings is a modal you have to dismiss to get back. It now opens in place like Calendar and Files.',
+      'Building a desk with AI is on by default, and it no longer stops at a handful of suggestions. It sets the desk up as completely as the work needs \u2014 the plan or brief, the records you track, the references you want open, the few values worth glancing at.',
+      'What it suggests arrives ready to use. A suggested table comes with its columns, their types and their select options; a page comes with real headings and a starter list under each; a field comes with the right type chosen. Previously these arrived empty \u2014 a table with no columns, a page with no content \u2014 and you had to configure each one by hand after accepting it.',
+      'Every suggestion now previews inside its card, so you can see the actual columns, headings or destination before you put it on a desk. When the AI leaves something unconfigured the card says so, rather than looking fine and surprising you later.',
+      'Fixed: the missed-work prompt could flash open and closed in a loop. It was detecting itself as a competing interruption.'
+    ]
+  },
+  {
     version: '4.3.26',
     date: '2026-10-11T16:00:00Z',
     title: 'PlexiDesk 4.3.26 \u2014 starts faster, and three settings that now do what they say',

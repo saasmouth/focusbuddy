@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ATTENTION_FILTERS } from '../lib/attentionQueues'
-import type { ConnectedApp, FbNode, NodeKind, WidgetSuggestion } from '@shared/types'
+import type { AiBuildSuggestion, ConnectedApp, FbNode, NodeKind } from '@shared/types'
 import { useNodeStore } from '../stores/nodes'
 import { useWorkItemStore } from '../stores/workItems'
 import { useCaptureConsole, type CaptureSource } from '../stores/captureConsole'
@@ -23,6 +23,7 @@ import { useSharesStore } from '../stores/shares'
 import Icon from './Icon'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 import AreaAccordion from './nav/AreaAccordion'
+import { materializeSuggestion } from '../lib/materializeSuggestion'
 import AppLogo from './AppLogo'
 import {
   FLOATING_MENU_ASIDE,
@@ -265,7 +266,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
     return true // home / all-tasks have no inner id
   }
 
-  async function handleAISetupAccept(suggestions: WidgetSuggestion[]): Promise<void> {
+  async function handleAISetupAccept(suggestions: AiBuildSuggestion[]): Promise<void> {
     const task = aiSetupTask
     if (!task) return
     let x = 80
@@ -281,11 +282,18 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
         y += rowMaxH + 24
         rowMaxH = 0
       }
+      // Configured, not a shell: a suggested table provisions its columns here
+      // and a page its body — see lib/materializeSuggestion.
+      const { content, title } = await materializeSuggestion(
+        s,
+        task.id,
+        entry?.defaultContent ?? ''
+      )
       await createWidget({
         taskId: task.id,
         kind: s.kind,
-        title: s.title || '',
-        content: s.content || entry?.defaultContent || '',
+        title,
+        content,
         x: Math.round(x),
         y: Math.round(y),
         width: w,

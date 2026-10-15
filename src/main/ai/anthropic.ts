@@ -109,7 +109,6 @@ import type {
   TrailSummaryResponse,
   Widget,
   WidgetKind,
-  WidgetSuggestion
 } from '@shared/types'
 
 // ── Action-proposal tools (chat → workspace) ────────────────────────────────
@@ -2426,22 +2425,6 @@ export async function generateDailyBrief(): Promise<{ ok: boolean; brief?: strin
   }
 }
 
-const VALID_KINDS: WidgetKind[] = [
-  'sticky',
-  'note',
-  'markdown',
-  'webview',
-  'pdf',
-  'gdoc',
-  'gsheet',
-  'gslide',
-  'email',
-  'calculator',
-  'color',
-  'image',
-  'video',
-  'timer'
-]
 
 
 // Ask-your-workspace: answer a question grounded ONLY in the workspace documents
@@ -3153,23 +3136,24 @@ export async function generateStandupNarrative(input: {
 }
 
 export async function suggestSetupWidgets(taskId: string): Promise<SetupSuggestResponse> {
-  const c = getClient()
-  if (!c) return { ok: false, needsApiKey: true, error: 'No Anthropic API key set. Open Settings → AI · API keys to paste one.' }
   const node = getNode(taskId)
   if (!node || node.kind !== 'task') {
     return { ok: false, error: 'Desk not found' }
   }
-  const existing = listWidgetsByTask(taskId)
-  const existingSummary =
-    existing.length > 0
-      ? existing
-          .map(
-            (w) =>
-              `- ${w.kind}${w.title ? ` "${w.title}"` : ''}${w.content ? `: ${w.content.slice(0, 80)}` : ''}`
-          )
-          .join('\n')
-      : '(none yet — fresh canvas)'
 
+  // ONE engine, not two.
+  //
+  // This function used to carry its own prompt, which asked for "4–7
+  // suggestions" in a shape with no configuration fields at all. So the desk
+  // you had just created got a table with no columns and a page with no
+  // content — a row of shells to be filled in by hand, which is the opposite
+  // of setting a desk up for someone. buildFromPrompt already describes every
+  // widget kind, now REQUIRES full configuration, and returns
+  // tableSchema/pageContent/fieldDef. The only thing it lacked was a prompt
+  // describing the desk instead of one the user types.
+  //
+  // Delegating rather than copying is deliberate: two prompts for the same job
+  // is how one of them ends up a year behind the other.
   const recent = getRecentHistory(8, taskId)
   const recentSummary =
     recent.length > 0
@@ -3181,94 +3165,42 @@ export async function suggestSetupWidgets(taskId: string): Promise<SetupSuggestR
           .join('\n')
       : '(no browsing history yet)'
 
-  const system =
-    'You are PlexiDesk, a workspace setup assistant for an ADHD-friendly, desk-based focus app. ' +
-    'The user is about to start working on a desk — they often find it hard to start because deciding which tools to open is paralyzing. ' +
-    'Your job: suggest exactly the widgets they need. Be CONCRETE and SPECIFIC. If they need to research X, suggest a search URL for X, not "a browser for research". ' +
-    'Aim for 4–7 suggestions. Skip widgets that are already on their canvas (listed below).' +
-    '\n\nAvailable widget kinds:\n' +
-    '- sticky: a small colored sticky note (use for short reminders, talking points)\n' +
-    '- note: a larger paper note (use for longer writing surface)\n' +
-    '- markdown: a markdown editor that renders to rich text. For checklists use GFM task-list syntax — each line must start with "- [ ] " (unchecked) or "- [x] " (checked), exactly that, dash-space-bracket. Use for structured outlines, briefs, checklists, tables, longer documents.\n' +
-    '- webview: any URL (use this for generic browser tabs)\n' +
-    '- gdoc: a Google Doc URL\n' +
-    '- gsheet: a Google Sheet URL\n' +
-    '- gslide: a Google Slides URL\n' +
-    '- pdf: a PDF URL\n' +
-    '- email: a Gmail/Outlook URL (default https://mail.google.com)\n' +
-    '- timer: a countdown timer — content MUST be JSON like {"targetSec":1500,"elapsedSec":0,"state":"idle","startedAt":null}\n' +
-    '- calculator: an inline calculator — content empty\n' +
-    '- color: a color picker — content can be empty or a hex like "#fbbf24"\n' +
-    '\nFor URLs you do not know exactly, use sensible specific guesses:\n' +
-    '- Google search: https://www.google.com/search?q=YOUR+SEARCH+TERMS\n' +
-    '- Gmail: https://mail.google.com/mail/u/0/#search/RELEVANT-QUERY (when looking up specific email threads)\n' +
-    '- Otherwise leave content empty and the user fills the URL.\n' +
-    '\nRespond with VALID JSON ONLY, no commentary, no markdown fence. Schema:\n' +
-    '{\n  "suggestions": [\n    {\n      "kind": "webview",\n      "title": "short 1-4 word label",\n      "content": "URL or text",\n      "reason": "one sentence why this helps"\n    }\n  ]\n}'
+  const prompt = [
+    `Set up this desk comprehensively so the user can start working immediately.`,
+    ``,
+    `Desk title: ${node.title}`,
+    node.description ? `What it is about: ${node.description}` : '',
+    `Priority/Interest/Importance: ${node.priority}/${node.interest}/${node.importance} (1-5)`,
+    node.estimateMinutes !== null ? `Estimated time: ${node.estimateMinutes} min` : '',
+    ``,
+    `The user is about to start work and often finds deciding which tools to open`,
+    `paralysing, so give them a desk that is already set up rather than a set of`,
+    `empty containers. Be concrete: if they need to research something, give the`,
+    `actual search or documentation URL, not "a browser for research".`,
+    ``,
+    `The user's most-visited pages — prefer these specific URLs where relevant,`,
+    `because they are the user's actual workflow rather than a generic guess:`,
+    recentSummary
+  ]
+    .filter((l) => l !== '')
+    .join('\n')
 
-  const userMsg = `Desk to set up:
-Title: ${node.title}
-${node.description ? 'Description: ' + node.description : ''}
-Priority/Interest/Importance: ${node.priority}/${node.interest}/${node.importance} (1-5)
-${node.estimateMinutes !== null ? `Estimated time: ${node.estimateMinutes} min` : ''}
-
-Widgets already on the canvas (don't suggest duplicates of these):
-${existingSummary}
-
-The user's most-visited pages (prefer these specific URLs when relevant — they're the user's actual workflow, not generic guesses):
-${recentSummary}
-
-Return the JSON now. 4–7 suggestions. Specific URLs where possible.`
-
-  try {
-    const resp = await c.messages.create({
-      model: resolveModel('setup'),
-      max_tokens: 8192,
-      system,
-      messages: [{ role: 'user', content: userMsg }]
-    })
-    if ((resp.stop_reason as string) === 'refusal') {
-      return { ok: false, error: 'Claude declined this request. Try rephrasing or breaking it into smaller steps.' }
-    }
-    if ((resp.stop_reason as string) === 'model_context_window_exceeded') {
-      return { ok: false, error: 'Conversation hit the model context window. Start a fresh session.' }
-    }
-    const text = resp.content
-      .filter((b) => b.type === 'text')
-      .map((b) => ('text' in b ? b.text : ''))
-      .join('\n')
-      .trim()
-    const jsonStr = extractJson(text)
-    if (!jsonStr) return { ok: false, error: 'AI did not return JSON' }
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(jsonStr)
-    } catch (e) {
-      return { ok: false, error: 'AI returned invalid JSON: ' + (e as Error).message }
-    }
-    const arr = (parsed as { suggestions?: unknown[] }).suggestions
-    if (!Array.isArray(arr)) {
-      return { ok: false, error: 'AI response missing "suggestions" array' }
-    }
-    const valid: WidgetSuggestion[] = []
-    for (const item of arr) {
-      const obj = item as Partial<WidgetSuggestion>
-      if (!obj.kind || !VALID_KINDS.includes(obj.kind)) continue
-      valid.push({
-        kind: obj.kind,
-        title: (obj.title ?? '').toString().slice(0, 80),
-        content: (obj.content ?? '').toString().slice(0, 600),
-        reason: (obj.reason ?? '').toString().slice(0, 200)
-      })
-    }
-    if (valid.length === 0) {
-      return { ok: false, error: 'AI returned no valid suggestions' }
-    }
-    return { ok: true, suggestions: valid }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
+  const res = await buildFromPrompt({ prompt, taskId })
+  if (!res.ok) {
+    return { ok: false, error: res.error, needsApiKey: res.needsApiKey }
   }
+  // Selection in the dialog is keyed by id, so a model that omitted one would
+  // make two cards share a key and toggle together.
+  const suggestions = (res.suggestions ?? []).map((s, i) => ({
+    ...s,
+    id: s.id && String(s.id).trim() ? String(s.id) : `s${i + 1}`
+  }))
+  if (suggestions.length === 0) {
+    return { ok: false, error: 'AI returned no valid suggestions' }
+  }
+  return { ok: true, suggestions }
 }
+
 
 export async function generateResume(
   taskId: string
@@ -3639,11 +3571,37 @@ Widget kinds (use the EXACT kind string):
 
 Rules:
 1. Choose the BEST widget for each piece of the user's intent. Prefer "table" for any list-of-records-with-attributes ("clients", "trips", "habits"). Prefer "page" for prose, plans, briefs. Prefer "field" for single values the user wants to glance at.
-2. Tables should have 3-6 columns. Include a primary text column first (e.g. Name/Title) and useful attributes (Status, Date, Tags, etc.).
-3. Pre-populate page content with section headings + a starter paragraph or todo list so the user has structure to fill in.
-4. For "field" widgets, pick the type carefully — checkbox for binary, single-select for status with options, date for due dates, number for quantities.
-5. Use sensible 4-8 suggestions per request. Each must be valuable on its own.
-6. Skip widgets that already exist on the canvas (listed in "existing widgets" below).
+2. SUGGEST AS MANY AS THE WORK GENUINELY NEEDS. There is no target count and no
+   maximum. Set the desk up COMPREHENSIVELY — everything needed to start
+   working, not a sample to be fleshed out later. A desk for a real project
+   usually wants a plan or brief, the records it tracks, the references it needs
+   open, and the few single values worth glancing at. If three will do, send
+   three; if fourteen are each genuinely useful, send fourteen. The only test is
+   whether each one earns its place on its own; padding is worse than brevity.
+3. NEVER SHIP A SHELL. Every widget that has configuration MUST arrive fully
+   configured, ready to use the moment it lands:
+   - "table": tableSchema.columns is REQUIRED — a table with no columns is
+     useless and the user cannot tell what it was for. A primary text column
+     first (Name/Title), then the attributes the work actually tracks (Status,
+     Owner, Date, Amount, Tags…). Give single-select and multi-select real
+     config.options with labels AND hex colours — not an empty list.
+   - "page": pageContent is REQUIRED — real section headings plus a starter
+     paragraph or task list under each, so it reads as a document already
+     begun rather than an empty sheet.
+   - "field": fieldDef is REQUIRED, with the type chosen deliberately —
+     checkbox for binary, single-select (with options) for status, date for
+     deadlines, number for quantities.
+   - "webview"/"pdf"/"gdoc"/"gsheet"/"gslide"/"email": content MUST be a real,
+     specific URL. Never a bare domain when a deep link is the useful thing,
+     and never a placeholder.
+   - "timer": content MUST be the JSON shape given above, with a targetSec that
+     suits the task.
+   - "sticky"/"note"/"markdown": content MUST be the actual text, written for
+     this desk. Not a prompt telling the user what to write.
+   A suggestion you cannot configure is a suggestion you should not make.
+4. Tables want 3-6 columns in the common case; use more when the records truly
+   have more attributes worth tracking.
+5. Skip widgets that already exist on the canvas (listed in "existing widgets" below).
 
 Respond with VALID JSON ONLY (no commentary, no markdown fence). Schema:
 {

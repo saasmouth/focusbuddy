@@ -52,7 +52,7 @@ import Icon from './Icon'
 import { useChatStore } from '../stores/chat'
 import { useFocusSessionStore } from '../stores/focusSession'
 import { chimeIn, futuristicPowerOn, sonarPing } from '../lib/audioBeep'
-import type { WidgetSuggestion } from '@shared/types'
+import { materializeSuggestion } from '../lib/materializeSuggestion'
 import {
   CATEGORIES,
   DRAG_MIME,
@@ -2217,52 +2217,9 @@ export default function Canvas(): JSX.Element {
         cursorY += rowMaxH + GAP
         rowMaxH = 0
       }
-      // Per-kind translation: turn the suggestion's payload into the
-      // widget.content + any backing entity (e.g. fb_tables row).
-      let content = s.content ?? ''
-      let title = s.title || ''
-      if (s.kind === 'table' && s.tableSchema) {
-        // Provision the backing table now so widget.content is the table id.
-        // The AI returned columns in the shared FieldDefinition shape; we
-        // trust the structure but the IPC layer would defensively reject
-        // unknown column types.
-        try {
-          const created = await window.api.tables.create({
-            taskId: activeTaskId,
-            title: s.title || 'Untitled',
-            schema: {
-              columns: s.tableSchema.columns.map((c) => ({
-                id: c.id,
-                type: c.type,
-                label: c.label,
-                config: c.config
-              })) as never
-            }
-          })
-          content = created.id
-        } catch {
-          // Fall through: spawn an empty table widget that will auto-
-          // provision its own schema on first render.
-          content = ''
-        }
-      } else if (s.kind === 'page' && s.pageContent) {
-        // Tiptap stores its content as a JSON object; we serialize so the
-        // existing widget.content string field can carry it.
-        content = JSON.stringify(s.pageContent)
-      } else if (s.kind === 'field' && s.fieldDef) {
-        // The FieldWidget reads content as `{ def, value }` JSON; we wrap
-        // the AI-provided def with a defaultValue for its type. Type isn't
-        // fully validated here — the FieldWidget's switch will gracefully
-        // show "unsupported field" if the AI returns a type we don't render.
-        content = JSON.stringify({
-          def: s.fieldDef,
-          // We can't import defaultValue from @shared/fields without making
-          // Canvas.tsx aware of every field type — but the FieldWidget
-          // handles a null/missing value by substituting the default itself.
-          value: null
-        })
-        title = s.fieldDef.label || s.title
-      }
+      // Per-kind translation (shared with the new-desk path, so both arrive
+      // configured rather than as shells) — see lib/materializeSuggestion.
+      const { content, title } = await materializeSuggestion(s, activeTaskId)
       await createWidget({
         taskId: activeTaskId,
         kind: s.kind,
@@ -2285,7 +2242,7 @@ export default function Canvas(): JSX.Element {
     setTimeout(() => centerOnHome(), 100)
   }
 
-  async function handleAISetupAccept(suggestions: WidgetSuggestion[]): Promise<void> {
+  async function handleAISetupAccept(suggestions: AiBuildSuggestion[]): Promise<void> {
     if (!activeTaskId || !dropRef.current) return
     const rect = dropRef.current.getBoundingClientRect()
     const visibleW = rect.width / zoom
@@ -2320,11 +2277,19 @@ export default function Canvas(): JSX.Element {
         cursorY += rowMaxH + GAP
         rowMaxH = 0
       }
+      // Same translation as the builder: a suggested table provisions its
+      // columns, a page its body, a field its def. Without this the desk you
+      // just created filled up with empty containers.
+      const { content, title } = await materializeSuggestion(
+        s,
+        activeTaskId,
+        entry?.defaultContent ?? ''
+      )
       await createWidget({
         taskId: activeTaskId,
         kind: s.kind,
-        title: s.title || '',
-        content: s.content || (entry?.defaultContent ?? ''),
+        title,
+        content,
         x: Math.round(cursorX),
         y: Math.round(cursorY),
         width: w,

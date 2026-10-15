@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react'
-import type { FbNode, WidgetSuggestion } from '@shared/types'
+import type { AiBuildSuggestion, FbNode } from '@shared/types'
 import { catalogFor } from '../lib/widgetCatalog'
 import Icon from './Icon'
 import Modal from './plexi/Modal'
+import SuggestionPreview from './ai/SuggestionPreview'
 
 interface Props {
   task: FbNode
   onClose: () => void
-  onAccept: (selected: WidgetSuggestion[]) => Promise<void>
+  onAccept: (selected: AiBuildSuggestion[]) => Promise<void>
 }
 
 type State =
   | { stage: 'loading' }
-  | { stage: 'ready'; suggestions: WidgetSuggestion[]; selected: Set<number> }
+  | { stage: 'ready'; suggestions: AiBuildSuggestion[]; selected: Set<number> }
   | { stage: 'error'; message: string; needsApiKey?: boolean }
   | { stage: 'spawning' }
 
@@ -120,8 +121,8 @@ export default function AISetupDialog({ task, onClose, onAccept }: Props): JSX.E
           {state.stage === 'ready' && (
             <div className="space-y-2">
               <p className="text-[12px] text-[var(--ink-70)] mb-3 leading-relaxed">
-                Based on your task, here's what I think you'll need. Uncheck anything you don't
-                want — defaults are tuned to give you a complete start.
+                Based on your desk, here's a complete setup — each one already configured.
+                Check what it will look like below, and uncheck anything you don't want.
               </p>
               {state.suggestions.map((s, i) => {
                 const entry = catalogFor(s.kind)
@@ -167,11 +168,10 @@ export default function AISetupDialog({ task, onClose, onAccept }: Props): JSX.E
                           {s.reason}
                         </p>
                       )}
-                      {s.content && (
-                        <p className="text-[10px] text-[var(--ink-40)] mt-1 truncate font-mono">
-                          {s.content}
-                        </p>
-                      )}
+                      {/* What it will actually be. The truncated `content`
+                          line this replaces showed a table's uuid and nothing
+                          of its columns — see ai/SuggestionPreview. */}
+                      <SuggestionPreview s={s} />
                     </div>
                   </label>
                 )

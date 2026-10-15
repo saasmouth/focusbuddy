@@ -138,7 +138,22 @@ export default function NewNodeDialog({
   const [toolsInput, setToolsInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
-  const [autoSuggestAI, setAutoSuggestAI] = useState(false)
+  // ON by default (operator ruling): the point of the dialog is to hand you a
+  // desk that is already set up, and a build assistant you have to remember to
+  // switch on is one most people never see.
+  //
+  // Seeded from the capability, not from `true`. The checkbox only renders when
+  // ai_task_setup is entitled, so a bare `true` would leave the state on for
+  // someone who cannot see or clear it — and the hand-off at submit would then
+  // open a surface they are not entitled to.
+  const [autoSuggestAI, setAutoSuggestAI] = useState(aiSetupEnabled)
+  // Capabilities resolve asynchronously (and change on an org switch), so the
+  // first render can say "not entitled" and the second say otherwise. Follow it
+  // until the user expresses a preference of their own.
+  const touchedAutoSuggest = useRef(false)
+  useEffect(() => {
+    if (!touchedAutoSuggest.current) setAutoSuggestAI(aiSetupEnabled)
+  }, [aiSetupEnabled])
   const [recentPages, setRecentPages] = useState<BrowsingHistoryEntry[]>([])
   const [addedUrls, setAddedUrls] = useState<Set<string>>(new Set())
 
@@ -271,7 +286,7 @@ export default function NewNodeDialog({
         // DEC-073 — creation OPENS the desk. Previously the desk was created
         // and the user stayed put, left to find it under All Desks.
         useViewStore.getState().goTask(created.id)
-        if (autoSuggestAI && onRequestAISetup) {
+        if (autoSuggestAI && aiSetupEnabled && onRequestAISetup) {
           // Close this dialog and hand off to parent so the AI Setup modal opens cleanly.
           onClose()
           onRequestAISetup(created)
@@ -752,7 +767,10 @@ export default function NewNodeDialog({
                       <input
                         type="checkbox"
                         checked={autoSuggestAI}
-                        onChange={(e) => setAutoSuggestAI(e.target.checked)}
+                        onChange={(e) => {
+                          touchedAutoSuggest.current = true
+                          setAutoSuggestAI(e.target.checked)
+                        }}
                         className="mt-0.5 h-3.5 w-3.5 accent-[rgb(var(--accent))] cursor-pointer"
                       />
                       <div className="flex-1">
