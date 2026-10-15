@@ -62,23 +62,35 @@ const TOOL_KEYS = ['mail', 'inbox', 'chat', 'calendar', 'files', 'browser', 'vau
  * halves. Attention is first after Home because its whole job is being one
  * glance away (S6).
  */
-const DESK_VIEWS: { kind: string; label: string; icon: string; go: (v: ViewStore) => void }[] = [
-  { kind: 'attention', label: 'Attention', icon: 'notifications', go: (v) => v.goAttention() },
-  { kind: 'rooms', label: 'Rooms', icon: 'meeting_room', go: (v) => v.goRooms() },
-  { kind: 'desks', label: 'Desks', icon: 'desk', go: (v) => v.goDesks() },
-  { kind: 'shared', label: 'Shared Desks', icon: 'folder_shared', go: (v) => v.goShared() },
-  { kind: 'trash', label: 'Trash', icon: 'delete', go: (v) => v.goTrash() }
+const DESK_VIEWS: {
+  kind: string
+  label: string
+  icon: string
+  tone: string
+  go: (v: ViewStore) => void
+}[] = [
+  { kind: 'attention', label: 'Attention', icon: 'notifications', tone: 'text-amber-500', go: (v) => v.goAttention() },
+  { kind: 'rooms', label: 'Rooms', icon: 'meeting_room', tone: 'text-teal-500', go: (v) => v.goRooms() },
+  { kind: 'desks', label: 'Desks', icon: 'desk', tone: 'text-sky-500', go: (v) => v.goDesks() },
+  { kind: 'shared', label: 'Shared Desks', icon: 'folder_shared', tone: 'text-violet-500', go: (v) => v.goShared() },
+  { kind: 'trash', label: 'Trash', icon: 'delete', tone: 'text-slate-500', go: (v) => v.goTrash() }
 ]
 
 type SectionId = 'desk' | 'apps' | 'people' | 'brain'
 
-const SECTIONS: { id: SectionId; label: string; icon: string }[] = [
-  { id: 'desk', label: 'Desk', icon: 'desktop_windows' },
+const SECTIONS: { id: SectionId; label: string; icon: string; tone: string }[] = [
+  { id: 'desk', label: 'Desk', icon: 'desktop_windows', tone: 'text-sky-500' },
   // "Office" named the room; the operator renamed it for what it holds.
-  { id: 'apps', label: 'Apps', icon: 'apps' },
-  { id: 'people', label: 'People', icon: 'groups' },
-  { id: 'brain', label: 'Brain', icon: 'neurology' }
+  { id: 'apps', label: 'Apps', icon: 'apps', tone: 'text-indigo-500' },
+  { id: 'people', label: 'People', icon: 'groups', tone: 'text-teal-500' },
+  { id: 'brain', label: 'Brain', icon: 'neurology', tone: 'text-fuchsia-500' }
 ]
+
+/** The section headers' colours, by id, so the four are coloured too. */
+const SECTION_TONE: Record<SectionId, string> = SECTIONS.reduce(
+  (acc, s) => ({ ...acc, [s.id]: s.tone }),
+  {} as Record<SectionId, string>
+)
 
 const OPEN_KEY = 'fb.nav.accordion.open'
 
@@ -152,7 +164,7 @@ function Section({
           aria-disabled="true"
           className="w-full flex items-center gap-2 px-3 py-2 text-left opacity-50"
         >
-          <Icon name={icon} size={16} className="shrink-0 text-[var(--ink-50)]" />
+          <Icon name={icon} size={17} filled className={`shrink-0 ${SECTION_TONE[id]}`} />
           <span className="flex-1 min-w-0 truncate text-[11px] uppercase tracking-[0.12em] font-semibold text-[var(--ink-60)]">
             {label}
           </span>
@@ -174,7 +186,7 @@ function Section({
           data-testid={`switch-${kind}`}
           className="flex-1 flex items-center gap-2 px-3 py-2 text-left min-w-0"
         >
-          <Icon name={icon} size={16} className="shrink-0 text-[var(--ink-50)]" />
+          <Icon name={icon} size={17} filled className={`shrink-0 ${SECTION_TONE[id]}`} />
           <span className="flex-1 min-w-0 truncate text-[11px] uppercase tracking-[0.12em] font-semibold text-[var(--ink-60)]">
             {label}
           </span>
@@ -214,12 +226,15 @@ function SubHeading({ label, action }: { label: string; action?: React.ReactNode
 function Row({
   label,
   icon,
+  tone,
   active,
   onClick,
   testid
 }: {
   label: string
   icon: string
+  /** The icon's colour. Every icon in this menu carries one. */
+  tone?: string
   active: boolean
   onClick: () => void
   testid?: string
@@ -235,24 +250,47 @@ function Row({
           : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
       }`}
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 shrink-0">
-        <Icon name={icon} size={16} />
+      {/* Coloured, and filled rather than outlined — an outline at 16px reads
+          as grey whatever colour it is given. The active row keeps the accent
+          so selection still wins over the icon's own hue. */}
+      <span
+        className={`inline-flex items-center justify-center w-6 h-6 shrink-0 ${
+          active ? '' : (tone ?? 'text-[var(--ink-60)]')
+        }`}
+      >
+        <Icon name={icon} size={17} filled />
       </span>
-      <span className="min-w-0 truncate text-left">{label}</span>
+      <span className="min-w-0 truncate text-left whitespace-nowrap">{label}</span>
     </button>
   )
 }
 
 /**
- * A grid of icon tiles.
+ * A grid of icon tiles — PlexiiApps, Tools and Connected apps.
  *
- * Used for the two sets the operator asked to see this way — PlexiiApps and
- * Connected apps. A grid is right for them and wrong for the tools: these are
- * recognised by their mark, and there are enough of them that a list would push
- * everything below out of reach.
+ * COLUMNS FOLLOW THE WIDTH, and that is the whole trick. It was a fixed
+ * `grid-cols-4`, so at the 232px minimum sidebar width each tile got ~52px and
+ * "PlexiDiagrams" had nowhere to go but a second line. `auto-fit` with a
+ * minimum tile width drops to three columns, then two, as the menu narrows —
+ * which is what the operator asked for: fewer columns rather than wrapped
+ * names. No ResizeObserver needed; the grid does it in CSS, so it also follows
+ * a drag-resize live.
+ *
+ * TILE_MIN is the floor that keeps the longest real label on one line at this
+ * font size — "PlexiDiagrams" is the one that sets it.
  */
+const TILE_MIN = 84
+
 function TileGrid({ children }: { children: React.ReactNode }): JSX.Element {
-  return <div className="grid grid-cols-4 gap-1 px-2">{children}</div>
+  return (
+    <div
+      className="grid gap-1 px-2"
+      style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${TILE_MIN}px, 1fr))` }}
+      data-testid="nav-tile-grid"
+    >
+      {children}
+    </div>
+  )
 }
 
 function Tile({
@@ -281,9 +319,11 @@ function Tile({
       }`}
     >
       <span className="inline-flex items-center justify-center w-7 h-7 shrink-0">{children}</span>
-      {/* Two lines, centred, so "PlexiDiagrams" is readable rather than clipped
-          to "PlexiDiag…" in a 4-column grid at the 232px minimum width. */}
-      <span className="w-full text-[10px] leading-tight text-center break-words line-clamp-2">
+      {/* ONE LINE, ALWAYS. A wrapped name makes every tile in the row taller
+          and the grid ragged; the column count gives way instead (see
+          TileGrid). The full name is on the tile's title, so an ellipsis never
+          loses it. */}
+      <span className="w-full text-[10px] leading-tight text-center truncate whitespace-nowrap">
         {label}
       </span>
     </button>
@@ -291,31 +331,15 @@ function Tile({
 }
 
 /**
- * `appsExtra` — the Office document library (Recent, Starred, Templates, Trash).
- *
- * Those are not navigable views: they are `page` state inside the Office shell,
- * which is also why they only mean anything while you are in Apps. So the shell
- * passes them in rather than this module pretending it can route to them, and
- * rather than them becoming a fifth menu nobody can find. Making them real
- * views is the follow-up that would let them sit here unconditionally.
- */
-/**
  * `deskSlot` — the desk sidebar's own, richer desk list.
  *
- * That list is not the flat one this module builds from the registry: Attention
- * carries its six state/due filters and Rooms expands into All desks / Shared
- * with an unread badge. So when the desk sidebar mounts this menu it passes its
- * list in as the Desk section's BODY, rather than having it replaced (which
- * would have silently cost both) or sitting outside the accordion (which cost
- * the Desk section header, and with it the one-click switch back to the desk —
- * `switch-plexidesk`). Everywhere else the flat registry list is used, because
- * those menus never had a desk list at all.
+ * (The Office document library used to come in here as `appsExtra`. It moved
+ * to the Office dashboard, beside the documents it filters — a menu is for
+ * getting somewhere, not for filtering a list you cannot see from it.)
  */
 export default function AreaAccordion({
-  appsExtra,
   deskSlot
 }: {
-  appsExtra?: React.ReactNode
   deskSlot?: React.ReactNode
 } = {}): JSX.Element {
   const [open, setOpen] = useState<Record<SectionId, boolean>>(readOpen)
@@ -396,6 +420,7 @@ export default function AreaAccordion({
               key={d.kind}
               label={d.label}
               icon={d.icon}
+              tone={d.tone}
               active={activeArea === d.kind}
               onClick={() => d.go(useViewStore.getState())}
               testid={`nav-desk-${d.kind}`}
@@ -410,6 +435,7 @@ export default function AreaAccordion({
               key={a.key}
               label={a.label}
               icon={a.icon}
+              tone={a.tone}
               active={isActive('plexidesk', a.key)}
               onClick={() => goPlexiDesk(a.key)}
               testid={`nav-plexidesk-${a.key}`}
@@ -441,24 +467,42 @@ export default function AreaAccordion({
               onClick={() => goOffice(a.key)}
               testid={`office-sideapp-${a.key}`}
             >
-              <Icon name={a.icon} size={18} />
+              {/* Filled, not outlined, and in the app's own colour. An outlined
+                  glyph reads as grey at this size no matter what colour it is
+                  given, which is why these looked monochrome. */}
+              <Icon
+                name={a.icon}
+                size={22}
+                filled
+                className={isActive('office', a.key) ? '' : (a.tone ?? 'text-[var(--ink-70)]')}
+              />
             </Tile>
           ))}
         </TileGrid>
 
         <SubHeading label="Tools" />
-        <div className="px-2">
+        {/* A grid, on the same rules as PlexiiApps and Connected apps: same
+            tile, same single-line label, same column count giving way as the
+            menu narrows. It was a list of rows, which made this one section
+            read as a different kind of thing from the two around it. */}
+        <TileGrid>
           {byKey(TOOL_KEYS).map((a) => (
-            <Row
+            <Tile
               key={a.key}
               label={a.label}
-              icon={a.icon}
               active={isActive('office', a.key)}
               onClick={() => goOffice(a.key)}
               testid={`office-comms-app-${a.key}`}
-            />
+            >
+              <Icon
+                name={a.icon}
+                size={22}
+                filled
+                className={isActive('office', a.key) ? '' : (a.tone ?? 'text-[var(--ink-70)]')}
+              />
+            </Tile>
           ))}
-        </div>
+        </TileGrid>
 
         <SubHeading label="Connected apps" />
         {connectedApps.length === 0 ? (
@@ -483,7 +527,6 @@ export default function AreaAccordion({
           </TileGrid>
         )}
 
-        {appsExtra}
       </Section>
 
       <Section
@@ -504,6 +547,7 @@ export default function AreaAccordion({
               key={a.key}
               label={a.label}
               icon={a.icon}
+              tone={a.tone}
               active={isActive('plexipeople', a.key)}
               onClick={() => goPlexiPeople(a.key)}
               testid={`nav-plexipeople-${a.key}`}
@@ -530,6 +574,7 @@ export default function AreaAccordion({
               key={a.key}
               label={a.label}
               icon={a.icon}
+              tone={a.tone}
               active={isActive('plexibrain', a.key)}
               onClick={() => goPlexiBrain(a.key)}
               testid={`nav-plexibrain-${a.key}`}

@@ -171,6 +171,17 @@ const TYPE_ICON: Record<string, { icon: string; tint: string }> = {
   draw: { icon: 'brush', tint: 'text-rose-500' }
 }
 
+// The document-library views, shared rather than rebuilt: this list was
+// previously inlined in the side menu's NAV.
+const LIBRARY_PAGES: { id: OfficePage; label: string; icon: string; tone: string }[] = [
+  { id: 'home', label: 'All', icon: 'home', tone: 'text-indigo-500' },
+  { id: 'recent', label: 'Recent', icon: 'schedule', tone: 'text-rose-500' },
+  { id: 'starred', label: 'Starred', icon: 'star', tone: 'text-amber-500' },
+  { id: 'shared', label: 'Shared with me', icon: 'group', tone: 'text-teal-500' },
+  { id: 'templates', label: 'Templates', icon: 'plexii:templates', tone: 'text-sky-500' },
+  { id: 'trash', label: 'Trash', icon: 'delete', tone: 'text-slate-500' }
+]
+
 const PRO_FEATURES = ['Advanced collaboration', 'Premium templates', 'AI productivity tools', 'Priority support']
 
 const STAR_KEY = 'fb.office.starred'
@@ -456,7 +467,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
         {menuMinimized ? (
           <MenuRestorePill onClick={restoreMenu} label="PlexiOffice" title="Show the PlexiOffice menu" />
         ) : (
-          <OfficeSidebar page={page} onPage={(p) => { setOpenDocId(null); setActiveComms(null); setPage(p) }} onExit={goHome} onMinimize={minimizeMenu} starredCount={starred.size} />
+          <OfficeSidebar onExit={goHome} onMinimize={minimizeMenu} />
         )}
         <div className="flex-1 min-w-0">
           <DocumentEditorView documentId={openDocId} onBack={() => { setOpenDocId(null); void refresh() }} />
@@ -486,7 +497,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
         {menuMinimized ? (
           <MenuRestorePill onClick={restoreMenu} label="PlexiOffice" title="Show the PlexiOffice menu" />
         ) : (
-          <OfficeSidebar page={page} onPage={(p) => { setActiveComms(null); setPage(p) }} onExit={goHome} onMinimize={minimizeMenu} starredCount={starred.size} />
+          <OfficeSidebar onExit={goHome} onMinimize={minimizeMenu} />
         )}
         <PageEnter id={`office-comms-${comms.key}`} className="flex-1 min-w-0 overflow-auto" testid={`office-comms-${comms.key}`}>{content}</PageEnter>
       </div>
@@ -498,7 +509,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
       {menuMinimized ? (
         <MenuRestorePill onClick={restoreMenu} label="PlexiOffice" title="Show the PlexiOffice menu" />
       ) : (
-        <OfficeSidebar page={page} onPage={setPage} onExit={goHome} onMinimize={minimizeMenu} starredCount={starred.size} />
+        <OfficeSidebar onExit={goHome} onMinimize={minimizeMenu} />
       )}
 
       <PageEnter id={`office-page-${page}`} className="flex-1 min-w-0 overflow-auto">
@@ -518,6 +529,41 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                 <Icon name="add" size={16} /> Create
               </button>
             </div>
+          </div>
+
+          {/* THE LIBRARY, moved here from the side menu.
+              Recent / Starred / Shared / Templates / Trash are views of this
+              dashboard's own document list — they were rows in the menu, which
+              made the menu longer and put document filters next to area
+              navigation, two different kinds of thing. They belong with the
+              documents they filter. */}
+          <div
+            className="flex items-center gap-1.5 flex-wrap mb-5"
+            data-testid="office-library-nav"
+          >
+            {LIBRARY_PAGES.map((n) => (
+              <button
+                key={n.id}
+                onClick={() => {
+                  setOpenDocId(null)
+                  setActiveComms(null)
+                  setPage(n.id)
+                }}
+                data-testid={`office-nav-${n.id}`}
+                aria-current={page === n.id ? 'page' : undefined}
+                className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] whitespace-nowrap border transition-colors ${
+                  page === n.id
+                    ? 'border-accent bg-accent/10 text-[rgb(var(--accent))] font-medium'
+                    : 'border-[var(--edge-soft)] text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
+                }`}
+              >
+                <Icon name={n.icon} size={15} filled className={page === n.id ? '' : n.tone} />
+                <span>{n.label}</span>
+                {n.id === 'starred' && starred.size > 0 && (
+                  <span className="text-[11px] text-[var(--ink-50)] fb-tabular">{starred.size}</span>
+                )}
+              </button>
+            ))}
           </div>
 
           {/* App tiles — the document apps plus Meet, which opens the real
@@ -945,30 +991,17 @@ function UnreadRow({ icon, label, count, onClick }: { icon: string; label: strin
 }
 
 // ── The PlexiOffice-specific sidebar ─────────────────────────────────────────
-// Only the document library is still this shell's business; launching apps and
-// listing comms surfaces moved to the shared accordion, which gates its own
-// rows from the app registry.
+// Chrome only now: the wordmark, the minimise/exit controls, the workspace
+// selector and the shared accordion. Launching apps and listing comms surfaces
+// moved to the accordion, and the document library moved to the dashboard
+// beside the documents it filters (LIBRARY_PAGES).
 function OfficeSidebar({
-  page,
-  onPage,
   onExit,
-  onMinimize,
-  starredCount
+  onMinimize
 }: {
-  page: OfficePage
-  onPage: (p: OfficePage) => void
   onExit: () => void
   onMinimize: () => void
-  starredCount: number
 }): JSX.Element {
-  const NAV: { id: OfficePage; label: string; icon: string; tone: string }[] = [
-    { id: 'home', label: 'Home', icon: 'home', tone: 'text-indigo-500' },
-    { id: 'recent', label: 'Recent', icon: 'schedule', tone: 'text-rose-500' },
-    { id: 'starred', label: 'Starred', icon: 'star', tone: 'text-amber-500' },
-    { id: 'shared', label: 'Shared with me', icon: 'group', tone: 'text-teal-500' },
-    { id: 'templates', label: 'Templates', icon: 'plexii:templates', tone: 'text-sky-500' },
-    { id: 'trash', label: 'Trash', icon: 'delete', tone: 'text-slate-500' }
-  ]
   return (
     <div
       className={`shrink-0 h-full box-border ${FLOATING_MENU_INSET}`}
@@ -991,45 +1024,14 @@ function OfficeSidebar({
           cost two rows to do it. See components/WorkspaceSwitcher.tsx. */}
       <WorkspaceSwitcher />
 
-      {/* Workspace first, then the ONE menu. The bespoke Office menu — its own
-          Apps grid, a Communicate list and a Workspaces stub — is gone: every
-          one of those surfaces is in the accordion, where it is reachable from
-          any area instead of only from inside Office. See
-          components/nav/AreaAccordion.tsx. */}
-      <WorkspaceSwitcher />
-      <AreaAccordion
-        appsExtra={
-          <>
-            <div className="flex items-center gap-1 px-3 pt-2 pb-1">
-              <span className="flex-1 text-[10px] uppercase tracking-[0.12em] font-semibold text-[var(--ink-40)]">
-                Library
-              </span>
-            </div>
-            <div className="px-2">
-              {NAV.map((n) => (
-                <button
-                  key={n.id}
-                  onClick={() => onPage(n.id)}
-                  data-testid={`office-nav-${n.id}`}
-                  className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-lg text-[13px] mb-0.5 ${
-                    page === n.id
-                      ? 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))] font-medium'
-                      : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
-                  }`}
-                >
-                  <span className="inline-flex items-center justify-center w-6 h-6 shrink-0">
-                    <Icon name={n.icon} size={16} />
-                  </span>
-                  <span>{n.label}</span>
-                  {n.id === 'starred' && starredCount > 0 && (
-                    <span className="ml-auto text-[10px] text-[var(--ink-50)] fb-tabular">{starredCount}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </>
-        }
-      />
+      {/* Then the ONE menu. The bespoke Office menu — its own Apps grid, a
+          Communicate list and a Workspaces stub — is gone: every one of those
+          surfaces is in the accordion, where it is reachable from any area
+          instead of only from inside Office. See
+          components/nav/AreaAccordion.tsx.
+          The second WorkspaceSwitcher that used to sit here was a duplicate
+          organisation selector — the original is directly above. */}
+      <AreaAccordion />
 
       <div className="mt-auto p-3">
         <UpgradeCard label="PlexiOffice Pro" />

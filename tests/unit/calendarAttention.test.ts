@@ -119,8 +119,15 @@ describe('the surfaces share the one grid (DEC-052 §0)', () => {
     // office shell keeps COMMS_VIEW_KIND for the inline render's CapabilityGate.
     const accordion = read('src/renderer/src/components/nav/AreaAccordion.tsx')
     expect(accordion).toContain('!a.gateKind || enabled(a.gateKind)')
+    // Asserted by property, not as one literal line: the entry has since
+    // gained a `tone` (every icon in the menu carries a colour now), and a
+    // test that pins the exact source text breaks on an unrelated field.
     const registry = read('src/renderer/src/lib/segmentApps.ts')
-    expect(registry).toContain("{ key: 'calendar', label: 'Calendar', icon: 'calendar_month', gateKind: 'calendar' }")
+    const line = registry
+      .split('\n')
+      .find((l) => l.includes("key: 'calendar'") && l.includes("label: 'Calendar'"))
+    expect(line, 'calendar is registered as an office app').toBeTruthy()
+    expect(line).toContain("gateKind: 'calendar'")
     // And NOT parked in the home rail, where it could not be found.
     expect(office).not.toContain('office-home-places')
   })

@@ -174,3 +174,116 @@ describe('the registry is the single source', () => {
     expect(officeKeys).toContain('files')
   })
 })
+
+// ── The second pass on the menu ───────────────────────────────────────────
+// "All icons have colour; PlexiiApps full colour not just outlined; tools a
+// grid too with the same rules; titles must never wrap — drop grid columns
+// instead; remove the duplicate organisation selector; move the library to the
+// office dashboard."
+
+describe('every icon carries colour', () => {
+  const registry = read('renderer/src/lib/segmentApps.ts')
+
+  it('the colour lives on the one registry, not per menu', () => {
+    // It was in segments.tsx and twice more in the Office shell, which is how
+    // the same app could be sky in one place and grey in another.
+    expect(registry).toContain('tone?: string')
+    expect((registry.match(/tone: 'text-/g) ?? []).length).toBeGreaterThanOrEqual(30)
+  })
+
+  it('rows, tiles and section headers all use it', () => {
+    expect(accordion).toContain('tone={a.tone}')
+    expect(accordion).toContain('tone={d.tone}')
+    expect(accordion).toContain('SECTION_TONE[id]')
+  })
+
+  it('icons are FILLED, since an outline reads grey at this size', () => {
+    expect((accordion.match(/filled/g) ?? []).length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('the active item still wins over the icon’s own hue', () => {
+    expect(accordion).toContain("active ? '' : (tone ?? ")
+  })
+})
+
+describe('three grids on the same rules', () => {
+  it('Tools is a grid, like PlexiiApps and Connected apps', () => {
+    const tools = accordion.slice(
+      accordion.indexOf('<SubHeading label="Tools" />'),
+      accordion.indexOf('<SubHeading label="Connected apps" />')
+    )
+    expect(tools).toContain('<TileGrid>')
+    expect(tools).toContain('<Tile')
+    expect(tools).not.toContain('<Row')
+  })
+
+  it('all three use the same TileGrid', () => {
+    expect((accordion.match(/<TileGrid>/g) ?? []).length).toBe(3)
+  })
+})
+
+describe('a name never wraps', () => {
+  it('tile labels are single-line and truncate', () => {
+    expect(accordion).toContain('truncate whitespace-nowrap')
+    // The old behaviour: two lines per tile.
+    expect(accordion).not.toContain('line-clamp-2')
+  })
+
+  it('row labels do not wrap either', () => {
+    expect(accordion).toContain('min-w-0 truncate text-left whitespace-nowrap')
+  })
+
+  it('the COLUMN COUNT gives way instead, following the menu width', () => {
+    // auto-fit + a minimum tile width drops 4 columns to 3 to 2 as the menu
+    // narrows, in CSS, so it also tracks a live drag-resize.
+    expect(accordion).toContain('repeat(auto-fit, minmax(')
+    expect(accordion).toContain('TILE_MIN')
+    // The fixed four-column grid is gone from the CODE. The phrase survives in
+    // a comment explaining what it used to be, which is worth keeping — so
+    // this asserts the class is not applied, not that the words are absent.
+    expect(accordion).not.toContain('className="grid grid-cols-4')
+  })
+
+  it('the full name survives in the tooltip when it is clipped', () => {
+    expect(accordion).toContain('title={label}')
+  })
+})
+
+describe('the duplicate organisation selector is gone', () => {
+  it('the office menu mounts exactly one', () => {
+    expect((office.match(/<WorkspaceSwitcher \/>/g) ?? []).length).toBe(1)
+  })
+
+  it('and so does every other menu', () => {
+    for (const [name, src] of [
+      ['desk sidebar', sidebar],
+      ['segment shell', segment]
+    ] as const) {
+      expect((src.match(/<WorkspaceSwitcher \/>/g) ?? []).length, name).toBe(1)
+    }
+  })
+})
+
+describe('the library moved to the office dashboard', () => {
+  it('is rendered on the dashboard, beside the documents it filters', () => {
+    expect(office).toContain('data-testid="office-library-nav"')
+    expect(office).toContain('LIBRARY_PAGES')
+  })
+
+  it('is no longer a block inside the menu', () => {
+    // Again: the prop is gone, though a comment still records where it went.
+    expect(accordion).not.toContain('appsExtra?:')
+    expect(accordion).not.toContain('{appsExtra}')
+    expect(office).not.toContain('appsExtra={')
+  })
+
+  it('still reaches the same pages, so nothing became unreachable', () => {
+    // The testid is templated, so assert the template plus the page list that
+    // feeds it rather than six literal strings that do not appear in source.
+    expect(office).toContain('data-testid={`office-nav-${n.id}`}')
+    const block = office.slice(office.indexOf('const LIBRARY_PAGES'))
+    for (const id of ['recent', 'starred', 'shared', 'templates', 'trash']) {
+      expect(block, `${id} page`).toContain(`id: '${id}'`)
+    }
+  })
+})
