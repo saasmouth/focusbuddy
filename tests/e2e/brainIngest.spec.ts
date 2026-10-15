@@ -176,7 +176,10 @@ test('ingestWorkspace indexes desks, documents, widgets and files; idempotent; l
   await window.waitForFunction(() => document.activeElement?.tagName === 'INPUT', null, { timeout: 3_000 })
   await window.keyboard.type('sync workspace to brain')
   await window.waitForTimeout(400)
-  const syncOption = window.getByRole('option', { name: /Sync workspace to Brain/i })
+  // By testid, not by accessible name: the palette's omni rows quote whatever
+  // you typed ('Search the web — "Sync workspace to Brain"', 'Ask Plexii — …'),
+  // so a name regex for the query matches three rows and strict mode refuses.
+  const syncOption = window.getByTestId('palette-row-sync-brain')
   await expect(syncOption, 'the "Sync workspace to Brain" command must appear in the palette').toBeVisible({ timeout: 3_000 })
   await syncOption.click()
 
@@ -200,7 +203,7 @@ test('ingestWorkspace indexes desks, documents, widgets and files; idempotent; l
   expect(n2, 'UI-driven sync must add exactly the one new fixture entry').toBe(n1 + 1)
 
   // ── (e) Brain Map view renders more nodes than baseline, driven via real UI nav ──
-  await window.locator('[data-testid="segment-app-map"]').click()
+  await window.locator('[data-testid="nav-plexibrain-map"]').click()
   await expect(window.locator('[data-testid="brain-map-svg"]')).toBeVisible({ timeout: 5_000 })
 
   const nodeCount = await window.locator('[data-testid^="brain-node-"]').count()

@@ -33,7 +33,7 @@ async function openDecisionsPanel(window: Page): Promise<void> {
   await exitSegment(window)
   await switchArea(window, 'plexibrain')
   await expect(window.locator('[data-testid="segment-sidebar"]')).toBeVisible()
-  await window.locator('[data-testid="segment-app-decisions"]').click()
+  await window.locator('[data-testid="nav-plexibrain-decisions"]').click()
   await expect(window.locator('[data-testid="decisions-view"]')).toBeVisible({ timeout: 8_000 })
 }
 

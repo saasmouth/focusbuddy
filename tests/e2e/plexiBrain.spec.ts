@@ -21,7 +21,7 @@ async function openBrain(window: LaunchedApp['window']): Promise<void> {
   // lands on the Brain segment's app-tile home, not the knowledge view. Then the
   // "Ask Brain" app tile, which renders KnowledgeView ([data-testid="plexibrain-view"]).
   await switchArea(window, 'plexibrain')
-  await window.locator('[data-testid="segment-app-ask"]').first().click()
+  await window.locator('[data-testid="nav-plexibrain-ask"]').first().click()
   await window.waitForSelector('[data-testid="plexibrain-view"]', { timeout: 8_000 })
 }
 

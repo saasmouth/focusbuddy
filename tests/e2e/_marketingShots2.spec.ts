@@ -231,7 +231,7 @@ test('capture marketing screenshots batch 2 (UI-driven, honest content)', async 
     if (peopleLocked) {
       results.people = 'SKIPPED — People area is entitlement-gated (data-locked=true) in this test env'
     } else {
-      const mapTile = window.locator('[data-testid="segment-app-map"]')
+      const mapTile = window.locator('[data-testid="nav-plexipeople-map"]')
       if (await mapTile.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await mapTile.click()
         await window.waitForTimeout(600)

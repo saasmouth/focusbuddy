@@ -42,7 +42,7 @@ for (const c of CASES) {
     await expect(window.locator('[data-testid="segment-sidebar"]')).toBeVisible()
 
     // The click the user makes.
-    await window.locator(`[data-testid="segment-app-${c.app}"]`).click()
+    await window.locator(`[data-testid="nav-${c.kind}-${c.app}"]`).click()
 
     // 1. It is navigation: the view store knows.
     await expect.poll(() => view(window), { timeout: 10_000 }).toMatchObject({
@@ -87,7 +87,7 @@ test('the app you had open survives a reload', async () => {
   await waitForReady(window)
 
   await window.evaluate(() => (window as any).__fbView.getState().goPlexiBrain())
-  await window.locator('[data-testid="segment-app-flows"]').click()
+  await window.locator('[data-testid="nav-plexibrain-flows"]').click()
   await expect.poll(() => view(window), { timeout: 10_000 }).toMatchObject({
     kind: 'plexibrain',
     app: 'flows'

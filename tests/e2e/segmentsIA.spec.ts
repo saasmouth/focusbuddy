@@ -54,14 +54,14 @@ test.describe('three-segment IA', () => {
     await exitSegment(window)
     await switchArea(window, 'plexibrain')
     await expect(window.locator('[data-testid="segment-sidebar"]')).toBeVisible()
-    await window.locator('[data-testid="segment-app-search"]').click()
+    await window.locator('[data-testid="nav-plexibrain-search"]').click()
     await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 8_000 })
   })
 
   test('PlexiBrain Brain Map app renders a real graph or honest empty state', async () => {
     await exitSegment(window)
     await switchArea(window, 'plexibrain')
-    await window.locator('[data-testid="segment-app-map"]').click()
+    await window.locator('[data-testid="nav-plexibrain-map"]').click()
     await expect(window.locator('[data-testid="brain-map-view"]')).toBeVisible({ timeout: 8_000 })
     // A fresh test workspace has no knowledge entries, so the honest empty state
     // must show — never an invented graph.

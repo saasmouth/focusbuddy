@@ -22,7 +22,7 @@ import AddConnectedAppDialog from './AddConnectedAppDialog'
 import { useSharesStore } from '../stores/shares'
 import Icon from './Icon'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
-import SegmentSwitcher from './segment/SegmentSwitcher'
+import AreaAccordion from './nav/AreaAccordion'
 import AppLogo from './AppLogo'
 import {
   FLOATING_MENU_ASIDE,
@@ -447,51 +447,12 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
     )
   }
 
-  return (
-    <aside className={asideClass} style={asideStyle} data-testid="desk-sidebar">
-      {/* Header — same silhouette as the PlexiOffice menu: the wordmark on the
-          left, then the desk's own actions (New desk, hide) on the right. */}
-      {/* Measured, not guessed: at the 232px minimum sidebar width this row had
-          exactly zero slack (53px wordmark + 8px gap + 128px actions = the 189px
-          of inner width), so flex solved it by compressing the New desk button
-          to 87px against its natural 96px and squeezing the label. The button
-          now refuses to deform (shrink-0 + whitespace-nowrap) and the row buys
-          back the space it needs from its own padding and the divider's
-          margins, which is spare. Re-measure with
-          tests/e2e/_sidebarHeaderFit.spec.ts if anything here changes. */}
-      <div className="flex items-center gap-2 px-3 h-14 border-b border-[var(--edge-soft)] min-w-0">
-        <PlexiiLogo height={22} />
-        <div className="ml-auto flex items-center shrink-0">
-          <button
-            onClick={requestCreateDesk}
-            title="New desk — opens set-up with today's date pre-filled; Enter creates and opens it"
-            className="inline-flex items-center gap-1 h-7 px-2 rounded-lg bg-[rgb(var(--accent))] text-white text-[12px] font-medium whitespace-nowrap shrink-0 hover:bg-[rgb(var(--accent-hover))]"
-          >
-            <Icon name="add" size={14} className="shrink-0" />
-            <span>New desk</span>
-          </button>
-          {/* The minimise control is window chrome, not a desk action — a
-              hairline and real spacing keep it from reading as part of New. */}
-          {onToggle && (
-            <>
-              <span aria-hidden className="w-px h-4 bg-[var(--edge-soft)] ml-2 mr-1 shrink-0" />
-              <MenuMinimizeButton onClick={onToggle} title="Minimise the menu to free the desk" />
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto py-1">
-        {/* Workspace and area are ONE control. An area lives inside an
-            organisation, so two stacked peers misdescribed the relationship and
-            cost two rows to do it. See components/WorkspaceSwitcher.tsx. */}
-        <WorkspaceSwitcher />
-        {/* The areas are tabs again, always visible, in every area's menu.
-            Folding them into the workspace dropdown (c581655d) put a dozen-
-            times-an-hour action behind a rarely-used one. The switcher above
-            answers "which organisation"; these answer "which area". */}
-        <SegmentSwitcher />
-
+  // The desk list, hoisted so it can be the Desk SECTION BODY of the one
+  // menu rather than a second list beside it. It stays richer than the
+  // registry-built one on purpose: Attention keeps its six state/due filters
+  // and Rooms keeps its sub-nav, both of which a flat list would have cost.
+  const deskNav = (
+    <>
         {/* Desk nav — one clean, single list in the same style as the Office /
             People / Brain menus, not a stack of labelled sections. */}
         <div className="px-2 pt-1 pb-2">
@@ -622,10 +583,62 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
           {/* DEC-020: Plans / Desks (flat) / Calendar tabs retired — Attention
               absorbed them (feeders carry desk + plan due dates). The views
               stay reachable via the ⌘K palette; engines untouched (DEC-009). */}
-          {/* Files moved into Office, beside the inbox. Vault moved into
-              Settings — it is a store you configure, not a place you browse. */}
+          {/* Files and the Vault both live in Apps now, beside the inbox. The
+              Vault was filed under Settings on the reasoning that you only look
+              at it when something needs checking; it is a place you open while
+              working, so it sits with the other apps. */}
 
         </div>
+    </>
+  )
+
+  return (
+    <aside className={asideClass} style={asideStyle} data-testid="desk-sidebar">
+      {/* Header — same silhouette as the PlexiOffice menu: the wordmark on the
+          left, then the desk's own actions (New desk, hide) on the right. */}
+      {/* Measured, not guessed: at the 232px minimum sidebar width this row had
+          exactly zero slack (53px wordmark + 8px gap + 128px actions = the 189px
+          of inner width), so flex solved it by compressing the New desk button
+          to 87px against its natural 96px and squeezing the label. The button
+          now refuses to deform (shrink-0 + whitespace-nowrap) and the row buys
+          back the space it needs from its own padding and the divider's
+          margins, which is spare. Re-measure with
+          tests/e2e/_sidebarHeaderFit.spec.ts if anything here changes. */}
+      <div className="flex items-center gap-2 px-3 h-14 border-b border-[var(--edge-soft)] min-w-0">
+        <PlexiiLogo height={22} />
+        <div className="ml-auto flex items-center shrink-0">
+          <button
+            onClick={requestCreateDesk}
+            title="New desk — opens set-up with today's date pre-filled; Enter creates and opens it"
+            className="inline-flex items-center gap-1 h-7 px-2 rounded-lg bg-[rgb(var(--accent))] text-white text-[12px] font-medium whitespace-nowrap shrink-0 hover:bg-[rgb(var(--accent-hover))]"
+          >
+            <Icon name="add" size={14} className="shrink-0" />
+            <span>New desk</span>
+          </button>
+          {/* The minimise control is window chrome, not a desk action — a
+              hairline and real spacing keep it from reading as part of New. */}
+          {onToggle && (
+            <>
+              <span aria-hidden className="w-px h-4 bg-[var(--edge-soft)] ml-2 mr-1 shrink-0" />
+              <MenuMinimizeButton onClick={onToggle} title="Minimise the menu to free the desk" />
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto py-1">
+        {/* Workspace and area are ONE control. An area lives inside an
+            organisation, so two stacked peers misdescribed the relationship and
+            cost two rows to do it. See components/WorkspaceSwitcher.tsx. */}
+        <WorkspaceSwitcher />
+
+
+        {/* ONE menu. The area tab strip is gone and the desk list above is now
+            this menu's Desk section body, so all four areas are sections of a
+            single accordion and Apps / People / Brain are reachable from a desk
+            without switching area first. Sections default to open so this is
+            not c581655d with extra steps. See components/nav/AreaAccordion.tsx. */}
+        <AreaAccordion deskSlot={deskNav} />
 
         {/* ── CONNECTED APPS ──────────────────────────────────────────────
             Only while a desk is open. The rows exist to be DRAGGED onto a

@@ -3,7 +3,7 @@ import { useViewStore } from '../../stores/view'
 import type { SegmentKind } from '../../lib/segmentApps'
 import Icon from '../Icon'
 import WorkspaceSwitcher from '../WorkspaceSwitcher'
-import SegmentSwitcher from './SegmentSwitcher'
+import AreaAccordion from '../nav/AreaAccordion'
 import UpgradeCard from '../UpgradeCard'
 import {
   FLOATING_MENU_ASIDE_SCROLL,
@@ -100,45 +100,13 @@ export default function SegmentShell({ def, initialApp }: { def: SegmentDef; ini
             organisation, so two stacked peers misdescribed the relationship and
             cost two rows to do it. See components/WorkspaceSwitcher.tsx. */}
         <WorkspaceSwitcher />
-        {/* The areas are tabs again, always visible, in every area's menu.
-            Folding them into the workspace dropdown (c581655d) put a dozen-
-            times-an-hour action behind a rarely-used one. The switcher above
-            answers "which organisation"; these answer "which area". */}
-        <SegmentSwitcher />
 
-        <nav className="px-2 pt-1 pb-3">
-          <button
-            onClick={() => setActiveKey(null)}
-            data-testid="segment-nav-home"
-            className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-[13px] mb-0.5 ${
-              active === null ? 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))] font-medium' : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
-            }`}
-          >
-            <span className="inline-flex items-center justify-center w-6 h-6 shrink-0 text-indigo-500">
-              <Icon name="home" size={17} />
-            </span>
-            <span>Home</span>
-          </button>
-        </nav>
-
-        <div className="px-4 pt-1 pb-1.5 text-[10px] uppercase tracking-[0.12em] text-[var(--ink-40)] font-semibold">Apps</div>
-        <div className="px-2">
-          {def.apps.map((a) => (
-            <button
-              key={a.key}
-              onClick={() => setActiveKey(a.key)}
-              data-testid={`segment-app-${a.key}`}
-              className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-lg text-[13px] mb-0.5 ${
-                activeKey === a.key ? 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))] font-medium' : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
-              }`}
-            >
-              <span className={`inline-flex items-center justify-center w-6 h-6 shrink-0 ${a.tone}`}>
-                <Icon name={a.icon} size={16} />
-              </span>
-              <span>{a.label}</span>
-            </button>
-          ))}
-        </div>
+        {/* ONE menu, not four. The tab strip and this segment's own app list
+            both went: the accordion carries every area's apps, so the thing you
+            want is never in a menu you cannot see. Its sections default to open
+            precisely so this does not become c581655d again — see
+            components/nav/AreaAccordion.tsx. */}
+        <AreaAccordion />
 
         <div className="mt-auto p-3">
           <UpgradeCard label={def.proLabel ?? `${def.title} Pro`} />

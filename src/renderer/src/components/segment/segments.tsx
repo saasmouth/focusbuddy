@@ -3,8 +3,6 @@ import { appMeta } from '../../lib/segmentApps'
 import Canvas from '../Canvas'
 import HomeDashboard from '../views/HomeDashboard'
 import AllTasksView from '../views/AllTasksView'
-import CalendarView from '../views/CalendarView'
-import FilesView from '../views/FilesView'
 import OrgAdminView from '../views/OrgAdminView'
 import PlexiProjectsView from '../views/PlexiProjectsView'
 import AgenticOpsView from '../views/AgenticOpsView'
@@ -44,12 +42,10 @@ export function PlexiDeskShell({ initialApp }: { initialApp?: string } = {}): JS
   const apps: GatedApp[] = [
     { ...appMeta('plexidesk', 'home'), blurb: 'Your dashboard and what is next', tint: 'bg-indigo-500', tone: 'text-indigo-500', render: () => <HomeDashboard /> },
     { ...appMeta('plexidesk', 'desk'), blurb: 'The working canvas you build on', tint: 'bg-sky-500', tone: 'text-sky-500', render: () => <Canvas /> },
-    { ...appMeta('plexidesk', 'workspaces'), blurb: 'Organisations and sub-workspaces', tint: 'bg-teal-500', tone: 'text-teal-500', render: () => <OrgAdminView />, gateKind: 'organization' },
+    { ...appMeta('plexidesk', 'workspaces'), blurb: 'Organisations and sub-workspaces', tint: 'bg-teal-500', tone: 'text-teal-500', render: () => <OrgAdminView /> },
     { ...appMeta('plexidesk', 'plans'), blurb: 'Timelines, milestones and Gantt charts', tint: 'bg-violet-500', tone: 'text-violet-500', render: () => <PlexiProjectsView /> },
     { ...appMeta('plexidesk', 'ops'), blurb: 'Your agent workforce: triage, proposals and boardrooms', tint: 'bg-cyan-600', tone: 'text-cyan-600', render: () => <AgenticOpsView /> },
     { ...appMeta('plexidesk', 'tasks'), blurb: 'Every desk across your rooms, in one list', tint: 'bg-emerald-500', tone: 'text-emerald-500', render: () => <AllTasksView /> },
-    { ...appMeta('plexidesk', 'calendar'), blurb: 'Your work by date', tint: 'bg-amber-500', tone: 'text-amber-500', render: () => <CalendarView />, gateKind: 'calendar' },
-    { ...appMeta('plexidesk', 'files'), blurb: 'Every file in your workspace', tint: 'bg-orange-500', tone: 'text-orange-500', render: () => <FilesView />, gateKind: 'files' },
     { ...appMeta('plexidesk', 'recent'), blurb: 'Documents you last opened', tint: 'bg-rose-500', tone: 'text-rose-500', render: () => <RecentView /> }
   ]
   return (
@@ -72,8 +68,8 @@ export function PlexiPeopleShell({ initialApp }: { initialApp?: string } = {}): 
   const apps: GatedApp[] = [
     { ...appMeta('plexipeople', 'home'), blurb: 'Team status and who is around', tint: 'bg-indigo-500', tone: 'text-indigo-500', render: () => <HomeDashboard surface="people" /> },
     { ...appMeta('plexipeople', 'directory'), blurb: 'Everyone in your workspace', tint: 'bg-sky-500', tone: 'text-sky-500', render: () => <PeopleHomeView /> },
-    { ...appMeta('plexipeople', 'workspaces'), blurb: 'Members, roles, offices and profiles', tint: 'bg-teal-500', tone: 'text-teal-500', render: () => <OrgAdminView />, gateKind: 'organization' },
-    { ...appMeta('plexipeople', 'map'), blurb: 'Everyone by office and reporting line', tint: 'bg-violet-500', tone: 'text-violet-500', render: () => <PeopleMapView />, gateKind: 'people-map' }
+    { ...appMeta('plexipeople', 'workspaces'), blurb: 'Members, roles, offices and profiles', tint: 'bg-teal-500', tone: 'text-teal-500', render: () => <OrgAdminView /> },
+    { ...appMeta('plexipeople', 'map'), blurb: 'Everyone by office and reporting line', tint: 'bg-violet-500', tone: 'text-violet-500', render: () => <PeopleMapView /> }
   ]
   return (
     <SegmentShell

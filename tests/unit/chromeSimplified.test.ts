@@ -15,7 +15,10 @@ const read = (p: string): string => readFileSync(join(ROOT, p), 'utf-8')
 const app = read('src/renderer/src/App.tsx')
 const footer = read('src/renderer/src/components/Footer.tsx')
 const switcher = read('src/renderer/src/components/WorkspaceSwitcher.tsx')
-const segmentSwitcher = read('src/renderer/src/components/segment/SegmentSwitcher.tsx')
+// The four-tile strip was deleted when the four area menus merged into one
+// accordion. Its entitlement behaviour and its `switch-<kind>` ids live on
+// the accordion's section headers, so these assertions follow it there.
+const segmentSwitcher = read('src/renderer/src/components/nav/AreaAccordion.tsx')
 const sidebar = read('src/renderer/src/components/Sidebar.tsx')
 const office = read('src/renderer/src/components/office/PlexiOfficeShell.tsx')
 const segment = read('src/renderer/src/components/segment/SegmentShell.tsx')
@@ -69,7 +72,15 @@ describe('one control per question: which organisation, which area', () => {
       ['segment shell', segment]
     ] as const) {
       expect(src, `${name} mounts WorkspaceSwitcher`).toContain('<WorkspaceSwitcher />')
-      expect(src, `${name} mounts SegmentSwitcher`).toContain('<SegmentSwitcher />')
+      // The four area menus merged into ONE accordion, so the tab strip is no
+      // longer a component every menu mounts — it is the accordion's section
+      // headers, which keep the strip's `switch-<kind>` testids and its job of
+      // being one click from any area. What still has to hold is that every
+      // menu mounts the one menu.
+      expect(src, `${name} mounts AreaAccordion`).toContain('<AreaAccordion')
+      expect(src, `${name} no longer mounts the retired tab strip`).not.toContain(
+        '<SegmentSwitcher />'
+      )
       // The org half lives in WorkspaceSwitcher now; two org controls was the
       // duplication that commit was right about.
       expect(src, `${name} no longer mounts OrgSwitcher`).not.toContain('<OrgSwitcher />')
@@ -88,15 +99,15 @@ describe('one control per question: which organisation, which area', () => {
     expect(segmentSwitcher).toContain('computeEntitlement(entInputs')
     expect(segmentSwitcher).toContain('activeOrgId')
     // Desk is the floor and stays reachable even with its entitlement unset.
-    expect(segmentSwitcher).toContain("a.kind === 'plexidesk' || ent.enabled")
+    expect(segmentSwitcher).toContain("kind === 'plexidesk' || ent.enabled")
   })
 
   it('the four areas and their test ids are addressable', () => {
     // The ids are built from a.kind, so assert the template plus every kind
     // that feeds it — that is what keeps `switch-office` addressable.
-    expect(segmentSwitcher).toContain('data-testid={`switch-${a.kind}`}')
+    expect(segmentSwitcher).toContain('data-testid={`switch-${kind}`}')
     for (const k of ['plexidesk', 'office', 'plexipeople', 'plexibrain']) {
-      expect(segmentSwitcher).toContain(`kind: '${k}'`)
+      expect(segmentSwitcher).toContain(`kind="${k}"`)
     }
   })
 })

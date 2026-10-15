@@ -67,14 +67,14 @@ test.describe('PlexiPeople segment', () => {
     await exitSegment(window)
     await switchArea(window, 'plexipeople')
     // The directory is free, and renders the real people view.
-    await window.locator('[data-testid="segment-app-directory"]').click()
+    await window.locator('[data-testid="nav-plexipeople-directory"]').click()
     await expect(window.locator('[data-testid="people-status"]')).toBeVisible({ timeout: 8_000 })
     // Organisation (OrgAdminView) and the Organisation Map are Team-tier
     // (org_directory and people_map went team-only in b6ad6564, 2026-07-07),
     // so on this free-tier profile the menu does not offer them. The menu and
     // the surface agree: nothing here opens onto a locked view.
     for (const a of ['workspaces', 'map']) {
-      await expect(window.locator(`[data-testid="segment-app-${a}"]`)).toHaveCount(0)
+      await expect(window.locator(`[data-testid="nav-plexipeople-${a}"]`)).toHaveCount(0)
     }
   })
 })

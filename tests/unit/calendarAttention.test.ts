@@ -112,7 +112,15 @@ describe('the surfaces share the one grid (DEC-052 §0)', () => {
     // COMMS_VIEW_KIND mapping rather than a bespoke check, so Calendar is
     // hidden by the identical rule that hides Mail, Chat and Sign.
     expect(office).toContain("calendar: 'calendar'")
-    expect(office).toContain('return !vk || viewEnabled(vk)')
+    // The MENU's copy of that rule moved: the four area menus merged into one
+    // accordion, which gates every row it draws from the app registry's
+    // gateKind. Calendar is still hidden by the identical rule that hides Mail,
+    // Chat and Sign — it is just applied in one place now instead of four. The
+    // office shell keeps COMMS_VIEW_KIND for the inline render's CapabilityGate.
+    const accordion = read('src/renderer/src/components/nav/AreaAccordion.tsx')
+    expect(accordion).toContain('!a.gateKind || enabled(a.gateKind)')
+    const registry = read('src/renderer/src/lib/segmentApps.ts')
+    expect(registry).toContain("{ key: 'calendar', label: 'Calendar', icon: 'calendar_month', gateKind: 'calendar' }")
     // And NOT parked in the home rail, where it could not be found.
     expect(office).not.toContain('office-home-places')
   })

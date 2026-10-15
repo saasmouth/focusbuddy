@@ -11,7 +11,7 @@ async function openAgents(window: Page): Promise<void> {
   const exit = window.locator('[data-testid="segment-exit"]')
   if (await exit.isVisible().catch(() => false)) await exit.click()
   await switchArea(window, 'plexibrain')
-  await window.locator('[data-testid="segment-app-agents"]').click()
+  await window.locator('[data-testid="nav-plexibrain-agents"]').click()
   await expect(window.locator('[data-testid="agents-view"]')).toBeVisible({ timeout: 8_000 })
 }
 

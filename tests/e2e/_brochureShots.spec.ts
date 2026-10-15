@@ -365,7 +365,7 @@ test('capture brochure screenshots (UI-driven, honest content)', async () => {
       peopleShotResult = 'SKIPPED — People area is entitlement-gated (data-locked=true) in this test env'
     } else {
       // Click the "Organisation Map" app tile if we land on a segment home first.
-      const mapTile = window.locator('[data-testid="segment-app-map"]')
+      const mapTile = window.locator('[data-testid="nav-plexipeople-map"]')
       if (await mapTile.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await mapTile.click()
         await window.waitForTimeout(600)

@@ -76,7 +76,7 @@ test('1 — default capabilities: all four segment-switcher areas render', async
   const { window } = launched
   await waitForReady(window)
 
-  const switcher = window.locator('[data-testid="segment-switcher"]')
+  const switcher = window.locator('[data-testid="area-accordion"]')
   await expect(switcher).toBeVisible()
   await expect(switcher.locator('[data-testid="switch-plexidesk"]')).toBeVisible()
   await expect(switcher.locator('[data-testid="switch-office"]')).toBeVisible()
@@ -142,7 +142,7 @@ test('2 — product_office (licensing) and product_brain (admin) off: greyed wit
   await waitForReady(window)
 
   // Sanity: all four present before the entitlement change lands.
-  const switcher = window.locator('[data-testid="segment-switcher"]')
+  const switcher = window.locator('[data-testid="area-accordion"]')
   await expect(switcher.locator('[data-testid="switch-office"]')).toBeVisible()
   await expect(switcher.locator('[data-testid="switch-plexibrain"]')).toBeVisible()
 

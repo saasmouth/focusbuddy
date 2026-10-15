@@ -92,7 +92,7 @@ test('Agentic Ops tile renders embedded console; Plans unaffected', async () => 
     expect(/triage|board|project|queue/i.test(guest.text)).toBe(true)
 
     // 3. Regression: back to tiles home, Plans still opens PlexiProjectsView.
-    await window.locator('[data-testid="segment-nav-home"]').click()
+    await window.locator('[data-testid="nav-plexidesk-home"]').click()
     await expect(plansTile).toBeVisible({ timeout: 10_000 })
     await plansTile.click()
     await expect(window.locator('[data-testid="plexiprojects-view"]')).toBeVisible({

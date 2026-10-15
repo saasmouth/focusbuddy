@@ -201,13 +201,13 @@ test('(d) opening the Brain Map view auto-syncs the workspace into the brain wit
   // this diff, confirmed by plexiBrain.spec.ts test 1 failing the same way
   // on main. `switch-plexibrain` is the stable, current data-testid for this
   // area switch, exercised successfully elsewhere, e.g. brainIngest.spec.ts's
-  // use of the sibling `segment-app-map` / `segment-plexibrain` testids.)
+  // use of the sibling `nav-plexibrain-map` / `segment-plexibrain` testids.)
   // This is the FIRST brain-map open of this Electron session, so the
   // module-level 30s debounce cannot have already fired.
   await switchArea(window, 'plexibrain')
   await window.waitForSelector('[data-testid="segment-plexibrain"]', { timeout: 8_000 })
 
-  await window.locator('[data-testid="segment-app-map"]').click()
+  await window.locator('[data-testid="nav-plexibrain-map"]').click()
   await expect(window.locator('[data-testid="brain-map-svg"]')).toBeVisible({ timeout: 5_000 })
 
   // The auto-sync effect fires ingestWorkspace().then(() => load()) on mount;

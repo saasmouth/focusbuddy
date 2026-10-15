@@ -47,13 +47,15 @@ test.describe('segments', () => {
       // The home shows a tile per app, and the sidebar lists each app.
       for (const a of seg.apps) {
         await expect(window.locator(`[data-testid="segment-tile-${a}"]`)).toBeVisible()
-        await expect(window.locator(`[data-testid="segment-app-${a}"]`)).toBeVisible()
+        await expect(window.locator(`[data-testid="nav-plexibrain-${a}"]`)).toBeVisible()
       }
       // Open the first app inline; the segment side menu stays present (no crash).
-      await window.locator(`[data-testid="segment-app-${seg.apps[0]}"]`).click()
+      await window.locator(`[data-testid="nav-plexibrain-${seg.apps[0]}"]`).click()
       await expect(window.locator('[data-testid="segment-sidebar"]')).toBeVisible()
-      // Back to the segment home.
-      await window.locator('[data-testid="segment-nav-home"]').click()
+      // Back to the segment home — the area's own header, which navigates to
+      // the area root and so shows its tile grid. The "Brain Home" ROW is a
+      // different destination: it opens the brain dashboard app.
+      await window.locator('[data-testid="switch-plexibrain"]').click()
       await expect(window.locator(`[data-testid="segment-tile-${seg.apps[0]}"]`)).toBeVisible()
     })
   }

@@ -31,9 +31,10 @@ import FilesView from '../views/FilesView'
 import MessagesView from '../views/MessagesView'
 import PlexiMeetView from '../views/PlexiMeetView'
 import PlexiSignView from '../views/PlexiSignView'
+import VaultView from '../views/VaultView'
+import AreaAccordion from '../nav/AreaAccordion'
 import Icon from '../Icon'
 import WorkspaceSwitcher from '../WorkspaceSwitcher'
-import SegmentSwitcher from '../segment/SegmentSwitcher'
 import {
   FLOATING_MENU_ASIDE_SCROLL,
   FLOATING_MENU_INSET,
@@ -126,7 +127,15 @@ const COMMS_APPS: CommsApp[] = [
   { key: 'browser', label: 'Browser', blurb: 'Browse the web, no desk required', icon: 'public', tint: 'bg-indigo-500', tone: 'text-indigo-500', section: 'apps', render: () => <OfficeBrowser /> },
   // Files is an app, not a comms surface — it is listed with the Browser for
   // the same reason: looking something up is not communicating.
-  { key: 'files', label: 'Files', blurb: 'Everything you have, in one drive', icon: 'folder', tint: 'bg-sky-500', tone: 'text-sky-500', section: 'apps', render: () => <FilesView /> }
+  { key: 'files', label: 'Files', blurb: 'Everything you have, in one drive', icon: 'folder', tint: 'bg-sky-500', tone: 'text-sky-500', section: 'apps', render: () => <FilesView /> },
+  // Vault belongs here for the same reason Calendar and Files do: it is a place
+  // you GO, not a preference you set. 4.3.25 filed it under Settings on the
+  // reasoning that you look at it once when something needs checking — but a
+  // credential store is a thing you open while working, and Settings is a modal
+  // you have to dismiss to get back to what you were doing. Rendering it inside
+  // the shell keeps the menu put, so opening the Vault does not throw you out
+  // of Apps.
+  { key: 'vault', label: 'Vault', blurb: 'Encrypted credentials', icon: 'lock', tint: 'bg-slate-500', tone: 'text-slate-500', section: 'apps', render: () => <VaultView /> }
 ]
 
 // Which OS view kind each comms app stands in for, so we gate its menu entry and
@@ -141,7 +150,10 @@ const COMMS_VIEW_KIND: Record<string, string | null> = {
   meet: 'meetings',
   sign: 'sign',
   // Core: there is no separate entitlement for looking at a web page.
-  browser: null
+  browser: null,
+  // Gated exactly as the standalone vault view is, so moving it in here cannot
+  // become a way around password_vault.
+  vault: 'vault'
 }
 
 function commsGate(key: string): { cap: string; label: string } | null {
@@ -444,7 +456,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
         {menuMinimized ? (
           <MenuRestorePill onClick={restoreMenu} label="PlexiOffice" title="Show the PlexiOffice menu" />
         ) : (
-          <OfficeSidebar page={page} onPage={(p) => { setOpenDocId(null); setActiveComms(null); setPage(p) }} onLaunch={(a) => void launch(a)} onComms={openComms} activeComms={null} onExit={goHome} onMinimize={minimizeMenu} starredCount={starred.size} entInputs={entInputs} />
+          <OfficeSidebar page={page} onPage={(p) => { setOpenDocId(null); setActiveComms(null); setPage(p) }} onExit={goHome} onMinimize={minimizeMenu} starredCount={starred.size} />
         )}
         <div className="flex-1 min-w-0">
           <DocumentEditorView documentId={openDocId} onBack={() => { setOpenDocId(null); void refresh() }} />
@@ -474,7 +486,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
         {menuMinimized ? (
           <MenuRestorePill onClick={restoreMenu} label="PlexiOffice" title="Show the PlexiOffice menu" />
         ) : (
-          <OfficeSidebar page={page} onPage={(p) => { setActiveComms(null); setPage(p) }} onLaunch={(a) => void launch(a)} onComms={openComms} activeComms={activeComms} onExit={goHome} onMinimize={minimizeMenu} starredCount={starred.size} entInputs={entInputs} />
+          <OfficeSidebar page={page} onPage={(p) => { setActiveComms(null); setPage(p) }} onExit={goHome} onMinimize={minimizeMenu} starredCount={starred.size} />
         )}
         <PageEnter id={`office-comms-${comms.key}`} className="flex-1 min-w-0 overflow-auto" testid={`office-comms-${comms.key}`}>{content}</PageEnter>
       </div>
@@ -486,7 +498,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
       {menuMinimized ? (
         <MenuRestorePill onClick={restoreMenu} label="PlexiOffice" title="Show the PlexiOffice menu" />
       ) : (
-        <OfficeSidebar page={page} onPage={setPage} onLaunch={(a) => void launch(a)} onComms={openComms} activeComms={null} onExit={goHome} onMinimize={minimizeMenu} starredCount={starred.size} entInputs={entInputs} />
+        <OfficeSidebar page={page} onPage={setPage} onExit={goHome} onMinimize={minimizeMenu} starredCount={starred.size} />
       )}
 
       <PageEnter id={`office-page-${page}`} className="flex-1 min-w-0 overflow-auto">
@@ -933,34 +945,22 @@ function UnreadRow({ icon, label, count, onClick }: { icon: string; label: strin
 }
 
 // ── The PlexiOffice-specific sidebar ─────────────────────────────────────────
+// Only the document library is still this shell's business; launching apps and
+// listing comms surfaces moved to the shared accordion, which gates its own
+// rows from the app registry.
 function OfficeSidebar({
   page,
   onPage,
-  onLaunch,
-  onComms,
-  activeComms,
   onExit,
   onMinimize,
-  starredCount,
-  entInputs
+  starredCount
 }: {
   page: OfficePage
   onPage: (p: OfficePage) => void
-  onLaunch: (a: OfficeApp) => void
-  onComms: (key: string) => void
-  activeComms: string | null
   onExit: () => void
   onMinimize: () => void
   starredCount: number
-  entInputs: EntitlementInputs
 }): JSX.Element {
-  // Hide the Communicate entries that lead to a gated surface, matching the same
-  // capability MainPane enforces. Inbox is core and always shown.
-  const viewEnabled = useViewKindEnabled()
-  const visibleComms = COMMS_APPS.filter((a) => {
-    const vk = COMMS_VIEW_KIND[a.key]
-    return !vk || viewEnabled(vk)
-  })
   const NAV: { id: OfficePage; label: string; icon: string; tone: string }[] = [
     { id: 'home', label: 'Home', icon: 'home', tone: 'text-indigo-500' },
     { id: 'recent', label: 'Recent', icon: 'schedule', tone: 'text-rose-500' },
@@ -990,104 +990,46 @@ function OfficeSidebar({
           organisation, so two stacked peers misdescribed the relationship and
           cost two rows to do it. See components/WorkspaceSwitcher.tsx. */}
       <WorkspaceSwitcher />
-        {/* The areas are tabs again, always visible, in every area's menu.
-            Folding them into the workspace dropdown (c581655d) put a dozen-
-            times-an-hour action behind a rarely-used one. The switcher above
-            answers "which organisation"; these answer "which area". */}
-        <SegmentSwitcher />
 
-      <nav className="px-2 pt-1 pb-3">
-        {NAV.map((n) => (
-          <button
-            key={n.id}
-            onClick={() => onPage(n.id)}
-            data-testid={`office-nav-${n.id}`}
-            className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-[13px] mb-0.5 ${
-              page === n.id ? 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))] font-medium' : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
-            }`}
-          >
-            <span className={`inline-flex items-center justify-center w-6 h-6 shrink-0 ${n.tone}`}>
-              <Icon name={n.icon} size={17} />
-            </span>
-            <span>{n.label}</span>
-            {n.id === 'starred' && starredCount > 0 && <span className="ml-auto text-[10px] text-[var(--ink-50)] fb-tabular">{starredCount}</span>}
-          </button>
-        ))}
-      </nav>
-
-      <div className="px-4 pt-1 pb-1.5 text-[10px] uppercase tracking-[0.12em] text-[var(--ink-40)] font-semibold">Apps</div>
-      <div className="px-2">
-        {APPS.map((a) => {
-          const ent = a.docType
-            ? computeEntitlement(entInputs, capabilityForDocType(a.docType), DOC_TYPE_LABEL[a.docType])
-            : null
-          const locked = !!ent && !ent.enabled
-          return (
-            <button
-              key={a.key}
-              onClick={() => (locked && ent ? ent.onLockedClick() : onLaunch(a))}
-              data-testid={`office-sideapp-${a.key}`}
-              data-locked={locked ? 'true' : undefined}
-              aria-disabled={locked ? 'true' : undefined}
-              title={locked && ent ? ent.reason : a.label}
-              className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-lg text-[13px] mb-0.5 text-[var(--ink-80)] ${
-                locked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--surface-sunken)]'
-              }`}
-            >
-              <span className={`inline-flex items-center justify-center w-6 h-6 shrink-0 ${a.tone}`}>
-                <Icon name={a.icon} size={16} />
+      {/* Workspace first, then the ONE menu. The bespoke Office menu — its own
+          Apps grid, a Communicate list and a Workspaces stub — is gone: every
+          one of those surfaces is in the accordion, where it is reachable from
+          any area instead of only from inside Office. See
+          components/nav/AreaAccordion.tsx. */}
+      <WorkspaceSwitcher />
+      <AreaAccordion
+        appsExtra={
+          <>
+            <div className="flex items-center gap-1 px-3 pt-2 pb-1">
+              <span className="flex-1 text-[10px] uppercase tracking-[0.12em] font-semibold text-[var(--ink-40)]">
+                Library
               </span>
-              <span>{a.label}</span>
-              {locked && <Icon name="lock" size={11} className="ml-auto text-[var(--ink-40)]" />}
-            </button>
-          )
-        })}
-        {/* Apps that render through the comms registry but are not about
-            communicating — the Browser. Filed where someone would look for it. */}
-        {appSectionComms(visibleComms).map((a) => (
-          <button
-            key={a.key}
-            onClick={() => onComms(a.key)}
-            data-testid={`office-sideapp-${a.key}`}
-            title={a.label}
-            className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-lg text-[13px] mb-0.5 ${
-              activeComms === a.key ? 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))] font-medium' : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
-            }`}
-          >
-            <span className={`inline-flex items-center justify-center w-6 h-6 shrink-0 ${a.tone}`}>
-              <Icon name={a.icon} size={16} />
-            </span>
-            <span>{a.label}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="px-4 pt-3 pb-1.5 text-[10px] uppercase tracking-[0.12em] text-[var(--ink-40)] font-semibold">Communicate</div>
-      <div className="px-2">
-        {commsSectionComms(visibleComms).map((a) => (
-          <button
-            key={a.key}
-            onClick={() => onComms(a.key)}
-            data-testid={`office-comms-app-${a.key}`}
-            className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-lg text-[13px] mb-0.5 ${
-              activeComms === a.key ? 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))] font-medium' : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
-            }`}
-          >
-            <span className={`inline-flex items-center justify-center w-6 h-6 shrink-0 ${a.tone}`}>
-              <Icon name={a.icon} size={16} />
-            </span>
-            <span>{a.label}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="px-4 pt-3 pb-1.5 text-[10px] uppercase tracking-[0.12em] text-[var(--ink-40)] font-semibold">Workspaces</div>
-      <div className="px-2 pb-3">
-        <button className="flex items-center gap-2.5 w-full px-3 py-1.5 rounded-lg text-[13px] text-[var(--ink-60)] hover:bg-[var(--surface-sunken)]">
-          <Icon name="add" size={16} />
-          <span>New Workspace</span>
-        </button>
-      </div>
+            </div>
+            <div className="px-2">
+              {NAV.map((n) => (
+                <button
+                  key={n.id}
+                  onClick={() => onPage(n.id)}
+                  data-testid={`office-nav-${n.id}`}
+                  className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-lg text-[13px] mb-0.5 ${
+                    page === n.id
+                      ? 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))] font-medium'
+                      : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
+                  }`}
+                >
+                  <span className="inline-flex items-center justify-center w-6 h-6 shrink-0">
+                    <Icon name={n.icon} size={16} />
+                  </span>
+                  <span>{n.label}</span>
+                  {n.id === 'starred' && starredCount > 0 && (
+                    <span className="ml-auto text-[10px] text-[var(--ink-50)] fb-tabular">{starredCount}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </>
+        }
+      />
 
       <div className="mt-auto p-3">
         <UpgradeCard label="PlexiOffice Pro" />
