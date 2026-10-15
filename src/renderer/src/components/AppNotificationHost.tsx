@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type JSX } from 'react'
 import { useConnectedAppsStore } from '../stores/connectedApps'
-import { useAppNotifications, looksSignedOut } from '../stores/appNotifications'
+import { useAppNotifications, looksSignedOut, sumAriaUnread } from '../stores/appNotifications'
 
 // Background unread counts for connected apps.
 //
@@ -11,9 +11,17 @@ import { useAppNotifications, looksSignedOut } from '../stores/appNotifications'
 //
 // THE DIRECTORY IS NOT FINITE, and that governs the whole design. People add
 // whatever they use, so there can be no per-app rule — no "Gmail's count is
-// here, Slack's is there". Everything below works off two signals the entire
-// web shares: the document title (where apps advertise unread counts) and the
-// presence of a password field (where they advertise that you are signed out).
+// here, Slack's is there". Everything below works off signals the entire web
+// shares: the document title (where apps advertise a count), the presence of a
+// password field (where they advertise that you are signed out), and the
+// accessible labels on unread pills (where they advertise the real per-thread
+// numbers).
+//
+// TITLES COUNT THREADS, NOT MESSAGES — a chat holding five unread titled itself
+// "(1)" and we badged 1. The accessible labels carry the message counts, so
+// they are summed and they outrank the title. `aria-label` is a standard rather
+// than a selector, which is what keeps this working on an app nobody
+// anticipated.
 //
 // POLL THEN RELEASE, rather than keeping a webview alive per app. Each check
 // mounts one hidden webview, waits for the title, records it, and unmounts. A
@@ -79,15 +87,36 @@ function Probe({ app, onDone }: { app: Watchable; onDone: (id: string) => void }
     }
 
     const onReady = (): void => {
-      // The two universal signals. A password field is checked in the page
-      // itself because a signed-out app often keeps a perfectly normal URL.
-      const probe =
-        '(() => { const p = document.querySelector("input[type=password]"); ' +
-        'return { pw: !!p && !!p.offsetParent, url: location.href } })()'
+      // THE UNIVERSAL SIGNALS, read from inside the page.
+      //
+      //  - a visible password field  → signed out (a signed-out app often keeps
+      //    a perfectly normal URL, so the URL alone is not enough)
+      //  - accessible labels of the form "N unread…" → the per-conversation
+      //    unread counts, which summed give the MESSAGE total the title does
+      //    not. See `sumAriaUnread`. `aria-label` is a standard, so this needs
+      //    no per-app selector and works on an app nobody anticipated.
+      //
+      // `containsAnother` is collected here rather than inferred later because
+      // only the page knows its own tree, and without it a row's pill and the
+      // row's wrapper both count and the total doubles.
+      const probe = `(() => {
+        const p = document.querySelector("input[type=password]");
+        const nodes = Array.from(document.querySelectorAll('[aria-label]'))
+          .filter((el) => /\\d+\\s+unread/i.test(el.getAttribute('aria-label') || ''));
+        const labels = nodes.map((el) => ({
+          label: el.getAttribute('aria-label') || '',
+          containsAnother: nodes.some((o) => o !== el && el.contains(o))
+        }));
+        return { pw: !!p && !!p.offsetParent, url: location.href, labels };
+      })()`
       ;(wv as unknown as { executeJavaScript: (s: string) => Promise<unknown> })
         .executeJavaScript(probe)
         .then((raw) => {
-          const r = (raw ?? {}) as { pw?: boolean; url?: string }
+          const r = (raw ?? {}) as {
+            pw?: boolean
+            url?: string
+            labels?: Array<{ label: string; containsAnother: boolean }>
+          }
           const url = r.url ?? app.url
           if (looksSignedOut(url, !!r.pw)) {
             // Signed out: the count we may be holding is from an older,
@@ -97,6 +126,18 @@ function Probe({ app, onDone }: { app: Watchable; onDone: (id: string) => void }
             return
           }
           store.setLiveness(app.id, 'live', url)
+          // The message total, when the page states one. It outranks the title,
+          // which counts threads — this is the whole point: five messages in one
+          // chat badged as 1.
+          const summed = sumAriaUnread(r.labels ?? [])
+          if (summed !== null) {
+            store.reportCount(app.id, summed, 'messages')
+          } else {
+            // A live check that found no per-thread labels, where an earlier
+            // one did. Hand the lead back to the title rather than letting a
+            // message count we can no longer refresh outrank it forever.
+            store.releaseMessageClaim(app.id)
+          }
           // If the title already carried a count, onTitle has it; if the app
           // never sets one, the grace timer below retires this probe.
           if (settle === null) settle = window.setTimeout(finish, SETTLE_MS)
