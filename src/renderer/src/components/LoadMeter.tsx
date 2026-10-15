@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useWidgetStore } from '../stores/widgets'
 import { chimeOut, chimeIn } from '../lib/audioBeep'
 import Icon from './Icon'
+import Tooltip from './Tooltip'
 
 // Cognitive Load = a weighted count of "things demanding attention" on the canvas.
 // Tuned so a single browser feels heavier than a single sticky.
@@ -127,8 +128,7 @@ export default function LoadMeter({
   // asks the viewer to remember a legend.
   const showLabel = header && tierIndexForLoad(load) >= 2
 
-  return (
-    <>
+  const trigger = (
       <button
         ref={btnRef}
         onClick={() => setOpen((v) => !v)}
@@ -191,6 +191,20 @@ export default function LoadMeter({
           </span>
         )}
       </button>
+  )
+
+  return (
+    <>
+      {header ? (
+        <Tooltip
+          placement="bottom"
+          content={`Cognitive load: ${tier.label} — ${load.toFixed(1)} weighted across ${visible.length} ${visible.length === 1 ? 'widget' : 'widgets'}. Click to park what you are not using.`}
+        >
+          {trigger}
+        </Tooltip>
+      ) : (
+        trigger
+      )}
       {open &&
         createPortal(
           <LoadMeterPopover

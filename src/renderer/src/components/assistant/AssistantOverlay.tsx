@@ -65,7 +65,12 @@ const WRAPPER_BY_MODE = {
   floating:
     'fb-floating-chrome fixed right-[14px] bottom-[42px] z-[120] w-[min(420px,calc(100vw-28px))] h-[min(680px,calc(100vh-96px))] rounded-[var(--radius-card)] overflow-hidden bg-[var(--surface-raised)] text-[var(--ink-100)]'
 } as const
-const FULLSCREEN_TAKEOVER = 'fixed inset-0 z-[190] bg-[var(--surface-base)]'
+// Below the header, not over it. `inset-0` covered the h-10 titlebar, which
+// put the assistant on top of Add widget, the load alarm, Smart Stack, body
+// double, search and settings — every one of them unreachable until the
+// assistant was dismissed. The other two assistant modes already inset to
+// top-10 for exactly this reason; the fullscreen one did not.
+const FULLSCREEN_TAKEOVER = 'fixed top-10 inset-x-0 bottom-0 z-[190] bg-[var(--surface-base)]'
 const FULLSCREEN_PAGE =
   'fixed top-10 bottom-0 right-0 z-[190] bg-[var(--surface-base)] border-l border-[var(--edge-soft)]'
 

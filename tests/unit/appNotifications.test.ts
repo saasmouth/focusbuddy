@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { unreadFromTitle, useAppNotifications } from '../../src/renderer/src/stores/appNotifications'
+import {
+  unreadFromTitle,
+  looksSignedOut,
+  useAppNotifications
+} from '../../src/renderer/src/stores/appNotifications'
 
 // Connected-app notifications in the side menu.
 //
@@ -139,5 +143,170 @@ describe('sign-in details go to the Vault, not to the app row', () => {
   it('does not fail the whole connect when the vault is locked', () => {
     // An app that connected without autofill is still a working app.
     expect(dialog).toContain('Vault is locked')
+  })
+})
+
+// ── Background counts, and telling live from remembered ───────────────────
+// "We should not presume the existing apps in the directory is finite… read
+// their notifications from their logged in state, and if they are logged out
+// show awake/asleep — a moon and a grey count when not live, a yellow sun and
+// a green count when logged in."
+
+describe('signed-out detection is generic, because the app list is not finite', () => {
+  it('treats a visible password field as signed out, whatever the app', () => {
+    expect(looksSignedOut('https://anything.example.com/', true)).toBe(true)
+  })
+
+  it('recognises the login URL shapes the whole web uses', () => {
+    for (const u of [
+      'https://app.example.com/login',
+      'https://example.com/signin?next=/inbox',
+      'https://example.com/sign-in',
+      'https://accounts.example.com/oauth/authorize',
+      'https://example.com/users/sign_in',
+      'https://example.com/session/new',
+      'https://example.com/u/login'
+    ]) {
+      expect(looksSignedOut(u, false), u).toBe(true)
+    }
+  })
+
+  it('does not call an ordinary app URL signed out', () => {
+    for (const u of [
+      'https://mail.example.com/u/0/#inbox',
+      'https://example.com/workspace/docs',
+      'https://example.com/authors/jane'
+    ]) {
+      expect(looksSignedOut(u, false), u).toBe(false)
+    }
+  })
+
+  it('contains no per-app rules in the CODE', () => {
+    // Comments may name an app to illustrate a convention ("(3) Inbox" is how
+    // Gmail does it); the logic may not. So this strips comments and checks
+    // what actually executes — the property that matters is that adding an app
+    // nobody anticipated needs no change here.
+    const stripComments = (src: string): string =>
+      src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+    const store = stripComments(read('renderer/src/stores/appNotifications.ts')).toLowerCase()
+    const host = stripComments(read('renderer/src/components/AppNotificationHost.tsx')).toLowerCase()
+    for (const brand of ['gmail', 'slack', 'notion', 'figma', 'outlook']) {
+      expect(store, `store branches on ${brand}`).not.toContain(brand)
+      expect(host, `host branches on ${brand}`).not.toContain(brand)
+    }
+  })
+})
+
+describe('liveness is recorded, never assumed', () => {
+  beforeEach(() => {
+    useAppNotifications.setState({ counts: {}, status: {} })
+  })
+
+  it('an app nobody has checked is asleep, not live', () => {
+    expect(useAppNotifications.getState().livenessFor('unchecked')).toBe('asleep')
+  })
+
+  it('records live and signed-out distinctly', () => {
+    const s = useAppNotifications.getState()
+    s.setLiveness('a', 'live', 'https://example.com/inbox')
+    s.setLiveness('b', 'signed-out', 'https://example.com/login')
+    expect(useAppNotifications.getState().livenessFor('a')).toBe('live')
+    expect(useAppNotifications.getState().livenessFor('b')).toBe('signed-out')
+  })
+
+  it('keeps the last count when an app signs out, but stops calling it live', () => {
+    // The number was true when we saw it; the claim that it is CURRENT is not.
+    const s = useAppNotifications.getState()
+    s.report('a', '(6) Inbox')
+    s.setLiveness('a', 'signed-out', 'https://example.com/login')
+    expect(useAppNotifications.getState().countFor('a')).toBe(6)
+    expect(useAppNotifications.getState().livenessFor('a')).toBe('signed-out')
+  })
+})
+
+describe('the badge shows which kind of claim it is making', () => {
+  const accordion = read('renderer/src/components/nav/AreaAccordion.tsx')
+
+  it('green count and a sun when live', () => {
+    expect(accordion).toContain("liveness === 'live'")
+    expect(accordion).toContain('bg-emerald-500')
+    expect(accordion).toContain('wb_sunny')
+    expect(accordion).toContain('text-amber-400')
+  })
+
+  it('grey count and a moon otherwise', () => {
+    expect(accordion).toContain('bedtime')
+    expect(accordion).toContain('bg-[var(--ink-30)]')
+  })
+
+  it('shows the sun/moon even at zero unread', () => {
+    // "Nothing new" and "we cannot see" are different answers.
+    expect(accordion).toContain('{liveness !== null && (')
+  })
+
+  it('explains itself on hover rather than leaving a bare mark', () => {
+    expect(accordion).toContain('signed in, checked just now')
+    expect(accordion).toContain('so this is not current')
+  })
+})
+
+describe('the background host is cheap and reuses the real session', () => {
+  const host = read('renderer/src/components/AppNotificationHost.tsx')
+
+  it('polls then releases, rather than holding a renderer per app', () => {
+    expect(host).toContain('POLL THEN RELEASE')
+    expect(host).toContain('const SLOTS')
+  })
+
+  it('runs in the app’s own persistent partition, so a signed-in app stays so', () => {
+    expect(host).toContain('`persist:connectedapp-${app.id}`')
+  })
+
+  it('creates no sessions and logs nobody in', () => {
+    expect(host).toContain('Nothing here logs anybody in')
+  })
+
+  it('skips local apps, which have no page to read', () => {
+    expect(host).toContain("a.kind !== 'local'")
+  })
+
+  it('only watches apps that opted in', () => {
+    expect(host).toContain('a.notifications')
+  })
+
+  it('reports asleep rather than inventing a count when a probe fails', () => {
+    expect(host).toContain("setLiveness(app.id, 'asleep'")
+  })
+})
+
+describe('the assistant no longer covers the top menu', () => {
+  const overlay = read('renderer/src/components/assistant/AssistantOverlay.tsx')
+
+  it('fullscreen insets below the h-10 header', () => {
+    // inset-0 put it over Add widget, the load alarm, Smart Stack, body
+    // double, search and settings — all unreachable until it was dismissed.
+    expect(overlay).toContain("'fixed top-10 inset-x-0 bottom-0 z-[190]")
+    expect(overlay).not.toContain("'fixed inset-0 z-[190]")
+  })
+})
+
+describe('every top-menu button explains itself on hover', () => {
+  it('the header wraps each of its buttons in a Tooltip', () => {
+    const app = read('renderer/src/App.tsx').split('\n').slice(566, 700).join('\n')
+    expect(app.match(/<Tooltip/g)?.length ?? 0).toBeGreaterThanOrEqual(
+      app.match(/<button/g)?.length ?? 0
+    )
+  })
+
+  it('the load alarm uses the same tooltip as the rest of the header', () => {
+    const meter = read('renderer/src/components/LoadMeter.tsx')
+    expect(meter).toContain('<Tooltip')
+    expect(meter).toContain('Click to park what you are not using')
+  })
+
+  it('Add widget explains itself too', () => {
+    expect(read('renderer/src/components/desk/DeskAddWidget.tsx')).toContain(
+      'title="Add a widget to this desk"'
+    )
   })
 })

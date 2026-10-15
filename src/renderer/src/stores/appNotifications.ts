@@ -30,13 +30,42 @@ export interface SeenCount {
   at: number
 }
 
+/**
+ * Whether a count is being collected RIGHT NOW, and why not when it isn't.
+ *
+ * The distinction the operator asked to see: a number that is arriving live
+ * from a signed-in session, versus the last number we happened to see. Those
+ * are different claims and a single badge cannot make both, so the state is
+ * explicit and the badge shows it — a sun and a green count when live, a moon
+ * and a grey count when it is only the last thing we saw.
+ */
+export type AppLiveness =
+  /** A background session is loaded and signed in; counts are current. */
+  | 'live'
+  /** Loaded, but the app showed us a sign-in wall. Counts cannot be read. */
+  | 'signed-out'
+  /** Not being polled — notifications off, or waiting its turn. */
+  | 'asleep'
+
+export interface AppStatus {
+  liveness: AppLiveness
+  /** When the background check last completed. */
+  checkedAt: number
+  /** The final URL after redirects, which is how sign-out is detected. */
+  url?: string
+}
+
 interface AppNotificationsStore {
   counts: Record<string, SeenCount>
+  /** Liveness per app. Session state: never persisted, never guessed. */
+  status: Record<string, AppStatus>
   /** Report a page title for an app. A title with no count clears it. */
   report: (appId: string, title: string) => void
   /** Clear one app's badge — e.g. you just opened it. */
   clear: (appId: string) => void
   countFor: (appId: string) => number
+  setLiveness: (appId: string, liveness: AppLiveness, url?: string) => void
+  livenessFor: (appId: string) => AppLiveness
 }
 
 /**
@@ -103,8 +132,27 @@ function persist(counts: Record<string, SeenCount>): void {
   }
 }
 
+/**
+ * Does this URL look like a sign-in wall?
+ *
+ * Generic on purpose. The directory of connected apps is NOT finite — people
+ * add whatever they use — so there can be no per-app rule about where its
+ * login page lives or what its logged-out title says. This matches the shapes
+ * the whole web uses, and the host pairs it with a password-field check, which
+ * is the other universal signal.
+ */
+export function looksSignedOut(url: string, hasPasswordField: boolean): boolean {
+  if (hasPasswordField) return true
+  if (!url) return false
+  const u = url.toLowerCase()
+  return /(\/|\.|^)(login|signin|sign-in|sign_in|auth|sso|oauth|session\/new|account\/login|u\/login)(\/|\?|#|$)/.test(
+    u
+  )
+}
+
 export const useAppNotifications = create<AppNotificationsStore>((set, get) => ({
   counts: load(),
+  status: {},
 
   report: (appId, title) => {
     const n = unreadFromTitle(title)
@@ -131,5 +179,13 @@ export const useAppNotifications = create<AppNotificationsStore>((set, get) => (
     persist(counts)
   },
 
-  countFor: (appId) => get().counts[appId]?.count ?? 0
+  countFor: (appId) => get().counts[appId]?.count ?? 0,
+
+  setLiveness: (appId, liveness, url) => {
+    const prev = get().status[appId]
+    if (prev && prev.liveness === liveness && prev.url === url) return
+    set({ status: { ...get().status, [appId]: { liveness, checkedAt: Date.now(), url } } })
+  },
+
+  livenessFor: (appId) => get().status[appId]?.liveness ?? 'asleep'
 }))

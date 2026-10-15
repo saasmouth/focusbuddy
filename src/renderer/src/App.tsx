@@ -10,6 +10,7 @@ import AssistantOverlay from './components/assistant/AssistantOverlay'
 import PinTray from './components/pins/PinTray'
 import { useAssistantChrome } from './stores/assistantChrome'
 import LiveDeskPublisherHost from './components/LiveDeskPublisherHost'
+import AppNotificationHost from './components/AppNotificationHost'
 import TelemetryReporter from './components/TelemetryReporter'
 import ReleaseModal from './components/ReleaseModal'
 import Tooltip from './components/Tooltip'
@@ -547,6 +548,10 @@ export default function App(): JSX.Element {
           share dialog was open, so a "live" desk was frozen the moment you
           closed it. */}
       <LiveDeskPublisherHost />
+      {/* Background unread counts for connected apps. Mounted at the root for
+          the same reason publishing is: it belongs to the app, not to whichever
+          screen happens to be open. */}
+      <AppNotificationHost />
       {/* First-run "What's new in vX.Y.Z" after an update. */}
       {releaseEntry && (
         <ReleaseModal entry={releaseEntry} onClose={() => setReleaseEntry(null)} />

@@ -300,6 +300,7 @@ function Tile({
   onClick,
   testid,
   badge = 0,
+  liveness = null,
   children
 }: {
   label: string
@@ -308,6 +309,14 @@ function Tile({
   testid?: string
   /** An unread count the app itself reported. 0 renders nothing. */
   badge?: number
+  /**
+   * Whether that count is arriving live from a signed-in background session.
+   *
+   * 'live' is a sun and a green count; anything else is a moon and a grey one.
+   * A bare number would be making two different claims with one mark — "4
+   * unread right now" and "4 unread whenever we last managed to look".
+   */
+  liveness?: 'live' | 'signed-out' | 'asleep' | null
   children: React.ReactNode
 }): JSX.Element {
   return (
@@ -326,10 +335,46 @@ function Tile({
         {children}
         {badge > 0 && (
           <span
-            className="absolute -top-1 -right-1.5 min-w-[15px] h-[15px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold leading-[15px] text-center fb-tabular"
+            className={`absolute -top-1 -right-1.5 min-w-[15px] h-[15px] px-1 rounded-full text-[9px] font-bold leading-[15px] text-center fb-tabular ${
+              liveness === 'live'
+                ? 'bg-emerald-500 text-white'
+                : 'bg-[var(--ink-30)] text-[var(--surface-base)]'
+            }`}
             data-testid="nav-unread-badge"
+            data-live={liveness === 'live' ? 'true' : 'false'}
+            title={
+              liveness === 'live'
+                ? `${badge} unread — signed in, checked just now`
+                : liveness === 'signed-out'
+                  ? `${badge} unread when last seen — signed out, so this is not current`
+                  : `${badge} unread when last seen — not being checked right now`
+            }
           >
             {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+        {/* Awake or asleep. Shown whenever the app is watched, including at
+            zero unread, because "nothing new" and "we cannot see" are not the
+            same answer and the user asked to be able to tell. */}
+        {liveness !== null && (
+          <span
+            className="absolute -bottom-1 -right-1 inline-flex items-center justify-center"
+            data-testid="nav-liveness"
+            data-liveness={liveness}
+            title={
+              liveness === 'live'
+                ? 'Signed in — counts are arriving live'
+                : liveness === 'signed-out'
+                  ? 'Signed out — sign in to this app for live counts'
+                  : 'Asleep — not being checked right now'
+            }
+          >
+            <Icon
+              name={liveness === 'live' ? 'wb_sunny' : 'bedtime'}
+              size={11}
+              filled
+              className={liveness === 'live' ? 'text-amber-400' : 'text-[var(--ink-40)]'}
+            />
           </span>
         )}
       </span>
@@ -395,6 +440,7 @@ export default function AreaAccordion({
   const brainEnt = areaEnt('plexibrain', 'product_brain', 'Brain')
   const connectedApps = useConnectedAppsStore((s) => s.apps)
   const unreadCounts = useAppNotifications((s) => s.counts)
+  const appStatus = useAppNotifications((s) => s.status)
   const refreshApps = useConnectedAppsStore((s) => s.refresh)
   const appsLoaded = useConnectedAppsStore((s) => s.loaded)
   useEffect(() => {
@@ -541,6 +587,7 @@ export default function AreaAccordion({
                 }}
                 testid={`nav-connected-app-${app.id}`}
                 badge={app.notifications ? (unreadCounts[app.id]?.count ?? 0) : 0}
+                liveness={app.notifications ? (appStatus[app.id]?.liveness ?? 'asleep') : null}
               >
                 <AppLogo app={app} size={22} glyphSize={13} />
               </Tile>
