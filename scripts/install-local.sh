@@ -191,7 +191,7 @@ echo "[install-local] installed  $TARGET"
 # install that otherwise succeeded.
 if [ "${SKIP_WARMUP:-0}" != "1" ]; then
   echo "[install-local] warming up (first launch is the slow one)…"
-  if bash "$(dirname "$0")/launch-local.sh" "$TARGET"; then
+  if bash "$(dirname "$0")/launch-local.sh" "$TARGET" --restart; then
     echo "[install-local] warm-up ok — it will open normally from now on"
   else
     echo "[install-local] warm-up did not settle; open it with: npm run app" >&2

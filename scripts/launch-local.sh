@@ -17,7 +17,13 @@
 # So: open the app, watch briefly, and resume it if it is stopped.
 set -uo pipefail
 
-APP="${1:-}"
+APP=""
+for a in "$@"; do
+  case "$a" in
+    --restart) ;;
+    *) [ -z "$APP" ] && APP="$a" ;;
+  esac
+done
 if [ -z "$APP" ]; then
   # Newest installed PlexiDesk bundle, which is what install-local just wrote.
   APP=$(/bin/ls -dt /Applications/PlexiDesk*.app 2>/dev/null | head -1)
@@ -33,6 +39,17 @@ echo "[launch] $APP"
 # A stopped process from an earlier attempt keeps the single-instance lock, so
 # every later launch defers to something that will never draw a window. Clear
 # those out first — they are the reason a second double-click does nothing.
+# A RUNNING INSTANCE IS THE OLD BUILD after an install, and `open` would simply
+# focus it — which is exactly what happened: the warm-up reported "up" against a
+# process that had started 45 minutes before the bundle it was supposed to be
+# testing, so a freshly installed build sat on disk while the previous one stayed
+# on screen. --restart (which install-local passes) ends it first.
+#
+# A stopped instance is cleared regardless: it holds the single-instance lock, so
+# every later launch defers to a window that will never draw.
+RESTART=0
+for a in "$@"; do [ "$a" = "--restart" ] && RESTART=1; done
+
 STALE=$(pgrep -f "$BIN" 2>/dev/null || true)
 if [ -n "$STALE" ]; then
   for p in $STALE; do
@@ -41,6 +58,19 @@ if [ -n "$STALE" ]; then
       T*) echo "[launch] resuming already-stopped pid $p"; kill -CONT "$p" 2>/dev/null || true ;;
     esac
   done
+  if [ "$RESTART" = "1" ]; then
+    echo "[launch] quitting the running instance so the NEW build is what starts"
+    pkill -f "$BIN" 2>/dev/null || true
+    # Give it a moment to release the single-instance lock, then insist.
+    deadline=$(( $(date +%s) + 8 ))
+    while [ "$(date +%s)" -lt "$deadline" ]; do
+      pgrep -f "$BIN" >/dev/null 2>&1 || break
+    done
+    pkill -9 -f "$BIN" 2>/dev/null || true
+    rm -f "$HOME/Library/Application Support/plexii/SingletonLock" \
+          "$HOME/Library/Application Support/plexii/SingletonCookie" \
+          "$HOME/Library/Application Support/plexii/SingletonSocket" 2>/dev/null || true
+  fi
 fi
 
 open -a "$APP" 2>/dev/null || true
@@ -67,7 +97,11 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
       helpers=$(ps aux | grep -c "[P]lexiDesk.*\.app/Contents/Frameworks" || true)
       if [ "${helpers:-0}" -ge 1 ]; then
         rss=$(ps -o rss= -p "$pid" 2>/dev/null | tr -d ' ')
-        echo "[launch] up — pid $pid, ${rss}KB, $helpers helper process(es)$([ "$resumed" = 1 ] && echo ' (had to resume it)')"
+        # Report the age of the process against the bundle, so a stale instance
+        # can never again be reported as a successful launch.
+        asar_age=$(( $(date +%s) - $(stat -f %m "$APP/Contents/Resources/app.asar" 2>/dev/null || date +%s) ))
+        proc_age=$(ps -o etime= -p "$pid" 2>/dev/null | tr -d ' ')
+        echo "[launch] up — pid $pid, ${rss}KB, $helpers helper process(es), running for ${proc_age:-?} (bundle installed ${asar_age}s ago)$([ "$resumed" = 1 ] && echo ' (had to resume it)')"
         exit 0
       fi
       ;;
