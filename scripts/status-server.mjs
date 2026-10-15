@@ -21,6 +21,8 @@
 // 127.0.0.1 so nothing outside this machine can reach it.
 
 import { createServer } from 'node:http'
+import { randomBytes } from 'node:crypto'
+import { spawn } from 'node:child_process'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -38,6 +40,15 @@ const PORT = Number(argOf('--port', '7777'))
 const LOG_DIRS = [join(ROOT, 'release'), argOf('--logs', '')].filter(
   (d) => d && existsSync(d)
 )
+
+// Mutating endpoints are protected three ways, because "it is only on
+// localhost" is not a security model: any web page you have open can POST to
+// 127.0.0.1. So an action requires a token minted at boot and embedded in the
+// page (a cross-site caller cannot read it), a custom header (which forces a
+// CORS preflight that cross-site callers cannot satisfy), and a same-origin
+// check. Reads stay open; only writes are gated.
+const TOKEN = randomBytes(16).toString('hex')
+const ACTIONS_ENABLED = !args.includes('--read-only')
 
 const sh = (cmd, cmdArgs, opts = {}) => {
   try {
@@ -277,6 +288,79 @@ function testState() {
   return out
 }
 
+// ── Where it stands on the server ─────────────────────────────────────────
+//
+// Two different places, deliberately reported apart: the GitHub release is
+// where the download page points and where assets are archived; the R2 feed is
+// what installed clients actually read when they check for an update. A release
+// can be complete on one and absent on the other — that is how 4.3.13 and
+// 4.3.14 shipped to nobody — so a single "published" light would be a lie.
+let serverCache = { at: 0, value: null, checking: false }
+
+async function refreshServerState(version) {
+  if (!version || serverCache.checking) return
+  if (Date.now() - serverCache.at < 60_000) return
+  serverCache.checking = true
+  try {
+    const tag = `v${version}`
+    const release = sh('gh', [
+      'release',
+      'view',
+      tag,
+      '--repo',
+      'saasmouth/focusbuddy',
+      '--json',
+      'tagName,isDraft,assets'
+    ])
+    let ghState = { exists: false, draft: null, assets: 0 }
+    if (release) {
+      try {
+        const j = JSON.parse(release)
+        ghState = {
+          exists: true,
+          draft: !!j.isDraft,
+          assets: Array.isArray(j.assets) ? j.assets.length : 0
+        }
+      } catch {
+        ghState = { exists: false, draft: null, assets: 0 }
+      }
+    }
+    const macFeed = sh('/usr/bin/curl', [
+      '-s',
+      '--max-time',
+      '8',
+      '-L',
+      'https://dl.plexiidesk.com/latest-mac.yml'
+    ])
+    const winFeed = sh('/usr/bin/curl', [
+      '-s',
+      '--max-time',
+      '8',
+      '-L',
+      'https://dl.plexiidesk.com/latest.yml'
+    ])
+    const feedVersion = (text) => {
+      const m = text && text.match(/^version:\s*(\S+)/m)
+      return m ? m[1] : null
+    }
+    serverCache = {
+      at: Date.now(),
+      checking: false,
+      value: {
+        tag,
+        github: ghState,
+        macFeed: feedVersion(macFeed),
+        winFeed: feedVersion(winFeed),
+        // null means the probe itself failed (offline, gh not logged in), which
+        // is not the same as "not published".
+        reachable: macFeed !== null
+      }
+    }
+  } finally {
+    serverCache.checking = false
+  }
+}
+
 function activity() {
   return {
     build: running('electron-builder|dist:mac|release-env'),
@@ -284,6 +368,126 @@ function activity() {
     tests: running('playwright test|vitest'),
     app: running('PlexiDesk.*Contents/MacOS')
   }
+}
+
+// ── Jobs ──────────────────────────────────────────────────────────────────
+//
+// A button runs a real command and streams its real output. Nothing is
+// simulated and nothing is reported as finished until the process exits.
+const jobs = []
+let activeJob = null
+
+// One definition, used by both the publish action and "all". It reuses the
+// repo's own release path, so it inherits every gate that path already has —
+// including the completeness check that refuses to call a release done while
+// the update feed still serves the old version.
+const PUBLISH_SCRIPT = [
+  'set -e',
+  'V=$(node -p "require(\'./package.json\').version")',
+  'git tag -a "v$V" -m "PlexiDesk $V" 2>/dev/null || true',
+  'git push origin "v$V"',
+  'gh release view "v$V" --repo saasmouth/focusbuddy >/dev/null 2>&1 || ' +
+    'gh release create "v$V" --repo saasmouth/focusbuddy --title "PlexiDesk $V" --notes "PlexiDesk $V"',
+  'node scripts/release-env.mjs npm run release:mac'
+].join('\n')
+
+const JOB_DEFS = {
+  'install-local': {
+    label: 'Install locally',
+    detail:
+      'Installs the build already sitting in release/ into /Applications. Seconds, not minutes — it refuses if that package is older than the built code.',
+    steps: [['bash', ['scripts/install-local.sh', '--no-build']]]
+  },
+  'build-install': {
+    label: 'Rebuild, then install',
+    detail: 'Signs and notarises from scratch, then installs. ~15 minutes.',
+    steps: [
+      ['node', ['scripts/release-env.mjs', 'npm', 'run', 'dist:mac:universal']],
+      ['bash', ['scripts/install-local.sh', '--no-build']]
+    ]
+  },
+  'git-push': {
+    label: 'Push to git',
+    detail: 'Pushes the current branch, setting its upstream if it has none.',
+    steps: [['bash', ['-lc', 'git push -u origin "$(git rev-parse --abbrev-ref HEAD)"']]]
+  },
+  'server-publish': {
+    label: 'Publish to the server',
+    detail:
+      'Tags, creates the GitHub release, uploads the mac assets and mirrors them to the update feed. This is public.',
+    steps: [['bash', ['-lc', PUBLISH_SCRIPT]]]
+  },
+  all: {
+    label: 'Send to all three',
+    detail: 'Install locally, push the branch, then publish — stopping at the first failure.',
+    steps: [
+      ['bash', ['scripts/install-local.sh', '--no-build']],
+      ['bash', ['-lc', 'git push -u origin "$(git rev-parse --abbrev-ref HEAD)"']],
+      ['bash', ['-lc', PUBLISH_SCRIPT]]
+    ]
+  }
+}
+
+function startJob(id) {
+  const def = JOB_DEFS[id]
+  if (!def) return { ok: false, error: `Unknown action "${id}"` }
+  if (activeJob) return { ok: false, error: `Already running: ${activeJob.label}` }
+  const job = {
+    id,
+    label: def.label,
+    startedAt: Date.now(),
+    endedAt: null,
+    code: null,
+    lines: [],
+    steps: def.steps.length,
+    step: 1
+  }
+  jobs.unshift(job)
+  jobs.length = Math.min(jobs.length, 6)
+  activeJob = job
+
+  const push = (chunk) => {
+    for (const line of String(chunk).split('\n')) {
+      if (line.trim()) job.lines.push(line.replace(/\u001b\[[0-9;]*m/g, ''))
+    }
+    // Tail only: a packaging log runs to tens of thousands of lines.
+    if (job.lines.length > 400) job.lines.splice(0, job.lines.length - 400)
+  }
+
+  const runStep = (i) => {
+    if (i >= def.steps.length) {
+      job.code = 0
+      job.endedAt = Date.now()
+      activeJob = null
+      return
+    }
+    job.step = i + 1
+    if (i > 0) push(`[status] — step ${i + 1} of ${def.steps.length} —`)
+    const [cmd, cmdArgs] = def.steps[i]
+    const child = spawn(cmd, cmdArgs, { cwd: ROOT, env: process.env })
+    child.stdout.on('data', push)
+    child.stderr.on('data', push)
+    child.on('error', (e) => {
+      push(`[status] could not start: ${e.message}`)
+      job.code = 1
+      job.endedAt = Date.now()
+      activeJob = null
+    })
+    child.on('close', (code) => {
+      if ((code ?? 1) !== 0) {
+        // Stop at the first failure. Pushing a branch whose install just
+        // refused, or publishing either way, would be worse than stopping.
+        push(`[status] step failed with code ${code} — stopping here.`)
+        job.code = code ?? 1
+        job.endedAt = Date.now()
+        activeJob = null
+        return
+      }
+      runStep(i + 1)
+    })
+  }
+  runStep(0)
+  return { ok: true }
 }
 
 function snapshot() {
@@ -299,7 +503,21 @@ function snapshot() {
     build: buildLog(installed, version),
     tests: testState(),
     activity: activity(),
-    logDirs: LOG_DIRS
+    logDirs: LOG_DIRS,
+    server: serverCache.value,
+    serverCheckedAt: serverCache.at || null,
+    actionsEnabled: ACTIONS_ENABLED,
+    jobs: jobs.map((j) => ({
+      id: j.id,
+      label: j.label,
+      startedAt: j.startedAt,
+      endedAt: j.endedAt,
+      code: j.code,
+      step: j.step,
+      steps: j.steps,
+      lines: j.lines.slice(-14)
+    })),
+    busyJob: activeJob ? activeJob.id : null
   }
 }
 
@@ -336,13 +554,51 @@ const PAGE = `<!doctype html>
   td,th{text-align:left;font-size:12px;padding:3px 6px 3px 0;border-bottom:1px solid var(--line)}
   th{color:var(--dim);font-weight:600;font-size:11px}
   .foot{color:var(--dim);font-size:11px;margin-top:12px}
+  .wide{grid-column:1/-1}
+  .pipe{width:100%;border-collapse:collapse}
+  .pipe th{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);padding:0 8px 6px 0}
+  .pipe td{padding:8px 8px 8px 0;border-top:1px solid var(--line);vertical-align:middle}
+  .tgt{font-weight:600;font-size:12.5px}
+  .tgt small{display:block;font-weight:400;color:var(--dim);font-size:11px}
+  button.act{font:inherit;font-size:11.5px;padding:5px 10px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;white-space:nowrap}
+  button.act:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+  button.act:disabled{opacity:.45;cursor:default}
+  button.act.arm{border-color:var(--bad);color:var(--bad);font-weight:600}
+  button.all{background:var(--accent);color:#fff;border-color:var(--accent);padding:6px 14px;font-weight:600}
+  .state{font-size:11.5px;font-weight:600}
+  .note{font-size:11px;color:var(--dim);margin-top:8px;line-height:1.45}
 </style></head><body>
 <h1>PlexiDesk — what the machine is doing</h1>
 <div class="sub" id="sub">connecting…</div>
 <div class="grid" id="grid"></div>
 <div class="foot" id="foot"></div>
 <script>
+const TOKEN = '__TOKEN__'
 const $ = (id) => document.getElementById(id)
+// Arm-then-confirm: the first press arms, the second fires. Publishing is
+// public and a stray click should not be able to do it.
+let armed = null
+async function act(action) {
+  if (armed !== action) {
+    armed = action
+    setTimeout(() => { if (armed === action) { armed = null; tick() } }, 6000)
+    tick()
+    return
+  }
+  armed = null
+  const r = await fetch('/api/action', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-plexii-status': '1' },
+    body: JSON.stringify({ action: action, token: TOKEN })
+  })
+  const j = await r.json().catch(() => ({ ok: false, error: 'no response' }))
+  if (!j.ok) alert(j.error || 'Refused')
+  tick()
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest && e.target.closest('button.act[data-action]')
+  if (b && !b.disabled) act(b.dataset.action)
+})
 const ago = (t) => {
   if (!t) return 'unknown'
   const s = Math.round((Date.now() - t) / 1000)
@@ -362,6 +618,94 @@ function render(d) {
     : '<span class="pill">idle — nothing running</span>'
 
   const cards = []
+
+  // ── Where the ready build has got to ──────────────────────────────────
+  // The subject is the BUILD sitting in release/, not the source version:
+  // "there is a build ready — has it reached here yet?" is the question.
+  const ready = d.artifacts.length ? d.artifacts[0] : null
+  const readyVer = d.version
+  const sv = d.server
+  const busyJob = d.busyJob
+  // No inline onclick: the page is built by concatenation inside a template
+  // literal, and the nested quoting an inline handler needs collapsed into a
+  // syntax error that blanked the whole dashboard. A data attribute plus one
+  // delegated listener has nothing to escape.
+  const btn = (action, label, enabled) => {
+    const isArmed = armed === action
+    return '<button class="act' + (isArmed ? ' arm' : '') + '" data-action="' + action + '"' +
+      (enabled && !busyJob ? '' : ' disabled') + '>' +
+      (isArmed ? 'Confirm — ' + esc(label) : esc(label)) + '</button>'
+  }
+
+  const localOk = d.installed && d.installed.version === readyVer
+  const gitClean = d.git.dirty === 0
+  const gitPushed = !!d.git.upstream && Number(d.git.ahead) === 0
+  const ghOk = sv && sv.github && sv.github.exists && !sv.github.draft
+  const feedOk = sv && sv.macFeed === readyVer
+  const serverOk = ghOk && feedOk
+
+  const rows = [
+    ['Local',
+      '/Applications',
+      d.installed ? esc(d.installed.version) : 'none',
+      localOk ? '<span class="state ok">installed</span>'
+        : '<span class="state warn">' + (d.installed ? 'older build installed' : 'not installed') + '</span>',
+      btn('install-local', localOk ? 'Reinstall' : 'Install', !!ready)],
+    ['Git',
+      esc(d.git.branch || '?') + (d.git.upstream ? '' : ' · no upstream'),
+      (d.git.dirty === 0 ? 'committed' : d.git.dirty + ' uncommitted'),
+      gitPushed ? '<span class="state ok">pushed</span>'
+        : '<span class="state ' + (gitClean ? 'warn' : 'bad') + '">' +
+          (!gitClean ? 'uncommitted changes' : d.git.ahead + ' commit(s) unpushed') + '</span>',
+      btn('git-push', 'Push', gitClean)],
+    ['Server',
+      'GitHub release + update feed',
+      sv ? (sv.github.exists ? 'release ' + esc(sv.tag) : 'no release') +
+           ' · feed ' + esc(sv.macFeed || '?') : 'checking…',
+      !sv ? '<span class="state dim">checking…</span>'
+        : !sv.reachable ? '<span class="state dim">could not reach the feed</span>'
+        : serverOk ? '<span class="state ok">published</span>'
+        : '<span class="state warn">' + (ghOk ? 'feed still on ' + esc(sv.macFeed || '?') : 'not published') + '</span>',
+      btn('server-publish', 'Publish', gitPushed && !!ready)]
+  ]
+    .map((r) => '<tr><td class="tgt">' + r[0] + '<small>' + r[1] + '</small></td>' +
+      '<td>' + r[2] + '</td><td>' + r[3] + '</td><td style="text-align:right">' + r[4] + '</td></tr>')
+    .join('')
+
+  cards.push('<div class="card wide"><h2>Ready build — where it has got to</h2>' +
+    (ready
+      ? '<div style="font-size:12px;margin-bottom:8px">Built <b>' + esc(readyVer) + '</b> · ' +
+        d.artifacts.map((a) => esc(a.name.replace(/^PlexiDesk-/, '')) + ' (' + mb(a.bytes) + ')').join(' · ') +
+        ' · <span class="dim">' + ago(ready.at) + '</span></div>'
+      : '<div class="dim" style="font-size:12px;margin-bottom:8px">No build for ' + esc(readyVer) +
+        ' in release/ yet — rebuild first.</div>') +
+    '<table class="pipe"><tr><th>target</th><th>what is there</th><th>state</th><th></th></tr>' +
+    rows + '</table>' +
+    '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">' +
+      btn('all', 'Send to all three', !!ready && gitClean) +
+      btn('build-install', 'Rebuild from source', true) +
+      (busyJob ? '<span class="pill live">running ' + esc(busyJob) + '</span>' : '') +
+    '</div>' +
+    '<div class="note">Each button runs the real command and streams its real output below. ' +
+    'The first press arms it, the second confirms — publishing is public and irreversible. ' +
+    'Publish stays disabled until the branch is pushed, because a release whose source is not in git cannot be rebuilt from its own tag.' +
+    (sv && sv.winFeed && sv.winFeed !== readyVer
+      ? ' Windows feed is on ' + esc(sv.winFeed) + ' and is not touched by these buttons.' : '') +
+    '</div></div>')
+
+  // Jobs — real output from whatever a button started
+  if (d.jobs.length > 0) {
+    const j = d.jobs[0]
+    const dur = Math.round(((j.endedAt || Date.now()) - j.startedAt) / 1000)
+    cards.push('<div class="card wide"><h2>' + esc(j.label) +
+      (j.steps > 1 ? ' — step ' + j.step + ' of ' + j.steps : '') + '</h2>' +
+      row('state', j.endedAt === null
+        ? '<span class="pill live">running · ' + dur + 's</span>'
+        : j.code === 0
+          ? '<span class="ok">finished cleanly in ' + dur + 's</span>'
+          : '<span class="bad">exited ' + j.code + ' after ' + dur + 's</span>') +
+      '<pre>' + esc(j.lines.join('\\n') || 'waiting for output…') + '</pre></div>')
+  }
 
   // What is happening right now
   if (d.build) {
@@ -447,13 +791,62 @@ tick(); setInterval(tick, 2000)
 </script></body></html>`
 
 const server = createServer((req, res) => {
+  const json = (code, body) => {
+    res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+    res.end(JSON.stringify(body))
+  }
+
   if (req.url === '/api/status') {
-    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
-    res.end(JSON.stringify(snapshot()))
+    const snap = snapshot()
+    // Network probes run out of band so a slow or offline check never stalls
+    // the page; the panel shows when it last managed to look.
+    void refreshServerState(snap.version)
+    json(200, snap)
     return
   }
+
+  if (req.url === '/api/action' && req.method === 'POST') {
+    // Same-origin only. A page on another site can reach 127.0.0.1, so the
+    // Origin check and the custom header (which forces a preflight it cannot
+    // satisfy) matter as much as the token.
+    const origin = req.headers.origin
+    const sameOrigin =
+      !origin || origin === `http://127.0.0.1:${PORT}` || origin === `http://localhost:${PORT}`
+    if (!sameOrigin || req.headers['x-plexii-status'] !== '1') {
+      json(403, { ok: false, error: 'Refused: cross-origin request.' })
+      return
+    }
+    let body = ''
+    req.on('data', (c) => {
+      body += c
+      if (body.length > 4096) req.destroy()
+    })
+    req.on('end', () => {
+      let parsed = {}
+      try {
+        parsed = JSON.parse(body || '{}')
+      } catch {
+        json(400, { ok: false, error: 'Bad JSON' })
+        return
+      }
+      if (parsed.token !== TOKEN) {
+        json(403, { ok: false, error: 'Refused: bad or missing token.' })
+        return
+      }
+      if (!ACTIONS_ENABLED) {
+        json(403, { ok: false, error: 'This status server was started read-only.' })
+        return
+      }
+      // eslint-disable-next-line no-console
+      console.log(`[status] action requested: ${parsed.action}`)
+      const started = startJob(parsed.action)
+      json(started.ok ? 200 : 409, started)
+    })
+    return
+  }
+
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
-  res.end(PAGE)
+  res.end(PAGE.replace('__TOKEN__', TOKEN))
 })
 
 // Loopback only. This exposes build paths and git state; it has no business
