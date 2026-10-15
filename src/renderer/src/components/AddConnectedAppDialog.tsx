@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useVaultStore } from '../stores/vault'
 import { useConnectedAppsStore } from '../stores/connectedApps'
+import { useOrgStore } from '../stores/org'
 import { createPortal } from 'react-dom'
 import {
   STANDARD_APPS,
@@ -42,6 +43,11 @@ function hostnameOf(url: string): string {
 export default function AddConnectedAppDialog({ onClose, onAdded }: Props): JSX.Element {
   const create = useConnectedAppsStore((s) => s.create)
   const existingApps = useConnectedAppsStore((s) => s.apps)
+  // The app is created in whatever org is active — including Personal, which
+  // owns what it creates rather than creating on another org's behalf.
+  const targetOrgName = useOrgStore(
+    (s) => s.orgs.find((o) => o.id === s.activeOrgId)?.name ?? 'Personal'
+  )
 
   const [tab, setTab] = useState<Tab>('standard')
   const [search, setSearch] = useState('')
@@ -207,11 +213,26 @@ export default function AddConnectedAppDialog({ onClose, onAdded }: Props): JSX.
         className="fb-glass-pillow w-full max-w-2xl mx-4 rounded-[20px] overflow-hidden flex flex-col max-h-[85vh] fb-spring-soft"
       >
         <div className="px-5 py-4 border-b border-[var(--edge-soft)] flex items-center justify-between gap-2 shrink-0">
-          <div className="flex items-center gap-2">
-            <Icon name="apps" size={18} className="text-accent" />
-            <h3 className="text-base font-semibold text-[var(--ink-100)]">
-              Add a Connected App
-            </h3>
+          <div className="flex items-center gap-2 min-w-0">
+            <Icon name="apps" size={18} className="text-accent shrink-0" />
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold text-[var(--ink-100)]">
+                Add a Connected App
+              </h3>
+              {/* Which account this will belong to, said BEFORE anything is
+                  typed. A connected app carries a saved login and a signed-in
+                  session, so the organisation it lands in decides which
+                  credentials it uses — and the same app is routinely a
+                  different account per organisation. */}
+              <p
+                className="text-[11px] text-[var(--ink-50)] truncate"
+                data-testid="connect-target-org"
+              >
+                {targetOrgName === 'Personal'
+                  ? 'Connecting to your personal account'
+                  : `Connecting to ${targetOrgName}`}
+              </p>
+            </div>
           </div>
           <button onClick={onClose} className="icon-btn" aria-label="Close">
             <Icon name="close" size={16} />

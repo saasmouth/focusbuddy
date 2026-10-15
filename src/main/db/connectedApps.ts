@@ -1,12 +1,46 @@
 import { randomUUID } from 'crypto'
 import { getDb } from './database'
-import { getActiveOrgId } from './activeOrg'
+import { getActiveOrgId, PERSONAL_ORG_ID } from './activeOrg'
 import type {
   ConnectedApp,
   ConnectedAppDraft,
   ConnectedAppKind,
   ConnectedAppPatch
 } from '@shared/types'
+
+// Connected apps belong to an ORGANISATION, not to the install.
+//
+// WHY. The same app is a different account in each org you work in — your own
+// Slack, the client's Slack, the agency's Slack. A connected app carries a
+// vault binding and a signed-in webview session, so getting this scope wrong
+// does not merely show the wrong tile: it points one org's credentials at
+// another org's workspace. That is why every statement below is scoped, not
+// just the listing.
+//
+// PERSONAL IS THE AGGREGATE. The reserved 'personal' org is the one account
+// that belongs to the human rather than to a company, so it is the one place
+// that sees everything — their own apps plus whatever they connected inside
+// each org, labelled with where it came from. A real org never aggregates: in
+// it you see that org's apps and nothing else.
+//
+// Everything created while an org is active belongs to that org, including
+// anything created from Personal, which belongs to Personal.
+
+/**
+ * The clause that limits a statement to rows the active org may touch.
+ *
+ * One clause with one always-bound parameter, rather than two shapes of SQL:
+ * `@scopeOrg` is null in Personal (which sees everything) and the org id
+ * otherwise. Written this way because better-sqlite3 rejects a named parameter
+ * the statement does not use, so a clause that sometimes drops its placeholder
+ * would throw at runtime in exactly the aggregate case.
+ */
+const ORG_SCOPE = '(@scopeOrg IS NULL OR org_id = @scopeOrg)'
+
+function scopeOrg(): string | null {
+  const org = getActiveOrgId()
+  return org === PERSONAL_ORG_ID ? null : org
+}
 
 interface AppRow {
   id: string
@@ -25,6 +59,7 @@ interface AppRow {
   app_path: string | null
   bundle_id: string | null
   icon_png_base64: string | null
+  org_id: string | null
   created_at: number
   updated_at: number
 }
@@ -32,6 +67,10 @@ interface AppRow {
 function rowToApp(row: AppRow): ConnectedApp {
   return {
     id: row.id,
+    // Which org this app belongs to. Surfaced because in the Personal
+    // aggregate the same app appears once per org, and an unlabelled duplicate
+    // is worse than no aggregation at all.
+    orgId: row.org_id ?? PERSONAL_ORG_ID,
     title: row.title,
     url: row.url,
     icon: row.icon,
@@ -57,9 +96,9 @@ export function listConnectedApps(): ConnectedApp[] {
   const db = getDb()
   const rows = db
     .prepare(
-      'SELECT * FROM connected_apps WHERE org_id = ? ORDER BY sort_order ASC, created_at ASC'
+      `SELECT * FROM connected_apps WHERE ${ORG_SCOPE} ORDER BY sort_order ASC, created_at ASC`
     )
-    .all(getActiveOrgId()) as AppRow[]
+    .all({ scopeOrg: scopeOrg() }) as AppRow[]
   return rows.map(rowToApp)
 }
 
@@ -105,9 +144,11 @@ export function createConnectedApp(draft: ConnectedAppDraft): ConnectedApp {
     orgId: getActiveOrgId(),
     now
   })
+  // Scoped like every other read, so the property holds everywhere rather
+  // than "everywhere except the one we know is safe".
   const row = db
-    .prepare('SELECT * FROM connected_apps WHERE id = ?')
-    .get(id) as AppRow
+    .prepare(`SELECT * FROM connected_apps WHERE id = @id AND ${ORG_SCOPE}`)
+    .get({ id, scopeOrg: scopeOrg() }) as AppRow
   return rowToApp(row)
 }
 
@@ -164,34 +205,41 @@ export function updateConnectedApp(
   }
   if (fields.length === 0) {
     const row = db
-      .prepare('SELECT * FROM connected_apps WHERE id = ?')
-      .get(id) as AppRow | undefined
+      .prepare(`SELECT * FROM connected_apps WHERE id = @id AND ${ORG_SCOPE}`)
+      .get({ id, scopeOrg: scopeOrg() }) as AppRow | undefined
     return row ? rowToApp(row) : null
   }
   fields.push('updated_at = @now')
-  db.prepare(`UPDATE connected_apps SET ${fields.join(', ')} WHERE id = @id`).run(
-    params
-  )
+  // Scoped: an id from another org cannot be mutated from inside this one.
+  // Personal is the aggregate, so it can edit what it can see.
+  const org = scopeOrg()
+  db.prepare(
+    `UPDATE connected_apps SET ${fields.join(', ')} WHERE id = @id AND ${ORG_SCOPE}`
+  ).run({ ...params, scopeOrg: org })
   const row = db
-    .prepare('SELECT * FROM connected_apps WHERE id = ?')
-    .get(id) as AppRow | undefined
+    .prepare(`SELECT * FROM connected_apps WHERE id = @id AND ${ORG_SCOPE}`)
+    .get({ id, scopeOrg: org }) as AppRow | undefined
   return row ? rowToApp(row) : null
 }
 
 export function deleteConnectedApp(id: string): boolean {
   const db = getDb()
-  const result = db.prepare('DELETE FROM connected_apps WHERE id = ?').run(id)
+  const result = db
+    .prepare(`DELETE FROM connected_apps WHERE id = @id AND ${ORG_SCOPE}`)
+    .run({ id, scopeOrg: scopeOrg() })
   return result.changes > 0
 }
 
 export function reorderConnectedApps(orderedIds: string[]): void {
   const db = getDb()
+  const org = scopeOrg()
   const tx = db.transaction(() => {
     const stmt = db.prepare(
-      'UPDATE connected_apps SET sort_order = @order, updated_at = @now WHERE id = @id'
+      `UPDATE connected_apps SET sort_order = @order, updated_at = @now
+        WHERE id = @id AND ${ORG_SCOPE}`
     )
     const now = Date.now()
-    orderedIds.forEach((id, i) => stmt.run({ order: i, now, id }))
+    orderedIds.forEach((id, i) => stmt.run({ order: i, now, id, scopeOrg: org }))
   })
   tx()
 }
@@ -202,25 +250,39 @@ export function reorderConnectedApps(orderedIds: string[]): void {
 export function touchConnectedApp(id: string): ConnectedApp | null {
   const db = getDb()
   const now = Date.now()
+  const org = scopeOrg()
   db.prepare(
     `UPDATE connected_apps
         SET use_count = use_count + 1,
             last_used_at = @now,
             updated_at = @now
-      WHERE id = @id`
-  ).run({ id, now })
+      WHERE id = @id AND ${ORG_SCOPE}`
+  ).run({ id, now, scopeOrg: org })
   const row = db
-    .prepare('SELECT * FROM connected_apps WHERE id = ?')
-    .get(id) as AppRow | undefined
+    .prepare(`SELECT * FROM connected_apps WHERE id = @id AND ${ORG_SCOPE}`)
+    .get({ id, scopeOrg: org }) as AppRow | undefined
   return row ? rowToApp(row) : null
 }
 
 // Look up a Connected App by hostname (any URL whose hostname matches).
 // Used by "Add to Connected Apps" so we don't create duplicates when the user
 // hits the button on a URL we already track.
+//
+// SCOPED, and this one matters most. Unscoped, connecting slack.com inside the
+// client's org would find the app you connected in your own org and quietly
+// reuse it — same row, same vault binding, same signed-in session. The user
+// would believe they had connected a second account and would in fact be
+// looking at the first. Two orgs having their own Slack is the normal case, so
+// a match only counts within the org asking.
 export function findConnectedAppByHostname(hostname: string): ConnectedApp | null {
   const db = getDb()
-  const rows = db.prepare('SELECT * FROM connected_apps').all() as AppRow[]
+  const org = getActiveOrgId()
+  // Personal aggregates for READING, but a dedupe decision is about where the
+  // new row would be created — which is always the active org — so Personal
+  // matches only its own rows here.
+  const rows = db
+    .prepare('SELECT * FROM connected_apps WHERE org_id = ?')
+    .all(org) as AppRow[]
   const needle = hostname.replace(/^www\./, '').toLowerCase()
   for (const row of rows) {
     try {
