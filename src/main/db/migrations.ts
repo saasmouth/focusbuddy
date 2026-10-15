@@ -330,6 +330,11 @@ export function applySchemaAndMigrations(db: Database.Database): NodesKindMigrat
   ensureColumn(db, 'connected_apps', 'last_used_at', 'INTEGER')
   ensureColumn(db, 'connected_apps', 'pinned', 'INTEGER NOT NULL DEFAULT 0')
   ensureColumn(db, 'connected_apps', 'vault_entry_id', 'TEXT')
+  // Show this app's unread count in the side menu. DEFAULT 1: the operator
+  // asked for it on by default with an opt-out at connect time, and existing
+  // apps should behave the same as newly connected ones rather than silently
+  // differing because they predate the column.
+  ensureColumn(db, 'connected_apps', 'notifications', 'INTEGER NOT NULL DEFAULT 1')
   ensureColumn(db, 'connected_apps', 'autofill_enabled', 'INTEGER NOT NULL DEFAULT 1')
   // Local-app support: kind discriminator + macOS bundle path/id + cached real
   // icon (base64 PNG so the sidebar can render it without a per-paint IPC hit).

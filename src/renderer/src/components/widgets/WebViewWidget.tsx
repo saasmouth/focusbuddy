@@ -16,6 +16,7 @@ import BrowserSurface, {
 } from '../browser/BrowserSurface'
 import Icon from '../Icon'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
+import { useAppNotifications } from '../../stores/appNotifications'
 
 // The desk's browser widget. Since the A2 desk-browser unification it renders
 // the SAME BrowserSurface core as the panel/fullscreen browser — one toolbar
@@ -229,12 +230,24 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
         // webview not yet attached
       }
     }
+    // A webview widget pointed at a connected app is a second real source for
+    // that app's unread count — the same title, the same honesty, no extra
+    // process. See stores/appNotifications.
+    const onTitle = (e: Event): void => {
+      const id = widget.sourceAppId
+      if (!id) return
+      const owner = apps.find((a) => a.id === id)
+      if (!owner || !owner.notifications) return
+      useAppNotifications.getState().report(id, (e as unknown as { title?: string }).title ?? '')
+    }
+    wvEl.addEventListener('page-title-updated', onTitle as EventListener)
     wvEl.addEventListener('dom-ready', handleDomReady as EventListener)
     // The element may already be past dom-ready by the time this effect runs
     // (the core hands it up on attach) — register eagerly too; the registry
     // call is idempotent per widget id.
     handleDomReady()
     return () => {
+      wvEl.removeEventListener('page-title-updated', onTitle as EventListener)
       wvEl.removeEventListener('dom-ready', handleDomReady as EventListener)
       unregisterWebviewByWidgetId(widget.id)
     }

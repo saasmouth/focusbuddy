@@ -2099,6 +2099,14 @@ export interface ConnectedApp {
   iconPngBase64: string | null
   // Pinned to the always-visible Favourites strip in the sidebar.
   pinned: boolean
+  /**
+   * Show this app's unread count in the side menu.
+   *
+   * On by default, opted out at connect time. It is a per-app choice because
+   * the answer differs per app: you want the count from a mail client and
+   * almost never from a docs site.
+   */
+  notifications: boolean
   // Auto-promoted into Favourites by usage if pinned=false; sorted by recency × count.
   useCount: number
   lastUsedAt: number | null
@@ -2121,6 +2129,7 @@ export interface ConnectedAppDraft {
   appPath?: string | null
   bundleId?: string | null
   iconPngBase64?: string | null
+  notifications?: boolean
 }
 
 export interface ConnectedAppPatch {
@@ -2134,6 +2143,7 @@ export interface ConnectedAppPatch {
   appPath?: string | null
   bundleId?: string | null
   iconPngBase64?: string | null
+  notifications?: boolean
 }
 
 export interface BrowsingHistoryEntry {

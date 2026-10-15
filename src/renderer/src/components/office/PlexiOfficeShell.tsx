@@ -5,7 +5,6 @@ import { writeDocumentDrag, canPlaceOnDesk } from '../../lib/documentDrag'
 import { useDocumentsStore } from '../../stores/documents'
 import { useViewStore } from '../../stores/view'
 import { useAccountStore } from '../../stores/account'
-import { personDisplayName } from '../../lib/personName'
 import PageEnter from '../chrome/pageEnter'
 import UpgradeCard from '../UpgradeCard'
 import { useMailStore, selectMailUnread } from '../../stores/mail'
@@ -32,6 +31,7 @@ import MessagesView from '../views/MessagesView'
 import PlexiMeetView from '../views/PlexiMeetView'
 import PlexiSignView from '../views/PlexiSignView'
 import VaultView from '../views/VaultView'
+import { useSharesStore } from '../../stores/shares'
 import AreaAccordion from '../nav/AreaAccordion'
 import Icon from '../Icon'
 import WorkspaceSwitcher from '../WorkspaceSwitcher'
@@ -338,7 +338,6 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
     () => list.filter((d) => ['doc', 'sheet', 'slides', 'map', 'design', 'draw'].includes(d.docType)).sort((a, b) => b.updatedAt - a.updatedAt),
     [list]
   )
-  const ownerName = personDisplayName(account, 'You')
 
   // The Recent table reads the same real documents, filtered by the selected
   // type tab. The Mail and Meet tabs have no document records, so they resolve
@@ -744,50 +743,15 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                   )}
                 </section>
               ) : (
-                <section className="fb-card p-4">
-                  <h2 className="text-[15px] font-semibold mb-3">{page === 'trash' ? 'Trash' : page === 'starred' ? 'Starred' : 'Recent files'}</h2>
-                  {visibleDocs(officeDocs, page, starred).length === 0 ? (
-                    <p className="text-[12.5px] text-[var(--ink-50)] py-6 text-center">
-                      {page === 'starred' ? 'Star a file to keep it here.' : page === 'shared' ? 'Files shared with you will appear here.' : 'No files yet. Create one above to get started.'}
-                    </p>
-                  ) : (
-                    <div className="text-[12.5px]">
-                      <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-2 pb-1.5 text-[11px] uppercase tracking-wide text-[var(--ink-50)] border-b border-[var(--edge-soft)]">
-                        <span>Name</span>
-                        <span>Owner</span>
-                        <span>Last opened</span>
-                        <span />
-                      </div>
-                      {visibleDocs(officeDocs, page, starred).map((d) => {
-                        const ti = TYPE_ICON[d.docType] ?? { icon: 'description', tint: 'text-[var(--ink-40)]' }
-                        return (
-                          <div
-                            key={d.id}
-                            {...docDragProps(d)}
-                            onClick={() => setOpenDocId(d.id)}
-                            data-testid={`office-file-${d.id}`}
-                            className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-2 py-2 items-center border-b border-[color-mix(in_oklab,var(--edge-soft)_60%,transparent)] cursor-pointer hover:bg-[var(--surface-sunken)] rounded"
-                          >
-                            <span className="flex items-center gap-2 min-w-0">
-                              <Icon name={ti.icon} size={16} className={ti.tint} />
-                              <span className="truncate">{d.title || 'Untitled'}</span>
-                            </span>
-                            <span className="text-[var(--ink-60)] whitespace-nowrap">{ownerName}</span>
-                            <span className="text-[var(--ink-60)] whitespace-nowrap fb-tabular">{relTime(d.updatedAt)}</span>
-                            <span className="flex items-center gap-1">
-                              <button onClick={(e) => { e.stopPropagation(); toggleStar(d.id) }} className={starred.has(d.id) ? 'text-amber-400' : 'text-[var(--ink-40)] hover:text-amber-400'} title="Star">
-                                <Icon name="star" size={15} filled={starred.has(d.id)} />
-                              </button>
-                              <button onClick={(e) => { e.stopPropagation(); void remove(d.id) }} className="text-[var(--ink-40)] hover:text-rose-500" title="Delete">
-                                <Icon name="delete" size={15} />
-                              </button>
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </section>
+                <LibraryPage
+                  page={page}
+                  docs={officeDocs}
+                  starred={starred}
+                  onOpen={(id) => setOpenDocId(id)}
+                  onToggleStar={toggleStar}
+                  onCreateType={(t, title) => void createType(t, title)}
+                  dragProps={docDragProps}
+                />
               )}
             </div>
 
@@ -927,6 +891,319 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
   )
 }
 
+// ── The library views ────────────────────────────────────────────────────────
+//
+// Recent, Starred, Shared with me, Templates and Trash were ONE table with one
+// filter in front of it — and `visibleDocs` returned `docs.slice(0, 12)` for
+// everything except Starred, so Recent and Trash showed the identical twelve
+// documents. Five menu items, one view, two of them lying about their content.
+//
+// Each is its own view now, and each is backed by data that actually exists:
+// Trash reads documents.listTrashed(), Shared reads the real shares inbox,
+// Templates reads the template list. Where there is nothing to show, the view
+// says so rather than falling back to a list of unrelated documents.
+
+function timeBucket(ms: number): string {
+  const d = new Date(ms)
+  const now = new Date()
+  const sameDay = (a: Date, b: Date): boolean => a.toDateString() === b.toDateString()
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (sameDay(d, now)) return 'Today'
+  if (sameDay(d, yesterday)) return 'Yesterday'
+  if (now.getTime() - ms < 7 * 86_400_000) return 'Earlier this week'
+  if (now.getTime() - ms < 30 * 86_400_000) return 'Earlier this month'
+  return 'Older'
+}
+
+function Empty({ icon, title, hint }: { icon: string; title: string; hint: string }): JSX.Element {
+  return (
+    <div className="py-10 text-center" data-testid="library-empty">
+      <Icon name={icon} size={28} className="text-[var(--ink-30)] mb-2" />
+      <p className="text-[13px] text-[var(--ink-80)] font-medium">{title}</p>
+      <p className="text-[12px] text-[var(--ink-50)] mt-1 max-w-sm mx-auto leading-snug">{hint}</p>
+    </div>
+  )
+}
+
+function DocCard({
+  doc,
+  starred,
+  onOpen,
+  onToggleStar,
+  dragProps
+}: {
+  doc: DocumentMeta
+  starred: boolean
+  onOpen: () => void
+  onToggleStar: () => void
+  dragProps: (d: DocumentMeta) => Record<string, unknown>
+}): JSX.Element {
+  const ti = TYPE_ICON[doc.docType] ?? { icon: 'description', tint: 'text-[var(--ink-40)]' }
+  return (
+    <div
+      {...dragProps(doc)}
+      onClick={onOpen}
+      data-testid={`office-file-${doc.id}`}
+      className="fb-card p-3 cursor-pointer hover:bg-[var(--surface-sunken)] flex flex-col gap-2"
+    >
+      <div className="flex items-start gap-2">
+        <Icon name={ti.icon} size={18} filled className={ti.tint} />
+        <span className="text-[13px] font-medium leading-snug line-clamp-2 flex-1 min-w-0">
+          {doc.title || 'Untitled'}
+        </span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleStar()
+          }}
+          className={starred ? 'text-amber-400' : 'text-[var(--ink-40)] hover:text-amber-400'}
+          title={starred ? 'Unstar' : 'Star'}
+        >
+          <Icon name="star" size={15} filled={starred} />
+        </button>
+      </div>
+      <span className="text-[11px] text-[var(--ink-50)] fb-tabular">{relTime(doc.updatedAt)}</span>
+    </div>
+  )
+}
+
+function LibraryPage({
+  page,
+  docs,
+  starred,
+  onOpen,
+  onToggleStar,
+  onCreateType,
+  dragProps
+}: {
+  page: OfficePage
+  docs: DocumentMeta[]
+  starred: Set<string>
+  onOpen: (id: string) => void
+  onToggleStar: (id: string) => void
+  onCreateType: (t: DocType, title: string) => void
+  dragProps: (d: DocumentMeta) => Record<string, unknown>
+}): JSX.Element {
+  // ── Trash: the real trashed rows, which nothing was reading ──────────────
+  const [trashed, setTrashed] = useState<DocumentMeta[] | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const reloadTrash = useCallback(async (): Promise<void> => {
+    try {
+      setTrashed(await window.api.documents.listTrashed())
+    } catch {
+      setTrashed([])
+    }
+  }, [])
+  useEffect(() => {
+    if (page === 'trash') void reloadTrash()
+  }, [page, reloadTrash])
+
+  // ── Shared with me: the real inbox of things other people shared ─────────
+  const shareInbox = useSharesStore((s) => s.inbox)
+
+  if (page === 'recent') {
+    const sorted = [...docs].sort((a, b) => b.updatedAt - a.updatedAt)
+    if (sorted.length === 0) {
+      return (
+        <section className="fb-card p-4">
+          <Empty
+            icon="schedule"
+            title="Nothing opened yet"
+            hint="Documents you create or open will be listed here, newest first."
+          />
+        </section>
+      )
+    }
+    const groups: { label: string; items: DocumentMeta[] }[] = []
+    for (const d of sorted) {
+      const label = timeBucket(d.updatedAt)
+      const last = groups[groups.length - 1]
+      if (last && last.label === label) last.items.push(d)
+      else groups.push({ label, items: [d] })
+    }
+    return (
+      <section className="fb-card p-4" data-testid="library-recent">
+        {/* Grouped by WHEN, which is the only thing "recent" means. A flat
+            table sorted by date told you the same thing in a column you had to
+            read row by row. */}
+        {groups.map((g) => (
+          <div key={g.label} className="mb-4 last:mb-0">
+            <h3 className="text-[11px] uppercase tracking-[0.1em] text-[var(--ink-50)] font-semibold mb-2">
+              {g.label}
+            </h3>
+            <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))' }}>
+              {g.items.map((d) => (
+                <DocCard
+                  key={d.id}
+                  doc={d}
+                  starred={starred.has(d.id)}
+                  onOpen={() => onOpen(d.id)}
+                  onToggleStar={() => onToggleStar(d.id)}
+                  dragProps={dragProps}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </section>
+    )
+  }
+
+  if (page === 'starred') {
+    const items = docs.filter((d) => starred.has(d.id))
+    return (
+      <section className="fb-card p-4" data-testid="library-starred">
+        {items.length === 0 ? (
+          <Empty
+            icon="star"
+            title="Nothing starred"
+            hint="Star a document from any list and it will be kept here, so the few you return to are never buried."
+          />
+        ) : (
+          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))' }}>
+            {items.map((d) => (
+              <DocCard
+                key={d.id}
+                doc={d}
+                starred
+                onOpen={() => onOpen(d.id)}
+                onToggleStar={() => onToggleStar(d.id)}
+                dragProps={dragProps}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    )
+  }
+
+  if (page === 'shared') {
+    return (
+      <section className="fb-card p-4" data-testid="library-shared">
+        {shareInbox.length === 0 ? (
+          <Empty
+            icon="group"
+            title="Nothing shared with you yet"
+            hint="When someone shares a desk or a folder with you, it appears here with who sent it. Document-level sharing is not available yet, so this lists shared desks rather than files."
+          />
+        ) : (
+          <div className="text-[12.5px]">
+            {/* The REAL shares inbox. These are desks, folders and widgets —
+                named as such rather than dressed up as documents, because
+                document-level sharing does not exist yet. */}
+            {shareInbox.map((sh) => (
+              <div
+                key={sh.token}
+                className="flex items-center gap-3 px-2 py-2.5 border-b border-[color-mix(in_oklab,var(--edge-soft)_60%,transparent)] last:border-b-0"
+                data-testid={`library-share-${sh.token}`}
+              >
+                <Icon name="folder_shared" size={17} filled className="text-violet-500 shrink-0" />
+                <span className="flex-1 min-w-0">
+                  <span className="block truncate font-medium">{sh.kind}</span>
+                  <span className="block text-[11px] text-[var(--ink-50)]">
+                    from {sh.fromHandle}
+                  </span>
+                </span>
+                <span className="text-[11px] text-[var(--ink-50)] fb-tabular whitespace-nowrap">
+                  {relTime(sh.acceptedAt)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    )
+  }
+
+  if (page === 'templates') {
+    return (
+      <section className="fb-card p-4" data-testid="library-templates">
+        {/* A gallery, because a template is chosen by the look of it. The same
+            list used to render as rows of filenames. */}
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
+          {TEMPLATES.map((t) => (
+            <button
+              key={t.id + t.docType}
+              onClick={() => onCreateType(t.docType, t.label)}
+              data-testid={`library-template-${t.docType}`}
+              className="text-left group"
+            >
+              <span
+                className={`block h-20 rounded-lg ${t.preview} mb-1.5 transition-transform group-hover:scale-[1.02]`}
+              />
+              <span className="block text-[12.5px] font-medium truncate">{t.label}</span>
+              <span className="block text-[11px] text-[var(--ink-50)]">Create</span>
+            </button>
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  // ── Trash ────────────────────────────────────────────────────────────────
+  return (
+    <section className="fb-card p-4" data-testid="library-trash">
+      {trashed === null ? (
+        <p className="text-[12.5px] text-[var(--ink-50)] py-6 text-center">Loading…</p>
+      ) : trashed.length === 0 ? (
+        <Empty
+          icon="delete"
+          title="Trash is empty"
+          hint="Deleted documents rest here until you remove them for good."
+        />
+      ) : (
+        <div className="text-[12.5px]">
+          {trashed.map((d) => {
+            const ti = TYPE_ICON[d.docType] ?? { icon: 'description', tint: 'text-[var(--ink-40)]' }
+            return (
+              <div
+                key={d.id}
+                className="flex items-center gap-3 px-2 py-2 border-b border-[color-mix(in_oklab,var(--edge-soft)_60%,transparent)] last:border-b-0"
+                data-testid={`library-trashed-${d.id}`}
+              >
+                <Icon name={ti.icon} size={16} filled className={`${ti.tint} shrink-0 opacity-60`} />
+                <span className="flex-1 min-w-0 truncate text-[var(--ink-70)]">
+                  {d.title || 'Untitled'}
+                </span>
+                {/* Restore and purge are real operations, not a styled list. */}
+                <button
+                  disabled={busyId === d.id}
+                  onClick={() => {
+                    setBusyId(d.id)
+                    void window.api.documents
+                      .restore(d.id)
+                      .then(() => reloadTrash())
+                      .finally(() => setBusyId(null))
+                  }}
+                  className="text-[12px] px-2 py-1 rounded-md border border-[var(--edge-soft)] hover:bg-[var(--surface-sunken)] disabled:opacity-50"
+                  data-testid={`library-restore-${d.id}`}
+                >
+                  Restore
+                </button>
+                <button
+                  disabled={busyId === d.id}
+                  onClick={() => {
+                    setBusyId(d.id)
+                    void window.api.documents
+                      .purge(d.id)
+                      .then(() => reloadTrash())
+                      .finally(() => setBusyId(null))
+                  }}
+                  className="text-[12px] px-2 py-1 rounded-md text-rose-500 hover:bg-rose-500/10 disabled:opacity-50"
+                  data-testid={`library-purge-${d.id}`}
+                >
+                  Delete forever
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </section>
+  )
+}
+
 function pageTitle(p: OfficePage): string {
   return p === 'home' ? 'Home' : p[0].toUpperCase() + p.slice(1)
 }
@@ -936,12 +1213,6 @@ function tabLabel(t: 'all' | DocType): string {
 function appLabel(t: DocType): string {
   return t === 'doc' ? 'PlexiDocs' : t === 'sheet' ? 'PlexiSheets' : t === 'slides' ? 'PlexiSlides' : t === 'map' ? 'PlexiDiagrams' : t === 'design' ? 'PlexiDesign' : t === 'draw' ? 'PlexiDraw' : 'PlexiOffice'
 }
-function visibleDocs(docs: DocumentMeta[], page: OfficePage, starred: Set<string>): DocumentMeta[] {
-  if (page === 'starred') return docs.filter((d) => starred.has(d.id))
-  if (page === 'shared') return []
-  return docs.slice(0, 12)
-}
-
 const TEMPLATES: { id: string; label: string; docType: DocType; preview: string }[] = [
   { id: 'blank-doc', label: 'Blank document', docType: 'doc', preview: 'bg-gradient-to-br from-sky-500 to-sky-700' },
   { id: 'blank-sheet', label: 'Blank spreadsheet', docType: 'sheet', preview: 'bg-gradient-to-br from-emerald-500 to-emerald-700' },

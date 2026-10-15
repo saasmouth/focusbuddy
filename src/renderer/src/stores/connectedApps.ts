@@ -17,6 +17,8 @@ interface ConnectedAppsStore {
   togglePinned: (id: string) => Promise<void>
   // Bind a vault entry for auto-fill (or unbind with null).
   setVaultEntry: (id: string, vaultEntryId: string | null) => Promise<void>
+  /** Show or hide this app's unread count in the side menu. */
+  setNotifications: (id: string, on: boolean) => Promise<void>
   // Launch a local (kind='local') app via the main process. No-op for web apps.
   // Bumps usage on success so launches feed the Favourites sort.
   launchLocal: (id: string) => Promise<{ ok: boolean; error?: string }>
@@ -65,6 +67,10 @@ export const useConnectedAppsStore = create<ConnectedAppsStore>((set, get) => ({
     const updated = await window.api.connectedApps.update(id, { vaultEntryId })
     if (!updated) return
     set({ apps: get().apps.map((a) => (a.id === id ? updated : a)) })
+  },
+  setNotifications: async (id, on) => {
+    await window.api.connectedApps.update(id, { notifications: on })
+    await get().refresh()
   },
   launchLocal: async (id) => {
     const app = get().apps.find((a) => a.id === id)

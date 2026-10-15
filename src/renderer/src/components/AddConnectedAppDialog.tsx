@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useVaultStore } from '../stores/vault'
 import { useConnectedAppsStore } from '../stores/connectedApps'
+import { createPortal } from 'react-dom'
 import {
   STANDARD_APPS,
   categoriesOrdered,
@@ -50,6 +51,45 @@ export default function AddConnectedAppDialog({ onClose, onAdded }: Props): JSX.
   const [customTitle, setCustomTitle] = useState('')
   const [customUrl, setCustomUrl] = useState('')
   const [customBusy, setCustomBusy] = useState(false)
+  // Sign-in details, saved to the Vault rather than to the app row: the vault
+  // is already the encrypted store, and ConnectedAppView/WebViewWidget already
+  // autofill from a bound entry — so capturing them here is what makes an app
+  // stay signed in, and is why its unread count can be read at all.
+  const [signInUser, setSignInUser] = useState('')
+  const [signInPass, setSignInPass] = useState('')
+  // On by default, per the operator; this is the opt-out.
+  const [notifications, setNotifications] = useState(true)
+  const [credError, setCredError] = useState<string | null>(null)
+  const addVaultEntry = useVaultStore((v) => v.addEntry)
+  const vaultUnlocked = useVaultStore((v) => v.unlocked)
+  const setAppVaultEntry = useConnectedAppsStore((v) => v.setVaultEntry)
+
+  /**
+   * Save the typed credentials into the Vault and bind them to the new app.
+   *
+   * Non-fatal by design: an app that connected but whose credentials could not
+   * be stored is still a working app, and failing the whole connect would be a
+   * worse outcome than connecting without autofill. The reason is surfaced.
+   */
+  async function bindCredentials(appId: string, title: string, url: string): Promise<void> {
+    if (!signInUser.trim() && !signInPass) return
+    if (!vaultUnlocked) {
+      setCredError('Vault is locked — connect saved, but the sign-in details were not stored.')
+      return
+    }
+    try {
+      const entry = await addVaultEntry({
+        title,
+        url,
+        username: signInUser.trim() || undefined,
+        secret: { password: signInPass }
+      })
+      if (entry) await setAppVaultEntry(appId, entry.id)
+      else setCredError('Could not write to the Vault — connected without sign-in details.')
+    } catch {
+      setCredError('Could not write to the Vault — connected without sign-in details.')
+    }
+  }
 
   // Local app form
   const [picked, setPicked] = useState<PickedLocal | null>(null)
@@ -79,8 +119,10 @@ export default function AddConnectedAppDialog({ onClose, onAdded }: Props): JSX.
         title: app.title,
         url: app.url,
         icon: app.icon,
-        color: app.color
+        color: app.color,
+        notifications
       })
+      await bindCredentials(created.id, app.title, app.url)
       onAdded?.(created.id)
       onClose()
     } finally {
@@ -132,8 +174,10 @@ export default function AddConnectedAppDialog({ onClose, onAdded }: Props): JSX.
         title,
         url,
         icon: 'public',
-        color: null
+        color: null,
+        notifications
       })
+      await bindCredentials(created.id, title, url)
       onAdded?.(created.id)
       onClose()
     } finally {
@@ -291,6 +335,69 @@ export default function AddConnectedAppDialog({ onClose, onAdded }: Props): JSX.
                 Custom apps render as a full-pane browser. Sessions persist in the Electron
                 profile, so you stay logged in across app restarts.
               </p>
+            </div>
+          )}
+
+          {/* Sign-in and notifications — shared by both web tabs, because both
+              produce a webview that can hold a session and report an unread
+              count. Local apps are excluded: they are launched, not rendered,
+              so there is no session here to keep and no title to read. */}
+          {tab !== 'local' && (
+            <div className="mt-4 pt-3 border-t border-[var(--edge-soft)] max-w-md space-y-2.5">
+              <div className="text-[11px] uppercase tracking-[0.12em] font-semibold text-[var(--ink-50)]">
+                Sign in (optional)
+              </div>
+              <p className="text-[11px] text-[var(--ink-50)] leading-snug">
+                Saved to your Vault, encrypted, and filled in for you — so the app stays
+                signed in and can report its unread count.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  value={signInUser}
+                  onChange={(e) => setSignInUser(e.target.value)}
+                  placeholder="username or email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  data-testid="connect-username"
+                  className="px-2.5 py-1.5 rounded-md text-[12.5px] bg-[var(--surface-sunken)] border border-[var(--edge-soft)]"
+                />
+                <input
+                  value={signInPass}
+                  onChange={(e) => setSignInPass(e.target.value)}
+                  type="password"
+                  placeholder="password"
+                  data-testid="connect-password"
+                  className="px-2.5 py-1.5 rounded-md text-[12.5px] bg-[var(--surface-sunken)] border border-[var(--edge-soft)]"
+                />
+              </div>
+              {!vaultUnlocked && (signInUser || signInPass) && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-snug">
+                  Your Vault is locked. Unlock it in Apps → Vault first, or the app will
+                  connect without these details.
+                </p>
+              )}
+              {credError && (
+                <p className="text-[11px] text-red-600 dark:text-red-400 leading-snug">
+                  {credError}
+                </p>
+              )}
+              <label className="flex items-start gap-2 cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={notifications}
+                  onChange={(e) => setNotifications(e.target.checked)}
+                  className="mt-0.5 accent-accent"
+                  data-testid="connect-notifications"
+                />
+                <span className="text-[12px] text-[var(--ink-80)] leading-snug">
+                  Show unread count in the side menu
+                  <span className="block text-[11px] text-[var(--ink-50)]">
+                    Read from the app&apos;s own page title while it is open. You can turn
+                    it off later from the bell in the app&apos;s own toolbar.
+                  </span>
+                </span>
+              </label>
             </div>
           )}
 

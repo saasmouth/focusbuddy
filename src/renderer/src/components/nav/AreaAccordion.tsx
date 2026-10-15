@@ -26,6 +26,7 @@ import { useViewStore } from '../../stores/view'
 
 type ViewStore = ReturnType<typeof useViewStore.getState>
 import { useConnectedAppsStore } from '../../stores/connectedApps'
+import { useAppNotifications } from '../../stores/appNotifications'
 import { useViewKindEnabled } from '../../lib/viewCapability'
 import { useCapabilityStore } from '../../stores/capabilities'
 import { useOrgStore } from '../../stores/org'
@@ -298,12 +299,15 @@ function Tile({
   active,
   onClick,
   testid,
+  badge = 0,
   children
 }: {
   label: string
   active: boolean
   onClick: () => void
   testid?: string
+  /** An unread count the app itself reported. 0 renders nothing. */
+  badge?: number
   children: React.ReactNode
 }): JSX.Element {
   return (
@@ -318,7 +322,17 @@ function Tile({
           : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
       }`}
     >
-      <span className="inline-flex items-center justify-center w-7 h-7 shrink-0">{children}</span>
+      <span className="relative inline-flex items-center justify-center w-7 h-7 shrink-0">
+        {children}
+        {badge > 0 && (
+          <span
+            className="absolute -top-1 -right-1.5 min-w-[15px] h-[15px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold leading-[15px] text-center fb-tabular"
+            data-testid="nav-unread-badge"
+          >
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+      </span>
       {/* ONE LINE, ALWAYS. A wrapped name makes every tile in the row taller
           and the grid ragged; the column count gives way instead (see
           TileGrid). The full name is on the tile's title, so an ellipsis never
@@ -380,6 +394,7 @@ export default function AreaAccordion({
   const peopleEnt = areaEnt('plexipeople', 'product_people', 'People')
   const brainEnt = areaEnt('plexibrain', 'product_brain', 'Brain')
   const connectedApps = useConnectedAppsStore((s) => s.apps)
+  const unreadCounts = useAppNotifications((s) => s.counts)
   const refreshApps = useConnectedAppsStore((s) => s.refresh)
   const appsLoaded = useConnectedAppsStore((s) => s.loaded)
   useEffect(() => {
@@ -518,8 +533,14 @@ export default function AreaAccordion({
                 key={app.id}
                 label={app.title}
                 active={view.kind === 'connected-app' && view.appId === app.id}
-                onClick={() => goConnectedApp(app.id)}
+                onClick={() => {
+                  // Opening it is reading it: drop the badge rather than
+                  // leaving a number the user has just dealt with.
+                  useAppNotifications.getState().clear(app.id)
+                  goConnectedApp(app.id)
+                }}
                 testid={`nav-connected-app-${app.id}`}
+                badge={app.notifications ? (unreadCounts[app.id]?.count ?? 0) : 0}
               >
                 <AppLogo app={app} size={22} glyphSize={13} />
               </Tile>

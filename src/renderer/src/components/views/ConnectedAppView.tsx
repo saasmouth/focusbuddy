@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAppNotifications } from '../../stores/appNotifications'
 import { confirmDialog } from '../plexi/PromptDialog'
 import { useConnectedAppsStore } from '../../stores/connectedApps'
 import { useVaultStore } from '../../stores/vault'
@@ -25,6 +26,7 @@ export default function ConnectedAppView({ appId }: Props): JSX.Element {
   const vaultUnlocked = useVaultStore((s) => s.unlocked)
   const goHome = useViewStore((s) => s.goHome)
   const webviewRef = useRef<HTMLElement | null>(null)
+  const setNotifications = useConnectedAppsStore((v) => v.setNotifications)
   const [canBack, setCanBack] = useState(false)
   const [canForward, setCanForward] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -100,11 +102,21 @@ export default function ConnectedAppView({ appId }: Props): JSX.Element {
       setLoading(false)
       refreshNav()
     }
+    // The app's own unread claim, reported as it changes. Only for apps that
+    // asked for it — see stores/appNotifications for why the title is the
+    // honest source and what it cannot do.
+    const onTitle = (e: Event): void => {
+      if (!app.notifications) return
+      const title = (e as unknown as { title?: string }).title ?? ''
+      useAppNotifications.getState().report(app.id, title)
+    }
+    wv.addEventListener('page-title-updated', onTitle as EventListener)
     wv.addEventListener('did-start-loading', onStart as EventListener)
     wv.addEventListener('did-stop-loading', onStop as EventListener)
     wv.addEventListener('did-navigate', refreshNav as EventListener)
     wv.addEventListener('did-navigate-in-page', refreshNav as EventListener)
     return () => {
+      wv.removeEventListener('page-title-updated', onTitle as EventListener)
       wv.removeEventListener('did-start-loading', onStart as EventListener)
       wv.removeEventListener('did-stop-loading', onStop as EventListener)
       wv.removeEventListener('did-navigate', refreshNav as EventListener)
@@ -203,6 +215,25 @@ export default function ConnectedAppView({ appId }: Props): JSX.Element {
           title="Open in system browser"
         >
           <Icon name="open_in_new" size={14} />
+        </button>
+        {/* The notifications toggle the connect dialog promises you can change
+            later. Without it that sentence was a lie, and the preference would
+            have been settable exactly once. */}
+        <button
+          onClick={() => void setNotifications(app.id, !app.notifications)}
+          className={`icon-btn ${app.notifications ? '!text-accent' : ''}`}
+          data-testid="connected-app-notifications"
+          title={
+            app.notifications
+              ? 'Unread count shown in the side menu — click to stop showing it'
+              : 'Show this app’s unread count in the side menu'
+          }
+        >
+          <Icon
+            name={app.notifications ? 'notifications_active' : 'notifications_off'}
+            size={14}
+            filled={app.notifications}
+          />
         </button>
         <div className="relative">
           <button

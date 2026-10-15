@@ -19,6 +19,7 @@ interface AppRow {
   last_used_at: number | null
   pinned: number
   vault_entry_id: string | null
+  notifications: number
   autofill_enabled: number
   kind: string | null
   app_path: string | null
@@ -44,6 +45,8 @@ function rowToApp(row: AppRow): ConnectedApp {
     useCount: row.use_count ?? 0,
     lastUsedAt: row.last_used_at,
     vaultEntryId: row.vault_entry_id,
+    // Older rows predate the column; the default is on.
+    notifications: row.notifications === undefined ? true : row.notifications === 1,
     autofillEnabled: (row.autofill_enabled ?? 1) === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -75,13 +78,13 @@ export function createConnectedApp(draft: ConnectedAppDraft): ConnectedApp {
   db.prepare(
     `INSERT INTO connected_apps (
        id, title, url, icon, color, sort_order,
-       use_count, last_used_at, pinned, vault_entry_id, autofill_enabled,
+       use_count, last_used_at, pinned, vault_entry_id, notifications, autofill_enabled,
        kind, app_path, bundle_id, icon_png_base64,
        created_at, updated_at, org_id
      )
      VALUES (
        @id, @title, @url, @icon, @color, @sortOrder,
-       0, NULL, @pinned, @vaultEntryId, 1,
+       0, NULL, @pinned, @vaultEntryId, @notifications, 1,
        @kind, @appPath, @bundleId, @iconPngBase64,
        @now, @now, @orgId
      )`
@@ -93,6 +96,7 @@ export function createConnectedApp(draft: ConnectedAppDraft): ConnectedApp {
     color: draft.color ?? null,
     sortOrder: nextSortOrder(),
     pinned: draft.pinned ? 1 : 0,
+    notifications: draft.notifications === false ? 0 : 1,
     vaultEntryId: draft.vaultEntryId ?? null,
     kind: draft.kind ?? 'web',
     appPath: draft.appPath ?? null,
@@ -129,6 +133,10 @@ export function updateConnectedApp(
   if (patch.color !== undefined) {
     fields.push('color = @color')
     params.color = patch.color
+  }
+  if (patch.notifications !== undefined) {
+    fields.push('notifications = @notifications')
+    params.notifications = patch.notifications ? 1 : 0
   }
   if (patch.pinned !== undefined) {
     fields.push('pinned = @pinned')
