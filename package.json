@@ -52,7 +52,8 @@
     "web:build": "node scripts/derive-web-channel-map.cjs && vite build --config vite.web.config.ts",
     "web:preview": "vite preview --config vite.web.config.ts --port 5180",
     "typecheck:webruntime": "tsc --noEmit -p tsconfig.webruntime.json",
-    "install:local": "bash scripts/install-local.sh"
+    "install:local": "bash scripts/install-local.sh",
+    "status": "node scripts/status-server.mjs"
   },
   "engines": {
     "node": ">=20.0.0 <23.0.0"
