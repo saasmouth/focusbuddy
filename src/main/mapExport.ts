@@ -71,7 +71,8 @@ export async function exportMap(input: {
       const pdf = await win.webContents.printToPDF({
         printBackground: true,
         pageSize: { width: pxToMicron(width), height: pxToMicron(height) },
-        margins: { marginType: 'custom', top: 0, right: 0, bottom: 0, left: 0 }
+        // Electron 44 dropped `marginType`; explicit numbers are the custom case.
+        margins: { top: 0, right: 0, bottom: 0, left: 0 }
       })
       await writeFile(res.filePath, pdf)
     }

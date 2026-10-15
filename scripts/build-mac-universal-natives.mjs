@@ -43,10 +43,50 @@ const checkOnly = process.argv.includes('--check')
 
 // The addons that compile from source and land at one fixed path regardless of
 // architecture — these are the ones that must be fat.
-const FAT_ADDONS = [
-  'better-sqlite3/build/Release/better_sqlite3.node',
-  'node-mac-haptics/build/Release/haptics.node'
+const FAT_ADDONS = ['node-mac-haptics/build/Release/haptics.node']
+
+// Addons that ship PER-ARCH prebuilt binaries and pick one at runtime by
+// `process.arch`, rather than compiling to a single path that has to be fat.
+//
+// better-sqlite3 moved to this layout at v12 (we upgraded to 13 with Electron
+// 44). The binaries are N-API, so they are ABI-stable and need no rebuild per
+// Electron version at all — a straight improvement. But it silently broke this
+// script's check: the old fixed path no longer exists, so the loop below hit
+// "skip — not installed" and then printed "all addons are OK". A universal
+// build missing its x64 slice would have passed that check and failed on an
+// Intel Mac. Both files are now required explicitly.
+const PREBUILD_ADDONS = [
+  { pkg: 'better-sqlite3', dir: 'better-sqlite3/prebuilds', files: ['darwin-arm64.node', 'darwin-x64.node'] }
 ]
+
+/**
+ * Check a per-arch addon: every listed file must exist and be the arch its
+ * name claims. Returns true when something is wrong.
+ */
+const reportPrebuilds = ({ pkg, dir, files }) => {
+  let bad = false
+  if (!existsSync(join(NM, pkg))) {
+    console.log(`  skip ${pkg} — not installed`)
+    return false
+  }
+  for (const name of files) {
+    const file = join(NM, dir, name)
+    const rel = relative(NM, file)
+    if (!existsSync(file)) {
+      console.log(`  MISSING ${rel} — the universal build would break on that arch`)
+      bad = true
+      continue
+    }
+    const want = name.includes('arm64') ? 'arm64' : 'x86_64'
+    const archs = archsOf(file)
+    console.log(`  ${rel} → ${archs.join(' ') || '(unreadable)'}`)
+    if (!archs.includes(want)) {
+      console.log(`  WRONG ARCH ${rel} — expected ${want}`)
+      bad = true
+    }
+  }
+  return bad
+}
 
 const electronVersion = JSON.parse(
   readFileSync(join(NM, 'electron', 'package.json'), 'utf8')
@@ -88,6 +128,9 @@ if (checkOnly) {
       continue
     }
     if (!report('', file)) bad = true
+  }
+  for (const spec of PREBUILD_ADDONS) {
+    if (reportPrebuilds(spec)) bad = true
   }
   if (bad) {
     console.error(
@@ -167,6 +210,7 @@ for (const rel of FAT_ADDONS) {
   const f = join(NM, rel)
   if (existsSync(f)) report(' ', f)
 }
+for (const spec of PREBUILD_ADDONS) reportPrebuilds(spec)
 for (const scope of ['@napi-rs']) {
   const base = join(NM, scope)
   if (!existsSync(base)) continue

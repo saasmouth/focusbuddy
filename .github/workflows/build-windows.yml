@@ -41,7 +41,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # 22 to match ci.yml and the `engines` floor, which the Electron 44
+          # upgrade raised to >=22 (Electron 44 bundles Node 24). On 20 the
+          # install would warn against engines and, with a strict npm, refuse.
+          node-version: '22'
           cache: 'npm'
 
       # node-mac-haptics is in optionalDependencies, so a failed build of that

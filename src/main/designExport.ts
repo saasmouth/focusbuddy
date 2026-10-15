@@ -69,7 +69,9 @@ export async function exportDesign(input: {
       const pdf = await win.webContents.printToPDF({
         printBackground: true,
         pageSize: { width: pxToMicron(pageW), height: pxToMicron(pageH) },
-        margins: { marginType: 'custom', top: 0, right: 0, bottom: 0, left: 0 }
+        // Electron 44 dropped `marginType`: explicit numbers ARE the custom
+        // case now, so the zero margins below mean exactly what they did before.
+        margins: { top: 0, right: 0, bottom: 0, left: 0 }
       })
       await writeFile(res.filePath, pdf)
     }

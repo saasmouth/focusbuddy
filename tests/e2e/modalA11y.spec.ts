@@ -67,6 +67,14 @@ test('NewNodeDialog: role=dialog + aria-modal, fields render, Escape closes, foc
 //    button ─────────────────────────────────────────────────────────────────
 async function seedStickyAndOpen(l: LaunchedApp): Promise<{ taskId: string; widgetId: string }> {
   const { window } = l
+  // Wait for the renderer to finish its own first navigation before evaluating
+  // in it. Without this the seed below races start-up: `window.api` may not
+  // exist yet, and the initial load can destroy the execution context
+  // mid-evaluate ("Execution context was destroyed"). The two other tests in
+  // this file already did this; this one went straight to evaluate and got
+  // away with it on the old engine's timing. Electron 44 shifted start-up
+  // enough to make the race fire every run.
+  await waitForReady(window)
   const seeded = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     // Seed a folder too so MakeTaskDialog's folder picker defaults to the

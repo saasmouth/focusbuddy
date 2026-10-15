@@ -333,7 +333,8 @@ export async function exportPdf(input: { html: string; title: string; page?: Pag
       printBackground: true,
       pageSize: sizeName,
       landscape,
-      margins: { marginType: 'custom', top: m.top, right: m.right, bottom: m.bottom, left: m.left }
+      // Electron 44 dropped `marginType`; explicit numbers are the custom case.
+      margins: { top: m.top, right: m.right, bottom: m.bottom, left: m.left }
     })
     await writeFile(res.filePath, pdf)
     return { ok: true, path: res.filePath }

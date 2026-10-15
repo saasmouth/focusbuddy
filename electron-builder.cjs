@@ -57,8 +57,15 @@ const macSigning = hasNotaryCreds
       identity: process.env.CSC_NAME || undefined,
       entitlements: 'build/entitlements.mac.plist',
       entitlementsInherit: 'build/entitlements.mac.plist',
-      // electron-builder runs notarytool with these creds (read from env).
-      notarize: { teamId: process.env.APPLE_TEAM_ID }
+      // electron-builder runs notarytool with the creds from env.
+      //
+      // `notarize: true`, not `{ teamId }`: electron-builder 26 tightened the
+      // schema to a boolean and reads the team from APPLE_TEAM_ID instead —
+      // 25 accepted the object but already warned about it. Passing the old
+      // shape to 26 fails validation outright, before packaging starts.
+      // `hasNotaryCreds` above is what guarantees APPLE_TEAM_ID is set, so
+      // this branch is only taken when there is a team to read.
+      notarize: true
     }
   : {
       hardenedRuntime: false,
@@ -120,7 +127,16 @@ module.exports = {
     'out/**/*',
     'package.json',
     '!**/node_modules/*/{CHANGELOG.md,README.md,readme.md}',
-    '!**/*.{ts,tsx,map}'
+    '!**/*.{ts,tsx,map}',
+    // node-mac-haptics leaves a per-ABI copy of its addon in bin/ after every
+    // electron-rebuild (darwin-arm64-130, -136, darwin-x64-136 …). They are
+    // build leftovers, not load paths: index.js uses `bindings('haptics.node')`
+    // which resolves build/Release — the ONE copy we keep fat on purpose.
+    // Shipping them wasted space, and from electron-builder 26 it also broke
+    // the universal merge, which refuses a single-arch file that is identical
+    // in both slices. Excluded rather than whitelisted: whitelisting would
+    // have shipped three stale binaries AND hidden the check.
+    '!**/node_modules/node-mac-haptics/bin/**'
   ],
 
   asarUnpack: [
@@ -208,6 +224,22 @@ module.exports = {
     // quietly splits into app-x64.asar + app-arm64.asar and grows by ~270MB
     // rather than failing. `npm run natives:check` is what catches that.
     mergeASARs: false,
+    // Per-arch native binaries that are NOT fat, and are expected not to be.
+    //
+    // @electron/universal (v4, via electron-builder 26) refuses any file that
+    // is byte-identical in both slices but is not itself universal, unless it
+    // is named here. That check is right in general — it catches an addon that
+    // was silently built for one arch — but these modules deliberately ship
+    // one binary PER ARCH and pick at runtime by `process.arch`:
+    //
+    //   better-sqlite3/prebuilds/*.node   (N-API, since v12)
+    //   @napi-rs/canvas-darwin-*/*.node   (one npm package per platform+arch)
+    //
+    // Both arch copies end up in both slices, which is what the merge sees and
+    // objects to, and is also exactly what makes the universal app work on
+    // either Mac. The pattern is narrow on purpose: node-mac-haptics compiles
+    // to a single path and MUST be fat, so it stays under the check.
+    x64ArchFiles: '**/{@napi-rs/canvas-darwin-*/*.node,better-sqlite3/prebuilds/*.node}',
     // macOS permission strings. Without these in Info.plist macOS silently denies
     // getUserMedia for camera + microphone — the user never sees the system
     // prompt. NSCameraUsageDescription is what fixes the video-note capture.
@@ -215,7 +247,14 @@ module.exports = {
       NSMicrophoneUsageDescription:
         'PlexiDesk records voice notes that you choose to capture on your desk. Audio is processed locally (or sent to your configured transcription provider) and never proxied through PlexiDesk.',
       NSCameraUsageDescription:
-        'PlexiDesk records video notes when you choose to capture them. Video and audio are stored locally and only transcribed via your configured provider.'
+        'PlexiDesk records video notes when you choose to capture them. Video and audio are stored locally and only transcribed via your configured provider.',
+      // System-audio capture. We ask for `audio: 'loopback'` in the display-media
+      // handler so a live-mirror widget can carry the meeting's sound, and from
+      // Electron 39 on macOS 14.2+ that stream is SILENTLY DEAD without this
+      // key — no prompt, no error, just no audio. Added with the Electron 44
+      // upgrade, because the old Electron never needed it and so never told us.
+      NSAudioCaptureUsageDescription:
+        'PlexiDesk captures the sound playing on this Mac when you mirror a screen or window onto a desk, so a mirrored meeting or video carries its audio. It is used only for the mirror you asked for.'
     },
     ...macSigning
   },
