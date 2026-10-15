@@ -14,7 +14,7 @@ import { catalogFor } from '../lib/widgetCatalog'
 import { useViewKindEnabled } from '../lib/viewCapability'
 
 import { chimeIn } from '../lib/audioBeep'
-import { AREA_TONES } from '../lib/areaTones'
+import { AREA_TONES, attentionFilterTone } from '../lib/areaTones'
 import { splitFavourites } from '../lib/connectedAppSort'
 import NewNodeDialog from './NewNodeDialog'
 import AISetupDialog from './AISetupDialog'
@@ -374,11 +374,11 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
 
           <CollapsedNavIcon icon="plexii:home"  label="Home"         tone={AREA_TONES.home}  active={viewIsActive({ kind: 'home' })}       onClick={() => { setActive(null); goHome() }} />
           {/* Monochrome by plexidesk-75's rail rule: no tone, accent only when active. */}
-          <CollapsedNavIcon icon="notifications" label="Attention"    tone={AREA_TONES.desks}  active={viewIsActive({ kind: 'attention' })} onClick={() => { setActive(null); goAttention() }} />
+          <CollapsedNavIcon icon="notifications" label="Attention"    tone={AREA_TONES.attention}  active={viewIsActive({ kind: 'attention' })} onClick={() => { setActive(null); goAttention() }} />
           <CollapsedNavIcon icon="meeting_room"  label="Rooms"        tone={AREA_TONES.rooms}     active={viewIsActive({ kind: 'rooms' })}      onClick={() => { setActive(null); goRooms() }} />
           <CollapsedNavIcon icon="desk"          label="Desks"        tone={AREA_TONES.desks}    active={viewIsActive({ kind: 'desks' })}      onClick={() => { setActive(null); goDesks() }} />
           <CollapsedNavIcon icon="folder_shared" label="Shared Desks" tone={AREA_TONES.shared} active={viewIsActive({ kind: 'shared' })}    onClick={() => { setActive(null); goShared() }} />
-          <CollapsedNavIcon icon="delete"        label="Trash"        tone={AREA_TONES.desks}  active={viewIsActive({ kind: 'trash' })}     onClick={() => { setActive(null); goTrash() }} />
+          <CollapsedNavIcon icon="delete"        label="Trash"        tone={AREA_TONES.trash}  active={viewIsActive({ kind: 'trash' })}     onClick={() => { setActive(null); goTrash() }} />
           {/* DEC-020: Plans / Desks (flat) / Calendar tabs retired — Attention
               absorbed them (feeders carry desk + plan due dates). The views
               stay reachable via the ⌘K palette; engines untouched (DEC-009). */}
@@ -481,7 +481,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
               <NavRow
                 icon="notifications"
                 label="Attention"
-                tone={AREA_TONES.desks}
+                tone={AREA_TONES.attention}
                 active={viewIsActive({ kind: 'attention' })}
                 onClick={() => {
                   setActive(null)
@@ -509,7 +509,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
                   key={f.id}
                   icon={f.icon}
                   label={f.label}
-                  tone={AREA_TONES.desks}
+                  tone={attentionFilterTone(f.id)}
                   active={viewIsActive({ kind: 'attention' }) && activeAttentionFilter === f.id}
                   testid={`sidebar-attention-${f.id}`}
                   onClick={() => {
@@ -579,7 +579,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
               <NavRow
                 icon="delete"
                 label="Trash"
-                tone={AREA_TONES.desks}
+                tone={AREA_TONES.trash}
                 active={viewIsActive({ kind: 'trash' })}
                 onClick={() => {
                   setActive(null)
@@ -821,8 +821,12 @@ interface CollapsedNavIconProps {
 }
 
 function CollapsedNavIcon({ icon, label, tone, active, onClick }: CollapsedNavIconProps): JSX.Element {
-  // `tone` is accepted and deliberately unused here -- see NavRow.
-  void tone
+  // Coloured, matching the expanded NavRow — which is what the prop's own
+  // comment above always claimed, while the code voided it. The rail is the
+  // same menu at a narrower width, so a destination cannot change colour just
+  // because the sidebar is collapsed. Here the hue matters MORE, not less:
+  // collapsed there is no label, so the colour is the only thing telling two
+  // glyphs apart at 16px.
   return (
     <button
       onClick={onClick}
@@ -830,10 +834,10 @@ function CollapsedNavIcon({ icon, label, tone, active, onClick }: CollapsedNavIc
       className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 fb-press ${
         active
           ? 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))]'
-          : 'text-[var(--ink-50)] hover:bg-[var(--surface-sunken)]'
+          : `${tone ?? 'text-[var(--ink-50)]'} hover:bg-[var(--surface-sunken)]`
       }`}
     >
-      <Icon name={icon} size={16} />
+      <Icon name={icon} size={16} filled />
     </button>
   )
 }
@@ -850,20 +854,26 @@ interface NavRowProps {
 }
 
 function NavRow({ icon, label, tone, active, onClick, badge, testid }: NavRowProps): JSX.Element {
-  // ONE weight, ONE colour, and the accent reserved for where you actually are.
+  // COLOURED, and filled rather than outlined.
   //
-  // Every row used to carry its own hue from AREA_TONES -- home indigo,
-  // calendar amber, files orange, vault rose, twelve in all. Colour that
-  // differs per row without meaning anything is noise: you never compare two
-  // nav rows, so the hue answers no question, and it left the sidebar running
-  // several visual systems at once. The active pill is the only colour that
-  // tells you something, so it is the only colour kept.
+  // This reverses an earlier decision in this same component, so both sides are
+  // worth recording. The hues were stripped out on the reasoning that colour
+  // which differs per row without meaning anything is noise — you never compare
+  // two nav rows, so the hue answers no question. That argument holds for a flat
+  // list of twelve peers, which is what this was.
   //
-  // `tone` stays in the props and is deliberately ignored: AREA_TONES is still
-  // the right thing on surfaces where colour DOES distinguish (the Plexii
-  // trace tells a document from a desk by hue), so the map is untouched and
-  // only this one surface stops using it.
-  void tone
+  // It stopped holding when the four area menus merged into one. The menu is now
+  // long and sectioned, the eye scans it rather than reads it, and a hue is how
+  // you find Attention again without reading five labels — the same job the
+  // coloured tiles already do under Apps. Leaving the desk half grey also made
+  // the one menu visibly two, because the accordion's own rows were coloured and
+  // these were not. So `tone` is honoured again, from the AREA_TONES map that
+  // was deliberately left intact for exactly this.
+  //
+  // Filled, 17px, w-6 box: the same treatment as AreaAccordion's Row, because
+  // these two render as one list and an outlined icon beside a filled one reads
+  // as a different kind of thing. An outline at this size also reads as grey
+  // whatever colour it is given.
   return (
     <button
       onClick={onClick}
@@ -874,12 +884,14 @@ function NavRow({ icon, label, tone, active, onClick, badge, testid }: NavRowPro
           : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
       }`}
     >
+      {/* The active row keeps the accent, so where-you-are still wins over the
+          icon's own hue. */}
       <span
         className={`inline-flex items-center justify-center w-6 h-6 shrink-0 ${
-          active ? '' : 'text-[var(--ink-50)]'
+          active ? '' : (tone ?? 'text-[var(--ink-50)]')
         }`}
       >
-        <Icon name={icon} size={17} />
+        <Icon name={icon} size={17} filled />
       </span>
       <span className="flex-1 min-w-0 break-words leading-tight">{label}</span>
       {badge && (
