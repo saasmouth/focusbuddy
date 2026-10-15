@@ -79,15 +79,23 @@ test('gemstone theme applies live and re-tints to a gem accent', async () => {
   await window.waitForTimeout(700) // ride out the theme ritual veil
   const themeState = await window.evaluate(() => {
     const root = document.documentElement
+    const roomOverlay = getComputedStyle(document.body, '::after')
     return {
       hasGemstone: root.classList.contains('gemstone'),
       isDark: root.classList.contains('dark'),
-      persisted: localStorage.getItem('fb.theme.mode')
+      persisted: localStorage.getItem('fb.theme.mode'),
+      roomOverlayImage: roomOverlay.backgroundImage,
+      roomOverlayAnimation: roomOverlay.animationName
     }
   })
   expect(themeState.hasGemstone).toBe(true)
   expect(themeState.isDark).toBe(true)
   expect(themeState.persisted).toBe('gemstone')
+  // Regression: Gemstone used to draw a fixed repeating-linear-gradient on
+  // body::after. Its diagonal lattice crossed every dashboard surface and
+  // read as a faint diamond overlay over the whole app.
+  expect(themeState.roomOverlayImage).toBe('none')
+  expect(themeState.roomOverlayAnimation).toBe('none')
 
   // The Ruby preset accent (added for Gemstone) resolves to its dark-variant
   // rgb triplet and drives the shared --accent token the whole theme reads.

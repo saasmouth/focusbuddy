@@ -2113,9 +2113,9 @@ body {
 
    Onyx-black ground, faceted glass surfaces, prismatic light refraction along
    every edge, and a slow whisper-soft sparkle drifting across the room. The
-   facets and refraction are fixed spectral colour (the diamond quality), while
-   every glow re-tints to the chosen accent, so emerald, ruby and sapphire each
-   recolour the light without changing the structure. Built to feel premium and
+   refraction is fixed spectral colour (the diamond quality), while every glow
+   re-tints to the chosen accent, so emerald, ruby and sapphire each recolour
+   the light without changing the structure. Built to feel premium and
    beautiful to work inside, not busy.
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -2168,23 +2168,6 @@ body {
   position: relative;
 }
 
-/* Faceted crystalline lattice — fine diagonal cuts over the whole room, drifting
-   slowly so the facets feel like they catch and release the light. Whisper
-   opacity; reads as material, not as a grid. */
-.gemstone body::after {
-  content: '';
-  position: fixed;
-  inset: -64px;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.55;
-  background-image:
-    repeating-linear-gradient(60deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 72px),
-    repeating-linear-gradient(-60deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 72px),
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.009) 0 1px, transparent 1px 124px);
-  animation: gem-facet-drift 42s ease-in-out infinite alternate;
-}
-
 /* Sparkle field A — glints scattered across the whole viewport, breathing
    between dim and bright on a slow, irregular pulse. */
 .gemstone body::before {
@@ -2214,11 +2197,6 @@ body {
 @keyframes gem-sparkle-b {
   0%, 100% { opacity: 0.5; }
   50% { opacity: 0.16; }
-}
-
-@keyframes gem-facet-drift {
-  0% { transform: translate3d(0, 0, 0); }
-  100% { transform: translate3d(26px, 18px, 0); }
 }
 
 /* A travelling spectral shimmer for refraction edges — the 200%-wide gem
@@ -2512,7 +2490,6 @@ body {
 /* Respect reduced-motion — hold the sparkle and refraction still. */
 @media (prefers-reduced-motion: reduce) {
   .gemstone body::before,
-  .gemstone body::after,
   .gemstone .desk-paper::after,
   .gemstone header::after,
   .gemstone aside::after,

@@ -27,6 +27,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { websiteMonitor, defaultWorkflowsRoot } from './status-website.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
@@ -47,6 +48,26 @@ const LOG_DIRS = [join(ROOT, 'release'), argOf('--logs', '')].filter(
 // page (a cross-site caller cannot read it), a custom header (which forces a
 // CORS preflight that cross-site callers cannot satisfy), and a same-origin
 // check. Reads stay open; only writes are gated.
+// The Website tab (status-website.mjs). Deploy-run logs live in a session's
+// scratchpad; pass --deploy-runs <dir>, or the newest one on this machine is used.
+const findDeployRuns = () => {
+  const base = '/private/tmp/claude-501'
+  let best = null
+  try {
+    for (const proj of readdirSync(base)) for (const sess of readdirSync(join(base, proj))) {
+      const d = join(base, proj, sess, 'scratchpad/deploy-snap/runs')
+      const m = existsSync(d) ? statSync(d).mtimeMs : 0
+      if (m && (!best || m > best.m)) best = { d, m }
+    }
+  } catch {}
+  return best ? best.d : null
+}
+const website = websiteMonitor({
+  appRoot: ROOT,
+  deployRunsDir: argOf('--deploy-runs', '') || findDeployRuns(),
+  workflowsGlobRoot: defaultWorkflowsRoot()
+})
+
 const TOKEN = randomBytes(16).toString('hex')
 const ACTIONS_ENABLED = !args.includes('--read-only')
 
@@ -567,8 +588,12 @@ const PAGE = `<!doctype html>
   button.all{background:var(--accent);color:#fff;border-color:var(--accent);padding:6px 14px;font-weight:600}
   .state{font-size:11.5px;font-weight:600}
   .note{font-size:11px;color:var(--dim);margin-top:8px;line-height:1.45}
+  .tabs{display:flex;gap:6px;margin:0 0 12px}
+  .tabs a{font-size:12px;padding:5px 12px;border-radius:999px;border:1px solid var(--line);color:var(--ink);text-decoration:none}
+  .tabs a[aria-current=page]{background:var(--accent);border-color:var(--accent);color:#fff}
 </style></head><body>
 <h1>PlexiDesk — what the machine is doing</h1>
+<nav class="tabs"><a href="#app" id="tab-app">App</a><a href="#website" id="tab-website">Website</a></nav>
 <div class="sub" id="sub">connecting…</div>
 <div class="grid" id="grid"></div>
 <div class="foot" id="foot"></div>
@@ -779,8 +804,53 @@ function render(d) {
     ' · every value on this page is read from disk, git or the process table — nothing is estimated.'
 }
 
+const tab = () => (location.hash === '#website' ? 'website' : 'app')
+const fmt = (t) => (t ? new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'unknown')
+function renderWebsite(d) {
+  $('tab-app').removeAttribute('aria-current'); $('tab-website').setAttribute('aria-current', 'page')
+  const cards = [], L = d.local, N = d.net || {}
+  const lv = N.live || {}
+  const cls = (a, b) => (a && b ? (a === b ? 'ok' : 'warn') : 'dim')
+  $('sub').innerHTML = d.workflows.list && d.workflows.list.some((w) => w.done < w.agents && Date.now() - w.lastMoved < 900000)
+    ? '<span class="pill live">website work in progress</span>' : '<span class="pill">no website job moving right now</span>'
+  cards.push('<div class="card"><h2>Versions: site vs published</h2>' +
+    row('Mac on the site', esc(L.siteMac || 'unknown') + ' · feed ' + esc(lv.feedMac || (N.live ? 'unreadable' : 'checking…')), cls(L.siteMac, lv.feedMac)) +
+    row('Windows on the site', esc(L.siteWin || 'unknown') + ' · feed ' + esc(lv.feedWin || (N.live ? 'unreadable' : 'checking…')), cls(L.siteWin, lv.feedWin)) +
+    row('network last checked', ago(d.netCheckedAt)) + '</div>')
+  const sm = lv.sitemap
+  const live = (k) => (sm ? (sm[k] || 0) : '…')
+  const disk = L.onDisk
+  cards.push('<div class="card"><h2>Pages: live vs on this machine</h2><table><tr><th>section</th><th>live (sitemap)</th><th>on disk</th></tr>' +
+    [['help', 'help articles', ' of ' + (disk['help planned'] ?? '?') + ' planned'], ['blog', 'blog posts', ''], ['tools', 'tools', ''], ['templates', 'templates', ''], ['glossary', 'glossary terms', '']]
+      .map(([s, k, x]) => '<tr><td>' + esc(s) + '</td><td>' + live(s) + '</td><td>' + (disk[k] ?? '–') + esc(x) + '</td></tr>').join('') +
+    '<tr><td>other pages</td><td>' + live('other pages') + '</td><td></td></tr></table>' +
+    '<div class="note">Live counts are sitemap URLs (help and blog include their topic pages); on disk counts are source files, written but maybe not yet deployed.</div></div>')
+  cards.push('<div class="card"><h2>Site source (git)</h2>' +
+    row('uncommitted site files', L.uncommitted === null ? 'unknown' : String(L.uncommitted), L.uncommitted ? 'warn' : 'ok') +
+    (L.commits || []).map((c) => row(fmt(c.at), '<span class="mono">' + esc(c.hash) + '</span> ' + esc(c.subject))).join('') + '</div>')
+  const wf = d.workflows
+  cards.push('<div class="card wide"><h2>Behind the scenes: work in progress</h2>' + (wf.error ? '<div class="dim">' + esc(wf.error) + '</div>'
+    : '<table><tr><th>job</th><th>agents done</th><th>state</th><th>last moved</th><th>still open</th></tr>' + wf.list.map((w) => {
+      const st = w.done >= w.agents ? '<span class="ok">finished</span>' : Date.now() - w.lastMoved < 900000 ? '<span class="pill live">running</span>' : '<span class="warn">stopped before finishing</span>'
+      return '<tr><td>' + esc(w.name) + '</td><td>' + w.done + ' / ' + w.agents + '</td><td>' + st + '</td><td>' + ago(w.lastMoved) + '</td><td class="mono">' + esc(w.done >= w.agents ? '' : w.inFlight.join(', ')) + '</td></tr>'
+    }).join('') + '</table>') + '</div>')
+  const runs = d.deployRuns
+  cards.push('<div class="card wide"><h2>Gated deploy runs (newest first)</h2>' + (runs.error ? '<div class="dim">' + esc(runs.error) + '</div>'
+    : '<table><tr><th>started</th><th>outcome</th><th>tests passed</th><th>routes checked</th><th>preview</th></tr>' + runs.list.map((r) =>
+      '<tr><td>' + fmt(r.at) + '</td><td class="' + (r.outcome === 'deployed' ? 'ok' : /refused|failed/.test(r.outcome) ? 'bad' : 'warn') + '">' + esc(r.outcome) + '</td><td>' + r.tests + '</td><td>' + esc(r.routes || '–') + '</td><td>' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener" class="mono">' + esc(r.url.replace('https://', '')) + '</a>' : '') + '</td></tr>').join('') + '</table>') + '</div>')
+  const dep = N.deployments
+  cards.push('<div class="card wide"><h2>Cloudflare deployment history (plexii-web)</h2>' + (!dep ? '<div class="dim">checking…</div>' : dep.error ? '<div class="bad">' + esc(dep.error) + '</div>'
+    : '<table><tr><th>when</th><th>env</th><th>status</th><th>summary</th></tr>' + dep.list.map((x, i) =>
+      '<tr><td>' + fmt(x.at) + (i === 0 && x.env === 'production' ? ' <span class="pill live">live</span>' : '') + '</td><td>' + esc(x.env) + '</td><td class="' + (x.status === 'success' ? 'ok' : 'warn') + '">' + esc(x.status) + '</td><td>' + esc(x.message || '–') + ' <a class="mono" target="_blank" rel="noopener" href="' + esc(x.url) + '">' + esc(x.id) + '</a></td></tr>').join('') + '</table>') + '</div>')
+  $('grid').innerHTML = cards.join('')
+  $('foot').textContent = 'Website · refreshed ' + new Date(d.now).toLocaleTimeString() +
+    ' · read from the Cloudflare API, the update feeds, the live sitemap, git, deploy-run logs and workflow journals — nothing is estimated.'
+}
+addEventListener('hashchange', () => tick())
 async function tick() {
   try {
+    if (tab() === 'website') { renderWebsite(await (await fetch('/api/website', { cache: 'no-store' })).json()); return }
+    $('tab-website').removeAttribute('aria-current'); $('tab-app').setAttribute('aria-current', 'page')
     const r = await fetch('/api/status', { cache: 'no-store' })
     render(await r.json())
   } catch (e) {
@@ -802,6 +872,11 @@ const server = createServer((req, res) => {
     // the page; the panel shows when it last managed to look.
     void refreshServerState(snap.version)
     json(200, snap)
+    return
+  }
+
+  if (req.url === '/api/website') {
+    json(200, website.snapshot())
     return
   }
 
