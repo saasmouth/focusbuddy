@@ -126,7 +126,40 @@ properly.
 
 ---
 
-## 5. Vault unlock with Touch ID (4 min)
+## 5. Untitled things get names (4 min)
+
+This one runs **by itself**, about 12 seconds after launch, the first time you
+open this build. So do step 0 first, then leave the app open a minute before
+checking.
+
+1. Before launching, note a few things you know are untitled — a desk, a
+   document, a widget on a desk.
+2. Launch, wait ~30 seconds, then look at them again. Items that had any
+   content should now be named after it: a document with a heading takes the
+   heading, a note takes its opening line, a bookmark-ish widget takes its
+   link.
+3. **Check it did not invent anything.** An item that was genuinely empty
+   should still be untitled. If you find a name that has nothing to do with
+   the content, that is a bug worth telling me about — it is the specific
+   thing this was built to avoid.
+4. **Check it did not rename anything you named.** Any title you chose should
+   be exactly as you left it, including ones that start with "New" (e.g. "New
+   hire onboarding" must survive).
+5. Quit and relaunch. It should **not** churn again — each item is only
+   considered once. (An empty note stays untitled and is not re-examined.)
+6. Create a new desk from a widget right-click → Advanced → "Make this a
+   Desk…". The name field should now be **empty with a placeholder**, not
+   pre-filled with "Untitled desk", and the dialog should refuse to continue
+   until you type something.
+7. Create a new document, type a heading, let it save. It should take its name
+   from the heading on its own. Then rename it to something of your own and
+   keep typing — your name must stick.
+
+On cost: naming happens on your machine for free wherever the content has a
+usable line. Only items with content but no usable line go to AI, all together
+in one small request, capped at 40 per launch.
+
+## 6. Vault unlock with Touch ID (4 min)
 
 1. Open **Apps › Vault** and unlock it with your master password.
 2. You should see a **"Faster ways to unlock"** panel. Read what it says about
@@ -159,9 +192,16 @@ properly.
   no-double-counting rule against constructed cases, but not against WhatsApp's
   live page, which I cannot sign in to. **If the badge is still wrong, tell me
   what it shows versus what it should, and I'll read the page's actual markup.**
-- **Step 5** needs your fingerprint. The enrolment and rotation logic is
+- **Step 5** runs against your real workspace, which I cannot see. The
+  derivation rules and the refusal-to-invent are covered by tests against
+  constructed content; how well they read on *your* documents is the thing to
+  judge.
+- **Step 6** needs your fingerprint. The enrolment and rotation logic is
   covered by tests; the prompt itself I cannot trigger.
 - **Step 0.6** needs audio playing on a real screen share.
+- Whether the AI half of step 5 fires at all depends on your Anthropic key
+  being configured. Without one, items that need a model are simply left for
+  a later launch rather than logged as hopeless.
 
 ## Known, not fixed in this build
 
