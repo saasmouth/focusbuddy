@@ -76,6 +76,8 @@ function UnlockedVaultView({ onLock }: { onLock: () => Promise<void> }): JSX.Ele
           </button>
         </header>
 
+        <UnlockVaultMethods />
+
         <UnlockedVault />
       </div>
 
@@ -83,6 +85,87 @@ function UnlockedVaultView({ onLock }: { onLock: () => Promise<void> }): JSX.Ele
         <ChangeMasterPasswordDialog onClose={() => setChangingPassword(false)} />
       )}
     </div>
+  )
+}
+
+// ── Faster ways back in ──────────────────────────────────────────────────────
+//
+// Enrolment lives on the UNLOCKED screen because a method wraps the live key,
+// and the only time that key exists is while the vault is open. It is also the
+// honest place to say what the method does and does not protect: the user is
+// agreeing to a trade, and a trade stated only in a tooltip is not stated.
+
+function UnlockVaultMethods(): JSX.Element | null {
+  const methods = useVaultStore((s) => s.unlockMethods)
+  const enroll = useVaultStore((s) => s.enrollUnlockMethod)
+  const forget = useVaultStore((s) => s.forgetUnlockMethod)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  if (methods.length === 0) return null
+
+  async function toggle(m: (typeof methods)[number]): Promise<void> {
+    setError(null)
+    setBusy(m.id)
+    try {
+      if (m.enrolled) {
+        await forget(m.id)
+      } else {
+        const r = await enroll(m.id)
+        if (!r.ok) setError(r.error)
+      }
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <section className="fb-card p-4" data-testid="vault-unlock-methods">
+      <h2 className="text-sm font-semibold text-[var(--ink-100)] mb-1">
+        Faster ways to unlock
+      </h2>
+      <p className="text-[12px] text-[var(--ink-50)] mb-3">
+        Your master password is always a way in. These are shortcuts past typing it.
+      </p>
+      <ul className="space-y-2">
+        {methods.map((m) => (
+          <li
+            key={m.id}
+            className="flex items-start gap-3 p-3 rounded-[var(--radius-row)] bg-[var(--surface-sunken)]"
+            data-testid={`vault-method-${m.id}`}
+          >
+            <Icon
+              name={m.id === 'biometric' ? 'fingerprint' : 'key'}
+              size={18}
+              className={m.enrolled ? 'text-accent mt-0.5' : 'text-[var(--ink-40)] mt-0.5'}
+            />
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-medium text-[var(--ink-100)]">{m.label}</div>
+              {/* The trade, in full. `safeStorage` is login-keychain protected,
+                  not Secure Enclave — so this is a convenience gate, and
+                  saying otherwise would be selling it as security it does not
+                  have. */}
+              <p className="text-[11px] text-[var(--ink-50)] leading-snug mt-0.5">
+                {m.available ? m.detail : m.unavailableReason}
+              </p>
+            </div>
+            <button
+              onClick={() => void toggle(m)}
+              disabled={!m.available || busy === m.id}
+              className={m.enrolled ? 'btn-ghost shrink-0' : 'btn-primary shrink-0'}
+              data-testid={`vault-method-toggle-${m.id}`}
+            >
+              {m.enrolled ? 'Turn off' : 'Set up'}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {error && (
+        <div className="mt-3 text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/40 rounded p-2">
+          {error}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -185,9 +268,29 @@ function CreateVaultPanel(): JSX.Element {
 
 function UnlockVaultPanel(): JSX.Element {
   const unlock = useVaultStore((s) => s.unlock)
+  const unlockWith = useVaultStore((s) => s.unlockWith)
+  const methods = useVaultStore((s) => s.unlockMethods)
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Only methods that are both set up and usable right now. One that is
+  // available but not enrolled belongs on the unlocked screen, where the key
+  // exists to wrap — offering it here would be a button that cannot work.
+  const ready = methods.filter((m) => m.available && m.enrolled)
+
+  async function viaMethod(id: (typeof methods)[number]['id']): Promise<void> {
+    if (busy) return
+    setError(null)
+    setBusy(true)
+    try {
+      const r = await unlockWith(id)
+      if (r.ok) chimeIn()
+      else if (!r.cancelled) setError(r.error)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function submit(): Promise<void> {
     if (busy) return
@@ -211,6 +314,33 @@ function UnlockVaultPanel(): JSX.Element {
             Unlock vault
           </h1>
         </div>
+        {/* Set-up methods first, because they are the faster way in. The
+            password field stays right below rather than behind a "use password
+            instead" link — if Touch ID fails at the wrong moment, being one
+            click from your own vault is not acceptable. */}
+        {ready.length > 0 && (
+          <div className="mb-4 space-y-2">
+            {ready.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => void viaMethod(m.id)}
+                disabled={busy}
+                data-testid={`vault-unlock-with-${m.id}`}
+                className="w-full btn-primary justify-center"
+              >
+                <Icon name={m.id === 'biometric' ? 'fingerprint' : 'key'} size={15} />
+                <span>Unlock with {m.label}</span>
+              </button>
+            ))}
+            <div className="flex items-center gap-2 pt-1">
+              <span className="flex-1 h-px bg-[var(--line-soft)]" />
+              <span className="text-[10px] uppercase tracking-wider text-[var(--ink-40)]">
+                or password
+              </span>
+              <span className="flex-1 h-px bg-[var(--line-soft)]" />
+            </div>
+          </div>
+        )}
         <input
           type="password"
           autoFocus
@@ -228,7 +358,7 @@ function UnlockVaultPanel(): JSX.Element {
         <button
           onClick={() => void submit()}
           disabled={busy || !password}
-          className="mt-4 w-full btn-primary justify-center"
+          className={`mt-4 w-full justify-center ${ready.length > 0 ? 'btn-ghost' : 'btn-primary'}`}
         >
           <Icon name="lock_open" size={14} />
           <span>{busy ? 'Unlocking…' : 'Unlock'}</span>

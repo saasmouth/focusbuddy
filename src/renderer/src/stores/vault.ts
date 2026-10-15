@@ -2,7 +2,9 @@ import { create } from 'zustand'
 import type {
   VaultEntryStored,
   VaultMeta,
-  VaultSecret
+  VaultSecret,
+  VaultUnlockMethodId,
+  VaultUnlockMethodInfo
 } from '@shared/types'
 import { hapticMedium, hapticWarning } from '../lib/haptics'
 
@@ -11,6 +13,22 @@ interface VaultStore {
   unlocked: boolean
   entries: VaultEntryStored[]
   initStatus: 'idle' | 'loading' | 'ready'
+  /**
+   * Ways in besides the master password — Touch ID today, and whatever the
+   * registry gains later. A list, not a boolean, so a new method appears here
+   * without this store learning its name.
+   */
+  unlockMethods: VaultUnlockMethodInfo[]
+  refreshUnlockMethods: () => Promise<void>
+  /** Enrol a method against the live key. Requires an unlocked vault. */
+  enrollUnlockMethod: (
+    id: VaultUnlockMethodId
+  ) => Promise<{ ok: true } | { ok: false; error: string }>
+  forgetUnlockMethod: (id: VaultUnlockMethodId) => Promise<void>
+  /** Unlock via a method instead of typing the password. */
+  unlockWith: (
+    id: VaultUnlockMethodId
+  ) => Promise<{ ok: true } | { ok: false; error: string; cancelled?: boolean }>
   refreshMeta: () => Promise<void>
   unlock: (master: string) => Promise<{ ok: true } | { ok: false; error: string }>
   createWithMaster: (
@@ -50,13 +68,48 @@ export const useVaultStore = create<VaultStore>((set, get) => ({
   unlocked: false,
   entries: [],
   initStatus: 'idle',
+  unlockMethods: [],
+
+  refreshUnlockMethods: async () => {
+    set({ unlockMethods: await window.api.vault.unlockMethods() })
+  },
+
+  enrollUnlockMethod: async (id) => {
+    const res = await window.api.vault.enrollUnlockMethod(id)
+    await get().refreshUnlockMethods()
+    if (res.ok) hapticMedium()
+    else hapticWarning()
+    return res
+  },
+
+  forgetUnlockMethod: async (id) => {
+    await window.api.vault.forgetUnlockMethod(id)
+    await get().refreshUnlockMethods()
+  },
+
+  unlockWith: async (id) => {
+    const res = await window.api.vault.unlockWithMethod(id)
+    if (res.ok) {
+      set({ unlocked: true })
+      hapticMedium()
+      await get().loadEntries()
+    } else if (!res.cancelled) {
+      // A cancelled Touch ID prompt is the user changing their mind, not a
+      // failure to buzz about. A real failure is.
+      hapticWarning()
+      await get().refreshUnlockMethods()
+    }
+    return res
+  },
+
   refreshMeta: async () => {
     set({ initStatus: 'loading' })
-    const [meta, unlocked] = await Promise.all([
+    const [meta, unlocked, methods] = await Promise.all([
       window.api.vault.meta(),
-      window.api.vault.isUnlocked()
+      window.api.vault.isUnlocked(),
+      window.api.vault.unlockMethods()
     ])
-    set({ meta, unlocked, initStatus: 'ready' })
+    set({ meta, unlocked, unlockMethods: methods, initStatus: 'ready' })
     if (unlocked) await get().loadEntries()
   },
   unlock: async (master) => {
@@ -128,6 +181,9 @@ export const useVaultStore = create<VaultStore>((set, get) => ({
       const meta = await window.api.vault.meta()
       set({ meta })
       await get().loadEntries()
+      // Every wrapped key was of the OLD key; the main process dropped them
+      // and re-enrolled under the new one, so the list may have changed.
+      await get().refreshUnlockMethods()
     } else {
       hapticWarning()
     }

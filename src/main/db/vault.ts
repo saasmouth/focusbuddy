@@ -257,7 +257,79 @@ export function changeMasterPassword(
   if (cachedKey) cachedKey.fill(0)
   oldKey.fill(0)
   cachedKey = newKey
+  // Every alternative unlock method is holding a wrapping of the OLD key. Those
+  // would now fail the verifier — correctly, but they would present as "Touch
+  // ID is broken" rather than "Touch ID needs setting up again", so they are
+  // dropped here and re-enrolled by the caller while the vault is still open.
+  notifyRekeyed()
   return { ok: true }
+}
+
+// ── Unlocking by key, for alternative unlock methods ─────────────────────────
+// See `main/vaultUnlock.ts`. A method (Touch ID today; Secure Enclave, a
+// passkey or a hardware key later) stores the derived key wrapped, and hands it
+// back here once the user has satisfied it.
+//
+// This module deliberately knows nothing about those methods — it only knows
+// how to accept a key and how to hand one out. That keeps the crypto in one
+// place and lets methods be added without touching it, and it keeps the
+// electron imports those methods need out of the database layer.
+
+/**
+ * Unlock with a key that something else was holding, rather than a password.
+ *
+ * The key is NOT trusted on arrival: it is checked against the same verifier a
+ * password goes through, so a stale wrapping (from before a master-password
+ * change) or a tampered blob is refused exactly as a wrong password is. There
+ * is no shortcut here that a password does not also take.
+ */
+export function unlockWithKey(key: Buffer): { ok: true } | { ok: false; error: string } {
+  const meta = getVaultMeta()
+  if (!meta.exists) return { ok: false, error: 'No vault yet. Create one first.' }
+  if (key.length !== KEY_LEN_BYTES) return { ok: false, error: 'Stored key is malformed.' }
+  try {
+    if (aesGcmDecrypt(key, meta.verifierIv, meta.verifierCiphertext) !== VERIFIER_PLAINTEXT) {
+      return { ok: false, error: 'Stored key no longer matches this vault.' }
+    }
+  } catch {
+    return { ok: false, error: 'Stored key no longer matches this vault.' }
+  }
+  if (cachedKey) cachedKey.fill(0)
+  cachedKey = Buffer.from(key)
+  return { ok: true }
+}
+
+/**
+ * A copy of the live key, for an unlock method to wrap at enrolment time.
+ *
+ * A copy rather than the key itself, so that a caller zeroing what it was given
+ * cannot lock the session out from under the user. Returns null when locked —
+ * you can only enrol a vault you have already opened.
+ */
+export function getUnlockedKeyCopy(): Buffer | null {
+  return cachedKey ? Buffer.from(cachedKey) : null
+}
+
+/**
+ * Called after the master password changes, because every wrapped copy of the
+ * old key is now useless. Registered by the IPC layer rather than imported
+ * here, to keep this module free of electron.
+ */
+type RekeyListener = () => void
+const rekeyListeners: RekeyListener[] = []
+
+export function onVaultRekeyed(fn: RekeyListener): void {
+  rekeyListeners.push(fn)
+}
+
+function notifyRekeyed(): void {
+  for (const fn of rekeyListeners) {
+    try {
+      fn()
+    } catch {
+      // A listener must never be able to fail a completed re-key.
+    }
+  }
 }
 
 // ── Entry CRUD ───────────────────────────────────────────────────────────────
