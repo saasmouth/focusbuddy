@@ -61,6 +61,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Things stop being called Untitled. Desks, rooms, documents, Office items and widgets that never got a name are now named from what they already contain \u2014 a heading, the opening line, a filename, a link \u2014 which happens on your machine, costs nothing and covers most of them. The few with content but no sentence worth lifting are named by the cheapest AI model, all of them together in one small request, capped per launch. Anything genuinely empty is left alone rather than given a plausible-sounding name you would then trust.',
       'This runs once over what you already have, the first time you open this version, and it never touches a name you chose. New documents name themselves from the first thing you write in them, and the desk dialog now asks for a name instead of quietly filling in \u201cUntitled desk\u201d for you \u2014 which is where most of them came from.',
       'The Gemstone theme no longer paints a faceted lattice over the whole app. The ambient jewel room and the sparkle stay; the fixed diagonal cuts sat in front of your work rather than behind it.',
+      'Fixed: deleting a desk left its widgets and items behind on the workspace, and a widget whose desk was gone retried forever trying to reach it. Both are long-standing fixes that had been sitting on a side branch since September.',
       'Fixed: the missed-work prompt could flash open and closed in a loop. It was detecting itself as a competing interruption.'
     ]
   },
