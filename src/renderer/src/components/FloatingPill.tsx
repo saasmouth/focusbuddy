@@ -3,7 +3,6 @@ import { collectMenuRects, resolveCenteredTop } from '../lib/floatingChrome'
 import { motion } from 'framer-motion'
 import Icon from './Icon'
 import { TIDY_MODES, type TidyOptions } from '../lib/autoArrange'
-import LoadMeter from './LoadMeter'
 import { useCognitiveLoad } from '../lib/useCognitiveLoad'
 
 interface Props {
@@ -380,19 +379,10 @@ export default function FloatingPill({
             <MotionLabel hovered={hovered}>Resume</MotionLabel>
           </button>
 
-          <div className="h-px bg-[var(--edge-firm)] mx-1 my-0.5 shrink-0" />
-
-          {/* LoadMeter collapses like MotionLabel: maxWidth 24 shows only the colored dot,
-              maxWidth 120 reveals the full button with number + label. */}
-          <motion.div
-            initial={false}
-            animate={{ maxWidth: hovered ? 120 : 24 }}
-            transition={{ duration: hovered ? 0.22 : 0.15, ease: hovered ? EASE_ENTER : EASE_EXIT }}
-            style={{ overflow: 'hidden' }}
-            className="py-0.5"
-          >
-            <LoadMeter />
-          </motion.div>
+          {/* The load meter moved to the header, centred beside Add widget
+              (Canvas.tsx). It is not duplicated here: two of the same
+              indicator in one window is noise, and this pill — hover-gated and
+              at the bottom edge — is exactly where it was being missed. */}
 
         </div>
       </div>
@@ -469,9 +459,6 @@ export default function FloatingPill({
           <MotionLabel hovered={hovered}>Resume</MotionLabel>
         </button>
 
-        <div className="w-px h-3 bg-[var(--edge-firm)] mx-0.5 shrink-0" />
-
-        <LoadMeter />
 
       </div>
   )

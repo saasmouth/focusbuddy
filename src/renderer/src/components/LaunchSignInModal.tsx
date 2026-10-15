@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import PlexiiMark from './brand/PlexiiMark'
 import { useAccountStore } from '../stores/account'
@@ -83,6 +83,43 @@ export default function LaunchSignInModal(): JSX.Element | null {
       setMode('login')
     }
   }, [cachedEmail, email])
+
+  // Put the cursor in the first field — and KEEP trying when the window gains
+  // focus later.
+  //
+  // React's `autoFocus` runs once, at mount. A desktop window can mount its
+  // content before the OS has given the window keyboard focus, and in that
+  // case the focus call is simply dropped: the modal is on screen, the inputs
+  // are enabled and unobstructed, and typing goes nowhere. That was reported
+  // as "window loads but I can't enter the password / the screen is not
+  // interactive", and it is indistinguishable from a frozen app.
+  //
+  // Verified against the running build: document.activeElement was BODY, a
+  // click did not move focus, but calling .focus() did — so the field was
+  // never dead, it just never got the cursor.
+  const formRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const focusFirst = (): void => {
+      const el = formRef.current?.querySelector<HTMLElement>(
+        'input:not([type=hidden]):not([disabled])'
+      )
+      if (!el) return
+      // Never steal the cursor from a field the user is already using.
+      const active = document.activeElement
+      if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return
+      el.focus()
+    }
+    focusFirst()
+    // A second pass after paint, for the case where the element is not yet
+    // focusable on the same tick it mounts.
+    const t = window.setTimeout(focusFirst, 120)
+    window.addEventListener('focus', focusFirst)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener('focus', focusFirst)
+    }
+    // Re-run per step: the 2FA code field is a different input to the email.
+  }, [mode, twoFactor])
 
   // Decide whether to render. Three reasons we don't:
   //  - Account store hasn't finished booting (don't flash the modal).
@@ -179,7 +216,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
       aria-modal="true"
       aria-label="Sign in to PlexiDesk"
     >
-      <div
+      <div ref={formRef}
         className="w-full max-w-md rounded-2xl p-6 fb-glass-chrome border border-white/[0.08] shadow-2xl"
         style={{
           background: 'rgba(20, 28, 48, 0.96)',

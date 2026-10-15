@@ -43,7 +43,62 @@ function tierForLoad(load: number): LoadTier {
   return TIERS[TIERS.length - 1]
 }
 
-export default function LoadMeter(): JSX.Element {
+function tierIndexForLoad(load: number): number {
+  for (let i = 0; i < TIERS.length; i++) if (load <= TIERS[i].cap) return i
+  return TIERS.length - 1
+}
+
+/**
+ * How far PAST overloaded, 0..1.
+ *
+ * The tier alone cannot answer "more overloaded": everything from 15 widgets
+ * to fifty read as the same flat "Overloaded". This saturates one tier-width
+ * beyond the threshold, so the alarm keeps growing while the desk keeps
+ * filling and then stops — an indicator that grew without limit would end up
+ * larger than the button it sits beside.
+ */
+function overloadDepth(load: number): number {
+  const heavyCap = TIERS[TIERS.length - 2].cap
+  return Math.max(0, Math.min(1, (load - heavyCap) / heavyCap))
+}
+
+/**
+ * The alarm's size and urgency for a given load.
+ *
+ * Both scale: a heavier desk gets a bigger light AND a faster one, because
+ * size alone is easy to stop noticing once it stops changing.
+ */
+function alarmFor(load: number): {
+  size: number
+  rings: number
+  spin: number
+  loud: boolean
+} {
+  const idx = tierIndexForLoad(load)
+  const depth = overloadDepth(load)
+  const base = [9, 11, 14, 17][idx] ?? 9
+  return {
+    size: Math.round(base + depth * 6),
+    // Light/Comfortable sit still: an indicator that animates when nothing is
+    // wrong teaches you to ignore it.
+    rings: idx < 2 ? 0 : idx === 2 ? 1 : 2,
+    // Seconds per pulse — 1.6s at Heavy down to 0.55s deep into Overloaded.
+    spin: idx < 2 ? 0 : Number((1.6 - (idx === 3 ? 0.5 + depth * 0.55 : 0)).toFixed(2)),
+    loud: idx === 3
+  }
+}
+
+export default function LoadMeter({
+  variant = 'pill'
+}: {
+  /**
+   * 'header' is the prominent one, centred beside Add widget. The meter used
+   * to be a 3px dot in the bottom pill, which is where you look least and is
+   * why an overloaded desk could go unnoticed — the operator asked for it
+   * where the eye already is.
+   */
+  variant?: 'pill' | 'header'
+} = {}): JSX.Element {
   const widgets = useWidgetStore((s) => s.widgets)
   const restore = useWidgetStore((s) => s.restore)
   const parkAll = useWidgetStore((s) => s.parkAll)
@@ -54,7 +109,6 @@ export default function LoadMeter(): JSX.Element {
   const archived = widgets.filter((w) => w.archived)
   const load = visible.reduce((sum, w) => sum + (KIND_WEIGHT[w.kind] ?? 1), 0)
   const tier = tierForLoad(load)
-  const overloaded = tier.label === 'Overloaded'
 
   async function handlePark(): Promise<void> {
     const count = await parkAll(true)
@@ -67,25 +121,70 @@ export default function LoadMeter(): JSX.Element {
     chimeIn()
   }
 
+  const alarm = alarmFor(load)
+  const header = variant === 'header'
+  // At Heavy and above the tier is named, not just coloured: a colour alone
+  // asks the viewer to remember a legend.
+  const showLabel = header && tierIndexForLoad(load) >= 2
+
   return (
     <>
       <button
         ref={btnRef}
         onClick={() => setOpen((v) => !v)}
-        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-[var(--surface-sunken)] transition-colors ${
-          overloaded ? 'animate-pulse' : ''
+        data-testid="load-meter"
+        data-tier={tier.label.toLowerCase()}
+        data-load={Math.round(load)}
+        className={`inline-flex items-center rounded-lg transition-colors ${
+          header ? 'gap-2 px-2.5 h-8' : 'gap-1.5 px-2 py-1'
+        } ${
+          alarm.loud && header
+            ? 'bg-red-500/10 border border-red-500/40 hover:bg-red-500/15'
+            : header
+              ? 'border border-transparent hover:bg-[var(--surface-sunken)]'
+              : 'hover:bg-[var(--surface-sunken)]'
         }`}
         title={`Cognitive load: ${tier.label} (${load.toFixed(1)} weighted) — click to park widgets`}
       >
-        <span className="relative inline-flex h-3 w-3 items-center justify-center">
-          <span className={`absolute inset-0 rounded-full ${tier.bg} opacity-70`} />
-          {overloaded && (
-            <span className={`absolute inset-[-3px] rounded-full ${tier.bg} opacity-30 animate-ping`} />
+        {/* The alarm light. Sized and paced from the real load, so it grows and
+            quickens as the desk fills rather than switching between two
+            states. */}
+        <span
+          className="relative inline-flex items-center justify-center shrink-0"
+          style={{ height: alarm.size, width: alarm.size }}
+        >
+          {alarm.rings > 0 && (
+            <span
+              className={`absolute inset-[-4px] rounded-full ${tier.bg} opacity-25 animate-ping`}
+              style={{ animationDuration: `${alarm.spin}s` }}
+            />
           )}
+          {alarm.rings > 1 && (
+            <span
+              className={`absolute inset-[-8px] rounded-full ${tier.bg} opacity-15 animate-ping`}
+              style={{ animationDuration: `${alarm.spin * 1.35}s`, animationDelay: '0.2s' }}
+            />
+          )}
+          <span
+            className={`absolute inset-0 rounded-full ${tier.bg}`}
+            style={{
+              opacity: alarm.loud ? 1 : 0.8,
+              boxShadow: alarm.loud ? '0 0 10px 2px rgb(239 68 68 / 0.55)' : undefined
+            }}
+          />
         </span>
-        <span className={`text-[11px] font-mono tabular-nums ${tier.color}`}>
+        <span
+          className={`font-mono tabular-nums ${tier.color} ${
+            header ? (alarm.loud ? 'text-[14px] font-bold' : 'text-[13px] font-semibold') : 'text-[11px]'
+          }`}
+        >
           {Math.round(load)}
         </span>
+        {showLabel && (
+          <span className={`text-[11px] font-semibold ${tier.color} whitespace-nowrap`}>
+            {tier.label}
+          </span>
+        )}
         {archived.length > 0 && (
           <span className="text-[10px] text-[var(--ink-50)]">
             +{archived.length}

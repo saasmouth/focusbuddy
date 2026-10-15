@@ -12,6 +12,7 @@ import OfficeDocAddDialog from './widgets/OfficeDocAddDialog'
 import WidgetFocusMode from './WidgetFocusMode'
 import ExtensionPrompt from './ExtensionPrompt'
 import AISetupDialog from './AISetupDialog'
+import LoadMeter from './LoadMeter'
 import SaveTemplateDialog from './SaveTemplateDialog'
 import AiBuilderDialog from './AiBuilderDialog'
 import ViewSelector from './views/ViewSelector'
@@ -2936,7 +2937,14 @@ export default function Canvas(): JSX.Element {
               menu prints each quick-add key so the shortcuts get learned. */}
           {activeTaskId && (
             <HeaderSlot id="fb-header-add">
-              <DeskAddWidget onAdd={handleClickAdd} disabled={!activeTaskId} />
+              {/* The load meter sits in the SAME slot as Add widget so the two
+                  share the header's centre. It was a 3px dot in the bottom
+                  pill — the part of the screen you look at least, which is how
+                  an overloaded desk went unnoticed. */}
+              <div className="flex items-center gap-2">
+                <DeskAddWidget onAdd={handleClickAdd} disabled={!activeTaskId} />
+                <LoadMeter variant="header" />
+              </div>
             </HeaderSlot>
           )}
           {activeTaskId && (

@@ -53,7 +53,8 @@
     "web:preview": "vite preview --config vite.web.config.ts --port 5180",
     "typecheck:webruntime": "tsc --noEmit -p tsconfig.webruntime.json",
     "install:local": "bash scripts/install-local.sh",
-    "status": "node scripts/status-server.mjs"
+    "status": "node scripts/status-server.mjs",
+    "app": "bash scripts/launch-local.sh"
   },
   "engines": {
     "node": ">=20.0.0 <23.0.0"

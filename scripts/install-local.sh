@@ -179,3 +179,21 @@ ditto "$SRC" "$TARGET"
 xattr -dr com.apple.quarantine "$TARGET" 2>/dev/null || true
 
 echo "[install-local] installed  $TARGET"
+
+# Warm the app up before handing it over.
+#
+# A freshly installed build gets suspended on its first launch on this machine
+# (state T, no renderer, dock bouncing until LaunchServices reports "not
+# responding"). It is not a crash and SIGCONT clears it — see
+# scripts/launch-local.sh — but discovering that by double-clicking and waiting
+# is a bad first experience of a new build. Do it here, once, so the first real
+# launch is an ordinary one. Non-fatal: a failed warm-up must not fail an
+# install that otherwise succeeded.
+if [ "${SKIP_WARMUP:-0}" != "1" ]; then
+  echo "[install-local] warming up (first launch is the slow one)…"
+  if bash "$(dirname "$0")/launch-local.sh" "$TARGET"; then
+    echo "[install-local] warm-up ok — it will open normally from now on"
+  else
+    echo "[install-local] warm-up did not settle; open it with: npm run app" >&2
+  fi
+fi
