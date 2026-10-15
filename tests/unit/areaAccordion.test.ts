@@ -100,16 +100,19 @@ describe('Apps — what the operator asked for, in order', () => {
   })
 
   it('then connected apps, as a grid, underneath', () => {
+    // The heading now names the active org — apps are org-scoped, and a tile
+    // that does not say whose account it is is a trap — so the anchor is the
+    // stable part of a heading that is otherwise built per org.
     expect(accordion.indexOf('label="Tools"')).toBeLessThan(
-      accordion.indexOf('label="Connected apps"')
+      accordion.indexOf("'Connected apps — ")
     )
-    const connected = accordion.slice(accordion.indexOf('label="Connected apps"'))
+    const connected = accordion.slice(accordion.indexOf("'Connected apps — "))
     expect(connected).toContain('<TileGrid>')
     expect(connected).toContain('<AppLogo')
   })
 
   it('then People and Brain, with their subsections', () => {
-    expect(accordion.indexOf('label="Connected apps"')).toBeLessThan(
+    expect(accordion.indexOf("'Connected apps — ")).toBeLessThan(
       accordion.indexOf('label="People"')
     )
     expect(accordion.indexOf('label="People"')).toBeLessThan(accordion.indexOf('label="Brain"'))
@@ -210,7 +213,7 @@ describe('three grids on the same rules', () => {
   it('Tools is a grid, like PlexiiApps and Connected apps', () => {
     const tools = accordion.slice(
       accordion.indexOf('<SubHeading label="Tools" />'),
-      accordion.indexOf('<SubHeading label="Connected apps" />')
+      accordion.indexOf("'Connected apps — ")
     )
     expect(tools).toContain('<TileGrid>')
     expect(tools).toContain('<Tile')
@@ -245,7 +248,9 @@ describe('a name never wraps', () => {
   })
 
   it('the full name survives in the tooltip when it is clipped', () => {
-    expect(accordion).toContain('title={label}')
+    // And, in the personal aggregate, which org's account it is — a clipped
+    // label plus an org label is two things the tooltip has to carry.
+    expect(accordion).toContain('title={note ? `${label} — ${note}` : label}')
   })
 })
 

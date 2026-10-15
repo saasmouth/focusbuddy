@@ -4,6 +4,8 @@ import { join } from 'node:path'
 import {
   unreadFromTitle,
   looksSignedOut,
+  sumAriaUnread,
+  titleUnitOf,
   useAppNotifications
 } from '../../src/renderer/src/stores/appNotifications'
 
@@ -282,6 +284,24 @@ describe('the background host is cheap and reuses the real session', () => {
 describe('the assistant no longer covers the top menu', () => {
   const overlay = read('renderer/src/components/assistant/AssistantOverlay.tsx')
 
+  it('the header OUTRANKS every assistant surface', () => {
+    // Geometry alone was not enough. The header sat at z-[100] while the
+    // assistant runs 120 (sidebar, floating, pill) to 190 (fullscreen, right
+    // takeover), so the toolbar read as sitting under the assistant and any
+    // menu opened from a header button painted behind it.
+    const app = read('renderer/src/App.tsx')
+    expect(app).toContain('relative z-[195] h-10')
+    const zs = [...overlay.matchAll(/z-\[(\d+)\]/g)].map((m) => Number(m[1]))
+    expect(zs.length).toBeGreaterThan(0)
+    expect(Math.max(...zs)).toBeLessThan(195)
+  })
+
+  it('but still sits below modals, which must cover everything', () => {
+    const app = read('renderer/src/App.tsx')
+    expect(app).toContain('relative z-[195]')
+    expect(app).not.toContain('relative z-[2')
+  })
+
   it('fullscreen insets below the h-10 header', () => {
     // inset-0 put it over Add widget, the load alarm, Smart Stack, body
     // double, search and settings — all unreachable until it was dismissed.
@@ -291,11 +311,31 @@ describe('the assistant no longer covers the top menu', () => {
 })
 
 describe('every top-menu button explains itself on hover', () => {
-  it('the header wraps each of its buttons in a Tooltip', () => {
-    const app = read('renderer/src/App.tsx').split('\n').slice(566, 700).join('\n')
+  it('the header wraps each of its own buttons in a Tooltip', () => {
+    const app = read('renderer/src/App.tsx').split('\n').slice(566, 710).join('\n')
     expect(app.match(/<Tooltip/g)?.length ?? 0).toBeGreaterThanOrEqual(
       app.match(/<button/g)?.length ?? 0
     )
+  })
+
+  it('AND so does the desk action bar, which is MOST of the top menu', () => {
+    // The assertion above was vacuously green: it covered only the four
+    // buttons literally in App.tsx, while the dozen icons the user actually
+    // sees are portalled into #fb-header-actions by FloatingPill — which had
+    // 14 buttons and zero Tooltips, only native `title=`.
+    const pill = read('renderer/src/components/FloatingPill.tsx')
+    const buttons = (pill.match(/<button|<motion\.button/g) ?? []).length
+    const tooltips = (pill.match(/<Tooltip/g) ?? []).length
+    expect(buttons).toBeGreaterThan(0)
+    expect(tooltips).toBeGreaterThanOrEqual(buttons)
+  })
+
+  it('and none of them is left on a native title', () => {
+    // Native tooltips are slow and unstyled, and on this frameless window they
+    // were not appearing over the assistant at all.
+    const pill = read('renderer/src/components/FloatingPill.tsx')
+    const code = pill.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+    expect(code).not.toMatch(/\stitle=/)
   })
 
   it('the load alarm uses the same tooltip as the rest of the header', () => {
@@ -308,5 +348,160 @@ describe('every top-menu button explains itself on hover', () => {
     expect(read('renderer/src/components/desk/DeskAddWidget.tsx')).toContain(
       'title="Add a widget to this desk"'
     )
+  })
+})
+
+// ── Counting messages, not conversations ──────────────────────────────────
+// "whatsapp notifications are working, but its showing conversations as the
+// metric, not total messages to address" / "there were 5 unread in one message
+// and it reported as 1".
+//
+// A messaging app's TITLE counts threads: one chat holding five unread titles
+// itself "(1)". So the badge was answering "how many conversations" while the
+// user was asking "how much is waiting" — the wrong question, answered
+// confidently. The per-thread pills carry the real numbers in their accessible
+// names, and `aria-label` is a standard rather than a selector, which is what
+// keeps this working on an app nobody anticipated.
+
+describe('summing the real message counts out of accessible labels', () => {
+  const lbl = (label: string, containsAnother = false): { label: string; containsAnother: boolean } => ({
+    label,
+    containsAnother
+  })
+
+  it('sums the per-conversation counts — the 5-in-one-chat case', () => {
+    // The exact report: one chat, five messages, badged as 1 from the title.
+    expect(sumAriaUnread([lbl('5 unread messages')])).toBe(5)
+  })
+
+  it('adds up across conversations', () => {
+    expect(
+      sumAriaUnread([lbl('5 unread messages'), lbl('2 unread messages'), lbl('1 unread message')])
+    ).toBe(8)
+  })
+
+  it('does NOT double count a pill inside a labelled row', () => {
+    // The one real hazard: a row and its own pill can both be labelled, and a
+    // container may restate its children's total. Only the innermost counts.
+    expect(
+      sumAriaUnread([lbl('7 unread messages', true), lbl('5 unread messages'), lbl('2 unread messages')])
+    ).toBe(7)
+  })
+
+  it('returns null when the page makes no such claim, so the title still applies', () => {
+    // Null means "fall back", never "zero" — most of the web says nothing here.
+    expect(sumAriaUnread([])).toBeNull()
+    expect(sumAriaUnread([lbl('Search'), lbl('Profile photo')])).toBeNull()
+  })
+
+  it('ignores a zero or malformed claim rather than badging it', () => {
+    expect(sumAriaUnread([lbl('0 unread messages')])).toBeNull()
+    expect(sumAriaUnread([lbl('no unread messages')])).toBeNull()
+  })
+})
+
+describe('the unit travels with the number', () => {
+  beforeEach(() => {
+    useAppNotifications.setState({ counts: {}, status: {} })
+  })
+
+  it('reads the unit out of a title that states one', () => {
+    expect(titleUnitOf('Inbox - 5 unread messages')).toBe('messages')
+    expect(titleUnitOf('3 unread chats')).toBe('conversations')
+  })
+
+  it('calls a bare "(3)" unknown rather than guessing conversations', () => {
+    // It usually IS conversations, but "usually" is not a claim worth making
+    // about someone's inbox — so the tooltip stays vague instead of wrong.
+    expect(titleUnitOf('(3) Inbox')).toBe('unknown')
+    expect(titleUnitOf('Slack (12)')).toBe('unknown')
+  })
+
+  it('a message-level count is NOT overwritten by a later title', () => {
+    // The precedence that makes the fix stick: the DOM read is the better
+    // answer, so a thread count arriving afterwards must not clobber it.
+    const s = useAppNotifications.getState()
+    s.reportCount('a', 5, 'messages')
+    s.report('a', '(1) WhatsApp')
+    expect(useAppNotifications.getState().countFor('a')).toBe(5)
+    expect(useAppNotifications.getState().unitFor('a')).toBe('messages')
+  })
+
+  it('does NOT freeze forever if the app stops publishing per-thread counts', () => {
+    // The staleness trap in the precedence rule: a message count outranks the
+    // title, so if an app changed its markup the badge would sit on a number
+    // nothing could refresh. A live check that finds no labels hands the lead
+    // back — keeping the number it saw, but stopping it outranking the title.
+    const s = useAppNotifications.getState()
+    s.reportCount('a', 5, 'messages')
+    s.releaseMessageClaim('a')
+    expect(useAppNotifications.getState().countFor('a')).toBe(5)
+    expect(useAppNotifications.getState().unitFor('a')).toBe('unknown')
+    s.report('a', '(2) Chat')
+    expect(useAppNotifications.getState().countFor('a')).toBe(2)
+  })
+
+  it('releasing is a no-op when there was no message claim', () => {
+    const s = useAppNotifications.getState()
+    s.reportCount('b', 3, 'unknown')
+    s.releaseMessageClaim('b')
+    expect(useAppNotifications.getState().countFor('b')).toBe(3)
+    s.releaseMessageClaim('never-seen')
+    expect(useAppNotifications.getState().countFor('never-seen')).toBe(0)
+  })
+
+  it('the host hands the lead back when a live check finds no labels', () => {
+    const host = read('renderer/src/components/AppNotificationHost.tsx')
+    expect(host).toContain('store.releaseMessageClaim(app.id)')
+  })
+
+  it('still clears when the app says the count is gone', () => {
+    const s = useAppNotifications.getState()
+    s.reportCount('a', 5, 'messages')
+    s.reportCount('a', null, 'messages')
+    expect(useAppNotifications.getState().countFor('a')).toBe(0)
+  })
+
+  it('survives a restart with its unit intact', () => {
+    // Dropping the unit on reload would turn a known message count back into
+    // an unlabelled number, which is the bug this field exists to stop.
+    const store = read('renderer/src/stores/appNotifications.ts')
+    expect(store).toContain("v.unit === 'messages' || v.unit === 'conversations' ? v.unit : 'unknown'")
+  })
+})
+
+describe('the badge says which thing it counted', () => {
+  const accordion = read('renderer/src/components/nav/AreaAccordion.tsx')
+
+  it('names messages or conversations instead of a bare "unread"', () => {
+    expect(accordion).toContain("${badge} unread ${badge === 1 ? 'message' : 'messages'}")
+    expect(accordion).toContain("with unread")
+  })
+
+  it('falls back to plain "unread" when the unit is genuinely unknown', () => {
+    expect(accordion).toContain('`${badge} unread`')
+  })
+
+  it('passes the unit through from the store', () => {
+    expect(accordion).toContain("unit={unreadCounts[app.id]?.unit ?? 'unknown'}")
+  })
+})
+
+describe('the message sum stays generic', () => {
+  it('uses the ARIA standard, not per-app selectors', () => {
+    const host = read('renderer/src/components/AppNotificationHost.tsx')
+    expect(host).toContain("querySelectorAll('[aria-label]')")
+    expect(host).toContain('containsAnother')
+  })
+
+  it('still names no app in the code', () => {
+    const stripComments = (src: string): string =>
+      src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+    const store = stripComments(read('renderer/src/stores/appNotifications.ts')).toLowerCase()
+    const host = stripComments(read('renderer/src/components/AppNotificationHost.tsx')).toLowerCase()
+    for (const brand of ['whatsapp', 'gmail', 'slack', 'notion', 'figma', 'outlook']) {
+      expect(store, `store branches on ${brand}`).not.toContain(brand)
+      expect(host, `host branches on ${brand}`).not.toContain(brand)
+    }
   })
 })

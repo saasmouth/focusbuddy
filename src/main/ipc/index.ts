@@ -613,13 +613,24 @@ import {
   decryptWithMaster,
   deleteEntry,
   encryptWithMaster,
+  getUnlockedKeyCopy,
   getVaultMeta,
   isUnlocked,
   listEntries,
   lockVault,
+  onVaultRekeyed,
   unlockVault,
+  unlockWithKey,
   updateEntry
 } from '../db/vault'
+import {
+  enrollUnlockMethod,
+  forgetAllUnlockMethods,
+  forgetUnlockMethod,
+  listUnlockMethods,
+  unlockWithMethod,
+  type VaultUnlockMethodId
+} from '../vaultUnlock'
 import {
   completeFocusSession,
   listRecentSessions,
@@ -2205,6 +2216,63 @@ export function registerIpcHandlers(): void {
     decryptWithMaster(iv, ciphertext)
   )
 
+  // ── Alternative ways to unlock the vault ──────────────────────────────────
+  // A registry, not a Touch ID feature: see `main/vaultUnlock.ts`. The renderer
+  // asks what is available, enrols one while the vault is open, and later uses
+  // it instead of typing the master password. The password always still works.
+
+  ipcMain.handle('vault:unlockMethods', () => listUnlockMethods())
+
+  ipcMain.handle('vault:enrollUnlockMethod', (_e, id: VaultUnlockMethodId) => {
+    // Enrolment wraps the LIVE key, so it can only happen while unlocked —
+    // there is no path here that derives a key or takes a password.
+    const key = getUnlockedKeyCopy()
+    if (!key) return { ok: false as const, error: 'Unlock the vault first.' }
+    try {
+      return enrollUnlockMethod(id, key)
+    } finally {
+      key.fill(0)
+    }
+  })
+
+  ipcMain.handle('vault:unlockWithMethod', async (_e, id: VaultUnlockMethodId) => {
+    const got = await unlockWithMethod(id, 'unlock your Plexii vault')
+    if (!got.ok) return got
+    try {
+      // The key still faces the verifier. A wrapping from before a password
+      // change fails here, and is cleared so the UI offers enrolment again
+      // rather than a button that keeps failing.
+      const res = unlockWithKey(got.key)
+      if (!res.ok) forgetUnlockMethod(id)
+      return res
+    } finally {
+      got.key.fill(0)
+    }
+  })
+
+  ipcMain.handle('vault:forgetUnlockMethod', (_e, id: VaultUnlockMethodId) => {
+    forgetUnlockMethod(id)
+    return { ok: true as const }
+  })
+
+  // Rotating the master password invalidates every wrapped key. Drop them all,
+  // then re-enrol whatever was enrolled — the vault is still open under the new
+  // key at this point, so the user is not asked to set Touch ID up again.
+  onVaultRekeyed(() => {
+    const wasEnrolled = listUnlockMethods()
+      .filter((m) => m.enrolled && m.available)
+      .map((m) => m.id)
+    forgetAllUnlockMethods()
+    if (wasEnrolled.length === 0) return
+    const key = getUnlockedKeyCopy()
+    if (!key) return
+    try {
+      for (const id of wasEnrolled) enrollUnlockMethod(id, key)
+    } finally {
+      key.fill(0)
+    }
+  })
+
   // ── Energy log ────────────────────────────────────────────────────────────
   ipcMain.handle('energy:log', (_e, level: EnergyLevel) => logEnergy(level))
   ipcMain.handle('energy:current', () => currentEnergy())
@@ -2618,7 +2686,10 @@ export function registerIpcHandlers(): void {
         const pdf = await render.webContents.printToPDF({
           printBackground: true,
           pageSize: 'A4',
-          margins: { marginType: 'default' }
+          // Electron 44 dropped `marginType`. 'default' meant "let Chromium
+          // choose", which is now what OMITTING margins does — so the option
+          // goes rather than being translated into numbers that would freeze
+          // today's default in place.
         })
         await writeFile(filePath, pdf)
       } finally {

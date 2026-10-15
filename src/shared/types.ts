@@ -2073,6 +2073,28 @@ export interface VaultEntryPatch {
   ciphertext?: string
 }
 
+// ── Alternative ways to unlock the vault ─────────────────────────────────────
+// A registry rather than a Touch ID feature, so the next method (Secure
+// Enclave, a passkey, a hardware key, a phone approval) registers beside it
+// instead of adding another branch to the unlock screen. See
+// `main/vaultUnlock.ts` for what each method must implement, and for the honest
+// limits of the one that ships today.
+
+export type VaultUnlockMethodId = 'biometric'
+
+export interface VaultUnlockMethodInfo {
+  id: VaultUnlockMethodId
+  label: string
+  /** What this does and does NOT protect, in the user's words. */
+  detail: string
+  /** The hardware and OS support exist on this machine. */
+  available: boolean
+  /** A wrapped key is stored, so it can be used to unlock. */
+  enrolled: boolean
+  /** Why it is unavailable. Shown, rather than the method silently vanishing. */
+  unavailableReason?: string
+}
+
 // 'web' apps render inside an Electron <webview> (existing behaviour). 'local'
 // apps are native macOS apps launched via `open -a` — they can't render inside
 // the canvas (only HTML can), so they spawn launcher tiles instead.
@@ -2080,6 +2102,18 @@ export type ConnectedAppKind = 'web' | 'local'
 
 export interface ConnectedApp {
   id: string
+  /**
+   * The organisation this app belongs to.
+   *
+   * Connected apps are org-scoped because the same app is a different account
+   * in each org you work in — your Slack, the client's Slack — and an app
+   * carries a vault binding and a signed-in session, so the scope decides
+   * which credentials point where. The reserved 'personal' org is the one
+   * account that belongs to the person rather than a company, and so is the
+   * only one that aggregates: it lists every app, each labelled with the org
+   * it came from. A real org lists its own and nothing else.
+   */
+  orgId: string
   title: string
   // For 'web' apps this is the homepage URL. For 'local' apps it's the file://
   // path or just left as the appPath for back-compat (the source of truth for

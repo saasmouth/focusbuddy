@@ -71,6 +71,8 @@ import type {
   VaultEntryPatch,
   VaultEntryStored,
   VaultMeta,
+  VaultUnlockMethodId,
+  VaultUnlockMethodInfo,
   Widget,
   WidgetDraft,
   ShareableKind,
@@ -1130,7 +1132,22 @@ const api = {
     ): Promise<{ iv: string; ciphertext: string } | null> =>
       ipcRenderer.invoke('vault:encrypt', plaintext),
     decrypt: (iv: string, ciphertext: string): Promise<string | null> =>
-      ipcRenderer.invoke('vault:decrypt', iv, ciphertext)
+      ipcRenderer.invoke('vault:decrypt', iv, ciphertext),
+
+    // Alternative unlock methods — a registry, so a new one needs no new API
+    // here. The master password always remains a way in.
+    unlockMethods: (): Promise<VaultUnlockMethodInfo[]> =>
+      ipcRenderer.invoke('vault:unlockMethods'),
+    /** Wrap the live key for a method. Requires an unlocked vault. */
+    enrollUnlockMethod: (id: VaultUnlockMethodId): Promise<VaultResult> =>
+      ipcRenderer.invoke('vault:enrollUnlockMethod', id),
+    /** Satisfy a method and unlock. The key still faces the verifier. */
+    unlockWithMethod: (
+      id: VaultUnlockMethodId
+    ): Promise<{ ok: true } | { ok: false; error: string; cancelled?: boolean }> =>
+      ipcRenderer.invoke('vault:unlockWithMethod', id),
+    forgetUnlockMethod: (id: VaultUnlockMethodId): Promise<VaultResult> =>
+      ipcRenderer.invoke('vault:forgetUnlockMethod', id)
   },
   workspaceExport: {
     // "Can I leave with my work?" — one readable JSON of authored content.

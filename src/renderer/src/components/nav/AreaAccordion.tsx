@@ -29,7 +29,9 @@ import { useConnectedAppsStore } from '../../stores/connectedApps'
 import { useAppNotifications } from '../../stores/appNotifications'
 import { useViewKindEnabled } from '../../lib/viewCapability'
 import { useCapabilityStore } from '../../stores/capabilities'
-import { useOrgStore } from '../../stores/org'
+import { useOrgStore, PERSONAL_ORG_ID } from '../../stores/org'
+import AddConnectedAppDialog from '../AddConnectedAppDialog'
+import { AREA_TONES } from '../../lib/areaTones'
 import { computeEntitlement } from '../../lib/entitlementReason'
 import { SEGMENT_APPS, type SegmentAppMeta } from '../../lib/segmentApps'
 
@@ -70,21 +72,28 @@ const DESK_VIEWS: {
   tone: string
   go: (v: ViewStore) => void
 }[] = [
-  { kind: 'attention', label: 'Attention', icon: 'notifications', tone: 'text-amber-500', go: (v) => v.goAttention() },
-  { kind: 'rooms', label: 'Rooms', icon: 'meeting_room', tone: 'text-teal-500', go: (v) => v.goRooms() },
-  { kind: 'desks', label: 'Desks', icon: 'desk', tone: 'text-sky-500', go: (v) => v.goDesks() },
-  { kind: 'shared', label: 'Shared Desks', icon: 'folder_shared', tone: 'text-violet-500', go: (v) => v.goShared() },
-  { kind: 'trash', label: 'Trash', icon: 'delete', tone: 'text-slate-500', go: (v) => v.goTrash() }
+  // Tones come from AREA_TONES, never from literals here. This list and the
+  // Sidebar's desk list render in the SAME menu — this one when there is no
+  // `deskSlot`, the Sidebar's when there is — so a literal in either place
+  // means one concept in two colours depending on which half drew it. That is
+  // exactly how Rooms ended up sky in one and teal in the other.
+  { kind: 'attention', label: 'Attention', icon: 'notifications', tone: AREA_TONES.attention, go: (v) => v.goAttention() },
+  { kind: 'rooms', label: 'Rooms', icon: 'meeting_room', tone: AREA_TONES.rooms, go: (v) => v.goRooms() },
+  { kind: 'desks', label: 'Desks', icon: 'desk', tone: AREA_TONES.desks, go: (v) => v.goDesks() },
+  { kind: 'shared', label: 'Shared Desks', icon: 'folder_shared', tone: AREA_TONES.shared, go: (v) => v.goShared() },
+  { kind: 'trash', label: 'Trash', icon: 'delete', tone: AREA_TONES.trash, go: (v) => v.goTrash() }
 ]
 
 type SectionId = 'desk' | 'apps' | 'people' | 'brain'
 
 const SECTIONS: { id: SectionId; label: string; icon: string; tone: string }[] = [
-  { id: 'desk', label: 'Desk', icon: 'desktop_windows', tone: 'text-sky-500' },
+  // Section heads take the hue of the area they open, from the same map as
+  // every row inside them.
+  { id: 'desk', label: 'Desk', icon: 'desktop_windows', tone: AREA_TONES.home },
   // "Office" named the room; the operator renamed it for what it holds.
-  { id: 'apps', label: 'Apps', icon: 'apps', tone: 'text-indigo-500' },
-  { id: 'people', label: 'People', icon: 'groups', tone: 'text-teal-500' },
-  { id: 'brain', label: 'Brain', icon: 'neurology', tone: 'text-fuchsia-500' }
+  { id: 'apps', label: 'Apps', icon: 'apps', tone: AREA_TONES.office },
+  { id: 'people', label: 'People', icon: 'groups', tone: AREA_TONES.people },
+  { id: 'brain', label: 'Brain', icon: 'neurology', tone: AREA_TONES.brain }
 ]
 
 /** The section headers' colours, by id, so the four are coloured too. */
@@ -301,12 +310,17 @@ function Tile({
   testid,
   badge = 0,
   liveness = null,
+  unit = 'unknown',
+  note,
   children
 }: {
   label: string
   active: boolean
   onClick: () => void
   testid?: string
+  /** A second, quieter line — which account this tile is. Omitted when there
+   *  is nothing to disambiguate. */
+  note?: string
   /** An unread count the app itself reported. 0 renders nothing. */
   badge?: number
   /**
@@ -317,12 +331,17 @@ function Tile({
    * unread right now" and "4 unread whenever we last managed to look".
    */
   liveness?: 'live' | 'signed-out' | 'asleep' | null
+  /**
+   * What `badge` counts. The title gives threads, the page's accessible labels
+   * give messages, and saying "4" for either without saying which was the bug.
+   */
+  unit?: 'messages' | 'conversations' | 'unknown'
   children: React.ReactNode
 }): JSX.Element {
   return (
     <button
       onClick={onClick}
-      title={label}
+      title={note ? `${label} — ${note}` : label}
       data-testid={testid}
       aria-current={active ? 'page' : undefined}
       className={`flex flex-col items-center gap-1 px-1 py-2 rounded-lg ${
@@ -343,11 +362,21 @@ function Tile({
             data-testid="nav-unread-badge"
             data-live={liveness === 'live' ? 'true' : 'false'}
             title={
-              liveness === 'live'
-                ? `${badge} unread — signed in, checked just now`
-                : liveness === 'signed-out'
-                  ? `${badge} unread when last seen — signed out, so this is not current`
-                  : `${badge} unread when last seen — not being checked right now`
+              // Name the unit when we know it. "4 unread" was ambiguous in the
+              // worst way: the user read messages and we meant threads.
+              (() => {
+                const what =
+                  unit === 'messages'
+                    ? `${badge} unread ${badge === 1 ? 'message' : 'messages'}`
+                    : unit === 'conversations'
+                      ? `${badge} ${badge === 1 ? 'conversation' : 'conversations'} with unread`
+                      : `${badge} unread`
+                return liveness === 'live'
+                  ? `${what} — signed in, checked just now`
+                  : liveness === 'signed-out'
+                    ? `${what} when last seen — signed out, so this is not current`
+                    : `${what} when last seen — not being checked right now`
+              })()
             }
           >
             {badge > 99 ? '99+' : badge}
@@ -385,6 +414,14 @@ function Tile({
       <span className="w-full text-[10px] leading-tight text-center truncate whitespace-nowrap">
         {label}
       </span>
+      {note && (
+        <span
+          className="w-full text-[9px] leading-tight text-center truncate whitespace-nowrap text-[var(--ink-40)]"
+          data-testid="nav-tile-note"
+        >
+          {note}
+        </span>
+      )}
     </button>
   )
 }
@@ -438,6 +475,15 @@ export default function AreaAccordion({
   const appsEnt = areaEnt('office', 'product_office', 'Apps')
   const peopleEnt = areaEnt('plexipeople', 'product_people', 'People')
   const brainEnt = areaEnt('plexibrain', 'product_brain', 'Brain')
+  // Which org's apps these are. Personal is the only aggregate — it is the
+  // account that belongs to the person rather than to a company — so it is
+  // also the only place a tile needs to say which account it came from.
+  const orgs = useOrgStore((s) => s.orgs)
+  const isPersonal = activeOrgId === PERSONAL_ORG_ID
+  const orgLabel = (id: string): string =>
+    id === PERSONAL_ORG_ID ? 'Personal' : (orgs.find((o) => o.id === id)?.name ?? 'Other org')
+  const [addAppOpen, setAddAppOpen] = useState(false)
+
   const connectedApps = useConnectedAppsStore((s) => s.apps)
   const unreadCounts = useAppNotifications((s) => s.counts)
   const appStatus = useAppNotifications((s) => s.status)
@@ -565,7 +611,26 @@ export default function AreaAccordion({
           ))}
         </TileGrid>
 
-        <SubHeading label="Connected apps" />
+        {/* Connected apps belong to the ACTIVE ORG. The heading says which,
+            because the same app is a different account per org and a tile that
+            does not say whose account it is is a trap. */}
+        <SubHeading
+          label={isPersonal ? 'Connected apps — all accounts' : `Connected apps — ${orgName ?? 'this org'}`}
+          action={
+            <button
+              onClick={() => setAddAppOpen(true)}
+              data-testid="nav-add-connected-app"
+              title={
+                isPersonal
+                  ? 'Connect an app to your personal account'
+                  : `Connect an app to ${orgName ?? 'this organisation'}`
+              }
+              className="inline-flex items-center justify-center w-5 h-5 rounded-md shrink-0 text-[var(--ink-50)] hover:text-[rgb(var(--accent))] hover:bg-[var(--surface-sunken)]"
+            >
+              <Icon name="add" size={15} />
+            </button>
+          }
+        />
         {connectedApps.length === 0 ? (
           // An honest empty state. A grid that renders nothing reads as broken,
           // and inventing sample tiles here would be worse.
@@ -588,6 +653,11 @@ export default function AreaAccordion({
                 testid={`nav-connected-app-${app.id}`}
                 badge={app.notifications ? (unreadCounts[app.id]?.count ?? 0) : 0}
                 liveness={app.notifications ? (appStatus[app.id]?.liveness ?? 'asleep') : null}
+                unit={unreadCounts[app.id]?.unit ?? 'unknown'}
+                // In the personal aggregate the same app can appear once per
+                // org, so each tile says which account it is. Inside an org
+                // every tile is that org's, and the label would be noise.
+                note={isPersonal ? orgLabel(app.orgId) : undefined}
               >
                 <AppLogo app={app} size={22} glyphSize={13} />
               </Tile>
@@ -650,6 +720,18 @@ export default function AreaAccordion({
           ))}
         </div>
       </Section>
+
+      {/* Connecting an app from the menu lands it in the ACTIVE org, which is
+          what the heading above the + already said it would do. */}
+      {addAppOpen && (
+        <AddConnectedAppDialog
+          onClose={() => setAddAppOpen(false)}
+          onAdded={(id) => {
+            setAddAppOpen(false)
+            goConnectedApp(id)
+          }}
+        />
+      )}
     </nav>
   )
 }
