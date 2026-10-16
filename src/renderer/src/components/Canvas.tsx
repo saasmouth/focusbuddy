@@ -343,6 +343,11 @@ export default function Canvas(): JSX.Element {
   // it. `passive: false` is still required — the handler calls preventDefault
   // to stop the page scrolling under the canvas.
   const boundWheel = useRef<((e: WheelEvent) => void) | null>(null)
+  // Also held as STATE, so hooks that must re-bind when the node changes
+  // (useEdgePan) actually re-run. A ref alone cannot do that: its identity
+  // never changes, so an effect depending on it fires once and keeps its
+  // listeners on a node React may since have replaced.
+  const [canvasSurface, setCanvasSurface] = useState<HTMLDivElement | null>(null)
   const attachCanvasSurface = useCallback((el: HTMLDivElement | null) => {
     const prev = dropRef.current
     if (prev && boundWheel.current) {
@@ -350,6 +355,7 @@ export default function Canvas(): JSX.Element {
       boundWheel.current = null
     }
     dropRef.current = el
+    setCanvasSurface(el)
     if (el) {
       const onWheel = (e: WheelEvent): void => wheelRef.current(e)
       boundWheel.current = onWheel
@@ -388,7 +394,7 @@ export default function Canvas(): JSX.Element {
   // that sits near a screen edge never scrolls the camera out from under it.
   const anyMenuOpen = useOverlayStore(selectAnyMenuOpen)
   const edgeIntensity = useEdgePan({
-    containerRef: dropRef,
+    container: canvasSurface,
     // Only animatingPan disables edge-pan. We DELIBERATELY no longer
     // disable on `activeId !== null`. Reasoning: a user moving the
     // cursor to the canvas edge is unambiguously asking to navigate

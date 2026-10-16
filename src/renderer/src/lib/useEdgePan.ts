@@ -54,9 +54,20 @@ interface Options {
   // pressed up against the edge. Default 1100 → at 60 fps that's ~18
   // pixels per frame, brisk but controllable.
   maxSpeedPerSecond?: number
-  // The canvas container ref. Mouse position is read relative to its
-  // bounding box.
-  containerRef: React.RefObject<HTMLDivElement>
+  /**
+   * The canvas container ELEMENT, not a ref to it. Mouse position is read
+   * relative to its bounding box.
+   *
+   * It takes the node rather than a RefObject because a ref object's identity
+   * never changes, so an effect listing it as a dependency runs exactly once —
+   * binding mousemove to whichever node existed at mount. When React recreates
+   * that div the ref is repointed and the listeners are left on the dead one,
+   * and edge-pan silently stops with no error. Taking the element means the
+   * effect re-runs the moment the node changes, which is the only thing that
+   * makes the binding reliable. (The wheel listener in Canvas had the same
+   * fault and the same cause.)
+   */
+  container: HTMLDivElement | null
   // Soft-disable: pauses edge-pan but is overridden during active widget
   // drag so the user can still scroll by moving a widget toward the edge.
   // Use for system conditions like animatingPan that shouldn't block drag.
@@ -67,7 +78,7 @@ interface Options {
 }
 
 export function useEdgePan({
-  containerRef,
+  container,
   disabled,
   hardDisabled = false,
   margin = 80,
@@ -97,7 +108,7 @@ export function useEdgePan({
   }, [margin, maxSpeedPerSecond])
 
   useEffect(() => {
-    const el = containerRef.current
+    const el = container
     if (!el) return
 
     // Cache the container's size so the rAF loop doesn't call gbcr
@@ -361,7 +372,7 @@ export function useEdgePan({
     // intensity is intentionally read via closure; we don't want to
     // re-bind the rAF loop every time it changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerRef, panBy])
+  }, [container, panBy])
 
   return intensity
 }
