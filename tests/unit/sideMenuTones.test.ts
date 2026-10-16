@@ -152,3 +152,78 @@ describe('the reversal is recorded, not quietly made', () => {
     expect(tones).toContain('it was forked twice')
   })
 })
+
+// ── Dragging onto a desk ──────────────────────────────────────────────────
+// "I'm no longer able to drag tools, apps and connected apps to the desks
+// from the sidebar."
+//
+// Connected apps WERE draggable at 4.3.26, from the row list and the
+// collapsed rail. Removing the duplicate row list took the affordance with
+// it, because the grid that replaced it never had one — and I claimed twice
+// that dragging "still works from the grid tiles" without checking. These
+// assert the wiring exists rather than trusting that again.
+
+describe('tiles can be dragged onto a desk', () => {
+  const accordion = read('renderer/src/components/nav/AreaAccordion.tsx')
+  const canvas = read('renderer/src/components/Canvas.tsx')
+
+  it('a connected app sets the three types the canvas reads', () => {
+    expect(accordion).toContain('e.dataTransfer.setData(CONNECTED_APP_DRAG_MIME, app.id)')
+    expect(accordion).toContain("e.dataTransfer.setData('text/uri-list', app.url)")
+    expect(accordion).toContain("e.dataTransfer.setData('text/plain', app.url)")
+  })
+
+  it('and the canvas still reads that type, so the drop lands', () => {
+    // The pair that matters: a source setting a MIME nothing consumes is the
+    // same bug in a different place.
+    expect(canvas).toContain('e.dataTransfer.getData(CONNECTED_APP_DRAG_MIME)')
+  })
+
+  it('apps and tools drag as widget kinds', () => {
+    expect(accordion).toContain('e.dataTransfer.setData(DRAG_MIME, kind)')
+    expect(accordion).toContain('onDragStart={tileDrag(a.key)}')
+    expect(canvas).toContain('e.dataTransfer.getData(DRAG_MIME)')
+  })
+
+  it('every mapped kind is a real widget in the catalogue', () => {
+    // A mapping to a kind that does not exist would drop nothing, silently.
+    const catalog = read('renderer/src/lib/widgetCatalog.ts')
+    const map = accordion.slice(
+      accordion.indexOf('const TILE_WIDGET_KIND'),
+      accordion.indexOf('}', accordion.indexOf('const TILE_WIDGET_KIND'))
+    )
+    const kinds = [...map.matchAll(/:\s*'([a-z-]+)'/g)].map((m) => m[1])
+    expect(kinds.length).toBeGreaterThan(5)
+    for (const k of kinds) {
+      expect(catalog, `no widget kind '${k}' in the catalogue`).toContain(`kind: '${k}'`)
+    }
+  })
+
+  it('a tile with no widget equivalent is NOT draggable', () => {
+    // sign, meet and vault have nowhere to land. A grab cursor that does
+    // nothing on release is worse than no affordance at all.
+    const map = accordion.slice(
+      accordion.indexOf('const TILE_WIDGET_KIND'),
+      accordion.indexOf('}', accordion.indexOf('const TILE_WIDGET_KIND'))
+    )
+    // Matched at a line boundary: a plain substring check for "sign:" also
+    // matches "design: 'design'", which is a real mapping.
+    for (const key of ['sign', 'meet', 'vault']) {
+      expect(
+        new RegExp(`^\\s*${key}:`, 'm').test(map),
+        `${key} should have no widget mapping`
+      ).toBe(false)
+    }
+    expect(accordion).toContain('if (!kind) return undefined')
+  })
+
+  it('the Tile only advertises dragging when it can actually drag', () => {
+    expect(accordion).toContain('draggable={!!onDragStart}')
+    expect(accordion).toContain("onDragStart ? 'cursor-grab active:cursor-grabbing ' : ''")
+  })
+
+  it('the collapsed rail kept its drag, which never broke', () => {
+    const sidebar = read('renderer/src/components/Sidebar.tsx')
+    expect(sidebar).toContain('e.dataTransfer.setData(CONNECTED_APP_DRAG_MIME, app.id)')
+  })
+})

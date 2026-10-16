@@ -34,6 +34,9 @@ import AddConnectedAppDialog from '../AddConnectedAppDialog'
 import { AREA_TONES } from '../../lib/areaTones'
 import { computeEntitlement } from '../../lib/entitlementReason'
 import { SEGMENT_APPS, type SegmentAppMeta } from '../../lib/segmentApps'
+import { DRAG_MIME } from '../../lib/widgetCatalog'
+import { CONNECTED_APP_DRAG_MIME } from '../Sidebar'
+import type { WidgetKind } from '@shared/types'
 
 /**
  * Which Office keys are Plexii's own applications.
@@ -56,6 +59,30 @@ const PLEXII_APP_KEYS = [
 
 /** The Office surfaces that are tools rather than applications. */
 const TOOL_KEYS = ['mail', 'inbox', 'chat', 'calendar', 'files', 'browser', 'vault'] as const
+
+/**
+ * What dropping an app or tool tile onto a desk creates.
+ *
+ * Only the ones with a real widget equivalent are here. `sign`, `meet` and
+ * `vault` are deliberately absent: there is no widget for them, so they stay
+ * undraggable rather than offering a grab cursor that does nothing when you
+ * let go. The canvas already handles this MIME from the widget palette, so
+ * dropping goes down a path that was working before this was wired up.
+ */
+const TILE_WIDGET_KIND: Record<string, WidgetKind> = {
+  docs: 'doc',
+  sheets: 'sheet',
+  slides: 'slides',
+  diagrams: 'diagram',
+  design: 'design',
+  draw: 'draw',
+  mail: 'email',
+  inbox: 'inbox',
+  chat: 'chat-thread',
+  calendar: 'calendar',
+  files: 'drive',
+  browser: 'webview'
+}
 
 /**
  * The desk area's top-level places.
@@ -312,6 +339,7 @@ function Tile({
   liveness = null,
   unit = 'unknown',
   note,
+  onDragStart,
   children
 }: {
   label: string
@@ -321,6 +349,14 @@ function Tile({
   /** A second, quieter line — which account this tile is. Omitted when there
    *  is nothing to disambiguate. */
   note?: string
+  /**
+   * Makes the tile draggable onto a desk canvas.
+   *
+   * Omitted means not draggable, and that is the honest default: a tile with
+   * a grab cursor that does nothing when dropped is worse than one that never
+   * offered. Only tiles with a real destination get this.
+   */
+  onDragStart?: (e: React.DragEvent) => void
   /** An unread count the app itself reported. 0 renders nothing. */
   badge?: number
   /**
@@ -341,10 +377,12 @@ function Tile({
   return (
     <button
       onClick={onClick}
+      draggable={!!onDragStart}
+      onDragStart={onDragStart}
       title={note ? `${label} — ${note}` : label}
       data-testid={testid}
       aria-current={active ? 'page' : undefined}
-      className={`flex flex-col items-center gap-1 px-1 py-2 rounded-lg ${
+      className={`flex flex-col items-center gap-1 px-1 py-2 rounded-lg ${onDragStart ? 'cursor-grab active:cursor-grabbing ' : ''}${
         active
           ? 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))]'
           : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
@@ -501,6 +539,20 @@ export default function AreaAccordion({
   const byKey = (keys: readonly string[]): SegmentAppMeta[] =>
     keys.map((k) => officeApps.find((a) => a.key === k)).filter((a): a is SegmentAppMeta => !!a)
 
+  /**
+   * Drag an app or tool tile onto a desk, when it has a widget to become.
+   * Returns undefined for the ones that do not, which leaves the tile
+   * undraggable rather than grabbable-but-inert.
+   */
+  const tileDrag = (key: string): ((e: React.DragEvent) => void) | undefined => {
+    const kind = TILE_WIDGET_KIND[key]
+    if (!kind) return undefined
+    return (e) => {
+      e.dataTransfer.setData(DRAG_MIME, kind)
+      e.dataTransfer.effectAllowed = 'copy'
+    }
+  }
+
   const activeArea = view.kind
   const activeApp = 'app' in view ? view.app : undefined
   const isActive = (kind: string, key: string): boolean =>
@@ -573,6 +625,7 @@ export default function AreaAccordion({
               active={isActive('office', a.key)}
               onClick={() => goOffice(a.key)}
               testid={`office-sideapp-${a.key}`}
+              onDragStart={tileDrag(a.key)}
             >
               {/* Filled, not outlined, and in the app's own colour. An outlined
                   glyph reads as grey at this size no matter what colour it is
@@ -600,6 +653,7 @@ export default function AreaAccordion({
               active={isActive('office', a.key)}
               onClick={() => goOffice(a.key)}
               testid={`office-comms-app-${a.key}`}
+              onDragStart={tileDrag(a.key)}
             >
               <Icon
                 name={a.icon}
@@ -651,6 +705,19 @@ export default function AreaAccordion({
                   goConnectedApp(app.id)
                 }}
                 testid={`nav-connected-app-${app.id}`}
+                // Restores dragging an app onto a canvas. The row list that
+                // used to carry this was removed when the duplicate second
+                // list went; the grid never had it, so the affordance was
+                // lost entirely in the expanded menu. Same three types the
+                // old row set, so the canvas handler is unchanged: the id for
+                // a real connected-app widget, and the URL so a drop target
+                // that only understands links still gets something useful.
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(CONNECTED_APP_DRAG_MIME, app.id)
+                  e.dataTransfer.setData('text/uri-list', app.url)
+                  e.dataTransfer.setData('text/plain', app.url)
+                  e.dataTransfer.effectAllowed = 'copy'
+                }}
                 badge={app.notifications ? (unreadCounts[app.id]?.count ?? 0) : 0}
                 liveness={app.notifications ? (appStatus[app.id]?.liveness ?? 'asleep') : null}
                 unit={unreadCounts[app.id]?.unit ?? 'unknown'}
