@@ -27,13 +27,38 @@ import {
   canPlaceOnDesk
 } from '../lib/documentDrag'
 import { useWidgetStore } from '../stores/widgets'
+import { useConnectedAppsStore } from '../stores/connectedApps'
+import AppLogo from './AppLogo'
+import type { ConnectedApp } from '@shared/types'
 import { useNoticeStore } from '../stores/notice'
+
+/** The readable part of a URL, for an app whose title was never set. */
+function hostnameOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return ''
+  }
+}
+
+/** "desk-pro-annual" → "Desk pro annual". Better than printing the slug. */
+function humaniseKey(key: string): string {
+  const t = String(key || '').replace(/[-_]+/g, ' ').trim()
+  if (!t) return 'Product'
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
 
 interface Resolved {
   label: string
   icon: string
   /** The subject is gone. Kept visible so the user closes it deliberately. */
   missing?: boolean
+  /**
+   * A connected app, when the tab is one. Carried so the tab can show the
+   * app's OWN logo — the favicon it was captured with — rather than a generic
+   * "apps" glyph that makes every connected app look identical.
+   */
+  app?: ConnectedApp
 }
 
 export default function OpenTray(): JSX.Element | null {
@@ -103,6 +128,8 @@ export default function OpenTray(): JSX.Element | null {
   // a desk you are not currently looking at.
   const desks = useMemo(() => nodes.filter((n) => n.kind === 'task'), [nodes])
 
+  const connectedApps = useConnectedAppsStore((s) => s.apps)
+
   const current = activeKey(view)
 
   const resolve = useMemo(() => {
@@ -149,10 +176,18 @@ export default function OpenTray(): JSX.Element | null {
           return { label: 'Live doc', icon: 'sync' }
         case 'livefolder':
           return { label: 'Live folder', icon: 'folder_open' }
-        case 'connected-app':
-          return { label: v.appId, icon: 'apps' }
+        case 'connected-app': {
+          // Was `label: v.appId` — the tab showed a raw UUID. The store has
+          // the title the user gave it and the logo it was captured with.
+          const a = connectedApps.find((x) => x.id === v.appId)
+          return a
+            ? { label: a.title || hostnameOf(a.url) || 'App', icon: 'apps', app: a }
+            : { label: 'App', icon: 'apps', missing: connectedApps.length > 0 }
+        }
         case 'product':
-          return { label: v.productKey, icon: 'inventory_2' }
+          // Was the raw key, e.g. "desk-pro-annual". No product store to read
+          // a display name from, so humanise it rather than print the slug.
+          return { label: humaniseKey(v.productKey), icon: 'inventory_2' }
         case 'knowledge':
           return { label: 'Knowledge', icon: 'psychology' }
         case 'office':
@@ -168,7 +203,7 @@ export default function OpenTray(): JSX.Element | null {
           const meta = lookupApp(v.kind, v.app)
           return meta
             ? { label: meta.label, icon: meta.icon }
-            : { label: v.app || 'Office', icon: 'apps' }
+            : { label: v.app ? humaniseKey(v.app) : 'Office', icon: 'apps' }
         }
         case 'messages':
           return { label: 'Chat', icon: 'plexii:chat' }
@@ -178,7 +213,7 @@ export default function OpenTray(): JSX.Element | null {
           return { label: 'Open', icon: 'circle' }
       }
     }
-  }, [nodes, docs])
+  }, [nodes, docs, connectedApps])
 
   // Hidden entirely until there is something in it: an empty strip is chrome
   // that costs height and says nothing.
@@ -300,11 +335,17 @@ export default function OpenTray(): JSX.Element | null {
                 }`}
               >
                 {e.pinned && <Icon name="push_pin" size={11} className="shrink-0 opacity-70" />}
-                <Icon
-                  name={r.icon}
-                  size={13}
-                  className={`shrink-0 ${r.missing ? 'opacity-40' : ''}`}
-                />
+                {r.app ? (
+                  <span className={`shrink-0 ${r.missing ? 'opacity-40' : ''}`}>
+                    <AppLogo app={r.app} size={14} glyphSize={10} />
+                  </span>
+                ) : (
+                  <Icon
+                    name={r.icon}
+                    size={13}
+                    className={`shrink-0 ${r.missing ? 'opacity-40' : ''}`}
+                  />
+                )}
                 <span className={`max-w-[150px] truncate ${r.missing ? 'line-through opacity-50' : ''}`}>
                   {r.label}
                 </span>

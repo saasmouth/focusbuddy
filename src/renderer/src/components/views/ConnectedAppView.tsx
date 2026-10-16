@@ -124,15 +124,13 @@ export default function ConnectedAppView({ appId }: Props): JSX.Element {
     }
   }, [app])
 
-  // Allow popups (OAuth sign-in, modals, redirects). We intentionally do NOT intercept
-  // new-window — letting Electron open a native popup window keeps `window.opener` intact
-  // so OAuth flows can post their tokens back to the connected app. Without this,
-  // "Sign in with Google / GitHub / etc." breaks.
-  useEffect(() => {
-    const wv = webviewRef.current
-    if (!wv) return
-    wv.setAttribute('allowpopups', '')
-  }, [app])
+  // Popups (OAuth sign-in, modals, redirects) are allowed via the allowpopups
+  // attribute on the <webview> below, set at attach time. It used to be set
+  // from an effect here, which does nothing: Electron reads the attribute when
+  // the guest is created, so "Sign in with Google / GitHub / etc." was broken
+  // for every connected app despite the code that looked like it enabled it.
+  // Letting Electron open a real native window keeps `window.opener` intact,
+  // which is what the provider posts its callback back through.
 
   if (!app) {
     return (
@@ -282,6 +280,15 @@ export default function ConnectedAppView({ appId }: Props): JSX.Element {
           src={app.url}
           // Persistent partition per app so cookies + storage survive app restarts.
           partition={`persist:connectedapp-${app.id}`}
+          // MUST be here, in the JSX, not set later from an effect. Electron
+          // reads allowpopups when the guest webContents is created; an
+          // attribute added afterwards is silently ignored. It WAS being set
+          // from a useEffect below — which runs after attach, so it never took
+          // and no popup could open from a connected app at all. The main
+          // process's window-open handler never even got a say, because the
+          // guest was not permitted to ask.
+          // @ts-ignore — allowpopups is a valid <webview> attribute
+          allowpopups="true"
           style={{ width: '100%', height: '100%', display: 'inline-flex' }}
         />
       </div>

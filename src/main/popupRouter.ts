@@ -50,17 +50,61 @@ const AUTH_HOSTS = [
   // own host, so match the host and every step of a connect stays a real window.
   /(^|\.)github\.com$/i,
   /(^|\.)gitlab\.com$/i,
-  /(^|\.)bitbucket\.org$/i
+  /(^|\.)bitbucket\.org$/i,
+  // The identity providers and SaaS hosts people actually sign in to from a
+  // connected app. Added after "too many issues with logging in to different
+  // apps": the path pattern below catches most flows, but a provider that
+  // runs its sign-in on a bare host path (or hops to a device/consent step
+  // that does not say "login") fell through to being routed as a link, which
+  // drops window.opener and breaks the handshake.
+  /(^|\.)slack\.com$/i,
+  /(^|\.)atlassian\.com$/i,
+  /(^|\.)atlassian\.net$/i,
+  /(^|\.)notion\.so$/i,
+  /(^|\.)facebook\.com$/i,
+  /(^|\.)linkedin\.com$/i,
+  /(^|\.)x\.com$/i,
+  /(^|\.)twitter\.com$/i,
+  /(^|\.)zoom\.us$/i,
+  /(^|\.)dropbox\.com$/i,
+  /(^|\.)box\.com$/i,
+  /(^|\.)salesforce\.com$/i,
+  /(^|\.)force\.com$/i,
+  /(^|\.)hubspot\.com$/i,
+  /(^|\.)xero\.com$/i,
+  /(^|\.)stripe\.com$/i,
+  /(^|\.)shopify\.com$/i,
+  /(^|\.)myshopify\.com$/i,
+  /(^|\.)discord\.com$/i,
+  /(^|\.)figma\.com$/i,
+  /(^|\.)canva\.com$/i,
+  /(^|\.)amazon\.com$/i,
+  /(^|\.)amazoncognito\.com$/i,
+  /(^|\.)workos\.com$/i,
+  /(^|\.)clerk\.accounts\.dev$/i,
+  /(^|\.)firebaseapp\.com$/i,
+  /(^|\.)b2clogin\.com$/i
 ]
 // Path shapes that signal a sign-in step for a provider we don't host-match.
 // Segment-anchored, so /login matches but /login-help does not.
-const AUTH_PATH = /\/(oauth2?|authorize|signin|sign[-_]?in|login|sessions?|sso|saml|openid|device|consent)(\/|$|\?|#)/i
+const AUTH_PATH =
+  /\/(oauth2?|authorize|authenticate|signin|sign[-_]?in|login|log[-_]?in|sessions?|sso|saml|openid|connect|device|consent|callback|verify|mfa|2fa|challenge)(\/|$|\?|#)/i
+
+/**
+ * Query shapes that mean "this is an OAuth step", whatever the path says.
+ *
+ * A provider that puts its flow on a bare path — /x?response_type=code&... —
+ * matches nothing above, and the popup would be routed to a desk object with
+ * no window.opener, which is the same as failing to sign in.
+ */
+const AUTH_QUERY = /(^|&)(response_type|client_id|redirect_uri|code_challenge|scope|state|id_token_hint)=/i
 
 function isAuthUrl(url: string): boolean {
   try {
     const u = new URL(url)
     if (AUTH_HOSTS.some((re) => re.test(u.hostname))) return true
-    return AUTH_PATH.test(u.pathname)
+    if (AUTH_PATH.test(u.pathname)) return true
+    return AUTH_QUERY.test(u.search.replace(/^\?/, ''))
   } catch {
     return false
   }

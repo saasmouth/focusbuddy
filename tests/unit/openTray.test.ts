@@ -1,4 +1,6 @@
 // The tray of things you have open.
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 //
 // Two properties carry the whole design, and both are easy to lose in a later
 // edit: only a view that names a SUBJECT earns an entry (or the tray becomes a
@@ -274,5 +276,62 @@ describe('screens reachable two ways get one tray entry', () => {
     // office:chat renders MessagesView; view.messages renders FlowView. Same
     // word, different screens, so collapsing them would hide one.
     expect(trayKeyFor({ kind: 'office', app: 'chat' })).not.toBe(trayKeyFor({ kind: 'messages' }))
+  })
+})
+
+// ── "Tab names aren't strings of id, and show an icon for what they are" ──
+
+describe('a tab never shows a raw id', () => {
+  // Comments stripped before asserting: the fix's own comment quotes the old
+  // `label: v.appId` to explain what it replaced, and a plain substring check
+  // matches the explanation rather than the code.
+  const tray = readFileSync(
+    join(__dirname, '..', '..', 'src/renderer/src/components/OpenTray.tsx'),
+    'utf8'
+  )
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+
+  it('a connected app resolves to its title, not its UUID', () => {
+    expect(tray).not.toContain('label: v.appId')
+    expect(tray).toContain("label: a.title || hostnameOf(a.url) || 'App'")
+  })
+
+  it('a product resolves to a readable name, not its slug', () => {
+    expect(tray).not.toContain('label: v.productKey')
+    expect(tray).toContain('humaniseKey(v.productKey)')
+  })
+
+  it('no case in the resolver prints a bare id field', () => {
+    // The property that matters: every branch returns a label built from a
+    // title, a registry lookup, or a literal — never an identifier.
+    const resolver = tray.slice(tray.indexOf('const resolve = useMemo'), tray.indexOf('// Hidden entirely'))
+    expect(resolver).not.toMatch(/label:\s*v\.\w*[Ii]d\b/)
+    expect(resolver).not.toMatch(/label:\s*v\.\w*[Kk]ey\b/)
+  })
+})
+
+describe('a tab shows what kind of thing it is', () => {
+  const tray = readFileSync(
+    join(__dirname, '..', '..', 'src/renderer/src/components/OpenTray.tsx'),
+    'utf8'
+  )
+
+  it('a connected app shows its own logo, not a generic glyph', () => {
+    // Every connected app rendering the same "apps" icon makes six open tabs
+    // indistinguishable.
+    expect(tray).toContain('<AppLogo app={r.app}')
+  })
+
+  it('a desk, a room and a document each get their own icon', () => {
+    expect(tray).toContain("icon: 'desk'")
+    expect(tray).toContain("icon: 'meeting_room'")
+    expect(tray).toContain("icon: 'description'")
+  })
+
+  it('a document icon follows its type', () => {
+    for (const icon of ['table', 'slideshow', 'account_tree', 'brush', 'palette']) {
+      expect(tray, `no icon for a ${icon} document`).toContain(`'${icon}'`)
+    }
   })
 })

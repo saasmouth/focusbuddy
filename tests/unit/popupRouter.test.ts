@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { decidePopup } from '../../src/main/popupRouter'
 
 // Stand-in for Electron.Session — the router only stores it for re-emission into
@@ -246,5 +248,78 @@ describe('decidePopup', () => {
       if (result.action !== 'deny') return
       expect(result.forwardToRenderer).toBeUndefined()
     })
+  })
+})
+
+// ── "Enable popup windows… too many issues with logging in to apps" ───────
+//
+// Two faults. The connected-app pane never set `allowpopups` at attach — it
+// set it from an effect, which Electron ignores — so no popup could open from
+// a connected app at all, whatever the router below decided. And the router
+// only recognised a sign-in by a short host list or a path keyword, so a
+// provider running its flow on a bare path got routed to a desk object, which
+// has no `window.opener` and therefore cannot complete OAuth.
+
+describe('a connected app may actually open a popup', () => {
+  const view = readFileSync(
+    join(__dirname, '..', '..', 'src/renderer/src/components/views/ConnectedAppView.tsx'),
+    'utf8'
+  )
+
+  it('sets allowpopups in the JSX, where Electron will read it', () => {
+    expect(view).toContain('allowpopups="true"')
+  })
+
+  it('and no longer tries to set it from an effect, which does nothing', () => {
+    expect(view).not.toContain("wv.setAttribute('allowpopups'")
+  })
+})
+
+describe('sign-in flows are recognised however the provider shapes them', () => {
+  const open = (url: string): string =>
+    decidePopup(
+      { url, disposition: 'new-foreground-tab', features: '', frameName: '' } as never,
+      { session: FAKE_SESSION }
+    ).action
+
+  it('allows a real window for an OAuth query on a bare path', () => {
+    // The case the keyword list missed entirely.
+    expect(open('https://unknown-saas.example/x?response_type=code&client_id=abc&redirect_uri=z')).toBe('allow')
+  })
+
+  it('allows the providers people actually connect', () => {
+    for (const u of [
+      'https://slack.com/openid/connect/start',
+      'https://id.atlassian.com/',
+      'https://www.notion.so/',
+      'https://login.xero.com/',
+      'https://example.b2clogin.com/'
+    ]) {
+      expect(open(u), u).toBe('allow')
+    }
+  })
+
+  it('still recognises the keyword paths it always did', () => {
+    for (const u of [
+      'https://any.example/oauth/authorize',
+      'https://any.example/sign-in',
+      'https://any.example/sso/saml',
+      'https://any.example/mfa/challenge'
+    ]) {
+      expect(open(u), u).toBe('allow')
+    }
+  })
+
+  it('does NOT turn every link into a popup', () => {
+    // The desk-object routing for a plain new-tab link is a deliberate
+    // feature, not a bug to fix — widening auth detection must not eat it.
+    for (const u of ['https://example.com/pricing', 'https://news.example/article/123']) {
+      expect(open(u), u).toBe('deny')
+    }
+  })
+
+  it('never opens a non-http scheme', () => {
+    expect(open('file:///etc/passwd')).toBe('deny')
+    expect(open('javascript:alert(1)')).toBe('deny')
   })
 })
