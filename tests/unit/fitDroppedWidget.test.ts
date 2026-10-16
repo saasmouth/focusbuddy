@@ -117,10 +117,18 @@ describe('the cap is applied centrally, not per call site', () => {
     expect(store).toContain('window.api.widgets.create(sized)')
   })
 
-  it('and NOT re-applied at individual drop sites', () => {
-    // Belt-and-braces here would be two places to keep in step, and the
+  it('and NOT re-applied at the drop sites, where the store already did it', () => {
+    // Belt-and-braces there would be two places to keep in step, and the
     // per-site version is what let shortcuts and menu adds through.
-    expect(canvas).not.toContain('fitDroppedWidget(')
+    //
+    // The AI build is the one legitimate caller in this file: it needs the
+    // fitted size for its grid MATHS, not to size the create. So the check
+    // is scoped to the drop handler rather than the whole file.
+    const dropHandler = canvas.slice(
+      canvas.indexOf('const connectedAppId = e.dataTransfer.getData'),
+      canvas.indexOf("const taskId = e.dataTransfer.getData('text/fb-task-link')")
+    )
+    expect(dropHandler).not.toContain('fitDroppedWidget(')
   })
 
   it('Canvas publishes the viewport instead of passing it around', () => {
@@ -146,6 +154,34 @@ describe('the cap is applied centrally, not per call site', () => {
   it('re-publishes when the zoom changes', () => {
     // The cap is expressed in what the user sees, so a stale zoom caps wrong.
     expect(canvas).toMatch(/ro\.disconnect\(\)\s*\n\s*\}, \[zoom\]\)/)
+  })
+})
+
+describe('every way a widget is born is capped', () => {
+  const store = read('renderer/src/stores/widgets.ts')
+  const canvas = read('renderer/src/components/Canvas.tsx')
+
+  it('createOptional caps too, not just create', () => {
+    // The other birth path — auto-spawned chrome. Leaving it out would be one
+    // more route that opens at 1920x1080 on a laptop.
+    expect(store).toContain('window.api.widgets.createOptional(sized)')
+    expect((store.match(/fitNewWidgetToView\(draft,/g) ?? []).length).toBe(2)
+  })
+
+  it('the AI desk build lays out at the FITTED size', () => {
+    // "Browser windows generated from the desk ai build features need to
+    // follow the other drag browser to desk size limits."
+    //
+    // The store would cap the widget on its way out, but this path also uses
+    // the size to position the grid. Capping only in the store would leave
+    // one widget per row with a screen of empty space beside it.
+    const build = canvas.slice(
+      canvas.indexOf('async function handleAiBuilderAccept'),
+      canvas.indexOf('cursorX += w + GAP')
+    )
+    expect(build).toContain('fitDroppedWidget(')
+    expect(build).toContain('const w = fitted.width')
+    expect(build).toContain('const h = fitted.height')
   })
 })
 

@@ -361,7 +361,14 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
   // The origin is the VISIBLE origin: the dock's right edge while full-bleed.
   resetView: () => set({ zoom: 1, panX: get().dockInset, panY: 0 }),
   createOptional: async (draft) => {
-    const widget = await window.api.widgets.createOptional(draft)
+    // Same cap as `create` above — this is the other way a widget is born
+    // (auto-spawned chrome), and leaving it out would be one more path that
+    // opens at 1920x1080 on a laptop.
+    const sized = fitNewWidgetToView(draft, (kind) => {
+      const entry = catalogFor(kind as WidgetKind)
+      return entry ? { width: entry.defaultWidth, height: entry.defaultHeight } : null
+    })
+    const widget = await window.api.widgets.createOptional(sized)
     if (!widget) return null // task vanished before the create landed; clean no-op
     set({ widgets: [...get().widgets, widget] })
     recordSnapshotSoon(widget.taskId)

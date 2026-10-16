@@ -64,7 +64,7 @@ import {
   type WidgetCatalogEntry,
   type WidgetCategory
 } from '../lib/widgetCatalog'
-import { setCanvasViewport } from '../lib/fitDroppedWidget'
+import { setCanvasViewport, fitDroppedWidget } from '../lib/fitDroppedWidget'
 import { canCreateWidget } from '../lib/gating'
 import { useCapabilityStore } from '../stores/capabilities'
 import { promptUpgrade } from '../stores/upgradePrompt'
@@ -2265,8 +2265,19 @@ export default function Canvas(): JSX.Element {
     try {
     for (const s of suggestions) {
       const entry = catalogFor(s.kind)
-      const w = entry?.defaultWidth ?? 300
-      const h = entry?.defaultHeight ?? 200
+      // Fit here, not only in the store, because these numbers also drive the
+      // LAYOUT below. The store would cap the widget on its way out, but the
+      // grid would still be spaced for a 1920-wide browser — one capped
+      // widget per row with a screen of empty space beside it.
+      const fitted = fitDroppedWidget(
+        entry?.defaultWidth ?? 300,
+        entry?.defaultHeight ?? 200,
+        rect.width,
+        rect.height,
+        zoom
+      )
+      const w = fitted.width
+      const h = fitted.height
       if (cursorX !== PADDING && cursorX + w > PADDING + visibleW) {
         cursorX = PADDING
         cursorY += rowMaxH + GAP
