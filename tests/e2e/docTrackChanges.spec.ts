@@ -63,21 +63,21 @@ test('DTC-1 — suggesting records an insertion; accept keeps it, reject removes
   await insertAtEnd(window, ' Absolutely')
 
   // The suggested text is rendered as a tracked insertion.
-  await expect(window.locator('.ProseMirror span.tc-insert')).toHaveCount(1, { timeout: 4_000 })
-  await expect(window.locator('.ProseMirror span.tc-insert')).toContainText('Absolutely')
+  await expect(window.locator('.ProseMirror .tc-insert')).toHaveCount(1, { timeout: 4_000 })
+  await expect(window.locator('.ProseMirror .tc-insert')).toContainText('Absolutely')
 
   // Accept all keeps the text but clears the tracking mark.
   await window.locator('[data-testid="doc-accept-all"]').click()
   await window.waitForTimeout(200)
-  await expect(window.locator('.ProseMirror span.tc-insert')).toHaveCount(0)
+  await expect(window.locator('.ProseMirror .tc-insert')).toHaveCount(0)
   await expect(surface).toContainText('The plan is ready. Absolutely')
 
   // A second suggestion, then Reject all removes it.
   await insertAtEnd(window, ' maybe')
-  await expect(window.locator('.ProseMirror span.tc-insert')).toHaveCount(1, { timeout: 4_000 })
+  await expect(window.locator('.ProseMirror .tc-insert')).toHaveCount(1, { timeout: 4_000 })
   await window.locator('[data-testid="doc-reject-all"]').click()
   await window.waitForTimeout(200)
-  await expect(window.locator('.ProseMirror span.tc-insert')).toHaveCount(0)
+  await expect(window.locator('.ProseMirror .tc-insert')).toHaveCount(0)
   await expect(surface).not.toContainText('maybe')
   await expect(surface).toContainText('The plan is ready. Absolutely')
 })

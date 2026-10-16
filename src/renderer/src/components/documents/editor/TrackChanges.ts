@@ -33,31 +33,63 @@ function attrs(user: TrackUser): Record<string, unknown> {
   return { author: user.author, color: user.color, ts: Date.now() }
 }
 
-function markSpec(name: string, className: string) {
+// How a suggestion is written to HTML, and why it is not a styled <span>.
+//
+// These marks used to render as <span class="tc-insert" style="text-decoration:
+// underline">. ProseMirror reads a `text-decoration` inline style with the
+// Underline and Strike extensions' own parse rules, so any HTML round trip (copy
+// and paste, an HTML import, a reopen through HTML) brought every suggestion back
+// carrying a second, ordinary underline or strike mark. "Accept all" then did
+// exactly what it says to the suggestion marks and left the ordinary ones behind:
+// the help audit's "suggestions remain as plain strike/underline formatting".
+//
+// Now an insertion is <ins class="tc-insert"> and a deletion <del class="tc-delete">.
+// Browsers and Word exports draw both without any inline text-decoration, the
+// colour travels as a CSS custom property no parse rule reads, and the rules
+// below outrank Strike's own `del` rule. Spans written by the old renderer still
+// parse; they are flagged `legacyStyle` so accept/reject also clears the
+// ordinary mark their inline style produced (see lib/trackChanges).
+function markSpec(name: string, className: string, tag: 'ins' | 'del') {
   return Mark.create({
     name,
     inclusive: false,
-    excludes: '',
+    // Excludes only itself: a deletion can sit beside an insertion, but striking
+    // already-struck text replaces the mark instead of nesting a second one
+    // (which rendered as <del><del>…</del></del> and doubled the count).
+    excludes: name,
     addAttributes() {
       return {
         author: { default: null, parseHTML: (el) => el.getAttribute('data-author'), renderHTML: (a) => (a.author ? { 'data-author': a.author } : {}) },
         color: { default: null, parseHTML: (el) => el.getAttribute('data-color'), renderHTML: (a) => (a.color ? { 'data-color': a.color } : {}) },
-        ts: { default: null, parseHTML: (el) => Number(el.getAttribute('data-ts')) || null, renderHTML: (a) => (a.ts ? { 'data-ts': String(a.ts) } : {}) }
+        ts: { default: null, parseHTML: (el) => Number(el.getAttribute('data-ts')) || null, renderHTML: (a) => (a.ts ? { 'data-ts': String(a.ts) } : {}) },
+        // Never rendered: it only records that this mark was read from an old
+        // styled span, whose inline style also produced an underline/strike mark.
+        legacyStyle: {
+          default: null,
+          parseHTML: (el) => (el.tagName === 'SPAN' && /text-decoration/i.test(el.getAttribute('style') ?? '') ? true : null),
+          renderHTML: () => ({})
+        }
       }
     },
     parseHTML() {
-      return [{ tag: `span.${className}` }]
+      // Priority above the default 50 so Strike's plain `del` rule never claims
+      // a suggestion first.
+      return [
+        { tag: `${tag}.${className}`, priority: 60 },
+        { tag: `span.${className}`, priority: 60 }
+      ]
     },
     renderHTML({ HTMLAttributes }) {
       const color = (HTMLAttributes as Record<string, string>)['data-color']
-      const style = name === INSERTION_MARK ? `text-decoration: underline; text-decoration-color: ${color || '#16a34a'};` : `text-decoration: line-through; text-decoration-color: ${color || '#dc2626'};`
-      return ['span', mergeAttributes(HTMLAttributes, { class: className, style }), 0]
+      const extra: Record<string, string> = { class: className }
+      if (color) extra.style = `--tc-color: ${color}`
+      return [tag, mergeAttributes(HTMLAttributes, extra), 0]
     }
   })
 }
 
-export const InsertionMark = markSpec(INSERTION_MARK, 'tc-insert')
-export const DeletionMark = markSpec(DELETION_MARK, 'tc-delete')
+export const InsertionMark = markSpec(INSERTION_MARK, 'tc-insert', 'ins')
+export const DeletionMark = markSpec(DELETION_MARK, 'tc-delete', 'del')
 
 // Does every text node in [from,to) carry the given mark? Used to decide whether
 // deleting a range removes a fresh suggestion outright or tombstones committed

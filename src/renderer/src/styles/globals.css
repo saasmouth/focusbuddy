@@ -3078,3 +3078,19 @@ html.dark[data-widget-skin='studio'] [data-widget-id] > .fb-card {
   70%  { transform: scale(1.45); opacity: 0; }
   100% { transform: scale(1.45); opacity: 0; }
 }
+
+/* Track Changes suggestions (components/documents/editor/TrackChanges.ts).
+   Drawn from the class, never from an inline text-decoration, so an HTML round
+   trip cannot turn a suggestion into ordinary underline/strike formatting. The
+   suggester's colour arrives as --tc-color on the element. */
+ins.tc-insert,
+span.tc-insert {
+  text-decoration-line: underline;
+  text-decoration-color: var(--tc-color, #16a34a);
+  background: none;
+}
+del.tc-delete,
+span.tc-delete {
+  text-decoration-line: line-through;
+  text-decoration-color: var(--tc-color, #dc2626);
+}
