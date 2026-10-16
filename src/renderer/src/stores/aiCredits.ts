@@ -24,7 +24,7 @@ interface AiCreditsStore {
 
 /** Which prompt a refusal deserves, given the account's trial and plan. */
 export function promptFor(
-  e: Pick<AiCreditEvent, 'error' | 'next'>,
+  e: Pick<AiCreditEvent, 'error' | 'next'> & { balance?: number | null },
   ctx: { trialActive: boolean; plan: string | null; balance: number | null }
 ): CreditPromptKind {
   if (e.error === 'email_not_verified') return 'verify_email'
@@ -33,7 +33,7 @@ export function promptFor(
   return isTrialCreditsExhausted({
     trialActive: ctx.trialActive,
     storedPlan,
-    error: { error: e.error, next: e.next, allowedModel: null },
+    error: { error: e.error, next: e.next, allowedModel: null, balance: e.balance ?? null },
     balance: ctx.balance
   })
     ? 'trial_used'
@@ -81,6 +81,16 @@ export function installCreditEventWatcher(): () => void {
   const off = window.api.ai.onCreditEvent((e) => useAiCreditsStore.getState().handleEvent(e))
   void useAiCreditsStore.getState().sync()
   return off
+}
+
+/**
+ * When the referral credit bank pays the plan until. /account/capabilities may
+ * carry it; the server sends it on GET /ai/credits, so either source counts.
+ */
+export function useCreditPaidUntil(): number | null {
+  const fromCaps = useCapabilityStore((s) => s.creditPaidUntil)
+  const fromCredits = useAiCreditsStore((s) => s.status?.creditPaidUntil ?? null)
+  return fromCaps ?? fromCredits
 }
 
 /** Open Settings on the AI tab, where the balance and top-ups live. */

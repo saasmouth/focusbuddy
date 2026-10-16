@@ -95,6 +95,8 @@ export async function signup(input: {
   handle?: string | null
   firstName?: string | null
   lastName?: string | null
+  // This install's id, for the referral self-referral guard (growth spec 4).
+  deviceId?: string
 }): Promise<AuthResult> {
   try {
     const { res, json } = await postJson<{
@@ -133,6 +135,7 @@ export async function login(input: {
   email: string
   password: string
   code?: string
+  deviceId?: string
 }): Promise<AuthResult> {
   try {
     const { res, json } = await postJson<{
@@ -370,10 +373,12 @@ async function postAction(path: string, body: unknown, token: string, fallback: 
   try {
     const { res, json } = await postJson<{ ok?: boolean; error?: string; message?: string }>(path, body, token)
     if (res.ok && json?.ok !== false) return { ok: true }
+    // The server sends a machine reason in `error` and the sentence in
+    // `message`; show the sentence.
     if (res.status === 429) {
-      return { ok: false, error: json?.error || json?.message || 'Too many attempts. Wait a minute and try again.' }
+      return { ok: false, error: json?.message || 'Too many attempts. Wait a minute and try again.' }
     }
-    return { ok: false, error: json?.error || json?.message || `${fallback} (${res.status}).` }
+    return { ok: false, error: json?.message || `${fallback} (${res.status}).` }
   } catch (err) {
     return { ok: false, error: `Could not reach the server: ${(err as Error).message}`, network: true }
   }
@@ -384,9 +389,26 @@ export function verifyEmail(token: string, code: string): Promise<VerifyResult> 
   return postAction('/auth/verify-email', { code }, token, 'That code did not work')
 }
 
-/** POST /auth/resend-verification — limited by the server to 1 a minute, 10 a day. */
-export function resendVerification(token: string): Promise<VerifyResult> {
-  return postAction('/auth/resend-verification', {}, token, 'Could not send a new code')
+/**
+ * Ask for a new code; the server allows 1 a minute, 10 a day. The growth spec
+ * names POST /auth/resend-verification; the signal server implements
+ * POST /auth/verify-email/resend. Try the spec route, and the server's on a 404,
+ * so the app works whichever one ships.
+ */
+export async function resendVerification(token: string): Promise<VerifyResult> {
+  try {
+    const first = await postJson<{ ok?: boolean; message?: string }>('/auth/resend-verification', {}, token)
+    if (first.res.status !== 404) {
+      if (first.res.ok && first.json?.ok !== false) return { ok: true }
+      return {
+        ok: false,
+        error: first.json?.message || `Could not send a new code (${first.res.status}).`
+      }
+    }
+  } catch (err) {
+    return { ok: false, error: `Could not reach the server: ${(err as Error).message}`, network: true }
+  }
+  return postAction('/auth/verify-email/resend', {}, token, 'Could not send a new code')
 }
 
 // ── Referrals and the credit bank (growth spec sections 4 and 4b) ───────────

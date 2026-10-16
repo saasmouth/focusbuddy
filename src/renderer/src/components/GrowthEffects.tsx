@@ -68,10 +68,8 @@ export default function GrowthEffects(): null {
       enabled: telemetryEnabled,
       storage: window.localStorage,
       fetchImpl: (input, init) => fetch(input, init),
-      props: async () => {
-        const t = await window.api.ai.collectTelemetry().catch(() => null)
-        return { appVersion: t?.appVersion ?? null, platform: t?.platform ?? null }
-      }
+      // The same aggregate snapshot TelemetryReporter sends (counts only).
+      props: async () => (await window.api.ai.collectTelemetry()) as unknown as Record<string, unknown>
     })
   }, [account, token])
 

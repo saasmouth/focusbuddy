@@ -37,8 +37,30 @@ describe('parseCreditsResponse', () => {
       allowance: 800,
       resetsAt: Date.parse('2026-11-01T00:00:00Z'),
       tier: 'pro',
+      models: null,
+      trial: false,
+      creditPaidUntil: null,
       proxyAvailable: null
     })
+  })
+
+  it('reads the signal server\'s extra fields: models, trial, credit-bank date', () => {
+    const snap = parseCreditsResponse({
+      ok: true,
+      balance: 300,
+      buckets: [],
+      allowance: 100,
+      resetsAt: 1800000000000,
+      tier: 'free',
+      aiTier: 'trial',
+      models: ['haiku', 'sonnet'],
+      creditPaidUntil: 1800000000000,
+      balanceUsd: 3
+    })
+    expect(snap?.models).toEqual(['haiku', 'sonnet'])
+    expect(snap?.trial).toBe(true)
+    expect(snap?.creditPaidUntil).toBe(1800000000000)
+    expect(snap?.balance).toBe(300) // credits, not balanceUsd x 100
   })
 
   it('reads the legacy dollar balance as credits and leaves the rest unknown', () => {
@@ -48,6 +70,9 @@ describe('parseCreditsResponse', () => {
       allowance: null,
       resetsAt: null,
       tier: null,
+      models: null,
+      trial: false,
+      creditPaidUntil: null,
       proxyAvailable: true
     })
   })
@@ -60,7 +85,7 @@ describe('parseCreditsResponse', () => {
 
 describe('parseCreditError', () => {
   it('reads the spec 402 bodies', () => {
-    expect(parseCreditError(402, JSON.stringify({ error: 'out_of_credits', next: 'topup' }))).toEqual({
+    expect(parseCreditError(402, JSON.stringify({ error: 'out_of_credits', next: 'topup' }))).toMatchObject({
       error: 'out_of_credits',
       next: 'topup',
       allowedModel: null
@@ -70,7 +95,33 @@ describe('parseCreditError', () => {
         402,
         JSON.stringify({ error: 'model_not_in_plan', next: 'upgrade', allowedModel: 'claude-haiku-5-5' })
       )
-    ).toEqual({ error: 'model_not_in_plan', next: 'upgrade', allowedModel: 'claude-haiku-5-5' })
+    ).toMatchObject({ error: 'model_not_in_plan', next: 'upgrade', allowedModel: 'claude-haiku-5-5' })
+  })
+  it('reads the signal server\'s nested refusal', () => {
+    const e = parseCreditError(
+      402,
+      JSON.stringify({
+        error: {
+          type: 'model_not_in_plan',
+          message: 'Opus is not included in your plan.',
+          cheapestAllowedModel: 'claude-haiku-5-5',
+          allowedModelFamilies: ['haiku', 'sonnet'],
+          nextAction: 'upgrade'
+        }
+      })
+    )
+    expect(e).toEqual({
+      error: 'model_not_in_plan',
+      next: 'upgrade',
+      allowedModel: 'claude-haiku-5-5',
+      allowedFamilies: ['haiku', 'sonnet'],
+      balance: null
+    })
+    const spent = parseCreditError(402, JSON.stringify({ error: { type: 'out_of_credits', balance: 4.5, nextAction: 'topup' } }))
+    expect(spent).toMatchObject({ error: 'out_of_credits', next: 'topup', balance: 4.5 })
+    expect(creditErrorMessage(spent!)).toMatch(/not enough for that request/)
+    const unverified = parseCreditError(403, JSON.stringify({ error: { type: 'email_not_verified', nextAction: 'verify_email' } }))
+    expect(unverified).toMatchObject({ error: 'email_not_verified', next: null })
   })
   it('reads the older Anthropic-shaped refusal', () => {
     expect(
@@ -112,6 +163,10 @@ describe('packs, formatting and the trial-credits rule', () => {
     expect(isTrialCreditsExhausted({ trialActive: true, storedPlan: 'pro', error: spent, balance: 0 })).toBe(false)
     expect(isTrialCreditsExhausted({ trialActive: false, storedPlan: 'free', error: spent, balance: 0 })).toBe(false)
     expect(isTrialCreditsExhausted({ trialActive: true, storedPlan: 'free', error: null, balance: null })).toBe(false)
+    // Refused for costing more than what is left: not "used".
+    expect(
+      isTrialCreditsExhausted({ trialActive: true, storedPlan: 'free', error: { ...spent, balance: 40 }, balance: 40 })
+    ).toBe(false)
   })
 })
 
@@ -223,6 +278,48 @@ describe('createMeteredFetch', () => {
     expect(calls[1].headers.get('authorization')).toBeNull()
     expect(m.getAiStatus().outOfCredits).toBe(true)
     expect(m.getAiStatus().lastError?.next).toBe('topup')
+  })
+
+  it('fits to the server\'s family list, so a Free trialist keeps Sonnet', async () => {
+    const m = await load()
+    const { calls, fetchFn } = recorder([
+      json(200, { balance: 300, buckets: [], allowance: 100, resetsAt: null, tier: 'free', aiTier: 'trial', models: ['haiku', 'sonnet'] }),
+      json(200, { content: [] })
+    ])
+    globalThis.fetch = fetchFn
+    await m.refreshCredits()
+    const f = m.createMeteredFetch({ fetch: fetchFn, mode: () => state.mode, ownKey: () => state.ownKey })
+    await f(PROXY, req('claude-sonnet-5-5'))
+    await expect(Promise.resolve(calls[1].body.model)).resolves.toBe('claude-sonnet-5-5')
+  })
+
+  it('on the signal server\'s nested model_not_in_plan, retries on the best allowed family', async () => {
+    const m = await load()
+    const { calls, fetchFn } = recorder([
+      json(402, { error: { type: 'model_not_in_plan', cheapestAllowedModel: 'claude-haiku-5-5', allowedModelFamilies: ['haiku', 'sonnet'], nextAction: 'upgrade' } }),
+      json(200, { content: [] })
+    ])
+    const f = m.createMeteredFetch({ fetch: fetchFn, mode: () => state.mode, ownKey: () => state.ownKey })
+    const res = await f(PROXY, req('claude-opus-5-5'))
+    expect(res.status).toBe(200)
+    expect(calls.map((c) => c.body.model)).toEqual(['claude-opus-5-5', 'claude-sonnet-5-5'])
+  })
+
+  it('reads x-pd-credit-balance as credits when the server also sends x-pd-credits-charged', async () => {
+    const m = await load()
+    const { fetchFn } = recorder([json(200, { content: [] }, { 'x-pd-credit-balance': '287.40', 'x-pd-credits-charged': '0.0123' })])
+    const f = m.createMeteredFetch({ fetch: fetchFn, mode: () => state.mode, ownKey: () => state.ownKey })
+    await f(PROXY, req('claude-haiku-5-5'))
+    expect(m.getAiStatus().balance).toBeCloseTo(287.4)
+  })
+
+  it('keeps a non-zero balance when a request is refused for costing more than it', async () => {
+    const m = await load()
+    const { fetchFn } = recorder([json(402, { error: { type: 'out_of_credits', balance: 4.5, nextAction: 'topup' } })])
+    const f = m.createMeteredFetch({ fetch: fetchFn, mode: () => state.mode, ownKey: () => state.ownKey })
+    await f(PROXY, req('claude-haiku-5-5'))
+    expect(m.getAiStatus().balance).toBe(4.5)
+    expect(m.getAiStatus().outOfCredits).toBe(false)
   })
 
   it('on 402 model_not_in_plan, retries once on the model the server named', async () => {

@@ -2,10 +2,12 @@
 // app telemetry)"). Sent once per account per device, the first time the app
 // runs signed in as that account, and only when usage sharing is on.
 //
-// Transport: POST /telemetry/event { event: 'first_launch', props }. The
-// spec names the event but not the route; this is the route the app assumes
-// the server provides (reported to the server workstream). A 404 is recorded
-// as "not delivered" and retried on a later launch, never marked as sent.
+// Transport: the signal server records first_launch from the first usage
+// snapshot an account ever posts to POST /telemetry (recordFunnelOnce). The
+// regular TelemetryReporter waits 8 s and then 6 hours between reports; this
+// sends that same snapshot straight away on an account's first run here, so a
+// person who opens the app and closes it within seconds still counts. A failed
+// send is not marked as sent and is retried on a later launch.
 
 export const FIRST_LAUNCH_KEY_PREFIX = 'fb.funnel.firstLaunch.'
 
@@ -33,12 +35,12 @@ export async function reportFirstLaunch(d: FirstLaunchDeps): Promise<FirstLaunch
   if (seen) return 'already-sent'
   if (!d.enabled()) return 'disabled'
   try {
-    const props = await d.props()
+    const snapshot = await d.props()
     const at = (d.now ?? Date.now)()
-    const res = await d.fetchImpl(`${d.httpUrl.replace(/\/+$/, '')}/telemetry/event`, {
+    const res = await d.fetchImpl(`${d.httpUrl.replace(/\/+$/, '')}/telemetry`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', authorization: `Bearer ${d.token}` },
-      body: JSON.stringify({ event: 'first_launch', at, props })
+      body: JSON.stringify(snapshot)
     })
     if (!res.ok) return 'failed'
     try {

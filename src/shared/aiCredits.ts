@@ -25,6 +25,7 @@ export interface CreditBucket {
 }
 
 export type CreditPlan = 'free' | 'pro' | 'proplus' | 'team' | 'enterprise'
+export type ModelFamilyName = 'haiku' | 'sonnet' | 'opus'
 
 export interface CreditsSnapshot {
   /** Spendable credits now, across every bucket. */
@@ -34,8 +35,19 @@ export interface CreditsSnapshot {
   allowance: number | null
   /** When the monthly allowance next resets (epoch ms), when known. */
   resetsAt: number | null
-  /** The plan the server bills managed AI against (effective tier). */
+  /** The plan the account is billed on (the server's `tier`). */
   tier: CreditPlan | null
+  /**
+   * The model families Plexii's key will run for this account right now. The
+   * server sends it (`models`); it is what the app fits requests to, because
+   * it already accounts for a trial (a Free account on trial runs Sonnet) and
+   * an inherited Team plan, which the plan name alone does not.
+   */
+  models: ModelFamilyName[] | null
+  /** True during a Free account's trial (server `aiTier: 'trial'`). */
+  trial: boolean
+  /** When the referral credit bank pays the plan until (section 4b). */
+  creditPaidUntil: number | null
   /** Whether the server has its Anthropic key configured (older servers). */
   proxyAvailable: boolean | null
 }
@@ -83,6 +95,12 @@ function bucketOf(v: unknown): CreditBucket | null {
   return { kind, credits: Math.max(0, credits), expiresAt: toEpochMs(b.expiresAt) }
 }
 
+function familiesOf(v: unknown): ModelFamilyName[] | null {
+  if (!Array.isArray(v)) return null
+  const out = v.filter((x): x is ModelFamilyName => x === 'haiku' || x === 'sonnet' || x === 'opus')
+  return out.length ? out : null
+}
+
 /** Parse a GET /ai/credits body, new shape or legacy. Null when it is neither. */
 export function parseCreditsResponse(body: unknown): CreditsSnapshot | null {
   if (!body || typeof body !== 'object') return null
@@ -99,6 +117,9 @@ export function parseCreditsResponse(body: unknown): CreditsSnapshot | null {
       allowance: num(b.allowance),
       resetsAt: toEpochMs(b.resetsAt),
       tier: planOf(b.tier),
+      models: familiesOf(b.models),
+      trial: b.aiTier === 'trial',
+      creditPaidUntil: toEpochMs(b.creditPaidUntil),
       proxyAvailable
     }
   }
@@ -111,6 +132,9 @@ export function parseCreditsResponse(body: unknown): CreditsSnapshot | null {
       allowance: null,
       resetsAt: null,
       tier: null,
+      models: null,
+      trial: false,
+      creditPaidUntil: null,
       proxyAvailable
     }
   }
@@ -125,6 +149,11 @@ export interface CreditError {
   next: 'upgrade' | 'topup' | null
   /** For model_not_in_plan: the cheapest model the plan allows. */
   allowedModel: string | null
+  /** For model_not_in_plan, when the server lists them: every family allowed. */
+  allowedFamilies?: ModelFamilyName[] | null
+  /** For out_of_credits, when the server says: what is left. A request can be
+   *  refused for costing more than a non-zero balance. */
+  balance?: number | null
 }
 
 /**
@@ -142,16 +171,24 @@ export function parseCreditError(status: number, bodyText: string): CreditError 
     body = null
   }
   const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>
-  let code: unknown = b.error
-  if (code && typeof code === 'object') code = (code as Record<string, unknown>).type
+  // The spec writes the fields at the top level ({ error: 'out_of_credits',
+  // next, allowedModel }); the server nests them in an Anthropic-style error
+  // ({ error: { type, nextAction, cheapestAllowedModel, allowedModelFamilies } }).
+  // Read either.
+  const inner = (b.error && typeof b.error === 'object' ? b.error : {}) as Record<string, unknown>
+  let code: unknown = typeof b.error === 'string' ? b.error : inner.type
   if (typeof code !== 'string') code = b.code
-  const next = b.next === 'upgrade' || b.next === 'topup' ? b.next : null
-  const allowedModel = typeof b.allowedModel === 'string' && b.allowedModel ? b.allowedModel : null
+  const rawNext = b.next ?? inner.nextAction ?? inner.next
+  const next = rawNext === 'upgrade' || rawNext === 'topup' ? rawNext : null
+  const rawModel = b.allowedModel ?? inner.allowedModel ?? inner.cheapestAllowedModel
+  const allowedModel = typeof rawModel === 'string' && rawModel ? rawModel : null
+  const allowedFamilies = familiesOf(b.allowedModelFamilies ?? inner.allowedModelFamilies)
+  const balance = num(b.balance ?? inner.balance)
   if (code === 'out_of_credits' || code === 'model_not_in_plan' || code === 'email_not_verified') {
-    return { error: code, next, allowedModel }
+    return { error: code, next, allowedModel, allowedFamilies, balance }
   }
   // A bare 402 from an older server still means the balance is spent.
-  if (status === 402) return { error: 'out_of_credits', next, allowedModel }
+  if (status === 402) return { error: 'out_of_credits', next, allowedModel, allowedFamilies, balance }
   return null
 }
 
@@ -164,6 +201,9 @@ export function creditErrorMessage(e: CreditError): string {
       return 'That AI model is not included in your plan. Upgrade, or add your own Anthropic key in Settings to use any model.'
     case 'out_of_credits':
     default:
+      if (typeof e.balance === 'number' && e.balance > 0) {
+        return 'Your remaining AI credits are not enough for that request. Add credits, try something smaller, or add your own Anthropic key in Settings.'
+      }
       return e.next === 'upgrade'
         ? 'Your AI credits are used up. Upgrade for a monthly allowance, add credits, or add your own Anthropic key in Settings.'
         : 'Your AI credits are used up. Add credits, or add your own Anthropic key in Settings.'
@@ -184,7 +224,10 @@ export function isTrialCreditsExhausted(input: {
 }): boolean {
   if (!input.trialActive) return false
   if (input.storedPlan && input.storedPlan !== 'free') return false
-  if (input.error?.error === 'out_of_credits') return true
+  if (input.error?.error === 'out_of_credits') {
+    // Refused for costing more than what is left is not "used".
+    return !(typeof input.error.balance === 'number' && input.error.balance > 0)
+  }
   return input.balance !== null && input.balance <= 0
 }
 
@@ -199,6 +242,9 @@ export interface AiCreditStatus {
   allowance: number | null
   resetsAt: number | null
   plan: CreditPlan | null
+  models: ModelFamilyName[] | null
+  trial: boolean
+  creditPaidUntil: number | null
   outOfCredits: boolean
   proxyAvailable: boolean
   verificationRequired: boolean

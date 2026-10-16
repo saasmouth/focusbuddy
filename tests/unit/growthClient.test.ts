@@ -65,8 +65,9 @@ describe('first_launch', () => {
     expect(await reportFirstLaunch({ ...base, storage, fetchImpl })).toBe('already-sent')
     expect(fetchImpl).toHaveBeenCalledTimes(1)
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
-    expect(url).toBe('https://signal.test/telemetry/event')
-    expect(JSON.parse(String(init.body))).toEqual({ event: 'first_launch', at: 1000, props: { appVersion: '4.3.29', platform: 'darwin' } })
+    // The server records first_launch from the first /telemetry snapshot.
+    expect(url).toBe('https://signal.test/telemetry')
+    expect(JSON.parse(String(init.body))).toEqual({ appVersion: '4.3.29', platform: 'darwin' })
     expect(storage.getItem(FIRST_LAUNCH_KEY_PREFIX + 'acc1')).toBe('1000')
   })
   it('does not mark a failed send as sent', async () => {

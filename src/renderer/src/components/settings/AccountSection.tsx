@@ -10,6 +10,7 @@ import { useSignInPrompt } from '../../stores/signInPrompt'
 import { useCapabilityStore, usePlan, useTrial } from '../../stores/capabilities'
 import { fundedPlanLabel, trialSuffix } from '../../lib/planDisplay'
 import ReferralPanel from './ReferralPanel'
+import { useCreditPaidUntil } from '../../stores/aiCredits'
 import { personDisplayName, personInitials } from '../../lib/personName'
 import Icon from '../Icon'
 import TwoFactorSettings from './TwoFactorSettings'
@@ -26,7 +27,7 @@ export default function AccountSection(): JSX.Element {
   // fact about the account, so it comes from storedTier.
   // The PLAN, so Pro+ reads as Pro+ (its features use Pro's column).
   const plan = usePlan()
-  const creditPaidUntil = useCapabilityStore((s) => s.creditPaidUntil)
+  const creditPaidUntil = useCreditPaidUntil()
   const trial = useTrial()
   const refreshCaps = useCapabilityStore((s) => s.refresh)
   const [busy, setBusy] = useState(false)

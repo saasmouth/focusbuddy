@@ -11,7 +11,7 @@
 
 import type Anthropic from '@anthropic-ai/sdk'
 import { createAnthropic, rewriteJsonBody } from './modelClient'
-import { modelForPlan, managedPlanOf, withModelDefaults } from './modelRouting'
+import { modelForPlan, modelForFamilies, managedPlanOf, withModelDefaults } from './modelRouting'
 import { rateFor } from './aiCost'
 import {
   parseCreditsResponse,
@@ -22,7 +22,8 @@ import {
   type CreditError,
   type CreditPlan,
   type CreditsSnapshot,
-  type AiCreditStatus
+  type AiCreditStatus,
+  type ModelFamilyName
 } from '@shared/aiCredits'
 import { loadAccountState } from '../db/account'
 import { getAiMode, resolveAnthropicKey, hasOwnAnthropicKey } from '../settingsStore'
@@ -44,6 +45,10 @@ interface CreditCache {
   allowance: number | null
   resetsAt: number | null
   plan: CreditPlan | null
+  /** Families the server will run for this account now (trial-aware). */
+  models: ModelFamilyName[] | null
+  trial: boolean
+  creditPaidUntil: number | null
   outOfCredits: boolean
   proxyAvailable: boolean
   /** The server refused managed AI because the email is not verified yet. */
@@ -57,6 +62,9 @@ const creditCache: CreditCache = {
   allowance: null,
   resetsAt: null,
   plan: null,
+  models: null,
+  trial: false,
+  creditPaidUntil: null,
   outOfCredits: false,
   proxyAvailable: true,
   verificationRequired: false,
@@ -96,6 +104,9 @@ export function resetCreditCache(): void {
   creditCache.allowance = null
   creditCache.resetsAt = null
   creditCache.plan = null
+  creditCache.models = null
+  creditCache.trial = false
+  creditCache.creditPaidUntil = null
   creditCache.outOfCredits = false
   creditCache.proxyAvailable = true
   creditCache.verificationRequired = false
@@ -108,6 +119,9 @@ function applySnapshot(snap: CreditsSnapshot): void {
   creditCache.allowance = snap.allowance
   creditCache.resetsAt = snap.resetsAt
   if (snap.tier) creditCache.plan = snap.tier
+  creditCache.models = snap.models
+  creditCache.trial = snap.trial
+  creditCache.creditPaidUntil = snap.creditPaidUntil
   creditCache.outOfCredits = snap.balance <= 0
   if (snap.proxyAvailable !== null) creditCache.proxyAvailable = snap.proxyAvailable
   if (snap.balance > 0 && creditCache.lastError?.error === 'out_of_credits') creditCache.lastError = null
@@ -157,7 +171,16 @@ export function minimumCostCredits(body: Record<string, unknown>): number {
 
 /** The next action to name when credits are gone and the server did not say. */
 function defaultNext(): 'upgrade' | 'topup' {
+  if (creditCache.trial) return 'upgrade'
   return !creditCache.plan || creditCache.plan === 'free' ? 'upgrade' : 'topup'
+}
+
+/** The model to send on credits: fitted to the server's family list when it
+ *  sent one (trial-aware), otherwise to the plan's allowlist. */
+function fitModel(model: string): string {
+  if (creditCache.models) return modelForFamilies(model, creditCache.models)
+  if (creditCache.plan) return modelForPlan(model, managedPlanOf(creditCache.plan))
+  return model
 }
 
 // A refusal turned into the Anthropic error shape, so the SDK raises an
@@ -211,11 +234,10 @@ export function createMeteredFetch(deps: MeteredFetchDeps): typeof fetch {
     // 1. Fit the model to the plan, when the plan is known.
     let body: Record<string, unknown> | null = null
     let sendInit = init
-    if (creditCache.plan) {
-      const plan = managedPlanOf(creditCache.plan)
+    if (creditCache.models || creditCache.plan) {
       sendInit = rewriteJsonBody(init, (b) => {
         if (typeof b.model !== 'string') return b
-        const fitted = modelForPlan(b.model, plan)
+        const fitted = fitModel(b.model)
         return fitted === b.model ? b : withModelDefaults({ ...b, model: fitted })
       })
     }
@@ -262,10 +284,15 @@ export function createMeteredFetch(deps: MeteredFetchDeps): typeof fetch {
           // Their own key runs any model; prefer it in auto mode.
           const fb = ownKeyRetry()
           if (fb) return fb
-          if (e.allowedModel && body && body.model !== e.allowedModel) {
-            const retryInit = rewriteJsonBody(sendInit, (b) =>
-              withModelDefaults({ ...b, model: e.allowedModel as string })
-            )
+          // The best model the server allows that is not above the request;
+          // its cheapest named model when it lists no families.
+          const retryModel =
+            body && typeof body.model === 'string' && e.allowedFamilies?.length
+              ? modelForFamilies(body.model, e.allowedFamilies)
+              : e.allowedModel
+          if (e.allowedFamilies?.length) creditCache.models = e.allowedFamilies
+          if (retryModel && body && body.model !== retryModel) {
+            const retryInit = rewriteJsonBody(sendInit, (b) => withModelDefaults({ ...b, model: retryModel }))
             const retried = await deps.fetch(input, retryInit)
             if (retried.status !== 402 && retried.status !== 403) {
               readBalanceHeaders(retried)
@@ -314,23 +341,31 @@ export function createMeteredFetch(deps: MeteredFetchDeps): typeof fetch {
 
 function noteRefusal(e: CreditError): void {
   if (e.error === 'out_of_credits') {
-    creditCache.outOfCredits = true
-    creditCache.balance = 0
+    // The server may refuse a request that costs more than a non-zero balance;
+    // keep what it says is left rather than claiming zero.
+    const left = typeof e.balance === 'number' ? Math.max(0, e.balance) : 0
+    creditCache.balance = left
+    creditCache.outOfCredits = left <= 0
     if (!e.next) e.next = defaultNext()
   }
   if (e.error === 'email_not_verified') creditCache.verificationRequired = true
   emitCreditEvent(e)
 }
 
-// The server echoes the remaining balance on every billed response. The new
-// server sends credits in x-pd-credits; older servers sent dollars in
-// x-pd-credit-balance.
+// The server echoes the remaining balance on every billed response in
+// x-pd-credit-balance. The unit changed with the credits rework: the server in
+// production today sends DOLLARS there; the growth server sends CREDITS, and
+// alongside it x-pd-credits-charged, which the old server never sent. That
+// header is what tells the two apart. (x-pd-credits, credits, is also read.)
 function readBalanceHeaders(res: Response): void {
   const credits = res.headers.get('x-pd-credits')
-  const usd = res.headers.get('x-pd-credit-balance')
+  const balanceHeader = res.headers.get('x-pd-credit-balance')
+  const inCredits = res.headers.get('x-pd-credits-charged') !== null
   let bal: number | null = null
   if (credits !== null && Number.isFinite(Number(credits))) bal = Number(credits)
-  else if (usd !== null && Number.isFinite(Number(usd))) bal = Math.round(Number(usd) * 100)
+  else if (balanceHeader !== null && Number.isFinite(Number(balanceHeader))) {
+    bal = inCredits ? Number(balanceHeader) : Math.round(Number(balanceHeader) * 100)
+  }
   if (bal !== null) {
     creditCache.balance = bal
     creditCache.outOfCredits = bal <= 0
@@ -455,6 +490,9 @@ export function getAiStatus(): AiStatus {
     allowance: creditCache.allowance,
     resetsAt: creditCache.resetsAt,
     plan: creditCache.plan,
+    models: creditCache.models ? [...creditCache.models] : null,
+    trial: creditCache.trial,
+    creditPaidUntil: creditCache.creditPaidUntil,
     outOfCredits: creditCache.outOfCredits,
     proxyAvailable: creditCache.proxyAvailable,
     verificationRequired: creditCache.verificationRequired,

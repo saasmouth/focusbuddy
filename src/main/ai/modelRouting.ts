@@ -213,6 +213,21 @@ export function modelForPlan(requested: string, plan: ManagedPlan): string {
 }
 
 /**
+ * Like modelForPlan, against the exact families the server says this account
+ * may use now (GET /ai/credits `models`; a 402's `allowedModelFamilies`).
+ */
+export function modelForFamilies(requested: string, allowed: readonly ModelFamily[]): string {
+  const fam = modelFamily(requested)
+  if (!fam || allowed.length === 0 || allowed.includes(fam)) return requested
+  const ceiling = FAMILY_ORDER.indexOf(fam)
+  for (let i = ceiling; i >= 0; i--) {
+    if (allowed.includes(FAMILY_ORDER[i])) return FAMILY_MODEL[FAMILY_ORDER[i]]
+  }
+  const lowest = FAMILY_ORDER.find((f) => allowed.includes(f))
+  return lowest ? FAMILY_MODEL[lowest] : requested
+}
+
+/**
  * Per-model request defaults, applied to the JSON body of every Messages call
  * (BYOK and credits) by the client seam in modelClient.ts.
  *

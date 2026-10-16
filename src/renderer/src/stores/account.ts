@@ -8,6 +8,18 @@ import {
   type AuthResult,
   type ServerAccount
 } from '../lib/accountClient'
+import { deviceId } from '../lib/syncFlags'
+
+// The install's id, sent at sign-up and sign-in so the server can refuse a
+// referral reward to someone referring themselves from the same machine
+// (growth spec section 4). Never fatal: no id is sent if it cannot be read.
+function installDeviceId(): string | undefined {
+  try {
+    return deviceId()
+  } catch {
+    return undefined
+  }
+}
 
 // Account store — single source of truth for "am I signed in, and as who?"
 // on the renderer.
@@ -129,7 +141,7 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
   },
 
   signup: async (input) => {
-    const result = await serverSignup(input)
+    const result = await serverSignup({ ...input, deviceId: installDeviceId() })
     if (result.ok) {
       await window.api.account.saveSession({
         token: result.sessionToken,
@@ -155,7 +167,7 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
   },
 
   login: async (input) => {
-    const result = await serverLogin(input)
+    const result = await serverLogin({ ...input, deviceId: installDeviceId() })
     if (result.ok) {
       await window.api.account.saveSession({
         token: result.sessionToken,

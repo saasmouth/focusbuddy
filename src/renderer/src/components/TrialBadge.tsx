@@ -13,6 +13,7 @@ import { useVerifyEmailStore } from '../stores/verifyEmail'
 import { promptUpgrade } from '../stores/upgradePrompt'
 import { PLANS, priceLabel, aiAllowanceLabel } from '../lib/plans'
 import { fundedPlanLabel } from '../lib/planDisplay'
+import { useCreditPaidUntil } from '../stores/aiCredits'
 
 // Footer trial affordance. Four states the user can be in:
 //
@@ -39,7 +40,7 @@ export default function TrialBadge(): JSX.Element | null {
   const unverified = useEmailUnverified()
   const openVerify = useVerifyEmailStore((s) => s.open)
   const plan = usePlan()
-  const creditPaidUntil = useCapabilityStore((s) => s.creditPaidUntil)
+  const creditPaidUntil = useCreditPaidUntil()
 
   // Don't render until we've actually heard from the server once.
   // Otherwise we'd flash "Trial ended" on every cold boot before the

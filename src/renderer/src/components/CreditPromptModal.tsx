@@ -55,7 +55,9 @@ export default function CreditPromptModal(): JSX.Element | null {
       ? 'Your trial’s AI credits are spent. Upgrade for a monthly allowance (Pro includes 800 credits a month), or add a credit pack. Everything else keeps working, and your own Anthropic key works on any plan.'
       : prompt.kind === 'model_not_in_plan'
         ? 'Opus runs on Pro+. Your plan’s models still work, and your own Anthropic key runs any model.'
-        : prompt.next === 'upgrade'
+        : status?.balance !== null && status?.balance !== undefined && status.balance > 0
+          ? 'Your remaining AI credits are not enough for that request. Add a credit pack, try something smaller, or upgrade for a larger monthly allowance.'
+          : prompt.next === 'upgrade'
           ? 'Your AI credits are spent for now. Upgrade for a larger monthly allowance, or add a credit pack.'
           : 'Your AI credits are spent for now. Add a credit pack, or wait for your monthly allowance to reset.'
   const showPacks = prompt.kind !== 'model_not_in_plan'
