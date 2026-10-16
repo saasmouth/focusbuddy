@@ -43,6 +43,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     summary:
       'Sign-in windows and other pop-ups from a browser on your desk or a connected app now open as a card on the desk, inside the PlexiDesk window, instead of as a separate window that can get lost behind everything else. Signing in works the same way it did before.',
     highlights: [
+      'The tab strip above the footer now shows which item is open: its tab has an accent tint and outline, a bold label and a short bar along its top edge, so it no longer looks like a tab you are only hovering over.',
       'Pop-ups open on the desk. A \u201cSign in with Google\u201d, Microsoft, GitHub or Slack window, or any other pop-up a site opens, appears as a card over your desk with the page title and site at the top. When the sign-in finishes, the card closes by itself.',
       'Press Esc or the close button to close a pop-up card. Use the open-in-browser button to continue the page in your web browser.',
       'If a site opens several pop-ups, each one gets its own card, with the newest on top. Click a card underneath to bring it to the front.',

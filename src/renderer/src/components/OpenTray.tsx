@@ -309,10 +309,21 @@ export default function OpenTray(): JSX.Element | null {
                 dropOn === e.key
                   ? 'bg-[rgb(var(--accent)/0.15)] ring-1 ring-[rgb(var(--accent))] text-[var(--ink-100)]'
                   : on
-                    ? 'bg-[var(--surface-sunken)] text-[var(--ink-100)]'
+                    ? // The open item: an accent tint and outline, so it reads as
+                      // "you are here" at a glance and never looks like a hover.
+                      'bg-[rgb(var(--accent)/0.12)] ring-1 ring-[rgb(var(--accent)/0.45)] text-[var(--ink-100)]'
                     : 'text-[var(--ink-60)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-90)]'
               }`}
             >
+              {on && (
+                // A short accent bar on the tab's top edge, pointing at the
+                // content it is showing above the strip.
+                <span
+                  aria-hidden
+                  data-testid={`tray-active-${e.key}`}
+                  className="pointer-events-none absolute left-2 right-2 -top-1 h-[2px] rounded-full bg-[rgb(var(--accent))]"
+                />
+              )}
               <button
                 draggable={draggableDoc(e.view) !== null}
                 onDragStart={(ev) => {
@@ -341,6 +352,7 @@ export default function OpenTray(): JSX.Element | null {
                   })
                 }}
                 data-testid={`tray-item-${e.key}`}
+                aria-current={on ? 'page' : undefined}
                 title={
                   r.missing
                     ? `${r.label} — no longer there`
@@ -367,7 +379,9 @@ export default function OpenTray(): JSX.Element | null {
                     }`}
                   />
                 )}
-                <span className={`max-w-[150px] truncate ${r.missing ? 'line-through opacity-50' : ''}`}>
+                <span
+                  className={`max-w-[150px] truncate ${on ? 'font-semibold' : ''} ${r.missing ? 'line-through opacity-50' : ''}`}
+                >
                   {r.label}
                 </span>
               </button>

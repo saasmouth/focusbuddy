@@ -90,9 +90,19 @@ test('3. a tab switches context, and survives a reload', async () => {
   }, ids)
   await window.waitForTimeout(800)
 
+  // The open desk is marked as the current tab (style + aria-current), and only it.
+  const current = window.locator('[data-testid^="tray-item-"][aria-current="page"]')
+  await expect(current).toHaveCount(1)
+  await expect(current).toHaveAttribute('data-testid', `tray-item-task:${ids[1]}`)
+  await expect(window.locator(`[data-testid="tray-active-task:${ids[1]}"]`)).toBeVisible()
+
   await window.locator(`[data-testid="tray-item-task:${ids[0]}"]`).click()
   await window.waitForTimeout(500)
   expect(await window.evaluate(() => (window as any).__fbView.getState().view.taskId)).toBe(ids[0])
+  // ...and the marker moves with the switch.
+  await expect(current).toHaveCount(1)
+  await expect(current).toHaveAttribute('data-testid', `tray-item-task:${ids[0]}`)
+  await expect(window.locator(`[data-testid="tray-active-task:${ids[1]}"]`)).toHaveCount(0)
 
   // It is window state, so it has to come back.
   await window.reload()
