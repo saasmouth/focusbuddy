@@ -37,6 +37,7 @@ export const INVOKE_CHANNELS: Readonly<Record<string, string>> = {
   'ai.dailyBrief': 'ai:dailyBrief',
   'ai.getStatus': 'ai:getStatus',
   'ai.groupByTopic': 'ai:groupByTopic',
+  'ai.markEmailVerified': 'ai:markEmailVerified',
   'ai.refreshCredits': 'ai:refreshCredits',
   'ai.rewriteSelection': 'ai:rewriteSelection',
   'ai.routeCommand': 'ai:routeCommand',
@@ -604,6 +605,7 @@ export const INVOKE_CHANNELS: Readonly<Record<string, string>> = {
 
 /** Subscriptions: api.<path>(cb) -> main-process pushes on channel. */
 export const LISTEN_CHANNELS: Readonly<Record<string, string>> = {
+  'ai.onCreditEvent': 'ai:creditEvent',
   'app.onMenuEvent': 'app:show-whats-new',
   'app.onZoom': 'app:zoom',
   'auth.onIncomingToken': 'auth:incoming-token',
@@ -655,6 +657,7 @@ export const HANDLER_PARAMS: Readonly<Record<string, readonly string[]>> = {
   'ai:getStatus': [],
   'ai:groupByTopic': ['items'],
   'ai:localModelStatus': [],
+  'ai:markEmailVerified': [],
   'ai:processMeetingEnd': ['input'],
   'ai:processTranscript': ['input'],
   'ai:refreshCredits': [],

@@ -115,6 +115,25 @@ import type { Meeting, MeetingDraft, MeetingPatch, MeetingPrep, TranscriptSearch
 import type { PlexiApp, PlexiAppDraft, PlexiAppPatch } from '@shared/apps'
 import type { PlexiForm, PlexiFormDraft, PlexiFormPatch } from '@shared/forms'
 import type { PlexiSignRequest, PlexiSignDraft, PlexiSignPatch, SignAction } from '@shared/sign'
+import type { CreditBucket, CreditError, CreditPlan } from '@shared/aiCredits'
+
+/** The credit state main reports (src/main/ai/creditMode.ts getAiStatus). */
+export interface AiCreditStatus {
+  mode: 'auto' | 'credits' | 'byok'
+  signedIn: boolean
+  hasOwnKey: boolean
+  balance: number | null
+  balanceUsd: number | null
+  buckets: CreditBucket[]
+  allowance: number | null
+  resetsAt: number | null
+  plan: CreditPlan | null
+  outOfCredits: boolean
+  proxyAvailable: boolean
+  verificationRequired: boolean
+  lastError: CreditError | null
+}
+export type AiCreditEvent = CreditError & { status: AiCreditStatus }
 
 type VaultResult = { ok: true } | { ok: false; error: string }
 
@@ -738,27 +757,16 @@ const api = {
       needsApiKey?: boolean
     }> => ipcRenderer.invoke('ai:suggestWidgetSetup', input),
     // AI source (PlexiDesk credits vs bring-your-own-key) + credit balance.
-    getStatus: (): Promise<{
-      mode: 'auto' | 'credits' | 'byok'
-      signedIn: boolean
-      hasOwnKey: boolean
-      balanceUsd: number | null
-      outOfCredits: boolean
-      proxyAvailable: boolean
-    }> => ipcRenderer.invoke('ai:getStatus'),
-    setMode: (mode: 'auto' | 'credits' | 'byok'): Promise<{
-      mode: 'auto' | 'credits' | 'byok'
-      signedIn: boolean
-      hasOwnKey: boolean
-      balanceUsd: number | null
-      outOfCredits: boolean
-      proxyAvailable: boolean
-    }> => ipcRenderer.invoke('ai:setMode', mode),
-    refreshCredits: (): Promise<{
-      balanceUsd: number | null
-      outOfCredits: boolean
-      proxyAvailable: boolean
-    }> => ipcRenderer.invoke('ai:refreshCredits'),
+    getStatus: (): Promise<AiCreditStatus> => ipcRenderer.invoke('ai:getStatus'),
+    setMode: (mode: 'auto' | 'credits' | 'byok'): Promise<AiCreditStatus> => ipcRenderer.invoke('ai:setMode', mode),
+    refreshCredits: (): Promise<AiCreditStatus> => ipcRenderer.invoke('ai:refreshCredits'),
+    markEmailVerified: (): Promise<AiCreditStatus> => ipcRenderer.invoke('ai:markEmailVerified'),
+    // A refusal from the credits proxy, raised inside any AI call.
+    onCreditEvent: (cb: (e: AiCreditEvent) => void): (() => void) => {
+      const listener = (_e: unknown, payload: AiCreditEvent): void => cb(payload)
+      ipcRenderer.on('ai:creditEvent', listener)
+      return () => ipcRenderer.removeListener('ai:creditEvent', listener)
+    },
     topUpCredits: (
       amountUsd: number
     ): Promise<{

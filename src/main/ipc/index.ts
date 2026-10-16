@@ -108,7 +108,15 @@ import {
   type RemoteItem
 } from '../db/workspaceSync'
 import { invalidateAnthropicClient } from '../ai/anthropic'
-import { getAiStatus, refreshCredits, startTopUp } from '../ai/creditMode'
+import {
+  getAiStatus,
+  refreshCredits,
+  startTopUp,
+  onCreditEvent,
+  markEmailVerified,
+  resetCreditCache,
+  invalidateCreditClient
+} from '../ai/creditMode'
 import * as mailAccount from '../mail/mailAccount'
 import type { MailAccountConfig } from '../mail/mailAccount'
 import {
@@ -1356,7 +1364,13 @@ export function registerIpcHandlers(): void {
     (_e, input: { token: string; email: string | null }) =>
       saveSession(input.token, input.email)
   )
-  ipcMain.handle('account:clearSession', () => clearSession())
+  ipcMain.handle('account:clearSession', () => {
+    // A signed-out app must not keep showing (or spending against) the last
+    // account's balance, plan or refusal.
+    resetCreditCache()
+    invalidateCreditClient()
+    return clearSession()
+  })
   ipcMain.handle('account:setSkipped', (_e, skipped: boolean) => setSkipped(skipped))
   ipcMain.handle('account:setCachedEmail', (_e, email: string | null) =>
     setCachedEmail(email)
@@ -2024,6 +2038,21 @@ export function registerIpcHandlers(): void {
   })
   // Pull the live balance from the signal server (lazily grants the trial).
   ipcMain.handle('ai:refreshCredits', () => refreshCredits())
+  // The renderer confirmed the email (POST /auth/verify-email succeeded): stop
+  // treating managed AI as refused, then re-read the balance the trial grant
+  // just added.
+  ipcMain.handle('ai:markEmailVerified', () => {
+    markEmailVerified()
+    return refreshCredits()
+  })
+  // A refusal from the credits proxy (out of credits, model not in plan, email
+  // not verified) happens inside some AI call; the prompt explaining it lives in
+  // the renderer. Forward each one to every window.
+  onCreditEvent((e) => {
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (!w.isDestroyed()) w.webContents.send('ai:creditEvent', e)
+    }
+  })
   // Begin a Stripe checkout for a credit top-up and open it in the browser.
   ipcMain.handle('ai:topUpCredits', async (_e, amountUsd: number) => {
     const result = await startTopUp(amountUsd)
