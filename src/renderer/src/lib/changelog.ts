@@ -36,6 +36,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.31',
+    date: '2026-10-17T18:00:00Z',
+    title: 'PlexiDesk 4.3.31 \u2014 pop-ups open on your desk',
+    tag: 'feature',
+    summary:
+      'Sign-in windows and other pop-ups from a browser on your desk or a connected app now open as a card on the desk, inside the PlexiDesk window, instead of as a separate window that can get lost behind everything else. Signing in works the same way it did before.',
+    highlights: [
+      'Pop-ups open on the desk. A \u201cSign in with Google\u201d, Microsoft, GitHub or Slack window, or any other pop-up a site opens, appears as a card over your desk with the page title and site at the top. When the sign-in finishes, the card closes by itself.',
+      'Press Esc or the close button to close a pop-up card. Use the open-in-browser button to continue the page in your web browser.',
+      'If a site opens several pop-ups, each one gets its own card, with the newest on top. Click a card underneath to bring it to the front.',
+      'Links that open in a new tab still open as a browser on your desk, as before.',
+      'If a site\u2019s sign-in has trouble in a card, go to Settings \u2192 Advanced \u2192 Pop-ups and turn on \u201cOpen sign-in pop-ups in separate windows\u201d to get the old separate windows back.'
+    ]
+  },
+  {
     version: '4.3.30',
     date: '2026-10-17T09:00:00Z',
     title: 'PlexiDesk 4.3.30 — AI credits on every plan, Pro+, and invite friends for credit',
