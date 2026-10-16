@@ -77,7 +77,7 @@ export default function AutomationsFAB(): JSX.Element {
         setAiRoute(
           s.mode === 'byok'
             ? 'AI transforms run with your key, sent directly to Anthropic.'
-            : 'AI transforms run on PlexiDesk credits, relayed through our server to Anthropic. Mirror copies stay on your device.'
+            : 'AI transforms run on Plexii credits, relayed through our server to Anthropic. Mirror copies stay on your device.'
         )
       })
       .catch(() => alive && setAiRoute(null))

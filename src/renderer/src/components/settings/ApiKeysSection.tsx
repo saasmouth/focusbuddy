@@ -214,8 +214,8 @@ export default function ApiKeysSection({ onKeySaved }: Props): JSX.Element {
       <div className="fb-t-caption text-[var(--ink-50)] leading-relaxed">
         Each key is encrypted with the macOS Keychain and stored locally only.
         When you use your own key, prompts go direct from this Mac to Anthropic /
-        OpenAI. On PlexiDesk credits, AI prompts route through PlexiDesk's server
-        so we can meter usage against your balance.
+        OpenAI. On Plexii credits, AI prompts route through Plexii's server so
+        usage can be counted against your balance.
         {encryption === false && (
           <div className="text-rose-600 dark:text-rose-400 mt-1">
             ⚠ System encryption isn't available — saving is disabled.
