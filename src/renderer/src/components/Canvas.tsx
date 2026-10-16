@@ -323,12 +323,38 @@ export default function Canvas(): JSX.Element {
   // attached here instead. A ref keeps the effect from re-binding on every
   // render while still calling the current closure.
   const wheelRef = useRef<(e: WheelEvent) => void>(() => {})
-  useEffect(() => {
-    const el = dropRef.current
-    if (!el) return
-    const onWheel = (e: WheelEvent): void => wheelRef.current(e)
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
+  // A CALLBACK REF, not an effect with [] deps, and that distinction is the
+  // whole bug.
+  //
+  // The listener used to be attached in `useEffect(..., [])` against
+  // dropRef.current. That binds once, to whichever node existed at mount. If
+  // React ever recreates this div — a changed ancestor, a remount — the ref
+  // is repointed at the NEW node while the listener stays on the old,
+  // detached one. The effect never runs again, so wheel and trackpad panning
+  // go dead with no error: the event reaches the element, and nothing is
+  // listening on it. Edge-pan dies with it, because useEdgePan reads the same
+  // dropRef. Click-drag panning survives, because it goes through React's own
+  // onPointerDown, which React rebinds for free — which is exactly the
+  // reported symptom: "swipe on mouse and trackpad, edge perimeter motion
+  // also doesn't work… click drag and release flick is working".
+  //
+  // A callback ref runs on every node change, so the listener always follows
+  // the live element and dropRef is always current for everyone else reading
+  // it. `passive: false` is still required — the handler calls preventDefault
+  // to stop the page scrolling under the canvas.
+  const boundWheel = useRef<((e: WheelEvent) => void) | null>(null)
+  const attachCanvasSurface = useCallback((el: HTMLDivElement | null) => {
+    const prev = dropRef.current
+    if (prev && boundWheel.current) {
+      prev.removeEventListener('wheel', boundWheel.current)
+      boundWheel.current = null
+    }
+    dropRef.current = el
+    if (el) {
+      const onWheel = (e: WheelEvent): void => wheelRef.current(e)
+      boundWheel.current = onWheel
+      el.addEventListener('wheel', onWheel, { passive: false })
+    }
   }, [])
 
   const setPan = useWidgetStore((s) => s.setPan)
@@ -2576,7 +2602,7 @@ export default function Canvas(): JSX.Element {
     <>
       <div className="h-full flex flex-col">
         <div
-          ref={dropRef}
+          ref={attachCanvasSurface}
           data-bare-canvas
           data-canvas-surface="true"
           onScroll={pinSurfaceScroll}

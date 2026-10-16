@@ -18,6 +18,7 @@ import { useDocumentsStore } from '../stores/documents'
 import { useOpenTrayStore } from '../stores/openTray'
 import { activeKey, documentIdOf, orderTray, type TrayEntry } from '../lib/openTray'
 import { lookupApp } from '../lib/segmentApps'
+import { AREA_TONES } from '../lib/areaTones'
 import {
   dragCarriesDocument,
   type DocumentDragPayload,
@@ -53,6 +54,14 @@ interface Resolved {
   icon: string
   /** The subject is gone. Kept visible so the user closes it deliberately. */
   missing?: boolean
+  /**
+   * The icon's colour, from the SAME sources the side menu uses — AREA_TONES
+   * for places, the segment registry for apps and documents. Taken from
+   * there rather than written here so a tab and the menu row that opened it
+   * can never show the same thing in two colours, which is exactly what two
+   * copies of a colour list produced in the menu itself.
+   */
+  tone?: string
   /**
    * A connected app, when the tab is one. Carried so the tab can show the
    * app's OWN logo — the favicon it was captured with — rather than a generic
@@ -133,8 +142,17 @@ export default function OpenTray(): JSX.Element | null {
   const current = activeKey(view)
 
   const resolve = useMemo(() => {
+    const DOC_APP_KEY: Record<string, string> = {
+      doc: 'docs',
+      sheet: 'sheets',
+      slides: 'slides',
+      map: 'diagrams',
+      design: 'design',
+      draw: 'draw'
+    }
     const resolveDoc = (id: string): Resolved => {
       const d = docs.find((x) => x.id === id)
+      const tone = lookupApp('office', DOC_APP_KEY[d?.docType ?? ''])?.tone
       const icon =
         d?.docType === 'sheet'
           ? 'table'
@@ -148,8 +166,8 @@ export default function OpenTray(): JSX.Element | null {
                   ? 'palette'
                   : 'description'
       return d
-        ? { label: d.title || 'Untitled', icon }
-        : { label: 'Document', icon: 'description', missing: docs.length > 0 }
+        ? { label: d.title || 'Untitled', icon, tone }
+        : { label: 'Document', icon: 'description', tone, missing: docs.length > 0 }
     }
     return (e: TrayEntry): Resolved => {
       const v = e.view
@@ -157,25 +175,25 @@ export default function OpenTray(): JSX.Element | null {
         case 'task': {
           const n = nodes.find((x) => x.id === v.taskId)
           return n
-            ? { label: n.title || 'Untitled desk', icon: 'desk' }
+            ? { label: n.title || 'Untitled desk', icon: 'desk', tone: AREA_TONES.desks }
             : // Only claim it is gone once the store has actually loaded, or
               // every tab reads "no longer there" for a moment on startup.
-              { label: 'Desk', icon: 'desk', missing: nodes.length > 0 }
+              { label: 'Desk', icon: 'desk', tone: AREA_TONES.desks, missing: nodes.length > 0 }
         }
         case 'project-dashboard': {
           const n = nodes.find((x) => x.id === v.projectId)
-          return { label: n?.title || 'Project', icon: 'dashboard' }
+          return { label: n?.title || 'Project', icon: 'dashboard', tone: AREA_TONES.plans }
         }
         case 'desks': {
           const n = nodes.find((x) => x.id === v.roomId)
-          return { label: n?.title || 'Room', icon: 'meeting_room' }
+          return { label: n?.title || 'Room', icon: 'meeting_room', tone: AREA_TONES.rooms }
         }
         case 'document':
           return resolveDoc(v.documentId)
         case 'livedoc':
-          return { label: 'Live doc', icon: 'sync' }
+          return { label: 'Live doc', icon: 'sync', tone: AREA_TONES.files }
         case 'livefolder':
-          return { label: 'Live folder', icon: 'folder_open' }
+          return { label: 'Live folder', icon: 'folder_open', tone: AREA_TONES.files }
         case 'connected-app': {
           // Was `label: v.appId` — the tab showed a raw UUID. The store has
           // the title the user gave it and the logo it was captured with.
@@ -187,9 +205,9 @@ export default function OpenTray(): JSX.Element | null {
         case 'product':
           // Was the raw key, e.g. "desk-pro-annual". No product store to read
           // a display name from, so humanise it rather than print the slug.
-          return { label: humaniseKey(v.productKey), icon: 'inventory_2' }
+          return { label: humaniseKey(v.productKey), icon: 'inventory_2', tone: AREA_TONES.office }
         case 'knowledge':
-          return { label: 'Knowledge', icon: 'psychology' }
+          return { label: 'Knowledge', icon: 'psychology', tone: AREA_TONES.brain }
         case 'office':
         case 'plexidesk':
         case 'plexipeople':
@@ -202,13 +220,13 @@ export default function OpenTray(): JSX.Element | null {
           // it -- which is exactly what a second copy of the list produced.
           const meta = lookupApp(v.kind, v.app)
           return meta
-            ? { label: meta.label, icon: meta.icon }
-            : { label: v.app ? humaniseKey(v.app) : 'Office', icon: 'apps' }
+            ? { label: meta.label, icon: meta.icon, tone: meta.tone }
+            : { label: v.app ? humaniseKey(v.app) : 'Office', icon: 'apps', tone: AREA_TONES.office }
         }
         case 'messages':
-          return { label: 'Chat', icon: 'plexii:chat' }
+          return { label: 'Chat', icon: 'plexii:chat', tone: AREA_TONES.people }
         case 'mail':
-          return { label: 'Mail', icon: 'mail' }
+          return { label: 'Mail', icon: 'mail', tone: AREA_TONES.calendar }
         default:
           return { label: 'Open', icon: 'circle' }
       }
@@ -343,7 +361,10 @@ export default function OpenTray(): JSX.Element | null {
                   <Icon
                     name={r.icon}
                     size={13}
-                    className={`shrink-0 ${r.missing ? 'opacity-40' : ''}`}
+                    filled
+                    className={`shrink-0 ${
+                      r.missing ? 'opacity-40' : (r.tone ?? 'text-[var(--ink-60)]')
+                    }`}
                   />
                 )}
                 <span className={`max-w-[150px] truncate ${r.missing ? 'line-through opacity-50' : ''}`}>
