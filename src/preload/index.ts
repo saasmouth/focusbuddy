@@ -99,6 +99,7 @@ import type {
 import type { KnowledgeEntry, KnowledgeDraft, KnowledgePatch } from '@shared/knowledge'
 import type { DeskLayout, DeviceClass } from '@shared/deskLayout'
 import type { Decision } from '@shared/decision'
+import type { DeskPopupInfo, DeskPopupMode, PopupRect } from '@shared/deskPopup'
 
 // Local-document comment row as returned by the docComments IPC.
 interface DocCommentDto {
@@ -926,6 +927,35 @@ const api = {
       ): void => cb(payload)
       ipcRenderer.on('webview:link-clicked', handler)
       return () => ipcRenderer.removeListener('webview:link-clicked', handler)
+    }
+  },
+  // Sign-in / scripted web pop-ups shown as cards on the desk. Main hosts the
+  // page in a native view; the renderer draws the card and reports where the
+  // page should sit (setBounds, CSS px — main applies the zoom).
+  deskPopups: {
+    list: (): Promise<DeskPopupInfo[]> => ipcRenderer.invoke('deskPopup:list'),
+    setBounds: (id: string, rect: PopupRect): Promise<boolean> =>
+      ipcRenderer.invoke('deskPopup:setBounds', id, rect),
+    focus: (id: string): Promise<boolean> => ipcRenderer.invoke('deskPopup:focus', id),
+    close: (id: string): Promise<boolean> => ipcRenderer.invoke('deskPopup:close', id),
+    openExternal: (id: string): Promise<boolean> => ipcRenderer.invoke('deskPopup:openExternal', id),
+    getMode: (): Promise<DeskPopupMode> => ipcRenderer.invoke('deskPopup:getMode'),
+    setNativeMode: (native: boolean): Promise<DeskPopupMode> =>
+      ipcRenderer.invoke('deskPopup:setNativeMode', native),
+    onOpened: (cb: (info: DeskPopupInfo) => void): (() => void) => {
+      const handler = (_: unknown, info: DeskPopupInfo): void => cb(info)
+      ipcRenderer.on('deskPopup:opened', handler)
+      return () => ipcRenderer.removeListener('deskPopup:opened', handler)
+    },
+    onUpdated: (cb: (info: DeskPopupInfo) => void): (() => void) => {
+      const handler = (_: unknown, info: DeskPopupInfo): void => cb(info)
+      ipcRenderer.on('deskPopup:updated', handler)
+      return () => ipcRenderer.removeListener('deskPopup:updated', handler)
+    },
+    onClosed: (cb: (payload: { id: string }) => void): (() => void) => {
+      const handler = (_: unknown, payload: { id: string }): void => cb(payload)
+      ipcRenderer.on('deskPopup:closed', handler)
+      return () => ipcRenderer.removeListener('deskPopup:closed', handler)
     }
   },
   localApp: {

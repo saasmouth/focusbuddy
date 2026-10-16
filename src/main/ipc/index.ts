@@ -63,6 +63,16 @@ import {
   setExtensionEnabled
 } from '../browserExtensions'
 import { openExternalSafe } from '../safeOpenExternal'
+import {
+  closeDeskPopup,
+  focusDeskPopup,
+  getDeskPopupMode,
+  listDeskPopups,
+  openDeskPopupExternally,
+  setDeskPopupBounds,
+  setDeskPopupNativeMode
+} from '../deskPopups'
+import type { PopupRect } from '@shared/deskPopup'
 import { detectPreviewBuild } from '../appMode'
 import { writeFile } from 'node:fs/promises'
 import { join as pathJoin } from 'node:path'
@@ -3456,6 +3466,20 @@ export function registerIpcHandlers(): void {
     const f = typeof factor === 'number' && factor >= 0.8 && factor <= 2 ? factor : 1
     for (const win of BrowserWindow.getAllWindows()) win.webContents.setZoomFactor(f)
   })
+
+  // ── Desk pop-ups ─────────────────────────────────────────────────────────
+  // Sign-in / scripted web pop-ups hosted as WebContentsViews on the desk
+  // (deskPopups.ts). The renderer draws each card and reports its content slot;
+  // main places the native view over it. Only the app's own renderer can reach
+  // these — a pop-up page has no preload, and the error boundary refuses any
+  // other sender.
+  ipcMain.handle('deskPopup:list', () => listDeskPopups())
+  ipcMain.handle('deskPopup:setBounds', (_e, id: string, rect: PopupRect) => setDeskPopupBounds(id, rect))
+  ipcMain.handle('deskPopup:focus', (_e, id: string) => focusDeskPopup(id))
+  ipcMain.handle('deskPopup:close', (_e, id: string) => closeDeskPopup(id))
+  ipcMain.handle('deskPopup:openExternal', (_e, id: string) => openDeskPopupExternally(id))
+  ipcMain.handle('deskPopup:getMode', () => getDeskPopupMode())
+  ipcMain.handle('deskPopup:setNativeMode', (_e, native: boolean) => setDeskPopupNativeMode(native))
 
   // ── Settings: API-key vault ──────────────────────────────────────────────
   // Replaces the old "edit projects/focusbuddy/.env and restart" flow with

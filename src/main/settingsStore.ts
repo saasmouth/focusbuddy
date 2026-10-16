@@ -48,6 +48,9 @@ interface Envelope {
   // Which AI source the user has chosen. Optional for forward-compat with
   // pre-credits envelopes (absent → 'auto').
   aiMode?: AiMode
+  // True when web pop-ups should open as separate OS windows instead of on the
+  // desk (Settings → Advanced). Optional; absent → false (on the desk).
+  popupsNative?: boolean
   // Schema version — lets future migrations detect old envelopes.
   v: 1
 }
@@ -72,6 +75,7 @@ function load(): Envelope {
     cache = {
       keys: parsed.keys && typeof parsed.keys === 'object' ? parsed.keys : {},
       aiMode: parsed.aiMode === 'credits' || parsed.aiMode === 'byok' ? parsed.aiMode : 'auto',
+      ...(parsed.popupsNative === true ? { popupsNative: true } : {}),
       v: 1
     }
   } catch (err) {
@@ -178,6 +182,20 @@ export function getAiMode(): AiMode {
 export function setAiMode(mode: AiMode): void {
   load()
   cache.aiMode = mode
+  save()
+}
+
+/** Whether web pop-ups open as separate OS windows (the pre-4.3.31 behaviour). */
+export function getPopupsNative(): boolean {
+  load()
+  return cache.popupsNative === true
+}
+
+/** Persist the native-pop-up choice. */
+export function setPopupsNative(native: boolean): void {
+  load()
+  if (native) cache.popupsNative = true
+  else delete cache.popupsNative
   save()
 }
 

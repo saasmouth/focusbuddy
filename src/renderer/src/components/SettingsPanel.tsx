@@ -45,6 +45,7 @@ import AutonomySection from './settings/AutonomySection'
 import BodyDoubleSection from './settings/BodyDoubleSection'
 import ConnectedAppsSection from './settings/ConnectedAppsSection'
 import BrowserExtensionsSection from './settings/BrowserExtensionsSection'
+import PopupsSection from './settings/PopupsSection'
 import VaultSection from './settings/VaultSection'
 import BrowsingConsentSection from './settings/BrowsingConsentSection'
 import BackupSection from './settings/BackupSection'
@@ -422,6 +423,8 @@ export default function SettingsPanel({
             {/* Extensions sit with Connected Apps: both are about what runs
                 inside Plexii's browser surfaces. */}
             <BrowserExtensionsSection />
+            {/* Where web pop-ups open: on the desk (default) or as OS windows. */}
+            <PopupsSection />
             <div className="px-3 py-3 space-y-2">
               <div className="fb-t-caption uppercase tracking-[0.12em] font-medium mb-1">
                 Sounds

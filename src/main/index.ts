@@ -17,6 +17,7 @@ import { startCalendarSyncLoop } from './calendar/sync'
 import { startMailSyncLoop } from './mail/mailSync'
 import { registerMdExternal } from './mdExternal'
 import { decidePopup } from './popupRouter'
+import { allowPopupResponse } from './deskPopups'
 import { isAgentDrivenWc } from './ai/browserActions'
 import { cleanWebviewUserAgent } from './userAgent'
 import { getFile } from './db/files'
@@ -627,12 +628,14 @@ app.on('web-contents-created', (_, contents) => {
   // it in a context that doesn't share the webview's session, the callback
   // either never fires or fails the cookie check.
   //
-  // The fix: allow popups as real native windows AND tell Electron to use the
-  // SAME session as the parent webview (so cookies/auth state are shared).
+  // The fix: ALLOW the popup (so window.opener exists) with the SAME session
+  // as the parent webview (so cookies/auth state are shared). Since 4.3.31 the
+  // allowed popup is hosted on the desk — a WebContentsView in the main window
+  // drawn as a card (deskPopups.ts) — rather than a separate OS window;
+  // PLEXI_POPUPS_NATIVE=1 or Settings → Advanced restores native windows.
   // For plain target=_blank link clicks (disposition='foreground-tab' or
   // 'background-tab'), we deny here and forward the URL to the renderer so it
-  // can spawn a new canvas widget — keeping the click-link-as-widget UX while
-  // letting OAuth popups go native.
+  // can spawn a new canvas widget — keeping the click-link-as-widget UX.
   contents.setWindowOpenHandler((details) => {
     // R29: while an agent run drives this webContents, nothing opens a
     // window outside the panel — popups (OAuth included: logins are the
@@ -652,19 +655,10 @@ app.on('web-contents-created', (_, contents) => {
       parentWindow: BrowserWindow.getFocusedWindow() ?? undefined
     })
     if (decision.action === 'allow') {
-      return {
-        action: 'allow',
-        // outlivesOpener MUST be true for OAuth. A sign-in popup routinely
-        // outlives a navigation of the page that opened it (the opener often
-        // redirects to a "signing you in…" URL, or reloads, the moment the popup
-        // is launched). With outlivesOpener:false Electron destroys the popup the
-        // instant the opener navigates, which aborts the OAuth handshake and
-        // bounces the page back to where it started — exactly the "logging in
-        // resets and reloads the original page" symptom. Keeping the popup alive
-        // lets the provider finish and postMessage the callback back to the opener.
-        outlivesOpener: true,
-        overrideBrowserWindowOptions: decision.overrideBrowserWindowOptions
-      }
+      // Sign-in and scripted pop-ups open ON THE DESK (a WebContentsView in the
+      // main window, opener intact) unless the native fallback is on. See
+      // deskPopups.ts — it also keeps outlivesOpener: true, which OAuth needs.
+      return allowPopupResponse(contents, details, decision.overrideBrowserWindowOptions, contents.id)
     }
     if (decision.forwardToRenderer) {
       const mainWin = BrowserWindow.getAllWindows()[0]

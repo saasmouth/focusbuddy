@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar'
 import { FLOATING_MENU_INSET, SIDEBAR_MIN, SIDEBAR_MAX } from './components/chrome/floatingMenuStyle'
 import { useMinimizable, useSidebarWidth } from './components/chrome/floatingMenu'
 import MainPane from './components/MainPane'
+import DeskPopupLayer from './components/DeskPopupLayer'
 import MailMessageModal from './components/mail/MailMessageModal'
 import PlexiOfficeShell from './components/office/PlexiOfficeShell'
 import { PlexiDeskShell, PlexiPeopleShell, PlexiBrainShell } from './components/segment/segments'
@@ -728,6 +729,9 @@ export default function App(): JSX.Element {
             ) : (
               <PlexiBrainShell initialApp={currentView.app} />
             )}
+            {/* Web pop-ups (sign-in, scripted windows) open as cards over the
+                pane, not as OS windows. */}
+            <DeskPopupLayer />
           </div>
         ) : (
         <>
@@ -751,6 +755,7 @@ export default function App(): JSX.Element {
             }
           >
             <MainPane />
+            <DeskPopupLayer />
           </div>
         </>
         )}
