@@ -74,3 +74,73 @@ export function fitDroppedWidget(
     height: Math.max(MIN_DROP_HEIGHT, Math.round(height * scale))
   }
 }
+
+// ── The canvas viewport, published once and read everywhere ─────────────────
+//
+// WHY A MODULE-LEVEL VALUE AND NOT A PROP. The cap has to apply to everything
+// that opens a widget — a drag, the palette, a context-menu add, a keyboard
+// shortcut, an AI build, a command-bar action. Fifty-three call sites across
+// fourteen files read a catalogue default, so threading a viewport through
+// them is how you end up with the inconsistency this was meant to remove:
+// patch the three you remember and the rest keep opening at 1920x1080.
+//
+// So Canvas publishes its measured viewport here, and the one place that
+// decides a new widget's size reads it. Nothing else changes.
+
+let viewport: { width: number; height: number; zoom: number } | null = null
+
+export function setCanvasViewport(width: number, height: number, zoom: number): void {
+  viewport = { width, height, zoom }
+}
+
+/**
+ * The viewport to fit against.
+ *
+ * Falls back to the window when the canvas has never been measured — a
+ * shortcut or a command-bar action can create a widget while you are on
+ * another surface entirely, and "no canvas on screen" must not mean "no cap".
+ * The window is bigger than the canvas (which sits inside the sidebar and
+ * header), so the fallback is slightly generous rather than wrong.
+ */
+export function canvasViewport(): { width: number; height: number; zoom: number } {
+  if (viewport && viewport.width > 0 && viewport.height > 0) return viewport
+  if (typeof window !== 'undefined' && window.innerWidth > 0) {
+    return { width: window.innerWidth, height: window.innerHeight, zoom: viewport?.zoom ?? 1 }
+  }
+  return { width: 0, height: 0, zoom: 1 }
+}
+
+/**
+ * Fit a new widget's size to the view, but ONLY when that size is the
+ * catalogue's untouched default.
+ *
+ * This is the distinction that makes a single central cap safe. A draft whose
+ * size equals the default is "whatever this kind opens at" — nobody chose
+ * 1920x1080, it is just what Browser ships with, and it is exactly what
+ * should shrink to fit. A draft with any other size came from somewhere
+ * deliberate: a duplicate of a widget the user resized, a template saved at a
+ * chosen size, a sync from another device. Those are left exactly alone.
+ *
+ * `x`/`y` are shifted by half the width delta so the widget keeps the centre
+ * the caller intended; without it a shrunk widget lands offset from the
+ * cursor that dropped it.
+ */
+export function fitNewWidgetToView<
+  T extends { kind: string; width?: number; height?: number; x?: number; y?: number }
+>(draft: T, defaultsFor: (kind: string) => { width: number; height: number } | null): T {
+  const def = defaultsFor(draft.kind)
+  if (!def) return draft
+  if (draft.width !== def.width || draft.height !== def.height) return draft
+
+  const view = canvasViewport()
+  const fitted = fitDroppedWidget(def.width, def.height, view.width, view.height, view.zoom)
+  if (fitted.width === def.width && fitted.height === def.height) return draft
+
+  const dx = Math.round((def.width - fitted.width) / 2)
+  return {
+    ...draft,
+    width: fitted.width,
+    height: fitted.height,
+    ...(typeof draft.x === 'number' ? { x: draft.x + dx } : {})
+  }
+}

@@ -1,5 +1,7 @@
 import { create } from 'zustand'
-import type { PinZone, Widget, WidgetDraft, WidgetPatch } from '@shared/types'
+import { fitNewWidgetToView } from '../lib/fitDroppedWidget'
+import { catalogFor } from '../lib/widgetCatalog'
+import type { PinZone, Widget, WidgetDraft, WidgetPatch, WidgetKind } from '@shared/types'
 import { recordTrail } from '../lib/trail'
 import { nudgeSync } from '../lib/syncNudge'
 import { sectionCreate, widgetOpen } from '../lib/audioBeep'
@@ -367,7 +369,21 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
     return widget
   },
   create: async (draft) => {
-    const widget = await window.api.widgets.create(draft)
+    // THE one place a new widget's size is capped to the view.
+    //
+    // Applies to everything — a drag, the palette, a context-menu add, a
+    // keyboard shortcut, an AI build, a command-bar action — because every
+    // one of them ends up here. Fifty-three call sites read a catalogue
+    // default directly; capping at each is how three get fixed and the rest
+    // keep opening at 1920x1080 on a laptop.
+    //
+    // Only an UNTOUCHED default is fitted. A duplicate, a template restore or
+    // a sync carries a size somebody chose, and those pass through unchanged.
+    const sized = fitNewWidgetToView(draft, (kind) => {
+      const entry = catalogFor(kind as WidgetKind)
+      return entry ? { width: entry.defaultWidth, height: entry.defaultHeight } : null
+    })
+    const widget = await window.api.widgets.create(sized)
     set({ widgets: [...get().widgets, widget] })
     nudgeSync()
     // Undo a freshly-added widget by trashing it; redo restores it (same id, so

@@ -64,7 +64,7 @@ import {
   type WidgetCatalogEntry,
   type WidgetCategory
 } from '../lib/widgetCatalog'
-import { fitDroppedWidget } from '../lib/fitDroppedWidget'
+import { setCanvasViewport } from '../lib/fitDroppedWidget'
 import { canCreateWidget } from '../lib/gating'
 import { useCapabilityStore } from '../stores/capabilities'
 import { promptUpgrade } from '../stores/upgradePrompt'
@@ -1159,6 +1159,23 @@ export default function Canvas(): JSX.Element {
     </>
   )
 
+  // Publish the canvas viewport so the one place that sizes a new widget can
+  // cap it to the view — see lib/fitDroppedWidget. Re-published on resize and
+  // whenever the zoom changes, because the cap is expressed in what the user
+  // SEES: at 50% zoom the visible canvas is twice as wide in canvas units.
+  useEffect(() => {
+    const el = dropRef.current
+    if (!el) return
+    const publish = (): void => {
+      const r = el.getBoundingClientRect()
+      if (r.width > 0 && r.height > 0) setCanvasViewport(r.width, r.height, zoom)
+    }
+    publish()
+    const ro = new ResizeObserver(publish)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [zoom])
+
   const screenToCanvas = useCallback(
     (screenX: number, screenY: number): { x: number; y: number } => {
       return { x: (screenX - panX) / zoom, y: (screenY - panY) / zoom }
@@ -2080,18 +2097,9 @@ export default function Canvas(): JSX.Element {
       // instead. Web apps get the existing webview widget with session sharing.
       const kind = app.kind === 'local' ? 'local-app-launcher' : 'webview'
       const entry = catalogFor(kind)
+      const width = entry?.defaultWidth ?? (kind === 'local-app-launcher' ? 200 : 560)
+      const height = entry?.defaultHeight ?? (kind === 'local-app-launcher' ? 120 : 400)
       const rect = e.currentTarget.getBoundingClientRect()
-      // Capped at three quarters of the visible canvas. The browser widget's
-      // catalogue default is 1920x1080 so sites lay out as designed, which is
-      // right for a widget you resize to and wrong for one you just dropped:
-      // on a laptop it lands bigger than the window.
-      const { width, height } = fitDroppedWidget(
-        entry?.defaultWidth ?? (kind === 'local-app-launcher' ? 200 : 560),
-        entry?.defaultHeight ?? (kind === 'local-app-launcher' ? 120 : 400),
-        rect.width,
-        rect.height,
-        zoom
-      )
       const cursor = screenToCanvas(e.clientX - rect.left, e.clientY - rect.top)
       await createWidget({
         taskId: activeTaskId,
@@ -2122,16 +2130,9 @@ export default function Canvas(): JSX.Element {
       if (droppedUrl) {
         e.preventDefault()
         const entry = catalogFor('webview')
+        const width = entry?.defaultWidth ?? 560
+        const height = entry?.defaultHeight ?? 400
         const rect = e.currentTarget.getBoundingClientRect()
-        // Same cap as the connected-app branch: a dropped link becomes the
-        // same 1920x1080 browser widget, so it had the same problem.
-        const { width, height } = fitDroppedWidget(
-          entry?.defaultWidth ?? 560,
-          entry?.defaultHeight ?? 400,
-          rect.width,
-          rect.height,
-          zoom
-        )
         const cursor = screenToCanvas(e.clientX - rect.left, e.clientY - rect.top)
         await createWidget({
           taskId: activeTaskId,
@@ -2176,21 +2177,7 @@ export default function Canvas(): JSX.Element {
     if (!entry) return
     const rect = e.currentTarget.getBoundingClientRect()
     const cursor = screenToCanvas(e.clientX - rect.left, e.clientY - rect.top)
-    // Covers the palette AND the app/tool tiles in the side menu, which drag
-    // as a widget kind — dropping "Browser" from either lands the same
-    // 1920x1080 default.
-    const fitted = fitDroppedWidget(
-      entry.defaultWidth,
-      entry.defaultHeight,
-      rect.width,
-      rect.height,
-      zoom
-    )
-    void placeWidget(
-      { ...entry, defaultWidth: fitted.width, defaultHeight: fitted.height },
-      cursor.x - fitted.width / 2,
-      cursor.y - 20
-    )
+    void placeWidget(entry, cursor.x - entry.defaultWidth / 2, cursor.y - 20)
   }
 
   // Spawn a browser (webview) widget for a standard app — used by the starting

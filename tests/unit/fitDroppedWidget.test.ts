@@ -3,10 +3,16 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   fitDroppedWidget,
+  fitNewWidgetToView,
+  setCanvasViewport,
+  canvasViewport,
   DROP_VIEW_FRACTION,
   MIN_DROP_WIDTH,
   MIN_DROP_HEIGHT
 } from '../../src/renderer/src/lib/fitDroppedWidget'
+
+const ROOT = join(__dirname, '..', '..', 'src')
+const read = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8')
 
 // "Apps when dragged to the desk should be no larger than 3/4 of the view
 // width and 3/4 of the view height."
@@ -91,42 +97,82 @@ describe('it never produces something unusable', () => {
   })
 })
 
-// ── Wired into every path that drops something on a desk ──────────────────
+// ── One central cap, which nothing can bypass ────────────────────────────
+//
+// "They all need to work consistently… this should apply for browsers, apps,
+// connected apps and anything else opened via shortcut, dragging or through a
+// menu add."
+//
+// The first attempt capped three drop sites in Canvas. That was the wrong
+// shape: 53 call sites across 14 files read a catalogue default, so a
+// shortcut or a menu add still opened at 1920x1080. The cap now lives in the
+// widget store's create — the single funnel every path goes through.
 
-describe('every drop path applies the cap', () => {
-  const canvas = readFileSync(
-    join(__dirname, '..', '..', 'src/renderer/src/components/Canvas.tsx'),
-    'utf8'
-  )
+describe('the cap is applied centrally, not per call site', () => {
+  const store = read('renderer/src/stores/widgets.ts')
+  const canvas = read('renderer/src/components/Canvas.tsx')
 
-  it('is called on all three, not just the one that was reported', () => {
-    // A connected app, a dropped link and a widget-kind tile all end up as
-    // the same 1920x1080 browser, so fixing one would have left two.
-    expect((canvas.match(/fitDroppedWidget\(/g) ?? []).length).toBe(3)
+  it('lives in the one function every creation path goes through', () => {
+    expect(store).toContain('fitNewWidgetToView(draft,')
+    expect(store).toContain('window.api.widgets.create(sized)')
   })
 
-  it('measures against the live zoom, not a constant', () => {
-    expect(canvas).toContain('rect.height,\n        zoom')
+  it('and NOT re-applied at individual drop sites', () => {
+    // Belt-and-braces here would be two places to keep in step, and the
+    // per-site version is what let shortcuts and menu adds through.
+    expect(canvas).not.toContain('fitDroppedWidget(')
   })
 
-  it('each of the three sites fits BEFORE it sizes the widget', () => {
-    // Scoped to the drop handler rather than pattern-matched across the file:
-    // earlier drafts of this assertion kept catching unrelated code (a table
-    // created by the file importer also reads `entry?.defaultWidth ?? 560`),
-    // which is noise, not a regression.
-    const handler = canvas.slice(
-      canvas.indexOf('const connectedAppId = e.dataTransfer.getData'),
-      canvas.indexOf("const taskId = e.dataTransfer.getData('text/fb-task-link')")
-    )
-    expect(handler).toContain('fitDroppedWidget(')
-    // Both drop branches inside it — connected app and dropped link.
-    expect((handler.match(/fitDroppedWidget\(/g) ?? []).length).toBe(2)
-    // and neither computes a width of its own first
-    expect(handler).not.toMatch(/const width = entry\?\.defaultWidth/)
+  it('Canvas publishes the viewport instead of passing it around', () => {
+    expect(canvas).toContain('setCanvasViewport(r.width, r.height, zoom)')
+    expect(canvas).toContain('new ResizeObserver(publish)')
   })
 
-  it('centres the widget on its FITTED width, not the original', () => {
-    // Centring on 1920 while placing a 1000-wide widget puts it off-cursor.
-    expect(canvas).toContain('cursor.x - fitted.width / 2')
+  it('re-publishes when the zoom changes', () => {
+    // The cap is expressed in what the user sees, so a stale zoom caps wrong.
+    expect(canvas).toMatch(/ro\.disconnect\(\)\s*\n\s*\}, \[zoom\]\)/)
+  })
+})
+
+describe('only an untouched default is fitted', () => {
+  const defaults = (kind: string): { width: number; height: number } | null =>
+    kind === 'webview' ? { width: 1920, height: 1080 } : null
+
+  it('shrinks a widget opening at its catalogue default', () => {
+    setCanvasViewport(1400, 900, 1)
+    const out = fitNewWidgetToView({ kind: 'webview', width: 1920, height: 1080, x: 0 }, defaults)
+    expect(out.width).toBeLessThan(1920)
+  })
+
+  it('leaves a DELIBERATE size alone — a duplicate or a template', () => {
+    // The distinction that makes one central cap safe: a size that is not the
+    // default came from somebody choosing it.
+    setCanvasViewport(1400, 900, 1)
+    const out = fitNewWidgetToView({ kind: 'webview', width: 1600, height: 900, x: 0 }, defaults)
+    expect(out).toEqual({ kind: 'webview', width: 1600, height: 900, x: 0 })
+  })
+
+  it('leaves a kind with no catalogue entry alone', () => {
+    setCanvasViewport(1400, 900, 1)
+    const d = { kind: 'mystery', width: 5000, height: 5000, x: 0 }
+    expect(fitNewWidgetToView(d, defaults)).toEqual(d)
+  })
+
+  it('keeps the intended centre when it shrinks', () => {
+    // Shrinking without shifting x lands the widget off the cursor.
+    setCanvasViewport(1400, 900, 1)
+    const out = fitNewWidgetToView({ kind: 'webview', width: 1920, height: 1080, x: 0 }, defaults)
+    expect(out.x).toBeGreaterThan(0)
+    expect(out.x).toBe(Math.round((1920 - out.width!) / 2))
+  })
+})
+
+describe('the viewport falls back rather than failing open', () => {
+  it('uses the window when the canvas has never been measured', () => {
+    // A shortcut can create a widget from another surface entirely. "No
+    // canvas on screen" must not mean "no cap".
+    setCanvasViewport(0, 0, 1)
+    const v = canvasViewport()
+    expect(v.width).toBeGreaterThan(0)
   })
 })
