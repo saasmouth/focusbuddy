@@ -35,7 +35,9 @@ const macSigning = hasNotaryCreds
       // BOTH products — check the other before changing it.
       entitlements: 'build/entitlements.mac.plist',
       entitlementsInherit: 'build/entitlements.mac.plist',
-      notarize: { teamId: process.env.APPLE_TEAM_ID }
+      // `notarize: true`, not `{ teamId }`: electron-builder 26 accepts only a
+      // boolean and reads the team from APPLE_TEAM_ID (as electron-builder.cjs).
+      notarize: true
     }
   : {
       hardenedRuntime: false,
