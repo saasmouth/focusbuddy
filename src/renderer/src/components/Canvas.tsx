@@ -1166,12 +1166,22 @@ export default function Canvas(): JSX.Element {
   useEffect(() => {
     const el = dropRef.current
     if (!el) return
-    const publish = (): void => {
-      const r = el.getBoundingClientRect()
-      if (r.width > 0 && r.height > 0) setCanvasViewport(r.width, r.height, zoom)
+    // Measured from the observer's OWN contentRect, never by calling
+    // getBoundingClientRect inside the callback. Reading layout from within a
+    // ResizeObserver callback forces a synchronous reflow, which is how you
+    // get "ResizeObserver loop completed with undelivered notifications" —
+    // already in this app's crash log — and, in this component's own history,
+    // "a layout-thrash storm that took the window white" (see the assistant
+    // -width effect above). The observer hands us the size for free.
+    const publish = (w: number, h: number): void => {
+      if (w > 0 && h > 0) setCanvasViewport(w, h, zoom)
     }
-    publish()
-    const ro = new ResizeObserver(publish)
+    const first = el.getBoundingClientRect()
+    publish(first.width, first.height)
+    const ro = new ResizeObserver((entries) => {
+      const box = entries[0]?.contentRect
+      if (box) publish(box.width, box.height)
+    })
     ro.observe(el)
     return () => ro.disconnect()
   }, [zoom])

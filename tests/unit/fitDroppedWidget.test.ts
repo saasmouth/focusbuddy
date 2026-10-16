@@ -124,8 +124,23 @@ describe('the cap is applied centrally, not per call site', () => {
   })
 
   it('Canvas publishes the viewport instead of passing it around', () => {
-    expect(canvas).toContain('setCanvasViewport(r.width, r.height, zoom)')
-    expect(canvas).toContain('new ResizeObserver(publish)')
+    expect(canvas).toContain('setCanvasViewport(w, h, zoom)')
+    expect(canvas).toContain('ro.observe(el)')
+  })
+
+  it('never reads layout from inside the ResizeObserver callback', () => {
+    // Doing so forces a synchronous reflow. This app already logs
+    // "ResizeObserver loop completed with undelivered notifications", and
+    // this very component carries a note about an observer-driven
+    // "layout-thrash storm that took the window white". The callback uses the
+    // contentRect the observer supplies.
+    const effect = canvas.slice(
+      canvas.indexOf('// Publish the canvas viewport'),
+      canvas.indexOf('const screenToCanvas = useCallback')
+    )
+    const cb = effect.slice(effect.indexOf('new ResizeObserver('))
+    expect(cb).not.toContain('getBoundingClientRect')
+    expect(cb).toContain('entries[0]?.contentRect')
   })
 
   it('re-publishes when the zoom changes', () => {
