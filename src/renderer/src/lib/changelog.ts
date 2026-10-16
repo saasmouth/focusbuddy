@@ -36,6 +36,30 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.30',
+    date: '2026-10-17T09:00:00Z',
+    title: 'PlexiDesk 4.3.30 — AI credits on every plan, Pro+, and invite friends for credit',
+    tag: 'feature',
+    summary:
+      'Every plan now includes AI, with no key to set up: Free gets 100 credits a month, Pro 800, the new Pro+ 2,500 with Opus, and Team 800 per seat shared across the organisation. Your account is created on first launch, and your 14-day Team trial starts with 300 credits when you verify your email.',
+    highlights: [
+      'AI credits on every plan. One credit is one cent of AI use. Free includes 100 credits a month on the fastest model; Pro includes 800; Pro+ includes 2,500 and adds Opus; Team includes 800 per seat, pooled across the organisation. Your balance and its reset date show in Settings → AI, in Build with AI and in the assistant’s model menu.',
+      'New plan: Pro+ at US$25 a month for people who use AI heavily. Pro is now US$12 a month and Team US$15 per seat; yearly plans give two months free. If you already pay, your price does not change.',
+      'Top-ups of US$10, US$25 or US$50 add credits that last 12 months. A request is never sent if your balance cannot cover it, and nothing is ever charged automatically.',
+      'You can still use your own Anthropic key on any plan instead of credits.',
+      'An account is now created on first launch. Enter the 6-digit code from your email to verify it: that starts your 14-day Team trial with 300 trial credits. When the trial credits run out, Plexii says so and offers an upgrade or a top-up.',
+      'Invite friends: each friend who joins free through your link and verifies their email earns you US$12 of credit toward any plan, up to US$144 a year. On Free you can switch on Pro, Pro+ or Team with your credit, no card needed. Find your link under Settings → Account.',
+      'Fixed: importing a CSV or JSON file into a table created the rows but left every cell blank.',
+      'Fixed: Accept all in Track Changes left suggested insertions underlined and deletions struck through.',
+      'Fixed: due labels could be a day off — “Due tomorrow” for something due today — around midnight and across daylight-saving changes. They now count calendar days in your time zone.'
+    ],
+    links: [
+      { label: 'AI credits and plans', href: `${HELP_BASE}/ai-credits` },
+      { label: 'Invite friends', href: `${HELP_BASE}/invite-friends` },
+      { label: 'Plans and pricing', href: `${HELP_BASE}/plans-and-pricing` }
+    ]
+  },
+  {
     version: '4.3.29',
     date: '2026-10-15T18:00:00Z',
     title: 'PlexiDesk 4.3.29 \u2014 a current browser, one coloured menu, and nothing left Untitled',
