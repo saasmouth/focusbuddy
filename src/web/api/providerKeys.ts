@@ -106,7 +106,7 @@ export function settingsNamespace(): Record<string, unknown> {
     // the id is repeated here; src/main/ai/modelRouting.ts is the source of
     // truth for every model id the product actually runs on.)
     testAnthropicKey: async (): Promise<{ ok: boolean; model?: string; error?: string }> => {
-      const PING_MODEL = 'claude-haiku-4-5'
+      const PING_MODEL = 'claude-haiku-5-5'
       try {
         const res = await fetch(`${base()}/ai/anthropic/v1/messages`, {
           method: 'POST',
@@ -114,6 +114,8 @@ export function settingsNamespace(): Record<string, unknown> {
           body: JSON.stringify({
             model: PING_MODEL,
             max_tokens: 1,
+            // Haiku 5.5 thinks by default; a one-token ping has no room for it.
+            thinking: { type: 'disabled' },
             messages: [{ role: 'user', content: 'hi' }]
           })
         })

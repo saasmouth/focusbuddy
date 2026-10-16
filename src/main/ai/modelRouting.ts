@@ -7,19 +7,24 @@ import type { AIPurpose, ModelMode } from '@shared/types'
 // escapes both this table and the user's model-mode override, and is how the
 // app ended up a generation behind on two of the three tiers.
 //
-// Current as of 2026-09-15, verified against platform.claude.com pricing:
-//   Haiku 4.5   $1 / $5    — cheapest; still the current Haiku
-//   Sonnet 5    $2 / $10   — was Sonnet 4.6 at $3/$15. Cheaper AND better:
-//                            near-Opus quality on coding and agentic work.
-//                            Its newer tokenizer produces ~30% more tokens for
-//                            the same text, so the real saving is nearer 13%
-//                            than the 33% the headline rates suggest — still a
-//                            saving, and the quality gain comes free.
-//   Opus 5      $5 / $25   — was Opus 4.8 at the SAME price. A strict upgrade
-//                            for nothing: identical rates, better model.
-export const MODEL_HAIKU = 'claude-haiku-4-5-20251001'
-export const MODEL_SONNET = 'claude-sonnet-5'
-export const MODEL_OPUS = 'claude-opus-5'
+// Current as of 2026-10-16, verified against the Anthropic model table:
+//   Haiku 5.5   $0.10 / $0.50  — a tenth of Haiku 4.5's price. Prompts over
+//                                100K tokens bill at $0.50 / $2.50.
+//   Sonnet 5.5  $2 / $10       — same price as Sonnet 5.
+//   Opus 5.5    $4 / $20       — cheaper than Opus 5 ($5 / $25).
+// Behaviour that changed with this generation and is handled below, in
+// withModelDefaults: Haiku 5.5 thinks by default where Haiku 4.5 did not, so
+// the cheap classify/summarise paths turn it off to keep the old cost and
+// their small max_tokens budgets. Sonnet 5.5 and Opus 5.5 kept adaptive
+// thinking on by default, as Sonnet 5 and Opus 5 already did. All three reject
+// assistant prefill and non-default sampling; no call site uses either.
+// Every 5.5 model caches a prefix from 512 tokens (cacheControl.ts).
+//
+// History: 2026-09-15 moved Sonnet 4.6 → Sonnet 5 and Opus 4.8 → Opus 5, with
+// Haiku left on 4.5 because it was then still the current Haiku.
+export const MODEL_HAIKU = 'claude-haiku-5-5'
+export const MODEL_SONNET = 'claude-sonnet-5-5'
+export const MODEL_OPUS = 'claude-opus-5-5'
 
 const HAIKU = MODEL_HAIKU
 const SONNET = MODEL_SONNET
@@ -122,12 +127,11 @@ const AUTO_ROUTING: Record<AIPurpose, string> = {
   // task costs more than any other purpose here. Someone who wants sharper
   // judgement on hard sites raises it globally with the model-mode override.
   //
-  // Measured, not assumed: Haiku cannot use prompt caching here (its 4096-token
-  // minimum is never reached by this loop's prefix), so every round pays full
-  // price — and it is STILL the cheapest option, because its base rate is low
-  // and the transcript compaction already removed the bulk of the tokens. A
-  // typical six-to-eight round browse lands around three to four cents; Sonnet
-  // 5, which does cache, costs about two cents more for the same run.
+  // Under Haiku 4.5 this loop could not cache (a 4096-token minimum its prefix
+  // never reached) and was still the cheapest option. Haiku 5.5 caches from 512
+  // tokens and lists at a tenth of Haiku 4.5's price, so it is cheaper again; the
+  // three-to-four-cent browse measured on Haiku 4.5 is now an upper bound, not a
+  // current figure.
   browser_agent: HAIKU
 }
 
@@ -153,4 +157,76 @@ export function resolveModel(purpose: AIPurpose): string {
     default:
       return AUTO_ROUTING[purpose]
   }
+}
+
+
+// ── Plans and managed-AI models (GROWTH-IMPLEMENTATION.md sections 1-2) ─────
+//
+// Plexii's own key runs a different set of models per plan: Free is Haiku only,
+// Pro and Team add Sonnet, Pro+ adds Opus. Bring-your-own-key is not limited by
+// this at all. The server enforces the allowlist (402 model_not_in_plan); the
+// app applies the same rule BEFORE sending, so a Free user's chat goes to Haiku
+// on the first try instead of failing and retrying, and the server's 402 stays a
+// backstop for a stale client.
+
+export type ModelFamily = 'haiku' | 'sonnet' | 'opus'
+export type ManagedPlan = 'free' | 'pro' | 'proplus' | 'team' | 'enterprise'
+
+const FAMILY_ORDER: ModelFamily[] = ['haiku', 'sonnet', 'opus']
+const FAMILY_MODEL: Record<ModelFamily, string> = { haiku: HAIKU, sonnet: SONNET, opus: OPUS }
+
+export const PLAN_MODELS: Record<ManagedPlan, ModelFamily[]> = {
+  free: ['haiku'],
+  pro: ['haiku', 'sonnet'],
+  proplus: ['haiku', 'sonnet', 'opus'],
+  team: ['haiku', 'sonnet'],
+  enterprise: ['haiku', 'sonnet', 'opus']
+}
+
+/** The family a model id belongs to, or null for anything else. */
+export function modelFamily(model: string): ModelFamily | null {
+  const m = /claude-(haiku|sonnet|opus)/i.exec(model)
+  return m ? (m[1].toLowerCase() as ModelFamily) : null
+}
+
+/** Normalise a plan string from the server; unknown values read as Free. */
+export function managedPlanOf(raw: string | null | undefined): ManagedPlan {
+  return raw === 'pro' || raw === 'proplus' || raw === 'team' || raw === 'enterprise' ? raw : 'free'
+}
+
+/**
+ * The model to send on managed credits for this plan: the requested one when
+ * the plan allows its family, otherwise the most capable family the plan does
+ * allow that is not above the request. An unknown id passes through untouched
+ * (the server refuses unknown ids; guessing a substitute would hide that).
+ */
+export function modelForPlan(requested: string, plan: ManagedPlan): string {
+  const fam = modelFamily(requested)
+  if (!fam) return requested
+  const allowed = PLAN_MODELS[plan]
+  if (allowed.includes(fam)) return requested
+  const ceiling = FAMILY_ORDER.indexOf(fam)
+  for (let i = ceiling; i >= 0; i--) {
+    if (allowed.includes(FAMILY_ORDER[i])) return FAMILY_MODEL[FAMILY_ORDER[i]]
+  }
+  return FAMILY_MODEL[allowed[0]]
+}
+
+/**
+ * Per-model request defaults, applied to the JSON body of every Messages call
+ * (BYOK and credits) by the client seam in modelClient.ts.
+ *
+ * Haiku 5.5 runs adaptive thinking when `thinking` is omitted; Haiku 4.5 did
+ * not think at all. The Haiku call sites are the cheap, frequent ones (intent
+ * classify, command routing, titles, triage) with max_tokens sized for the
+ * answer alone, so silent thinking would both multiply their cost and eat the
+ * budget meant for the answer. They get thinking off, which Haiku 5.5 accepts
+ * at its default effort. A call that sets `thinking` itself is left alone.
+ */
+export function withModelDefaults<T extends { model?: unknown; thinking?: unknown }>(body: T): T {
+  if (typeof body.model !== 'string') return body
+  if (modelFamily(body.model) === 'haiku' && /haiku-5/i.test(body.model) && body.thinking === undefined) {
+    return { ...body, thinking: { type: 'disabled' } }
+  }
+  return body
 }

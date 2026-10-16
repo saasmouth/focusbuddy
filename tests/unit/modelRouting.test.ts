@@ -15,15 +15,17 @@ describe('model tier ids', () => {
   // because the ids were scattered across eight files and nothing compared them
   // to what was current. These assertions are the reminder.
   it('names the current generation for each tier', () => {
-    expect(MODEL_HAIKU).toBe('claude-haiku-4-5-20251001')
-    expect(MODEL_SONNET).toBe('claude-sonnet-5')
-    expect(MODEL_OPUS).toBe('claude-opus-5')
+    // 2026-10-16: moved to the 5.5 generation (was claude-haiku-4-5-20251001,
+    // claude-sonnet-5, claude-opus-5).
+    expect(MODEL_HAIKU).toBe('claude-haiku-5-5')
+    expect(MODEL_SONNET).toBe('claude-sonnet-5-5')
+    expect(MODEL_OPUS).toBe('claude-opus-5-5')
   })
 
   it('every tier id prices against the rate table rather than the default', () => {
-    expect(rateFor(MODEL_HAIKU)).toEqual({ inPerM: 1, outPerM: 5 })
+    expect(rateFor(MODEL_HAIKU)).toEqual({ inPerM: 0.1, outPerM: 0.5 })
     expect(rateFor(MODEL_SONNET)).toEqual({ inPerM: 2, outPerM: 10 })
-    expect(rateFor(MODEL_OPUS)).toEqual({ inPerM: 5, outPerM: 25 })
+    expect(rateFor(MODEL_OPUS)).toEqual({ inPerM: 4, outPerM: 20 })
   })
 
   // The point of the tiers: each is strictly cheaper than the one above it.
@@ -48,22 +50,26 @@ export { CACHE_MINIMUM } from '../../src/main/ai/cacheControl'
 import { CACHE_MINIMUM } from '../../src/main/ai/cacheControl'
 
 describe('prompt-cache minimums', () => {
-  it('records that Haiku needs a far larger prefix than the newer models', () => {
-    expect(CACHE_MINIMUM[MODEL_HAIKU]).toBe(4096)
-    expect(CACHE_MINIMUM[MODEL_SONNET]).toBe(1024)
+  // Rewritten 2026-10-16. Under Haiku 4.5 (4096) / Sonnet 5 (1024) / Opus 5
+  // (512) this pinned the non-monotonic trap: the cheap tier needed the LONGEST
+  // prefix. Every 5.5 model caches from 512, so the trap is gone for the routed
+  // tiers — but an unknown model still assumes the worst (4096), so an estimate
+  // never promises a cache read that may not happen.
+  it('records the 5.5 generation minimums, and stays conservative for unknown ids', async () => {
+    expect(CACHE_MINIMUM[MODEL_HAIKU]).toBe(512)
+    expect(CACHE_MINIMUM[MODEL_SONNET]).toBe(512)
     expect(CACHE_MINIMUM[MODEL_OPUS]).toBe(512)
-    // The non-monotonic bit, stated so it cannot be reasoned away later.
-    expect(CACHE_MINIMUM[MODEL_HAIKU]).toBeGreaterThan(CACHE_MINIMUM[MODEL_OPUS])
+    const { cacheMinimumFor } = await import('../../src/main/ai/cacheControl')
+    expect(cacheMinimumFor('claude-haiku-4-5-20251001')).toBe(4096)
   })
 
-  it("knows the browse loop's system prompt does not reach Haiku's minimum", async () => {
+  it("knows the browse loop's system prompt now reaches Haiku's minimum", async () => {
     const { buildBrowserAgentSystemPrompt } = await import('../../src/main/ai/browserAgentEnvelope')
     // ~3.6 chars/token is the rough English ratio; the point is the order of
-    // magnitude, not a precise count.
+    // magnitude, not a precise count. Under Haiku 4.5 this asserted the prompt
+    // could NOT cache (below 4096); on Haiku 5.5 the marker starts working.
     const approxTokens = buildBrowserAgentSystemPrompt().length / 3.6
-    expect(approxTokens).toBeLessThan(CACHE_MINIMUM[MODEL_HAIKU])
-    // If the prompt ever grows past 4096 tokens, caching starts working on the
-    // default browse model and this test should be revisited, not deleted.
+    expect(approxTokens).toBeGreaterThanOrEqual(CACHE_MINIMUM[MODEL_HAIKU])
   })
 })
 
@@ -120,5 +126,43 @@ describe('no model id escapes the router', () => {
       }
     }
     expect(offenders).toEqual([])
+  })
+})
+
+describe('managed-AI models per plan (growth spec section 1)', () => {
+  it('runs Free on Haiku only', async () => {
+    const { modelForPlan } = await import('../../src/main/ai/modelRouting')
+    expect(modelForPlan(MODEL_SONNET, 'free')).toBe(MODEL_HAIKU)
+    expect(modelForPlan(MODEL_OPUS, 'free')).toBe(MODEL_HAIKU)
+    expect(modelForPlan(MODEL_HAIKU, 'free')).toBe(MODEL_HAIKU)
+  })
+  it('caps Pro and Team at Sonnet; Pro+ and Enterprise run Opus', async () => {
+    const { modelForPlan } = await import('../../src/main/ai/modelRouting')
+    expect(modelForPlan(MODEL_OPUS, 'pro')).toBe(MODEL_SONNET)
+    expect(modelForPlan(MODEL_OPUS, 'team')).toBe(MODEL_SONNET)
+    expect(modelForPlan(MODEL_SONNET, 'pro')).toBe(MODEL_SONNET)
+    expect(modelForPlan(MODEL_OPUS, 'proplus')).toBe(MODEL_OPUS)
+    expect(modelForPlan(MODEL_OPUS, 'enterprise')).toBe(MODEL_OPUS)
+  })
+  it('never upgrades a request and passes unknown ids through', async () => {
+    const { modelForPlan } = await import('../../src/main/ai/modelRouting')
+    expect(modelForPlan(MODEL_HAIKU, 'proplus')).toBe(MODEL_HAIKU)
+    expect(modelForPlan('some-other-model', 'free')).toBe('some-other-model')
+  })
+})
+
+describe('withModelDefaults', () => {
+  it('turns thinking off for Haiku 5.5 unless the call set it', async () => {
+    const { withModelDefaults } = await import('../../src/main/ai/modelRouting')
+    expect(withModelDefaults({ model: MODEL_HAIKU })).toEqual({ model: MODEL_HAIKU, thinking: { type: 'disabled' } })
+    const own = { model: MODEL_HAIKU, thinking: { type: 'adaptive' } }
+    expect(withModelDefaults(own)).toBe(own)
+  })
+  it('leaves Sonnet, Opus and older Haiku alone', async () => {
+    const { withModelDefaults } = await import('../../src/main/ai/modelRouting')
+    for (const model of [MODEL_SONNET, MODEL_OPUS, 'claude-haiku-4-5-20251001']) {
+      const b = { model }
+      expect(withModelDefaults(b)).toBe(b)
+    }
   })
 })

@@ -206,14 +206,10 @@ export const ELEMENT_BUDGET = 60
 // Be precise about which of those two things saves the money, because they are
 // easy to conflate. The COMPACTION is what turns a long run from dollars into
 // cents: it stops each round re-sending every earlier page. The caching is a
-// bonus on top, and on the default browse model it currently contributes
-// nothing at all — Claude Haiku 4.5 will not cache a prefix under 4096 tokens
-// and this loop's prefix (a ~960-token system prompt plus ~115 tokens per
-// frozen round) does not reach that inside the round budget. It caches
-// silently, with no error and no saving. The breakpoint still earns its place:
-// it costs nothing when it misses and starts paying the moment a run is routed
-// to a model with a lower minimum (Sonnet 5 at 1024, Opus 5 at 512), which is
-// what the model-mode override does.
+// bonus on top. Under Claude Haiku 4.5 it contributed nothing (a 4096-token
+// minimum this loop's ~960-token system prompt never reached). The default
+// browse model is now Haiku 5.5, whose minimum is 512, so the system prompt
+// alone clears it and the breakpoint pays from the first round.
 export const VERBATIM_ROUNDS = 0
 
 // Prefer the elements a task can actually act on. Labelled controls beat

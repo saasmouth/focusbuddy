@@ -26,11 +26,16 @@ export interface Rate {
 export const PRICING: Array<{ match: RegExp; rate: Rate }> = [
   // Fable 5 — the premium tier.
   { match: /fable/i, rate: { inPerM: 10, outPerM: 50 } },
+  // Opus 5.5 dropped below Opus 5 — match it before bare opus.
+  { match: /opus-5-5/i, rate: { inPerM: 4, outPerM: 20 } },
   // Opus 5 / 4.8 / 4.7 / 4.6 all share one price.
   { match: /opus/i, rate: { inPerM: 5, outPerM: 25 } },
-  // Sonnet 5 dropped below its 4.x predecessors — match it before bare sonnet.
+  // Sonnet 5.5 and Sonnet 5 share a price, below the 4.x line — before bare sonnet.
   { match: /sonnet-5/i, rate: { inPerM: 2, outPerM: 10 } },
   { match: /sonnet/i, rate: { inPerM: 3, outPerM: 15 } },
+  // Haiku 5.5 is a tenth of Haiku 4.5 (up to 100K-token prompts; this local
+  // estimate does not model the long-prompt rate).
+  { match: /haiku-5/i, rate: { inPerM: 0.1, outPerM: 0.5 } },
   // Haiku 4.5.
   { match: /haiku/i, rate: { inPerM: 1, outPerM: 5 } }
 ]
@@ -46,13 +51,16 @@ export function rateFor(model: string): Rate {
 //
 // A 5-minute (ephemeral) write costs 1.25x base and a 1-hour write 2x, on every
 // model. Reads are 0.1x base — except on Fable 5.1 and Mythos 5.1, where a hit
-// is 0.025x. Charging those two at 0.1x would overstate their cache reads
+// is 0.025x, and Opus 5.5, where it is 0.05x. Charging those two at 0.1x would overstate their cache reads
 // fourfold, so the read multiplier is resolved per model rather than fixed.
 export const CACHE_WRITE_5M = 1.25
 export const CACHE_WRITE_1H = 2
 
 export function cacheReadMultiplier(model: string): number {
-  return /(fable|mythos)-5-1/i.test(model) ? 0.025 : 0.1
+  if (/(fable|mythos)-5-1/i.test(model)) return 0.025
+  // Opus 5.5: $0.20 reads against a $4 base.
+  if (/opus-5-5/i.test(model)) return 0.05
+  return 0.1
 }
 
 // Cost of cache traffic in micro-dollars. `readTokens` are cache hits and

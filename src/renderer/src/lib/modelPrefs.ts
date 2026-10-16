@@ -22,19 +22,19 @@ export const MODEL_OPTIONS: ModelOption[] = [
   },
   {
     value: 'haiku',
-    label: 'Haiku 4.5',
+    label: 'Haiku 5.5',
     blurb: 'Fastest and cheapest — great for chat and summaries, lighter on deep reasoning.',
     costTier: '$'
   },
   {
     value: 'sonnet',
-    label: 'Sonnet 4.6',
+    label: 'Sonnet 5.5',
     blurb: 'The workhorse — strong reasoning, good speed. Locked default for every action.',
     costTier: '$$'
   },
   {
     value: 'opus',
-    label: 'Opus 4.7',
+    label: 'Opus 5.5',
     blurb: 'Most capable — deeper reasoning, longer plans. Slowest and most expensive.',
     costTier: '$$$'
   }

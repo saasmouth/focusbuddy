@@ -229,9 +229,9 @@ test('AF-3 — the model picker is real: MODEL_OPTIONS listed, choice written th
   await expect(menu).toBeVisible()
   // The four real options, by their real labels.
   await expect(menu).toContainText('Auto')
-  await expect(menu).toContainText('Haiku 4.5')
-  await expect(menu).toContainText('Sonnet 4.6')
-  await expect(menu).toContainText('Opus 4.7')
+  await expect(menu).toContainText('Haiku 5.5')
+  await expect(menu).toContainText('Sonnet 5.5')
+  await expect(menu).toContainText('Opus 5.5')
 
   await window.locator('[data-testid="composer-model-haiku"]').click()
   await expect(menu).toHaveCount(0)

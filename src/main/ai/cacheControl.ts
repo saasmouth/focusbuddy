@@ -31,18 +31,26 @@ import { MODEL_HAIKU, MODEL_OPUS, MODEL_SONNET } from './modelRouting'
 // migrating a model updates this table for free instead of leaving a stale
 // minimum keyed to an id nothing uses any more — and so the "no model id
 // outside modelRouting" guard stays honest.
+//
+// 2026-10-16: every 5.5 model caches from 512 tokens. Under Haiku 4.5 (4096) the
+// browse loop and mail triage prompts were too short to cache at all; on Haiku
+// 5.5 their cache_control markers start working with no code change.
 export const CACHE_MINIMUM: Record<string, number> = {
   [MODEL_OPUS]: 512,
-  [MODEL_SONNET]: 1024,
-  [MODEL_HAIKU]: 4096
+  [MODEL_SONNET]: 512,
+  [MODEL_HAIKU]: 512
 }
 
 /** The cache minimum for a model, defaulting to the largest known minimum when
  *  the model is unrecognised — the conservative direction, since it means
  *  "assume this will not cache" rather than promising a saving that may not
  *  arrive. */
+const UNKNOWN_MODEL_CACHE_MINIMUM = 4096
+
 export function cacheMinimumFor(model: string): number {
-  return CACHE_MINIMUM[model] ?? Math.max(...Object.values(CACHE_MINIMUM))
+  // 4096 is the largest minimum any Claude model has had (Haiku 4.5, Opus
+  // 4.5/4.6). The table alone no longer holds it now every routed model is 512.
+  return CACHE_MINIMUM[model] ?? UNKNOWN_MODEL_CACHE_MINIMUM
 }
 
 export interface CacheTextBlock {

@@ -20,14 +20,17 @@ import {
 const OFFICIAL: Record<string, { in: number; out: number }> = {
   'claude-fable-5': { in: 10, out: 50 },
   'claude-fable-5-1': { in: 10, out: 50 },
+  'claude-opus-5-5': { in: 4, out: 20 },
   'claude-opus-5': { in: 5, out: 25 },
   'claude-opus-4-8': { in: 5, out: 25 },
   'claude-opus-4-7': { in: 5, out: 25 },
   'claude-opus-4-6': { in: 5, out: 25 },
   'claude-opus-4-5': { in: 5, out: 25 },
+  'claude-sonnet-5-5': { in: 2, out: 10 },
   'claude-sonnet-5': { in: 2, out: 10 },
   'claude-sonnet-4-6': { in: 3, out: 15 },
   'claude-sonnet-4-5': { in: 3, out: 15 },
+  'claude-haiku-5-5': { in: 0.1, out: 0.5 },
   'claude-haiku-4-5-20251001': { in: 1, out: 5 }
 }
 
@@ -61,6 +64,14 @@ describe('prompt-cache multipliers match published pricing', () => {
     for (const m of ['claude-opus-5', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001', 'claude-fable-5']) {
       expect(cacheReadMultiplier(m)).toBe(0.1)
     }
+  })
+
+  // Opus 5.5 lists cache reads at $0.20 against a $4 base: 0.05x. Haiku 5.5
+  // ($0.01 on $0.10) and Sonnet 5.5 stay at 0.1x.
+  it('reads Opus 5.5 at 0.05x and the other 5.5 models at 0.1x', () => {
+    expect(cacheReadMultiplier('claude-opus-5-5')).toBe(0.05)
+    expect(cacheReadMultiplier('claude-haiku-5-5')).toBe(0.1)
+    expect(cacheReadMultiplier('claude-sonnet-5-5')).toBe(0.1)
   })
 
   // Fable 5.1 and Mythos 5.1 are the exception in the published table; charging

@@ -109,14 +109,14 @@ describe('triageInbox', () => {
 })
 
 describe('triage prompt caching, stated plainly', () => {
-  it('does not reach the cache minimum of the model it routes to', async () => {
-    // A guard against a comfortable assumption, not against a bug. Triage runs
-    // on Haiku, whose cacheable prefix starts at 4096 tokens; this prompt is
-    // nowhere near it, so the cache_control marker on the system block is inert
-    // and no cost estimate may assume a cache read. If someone later grows the
-    // prompt past the minimum, this test fails and they get to update the
-    // comment that says caching is off — rather than discovering the opposite
-    // mistake, a saving quietly claimed and never received.
+  it('sits at the cache minimum of the model it routes to', async () => {
+    // A guard against a comfortable assumption, not against a bug. Rewritten
+    // 2026-10-16: under Haiku 4.5 (minimum 4096) this asserted the prompt was
+    // far below the line, so the marker was inert. Haiku 5.5's minimum is 512
+    // and this prompt is roughly that size, so caching is marginal: it may or
+    // may not engage per call. The comment in mailTriage.ts says so; if the
+    // prompt moves well clear of the line either way, this fails and that
+    // comment gets updated.
     const { CACHE_MINIMUM } = await import('../../src/main/ai/cacheControl')
     const { MODEL_HAIKU } = await import('../../src/main/ai/modelRouting')
     const { resolveModel } = await import('../../src/main/ai/modelRouting')
@@ -129,8 +129,9 @@ describe('triage prompt caching, stated plainly', () => {
     expect(m).not.toBeNull()
     const chars = (m as RegExpExecArray)[1].length
     // ~3.8 chars per token is rough, so compare with a wide margin: the claim
-    // is "far below 4096", which does not need a precise tokeniser.
+    // is "within a factor of two of the minimum".
     const approxTokens = chars / 3.8
-    expect(approxTokens).toBeLessThan(CACHE_MINIMUM[MODEL_HAIKU] / 2)
+    expect(approxTokens).toBeGreaterThan(CACHE_MINIMUM[MODEL_HAIKU] / 2)
+    expect(approxTokens).toBeLessThan(CACHE_MINIMUM[MODEL_HAIKU] * 2)
   })
 })

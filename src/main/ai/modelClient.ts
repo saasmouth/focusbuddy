@@ -9,6 +9,7 @@
 // calls no one can govern.
 
 import Anthropic from '@anthropic-ai/sdk'
+import { withModelDefaults } from './modelRouting'
 
 // The client type, re-exported so callers annotate with `ModelClient` (or a
 // type-only SDK import) instead of value-importing the SDK.
@@ -20,7 +21,7 @@ const byKey = new Map<string, Anthropic>()
 export function getModelClient(key: string): Anthropic {
   let c = byKey.get(key)
   if (!c) {
-    c = new Anthropic({ apiKey: key })
+    c = new Anthropic({ apiKey: key, fetch: defaultsFetch(globalThis.fetch) })
     byKey.set(key, c)
   }
   return c
@@ -30,7 +31,41 @@ export function getModelClient(key: string): Anthropic {
 // which needs a custom baseURL, headers and fetch). Still instantiated HERE so the
 // SDK dependency stays in one module.
 export function createAnthropic(opts: ConstructorParameters<typeof Anthropic>[0]): Anthropic {
-  return new Anthropic(opts)
+  const base = (opts?.fetch as typeof fetch | undefined) ?? globalThis.fetch
+  return new Anthropic({ ...opts, fetch: defaultsFetch(base) })
+}
+
+/**
+ * Rewrite a JSON request body before it leaves. Returns init unchanged for a
+ * body that is not a JSON object string (streams, form data, nothing at all).
+ * Exported for the credit path, which also rewrites the model per plan.
+ */
+export function rewriteJsonBody(
+  init: RequestInit | undefined,
+  fn: (body: Record<string, unknown>) => Record<string, unknown>
+): RequestInit | undefined {
+  if (!init || typeof init.body !== 'string') return init
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(init.body)
+  } catch {
+    return init
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return init
+  const next = fn(parsed as Record<string, unknown>)
+  if (next === parsed) return init
+  return { ...init, body: JSON.stringify(next) }
+}
+
+// Every Messages request goes through withModelDefaults (modelRouting.ts), so a
+// per-model default (Haiku 5.5's thinking switch) is set in one place for both
+// the BYOK and the credit clients instead of at ~20 call sites.
+function defaultsFetch(base: typeof fetch): typeof fetch {
+  return ((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    const next = /\/messages(\?|$)/.test(url) ? rewriteJsonBody(init, (b) => withModelDefaults(b)) : init
+    return base(input, next)
+  }) as typeof fetch
 }
 
 // Drop cached clients (called on a key or session change).

@@ -159,12 +159,12 @@ export function liveTriageDeps(getClient: () => { messages: { create: (o: unknow
       const resp = (await client.messages.create({
         model,
         max_tokens: 4000,
-        // Marked cacheable, but be clear-eyed: this prompt is ~530 tokens and
-        // mail_triage routes to Haiku, whose cache minimum is 4096. It does NOT
-        // cache today. The marker stays because it costs nothing, it is correct
-        // the moment this prompt grows or the task reroutes, and removing it
-        // would only mean someone re-adding it later without knowing the
-        // minimum. See CACHE_MINIMUM in cacheControl.ts.
+        // Marked cacheable. Be clear-eyed about it: this prompt is ~530-570
+        // tokens and mail_triage routes to Haiku 5.5, whose cache minimum is 512
+        // (Haiku 4.5's was 4096, and it never cached then). It now sits right at
+        // the line, so whether a given call caches depends on the exact token
+        // count; read cacheTokens(resp.usage) below rather than assuming a
+        // saving. See CACHE_MINIMUM in cacheControl.ts.
         system: cachedSystem(system) as never,
         messages: [{ role: 'user', content: userText }]
       })) as {
