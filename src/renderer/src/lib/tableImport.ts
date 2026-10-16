@@ -184,3 +184,31 @@ export function buildImportPlan(input: ImportPlanInput): ImportPlan {
     summary: { inserted, updated, columnsAdded: newColumns.length, rowsSkipped }
   }
 }
+
+/**
+ * Turn the rows of a brand-new-table import draft into cells a table can read.
+ *
+ * The main-process importer (src/main/fileImport.ts, gridImport.ts) hands back
+ * rows keyed by the column's human LABEL, because that keeps the draft readable
+ * in logs and lets the e2e spec assert on it. A table, though, stores and reads
+ * each cell under the column's ID. Writing the label-keyed object straight into
+ * createRow produced a table with the right columns and the right number of
+ * rows and every cell blank (help audit item 14c). This maps each label to its
+ * column id and coerces the string to the column's type, the same coercion the
+ * import-into-existing-table wizard uses, so "80" in a number column is 80 and
+ * "yes" in a checkbox column is true.
+ *
+ * A key that names no column is dropped rather than written under a key the
+ * table will never read.
+ */
+export function draftRowToCells(
+  schema: TableSchema,
+  row: Record<string, string>
+): Record<string, unknown> {
+  const cells: Record<string, unknown> = {}
+  for (const col of schema.columns) {
+    if (!(col.label in row)) continue
+    cells[col.id] = coerceCellValue(col.type, row[col.label] ?? '', col.config ?? {})
+  }
+  return cells
+}

@@ -115,6 +115,7 @@ import { serializeOverlayObjects } from '../lib/deskLayoutOverlay'
 import { useContextHealthStore } from '../stores/contextHealth'
 import { LinkDragContext } from '../lib/linkDragContext'
 import { computeVisibleObjectIds, type VirtualizationBox } from '../lib/canvasVirtualization'
+import { draftRowToCells } from '../lib/tableImport'
 import type {
   ContextMenuPayload,
   SectionLayout,
@@ -2004,8 +2005,10 @@ export default function Canvas(): JSX.Element {
         title: draft.title,
         schema: draft.schema
       })
-      for (const cells of draft.rows) {
-        await window.api.tables.createRow({ tableId: table.id, cells })
+      // Draft rows are keyed by column LABEL; the table reads cells by column
+      // ID. draftRowToCells bridges the two (help audit 14c: blank CSV import).
+      for (const row of draft.rows) {
+        await window.api.tables.createRow({ tableId: table.id, cells: draftRowToCells(draft.schema, row) })
       }
       const entry = catalogFor('table')
       const width = entry?.defaultWidth ?? 560
