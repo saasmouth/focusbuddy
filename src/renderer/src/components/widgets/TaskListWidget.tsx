@@ -1,3 +1,4 @@
+import { dueStanding } from '../../lib/dueDates'
 import { useEffect, useMemo, useState } from 'react'
 import { useViewStore } from '../../stores/view'
 import TaskOpenChoice from './TaskOpenChoice'
@@ -194,12 +195,13 @@ export default function TaskListWidget({ widget }: { widget: Widget }): JSX.Elem
     }
     if (group === 'due') {
       const band = (n: FbNode): { k: string; label: string; order: number } => {
-        if (!n.dueDate) return { k: 'none', label: 'No date', order: 5 }
-        const days = Math.ceil((n.dueDate - nowMs) / 86_400_000)
-        if (days < 0) return { k: 'overdue', label: 'Overdue', order: 0 }
-        if (days === 0) return { k: 'today', label: 'Today', order: 1 }
-        if (days === 1) return { k: 'tomorrow', label: 'Tomorrow', order: 2 }
-        if (days <= 7) return { k: 'week', label: 'This week', order: 3 }
+        // Local calendar days (lib/dueDates), matching the row's own label.
+        const due = dueStanding(n.dueDate, nowMs)
+        if (!due) return { k: 'none', label: 'No date', order: 5 }
+        if (due.overdue) return { k: 'overdue', label: 'Overdue', order: 0 }
+        if (due.days <= 0) return { k: 'today', label: 'Today', order: 1 }
+        if (due.days === 1) return { k: 'tomorrow', label: 'Tomorrow', order: 2 }
+        if (due.days <= 7) return { k: 'week', label: 'This week', order: 3 }
         return { k: 'later', label: 'Later', order: 4 }
       }
       const by = new Map<string, { label: string; order: number; items: FbNode[] }>()

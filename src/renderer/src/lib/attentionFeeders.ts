@@ -1,3 +1,4 @@
+import { dueStanding, dueLabel, type DueStanding } from './dueDates'
 import type { FbNode } from '@shared/types'
 
 // Attention feeders (S7, SPEC-022/023/024 intelligence-light; CR-08(b)'s
@@ -24,14 +25,11 @@ export interface FeederSignal {
   target: 'desk' | 'plan'
 }
 
-const DAY = 24 * 60 * 60 * 1000
-
 /** Max parent hops when resolving a desk's enclosing plan (cycle guard). */
 const PLAN_CHAIN_CAP = 20
 
-function dueLine(ms: number, days: number, planPrefix: boolean): string {
-  const base =
-    ms < 0 ? 'Past due' : days === 0 ? 'Due today' : days === 1 ? 'Due tomorrow' : `Due in ${days} days`
+function dueLine(due: DueStanding, planPrefix: boolean): string {
+  const base = dueLabel(due)
   return planPrefix ? `Plan ${base.charAt(0).toLowerCase()}${base.slice(1)}` : base
 }
 
@@ -56,9 +54,10 @@ export function deskDueSignals(nodes: FbNode[], nowMs: number): FeederSignal[] {
   for (const n of nodes) {
     if (n.archived || n.status === 'done' || n.status === 'parked') continue
     if (n.dueDate == null) continue
-    const ms = n.dueDate - nowMs
-    if (ms > 7 * DAY) continue
-    const days = Math.floor(ms / DAY)
+    // Calendar days in local time (lib/dueDates): a desk due today, stored as
+    // local midnight, is "Due today" all day, not "Past due" from 00:01.
+    const due = dueStanding(n.dueDate, nowMs)
+    if (!due || (!due.overdue && due.days > 7)) continue
     if (n.kind === 'task') {
       const plan = enclosingPlan(n)
       out.push({
@@ -66,7 +65,7 @@ export function deskDueSignals(nodes: FbNode[], nowMs: number): FeederSignal[] {
         kind: plan ? 'plan-due' : 'desk-due',
         id: n.id,
         title: n.title || 'Untitled desk',
-        line: plan ? `${dueLine(ms, days, false)} · ${plan.title || 'Untitled plan'}` : dueLine(ms, days, false),
+        line: plan ? `${dueLine(due, false)} · ${plan.title || 'Untitled plan'}` : dueLine(due, false),
         order: n.dueDate,
         target: 'desk'
       })
@@ -76,7 +75,7 @@ export function deskDueSignals(nodes: FbNode[], nowMs: number): FeederSignal[] {
         kind: 'plan-due',
         id: n.id,
         title: n.title || 'Untitled plan',
-        line: dueLine(ms, days, true),
+        line: dueLine(due, true),
         order: n.dueDate,
         target: 'plan'
       })

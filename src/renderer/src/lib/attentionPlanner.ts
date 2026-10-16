@@ -1,3 +1,4 @@
+import { dueStanding } from './dueDates'
 import type { FbNode, TimeBlock } from '@shared/types'
 import { rankScore, isTerminalState } from './attentionQueues'
 import { parseTags } from './itemTags'
@@ -428,20 +429,19 @@ function reasonFor(
   ctx: ReasonContext
 ): string {
   // 1 — deadlines. The ranker's biggest weight, so also the likeliest truth.
-  if (i.dueAt) {
-    const t = Date.parse(i.dueAt)
-    if (!Number.isNaN(t)) {
-      if (t < nowMs) {
-        const daysLate = Math.floor((nowMs - t) / DAY)
-        if (daysLate < 1) return 'Was due earlier today'
-        return daysLate === 1 ? 'Overdue by a day' : `Overdue by ${daysLate} days`
-      }
-      if (t < nowMs + DAY) return 'Due today'
-      if (t < nowMs + 2 * DAY) return 'Due tomorrow'
-      if (t < nowMs + 7 * DAY)
-        return `Due ${new Date(t).toLocaleDateString(undefined, { weekday: 'long' })}`
-      // A far-off due date is not why it is on TODAY's plan — fall through.
+  // Counted in local calendar days (lib/dueDates), so "Due tomorrow" names the
+  // next date and a date-only deadline is not late until its day is over.
+  const due = dueStanding(i.dueAt, nowMs)
+  if (due) {
+    if (due.overdue) {
+      const daysLate = -due.days
+      if (daysLate < 1) return 'Was due earlier today'
+      return daysLate === 1 ? 'Overdue by a day' : `Overdue by ${daysLate} days`
     }
+    if (due.days <= 0) return 'Due today'
+    if (due.days === 1) return 'Due tomorrow'
+    if (due.days < 7) return `Due ${new Date(due.ms).toLocaleDateString(undefined, { weekday: 'long' })}`
+    // A far-off due date is not why it is on TODAY's plan — fall through.
   }
   // 2 — the person's own urgency call (DEC-037: chosen, so it outranks derived).
   if (i.wiUrgency === 'urgent') return 'You marked it urgent'

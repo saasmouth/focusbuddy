@@ -1,5 +1,6 @@
 import type { FbNode } from '@shared/types'
 import { TERMINAL_WORK_ITEM_STATES, DEFAULT_INTENT_CLASS, canonicalIntentClass } from '@shared/workItems'
+import { dueStanding, dueLabel } from './dueDates'
 
 // Attention queue semantics (S6, SPEC-017/§2.3-F013). Pure and testable:
 // grouping, ordering, and the per-class primary action. Everything derives
@@ -155,13 +156,13 @@ export function groupIntoQueues(
  *  Scored against attentionPrecision() over time (workItems:precision). */
 export function rankScore(i: FbNode, nowMs: number): number {
   let score = 0
-  if (i.dueAt) {
-    const ms = Date.parse(i.dueAt) - nowMs
-    const days = ms / (24 * 60 * 60 * 1000)
-    if (ms < 0) score += 100
-    else if (days <= 1) score += 80
-    else if (days <= 3) score += 60
-    else if (days <= 7) score += 40
+  // Calendar days, not 24-hour periods (lib/dueDates explains the difference).
+  const due = dueStanding(i.dueAt, nowMs)
+  if (due) {
+    if (due.overdue) score += 100
+    else if (due.days <= 1) score += 80
+    else if (due.days <= 3) score += 60
+    else if (due.days <= 7) score += 40
     else score += 10
   }
   const quietDays = (nowMs - i.updatedAt) / (24 * 60 * 60 * 1000)
@@ -257,14 +258,15 @@ export function groupByDue(
       !(i.snoozeUntil != null && i.snoozeUntil > nowMs) &&
       i.detachedFromId == null
   )
-  const DAY = 24 * 60 * 60 * 1000
+  // Buckets by local calendar day: "Tomorrow" is the next date, not "24 to 48
+  // hours from now" (help audit: due labels a day off).
   const bucketOf = (i: FbNode): string => {
-    if (!i.dueAt) return 'none'
-    const days = (Date.parse(i.dueAt) - nowMs) / DAY
-    if (days < 0) return 'overdue'
-    if (days <= 1) return 'today'
-    if (days <= 2) return 'tomorrow'
-    if (days <= 7) return 'week'
+    const due = dueStanding(i.dueAt, nowMs)
+    if (!due) return 'none'
+    if (due.overdue) return 'overdue'
+    if (due.days <= 0) return 'today'
+    if (due.days === 1) return 'tomorrow'
+    if (due.days <= 7) return 'week'
     return 'later'
   }
   const LABELS: Record<string, string> = {
@@ -353,12 +355,9 @@ export function itemFullText(i: Pick<FbNode, 'title' | 'description'>): string {
 export function itemReason(i: FbNode, nowMs: number): string | null {
   if (i.reasonCode === 'decayed') return 'Faded out quietly'
   if (i.dueAt) {
-    const ms = Date.parse(i.dueAt) - nowMs
-    const days = Math.ceil(ms / (24 * 60 * 60 * 1000))
-    if (ms < 0) return 'Past due'
-    if (days <= 1) return 'Due today'
-    if (days === 2) return 'Due tomorrow'
-    if (days <= 7) return `Due in ${days} days`
+    const due = dueStanding(i.dueAt, nowMs)
+    if (!due) return null
+    if (due.overdue || due.days <= 7) return dueLabel(due)
     return null
   }
   if (i.wiOrigin === 'ai') return 'Suggested by Plexii'

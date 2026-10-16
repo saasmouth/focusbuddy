@@ -185,9 +185,19 @@ describe('closing verbs + reasons', () => {
 
   it('one reason per item: due proximity beats origin; decay is named', () => {
     expect(itemReason(wi({ dueAt: new Date(NOW - DAY).toISOString() }), NOW)).toBe('Past due')
-    expect(itemReason(wi({ dueAt: new Date(NOW + 20 * 60 * 60 * 1000).toISOString() }), NOW)).toBe(
+    // Rewritten 2026-10-16 (help audit, "due labels a day off"): this pin used
+    // NOW + 20 hours and expected "Due today", which is the bug itself whenever
+    // those 20 hours cross local midnight. Labels now count calendar days, so the
+    // pin uses a time later on NOW's own local day, and the next day.
+    const laterToday = new Date(NOW)
+    laterToday.setHours(23, 30, 0, 0)
+    expect(itemReason(wi({ dueAt: laterToday.toISOString() }), Math.min(NOW, laterToday.getTime() - 60_000))).toBe(
       'Due today'
     )
+    const tomorrowMorning = new Date(NOW)
+    tomorrowMorning.setDate(tomorrowMorning.getDate() + 1)
+    tomorrowMorning.setHours(9, 0, 0, 0)
+    expect(itemReason(wi({ dueAt: tomorrowMorning.toISOString() }), NOW)).toBe('Due tomorrow')
     expect(itemReason(wi({ wiOrigin: 'ai' }), NOW)).toBe('Suggested by Plexii')
     expect(
       itemReason(wi({ wiOrigin: 'ai', dueAt: new Date(NOW + DAY).toISOString() }), NOW)
