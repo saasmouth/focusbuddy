@@ -16,3 +16,13 @@ export function forgotPasswordUrl(email?: string): string {
   const e = email?.trim()
   return e ? `${base}?email=${encodeURIComponent(e)}` : base
 }
+
+// Sign-up and sign-in on the web, for people who would rather not type a
+// password into the app (growth spec section 3: "in the app or in the
+// browser"). The site's /account flow hands the session back to the app with
+// its existing plexii://auth link; `from=app` tells it to.
+export function webAccountUrl(mode: 'signup' | 'login', email?: string): string {
+  const base = `${SITE_BASE}/account/${mode}?from=app`
+  const e = email?.trim()
+  return e ? `${base}&email=${encodeURIComponent(e)}` : base
+}

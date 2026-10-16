@@ -1,6 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { MODEL_OPTIONS, useModelMode } from '../../lib/modelPrefs'
 import Icon from '../Icon'
+import CreditsMeter from '../CreditsMeter'
+import { useAiCreditsStore } from '../../stores/aiCredits'
+
+// What Plexii's managed AI runs per plan (growth spec section 1). Your own key
+// runs any model; on credits a model above the plan is sent as the best one the
+// plan includes (main/ai/modelRouting.ts modelForPlan).
+export function planModelNote(plan: string | null, mode: string | null): string | null {
+  if (mode === 'byok') return null
+  if (plan === 'free') return 'On Plexii credits, Free runs Haiku. Your own key runs any model.'
+  if (plan === 'pro' || plan === 'team') return 'On Plexii credits, Opus is on Pro+. Your own key runs any model.'
+  return null
+}
 
 // The composer's model picker (P7), extracted so the assistant panel and the
 // focus AI Chat render the identical control. Same MODEL_OPTIONS data and the
@@ -21,6 +33,9 @@ export default function ModelPickerChip(): JSX.Element {
     return () => window.removeEventListener('pointerdown', onPointerDown)
   }, [open])
   const active = MODEL_OPTIONS.find((o) => o.value === modelMode) ?? MODEL_OPTIONS[0]
+  const creditPlan = useAiCreditsStore((s) => s.status?.plan ?? null)
+  const aiMode = useAiCreditsStore((s) => s.status?.mode ?? null)
+  const note = planModelNote(creditPlan, aiMode)
 
   return (
     <div className="relative" ref={ref}>
@@ -68,6 +83,14 @@ export default function ModelPickerChip(): JSX.Element {
               )}
             </button>
           ))}
+          <div className="mt-1 pt-1.5 px-2 pb-1 border-t border-[var(--edge-soft)] space-y-0.5">
+            <CreditsMeter />
+            {note && (
+              <div className="text-[10.5px] text-[var(--ink-50)] leading-snug" data-testid="composer-plan-model-note">
+                {note}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

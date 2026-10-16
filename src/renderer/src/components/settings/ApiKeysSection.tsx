@@ -14,6 +14,11 @@
 import { useEffect, useState } from 'react'
 import LocalAiSection from './LocalAiSection'
 import { confirmDialog } from '../plexi/PromptDialog'
+import CreditsMeter from '../CreditsMeter'
+import { useAiCreditsStore } from '../../stores/aiCredits'
+import { promptUpgrade } from '../../stores/upgradePrompt'
+import { useVerifyEmailStore } from '../../stores/verifyEmail'
+import { TOP_UP_PACKS, type AiCreditStatus } from '@shared/aiCredits'
 
 type Status =
   | { kind: 'idle' }
@@ -223,48 +228,34 @@ export default function ApiKeysSection({ onKeySaved }: Props): JSX.Element {
   )
 }
 
-interface AiStatusView {
-  mode: 'auto' | 'credits' | 'byok'
-  signedIn: boolean
-  hasOwnKey: boolean
-  balanceUsd: number | null
-  outOfCredits: boolean
-  proxyAvailable: boolean
-}
+type AiStatusView = AiCreditStatus
 
 // AI-source chooser + credit balance. New users default to 'auto', which
-// spends their PlexiDesk trial credits first and falls back to a personal key
-// once the balance is gone. When credits run out the user either tops up here
-// or switches to 'byok'.
+// spends Plexii's managed AI credits first and falls back to a personal key
+// once the balance is gone. When credits run out the user tops up here
+// (US$10 / US$25 / US$50 packs), upgrades for a bigger monthly allowance, or
+// switches to 'byok'. The balance shown is the renderer credits store's, so it
+// is the same number as the meter on the AI surfaces.
 function AiSourceSection(): JSX.Element {
-  const [status, setStatus] = useState<AiStatusView | null>(null)
+  const status = useAiCreditsStore((s) => s.status) as AiStatusView | null
+  const refreshCredits = useAiCreditsStore((s) => s.refresh)
+  const syncCredits = useAiCreditsStore((s) => s.sync)
+  const openVerify = useVerifyEmailStore((s) => s.open)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
 
-  function refresh(): void {
-    void window.api.ai
-      .getStatus()
-      .then(setStatus)
-      .catch(() => setStatus(null))
-  }
-
   useEffect(() => {
-    refresh()
-    // Pull the live balance once on open (also lazily grants the trial on the
-    // server the very first time), then re-read the merged status.
-    void window.api.ai
-      .refreshCredits()
-      .then(() => refresh())
-      .catch(() => {})
-  }, [])
+    // Pull the live balance once on open.
+    void refreshCredits()
+  }, [refreshCredits])
 
   async function pick(mode: 'auto' | 'credits' | 'byok'): Promise<void> {
     if (busy) return
     setBusy(true)
     setNote(null)
     try {
-      const next = await window.api.ai.setMode(mode)
-      setStatus(next)
+      await window.api.ai.setMode(mode)
+      await syncCredits()
     } catch {
       setNote('Could not change AI source. Restart PlexiDesk and try again.')
     } finally {
@@ -281,23 +272,18 @@ function AiSourceSection(): JSX.Element {
       if (!r.ok) {
         setNote(r.error ?? 'Could not start checkout.')
       } else if (r.action === 'pending') {
-        setNote('Credit purchases are not enabled on this build yet.')
+        setNote('Credit purchases are not switched on for this server yet.')
       } else {
-        setNote('Opened the checkout page in your browser.')
+        setNote('Opened the checkout page in your browser. The balance updates once payment completes.')
       }
     } finally {
       setBusy(false)
     }
   }
 
-  const balanceLabel =
-    status?.balanceUsd === null || status?.balanceUsd === undefined
-      ? '—'
-      : `$${status.balanceUsd.toFixed(2)}`
-
   const modes: Array<{ id: 'auto' | 'credits' | 'byok'; label: string; sub: string }> = [
     { id: 'auto', label: 'Automatic', sub: 'Credits first, then your key' },
-    { id: 'credits', label: 'PlexiDesk credits', sub: 'Metered, prepaid balance' },
+    { id: 'credits', label: 'Plexii credits', sub: 'Your plan’s allowance and packs' },
     { id: 'byok', label: 'Your own key', sub: 'Direct to Anthropic' }
   ]
 
@@ -328,47 +314,61 @@ function AiSourceSection(): JSX.Element {
         <div className="fb-card rounded-[var(--radius-field)] px-2.5 py-2 mb-2">
           {!status.signedIn ? (
             <div className="fb-t-caption text-[var(--ink-50)] leading-snug">
-              Sign in to your PlexiDesk account to use credits. New accounts start
-              with $1 of free AI credits.
+              Sign in to your Plexii account to use AI credits. Free includes 100 a
+              month on Haiku, and verifying your email starts a 14-day trial with 300
+              bonus credits.
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between">
-                <span className="fb-t-caption text-[var(--ink-70)]">
-                  Credit balance
-                </span>
-                <span
-                  data-testid="ai-credit-balance"
-                  className={`text-xs font-mono ${
-                    status.outOfCredits
-                      ? 'text-rose-600 dark:text-rose-400'
-                      : 'text-[var(--ink-90)]'
-                  }`}
-                >
-                  {balanceLabel}
-                </span>
-              </div>
+              <CreditsMeter variant="full" />
+              {status.verificationRequired && (
+                <div className="fb-t-caption text-amber-700 dark:text-amber-300 mt-1 leading-snug" data-testid="ai-credits-verify">
+                  Verify your email to use Plexii AI credits.{' '}
+                  <button type="button" onClick={openVerify} className="underline">
+                    Enter code
+                  </button>
+                </div>
+              )}
               {status.outOfCredits && (
                 <div className="fb-t-caption text-rose-600 dark:text-rose-400 mt-1 leading-snug">
                   Credits used up.{' '}
                   {status.hasOwnKey
-                    ? 'Add more below, or switch to your own key to keep going.'
-                    : 'Add credits below, or add your own Anthropic key under API keys.'}
+                    ? 'Add a pack below, or switch to your own key to keep going.'
+                    : 'Add a pack below, upgrade, or add your own Anthropic key under API keys.'}
                 </div>
               )}
               <div className="flex gap-1.5 mt-2">
-                {[5, 10, 20].map((amt) => (
+                {TOP_UP_PACKS.map((p) => (
                   <button
-                    key={amt}
-                    onClick={() => void topUp(amt)}
+                    key={p.usd}
+                    onClick={() => void topUp(p.usd)}
                     disabled={busy}
-                    data-testid={`ai-topup-${amt}`}
-                    className="fb-btn-surface flex-1 fb-t-caption rounded-[var(--radius-field)] py-1 text-[var(--ink-70)] hover:bg-[var(--surface-sunken)] disabled:opacity-50"
+                    data-testid={`ai-topup-${p.usd}`}
+                    title={`${p.credits.toLocaleString('en-US')} credits, valid 12 months`}
+                    className="fb-btn-surface flex-1 fb-t-caption rounded-[var(--radius-field)] py-1 text-[var(--ink-70)] hover:bg-[var(--surface-sunken)] disabled:opacity-50 leading-tight"
                   >
-                    Add ${amt}
+                    <div>Add US${p.usd}</div>
+                    <div className="text-[var(--ink-50)]">{p.credits.toLocaleString('en-US')} credits</div>
                   </button>
                 ))}
               </div>
+              {(status.plan === null || status.plan === 'free' || status.plan === 'pro' || status.plan === 'team') && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    promptUpgrade(
+                      'A bigger plan means a bigger monthly AI allowance.',
+                      status.plan === 'pro' || status.plan === 'team' ? 'proplus' : 'pro'
+                    )
+                  }
+                  className="fb-t-caption text-accent hover:underline mt-1.5"
+                  data-testid="ai-credits-upgrade"
+                >
+                  {status.plan === 'pro' || status.plan === 'team'
+                    ? 'Pro+ includes 2,500 credits a month and Opus'
+                    : 'Pro includes 800 credits a month on Haiku and Sonnet'}
+                </button>
+              )}
             </>
           )}
         </div>

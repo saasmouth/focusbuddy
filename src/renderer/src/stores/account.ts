@@ -36,9 +36,12 @@ interface AccountStore {
   // Wall-clock ms when the user last clicked "Continue without account"
   // in the launch modal. Lets the modal throttle re-prompts to ~weekly.
   skippedAt: number | null
-  // App starts made with no account. Past ANON_LAUNCH_LIMIT, the launch modal
-  // stops offering a way past itself.
+  // App starts made with no account. Kept for the record; since the growth
+  // change an account is required from the first launch, so nothing gates on it.
   anonLaunches: number
+  // True only in the e2e harness (main: anonymousLaunchAllowed). Every real
+  // launch requires an account (growth spec section 3).
+  anonymousAllowed: boolean
   cachedEmail: string | null
   // Loaded once on app boot. Validates the cached session, populates
   // account. Idempotent; safe to call multiple times.
@@ -76,6 +79,7 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
   account: null,
   skippedAt: null,
   anonLaunches: 0,
+  anonymousAllowed: false,
   cachedEmail: null,
 
   init: async () => {
@@ -86,6 +90,7 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
       set({
         skippedAt: cached.skippedAt,
         anonLaunches: cached.anonLaunches ?? 0,
+        anonymousAllowed: cached.anonymousAllowed === true,
         cachedEmail: cached.cachedEmail
       })
       if (!cached.sessionToken) {

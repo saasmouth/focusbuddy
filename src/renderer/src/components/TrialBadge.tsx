@@ -8,9 +8,17 @@ import {
   useCapabilityStore
 } from '../stores/capabilities'
 import { useAccountStore } from '../stores/account'
+import { useEmailUnverified, usePlan } from '../stores/capabilities'
+import { useVerifyEmailStore } from '../stores/verifyEmail'
+import { promptUpgrade } from '../stores/upgradePrompt'
+import { PLANS, priceLabel, aiAllowanceLabel } from '../lib/plans'
+import { fundedPlanLabel } from '../lib/planDisplay'
 
-// Footer trial affordance. Three states the user can be in:
+// Footer trial affordance. Four states the user can be in:
 //
+//   0. Signed in, email NOT verified (growth spec section 3): "Verify email"
+//      pill, click → the code-entry modal. The trial starts on verification,
+//      so until then there is no trial to count down.
 //   1. Active trial (1+ day left): small green pill "Trial · 7d left",
 //      click → upgrade picker modal.
 //   2. Trial lapsed AND stored tier is Free: amber pill "Trial ended ·
@@ -28,11 +36,42 @@ export default function TrialBadge(): JSX.Element | null {
   const accountId = useAccountStore((s) => s.account?.id ?? null)
   const loadedAt = useCapabilityStore((s) => s.loadedAt)
   const [modalOpen, setModalOpen] = useState(false)
+  const unverified = useEmailUnverified()
+  const openVerify = useVerifyEmailStore((s) => s.open)
+  const plan = usePlan()
+  const creditPaidUntil = useCapabilityStore((s) => s.creditPaidUntil)
 
   // Don't render until we've actually heard from the server once.
   // Otherwise we'd flash "Trial ended" on every cold boot before the
   // first /account/capabilities call resolves.
   if (loadedAt === null || !accountId) return null
+
+  if (unverified) {
+    return (
+      <button
+        onClick={openVerify}
+        className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-amber-500/25 transition-colors inline-flex items-center gap-1"
+        title="Verify your email to start your 14-day trial and 300 AI credits."
+        data-testid="trial-badge-verify"
+      >
+        <Icon name="mark_email_unread" size={10} />
+        Verify email
+      </button>
+    )
+  }
+
+  // A plan paid from the referral credit bank (section 4b) says until when.
+  if (plan !== 'free' && creditPaidUntil !== null && creditPaidUntil > Date.now()) {
+    return (
+      <span
+        className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1"
+        data-testid="trial-badge-credit-funded"
+      >
+        <Icon name="redeem" size={10} />
+        {fundedPlanLabel(plan, creditPaidUntil)}
+      </span>
+    )
+  }
 
   if (trial.active && trial.daysLeft > 0) {
     return (
@@ -40,7 +79,7 @@ export default function TrialBadge(): JSX.Element | null {
         <button
           onClick={() => setModalOpen(true)}
           className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 transition-colors inline-flex items-center gap-1"
-          title={`Open trial — ${trial.daysLeft} day${trial.daysLeft === 1 ? '' : 's'} of full Top-tier access left. Click to upgrade.`}
+          title={`Trial: ${trial.daysLeft} day${trial.daysLeft === 1 ? '' : 's'} left with everything unlocked. Click to see the plans.`}
           data-testid="trial-badge-active"
         >
           <Icon name="bolt" size={10} />
@@ -74,15 +113,9 @@ export default function TrialBadge(): JSX.Element | null {
   return null
 }
 
-// Lightweight upgrade picker. Three tiers, headline pricing, "stay on
-// free" exit. Real Stripe checkout flow is the NEXT phase (Hooper-meeting
-// gate). For tonight this modal just records the user's intent in
-// localStorage so we don't show it again on every boot, and links out to
-// the brochure pricing page so the user can read the pricing.
-//
-// When the Stripe phase lands, the per-tier "Choose" buttons here will
-// open the Stripe Checkout session for that tier instead of opening the
-// brochure.
+// The plans, with their real prices and AI allowances (lib/plans.ts, pinned to
+// the growth spec). "Choose a plan" opens the checkout modal; "Stay on Free"
+// records that this was seen so it does not reappear on every boot.
 function TierPickerModal({ onClose }: { onClose: () => void }): JSX.Element {
   const stayOnFree = (): void => {
     try {
@@ -92,9 +125,12 @@ function TierPickerModal({ onClose }: { onClose: () => void }): JSX.Element {
     }
     onClose()
   }
+  const choose = (): void => {
+    stayOnFree()
+    promptUpgrade('Pick the plan that fits.', 'pro')
+  }
   const openPricing = (): void => {
     window.open(PRICING_URL, '_blank', 'noopener,noreferrer')
-    stayOnFree() // record acknowledgment so we don't immediately re-pop
   }
   return (
     <Modal
@@ -117,41 +153,44 @@ function TierPickerModal({ onClose }: { onClose: () => void }): JSX.Element {
           </button>
         </div>
         <p className="text-xs text-[var(--ink-70)] mb-4 leading-relaxed">
-          Your 14-day open trial is the full Top-tier experience.
-          When it ends, you can stay on the restricted Free plan, or
-          upgrade to keep AI features, multi-device sync, and the rest
-          of the toolkit.
+          Your 14-day trial unlocks everything. When it ends you keep Free, with 100 AI
+          credits a month, or choose a plan to keep the rest.
         </p>
         <div className="space-y-2 mb-4">
-          <TierRow
-            name="Free"
-            blurb="Core canvas + SpeedDeck + 3 devices. AI on your own key."
-          />
-          <TierRow
-            name="Pro"
-            blurb="Managed AI, body double, cloud backup, unlimited devices."
-            highlight
-          />
-          <TierRow
-            name="Team"
-            blurb="Everything in Pro + per-seat admin, shared decks, usage analytics."
-          />
+          {PLANS.map((p) => (
+            <TierRow
+              key={p.id}
+              name={p.name}
+              price={p.id === 'free' ? 'US$0' : priceLabel(p, 'month')}
+              blurb={`${p.tagline} ${aiAllowanceLabel(p)}.`}
+              highlight={p.id === 'pro'}
+            />
+          ))}
         </div>
-        <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--edge-soft)]">
-          <button
-            onClick={stayOnFree}
-            className="text-xs px-3 py-1.5 rounded-md text-[var(--ink-70)] hover:bg-[var(--surface-sunken)] transition-colors"
-            data-testid="stay-on-free"
-          >
-            Stay on Free
-          </button>
+        <div className="flex items-center justify-between gap-2 pt-3 border-t border-[var(--edge-soft)]">
           <button
             onClick={openPricing}
-            className="text-xs px-3 py-1.5 rounded-md bg-accent text-white hover:opacity-90 transition-opacity"
+            className="text-xs px-2 py-1.5 rounded-md text-[var(--ink-70)] hover:bg-[var(--surface-sunken)] transition-colors"
             data-testid="see-pricing"
           >
-            See pricing
+            Compare plans
           </button>
+          <div className="flex gap-2">
+            <button
+              onClick={stayOnFree}
+              className="text-xs px-3 py-1.5 rounded-md text-[var(--ink-70)] hover:bg-[var(--surface-sunken)] transition-colors"
+              data-testid="stay-on-free"
+            >
+              Stay on Free
+            </button>
+            <button
+              onClick={choose}
+              className="text-xs px-3 py-1.5 rounded-md bg-accent text-white hover:opacity-90 transition-opacity"
+              data-testid="choose-plan"
+            >
+              Choose a plan
+            </button>
+          </div>
         </div>
     </Modal>
   )
@@ -159,10 +198,12 @@ function TierPickerModal({ onClose }: { onClose: () => void }): JSX.Element {
 
 function TierRow({
   name,
+  price,
   blurb,
   highlight
 }: {
   name: string
+  price: string
   blurb: string
   highlight?: boolean
 }): JSX.Element {
@@ -174,8 +215,9 @@ function TierRow({
           : 'border-[var(--edge-soft)]'
       }`}
     >
-      <div className="text-[11px] font-semibold text-[var(--ink-100)]">
-        {name}
+      <div className="text-[11px] font-semibold text-[var(--ink-100)] flex items-baseline gap-2">
+        <span>{name}</span>
+        <span className="ml-auto font-normal text-[var(--ink-70)]">{price}</span>
         {highlight && (
           <span className="ml-2 text-[9px] uppercase tracking-wider text-accent">
             Recommended

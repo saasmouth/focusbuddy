@@ -1,4 +1,5 @@
 import type { TierId } from './capabilityDefaults'
+import { planInfo, type PlanId } from './plans'
 
 // What plan a user is ON versus what they can currently DO.
 //
@@ -27,9 +28,26 @@ export interface TrialView {
   daysLeft: number
 }
 
-/** The plan name to show a user. Never the trial's borrowed tier. */
-export function planLabel(storedTier: TierId): string {
-  return storedTier === 'team' ? 'Team' : storedTier === 'pro' ? 'Pro' : 'Free'
+/**
+ * The plan name to show a user. Never the trial's borrowed tier.
+ *
+ * Takes the PLAN, not just the capability tier, because Pro+ reads Pro's
+ * feature column: labelling from the tier alone called a Pro+ subscriber "Pro".
+ */
+export function planLabel(plan: PlanId | TierId): string {
+  return planInfo(plan).name
+}
+
+/**
+ * A plan paid for from the referral credit bank (GROWTH-IMPLEMENTATION.md
+ * section 4b) says so, with the date the bank covers it until, so nobody is
+ * surprised when it returns to Free: "Pro (paid with credit until 3 Feb 2027)".
+ */
+export function fundedPlanLabel(plan: PlanId, creditPaidUntil: number | null, nowMs: number = Date.now()): string {
+  const name = planLabel(plan)
+  if (plan === 'free' || creditPaidUntil === null || creditPaidUntil <= nowMs) return name
+  const date = new Date(creditPaidUntil).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+  return `${name} (paid with credit until ${date})`
 }
 
 /**
@@ -46,6 +64,6 @@ export function trialSuffix(trial: TrialView): string {
  * False for anyone already paying, at any paid tier — a Team subscriber being
  * sold Pro is the same defect as a Pro subscriber being sold Pro.
  */
-export function showsProUpsell(storedTier: TierId): boolean {
+export function showsProUpsell(storedTier: PlanId | TierId): boolean {
   return storedTier === 'free'
 }

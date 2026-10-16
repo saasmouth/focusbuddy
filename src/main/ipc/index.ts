@@ -323,6 +323,7 @@ import {
 import {
   clearSession,
   loadAccountState,
+  anonymousLaunchAllowed,
   saveSession,
   setCachedEmail,
   setSkipped
@@ -1358,7 +1359,7 @@ export function registerIpcHandlers(): void {
   // renderer never sees the encryption key or the file path. Skipped is
   // a separate boolean used by the launch modal to remember "user
   // dismissed me" between launches.
-  ipcMain.handle('account:load', () => loadAccountState())
+  ipcMain.handle('account:load', () => ({ ...loadAccountState(), anonymousAllowed: anonymousLaunchAllowed() }))
   ipcMain.handle(
     'account:saveSession',
     (_e, input: { token: string; email: string | null }) =>

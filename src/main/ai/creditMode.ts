@@ -21,7 +21,8 @@ import {
   type CreditBucket,
   type CreditError,
   type CreditPlan,
-  type CreditsSnapshot
+  type CreditsSnapshot,
+  type AiCreditStatus
 } from '@shared/aiCredits'
 import { loadAccountState } from '../db/account'
 import { getAiMode, resolveAnthropicKey, hasOwnAnthropicKey } from '../settingsStore'
@@ -438,23 +439,9 @@ export function markEmailVerified(): void {
   if (creditCache.lastError?.error === 'email_not_verified') creditCache.lastError = null
 }
 
-export interface AiStatus {
-  mode: ReturnType<typeof getAiMode>
-  signedIn: boolean
-  hasOwnKey: boolean
-  /** Spendable credits, or null when not yet known. */
-  balance: number | null
-  /** Legacy dollar view of the same balance (balance / 100). */
-  balanceUsd: number | null
-  buckets: CreditBucket[]
-  allowance: number | null
-  resetsAt: number | null
-  plan: CreditPlan | null
-  outOfCredits: boolean
-  proxyAvailable: boolean
-  verificationRequired: boolean
-  lastError: CreditError | null
-}
+// The shape lives in @shared/aiCredits so the preload and renderer type the
+// same object main builds here.
+export type AiStatus = AiCreditStatus
 
 /** Snapshot for the renderer's settings panel, meter and credit prompts. */
 export function getAiStatus(): AiStatus {

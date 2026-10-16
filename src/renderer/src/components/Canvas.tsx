@@ -116,6 +116,7 @@ import { useContextHealthStore } from '../stores/contextHealth'
 import { LinkDragContext } from '../lib/linkDragContext'
 import { computeVisibleObjectIds, type VirtualizationBox } from '../lib/canvasVirtualization'
 import { draftRowToCells } from '../lib/tableImport'
+import { useAiBuilderLaunch } from '../stores/aiBuilderLaunch'
 import type {
   ContextMenuPayload,
   SectionLayout,
@@ -422,6 +423,17 @@ export default function Canvas(): JSX.Element {
   // AI Setup (which is task-context-driven and uses the older suggestion
   // format).
   const [showAiBuilder, setShowAiBuilder] = useState(false)
+  // A prefilled prompt for Build with AI (the demo → app handoff). Read once
+  // and cleared, so a reopened dialog starts empty as it always has.
+  const pendingBuildPrompt = useAiBuilderLaunch((s) => s.prompt)
+  const [aiBuilderPrefill, setAiBuilderPrefill] = useState<string | undefined>(undefined)
+  useEffect(() => {
+    if (!pendingBuildPrompt) return
+    const p = useAiBuilderLaunch.getState().consume()
+    if (!p) return
+    setAiBuilderPrefill(p)
+    setShowAiBuilder(true)
+  }, [pendingBuildPrompt])
   const welcomedTasksRef = useRef<Set<string>>(new Set())
   const [ctxMenu, setCtxMenu] = useState<{
     screenX: number
@@ -3115,8 +3127,12 @@ export default function Canvas(): JSX.Element {
       {showAiBuilder && (
         <AiBuilderDialog
           taskId={activeTaskId ?? null}
-          onClose={() => setShowAiBuilder(false)}
+          onClose={() => {
+            setShowAiBuilder(false)
+            setAiBuilderPrefill(undefined)
+          }}
           onAccept={handleAiBuilderAccept}
+          initialPrompt={aiBuilderPrefill}
         />
       )}
       {syncPickerOpen && activeTaskId && (

@@ -41,6 +41,10 @@ import CommandCenter from './components/CommandCenter'
 import MetricsOverlay from './components/MetricsOverlay'
 import LaunchSignInModal from './components/LaunchSignInModal'
 import UpgradePromptModal from './components/UpgradePromptModal'
+import CreditPromptModal from './components/CreditPromptModal'
+import VerifyEmailModal from './components/VerifyEmailModal'
+import InviteTeammateNudge from './components/InviteTeammateNudge'
+import GrowthEffects from './components/GrowthEffects'
 import FirstRunOnboarding from './components/FirstRunOnboarding'
 import OnboardingTour from './components/onboarding/OnboardingTour'
 import FeatureSpotlightPopup from './components/onboarding/FeatureSpotlightPopup'
@@ -810,6 +814,13 @@ export default function App(): JSX.Element {
         <SourcePeekModal />
         <LaunchSignInModal />
         <UpgradePromptModal />
+        {/* Growth (Oct 2026): credit refusals, email verification, the one-time
+            invite nudge, and the effects with no screen (pending build,
+            first_launch). */}
+        <GrowthEffects />
+        <CreditPromptModal />
+        <VerifyEmailModal />
+        <InviteTeammateNudge />
         <MetricsOverlay />
         {/* The assistant: a pill on every screen, opening into sidebar /
             floating / fullscreen over one conversation. */}

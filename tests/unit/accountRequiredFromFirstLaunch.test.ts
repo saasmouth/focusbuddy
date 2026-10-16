@@ -1,6 +1,7 @@
 // @vitest-environment node
 //
-// Three opens without an account are free. The fourth requires one.
+// An account is required from the first launch (growth spec section 3). Until
+// 2026-10-16 three opens were free and the fourth required one; see below.
 //
 // The thing that makes this worth a test is that a gate is only as good as its
 // weakest exit, and this modal had three: "Continue without account", a close
@@ -17,20 +18,47 @@ const read = (rel: string): string => readFileSync(join(root, rel), 'utf8')
 const MODAL = 'src/renderer/src/components/LaunchSignInModal.tsx'
 const STORE = 'src/main/db/account.ts'
 
-describe('the free-launch allowance', () => {
-  it('is three, in both the gate and the copy', () => {
+// Rewritten 2026-10-16 (growth spec section 3, owner decision): an account is
+// required from the FIRST launch. This file used to pin "three opens free, the
+// fourth requires one" (FREE_LAUNCHES = 3, `anonLaunches > FREE_LAUNCHES`, and
+// the line "Your first 3 opens were on us"). The trial and its AI credits now
+// start on email verification, so the free opens are gone. The counter in
+// main is still kept and still pinned below; nothing gates on it any more.
+describe('the account is required from the first launch', () => {
+  it('has no free-launch allowance left in the gate', () => {
     const modal = read(MODAL)
-    expect(modal).toMatch(/const FREE_LAUNCHES = 3/)
-    // The user-facing number is interpolated, not typed twice — a hardcoded
-    // "3" in the sentence would drift the moment the allowance changed.
-    expect(modal).toMatch(/\{FREE_LAUNCHES\}/)
+    expect(modal).not.toMatch(/FREE_LAUNCHES/)
+    expect(modal).not.toMatch(/anonLaunches/)
   })
 
-  it('fires on the fourth open, not the third', () => {
+  it('is required unless the e2e harness says otherwise', () => {
     const modal = read(MODAL)
-    // Strictly greater than: at anonLaunches === 3 the user is on their third
-    // open and still free. `>=` here would charge them a launch early.
-    expect(modal).toMatch(/const required = anonLaunches > FREE_LAUNCHES/)
+    expect(modal).toMatch(/const required = !anonymousAllowed/)
+  })
+
+  it('comes before first-run onboarding when required', () => {
+    const modal = read(MODAL)
+    expect(modal).toMatch(/if \(!manualOpen && !required && \(onboardingStatus === 'active' \|\| activeOnboardingModule\)\) return null/)
+  })
+})
+
+describe('anonymousLaunchAllowed — the harness-only exception', () => {
+  it('is never true for a packaged build', async () => {
+    const { anonymousLaunchAllowed } = await import('../../src/main/db/account')
+    expect(anonymousLaunchAllowed({ NODE_ENV: 'test', FB_TEST_USER_DATA: '/tmp/x' }, true)).toBe(false)
+  })
+  it('is true only for an unpackaged test build with a throwaway profile', async () => {
+    const { anonymousLaunchAllowed } = await import('../../src/main/db/account')
+    expect(anonymousLaunchAllowed({ NODE_ENV: 'test', FB_TEST_USER_DATA: '/tmp/x' }, false)).toBe(true)
+    expect(anonymousLaunchAllowed({ NODE_ENV: 'test' }, false)).toBe(false)
+    expect(anonymousLaunchAllowed({ NODE_ENV: 'development', FB_TEST_USER_DATA: '/tmp/x' }, false)).toBe(false)
+    expect(anonymousLaunchAllowed({}, false)).toBe(false)
+  })
+  it('can be switched off by a spec that tests the gate', async () => {
+    const { anonymousLaunchAllowed } = await import('../../src/main/db/account')
+    expect(
+      anonymousLaunchAllowed({ NODE_ENV: 'test', FB_TEST_USER_DATA: '/tmp/x', PLEXI_E2E_REQUIRE_ACCOUNT: '1' }, false)
+    ).toBe(false)
   })
 })
 
@@ -42,10 +70,11 @@ describe('every way past the modal closes', () => {
   })
 
   it('removes "Continue without account"', () => {
-    // Guarded by `required ?`, with an honest note in its place rather than a
-    // disabled control that reads as a bug.
+    // Guarded by `required ?`, with the website as the honest alternative in
+    // its place rather than a disabled control that reads as a bug.
     expect(modal).toMatch(/required \? \(/)
     expect(modal).toContain('account-required-note')
+    expect(modal).toContain('Continue in your browser')
   })
 
   it('removes the close button, with exactly one exception', () => {
@@ -139,9 +168,9 @@ describe('the counter', () => {
 describe('what the user is told', () => {
   const modal = read(MODAL)
 
-  it('uses the asked-for line', () => {
-    expect(modal).toContain('You seem to like us')
-    expect(modal).toContain('protect your work on Plexii')
+  it('says the account comes first and what verifying starts', () => {
+    expect(modal).toContain('Create your Plexii account')
+    expect(modal).toContain('Verify your email to start a 14-day trial with 300 AI credits.')
   })
 
   it('does not promise a backup that is opt-in', () => {

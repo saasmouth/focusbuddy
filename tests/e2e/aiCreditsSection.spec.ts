@@ -91,7 +91,7 @@ test('AI credits: chooser renders three modes, Automatic selected by default', a
 
   // Button labels must match the spec copy.
   await expect(autoBtn).toContainText('Automatic')
-  await expect(creditsBtn).toContainText('PlexiDesk credits')
+  await expect(creditsBtn).toContainText('Plexii credits')
   await expect(byokBtn).toContainText('Your own key')
 
   // Default mode is 'auto' — its button carries the accent/highlighted class.
@@ -112,7 +112,7 @@ test('AI credits: chooser renders three modes, Automatic selected by default', a
   // prompt is there).
   // In the signed-out path the balance card is NOT rendered; instead the sign-in
   // prompt is shown. Confirm the prompt text is present.
-  const signInPrompt = window.getByText(/sign in to your plexidesk account/i)
+  const signInPrompt = window.getByText(/sign in to your plexii account/i)
   await expect(signInPrompt).toBeVisible({ timeout: 3_000 })
 
   expect(pageErrors).toHaveLength(0)
@@ -157,7 +157,7 @@ test('AI credits: switching modes persists without error and Anthropic/OpenAI ro
   expect(autoClassAfter).toContain('bg-accent')
 
   // Signed-out prompt reappears.
-  await expect(window.locator('[data-testid="ai-source-section"]').getByText(/sign in to your plexidesk account/i)).toBeVisible({ timeout: 3_000 })
+  await expect(window.locator('[data-testid="ai-source-section"]').getByText(/sign in to your plexii account/i)).toBeVisible({ timeout: 3_000 })
 
   // --- Switch to PlexiDesk credits ---
   await creditsBtn.click()
@@ -167,7 +167,7 @@ test('AI credits: switching modes persists without error and Anthropic/OpenAI ro
   expect(creditsClassAfter).toContain('bg-accent')
 
   // Signed-out prompt still shows (user is not signed in).
-  await expect(window.locator('[data-testid="ai-source-section"]').getByText(/sign in to your plexidesk account/i)).toBeVisible({ timeout: 3_000 })
+  await expect(window.locator('[data-testid="ai-source-section"]').getByText(/sign in to your plexii account/i)).toBeVisible({ timeout: 3_000 })
 
   // Verify the Anthropic and OpenAI key rows are still present and unaffected.
   await window.evaluate(() => {
@@ -208,11 +208,12 @@ test('AI credits: signed-out + auto/credits modes show sign-in prompt, no crash'
 
   // Confirm 'auto' (the default) shows the sign-in prompt.
   const autoSection = window.locator('[data-testid="ai-source-section"]')
-  const signInPrompt = autoSection.getByText(/sign in to your plexidesk account/i)
+  const signInPrompt = autoSection.getByText(/sign in to your plexii account/i)
   await expect(signInPrompt).toBeVisible({ timeout: 5_000 })
 
-  // Also verify the $1 free credits copy is there.
-  const creditsNote = autoSection.getByText(/new accounts start with \$1/i)
+  // The growth-spec allowance copy (section 2: Free 100 a month, 300 trial
+  // credits on verification) replaced the old "$1 of free credits" line.
+  const creditsNote = autoSection.getByText(/300 bonus credits/i)
   await expect(creditsNote).toBeVisible({ timeout: 3_000 })
 
   // Switch to credits mode — same signed-out prompt must still show (no crash).
@@ -225,9 +226,9 @@ test('AI credits: signed-out + auto/credits modes show sign-in prompt, no crash'
   await expect(window.locator('[data-testid="ai-credit-balance"]')).toHaveCount(0)
 
   // Top-up buttons also should NOT be present when not signed in.
-  await expect(window.locator('[data-testid="ai-topup-5"]')).toHaveCount(0)
   await expect(window.locator('[data-testid="ai-topup-10"]')).toHaveCount(0)
-  await expect(window.locator('[data-testid="ai-topup-20"]')).toHaveCount(0)
+  await expect(window.locator('[data-testid="ai-topup-25"]')).toHaveCount(0)
+  await expect(window.locator('[data-testid="ai-topup-50"]')).toHaveCount(0)
 
   expect(pageErrors).toHaveLength(0)
 })

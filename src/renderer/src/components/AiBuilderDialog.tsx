@@ -4,6 +4,7 @@ import { catalogFor } from '../lib/widgetCatalog'
 import { useMagneticHover } from '../lib/useMagneticHover'
 import Icon from './Icon'
 import SuggestionPreview from './ai/SuggestionPreview'
+import CreditsMeter from './CreditsMeter'
 
 interface Props {
   taskId: string | null
@@ -11,6 +12,9 @@ interface Props {
   // Called when the user clicks "Add selected" — the picked subset is
   // returned. Caller spawns the widgets on the canvas (Canvas owns layout).
   onAccept: (selected: AiBuildSuggestion[]) => Promise<void>
+  // Text to start the prompt with (the demo → app handoff). The user still
+  // reads it and presses Generate: nothing runs, and nothing is spent, unasked.
+  initialPrompt?: string
 }
 
 type State =
@@ -27,8 +31,8 @@ type State =
 // Layout: split. Left side = the prompt input (top) + intent summary; right
 // side = scrollable suggestion cards with checkboxes. Bottom action bar with
 // "Generate again" and "Add selected".
-export default function AiBuilderDialog({ taskId, onClose, onAccept }: Props): JSX.Element {
-  const [prompt, setPrompt] = useState('')
+export default function AiBuilderDialog({ taskId, onClose, onAccept, initialPrompt }: Props): JSX.Element {
+  const [prompt, setPrompt] = useState(initialPrompt ?? '')
   const [state, setState] = useState<State>({ stage: 'prompt' })
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   // Magnetic refs for primary actions — the generate + apply buttons feel
@@ -109,6 +113,7 @@ export default function AiBuilderDialog({ taskId, onClose, onAccept }: Props): J
           <h3 className="text-base font-semibold text-[var(--ink-100)] flex-1">
             Build with AI
           </h3>
+          <CreditsMeter />
           <button onClick={onClose} className="icon-btn" aria-label="Close">
             <Icon name="close" size={16} />
           </button>

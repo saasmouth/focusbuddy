@@ -300,3 +300,19 @@ export function setCachedEmail(email: string | null): void {
     anonLaunches: cur.anonLaunches
   })
 }
+
+/**
+ * Whether this launch may run with no account at all.
+ *
+ * Growth spec section 3: the app requires an account on first launch, with no
+ * anonymous launches. The ONE exception is the e2e harness (tests/e2e/_helpers
+ * launchApp: an unpackaged build, NODE_ENV=test, a throwaway FB_TEST_USER_DATA
+ * profile), where hundreds of specs drive the app with no server to sign in to.
+ * A packaged build can never take it, whatever its environment says, and a spec
+ * that tests the gate itself sets PLEXI_E2E_REQUIRE_ACCOUNT=1 to switch it off.
+ */
+export function anonymousLaunchAllowed(env: NodeJS.ProcessEnv = process.env, packaged: boolean = app.isPackaged): boolean {
+  if (packaged) return false
+  if (env.PLEXI_E2E_REQUIRE_ACCOUNT === '1') return false
+  return env.NODE_ENV === 'test' && Boolean(env.FB_TEST_USER_DATA)
+}

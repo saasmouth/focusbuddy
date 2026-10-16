@@ -187,3 +187,23 @@ export function isTrialCreditsExhausted(input: {
   if (input.error?.error === 'out_of_credits') return true
   return input.balance !== null && input.balance <= 0
 }
+
+/** The credit state main reports to the renderer (creditMode.getAiStatus). */
+export interface AiCreditStatus {
+  mode: 'auto' | 'credits' | 'byok'
+  signedIn: boolean
+  hasOwnKey: boolean
+  balance: number | null
+  balanceUsd: number | null
+  buckets: CreditBucket[]
+  allowance: number | null
+  resetsAt: number | null
+  plan: CreditPlan | null
+  outOfCredits: boolean
+  proxyAvailable: boolean
+  verificationRequired: boolean
+  lastError: CreditError | null
+}
+
+/** A refusal from the credits proxy, forwarded to the renderer. */
+export type AiCreditEvent = CreditError & { status: AiCreditStatus }

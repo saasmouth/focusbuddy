@@ -7,8 +7,9 @@
 import { useEffect, useState } from 'react'
 import { useAccountStore } from '../../stores/account'
 import { useSignInPrompt } from '../../stores/signInPrompt'
-import { useCapabilityStore, useStoredTier, useTrial } from '../../stores/capabilities'
-import { planLabel, trialSuffix } from '../../lib/planDisplay'
+import { useCapabilityStore, usePlan, useTrial } from '../../stores/capabilities'
+import { fundedPlanLabel, trialSuffix } from '../../lib/planDisplay'
+import ReferralPanel from './ReferralPanel'
 import { personDisplayName, personInitials } from '../../lib/personName'
 import Icon from '../Icon'
 import TwoFactorSettings from './TwoFactorSettings'
@@ -23,7 +24,9 @@ export default function AccountSection(): JSX.Element {
   // paying Pro subscriber they were on Team — and told a free trialist the
   // same. Entitlement checks still use effectiveTier; this is a statement of
   // fact about the account, so it comes from storedTier.
-  const storedTier = useStoredTier()
+  // The PLAN, so Pro+ reads as Pro+ (its features use Pro's column).
+  const plan = usePlan()
+  const creditPaidUntil = useCapabilityStore((s) => s.creditPaidUntil)
   const trial = useTrial()
   const refreshCaps = useCapabilityStore((s) => s.refresh)
   const [busy, setBusy] = useState(false)
@@ -70,7 +73,8 @@ export default function AccountSection(): JSX.Element {
     }
   }
 
-  const label = planLabel(storedTier)
+  // "Pro (paid with credit until …)" when the referral credit bank pays for it.
+  const label = fundedPlanLabel(plan, creditPaidUntil)
   const trialNote = trialSuffix(trial)
 
   return (
@@ -96,7 +100,7 @@ export default function AccountSection(): JSX.Element {
                 {account.email}
                 <span className="mx-1.5 text-[var(--ink-40)]">·</span>
                 <span data-testid="account-plan">
-                  {label} plan
+                  {label.includes('(') ? label : `${label} plan`}
                   {trialNote}
                 </span>
               </div>
@@ -152,6 +156,8 @@ export default function AccountSection(): JSX.Element {
             disconnects shared-item sync and your plan until you sign back in.
           </p>
           <TwoFactorSettings />
+
+          <ReferralPanel />
         </div>
       ) : (
         <div className="space-y-2.5">

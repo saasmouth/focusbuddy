@@ -5,13 +5,14 @@
 // copy instead of each feature rolling its own.
 
 import { create } from 'zustand'
+import type { PaidPlanId } from '../lib/plans'
 
 interface UpgradePromptStore {
   // The feature/reason being gated, or null when the modal is closed.
   reason: string | null
   // Optional: the tier that would unlock it (for copy like "available on Pro").
-  requiredTier: 'pro' | 'team' | null
-  promptUpgrade: (reason: string, requiredTier?: 'pro' | 'team') => void
+  requiredTier: PaidPlanId | null
+  promptUpgrade: (reason: string, requiredTier?: PaidPlanId) => void
   dismiss: () => void
 }
 
@@ -23,6 +24,6 @@ export const useUpgradePromptStore = create<UpgradePromptStore>((set) => ({
 }))
 
 /** Imperative helper for non-component call sites (stores, handlers). */
-export function promptUpgrade(reason: string, requiredTier: 'pro' | 'team' = 'pro'): void {
+export function promptUpgrade(reason: string, requiredTier: PaidPlanId = 'pro'): void {
   useUpgradePromptStore.getState().promptUpgrade(reason, requiredTier)
 }

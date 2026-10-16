@@ -24,6 +24,8 @@ import { canCreateMore, canCreateWidget, limitFor } from '../lib/gating'
 import { signalConfig } from '../lib/signalConfig'
 import { useAccountStore } from './account'
 import { useOrgStore, PERSONAL_ORG_ID } from './org'
+import { planIdOf, tierForPlan, type PlanId } from '../lib/plans'
+import { toEpochMs } from '@shared/aiCredits'
 
 // Trial envelope shape from /account/capabilities. The desktop reads
 // this to render the footer badge and the "Trial ended" modal. Server
@@ -46,6 +48,17 @@ interface CapabilityStore {
   // Useful for upgrade UX so we can show "You're currently on Free —
   // upgrade to Pro to keep these features after your trial."
   storedTier: TierId
+  // The PLAN stored against the account — what it pays for. Differs from
+  // storedTier only for Pro+, which reads Pro's capability column but is its
+  // own plan (price, allowance, Opus). Labels and upsells read this.
+  plan: PlanId
+  // Whether the account's email is verified (growth spec section 3). null when
+  // the server did not say (an older server): treated as verified, because
+  // accounts that existed before verification count as verified.
+  emailVerified: boolean | null
+  // When the plan is paid from the referral credit bank (section 4b), the date
+  // the bank covers it until. null otherwise.
+  creditPaidUntil: number | null
   trial: TrialState
   capabilities: Record<string, CapabilityValue>
   // Per-capability provenance from the server ('default'|'tier'|'org'|'user').
@@ -115,6 +128,9 @@ export const useCapabilityStore = create<CapabilityStore>((set, get) => ({
   tier: 'free',
   effectiveTier: 'free',
   storedTier: 'free',
+  plan: 'free',
+  emailVerified: null,
+  creditPaidUntil: null,
   trial: DEFAULT_TRIAL,
   capabilities: localMap('free'),
   sources: {},
@@ -129,6 +145,7 @@ export const useCapabilityStore = create<CapabilityStore>((set, get) => ({
         tier: forced,
         effectiveTier: forced,
         storedTier: forced,
+        plan: forced,
         trial: DEFAULT_TRIAL,
         capabilities: localMap(forced),
         loadedAt: Date.now(),
@@ -142,6 +159,9 @@ export const useCapabilityStore = create<CapabilityStore>((set, get) => ({
         tier: 'free',
         effectiveTier: 'free',
         storedTier: 'free',
+        plan: 'free',
+        emailVerified: null,
+        creditPaidUntil: null,
         trial: DEFAULT_TRIAL,
         capabilities: localMap('free'),
         sources: {},
@@ -171,6 +191,9 @@ export const useCapabilityStore = create<CapabilityStore>((set, get) => ({
             tier: 'free',
             effectiveTier: 'free',
             storedTier: 'free',
+            plan: 'free',
+            emailVerified: null,
+            creditPaidUntil: null,
             trial: DEFAULT_TRIAL,
             capabilities: localMap('free'),
             sources: {},
@@ -197,18 +220,29 @@ export const useCapabilityStore = create<CapabilityStore>((set, get) => ({
         capabilities?: Record<string, CapabilityValue>
         sources?: Record<string, CapabilitySource>
         orgRole?: string | null
+        // Growth (Oct 2026) fields; absent on older servers.
+        plan?: string
+        emailVerified?: boolean
+        creditPaidUntil?: number | string | null
       }
       if (!body.ok || !body.tier || !body.capabilities) {
         set({ error: 'Unexpected /account/capabilities shape' })
         return
       }
-      const effectiveTier = body.effectiveTier ?? body.tier
-      const storedTier = body.storedTier ?? body.tier
+      // A server may send 'proplus' as a tier; the capability matrix has no
+      // such column, so tiers go through tierForPlan and the plan is kept apart.
+      const rawStored = (body.storedTier ?? body.tier) as string
+      const plan = planIdOf(body.plan ?? rawStored)
+      const effectiveTier = tierForPlan(planIdOf(body.effectiveTier ?? body.tier))
+      const storedTier = tierForPlan(planIdOf(rawStored))
       const trial = body.trial ?? DEFAULT_TRIAL
       set({
         tier: effectiveTier,
         effectiveTier,
         storedTier,
+        plan,
+        emailVerified: typeof body.emailVerified === 'boolean' ? body.emailVerified : null,
+        creditPaidUntil: toEpochMs(body.creditPaidUntil),
         trial,
         capabilities: body.capabilities,
         sources: body.sources ?? {},
@@ -233,6 +267,16 @@ export const useCapabilityStore = create<CapabilityStore>((set, get) => ({
  */
 export function useTrial(): TrialState {
   return useCapabilityStore((s) => s.trial)
+}
+
+/** Hook — the plan the account is on (Pro+ distinct from Pro), for labels. */
+export function usePlan(): PlanId {
+  return useCapabilityStore((s) => s.plan)
+}
+
+/** Hook — false only when the server says the email is NOT verified yet. */
+export function useEmailUnverified(): boolean {
+  return useCapabilityStore((s) => s.emailVerified === false)
 }
 
 /** Hook — current stored tier, for upgrade-affordance copy. */

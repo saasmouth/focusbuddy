@@ -13,6 +13,8 @@ export interface ServerAccount {
   lastName: string | null
   createdAt: number
   lastLoginAt: number | null
+  // Growth spec section 3. Absent on older servers (treated as verified).
+  emailVerified?: boolean
 }
 
 export interface InboxItemFromServer {
@@ -193,7 +195,7 @@ export interface UpgradeStart {
 }
 
 export async function startUpgrade(
-  plan: 'pro' | 'team',
+  plan: 'pro' | 'proplus' | 'team',
   interval: 'month' | 'year',
   token: string
 ): Promise<UpgradeStart | null> {
@@ -354,5 +356,116 @@ export async function dismissInbox(token: string, id: string): Promise<void> {
     })
   } catch {
     // ignore
+  }
+}
+
+// ── Email verification (growth spec section 3) ──────────────────────────────
+//
+// New accounts get a 6-digit code by email. The app works unverified, without
+// managed AI; the 14-day trial and its 300 AI credits start on verification.
+
+export type VerifyResult = { ok: true } | { ok: false; error: string; network?: boolean }
+
+async function postAction(path: string, body: unknown, token: string, fallback: string): Promise<VerifyResult> {
+  try {
+    const { res, json } = await postJson<{ ok?: boolean; error?: string; message?: string }>(path, body, token)
+    if (res.ok && json?.ok !== false) return { ok: true }
+    if (res.status === 429) {
+      return { ok: false, error: json?.error || json?.message || 'Too many attempts. Wait a minute and try again.' }
+    }
+    return { ok: false, error: json?.error || json?.message || `${fallback} (${res.status}).` }
+  } catch (err) {
+    return { ok: false, error: `Could not reach the server: ${(err as Error).message}`, network: true }
+  }
+}
+
+/** POST /auth/verify-email { code } */
+export function verifyEmail(token: string, code: string): Promise<VerifyResult> {
+  return postAction('/auth/verify-email', { code }, token, 'That code did not work')
+}
+
+/** POST /auth/resend-verification — limited by the server to 1 a minute, 10 a day. */
+export function resendVerification(token: string): Promise<VerifyResult> {
+  return postAction('/auth/resend-verification', {}, token, 'Could not send a new code')
+}
+
+// ── Referrals and the credit bank (growth spec sections 4 and 4b) ───────────
+
+export interface ReferralSummary {
+  code: string
+  link: string
+  invited: number
+  qualified: number
+  /** US$ of credit in the bank, spendable on a plan. Not AI credits. */
+  creditBankUsd: number
+  /** US$ earned in the last 12 months, against creditCapUsd. */
+  creditEarnedUsd12m: number
+  creditCapUsd: number
+  /** When a plan funded by the bank is paid until, if one is. */
+  creditPaidUntil: number | null
+}
+
+function n(v: unknown): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0
+}
+
+/** Parse GET /referrals. Null when the body lacks the code and link. */
+export function parseReferrals(body: unknown): ReferralSummary | null {
+  if (!body || typeof body !== 'object') return null
+  const b = body as Record<string, unknown>
+  if (typeof b.code !== 'string' || typeof b.link !== 'string' || !b.code || !b.link) return null
+  let paidUntil: number | null = null
+  if (typeof b.creditPaidUntil === 'number') paidUntil = b.creditPaidUntil < 1e11 ? b.creditPaidUntil * 1000 : b.creditPaidUntil
+  else if (typeof b.creditPaidUntil === 'string') {
+    const t = Date.parse(b.creditPaidUntil)
+    paidUntil = Number.isNaN(t) ? null : t
+  }
+  return {
+    code: b.code,
+    link: b.link,
+    invited: n(b.invited),
+    qualified: n(b.qualified),
+    creditBankUsd: n(b.creditBankUsd),
+    creditEarnedUsd12m: n(b.creditEarnedUsd12m),
+    creditCapUsd: typeof b.creditCapUsd === 'number' ? b.creditCapUsd : 144,
+    creditPaidUntil: paidUntil
+  }
+}
+
+export type ReferralsResult =
+  | { status: 'ok'; data: ReferralSummary }
+  | { status: 'unavailable'; error: string }
+
+export async function getReferrals(token: string): Promise<ReferralsResult> {
+  try {
+    const { res, json } = await getJson<unknown>('/referrals', token)
+    if (res.status === 404) return { status: 'unavailable', error: 'Referrals are not available on this server yet.' }
+    if (!res.ok) return { status: 'unavailable', error: `Could not load your referral link (${res.status}).` }
+    const data = parseReferrals(json)
+    return data ? { status: 'ok', data } : { status: 'unavailable', error: 'The server sent an unexpected referral response.' }
+  } catch (err) {
+    return { status: 'unavailable', error: `Could not reach the server: ${(err as Error).message}` }
+  }
+}
+
+/** POST /account/credit-bank/redeem { plan } — Free users activate a plan with bank credit. */
+export function redeemCreditBank(token: string, plan: 'pro' | 'proplus' | 'team'): Promise<VerifyResult> {
+  return postAction('/account/credit-bank/redeem', { plan }, token, 'Could not use your credit')
+}
+
+// ── Demo → app handoff (growth spec section 7) ──────────────────────────────
+
+/**
+ * GET /account/pending-build → { prompt } or 204. The server clears it on read,
+ * so this is called once per account and the result used immediately.
+ */
+export async function takePendingBuild(token: string): Promise<string | null> {
+  try {
+    const { res, json } = await getJson<{ prompt?: unknown }>('/account/pending-build', token)
+    if (res.status !== 200 || !json) return null
+    const p = typeof json.prompt === 'string' ? json.prompt.trim() : ''
+    return p ? p.slice(0, 500) : null
+  } catch {
+    return null
   }
 }

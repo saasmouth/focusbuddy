@@ -210,7 +210,7 @@ test('UpgradePromptModal: dialog semantics, Escape closes, focus restores to the
   await expect(upgradeDialog).toBeVisible({ timeout: 5_000 })
   await expect(upgradeDialog).toHaveAttribute('role', 'dialog')
   await expect(upgradeDialog).toHaveAttribute('aria-modal', 'true')
-  await expect(upgradeDialog).toHaveAttribute('aria-label', /Pro feature/i)
+  await expect(upgradeDialog).toHaveAttribute('aria-label', /Upgrade to Pro/i)
 
   // Original content survived the wrap.
   await expect(upgradeDialog.locator('[data-testid="upgrade-reason"]')).toHaveText('PlexiDesk Pro')

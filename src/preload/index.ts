@@ -115,25 +115,7 @@ import type { Meeting, MeetingDraft, MeetingPatch, MeetingPrep, TranscriptSearch
 import type { PlexiApp, PlexiAppDraft, PlexiAppPatch } from '@shared/apps'
 import type { PlexiForm, PlexiFormDraft, PlexiFormPatch } from '@shared/forms'
 import type { PlexiSignRequest, PlexiSignDraft, PlexiSignPatch, SignAction } from '@shared/sign'
-import type { CreditBucket, CreditError, CreditPlan } from '@shared/aiCredits'
-
-/** The credit state main reports (src/main/ai/creditMode.ts getAiStatus). */
-export interface AiCreditStatus {
-  mode: 'auto' | 'credits' | 'byok'
-  signedIn: boolean
-  hasOwnKey: boolean
-  balance: number | null
-  balanceUsd: number | null
-  buckets: CreditBucket[]
-  allowance: number | null
-  resetsAt: number | null
-  plan: CreditPlan | null
-  outOfCredits: boolean
-  proxyAvailable: boolean
-  verificationRequired: boolean
-  lastError: CreditError | null
-}
-export type AiCreditEvent = CreditError & { status: AiCreditStatus }
+import type { AiCreditStatus, AiCreditEvent } from '@shared/aiCredits'
 
 type VaultResult = { ok: true } | { ok: false; error: string }
 
@@ -468,8 +450,10 @@ const api = {
       sessionToken: string | null
       skippedAt: number | null
       cachedEmail: string | null
-      /** App starts made with no account. The 4th is where signing up stops being optional. */
+      /** App starts made with no account (kept by main; the gate no longer reads it). */
       anonLaunches: number
+      /** Only true in the e2e harness: every real launch requires an account. */
+      anonymousAllowed?: boolean
     }> => ipcRenderer.invoke('account:load'),
     saveSession: (input: { token: string; email: string | null }): Promise<void> =>
       ipcRenderer.invoke('account:saveSession', input),

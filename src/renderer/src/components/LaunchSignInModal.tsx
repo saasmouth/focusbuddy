@@ -5,40 +5,40 @@ import { useAccountStore } from '../stores/account'
 import { useSignInPrompt } from '../stores/signInPrompt'
 import { useOnboarding } from '../stores/onboarding'
 import { signalConfig } from '../lib/signalConfig'
-import { forgotPasswordUrl } from '../lib/siteUrls'
+import { forgotPasswordUrl, webAccountUrl } from '../lib/siteUrls'
 import Icon from './Icon'
 
-// LaunchSignInModal — appears on app boot when the user isn't signed in
-// and hasn't recently skipped the modal.
+// LaunchSignInModal — appears on app boot when the user isn't signed in.
 //
 // Two tabs:
 //   - Log in (default if cachedEmail exists)
 //   - Sign up
+// plus "Continue in your browser" for people who would rather sign up on the
+// website, which hands the session back over the existing plexii://auth link.
 //
-// Plus a calm "Continue without account" button so existing users who
-// were happy local-only aren't forced into an account. Their choice is
-// remembered for a week (see SKIP_TTL_MS) — after that, the modal
-// surfaces again because eventually most users want shares to sync.
+// An account is required from the FIRST launch (growth spec section 3,
+// owner decision 2026-10-16). This replaced "three opens free, then required":
+// the trial and its AI credits now start when the email is verified, so the
+// account is what the first session is built on rather than a toll on the
+// fourth. There is no skip, no close button and no per-session dismiss.
+// Two exceptions, each justified where it is used:
+//   - the server cannot be reached (the app is local-first; an outage must not
+//     lock anyone out of their own desks), and
+//   - the e2e harness (main: anonymousLaunchAllowed), which keeps the old
+//     "Continue without account" so specs can drive the app with no server.
 //
 // All auth goes through the signal server's /accounts/signup and
 // /accounts/login endpoints (see lib/accountClient.ts).
 
+// Only reachable in the e2e harness, where "Continue without account" still
+// exists: the skip is remembered for a week there, as it was for everyone.
 const SKIP_TTL_MS = 7 * 24 * 60 * 60 * 1000 // one week
-
-// Three opens without an account are free. On the fourth, the modal stops
-// offering a way past itself.
-//
-// The ask is deliberately late. Someone who has opened PlexiDesk four times has
-// come back three times after the first look — the prompt lands on a person who
-// has decided they like it, not on a stranger being charged a toll at the door.
-// Earlier would convert worse and read worse.
-const FREE_LAUNCHES = 3
 
 export default function LaunchSignInModal(): JSX.Element | null {
   const bootStatus = useAccountStore((s) => s.bootStatus)
   const account = useAccountStore((s) => s.account)
   const skippedAt = useAccountStore((s) => s.skippedAt)
-  const anonLaunches = useAccountStore((s) => s.anonLaunches)
+  const anonymousAllowed = useAccountStore((s) => s.anonymousAllowed)
   const cachedEmail = useAccountStore((s) => s.cachedEmail)
   const signupAction = useAccountStore((s) => s.signup)
   const loginAction = useAccountStore((s) => s.login)
@@ -130,15 +130,16 @@ export default function LaunchSignInModal(): JSX.Element | null {
   //  - User dismissed in this session.
   if (bootStatus !== 'ready') return null
   if (account) return null
-  // Don't stack on top of first-run onboarding. A fresh user does the welcome +
-  // API-key + starter flow first; the account prompt waits until that's done.
-  if (!manualOpen && (onboardingStatus === 'active' || activeOnboardingModule)) return null
+  // An account is required on every real launch; only the e2e harness may run
+  // without one. Required, the skip, the weekly throttle and the per-session
+  // dismiss all stop applying, because each is a way out.
+  const required = !anonymousAllowed
+  // Required, the account comes FIRST, ahead of first-run onboarding (this
+  // modal sits above it at z-280): onboarding's AI steps need an account to
+  // run on managed credits. Only the harness keeps the old order.
+  if (!manualOpen && !required && (onboardingStatus === 'active' || activeOnboardingModule)) return null
   // A manual open (from Settings) overrides the skip/dismiss throttling — the
   // user explicitly asked to sign in, so always show it in that case.
-  // Past the free launches, an account is required: the skip, the weekly
-  // throttle and the per-session dismiss all stop applying, because every one
-  // of them is a way out and there is no longer meant to be one.
-  const required = anonLaunches > FREE_LAUNCHES
   if (!manualOpen && !required) {
     if (dismissedThisSession) return null
     if (skippedAt && Date.now() - skippedAt < SKIP_TTL_MS) return null
@@ -181,9 +182,8 @@ export default function LaunchSignInModal(): JSX.Element | null {
         return
       }
       if (result.code === 'NETWORK') {
-        // This message used to be a lie past the free launches: the close button
-        // is hidden when an account is required, so there was no way to
-        // "continue" at all.
+        // This message used to be a lie when an account was required: the close
+        // button is hidden then, so there was no way to "continue" at all.
         setServerUnreachable(true)
         setError(
           'Could not reach the PlexiDesk server. Your desks are on this machine, so you can carry on offline and sign in when it is back.'
@@ -241,21 +241,21 @@ export default function LaunchSignInModal(): JSX.Element | null {
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-[15px] font-semibold text-stone-100 tracking-[0.04em]">
-              {required
-                ? 'You seem to like us'
-                : mode === 'login'
-                  ? 'Welcome back'
-                  : 'Sign in to PlexiDesk'}
+              {mode === 'login'
+                ? 'Welcome back'
+                : required
+                  ? 'Create your Plexii account'
+                  : 'Sign in to Plexii'}
             </h2>
             <p className="text-[11px] text-stone-400">
               {/* Says what an account actually does. "Protect your work" on its
                   own would promise a backup nobody has turned on — sync is
                   opt-in — and a promise the product does not keep is a bad
                   first thing to say to someone on their fourth visit. */}
-              {required
-                ? 'Create an account to protect your work on Plexii — so it can be recovered, synced and shared, rather than living only on this machine.'
-                : mode === 'login'
-                  ? 'Sign in to sync shared items across your devices.'
+              {mode === 'login'
+                ? 'Sign in to pick up where you left off.'
+                : required
+                  ? 'Plexii starts with an account, so your work can be recovered, synced and shared. Verify your email to start a 14-day trial with 300 AI credits.'
                   : 'Create an account to receive shares and sync across your devices.'}
             </p>
           </div>
@@ -492,18 +492,24 @@ export default function LaunchSignInModal(): JSX.Element | null {
 
           <div className="pt-1 flex items-center justify-between gap-2">
             {required ? (
-              // No skip past this point. Leaving a disabled or hidden-but-present
-              // control here would read as a bug; saying plainly that the free
-              // opens are used up is the honest version of the same screen.
-              <span className="text-[11px] text-stone-500" data-testid="account-required-note">
-                Your first {FREE_LAUNCHES} opens were on us.
-              </span>
+              // No skip. In its place, the other honest way in: the website.
+              <button
+                type="button"
+                onClick={() =>
+                  void window.api.files.openExternal(webAccountUrl(mode, email))
+                }
+                className="text-[11px] text-stone-400 hover:text-stone-100 transition-colors"
+                data-testid="account-required-note"
+                title="Sign up or sign in on plexiidesk.com; the site signs this app in when you are done."
+              >
+                Continue in your browser
+              </button>
             ) : (
               <button
                 type="button"
                 onClick={() => void handleSkip()}
                 className="text-[11px] text-stone-400 hover:text-stone-100 transition-colors"
-                title="Use PlexiDesk locally without an account. You can sign in later from Settings."
+                title="Test harness only: use Plexii without an account."
               >
                 Continue without account
               </button>
