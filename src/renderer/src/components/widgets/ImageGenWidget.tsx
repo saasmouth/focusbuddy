@@ -167,7 +167,7 @@ export default function ImageGenWidget({
               onClick={() => void placeOnDesk()}
               className="fb-t-caption px-1.5 py-0.5 rounded border border-[var(--edge-soft)] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
               data-testid="image-gen-place"
-              title="Add this image to the desk as its own widget"
+              title="Add this image to the desk as its own work widget"
             >
               Add to desk
             </button>

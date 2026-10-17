@@ -581,7 +581,7 @@ function FocusModeInner(): JSX.Element | null {
         ? chromeTab === 'add'
           ? 'Add'
           : 'AI Chat'
-        : widget.title || entry?.label || 'Widget'
+        : widget.title || entry?.label || 'Work widget'
   // Add tab → focus the freshly created/opened widget: leave the chrome tab,
   // select the new widget, and slide the deck to it so it reads as "you just
   // opened this document." The widget list updates via the store, so setFocused
@@ -779,7 +779,7 @@ function FocusModeInner(): JSX.Element | null {
           <button
             onClick={(e) => { e.stopPropagation(); goPrev() }}
             className="fb-focus-nav-btn left-3"
-            aria-label="Previous widget (←)"
+            aria-label="Previous work widget (←)"
             title="Previous (←)"
             data-testid="focus-nav-prev"
           >
@@ -905,7 +905,7 @@ function FocusModeInner(): JSX.Element | null {
           <button
             onClick={(e) => { e.stopPropagation(); goNext() }}
             className="fb-focus-nav-btn right-3"
-            aria-label="Next widget (→)"
+            aria-label="Next work widget (→)"
             title="Next (→)"
             data-testid="focus-nav-next"
           >

@@ -75,7 +75,7 @@ export default function WidgetFileView({ fileId }: { fileId: string }): JSX.Elem
     return (
       <div className="h-full flex flex-col items-center justify-center gap-2 text-center p-8" data-testid="widget-file-missing">
         <Icon name="link_off" size={28} className="text-[var(--ink-40)]" />
-        <p className="text-[14px] text-[var(--ink-70)]">This widget file no longer exists.</p>
+        <p className="text-[14px] text-[var(--ink-70)]">This work widget file no longer exists.</p>
         <p className="text-[12px] text-[var(--ink-40)]">It may be in the Documents trash, or was deleted on another device.</p>
         <button className="fb-btn-surface text-[12px] px-3 py-1.5" onClick={() => useViewStore.getState().goFiles()}>
           Go to Files

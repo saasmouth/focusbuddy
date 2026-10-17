@@ -413,7 +413,7 @@ export function widgetToText(w: Widget, r: WidgetTextResolvers = {}): WidgetText
       // widget findable by everything and nothing.
       const p = safeParse<{ spec?: string; state?: Record<string, unknown> }>(raw)
       const spec = typeof p?.spec === 'string' ? p.spec.trim() : ''
-      if (!spec) return { ...base, text: 'Custom widget (not built yet)' }
+      if (!spec) return { ...base, text: 'Custom work widget (not built yet)' }
       // Whatever the user typed INTO the widget is real content too, so a value
       // entered in a custom tool is searchable like any other widget's.
       const entered: string[] = []
@@ -424,7 +424,7 @@ export function widgetToText(w: Widget, r: WidgetTextResolvers = {}): WidgetText
       }
       return {
         ...base,
-        text: squash([`Custom widget: ${spec}`, ...entered].join('\n'))
+        text: squash([`Custom work widget: ${spec}`, ...entered].join('\n'))
       }
     }
 

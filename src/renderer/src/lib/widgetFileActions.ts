@@ -39,7 +39,7 @@ export async function applyCreateWidgetFile(
 ): Promise<ApplyResultLike> {
   const label = catalogFor(p.widgetKind)?.label ?? p.widgetKind
   if (!canCreateWidget(useCapabilityStore.getState().capabilities, p.widgetKind)) {
-    return { ok: false, message: `The ${label} widget is not available on your plan.` }
+    return { ok: false, message: `The ${label} work widget is not available on your plan.` }
   }
   let content: string
   switch (p.widgetKind) {
@@ -94,7 +94,7 @@ export async function applyUpdateWidgetFile(
   let fileId = p.fileId
   if (fileId.startsWith('$')) {
     const resolved = ctx.resolvedIds?.get(fileId.slice(1))
-    if (!resolved) return { ok: false, message: 'This edit refers to a widget file that was not created — try again.' }
+    if (!resolved) return { ok: false, message: 'This edit refers to a work widget file that was not created — try again.' }
     fileId = resolved
   }
   const store = useWidgetFilesStore.getState()
@@ -106,7 +106,7 @@ export async function applyUpdateWidgetFile(
   if (p.text) {
     const next = mergeText(file.kind, file.content, p.text, op)
     if (next === null) {
-      return { ok: false, message: `${p.label} is a ${file.kind} — its own widget AI changes what it shows, not text.` }
+      return { ok: false, message: `${p.label} is a ${file.kind} — its own work widget AI changes what it shows, not text.` }
     }
     await store.update(file.id, { content: next })
     done.push(op === 'replace' ? 'rewrote the text' : 'added the text')

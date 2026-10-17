@@ -294,7 +294,7 @@ const LIST_SHAPED_KINDS: ReadonlySet<WidgetKind> = new Set<WidgetKind>([
 ])
 
 function summarizeWidgets(widgets: Widget[]): string {
-  if (widgets.length === 0) return '(no widgets on the canvas yet)'
+  if (widgets.length === 0) return '(no work widgets on the canvas yet)'
   const resolvers = mainWidgetResolvers()
   const lines: string[] = []
   for (const w of widgets.slice(0, DESK_INDEX_WIDGET_CAP)) {
@@ -370,7 +370,7 @@ function summarizeWidgets(widgets: Widget[]): string {
   // every one of the 30 was in fact listed — a lie in the other direction.
   if (widgets.length > DESK_INDEX_WIDGET_CAP) {
     lines.push(
-      `- (+${widgets.length - DESK_INDEX_WIDGET_CAP} more widgets not listed — the desk index caps at ${DESK_INDEX_WIDGET_CAP})`
+      `- (+${widgets.length - DESK_INDEX_WIDGET_CAP} more work widgets not listed — the desk index caps at ${DESK_INDEX_WIDGET_CAP})`
     )
   }
   return lines.join('\n')
@@ -398,7 +398,7 @@ function summarizeLinks(taskId: string, widgets: Widget[]): string {
     return `  ${lk.sourceWidgetId}(${srcKind}) ${rel} ${lk.targetWidgetId}(${tgtKind})`
   })
   if (links.length > MAX_LINKS) lines.push(`  (+${links.length - MAX_LINKS} more links)`)
-  return 'Live wires between widgets (typed relationships):\n' + lines.join('\n')
+  return 'Live wires between work widgets (typed relationships):\n' + lines.join('\n')
 }
 
 // DEC-032: a model-supplied desk target, taken only when it is a non-empty
@@ -424,7 +424,7 @@ function taskBlock(taskId: string): string {
       ? `Estimate: ${node.estimateMinutes} min (extensions: ${node.extensionsMinutes} min)`
       : '',
     '',
-    'Widgets on the desk:',
+    'Work widgets on the desk:',
     summarizeWidgets(widgets),
     linksSummary || ''
   ].filter(Boolean)
@@ -464,13 +464,13 @@ export const ACTION_KINDS_CATALOG =
   '\n' +
   '  { "kind": "create-todo-list", "title": "Launch checklist", "items": ["Buy hosting", "Record pilot"], "reason": "the launch has seven moving parts and nothing is tracking them" }\n' +
   '  { "kind": "open-url", "url": "https://docs.google.com/...", "title": "Brief draft", "reason": "this is the brief you referred to, so you do not have to find it again" }  (An EXTERNAL web address only — the url MUST begin http:// or https://. Never use this for anything INSIDE Plexii: to make a page use create-page, and to OPEN something that already exists use drill-in-widget / focus-widget / navigate-to below.)\n' +
-  '  { "kind": "drill-in-widget", "widgetId": "the id from the desk index", "label": "Email sequences", "reason": "you are working inside this one, and full screen hides the rest" }  (Opens ONE widget full-screen in focus mode. This is what "open X in focus view", "show me X full screen", "zoom into X" mean.)\n' +
-  '  { "kind": "focus-widget", "widgetId": "the id from the desk index", "label": "Email sequences", "reason": "you asked where it is, so this points at it rather than opening it" }  (Scrolls the canvas to a widget and highlights it, leaving the desk in view. Use when the user wants to be SHOWN where something is rather than to open it.)\n' +
+  '  { "kind": "drill-in-widget", "widgetId": "the id from the desk index", "label": "Email sequences", "reason": "you are working inside this one, and full screen hides the rest" }  (Opens ONE work widget full-screen in focus mode. This is what "open X in focus view", "show me X full screen", "zoom into X" mean.)\n' +
+  '  { "kind": "focus-widget", "widgetId": "the id from the desk index", "label": "Email sequences", "reason": "you asked where it is, so this points at it rather than opening it" }  (Scrolls the canvas to a work widget and highlights it, leaving the desk in view. Use when the user wants to be SHOWN where something is rather than to open it.)\n' +
   '  { "kind": "navigate-to", "target": "documents"|"desks"|"files"|"mail"|"calendar"|"knowledge"|"home", "targetId": "optional exact id", "label": "Documents", "reason": "the document you just asked about lives here" }  (Goes to a place in Plexii. For a specific document use target "documents" with its id.)\n' +
-  '  { "kind": "toggle-todo-item", "widgetId": "the id from the desk index", "widgetLabel": "Launch checklist", "itemMatch": "Record pilot", "checked": true, "reason": "you said the pilot is recorded, so the checklist is out of date" }  (Ticks or un-ticks ONE item in a Markdown or Page widget\'s task list. "itemMatch" is a distinctive piece of the item\'s text, matched case-insensitively as a substring — quote enough of the line to be unambiguous. This is what "mark X as done", "tick off X", "uncheck X" mean.)\n' +
+  '  { "kind": "toggle-todo-item", "widgetId": "the id from the desk index", "widgetLabel": "Launch checklist", "itemMatch": "Record pilot", "checked": true, "reason": "you said the pilot is recorded, so the checklist is out of date" }  (Ticks or un-ticks ONE item in a Markdown or Page work widget\'s task list. "itemMatch" is a distinctive piece of the item\'s text, matched case-insensitively as a substring — quote enough of the line to be unambiguous. This is what "mark X as done", "tick off X", "uncheck X" mean.)\n' +
   '  { "kind": "add-subtask", "title": "Call the vendor", "notes": "optional detail", "parentId": "optional task id, omit for the desk the user is on", "dueDate": 1790000000000, "assignee": "optional", "reason": "this came up as a follow-up and would otherwise be lost in the thread" }  (Adds a subtask under the desk the user is already on. Use this, NOT create-task, when they want another item on the thing in front of them — create-task makes a whole new desk.)\n' +
-  '  { "kind": "arrange-widgets", "widgetIds": ["optional ids"], "label": "Tidy up", "reason": "eleven widgets overlap, so the desk is hard to read" }  (Auto-layouts widgets into a tidy grid. Omit "widgetIds" to arrange every unpinned widget on the desk, which is what "tidy this up" / "clean up this desk" mean.)\n' +
-  '  { "kind": "create-section", "name": "Research", "widgetIds": ["id1","id2"], "reason": "these four are all research and clutter the desk separately" }  (Groups EXISTING widgets into a labelled Section on the desk. Both fields are required — a section needs a name and something to hold.)\n' +
+  '  { "kind": "arrange-widgets", "widgetIds": ["optional ids"], "label": "Tidy up", "reason": "eleven work widgets overlap, so the desk is hard to read" }  (Auto-layouts work widgets into a tidy grid. Omit "widgetIds" to arrange every unpinned work widget on the desk, which is what "tidy this up" / "clean up this desk" mean.)\n' +
+  '  { "kind": "create-section", "name": "Research", "widgetIds": ["id1","id2"], "reason": "these four are all research and clutter the desk separately" }  (Groups EXISTING work widgets into a labelled Section on the desk. Both fields are required — a section needs a name and something to hold.)\n' +
   '  { "kind": "agent-browse", "task": "Search this site for a 2-bedroom under $2400 and open the best listing", "url": "https://...", "reason": "the listing details are not in your files, so they have to be fetched" }  (Plexii drives the in-app browser step by step — visible, stoppable, consent-gated. Use when the user asks you to DO something on a website: search within it, fill a form, walk a flow. For simply showing a web page, use open-url. It never signs in, pays, solves CAPTCHAs, or moves files — if the task needs that, say that part is theirs. "url" is where to start; omit it to act on the page already open.)\n' +
   '  { "kind": "create-widget", "widgetKind": "sticky"|"note"|"markdown"|"calculator"|"color"|"timer", "title": "...", "content": "...", "reason": "somewhere to keep the figures you just quoted" }\n' +
   '  { "kind": "create-page", "title": "Project brief", "sections": [{"heading":"Goals","body":"..."}], "deskId": "optional — the desk id this belongs on", "reason": "the brief is spread across three messages and has no home" }  (A Page is a DOCUMENT inside Plexii, not a web address. This is what "make me a page", "a page to write in", and "a page for an agent to write to" all mean.)\n' +
@@ -489,9 +489,9 @@ export const ACTION_KINDS_CATALOG =
   '  { "kind": "update-widget", "widgetId": "<from canvas summary>", "label": "the launch checklist", "title": "...", "content": "...", "reason": "the checklist still says Q2 and the dates have moved" }  (ONLY for plain text content or a title/size change \u2014 see ask-widget-ai below)\n' +
   '  { "kind": "ask-widget-ai", "widgetId": "<from canvas summary>", "label": "the revenue chart", "intent": "plot revenue by month from the sales table", "reason": "you asked for the trend and the chart is unbound" }  ' +
   'USE THIS, not update-widget, whenever you intend to change what a widget SHOWS, how it is CONFIGURED, or what DATA it is bound to. ' +
-  'Every widget kind has its own AI expert that speaks that widget vocabulary \u2014 a chart knows tables and axes, an inbox widget knows mail rules, an agent knows standing instructions, a mindmap knows nodes and edges. ' +
+  'Every work widget kind has its own AI expert that speaks that work widget vocabulary \u2014 a chart knows tables and axes, an inbox work widget knows mail rules, an agent knows standing instructions, a mindmap knows nodes and edges. ' +
   'You do not know those shapes and must not invent them: update-widget can only write a title, a plain content string and a geometry, so using it on a chart or a rule produces something nothing validates and the change is lost. ' +
-  'Put what the user wants in `intent`, in their own words, and the expert turns it into a real change they approve. The expert is authoritative about that widget; you are not.\n' +
+  'Put what the user wants in `intent`, in their own words, and the expert turns it into a real change they approve. The expert is authoritative about that work widget; you are not.\n' +
   '  { "kind": "delete-widget", "widgetId": "<from canvas summary>", "label": "the empty sticky", "reason": "it is empty and has been since the desk was made" }\n' +
   '  { "kind": "start-focus-session", "minutes": 5, "reason": "you have twenty-five minutes before the call and one thing left" }\n' +
   '  { "kind": "update-task", "taskId": "<the Desk id shown above>", "label": "this desk", "status": "done", "dueDate": null, "title": "new title", "reason": "user marked it complete" }  (' +
@@ -501,12 +501,12 @@ export const ACTION_KINDS_CATALOG =
   '  { "kind": "edit-document", "documentId": "<from the documents list>", "label": "the Q3 brief", "body": "New section text...", "operation": "append", "reason": "the brief is missing the scope you just described" }\n' +
   '  { "kind": "generate-document", "docType": "slides"|"sheet"|"map"|"doc", "title": "Q3 launch deck", "prompt": "<what to make, grounded only in the request/context>", "reason": "you have the figures already, so this only needs assembling" }  (slides=presentation, sheet=spreadsheet, map=diagram/flowchart/mind map/org chart, doc=written document; the real content is generated in a follow-up step, so the prompt must restate only what was asked and invent nothing, and your text must not claim it already exists)\n' +
   '  { "kind": "create-document", "docType": "doc"|"sheet"|"slides"|"map"|"design"|"draw", "title": "Q3 budget", "reason": "somewhere for the budget to live before the numbers arrive" }  (An EMPTY office surface for the user to fill in themselves. Prefer generate-document above whenever you know what should go in it — an empty spreadsheet is rarely what someone asking for "a budget" wants. Use this only when they explicitly ask for a blank one, or when what belongs in it is genuinely theirs to decide. It is also the only way to make a design or draw surface.)\n' +
-  '  { "kind": "create-widget-file", "widgetKind": "sticky"|"note"|"markdown"|"card"|"task-list"|"table"|"mindmap", "title": "Supplier quotes", "text": "for sticky/note/markdown/card", "items": [{"title":"Call Sam","dueAt":1790000000000}], "columns": ["Supplier","Quote"], "rows": [["Acme","4200"]], "outline": [{"label":"Goals","children":[{"label":"Grow revenue"}]}], "deskId": "optional — also place it on this desk", "reason": "a list you can reuse on any desk" }  (A WIDGET FILE: a widget that lives in Files on its own, like a document, and can be placed on any number of desks where every copy stays in sync. Give only the fields its kind uses: text for sticky/note/markdown/card, items for task-list, columns+rows for table, outline for mindmap. Use it when the user asks for a standalone list, table, note or map that is not tied to one desk; use create-widget for something that only belongs on the desk they are on.)\n' +
+  '  { "kind": "create-widget-file", "widgetKind": "sticky"|"note"|"markdown"|"card"|"task-list"|"table"|"mindmap", "title": "Supplier quotes", "text": "for sticky/note/markdown/card", "items": [{"title":"Call Sam","dueAt":1790000000000}], "columns": ["Supplier","Quote"], "rows": [["Acme","4200"]], "outline": [{"label":"Goals","children":[{"label":"Grow revenue"}]}], "deskId": "optional — also place it on this desk", "reason": "a list you can reuse on any desk" }  (A WIDGET FILE: a work widget that lives in Files on its own, like a document, and can be placed on any number of desks where every copy stays in sync. Give only the fields its kind uses: text for sticky/note/markdown/card, items for task-list, columns+rows for table, outline for mindmap. Use it when the user asks for a standalone list, table, note or map that is not tied to one desk; use create-widget for something that only belongs on the desk they are on.)\n' +
   '  { "kind": "update-widget-file", "fileId": "<a documentId of type widget:<kind> from the documents list, or $<id>>", "label": "the supplier table", "text": "append this to a sticky/note/markdown", "items": [{"title":"Book venue"}], "rows": [["Globex","3900"]], "operation": "append", "reason": "the list is missing what you just agreed" }  (Changes an existing widget file — every desk it is placed on updates too. text for text kinds, items to ADD to a task list, rows to ADD to a table. "operation":"replace" only when the user asked to rewrite text. For any other change to what a widget shows, use ask-widget-ai on a desk copy instead.)\n' +
   '  { "kind": "set-cell", "tableId": "<from canvas summary>", "rowId": "<from rowIds>", "cells": {"Status":"Live"}, "reason": "you said it went live, so the table is out of date" }\n' +
   '  { "kind": "schedule-event", "title": "Deep work: brief", "startMs": 1780000000000, "durationMinutes": 60, "recurrence": null, "reason": "the brief needs an hour and your afternoon is free" }\n' +
   '  { "kind": "compose-mail", "to": ["ana@example.com"], "subject": "Q3 brief attached", "body": "Hi Ana, ...", "reason": "Ana is waiting on this and the brief is now ready" }\n' +
-  '  { "kind": "mail-action", "op": "mark-read"|"archive"|"move"|"trash"|"spam", "uid": 1234, "subject": "the subject line, so the card shows which one", "mailbox": "only for move — the destination mailbox", "reason": "it is dealt with, so it does not need to stay in the inbox" }  (Files or flags ONE email that already exists. "uid" MUST be a uid you were actually shown in an inbox widget — never invent one, and never guess from a subject, because two emails can share a subject and the wrong one would be filed. Emit one action per message. Nothing here deletes irrecoverably: trash and spam move the message. For WRITING an email use compose-mail instead.)\n' +
+  '  { "kind": "mail-action", "op": "mark-read"|"archive"|"move"|"trash"|"spam", "uid": 1234, "subject": "the subject line, so the card shows which one", "mailbox": "only for move — the destination mailbox", "reason": "it is dealt with, so it does not need to stay in the inbox" }  (Files or flags ONE email that already exists. "uid" MUST be a uid you were actually shown in an inbox work widget — never invent one, and never guess from a subject, because two emails can share a subject and the wrong one would be filed. Emit one action per message. Nothing here deletes irrecoverably: trash and spam move the message. For WRITING an email use compose-mail instead.)\n' +
   '  { "kind": "post-chat", "conversationId": "<from chat conversations>", "conversationLabel": "#launch", "body": "Draft update: ...", "reason": "the team is waiting on this update in #launch" }\n' +
   '\n' +
   REASON_CONTRACT +
@@ -536,20 +536,20 @@ function buildSystemPrompt(
     ACTION_KINDS_CATALOG +
     workItemCatalogAddendum(isWorkItemsEnabled()) +
     '⚠ HARD RULES:\n' +
-    '1. The user sees ONLY two things: (a) the "reply" field rendered as markdown, and (b) one action card for each item in the "actions" array. They do NOT see anything else you write. Describing widgets in prose inside "reply" does NOT create them — the actions array must contain the entries.\n' +
+    '1. The user sees ONLY two things: (a) the "reply" field rendered as markdown, and (b) one action card for each item in the "actions" array. They do NOT see anything else you write. Describing work widgets in prose inside "reply" does NOT create them — the actions array must contain the entries.\n' +
     '2. For pure chat / questions / no-action requests: actions = []. Just put your answer in reply.\n' +
-    '3. For multi-widget setups: one action object per widget. A planning workspace with 3 things = 3 entries in actions.\n' +
+    '3. For multi-widget setups: one action object per work widget. A planning workspace with 3 things = 3 entries in actions.\n' +
     '4. For todo lists: ALWAYS use "create-todo-list" — never a "create-widget" of kind "markdown" with bullets.\n' +
     '5. For Google Docs/Sheets/Slides or any URL: use "open-url", not "create-widget".\n' +
     '5b. When the user asks you to PERFORM steps on a website (not just open it), use "agent-browse" with a precise, self-contained task. One agent-browse per response.\n' +
     '6. For Airtable-style record collections (clients, episodes, contacts, ideas with columns): use "create-table". Define columns up-front. Use "add-table-row" to insert specific rows after the table exists.\n' +
-    '7. For modifying existing widgets, use their id from the canvas summary (shown as `id=...`). Same for an existing tableId.\n' +
+    '7. For modifying existing work widgets, use their id from the canvas summary (shown as `id=...`). Same for an existing tableId.\n' +
     '7a. To add rows to a table you are creating in the SAME response, the table does not have a real id yet. Give the create-table action an "id" field (e.g. "tbl-1"), then in sibling add-table-row actions set "tableId": "$tbl-1" (literal $ prefix + the matching id). The system resolves it at apply time. NEVER guess a uuid for a not-yet-created table.\n' +
     '8. Delete only on explicit user request, never speculatively.\n' +
-    '6b. Only propose "create-agent" when the request implies an ONGOING or REPEATABLE process — language like "set up", "automate", "whenever X happens", "keep this updated", or "every time I add a row". A one-time lookup or research request ("research these three companies") should be answered directly in "reply" or via a normal one-off action, never by creating an agent. To AUTOMATE work from a plain requirement, use "create-agent": a desk agent that runs an instruction over the widgets wired into it. Give it an "id" so you can wire inputs in. Default "trigger" to "manual" (it stays off until the user turns it on). Use "link-widgets" to wire things: sourceWidgetId/targetWidgetId are real ids from the canvas OR "$<id>" of things you create in this same response. Set "wireType":"context" to give the target background to read, or "transform" with a short "verb" for a live operation. An agent reads the widgets wired INTO it, so wire the source (a table, a doc, a browser) into the agent. When the user states a requirement ("set me up to track leads and draft outreach"), plan the whole setup: create the table, the agent, any doc, and the wires, as separate action entries the user confirms one by one.\n' +
+    '6b. Only propose "create-agent" when the request implies an ONGOING or REPEATABLE process — language like "set up", "automate", "whenever X happens", "keep this updated", or "every time I add a row". A one-time lookup or research request ("research these three companies") should be answered directly in "reply" or via a normal one-off action, never by creating an agent. To AUTOMATE work from a plain requirement, use "create-agent": a desk agent that runs an instruction over the work widgets wired into it. Give it an "id" so you can wire inputs in. Default "trigger" to "manual" (it stays off until the user turns it on). Use "link-widgets" to wire things: sourceWidgetId/targetWidgetId are real ids from the canvas OR "$<id>" of things you create in this same response. Set "wireType":"context" to give the target background to read, or "transform" with a short "verb" for a live operation. An agent reads the work widgets wired INTO it, so wire the source (a table, a doc, a browser) into the agent. When the user states a requirement ("set me up to track leads and draft outreach"), plan the whole setup: create the table, the agent, any doc, and the wires, as separate action entries the user confirms one by one.\n' +
     '7b. To change the CURRENT desk (mark the desk done, rename it, move its due date) use "update-task" with "taskId" set to the exact "Desk id" shown in the context above. status must be one of open|in_progress|done|parked. Use dueDate as unix ms, or null to clear it. Omit fields you are not changing.\n' +
     '7c. To remember a fact, decision, or rule the user states, use "create-knowledge-entry". The "body" MUST be real content from this conversation. Never invent facts, names, numbers, or decisions; if the user did not state it, do not store it.\n' +
-    '9. Markdown is rendered. When actions carry the work, keep "reply" to 1-2 sentences and don\'t list the widgets — let the cards speak. When the user asked a QUESTION (research, explanation, overview, comparison), the reply IS the answer: write it in full flowing markdown — headings, lists, tables where they genuinely help — it streams to the user as you write it. FORMATTING VOICE (calm, never hype): you may open a section HEADING with ONE relevant emoji — the app renders it as a native icon, so choose it for meaning. Never place emoji anywhere else (bullets, labels, sentences) unless the user\'s own content uses them. Use bold sparingly — a few genuinely load-bearing phrases per answer, never whole sentences and never every list lead.\n' +
+    '9. Markdown is rendered. When actions carry the work, keep "reply" to 1-2 sentences and don\'t list the work widgets — let the cards speak. When the user asked a QUESTION (research, explanation, overview, comparison), the reply IS the answer: write it in full flowing markdown — headings, lists, tables where they genuinely help — it streams to the user as you write it. FORMATTING VOICE (calm, never hype): you may open a section HEADING with ONE relevant emoji — the app renders it as a native icon, so choose it for meaning. Never place emoji anywhere else (bullets, labels, sentences) unless the user\'s own content uses them. Use bold sparingly — a few genuinely load-bearing phrases per answer, never whole sentences and never every list lead.\n' +
     '10. compose-mail and post-chat ALWAYS produce a DRAFT the user reviews and sends themselves. There is no send action and never will be. NEVER say or imply in "reply" that a message was sent. Their bodies must carry only content grounded in this conversation — never invent claims, commitments, dates, names, or recipients on the user\'s behalf. Use real addresses/conversation ids from context or leave "to" empty for the user to fill.\n' +
     '11. edit-document targets a documentId from the documents list (or "$<id>" of a create-document in this same response). Omit "operation" to append; use "replace" only when the user explicitly asked to rewrite. set-cell requires a real rowId from the rowIds sample — if the row is not listed, say so in reply instead of guessing.\n' +
     '11a. A very long edit-document "body" is the only thing big enough to exhaust one response. When several documents need long sections, write the first one or two IN FULL as real actions, then say in "reply" which ones you did and offer to continue — never describe an edit you did not emit as an action, never write actions as prose or as a markdown "Actions:" list, and never mention these numbered rules to the user.\n' +
@@ -573,7 +573,7 @@ function buildSystemPrompt(
     '}\n\n' +
     'CORRECT for "what time is it in Tokyo":\n' +
     '{ "reply": "Tokyo is JST (UTC+9). Right now it\'s roughly 17 hours ahead of Pacific Time.", "actions": [] }\n\n' +
-    'INCORRECT (NEVER do this): A reply that says "Here are the widgets I\'ve added: 📝 **Launch checklist** with these items..." while actions is empty. The widgets do not exist if they are not in the actions array.' +
+    'INCORRECT (NEVER do this): A reply that says "Here are the work widgets I\'ve added: 📝 **Launch checklist** with these items..." while actions is empty. The work widgets do not exist if they are not in the actions array.' +
     // Taught ONLY to surfaces that render the question card (the assistant
     // panel). Everything else keeps the exact two-field envelope above.
     questionProtocolSection(supportsQuestions) +
@@ -1339,7 +1339,7 @@ export function parseChatJson(raw: string): {
           label:
             typeof action.label === 'string' && action.label.trim()
               ? (action.label as string)
-              : 'this widget',
+              : 'this work widget',
           reason
         })
         break
@@ -1374,7 +1374,7 @@ export function parseChatJson(raw: string): {
           id: makeProposalId('ufile', i++),
           kind: 'update-widget-file',
           fileId,
-          label: typeof action.label === 'string' && action.label ? action.label : 'the widget file',
+          label: typeof action.label === 'string' && action.label ? action.label : 'the work widget file',
           title,
           text: parsed.text,
           items: parsed.items,
@@ -3264,7 +3264,7 @@ export async function generateResume(
     'You are generating a "handoff document" so the user can return to this desk tomorrow and resume in 30 seconds instead of 20 minutes. ' +
     'Write concise markdown with these sections, in this order: ' +
     '\n\n# Where you are\n(2-3 sentences on what has been worked on, based on sticky notes / browser URLs / notes on the canvas)\n\n' +
-    '# Key decisions\n(bulleted list of any decisions noted in the widgets; if none clear, write "(none captured yet)")\n\n' +
+    '# Key decisions\n(bulleted list of any decisions noted in the work widgets; if none clear, write "(none captured yet)")\n\n' +
     '# Open questions\n(bulleted list of unresolved items; if none, write "(none)")\n\n' +
     '# Next 3 actions\n(numbered list of the most concrete next steps to resume work)\n\n' +
     'Keep the whole document under 250 words. No preamble, no pleasantries, no meta-commentary.'
@@ -3472,7 +3472,7 @@ export async function proposeSmartStacks(taskId: string): Promise<SmartStackResp
   if (candidates.length < 3) {
     return {
       ok: false,
-      error: 'Need at least 3 unsectioned widgets on the canvas to find groups.'
+      error: 'Need at least 3 unsectioned work widgets on the canvas to find groups.'
     }
   }
 
@@ -3491,12 +3491,12 @@ export async function proposeSmartStacks(taskId: string): Promise<SmartStackResp
     .join('\n')
 
   const system =
-    'You are PlexiDesk\'s Smart Stack organizer. The user has many widgets on their canvas for an ADHD-friendly desk workspace. ' +
-    'Your job: group widgets that BELONG TOGETHER based on what sub-goal they serve. ' +
+    'You are PlexiDesk\'s Smart Stack organizer. The user has many work widgets on their canvas for an ADHD-friendly desk workspace. ' +
+    'Your job: group work widgets that BELONG TOGETHER based on what sub-goal they serve. ' +
     '\n\nRules:\n' +
-    '- Use widget titles and content snippets to infer relationship.\n' +
+    '- Use work widget titles and content snippets to infer relationship.\n' +
     "- A group should have a clear theme, not just a widget-kind label (don't say 'Stickies' or 'Browsers').\n" +
-    '- Skip widgets that don\'t fit anywhere — leave them ungrouped (don\'t list them).\n' +
+    '- Skip work widgets that don\'t fit anywhere — leave them ungrouped (don\'t list them).\n' +
     '- 2-5 groups ideal. Sometimes 1 if everything truly relates. Never more than 5.\n' +
     '- Group names: 1-3 words, concrete (e.g. "Pricing research" not "Research", "Anna outreach" not "People").\n' +
     "- Each group needs 2+ members. Don't propose a one-widget group.\n" +
@@ -3649,7 +3649,7 @@ Rules:
    A suggestion you cannot configure is a suggestion you should not make.
 4. Tables want 3-6 columns in the common case; use more when the records truly
    have more attributes worth tracking.
-5. Skip widgets that already exist on the canvas (listed in "existing widgets" below).
+5. Skip widgets that already exist on the canvas (listed in "existing work widgets" below).
 
 Respond with VALID JSON ONLY (no commentary, no markdown fence). Schema:
 {
@@ -3788,10 +3788,10 @@ export async function regenerateLivingPage(
   if (!c) return { ok: false, needsApiKey: true, error: 'No Anthropic API key set. Open Settings → AI · API keys to paste one.' }
 
   const w = getWidget(widgetId)
-  if (!w) return { ok: false, error: 'Widget not found' }
+  if (!w) return { ok: false, error: 'Work widget not found' }
   // Both a living Page and the dedicated Living Doc widget run through here.
   const isLivingKind = (k: string): boolean => k === 'page' || k === 'living-doc'
-  if (!isLivingKind(w.kind)) return { ok: false, error: 'Widget is not a living document' }
+  if (!isLivingKind(w.kind)) return { ok: false, error: 'Work widget is not a living document' }
   if (!w.livingQuery || !w.livingQuery.trim()) {
     return { ok: false, error: 'Living query is empty — set a brief first' }
   }
@@ -3817,19 +3817,19 @@ export async function regenerateLivingPage(
 
   const system =
     'You are PlexiDesk. The user has a "living page" on their canvas — a page whose body you regenerate ' +
-    'on demand from the rest of the widgets on their current desk. Your job is to synthesize a clean, ' +
+    'on demand from the rest of the work widgets on their current desk. Your job is to synthesize a clean, ' +
     'useful answer to their query using ONLY the source material listed below.\n\n' +
     'OUTPUT RULES — read carefully:\n' +
     '  - Reply with raw markdown. NO code fences. NO preamble like "Here is the summary".\n' +
     '  - Start directly with the first heading or paragraph.\n' +
     '  - Use ## for section headings, - for bullets, - [ ] for open todos, - [x] for done.\n' +
     '  - If the source material does not contain enough to answer, say so in one sentence — do not invent.\n' +
-    '  - Cite source widgets inline by quoting the widget title in **bold** when relevant, e.g. **Meeting notes**.\n' +
+    '  - Cite source work widgets inline by quoting the work widget title in **bold** when relevant, e.g. **Meeting notes**.\n' +
     '  - Keep it concise — this is a snapshot, not an essay. ~150-400 words is the right zone.'
 
   const user = `Desk: ${task.title}\n${task.description ? `Notes: ${task.description}\n` : ''}\n` +
     `Living page query: ${w.livingQuery.trim()}\n\n` +
-    `Source widgets on the canvas:\n${summarizeWidgets(source)}\n\n` +
+    `Source work widgets on the canvas:\n${summarizeWidgets(source)}\n\n` +
     'Write the markdown body now:'
 
   try {
@@ -3892,7 +3892,7 @@ export async function suggestPageContent(
   if (!trimmed) return { ok: false, error: 'Prompt is empty.' }
 
   const system =
-    'You are an in-page AI assistant. The user is inside a Notion-style page widget and ' +
+    'You are an in-page AI assistant. The user is inside a Notion-style page work widget and ' +
     'wants you to draft content for them. The user will see your output first as a preview ' +
     'and can choose to Insert or Discard — your job is to produce well-structured markdown ' +
     'they will be happy to commit.\n\n' +
@@ -4462,7 +4462,7 @@ const WIDGET_SETUP_KINDS: Record<
     applyAs: 'widget-ref',
     noun: 'table',
     structured: true,
-    guidance: 'which table this widget should show'
+    guidance: 'which table this work widget should show'
   },
   drive: {
     applyAs: 'widget-ref',
@@ -4500,7 +4500,7 @@ const WIDGET_SETUP_KINDS: Record<
     applyAs: 'widget-title',
     noun: 'name',
     structured: true,
-    guidance: 'a name for the group of widgets this frame holds'
+    guidance: 'a name for the group of work widgets this frame holds'
   },
 
   // ── config kinds: AI chooses the settings, from the real workspace ──
@@ -4618,7 +4618,7 @@ const WIDGET_SETUP_KINDS: Record<
     applyAs: 'webview-url',
     noun: 'address',
     structured: true,
-    guidance: 'the URL this widget should POST to'
+    guidance: 'the URL this work widget should POST to'
   },
 
   // ── text kinds the list appliers already serve ──
@@ -4652,9 +4652,9 @@ export async function suggestWidgetSetup(input: {
     }
   }
   const w = getWidget(input.widgetId)
-  if (!w) return { ok: false, error: 'Widget not found.' }
+  if (!w) return { ok: false, error: 'Work widget not found.' }
   const cfg = WIDGET_SETUP_KINDS[w.kind]
-  if (!cfg) return { ok: false, error: `AI setup is not available for ${w.kind} widgets yet.` }
+  if (!cfg) return { ok: false, error: `AI setup is not available for ${w.kind} work widgets yet.` }
 
   const task = getNode(w.taskId)
   const siblings = listWidgetsByTask(w.taskId).filter((o) => o.id !== w.id)
@@ -4667,7 +4667,7 @@ export async function suggestWidgetSetup(input: {
 
   const system =
     `You are an in-widget AI assistant. You propose a short list of items to add to a ${w.kind} ` +
-    'widget, in the format that widget expects. Reply with a SINGLE JSON object of the exact shape ' +
+    'work widget, in the format that work widget expects. Reply with a SINGLE JSON object of the exact shape ' +
     '{ "items": ["...", "..."] } and nothing else. No prose, no code fences. Each item is ' +
     `${cfg.guidance}. Propose between 3 and 8 items. Do not repeat anything already present.`
 
@@ -4675,11 +4675,11 @@ export async function suggestWidgetSetup(input: {
     task && task.kind === 'task'
       ? `Desk: ${task.title}${task.description ? `\nDesk notes: ${task.description}` : ''}`
       : '',
-    w.title ? `Widget title: ${w.title}` : '',
+    w.title ? `Work widget title: ${w.title}` : '',
     (w.content || '').trim()
       ? `Current contents:\n"""\n${(w.content || '').slice(0, 1500)}\n"""`
-      : 'The widget is currently empty.',
-    siblings.length ? `Other widgets on the canvas:\n${summarizeWidgets(siblings)}` : '',
+      : 'The work widget is currently empty.',
+    siblings.length ? `Other work widgets on the canvas:\n${summarizeWidgets(siblings)}` : '',
     prompt
       ? `The user asks: ${prompt}`
       : 'No explicit instruction was given; infer what would be most useful to add.'
@@ -4771,7 +4771,7 @@ function refPayloadSpec(widgetKind: string): string {
   const expected = REF_OBJECT_KIND[widgetKind] ?? 'object'
   const candidates = refCandidates(widgetKind)
   if (candidates.length === 0) {
-    return `There are NO ${expected}s in this workspace, so this widget cannot be pointed at one. Say so in "summary" and return no refId.`
+    return `There are NO ${expected}s in this workspace, so this work widget cannot be pointed at one. Say so in "summary" and return no refId.`
   }
   // Bounded: a workspace with hundreds of desks would otherwise crowd out the
   // rest of the prompt, and the most recently touched are the likely answer.
@@ -4780,8 +4780,8 @@ function refPayloadSpec(widgetKind: string): string {
     .map((c) => `  ${expected} "${c.title}" id=${c.id}`)
     .join('\n')
   return (
-    `"refId" is the id of the ${expected} this widget should point at. ` +
-    'USE ONLY THESE IDS, copied exactly — inventing one produces a widget that renders empty ' +
+    `"refId" is the id of the ${expected} this work widget should point at. ` +
+    'USE ONLY THESE IDS, copied exactly — inventing one produces a work widget that renders empty ' +
     'and reads as "nothing here" rather than "wrong target":\n' +
     listing +
     (candidates.length > 60 ? `\n  (…and ${candidates.length - 60} more, not listed)` : '') +
@@ -4862,7 +4862,7 @@ async function suggestStructuredWidgetSetup(input: {
         'these node types: heading (attrs.level 1-3), paragraph, bulletList/listItem, ' +
         'taskList/taskItem (attrs.checked false), and text. Keep it focused, 4-10 nodes.'
       : cfg.applyAs === 'widget-title'
-        ? '"text" is the widget\u2019s name: a few words, no quotes, no trailing punctuation. ' +
+        ? '"text" is the work widget\u2019s name: a few words, no quotes, no trailing punctuation. ' +
           'Name it for the job it does on THIS desk.'
         : cfg.applyAs === 'widget-ref'
           ? refPayloadSpec(w.kind)
@@ -4875,8 +4875,8 @@ async function suggestStructuredWidgetSetup(input: {
         : '"url" is a single full https:// web address to a real, well-known site.'
 
   const system =
-    'You set up a single empty widget for the user, based on what they are working on. ' +
-    `This is a ${w.kind} widget. Propose ${cfg.guidance}. ` +
+    'You set up a single empty work widget for the user, based on what they are working on. ' +
+    `This is a ${w.kind} work widget. Propose ${cfg.guidance}. ` +
     'Reply with a SINGLE JSON object and nothing else (no prose, no code fences) of the shape ' +
     `{ "summary": "one short sentence describing what you are proposing", ${
       cfg.applyAs === 'page-doc'
@@ -4896,8 +4896,8 @@ async function suggestStructuredWidgetSetup(input: {
     task && task.kind === 'task'
       ? `Desk: ${task.title}${task.description ? `\nDesk notes: ${task.description}` : ''}`
       : '',
-    w.title ? `Widget title: ${w.title}` : '',
-    siblings.length ? `Other widgets on the desk:\n${summarizeWidgets(siblings)}` : '',
+    w.title ? `Work widget title: ${w.title}` : '',
+    siblings.length ? `Other work widgets on the desk:\n${summarizeWidgets(siblings)}` : '',
     prompt ? `The user asks: ${prompt}` : 'No explicit instruction; infer what is most useful.'
   ].filter(Boolean)
   const user = `${ctxParts.join('\n\n')}\n\nReturn the JSON now.`
@@ -4949,7 +4949,7 @@ async function suggestStructuredWidgetSetup(input: {
       if (!title) return { ok: false, error: 'Claude did not return a name.' }
       // A name, not an essay: this is a widget header a few words wide.
       if (title.length > 60) {
-        return { ok: false, error: 'That name is too long for a widget header.' }
+        return { ok: false, error: 'That name is too long for a work widget header.' }
       }
       return { ok: true, kind: w.kind, applyAs: 'widget-title', noun: cfg.noun, title, summary }
     }
@@ -5178,7 +5178,7 @@ export async function transformText(input: {
   const text = (input.text || '').slice(0, 12000)
   if (!text.trim()) return { ok: false, error: 'There is no text to work on.' }
 
-  const surface = input.kind ? ` The text comes from a ${input.kind} widget; preserve its formatting conventions.` : ''
+  const surface = input.kind ? ` The text comes from a ${input.kind} work widget; preserve its formatting conventions.` : ''
   const system =
     'You are an inline writing assistant inside a visual workspace. You receive a block of text and an instruction, ' +
     'and you return the rewritten text that will be applied in place.' +
@@ -5235,8 +5235,8 @@ export async function runTransformWire(input: {
 
   const system =
     'You are a transform step in a no-code pipeline on a visual canvas. ' +
-    'You receive the content of a SOURCE widget and an instruction, and you return the transformed text ' +
-    'that will be written verbatim into a TARGET widget. ' +
+    'You receive the content of a SOURCE work widget and an instruction, and you return the transformed text ' +
+    'that will be written verbatim into a TARGET work widget. ' +
     'Return ONLY the transformed text. No preamble, no labels, no quotes, no explanation, no markdown code fences. ' +
     'The first character of your reply is the first character of the content. ' +
     'If the instruction does not apply to this source, return the single token SKIP.'
@@ -5327,7 +5327,7 @@ export async function runDeskAgent(input: {
 
   const inputBlock =
     input.inputs.length === 0
-      ? '(No widgets are wired into this agent yet — it has no inputs to read.)'
+      ? '(No work widgets are wired into this agent yet — it has no inputs to read.)'
       : input.inputs
           .map((w, i) => {
             const title = w.title ? ` "${w.title}"` : ''
@@ -5342,7 +5342,7 @@ export async function runDeskAgent(input: {
     (persona
       ? `\n\nYour role and expertise (shapes HOW you work):\n${persona}\n\n`
       : '') +
-    'You are given a standing instruction and the current content of the widgets wired into you. ' +
+    'You are given a standing instruction and the current content of the work widgets wired into you. ' +
     'Do exactly what the instruction asks, using only the inputs provided. ' +
     'Return ONLY the resulting text that should appear as your latest output — no preamble, no labels, ' +
     'no meta-commentary about being an AI. Be concise and useful. ' +
@@ -5350,11 +5350,11 @@ export async function runDeskAgent(input: {
     // The hygiene guarantee. Even if a role description implies otherwise, the
     // app — not you — decides how your output updates other widgets, and it
     // never deletes or overwrites existing data. Just produce the content.
-    'You never manage how your output is written into other widgets; the app applies it safely ' +
+    'You never manage how your output is written into other work widgets; the app applies it safely ' +
     '(it updates tables and notes without erasing existing data). ' +
     'If your instruction says to record, save or write your findings somewhere (a page, a note, a table), ' +
     'do NOT ask the user for access and do NOT say you cannot write to it — just produce the findings as ' +
-    'your output and the app delivers them into the linked widget for you.' +
+    'your output and the app delivers them into the linked work widget for you.' +
     (input.browserWcId
       ? ' A browser is wired to you and you CAN control it. Use read_current_page to read the page on screen, ' +
         'open_url to visit a page, and web_search to find sources. Never claim you cannot browse the web or ' +
@@ -5386,7 +5386,7 @@ export async function runDeskAgent(input: {
           .join('\n') +
         (formats.length <= 1
           ? `\n\nWrite it as ${formats[0] ?? 'plain text'}.`
-          : `\n\nThose formats differ, so write well-structured Markdown; the app reshapes it per widget.`) +
+          : `\n\nThose formats differ, so write well-structured Markdown; the app reshapes it per work widget.`) +
         `\n\nSo: produce the finished thing, never a description of it. Do NOT write ` +
         `"I've written…", "I've drafted…", "Here's a…", "…ready to edit", or ` +
         `"saved to the linked page". There is no preamble and no sign-off: the FIRST ` +
@@ -5464,7 +5464,7 @@ export async function runDeskAgent(input: {
         ')\n' +
         '  { "kind":"create-knowledge-entry", "title":"...", "body":"..." }\n' +
         '  { "kind":"compose-mail", "subject":"...", "body":"..." }\n' +
-        'Choosing a surface: a presentation or deck -> generate-document docType "slides"; a spreadsheet, tracker, budget or table of records -> "sheet"; a diagram, flowchart, mind map, org chart or process map -> "map"; a written document, brief or plan -> "doc". edit-document only works on an existing written doc (docType doc); to fill an existing slides/sheet/map OUTPUT widget, use generate-document with its "widgetId" from ACTIONABLE WIDGETS. generate-document produces the real content in a follow-up step, so its "prompt" must restate ONLY what the user asked for and what the inputs contain — never invent facts, numbers, names or data — and your "reply" must NOT claim the content already exists (only the actions do the work).\n' +
+        'Choosing a surface: a presentation or deck -> generate-document docType "slides"; a spreadsheet, tracker, budget or table of records -> "sheet"; a diagram, flowchart, mind map, org chart or process map -> "map"; a written document, brief or plan -> "doc". edit-document only works on an existing written doc (docType doc); to fill an existing slides/sheet/map OUTPUT work widget, use generate-document with its "widgetId" from ACTIONABLE WIDGETS. generate-document produces the real content in a follow-up step, so its "prompt" must restate ONLY what the user asked for and what the inputs contain — never invent facts, numbers, names or data — and your "reply" must NOT claim the content already exists (only the actions do the work).\n' +
         'SIZE LIMIT — the whole response shares one output budget and a long edit-document "body" is the only thing big enough to exhaust it; if it runs out mid-action that action is LOST and the user sees nothing. At most TWO edit-document actions per response. If more were asked for, do the first two and say in "reply" which ones are done and that the rest follow on request — never promise work that is not in this response\'s "actions".\n' +
         'Rules: only real ids from ACTIONABLE WIDGETS; set-cell needs a rowId from that table\'s rowIds (use add-table-row for new records); never invent ids, columns, or facts; leave out any change the inputs do not support. Put a short human summary in "reply" and every concrete change in "actions". If there is nothing to change, return "actions": [].'
       const actionUser =
@@ -5553,7 +5553,7 @@ export async function designAgentProfile(description: string): Promise<AgentProf
     '"name" (2-4 words, a role title), "blurb" (one short sentence, under 12 words), and ' +
     '"systemPrompt" (2-4 sentences in second person describing the role, its expertise, and HOW it ' +
     'should approach work — judgement, priorities, tone). ' +
-    'The systemPrompt must NOT mention deleting, overwriting, or managing other widgets, files or data — ' +
+    'The systemPrompt must NOT mention deleting, overwriting, or managing other work widgets, files or data — ' +
     'it only describes how the agent thinks. Return ONLY the JSON object, no prose, no code fences.'
 
   try {

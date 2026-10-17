@@ -136,7 +136,7 @@ export function validatePublicDeskProjection(input: unknown): ValidationResult {
   // Widgets
   const ids = new Set<string>()
   if (!Array.isArray(input.widgets)) {
-    errors.push('widgets: expected an array')
+    errors.push('work widgets: expected an array')
   } else {
     input.widgets.forEach((w, i) => {
       const at = `widgets[${i}]`
@@ -145,7 +145,7 @@ export function validatePublicDeskProjection(input: unknown): ValidationResult {
         return
       }
       if (typeof w.id !== 'string' || w.id === '') errors.push(`${at}.id: expected a non-empty string`)
-      else if (ids.has(w.id)) errors.push(`${at}.id: duplicate widget id`)
+      else if (ids.has(w.id)) errors.push(`${at}.id: duplicate work widget id`)
       else ids.add(w.id)
 
       if (typeof w.kind !== 'string') errors.push(`${at}.kind: expected a string`)
@@ -229,7 +229,7 @@ export function validatePublicDeskProjection(input: unknown): ValidationResult {
       for (const k of ['fromWidgetId', 'toWidgetId'] as const) {
         if (typeof l[k] !== 'string') errors.push(`${at}.${k}: expected a string`)
         else if (ids.size && !ids.has(l[k] as string)) {
-          errors.push(`${at}.${k}: references unknown widget "${l[k]}"`)
+          errors.push(`${at}.${k}: references unknown work widget "${l[k]}"`)
         }
       }
     })

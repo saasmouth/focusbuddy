@@ -171,7 +171,7 @@ export default function CommandCenter({
     (kind: WidgetKind): void => {
       if (!activeTaskId) return
       if (!canCreateWidget(caps, kind)) {
-        promptUpgrade(`The ${kind} widget is a Pro feature.`)
+        promptUpgrade(`The ${kind} work widget is a Pro feature.`)
         return
       }
       const entry = WIDGET_CATALOG.find((e) => e.kind === kind)
@@ -372,11 +372,11 @@ export default function CommandCenter({
     if (canSmartStack) {
       items.push({
         id: 'smart-stack',
-        label: 'Smart Stack widgets',
+        label: 'Smart Stack work widgets',
         hint: 'Auto-arrange this desk',
         icon: 'auto_awesome_motion',
         kind: 'action',
-        score: matchScore('smart stack arrange organise widgets desk', q),
+        score: matchScore('smart stack arrange organise work widgets desk', q),
         run: () => {
           closePalette()
           onOpenSmartStack()
@@ -654,7 +654,7 @@ export default function CommandCenter({
       items.push({
         id: 'smart-stack',
         label: 'Smart Stack',
-        hint: 'Group widgets into sections by AI',
+        hint: 'Group work widgets into sections by AI',
         icon: 'hub',
         kind: 'action',
         score: q === '' ? 65 : matchScore('smart stack group sections AI', q),
@@ -681,7 +681,7 @@ export default function CommandCenter({
       items.push({
         id: 'toggle-snap',
         label: getNavPrefs().snapToGridEnabled ? 'Snap to grid: on (turn off)' : 'Snap to grid: off (turn on)',
-        hint: 'Round dragged widgets to an 8px grid',
+        hint: 'Round dragged work widgets to an 8px grid',
         icon: 'grid_4x4',
         kind: 'action',
         score: q === '' ? 48 : matchScore('snap grid align canvas', q),
@@ -707,11 +707,11 @@ export default function CommandCenter({
         const asFile = isStandaloneWidgetKind(entry.kind)
         items.push({
           id: `add-${entry.kind}`,
-          label: `Add ${entry.label} to desk`,
+          label: `Add ${entry.label} work widget to desk`,
           hint: asFile ? `${entry.hint} — also saved in Files` : entry.hint,
           icon: entry.icon,
           kind: 'action',
-          score: q === '' ? 40 : matchScore(`add ${entry.label} to desk ${entry.kind} widget ${entry.category}`, q),
+          score: q === '' ? 40 : matchScore(`add ${entry.label} to desk ${entry.kind} work widget ${entry.category}`, q),
           shortcut: sc,
           run: () => {
             if (asFile && ensureCanAdd(entry.kind)) void addKindToOpenDesk(entry.kind)
@@ -726,12 +726,12 @@ export default function CommandCenter({
     if (q !== '') {
       for (const entry of WIDGET_CATALOG) {
         if (entry.hideFromPicker || !isStandaloneWidgetKind(entry.kind)) continue
-        const sc = matchScore(`new ${entry.label} file widget ${entry.kind}`, q)
+        const sc = matchScore(`new ${entry.label} file work widget ${entry.kind}`, q)
         if (sc <= 0) continue
         items.push({
           id: `new-file-${entry.kind}`,
-          label: `New ${entry.label} file`,
-          hint: 'A widget of its own, in Files — place it on any desk later',
+          label: `New ${entry.label} work widget`,
+          hint: 'A work widget of its own, in Files — place it on any desk later',
           icon: entry.icon,
           kind: 'action',
           score: sc - 1,

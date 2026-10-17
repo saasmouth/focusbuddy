@@ -412,7 +412,7 @@ export default function VoiceRecorderWidget({ widget, inline = false }: Props): 
 
   async function spawnNewWidget(targetKind: WidgetKind): Promise<void> {
     if (!activeTaskId) {
-      setErrorMsg('Open a task before sending — widgets need a parent task.')
+      setErrorMsg('Open a task before sending — work widgets need a parent task.')
       return
     }
     const text = state.processedText || state.transcript
@@ -443,7 +443,7 @@ export default function VoiceRecorderWidget({ widget, inline = false }: Props): 
       // eslint-disable-next-line no-console
       console.error('[VoiceRecorderWidget] spawnNewWidget failed:', err)
       setErrorMsg(
-        `Could not create widget: ${err instanceof Error ? err.message : String(err)}`
+        `Could not create work widget: ${err instanceof Error ? err.message : String(err)}`
       )
     }
   }
@@ -960,7 +960,7 @@ function DestinationPicker({
             }`}
             data-testid="voice-dest-tab-new"
           >
-            New widget
+            New work widget
           </button>
           <button
             onClick={() => setTab('existing')}
@@ -973,7 +973,7 @@ function DestinationPicker({
             disabled={appendableWidgets.length === 0}
             title={
               appendableWidgets.length === 0
-                ? 'No appendable widgets (sticky / note / markdown) on this canvas yet'
+                ? 'No appendable work widgets (sticky / note / markdown) on this canvas yet'
                 : ''
             }
           >

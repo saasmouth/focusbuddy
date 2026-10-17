@@ -157,7 +157,7 @@ export function unmirrorUserRelation(a: string, b: string): void {
 export function backfillWidgetLinkRelations(): void {
   try {
     for (const l of listAllLinks()) {
-      mirrorUserRelation(l.sourceWidgetId, l.targetWidgetId, l.id, 'user linked these widgets')
+      mirrorUserRelation(l.sourceWidgetId, l.targetWidgetId, l.id, 'user linked these work widgets')
     }
   } catch (err) {
     console.warn('[context-engine] widget-link relation backfill failed (non-fatal):', (err as Error).message)

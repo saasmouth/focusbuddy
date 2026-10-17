@@ -31,12 +31,12 @@ const CANVAS_ROWS: Row[] = [
   {
     keys: '← ↑ → ↓',
     label:
-      'Move the camera to the next widget in that direction, framed at a size you can work in. Unmodified only — ⌘← / ⌘→ stay as back / forward. A widget you have clicked into keeps its own arrow keys; press Esc first.'
+      'Move the camera to the next work widget in that direction, framed at a size you can work in. Unmodified only — ⌘← / ⌘→ stay as back / forward. A work widget you have clicked into keeps its own arrow keys; press Esc first.'
   },
   { keys: '⌘] / ⌘[', label: 'Zoom in / out' },
   { keys: '⌘0', label: 'Reset the view' },
   { keys: '⌘H', label: 'Centre on home' },
-  { keys: '⌘A', label: 'Select all widgets' }
+  { keys: '⌘A', label: 'Select all work widgets' }
 ]
 
 // The quick-add section is editable: click a key chip, press a new letter to

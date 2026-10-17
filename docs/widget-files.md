@@ -1,7 +1,7 @@
 # Widget files (4.3.32)
 
 A widget can now exist without a desk, the way a document or a slide deck does.
-It is created from the side menu's **Widgets** section, opens full-pane, appears
+It is created from the side menu's **Work widgets** section, opens full-pane, appears
 in Files with its own file type, gets a name without the user typing one, can be
 read and written by the assistant, and can be placed on any number of desks as a
 **linked instance** whose edits flow both ways.
@@ -212,7 +212,7 @@ Delete and restore otherwise use the existing `documents:*` channels.
 
 ## Side menu
 
-The **Widgets** section sits between Apps and People. Its kinds are:
+The **Work widgets** section (code: the Widgets section) sits between Apps and People. Its kinds are:
 
 ```
 WIDGET_CATALOG (not hideFromPicker)
@@ -222,7 +222,7 @@ WIDGET_CATALOG (not hideFromPicker)
   minus retired kinds
 ```
 
-The split between the main list and **Other widgets** is stored per user in
+The split between the main list and **Other work widgets** is stored per user in
 `lib/widgetMenuPrefs.ts`:
 
 - `localStorage` first;
@@ -231,10 +231,10 @@ The split between the main list and **Other widgets** is stored per user in
   prefs;
 - the defaults are eight kinds in the main list and everything else under Other
   widgets, in catalogue order;
-- a kind added in a later release is appended to Other widgets.
+- a kind added in a later release is appended to Other work widgets.
 
 A kind moves between the lists by dragging it, or by right-clicking it and
-choosing "Move to Other widgets" / "Move to Widgets". The collapsed rail shows
+choosing "Move to Other work widgets" / "Move to Work widgets". The collapsed rail shows
 the main list as icons with tooltips, plus an Other widgets toggle.
 
 The header "Add widget" button and the hover palette are gone. The side menu,
@@ -263,3 +263,13 @@ promoted with "Save as file" keeps its lens scope.
 The cloud runtime's worker (`src/web/worker/handlers.ts`) calls the same store
 for every `widgetFiles:*` channel except export and import, which need a native
 save or open dialog.
+
+## Lexicon
+
+User-facing text calls a desk/canvas widget a **work widget** ("a work widget",
+"Work widgets" at a sentence start): the side-menu section, its accordion,
+menus, palette rows, tooltips, toasts, errors, the assistant's prompts and MCP
+tool descriptions. Code identifiers, kind ids, data fields, IPC channels,
+`.plexii-*` type ids, test ids and settings keys are unchanged. The Home
+dashboard's own tiles ("home widgets") keep their name. Enforced by
+`tests/unit/workWidgetLexicon.test.ts`.

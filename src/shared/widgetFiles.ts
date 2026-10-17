@@ -82,7 +82,7 @@ export const WIDGET_FILE_TYPES: Partial<Record<WidgetKind, WidgetFileType>> = {
   scratchpad: { typeId: 'plexii.widget.scratchpad', ext: '.plexii-sketch', label: 'Sketch', icon: 'draw' },
   shape: { typeId: 'plexii.widget.shape', ext: '.plexii-shape', label: 'Shape', icon: 'category' },
   'custom-block': { typeId: 'plexii.widget.custom-block', ext: '.plexii-block', label: 'Form block', icon: 'dashboard_customize' },
-  custom: { typeId: 'plexii.widget.custom', ext: '.plexii-custom', label: 'Custom widget', icon: 'auto_awesome_mosaic' },
+  custom: { typeId: 'plexii.widget.custom', ext: '.plexii-custom', label: 'Custom work widget', icon: 'auto_awesome_mosaic' },
   'image-gen': { typeId: 'plexii.widget.image-gen', ext: '.plexii-image', label: 'AI image', icon: 'auto_awesome' },
   gallery: { typeId: 'plexii.widget.gallery', ext: '.plexii-gallery', label: 'Gallery', icon: 'photo_library' },
   'location-map': { typeId: 'plexii.widget.location', ext: '.plexii-place', label: 'Place', icon: 'location_on' },
@@ -100,7 +100,7 @@ export function widgetFileType(kind: WidgetKind | string | null | undefined): Wi
 
 /** "Table", "Task list" … or "Widget" for a kind this build cannot file. */
 export function widgetFileTypeLabel(kind: WidgetKind | string | null | undefined): string {
-  return widgetFileType(kind)?.label ?? 'Widget'
+  return widgetFileType(kind)?.label ?? 'Work widget'
 }
 
 /** The kind an extension or a type id names, for import. */
@@ -461,13 +461,13 @@ export function parseWidgetFileExport(text: string): WidgetFileExport | { error:
   try {
     parsed = JSON.parse(text)
   } catch {
-    return { error: 'This file is not a Plexii widget file (it is not valid JSON).' }
+    return { error: 'This file is not a Plexii work widget file (it is not valid JSON).' }
   }
-  if (!parsed || typeof parsed !== 'object') return { error: 'This file is not a Plexii widget file.' }
+  if (!parsed || typeof parsed !== 'object') return { error: 'This file is not a Plexii work widget file.' }
   const p = parsed as Record<string, unknown>
   const kind = (typeof p.kind === 'string' ? p.kind : null) ?? (typeof p.type === 'string' ? kindForWidgetFileType(p.type) : null)
   if (!kind || !isStandaloneWidgetKind(kind)) {
-    return { error: `This widget type (${String(p.type ?? p.kind ?? 'unknown')}) is not supported by this version of PlexiDesk.` }
+    return { error: `This work widget type (${String(p.type ?? p.kind ?? 'unknown')}) is not supported by this version of PlexiDesk.` }
   }
   return {
     type: typeof p.type === 'string' ? p.type : widgetFileType(kind)!.typeId,

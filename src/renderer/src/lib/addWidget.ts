@@ -32,7 +32,7 @@ export function openDeskId(): string | null {
 export function ensureCanAdd(kind: WidgetKind): boolean {
   if (canCreateWidget(useCapabilityStore.getState().capabilities, kind)) return true
   const label = catalogFor(kind)?.label ?? kind
-  promptUpgrade(`The ${label} widget is a Pro feature.`)
+  promptUpgrade(`The ${label} work widget is a Pro feature.`)
   return false
 }
 

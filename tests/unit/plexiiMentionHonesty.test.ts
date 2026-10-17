@@ -44,6 +44,8 @@ import {
   type AssistantTrace
 } from '../../src/renderer/src/lib/traceView'
 import type { ChatMentionRef } from '../../src/shared/types'
+// 4.3.32 lexicon standard: user-facing text says “work widget”. The string pins in
+// this file that read “widget” were rewritten to the new wording (owner ruling).
 
 function ref(kind: ChatMentionRef['kind'], id: string, title: string): ChatMentionRef {
   return { kind, id, title } as ChatMentionRef
@@ -83,7 +85,7 @@ describe('#9 — a desk mention reports the widgets it did NOT read', () => {
       }))
     )
     const [m] = resolveMentions([ref('desk', 'desk-1', 'Big desk')])
-    expect(m.source).toBe('read 12 of 15 widgets')
+    expect(m.source).toBe('read 12 of 15 work widgets')
     expect(m.text).toContain('3 more widgets on this desk were not read')
     expect(m.truncated).toBe(true)
     // The upstream cut has no honest total, so the notice must not invent one.

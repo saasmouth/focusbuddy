@@ -77,7 +77,7 @@ test('DW-2 Widgets work without a desk; "Add to this desk" appears only on a des
     await expect(tile).toBeVisible({ timeout: 4_000 })
     await tile.click({ button: 'right' })
     const menu = window.locator('[data-canvas-ctx-menu]')
-    await expect(menu.getByText('New sticky file')).toBeVisible()
+    await expect(menu.getByText('New sticky work widget')).toBeVisible()
     await expect(menu.getByText('Add to this desk')).toHaveCount(0)
   } finally {
     await dispose()

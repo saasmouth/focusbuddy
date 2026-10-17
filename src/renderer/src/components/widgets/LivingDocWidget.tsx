@@ -57,7 +57,7 @@ export default function LivingDocWidget({ widget, inline = false }: Props): JSX.
         TaskItem.configure({ nested: true }),
         Link.configure({ openOnClick: false }),
         Placeholder.configure({
-          placeholder: 'This doc fills itself from the other widgets on this desk.'
+          placeholder: 'This doc fills itself from the other work widgets on this desk.'
         })
       ],
       content: tryParseContent(widget.content)
@@ -76,7 +76,7 @@ export default function LivingDocWidget({ widget, inline = false }: Props): JSX.
         return
       }
       if (resp.skip) {
-        setError(resp.reason ?? 'Add notes, files, or other widgets to this desk first, then regenerate.')
+        setError(resp.reason ?? 'Add notes, files, or other work widgets to this desk first, then regenerate.')
         return
       }
       if (resp.content && resp.generatedAt) {
@@ -118,7 +118,7 @@ export default function LivingDocWidget({ widget, inline = false }: Props): JSX.
       <Icon name="auto_awesome" size={22} />
       <div className="text-[13px] font-semibold text-[var(--ink-90)]">A doc that writes itself</div>
       <div className="text-[11px] text-[var(--ink-50)] max-w-[300px] leading-relaxed">
-        Tell it what to track. It reads the other widgets on this desk and keeps a living summary, refreshing as things change.
+        Tell it what to track. It reads the other work widgets on this desk and keeps a living summary, refreshing as things change.
       </div>
       <input
         data-testid="livingdoc-brief-input"

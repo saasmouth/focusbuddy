@@ -178,7 +178,7 @@ function clusterLabel(cluster: FocusCluster, widgets: Widget[]): string {
     const source = p.source
     if (source.kind === 'widget') {
       const w = widgets.find((x) => x.id === source.widgetId)
-      return w?.title || (w ? catalogFor(w.kind)?.label : null) || 'Widget'
+      return w?.title || (w ? catalogFor(w.kind)?.label : null) || 'Work widget'
     }
     if (source.kind === 'chrome') return source.tab === 'add' ? 'Add' : 'AI Chat'
     return 'PlexiMeet'

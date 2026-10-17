@@ -47,7 +47,7 @@ export const DOC_TYPE_LABEL: Record<DocType, string> = {
   map: 'PlexiDiagrams',
   design: 'PlexiDesign',
   draw: 'PlexiDraw',
-  widget: 'Widgets'
+  widget: 'Work widgets'
 }
 
 export function capabilityForDocType(docType: DocType): string {

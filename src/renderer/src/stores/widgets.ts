@@ -328,7 +328,7 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
     }
     await applyPositions(ends)
     recordAction({
-      label: `Move ${Object.keys(ends).length} widgets`,
+      label: `Move ${Object.keys(ends).length} work widgets`,
       undo: () => applyPositions(starts),
       redo: () => applyPositions(ends)
     })
@@ -385,10 +385,10 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
     // desk foreign key fail with a database error.
     if (!draft.taskId) {
       useNoticeStore.getState().show({
-        text: 'Place this file on a desk to add widgets beside it.',
+        text: 'Place this file on a desk to add work widgets beside it.',
         icon: 'info'
       })
-      throw new Error('No desk to create the widget on')
+      throw new Error('No desk to create the work widget on')
     }
     // THE one place a new widget's size is capped to the view.
     //
@@ -463,10 +463,10 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
       const label = touched.includes('status')
         ? 'Change status'
         : touched.includes('color')
-          ? 'Recolour widget'
+          ? 'Recolour work widget'
           : touched.includes('width') || touched.includes('height')
-            ? 'Resize widget'
-            : 'Move widget'
+            ? 'Resize work widget'
+            : 'Move work widget'
       return { prevPatch, redoPatch, label }
     })()
     // Prior section, captured before the optimistic set, so a membership change can

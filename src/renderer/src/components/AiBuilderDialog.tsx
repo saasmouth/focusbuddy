@@ -171,7 +171,7 @@ export default function AiBuilderDialog({ taskId, onClose, onAccept, initialProm
               />
               <p className="text-[12px] text-[var(--ink-50)] max-w-md mx-auto leading-relaxed">
                 Describe what you're trying to do. The AI will suggest pages, tables,
-                fields, and other widgets — pre-configured with the right columns,
+                fields, and other work widgets — pre-configured with the right columns,
                 sections, and starter content. Pick what you want and it lands on
                 the canvas live.
               </p>
@@ -244,7 +244,7 @@ export default function AiBuilderDialog({ taskId, onClose, onAccept, initialProm
           {state.stage === 'spawning' && (
             <div className="flex flex-col items-center justify-center py-12 gap-2">
               <Icon name="auto_awesome" size={24} className="text-accent animate-pulse" />
-              <span className="text-[12px] text-[var(--ink-50)]">Placing widgets…</span>
+              <span className="text-[12px] text-[var(--ink-50)]">Placing work widgets…</span>
             </div>
           )}
         </div>

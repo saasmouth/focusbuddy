@@ -656,10 +656,10 @@ async function applyGenerateDocument(
     const widget = useWidgetStore.getState().widgets.find((w) => w.id === p.widgetId)
     const docId = widget?.content
     if (!widget || !docId) {
-      return { ok: false, message: 'Could not find that widget to fill.' }
+      return { ok: false, message: 'Could not find that work widget to fill.' }
     }
     if (widget.kind !== p.docType) {
-      return { ok: false, message: `That widget is a ${widget.kind}, not a ${label.toLowerCase()}.` }
+      return { ok: false, message: `That work widget is a ${widget.kind}, not a ${label.toLowerCase()}.` }
     }
     const gen = await window.api.documents.generate({ docType: p.docType, prompt: p.prompt })
     if (!gen.ok) {
@@ -746,7 +746,7 @@ async function applyCreateWidget(
   ctx: { activeTaskId: string | null; resolvedIds?: Map<string, string> }
 ): Promise<ApplyResult> {
   if (!ctx.activeTaskId) {
-    return { ok: false, message: 'Open a desk first — widgets need a canvas.' }
+    return { ok: false, message: 'Open a desk first — work widgets need a canvas.' }
   }
   const entry = catalogFor(p.widgetKind)
   // A table widget's content is its backing-table id, NOT free text. If the AI
@@ -1074,7 +1074,7 @@ async function applyAskWidgetAi(
 ): Promise<ApplyResult> {
   const target = useWidgetStore.getState().widgets.find((w) => w.id === p.widgetId)
   if (!target) {
-    return { ok: false, message: `No widget found with id ${p.widgetId.slice(0, 8)}\u2026` }
+    return { ok: false, message: `No work widget found with id ${p.widgetId.slice(0, 8)}\u2026` }
   }
   const entry = WIDGET_AI[target.kind]
   if (!entry) {
@@ -1082,7 +1082,7 @@ async function applyAskWidgetAi(
     // than this registry. Say so rather than silently doing nothing.
     return {
       ok: false,
-      message: `No AI expert registered for a ${target.kind} widget yet.`
+      message: `No AI expert registered for a ${target.kind} work widget yet.`
     }
   }
   useWidgetSetup.getState().start(target.id, p.intent)
@@ -1098,7 +1098,7 @@ async function applyUpdateWidget(
   const widgets = useWidgetStore.getState().widgets
   const target = widgets.find((w) => w.id === p.widgetId)
   if (!target) {
-    return { ok: false, message: `No widget found with id ${p.widgetId.slice(0, 8)}…` }
+    return { ok: false, message: `No work widget found with id ${p.widgetId.slice(0, 8)}…` }
   }
   const patch: WidgetPatch = {}
   if (p.title !== undefined) patch.title = p.title
@@ -1150,7 +1150,7 @@ async function applyLinkWidgets(
   const src = findWidget(sourceId)
   const tgt = findWidget(targetId)
   if (!src || !tgt) {
-    return { ok: false, message: 'One of the linked widgets no longer exists (or was not created yet).' }
+    return { ok: false, message: 'One of the linked work widgets no longer exists (or was not created yet).' }
   }
   const link = await useLinksStore.getState().create(src.id, tgt.id, ctx.activeTaskId)
   if (!link) {
@@ -1173,7 +1173,7 @@ async function applyFocusWidget(
   const widgets = useWidgetStore.getState().widgets
   const target = widgets.find((w) => w.id === p.widgetId)
   if (!target) {
-    return { ok: false, message: `No widget found with id ${p.widgetId.slice(0, 8)}…` }
+    return { ok: false, message: `No work widget found with id ${p.widgetId.slice(0, 8)}…` }
   }
   await useWidgetStore.getState().bringToFront(p.widgetId)
   useWidgetStore.getState().setActive(p.widgetId)
@@ -1187,7 +1187,7 @@ async function applyDrillInWidget(
   const widgets = useWidgetStore.getState().widgets
   const target = widgets.find((w) => w.id === p.widgetId)
   if (!target) {
-    return { ok: false, message: `No widget found with id ${p.widgetId.slice(0, 8)}…` }
+    return { ok: false, message: `No work widget found with id ${p.widgetId.slice(0, 8)}…` }
   }
   // setFocused opens the WidgetFocusMode modal (single-widget zoomed view).
   // bringToFront so the widget renders above any siblings in case the
@@ -1203,7 +1203,7 @@ async function applyToggleTodoItem(
   const widgets = useWidgetStore.getState().widgets
   const target = widgets.find((w) => w.id === p.widgetId)
   if (!target) {
-    return { ok: false, message: `No widget found with id ${p.widgetId.slice(0, 8)}…` }
+    return { ok: false, message: `No work widget found with id ${p.widgetId.slice(0, 8)}…` }
   }
   const lines = (target.content || '').split('\n')
   const needle = p.itemMatch.trim().toLowerCase()
@@ -1263,7 +1263,7 @@ async function applyArrangeWidgets(
     return true
   })
   if (targets.length === 0) {
-    return { ok: false, message: 'No widgets to arrange on the current canvas.' }
+    return { ok: false, message: 'No work widgets to arrange on the current canvas.' }
   }
   // Simple grid: square-ish layout, 320px columns × 240px rows + 24px gutter.
   // Anchored near the top-left of the visible viewport (origin (0,0)) so
@@ -1285,7 +1285,7 @@ async function applyArrangeWidgets(
     const y = row * (ROW_H + GAP) + GAP
     await store.update(w.id, { x, y, width: COL_W, height: ROW_H })
   }
-  return { ok: true, message: `Arranged ${ordered.length} widget${ordered.length === 1 ? '' : 's'}` }
+  return { ok: true, message: `Arranged ${ordered.length} work widget${ordered.length === 1 ? '' : 's'}` }
 }
 
 // Group existing widgets into a new labelled Section (the Smart Stack action,
@@ -1756,13 +1756,13 @@ export function describeProposal(
       return {
         icon: 'dashboard_customize',
         verb: 'Arrange',
-        subject: p.widgetIds && p.widgetIds.length > 0 ? `${p.widgetIds.length} widgets` : p.label
+        subject: p.widgetIds && p.widgetIds.length > 0 ? `${p.widgetIds.length} work widgets` : p.label
       }
     case 'create-section':
       return {
         icon: 'dashboard',
         verb: 'Create section',
-        subject: `${p.name} · ${p.widgetIds.length} widget${p.widgetIds.length === 1 ? '' : 's'}`
+        subject: `${p.name} · ${p.widgetIds.length} work widget${p.widgetIds.length === 1 ? '' : 's'}`
       }
     case 'update-task': {
       const bits = [

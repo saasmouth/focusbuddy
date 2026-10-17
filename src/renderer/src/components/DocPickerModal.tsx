@@ -41,7 +41,7 @@ const TYPE_LABEL: Record<DocType, string> = {
   map: 'Diagrams',
   design: 'Designs',
   draw: 'Artwork',
-  widget: 'Widgets'
+  widget: 'Work widgets'
 }
 const TYPES: DocType[] = ['doc', 'sheet', 'slides', 'map', 'design', 'draw']
 

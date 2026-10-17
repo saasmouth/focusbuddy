@@ -128,7 +128,7 @@ export default function PinTray(): JSX.Element | null {
                     disabled={!activeTaskId || !canPlaceKind(item.kind)}
                     title={
                       !canPlaceKind(item.kind)
-                        ? 'This kind opens in place; it cannot be dropped as a widget yet'
+                        ? 'This kind opens in place; it cannot be dropped as a work widget yet'
                         : !activeTaskId
                           ? 'Open a desk first'
                           : 'Add to the current desk'

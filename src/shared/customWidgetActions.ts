@@ -132,7 +132,7 @@ export function judgeWidgetAction(raw: unknown, scope: ActionScope): ActionVerdi
   if (!WIDGET_ACTION_KINDS.has(kind)) {
     return {
       ok: false,
-      reason: `"${kind || '(none)'}" is not something a widget can do. Allowed: ${[...WIDGET_ACTION_KINDS].join(', ')}.`
+      reason: `"${kind || '(none)'}" is not something a work widget can do. Allowed: ${[...WIDGET_ACTION_KINDS].join(', ')}.`
     }
   }
 
@@ -147,7 +147,7 @@ export function judgeWidgetAction(raw: unknown, scope: ActionScope): ActionVerdi
         return {
           ok: false,
           reason:
-            'This widget can only change a table that is wired into it. Draw a wire from that table to this widget first.'
+            'This work widget can only change a table that is wired into it. Draw a wire from that table to this work widget first.'
         }
       }
       const cells = cleanCells(a.cells)
@@ -215,7 +215,7 @@ export function judgeWidgetAction(raw: unknown, scope: ActionScope): ActionVerdi
         return {
           ok: false,
           reason:
-            'This widget can only change a task that is wired into it or @ mentioned in it.'
+            'This work widget can only change a task that is wired into it or @ mentioned in it.'
         }
       }
       const status = str(a.status).trim()

@@ -177,7 +177,7 @@ export default function MetricsOverlay(): JSX.Element | null {
 
       <div className="px-2.5 py-2 space-y-0.5 border-b border-stone-800" data-testid="metrics-counts">
         <div className="flex items-center justify-between gap-4">
-          <span className="text-stone-400">Widgets (desk)</span>
+          <span className="text-stone-400">Work widgets (desk)</span>
           <span className={liveWidgets > 60 ? 'text-amber-400' : 'text-stone-100'} data-testid="metrics-widgets">{liveWidgets}</span>
         </div>
         <div className="flex items-center justify-between gap-4">
@@ -218,7 +218,7 @@ export default function MetricsOverlay(): JSX.Element | null {
       </div>
 
       <div className="px-2.5 py-1 border-t border-stone-800 text-[9px] text-stone-500">
-        Cmd/Ctrl+Shift+M to toggle. Each browser widget is its own renderer.
+        Cmd/Ctrl+Shift+M to toggle. Each browser work widget is its own renderer.
       </div>
     </div>,
     document.body

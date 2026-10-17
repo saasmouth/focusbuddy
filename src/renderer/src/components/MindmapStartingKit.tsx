@@ -48,7 +48,7 @@ export default function MindmapStartingKit({
     let cancelled = false
     void (async () => {
       const context = nodePath.length > 0 ? ` (within: ${nodePath.join(' › ')})` : ''
-      const prompt = `I'm starting work on a focused task: "${nodeLabel}"${context}. Suggest the most useful widgets and browser tabs to get this specific task done — keep it tight and practical.`
+      const prompt = `I'm starting work on a focused task: "${nodeLabel}"${context}. Suggest the most useful work widgets and browser tabs to get this specific task done — keep it tight and practical.`
       try {
         const res = await window.api.setup.buildFromPrompt({ prompt, taskId })
         if (cancelled) return
@@ -151,7 +151,7 @@ export default function MindmapStartingKit({
         {stage === 'loading' && (
           <div className="flex items-center gap-2 py-6 justify-center text-[12px] text-[var(--ink-50)]">
             <Icon name="progress_activity" size={16} className="animate-spin" />
-            Thinking up the right widgets &amp; tabs…
+            Thinking up the right work widgets &amp; tabs…
           </div>
         )}
         {stage === 'error' && (
@@ -163,7 +163,7 @@ export default function MindmapStartingKit({
         {stage === 'ready' && (
           <>
             <div className="text-[10px] uppercase tracking-wide text-[var(--ink-50)] font-semibold mb-1.5">
-              Suggested widgets
+              Suggested work widgets
             </div>
             <div className="grid grid-cols-2 gap-1.5 mb-3">
               {suggestions.map((s) => {

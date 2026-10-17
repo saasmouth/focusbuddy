@@ -48,7 +48,7 @@ export function renderAttachments(
   return (
     "\n\n## Content open on the user's canvas\n" +
     pinNote +
-    'The user may be asking you to act on the following live content from browser, document, or PDF widgets on their canvas. ' +
+    'The user may be asking you to act on the following live content from browser, document, or PDF work widgets on their canvas. ' +
     'When they ask to create calendar events, schedule, or "add these to my calendar", extract the real dates, times, titles and durations from this content and emit schedule-event actions (absolute unix-ms startMs computed from the current-time fact; durationMinutes required; default 60 minutes when no end time is given). Do not invent details that are not present.\n\n' +
     blocks.join('\n\n')
   )

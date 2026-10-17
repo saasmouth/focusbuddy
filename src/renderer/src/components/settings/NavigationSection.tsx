@@ -369,7 +369,7 @@ export default function NavigationSection(): JSX.Element {
       />
       <Slider
         label="Arrow-key zoom"
-        desc="How large a widget is made when you arrow to it. 1× keeps it at its designed size; higher fills more of the screen. A widget too big to fit is always zoomed out to fit."
+        desc="How large a work widget is made when you arrow to it. 1× keeps it at its designed size; higher fills more of the screen. A work widget too big to fit is always zoomed out to fit."
         value={nav.navZoom}
         min={1}
         max={2}

@@ -2,6 +2,8 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+// 4.3.32 lexicon standard: user-facing text says “work widget”. The string pins in
+// this file that read “widget” were rewritten to the new wording (owner ruling).
 
 // "There's still no AI button in a lot of the widgets, like table. It should be
 // consistent in the header for all widgets."
@@ -40,7 +42,7 @@ describe('the AI button lives on the shared widget frame', () => {
     const actions = frame.slice(frame.indexOf('fb-widget-actions'))
     // Rename is the control that used to lead the row.
     expect(actions.indexOf('data-testid="widget-ai"')).toBeLessThan(
-      actions.indexOf('aria-label="Rename widget"')
+      actions.indexOf('aria-label="Rename work widget"')
     )
   })
 

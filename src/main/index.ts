@@ -1016,25 +1016,25 @@ app.whenReady().then(() => {
     try {
       const url = new URL(request.url)
       const id = url.hostname
-      if (!id) return deny(400, 'No widget id.')
+      if (!id) return deny(400, 'No work widget id.')
       const row = getDb()
         .prepare('SELECT kind, content FROM widgets WHERE id = ?')
         .get(id) as { kind?: string; content?: string } | undefined
-      if (!row) return deny(404, 'That widget no longer exists.')
+      if (!row) return deny(404, 'That work widget no longer exists.')
       // Only ever serve a Custom widget through this scheme. Without this check
       // the protocol would happily render any widget's content as a live
       // document, which is exactly the sort of confused-deputy step that turns a
       // note into an execution surface.
-      if (row.kind !== 'custom') return deny(403, 'Not a custom widget.')
+      if (row.kind !== 'custom') return deny(403, 'Not a custom work widget.')
 
       let parsed: { code?: unknown; state?: unknown; net?: unknown } = {}
       try {
         parsed = JSON.parse(row.content || '{}')
       } catch {
-        return deny(422, 'This widget could not be read.')
+        return deny(422, 'This work widget could not be read.')
       }
       const code = typeof parsed.code === 'string' ? parsed.code : ''
-      if (!code.trim()) return deny(404, 'This widget has not been built yet.')
+      if (!code.trim()) return deny(404, 'This work widget has not been built yet.')
       const net = parsed.net === true
       const state =
         parsed.state && typeof parsed.state === 'object' && !Array.isArray(parsed.state)
@@ -1062,7 +1062,7 @@ app.whenReady().then(() => {
         }
       })
     } catch (err) {
-      return deny(500, `Could not build this widget: ${String(err)}`)
+      return deny(500, `Could not build this work widget: ${String(err)}`)
     }
   })
 

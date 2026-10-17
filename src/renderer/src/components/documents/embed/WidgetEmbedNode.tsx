@@ -56,7 +56,7 @@ export const WidgetEmbedNode = Node.create({
   renderHTML({ HTMLAttributes }) {
     // The static form (exports, headless conversion) names what it is rather
     // than pretending to be the live widget.
-    return ['div', mergeAttributes(HTMLAttributes), 'Embedded desk widget']
+    return ['div', mergeAttributes(HTMLAttributes), 'Embedded work widget']
   },
 
   addNodeView() {

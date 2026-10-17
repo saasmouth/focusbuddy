@@ -105,7 +105,7 @@ export default function BrowserExtensionsSection(): JSX.Element {
         Browser extensions
       </div>
       <p className="text-[12px] text-[var(--ink-50)]">
-        Extensions run in every Plexii browser surface — the widget, the panel, the fullscreen
+        Extensions run in every Plexii browser surface — the work widget, the panel, the fullscreen
         browser and your connected apps.
       </p>
 

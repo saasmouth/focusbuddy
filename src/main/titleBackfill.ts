@@ -162,7 +162,7 @@ function findUntitled(seen: Set<string>): Candidate[] {
       out.push({
         table: 'documents',
         id: d.id,
-        noun: `${widgetFileTypeLabel(body.kind).toLowerCase()} widget`,
+        noun: `${widgetFileTypeLabel(body.kind).toLowerCase()} work widget`,
         text: widgetFileBodyToText(body, '', resolvers).replace(/^\(.*\)$/, ''),
         widgetFile: { kind: body.kind, content: body.content }
       })
@@ -187,7 +187,7 @@ function findUntitled(seen: Set<string>): Candidate[] {
     out.push({
       table: 'widgets',
       id: w.id,
-      noun: `${w.kind} widget`,
+      noun: `${w.kind} work widget`,
       text: textFromBody(w.content)
     })
   }

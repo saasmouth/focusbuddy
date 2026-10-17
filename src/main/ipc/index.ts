@@ -1478,7 +1478,7 @@ export function registerIpcHandlers(): void {
       // propagation and Assemble's related-surfacing (widget-link-owner approved,
       // all wire types). Idempotent; self-loops already blocked by createLink.
       if (link) {
-        mirrorUserRelation(link.sourceWidgetId, link.targetWidgetId, link.id, 'user linked these widgets')
+        mirrorUserRelation(link.sourceWidgetId, link.targetWidgetId, link.id, 'user linked these work widgets')
       }
       return link
     }
@@ -1566,7 +1566,7 @@ export function registerIpcHandlers(): void {
       const source = getWidget(sourceId)
       const target = getWidget(targetId)
       if (!source || !target) {
-        return { ok: false, error: 'A wired widget no longer exists.' }
+        return { ok: false, error: 'A wired work widget no longer exists.' }
       }
       // Resolve the source to real content (an agent feeds its output; a browser
       // contributes its LIVE page text if supplied, else a server-side fetch).
@@ -4074,7 +4074,7 @@ export function registerIpcHandlers(): void {
   })
   ipcMain.handle('widgetFiles:export', async (_e, id: string) => {
     const env = exportWidgetFile(id)
-    if (!env) return { ok: false as const, error: 'That widget file no longer exists.' }
+    if (!env) return { ok: false as const, error: 'That work widget file no longer exists.' }
     const win = BrowserWindow.getFocusedWindow()
     const opts = { defaultPath: widgetFileExportName({ kind: env.kind, title: env.title }) }
     const res = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
@@ -4090,7 +4090,7 @@ export function registerIpcHandlers(): void {
         const win = BrowserWindow.getFocusedWindow()
         const opts = {
           properties: ['openFile' as const],
-          filters: [{ name: 'Plexii widget files', extensions: Object.values(WIDGET_FILE_TYPES).map((t) => t!.ext.slice(1)) }]
+          filters: [{ name: 'Plexii work widget files', extensions: Object.values(WIDGET_FILE_TYPES).map((t) => t!.ext.slice(1)) }]
         }
         const res = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts)
         if (res.canceled || !res.filePaths[0]) return { ok: false as const, canceled: true as const }
@@ -4357,7 +4357,7 @@ export function registerIpcHandlers(): void {
         return Promise.resolve({ ok: false, error: 'Artwork is created in the PlexiDraw studio, not generated from a prompt.' })
       }
       if (input.docType === 'widget') {
-        return Promise.resolve({ ok: false, error: 'Widget files are created from the Widgets menu or by the assistant, not generated as a document.' })
+        return Promise.resolve({ ok: false, error: 'Work widget files are created from the Work widgets menu or by the assistant, not generated as a document.' })
       }
       return generateDocument({ ...input, docType: input.docType })
     }

@@ -216,7 +216,7 @@ test('WF-4 moving a kind to Other widgets and back persists across a reload', as
   await expect(main.locator('[data-testid="sidemenu-widget-sticky"]')).toBeVisible({ timeout: 8_000 })
 
   await main.locator('[data-testid="sidemenu-widget-sticky"]').click({ button: 'right' })
-  await window.locator('[data-canvas-ctx-menu]').getByText('Move to Other widgets').click()
+  await window.locator('[data-canvas-ctx-menu]').getByText('Move to Other work widgets').click()
   await expect(main.locator('[data-testid="sidemenu-widget-sticky"]')).toHaveCount(0)
   await expect(other.locator('[data-testid="sidemenu-widget-sticky"]')).toHaveCount(1)
 
@@ -228,7 +228,7 @@ test('WF-4 moving a kind to Other widgets and back persists across a reload', as
   // And back, by right-click → Move to Widgets.
   const tile = await sideMenuWidget(window, 'sticky')
   await tile.click({ button: 'right' })
-  await window.locator('[data-canvas-ctx-menu]').getByText('Move to Widgets').click()
+  await window.locator('[data-canvas-ctx-menu]').getByText('Move to Work widgets').click()
   await expect(window.locator('[data-testid="sidemenu-widgets-main"] [data-testid="sidemenu-widget-sticky"]')).toHaveCount(1)
 
   await window.reload()

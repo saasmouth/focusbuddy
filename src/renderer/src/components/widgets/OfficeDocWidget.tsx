@@ -34,7 +34,7 @@ const TYPE_META: Record<DocType, { label: string; accent: string }> = {
   draw: { label: 'Artwork', accent: 'bg-fuchsia-300/60 dark:bg-fuchsia-400/25' },
   // Never rendered here: a widget file placed on a desk is a linked instance of
   // its own kind, not an office document embed. Present for exhaustiveness.
-  widget: { label: 'Widget', accent: 'bg-stone-200/70 dark:bg-white/[0.07]' }
+  widget: { label: 'Work widget', accent: 'bg-stone-200/70 dark:bg-white/[0.07]' }
 }
 
 export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.Element {

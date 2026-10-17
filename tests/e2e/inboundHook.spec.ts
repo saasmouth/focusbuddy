@@ -80,7 +80,7 @@ async function bodyPoint(window: Page, id: string): Promise<{ x: number; y: numb
 // clicking the given screen point — a real UI gesture (widget-link-owner's
 // pattern from linkIntentOverhaul.spec.ts).
 async function armAndDrop(window: Page, sourceId: string, drop: { x: number; y: number }): Promise<void> {
-  const hub = window.locator(`[data-widget-id="${sourceId}"]`).getByRole('button', { name: 'Link to another widget' })
+  const hub = window.locator(`[data-widget-id="${sourceId}"]`).getByRole('button', { name: 'Link to another work widget' })
   await expect(hub, `hub button visible on source ${sourceId}`).toBeVisible({ timeout: 4_000 })
   await hub.click()
   await window.mouse.click(drop.x, drop.y)
@@ -263,7 +263,7 @@ test('(c) an inbound-hook widget is a valid link source via its hub button and t
   await openTask(window, /Inbound hook link source/)
 
   // Real UI gesture: click the inbound-hook's hub button (the same
-  // "Link to another widget" control every widget kind gets from the shared
+  // "Link to another work widget" control every widget kind gets from the shared
   // WidgetFrame), then drop on N2 — proving it's a valid link endpoint/source,
   // not just something the wire engine happens to tolerate.
   const drop = await bodyPoint(window, nId)

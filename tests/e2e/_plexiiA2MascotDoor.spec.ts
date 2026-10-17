@@ -201,7 +201,7 @@ test('plexii A2 @ mentions: the bar jumps straight to desks, rooms, and widgets'
     .filter({ hasText: 'Budget tracker' })
     .first()
   await expect(widgetRow).toBeVisible({ timeout: 5000 })
-  await expect(widgetRow).toContainText('Widget')
+  await expect(widgetRow).toContainText('Work widget')
   await window.screenshot({ path: `${OUT}/mention-2-widget.png` })
   await widgetRow.click()
   await expect(window.locator('text=Budget tracker').first()).toBeVisible({ timeout: 5000 })

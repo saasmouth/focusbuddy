@@ -149,7 +149,7 @@ const PREVIEWABLE = new Set<Widget['kind']>(['sticky', 'note', 'markdown', 'card
 
 function EmbedBody({ widget }: { widget: Widget }): JSX.Element {
   if (widget.kind === 'table') {
-    if (!widget.content) return <div className="p-2 text-[11px] text-[var(--ink-40)]">This table widget has no backing table yet.</div>
+    if (!widget.content) return <div className="p-2 text-[11px] text-[var(--ink-40)]">This table work widget has no backing table yet.</div>
     return <TableBody tableId={widget.content} />
   }
   if (widget.kind === 'note' || widget.kind === 'markdown') {
@@ -203,7 +203,7 @@ export default function WidgetEmbed({ widgetId }: Props): JSX.Element {
       <div className={shell} data-testid="widget-embed-loading">
         <div className="flex-1 flex items-center justify-center gap-1.5 text-[11px] text-[var(--ink-40)] p-3">
           <Icon name="autorenew" size={13} className="animate-spin" />
-          <span>Loading widget…</span>
+          <span>Loading work widget…</span>
         </div>
       </div>
     )
@@ -213,7 +213,7 @@ export default function WidgetEmbed({ widgetId }: Props): JSX.Element {
       <div className={shell} data-testid="widget-embed-missing">
         <div className="flex-1 flex flex-col items-center justify-center gap-1 text-[11px] text-[var(--ink-40)] p-3 text-center">
           <Icon name="link_off" size={18} />
-          <span>{state.phase === 'missing' ? 'This widget no longer exists' : state.message}</span>
+          <span>{state.phase === 'missing' ? 'This work widget no longer exists' : state.message}</span>
         </div>
       </div>
     )

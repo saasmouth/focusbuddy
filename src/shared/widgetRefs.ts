@@ -39,10 +39,10 @@ export function validateWidgetRef(
 ): RefProblem {
   const expected = REF_OBJECT_KIND[widgetKind]
   if (!expected) {
-    return { ok: false, reason: `A ${widgetKind} widget does not hold a reference.` }
+    return { ok: false, reason: `A ${widgetKind} work widget does not hold a reference.` }
   }
   if (typeof id !== 'string' || !id.trim()) {
-    return { ok: false, reason: `A ${widgetKind} widget needs something to point at.` }
+    return { ok: false, reason: `A ${widgetKind} work widget needs something to point at.` }
   }
   const found = candidates.find((c) => c.id === id.trim())
   if (!found) {
@@ -57,7 +57,7 @@ export function validateWidgetRef(
     // that is exactly the quiet failure worth refusing twice.
     return {
       ok: false,
-      reason: `${found.title} is a ${found.objectKind}, and this widget points at a ${expected}.`
+      reason: `${found.title} is a ${found.objectKind}, and this work widget points at a ${expected}.`
     }
   }
   return { ok: true }

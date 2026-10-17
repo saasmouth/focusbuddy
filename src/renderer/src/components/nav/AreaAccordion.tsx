@@ -110,7 +110,7 @@ const SECTIONS: { id: SectionId; label: string; icon: string; tone: string }[] =
   { id: 'apps', label: 'Apps', icon: 'apps', tone: AREA_TONES.office },
   // Widgets that are not an app (4.3.32): standalone widget files, and the way
   // widgets are added to a desk now that the header button is gone.
-  { id: 'widgets', label: 'Widgets', icon: 'widgets', tone: AREA_TONES.widgets },
+  { id: 'widgets', label: 'Work widgets', icon: 'widgets', tone: AREA_TONES.widgets },
   { id: 'people', label: 'People', icon: 'groups', tone: AREA_TONES.people },
   { id: 'brain', label: 'Brain', icon: 'neurology', tone: AREA_TONES.brain }
 ]
@@ -599,7 +599,7 @@ export default function AreaAccordion({
 
       <Section
         id="widgets"
-        label="Widgets"
+        label="Work widgets"
         icon="widgets"
         kind="widgets"
         locked={false}

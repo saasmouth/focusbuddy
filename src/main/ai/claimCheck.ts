@@ -85,6 +85,6 @@ export function unbackedClaimNotice(): string {
   return (
     '**Nothing above was actually created.** ' +
     'I described that as done, but no change was prepared, so there is no card here to apply. ' +
-    'Ask me again — naming the desk or widget you mean — and I will produce it as something you can accept.'
+    'Ask me again — naming the desk or work widget you mean — and I will produce it as something you can accept.'
   )
 }

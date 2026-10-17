@@ -16,7 +16,7 @@ function iconFor(kind: string): string {
   return kind === 'folder' ? 'folder_shared' : kind === 'task' ? 'desk' : 'widgets'
 }
 function labelFor(kind: string): string {
-  return kind === 'folder' ? 'Shared room' : kind === 'task' ? 'Shared desk' : 'Shared widget'
+  return kind === 'folder' ? 'Shared room' : kind === 'task' ? 'Shared desk' : 'Shared work widget'
 }
 
 export default function SharedView(): JSX.Element {

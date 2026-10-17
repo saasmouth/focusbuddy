@@ -22,9 +22,9 @@ export function linkTargetForApplied(
 // the desk and its widgets as cards the user approves, so nothing is built
 // silently.
 export const TURN_INTO_DESK_MESSAGE =
-  'Turn this conversation into a desk: propose a create-task action for the desk itself and the widgets that bring everything we discussed to life.'
+  'Turn this conversation into a desk: propose a create-task action for the desk itself and the work widgets that bring everything we discussed to life.'
 
 // The follow-up push once a desk is linked. The send rides the linked desk as
 // task context, so the model can see the canvas and propose only what is new.
 export const PUSH_TO_DESK_MESSAGE =
-  'Push what is new from this conversation to the desk: propose widgets and updates for anything we discussed that is not on the canvas yet.'
+  'Push what is new from this conversation to the desk: propose work widgets and updates for anything we discussed that is not on the canvas yet.'

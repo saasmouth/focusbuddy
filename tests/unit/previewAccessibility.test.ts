@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+// 4.3.32 lexicon standard: user-facing text says “work widget”. The string pins in
+// this file that read “widget” were rewritten to the new wording (owner ruling).
 
 // Hidden desk data was massively overexposed through the accessibility tree:
 // opening "All desks" handed screen readers and automation the full contents of
@@ -44,6 +46,6 @@ describe('preview surfaces are decorative to assistive technology', () => {
   })
 
   it('focus dock entries keep a name of their own', () => {
-    expect(read('WidgetFocusDock.tsx')).toContain("title={w.title || entry?.label || 'Widget'}")
+    expect(read('WidgetFocusDock.tsx')).toContain("title={w.title || entry?.label || 'Work widget'}")
   })
 })

@@ -238,7 +238,7 @@ function shapeSvg(n: MapNode): string {
       body =
         `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" ry="10" fill="#fff" stroke="${stroke}" stroke-width="2" />` +
         `<rect x="${x}" y="${y}" width="${w}" height="26" rx="10" ry="10" fill="${fill}" fill-opacity="0.16" />` +
-        `<text x="${x + 10}" y="${y + 13}" font-family="Inter, system-ui, sans-serif" font-size="10" fill="${stroke}" dominant-baseline="central">live widget</text>`
+        `<text x="${x + 10}" y="${y + 13}" font-family="Inter, system-ui, sans-serif" font-size="10" fill="${stroke}" dominant-baseline="central">live work widget</text>`
       break
     default: // process
       body = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" ry="8" ${common} />`

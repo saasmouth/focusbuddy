@@ -48,7 +48,7 @@ export default function TaskOpenChoice({
             {task.title || 'Untitled task'}
           </div>
           <div className="text-[11px] text-[var(--ink-50)]">
-            This task also has a desk, with {widgetCount} {widgetCount === 1 ? 'widget' : 'widgets'}
+            This task also has a desk, with {widgetCount} {widgetCount === 1 ? 'work widget' : 'work widgets'}
             .
           </div>
         </div>

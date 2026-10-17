@@ -65,7 +65,7 @@ const CARD_META: Record<
   'recent-activity': {
     label: 'Recent Activity',
     icon: 'history',
-    description: 'Last 24h of widget adds, browses, sessions, chats'
+    description: 'Last 24h of work widget adds, browses, sessions, chats'
   },
   folders: {
     label: 'Folders',
@@ -95,7 +95,7 @@ const CARD_META: Record<
   'recent-notes': {
     label: 'Recent Notes',
     icon: 'sticky_note_2',
-    description: 'Last six edited sticky / note / page widgets across the workspace'
+    description: 'Last six edited sticky / note / page work widgets across the workspace'
   },
   'daily-brief': {
     label: 'Daily Brief',

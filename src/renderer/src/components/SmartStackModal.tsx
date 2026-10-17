@@ -139,7 +139,7 @@ export default function SmartStackModal({ onClose }: Props): JSX.Element {
           {state.stage === 'loading' && (
             <div className="py-8 flex flex-col items-center justify-center text-[var(--ink-50)]">
               <Icon name="hub" size={32} className="text-accent mb-2 animate-pulse" />
-              <p className="text-sm">Finding groups in your widgets…</p>
+              <p className="text-sm">Finding groups in your work widgets…</p>
             </div>
           )}
 

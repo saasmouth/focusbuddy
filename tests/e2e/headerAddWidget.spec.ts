@@ -45,7 +45,7 @@ test('the command palette adds a widget to the desk and teaches its quick-add ke
   await input.fill('add sticky')
   const row = window.locator('[data-testid="palette-row-add-sticky"]')
   await expect(row).toBeVisible()
-  await expect(row).toContainText('Add Sticky to desk')
+  await expect(row).toContainText('Add Sticky work widget to desk')
 
   // 'S' is the shipped default for a sticky (WIDGET_SHORTCUTS), shown quieter
   // than the label beside it.

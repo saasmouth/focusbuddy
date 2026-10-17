@@ -47,7 +47,7 @@ export const ASSISTANT_CAPABILITIES: AssistantCapability[] = [
   },
   {
     icon: 'widgets',
-    label: 'Make a widget file',
+    label: 'Make a work widget file',
     starter: 'Make me a task list I can put on any desk',
     kinds: ['create-widget-file', 'update-widget-file']
   },

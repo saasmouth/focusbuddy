@@ -80,7 +80,7 @@ test('a task WITH a desk asks, and either answer works', async () => {
 
   const choice = window.locator('[data-testid="task-open-choice"]')
   await expect(choice).toBeVisible({ timeout: 5000 })
-  await expect(choice).toContainText('1 widget')
+  await expect(choice).toContainText('1 work widget')
 
   // "Open here" keeps you where you are.
   await choice.getByTestId('task-open-here').click()

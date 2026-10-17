@@ -38,25 +38,25 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '4.3.32',
     date: '2026-10-17T21:00:00Z',
-    title: 'PlexiDesk 4.3.32 \u2014 widgets in the side menu, and widgets as files',
+    title: 'PlexiDesk 4.3.32 \u2014 work widgets in the side menu, and work widgets as files',
     tag: 'feature',
     summary:
-      'The side menu has a new Widgets section, and it is now where you add widgets. A widget no longer needs a desk: click one to make it on its own, like a document. It is saved in Files and named for you, and you can put it on as many desks as you like. Every copy stays in sync.',
+      'The side menu has a new Work widgets section, and it is now where you add work widgets. A work widget no longer needs a desk: click one to make it on its own, like a document. It is saved in Files and named for you, and you can put it on as many desks as you like. Every copy stays in sync.',
     highlights: [
-      'A new Widgets section in the side menu lists every widget that is not already one of your apps. Eight common widgets show first, and the rest are under \u201cOther widgets\u201d. To move a widget between the two lists, drag it, or right-click it and choose Move to Other widgets or Move to Widgets. Your arrangement is remembered and follows you to your other devices.',
-      'Click a widget to make it on its own, without a desk. It opens full screen and works just as it does on a desk.',
-      'Drag a widget from the side menu onto a desk, or right-click it and choose Add to this desk. This makes the widget and puts it on the desk in one step. From the keyboard, open the command palette and choose Add (widget) to desk.',
-      'The Add widget button in the header and the widget menu in the floating toolbar have been removed. Use the Widgets section instead. Import file and Bring a synced widget are now at the bottom of the Widgets section.',
-      'Widgets made this way are saved in Files with their own file type, such as Table, Task list, Mind map or Sticky. In Files you can sort and filter them by type, open them, rename them, move them to the Trash, export them (for example as .plexii-table), and drag them onto a desk.',
-      'A widget from Files can be on more than one desk. Every copy is the same widget, so a change on one desk appears on all of them and in Files.',
-      'To turn a widget that is already on a desk into a file, right-click it and choose Save as file.',
-      'New widgets are named for you. Each widget is named from its own content: a table from its first column and number of rows, a task list from its first task, a note from its first line. Anything that cannot be named from its content gets a short name from AI later. A name you type yourself is never changed.',
-      'A task list made from the Widgets section keeps its own tasks, so every copy of it shows the same list, whichever desk it is on.',
-      'Plexii and Brain can read your widget files and find them by what is in them. You can @-mention a widget file, Build with AI uses the ones that match what you ask for, and Plexii can make or update a widget file for you after you approve it.'
+      'A new Work widgets section in the side menu lists every work widget that is not already one of your apps. Eight common work widgets show first, and the rest are under \u201cOther work widgets\u201d. To move a work widget between the two lists, drag it, or right-click it and choose Move to Other work widgets or Move to Work widgets. Your arrangement is remembered and follows you to your other devices.',
+      'Click a work widget to make it on its own, without a desk. It opens full screen and works just as it does on a desk.',
+      'Drag a work widget from the side menu onto a desk, or right-click it and choose Add to this desk. This makes the work widget and puts it on the desk in one step. From the keyboard, open the command palette and choose Add (work widget) to desk.',
+      'The add button in the middle of the header and the add menu in the floating toolbar have been removed. Use the Work widgets section instead. Import file and Bring a synced work widget are now at the bottom of the Work widgets section.',
+      'Work widgets made this way are saved in Files with their own file type, such as Table, Task list, Mind map or Sticky. In Files you can sort and filter them by type, open them, rename them, move them to the Trash, export them (for example as .plexii-table), and drag them onto a desk.',
+      'A work widget from Files can be on more than one desk. Every copy is the same work widget, so a change on one desk appears on all of them and in Files.',
+      'To turn a work widget that is already on a desk into a file, right-click it and choose Save as file.',
+      'New work widgets are named for you. Each work widget is named from its own content: a table from its first column and number of rows, a task list from its first task, a note from its first line. Anything that cannot be named from its content gets a short name from AI later. A name you type yourself is never changed.',
+      'A task list made from the Work widgets section keeps its own tasks, so every copy of it shows the same list, whichever desk it is on.',
+      'Plexii and Brain can read your work widget files and find them by what is in them. You can @-mention a work widget file, Build with AI uses the ones that match what you ask for, and Plexii can make or update a work widget file for you after you approve it.'
     ],
     links: [
       { label: 'The side menu', href: `${HELP_BASE}/side-menu` },
-      { label: 'Add a widget', href: `${HELP_BASE}/add-a-widget` },
+      { label: 'Add a work widget', href: `${HELP_BASE}/add-a-widget` },
       { label: 'Files', href: `${HELP_BASE}/files-overview` }
     ]
   },

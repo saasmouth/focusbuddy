@@ -3,6 +3,8 @@ import { migrateSlidesBody } from '@shared/slidesMigrate'
 import { normalizeDesignBody, designToHtml } from '@shared/design'
 import { normalizeMapBody } from '@shared/mapGraph'
 import type { SlidesBody, SlideWidgetElement } from '@shared/types'
+// 4.3.32 lexicon standard: user-facing text says “work widget”. The string pins in
+// this file that read “widget” were rewritten to the new wording (owner ruling).
 
 // The widget-embed element ('widget') must survive every body normaliser and
 // migration untouched: an old document opens unchanged, and a document that
@@ -34,7 +36,7 @@ describe('widget embed model tolerance', () => {
 
   it('designToHtml renders a widget element as an honest labelled frame, not fake content', () => {
     const html = designToHtml({ schemaVersion: 1, width: 400, height: 400, elements: [widgetEl] })
-    expect(html).toContain('Embedded desk widget')
+    expect(html).toContain('Embedded work widget')
   })
 
   it('normalizeMapBody keeps a widget node and its widgetId', () => {

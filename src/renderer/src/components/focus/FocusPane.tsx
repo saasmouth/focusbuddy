@@ -37,7 +37,7 @@ export default function FocusPane({
   if (source.kind === 'widget') {
     const w = widgets.find((x) => x.id === source.widgetId)
     const entry = w ? catalogFor(w.kind) : null
-    title = w?.title || entry?.label || 'Widget'
+    title = w?.title || entry?.label || 'Work widget'
     glyph = entry?.icon ?? 'apps'
   } else if (source.kind === 'chrome') {
     title = source.tab === 'add' ? 'Add' : 'AI Chat'

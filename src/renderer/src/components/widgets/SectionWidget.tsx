@@ -354,7 +354,7 @@ export default function SectionWidget({
                 linkDrag.start(widget.id)
               }}
               className="h-4 w-4 inline-flex items-center justify-center rounded hover:bg-[color-mix(in_oklab,var(--surface-raised)_20%,transparent)] cursor-cell"
-              title="Click, then click another widget to connect them"
+              title="Click, then click another work widget to connect them"
               aria-label="Link from this section"
             >
               <Icon name="hub" size={11} className="text-white" />
@@ -377,7 +377,7 @@ export default function SectionWidget({
               e.stopPropagation()
               const body =
                 children.length > 0
-                  ? `Its ${children.length} widget${children.length === 1 ? '' : 's'} will remain on the canvas.`
+                  ? `Its ${children.length} work widget${children.length === 1 ? '' : 's'} will remain on the canvas.`
                   : undefined
               const confirmed = await confirmDialog({
                 title: `Remove section “${widget.title || 'Section'}”?`,

@@ -55,7 +55,7 @@ export function planWidgetAi(widget: Widget, hasOwnAi: boolean): WidgetAiPlan {
     return {
       surface: 'own',
       label: 'AI',
-      purpose: entry?.purpose ?? 'Set up and change this widget'
+      purpose: entry?.purpose ?? 'Set up and change this work widget'
     }
   }
   if (isSetupSupported(widget.kind)) {
@@ -68,7 +68,7 @@ export function planWidgetAi(widget: Widget, hasOwnAi: boolean): WidgetAiPlan {
     return {
       surface: 'setup',
       label: verbFor(widget.kind, empty) ?? (empty ? 'Set up with AI' : 'Change with AI'),
-      purpose: entry?.purpose ?? 'Set up this widget from what this desk is about'
+      purpose: entry?.purpose ?? 'Set up this work widget from what this desk is about'
     }
   }
   return {
@@ -79,7 +79,7 @@ export function planWidgetAi(widget: Widget, hasOwnAi: boolean): WidgetAiPlan {
     // the gap reads as unfinished work and not as an oversight.
     purpose: entry
       ? `${entry.purpose} — not wired up yet`
-      : 'This widget has no AI of its own yet'
+      : 'This work widget has no AI of its own yet'
   }
 }
 

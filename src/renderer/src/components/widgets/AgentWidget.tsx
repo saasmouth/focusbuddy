@@ -424,7 +424,7 @@ export default function AgentWidget({ widget }: Props): JSX.Element {
           <Icon name="cable" size={12} />
           <span data-testid="agent-input-count">
             {inputs.length === 0
-              ? 'No inputs — wire widgets into this agent'
+              ? 'No inputs — wire work widgets into this agent'
               : `${inputs.length} input${inputs.length === 1 ? '' : 's'}: ${inputs
                   .map((w) => w.title || w.kind)
                   .slice(0, 3)

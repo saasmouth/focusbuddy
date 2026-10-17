@@ -13,6 +13,8 @@ import {
   answersSaySomething,
   type WidgetWizardAnswers
 } from '../../src/shared/customWidgetWizard'
+// 4.3.32 lexicon standard: user-facing text says “work widget”. The string pins in
+// this file that read “widget” were rewritten to the new wording (owner ruling).
 
 const a = (
   choices: Record<string, string[]>,
@@ -80,7 +82,7 @@ describe('composeSpec', () => {
   it('tells the generator the real size it has to fit', () => {
     const spec = composeSpec(a({ kind: ['tracker'] }), { width: 400, height: 440 })
     expect(spec).toContain('400×440')
-    expect(spec).toContain('Scroll inside the widget')
+    expect(spec).toContain('Scroll inside the work widget')
   })
 
   it('states the network boundary either way', () => {

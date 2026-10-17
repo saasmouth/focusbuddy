@@ -25,7 +25,7 @@ const TYPE_LABEL: Record<DocType, string> = {
   map: 'Diagram',
   design: 'Design',
   draw: 'Artwork',
-  widget: 'Widget'
+  widget: 'Work widget'
 }
 
 export default function DocEmbed({ documentId }: { documentId: string }): JSX.Element {

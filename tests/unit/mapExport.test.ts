@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { mapToSvg } from '../../src/shared/mapExport'
 import type { MapBody } from '../../src/shared/types'
+// 4.3.32 lexicon standard: user-facing text says “work widget”. The string pins in
+// this file that read “widget” were rewritten to the new wording (owner ruling).
 
 function body(partial: Partial<MapBody>): MapBody {
   return { version: 1, nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 }, ...partial }
@@ -33,7 +35,7 @@ describe('mapToSvg', () => {
       { s: 'data', needle: '<polygon' },
       { s: 'database', needle: '<ellipse' },
       { s: 'circle', needle: '<ellipse' },
-      { s: 'widget', needle: 'live widget' }
+      { s: 'widget', needle: 'live work widget' }
     ]
     for (const { s, needle } of shapes) {
       const { svg } = mapToSvg(body({ nodes: [{ id: 'n', x: 0, y: 0, label: 'X', shape: s, color: '#111827' }] }))

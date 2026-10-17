@@ -89,7 +89,7 @@ test('widgets are added from the side menu, not a header or hover button', async
     await rail.hover()
     await expect(window.locator('[data-testid="palette-add-button"]')).toHaveCount(0)
   }
-  await expect(window.locator('[data-testid="switch-widgets"]')).toContainText('Widgets')
+  await expect(window.locator('[data-testid="switch-widgets"]')).toContainText('Work widgets')
   await expect(window.locator('[data-testid="sidemenu-widget-sticky"]')).toContainText('Sticky')
   await addWidgetToDesk(window, 'sticky')
 })

@@ -93,11 +93,11 @@ export function saveCustomWidget(
   input: SaveCustomWidgetInput
 ): SaveCustomWidgetResult {
   const code = typeof input.code === 'string' ? input.code : ''
-  if (!code.trim()) return { ok: false, error: 'There is no generated widget to save yet.' }
+  if (!code.trim()) return { ok: false, error: 'There is no generated work widget to save yet.' }
   if (Buffer.byteLength(code, 'utf8') > CUSTOM_WIDGET_MAX_CODE_BYTES) {
-    return { ok: false, error: 'This widget is too large to save.' }
+    return { ok: false, error: 'This work widget is too large to save.' }
   }
-  const name = (input.name || '').trim() || 'Untitled widget'
+  const name = (input.name || '').trim() || 'Untitled work widget'
   const now = Date.now()
 
   if (input.id) {
@@ -119,7 +119,7 @@ export function saveCustomWidget(
         input.id
       )
       const w = getCustomWidget(db, input.id)
-      return w ? { ok: true, widget: w } : { ok: false, error: 'Saved widget could not be read back.' }
+      return w ? { ok: true, widget: w } : { ok: false, error: 'Saved work widget could not be read back.' }
     }
   }
 
@@ -141,7 +141,7 @@ export function saveCustomWidget(
     now
   )
   const w = getCustomWidget(db, id)
-  return w ? { ok: true, widget: w } : { ok: false, error: 'Saved widget could not be read back.' }
+  return w ? { ok: true, widget: w } : { ok: false, error: 'Saved work widget could not be read back.' }
 }
 
 export function deleteCustomWidget(db: CustomWidgetDb, id: string): { ok: boolean } {

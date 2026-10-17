@@ -230,7 +230,7 @@ export const useWidgetFilesStore = create<WidgetFilesState>((set, get) => ({
     const sized = file ? fitInstance(file.kind, at) : at
     const widget = await window.api.widgetFiles.place(id, { taskId, ...sized })
     if (!widget) {
-      useNoticeStore.getState().show({ text: 'That widget file no longer exists.', icon: 'error' })
+      useNoticeStore.getState().show({ text: 'That work widget file no longer exists.', icon: 'error' })
       return null
     }
     adoptInstance(widget)
@@ -255,7 +255,7 @@ export const useWidgetFilesStore = create<WidgetFilesState>((set, get) => ({
   promote: async (widgetId) => {
     const file = await window.api.widgetFiles.promote(widgetId)
     if (!file) {
-      useNoticeStore.getState().show({ text: 'This widget only works on a desk, so it cannot be saved as a file.', icon: 'info' })
+      useNoticeStore.getState().show({ text: 'This work widget only works on a desk, so it cannot be saved as a file.', icon: 'info' })
       return null
     }
     remember(file)

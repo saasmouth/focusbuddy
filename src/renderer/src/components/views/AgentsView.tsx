@@ -73,7 +73,7 @@ export default function AgentsView(): JSX.Element {
           <div className="px-3 py-16 text-center" data-testid="agents-empty">
             <Icon name="smart_toy" size={30} className="text-[var(--ink-30)]" />
             <p className="mt-3 text-[14px] text-[var(--ink-70)] max-w-md mx-auto leading-relaxed">
-              You have not placed any agents yet. Open a desk and add an agent widget to put a
+              You have not placed any agents yet. Open a desk and add an agent work widget to put a
               standing AI worker to work, and it will appear here.
             </p>
             <button

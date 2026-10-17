@@ -108,7 +108,7 @@ export default function CustomWidgetWizard({
       <div className="shrink-0 flex items-center gap-2 border-b border-stone-200 px-3 py-2 dark:border-white/10">
         <Icon name="auto_awesome" size={14} className="shrink-0 text-indigo-500" />
         <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-stone-600 dark:text-stone-300">
-          {mode === 'edit' ? 'Change this widget' : 'Build a widget'}
+          {mode === 'edit' ? 'Change this work widget' : 'Build a work widget'}
         </span>
         <span className="shrink-0 text-[10.5px] tabular-nums text-stone-400">
           {reviewing ? 'Review' : `${step + 1} / ${total}`}
@@ -271,7 +271,7 @@ export default function CustomWidgetWizard({
             className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-[11.5px] font-medium text-white hover:bg-indigo-700 disabled:opacity-40"
           >
             <Icon name="bolt" size={13} />
-            {mode === 'edit' ? 'Update widget' : 'Build it'}
+            {mode === 'edit' ? 'Update work widget' : 'Build it'}
           </button>
         )}
       </div>

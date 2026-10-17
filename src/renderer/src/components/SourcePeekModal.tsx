@@ -115,7 +115,7 @@ function WidgetPeek({ widgetId, label }: { widgetId: string; label: string | nul
   }
   return (
     <Frame
-      title={widget.title || label || 'Widget'}
+      title={widget.title || label || 'Work widget'}
       subtitle={`On a desk · ${widget.kind}`}
       onGo={go}
       onClose={close}

@@ -24,7 +24,7 @@ export default function WidgetSetupAffordance({ widget }: { widget: Widget }): J
           start(widget.id)
         }}
         className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full fb-glass-chrome border border-[color:var(--glass-chrome-border)] shadow-md ring-1 ring-[rgb(var(--accent)/0.3)] px-2.5 py-1 text-[11px] font-medium text-accent transition-colors hover:bg-accent/10"
-        title="Set up this widget with AI, based on what you're working on"
+        title="Set up this work widget with AI, based on what you're working on"
       >
         <Icon name="auto_awesome" size={12} />
         Set up with AI

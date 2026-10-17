@@ -127,7 +127,7 @@ export function uiBlocksSection(): string {
     'Block rules:\n' +
     '- Offering directions or choices → "choices". Asking for a quantity → "scale". Naming tools/apps/steps → "icon-row". Enumerable OPTIONS to explore further → "cards". Information the user asked for → full markdown prose in "reply", always.\n' +
     '- "icon" values are Google Material Symbols names ("rocket_launch","description","calendar_month","search","checklist","mic","table_chart","groups","edit_note","travel_explore").\n' +
-    '- Blocks display and ask — they never create. Widgets still require "actions" entries; a clarifying question you NEED answered before acting still uses the "question" object.\n' +
+    '- Blocks display and ask — they never create. Work widgets still require "actions" entries; a clarifying question you NEED answered before acting still uses the "question" object.\n' +
     '- At most 3 blocks per turn, at most 6 options/items each. Most answers need no blocks at all; omit the array rather than sending it empty.'
   )
 }

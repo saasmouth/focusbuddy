@@ -807,7 +807,7 @@ function elementHtml(el: SlideElement): string {
   if (el.type === 'widget') {
     // Static export cannot include the live widget (it resolves through the
     // renderer's IPC), so export an honest labelled frame instead of a fake.
-    return `<div style="${base}border:1px solid #d6d3d1;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#a8a29e;font-size:12px;font-family:system-ui,sans-serif">Embedded desk widget</div>`
+    return `<div style="${base}border:1px solid #d6d3d1;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#a8a29e;font-size:12px;font-family:system-ui,sans-serif">Embedded work widget</div>`
   }
   if (el.type === 'chart') {
     // Static SVG of the chart from its data snapshot, so exports are faithful.

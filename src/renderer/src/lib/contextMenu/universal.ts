@@ -424,7 +424,7 @@ export function buildDestructive(ctx: MenuContext): MenuContribution[] {
         id: 'core/destructive/delete-many',
         section: MenuSection.Destructive,
         priority: 1,
-        label: `Delete ${n} widgets`,
+        label: `Delete ${n} work widgets`,
         icon: 'delete',
         danger: true,
         onSelect: (c) => deleteWidget(c)

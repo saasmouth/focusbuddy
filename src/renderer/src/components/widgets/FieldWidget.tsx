@@ -108,7 +108,7 @@ export default function FieldWidget({ widget, inline = false }: Props): JSX.Elem
           </div>
         </div>
         <p className="text-[11px] text-[var(--ink-50)] mb-3 leading-snug">
-          Choose what this widget captures — once set, you can type its label and enter a value.
+          Choose what this work widget captures — once set, you can type its label and enter a value.
         </p>
         <div className="grid grid-cols-2 gap-1.5">
           {(Object.keys(FIELD_TYPE_LABELS) as FieldType[]).map((t) => (

@@ -103,7 +103,7 @@ export async function exportPptx(body: SlidesBody, _title: string, outPath: stri
         } else if (el.type === 'widget') {
           // A live desk-widget embed has no static form here; keep the frame in
           // the layout with an honest label rather than fake widget content.
-          s.addText('Embedded desk widget', {
+          s.addText('Embedded work widget', {
             ...pos,
             ...frame,
             fontSize: 10,
@@ -206,7 +206,7 @@ function slideHtml(slide: Slide, theme: DeckTheme): string {
       }
       // widget: a live desk-widget embed cannot be rendered in a static export
       // (it resolves via renderer IPC), so print an honest labelled frame.
-      return `<div style="position:absolute;left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:1px solid #d6d3d1;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#a8a29e;font-size:14px">Embedded desk widget</div>`
+      return `<div style="position:absolute;left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:1px solid #d6d3d1;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#a8a29e;font-size:14px">Embedded work widget</div>`
     })
     .join('')
   return `<div class="page" style="position:relative;width:${SLIDE_W}px;height:${SLIDE_H}px;background:${bg};overflow:hidden;color:${theme.textColor}">${els}</div>`

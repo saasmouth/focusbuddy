@@ -73,7 +73,7 @@ export function destinationOf(
     }
     if (p.kind === 'create-widget-file') {
       const id = realId(p, resolved)
-      if (id) return { label: p.title || 'the widget', icon: 'widgets', view: { kind: 'document', documentId: id } }
+      if (id) return { label: p.title || 'the work widget', icon: 'widgets', view: { kind: 'document', documentId: id } }
     }
   }
 

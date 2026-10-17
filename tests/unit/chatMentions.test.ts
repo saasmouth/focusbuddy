@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { ChatMentionRef, FbNode, Widget } from '../../src/shared/types'
+// 4.3.32 lexicon standard: user-facing text says “work widget”. The string pins in
+// this file that read “widget” were rewritten to the new wording (owner ruling).
 
 // Phase 4.2 — the resolver, the prompt block and the honesty gate between them.
 //
@@ -200,7 +202,7 @@ describe('resolveMentions — real content or an honest reason, never invention'
     ['document', 'd-gone', 'this document no longer exists'],
     ['desk', 't-gone', 'this desk no longer exists'],
     ['room', 'r-gone', 'this room no longer exists'],
-    ['widget', 'w-gone', 'this widget no longer exists'],
+    ['widget', 'w-gone', 'this work widget no longer exists'],
     ['file', 'f-gone', 'this file no longer exists'],
     ['knowledge', 'k-gone', 'this PlexiBrain entry no longer exists']
   ])('a deleted %s resolves to NO text and a stated reason', (kind, id, reason) => {
@@ -224,7 +226,7 @@ describe('resolveMentions — real content or an honest reason, never invention'
     widgets.set('w-tbl', widget({ id: 'w-tbl', kind: 'table', content: '' }))
     const [table] = resolveMentions([ref({ kind: 'widget', id: 'w-tbl' })])
     expect(table.text).toBeNull()
-    expect(table.reason).toBe('this widget has no readable content')
+    expect(table.reason).toBe('this work widget has no readable content')
 
     widgets.set('w-mind', widget({ id: 'w-mind', kind: 'mindmap', content: '' }))
     const [mind] = resolveMentions([ref({ kind: 'widget', id: 'w-mind' })])
@@ -240,7 +242,7 @@ describe('resolveMentions — real content or an honest reason, never invention'
     const [r] = resolveMentions([ref({ kind: 'desk', id: 't9' })])
     expect(r.text).toContain('genuine body')
     expect(r.text).not.toContain('(empty table)')
-    expect(r.source).toBe('1 widget read')
+    expect(r.source).toBe('1 work widget read')
   })
 
   it('a person reference refuses while the directory is empty — see the people section below', () => {

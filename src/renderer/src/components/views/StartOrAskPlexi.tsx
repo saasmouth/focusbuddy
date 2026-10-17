@@ -53,7 +53,7 @@ const PICK_ICONS: Record<string, string> = {
 const PICK_HINTS: Record<string, string> = {
   task: 'Desk',
   folder: 'Room',
-  widget: 'Widget',
+  widget: 'Work widget',
   'table-row': 'Table',
   document: 'Document',
   file: 'File',
@@ -411,7 +411,7 @@ export default function StartOrAskPlexi(): JSX.Element {
                 ? 'What needs attention? Enter files it…'
                 : searching
                   ? 'Search the web — results open right here in Plexii'
-                  : 'Ask Plexii, search the web, or open anything — @ jumps to a desk, room or widget'
+                  : 'Ask Plexii, search the web, or open anything — @ jumps to a desk, room or work widget'
             }
             // No focus box (Caleb's ruling): the global :focus-visible outline
             // draws a hard accent rectangle around text inputs; this bar's

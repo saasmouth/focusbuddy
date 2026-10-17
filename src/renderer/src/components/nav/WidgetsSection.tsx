@@ -91,7 +91,7 @@ export function widgetKindMenuItems(
   }
   if (standalone) {
     items.push({
-      label: `New ${entry.label.toLowerCase()} file`,
+      label: `New ${entry.label.toLowerCase()} work widget`,
       icon: 'note_add',
       onClick: () => {
         if (ensureCanAdd(entry.kind)) void useWidgetFilesStore.getState().create(entry.kind)
@@ -103,8 +103,8 @@ export function widgetKindMenuItems(
   items.push({ separator: true })
   items.push(
     list === 'main'
-      ? { label: 'Move to Other widgets', icon: 'south', onClick: () => move(entry.kind, 'other') }
-      : { label: 'Move to Widgets', icon: 'north', onClick: () => move(entry.kind, 'main') }
+      ? { label: 'Move to Other work widgets', icon: 'south', onClick: () => move(entry.kind, 'other') }
+      : { label: 'Move to Work widgets', icon: 'north', onClick: () => move(entry.kind, 'main') }
   )
   return items
 }
@@ -210,7 +210,7 @@ export default function WidgetsSection(): JSX.Element {
       >
         {main.length === 0 ? (
           <p className="px-3 py-1.5 text-[11px] text-[var(--ink-40)] leading-snug">
-            Drag widgets here from Other widgets to keep them one click away.
+            Drag work widgets here from Other work widgets to keep them one click away.
           </p>
         ) : (
           <TileGrid>{main.map((e) => tile(e, 'main'))}</TileGrid>
@@ -226,10 +226,10 @@ export default function WidgetsSection(): JSX.Element {
           aria-expanded={otherOpen}
           data-testid="sidemenu-other-widgets-toggle"
           className="w-full flex items-center gap-1 px-3 pt-2 pb-1 text-left hover:text-[var(--ink-80)]"
-          title={otherOpen ? 'Collapse Other widgets' : 'Expand Other widgets'}
+          title={otherOpen ? 'Collapse Other work widgets' : 'Expand Other work widgets'}
         >
           <span className="flex-1 min-w-0 truncate text-[10px] uppercase tracking-[0.12em] font-semibold text-[var(--ink-40)]">
-            Other widgets
+            Other work widgets
           </span>
           <span className="text-[10px] text-[var(--ink-40)] tabular-nums">{other.length}</span>
           <Icon name={otherOpen ? 'expand_less' : 'expand_more'} size={14} className="text-[var(--ink-40)]" />
@@ -237,7 +237,7 @@ export default function WidgetsSection(): JSX.Element {
         <div hidden={!otherOpen} data-testid="sidemenu-other-widgets">
           {other.length === 0 ? (
             <p className="px-3 pb-1 text-[11px] text-[var(--ink-40)] leading-snug">
-              Every widget is in the main list. Right-click one to move it here.
+              Every work widget is in the main list. Right-click one to move it here.
             </p>
           ) : (
             <TileGrid>{other.map((e) => tile(e, 'other'))}</TileGrid>
@@ -249,7 +249,7 @@ export default function WidgetsSection(): JSX.Element {
       <div className="px-2 pb-1 flex flex-col">
         <FooterRow
           icon="upload_file"
-          label="Import widget file…"
+          label="Import work widget file…"
           testid="sidemenu-widgets-import-widget-file"
           title="Open a .plexii-table, .plexii-tasks … file exported from Plexii"
           onClick={() => {
@@ -270,9 +270,9 @@ export default function WidgetsSection(): JSX.Element {
             />
             <FooterRow
               icon="link"
-              label="Bring a synced widget…"
+              label="Bring a synced work widget…"
               testid="sidemenu-widgets-bring-synced"
-              title="Put a linked copy of a widget from another desk on this one"
+              title="Put a linked copy of a work widget from another desk on this one"
               onClick={() => requestCanvasBringSynced()}
             />
           </>
@@ -350,7 +350,7 @@ export function WidgetsRail({ iconClass }: { iconClass: (active: boolean, tone?:
       {main.map((e) => railIcon(e, 'main'))}
       <button
         onClick={() => setOtherOpen((v) => !v)}
-        title={otherOpen ? 'Hide other widgets' : 'Other widgets'}
+        title={otherOpen ? 'Hide other work widgets' : 'Other work widgets'}
         aria-expanded={otherOpen}
         data-testid="rail-other-widgets-toggle"
         className={iconClass(otherOpen)}

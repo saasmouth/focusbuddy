@@ -141,9 +141,9 @@ export function sourceLabel(type: string): string {
     case 'message':
       return 'From a message — open it to reply in the conversation'
     case 'widget':
-      return 'From a widget'
+      return 'From a work widget'
     case 'widgets':
-      return 'From several widgets'
+      return 'From several work widgets'
     case 'desk':
       return 'From a desk'
     case 'meeting':

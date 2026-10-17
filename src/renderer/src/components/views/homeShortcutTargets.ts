@@ -225,8 +225,8 @@ export function describeShortcutTarget(t: ShortcutTarget, lookups: ShortcutLooku
       // and landing on the desk is still correct if the widget was removed.
       const node = lookups.node(t.nodeId)
       return {
-        label: t.label || 'Desk widget',
-        caption: node?.title ? `On ${node.title}` : 'Desk widget',
+        label: t.label || 'Work widget',
+        caption: node?.title ? `On ${node.title}` : 'Work widget',
         icon: 'dashboard_customize',
         tone: 'text-teal-500',
         alive: !!node && !node.archived

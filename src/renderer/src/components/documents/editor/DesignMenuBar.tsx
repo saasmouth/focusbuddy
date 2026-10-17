@@ -132,7 +132,7 @@ export default function DesignMenuBar({ actions }: { actions: DesignMenuActions 
           ]
         },
         { kind: 'item', label: 'Line', icon: 'horizontal_rule', run: a.addLine },
-        { kind: 'item', label: 'Widget from a desk', icon: 'widgets', run: a.addWidget },
+        { kind: 'item', label: 'Work widget from a desk', icon: 'widgets', run: a.addWidget },
         { kind: 'sep' },
         { kind: 'item', label: 'Page', icon: 'note_add', run: a.addPage },
         { kind: 'item', label: 'Page-number frame', icon: 'tag', run: a.insertPageNumber },

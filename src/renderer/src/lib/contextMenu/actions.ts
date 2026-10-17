@@ -55,7 +55,7 @@ export async function createWidget(ctx: MenuContext, kind: WidgetKind, seedText?
   // menu (curated and Advanced alike), closing the gap where right-click could
   // spawn a gated kind ungated.
   if (!canCreateWidget(useCapabilityStore.getState().capabilities, kind)) {
-    promptUpgrade(`The ${entry?.label ?? 'this'} widget is a Pro feature.`)
+    promptUpgrade(`The ${entry?.label ?? 'this'} work widget is a Pro feature.`)
     return
   }
   const src = sourceWidget(ctx)

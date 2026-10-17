@@ -120,5 +120,5 @@ export function widgetDisplayName(
   if (derived) return truncateName(derived)
   const fb = (fallbackLabel || '').trim()
   if (fb) return fb
-  return KIND_LABELS[widget.kind] ?? 'Widget'
+  return KIND_LABELS[widget.kind] ?? 'Work widget'
 }

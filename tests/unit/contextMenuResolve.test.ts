@@ -8,6 +8,8 @@ import {
 import { MenuSection } from '../../src/renderer/src/lib/contextMenu/types'
 import type { MenuContext } from '../../src/renderer/src/lib/contextMenu/types'
 import type { CtxMenuItem } from '../../src/renderer/src/components/CanvasContextMenu'
+// 4.3.32 lexicon standard: user-facing text says “work widget”. The string pins in
+// this file that read “widget” were rewritten to the new wording (owner ruling).
 
 function widget(kind: WidgetKind, content = ''): Widget {
   return {
@@ -243,13 +245,13 @@ describe('resolveMenu — multi-selection', () => {
     expect(flat).toContain('Bring all to front')
     // Bulk "Automate with an agent" — wires one agent to all selected widgets.
     expect(flat).toContain('Automate 2 with an agent')
-    expect(flat).toContain('Delete 2 widgets')
+    expect(flat).toContain('Delete 2 work widgets')
     // No AI Assist or Create on a heterogeneous multi-selection.
     const ls = labels(items)
     expect(ls).not.toContain('AI Assist')
     expect(ls).not.toContain('Create')
     // Destructive still last.
-    expect(topLevel(items).at(-1)?.label).toBe('Delete 2 widgets')
+    expect(topLevel(items).at(-1)?.label).toBe('Delete 2 work widgets')
   })
 })
 

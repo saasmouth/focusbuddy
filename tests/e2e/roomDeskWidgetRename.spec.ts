@@ -175,7 +175,7 @@ test('regression check: a widget title can still be renamed via double-click and
     await expect(label).toHaveText('First line here')
 
     await label.dblclick()
-    const input = window.locator('input[aria-label="Widget name"]')
+    const input = window.locator('input[aria-label="Work widget name"]')
     await expect(input).toBeVisible()
     await input.fill('Renamed Widget')
     await input.press('Enter')

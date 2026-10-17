@@ -562,7 +562,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
         { id: 'sl-ellipse', label: 'Insert ellipse', icon: 'circle', group: 'Insert', keywords: 'oval circle', run: () => insertShape('ellipse') },
         { id: 'sl-image', label: 'Insert image', icon: 'image', group: 'Insert', keywords: 'picture photo', run: () => void insertImage() },
         { id: 'sl-line', label: 'Insert line', icon: 'horizontal_rule', group: 'Insert', keywords: 'arrow connector', run: insertLine },
-        { id: 'sl-widget', label: 'Insert widget from a desk', icon: 'widgets', group: 'Insert', keywords: 'embed desk canvas', run: () => setWidgetPickerOpen(true) },
+        { id: 'sl-widget', label: 'Insert work widget from a desk', icon: 'widgets', group: 'Insert', keywords: 'embed desk canvas', run: () => setWidgetPickerOpen(true) },
         { id: 'sl-chart', label: 'Insert chart', icon: 'bar_chart', group: 'Insert', keywords: 'graph plot data sheet', run: insertChart },
         { id: 'sl-table', label: 'Insert table', icon: 'table_chart', group: 'Insert', keywords: 'grid rows columns cells', run: insertTable },
         { id: 'sl-new', label: 'New slide', icon: 'add_to_photos', group: 'Slide', keywords: 'add template', run: () => setGalleryOpen(true) },

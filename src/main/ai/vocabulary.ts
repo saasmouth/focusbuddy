@@ -68,7 +68,7 @@ export const MINDMAP_TASK_SCOPE_NOTE =
 const WORK_ITEM_CATALOG_ENTRY =
   `  { "kind": "create-work-item", "title": "Call Bob about the lease", "notes": "optional detail", "intentClass": ${INTENT_CLASS_UNION}, "reason": "..." }` +
   '  (creates a WORK ITEM — a single actionable to-do the user tracks in their Attention queues. ' +
-  'NOT a desk and NOT a widget: use it for individual commitments, follow-ups, and action items)\n'
+  'NOT a desk and NOT a work widget: use it for individual commitments, follow-ups, and action items)\n'
 
 const WORK_ITEM_RULES =
   'WORK-ITEM RULES:\n' +

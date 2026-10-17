@@ -81,7 +81,7 @@ export default function DrawMenuBar({ actions }: { actions: DrawMenuActions }): 
       build: () => [
         ...a.shapes.map((s) => ({ kind: 'item' as const, label: s.label, run: () => a.addNode(s.shape) })),
         { kind: 'sep' as const },
-        { kind: 'item' as const, label: 'Widget from a desk', icon: 'widgets', run: a.insertWidget },
+        { kind: 'item' as const, label: 'Work widget from a desk', icon: 'widgets', run: a.insertWidget },
         { kind: 'sep' as const },
         { kind: 'item' as const, label: 'Meeting', icon: 'videocam', run: () => void launchMeeting({ kind: 'draw', id: active?.id ?? '', title: title || 'Diagram meeting' }) }
       ]

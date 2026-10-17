@@ -73,7 +73,7 @@ export default function WidgetFocusDock({
     e.stopPropagation()
     const headerExtras: CtxMenuItem[] = [
       {
-        label: 'Focus this widget',
+        label: 'Focus this work widget',
         icon: 'center_focus_strong',
         onClick: () => onPick(w.id)
       }
@@ -179,9 +179,9 @@ export default function WidgetFocusDock({
               // (spec §6.1). A plain click still focuses it — the drag only
               // promotes past a small movement threshold.
               onPointerDown={(e) =>
-                beginDrag(e, { kind: 'widget', widgetId: w.id }, w.title || entry?.label || 'Widget')
+                beginDrag(e, { kind: 'widget', widgetId: w.id }, w.title || entry?.label || 'Work widget')
               }
-              title={w.title || entry?.label || 'Widget'}
+              title={w.title || entry?.label || 'Work widget'}
               data-testid={`focus-dock-tile-${w.id}`}
               data-active={isActive ? 'true' : 'false'}
               initial={false}

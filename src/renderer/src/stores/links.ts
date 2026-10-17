@@ -73,7 +73,7 @@ export const useLinksStore = create<LinksStore>((set, get) => ({
     // re-creates it; the id may change, so track the live id for a later undo.
     let linkId = created.id
     recordAction({
-      label: 'Connect widgets',
+      label: 'Connect work widgets',
       undo: async () => {
         await window.api.widgetLinks.delete(linkId)
         set({ links: get().links.filter((l) => l.id !== linkId) })

@@ -81,7 +81,7 @@ function UnknownKindWidget({ widget }: { widget: Widget }): JSX.Element {
   return (
     <div className="h-full flex flex-col items-center justify-center gap-1 px-3 py-2 text-center border border-dashed border-[var(--edge-soft)] rounded-lg">
       <p className="fb-t-caption font-semibold text-[var(--ink-100)] break-words">
-        {widget.title || 'Widget'}
+        {widget.title || 'Work widget'}
       </p>
       <p className="fb-t-caption text-[var(--ink-50)]">
         This build has no renderer for “{widget.kind}”. Update PlexiDesk to see it.

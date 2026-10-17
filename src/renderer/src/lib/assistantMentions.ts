@@ -199,7 +199,7 @@ export function mentionFromSearchHit(
       return {
         kind: 'widget',
         id: hit.id,
-        title: hit.title || 'Untitled widget',
+        title: hit.title || 'Untitled work widget',
         icon: 'widgets',
         taskId: hit.taskId ?? null,
         conversationKey
@@ -243,7 +243,7 @@ export function mentionKindLabel(kind: MentionKind | 'capture'): string {
     case 'room':
       return 'Room'
     case 'widget':
-      return 'Widget'
+      return 'Work widget'
     case 'file':
       return 'File'
     case 'knowledge':

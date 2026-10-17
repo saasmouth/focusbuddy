@@ -39,7 +39,7 @@ export default function TermsModal({ onClose }: Props): JSX.Element {
           <section>
             <h4 className="text-[var(--ink-100)] font-semibold mb-1.5">1. Local-first, with sync when you sign in</h4>
             <p>
-              PlexiDesk is local-first. Your tasks, widgets, documents, browsing history and
+              PlexiDesk is local-first. Your tasks, work widgets, documents, browsing history and
               preferences live on your device. If you stay signed out, nothing leaves your machine.
               When you sign in, the features you choose to use send the data they need to PlexiDesk's
               servers. Cloud sync keeps your workspace in step across your devices, and sharing,
@@ -74,7 +74,7 @@ export default function TermsModal({ onClose }: Props): JSX.Element {
           <section>
             <h4 className="text-[var(--ink-100)] font-semibold mb-1.5">4. Embedded browsers and third-party sites</h4>
             <p>
-              Pages you open in browser widgets are loaded directly from the source. Their terms,
+              Pages you open in browser work widgets are loaded directly from the source. Their terms,
               cookies, and tracking are governed by those sites, not PlexiDesk. Avoid logging in
               to anything you wouldn't want stored in this Electron app's profile.
             </p>

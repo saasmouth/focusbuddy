@@ -114,7 +114,7 @@ export default function SyncWidgetPicker({ targetTaskId, onClose }: Props): JSX.
           <Icon name="link" size={15} className="text-accent" />
           <div className="flex-1 min-w-0">
             <div className="text-[13px] font-semibold text-[var(--ink-100)]">
-              {step === 'task' ? 'Bring a synced widget' : `Pick a widget from “${picked?.title}”`}
+              {step === 'task' ? 'Bring a synced work widget' : `Pick a work widget from “${picked?.title}”`}
             </div>
             <div className="text-[10px] text-[var(--ink-50)]">
               {step === 'task'
@@ -178,7 +178,7 @@ export default function SyncWidgetPicker({ targetTaskId, onClose }: Props): JSX.
             )}
             {widgets && widgets.length === 0 && (
               <div className="px-3 py-6 text-center text-[12px] text-[var(--ink-40)]">
-                No bringable widgets on that task.
+                No bringable work widgets on that task.
               </div>
             )}
             {widgets?.map((w) => {

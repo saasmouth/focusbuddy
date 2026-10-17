@@ -47,7 +47,7 @@ export default function TemplatesSection(): JSX.Element {
       </div>
       <p className="fb-t-caption text-[var(--ink-50)] leading-snug">
         {canApply
-          ? 'Apply a template to spawn its widgets onto the task you have open.'
+          ? 'Apply a template to spawn its work widgets onto the task you have open.'
           : 'Open a task first — templates apply to the task you have open.'}
       </p>
 

@@ -25,8 +25,8 @@ const ITEMS: SlashItem[] = [
   // storage.slashCommand (see DocEditor). Guarded so a doc rendered without those
   // callbacks (e.g. a headless/preview mount) simply no-ops instead of throwing.
   {
-    title: 'Insert widget from a desk',
-    subtitle: 'Embed a live desk widget',
+    title: 'Insert work widget from a desk',
+    subtitle: 'Embed a live work widget',
     icon: 'widgets',
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).run()

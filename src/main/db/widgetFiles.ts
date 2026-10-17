@@ -217,7 +217,7 @@ export interface CreateWidgetFileOptions {
 
 export function createWidgetFile(draft: WidgetFileDraft, opts: CreateWidgetFileOptions = {}): WidgetFile {
   if (!isStandaloneWidgetKind(draft.kind)) {
-    throw new Error(`A ${draft.kind} widget only works on a desk, so it cannot be a file.`)
+    throw new Error(`A ${draft.kind} work widget only works on a desk, so it cannot be a file.`)
   }
   const content =
     draft.content !== undefined ? draft.content : defaultWidgetFileContent(draft.kind, opts.defaultContent ?? '')

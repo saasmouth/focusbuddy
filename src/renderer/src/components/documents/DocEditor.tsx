@@ -1586,7 +1586,7 @@ function buildDocCommands(editor: Editor | null, h: DocCommandHandlers): EditorC
     // Insert
     { id: 'doc-insert-image', label: 'Insert image', icon: 'image', group: 'Insert', keywords: 'picture photo', run: h.insertImage },
     { id: 'doc-insert-table', label: 'Insert table', icon: 'table_chart', group: 'Insert', keywords: 'grid', run: h.insertTable },
-    { id: 'doc-insert-widget', label: 'Insert widget from a desk', icon: 'widgets', group: 'Insert', keywords: 'embed desk canvas', run: h.insertWidget },
+    { id: 'doc-insert-widget', label: 'Insert work widget from a desk', icon: 'widgets', group: 'Insert', keywords: 'embed desk canvas', run: h.insertWidget },
     { id: 'doc-insert-doc', label: 'Insert office file', icon: 'description', group: 'Insert', keywords: 'embed document sheet slides plexioffice', run: h.insertDoc },
     // Find
     { id: 'doc-find', label: 'Find and replace', icon: 'search', shortcut: '⌘F', group: 'Edit', keywords: 'search replace', run: h.openFind },

@@ -187,7 +187,7 @@ export async function createAgent(
     `model: ${spec.model}\n` +
     `tools: ${spec.tools.join(', ')}\n` +
     `maxTurns: 20\n` +
-    `# Generated via the mindmap widget's agent-creation wizard.\n` +
+    `# Generated via the mindmap work widget's agent-creation wizard.\n` +
     `# Originating context: ${(spec.contextPath ?? []).join(' › ') || 'manual'}\n` +
     '---\n\n'
 

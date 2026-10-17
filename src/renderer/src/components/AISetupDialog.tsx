@@ -98,7 +98,7 @@ export default function AISetupDialog({ task, onClose, onAccept }: Props): JSX.E
                 Looking at your task…
               </p>
               <p className="text-[11px] text-[var(--ink-50)] mt-1">
-                Picking the widgets you'll need to start
+                Picking the work widgets you'll need to start
               </p>
             </div>
           )}
@@ -205,7 +205,7 @@ export default function AISetupDialog({ task, onClose, onAccept }: Props): JSX.E
               <span>
                 {selectedCount === 0
                   ? 'Pick at least one'
-                  : `Set up ${selectedCount} widget${selectedCount === 1 ? '' : 's'} →`}
+                  : `Set up ${selectedCount} work widget${selectedCount === 1 ? '' : 's'} →`}
               </span>
             </button>
           )}

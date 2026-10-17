@@ -100,7 +100,7 @@ function TidyControl({
       }}
       onMouseLeave={scheduleClose}
     >
-      <Tooltip content="Tidy the desk — arrange the widgets. Hover for layouts." placement="bottom">
+      <Tooltip content="Tidy the desk — arrange the work widgets. Hover for layouts." placement="bottom">
         <button
           onClick={() => onTidy()}
           disabled={disabled}
@@ -373,7 +373,7 @@ export default function FloatingPill({
 
         <TidyControl onTidy={onTidy} disabled={tidyDisabled} hovered={hovered} rounded={rounded} />
 
-        <Tooltip content="Build this desk with AI — it suggests and configures the widgets" placement="bottom">
+        <Tooltip content="Build this desk with AI — it suggests and configures the work widgets" placement="bottom">
           <button onClick={onBuild} className={`inline-flex items-center h-6 px-1.5 ${rounded} text-[var(--ink-50)] hover:text-accent hover:bg-[var(--surface-sunken)] transition-colors`} aria-label="Build this desk with AI" data-testid="pill-build">
             <Icon name="auto_awesome" size={12} />
             <MotionLabel hovered={hovered}>Build</MotionLabel>

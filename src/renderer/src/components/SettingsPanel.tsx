@@ -540,10 +540,10 @@ export default function SettingsPanel({
                 <label className="flex items-start justify-between py-1 cursor-pointer gap-2">
                   <div className="flex-1">
                     <span className="text-xs text-[var(--ink-70)] block">
-                      Quiet while widget active
+                      Quiet while work widget active
                     </span>
                     <span className="fb-t-caption text-[var(--ink-50)]">
-                      Suppress sounds while you're interacting with a widget (browser, sticky, etc.)
+                      Suppress sounds while you're interacting with a work widget (browser, sticky, etc.)
                     </span>
                   </div>
                   <input

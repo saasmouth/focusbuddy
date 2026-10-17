@@ -283,7 +283,7 @@ export default function DesksView({ roomId }: { roomId?: string }): JSX.Element 
               onClick: () => {
                 void shareToOrgOrGroup({
                   name: d.title || 'this desk',
-                  kindLabel: 'desk and its widgets',
+                  kindLabel: 'desk and its work widgets',
                   sharedOrgs,
                   move: (org, team) => moveToOrg(d.id, org, team)
                 })

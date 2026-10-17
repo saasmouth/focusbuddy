@@ -153,7 +153,7 @@ export async function gatherCanvasAttachments(
         kind: labelForKind(w.kind),
         title: w.title || '',
         source: url || undefined,
-        text: `(This ${labelForKind(w.kind)} widget is open on the desk${
+        text: `(This ${labelForKind(w.kind)} work widget is open on the desk${
           url ? ` at ${url}` : ''
         }, but its page text could not be read. If asked about its contents, say so rather than guessing.)`
       })
@@ -164,7 +164,7 @@ export async function gatherCanvasAttachments(
     // Skip empty widgets and pure placeholders like "(empty document)".
     if (!text || /^\(.*\)$/.test(text)) continue
     const rel = linkedRel.get(w.id)
-    if (rel) text = `[This widget ${rel} the item you are focused on]\n${text}`
+    if (rel) text = `[This work widget ${rel} the item you are focused on]\n${text}`
     out.push({
       widgetId: w.id,
       kind: labelForKind(w.kind),

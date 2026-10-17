@@ -16,7 +16,7 @@ const DOC_LABEL: Record<string, string> = {
   map: 'Diagram',
   design: 'Design',
   draw: 'Artwork',
-  widget: 'Widget'
+  widget: 'Work widget'
 }
 
 const DOC_ICON: Record<string, string> = {
@@ -51,7 +51,7 @@ export function fileTypeKey(e: FileEntry): string {
 export function fileTypeLabel(e: FileEntry): string {
   if (e.kind === 'folder') return 'Folder'
   if (e.kind === 'doc') {
-    if (e.docType === 'widget') return widgetFileType(e.widgetKind)?.label ?? 'Widget'
+    if (e.docType === 'widget') return widgetFileType(e.widgetKind)?.label ?? 'Work widget'
     return DOC_LABEL[e.docType ?? 'doc'] ?? 'Document'
   }
   const ext = (e.ext ?? '').replace(/^\./, '').toUpperCase()
@@ -104,7 +104,7 @@ export function typeFilterOptions(entries: FileEntry[]): Array<{ value: FileType
     { value: 'folders', label: 'Folders' },
     { value: 'documents', label: 'Documents' },
     { value: 'files', label: 'Imported files' },
-    { value: 'widgets', label: 'All widgets' }
+    { value: 'widgets', label: 'All work widgets' }
   ]
   const kinds = new Map<string, string>()
   for (const e of entries) {

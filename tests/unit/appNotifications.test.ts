@@ -8,6 +8,8 @@ import {
   titleUnitOf,
   useAppNotifications
 } from '../../src/renderer/src/stores/appNotifications'
+// 4.3.32 lexicon standard: user-facing text says “work widget”. The string pins in
+// this file that read “widget” were rewritten to the new wording (owner ruling).
 
 // Connected-app notifications in the side menu.
 //
@@ -355,7 +357,7 @@ describe('every top-menu button explains itself on hover', () => {
     expect(read('renderer/src/components/nav/menuParts.tsx')).toContain('title={note ? `${label} — ${note}` : label}')
     const section = read('renderer/src/components/nav/WidgetsSection.tsx')
     expect(section).toContain("label: 'Add to this desk'")
-    expect(section).toContain("label: 'Move to Other widgets'")
+    expect(section).toContain("label: 'Move to Other work widgets'")
   })
 })
 

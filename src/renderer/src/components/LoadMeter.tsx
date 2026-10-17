@@ -144,7 +144,7 @@ export default function LoadMeter({
               ? 'border border-transparent hover:bg-[var(--surface-sunken)]'
               : 'hover:bg-[var(--surface-sunken)]'
         }`}
-        title={`Cognitive load: ${tier.label} (${load.toFixed(1)} weighted) — click to park widgets`}
+        title={`Cognitive load: ${tier.label} (${load.toFixed(1)} weighted) — click to park work widgets`}
       >
         {/* The alarm light. Sized and paced from the real load, so it grows and
             quickens as the desk fills rather than switching between two
@@ -198,7 +198,7 @@ export default function LoadMeter({
       {header ? (
         <Tooltip
           placement="bottom"
-          content={`Cognitive load: ${tier.label} — ${load.toFixed(1)} weighted across ${visible.length} ${visible.length === 1 ? 'widget' : 'widgets'}. Click to park what you are not using.`}
+          content={`Cognitive load: ${tier.label} — ${load.toFixed(1)} weighted across ${visible.length} ${visible.length === 1 ? 'work widget' : 'work widgets'}. Click to park what you are not using.`}
         >
           {trigger}
         </Tooltip>
@@ -299,7 +299,7 @@ function LoadMeterPopover({
             <span className="font-semibold text-[var(--ink-100)] tabular-nums">
               {visibleCount}
             </span>{' '}
-            widget{visibleCount === 1 ? '' : 's'} visible
+            work widget{visibleCount === 1 ? '' : 's'} visible
           </span>
           <span className="font-mono tabular-nums">{load.toFixed(1)} weighted</span>
         </div>
@@ -310,10 +310,10 @@ function LoadMeterPopover({
           className="mt-3 w-full inline-flex items-center justify-center gap-1.5 py-2 rounded-md btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Icon name="inventory_2" size={14} />
-          <span>Park everything except the active widget</span>
+          <span>Park everything except the active work widget</span>
         </button>
         <p className="mt-1.5 text-[10px] text-[var(--ink-50)] text-center leading-snug">
-          Hides widgets from the canvas — restore any of them below or later.
+          Hides work widgets from the canvas — restore any of them below or later.
         </p>
       </div>
 

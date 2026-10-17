@@ -1083,7 +1083,7 @@ export default function WidgetFrame({
             {isActive && (
               <span
                 className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500"
-                title="Active — wheel scrolls this widget"
+                title="Active — wheel scrolls this work widget"
               />
             )}
             {isPinned && (
@@ -1138,7 +1138,7 @@ export default function WidgetFrame({
                   }
                 }}
                 placeholder={widgetDisplayName(widget, headerLabel)}
-                aria-label="Widget name"
+                aria-label="Work widget name"
                 className="widget-nodrag min-w-0 flex-1 bg-transparent border-b border-accent/60 text-[10px] uppercase tracking-[0.08em] font-medium text-[var(--ink-90)] placeholder:text-[var(--ink-40)] placeholder:normal-case"
               />
             ) : (
@@ -1229,7 +1229,7 @@ export default function WidgetFrame({
                 className="widget-nodrag h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] opacity-75 hover:opacity-100 hover:bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] hover:text-accent transition-opacity"
                 aria-label={
                   aiPlan.surface === 'none'
-                    ? 'No AI for this widget yet — ask the assistant instead'
+                    ? 'No AI for this work widget yet — ask the assistant instead'
                     : `${aiPlan.label} — ${aiPlan.purpose}`
                 }
                 title={`${aiPlan.label} — ${aiPlan.purpose}`}
@@ -1247,7 +1247,7 @@ export default function WidgetFrame({
                   beginRename()
                 }}
                 className="widget-nodrag h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] opacity-75 hover:opacity-100 hover:bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] hover:text-accent transition-opacity"
-                aria-label="Rename widget"
+                aria-label="Rename work widget"
                 title="Rename"
               >
                 <Icon name="edit" size={12} />
@@ -1273,8 +1273,8 @@ export default function WidgetFrame({
                   linkDrag.start(widget.id)
                 }}
                 className="h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] hover:bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] hover:text-accent cursor-cell"
-                aria-label="Link to another widget"
-                title="Click, then click another widget to connect them"
+                aria-label="Link to another work widget"
+                title="Click, then click another work widget to connect them"
               >
                 <Icon name="add_link" size={14} />
               </button>
@@ -1329,7 +1329,7 @@ export default function WidgetFrame({
                 }
               }}
               className="h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] hover:bg-red-100 hover:text-red-700"
-              aria-label="Remove widget"
+              aria-label="Remove work widget"
             >
               <Icon name="close" size={13} />
             </button>
@@ -1433,12 +1433,12 @@ function ResizeStepButton({
         onClick()
       }}
       className="h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] hover:bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] hover:text-[var(--ink-100)] transition-colors"
-      aria-label={isGrow ? 'Grow widget' : 'Shrink widget'}
+      aria-label={isGrow ? 'Grow work widget' : 'Shrink work widget'}
       data-testid={isGrow ? `widget-grow-${widgetId}` : `widget-shrink-${widgetId}`}
       title={
         isGrow
-          ? 'Grow this widget by 50% (max 1400 × 900)'
-          : 'Shrink this widget by ~33% (min 180 × 120) — inverse of grow so + then − returns to the original size'
+          ? 'Grow this work widget by 50% (max 1400 × 900)'
+          : 'Shrink this work widget by ~33% (min 180 × 120) — inverse of grow so + then − returns to the original size'
       }
     >
       <Icon name={isGrow ? 'add' : 'remove'} size={13} />

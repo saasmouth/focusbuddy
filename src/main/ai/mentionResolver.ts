@@ -126,7 +126,7 @@ function resolveWidget(id: string): {
   upstreamTruncated?: boolean
 } {
   const w = getWidget(id)
-  if (!w) return { text: null, source: null, reason: 'this widget no longer exists' }
+  if (!w) return { text: null, source: null, reason: 'this work widget no longer exists' }
   // The live-page boundary, stated exactly the way unreadable files state it
   // (#6): the address is real information and rides; the not-read fact is
   // said in the prompt so the model can say it to the user.
@@ -135,7 +135,7 @@ function resolveWidget(id: string): {
     const meta = `${w.title || w.kind}${url ? ` (${url})` : ''}`
     return {
       text:
-        `${meta}\n[This widget's live page was not read — only its address is known from here. ` +
+        `${meta}\n[This work widget's live page was not read — only its address is known from here. ` +
         'Its rendered content rides automatically when the desk it lives on is open in front of the user.]',
       source: url || null,
       reason: null
@@ -147,7 +147,7 @@ function resolveWidget(id: string): {
   // for widgets it could reach but that hold nothing — the same rule
   // gatherCanvasAttachments applies before attaching anything.
   if (!text || /^\(.*\)$/.test(text)) {
-    return { text: null, source: null, reason: 'this widget has no readable content' }
+    return { text: null, source: null, reason: 'this work widget has no readable content' }
   }
   const owner = getNode(w.taskId)
   return {
@@ -204,8 +204,8 @@ function resolveDesk(id: string): {
     text: parts.join('\n'),
     source:
       skipped > 0
-        ? `read ${used} of ${used + skipped} widgets`
-        : `${used} widget${used === 1 ? '' : 's'} read`,
+        ? `read ${used} of ${used + skipped} work widgets`
+        : `${used} work widget${used === 1 ? '' : 's'} read`,
     reason: null,
     // Either cut — widgets left unread, or a widget shortened to its slice —
     // must surface through the truncation notice, with no invented total.

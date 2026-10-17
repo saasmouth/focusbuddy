@@ -44,8 +44,8 @@ test('a widget inherits its name from the first line and can be manually renamed
   await expect(label).toHaveText('Buy milk')
 
   // Rename button → edit → commit on Enter.
-  await window.getByRole('button', { name: 'Rename widget' }).first().click()
-  const input = window.locator('input[aria-label="Widget name"]')
+  await window.getByRole('button', { name: 'Rename work widget' }).first().click()
+  const input = window.locator('input[aria-label="Work widget name"]')
   await expect(input).toBeVisible()
   await input.fill('Groceries')
   await input.press('Enter')
@@ -59,8 +59,8 @@ test('a widget inherits its name from the first line and can be manually renamed
   await expect(window.locator(`[data-testid="widget-title-${ids.widgetId}"]`)).toHaveText('Groceries')
 
   // Clearing the name falls back to the inherited first line again.
-  await window.getByRole('button', { name: 'Rename widget' }).first().click()
-  const input2 = window.locator('input[aria-label="Widget name"]')
+  await window.getByRole('button', { name: 'Rename work widget' }).first().click()
+  const input2 = window.locator('input[aria-label="Work widget name"]')
   await input2.fill('')
   await input2.press('Enter')
   await expect(window.locator(`[data-testid="widget-title-${ids.widgetId}"]`)).toHaveText('Buy milk')
@@ -97,7 +97,7 @@ test('double-clicking the header label also opens the rename editor', async () =
   // Two quick clicks on the label open the editor (manual dblclick detection).
   await label.click()
   await label.click({ delay: 40 })
-  const input = window.locator('input[aria-label="Widget name"]')
+  const input = window.locator('input[aria-label="Work widget name"]')
   await expect(input).toBeVisible()
   await input.fill('Renamed by dblclick')
   await input.press('Enter')

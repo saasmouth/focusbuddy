@@ -123,7 +123,7 @@ async function armAndDrop(
   sourceId: string,
   drop: { x: number; y: number }
 ): Promise<{ x: number; y: number }> {
-  const hub = window.locator(`[data-widget-id="${sourceId}"]`).getByRole('button', { name: 'Link to another widget' })
+  const hub = window.locator(`[data-widget-id="${sourceId}"]`).getByRole('button', { name: 'Link to another work widget' })
   await expect(hub, `hub button visible on source ${sourceId}`).toBeVisible({ timeout: 4_000 })
   await hub.click()
   await window.mouse.click(drop.x, drop.y)
@@ -378,8 +378,8 @@ test('(g) a pinned widget shows the hub button and can be linked to another widg
   await window.waitForSelector(`[data-widget-id="${pinnedId}"]`, { timeout: 5_000 })
   await window.waitForSelector(`[data-widget-id="${otherId}"]`, { timeout: 5_000 })
 
-  // The pinned widget shows the "Link to another widget" hub button.
-  const hub = window.locator(`[data-widget-id="${pinnedId}"]`).getByRole('button', { name: 'Link to another widget' })
+  // The pinned widget shows the "Link to another work widget" hub button.
+  const hub = window.locator(`[data-widget-id="${pinnedId}"]`).getByRole('button', { name: 'Link to another work widget' })
   await expect(hub, 'pinned widget shows the hub button').toBeVisible({ timeout: 4_000 })
 
   // Arm from the pinned widget, drop onto the other (unpinned) widget.
@@ -501,7 +501,7 @@ test('(h) arming+dropping a new link dismisses an open WireEditor', async () => 
   // dismissal is keyed on `pendingPick` (set once the drop lands and the
   // link is created) — not on the arm alone. So the editor is only
   // guaranteed gone once the arm+drop gesture completes.
-  const hub = window.locator(`[data-widget-id="${srcA}"]`).getByRole('button', { name: 'Link to another widget' })
+  const hub = window.locator(`[data-widget-id="${srcA}"]`).getByRole('button', { name: 'Link to another work widget' })
   await hub.click()
   await window.waitForTimeout(100)
 

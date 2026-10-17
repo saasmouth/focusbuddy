@@ -110,9 +110,9 @@ export default function EmbeddedSiteWidget({ widget }: { widget: Widget }): JSX.
       <div className="h-full w-full flex items-center justify-center p-3 text-center" data-testid="embedded-site-refused">
         <p className="text-[11px] text-[var(--ink-50)] leading-snug">
           {selfOrigin
-            ? 'This widget points back into this app, which cannot be shown inside itself.'
+            ? 'This work widget points back into this app, which cannot be shown inside itself.'
             : raw
-              ? 'This widget points at an address the browser cannot open.'
+              ? 'This work widget points at an address the browser cannot open.'
               : 'No address set.'}
         </p>
       </div>

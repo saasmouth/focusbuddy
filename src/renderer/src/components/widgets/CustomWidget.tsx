@@ -206,8 +206,8 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
             }
             if (verdict.needsApproval) {
               const ok = await confirmDialog({
-                title: `${widget.title || 'This widget'} wants to make a change`,
-                body: `${describeWidgetAction(verdict.action)}\n\nTurn on “Let this widget make changes” in its menu to stop being asked each time.`
+                title: `${widget.title || 'This work widget'} wants to make a change`,
+                body: `${describeWidgetAction(verdict.action)}\n\nTurn on “Let this work widget make changes” in its menu to stop being asked each time.`
               })
               if (!ok) {
                 answer({ ok: false, reason: 'You declined that change.' })
@@ -226,7 +226,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
         case 'state': {
           const json = JSON.stringify(msg.payload)
           if (json.length > CUSTOM_WIDGET_MAX_STATE_BYTES) {
-            setRuntimeError('This widget tried to save more data than a widget may hold.')
+            setRuntimeError('This work widget tried to save more data than a work widget may hold.')
             return
           }
           stateRef.current = msg.payload
@@ -379,7 +379,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
     const unfinished =
       !!data.code && !/<style/i.test(data.code) && !/<script/i.test(data.code)
     const v = await promptText({
-      title: unfinished ? 'What should it do differently?' : 'Change this widget',
+      title: unfinished ? 'What should it do differently?' : 'Change this work widget',
       label: unfinished
         ? 'This one never finished, so it will be rebuilt from your description plus whatever you add here.'
         : 'Describe what should be different. The current version is kept so you can revert.',
@@ -411,10 +411,10 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
   const onToggleNet = useCallback(async () => {
     if (!data.net) {
       const ok = await confirmDialog({
-        title: 'Allow this widget to use the internet?',
+        title: 'Allow this work widget to use the internet?',
         body:
           'It will be able to call public web APIs — and to send what you type into it. ' +
-          'Only turn this on for a widget you asked to fetch live data.'
+          'Only turn this on for a work widget you asked to fetch live data.'
       })
       if (!ok) return
     }
@@ -424,7 +424,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
   const onToggleActs = useCallback(async () => {
     if (!data.acts) {
       const ok = await confirmDialog({
-        title: 'Let this widget make changes without asking?',
+        title: 'Let this work widget make changes without asking?',
         body:
           'It will be able to add rows and update cells in the tables WIRED INTO IT, and save notes to ' +
           'PlexiBrain — without a confirmation each time. It still cannot touch anything you have not ' +
@@ -439,9 +439,9 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
     if (!data.code) return
     const suggestion = await window.api.customWidget
       .suggestName({ spec: data.spec })
-      .catch(() => ({ name: widget.title || 'Custom widget', icon: 'widgets' }))
+      .catch(() => ({ name: widget.title || 'Custom work widget', icon: 'widgets' }))
     const name = await promptText({
-      title: 'Save to my widgets',
+      title: 'Save to my work widgets',
       label: 'It will be available on every desk, and can be placed as many times as you like.',
       initial: widget.title && widget.title !== 'Custom' ? widget.title : suggestion.name,
       confirmLabel: 'Save'
@@ -498,7 +498,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
     async (s: SavedCustomWidget) => {
       const ok = await confirmDialog({
         title: `Delete "${s.name}"?`,
-        body: 'It is removed from your library. Widgets already on a desk keep working.',
+        body: 'It is removed from your library. Work widgets already on a desk keep working.',
         danger: true
       })
       if (!ok) return
@@ -511,8 +511,8 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
   const menuExtras = useMemo(() => {
     const items: Array<{ label: string; icon?: string; onClick: () => void }> = []
     if (data.code) {
-      items.push({ label: 'Change this widget…', icon: 'auto_fix_high', onClick: () => void onRefine() })
-      items.push({ label: 'Save to my widgets…', icon: 'bookmark_add', onClick: () => void onSave() })
+      items.push({ label: 'Change this work widget…', icon: 'auto_fix_high', onClick: () => void onRefine() })
+      items.push({ label: 'Save to my work widgets…', icon: 'bookmark_add', onClick: () => void onSave() })
       if ((data.history ?? []).length > 0) {
         items.push({ label: 'Revert to previous version', icon: 'undo', onClick: () => void onRevert() })
       }
@@ -537,7 +537,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
         onClick: () => {
           void confirmDialog({
             title: 'Start over?',
-            body: 'The built widget and anything saved inside it are discarded.'
+            body: 'The built work widget and anything saved inside it are discarded.'
           }).then((ok) => {
             if (!ok) return
             stateRef.current = {}
@@ -556,7 +556,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
         onClick: () => setWizard('edit')
       })
     }
-    items.push({ label: 'My widgets…', icon: 'grid_view', onClick: () => void openLibrary() })
+    items.push({ label: 'My work widgets…', icon: 'grid_view', onClick: () => void openLibrary() })
     return items
   }, [data.acts, data.code, data.history, data.net, onRefine, onRevert, onSave, onToggleActs, onToggleNet, openLibrary, showSource, update, widget.id])
 
@@ -568,7 +568,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
         <Icon name="auto_awesome" size={22} className="animate-pulse text-indigo-500" />
         <div className="text-[12px] text-stone-500 dark:text-stone-400">
-          {busy === 'refine' ? 'Rebuilding your widget…' : 'Building your widget…'}
+          {busy === 'refine' ? 'Rebuilding your work widget…' : 'Building your work widget…'}
         </div>
         <div className="text-[11px] text-stone-400 dark:text-stone-500">
           Writing the whole thing from scratch — this usually takes 15–40 seconds.
@@ -587,7 +587,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
           >
             <Icon name="warning" size={14} className="mt-[1px] shrink-0" />
             <div className="min-w-0 flex-1">
-              <div>This widget was never finished — it has no styling and no behaviour.</div>
+              <div>This work widget was never finished — it has no styling and no behaviour.</div>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
                 <button
                   className="underline underline-offset-2 opacity-80 hover:opacity-100"
@@ -613,7 +613,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
           // off this app's origin and away from its data.
           sandbox={SANDBOX_ATTR}
           src={frameSrc}
-          title={widget.title || 'Custom widget'}
+          title={widget.title || 'Custom work widget'}
           className="h-full w-full border-0 bg-white dark:bg-stone-900"
           // Referrer and permissions are already unavailable on an opaque
           // origin; stated here so the intent survives a future refactor.
@@ -657,7 +657,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
           <button
             onClick={() => setWizard('edit')}
             data-testid="custom-widget-change"
-            title="Change what this widget does, by answering the questions again"
+            title="Change what this work widget does, by answering the questions again"
             className="rounded-full border border-stone-200 bg-white/95 p-1.5 text-stone-600 shadow-sm hover:border-indigo-300 hover:text-indigo-600 dark:border-white/15 dark:bg-stone-900/95 dark:text-stone-300"
           >
             <Icon name="tune" size={13} />
@@ -695,7 +695,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
       <div className="flex h-full flex-col gap-2 overflow-auto p-3">
         <div className="flex items-center gap-1.5 text-[11px] font-medium text-stone-600 dark:text-stone-300">
           <Icon name="auto_awesome" size={14} className="text-indigo-500" />
-          Describe the widget you need
+          Describe the work widget you need
         </div>
         <MentionTextarea
           value={spec}
@@ -751,7 +751,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
             onClick={() => void openLibrary()}
             className="rounded-lg border border-stone-200 px-2.5 py-1.5 text-[12px] text-stone-600 hover:border-stone-300 dark:border-white/10 dark:text-stone-300"
           >
-            My widgets
+            My work widgets
           </button>
         </div>
       </div>
@@ -778,7 +778,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
         <div className="absolute inset-0 z-20 flex flex-col bg-white/95 dark:bg-stone-900/95">
           <div className="flex items-center justify-between border-b border-stone-200 px-3 py-2 dark:border-white/10">
             <span className="text-[11px] font-medium text-stone-600 dark:text-stone-300">
-              My widgets
+              My work widgets
             </span>
             <button
               onClick={() => setShowLibrary(false)}
@@ -791,7 +791,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
           <div className="flex-1 overflow-auto p-2">
             {library.length === 0 ? (
               <div className="px-2 py-6 text-center text-[11px] text-stone-400 dark:text-stone-500">
-                Nothing saved yet. Build a widget, then choose “Save to my widgets”.
+                Nothing saved yet. Build a work widget, then choose “Save to my work widgets”.
               </div>
             ) : (
               <div className="flex flex-col gap-1">

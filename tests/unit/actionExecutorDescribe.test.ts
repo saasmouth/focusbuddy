@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { describeProposal } from '../../src/renderer/src/lib/actionExecutor'
 import type { ActionProposal } from '../../src/shared/types'
+// 4.3.32 lexicon standard: user-facing text says “work widget”. The string pins in
+// this file that read “widget” were rewritten to the new wording (owner ruling).
 
 // describeProposal drives the approvable proposal card (icon + verb + subject).
 // These cover the two ops that let the AI act on existing work rather than only
@@ -88,6 +90,6 @@ describe('describeProposal: create-section (Smart Stack on the standard card)', 
     })
     expect(d.verb).toBe('Create section')
     expect(d.subject).toContain('Research')
-    expect(d.subject).toContain('3 widgets')
+    expect(d.subject).toContain('3 work widgets')
   })
 })

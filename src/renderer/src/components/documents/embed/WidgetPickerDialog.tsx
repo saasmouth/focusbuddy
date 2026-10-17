@@ -77,7 +77,7 @@ export default function WidgetPickerDialog({ onPick, onClose }: Props): JSX.Elem
       >
         <div className="shrink-0 flex items-center gap-2 px-4 pt-3.5 pb-2.5">
           <Icon name="widgets" size={16} className="text-accent" />
-          <h3 className="text-[14px] font-semibold text-[var(--ink-90)]">Widget from a desk</h3>
+          <h3 className="text-[14px] font-semibold text-[var(--ink-90)]">Work widget from a desk</h3>
           <button onClick={onClose} className="ml-auto icon-btn" title="Close" aria-label="Close">
             <Icon name="close" size={15} />
           </button>
@@ -87,7 +87,7 @@ export default function WidgetPickerDialog({ onPick, onClose }: Props): JSX.Elem
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search widgets or desks…"
+            placeholder="Search work widgets or desks…"
             data-testid="widget-picker-search"
             className="fb-field w-full px-2.5 py-1.5 text-[13px]"
           />
@@ -103,7 +103,7 @@ export default function WidgetPickerDialog({ onPick, onClose }: Props): JSX.Elem
           )}
           {!error && desks != null && totalWidgets === 0 && (
             <div className="px-2 py-3 text-[12px] text-[var(--ink-40)]">
-              No widgets on any desk yet. Add a widget to a desk first, then embed it here.
+              No work widgets on any desk yet. Add a work widget to a desk first, then embed it here.
             </div>
           )}
           {!error && desks != null && totalWidgets > 0 && filtered.length === 0 && (
@@ -116,7 +116,7 @@ export default function WidgetPickerDialog({ onPick, onClose }: Props): JSX.Elem
                 <span className="truncate">{d.desk.title || 'Untitled desk'}</span>
               </div>
               {d.widgets.length === 0 && !query && (
-                <div className="px-2 pb-1 text-[11px] text-[var(--ink-40)]">No embeddable widgets on this desk.</div>
+                <div className="px-2 pb-1 text-[11px] text-[var(--ink-40)]">No embeddable work widgets on this desk.</div>
               )}
               {d.widgets.map((w) => {
                 const entry = WIDGET_CATALOG.find((e) => e.kind === w.kind)

@@ -141,7 +141,7 @@ export default function AssembleDeskView(): JSX.Element {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search widgets across every desk"
+            placeholder="Search work widgets across every desk"
             className="flex-1 bg-transparent text-[14px] placeholder:text-[var(--ink-40)]"
             data-testid="assemble-search"
             autoFocus
@@ -153,7 +153,7 @@ export default function AssembleDeskView(): JSX.Element {
         {query.trim().length >= 2 && (
           <ul className="mt-3 space-y-1" data-testid="assemble-results">
             {hits.length === 0 && !searching ? (
-              <li className="px-2 py-6 text-center text-[13px] text-[var(--ink-60)]">No matching widgets.</li>
+              <li className="px-2 py-6 text-center text-[13px] text-[var(--ink-60)]">No matching work widgets.</li>
             ) : (
               hits.map((h) => (
                 <li key={h.id}>
@@ -272,7 +272,7 @@ export default function AssembleDeskView(): JSX.Element {
           <div className="px-3 py-16 text-center" data-testid="assemble-empty">
             <Icon name="dashboard_customize" size={30} className="text-[var(--ink-30)]" />
             <p className="mt-3 text-[14px] text-[var(--ink-70)] max-w-md mx-auto leading-relaxed">
-              Search for a widget, tick the ones you want, and pull in the related items it surfaces.
+              Search for a work widget, tick the ones you want, and pull in the related items it surfaces.
               Then open a fresh desk that holds them all, synced or as standalone copies.
             </p>
           </div>

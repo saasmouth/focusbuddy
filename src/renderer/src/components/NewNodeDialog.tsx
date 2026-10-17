@@ -528,7 +528,7 @@ export default function NewNodeDialog({
                           <span className="min-w-0">
                             <span className="block text-[12.5px] font-medium text-[var(--ink-100)] truncate">{t.name}</span>
                             <span className="block text-[10.5px] text-[var(--ink-40)] truncate">
-                              {isStarter ? 'Starter' : `${t.widgets.length} widget${t.widgets.length === 1 ? '' : 's'}`}
+                              {isStarter ? 'Starter' : `${t.widgets.length} work widget${t.widgets.length === 1 ? '' : 's'}`}
                             </span>
                           </span>
                         </button>
@@ -537,7 +537,7 @@ export default function NewNodeDialog({
                   </div>
                   {selectedTemplate && (
                     <div className="mt-2 text-[11px] text-[var(--ink-50)]">
-                      {selectedTemplate.description || `${selectedTemplate.widgets.length} widgets`}
+                      {selectedTemplate.description || `${selectedTemplate.widgets.length} work widgets`}
                     </div>
                   )}
                 </div>
@@ -757,7 +757,7 @@ export default function NewNodeDialog({
                       <span className="ml-auto text-[9px] uppercase tracking-wider text-accent">Pro</span>
                     </div>
                     <div className="text-[11px] text-[var(--ink-50)] mt-0.5">
-                      Upgrade to let the assistant propose widgets, browsers and notes for this Desk.
+                      Upgrade to let the assistant propose work widgets, browsers and notes for this Desk.
                     </div>
                   </button>
                 )}
@@ -779,7 +779,7 @@ export default function NewNodeDialog({
                           Have AI suggest the setup
                         </div>
                         <div className="text-[11px] text-[var(--ink-70)] mt-0.5">
-                          After creating, the assistant proposes widgets, browsers and notes that fit this Desk.
+                          After creating, the assistant proposes work widgets, browsers and notes that fit this Desk.
                         </div>
                       </div>
                     </label>
@@ -877,7 +877,7 @@ export default function NewNodeDialog({
                         <span className="ml-auto text-[9px] uppercase tracking-wider text-accent">Pro</span>
                       </div>
                       <div className="text-[11px] text-[var(--ink-50)] mt-0.5">
-                        Upgrade to let the assistant propose widgets, browsers and notes for this Desk.
+                        Upgrade to let the assistant propose work widgets, browsers and notes for this Desk.
                       </div>
                     </button>
                   )}

@@ -50,7 +50,7 @@ export const WIDGET_WIZARD_QUESTIONS: readonly WizardQuestion[] = [
   {
     id: 'holds',
     prompt: 'What does it keep for you?',
-    why: 'What the widget stores, as opposed to what it works out.',
+    why: 'What the work widget stores, as opposed to what it works out.',
     multi: true,
     otherPlaceholder: 'Something else it holds…',
     options: [
@@ -106,7 +106,7 @@ export const WIDGET_WIZARD_QUESTIONS: readonly WizardQuestion[] = [
   {
     id: 'look',
     prompt: 'How should it read at a glance?',
-    why: 'A desk widget is small — this decides what gets the space.',
+    why: 'A work widget is small — this decides what gets the space.',
     multi: false,
     otherPlaceholder: 'Describe how it should look…',
     options: [
@@ -121,7 +121,7 @@ export const WIDGET_WIZARD_QUESTIONS: readonly WizardQuestion[] = [
   {
     id: 'memory',
     prompt: 'Should it remember what you put in?',
-    why: 'The single most common reason a generated widget disappoints.',
+    why: 'The single most common reason a generated work widget disappoints.',
     multi: false,
     otherPlaceholder: 'Something more specific about what it keeps…',
     options: [
@@ -274,7 +274,7 @@ export function composeSpec(a: WidgetWizardAnswers, ctx: ComposeContext = {}): s
   if (ctx.width && ctx.height) {
     lines.push(
       `SPACE: it must be readable at ${Math.round(ctx.width)}×${Math.round(ctx.height)} pixels. ` +
-        'Design for that, not for a full page. Scroll inside the widget rather than overflowing it.'
+        'Design for that, not for a full page. Scroll inside the work widget rather than overflowing it.'
     )
   }
   lines.push(
@@ -306,7 +306,7 @@ export function composeSpec(a: WidgetWizardAnswers, ctx: ComposeContext = {}): s
         'first-fit-decreasing, topological sort) rather than inventing one. Name the ' +
         'method where the result is shown, and label an approximation as one: ' +
         '"suggested order", "estimated total", never "optimal" or "shortest". State the ' +
-        'assumptions that change the answer. Chunk anything heavy so the widget never ' +
+        'assumptions that change the answer. Chunk anything heavy so the work widget never ' +
         'freezes, and if the input is larger than the method handles well, cap it and ' +
         'say so on screen rather than truncating silently.'
     )

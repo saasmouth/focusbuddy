@@ -12,6 +12,8 @@ import {
   type CustomWidgetDb
 } from '../../src/main/db/customWidgets'
 import { CUSTOM_WIDGET_MAX_CODE_BYTES } from '../../src/shared/types'
+// 4.3.32 lexicon standard: user-facing text says “work widget”. The string pins in
+// this file that read “widget” were rewritten to the new wording (owner ruling).
 
 // The library is where a one-off generation becomes a tool the user owns, so the
 // things worth asserting are the ones that would quietly lose their work: a save
@@ -63,7 +65,7 @@ describe('saving to the library', () => {
     const db = freshDb()
     expect(saveCustomWidget(db, { ...base, code: '' })).toEqual({
       ok: false,
-      error: 'There is no generated widget to save yet.'
+      error: 'There is no generated work widget to save yet.'
     })
     expect(saveCustomWidget(db, { ...base, code: '   ' }).ok).toBe(false)
     expect(listCustomWidgets(db)).toHaveLength(0)
@@ -80,7 +82,7 @@ describe('saving to the library', () => {
   it('falls back to a usable name rather than storing an empty one', () => {
     const db = freshDb()
     const r = saveCustomWidget(db, { ...base, name: '   ' })
-    expect(r.ok && r.widget.name).toBe('Untitled widget')
+    expect(r.ok && r.widget.name).toBe('Untitled work widget')
   })
 
   it('overwrites in place when given an existing id, instead of duplicating', () => {

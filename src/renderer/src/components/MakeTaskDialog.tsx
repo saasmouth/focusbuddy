@@ -368,10 +368,10 @@ export default function MakeTaskDialog({
                 />
                 <div className="flex-1">
                   <div className="text-[12px] text-[var(--ink-90)]">
-                    Copy this widget into the new desk
+                    Copy this work widget into the new desk
                   </div>
                   <div className="text-[10px] text-[var(--ink-50)] leading-tight">
-                    Bring this widget onto the new desk. Choose whether it stays in sync or becomes its own copy.
+                    Bring this work widget onto the new desk. Choose whether it stays in sync or becomes its own copy.
                   </div>
                 </div>
               </label>
@@ -390,7 +390,7 @@ export default function MakeTaskDialog({
                         🔗 Keep in sync <span className="text-[var(--ink-40)]">(live)</span>
                       </div>
                       <div className="text-[10px] text-[var(--ink-50)] leading-tight">
-                        Content, title and colour mirror both ways. Unlink anytime from the widget menu.
+                        Content, title and colour mirror both ways. Unlink anytime from the work widget menu.
                       </div>
                     </div>
                   </label>

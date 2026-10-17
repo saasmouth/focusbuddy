@@ -1654,7 +1654,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
                   title={
                     primaryDeskId
                       ? 'Push to desk — Plexii proposes what is new from this conversation as cards you approve'
-                      : 'Turn into desk — Plexii proposes the desk and its widgets as cards you approve'
+                      : 'Turn into desk — Plexii proposes the desk and its work widgets as cards you approve'
                   }
                   className="fb-press inline-flex items-center gap-1 h-[26px] px-2 rounded-full border border-[var(--edge-soft)] bg-[var(--surface-sunken)] fb-t-caption font-medium text-[var(--ink-70)] hover:text-[rgb(var(--accent))] hover:border-[rgb(var(--accent)/0.45)] transition-colors disabled:opacity-50"
                 >

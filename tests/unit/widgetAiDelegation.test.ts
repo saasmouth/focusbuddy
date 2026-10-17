@@ -8,6 +8,8 @@ import {
   verbFor,
   uncoveredKinds
 } from '../../src/renderer/src/lib/widgetAiFamilies'
+// 4.3.32 lexicon standard: user-facing text says “work widget”. The string pins in
+// this file that read “widget” were rewritten to the new wording (owner ruling).
 
 // "Make all widgets have ai, and make the ai assistant ask the widget ai expert
 // when its planning on doing something with that widgets data, updating it,
@@ -124,7 +126,7 @@ describe('the assistant defers to the expert', () => {
     expect(prompt).toMatch(/CONFIGURED/)
     // And says plainly that the model does not know those shapes.
     expect(prompt).toContain('must not invent them')
-    expect(prompt).toContain('The expert is authoritative about that widget; you are not.')
+    expect(prompt).toContain('The expert is authoritative about that work widget; you are not.')
   })
 
   it('update-widget is narrowed to what it can actually do', () => {

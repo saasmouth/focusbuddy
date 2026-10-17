@@ -122,7 +122,7 @@ export async function searchAll(rawQuery: string): Promise<SearchHit[]> {
     hits.push({
       type: 'widget',
       id: r.id,
-      title: r.title || `${r.kind} widget`,
+      title: r.title || `${r.kind} work widget`,
       snippet: makeSnippet(text || r.title, query),
       score: scoreMatch(r.title, text, query),
       taskId: r.task_id,

@@ -106,7 +106,7 @@ export default function RecentNotesCard({ taskIds }: Props): JSX.Element {
         </div>
       ) : noteWidgets.length === 0 ? (
         <div className="text-center py-6 text-[11px] text-[var(--ink-50)]">
-          No notes yet. Drop a sticky or page widget on any task to start.
+          No notes yet. Drop a sticky or page work widget on any task to start.
         </div>
       ) : (
         <div className="space-y-1.5">

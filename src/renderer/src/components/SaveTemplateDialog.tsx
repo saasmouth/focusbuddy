@@ -290,7 +290,7 @@ export default function SaveTemplateDialog({
             <div className="max-h-[260px] overflow-y-auto rounded-md bg-[var(--surface-sunken)] py-1">
               {taskWidgets.length === 0 ? (
                 <div className="px-4 py-6 text-center text-[12px] text-[var(--ink-50)]">
-                  This task has no widgets to template yet.
+                  This task has no work widgets to template yet.
                 </div>
               ) : (
                 <>

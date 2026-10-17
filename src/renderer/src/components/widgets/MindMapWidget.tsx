@@ -736,7 +736,7 @@ export default function MindMapWidget({ widget, inline = false }: Props): JSX.El
   // ── Phase 2B: attach a real canvas widget to this node ───────────────────
   async function attachWidget(node: MindMapNode, kind: WidgetKind): Promise<void> {
     if (!activeTaskId) {
-      setErrorMsg('Open a task before adding tools — widgets need a parent task.')
+      setErrorMsg('Open a task before adding tools — work widgets need a parent task.')
       return
     }
     const entry = catalogFor(kind)
@@ -1557,8 +1557,8 @@ function SidePanel({
           </div>
           {attachedWidgets.length === 0 ? (
             <div className="text-[10px] text-[var(--ink-50)] leading-snug">
-              Attach any widget kind to this node — table, search, sticky, etc.
-              The widget spawns on the canvas and the link lets you find it
+              Attach any work widget kind to this node — table, search, sticky, etc.
+              The work widget spawns on the canvas and the link lets you find it
               again from here.
             </div>
           ) : (
@@ -1585,7 +1585,7 @@ function SidePanel({
                   <button
                     onClick={() => onDetachWidget(w.id)}
                     className="text-[10px] text-[var(--ink-40)] hover:text-[var(--ink-70)]"
-                    title="Detach (does NOT delete the widget — only removes the link)"
+                    title="Detach (does NOT delete the work widget — only removes the link)"
                   >
                     Unlink
                   </button>

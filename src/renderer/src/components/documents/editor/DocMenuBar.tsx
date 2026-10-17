@@ -212,7 +212,7 @@ export default function DocMenuBar({
         { kind: 'item', label: 'Table', icon: 'grid_on', run: () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
         { kind: 'item', label: 'Table of contents', icon: 'toc', run: () => chain().insertTableOfContents().run() },
         { kind: 'item', label: 'Footnote', icon: 'superscript', run: () => chain().insertFootnote().run() },
-        { kind: 'item', label: 'Widget from a desk', icon: 'widgets', run: onInsertWidget },
+        { kind: 'item', label: 'Work widget from a desk', icon: 'widgets', run: onInsertWidget },
         { kind: 'item', label: 'Link', shortcut: '⌘K', icon: 'link', run: insertLink },
         { kind: 'item', label: 'Horizontal line', icon: 'horizontal_rule', run: () => chain().setHorizontalRule().run() },
         { kind: 'sep' },

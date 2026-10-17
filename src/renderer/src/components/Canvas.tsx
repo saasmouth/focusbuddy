@@ -1914,7 +1914,7 @@ export default function Canvas(): JSX.Element {
     const grouped = entriesByCategory()
     const addObject = (entry: WidgetCatalogEntry): void => {
       if (!canCreateWidget(caps, entry.kind)) {
-        promptUpgrade(`The ${entry.label} widget is a Pro feature.`)
+        promptUpgrade(`The ${entry.label} work widget is a Pro feature.`)
         return
       }
       void placeWidgetAtCanvas(entry, cx, cy)
@@ -2957,7 +2957,7 @@ export default function Canvas(): JSX.Element {
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="fb-glass-panel rounded-full px-4 py-2 inline-flex items-center gap-2 text-[var(--ink-50)]">
                 <Icon name="widgets" size={16} />
-                <p className="text-sm">Drag a widget from Widgets in the side menu onto the desk.</p>
+                <p className="text-sm">Drag a work widget from Work widgets in the side menu onto the desk.</p>
               </div>
             </div>
           )}
@@ -3151,7 +3151,7 @@ export default function Canvas(): JSX.Element {
           {activeId && !linkSourceId && (
             <div className="absolute bottom-3 left-[calc(50%+var(--fb-dock-inset,0px)/2)] -translate-x-1/2 px-2.5 py-1 rounded-full fb-glass-chrome border text-[11px] text-[var(--ink-90)] shadow-[var(--shadow-soft)] flex items-center gap-1.5 pointer-events-none">
               <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
-              <span>Widget active · click outside or press Esc to pan canvas</span>
+              <span>Work widget active · click outside or press Esc to pan canvas</span>
             </div>
           )}
           {/* Edge-pan boundary indicators — subtle violet glow hugging
@@ -3180,7 +3180,7 @@ export default function Canvas(): JSX.Element {
               to the desk, so the duplicate canvas rail is removed. */}
           {linkSourceId && (() => {
             const src = widgets.find((w) => w.id === linkSourceId)
-            const label = src?.title || src?.kind || 'widget'
+            const label = src?.title || src?.kind || 'work widget'
             return (
               <div
                 data-link-skip
@@ -3192,7 +3192,7 @@ export default function Canvas(): JSX.Element {
               >
                 <Icon name="hub" size={13} />
                 <span>
-                  Linking from <strong className="font-semibold">{label}</strong> · click another widget to connect
+                  Linking from <strong className="font-semibold">{label}</strong> · click another work widget to connect
                 </span>
                 <button
                   data-link-skip

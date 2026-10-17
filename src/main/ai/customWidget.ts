@@ -45,9 +45,9 @@ function unfence(raw: string): string {
 
 function systemPrompt(net: boolean, w: number, h: number): string {
   return [
-    'You write single-file widgets for a desktop canvas app called PlexiDesk.',
+    'You write single-file work widgets for a desktop canvas app called PlexiDesk.',
     '',
-    'Output ONLY the widget source. No preamble, no explanation, no markdown fence.',
+    'Output ONLY the work widget source. No preamble, no explanation, no markdown fence.',
     '',
     '## What you are writing',
     'One self-contained HTML fragment: markup, a <style> block and a <script> block.',
@@ -55,7 +55,7 @@ function systemPrompt(net: boolean, w: number, h: number): string {
     '<head> or <body> tags — start directly with your own markup.',
     '',
     `## The space you have`,
-    `The widget renders at roughly ${w}x${h} CSS pixels and the user can resize it.`,
+    `The work widget renders at roughly ${w}x${h} CSS pixels and the user can resize it.`,
     'Design for that size. Make it responsive with flexbox or grid — never assume a',
     'fixed viewport, and never let content overflow horizontally.',
     '',
@@ -64,35 +64,35 @@ function systemPrompt(net: boolean, w: number, h: number): string {
     '  no web fonts, no CDN, no images by URL. Everything inline. A data: URI or an',
     '  inline <svg> is the way to draw something.',
     '- No localStorage, sessionStorage, cookies or IndexedDB. They throw here: the',
-    '  widget runs on an opaque origin. Use the plexi state API below instead.',
+    '  work widget runs on an opaque origin. Use the plexi state API below instead.',
     '- No access to the host app or its internals. You cannot reach the user\'s',
-    '  files, desks or other widgets EXCEPT through plexi.getInputs() below, which',
-    '  returns only what the user has explicitly wired into this widget. Do not',
+    '  files, desks or other work widgets EXCEPT through plexi.getInputs() below, which',
+    '  returns only what the user has explicitly wired into this work widget. Do not',
     '  write code that tries to reach anything else — it will fail.',
     net
-      ? '- Network: ALLOWED. You may fetch() public https endpoints. Handle failure\n  visibly — show the error in the widget, never a blank panel. Never send the\n  user\'s entered data anywhere the task did not explicitly ask for.'
+      ? '- Network: ALLOWED. You may fetch() public https endpoints. Handle failure\n  visibly — show the error in the work widget, never a blank panel. Never send the\n  user\'s entered data anywhere the task did not explicitly ask for.'
       : '- Network: FORBIDDEN and blocked by policy. No fetch, no XHR, no WebSocket.\n  If the request seems to need live data, build it to work on data the user\n  enters or on values they can edit, and say so in the UI.',
     '',
     '## The host API (already present as window.plexi — never redefine it)',
-    '- plexi.getState() -> object. This widget\'s saved data. Returns {} the first',
-    '  time. Read it on load and render from it so the widget remembers.',
+    '- plexi.getState() -> object. This work widget\'s saved data. Returns {} the first',
+    '  time. Read it on load and render from it so the work widget remembers.',
     '- plexi.setState(obj) -> saves. Call it whenever the user changes something.',
     '  Writes are debounced for you, so calling it on every keystroke is fine.',
     '  Objects only — not arrays, not primitives. Wrap a list: {items: [...]}.',
-    '- plexi.setTitle(str) — renames the widget header.',
-    '- plexi.requestHeight(px) — ask the desk to resize this widget vertically.',
+    '- plexi.setTitle(str) — renames the work widget header.',
+    '- plexi.requestHeight(px) — ask the desk to resize this work widget vertically.',
     '- plexi.reportError(msg) — surface a failure to the user.',
     '',
-    '### Reading what is wired into this widget',
-    '- plexi.getInputs() -> array. The widgets the user has connected TO this one.',
+    '### Reading what is wired into this work widget',
+    '- plexi.getInputs() -> array. The work widgets the user has connected TO this one.',
     '  Each: {id, kind, title, text} and, when it is a table, also',
     '  {table: {id, columns: [{id,label,type}], rows: [{id,cells}], rowCount, truncated}}.',
     '  A cell is keyed by COLUMN ID, not by label. Compute over rows directly —',
     '  totals, filters, charts — rather than parsing text.',
     '- plexi.onInput(fn) -> unsubscribe. fn(inputs) fires whenever a wired source',
-    '  changes. Re-render from it so the widget is LIVE, not a snapshot.',
+    '  changes. Re-render from it so the work widget is LIVE, not a snapshot.',
     '- Inputs arrive by TWO routes and look identical: a wire the user drew on the',
-    '  canvas, and anything they @ mentioned in the description of this widget.',
+    '  canvas, and anything they @ mentioned in the description of this work widget.',
     '  Each carries `via: "wire" | "mention"` if you want to say where it came from.',
     '- The list is EMPTY until they do one of those. Say so in the empty state —',
     '  "wire in a table, or @ mention one, to begin" — never invent rows to fill space.',
@@ -103,7 +103,7 @@ function systemPrompt(net: boolean, w: number, h: number): string {
     '  antipodes where a naive haversine returns NaN).',
     '- plexi.geo.tilesFor({lat,lon}, zoom, widthPx, heightPx) -> [{url,left,top}].',
     '  A MAP with no library: render each as <img style="position:absolute">.',
-    '  Needs the widget\'s network access on; with it off say so instead of',
+    '  Needs the work widget\'s network access on; with it off say so instead of',
     '  showing an empty grey box. plexi.geo.project / unproject are there too.',
     '- plexi.csv.parse(text) -> rows, plexi.csv.parseObjects(text) -> objects',
     '  keyed by header, plexi.csv.format(rows) -> text. Handles quoted commas,',
@@ -127,23 +127,23 @@ function systemPrompt(net: boolean, w: number, h: number): string {
     '    {kind:"open-url", url}  (http/https only)',
     '- Put a result WHERE IT BELONGS rather than leaving the user to retype it: a',
     '  worked-out deadline becomes a task, a chosen slot becomes an event, a',
-    '  summary becomes a draft email. That is usually the point of the widget.',
+    '  summary becomes a draft email. That is usually the point of the work widget.',
     '- tableId and rowId MUST come from plexi.getInputs(). A table that was neither',
-    '  wired in nor @ mentioned is refused — this widget can only change what the',
+    '  wired in nor @ mentioned is refused — this work widget can only change what the',
     '  user pointed it at.',
     '- The user may not have granted write access, in which case each action is',
     '  put to them for approval. Never assume it succeeded; check the result.',
     '',
     '## Style',
     'These CSS variables are defined and follow the user\'s light/dark theme. Use',
-    'them rather than hardcoded colours, or the widget will look wrong in one theme:',
+    'them rather than hardcoded colours, or the work widget will look wrong in one theme:',
     '  --plexi-bg  --plexi-fg  --plexi-muted  --plexi-border  --plexi-accent  --plexi-surface',
     'Aim for calm and dense: 12–13px text, generous hit targets, clear hierarchy, no',
     'decorative gradients. It should look like a native part of a quiet workspace.',
     'The body already has 12px of padding — do not add your own to <body>, and do',
     'not remove it.',
     '',
-    '## When the widget WORKS SOMETHING OUT',
+    '## When the work widget WORKS SOMETHING OUT',
     'Most of these are not forms — they compute. A rota, a forecast, a packing',
     'list, an ordering, a price, a burn rate, a schedule. Three rules, and they',
     'apply whatever the subject is:',
@@ -170,7 +170,7 @@ function systemPrompt(net: boolean, w: number, h: number): string {
     '     var w = new Worker(URL.createObjectURL(new Blob([src], {type:"text/javascript"})));',
     '   Put the computation in `src` as a string, postMessage the data in, render',
     '   the result when it comes back, and show progress meanwhile. Alternatively',
-    '   chunk with setTimeout. Either way the widget must never freeze.',
+    '   chunk with setTimeout. Either way the work widget must never freeze.',
     '- An input table tells you `rowCount` and `truncated`. If `truncated` is true',
     '  you have SOME of the rows, not all of them: say so next to any total you',
     '  show ("total of the 20,000 rows loaded, of 34,112"). Never present a partial',
@@ -181,7 +181,7 @@ function systemPrompt(net: boolean, w: number, h: number): string {
     '',
     '## Quality bar',
     '- It must WORK on first render, with no console errors.',
-    '- Handle the empty state: what the widget looks like before any data exists.',
+    '- Handle the empty state: what the work widget looks like before any data exists.',
     '- Label controls. An unlabelled icon button is a puzzle, not an interface.',
     '- Keyboard: inputs reachable by Tab, Enter submits where that is natural.',
     '- If the user asks for something needing data you do not have, build the real',
@@ -189,7 +189,7 @@ function systemPrompt(net: boolean, w: number, h: number): string {
     '  plausible-looking sample numbers and present them as real.',
     '- If part of the request genuinely cannot be done here — live traffic, a map',
     '  tile, a bank feed, anything needing a service — build everything that CAN',
-    '  be done and say plainly in the UI what is missing and why. A widget that',
+    '  be done and say plainly in the UI what is missing and why. A work widget that',
     '  silently drops the hard half looks finished and is not.'
   ].join('\n')
 }
@@ -213,13 +213,13 @@ export async function generateCustomWidget(
   input: GenerateCustomWidgetInput
 ): Promise<GenerateCustomWidgetResult> {
   const spec = (input?.spec ?? '').trim()
-  if (!spec) return { ok: false, error: 'Describe the widget you want first.' }
+  if (!spec) return { ok: false, error: 'Describe the work widget you want first.' }
 
   const key = resolveAnthropicKey()
   if (!key) {
     return {
       ok: false,
-      error: 'Add an Anthropic API key in Settings to build custom widgets.',
+      error: 'Add an Anthropic API key in Settings to build custom work widgets.',
       needsKey: true
     }
   }
@@ -232,7 +232,7 @@ export async function generateCustomWidget(
 
   const userMsg = current
     ? [
-        'Here is the current widget source:',
+        'Here is the current work widget source:',
         '',
         current,
         '',
@@ -243,11 +243,11 @@ export async function generateCustomWidget(
         '',
         'Return the COMPLETE updated source, not a diff. Keep everything that still',
         'works and preserve the shape of any data already saved through',
-        'plexi.setState — the user has real data in this widget and a rename of a',
+        'plexi.setState — the user has real data in this work widget and a rename of a',
         'state key would lose it.'
       ].join('\n')
     : [
-        'Build this widget:',
+        'Build this work widget:',
         '',
         spec,
         '',
@@ -310,7 +310,7 @@ export async function generateCustomWidget(
       return {
         ok: false,
         error:
-          'That widget is bigger than I can finish, even continuing. Ask for a smaller ' +
+          'That work widget is bigger than I can finish, even continuing. Ask for a smaller ' +
           'version — the core of it first — and then refine to add the rest.'
       }
     }
@@ -320,13 +320,13 @@ export async function generateCustomWidget(
     return { ok: false, error: msg.length > 240 ? msg.slice(0, 240) + '…' : msg }
   }
 
-  if (!code) return { ok: false, error: 'The model returned an empty widget.' }
+  if (!code) return { ok: false, error: 'The model returned an empty work widget.' }
   if (!/<[a-z!/]/i.test(code)) {
     // Prose rather than markup means the model refused or misread the task.
     // Surfacing that beats rendering a paragraph of apology as a "widget".
     return {
       ok: false,
-      error: 'The model replied with text instead of a widget. Try describing it more concretely.'
+      error: 'The model replied with text instead of a work widget. Try describing it more concretely.'
     }
   }
   // Independent of stop_reason, because a provider that does not report one is
@@ -336,11 +336,11 @@ export async function generateCustomWidget(
   if (lastClose < code.length - 1 && code.slice(lastClose + 1).includes('<')) {
     return {
       ok: false,
-      error: 'That widget came back unfinished, so it has not been saved. Try asking for something simpler.'
+      error: 'That work widget came back unfinished, so it has not been saved. Try asking for something simpler.'
     }
   }
   if (Buffer.byteLength(code, 'utf8') > CUSTOM_WIDGET_MAX_CODE_BYTES) {
-    return { ok: false, error: 'The generated widget was too large. Ask for something simpler.' }
+    return { ok: false, error: 'The generated work widget was too large. Ask for something simpler.' }
   }
 
   return { ok: true, code, model }
@@ -352,7 +352,7 @@ export async function generateCustomWidget(
 export async function nameCustomWidget(input: {
   spec: string
 }): Promise<{ name: string; icon: string }> {
-  const fallbackName = (input?.spec ?? '').trim().split(/\s+/).slice(0, 4).join(' ') || 'Custom widget'
+  const fallbackName = (input?.spec ?? '').trim().split(/\s+/).slice(0, 4).join(' ') || 'Custom work widget'
   const key = resolveAnthropicKey()
   if (!key) return { name: fallbackName, icon: 'widgets' }
 
@@ -362,7 +362,7 @@ export async function nameCustomWidget(input: {
       model: MODEL_HAIKU,
       max_tokens: 120,
       system:
-        'Name a small desktop widget from its description. Reply with exactly one line ' +
+        'Name a small desktop work widget from its description. Reply with exactly one line ' +
         'of JSON: {"name":"...","icon":"..."}. name is 1-3 words, title case, no quotes ' +
         'around it, naming the tool rather than describing it. icon is a valid Material ' +
         'Symbols outlined icon name in snake_case (e.g. calculate, timer, checklist, ' +

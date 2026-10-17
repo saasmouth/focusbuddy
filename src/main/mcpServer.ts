@@ -276,7 +276,7 @@ function documentToText(d: FbDocument, deps: WorkspaceDeps): string {
       }
     }
     const kind = (d.body as { kind?: string }).kind ?? 'widget'
-    return `Widget file (${kind})\n${widgetFileBodyToText(d.body, d.title, r)}`
+    return `Work widget file (${kind})\n${widgetFileBodyToText(d.body, d.title, r)}`
   }
   return docBodyToText(d.docType, d.body)
 }
@@ -622,7 +622,7 @@ const readTools: McpToolDef<WorkspaceDeps>[] = [
   {
     name: 'plexii_read_desk',
     description:
-      'Read what is ON a desk: every widget on its canvas as text — notes, sticky notes, tables, documents, ' +
+      'Read what is ON a desk: every work widget on its canvas as text — notes, sticky notes, tables, documents, ' +
       'stat cards and metrics, mind maps and diagrams, drawings, voice-note transcripts, and the rest. ' +
       'plexii_list_desks gives you a desk\'s NAME; this gives you its contents. Start here when asked to help ' +
       'with a desk. Read-only.',
@@ -630,7 +630,7 @@ const readTools: McpToolDef<WorkspaceDeps>[] = [
       type: 'object',
       properties: {
         deskId: { type: 'string', description: 'The desk id (from plexii_list_desks or plexii_search).' },
-        limit: { type: 'number', description: 'Max widgets to read (default 50, max 200).' },
+        limit: { type: 'number', description: 'Max work widgets to read (default 50, max 200).' },
         offset: { type: 'number', description: 'Skip this many first — pass the offset the previous page reported.' },
       },
       required: ['deskId']
@@ -664,13 +664,13 @@ const readTools: McpToolDef<WorkspaceDeps>[] = [
         return text(
           all.length === 0
             ? `"${node.title}" is an empty desk — nothing on the canvas yet.`
-            : `"${node.title}" has ${all.length} widget${all.length === 1 ? '' : 's'}, none of which carry readable content yet.`
+            : `"${node.title}" has ${all.length} work widget${all.length === 1 ? '' : 's'}, none of which carry readable content yet.`
         )
       }
       const seen = offset + Math.min(limit, Math.max(0, all.length - offset))
-      const more = seen < all.length ? `\n\n(Showing widgets ${offset + 1}–${seen} of ${all.length}; call again with offset=${seen} for the rest.)` : ''
-      const note = chrome > 0 ? `\n\n(${chrome} empty or layout-only widget${chrome === 1 ? '' : 's'} not shown.)` : ''
-      return text(`# ${node.title}\n(desk ${node.id} · ${parts.length} of ${all.length} widgets)\n\n${parts.join('\n\n')}${note}${more}`)
+      const more = seen < all.length ? `\n\n(Showing work widgets ${offset + 1}–${seen} of ${all.length}; call again with offset=${seen} for the rest.)` : ''
+      const note = chrome > 0 ? `\n\n(${chrome} empty or layout-only work widget${chrome === 1 ? '' : 's'} not shown.)` : ''
+      return text(`# ${node.title}\n(desk ${node.id} · ${parts.length} of ${all.length} work widgets)\n\n${parts.join('\n\n')}${note}${more}`)
     }
   },
   {
@@ -734,7 +734,7 @@ const readTools: McpToolDef<WorkspaceDeps>[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        docType: { type: 'string', description: 'Filter: doc | sheet | slides | map | design | draw | widget (widget files: tables, task lists, stickies…).' },
+        docType: { type: 'string', description: 'Filter: doc | sheet | slides | map | design | draw | widget (work widget files: tables, task lists, stickies…).' },
         limit: { type: 'number', description: 'Max rows (default 100).' },
         offset: { type: 'number', description: 'Skip this many first — pass the offset the previous page reported.' },
       }
@@ -882,7 +882,7 @@ const readTools: McpToolDef<WorkspaceDeps>[] = [
       if (links.length === 0) return text('Nothing on this desk is wired together yet.')
       const nameOf = (id: string): string => {
         const w = deps.getWidget(id)
-        return w ? `${w.title || w.kind} (${id})` : `(missing widget ${id})`
+        return w ? `${w.title || w.kind} (${id})` : `(missing work widget ${id})`
       }
       return text(
         links
@@ -1366,7 +1366,7 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
   {
     name: 'plexii_create_widget_file',
     description:
-      'Create a WIDGET FILE: a widget that lives in Files on its own (like a document) and can be placed on any ' +
+      'Create a WIDGET FILE: a work widget that lives in Files on its own (like a document) and can be placed on any ' +
       'number of desks, every copy kept in sync. kind "sticky" | "note" | "markdown" take text; "card" takes text as its ' +
       'body; "task-list" takes items; "table" takes columns + rows; "mindmap" takes an outline (the title is the root). ' +
       'Give deskId to also put it on a desk. Requires a write token.',
@@ -1392,10 +1392,10 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
       },
       required: ['kind', 'title']
     },
-    annotations: { title: 'Create a widget file', ...CREATES },
+    annotations: { title: 'Create a work widget file', ...CREATES },
     scope: 'write',
     run(args, deps) {
-      if (!deps.createWidgetFile) return toolError('Widget files are not available in this build.')
+      if (!deps.createWidgetFile) return toolError('Work widget files are not available in this build.')
       const kind = str(args.kind) as WidgetFileAuthorableKind
       if (!(WIDGET_FILE_AUTHORABLE_KINDS as readonly string[]).includes(kind)) {
         return toolError(`Unknown kind "${kind}". Use one of ${WIDGET_FILE_AUTHORABLE_KINDS.join(', ')}.`)
@@ -1440,13 +1440,13 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
   {
     name: 'plexii_update_widget_file',
     description:
-      'Change a widget file (a documents entry of type widget). text appends to a sticky / note / markdown / card ' +
+      'Change a work widget file (a documents entry of type widget). text appends to a sticky / note / markdown / card ' +
       '(operation "replace" rewrites it); items ADD tasks to a task list; rows ADD rows to a table; title renames it. ' +
       'Every desk the file is placed on updates with it. Requires a write token.',
     inputSchema: {
       type: 'object',
       properties: {
-        id: { type: 'string', description: 'The widget file id (a document id).' },
+        id: { type: 'string', description: 'The work widget file id (a document id).' },
         title: { type: 'string' },
         text: { type: 'string' },
         operation: { type: 'string', description: 'append (default) | replace — for text only.' },
@@ -1458,9 +1458,9 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
     annotations: { title: 'Update a widget file', ...EDITS },
     scope: 'write',
     run(args, deps) {
-      if (!deps.getWidgetFile || !deps.updateWidgetFile) return toolError('Widget files are not available in this build.')
+      if (!deps.getWidgetFile || !deps.updateWidgetFile) return toolError('Work widget files are not available in this build.')
       const f = deps.getWidgetFile(str(args.id))
-      if (!f) return toolError('No widget file with that id.')
+      if (!f) return toolError('No work widget file with that id.')
       const done: string[] = []
       const t = str(args.text)
       if (t) {
@@ -1561,14 +1561,14 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
       'Put something on a desk: a note, sticky note, markdown block, a BROWSER WINDOW loaded with a URL ' +
       '(kind "webview", content is the http(s) address), or a DESK AGENT (kind "agent", content is its standing ' +
       'instruction — wire inputs into it with plexii_create_wire). Pass x/y/width/height to place it, or omit ' +
-      'them and it lands at the default spot — several widgets created without positions will overlap. ' +
+      'them and it lands at the default spot — several work widgets created without positions will overlap. ' +
       'Requires a write token.',
     inputSchema: {
       type: 'object',
       properties: {
         deskId: { type: 'string', description: 'The desk to put it on.' },
         kind: { type: 'string', description: 'note (default) | sticky | markdown | webview | agent' },
-        title: { type: 'string', description: 'Widget title (optional).' },
+        title: { type: 'string', description: 'Work widget title (optional).' },
         content: { type: 'string', description: 'The text — for a webview the http(s) URL, for an agent its standing instruction.' },
         x: { type: 'number', description: 'Canvas position. Omit and it lands at the default spot.' },
         y: { type: 'number' },
@@ -1590,7 +1590,7 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
       // or a pointer at something this surface cannot create, and would land
       // as an empty broken tile.
       if (!['note', 'sticky', 'markdown', 'webview', 'agent'].includes(kind)) {
-        return toolError(`Unknown widget kind "${kind}". Use note, sticky, markdown, webview or agent.`)
+        return toolError(`Unknown work widget kind "${kind}". Use note, sticky, markdown, webview or agent.`)
       }
       // A webview's content IS its address. Putting anything else there gives
       // the user a broken tile, and letting file:// through would turn "open a
@@ -1829,35 +1829,35 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
   {
     name: 'plexii_create_wire',
     description:
-      'Connect one widget on a desk to another — this is how a desk becomes more than a pile of tiles. ' +
+      'Connect one work widget on a desk to another — this is how a desk becomes more than a pile of tiles. ' +
       'Three kinds: "context" (passive: the target\'s AI also reads the source), "transform" (reactive: when the ' +
       'source changes, the verb is applied and written into the target — e.g. verb "extract the action items"), ' +
       'and "mirror" (the target copies the source). A desk agent is wired like anything else: put its inputs on ' +
-      'the source side. Both widgets must be on the same desk. Requires a write token.',
+      'the source side. Both work widgets must be on the same desk. Requires a write token.',
     inputSchema: {
       type: 'object',
       properties: {
-        sourceWidgetId: { type: 'string', description: 'The widget the wire comes FROM.' },
-        targetWidgetId: { type: 'string', description: 'The widget it goes TO.' },
+        sourceWidgetId: { type: 'string', description: 'The work widget the wire comes FROM.' },
+        targetWidgetId: { type: 'string', description: 'The work widget it goes TO.' },
         type: { type: 'string', description: 'context (default) | transform | mirror' },
         verb: { type: 'string', description: 'For a transform wire: what to do, e.g. "summarise in three bullets".' },
         enabled: { type: 'boolean', description: 'Reactive wires only. Default false — created switched off so you can look before it fires.' }
       },
       required: ['sourceWidgetId', 'targetWidgetId']
     },
-    annotations: { title: 'Wire two widgets together', ...CREATES },
+    annotations: { title: 'Wire two work widgets together', ...CREATES },
     scope: 'write',
     run(args, deps) {
       const sourceId = str(args.sourceWidgetId)
       const targetId = str(args.targetWidgetId)
       const source = sourceId ? deps.getWidget(sourceId) : null
       const target = targetId ? deps.getWidget(targetId) : null
-      if (!source) return toolError('No widget with that sourceWidgetId.')
-      if (!target) return toolError('No widget with that targetWidgetId.')
-      if (source.id === target.id) return toolError('A widget cannot be wired to itself.')
+      if (!source) return toolError('No work widget with that sourceWidgetId.')
+      if (!target) return toolError('No work widget with that targetWidgetId.')
+      if (source.id === target.id) return toolError('A work widget cannot be wired to itself.')
       // A wire belongs to a desk and is drawn on that canvas; across two desks
       // it would have nowhere to be.
-      if (source.taskId !== target.taskId) return toolError('Both widgets must be on the same desk.')
+      if (source.taskId !== target.taskId) return toolError('Both work widgets must be on the same desk.')
       const type = (str(args.type) || 'context') as WireType
       if (!['context', 'transform', 'mirror'].includes(type)) {
         return toolError(`Unknown wire type "${type}". Use context, transform or mirror.`)
@@ -2297,7 +2297,7 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
         args.markdown !== undefined || args.columns !== undefined || args.slides !== undefined || args.nodes !== undefined
       if (wantsBody) {
         if (d.docType === 'widget') {
-          return toolError(`"${d.title}" is a widget file — change it with plexii_update_widget_file, which keeps every desk copy in sync.`)
+          return toolError(`"${d.title}" is a work widget file — change it with plexii_update_widget_file, which keeps every desk copy in sync.`)
         }
         if (d.docType === 'design' || d.docType === 'draw') {
           return toolError(`"${d.title}" is a ${d.docType} — its content is geometry, which cannot be rewritten from here. Rename it, or edit it in Plexii.`)
@@ -2444,12 +2444,12 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
   {
     name: 'plexii_update_widget',
     description:
-      'Change what a widget on a desk says: its title and/or its content. For a note, sticky or markdown widget ' +
+      'Change what a work widget on a desk says: its title and/or its content. For a note, sticky or markdown work widget ' +
       'the content is its text; for a webview it is the URL. Requires a write token.',
     inputSchema: {
       type: 'object',
       properties: {
-        id: { type: 'string', description: 'The widget id (from plexii_read_desk).' },
+        id: { type: 'string', description: 'The work widget id (from plexii_read_desk).' },
         title: { type: 'string' },
         content: { type: 'string' },
         x: { type: 'number', description: 'Move it on the canvas.' },
@@ -2459,20 +2459,20 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
       },
       required: ['id']
     },
-    annotations: { title: 'Edit a widget', ...EDITS },
+    annotations: { title: 'Edit a work widget', ...EDITS },
     scope: 'write',
     run(args, deps) {
       const id = str(args.id)
       const w = id ? deps.getWidget(id) : null
-      if (!w) return toolError('No widget with that id.')
+      if (!w) return toolError('No work widget with that id.')
       // Editing a table or document widget's content would repoint it at a
       // different table/document, which reads as "edit" and acts as "swap".
       // Change the thing itself instead.
       const EDITABLE = ['note', 'sticky', 'markdown', 'webview', 'card']
       if (args.content !== undefined && !EDITABLE.includes(w.kind)) {
         return toolError(
-          `A ${w.kind} widget's content is a pointer at something else, not text — changing it here would silently ` +
-            'swap what the widget shows. Edit the thing it points at instead.'
+          `A ${w.kind} work widget's content is a pointer at something else, not text — changing it here would silently ` +
+            'swap what the work widget shows. Edit the thing it points at instead.'
         )
       }
       const patch: { title?: string; content?: string; x?: number; y?: number; width?: number; height?: number } = {}
@@ -2495,7 +2495,7 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
       if (Object.keys(patch).length === 0) return toolError('Nothing to change.')
       const out = deps.updateWidget(id, patch)
       if (!out) return toolError('The change was refused by the store.')
-      return text(`Updated the ${out.kind} widget ${out.id}.`)
+      return text(`Updated the ${out.kind} work widget ${out.id}.`)
     }
   },
   {

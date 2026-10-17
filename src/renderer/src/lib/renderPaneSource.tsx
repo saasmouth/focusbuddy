@@ -37,8 +37,8 @@ export function renderPaneSource(source: PaneSource, deps: PaneRenderDeps): JSX.
         return (
           <PanePlaceholder
             icon="help"
-            title="Widget unavailable"
-            note="This widget was removed or moved off the desk. Drag another tab in to fill this pane."
+            title="Work widget unavailable"
+            note="This work widget was removed or moved off the desk. Drag another tab in to fill this pane."
           />
         )
       }
