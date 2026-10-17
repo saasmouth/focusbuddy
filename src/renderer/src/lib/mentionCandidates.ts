@@ -1,3 +1,4 @@
+import { widgetFileType, widgetFileTypeLabel } from '@shared/widgetFiles'
 import type { FbNode, Widget } from '@shared/types'
 import type { TextMention } from '@shared/mentionText'
 import { catalogFor } from './widgetCatalog'
@@ -33,7 +34,7 @@ export interface CandidateSources {
   nodes: readonly FbNode[]
   widgets: readonly Widget[]
   people?: ReadonlyArray<{ accountId: string; name: string; email?: string | null }>
-  documents?: ReadonlyArray<{ id: string; title: string; docType?: string }>
+  documents?: ReadonlyArray<{ id: string; title: string; docType?: string; widgetKind?: string }>
 }
 
 /**
@@ -98,8 +99,10 @@ export function mentionCandidates(
           kind: 'document',
           id: d.id,
           title: d.title || 'Untitled',
-          icon: 'description',
-          detail: d.docType ?? 'Document'
+          // A widget file reads as its own type ("Table", "Task list") with its
+          // widget's icon, not as a generic document (docs/widget-files.md).
+          icon: d.docType === 'widget' ? (widgetFileType(d.widgetKind)?.icon ?? 'widgets') : 'description',
+          detail: d.docType === 'widget' ? widgetFileTypeLabel(d.widgetKind) : (d.docType ?? 'Document')
         }
       })
     }

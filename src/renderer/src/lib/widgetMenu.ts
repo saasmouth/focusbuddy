@@ -23,11 +23,20 @@ import { WIDGET_CATALOG, catalogFor, type WidgetCatalogEntry } from './widgetCat
  */
 export const CONNECTED_APP_WIDGET_KINDS: readonly WidgetKind[] = ['webview', 'local-app-launcher']
 
+/**
+ * Kinds that ARE a place the side menu already lists outside Apps. The
+ * Attention widget is the Desk section's Attention area on a desk; listing it
+ * again under Widgets put two "Attention" entries in one menu, reading as the
+ * same thing. It stays addable from the canvas right-click menu and the command
+ * palette ("Add Attention to desk").
+ */
+export const MENU_AREA_WIDGET_KINDS: readonly WidgetKind[] = ['attention']
+
 /** Every widget kind an app under Apps (or a connected app) already represents. */
 export function kindsRepresentedByApps(
   apps: ReadonlyArray<{ key: string; widgetKinds?: readonly WidgetKind[] }> = SEGMENT_APPS.office
 ): Set<WidgetKind> {
-  const out = new Set<WidgetKind>(CONNECTED_APP_WIDGET_KINDS)
+  const out = new Set<WidgetKind>([...CONNECTED_APP_WIDGET_KINDS, ...MENU_AREA_WIDGET_KINDS])
   for (const a of apps) for (const k of a.widgetKinds ?? []) out.add(k)
   return out
 }

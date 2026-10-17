@@ -734,7 +734,7 @@ const readTools: McpToolDef<WorkspaceDeps>[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        docType: { type: 'string', description: 'Filter: doc | sheet | slides | map | design.' },
+        docType: { type: 'string', description: 'Filter: doc | sheet | slides | map | design | draw | widget (widget files: tables, task lists, stickies…).' },
         limit: { type: 'number', description: 'Max rows (default 100).' },
         offset: { type: 'number', description: 'Skip this many first — pass the offset the previous page reported.' },
       }
@@ -749,7 +749,11 @@ const readTools: McpToolDef<WorkspaceDeps>[] = [
         .filter((d) => !docType || d.docType === docType)
       const { rows, note } = page(all, args, 100, 500)
       if (all.length === 0) return text('No documents yet.')
-      return text(rows.map((d) => `${d.id} · ${d.docType} · ${d.title} · edited ${day(d.updatedAt)}`).join('\n') + note)
+      return text(
+        rows
+          .map((d) => `${d.id} · ${d.docType === 'widget' ? `widget:${d.widgetKind ?? '?'}` : d.docType} · ${d.title} · edited ${day(d.updatedAt)}`)
+          .join('\n') + note
+      )
     }
   },
   {

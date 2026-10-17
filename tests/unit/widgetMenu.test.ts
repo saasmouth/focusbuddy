@@ -33,6 +33,10 @@ describe('which kinds the Widgets section lists', () => {
     }
   })
 
+  it('leaves out a kind that IS a menu area already (Attention), so one menu never shows it twice', () => {
+    expect(listed.has('attention' as never)).toBe(false)
+  })
+
   it('keeps the widgets that are not apps', () => {
     for (const k of ['sticky', 'note', 'table', 'task-list', 'mindmap', 'timer', 'chart', 'calculator', 'card', 'field']) {
       expect(listed.has(k as never), `${k} belongs in Widgets`).toBe(true)

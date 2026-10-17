@@ -216,7 +216,9 @@ The **Widgets** section sits between Apps and People. Its kinds are:
 
 ```
 WIDGET_CATALOG (not hideFromPicker)
-  minus kinds represented under Apps (APP_WIDGET_KINDS, derived from the Apps registry)
+  minus kinds represented under Apps (each SEGMENT_APPS.office entry's widgetKinds,
+        plus what a connected app becomes on a desk)
+  minus kinds that already are a side-menu area (Attention)
   minus retired kinds
 ```
 
