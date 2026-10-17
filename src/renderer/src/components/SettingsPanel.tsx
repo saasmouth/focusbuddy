@@ -46,6 +46,7 @@ import BodyDoubleSection from './settings/BodyDoubleSection'
 import ConnectedAppsSection from './settings/ConnectedAppsSection'
 import BrowserExtensionsSection from './settings/BrowserExtensionsSection'
 import PopupsSection from './settings/PopupsSection'
+import AppSessionsSection from './settings/AppSessionsSection'
 import VaultSection from './settings/VaultSection'
 import BrowsingConsentSection from './settings/BrowsingConsentSection'
 import BackupSection from './settings/BackupSection'
@@ -425,6 +426,8 @@ export default function SettingsPanel({
             <BrowserExtensionsSection />
             {/* Where web pop-ups open: on the desk (default) or as OS windows. */}
             <PopupsSection />
+            {/* Whether connected apps stay signed in across a quit or update. */}
+            <AppSessionsSection />
             <div className="px-3 py-3 space-y-2">
               <div className="fb-t-caption uppercase tracking-[0.12em] font-medium mb-1">
                 Sounds

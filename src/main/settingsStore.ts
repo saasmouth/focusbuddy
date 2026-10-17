@@ -51,6 +51,10 @@ interface Envelope {
   // True when web pop-ups should open as separate OS windows instead of on the
   // desk (Settings → Advanced). Optional; absent → false (on the desk).
   popupsNative?: boolean
+  // False when connected apps should NOT be kept signed in between launches
+  // (Settings → Advanced). Optional; absent → true (kept signed in). Stored
+  // only when off, so every existing envelope reads as the default.
+  keepAppsSignedIn?: boolean
   // Schema version — lets future migrations detect old envelopes.
   v: 1
 }
@@ -76,6 +80,7 @@ function load(): Envelope {
       keys: parsed.keys && typeof parsed.keys === 'object' ? parsed.keys : {},
       aiMode: parsed.aiMode === 'credits' || parsed.aiMode === 'byok' ? parsed.aiMode : 'auto',
       ...(parsed.popupsNative === true ? { popupsNative: true } : {}),
+      ...(parsed.keepAppsSignedIn === false ? { keepAppsSignedIn: false } : {}),
       v: 1
     }
   } catch (err) {
@@ -196,6 +201,23 @@ export function setPopupsNative(native: boolean): void {
   load()
   if (native) cache.popupsNative = true
   else delete cache.popupsNative
+  save()
+}
+
+/**
+ * Whether connected apps' session cookies are kept between launches (on by
+ * default). Off restores plain browser behaviour: session cookies end at quit.
+ */
+export function getKeepAppsSignedIn(): boolean {
+  load()
+  return cache.keepAppsSignedIn !== false
+}
+
+/** Persist the keep-signed-in choice. */
+export function setKeepAppsSignedIn(keep: boolean): void {
+  load()
+  if (keep) delete cache.keepAppsSignedIn
+  else cache.keepAppsSignedIn = false
   save()
 }
 

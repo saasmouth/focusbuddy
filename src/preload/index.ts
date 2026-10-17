@@ -932,6 +932,15 @@ const api = {
   // Sign-in / scripted web pop-ups shown as cards on the desk. Main hosts the
   // page in a native view; the renderer draws the card and reports where the
   // page should sit (setBounds, CSS px — main applies the zoom).
+  // Connected-app sessions: the keep-signed-in setting, and the signed-out
+  // diagnostic (main logs origin + path and cookie counts — nothing else).
+  sessions: {
+    getKeepSignedIn: (): Promise<{ keep: boolean }> => ipcRenderer.invoke('session:getKeepSignedIn'),
+    setKeepSignedIn: (keep: boolean): Promise<{ keep: boolean }> =>
+      ipcRenderer.invoke('session:setKeepSignedIn', keep),
+    reportSignedOut: (appId: string, url: string, signal: string): Promise<void> =>
+      ipcRenderer.invoke('session:reportSignedOut', appId, url, signal)
+  },
   deskPopups: {
     list: (): Promise<DeskPopupInfo[]> => ipcRenderer.invoke('deskPopup:list'),
     setBounds: (id: string, rect: PopupRect): Promise<boolean> =>

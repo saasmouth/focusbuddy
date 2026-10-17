@@ -73,6 +73,7 @@ import {
   setDeskPopupNativeMode
 } from '../deskPopups'
 import type { PopupRect } from '@shared/deskPopup'
+import { getKeepSignedInState, logConnectedAppSignedOut, setKeepSignedIn } from '../sessionPersistence'
 import { detectPreviewBuild } from '../appMode'
 import { writeFile } from 'node:fs/promises'
 import { join as pathJoin } from 'node:path'
@@ -3435,7 +3436,9 @@ export function registerIpcHandlers(): void {
     return { ok: true }
   })
   ipcMain.handle('update:install-and-restart', () => {
-    installUpdateAndRestart()
+    // Flushes cookie stores (bounded) before quitAndInstall; not awaited so
+    // the renderer's reply is not held behind the flush.
+    void installUpdateAndRestart()
     return { ok: true }
   })
   ipcMain.handle('update:open-download', () => {
@@ -3480,6 +3483,17 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('deskPopup:openExternal', (_e, id: string) => openDeskPopupExternally(id))
   ipcMain.handle('deskPopup:getMode', () => getDeskPopupMode())
   ipcMain.handle('deskPopup:setNativeMode', (_e, native: boolean) => setDeskPopupNativeMode(native))
+
+  // ── Connected-app sessions ───────────────────────────────────────────────
+  // Settings → Advanced → "Keep connected apps signed in between launches"
+  // (sessionPersistence.ts), and the renderer's one-line report that an app it
+  // had seen signed in has landed on a sign-in page. The report is logged as
+  // origin + path and cookie COUNTS only — never a query string or a cookie.
+  ipcMain.handle('session:getKeepSignedIn', () => getKeepSignedInState())
+  ipcMain.handle('session:setKeepSignedIn', (_e, keep: boolean) => setKeepSignedIn(keep === true))
+  ipcMain.handle('session:reportSignedOut', (_e, appId: string, url: string, signal: string) =>
+    logConnectedAppSignedOut(appId, url, signal)
+  )
 
   // ── Settings: API-key vault ──────────────────────────────────────────────
   // Replaces the old "edit projects/focusbuddy/.env and restart" flow with

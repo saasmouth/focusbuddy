@@ -5,6 +5,7 @@ import { pathToFileURL } from 'url'
 import { config as loadEnv } from 'dotenv'
 import { closeDb, getDb } from './db/database'
 import { restoreExtensions } from './browserExtensions'
+import { beginQuitFlush, flushOnWindowBackground, installSessionPersistence, trackSession } from './sessionPersistence'
 import { resolveUserDataDir } from './userDataMigration'
 import { composeCustomWidgetDocument, cspFor } from '@shared/customWidgetSandbox'
 import { resolveWidgetInputs } from './db/widgetInputs'
@@ -420,6 +421,10 @@ function createCommandCenter(): BrowserWindow {
     }
   })
 
+  // Flush cookie stores when the window goes to the background — the moment
+  // before a quit, a sleep or a force-quit is most likely to follow.
+  flushOnWindowBackground(win)
+
   win.on('ready-to-show', () => {
     win.show()
     markUiVisible()
@@ -607,6 +612,14 @@ app.on('web-contents-created', (_, contents) => {
   // Only attach to <webview> tag contents — not the main window's React renderer
   if (contents.getType() !== 'webview') return
 
+  // Belt and braces for session persistence: session-created should already
+  // have seen this partition, and trackSession is idempotent.
+  try {
+    trackSession(contents.session)
+  } catch {
+    // torn-down contents — nothing to track
+  }
+
   // ── User-Agent + permissions ────────────────────────────────────────────
   // Present each browser widget as plain desktop Chrome (strip the Electron +
   // app-name tokens) so OAuth providers stop rejecting the embedded UA with
@@ -747,6 +760,10 @@ app.whenReady().then(() => {
     app.setAppUserModelId('agency.saasmouth.plexidesk')
   }
   getDb()
+  // Cookie flushing and "keep connected apps signed in" (sessionPersistence.ts).
+  // BEFORE restoreExtensions, which is the first thing to open the browser and
+  // connected-app partitions — session-created must already be listening.
+  installSessionPersistence()
   // Browser extensions. Electron forgets loaded extensions on exit, so the
   // registry in userData is the source of truth and every boot reloads from it.
   // After getDb() because the connected-app partitions come from the database.
@@ -1122,6 +1139,15 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('before-quit', () => {
+app.on('before-quit', (event) => {
+  // Flush every browser and connected-app cookie store first, bounded so a
+  // stuck store can never hold quitting hostage (sessionPersistence.ts). The
+  // quit is deferred once, then re-issued; the second pass lands below.
+  const flush = beginQuitFlush()
+  if (flush.deferQuit) {
+    event.preventDefault()
+    void flush.done.finally(() => app.quit())
+    return
+  }
   closeDb()
 })

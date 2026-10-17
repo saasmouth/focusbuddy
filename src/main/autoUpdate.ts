@@ -10,6 +10,7 @@
 
 import { app, autoUpdater as nativeAutoUpdater, BrowserWindow, shell } from 'electron'
 import { detectPreviewBuild } from './appMode'
+import { flushBeforeUpdate } from './sessionPersistence'
 import { autoUpdater, type UpdateInfo, type ProgressInfo } from 'electron-updater'
 import { spawn } from 'node:child_process'
 import {
@@ -192,7 +193,11 @@ export function getCurrentUpdateState(): UpdateState {
   return current
 }
 
-export function installUpdateAndRestart(): void {
+export async function installUpdateAndRestart(): Promise<void> {
+  // Flush every cookie store first (bounded), so connected apps come back
+  // signed in after the update — quitAndInstall's own quit path is not one we
+  // can safely defer from before-quit.
+  await flushBeforeUpdate()
   // electron-updater's quitAndInstall closes all windows + spawns the
   // installer + relaunches. Safe to call multiple times — internally
   // guarded.
