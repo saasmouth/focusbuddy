@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // PlexiChat feature batch: composer buttons, emoji picker insert, GIF no-key
-// state, header Meet + pin buttons, chat-thread widget in palette + empty-state
+// state, header Meet + pin buttons, chat-thread widget from the Chat tile + empty-state
 // render.
 //
 // The harness boots signed-out, so the ChatComposer is only reachable when a
@@ -200,13 +200,17 @@ test('PCHAT-3b — composer buttons present after IPC-created task + messaging s
   }
 })
 
-// ── 4. Widget palette: chat-thread in Comms category ─────────────────────────
-test('PCHAT-4 — chat-thread widget is in the Comms section of the palette', async () => {
+// ── 4. A chat thread can be put on a desk from the Chat app ─────────────────
+// Superseded 4.3.32: this asserted a chat-thread tile in the widget palette's
+// Comms category. The palette was removed; a chat thread is what the Chat app
+// IS on a desk, so it is offered by the Chat tile under Apps (drag it on, or
+// right-click → "Add … to this desk"), and it is deliberately NOT repeated in
+// the Widgets section.
+test('PCHAT-4 — the Chat tile offers a chat thread for the desk, and Widgets does not duplicate it', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
 
-  // Seed a task with a sticky widget (ensures canvas is active + palette enabled)
   const seeded = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const t = await api.nodes.create({ parentId: null, kind: 'task', title: 'PaletteTest' })
@@ -221,21 +225,14 @@ test('PCHAT-4 — chat-thread widget is in the Comms section of the palette', as
   await waitForReady(window)
   await window.getByRole('button', { name: /PaletteTest/ }).first().click()
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
-  // Wait for the task to become active (palette button enabled)
-  await window.waitForSelector('[data-testid="palette-add-button"]', { timeout: 5_000 })
-  await window.waitForTimeout(300)
 
-  // Open the widget palette
-  await window.locator('[data-testid="palette-add-button"]').click()
-  await window.waitForTimeout(500)
-
-  // chat-thread tile present (either add or locked depending on plan)
-  const tilePresent = await window.evaluate(
-    () =>
-      !!document.querySelector('[data-testid="palette-add-chat-thread"]') ||
-      !!document.querySelector('[data-testid="palette-locked-chat-thread"]')
-  )
-  expect(tilePresent, 'chat-thread tile in palette').toBe(true)
+  const chatTile = window.locator('[data-testid="office-comms-app-chat"]').first()
+  if (await chatTile.isVisible().catch(() => false)) {
+    await chatTile.click({ button: 'right' })
+    await expect(window.locator('[data-canvas-ctx-menu]').getByText(/to this desk$/).first()).toBeVisible()
+    await window.keyboard.press('Escape')
+  }
+  await expect(window.locator('[data-testid="sidemenu-widget-chat-thread"]')).toHaveCount(0)
   void seeded
 })
 

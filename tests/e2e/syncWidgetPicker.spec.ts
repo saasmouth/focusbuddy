@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test'
-import { hoverToolbar, launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
-// Phase 4: "Bring a synced widget from another task." From task B, the +Add
-// palette → "Bring a synced widget…" → pick task A → pick its sticky → a
+// Phase 4: "Bring a synced widget from another task." From task B, the side
+// menu's Widgets section (the +Add palette until 4.3.32) → "Bring a synced widget…" → pick task A → pick its sticky → a
 // live-linked copy lands on B sharing the source's syncGroupId.
 
 let launched: LaunchedApp | null = null
@@ -41,12 +41,9 @@ test('bring a synced widget from another task onto this canvas', async () => {
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
   await window.waitForTimeout(300)
 
-  // Open the + Add palette → "Bring a synced widget…"
-  // The rail only mounts the palette while hovered — see hoverToolbar.
-  await hoverToolbar(window)
-  await window.locator('[data-testid="palette-add-button"]').click()
-  await window.waitForTimeout(200)
-  await window.locator('[data-testid="palette-bring-synced"]').click()
+  // "Bring a synced widget…" — in the side menu's Widgets section since 4.3.32
+  // (it was a row in the + Add palette, which was removed).
+  await window.locator('[data-testid="sidemenu-widgets-bring-synced"]').click()
   await expect(window.locator('[data-testid="sync-widget-picker"]')).toBeVisible()
 
   // Pick task A, then its sticky.

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { hoverToolbar, launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // Chrome layout — verifies three coordinated changes:
-//   1. The "Desk objects" palette is now a single "+ Add" button that
+//   1. (Superseded 4.3.32) The "Desk objects" palette is now a single "+ Add" button that
 //      opens a popover, not a full-width horizontal strip.
 //   2. The picker shows the universal File entry but no longer shows
 //      the folded-away kinds (image, video, pdf, gdoc, gsheet, gslide,
@@ -54,54 +54,35 @@ async function bootAndOpenTask(launched: LaunchedApp): Promise<string> {
   return taskId
 }
 
-test('Palette renders as a single "+ Add" button — the legacy full-width strip is gone', async () => {
+// 4.3.32 superseded the two palette tests that were here. The "+ Add" palette
+// (and the header Add widget button) were removed: widgets are added from the
+// side menu's Widgets section. The same two guarantees hold on that surface —
+// there is ONE add surface, and the folded-away kinds never reappear in it.
+test('Widgets are added from the side menu; the palette and header Add widget button are gone', async () => {
   launched = await launchApp()
   await bootAndOpenTask(launched)
+  const { window } = launched
 
-  // The new compact palette is a single button with data-testid.
-  // The rail only mounts the palette while hovered — see hoverToolbar.
-  await hoverToolbar(launched.window)
-  const addBtn = launched.window.locator('[data-testid="palette-add-button"]').first()
-  await expect(addBtn).toBeVisible({ timeout: 5_000 })
-
-  // The legacy full-width strip carried a persistent "Desk objects" heading.
-  // The popover's visible heading is now "Add to this desk" — "Desk objects"
-  // survives only as the dialog's aria-label — so that is what this asserts:
-  // nothing before the click, and a heading inside the popover after it.
-  const popoverHeading = launched.window.getByText('Add to this desk', { exact: true }).first()
-  await expect(popoverHeading).toHaveCount(0)
-
-  await addBtn.click()
-  await expect(popoverHeading).toBeVisible({ timeout: 2000 })
-  // The picker is still announced as the desk-objects dialog.
-  await expect(
-    launched.window.locator('[role="dialog"][aria-label="Desk objects"]')
-  ).toBeVisible()
+  await hoverToolbar(window)
+  await expect(window.locator('[data-testid="palette-add-button"]')).toHaveCount(0)
+  await expect(window.locator('[data-testid="header-add-widget"]')).toHaveCount(0)
+  await expect(window.locator('[data-testid="sidemenu-widgets"]')).toBeVisible({ timeout: 5_000 })
+  await expect(window.locator('[data-testid="sidemenu-widget-sticky"]')).toBeVisible()
 })
 
-test('Picker shows File or link but hides the folded redundant kinds (image / video / pdf / gdoc / gsheet / gslide / email)', async () => {
+test('The Widgets section hides the folded redundant kinds (image / video / pdf / gdoc / gsheet / gslide / email)', async () => {
   launched = await launchApp()
   await bootAndOpenTask(launched)
+  const { window } = launched
 
-  // The rail only mounts the palette while hovered — see hoverToolbar.
-  await hoverToolbar(launched.window)
-  const addBtn = launched.window.locator('[data-testid="palette-add-button"]').first()
-  await addBtn.click()
-  await launched.window.waitForTimeout(150)
-
-  // The universal File entry exists in the picker.
-  await expect(
-    launched.window.locator('[data-testid="palette-add-file"]').first()
-  ).toBeVisible({ timeout: 3000 })
-
-  // Each folded-away kind must NOT have a picker tile any more. We use
-  // the per-kind data-testid since label-based lookups would race with
-  // partial-text matches across the rest of the chrome.
-  const foldedKinds = ['image', 'video', 'pdf', 'gdoc', 'gsheet', 'gslide', 'email']
+  // Expand Other widgets so every listed kind is in the DOM and visible.
+  await window.locator('[data-testid="sidemenu-other-widgets-toggle"]').click()
+  // File or link is a Files thing now: it lives under Apps (the Files tile),
+  // not in Widgets.
+  await expect(window.locator('[data-testid="office-comms-app-files"]').first()).toBeVisible({ timeout: 3000 })
+  const foldedKinds = ['image', 'video', 'pdf', 'gdoc', 'gsheet', 'gslide', 'email', 'file']
   for (const kind of foldedKinds) {
-    const count = await launched.window
-      .locator(`[data-testid="palette-add-${kind}"]`)
-      .count()
+    const count = await window.locator(`[data-testid="sidemenu-widget-${kind}"]`).count()
     expect({ kind, count }).toEqual({ kind, count: 0 })
   }
 })

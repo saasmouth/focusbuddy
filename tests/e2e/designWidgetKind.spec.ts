@@ -8,16 +8,16 @@
  *        fb_documents row of docType 'design' and mounts DesignEditor
  *        (data-testid="design-editor") without an error boundary.
  *
- * DWK-2  Palette exposes "Design": open the Add-widget palette and confirm a
- *        catalog entry with data-testid="palette-add-design" exists. Then
- *        click it to drive the real UI create path (handleClickAdd →
+ * DWK-2  (Since 4.3.32, when the Add-widget palette was removed.) The
+ *        PlexiDesign tile under Apps offers "Add Design to this desk"
+ *        (data-testid="office-sideapp-design"); choosing it drives the real UI create path (handleClickAdd →
  *        placeWidget, since 'design' is not routed through the office-add
  *        chooser) and confirm a second design widget mounts DesignEditor
  *        without throwing.
  */
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, hoverToolbar } from './_helpers'
+import { launchApp, waitForReady, addWidgetToDesk } from './_helpers'
 
 test('DWK-1 — API-seeded design widget provisions docType=design and mounts DesignEditor', async () => {
   const { window, dispose } = await launchApp()
@@ -81,7 +81,7 @@ test('DWK-1 — API-seeded design widget provisions docType=design and mounts De
   }
 })
 
-test('DWK-2 — palette exposes Design; clicking it creates a design widget via the real UI path', async () => {
+test('DWK-2 — the PlexiDesign tile adds a design widget to the desk via the real UI path', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
@@ -96,28 +96,14 @@ test('DWK-2 — palette exposes Design; clicking it creates a design widget via 
     await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 8_000 })
     await window.waitForTimeout(300)
 
-    // The palette lives inside the FloatingToolbar and only mounts once the
-    // toolbar is hovered (see FloatingToolbar.tsx's hovered-gated AnimatePresence).
-    await hoverToolbar(window)
-
-    // Open the Add-widget palette.
-    const addBtn = window.locator('[data-testid="palette-add-button"], [data-testid="palette-fab-button"]').first()
-    await expect(addBtn).toBeVisible({ timeout: 4_000 })
-    await addBtn.click()
-    await window.waitForSelector('[role="dialog"][aria-label="Desk objects"]', { timeout: 4_000 })
-
-    // Design is an Advanced tile now — expand the Advanced section to reach it.
-    await window.locator('[data-testid="palette-advanced-toggle"]').click().catch(() => {})
-    await window.waitForTimeout(150)
-    // The catalog must expose a Design entry.
-    const designEntry = window.locator('[data-testid="palette-add-design"]')
-    await expect(designEntry).toBeVisible({ timeout: 4_000 })
-    await expect(designEntry).toContainText('Design')
-
-    // Click it — drives handleClickAdd → placeWidget (design is not routed
+    // The Add-widget palette this drove was removed in 4.3.32. Design is what
+    // the PlexiDesign app IS on a desk, so it is added from that app's tile
+    // under Apps: right-click → "Add Design to this desk" — which drives the
+    // same canvas add path (handleClickAdd → placeWidget; design is not routed
     // through the office-add chooser, unlike doc/sheet/slides).
-    await designEntry.click()
-    await window.waitForTimeout(600)
+    const designTile = window.locator('[data-testid="office-sideapp-design"]').first()
+    await expect(designTile).toBeVisible({ timeout: 4_000 })
+    await addWidgetToDesk(window, 'design')
 
     // A DesignEditor must mount on the canvas without throwing.
     await expect(window.locator('[data-testid="design-editor"]')).toBeVisible({ timeout: 8_000 })

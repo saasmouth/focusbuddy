@@ -1,152 +1,109 @@
-// The header's Add widget menu: use-case columns, a search box, and a wheel
-// gesture that stays inside the menu.
-//
-// Asked for 2026-10-09: "group them in to logical use cases and also add a
-// quick search bar to find the widget they are looking for", then "mouse scroll
-// and swipe on the widget menu shouldnt move the canvas they should be isolated
-// to just move the widget menu if it goes beyond the width. Also, for grouped
-// widgets, organise vertically in columns based on category they belong to".
-
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, openNewDesk, type LaunchedApp } from './_helpers'
 
+// History. The header's Add widget menu had use-case columns, a search box and
+// a wheel gesture isolated to the menu (asked for 2026-10-09: "group them in to
+// logical use cases and also add a quick search bar", "mouse scroll and swipe
+// on the widget menu shouldnt move the canvas").
+//
+// Superseded 4.3.32: that menu was removed with the header button. Its jobs
+// moved, and these tests follow them:
+//   - grouping → each Widgets tile is coloured by its use-case group, and the
+//     list is split into the main eight and a collapsible "Other widgets";
+//   - search → the command palette ("Add <widget> to desk"), which matches by
+//     label and by kind;
+//   - wheel isolation → the side menu is not on the canvas, so a wheel over it
+//     must never pan or zoom the desk.
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
-  await launched?.app.close()
+  await launched?.dispose()
   launched = null
 })
 
-async function openMenu(window: LaunchedApp['window']) {
-  const id = await window.evaluate(async () => {
-    const api = (window as unknown as { api: typeof window.api }).api
-    return (await api.nodes.create({ parentId: null, kind: 'task', title: 'Group desk' })).id
-  })
-  await window.reload()
-  await waitForReady(window)
-  await window.evaluate((i) => {
-    const w = window as unknown as { __fbView?: { getState: () => { goTask: (x: string) => void } } }
-    w.__fbView?.getState().goTask(i)
-  }, id)
-  const btn = window.locator('[data-testid="header-add-widget"]')
-  await expect(btn).toBeVisible({ timeout: 8000 })
-  await btn.click()
-  const menu = window.locator('[data-testid="header-add-widget-menu"]')
-  await expect(menu).toBeVisible()
-  return menu
-}
-
-test('AW-1 — widgets are grouped into named use-case columns', async () => {
+test('AW-1 — every widget is in the main list or under Other widgets, coloured by its group', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
-  const menu = await openMenu(window)
+  await openNewDesk(window, 'Group desk')
 
-  const names = await menu.evaluate((el) =>
-    Array.from(el.querySelectorAll('[data-testid="add-widget-group"]')).map(
-      (g) => g.getAttribute('data-group') || ''
-    )
+  const main = window.locator('[data-testid="sidemenu-widgets-main"] [data-testid^="sidemenu-widget-"]')
+  await expect(main.first()).toBeVisible({ timeout: 8000 })
+  expect(await main.count()).toBe(8)
+
+  await window.locator('[data-testid="sidemenu-other-widgets-toggle"]').click()
+  const other = window.locator('[data-testid="sidemenu-other-widgets"] [data-testid^="sidemenu-widget-"]')
+  await expect(other.first()).toBeVisible()
+  expect(await other.count()).toBeGreaterThan(10)
+
+  // Coloured: the icon carries a hue class, not the grey ink of a bare icon.
+  const tones = await window.evaluate(() =>
+    Array.from(document.querySelectorAll('[data-testid^="sidemenu-widget-"] .material-symbols-rounded, [data-testid^="sidemenu-widget-"] svg, [data-testid^="sidemenu-widget-"] span'))
+      .map((n) => (n as HTMLElement).className?.toString() ?? '')
+      .filter((c) => /text-(amber|emerald|sky|orange|fuchsia|pink|indigo|violet|slate|lime)-/.test(c)).length
   )
-  // Several real groups, and the ones a desk is usually built from.
-  expect(names.length).toBeGreaterThan(4)
-  expect(names).toContain('Write & capture')
-  expect(names).toContain('Numbers & data')
-
-  // Nothing is stranded: every widget button lives inside a column.
-  // Only the item affordances are buttons — the search box is an input and the
-  // strip and the columns are divs, which is what keeps this count honest.
-  const placement = await menu.evaluate((el) => ({
-    buttons: el.querySelectorAll('button[data-testid^="add-widget-"]').length,
-    inColumns: el.querySelectorAll(
-      '[data-testid="add-widget-group"] button[data-testid^="add-widget-"]'
-    ).length
-  }))
-  expect(placement.buttons).toBeGreaterThan(40)
-  expect(placement.inColumns).toBe(placement.buttons)
-  // "More" is the fallback bucket for an ungrouped kind — it should be empty.
-  expect(names).not.toContain('More')
+  expect(tones).toBeGreaterThan(8)
 })
 
-test('AW-2 — the search box narrows by label, by hint and by group name', async () => {
+test('AW-2 — the command palette finds a widget by name or kind', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
-  const menu = await openMenu(window)
-  const search = menu.locator('[data-testid="add-widget-search"]')
-  await expect(search).toBeVisible()
+  await openNewDesk(window, 'Search desk')
 
-  // By label.
-  await search.fill('sticky')
-  await expect(menu.locator('[data-testid="add-widget-sticky"]')).toBeVisible()
-  await expect(menu.locator('[data-testid="add-widget-table"]')).toHaveCount(0)
-
-  // By hint: the Scratchpad's label contains no "sketch", its hint does.
-  await search.fill('sketch')
-  await expect(menu.locator('[data-testid="add-widget-scratchpad"]')).toBeVisible()
-
-  // By group name: a whole column at once.
-  await search.fill('numbers')
-  await expect(menu.locator('[data-testid="add-widget-table"]')).toBeVisible()
-  await expect(menu.locator('[data-testid="add-widget-chart"]')).toBeVisible()
-  await expect(menu.locator('[data-testid="add-widget-sticky"]')).toHaveCount(0)
-
-  // An honest empty state rather than a blank panel.
-  await search.fill('zzzznotathing')
-  await expect(menu.locator('[data-testid="add-widget-no-matches"]')).toBeVisible()
+  await window.keyboard.press('ControlOrMeta+k')
+  const input = window.locator('[data-testid="command-palette-input"]')
+  await expect(input).toBeVisible({ timeout: 4000 })
+  await input.fill('add scratchpad')
+  await expect(window.locator('[data-testid="palette-row-add-scratchpad"]')).toBeVisible()
+  await input.fill('add table')
+  // The palette ranks rather than filters ("add" alone matches every Add row),
+  // so the asked-for widget must rank above the others.
+  await expect(window.locator('[data-testid="palette-row-add-table"]')).toBeVisible()
+  const order = await window.evaluate(() =>
+    Array.from(document.querySelectorAll('[role="listbox"] [role="option"]')).map((el) => el.getAttribute('data-testid'))
+  )
+  const tableAt = order.indexOf('palette-row-add-table')
+  const stickyAt = order.indexOf('palette-row-add-sticky')
+  expect(tableAt).toBeGreaterThanOrEqual(0)
+  if (stickyAt >= 0) expect(tableAt).toBeLessThan(stickyAt)
 })
 
-test('AW-3 — Enter adds the first match', async () => {
+test('AW-3 — Enter on the palette adds the highlighted widget', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
-  const menu = await openMenu(window)
+  await openNewDesk(window, 'Enter desk')
 
   const before = await window.evaluate(() => document.querySelectorAll('[data-widget-id]').length)
-  await menu.locator('[data-testid="add-widget-search"]').fill('sticky')
-  await menu.locator('[data-testid="add-widget-search"]').press('Enter')
-  await expect(menu).toHaveCount(0)
+  await window.keyboard.press('ControlOrMeta+k')
+  const input = window.locator('[data-testid="command-palette-input"]')
+  await expect(input).toBeVisible({ timeout: 4000 })
+  await input.fill('add sticky to desk')
+  await expect(window.locator('[data-testid="palette-row-add-sticky"]')).toBeVisible()
+  await input.press('Enter')
   await expect
-    .poll(async () => window.evaluate(() => document.querySelectorAll('[data-widget-id]').length), {
-      timeout: 6000
-    })
+    .poll(async () => window.evaluate(() => document.querySelectorAll('[data-widget-id]').length), { timeout: 6000 })
     .toBeGreaterThan(before)
 })
 
-test('AW-4 — a wheel over the menu scrolls the menu and never the canvas', async () => {
+test('AW-4 — a wheel over the Widgets section never moves the canvas', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
-  const menu = await openMenu(window)
+  await openNewDesk(window, 'Wheel desk')
 
   const read = () =>
     window.evaluate(() => {
-      const w = window as unknown as {
-        __fbWidgets?: { getState: () => { zoom: number; panX: number; panY: number } }
-      }
+      const w = window as unknown as { __fbWidgets?: { getState: () => { zoom: number; panX: number; panY: number } } }
       const s = w.__fbWidgets!.getState()
-      const strip = document.querySelector<HTMLElement>('[data-testid="add-widget-groups"]')!
-      return {
-        zoom: s.zoom,
-        panX: s.panX,
-        panY: s.panY,
-        scrollLeft: Math.round(strip.scrollLeft),
-        overflows: strip.scrollWidth > strip.clientWidth + 1
-      }
+      return { zoom: s.zoom, panX: s.panX, panY: s.panY }
     })
-
   const before = await read()
-  // The strip must actually have somewhere to go, or this proves nothing.
-  expect(before.overflows, 'the group strip overflows its width').toBe(true)
-
-  const strip = menu.locator('[data-testid="add-widget-groups"]')
-  await strip.hover()
-  await window.mouse.wheel(0, 240)
-  await window.waitForTimeout(250)
-
-  const after = await read()
-  // The canvas did not move.
-  expect(after.zoom).toBeCloseTo(before.zoom, 5)
-  expect(after.panX).toBeCloseTo(before.panX, 5)
-  expect(after.panY).toBeCloseTo(before.panY, 5)
-  // The menu did — a vertical gesture walks the columns sideways.
-  expect(after.scrollLeft).toBeGreaterThan(before.scrollLeft)
+  const section = window.locator('[data-testid="sidemenu-widgets"]')
+  await section.scrollIntoViewIfNeeded()
+  await section.hover()
+  await window.mouse.wheel(0, 400)
+  await window.mouse.wheel(300, 0)
+  await window.waitForTimeout(300)
+  expect(await read()).toEqual(before)
 })

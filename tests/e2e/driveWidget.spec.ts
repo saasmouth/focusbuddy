@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp, hoverToolbar } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, addWidgetToDesk } from './_helpers'
 
 // Drive widget — a canvas widget bound to a Files folder. Verifies:
-//   1. Adding "Drive (folder)" from the widget palette lands unbound
+//   1. Adding "Drive (folder)" from the Files app tile (4.3.32; it was the widget palette) lands unbound
 //      (drive-choose-folder visible).
 //   2. Choosing a folder via FolderPickerModal binds the widget (header shows
 //      folder name, drive-body renders).
@@ -38,21 +38,18 @@ async function seedAndOpenCanvas(l: LaunchedApp, title: string): Promise<string>
   return taskId
 }
 
-test('Drive widget: palette add -> unbound -> bind to folder -> ingest file -> open in Files -> persists', async () => {
+test('Drive widget: add to desk -> unbound -> bind to folder -> ingest file -> open in Files -> persists', async () => {
   test.setTimeout(90_000)
   launched = await launchApp()
   await waitForReady(launched.window)
   const { window } = launched
   await seedAndOpenCanvas(launched, 'Drive Widget Test')
 
-  // ── 1. Add "Drive (folder)" from the palette ────────────────────────────
-  await hoverToolbar(window) // the toolbar only mounts the palette while hovered
-  await window.locator('[data-testid="palette-add-button"]').click()
-  await window.waitForTimeout(300)
-  // Drive is a CORE tile (promoted for go-live) — visible in the default grid.
-  const driveTile = window.locator('[data-testid="palette-add-drive"]')
-  await expect(driveTile).toBeVisible({ timeout: 3_000 })
-  await driveTile.click()
+  // ── 1. Add "Drive (folder)" to the desk ─────────────────────────────────
+  // The palette tile this used was removed in 4.3.32. A Drive widget is what
+  // the Files app IS on a desk, so it is added from the Files tile under Apps:
+  // right-click → "Add Drive (folder) to this desk".
+  await addWidgetToDesk(window, 'drive')
   await window.waitForTimeout(400)
 
   const chooseFolderBtn = window.locator('[data-testid="drive-choose-folder"]')

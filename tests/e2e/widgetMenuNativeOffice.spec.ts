@@ -11,9 +11,9 @@
  *    Slides (gslide label from gslide kind), PDF.
  * 2. No empty category group appears in "Add object" (Comms had only email
  *    which is hideFromPicker=true; it must not appear as an empty group).
- * 3. The "+ Widget" palette has palette-add-doc, palette-add-sheet,
- *    palette-add-slides tiles and does NOT have palette-add-gdoc,
- *    palette-add-gsheet, palette-add-gslide, palette-add-pdf.
+ * 3. (4.3.32: the "+ Widget" palette is gone.) The PlexiDocs / Sheets /
+ *    Slides tiles offer their kinds for the desk; no gdoc / gsheet / gslide /
+ *    pdf is offered anywhere.
  * 4. Picking "Document" from the right-click Files submenu opens the native
  *    office-add-dialog (data-testid="office-add-dialog"), not a Google/webview
  *    widget.
@@ -124,39 +124,33 @@ test('WMN-2 — Add object submenu: no empty category groups (Comms email is hid
   await expect(addObjMenu.getByRole('menuitem', { name: 'Files' })).toBeVisible()
 })
 
-// ── Test 3: WidgetPalette has native tiles, not Google ones ───────────────────
-
-test('WMN-3 — Widget palette: doc/sheet/slides tiles present; gdoc/gsheet/gslide/pdf absent', async () => {
+// ── Test 3: the native office kinds, not Google ones ──────────────────────────
+// Superseded 4.3.32: this opened the "+ Widget" palette, which was removed.
+// Doc / sheet / slides are what the PlexiDocs / Sheets / Slides apps ARE, so
+// they are added from those tiles under Apps (drag, or right-click → Add … to
+// this desk) and are deliberately not repeated in the Widgets section. The
+// Google / legacy kinds must appear in neither place.
+test('WMN-3 — native doc/sheet/slides are offered (Apps); gdoc/gsheet/gslide/pdf are not offered anywhere', async () => {
   launched = await launchApp()
   await waitForReady(launched.window)
   await seedAndOpenCanvas(launched, 'WMN-3 Task')
 
   const { window } = launched
 
-  // Open the "+ Widget" palette.
-  await window.locator('[data-testid="palette-add-button"]').click()
-  await window.waitForTimeout(300)
+  for (const key of ['docs', 'sheets', 'slides']) {
+    const tile = window.locator(`[data-testid="office-sideapp-${key}"]`).first()
+    await expect(tile).toBeVisible({ timeout: 3_000 })
+    await tile.click({ button: 'right' })
+    await expect(window.locator('[data-canvas-ctx-menu]').getByText(/to this desk$/).first()).toBeVisible()
+    await window.keyboard.press('Escape')
+  }
 
-  // The native office tiles must be present.
-  await expect(window.locator('[data-testid="palette-add-doc"]')).toBeVisible({ timeout: 3_000 })
-  await expect(window.locator('[data-testid="palette-add-sheet"]')).toBeVisible({ timeout: 3_000 })
-  await expect(window.locator('[data-testid="palette-add-slides"]')).toBeVisible({ timeout: 3_000 })
-
-  // The Google / legacy tiles must NOT be present.
-  await expect(window.locator('[data-testid="palette-add-gdoc"]')).not.toBeVisible()
-  await expect(window.locator('[data-testid="palette-add-gsheet"]')).not.toBeVisible()
-  await expect(window.locator('[data-testid="palette-add-gslide"]')).not.toBeVisible()
-  await expect(window.locator('[data-testid="palette-add-pdf"]')).not.toBeVisible()
-
-  // Also confirm the universal "file" tile is present (File or link).
-  await expect(window.locator('[data-testid="palette-add-file"]')).toBeVisible()
-
-  // "Comms" section heading must not appear (email is hideFromPicker).
-  const commsLabel = await window
-    .locator('text="Comms"')
-    .isVisible()
-    .catch(() => false)
-  expect(commsLabel, 'Comms section heading must not appear in palette').toBe(false)
+  // Expand Other widgets so the whole section is in view, then confirm none of
+  // the Google / legacy kinds — nor the office kinds — are listed as widgets.
+  await window.locator('[data-testid="sidemenu-other-widgets-toggle"]').click()
+  for (const kind of ['gdoc', 'gsheet', 'gslide', 'pdf', 'doc', 'sheet', 'slides', 'email']) {
+    await expect(window.locator(`[data-testid="sidemenu-widget-${kind}"]`)).toHaveCount(0)
+  }
 })
 
 // ── Test 4: Picking "Document" opens OfficeDocAddDialog, not a webview ────────

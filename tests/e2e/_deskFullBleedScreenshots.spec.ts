@@ -176,7 +176,8 @@ test('capture full-bleed desk chrome screenshots + sanity checks (UI-driven)', a
   await checkVisible('Resume button', () =>
     window.locator('[data-testid="canvas-task-header"] button').filter({ hasText: 'Resume' })
   )
-  await checkVisible('+Add palette', () => window.locator('[data-testid="palette-add-button"]'))
+  // 4.3.32: the +Add palette was removed; widgets are added from the side menu.
+  await checkVisible('Widgets section', () => window.locator('[data-testid="sidemenu-widgets"]'))
   await checkVisible('open-history', () => window.locator('[data-testid="open-history"]'))
 
   console.log('HEADER CONTROLS:', JSON.stringify(controls, null, 2))
@@ -413,21 +414,18 @@ test('capture full-bleed desk chrome screenshots + sanity checks (UI-driven)', a
   const afterSpaceDrag = await zoomableLayer.getAttribute('style').catch(() => null)
   console.log('space+drag transform changed (expected TRUE — pan gesture):', beforeSpaceDrag !== afterSpaceDrag)
 
-  // (b) +Add still adds a widget — use the toolbar palette to add a sticky.
+  // (b) Adding still adds a widget — since 4.3.32 from the side menu's Widgets
+  // section (right-click → Add to this desk); the toolbar palette is gone.
   const widgetElsBefore = await window.locator('[data-widget-id]').count()
-  await window.locator('[data-testid="palette-add-button"]').click()
-  await window.waitForTimeout(300)
-  const stickyOption = window.locator('[data-testid="palette-add-sticky"]')
-  const addWorked = await stickyOption.isVisible({ timeout: 2_000 }).catch(() => false)
+  const stickyTile = window.locator('[data-testid="sidemenu-widget-sticky"]').first()
+  const addWorked = await stickyTile.isVisible({ timeout: 2_000 }).catch(() => false)
   if (addWorked) {
-    await stickyOption.click()
+    await stickyTile.click({ button: 'right' })
+    await window.locator('[data-canvas-ctx-menu]').getByText('Add to this desk').click().catch(() => {})
     await window.waitForTimeout(500)
-  } else {
-    // Close whatever popover may be open and note the miss.
-    await window.keyboard.press('Escape').catch(() => {})
   }
   const widgetElsAfter = await window.locator('[data-widget-id]').count()
-  console.log('+Add sanity: widgets before:', widgetElsBefore, 'after:', widgetElsAfter, 'palette-add-sticky found:', addWorked)
+  console.log('Add sanity: widgets before:', widgetElsBefore, 'after:', widgetElsAfter, 'sidemenu-widget-sticky found:', addWorked)
 
   // (d) console / error-boundary check.
   const bodyText = await window.locator('body').innerText()

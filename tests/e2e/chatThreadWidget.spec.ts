@@ -6,10 +6,11 @@
 //   3. Wait up to 15s for the widget frame to appear.
 //   4. Confirm the empty-state "Pin a conversation" header and "No conversations yet" body.
 //
-// PCHAT-5b drives the palette add path on top if the tile is unlocked.
+// PCHAT-5b drives the user path on top: the Chat tile's "Add … to this desk"
+// (the hover palette it used was removed in 4.3.32).
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { addWidgetToDesk, launchApp, waitForReady, type LaunchedApp } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -166,30 +167,17 @@ test('PCHAT-5b — chat-thread widget renders empty-state via palette add (real 
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 10_000 })
   await window.waitForTimeout(500)
 
-  // Open the palette.
-  await window.locator('[data-testid="palette-add-button"]').click()
-  await window.waitForTimeout(400)
-
-  // Confirm the palette tile is present (Comms category).
-  const chatTilePresent = await window.evaluate(() =>
-    !!document.querySelector('[data-testid="palette-add-chat-thread"]') ||
-    !!document.querySelector('[data-testid="palette-locked-chat-thread"]')
-  )
-  expect(chatTilePresent, 'palette has a chat-thread tile').toBe(true)
-
-  // If unlocked, click to add.
-  const isAddTile = await window.evaluate(() =>
-    !!document.querySelector('[data-testid="palette-add-chat-thread"]')
-  )
-
-  if (!isAddTile) {
-    // Tile is locked (capability gating). IPC path (PCHAT-5a) covers the render contract.
-    console.log('[PCHAT-5b] chat-thread palette tile is locked — skipping click, IPC path covers render.')
+  // The palette that held this tile was removed in 4.3.32. A chat thread is
+  // what the Chat app IS on a desk, so it is added from the Chat tile under
+  // Apps: right-click → "Add … to this desk" (the no-drag twin of dragging the
+  // tile onto the desk).
+  const chatTile = window.locator('[data-testid="office-comms-app-chat"]').first()
+  if (!(await chatTile.isVisible().catch(() => false))) {
+    // The Chat app is gated off for this account. IPC path (PCHAT-5a) covers the render contract.
+    console.log('[PCHAT-5b] Chat app tile is not available — skipping, IPC path covers render.')
     return
   }
-
-  await window.locator('[data-testid="palette-add-chat-thread"]').click()
-  await window.waitForTimeout(600)
+  await addWidgetToDesk(window, 'chat-thread')
 
   // Wait up to 15s for a chat-thread widget to appear on the canvas.
   const widgetAppeared = await window.waitForFunction(
@@ -209,7 +197,7 @@ test('PCHAT-5b — chat-thread widget renders empty-state via palette add (real 
     console.log('[PCHAT-5b] page errors:', pageErrors)
   }
 
-  expect(widgetAppeared, '[data-widget-kind="chat-thread"] appeared after palette add').toBe(true)
+  expect(widgetAppeared, '[data-widget-kind="chat-thread"] appeared after Add to this desk').toBe(true)
 
   const widgetEl = window.locator('[data-widget-kind="chat-thread"]').first()
   await expect(widgetEl).toBeVisible({ timeout: 5_000 })

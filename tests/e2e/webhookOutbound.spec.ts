@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import http from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, sideMenuWidget } from './_helpers'
 
 // "Lever 3 Phase 0: outbound webhooks" (plexi-4.0):
 //   - A new widget kind 'webhook' ("Send to a URL" in the catalog / the
@@ -283,9 +283,9 @@ test('(a3) the webhook widget has data-widget-id, renders at its created positio
 })
 
 // Separate lightweight check: "Send to a URL" is offered from BOTH the
-// widget palette (catalog) and the real right-click create-and-connect
+// side menu's Widgets section (catalog; the widget palette until 4.3.32) and the real right-click create-and-connect
 // menu — UI-driven, no store shortcuts.
-test('(a2) "Send to a URL" is offered from the palette and the right-click create-and-connect menu', async () => {
+test('(a2) "Send to a URL" is offered from the side menu and the right-click create-and-connect menu', async () => {
   launched = await launchApp()
   const { window } = launched
   await window.evaluate(async () => {
@@ -304,24 +304,12 @@ test('(a2) "Send to a URL" is offered from the palette and the right-click creat
   })
   await openTask(window, /Webhook catalog check/)
 
-  // Palette entry. The palette's "Add widget" button lives inside the
-  // collapsible FloatingToolbar (distinct from the always-visible FloatingPill
-  // action bar), which only reveals its contents on hover — so hover it open
-  // first, the same way a real user would.
-  const floatingToolbar = window
-    .locator('[title="Drag to reposition · Double-click to re-center"]')
-    .filter({ hasText: 'construction' })
-  await expect(floatingToolbar).toBeVisible({ timeout: 5_000 })
-  await floatingToolbar.hover()
-  const paletteButton = window.locator('[data-testid="palette-add-button"]')
-  await expect(paletteButton).toBeVisible({ timeout: 3_000 })
-  await paletteButton.click()
-  // Webhook is an Advanced tile now — expand the Advanced section to reach it.
-  await window.locator('[data-testid="palette-advanced-toggle"]').click().catch(() => {})
-  await window.waitForTimeout(150)
-  await expect(window.locator('[data-testid="palette-add-webhook"]')).toBeVisible({ timeout: 3_000 })
-  await expect(window.locator('[data-testid="palette-add-webhook"]')).toContainText('Send to a URL')
-  await window.keyboard.press('Escape')
+  // Catalogue entry. Since 4.3.32 that is the side menu's Widgets section (the
+  // hover palette this used was removed). "Send to a URL" is a lesser-used
+  // kind, so it starts under Other widgets — sideMenuWidget expands it.
+  const webhookTile = await sideMenuWidget(window, 'webhook')
+  await expect(webhookTile).toBeVisible({ timeout: 3_000 })
+  await expect(webhookTile).toContainText('Send to a URL')
 
   // Right-click create-and-connect menu, driven as a real UI gesture on the
   // sticky's textarea (click to enter edit mode, then right-click it).

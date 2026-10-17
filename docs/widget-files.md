@@ -43,8 +43,9 @@ cleanup branches. `doc_type` has no CHECK constraint (dropped by
 `migrateDocumentsDocTypeCheck`), so the new type needs **no migration**.
 
 Kinds that only make sense on a desk (section, portal, task link, desk agent,
-webhooks, living doc, minimap, meeting record) are **desk-only**: they never
-become files. `isStandaloneWidgetKind()` in `src/shared/widgetFiles.ts` is the
+webhooks, living doc, contacts, attention, minimap, meeting record) are
+**desk-only**: they describe or arrange the desk they sit on, so they never
+become files. In the side menu, clicking one adds it to the open desk. `isStandaloneWidgetKind()` in `src/shared/widgetFiles.ts` is the
 one list.
 
 ## File types
@@ -143,6 +144,13 @@ was written for this beyond the per-kind content source.
 
    On success the title is written with `titleSource: 'derived'` and fanned out
    to every instance.
+
+   Table files are the exception. Their rows live in `fb_rows`, not in the
+   file, so every row or schema write calls `onTableChanged`. That call
+   re-indexes the file and re-derives its "Header · N rows" name while the name
+   is still ours (placeholder or derived). Chart files over that table are
+   re-indexed too. An empty table keeps its placeholder, so a file is never
+   named after template columns.
 3. **Launch.** `runTitleBackfill` treats a widget file whose `titleSource` is
    `placeholder` as untitled. The free pass uses the same per-kind derivation,
    then the existing single Haiku batch handles what is left, with the same caps
@@ -181,8 +189,9 @@ Writes go through the existing review-and-apply flow:
 - **MCP.** Two new tools, `plexii_create_widget_file` and
   `plexii_update_widget_file`. They are write-scoped, so read-only tokens never
   see them, and are recorded through `recordAgentWrite`.
-- **Build with AI.** The prompt now lists the widget files that match the
-  request, so a build can link an existing file rather than rebuild it.
+- **Build with AI.** The prompt carries the user's widget files that match the
+  request by keyword, as their serialised text, so a build reuses their real
+  columns and names instead of inventing them.
 
 ## IPC
 
@@ -190,6 +199,8 @@ Writes go through the existing review-and-apply flow:
 | --- | --- |
 | `widgetFiles:create(input)` | `{ kind, title?, content?, color?, parentId? }` creates and files the widget file and returns `WidgetFile` |
 | `widgetFiles:get(id)` | returns `WidgetFile \| null` |
+| `widgetFiles:list()` | live widget files in the active org |
+| `widgetFiles:instances(id)` | the file's desk instances ("On 2 desks") |
 | `widgetFiles:update(id, patch)` | `{ content?, title?, color? }`; a title in the patch means a user rename |
 | `widgetFiles:place(id, draft)` | creates the linked instance on a desk; returns `Widget` |
 | `widgetFiles:createAndPlace(input, draft)` | the side-menu drag gesture as one call |
@@ -228,3 +239,25 @@ The header "Add widget" button and the hover palette are gone. The side menu,
 quick-add keys, the canvas right-click menu and the command palette are the
 ways to add a widget. "Import file…" and "Bring a synced widget…" moved to the
 Widgets section footer.
+
+## Instance sizing
+
+A desk instance is created in main, not through the widget store's `create`.
+`useWidgetFilesStore.place` / `createAndPlace` therefore apply the same central
+view cap, `fitNewWidgetToView`, that every other new widget gets. Drop sites
+pass only a position.
+
+## Task lists
+
+A task-list widget on a desk is a lens over that desk's tasks. A task-list file
+has no desk, so it is created with `scope: 'own'` and keeps its items in its
+content (`{ scope: 'own', filter, items: [{ id, title, done, dueAt }] }`). That
+is also why every linked instance shows the same list. `TaskListWidget` renders
+own-scope content as a plain checklist with due dates. A desk task list that is
+promoted with "Save as file" keeps its lens scope.
+
+## Web runtime
+
+The cloud runtime's worker (`src/web/worker/handlers.ts`) calls the same store
+for every `widgetFiles:*` channel except export and import, which need a native
+save or open dialog.

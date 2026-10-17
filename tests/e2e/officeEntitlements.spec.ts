@@ -6,7 +6,7 @@
 // does it):
 //
 //   1. THE GUARDRAIL. A user with product_office (and every office_*) OFF can
-//      STILL add a canvas Note/Markdown widget from the widget palette. Canvas
+//      STILL add a canvas Note/Markdown widget from the side menu's Widgets section. Canvas
 //      note/markdown/sticky/page widgets are PlexiDesk features and must never be
 //      gated by Office. This is the overriding invariant.
 //
@@ -15,7 +15,7 @@
 //      reason-aware tooltip, while the Docs tile stays a normal, clickable tile.
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp, hoverToolbar, switchArea, isAreaLocked } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, switchArea, isAreaLocked, sideMenuWidget, addWidgetToDesk } from './_helpers'
 import { CAPABILITY_DEFAULTS, type CapabilityValue } from '../../src/renderer/src/lib/capabilityDefaults'
 
 let launched: LaunchedApp | null = null
@@ -146,20 +146,18 @@ test('GUARDRAIL — with product_office OFF, a Note widget can still be added to
     .poll(async () => await isAreaLocked(window, 'office'), { timeout: 5_000 })
     .toBe(true)
 
-  // Open the seeded canvas and add a Note widget from the palette.
+  // Open the seeded canvas and add a Note widget from the side menu.
   await window.getByRole('button', { name: 'Guardrail desk' }).first().click()
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
 
   const before = await window.evaluate(() => document.querySelectorAll('[data-widget-id]').length)
 
-  await hoverToolbar(window) // the toolbar only mounts the palette while hovered
-  await window.locator('[data-testid="palette-add-button"]').first().click()
-  // Note is an Advanced tile now — expand the Advanced section to reach it.
-  await window.locator('[data-testid="palette-advanced-toggle"]').first().click().catch(() => {})
-  await window.waitForTimeout(150)
-  const addNote = window.locator('[data-testid="palette-add-note"]').first()
-  await expect(addNote, 'Note widget must be creatable with Office off').toBeVisible()
-  await addNote.click()
+  // From the side menu's Widgets section (the palette this used was removed in
+  // 4.3.32). Widgets is its own section, not part of Apps, so locking Office
+  // must leave it usable.
+  const noteTile = await sideMenuWidget(window, 'note')
+  await expect(noteTile, 'Note widget must be creatable with Office off').toBeVisible()
+  await addWidgetToDesk(window, 'note')
 
   // A new widget mounted — Office being off did not block a desk widget.
   await expect

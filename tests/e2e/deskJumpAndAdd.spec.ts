@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, addWidgetToDesk } from './_helpers'
 
 // Two asks, 2026-10-09:
 //  - hovering the minimap lists every item on the desk as a camera shortcut,
 //    newest touched first
-//  - the add-widget button should stand out
+//  - adding a widget is discoverable (4.3.32: the side menu's Widgets section;
+//    the header button this once pinned was removed)
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
   await launched?.app.close()
@@ -68,26 +69,27 @@ test('hovering the minimap lists every item, newest touched first, and jumps the
   }
 })
 
-test('the prominent add button is in the header; the rail keeps its labelled one', async () => {
+// Superseded 4.3.32. This pinned "the prominent add button is in the header;
+// the rail keeps its labelled one" (2026-10-09). The owner then removed both —
+// the header Add widget button and the hover palette — and made the side
+// menu's Widgets section the way to add a widget: click for a file, drag onto
+// the desk, or right-click → Add to this desk. The guarantee that survives is
+// that adding a widget is discoverable without hunting: the section is always
+// in the menu, labelled, with its tiles named.
+test('widgets are added from the side menu, not a header or hover button', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
   await openDeskWithWidgets(window)
 
-  // The discoverable one is centred in the header and labelled. An icon-only
-  // purple plus in the rail's collapsed header was tried first and read as a
-  // bare "+" with nothing to say what it did, so the rail went back to what it
-  // was and the prominent control moved to the header.
-  const header = window.locator('[data-testid="header-add-widget"]')
-  await expect(header).toBeVisible({ timeout: 8000 })
-  await expect(header).toContainText('Add widget')
-
-  // The rail is untouched: no stray plus in its collapsed header, and the
-  // labelled palette button still appears when the rail is hovered.
+  await expect(window.locator('[data-testid="header-add-widget"]')).toHaveCount(0)
   await expect(window.locator('[data-testid="palette-rail-button"]')).toHaveCount(0)
   const rail = window.locator('[data-testid="floating-toolbar"]')
   if (await rail.count()) {
     await rail.hover()
-    await expect(window.locator('[data-testid="palette-add-button"]')).toBeVisible({ timeout: 4000 })
+    await expect(window.locator('[data-testid="palette-add-button"]')).toHaveCount(0)
   }
+  await expect(window.locator('[data-testid="switch-widgets"]')).toContainText('Widgets')
+  await expect(window.locator('[data-testid="sidemenu-widget-sticky"]')).toContainText('Sticky')
+  await addWidgetToDesk(window, 'sticky')
 })

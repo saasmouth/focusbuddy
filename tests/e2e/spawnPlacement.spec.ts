@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test'
-import { hoverToolbar, launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { addWidgetToDesk, launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
-// Change 1 verification: new widget from the "+" palette add button should land
+// Change 1 verification: a new widget added from the side menu ("Add to this
+// desk"; the "+" palette add button until 4.3.32) should land
 // beside the active widget (right or left), not hundreds/thousands of px away.
 // Specifically the new widget x must be within 2 × viewport width of the active
 // widget, and within the visible canvas viewport.
@@ -62,11 +63,9 @@ test('palette-add spawns new widget beside the active widget, not off-screen', a
   // the palette ignoring the active widget.  We verify that the resulting spawn
   // position is correct and NOT at viewport centre.
 
-  // Open the palette and add a sticky.
-  // The rail only mounts the palette while hovered — see hoverToolbar.
-  await hoverToolbar(window)
-  await window.locator('[data-testid="palette-add-button"]').click()
-  await window.waitForTimeout(300)
+  // Add a sticky the no-drag way: the side menu's "Add to this desk" (the
+  // palette button this used was removed in 4.3.32). It spawns through the
+  // same spawnPositionFor rule the palette did.
 
   // Count widgets before adding.
   const countBefore = await window.evaluate(async (tid: string) => {
@@ -75,7 +74,7 @@ test('palette-add spawns new widget beside the active widget, not off-screen', a
     return all.filter((w) => !w.archived && w.kind !== 'minimap').length
   }, seeded.taskId)
 
-  await window.locator('[data-testid="palette-add-sticky"]').click()
+  await addWidgetToDesk(window, 'sticky')
   await window.waitForTimeout(600)
 
   // Fetch all non-minimap, non-archived widgets and find the newly created one.
@@ -138,12 +137,9 @@ test('palette-add without an active widget falls back to viewport centre, not of
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
   await window.waitForTimeout(500)
 
-  // Open palette and add a sticky without clicking any widget first.
-  // The rail only mounts the palette while hovered — see hoverToolbar.
-  await hoverToolbar(window)
-  await window.locator('[data-testid="palette-add-button"]').click()
-  await window.waitForTimeout(300)
-  await window.locator('[data-testid="palette-add-sticky"]').click()
+  // Add a sticky without clicking any widget first (side menu → Add to this
+  // desk; the palette this used was removed in 4.3.32).
+  await addWidgetToDesk(window, 'sticky')
   await window.waitForTimeout(600)
 
   const widgets = await window.evaluate(async (tid: string) => {

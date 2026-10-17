@@ -1,14 +1,15 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, hoverToolbar } from './_helpers'
+import { launchApp, type LaunchedApp, sideMenuWidget } from './_helpers'
 
 // In-app runtime proof that the capability matrix gates the desktop UI.
 //
 // A signed-out user resolves to the FREE tier (the capability store's
 // offline fallback). On Free, widget_table is false, so the Table tile in
-// the widget palette must render LOCKED and open the upgrade prompt instead
-// of creating a table — while an ungated tile (Note) stays a normal add
-// button. This exercises the real wiring: capability store → gating.ts →
-// WidgetPalette → UpgradePromptModal.
+// the side menu's Widgets section must render LOCKED and open the upgrade
+// prompt instead of creating a table — while an ungated tile (Sticky) stays a
+// normal one. This exercises the real wiring: capability store → gating.ts →
+// WidgetsSection → UpgradePromptModal. (It was the hover WidgetPalette until
+// 4.3.32 removed it.)
 
 let launched: LaunchedApp | null = null
 
@@ -45,22 +46,23 @@ async function bootAndOpenCanvas(l: LaunchedApp): Promise<void> {
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
 }
 
-test('Free tier: Table widget is locked in the palette, Note is not', async () => {
+// 4.3.32: the hover widget palette these two drove is gone; widgets are added
+// from the side menu's Widgets section. The gate is the same one
+// (canCreateWidget over the capability store) on the new surface: a locked
+// kind still shows — it says why on click — and is marked data-locked.
+test('Free tier: Table widget is locked in the side menu, Sticky is not', async () => {
   launched = await launchApp()
   await bootAndOpenCanvas(launched)
   const { window } = launched
 
-  await hoverToolbar(window) // the toolbar only mounts the palette while hovered
-  await window.locator('[data-testid="palette-add-button"]').first().click()
+  // Ungated widget → a normal tile.
+  const sticky = await sideMenuWidget(window, 'sticky')
+  await expect(sticky).toBeVisible()
+  await expect(sticky).not.toHaveAttribute('data-locked', 'true')
 
-  // Ungated widget → normal add button present. Use a CORE ungated widget
-  // (Sticky) so this gating check doesn't depend on the Advanced expander.
-  await expect(window.locator('[data-testid="palette-add-sticky"]').first()).toBeVisible()
-
-  // Gated widget (widget_table=false on free) → locked variant present,
-  // and the normal add button for it is absent.
-  await expect(window.locator('[data-testid="palette-locked-table"]').first()).toBeVisible()
-  await expect(window.locator('[data-testid="palette-add-table"]')).toHaveCount(0)
+  // Gated widget (widget_table=false on free) → the locked variant.
+  const table = await sideMenuWidget(window, 'table')
+  await expect(table).toHaveAttribute('data-locked', 'true')
 })
 
 test('Clicking a locked widget opens the upgrade prompt', async () => {
@@ -68,9 +70,7 @@ test('Clicking a locked widget opens the upgrade prompt', async () => {
   await bootAndOpenCanvas(launched)
   const { window } = launched
 
-  await hoverToolbar(window) // the toolbar only mounts the palette while hovered
-  await window.locator('[data-testid="palette-add-button"]').first().click()
-  await window.locator('[data-testid="palette-locked-table"]').first().click()
+  await (await sideMenuWidget(window, 'table')).click()
 
   await expect(window.locator('[data-testid="upgrade-prompt-modal"]')).toBeVisible()
   await expect(window.locator('[data-testid="upgrade-reason"]')).toContainText(/Table/i)

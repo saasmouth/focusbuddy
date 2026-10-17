@@ -151,6 +151,7 @@ export default function WidgetsSection(): JSX.Element {
           active={false}
           testid={`sidemenu-widget-${entry.kind}`}
           note={locked ? 'Pro' : undefined}
+          locked={locked}
           onClick={() => void openOrCreateFromMenu(entry.kind)}
           onDragStart={(e) => {
             // Rearranging the menu and putting a widget on a desk are the same
@@ -337,6 +338,7 @@ export function WidgetsRail({ iconClass }: { iconClass: (active: boolean, tone?:
         title={locked ? `${entry.label} (Pro)` : entry.label}
         aria-label={entry.label}
         data-testid={`rail-widget-${entry.kind}`}
+        data-locked={locked ? 'true' : undefined}
         className={iconClass(false, locked ? 'text-[var(--ink-40)]' : widgetGroupTone(useCaseGroupOf(entry.kind)))}
       >
         <Icon name={entry.icon} size={16} filled />

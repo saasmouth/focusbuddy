@@ -54,6 +54,7 @@ export function Tile({
   unit = 'unknown',
   note,
   signedOut = false,
+  locked = false,
   onDragStart,
   children
 }: {
@@ -94,6 +95,8 @@ export function Tile({
    * page. Clicking the tile opens the app, which is where you sign in.
    */
   signedOut?: boolean
+  /** Not on this plan: still shown (it says why on click), marked for tests and styling. */
+  locked?: boolean
   children: React.ReactNode
 }): JSX.Element {
   return (
@@ -104,6 +107,7 @@ export function Tile({
       title={note ? `${label} — ${note}` : label}
       data-testid={testid}
       data-signed-out={signedOut ? 'true' : undefined}
+      data-locked={locked ? 'true' : undefined}
       aria-current={active ? 'page' : undefined}
       className={`flex flex-col items-center gap-1 px-1 py-2 rounded-lg ${onDragStart ? 'cursor-grab active:cursor-grabbing ' : ''}${
         active

@@ -19,7 +19,7 @@
 // browser has completed layout before asserting SVG content.
 
 import { test, expect } from '@playwright/test'
-import { hoverToolbar, launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { addWidgetToDesk, launchApp, sideMenuWidget, waitForReady, type LaunchedApp } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -147,30 +147,15 @@ test('1 — widget picker lists Chart under Tools and adding it mounts a chart w
   await window.getByRole('button', { name: /ChartPickerTest/ }).first().click()
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 8_000 })
 
-  // Open the palette.
-  // The rail only mounts the palette while hovered — see hoverToolbar.
-  await hoverToolbar(window)
-  await window.locator('[data-testid="palette-add-button"]').click()
-  await window.waitForTimeout(300)
+  // The chart entry is in the side menu's Widgets section (the hover palette
+  // that held it was removed in 4.3.32), locked or not.
+  const chartTile = await sideMenuWidget(window, 'chart')
+  await expect(chartTile, 'side menu has a chart tile').toBeVisible()
 
-  // The chart entry should be present (either add or locked tile).
-  const chartTilePresent = await window.evaluate(() =>
-    !!document.querySelector('[data-testid="palette-add-chart"]') ||
-    !!document.querySelector('[data-testid="palette-locked-chart"]')
-  )
-  expect(chartTilePresent, 'palette has a chart tile').toBe(true)
-
-  // If it is an add tile (not locked), click it and confirm the widget mounts.
-  const isAddTile = await window.evaluate(() =>
-    !!document.querySelector('[data-testid="palette-add-chart"]')
-  )
-  if (isAddTile) {
-    await window.locator('[data-testid="palette-add-chart"]').click()
-    await window.waitForTimeout(500)
-    const chartMounted = await window.evaluate(() =>
-      !!document.querySelector('[data-testid="chart-widget"]')
-    )
-    expect(chartMounted, 'chart widget mounted on canvas after add').toBe(true)
+  // If it is not locked, add it to the desk and confirm the widget mounts.
+  if ((await chartTile.getAttribute('data-locked')) !== 'true') {
+    await addWidgetToDesk(window, 'chart')
+    await expect(window.locator('[data-testid="chart-widget"]').first()).toBeVisible({ timeout: 5_000 })
   }
 })
 

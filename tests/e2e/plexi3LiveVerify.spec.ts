@@ -1,11 +1,11 @@
 // Live-drive verification for the Plexi3.0 batch (commits 24a61f9, 2d00d58,
 // f41edbe, 594a3eb, ed257c8): sidebar restructure + Shared index, discoverable
-// add-widget (FAB + search), office-doc filed-in chip + folder picker,
+// add-widget (side-menu Widgets section; the FAB + search until 4.3.32), office-doc filed-in chip + folder picker,
 // Office-file table column + doc picker, and doc-embed insert from the slash
 // menu. One Electron session, driven in priority order.
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, sideMenuWidget, addWidgetToDesk } from './_helpers'
 
 test('Plexi3 batch — live verification of all 6 shipped items', async () => {
   test.setTimeout(120_000)
@@ -172,21 +172,20 @@ test('Plexi3 batch — live verification of all 6 shipped items', async () => {
     await expect(window.locator('[data-testid="shared-view"]')).toBeVisible({ timeout: 4_000 })
     console.log('ITEM4_SIDEBAR_AND_SHARED_VIEW_OK')
 
-    // ═══ PRIORITY 5 — Add-widget FAB + search ════════════════════════════════
+    // ═══ PRIORITY 5 — Adding a widget on the desk ════════════════════════════
+    // Superseded 4.3.32: this drove the add-widget FAB and its search box,
+    // both removed. Widgets are added from the side menu's Widgets section;
+    // the lesser-used ones live under "Other widgets" instead of behind a
+    // search, so the check is that both lists are reachable and add for real.
     await window.evaluate((taskId) => {
       const w = window as unknown as { __fbView?: { getState: () => { goTask: (id: string) => void } } }
       w.__fbView?.getState().goTask(taskId)
     }, seed.taskId)
     await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 8_000 })
-    const fab = window.locator('[data-testid="palette-fab-button"]')
-    await expect(fab).toBeVisible({ timeout: 4_000 })
-    await fab.click()
-    const searchBox = window.locator('[data-testid="palette-search"]')
-    await expect(searchBox).toBeVisible({ timeout: 4_000 })
-    await searchBox.fill('sticky')
-    await expect(window.locator('[data-testid="palette-add-sticky"]')).toBeVisible({ timeout: 4_000 })
-    await expect(window.locator('[data-testid="palette-add-table"]')).toHaveCount(0)
-    console.log('ITEM5_FAB_AND_SEARCH_FILTER_OK')
+    await expect(window.locator('[data-testid="sidemenu-widgets-main"] [data-testid="sidemenu-widget-sticky"]')).toBeVisible({ timeout: 4_000 })
+    await expect(await sideMenuWidget(window, 'calculator')).toBeVisible()
+    await addWidgetToDesk(window, 'sticky')
+    console.log('ITEM5_SIDE_MENU_ADD_OK')
   } finally {
     await dispose()
   }
