@@ -48,7 +48,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Press Esc or the close button to close a pop-up card. Use the open-in-browser button to continue the page in your web browser.',
       'If a site opens several pop-ups, each one gets its own card, with the newest on top. Click a card underneath to bring it to the front.',
       'Links that open in a new tab still open as a browser on your desk, as before.',
-      'If a site\u2019s sign-in has trouble in a card, go to Settings \u2192 Advanced \u2192 Pop-ups and turn on \u201cOpen sign-in pop-ups in separate windows\u201d to get the old separate windows back.'
+      'If a site\u2019s sign-in has trouble in a card, go to Settings \u2192 Advanced \u2192 Pop-ups and turn on \u201cOpen sign-in pop-ups in separate windows\u201d to get the old separate windows back.',
+      'Connected apps stay signed in between launches and after updates, so their unread counts keep appearing in the side menu. If an app does get signed out, its side-menu tile says \u201cSigned out \u2014 sign in\u201d; click it to open the app and sign in again. To turn this off, go to Settings \u2192 Advanced \u2192 Connected app sign-ins.'
     ]
   },
   {
