@@ -5,6 +5,7 @@ import { listWorkItems } from '../db/workItems'
 import { getFile } from '../db/files'
 import { listStoredMail } from '../db/mailStore'
 import { getDb } from '../db/database'
+import { listNodes } from '../db/nodes'
 import { getAccountKey } from '../mail/mailAccount'
 import type { Widget } from '@shared/types'
 import {
@@ -102,6 +103,52 @@ export function mainWidgetResolvers(): WidgetTextResolvers {
         state: n.workItemState ?? n.status ?? undefined,
         dueAt: n.dueAt ?? null
       }))
+    },
+
+    // The tasks a task-list lens shows, chosen exactly as TaskListWidget
+    // chooses them: the desk's own tasks (or every task for 'all'), subtasks
+    // folded under their parent, filtered by the widget's own tab. A list that
+    // keeps its own items ('own' scope) never reaches this: its content IS the
+    // list and the extractor reads it directly.
+    tasks: (w: Widget) => {
+      let model: { scope?: string; filter?: string } = {}
+      try {
+        model = JSON.parse(w.content || '{}') as typeof model
+      } catch {
+        model = {}
+      }
+      if (model.scope === 'own') return null
+      const scope = model.scope === 'all' ? 'all' : 'desk'
+      const filter = model.filter === 'done' || model.filter === 'all' ? model.filter : 'open'
+      const nodes = listNodes()
+      const byId = new Map(nodes.map((n) => [n.id, n]))
+      const deskId = w.taskId || null
+      let pool = nodes
+      if (scope === 'desk') {
+        if (!deskId) return null
+        const byParent = new Map<string | null, typeof nodes>()
+        for (const n of nodes) {
+          const l = byParent.get(n.parentId) ?? []
+          l.push(n)
+          byParent.set(n.parentId, l)
+        }
+        pool = []
+        const queue = [...(byParent.get(deskId) ?? [])]
+        while (queue.length) {
+          const n = queue.shift()!
+          pool.push(n)
+          queue.push(...(byParent.get(n.id) ?? []))
+        }
+      }
+      return pool
+        .filter((n) => n.kind === 'task' && !n.archived)
+        .filter((n) => {
+          if (!n.parentId || n.parentId === deskId) return true
+          const parent = byId.get(n.parentId)
+          return !parent || parent.kind !== 'task'
+        })
+        .filter((n) => (filter === 'all' ? true : filter === 'done' ? n.status === 'done' : n.status !== 'done'))
+        .map((n) => ({ title: n.title, done: n.status === 'done', dueAt: n.dueDate ?? null, status: n.status }))
     },
 
     fileRefs: (w: Widget) => {

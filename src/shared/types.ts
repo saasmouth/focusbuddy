@@ -2572,7 +2572,56 @@ export type MailSendResult = { ok: true } | { ok: false; error: string }
 // PlexiDraw (the vector + painting studio). The stored value for diagrams stays
 // 'map' deliberately: it is written into every existing document row, and
 // renaming a product is not a reason to rewrite a user's database.
-export type DocType = 'doc' | 'sheet' | 'slides' | 'map' | 'design' | 'draw'
+//
+// 'widget' (4.3.32) is a WIDGET FILE: a widget that exists without a desk, the
+// way a document does. Its body is a WidgetFileBody (src/shared/widgetFiles.ts)
+// and desk placements are linked widgets whose syncGroupId is 'wf:<doc id>'.
+// See docs/widget-files.md.
+export type DocType = 'doc' | 'sheet' | 'slides' | 'map' | 'design' | 'draw' | 'widget'
+
+// The body of a widget file (documents.doc_type = 'widget'). `content` is exactly
+// what Widget.content holds for `kind`, so the same component renders it on a
+// desk and full-pane. `titleSource` is what lets the naming pass replace a
+// placeholder without ever touching a name the user chose.
+export type WidgetFileTitleSource = 'placeholder' | 'derived' | 'model' | 'user'
+export interface WidgetFileBody {
+  v: 1
+  kind: WidgetKind
+  content: string
+  color: string | null
+  titleSource: WidgetFileTitleSource
+}
+
+// A widget file as the renderer and IPC see it: the document flattened.
+export interface WidgetFile {
+  id: string
+  kind: WidgetKind
+  title: string
+  titleSource: WidgetFileTitleSource
+  content: string
+  color: string | null
+  createdAt: number
+  updatedAt: number
+  orgId: string | null
+}
+
+export interface WidgetFileDraft {
+  kind: WidgetKind
+  // A title the user (or the AI on the user's behalf) chose. Omitted means the
+  // file is named from its content, or given a dated placeholder.
+  title?: string
+  content?: string
+  color?: string | null
+  // The Files folder to file it in; null/omitted = the Files root.
+  parentId?: string | null
+}
+
+export interface WidgetFilePatch {
+  content?: string
+  // A title in a patch is a RENAME by a person: it marks the name user-owned.
+  title?: string
+  color?: string | null
+}
 
 // A single global-search result. `type` decides how the renderer routes a click;
 // `taskId` is the canvas to open for widget / table-row hits, `docType` the
@@ -3071,7 +3120,7 @@ export interface FbDocument {
   id: string
   docType: DocType
   title: string
-  body: DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody
+  body: DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody | WidgetFileBody
   archived: boolean
   createdAt: number
   updatedAt: number
@@ -3089,6 +3138,9 @@ export interface DocumentMeta {
   archived: boolean
   createdAt: number
   updatedAt: number
+  // For docType 'widget': the kind the widget file renders as, so lists can
+  // show its own icon and type label without loading the body.
+  widgetKind?: WidgetKind
 }
 
 export interface DocumentDraft {
@@ -3096,12 +3148,12 @@ export interface DocumentDraft {
   id?: string
   docType: DocType
   title: string
-  body?: DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody
+  body?: DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody | WidgetFileBody
 }
 
 export interface DocumentPatch {
   title?: string
-  body?: DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody
+  body?: DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody | WidgetFileBody
   archived?: boolean
 }
 

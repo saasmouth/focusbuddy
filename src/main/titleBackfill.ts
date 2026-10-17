@@ -35,6 +35,11 @@ import { resolveAnthropicKey } from './settingsStore'
 import { getModelClient } from './ai/modelClient'
 import { resolveModel } from './ai/modelRouting'
 import { deriveTitle, isUntitled, textFromBody } from '@shared/titles'
+import { deriveWidgetFileTitle, parseWidgetFileBody, widgetFileTypeLabel } from '@shared/widgetFiles'
+import { widgetFileBodyToText } from '@shared/widgetText'
+import { mainWidgetResolvers } from './ai/widgetSummary'
+import { setWidgetFileTitle } from './db/widgetFiles'
+import type { WidgetKind } from '@shared/types'
 
 /** The most items one launch will send to a model. */
 const MAX_AI_ITEMS = 40
@@ -63,6 +68,23 @@ interface Candidate {
   noun: string
   /** Raw text to derive from. */
   text: string
+  /**
+   * Set for a WIDGET FILE (documents.doc_type 'widget'): its kind and content,
+   * so the free pass can use the kind's own naming rule (a table's header and
+   * row count, a task list's first task) before the generic text rule. Its
+   * title is written through db/widgetFiles so the name reaches every desk
+   * instance and is marked as ours, never the user's. See docs/widget-files.md.
+   */
+  widgetFile?: { kind: WidgetKind; content: string }
+}
+
+/** The DB-backed widget resolvers, or none if they cannot be built. */
+function safeResolvers(): ReturnType<typeof mainWidgetResolvers> {
+  try {
+    return mainWidgetResolvers()
+  } catch {
+    return {}
+  }
 }
 
 /** Remember what we have already considered, so a launch never pays twice. */
@@ -127,7 +149,25 @@ function findUntitled(seen: Set<string>): Candidate[] {
   const docs = db
     .prepare('SELECT id, doc_type, title, body FROM documents WHERE archived = 0')
     .all() as Array<{ id: string; doc_type: string; title: string; body: string }>
+  const resolvers = safeResolvers()
   for (const d of docs) {
+    if (d.doc_type === 'widget') {
+      // A widget file always HAS a title — a dated placeholder rather than
+      // "Untitled" — so isUntitled cannot find it. Its body says whether that
+      // title is still the placeholder; nothing else is a candidate, so a name
+      // the user typed (or one already derived) is never looked at again.
+      const body = parseWidgetFileBody(d.body)
+      if (!body || body.titleSource !== 'placeholder') continue
+      if (seen.has(`documents:${d.id}`)) continue
+      out.push({
+        table: 'documents',
+        id: d.id,
+        noun: `${widgetFileTypeLabel(body.kind).toLowerCase()} widget`,
+        text: widgetFileBodyToText(body, '', resolvers).replace(/^\(.*\)$/, ''),
+        widgetFile: { kind: body.kind, content: body.content }
+      })
+      continue
+    }
     if (!isUntitled(d.title)) continue
     if (seen.has(`documents:${d.id}`)) continue
     out.push({
@@ -155,7 +195,13 @@ function findUntitled(seen: Set<string>): Candidate[] {
   return out
 }
 
-function writeTitle(table: Candidate['table'], id: string, title: string): void {
+function writeTitle(table: Candidate['table'], id: string, title: string, c?: Candidate): void {
+  if (c?.widgetFile) {
+    // Through the widget-file store: it fans the name out to the desk
+    // instances and records it as generated, and it refuses a user's name.
+    setWidgetFileTitle(id, title, 'derived')
+    return
+  }
   getDb()
     .prepare(`UPDATE ${table} SET title = @title, updated_at = @now WHERE id = @id`)
     .run({ title, id, now: Date.now() })
@@ -191,13 +237,17 @@ export async function runTitleBackfill(): Promise<BackfillSummary> {
   for (const c of candidates) {
     let name: string | null = null
     try {
-      name = deriveTitle({ text: c.text })
+      // A widget file's own rule first (a table names itself from its header
+      // and row count), then the same free text rule as everything else.
+      name =
+        (c.widgetFile ? deriveWidgetFileTitle(c.widgetFile.kind, c.widgetFile.content, safeResolvers()) : null) ??
+        deriveTitle({ text: c.text })
     } catch {
       name = null
     }
     if (name) {
       try {
-        writeTitle(c.table, c.id, name)
+        writeTitle(c.table, c.id, name, c)
         noteSeen(c.table, c.id, 'derived')
         summary.derived++
       } catch {
@@ -208,7 +258,11 @@ export async function runTitleBackfill(): Promise<BackfillSummary> {
     // Only worth a model call if there is content to reason about. An empty
     // note cannot be named by anyone without inventing its subject.
     if (c.text.trim().length >= 12) needsModel.push(c)
-    else {
+    else if (c.widgetFile) {
+      // An empty widget file is not logged: it is usually brand new, and the
+      // content it is about to get should still be able to name it here.
+      summary.skipped++
+    } else {
       noteSeen(c.table, c.id, 'no-content')
       summary.skipped++
     }
@@ -270,7 +324,8 @@ export async function runTitleBackfill(): Promise<BackfillSummary> {
       const c = batch[i]
       const name = byIndex.get(i)
       if (name) {
-        writeTitle(c.table, c.id, name)
+        if (c.widgetFile) setWidgetFileTitle(c.id, name, 'model')
+        else writeTitle(c.table, c.id, name)
         noteSeen(c.table, c.id, 'model')
         summary.byModel++
       } else {

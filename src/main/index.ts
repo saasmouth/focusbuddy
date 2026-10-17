@@ -14,6 +14,9 @@ import { runRetentionSweep } from './db/retention'
 import { runTitleBackfill } from './titleBackfill'
 import { autoBackupOnLaunch } from './db/backup'
 import { registerIpcHandlers } from './ipc'
+import { setWidgetFileResolvers } from './db/widgetFiles'
+import { setDocTextResolvers } from './workspaceRank'
+import { mainWidgetResolvers } from './ai/widgetSummary'
 import { startCalendarSyncLoop } from './calendar/sync'
 import { startMailSyncLoop } from './mail/mailSync'
 import { registerMdExternal } from './mdExternal'
@@ -803,6 +806,11 @@ app.whenReady().then(() => {
   applyPermissionPolicy(session.defaultSession)
   // Enable getDisplayMedia so PlexiMeet can share a screen or window.
   applyDisplayMediaHandler(session.defaultSession)
+  // Widget files (docs/widget-files.md) read and name themselves through the
+  // DB-backed widget resolvers; wired here, not imported, so the pure text and
+  // db modules stay free of the retrieval layer.
+  setWidgetFileResolvers(mainWidgetResolvers)
+  setDocTextResolvers(mainWidgetResolvers)
   registerIpcHandlers()
   registerMdExternal()
   // The notification substrate's scheduler (Attention S4): app-start sweep +

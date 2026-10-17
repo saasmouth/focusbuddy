@@ -23,7 +23,7 @@ import {
   dragCarriesDocument,
   type DocumentDragPayload,
   readDocumentDrag,
-  widgetDraftFor,
+  placeDocumentOnDesk,
   writeDocumentDrag,
   canPlaceOnDesk
 } from '../lib/documentDrag'
@@ -100,7 +100,7 @@ export default function OpenTray(): JSX.Element | null {
   const placeOnDesk = async (deskId: string, payload: DocumentDragPayload): Promise<void> => {
     const desk = nodes.find((n) => n.id === deskId)
     try {
-      await window.api.widgets.create(widgetDraftFor(payload, deskId))
+      await placeDocumentOnDesk(payload, deskId)
       useNoticeStore.getState().show({
         text: `“${payload.title}” added to ${desk?.title || 'the desk'}`,
         icon: 'desk',

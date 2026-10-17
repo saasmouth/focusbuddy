@@ -24,7 +24,9 @@ const META: Record<DocType, { label: string; importLabel: string }> = {
   // Designs are created in the design studio, not imported here.
   design: { label: 'Design', importLabel: '' },
   // Artwork is created in the draw studio, not imported here.
-  draw: { label: 'Artwork', importLabel: '' }
+  draw: { label: 'Artwork', importLabel: '' },
+  // Widget files are made from the Widgets menu, never through this dialog.
+  widget: { label: 'Widget', importLabel: '' }
 }
 
 export default function OfficeDocAddDialog({ docType, onPicked, onClose }: Props): JSX.Element {

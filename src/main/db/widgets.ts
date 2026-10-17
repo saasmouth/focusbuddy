@@ -1,5 +1,7 @@
 import { randomUUID } from 'crypto'
 import { getDb } from './database'
+import { syncWidgetFileFromInstance } from './widgetFiles'
+import { WIDGET_FILE_GROUP_PREFIX } from '@shared/widgetFiles'
 import type { Widget, WidgetDraft, WidgetPatch } from '@shared/types'
 
 interface WidgetRow {
@@ -317,6 +319,21 @@ export function updateWidget(id: string, patch: WidgetPatch): Widget | null {
         .prepare('SELECT id FROM widgets WHERE sync_group_id = ? AND id != ?')
         .all(updated.syncGroupId, id) as Array<{ id: string }>
       for (const c of copies) pokeChunkIndex(c.id)
+    }
+    // A widget in a `wf:` group is a desk instance of a WIDGET FILE: the file
+    // is the group's off-desk member, so the same synced fields reach it too
+    // (docs/widget-files.md). Best-effort: a missing or trashed file never
+    // fails the desk edit that triggered it.
+    if (syncSet.length > 0 && updated.syncGroupId.startsWith(WIDGET_FILE_GROUP_PREFIX)) {
+      try {
+        syncWidgetFileFromInstance(updated.syncGroupId, id, {
+          content: patch.content,
+          title: patch.title,
+          color: patch.color
+        })
+      } catch {
+        /* the desk edit stands; the file catches up on its next edit */
+      }
     }
   }
   if (updated && (patch.content !== undefined || patch.title !== undefined || patch.livingQuery !== undefined)) {

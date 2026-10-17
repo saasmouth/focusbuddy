@@ -23,7 +23,8 @@ const DOC_TYPE_ICON: Record<DocType, string> = {
   slides: 'slideshow',
   map: 'account_tree',
   design: 'palette',
-  draw: 'brush'
+  draw: 'brush',
+  widget: 'widgets'
 }
 
 // Full-size launcher for the "Add" action tab: create a new document / page or

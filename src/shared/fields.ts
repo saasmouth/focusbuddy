@@ -411,7 +411,12 @@ export interface FileEntry {
   sizeBytes?: number
   // For kind 'doc': the document it points at, resolved live so renames show.
   docId?: string
-  docType?: 'doc' | 'sheet' | 'slides'
+  // Every document type, not just the first three: a diagram, design, artwork
+  // or widget file filed into a folder is a doc entry too.
+  docType?: import('./types').DocType
+  // For docType 'widget': the widget kind, which decides the entry's icon and
+  // type label ("Table", "Task list", ...). See docs/widget-files.md.
+  widgetKind?: import('./types').WidgetKind
   // Number of immediate children (folders only) so the UI can show "3 items".
   childCount?: number
   createdAt: number

@@ -22,14 +22,19 @@ export interface DocumentDragPayload {
   title: string
 }
 
-/** Every document type that can sit on a desk as a widget of its own kind. */
+/**
+ * Every document type that can sit on a desk. Office types become a widget of
+ * their own kind pointing at the document; a widget file ('widget') becomes a
+ * LINKED INSTANCE of its widget kind (docs/widget-files.md) — see placeDocument.
+ */
 const PLACEABLE: ReadonlySet<string> = new Set<DocType>([
   'doc',
   'sheet',
   'slides',
   'map',
   'design',
-  'draw'
+  'draw',
+  'widget'
 ])
 
 export function canPlaceOnDesk(docType: string): boolean {
@@ -94,11 +99,11 @@ export function dragCarriesDocument(dt: DataTransfer | null): boolean {
   }
 }
 
-/** The widget a dropped document becomes: same kind as the document. */
+/** The widget a dropped OFFICE document becomes: same kind as the document. */
 export function widgetDraftFor(
-  payload: DocumentDragPayload,
+  payload: DocumentDragPayload & { docType: Exclude<DocType, 'widget'> },
   taskId: string
-): { taskId: string; kind: DocType; title: string; content: string; width: number; height: number } {
+): { taskId: string; kind: Exclude<DocType, 'widget'>; title: string; content: string; width: number; height: number } {
   return {
     taskId,
     kind: payload.docType,
@@ -110,4 +115,22 @@ export function widgetDraftFor(
     width: 520,
     height: 400
   }
+}
+
+/**
+ * Put a dragged document on a desk, whatever kind it is. A widget file is placed
+ * as a linked instance (same underlying file, edits sync both ways); an office
+ * document as a widget pointing at it. Returns the created widget, or null when
+ * the document no longer exists.
+ */
+export async function placeDocumentOnDesk(
+  payload: DocumentDragPayload,
+  taskId: string,
+  at: { x?: number; y?: number; width?: number; height?: number } = {}
+): Promise<import('@shared/types').Widget | null> {
+  if (payload.docType === 'widget') {
+    return window.api.widgetFiles.place(payload.documentId, { taskId, ...at })
+  }
+  const draft = widgetDraftFor(payload as DocumentDragPayload & { docType: Exclude<DocType, 'widget'> }, taskId)
+  return window.api.widgets.create({ ...draft, ...at })
 }

@@ -33,7 +33,10 @@ export const DOC_TYPE_CAPABILITY: Record<DocType, string> = {
   // learned about it, which is a worse outcome than one key covering both.
   map: 'office_draw',
   design: 'office_design',
-  draw: 'office_draw'
+  draw: 'office_draw',
+  // Widget files belong to the desk tier, which every plan has; per-kind gating
+  // (a Pro-only widget kind) is applied where the kind is chosen.
+  widget: 'product_desk'
 }
 
 // Human label per editor, used in the "<Editor> is not available" copy.
@@ -43,7 +46,8 @@ export const DOC_TYPE_LABEL: Record<DocType, string> = {
   slides: 'PlexiSlides',
   map: 'PlexiDiagrams',
   design: 'PlexiDesign',
-  draw: 'PlexiDraw'
+  draw: 'PlexiDraw',
+  widget: 'Widgets'
 }
 
 export function capabilityForDocType(docType: DocType): string {

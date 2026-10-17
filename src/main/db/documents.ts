@@ -4,19 +4,16 @@ import { getActiveOrgId } from './activeOrg'
 import { deriveTitle, isUntitled } from '@shared/titles'
 import { deleteEmbedding } from './embeddings'
 import type {
-  DocBody,
   DocumentDraft,
   DocumentMeta,
   DocumentPatch,
   FbDocument,
-  MapBody,
-  SheetBody,
   SlidesBody
 } from '@shared/types'
 import { migrateSlidesBody } from '@shared/slidesMigrate'
 import { normalizeMapBody, starterMapBody } from '@shared/mapGraph'
-import { normalizeDesignBody, blankDesign, findDesignSize, type DesignBody } from '@shared/design'
-import { normalizeDrawBody, blankDrawBody, findDrawSize, type DrawBody } from '@shared/draw'
+import { normalizeDesignBody, blankDesign, findDesignSize } from '@shared/design'
+import { normalizeDrawBody, blankDrawBody, findDrawSize } from '@shared/draw'
 import { brandHeadingStyles } from '@shared/brandKit'
 import { getBrandKit, hasBrandKit } from './brandKit'
 
@@ -36,6 +33,11 @@ interface DocumentRow {
   org_id: string | null
 }
 
+// The widget kind of a widget file, read from its body in SQL so a listing never
+// loads bodies. json_valid guards a corrupt body (json_extract would throw).
+const WIDGET_KIND_COL =
+  "CASE WHEN doc_type = 'widget' AND json_valid(body) THEN json_extract(body, '$.kind') END AS widget_kind"
+
 // Spreadsheet-style column label for a zero-based index: 0->A, 25->Z, 26->AA, …
 function spreadsheetColumnLabel(index: number): string {
   let s = ''
@@ -51,7 +53,7 @@ function spreadsheetColumnLabel(index: number): string {
 function parseBody(
   type: FbDocument['docType'],
   raw: string
-): DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody {
+): FbDocument['body'] {
   try {
     const parsed = JSON.parse(raw)
     // Slides bodies are migrated to the v2 element model on read, so a legacy
@@ -71,7 +73,11 @@ function parseBody(
   }
 }
 
-export function emptyBody(type: FbDocument['docType']): DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody {
+export function emptyBody(type: FbDocument['docType']): FbDocument['body'] {
+  // A widget file is only ever created through db/widgetFiles with its own body;
+  // this is the honest blank for a create that arrives without one (a synced
+  // shell): an empty sticky, which renders and names like any other.
+  if (type === 'widget') return { v: 1, kind: 'sticky', content: '', color: '#fef08a', titleSource: 'placeholder' }
   if (type === 'sheet') {
     // A fresh spreadsheet opens at a generous 48 columns by 100 rows, like a real
     // spreadsheet, rather than a tiny starter grid.
@@ -120,8 +126,8 @@ function rowToDoc(row: DocumentRow): FbDocument {
   }
 }
 
-function rowToMeta(row: Omit<DocumentRow, 'body'>): DocumentMeta {
-  return {
+function rowToMeta(row: Omit<DocumentRow, 'body'> & { widget_kind?: string | null }): DocumentMeta {
+  const meta: DocumentMeta = {
     id: row.id,
     docType: row.doc_type,
     title: row.title,
@@ -129,6 +135,8 @@ function rowToMeta(row: Omit<DocumentRow, 'body'>): DocumentMeta {
     createdAt: row.created_at,
     updatedAt: row.updated_at
   }
+  if (row.widget_kind) meta.widgetKind = row.widget_kind as DocumentMeta['widgetKind']
+  return meta
 }
 
 /** All non-archived, non-trashed documents, newest-edited first (metadata only). */
@@ -136,7 +144,7 @@ export function listDocuments(): DocumentMeta[] {
   const db = getDb()
   const rows = db
     .prepare(
-      `SELECT id, doc_type, title, archived, created_at, updated_at
+      `SELECT id, doc_type, title, archived, created_at, updated_at, ${WIDGET_KIND_COL}
        FROM documents WHERE archived = 0 AND trashed_at IS NULL AND org_id = ? ORDER BY updated_at DESC`
     )
     .all(getActiveOrgId()) as Omit<DocumentRow, 'body'>[]
@@ -148,7 +156,7 @@ export function listTrashedDocuments(): DocumentMeta[] {
   const db = getDb()
   const rows = db
     .prepare(
-      `SELECT id, doc_type, title, archived, created_at, updated_at
+      `SELECT id, doc_type, title, archived, created_at, updated_at, ${WIDGET_KIND_COL}
        FROM documents WHERE trashed_at IS NOT NULL AND org_id = ? ORDER BY trashed_at DESC`
     )
     .all(getActiveOrgId()) as Omit<DocumentRow, 'body'>[]
@@ -242,7 +250,7 @@ export function upsertDocument(input: {
   id: string
   docType: FbDocument['docType']
   title: string
-  body: DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody
+  body: FbDocument['body']
   archived?: boolean
   updatedAt?: number
 }): FbDocument {

@@ -15,7 +15,8 @@ const TYPE_ICON: Record<DocType, string> = {
   slides: 'slideshow',
   map: 'account_tree',
   design: 'palette',
-  draw: 'brush'
+  draw: 'brush',
+  widget: 'widgets'
 }
 const TYPE_LABEL: Record<DocType, string> = {
   doc: 'Document',
@@ -23,7 +24,8 @@ const TYPE_LABEL: Record<DocType, string> = {
   slides: 'Slides',
   map: 'Diagram',
   design: 'Design',
-  draw: 'Artwork'
+  draw: 'Artwork',
+  widget: 'Widget'
 }
 
 export default function DocEmbed({ documentId }: { documentId: string }): JSX.Element {

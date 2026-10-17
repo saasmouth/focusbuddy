@@ -13,6 +13,8 @@
 // invented content.
 
 import type { Widget, WidgetKind } from './types'
+import type { FbRow, FieldDefinition } from './fields'
+import { computeChartData, seriesKey, seriesLabel, type ChartConfig } from './charts'
 
 // The widget kinds whose content is worth carrying as a FULL-text attachment —
 // the deep channel every AI surface shares. Chrome-only kinds (sections,
@@ -87,6 +89,15 @@ export interface ResolvedWorkItem {
   dueAt?: string | null
 }
 
+/** One task in a task list, for a list that is a lens over the workspace's tasks. */
+export interface ResolvedTask {
+  title: string
+  done: boolean
+  /** Epoch ms, as FbNode.dueDate stores it. */
+  dueAt?: number | null
+  status?: string | null
+}
+
 /** One entry in a gallery or drive widget. */
 export interface ResolvedFileRef {
   name: string
@@ -110,6 +121,9 @@ export interface WidgetTextResolvers {
   workItems?: (w: Widget) => ResolvedWorkItem[] | null
   // Names for the files a gallery or drive widget holds.
   fileRefs?: (w: Widget) => ResolvedFileRef[] | null
+  // The tasks a task-list widget is showing, when it is a lens over the
+  // workspace's tasks rather than a list that keeps its own items.
+  tasks?: (w: Widget) => ResolvedTask[] | null
 }
 
 export interface WidgetText {
@@ -127,6 +141,7 @@ const MAX_MAIL_ITEMS = 40
 const MAX_CONTACTS = 60
 const MAX_WORK_ITEMS = 40
 const MAX_FILE_REFS = 40
+const MAX_TASKS = 80
 
 // Collapse runs of whitespace; trim. Keeps single newlines out of the way for
 // the compact prompt paths while leaving the text intact for the full paths.
@@ -171,9 +186,10 @@ export function contentToPlainText(content: string | null | undefined): string {
 // slides, and map. Design bodies fall back to any element text. Mirrors and
 // extends the main-only extractDocText so office widgets are finally readable in
 // every AI surface, not just the workspace search.
-export function docBodyToText(docType: string, body: unknown): string {
+export function docBodyToText(docType: string, body: unknown, resolvers: WidgetTextResolvers = {}): string {
   if (!body || typeof body !== 'object') return ''
   const b = body as Record<string, unknown>
+  if (docType === 'widget') return widgetFileBodyToText(body, '', resolvers)
   if (docType === 'doc') {
     return squash(tiptapToText(b.doc ?? b)).slice(0, 12000)
   }
@@ -281,27 +297,84 @@ function safeParse<T>(raw: string | null | undefined): T | null {
   }
 }
 
-function tableToText(t: ResolvedTable): string {
-  const header = t.columns.map((c) => c.label).join(' | ')
-  const rows = t.rows
-    .slice(0, MAX_TABLE_ROWS)
-    .map((r) => t.columns.map((c) => String(r[c.id] ?? '')).join(' | '))
-  const title = t.title ? `Table "${t.title}"` : 'Table'
-  const more = t.rows.length > MAX_TABLE_ROWS ? `\n(+${t.rows.length - MAX_TABLE_ROWS} more rows)` : ''
-  return [title, header, ...rows].join('\n') + more
+// A cell as one line of a markdown table: no pipes or newlines to break the row.
+function mdCell(v: unknown): string {
+  let s: string
+  if (v === null || v === undefined) s = ''
+  else if (typeof v === 'string') s = v
+  else if (typeof v === 'number' || typeof v === 'boolean') s = String(v)
+  else if (Array.isArray(v)) s = v.map((x) => (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(', ')
+  else s = JSON.stringify(v)
+  return s.replace(/\r?\n/g, ' ').replace(/\|/g, '\\|').trim()
 }
 
-function mindmapText(root: unknown): string {
-  const labels: string[] = []
-  const walk = (node: unknown): void => {
-    if (!node || typeof node !== 'object' || labels.length >= MAX_MINDMAP_NODES) return
-    const n = node as { label?: unknown; children?: unknown }
-    if (typeof n.label === 'string' && n.label.trim()) labels.push(n.label.trim())
-    if (Array.isArray(n.children)) n.children.forEach(walk)
-  }
-  walk(root)
-  return labels.join('\n')
+// A table as a MARKDOWN table with its headers, which is the shape a model
+// reads most reliably and a person can paste anywhere.
+function tableToText(t: ResolvedTable): string {
+  const title = t.title ? `Table "${t.title}"` : 'Table'
+  if (t.columns.length === 0) return `${title} (no columns yet)`
+  const header = `| ${t.columns.map((c) => mdCell(c.label)).join(' | ')} |`
+  const rule = `| ${t.columns.map(() => '---').join(' | ')} |`
+  const rows = t.rows
+    .slice(0, MAX_TABLE_ROWS)
+    .map((r) => `| ${t.columns.map((c) => mdCell(r[c.id])).join(' | ')} |`)
+  const count = `${t.rows.length} row${t.rows.length === 1 ? '' : 's'}`
+  const more = t.rows.length > MAX_TABLE_ROWS ? `\n(+${t.rows.length - MAX_TABLE_ROWS} more rows)` : ''
+  return [`${title}, ${count}:`, header, rule, ...rows].join('\n') + more
 }
+
+// Open items first, each with its due date and status — what someone asking
+// "what is left on this list" needs, in a form any model reads as a checklist.
+function taskChecklist(items: ResolvedTask[]): string {
+  const ordered = [...items].sort((a, b) => Number(a.done) - Number(b.done))
+  const lines = ordered.slice(0, MAX_TASKS).map((t) => {
+    const bits = [
+      t.dueAt ? `due ${new Date(t.dueAt).toISOString().slice(0, 10)}` : '',
+      t.status && !['open', 'done'].includes(t.status) ? t.status : ''
+    ].filter(Boolean)
+    return `- [${t.done ? 'x' : ' '}] ${t.title.trim()}${bits.length ? ` (${bits.join(', ')})` : ''}`
+  })
+  const open = items.filter((t) => !t.done).length
+  const more = items.length > MAX_TASKS ? `\n(+${items.length - MAX_TASKS} more)` : ''
+  return `${open} open, ${items.length - open} done\n${lines.join('\n')}${more}`
+}
+
+// The chart's aggregated values, one line per category: what the chart draws.
+function chartDataSummary(config: ChartConfig, t: ResolvedTable): string {
+  try {
+    const cols = t.columns.map((c) => ({ id: c.id, label: c.label, type: c.type ?? 'text' })) as unknown as FieldDefinition[]
+    const rows = t.rows.map((cells, i) => ({ id: String(i), cells }) as unknown as FbRow)
+    const computed = computeChartData(config, rows, cols)
+    if (computed.empty) return 'No data yet.'
+    const fmt = (v: unknown): string => (typeof v === 'number' ? String(Math.round(v * 100) / 100) : 'n/a')
+    if (config.type === 'kpi') {
+      const s = config.series[0]
+      return s ? `${seriesLabel(s, cols)}: ${fmt(computed.kpi)}` : ''
+    }
+    return computed.data
+      .slice(0, MAX_TABLE_ROWS)
+      .map((d) => `${d.x}: ${config.series.map((s, i) => `${seriesLabel(s, cols)} ${fmt(d[seriesKey(s, i)])}`).join(', ')}`)
+      .join('\n')
+  } catch {
+    return ''
+  }
+}
+
+// A mind map as an indented outline, so its shape survives — a flat list of
+// labels loses which idea hangs off which.
+function mindmapOutline(root: unknown): string {
+  const lines: string[] = []
+  const walk = (node: unknown, depth: number): void => {
+    if (!node || typeof node !== 'object' || lines.length >= MAX_MINDMAP_NODES) return
+    const n = node as { label?: unknown; children?: unknown }
+    const label = typeof n.label === 'string' ? n.label.trim() : ''
+    if (label) lines.push(`${'  '.repeat(depth)}- ${label}`)
+    if (Array.isArray(n.children)) n.children.forEach((c) => walk(c, label ? depth + 1 : depth))
+  }
+  walk(root, 0)
+  return lines.join('\n')
+}
+
 
 // The core switch. Returns readable text for any widget kind. The `text` may be
 // long; callers cap it to their own budget.
@@ -431,7 +504,12 @@ export function widgetToText(w: Widget, r: WidgetTextResolvers = {}): WidgetText
         const series = (p.series ?? []).map((s) => `${s.label ?? s.columnId ?? '?'} (${s.agg ?? 'sum'})`).join(', ')
         const src = p.tableId && r.table ? r.table(p.tableId) : null
         const dataNote = src ? ` over ${src.rows.length} rows of ${src.title ?? 'a table'}` : ''
-        return { ...base, text: squash(`${p.type ?? 'chart'} chart${p.title ? ` "${p.title}"` : ''}: ${series}${dataNote}`) }
+        const head = squash(`${p.type ?? 'chart'} chart${p.title ? ` "${p.title}"` : ''}: ${series}${dataNote}`)
+        // The figures the chart is actually drawing, aggregated from the real
+        // rows the same way the widget does — so "what does the chart show" is
+        // answerable, not just "what is it bound to".
+        const summary = src ? chartDataSummary(p as unknown as ChartConfig, src) : ''
+        return { ...base, text: summary ? `${head}\n${summary}` : head }
       }
       return { ...base, text: '(empty chart)' }
     }
@@ -450,7 +528,7 @@ export function widgetToText(w: Widget, r: WidgetTextResolvers = {}): WidgetText
 
     case 'mindmap': {
       const p = safeParse<{ root?: unknown }>(raw)
-      const text = p?.root ? mindmapText(p.root) : ''
+      const text = p?.root ? mindmapOutline(p.root) : ''
       return { ...base, text: text ? `Mind map:\n${text}` : '(empty mind map)' }
     }
 
@@ -601,14 +679,40 @@ export function widgetToText(w: Widget, r: WidgetTextResolvers = {}): WidgetText
     // through the desk context. So these describe honestly what they are
     // pointed at rather than inventing rows they do not hold.
     case 'task-list': {
-      const p = safeParse<{ scope?: string; filter?: string; group?: string; ranked?: boolean }>(raw)
+      const p = safeParse<{
+        scope?: string
+        filter?: string
+        group?: string
+        ranked?: boolean
+        items?: Array<{ title?: unknown; done?: unknown; dueAt?: unknown; status?: unknown }>
+      }>(raw)
+      // A task list that keeps its own items (a widget file's list) IS content:
+      // read it as the checklist it is, open items first.
+      if (p?.scope === 'own') {
+        const items = (Array.isArray(p.items) ? p.items : [])
+          .filter((i) => i && typeof i.title === 'string')
+          .map((i) => ({
+            title: String(i.title),
+            done: i.done === true,
+            dueAt: typeof i.dueAt === 'number' ? i.dueAt : null,
+            status: typeof i.status === 'string' ? i.status : null
+          }))
+        if (items.length === 0) return { ...base, text: 'Task list: no tasks yet.' }
+        return { ...base, text: `Task list:\n${taskChecklist(items)}` }
+      }
       const bits = [
         p?.scope ? `scope ${p.scope}` : '',
         p?.filter ? `filter ${p.filter}` : '',
         p?.group && p.group !== 'none' ? `grouped by ${p.group}` : '',
         p?.ranked ? 'most pressing first' : ''
       ].filter(Boolean)
-      return { ...base, text: `Task list of this desk's tasks${bits.length ? ` (${bits.join(', ')})` : ''}` }
+      const head = `Task list of ${p?.scope === 'all' ? 'the whole workspace' : "this desk's"} tasks${bits.length ? ` (${bits.join(', ')})` : ''}`
+      // With a resolver the caller can say which tasks those are; without one
+      // the list's rows arrive by the desk roster, so describing it is honest.
+      const tasks = r.tasks?.(w) ?? null
+      if (tasks === null) return { ...base, text: head }
+      if (tasks.length === 0) return { ...base, text: `${head}: nothing outstanding.` }
+      return { ...base, text: `${head}:\n${taskChecklist(tasks)}` }
     }
 
     case 'calendar': {
@@ -732,4 +836,35 @@ export function widgetToText(w: Widget, r: WidgetTextResolvers = {}): WidgetText
       // than raw JSON dumped into the prompt.
       return { ...base, text: w.title ? `(${w.kind}: ${w.title})` : `(${w.kind})` }
   }
+}
+
+/**
+ * A widget file's body (documents.doc_type 'widget') as text: the same per-kind
+ * serialisation a desk widget gets, headed with what kind of thing it is so a
+ * reader knows "Client · 12 rows" is a table. See docs/widget-files.md.
+ */
+export function widgetFileBodyToText(body: unknown, title = '', resolvers: WidgetTextResolvers = {}): string {
+  let b: unknown = body
+  if (typeof b === 'string') {
+    try {
+      b = JSON.parse(b)
+    } catch {
+      return ''
+    }
+  }
+  if (!b || typeof b !== 'object') return ''
+  const rec = b as { kind?: unknown; content?: unknown }
+  if (typeof rec.kind !== 'string') return ''
+  const w = {
+    id: '',
+    taskId: '',
+    kind: rec.kind as WidgetKind,
+    title,
+    content: typeof rec.content === 'string' ? rec.content : ''
+  } as unknown as Widget
+  const t = widgetToText(w, resolvers).text
+  // A bare placeholder label "(empty table)" is still honest, and better than
+  // nothing for a file whose only text is its kind.
+  // Not squashed: an outline's indentation is its structure.
+  return t.trim().slice(0, 48000)
 }

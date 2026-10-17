@@ -2533,6 +2533,45 @@ const api = {
       enrichedAt: number
     } | null> => ipcRenderer.invoke('documents:metadata', docId)
   },
+  // Widget files: widgets that exist without a desk (docs/widget-files.md).
+  // Trash / restore / purge go through documents.* — a widget file is a
+  // document row with docType 'widget'.
+  widgetFiles: {
+    create: (
+      draft: import('@shared/types').WidgetFileDraft,
+      opts?: { defaultContent?: string }
+    ): Promise<import('@shared/types').WidgetFile> => ipcRenderer.invoke('widgetFiles:create', draft, opts),
+    get: (id: string): Promise<import('@shared/types').WidgetFile | null> => ipcRenderer.invoke('widgetFiles:get', id),
+    list: (): Promise<import('@shared/types').WidgetFile[]> => ipcRenderer.invoke('widgetFiles:list'),
+    update: (
+      id: string,
+      patch: import('@shared/types').WidgetFilePatch
+    ): Promise<import('@shared/types').WidgetFile | null> => ipcRenderer.invoke('widgetFiles:update', id, patch),
+    instances: (id: string): Promise<Widget[]> => ipcRenderer.invoke('widgetFiles:instances', id),
+    place: (
+      id: string,
+      at: { taskId: string; x?: number; y?: number; width?: number; height?: number }
+    ): Promise<Widget | null> => ipcRenderer.invoke('widgetFiles:place', id, at),
+    createAndPlace: (
+      draft: import('@shared/types').WidgetFileDraft,
+      at: { taskId: string; x?: number; y?: number; width?: number; height?: number },
+      opts?: { defaultContent?: string }
+    ): Promise<{ file: import('@shared/types').WidgetFile; widget: Widget | null }> =>
+      ipcRenderer.invoke('widgetFiles:createAndPlace', draft, at, opts),
+    promote: (widgetId: string): Promise<import('@shared/types').WidgetFile | null> =>
+      ipcRenderer.invoke('widgetFiles:promote', widgetId),
+    trash: (id: string): Promise<boolean> => ipcRenderer.invoke('widgetFiles:trash', id),
+    export: (id: string): Promise<{ ok: true; path: string } | { ok: false; canceled?: true; error?: string }> =>
+      ipcRenderer.invoke('widgetFiles:export', id),
+    import: (input?: {
+      path?: string
+      text?: string
+      parentId?: string | null
+    }): Promise<
+      | { ok: true; file: import('@shared/types').WidgetFile }
+      | { ok: false; canceled?: true; error?: string }
+    > => ipcRenderer.invoke('widgetFiles:import', input)
+  },
   localAi: {
     status: (): Promise<{
       available: boolean

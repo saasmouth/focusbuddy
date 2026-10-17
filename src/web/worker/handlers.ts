@@ -31,6 +31,10 @@ import {
   listDocuments, getDocument, createDocument, updateDocument, trashDocument,
   listTrashedDocuments, restoreDocument, deleteDocument
 } from '../../main/db/documents'
+import {
+  createWidgetFile, getWidgetFile, listWidgetFiles, updateWidgetFile, listWidgetFileInstances,
+  placeWidgetFile, promoteWidgetToFile, trashWidgetFile
+} from '../../main/db/widgetFiles'
 import { listTemplates, deleteTemplate } from '../../main/db/templates'
 import {
   listAllShareLinks, revokeShareLink, setShareLinkScope, deleteShareLink,
@@ -234,6 +238,23 @@ export const HANDLERS: Record<string, Handler> = {
   'documents:listTrashed': h(() => listTrashedDocuments()),
   'documents:restore': h((id: string) => restoreDocument(id)),
   'documents:purge': h((id: string) => deleteDocument(id)),
+
+  // ── widget files (docs/widget-files.md) ──────────────────────────────────
+  // The same store the desktop calls. Export/import are absent: they are a
+  // native save/open dialog, which a browser tab does not have.
+  'widgetFiles:create': h((draft: never, opts?: { defaultContent?: string }) =>
+    createWidgetFile(draft, { defaultContent: opts?.defaultContent })),
+  'widgetFiles:get': h((id: string) => getWidgetFile(id)),
+  'widgetFiles:list': h(() => listWidgetFiles()),
+  'widgetFiles:update': h((id: string, patch: never) => updateWidgetFile(id, patch)),
+  'widgetFiles:instances': h((id: string) => listWidgetFileInstances(id)),
+  'widgetFiles:place': h((id: string, at: never) => placeWidgetFile(id, at)),
+  'widgetFiles:createAndPlace': h((draft: never, at: never, opts?: { defaultContent?: string }) => {
+    const file = createWidgetFile(draft, { defaultContent: opts?.defaultContent })
+    return { file, widget: placeWidgetFile(file.id, at) }
+  }),
+  'widgetFiles:promote': h((widgetId: string) => promoteWidgetToFile(widgetId)),
+  'widgetFiles:trash': h((id: string) => trashWidgetFile(id)),
 
   // ── templates ────────────────────────────────────────────────────────────
   'templates:list': h(() => listTemplates()),

@@ -31,7 +31,8 @@ const TYPE_ICON: Record<DocType, string> = {
   slides: 'slideshow',
   map: 'account_tree',
   design: 'plexii:design',
-  draw: 'brush'
+  draw: 'brush',
+  widget: 'widgets'
 }
 const TYPE_LABEL: Record<DocType, string> = {
   doc: 'Docs',
@@ -39,7 +40,8 @@ const TYPE_LABEL: Record<DocType, string> = {
   slides: 'Slides',
   map: 'Diagrams',
   design: 'Designs',
-  draw: 'Artwork'
+  draw: 'Artwork',
+  widget: 'Widgets'
 }
 const TYPES: DocType[] = ['doc', 'sheet', 'slides', 'map', 'design', 'draw']
 

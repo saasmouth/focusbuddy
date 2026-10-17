@@ -57,14 +57,16 @@ export async function promoteFolderToLive(
     const parentId = e.parentId === rootFolderId ? null : e.parentId
     if (e.kind === 'folder') {
       entries.push({ id: e.id, parentId, kind: 'folder', name: e.name })
-    } else if (e.kind === 'doc' && e.docId) {
+    } else if (e.kind === 'doc' && e.docId && e.docType !== 'widget') {
+      // Widget files are not carried into a live folder: its viewer renders
+      // office documents only, and a widget is not one.
       const doc = await window.api.documents.get(e.docId)
       entries.push({
         id: e.id,
         parentId,
         kind: 'doc',
         name: e.name,
-        docType: e.docType,
+        docType: e.docType as 'doc' | 'sheet' | 'slides' | undefined,
         docBody: doc?.body
       })
     } else if (e.kind === 'file') {

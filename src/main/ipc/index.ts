@@ -75,7 +75,27 @@ import {
 import type { PopupRect } from '@shared/deskPopup'
 import { getKeepSignedInState, logConnectedAppSignedOut, setKeepSignedIn } from '../sessionPersistence'
 import { detectPreviewBuild } from '../appMode'
-import { writeFile } from 'node:fs/promises'
+import { writeFile, readFile } from 'node:fs/promises'
+import {
+  createWidgetFile,
+  exportWidgetFile,
+  getWidgetFile,
+  importWidgetFile,
+  listWidgetFileInstances,
+  listWidgetFiles,
+  placeWidgetFile,
+  promoteWidgetToFile,
+  trashWidgetFile,
+  updateWidgetFile,
+  type PlacementDraft
+} from '../db/widgetFiles'
+import type { WidgetFileDraft, WidgetFilePatch } from '@shared/types'
+import {
+  parseWidgetFileBody,
+  parseWidgetFileExport,
+  widgetFileExportName,
+  WIDGET_FILE_TYPES
+} from '@shared/widgetFiles'
 import { join as pathJoin } from 'node:path'
 import { buildMeetingIcs } from '@shared/ics'
 import { consumePendingAuthHandoff, consumePendingShareToken, consumePendingMeetRoom, consumePendingMdEditPath } from '../authProtocol'
@@ -3965,6 +3985,19 @@ export function registerIpcHandlers(): void {
     return doc
   })
   ipcMain.handle('documents:update', (_e, id: string, patch: DocumentPatch, snapshotLabel?: string) => {
+    // A widget file's body has one writer (db/widgetFiles), which keeps its desk
+    // instances and its name source in step. A generic document update — a
+    // rename from a document list, or a body from a sync path — is translated.
+    const existing = getDocument(id)
+    if (existing?.docType === 'widget') {
+      const body = patch.body ? parseWidgetFileBody(patch.body) : null
+      updateWidgetFile(id, {
+        title: patch.title,
+        content: body?.content,
+        color: body ? body.color : undefined
+      })
+      return getDocument(id)
+    }
     const doc = updateDocument(id, patch)
     if (doc) {
       void embedDocument(doc.id)
@@ -3986,6 +4019,75 @@ export function registerIpcHandlers(): void {
     return ok
   })
   ipcMain.handle('documents:listTrashed', () => listTrashedDocuments())
+
+  // ── Widget files (docs/widget-files.md) ─────────────────────────────────
+  // A widget that exists without a desk. Stored as a documents row (doc_type
+  // 'widget'), so trash/restore/purge are the documents:* channels above; these
+  // are the operations specific to the widget body and its desk instances.
+  ipcMain.handle(
+    'widgetFiles:create',
+    (_e, draft: WidgetFileDraft, opts?: { defaultContent?: string }) => {
+      bumpAnswerCacheVersion()
+      return createWidgetFile(draft, { defaultContent: opts?.defaultContent })
+    }
+  )
+  ipcMain.handle('widgetFiles:get', (_e, id: string) => getWidgetFile(id))
+  ipcMain.handle('widgetFiles:list', () => listWidgetFiles())
+  ipcMain.handle('widgetFiles:update', (_e, id: string, patch: WidgetFilePatch) => updateWidgetFile(id, patch))
+  ipcMain.handle('widgetFiles:instances', (_e, id: string) => listWidgetFileInstances(id))
+  ipcMain.handle('widgetFiles:place', (_e, id: string, at: PlacementDraft) => placeWidgetFile(id, at))
+  ipcMain.handle(
+    'widgetFiles:createAndPlace',
+    (_e, draft: WidgetFileDraft, at: PlacementDraft, opts?: { defaultContent?: string }) => {
+      bumpAnswerCacheVersion()
+      const file = createWidgetFile(draft, { defaultContent: opts?.defaultContent })
+      const widget = placeWidgetFile(file.id, at)
+      return { file, widget }
+    }
+  )
+  ipcMain.handle('widgetFiles:promote', (_e, widgetId: string) => promoteWidgetToFile(widgetId))
+  ipcMain.handle('widgetFiles:trash', (_e, id: string) => {
+    bumpAnswerCacheVersion()
+    const ok = trashWidgetFile(id)
+    reindexDocumentChunks(id)
+    return ok
+  })
+  ipcMain.handle('widgetFiles:export', async (_e, id: string) => {
+    const env = exportWidgetFile(id)
+    if (!env) return { ok: false as const, error: 'That widget file no longer exists.' }
+    const win = BrowserWindow.getFocusedWindow()
+    const opts = { defaultPath: widgetFileExportName({ kind: env.kind, title: env.title }) }
+    const res = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
+    if (res.canceled || !res.filePath) return { ok: false as const, canceled: true as const }
+    await writeFile(res.filePath, JSON.stringify(env, null, 2), 'utf8')
+    return { ok: true as const, path: res.filePath }
+  })
+  ipcMain.handle('widgetFiles:import', async (_e, input?: { path?: string; text?: string; parentId?: string | null }) => {
+    let text = input?.text
+    if (text === undefined) {
+      let path = input?.path
+      if (!path) {
+        const win = BrowserWindow.getFocusedWindow()
+        const opts = {
+          properties: ['openFile' as const],
+          filters: [{ name: 'Plexii widget files', extensions: Object.values(WIDGET_FILE_TYPES).map((t) => t!.ext.slice(1)) }]
+        }
+        const res = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts)
+        if (res.canceled || !res.filePaths[0]) return { ok: false as const, canceled: true as const }
+        path = res.filePaths[0]
+      }
+      try {
+        text = await readFile(path, 'utf8')
+      } catch {
+        return { ok: false as const, error: 'That file could not be read.' }
+      }
+    }
+    const env = parseWidgetFileExport(text)
+    if ('error' in env) return { ok: false as const, error: env.error }
+    bumpAnswerCacheVersion()
+    const file = importWidgetFile(env, input?.parentId ?? null)
+    return { ok: true as const, file }
+  })
   ipcMain.handle('documents:restore', (_e, id: string) => {
     const ok = restoreDocument(id)
     if (ok) void embedDocument(id) // back into semantic search, best-effort
@@ -4233,6 +4335,9 @@ export function registerIpcHandlers(): void {
       }
       if (input.docType === 'draw') {
         return Promise.resolve({ ok: false, error: 'Artwork is created in the PlexiDraw studio, not generated from a prompt.' })
+      }
+      if (input.docType === 'widget') {
+        return Promise.resolve({ ok: false, error: 'Widget files are created from the Widgets menu or by the assistant, not generated as a document.' })
       }
       return generateDocument({ ...input, docType: input.docType })
     }

@@ -6,6 +6,9 @@ import { downsampleImage } from './imageDownsample'
 import { MAX_SYNCED_FILE_BYTES } from '@shared/fileSyncLimits'
 import { getActiveOrgId } from './activeOrg'
 import type { FbFile, FileEntry } from '@shared/fields'
+// Import cycle by design (widgetFiles files its documents through fileDocument);
+// both sides only call each other at runtime.
+import { updateWidgetFile } from './widgetFiles'
 
 interface FileRow {
   id: string
@@ -324,10 +327,14 @@ function rowToEntry(row: EntryRow): FileEntry | null {
     if (!row.doc_id) return null
     const db = getDb()
     const doc = db
-      .prepare('SELECT title, doc_type, updated_at FROM documents WHERE id = ? AND archived = 0 AND trashed_at IS NULL')
-      .get(row.doc_id) as { title: string; doc_type: string; updated_at: number } | undefined
+      .prepare(
+        `SELECT title, doc_type, updated_at,
+           CASE WHEN doc_type = 'widget' AND json_valid(body) THEN json_extract(body, '$.kind') END AS widget_kind
+         FROM documents WHERE id = ? AND archived = 0 AND trashed_at IS NULL`
+      )
+      .get(row.doc_id) as { title: string; doc_type: string; updated_at: number; widget_kind: string | null } | undefined
     if (!doc) return null
-    return {
+    const entry: FileEntry = {
       ...base,
       kind: 'doc',
       name: doc.title || 'Untitled',
@@ -335,6 +342,9 @@ function rowToEntry(row: EntryRow): FileEntry | null {
       docType: doc.doc_type as FileEntry['docType'],
       updatedAt: doc.updated_at
     }
+    // A widget file shows as its own type ("Table", "Task list"), not "Document".
+    if (doc.widget_kind) entry.widgetKind = doc.widget_kind as FileEntry['widgetKind']
+    return entry
   }
   return {
     ...base,
@@ -361,6 +371,9 @@ export function listEntries(parentId: string | null): FileEntry[] {
       // best-effort cleanup
     }
   }
+  // A widget file lives only in Files, but its pointer row does not sync, so one
+  // created on another device arrives unfiled — file it here, at the root.
+  if (parentId == null) ensureWidgetFilesFiled()
   const rows = (
     parentId == null
       ? db.prepare(`SELECT ${ENTRY_COLS} FROM fb_files WHERE parent_id IS NULL AND trashed_at IS NULL AND org_id = ?`).all(getActiveOrgId())
@@ -423,6 +436,23 @@ export function createFolder(parentId: string | null, name: string, explicitId?:
 
 export function renameEntry(id: string, name: string): FileEntry | null {
   const db = getDb()
+  const row = db.prepare('SELECT kind, doc_id, doc_type FROM fb_files WHERE id = ?').get(id) as
+    | { kind: string; doc_id: string | null; doc_type: string | null }
+    | undefined
+  // A document's name in Files IS the document's title (rowToEntry reads it
+  // live), so renaming the pointer's display_name changed nothing anyone could
+  // see. Rename the document itself. A widget file goes through its store so
+  // the new name reaches its desk instances and is marked as the user's.
+  if (row?.kind === 'doc' && row.doc_id) {
+    const title = name.trim()
+    if (!title) return getEntry(id)
+    const docType = (db.prepare('SELECT doc_type FROM documents WHERE id = ?').get(row.doc_id) as { doc_type: string } | undefined)
+      ?.doc_type
+    if (docType === 'widget') updateWidgetFile(row.doc_id, { title })
+    else db.prepare('UPDATE documents SET title = ?, updated_at = ? WHERE id = ?').run(title, Date.now(), row.doc_id)
+    db.prepare('UPDATE fb_files SET updated_at = ? WHERE id = ?').run(Date.now(), id)
+    return getEntry(id)
+  }
   db.prepare('UPDATE fb_files SET display_name = ?, updated_at = ? WHERE id = ?').run(name.trim() || 'Untitled', Date.now(), id)
   return getEntry(id)
 }
@@ -824,6 +854,37 @@ export function fileDocument(docId: string, parentId: string | null): FileEntry 
      VALUES (@id, @title, '', 0, '', @now, @parentId, 'doc', @docId, @docType, @now, @orgId)`
   ).run({ id, title: doc.title, now, parentId, docId, docType: doc.doc_type, orgId: getActiveOrgId() })
   return getEntry(id)
+}
+
+/**
+ * File every widget file that has no Files entry yet into the root.
+ *
+ * Doc pointers do not sync between devices (workspaceSync: the document travels
+ * on its own), so a widget file created on another device arrives unfiled — and
+ * a widget file only lives in Files. One anti-join; a no-op once all are filed.
+ */
+export function ensureWidgetFilesFiled(): number {
+  const db = getDb()
+  let rows: Array<{ id: string }>
+  try {
+    rows = db
+      .prepare(
+        `SELECT d.id FROM documents d
+         WHERE d.doc_type = 'widget' AND d.archived = 0 AND d.trashed_at IS NULL AND d.org_id = ?
+           AND NOT EXISTS (SELECT 1 FROM fb_files f WHERE f.kind = 'doc' AND f.doc_id = d.id AND f.trashed_at IS NULL)`
+      )
+      .all(getActiveOrgId()) as Array<{ id: string }>
+  } catch {
+    return 0
+  }
+  for (const r of rows) {
+    try {
+      fileDocument(r.id, null)
+    } catch {
+      /* best-effort */
+    }
+  }
+  return rows.length
 }
 
 // Where an office document is filed: the fb_files 'doc' row plus the folder

@@ -2,7 +2,16 @@
 // or native dependencies, so it is unit-testable on its own. workspaceSearch.ts
 // wraps these with the document store.
 
-import { docBodyToText } from '@shared/widgetText'
+import { docBodyToText, widgetFileBodyToText, type WidgetTextResolvers } from '@shared/widgetText'
+
+// The DB-backed resolvers a widget file needs to be read (a table file's rows,
+// a task list's tasks). Injected by main/index.ts at boot rather than imported,
+// because this module stays free of database dependencies for its unit tests;
+// without them a widget file still reads, just without the resolved rows.
+let docTextResolvers: (() => WidgetTextResolvers) | null = null
+export function setDocTextResolvers(factory: () => WidgetTextResolvers): void {
+  docTextResolvers = factory
+}
 
 export interface WorkspaceSource {
   docId: string
@@ -102,6 +111,13 @@ export function extractDocText(docType: string, body: unknown): string {
         .join('\n')
         .trim()
         .slice(0, DOC_TEXT_CAP)
+    }
+    if (docType === 'widget') {
+      // A widget file reads exactly as its desk instances do — one serialiser
+      // (shared/widgetText) with the DB-backed resolvers, so a table file is
+      // its rows as a markdown table, a task list its checklist, and so on.
+      const r = docTextResolvers ? docTextResolvers() : {}
+      return widgetFileBodyToText(body, '', r).slice(0, DOC_TEXT_CAP)
     }
     if (docType === 'map' || docType === 'design') {
       // The shared extractor already knows these shapes (nodes/edges labels
