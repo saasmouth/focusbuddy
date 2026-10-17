@@ -71,6 +71,10 @@ export function destinationOf(
       const id = realId(p, resolved)
       if (id) return { label: p.title || 'the document', icon: 'description', view: { kind: 'document', documentId: id } }
     }
+    if (p.kind === 'create-widget-file') {
+      const id = realId(p, resolved)
+      if (id) return { label: p.title || 'the widget', icon: 'widgets', view: { kind: 'document', documentId: id } }
+    }
   }
 
   // A NEW desk the delivery made for the purpose — the best possible answer,

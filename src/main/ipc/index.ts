@@ -87,6 +87,7 @@ import {
   promoteWidgetToFile,
   trashWidgetFile,
   updateWidgetFile,
+  onTableChanged,
   type PlacementDraft
 } from '../db/widgetFiles'
 import type { WidgetFileDraft, WidgetFilePatch } from '@shared/types'
@@ -3299,16 +3300,35 @@ export function registerIpcHandlers(): void {
     if (updated && before && typeof patch.title === 'string' && patch.title !== before.title) {
       syncTableWidgetTitles(id, before.title, patch.title)
     }
+    onTableChanged(id)
     return updated
   })
   ipcMain.handle('tables:delete', (_e, id: string) => deleteTable(id))
   ipcMain.handle('tables:listRows', (_e, tableId: string) => listRows(tableId))
-  ipcMain.handle('tables:createRow', (_e, draft: FbRowDraft) => createRow(draft))
-  ipcMain.handle('tables:updateRow', (_e, id: string, patch: FbRowPatch) =>
-    updateRow(id, patch)
-  )
-  ipcMain.handle('tables:deleteRow', (_e, id: string) => deleteRow(id))
-  ipcMain.handle('tables:restoreRow', (_e, id: string) => restoreRow(id))
+  // A table FILE's text is its rows (docs/widget-files.md): every row write
+  // tells the widget-file store, which re-indexes it and, while it still has a
+  // placeholder name, names it from its header and row count.
+  ipcMain.handle('tables:createRow', (_e, draft: FbRowDraft) => {
+    const row = createRow(draft)
+    onTableChanged(draft.tableId)
+    return row
+  })
+  ipcMain.handle('tables:updateRow', (_e, id: string, patch: FbRowPatch) => {
+    const row = updateRow(id, patch)
+    onTableChanged(row?.tableId)
+    return row
+  })
+  ipcMain.handle('tables:deleteRow', (_e, id: string) => {
+    const tableId = (getDb().prepare('SELECT table_id FROM fb_rows WHERE id = ?').get(id) as { table_id: string } | undefined)?.table_id
+    const ok = deleteRow(id)
+    onTableChanged(tableId)
+    return ok
+  })
+  ipcMain.handle('tables:restoreRow', (_e, id: string) => {
+    const row = restoreRow(id)
+    onTableChanged(row?.tableId)
+    return row
+  })
   ipcMain.handle('tables:reorderRows', (_e, tableId: string, ids: string[]) =>
     reorderRows(tableId, ids)
   )

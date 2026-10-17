@@ -2226,15 +2226,12 @@ export default function Canvas(): JSX.Element {
       if (newKind) {
         e.preventDefault()
         if (!ensureCanAdd(newKind)) return
+        // Sized by the widget-file store's central fit, not here (the same
+        // rule as every other create: one place caps a new widget to the view).
         const entry = catalogFor(newKind)
-        const w = entry?.defaultWidth ?? 320
-        const h = entry?.defaultHeight ?? 240
-        const fitted = fitDroppedWidget(w, h, rect.width, rect.height, zoom)
         await useWidgetFilesStore.getState().createAndPlace(newKind, activeTaskId, {
-          x: Math.round(cursor.x - fitted.width / 2),
-          y: Math.round(cursor.y - 20),
-          width: fitted.width,
-          height: fitted.height
+          x: Math.round(cursor.x - (entry?.defaultWidth ?? 320) / 2),
+          y: Math.round(cursor.y - 20)
         })
         return
       }
@@ -2256,12 +2253,9 @@ export default function Canvas(): JSX.Element {
           const file = await useWidgetFilesStore.getState().load(id)
           if (!file) return
           const entry = catalogFor(file.kind)
-          const fitted = fitDroppedWidget(entry?.defaultWidth ?? 320, entry?.defaultHeight ?? 240, rect.width, rect.height, zoom)
           await useWidgetFilesStore.getState().place(id, activeTaskId, {
-            x: Math.round(cursor.x - fitted.width / 2),
-            y: Math.round(cursor.y - 20),
-            width: fitted.width,
-            height: fitted.height
+            x: Math.round(cursor.x - (entry?.defaultWidth ?? 320) / 2),
+            y: Math.round(cursor.y - 20)
           })
           return
         }

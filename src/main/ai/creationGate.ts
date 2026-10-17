@@ -41,7 +41,9 @@ export const CREATION_KINDS: ReadonlySet<string> = new Set([
   'create-field',
   'create-agent',
   'link-widgets',
-  'generate-document'
+  'generate-document',
+  // A widget file is workspace-building like a table or a page.
+  'create-widget-file'
 ])
 
 // An explicit ask to build. Covers the offer card's canonical option ("Create

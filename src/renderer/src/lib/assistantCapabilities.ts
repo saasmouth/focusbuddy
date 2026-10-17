@@ -46,6 +46,12 @@ export const ASSISTANT_CAPABILITIES: AssistantCapability[] = [
     kinds: ['create-document', 'generate-document', 'edit-document', 'create-page']
   },
   {
+    icon: 'widgets',
+    label: 'Make a widget file',
+    starter: 'Make me a task list I can put on any desk',
+    kinds: ['create-widget-file', 'update-widget-file']
+  },
+  {
     icon: 'table_chart',
     label: 'Build a table',
     starter: 'Set up a table to track something for me',

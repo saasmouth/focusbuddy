@@ -26,6 +26,8 @@ const DIRECTED = new Set(['compose-mail', 'post-chat'])
 // just because the model invented something.
 const KIND_TITLE: Record<string, string> = {
   'create-widget': 'Widget',
+  'create-widget-file': 'Widget file',
+  'update-widget-file': 'Widget file',
   'create-agent': 'Agent',
   'link-widgets': 'Wire',
   'open-url': 'Open link',
@@ -63,6 +65,8 @@ const KIND_ACTIVITY: Record<string, string> = {
   'create-todo-list': 'Building a to-do list',
   'create-page': 'Creating a page',
   'create-document': 'Creating a document',
+  'create-widget-file': 'Creating a widget file',
+  'update-widget-file': 'Updating a widget file',
   'generate-document': 'Generating a document',
   'create-task': 'Creating a desk',
   'create-work-item': 'Filing to Attention',

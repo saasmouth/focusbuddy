@@ -81,7 +81,9 @@ export async function ingestWorkspaceIntoBrain(): Promise<BrainIngestStats> {
     record('document', meta.id, {
       title: meta.title?.trim() || 'Untitled document',
       body,
-      tags: ['document', meta.docType]
+      // A widget file is tagged by its kind ("table", "task-list"), so the Brain
+      // Map clusters tables with tables rather than every widget under "widget".
+      tags: meta.docType === 'widget' ? ['widget-file', meta.widgetKind ?? 'widget'] : ['document', meta.docType]
     })
     stats.documents++
   }

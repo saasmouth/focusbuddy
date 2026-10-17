@@ -37,9 +37,16 @@ describe('what can go on a desk', () => {
   })
 
   it('refuses anything else', () => {
-    for (const t of ['knowledge', 'web', 'agent', '', 'widget']) {
+    for (const t of ['knowledge', 'web', 'agent', '']) {
       expect(canPlaceOnDesk(t), t).toBe(false)
     }
+  })
+
+  it('places a widget file too (4.3.32)', () => {
+    // 'widget' was in the refused list above until widget files existed: a
+    // documents row of type 'widget' is a widget that lives in Files, and
+    // dropping it on a desk places a linked instance (docs/widget-files.md).
+    expect(canPlaceOnDesk('widget')).toBe(true)
   })
 })
 

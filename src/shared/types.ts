@@ -1477,6 +1477,42 @@ export type ActionProposal =
       reason?: string
     }
   | {
+      // Create a WIDGET FILE — a widget that lives in Files, not on a desk
+      // (docs/widget-files.md). Only kinds whose content a model can author
+      // honestly in plain shapes: text (sticky/note/markdown), a card, a task
+      // list (items), a table (columns + rows) or a mind map (an outline). Any
+      // other kind is configured by that widget's own AI (ask-widget-ai).
+      // deskId, when set, also places a linked instance on that desk.
+      id: string
+      kind: 'create-widget-file'
+      widgetKind: WidgetFileAuthorableKind
+      title: string
+      text?: string
+      items?: Array<{ title: string; dueAt?: number | null }>
+      columns?: string[]
+      rows?: string[][]
+      outline?: WidgetFileOutlineNode[]
+      deskId?: string
+      reason?: string
+    }
+  | {
+      // Change an EXISTING widget file's content. fileId is a documentId of
+      // type widget:<kind> from the documents list, or "$<proposalId>" of a
+      // create-widget-file in the same batch. Text kinds take `text` (append by
+      // default); a task list takes `items` to add; a table takes `rows` to add.
+      // Every desk instance of the file updates with it.
+      id: string
+      kind: 'update-widget-file'
+      fileId: string
+      label: string
+      title?: string
+      text?: string
+      items?: Array<{ title: string; dueAt?: number | null }>
+      rows?: string[][]
+      operation?: 'replace' | 'append'
+      reason?: string
+    }
+  | {
       // Generate a POPULATED office surface with AI (a spreadsheet, a
       // presentation, a diagram / map / mind map, or a written document) and
       // place it on the desk. When `widgetId` names an existing output widget of
@@ -2578,6 +2614,14 @@ export type MailSendResult = { ok: true } | { ok: false; error: string }
 // and desk placements are linked widgets whose syncGroupId is 'wf:<doc id>'.
 // See docs/widget-files.md.
 export type DocType = 'doc' | 'sheet' | 'slides' | 'map' | 'design' | 'draw' | 'widget'
+
+// The widget-file kinds the assistant may author directly (create-widget-file).
+export const WIDGET_FILE_AUTHORABLE_KINDS = ['sticky', 'note', 'markdown', 'card', 'task-list', 'table', 'mindmap'] as const
+export type WidgetFileAuthorableKind = (typeof WIDGET_FILE_AUTHORABLE_KINDS)[number]
+export interface WidgetFileOutlineNode {
+  label: string
+  children?: WidgetFileOutlineNode[]
+}
 
 // The body of a widget file (documents.doc_type = 'widget'). `content` is exactly
 // what Widget.content holds for `kind`, so the same component renders it on a

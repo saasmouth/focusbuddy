@@ -18,12 +18,15 @@ const canvas = read('components/Canvas.tsx')
 const pill = read('components/FloatingPill.tsx')
 
 describe('it is where the eye already is', () => {
-  it('renders in the header slot that holds Add widget', () => {
+  it('renders in the centre header slot', () => {
+    // It was centred WITH the Add widget button. 4.3.32 removed that button
+    // (widgets are added from the side menu's Widgets section), so the meter
+    // now holds the header's centre on its own — still where the eye is.
     const slot = canvas.slice(
       canvas.indexOf('<HeaderSlot id="fb-header-add">'),
       canvas.indexOf('</HeaderSlot>', canvas.indexOf('<HeaderSlot id="fb-header-add">'))
     )
-    expect(slot).toContain('<DeskAddWidget')
+    expect(slot).not.toContain('<DeskAddWidget')
     expect(slot).toContain('<LoadMeter variant="header" />')
   })
 

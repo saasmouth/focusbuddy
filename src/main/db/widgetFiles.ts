@@ -326,6 +326,76 @@ export function setWidgetFileTitle(id: string, title: string, source: 'derived' 
   return true
 }
 
+// ── Tables behind table files ───────────────────────────────────────────────
+// A table file's content is only a table id; its words live in fb_rows. So a
+// row edit changes what the file SAYS without touching the file — which would
+// leave the index reading stale rows and a placeholder name waiting for a
+// launch. Row and schema writes call this; coalesced per table, because a
+// person typing in a cell writes on every keystroke.
+
+const pendingTables = new Map<string, ReturnType<typeof setTimeout>>()
+
+export function onTableChanged(tableId: string | null | undefined, delayMs = 1500): void {
+  if (!tableId) return
+  const prev = pendingTables.get(tableId)
+  if (prev) clearTimeout(prev)
+  pendingTables.set(
+    tableId,
+    setTimeout(() => {
+      pendingTables.delete(tableId)
+      try {
+        refreshTableFiles(tableId)
+      } catch {
+        /* best-effort: the launch pass and the next edit catch up */
+      }
+    }, delayMs)
+  )
+}
+
+/** Re-index (and, while still placeholder-named, name) the files over a table. */
+export function refreshTableFiles(tableId: string): number {
+  const rows = getDb()
+    .prepare(
+      `SELECT id FROM documents
+       WHERE doc_type = 'widget' AND trashed_at IS NULL
+         -- CASE, not AND: SQLite does not promise to short-circuit, and
+         -- json_extract on malformed JSON raises rather than returning NULL.
+         AND CASE
+           WHEN NOT json_valid(body) THEN 0
+           WHEN json_extract(body, '$.kind') = 'table' THEN json_extract(body, '$.content') = @t
+           -- a chart file reads the same rows, so what it says changes with them
+           WHEN json_extract(body, '$.kind') = 'chart' THEN
+             CASE WHEN json_valid(json_extract(body, '$.content'))
+               THEN json_extract(json_extract(body, '$.content'), '$.tableId') = @t
+               ELSE 0 END
+           ELSE 0
+         END`
+    )
+    .all({ t: tableId }) as Array<{ id: string }>
+  for (const r of rows) {
+    const f = getWidgetFile(r.id)
+    if (!f) continue
+    // A table file's derived name carries its row count ("Supplier · 12
+    // rows"), so it is re-derived as rows come and go — but only while the name
+    // is ours (placeholder or derived). A name the user typed is never touched.
+    if (f.kind === 'table' && (f.titleSource === 'placeholder' || f.titleSource === 'derived')) {
+      const derived = safeDerive(f.kind, f.content)
+      if (derived && derived !== f.title) {
+        setWidgetFileTitle(f.id, derived, 'derived')
+        continue // setWidgetFileTitle reindexes
+      }
+    } else if (f.titleSource === 'placeholder') {
+      const derived = safeDerive(f.kind, f.content)
+      if (derived) {
+        setWidgetFileTitle(f.id, derived, 'derived')
+        continue
+      }
+    }
+    reindexFile(f.id)
+  }
+  return rows.length
+}
+
 // ── Placement ───────────────────────────────────────────────────────────────
 
 export interface PlacementDraft {

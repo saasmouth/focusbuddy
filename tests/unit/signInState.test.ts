@@ -186,7 +186,9 @@ describe('wiring pins', () => {
   })
 
   it('the side menu tile shows the signed-out state for every connected app', () => {
-    const src = read('src/renderer/src/components/nav/AreaAccordion.tsx')
+    // 4.3.32: the Tile itself lives in nav/menuParts.tsx now; read both.
+    const src =
+      read('src/renderer/src/components/nav/AreaAccordion.tsx') + read('src/renderer/src/components/nav/menuParts.tsx')
     expect(src).toMatch(/signedOut=\{appSignIn\[app\.id\]\?\.signedOut === true\}/)
     expect(src).toContain('Signed out — sign in')
     expect(src).toContain('data-testid="nav-signed-out"')

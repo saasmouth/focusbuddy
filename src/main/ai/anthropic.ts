@@ -24,7 +24,8 @@ import { buildBriefContext, buildBriefActions, briefIsEmpty, cleanTitle } from '
 import { getRecentHistory } from '../db/browsing'
 import { getRecentActivity } from '../db/activity'
 import { markdownToTiptap } from './markdownToTiptap'
-import { widgetToText } from '@shared/widgetText'
+import { widgetToText, widgetFileBodyToText } from '@shared/widgetText'
+import { listWidgetFiles } from '../db/widgetFiles'
 import { mainWidgetResolvers } from './widgetSummary'
 import { retrieveSources } from '../workspaceSearch'
 import { searchWeb } from '../webSearch'
@@ -61,7 +62,8 @@ import { parseSheetRows, parseSheetColumns } from './sheetParse'
 import { migrateSlidesBody } from '@shared/slidesMigrate'
 import { resolveTheme, applyThemeToDeck, BUILTIN_THEMES } from '@shared/slideThemes'
 import { normalizeMapBody, autoLayout } from '@shared/mapGraph'
-import { NAVIGATE_TARGETS, CREATE_DOCUMENT_TYPES, MAIL_ACTION_OPS } from '@shared/types'
+import { NAVIGATE_TARGETS, CREATE_DOCUMENT_TYPES, MAIL_ACTION_OPS, WIDGET_FILE_AUTHORABLE_KINDS } from '@shared/types'
+import type { WidgetFileAuthorableKind, WidgetFileOutlineNode } from '@shared/types'
 import type { NavigateTarget, MailActionOp } from '@shared/types'
 import type { MapShape } from '@shared/types'
 import type { SlidesBody } from '@shared/types'
@@ -499,6 +501,8 @@ export const ACTION_KINDS_CATALOG =
   '  { "kind": "edit-document", "documentId": "<from the documents list>", "label": "the Q3 brief", "body": "New section text...", "operation": "append", "reason": "the brief is missing the scope you just described" }\n' +
   '  { "kind": "generate-document", "docType": "slides"|"sheet"|"map"|"doc", "title": "Q3 launch deck", "prompt": "<what to make, grounded only in the request/context>", "reason": "you have the figures already, so this only needs assembling" }  (slides=presentation, sheet=spreadsheet, map=diagram/flowchart/mind map/org chart, doc=written document; the real content is generated in a follow-up step, so the prompt must restate only what was asked and invent nothing, and your text must not claim it already exists)\n' +
   '  { "kind": "create-document", "docType": "doc"|"sheet"|"slides"|"map"|"design"|"draw", "title": "Q3 budget", "reason": "somewhere for the budget to live before the numbers arrive" }  (An EMPTY office surface for the user to fill in themselves. Prefer generate-document above whenever you know what should go in it — an empty spreadsheet is rarely what someone asking for "a budget" wants. Use this only when they explicitly ask for a blank one, or when what belongs in it is genuinely theirs to decide. It is also the only way to make a design or draw surface.)\n' +
+  '  { "kind": "create-widget-file", "widgetKind": "sticky"|"note"|"markdown"|"card"|"task-list"|"table"|"mindmap", "title": "Supplier quotes", "text": "for sticky/note/markdown/card", "items": [{"title":"Call Sam","dueAt":1790000000000}], "columns": ["Supplier","Quote"], "rows": [["Acme","4200"]], "outline": [{"label":"Goals","children":[{"label":"Grow revenue"}]}], "deskId": "optional — also place it on this desk", "reason": "a list you can reuse on any desk" }  (A WIDGET FILE: a widget that lives in Files on its own, like a document, and can be placed on any number of desks where every copy stays in sync. Give only the fields its kind uses: text for sticky/note/markdown/card, items for task-list, columns+rows for table, outline for mindmap. Use it when the user asks for a standalone list, table, note or map that is not tied to one desk; use create-widget for something that only belongs on the desk they are on.)\n' +
+  '  { "kind": "update-widget-file", "fileId": "<a documentId of type widget:<kind> from the documents list, or $<id>>", "label": "the supplier table", "text": "append this to a sticky/note/markdown", "items": [{"title":"Book venue"}], "rows": [["Globex","3900"]], "operation": "append", "reason": "the list is missing what you just agreed" }  (Changes an existing widget file — every desk it is placed on updates too. text for text kinds, items to ADD to a task list, rows to ADD to a table. "operation":"replace" only when the user asked to rewrite text. For any other change to what a widget shows, use ask-widget-ai on a desk copy instead.)\n' +
   '  { "kind": "set-cell", "tableId": "<from canvas summary>", "rowId": "<from rowIds>", "cells": {"Status":"Live"}, "reason": "you said it went live, so the table is out of date" }\n' +
   '  { "kind": "schedule-event", "title": "Deep work: brief", "startMs": 1780000000000, "durationMinutes": 60, "recurrence": null, "reason": "the brief needs an hour and your afternoon is free" }\n' +
   '  { "kind": "compose-mail", "to": ["ana@example.com"], "subject": "Q3 brief attached", "body": "Hi Ana, ...", "reason": "Ana is waiting on this and the brief is now ready" }\n' +
@@ -685,7 +689,11 @@ function documentsBlock(): string {
   try {
     const docs = listDocuments().slice(0, 12)
     if (docs.length === 0) return ''
-    const lines = docs.map((d) => `- documentId=${d.id} type=${d.docType} "${d.title}"`)
+    // A widget file names its kind ("widget:table") so update-widget-file can
+    // target it and the model knows a table from a sticky.
+    const lines = docs.map(
+      (d) => `- documentId=${d.id} type=${d.docType === 'widget' ? `widget:${d.widgetKind ?? 'unknown'}` : d.docType} "${d.title}"`
+    )
     return 'Documents in the library (newest first):\n' + lines.join('\n')
   } catch {
     return ''
@@ -1332,6 +1340,46 @@ export function parseChatJson(raw: string): {
             typeof action.label === 'string' && action.label.trim()
               ? (action.label as string)
               : 'this widget',
+          reason
+        })
+        break
+      }
+      case 'create-widget-file': {
+        const wk = action.widgetKind
+        if (typeof wk !== 'string' || !(WIDGET_FILE_AUTHORABLE_KINDS as readonly string[]).includes(wk)) break
+        const title = typeof action.title === 'string' ? action.title.trim() : ''
+        if (!title) break
+        const parsed = parseWidgetFileFields(action)
+        // A file with nothing in it is a placeholder the user has to fill; still
+        // allowed (the kind is named), but never with fields the kind ignores.
+        proposals.push({
+          id: makeProposalId('wfile', i++),
+          kind: 'create-widget-file',
+          widgetKind: wk as WidgetFileAuthorableKind,
+          title,
+          ...parsed,
+          deskId: typeof action.deskId === 'string' && action.deskId.trim() ? action.deskId.trim() : undefined,
+          reason
+        })
+        break
+      }
+      case 'update-widget-file': {
+        const fileId = typeof action.fileId === 'string' ? action.fileId.trim() : ''
+        if (!fileId) break
+        const parsed = parseWidgetFileFields(action)
+        const title = typeof action.title === 'string' && action.title.trim() ? action.title.trim() : undefined
+        if (!title && !parsed.text && !parsed.items?.length && !parsed.rows?.length) break
+        const op = action.operation
+        proposals.push({
+          id: makeProposalId('ufile', i++),
+          kind: 'update-widget-file',
+          fileId,
+          label: typeof action.label === 'string' && action.label ? action.label : 'the widget file',
+          title,
+          text: parsed.text,
+          items: parsed.items,
+          rows: parsed.rows,
+          operation: op === 'replace' ? 'replace' : op === 'append' ? 'append' : undefined,
           reason
         })
         break
@@ -3640,12 +3688,18 @@ Respond with VALID JSON ONLY (no commentary, no markdown fence). Schema:
   ]
 }`
 
+  // Widget files the user already keeps (docs/widget-files.md) that the
+  // request is about — read as text, so a build can use the real columns of
+  // "my supplier table" instead of guessing them. Context, not instructions:
+  // their text is the user's own data.
+  const filesBlock = relevantWidgetFilesBlock(userPrompt)
+
   const userMsg = `User's request:
 ${userPrompt}
 
 Widgets already on the canvas (skip duplicates):
 ${existingBlock}
-
+${filesBlock ? `\nWidget files the user already has that look relevant (their data, for context — reuse their columns and names rather than inventing new ones):\n${filesBlock}\n` : ''}
 Return the JSON now.`
 
   try {
@@ -6846,5 +6900,95 @@ export async function refineDashboardPlan(input: {
     }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
+  }
+}
+
+// The content fields a widget-file proposal may carry, read defensively from the
+// model's JSON: wrong types are dropped rather than coerced into something the
+// user did not ask for. Shared by create- and update-widget-file.
+function parseWidgetFileFields(action: Record<string, unknown>): {
+  text?: string
+  items?: Array<{ title: string; dueAt?: number | null }>
+  columns?: string[]
+  rows?: string[][]
+  outline?: WidgetFileOutlineNode[]
+} {
+  const text = typeof action.text === 'string' && action.text.trim() ? action.text : undefined
+  const items = Array.isArray(action.items)
+    ? (action.items as unknown[])
+        .map((it) =>
+          typeof it === 'string'
+            ? { title: it.trim() }
+            : it && typeof it === 'object' && typeof (it as { title?: unknown }).title === 'string'
+              ? {
+                  title: String((it as { title: string }).title).trim(),
+                  dueAt: typeof (it as { dueAt?: unknown }).dueAt === 'number' ? (it as { dueAt: number }).dueAt : null
+                }
+              : null
+        )
+        .filter((it): it is { title: string; dueAt: number | null } => !!it && !!it.title)
+        .slice(0, 200)
+    : undefined
+  const columns = Array.isArray(action.columns)
+    ? (action.columns as unknown[]).filter((c): c is string => typeof c === 'string' && !!c.trim()).slice(0, 40)
+    : undefined
+  const rows = Array.isArray(action.rows)
+    ? (action.rows as unknown[])
+        .filter((r): r is unknown[] => Array.isArray(r))
+        .map((r) => r.map((c) => (c === null || c === undefined ? '' : String(c))))
+        .slice(0, 500)
+    : undefined
+  const outline = Array.isArray(action.outline) ? cleanOutline(action.outline as unknown[], 0) : undefined
+  return {
+    text,
+    items: items?.length ? items : undefined,
+    columns: columns?.length ? columns : undefined,
+    rows: rows?.length ? rows : undefined,
+    outline: outline?.length ? outline : undefined
+  }
+}
+
+function cleanOutline(nodes: unknown[], depth: number): WidgetFileOutlineNode[] {
+  if (depth > 6) return []
+  const out: WidgetFileOutlineNode[] = []
+  for (const n of nodes.slice(0, 60)) {
+    if (!n || typeof n !== 'object') continue
+    const label = typeof (n as { label?: unknown }).label === 'string' ? (n as { label: string }).label.trim() : ''
+    if (!label) continue
+    const kids = (n as { children?: unknown }).children
+    out.push({ label, children: Array.isArray(kids) ? cleanOutline(kids, depth + 1) : undefined })
+  }
+  return out
+}
+
+// The widget files whose name or content shares words with a build request,
+// best first, each as its serialised text (capped). Keyword overlap only — no
+// model, no embedding call — so it costs nothing when nothing matches.
+function relevantWidgetFilesBlock(prompt: string, limit = 4, perFile = 1200): string {
+  try {
+    const words = new Set(
+      prompt
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((w) => w.length > 3)
+    )
+    if (words.size === 0) return ''
+    const resolvers = mainWidgetResolvers()
+    const scored = listWidgetFiles()
+      .map((f) => {
+        const textBody = widgetFileBodyToText({ kind: f.kind, content: f.content }, f.title, resolvers)
+        const hay = `${f.title} ${textBody}`.toLowerCase()
+        let score = 0
+        for (const w of words) if (hay.includes(w)) score += f.title.toLowerCase().includes(w) ? 3 : 1
+        return { f, textBody, score }
+      })
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+    return scored
+      .map((x) => `- ${x.f.kind} file "${x.f.title}":\n${x.textBody.slice(0, perFile)}`)
+      .join('\n')
+  } catch {
+    return ''
   }
 }

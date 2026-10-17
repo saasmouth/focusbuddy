@@ -20,7 +20,11 @@ const read = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8')
 
 const db = read('main/db/connectedApps.ts')
 const types = read('shared/types.ts')
-const accordion = read('renderer/src/components/nav/AreaAccordion.tsx')
+// 4.3.32: the Tile, TileGrid and SubHeading the accordion draws moved to
+// nav/menuParts.tsx so the new Widgets section could share them. The menu is
+// still one menu, so its source is read as the two files together.
+const accordion =
+  read('renderer/src/components/nav/AreaAccordion.tsx') + '\n' + read('renderer/src/components/nav/menuParts.tsx')
 
 /** Every SQL statement in the module, as one string per statement. */
 function statements(src: string): string[] {

@@ -317,6 +317,19 @@ export default function ProposalPreview({ p }: { p: ActionProposal }): React.JSX
     case 'create-document':
     case 'generate-document':
       return <DocumentMini docType={p.docType} title={p.title} />
+    // A widget file previews as what it will hold, in the same minis the desk
+    // creates use: its tasks, its table's columns, or its text.
+    case 'create-widget-file':
+      if (p.widgetKind === 'task-list' && p.items?.length) return <TodoMini items={p.items.map((i) => i.title)} />
+      if (p.widgetKind === 'table' && p.columns?.length) return <TableMini columns={p.columns.map((label) => ({ label }))} />
+      if (p.widgetKind === 'mindmap' && p.outline?.length) return <TodoMini items={p.outline.map((n) => n.label)} />
+      if (p.text) return <StickyMini text={p.text} />
+      return null
+    case 'update-widget-file':
+      if (p.items?.length) return <TodoMini items={p.items.map((i) => i.title)} />
+      if (p.rows?.length) return <TodoMini items={p.rows.map((r) => r.join(' · '))} />
+      if (p.text) return <StickyMini text={p.text} />
+      return null
     case 'create-task':
       return <DeskMini title={p.title} notes={p.notes} />
     case 'update-widget': {

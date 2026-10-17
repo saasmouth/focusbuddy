@@ -57,7 +57,17 @@ import type {
   WidgetLink,
   WireType
 } from '@shared/types'
-import { widgetToText, docBodyToText, type WidgetTextResolvers } from '@shared/widgetText'
+import { widgetToText, docBodyToText, widgetFileBodyToText, type WidgetTextResolvers } from '@shared/widgetText'
+import {
+  WIDGET_FILE_TYPES,
+  appendTaskItems,
+  cardContent,
+  mergeText,
+  mindmapContent,
+  taskListContent
+} from '@shared/widgetFiles'
+import type { WidgetFile, WidgetFileDraft, WidgetFilePatch, WidgetFileOutlineNode } from '@shared/types'
+import { WIDGET_FILE_AUTHORABLE_KINDS, type WidgetFileAuthorableKind } from '@shared/types'
 import {
   defaultConfig,
   type FbTable,
@@ -140,6 +150,12 @@ export interface WorkspaceDeps extends RecallDeps {
     width?: number
     height?: number
   }) => Widget
+  // Widget files (docs/widget-files.md). Optional so a test double without them
+  // still type-checks; the tools say so plainly when they are absent.
+  createWidgetFile?: (draft: WidgetFileDraft) => WidgetFile
+  getWidgetFile?: (id: string) => WidgetFile | null
+  updateWidgetFile?: (id: string, patch: WidgetFilePatch) => WidgetFile | null
+  placeWidgetFile?: (id: string, at: { taskId: string }) => Widget | null
   // Files: read-only. Creating and deleting files stays out of this surface —
   // a file is bytes on disk, and the honest thing an AI can do with them is
   // read them and write what it learned into the workspace.
@@ -244,7 +260,24 @@ function workItemDetail(n: FbNode): string {
 // shared/widgetText.ts already handles all six types and is what the in-app
 // assistant and plexii_read_desk read through, so reading a document and
 // reading the same document as a widget can no longer disagree.
-function documentToText(d: FbDocument, _deps: WorkspaceDeps): string {
+function documentToText(d: FbDocument, deps: WorkspaceDeps): string {
+  // A widget file reads through the same per-kind serialiser its desk copies
+  // use; a table file needs its rows, which only the deps can supply.
+  if (d.docType === 'widget') {
+    const r: WidgetTextResolvers = {
+      table: (id) => {
+        const t = deps.getTable(id)
+        if (!t) return null
+        return {
+          title: t.title,
+          columns: t.schema.columns.map((c) => ({ id: c.id, label: c.label, type: c.type })),
+          rows: deps.listRows(id).map((row) => row.cells)
+        }
+      }
+    }
+    const kind = (d.body as { kind?: string }).kind ?? 'widget'
+    return `Widget file (${kind})\n${widgetFileBodyToText(d.body, d.title, r)}`
+  }
   return docBodyToText(d.docType, d.body)
 }
 
@@ -1327,6 +1360,146 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
     }
   },
   {
+    name: 'plexii_create_widget_file',
+    description:
+      'Create a WIDGET FILE: a widget that lives in Files on its own (like a document) and can be placed on any ' +
+      'number of desks, every copy kept in sync. kind "sticky" | "note" | "markdown" take text; "card" takes text as its ' +
+      'body; "task-list" takes items; "table" takes columns + rows; "mindmap" takes an outline (the title is the root). ' +
+      'Give deskId to also put it on a desk. Requires a write token.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', description: WIDGET_FILE_AUTHORABLE_KINDS.join(' | ') },
+        title: { type: 'string', description: 'The file name.' },
+        text: { type: 'string', description: 'For sticky / note / markdown / card.' },
+        items: {
+          type: 'array',
+          description: 'For task-list: [{ title, dueAt? (ISO date) }].',
+          items: { type: 'object', properties: { title: { type: 'string' }, dueAt: { type: 'string' } } }
+        },
+        columns: { type: 'array', items: { type: 'string' }, description: 'For table: column headings.' },
+        rows: { type: 'array', description: 'For table: rows, each an array of cell strings.', items: { type: 'array', items: { type: 'string' } } },
+        outline: {
+          type: 'array',
+          description: 'For mindmap: [{ label, children?: [...] }] under the root (the title).',
+          items: { type: 'object' }
+        },
+        deskId: { type: 'string', description: 'Also place a linked copy on this desk (optional).' }
+      },
+      required: ['kind', 'title']
+    },
+    annotations: { title: 'Create a widget file', ...CREATES },
+    scope: 'write',
+    run(args, deps) {
+      if (!deps.createWidgetFile) return toolError('Widget files are not available in this build.')
+      const kind = str(args.kind) as WidgetFileAuthorableKind
+      if (!(WIDGET_FILE_AUTHORABLE_KINDS as readonly string[]).includes(kind)) {
+        return toolError(`Unknown kind "${kind}". Use one of ${WIDGET_FILE_AUTHORABLE_KINDS.join(', ')}.`)
+      }
+      const title = str(args.title)
+      if (!title) return toolError('plexii_create_widget_file needs a title.')
+      const desk = resolveDesk(deps, args.deskId)
+      if ('error' in desk) return toolError(desk.error)
+      const items = mcpItems(args.items)
+      let content = ''
+      if (kind === 'sticky' || kind === 'note' || kind === 'markdown') content = str(args.text)
+      else if (kind === 'card') content = cardContent(title, str(args.text))
+      else if (kind === 'task-list') content = taskListContent(items)
+      else if (kind === 'mindmap') content = mindmapContent(title, mcpOutline(args.outline, 0))
+      else if (kind === 'table') {
+        const labels = Array.isArray(args.columns) ? (args.columns as unknown[]).map((c) => str(c)).filter(Boolean) : []
+        const cols = (labels.length ? labels : ['Name']).map((label, i) => ({
+          id: `c-${Date.now().toString(36)}-${i}`,
+          label,
+          type: 'text-short' as const
+        }))
+        const t = deps.createTable({ taskId: null, title, schema: { columns: cols } as unknown as TableSchema })
+        for (const row of Array.isArray(args.rows) ? (args.rows as unknown[]) : []) {
+          if (!Array.isArray(row)) continue
+          const cells: Record<string, unknown> = {}
+          cols.forEach((c, i) => {
+            const v = str((row as unknown[])[i])
+            if (v) cells[c.id] = v
+          })
+          deps.createRow({ tableId: t.id, cells })
+        }
+        content = t.id
+      }
+      const f = deps.createWidgetFile({ kind, title, content })
+      if (desk.id) deps.placeWidgetFile?.(f.id, { taskId: desk.id })
+      return {
+        ...text(`Created ${WIDGET_FILE_TYPES[kind]?.label ?? kind} file ${f.id}: ${f.title}.` + (desk.id ? ' It is on the desk.' : '')),
+        structuredContent: { id: f.id }
+      }
+    }
+  },
+  {
+    name: 'plexii_update_widget_file',
+    description:
+      'Change a widget file (a documents entry of type widget). text appends to a sticky / note / markdown / card ' +
+      '(operation "replace" rewrites it); items ADD tasks to a task list; rows ADD rows to a table; title renames it. ' +
+      'Every desk the file is placed on updates with it. Requires a write token.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'The widget file id (a document id).' },
+        title: { type: 'string' },
+        text: { type: 'string' },
+        operation: { type: 'string', description: 'append (default) | replace — for text only.' },
+        items: { type: 'array', items: { type: 'object', properties: { title: { type: 'string' }, dueAt: { type: 'string' } } } },
+        rows: { type: 'array', items: { type: 'array', items: { type: 'string' } } }
+      },
+      required: ['id']
+    },
+    annotations: { title: 'Update a widget file', ...EDITS },
+    scope: 'write',
+    run(args, deps) {
+      if (!deps.getWidgetFile || !deps.updateWidgetFile) return toolError('Widget files are not available in this build.')
+      const f = deps.getWidgetFile(str(args.id))
+      if (!f) return toolError('No widget file with that id.')
+      const done: string[] = []
+      const t = str(args.text)
+      if (t) {
+        const next = mergeText(f.kind, f.content, t, str(args.operation) === 'replace' ? 'replace' : 'append')
+        if (next === null) return toolError(`A ${f.kind} file has no text to write; change it in the app.`)
+        deps.updateWidgetFile(f.id, { content: next })
+        done.push('text')
+      }
+      const items = mcpItems(args.items)
+      if (items.length) {
+        if (f.kind !== 'task-list') return toolError('items only apply to a task-list file.')
+        const next = appendTaskItems(deps.getWidgetFile(f.id)?.content ?? f.content, items)
+        if (next === null) return toolError('This task list shows a desk\'s tasks rather than its own.')
+        deps.updateWidgetFile(f.id, { content: next })
+        done.push(`${items.length} task(s)`)
+      }
+      if (Array.isArray(args.rows) && (args.rows as unknown[]).length) {
+        if (f.kind !== 'table') return toolError('rows only apply to a table file.')
+        const table = deps.getTable(f.content)
+        if (!table) return toolError("The file's table no longer exists.")
+        let n = 0
+        for (const row of args.rows as unknown[]) {
+          if (!Array.isArray(row)) continue
+          const cells: Record<string, unknown> = {}
+          table.schema.columns.forEach((c, i) => {
+            const v = str((row as unknown[])[i])
+            if (v) cells[c.id] = v
+          })
+          deps.createRow({ tableId: table.id, cells })
+          n++
+        }
+        done.push(`${n} row(s)`)
+      }
+      const title = str(args.title)
+      if (title) {
+        deps.updateWidgetFile(f.id, { title })
+        done.push('title')
+      }
+      if (!done.length) return toolError('Nothing to change: give text, items, rows or a title.')
+      return text(`Updated ${f.id}: ${done.join(', ')}.`)
+    }
+  },
+  {
     name: 'plexii_create_table',
     description:
       'Create a table with typed columns, optionally ON a desk so it appears on that canvas. ' +
@@ -2119,6 +2292,9 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
       const wantsBody =
         args.markdown !== undefined || args.columns !== undefined || args.slides !== undefined || args.nodes !== undefined
       if (wantsBody) {
+        if (d.docType === 'widget') {
+          return toolError(`"${d.title}" is a widget file — change it with plexii_update_widget_file, which keeps every desk copy in sync.`)
+        }
         if (d.docType === 'design' || d.docType === 'draw') {
           return toolError(`"${d.title}" is a ${d.docType} — its content is geometry, which cannot be rewritten from here. Rename it, or edit it in Plexii.`)
         }
@@ -2639,7 +2815,7 @@ export function liveWorkspaceDeps(serverVersion: string): Promise<WorkspaceDeps>
 }
 
 async function buildLiveWorkspaceDeps(serverVersion: string): Promise<WorkspaceDeps> {
-  const [search, nodes, workItems, documents, tables, knowledge, timeBlocks, flows, widgets, files, fileText, contacts, meetings, forms, reports, decisions, projectPlan, database, activeOrg, contextEngine, extCal, links, templates, mailAccount, imap, searchText, md] =
+  const [search, nodes, workItems, documents, tables, knowledge, timeBlocks, flows, widgets, files, fileText, contacts, meetings, forms, reports, decisions, projectPlan, database, activeOrg, contextEngine, extCal, links, templates, mailAccount, imap, searchText, md, widgetFiles] =
     await Promise.all([
     import('./db/search'),
     import('./db/nodes'),
@@ -2667,8 +2843,9 @@ async function buildLiveWorkspaceDeps(serverVersion: string): Promise<WorkspaceD
     import('./mail/mailAccount'),
     import('./mail/imap'),
     import('./db/searchText'),
-    import('./ai/markdownToTiptap')
-  ])
+    import('./ai/markdownToTiptap'),
+    import('./db/widgetFiles')
+    ])
   return {
     ...liveMcpDeps(serverVersion),
     searchAll: search.searchAll,
@@ -2700,11 +2877,24 @@ async function buildLiveWorkspaceDeps(serverVersion: string): Promise<WorkspaceD
     // unit tests could not see it because they assert what the TOOL builds,
     // not what this adapter forwards.
     createWidget: (draft) => widgets.createWidget({ ...draft, kind: draft.kind as Widget['kind'] }),
+    createWidgetFile: (draft) => widgetFiles.createWidgetFile(draft),
+    getWidgetFile: (id) => widgetFiles.getWidgetFile(id),
+    updateWidgetFile: (id, patch) => widgetFiles.updateWidgetFile(id, patch),
+    placeWidgetFile: (id, at) => widgetFiles.placeWidgetFile(id, at),
     listFileEntries: files.listEntries,
     getFileEntry: files.getEntry,
     fileText: fileText.extractFileText,
     updateWorkItemFields: (id, patch) => workItems.updateWorkItemFields(id, patch, { kind: 'agent', agentRef: 'mcp' }),
-    updateDocument: documents.updateDocument,
+    // A widget file's rename goes through its store (user-owned name, fanned
+    // out to every desk copy); its body is never written as a document body.
+    updateDocument: (id, patch) => {
+      const d = documents.getDocument(id)
+      if (d?.docType === 'widget') {
+        if (patch.title) widgetFiles.updateWidgetFile(id, { title: patch.title })
+        return documents.getDocument(id)
+      }
+      return documents.updateDocument(id, patch)
+    },
     updateKnowledge: knowledge.updateKnowledge,
     updateRow: tables.updateRow,
     getRow: (tableId, rowId) => tables.listRows(tableId).find((r) => r.id === rowId) ?? null,
@@ -2772,3 +2962,32 @@ async function buildLiveWorkspaceDeps(serverVersion: string): Promise<WorkspaceD
 }
 
 export type { McpToolResult }
+
+// Task items from MCP args: strings or { title, dueAt (ISO or ms) }.
+function mcpItems(raw: unknown): Array<{ title: string; dueAt: number | null }> {
+  if (!Array.isArray(raw)) return []
+  const out: Array<{ title: string; dueAt: number | null }> = []
+  for (const it of raw.slice(0, 200)) {
+    if (typeof it === 'string' && it.trim()) out.push({ title: it.trim(), dueAt: null })
+    else if (it && typeof it === 'object') {
+      const title = str((it as { title?: unknown }).title)
+      if (!title) continue
+      const d = (it as { dueAt?: unknown }).dueAt
+      const ms = typeof d === 'number' ? d : typeof d === 'string' ? Date.parse(d) : NaN
+      out.push({ title, dueAt: Number.isFinite(ms) ? ms : null })
+    }
+  }
+  return out
+}
+
+function mcpOutline(raw: unknown, depth: number): WidgetFileOutlineNode[] {
+  if (!Array.isArray(raw) || depth > 6) return []
+  const out: WidgetFileOutlineNode[] = []
+  for (const n of raw.slice(0, 60)) {
+    if (!n || typeof n !== 'object') continue
+    const label = str((n as { label?: unknown }).label)
+    if (!label) continue
+    out.push({ label, children: mcpOutline((n as { children?: unknown }).children, depth + 1) })
+  }
+  return out
+}

@@ -9,6 +9,7 @@
 
 import type {
   Widget,
+  WidgetFileOutlineNode,
   WidgetFile,
   WidgetFileBody,
   WidgetFileTitleSource,
@@ -301,8 +302,10 @@ export function deriveWidgetFileTitle(
       const own = usable(t.title)
       if (own) return own
       const first = t.columns[0]?.label?.trim()
-      if (!first) return null
+      // An empty table has nothing to be named after yet: "Name · 0 rows"
+      // would be a name about the template, not the data.
       const n = t.rows.length
+      if (!first || n === 0) return null
       return `${cleanTitle(first)} · ${n} row${n === 1 ? '' : 's'}`
     }
     case 'task-list': {
@@ -382,8 +385,10 @@ export function deriveWidgetFileTitle(
       return sec % 60 === 0 ? `Timer · ${sec / 60} min` : `Timer · ${sec}s`
     }
     case 'calculator': {
-      const expr = raw.trim()
-      return expr ? `Calc · ${cleanTitle(expr)}` : null
+      // Not through cleanTitle: it strips * and _ as markdown, and an
+      // expression's operators are the whole point of it.
+      const expr = raw.replace(/\s+/g, ' ').trim().slice(0, 50)
+      return expr ? `Calc · ${expr}` : null
     }
     case 'color': {
       const hex = raw.trim()
@@ -478,3 +483,87 @@ export function parseWidgetFileExport(text: string): WidgetFileExport | { error:
     exportedAt: typeof p.exportedAt === 'string' ? p.exportedAt : ''
   }
 }
+
+// ── Content from plain shapes ───────────────────────────────────────────────
+// What the assistant (in-app actions and MCP tools) may write into a widget
+// file: text, task items, an outline — turned here into exactly what each
+// widget stores, so a model never hand-writes a widget's internal JSON.
+
+const newId = (): string =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `id-${Math.random().toString(36).slice(2)}`
+
+/** An own-items task list's content. */
+export function taskListContent(items: Array<{ title: string; dueAt?: number | null }>): string {
+  return JSON.stringify({
+    scope: 'own',
+    filter: 'open',
+    items: items.map((i) => ({ id: newId(), title: i.title, done: false, dueAt: i.dueAt ?? null }))
+  })
+}
+
+/** Add items to an own-items task list; null when the list is a desk lens. */
+export function appendTaskItems(content: string, items: Array<{ title: string; dueAt?: number | null }>): string | null {
+  const existing = ownTaskItems(content)
+  if (existing === null) return null
+  let filter = 'open'
+  try {
+    const p = JSON.parse(content) as { filter?: string }
+    if (p.filter === 'done' || p.filter === 'all') filter = p.filter
+  } catch {
+    /* keep the default */
+  }
+  return JSON.stringify({
+    scope: 'own',
+    filter,
+    items: [
+      ...existing.map((i) => ({ id: i.id || newId(), title: i.title, done: i.done, dueAt: i.dueAt ?? null })),
+      ...items.map((i) => ({ id: newId(), title: i.title, done: false, dueAt: i.dueAt ?? null }))
+    ]
+  })
+}
+
+/** A mind map's content from an outline: the title is the root idea. */
+export function mindmapContent(rootLabel: string, outline: WidgetFileOutlineNode[] = []): string {
+  const node = (label: string, kids: WidgetFileOutlineNode[] = []): Record<string, unknown> => ({
+    id: newId(),
+    label,
+    kind: 'idea',
+    children: kids.map((k) => node(k.label, k.children ?? [])),
+    userReplies: [],
+    capped: false
+  })
+  const root = node(rootLabel, outline)
+  return JSON.stringify({
+    root,
+    selectedId: null,
+    viewRootId: root.id,
+    agentSuggestions: {},
+    agentConversations: {},
+    agentStats: {}
+  })
+}
+
+/** A card's content: title + body. */
+export function cardContent(title: string, body: string): string {
+  return JSON.stringify({ title, body, accent: '#6366f1' })
+}
+
+/** Merge new text into a text kind's content (sticky/note/markdown/card). */
+export function mergeText(kind: WidgetKind, content: string, text: string, op: 'replace' | 'append'): string | null {
+  if (kind === 'sticky' || kind === 'note' || kind === 'markdown') {
+    if (op === 'replace') return text
+    return content.trim() ? `${content.replace(/\s+$/, '')}\n${text}` : text
+  }
+  if (kind === 'card') {
+    let card: Record<string, unknown> = {}
+    try {
+      card = JSON.parse(content || '{}') as Record<string, unknown>
+    } catch {
+      card = {}
+    }
+    const body = typeof card.body === 'string' ? card.body : ''
+    return JSON.stringify({ ...card, body: op === 'replace' || !body.trim() ? text : `${body}\n${text}` })
+  }
+  return null
+}
+

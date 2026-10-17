@@ -22,8 +22,10 @@ import { catalogFor } from '../lib/widgetCatalog'
 import { useWidgetStore } from './widgets'
 import { useViewStore } from './view'
 import { useNodeStore } from './nodes'
+import { useDocumentsStore } from './documents'
 import { useNoticeStore } from './notice'
 import { nudgeSync } from '../lib/syncNudge'
+import { fitNewWidgetToView } from '../lib/fitDroppedWidget'
 
 interface WidgetFilesState {
   /** Files loaded into this window, by id. */
@@ -64,6 +66,25 @@ interface WidgetFilesState {
 function remember(file: WidgetFile | null): void {
   if (!file) return
   useWidgetFilesStore.setState((s) => ({ files: { ...s.files, [file.id]: file } }))
+  // The documents list is what the tray, mentions and pickers name documents
+  // from; keep the file's row in it current without a full (cloud-pulling)
+  // refresh, so a new or renamed file never shows as "Document".
+  const docs = useDocumentsStore.getState()
+  const meta = {
+    id: file.id,
+    docType: 'widget' as const,
+    title: file.title,
+    archived: false,
+    createdAt: file.createdAt,
+    updatedAt: file.updatedAt,
+    widgetKind: file.kind
+  }
+  useDocumentsStore.setState({ list: [meta, ...docs.list.filter((d) => d.id !== file.id)] })
+}
+
+function forget(id: string): void {
+  const docs = useDocumentsStore.getState()
+  if (docs.list.some((d) => d.id === id)) useDocumentsStore.setState({ list: docs.list.filter((d) => d.id !== id) })
 }
 
 /** Put a freshly created instance into the open desk, as a create would. */
@@ -86,6 +107,25 @@ function mirrorToInstances(fileId: string, fields: Partial<Pick<Widget, 'content
   useWidgetStore.setState({
     widgets: ws.widgets.map((w) => (w.syncGroupId === sgid ? { ...w, ...fields } : w))
   })
+}
+
+/**
+ * A desk instance's size, capped to the view the same way every other new
+ * widget is (fitNewWidgetToView — the one place a new widget is fitted). An
+ * instance is created in main, not through the widget store's create, so the
+ * cap is applied here rather than at each drop site.
+ */
+function fitInstance(
+  kind: WidgetKind,
+  at: { x?: number; y?: number; width?: number; height?: number }
+): { x?: number; y?: number; width?: number; height?: number } {
+  const entry = catalogFor(kind)
+  const draft = { kind, x: at.x, y: at.y, width: at.width ?? entry?.defaultWidth, height: at.height ?? entry?.defaultHeight }
+  const sized = fitNewWidgetToView(draft, (k) => {
+    const e = catalogFor(k as WidgetKind)
+    return e ? { width: e.defaultWidth, height: e.defaultHeight } : null
+  })
+  return { x: sized.x, y: sized.y, width: sized.width, height: sized.height }
 }
 
 function kindLabel(kind: WidgetKind): string {
@@ -165,6 +205,7 @@ export const useWidgetFilesStore = create<WidgetFilesState>((set, get) => ({
     const file = get().files[id] ?? (await get().load(id))
     const ok = await window.api.widgetFiles.trash(id)
     if (!ok) return false
+    forget(id)
     nudgeSync()
     const view = useViewStore.getState().view
     if (view.kind === 'document' && view.documentId === id) useViewStore.getState().back()
@@ -174,7 +215,10 @@ export const useWidgetFilesStore = create<WidgetFilesState>((set, get) => ({
       action: {
         label: 'Undo',
         run: () => {
-          void window.api.documents.restore(id).then(() => nudgeSync())
+          void window.api.documents.restore(id).then(() => {
+            nudgeSync()
+            void get().load(id)
+          })
         }
       }
     })
@@ -182,7 +226,9 @@ export const useWidgetFilesStore = create<WidgetFilesState>((set, get) => ({
   },
 
   place: async (id, taskId, at = {}) => {
-    const widget = await window.api.widgetFiles.place(id, { taskId, ...at })
+    const file = get().files[id] ?? (await get().load(id))
+    const sized = file ? fitInstance(file.kind, at) : at
+    const widget = await window.api.widgetFiles.place(id, { taskId, ...sized })
     if (!widget) {
       useNoticeStore.getState().show({ text: 'That widget file no longer exists.', icon: 'error' })
       return null
@@ -197,13 +243,7 @@ export const useWidgetFilesStore = create<WidgetFilesState>((set, get) => ({
     const entry = catalogFor(kind)
     const res = await window.api.widgetFiles.createAndPlace(
       { kind },
-      {
-        taskId,
-        x: at.x,
-        y: at.y,
-        width: at.width ?? entry?.defaultWidth,
-        height: at.height ?? entry?.defaultHeight
-      },
+      { taskId, ...fitInstance(kind, at) },
       { defaultContent: entry?.defaultContent ?? '' }
     )
     remember(res.file)

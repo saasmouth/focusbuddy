@@ -27,6 +27,7 @@ import { useMessagingStore } from '../stores/messaging'
 import { useViewStore } from '../stores/view'
 import { useNoticeStore } from '../stores/notice'
 import { catalogFor } from './widgetCatalog'
+import { applyCreateWidgetFile, applyUpdateWidgetFile } from './widgetFileActions'
 import { spawnPositionFor } from './spawnPosition'
 import { computeSectionFrame, effectiveLayout } from './sectionGeometry'
 import { pickColors } from './sectionColors'
@@ -132,6 +133,10 @@ export async function applyProposal(
       return applyCreateKnowledgeEntry(proposal)
     case 'create-document':
       return applyCreateDocument(proposal, ctx)
+    case 'create-widget-file':
+      return applyCreateWidgetFile(proposal, ctx)
+    case 'update-widget-file':
+      return applyUpdateWidgetFile(proposal, ctx)
     case 'generate-document':
       return applyGenerateDocument(proposal, ctx)
     case 'edit-document':
@@ -1609,6 +1614,14 @@ export function describeProposal(
   p: ActionProposal
 ): { icon: string; verb: string; subject: string } {
   switch (p.kind) {
+    case 'create-widget-file':
+      return {
+        icon: catalogFor(p.widgetKind)?.icon ?? 'widgets',
+        verb: `New ${(catalogFor(p.widgetKind)?.label ?? p.widgetKind).toLowerCase()} file`,
+        subject: p.title
+      }
+    case 'update-widget-file':
+      return { icon: 'edit_note', verb: 'Update', subject: p.label }
     case 'create-widget':
       return {
         icon: catalogFor(p.widgetKind)?.icon ?? 'widgets',

@@ -36,7 +36,7 @@ const DESK_KINDS = new Set<ActionProposal['kind']>([
 // Kinds whose result is a document that can live in Files instead of (or as well
 // as) on a desk. create-document already lands in Files; generate-document can be
 // routed there via the applier's toFiles mode instead of dropping a desk widget.
-const FILE_KINDS = new Set<ActionProposal['kind']>(['create-document', 'generate-document'])
+const FILE_KINDS = new Set<ActionProposal['kind']>(['create-document', 'generate-document', 'create-widget-file'])
 
 // Can this proposal be placed on a desk? Everything in DESK_KINDS, plus a
 // generated document (which normally drops a desk widget).
@@ -58,7 +58,7 @@ function hasPlacementChoice(kind: ActionProposal['kind']): boolean {
 // several seconds; saying so is the whole point of this.
 function busyVerb(kind: ActionProposal['kind']): string {
   if (kind === 'generate-document') return 'generating…'
-  if (kind === 'create-document') return 'creating…'
+  if (kind === 'create-document' || kind === 'create-widget-file') return 'creating…'
   return '…'
 }
 

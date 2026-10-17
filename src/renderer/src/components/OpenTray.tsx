@@ -12,6 +12,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from './Icon'
+import { widgetFileType } from '@shared/widgetFiles'
 import { useViewStore, type View } from '../stores/view'
 import { useNodeStore } from '../stores/nodes'
 import { useDocumentsStore } from '../stores/documents'
@@ -154,7 +155,9 @@ export default function OpenTray(): JSX.Element | null {
       const d = docs.find((x) => x.id === id)
       const tone = lookupApp('office', DOC_APP_KEY[d?.docType ?? ''])?.tone
       const icon =
-        d?.docType === 'sheet'
+        d?.docType === 'widget'
+          ? (widgetFileType(d.widgetKind)?.icon ?? 'widgets')
+          : d?.docType === 'sheet'
           ? 'table'
           : d?.docType === 'slides'
             ? 'slideshow'

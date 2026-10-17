@@ -27,9 +27,15 @@ export function resolveGoToTarget(
       const id = resolvedIds?.get(p.id)
       return id ? { kind: 'task', id, label: p.title } : null
     }
-    case 'create-document': {
+    case 'create-document':
+    case 'create-widget-file': {
+      // A widget file opens full-pane through the same document route.
       const id = resolvedIds?.get(p.id)
       return id ? { kind: 'document', id, label: p.title } : null
+    }
+    case 'update-widget-file': {
+      const id = p.fileId.startsWith('$') ? resolvedIds?.get(p.fileId.slice(1)) : p.fileId
+      return id ? { kind: 'document', id, label: p.label } : null
     }
     // Widget-producing creates — the executor stashed the new WIDGET id under the
     // proposal id, so "Go to" (and any host, e.g. MindMap's agent-outcome ref)

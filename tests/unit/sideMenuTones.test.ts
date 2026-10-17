@@ -3,6 +3,9 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { AREA_TONES, attentionFilterTone, type AreaId } from '../../src/renderer/src/lib/areaTones'
 import { ATTENTION_FILTERS } from '../../src/renderer/src/lib/attentionQueues'
+import { SEGMENT_APPS } from '../../src/renderer/src/lib/segmentApps'
+import { tileWidgetKind } from '../../src/renderer/src/lib/widgetMenu'
+import { catalogFor } from '../../src/renderer/src/lib/widgetCatalog'
 
 // "Make sure every option in the side menu is coloured and consistent, eg,
 // home, attention, rooms and their sub menus."
@@ -20,7 +23,11 @@ const read = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8')
 
 const tones = read('renderer/src/lib/areaTones.ts')
 const sidebar = read('renderer/src/components/Sidebar.tsx')
-const accordion = read('renderer/src/components/nav/AreaAccordion.tsx')
+// 4.3.32: the Tile, TileGrid and SubHeading the accordion draws moved to
+// nav/menuParts.tsx so the new Widgets section could share them. The menu is
+// still one menu, so its source is read as the two files together.
+const accordion =
+  read('renderer/src/components/nav/AreaAccordion.tsx') + '\n' + read('renderer/src/components/nav/menuParts.tsx')
 
 describe('every side-menu row is actually coloured', () => {
   it('NavRow honours its tone instead of voiding it', () => {
@@ -164,7 +171,9 @@ describe('the reversal is recorded, not quietly made', () => {
 // assert the wiring exists rather than trusting that again.
 
 describe('tiles can be dragged onto a desk', () => {
-  const accordion = read('renderer/src/components/nav/AreaAccordion.tsx')
+  // 4.3.32: the Tile moved to nav/menuParts.tsx; the menu is read as both files.
+  const accordion =
+    read('renderer/src/components/nav/AreaAccordion.tsx') + '\n' + read('renderer/src/components/nav/menuParts.tsx')
   const canvas = read('renderer/src/components/Canvas.tsx')
 
   it('a connected app sets the three types the canvas reads', () => {
@@ -185,34 +194,27 @@ describe('tiles can be dragged onto a desk', () => {
     expect(canvas).toContain('e.dataTransfer.getData(DRAG_MIME)')
   })
 
+  // Superseded 4.3.32: these two read a hand-written TILE_WIDGET_KIND map in
+  // AreaAccordion. The map moved onto the Apps registry itself (each app's
+  // `widgetKinds` in lib/segmentApps), which is also what keeps those kinds out
+  // of the new Widgets section — so the same two guarantees are now asserted
+  // against the registry, through the function the tiles actually call.
   it('every mapped kind is a real widget in the catalogue', () => {
     // A mapping to a kind that does not exist would drop nothing, silently.
-    const catalog = read('renderer/src/lib/widgetCatalog.ts')
-    const map = accordion.slice(
-      accordion.indexOf('const TILE_WIDGET_KIND'),
-      accordion.indexOf('}', accordion.indexOf('const TILE_WIDGET_KIND'))
-    )
-    const kinds = [...map.matchAll(/:\s*'([a-z-]+)'/g)].map((m) => m[1])
-    expect(kinds.length).toBeGreaterThan(5)
-    for (const k of kinds) {
-      expect(catalog, `no widget kind '${k}' in the catalogue`).toContain(`kind: '${k}'`)
-    }
+    const dragKinds = SEGMENT_APPS.office.map((a) => tileWidgetKind(a)).filter((k): k is NonNullable<typeof k> => !!k)
+    expect(dragKinds.length).toBeGreaterThan(5)
+    for (const k of dragKinds) expect(catalogFor(k), `no widget kind '${k}' in the catalogue`).not.toBeNull()
+    expect(accordion).toContain('tileWidgetKind(app)')
   })
 
   it('a tile with no widget equivalent is NOT draggable', () => {
     // sign, meet and vault have nowhere to land. A grab cursor that does
-    // nothing on release is worse than no affordance at all.
-    const map = accordion.slice(
-      accordion.indexOf('const TILE_WIDGET_KIND'),
-      accordion.indexOf('}', accordion.indexOf('const TILE_WIDGET_KIND'))
-    )
-    // Matched at a line boundary: a plain substring check for "sign:" also
-    // matches "design: 'design'", which is a real mapping.
+    // nothing on release is worse than no affordance at all. Meet carries the
+    // meeting record as a kind it REPRESENTS, but that record is never
+    // hand-placed, so it still has no drag kind.
     for (const key of ['sign', 'meet', 'vault']) {
-      expect(
-        new RegExp(`^\\s*${key}:`, 'm').test(map),
-        `${key} should have no widget mapping`
-      ).toBe(false)
+      const app = SEGMENT_APPS.office.find((a) => a.key === key)!
+      expect(tileWidgetKind(app), `${key} should have no drag kind`).toBeUndefined()
     }
     expect(accordion).toContain('if (!kind) return undefined')
   })

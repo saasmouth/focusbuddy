@@ -93,7 +93,8 @@ describe('the preference, and where it lives', () => {
   const types = read('shared/types.ts')
   const migrations = read('main/db/migrations.ts')
   const dialog = read('renderer/src/components/AddConnectedAppDialog.tsx')
-  const accordion = read('renderer/src/components/nav/AreaAccordion.tsx')
+  // 4.3.32: Tile moved to nav/menuParts.tsx (shared with the Widgets section).
+  const accordion = read('renderer/src/components/nav/AreaAccordion.tsx') + read('renderer/src/components/nav/menuParts.tsx')
   const store = read('renderer/src/stores/appNotifications.ts')
 
   it('is a durable per-app choice, not session state', () => {
@@ -227,7 +228,8 @@ describe('liveness is recorded, never assumed', () => {
 })
 
 describe('the badge shows which kind of claim it is making', () => {
-  const accordion = read('renderer/src/components/nav/AreaAccordion.tsx')
+  // 4.3.32: Tile moved to nav/menuParts.tsx (shared with the Widgets section).
+  const accordion = read('renderer/src/components/nav/AreaAccordion.tsx') + read('renderer/src/components/nav/menuParts.tsx')
 
   it('green count and a sun when live', () => {
     expect(accordion).toContain("liveness === 'live'")
@@ -344,10 +346,16 @@ describe('every top-menu button explains itself on hover', () => {
     expect(meter).toContain('Click to park what you are not using')
   })
 
-  it('Add widget explains itself too', () => {
-    expect(read('renderer/src/components/desk/DeskAddWidget.tsx')).toContain(
-      'title="Add a widget to this desk"'
-    )
+  it('adding a widget explains itself too', () => {
+    // Superseded 4.3.32: this pinned the header's Add widget button
+    // (desk/DeskAddWidget, title "Add a widget to this desk"). That button is
+    // gone — widgets are added from the side menu's Widgets section — and every
+    // tile there carries its full name as a tooltip (so a clipped label never
+    // loses it), with the menu's own items saying what each gesture does.
+    expect(read('renderer/src/components/nav/menuParts.tsx')).toContain('title={note ? `${label} — ${note}` : label}')
+    const section = read('renderer/src/components/nav/WidgetsSection.tsx')
+    expect(section).toContain("label: 'Add to this desk'")
+    expect(section).toContain("label: 'Move to Other widgets'")
   })
 })
 
@@ -471,7 +479,8 @@ describe('the unit travels with the number', () => {
 })
 
 describe('the badge says which thing it counted', () => {
-  const accordion = read('renderer/src/components/nav/AreaAccordion.tsx')
+  // 4.3.32: Tile moved to nav/menuParts.tsx (shared with the Widgets section).
+  const accordion = read('renderer/src/components/nav/AreaAccordion.tsx') + read('renderer/src/components/nav/menuParts.tsx')
 
   it('names messages or conversations instead of a bare "unread"', () => {
     expect(accordion).toContain("${badge} unread ${badge === 1 ? 'message' : 'messages'}")
