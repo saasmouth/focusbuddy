@@ -237,6 +237,10 @@ test('WF-4 moving a kind to Other widgets and back persists across a reload', as
 })
 
 test('WF-5 the assistant and Brain find a widget file by its content', async () => {
+  // Retrieval loads the local embedding model on its first call, which can take
+  // most of the default 30 s on a cold machine; the assertion is about what is
+  // found, not how fast.
+  test.setTimeout(90_000)
   const window = await boot()
   // A table file whose only words are in its rows: findable means the
   // serialiser (markdown table) reached the index, not just the title.
