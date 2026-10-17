@@ -17,6 +17,7 @@ import BrowserSurface, {
 import Icon from '../Icon'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
 import { useAppNotifications } from '../../stores/appNotifications'
+import { useSignInWatch } from '../../lib/signInWatch'
 
 // The desk's browser widget. Since the A2 desk-browser unification it renders
 // the SAME BrowserSurface core as the panel/fullscreen browser — one toolbar
@@ -290,6 +291,9 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
   const partition = widget.sourceAppId
     ? `persist:connectedapp-${widget.sourceAppId}`
     : 'persist:webview-default'
+  // A widget bound to a connected app is another window onto that app's
+  // session, so the page it settles on feeds the same signed-out detector.
+  useSignInWatch(wvEl as unknown as HTMLElement | null, widget.sourceAppId ?? null)
 
   // Bump the connected app's usage when this widget is first focused — signals
   // the Favourites sort that the user is actively working with it.

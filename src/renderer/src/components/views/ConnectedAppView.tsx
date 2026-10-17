@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAppNotifications } from '../../stores/appNotifications'
 import { confirmDialog } from '../plexi/PromptDialog'
 import { useConnectedAppsStore } from '../../stores/connectedApps'
@@ -10,6 +10,7 @@ import VaultBindPopover from './VaultBindPopover'
 import Icon from '../Icon'
 import AppLogo from '../AppLogo'
 import { openHttpUrl } from '../../lib/openUrl'
+import { useSignInWatch } from '../../lib/signInWatch'
 
 interface Props {
   appId: string
@@ -33,6 +34,17 @@ export default function ConnectedAppView({ appId }: Props): JSX.Element {
   const [currentTitle, setCurrentTitle] = useState<string | null>(null)
   const [vaultPopoverOpen, setVaultPopoverOpen] = useState(false)
   const autofilledForUrl = useRef<string>('')
+  // The element as state as well as a ref, so the sign-in watch can attach once
+  // the guest exists. A stable callback ref: an inline one would be re-called
+  // on every render.
+  const [wvEl, setWvEl] = useState<HTMLElement | null>(null)
+  const attachWebview = useCallback((el: HTMLElement | null) => {
+    webviewRef.current = el
+    setWvEl(el)
+  }, [])
+  // Signed-out detection: the page this app settles on, fed to the detector
+  // that drives the side menu's "Signed out — sign in" state.
+  useSignInWatch(wvEl, app?.id ?? null)
 
   // Bump usage on mount so Favourites reflects actual use of the app.
   useEffect(() => {
@@ -274,9 +286,7 @@ export default function ConnectedAppView({ appId }: Props): JSX.Element {
           sessions survive app restarts even though the element unmounts on view switch. */}
       <div className="flex-1 min-h-0 relative">
         <webview
-          ref={(el) => {
-            webviewRef.current = el as HTMLElement | null
-          }}
+          ref={attachWebview as never}
           src={app.url}
           // Persistent partition per app so cookies + storage survive app restarts.
           partition={`persist:connectedapp-${app.id}`}

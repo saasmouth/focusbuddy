@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type JSX } from 'react'
 import { useConnectedAppsStore } from '../stores/connectedApps'
 import { useAppNotifications, looksSignedOut, sumAriaUnread } from '../stores/appNotifications'
+import { PASSWORD_FIELD_PROBE } from '../lib/signInWatch'
 
 // Background unread counts for connected apps.
 //
@@ -69,10 +70,41 @@ function Probe({ app, onDone }: { app: Watchable; onDone: (id: string) => void }
     if (!wv) return
     const store = useAppNotifications.getState()
 
+    // The page this check SETTLED on — read at the end, not at dom-ready, so
+    // an app that boots a shell and then redirects to its sign-in page is
+    // judged on where it landed. Feeds the signed-out detector (the side
+    // menu's "Signed out — sign in"); bounded so a hung guest cannot hold the
+    // slot.
+    const observeSettled = async (): Promise<void> => {
+      const w = wv as unknown as {
+        getURL: () => string
+        getTitle: () => string
+        isLoading: () => boolean
+        executeJavaScript: (s: string) => Promise<unknown>
+      }
+      let url = ''
+      let title = ''
+      try {
+        if (w.isLoading()) return
+        url = w.getURL()
+        title = w.getTitle()
+      } catch {
+        return
+      }
+      if (!/^https?:\/\//i.test(url)) return
+      const pw = await Promise.race([
+        w.executeJavaScript(PASSWORD_FIELD_PROBE).then((v) => !!v),
+        new Promise<boolean>((r) => window.setTimeout(() => r(false), 3_000))
+      ]).catch(() => false)
+      store.observeSignIn(app.id, { url, title, hasPasswordField: pw })
+    }
+
     const finish = (): void => {
       if (finished.current) return
       finished.current = true
-      onDone(app.id)
+      void observeSettled()
+        .catch(() => {})
+        .finally(() => onDone(app.id))
     }
 
     let settle: number | null = null

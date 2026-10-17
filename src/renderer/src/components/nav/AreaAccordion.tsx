@@ -339,6 +339,7 @@ function Tile({
   liveness = null,
   unit = 'unknown',
   note,
+  signedOut = false,
   onDragStart,
   children
 }: {
@@ -372,6 +373,13 @@ function Tile({
    * give messages, and saying "4" for either without saying which was the bug.
    */
   unit?: 'messages' | 'conversations' | 'unknown'
+  /**
+   * The app was signed in and has since landed on a sign-in page — the event
+   * that silently stops its unread counts. Shown on every connected app, not
+   * only watched ones, and cleared the moment the app is back on a normal
+   * page. Clicking the tile opens the app, which is where you sign in.
+   */
+  signedOut?: boolean
   children: React.ReactNode
 }): JSX.Element {
   return (
@@ -381,6 +389,7 @@ function Tile({
       onDragStart={onDragStart}
       title={note ? `${label} — ${note}` : label}
       data-testid={testid}
+      data-signed-out={signedOut ? 'true' : undefined}
       aria-current={active ? 'page' : undefined}
       className={`flex flex-col items-center gap-1 px-1 py-2 rounded-lg ${onDragStart ? 'cursor-grab active:cursor-grabbing ' : ''}${
         active
@@ -390,6 +399,15 @@ function Tile({
     >
       <span className="relative inline-flex items-center justify-center w-7 h-7 shrink-0">
         {children}
+        {signedOut && (
+          <span
+            className="absolute -top-1 -left-1.5 inline-flex items-center justify-center w-[15px] h-[15px] rounded-full bg-amber-500 text-white"
+            data-testid="nav-signed-out-badge"
+            aria-hidden="true"
+          >
+            <Icon name="key" size={9} filled />
+          </span>
+        )}
         {badge > 0 && (
           <span
             className={`absolute -top-1 -right-1.5 min-w-[15px] h-[15px] px-1 rounded-full text-[9px] font-bold leading-[15px] text-center fb-tabular ${
@@ -452,13 +470,25 @@ function Tile({
       <span className="w-full text-[10px] leading-tight text-center truncate whitespace-nowrap">
         {label}
       </span>
-      {note && (
+      {signedOut ? (
+        // Replaces the account note while it applies: "you are signed out" is
+        // the more urgent line, and the account is still on the tooltip.
         <span
-          className="w-full text-[9px] leading-tight text-center truncate whitespace-nowrap text-[var(--ink-40)]"
-          data-testid="nav-tile-note"
+          className="w-full text-[9px] tracking-tight leading-tight text-center truncate whitespace-nowrap font-medium text-amber-700 dark:text-amber-400"
+          data-testid="nav-signed-out"
+          title={`${note ? `${label} (${note})` : label} was signed out — click to open it and sign in`}
         >
-          {note}
+          Signed out — sign in
         </span>
+      ) : (
+        note && (
+          <span
+            className="w-full text-[9px] leading-tight text-center truncate whitespace-nowrap text-[var(--ink-40)]"
+            data-testid="nav-tile-note"
+          >
+            {note}
+          </span>
+        )
       )}
     </button>
   )
@@ -525,6 +555,7 @@ export default function AreaAccordion({
   const connectedApps = useConnectedAppsStore((s) => s.apps)
   const unreadCounts = useAppNotifications((s) => s.counts)
   const appStatus = useAppNotifications((s) => s.status)
+  const appSignIn = useAppNotifications((s) => s.signIn)
   const refreshApps = useConnectedAppsStore((s) => s.refresh)
   const appsLoaded = useConnectedAppsStore((s) => s.loaded)
   useEffect(() => {
@@ -721,6 +752,7 @@ export default function AreaAccordion({
                 badge={app.notifications ? (unreadCounts[app.id]?.count ?? 0) : 0}
                 liveness={app.notifications ? (appStatus[app.id]?.liveness ?? 'asleep') : null}
                 unit={unreadCounts[app.id]?.unit ?? 'unknown'}
+                signedOut={appSignIn[app.id]?.signedOut === true}
                 // In the personal aggregate the same app can appear once per
                 // org, so each tile says which account it is. Inside an org
                 // every tile is that org's, and the label would be noise.

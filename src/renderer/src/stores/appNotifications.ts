@@ -21,8 +21,11 @@
 // session state.
 
 import { create } from 'zustand'
+import { isSignInPage, type SignInObservation } from '@shared/authUrl'
+import { nextSignInState, signInSignal, type AppSignInState } from '@shared/signInState'
 
 const KEY = 'fb.appNotifications.lastSeen'
+const SIGN_IN_KEY = 'fb.appNotifications.signIn'
 
 export interface SeenCount {
   count: number
@@ -100,6 +103,16 @@ interface AppNotificationsStore {
   countFor: (appId: string) => number
   setLiveness: (appId: string, liveness: AppLiveness, url?: string) => void
   livenessFor: (appId: string) => AppLiveness
+  /**
+   * Whether each app has been seen signed in, and whether it has since been
+   * signed out. Persisted, because the sign-out worth catching is the one that
+   * happens ACROSS a restart — a relaunch that lost the app's session.
+   * See src/shared/signInState.ts.
+   */
+  signIn: Record<string, AppSignInState>
+  /** Feed one settled page from any of the app's webviews into the detector. */
+  observeSignIn: (appId: string, obs: SignInObservation) => void
+  signedOutFor: (appId: string) => boolean
 }
 
 /**
@@ -232,12 +245,37 @@ function persist(counts: Record<string, SeenCount>): void {
  * is the other universal signal.
  */
 export function looksSignedOut(url: string, hasPasswordField: boolean): boolean {
-  if (hasPasswordField) return true
-  if (!url) return false
-  const u = url.toLowerCase()
-  return /(\/|\.|^)(login|signin|sign-in|sign_in|auth|sso|oauth|session\/new|account\/login|u\/login)(\/|\?|#|$)/.test(
-    u
-  )
+  // One heuristic for the whole app: the same shapes the signed-out detector
+  // and the pop-up router's sign-in recognition use (src/shared/authUrl.ts).
+  return isSignInPage({ url, hasPasswordField })
+}
+
+function loadSignIn(): Record<string, AppSignInState> {
+  try {
+    const raw = localStorage.getItem(SIGN_IN_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, AppSignInState>
+    const out: Record<string, AppSignInState> = {}
+    for (const [id, v] of Object.entries(parsed)) {
+      if (!v || typeof v.everSignedIn !== 'boolean' || typeof v.signedOut !== 'boolean') continue
+      out[id] = {
+        everSignedIn: v.everSignedIn,
+        signedOut: v.everSignedIn && v.signedOut,
+        ...(typeof v.since === 'number' ? { since: v.since } : {})
+      }
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+function persistSignIn(state: Record<string, AppSignInState>): void {
+  try {
+    localStorage.setItem(SIGN_IN_KEY, JSON.stringify(state))
+  } catch {
+    // Not persistable here; the session's view still stands.
+  }
 }
 
 export const useAppNotifications = create<AppNotificationsStore>((set, get) => ({
@@ -298,5 +336,35 @@ export const useAppNotifications = create<AppNotificationsStore>((set, get) => (
     set({ status: { ...get().status, [appId]: { liveness, checkedAt: Date.now(), url } } })
   },
 
-  livenessFor: (appId) => get().status[appId]?.liveness ?? 'asleep'
+  livenessFor: (appId) => get().status[appId]?.liveness ?? 'asleep',
+
+  signIn: loadSignIn(),
+
+  observeSignIn: (appId, obs) => {
+    const prev = get().signIn[appId]
+    const { state, transition } = nextSignInState(prev, obs, Date.now())
+    if (
+      prev &&
+      prev.everSignedIn === state.everSignedIn &&
+      prev.signedOut === state.signedOut &&
+      prev.since === state.since
+    ) {
+      return
+    }
+    const signIn = { ...get().signIn, [appId]: state }
+    set({ signIn })
+    persistSignIn(signIn)
+    if (transition === 'signed-out') {
+      // One diagnostic line in the main-process log: origin + path, the signal
+      // that made the call, and whether the app's cookie jar shrank across the
+      // restart. Main strips the query; nothing else about the page is sent.
+      try {
+        void window.api?.sessions?.reportSignedOut(appId, obs.url, signInSignal(obs))?.catch(() => {})
+      } catch {
+        // No main process (browser runtime, tests): the badge still shows.
+      }
+    }
+  },
+
+  signedOutFor: (appId) => get().signIn[appId]?.signedOut === true
 }))
