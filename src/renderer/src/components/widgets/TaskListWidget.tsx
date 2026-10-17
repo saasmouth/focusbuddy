@@ -44,7 +44,8 @@ type ViewMode = 'list' | 'table'
 type GroupMode = 'none' | 'queue' | 'due'
 
 interface TaskListContent {
-  scope?: Scope
+  // 'own': the list keeps its own items in content (a task-list widget file).
+  scope?: Scope | 'own'
   filter?: Filter
   /** List reads as a to-do; table shows every planning field at once. */
   view?: ViewMode
@@ -86,6 +87,15 @@ function descendantsOf(nodes: readonly FbNode[], rootId: string): FbNode[] {
 const DONE: TaskStatus = 'done'
 
 export default function TaskListWidget({ widget }: { widget: Widget }): JSX.Element {
+  // A task list that keeps its OWN items — every task-list widget FILE does
+  // (docs/widget-files.md). It has no desk to be a lens over, and its linked
+  // instances on several desks must all show the same list, so the list lives
+  // in the widget's content and syncs with it.
+  if (parse(widget.content).scope === 'own') return <OwnTaskList widget={widget} />
+  return <DeskTaskList widget={widget} />
+}
+
+function DeskTaskList({ widget }: { widget: Widget }): JSX.Element {
   const nodes = useNodeStore((s) => s.nodes)
   const updateNode = useNodeStore((s) => s.update)
   const createNode = useNodeStore((s) => s.create)
@@ -96,7 +106,7 @@ export default function TaskListWidget({ widget }: { widget: Widget }): JSX.Elem
   const updateWidget = useWidgetStore((s) => s.update)
 
   const model = useMemo(() => parse(widget.content), [widget.content])
-  const scope: Scope = model.scope ?? 'desk'
+  const scope: Scope = model.scope === 'all' ? 'all' : 'desk'
   const filter: Filter = model.filter ?? 'open'
   const [draft, setDraft] = useState('')
   // Which tasks actually have a canvas behind them.
@@ -625,6 +635,178 @@ export default function TaskListWidget({ widget }: { widget: Widget }): JSX.Elem
           onClose={() => setChoosing(null)}
         />
       )}
+    </WidgetFrame>
+  )
+}
+
+// ── A list that keeps its own items ─────────────────────────────────────────
+
+interface OwnItem {
+  id: string
+  title: string
+  done: boolean
+  dueAt: number | null
+}
+
+function parseOwn(raw: string | null | undefined): { filter: Filter; items: OwnItem[] } {
+  try {
+    const p = JSON.parse(raw || '{}') as { filter?: Filter; items?: Array<Partial<OwnItem>> }
+    return {
+      filter: p.filter === 'done' || p.filter === 'all' ? p.filter : 'open',
+      items: (Array.isArray(p.items) ? p.items : [])
+        .filter((i) => i && typeof i.title === 'string')
+        .map((i) => ({
+          id: String(i.id || crypto.randomUUID()),
+          title: String(i.title),
+          done: i.done === true,
+          dueAt: typeof i.dueAt === 'number' ? i.dueAt : null
+        }))
+    }
+  } catch {
+    return { filter: 'open', items: [] }
+  }
+}
+
+function toDateInput(ms: number | null): string {
+  if (!ms) return ''
+  const d = new Date(ms)
+  const p = (n: number): string => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
+  const updateWidget = useWidgetStore((s) => s.update)
+  const model = useMemo(() => parseOwn(widget.content), [widget.content])
+  const [draft, setDraft] = useState('')
+  const [editing, setEditing] = useState<string | null>(null)
+
+  const save = (next: { filter?: Filter; items?: OwnItem[] }): void => {
+    const merged = { scope: 'own', filter: next.filter ?? model.filter, items: next.items ?? model.items }
+    void updateWidget(widget.id, { content: JSON.stringify(merged) })
+  }
+  const patchItem = (id: string, p: Partial<OwnItem>): void =>
+    save({ items: model.items.map((i) => (i.id === id ? { ...i, ...p } : i)) })
+
+  const shown = model.items
+    .filter((i) => (model.filter === 'all' ? true : model.filter === 'done' ? i.done : !i.done))
+    .sort((a, b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1
+      const ad = a.dueAt ?? Number.MAX_SAFE_INTEGER
+      const bd = b.dueAt ?? Number.MAX_SAFE_INTEGER
+      return ad - bd
+    })
+  const open = model.items.filter((i) => !i.done).length
+  const TABS: Array<[Filter, string]> = [['open', 'Active'], ['done', 'Done'], ['all', 'All']]
+
+  const add = (): void => {
+    const title = draft.trim()
+    if (!title) return
+    setDraft('')
+    save({ items: [...model.items, { id: crypto.randomUUID(), title, done: false, dueAt: null }] })
+  }
+
+  return (
+    <WidgetFrame widget={widget} headerLabel="Tasks" headerAccent="bg-emerald-200/50 dark:bg-emerald-400/10">
+      <div className="h-full w-full flex flex-col bg-[var(--surface-raised)]" data-testid="own-task-list">
+        <div className="flex items-center gap-1 px-2 pt-1.5 pb-1">
+          {TABS.map(([f, label]) => (
+            <button
+              key={f}
+              onClick={() => save({ filter: f })}
+              className={`px-2 py-0.5 rounded-full text-[11px] transition-colors ${
+                f === model.filter ? 'bg-accent/10 text-accent font-medium' : 'text-[var(--ink-50)] hover:text-[var(--ink-80)]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          <span className="ml-auto text-[10px] text-[var(--ink-40)] tabular-nums" title="Open tasks on this list">
+            {open} open
+          </span>
+        </div>
+        <div className="flex-1 min-h-0 overflow-auto px-1 pb-1">
+          {shown.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center gap-1 text-center px-4">
+              <Icon name="task_alt" size={18} className="text-[var(--ink-40)]" />
+              <div className="fb-t-caption text-[var(--ink-60)]">
+                {model.items.length === 0 ? 'No tasks yet' : model.filter === 'done' ? 'Nothing finished yet' : 'Nothing outstanding'}
+              </div>
+            </div>
+          ) : (
+            shown.map((i) => (
+              <div
+                key={i.id}
+                className="group flex items-center gap-2 px-1.5 py-1 rounded-md hover:bg-[var(--surface-sunken)]"
+                data-testid="own-task-row"
+              >
+                <button
+                  onClick={() => patchItem(i.id, { done: !i.done })}
+                  className={`shrink-0 w-4 h-4 rounded-full border inline-flex items-center justify-center ${
+                    i.done ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-[var(--edge-firm)]'
+                  }`}
+                  aria-label={i.done ? 'Mark not done' : 'Mark done'}
+                  data-testid="own-task-toggle"
+                >
+                  {i.done && <Icon name="check" size={11} />}
+                </button>
+                {editing === i.id ? (
+                  <input
+                    autoFocus
+                    defaultValue={i.title}
+                    onBlur={(e) => {
+                      const t = e.target.value.trim()
+                      if (t && t !== i.title) patchItem(i.id, { title: t })
+                      setEditing(null)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                      if (e.key === 'Escape') setEditing(null)
+                    }}
+                    className="flex-1 min-w-0 text-[12.5px] bg-transparent border-b border-accent outline-none"
+                  />
+                ) : (
+                  <span
+                    onDoubleClick={() => setEditing(i.id)}
+                    className={`flex-1 min-w-0 truncate text-[12.5px] ${i.done ? 'line-through text-[var(--ink-40)]' : 'text-[var(--ink-90)]'}`}
+                    title="Double-click to edit"
+                  >
+                    {i.title}
+                  </span>
+                )}
+                <input
+                  type="date"
+                  value={toDateInput(i.dueAt)}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    patchItem(i.id, { dueAt: v ? new Date(`${v}T12:00:00`).getTime() : null })
+                  }}
+                  title="Due date"
+                  className={`shrink-0 text-[10px] bg-transparent text-[var(--ink-50)] ${i.dueAt ? '' : 'opacity-0 group-hover:opacity-100'}`}
+                />
+                <button
+                  onClick={() => save({ items: model.items.filter((x) => x.id !== i.id) })}
+                  className="shrink-0 opacity-0 group-hover:opacity-100 text-[var(--ink-40)] hover:text-rose-600"
+                  aria-label="Delete task"
+                >
+                  <Icon name="close" size={13} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="px-2 pb-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') add()
+            }}
+            placeholder="Add a task…"
+            data-testid="own-task-add"
+            className="fb-field w-full h-7 text-[12px] px-2"
+          />
+        </div>
+      </div>
     </WidgetFrame>
   )
 }

@@ -22,6 +22,7 @@ import { CHANGELOG } from '../../lib/changelog'
 import { promptUpgrade } from '../../stores/upgradePrompt'
 import { VIEW_CAPABILITY, useViewKindEnabled } from '../../lib/viewCapability'
 import CapabilityGate from '../CapabilityGate'
+import WidgetFileView from '../views/WidgetFileView'
 import DocumentEditorView from '../views/DocumentEditorView'
 import MailView from '../views/MailView'
 import InboxView from '../views/InboxView'
@@ -460,6 +461,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
   }
 
   // An open document takes over the content area; the office sidebar stays.
+  const openDocIsWidget = !!openDocId && list.some((d) => d.id === openDocId && d.docType === 'widget')
   if (openDocId) {
     return (
       <div className="h-full flex bg-[var(--surface-base)] relative">
@@ -469,7 +471,13 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
           <OfficeSidebar onExit={goHome} onMinimize={minimizeMenu} />
         )}
         <div className="flex-1 min-w-0">
-          <DocumentEditorView documentId={openDocId} onBack={() => { setOpenDocId(null); void refresh() }} />
+          {/* A widget file can surface in the office lists (it is a document
+              row), and it opens as its widget, never in a text editor. */}
+          {openDocIsWidget ? (
+            <WidgetFileView fileId={openDocId} />
+          ) : (
+            <DocumentEditorView documentId={openDocId} onBack={() => { setOpenDocId(null); void refresh() }} />
+          )}
         </div>
       </div>
     )

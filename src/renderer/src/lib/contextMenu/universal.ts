@@ -371,6 +371,26 @@ export function buildAdvanced(ctx: MenuContext): MenuContribution[] {
         onSelect: (c) => c.frame?.onDuplicateToFolder?.()
       })
     }
+    if (ctx.frame.onSaveAsFile) {
+      out.push({
+        id: 'core/advanced/save-as-file',
+        section: MenuSection.Advanced,
+        priority: 3.5,
+        label: 'Save as file',
+        icon: 'note_add',
+        onSelect: (c) => c.frame?.onSaveAsFile?.()
+      })
+    }
+    if (ctx.frame.onOpenFile) {
+      out.push({
+        id: 'core/advanced/open-file',
+        section: MenuSection.Advanced,
+        priority: 3.5,
+        label: 'Open file',
+        icon: 'open_in_full',
+        onSelect: (c) => c.frame?.onOpenFile?.()
+      })
+    }
     if (ctx.frame.onUnlinkSynced) {
       out.push({
         id: 'core/advanced/unlink',

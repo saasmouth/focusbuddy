@@ -11,12 +11,13 @@
 
 import { useEffect, useState } from 'react'
 import DocumentEditorView from './DocumentEditorView'
+import WidgetFileView from './WidgetFileView'
 import LiveDocEditorView from './LiveDocEditorView'
 import { useAccountStore } from '../../stores/account'
 import { ensureOrgLiveDoc } from '../../lib/docCollabClient'
 import { isOrgSharedScope } from '../../lib/docScope'
 
-type Mode = 'loading' | 'live' | 'lww'
+type Mode = 'loading' | 'live' | 'lww' | 'widget'
 
 export default function DocumentOpen({ documentId }: { documentId: string }): JSX.Element | null {
   const [mode, setMode] = useState<Mode>('loading')
@@ -28,6 +29,13 @@ export default function DocumentOpen({ documentId }: { documentId: string }): JS
     ;(async () => {
       const doc = await window.api.documents.get(documentId)
       if (cancelled) return
+      // A widget file opens as its widget, full-pane — every route to a
+      // document (Files, search, mentions, links) lands here, so all of them
+      // open it correctly. Org scope is irrelevant: its edits sync as rows.
+      if (doc?.docType === 'widget') {
+        setMode('widget')
+        return
+      }
       if (!doc || !isOrgSharedScope(doc.orgId) || !token) {
         setMode('lww')
         return
@@ -49,6 +57,7 @@ export default function DocumentOpen({ documentId }: { documentId: string }): JS
   }, [documentId, token])
 
   if (mode === 'loading') return null
+  if (mode === 'widget') return <WidgetFileView fileId={documentId} />
   if (mode === 'live') return <LiveDocEditorView liveDocId={documentId} />
   return <DocumentEditorView documentId={documentId} />
 }

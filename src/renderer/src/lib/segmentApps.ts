@@ -15,6 +15,8 @@
 // rendered its raw key.) This module is the one source: the shells spread their
 // label and icon from here, and so does the tray.
 
+import type { WidgetKind } from '@shared/types'
+
 export type SegmentKind = 'plexidesk' | 'plexipeople' | 'plexibrain' | 'office'
 
 export interface SegmentAppMeta {
@@ -48,6 +50,15 @@ export interface SegmentAppMeta {
    * it belongs on the one registry the menu reads.
    */
   tone?: string
+  /**
+   * The widget kinds this app already IS, on a desk.
+   *
+   * The first is what dropping the app's tile on a desk creates. All of them
+   * are "represented under Apps", which is what keeps them out of the side
+   * menu's Widgets section (lib/widgetMenu) — so a kind can never be offered
+   * twice under two names, and an app added here takes its kinds with it.
+   */
+  widgetKinds?: readonly WidgetKind[]
 }
 
 export const SEGMENT_APPS = {
@@ -86,27 +97,27 @@ export const SEGMENT_APPS = {
   ],
   office: [
     { key: 'home', label: 'Office Home', icon: 'plexii:home', hub: true, tone: 'text-indigo-500' },
-    { key: 'mail', label: 'Mail', icon: 'mail', gateKind: 'mail', tone: 'text-rose-500' },
-    { key: 'inbox', label: 'Inbox', icon: 'inbox', tone: 'text-amber-500' },
-    { key: 'chat', label: 'Chat', icon: 'forum', gateKind: 'messages', tone: 'text-sky-500' },
-    { key: 'meet', label: 'Meet', icon: 'video_call', gateKind: 'meetings', tone: 'text-violet-500' },
+    { key: 'mail', label: 'Mail', icon: 'mail', gateKind: 'mail', tone: 'text-rose-500', widgetKinds: ['email', 'mail-thread'] },
+    { key: 'inbox', label: 'Inbox', icon: 'inbox', tone: 'text-amber-500', widgetKinds: ['inbox'] },
+    { key: 'chat', label: 'Chat', icon: 'forum', gateKind: 'messages', tone: 'text-sky-500', widgetKinds: ['chat-thread'] },
+    { key: 'meet', label: 'Meet', icon: 'video_call', gateKind: 'meetings', tone: 'text-violet-500', widgetKinds: ['meeting-record'] },
     { key: 'sign', label: 'Sign', icon: 'plexii:sign', gateKind: 'sign', tone: 'text-teal-500' },
-    { key: 'browser', label: 'Browser', icon: 'public', tone: 'text-indigo-500' },
+    { key: 'browser', label: 'Browser', icon: 'public', tone: 'text-indigo-500', widgetKinds: ['webview', 'pdf', 'gdoc', 'gsheet', 'gslide'] },
     // Calendar and Files render inside Office and are real `office:<key>` views,
     // but were never listed here — so the tray named them by their raw key. The
     // Vault joins them for the same reason.
-    { key: 'calendar', label: 'Calendar', icon: 'calendar_month', gateKind: 'calendar', tone: 'text-violet-500' },
-    { key: 'files', label: 'Files', icon: 'folder', gateKind: 'files', tone: 'text-sky-500' },
+    { key: 'calendar', label: 'Calendar', icon: 'calendar_month', gateKind: 'calendar', tone: 'text-violet-500', widgetKinds: ['calendar'] },
+    { key: 'files', label: 'Files', icon: 'folder', gateKind: 'files', tone: 'text-sky-500', widgetKinds: ['drive', 'file', 'image', 'video'] },
     { key: 'vault', label: 'Vault', icon: 'lock', gateKind: 'vault', tone: 'text-slate-500' },
     // The document apps. Not comms apps — deep-linking one lands on the Office
     // hub filtered to that type — but `office:<key>` is a real view either way,
     // so the tray has to be able to name it.
-    { key: 'docs', label: 'PlexiDocs', icon: 'description', tone: 'text-sky-500' },
-    { key: 'sheets', label: 'PlexiSheets', icon: 'table_chart', tone: 'text-emerald-500' },
-    { key: 'slides', label: 'PlexiSlides', icon: 'slideshow', tone: 'text-orange-500' },
-    { key: 'diagrams', label: 'PlexiDiagrams', icon: 'account_tree', tone: 'text-violet-500' },
-    { key: 'design', label: 'PlexiDesign', icon: 'plexii:design', tone: 'text-fuchsia-500' },
-    { key: 'draw', label: 'PlexiDraw', icon: 'brush', tone: 'text-rose-500' }
+    { key: 'docs', label: 'PlexiDocs', icon: 'description', tone: 'text-sky-500', widgetKinds: ['doc'] },
+    { key: 'sheets', label: 'PlexiSheets', icon: 'table_chart', tone: 'text-emerald-500', widgetKinds: ['sheet'] },
+    { key: 'slides', label: 'PlexiSlides', icon: 'slideshow', tone: 'text-orange-500', widgetKinds: ['slides'] },
+    { key: 'diagrams', label: 'PlexiDiagrams', icon: 'account_tree', tone: 'text-violet-500', widgetKinds: ['diagram', 'map'] },
+    { key: 'design', label: 'PlexiDesign', icon: 'plexii:design', tone: 'text-fuchsia-500', widgetKinds: ['design'] },
+    { key: 'draw', label: 'PlexiDraw', icon: 'brush', tone: 'text-rose-500', widgetKinds: ['draw'] }
   ]
 } as const satisfies Record<SegmentKind, readonly SegmentAppMeta[]>
 

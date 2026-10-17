@@ -51,6 +51,11 @@ export interface FrameCallbacks {
   onDuplicateToFolder?: () => void
   onEjectFromSection?: () => void
   onUnlinkSynced?: () => void
+  // Widget files (docs/widget-files.md): promote a desk widget to a file that
+  // lives in Files and can sit on other desks, or open the file this widget is
+  // an instance of.
+  onSaveAsFile?: () => void
+  onOpenFile?: () => void
 }
 
 export interface MenuContext {

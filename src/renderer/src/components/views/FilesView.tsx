@@ -20,6 +20,17 @@ import type { ShareableKind } from '@shared/types'
 import Icon from '../Icon'
 import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
 import { exceedsSyncLimit, syncLimitLabel } from '@shared/fileSyncLimits'
+import { isWidgetFileName } from '@shared/widgetFiles'
+import {
+  fileTypeIcon,
+  fileTypeLabel,
+  isWidgetFileEntry,
+  matchesTypeFilter,
+  typeFilterOptions
+} from '../../lib/fileEntryType'
+import { writeWidgetFileDrag } from '../../lib/widgetFileDrag'
+import { useWidgetFilesStore } from '../../stores/widgetFiles'
+import type { FileTypeFilter } from '../../stores/fileManager'
 
 const ENTRY_MIME = 'application/fb-entry-id'
 
@@ -55,30 +66,10 @@ function useThumbnail(entry: FileEntry, want: boolean): string | null {
   return url
 }
 
-function iconFor(entry: FileEntry): string {
-  if (entry.kind === 'folder') return 'folder'
-  if (entry.kind === 'doc') return entry.docType === 'sheet' ? 'table_chart' : entry.docType === 'slides' ? 'slideshow' : 'description'
-  const m = entry.mimeType ?? ''
-  const ext = (entry.ext ?? '').replace(/^\./, '')
-  if (m.startsWith('image/')) return 'image'
-  if (m.startsWith('video/')) return 'movie'
-  if (m.startsWith('audio/')) return 'music_note'
-  if (m === 'application/pdf') return 'picture_as_pdf'
-  if (['doc', 'docx', 'rtf', 'odt'].includes(ext)) return 'description'
-  if (['xls', 'xlsx', 'csv', 'ods'].includes(ext)) return 'table_chart'
-  if (['ppt', 'pptx', 'key'].includes(ext)) return 'slideshow'
-  if (['md', 'txt'].includes(ext)) return 'article'
-  if (['html', 'json', 'js', 'ts', 'css'].includes(ext)) return 'code'
-  if (['zip', 'gz', 'tar', '7z', 'rar'].includes(ext)) return 'folder_zip'
-  return 'draft'
-}
-
-function typeLabel(entry: FileEntry): string {
-  if (entry.kind === 'folder') return 'Folder'
-  if (entry.kind === 'doc') return entry.docType === 'sheet' ? 'Spreadsheet' : entry.docType === 'slides' ? 'Slides' : 'Document'
-  const ext = (entry.ext ?? '').replace(/^\./, '').toUpperCase()
-  return ext ? `${ext} file` : 'File'
-}
+// Type icons and labels live in lib/fileEntryType, shared with the sort and
+// the type filter, so a widget file reads as "Table" everywhere.
+const iconFor = fileTypeIcon
+const typeLabel = fileTypeLabel
 
 function formatSize(entry: FileEntry): string {
   if (entry.kind === 'folder') return entry.childCount === 1 ? '1 item' : `${entry.childCount ?? 0} items`
@@ -143,8 +134,11 @@ export default function FilesView(): JSX.Element {
   }, [undo, redo])
 
   const sorted = useMemo(
-    () => sortEntries(store.entries, store.sortKey, store.sortDir),
-    [store.entries, store.sortKey, store.sortDir]
+    () =>
+      sortEntries(store.entries, store.sortKey, store.sortDir).filter((e) =>
+        matchesTypeFilter(e, store.typeFilter)
+      ),
+    [store.entries, store.sortKey, store.sortDir, store.typeFilter]
   )
 
   function openEntry(entry: FileEntry): void {
@@ -156,9 +150,18 @@ export default function FilesView(): JSX.Element {
   async function ingestOsFiles(fileList: FileList, parentId: string | null): Promise<void> {
     const payloads: Array<{ buffer: ArrayBuffer; originalName: string; mimeType: string }> = []
     for (const f of Array.from(fileList)) {
+      // An exported widget file (.plexii-table …) comes back as the widget it
+      // was, not as an opaque file. A malformed one falls through to a plain
+      // file so nothing the user dropped is lost.
+      if (isWidgetFileName(f.name)) {
+        const r = await window.api.widgetFiles.import({ text: await f.text(), parentId })
+        if (r.ok) continue
+      }
       payloads.push({ buffer: await f.arrayBuffer(), originalName: f.name, mimeType: f.type })
     }
-    if (parentId === store.cwd) {
+    if (payloads.length === 0) {
+      await store.refresh()
+    } else if (parentId === store.cwd) {
       await store.ingestBuffers(payloads)
     } else {
       for (const p of payloads) await window.api.files.ingestBuffer({ ...p, parentId })
@@ -169,6 +172,28 @@ export default function FilesView(): JSX.Element {
   function entryContextItems(entry: FileEntry): CtxMenuItem[] {
     const items: CtxMenuItem[] = [{ label: 'Open', icon: 'open_in_new', onClick: () => openEntry(entry) }]
     items.push({ label: 'Rename', icon: 'edit', onClick: () => setRenaming(entry.id) })
+    // A widget file is its own thing, not a pointer to an office document: it
+    // exports as its .plexii-* type and deletes to the Trash, file and all.
+    if (isWidgetFileEntry(entry) && entry.docId) {
+      const docId = entry.docId
+      items.push({
+        label: 'Export…',
+        icon: 'ios_share',
+        onClick: () => void window.api.widgetFiles.export(docId)
+      })
+      items.push({ separator: true })
+      items.push({
+        label: 'Move to Trash',
+        icon: 'delete',
+        onClick: () => {
+          void useWidgetFilesStore
+            .getState()
+            .trash(docId)
+            .then(() => store.refresh())
+        }
+      })
+      return items
+    }
     if (entry.kind === 'folder') {
       // Promote a whole folder to a live, checked-out shared folder. Uploads
       // its files to the server so members can open them; documents come across
@@ -258,6 +283,16 @@ export default function FilesView(): JSX.Element {
       <div className={`flex-1 overflow-auto px-4 py-3 relative ${dropActive ? 'ring-2 ring-accent ring-inset' : ''}`}>
         {store.loading ? (
           <div className="text-[13px] text-[var(--ink-40)] py-10 text-center">Loading…</div>
+        ) : sorted.length === 0 && store.entries.length > 0 ? (
+          // Filtered to nothing is not "empty": say what is hidden, and how to
+          // see it, rather than claim the folder has nothing in it.
+          <div className="flex flex-col items-center justify-center text-center py-20 gap-2" data-testid="files-filtered-empty">
+            <Icon name="filter_alt_off" size={36} className="text-[var(--ink-30)]" />
+            <p className="text-[13px] text-[var(--ink-50)]">Nothing of this type here.</p>
+            <button className="fb-btn-surface text-[12px] px-3 py-1.5" onClick={() => store.setTypeFilter('all')}>
+              Show all types
+            </button>
+          </div>
         ) : sorted.length === 0 ? (
           <EmptyState onAddFiles={() => void store.importFiles()} onNewFolder={() => void store.createFolder('New folder')} />
         ) : store.viewMode === 'list' ? (
@@ -359,6 +394,7 @@ function Toolbar({ onNewFolder, onAddFiles, onImportFolder, onAddDoc }: { onNewF
       <button className={btn} onClick={onAddDoc} data-testid="files-add-doc"><Icon name="post_add" size={16} /> Add document</button>
 
       <div className="ml-auto flex items-center gap-1">
+        <TypeFilter />
         {viewMode !== 'list' && (
           <select
             value={sortKey}
@@ -391,6 +427,35 @@ function Toolbar({ onNewFolder, onAddFiles, onImportFolder, onAddDoc }: { onNewF
         </div>
       </div>
     </div>
+  )
+}
+
+// ── Type filter ─────────────────────────────────────────────────────────────
+// Narrow the listing to one family, or one widget file type ("Tables").
+function TypeFilter(): JSX.Element {
+  const typeFilter = useFileManagerStore((s) => s.typeFilter)
+  const setTypeFilter = useFileManagerStore((s) => s.setTypeFilter)
+  const entries = useFileManagerStore((s) => s.entries)
+  const options = useMemo(() => {
+    const opts = typeFilterOptions(entries)
+    // Keep the active choice listed even when nothing in this folder matches it.
+    if (!opts.some((o) => o.value === typeFilter)) opts.push({ value: typeFilter, label: typeFilter.replace(/^widget:/, '') })
+    return opts
+  }, [entries, typeFilter])
+  return (
+    <select
+      value={typeFilter}
+      onChange={(e) => setTypeFilter(e.target.value as FileTypeFilter)}
+      className={`fb-field w-auto h-8 text-[12px] px-2 ${typeFilter === 'all' ? 'text-[var(--ink-70)]' : 'text-accent'}`}
+      title="Show only one type"
+      data-testid="files-type-filter"
+    >
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
   )
 }
 
@@ -521,12 +586,17 @@ function ListRow({ entry, ...h }: { entry: FileEntry } & RowHandlers & { onRenam
     <tr
       data-testid={`file-entry-${entry.id}`}
       data-kind={entry.kind}
+      data-doc-id={entry.docId}
+      data-widget-kind={entry.widgetKind}
       draggable={h.renaming !== entry.id}
       onDragStart={(e) => {
         e.dataTransfer.setData(ENTRY_MIME, entry.id)
         // An office document entry also carries the doc drag payload, so it can
         // be dropped into a table cell (doc-ref) or a doc embed elsewhere.
-        if (entry.kind === 'doc' && entry.docId) {
+        if (isWidgetFileEntry(entry) && entry.docId) {
+          // A widget file dropped on a desk becomes a LINKED instance of it.
+          writeWidgetFileDrag(e.dataTransfer, { id: entry.docId, title: entry.name })
+        } else if (entry.kind === 'doc' && entry.docId) {
           setDocDrag(e, {
             id: entry.docId,
             docType: (entry.docType ?? 'doc') as DocType,
@@ -629,8 +699,15 @@ function GridTile({ entry, mode, ...h }: { entry: FileEntry; mode: FileViewMode 
     <button
       data-testid={`file-entry-${entry.id}`}
       data-kind={entry.kind}
+      data-doc-id={entry.docId}
+      data-widget-kind={entry.widgetKind}
       draggable
-      onDragStart={(e) => e.dataTransfer.setData(ENTRY_MIME, entry.id)}
+      onDragStart={(e) => {
+        e.dataTransfer.setData(ENTRY_MIME, entry.id)
+        if (isWidgetFileEntry(entry) && entry.docId) {
+          writeWidgetFileDrag(e.dataTransfer, { id: entry.docId, title: entry.name })
+        }
+      }}
       onDragOver={(e) => {
         if (isFolder && (e.dataTransfer.types.includes(ENTRY_MIME) || e.dataTransfer.types.includes('Files'))) {
           e.preventDefault()

@@ -12,6 +12,8 @@
 
 import { app, BrowserWindow, dialog, nativeImage, shell } from 'electron'
 import { existsSync, mkdirSync, statSync, writeFileSync, readFileSync } from 'fs'
+import { importWidgetFile } from './db/widgetFiles'
+import { isWidgetFileName, parseWidgetFileExport } from '@shared/widgetFiles'
 import { extname, join, basename } from 'path'
 import { getFile } from './db/files'
 import { ingestFromPath } from './db/filesFromDisk'
@@ -178,6 +180,16 @@ export async function pickFilesIntoFolder(parentId: string | null): Promise<FbFi
   for (const sourcePath of result.filePaths) {
     try {
       if (!existsSync(sourcePath) || statSync(sourcePath).isDirectory()) continue
+      // A .plexii-table / .plexii-tasks … file is an exported WIDGET FILE: it
+      // comes back as the widget it was (docs/widget-files.md), filed here,
+      // rather than as an opaque blob nobody can open.
+      if (isWidgetFileName(basename(sourcePath))) {
+        const env = parseWidgetFileExport(readFileSync(sourcePath, 'utf8'))
+        if (!('error' in env)) {
+          importWidgetFile(env, parentId)
+          continue
+        }
+      }
       out.push(
         await ingestFromPath(sourcePath, {
           originalName: basename(sourcePath),

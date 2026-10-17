@@ -12,6 +12,8 @@ import Icon from './Icon'
 import { parseAttentionCommand, hasAttentionCommand } from '../lib/attentionCommand'
 import { useCapabilityEnabled, useCapabilityStore } from '../stores/capabilities'
 import { entitlementFor, capabilityForDocType, DOC_TYPE_LABEL } from '../lib/entitlementReason'
+import { isStandaloneWidgetKind } from '@shared/widgetFiles'
+import { addKindToOpenDesk, ensureCanAdd, openOrCreateFromMenu } from '../lib/addWidget'
 import { canCreateWidget } from '../lib/gating'
 import { promptUpgrade } from '../stores/upgradePrompt'
 import { useEditorCommandStore } from '../stores/editorCommands'
@@ -698,16 +700,43 @@ export default function CommandCenter({
         // stay fully reachable the moment the user types (scored below).
         if (q === '' && isAdvancedKind(entry.kind)) continue
         const sc = effectiveQuickAddMap()[entry.kind]
+        // "Add <widget> to desk" — the keyboard path to what dragging a kind
+        // from the side menu's Widgets section does (4.3.32). A kind that can
+        // be a file is created as one and placed as a linked instance, exactly
+        // like the drag; a desk-only kind is added to the desk as before.
+        const asFile = isStandaloneWidgetKind(entry.kind)
         items.push({
           id: `add-${entry.kind}`,
-          label: `Add ${entry.label}`,
-          hint: entry.hint,
+          label: `Add ${entry.label} to desk`,
+          hint: asFile ? `${entry.hint} — also saved in Files` : entry.hint,
           icon: entry.icon,
           kind: 'action',
-          score: q === '' ? 40 : matchScore(`add ${entry.label} ${entry.kind} widget ${entry.category}`, q),
+          score: q === '' ? 40 : matchScore(`add ${entry.label} to desk ${entry.kind} widget ${entry.category}`, q),
           shortcut: sc,
           run: () => {
-            spawnWidget(entry.kind)
+            if (asFile && ensureCanAdd(entry.kind)) void addKindToOpenDesk(entry.kind)
+            else if (!asFile) spawnWidget(entry.kind)
+            closePalette()
+          }
+        })
+      }
+    }
+    // "New <widget> file" — a standalone widget, no desk needed, from anywhere.
+    // Only offered once the user types (the empty palette stays short).
+    if (q !== '') {
+      for (const entry of WIDGET_CATALOG) {
+        if (entry.hideFromPicker || !isStandaloneWidgetKind(entry.kind)) continue
+        const sc = matchScore(`new ${entry.label} file widget ${entry.kind}`, q)
+        if (sc <= 0) continue
+        items.push({
+          id: `new-file-${entry.kind}`,
+          label: `New ${entry.label} file`,
+          hint: 'A widget of its own, in Files — place it on any desk later',
+          icon: entry.icon,
+          kind: 'action',
+          score: sc - 1,
+          run: () => {
+            void openOrCreateFromMenu(entry.kind)
             closePalette()
           }
         })

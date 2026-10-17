@@ -65,6 +65,17 @@ import {
   type WidgetCategory
 } from '../lib/widgetCatalog'
 import { setCanvasViewport, fitDroppedWidget } from '../lib/fitDroppedWidget'
+import {
+  WIDGET_FILE_DRAG_MIME,
+  WIDGET_NEW_FILE_DRAG_MIME,
+  readNewWidgetFileDrag,
+  readWidgetFileDrag
+} from '../lib/widgetFileDrag'
+import { DOC_DRAG_TYPE, canPlaceOnDesk, readDocumentDrag } from '../lib/documentDrag'
+import { DOC_DRAG_MIME, readDocDrag } from '../lib/docMetaCache'
+import { onCanvasCommands } from '../lib/canvasCommands'
+import { ensureCanAdd } from '../lib/addWidget'
+import { useWidgetFilesStore } from '../stores/widgetFiles'
 import { canCreateWidget } from '../lib/gating'
 import { useCapabilityStore } from '../stores/capabilities'
 import { promptUpgrade } from '../stores/upgradePrompt'
@@ -94,7 +105,6 @@ import HistoryPanel from './HistoryPanel'
 import ResumeModal from './ResumeModal'
 import HeaderSlot from './chrome/HeaderSlot'
 import DeskContextMenu from './desk/DeskContextMenu'
-import DeskAddWidget from './desk/DeskAddWidget'
 import ContextHealthStrip from './ContextHealthStrip'
 import CanvasLinearView from './CanvasLinearView'
 import FloatingPill from './FloatingPill'
@@ -1532,6 +1542,15 @@ export default function Canvas(): JSX.Element {
   // task canvas, with no modifier, when not typing. Reuses the exact same spawn
   // path as the palette/picker via a ref so position + gating stay consistent.
   const quickAddRef = useRef<(kind: WidgetKind) => void>(() => {})
+  useEffect(
+    () =>
+      onCanvasCommands({
+        addKind: (k) => canvasCommandRef.current.addKind(k),
+        importFile: () => canvasCommandRef.current.importFile(),
+        bringSynced: () => canvasCommandRef.current.bringSynced()
+      }),
+    []
+  )
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
@@ -2082,10 +2101,32 @@ export default function Canvas(): JSX.Element {
     if (entry) handleClickAdd(entry)
   }
 
+  // The side menu's Widgets section asks the open desk to do what only the
+  // canvas can (lib/canvasCommands): add a desk-only kind through this same add
+  // path, import a file, or bring a synced widget. Refs keep the listener
+  // pointed at this render's handlers without re-subscribing on every render.
+  const canvasCommandRef = useRef({
+    addKind: (_k: WidgetKind): void => {},
+    importFile: (): void => {},
+    bringSynced: (): void => {}
+  })
+  canvasCommandRef.current = {
+    addKind: (kind) => quickAddRef.current(kind),
+    importFile: () => void handlePaletteFileImport(),
+    bringSynced: () => setSyncPickerOpen(true)
+  }
+
   function handleDragOver(e: React.DragEvent<HTMLDivElement>): void {
     const types = Array.from(e.dataTransfer.types)
     if (
       types.includes(DRAG_MIME) ||
+      // Widget files (docs/widget-files.md): a kind from the side menu (new
+      // file + linked instance) or an existing file (linked instance), and any
+      // dragged document — which is how Files and the tray carry a widget file.
+      types.includes(WIDGET_NEW_FILE_DRAG_MIME) ||
+      types.includes(WIDGET_FILE_DRAG_MIME) ||
+      types.includes(DOC_DRAG_TYPE) ||
+      types.includes(DOC_DRAG_MIME) ||
       types.includes('text/fb-task-link') ||
       types.includes(CONNECTED_APP_DRAG_MIME) ||
       types.includes('Files') ||
@@ -2172,6 +2213,75 @@ export default function Canvas(): JSX.Element {
       })
       void appsState.touch(app.id)
       return
+    }
+    // ── Widget files ─────────────────────────────────────────────────────────
+    // Checked before the URL fallback below: these drags also carry the title
+    // on text/plain, which must not be mistaken for a link.
+    if (activeTaskId) {
+      const rect = e.currentTarget.getBoundingClientRect()
+      const cursor = screenToCanvas(e.clientX - rect.left, e.clientY - rect.top)
+      // A kind dragged from the side menu: a NEW widget file of that kind,
+      // placed here as a linked instance.
+      const newKind = readNewWidgetFileDrag(e.dataTransfer)
+      if (newKind) {
+        e.preventDefault()
+        if (!ensureCanAdd(newKind)) return
+        const entry = catalogFor(newKind)
+        const w = entry?.defaultWidth ?? 320
+        const h = entry?.defaultHeight ?? 240
+        const fitted = fitDroppedWidget(w, h, rect.width, rect.height, zoom)
+        await useWidgetFilesStore.getState().createAndPlace(newKind, activeTaskId, {
+          x: Math.round(cursor.x - fitted.width / 2),
+          y: Math.round(cursor.y - 20),
+          width: fitted.width,
+          height: fitted.height
+        })
+        return
+      }
+      // An existing widget file (from Files, or its full-pane header), or any
+      // dragged document: a linked instance of the file, or an office widget
+      // pointing at the document. The same row, not a copy.
+      const fileId = readWidgetFileDrag(e.dataTransfer)
+      const docPayload =
+        readDocumentDrag(e.dataTransfer) ??
+        (() => {
+          const d = readDocDrag(e.dataTransfer)
+          return d && canPlaceOnDesk(d.docType) ? { documentId: d.id, docType: d.docType, title: d.title } : null
+        })()
+      if (fileId || docPayload) {
+        e.preventDefault()
+        const isWidgetFile = !!fileId || docPayload?.docType === 'widget'
+        if (isWidgetFile) {
+          const id = fileId ?? docPayload!.documentId
+          const file = await useWidgetFilesStore.getState().load(id)
+          if (!file) return
+          const entry = catalogFor(file.kind)
+          const fitted = fitDroppedWidget(entry?.defaultWidth ?? 320, entry?.defaultHeight ?? 240, rect.width, rect.height, zoom)
+          await useWidgetFilesStore.getState().place(id, activeTaskId, {
+            x: Math.round(cursor.x - fitted.width / 2),
+            y: Math.round(cursor.y - 20),
+            width: fitted.width,
+            height: fitted.height
+          })
+          return
+        }
+        const kind = docPayload!.docType as WidgetKind
+        const entry = catalogFor(kind)
+        const width = entry?.defaultWidth ?? 520
+        const height = entry?.defaultHeight ?? 400
+        await createWidget({
+          taskId: activeTaskId,
+          kind,
+          title: docPayload!.title,
+          content: docPayload!.documentId,
+          x: Math.round(cursor.x - width / 2),
+          y: Math.round(cursor.y - 20),
+          width,
+          height,
+          color: null
+        })
+        return
+      }
     }
     // External browser tab or link drop. Dragging a tab out of Chrome / Edge /
     // Safari (or a link) puts the URL on text/uri-list, with text/plain as a
@@ -2853,7 +2963,7 @@ export default function Canvas(): JSX.Element {
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="fb-glass-panel rounded-full px-4 py-2 inline-flex items-center gap-2 text-[var(--ink-50)]">
                 <Icon name="widgets" size={16} />
-                <p className="text-sm">Drag an object from the palette onto the desk.</p>
+                <p className="text-sm">Drag a widget from Widgets in the side menu onto the desk.</p>
               </div>
             </div>
           )}
@@ -2958,10 +3068,6 @@ export default function Canvas(): JSX.Element {
             </div>
           )}
           <FloatingToolbar
-            onAddWidget={handleClickAdd}
-            onImport={() => void handlePaletteFileImport()}
-            onBringSynced={() => setSyncPickerOpen(true)}
-            paletteDisabled={!activeTaskId}
             onHistory={() => setHistoryOpen(true)}
             historyDisabled={!activeTaskId}
             rightInset={toolbarRightInset}
@@ -3028,7 +3134,11 @@ export default function Canvas(): JSX.Element {
                   pill — the part of the screen you look at least, which is how
                   an overloaded desk went unnoticed. */}
               <div className="flex items-center gap-2">
-                <DeskAddWidget onAdd={handleClickAdd} disabled={!activeTaskId} />
+                {/* The Add widget button that sat here was removed in 4.3.32:
+                    widgets are added from the side menu's Widgets section
+                    (click for a file, drag onto the desk, or right-click →
+                    Add to this desk), the quick-add keys and the command
+                    palette. The load meter keeps the centre of the header. */}
                 <LoadMeter variant="header" />
               </div>
             </HeaderSlot>

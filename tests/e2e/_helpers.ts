@@ -468,3 +468,97 @@ export async function typeInComposer(window: Page, text: string): Promise<void> 
 export async function composerText(window: Page): Promise<string> {
   return (await composer(window).innerText()).trim()
 }
+
+// ── Adding widgets (4.3.32) ─────────────────────────────────────────────────
+// The header "Add widget" button and the hover palette were removed in 4.3.32.
+// Widgets are added from the side menu's Widgets section: every kind there has
+// a stable `sidemenu-widget-<kind>` tile — click for a standalone widget FILE,
+// drag onto a desk, or right-click → "Add to this desk". Kinds an app already
+// is (doc, sheet, slides, diagram, design, draw, inbox, calendar, drive,
+// browser, chat…) live under Apps instead, and their tiles carry the same
+// right-click "Add … to this desk". See docs/widget-files.md.
+
+/** The Apps tile that stands for an app-represented widget kind. */
+const APP_TILE_FOR_KIND: Record<string, string> = {
+  doc: 'office-sideapp-docs',
+  sheet: 'office-sideapp-sheets',
+  slides: 'office-sideapp-slides',
+  diagram: 'office-sideapp-diagrams',
+  design: 'office-sideapp-design',
+  draw: 'office-sideapp-draw',
+  email: 'office-comms-app-mail',
+  inbox: 'office-comms-app-inbox',
+  'chat-thread': 'office-comms-app-chat',
+  calendar: 'office-comms-app-calendar',
+  drive: 'office-comms-app-files',
+  webview: 'office-comms-app-browser'
+}
+
+/** Create a desk and open it; returns its id. */
+export async function openNewDesk(window: Page, title = 'Widget Desk'): Promise<string> {
+  const id = await window.evaluate(async (t) => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    return (await api.nodes.create({ parentId: null, kind: 'task', title: t })).id
+  }, title)
+  await window.evaluate(async () => {
+    const w = window as unknown as { __fbNodes?: { getState: () => { refresh: () => Promise<void> } } }
+    await w.__fbNodes?.getState().refresh()
+  })
+  await window.evaluate((i) => {
+    const w = window as unknown as { __fbView?: { getState: () => { goTask: (x: string) => void } } }
+    w.__fbView?.getState().goTask(i)
+  }, id)
+  await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 10_000 })
+  return id
+}
+
+/**
+ * The side-menu tile for a widget kind, expanding "Other widgets" if the kind
+ * lives there. Throws if the kind is not in the Widgets section at all.
+ */
+export async function sideMenuWidget(window: Page, kind: string): Promise<Locator> {
+  const tile = window.locator(`[data-testid="sidemenu-widget-${kind}"]`).first()
+  if (await tile.isVisible().catch(() => false)) return tile
+  const toggle = window.locator('[data-testid="sidemenu-other-widgets-toggle"]').first()
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click()
+  await expect(tile).toBeVisible({ timeout: 5_000 })
+  return tile
+}
+
+/**
+ * Add a widget of `kind` to the OPEN desk the way a user would without
+ * dragging: right-click its side-menu tile (Widgets section, or its Apps tile
+ * for an app kind) → "Add … to this desk". Resolves once the desk holds one
+ * more widget of that kind.
+ */
+export async function addWidgetToDesk(window: Page, kind: string): Promise<void> {
+  const before = await window.evaluate(
+    (k) =>
+      (
+        window as unknown as { __fbWidgets?: { getState: () => { widgets: Array<{ kind: string }> } } }
+      ).__fbWidgets?.getState().widgets.filter((w) => w.kind === k).length ?? 0,
+    kind
+  )
+  const appTile = APP_TILE_FOR_KIND[kind]
+  const tile = appTile
+    ? window.locator(`[data-testid="${appTile}"]`).first()
+    : await sideMenuWidget(window, kind)
+  await tile.scrollIntoViewIfNeeded()
+  await tile.click({ button: 'right' })
+  const item = window.locator('[data-canvas-ctx-menu]').getByText(/to this desk$/).first()
+  await expect(item).toBeVisible({ timeout: 5_000 })
+  await item.click()
+  await expect
+    .poll(
+      async () =>
+        window.evaluate(
+          (k) =>
+      (
+        window as unknown as { __fbWidgets?: { getState: () => { widgets: Array<{ kind: string }> } } }
+      ).__fbWidgets?.getState().widgets.filter((w) => w.kind === k).length ?? 0,
+          kind
+        ),
+      { timeout: 8_000 }
+    )
+    .toBeGreaterThan(before)
+}

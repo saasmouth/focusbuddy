@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { FileEntry } from '@shared/fields'
 import { nudgeSync } from '../lib/syncNudge'
+import { fileTypeKey } from '../lib/fileEntryType'
 import { crdtEmitFileName, crdtEmitFileParent, crdtEmitFileCreate, crdtEmitFileDelete } from '../lib/crdtBridge'
 
 // State for the file/folder manager view. The current folder (cwd, null = root)
@@ -11,6 +12,11 @@ import { crdtEmitFileName, crdtEmitFileParent, crdtEmitFileCreate, crdtEmitFileD
 export type FileViewMode = 'list' | 'small' | 'large' | 'preview'
 export type FileSortKey = 'name' | 'size' | 'type' | 'created' | 'modified'
 export type SortDir = 'asc' | 'desc'
+/**
+ * What the Files list is narrowed to: everything, a broad family, or one widget
+ * file type ('widget:table'). See lib/fileEntryType for how an entry is typed.
+ */
+export type FileTypeFilter = 'all' | 'folders' | 'files' | 'documents' | 'widgets' | `widget:${string}`
 
 const PREFS_KEY = 'fb.files.prefs'
 
@@ -52,6 +58,7 @@ interface FileManagerStore {
   viewMode: FileViewMode
   sortKey: FileSortKey
   sortDir: SortDir
+  typeFilter: FileTypeFilter
   past: UndoItem[]
   future: UndoItem[]
   // Drive-wide search: when `search` is non-empty the view shows searchResults
@@ -96,6 +103,7 @@ interface FileManagerStore {
   select: (id: string | null) => void
   setViewMode: (m: FileViewMode) => void
   setSort: (key: FileSortKey) => void
+  setTypeFilter: (f: FileTypeFilter) => void
 
   createFolder: (name: string) => Promise<void>
   rename: (id: string, name: string) => Promise<void>
@@ -125,6 +133,7 @@ export const useFileManagerStore = create<FileManagerStore>((set, get) => ({
   viewMode: prefs.viewMode,
   sortKey: prefs.sortKey,
   sortDir: prefs.sortDir,
+  typeFilter: 'all',
   past: [],
   future: [],
   search: '',
@@ -236,6 +245,7 @@ export const useFileManagerStore = create<FileManagerStore>((set, get) => ({
     persistPrefs({ viewMode: m, sortKey: get().sortKey, sortDir: get().sortDir })
   },
 
+  setTypeFilter: (f) => set({ typeFilter: f }),
   setSort: (key) => {
     const { sortKey, sortDir } = get()
     const nextDir: SortDir = sortKey === key ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc'
@@ -400,7 +410,9 @@ function record(
 // Sort + always-folders-first comparator used by the view.
 export function sortEntries(entries: FileEntry[], key: FileSortKey, dir: SortDir): FileEntry[] {
   const sign = dir === 'asc' ? 1 : -1
-  const typeOf = (e: FileEntry): string => (e.kind === 'folder' ? '' : e.kind === 'doc' ? (e.docType ?? 'doc') : e.ext ?? '')
+  // A widget file sorts by its own type ("widget:table"), so sorting by type
+  // groups tables with tables rather than every widget under one "widget".
+  const typeOf = (e: FileEntry): string => fileTypeKey(e)
   return entries.slice().sort((a, b) => {
     // Folders always cluster above files/docs, regardless of sort direction.
     if ((a.kind === 'folder') !== (b.kind === 'folder')) return a.kind === 'folder' ? -1 : 1

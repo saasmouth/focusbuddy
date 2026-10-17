@@ -40,6 +40,8 @@ export type AreaId =
   | 'office'
   | 'people'
   | 'brain'
+  // The side menu's Widgets section (4.3.32)
+  | 'widgets'
 
 export const AREA_TONES: Record<AreaId, string> = {
   // ── Desk: the places ──────────────────────────────────────────────────────
@@ -74,7 +76,32 @@ export const AREA_TONES: Record<AreaId, string> = {
   vault: 'text-rose-500',
   office: 'text-purple-500',
   people: 'text-pink-500',
-  brain: 'text-cyan-500'
+  brain: 'text-cyan-500',
+  // Lime: the one hue no other section head uses, so Widgets reads as its own
+  // area rather than a sub-list of Apps.
+  widgets: 'text-lime-600'
+}
+
+/**
+ * Each widget in the Widgets section takes the hue of what it is FOR (its
+ * use-case group in lib/widgetCatalog), so the list reads in families rather
+ * than as one grey column — and a kind keeps its colour whichever list, main or
+ * Other, it has been moved to.
+ */
+export const WIDGET_GROUP_TONES: Record<string, string> = {
+  'Write & capture': 'text-amber-500',
+  'Plan & track': 'text-emerald-500',
+  'Numbers & data': 'text-sky-500',
+  'Files & documents': 'text-orange-500',
+  'Draw & diagram': 'text-fuchsia-500',
+  'People & messages': 'text-pink-500',
+  'Web & apps': 'text-indigo-500',
+  'Build & automate': 'text-violet-500',
+  'Desk layout': 'text-slate-500'
+}
+
+export function widgetGroupTone(group: string | null): string {
+  return (group && WIDGET_GROUP_TONES[group]) || AREA_TONES.widgets
 }
 
 export function areaTone(id: AreaId): string {

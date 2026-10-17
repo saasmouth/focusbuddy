@@ -22,6 +22,7 @@ import { useSharesStore } from '../stores/shares'
 import Icon from './Icon'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 import AreaAccordion from './nav/AreaAccordion'
+import { WidgetsRail } from './nav/WidgetsSection'
 import { materializeSuggestion } from '../lib/materializeSuggestion'
 import AppLogo from './AppLogo'
 import {
@@ -301,6 +302,11 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
           {/* DEC-020: Plans / Desks (flat) / Calendar tabs retired — Attention
               absorbed them (feeders carry desk + plan due dates). The views
               stay reachable via the ⌘K palette; engines untouched (DEC-009). */}
+
+          {/* ── Widgets (4.3.32): the main list as icons, Other widgets behind a
+              toggle — the same section as the expanded menu, at rail width. */}
+          <div className="w-6 h-px bg-[var(--edge-soft)] shrink-0 my-1" data-testid="rail-widgets-divider" />
+          <WidgetsRail iconClass={railIconClass} />
 
           {/* ── Connected Apps ── */}
           <div className="w-6 h-px bg-[var(--edge-soft)] shrink-0 my-1" />
@@ -632,6 +638,15 @@ interface CollapsedNavIconProps {
   tone?: string
   active: boolean
   onClick: () => void
+}
+
+/** The rail icon's look, shared with the Widgets rail group so the two match. */
+function railIconClass(active: boolean, tone?: string): string {
+  return `w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 fb-press ${
+    active
+      ? 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))]'
+      : `${tone ?? 'text-[var(--ink-50)]'} hover:bg-[var(--surface-sunken)]`
+  }`
 }
 
 function CollapsedNavIcon({ icon, label, tone, active, onClick }: CollapsedNavIconProps): JSX.Element {

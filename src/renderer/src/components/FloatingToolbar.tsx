@@ -1,8 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Icon from './Icon'
-import WidgetPalette from './WidgetPalette'
-import type { WidgetCatalogEntry } from '../lib/widgetCatalog'
 
 export interface ToolbarAction {
   icon: string
@@ -15,10 +13,6 @@ export interface ToolbarAction {
 
 interface Props {
   actions: ToolbarAction[]
-  onAddWidget: (entry: WidgetCatalogEntry) => void
-  onImport?: () => void
-  onBringSynced?: () => void
-  paletteDisabled: boolean
   onHistory: () => void
   historyDisabled: boolean
   // Pixels currently occupied on the right of the viewport by another surface
@@ -34,10 +28,6 @@ const EASE_EXIT  = [0.4, 0, 1, 1] as const
 
 export default function FloatingToolbar({
   actions,
-  onAddWidget,
-  onImport,
-  onBringSynced,
-  paletteDisabled,
   onHistory,
   historyDisabled,
   rightInset = 0
@@ -245,20 +235,10 @@ export default function FloatingToolbar({
           >
             <div className="mx-2 h-px bg-[var(--edge-soft)] mb-1" />
 
-            {/* Widget palette — the full, LABELLED button. It briefly moved to
-                the rail's collapsed header as an icon-only purple plus, which
-                lost the label and read as a bare "+". The prominent add action
-                is the centred one in the app header instead (DeskAddWidget);
-                this stays as it always was. */}
-            <div className="px-1.5 mb-0.5">
-              <WidgetPalette
-                onAdd={onAddWidget}
-                onImport={onImport}
-                onBringSynced={onBringSynced}
-                disabled={paletteDisabled}
-                variant="toolbar"
-              />
-            </div>
+            {/* The widget palette that lived here (hover-revealed) was removed
+                in 4.3.32. Widgets are added from the side menu's Widgets
+                section — click, drag onto the desk, or right-click → Add to
+                this desk — plus the quick-add keys and the command palette. */}
 
             {/* History */}
             <button

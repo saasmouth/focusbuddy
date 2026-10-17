@@ -46,6 +46,8 @@ import { LinkDragContext } from '../../lib/linkDragContext'
 import { widgetDisplayName } from '../../lib/widgetDisplayName'
 import { useWorkItemStore } from '../../stores/workItems'
 import { useViewStore } from '../../stores/view'
+import { useWidgetFilesStore } from '../../stores/widgetFiles'
+import { isStandaloneWidgetKind, isWidgetFilePaneId, widgetFileIdFromGroup } from '@shared/widgetFiles'
 import { liveItemForWidget } from '../../lib/widgetAttention'
 import { workItemsEnabled } from '../../lib/workItemsCapability'
 import { presetForWidget, browserMarkUrl } from '../../lib/attentionPresets'
@@ -108,6 +110,7 @@ export default function WidgetFrame({
     [widget.kind]
   )
   const embedded = useWidgetSurface() === 'embedded'
+  const linkedFileId = widgetFileIdFromGroup(widget.syncGroupId)
   const contextZonePosition = useZonePosition(widget.id)
   const zonePosition = zonePositionProp ?? contextZonePosition
   const update = useWidgetStore((s) => s.update)
@@ -466,9 +469,19 @@ export default function WidgetFrame({
     onDuplicateIndependent: () => duplicateWidgetCopy(false),
     onDuplicateToFolder: !isChildOfSection && !isSection ? () => setMakeTaskOpen(true) : undefined,
     onEjectFromSection: isChildOfSection && parent ? ejectFromSectionFrame : undefined,
-    onUnlinkSynced: widget.syncGroupId
+    onUnlinkSynced: widget.syncGroupId && !isWidgetFilePaneId(widget.id)
       ? () => void update(widget.id, { syncGroupId: null })
-      : undefined
+      : undefined,
+    // A desk instance of a widget file opens its file; any other widget that
+    // can be a file offers to become one. The full-pane widget IS the file.
+    onOpenFile:
+      linkedFileId && !isWidgetFilePaneId(widget.id)
+        ? () => useViewStore.getState().goDocument(linkedFileId)
+        : undefined,
+    onSaveAsFile:
+      !linkedFileId && !isWidgetFilePaneId(widget.id) && isStandaloneWidgetKind(widget.kind)
+        ? () => void useWidgetFilesStore.getState().promote(widget.id)
+        : undefined
   }
 
   function commitDrop(newX: number, newY: number): void {

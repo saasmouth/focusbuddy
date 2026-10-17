@@ -22,6 +22,7 @@
 import { useEffect, useState } from 'react'
 import Icon from '../Icon'
 import AppLogo from '../AppLogo'
+import { SubHeading, Tile, TileGrid } from './menuParts'
 import { useViewStore } from '../../stores/view'
 
 type ViewStore = ReturnType<typeof useViewStore.getState>
@@ -34,9 +35,14 @@ import AddConnectedAppDialog from '../AddConnectedAppDialog'
 import { AREA_TONES } from '../../lib/areaTones'
 import { computeEntitlement } from '../../lib/entitlementReason'
 import { SEGMENT_APPS, type SegmentAppMeta } from '../../lib/segmentApps'
-import { DRAG_MIME } from '../../lib/widgetCatalog'
+import { DRAG_MIME, catalogFor } from '../../lib/widgetCatalog'
+import { tileWidgetKind } from '../../lib/widgetMenu'
+import { addKindToOpenDesk } from '../../lib/addWidget'
+import { useFileManagerStore } from '../../stores/fileManager'
+import { useNodeStore } from '../../stores/nodes'
+import CanvasContextMenu from '../CanvasContextMenu'
+import WidgetsSection from './WidgetsSection'
 import { CONNECTED_APP_DRAG_MIME } from '../Sidebar'
-import type { WidgetKind } from '@shared/types'
 
 /**
  * Which Office keys are Plexii's own applications.
@@ -60,29 +66,12 @@ const PLEXII_APP_KEYS = [
 /** The Office surfaces that are tools rather than applications. */
 const TOOL_KEYS = ['mail', 'inbox', 'chat', 'calendar', 'files', 'browser', 'vault'] as const
 
-/**
- * What dropping an app or tool tile onto a desk creates.
- *
- * Only the ones with a real widget equivalent are here. `sign`, `meet` and
- * `vault` are deliberately absent: there is no widget for them, so they stay
- * undraggable rather than offering a grab cursor that does nothing when you
- * let go. The canvas already handles this MIME from the widget palette, so
- * dropping goes down a path that was working before this was wired up.
- */
-const TILE_WIDGET_KIND: Record<string, WidgetKind> = {
-  docs: 'doc',
-  sheets: 'sheet',
-  slides: 'slides',
-  diagrams: 'diagram',
-  design: 'design',
-  draw: 'draw',
-  mail: 'email',
-  inbox: 'inbox',
-  chat: 'chat-thread',
-  calendar: 'calendar',
-  files: 'drive',
-  browser: 'webview'
-}
+// What dropping an app or tool tile onto a desk creates is no longer a table
+// here: each app in SEGMENT_APPS carries its own `widgetKinds`, and the first
+// one the catalogue knows is the tile's drag kind (lib/widgetMenu
+// tileWidgetKind). The same field keeps those kinds out of the Widgets section,
+// so the two can never disagree. `sign`, `meet` and `vault` have no draggable
+// kind, so they stay undraggable rather than grabbable-but-inert.
 
 /**
  * The desk area's top-level places.
@@ -111,7 +100,7 @@ const DESK_VIEWS: {
   { kind: 'trash', label: 'Trash', icon: 'delete', tone: AREA_TONES.trash, go: (v) => v.goTrash() }
 ]
 
-type SectionId = 'desk' | 'apps' | 'people' | 'brain'
+type SectionId = 'desk' | 'apps' | 'widgets' | 'people' | 'brain'
 
 const SECTIONS: { id: SectionId; label: string; icon: string; tone: string }[] = [
   // Section heads take the hue of the area they open, from the same map as
@@ -119,6 +108,9 @@ const SECTIONS: { id: SectionId; label: string; icon: string; tone: string }[] =
   { id: 'desk', label: 'Desk', icon: 'desktop_windows', tone: AREA_TONES.home },
   // "Office" named the room; the operator renamed it for what it holds.
   { id: 'apps', label: 'Apps', icon: 'apps', tone: AREA_TONES.office },
+  // Widgets that are not an app (4.3.32): standalone widget files, and the way
+  // widgets are added to a desk now that the header button is gone.
+  { id: 'widgets', label: 'Widgets', icon: 'widgets', tone: AREA_TONES.widgets },
   { id: 'people', label: 'People', icon: 'groups', tone: AREA_TONES.people },
   { id: 'brain', label: 'Brain', icon: 'neurology', tone: AREA_TONES.brain }
 ]
@@ -135,6 +127,7 @@ function readOpen(): Record<SectionId, boolean> {
   const allOpen: Record<SectionId, boolean> = {
     desk: true,
     apps: true,
+    widgets: true,
     people: true,
     brain: true
   }
@@ -145,6 +138,7 @@ function readOpen(): Record<SectionId, boolean> {
     return {
       desk: parsed.desk ?? true,
       apps: parsed.apps ?? true,
+      widgets: parsed.widgets ?? true,
       people: parsed.people ?? true,
       brain: parsed.brain ?? true
     }
@@ -247,14 +241,40 @@ function Section({
   )
 }
 
-/** A sub-heading inside a section — PlexiiApps, Tools, Connected apps. */
-function SubHeading({ label, action }: { label: string; action?: React.ReactNode }): JSX.Element {
+/**
+ * Right-click on an app tile that has a widget to become: "Add to this desk",
+ * the keyboard-and-mouse twin of dragging the tile onto the open desk. Every
+ * other tile is left exactly as it was.
+ */
+function AppTileMenu({ app, children }: { app: SegmentAppMeta; children: React.ReactNode }): JSX.Element {
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const view = useViewStore((s) => s.view)
+  const activeDesk = useNodeStore((s) => s.activeTaskId)
+  const kind = tileWidgetKind(app)
+  const deskOpen = view.kind === 'task' && !!(activeDesk ?? view.taskId)
   return (
-    <div className="flex items-center gap-1 px-3 pt-2 pb-1">
-      <span className="flex-1 min-w-0 truncate text-[10px] uppercase tracking-[0.12em] font-semibold text-[var(--ink-40)]">
-        {label}
-      </span>
-      {action}
+    <div
+      onContextMenu={(e) => {
+        if (!kind || !deskOpen) return
+        e.preventDefault()
+        setMenu({ x: e.clientX, y: e.clientY })
+      }}
+    >
+      {children}
+      {menu && kind && (
+        <CanvasContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            {
+              label: `Add ${catalogFor(kind)?.label ?? app.label} to this desk`,
+              icon: 'add_to_queue',
+              onClick: () => void addKindToOpenDesk(kind)
+            }
+          ]}
+        />
+      )}
     </div>
   )
 }
@@ -298,198 +318,6 @@ function Row({
         <Icon name={icon} size={17} filled />
       </span>
       <span className="min-w-0 truncate text-left whitespace-nowrap">{label}</span>
-    </button>
-  )
-}
-
-/**
- * A grid of icon tiles — PlexiiApps, Tools and Connected apps.
- *
- * COLUMNS FOLLOW THE WIDTH, and that is the whole trick. It was a fixed
- * `grid-cols-4`, so at the 232px minimum sidebar width each tile got ~52px and
- * "PlexiDiagrams" had nowhere to go but a second line. `auto-fit` with a
- * minimum tile width drops to three columns, then two, as the menu narrows —
- * which is what the operator asked for: fewer columns rather than wrapped
- * names. No ResizeObserver needed; the grid does it in CSS, so it also follows
- * a drag-resize live.
- *
- * TILE_MIN is the floor that keeps the longest real label on one line at this
- * font size — "PlexiDiagrams" is the one that sets it.
- */
-const TILE_MIN = 84
-
-function TileGrid({ children }: { children: React.ReactNode }): JSX.Element {
-  return (
-    <div
-      className="grid gap-1 px-2"
-      style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${TILE_MIN}px, 1fr))` }}
-      data-testid="nav-tile-grid"
-    >
-      {children}
-    </div>
-  )
-}
-
-function Tile({
-  label,
-  active,
-  onClick,
-  testid,
-  badge = 0,
-  liveness = null,
-  unit = 'unknown',
-  note,
-  signedOut = false,
-  onDragStart,
-  children
-}: {
-  label: string
-  active: boolean
-  onClick: () => void
-  testid?: string
-  /** A second, quieter line — which account this tile is. Omitted when there
-   *  is nothing to disambiguate. */
-  note?: string
-  /**
-   * Makes the tile draggable onto a desk canvas.
-   *
-   * Omitted means not draggable, and that is the honest default: a tile with
-   * a grab cursor that does nothing when dropped is worse than one that never
-   * offered. Only tiles with a real destination get this.
-   */
-  onDragStart?: (e: React.DragEvent) => void
-  /** An unread count the app itself reported. 0 renders nothing. */
-  badge?: number
-  /**
-   * Whether that count is arriving live from a signed-in background session.
-   *
-   * 'live' is a sun and a green count; anything else is a moon and a grey one.
-   * A bare number would be making two different claims with one mark — "4
-   * unread right now" and "4 unread whenever we last managed to look".
-   */
-  liveness?: 'live' | 'signed-out' | 'asleep' | null
-  /**
-   * What `badge` counts. The title gives threads, the page's accessible labels
-   * give messages, and saying "4" for either without saying which was the bug.
-   */
-  unit?: 'messages' | 'conversations' | 'unknown'
-  /**
-   * The app was signed in and has since landed on a sign-in page — the event
-   * that silently stops its unread counts. Shown on every connected app, not
-   * only watched ones, and cleared the moment the app is back on a normal
-   * page. Clicking the tile opens the app, which is where you sign in.
-   */
-  signedOut?: boolean
-  children: React.ReactNode
-}): JSX.Element {
-  return (
-    <button
-      onClick={onClick}
-      draggable={!!onDragStart}
-      onDragStart={onDragStart}
-      title={note ? `${label} — ${note}` : label}
-      data-testid={testid}
-      data-signed-out={signedOut ? 'true' : undefined}
-      aria-current={active ? 'page' : undefined}
-      className={`flex flex-col items-center gap-1 px-1 py-2 rounded-lg ${onDragStart ? 'cursor-grab active:cursor-grabbing ' : ''}${
-        active
-          ? 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))]'
-          : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
-      }`}
-    >
-      <span className="relative inline-flex items-center justify-center w-7 h-7 shrink-0">
-        {children}
-        {signedOut && (
-          <span
-            className="absolute -top-1 -left-1.5 inline-flex items-center justify-center w-[15px] h-[15px] rounded-full bg-amber-500 text-white"
-            data-testid="nav-signed-out-badge"
-            aria-hidden="true"
-          >
-            <Icon name="key" size={9} filled />
-          </span>
-        )}
-        {badge > 0 && (
-          <span
-            className={`absolute -top-1 -right-1.5 min-w-[15px] h-[15px] px-1 rounded-full text-[9px] font-bold leading-[15px] text-center fb-tabular ${
-              liveness === 'live'
-                ? 'bg-emerald-500 text-white'
-                : 'bg-[var(--ink-30)] text-[var(--surface-base)]'
-            }`}
-            data-testid="nav-unread-badge"
-            data-live={liveness === 'live' ? 'true' : 'false'}
-            title={
-              // Name the unit when we know it. "4 unread" was ambiguous in the
-              // worst way: the user read messages and we meant threads.
-              (() => {
-                const what =
-                  unit === 'messages'
-                    ? `${badge} unread ${badge === 1 ? 'message' : 'messages'}`
-                    : unit === 'conversations'
-                      ? `${badge} ${badge === 1 ? 'conversation' : 'conversations'} with unread`
-                      : `${badge} unread`
-                return liveness === 'live'
-                  ? `${what} — signed in, checked just now`
-                  : liveness === 'signed-out'
-                    ? `${what} when last seen — signed out, so this is not current`
-                    : `${what} when last seen — not being checked right now`
-              })()
-            }
-          >
-            {badge > 99 ? '99+' : badge}
-          </span>
-        )}
-        {/* Awake or asleep. Shown whenever the app is watched, including at
-            zero unread, because "nothing new" and "we cannot see" are not the
-            same answer and the user asked to be able to tell. */}
-        {liveness !== null && (
-          <span
-            className="absolute -bottom-1 -right-1 inline-flex items-center justify-center"
-            data-testid="nav-liveness"
-            data-liveness={liveness}
-            title={
-              liveness === 'live'
-                ? 'Signed in — counts are arriving live'
-                : liveness === 'signed-out'
-                  ? 'Signed out — sign in to this app for live counts'
-                  : 'Asleep — not being checked right now'
-            }
-          >
-            <Icon
-              name={liveness === 'live' ? 'wb_sunny' : 'bedtime'}
-              size={11}
-              filled
-              className={liveness === 'live' ? 'text-amber-400' : 'text-[var(--ink-40)]'}
-            />
-          </span>
-        )}
-      </span>
-      {/* ONE LINE, ALWAYS. A wrapped name makes every tile in the row taller
-          and the grid ragged; the column count gives way instead (see
-          TileGrid). The full name is on the tile's title, so an ellipsis never
-          loses it. */}
-      <span className="w-full text-[10px] leading-tight text-center truncate whitespace-nowrap">
-        {label}
-      </span>
-      {signedOut ? (
-        // Replaces the account note while it applies: "you are signed out" is
-        // the more urgent line, and the account is still on the tooltip.
-        <span
-          className="w-full text-[9px] tracking-tight leading-tight text-center truncate whitespace-nowrap font-medium text-amber-700 dark:text-amber-400"
-          data-testid="nav-signed-out"
-          title={`${note ? `${label} (${note})` : label} was signed out — click to open it and sign in`}
-        >
-          Signed out — sign in
-        </span>
-      ) : (
-        note && (
-          <span
-            className="w-full text-[9px] leading-tight text-center truncate whitespace-nowrap text-[var(--ink-40)]"
-            data-testid="nav-tile-note"
-          >
-            {note}
-          </span>
-        )
-      )}
     </button>
   )
 }
@@ -576,7 +404,8 @@ export default function AreaAccordion({
    * undraggable rather than grabbable-but-inert.
    */
   const tileDrag = (key: string): ((e: React.DragEvent) => void) | undefined => {
-    const kind = TILE_WIDGET_KIND[key]
+    const app = officeApps.find((a) => a.key === key)
+    const kind = app ? tileWidgetKind(app) : undefined
     if (!kind) return undefined
     return (e) => {
       e.dataTransfer.setData(DRAG_MIME, kind)
@@ -650,8 +479,8 @@ export default function AreaAccordion({
         <SubHeading label="PlexiiApps" />
         <TileGrid>
           {byKey(PLEXII_APP_KEYS).map((a) => (
+            <AppTileMenu key={a.key} app={a}>
             <Tile
-              key={a.key}
               label={a.label}
               active={isActive('office', a.key)}
               onClick={() => goOffice(a.key)}
@@ -668,6 +497,7 @@ export default function AreaAccordion({
                 className={isActive('office', a.key) ? '' : (a.tone ?? 'text-[var(--ink-70)]')}
               />
             </Tile>
+            </AppTileMenu>
           ))}
         </TileGrid>
 
@@ -678,8 +508,8 @@ export default function AreaAccordion({
             read as a different kind of thing from the two around it. */}
         <TileGrid>
           {byKey(TOOL_KEYS).map((a) => (
+            <AppTileMenu key={a.key} app={a}>
             <Tile
-              key={a.key}
               label={a.label}
               active={isActive('office', a.key)}
               onClick={() => goOffice(a.key)}
@@ -693,6 +523,7 @@ export default function AreaAccordion({
                 className={isActive('office', a.key) ? '' : (a.tone ?? 'text-[var(--ink-70)]')}
               />
             </Tile>
+            </AppTileMenu>
           ))}
         </TileGrid>
 
@@ -764,6 +595,24 @@ export default function AreaAccordion({
           </TileGrid>
         )}
 
+      </Section>
+
+      <Section
+        id="widgets"
+        label="Widgets"
+        icon="widgets"
+        kind="widgets"
+        locked={false}
+        onActivate={() => {
+          // The header lists every widget file: Files, narrowed to widgets.
+          useFileManagerStore.getState().setTypeFilter('widgets')
+          void useFileManagerStore.getState().openFolder(null)
+          useViewStore.getState().goFiles()
+        }}
+        open={open.widgets}
+        onToggle={() => toggle('widgets')}
+      >
+        <WidgetsSection />
       </Section>
 
       <Section

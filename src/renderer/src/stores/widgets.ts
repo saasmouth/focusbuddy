@@ -18,6 +18,10 @@ import {
 import { recordAction, recordActionWithToast } from './actionHistory'
 import { focusNavOrder, isFocusable } from '../lib/focusNavOrder'
 import { clampZoom } from '../lib/deskCameraNav'
+import { isWidgetFilePaneId, widgetFileIdFromGroup } from '@shared/widgetFiles'
+// A deliberate import cycle: each store only calls the other inside actions.
+import { updateWidgetFileFromPane, useWidgetFilesStore } from './widgetFiles'
+import { useNoticeStore } from './notice'
 import { useAccountStore } from './account'
 import { currentDeviceClass } from '../lib/deviceClass'
 import type { DeskLayout } from '@shared/deskLayout'
@@ -376,6 +380,16 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
     return widget
   },
   create: async (draft) => {
+    // A widget opened full-pane as a FILE has no desk; anything it tries to
+    // spawn beside itself has nowhere to go. Say so plainly rather than let the
+    // desk foreign key fail with a database error.
+    if (!draft.taskId) {
+      useNoticeStore.getState().show({
+        text: 'Place this file on a desk to add widgets beside it.',
+        icon: 'info'
+      })
+      throw new Error('No desk to create the widget on')
+    }
     // THE one place a new widget's size is capped to the view.
     //
     // Applies to everything — a drag, the palette, a context-menu add, a
@@ -422,6 +436,15 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
     return widget
   },
   update: async (id, patch) => {
+    // The full-pane view of a WIDGET FILE renders a synthetic widget whose id is
+    // `wf:<file id>` (docs/widget-files.md). It has no desk and no row in the
+    // widgets table, so its edits go to the file — which fans them out to every
+    // desk instance. Every widget component works full-pane because of this one
+    // branch.
+    if (isWidgetFilePaneId(id)) {
+      await updateWidgetFileFromPane(id, patch)
+      return
+    }
     // Capture the prior values of any structural keys this patch touches, BEFORE
     // the optimistic set, so we can record an undo for move/resize/recolour/
     // section-membership. Suppressed during group-drag commit (one combined entry).
@@ -599,6 +622,12 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
     if (!enabled) await get().loadForTask(taskId, { refresh: true })
   },
   remove: async (id) => {
+    // Deleting the full-pane widget of a widget file trashes the file.
+    if (isWidgetFilePaneId(id)) {
+      const fileId = widgetFileIdFromGroup(id)
+      if (fileId) await useWidgetFilesStore.getState().trash(fileId)
+      return
+    }
     const widget = get().widgets.find((w) => w.id === id)
     const removedTaskId = widget?.taskId
     await window.api.widgets.delete(id) // soft-delete (trashed, recoverable)
