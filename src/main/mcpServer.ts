@@ -2445,7 +2445,10 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
     name: 'plexii_update_widget',
     description:
       'Change what a work widget on a desk says: its title and/or its content. For a note, sticky or markdown work widget ' +
-      'the content is its text; for a webview it is the URL. Requires a write token.',
+      'the content is its text; for a webview it is the URL. Most work widgets are work widget files that can sit on ' +
+      'several desks: a title or content edit here reaches every copy and the file in Files (a move or resize is this ' +
+      'desk only). Nothing on this surface removes a work widget from a desk or deletes one; the person does that in ' +
+      'the app, where the × asks "Remove from this desk" or "Delete work widget". Requires a write token.',
     inputSchema: {
       type: 'object',
       properties: {

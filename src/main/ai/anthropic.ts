@@ -26,6 +26,7 @@ import { getRecentActivity } from '../db/activity'
 import { markdownToTiptap } from './markdownToTiptap'
 import { widgetToText, widgetFileBodyToText } from '@shared/widgetText'
 import { listWidgetFiles } from '../db/widgetFiles'
+import { widgetFileIdFromGroup } from '@shared/widgetFiles'
 import { mainWidgetResolvers } from './widgetSummary'
 import { retrieveSources } from '../workspaceSearch'
 import { searchWeb } from '../webSearch'
@@ -316,7 +317,10 @@ function summarizeWidgets(widgets: Widget[]): string {
     const meta = content ? `: ${content}` : ''
     // Include the FULL widget.id — Claude needs to pass it back verbatim to
     // propose_update_widget / propose_delete_widget / propose_add_table_row.
-    lines.push(`- id=${w.id} kind=${w.kind} ${title}${meta}`)
+    // A work widget file's instance names its file, so delete-widget can say
+    // "remove from this desk" or "delete everywhere" knowing the difference.
+    const fileId = widgetFileIdFromGroup(w.syncGroupId)
+    lines.push(`- id=${w.id} kind=${w.kind}${fileId ? ` file=${fileId}` : ''} ${title}${meta}`)
     // For table widgets, also include the bound table's schema so Claude
     // knows what columns exist + their types. The content field for a
     // table widget IS the table id.
@@ -492,7 +496,10 @@ export const ACTION_KINDS_CATALOG =
   'Every work widget kind has its own AI expert that speaks that work widget vocabulary \u2014 a chart knows tables and axes, an inbox work widget knows mail rules, an agent knows standing instructions, a mindmap knows nodes and edges. ' +
   'You do not know those shapes and must not invent them: update-widget can only write a title, a plain content string and a geometry, so using it on a chart or a rule produces something nothing validates and the change is lost. ' +
   'Put what the user wants in `intent`, in their own words, and the expert turns it into a real change they approve. The expert is authoritative about that work widget; you are not.\n' +
-  '  { "kind": "delete-widget", "widgetId": "<from canvas summary>", "label": "the empty sticky", "reason": "it is empty and has been since the desk was made" }\n' +
+  '  { "kind": "delete-widget", "widgetId": "<from canvas summary>", "label": "the empty sticky", "scope": "desk", "reason": "it is empty and has been since the desk was made" }  ' +
+  '(Every work widget is a file that can sit on several desks, so say which of two things you mean. "scope":"desk" (the default) REMOVES it from this desk only: it stays in Files and on any other desk. This is what "remove/take/clear X off this desk" and "tidy this desk" mean. ' +
+  '"scope":"everywhere" DELETES the work widget itself: it goes to Trash with every copy on every desk (restorable from Trash). Use it only when the user plainly asks to delete the thing itself ("delete the supplier table", "get rid of it everywhere", "I do not need it any more"), never to tidy a desk. ' +
+  'With "everywhere" the widgetId may also be a documentId of type widget:<kind> from the documents list. A canvas line with file=<id> is a work widget file; one without it lives only on this desk, so both scopes just remove it. Your reply must say which one you proposed.)\n' +
   '  { "kind": "start-focus-session", "minutes": 5, "reason": "you have twenty-five minutes before the call and one thing left" }\n' +
   '  { "kind": "update-task", "taskId": "<the Desk id shown above>", "label": "this desk", "status": "done", "dueDate": null, "title": "new title", "reason": "user marked it complete" }  (' +
   UPDATE_TASK_DEFINITION +
@@ -545,7 +552,7 @@ function buildSystemPrompt(
     '6. For Airtable-style record collections (clients, episodes, contacts, ideas with columns): use "create-table". Define columns up-front. Use "add-table-row" to insert specific rows after the table exists.\n' +
     '7. For modifying existing work widgets, use their id from the canvas summary (shown as `id=...`). Same for an existing tableId.\n' +
     '7a. To add rows to a table you are creating in the SAME response, the table does not have a real id yet. Give the create-table action an "id" field (e.g. "tbl-1"), then in sibling add-table-row actions set "tableId": "$tbl-1" (literal $ prefix + the matching id). The system resolves it at apply time. NEVER guess a uuid for a not-yet-created table.\n' +
-    '8. Delete only on explicit user request, never speculatively.\n' +
+    '8. Delete only on explicit user request, never speculatively. For a work widget, "remove it from this desk" is delete-widget scope "desk" (it stays in Files); "delete it" everywhere is scope "everywhere", and only when the user means the thing itself.\n' +
     '6b. Only propose "create-agent" when the request implies an ONGOING or REPEATABLE process — language like "set up", "automate", "whenever X happens", "keep this updated", or "every time I add a row". A one-time lookup or research request ("research these three companies") should be answered directly in "reply" or via a normal one-off action, never by creating an agent. To AUTOMATE work from a plain requirement, use "create-agent": a desk agent that runs an instruction over the work widgets wired into it. Give it an "id" so you can wire inputs in. Default "trigger" to "manual" (it stays off until the user turns it on). Use "link-widgets" to wire things: sourceWidgetId/targetWidgetId are real ids from the canvas OR "$<id>" of things you create in this same response. Set "wireType":"context" to give the target background to read, or "transform" with a short "verb" for a live operation. An agent reads the work widgets wired INTO it, so wire the source (a table, a doc, a browser) into the agent. When the user states a requirement ("set me up to track leads and draft outreach"), plan the whole setup: create the table, the agent, any doc, and the wires, as separate action entries the user confirms one by one.\n' +
     '7b. To change the CURRENT desk (mark the desk done, rename it, move its due date) use "update-task" with "taskId" set to the exact "Desk id" shown in the context above. status must be one of open|in_progress|done|parked. Use dueDate as unix ms, or null to clear it. Omit fields you are not changing.\n' +
     '7c. To remember a fact, decision, or rule the user states, use "create-knowledge-entry". The "body" MUST be real content from this conversation. Never invent facts, names, numbers, or decisions; if the user did not state it, do not store it.\n' +
@@ -1014,6 +1021,9 @@ export function parseChatJson(raw: string): {
           kind: 'delete-widget',
           widgetId,
           label,
+          // Anything but an explicit "everywhere" is the reversible, local
+          // meaning: remove from this desk (docs/widget-files.md).
+          scope: action.scope === 'everywhere' ? 'everywhere' : 'desk',
           reason
         })
         break

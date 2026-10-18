@@ -28,6 +28,7 @@ import { useViewStore } from '../stores/view'
 import { useNoticeStore } from '../stores/notice'
 import { catalogFor } from './widgetCatalog'
 import { applyCreateWidgetFile, applyUpdateWidgetFile } from './widgetFileActions'
+import { applyDeleteWidget, deleteWidgetVerb } from './deleteWidgetAction'
 import { spawnPositionFor } from './spawnPosition'
 import { computeSectionFrame, effectiveLayout } from './sectionGeometry'
 import { pickColors } from './sectionColors'
@@ -1050,12 +1051,6 @@ async function applyCreateWorkItem(
   }
 }
 
-async function applyDeleteWidget(
-  p: Extract<ActionProposal, { kind: 'delete-widget' }>
-): Promise<ApplyResult> {
-  await useWidgetStore.getState().remove(p.widgetId)
-  return { ok: true, message: `Removed ${p.label}` }
-}
 
 /**
  * Hand the job to the widget's own AI expert.
@@ -1666,7 +1661,9 @@ export function describeProposal(
         subject: `${p.minutes}-minute focus session`
       }
     case 'delete-widget':
-      return { icon: 'delete', verb: 'Remove', subject: p.label }
+      // Says which of the two it is: a copy off this desk, or the work widget
+      // itself into Trash with every copy (docs/widget-files.md).
+      return { icon: 'delete', verb: deleteWidgetVerb(p), subject: p.label }
     case 'update-widget':
       return { icon: 'edit', verb: 'Update', subject: p.label }
     case 'ask-widget-ai':

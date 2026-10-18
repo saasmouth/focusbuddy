@@ -269,11 +269,23 @@ export default function ProposalCards({
     }
     // Confirm before a batch that destroys anything — undo exists as a backstop,
     // but a one-click bulk delete deserves a heads-up.
-    const destructive = pending.filter((p) => p.kind === 'delete-widget')
+    const destructive = pending.filter(
+      (p): p is Extract<ActionProposal, { kind: 'delete-widget' }> => p.kind === 'delete-widget'
+    )
     if (destructive.length > 0) {
+      // Say which of the two each delete is (docs/widget-files.md): removing a
+      // copy from this desk, or deleting the work widget with every copy.
+      const everywhere = destructive.filter((p) => p.scope === 'everywhere').length
+      const fromDesk = destructive.length - everywhere
+      const parts = [
+        fromDesk > 0 ? `remove ${fromDesk} work widget${fromDesk > 1 ? 's' : ''} from this desk (they stay in Files)` : '',
+        everywhere > 0
+          ? `delete ${everywhere} work widget${everywhere > 1 ? 's' : ''} everywhere (to Trash, with every copy on every desk)`
+          : ''
+      ].filter(Boolean)
       const ok = await confirmDialog({
-        title: `Delete ${destructive.length} canvas item${destructive.length > 1 ? 's' : ''}?`,
-        body: `This batch applies ${pending.length} change${pending.length > 1 ? 's' : ''}. You can undo it afterwards.`,
+        title: everywhere > 0 ? `Delete ${everywhere} work widget${everywhere > 1 ? 's' : ''} everywhere?` : `Remove ${fromDesk} work widget${fromDesk > 1 ? 's' : ''} from this desk?`,
+        body: `This batch applies ${pending.length} change${pending.length > 1 ? 's' : ''}: it will ${parts.join(' and ')}. You can undo it afterwards.`,
         confirmLabel: 'Apply changes',
         danger: true
       })

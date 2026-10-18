@@ -1279,8 +1279,19 @@ export type ActionProposal =
   | {
       id: string
       kind: 'delete-widget'
+      /**
+       * A desk widget id (from the desk index), or, for scope 'everywhere'
+       * only, a work widget file's documentId (from the documents list).
+       */
       widgetId: string
       label: string // user-facing description ("the empty sticky note")
+      /**
+       * What it does (docs/widget-files.md, "Remove or delete"). 'desk', the
+       * default: this desk's copy only, the work widget stays in Files and on
+       * any other desk. 'everywhere': the work widget itself goes to Trash with
+       * every copy on every desk, the × menu's "Delete work widget".
+       */
+      scope?: 'desk' | 'everywhere'
       reason?: string
     }
   | {
@@ -2637,6 +2648,12 @@ export interface WidgetFileBody {
 }
 
 // A widget file as the renderer and IPC see it: the document flattened.
+/** One desk a work widget file is placed on (Files' "On <desk>" line). */
+export interface WidgetFileDesk {
+  deskId: string
+  deskTitle: string
+}
+
 export interface WidgetFile {
   id: string
   kind: WidgetKind

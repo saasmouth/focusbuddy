@@ -136,6 +136,7 @@ function subjectOf(kind: string, a: Record<string, unknown>): string {
   }
   if (kind === 'set-cell') return str(a.column) || str(a.tableId)
   if (kind === 'add-table-row') return str(a.tableId).replace(/^\$/, '')
+  if (kind === 'delete-widget') return str(a.label)
   return str(a.title) || str(a.name) || str(a.subject) || str(a.instruction).slice(0, 60)
 }
 
@@ -170,7 +171,14 @@ export function describeAction(raw: unknown): ActionTrace | null {
   const a = raw as Record<string, unknown>
   const kind = str(a.kind)
   if (!kind) return null
-  const title = KIND_TITLE[kind] ?? humaniseKind(kind)
+  // A delete-widget says which of its two meanings it is, from the first line
+  // of the trace: removing a copy from this desk is not deleting the file.
+  const title =
+    kind === 'delete-widget'
+      ? a.scope === 'everywhere'
+        ? 'Delete work widget everywhere'
+        : 'Remove from this desk'
+      : (KIND_TITLE[kind] ?? humaniseKind(kind))
   const subject = subjectOf(kind, a)
   // Actions addressed AT someone read with an arrow ("Email draft → Ryan");
   // everything else names its subject with a dash ("Table — Prospects").
