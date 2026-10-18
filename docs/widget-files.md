@@ -151,9 +151,9 @@ the user's own workspace (below). Otherwise:
 - a member of an ordinary linked-duplicate group (a non-`wf:` `syncGroupId`)
   turns the **whole group** into one file, id `widgetFileIdForGroup(groupId)`,
   shared by every member;
-- the content is kept exactly as the widget holds it. A task list added on a
-  desk ("Tasks" in Add object) stays a lens over the desk's tasks, as a file;
-  a side-menu task list is its own list. Both are files with instances.
+- the content is kept exactly as the widget holds it. A task list placed on a
+  desk stays a lens over the desk's tasks, as a file (see "Task lists" for the
+  one rule every entry point follows).
 
 The file is named as any file is (a real widget title is kept as the user's,
 not the kind's own label; else derived from content; else the dated
@@ -210,8 +210,22 @@ safety backup and before the naming pass) converts what predates the rule:
   pointers do not sync, and a root-filed file is what the other device's
   self-heal produces too, so both devices agree. Files is filterable by type
   ("All work widgets", one entry per type, and "Documents" leaves work widgets
-  out). A file in a workspace other than the active one is filed the first time
-  that workspace's root is listed.
+  out), and every work widget file's row says where it lives (below). A file in
+  a workspace other than the active one is filed the first time that
+  workspace's root is listed. No folders are made on the user's behalf: a
+  folder per desk would be a second home for a file that can sit on several
+  desks, and would move or duplicate what the user may already have filed.
+
+### Files: "On <desk>"
+
+Under each work widget file's name, Files says where it is placed:
+"On Launch plan", "On Launch plan and Hiring", "On Launch plan, Hiring and 3
+more desks", or "Not on a desk" (list view and the large grid views; the
+tooltip names every desk, and a desk name opens that desk). It is one call per
+listing, `widgetFiles:placements(ids)` → `listWidgetFilePlacements`: live
+instances on live desks, each desk once, sorted by name. While it loads, or if
+it fails, the row says nothing rather than "Not on a desk". It is a label only;
+nothing is moved, so items the user filed stay where they are.
 - **Indexing**: one batched pass at the end (`reindexDocumentChunks`, then
   `reindexDocuments(false)`), not one embedding request per file.
 
@@ -228,9 +242,51 @@ question, "Remove or delete “<name>”?", with Cancel and two answers:
 
 A desk-only kind, or an instance whose file is not here, gets the single
 confirm "Delete this work widget?". A multi-selection asks the same question
-once for the lot. Keyboard Delete on a selection, and the assistant's
-delete-widget action, remove from the desk only (nothing is deleted
-everywhere without the question).
+once for the lot ("Remove or delete N work widgets?": **Remove from this
+desk** / **Delete N work widgets**), deleting each distinct file once
+(`removalPlan`); removing several is one undo step, and deleting several is one
+"N work widgets moved to Trash" notice with one Undo (`trashMany`).
+
+Every way of removing a selection asks it:
+
+| Gesture | Path |
+| --- | --- |
+| × on the frame header or a dock chip | `removeWorkWidget` |
+| Context menu Delete (one or a multi-selection) | `removeWorkWidget` / `removeWorkWidgets` |
+| **Delete** or **Backspace** with work widgets selected (marquee, shift-click, ⌘A) | `removeWorkWidgets` |
+| The selection bar's delete button | `removeWorkWidgets` |
+
+The key is gated by `lib/deleteKey.ts`, on the quick-add focus rules: never
+while typing, in a control, a dialog or a web view, in focus mode, or when a
+work widget that is not part of the selection has been clicked into (that one
+keeps its own Backspace). ⌘⌫ and a held key are ignored. Cancel keeps the
+selection.
+
+Deleting a file (any path) also records an undo step, so ⌘Z restores it as the
+notice's Undo does.
+
+### The assistant
+
+`delete-widget` proposals carry `scope`:
+
+| scope | Card | Effect |
+| --- | --- | --- |
+| `desk` (default, and anything that is not `everywhere`) | "Remove from this desk" | `useWidgetStore.remove`: this desk's copy; the file stays in Files and on other desks |
+| `everywhere` | "Delete everywhere" | `useWidgetFilesStore.trashMany`: the × "Delete work widget" path, file and every instance to Trash |
+
+`delete-widget` stays a gated kind: it always waits for Apply, and "Apply all"
+confirms first, saying how many are removed from the desk and how many are
+deleted everywhere. The prompt tells the model the difference and to use
+`everywhere` only when the user means the thing itself; the desk index marks
+a file's instance with `file=<id>`, and `everywhere` also accepts a widget
+file's documentId. A widget with no file here (desk-only kind, a shared desk)
+is simply removed, and the result says so; an id that matches nothing fails
+instead of reporting a removal. (`lib/deleteWidgetAction.ts`.)
+
+MCP has no delete or remove tool, by design (`mcpServer.ts`: nothing
+destructive on that surface). `plexii_update_widget` now says that an edit
+reaches every copy of a work widget file, and that removing or deleting is done
+in the app. Build with AI only creates; it never deletes.
 
 Deleting is done in `db/documents.trashDocument` for any `doc_type 'widget'`
 document, whichever surface trashed it (the × "Delete", the full-pane "Move to
@@ -241,6 +297,25 @@ removed. `purgeTrashedWidgets` (the 7-day desk-trash purge) keeps instances a
 trashed file still holds; `deleteDocument` (purge) removes them. The full-pane
 "Move to Trash" and Files' "Move to Trash" confirm first when the file is on
 any desk, and say that it will be removed from them.
+
+## The link mark
+
+The small link icon in a work widget's header used to show for any widget in a
+sync group. Since every own-desk work widget is an instance of its file, that
+was nearly every header, and it said nothing. It now shows only when there is
+something worth knowing (`lib/linkBadge.ts`):
+
+| Widget | Mark |
+| --- | --- |
+| instance of a file placed on this desk only | none |
+| instance of a file also placed on other desks | link icon, tooltip "Also on N other desks — a change here shows there too." |
+| plain linked duplicate (a desk shared with you, where widgets are not files) | link icon, the old "Synced copy" tooltip |
+| the full-pane view of a file | none (its header already says "On N desks") |
+
+The desks come from `widgetFiles:placements`, batched for every header on
+screen, read fresh when a desk opens, and re-read after a place, a
+"Duplicate (keep synced)", a remove from a desk or a trash. Until known, there
+is no mark rather than a guess.
 
 ## Full-pane view
 
@@ -342,9 +417,10 @@ Writes go through the existing review-and-apply flow:
 | `widgetFiles:get(id)` | returns `WidgetFile \| null` |
 | `widgetFiles:list()` | live widget files in the active org |
 | `widgetFiles:instances(id)` | the file's desk instances ("On 2 desks") |
+| `widgetFiles:placements(ids)` | `{ [fileId]: [{ deskId, deskTitle }] }` for a whole Files listing |
 | `widgetFiles:update(id, patch)` | `{ content?, title?, color? }`; a title in the patch means a user rename |
 | `widgetFiles:place(id, draft)` | creates the linked instance on a desk; returns `Widget` |
-| `widgetFiles:createAndPlace(input, draft)` | the side-menu drag gesture as one call |
+| `widgetFiles:createAndPlace(input, draft)` | the side-menu drag gesture as one call (`createAndPlaceWidgetFile`; a task list made this way is the desk's tasks) |
 | `widgetFiles:promote(widgetId)` | "Save as file" |
 | `widgetFiles:export(id)` / `widgetFiles:import(path?)` | `.plexii-*` round trip |
 | `widgetFiles:trash(id)` | trashes the document, its Files pointer and every desk instance (restore puts them back) |
@@ -383,6 +459,24 @@ A kind moves between the lists by dragging it, or by right-clicking it and
 choosing "Move to Other work widgets" / "Move to Work widgets". The collapsed rail shows
 the main list as icons with tooltips, plus an Other widgets toggle.
 
+Each tile's tooltip is its name plus `widgetMenuHint`: the catalogue hint and
+"Click for a new one in Files, or drag it onto a desk." (desk-only kinds:
+"Only works on a desk."). Tasks says which list each gesture makes: "Drag onto
+a desk, or right-click and Add to this desk: that desk's tasks. Click: a task
+list of its own, saved in Files, with the same items on any desk you place it
+on."
+
+### App tiles
+
+An app tile under Apps that has a work widget (`widgetKinds` in
+`lib/segmentApps.ts`, the first is what it places) can be dragged onto a desk or
+right-clicked for "Add <work widget> to this desk". **Mail places the Inbox
+work widget** (Plexii's own mail, narrowed to the desk by a rule). Until 4.3.32
+its first kind was `email`, a Gmail/Outlook web page in a browser frame, so
+"Add Email to this desk" put a Gmail web view on the desk; `email` stays listed
+only so it is never offered in the Work widgets section. The Inbox work widget
+is desk-only, so it is placed the canvas way, not as a file.
+
 The header "Add widget" button and the hover palette are gone. The side menu,
 quick-add keys, the canvas right-click menu and the command palette are the
 ways to add a widget. "Import file…" and "Bring a synced widget…" moved to the
@@ -397,14 +491,50 @@ pass only a position.
 
 ## Task lists
 
-A task-list widget on a desk is a lens over that desk's tasks. A task-list file
-has no desk, so it is created with `scope: 'own'` and keeps its items in its
-content (`{ scope: 'own', filter, items: [{ id, title, done, dueAt }] }`). That
-is also why every linked instance shows the same list. `TaskListWidget` renders
-own-scope content as a plain checklist with due dates. A task list added
-straight to a desk (the canvas Add object menu) is a file too, and keeps the desk
-lens it was made with, as one promoted with "Save as file" always did: each
-instance then lists the tasks of the desk it is on.
+There are two kinds of task list, by content:
+
+- **A desk lens** (`{ scope: 'desk' | 'all', filter, … }`): the tasks filed
+  under the desk the instance sits on, subtasks nested under their task, with
+  "Add a task to this desk" and the This desk / Everywhere toggle. The tasks are
+  nodes, not widget content, so they sync and show up in Attention.
+- **Its own list** (`{ scope: 'own', filter, items: [{ id, title, done, dueAt }] }`):
+  items kept in the file's content, the same on every desk it is placed on.
+
+### The rule (4.3.32)
+
+**Where a task list is made decides which it is:**
+
+| Made | Entry points | Is |
+| --- | --- | --- |
+| placed onto a desk as it is made | side-menu drag, side-menu right-click "Add to this desk", palette "Add Tasks work widget to desk", canvas right-click / Add object, quick-add | the desk's tasks |
+| with no desk | side-menu click, right-click "New tasks work widget", palette "New Tasks work widget" | its own list |
+| an existing file placed onto a desk | drag from Files or the full-pane header | whatever the file already is: an own list stays its own list |
+| from content | the assistant's `create-widget-file` items, `.plexii-tasks` import, a copy | that content |
+
+Code: `defaultWidgetFileContent(kind, deskDefault, placement)`
+(`shared/widgetFiles.ts`) returns the own-list default only for
+`placement: 'none'`; `createAndPlaceWidgetFile` (`db/widgetFiles.ts`, used by
+the desktop IPC and the web worker for `widgetFiles:createAndPlace`) passes
+`'desk'`, so it gets the catalogue's desk lens, the same content the canvas
+right-click has always made.
+
+Why this rule and not "every file is its own list": a task on a desk is a node
+under that desk, and a desk's subtasks are nodes under those. A task list on a
+desk that kept its own items would be a second, unrelated list beside the
+desk's real tasks: tasks added to it would not be subtasks of the desk, would
+not appear in Attention, and the desk's existing subtasks would not appear in
+it. Converting both to own lists did exactly that and was reverted. The lens is
+the only thing a task list on a desk can coherently be, and a task list with no
+desk has nothing to be a lens over, so it keeps its own items. Before 4.3.32's
+loose ends the side-menu drag made an own list while the canvas right-click
+made a lens, for the same gesture ("put a task list on this desk"); now both
+make the lens.
+
+A lens file's instances each show the tasks of the desk they are on (the
+filter and view settings are shared). Opened full-pane (from Files), a lens has
+no desk, so it shows every task and says so ("Every task · shows a desk's tasks
+when placed on one") instead of a "This desk" chip that would be untrue there.
+The side menu's Tasks tooltip says which one a drag and a click make.
 
 ## Web runtime
 

@@ -277,7 +277,9 @@ describe('a name never wraps', () => {
   it('the full name survives in the tooltip when it is clipped', () => {
     // And, in the personal aggregate, which org's account it is — a clipped
     // label plus an org label is two things the tooltip has to carry.
-    expect(accordion).toContain('title={note ? `${label} — ${note}` : label}')
+    // 4.3.32: the tooltip may carry a second line (a Work widgets tile's hint),
+    // but its first line is still the full name, with the org when there is one.
+    expect(accordion).toContain('title={[note ? `${label} — ${note}` : label, hint].filter(Boolean).join')
   })
 })
 

@@ -486,7 +486,8 @@ const APP_TILE_FOR_KIND: Record<string, string> = {
   diagram: 'office-sideapp-diagrams',
   design: 'office-sideapp-design',
   draw: 'office-sideapp-draw',
-  email: 'office-comms-app-mail',
+  // 4.3.32: the Mail tile places the Inbox work widget (Plexii's own mail),
+  // no longer the Gmail web view ('email'), which no tile places now.
   inbox: 'office-comms-app-inbox',
   'chat-thread': 'office-comms-app-chat',
   calendar: 'office-comms-app-calendar',

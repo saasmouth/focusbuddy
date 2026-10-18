@@ -354,7 +354,10 @@ describe('every top-menu button explains itself on hover', () => {
     // gone — widgets are added from the side menu's Widgets section — and every
     // tile there carries its full name as a tooltip (so a clipped label never
     // loses it), with the menu's own items saying what each gesture does.
-    expect(read('renderer/src/components/nav/menuParts.tsx')).toContain('title={note ? `${label} — ${note}` : label}')
+    // …and, since the loose ends of 4.3.32, a second line saying what a click
+    // and a drag make (lib/widgetMenu widgetMenuHint).
+    expect(read('renderer/src/components/nav/menuParts.tsx')).toContain('title={[note ? `${label} — ${note}` : label, hint].filter(Boolean).join')
+    expect(read('renderer/src/components/nav/WidgetsSection.tsx')).toContain('hint={widgetMenuHint(entry)}')
     const section = read('renderer/src/components/nav/WidgetsSection.tsx')
     expect(section).toContain("label: 'Add to this desk'")
     expect(section).toContain("label: 'Move to Other work widgets'")

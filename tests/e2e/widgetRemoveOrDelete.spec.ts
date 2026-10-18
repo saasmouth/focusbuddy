@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { createHash } from 'crypto'
-import { launchApp, waitForReady, openNewDesk, gotoView, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, openNewDesk, gotoView, sideMenuWidget, addWidgetToDesk, type LaunchedApp } from './_helpers'
 
 // Every work widget is a file; the × asks "remove from this desk, or delete the
 // work widget?" (4.3.32, docs/widget-files.md).
@@ -278,4 +278,261 @@ test('WRD-6 the launch backfill files work widgets that predate the rule, under 
     { expected, section: ids.section }
   )
   expect(res).toEqual({ title: 'Renew the lease', kind: 'sticky', filed: true, sectionGroup: null })
+})
+
+// ── Loose ends (4.3.32): the keyboard, task lists, the Mail tile, Files ─────
+
+/** Two work widget files placed on desk A (and the first also on desk B). */
+async function twoFilesOnDeskA(window: Page): Promise<{ f1: string; f2: string; a1: string; a2: string; deskA: string }> {
+  const { fileId: f1, a: a1, deskA } = await fileOnTwoDesks(window)
+  const more = await window.evaluate(async (deskA) => {
+    const api = (window as unknown as { api: Api }).api
+    const file = await api.widgetFiles.create({ kind: 'note', content: 'Board prep' }, { defaultContent: '' })
+    const w = await api.widgetFiles.place(file.id, { taskId: deskA, x: 560, y: 160, width: 260, height: 200 })
+    return { f2: file.id, a2: w!.id }
+  }, deskA)
+  await window.evaluate(async (id) => {
+    const w = window as unknown as { __fbWidgets: { getState: () => { loadForTask: (i: string, o?: unknown) => Promise<void> } } }
+    await w.__fbWidgets.getState().loadForTask(id, { refresh: true })
+  }, deskA)
+  await expect.poll(() => storeWidgetIds(window), { timeout: 8_000 }).toContain(more.a2)
+  return { f1, a1, deskA, ...more }
+}
+
+/** Click an empty stretch of the canvas (the floating side menu covers its left edge). */
+async function clickBareCanvas(window: Page): Promise<void> {
+  const surface = window.locator('[data-canvas-surface="true"]')
+  const box = await surface.boundingBox()
+  if (!box) throw new Error('no canvas surface')
+  await surface.click({ position: { x: Math.round(box.width * 0.6), y: Math.round(box.height * 0.78) } })
+}
+
+/** Select every work widget on the desk the way a person does: click the bare canvas, ⌘A. */
+async function selectAllOnDesk(window: Page, expected: number): Promise<void> {
+  await clickBareCanvas(window)
+  await window.keyboard.press('Meta+a')
+  await expect
+    .poll(() =>
+      window.evaluate(
+        () => (window as unknown as { __fbWidgets: { getState: () => { selectedIds: string[] } } }).__fbWidgets.getState().selectedIds.length
+      )
+    )
+    .toBe(expected)
+}
+
+test('WRD-7 Delete on a selected work widget asks the × question; Remove from this desk keeps the file, and ⌘Z brings it back', async () => {
+  const window = await boot()
+  const { fileId, a, b } = await fileOnTwoDesks(window)
+  await selectAllOnDesk(window, 1)
+  await window.keyboard.press('Delete')
+
+  const dialog = window.locator('[data-testid="prompt-dialog"]')
+  await expect(dialog).toBeVisible({ timeout: 5_000 })
+  await expect(dialog).toContainText('Remove or delete “Pricing questions”?')
+  await expect(dialog.locator('[data-testid="prompt-choice-remove"]')).toContainText('It stays in Files and on 1 other desk.')
+  await expect(dialog.locator('[data-testid="prompt-choice-delete"]')).toContainText('Delete work widget')
+  await dialog.locator('[data-testid="prompt-choice-remove"]').click()
+
+  await expect(window.locator(`[data-widget-id="${a}"]`)).toHaveCount(0, { timeout: 8_000 })
+  const after = await window.evaluate(async (fileId) => {
+    const api = (window as unknown as { api: Api }).api
+    return {
+      listed: (await api.widgetFiles.list()).some((f) => f.id === fileId),
+      instances: (await api.widgetFiles.instances(fileId)).map((w) => w.id)
+    }
+  }, fileId)
+  expect(after).toEqual({ listed: true, instances: [b] })
+
+  // Undo is kept: ⌘Z on the desk puts this desk's copy back.
+  await clickBareCanvas(window)
+  await window.keyboard.press('Meta+z')
+  await expect.poll(() => storeWidgetIds(window), { timeout: 8_000 }).toContain(a)
+})
+
+test('WRD-8 Backspace on several selected asks once for the lot; Delete N work widgets trashes every file, one Undo restores them all', async () => {
+  const window = await boot()
+  const { f1, f2, a1, a2, deskA } = await twoFilesOnDeskA(window)
+  await selectAllOnDesk(window, 2)
+  await window.keyboard.press('Backspace')
+
+  const dialog = window.locator('[data-testid="prompt-dialog"]')
+  await expect(dialog).toBeVisible({ timeout: 5_000 })
+  await expect(dialog).toContainText('Remove or delete 2 work widgets?')
+  await expect(dialog.locator('[data-testid="prompt-choice-remove"]')).toContainText('They stay in Files and on any other desk.')
+  const del = dialog.locator('[data-testid="prompt-choice-delete"]')
+  await expect(del).toContainText('Delete 2 work widgets')
+  await del.click()
+
+  await expect(window.locator(`[data-widget-id="${a1}"]`)).toHaveCount(0, { timeout: 8_000 })
+  await expect(window.locator(`[data-widget-id="${a2}"]`)).toHaveCount(0)
+  const gone = await window.evaluate(async ({ f1, f2 }) => {
+    const api = (window as unknown as { api: Api }).api
+    const listed = (await api.widgetFiles.list()).map((f) => f.id)
+    const trashed = (await api.documents.listTrashed()).map((d: { id: string }) => d.id)
+    return { listed: [f1, f2].filter((f) => listed.includes(f)), trashed: [f1, f2].filter((f) => trashed.includes(f)) }
+  }, { f1, f2 })
+  expect(gone).toEqual({ listed: [], trashed: [f1, f2] })
+
+  // One notice for the lot (the first file was also on desk B: 2 desks).
+  const toast = window.locator('[data-testid="notice-toast"]')
+  await expect(toast).toContainText('2 work widgets moved to Trash and removed from 2 desks')
+  await toast.getByRole('button', { name: 'Undo' }).click()
+  await expect.poll(() => storeWidgetIds(window), { timeout: 8_000 }).toEqual(expect.arrayContaining([a1, a2]))
+  const back = await window.evaluate(async (deskA) => (await (window as unknown as { api: Api }).api.widgets.listByTask(deskA)).length, deskA)
+  expect(back).toBe(2)
+})
+
+test('WRD-9 Backspace while typing in a selected sticky edits the text and asks nothing', async () => {
+  const window = await boot()
+  const { a, fileId } = await fileOnTwoDesks(window)
+  await selectAllOnDesk(window, 1)
+  // Click into the sticky's text: the key now belongs to the text.
+  const frame = window.locator(`[data-widget-id="${a}"]`).first()
+  // A sticky shows rendered text; clicking it opens its textarea.
+  await frame.locator('.fb-sticky-rendered').first().click()
+  const editor = frame.locator('.fb-sticky-textarea').first()
+  await expect(editor).toBeVisible({ timeout: 5_000 })
+  await expect(editor).toBeFocused()
+  // Caret to the end (End does not move it in a macOS textarea), then Backspace.
+  await editor.evaluate((el) => {
+    const t = el as HTMLTextAreaElement
+    t.setSelectionRange(t.value.length, t.value.length)
+  })
+  await window.keyboard.press('Backspace')
+  await window.waitForTimeout(400)
+  await expect(window.locator('[data-testid="prompt-dialog"]')).toHaveCount(0)
+  await expect(frame).toBeVisible()
+  // The key edited the text instead (vacuous-green guard: something DID happen).
+  await expect(editor).toHaveValue('Pricing question')
+  const n = await window.evaluate(async (id) => (await (window as unknown as { api: Api }).api.widgetFiles.instances(id)).length, fileId)
+  expect(n).toBe(2)
+})
+
+test('WRD-10 Delete on a desk-only work widget keeps the single confirm', async () => {
+  const window = await boot()
+  const deskId = await openNewDesk(window, 'Desk-only desk')
+  const id = await window.evaluate(async (deskId) => {
+    const api = (window as unknown as { api: Api }).api
+    const w = await api.widgets.create({ taskId: deskId, kind: 'contacts', content: '', x: 200, y: 160, width: 300, height: 240 })
+    return { id: w.id, group: w.syncGroupId }
+  }, deskId)
+  expect(id.group, 'a desk-only kind is never a file').toBeNull()
+  await window.evaluate(async (d) => {
+    const w = window as unknown as { __fbWidgets: { getState: () => { loadForTask: (i: string, o?: unknown) => Promise<void> } } }
+    await w.__fbWidgets.getState().loadForTask(d, { refresh: true })
+  }, deskId)
+  await expect.poll(() => storeWidgetIds(window), { timeout: 8_000 }).toContain(id.id)
+  await selectAllOnDesk(window, 1)
+  await window.keyboard.press('Delete')
+  const dialog = window.locator('[data-testid="prompt-dialog"]')
+  await expect(dialog).toBeVisible({ timeout: 5_000 })
+  await expect(dialog).toContainText('Delete this work widget?')
+  await expect(dialog.locator('[data-testid="prompt-choice-remove"]')).toHaveCount(0)
+  await dialog.locator('[data-testid="prompt-dialog-confirm"]').click()
+  await expect(window.locator(`[data-widget-id="${id.id}"]`)).toHaveCount(0, { timeout: 8_000 })
+})
+
+async function taskListOnDesk(window: Page, deskId: string): Promise<{ scope: string; group: string | null }> {
+  return window.evaluate(async (d) => {
+    const api = (window as unknown as { api: Api }).api
+    const t = (await api.widgets.listByTask(d)).find((w) => w.kind === 'task-list')!
+    return { scope: JSON.parse(t.content).scope, group: t.syncGroupId }
+  }, deskId)
+}
+
+test('WRD-11 a task list put on a desk from the side menu shows the desk’s tasks; one made on its own keeps its own list', async () => {
+  const window = await boot()
+  const deskId = await openNewDesk(window, 'Tasks desk')
+  // A desk subtask, so the lens has something real to show.
+  await window.evaluate(async (d) => {
+    const api = (window as unknown as { api: Api }).api
+    await api.nodes.create({ parentId: d, kind: 'task', title: 'Call the venue' })
+    const w = window as unknown as { __fbNodes?: { getState: () => { refresh: () => Promise<void> } } }
+    await w.__fbNodes?.getState().refresh()
+  }, deskId)
+
+  // The tooltip says which you get.
+  const tile = await sideMenuWidget(window, 'task-list')
+  await expect(tile).toHaveAttribute('title', /Drag onto a desk, or right-click and Add to this desk: that desk's tasks\./)
+  await expect(tile).toHaveAttribute('title', /Click: a task list of its own, saved in Files/)
+
+  // Side menu → right-click → Add to this desk.
+  await addWidgetToDesk(window, 'task-list')
+  const placed = await taskListOnDesk(window, deskId)
+  expect(placed.group).toMatch(/^wf:/)
+  expect(placed.scope).toBe('desk')
+  await expect(window.locator('[data-widget-id]').filter({ hasText: 'Call the venue' }).first()).toBeVisible({ timeout: 8_000 })
+
+  // Side menu click (no desk involved) → a file with its own list, full-pane.
+  const own = await window.evaluate(async () => {
+    const before = new Set((await (window as unknown as { api: Api }).api.widgetFiles.list()).map((f) => f.id))
+    return [...before]
+  })
+  await tile.click()
+  await expect(window.locator('[data-testid="widget-file-view"]')).toBeVisible({ timeout: 8_000 })
+  const made = await window.evaluate(async (before) => {
+    const files = await (window as unknown as { api: Api }).api.widgetFiles.list()
+    const f = files.find((x) => x.kind === 'task-list' && !before.includes(x.id))!
+    return JSON.parse(f.content).scope
+  }, own)
+  expect(made).toBe('own')
+})
+
+test('WRD-12 the Mail tile places the Inbox work widget, not a Gmail web view', async () => {
+  const window = await boot()
+  const deskId = await openNewDesk(window, 'Mail desk')
+  const tile = window.locator('[data-testid="office-comms-app-mail"]').first()
+  await tile.scrollIntoViewIfNeeded()
+  await tile.click({ button: 'right' })
+  const item = window.locator('[data-canvas-ctx-menu]').getByText('Add Inbox to this desk', { exact: true })
+  await expect(item).toBeVisible({ timeout: 5_000 })
+  await item.click()
+  await expect
+    .poll(
+      () =>
+        window.evaluate(async (d) => (await (window as unknown as { api: Api }).api.widgets.listByTask(d)).map((w) => w.kind), deskId),
+      { timeout: 8_000 }
+    )
+    .toEqual(['inbox'])
+})
+
+test('WRD-13 Files says which desks each work widget file sits on', async () => {
+  const window = await boot()
+  const { fileId } = await fileOnTwoDesks(window)
+  const loose = await window.evaluate(async () => {
+    const api = (window as unknown as { api: Api }).api
+    return (await api.widgetFiles.create({ kind: 'sticky', content: 'Loose idea' }, { defaultContent: '' })).id
+  })
+  await gotoView(window, 'goFiles')
+  await window.locator('[data-testid="files-view-list"]').click()
+  const placed = window.locator(`[data-doc-id="${fileId}"] [data-testid="files-widget-desks"]`).first()
+  await expect(placed).toHaveText('On Desk A and Desk B', { timeout: 8_000 })
+  await expect(placed).toHaveAttribute('data-desk-count', '2')
+  await expect(window.locator(`[data-doc-id="${loose}"] [data-testid="files-widget-desks"]`).first()).toHaveText('Not on a desk')
+})
+
+test('WRD-14 the link mark shows only when the file is also on another desk', async () => {
+  const window = await boot()
+  const { a, deskA } = await fileOnTwoDesks(window)
+  // A second work widget that is a file on this desk only.
+  const lone = await window.evaluate(async (deskA) => {
+    const api = (window as unknown as { api: Api }).api
+    const file = await api.widgetFiles.create({ kind: 'note', content: 'Only here' }, { defaultContent: '' })
+    return (await api.widgetFiles.place(file.id, { taskId: deskA, x: 560, y: 160, width: 260, height: 200 }))!.id
+  }, deskA)
+  await window.evaluate(async (id) => {
+    const w = window as unknown as { __fbWidgets: { getState: () => { loadForTask: (i: string, o?: unknown) => Promise<void> } } }
+    await w.__fbWidgets.getState().loadForTask(id, { refresh: true })
+  }, deskA)
+  const shared = window.locator(`[data-widget-id="${a}"]`).first()
+  const only = window.locator(`[data-widget-id="${lone}"]`).first()
+  await expect(only).toBeVisible({ timeout: 8_000 })
+  await shared.hover({ position: { x: 40, y: 12 } })
+  const mark = shared.locator('[data-testid="widget-link-mark"]')
+  await expect(mark).toHaveCount(1, { timeout: 8_000 })
+  await expect(mark).toHaveAttribute('title', /^Also on 1 other desk/)
+  // The header of the single-desk one is mounted (hovered), and carries no mark.
+  await only.hover({ position: { x: 40, y: 12 } })
+  await expect(only.locator('[data-testid="widget-remove"]').first()).toBeVisible({ timeout: 5_000 })
+  await expect(only.locator('[data-testid="widget-link-mark"]')).toHaveCount(0)
 })
