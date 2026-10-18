@@ -147,6 +147,9 @@ test('WRD-2 × → Remove from this desk takes only this desk’s instance; the 
   expect(after.files).toContain(fileId)
   expect(after.onB).toContain(b)
   expect(after.instances).toEqual([b])
+  // The Undo toast says what happened, by name: removed, not deleted.
+  await expect(window.locator('[data-testid="undo-toast"]')).toHaveText(/Removed “Pricing questions” from this desk/)
+  await expect(window.locator('[data-testid="undo-toast"]')).not.toContainText('sticky')
 })
 
 test('WRD-3 × → Delete work widget trashes the file and every instance; Undo puts them all back', async () => {
@@ -347,6 +350,7 @@ test('WRD-7 Delete on a selected work widget asks the × question; Remove from t
   await clickBareCanvas(window)
   await window.keyboard.press('Meta+z')
   await expect.poll(() => storeWidgetIds(window), { timeout: 8_000 }).toContain(a)
+  await expect(window.locator('[data-testid="undo-toast"]')).toContainText('Undid Remove “Pricing questions” from this desk')
 })
 
 test('WRD-8 Backspace on several selected asks once for the lot; Delete N work widgets trashes every file, one Undo restores them all', async () => {
@@ -430,6 +434,8 @@ test('WRD-10 Delete on a desk-only work widget keeps the single confirm', async 
   await expect(dialog.locator('[data-testid="prompt-choice-remove"]')).toHaveCount(0)
   await dialog.locator('[data-testid="prompt-dialog-confirm"]').click()
   await expect(window.locator(`[data-widget-id="${id.id}"]`)).toHaveCount(0, { timeout: 8_000 })
+  // A true delete says Deleted, with the catalogue label, not the kind id.
+  await expect(window.locator('[data-testid="undo-toast"]')).toHaveText(/Deleted Contacts work widget/)
 })
 
 async function taskListOnDesk(window: Page, deskId: string): Promise<{ scope: string; group: string | null }> {

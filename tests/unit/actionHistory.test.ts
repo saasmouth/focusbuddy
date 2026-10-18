@@ -54,6 +54,20 @@ describe('actionHistory store', () => {
     expect(useActionHistory.getState().past).toHaveLength(1)
   })
 
+  it('the action toast says what happened; the step keeps its name for Undid/Redid', async () => {
+    const h = useActionHistory.getState()
+    h.recordWithToast({ label: 'Remove “Plan” from this desk', toast: 'Removed “Plan” from this desk', undo: () => {}, redo: () => {} })
+    expect(useActionHistory.getState().toast).toMatchObject({ kind: 'action', label: 'Removed “Plan” from this desk' })
+    await useActionHistory.getState().undo()
+    expect(useActionHistory.getState().toast).toMatchObject({ kind: 'undo', label: 'Remove “Plan” from this desk' })
+
+    h.beginBatch()
+    h.recordWithToast({ label: 'x', undo: () => {}, redo: () => {} })
+    h.endBatch('Remove 2 work widgets from this desk', 'Removed 2 work widgets from this desk')
+    expect(useActionHistory.getState().toast).toMatchObject({ kind: 'action', label: 'Removed 2 work widgets from this desk' })
+    expect(useActionHistory.getState().past.at(-1)?.label).toBe('Remove 2 work widgets from this desk')
+  })
+
   it('coalesces a batch into one entry; undo reverses all parts in LIFO order', async () => {
     const calls: string[] = []
     const h = useActionHistory.getState()

@@ -4,6 +4,7 @@ import Icon from './Icon'
 import { useSourcePeek } from '../stores/sourcePeek'
 import { goToSourceTarget } from '../lib/goToSourceTarget'
 import { renderWidgetInline } from '../lib/renderWidgetInline'
+import { catalogFor } from '../lib/widgetCatalog'
 import type { Widget } from '@shared/types'
 
 // Looking at a reference without leaving what you were doing.
@@ -116,7 +117,7 @@ function WidgetPeek({ widgetId, label }: { widgetId: string; label: string | nul
   return (
     <Frame
       title={widget.title || label || 'Work widget'}
-      subtitle={`On a desk · ${widget.kind}`}
+      subtitle={`On a desk · ${catalogFor(widget.kind)?.label ?? 'Work widget'}`}
       onGo={go}
       onClose={close}
     >

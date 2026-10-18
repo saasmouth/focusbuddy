@@ -16,6 +16,7 @@ import {
   crdtEmitWidgetFields
 } from '../lib/crdtBridge'
 import { recordAction, recordActionWithToast } from './actionHistory'
+import { removalLabels, type RemovalScope } from '../lib/widgetRemovalCopy'
 import { focusNavOrder, isFocusable } from '../lib/focusNavOrder'
 import { clampZoom } from '../lib/deskCameraNav'
 import { isWidgetFilePaneId, widgetFileIdFromGroup } from '@shared/widgetFiles'
@@ -97,7 +98,11 @@ interface WidgetStore {
   /** Best-effort create for auto-spawned chrome; resolves null if the task is gone. */
   createOptional: (draft: WidgetDraft) => Promise<Widget | null>
   update: (id: string, patch: WidgetPatch) => Promise<void>
-  remove: (id: string) => Promise<void>
+  /** Take a widget off the desk (soft delete, undoable). `scope` says what
+   *  that was, for the Undo toast's words: 'desk' (removed from this desk; its
+   *  file stays) or 'delete' (a desk-only one, deleted). Without it, an
+   *  instance of a work widget file counts as 'desk', anything else 'delete'. */
+  remove: (id: string, opts?: { scope?: RemovalScope }) => Promise<void>
   archive: (id: string) => Promise<void>
   restore: (id: string) => Promise<void>
   // Park every visible, non-pinned, non-section, top-level widget — optionally keeping the
@@ -417,8 +422,9 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
     if (newFileId) void useWidgetFilesStore.getState().load(newFileId)
     // Undo a freshly-added widget by trashing it; redo restores it (same id, so
     // its links survive). We re-add the captured object locally to avoid a fetch.
+    const addedLabel = catalogFor(widget.kind)?.label
     recordAction({
-      label: `Add ${widget.kind}`,
+      label: addedLabel ? `Add ${addedLabel} work widget` : 'Add a work widget',
       undo: async () => {
         if (newFileId) await window.api.widgetFiles.trash(newFileId) // takes the instance with it
         else await window.api.widgets.delete(widget.id)
@@ -631,7 +637,7 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
     }
     if (!enabled) await get().loadForTask(taskId, { refresh: true })
   },
-  remove: async (id) => {
+  remove: async (id, opts) => {
     // Deleting the full-pane widget of a widget file trashes the file.
     if (isWidgetFilePaneId(id)) {
       const fileId = widgetFileIdFromGroup(id)
@@ -654,8 +660,11 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
     // The overlay skips links whose endpoint widget isn't present, so a trashed
     // widget's lines simply hide until it's restored.
     if (widget) {
+      const scope: RemovalScope = opts?.scope ?? (widgetFileIdFromGroup(widget.syncGroupId) ? 'desk' : 'delete')
+      const words = removalLabels(widget, scope, (k) => catalogFor(k as WidgetKind)?.label)
       recordActionWithToast({
-        label: `Delete ${widget.kind}${widget.title ? ` “${widget.title}”` : ''}`,
+        label: words.label,
+        toast: words.toast,
         undo: async () => {
           await window.api.widgets.restore(id)
           if (!get().widgets.some((w) => w.id === id)) set({ widgets: [...get().widgets, widget] })

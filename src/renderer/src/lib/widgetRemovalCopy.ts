@@ -44,3 +44,46 @@ export function removalPlan<W extends { id: string }>(
   }
   return { fileIds, deskOnlyIds }
 }
+
+/**
+ * What a removal was: 'desk' takes this desk's instance away and leaves the
+ * file (the × menu's "Remove from this desk"); 'delete' is a true delete (a
+ * desk-only kind, or an instance whose file is not on this device, where the
+ * question was "Delete this work widget?").
+ */
+export type RemovalScope = 'desk' | 'delete'
+
+/**
+ * The two names one removal goes by. `label` names the undo step, so the
+ * undo/redo toasts read "Undid Remove “Plan” from this desk"; `toast` is what
+ * the Undo toast says right after it happened: "Removed “Plan” from this desk".
+ * A widget with no title is named by its catalog label ("Tasks work widget"),
+ * never by its kind id. Pure, for the tests.
+ */
+export interface RemovalLabels {
+  label: string
+  toast: string
+}
+
+export function removalLabels(
+  w: { kind: string; title?: string | null },
+  scope: RemovalScope,
+  kindLabel: (kind: string) => string | null | undefined
+): RemovalLabels {
+  const title = (w.title ?? '').trim()
+  const kl = (kindLabel(w.kind) ?? '').trim()
+  const name = title ? `“${title}”` : kl ? `${kl} work widget` : 'a work widget'
+  if (scope === 'desk') {
+    return { label: `Remove ${name} from this desk`, toast: `Removed ${name} from this desk` }
+  }
+  return { label: `Delete ${name}`, toast: `Deleted ${name}` }
+}
+
+/** Several at once, as one undo step: "Removed 3 work widgets from this desk". */
+export function manyRemovalLabels(n: number, scope: RemovalScope): RemovalLabels {
+  const what = `${n} work widget${n === 1 ? '' : 's'}`
+  if (scope === 'desk') {
+    return { label: `Remove ${what} from this desk`, toast: `Removed ${what} from this desk` }
+  }
+  return { label: `Delete ${what}`, toast: `Deleted ${what}` }
+}

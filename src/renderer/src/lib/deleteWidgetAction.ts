@@ -76,7 +76,7 @@ export async function applyDeleteWidget(p: DeleteP): Promise<DeleteApplyResult> 
   // Remove from this desk (or a work widget with no file here, for which
   // removing it IS all there is to delete).
   if (!widget) return { ok: false, message: `${p.label} is not on a desk, so there is nothing to remove from one.` }
-  await useWidgetStore.getState().remove(widget.id)
+  await useWidgetStore.getState().remove(widget.id, { scope: fileId ? 'desk' : 'delete' })
   if (fileId) return { ok: true, message: `Removed ${p.label} from this desk — it stays in Files` }
   return {
     ok: true,

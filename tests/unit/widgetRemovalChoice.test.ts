@@ -2,7 +2,8 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DELETE_HINT, otherDeskCount, removeHint, trashFileBody } from '../../src/renderer/src/lib/widgetRemovalCopy'
+import { DELETE_HINT, manyRemovalLabels, otherDeskCount, removalLabels, removeHint, trashFileBody } from '../../src/renderer/src/lib/widgetRemovalCopy'
+import { catalogFor } from '../../src/renderer/src/lib/widgetCatalog'
 import { mentionCandidates } from '../../src/renderer/src/lib/mentionCandidates'
 import { isPlaceholderWidgetFileTitle, meaningfulWidgetTitle, placeholderWidgetFileTitle, deriveWidgetFileTitle } from '../../src/shared/widgetFiles'
 import type { Widget } from '../../src/shared/types'
@@ -17,6 +18,45 @@ const ROOT = join(__dirname, '..', '..', 'src', 'renderer', 'src')
 const read = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8')
 
 describe('the words', () => {
+  const kl = (k: string): string | undefined => catalogFor(k as Widget['kind'])?.label
+
+  it('the Undo toast says Removed for a remove from this desk, by title', () => {
+    expect(removalLabels({ kind: 'sticky', title: 'Pricing questions' }, 'desk', kl)).toEqual({
+      label: 'Remove “Pricing questions” from this desk',
+      toast: 'Removed “Pricing questions” from this desk'
+    })
+  })
+
+  it('names an untitled one by its catalog label, never its kind id', () => {
+    expect(removalLabels({ kind: 'task-list', title: '' }, 'desk', kl).toast).toBe('Removed Tasks work widget from this desk')
+    expect(removalLabels({ kind: 'sticky', title: '   ' }, 'desk', kl).toast).toBe('Removed Sticky work widget from this desk')
+    const t = removalLabels({ kind: 'task-list', title: null }, 'delete', kl)
+    expect(t).toEqual({ label: 'Delete Tasks work widget', toast: 'Deleted Tasks work widget' })
+    expect(t.toast).not.toMatch(/task-list/)
+    // A kind the catalog does not know still reads as prose.
+    expect(removalLabels({ kind: 'minimap', title: '' }, 'delete', () => undefined).toast).toBe('Deleted a work widget')
+  })
+
+  it('a true delete says Deleted', () => {
+    expect(removalLabels({ kind: 'sticky', title: 'Plan' }, 'delete', kl)).toEqual({ label: 'Delete “Plan”', toast: 'Deleted “Plan”' })
+  })
+
+  it('no remove or trash label in the widget stores names a raw kind id', () => {
+    for (const rel of ['stores/widgets.ts', 'lib/widgetRemoval.ts', 'stores/widgetFiles.ts', 'lib/deleteWidgetAction.ts']) {
+      const src = read(rel)
+      expect(src, rel).not.toMatch(/label: `(Delete|Remove|Add) \$\{\w+\.kind\}/)
+    }
+  })
+
+  it('several at once, with the right plural', () => {
+    expect(manyRemovalLabels(3, 'desk')).toEqual({
+      label: 'Remove 3 work widgets from this desk',
+      toast: 'Removed 3 work widgets from this desk'
+    })
+    expect(manyRemovalLabels(2, 'delete')).toEqual({ label: 'Delete 2 work widgets', toast: 'Deleted 2 work widgets' })
+    expect(manyRemovalLabels(1, 'delete').toast).toBe('Deleted 1 work widget')
+  })
+
   it('says where the work widget stays when it is removed from one desk', () => {
     expect(removeHint(0)).toBe('It stays in Files.')
     expect(removeHint(1)).toBe('It stays in Files and on 1 other desk.')

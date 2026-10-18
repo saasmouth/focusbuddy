@@ -173,7 +173,7 @@ describe("the assistant's delete-widget says which it does", () => {
     api.widgetFiles.get.mockResolvedValue({ id: 'f1', trashed: false })
     const r = await applyDeleteWidget({ id: 'p', kind: 'delete-widget', widgetId: 'w1', label: 'the table' })
     expect(r).toEqual({ ok: true, message: 'Removed the table from this desk — it stays in Files' })
-    expect(removeSpy).toHaveBeenCalledWith('w1')
+    expect(removeSpy).toHaveBeenCalledWith('w1', { scope: 'desk' })
     expect(trashManySpy).not.toHaveBeenCalled()
   })
 
@@ -199,7 +199,7 @@ describe("the assistant's delete-widget says which it does", () => {
     api.widgets.get.mockResolvedValue(w('s1', { kind: 'section' }))
     const r = await applyDeleteWidget({ id: 'p', kind: 'delete-widget', widgetId: 's1', label: 'the section', scope: 'everywhere' })
     expect(r).toEqual({ ok: true, message: 'Removed the section — it only lived on this desk, so that deleted it' })
-    expect(removeSpy).toHaveBeenCalledWith('s1')
+    expect(removeSpy).toHaveBeenCalledWith('s1', { scope: 'delete' })
     expect(trashManySpy).not.toHaveBeenCalled()
   })
 

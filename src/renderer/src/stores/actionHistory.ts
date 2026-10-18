@@ -12,7 +12,12 @@ import { create } from 'zustand'
 // clears redo. A short label drives the "Undid X" / "Deleted — Undo" toast.
 
 export interface HistoryEntry {
+  /** Names the step: the undo/redo toasts read "Undid <label>". */
   label: string
+  /** What the action toast says right after it happened, when that should
+   *  read differently from the step's name ("Removed “Plan” from this desk"
+   *  for the step "Remove “Plan” from this desk"). Defaults to `label`. */
+  toast?: string
   undo: () => Promise<void> | void
   redo: () => Promise<void> | void
 }
@@ -29,7 +34,7 @@ interface ActionHistoryStore {
   /** Group everything recorded until endBatch into ONE undo entry (e.g. an AI
    *  "Apply all" that touches many widgets reverses with a single Cmd-Z). */
   beginBatch: () => void
-  endBatch: (label: string) => void
+  endBatch: (label: string, toast?: string) => void
   undo: () => Promise<void>
   redo: () => Promise<void>
   clear: () => void
@@ -67,7 +72,7 @@ export const useActionHistory = create<ActionHistoryStore>((set, get) => ({
     set({
       past: [...get().past, entry].slice(-MAX),
       future: [],
-      toast: { kind: 'action', label: entry.label, entry }
+      toast: { kind: 'action', label: entry.toast ?? entry.label, entry }
     })
   },
 
@@ -75,7 +80,7 @@ export const useActionHistory = create<ActionHistoryStore>((set, get) => ({
     batchDepth += 1
   },
 
-  endBatch: (label) => {
+  endBatch: (label, toast) => {
     batchDepth = Math.max(0, batchDepth - 1)
     if (batchDepth > 0) return // still inside an outer batch
     const entries = batchBuffer
@@ -86,6 +91,7 @@ export const useActionHistory = create<ActionHistoryStore>((set, get) => ({
     // One combined entry: undo runs the parts in reverse, redo forward.
     const combined: HistoryEntry = {
       label,
+      ...(toast ? { toast } : {}),
       undo: async () => {
         for (let i = entries.length - 1; i >= 0; i--) await entries[i].undo()
       },
@@ -96,7 +102,7 @@ export const useActionHistory = create<ActionHistoryStore>((set, get) => ({
     set({
       past: [...get().past, combined].slice(-MAX),
       future: [],
-      toast: hadToast ? { kind: 'action', label, entry: combined } : get().toast
+      toast: hadToast ? { kind: 'action', label: toast ?? label, entry: combined } : get().toast
     })
   },
 

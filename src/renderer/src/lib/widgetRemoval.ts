@@ -14,19 +14,23 @@
 // widget whose file is not here (an instance on a desk shared with you, or a
 // file still syncing): there is nothing this device could delete beyond it.
 
-import type { Widget } from '@shared/types'
+import type { Widget, WidgetKind } from '@shared/types'
 import { isWidgetFilePaneId, widgetFileIdFromGroup } from '@shared/widgetFiles'
 import { confirmDialog, promptChoice } from '../components/plexi/PromptDialog'
 import { useWidgetStore } from '../stores/widgets'
 import { useWidgetFilesStore } from '../stores/widgetFiles'
 import { widgetDisplayName } from './widgetDisplayName'
 import { useActionHistory } from '../stores/actionHistory'
+import { catalogFor } from './widgetCatalog'
 import {
   DELETE_HINT,
   MANY_DELETE_HINT,
   MANY_REMOVE_HINT,
+  manyRemovalLabels,
   otherDeskCount,
+  removalLabels,
   removalPlan,
+  type RemovalScope,
   removeHint,
   trashFileBody
 } from './widgetRemovalCopy'
@@ -75,7 +79,8 @@ export async function removeWorkWidget(widget: Widget): Promise<'removed' | 'del
   if (!file) {
     const ok = await confirmDialog({ title: 'Delete this work widget?', confirmLabel: 'Delete', danger: true })
     if (!ok) return null
-    await useWidgetStore.getState().remove(widget.id)
+    // Nothing of it is left anywhere this device knows of: the toast says Deleted.
+    await useWidgetStore.getState().remove(widget.id, { scope: 'delete' })
     return 'removed'
   }
   let others = 0
@@ -92,7 +97,7 @@ export async function removeWorkWidget(widget: Widget): Promise<'removed' | 'del
     ]
   })
   if (choice === 'remove') {
-    await useWidgetStore.getState().remove(widget.id)
+    await useWidgetStore.getState().remove(widget.id, { scope: 'desk' })
     return 'removed'
   }
   if (choice === 'delete') {
@@ -113,14 +118,20 @@ export async function removeWorkWidgets(ws: Widget[]): Promise<'removed' | 'dele
   for (const w of ws) fileOf.set(w.id, (await liveFileOf(w))?.id ?? null)
   const plan = removalPlan(ws, (w) => fileOf.get(w.id) ?? null)
   const store = useWidgetStore.getState()
+  const hist = useActionHistory.getState()
   // Removing several from the desk is ONE undo step, as one action should be.
-  const removeAll = async (ids: string[], label: string): Promise<void> => {
-    const hist = useActionHistory.getState()
+  // Its toast says what happened: "Removed 3 work widgets from this desk",
+  // "Deleted 2 work widgets" (or the one's own name when there is one).
+  const removeAll = async (ids: string[], scope: RemovalScope): Promise<void> => {
+    const only = ids.length === 1 ? ws.find((w) => w.id === ids[0]) : undefined
+    const words = only
+      ? removalLabels(only, scope, (k) => catalogFor(k as WidgetKind)?.label)
+      : manyRemovalLabels(ids.length, scope)
     hist.beginBatch()
     try {
-      for (const id of ids) await store.remove(id)
+      for (const id of ids) await store.remove(id, { scope })
     } finally {
-      hist.endBatch(label)
+      hist.endBatch(words.label, words.toast)
     }
   }
   if (plan.fileIds.length === 0) {
@@ -130,7 +141,7 @@ export async function removeWorkWidgets(ws: Widget[]): Promise<'removed' | 'dele
       danger: true
     })
     if (!ok) return null
-    await removeAll(ws.map((w) => w.id), `Delete ${ws.length} work widgets`)
+    await removeAll(ws.map((w) => w.id), 'delete')
     return 'removed'
   }
   const choice = await promptChoice({
@@ -146,14 +157,21 @@ export async function removeWorkWidgets(ws: Widget[]): Promise<'removed' | 'dele
     ]
   })
   if (choice === 'remove') {
-    await removeAll(ws.map((w) => w.id), `Remove ${ws.length} work widgets from this desk`)
+    await removeAll(ws.map((w) => w.id), 'desk')
     return 'removed'
   }
   if (choice === 'delete') {
     // One notice and one Undo for every file (and every instance it takes).
-    await useWidgetFilesStore.getState().trashMany(plan.fileIds)
-    // A desk-only one in the selection has no file: it is simply removed.
-    if (plan.deskOnlyIds.length > 0) await removeAll(plan.deskOnlyIds, `Delete ${plan.deskOnlyIds.length} work widgets`)
+    // A desk-only one in the selection has no file: it is simply deleted, and
+    // the whole lot is still ONE undo step (Cmd-Z puts every one back).
+    const all = manyRemovalLabels(ws.length, 'delete')
+    hist.beginBatch()
+    try {
+      await useWidgetFilesStore.getState().trashMany(plan.fileIds)
+      for (const id of plan.deskOnlyIds) await store.remove(id, { scope: 'delete' })
+    } finally {
+      hist.endBatch(all.label, all.toast)
+    }
     return 'deleted'
   }
   return null
