@@ -100,7 +100,7 @@ const DESK_VIEWS: {
   { kind: 'trash', label: 'Trash', icon: 'delete', tone: AREA_TONES.trash, go: (v) => v.goTrash() }
 ]
 
-type SectionId = 'desk' | 'apps' | 'widgets' | 'people' | 'brain'
+type SectionId = 'desk' | 'apps' | 'widgets' | 'connected' | 'people' | 'brain'
 
 const SECTIONS: { id: SectionId; label: string; icon: string; tone: string }[] = [
   // Section heads take the hue of the area they open, from the same map as
@@ -109,8 +109,13 @@ const SECTIONS: { id: SectionId; label: string; icon: string; tone: string }[] =
   // "Office" named the room; the operator renamed it for what it holds.
   { id: 'apps', label: 'Apps', icon: 'apps', tone: AREA_TONES.office },
   // Widgets that are not an app (4.3.32): standalone widget files, and the way
-  // widgets are added to a desk now that the header button is gone.
+  // widgets are added to a desk now that the header button is gone. Directly
+  // under the office apps and above the connected apps (owner, 4.3.32): the
+  // things you make sit beside the apps you make them with.
   { id: 'widgets', label: 'Work widgets', icon: 'widgets', tone: AREA_TONES.widgets },
+  // Connected apps were the tail of the Apps section; they are their own
+  // section now so Work widgets can sit between the two. Same Apps tone.
+  { id: 'connected', label: 'Connected apps', icon: 'hub', tone: AREA_TONES.office },
   { id: 'people', label: 'People', icon: 'groups', tone: AREA_TONES.people },
   { id: 'brain', label: 'Brain', icon: 'neurology', tone: AREA_TONES.brain }
 ]
@@ -128,6 +133,7 @@ function readOpen(): Record<SectionId, boolean> {
     desk: true,
     apps: true,
     widgets: true,
+    connected: true,
     people: true,
     brain: true
   }
@@ -139,6 +145,10 @@ function readOpen(): Record<SectionId, boolean> {
       desk: parsed.desk ?? true,
       apps: parsed.apps ?? true,
       widgets: parsed.widgets ?? true,
+      // Connected apps used to fold with Apps. Someone who had Apps folded
+      // keeps them folded; the new section inherits that choice once, and is
+      // stored on its own from then on. Nothing else they set is touched.
+      connected: parsed.connected ?? parsed.apps ?? true,
       people: parsed.people ?? true,
       brain: parsed.brain ?? true
     }
@@ -179,7 +189,8 @@ function Section({
   locked: boolean
   lockedReason?: string
   onLockedClick?: () => void
-  onActivate: () => void
+  /** Where the header goes. A section that is not an area (Connected apps) has none: its header folds. */
+  onActivate?: () => void
   open: boolean
   onToggle: () => void
   children: React.ReactNode
@@ -211,6 +222,10 @@ function Section({
           onClick={() => {
             // Going to an area whose section is folded and leaving it folded
             // would land you somewhere with no visible way around it.
+            if (!onActivate) {
+              onToggle()
+              return
+            }
             if (!open) onToggle()
             onActivate()
           }}
@@ -526,7 +541,37 @@ export default function AreaAccordion({
             </AppTileMenu>
           ))}
         </TileGrid>
+      </Section>
 
+      <Section
+        id="widgets"
+        label="Work widgets"
+        icon="widgets"
+        kind="widgets"
+        locked={false}
+        onActivate={() => {
+          // The header lists every widget file: Files, narrowed to widgets.
+          useFileManagerStore.getState().setTypeFilter('widgets')
+          void useFileManagerStore.getState().openFolder(null)
+          useViewStore.getState().goFiles()
+        }}
+        open={open.widgets}
+        onToggle={() => toggle('widgets')}
+      >
+        <WidgetsSection />
+      </Section>
+
+      <Section
+        id="connected"
+        label="Connected apps"
+        icon="hub"
+        kind="connected-apps"
+        locked={!appsEnt.enabled}
+        lockedReason={appsEnt.reason}
+        onLockedClick={appsEnt.onLockedClick}
+        open={open.connected}
+        onToggle={() => toggle('connected')}
+      >
         {/* Connected apps belong to the ACTIVE ORG. The heading says which,
             because the same app is a different account per org and a tile that
             does not say whose account it is is a trap. */}
@@ -594,25 +639,6 @@ export default function AreaAccordion({
             ))}
           </TileGrid>
         )}
-
-      </Section>
-
-      <Section
-        id="widgets"
-        label="Work widgets"
-        icon="widgets"
-        kind="widgets"
-        locked={false}
-        onActivate={() => {
-          // The header lists every widget file: Files, narrowed to widgets.
-          useFileManagerStore.getState().setTypeFilter('widgets')
-          void useFileManagerStore.getState().openFolder(null)
-          useViewStore.getState().goFiles()
-        }}
-        open={open.widgets}
-        onToggle={() => toggle('widgets')}
-      >
-        <WidgetsSection />
       </Section>
 
       <Section

@@ -115,6 +115,29 @@ describe('Apps — what the operator asked for, in order', () => {
     expect(connected).toContain('<AppLogo')
   })
 
+  it('Work widgets sit directly under the office apps and directly above connected apps (4.3.32)', () => {
+    // Owner: "move the Work widgets section so it sits directly UNDER the
+    // office apps section and directly ABOVE the connected apps section".
+    // Connected apps became their own section to make that possible.
+    const tools = accordion.indexOf('label="Tools"')
+    const widgets = accordion.indexOf('id="widgets"', accordion.indexOf('export default function AreaAccordion'))
+    const connected = accordion.indexOf('id="connected"')
+    expect(tools).toBeGreaterThan(-1)
+    expect(widgets).toBeGreaterThan(tools)
+    expect(connected).toBeGreaterThan(widgets)
+    expect(accordion.indexOf("'Connected apps — ")).toBeGreaterThan(connected)
+    // Nothing between them: the Apps section closes, Work widgets opens.
+    const between = accordion.slice(tools, widgets)
+    expect(between.match(/<Section\b/g) ?? []).toHaveLength(1)
+  })
+
+  it('an existing user who had Apps folded keeps connected apps folded; nothing else is reset', () => {
+    // Only open/closed is persisted (never an order), so the move needs no
+    // migration; the new section inherits the old Apps choice once.
+    expect(accordion).toContain('connected: parsed.connected ?? parsed.apps ?? true')
+    expect(accordion).toContain('widgets: parsed.widgets ?? true')
+  })
+
   it('then People and Brain, with their subsections', () => {
     expect(accordion.indexOf("'Connected apps — ")).toBeLessThan(
       accordion.indexOf('label="People"')

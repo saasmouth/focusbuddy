@@ -38,9 +38,13 @@ async function seedApps(window: LaunchedApp['window']): Promise<string[]> {
   return ids
 }
 
-/** Expand the Apps section only if it is currently collapsed. */
+/**
+ * Expand the Connected apps section only if it is currently collapsed. (It was
+ * the tail of the Apps section until 4.3.32, when Work widgets moved between
+ * the two and connected apps became a section of their own.)
+ */
 async function expandApps(window: LaunchedApp['window']): Promise<void> {
-  const toggle = window.locator('[data-testid="nav-section-apps"]')
+  const toggle = window.locator('[data-testid="nav-section-connected"]')
   if ((await toggle.count()) === 0) return
   if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click()
 }
