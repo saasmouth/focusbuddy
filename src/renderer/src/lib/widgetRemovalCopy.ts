@@ -21,3 +21,26 @@ export function trashFileBody(desks: number): string | undefined {
   if (desks <= 0) return undefined
   return `It is on ${desks} desk${desks === 1 ? '' : 's'} and will be removed from ${desks === 1 ? 'it' : 'them'} too. You can restore it from Trash, which puts it back.`
 }
+
+export const MANY_REMOVE_HINT = 'They stay in Files and on any other desk.'
+export const MANY_DELETE_HINT = 'Removes them from every desk and from Files. You can restore them from Trash.'
+
+/**
+ * What deleting a multi-selection everywhere touches: each distinct live file
+ * once (two instances of one file on this desk are one file), and the
+ * widgets with no file here (desk-only kinds, an instance whose file is not on
+ * this device), which can only be removed from the desk.
+ */
+export function removalPlan<W extends { id: string }>(
+  ws: readonly W[],
+  liveFileIdOf: (w: W) => string | null
+): { fileIds: string[]; deskOnlyIds: string[] } {
+  const fileIds: string[] = []
+  const deskOnlyIds: string[] = []
+  for (const w of ws) {
+    const f = liveFileIdOf(w)
+    if (!f) deskOnlyIds.push(w.id)
+    else if (!fileIds.includes(f)) fileIds.push(f)
+  }
+  return { fileIds, deskOnlyIds }
+}

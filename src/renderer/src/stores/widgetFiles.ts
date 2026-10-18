@@ -25,6 +25,7 @@ import { useNodeStore } from './nodes'
 import { useDocumentsStore } from './documents'
 import { useNoticeStore } from './notice'
 import { nudgeSync } from '../lib/syncNudge'
+import { recordAction } from './actionHistory'
 import { fitNewWidgetToView } from '../lib/fitDroppedWidget'
 
 interface WidgetFilesState {
@@ -47,6 +48,12 @@ interface WidgetFilesState {
   rename: (id: string, title: string) => Promise<void>
   /** Move to the Documents Trash, with Undo. */
   trash: (id: string) => Promise<boolean>
+  /**
+   * Several files at once (a multi-selection's "Delete N work widgets"): one
+   * notice, one Undo and one undo step for the lot. Resolves with how many
+   * went to Trash.
+   */
+  trashMany: (ids: string[]) => Promise<number>
   /** Place a LINKED instance of an existing file on a desk. */
   place: (
     id: string,
@@ -216,46 +223,70 @@ export const useWidgetFilesStore = create<WidgetFilesState>((set, get) => ({
     await get().update(id, { title: t })
   },
 
-  trash: async (id) => {
-    const file = get().files[id] ?? (await get().load(id))
-    // Deleting the file takes every desk instance with it (main does that, in
-    // trashDocument). Count the desks first so the toast can say so.
-    let desks = 0
-    try {
-      desks = new Set((await window.api.widgetFiles.instances(id)).map((w) => w.taskId)).size
-    } catch {
-      desks = 0
+  trash: async (id) => (await get().trashMany([id])) > 0,
+
+  trashMany: async (ids) => {
+    const unique = [...new Set(ids)]
+    if (unique.length === 0) return 0
+    // Deleting a file takes every desk instance with it (main does that, in
+    // trashDocument). Count the desks first so the notice can say so.
+    const names: string[] = []
+    const desks = new Set<string>()
+    const done: string[] = []
+    for (const id of unique) {
+      const file = get().files[id] ?? (await get().load(id))
+      let on: string[] = []
+      try {
+        on = (await window.api.widgetFiles.instances(id)).map((w) => w.taskId)
+      } catch {
+        /* the count is only for the notice */
+      }
+      if (!(await window.api.widgetFiles.trash(id))) continue
+      for (const t of on) desks.add(t)
+      done.push(id)
+      names.push(file?.title ?? 'Work widget')
+      forget(id)
+      dropInstancesFromOpenDesk(id)
     }
-    const ok = await window.api.widgetFiles.trash(id)
-    if (!ok) return false
-    forget(id)
-    dropInstancesFromOpenDesk(id)
+    if (done.length === 0) return 0
     // …and re-read the open desk, in case its copy of a widget predates the
     // link (the launch backfill files widgets under an already-open desk).
     void reloadOpenDeskInstances()
     nudgeSync()
     const view = useViewStore.getState().view
-    if (view.kind === 'document' && view.documentId === id) useViewStore.getState().back()
-    const name = file?.title ?? 'Work widget'
-    useNoticeStore.getState().show({
-      text:
-        desks > 0
-          ? `“${name}” moved to Trash and removed from ${desks} desk${desks === 1 ? '' : 's'}`
-          : `“${name}” moved to Trash`,
-      icon: 'delete',
-      action: {
-        label: 'Undo',
-        run: () => {
-          // Restoring the file puts its instances back where they were.
-          void window.api.documents.restore(id).then(() => {
-            nudgeSync()
-            void get().load(id)
-            void reloadOpenDeskInstances()
-          })
+    if (view.kind === 'document' && done.includes(view.documentId)) useViewStore.getState().back()
+    const restoreAll = async (): Promise<void> => {
+      // Restoring a file puts its instances back where they were.
+      for (const id of done) await window.api.documents.restore(id)
+      nudgeSync()
+      for (const id of done) void get().load(id)
+      await reloadOpenDeskInstances()
+    }
+    // Cmd-Z reaches it too (and an assistant "Apply all" folds it into its one
+    // undo step); the notice below carries the visible Undo.
+    recordAction({
+      label: done.length === 1 ? `Delete “${names[0]}”` : `Delete ${done.length} work widgets`,
+      undo: restoreAll,
+      redo: async () => {
+        for (const id of done) {
+          await window.api.widgetFiles.trash(id)
+          forget(id)
+          dropInstancesFromOpenDesk(id)
         }
+        nudgeSync()
       }
     })
-    return true
+    const n = desks.size
+    const onDesks = n > 0 ? ` and removed from ${n} desk${n === 1 ? '' : 's'}` : ''
+    useNoticeStore.getState().show({
+      text:
+        done.length === 1
+          ? `“${names[0]}” moved to Trash${onDesks}`
+          : `${done.length} work widgets moved to Trash${onDesks}`,
+      icon: 'delete',
+      action: { label: 'Undo', run: () => void restoreAll() }
+    })
+    return done.length
   },
 
   place: async (id, taskId, at = {}) => {

@@ -36,7 +36,11 @@ const CANVAS_ROWS: Row[] = [
   { keys: '⌘] / ⌘[', label: 'Zoom in / out' },
   { keys: '⌘0', label: 'Reset the view' },
   { keys: '⌘H', label: 'Centre on home' },
-  { keys: '⌘A', label: 'Select all work widgets' }
+  { keys: '⌘A', label: 'Select all work widgets' },
+  {
+    keys: 'Delete / ⌫',
+    label: 'Remove the selected work widgets from this desk, or delete them everywhere — it asks which'
+  }
 ]
 
 // The quick-add section is editable: click a key chip, press a new letter to

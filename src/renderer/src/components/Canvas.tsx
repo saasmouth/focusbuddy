@@ -3,6 +3,8 @@ import { useAssistantChrome } from '../stores/assistantChrome'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { effectiveShortcutToKind } from '../lib/keymap'
 import { quickAddAllowed, deepActiveElement } from '../lib/quickAddFocus'
+import { deleteKeyAllowed, isDeleteKey } from '../lib/deleteKey'
+import { removeWorkWidgets } from '../lib/widgetRemoval'
 import { useNodeStore } from '../stores/nodes'
 import { contentForIndependentCopy } from '../lib/copyWidgetContent'
 import { useWidgetStore } from '../stores/widgets'
@@ -157,6 +159,10 @@ const CATEGORY_COLOR: Record<WidgetCategory, string> = {
 // Stable empty overlay-objects reference so the layout-save effect does not
 // re-arm while a Desk is not opted into per-device layout (PLX-APP-010 Phase 2).
 const EMPTY_OVERLAY_OBJECTS: never[] = []
+// One remove-or-delete question at a time, however many canvases are mounted
+// or however fast the key is pressed.
+let deleteSelectionBusy = false
+
 const WEB_KINDS: WidgetKind[] = ['webview', 'pdf', 'gdoc', 'gsheet', 'gslide', 'email']
 const isWebKind = (k: WidgetKind): boolean => WEB_KINDS.includes(k)
 
@@ -259,7 +265,6 @@ export default function Canvas(): JSX.Element {
   const selectedIds = useWidgetStore((s) => s.selectedIds)
   const setSelection = useWidgetStore((s) => s.setSelection)
   const clearSelection = useWidgetStore((s) => s.clearSelection)
-  const removeWidget = useWidgetStore((s) => s.remove)
   const groupDragActive = useWidgetStore((s) => s.groupDrag !== null)
   const dropRef = useRef<HTMLDivElement | null>(null)
   // Space taken on the right of the viewport by the assistant panel, measured as
@@ -1435,11 +1440,47 @@ export default function Canvas(): JSX.Element {
     setSelection(created.map((w) => w.id))
   }, [selectedIds, createWidget, setSelection])
 
+  // The selection bar's delete button and the Delete / Backspace key. Both ask
+  // what the × asks (lib/widgetRemoval): remove these from this desk, or delete
+  // the work widgets everywhere. Cancel keeps the selection as it was.
   const deleteSelection = useCallback(async (): Promise<void> => {
-    const ids = useWidgetStore.getState().selectedIds.slice()
-    clearSelection()
-    await Promise.all(ids.map((id) => removeWidget(id)))
-  }, [clearSelection, removeWidget])
+    if (deleteSelectionBusy) return
+    const st = useWidgetStore.getState()
+    const sel = st.widgets.filter((w) => st.selectedIds.includes(w.id))
+    if (sel.length === 0) return
+    deleteSelectionBusy = true
+    try {
+      const done = await removeWorkWidgets(sel)
+      if (done) clearSelection()
+    } finally {
+      deleteSelectionBusy = false
+    }
+  }, [clearSelection])
+
+  // Delete / Backspace on a selection. Gated like quick-add (lib/deleteKey):
+  // never while typing, in a control or dialog, or working inside a widget
+  // that is not part of the selection.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent): void {
+      if (e.defaultPrevented || !isDeleteKey(e)) return
+      const ws = useWidgetStore.getState()
+      if (
+        !deleteKeyAllowed({
+          activeTaskId: useNodeStore.getState().activeTaskId,
+          selectedIds: ws.selectedIds,
+          activeWidgetId: ws.activeWidgetId,
+          focusedWidgetId: ws.focusedWidgetId,
+          focusedElement: deepActiveElement()
+        })
+      ) {
+        return
+      }
+      e.preventDefault()
+      void deleteSelection()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [deleteSelection])
 
   // Selected, free, top-level widgets eligible for align/distribute (excludes
   // pinned, section children, sections themselves, and the minimap — same set
@@ -2890,7 +2931,7 @@ export default function Canvas(): JSX.Element {
                 </button>
                 <button
                   onClick={() => void deleteSelection()}
-                  title="Delete all selected"
+                  title="Remove from this desk or delete (Delete key)"
                   aria-label="Delete selected"
                   className="h-7 w-7 inline-flex items-center justify-center rounded-full hover:bg-rose-500/15 text-rose-500"
                 >

@@ -20,7 +20,16 @@ import { confirmDialog, promptChoice } from '../components/plexi/PromptDialog'
 import { useWidgetStore } from '../stores/widgets'
 import { useWidgetFilesStore } from '../stores/widgetFiles'
 import { widgetDisplayName } from './widgetDisplayName'
-import { DELETE_HINT, otherDeskCount, removeHint, trashFileBody } from './widgetRemovalCopy'
+import { useActionHistory } from '../stores/actionHistory'
+import {
+  DELETE_HINT,
+  MANY_DELETE_HINT,
+  MANY_REMOVE_HINT,
+  otherDeskCount,
+  removalPlan,
+  removeHint,
+  trashFileBody
+} from './widgetRemovalCopy'
 
 export { DELETE_HINT, otherDeskCount, removeHint, trashFileBody }
 
@@ -93,51 +102,58 @@ export async function removeWorkWidget(widget: Widget): Promise<'removed' | 'del
 }
 
 /**
- * Several selected widgets at once (the context menu's "Delete N work
- * widgets"). Same two meanings, asked once for the lot.
+ * Several selected widgets at once: the context menu's "Delete N work
+ * widgets", the selection bar's delete button and the Delete / Backspace key.
+ * Same two meanings, asked once for the lot.
  */
 export async function removeWorkWidgets(ws: Widget[]): Promise<'removed' | 'deleted' | null> {
+  if (ws.length === 0) return null
   if (ws.length === 1) return removeWorkWidget(ws[0])
-  const liveFiles = new Set<string>()
-  for (const w of ws) {
-    const f = await liveFileOf(w)
-    if (f) liveFiles.add(f.id)
-  }
-  const fileIds = [...liveFiles]
+  const fileOf = new Map<string, string | null>()
+  for (const w of ws) fileOf.set(w.id, (await liveFileOf(w))?.id ?? null)
+  const plan = removalPlan(ws, (w) => fileOf.get(w.id) ?? null)
   const store = useWidgetStore.getState()
-  if (fileIds.length === 0) {
+  // Removing several from the desk is ONE undo step, as one action should be.
+  const removeAll = async (ids: string[], label: string): Promise<void> => {
+    const hist = useActionHistory.getState()
+    hist.beginBatch()
+    try {
+      for (const id of ids) await store.remove(id)
+    } finally {
+      hist.endBatch(label)
+    }
+  }
+  if (plan.fileIds.length === 0) {
     const ok = await confirmDialog({
       title: `Delete these ${ws.length} work widgets?`,
       confirmLabel: 'Delete',
       danger: true
     })
     if (!ok) return null
-    for (const w of ws) await store.remove(w.id)
+    await removeAll(ws.map((w) => w.id), `Delete ${ws.length} work widgets`)
     return 'removed'
   }
   const choice = await promptChoice({
     title: `Remove or delete ${ws.length} work widgets?`,
     choices: [
-      { value: 'remove', label: 'Remove from this desk', hint: 'They stay in Files and on any other desk.' },
+      { value: 'remove', label: 'Remove from this desk', hint: MANY_REMOVE_HINT },
       {
         value: 'delete',
         label: `Delete ${ws.length} work widgets`,
-        hint: 'Removes them from every desk and from Files. You can restore them from Trash.',
+        hint: MANY_DELETE_HINT,
         danger: true
       }
     ]
   })
   if (choice === 'remove') {
-    for (const w of ws) await store.remove(w.id)
+    await removeAll(ws.map((w) => w.id), `Remove ${ws.length} work widgets from this desk`)
     return 'removed'
   }
   if (choice === 'delete') {
-    for (const id of fileIds) await useWidgetFilesStore.getState().trash(id)
+    // One notice and one Undo for every file (and every instance it takes).
+    await useWidgetFilesStore.getState().trashMany(plan.fileIds)
     // A desk-only one in the selection has no file: it is simply removed.
-    for (const w of ws) {
-      const fid = widgetFileIdFromGroup(w.syncGroupId)
-      if (!fid || !liveFiles.has(fid)) await store.remove(w.id)
-    }
+    if (plan.deskOnlyIds.length > 0) await removeAll(plan.deskOnlyIds, `Delete ${plan.deskOnlyIds.length} work widgets`)
     return 'deleted'
   }
   return null
