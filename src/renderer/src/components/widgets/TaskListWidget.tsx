@@ -625,6 +625,7 @@ function DeskTaskList({ widget }: { widget: Widget }): JSX.Element {
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') void add() }}
               placeholder="Add a task to this desk"
+              data-primary-input
               className="flex-1 min-w-0 bg-transparent outline-none text-[12px] text-[var(--ink-90)] placeholder:text-[var(--ink-40)]"
             />
           </div>
@@ -817,6 +818,7 @@ function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
             }}
             placeholder="Add a task…"
             data-testid="own-task-add"
+            data-primary-input
             className="fb-field w-full h-7 text-[12px] px-2"
           />
         </div>

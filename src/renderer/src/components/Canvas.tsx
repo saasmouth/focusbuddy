@@ -2,7 +2,7 @@ import { patternOffset, patternScale } from '../lib/deskPattern'
 import { useAssistantChrome } from '../stores/assistantChrome'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { effectiveShortcutToKind } from '../lib/keymap'
-import { quickAddAllowed, deepActiveElement } from '../lib/quickAddFocus'
+import { quickAddAllowed, deepActiveElement, keyEventTarget } from '../lib/quickAddFocus'
 import { deleteKeyAllowed, isDeleteKey } from '../lib/deleteKey'
 import { removeWorkWidgets } from '../lib/widgetRemoval'
 import { useNodeStore } from '../stores/nodes'
@@ -1610,7 +1610,8 @@ export default function Canvas(): JSX.Element {
           activeTaskId: useNodeStore.getState().activeTaskId,
           activeWidgetId: ws.activeWidgetId,
           focusedWidgetId: ws.focusedWidgetId,
-          focusedElement: deepActiveElement()
+          focusedElement: deepActiveElement(),
+          eventTarget: keyEventTarget(e)
         })
       ) {
         return

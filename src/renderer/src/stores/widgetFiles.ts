@@ -19,6 +19,7 @@ import {
   widgetFileTypeLabel
 } from '@shared/widgetFiles'
 import { catalogFor } from '../lib/widgetCatalog'
+import { focusNewWidget } from '../lib/focusNewWidget'
 import { useWidgetStore } from './widgets'
 import { useViewStore } from './view'
 import { useNodeStore } from './nodes'
@@ -105,6 +106,8 @@ function adoptInstance(widget: Widget | null): void {
   useWidgetStore.setState({ widgets: [...ws.widgets, widget] })
   ws.setActive(widget.id)
   ws.bumpLayoutVersion()
+  // …and it takes the keyboard, so the first thing typed lands in it.
+  focusNewWidget(widget.id)
 }
 
 /** Mirror a file's synced fields into its instances on the open desk. */

@@ -69,6 +69,29 @@ export function focusBlocksQuickAdd(el: Element | null): boolean {
   return false
 }
 
+/**
+ * Focus anywhere inside a work widget's frame: a focused row, a list, a
+ * tabbable panel. A letter typed there belongs to the work widget, never to
+ * the desk. (Quick-add only: Delete / Backspace on a selection has its own
+ * rule about the widget it is pointing at, in lib/deleteKey.)
+ */
+export function insideWorkWidget(el: Element | null): boolean {
+  return !!el && typeof el.closest === 'function' && !!el.closest('[data-widget-id]')
+}
+
+/**
+ * The key event's own target, pierced through shadow roots. Usually the same
+ * as the focused element, but not always: a key can be dispatched at an input
+ * while activeElement still reports the body, so both are asked.
+ */
+export function keyEventTarget(e: Pick<Event, 'target' | 'composedPath'>): Element | null {
+  const path = typeof e.composedPath === 'function' ? e.composedPath() : []
+  const first = path.find((n): n is Element => typeof (n as Element).tagName === 'string')
+  if (first) return first
+  const t = e.target as Element | null
+  return t && typeof t.tagName === 'string' ? t : null
+}
+
 export interface QuickAddContext {
   /** The desk currently open. Quick-add is meaningless without one. */
   activeTaskId: string | null
@@ -78,6 +101,8 @@ export interface QuickAddContext {
   focusedWidgetId: string | null
   /** document.activeElement, already pierced through shadow roots. */
   focusedElement: Element | null
+  /** The key event's target (keyEventTarget), when there is one. */
+  eventTarget?: Element | null
 }
 
 /**
@@ -94,6 +119,8 @@ export function quickAddAllowed(ctx: QuickAddContext): boolean {
   // focus machinery currently reports.
   if (ctx.activeWidgetId) return false
   if (ctx.focusedWidgetId) return false
-  if (focusBlocksQuickAdd(ctx.focusedElement)) return false
+  if (focusBlocksQuickAdd(ctx.focusedElement) || insideWorkWidget(ctx.focusedElement)) return false
+  const t = ctx.eventTarget ?? null
+  if (t && (focusBlocksQuickAdd(t) || insideWorkWidget(t))) return false
   return true
 }

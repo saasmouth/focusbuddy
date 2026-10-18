@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { focusBlocksQuickAdd, quickAddAllowed, deepActiveElement } from '../../src/renderer/src/lib/quickAddFocus'
+import { focusBlocksQuickAdd, quickAddAllowed, deepActiveElement, insideWorkWidget, keyEventTarget } from '../../src/renderer/src/lib/quickAddFocus'
+import { focusNewWidget, primaryInputOf } from '../../src/renderer/src/lib/focusNewWidget'
 
 // Single-key quick-add (S=sticky, T=table, …) turned ordinary typing into
 // object creation. The reported repro: click a sticky, start typing before its
@@ -111,5 +112,67 @@ describe('deepActiveElement', () => {
     input.focus()
     expect(deepActiveElement()).toBe(input)
     expect(focusBlocksQuickAdd(deepActiveElement())).toBe(true)
+  })
+})
+
+describe('inside a work widget (4.3.32: typing into a just-added Tasks work widget)', () => {
+  beforeEach(() => { document.body.innerHTML = '' })
+
+  it('a focused element anywhere inside a work widget frame blocks quick-add', () => {
+    // A tabbable row or panel is not a control, so focusBlocksQuickAdd lets it
+    // through; it is still inside a work widget, so the letter is the widget's.
+    const frame = el('<div data-widget-id="w_tasks"><div tabindex="-1" id="row">Send the stats</div></div>')
+    document.body.appendChild(frame)
+    const row = frame.querySelector('#row')!
+    expect(focusBlocksQuickAdd(row)).toBe(false)
+    expect(insideWorkWidget(row)).toBe(true)
+    expect(quickAddAllowed({ ...ON_DESK, focusedElement: row })).toBe(false)
+  })
+
+  it('asks the key event target too, when activeElement still reports the body', () => {
+    const frame = el('<div data-widget-id="w_tasks"><input id="add" /></div>')
+    document.body.appendChild(frame)
+    const input = frame.querySelector('#add')!
+    const ev = new KeyboardEvent('keydown', { key: 's' })
+    Object.defineProperty(ev, 'target', { value: input })
+    expect(keyEventTarget(ev)).toBe(input)
+    expect(quickAddAllowed({ ...ON_DESK, focusedElement: document.body, eventTarget: input })).toBe(false)
+  })
+
+  it('the bare desk, with nothing engaged, still quick-adds', () => {
+    expect(insideWorkWidget(document.body)).toBe(false)
+    expect(quickAddAllowed({ ...ON_DESK, focusedElement: document.body, eventTarget: document.body })).toBe(true)
+  })
+})
+
+describe('focusNewWidget — a placed work widget takes the keyboard', () => {
+  beforeEach(() => { document.body.innerHTML = '' })
+  const frames = (): Promise<void> => new Promise((r) => setTimeout(r, 60))
+
+  it('focuses the primary input once the frame mounts', async () => {
+    focusNewWidget('w_new')
+    // The frame mounts a moment after the store adopts the instance.
+    await new Promise((r) => setTimeout(r, 20))
+    document.body.appendChild(el('<div data-widget-id="w_new"><input id="search" /><input data-primary-input id="add" /></div>'))
+    await frames()
+    expect(document.activeElement?.id).toBe('add')
+    expect(primaryInputOf('w_new')?.id).toBe('add')
+  })
+
+  it('never takes focus from somewhere the person already is', async () => {
+    const other = el('<input id="elsewhere" />') as HTMLInputElement
+    document.body.appendChild(other)
+    document.body.appendChild(el('<div data-widget-id="w_new"><input data-primary-input id="add" /></div>'))
+    other.focus()
+    focusNewWidget('w_new')
+    await frames()
+    expect(document.activeElement?.id).toBe('elsewhere')
+  })
+
+  it('leaves a kind with no primary input alone', async () => {
+    document.body.appendChild(el('<div data-widget-id="w_sticky"><textarea id="t"></textarea></div>'))
+    focusNewWidget('w_sticky', 50)
+    await frames()
+    expect(document.activeElement).toBe(document.body)
   })
 })
