@@ -7,6 +7,8 @@
 
 import type { PinZone, WidgetKind } from '@shared/types'
 import { useWidgetStore } from '../../stores/widgets'
+import { removeWorkWidget, removeWorkWidgets } from '../widgetRemoval'
+import { contentForIndependentCopy } from '../copyWidgetContent'
 import { recordActionWithToast } from '../../stores/actionHistory'
 import { useAiAssistPreview } from '../../stores/aiAssistPreview'
 import { catalogFor } from '../widgetCatalog'
@@ -178,11 +180,12 @@ export async function copyText(ctx: MenuContext): Promise<void> {
 export async function duplicateWidget(ctx: MenuContext): Promise<void> {
   const w = sourceWidget(ctx)
   if (!w) return
+  // A duplicate is a new, independent work widget file (docs/widget-files.md).
   await useWidgetStore.getState().create({
     taskId: w.taskId,
     kind: w.kind,
     title: w.title,
-    content: w.content,
+    content: await contentForIndependentCopy(w.kind, w.content),
     x: w.x + 28,
     y: w.y + 28,
     width: w.width,
@@ -199,14 +202,15 @@ export async function archiveWidget(ctx: MenuContext): Promise<void> {
 }
 
 export async function deleteWidget(ctx: MenuContext): Promise<void> {
-  const store = useWidgetStore.getState()
+  // Remove from this desk, or delete the work widget everywhere — the same
+  // question the frame's × asks (docs/widget-files.md, "Remove or delete").
   if (ctx.object.type === 'multi') {
-    for (const w of ctx.object.widgets) await store.remove(w.id)
-    store.clearSelection()
+    const done = await removeWorkWidgets(ctx.object.widgets)
+    if (done) useWidgetStore.getState().clearSelection()
     return
   }
   const w = sourceWidget(ctx)
-  if (w) await store.remove(w.id)
+  if (w) await removeWorkWidget(w)
 }
 
 // ── AI Assist ────────────────────────────────────────────────────────────────

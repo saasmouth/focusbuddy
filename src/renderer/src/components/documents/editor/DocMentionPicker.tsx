@@ -63,7 +63,9 @@ export default function DocMentionPicker({
               nodes,
               widgets,
               documents: [
-                ...documents.map((d) => ({ id: d.id, title: d.title, docType: d.docType })),
+                ...// widgetKind: a work widget file is labelled by its type ("Table"), not
+                // as a generic "Work widget".
+                documents.map((d) => ({ id: d.id, title: d.title, docType: d.docType, widgetKind: d.widgetKind })),
                 ...tables.map((t) => ({ id: t.id, title: t.title, docType: 'table' }))
               ],
               people: people.map((p) => ({

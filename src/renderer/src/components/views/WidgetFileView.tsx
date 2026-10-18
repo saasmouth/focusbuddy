@@ -20,6 +20,7 @@ import { useViewStore } from '../../stores/view'
 import { useNoticeStore } from '../../stores/notice'
 import { catalogFor } from '../../lib/widgetCatalog'
 import { writeWidgetFileDrag } from '../../lib/widgetFileDrag'
+import { confirmTrashWidgetFile } from '../../lib/widgetRemoval'
 import { widgetFileType, widgetFromFile, widgetFilePaneId } from '@shared/widgetFiles'
 import type { Widget } from '@shared/types'
 
@@ -27,7 +28,6 @@ export default function WidgetFileView({ fileId }: { fileId: string }): JSX.Elem
   const file = useWidgetFilesStore((s) => s.files[fileId])
   const load = useWidgetFilesStore((s) => s.load)
   const rename = useWidgetFilesStore((s) => s.rename)
-  const trash = useWidgetFilesStore((s) => s.trash)
   const [missing, setMissing] = useState(false)
   const [instances, setInstances] = useState<Widget[] | null>(null)
   const bodyRef = useRef<HTMLDivElement | null>(null)
@@ -70,6 +70,8 @@ export default function WidgetFileView({ fileId }: { fileId: string }): JSX.Elem
   }, [file?.id])
 
   const widget = useMemo(() => (file ? widgetFromFile(file, size) : null), [file, size])
+  // Desks, not instances: two copies on one desk are still one desk.
+  const deskCount = useMemo(() => new Set((instances ?? []).map((w) => w.taskId)).size, [instances])
 
   if (missing) {
     return (
@@ -121,9 +123,9 @@ export default function WidgetFileView({ fileId }: { fileId: string }): JSX.Elem
           {type?.label ?? file.kind}
         </span>
         <div className="ml-auto flex items-center gap-1 shrink-0">
-          {instances && instances.length > 0 && (
+          {deskCount > 0 && (
             <span className="text-[11px] text-[var(--ink-40)] mr-1" data-testid="widget-file-instances">
-              On {instances.length} desk{instances.length === 1 ? '' : 's'}
+              On {deskCount} desk{deskCount === 1 ? '' : 's'}
             </span>
           )}
           <PlaceOnDesk fileId={file.id} onPlaced={(w) => setInstances((xs) => [...(xs ?? []), w])} />
@@ -143,9 +145,15 @@ export default function WidgetFileView({ fileId }: { fileId: string }): JSX.Elem
           </button>
           <button
             className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-[var(--ink-50)] hover:text-rose-600 hover:bg-[var(--surface-sunken)]"
-            title="Move to Trash"
+            title={
+              deskCount > 0
+                ? `Delete: moves it to Trash and removes it from ${deskCount === 1 ? 'the desk' : `all ${deskCount} desks`} it is on`
+                : 'Move to Trash'
+            }
             data-testid="widget-file-trash"
-            onClick={() => void trash(file.id)}
+            // Deleting the file takes its desk instances too (main does it);
+            // when it is placed anywhere, this asks first and says so.
+            onClick={() => void confirmTrashWidgetFile(file.id)}
           >
             <Icon name="delete" size={16} />
           </button>

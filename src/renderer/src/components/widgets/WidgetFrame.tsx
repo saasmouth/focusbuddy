@@ -23,7 +23,8 @@ import type { FrameCallbacks } from '../../lib/contextMenu/types'
 import { FrameCallbacksProvider } from '../../lib/contextMenu/frameContext'
 import MakeTaskDialog from '../MakeTaskDialog'
 import ShareDialog from '../ShareDialog'
-import { confirmDialog } from '../plexi/PromptDialog'
+import { removeWorkWidget } from '../../lib/widgetRemoval'
+import { contentForIndependentCopy } from '../../lib/copyWidgetContent'
 import type { PinZone, Widget } from '@shared/types'
 import { PIN_ZONE_ICONS, PIN_ZONE_LABELS } from '../../lib/pinLayout'
 import { useWidgetStore } from '../../stores/widgets'
@@ -114,7 +115,6 @@ export default function WidgetFrame({
   const contextZonePosition = useZonePosition(widget.id)
   const zonePosition = zonePositionProp ?? contextZonePosition
   const update = useWidgetStore((s) => s.update)
-  const remove = useWidgetStore((s) => s.remove)
   const bringToFront = useWidgetStore((s) => s.bringToFront)
   const createWidget = useWidgetStore((s) => s.create)
   const setFocused = useWidgetStore((s) => s.setFocused)
@@ -431,7 +431,9 @@ export default function WidgetFrame({
         taskId: widget.taskId,
         kind: widget.kind,
         title: widget.title,
-        content: widget.content,
+        // Synced: another instance of the same file. Independent: a new file,
+        // so a table gets rows of its own (lib/copyWidgetContent).
+        content: synced ? widget.content : await contentForIndependentCopy(widget.kind, widget.content),
         x: widget.x + 30,
         y: widget.y + 30,
         width: widget.width,
@@ -442,6 +444,21 @@ export default function WidgetFrame({
         syncGroupId: groupId
       })
     })()
+  }
+
+  // Unlink from synced copies. An instance of a work widget file does not
+  // become a plain desk row (every work widget is a file): it leaves the
+  // shared file and becomes a new, independent file of its own — with its own
+  // table rows, for a table. Leaving the group first means neither the new
+  // content nor the new file reaches the copies it just left.
+  async function unlinkFromSyncedCopies(): Promise<void> {
+    if (!linkedFileId || !isStandaloneWidgetKind(widget.kind)) {
+      await update(widget.id, { syncGroupId: null })
+      return
+    }
+    const content = await contentForIndependentCopy(widget.kind, widget.content)
+    await update(widget.id, content === widget.content ? { syncGroupId: null } : { syncGroupId: null, content })
+    await useWidgetFilesStore.getState().promote(widget.id)
   }
 
   // Move the widget out of its parent section, dropping it directly below the
@@ -470,7 +487,7 @@ export default function WidgetFrame({
     onDuplicateToFolder: !isChildOfSection && !isSection ? () => setMakeTaskOpen(true) : undefined,
     onEjectFromSection: isChildOfSection && parent ? ejectFromSectionFrame : undefined,
     onUnlinkSynced: widget.syncGroupId && !isWidgetFilePaneId(widget.id)
-      ? () => void update(widget.id, { syncGroupId: null })
+      ? () => void unlinkFromSyncedCopies()
       : undefined,
     // A desk instance of a widget file opens its file; any other widget that
     // can be a file offers to become one. The full-pane widget IS the file.
@@ -1322,14 +1339,15 @@ export default function WidgetFrame({
             />
             <button
               onMouseDown={(e) => e.stopPropagation()}
-              onClick={async (e) => {
+              onClick={(e) => {
                 e.stopPropagation()
-                if (await confirmDialog({ title: 'Remove from the desk?', confirmLabel: 'Remove', danger: true })) {
-                  void remove(widget.id)
-                }
+                // Remove from this desk, or delete the work widget everywhere
+                // (docs/widget-files.md, "Remove or delete").
+                void removeWorkWidget(widget)
               }}
               className="h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] hover:bg-red-100 hover:text-red-700"
               aria-label="Remove work widget"
+              data-testid="widget-remove"
             >
               <Icon name="close" size={13} />
             </button>

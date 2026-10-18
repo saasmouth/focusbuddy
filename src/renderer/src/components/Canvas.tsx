@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { effectiveShortcutToKind } from '../lib/keymap'
 import { quickAddAllowed, deepActiveElement } from '../lib/quickAddFocus'
 import { useNodeStore } from '../stores/nodes'
+import { contentForIndependentCopy } from '../lib/copyWidgetContent'
 import { useWidgetStore } from '../stores/widgets'
 import { useMessagingStore } from '../stores/messaging'
 import { useConnectedAppsStore } from '../stores/connectedApps'
@@ -1414,12 +1415,13 @@ export default function Canvas(): JSX.Element {
     const sel = all.filter((w) => selectedIds.includes(w.id))
     if (sel.length === 0) return
     const created = await Promise.all(
-      sel.map((w) =>
+      sel.map(async (w) =>
         createWidget({
           taskId: w.taskId,
           kind: w.kind,
           title: w.title,
-          content: w.content,
+          // Each copy is a new work widget file; a table gets rows of its own.
+          content: await contentForIndependentCopy(w.kind, w.content),
           x: w.x + 28,
           y: w.y + 28,
           width: w.width,

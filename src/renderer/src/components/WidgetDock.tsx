@@ -2,7 +2,7 @@ import type { Widget } from '@shared/types'
 import { useWidgetStore } from '../stores/widgets'
 import { catalogFor } from '../lib/widgetCatalog'
 import Icon from './Icon'
-import { confirmDialog } from './plexi/PromptDialog'
+import { removeWorkWidget } from '../lib/widgetRemoval'
 
 function labelFor(w: Widget): string {
   if (w.title) return w.title
@@ -25,7 +25,6 @@ export default function WidgetDock(): JSX.Element | null {
   // Clicking a dock item centers that widget on the canvas at 100% (the same
   // "go to this widget" the minimap uses), rather than opening focus mode.
   const zoomToWidget = useWidgetStore((s) => s.zoomToWidget)
-  const remove = useWidgetStore((s) => s.remove)
   const activeId = useWidgetStore((s) => s.activeWidgetId)
 
   // Sections are spatial markers — don't clutter the dock with them.
@@ -56,15 +55,15 @@ export default function WidgetDock(): JSX.Element | null {
                 <span className="truncate">{labelFor(w)}</span>
               </button>
               <button
-                onClick={async (e) => {
+                onClick={(e) => {
                   e.stopPropagation()
-                  if (await confirmDialog({ title: 'Remove from the desk?', confirmLabel: 'Remove', danger: true })) {
-                    void remove(w.id)
-                  }
+                  // The same question the frame's × asks: this desk, or everywhere.
+                  void removeWorkWidget(w)
                 }}
                 className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 absolute -top-1 -right-1 h-4 w-4 rounded-full bg-[var(--surface-raised)] border border-[var(--edge-firm)] hover:border-red-500 dark:hover:border-red-400 hover:text-red-700 dark:hover:text-red-400 text-[var(--ink-50)] inline-flex items-center justify-center transition-opacity"
                 aria-label="Remove"
-                title="Remove from desk"
+                title="Remove or delete"
+                data-testid="widget-dock-remove"
               >
                 <Icon name="close" size={10} />
               </button>

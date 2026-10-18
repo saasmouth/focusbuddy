@@ -1,3 +1,4 @@
+import { isPlaceholderWidgetFileTitle } from '@shared/widgetFiles'
 import { useEffect, useRef, useState } from 'react'
 import MentionTextarea from '../MentionTextarea'
 import type { Widget } from '@shared/types'
@@ -161,9 +162,13 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
     const provision = async (): Promise<void> => {
       if (provisionedRef.current) return
       provisionedRef.current = true
+      // A work widget file's dated placeholder ("Table · Oct 18, 3:04 PM") is
+      // not a name for the table: copied here it became the table's own name,
+      // which the file's naming then kept instead of "Header · N rows".
+      const ownName = isPlaceholderWidgetFileTitle(widget.title) ? '' : widget.title
       const created = await createTable({
-        taskId: widget.taskId,
-        title: widget.title || 'Untitled table',
+        taskId: widget.taskId || null,
+        title: ownName || 'Untitled table',
         schema: {
           columns: [
             {
@@ -181,7 +186,9 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
           ]
         }
       })
-      await updateWidget(widget.id, { content: created.id, title: widget.title || created.title })
+      // Only the content: re-sending the title alongside it read as a rename
+      // and made a placeholder the user's name.
+      await updateWidget(widget.id, widget.title ? { content: created.id } : { content: created.id, title: created.title })
     }
 
     if (tableId) {

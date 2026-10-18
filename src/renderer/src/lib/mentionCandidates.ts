@@ -1,4 +1,4 @@
-import { widgetFileType, widgetFileTypeLabel } from '@shared/widgetFiles'
+import { widgetFileIdFromGroup, widgetFileType, widgetFileTypeLabel } from '@shared/widgetFiles'
 import type { FbNode, Widget } from '@shared/types'
 import type { TextMention } from '@shared/mentionText'
 import { catalogFor } from './widgetCatalog'
@@ -90,7 +90,15 @@ export function mentionCandidates(
     }
   }
 
+  // A work widget on a desk is an instance of a file (docs/widget-files.md),
+  // so the same thing would be offered twice: once as the widget, once as its
+  // file. The widget on the desk is the one meant from beside it; its file is
+  // left out.
+  const placed = new Set(
+    sources.widgets.map((w) => widgetFileIdFromGroup(w.syncGroupId)).filter((id): id is string => !!id)
+  )
   for (const d of sources.documents ?? []) {
+    if (d.docType === 'widget' && placed.has(d.id)) continue
     const s = score(d.title || 'Untitled', query)
     if (s > 0) {
       out.push({

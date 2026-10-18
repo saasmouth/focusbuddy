@@ -114,7 +114,9 @@ export function useMentionAutocomplete(
               nodes,
               widgets,
               documents: [
-                ...documents.map((d) => ({ id: d.id, title: d.title, docType: d.docType })),
+                ...// widgetKind: a work widget file is labelled by its type ("Table"), not
+                // as a generic "Work widget".
+                documents.map((d) => ({ id: d.id, title: d.title, docType: d.docType, widgetKind: d.widgetKind })),
                 // A table is referenced the same way a document is; labelling
                 // it as one keeps the resolver's job unchanged.
                 ...tables.map((t) => ({ id: t.id, title: t.title, docType: 'table' }))

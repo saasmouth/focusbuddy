@@ -109,6 +109,21 @@ function mirrorToInstances(fileId: string, fields: Partial<Pick<Widget, 'content
   })
 }
 
+/** Take a trashed file's instances off the open desk, as main took them off every desk. */
+function dropInstancesFromOpenDesk(fileId: string): void {
+  const sgid = widgetFileGroupId(fileId)
+  const ws = useWidgetStore.getState()
+  if (!ws.widgets.some((w) => w.syncGroupId === sgid)) return
+  useWidgetStore.setState({ widgets: ws.widgets.filter((w) => w.syncGroupId !== sgid) })
+  ws.bumpLayoutVersion()
+}
+
+/** After a restore, bring the open desk's restored instances back without a blink. */
+async function reloadOpenDeskInstances(): Promise<void> {
+  const taskId = useNodeStore.getState().activeTaskId
+  if (taskId) await useWidgetStore.getState().loadForTask(taskId, { refresh: true })
+}
+
 /**
  * A desk instance's size, capped to the view the same way every other new
  * widget is (fitNewWidgetToView — the one place a new widget is fitted). An
@@ -203,21 +218,39 @@ export const useWidgetFilesStore = create<WidgetFilesState>((set, get) => ({
 
   trash: async (id) => {
     const file = get().files[id] ?? (await get().load(id))
+    // Deleting the file takes every desk instance with it (main does that, in
+    // trashDocument). Count the desks first so the toast can say so.
+    let desks = 0
+    try {
+      desks = new Set((await window.api.widgetFiles.instances(id)).map((w) => w.taskId)).size
+    } catch {
+      desks = 0
+    }
     const ok = await window.api.widgetFiles.trash(id)
     if (!ok) return false
     forget(id)
+    dropInstancesFromOpenDesk(id)
+    // …and re-read the open desk, in case its copy of a widget predates the
+    // link (the launch backfill files widgets under an already-open desk).
+    void reloadOpenDeskInstances()
     nudgeSync()
     const view = useViewStore.getState().view
     if (view.kind === 'document' && view.documentId === id) useViewStore.getState().back()
+    const name = file?.title ?? 'Work widget'
     useNoticeStore.getState().show({
-      text: `“${file?.title ?? 'Widget'}” moved to Trash`,
+      text:
+        desks > 0
+          ? `“${name}” moved to Trash and removed from ${desks} desk${desks === 1 ? '' : 's'}`
+          : `“${name}” moved to Trash`,
       icon: 'delete',
       action: {
         label: 'Undo',
         run: () => {
+          // Restoring the file puts its instances back where they were.
           void window.api.documents.restore(id).then(() => {
             nudgeSync()
             void get().load(id)
+            void reloadOpenDeskInstances()
           })
         }
       }

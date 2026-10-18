@@ -29,7 +29,7 @@ import {
   typeFilterOptions
 } from '../../lib/fileEntryType'
 import { writeWidgetFileDrag } from '../../lib/widgetFileDrag'
-import { useWidgetFilesStore } from '../../stores/widgetFiles'
+import { confirmTrashWidgetFile } from '../../lib/widgetRemoval'
 import type { FileTypeFilter } from '../../stores/fileManager'
 
 const ENTRY_MIME = 'application/fb-entry-id'
@@ -186,10 +186,8 @@ export default function FilesView(): JSX.Element {
         label: 'Move to Trash',
         icon: 'delete',
         onClick: () => {
-          void useWidgetFilesStore
-            .getState()
-            .trash(docId)
-            .then(() => store.refresh())
+          // Deleting the file takes its desk instances too; asks first when it is placed.
+          void confirmTrashWidgetFile(docId).then(() => store.refresh())
         }
       })
       return items

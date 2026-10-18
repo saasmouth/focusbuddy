@@ -32,7 +32,7 @@ export interface PromptRequest {
   danger?: boolean
   /** List-picker mode: render these as option buttons; clicking one resolves its
    * value (no text field, no confirm button). Cancel/Escape still resolve null. */
-  choices?: Array<{ label: string; value: string; hint?: string }>
+  choices?: Array<{ label: string; value: string; hint?: string; danger?: boolean }>
 }
 
 interface PromptState {
@@ -102,7 +102,8 @@ export function alertDialog(req: { title: string; body?: string; confirmLabel?: 
 export function promptChoice(req: {
   title: string
   body?: string
-  choices: Array<{ label: string; value: string; hint?: string }>
+  /** `danger` marks a destructive choice (red label), as `danger` does a confirm. */
+  choices: Array<{ label: string; value: string; hint?: string; danger?: boolean }>
 }): Promise<string | null> {
   return promptText({ title: req.title, label: req.body, choices: req.choices })
 }
@@ -131,7 +132,7 @@ export function PromptDialogHost(): JSX.Element | null {
   // mode has no field, so the panel itself takes focus for Enter/Escape.
   useEffect(() => {
     if (!req) return
-    if (req.confirmOnly || req.alertOnly) {
+    if (req.confirmOnly || req.alertOnly || req.choices) {
       panelRef.current?.focus()
       return
     }
@@ -154,6 +155,9 @@ export function PromptDialogHost(): JSX.Element | null {
       cancel()
       return
     }
+    // A list of choices has no default: Enter on a focused choice clicks it
+    // (the button's own behaviour), and Enter elsewhere picks nothing.
+    if (e.key === 'Enter' && req.choices) return
     if (e.key === 'Enter' && !(req.multiline && !e.metaKey && !e.ctrlKey)) {
       // Single-line: Enter confirms. Multiline: Cmd/Ctrl+Enter confirms.
       e.preventDefault()
@@ -204,7 +208,11 @@ export function PromptDialogHost(): JSX.Element | null {
                 className="fb-btn-surface w-full text-left px-3 py-2 hover:bg-[var(--surface-sunken)]"
                 data-testid={`prompt-choice-${c.value}`}
               >
-                <div className="text-[13px] font-medium text-[var(--ink-100)]">{c.label}</div>
+                <div
+                  className={`text-[13px] font-medium ${c.danger ? 'text-red-600 dark:text-red-400' : 'text-[var(--ink-100)]'}`}
+                >
+                  {c.label}
+                </div>
                 {c.hint && <div className="text-[11px] text-[var(--ink-50)] mt-0.5">{c.hint}</div>}
               </button>
             ))}

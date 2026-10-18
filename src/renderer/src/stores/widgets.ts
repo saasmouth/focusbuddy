@@ -407,16 +407,23 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
     const widget = await window.api.widgets.create(sized)
     set({ widgets: [...get().widgets, widget] })
     nudgeSync()
+    // Every work widget that can be a file is one (docs/widget-files.md): main
+    // made this one an instance of a new file unless the draft already named a
+    // group. That file is then this add's to undo, not only the desk row.
+    const newFileId = !draft.syncGroupId ? widgetFileIdFromGroup(widget.syncGroupId) : null
+    if (newFileId) void useWidgetFilesStore.getState().load(newFileId)
     // Undo a freshly-added widget by trashing it; redo restores it (same id, so
     // its links survive). We re-add the captured object locally to avoid a fetch.
     recordAction({
       label: `Add ${widget.kind}`,
       undo: async () => {
-        await window.api.widgets.delete(widget.id)
+        if (newFileId) await window.api.widgetFiles.trash(newFileId) // takes the instance with it
+        else await window.api.widgets.delete(widget.id)
         set({ widgets: get().widgets.filter((w) => w.id !== widget.id) })
       },
       redo: async () => {
-        await window.api.widgets.restore(widget.id)
+        if (newFileId) await window.api.documents.restore(newFileId) // puts the instance back
+        else await window.api.widgets.restore(widget.id)
         if (!get().widgets.some((w) => w.id === widget.id)) set({ widgets: [...get().widgets, widget] })
       }
     })

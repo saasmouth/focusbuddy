@@ -6,6 +6,7 @@ import { useNodeStore } from '../stores/nodes'
 import { useWidgetStore } from '../stores/widgets'
 import Icon from './Icon'
 import Modal from './plexi/Modal'
+import { contentForIndependentCopy } from '../lib/copyWidgetContent'
 
 // "Make this a task" dialog — invoked from a widget or section's right-click
 // context menu. Lets the user create a task in an existing folder OR in a
@@ -173,7 +174,8 @@ export default function MakeTaskDialog({
           taskId: newTask.id,
           kind: sourceWidget.kind,
           title: sourceWidget.title,
-          content: sourceWidget.content,
+          // Independent: a new work widget file, with its own table rows.
+          content: syncCopy ? sourceWidget.content : await contentForIndependentCopy(sourceWidget.kind, sourceWidget.content),
           x: 80,
           y: 80,
           width: sourceWidget.width,
