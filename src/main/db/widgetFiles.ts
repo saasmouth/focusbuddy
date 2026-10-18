@@ -11,6 +11,7 @@
 //
 // Both are direct DB writes, as the existing linked-duplicate fan-out is.
 
+import { createHash } from 'crypto'
 import { getDb } from './database'
 import { getActiveOrgId } from './activeOrg'
 import { createDocument, getDocument, trashDocument } from './documents'
@@ -24,10 +25,13 @@ import {
   buildWidgetFileExport,
   defaultWidgetFileContent,
   deriveWidgetFileTitle,
+  isPlaceholderWidgetFileTitle,
   isStandaloneWidgetKind,
+  meaningfulWidgetTitle,
   makeWidgetFileBody,
   parseWidgetFileBody,
   placeholderWidgetFileTitle,
+  WIDGET_FILE_TYPES,
   widgetFileGroupId,
   widgetFileIdFromGroup,
   type WidgetFileExport
@@ -110,7 +114,9 @@ export function widgetFileFromDocument(doc: FbDocument): WidgetFile | null {
 
 export function getWidgetFile(id: string): WidgetFile | null {
   const doc = getDocument(id)
-  return doc ? widgetFileFromDocument(doc) : null
+  const file = doc ? widgetFileFromDocument(doc) : null
+  if (file && isTrashed(id)) file.trashed = true
+  return file
 }
 
 function isTrashed(id: string): boolean {
@@ -265,13 +271,18 @@ export function updateWidgetFile(
   const content = patch.content !== undefined ? patch.content : file.content
   const color = patch.color !== undefined ? patch.color : file.color
   let titleChanged = false
-  if (patch.title !== undefined) {
-    const next = patch.title.trim()
-    if (next && !isUntitled(next)) {
-      title = next.slice(0, 200)
-      titleSource = 'user'
-      titleChanged = title !== file.title
-    }
+  // A patch that only re-sends the current name is not a rename: widget code
+  // writes `{ content, title: widget.title }` together (a table provisioning
+  // its backing table did), and treating that as the user's name froze a
+  // placeholder for good. Likewise a blank, "Untitled" or placeholder-shaped
+  // title echoed back from an instance is not a name anyone chose.
+  const renamed = patch.title !== undefined ? patch.title.trim() : ''
+  const isRename =
+    !!renamed && renamed !== file.title && !isUntitled(renamed) && !isPlaceholderWidgetFileTitle(renamed)
+  if (isRename) {
+    title = renamed.slice(0, 200)
+    titleSource = 'user'
+    titleChanged = title !== file.title
   } else if (patch.content !== undefined && titleSource === 'placeholder') {
     const derived = safeDerive(file.kind, content)
     if (derived && derived !== title) {
@@ -462,12 +473,352 @@ export function promoteWidgetToFile(widgetId: string): WidgetFile | null {
   return getWidgetFile(file.id)
 }
 
+// ── Every work widget is a file ─────────────────────────────────────────────
+// The owner's rule (4.3.32): a work widget is a file in its own right; a desk
+// is only where it is placed. So every widget of a standalone kind on a desk
+// is an instance of a widget file — not only the ones made from the side menu.
+// db/widgets.createWidget calls adoptWidgetAsFile for every locally born
+// widget, and the launch backfill below does the same for what already exists.
+// docs/widget-files.md, "Every work widget is a file", is the contract.
+
+const FILE_ID_NAMESPACE = 'plexii.widget-file'
+
+/**
+ * A file id derived from what it is the file OF, so two devices converting the
+ * same synced desk mint the same document id and sync merges them instead of
+ * filing everything twice. Shaped like a v5 UUID, as every other id is a UUID.
+ */
+export function widgetFileIdForSeed(seed: string): string {
+  const h = createHash('sha1').update(`${FILE_ID_NAMESPACE}:${seed}`).digest('hex')
+  const variant = ((parseInt(h[16], 16) & 0x3) | 0x8).toString(16)
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`
+}
+/** The file a lone desk widget becomes. */
+export const widgetFileIdForWidget = (widgetId: string): string => widgetFileIdForSeed(`widget:${widgetId}`)
+/** The one file a whole linked-duplicate group becomes. */
+export const widgetFileIdForGroup = (syncGroupId: string): string => widgetFileIdForSeed(`group:${syncGroupId}`)
+
+/**
+ * Whether widgets on this desk may become files, and in which workspace.
+ *
+ * Only a desk in the user's own workspace. A desk shared with named people
+ * (shared_root_id, either direction) syncs on the per-desk path, which never
+ * carries documents — a file made there would exist for one person only, and
+ * each member converting the same widget would mint their own. A desk that
+ * arrived as a share from someone else (shared_from_handle) is theirs. Null
+ * for both, and for a desk that does not exist.
+ */
+export function deskFileScope(taskId: string): { orgId: string } | null {
+  const db = getDb()
+  let row: { org_id?: string | null; shared_root_id?: string | null; shared_from_handle?: string | null } | undefined
+  try {
+    row = db.prepare('SELECT org_id, shared_root_id, shared_from_handle FROM nodes WHERE id = ?').get(taskId) as
+      | typeof row
+      | undefined
+  } catch {
+    // A schema without the sharing columns has no shared desks.
+    row = db.prepare('SELECT id FROM nodes WHERE id = ?').get(taskId) as typeof row
+  }
+  if (!row) return null
+  if (row.shared_root_id || row.shared_from_handle) return null
+  return { orgId: row.org_id || getActiveOrgId() }
+}
+
+/** The kind's own words, which a menu stamps on a new widget and nobody chose. */
+function kindLabels(kind: WidgetKind): string[] {
+  return [kind.replace(/-/g, ' ')]
+}
+
+interface FileSource {
+  kind: WidgetKind
+  title: string
+  content: string
+  color: string | null
+  createdAt: number
+}
+
+/**
+ * Create the file a desk widget (or group) becomes, under a known id. When a
+ * document with that id already exists — another device converted the same
+ * desk and it synced first, or an earlier run got this far — it is reused
+ * as-is: the id is the agreement, and the first writer's name stands.
+ */
+function createFileUnderId(
+  fileId: string,
+  src: FileSource,
+  scope: { orgId: string },
+  opts: { reindex: boolean }
+): { file: WidgetFile; created: boolean } | null {
+  const existing = getDocument(fileId)
+  if (existing) {
+    const f = widgetFileFromDocument(existing)
+    return f ? { file: f, created: false } : null
+  }
+  const kept = meaningfulWidgetTitle(src.kind, src.title, kindLabels(src.kind))
+  let title: string
+  let source: WidgetFileTitleSource
+  if (kept) {
+    title = kept
+    source = 'user'
+  } else {
+    const derived = safeDerive(src.kind, src.content)
+    if (derived) {
+      title = derived
+      source = 'derived'
+    } else {
+      // Dated by when the WIDGET was made, not by this run: findable among the
+      // user's own chronology, and the same string on every device.
+      title = placeholderWidgetFileTitle(src.kind, new Date(src.createdAt || Date.now()))
+      source = 'placeholder'
+    }
+  }
+  createDocument({
+    id: fileId,
+    docType: 'widget',
+    title,
+    body: makeWidgetFileBody(src.kind, src.content, src.color, source)
+  })
+  // The workspace is the desk's, whichever one is active right now, and the
+  // file is as old as the widget it was.
+  getDb()
+    .prepare('UPDATE documents SET org_id = ?, created_at = ? WHERE id = ?')
+    .run(scope.orgId, src.createdAt || Date.now(), fileId)
+  // Into Files at the root (the convention every widget file follows). A file
+  // in another workspace is filed when that workspace is next listed —
+  // ensureWidgetFilesFiled runs per active org and pointers do not sync.
+  if (scope.orgId === getActiveOrgId()) {
+    try {
+      fileDocument(fileId, null)
+    } catch {
+      /* the root listing self-heals */
+    }
+  }
+  if (opts.reindex) reindexFile(fileId)
+  const file = getWidgetFile(fileId)
+  return file ? { file, created: true } : null
+}
+
+export interface AdoptOptions {
+  /** Re-index the new file now. The backfill does it once, at the end. */
+  reindex?: boolean
+  /**
+   * Which name the instances take when they have none of their own:
+   * 'always' — the file's, placeholder included, exactly as a side-menu
+   *   placement does (new widgets);
+   * 'named' — only a real name (derived or the user's), so converting a
+   *   workspace does not stamp a date on every untitled sticky (backfill).
+   */
+  instanceTitle?: 'always' | 'named'
+}
+
+/**
+ * Make a desk widget an instance of a widget file, if it should be one.
+ *
+ * - a desk-only kind, an existing instance, or a widget on a desk outside the
+ *   user's own workspace: untouched, returns null;
+ * - a lone widget: a new file under widgetFileIdForWidget(id), and the widget
+ *   joins its group;
+ * - a member of an ordinary linked-duplicate group: the whole group becomes
+ *   ONE file under widgetFileIdForGroup(group), shared by every member.
+ *
+ * Returns the widget as it now is, or null when nothing changed. Idempotent.
+ */
+export function adoptWidgetAsFile(widgetId: string, opts: AdoptOptions = {}): Widget | null {
+  const w = getWidget(widgetId)
+  if (!w) return null
+  if (!isStandaloneWidgetKind(w.kind)) return null
+  if (widgetFileIdFromGroup(w.syncGroupId)) return null
+  const scope = deskFileScope(w.taskId)
+  if (!scope) return null
+  const db = getDb()
+  const now = Date.now()
+  const oldGroup = w.syncGroupId
+  let fileId: string
+  let src: FileSource
+  if (oldGroup) {
+    fileId = widgetFileIdForGroup(oldGroup)
+    // Members mirror content, title and colour; the name to keep is the first
+    // real one among them, the date the oldest member's.
+    const members = db
+      .prepare('SELECT id FROM widgets WHERE sync_group_id = ? ORDER BY created_at ASC')
+      .all(oldGroup) as Array<{ id: string }>
+    const ws = members.map((m) => getWidget(m.id)).filter((x): x is Widget => !!x)
+    const named = ws.find((m) => meaningfulWidgetTitle(m.kind, m.title, kindLabels(m.kind)))
+    src = {
+      kind: w.kind,
+      title: named?.title ?? w.title,
+      content: w.content,
+      color: w.color,
+      createdAt: ws[0]?.createdAt ?? w.createdAt
+    }
+  } else {
+    fileId = widgetFileIdForWidget(w.id)
+    // Content is kept exactly as the widget holds it. A task list added on a
+    // desk is a lens over that desk's tasks, and stays one as a file (as "Save
+    // as file" always kept it); a side-menu task list is its own list.
+    src = { kind: w.kind, title: w.title, content: w.content, color: w.color, createdAt: w.createdAt }
+  }
+  const made = createFileUnderId(fileId, src, scope, { reindex: opts.reindex !== false })
+  if (!made) return null
+  const sgid = widgetFileGroupId(fileId)
+  if (oldGroup) {
+    db.prepare('UPDATE widgets SET sync_group_id = ?, updated_at = ? WHERE sync_group_id = ?').run(sgid, now, oldGroup)
+  } else {
+    db.prepare('UPDATE widgets SET sync_group_id = ?, updated_at = ? WHERE id = ?').run(sgid, now, w.id)
+  }
+  const file = made.file
+  const share = (opts.instanceTitle ?? 'always') === 'always' || file.titleSource !== 'placeholder'
+  if (share) {
+    db.prepare(
+      "UPDATE widgets SET title = ?, updated_at = ? WHERE sync_group_id = ? AND (title IS NULL OR trim(title) = '')"
+    ).run(file.title, now, sgid)
+  }
+  return getWidget(w.id)
+}
+
+// ── Launch backfill ─────────────────────────────────────────────────────────
+// What existed before the rule: every standalone-kind widget on a desk in the
+// user's own workspace becomes a file, once per workspace, recorded in the
+// device-local sync_meta. Ids are derived (above), so two devices that each
+// convert the same synced desk agree on every file id, and whichever device's
+// documents reach the server second merge into the first's.
+//
+// Skipped, by rule: trashed widgets (restoreWidget files one if it comes
+// back), widgets on a trashed desk, desks outside the user's own workspace
+// (deskFileScope), and widgets already in a `wf:` group — including one whose
+// file has not arrived from another device yet; that file is on its way as a
+// document and must not be minted twice.
+
+export const WIDGET_FILE_BACKFILL_KEY = 'widgetFiles.backfill.v1'
+
+export interface WidgetFileBackfillSummary {
+  /** Workspaces converted on this run. */
+  orgs: string[]
+  /** Widgets that became (or joined) a file. */
+  widgets: number
+  /** Files created on this run (a group or a reused id counts once / not at all). */
+  files: number
+}
+
+function backfillDone(orgId: string): boolean {
+  try {
+    const row = getDb()
+      .prepare('SELECT value FROM sync_meta WHERE key = ?')
+      .get(`${WIDGET_FILE_BACKFILL_KEY}:${orgId}`) as { value: string } | undefined
+    return !!row
+  } catch {
+    return false
+  }
+}
+
+function markBackfillDone(orgId: string, summary: { widgets: number; files: number }): void {
+  try {
+    getDb()
+      .prepare('INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?, ?)')
+      .run(`${WIDGET_FILE_BACKFILL_KEY}:${orgId}`, JSON.stringify({ at: Date.now(), ...summary }))
+  } catch {
+    /* without the marker the next launch repeats an idempotent pass */
+  }
+}
+
+/** The workspaces with desks that have not been converted on this device. */
+export function pendingBackfillOrgs(): string[] {
+  const rows = getDb()
+    .prepare("SELECT DISTINCT COALESCE(org_id, 'personal') AS org FROM nodes")
+    .all() as Array<{ org: string }>
+  return rows.map((r) => r.org).filter((o) => !backfillDone(o))
+}
+
+/** The widgets in one workspace that should be files and are not yet. */
+function backfillCandidates(orgId: string): string[] {
+  const kinds = Object.keys(WIDGET_FILE_TYPES)
+  const marks = kinds.map(() => '?').join(',')
+  return (
+    getDb()
+      .prepare(
+        `SELECT w.id FROM widgets w JOIN nodes n ON n.id = w.task_id
+          WHERE w.trashed_at IS NULL AND n.trashed_at IS NULL
+            AND COALESCE(n.org_id, 'personal') = ?
+            AND n.shared_root_id IS NULL AND n.shared_from_handle IS NULL
+            AND w.kind IN (${marks})
+            AND (w.sync_group_id IS NULL OR w.sync_group_id NOT LIKE 'wf:%')
+          ORDER BY w.created_at ASC, w.id ASC`
+      )
+      .all(orgId, ...kinds) as Array<{ id: string }>
+  ).map((r) => r.id)
+}
+
+/**
+ * Convert one workspace. Synchronous and idempotent; 200 widgets per
+ * transaction. Returns the new file ids so the caller can index them.
+ */
+export function backfillWidgetFilesForOrg(orgId: string): { widgets: number; fileIds: string[] } {
+  const db = getDb()
+  const ids = backfillCandidates(orgId)
+  const fileIds = new Set<string>()
+  let widgets = 0
+  const before = new Set(
+    (db.prepare("SELECT id FROM documents WHERE doc_type = 'widget'").all() as Array<{ id: string }>).map((r) => r.id)
+  )
+  for (let i = 0; i < ids.length; i += 200) {
+    const chunk = ids.slice(i, i + 200)
+    db.transaction(() => {
+      for (const id of chunk) {
+        // A second member of a linked group joined the file with the first.
+        const w = adoptWidgetAsFile(id, { reindex: false, instanceTitle: 'named' }) ?? getWidget(id)
+        if (!w || !widgetFileIdFromGroup(w.syncGroupId)) continue
+        widgets++
+        const fid = widgetFileIdFromGroup(w.syncGroupId)
+        if (fid && !before.has(fid)) fileIds.add(fid)
+      }
+    })()
+  }
+  return { widgets, fileIds: [...fileIds] }
+}
+
+/**
+ * The launch pass: every workspace not yet converted on this device, then one
+ * batched index of the new files. Detached from boot by the caller.
+ */
+export async function runWidgetFileBackfill(): Promise<WidgetFileBackfillSummary> {
+  const summary: WidgetFileBackfillSummary = { orgs: [], widgets: 0, files: 0 }
+  const created: string[] = []
+  for (const org of pendingBackfillOrgs()) {
+    const r = backfillWidgetFilesForOrg(org)
+    markBackfillDone(org, { widgets: r.widgets, files: r.fileIds.length })
+    summary.orgs.push(org)
+    summary.widgets += r.widgets
+    summary.files += r.fileIds.length
+    created.push(...r.fileIds)
+    // Yield between workspaces so a large conversion never holds the main
+    // process for the whole run.
+    await new Promise((res) => setImmediate(res))
+  }
+  if (created.length > 0) {
+    try {
+      const chunks = await import('../chunkIndex')
+      for (let i = 0; i < created.length; i++) {
+        chunks.reindexDocumentChunks(created[i])
+        if (i % 50 === 49) await new Promise((res) => setImmediate(res))
+      }
+      // One batched embedding pass for whatever lacks a vector (a no-op
+      // without a key), rather than one request per new file.
+      const retrieval = await import('../documentRetrieval')
+      await retrieval.reindexDocuments(false)
+    } catch {
+      /* best-effort: the files are created and filed either way */
+    }
+  }
+  return summary
+}
+
 // ── Trash ───────────────────────────────────────────────────────────────────
 
 /**
- * Move a file to the Documents Trash. Its desk instances keep working with
- * their own copy of the content; restoring the file relinks nothing because
- * nothing was unlinked.
+ * Delete a work widget: move the file to the Documents Trash, and with it its
+ * Files entry and every desk instance on every desk (trashDocument does the
+ * instances, stamped with the file's own trashed_at). Restoring the file from
+ * Trash puts each instance back where it was (restoreDocument).
  */
 export function trashWidgetFile(id: string): boolean {
   const ok = trashDocument(id)

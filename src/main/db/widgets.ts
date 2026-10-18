@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { getDb } from './database'
-import { syncWidgetFileFromInstance } from './widgetFiles'
+import { adoptWidgetAsFile, syncWidgetFileFromInstance } from './widgetFiles'
 import { WIDGET_FILE_GROUP_PREFIX } from '@shared/widgetFiles'
 import type { Widget, WidgetDraft, WidgetPatch } from '@shared/types'
 
@@ -217,6 +217,22 @@ export function createWidget(draft: WidgetDraft): Widget {
   })
   const row = db.prepare('SELECT * FROM widgets WHERE id = ?').get(id) as WidgetRow
   pokeChunkIndex(id)
+  // Every work widget that can be a file IS one (docs/widget-files.md, "Every
+  // work widget is a file"). This is the one place that holds for every way a
+  // widget is born locally — the canvas menu, the palette, an AI build, a
+  // template, a paste, a duplicate, MCP, the assistant — because each of them
+  // ends here. A create that carries its own id is a replay (sync, a restore)
+  // of a widget that was born somewhere else and is already whatever it is;
+  // its file, if it has one, arrives as a document of its own.
+  if (!draft.id) {
+    try {
+      const adopted = adoptWidgetAsFile(id)
+      if (adopted) return adopted
+    } catch (e) {
+      // The widget stands as a plain desk row; the launch backfill retries.
+      console.warn('[widget-files] could not file new work widget:', e instanceof Error ? e.message : e)
+    }
+  }
   return rowToWidget(row)
 }
 
@@ -354,7 +370,16 @@ export function deleteWidget(id: string): boolean {
 export function restoreWidget(id: string): boolean {
   const db = getDb()
   const result = db.prepare('UPDATE widgets SET trashed_at = NULL WHERE id = ?').run(id)
-  if (result.changes > 0) pokeChunkIndex(id) // restored content is retrievable again
+  if (result.changes > 0) {
+    pokeChunkIndex(id) // restored content is retrievable again
+    // A widget trashed before it could become a file (the backfill skips the
+    // trashed) becomes one when it comes back. A no-op for an instance.
+    try {
+      adoptWidgetAsFile(id)
+    } catch {
+      /* stays a plain desk row */
+    }
+  }
   return result.changes > 0
 }
 
@@ -363,7 +388,15 @@ export function restoreWidget(id: string): boolean {
 export function purgeTrashedWidgets(maxAgeMs = 7 * 24 * 60 * 60 * 1000): void {
   const db = getDb()
   const cutoff = Date.now() - maxAgeMs
-  db.prepare('DELETE FROM widgets WHERE trashed_at IS NOT NULL AND trashed_at < ?').run(cutoff)
+  // Except the instances a trashed work widget file took with it: restoring the
+  // file from Trash puts them back where they were, for as long as the file
+  // sits in Trash (documents have no age-out). Purging the file purges them.
+  db.prepare(
+    `DELETE FROM widgets WHERE trashed_at IS NOT NULL AND trashed_at < ?
+       AND NOT (sync_group_id LIKE 'wf:%' AND EXISTS (
+         SELECT 1 FROM documents d
+          WHERE d.id = substr(widgets.sync_group_id, 4) AND d.trashed_at = widgets.trashed_at))`
+  ).run(cutoff)
 }
 
 export function bringToFront(id: string): Widget | null {

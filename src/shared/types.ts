@@ -2647,6 +2647,8 @@ export interface WidgetFile {
   createdAt: number
   updatedAt: number
   orgId: string | null
+  /** Set when the file is in the Documents Trash (it still reads, for restore). */
+  trashed?: boolean
 }
 
 export interface WidgetFileDraft {

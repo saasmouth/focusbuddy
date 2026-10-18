@@ -28,7 +28,10 @@ const files = await import('../../src/main/db/files')
 
 function schema(): void {
   db.exec(`
-    CREATE TABLE nodes (id TEXT PRIMARY KEY, title TEXT);
+    CREATE TABLE nodes (
+      id TEXT PRIMARY KEY, title TEXT, org_id TEXT, shared_root_id TEXT, shared_from_handle TEXT, trashed_at INTEGER
+    );
+    CREATE TABLE sync_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE documents (
       id TEXT PRIMARY KEY, doc_type TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '{}',
       archived INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
@@ -55,7 +58,7 @@ function schema(): void {
       id TEXT PRIMARY KEY, table_id TEXT NOT NULL, cells_json TEXT NOT NULL DEFAULT '{}', sort_order INTEGER DEFAULT 0,
       created_at INTEGER, updated_at INTEGER, trashed_at INTEGER
     );
-    INSERT INTO nodes (id, title) VALUES ('deskA', 'Desk A'), ('deskB', 'Desk B');
+    INSERT INTO nodes (id, title, org_id) VALUES ('deskA', 'Desk A', 'personal'), ('deskB', 'Desk B', 'personal');
   `)
 }
 
@@ -184,30 +187,25 @@ describe('linked instances: one file, edits flow both ways', () => {
     expect(widgets.getWidget(b.id)!.title).toBe('Budget review notes')
   })
 
-  it('existing desk widgets are untouched: a plain widget has no file', () => {
-    const w = widgets.createWidget({ taskId: 'deskA', kind: 'note', content: 'plain' })
-    widgets.updateWidget(w.id, { content: 'still plain' })
-    expect(db.prepare("SELECT COUNT(*) AS n FROM documents").get()).toEqual({ n: 0 })
+  it('a desk-only kind stays a plain desk row', () => {
+    const w = widgets.createWidget({ taskId: 'deskA', kind: 'section', content: '' })
+    widgets.updateWidget(w.id, { content: '{}' })
+    expect(w.syncGroupId).toBeNull()
+    expect(db.prepare('SELECT COUNT(*) AS n FROM documents').get()).toEqual({ n: 0 })
   })
 
-  it('"Save as file" promotes a desk widget, and its synced copies come along', () => {
-    const w1 = widgets.createWidget({ taskId: 'deskA', kind: 'note', content: 'Thursday notes', syncGroupId: 'g1' })
-    const w2 = widgets.createWidget({ taskId: 'deskB', kind: 'note', content: 'Thursday notes', syncGroupId: 'g1' })
+  it('"Save as file" promotes a legacy desk widget, and its synced copies come along', () => {
+    // Rows from before the rule: inserted with their own ids, as a replay is,
+    // so createWidget leaves them plain.
+    const w1 = widgets.createWidget({ id: 'legacy-1', taskId: 'deskA', kind: 'note', content: 'Thursday notes', syncGroupId: 'g1' })
+    const w2 = widgets.createWidget({ id: 'legacy-2', taskId: 'deskB', kind: 'note', content: 'Thursday notes', syncGroupId: 'g1' })
+    expect(w1.syncGroupId).toBe('g1')
     const f = wf.promoteWidgetToFile(w1.id)!
     expect(f.kind).toBe('note')
     expect(widgets.getWidget(w1.id)!.syncGroupId).toBe(`wf:${f.id}`)
     expect(widgets.getWidget(w2.id)!.syncGroupId).toBe(`wf:${f.id}`)
     // Idempotent.
     expect(wf.promoteWidgetToFile(w1.id)!.id).toBe(f.id)
-  })
-
-  it('trashing the file leaves its instances working with their own copy', () => {
-    const f = wf.createWidgetFile({ kind: 'sticky', content: 'keep me' })
-    const a = wf.placeWidgetFile(f.id, { taskId: 'deskA' })!
-    expect(wf.trashWidgetFile(f.id)).toBe(true)
-    expect(widgets.getWidget(a.id)!.content).toBe('keep me')
-    expect(wf.listWidgetFiles().some((x) => x.id === f.id)).toBe(false)
-    expect(wf.placeWidgetFile(f.id, { taskId: 'deskB' })).toBeNull()
   })
 })
 

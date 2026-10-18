@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { getDb } from './database'
 import { createNode } from './nodes'
 import { listWidgetsByTask } from './widgets'
+import { adoptWidgetAsFile } from './widgetFiles'
 import type { SnapshotMeta, Widget } from '@shared/types'
 
 // Desk time-travel snapshots. A snapshot is the full widget set for a task at a
@@ -140,8 +141,14 @@ export function restoreSnapshot(snapshotId: string): { taskId: string; widgets: 
 
   // Reversibility: capture the current state before we overwrite it.
   const current = db
-    .prepare('SELECT id FROM widgets WHERE task_id = ?')
-    .all(taskId) as Array<{ id: string }>
+    .prepare('SELECT id, sync_group_id FROM widgets WHERE task_id = ?')
+    .all(taskId) as Array<{ id: string; sync_group_id: string | null }>
+  // A snapshot taken before a widget became a work widget file holds it
+  // without its `wf:` link. Rewinding the desk's CONTENT must not unlink it
+  // from its file (docs/widget-files.md): the link is kept as it is now.
+  const fileLinks = new Map(
+    current.filter((r) => r.sync_group_id?.startsWith('wf:')).map((r) => [r.id, r.sync_group_id as string])
+  )
   createSnapshot(taskId, listWidgetsByTask(taskId), 'Before restore')
 
   const keep = new Set(snap.widgets.map((w) => w.id))
@@ -149,9 +156,22 @@ export function restoreSnapshot(snapshotId: string): { taskId: string; widgets: 
     for (const row of current) {
       if (!keep.has(row.id)) db.prepare('DELETE FROM widgets WHERE id = ?').run(row.id)
     }
-    for (const w of snap.widgets) upsertWidgetRow(w, taskId)
+    for (const w of snap.widgets) {
+      const link = fileLinks.get(w.id)
+      upsertWidgetRow(link && w.syncGroupId !== link ? { ...w, syncGroupId: link } : w, taskId)
+    }
   })
   tx()
+  // A widget the snapshot brings back that is not a file yet becomes one.
+  for (const w of snap.widgets) {
+    if (!fileLinks.has(w.id)) {
+      try {
+        adoptWidgetAsFile(w.id)
+      } catch {
+        /* stays a plain desk row */
+      }
+    }
+  }
 
   return { taskId, widgets: listWidgetsByTask(taskId) }
 }
@@ -179,5 +199,14 @@ export function branchSnapshot(snapshotId: string, title: string): { taskId: str
     }
   })
   tx()
+  // A branch is a copy: each work widget on it is a new, independent file
+  // (docs/widget-files.md, "Copies"), not another instance of the original's.
+  for (const newId of idMap.values()) {
+    try {
+      adoptWidgetAsFile(newId)
+    } catch {
+      /* stays a plain desk row */
+    }
+  }
   return { taskId: task.id }
 }

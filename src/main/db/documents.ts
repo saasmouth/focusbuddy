@@ -278,17 +278,45 @@ export function upsertDocument(input: {
 // user can restore it. This is what the editors' "Move to trash" actually does.
 export function trashDocument(id: string): boolean {
   const db = getDb()
-  const info = db.prepare('UPDATE documents SET trashed_at = ? WHERE id = ? AND trashed_at IS NULL').run(Date.now(), id)
+  const now = Date.now()
+  const info = db.prepare('UPDATE documents SET trashed_at = ? WHERE id = ? AND trashed_at IS NULL').run(now, id)
   // The semantic vector goes too so AI retrieval never surfaces trashed work;
   // restoreDocument re-embeds.
   if (info.changes > 0) deleteEmbedding('document', id)
+  // A work widget file takes its desk instances with it (docs/widget-files.md,
+  // "Remove or delete"): the file is the thing, the desks are where it is
+  // placed. They are stamped with the document's own trashed_at, which is how
+  // restoreDocument finds exactly these and not an instance someone had
+  // removed from a desk earlier.
+  if (info.changes > 0) trashWidgetFileInstances(db, id, now)
   return info.changes > 0
+}
+
+function isWidgetDoc(db: ReturnType<typeof getDb>, id: string): boolean {
+  const row = db.prepare('SELECT doc_type FROM documents WHERE id = ?').get(id) as { doc_type: string } | undefined
+  return row?.doc_type === 'widget'
+}
+
+function trashWidgetFileInstances(db: ReturnType<typeof getDb>, id: string, at: number): void {
+  if (!isWidgetDoc(db, id)) return
+  db.prepare('UPDATE widgets SET trashed_at = ? WHERE sync_group_id = ? AND trashed_at IS NULL').run(at, `wf:${id}`)
 }
 
 /** Undo of trashDocument. The caller re-embeds (embedDocument) after restore. */
 export function restoreDocument(id: string): boolean {
   const db = getDb()
+  const before = db.prepare('SELECT trashed_at FROM documents WHERE id = ?').get(id) as
+    | { trashed_at: number | null }
+    | undefined
   const info = db.prepare('UPDATE documents SET trashed_at = NULL WHERE id = ? AND trashed_at IS NOT NULL').run(id)
+  // A work widget file's instances come back to the desks they were on — the
+  // ones its trash took, matched by the shared timestamp.
+  if (info.changes > 0 && before?.trashed_at != null && isWidgetDoc(db, id)) {
+    db.prepare('UPDATE widgets SET trashed_at = NULL WHERE sync_group_id = ? AND trashed_at = ?').run(
+      `wf:${id}`,
+      before.trashed_at
+    )
+  }
   return info.changes > 0
 }
 
@@ -297,8 +325,12 @@ export function restoreDocument(id: string): boolean {
 // dangling fb_files row survives it.
 export function deleteDocument(id: string): boolean {
   const db = getDb()
+  const widgetDoc = isWidgetDoc(db, id)
   const info = db.prepare('DELETE FROM documents WHERE id = ?').run(id)
   if (info.changes > 0) {
+    // A purged work widget file's trashed instances go with it; nothing can
+    // restore them any more. Live instances (none, normally) are left alone.
+    if (widgetDoc) db.prepare('DELETE FROM widgets WHERE sync_group_id = ? AND trashed_at IS NOT NULL').run(`wf:${id}`)
     // Remove the document's semantic vector on the same path, so no delete route
     // leaves an orphaned embedding behind.
     deleteEmbedding('document', id)

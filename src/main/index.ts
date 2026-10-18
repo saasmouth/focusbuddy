@@ -14,7 +14,7 @@ import { runRetentionSweep } from './db/retention'
 import { runTitleBackfill } from './titleBackfill'
 import { autoBackupOnLaunch } from './db/backup'
 import { registerIpcHandlers } from './ipc'
-import { setWidgetFileResolvers } from './db/widgetFiles'
+import { runWidgetFileBackfill, setWidgetFileResolvers } from './db/widgetFiles'
 import { setDocTextResolvers } from './workspaceRank'
 import { mainWidgetResolvers } from './ai/widgetSummary'
 import { startCalendarSyncLoop } from './calendar/sync'
@@ -788,6 +788,21 @@ app.whenReady().then(() => {
   // the remainder reach a model, batched into one capped call on the cheapest
   // tier. Runs every launch, but the log inside means a launch never pays
   // twice for the same item.
+  // Every work widget is a file (docs/widget-files.md): turn the desk widgets
+  // that predate the rule into files, once per workspace on this device. File
+  // ids derive from the widget (or its linked group), so another device doing
+  // the same conversion mints the same ids and sync merges them. Off the
+  // critical path, after the backup above, and before the naming pass below
+  // so that pass can name what this one could only give a placeholder.
+  setTimeout(() => {
+    void runWidgetFileBackfill()
+      .then((s) => {
+        if (s.widgets > 0) console.log(`[widget-files] ${s.widgets} desk work widgets filed as ${s.files} new files`)
+      })
+      .catch((e) => {
+        console.warn('[widget-files] backfill failed:', e instanceof Error ? e.message : e)
+      })
+  }, 8_000)
   setTimeout(() => {
     void runTitleBackfill()
       .then((s) => {

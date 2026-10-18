@@ -227,6 +227,49 @@ export function placeholderWidgetFileTitle(kind: WidgetKind, now: Date = new Dat
   return `${widgetFileTypeLabel(kind)} · ${when}`
 }
 
+/**
+ * True for a name in the placeholder's shape ("Table · Oct 18, 3:04 PM"), for
+ * any file type. Such a name says when something was made, not what it is, so
+ * it is never a name to keep or to derive from — including when it was copied
+ * onto something else (a table file's backing table took its file's
+ * placeholder as its own name, and the naming pass then kept it forever).
+ */
+export function isPlaceholderWidgetFileTitle(title: string | null | undefined): boolean {
+  const t = (title ?? '').trim()
+  if (!t) return false
+  const m = /^(.+?) · [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2}\s?[AP]M$/.exec(t)
+  if (!m) return false
+  const label = m[1].toLowerCase()
+  return (
+    label === 'work widget' ||
+    Object.values(WIDGET_FILE_TYPES).some((ft) => ft!.label.toLowerCase() === label)
+  )
+}
+
+/** A name the table-file derivation wrote ("Client · 12 rows"); it goes stale as rows change. */
+function isRowCountTitle(title: string): boolean {
+  return /\s·\s\d+ rows?$/.test(title)
+}
+
+/**
+ * The title a desk widget carries, when it is a real name worth keeping as the
+ * file's: not blank or "Untitled …", not a placeholder, and not just the kind's
+ * own label ("Table", "Task list") that a menu stamps on a new widget. Null
+ * when there is nothing worth keeping, so the file is named the usual way.
+ */
+export function meaningfulWidgetTitle(
+  kind: WidgetKind | string,
+  title: string | null | undefined,
+  extraLabels: readonly string[] = []
+): string | null {
+  const t = (title ?? '').trim()
+  if (!t || isUntitled(t) || isPlaceholderWidgetFileTitle(t)) return null
+  const lower = t.toLowerCase()
+  const labels = [widgetFileTypeLabel(kind), kind, ...extraLabels].map((l) => l.toLowerCase())
+  if (labels.includes(lower)) return null
+  return t.slice(0, 200)
+}
+
 function safeParse<T>(raw: string | null | undefined): T | null {
   if (!raw) return null
   try {
@@ -299,8 +342,12 @@ export function deriveWidgetFileTitle(
       if (!raw || !resolvers.table) return null
       const t = resolvers.table(raw)
       if (!t) return null
+      // The table's own name wins only when someone chose it. A placeholder
+      // (the file's, copied onto the table when it was provisioned) or an
+      // earlier "X · N rows" is not a choice, and keeping either would freeze
+      // the file's name at a date or a stale row count.
       const own = usable(t.title)
-      if (own) return own
+      if (own && !isPlaceholderWidgetFileTitle(own) && !isRowCountTitle(own)) return own
       const first = t.columns[0]?.label?.trim()
       // An empty table has nothing to be named after yet: "Name · 0 rows"
       // would be a name about the template, not the data.

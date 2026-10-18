@@ -131,7 +131,7 @@ export async function retrieveSources(
   // read — living docs, cards, custom blocks, fields, agents, mindmaps,
   // diagrams, charts — passage-searched through the chunk index. Desk scope
   // demotes off-scope widgets rather than excluding them (#12).
-  const widgetSources = chunkSearchWidgets(query, limit, scopeNodeIds)
+  const widgetSources = dropInstancesOfFoundFiles(chunkSearchWidgets(query, limit, scopeNodeIds), docSources)
 
   // Files (#17): Drive files with extractable text, passage-searched. Before
   // this pool a file was @-mentionable but never FOUND.
@@ -182,4 +182,22 @@ export function relatedDocuments(docId: string, limit = 5): WorkspaceSource[] {
     })
     .filter((d): d is { docId: string; title: string; docType: string; text: string } => d !== null && d.text.length > 0)
   return rankSources(query, docs, limit)
+}
+
+// A desk instance of a work widget file says exactly what its file says
+// (docs/widget-files.md), and since every work widget is a file the two would
+// otherwise fill two of the limited source slots with one thing. The file's hit
+// is kept; the instance's goes. Best-effort: on any error both stay.
+function dropInstancesOfFoundFiles(widgetSources: WorkspaceSource[], docSources: WorkspaceSource[]): WorkspaceSource[] {
+  if (widgetSources.length === 0 || docSources.length === 0) return widgetSources
+  try {
+    const found = new Set(docSources.map((d) => `wf:${d.docId}`))
+    const stmt = getDb().prepare('SELECT sync_group_id FROM widgets WHERE id = ?')
+    return widgetSources.filter((w) => {
+      const row = stmt.get(w.docId) as { sync_group_id: string | null } | undefined
+      return !(row?.sync_group_id && found.has(row.sync_group_id))
+    })
+  } catch {
+    return widgetSources
+  }
 }
