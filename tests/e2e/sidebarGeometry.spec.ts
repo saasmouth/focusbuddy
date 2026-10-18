@@ -27,6 +27,7 @@ interface Box {
   botGap: number
   leftGap: number
   rightGap: number
+  w: number
 }
 
 async function measure(window: LaunchedApp['window'], selector: string): Promise<Box[]> {
@@ -48,7 +49,8 @@ async function measure(window: LaunchedApp['window'], selector: string): Promise
         topGap: Math.round(ir.top - br.top),
         botGap: Math.round(br.bottom - ir.bottom),
         leftGap: Math.round(ir.left - br.left),
-        rightGap: Math.round(br.right - ir.right)
+        rightGap: Math.round(br.right - ir.right),
+        w: Math.round(br.width)
       }]
     })
   }, selector)
@@ -138,6 +140,14 @@ test('tiles share one geometry too, and a note never makes one taller', async ()
   for (const t of tiles) {
     expect(Math.abs(t.leftGap - t.rightGap), `"${t.label}" icon is not centred (${t.leftGap} left, ${t.rightGap} right)`).toBeLessThanOrEqual(1)
   }
+
+  // SAME WIDTH. The grid's columns are `repeat(auto-fit, minmax(N, 1fr))`, so
+  // the CELLS are already equal — but a button is content-width unless told
+  // otherwise, so the tiles sat left-aligned at seven different widths inside
+  // equal cells. Invisible while tiles had no edge; a ragged ladder once they
+  // did. Nothing caught it because every earlier check was about the content
+  // inside a tile, never about the tile itself.
+  expect(distinct(tiles.map((t) => t.w)), `tiles are different widths: ${distinct(tiles.map((t) => t.w)).join(', ')}`).toHaveLength(1)
 })
 
 test('the treatment is one rule, applied to every item', async () => {
