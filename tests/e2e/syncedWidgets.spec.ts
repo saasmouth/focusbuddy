@@ -104,7 +104,11 @@ test('migration — app boots clean, sync_group_id column accessible', async () 
 
   const w = await readWidget(launched, widgetId, taskId)
   expect(w).not.toBeNull()
-  expect((w as { syncGroupId?: string }).syncGroupId).toBe('col-check-grp')
+  // Was: toBe('col-check-grp'). Since 4.3.32 every standalone work widget is a
+  // file (docs/widget-files.md), so a sticky's ordinary linked-duplicate group
+  // becomes the group of ONE work widget file the moment it is created — the
+  // column is still written and read back, now as `wf:<file id>`.
+  expect((w as { syncGroupId?: string }).syncGroupId).toMatch(/^wf:/)
 })
 
 // ============================================================================
@@ -161,8 +165,12 @@ test('content mirrors from A to B when both share syncGroupId', async () => {
   // Verify both widgets exist and share the group.
   const wA0 = await readWidget(launched, widgetAId, taskId)
   const wB0 = await readWidget(launched, widgetBId, taskId)
-  expect((wA0 as { syncGroupId?: string }).syncGroupId).toBe('grp-test')
-  expect((wB0 as { syncGroupId?: string }).syncGroupId).toBe('grp-test')
+  // Was: both toBe('grp-test'). Since 4.3.32 an ordinary group of a
+  // standalone kind becomes ONE work widget file shared by every member, so
+  // the two share a `wf:` group instead — and still mirror, below.
+  const groupA = (wA0 as { syncGroupId?: string }).syncGroupId
+  expect(groupA).toMatch(/^wf:/)
+  expect((wB0 as { syncGroupId?: string }).syncGroupId).toBe(groupA)
 
   // Update A's content — B should mirror.
   await launched.window.evaluate(
@@ -482,5 +490,8 @@ test('regression — normal widget create/update/list without syncGroupId still 
 
   expect((updated as { title?: string }).title).toBe('Updated Solo')
   expect((updated as { content?: string }).content).toBe('{"solo":2}')
-  expect((updated as { syncGroupId?: unknown }).syncGroupId).toBeNull()
+  // Was: toBeNull(). Since 4.3.32 a lone sticky is a work widget file with one
+  // instance (docs/widget-files.md), so its group is the file's own; what this
+  // regression pins — create/update/list work as before — is unchanged.
+  expect((updated as { syncGroupId?: string | null }).syncGroupId).toMatch(/^wf:/)
 })

@@ -77,10 +77,16 @@ test('(a)(b) ingestWorkspace prunes the entry for a deleted widget and reports r
   })
   expect(manual.id).toBeTruthy()
 
-  // Delete the widget (soft-delete: trashed_at set, excluded from listWidgetsByTask).
+  // Delete the widget. Since 4.3.32 a note on a desk is a work widget FILE
+  // with one instance (docs/widget-files.md), and Brain ingests the file as
+  // well as the instance. Removing the instance from its desk leaves the file
+  // — and its knowledge — in place by design, so "deleted" here is the × menu's
+  // "Delete work widget": the file to Trash, its instances with it.
   const deleted = await window.evaluate(async (id: string) => {
     const api = (window as unknown as { api: typeof window.api }).api
-    return api.widgets.delete(id)
+    const w = await api.widgets.get(id)
+    const fileId = w?.syncGroupId?.startsWith('wf:') ? w.syncGroupId.slice(3) : null
+    return fileId ? api.widgetFiles.trash(fileId) : api.widgets.delete(id)
   }, setup.widgetId)
   expect(deleted, 'widget delete call succeeded').toBe(true)
 

@@ -57,20 +57,37 @@ async function duplicateVia(
   label: string
 ): Promise<boolean> {
   const { window } = l
-  await window.locator(`[data-widget-id="${widgetId}"] .widget-handle`).click({ button: 'right' })
-  await window.waitForTimeout(250)
-  const clicked = await window.evaluate((lbl: string) => {
-    const menu = document.querySelector('[data-canvas-ctx-menu]')
-    if (!menu) return false
-    const btn = Array.from(menu.querySelectorAll('button')).find((b) =>
-      (b.textContent ?? '').includes(lbl)
-    )
-    if (!btn) return false
-    ;(btn as HTMLButtonElement).click()
-    return true
-  }, label)
+  await openAdvanced(l, widgetId)
+  const clicked = await clickInMenus(l, label)
   await window.waitForTimeout(400)
   return clicked
+}
+
+/**
+ * Right-click the header and open the Advanced submenu, where the duplicate
+ * and unlink items live (the widget menu groups them; a lookup in the root
+ * panel alone found nothing, which is why this spec was red before 4.3.32).
+ */
+async function openAdvanced(l: LaunchedApp, widgetId: string): Promise<void> {
+  const { window } = l
+  await window.locator(`[data-widget-id="${widgetId}"] .widget-handle`).click({ button: 'right' })
+  const root = window.locator('[data-canvas-ctx-menu]').first()
+  await expect(root).toBeVisible({ timeout: 4_000 })
+  await root.getByRole('menuitem', { name: 'Advanced' }).hover()
+  await expect(window.locator('[data-canvas-ctx-menu]').nth(1)).toBeVisible({ timeout: 3_000 })
+}
+
+async function clickInMenus(l: LaunchedApp, label: string): Promise<boolean> {
+  return l.window.evaluate((lbl: string) => {
+    for (const menu of Array.from(document.querySelectorAll('[data-canvas-ctx-menu]'))) {
+      const btn = Array.from(menu.querySelectorAll('button')).find((b) => (b.textContent ?? '').includes(lbl))
+      if (btn) {
+        ;(btn as HTMLButtonElement).click()
+        return true
+      }
+    }
+    return false
+  }, label)
 }
 
 // Only the sticky widgets we care about — the canvas auto-creates a minimap
@@ -132,8 +149,11 @@ test('Duplicate (independent copy) does NOT link — edits never cross over', as
 
   let widgets = await widgetsOf(launched, taskId)
   expect(widgets.length).toBe(2)
-  // The original stays unlinked (no group), and the copy has no group either.
-  for (const w of widgets) expect(w.syncGroupId).toBeNull()
+  // Was: both groups null. Since 4.3.32 every work widget is a file
+  // (docs/widget-files.md), so each is the instance of its OWN file: two
+  // different `wf:` groups, never a shared one.
+  for (const w of widgets) expect(w.syncGroupId).toMatch(/^wf:/)
+  expect(widgets[0].syncGroupId).not.toBe(widgets[1].syncGroupId)
 
   // Editing the original must NOT change the independent copy.
   await launched.window.evaluate(async (id: string) => {
@@ -155,13 +175,12 @@ test('synced copy exposes "Unlink from synced copies"; independent copy does not
 
   // After a SYNCED duplicate, the original is in a group → Unlink is offered.
   expect(await duplicateVia(launched, widgetId, 'Duplicate (keep synced)')).toBe(true)
-  await window.locator(`[data-widget-id="${widgetId}"] .widget-handle`).click({ button: 'right' })
-  await window.waitForTimeout(250)
-  const hasUnlinkWhenSynced = await window.evaluate(() => {
-    const menu = document.querySelector('[data-canvas-ctx-menu]')
-    return Array.from(menu?.querySelectorAll('button') ?? []).some((b) =>
+  await window.keyboard.press('Escape')
+  await openAdvanced(launched, widgetId)
+  const hasUnlinkWhenSynced = await window.evaluate(() =>
+    Array.from(document.querySelectorAll('[data-canvas-ctx-menu] button')).some((b) =>
       (b.textContent ?? '').includes('Unlink from synced copies')
     )
-  })
+  )
   expect(hasUnlinkWhenSynced).toBe(true)
 })

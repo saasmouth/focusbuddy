@@ -283,7 +283,8 @@ test('WF-6 right-click → Add to this desk is the no-drag path, and Save as fil
   const mm = ws.find((w) => w.kind === 'mindmap')!
   expect(mm.syncGroupId).toMatch(/^wf:/)
 
-  // A plain desk widget (quick-add key path) → Save as file.
+  // Any desk widget is already a file (4.3.32, "Every work widget is a file"),
+  // so Save as file on one is idempotent: it returns the file it already is.
   const plain = await window.evaluate(async (id) => {
     const a = (window as unknown as { api: Api }).api
     return a.widgets.create({ taskId: id, kind: 'note', content: 'Meeting notes for Thursday', x: 400, y: 400 })

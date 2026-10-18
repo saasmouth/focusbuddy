@@ -1,10 +1,13 @@
-# Widget files (4.3.32)
+# Work widget files (4.3.32)
 
-A widget can now exist without a desk, the way a document or a slide deck does.
-It is created from the side menu's **Work widgets** section, opens full-pane, appears
-in Files with its own file type, gets a name without the user typing one, can be
-read and written by the assistant, and can be placed on any number of desks as a
-**linked instance** whose edits flow both ways.
+A work widget is a file, the way a document or a slide deck is. A desk is only
+the place it lives: it can be made on its own from the side menu's **Work
+widgets** section, opens full-pane, appears in Files with its own file type,
+gets a name without the user typing one, can be read and written by the
+assistant, and can be placed on any number of desks as a **linked instance**
+whose edits flow both ways. A work widget added straight to a desk (the canvas
+menu, the palette, an AI build, a template, a duplicate) is a file too: a file
+with one instance, on that desk. See "Every work widget is a file" below.
 
 This note is the contract the code follows. Read it before changing
 `src/shared/widgetFiles.ts`, `src/main/db/widgetFiles.ts`, the Widgets section in
@@ -103,7 +106,141 @@ Placing works the same way from every entry point:
 | Drag a kind from the side menu onto a desk | new file + linked instance at the drop point |
 | Right-click a kind, then "Add to this desk", or command palette "Add *X* to desk" | new file + linked instance at the spawn point |
 | Drag a widget file from Files or from the full-pane header onto a desk | linked instance of that file |
-| Desk widget menu, then "Save as file" | creates the file from the widget and links the widget (and any synced copies) to it |
+| Desk widget menu, then "Save as file" | creates the file from the widget and links the widget (and any synced copies) to it (only still offered where a widget is not a file: a desk outside your own workspace) |
+| Any other way a work widget reaches a desk | a new file + its first instance, made by `createWidget` itself (below) |
+
+## Every work widget is a file
+
+The owner's rule (4.3.32): "Treat work widgets independent of a desk as a
+standard file. The desk is simply the place it lives, and may be added to
+multiple desks, but the file is still the file."
+
+### One enforcement point
+
+`db/widgets.createWidget` ends by calling `adoptWidgetAsFile(id, { fresh: true })`
+(`db/widgetFiles.ts`) for every create **without a client-provided id**. That is
+every locally born widget, whatever started it, because every path ends in
+`createWidget`:
+
+| Path | How it reaches `createWidget` |
+| --- | --- |
+| Canvas right-click "Add object", quick-add keys, command palette, drag from a catalogue | `useWidgetStore.create` → `widgets:create` |
+| Build with AI, assistant `create-widget` actions, desk agents | `actionExecutor` → `useWidgetStore.create` |
+| Templates (saved and starter), first-run onboarding | `applyTemplate` / `NewNodeDialog` / `FirstRunOnboarding` → `widgets:create` |
+| Duplicate (independent), canvas duplicate-selection, context-menu Duplicate | `useWidgetStore.create`, no group → a NEW file (a copy) |
+| Duplicate (keep synced), Make a desk, Assemble desk, Bring a synced work widget | `useWidgetStore.create` with the source's `wf:` group → another instance of the SAME file |
+| Office/mail/digest widgets, document drag, live-canvas conversion | `window.api.widgets.create` → `widgets:create` |
+| MCP `plexii_create_widget`, `plexii_create_table`, desk builders | `deps.createWidget` → `widgets.createWidget` |
+| Web runtime | `src/web/worker/handlers.ts` → the same `createWidget` |
+| Side menu (drag, "Add to this desk"), placing a file | `placeWidgetFile` → `createWidget` with a `wf:` group → left alone |
+
+Paths that write widget rows **without** `createWidget`, and what they do:
+
+| Path | Rule |
+| --- | --- |
+| Inbound workspace sync (row apply) and the CRDT replay (`widgets:create` with the widget's own id) | never create a file. A widget born on another device already is whatever it is there; its file arrives as a `document` item of its own. |
+| Desk snapshot restore (`restoreSnapshot`) | keeps each widget's current `wf:` link even when the snapshot predates it; a restored widget that is not a file yet becomes one |
+| Desk snapshot branch (`branchSnapshot`) | a copy: each standalone widget on the new desk becomes a NEW file |
+| `restoreWidget` (undo, desk trash) | a widget that never became a file (the backfill skips the trashed) becomes one when it comes back |
+
+`adoptWidgetAsFile` leaves a widget alone when it is a desk-only kind
+(`isStandaloneWidgetKind` false), already in a `wf:` group, or on a desk outside
+the user's own workspace (below). Otherwise:
+
+- a lone widget becomes a file whose id is `widgetFileIdForWidget(widgetId)`;
+- a member of an ordinary linked-duplicate group (a non-`wf:` `syncGroupId`)
+  turns the **whole group** into one file, id `widgetFileIdForGroup(groupId)`,
+  shared by every member;
+- the content is kept exactly as the widget holds it. A task list added on a
+  desk ("Tasks" in Add object) stays a lens over the desk's tasks, as a file;
+  a side-menu task list is its own list. Both are files with instances.
+
+The file is named as any file is (a real widget title is kept as the user's,
+not the kind's own label; else derived from content; else the dated
+placeholder), filed in Files, and lives in the **desk's** workspace (org).
+
+### Shared desks
+
+Only a desk in the user's own workspace makes files: `deskFileScope(taskId)`
+returns null for a desk with `shared_root_id` (live-shared with named people, in
+either direction) or `shared_from_handle` (accepted from someone else). A
+shared desk syncs on the per-desk path, which never carries documents, so a file
+made there would exist for one member only, and every member converting the
+same widget would mint their own. Widgets there stay plain desk rows. An
+instance whose file this device does not have (a shared desk, a file still
+syncing) behaves as a plain widget: its × asks the single confirm.
+
+### Copies
+
+- **Duplicate (independent copy)**, duplicate-selection, context-menu
+  Duplicate: a new, independent file. A table copy gets its own `fb_tables`
+  row and rows (`lib/copyWidgetContent.ts`), so the copy is not a second file
+  over the same data.
+- **Duplicate (keep synced)**: another instance of the same file.
+- **Unlink from synced copies** on an instance: leaves the shared file and
+  becomes a new file of its own (with its own table rows).
+- **Template saved from a desk**: a template stores content, not groups, so
+  each use makes new files. **Branch a desk snapshot**: new files.
+  (A template's or branch's table still points at the original table id, as
+  before this change; only the explicit duplicates above clone a table.)
+
+### Launch backfill
+
+`runWidgetFileBackfill()` (main/index.ts, 8 s after launch, detached, after the
+safety backup and before the naming pass) converts what predates the rule:
+
+- **Once per workspace per device**, recorded in the device-local `sync_meta`
+  as `widgetFiles.backfill.v1:<orgId>`.
+- **Deterministic ids**: the same `widgetFileIdForWidget` /
+  `widgetFileIdForGroup` as above (a v5-shaped UUID from SHA-1 of the seed). Two
+  Macs converting the same synced desk mint the same document ids and set the
+  same `sync_group_id`s, so sync merges them. If the document already exists
+  (the other device's arrived first) it is reused as-is.
+- **Idempotent**: a forced re-run changes nothing.
+- **Skipped**: trashed widgets (restoreWidget files one if it comes back),
+  widgets on a trashed desk, shared desks (above), desk-only kinds, and widgets
+  already in a `wf:` group, including one whose file has not arrived yet.
+- **Titles**: a real widget title is kept (`titleSource: 'user'`); otherwise
+  derived from content; otherwise the placeholder dated by the **widget's**
+  `createdAt` (the same string on every device). A derived name is written to
+  untitled instances; a placeholder is not, so converting a workspace does not
+  stamp a date on every untitled sticky.
+- **Placement in Files**: the root, the convention every widget file follows
+  (`createWidgetFile`'s `parentId ?? null`, `ensureWidgetFilesFiled`). Doc
+  pointers do not sync, and a root-filed file is what the other device's
+  self-heal produces too, so both devices agree. Files is filterable by type
+  ("All work widgets", one entry per type, and "Documents" leaves work widgets
+  out). A file in a workspace other than the active one is filed the first time
+  that workspace's root is listed.
+- **Indexing**: one batched pass at the end (`reindexDocumentChunks`, then
+  `reindexDocuments(false)`), not one embedding request per file.
+
+## Remove or delete
+
+The × on a work widget (frame header, dock chip) and the context menu's Delete
+go through `lib/widgetRemoval.ts`. For an instance of a live file it asks one
+question, "Remove or delete “<name>”?", with Cancel and two answers:
+
+| Answer | Effect |
+| --- | --- |
+| **Remove from this desk** | `useWidgetStore.remove`: this desk's instance only, undoable as before. Hint: "It stays in Files." or "It stays in Files and on N other desks." |
+| **Delete work widget** (danger) | `useWidgetFilesStore.trash`: the file, its Files entry and every instance on every desk go to Trash. Hint: "Removes it from every desk and from Files. You can restore it from Trash." Undo toast. |
+
+A desk-only kind, or an instance whose file is not here, gets the single
+confirm "Delete this work widget?". A multi-selection asks the same question
+once for the lot. Keyboard Delete on a selection, and the assistant's
+delete-widget action, remove from the desk only (nothing is deleted
+everywhere without the question).
+
+Deleting is done in `db/documents.trashDocument` for any `doc_type 'widget'`
+document, whichever surface trashed it (the × "Delete", the full-pane "Move to
+Trash", Files, the documents store): every live instance is trashed with the
+document's own `trashed_at`. `restoreDocument` restores exactly the instances
+carrying that timestamp, so an instance removed from a desk earlier stays
+removed. `purgeTrashedWidgets` (the 7-day desk-trash purge) keeps instances a
+trashed file still holds; `deleteDocument` (purge) removes them. The full-pane
+"Move to Trash" and Files' "Move to Trash" confirm first when the file is on
+any desk, and say that it will be removed from them.
 
 ## Full-pane view
 
@@ -150,7 +287,11 @@ was written for this beyond the per-kind content source.
    re-indexes the file and re-derives its "Header · N rows" name while the name
    is still ours (placeholder or derived). Chart files over that table are
    re-indexed too. An empty table keeps its placeholder, so a file is never
-   named after template columns.
+   named after template columns. The backing table's own name wins only when
+   someone chose it: a placeholder-shaped name (a new table file used to copy
+   its placeholder onto the table it provisioned) or an earlier "X · N rows" is
+   ignored, and a patch that re-sends the current title, or a placeholder, is
+   not a rename (`updateWidgetFile`).
 3. **Launch.** `runTitleBackfill` treats a widget file whose `titleSource` is
    `placeholder` as untitled. The free pass uses the same per-kind derivation,
    then the existing single Haiku batch handles what is left, with the same caps
@@ -206,13 +347,18 @@ Writes go through the existing review-and-apply flow:
 | `widgetFiles:createAndPlace(input, draft)` | the side-menu drag gesture as one call |
 | `widgetFiles:promote(widgetId)` | "Save as file" |
 | `widgetFiles:export(id)` / `widgetFiles:import(path?)` | `.plexii-*` round trip |
-| `widgetFiles:trash(id)` | trashes the document and its Files pointer |
+| `widgetFiles:trash(id)` | trashes the document, its Files pointer and every desk instance (restore puts them back) |
 
-Delete and restore otherwise use the existing `documents:*` channels.
+Delete and restore otherwise use the existing `documents:*` channels; `trashDocument` and `restoreDocument` carry a work widget file's desk instances with it (see "Remove or delete").
 
 ## Side menu
 
-The **Work widgets** section (code: the Widgets section) sits between Apps and People. Its kinds are:
+The **Work widgets** section (code: the Widgets section) sits directly under the
+office apps (Apps: PlexiiApps and Tools) and directly above **Connected apps**,
+which became a section of its own (`id: 'connected'`) so Work widgets could sit
+between the two. Only open/closed is persisted per section (`fb.nav.accordion.open`),
+never an order, so the move needs no migration; the new Connected apps section
+inherits the old Apps open/closed choice the first time. Its kinds are:
 
 ```
 WIDGET_CATALOG (not hideFromPicker)
@@ -255,8 +401,10 @@ A task-list widget on a desk is a lens over that desk's tasks. A task-list file
 has no desk, so it is created with `scope: 'own'` and keeps its items in its
 content (`{ scope: 'own', filter, items: [{ id, title, done, dueAt }] }`). That
 is also why every linked instance shows the same list. `TaskListWidget` renders
-own-scope content as a plain checklist with due dates. A desk task list that is
-promoted with "Save as file" keeps its lens scope.
+own-scope content as a plain checklist with due dates. A task list added
+straight to a desk (the canvas Add object menu) is a file too, and keeps the desk
+lens it was made with, as one promoted with "Save as file" always did: each
+instance then lists the tasks of the desk it is on.
 
 ## Web runtime
 
