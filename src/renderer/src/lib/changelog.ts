@@ -60,7 +60,9 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Fixed: right-clicking the Mail tile and choosing Add to this desk (now called Add Inbox to this desk), or dragging the Mail tile onto a desk, now puts your Plexii mail on the desk as the Inbox work widget. Before, it put a Gmail web page there.',
       'Plexii and Brain can read your work widget files and find them by what is in them. You can @-mention a work widget file, Build with AI uses the ones that match what you ask for, and Plexii can make or update a work widget file for you after you approve it.',
       'Fixed: a new table could keep its date-and-time name instead of being named from its first column and number of rows.',
-      'Fixed: when you @-mention a work widget file in a sticky, note or card, the list shows its type, such as Table, instead of just \u201cWork widget\u201d.'
+      'Fixed: when you @-mention a work widget file in a sticky, note or card, the list shows its type, such as Table, instead of just \u201cWork widget\u201d.',
+      'Fixed: the Undo notice after you take a work widget off a desk now says what happened: Removed \u201cPlan\u201d from this desk, or Removed Tasks work widget from this desk when it has no name. It says Deleted only when the work widget was really deleted. Before, it always said Delete, followed by an internal name such as \u201csticky\u201d.',
+      'Fixed: a work widget you add to a desk is ready to type into. A new Tasks work widget puts the cursor in its Add a task box, so what you type goes into the task, and typing inside a work widget never adds a sticky or a table to the desk.'
     ],
     links: [
       { label: 'The side menu', href: `${HELP_BASE}/side-menu` },

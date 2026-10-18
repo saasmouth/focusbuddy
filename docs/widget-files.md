@@ -265,6 +265,28 @@ selection.
 Deleting a file (any path) also records an undo step, so ⌘Z restores it as the
 notice's Undo does.
 
+### The Undo toast's words
+
+The toast after a removal says what happened, and names the work widget by
+its title or, with no title, by its catalogue label (`catalogFor(kind).label`),
+never by its kind id. The words live in `lib/widgetRemovalCopy.ts`
+(`removalLabels`, `manyRemovalLabels`); `useWidgetStore.remove(id, { scope })`
+picks them. Each undo step also keeps an imperative name, which the undo and
+redo toasts use ("Undid Remove “Plan” from this desk"): `HistoryEntry.toast` is
+the toast text, `label` the step's name.
+
+| What happened | Toast |
+| --- | --- |
+| Remove from this desk, titled | Removed “Plan” from this desk |
+| Remove from this desk, untitled | Removed Tasks work widget from this desk |
+| A desk-only kind (or a file not here), deleted | Deleted “Plan” / Deleted Sticky work widget |
+| Several removed from this desk | Removed 3 work widgets from this desk |
+| Several deleted (desk-only ones among them) | Deleted 3 work widgets |
+| A file deleted (Delete work widget) | the notice: “Plan” moved to Trash and removed from 1 desk |
+
+Deleting a multi-selection everywhere is one undo step, the files and any
+desk-only ones together.
+
 ### The assistant
 
 `delete-widget` proposals carry `scope`:
@@ -465,6 +487,23 @@ Each tile's tooltip is its name plus `widgetMenuHint`: the catalogue hint and
 a desk, or right-click and Add to this desk: that desk's tasks. Click: a task
 list of its own, saved in Files, with the same items on any desk you place it
 on."
+
+### A placed work widget takes the keyboard
+
+A work widget placed on the open desk (`adoptInstance` in
+`stores/widgetFiles.ts`: side-menu Add to this desk, drag, palette) is
+activated and then focused through `lib/focusNewWidget.ts`: its element marked
+`data-primary-input` (the Tasks work widget's "Add a task" box) takes focus
+once it mounts, unless the person has already focused something else. Kinds
+without one are left to their own editor. Typing straight after placing a
+Tasks work widget therefore writes the task.
+
+Desk quick-add (S = sticky, T = table, …) ignores a key whose focused element
+or event target is a control, a text field, or anywhere inside a work widget
+(`[data-widget-id]`, `lib/quickAddFocus.ts`). It still fires on the bare desk
+with nothing engaged, which is what a click on the empty desk leaves. That is
+how a help-clip capture once typed a task into the desk and got a sticky and a
+table: its keys arrived with nothing engaged (tests/e2e/newWidgetTyping.spec.ts).
 
 ### App tiles
 
