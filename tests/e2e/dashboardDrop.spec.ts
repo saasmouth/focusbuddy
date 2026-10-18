@@ -145,15 +145,95 @@ test('a Plexii app tile lands as the right kind of card', async () => {
   expect(await cardCount(window, 'office-document'), 'PlexiDocs did not land').toBe(before + 1)
 })
 
-test('a kind with no dashboard card says exactly that, not something untrue', async () => {
+test('every Plexii app now has a place on a dashboard', async () => {
+  // "Can you make sure Mail, Chat, Browser, Calendar, Files and Vault have a
+  // place on dashboards too." Each app tile drags a widget kind, so this
+  // drops the kind each one drags and checks the right card lands. The
+  // previous version of this test asserted that inbox had NO card — it is
+  // inverted here deliberately rather than deleted, because that assertion
+  // is exactly what this change set out to make false.
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  await openDashboard(window)
+
+  const cases: Array<[string, string]> = [
+    ['inbox', 'app-mail'],
+    ['chat-thread', 'app-chat'],
+    ['calendar', 'app-calendar'],
+    ['drive', 'app-files'],
+    ['vault', 'app-vault'],
+    ['webview', 'app-browser']
+  ]
+  for (const [kind, widget] of cases) {
+    const before = await cardCount(window, widget)
+    await dropOnDashboard(window, DRAG_MIME, kind)
+    expect(await cardCount(window, widget), `dropping "${kind}" did not place ${widget}`).toBe(
+      before + 1
+    )
+  }
+
+  // And nothing claimed a desk-arrangement reason on the way through.
+  const text = await window.evaluate(() => document.body.innerText)
+  expect(text, 'wrongly said an app arranges a desk').not.toMatch(/arranges a desk/i)
+})
+
+test('a second single-instance app card is declined, not silently ignored', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
   await openDashboard(window)
 
   await dropOnDashboard(window, DRAG_MIME, 'inbox')
+  const after = await cardCount(window, 'app-mail')
+  await dropOnDashboard(window, DRAG_MIME, 'inbox')
+  expect(await cardCount(window, 'app-mail'), 'a duplicate Mail card was placed').toBe(after)
   const text = await window.evaluate(() => document.body.innerText)
-  // The honest message, not the desk-arrangement one.
-  expect(text, 'wrong or missing explanation').toMatch(/no dashboard card for inbox yet/i)
-  expect(text, 'claimed inbox arranges a desk, which is untrue').not.toMatch(/inbox arranges a desk/i)
+  expect(text, 'no explanation for the declined duplicate').toMatch(/already on this dashboard/i)
+})
+
+test('an embedded app is contained by its card', async () => {
+  // The five app views are written for a full pane. Dropped straight into a
+  // grid cell they overflowed it — Mail's connect form ran past the card's
+  // left edge, Files' toolbar was clipped mid-word, the vault's setup panel
+  // fell out of the bottom. AppCard owns the overflow.
+  //
+  // WHAT THIS ASSERTS, and why it is not "no child sticks out": inside a
+  // scroll container a child wider than the box still reports a rect beyond
+  // it, while being visually clipped. Measuring rects called a correctly
+  // contained Files card a failure. So this checks the card actually clips,
+  // and that the card itself sits inside the grid.
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  await openDashboard(window)
+
+  for (const kind of ['inbox', 'chat-thread', 'calendar', 'drive', 'vault']) {
+    await dropOnDashboard(window, DRAG_MIME, kind)
+  }
+  await window.waitForTimeout(1200)
+
+  const cards = await window.evaluate(() => {
+    const grid = document.querySelector('[data-testid="home-widget-grid"]')!
+    const gr = grid.getBoundingClientRect()
+    return Array.from(document.querySelectorAll('[data-widget^="app-"]')).map((card) => {
+      const inner = card.querySelector('[data-app-card]') as HTMLElement | null
+      const cr = card.getBoundingClientRect()
+      const cs = inner ? getComputedStyle(inner) : null
+      return {
+        w: card.getAttribute('data-widget'),
+        clips: !!cs && (cs.overflowX === 'auto' || cs.overflowX === 'hidden'),
+        // Positive = the card itself is outside the grid, which no amount of
+        // inner clipping would excuse.
+        outsideGrid: Math.round(Math.max(gr.left - cr.left, cr.right - gr.right)),
+        scrollsSideways: inner ? inner.scrollWidth - inner.clientWidth > 2 : false
+      }
+    })
+  })
+  console.log('  CARDS ' + JSON.stringify(cards))
+  expect(cards.length, 'app cards did not render').toBe(5)
+  for (const c of cards) {
+    expect(c.clips, `${c.w} does not clip its content`).toBe(true)
+    expect(c.outsideGrid, `${c.w} sits outside the grid by ${c.outsideGrid}px`).toBeLessThanOrEqual(2)
+  }
 })

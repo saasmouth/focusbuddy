@@ -21,6 +21,15 @@ export type HomeWidgetId =
   // app. Both are multi: a dashboard may hold as many as you drop.
   | 'work-widget'
   | 'connected-app'
+  // The Plexii apps, each as its own card so the picker lists them by name
+  // rather than offering one "app" entry that then asks which. Five render
+  // the app's own view, which takes no props; the browser is a pinned page.
+  | 'app-mail'
+  | 'app-chat'
+  | 'app-calendar'
+  | 'app-files'
+  | 'app-vault'
+  | 'app-browser'
   // People's former home screen, kept whole as a widget so turning that page
   // into a personalisable grid loses none of what was on it.
   | 'people-home'
@@ -94,6 +103,9 @@ export interface HomeWidgetConfig {
   widgetFileId?: string
   // connected-app: the app this card runs live.
   appId?: string
+  // app-browser: the page it is pinned to. Kept on the CARD rather than in a
+  // widgets row, because a dashboard browser has no desk row to write to.
+  url?: string
   // Shortcuts: the box name and its tiles.
   title?: string
   targets?: ShortcutTarget[]
@@ -168,6 +180,12 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
   { id: 'shortcuts', name: 'Shortcuts', blurb: 'Your own tiles to anywhere: desks, documents, websites, apps', icon: 'link', tint: 'bg-indigo-500/10 text-indigo-500', category: 'Navigation', multi: true, defaultCol: 'rail', sizes: ['sm', 'md', 'lg', 'stack'], defaultSize: 'sm' },
   { id: 'work-widget', name: 'Work widget', blurb: 'A sticky, table, chart or any other work widget, live on this dashboard', icon: 'widgets', tint: 'bg-violet-500/10 text-violet-500', category: 'Live', defaultCol: 'main', multi: true, sizes: ['sm', 'md', 'lg', 'stack'], defaultSize: 'md' },
   { id: 'connected-app', name: 'Connected app', blurb: 'One of your connected apps, running here', icon: 'public', tint: 'bg-sky-500/10 text-sky-500', category: 'Live', defaultCol: 'main', multi: true, sizes: ['md', 'lg'], defaultSize: 'lg' },
+  { id: 'app-mail', name: 'Mail', blurb: 'Your inbox, here', icon: 'mail', tint: 'bg-rose-500/10 text-rose-500', category: 'Communication', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'lg' },
+  { id: 'app-chat', name: 'Chat', blurb: 'Your conversations, here', icon: 'forum', tint: 'bg-sky-500/10 text-sky-500', category: 'Communication', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'md' },
+  { id: 'app-calendar', name: 'Calendar', blurb: 'Your calendar, here', icon: 'calendar_month', tint: 'bg-violet-500/10 text-violet-500', category: 'Live', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'lg' },
+  { id: 'app-files', name: 'Files', blurb: 'Your file library, here', icon: 'folder', tint: 'bg-sky-500/10 text-sky-500', category: 'Navigation', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'lg' },
+  { id: 'app-vault', name: 'Vault', blurb: 'Your vault, here', icon: 'plexii:vault', tint: 'bg-rose-500/10 text-rose-500', category: 'Navigation', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'md' },
+  { id: 'app-browser', name: 'Browser', blurb: 'A page you want in front of you', icon: 'public', tint: 'bg-indigo-500/10 text-indigo-500', category: 'Live', defaultCol: 'main', multi: true, sizes: ['md', 'lg'], defaultSize: 'lg' },
   { id: 'app-launcher', name: 'App launcher', blurb: 'Your favourite connected apps with their real logos', icon: 'apps', tint: 'bg-emerald-500/10 text-emerald-500', category: 'Navigation', defaultCol: 'rail', sizes: ['sm', 'md'], defaultSize: 'sm' },
   // Actions
   { id: 'quick', name: 'Quick actions', blurb: 'Create, plan, collaborate, automate', icon: 'bolt', tint: 'bg-emerald-500/10 text-emerald-500', category: 'Actions', defaultCol: 'rail', sizes: ['sm', 'md'], defaultSize: 'sm' },

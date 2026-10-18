@@ -5,8 +5,15 @@ import {
   DeskWidgetPicker,
   DocumentPicker,
   WorkWidgetCard,
-  ConnectedAppCard
+  ConnectedAppCard,
+  BrowserCard,
+  AppCard
 } from './dashboardEmbeds'
+import MailView from './MailView'
+import MessagesView from './MessagesView'
+import CalendarView from './CalendarView'
+import FilesView from './FilesView'
+import VaultView from './VaultView'
 import { DRAG_MIME } from '../../lib/widgetCatalog'
 import { CONNECTED_APP_DRAG_MIME } from '../Sidebar'
 import {
@@ -697,6 +704,36 @@ export default function HomeDashboard({
     // (Calendar, Files and the Vault have no dashboard card: the ids by those
     // names in homeWidgetDefs are SHORTCUT DESTINATIONS, a different list.
     // Mapping to them typechecked as `string` and would have placed nothing.)
+    // Each Plexii app tile drags a widget kind; these are the kinds whose app
+    // now has a dashboard card of its own.
+    const APP_CARDS: Partial<Record<string, HomeWidgetId>> = {
+      inbox: 'app-mail',
+      'mail-thread': 'app-mail',
+      email: 'app-mail',
+      'chat-thread': 'app-chat',
+      calendar: 'app-calendar',
+      drive: 'app-files',
+      file: 'app-files',
+      image: 'app-files',
+      video: 'app-files',
+      vault: 'app-vault',
+      webview: 'app-browser',
+      pdf: 'app-browser'
+    }
+    const appCard = APP_CARDS[kind]
+    if (appCard) {
+      // A second Mail card would show the same inbox twice, so the
+      // single-instance ones simply say they are already here.
+      const def = widgetDef(appCard)
+      if (!def.multi && isPlaced(appCard)) {
+        useNoticeStore
+          .getState()
+          .show({ icon: 'info', text: `${def.name} is already on this dashboard.` })
+        return
+      }
+      placeWidget(appCard, undefined, {})
+      return
+    }
     const OFFICE_KINDS = new Set(['doc', 'sheet', 'slides', 'design', 'draw', 'gdoc', 'gsheet', 'gslide'])
     if (OFFICE_KINDS.has(kind)) {
       // An EMPTY config, deliberately. Passing none makes placeWidget open a
@@ -886,6 +923,55 @@ export default function HomeDashboard({
         )
       case 'connected-app':
         return <ConnectedAppCard appId={inst.config?.appId} />
+      // The five apps whose own view takes no props, embedded whole — the
+      // same move people-home already makes. Chat asks for its compact
+      // layout, which exists precisely for a narrow column.
+      case 'app-mail':
+        return (
+          <AppCard>
+            <MailView />
+          </AppCard>
+        )
+      case 'app-chat':
+        return (
+          <AppCard>
+            <MessagesView compact />
+          </AppCard>
+        )
+      case 'app-calendar':
+        return (
+          <AppCard>
+            <CalendarView />
+          </AppCard>
+        )
+      case 'app-files':
+        return (
+          <AppCard>
+            <FilesView />
+          </AppCard>
+        )
+      case 'app-vault':
+        return (
+          <AppCard>
+            <VaultView />
+          </AppCard>
+        )
+      case 'app-browser':
+        return (
+          <BrowserCard
+            url={inst.config?.url}
+            onPick={() => {
+              const next = window.prompt('Pin which page?', inst.config?.url ?? 'https://')
+              if (!next) return
+              const url = /^https?:\/\//i.test(next) ? next : `https://${next}`
+              commitFlat(
+                flatRef.current.map((it) =>
+                  it.key === inst.key ? { ...it, config: { ...it.config, url } } : it
+                )
+              )
+            }}
+          />
+        )
       case 'room-portal':
         return <RoomPortalWidget roomId={inst.config?.roomId} size={size} />
       case 'shortcuts':

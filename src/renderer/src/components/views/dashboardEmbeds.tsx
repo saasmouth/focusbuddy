@@ -601,3 +601,89 @@ export function ConnectedAppCard({
     </div>
   )
 }
+
+// ── A pinned page ───────────────────────────────────────────────────────────
+//
+// The browser's place on a dashboard. The other five apps embed their own
+// view, which takes no props; a browser has no such view — it is a widget
+// kind, and WebViewWidget writes its URL, title and source app back to its
+// own `widgets` row. A dashboard card has no such row, so those writes would
+// go nowhere and the card would quietly forget where it was.
+//
+// So this is a PINNED PAGE rather than a free browser: the URL lives on the
+// card, in the dashboard's own layout, and the card always shows that page.
+// Following a link works for as long as the card is mounted; it is not
+// remembered, because the thing being remembered is the pin. Said plainly in
+// the UI rather than left to be discovered.
+export function BrowserCard({
+  url,
+  onPick
+}: {
+  url?: string
+  onPick?: () => void
+}): JSX.Element {
+  if (!url)
+    return (
+      <EmptyCard
+        icon="public"
+        title="No page pinned"
+        hint="Pin a page to keep it in front of you."
+        action={onPick ? { label: 'Pin a page', run: onPick } : undefined}
+      />
+    )
+  return (
+    <div className="h-full w-full flex flex-col overflow-hidden rounded-[inherit]">
+      <div className="shrink-0 px-2 py-1 flex items-center gap-1 border-b border-[var(--edge-hairline)]">
+        <Icon name="public" size={13} className="text-[var(--ink-40)] shrink-0" />
+        <span className="flex-1 min-w-0 truncate text-[11px] text-[var(--ink-50)]" title={url}>
+          {url.replace(/^https?:\/\//, '')}
+        </span>
+        {onPick && (
+          <button
+            onClick={onPick}
+            className="h-6 px-1.5 rounded-md text-[11px] text-[var(--ink-50)] hover:bg-[var(--surface-sunken)]"
+            title="Pin a different page"
+          >
+            Change
+          </button>
+        )}
+      </div>
+      <webview
+        src={url}
+        className="flex-1 min-h-0 w-full"
+        // In the JSX, not from an effect: Electron reads allowpopups when the
+        // guest webContents is created, and an attribute added afterwards is
+        // silently ignored (the same trap that once stopped every connected
+        // app signing in). Needed here too — a pinned page may be an app
+        // whose login opens a pop-up.
+        // @ts-ignore — allowpopups is a valid <webview> attribute
+        allowpopups="true"
+      />
+    </div>
+  )
+}
+
+// ── An app view, contained ──────────────────────────────────────────────────
+//
+// The five app views are written for a full pane: their own padding, their
+// own toolbars, and in places a width they assume they can have. Dropped
+// straight into a grid cell they overflow it — measured, not guessed: Mail's
+// connect form ran out past the card's left edge, Files' toolbar was clipped
+// mid-word, and the vault's setup panel fell out of the bottom.
+//
+// So an embedded app gets a containing block that owns the overflow: the
+// card scrolls, the page does not, and nothing escapes the rounded corner.
+// `isolation` keeps a view's own z-indexed chrome inside the card instead of
+// over its neighbours, and `contain: layout` stops a view that measures the
+// viewport from reflowing the whole grid.
+export function AppCard({ children }: { children: React.ReactNode }): JSX.Element {
+  return (
+    <div
+      className="h-full w-full min-w-0 overflow-auto rounded-[inherit] isolate"
+      style={{ contain: 'layout paint' }}
+      data-app-card
+    >
+      {children}
+    </div>
+  )
+}
