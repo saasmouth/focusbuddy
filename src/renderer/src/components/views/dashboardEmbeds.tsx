@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type JSX } from 'react'
+import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import type { DocumentMeta, FbNode, Widget, WidgetKind } from '@shared/types'
 import Icon from '../Icon'
 import Modal from '../plexi/Modal'
@@ -9,6 +9,10 @@ import { useWidgetStore } from '../../stores/widgets'
 import { useNodeStore } from '../../stores/nodes'
 import { widgetDisplayName } from '../../lib/widgetDisplayName'
 import { catalogFor } from '../../lib/widgetCatalog'
+import { useWidgetFilesStore } from '../../stores/widgetFiles'
+import { widgetFromFile } from '@shared/widgetFiles'
+import ConnectedAppView from './ConnectedAppView'
+import DocFiledInChip from '../DocFiledInChip'
 
 // Desk objects and office documents, live on a dashboard.
 //
@@ -464,5 +468,136 @@ export function DocumentPicker({
         </button>
       </div>
     </Modal>
+  )
+}
+
+// ── A work widget file, live on a dashboard ─────────────────────────────────
+//
+// "Make it so widgets and apps both plexii and connected can be dragged to a
+// dashboard and configured, and remain there", with the object existing
+// "without a desk if its not related to one".
+//
+// IT ALREADY CAN, and that is why this card is short. docs/widget-files.md:
+// "A work widget is a file, the way a document or a slide deck is. A desk is
+// only the place it lives." Every work widget is a `documents` row with
+// doc_type 'widget', so it exists with no desk, syncs, trashes and appears in
+// Files without any of that being built here.
+//
+// So this holds a FILE ID, not the {deskId, widgetId} pair DeskWidgetCard
+// takes. Nothing is created on a desk to back it. The same file may also sit
+// on any number of desks as linked instances, and the dashboard is a peer of
+// those rather than a copy of one.
+//
+// EDITS NEED NO WIRING. `widgetFromFile` gives the widget the synthetic id
+// `wf:<file id>`, and the widget store already routes that id to the file
+// instead of to a desk row (stores/widgets.ts, isWidgetFilePaneId). Typing
+// here writes the file, which the main process fans out to every placed
+// instance. Adding an onChange here would be a second, competing write path.
+export function WorkWidgetCard({
+  fileId,
+  onPick
+}: {
+  fileId?: string
+  onPick?: () => void
+}): JSX.Element {
+  const file = useWidgetFilesStore((s) => (fileId ? s.files[fileId] : undefined))
+  const load = useWidgetFilesStore((s) => s.load)
+  const [missing, setMissing] = useState(false)
+  const [size, setSize] = useState({ width: 480, height: 320 })
+  const bodyRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!fileId) return
+    let alive = true
+    void load(fileId).then((f) => {
+      if (alive && !f) setMissing(true)
+    })
+    return () => {
+      alive = false
+    }
+  }, [fileId, load])
+
+  // The widget is built at the card's measured size, as the full-pane view
+  // does: a table or a chart lays out to the box it is given.
+  useEffect(() => {
+    const el = bodyRef.current
+    if (!el) return
+    const ro = new ResizeObserver((entries) => {
+      const r = entries[0]?.contentRect
+      if (r) setSize({ width: Math.round(r.width), height: Math.round(r.height) })
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [file?.id])
+
+  const widget = useMemo(() => (file ? widgetFromFile(file, size) : null), [file, size])
+
+  if (!fileId)
+    return (
+      <EmptyCard
+        icon="widgets"
+        title="No work widget yet"
+        hint="Drag one from the side menu, or choose one you already have."
+        action={onPick ? { label: 'Choose a work widget', run: onPick } : undefined}
+      />
+    )
+  if (missing)
+    return (
+      <EmptyCard
+        icon="help_outline"
+        title="That work widget is gone"
+        hint="It was trashed or has not synced to this device yet."
+        action={onPick ? { label: 'Choose another', run: onPick } : undefined}
+      />
+    )
+  if (!widget) return <EmptyCard icon="hourglass_empty" title="Loading…" hint="" />
+
+  return (
+    <div className="h-full w-full flex flex-col overflow-hidden rounded-[inherit]">
+      <div ref={bodyRef} className="flex-1 min-h-0 overflow-hidden">
+        <WidgetSurfaceContext.Provider value="embedded">
+          {renderWidget(widget)}
+        </WidgetSurfaceContext.Provider>
+      </div>
+      {/* Where this lives in Files, and one tap to put it somewhere. A widget
+          dropped here has no desk, so without this the only way to file it
+          would be to find it again in Files afterwards — which is the exact
+          friction the file button was asked for. */}
+      <div className="shrink-0 px-2 py-1 border-t border-[var(--edge-hairline)]">
+        <DocFiledInChip docId={fileId} compact />
+      </div>
+    </div>
+  )
+}
+
+// ── A connected app, live on a dashboard ────────────────────────────────────
+//
+// The real app, not a launcher tile: "the live app, embedded". This reuses
+// the full-pane view rather than mounting its own <webview>, because that
+// component carries the session partition, the OAuth pop-up routing and the
+// unread-count plumbing — a second implementation would be a second set of
+// those bugs. It is h-full and brings its own slim toolbar (back, forward,
+// reload, open in browser), which an embedded app needs more than a full-pane
+// one does.
+export function ConnectedAppCard({
+  appId,
+  onPick
+}: {
+  appId?: string
+  onPick?: () => void
+}): JSX.Element {
+  if (!appId)
+    return (
+      <EmptyCard
+        icon="apps"
+        title="No app yet"
+        hint="Drag a connected app from the side menu onto this dashboard."
+        action={onPick ? { label: 'Choose an app', run: onPick } : undefined}
+      />
+    )
+  return (
+    <div className="h-full w-full overflow-hidden rounded-[inherit]">
+      <ConnectedAppView appId={appId} />
+    </div>
   )
 }

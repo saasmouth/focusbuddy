@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import Icon from '../Icon'
+import DocFiledInChip from '../DocFiledInChip'
 import { renderWidget } from '../widgets/renderWidget'
 import { WidgetSurfaceContext } from '../../lib/widgetSurface'
 import { useWidgetFilesStore } from '../../stores/widgetFiles'
@@ -122,6 +123,12 @@ export default function WidgetFileView({ fileId }: { fileId: string }): JSX.Elem
         >
           {type?.label ?? file.kind}
         </span>
+        {/* Where it lives in Files, and one tap to put it somewhere.
+            A work widget is a documents row (docs/widget-files.md), so the
+            same chip the office editors use works here unchanged — a widget
+            made from the side menu has no desk AND, until now, no obvious way
+            to be filed. */}
+        <DocFiledInChip docId={fileId} compact className="ml-3 shrink-0" />
         <div className="ml-auto flex items-center gap-1 shrink-0">
           {deskCount > 0 && (
             <span className="text-[11px] text-[var(--ink-40)] mr-1" data-testid="widget-file-instances">

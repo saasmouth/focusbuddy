@@ -3,8 +3,22 @@ import {
   DeskWidgetCard,
   OfficeDocumentCard,
   DeskWidgetPicker,
-  DocumentPicker
+  DocumentPicker,
+  WorkWidgetCard,
+  ConnectedAppCard
 } from './dashboardEmbeds'
+import { DRAG_MIME } from '../../lib/widgetCatalog'
+import { CONNECTED_APP_DRAG_MIME } from '../Sidebar'
+import {
+  WIDGET_FILE_DRAG_MIME,
+  WIDGET_NEW_FILE_DRAG_MIME,
+  readNewWidgetFileDrag,
+  readWidgetFileDrag
+} from '../../lib/widgetFileDrag'
+import type { WidgetKind } from '@shared/types'
+import { isStandaloneWidgetKind } from '@shared/widgetFiles'
+import { useWidgetFilesStore } from '../../stores/widgetFiles'
+import { useNoticeStore } from '../../stores/notice'
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import {
@@ -616,6 +630,120 @@ export default function HomeDashboard({
     }
   }
 
+  // ── Dropping onto the dashboard ──────────────────────────────────────────
+  //
+  // "Make it so widgets and apps both plexii and connected can be dragged to a
+  // dashboard and configured, and remain there."
+  //
+  // The side menu already drags four things, and all four are accepted here
+  // using the SAME payloads the desk canvas reads — one drag source, two
+  // destinations, no second set of mime types to keep in step:
+  //
+  //   WIDGET_FILE_DRAG_MIME      an existing work widget file (from Files, or
+  //                              the full-pane header) -> placed as-is
+  //   WIDGET_NEW_FILE_DRAG_MIME  a kind, from the Work widgets section
+  //   DRAG_MIME                  a kind, from the palette or an app tile
+  //   CONNECTED_APP_DRAG_MIME    a connected app -> runs live in the card
+  //
+  // A dropped kind becomes a FILE, not a desk widget: it has no desk, shows up
+  // in Files, and can also be placed on any number of desks later as linked
+  // instances. Dashboards and desks are peers over one object.
+  //
+  // DESK-ONLY KINDS ARE REFUSED, OUT LOUD. A section, portal, task link or
+  // desk agent describes the desk it sits on, so it cannot be a file and
+  // cannot be here. `isStandaloneWidgetKind` is the single list that decides
+  // (docs/widget-files.md), and refusing silently would read as a broken drop.
+  const [dropActive, setDropActive] = useState(false)
+
+  const acceptsDrag = (dt: DataTransfer | null): boolean => {
+    if (!dt) return false
+    const t = Array.from(dt.types)
+    return (
+      t.includes(WIDGET_FILE_DRAG_MIME) ||
+      t.includes(WIDGET_NEW_FILE_DRAG_MIME) ||
+      t.includes(DRAG_MIME) ||
+      t.includes(CONNECTED_APP_DRAG_MIME)
+    )
+  }
+
+  const handleDrop = async (e: React.DragEvent): Promise<void> => {
+    if (!acceptsDrag(e.dataTransfer)) return
+    e.preventDefault()
+    setDropActive(false)
+
+    const appId = e.dataTransfer.getData(CONNECTED_APP_DRAG_MIME)
+    if (appId) {
+      placeWidget('connected-app', undefined, { appId })
+      return
+    }
+
+    const existing = readWidgetFileDrag(e.dataTransfer)
+    if (existing) {
+      placeWidget('work-widget', undefined, { widgetFileId: existing })
+      return
+    }
+
+    const kind = readNewWidgetFileDrag(e.dataTransfer) || e.dataTransfer.getData(DRAG_MIME)
+    if (!kind) return
+
+    // A PLEXII APP TILE drags a widget kind too, and most of those kinds are
+    // not work-widget files — a doc is a document, a calendar is the
+    // calendar. Sent down the file path they would all be refused with "that
+    // arranges a desk", which is both wrong and a strange thing to read about
+    // PlexiDocs. So an app lands as the dashboard's OWN card for that thing
+    // where one exists, and the office kinds land as a document card with its
+    // picker open, which is the "configured" half of the request.
+    //
+    // (Calendar, Files and the Vault have no dashboard card: the ids by those
+    // names in homeWidgetDefs are SHORTCUT DESTINATIONS, a different list.
+    // Mapping to them typechecked as `string` and would have placed nothing.)
+    const OFFICE_KINDS = new Set(['doc', 'sheet', 'slides', 'design', 'draw', 'gdoc', 'gsheet', 'gslide'])
+    if (OFFICE_KINDS.has(kind)) {
+      // An EMPTY config, deliberately. Passing none makes placeWidget open a
+      // modal picker and place nothing until it is answered, so a drop would
+      // land no card at all. With {} the card lands where you dropped it and
+      // offers "Choose a document" in its own empty state — the drop picks
+      // the kind of thing, the card picks which one.
+      placeWidget('office-document', undefined, {})
+      return
+    }
+
+    if (!isStandaloneWidgetKind(kind)) {
+      // Two different refusals, because they are two different facts. A
+      // section or a portal arranges the desk it sits on and never belongs
+      // here; mail, chat and the browser could belong here and simply have no
+      // dashboard card yet. Telling the user "that arranges a desk" about
+      // Mail would be a plausible-sounding lie.
+      const ARRANGES_A_DESK = new Set([
+        'section',
+        'portal',
+        'task-link',
+        'desk-agent',
+        'minimap',
+        'attention'
+      ])
+      useNoticeStore.getState().show({
+        icon: 'info',
+        text: ARRANGES_A_DESK.has(kind)
+          ? `A ${kind.replace(/-/g, ' ')} arranges a desk, so it only lives on one.`
+          : `There is no dashboard card for ${kind.replace(/-/g, ' ')} yet — it still works on a desk.`
+      })
+      return
+    }
+    // `open: false` matters. The store's create opens the new file full-pane
+    // by default, which is right when you make one from the side menu and
+    // wrong here: dropping onto a dashboard should leave you on the
+    // dashboard, looking at the card you just made. Without it the card is
+    // placed correctly and you never see it, because you have been navigated
+    // into the editor.
+    const file = await useWidgetFilesStore.getState().create(kind as WidgetKind, { open: false })
+    if (!file) {
+      useNoticeStore.getState().show({ icon: 'error', text: 'That work widget could not be created.' })
+      return
+    }
+    placeWidget('work-widget', undefined, { widgetFileId: file.id })
+  }
+
   // Swap a placed instance for a different widget, keeping its slot and, as
   // far as the new widget supports it, its size.
   const swapWidget = (key: string, id: HomeWidgetId): void => {
@@ -735,6 +863,29 @@ export default function HomeDashboard({
             }
           />
         )
+      case 'work-widget':
+        // A widget FILE, live. It has no desk (docs/widget-files.md), so
+        // there is no deskId here and nothing was created on a desk to back
+        // it. Re-picking retargets this card rather than placing another.
+        return (
+          <WorkWidgetCard
+            fileId={inst.config?.widgetFileId}
+            onPick={() =>
+              setPicker({
+                widget: 'work-widget',
+                kind: 'desk-widget',
+                apply: (cfg) =>
+                  commitFlat(
+                    flatRef.current.map((it) =>
+                      it.key === inst.key ? { ...it, config: { ...it.config, ...cfg } } : it
+                    )
+                  )
+              })
+            }
+          />
+        )
+      case 'connected-app':
+        return <ConnectedAppCard appId={inst.config?.appId} />
       case 'room-portal':
         return <RoomPortalWidget roomId={inst.config?.roomId} size={size} />
       case 'shortcuts':
@@ -1137,6 +1288,22 @@ export default function HomeDashboard({
       }}
       aria-label="Home widgets"
       data-testid="home-widget-grid"
+      data-drop-active={dropActive ? 'true' : undefined}
+      onDragOver={(e) => {
+        if (!acceptsDrag(e.dataTransfer)) return
+        // Both are required: without preventDefault the browser refuses the
+        // drop, and dropEffect is what turns the cursor into a copy arrow.
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+        if (!dropActive) setDropActive(true)
+      }}
+      onDragLeave={(e) => {
+        // Only when the pointer truly leaves the grid: dragleave also fires
+        // crossing between child cards, which would flicker the hint.
+        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
+        setDropActive(false)
+      }}
+      onDrop={(e) => void handleDrop(e)}
     >
       <AnimatePresence>
         {flat.map((inst, i) => {
@@ -1150,6 +1317,10 @@ export default function HomeDashboard({
           return (
             <motion.div
               key={inst.key}
+              // Which widget this slot holds. The slot's controls already
+              // carry its instance key; this names the TYPE, which is what a
+              // test (or a bug report) wants to count.
+              data-widget={inst.widget}
               layout
               initial={isNew ? { opacity: 0, scale: 0.72 } : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}

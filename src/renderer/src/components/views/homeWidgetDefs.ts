@@ -16,6 +16,11 @@ export type HomeWidgetId =
   // here is written to the same row the desk reads.
   | 'desk-widget'
   | 'office-document'
+  // Dragged onto a dashboard from the side menu. 'work-widget' holds a widget
+  // FILE (no desk; see docs/widget-files.md), 'connected-app' holds a live
+  // app. Both are multi: a dashboard may hold as many as you drop.
+  | 'work-widget'
+  | 'connected-app'
   // People's former home screen, kept whole as a widget so turning that page
   // into a personalisable grid loses none of what was on it.
   | 'people-home'
@@ -83,6 +88,12 @@ export interface HomeWidgetConfig {
   documentTitle?: string
   roomId?: string
   routes?: string[]
+  // work-widget: the widget FILE this card renders. Not {deskId,widgetId} —
+  // the file has no desk, and the same file may also be placed on desks as
+  // linked instances.
+  widgetFileId?: string
+  // connected-app: the app this card runs live.
+  appId?: string
   // Shortcuts: the box name and its tiles.
   title?: string
   targets?: ShortcutTarget[]
@@ -155,6 +166,8 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
   // to a Shortcuts box with section targets at load.
   { id: 'quick-links', name: 'Quick links', blurb: 'Your own row of shortcuts to the places you use most', icon: 'link', tint: 'bg-indigo-500/10 text-indigo-500', category: 'Navigation', retired: true, defaultCol: 'rail', sizes: ['sm', 'md'], defaultSize: 'sm' },
   { id: 'shortcuts', name: 'Shortcuts', blurb: 'Your own tiles to anywhere: desks, documents, websites, apps', icon: 'link', tint: 'bg-indigo-500/10 text-indigo-500', category: 'Navigation', multi: true, defaultCol: 'rail', sizes: ['sm', 'md', 'lg', 'stack'], defaultSize: 'sm' },
+  { id: 'work-widget', name: 'Work widget', blurb: 'A sticky, table, chart or any other work widget, live on this dashboard', icon: 'widgets', tint: 'bg-violet-500/10 text-violet-500', category: 'Live', defaultCol: 'main', multi: true, sizes: ['sm', 'md', 'lg', 'stack'], defaultSize: 'md' },
+  { id: 'connected-app', name: 'Connected app', blurb: 'One of your connected apps, running here', icon: 'public', tint: 'bg-sky-500/10 text-sky-500', category: 'Live', defaultCol: 'main', multi: true, sizes: ['md', 'lg'], defaultSize: 'lg' },
   { id: 'app-launcher', name: 'App launcher', blurb: 'Your favourite connected apps with their real logos', icon: 'apps', tint: 'bg-emerald-500/10 text-emerald-500', category: 'Navigation', defaultCol: 'rail', sizes: ['sm', 'md'], defaultSize: 'sm' },
   // Actions
   { id: 'quick', name: 'Quick actions', blurb: 'Create, plan, collaborate, automate', icon: 'bolt', tint: 'bg-emerald-500/10 text-emerald-500', category: 'Actions', defaultCol: 'rail', sizes: ['sm', 'md'], defaultSize: 'sm' },
