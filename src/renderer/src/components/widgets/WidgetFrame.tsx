@@ -24,6 +24,7 @@ import { FrameCallbacksProvider } from '../../lib/contextMenu/frameContext'
 import MakeTaskDialog from '../MakeTaskDialog'
 import ShareDialog from '../ShareDialog'
 import { removeWorkWidget } from '../../lib/widgetRemoval'
+import { linkBadge, useFileDesks } from '../../lib/linkBadge'
 import { contentForIndependentCopy } from '../../lib/copyWidgetContent'
 import type { PinZone, Widget } from '@shared/types'
 import { PIN_ZONE_ICONS, PIN_ZONE_LABELS } from '../../lib/pinLayout'
@@ -112,6 +113,10 @@ export default function WidgetFrame({
   )
   const embedded = useWidgetSurface() === 'embedded'
   const linkedFileId = widgetFileIdFromGroup(widget.syncGroupId)
+  // The header's link mark: only when the file is also on another desk (or a
+  // plain synced copy), never merely because a work widget is its file's.
+  const fileDesks = useFileDesks(isWidgetFilePaneId(widget.id) ? null : linkedFileId)
+  const linkMark = linkBadge(widget, fileDesks)
   const contextZonePosition = useZonePosition(widget.id)
   const zonePosition = zonePositionProp ?? contextZonePosition
   const update = useWidgetStore((s) => s.update)
@@ -1128,9 +1133,11 @@ export default function WidgetFrame({
                 <Icon name="layers_clear" size={11} />
               </button>
             )}
-            {widget.syncGroupId && (
+            {linkMark && (
               <span
-                title="Synced copy — content, title and colour mirror across all linked copies (even in other tasks). Right-click → ‘Unlink from synced copies’ to make this one independent."
+                title={linkMark.title}
+                data-testid="widget-link-mark"
+                data-other-desks={linkMark.others ?? undefined}
                 className="inline-flex items-center text-accent shrink-0"
               >
                 <Icon name="link" size={11} />

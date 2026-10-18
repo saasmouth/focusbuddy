@@ -97,7 +97,13 @@ export const SEGMENT_APPS = {
   ],
   office: [
     { key: 'home', label: 'Office Home', icon: 'plexii:home', hub: true, tone: 'text-indigo-500' },
-    { key: 'mail', label: 'Mail', icon: 'mail', gateKind: 'mail', tone: 'text-rose-500', widgetKinds: ['email', 'mail-thread'] },
+    // Mail's work widget is the Inbox work widget: your PlexiMail mail on the
+    // desk, narrowed to what the desk is about. 'email' (a Gmail/Outlook web
+    // page in a browser frame) used to come first, so dragging the Mail tile or
+    // its "Add … to this desk" placed a Gmail web view instead of Plexii's own
+    // mail. It stays listed so it is still represented here (never offered in
+    // the Work widgets section), but it is not what the tile places.
+    { key: 'mail', label: 'Mail', icon: 'mail', gateKind: 'mail', tone: 'text-rose-500', widgetKinds: ['inbox', 'mail-thread', 'email'] },
     { key: 'inbox', label: 'Inbox', icon: 'inbox', tone: 'text-amber-500', widgetKinds: ['inbox'] },
     { key: 'chat', label: 'Chat', icon: 'forum', gateKind: 'messages', tone: 'text-sky-500', widgetKinds: ['chat-thread'] },
     { key: 'meet', label: 'Meet', icon: 'video_call', gateKind: 'meetings', tone: 'text-violet-500', widgetKinds: ['meeting-record'] },

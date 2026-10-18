@@ -123,12 +123,27 @@ export function isWidgetFileName(name: string): boolean {
 
 /**
  * Content a new FILE of this kind starts with, when it differs from the desk
- * default. A task list on a desk is a lens over the desk's tasks; a task-list
- * FILE has no desk, so it keeps its own items ("own" scope), which is also what
- * makes two linked instances on different desks show the same list.
+ * default. Only the task list differs, and only when the file is made with no
+ * desk (docs/widget-files.md, "Task lists"):
+ *
+ *   placed onto a desk as it is made (side-menu drag, "Add to this desk", the
+ *   palette, the canvas right-click)  the desk default: a lens over the tasks
+ *                                     of whichever desk an instance sits on
+ *   made with no desk (a click in the side menu, "New … work widget",
+ *   the palette's New)                its own list ("own" scope), the same on
+ *                                     every desk it is later placed on
+ *
+ * A file made from content (an import, the assistant's items, a copy) keeps
+ * that content whatever the placement; this is only the empty default.
  */
-export function defaultWidgetFileContent(kind: WidgetKind, deskDefault: string): string {
-  if (kind === 'task-list') return JSON.stringify({ scope: 'own', filter: 'open', items: [] })
+export type WidgetFilePlacement = 'desk' | 'none'
+
+export function defaultWidgetFileContent(
+  kind: WidgetKind,
+  deskDefault: string,
+  placement: WidgetFilePlacement = 'none'
+): string {
+  if (kind === 'task-list' && placement === 'none') return JSON.stringify({ scope: 'own', filter: 'open', items: [] })
   return deskDefault
 }
 

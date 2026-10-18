@@ -2548,6 +2548,9 @@ const api = {
       patch: import('@shared/types').WidgetFilePatch
     ): Promise<import('@shared/types').WidgetFile | null> => ipcRenderer.invoke('widgetFiles:update', id, patch),
     instances: (id: string): Promise<Widget[]> => ipcRenderer.invoke('widgetFiles:instances', id),
+    /** The desks each file sits on, by file id (Files' "On <desk>" line). */
+    placements: (ids: string[]): Promise<Record<string, import('@shared/types').WidgetFileDesk[]>> =>
+      ipcRenderer.invoke('widgetFiles:placements', ids),
     place: (
       id: string,
       at: { taskId: string; x?: number; y?: number; width?: number; height?: number }

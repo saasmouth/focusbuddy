@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FileEntry } from '@shared/fields'
-import type { DocType } from '@shared/types'
+import type { DocType, WidgetFileDesk } from '@shared/types'
 import { setDocDrag } from '../../lib/docMetaCache'
 import { useFileManagerStore, sortEntries, type FileSortKey, type FileViewMode } from '../../stores/fileManager'
 import { useViewStore } from '../../stores/view'
@@ -26,7 +26,8 @@ import {
   fileTypeLabel,
   isWidgetFileEntry,
   matchesTypeFilter,
-  typeFilterOptions
+  typeFilterOptions,
+  widgetFileDeskLine
 } from '../../lib/fileEntryType'
 import { writeWidgetFileDrag } from '../../lib/widgetFileDrag'
 import { confirmTrashWidgetFile } from '../../lib/widgetRemoval'
@@ -140,6 +141,37 @@ export default function FilesView(): JSX.Element {
       ),
     [store.entries, store.sortKey, store.sortDir, store.typeFilter]
   )
+
+  // Which desk(s) each work widget file in this listing sits on, in one call.
+  // A work widget made on a desk is filed at the Files root (that is the rule
+  // every device agrees on), so a root full of them reads as a flood unless
+  // each row says where it lives. Nothing is moved: this is only a label.
+  const widgetDocIds = useMemo(
+    () => store.entries.filter((e) => isWidgetFileEntry(e) && e.docId).map((e) => e.docId as string),
+    [store.entries]
+  )
+  const widgetDocKey = widgetDocIds.join(',')
+  const [deskMap, setDeskMap] = useState<Record<string, WidgetFileDesk[]>>({})
+  useEffect(() => {
+    if (widgetDocIds.length === 0) {
+      setDeskMap({})
+      return
+    }
+    let live = true
+    window.api.widgetFiles
+      .placements(widgetDocIds)
+      .then((m) => {
+        if (live) setDeskMap(m ?? {})
+      })
+      .catch(() => {
+        // Unknown is shown as nothing, never as "Not on a desk".
+        if (live) setDeskMap({})
+      })
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [widgetDocKey])
 
   function openEntry(entry: FileEntry): void {
     if (entry.kind === 'folder') void store.openFolder(entry.id)
@@ -296,6 +328,7 @@ export default function FilesView(): JSX.Element {
         ) : store.viewMode === 'list' ? (
           <ListView
             entries={sorted}
+            desks={deskMap}
             sortKey={store.sortKey}
             sortDir={store.sortDir}
             onSort={store.setSort}
@@ -319,6 +352,7 @@ export default function FilesView(): JSX.Element {
         ) : (
           <GridView
             entries={sorted}
+            desks={deskMap}
             mode={store.viewMode}
             selectedId={store.selectedId}
             renaming={renaming}
@@ -509,6 +543,8 @@ const COLUMNS: Array<{ key: FileSortKey; label: string; width: string }> = [
 ]
 
 interface RowHandlers {
+  /** Work widget file id → the desks it sits on (absent while loading). */
+  desks: Record<string, WidgetFileDesk[]>
   selectedId: string | null
   renaming: string | null
   onSelect: (id: string) => void
@@ -638,7 +674,10 @@ function ListRow({ entry, ...h }: { entry: FileEntry } & RowHandlers & { onRenam
           {h.renaming === entry.id ? (
             <RenameInput initial={entry.name} onCommit={(name) => h.onRenameCommit(entry.id, name)} onCancel={h.onRenameCancel} />
           ) : (
-            <span className="truncate text-[var(--ink-90)]">{entry.name}</span>
+            <span className="min-w-0 flex flex-col">
+              <span className="truncate text-[var(--ink-90)]">{entry.name}</span>
+              {isWidgetFileEntry(entry) && entry.docId && <DeskLine desks={h.desks[entry.docId]} />}
+            </span>
           )}
         </div>
       </td>
@@ -749,11 +788,58 @@ function GridTile({ entry, mode, ...h }: { entry: FileEntry; mode: FileViewMode 
           {entry.name}
         </span>
       )}
+      {mode !== 'small' && isWidgetFileEntry(entry) && entry.docId && <DeskLine desks={h.desks[entry.docId]} compact />}
     </button>
   )
 }
 
 // ── Shared bits ───────────────────────────────────────────────────────────────
+
+/**
+ * "On Launch plan" under a work widget file's name. The first desks named are
+ * links to them; the tooltip names every desk. Nothing while loading.
+ */
+function DeskLine({ desks, compact = false }: { desks: WidgetFileDesk[] | undefined; compact?: boolean }): JSX.Element | null {
+  const line = widgetFileDeskLine(desks)
+  if (!line || !desks) return null
+  const go = (e: React.MouseEvent, deskId: string): void => {
+    e.stopPropagation()
+    useViewStore.getState().goTask(deskId)
+  }
+  const shown = desks.slice(0, desks.length > 2 ? 2 : desks.length)
+  return (
+    <span
+      data-testid="files-widget-desks"
+      data-desk-count={desks.length}
+      title={desks.length > 0 ? `On ${desks.map((d) => d.deskTitle).join(', ')}` : 'In Files only. Drag it onto a desk to place it there.'}
+      className={`truncate text-[10.5px] leading-tight text-[var(--ink-40)] ${compact ? 'px-0.5' : ''}`}
+    >
+      {desks.length === 0 ? (
+        line
+      ) : (
+        <>
+          On{' '}
+          {shown.map((d, i) => (
+            <span key={d.deskId}>
+              {i > 0 && (desks.length === 2 ? ' and ' : ', ')}
+              <span
+                role="link"
+                tabIndex={-1}
+                onClick={(e) => go(e, d.deskId)}
+                onDoubleClick={(e) => e.stopPropagation()}
+                className="hover:text-accent hover:underline cursor-pointer"
+              >
+                {d.deskTitle}
+              </span>
+            </span>
+          ))}
+          {desks.length > 2 && ` and ${desks.length - 2} more desk${desks.length - 2 === 1 ? '' : 's'}`}
+        </>
+      )}
+    </span>
+  )
+}
+
 function RenameInput({ initial, onCommit, onCancel }: { initial: string; onCommit: (name: string) => void; onCancel: () => void }): JSX.Element {
   const ref = useRef<HTMLInputElement | null>(null)
   useEffect(() => {

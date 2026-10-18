@@ -171,3 +171,21 @@ export function clickActionFor(kind: WidgetKind, deskOpen: boolean): 'create-fil
   if (isStandaloneWidgetKind(kind)) return 'create-file'
   return deskOpen ? 'add-to-desk' : 'needs-desk'
 }
+
+/**
+ * The tooltip of a kind in the Work widgets section: its catalogue hint, plus
+ * what a click and a drag make where they differ. They differ for the task
+ * list (docs/widget-files.md, "Task lists"): placed onto a desk it shows that
+ * desk's tasks; made on its own it keeps a list of its own.
+ */
+export function widgetMenuHint(entry: Pick<WidgetCatalogEntry, 'kind' | 'hint'>): string {
+  if (entry.kind === 'task-list') {
+    return (
+      "Drag onto a desk, or right-click and Add to this desk: that desk's tasks. " +
+      'Click: a task list of its own, saved in Files, with the same items on any desk you place it on.'
+    )
+  }
+  const lead = entry.hint.trim().replace(/[.!?]$/, '')
+  if (!isStandaloneWidgetKind(entry.kind)) return `${lead}. Only works on a desk.`
+  return `${lead}. Click for a new one in Files, or drag it onto a desk.`
+}

@@ -82,8 +82,10 @@ import {
   getWidgetFile,
   importWidgetFile,
   listWidgetFileInstances,
+  listWidgetFilePlacements,
   listWidgetFiles,
   placeWidgetFile,
+  createAndPlaceWidgetFile,
   promoteWidgetToFile,
   trashWidgetFile,
   updateWidgetFile,
@@ -4055,14 +4057,13 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('widgetFiles:list', () => listWidgetFiles())
   ipcMain.handle('widgetFiles:update', (_e, id: string, patch: WidgetFilePatch) => updateWidgetFile(id, patch))
   ipcMain.handle('widgetFiles:instances', (_e, id: string) => listWidgetFileInstances(id))
+  ipcMain.handle('widgetFiles:placements', (_e, ids: string[]) => listWidgetFilePlacements(Array.isArray(ids) ? ids : []))
   ipcMain.handle('widgetFiles:place', (_e, id: string, at: PlacementDraft) => placeWidgetFile(id, at))
   ipcMain.handle(
     'widgetFiles:createAndPlace',
     (_e, draft: WidgetFileDraft, at: PlacementDraft, opts?: { defaultContent?: string }) => {
       bumpAnswerCacheVersion()
-      const file = createWidgetFile(draft, { defaultContent: opts?.defaultContent })
-      const widget = placeWidgetFile(file.id, at)
-      return { file, widget }
+      return createAndPlaceWidgetFile(draft, at, { defaultContent: opts?.defaultContent })
     }
   )
   ipcMain.handle('widgetFiles:promote', (_e, widgetId: string) => promoteWidgetToFile(widgetId))

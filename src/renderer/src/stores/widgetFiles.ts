@@ -26,6 +26,7 @@ import { useDocumentsStore } from './documents'
 import { useNoticeStore } from './notice'
 import { nudgeSync } from '../lib/syncNudge'
 import { recordAction } from './actionHistory'
+import { refreshFileDesks } from '../lib/linkBadge'
 import { fitNewWidgetToView } from '../lib/fitDroppedWidget'
 
 interface WidgetFilesState {
@@ -249,6 +250,7 @@ export const useWidgetFilesStore = create<WidgetFilesState>((set, get) => ({
       dropInstancesFromOpenDesk(id)
     }
     if (done.length === 0) return 0
+    refreshFileDesks()
     // …and re-read the open desk, in case its copy of a widget predates the
     // link (the launch backfill files widgets under an already-open desk).
     void reloadOpenDeskInstances()
@@ -298,6 +300,7 @@ export const useWidgetFilesStore = create<WidgetFilesState>((set, get) => ({
       return null
     }
     adoptInstance(widget)
+    refreshFileDesks()
     nudgeSync()
     return widget
   },
@@ -312,6 +315,7 @@ export const useWidgetFilesStore = create<WidgetFilesState>((set, get) => ({
     )
     remember(res.file)
     adoptInstance(res.widget)
+    refreshFileDesks()
     nudgeSync()
     return res
   },

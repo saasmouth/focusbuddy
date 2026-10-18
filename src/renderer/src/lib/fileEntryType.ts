@@ -6,6 +6,7 @@
 // "Task list", "Mind map" — with the widget's own icon.
 
 import type { FileEntry } from '@shared/fields'
+import type { WidgetFileDesk } from '@shared/types'
 import { widgetFileType } from '@shared/widgetFiles'
 import type { FileTypeFilter } from '../stores/fileManager'
 
@@ -121,4 +122,20 @@ export function plural(label: string): string {
   if (/[^aeiou]y$/i.test(label)) return label.slice(0, -1) + 'ies'
   if (/(s|sh|ch|x|z)$/i.test(label)) return label + 'es'
   return label + 's'
+}
+
+/**
+ * Where a work widget file lives, for its Files row: "On Launch plan",
+ * "On Launch plan and Hiring", "On Launch plan, Hiring and 3 more desks", or
+ * "Not on a desk". Null while the placements are still loading, so the row
+ * says nothing rather than something untrue.
+ */
+export function widgetFileDeskLine(desks: readonly WidgetFileDesk[] | undefined): string | null {
+  if (!desks) return null
+  if (desks.length === 0) return 'Not on a desk'
+  const names = desks.map((d) => d.deskTitle)
+  if (names.length === 1) return `On ${names[0]}`
+  if (names.length === 2) return `On ${names[0]} and ${names[1]}`
+  const rest = names.length - 2
+  return `On ${names[0]}, ${names[1]} and ${rest} more desk${rest === 1 ? '' : 's'}`
 }

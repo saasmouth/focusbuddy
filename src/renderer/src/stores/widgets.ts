@@ -23,6 +23,7 @@ import { isWidgetFilePaneId, widgetFileIdFromGroup } from '@shared/widgetFiles'
 import { updateWidgetFileFromPane, useWidgetFilesStore } from './widgetFiles'
 import { useNoticeStore } from './notice'
 import { useAccountStore } from './account'
+import { refreshFileDesks } from '../lib/linkBadge'
 import { currentDeviceClass } from '../lib/deviceClass'
 import type { DeskLayout } from '@shared/deskLayout'
 import {
@@ -406,6 +407,8 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
     })
     const widget = await window.api.widgets.create(sized)
     set({ widgets: [...get().widgets, widget] })
+    // "Duplicate (keep synced)" puts the same file on a desk again.
+    if (draft.syncGroupId) refreshFileDesks()
     nudgeSync()
     // Every work widget that can be a file is one (docs/widget-files.md): main
     // made this one an instance of a new file unless the draft already named a
@@ -644,6 +647,8 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
     // tombstone must route to the desk partition, not the account).
     crdtEmitWidgetDelete(id)
     set({ widgets: get().widgets.filter((w) => w.id !== id) })
+    // Another desk's header may say "Also on 1 other desk" about this one.
+    if (widget?.syncGroupId) refreshFileDesks()
     nudgeSync()
     // Don't prune links: they survive the soft-delete so they return on restore.
     // The overlay skips links whose endpoint widget isn't present, so a trashed

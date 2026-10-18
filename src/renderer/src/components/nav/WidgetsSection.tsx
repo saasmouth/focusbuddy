@@ -21,7 +21,7 @@ import { SubHeading, Tile, TileGrid } from './menuParts'
 import type { WidgetKind } from '@shared/types'
 import { isStandaloneWidgetKind } from '@shared/widgetFiles'
 import { DRAG_MIME, useCaseGroupOf, type WidgetCatalogEntry } from '../../lib/widgetCatalog'
-import { moveWidgetKind, splitWidgetMenu, widgetMenuEntries } from '../../lib/widgetMenu'
+import { moveWidgetKind, splitWidgetMenu, widgetMenuEntries, widgetMenuHint } from '../../lib/widgetMenu'
 import {
   hydrateWidgetMenuPrefs,
   readOtherWidgetsOpen,
@@ -148,6 +148,7 @@ export default function WidgetsSection(): JSX.Element {
       >
         <Tile
           label={entry.label}
+          hint={widgetMenuHint(entry)}
           active={false}
           testid={`sidemenu-widget-${entry.kind}`}
           note={locked ? 'Pro' : undefined}

@@ -731,7 +731,10 @@ export default function CommandCenter({
         items.push({
           id: `new-file-${entry.kind}`,
           label: `New ${entry.label} work widget`,
-          hint: 'A work widget of its own, in Files — place it on any desk later',
+          hint:
+            entry.kind === 'task-list'
+              ? 'A task list of its own, in Files — the same items on any desk you place it on'
+              : 'A work widget of its own, in Files — place it on any desk later',
           icon: entry.icon,
           kind: 'action',
           score: sc - 1,

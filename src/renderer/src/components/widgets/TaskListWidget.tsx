@@ -359,14 +359,28 @@ function DeskTaskList({ widget }: { widget: Widget }): JSX.Element {
             <Icon name={view === 'list' ? 'table_rows' : 'list'} size={11} />
             {view === 'list' ? 'Table' : 'List'}
           </button>
-          <button
-            onClick={() => setModel({ scope: scope === 'desk' ? 'all' : 'desk' })}
-            title={scope === 'desk' ? 'Showing this desk — click for the whole workspace' : 'Showing everything — click for this desk only'}
-            className="px-2 py-0.5 rounded-full text-[10px] text-[var(--ink-50)] hover:text-[var(--ink-80)] inline-flex items-center gap-1"
-          >
-            <Icon name={scope === 'desk' ? 'filter_alt' : 'public'} size={11} />
-            {scope === 'desk' ? 'This desk' : 'Everywhere'}
-          </button>
+          {deskId ? (
+            <button
+              onClick={() => setModel({ scope: scope === 'desk' ? 'all' : 'desk' })}
+              title={scope === 'desk' ? 'Showing this desk — click for the whole workspace' : 'Showing everything — click for this desk only'}
+              className="px-2 py-0.5 rounded-full text-[10px] text-[var(--ink-50)] hover:text-[var(--ink-80)] inline-flex items-center gap-1"
+            >
+              <Icon name={scope === 'desk' ? 'filter_alt' : 'public'} size={11} />
+              {scope === 'desk' ? 'This desk' : 'Everywhere'}
+            </button>
+          ) : (
+            // Open on its own (full-pane, from Files) there is no desk to be a
+            // lens over, so it shows the whole workspace and says why, instead
+            // of a "This desk" chip that would be false here.
+            <span
+              title="This task list shows the tasks of the desk it is placed on. Opened on its own, it shows every task."
+              data-testid="task-list-desk-lens-note"
+              className="px-2 py-0.5 rounded-full text-[10px] text-[var(--ink-50)] inline-flex items-center gap-1"
+            >
+              <Icon name="public" size={11} />
+              Every task · shows a desk&apos;s tasks when placed on one
+            </span>
+          )}
         </div>
 
         {view === 'table' && tasks.length > 0 ? (
@@ -390,7 +404,7 @@ function DeskTaskList({ widget }: { widget: Widget }): JSX.Element {
               <div className="fb-t-caption text-[var(--ink-60)]">
                 {filter === 'done' ? 'Nothing finished yet' : 'Nothing outstanding'}
               </div>
-              {scope === 'desk' && (
+              {scope === 'desk' && !!deskId && (
                 <div className="text-[10px] text-[var(--ink-40)]">Tasks filed under this desk appear here.</div>
               )}
             </div>

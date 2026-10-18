@@ -32,8 +32,8 @@ import {
   listTrashedDocuments, restoreDocument, deleteDocument
 } from '../../main/db/documents'
 import {
-  createWidgetFile, getWidgetFile, listWidgetFiles, updateWidgetFile, listWidgetFileInstances,
-  placeWidgetFile, promoteWidgetToFile, trashWidgetFile
+  createWidgetFile, getWidgetFile, listWidgetFiles, updateWidgetFile, listWidgetFileInstances, listWidgetFilePlacements,
+  placeWidgetFile, createAndPlaceWidgetFile, promoteWidgetToFile, trashWidgetFile
 } from '../../main/db/widgetFiles'
 import { listTemplates, deleteTemplate } from '../../main/db/templates'
 import {
@@ -248,11 +248,10 @@ export const HANDLERS: Record<string, Handler> = {
   'widgetFiles:list': h(() => listWidgetFiles()),
   'widgetFiles:update': h((id: string, patch: never) => updateWidgetFile(id, patch)),
   'widgetFiles:instances': h((id: string) => listWidgetFileInstances(id)),
+  'widgetFiles:placements': h((ids: string[]) => listWidgetFilePlacements(Array.isArray(ids) ? ids : [])),
   'widgetFiles:place': h((id: string, at: never) => placeWidgetFile(id, at)),
-  'widgetFiles:createAndPlace': h((draft: never, at: never, opts?: { defaultContent?: string }) => {
-    const file = createWidgetFile(draft, { defaultContent: opts?.defaultContent })
-    return { file, widget: placeWidgetFile(file.id, at) }
-  }),
+  'widgetFiles:createAndPlace': h((draft: never, at: never, opts?: { defaultContent?: string }) =>
+    createAndPlaceWidgetFile(draft, at, { defaultContent: opts?.defaultContent })),
   'widgetFiles:promote': h((widgetId: string) => promoteWidgetToFile(widgetId)),
   'widgetFiles:trash': h((id: string) => trashWidgetFile(id)),
 

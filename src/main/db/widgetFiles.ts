@@ -34,7 +34,8 @@ import {
   WIDGET_FILE_TYPES,
   widgetFileGroupId,
   widgetFileIdFromGroup,
-  type WidgetFileExport
+  type WidgetFileExport,
+  type WidgetFilePlacement
 } from '@shared/widgetFiles'
 import type {
   FbDocument,
@@ -42,6 +43,7 @@ import type {
   WidgetDraft,
   WidgetFile,
   WidgetFileBody,
+  WidgetFileDesk,
   WidgetFileDraft,
   WidgetFilePatch,
   WidgetFileTitleSource,
@@ -151,6 +153,38 @@ export function listWidgetFileInstances(fileId: string): Widget[] {
   return rows.map((r) => getWidget(r.id)).filter((w): w is Widget => !!w)
 }
 
+/**
+ * The desks each of these files sits on (live instances on live desks), by
+ * file id, desks sorted by name. One query for a whole Files listing, so the
+ * "All work widgets" view can say where each one lives without asking per row.
+ * A file on no desk maps to an empty list.
+ */
+export function listWidgetFilePlacements(fileIds: readonly string[]): Record<string, WidgetFileDesk[]> {
+  const out: Record<string, WidgetFileDesk[]> = {}
+  const ids = [...new Set(fileIds.filter((id) => typeof id === 'string' && id))]
+  for (const id of ids) out[id] = []
+  if (ids.length === 0) return out
+  const db = getDb()
+  // SQLite's default variable limit is 999; chunk well under it.
+  for (let i = 0; i < ids.length; i += 400) {
+    const chunk = ids.slice(i, i + 400)
+    const rows = db
+      .prepare(
+        `SELECT DISTINCT w.sync_group_id AS sgid, n.id AS deskId, n.title AS deskTitle
+           FROM widgets w JOIN nodes n ON n.id = w.task_id
+          WHERE w.sync_group_id IN (${chunk.map(() => '?').join(',')})
+            AND w.trashed_at IS NULL AND n.trashed_at IS NULL`
+      )
+      .all(...chunk.map((id) => widgetFileGroupId(id))) as Array<{ sgid: string; deskId: string; deskTitle: string }>
+    for (const r of rows) {
+      const fileId = widgetFileIdFromGroup(r.sgid)
+      if (fileId && out[fileId]) out[fileId].push({ deskId: r.deskId, deskTitle: r.deskTitle || 'Untitled desk' })
+    }
+  }
+  for (const id of ids) out[id].sort((a, b) => a.deskTitle.localeCompare(b.deskTitle))
+  return out
+}
+
 // ── Writing ─────────────────────────────────────────────────────────────────
 
 function writeDoc(id: string, title: string, body: WidgetFileBody): void {
@@ -219,6 +253,13 @@ export interface CreateWidgetFileOptions {
   titleSource?: WidgetFileTitleSource
   /** Skip filing into Files (imports file themselves). */
   noFile?: boolean
+  /**
+   * Made to be placed on a desk straight away (the side-menu drag, "Add to
+   * this desk", the palette's "Add … to desk"). Only changes the empty default
+   * of a task list: on a desk it is a lens over that desk's tasks, the same as
+   * one added from the canvas, so desk subtasks keep showing.
+   */
+  placement?: WidgetFilePlacement
 }
 
 export function createWidgetFile(draft: WidgetFileDraft, opts: CreateWidgetFileOptions = {}): WidgetFile {
@@ -226,7 +267,9 @@ export function createWidgetFile(draft: WidgetFileDraft, opts: CreateWidgetFileO
     throw new Error(`A ${draft.kind} work widget only works on a desk, so it cannot be a file.`)
   }
   const content =
-    draft.content !== undefined ? draft.content : defaultWidgetFileContent(draft.kind, opts.defaultContent ?? '')
+    draft.content !== undefined
+      ? draft.content
+      : defaultWidgetFileContent(draft.kind, opts.defaultContent ?? '', opts.placement ?? 'none')
   const named = initialTitle(draft.kind, content, draft.title)
   const source = opts.titleSource && draft.title && !isUntitled(draft.title) ? opts.titleSource : named.source
   const doc = createDocument({
@@ -437,6 +480,21 @@ export function placeWidgetFile(id: string, at: PlacementDraft): Widget | null {
   const file = getWidgetFile(id)
   if (!file || isTrashed(id)) return null
   return createWidget(instanceDraftFor(file, at))
+}
+
+/**
+ * A NEW file placed on a desk in one step: the side-menu drag, "Add to this
+ * desk", the palette's "Add … to desk". Placed on a desk, so a task list starts
+ * as that desk's tasks (`placement: 'desk'`), exactly like one added from the
+ * canvas. The desktop IPC and the web worker both call this.
+ */
+export function createAndPlaceWidgetFile(
+  draft: WidgetFileDraft,
+  at: PlacementDraft,
+  opts: { defaultContent?: string } = {}
+): { file: WidgetFile; widget: Widget | null } {
+  const file = createWidgetFile(draft, { defaultContent: opts.defaultContent, placement: 'desk' })
+  return { file, widget: placeWidgetFile(file.id, at) }
 }
 
 /**

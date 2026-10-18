@@ -55,10 +55,14 @@ export function Tile({
   note,
   signedOut = false,
   locked = false,
+  hint,
   onDragStart,
   children
 }: {
   label: string
+  /** What the tile does, for its tooltip (the Work widgets section says which
+   *  task list a click or a drag makes). */
+  hint?: string
   active: boolean
   onClick: () => void
   testid?: string
@@ -104,7 +108,7 @@ export function Tile({
       onClick={onClick}
       draggable={!!onDragStart}
       onDragStart={onDragStart}
-      title={note ? `${label} — ${note}` : label}
+      title={[note ? `${label} — ${note}` : label, hint].filter(Boolean).join('\n')}
       data-testid={testid}
       data-signed-out={signedOut ? 'true' : undefined}
       data-locked={locked ? 'true' : undefined}
