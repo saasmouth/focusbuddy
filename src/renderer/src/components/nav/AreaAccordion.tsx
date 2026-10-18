@@ -316,7 +316,7 @@ function Row({
       onClick={onClick}
       data-testid={testid}
       aria-current={active ? 'page' : undefined}
-      className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-lg text-[13px] mb-0.5 ${
+      className={`fb-nav-item fb-nav-row text-[13px] mb-0.5 ${
         active
           ? 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))] font-medium'
           : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'

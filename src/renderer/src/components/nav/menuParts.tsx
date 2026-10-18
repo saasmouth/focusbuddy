@@ -113,7 +113,7 @@ export function Tile({
       data-signed-out={signedOut ? 'true' : undefined}
       data-locked={locked ? 'true' : undefined}
       aria-current={active ? 'page' : undefined}
-      className={`flex flex-col items-center gap-1 px-1 py-2 rounded-lg ${onDragStart ? 'cursor-grab active:cursor-grabbing ' : ''}${
+      className={`fb-nav-item flex-col justify-center gap-1 px-1 py-2 ${onDragStart ? 'cursor-grab active:cursor-grabbing ' : ''}${
         active
           ? 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))]'
           : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'

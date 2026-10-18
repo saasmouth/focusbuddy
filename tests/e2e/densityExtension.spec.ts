@@ -8,7 +8,8 @@ import { launchApp, waitForReady, type LaunchedApp, isAreaLocked, switchArea } f
 //   - `--fb-sidebar-fixed` (224px compact / 260px comfortable) driving the
 //     segment/office fixed side-menu width
 //   - `.fb-floating-inset` getting tighter padding in compact
-//   - `.fb-nav-item` getting shorter vertical padding in compact
+//   - `.fb-nav-item` getting shorter in compact (measured as HEIGHT: the row
+//     is sized by --nav-item-h now, not by vertical padding — see tokens.css)
 //   - `.fb-context-menu` / its `[role="menuitem"]` rows getting tighter
 //     padding in compact
 // Every measurement is taken twice — once in comfortable, once in compact —
@@ -96,15 +97,20 @@ test('compact density extension: fb-sidebar-fixed, fb-floating-inset, fb-nav-ite
     return { area: 'plexibrain segment', width }
   }
 
-  // Helper: measure paddingTop of the first visible `.fb-nav-item` on the
-  // current view (works for either the desk sidebar or a segment sidebar,
-  // both use the shared NavRow / row markup carrying the class).
-  async function measureNavItemPaddingTop(): Promise<string> {
+  // Helper: measure the HEIGHT of the first visible `.fb-nav-item`.
+  //
+  // This measured paddingTop until the side-menu rows were unified. A row's
+  // height now comes from --nav-item-h with align-items:center, because
+  // padding sets a row's height only until its label wraps — and then that
+  // one row grows while its neighbours do not. Compact still makes rows
+  // shorter, which is what this check is really about, so it measures the
+  // height rather than the mechanism that used to produce it.
+  async function measureNavItemHeight(): Promise<number> {
     await expect(window.locator('.fb-nav-item').first()).toBeVisible({ timeout: 5_000 })
     return window
       .locator('.fb-nav-item')
       .first()
-      .evaluate((el) => getComputedStyle(el).paddingTop)
+      .evaluate((el) => Math.round(el.getBoundingClientRect().height))
   }
 
   // Helper: go back to the seeded desk, right-click empty canvas, measure the
@@ -142,12 +148,14 @@ test('compact density extension: fb-sidebar-fixed, fb-floating-inset, fb-nav-ite
   // ── COMFORTABLE baseline ──────────────────────────────────────────────
   await setDensity('comfortable')
 
-  // `.fb-nav-item` is only carried by the shared NavRow used in the main Desk
-  // sidebar (Sidebar.tsx) — the segment/office sidebars use their own inline
-  // row markup — so measure it while still on the Desk area, before switching
-  // areas for the fixed-sidebar-width check below.
-  const comfortableNavPadding = await measureNavItemPaddingTop()
-  console.log('Comfortable .fb-nav-item paddingTop:', comfortableNavPadding)
+  // `.fb-nav-item` is carried by the Desk sidebar's rows and by
+  // AreaAccordion's rows and tiles (it was NavRow alone until those were
+  // unified; the accordion's rows missing it is exactly why they stayed 36px
+  // tall in compact while the rows above them shrank to 32). The
+  // segment/office sidebars still use their own inline row markup, so measure
+  // while on the Desk area, before switching areas for the width check below.
+  const comfortableNavHeight = await measureNavItemHeight()
+  console.log('Comfortable .fb-nav-item height:', comfortableNavHeight)
 
   const comfortableSidebar = await measureFixedSidebarWidth()
   console.log('Comfortable fixed sidebar:', JSON.stringify(comfortableSidebar))
@@ -190,8 +198,8 @@ test('compact density extension: fb-sidebar-fixed, fb-floating-inset, fb-nav-ite
   // The previous helper (measureContextMenuPadding) leaves us on the Desk
   // canvas, so the Desk sidebar (and its `.fb-nav-item` rows) is still on
   // screen — measure it before switching areas again.
-  const compactNavPadding = await measureNavItemPaddingTop()
-  console.log('Compact .fb-nav-item paddingTop:', compactNavPadding)
+  const compactNavHeight = await measureNavItemHeight()
+  console.log('Compact .fb-nav-item height:', compactNavHeight)
 
   const compactSidebar = await measureFixedSidebarWidth()
   console.log('Compact fixed sidebar:', JSON.stringify(compactSidebar))
@@ -210,11 +218,16 @@ test('compact density extension: fb-sidebar-fixed, fb-floating-inset, fb-nav-ite
   expect(compactSidebar.width).toBeLessThanOrEqual(230)
 
   // CHECK 3 — .fb-nav-item vertical padding shrinks (~4px vs ~8px).
-  const comfortableNavPx = parseFloat(comfortableNavPadding)
-  const compactNavPx = parseFloat(compactNavPadding)
-  console.log('Nav item paddingTop px — comfortable:', comfortableNavPx, 'compact:', compactNavPx)
-  expect(compactNavPx).toBeLessThan(comfortableNavPx)
-  expect(compactNavPx).toBeCloseTo(4, 0)
+  console.log(
+    'Nav item height px — comfortable:',
+    comfortableNavHeight,
+    'compact:',
+    compactNavHeight
+  )
+  expect(compactNavHeight).toBeLessThan(comfortableNavHeight)
+  // 1.75rem compact against 2rem comfortable (tokens.css: --nav-item-h).
+  expect(compactNavHeight).toBe(28)
+  expect(comfortableNavHeight).toBe(32)
 
   // CHECK 4 — context menu tightens (~4px vs ~6px on menuitem paddingTop). If
   // the live right-click could not be driven reliably in either mode, fall

@@ -130,6 +130,32 @@
      stops surfaces melting together on low-contrast displays. */
   --edge-hairline: oklch(20% 0.010 264 / 0.07);
 
+  /* ── Side-menu item ───────────────────────────────────────────────────────
+     DERIVED, NOT RESTATED PER THEME. Every input below (--edge-hairline,
+     --edge-soft, --shadow-inset-highlight) is already redefined by .dark,
+     .futuristic and .atelier, and a custom property that references another
+     resolves against the element it is used on. So defining these once here
+     gives all four themes a correct treatment, and a theme tunes the item by
+     tuning the edge and highlight it already owns — rather than by remembering
+     that a fourth place needs editing.
+
+     Deliberately weaker than --edge-soft: there can be twenty of these on
+     screen at once, and twenty visible boxes is a busier menu than no boxes
+     at all. The edge should be findable when looked for and invisible when
+     not. */
+  --nav-item-h: 2rem;
+  --nav-item-edge: var(--edge-hairline);
+  --nav-item-edge-hover: var(--edge-soft);
+  /* A top-to-bottom sheen of about 2%: enough to read as a surface with a lit
+     upper edge, not enough to read as a button. */
+  --nav-item-sheen: linear-gradient(
+    to bottom,
+    oklch(100% 0 0 / 0.025),
+    oklch(0% 0 0 / 0.015)
+  );
+  --nav-item-inner: var(--shadow-inset-highlight), inset 0 -1px 0 oklch(0% 0 0 / 0.03);
+  --nav-item-inner-hover: var(--shadow-inset-highlight), inset 0 -1px 0 oklch(0% 0 0 / 0.05);
+
   /* ── Spring easings ─────────────────────────────────────────────────────── */
   /* Snap: zero-overshoot decel — modal dismiss, button release */
   --ease-spring-snap: cubic-bezier(0.32, 0.72, 0, 1);
@@ -558,11 +584,93 @@
   padding: 6px 5px 6px 6px;
 }
 
+/* ── The one side-menu item rule ───────────────────────────────────────────
+   Every clickable entry in the side menu is one of these: Sidebar's NavRow,
+   AreaAccordion's Row, and the app Tiles. They render as a single list, so
+   they have to be a single rule.
+
+   THEY WERE NOT. NavRow was px-3 py-2 and carried this class; AreaAccordion's
+   Row was px-3 py-1.5 and carried nothing, so it also missed the compact
+   override below. Measured in the running app, the two families came out 32px
+   and 36px tall with the same content — a four-pixel step halfway down one
+   menu, which is what reads as askew. Two sub-menus were also indented
+   differently (28px under Attention, 24px under Rooms) and the chevrons sat
+   10px below their row's top edge and 14px above its bottom.
+
+   HEIGHT COMES FROM min-height, NOT PADDING. Vertical padding sets a row's
+   height only until something inside it wraps to two lines, and then that one
+   row grows while its neighbours do not. A min-height plus align-items:center
+   gives every row the same height whatever it holds, and centres the content
+   in it — which is the whole of what was asked for.
+
+   THE BORDER IS DRAWN AT REST AND ALWAYS RESERVED. A border that appears on
+   hover shifts every row below it by two pixels; transparent-to-visible keeps
+   the box identical. Fill is a background-IMAGE so it composes with the
+   accent background-color Tailwind puts on the active row instead of fighting
+   it. */
+.fb-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: var(--nav-item-h);
+  border: 1px solid var(--nav-item-edge);
+  border-radius: 0.5rem;
+  background-image: var(--nav-item-sheen);
+  box-shadow: var(--nav-item-inner);
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+/* Row geometry, shared by both row renderers: one height, one indent for the
+   icon, one gap before the label. A tile keeps its own column layout and takes
+   only the treatment above. */
+.fb-nav-row {
+  width: 100%;
+  padding: 0 0.75rem;
+  gap: 0.625rem;
+  text-align: left;
+}
+
+/* A row that has a chevron beside it — Attention, Rooms — is a GROUP: the
+   button and the chevron sit inside one box, and the box is the item.
+
+   Done the other way the chevron lives outside the button, so those two rows
+   stop ~33px short of every other row's right edge. That was invisible while
+   rows had no edge of their own, and glaring the moment they did: a menu of
+   neat boxes with two short ones in it. The inner row keeps its own hover and
+   accent — it is still the thing you click — but gives up the border, sheen
+   and shadow so the treatment is drawn exactly once. */
+.fb-nav-group {
+  width: 100%;
+}
+.fb-nav-group .fb-nav-row {
+  border-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  margin-bottom: 0;
+}
+
+/* Hover and the current page lift the same way, differing only in strength —
+   the edge firms up and the inner shadow deepens slightly. Nothing moves. */
+.fb-nav-item:hover {
+  border-color: var(--nav-item-edge-hover);
+  box-shadow: var(--nav-item-inner-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fb-nav-item {
+    transition: none;
+  }
+}
+
 /* Sidebar nav rows: shorter, so more items fit without scrolling. The icon tile
-   and 13px label are left alone; only the vertical padding tightens. */
-:root[data-density='compact'] .fb-nav-item {
-  padding-top: 0.25rem;
-  padding-bottom: 0.25rem;
+   and 13px label are left alone; only the height tightens — and because the
+   height now lives in one variable, the accordion's rows tighten with it
+   instead of staying 36px tall while the rows above them shrank. */
+:root[data-density='compact'] {
+  --nav-item-h: 1.75rem;
 }
 
 /* Context menus: tighter rows and less top/bottom padding. Text stays at 14px

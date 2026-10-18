@@ -401,7 +401,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
           />
           {/* Attention — what needs you, top-level by design (S6): the
               surface's whole job is being one glance away. */}
-          <div className="flex items-center">
+          <div className="fb-nav-item fb-nav-group pr-1 mb-0.5">
             <div className="flex-1 min-w-0">
               <NavRow
                 icon="notifications"
@@ -416,7 +416,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
             </div>
             <button
               onClick={() => setAttentionOpen((v) => !v)}
-              className="icon-btn !h-6 !w-6 mr-1"
+              className="icon-btn !h-6 !w-6 shrink-0 self-center"
               title={attentionOpen ? 'Hide the Attention filters' : 'Show the Attention filters'}
               aria-expanded={attentionOpen}
               data-testid="sidebar-attention-toggle"
@@ -428,7 +428,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
               these narrow it. Definitions live in lib/attentionQueues so the
               sidebar, the view and the predicate cannot drift. */}
           {attentionOpen && (
-            <div className="ml-6 border-l border-[var(--edge-soft)] pl-1" data-testid="sidebar-attention-filters">
+            <div className="ml-4 pl-2 border-l border-[var(--edge-soft)]" data-testid="sidebar-attention-filters">
               {ATTENTION_FILTERS.map((f) => (
                 <NavRow
                   key={f.id}
@@ -457,7 +457,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
               second one. */}
           {/* Rooms — the workspace organiser. Clicking opens All Rooms; the
               chevron expands to the two index pages (All Rooms, All Desks). */}
-          <div className="flex items-center">
+          <div className="fb-nav-item fb-nav-group pr-1 mb-0.5">
             <div className="flex-1 min-w-0">
               <NavRow
                 icon="meeting_room"
@@ -473,7 +473,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
             <button
               onClick={() => setRoomsNavOpen((v) => !v)}
               title={roomsNavOpen ? 'Collapse' : 'Expand'}
-              className="icon-btn !h-6 !w-6 shrink-0 -ml-1"
+              className="icon-btn !h-6 !w-6 shrink-0 self-center"
             >
               <Icon name={roomsNavOpen ? 'expand_more' : 'chevron_right'} size={16} />
             </button>
@@ -707,7 +707,7 @@ function NavRow({ icon, label, tone, active, onClick, badge, testid }: NavRowPro
     <button
       onClick={onClick}
       data-testid={testid}
-      className={`fb-nav-item group flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-[13px] mb-0.5 text-left transition-colors fb-press ${
+      className={`fb-nav-item fb-nav-row group text-[13px] mb-0.5 fb-press ${
         active
           ? 'bg-[rgb(var(--accent)/0.10)] text-[rgb(var(--accent))] font-medium'
           : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
@@ -722,7 +722,7 @@ function NavRow({ icon, label, tone, active, onClick, badge, testid }: NavRowPro
       >
         <Icon name={icon} size={17} filled />
       </span>
-      <span className="flex-1 min-w-0 break-words leading-tight">{label}</span>
+      <span className="flex-1 min-w-0 truncate text-left leading-tight">{label}</span>
       {badge && (
         <span className="ml-auto text-[10px] fb-tabular text-[var(--ink-50)]">{badge}</span>
       )}
