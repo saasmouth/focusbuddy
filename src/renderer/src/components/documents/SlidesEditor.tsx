@@ -5,6 +5,7 @@ import { SLIDE_TEMPLATES } from '@shared/slideTemplates'
 import { migrateSlidesBody } from '@shared/slidesMigrate'
 import SlideFace from './slides/SlideFace'
 import SlideCanvas from './slides/SlideCanvas'
+import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import ElementInspector from './slides/ElementInspector'
 import SlidesToolbar from './slides/SlidesToolbar'
 import SlidesMenuBar from './editor/SlidesMenuBar'
@@ -689,7 +690,30 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
         </div>
 
         {/* Canvas column */}
-        <div ref={canvasWrap} className="flex-1 min-w-0 overflow-auto bg-stone-100 dark:bg-stone-950/40 p-4">
+        <div
+          ref={canvasWrap}
+          // Named so the surface that accepts a drop is addressable. It had
+          // no testid, which is why a test aimed at a neighbouring element
+          // and reported a working drop as broken.
+          data-testid="slides-canvas"
+          className="flex-1 min-w-0 overflow-auto bg-stone-100 dark:bg-stone-950/40 p-4"
+          // Drag a work widget from the side menu straight onto the slide.
+          // Until now the only way in was "Insert work widget from a desk",
+          // which could not reach a widget that has no desk — i.e. most of
+          // them, since 4.3.32 made every work widget a file.
+          onDragOver={(e) => {
+            if (!acceptsWidgetDrag(e.dataTransfer)) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'copy'
+          }}
+          onDrop={(e) => {
+            if (!acceptsWidgetDrag(e.dataTransfer)) return
+            e.preventDefault()
+            void widgetIdFromDrop(e.dataTransfer).then((id) => {
+              if (id) insertWidget(id)
+            })
+          }}
+        >
           {status && (
             <div className="mb-2 text-[12px] text-[var(--ink-50)] flex items-center gap-1.5" data-testid="slides-status">
               <span>{status}</span>

@@ -29,6 +29,7 @@ import DrawMenuBar from './editor/DrawMenuBar'
 import { alignBoxes, distributeBoxes, type AlignEdge } from './map/mapAlign'
 import { polygonClipPath } from '@shared/mapExport'
 import WidgetEmbed from './embed/WidgetEmbed'
+import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import WidgetPickerDialog from './embed/WidgetPickerDialog'
 
 // PlexiDiagrams editor — a Draw.io / Lucidchart-style diagram and workflow map. Built
@@ -762,6 +763,21 @@ function MapInner({ body, title, onChange, foldExternal = false }: Props): JSX.E
       {/* Canvas */}
       <div className="flex-1 min-h-0 relative">
         <ReactFlow
+          // Drag a work widget from the side menu onto the diagram. ReactFlow
+          // leaves drop handling to the host, so these are ours; it already
+          // renders a widget node, there was simply no way to add one by drag.
+          onDragOver={(e) => {
+            if (!acceptsWidgetDrag(e.dataTransfer)) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'copy'
+          }}
+          onDrop={(e) => {
+            if (!acceptsWidgetDrag(e.dataTransfer)) return
+            e.preventDefault()
+            void widgetIdFromDrop(e.dataTransfer).then((id) => {
+              if (id) addWidgetNode(id)
+            })
+          }}
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}

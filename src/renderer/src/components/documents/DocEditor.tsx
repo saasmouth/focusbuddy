@@ -3,6 +3,7 @@ import { useMinimizable } from '../chrome/floatingMenu'
 import DocMentionPicker from './editor/DocMentionPicker'
 import type { DocMentionQuery } from './editor/docMentions'
 import { EditorContent, useEditor, type Editor } from '@tiptap/react'
+import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import { buildDocExtensions } from './editor/extensions'
 import { htmlToDocContent } from '../../lib/docHtml'
 import { sanitizeHtml } from '../../lib/htmlSanitize'
@@ -557,6 +558,60 @@ export default function DocEditor({
   }
 
   // ── Table right-click menu ────────────────────────────────────────────────
+  // ── Dropping a work widget into the document ─────────────────────────────
+  //
+  // "I'm dragging a sticky from the side menu, and it doesn't show as an
+  // editable sticky in the doc."
+  //
+  // It could not: until now the only way in was a picker that listed widgets
+  // ALREADY on a desk. There was no drop handler on the editor at all, so a
+  // drag from the side menu landed nowhere and said nothing.
+  //
+  // The side menu drags three things and all three are accepted here, using
+  // the same payloads the desk canvas and the dashboard read — one drag
+  // source, three destinations, no parallel mime types to keep in step:
+  //
+  //   WIDGET_FILE_DRAG_MIME      an existing work widget file -> embedded
+  //   WIDGET_NEW_FILE_DRAG_MIME  a kind, from the Work widgets section
+  //   DRAG_MIME                  a kind, from the palette or an app tile
+  //
+  // A dropped kind becomes a FILE, embedded by its `wf:<id>` pane id, which
+  // is what makes it editable in place: the widget store routes a write on
+  // that id to the file, and the file fans out to every desk holding it.
+  //
+  // Dropped AT THE CURSOR POSITION, not appended: posAtCoords is where the
+  // pointer actually is, and a block that appears at the end of a long
+  // document reads as nothing having happened.
+  useEffect(() => {
+    if (!editor) return
+    const dom = editor.view.dom as HTMLElement
+
+    const onOver = (e: DragEvent): void => {
+      if (!acceptsWidgetDrag(e.dataTransfer)) return
+      e.preventDefault()
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+    }
+
+    const onDrop = (e: DragEvent): void => {
+      if (!acceptsWidgetDrag(e.dataTransfer)) return
+      e.preventDefault()
+      const at = editor.view.posAtCoords({ left: e.clientX, top: e.clientY })
+      void widgetIdFromDrop(e.dataTransfer).then((id) => {
+        if (!id) return
+        const chain = editor.chain().focus()
+        if (at) chain.setTextSelection(at.pos)
+        chain.insertWidgetEmbed(id).run()
+      })
+    }
+
+    dom.addEventListener('dragover', onOver)
+    dom.addEventListener('drop', onDrop)
+    return () => {
+      dom.removeEventListener('dragover', onOver)
+      dom.removeEventListener('drop', onDrop)
+    }
+  }, [editor])
+
   // Tables are the one block with a per-table page-layout choice (repeat the
   // header row on continuation pages), and a right-click on the table itself is
   // where Word and Docs put it. Kept local to the editor DOM so it never fires

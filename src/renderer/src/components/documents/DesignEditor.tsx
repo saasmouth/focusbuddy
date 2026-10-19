@@ -58,6 +58,7 @@ import LayoutPanel from './design/LayoutPanel'
 import DesignRulers from './design/DesignRulers'
 import Icon from '../Icon'
 import SlideElementView from './slides/SlideElementView'
+import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import { useBrandStore } from '../../stores/brand'
 import BrandKitModal from './BrandKitModal'
 import { GOOGLE_FONTS, loadGoogleFont, fontFamilyValue, familyLabel } from '../../lib/googleFonts'
@@ -1004,7 +1005,22 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   }
 
   return (
-    <div className="flex flex-col h-full" data-testid="design-editor">
+    <div
+      className="flex flex-col h-full"
+      data-testid="design-editor"
+      onDragOver={(e) => {
+        if (!acceptsWidgetDrag(e.dataTransfer)) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+      }}
+      onDrop={(e) => {
+        if (!acceptsWidgetDrag(e.dataTransfer)) return
+        e.preventDefault()
+        void widgetIdFromDrop(e.dataTransfer).then((id) => {
+          if (id) addWidget(id)
+        })
+      }}
+    >
       {/* Menu bar — real design-canvas actions. */}
       <div className="px-2 pt-1.5 pb-1 border-b border-[var(--edge-soft)]">
         <DesignMenuBar
