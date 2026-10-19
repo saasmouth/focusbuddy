@@ -1,4 +1,6 @@
-// PlexiDesk changelog — newest first.
+// PlexiiDesk changelog — newest first.
+// Entries before 4.3.33 are history and keep the spelling they shipped with
+// ("PlexiDesk"); 4.3.33 is the one that changed it.
 // Add a new entry every time a meaningful feature ships. Keep dates absolute (ISO).
 // The footer's "What's new" button shows an indicator dot when the most recent
 // entry's date is newer than the user's last-seen timestamp (localStorage).
@@ -35,6 +37,27 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '4.3.33',
+    date: '2026-10-19T09:00:00Z',
+    title: 'PlexiiDesk 4.3.33 \u2014 Plexii, spelled the same everywhere',
+    tag: 'polish',
+    summary:
+      'We are Plexii, with two i\u2019s, and now the app says so everywhere, including in the names of its apps: PlexiiDesk, PlexiiOffice, PlexiiDocs, PlexiiBrain and the rest, matching plexiidesk.com. Nothing else changes: your desks, documents, settings, saved keys and Mac permissions are exactly where they were.',
+    highlights: [
+      'Every app and section name uses the Plexii spelling: PlexiiDesk, PlexiiOffice, PlexiiDocs, PlexiiSheets, PlexiiSlides, PlexiiDiagrams, PlexiiDesign, PlexiiDraw, PlexiiBrain, PlexiiMeet, PlexiiPeople, PlexiiInbox and the rest, in the side menu, headings, menus, dialogs, tooltips, notifications and messages.',
+      'On a Mac the app itself is now called PlexiiDesk: in the menu bar, the Dock, Finder, Activity Monitor and the Privacy & Security lists. The app menu says About PlexiiDesk, Hide PlexiiDesk and Quit PlexiiDesk, where it used to say plexii.',
+      'If you update from inside the app, it stays where it is in your Applications folder and keeps working as before. A fresh install from the website is named PlexiiDesk. If you install that way and also have the older PlexiDesk in Applications, you can move the older one to the Bin: both open the same desks.',
+      'On Windows, the app, its Start menu entry and its desktop shortcut are now called PlexiiDesk. An update installs into the same folder as before and renames your existing shortcuts.',
+      'Your data has not moved. The workspace folder, your saved API keys and the permissions you gave on your Mac (microphone, camera, screen recording and accessibility) all carry over without asking again.',
+      'Plexii and the PlexiiAPI tools for Claude Desktop use the new names too, so asking Plexii about PlexiiBrain or PlexiiFlows reads the same as the app.',
+      'Fixed: with activity tracking on, PlexiiDesk no longer records its own window as one of the apps you switched to, and SpeedDeck buttons that type or press keys in your previous app no longer pick PlexiiDesk itself as that app.'
+    ],
+    links: [
+      { label: 'Install PlexiiDesk on a Mac', href: `${HELP_BASE}/install-mac` },
+      { label: 'Keep PlexiiDesk up to date', href: `${HELP_BASE}/app-updates` }
+    ]
+  },
   {
     version: '4.3.32',
     date: '2026-10-17T21:00:00Z',
