@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
 # Install the current build into /Applications for local testing.
 #
-# The bundle is named "PlexiDesk <version>.app" so several builds can sit side
-# by side and be told apart in Finder.
+# The bundle is named "PlexiiDesk <version>.app" so several builds can sit side
+# by side and be told apart in Finder. (4.3.32 and earlier were "PlexiDesk
+# <version>.app"; both spellings are retired below.)
 #
-# Renaming the BUNDLE is safe; renaming the app's IDENTITY is not. The userData
-# path comes from app.getName(), which resolves from CFBundleName / the
-# package.json name inside the bundle — none of which the directory name
-# touches. This script asserts that identity is unchanged before it swaps
-# anything in, because getting it wrong silently strands the user's database in
-# a different Application Support folder.
+# Renaming the BUNDLE is safe; renaming the app's IDENTITY is not. The identity
+# is three things, none of which the directory name touches, and this script
+# asserts all three before it swaps anything in:
+#   - CFBundleIdentifier (app.haptyx.desktop): TCC grants, LaunchServices.
+#   - package.json `name` inside app.asar ("plexii"): app.getName(), which
+#     names the safeStorage keychain item ("plexii Safe Storage").
+#   - the userData directory, pinned in src/main/userDataMigration.ts to
+#     Application Support/plexii. It no longer follows any name, but it did
+#     once, and that move stranded a five-month workspace.
+# CFBundleName is NOT identity: it is productName ("PlexiiDesk"), the name a
+# person sees.
 #
 # SIGNING. This builds through scripts/release-env.mjs, the same credential
 # loader the release uses, and then REFUSES to install a bundle that is not
@@ -36,7 +42,8 @@ cd "$HERE"
 
 VERSION="$(node -p "require('./package.json').version")"
 EXPECT_ID="app.haptyx.desktop"
-TARGET="/Applications/PlexiDesk ${VERSION}.app"
+EXPECT_PKG_NAME="plexii"
+TARGET="/Applications/PlexiiDesk ${VERSION}.app"
 
 BUILD=1
 ALLOW_ADHOC=0
@@ -65,11 +72,12 @@ fi
 # electron-builder writes to release/mac, release/mac-arm64 or
 # release/mac-universal depending on the target.
 SRC=""
+# The bundle is named after productName: PlexiiDesk.app from 4.3.33.
 for d in release/mac-universal release/mac-arm64 release/mac; do
-  if [ -d "$d/PlexiDesk.app" ]; then SRC="$d/PlexiDesk.app"; break; fi
+  if [ -d "$d/PlexiiDesk.app" ]; then SRC="$d/PlexiiDesk.app"; break; fi
 done
 if [ -z "$SRC" ]; then
-  echo "[install-local] no built PlexiDesk.app under release/ — build first." >&2
+  echo "[install-local] no built PlexiiDesk.app under release/ — build first." >&2
   exit 1
 fi
 
@@ -82,6 +90,18 @@ GOT_VER="$(read_plist CFBundleShortVersionString)"
 if [ "$GOT_ID" != "$EXPECT_ID" ]; then
   echo "[install-local] REFUSING: bundle id is '$GOT_ID', expected '$EXPECT_ID'." >&2
   echo "               Changing it moves the user's data directory." >&2
+  exit 1
+fi
+# app.getName() comes from package.json `name` inside the asar, and it names
+# the keychain item every stored API key is encrypted under. productName must
+# never leak into it.
+GOT_PKG_NAME="$(node -e '
+  const asar = require("@electron/asar")
+  process.stdout.write(String(JSON.parse(asar.extractFile(process.argv[1], "package.json")).name))
+' "$SRC/Contents/Resources/app.asar" 2>/dev/null || echo "")"
+if [ "$GOT_PKG_NAME" != "$EXPECT_PKG_NAME" ]; then
+  echo "[install-local] REFUSING: packaged package.json name is '$GOT_PKG_NAME', expected '$EXPECT_PKG_NAME'." >&2
+  echo "               It is app.getName(), which names the keychain item stored keys are encrypted with." >&2
   exit 1
 fi
 if [ "$GOT_VER" != "$VERSION" ]; then
@@ -162,12 +182,14 @@ fi
 
 echo "[install-local] source     $SRC"
 echo "[install-local] bundle id  $GOT_ID (unchanged)"
-echo "[install-local] app name   $GOT_NAME (unchanged — userData path is safe)"
+echo "[install-local] app name   $GOT_NAME (displayed name only — app.getName() is '$GOT_PKG_NAME', userData is pinned to Application Support/plexii)"
 echo "[install-local] version    $GOT_VER"
 
-# Retire every previously installed PlexiDesk, whatever it is called.
+# Retire every previously installed PlexiDesk, whatever it is called, in either
+# spelling. This only removes bundles from /Applications; a copy that is still
+# RUNNING keeps running from memory until it quits.
 shopt -s nullglob
-for old in /Applications/PlexiDesk.app /Applications/PlexiDesk\ *.app; do
+for old in /Applications/PlexiiDesk.app /Applications/PlexiiDesk\ *.app /Applications/PlexiDesk.app /Applications/PlexiDesk\ *.app; do
   [ "$old" = "$TARGET" ] && continue
   echo "[install-local] removing   $old"
   rm -rf "$old"

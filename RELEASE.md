@@ -196,9 +196,9 @@ VITE_VIEWER_URL=https://view.plexiidesk.com \
 Then CHECK it, because the build reports success either way:
 
 ```bash
-spctl -a -vvv -t install release/mac-universal/PlexiDesk.app   # must say: accepted
+spctl -a -vvv -t install release/mac-universal/PlexiiDesk.app   # must say: accepted
 xcrun stapler validate release/PlexiDesk-*-mac-universal.dmg   # must say: validated
-codesign -dv --verbose=2 release/mac-universal/PlexiDesk.app 2>&1 | grep TeamIdentifier
+codesign -dv --verbose=2 release/mac-universal/PlexiiDesk.app 2>&1 | grep TeamIdentifier
 # must print TeamIdentifier=AHU8G4V9HD, not "not set"
 ```
 
@@ -213,8 +213,8 @@ Verify it actually notarised before shipping (this is the equivalent of the
 release gate for signing — do not skip):
 
 ```bash
-spctl -a -vvv "release/mac-universal/PlexiDesk.app"   # must say: accepted, source=Notarized Developer ID
-codesign -dvv "release/mac-universal/PlexiDesk.app" 2>&1 | grep -i Signature   # must NOT say adhoc
+spctl -a -vvv "release/mac-universal/PlexiiDesk.app"   # must say: accepted, source=Notarized Developer ID
+codesign -dvv "release/mac-universal/PlexiiDesk.app" 2>&1 | grep -i Signature   # must NOT say adhoc
 ```
 
 Distribute the **.dmg** as the download link on the landing page. The .zip stays

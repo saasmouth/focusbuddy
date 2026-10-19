@@ -29,7 +29,7 @@ import { installFocusTracker } from './streamdeckActions'
 import { installActivityTracker } from './activityTracker'
 import { registerDeepLinkProtocol } from './authProtocol'
 import { installAutoUpdater, checkForUpdates } from './autoUpdate'
-import { detectOfficeBuild, detectPreviewBuild } from './appMode'
+import { detectOfficeBuild, detectPreviewBuild, productDisplayName } from './appMode'
 import { runDueFlows } from './db/flows'
 import { sweepDocumentChunks, sweepWidgetChunks, sweepChatChunks, sweepFileChunks } from './chunkIndex'
 import { sweepDocumentEnrichment, sweepDocumentMemory, sweepEmbeddings } from './ai/localAiSweeps'
@@ -83,6 +83,11 @@ const isPreviewBuild =
     appName: app.getName()
   })
 if (isPreviewBuild) app.setName('PlexiDesk 4 Preview')
+// Both setName strings above stay exactly as they are: app.getName() names the
+// keychain item safeStorage encrypts with ("PlexiOffice Safe Storage",
+// "PlexiDesk 4 Preview Safe Storage"), so a new spelling would orphan every
+// stored key. What a person reads comes from this instead.
+const APP_DISPLAY_NAME = productDisplayName({ office: isOfficeBuild, preview: isPreviewBuild })
 
 if (process.env.FB_TEST_USER_DATA) {
   app.setPath('userData', process.env.FB_TEST_USER_DATA)
@@ -331,7 +336,26 @@ function sendZoom(dir: 'in' | 'out' | 'reset'): void {
 function buildAppMenu(): Electron.Menu {
   const isMac = process.platform === 'darwin'
   const template: Electron.MenuItemConstructorOptions[] = [
-    ...(isMac ? [{ role: 'appMenu' as const }] : []),
+    // Spelled out rather than `role: 'appMenu'`, whose labels come from
+    // app.name — "About plexii", "Quit plexii". See APP_DISPLAY_NAME.
+    ...(isMac
+      ? [
+          {
+            label: APP_DISPLAY_NAME,
+            submenu: [
+              { role: 'about' as const, label: `About ${APP_DISPLAY_NAME}` },
+              { type: 'separator' as const },
+              { role: 'services' as const },
+              { type: 'separator' as const },
+              { role: 'hide' as const, label: `Hide ${APP_DISPLAY_NAME}` },
+              { role: 'hideOthers' as const },
+              { role: 'unhide' as const },
+              { type: 'separator' as const },
+              { role: 'quit' as const, label: `Quit ${APP_DISPLAY_NAME}` }
+            ]
+          }
+        ]
+      : []),
     { role: 'fileMenu' },
     { role: 'editMenu' },
     {
@@ -406,7 +430,7 @@ function createCommandCenter(): BrowserWindow {
     height: 900,
     minWidth: 1100,
     minHeight: 680,
-    title: 'PlexiDesk',
+    title: 'PlexiiDesk',
     backgroundColor: '#f1f2f4', // matches --fb-canvas-bg (light) so launch never flashes a different colour
     show: false,
     autoHideMenuBar: true,
@@ -858,6 +882,8 @@ app.whenReady().then(() => {
   // shortcuts drive the app's UI scale. Without this the app ran on Electron's
   // default menu, whose zoom roles never touched the app scale.
   Menu.setApplicationMenu(buildAppMenu())
+  // The About panel's heading, which otherwise falls back to app.name in dev.
+  app.setAboutPanelOptions({ applicationName: APP_DISPLAY_NAME })
 
   // Automation scheduler — runs due PlexiFlows and scheduled PlexiReports in the
   // background so a daily digest or a weekly report actually fires whether or not
