@@ -25,7 +25,7 @@ test('MSG-1 — the Messages view opens from the sidebar and gates on sign-in', 
   await expect(
     window.getByRole('heading', { name: 'Messages' })
   ).toBeVisible({ timeout: 6000 })
-  await expect(window.getByText(/Sign in to message other people on PlexiDesk/)).toBeVisible()
+  await expect(window.getByText(/Sign in to message other people on PlexiiDesk/)).toBeVisible()
 })
 
 test('MSG-2 — PlexiInbox opens from the sidebar and gates on sign-in', async () => {
@@ -33,9 +33,9 @@ test('MSG-2 — PlexiInbox opens from the sidebar and gates on sign-in', async (
   const { window } = launched
   await waitForReady(window)
 
-  await window.getByRole('button', { name: /^PlexiInbox$/ }).first().click()
-  await expect(window.getByRole('heading', { name: 'PlexiInbox' })).toBeVisible({ timeout: 6000 })
+  await window.getByRole('button', { name: /^PlexiiInbox$/ }).first().click()
+  await expect(window.getByRole('heading', { name: 'PlexiiInbox' })).toBeVisible({ timeout: 6000 })
   // Internal-only: the gate copy talks about PlexiDesk notifications and points email to Mail.
-  await expect(window.getByText(/your PlexiDesk notifications/i)).toBeVisible()
+  await expect(window.getByText(/your PlexiiDesk notifications/i)).toBeVisible()
   await expect(window.getByText(/Email is in Mail/i)).toBeVisible()
 })

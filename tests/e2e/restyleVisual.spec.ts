@@ -126,7 +126,7 @@ test('restyled surfaces render correctly across all four themes', async () => {
       // the account-required sign-in wall, and the futuristic and atelier
       // "surfaces" were screenshots of that modal. So each capture now checks
       // it is looking at the surface it names, and the wall is not up.
-      await expect(window.locator('[role="dialog"][aria-label="Sign in to PlexiDesk"]')).toHaveCount(0)
+      await expect(window.locator('[role="dialog"][aria-label="Sign in to PlexiiDesk"]')).toHaveCount(0)
 
       // (a) Sidebar with folders/tasks — go Home so the sidebar renders
       //     alongside the ordinary workspace dashboard with the seeded tree

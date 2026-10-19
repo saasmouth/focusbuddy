@@ -46,7 +46,7 @@ export default function DrawView(): JSX.Element {
       <div className="w-full px-8 py-6">
         <div className="flex items-center gap-2.5 mb-1">
           <Icon name="brush" size={22} className="text-accent" />
-          <h1 className="text-[20px] font-semibold text-[var(--ink-100)]">PlexiDraw</h1>
+          <h1 className="text-[20px] font-semibold text-[var(--ink-100)]">PlexiiDraw</h1>
         </div>
         <p className="text-[13px] text-[var(--ink-50)] mb-5 max-w-[720px]">
           Vector and painting in one studio. Draw bezier paths with the pen tool, combine them with pathfinder booleans, and paint on pixel layers with brushes

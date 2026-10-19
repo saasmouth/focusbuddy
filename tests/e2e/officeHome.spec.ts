@@ -93,8 +93,8 @@ test.describe('PlexiOffice Home', () => {
     }
     await window.locator('[data-testid="office-qa-doc"]').click()
     // The new document opens inline; the back control returns to the office.
-    await expect(window.locator('button[title="Back to PlexiOffice"]')).toBeVisible({ timeout: 8_000 })
-    await window.locator('button[title="Back to PlexiOffice"]').click()
+    await expect(window.locator('button[title="Back to PlexiiOffice"]')).toBeVisible({ timeout: 8_000 })
+    await window.locator('button[title="Back to PlexiiOffice"]').click()
     await window.locator('[data-testid="office-nav-home"]').click()
     await expect(window.locator('[data-testid="office-app-docs"]')).toBeVisible({ timeout: 8_000 })
   })

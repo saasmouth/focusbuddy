@@ -427,7 +427,7 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
         title: 'Let this work widget make changes without asking?',
         body:
           'It will be able to add rows and update cells in the tables WIRED INTO IT, and save notes to ' +
-          'PlexiBrain — without a confirmation each time. It still cannot touch anything you have not ' +
+          'PlexiiBrain — without a confirmation each time. It still cannot touch anything you have not ' +
           'wired to it. Leave this off and it will ask you every time instead.'
       })
       if (!ok) return

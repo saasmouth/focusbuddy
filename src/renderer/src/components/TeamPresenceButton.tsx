@@ -195,7 +195,7 @@ export default function TeamPresenceButton(): JSX.Element | null {
               <div className="px-3 py-6 text-center">
                 <Icon name="person_off" size={20} className="text-[var(--ink-30)]" />
                 <p className="mt-1.5 text-[11.5px] text-[var(--ink-50)] leading-relaxed">
-                  No teammates online right now. They'll appear here the moment they open PlexiDesk.
+                  No teammates online right now. They'll appear here the moment they open PlexiiDesk.
                 </p>
               </div>
             ) : (

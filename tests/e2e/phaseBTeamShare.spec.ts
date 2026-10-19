@@ -105,7 +105,7 @@ async function downloadBlob(token: string, id: string): Promise<Uint8Array | nul
 
 // ── UI helpers (Ava's window) ─────────────────────────────────────────────────
 async function dismissOnboarding(win: Page): Promise<void> {
-  const onb = win.locator('[role="dialog"][aria-label="Welcome to PlexiDesk"]')
+  const onb = win.locator('[role="dialog"][aria-label="Welcome to PlexiiDesk"]')
   if (await onb.isVisible().catch(() => false)) {
     await win.getByRole('button', { name: 'Get started' }).click().catch(() => {})
     await win.locator('[data-testid="onboarding-key-skip"]').click().catch(() => {})
@@ -120,7 +120,7 @@ async function signInUI(win: Page, creds: { email: string; password: string }): 
   await win.waitForFunction(() => typeof (window as unknown as { api?: unknown }).api === 'object', null, { timeout: 15_000 })
   await expect(win.locator('[data-testid="footer-sync-chip"]')).toBeVisible({ timeout: 15_000 })
   await dismissOnboarding(win)
-  const dialog = win.locator('[role="dialog"][aria-label="Sign in to PlexiDesk"]')
+  const dialog = win.locator('[role="dialog"][aria-label="Sign in to PlexiiDesk"]')
   await expect(dialog).toBeVisible({ timeout: 15_000 })
   await dialog.getByRole('button', { name: 'Log in' }).click().catch(() => {})
   await dialog.locator('input[type="email"]').fill(creds.email)

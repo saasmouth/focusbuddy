@@ -62,7 +62,7 @@ export default function PlexiBuildView(): JSX.Element {
         <div className="px-4 py-3.5 border-b border-[var(--edge-soft)]">
           <div className="flex items-center gap-2">
             <Icon name="construction" size={18} className="text-emerald-500" filled />
-            <h1 className="text-[15px] font-bold tracking-tight text-[var(--ink-100)]">PlexiBuild</h1>
+            <h1 className="text-[15px] font-bold tracking-tight text-[var(--ink-100)]">PlexiiBuild</h1>
           </div>
           <p className="mt-0.5 text-[11.5px] text-[var(--ink-70)]">Build internal tools without code.</p>
         </div>

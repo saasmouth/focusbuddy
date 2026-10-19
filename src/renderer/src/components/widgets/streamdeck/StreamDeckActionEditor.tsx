@@ -160,7 +160,7 @@ function OpenAppEditor({
         }}
       />
       <p className="text-[10px] text-stone-500 leading-snug">
-        On macOS, type the app's display name (PlexiDesk uses{' '}
+        On macOS, type the app's display name (PlexiiDesk uses{' '}
         <code className="text-stone-300">open -a</code>) or paste a full path
         to a .app bundle.
       </p>

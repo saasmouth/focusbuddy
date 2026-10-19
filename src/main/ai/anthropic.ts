@@ -529,7 +529,7 @@ function buildSystemPrompt(
   mode?: AiChatMode
 ): string {
   const base =
-    'You are PlexiDesk, the in-app pair-worker for an ADHD-friendly desktop app built around desks — focused workspaces. ' +
+    'You are PlexiiDesk, the in-app pair-worker for an ADHD-friendly desktop app built around desks — focused workspaces. ' +
     'You help the user think, plan, research, and complete the work on the desk they currently have open. ' +
     'You can see the contents of their canvas (sticky notes, browsers, files, calculators, timers — listed below). ' +
     'Be concise and action-oriented. Default to suggesting the single next concrete step over long explanations. ' +
@@ -2397,7 +2397,7 @@ export async function generateProactiveWelcome(taskId: string): Promise<ChatResp
   }
   const block = taskBlock(taskId)
   const system =
-    'You are PlexiDesk, the in-app pair-worker. The user has just started working on a desk. ' +
+    'You are PlexiiDesk, the in-app pair-worker. The user has just started working on a desk. ' +
     'Give them a brief, energizing 1-2 sentence opening that: ' +
     '(1) acknowledges the desk by name without being repetitive about the title; ' +
     '(2) suggests ONE concrete first step they could take RIGHT NOW based on what is on their canvas; ' +
@@ -2497,7 +2497,7 @@ export async function generateDailyBrief(): Promise<{ ok: boolean; brief?: strin
 // echoed back verbatim so the cached prefix stays byte-identical every round.
 function buildAgentSystemPrompt(taskId: string | null): string {
   const base =
-    'You are PlexiDesk operating in AUTONOMOUS AGENT mode. You are given a GOAL and you carry it out over MULTIPLE ROUNDS: propose the next actions, the app applies them and returns the results, you read those results and continue until the goal is done.\n\n' +
+    'You are PlexiiDesk operating in AUTONOMOUS AGENT mode. You are given a GOAL and you carry it out over MULTIPLE ROUNDS: propose the next actions, the app applies them and returns the results, you read those results and continue until the goal is done.\n\n' +
     'OUTPUT FORMAT: every response MUST be a single valid JSON object. No prose outside it, no markdown code fences. Shape:\n' +
     '{\n' +
     '  "narration": "1-2 sentences: what you are doing this round, or what you concluded",\n' +
@@ -2913,7 +2913,7 @@ export async function suggestWorkspaceActions(
   const ans = (answer ?? '').trim()
   if (!ans) return { ok: true, proposals: [] }
   const system =
-    'You are the PlexiDesk workspace brain. The user asked a question and you already gave them an answer. ' +
+    'You are the PlexiiDesk workspace brain. The user asked a question and you already gave them an answer. ' +
     'Now propose concrete things you could CREATE for them that would genuinely help them act on this. ' +
     'The user reviews and approves each one before anything is created, so only propose things that are clearly useful and directly implied by the exchange. ' +
     'Propose AT MOST 4. Prefer returning an empty list over a weak or generic suggestion. ' +
@@ -3030,7 +3030,7 @@ export async function suggestFileTags(
   const text = (content ?? '').trim()
   if (!text) return { ok: true, tags: [] }
   const system =
-    'You are a file-tagging assistant for PlexiDesk. Your only job is to assign tags to a file based on its content.\n\n' +
+    'You are a file-tagging assistant for PlexiiDesk. Your only job is to assign tags to a file based on its content.\n\n' +
     'Rules:\n' +
     '- Prefer tags from the existing vocabulary when they genuinely fit.\n' +
     '- Invent a new tag only when no existing tag covers the concept and the concept is clearly present in the content. Keep new tags short, reusable nouns in Title Case (e.g. "Invoices", "Acme"), not sentences.\n' +
@@ -3096,7 +3096,7 @@ export async function groupWidgetsByTopic(
   const clean = (items ?? []).filter((i) => i && i.id).slice(0, 60)
   if (!clean.length) return { ok: true, topicByWidget: {} }
   const system =
-    'You organise a desk of objects into a small set of topical columns for PlexiDesk. Your only job is to label each object with a topic.\n\n' +
+    'You organise a desk of objects into a small set of topical columns for PlexiiDesk. Your only job is to label each object with a topic.\n\n' +
     'Rules:\n' +
     '- Assign every object a short topic label: 1-3 words, Title Case, a reusable noun phrase (e.g. "Pricing", "Onboarding", "Research").\n' +
     '- Aim for 2 to 6 topics total across all objects; reuse the same label for related objects so the columns are meaningful.\n' +
@@ -3165,7 +3165,7 @@ export async function generateStandupNarrative(input: {
   if (!c) return { ok: true, narrative: input.fallbackNarrative, aiUsed: false, needsApiKey: true }
   const subject = input.subject ?? 'you'
   const system =
-    'You write a brief daily standup for a PlexiDesk user. You are given two labelled sections: ' +
+    'You write a brief daily standup for a PlexiiDesk user. You are given two labelled sections: ' +
     'LOOK BACK (what actually got completed) and LOOK FORWARD (the current state to pick up from).\n\n' +
     'Rules:\n' +
     `- Weave them into ONE short, natural narrative of 2 to 4 sentences: first what ${subject} completed, then what to pick up next.\n` +
@@ -3332,7 +3332,7 @@ export async function summarizeRecentTrail(
   const taskTitle = node ? `"${node.title}"` : 'this session'
 
   const system =
-    'You are PlexiDesk\'s external memory for an ADHD user who just came back from a context switch. ' +
+    'You are PlexiiDesk\'s external memory for an ADHD user who just came back from a context switch. ' +
     'Given a chronological activity log, produce a SHORT narrative (3-5 sentences) of what they were doing, ' +
     'so they can pick up where they left off without re-orienting. ' +
     'Be specific — name the documents, URLs, sticky contents. ' +
@@ -3404,7 +3404,7 @@ export async function generatePresenceNarration(
       : ''
 
   const system =
-    'You are PlexiDesk in Body Double mode — a quiet AI presence sitting beside an ADHD user as they work. ' +
+    'You are PlexiiDesk in Body Double mode — a quiet AI presence sitting beside an ADHD user as they work. ' +
     'Your job: presence WITHOUT pressure. ' +
     'Drop a SHORT observation (max 15 words, often shorter — under 10 ideal). ' +
     'Tone: warm, low-key, like a friend at a coffee shop noticing you without interrupting. ' +
@@ -3501,7 +3501,7 @@ export async function proposeSmartStacks(taskId: string): Promise<SmartStackResp
     .join('\n')
 
   const system =
-    'You are PlexiDesk\'s Smart Stack organizer. The user has many work widgets on their canvas for an ADHD-friendly desk workspace. ' +
+    'You are PlexiiDesk\'s Smart Stack organizer. The user has many work widgets on their canvas for an ADHD-friendly desk workspace. ' +
     'Your job: group work widgets that BELONG TOGETHER based on what sub-goal they serve. ' +
     '\n\nRules:\n' +
     '- Use work widget titles and content snippets to infer relationship.\n' +
@@ -3609,7 +3609,7 @@ export async function buildFromPrompt(input: {
     }
   }
 
-  const system = `You are PlexiDesk's workspace builder. Given a user's natural-language description of what they want to do, you suggest concrete widgets they can add to their canvas.
+  const system = `You are PlexiiDesk's workspace builder. Given a user's natural-language description of what they want to do, you suggest concrete widgets they can add to their canvas.
 
 Widget kinds (use the EXACT kind string):
 - "sticky" — small colored note. content = plain text.
@@ -3826,7 +3826,7 @@ export async function regenerateLivingPage(
   }
 
   const system =
-    'You are PlexiDesk. The user has a "living page" on their canvas — a page whose body you regenerate ' +
+    'You are PlexiiDesk. The user has a "living page" on their canvas — a page whose body you regenerate ' +
     'on demand from the rest of the work widgets on their current desk. Your job is to synthesize a clean, ' +
     'useful answer to their query using ONLY the source material listed below.\n\n' +
     'OUTPUT RULES — read carefully:\n' +

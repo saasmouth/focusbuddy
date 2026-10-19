@@ -99,7 +99,7 @@ export const WIDGET_WIZARD_QUESTIONS: readonly WizardQuestion[] = [
       { id: 'none', label: 'No — just show me', hint: 'The safe default' },
       { id: 'rows', label: 'Add rows to the table it reads' },
       { id: 'cells', label: 'Update cells in that table' },
-      { id: 'brain', label: 'Save notes to PlexiBrain' },
+      { id: 'brain', label: 'Save notes to PlexiiBrain' },
       { id: 'links', label: 'Open a link' }
     ]
   },

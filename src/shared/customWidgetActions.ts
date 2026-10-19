@@ -174,7 +174,7 @@ export function judgeWidgetAction(raw: unknown, scope: ActionScope): ActionVerdi
       const title = str(a.title).trim().slice(0, MAX_TITLE)
       const body = str(a.body).trim().slice(0, MAX_TEXT)
       if (!title && !body) {
-        return { ok: false, reason: 'Saving to PlexiBrain needs a title or a body.' }
+        return { ok: false, reason: 'Saving to PlexiiBrain needs a title or a body.' }
       }
       const tags = Array.isArray(a.tags)
         ? (a.tags as unknown[])
@@ -297,7 +297,7 @@ export function describeWidgetAction(a: WidgetAction): string {
       return `Update ${fields || 'a cell'}`
     }
     case 'create-knowledge-entry':
-      return `Save “${a.title}” to PlexiBrain`
+      return `Save “${a.title}” to PlexiiBrain`
     case 'open-url':
       return `Open ${a.url.replace(/^https?:\/\//i, '').slice(0, 60)}`
     case 'add-subtask':

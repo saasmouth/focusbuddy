@@ -972,7 +972,7 @@ export default function HomeDashboard({
               <QuickAction testid="home-quick-create" icon="add" tone="accent" title="Create" blurb="New document" onClick={() => void onCreate()} />
               <QuickAction testid="home-quick-plan" icon="checklist" tone="sky" title="Plan" blurb="Plans and tasks" onClick={() => v.goPlexiDesk('plans')} />
               <QuickAction testid="home-quick-collaborate" icon="group" tone="emerald" title="Collaborate" blurb="Shared work" onClick={() => v.goCollaborations()} />
-              <QuickAction testid="home-quick-automate" icon="bolt" tone="violet" title="Automate" blurb="PlexiBrain flow" onClick={() => v.goPlexiBrain('flows')} />
+              <QuickAction testid="home-quick-automate" icon="bolt" tone="violet" title="Automate" blurb="PlexiiBrain flow" onClick={() => v.goPlexiBrain('flows')} />
             </div>
           </RailCard>
         )

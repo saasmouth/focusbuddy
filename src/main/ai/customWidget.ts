@@ -45,7 +45,7 @@ function unfence(raw: string): string {
 
 function systemPrompt(net: boolean, w: number, h: number): string {
   return [
-    'You write single-file work widgets for a desktop canvas app called PlexiDesk.',
+    'You write single-file work widgets for a desktop canvas app called PlexiiDesk.',
     '',
     'Output ONLY the work widget source. No preamble, no explanation, no markdown fence.',
     '',

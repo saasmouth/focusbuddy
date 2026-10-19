@@ -16,7 +16,7 @@ test.afterEach(async () => {
 })
 
 const onboarding = (l: LaunchedApp) =>
-  l.window.locator('[role="dialog"][aria-label="Welcome to PlexiDesk"]')
+  l.window.locator('[role="dialog"][aria-label="Welcome to PlexiiDesk"]')
 
 const nodeTitles = (l: LaunchedApp): Promise<string[]> =>
   l.window.evaluate(async () => {

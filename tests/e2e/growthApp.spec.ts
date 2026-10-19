@@ -22,7 +22,7 @@ test('first launch requires an account: no skip, no close, a browser route', asy
   const { window } = launched
   await waitForReady(window, { dismissModals: false })
 
-  const dialog = window.locator('[role="dialog"][aria-label="Sign in to PlexiDesk"]')
+  const dialog = window.locator('[role="dialog"][aria-label="Sign in to PlexiiDesk"]')
   await expect(dialog).toBeVisible({ timeout: 10_000 })
   await expect(dialog.getByText('Create your Plexii account')).toBeVisible()
   await expect(dialog.getByText(/Verify your email to start a 14-day trial with 300 AI credits/)).toBeVisible()
@@ -39,7 +39,7 @@ test('the harness may still run without an account', async () => {
   launched = await launchApp({ env: { PLEXI_APP: 'preview3' } })
   const { window } = launched
   await waitForReady(window)
-  await expect(window.locator('[role="dialog"][aria-label="Sign in to PlexiDesk"]')).toHaveCount(0)
+  await expect(window.locator('[role="dialog"][aria-label="Sign in to PlexiiDesk"]')).toHaveCount(0)
 })
 
 test('upgrade modal offers Pro, Pro+ and Team at the spec prices', async () => {

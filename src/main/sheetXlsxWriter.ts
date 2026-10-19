@@ -157,7 +157,7 @@ function condRuleModel(rule: SheetCondRule, priority: number): Record<string, un
 // Build a fully-styled .xlsx workbook from the sheet body.
 export async function buildStyledXlsx(body: SheetBodyV2): Promise<Buffer> {
   const wb = new ExcelJS.Workbook()
-  wb.creator = 'PlexiDesk'
+  wb.creator = 'PlexiiDesk'
   for (const tab of body.sheets) {
     const ws = wb.addWorksheet((tab.name || 'Sheet').slice(0, 31))
     if (tab.colWidths) {

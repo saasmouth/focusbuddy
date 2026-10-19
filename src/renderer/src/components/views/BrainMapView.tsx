@@ -119,7 +119,7 @@ export default function BrainMapView(): JSX.Element {
           <div className="px-3 py-16 text-center" data-testid="brain-map-empty">
             <Icon name="bubble_chart" size={30} className="text-[var(--ink-30)]" />
             <p className="mt-3 text-[14px] text-[var(--ink-70)] max-w-md mx-auto leading-relaxed">
-              Your brain is empty. Save facts, decisions and processes into PlexiBrain, tag them, and
+              Your brain is empty. Save facts, decisions and processes into PlexiiBrain, tag them, and
               this map draws the connections between them.
             </p>
           </div>

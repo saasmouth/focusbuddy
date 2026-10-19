@@ -185,7 +185,7 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
             else goDocuments()
           }}
           className="icon-btn"
-          title={onBack ? 'Back to PlexiOffice' : active.docType === 'design' ? 'Back to PlexiDesign' : 'Back to Documents'}
+          title={onBack ? 'Back to PlexiiOffice' : active.docType === 'design' ? 'Back to PlexiiDesign' : 'Back to Documents'}
         >
           <Icon name="arrow_back" size={17} />
         </button>

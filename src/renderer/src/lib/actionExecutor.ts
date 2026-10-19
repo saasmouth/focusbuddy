@@ -574,8 +574,8 @@ async function applyCreateKnowledgeEntry(
     tags: p.tags ?? [],
     pinned: p.pinned ?? false
   })
-  if (!entry) return { ok: false, message: 'Could not save to PlexiBrain.' }
-  return { ok: true, message: `Added "${p.title}" to PlexiBrain` }
+  if (!entry) return { ok: false, message: 'Could not save to PlexiiBrain.' }
+  return { ok: true, message: `Added "${p.title}" to PlexiiBrain` }
 }
 
 // Create a standalone document (doc / sheet / slides) in the Documents library,
@@ -1770,7 +1770,7 @@ export function describeProposal(
       return { icon: 'edit', verb: 'Update task', subject: `${p.label}${bits.length ? ` · ${bits.join(', ')}` : ''}` }
     }
     case 'create-knowledge-entry':
-      return { icon: 'psychology', verb: 'Add to PlexiBrain', subject: p.title }
+      return { icon: 'psychology', verb: 'Add to PlexiiBrain', subject: p.title }
     case 'create-document': {
       const verb =
         p.docType === 'sheet'

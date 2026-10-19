@@ -28,7 +28,7 @@ import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
 // handed to window.api.files.ingestBuffer exactly like fileTextExtraction.spec.ts
 // and brainIngest.spec.ts already do for their PDF/text fixtures.
 
-const OCR_TOKENS = ['PLEXIDESK', 'SCANNED', 'INVOICE', '84210']
+const OCR_TOKENS = ['PLEXIIDESK', 'SCANNED', 'INVOICE', '84210']
 
 // A full-page image PDF with no text run at all: draws known words onto a
 // canvas, PNG-encodes it, and embeds that PNG as the entire content of a
@@ -42,7 +42,7 @@ async function scannedInvoicePdfHex(): Promise<string> {
   x.fillRect(0, 0, 1240, 1754)
   x.fillStyle = '#111'
   x.font = '48px Helvetica'
-  x.fillText('PLEXIDESK SCANNED INVOICE', 90, 200)
+  x.fillText('PLEXIIDESK SCANNED INVOICE', 90, 200)
   x.font = '36px Helvetica'
   x.fillText('Reference number 84210', 90, 300)
 
@@ -70,7 +70,7 @@ async function textLayerPdfHex(): Promise<string> {
 // OCR_TOKENS/scannedInvoicePdfHex) so a "does OCR still work on a SECOND call
 // in the same process" test can prove real recognition happened again, not a
 // cached/memoized result from the first call.
-const OCR_TOKENS_2 = ['PLEXIDESK', 'RECEIPT', 'ORDER', '99213']
+const OCR_TOKENS_2 = ['PLEXIIDESK', 'RECEIPT', 'ORDER', '99213']
 
 async function scannedReceiptPdfHex(): Promise<string> {
   const c = createCanvas(1240, 1754)
@@ -79,7 +79,7 @@ async function scannedReceiptPdfHex(): Promise<string> {
   x.fillRect(0, 0, 1240, 1754)
   x.fillStyle = '#111'
   x.font = '48px Helvetica'
-  x.fillText('PLEXIDESK RECEIPT', 90, 200)
+  x.fillText('PLEXIIDESK RECEIPT', 90, 200)
   x.font = '36px Helvetica'
   x.fillText('Order number 99213', 90, 300)
 

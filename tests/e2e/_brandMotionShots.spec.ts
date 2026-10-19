@@ -33,7 +33,7 @@ test('brand: onboarding + signin frames', async () => {
     }
     w.__fbOnboarding?.getState().start('core')
   })
-  const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiDesk"]')
+  const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiiDesk"]')
   const onbShown = await onb
     .waitFor({ state: 'visible', timeout: 8_000 })
     .then(() => true)

@@ -50,6 +50,14 @@ function iconFor(name, desc) {
   return 'smart_toy'
 }
 
+// The product is Plexii, also when concatenated with a sub-app name: PlexiiDesk,
+// PlexiiBrain. Some source agents predate that and say "PlexiDesk"; the
+// profiles are shown in the app, so fold the spelling here rather than in each
+// source. tests/unit/plexiiSpelling.test.ts fails on any that slip through.
+function brand(text) {
+  return text.replace(/\bPlexi(?=[A-Z])/g, 'Plexii').replace(/\bPLEXI(?=[A-HJ-Z])/g, 'PLEXII')
+}
+
 function clean(text) {
   return text
     .replace(/\*\*(.*?)\*\*/g, '$1')
@@ -92,10 +100,10 @@ for (const f of files) {
   if (blurb.length > 96) blurb = blurb.slice(0, 93).replace(/\s\S*$/, '') + '…'
   profiles.push({
     id: 'lib-' + path.basename(f, '.md'),
-    name: titleCase(name),
-    blurb,
+    name: brand(titleCase(name)),
+    blurb: brand(blurb),
     icon: iconFor(name, desc),
-    systemPrompt: persona,
+    systemPrompt: brand(persona),
     builtIn: true
   })
 }

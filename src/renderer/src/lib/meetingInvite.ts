@@ -52,13 +52,13 @@ export function composeInviteBody(input: {
   if (input.location?.trim()) lines.push(`Where: ${input.location.trim()}`)
   lines.push('')
   if (input.joinUrl?.trim()) {
-    lines.push(`Join the meeting: ${input.joinUrl.trim()}`, `Or in PlexiDesk: ${input.link}`)
+    lines.push(`Join the meeting: ${input.joinUrl.trim()}`, `Or in PlexiiDesk: ${input.link}`)
   } else if (input.location?.trim()) {
-    lines.push(`Can't be there? Join remotely in PlexiDesk: ${input.link}`)
+    lines.push(`Can't be there? Join remotely in PlexiiDesk: ${input.link}`)
   } else {
-    lines.push(`Join the meeting in PlexiDesk: ${input.link}`)
+    lines.push(`Join the meeting in PlexiiDesk: ${input.link}`)
   }
-  lines.push('', 'Open the PlexiDesk link on a device with PlexiDesk installed to join at the scheduled time.')
+  lines.push('', 'Open the PlexiiDesk link on a device with PlexiiDesk installed to join at the scheduled time.')
   return lines.join('\n')
 }
 

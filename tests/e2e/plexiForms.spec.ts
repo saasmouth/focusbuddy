@@ -190,7 +190,7 @@ test('6 — PlexiForms shows as ready in the PlexiSuite launcher', async () => {
   const { window } = launched
   await waitForReady(window)
 
-  await window.locator('button').filter({ hasText: 'PlexiSuite' }).first().click()
+  await window.locator('button').filter({ hasText: 'PlexiiSuite' }).first().click()
   await window.waitForSelector('[data-testid="plexisuite-home"]', { timeout: 8_000 })
 
   const tile = window.locator('[data-testid="product-tile-plexiforms"]')

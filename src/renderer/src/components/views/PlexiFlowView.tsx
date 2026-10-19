@@ -97,7 +97,7 @@ export default function PlexiFlowView(): JSX.Element {
         <div className="px-4 py-3.5 border-b border-[var(--edge-soft)]">
           <div className="flex items-center gap-2">
             <Icon name="account_tree" size={18} className="text-[rgb(var(--accent))]" filled />
-            <h1 className="fb-display text-[15px] font-bold tracking-tight">PlexiFlow</h1>
+            <h1 className="fb-display text-[15px] font-bold tracking-tight">PlexiiFlow</h1>
           </div>
           <p className="mt-0.5 text-[11.5px] text-[var(--ink-70)]">When this happens, do that.</p>
         </div>
@@ -369,7 +369,7 @@ function FlowEditor({
           <p className="mt-2 text-[11px] text-[var(--ink-50)] leading-relaxed">
             POST to{' '}
             <code className="font-mono text-[var(--ink-90)]">http://127.0.0.1:&lt;api-port&gt;/webhooks/{flow.id}</code>{' '}
-            to run this flow. The local PlexiAPI server must be on (Settings). It is bound to your machine, so an
+            to run this flow. The local PlexiiAPI server must be on (Settings). It is bound to your machine, so an
             outside service needs a tunnel to reach it.
           </p>
         )}

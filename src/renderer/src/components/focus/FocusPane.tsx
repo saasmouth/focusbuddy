@@ -43,7 +43,7 @@ export default function FocusPane({
     title = source.tab === 'add' ? 'Add' : 'AI Chat'
     glyph = source.tab === 'add' ? 'add' : 'smart_toy'
   } else if (source.kind === 'meet') {
-    title = 'PlexiMeet'
+    title = 'PlexiiMeet'
     glyph = 'videocam'
   }
 

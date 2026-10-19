@@ -354,7 +354,7 @@ export default function MessageDialog({
               <Icon name="check" size={13} className="text-[rgb(var(--accent))] shrink-0 mt-px" />
               <span>
                 {kind === 'video' ? 'Camera and mic' : 'Mic only'} — recorded on this Mac, then sent as a direct message in
-                PlexiChat. They see it when they are back.
+                PlexiiChat. They see it when they are back.
               </span>
             </div>
           </div>

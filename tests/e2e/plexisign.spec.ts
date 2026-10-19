@@ -25,7 +25,7 @@ test('PlexiSign: create → send → sign both signers → completed + certifica
   // ── 1. Navigate to PlexiSign via sidebar label ──────────────────────────────
   // Two buttons named "PlexiSign" exist (sidebar nav + product-tile on home).
   // The sidebar nav button is the first one.
-  await window.getByRole('button', { name: 'PlexiSign' }).first().click()
+  await window.getByRole('button', { name: 'PlexiiSign' }).first().click()
   const view = window.locator('[data-testid="plexisign"]')
   await expect(view).toBeVisible({ timeout: 8_000 })
 

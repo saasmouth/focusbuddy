@@ -101,7 +101,7 @@ export default function PlexiOfficeApp(): JSX.Element {
       <aside className="w-64 shrink-0 flex flex-col border-r border-[var(--edge-soft)] bg-white/70 dark:bg-stone-900/60">
         <div className="px-4 py-3 flex items-center gap-2 border-b border-[var(--edge-soft)]">
           <Icon name="auto_awesome" size={16} className="text-accent" />
-          <span className="font-semibold text-[14px]">PlexiOffice</span>
+          <span className="font-semibold text-[14px]">PlexiiOffice</span>
           <button
             onClick={() => setAskOpen(true)}
             data-testid="office-ask-btn"
@@ -158,7 +158,7 @@ export default function PlexiOfficeApp(): JSX.Element {
           <div className="flex-1 flex flex-col items-center justify-center text-center text-[var(--ink-40)]">
             <Icon name="draft" size={40} className="mb-3 text-[var(--ink-30)]" />
             <div className="text-[14px]">Pick a document, or create a new one.</div>
-            <div className="text-[12px] mt-1">Your documents sync with PlexiDesk.</div>
+            <div className="text-[12px] mt-1">Your documents sync with PlexiiDesk.</div>
           </div>
         ) : (
           <>
@@ -275,7 +275,7 @@ export default function PlexiOfficeApp(): JSX.Element {
       {/* Footer — version pill (click to check for updates) + the shared updater
           banner, mirroring PlexiDesk so updates are visible here too. */}
       <footer className="h-7 shrink-0 px-3 flex items-center gap-2 text-[11px] text-[var(--ink-50)] border-t border-[var(--edge-soft)] bg-[var(--surface-sunken)] select-none">
-        <span>PlexiOffice</span>
+        <span>PlexiiOffice</span>
         <span className="text-[var(--ink-30)]">·</span>
         <button
           type="button"

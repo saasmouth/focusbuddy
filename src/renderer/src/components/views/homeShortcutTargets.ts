@@ -160,8 +160,8 @@ export function describeShortcutTarget(t: ShortcutTarget, lookups: ShortcutLooku
     case 'section': {
       const route = QUICK_LINK_ROUTES.find((r) => r.id === t.id)
       return route
-        ? { label: route.label, caption: 'PlexiDesk', icon: route.icon, tone: route.tone, alive: true }
-        : { label: t.label || 'Missing section', caption: 'PlexiDesk', icon: 'link', tone: 'text-[var(--ink-40)]', alive: false }
+        ? { label: route.label, caption: 'PlexiiDesk', icon: route.icon, tone: route.tone, alive: true }
+        : { label: t.label || 'Missing section', caption: 'PlexiiDesk', icon: 'link', tone: 'text-[var(--ink-40)]', alive: false }
     }
     case 'desk': {
       const node = lookups.node(t.nodeId)

@@ -129,7 +129,7 @@ export default function FirstRunOnboarding(): JSX.Element | null {
     <div
       className="fb-scrim fixed inset-0 z-[240] flex items-center justify-center"
       role="dialog"
-      aria-label="Welcome to PlexiDesk"
+      aria-label="Welcome to PlexiiDesk"
       aria-modal="true"
     >
       {/* Onboarding stage: forced-dark card in every theme; hairlines are relative to the stage. */}
@@ -151,7 +151,7 @@ export default function FirstRunOnboarding(): JSX.Element | null {
             {/* Hero surface: the wordmark with the master artwork's gradient ii,
                 allowed to live-loop here — onboarding is the one celebratory door. */}
             <PlexiiMark wordmark gradient height={40} letterColor="#FFFFFF" motion="loop" className="mb-4" />
-            <h1 className="text-2xl font-semibold mb-2">Welcome to PlexiDesk</h1>
+            <h1 className="text-2xl font-semibold mb-2">Welcome to PlexiiDesk</h1>
             <p className="text-[14px] text-stone-300 leading-relaxed mb-1">
               A glass-canvas workspace where notes, pages, tables, browsers and timers live side by
               side. Describe what you need and the AI builds it onto your desk.
@@ -175,9 +175,9 @@ export default function FirstRunOnboarding(): JSX.Element | null {
           <div className="px-6 py-6">
             <h2 className="text-xl font-semibold mb-2">Turn on the AI helper (optional)</h2>
             <p className="text-[13px] text-stone-300 leading-relaxed mb-3">
-              Everything in PlexiDesk works without this step, so feel free to skip it. The AI
+              Everything in PlexiiDesk works without this step, so feel free to skip it. The AI
               features run on a personal access key from Anthropic, which keeps you in control of
-              cost and data. If someone set PlexiDesk up for you, ask them for the key; otherwise the
+              cost and data. If someone set PlexiiDesk up for you, ask them for the key; otherwise the
               link below walks you through getting one. You can always add it later in Settings.
             </p>
             <button

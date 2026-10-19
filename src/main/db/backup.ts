@@ -53,7 +53,7 @@ function timestamp(): string {
 }
 
 export function defaultExportName(): string {
-  return `PlexiDesk-backup-${timestamp()}.${BACKUP_EXT}`
+  return `PlexiiDesk-backup-${timestamp()}.${BACKUP_EXT}`
 }
 
 /** Consistent online snapshot of the live database to destPath. */
@@ -85,7 +85,7 @@ export function validateBackupFile(
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='nodes'")
       .get()
     if (!core) {
-      return { ok: false, error: 'That file is a database, but not a PlexiDesk backup.' }
+      return { ok: false, error: 'That file is a database, but not a PlexiiDesk backup.' }
     }
     return { ok: true }
   } catch (e) {

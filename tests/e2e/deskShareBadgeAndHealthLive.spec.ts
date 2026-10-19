@@ -98,7 +98,7 @@ async function dismissOnboardingOnly(window: Page): Promise<void> {
     { timeout: 10_000 }
   )
   await expect(window.locator('[data-testid="footer-sync-chip"]')).toBeVisible({ timeout: 10_000 })
-  const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiDesk"]')
+  const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiiDesk"]')
   if (await onb.isVisible().catch(() => false)) {
     await window.getByRole('button', { name: 'Get started' }).click().catch(() => {})
     await window.locator('[data-testid="onboarding-key-skip"]').click().catch(() => {})
@@ -132,7 +132,7 @@ test('shared desk carries real owner-name attribution badge + updated-while-away
     // account's owner-attribution name is honestly the email, not a
     // fabricated adjective-animal handle. That is the real, correct value
     // this test asserts the badge carries. ─────────────────────────────────
-    const dialogA = A.window.locator('[role="dialog"][aria-label="Sign in to PlexiDesk"]')
+    const dialogA = A.window.locator('[role="dialog"][aria-label="Sign in to PlexiiDesk"]')
     await expect(dialogA).toBeVisible({ timeout: 10_000 })
     await A.window.getByRole('button', { name: 'Sign up' }).click()
     await A.window.getByPlaceholder('you@example.com').fill(emailA)
@@ -153,7 +153,7 @@ test('shared desk carries real owner-name attribution badge + updated-while-away
     console.log('[BADGE] expected owner display identity (handle -> email fallback):', aDisplayIdentity)
     await expect(dialogA).not.toBeVisible({ timeout: 10_000 })
 
-    const dialogB = B.window.locator('[role="dialog"][aria-label="Sign in to PlexiDesk"]')
+    const dialogB = B.window.locator('[role="dialog"][aria-label="Sign in to PlexiiDesk"]')
     await expect(dialogB).toBeVisible({ timeout: 10_000 })
     await B.window.getByRole('button', { name: 'Sign up' }).click()
     await B.window.getByPlaceholder('you@example.com').fill(emailB)

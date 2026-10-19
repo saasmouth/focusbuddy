@@ -84,7 +84,7 @@ function UnknownKindWidget({ widget }: { widget: Widget }): JSX.Element {
         {widget.title || 'Work widget'}
       </p>
       <p className="fb-t-caption text-[var(--ink-50)]">
-        This build has no renderer for “{widget.kind}”. Update PlexiDesk to see it.
+        This build has no renderer for “{widget.kind}”. Update PlexiiDesk to see it.
       </p>
     </div>
   )

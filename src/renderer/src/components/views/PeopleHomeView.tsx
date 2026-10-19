@@ -175,14 +175,14 @@ export default function PeopleHomeView(): JSX.Element {
     emptyBody = (
       <Empty
         title="Sign in to see your team"
-        body="PlexiPeople shows everyone in your workspace, who is around, and your organisation structure."
+        body="PlexiiPeople shows everyone in your workspace, who is around, and your organisation structure."
       />
     )
   } else if (orgs.length > 0 && !orgs.some((o) => !o.personal)) {
     emptyBody = (
       <Empty
         title="Create your organisation first"
-        body="PlexiPeople maps a real organisation. Create one and invite your team, then their profiles appear here."
+        body="PlexiiPeople maps a real organisation. Create one and invite your team, then their profiles appear here."
         action={orgEnabled ? { label: 'Open Organisations', onClick: goOrg } : undefined}
       />
     )
@@ -211,7 +211,7 @@ export default function PeopleHomeView(): JSX.Element {
     <div className="h-full overflow-auto bg-[var(--surface-base)] text-[var(--ink-100)]" data-testid="people-home">
       <div className="max-w-[1100px] mx-auto px-6 py-8">
         <DashboardHeader
-          title="PlexiPeople"
+          title="PlexiiPeople"
           greeting={greeting}
           subtitle={selectedOrg ? `Your team · ${selectedOrg.name}` : 'Your team, who is around, and your organisation'}
           actions={

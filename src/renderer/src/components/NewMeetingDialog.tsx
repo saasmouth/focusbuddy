@@ -863,7 +863,7 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
                     <Icon name="check" size={13} className="text-[rgb(var(--accent))] shrink-0 mt-px" />
                     <span>
                       A Plexii Meet link is created and emailed with the invite. Anyone with the link can join in
-                      PlexiDesk, inside or outside your organisation.
+                      PlexiiDesk, inside or outside your organisation.
                     </span>
                   </div>
                 )}

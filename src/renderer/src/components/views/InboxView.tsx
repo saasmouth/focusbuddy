@@ -119,9 +119,9 @@ export default function InboxView(): JSX.Element {
       <div className="h-full flex items-center justify-center bg-[var(--surface-base)] px-6">
         <div className="text-center max-w-sm">
           <Icon name="inbox" size={32} className="text-[var(--ink-40)] mx-auto mb-3" />
-          <h1 className="fb-t-title text-[var(--ink-100)] mb-1">PlexiInbox</h1>
+          <h1 className="fb-t-title text-[var(--ink-100)] mb-1">PlexiiInbox</h1>
           <p className="fb-t-body text-[var(--ink-50)] mb-4">
-            Sign in to see your PlexiDesk notifications here, chat messages, shared folders and
+            Sign in to see your PlexiiDesk notifications here, chat messages, shared folders and
             files, and contact requests. Email is in Mail.
           </p>
           <button onClick={() => requestSignIn()} className="btn-primary mx-auto">
@@ -141,8 +141,8 @@ export default function InboxView(): JSX.Element {
     <div className="h-full overflow-auto bg-[var(--surface-base)] text-[var(--ink-100)]">
       <div className="max-w-2xl mx-auto px-6 py-6">
         <DashboardHeader
-          title="PlexiInbox"
-          subtitle="Your PlexiDesk notifications: chat, shared items, and contact requests. Email is in Mail."
+          title="PlexiiInbox"
+          subtitle="Your PlexiiDesk notifications: chat, shared items, and contact requests. Email is in Mail."
           actions={
             <button onClick={refreshAll} className="icon-btn" title="Refresh">
               <Icon name="refresh" size={16} />
@@ -153,7 +153,7 @@ export default function InboxView(): JSX.Element {
         {rows.length === 0 ? (
           <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--edge-firm)] p-10 text-center">
             <Icon name="inbox" size={26} className="text-[var(--ink-40)] mx-auto mb-2" />
-            <p className="fb-t-body text-[var(--ink-70)]">Your PlexiInbox is clear.</p>
+            <p className="fb-t-body text-[var(--ink-70)]">Your PlexiiInbox is clear.</p>
             <p className="fb-t-label text-[var(--ink-50)] mt-1">
               No new chat, shared items, or contact requests right now. Email lives in Mail.
             </p>

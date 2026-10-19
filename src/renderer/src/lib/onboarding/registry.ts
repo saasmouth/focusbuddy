@@ -48,7 +48,7 @@ export const ONBOARDING_MODULES: OnboardingModule[] = [
   {
     id: 'core',
     version: 1,
-    title: 'Welcome to PlexiDesk',
+    title: 'Welcome to PlexiiDesk',
     subtitle: 'Set up in under a minute',
     icon: 'auto_awesome',
     estSeconds: 60,

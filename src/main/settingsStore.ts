@@ -121,7 +121,7 @@ export function setSecret(name: SecretName, plaintext: string): void {
   if (!encryptionAvailable()) {
     throw new Error(
       'OS-level encryption is unavailable on this machine. ' +
-      'PlexiDesk will not store an API key in plaintext. ' +
+      'PlexiiDesk will not store an API key in plaintext. ' +
       'Try setting a keychain password (macOS) or installing libsecret (Linux).'
     )
   }

@@ -700,7 +700,7 @@ export default function MessagesView({ compact = false }: { compact?: boolean } 
           <Icon name="forum" size={32} className="text-stone-400 dark:text-stone-500 mx-auto mb-3" />
           <h1 className="text-lg font-semibold text-stone-900 dark:text-stone-100 mb-1">Messages</h1>
           <p className="text-[13px] text-stone-500 dark:text-stone-400 mb-4">
-            Sign in to message other people on PlexiDesk and share folders and tasks to work
+            Sign in to message other people on PlexiiDesk and share folders and tasks to work
             together.
           </p>
           <button onClick={() => requestSignIn()} className="btn-primary mx-auto">
@@ -728,7 +728,7 @@ export default function MessagesView({ compact = false }: { compact?: boolean } 
       setError(
         r.status === 'requested'
           ? 'Request sent — they can accept it in their inbox.'
-          : "Invite sent — they'll get an email to join PlexiDesk."
+          : "Invite sent — they'll get an email to join PlexiiDesk."
       )
       setNewHandle('')
       return
@@ -1102,7 +1102,7 @@ export default function MessagesView({ compact = false }: { compact?: boolean } 
                 <button
                   onClick={() => (compact && callTarget ? void startCall(callTarget, 'video') : goMeetings())}
                   aria-label={compact && callTarget ? `Meet with ${callTargetName}` : undefined}
-                  title={compact && callTarget ? `Meet with ${callTargetName} now — a video call` : 'Start a meeting in PlexiMeet'}
+                  title={compact && callTarget ? `Meet with ${callTargetName} now — a video call` : 'Start a meeting in PlexiiMeet'}
                   data-testid="messages-meet"
                   className={hdrBtn}
                 >

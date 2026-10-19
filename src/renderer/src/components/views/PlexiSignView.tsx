@@ -305,7 +305,7 @@ export default function PlexiSignView(): JSX.Element {
     <div className="h-full overflow-auto desk-paper no-tod p-6" data-testid="plexisign">
       <div className="max-w-6xl mx-auto">
         <DashboardHeader
-          title="PlexiSign"
+          title="PlexiiSign"
           subtitle="Send a document for signature, collect approvals in order, keep a tamper-evident trail."
           actions={
             <button onClick={() => setComposing(true)} className="inline-flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 rounded-lg bg-accent text-white" data-testid="sign-new">

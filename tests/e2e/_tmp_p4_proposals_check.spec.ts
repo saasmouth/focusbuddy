@@ -32,8 +32,8 @@ test('P4 — app boots and PlexiChat route loads with no console errors referenc
 
   await waitForReady(window)
 
-  await window.getByRole('button', { name: /^PlexiChat/ }).first().click()
-  await expect(window.getByRole('heading', { name: 'PlexiChat' })).toBeVisible({ timeout: 6_000 })
+  await window.getByRole('button', { name: /^PlexiiChat/ }).first().click()
+  await expect(window.getByRole('heading', { name: 'PlexiiChat' })).toBeVisible({ timeout: 6_000 })
 
   // Give any lazy chunk (ChatPanel/MessagesView) time to mount and settle.
   await window.waitForTimeout(1_000)

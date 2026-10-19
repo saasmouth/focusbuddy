@@ -178,7 +178,7 @@ export async function waitForReady(
   // sign-in modal (no skip button by design), the spotlight's Dismiss sat
   // underneath it, and the click spent 30s being intercepted in silence.
   const BEST_EFFORT = { timeout: 5_000 }
-  const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiDesk"]')
+  const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiiDesk"]')
   if (await onb.isVisible().catch(() => false)) {
     await window.getByRole('button', { name: 'Get started' }).click(BEST_EFFORT).catch(() => {})
     await window.locator('[data-testid="onboarding-key-skip"]').click(BEST_EFFORT).catch(() => {})

@@ -38,7 +38,7 @@ test.describe('segments', () => {
   // by the sidebar/home specs. The remaining takeover segments open via the area
   // switcher and show a side menu of app tiles.
   const SEGMENTS: { name: string; nav: string; apps: string[] }[] = [
-    { name: 'PlexiBrain', nav: 'switch-plexibrain', apps: ['ask', 'search', 'map', 'flows', 'agents', 'connect', 'api', 'insights'] }
+    { name: 'PlexiiBrain', nav: 'switch-plexibrain', apps: ['ask', 'search', 'map', 'flows', 'agents', 'connect', 'api', 'insights'] }
   ]
 
   for (const seg of SEGMENTS) {

@@ -69,12 +69,12 @@ interface OfficeApp {
 }
 
 const APPS: OfficeApp[] = [
-  { key: 'docs', label: 'PlexiDocs', blurb: 'Create documents', icon: 'description', tint: 'bg-sky-500', tone: 'text-sky-500', docType: 'doc' },
-  { key: 'sheets', label: 'PlexiSheets', blurb: 'Create spreadsheets', icon: 'table_chart', tint: 'bg-emerald-500', tone: 'text-emerald-500', docType: 'sheet' },
-  { key: 'slides', label: 'PlexiSlides', blurb: 'Create presentations', icon: 'slideshow', tint: 'bg-orange-500', tone: 'text-orange-500', docType: 'slides' },
-  { key: 'diagrams', label: 'PlexiDiagrams', blurb: 'Flowcharts and diagrams', icon: 'account_tree', tint: 'bg-violet-500', tone: 'text-violet-500', docType: 'map' },
-  { key: 'design', label: 'PlexiDesign', blurb: 'Page layout and print', icon: 'plexii:design', tint: 'bg-fuchsia-500', tone: 'text-fuchsia-500', docType: 'design' },
-  { key: 'draw', label: 'PlexiDraw', blurb: 'Vector and painting', icon: 'brush', tint: 'bg-rose-500', tone: 'text-rose-500', docType: 'draw' }
+  { key: 'docs', label: 'PlexiiDocs', blurb: 'Create documents', icon: 'description', tint: 'bg-sky-500', tone: 'text-sky-500', docType: 'doc' },
+  { key: 'sheets', label: 'PlexiiSheets', blurb: 'Create spreadsheets', icon: 'table_chart', tint: 'bg-emerald-500', tone: 'text-emerald-500', docType: 'sheet' },
+  { key: 'slides', label: 'PlexiiSlides', blurb: 'Create presentations', icon: 'slideshow', tint: 'bg-orange-500', tone: 'text-orange-500', docType: 'slides' },
+  { key: 'diagrams', label: 'PlexiiDiagrams', blurb: 'Flowcharts and diagrams', icon: 'account_tree', tint: 'bg-violet-500', tone: 'text-violet-500', docType: 'map' },
+  { key: 'design', label: 'PlexiiDesign', blurb: 'Page layout and print', icon: 'plexii:design', tint: 'bg-fuchsia-500', tone: 'text-fuchsia-500', docType: 'design' },
+  { key: 'draw', label: 'PlexiiDraw', blurb: 'Vector and painting', icon: 'brush', tint: 'bg-rose-500', tone: 'text-rose-500', docType: 'draw' }
 ]
 
 // The communication apps that now live inside PlexiOffice. Each renders its
@@ -466,7 +466,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
     return (
       <div className="h-full flex bg-[var(--surface-base)] relative">
         {menuMinimized ? (
-          <MenuRestorePill onClick={restoreMenu} label="PlexiOffice" title="Show the PlexiOffice menu" />
+          <MenuRestorePill onClick={restoreMenu} label="PlexiiOffice" title="Show the PlexiiOffice menu" />
         ) : (
           <OfficeSidebar onExit={goHome} onMinimize={minimizeMenu} />
         )}
@@ -502,7 +502,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
     return (
       <div className="h-full flex bg-[var(--surface-base)] relative">
         {menuMinimized ? (
-          <MenuRestorePill onClick={restoreMenu} label="PlexiOffice" title="Show the PlexiOffice menu" />
+          <MenuRestorePill onClick={restoreMenu} label="PlexiiOffice" title="Show the PlexiiOffice menu" />
         ) : (
           <OfficeSidebar onExit={goHome} onMinimize={minimizeMenu} />
         )}
@@ -514,7 +514,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
   return (
     <div className="h-full flex bg-[var(--surface-base)] text-[var(--ink-100)] relative">
       {menuMinimized ? (
-        <MenuRestorePill onClick={restoreMenu} label="PlexiOffice" title="Show the PlexiOffice menu" />
+        <MenuRestorePill onClick={restoreMenu} label="PlexiiOffice" title="Show the PlexiiOffice menu" />
       ) : (
         <OfficeSidebar onExit={goHome} onMinimize={minimizeMenu} />
       )}
@@ -524,8 +524,8 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
           {/* Header */}
           <div className="flex items-start gap-4 mb-5">
             <div className="min-w-0">
-              <h1 className="text-[22px] font-semibold">PlexiOffice {pageTitle(page)}</h1>
-              <p className="text-[13px] text-[var(--ink-50)]">Create, collaborate and get more done with PlexiOffice.</p>
+              <h1 className="text-[22px] font-semibold">PlexiiOffice {pageTitle(page)}</h1>
+              <p className="text-[13px] text-[var(--ink-50)]">Create, collaborate and get more done with PlexiiOffice.</p>
             </div>
             <div className="ml-auto flex items-center gap-2">
               <button
@@ -623,7 +623,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                 <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl text-violet-500" style={{ background: 'color-mix(in srgb, currentColor 12%, transparent)' }}>
                   <Icon name="video_call" size={22} />
                 </span>
-                <span className="text-[12.5px] font-medium">PlexiMeet</span>
+                <span className="text-[12.5px] font-medium">PlexiiMeet</span>
                 <span className="text-[10.5px] text-[var(--ink-50)] text-center leading-tight">Start a meeting</span>
               </button>
             )}
@@ -770,7 +770,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                   {/* Your day — real time blocks for today. No invented meetings;
                       an empty day shows an honest empty state. A Join control is
                       not shown because a time block carries no real join target. */}
-                  <RailCard title="Your day in PlexiOffice">
+                  <RailCard title="Your day in PlexiiOffice">
                     <div data-testid="office-home-day">
                       {agenda === null ? (
                         <p className="text-[11.5px] text-[var(--ink-50)]">Loading your day…</p>
@@ -856,13 +856,13 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
               </RailCard>
 
               <button
-                onClick={() => promptUpgrade('PlexiOffice Pro')}
+                onClick={() => promptUpgrade('PlexiiOffice Pro')}
                 className="w-full rounded-2xl border border-[rgb(var(--accent)/0.3)] bg-[rgb(var(--accent)/0.06)] p-4 text-left"
                 data-testid="office-upgrade"
               >
                 <div className="flex items-center gap-1.5 mb-2">
                   <Icon name="auto_awesome" size={15} className="text-[rgb(var(--accent))]" />
-                  <span className="text-[13px] font-semibold">Get more with PlexiOffice Pro</span>
+                  <span className="text-[13px] font-semibold">Get more with PlexiiOffice Pro</span>
                 </div>
                 <ul className="space-y-1 mb-3">
                   {PRO_FEATURES.map((f) => (
@@ -1219,7 +1219,7 @@ function tabLabel(t: 'all' | DocType): string {
   return t === 'all' ? 'All' : t === 'doc' ? 'Docs' : t === 'sheet' ? 'Sheets' : t === 'slides' ? 'Slides' : t === 'map' ? 'Diagrams' : t === 'design' ? 'Designs' : t === 'draw' ? 'Artwork' : t
 }
 function appLabel(t: DocType): string {
-  return t === 'doc' ? 'PlexiDocs' : t === 'sheet' ? 'PlexiSheets' : t === 'slides' ? 'PlexiSlides' : t === 'map' ? 'PlexiDiagrams' : t === 'design' ? 'PlexiDesign' : t === 'draw' ? 'PlexiDraw' : 'PlexiOffice'
+  return t === 'doc' ? 'PlexiiDocs' : t === 'sheet' ? 'PlexiiSheets' : t === 'slides' ? 'PlexiiSlides' : t === 'map' ? 'PlexiiDiagrams' : t === 'design' ? 'PlexiiDesign' : t === 'draw' ? 'PlexiiDraw' : 'PlexiiOffice'
 }
 const TEMPLATES: { id: string; label: string; docType: DocType; preview: string }[] = [
   { id: 'blank-doc', label: 'Blank document', docType: 'doc', preview: 'bg-gradient-to-br from-sky-500 to-sky-700' },
@@ -1289,10 +1289,10 @@ function OfficeSidebar({
     <aside className={FLOATING_MENU_ASIDE_SCROLL} style={FLOATING_MENU_STYLE} data-testid="office-sidebar">
       {/* Logo + app switcher */}
       <div className="flex items-center gap-2 px-4 h-14 border-b border-[var(--edge-soft)]">
-        <span className="text-[15px] font-bold tracking-[0.14em] text-[var(--ink-100)]">PLEXIOFFICE</span>
+        <span className="text-[15px] font-bold tracking-[0.14em] text-[var(--ink-100)]">PLEXIIOFFICE</span>
         <div className="ml-auto flex items-center gap-1.5">
-          <MenuMinimizeButton onClick={onMinimize} title="Minimise the PlexiOffice menu" />
-          <button onClick={onExit} className="text-[var(--ink-50)] hover:text-[var(--ink-90)]" title="Back to PlexiDesk" data-testid="office-exit">
+          <MenuMinimizeButton onClick={onMinimize} title="Minimise the PlexiiOffice menu" />
+          <button onClick={onExit} className="text-[var(--ink-50)] hover:text-[var(--ink-90)]" title="Back to PlexiiDesk" data-testid="office-exit">
             <Icon name="apps" size={18} />
           </button>
         </div>
@@ -1313,7 +1313,7 @@ function OfficeSidebar({
       <AreaAccordion />
 
       <div className="mt-auto p-3">
-        <UpgradeCard label="PlexiOffice Pro" />
+        <UpgradeCard label="PlexiiOffice Pro" />
       </div>
     </aside>
     </div>

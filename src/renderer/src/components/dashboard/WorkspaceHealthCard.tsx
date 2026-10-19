@@ -161,7 +161,7 @@ function summarisePromptInput(nodes: FbNode[], taskIds: Set<string>): string {
   return lines.join('\n')
 }
 
-const ANALYSIS_SYSTEM_PROMPT = `You are PlexiDesk's "Workspace Health" advisor. Given a snapshot of the user's folders and tasks, surface 3 to 5 SHORT insights that a calm friend would mention over coffee. Be specific, kind, and actionable. Never lecture. Never pile on. Avoid generic productivity advice.
+const ANALYSIS_SYSTEM_PROMPT = `You are PlexiiDesk's "Workspace Health" advisor. Given a snapshot of the user's folders and tasks, surface 3 to 5 SHORT insights that a calm friend would mention over coffee. Be specific, kind, and actionable. Never lecture. Never pile on. Avoid generic productivity advice.
 
 Output STRICTLY a JSON array (no surrounding prose, no markdown) where each item has:
 { "title": "one short line — the observation", "why": "1-2 lines — why this matters now", "tone": "nudge" | "flag" | "win", "nodeId": "optional 8-char id from the input list" }

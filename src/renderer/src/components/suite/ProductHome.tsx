@@ -23,7 +23,7 @@ export default function ProductHome({ productKey }: { productKey: string }): JSX
         <Icon name="help" size={28} />
         <p className="mt-2 text-[13px]">That product is not in the catalog.</p>
         <button onClick={goSuite} className="mt-3 text-[13px] text-indigo-500 hover:underline">
-          Back to PlexiSuite
+          Back to PlexiiSuite
         </button>
       </div>
     )
@@ -42,7 +42,7 @@ export default function ProductHome({ productKey }: { productKey: string }): JSX
           onClick={goSuite}
           className="inline-flex items-center gap-1 text-[12px] text-[var(--ink-70)] hover:text-[var(--ink-100)] mb-5"
         >
-          <Icon name="arrow_back" size={14} /> PlexiSuite
+          <Icon name="arrow_back" size={14} /> PlexiiSuite
         </button>
 
         {/* Hero */}

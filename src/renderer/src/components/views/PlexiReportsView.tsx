@@ -83,7 +83,7 @@ export default function PlexiReportsView(): JSX.Element {
         <div className="px-4 py-3.5 border-b border-[var(--edge-soft)]">
           <div className="flex items-center gap-2">
             <Icon name="summarize" size={18} className="text-[rgb(var(--accent))]" filled />
-            <h1 className="fb-display text-[15px] font-bold tracking-tight">PlexiReports</h1>
+            <h1 className="fb-display text-[15px] font-bold tracking-tight">PlexiiReports</h1>
           </div>
           <p className="mt-0.5 text-[11.5px] text-[var(--ink-70)]">Reports from your tables, on a schedule.</p>
         </div>
@@ -317,7 +317,7 @@ function ReportEditor({
           <span className="text-[11.5px] font-semibold uppercase tracking-wide text-[var(--ink-50)]">Source tables</span>
           <div className="mt-1.5 space-y-1 max-h-48 overflow-auto">
             {tables.length === 0 ? (
-              <p className="text-[12px] text-[var(--ink-70)]">No tables yet. Create a table in PlexiTables or on a desk, then it can feed a report.</p>
+              <p className="text-[12px] text-[var(--ink-70)]">No tables yet. Create a table in PlexiiTables or on a desk, then it can feed a report.</p>
             ) : (
               tables.map((t) => (
                 <label key={t.id} className="flex items-center gap-2 text-[12.5px] text-[var(--ink-90)] cursor-pointer">

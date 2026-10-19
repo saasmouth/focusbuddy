@@ -39,9 +39,9 @@ export default function TermsModal({ onClose }: Props): JSX.Element {
           <section>
             <h4 className="text-[var(--ink-100)] font-semibold mb-1.5">1. Local-first, with sync when you sign in</h4>
             <p>
-              PlexiDesk is local-first. Your tasks, work widgets, documents, browsing history and
+              PlexiiDesk is local-first. Your tasks, work widgets, documents, browsing history and
               preferences live on your device. If you stay signed out, nothing leaves your machine.
-              When you sign in, the features you choose to use send the data they need to PlexiDesk's
+              When you sign in, the features you choose to use send the data they need to PlexiiDesk's
               servers. Cloud sync keeps your workspace in step across your devices, and sharing,
               chat, meetings and mail exchange content with the people and services you point them
               at. You can export your data at any time, and keeping your own backups of work that
@@ -56,7 +56,7 @@ export default function TermsModal({ onClose }: Props): JSX.Element {
               <strong>Settings → AI · API keys</strong>, the assistant, AI Setup and resume features
               call Anthropic's API directly from the app. The key is encrypted with your system
               keychain and is sent only as part of those outbound requests. On a managed plan,
-              PlexiBrain requests are relayed through PlexiDesk's server to Anthropic instead. Either
+              PlexiiBrain requests are relayed through PlexiiDesk's server to Anthropic instead. Either
               way, AI requests include the workspace content needed to answer them, and you are
               responsible for the usage on your own key.
             </p>
@@ -75,7 +75,7 @@ export default function TermsModal({ onClose }: Props): JSX.Element {
             <h4 className="text-[var(--ink-100)] font-semibold mb-1.5">4. Embedded browsers and third-party sites</h4>
             <p>
               Pages you open in browser work widgets are loaded directly from the source. Their terms,
-              cookies, and tracking are governed by those sites, not PlexiDesk. Avoid logging in
+              cookies, and tracking are governed by those sites, not PlexiiDesk. Avoid logging in
               to anything you wouldn't want stored in this Electron app's profile.
             </p>
           </section>
@@ -92,7 +92,7 @@ export default function TermsModal({ onClose }: Props): JSX.Element {
           <section>
             <h4 className="text-[var(--ink-100)] font-semibold mb-1.5">6. ADHD-friendly disclaimer</h4>
             <p>
-              PlexiDesk is a productivity tool, not a medical or therapeutic device. It is not a
+              PlexiiDesk is a productivity tool, not a medical or therapeutic device. It is not a
               replacement for medication, therapy, or professional support for ADHD or executive
               dysfunction. If something here helps — great. If it doesn't — your brain isn't
               broken, this tool just isn't the right fit.

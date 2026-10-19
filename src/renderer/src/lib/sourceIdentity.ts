@@ -19,7 +19,7 @@ export interface SourceIdentity {
 }
 
 const IDENTITIES: Record<string, SourceIdentity> = {
-  knowledge: { icon: 'neurology', tone: areaTone('brain'), location: 'PlexiBrain' },
+  knowledge: { icon: 'neurology', tone: areaTone('brain'), location: 'PlexiiBrain' },
   doc: { icon: 'description', tone: areaTone('office'), location: 'Documents' },
   slides: { icon: 'slideshow', tone: areaTone('office'), location: 'Documents' },
   sheet: { icon: 'table_chart', tone: areaTone('office'), location: 'Documents' },
@@ -44,7 +44,7 @@ const IDENTITIES: Record<string, SourceIdentity> = {
   chat: { icon: 'forum', tone: areaTone('home'), location: 'Plexii chats' },
   // Meeting transcripts (M4, SPEC-003 P4). They live in PlexiMeet, an Office
   // surface, so colour answers WHERE with the office tone.
-  meeting: { icon: 'video_call', tone: areaTone('office'), location: 'PlexiMeet' }
+  meeting: { icon: 'video_call', tone: areaTone('office'), location: 'PlexiiMeet' }
 }
 
 export function sourceIdentity(docType: string | undefined): SourceIdentity | null {

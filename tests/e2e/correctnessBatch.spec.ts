@@ -22,11 +22,11 @@ async function openProduct(window: Page, name: string, key: string): Promise<voi
   const officeExit = window.locator('[data-testid="office-exit"]')
   if (await officeExit.isVisible().catch(() => false)) await officeExit.click()
 
-  if (name === 'PlexiMeet') {
+  if (name === 'PlexiiMeet') {
     await switchArea(window, 'office')
     await window.locator('[data-testid="office-comms-app-meet"]').click()
-  } else if (name === 'PlexiForms' || name === 'PlexiBuild') {
-    const go = name === 'PlexiForms' ? 'goForms' : 'goApps'
+  } else if (name === 'PlexiiForms' || name === 'PlexiiBuild') {
+    const go = name === 'PlexiiForms' ? 'goForms' : 'goApps'
     await window.evaluate((g) => {
       const w = window as unknown as { __fbView?: { getState: () => Record<string, () => void> } }
       w.__fbView?.getState()[g]?.()
@@ -47,7 +47,7 @@ test('1. PlexiForms: valid submit creates real row and shows form-submitted', as
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
-    await openProduct(window, 'PlexiForms', 'plexiforms')
+    await openProduct(window, 'PlexiiForms', 'plexiforms')
     await expect(window.locator('[data-testid="plexiforms-view"]')).toBeVisible({ timeout: 8000 })
 
     // Create a form
@@ -95,7 +95,7 @@ test('2. PlexiForms: submit after table deleted shows honest error, no fake succ
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
-    await openProduct(window, 'PlexiForms', 'plexiforms')
+    await openProduct(window, 'PlexiiForms', 'plexiforms')
     await expect(window.locator('[data-testid="plexiforms-view"]')).toBeVisible({ timeout: 8000 })
 
     // Create a form
@@ -145,7 +145,7 @@ test('3. PlexiSign: switching agreements does not corrupt titles (key={selected.
     // PlexiSign gates on `esign`, Pro-only since b6ad6564 (2026-07-07). These
     // tests are about the signing flow, not the price of it, so grant it.
     await grantCapability(window, 'esign')
-    await openProduct(window, 'PlexiSign', 'plexisign')
+    await openProduct(window, 'PlexiiSign', 'plexisign')
     await expect(window.locator('[data-testid="plexisign"]')).toBeVisible({ timeout: 8000 })
 
     // Create agreement A
@@ -226,7 +226,7 @@ test('4. PlexiSign: two-signer flow completes with certificate, enforces order',
     // PlexiSign gates on `esign`, Pro-only since b6ad6564 (2026-07-07). These
     // tests are about the signing flow, not the price of it, so grant it.
     await grantCapability(window, 'esign')
-    await openProduct(window, 'PlexiSign', 'plexisign')
+    await openProduct(window, 'PlexiiSign', 'plexisign')
     await expect(window.locator('[data-testid="plexisign"]')).toBeVisible({ timeout: 8000 })
 
     // Create an agreement with two signers via IPC (faster than driving the full UI)
@@ -314,18 +314,18 @@ test('6. PlexiMeet, PlexiBuild, PlexiForms: views render without getting stuck o
     await waitForReady(window)
 
     // PlexiMeet
-    await openProduct(window, 'PlexiMeet', 'pleximeet')
+    await openProduct(window, 'PlexiiMeet', 'pleximeet')
     await expect(window.locator('[data-testid="pleximeet-view"]')).toBeVisible({ timeout: 8000 })
     // Loading... should not be visible after load
     await expect(window.locator('[data-testid="pleximeet-view"]').getByText('Loading…')).not.toBeVisible({ timeout: 5000 })
 
     // PlexiBuild
-    await openProduct(window, 'PlexiBuild', 'plexibuild')
+    await openProduct(window, 'PlexiiBuild', 'plexibuild')
     await expect(window.locator('[data-testid="plexibuild-view"]')).toBeVisible({ timeout: 8000 })
     await expect(window.locator('[data-testid="plexibuild-view"]').getByText('Loading…')).not.toBeVisible({ timeout: 5000 })
 
     // PlexiForms
-    await openProduct(window, 'PlexiForms', 'plexiforms')
+    await openProduct(window, 'PlexiiForms', 'plexiforms')
     await expect(window.locator('[data-testid="plexiforms-view"]')).toBeVisible({ timeout: 8000 })
     await expect(window.locator('[data-testid="plexiforms-view"]').getByText('Loading…')).not.toBeVisible({ timeout: 5000 })
   } finally {

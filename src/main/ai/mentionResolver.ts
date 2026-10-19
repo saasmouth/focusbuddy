@@ -77,7 +77,7 @@ function label(kind: ChatMentionRef['kind']): string {
     case 'file':
       return 'file'
     case 'knowledge':
-      return 'PlexiBrain entry'
+      return 'PlexiiBrain entry'
     case 'person':
       return 'person'
   }
@@ -302,9 +302,9 @@ function resolveOne(ref: ChatMentionRef): ResolvedMention {
         return wrap(resolveFile(ref.id))
       case 'knowledge': {
         const k = getKnowledge(ref.id)
-        if (!k) return wrap({ text: null, source: null, reason: 'this PlexiBrain entry no longer exists' })
+        if (!k) return wrap({ text: null, source: null, reason: 'this PlexiiBrain entry no longer exists' })
         const text = `${k.title}\n${k.tags.join(' ')}\n${k.body}`.trim()
-        if (!text) return wrap({ text: null, source: null, reason: 'this PlexiBrain entry is empty' })
+        if (!text) return wrap({ text: null, source: null, reason: 'this PlexiiBrain entry is empty' })
         return wrap({ text, source: k.pinned ? 'pinned entry' : null, reason: null })
       }
       case 'person': {

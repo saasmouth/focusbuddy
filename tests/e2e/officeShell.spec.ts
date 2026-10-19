@@ -53,7 +53,7 @@ test.describe('PlexiOffice segment', () => {
     await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 10_000 })
     await expect(window.locator('[data-testid="office-sidebar"]')).toBeVisible()
     // Back to PlexiOffice.
-    await window.locator('button[title="Back to PlexiOffice"]').click()
+    await window.locator('button[title="Back to PlexiiOffice"]').click()
     await expect(window.locator('[data-testid="office-app-docs"]')).toBeVisible({ timeout: 8_000 })
   })
 
@@ -61,7 +61,7 @@ test.describe('PlexiOffice segment', () => {
     await window.locator('[data-testid="office-template-blank-sheet"]').click()
     // The sheet editor opens (its grid surface) inside the shell.
     await expect(window.locator('[data-testid="office-sidebar"]')).toBeVisible()
-    await window.locator('button[title="Back to PlexiOffice"]').click()
+    await window.locator('button[title="Back to PlexiiOffice"]').click()
     await expect(window.locator('[data-testid="office-app-docs"]')).toBeVisible({ timeout: 8_000 })
   })
 })

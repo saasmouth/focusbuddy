@@ -20,7 +20,7 @@ describe('sourceIdentity', () => {
   })
   it('keys documents and knowledge to their areas', () => {
     expect(sourceIdentity('doc')!.location).toBe('Documents')
-    expect(sourceIdentity('knowledge')!.location).toBe('PlexiBrain')
+    expect(sourceIdentity('knowledge')!.location).toBe('PlexiiBrain')
   })
 })
 

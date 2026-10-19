@@ -309,7 +309,7 @@ export default function App(): JSX.Element {
       // just-completed login returning focus, so it stays friction-free.
       detach = window.api.auth.onIncomingToken((handoff) => {
         void confirmDialog({
-          title: 'Sign in to PlexiDesk?',
+          title: 'Sign in to PlexiiDesk?',
           body: handoff.email
             ? `A sign-in link wants to log this app in as ${handoff.email}. Only continue if you just started this sign-in.`
             : 'A sign-in link wants to log this app in. Only continue if you just started this sign-in.',

@@ -163,7 +163,7 @@ export default function AccountSection(): JSX.Element {
       ) : (
         <div className="space-y-2.5">
           <p className="fb-t-caption text-[var(--ink-70)] leading-relaxed">
-            You are using PlexiDesk locally without an account. Sign in to sync
+            You are using PlexiiDesk locally without an account. Sign in to sync
             shared folders and tasks across devices and to apply your plan.
           </p>
           <button

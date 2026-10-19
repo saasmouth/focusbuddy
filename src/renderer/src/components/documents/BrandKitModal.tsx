@@ -49,7 +49,7 @@ export default function BrandKitModal({ onClose }: { onClose: () => void }): JSX
           </button>
         </div>
         <p className="text-[12px] text-[var(--ink-50)] mb-4">
-          Set your logo, colors and fonts once. PlexiDesign and other surfaces use them so everything looks like you.
+          Set your logo, colors and fonts once. PlexiiDesign and other surfaces use them so everything looks like you.
         </p>
 
         {/* Logo */}

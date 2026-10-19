@@ -27,7 +27,7 @@ test('1. knowledge deep-link: PlexiSearch hit opens KnowledgeView with entry sel
     const entryId: string = (entry as { id: string }).id
 
     // Open PlexiSearch via sidebar
-    await window.getByRole('button', { name: 'PlexiSearch' }).first().click()
+    await window.getByRole('button', { name: 'PlexiiSearch' }).first().click()
     await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 8_000 })
 
     // Type the distinctive title

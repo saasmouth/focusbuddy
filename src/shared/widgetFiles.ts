@@ -529,7 +529,7 @@ export function parseWidgetFileExport(text: string): WidgetFileExport | { error:
   const p = parsed as Record<string, unknown>
   const kind = (typeof p.kind === 'string' ? p.kind : null) ?? (typeof p.type === 'string' ? kindForWidgetFileType(p.type) : null)
   if (!kind || !isStandaloneWidgetKind(kind)) {
-    return { error: `This work widget type (${String(p.type ?? p.kind ?? 'unknown')}) is not supported by this version of PlexiDesk.` }
+    return { error: `This work widget type (${String(p.type ?? p.kind ?? 'unknown')}) is not supported by this version of PlexiiDesk.` }
   }
   return {
     type: typeof p.type === 'string' ? p.type : widgetFileType(kind)!.typeId,

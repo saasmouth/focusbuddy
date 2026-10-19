@@ -248,7 +248,7 @@ test('7. suite launcher: PlexiFlow tile opens the flow view', async () => {
   try {
     await waitForReady(window)
 
-    await window.getByRole('button', { name: 'PlexiSuite' }).first().click()
+    await window.getByRole('button', { name: 'PlexiiSuite' }).first().click()
     await expect(window.locator('[data-testid="plexisuite-home"]')).toBeVisible({ timeout: 8_000 })
 
     await window.locator('[data-testid="product-tile-plexiflow"]').click()

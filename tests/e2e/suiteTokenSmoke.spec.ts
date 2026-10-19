@@ -12,7 +12,7 @@ test('1. PlexiSuite home renders: hero, product tiles, no blank screen', async (
     await waitForReady(window)
 
     // Navigate to PlexiSuite home
-    await window.getByRole('button', { name: 'PlexiSuite' }).first().click()
+    await window.getByRole('button', { name: 'PlexiiSuite' }).first().click()
     await expect(window.locator('[data-testid="plexisuite-home"]')).toBeVisible({ timeout: 8000 })
 
     // Hero wordmark
@@ -31,7 +31,7 @@ test('2. Product home renders and Open button navigates to product view', async 
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
-    await window.getByRole('button', { name: 'PlexiSuite' }).first().click()
+    await window.getByRole('button', { name: 'PlexiiSuite' }).first().click()
     await expect(window.locator('[data-testid="plexisuite-home"]')).toBeVisible({ timeout: 8000 })
 
     // Click a ready product tile
@@ -54,7 +54,7 @@ test('3. Coming-soon tile renders status badge and upvote affordance', async () 
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
-    await window.getByRole('button', { name: 'PlexiSuite' }).first().click()
+    await window.getByRole('button', { name: 'PlexiiSuite' }).first().click()
     await expect(window.locator('[data-testid="plexisuite-home"]')).toBeVisible({ timeout: 8000 })
 
     // plexiops is the only planned product in the suite catalog (status: 'planned').

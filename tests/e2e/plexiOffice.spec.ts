@@ -24,7 +24,7 @@ test('PO-1 — boots into the PlexiOffice shell with new-document actions', asyn
   // the new-document actions. (Scope to the sidebar — the footer also says
   // "PlexiOffice".)
   await expect(
-    window.locator('aside').getByText('PlexiOffice', { exact: true })
+    window.locator('aside').getByText('PlexiiOffice', { exact: true })
   ).toBeVisible({ timeout: 10_000 })
   await expect(window.locator('[data-testid="office-new-doc"]')).toBeVisible()
   await expect(window.locator('[data-testid="office-new-sheet"]')).toBeVisible()
@@ -48,7 +48,7 @@ test('PO-2 — create a spreadsheet: the shared SheetEditor opens and the doc is
   await window.locator('[data-testid="cell-0-0"]').click()
   const bar = window.locator('input[placeholder*="Select a cell"]')
   await bar.click()
-  await bar.fill('hello from PlexiOffice')
+  await bar.fill('hello from PlexiiOffice')
   await window.locator('[data-testid="cell-1-0"]').click()
   await window.waitForTimeout(200)
 

@@ -151,7 +151,7 @@ export function getFull(): MailAccountConfig | null {
 export function save(config: MailAccountConfig): void {
   if (!safeStorage.isEncryptionAvailable()) {
     throw new Error(
-      'OS-level encryption is unavailable on this machine, so PlexiDesk will ' +
+      'OS-level encryption is unavailable on this machine, so PlexiiDesk will ' +
         'not store your mail password in plaintext. Set a login keychain (macOS) ' +
         'or install libsecret (Linux) and try again.'
     )

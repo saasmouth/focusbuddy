@@ -26,7 +26,7 @@ test('sidebar PlexiSearch NavRow renders plexisearch-view', async () => {
   const { window } = launched
   await waitForReady(window)
 
-  const btn = window.locator('button').filter({ hasText: 'PlexiSearch' }).first()
+  const btn = window.locator('button').filter({ hasText: 'PlexiiSearch' }).first()
   await btn.click()
   await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 6_000 })
   await expect(window.locator('[data-testid="plexisearch-input"]')).toBeVisible()
@@ -51,7 +51,7 @@ test('typing a matching query shows plexisearch-hit-* rows for a seeded task', a
   }, token)
 
   // Open PlexiSearch.
-  await window.locator('button').filter({ hasText: 'PlexiSearch' }).first().click()
+  await window.locator('button').filter({ hasText: 'PlexiiSearch' }).first().click()
   await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 6_000 })
 
   // Type the token into the search input.
@@ -89,7 +89,7 @@ test('clicking a task result row navigates to the task canvas', async () => {
   }, token)
 
   // Open PlexiSearch and type the token.
-  await window.locator('button').filter({ hasText: 'PlexiSearch' }).first().click()
+  await window.locator('button').filter({ hasText: 'PlexiiSearch' }).first().click()
   await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 6_000 })
 
   const input = window.locator('[data-testid="plexisearch-input"]')
@@ -141,7 +141,7 @@ test('clicking a knowledge result row navigates to plexibrain-view', async () =>
   }, token)
 
   // Open PlexiSearch and search.
-  await window.locator('button').filter({ hasText: 'PlexiSearch' }).first().click()
+  await window.locator('button').filter({ hasText: 'PlexiiSearch' }).first().click()
   await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 6_000 })
 
   const input = window.locator('[data-testid="plexisearch-input"]')
@@ -180,7 +180,7 @@ test('Cmd+Enter on a query renders plexisearch-answer (real answer or honest nok
   }, token)
 
   // Open PlexiSearch.
-  await window.locator('button').filter({ hasText: 'PlexiSearch' }).first().click()
+  await window.locator('button').filter({ hasText: 'PlexiiSearch' }).first().click()
   await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 6_000 })
 
   const input = window.locator('[data-testid="plexisearch-input"]')
@@ -227,7 +227,7 @@ test('clicking the Ask button renders plexisearch-answer', async () => {
     await api.knowledge.create({ title: `Budget overview ${t}`, body: 'Annual spend plan', tags: [] })
   }, token)
 
-  await window.locator('button').filter({ hasText: 'PlexiSearch' }).first().click()
+  await window.locator('button').filter({ hasText: 'PlexiiSearch' }).first().click()
   await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 6_000 })
 
   const input = window.locator('[data-testid="plexisearch-input"]')
@@ -254,7 +254,7 @@ test('PlexiSuite launcher opens PlexiSearch product home and launch button navig
   await waitForReady(window)
 
   // Open PlexiSuite home.
-  const suiteBtn = window.locator('button').filter({ hasText: 'PlexiSuite' }).first()
+  const suiteBtn = window.locator('button').filter({ hasText: 'PlexiiSuite' }).first()
   await suiteBtn.click()
   await window.waitForSelector('[data-testid="plexisuite-home"]', { timeout: 8_000 })
 

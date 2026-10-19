@@ -39,7 +39,7 @@ for (const theme of ['dark', 'atelier'] as const) {
     await window.screenshot({ path: `${OUT}/5c-mail-setup-${theme}.png` })
 
     await openComms(window, 'inbox')
-    await expect(window.getByRole('heading', { name: /^PlexiInbox$/i })).toBeVisible()
+    await expect(window.getByRole('heading', { name: /^PlexiiInbox$/i })).toBeVisible()
     await window.screenshot({ path: `${OUT}/5c-inbox-${theme}.png` })
   })
 }

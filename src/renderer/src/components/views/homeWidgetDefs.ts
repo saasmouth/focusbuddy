@@ -163,7 +163,7 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
   { id: 'new-desk', name: 'New desk', blurb: 'A fresh desk, one tap, straight in', icon: 'desk', tint: 'bg-teal-500/10 text-teal-500', category: 'Actions', defaultCol: 'rail', sizes: ['icon'], defaultSize: 'icon' },
   { id: 'discover', name: 'Discover', blurb: 'Start from any idea and let Plexii guide it into a desk', icon: 'plexii:discover', tint: 'bg-indigo-500/10 text-indigo-500', category: 'Actions', defaultCol: 'rail', sizes: ['icon'], defaultSize: 'icon' },
   // Communication
-  { id: 'new-meeting', name: 'New meeting', blurb: 'Start or schedule a PlexiMeet and invite anyone', icon: 'plexii:meet', tint: 'bg-rose-500/10 text-rose-500', category: 'Communication', defaultCol: 'rail', sizes: ['icon', 'md'], defaultSize: 'icon' },
+  { id: 'new-meeting', name: 'New meeting', blurb: 'Start or schedule a PlexiiMeet and invite anyone', icon: 'plexii:meet', tint: 'bg-rose-500/10 text-rose-500', category: 'Communication', defaultCol: 'rail', sizes: ['icon', 'md'], defaultSize: 'icon' },
   { id: 'pinned-conversation', name: 'Pinned conversation', blurb: 'One person or chat, unread count and one click away', icon: 'plexii:chat', tint: 'bg-sky-500/10 text-sky-500', category: 'Communication', multi: true, config: 'conversation', defaultCol: 'rail', sizes: ['sm', 'md'], defaultSize: 'sm' },
   { id: 'transcribe', name: 'Transcribe', blurb: 'Record and transcribe, then keep it where it belongs', icon: 'plexii:mic', tint: 'bg-violet-500/10 text-violet-500', category: 'Communication', defaultCol: 'rail', sizes: ['icon', 'md'], defaultSize: 'icon' },
   // Smart

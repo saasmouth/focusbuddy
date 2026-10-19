@@ -231,7 +231,7 @@ export default function VoiceRecorderWidget({ widget, inline = false }: Props): 
       setErrorMsg(
         captureMode === 'video'
           ? `Camera + microphone access denied or unavailable: ${msg}. ` +
-              `On macOS: System Settings → Privacy & Security → Camera + Microphone → make sure PlexiDesk is allowed.`
+              `On macOS: System Settings → Privacy & Security → Camera + Microphone → make sure PlexiiDesk is allowed.`
           : `Microphone access denied or unavailable: ${msg}`
       )
     }
@@ -335,7 +335,7 @@ export default function VoiceRecorderWidget({ widget, inline = false }: Props): 
       setPhase('error')
       setErrorMsg(
         `Transcription unavailable: ${err instanceof Error ? err.message : String(err)}. ` +
-          'If this is the first time you\'ve seen it, quit PlexiDesk (⌘Q) and reopen — ' +
+          'If this is the first time you\'ve seen it, quit PlexiiDesk (⌘Q) and reopen — ' +
           'the renderer is running new code that the main process hasn\'t loaded yet.'
       )
       setErrorReason('unknown')

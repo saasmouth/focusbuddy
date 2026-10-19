@@ -83,7 +83,7 @@ test('fresh profile: cloud-docs sync default-on pushes a personal doc; opt-out t
   )
 
   // Dismiss first-run onboarding (fresh test DB triggers it).
-  const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiDesk"]')
+  const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiiDesk"]')
   if (await onb.isVisible().catch(() => false)) {
     await window.getByRole('button', { name: 'Get started' }).click().catch(() => {})
     await window.locator('[data-testid="onboarding-key-skip"]').click().catch(() => {})
@@ -96,7 +96,7 @@ test('fresh profile: cloud-docs sync default-on pushes a personal doc; opt-out t
   expect(storedFlagBeforeSignIn, 'fresh profile has no stored clouddocs flag').toBeNull()
 
   // ── Sign up through the real Sign-in modal UI. ──
-  const dialog = window.locator('[role="dialog"][aria-label="Sign in to PlexiDesk"]')
+  const dialog = window.locator('[role="dialog"][aria-label="Sign in to PlexiiDesk"]')
   await expect(dialog).toBeVisible({ timeout: 8_000 })
   await dialog.getByRole('button', { name: 'Sign up' }).click()
 
@@ -116,7 +116,7 @@ test('fresh profile: cloud-docs sync default-on pushes a personal doc; opt-out t
   // rail has a real "New document" button wired to the same
   // useDocumentsStore().createBlank() the standalone PlexiOffice app uses.
   await window.getByRole('button', { name: 'Office', exact: true }).click()
-  await expect(window.getByRole('heading', { name: 'PlexiOffice Home' })).toBeVisible({ timeout: 8_000 })
+  await expect(window.getByRole('heading', { name: 'PlexiiOffice Home' })).toBeVisible({ timeout: 8_000 })
   await window.locator('[data-testid="office-qa-doc"]').click()
 
   // The doc editor opens; wait for the debounced save + cloud push cycle
@@ -148,8 +148,8 @@ test('fresh profile: cloud-docs sync default-on pushes a personal doc; opt-out t
   expect(docsAfterDefault.some((d) => d.title === 'Untitled document'), `default-on: doc pushed to /documents (saw: ${JSON.stringify(docsAfterDefault)})`).toBe(true)
 
   // ── Back to PlexiOffice Home, then go to Settings and untick the sync toggle. ──
-  await window.getByRole('button', { name: 'Back to PlexiOffice' }).click()
-  await expect(window.getByRole('heading', { name: 'PlexiOffice Home' })).toBeVisible({ timeout: 8_000 })
+  await window.getByRole('button', { name: 'Back to PlexiiOffice' }).click()
+  await expect(window.getByRole('heading', { name: 'PlexiiOffice Home' })).toBeVisible({ timeout: 8_000 })
   const settingsBtn = window.getByRole('button', { name: /appearance settings/i })
   await expect(settingsBtn).toBeVisible({ timeout: 5_000 })
   await settingsBtn.click()
@@ -172,7 +172,7 @@ test('fresh profile: cloud-docs sync default-on pushes a personal doc; opt-out t
   expect(storedFlagAfterOptOut, 'opting out stores an explicit 0').toBe('0')
 
   // ── Create a second document; it must NOT reach the server. ──
-  await expect(window.getByRole('heading', { name: 'PlexiOffice Home' })).toBeVisible({ timeout: 8_000 })
+  await expect(window.getByRole('heading', { name: 'PlexiiOffice Home' })).toBeVisible({ timeout: 8_000 })
   await window.locator('[data-testid="office-qa-sheet"]').click()
   await window.waitForTimeout(1500)
 

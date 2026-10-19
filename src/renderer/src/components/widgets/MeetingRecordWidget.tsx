@@ -75,7 +75,7 @@ export default function MeetingRecordWidget({ widget }: { widget: Widget }): JSX
             onClick={() => openMeeting()}
             className="text-[11px] text-[var(--ink-50)] hover:text-[var(--ink-100)] fb-press shrink-0"
             data-testid="record-widget-open"
-            title="Open this meeting in PlexiMeet"
+            title="Open this meeting in PlexiiMeet"
           >
             Open →
           </button>

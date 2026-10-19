@@ -225,7 +225,7 @@ export default function DrawStudioMenuBar({ actions: a }: { actions: DrawStudioA
     {
       id: 'help',
       label: 'Help',
-      build: () => [{ kind: 'item', label: 'How PlexiDraw works', icon: 'help', run: () => setHelpOpen(true) }]
+      build: () => [{ kind: 'item', label: 'How PlexiiDraw works', icon: 'help', run: () => setHelpOpen(true) }]
     }
   ]
 
@@ -283,10 +283,10 @@ export default function DrawStudioMenuBar({ actions: a }: { actions: DrawStudioA
         </MenuModal>
       )}
       {helpOpen && (
-        <MenuModal title="How PlexiDraw works" onClose={() => setHelpOpen(false)}>
+        <MenuModal title="How PlexiiDraw works" onClose={() => setHelpOpen(false)}>
           <div className="space-y-2.5 text-[13px] text-[var(--ink-70)]">
             <p>
-              PlexiDraw holds vector shapes and painted pixels in one stack. A <strong>vector layer</strong> takes the pen, pencil, shape and type tools; a{' '}
+              PlexiiDraw holds vector shapes and painted pixels in one stack. A <strong>vector layer</strong> takes the pen, pencil, shape and type tools; a{' '}
               <strong>paint layer</strong> takes the brush, eraser and paint bucket. Add either from the Layer menu or the two buttons above the layers list.
             </p>
             <ul className="space-y-1 list-disc pl-4">

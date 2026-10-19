@@ -186,7 +186,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
         // button is hidden then, so there was no way to "continue" at all.
         setServerUnreachable(true)
         setError(
-          'Could not reach the PlexiDesk server. Your desks are on this machine, so you can carry on offline and sign in when it is back.'
+          'Could not reach the PlexiiDesk server. Your desks are on this machine, so you can carry on offline and sign in when it is back.'
         )
         return
       }
@@ -214,7 +214,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
       className="fb-scrim fixed inset-0 z-[280] flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Sign in to PlexiDesk"
+      aria-label="Sign in to PlexiiDesk"
     >
       <div ref={formRef}
         className="w-full max-w-md rounded-2xl p-6 fb-glass-chrome border border-white/[0.08] shadow-2xl"
