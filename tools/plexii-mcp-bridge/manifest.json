@@ -1,0 +1,291 @@
+{
+  "manifest_version": "0.2",
+  "name": "plexii",
+  "display_name": "Plexii",
+  "version": "1.0.0",
+  "description": "Search, read and add to your local Plexii workspace from Claude Desktop.",
+  "long_description": "Connects Claude Desktop to the Plexii running on this machine. Search and read desks, work items, documents, tables, knowledge, the calendar and meeting transcripts; with a write token, also add work items, desks, knowledge, documents, table rows and time blocks. Nothing on the surface deletes, sends or reaches outside the machine. Plexii must be running with PlexiiAPI turned on.",
+  "author": {
+    "name": "Plexii"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server/index.js"
+      ],
+      "env": {
+        "PLEXII_MCP_URL": "${user_config.api_url}",
+        "PLEXII_API_TOKEN": "${user_config.api_token}"
+      }
+    }
+  },
+  "user_config": {
+    "api_url": {
+      "type": "string",
+      "title": "Plexii MCP URL",
+      "description": "The local PlexiiAPI endpoint. Loopback only — a non-loopback host is refused at startup.",
+      "default": "http://127.0.0.1:8787/mcp",
+      "required": true
+    },
+    "api_token": {
+      "type": "string",
+      "title": "PlexiiAPI token",
+      "description": "From Plexii → PlexiiBrain → APIs. A read token searches and reads; a write token can also add things.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "tools": [
+    {
+      "name": "plexii_search",
+      "description": "Search the workspace"
+    },
+    {
+      "name": "plexii_list_desks",
+      "description": "List desks"
+    },
+    {
+      "name": "plexii_read_desk",
+      "description": "Read a desk"
+    },
+    {
+      "name": "plexii_list_work_items",
+      "description": "List work items"
+    },
+    {
+      "name": "plexii_get_work_item",
+      "description": "Read a work item"
+    },
+    {
+      "name": "plexii_list_documents",
+      "description": "List documents"
+    },
+    {
+      "name": "plexii_read_document",
+      "description": "Read a document"
+    },
+    {
+      "name": "plexii_list_tables",
+      "description": "List tables"
+    },
+    {
+      "name": "plexii_table_rows",
+      "description": "Read table rows"
+    },
+    {
+      "name": "plexii_list_knowledge",
+      "description": "List knowledge"
+    },
+    {
+      "name": "plexii_list_templates",
+      "description": "List templates"
+    },
+    {
+      "name": "plexii_list_wires",
+      "description": "List wires on a desk"
+    },
+    {
+      "name": "plexii_list_meetings",
+      "description": "List meetings"
+    },
+    {
+      "name": "plexii_list_reports",
+      "description": "List reports"
+    },
+    {
+      "name": "plexii_list_decisions",
+      "description": "List decisions"
+    },
+    {
+      "name": "plexii_list_forms",
+      "description": "List forms"
+    },
+    {
+      "name": "plexii_list_projects",
+      "description": "List projects"
+    },
+    {
+      "name": "plexii_list_contacts",
+      "description": "List contacts"
+    },
+    {
+      "name": "plexii_list_mail",
+      "description": "List inbox"
+    },
+    {
+      "name": "plexii_read_mail",
+      "description": "Read an email"
+    },
+    {
+      "name": "plexii_list_files",
+      "description": "List files"
+    },
+    {
+      "name": "plexii_read_file",
+      "description": "Read a file"
+    },
+    {
+      "name": "plexii_calendar",
+      "description": "Read the calendar"
+    },
+    {
+      "name": "plexii_list_flows",
+      "description": "List flows"
+    },
+    {
+      "name": "recall_search",
+      "description": "Search meeting transcripts"
+    },
+    {
+      "name": "recall_meeting",
+      "description": "Read a meeting"
+    },
+    {
+      "name": "recall_recent_meetings",
+      "description": "List recent meetings"
+    },
+    {
+      "name": "plexii_create_work_item",
+      "description": "Create a work item"
+    },
+    {
+      "name": "plexii_set_work_item_state",
+      "description": "Change work item state"
+    },
+    {
+      "name": "plexii_create_desk",
+      "description": "Create a desk"
+    },
+    {
+      "name": "plexii_create_knowledge",
+      "description": "Add knowledge"
+    },
+    {
+      "name": "plexii_create_document",
+      "description": "Create a document"
+    },
+    {
+      "name": "plexii_create_widget_file",
+      "description": "Create a work widget file"
+    },
+    {
+      "name": "plexii_update_widget_file",
+      "description": "Update a widget file"
+    },
+    {
+      "name": "plexii_create_table",
+      "description": "Create a table"
+    },
+    {
+      "name": "plexii_create_widget",
+      "description": "Add a note to a desk"
+    },
+    {
+      "name": "plexii_add_table_row",
+      "description": "Add a table row"
+    },
+    {
+      "name": "plexii_create_time_block",
+      "description": "Create a time block"
+    },
+    {
+      "name": "plexii_add_table_column",
+      "description": "Add a table column"
+    },
+    {
+      "name": "plexii_update_table_column",
+      "description": "Edit a table column"
+    },
+    {
+      "name": "plexii_create_contact",
+      "description": "Add a contact"
+    },
+    {
+      "name": "plexii_update_contact",
+      "description": "Edit a contact"
+    },
+    {
+      "name": "plexii_create_wire",
+      "description": "Wire two work widgets together"
+    },
+    {
+      "name": "plexii_update_wire",
+      "description": "Edit a wire"
+    },
+    {
+      "name": "plexii_snooze_work_item",
+      "description": "Snooze a work item"
+    },
+    {
+      "name": "plexii_create_template",
+      "description": "Save a desk as a template"
+    },
+    {
+      "name": "plexii_create_flow",
+      "description": "Create a flow"
+    },
+    {
+      "name": "plexii_update_flow",
+      "description": "Edit a flow"
+    },
+    {
+      "name": "plexii_create_meeting",
+      "description": "Record a meeting"
+    },
+    {
+      "name": "plexii_create_report",
+      "description": "Create a report"
+    },
+    {
+      "name": "plexii_create_decision",
+      "description": "Record a decision"
+    },
+    {
+      "name": "plexii_create_form",
+      "description": "Create a form"
+    },
+    {
+      "name": "plexii_update_work_item",
+      "description": "Edit a work item"
+    },
+    {
+      "name": "plexii_update_document",
+      "description": "Edit a document"
+    },
+    {
+      "name": "plexii_add_table_rows",
+      "description": "Add table rows"
+    },
+    {
+      "name": "plexii_update_table_row",
+      "description": "Edit a table row"
+    },
+    {
+      "name": "plexii_update_knowledge",
+      "description": "Edit a knowledge entry"
+    },
+    {
+      "name": "plexii_update_widget",
+      "description": "Edit a work widget"
+    },
+    {
+      "name": "plexii_update_desk",
+      "description": "Edit a desk"
+    },
+    {
+      "name": "plexii_update_time_block",
+      "description": "Edit a time block"
+    },
+    {
+      "name": "plexii_draft_email",
+      "description": "Draft an email (does not send)"
+    },
+    {
+      "name": "plexii_run_flow",
+      "description": "Run a flow"
+    }
+  ]
+}

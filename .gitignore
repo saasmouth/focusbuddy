@@ -20,6 +20,11 @@ playwright-report/
 
 # Agentic-kit artifacts (live alongside the app source but are not part of the app)
 manifest.json
+# ...except the Claude Desktop extension manifest, which IS part of the app: it is
+# shipped with the MCP bridge, and tests/unit/mcpServer.test.ts pins its tool list
+# against WORKSPACE_TOOLS. Ignored, it existed only in whichever checkout last ran
+# gen-manifest.mjs, so every fresh worktree failed that test (and the pre-push hook).
+!tools/plexii-mcp-bridge/manifest.json
 brief.md
 POSITIONING.md
 COPY-PACKAGE.md

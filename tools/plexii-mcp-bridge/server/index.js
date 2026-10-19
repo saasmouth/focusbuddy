@@ -5,7 +5,7 @@
 //
 // Why this exists: Claude Desktop (and Cowork) only run LOCAL MCP servers over
 // stdio; their "remote" connectors are brokered from Anthropic's cloud and can
-// never reach 127.0.0.1. Plexii's MCP surface lives on the PlexiAPI server
+// never reach 127.0.0.1. Plexii's MCP surface lives on the PlexiiAPI server
 // bound to loopback (apiServer.ts → mcpServer.ts). This bridge is the adapter:
 // it reads newline-delimited JSON-RPC from stdin, POSTs each message to Plexii
 // with the bearer token, and writes the reply back on stdout. It has no
@@ -53,7 +53,7 @@ try {
 }
 if (target.protocol !== 'http:') fatal('Plexii is a local server: the URL must be http://, not https://.')
 if (!LOOPBACK.has(target.hostname)) fatal(`Refusing a non-loopback host (${target.hostname}). This bridge only talks to the Plexii on this machine.`)
-if (!TOKEN) fatal('PLEXII_API_TOKEN is empty. Create a token in Plexii under PlexiBrain → APIs and paste it into the extension settings.')
+if (!TOKEN) fatal('PLEXII_API_TOKEN is empty. Create a token in Plexii under PlexiiBrain → APIs and paste it into the extension settings.')
 
 /** POST one JSON-RPC payload (message or batch). Resolves {status, body}. */
 function post(payload) {
@@ -156,7 +156,7 @@ rl.on('line', (line) => {
       write(reply)
     } catch (e) {
       const reason = e && e.code === 'ECONNREFUSED'
-        ? `Plexii is not reachable at ${URL_RAW}. Is Plexii running with the API server turned on (PlexiBrain → APIs)?`
+        ? `Plexii is not reachable at ${URL_RAW}. Is Plexii running with the API server turned on (PlexiiBrain → APIs)?`
         : `Could not reach Plexii: ${e && e.message ? e.message : String(e)}`
       const err = errorsFor(payload, -32001, reason)
       if (err) write(err)

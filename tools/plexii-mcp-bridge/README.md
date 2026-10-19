@@ -20,10 +20,10 @@ Signing (`mcpb sign`) is optional for personal use and required for org-managed 
 
 Double-click `plexii.mcpb` (or drag it onto the Claude Desktop window, or Settings → Extensions → Advanced → Install Extension…). Fill in:
 
-- **Plexii MCP URL** — `http://127.0.0.1:8787/mcp` unless you changed the PlexiAPI port.
-- **PlexiAPI token** — from Plexii → PlexiBrain → APIs. `read` for search/read only; `write` to let Claude add things and run flows.
+- **Plexii MCP URL** — `http://127.0.0.1:8787/mcp` unless you changed the PlexiiAPI port.
+- **PlexiiAPI token** — from Plexii → PlexiiBrain → APIs. `read` for search/read only; `write` to let Claude add things and run flows.
 
-Plexii must be running with PlexiAPI turned on.
+Plexii must be running with PlexiiAPI turned on.
 
 ## Environment
 
@@ -35,7 +35,7 @@ Plexii must be running with PlexiAPI turned on.
 
 ## Troubleshooting
 
-- **"Plexii is not reachable"** — Plexii isn't running or the API server is off (PlexiBrain → APIs).
+- **"Plexii is not reachable"** — Plexii isn't running or the API server is off (PlexiiBrain → APIs).
 - **"Plexii rejected the token (401)"** — token revoked or mistyped; create a new one.
 - **Write tools missing** — the token is `read`-scoped; that is by design.
 - **Refusing a non-loopback host** — the URL points somewhere other than this machine; this bridge won't tunnel a token off-box.
