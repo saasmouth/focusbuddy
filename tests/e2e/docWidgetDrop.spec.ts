@@ -128,3 +128,53 @@ for (const surface of [
     expect(await count(), `no embed appeared on ${surface.name}`).toBe(before + 1)
   })
 }
+
+test('a work widget can be dropped INTO a widget on a desk', async () => {
+  // "Widget in widget." It needs no separate mechanism: a doc widget on a
+  // desk renders the same DocEditor a full-pane document does, so the drop
+  // handler added for documents serves nesting too. Worth a test precisely
+  // BECAUSE it is emergent — nothing names this case, so nothing would fail
+  // if a future change broke it.
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+
+  const ids = await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Nesting' })
+    const doc = await api.documents.create({ docType: 'doc', title: 'Inner doc' } as never)
+    const w = await api.widgets.create({
+      taskId: task.id, kind: 'doc', content: (doc as { id: string }).id,
+      x: 80, y: 80, width: 900, height: 600
+    } as never)
+    return { taskId: task.id, widgetId: (w as { id: string }).id }
+  })
+  await window.reload()
+  await waitForReady(window)
+  await window.evaluate((id) => {
+    const v = (window as unknown as { __fbView?: { getState: () => { goTask: (i: string) => void } } }).__fbView
+    v?.getState().goTask(id)
+  }, ids.taskId)
+  await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 15_000 })
+  await window.waitForSelector('.ProseMirror', { timeout: 15_000 })
+  await window.waitForTimeout(1200)
+
+  const inner = (): Promise<number> =>
+    window.evaluate(
+      () => document.querySelector('.ProseMirror')?.querySelectorAll('[data-testid^="widget-embed"]').length ?? 0
+    )
+  const before = await inner()
+
+  await window.evaluate(() => {
+    const el = document.querySelector('.ProseMirror') as HTMLElement
+    const r = el.getBoundingClientRect()
+    const dt = new DataTransfer()
+    dt.setData('application/x-plexii-widget-new-file', 'sticky')
+    const at = { clientX: Math.round(r.left + 30), clientY: Math.round(r.top + 20), dataTransfer: dt, bubbles: true, cancelable: true }
+    el.dispatchEvent(new DragEvent('dragover', at))
+    el.dispatchEvent(new DragEvent('drop', at))
+  })
+  await window.waitForTimeout(1800)
+
+  expect(await inner(), 'no widget nested inside the widget').toBe(before + 1)
+})

@@ -13,6 +13,8 @@ import type { FieldDefinition, TableSchema } from '@shared/fields'
 import { defaultConfig, defaultValue } from '@shared/fields'
 import { useNodeStore } from '../stores/nodes'
 import { useWidgetStore } from '../stores/widgets'
+import { resolveWidgetTarget } from './widgetTarget'
+import { widgetFileIdFromGroup } from '@shared/widgetFiles'
 import { useWidgetSetup } from '../stores/widgetSetup'
 import { WIDGET_AI } from './widgetAiFamilies'
 import { useFocusSessionStore } from '../stores/focusSession'
@@ -654,7 +656,11 @@ async function applyGenerateDocument(
 
   // Populate an existing output widget in place: regenerate its backing doc body.
   if (p.widgetId) {
-    const widget = useWidgetStore.getState().widgets.find((w) => w.id === p.widgetId)
+    // Resolved the same way as every other widget action, so an output
+    // widget embedded in a document or living in Files can be filled too —
+    // not only one on the desk in front of the assistant.
+    const resolvedOut = await resolveWidgetTarget(p.widgetId)
+    const widget = resolvedOut?.widget
     const docId = widget?.content
     if (!widget || !docId) {
       return { ok: false, message: 'Could not find that work widget to fill.' }
@@ -1067,10 +1073,15 @@ async function applyCreateWorkItem(
 async function applyAskWidgetAi(
   p: Extract<ActionProposal, { kind: 'ask-widget-ai' }>
 ): Promise<ApplyResult> {
-  const target = useWidgetStore.getState().widgets.find((w) => w.id === p.widgetId)
-  if (!target) {
+  // Resolves a desk widget, a `wf:` pane id or a widget-file documentId, so
+  // the assistant can act on a work widget that is embedded in a document or
+  // sitting in Files with no desk at all — not only on the desk in front of
+  // it. See lib/widgetTarget.
+  const resolved = await resolveWidgetTarget(p.widgetId)
+  if (!resolved) {
     return { ok: false, message: `No work widget found with id ${p.widgetId.slice(0, 8)}\u2026` }
   }
+  const target = resolved.widget
   const entry = WIDGET_AI[target.kind]
   if (!entry) {
     // Every catalogue kind is registered, so this is a kind from a newer build
@@ -1090,11 +1101,15 @@ async function applyAskWidgetAi(
 async function applyUpdateWidget(
   p: Extract<ActionProposal, { kind: 'update-widget' }>
 ): Promise<ApplyResult> {
-  const widgets = useWidgetStore.getState().widgets
-  const target = widgets.find((w) => w.id === p.widgetId)
-  if (!target) {
+  // A desk widget, a `wf:` pane id, or a widget-file documentId — see
+  // lib/widgetTarget. Without this the assistant can only reach widgets on
+  // the desk in front of it, and says "no work widget found" about one that
+  // is embedded in a document or sitting in Files.
+  const resolved = await resolveWidgetTarget(p.widgetId)
+  if (!resolved) {
     return { ok: false, message: `No work widget found with id ${p.widgetId.slice(0, 8)}…` }
   }
+  const target = resolved.widget
   const patch: WidgetPatch = {}
   if (p.title !== undefined) patch.title = p.title
   if (p.content !== undefined) {
@@ -1165,10 +1180,21 @@ async function applyLinkWidgets(
 async function applyFocusWidget(
   p: Extract<ActionProposal, { kind: 'focus-widget' }>
 ): Promise<ApplyResult> {
-  const widgets = useWidgetStore.getState().widgets
-  const target = widgets.find((w) => w.id === p.widgetId)
-  if (!target) {
+  // A desk widget, a `wf:` pane id, or a widget-file documentId — see
+  // lib/widgetTarget. Without this the assistant can only reach widgets on
+  // the desk in front of it, and says "no work widget found" about one that
+  // is embedded in a document or sitting in Files.
+  const resolved = await resolveWidgetTarget(p.widgetId)
+  if (!resolved) {
     return { ok: false, message: `No work widget found with id ${p.widgetId.slice(0, 8)}…` }
+  }
+  // A FILE HAS NO PLACE ON THIS CANVAS, so "focus" cannot mean bringToFront
+  // and focusOn — those move the desk camera to a widget that is not on it.
+  // Opening the work widget full-pane is the honest equivalent, and it is
+  // what the user asked for: show me that widget.
+  if (resolved.isFile) {
+    useViewStore.getState().goDocument(widgetFileIdFromGroup(resolved.writeId) ?? p.widgetId)
+    return { ok: true, message: `Opened ${p.label}` }
   }
   await useWidgetStore.getState().bringToFront(p.widgetId)
   useWidgetStore.getState().setActive(p.widgetId)
@@ -1179,10 +1205,20 @@ async function applyFocusWidget(
 async function applyDrillInWidget(
   p: Extract<ActionProposal, { kind: 'drill-in-widget' }>
 ): Promise<ApplyResult> {
-  const widgets = useWidgetStore.getState().widgets
-  const target = widgets.find((w) => w.id === p.widgetId)
-  if (!target) {
+  // A desk widget, a `wf:` pane id, or a widget-file documentId — see
+  // lib/widgetTarget. Without this the assistant can only reach widgets on
+  // the desk in front of it, and says "no work widget found" about one that
+  // is embedded in a document or sitting in Files.
+  const resolved = await resolveWidgetTarget(p.widgetId)
+  if (!resolved) {
     return { ok: false, message: `No work widget found with id ${p.widgetId.slice(0, 8)}…` }
+  }
+  // Same reasoning as focus-widget: the zoomed modal is a desk-canvas view,
+  // so a work widget with no desk opens full-pane instead of being focused
+  // on a canvas it is not on.
+  if (resolved.isFile) {
+    useViewStore.getState().goDocument(widgetFileIdFromGroup(resolved.writeId) ?? p.widgetId)
+    return { ok: true, message: `Opened ${p.label}` }
   }
   // setFocused opens the WidgetFocusMode modal (single-widget zoomed view).
   // bringToFront so the widget renders above any siblings in case the
@@ -1195,11 +1231,15 @@ async function applyDrillInWidget(
 async function applyToggleTodoItem(
   p: Extract<ActionProposal, { kind: 'toggle-todo-item' }>
 ): Promise<ApplyResult> {
-  const widgets = useWidgetStore.getState().widgets
-  const target = widgets.find((w) => w.id === p.widgetId)
-  if (!target) {
+  // A desk widget, a `wf:` pane id, or a widget-file documentId — see
+  // lib/widgetTarget. Without this the assistant can only reach widgets on
+  // the desk in front of it, and says "no work widget found" about one that
+  // is embedded in a document or sitting in Files.
+  const resolved = await resolveWidgetTarget(p.widgetId)
+  if (!resolved) {
     return { ok: false, message: `No work widget found with id ${p.widgetId.slice(0, 8)}…` }
   }
+  const target = resolved.widget
   const lines = (target.content || '').split('\n')
   const needle = p.itemMatch.trim().toLowerCase()
   // Match either Markdown task list (`- [ ] item`) or plain bullet
