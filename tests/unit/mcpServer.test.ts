@@ -340,8 +340,8 @@ describe('read tools', () => {
     // A section header and a minimap render UI, not content.
     expect(out).not.toMatch(/^## Layout/m)
     expect(out).not.toContain('(minimap')
-    expect(out).toContain('2 empty or layout-only widgets not shown')
-    expect(out).toContain('4 of 6 widgets')
+    expect(out).toContain('2 empty or layout-only work widgets not shown')
+    expect(out).toContain('4 of 6 work widgets')
   })
 
   it('plexii_read_desk is honest about an empty desk and an unknown one', async () => {
