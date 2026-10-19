@@ -45,21 +45,28 @@ clusters, and a handful of root causes account for most of it.
 
 ## The three findings that matter
 
-**1. The largest cluster is a removed route, not a broken feature.** 52
-failures wait for `plexisearch-view`. That view exists and is live — `MainPane`
-routes to it. What the tests navigate *through* is gone:
-`product-tile-plexisearch`, `product-home-plexisearch` and `open-plexisearch`
-are all absent from `src`. The product-tiles surface was removed; the tests
-still walk through it. These are stale paths, and fixing the helper they share
-should retire most of the cluster at once.
+**1. CORRECTED — the route was never removed; I measured it wrong.** This
+first claimed `product-tile-plexisearch` and friends were absent from `src`.
+They are not. Those testids are composed —
+`` data-testid={`product-tile-${product.key}`} `` — so a grep for the literal
+string found nothing and I read absence of a string as absence of a feature.
+Probed in the running app: all 28 product tiles render, PlexiSearch among
+them, and `goSearch()` opens the view.
 
-**2. A cluster of 46 is one stray navigation.** "Execution context was
-destroyed" concentrates in `webhookOutbound` (9), `automationsPanel` (7),
-`sectionChildLinkArming` (6), `uniformBodyText` (6), `wireTrustLayer` (6) —
-the wire/automation family. Something in that flow navigates mid-test. Worth
-noting a real instance of exactly this bug was found and fixed by hand this
-week: the widget-file store's `create()` navigated to the new file full-pane,
-which broke dropping onto a dashboard. The same shape, elsewhere.
+The real cause was in the tests. They click a button labelled "PlexiSuite" to
+reach a surface **the app now launches on** (`view` is `suite` at startup, and
+no such button exists), so the click waited out the timeout. The lesson is the
+method: a literal grep cannot answer "does this testid exist" where testids
+are composed, and I put the conclusion in a document people plan from.
+
+**2. RESOLVED — a cluster of 46 was a startup race in the tests, not a stray
+navigation in the app.** Those specs called `window.evaluate(...)` immediately
+after `launchApp()` with no `waitForReady` between. The renderer was still
+loading its first page, and that load tore down the execution context. Racy by
+construction: it passed for as long as startup beat the first statement, and
+began failing when startup grew — which is why it looked like a mystery rather
+than a bug. 63 specs did it. Fixed; `webhookOutbound` went 0 of 9 to 8 of 9,
+and five previously-green specs the same change touched stayed 50 of 50.
 
 **3. Only one failure is unambiguously the app being wrong**
 (`contextEngineLiveWire` — a real error thrown). That is a good sign about the
