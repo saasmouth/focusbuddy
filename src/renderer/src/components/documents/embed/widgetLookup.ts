@@ -6,6 +6,7 @@
 // the scan once and re-caches.
 
 import type { FbNode, Widget } from '@shared/types'
+import { isWidgetFilePaneId, widgetFileIdFromGroup, widgetFromFile } from '@shared/widgetFiles'
 
 export interface ResolvedWidget {
   widget: Widget
@@ -30,6 +31,22 @@ async function listDesks(): Promise<FbNode[]> {
 // not exist any more (deleted, archived, or its desk is gone) so the caller
 // can render an honest missing state rather than a fabricated one.
 export async function resolveWidget(widgetId: string): Promise<ResolvedWidget | null> {
+  // A WORK WIDGET FILE resolves directly, with no desk scan, because it has
+  // no desk — docs/widget-files.md: "A work widget is a file... A desk is
+  // only the place it lives." Its id is the `wf:<file id>` pane id, which is
+  // also what the widget store routes writes through, so an embed built from
+  // this is editable rather than a copy.
+  //
+  // Checked FIRST: a file id would never be found by the desk scan below, and
+  // falling through would render "this work widget no longer exists" about a
+  // file that is sitting in Files perfectly intact.
+  if (isWidgetFilePaneId(widgetId)) {
+    const fileId = widgetFileIdFromGroup(widgetId)
+    if (!fileId) return null
+    const file = await window.api.widgetFiles.get(fileId)
+    return file ? { widget: widgetFromFile(file), deskTitle: '' } : null
+  }
+
   const desks = await listDesks()
   const byId = new Map(desks.map((d) => [d.id, d]))
 
