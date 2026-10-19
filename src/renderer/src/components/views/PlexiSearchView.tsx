@@ -37,7 +37,7 @@ const TYPE_META: Record<
   'table-row': { icon: 'table_chart', label: 'Table', tone: 'stone' },
   widget: { icon: 'widgets', label: 'On a desk', tone: 'stone' },
   file: { icon: 'draft', label: 'File', tone: 'sky' },
-  knowledge: { icon: 'neurology', label: 'PlexiBrain', tone: 'violet' },
+  knowledge: { icon: 'neurology', label: 'PlexiiBrain', tone: 'violet' },
   event: { icon: 'calendar_month', label: 'Calendar', tone: 'sky' },
   meeting: { icon: 'video_call', label: 'Meeting', tone: 'violet' },
   sign: { icon: 'draw', label: 'Signature', tone: 'stone' },

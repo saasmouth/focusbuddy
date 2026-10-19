@@ -149,21 +149,21 @@ describe('DEC-117 — the invite email knows where the meeting is', () => {
     expect(body).toContain('Ryan has invited you to a meeting.')
     expect(body).toContain('What: Roadmap sync')
     expect(body).toContain('When: Mon, Sep 7, 8:00 PM (30 min)')
-    expect(body).toContain('Join the meeting in PlexiDesk: plexii://meet?room=r1')
+    expect(body).toContain('Join the meeting in PlexiiDesk: plexii://meet?room=r1')
     expect(body).not.toContain('Where:')
   })
 
-  it('an external link is THE join line; the Plexii room stays as the PlexiDesk door', () => {
+  it('an external link is THE join line; the Plexii room stays as the PlexiiDesk door', () => {
     const body = composeInviteBody({ ...base, joinUrl: 'https://meet.google.com/abc-defg-hij' })
     expect(body).toContain('Join the meeting: https://meet.google.com/abc-defg-hij')
-    expect(body).toContain('Or in PlexiDesk: plexii://meet?room=r1')
-    expect(body).not.toContain('Join the meeting in PlexiDesk:')
+    expect(body).toContain('Or in PlexiiDesk: plexii://meet?room=r1')
+    expect(body).not.toContain('Join the meeting in PlexiiDesk:')
   })
 
   it('an in-person meeting states the place first and keeps the remote door', () => {
     const body = composeInviteBody({ ...base, location: 'Room 4B, 12 Main St' })
     expect(body).toContain('Where: Room 4B, 12 Main St')
-    expect(body).toContain("Can't be there? Join remotely in PlexiDesk: plexii://meet?room=r1")
+    expect(body).toContain("Can't be there? Join remotely in PlexiiDesk: plexii://meet?room=r1")
   })
 
   it('a hybrid meeting carries both; blank strings count as absent; no host still reads', () => {

@@ -940,7 +940,7 @@ function AiMapPanel({
         </div>
         <p className="text-[11px] text-[var(--ink-50)]">
           Describe a process, decision flow, or structure. The model returns the steps and
-          connections; PlexiDiagrams lays them out for you.
+          connections; PlexiiDiagrams lays them out for you.
         </p>
         <textarea
           autoFocus

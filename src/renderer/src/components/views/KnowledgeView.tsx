@@ -78,7 +78,7 @@ export default function KnowledgeView(): JSX.Element {
         <div className="px-4 py-3.5 border-b border-[var(--edge-soft)]">
           <div className="flex items-center gap-2">
             <Icon name="neurology" size={18} className="text-violet-500" filled />
-            <h1 className="text-[15px] font-bold tracking-tight text-[var(--ink-100)]">PlexiBrain</h1>
+            <h1 className="text-[15px] font-bold tracking-tight text-[var(--ink-100)]">PlexiiBrain</h1>
           </div>
           <p className="mt-0.5 text-[11.5px] text-[var(--ink-70)]">
             Your company's shared memory. People and AI read from it.

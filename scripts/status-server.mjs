@@ -163,7 +163,7 @@ function installedApp() {
   if (Date.now() - installedCache.at < 20_000) return installedCache.value
   let value = null
   try {
-    const apps = readdirSync('/Applications').filter((d) => /^PlexiDesk.*\.app$/.test(d))
+    const apps = readdirSync('/Applications').filter((d) => /^Plexii?Desk.*\.app$/.test(d))
     if (apps.length > 0) {
       // Newest by mtime, which is the one a fresh install just wrote.
       const picked = apps
@@ -178,7 +178,9 @@ function installedApp() {
       ])
       const asar = join(path, 'Contents', 'Resources', 'app.asar')
       const gate = sh('/usr/sbin/spctl', ['-a', '-vvv', path])
-      const archs = sh('/usr/bin/lipo', ['-archs', join(path, 'Contents', 'MacOS', 'PlexiDesk')])
+      // The executable follows productName: PlexiiDesk from 4.3.33, PlexiDesk before.
+      const exe = sh('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleExecutable', plist]) || 'PlexiiDesk'
+      const archs = sh('/usr/bin/lipo', ['-archs', join(path, 'Contents', 'MacOS', exe)])
       value = {
         name: picked,
         version,
@@ -387,7 +389,7 @@ function activity() {
     build: running('electron-builder|dist:mac|release-env'),
     notarize: running('notarytool|altool'),
     tests: running('playwright test|vitest'),
-    app: running('PlexiDesk.*Contents/MacOS')
+    app: running('Plexii?Desk.*Contents/MacOS')
   }
 }
 
@@ -405,10 +407,10 @@ let activeJob = null
 const PUBLISH_SCRIPT = [
   'set -e',
   'V=$(node -p "require(\'./package.json\').version")',
-  'git tag -a "v$V" -m "PlexiDesk $V" 2>/dev/null || true',
+  'git tag -a "v$V" -m "PlexiiDesk $V" 2>/dev/null || true',
   'git push origin "v$V"',
   'gh release view "v$V" --repo saasmouth/focusbuddy >/dev/null 2>&1 || ' +
-    'gh release create "v$V" --repo saasmouth/focusbuddy --title "PlexiDesk $V" --notes "PlexiDesk $V"',
+    'gh release create "v$V" --repo saasmouth/focusbuddy --title "PlexiiDesk $V" --notes "PlexiiDesk $V"',
   'node scripts/release-env.mjs npm run release:mac'
 ].join('\n')
 
@@ -547,7 +549,7 @@ function snapshot() {
 const PAGE = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>PlexiDesk — what the machine is doing</title>
+<title>PlexiiDesk — what the machine is doing</title>
 <style>
   :root{color-scheme:light dark;--bg:#f6f6f7;--card:#fff;--ink:#17171a;--dim:#6b6b73;--line:#e4e4e8;--ok:#117a39;--warn:#8a5400;--bad:#b3261e;--accent:#4f46e5}
   @media (prefers-color-scheme:dark){:root{--bg:#121214;--card:#1b1b1f;--ink:#f2f2f4;--dim:#9a9aa3;--line:#2c2c32;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;--accent:#a5b4fc}}
@@ -592,7 +594,7 @@ const PAGE = `<!doctype html>
   .tabs a{font-size:12px;padding:5px 12px;border-radius:999px;border:1px solid var(--line);color:var(--ink);text-decoration:none}
   .tabs a[aria-current=page]{background:var(--accent);border-color:var(--accent);color:#fff}
 </style></head><body>
-<h1>PlexiDesk — what the machine is doing</h1>
+<h1>PlexiiDesk — what the machine is doing</h1>
 <nav class="tabs"><a href="#app" id="tab-app">App</a><a href="#website" id="tab-website">Website</a></nav>
 <div class="sub" id="sub">connecting…</div>
 <div class="grid" id="grid"></div>

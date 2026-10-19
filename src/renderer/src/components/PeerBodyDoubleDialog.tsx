@@ -299,7 +299,7 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
                   </>
                 ) : (
                   <>
-                    Development mode: matching is local to this machine (two PlexiDesk windows), text only, with
+                    Development mode: matching is local to this machine (two PlexiiDesk windows), text only, with
                     no video room.
                   </>
                 )}

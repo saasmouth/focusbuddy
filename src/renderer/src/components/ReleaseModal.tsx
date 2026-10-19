@@ -44,7 +44,7 @@ export default function ReleaseModal({ entry, onClose }: Props): JSX.Element {
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label={`What's new in PlexiDesk ${versionLabel}`}
+        aria-label={`What's new in PlexiiDesk ${versionLabel}`}
       >
         <div className="flex items-start justify-between gap-3 border-b border-[var(--edge-soft)] px-5 py-4">
           <div>

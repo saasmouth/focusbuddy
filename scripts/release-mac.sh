@@ -34,7 +34,9 @@ ZIP="${DIR}/${PREFIX}-mac-${MAC_ARCH}.zip"
 BLOCKMAP="${ZIP}.blockmap"
 DMG="${DIR}/${PREFIX}-mac-${MAC_ARCH}.dmg"
 YML="${DIR}/latest-mac.yml"
-APP="${DIR}/mac-${MAC_ARCH}/PlexiDesk.app"
+# The bundle follows productName ("PlexiiDesk" from 4.3.33); the artifact names
+# above do NOT, and must not — the feeds and the site name those files.
+APP="${DIR}/mac-${MAC_ARCH}/PlexiiDesk.app"
 
 # Refuse to upload an incomplete set — missing latest-mac.yml is the root cause
 # of the update 404s, so treat its absence as a hard error, not a warning. The
@@ -60,7 +62,7 @@ if [ "$MAC_ARCH" = "universal" ]; then
     echo "MISSING built app: $APP (needed to verify the binary is universal)" >&2
     exit 1
   fi
-  BIN="${APP}/Contents/MacOS/PlexiDesk"
+  BIN="${APP}/Contents/MacOS/PlexiiDesk"
   ARCHS="$(lipo -archs "$BIN" 2>/dev/null || true)"
   case " $ARCHS " in
     *" x86_64 "*) ;;

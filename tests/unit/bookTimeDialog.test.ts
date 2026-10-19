@@ -204,7 +204,7 @@ describe('step 4 structure — the Enter guard, autofocus, and meeting-only', ()
 
   it('the Plexi Meet copy accurately explains delivery and the desktop join path', () => {
     expect(src).toContain('After the 10-second undo window')
-    expect(src).toContain('opens PlexiDesk when Mail is connected')
+    expect(src).toContain('opens PlexiiDesk when Mail is connected')
     expect(src).not.toContain('browser — no account needed')
   })
 })

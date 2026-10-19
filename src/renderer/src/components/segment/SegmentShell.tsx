@@ -36,7 +36,7 @@ export interface SegmentApp {
 export interface SegmentDef {
   // Which segment this is, so the shell can navigate rather than remember.
   kind: SegmentKind
-  // The wordmark shown in the sidebar (e.g. "PLEXIWORK").
+  // The wordmark shown in the sidebar (e.g. "PLEXIIWORK").
   wordmark: string
   title: string
   subtitle: string
@@ -90,7 +90,7 @@ export default function SegmentShell({ def, initialApp }: { def: SegmentDef; ini
           <span className="text-[15px] font-bold tracking-[0.14em]">{def.wordmark}</span>
           <div className="ml-auto flex items-center gap-1.5">
             <MenuMinimizeButton onClick={minimize} title={`Minimise the ${def.title} menu`} />
-            <button onClick={goHome} className="text-[var(--ink-50)] hover:text-[var(--ink-90)]" title="Back to PlexiDesk" data-testid="segment-exit">
+            <button onClick={goHome} className="text-[var(--ink-50)] hover:text-[var(--ink-90)]" title="Back to PlexiiDesk" data-testid="segment-exit">
               <Icon name="apps" size={18} />
             </button>
           </div>

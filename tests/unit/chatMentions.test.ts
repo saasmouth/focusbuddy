@@ -204,7 +204,7 @@ describe('resolveMentions — real content or an honest reason, never invention'
     ['room', 'r-gone', 'this room no longer exists'],
     ['widget', 'w-gone', 'this work widget no longer exists'],
     ['file', 'f-gone', 'this file no longer exists'],
-    ['knowledge', 'k-gone', 'this PlexiBrain entry no longer exists']
+    ['knowledge', 'k-gone', 'this PlexiiBrain entry no longer exists']
   ])('a deleted %s resolves to NO text and a stated reason', (kind, id, reason) => {
     const [r] = resolveMentions([ref({ kind: kind as ChatMentionRef['kind'], id })])
     expect(r.text).toBeNull()

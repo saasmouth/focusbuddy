@@ -201,7 +201,7 @@ export default function RedesignWizard({ size, brand, measure, theme, initialCon
             <Icon name="description" size={13} /> Import .docx
           </button>
           <button onClick={() => void openDocPicker()} data-testid="design-wizard-from-doc" className="fb-btn-surface px-2 py-1 hover:border-accent inline-flex items-center gap-1">
-            <Icon name="article" size={13} /> From a PlexiDoc
+            <Icon name="article" size={13} /> From a PlexiiDoc
           </button>
           {text && (
             <button onClick={() => setText('')} className="fb-btn-surface px-2 py-1 hover:border-accent" title="Clear the text">

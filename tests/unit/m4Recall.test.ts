@@ -172,7 +172,7 @@ describe('M4 wiring pins', () => {
 
   it('a meeting citation routes: target, identity, and the door out of the panel', () => {
     expect(sourceTarget).toContain("if (type === 'meeting') return { kind: 'meeting', meetingId: id }")
-    expect(sourceIdentity).toContain("meeting: { icon: 'video_call', tone: areaTone('office'), location: 'PlexiMeet' }")
+    expect(sourceIdentity).toContain("meeting: { icon: 'video_call', tone: areaTone('office'), location: 'PlexiiMeet' }")
     expect(refRouter).toContain("case 'meeting':")
     expect(refRouter).toContain("new CustomEvent('fb:open-meeting', { detail: { id: target.meetingId } })")
     // And the panel still reaches it: a citation click must end up in the

@@ -320,7 +320,7 @@ test('capture brochure screenshots (UI-driven, honest content)', async () => {
     await window.waitForTimeout(600)
     const officeLocked = await isAreaLocked(window, 'office')
     if (officeLocked) {
-      officeShotResult = 'SKIPPED — PlexiOffice area is entitlement-gated (data-locked=true) in this test env'
+      officeShotResult = 'SKIPPED — PlexiiOffice area is entitlement-gated (data-locked=true) in this test env'
     } else {
       const docRow = window.locator(`[data-testid="office-recent-row-${docSeed.docId}"]`)
       const docRowVisible = await docRow.isVisible({ timeout: 5_000 }).catch(() => false)
@@ -336,12 +336,12 @@ test('capture brochure screenshots (UI-driven, honest content)', async () => {
         await expect(window.locator('[data-testid="doc-toolbar"]')).toBeVisible({ timeout: 5_000 }).catch(() => {})
         await window.waitForTimeout(600)
         await window.screenshot({ path: outPath('shot-office.png'), fullPage: false })
-        officeShotResult = 'SAVED — PlexiDocs editor open on "Q3 Launch — Product Brief" (real heading + 2 paragraphs), formatting toolbar visible'
+        officeShotResult = 'SAVED — PlexiiDocs editor open on "Q3 Launch — Product Brief" (real heading + 2 paragraphs), formatting toolbar visible'
       } else {
         // Fall back to the PlexiOffice suite home with app tiles.
         await window.waitForTimeout(500)
         await window.screenshot({ path: outPath('shot-office.png'), fullPage: false })
-        officeShotResult = 'SAVED (fallback) — doc editor surface did not confirm; captured PlexiOffice home/app-tiles view instead'
+        officeShotResult = 'SAVED (fallback) — doc editor surface did not confirm; captured PlexiiOffice home/app-tiles view instead'
       }
     }
   } catch (e) {
@@ -407,7 +407,7 @@ test('capture brochure screenshots (UI-driven, honest content)', async () => {
       await window.waitForTimeout(400)
       await window.screenshot({ path: outPath('shot-chat.png'), fullPage: false })
       chatShotResult = chatVisible
-        ? 'SAVED — PlexiChat surface rendered (channel list + message pane)'
+        ? 'SAVED — PlexiiChat surface rendered (channel list + message pane)'
         : 'SAVED (best-effort) — office-comms-chat testid not confirmed but screenshotted current state'
     }
   } catch (e) {

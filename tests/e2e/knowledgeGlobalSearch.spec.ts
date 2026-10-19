@@ -155,7 +155,7 @@ test('Cmd+K palette shows PlexiBrain-labelled row for knowledge hit and navigate
     return ''
   })
 
-  expect(paletteText, 'palette must show "PlexiBrain" label for the knowledge hit').toContain('PlexiBrain')
+  expect(paletteText, 'palette must show "PlexiiBrain" label for the knowledge hit').toContain('PlexiiBrain')
   // The entry title must be visible too.
   expect(paletteText, 'palette must show the entry title').toContain('board offsite')
 

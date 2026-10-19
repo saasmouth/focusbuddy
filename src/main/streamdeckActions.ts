@@ -1,6 +1,7 @@
 import { exec, execFile } from 'child_process'
 import { app, BrowserWindow, dialog, shell, systemPreferences } from 'electron'
 import { openExternalSafe } from './safeOpenExternal'
+import { appleScriptNameList, selfProcessNames } from './selfProcessName'
 import { promisify } from 'util'
 import type {
   KeyComboAction,
@@ -72,18 +73,17 @@ export interface ExecuteResult {
 // stole focus. Updated on every browser-window-focus.
 let previousFrontmostApp: string | null = null
 
-function getOurBundleName(): string {
-  // The macOS process name PlexiDesk presents as. In dev this is
-  // "Electron"; in a packaged release it's the productName from the
-  // electron-builder config (usually "PlexiDesk"). app.name is the
-  // canonical answer for both.
-  return app.name || 'PlexiDesk'
+function getOurProcessNames(): string[] {
+  // The macOS process names PlexiiDesk may present as: the executable's own
+  // name (productName, "PlexiiDesk"), app.name ("plexii") and "Electron" in
+  // dev. app.name alone never matched a packaged build — see selfProcessName.ts.
+  return selfProcessNames(process.execPath, app.name)
 }
 
 async function getFrontmostNonSelf(): Promise<string | null> {
   if (!isMac) return null
   try {
-    const ours = getOurBundleName()
+    const ours = appleScriptNameList(getOurProcessNames())
     // List visible processes ordered by recently-active. The first
     // process that isn't us is what the user was last working in.
     const script = `tell application "System Events"
@@ -91,7 +91,7 @@ async function getFrontmostNonSelf(): Promise<string | null> {
       set targetName to ""
       repeat with p in procs
         set n to name of p
-        if n is not "${ours}" and n is not "Electron" then
+        if n is not in ${ours} then
           set targetName to n
           exit repeat
         end if
@@ -181,8 +181,8 @@ function accessibilityPromptError(): ExecuteResult {
   return {
     ok: false,
     error:
-      'PlexiDesk needs Accessibility permission to send keystrokes. ' +
-      'Open System Settings → Privacy & Security → Accessibility and toggle PlexiDesk on.',
+      'PlexiiDesk needs Accessibility permission to send keystrokes. ' +
+      'Open System Settings → Privacy & Security → Accessibility and toggle PlexiiDesk on.',
     needsAccessibility: true
   }
 }

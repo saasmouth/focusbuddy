@@ -70,7 +70,7 @@ async function dismissOnboarding(window: Page): Promise<void> {
     timeout: 10_000
   })
   await expect(window.locator('[data-testid="footer-sync-chip"]')).toBeVisible({ timeout: 10_000 })
-  const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiDesk"]')
+  const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiiDesk"]')
   if (await onb.isVisible().catch(() => false)) {
     await window.getByRole('button', { name: 'Get started' }).click().catch(() => {})
     await window.locator('[data-testid="onboarding-key-skip"]').click().catch(() => {})
@@ -80,7 +80,7 @@ async function dismissOnboarding(window: Page): Promise<void> {
 }
 
 async function signUp(window: Page, email: string, password: string): Promise<void> {
-  const d = window.locator('[role="dialog"][aria-label="Sign in to PlexiDesk"]')
+  const d = window.locator('[role="dialog"][aria-label="Sign in to PlexiiDesk"]')
   await expect(d).toBeVisible({ timeout: 10_000 })
   await window.getByRole('button', { name: 'Sign up' }).click()
   await window.getByPlaceholder('you@example.com').fill(email)

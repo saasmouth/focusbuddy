@@ -136,7 +136,7 @@ test('capture marketing screenshots batch 2 (UI-driven, honest content)', async 
     await expect(window.locator('[data-testid="office-app-sheets"]')).toBeVisible({ timeout: 8_000 })
     await window.waitForTimeout(500)
     await window.screenshot({ path: outPath('shot-suite.png'), fullPage: false })
-    results.suite = 'SAVED — PlexiOffice home: Desk/Office/People/Brain switcher + app tiles (Docs, Sheets, Slides, Draw, Design, Meet)'
+    results.suite = 'SAVED — PlexiiOffice home: Desk/Office/People/Brain switcher + app tiles (Docs, Sheets, Slides, Draw, Design, Meet)'
   } catch (e) {
     results.suite = `SKIPPED — error: ${String(e)}`
   }
@@ -157,7 +157,7 @@ test('capture marketing screenshots batch 2 (UI-driven, honest content)', async 
     await window.locator('[data-testid="cell-4-1"]').click().catch(() => {})
     await window.waitForTimeout(400)
     await window.screenshot({ path: outPath('shot-sheet.png'), fullPage: false })
-    results.sheet = 'SAVED — PlexiSheets "Marketing Budget": 4 channel rows + live-formula Total row, formula bar + toolbar visible'
+    results.sheet = 'SAVED — PlexiiSheets "Marketing Budget": 4 channel rows + live-formula Total row, formula bar + toolbar visible'
   } catch (e) {
     results.sheet = `SKIPPED — error: ${String(e)}`
   }
@@ -269,7 +269,7 @@ test('capture marketing screenshots batch 2 (UI-driven, honest content)', async 
       await chatTile.click()
       await window.waitForTimeout(800)
       await window.screenshot({ path: outPath('shot-chat.png'), fullPage: false })
-      results.chat = 'SAVED — PlexiChat surface rendered'
+      results.chat = 'SAVED — PlexiiChat surface rendered'
     }
   } catch (e) {
     results.chat = `SKIPPED — error: ${String(e)}`

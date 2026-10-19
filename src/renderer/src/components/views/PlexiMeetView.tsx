@@ -361,7 +361,7 @@ export default function PlexiMeetView(): JSX.Element {
               <Icon name="groups" size={22} filled />
             </span>
             <div className="min-w-0">
-              <h1 className="fb-display-hero text-[24px] leading-tight text-[var(--ink-100)]">PlexiMeet</h1>
+              <h1 className="fb-display-hero text-[24px] leading-tight text-[var(--ink-100)]">PlexiiMeet</h1>
               <p className="mt-1 text-[13px] text-[var(--ink-50)]">Meetings that turn into actions.</p>
             </div>
           </div>

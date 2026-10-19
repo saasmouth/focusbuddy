@@ -247,7 +247,7 @@ export function mentionKindLabel(kind: MentionKind | 'capture'): string {
     case 'file':
       return 'File'
     case 'knowledge':
-      return 'PlexiBrain'
+      return 'PlexiiBrain'
     case 'person':
       return 'Person'
   }

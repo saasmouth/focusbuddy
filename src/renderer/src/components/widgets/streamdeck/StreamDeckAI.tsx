@@ -458,7 +458,7 @@ export default function StreamDeckAI({
 
       if (recentSwitches.length < 8 && log.presses.length < 5) {
         setError(
-          'Not enough activity to analyse yet. Use PlexiDesk + apps for a bit with tracking enabled, then come back.'
+          'Not enough activity to analyse yet. Use PlexiiDesk + apps for a bit with tracking enabled, then come back.'
         )
         return
       }
@@ -673,7 +673,7 @@ export default function StreamDeckAI({
                       Watch my workflow to suggest macros
                     </div>
                     <p className="text-[10px] text-stone-400 leading-snug">
-                      PlexiDesk notes the names of apps you switch between
+                      PlexiiDesk notes the names of apps you switch between
                       (every 10 seconds) and your SpeedDeck presses — locally,
                       never uploaded. Nothing else is recorded — no keystrokes,
                       no URLs, no window titles.

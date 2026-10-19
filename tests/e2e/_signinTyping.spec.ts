@@ -23,13 +23,13 @@ async function openSignIn(window: Page): Promise<void> {
     w.__fbSignInPrompt?.getState().requestOpen()
   })
   await expect(
-    window.locator('[role="dialog"][aria-label="Sign in to PlexiDesk"]')
+    window.locator('[role="dialog"][aria-label="Sign in to PlexiiDesk"]')
   ).toBeVisible({ timeout: 5_000 })
 }
 
 function pwField(window: Page) {
   return window
-    .locator('[role="dialog"][aria-label="Sign in to PlexiDesk"]')
+    .locator('[role="dialog"][aria-label="Sign in to PlexiiDesk"]')
     .locator('input[type="password"]')
     .first()
 }

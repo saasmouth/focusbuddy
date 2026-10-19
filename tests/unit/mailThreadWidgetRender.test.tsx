@@ -126,7 +126,7 @@ describe('MailThreadWidget', () => {
     )
 
     const text = host.textContent ?? ''
-    expect(text).toMatch(/not in PlexiDesk/i)
+    expect(text).toMatch(/not in PlexiiDesk/i)
     // The snapshot is the point: the card is never anonymous, so the user can see
     // WHICH email is missing rather than an unexplained blank.
     expect(text).toContain('Strata levy notice')

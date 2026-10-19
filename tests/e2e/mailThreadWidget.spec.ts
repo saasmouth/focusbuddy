@@ -79,7 +79,7 @@ test('a pinned email renders on a desk and says why it has no body', async () =>
   // it was pinned from, so the handler looks that account up in the store rather
   // than refusing because nothing is connected right now. Before that change this
   // same widget could not render at all without a live mailbox.
-  await expect(window.getByText(/not in PlexiDesk/i).first()).toBeVisible({ timeout: 15_000 })
+  await expect(window.getByText(/not in PlexiiDesk/i).first()).toBeVisible({ timeout: 15_000 })
   await expect(window.getByText('No mail account connected.')).toHaveCount(0)
   await expect(window.getByText(/It was pinned as/).first()).toBeVisible()
 

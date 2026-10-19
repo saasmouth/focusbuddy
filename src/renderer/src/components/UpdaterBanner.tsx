@@ -69,7 +69,7 @@ export default function UpdaterBanner(): JSX.Element | null {
         <button
           onClick={() => { void window.api.update.downloadAndInstall() }}
           className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-accent hover:bg-accent/10 font-medium"
-          title={`Update PlexiDesk to v${state.version} and relaunch`}
+          title={`Update PlexiiDesk to v${state.version} and relaunch`}
           data-testid="updater-download"
         >
           <Icon name="download" size={11} />

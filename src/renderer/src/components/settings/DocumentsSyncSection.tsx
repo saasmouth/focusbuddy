@@ -33,9 +33,9 @@ export default function DocumentsSyncSection(): JSX.Element {
       <p className="fb-t-caption text-[var(--ink-50)] leading-relaxed">
         {on
           ? signedIn
-            ? 'Your documents sync across PlexiDesk and PlexiOffice. Local copies stay on this device too.'
+            ? 'Your documents sync across PlexiiDesk and PlexiiOffice. Local copies stay on this device too.'
             : 'Sign in above to start syncing — until then documents stay on this device.'
-          : 'Documents are stored only on this device. Turn on to make them available in PlexiOffice and on your other devices.'}
+          : 'Documents are stored only on this device. Turn on to make them available in PlexiiOffice and on your other devices.'}
       </p>
     </div>
   )

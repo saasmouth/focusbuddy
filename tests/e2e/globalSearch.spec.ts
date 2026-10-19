@@ -282,7 +282,7 @@ test('Cmd+K palette still lists nav commands after global-search integration', a
     return ''
   })
 
-  for (const cmd of ['Documents', 'Files', 'Mail', 'PlexiInbox', 'Messages']) {
+  for (const cmd of ['Documents', 'Files', 'Mail', 'PlexiiInbox', 'Messages']) {
     expect(text, `nav command "${cmd}" must still be in the browse list`).toContain(cmd)
   }
 

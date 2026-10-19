@@ -118,12 +118,12 @@ export const SEGMENT_APPS = {
     // The document apps. Not comms apps — deep-linking one lands on the Office
     // hub filtered to that type — but `office:<key>` is a real view either way,
     // so the tray has to be able to name it.
-    { key: 'docs', label: 'PlexiDocs', icon: 'description', tone: 'text-sky-500', widgetKinds: ['doc'] },
-    { key: 'sheets', label: 'PlexiSheets', icon: 'table_chart', tone: 'text-emerald-500', widgetKinds: ['sheet'] },
-    { key: 'slides', label: 'PlexiSlides', icon: 'slideshow', tone: 'text-orange-500', widgetKinds: ['slides'] },
-    { key: 'diagrams', label: 'PlexiDiagrams', icon: 'account_tree', tone: 'text-violet-500', widgetKinds: ['diagram', 'map'] },
-    { key: 'design', label: 'PlexiDesign', icon: 'plexii:design', tone: 'text-fuchsia-500', widgetKinds: ['design'] },
-    { key: 'draw', label: 'PlexiDraw', icon: 'brush', tone: 'text-rose-500', widgetKinds: ['draw'] }
+    { key: 'docs', label: 'PlexiiDocs', icon: 'description', tone: 'text-sky-500', widgetKinds: ['doc'] },
+    { key: 'sheets', label: 'PlexiiSheets', icon: 'table_chart', tone: 'text-emerald-500', widgetKinds: ['sheet'] },
+    { key: 'slides', label: 'PlexiiSlides', icon: 'slideshow', tone: 'text-orange-500', widgetKinds: ['slides'] },
+    { key: 'diagrams', label: 'PlexiiDiagrams', icon: 'account_tree', tone: 'text-violet-500', widgetKinds: ['diagram', 'map'] },
+    { key: 'design', label: 'PlexiiDesign', icon: 'plexii:design', tone: 'text-fuchsia-500', widgetKinds: ['design'] },
+    { key: 'draw', label: 'PlexiiDraw', icon: 'brush', tone: 'text-rose-500', widgetKinds: ['draw'] }
   ]
 } as const satisfies Record<SegmentKind, readonly SegmentAppMeta[]>
 

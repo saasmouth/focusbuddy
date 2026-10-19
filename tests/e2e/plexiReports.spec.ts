@@ -231,7 +231,7 @@ test('6. suite launcher: PlexiReports tile opens Insights (reporting home)', asy
     await waitForReady(window)
 
     // Go to suite home (already the default view, but navigate explicitly)
-    await window.getByRole('button', { name: 'PlexiSuite' }).first().click()
+    await window.getByRole('button', { name: 'PlexiiSuite' }).first().click()
     await expect(window.locator('[data-testid="plexisuite-home"]')).toBeVisible({ timeout: 8_000 })
 
     // Click the PlexiReports tile — opens ProductHome

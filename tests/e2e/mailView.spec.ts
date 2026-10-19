@@ -158,7 +158,7 @@ test('step5 - Inbox view renders without crashing when no account is set', async
 
   // Navigate to the Inbox via its current home in PlexiOffice comms.
   await openOfficeComms(window, 'inbox')
-  await expect(window.getByRole('heading', { name: /^PlexiInbox$/i })).toBeVisible({
+  await expect(window.getByRole('heading', { name: /^PlexiiInbox$/i })).toBeVisible({
     timeout: 5_000
   })
 

@@ -49,7 +49,7 @@ export default function WebhookWidget({
     try {
       const res = await window.api.webhooks.send({
         url,
-        body: JSON.stringify({ test: true, from: 'PlexiDesk', at: new Date().toISOString() })
+        body: JSON.stringify({ test: true, from: 'PlexiiDesk', at: new Date().toISOString() })
       })
       setResult(
         res.ok

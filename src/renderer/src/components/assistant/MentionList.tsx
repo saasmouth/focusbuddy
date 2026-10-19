@@ -89,7 +89,7 @@ const MentionList = forwardRef<MentionListHandle, Props>(function MentionList(
         data-mention-state="empty"
         className="w-72 rounded-lg border border-[var(--edge-soft)] bg-[var(--surface-raised)] shadow-xl p-2.5 text-[11.5px] text-[var(--ink-40)]"
       >
-        Nothing found. Mention a desk, document, work widget, file or PlexiBrain entry.
+        Nothing found. Mention a desk, document, work widget, file or PlexiiBrain entry.
       </div>
     )
   }

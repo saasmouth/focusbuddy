@@ -149,7 +149,7 @@ test('AI credits: switching modes persists without error and Anthropic/OpenAI ro
 
   // In byok mode the credit card (signed-in or signed-out prompt) must NOT show.
   // The component conditionally renders {status && status.mode !== 'byok'}.
-  const signInPrompt = window.locator('text=Sign in to your PlexiDesk account')
+  const signInPrompt = window.locator('text=Sign in to your PlexiiDesk account')
   await expect(signInPrompt).toHaveCount(0, { timeout: 3_000 })
 
   // --- Switch back to Automatic ---

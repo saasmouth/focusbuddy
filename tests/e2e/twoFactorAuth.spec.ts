@@ -100,7 +100,7 @@ test('sign-in modal does NOT show 2fa-code field by default (only after twoFacto
   // Email and password inputs must be visible inside the sign-in modal.
   // The settings panel has other password-type inputs (API key fields) so we
   // scope the check to the modal dialog element to avoid strict-mode failures.
-  const modal = window.locator('[role="dialog"][aria-label="Sign in to PlexiDesk"]')
+  const modal = window.locator('[role="dialog"][aria-label="Sign in to PlexiiDesk"]')
   await expect(modal.locator('input[type="email"]')).toBeVisible({ timeout: 3_000 })
   await expect(modal.locator('input[type="password"]')).toBeVisible({ timeout: 3_000 })
 

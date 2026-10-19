@@ -107,7 +107,7 @@ export function setProviderConfig(provider: OAuthProvider, config: OAuthProvider
 function saveTokens(provider: OAuthProvider, tokens: StoredTokens, accountId?: string): string {
   if (!safeStorage.isEncryptionAvailable()) {
     throw new Error(
-      'OS-level encryption is unavailable on this machine, so PlexiDesk will not store a calendar token.'
+      'OS-level encryption is unavailable on this machine, so PlexiiDesk will not store a calendar token.'
     )
   }
   const cipher = safeStorage.encryptString(JSON.stringify(tokens)).toString('base64')
@@ -169,11 +169,11 @@ function awaitRedirect(): Promise<{ server: Server; port: number; code: Promise<
       const err = url.searchParams.get('error')
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
       res.end(
-        `<!doctype html><meta charset="utf-8"><title>PlexiDesk</title>
+        `<!doctype html><meta charset="utf-8"><title>PlexiiDesk</title>
          <body style="font:15px -apple-system,system-ui,sans-serif;display:grid;place-items:center;height:100vh;margin:0;background:#faf9f7;color:#2b2a28">
          <div style="text-align:center"><p style="font-size:17px;font-weight:600">${
            got ? 'Calendar connected' : 'Connection cancelled'
-         }</p><p style="opacity:.65">You can close this tab and go back to PlexiDesk.</p></div></body>`
+         }</p><p style="opacity:.65">You can close this tab and go back to PlexiiDesk.</p></div></body>`
       )
       if (got) settle?.(got)
       else fail?.(new Error(err ? `The provider returned: ${err}` : 'No authorisation code came back.'))

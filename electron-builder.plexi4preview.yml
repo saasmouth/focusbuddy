@@ -6,16 +6,17 @@
 #  - appId app.plexidesk4.preview → its own LaunchServices identity, so macOS
 #    treats it as a different app (it installs alongside, never upgrades the
 #    production install).
-#  - productName "PlexiDesk 4 Preview" → the bundle name the main process's
-#    detectPreviewBuild() recognises from execPath, which switches it to its
+#  - productName "PlexiiDesk 4 Preview" → the bundle name the main process's
+#    detectPreviewBuild() recognises from execPath (either spelling — it folds
+#    "plexii" to "plexi"), which switches it to its
 #    own userData directory (…/Application Support/PlexiDesk3Preview —
 #    kept under the old name so existing preview workspaces survive the rename), its own
 #    single-instance lock, no haptyx:// protocol claim, and a disabled updater.
 #  - NO publish block and no update manifests: this build is never released or
 #    auto-updated. Testers rebuild with `npm run dist:preview`.
 appId: app.plexidesk4.preview
-productName: PlexiDesk 4 Preview
-copyright: Copyright © 2026 PlexiDesk
+productName: PlexiiDesk 4 Preview
+copyright: Copyright © 2026 PlexiiDesk
 artifactName: PlexiDesk4Preview-${version}-${os}-${arch}.${ext}
 
 directories:
@@ -60,10 +61,10 @@ mac:
   identity: null
   extendInfo:
     NSMicrophoneUsageDescription: >-
-      PlexiDesk records voice notes you choose to capture. Audio is processed
+      PlexiiDesk records voice notes you choose to capture. Audio is processed
       locally or via your configured transcription provider.
     NSCameraUsageDescription: >-
-      PlexiDesk records video notes when you choose to capture them, stored
+      PlexiiDesk records video notes when you choose to capture them, stored
       locally and transcribed only via your configured provider.
 
 afterPack: build/harden.cjs
@@ -80,6 +81,6 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: PlexiDesk 4 Preview
+  shortcutName: PlexiiDesk 4 Preview
 
 npmRebuild: false

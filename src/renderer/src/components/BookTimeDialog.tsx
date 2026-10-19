@@ -786,7 +786,7 @@ export default function BookTimeDialog({
                         <Icon name="check" size={13} className="text-[rgb(var(--accent))] shrink-0 mt-px" />
                         <span>
                           A Plexii room is added to the meeting. After the 10-second undo window, guests are emailed a
-                          link that opens PlexiDesk when Mail is connected.
+                          link that opens PlexiiDesk when Mail is connected.
                         </span>
                       </div>
                     )}

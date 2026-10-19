@@ -241,7 +241,7 @@ export default function PlexiSuiteHome(): JSX.Element {
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center gap-2">
-            <h1 className="text-[26px] font-bold tracking-tight text-[var(--ink-100)] fb-display-hero">PlexiSuite</h1>
+            <h1 className="text-[26px] font-bold tracking-tight text-[var(--ink-100)] fb-display-hero">PlexiiSuite</h1>
             {name && <span className="text-[15px] text-[var(--ink-70)]">· {greeting()}, {name}</span>}
           </div>
           <p className="mt-1 text-[14px] text-[var(--ink-70)]">
@@ -279,7 +279,7 @@ export default function PlexiSuiteHome(): JSX.Element {
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-[19px] font-bold text-[var(--ink-100)]">PlexiDesk</h2>
+                  <h2 className="text-[19px] font-bold text-[var(--ink-100)]">PlexiiDesk</h2>
                   <span className="text-[12px] text-emerald-600 dark:text-emerald-400 font-medium">{PLEXI_DESK.tagline}</span>
                 </div>
                 <p className="mt-1 text-[13px] text-[var(--ink-90)] max-w-2xl leading-relaxed">

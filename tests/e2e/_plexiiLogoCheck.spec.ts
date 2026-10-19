@@ -20,7 +20,7 @@ test('Plexii logo renders in titlebar + sidebar, survives theme toggle, and show
       timeout: 10_000
     })
 
-    const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiDesk"]')
+    const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiiDesk"]')
     if (await onb.isVisible().catch(() => false)) {
       await window.getByRole('button', { name: 'Get started' }).click().catch(() => {})
       await window.locator('[data-testid="onboarding-key-skip"]').click().catch(() => {})
@@ -48,7 +48,7 @@ test('Plexii logo renders in titlebar + sidebar, survives theme toggle, and show
       // doesn't reliably put it after the titlebar) — otherwise `.first()`
       // on a page-wide `[aria-label="Plexii"] img` query can accidentally
       // match the titlebar's logo instead of the modal's.
-      const dialog = window.locator('[role="dialog"][aria-label="Sign in to PlexiDesk"]')
+      const dialog = window.locator('[role="dialog"][aria-label="Sign in to PlexiiDesk"]')
       const modalLogo = dialog.locator('[aria-label="Plexii"] img')
       signInLogoVisible = await modalLogo.isVisible().catch(() => false)
       signInLogoBox = await modalLogo.boundingBox().catch(() => null)

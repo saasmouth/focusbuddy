@@ -181,7 +181,7 @@ test('NM-4 — signin-forgot visible in login mode only; opens /account/forgot w
     null,
     { timeout: 10_000 }
   )
-  const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiDesk"]')
+  const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiiDesk"]')
   if (await onb.isVisible().catch(() => false)) {
     await window.getByRole('button', { name: 'Get started' }).click().catch(() => {})
     await window.locator('[data-testid="onboarding-key-skip"]').click().catch(() => {})
@@ -189,7 +189,7 @@ test('NM-4 — signin-forgot visible in login mode only; opens /account/forgot w
     await window.locator('[data-testid="onboarding-start-blank"]').click().catch(() => {})
   }
 
-  const dialog = window.locator('[role="dialog"][aria-label="Sign in to PlexiDesk"]')
+  const dialog = window.locator('[role="dialog"][aria-label="Sign in to PlexiiDesk"]')
   await expect(dialog).toBeVisible({ timeout: 8_000 })
 
   // Ensure login mode is selected (fresh DB defaults to signup since there's no

@@ -49,7 +49,7 @@ test('incoming auth deep link requires explicit confirm; cancel never calls the 
   // The confirm dialog must appear, naming the account from the handoff.
   const dialog = window.locator('[data-testid="prompt-dialog"]')
   await expect(dialog).toBeVisible({ timeout: 5_000 })
-  await expect(dialog).toContainText('Sign in to PlexiDesk?')
+  await expect(dialog).toContainText('Sign in to PlexiiDesk?')
   await expect(dialog).toContainText('attacker-controlled@example.com')
 
   // Cancel — must NOT call adoptHandoff, so /accounts/me is never hit.

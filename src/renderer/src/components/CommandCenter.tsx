@@ -446,17 +446,17 @@ export default function CommandCenter({
       return r >= 0 ? (8 - r) * 2 : 0
     }
     const navTargets: Array<{ id: string; label: string; hint: string; icon: string; words: string; viewKind: string; go: () => void }> = [
-      { id: 'go-plexidesk', label: 'PlexiDesk', hint: 'Home, desk, plans, tasks, calendar, files', icon: 'desktop_windows', words: 'plexidesk desk home plans projects tasks calendar files workspaces recent gantt', viewKind: 'plexidesk', go: goPlexiDesk },
-      { id: 'go-office', label: 'PlexiOffice', hint: 'Docs, sheets, slides, mail, chat, meet, sign', icon: 'grid_view', words: 'plexioffice office docs sheets slides diagrams designs artwork sign documents mail inbox chat meet', viewKind: 'office', go: goOffice },
-      { id: 'go-plexipeople', label: 'PlexiPeople', hint: 'Team status, directory, organisation map', icon: 'groups', words: 'plexipeople people team directory members organisation organization org map presence', viewKind: 'plexipeople', go: goPlexiPeople },
-      { id: 'go-plexibrain', label: 'PlexiBrain', hint: 'Knowledge, search, flows, insights', icon: 'neurology', words: 'plexibrain brain knowledge search map flows agents connect api insights automation', viewKind: 'plexibrain', go: goPlexiBrain },
+      { id: 'go-plexidesk', label: 'PlexiiDesk', hint: 'Home, desk, plans, tasks, calendar, files', icon: 'desktop_windows', words: 'plexidesk desk home plans projects tasks calendar files workspaces recent gantt', viewKind: 'plexidesk', go: goPlexiDesk },
+      { id: 'go-office', label: 'PlexiiOffice', hint: 'Docs, sheets, slides, mail, chat, meet, sign', icon: 'grid_view', words: 'plexioffice office docs sheets slides diagrams designs artwork sign documents mail inbox chat meet', viewKind: 'office', go: goOffice },
+      { id: 'go-plexipeople', label: 'PlexiiPeople', hint: 'Team status, directory, organisation map', icon: 'groups', words: 'plexipeople people team directory members organisation organization org map presence', viewKind: 'plexipeople', go: goPlexiPeople },
+      { id: 'go-plexibrain', label: 'PlexiiBrain', hint: 'Knowledge, search, flows, insights', icon: 'neurology', words: 'plexibrain brain knowledge search map flows agents connect api insights automation', viewKind: 'plexibrain', go: goPlexiBrain },
       { id: 'go-documents', label: 'Documents', hint: 'Docs, sheets, slides', icon: 'article', words: 'documents docs sheets slides', viewKind: 'office', go: goOffice },
-      { id: 'go-design', label: 'PlexiDesign', hint: 'Page layout — brochures, flyers, newsletters', icon: 'plexii:design', words: 'design plexidesign publisher indesign layout page brochure poster flyer newsletter booklet print masterpage', viewKind: 'design', go: goDesign },
-      { id: 'go-draw', label: 'PlexiDraw', hint: 'Vector and painting — pen, shapes, brushes', icon: 'brush', words: 'draw plexidraw illustrator photoshop vector paint brush pen bezier path svg artwork illustration logo icon', viewKind: 'draw', go: goDraw },
-      { id: 'go-diagrams', label: 'PlexiDiagrams', hint: 'Flowcharts, org charts, process maps', icon: 'account_tree', words: 'diagram plexidiagrams flowchart visio lucidchart org chart process swimlane mindmap connector', viewKind: 'office', go: () => goOffice('diagrams') },
+      { id: 'go-design', label: 'PlexiiDesign', hint: 'Page layout — brochures, flyers, newsletters', icon: 'plexii:design', words: 'design plexidesign publisher indesign layout page brochure poster flyer newsletter booklet print masterpage', viewKind: 'design', go: goDesign },
+      { id: 'go-draw', label: 'PlexiiDraw', hint: 'Vector and painting — pen, shapes, brushes', icon: 'brush', words: 'draw plexidraw illustrator photoshop vector paint brush pen bezier path svg artwork illustration logo icon', viewKind: 'draw', go: goDraw },
+      { id: 'go-diagrams', label: 'PlexiiDiagrams', hint: 'Flowcharts, org charts, process maps', icon: 'account_tree', words: 'diagram plexidiagrams flowchart visio lucidchart org chart process swimlane mindmap connector', viewKind: 'office', go: () => goOffice('diagrams') },
       { id: 'go-files', label: 'Files', hint: 'File manager', icon: 'folder', words: 'files folders manager', viewKind: 'files', go: goFiles },
       { id: 'go-mail', label: 'Mail', hint: 'Email inbox', icon: 'mail', words: 'mail email inbox', viewKind: 'office', go: () => goOffice('mail') },
-      { id: 'go-inbox', label: 'PlexiInbox', hint: 'Notifications, share invites', icon: 'inbox', words: 'inbox notifications invites plexi', viewKind: 'office', go: () => goOffice('inbox') },
+      { id: 'go-inbox', label: 'PlexiiInbox', hint: 'Notifications, share invites', icon: 'inbox', words: 'inbox notifications invites plexi', viewKind: 'office', go: () => goOffice('inbox') },
       { id: 'go-messages', label: 'Messages', hint: 'Chats', icon: 'forum', words: 'messages chat dm', viewKind: 'office', go: () => goOffice('chat') }
     ]
     for (const t of navTargets) {
@@ -549,7 +549,7 @@ export default function CommandCenter({
     items.push({
       id: 'new-design',
       label: 'New design',
-      hint: 'PlexiDesign — brochure, flyer, newsletter, any size',
+      hint: 'PlexiiDesign — brochure, flyer, newsletter, any size',
       icon: 'plexii:design',
       kind: 'action',
       score: q === '' ? 56 : matchScore('new design plexidesign publisher indesign layout page brochure poster flyer newsletter booklet print create', q),
@@ -563,7 +563,7 @@ export default function CommandCenter({
     items.push({
       id: 'new-draw',
       label: 'New artwork',
-      hint: 'PlexiDraw — vector and painting, any artboard',
+      hint: 'PlexiiDraw — vector and painting, any artboard',
       icon: 'brush',
       kind: 'action',
       score: q === '' ? 55 : matchScore('new artwork drawing plexidraw illustrator photoshop vector paint brush pen bezier path illustration logo icon create', q),
@@ -1159,7 +1159,7 @@ function hitKindLabel(h: SearchHit): string {
     case 'table-row':
       return 'Table'
     case 'knowledge':
-      return 'PlexiBrain'
+      return 'PlexiiBrain'
     case 'event':
       return 'Calendar'
     case 'meeting':

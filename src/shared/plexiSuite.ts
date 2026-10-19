@@ -42,19 +42,19 @@ export interface PlexiProduct {
 }
 
 export const PLEXI_GROUPS: PlexiGroup[] = [
-  { key: 'office', name: 'PlexiOffice', tagline: 'Create anything.', accent: '#f59e0b' },
-  { key: 'work', name: 'PlexiWork', tagline: 'Run the work.', accent: '#ef4444' },
-  { key: 'ai', name: 'PlexiAI', tagline: 'Add intelligence.', accent: '#8b5cf6' },
-  { key: 'data', name: 'PlexiData', tagline: 'See it. Understand it. Act on it.', accent: '#0ea5e9' },
-  { key: 'build', name: 'PlexiBuild', tagline: 'Build your own tools.', accent: '#10b981' },
-  { key: 'connect', name: 'PlexiConnect', tagline: 'Connect everything.', accent: '#6366f1' },
-  { key: 'ops', name: 'PlexiOps', tagline: 'Run the whole business.', accent: '#14b8a6' }
+  { key: 'office', name: 'PlexiiOffice', tagline: 'Create anything.', accent: '#f59e0b' },
+  { key: 'work', name: 'PlexiiWork', tagline: 'Run the work.', accent: '#ef4444' },
+  { key: 'ai', name: 'PlexiiAI', tagline: 'Add intelligence.', accent: '#8b5cf6' },
+  { key: 'data', name: 'PlexiiData', tagline: 'See it. Understand it. Act on it.', accent: '#0ea5e9' },
+  { key: 'build', name: 'PlexiiBuild', tagline: 'Build your own tools.', accent: '#10b981' },
+  { key: 'connect', name: 'PlexiiConnect', tagline: 'Connect everything.', accent: '#6366f1' },
+  { key: 'ops', name: 'PlexiiOps', tagline: 'Run the whole business.', accent: '#14b8a6' }
 ]
 
 // The flagship surface, shown as the hero rather than a card.
 export const PLEXI_DESK: PlexiProduct = {
   key: 'plexidesk',
-  name: 'PlexiDesk',
+  name: 'PlexiiDesk',
   group: 'office',
   tagline: 'Your visual workspace.',
   status: 'ready',
@@ -75,7 +75,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   // ── PlexiOffice ──────────────────────────────────────────────────────────
   {
     key: 'plexidocs',
-    name: 'PlexiDocs',
+    name: 'PlexiiDocs',
     group: 'office',
     tagline: 'AI-native documents.',
     status: 'ready',
@@ -92,7 +92,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexisheets',
-    name: 'PlexiSheets',
+    name: 'PlexiiSheets',
     group: 'office',
     tagline: 'Smarter spreadsheets with live data and AI.',
     status: 'ready',
@@ -102,14 +102,14 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
     edges: [
       'Typed columns and real data types, not just a grid of strings.',
       'Native .xlsx in and out.',
-      'Charts and dashboards one click away via PlexiDash.'
+      'Charts and dashboards one click away via PlexiiDash.'
     ],
     insteadOf: 'Microsoft Excel / Google Sheets',
     launch: 'documents'
   },
   {
     key: 'plexislides',
-    name: 'PlexiSlides',
+    name: 'PlexiiSlides',
     group: 'office',
     tagline: 'AI-assisted decks and sales materials.',
     status: 'ready',
@@ -126,7 +126,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexidiagrams',
-    name: 'PlexiDiagrams',
+    name: 'PlexiiDiagrams',
     group: 'office',
     tagline: 'Flowcharts, org charts, processes and systems.',
     status: 'ready',
@@ -144,7 +144,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexidesign',
-    name: 'PlexiDesign',
+    name: 'PlexiiDesign',
     group: 'office',
     tagline: 'Page layout, from a flyer to a forty-page brochure.',
     status: 'ready',
@@ -162,7 +162,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexidraw',
-    name: 'PlexiDraw',
+    name: 'PlexiiDraw',
     group: 'office',
     tagline: 'Vector and painting in one studio.',
     status: 'ready',
@@ -180,13 +180,13 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexiforms',
-    name: 'PlexiForms',
+    name: 'PlexiiForms',
     group: 'office',
     tagline: 'Capture requests, leads, briefs and data.',
     status: 'ready',
     icon: 'dynamic_form',
     accent: '#a855f7',
-    about: 'Design a form from typed fields, fill it, and every response lands as a row in a real table you can chart in PlexiDash, filter and automate. (Shareable public links are on the way.)',
+    about: 'Design a form from typed fields, fill it, and every response lands as a row in a real table you can chart in PlexiiDash, filter and automate. (Shareable public links are on the way.)',
     edges: [
       'Submissions flow straight into your tables and dashboards.',
       'Built on the same field types as the rest of the suite.',
@@ -197,7 +197,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexisign',
-    name: 'PlexiSign',
+    name: 'PlexiiSign',
     group: 'office',
     tagline: 'Sign, approve and track documents.',
     status: 'ready',
@@ -216,7 +216,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   // ── PlexiWork ────────────────────────────────────────────────────────────
   {
     key: 'plexitasks',
-    name: 'PlexiTasks',
+    name: 'PlexiiTasks',
     group: 'work',
     tagline: 'Tasks that live beside the work.',
     status: 'ready',
@@ -250,7 +250,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexicalendar',
-    name: 'PlexiCalendar',
+    name: 'PlexiiCalendar',
     group: 'work',
     tagline: 'Time, meetings, tasks and work in one place.',
     status: 'ready',
@@ -267,7 +267,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'pleximeet',
-    name: 'PlexiMeet',
+    name: 'PlexiiMeet',
     group: 'work',
     tagline: 'Meetings that turn into actions.',
     status: 'ready',
@@ -284,7 +284,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexichat',
-    name: 'PlexiChat',
+    name: 'PlexiiChat',
     group: 'work',
     tagline: 'Conversations tied to the actual work.',
     status: 'ready',
@@ -301,7 +301,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexifiles',
-    name: 'PlexiFiles',
+    name: 'PlexiiFiles',
     group: 'work',
     tagline: 'Find every file, note, doc and asset fast.',
     status: 'ready',
@@ -320,7 +320,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   // ── PlexiAI ──────────────────────────────────────────────────────────────
   {
     key: 'plexibrain',
-    name: 'PlexiBrain',
+    name: 'PlexiiBrain',
     group: 'ai',
     tagline: 'The shared memory for people and agents.',
     status: 'ready',
@@ -337,7 +337,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexiagents',
-    name: 'PlexiAgents',
+    name: 'PlexiiAgents',
     group: 'ai',
     tagline: 'Assign work to AI teammates.',
     status: 'ready',
@@ -354,7 +354,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexiflow',
-    name: 'PlexiFlow',
+    name: 'PlexiiFlow',
     group: 'ai',
     tagline: 'Connect tools and trigger work.',
     status: 'ready',
@@ -371,7 +371,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexisearch',
-    name: 'PlexiSearch',
+    name: 'PlexiiSearch',
     group: 'ai',
     tagline: 'Find anything across everything.',
     status: 'ready',
@@ -386,7 +386,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   // ── PlexiData ────────────────────────────────────────────────────────────
   {
     key: 'plexidash',
-    name: 'PlexiDash',
+    name: 'PlexiiDash',
     group: 'data',
     tagline: 'Live business views from your data.',
     status: 'ready',
@@ -403,7 +403,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexitables',
-    name: 'PlexiTables',
+    name: 'PlexiiTables',
     group: 'data',
     tagline: 'Typed tables with views and filters.',
     status: 'ready',
@@ -420,7 +420,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexireports',
-    name: 'PlexiReports',
+    name: 'PlexiiReports',
     group: 'data',
     tagline: 'Scheduled, shareable reports.',
     status: 'ready',
@@ -435,7 +435,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   // ── PlexiBuild ───────────────────────────────────────────────────────────
   {
     key: 'plexibuild',
-    name: 'PlexiBuild',
+    name: 'PlexiiBuild',
     group: 'build',
     tagline: 'Build internal tools without code.',
     status: 'ready',
@@ -452,7 +452,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexiwidgets',
-    name: 'PlexiWidgets',
+    name: 'PlexiiWidgets',
     group: 'build',
     tagline: 'A library of reusable work widgets.',
     status: 'ready',
@@ -465,7 +465,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexiapi',
-    name: 'PlexiAPI',
+    name: 'PlexiiAPI',
     group: 'build',
     tagline: 'Programmatic access to your workspace.',
     status: 'ready',
@@ -480,7 +480,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   // ── PlexiConnect ─────────────────────────────────────────────────────────
   {
     key: 'pleximail',
-    name: 'PlexiMail',
+    name: 'PlexiiMail',
     group: 'connect',
     tagline: 'Email inside your workspace.',
     status: 'ready',
@@ -497,7 +497,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexivault',
-    name: 'PlexiVault',
+    name: 'PlexiiVault',
     group: 'connect',
     tagline: 'Secrets and credentials, secured.',
     status: 'ready',
@@ -510,7 +510,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'pleximarketplace',
-    name: 'PlexiMarketplace',
+    name: 'PlexiiMarketplace',
     group: 'connect',
     tagline: 'Start from a template.',
     status: 'ready',
@@ -525,7 +525,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   // ── PlexiOps (the future business suite) ─────────────────────────────────
   {
     key: 'plexiops',
-    name: 'PlexiOps',
+    name: 'PlexiiOps',
     group: 'ops',
     tagline: 'Run the whole business, not just the work.',
     status: 'planned',

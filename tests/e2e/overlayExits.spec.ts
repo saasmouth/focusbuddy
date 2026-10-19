@@ -23,7 +23,7 @@ test('first-run onboarding dismisses on Escape', async () => {
   const { window } = launched
   await waitForReady(window, { dismissModals: false })
 
-  const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiDesk"]')
+  const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiiDesk"]')
   await expect(onb).toBeVisible({ timeout: 10_000 })
   await window.keyboard.press('Escape')
   await expect(onb).toBeHidden()

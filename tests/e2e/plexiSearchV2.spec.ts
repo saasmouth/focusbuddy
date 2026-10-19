@@ -17,7 +17,7 @@ test.afterEach(async () => {
 
 // helper: open PlexiSearch and wait for the view.
 async function openPlexiSearch(window: LaunchedApp['window']): Promise<void> {
-  await window.locator('button').filter({ hasText: 'PlexiSearch' }).first().click()
+  await window.locator('button').filter({ hasText: 'PlexiiSearch' }).first().click()
   await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 6_000 })
 }
 
@@ -66,7 +66,7 @@ test('table-by-name: table with matching title appears as a result row', async (
   await window.waitForTimeout(600)
 
   const hitRow = window.locator(`[data-testid="plexisearch-hit-${tableId}"]`)
-  await expect(hitRow, 'table hit row must be visible in PlexiSearch').toBeVisible({ timeout: 4_000 })
+  await expect(hitRow, 'table hit row must be visible in PlexiiSearch').toBeVisible({ timeout: 4_000 })
 })
 
 // ──────────────────────────────────────────────────────────────────────────────

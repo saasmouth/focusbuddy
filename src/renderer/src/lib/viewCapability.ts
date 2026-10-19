@@ -29,12 +29,12 @@ export const VIEW_CAPABILITY: Partial<Record<string, { cap: string; label: strin
   livedoc: { cap: 'live_collaboration', label: 'Live collaboration' },
   livecanvas: { cap: 'live_collaboration', label: 'Live collaboration' },
   livefolder: { cap: 'live_collaboration', label: 'Live collaboration' },
-  sign: { cap: 'esign', label: 'PlexiSign' },
-  knowledge: { cap: 'product_brain', label: 'PlexiBrain' },
-  documents: { cap: 'product_office', label: 'PlexiOffice' },
-  design: { cap: 'product_office', label: 'PlexiOffice' },
-  draw: { cap: 'product_office', label: 'PlexiOffice' },
-  document: { cap: 'product_office', label: 'PlexiOffice' }
+  sign: { cap: 'esign', label: 'PlexiiSign' },
+  knowledge: { cap: 'product_brain', label: 'PlexiiBrain' },
+  documents: { cap: 'product_office', label: 'PlexiiOffice' },
+  design: { cap: 'product_office', label: 'PlexiiOffice' },
+  draw: { cap: 'product_office', label: 'PlexiiOffice' },
+  document: { cap: 'product_office', label: 'PlexiiOffice' }
 }
 
 // Pure check that mirrors CapabilityGate's `enabled` exactly (a capability is on

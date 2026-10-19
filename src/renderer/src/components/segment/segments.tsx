@@ -53,8 +53,8 @@ export function PlexiDeskShell({ initialApp }: { initialApp?: string } = {}): JS
       initialApp={initialApp}
       def={{
         kind: 'plexidesk',
-        wordmark: 'PLEXIDESK',
-        title: 'PlexiDesk',
+        wordmark: 'PLEXIIDESK',
+        title: 'PlexiiDesk',
         subtitle: 'Your workspace. Your desk, plans, tasks, calendar and files in one place.',
         icon: 'desktop_windows',
         apps: visibleApps(apps, enabled)
@@ -76,8 +76,8 @@ export function PlexiPeopleShell({ initialApp }: { initialApp?: string } = {}): 
       initialApp={initialApp}
       def={{
         kind: 'plexipeople',
-        wordmark: 'PLEXIPEOPLE',
-        title: 'PlexiPeople',
+        wordmark: 'PLEXIIPEOPLE',
+        title: 'PlexiiPeople',
         subtitle: 'Your team. Who is here, the people directory and your organisation map.',
         icon: 'groups',
         apps: visibleApps(apps, enabled)
@@ -92,8 +92,8 @@ export function PlexiBrainShell({ initialApp }: { initialApp?: string } = {}): J
       initialApp={initialApp}
       def={{
         kind: 'plexibrain',
-        wordmark: 'PLEXIBRAIN',
-        title: 'PlexiBrain',
+        wordmark: 'PLEXIIBRAIN',
+        title: 'PlexiiBrain',
         subtitle: 'Your knowledge, search, automation and insights, with AI woven through.',
         icon: 'neurology',
         apps: [

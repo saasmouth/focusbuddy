@@ -2597,9 +2597,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('backup:export', async () => {
     const parent = BrowserWindow.getFocusedWindow()
     const opts = {
-      title: 'Export a PlexiDesk backup',
+      title: 'Export a PlexiiDesk backup',
       defaultPath: defaultExportName(),
-      filters: [{ name: 'PlexiDesk backup', extensions: ['fbbackup'] }]
+      filters: [{ name: 'PlexiiDesk backup', extensions: ['fbbackup'] }]
     }
     const { canceled, filePath } = parent
       ? await dialog.showSaveDialog(parent, opts)
@@ -2679,14 +2679,14 @@ export function registerIpcHandlers(): void {
     const parent = BrowserWindow.getFocusedWindow()
     const open = parent
       ? await dialog.showOpenDialog(parent, {
-          title: 'Restore from a PlexiDesk backup',
+          title: 'Restore from a PlexiiDesk backup',
           properties: ['openFile'],
-          filters: [{ name: 'PlexiDesk backup', extensions: ['fbbackup', 'db'] }]
+          filters: [{ name: 'PlexiiDesk backup', extensions: ['fbbackup', 'db'] }]
         })
       : await dialog.showOpenDialog({
-          title: 'Restore from a PlexiDesk backup',
+          title: 'Restore from a PlexiiDesk backup',
           properties: ['openFile'],
-          filters: [{ name: 'PlexiDesk backup', extensions: ['fbbackup', 'db'] }]
+          filters: [{ name: 'PlexiiDesk backup', extensions: ['fbbackup', 'db'] }]
         })
     if (open.canceled || open.filePaths.length === 0) {
       return { ok: false as const, canceled: true as const }
@@ -2704,7 +2704,7 @@ export function registerIpcHandlers(): void {
       title: 'Restore from backup',
       message: 'Replace all your current data with this backup?',
       detail:
-        'Your current data will be snapshotted first (you can recover it from the backups folder), then replaced. PlexiDesk will reload when done.'
+        'Your current data will be snapshotted first (you can recover it from the backups folder), then replaced. PlexiiDesk will reload when done.'
     }
     const { response } = parent
       ? await dialog.showMessageBox(parent, confirmOpts)
@@ -4355,7 +4355,7 @@ export function registerIpcHandlers(): void {
         return Promise.resolve({ ok: false, error: 'Designs are generated through the design tools.' })
       }
       if (input.docType === 'draw') {
-        return Promise.resolve({ ok: false, error: 'Artwork is created in the PlexiDraw studio, not generated from a prompt.' })
+        return Promise.resolve({ ok: false, error: 'Artwork is created in the PlexiiDraw studio, not generated from a prompt.' })
       }
       if (input.docType === 'widget') {
         return Promise.resolve({ ok: false, error: 'Work widget files are created from the Work widgets menu or by the assistant, not generated as a document.' })

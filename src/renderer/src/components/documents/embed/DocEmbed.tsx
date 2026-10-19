@@ -51,7 +51,7 @@ export default function DocEmbed({ documentId }: { documentId: string }): JSX.El
           {meta ? meta.title || 'Untitled' : 'Document'}
         </div>
         <div className="text-[11px] text-[var(--ink-50)]">
-          {meta ? TYPE_LABEL[meta.docType] : 'PlexiOffice document'}
+          {meta ? TYPE_LABEL[meta.docType] : 'PlexiiOffice document'}
         </div>
       </div>
       <button

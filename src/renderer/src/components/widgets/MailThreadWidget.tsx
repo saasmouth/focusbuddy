@@ -42,7 +42,7 @@ function MessageBody({ body }: { body: string | null }): JSX.Element {
     // "there is nothing here" and "it has not been read yet".
     return (
       <p className="fb-t-caption text-[var(--ink-50)] italic">
-        The text of this message has not been downloaded yet — it will appear once PlexiDesk has read it.
+        The text of this message has not been downloaded yet — it will appear once PlexiiDesk has read it.
       </p>
     )
   }
@@ -153,7 +153,7 @@ export default function MailThreadWidget({ widget }: { widget: Widget }): JSX.El
           // cleared when the mailbox was disconnected.
           <div className="flex flex-col gap-1">
             <p className="fb-t-caption text-[var(--ink-50)]">
-              {error ?? 'This message is not in PlexiDesk’s local copy of your mail.'}
+              {error ?? 'This message is not in PlexiiDesk’s local copy of your mail.'}
             </p>
             {content.subject && (
               <p className="fb-t-caption text-[var(--ink-50)]">

@@ -7,8 +7,14 @@
 //  - appId app.plexioffice.desktop → its OWN LaunchServices identity + userData
 //    dir, so it installs alongside PlexiDesk rather than upgrading it. Documents
 //    are shared via the cloud-documents API, not a shared local DB.
-//  - productName PlexiOffice → app.getName() returns this, which is how the main
-//    process knows to boot the office renderer.
+//  - productName PlexiiOffice → the bundle and executable name (PlexiiOffice.app),
+//    which is how the main process knows to boot the office renderer: it
+//    detects the office build from the executable path (appMode.ts), NOT from
+//    app.getName(), which is "plexii" in the packaged bundle until index.ts
+//    calls app.setName('PlexiOffice'). That setName string keeps the old
+//    spelling on purpose: it names the safeStorage keychain item.
+//  - artifactName stays "PlexiOffice-…": office-mac.yml names those files and
+//    release:verify:office checks for them.
 //
 // Was electron-builder.plexioffice.yml. YAML cannot branch on the environment, so
 // it hard-coded `identity: null` and every PlexiOffice build shipped ad-hoc signed
@@ -48,8 +54,8 @@ const macSigning = hasNotaryCreds
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
   appId: 'app.plexioffice.desktop',
-  productName: 'PlexiOffice',
-  copyright: 'Copyright © 2026 PlexiOffice',
+  productName: 'PlexiiOffice',
+  copyright: 'Copyright © 2026 PlexiiOffice',
   artifactName: 'PlexiOffice-${version}-${os}-${arch}.${ext}',
 
   // PlexiOffice can ship from the SAME GitHub repo as PlexiDesk because two things
@@ -91,7 +97,7 @@ module.exports = {
   // Bundle the offline OCR training data (no CDN fetch).
   extraResources: [{ from: 'resources/tessdata', to: 'tessdata' }],
 
-  protocols: [{ name: 'PlexiOffice Protocol', schemes: ['plexioffice'], role: 'Viewer' }],
+  protocols: [{ name: 'PlexiiOffice Protocol', schemes: ['plexioffice'], role: 'Viewer' }],
 
   mac: {
     category: 'public.app-category.productivity',
@@ -99,9 +105,9 @@ module.exports = {
     ...macSigning,
     extendInfo: {
       NSMicrophoneUsageDescription:
-        'PlexiOffice records voice notes you choose to capture. Audio is processed locally or via your configured transcription provider.',
+        'PlexiiOffice records voice notes you choose to capture. Audio is processed locally or via your configured transcription provider.',
       NSCameraUsageDescription:
-        'PlexiOffice records video notes when you choose to capture them, stored locally and transcribed only via your configured provider.'
+        'PlexiiOffice records video notes when you choose to capture them, stored locally and transcribed only via your configured provider.'
     }
   },
 

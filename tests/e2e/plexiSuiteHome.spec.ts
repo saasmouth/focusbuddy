@@ -16,9 +16,9 @@ test.afterEach(async () => {
 
 async function openSuite(window: LaunchedApp['window']): Promise<void> {
   // Click the PlexiSuite sidebar entry (aria-label or visible label).
-  const suiteBtn = window.locator('[data-testid="sidebar-btn-suite"], button[aria-label="PlexiSuite"]').first()
+  const suiteBtn = window.locator('[data-testid="sidebar-btn-suite"], button[aria-label="PlexiiSuite"]').first()
   // Fallback: find by text "PlexiSuite" in the sidebar strip.
-  const fallback = window.locator('button').filter({ hasText: 'PlexiSuite' }).first()
+  const fallback = window.locator('button').filter({ hasText: 'PlexiiSuite' }).first()
 
   // Try the test-id first, then text fallback.
   const hasSuiteBtn = await suiteBtn.count()
@@ -55,7 +55,7 @@ test('2 — launcher renders PlexiDesk hero and all product group headers', asyn
   await expect(window.locator('[data-testid="hero-plexidesk"]')).toBeVisible()
 
   // Each group should appear as text in the launcher.
-  const expectedGroups = ['PlexiOffice', 'PlexiWork', 'PlexiAI', 'PlexiData', 'PlexiBuild', 'PlexiConnect', 'PlexiOps']
+  const expectedGroups = ['PlexiiOffice', 'PlexiiWork', 'PlexiiAI', 'PlexiiData', 'PlexiiBuild', 'PlexiiConnect', 'PlexiiOps']
   for (const group of expectedGroups) {
     await expect(window.locator(`[data-testid="plexisuite-home"]`).locator(`text=${group}`).first()).toBeVisible({
       timeout: 4_000
@@ -222,10 +222,10 @@ test('6 — PlexiOps is planned and describes a business-management suite', asyn
   // About text must mention business-management capabilities.
   const text = await home.textContent()
   const lower = (text ?? '').toLowerCase()
-  expect(lower, 'PlexiOps mentions CRM').toContain('crm')
-  expect(lower, 'PlexiOps mentions accounting').toContain('accounting')
-  expect(lower, 'PlexiOps mentions payroll').toContain('payroll')
-  expect(lower, 'PlexiOps mentions inventory').toContain('inventory')
+  expect(lower, 'PlexiiOps mentions CRM').toContain('crm')
+  expect(lower, 'PlexiiOps mentions accounting').toContain('accounting')
+  expect(lower, 'PlexiiOps mentions payroll').toContain('payroll')
+  expect(lower, 'PlexiiOps mentions inventory').toContain('inventory')
 
   // "What we are building" section should list the planned capabilities.
   await expect(home.locator('text=What we are building')).toBeVisible()

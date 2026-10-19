@@ -979,7 +979,7 @@ export default function PeopleMapView(): JSX.Element {
         <DashboardHeader
           title="People Map"
           greeting={greeting}
-          subtitle={selectedOrg ? `PlexiTeam · ${selectedOrg.name}` : 'See everyone, where they are, and who is around right now'}
+          subtitle={selectedOrg ? `PlexiiTeam · ${selectedOrg.name}` : 'See everyone, where they are, and who is around right now'}
           actions={
             <>
               {orgs.filter((o) => !o.personal).length > 0 && (

@@ -59,7 +59,7 @@ export default function WhatsNewPanel({ onClose }: Props): JSX.Element {
           <div className="flex items-center gap-2">
             <Icon name="auto_awesome" size={18} className="text-accent" />
             <h3 className="text-base font-semibold text-[var(--ink-100)]">
-              What's new in PlexiDesk
+              What's new in PlexiiDesk
             </h3>
           </div>
           <button onClick={onClose} className="icon-btn" aria-label="Close">

@@ -57,7 +57,7 @@ describe('describeProposal: AI-acts-across-suite ops', () => {
       body: 'We write in first-person plural.'
     }
     const d = describeProposal(p)
-    expect(d.verb).toBe('Add to PlexiBrain')
+    expect(d.verb).toBe('Add to PlexiiBrain')
     expect(d.icon).toBe('psychology')
     expect(d.subject).toBe('Brand voice rule')
   })

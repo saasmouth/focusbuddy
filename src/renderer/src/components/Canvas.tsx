@@ -78,6 +78,7 @@ import { DOC_DRAG_TYPE, canPlaceOnDesk, readDocumentDrag } from '../lib/document
 import { DOC_DRAG_MIME, readDocDrag } from '../lib/docMetaCache'
 import { onCanvasCommands } from '../lib/canvasCommands'
 import { ensureCanAdd } from '../lib/addWidget'
+import { focusNewWidget } from '../lib/focusNewWidget'
 import { useWidgetFilesStore } from '../stores/widgetFiles'
 import { canCreateWidget } from '../lib/gating'
 import { useCapabilityStore } from '../stores/capabilities'
@@ -1826,7 +1827,7 @@ export default function Canvas(): JSX.Element {
       setOfficeAdd({ entry, x: canvasX, y: canvasY })
       return
     }
-    await createWidget({
+    const widget = await createWidget({
       taskId: activeTaskId,
       kind: entry.kind,
       content: entry.defaultContent,
@@ -1836,6 +1837,14 @@ export default function Canvas(): JSX.Element {
       height: entry.defaultHeight,
       color: entry.kind === 'sticky' ? '#fef08a' : null
     })
+    // Right-click "Add object" is a deliberate placement, like Add to this
+    // desk, a drag or the palette (widgetFiles adoptInstance): the new work
+    // widget becomes the active one and takes the keyboard in its primary
+    // entry field, unless the person has already focused something else.
+    // Quick-add keys go through placeWidget and deliberately do NOT do this:
+    // that person is typing on the desk.
+    useWidgetStore.getState().setActive(widget.id)
+    focusNewWidget(widget.id)
   }
 
   // Create an office-document widget pointing at an already-resolved document id

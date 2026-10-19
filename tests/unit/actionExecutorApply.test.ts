@@ -297,7 +297,7 @@ describe('applyProposal: create-knowledge-entry', () => {
     const result = await applyProposal(p, { activeTaskId: null })
     expect(result.ok).toBe(true)
     expect(result.message).toContain('Brand voice rule')
-    expect(result.message).toContain('PlexiBrain')
+    expect(result.message).toContain('PlexiiBrain')
     expect(knowledgeCreateSpy).toHaveBeenCalledOnce()
     const [draft] = knowledgeCreateSpy.mock.calls[0]
     expect(draft).toMatchObject({

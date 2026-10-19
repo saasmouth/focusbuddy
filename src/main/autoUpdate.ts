@@ -114,7 +114,7 @@ export async function downloadAndInstallMacUpdate(): Promise<void> {
     broadcast({
       kind: 'error',
       message:
-        'Move PlexiDesk into your Applications folder, then update again — macOS is running it from a read-only location, which blocks in-place updates.'
+        'Move PlexiiDesk into your Applications folder, then update again — macOS is running it from a read-only location, which blocks in-place updates.'
     })
     openDownloadPage()
     return

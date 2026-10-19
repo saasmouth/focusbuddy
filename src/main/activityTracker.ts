@@ -3,6 +3,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { promisify } from 'util'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { selfProcessNames } from './selfProcessName'
 
 // Activity tracker — observes which apps the user switches between
 // while PlexiDesk is open, plus the user's Stream Deck button presses.
@@ -77,14 +78,14 @@ let lastSeenApp: string | null = null
 async function getFrontmostApp(): Promise<string | null> {
   if (!isMac) return null
   try {
-    const ours = app.name || 'PlexiDesk'
+    const ours = selfProcessNames(process.execPath, app.name)
     const script = `tell application "System Events" to return name of first process whose frontmost is true`
     const { stdout } = await execFileAsync('osascript', ['-e', script], {
       timeout: 1500
     })
     const name = stdout.trim()
     if (!name) return null
-    if (name === ours || name === 'Electron') return null
+    if (ours.includes(name)) return null
     return name
   } catch {
     return null

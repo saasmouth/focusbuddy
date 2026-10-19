@@ -799,12 +799,12 @@ function ShortcutComposer({
       // everything else needs a few letters.
       if (actionItems.length) out.push({ name: 'Actions', items: actionItems })
       if (appItems.length) out.push({ name: 'Connected apps', items: appItems })
-      if (sectionItems.length) out.push({ name: 'PlexiDesk sections', items: sectionItems })
+      if (sectionItems.length) out.push({ name: 'PlexiiDesk sections', items: sectionItems })
       if (peopleItems.length) out.push({ name: 'People online', items: peopleItems })
       return out
     }
     if (actionItems.length) out.push({ name: 'Actions', items: actionItems })
-    if (sectionItems.length) out.push({ name: 'PlexiDesk sections', items: sectionItems.slice(0, 4) })
+    if (sectionItems.length) out.push({ name: 'PlexiiDesk sections', items: sectionItems.slice(0, 4) })
     if (peopleItems.length) out.push({ name: 'People online', items: peopleItems })
 
     const nodeGroup = (kind: 'task' | 'folder', name: string): void => {
@@ -1520,7 +1520,7 @@ function TranscribeOverlay({ onClose }: { onClose: () => void }): JSX.Element {
         if (!cancelled)
           setPhase({
             kind: 'error',
-            message: `Microphone access denied or unavailable: ${err instanceof Error ? err.message : String(err)}. On macOS: System Settings, Privacy & Security, Microphone, allow PlexiDesk.`,
+            message: `Microphone access denied or unavailable: ${err instanceof Error ? err.message : String(err)}. On macOS: System Settings, Privacy & Security, Microphone, allow PlexiiDesk.`,
             canRetry: false
           })
       }

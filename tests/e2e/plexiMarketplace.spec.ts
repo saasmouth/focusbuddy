@@ -163,7 +163,7 @@ test('6. suite launcher: PlexiMarketplace tile opens the view', async () => {
   try {
     await waitForReady(window)
 
-    await window.getByRole('button', { name: 'PlexiSuite' }).first().click()
+    await window.getByRole('button', { name: 'PlexiiSuite' }).first().click()
     await expect(window.locator('[data-testid="plexisuite-home"]')).toBeVisible({ timeout: 8_000 })
 
     await window.locator('[data-testid="product-tile-pleximarketplace"]').click()

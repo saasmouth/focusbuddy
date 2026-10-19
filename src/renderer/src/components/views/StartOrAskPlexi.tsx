@@ -57,7 +57,7 @@ const PICK_HINTS: Record<string, string> = {
   'table-row': 'Table',
   document: 'Document',
   file: 'File',
-  knowledge: 'PlexiBrain',
+  knowledge: 'PlexiiBrain',
   page: 'Page'
 }
 const PICKABLE = new Set(['task', 'folder', 'widget', 'table-row', 'document', 'file', 'knowledge'])

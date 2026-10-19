@@ -405,7 +405,7 @@ export default function MindMapWidget({ widget, inline = false }: Props): JSX.El
       setBusy(null)
       setErrorMsg(
         `Expand unavailable: ${err instanceof Error ? err.message : String(err)}. ` +
-          'Quit PlexiDesk (⌘Q) and reopen if you just shipped new code.'
+          'Quit PlexiiDesk (⌘Q) and reopen if you just shipped new code.'
       )
     }
   }
@@ -439,7 +439,7 @@ export default function MindMapWidget({ widget, inline = false }: Props): JSX.El
       if (inv.agents.length === 0) {
         if (inv.source === 'userData-new' || inv.source === 'none') {
           setErrorMsg(
-            `No agents found. Looked in:\n  ${inv.agentsDir ?? '(no writable directory)'}\n\nClick "+ New" to author one. To point PlexiDesk at an existing workspace with .claude/agents/, use Settings → Workspace path.`
+            `No agents found. Looked in:\n  ${inv.agentsDir ?? '(no writable directory)'}\n\nClick "+ New" to author one. To point PlexiiDesk at an existing workspace with .claude/agents/, use Settings → Workspace path.`
           )
         } else {
           setErrorMsg(
@@ -483,7 +483,7 @@ export default function MindMapWidget({ widget, inline = false }: Props): JSX.El
       setBusy(null)
       setErrorMsg(
         `Agent suggestion unavailable: ${err instanceof Error ? err.message : String(err)}. ` +
-          'Quit PlexiDesk (⌘Q) and reopen if you just shipped new code.'
+          'Quit PlexiiDesk (⌘Q) and reopen if you just shipped new code.'
       )
     }
   }
@@ -569,7 +569,7 @@ export default function MindMapWidget({ widget, inline = false }: Props): JSX.El
       setBusy(null)
       setErrorMsg(
         `Run unavailable: ${err instanceof Error ? err.message : String(err)}. ` +
-          'Quit PlexiDesk (⌘Q) and reopen.'
+          'Quit PlexiiDesk (⌘Q) and reopen.'
       )
     }
   }
@@ -1645,7 +1645,7 @@ function SidePanel({
               {(agentsInventory.source === 'userData-new' ||
                 agentsInventory.source === 'userData-existing') && (
                 <div className="text-amber-700 dark:text-amber-300 mt-0.5">
-                  Using PlexiDesk&apos;s userData fallback — set a workspace path in
+                  Using PlexiiDesk&apos;s userData fallback — set a workspace path in
                   Settings to point at your starter kit.
                 </div>
               )}

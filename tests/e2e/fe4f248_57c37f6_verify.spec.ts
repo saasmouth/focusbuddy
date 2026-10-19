@@ -212,10 +212,10 @@ test('INBOX-1: PlexiInbox renders without crash and shows sign-in gate (no accou
   window.on('pageerror', (e) => pageErrors.push(e.message))
   await waitForReady(window)
 
-  await window.getByRole('button', { name: /^PlexiInbox$/i }).first().click()
-  await expect(window.getByRole('heading', { name: 'PlexiInbox' })).toBeVisible({ timeout: 6000 })
+  await window.getByRole('button', { name: /^PlexiiInbox$/i }).first().click()
+  await expect(window.getByRole('heading', { name: 'PlexiiInbox' })).toBeVisible({ timeout: 6000 })
   // The sign-in gate copy must reference PlexiDesk notifications and point email to Mail
-  await expect(window.getByText(/your PlexiDesk notifications/i)).toBeVisible()
+  await expect(window.getByText(/your PlexiiDesk notifications/i)).toBeVisible()
   await expect(window.getByText(/Email is in Mail/i)).toBeVisible()
   expect(pageErrors).toHaveLength(0)
 })

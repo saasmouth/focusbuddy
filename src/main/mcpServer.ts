@@ -824,7 +824,7 @@ const readTools: McpToolDef<WorkspaceDeps>[] = [
   },
   {
     name: 'plexii_list_knowledge',
-    description: 'List PlexiBrain knowledge entries (pinned first) with ids, tags and a body preview. Read-only.',
+    description: 'List PlexiiBrain knowledge entries (pinned first) with ids, tags and a body preview. Read-only.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -940,7 +940,7 @@ const readTools: McpToolDef<WorkspaceDeps>[] = [
   },
   {
     name: 'plexii_list_forms',
-    description: 'List PlexiForms and the table each one writes into. Read-only.',
+    description: 'List PlexiiForms and the table each one writes into. Read-only.',
     inputSchema: { type: 'object', properties: {} },
     annotations: { title: 'List forms', ...READ_ONLY },
     scope: 'read',
@@ -1166,7 +1166,7 @@ const readTools: McpToolDef<WorkspaceDeps>[] = [
   },
   {
     name: 'plexii_list_flows',
-    description: 'List PlexiFlows automations: id, title, trigger, enabled, last run. Runnable ones can be started with plexii_run_flow. Read-only.',
+    description: 'List PlexiiFlows automations: id, title, trigger, enabled, last run. Runnable ones can be started with plexii_run_flow. Read-only.',
     inputSchema: { type: 'object', properties: {} },
     annotations: { title: 'List flows', ...READ_ONLY },
     scope: 'read',
@@ -1281,7 +1281,7 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
   },
   {
     name: 'plexii_create_knowledge',
-    description: 'Add an entry to PlexiBrain knowledge (title + body, optional tags). Requires a write token.',
+    description: 'Add an entry to PlexiiBrain knowledge (title + body, optional tags). Requires a write token.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1308,8 +1308,8 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
   {
     name: 'plexii_create_document',
     description:
-      'Create a PlexiOffice document. docType "doc" (default) takes markdown; "sheet" takes columns + rows; ' +
-      '"slides" takes an array of { title, bullets, notes }; "map" (PlexiDiagrams) takes nodes + edges. ' +
+      'Create a PlexiiOffice document. docType "doc" (default) takes markdown; "sheet" takes columns + rows; ' +
+      '"slides" takes an array of { title, bullets, notes }; "map" (PlexiiDiagrams) takes nodes + edges. ' +
       '"design" and "draw" are created EMPTY for the person to work in — their content is geometry, and ' +
       'inventing shapes from a prompt makes a file that opens to nonsense. Requires a write token.',
     inputSchema: {
@@ -1975,7 +1975,7 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
   {
     name: 'plexii_create_flow',
     description:
-      'Create a PlexiFlows automation: a trigger and the actions it runs. ' +
+      'Create a PlexiiFlows automation: a trigger and the actions it runs. ' +
       'Triggers: manual | schedule (every hour/day/week) | event. Actions: create-task, add-table-row, ' +
       'create-knowledge, ai-step. Actions that leave the machine (send-email, http-request) are REFUSED here — ' +
       'a scheduled flow runs itself, so allowing them would be a way to send mail without a tool that sends. ' +
@@ -2172,7 +2172,7 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
   },
   {
     name: 'plexii_create_form',
-    description: 'Create a PlexiForm that writes its submissions into a table. Requires a write token.',
+    description: 'Create a PlexiiForm that writes its submissions into a table. Requires a write token.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -2409,7 +2409,7 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
   },
   {
     name: 'plexii_update_knowledge',
-    description: 'Change a PlexiBrain entry\'s title, body or tags. Only what you pass changes. Requires a write token.',
+    description: 'Change a PlexiiBrain entry\'s title, body or tags. Only what you pass changes. Requires a write token.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -2642,7 +2642,7 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
   {
     name: 'plexii_run_flow',
     description:
-      'Run a PlexiFlows automation now and report each step. Only workspace-internal flows can be run here: a flow that sends email or calls an external URL is refused, because nothing on this surface is allowed to leave the machine. Requires a write token.',
+      'Run a PlexiiFlows automation now and report each step. Only workspace-internal flows can be run here: a flow that sends email or calls an external URL is refused, because nothing on this surface is allowed to leave the machine. Requires a write token.',
     inputSchema: {
       type: 'object',
       properties: { flowId: { type: 'string', description: 'The flow id (from plexii_list_flows).' } },

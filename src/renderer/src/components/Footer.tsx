@@ -105,7 +105,7 @@ export default function Footer(): JSX.Element {
               check. */}
           <Tooltip
             placement="top"
-            content={`PlexiDesk ${appVersion}${buildDate ? ` · build ${buildDate}` : ''} — click to check for updates`}
+            content={`PlexiiDesk ${appVersion}${buildDate ? ` · build ${buildDate}` : ''} — click to check for updates`}
           >
             <button
               type="button"
@@ -161,7 +161,7 @@ export default function Footer(): JSX.Element {
               placement="top"
               content={
                 vaultUnlocked
-                  ? 'Vault unlocked. Your secrets stay on this device — PlexiDesk never sees them.'
+                  ? 'Vault unlocked. Your secrets stay on this device — PlexiiDesk never sees them.'
                   : 'Vault is locked. Unlock it from the Vault view to use saved credentials.'
               }
             >
@@ -185,7 +185,7 @@ export default function Footer(): JSX.Element {
             Terms of Use
           </button>
           <span className="text-[var(--ink-30)]">·</span>
-          <Tooltip placement="top" content="Open the PlexiDesk help centre in your browser — guides for every feature">
+          <Tooltip placement="top" content="Open the PlexiiDesk help centre in your browser — guides for every feature">
             <button
               onClick={() => window.open(HELP_BASE, '_blank', 'noopener,noreferrer')}
               className="px-2 py-1 rounded hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-100)] transition-colors flex items-center gap-1"

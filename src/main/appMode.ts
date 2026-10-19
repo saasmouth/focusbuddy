@@ -14,6 +14,17 @@
 // "plexioffice"), and finally app.getName() as a best-effort fallback (works once
 // app.setName('PlexiOffice') has been applied). This is a pure function so the
 // detection rules are unit-tested independently of the Electron runtime.
+// The bundle and executable follow productName, which moved from "PlexiOffice"
+// to "PlexiiOffice" (and "PlexiiDesk 4 Preview") in 4.3.33. An
+// install updated in place keeps its OLD directory name but gets the NEW
+// executable, so a path can carry either spelling, or both. Folding "plexii" to
+// "plexi" before matching recognises every combination with one set of rules.
+// Not optional: a preview or office build that stops being recognised falls
+// through to the production userData directory and opens the real database.
+function brandFolded(execPath: string): string {
+  return execPath.toLowerCase().replace(/plexii/g, 'plexi')
+}
+
 export function detectOfficeBuild(opts: {
   plexiAppEnv?: string | undefined
   execPath: string
@@ -21,7 +32,7 @@ export function detectOfficeBuild(opts: {
 }): boolean {
   return (
     opts.plexiAppEnv === 'office' ||
-    opts.execPath.toLowerCase().includes('plexioffice') ||
+    brandFolded(opts.execPath).includes('plexioffice') ||
     opts.appName.toLowerCase().includes('office')
   )
 }
@@ -41,7 +52,7 @@ export function detectPreviewBuild(opts: {
   execPath: string
   appName: string
 }): boolean {
-  const path = opts.execPath.toLowerCase()
+  const path = brandFolded(opts.execPath)
   // Both generations match. The preview was renamed 3 -> 4 with the product, and
   // the old names stay recognised on purpose: an installed "PlexiDesk 3 Preview"
   // that stops being detected as a preview build would silently fall through to
@@ -56,4 +67,17 @@ export function detectPreviewBuild(opts: {
     path.includes('plexidesk4preview') ||
     opts.appName.toLowerCase().includes('preview')
   )
+}
+
+// The product name a person reads in the app menu ("About PlexiiDesk", "Quit
+// PlexiiDesk"). Deliberately NOT app.getName(): that is "plexii" for the main
+// build (package.json `name`) and "PlexiOffice" / "PlexiDesk 4 Preview" once
+// setName runs, and none of those can change — app.getName() also names the
+// macOS keychain item safeStorage encrypts with ("plexii Safe Storage",
+// "PlexiOffice Safe Storage"), so renaming it would make every stored API key
+// and token undecryptable. The visible name is a separate string for that reason.
+export function productDisplayName(build: { office: boolean; preview: boolean }): string {
+  if (build.office) return 'PlexiiOffice'
+  if (build.preview) return 'PlexiiDesk 4 Preview'
+  return 'PlexiiDesk'
 }

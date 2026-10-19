@@ -137,7 +137,7 @@ test('Desk Sidebar and OfficeSidebar share the same visual system', async () => 
     const officeWordmark = officeSidebar.locator('span.text-\\[15px\\].font-bold.tracking-\\[0\\.14em\\]').first()
     await expect(officeWordmark).toBeVisible({ timeout: 3_000 })
     const officeWordmarkText = await officeWordmark.textContent()
-    expect(officeWordmarkText?.trim().toUpperCase()).toBe('PLEXIOFFICE')
+    expect(officeWordmarkText?.trim().toUpperCase()).toBe('PLEXIIOFFICE')
 
     const officeHeader = officeSidebar.locator('div.h-14').first()
     const officeHeaderClasses = await officeHeader.getAttribute('class') ?? ''

@@ -4,7 +4,7 @@
 # WHY THIS EXISTS. On this machine a freshly installed build is left in state
 # `T` (stopped) immediately after launch, with ~32KB resident and no renderer
 # helpers. A stopped process never draws a window, so the dock bounces until
-# LaunchServices gives up and reports "PlexiDesk is not responding" — which
+# LaunchServices gives up and reports "PlexiiDesk is not responding" — which
 # reads exactly like a crash, and sent one bug report chasing a white screen
 # that was never the problem.
 #
@@ -25,15 +25,19 @@ for a in "$@"; do
   esac
 done
 if [ -z "$APP" ]; then
-  # Newest installed PlexiDesk bundle, which is what install-local just wrote.
-  APP=$(/bin/ls -dt /Applications/PlexiDesk*.app 2>/dev/null | head -1)
+  # Newest installed bundle, which is what install-local just wrote. Either
+  # spelling: "PlexiiDesk …" from 4.3.33, "PlexiDesk …" before.
+  APP=$(/bin/ls -dt /Applications/PlexiiDesk*.app /Applications/PlexiDesk*.app 2>/dev/null | head -1)
 fi
 if [ -z "$APP" ] || [ ! -d "$APP" ]; then
-  echo "[launch] no PlexiDesk app found in /Applications" >&2
+  echo "[launch] no PlexiiDesk app found in /Applications" >&2
   exit 1
 fi
 
-BIN="$APP/Contents/MacOS/PlexiDesk"
+# The executable follows productName ("PlexiiDesk" from 4.3.33, "PlexiDesk"
+# before), so read it from the bundle rather than assuming either.
+EXE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist" 2>/dev/null || echo PlexiiDesk)"
+BIN="$APP/Contents/MacOS/$EXE"
 echo "[launch] $APP"
 
 # A stopped process from an earlier attempt keeps the single-instance lock, so
@@ -94,8 +98,26 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
       # version with dots, and pgrep -fc matched nothing for it even while
       # four helpers were plainly running — which made this script report a
       # healthy app as a failure.
-      helpers=$(ps aux | grep -c "[P]lexiDesk.*\.app/Contents/Frameworks" || true)
+      # Scoped to THIS bundle's path: a pattern matching any PlexiDesk bundle
+      # counted an older, still-running build's helpers and reported the new
+      # one "up" when it had in fact handed off to that older instance.
+      helpers=$(ps axo args= | grep -F "$APP/Contents/Frameworks" | grep -vc grep || true)
       if [ "${helpers:-0}" -ge 1 ]; then
+        # A launch that finds another instance holding the single-instance lock
+        # (same userData, so any build that shares it) comes up, passes the
+        # request to that instance, and quits a moment later. Reporting it as
+        # "up" put a stale build on screen and called it the new one. Look again
+        # after a pause, and name the instance that actually has the window.
+        sleep 4
+        if ! ps -p "$pid" >/dev/null 2>&1; then
+          LOCK="$HOME/Library/Application Support/plexii/SingletonLock"
+          holder=$(readlink "$LOCK" 2>/dev/null | sed -E 's/.*-([0-9]+)$/\1/')
+          holder_cmd=$(ps -o args= -p "${holder:-0}" 2>/dev/null || true)
+          echo "[launch] HANDED OFF — this build started, found another instance holding the lock, and quit." >&2
+          echo "[launch] running instance: pid ${holder:-?} ${holder_cmd:-<unknown>}" >&2
+          echo "[launch] quit that instance yourself to run $APP; it was not touched." >&2
+          exit 3
+        fi
         rss=$(ps -o rss= -p "$pid" 2>/dev/null | tr -d ' ')
         # Report the age of the process against the bundle, so a stale instance
         # can never again be reported as a successful launch.
@@ -110,5 +132,5 @@ done
 
 pid=$(pgrep -f "$BIN" 2>/dev/null | head -1 || true)
 echo "[launch] did NOT come up within 60s (pid=${pid:-none} state=$(ps -o stat= -p "${pid:-0}" 2>/dev/null | tr -d ' '))" >&2
-echo "[launch] resume it by hand with:  kill -CONT \$(pgrep -f 'PlexiDesk.app/Contents/MacOS')" >&2
+echo "[launch] resume it by hand with:  kill -CONT \$(pgrep -f '$BIN')" >&2
 exit 1

@@ -363,7 +363,7 @@ test('(b) Send test POSTs a test JSON body to the configured URL and shows a gre
   expect(req.method).toBe('POST')
   const parsed = JSON.parse(req.body) as { test: boolean; from: string; at: string }
   expect(parsed.test).toBe(true)
-  expect(parsed.from).toBe('PlexiDesk')
+  expect(parsed.from).toBe('PlexiiDesk')
   expect(typeof parsed.at).toBe('string')
 
   const result = frame.locator('[data-testid="webhook-result"]')

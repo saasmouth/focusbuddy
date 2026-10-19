@@ -45,7 +45,7 @@ export default function SharedView(): JSX.Element {
     if (!url) return
     const m = url.match(/\/share\/([a-z0-9]+)/i)
     if (!m) {
-      setError('That does not look like a PlexiDesk share link.')
+      setError('That does not look like a PlexiiDesk share link.')
       return
     }
     try {

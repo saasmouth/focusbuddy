@@ -395,7 +395,7 @@ test('10. PlexiSearch: result rows visible, Cmd+Enter shows answer card', async 
       window.api.knowledge.create({ title: 'HardeningSearchEntry', body: 'Seeded body for the hardeningspec test' })
     )
 
-    await window.getByRole('button', { name: 'PlexiSearch' }).first().click()
+    await window.getByRole('button', { name: 'PlexiiSearch' }).first().click()
     const openBtn = window.locator('[data-testid="open-plexisearch"]')
     if (await openBtn.isVisible({ timeout: 2000 }).catch(() => false)) await openBtn.click()
     await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 8000 })
@@ -545,7 +545,7 @@ test('15. PlexiMarketplace: apply sprint-board, real table created', async () =>
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
-    await window.getByRole('button', { name: 'PlexiMarketplace' }).first().click()
+    await window.getByRole('button', { name: 'PlexiiMarketplace' }).first().click()
     const openBtn = window.locator('[data-testid="open-pleximarketplace"]')
     if (await openBtn.isVisible({ timeout: 2000 }).catch(() => false)) await openBtn.click()
     await expect(window.locator('[data-testid="pleximarketplace-view"]')).toBeVisible({ timeout: 8000 })

@@ -1,4 +1,4 @@
-// Electron-builder config for the PlexiDesk desktop app.
+// Electron-builder config for the PlexiiDesk desktop app.
 //
 // This replaces the old static electron-builder.yml so macOS signing can be
 // decided from the environment. Two modes:
@@ -109,10 +109,37 @@ console.log(
 
 module.exports = {
   appId: 'app.haptyx.desktop',
-  productName: 'PlexiDesk',
-  copyright: 'Copyright © 2026 PlexiDesk',
-  // The filename a user downloads and sees in their Downloads folder, so it
-  // carries the product's name. scripts/upload-release-assets.mjs publishes
+  // productName is the name a person SEES: the .app bundle and its executable,
+  // CFBundleName / CFBundleDisplayName (the menu bar, Dock, Finder, Activity
+  // Monitor, the Accessibility and Screen Recording lists), the Windows .exe,
+  // shortcut, Start menu entry and Apps & features name. "PlexiiDesk" from
+  // 4.3.33, matching the site.
+  //
+  // It is NOT the app's identity, and that is what makes it safe to change:
+  //   - userData is pinned to Application Support/plexii (userDataMigration.ts)
+  //     and never derived from this.
+  //   - app.getName(), which names the safeStorage keychain item ("plexii Safe
+  //     Storage"), comes from package.json `name`; electron-builder does not
+  //     write productName into the packaged package.json.
+  //   - the single-instance lock lives in userData, so 4.3.32 and 4.3.33 still
+  //     share one.
+  //   - TCC grants, LaunchServices and notarisation key on appId above.
+  //   - Squirrel.Mac installs an update over the RUNNING bundle's path and
+  //     picks the new bundle out of the zip by bundle id, so an updated install
+  //     keeps its "PlexiDesk.app" directory with the new executable inside. A
+  //     fresh DMG install is "PlexiiDesk.app".
+  //   - Windows keys the uninstall entry and the stored install directory on a
+  //     GUID derived from appId, so an upgrade installs into the existing
+  //     folder, and NSIS renames the old shortcuts (the "name change" branch
+  //     in app-builder-lib's installer.nsh).
+  // Asset filenames do NOT follow it: artifactName below is explicit.
+  productName: 'PlexiiDesk',
+  copyright: 'Copyright © 2026 PlexiiDesk',
+  // The filename a user downloads and sees in their Downloads folder. It stays
+  // "PlexiDesk-…" through the Plexii spelling change, byte for byte: the update
+  // feeds (latest-mac.yml / latest.yml) and the site's download buttons name
+  // these exact objects on R2, so a new spelling would 404 both, the same
+  // reason the Haptyx names are still published. scripts/upload-release-assets.mjs publishes
   // Haptyx-named copies alongside these: a shipped client builds its own
   // update URL from that pattern (see src/main/updaterInstall.ts) and cannot
   // be changed retroactively, so the old names have to keep resolving.
@@ -167,12 +194,12 @@ module.exports = {
   // opening the app. See src/shared/deepLink.ts.
   protocols: [
     {
-      name: 'PlexiDesk Protocol',
+      name: 'PlexiiDesk Protocol',
       schemes: ['plexii'],
       role: 'Viewer'
     },
     {
-      name: 'PlexiDesk Protocol (legacy)',
+      name: 'PlexiiDesk Protocol (legacy)',
       schemes: ['haptyx'],
       role: 'Viewer'
     }
@@ -250,16 +277,16 @@ module.exports = {
     // prompt. NSCameraUsageDescription is what fixes the video-note capture.
     extendInfo: {
       NSMicrophoneUsageDescription:
-        'PlexiDesk records voice notes that you choose to capture on your desk. Audio is processed locally (or sent to your configured transcription provider) and never proxied through PlexiDesk.',
+        'PlexiiDesk records voice notes that you choose to capture on your desk. Audio is processed locally (or sent to your configured transcription provider) and never proxied through PlexiiDesk.',
       NSCameraUsageDescription:
-        'PlexiDesk records video notes when you choose to capture them. Video and audio are stored locally and only transcribed via your configured provider.',
+        'PlexiiDesk records video notes when you choose to capture them. Video and audio are stored locally and only transcribed via your configured provider.',
       // System-audio capture. We ask for `audio: 'loopback'` in the display-media
       // handler so a live-mirror widget can carry the meeting's sound, and from
       // Electron 39 on macOS 14.2+ that stream is SILENTLY DEAD without this
       // key — no prompt, no error, just no audio. Added with the Electron 44
       // upgrade, because the old Electron never needed it and so never told us.
       NSAudioCaptureUsageDescription:
-        'PlexiDesk captures the sound playing on this Mac when you mirror a screen or window onto a desk, so a mirrored meeting or video carries its audio. It is used only for the mirror you asked for.'
+        'PlexiiDesk captures the sound playing on this Mac when you mirror a screen or window onto a desk, so a mirrored meeting or video carries its audio. It is used only for the mirror you asked for.'
     },
     ...macSigning
   },
@@ -274,7 +301,7 @@ module.exports = {
   afterPack: 'build/harden.cjs',
 
   dmg: {
-    title: 'PlexiDesk ${version}',
+    title: 'PlexiiDesk ${version}',
     iconSize: 96,
     contents: [
       { x: 130, y: 220, type: 'file' },
@@ -297,7 +324,7 @@ module.exports = {
     allowToChangeInstallationDirectory: true,
     createDesktopShortcut: true,
     createStartMenuShortcut: true,
-    shortcutName: 'PlexiDesk'
+    shortcutName: 'PlexiiDesk'
   },
 
   // Native modules are pre-rebuilt via `npm run rebuild`; the in-builder rebuild

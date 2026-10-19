@@ -498,6 +498,12 @@ once it mounts, unless the person has already focused something else. Kinds
 without one are left to their own editor. Typing straight after placing a
 Tasks work widget therefore writes the task.
 
+The canvas right-click "Add object" menu creates through the widget store
+rather than `adoptInstance`, so `placeWidgetAtCanvas` in `Canvas.tsx` does the
+same two steps itself (NWT-4). Desk quick-add keys deliberately do not: they
+spawn through `placeWidget`, and focus stays on the desk, because that person
+is typing on the desk (NWT-5).
+
 Desk quick-add (S = sticky, T = table, …) ignores a key whose focused element
 or event target is a control, a text field, or anywhere inside a work widget
 (`[data-widget-id]`, `lib/quickAddFocus.ts`). It still fires on the bare desk

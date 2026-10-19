@@ -590,7 +590,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
       {/* Pro card — the same upgrade block that sits at the foot of the
           PlexiOffice menu, so every area's menu ends the same way. */}
       <div className="px-3 pt-2">
-        <UpgradeCard label="PlexiDesk Pro" />
+        <UpgradeCard label="PlexiiDesk Pro" />
       </div>
 
       {/* Footer — sync indicator. Stays pinned to the bottom of the

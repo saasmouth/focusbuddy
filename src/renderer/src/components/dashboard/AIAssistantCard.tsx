@@ -53,7 +53,7 @@ export default function AIAssistantCard(): JSX.Element {
         {
           role: 'system',
           content:
-            'You are PlexiDesk\'s in-dashboard quick assistant. Answer in 3 short paragraphs maximum. Be specific, kind, and actionable. Never lecture.',
+            'You are PlexiiDesk\'s in-dashboard quick assistant. Answer in 3 short paragraphs maximum. Be specific, kind, and actionable. Never lecture.',
           ts: Date.now()
         },
         { role: 'user', content: prompt.trim(), ts: Date.now() }

@@ -53,7 +53,7 @@ export const DocEmbedNode = Node.create({
   renderHTML({ HTMLAttributes }) {
     // Static form for exports / headless conversion: names what it is rather
     // than pretending to be the live document card.
-    return ['div', mergeAttributes(HTMLAttributes), 'Embedded PlexiOffice document']
+    return ['div', mergeAttributes(HTMLAttributes), 'Embedded PlexiiOffice document']
   },
 
   addNodeView() {

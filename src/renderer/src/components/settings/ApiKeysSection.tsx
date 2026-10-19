@@ -108,7 +108,7 @@ export default function ApiKeysSection({ onKeySaved }: Props): JSX.Element {
           helpUrl: 'https://console.anthropic.com/settings/keys',
           helpLabel: 'Get a key from console.anthropic.com →',
           removeWarning:
-            'Remove the Anthropic API key from PlexiDesk? AI features will stop working until you add it back.',
+            'Remove the Anthropic API key from PlexiiDesk? AI features will stop working until you add it back.',
           api: {
             hint: () => window.api.settings.hintAnthropic(),
             save: (p) => window.api.settings.saveAnthropicKey(p),
@@ -128,7 +128,7 @@ export default function ApiKeysSection({ onKeySaved }: Props): JSX.Element {
           helpUrl: 'https://platform.openai.com/api-keys',
           helpLabel: 'Get a key from platform.openai.com →',
           removeWarning:
-            'Remove the OpenAI API key from PlexiDesk? Voice-note transcription will stop working until you add it back.',
+            'Remove the OpenAI API key from PlexiiDesk? Voice-note transcription will stop working until you add it back.',
           api: {
             hint: () => window.api.settings.hintOpenAI(),
             save: (p) => window.api.settings.saveOpenAIKey(p),
@@ -167,7 +167,7 @@ export default function ApiKeysSection({ onKeySaved }: Props): JSX.Element {
       <ApiKeyRow
         config={{
           label: 'Pexels API key',
-          purpose: 'Stock photo search in PlexiDesign. Optional — without it the stock picker prompts to add a key.',
+          purpose: 'Stock photo search in PlexiiDesign. Optional — without it the stock picker prompts to add a key.',
           placeholder: '563492…',
           helpUrl: 'https://www.pexels.com/api/',
           helpLabel: 'Get a free key from Pexels →',
@@ -190,7 +190,7 @@ export default function ApiKeysSection({ onKeySaved }: Props): JSX.Element {
       <ApiKeyRow
         config={{
           label: 'remove.bg API key',
-          purpose: 'One-click background removal on images in PlexiDesign. Optional.',
+          purpose: 'One-click background removal on images in PlexiiDesign. Optional.',
           placeholder: 'abc123…',
           helpUrl: 'https://www.remove.bg/api',
           helpLabel: 'Get a key from remove.bg →',
@@ -257,7 +257,7 @@ function AiSourceSection(): JSX.Element {
       await window.api.ai.setMode(mode)
       await syncCredits()
     } catch {
-      setNote('Could not change AI source. Restart PlexiDesk and try again.')
+      setNote('Could not change AI source. Restart PlexiiDesk and try again.')
     } finally {
       setBusy(false)
     }
@@ -405,9 +405,9 @@ function VoiceProviderToggle(): JSX.Element {
         setProvider('unavailable')
         setStatus(
           'Transcription provider preference is unavailable. ' +
-            'This usually means PlexiDesk needs a full restart to pick up ' +
+            'This usually means PlexiiDesk needs a full restart to pick up ' +
             'new IPC handlers (renderer was updated but main process wasn\'t). ' +
-            'Quit PlexiDesk (⌘Q) and reopen.'
+            'Quit PlexiiDesk (⌘Q) and reopen.'
         )
       })
   }, [])
@@ -433,7 +433,7 @@ function VoiceProviderToggle(): JSX.Element {
       )
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      setStatus(`Couldn\'t switch: ${msg}. Try restarting PlexiDesk.`)
+      setStatus(`Couldn\'t switch: ${msg}. Try restarting PlexiiDesk.`)
     } finally {
       setBusy(false)
     }
@@ -548,7 +548,7 @@ function ApiKeyRow({
       const msg = err instanceof Error ? err.message : String(err)
       setStatus({
         kind: 'error',
-        message: `Save failed: ${msg}. If this just appeared, quit PlexiDesk (⌘Q) and reopen — the renderer has new code that the main process hasn't loaded yet.`
+        message: `Save failed: ${msg}. If this just appeared, quit PlexiiDesk (⌘Q) and reopen — the renderer has new code that the main process hasn't loaded yet.`
       })
     }
   }
@@ -609,8 +609,8 @@ function ApiKeyRow({
       </div>
       {unavailable && (
         <div className="fb-t-caption text-amber-700 dark:text-amber-300 mb-2 leading-snug bg-amber-500/10 border border-amber-500/20 rounded-[var(--radius-chip)] px-2 py-1.5">
-          Main process is missing this provider's IPC handler. Quit PlexiDesk (⌘Q) and reopen so it picks up the new code. Saving / testing this key won't work until you do.
-        </div>
+          Main process is missing this provider's IPC handler. Quit PlexiiDesk (⌘Q) and reopen so it picks up the new code. Saving / testing this key won't work until you do.
+         </div>
       )}
 
       {hint.hasKey && !editing && (

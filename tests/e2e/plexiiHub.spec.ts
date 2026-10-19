@@ -379,7 +379,7 @@ test.describe('Plexii hub (Phase 1)', () => {
     await expect(window.getByRole('img', { name: 'Plexii', exact: true }).first()).toBeVisible()
     // The retired names are gone from the chrome.
     await expect(window.getByRole('heading', { name: 'Assistant', exact: true })).toHaveCount(0)
-    await expect(window.getByText('Ask PlexiBrain')).toHaveCount(0)
+    await expect(window.getByText('Ask PlexiiBrain')).toHaveCount(0)
   })
 
   test('the hub opens, and leaving restores the pill', async () => {
