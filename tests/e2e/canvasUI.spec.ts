@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // Regression check: minimap visible + edge-pan engages when cursor
 // approaches the canvas margin.
@@ -17,6 +17,7 @@ test('minimap renders + edge-pan moves the canvas', async () => {
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForFunction(
     () => typeof (window as unknown as { api?: unknown }).api === 'object',
     null,

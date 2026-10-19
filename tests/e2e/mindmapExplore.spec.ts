@@ -55,6 +55,7 @@ async function seedMindmapAndOpen(l: LaunchedApp): Promise<{ taskId: string; wid
 test('Explore a node → creates a task, switches canvas, shows breadcrumb', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId } = await seedMindmapAndOpen(launched)
 
   // Select the child node (renders as an SVG group with a data-testid).

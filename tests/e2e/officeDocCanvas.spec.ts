@@ -39,6 +39,7 @@ async function seedTaskAndOpen(
 ): Promise<string> {
   const { window } = l
 
+  await waitForReady(window)
   const taskId = await window.evaluate(async (title: string) => {
     const api = (window as unknown as { api: typeof window.api }).api
     const t = await api.nodes.create({ parentId: null, kind: 'task', title })

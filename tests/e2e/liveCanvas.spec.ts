@@ -177,6 +177,7 @@ test('LC-3 — Sidebar: Collaborate live context menu item present on task row',
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const uncaught: string[] = []
   window.on('pageerror', (err) => uncaught.push(err.message))
 

@@ -16,6 +16,7 @@ test('PlexiDraw: add two shapes, drag-connect a wire between them, label a shape
   launched = await launchApp({ env: { PLEXI_APP: 'office' } })
   const { window } = launched
 
+  await waitForReady(window)
   await window.locator('[data-testid="office-new-map"]').click()
   await expect(window.locator('[data-testid="map-add-process"]')).toBeVisible({ timeout: 10_000 })
   // Starter node already present (1).

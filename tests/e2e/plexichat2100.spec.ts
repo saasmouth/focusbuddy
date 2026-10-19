@@ -65,6 +65,7 @@ async function seedSignedIn(window: Awaited<ReturnType<typeof launchApp>>['windo
 test('P2100-boot — app boots and navigates to chat with no console errors referencing the changed modules', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const consoleErrors: string[] = []
   window.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text())

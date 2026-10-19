@@ -78,6 +78,7 @@ test('signup persists first/last name; Settings identity + name editor round-tri
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 

@@ -53,6 +53,7 @@ async function openHeaderMenu(l: LaunchedApp, id: string, x: number): Promise<vo
 test('CTX-1 — re-opening the menu does not stack instances', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const id = await seedSticky(launched)
   await openHeaderMenu(launched, id, 80)
   expect(await menuCount(launched)).toBe(1)
@@ -71,6 +72,7 @@ test('CTX-1 — re-opening the menu does not stack instances', async () => {
 test('CTX-2 — clicking outside dismisses the menu', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const id = await seedSticky(launched)
   await openHeaderMenu(launched, id, 80)
   expect(await menuCount(launched)).toBe(1)

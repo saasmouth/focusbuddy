@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // Voice prefs E2E. What remains of the original VoiceCommandFAB spec:
 // the FAB itself was deleted in A3 (voice moved into the mascot, d055f25)
@@ -35,6 +35,7 @@ async function boot(): Promise<LaunchedApp> {
 test('voiceCommand prefs round-trip through IPC', async () => {
   launched = await boot()
   const { window } = launched
+  await waitForReady(window)
   const initial = await window.evaluate(() => window.api.voiceCommand.getPrefs())
   expect(initial.commandMode).toMatch(/press-hold|click-toggle/)
   expect(initial.autoStopSilenceMs).toBeGreaterThanOrEqual(1000)

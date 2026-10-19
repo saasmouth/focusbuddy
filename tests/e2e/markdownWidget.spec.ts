@@ -81,6 +81,7 @@ async function focusEditor(window: LaunchedApp['window'], widgetId: string): Pro
 test('A1 — slash menu appears when "/" is typed in the markdown editor', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedMarkdownWidget(launched, '')
 
   await focusEditor(window, widgetId)
@@ -98,6 +99,7 @@ test('A1 — slash menu appears when "/" is typed in the markdown editor', async
 test('A2 — selecting "Heading 1" inserts <h1> and removes the "/" trigger', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedMarkdownWidget(launched, '')
 
   await focusEditor(window, widgetId)
@@ -152,6 +154,7 @@ test('A2 — selecting "Heading 1" inserts <h1> and removes the "/" trigger', as
 test('A3 — Escape key closes the slash menu without inserting any block', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedMarkdownWidget(launched, '')
 
   await focusEditor(window, widgetId)
@@ -183,6 +186,7 @@ test('A3 — Escape key closes the slash menu without inserting any block', asyn
 test('B1 — Export HTML and Export PDF toolbar buttons are present in the markdown widget', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedMarkdownWidget(launched, 'Check export buttons')
 
   // seedMarkdownWidget already waited for md-export-pdf to be in the DOM.
@@ -260,6 +264,7 @@ async function readExportSpyArgs(l: LaunchedApp): Promise<{
 test('B2 — Export PDF button invokes IPC with a well-formed HTML document', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedMarkdownWidget(launched, 'Export PDF test content')
 
   await installExportSpy(launched)
@@ -307,6 +312,7 @@ test('B2 — Export PDF button invokes IPC with a well-formed HTML document', as
 test('B3 — Export HTML button invokes IPC with a well-formed HTML document', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedMarkdownWidget(launched, 'Export HTML test content')
 
   await installExportSpy(launched)
@@ -351,6 +357,7 @@ test('B3 — Export HTML button invokes IPC with a well-formed HTML document', a
 test('C — applyBlock removes exactly one "/" and preserves surrounding characters', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedMarkdownWidget(launched, '')
 
   await focusEditor(window, widgetId)

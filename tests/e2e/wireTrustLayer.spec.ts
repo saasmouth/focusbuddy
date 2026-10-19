@@ -143,6 +143,7 @@ async function linkOf(window: Page, taskId: string, linkId: string): Promise<{ l
 test('(a) a fresh mirror wire reports never-run before any edit', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const s = await seed(window)
   await openTask(window, /Wire trust layer/)
 
@@ -156,6 +157,7 @@ test('(a) a fresh mirror wire reports never-run before any edit', async () => {
 test('(b) editing the source runs the mirror wire, writes the target, and records a wire_runs row', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const s = await seed(window)
   await openTask(window, /Wire trust layer/)
 
@@ -175,6 +177,7 @@ test('(b) editing the source runs the mirror wire, writes the target, and record
 test('(c) the badge goes ok after a run, stale immediately after a further source edit, and back to ok once that run completes', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const s = await seed(window)
   await openTask(window, /Wire trust layer/)
 
@@ -204,6 +207,7 @@ test('(c) the badge goes ok after a run, stale immediately after a further sourc
 test('(d) the WireEditor lists recent activity and "Revert this write" restores the target\'s prior content', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const s = await seed(window)
   await openTask(window, /Wire trust layer/)
 
@@ -241,6 +245,7 @@ test('(d) the WireEditor lists recent activity and "Revert this write" restores 
 test('(e) last_run_at is durable across a reload', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const s = await seed(window)
   await openTask(window, /Wire trust layer/)
 
@@ -267,6 +272,7 @@ test('(e) last_run_at is durable across a reload', async () => {
 test('(f) a plain context wire carries no data-wire-fresh attribute', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const s = await seed(window)
   await openTask(window, /Wire trust layer/)
 

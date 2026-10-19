@@ -100,6 +100,7 @@ async function linkVerb(window: Page, taskId: string, linkId: string): Promise<s
 test('(a) the WireEditor for a text-source transform wire shows the recipes row with action-items + summarize chips', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const s = await seed(window)
   await openTask(window, /Wire recipes/)
 
@@ -115,6 +116,7 @@ test('(a) the WireEditor for a text-source transform wire shows the recipes row 
 test('(b) clicking the summarize recipe sets the wire verb to the summarize instruction, durably', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const s = await seed(window)
   await openTask(window, /Wire recipes/)
 
@@ -134,6 +136,7 @@ test('(b) clicking the summarize recipe sets the wire verb to the summarize inst
 test('(c) a non-text source (timer) shows no recipes chips in its WireEditor', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const s = await seed(window)
   await openTask(window, /Wire recipes/)
 
@@ -150,6 +153,7 @@ test('(c) a non-text source (timer) shows no recipes chips in its WireEditor', a
 test('(d) the plain verb input still accepts a custom verb and persists it on blur', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const s = await seed(window)
   await openTask(window, /Wire recipes/)
 

@@ -65,6 +65,7 @@ test('DC-1 — a single click does not move the camera; a double click opens Foc
   const id = await seedFarWidget(launched)
   const { window } = launched
 
+  await waitForReady(window)
   const t0 = await readTranslate(launched)
   expect(t0).not.toBeNull()
 

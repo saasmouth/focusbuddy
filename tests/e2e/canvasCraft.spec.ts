@@ -93,6 +93,7 @@ async function listWidgets(
 test('Align buttons appear in toolbar when 2 widgets are selected', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { ids } = await seedWidgetsAndOpen(launched, [
     { x: 100, y: 100 },
     { x: 400, y: 200 }
@@ -138,6 +139,7 @@ test('Align left converges selected widgets x to the leftmost x', async () => {
 test('Distribute buttons appear when 3 widgets are selected', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { ids } = await seedWidgetsAndOpen(launched, [
     { x: 100, y: 100 },
     { x: 300, y: 100 },
@@ -157,6 +159,7 @@ test('Distribute buttons appear when 3 widgets are selected', async () => {
 test('Snap-to-grid toggle via CommandCenter does not crash', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (e) => pageErrors.push(e.message))
 

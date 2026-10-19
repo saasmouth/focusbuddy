@@ -86,6 +86,7 @@ test('Cmd+K palette surfaces "Add Sticky" when searching "sticky"', async () => 
   // representative case: "sticky" → "Add Sticky".
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   await seedTaskAndOpenCanvas(launched, 'PaletteWidgetsTest')
 
   await window.keyboard.press('Meta+k')
@@ -110,6 +111,7 @@ test('Cmd+K palette surfaces "Add Sticky" when searching "sticky"', async () => 
 test('Cmd+K palette surfaces "Add Table" when searching "table"', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   await seedTaskAndOpenCanvas(launched, 'PaletteTableTest')
 
   await window.keyboard.press('Meta+k')
@@ -133,6 +135,7 @@ test('Cmd+K palette surfaces "Add Table" when searching "table"', async () => {
 test('Cmd+K palette lists nav commands: Documents, Files, Mail, PlexiInbox, Messages', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   await seedTaskAndOpenCanvas(launched, 'PaletteNavTest')
 
   await window.keyboard.press('Meta+k')
@@ -151,6 +154,7 @@ test('Cmd+K palette lists nav commands: Documents, Files, Mail, PlexiInbox, Mess
 test('Cmd+K palette shows shortcut letter S next to Add Sticky', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   await seedTaskAndOpenCanvas(launched, 'ShortcutLetterTest')
 
   await window.keyboard.press('Meta+k')
@@ -180,6 +184,7 @@ test('Cmd+K palette shows shortcut letter S next to Add Sticky', async () => {
 test('pressing T on a bare task canvas creates a table widget', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId } = await seedTaskAndOpenCanvas(launched, 'QuickAddTableTest')
 
   // Click the bare canvas background to ensure canvas has pointer focus,
@@ -218,6 +223,7 @@ test('pressing T on a bare task canvas creates a table widget', async () => {
 test('pressing S on a bare task canvas creates a sticky widget', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId } = await seedTaskAndOpenCanvas(launched, 'QuickAddStickyTest')
 
   const surface = window.locator('[data-canvas-surface="true"]')
@@ -254,6 +260,7 @@ test('pressing S on a bare task canvas creates a sticky widget', async () => {
 test('pressing T while the palette search input is focused does NOT spawn a widget', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId } = await seedTaskAndOpenCanvas(launched, 'TypingGuardTest')
 
   // Open palette — this focuses the search <input>
@@ -289,6 +296,7 @@ test('pressing T while the palette search input is focused does NOT spawn a widg
 test('Cmd+K opens, Escape closes, second Cmd+K reopens, canvas is intact throughout', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   await seedTaskAndOpenCanvas(launched, 'PaletteToggleTest')
 
   // Open
@@ -322,6 +330,7 @@ test('Cmd+K opens, Escape closes, second Cmd+K reopens, canvas is intact through
 test('modifier keys (Cmd+T, Shift+S) do NOT trigger quick-add shortcuts', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId } = await seedTaskAndOpenCanvas(launched, 'ModifierGuardTest')
 
   const surface = window.locator('[data-canvas-surface="true"]')

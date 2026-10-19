@@ -136,6 +136,7 @@ async function armAndDrop(
 test('(a)(b) drawing a link creates a context wire immediately, opens the intent picker, and Transform opens the WireEditor', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, ids } = await seedTaskWithStickies(window, 'Intent picker AB', [
     { x: 120, y: 120 },
     { x: 480, y: 120 }
@@ -178,6 +179,7 @@ test('(a)(b) drawing a link creates a context wire immediately, opens the intent
 test('(c) picking "Keep in sync" or "Feed in as context" sets the type and closes the picker without opening the editor', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, ids } = await seedTaskWithStickies(window, 'Intent picker C', [
     { x: 120, y: 120 }, // source
     { x: 480, y: 120 }, // mirror target
@@ -217,6 +219,7 @@ test('(c) picking "Keep in sync" or "Feed in as context" sets the type and close
 test('(d) dismissing the picker with Escape keeps the link as a context wire', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, ids } = await seedTaskWithStickies(window, 'Intent picker Escape', [
     { x: 120, y: 120 },
     { x: 480, y: 120 }
@@ -242,6 +245,7 @@ test('(d) dismissing the picker with Escape keeps the link as a context wire', a
 test('(d) dismissing the picker by clicking empty canvas keeps the link as a context wire', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, ids } = await seedTaskWithStickies(window, 'Intent picker OutsideClick', [
     { x: 120, y: 120 },
     { x: 480, y: 120 }
@@ -272,6 +276,7 @@ test('(d) dismissing the picker by clicking empty canvas keeps the link as a con
 test('(e) right-click "Automate with an agent" spawns an agent widget wired from the source', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, ids } = await seedTaskWithStickies(window, 'Automate single', [{ x: 200, y: 200 }])
   const [sourceId] = ids
 
@@ -315,6 +320,7 @@ async function shiftClickHeader(window: Page, id: string): Promise<void> {
 test('(f) selecting 3 widgets and "Automate 3 with an agent" spawns exactly one agent wired from every selected widget', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, ids } = await seedTaskWithStickies(window, 'Automate bulk', [
     { x: 120, y: 120 },
     { x: 400, y: 120 },
@@ -355,6 +361,7 @@ test('(f) selecting 3 widgets and "Automate 3 with an agent" spawns exactly one 
 test('(g) a pinned widget shows the hub button and can be linked to another widget', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, ids } = await seedTaskWithStickies(window, 'Pinned link endpoint', [
     { x: 120, y: 120 },
     { x: 480, y: 120 }
@@ -403,6 +410,7 @@ test('(g) a pinned widget shows the hub button and can be linked to another widg
 test('(g-target) an unpinned widget can drop a link ONTO a pinned widget', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, ids } = await seedTaskWithStickies(window, 'Pinned as target', [
     { x: 120, y: 120 },
     { x: 480, y: 120 }
@@ -433,6 +441,7 @@ test('(g-target) an unpinned widget can drop a link ONTO a pinned widget', async
 test('(h) opening the WireEditor from an existing badge dismisses an open intent picker', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, ids } = await seedTaskWithStickies(window, 'Two popovers A', [
     { x: 120, y: 120 },
     { x: 480, y: 120 },
@@ -475,6 +484,7 @@ test('(h) opening the WireEditor from an existing badge dismisses an open intent
 test('(h) arming+dropping a new link dismisses an open WireEditor', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, ids } = await seedTaskWithStickies(window, 'Two popovers B', [
     { x: 120, y: 120 },
     { x: 480, y: 120 },
@@ -621,6 +631,7 @@ test('(h) a link can still be drawn onto a widget nested inside a section', asyn
 test('(h) a user-drawn link mirrors into the relationship graph (context.related)', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, ids } = await seedTaskWithStickies(window, 'Graph mirror regression', [
     { x: 120, y: 120 },
     { x: 480, y: 120 }

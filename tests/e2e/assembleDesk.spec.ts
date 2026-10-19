@@ -20,6 +20,7 @@ test.afterEach(async () => {
 test('assemble a desk: search, collect, related surfacing, synced + disconnected create', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const pageErrors: string[] = []
   const consoleErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))

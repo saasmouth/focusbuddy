@@ -30,6 +30,7 @@ test.afterEach(async () => {
 test('Table widget: cell edit, range-select, column reorder, add row/col, header menu all still work', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const errors: string[] = []
   window.on('pageerror', (e) => errors.push(e.message))
   await waitForReady(window)
@@ -271,6 +272,7 @@ test('Table widget: cell edit, range-select, column reorder, add row/col, header
 test('MindMap widget: node creation, drill-in, label edit, side panel, accept/reject pending all still work', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const errors: string[] = []
   window.on('pageerror', (e) => errors.push(e.message))
   await waitForReady(window)
@@ -467,6 +469,7 @@ test('MindMap widget: node creation, drill-in, label edit, side panel, accept/re
 test('Canvas task-header strip renders (title, meta, time pill) and zoom controls work', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const errors: string[] = []
   window.on('pageerror', (e) => errors.push(e.message))
   await waitForReady(window)

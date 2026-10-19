@@ -113,6 +113,7 @@ test('camera + selection overlay: round-trips on Desk switch, survives app reloa
   let l: LaunchedApp = await launchApp({ userDataDir })
   try {
     const { window } = l
+    await waitForReady(window)
     const errors = trackConsoleErrors(window)
     await waitForReady(window)
 
@@ -246,6 +247,7 @@ test('camera + selection overlay: round-trips on Desk switch, survives app reloa
   l = await launchApp({ userDataDir })
   try {
     const { window } = l
+    await waitForReady(window)
     const errors = trackConsoleErrors(window)
     await waitForReady(window)
 

@@ -36,6 +36,7 @@ async function seedMindmap(l: LaunchedApp, taskTitle: string): Promise<string> {
 
 async function openTask(l: LaunchedApp, taskTitle: string): Promise<void> {
   const { window } = l
+  await waitForReady(window)
   await window.reload()
   await waitForReady(window)
   await window.getByRole('button', { name: new RegExp(taskTitle) }).first().click()
@@ -59,6 +60,7 @@ async function readContent(l: LaunchedApp, widgetId: string): Promise<string> {
 test('MM-AI — Build with AI appends approved branches as native mind-map nodes', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const widgetId = await seedMindmap(launched, 'MindMapAiTest')
   await openTask(launched, 'MindMapAiTest')
 

@@ -86,6 +86,7 @@ async function shiftClick(l: LaunchedApp, id: string): Promise<void> {
 test('CTX-REG-1 — right-clicking a widget header in a 2-item selection opens the bulk menu', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { ids } = await seedTwoStickiesAndOpen(launched, 'Multiselect CTX test')
 
   // Select both widgets via shift+click

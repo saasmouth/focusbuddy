@@ -46,6 +46,7 @@ test('task created via api.nodes.create persists parentId, dueDate, and priority
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 
@@ -136,6 +137,7 @@ test('task created at top level (parentId null) is in list and has priority + du
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 
@@ -204,6 +206,7 @@ test('new-folder path: creates folder then files task under it', async () => {
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 
@@ -262,6 +265,7 @@ test('boot smoke: app boots clean and Mail nav shows connect screen without cras
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const consoleErrors: string[] = []
   window.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text())

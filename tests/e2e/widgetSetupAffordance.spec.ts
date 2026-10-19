@@ -43,6 +43,7 @@ async function seedPage(l: LaunchedApp, content: string): Promise<string> {
 test('WSA-1 — an empty page shows "Set up with AI" and it opens the setup preview', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const widgetId = await seedPage(launched, '')
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 8000 })
 
@@ -63,6 +64,7 @@ test('WSA-1 — an empty page shows "Set up with AI" and it opens the setup prev
 test('WSA-2 — a page with real content does NOT show the affordance', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const doc =
     '{"type":"doc","content":[{"type":"heading","attrs":{"level":1},"content":[{"type":"text","text":"Plan"}]}]}'
   const widgetId = await seedPage(launched, doc)

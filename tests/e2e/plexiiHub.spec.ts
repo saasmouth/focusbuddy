@@ -25,6 +25,7 @@ test.describe('Plexii hub (Phase 1)', () => {
   // it is how someone reaches "show me everything Plexii".
   async function openHub(): Promise<void> {
     const { window } = launched
+    await waitForReady(window)
     await window.locator('[data-testid="assistant-pill"]').click()
     const door = window.locator('[data-testid="assistant-open-hub"]')
     await door.waitFor({ state: 'visible', timeout: 8_000 })
@@ -50,6 +51,7 @@ test.describe('Plexii hub (Phase 1)', () => {
 
   test('the assistant wordmark opens the hub and suppresses the assistant pill', async () => {
     const { window } = launched
+    await waitForReady(window)
     // The pill exists before the hub is open (any non-hub screen).
     await expect(window.locator('[data-testid="assistant-pill"]')).toBeVisible()
 
@@ -67,6 +69,7 @@ test.describe('Plexii hub (Phase 1)', () => {
 
   test('home hero input seeds a conversation and lands in the hub', async () => {
     const { window } = launched
+    await waitForReady(window)
     await gotoHome()
     const input = window.locator('[data-testid="start-or-ask-input"]')
     await input.waitFor({ state: 'visible' })
@@ -87,6 +90,7 @@ test.describe('Plexii hub (Phase 1)', () => {
 
   test('the assistant panel is where conversations are found and reopened', async () => {
     const { window } = launched
+    await waitForReady(window)
     // Seed one conversation through the hero door.
     await gotoHome()
     const input = window.locator('[data-testid="start-or-ask-input"]')
@@ -148,6 +152,7 @@ test.describe('Plexii hub (Phase 1)', () => {
 
   test('Escape and the close button both dismiss the history overlay', async () => {
     const { window } = launched
+    await waitForReady(window)
     await window.evaluate(() => {
       const w = window as unknown as {
         __fbAssistantChrome?: {
@@ -180,6 +185,7 @@ test.describe('Plexii hub (Phase 1)', () => {
 
   test('interactive choice blocks render and a tap sends the selection', async () => {
     const { window } = launched
+    await waitForReady(window)
     await openHub()
     await expect(window.locator('[data-testid="plexii-hub"]')).toBeVisible()
 
@@ -230,6 +236,7 @@ test.describe('Plexii hub (Phase 1)', () => {
 
   test('a desk the conversation produces links to it and survives reopening', async () => {
     const { window } = launched
+    await waitForReady(window)
     // Seed a real persisted conversation through the hero door (the send fails
     // for want of a key, which is fine — the conversation row is what we need).
     await gotoHome()
@@ -299,6 +306,7 @@ test.describe('Plexii hub (Phase 1)', () => {
 
   test('the Discover icon starts a guided discovery in the hub', async () => {
     const { window } = launched
+    await waitForReady(window)
     await gotoHome()
     // Place the Discover icon widget from the gallery.
     await window.locator('[data-testid="home-customize-toggle"]').click()
@@ -325,6 +333,7 @@ test.describe('Plexii hub (Phase 1)', () => {
     // a deliberate pick from its menu, sticky on the conversation. The header
     // keeps only the informational badge.
     const { window } = launched
+    await waitForReady(window)
     await openHub()
     await expect(window.locator('[data-testid="plexii-hub"]')).toBeVisible()
     // A normal chat carries no badge, and the chip wears the default mode.
@@ -346,6 +355,7 @@ test.describe('Plexii hub (Phase 1)', () => {
 
   test('cmd-shift-K toggles the hub and the header Build button is gone', async () => {
     const { window } = launched
+    await waitForReady(window)
     await gotoHome()
     // The retired one-shot command bar's header trigger must not exist.
     await expect(window.getByRole('button', { name: 'Build with AI' })).toHaveCount(0)
@@ -359,6 +369,7 @@ test.describe('Plexii hub (Phase 1)', () => {
 
   test('the assistant surfaces carry the Plexii name', async () => {
     const { window } = launched
+    await waitForReady(window)
     await openHub()
     // DEC-120 replaced the "Plexii" <h2> with the animated wordmark, and this
     // assertion went on asking for the heading — so it had been red ever
@@ -377,6 +388,7 @@ test.describe('Plexii hub (Phase 1)', () => {
     // hub's open/leave behaviour, so it now enters through the store the way
     // every remaining door does.
     const { window } = launched
+    await waitForReady(window)
     await gotoHome()
     await window.evaluate(() => {
       const w = window as unknown as { __fbView?: { getState: () => { goPlexii: () => void } } }

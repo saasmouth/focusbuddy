@@ -24,6 +24,7 @@ test('area1 - app boots with no fatal console errors from new mail modules', asy
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   window.on('console', (msg) => {
     if (msg.type() === 'error') {
       const t = msg.text()

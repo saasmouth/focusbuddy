@@ -193,6 +193,7 @@ test('Cmd+K opens palette, unique token produces a result row, Escape closes', a
   const { taskId } = await seedAndOpen(launched, 'GlobalSearchUI')
   const { window } = launched
 
+  await waitForReady(window)
   const token = `UISRCH_${Date.now()}`
 
   // Create a sticky with the unique token content on the seeded task.
@@ -269,6 +270,7 @@ test('Cmd+K palette still lists nav commands after global-search integration', a
   await seedAndOpen(launched, 'SearchRegressionNav')
   const { window } = launched
 
+  await waitForReady(window)
   await window.keyboard.press('Meta+k')
   await window.waitForTimeout(500)
 

@@ -19,6 +19,7 @@ const MARKDOWN_TABLE = '| Name | Age |\n|---|---|\n| Alice | 30 |\n| Bob | 25 |'
 
 async function openTask(l: LaunchedApp, taskTitle: string): Promise<void> {
   const { window } = l
+  await waitForReady(window)
   await window.reload()
   await waitForReady(window)
   await window.getByRole('button', { name: new RegExp(taskTitle) }).first().click()
@@ -124,6 +125,7 @@ async function readWidgetContent(l: LaunchedApp, widgetId: string): Promise<stri
 test('MD-1 — markdown widget renders a pasted table as a real <table> element', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedWidget(launched, 'markdown', MARKDOWN_TABLE, 'MdTableTest')
   await openTask(launched, 'MdTableTest')
 
@@ -151,6 +153,7 @@ test('MD-1 — markdown widget renders a pasted table as a real <table> element'
 test('MD-2 — markdown widget table round-trips through html:true storage and re-renders after reload', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedWidget(launched, 'markdown', MARKDOWN_TABLE, 'MdRoundTrip')
   await openTask(launched, 'MdRoundTrip')
   await waitForMarkdownWidget(launched, widgetId)
@@ -218,6 +221,7 @@ test('PG-3 — page widget accepts a markdown table via insertContent and persis
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   // For the page widget we seed with empty content and use insertContent
   // (editor.commands.insertContent with TipTap-table JSON nodes) rather than
   // paste simulation, because headless Electron cannot dispatch real clipboard
@@ -333,6 +337,7 @@ test('ST-4 — sticky widget renders a markdown table as [data-testid="sticky-ta
   const STICKY_TABLE = '| H1 | H2 |\n|---|---|\n| a | b |'
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedWidget(launched, 'sticky', STICKY_TABLE, 'StickyTableTest')
   await openTask(launched, 'StickyTableTest')
 
@@ -400,6 +405,7 @@ test('NT-4b — note widget renders a markdown table and edit mode shows the raw
     '| Competitor | Price |\n|---|---|\n| Sunsama | $20/mo ($16 annual) |\n| Akiflow | $19–34/mo |'
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedWidget(launched, 'note', NOTE_TABLE, 'NoteTableTest')
   await openTask(launched, 'NoteTableTest')
 
@@ -456,6 +462,7 @@ test('ST-5 — normal sticky note without a table still renders checkbox and pla
   const NORMAL_STICKY = '[ ] one\nplain line'
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedWidget(launched, 'sticky', NORMAL_STICKY, 'StickyNormalTest')
   await openTask(launched, 'StickyNormalTest')
 

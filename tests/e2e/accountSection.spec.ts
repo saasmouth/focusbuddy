@@ -36,6 +36,7 @@ test('Settings Account section renders signed-out state and the sign-in modal op
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 

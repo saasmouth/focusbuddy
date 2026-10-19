@@ -75,6 +75,7 @@ async function readContent(l: LaunchedApp, taskId: string, widgetId: string): Pr
 test('sticky — typing across the debounce boundary does not drop characters', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedWidget(launched, 'sticky')
 
   const textarea = window.locator(`[data-widget-id="${widgetId}"] .fb-sticky-textarea`)
@@ -104,6 +105,7 @@ test('sticky — typing across the debounce boundary does not drop characters', 
 test('sticky — three chunks separated by pauses > debounce window all land in order', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedWidget(launched, 'sticky')
 
   const textarea = window.locator(`[data-widget-id="${widgetId}"] .fb-sticky-textarea`)
@@ -127,6 +129,7 @@ test('sticky — three chunks separated by pauses > debounce window all land in 
 test('note — typing across the debounce boundary does not drop characters', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedWidget(launched, 'note')
 
   const textarea = window.locator(`[data-widget-id="${widgetId}"] textarea`)
@@ -148,6 +151,7 @@ test('note — typing across the debounce boundary does not drop characters', as
 test('sticky — fast continuous typing with no pauses is not affected', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, widgetId } = await seedWidget(launched, 'sticky')
 
   const textarea = window.locator(`[data-widget-id="${widgetId}"] .fb-sticky-textarea`)
@@ -183,6 +187,7 @@ test('sticky — fast continuous typing with no pauses is not affected', async (
 test('sticky — external content change via IPC survives and is adopted on remount', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, widgetId } = await seedWidget(launched, 'sticky')
 
   const textarea = window.locator(`[data-widget-id="${widgetId}"] .fb-sticky-textarea`)

@@ -49,6 +49,7 @@ test('Settings shows an Organisation section whose Manage button opens OrgAdminV
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 
@@ -83,6 +84,7 @@ test('Settings shows a Templates section listing the real starter templates', as
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // Regression check for plexi-4.5 commits 4b558f1 / 7305bde:
 //   - MindMap's proposal apply now runs on the shared resolvedIds +
@@ -27,6 +27,7 @@ test('Applied proposal card renders Go-to + Undo without console errors, and Go-
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   window.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text())
   })

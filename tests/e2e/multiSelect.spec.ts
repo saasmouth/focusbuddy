@@ -91,6 +91,7 @@ async function stickiesOf(
 test('shift+click selects two widgets and the toolbar shows the count', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { ids } = await seedStickiesAndOpen(launched, [
     { x: 120, y: 120 },
     { x: 360, y: 120 }
@@ -106,6 +107,7 @@ test('shift+click selects two widgets and the toolbar shows the count', async ()
 test('Group into section wraps the shift-selected widgets in a new section', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, ids } = await seedStickiesAndOpen(launched, [
     { x: 140, y: 140 },
     { x: 380, y: 160 }
@@ -138,6 +140,7 @@ test('Group into section wraps the shift-selected widgets in a new section', asy
 test('Delete removes every selected widget', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, ids } = await seedStickiesAndOpen(launched, [
     { x: 120, y: 120 },
     { x: 360, y: 120 }
@@ -162,6 +165,7 @@ test('Delete removes every selected widget', async () => {
 test('Cmd+A selects all desk widgets; Esc clears the selection', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   await seedStickiesAndOpen(launched, [
     { x: 120, y: 120 },
     { x: 360, y: 120 },
@@ -187,6 +191,7 @@ test('Cmd+A selects all desk widgets; Esc clears the selection', async () => {
 test('shift+drag marquee selects the widgets it overlaps', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   await seedStickiesAndOpen(launched, [
     { x: 120, y: 120 },
     { x: 360, y: 140 }

@@ -25,6 +25,7 @@ test.afterEach(async () => {
 /** Create a task and navigate to its canvas surface. */
 async function seedAndOpenCanvas(l: LaunchedApp, title: string): Promise<string> {
   const { window } = l
+  await waitForReady(window)
   const taskId = await window.evaluate(async (t: string) => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: t })
@@ -43,6 +44,7 @@ test('Drive widget: add to desk -> unbound -> bind to folder -> ingest file -> o
   launched = await launchApp()
   await waitForReady(launched.window)
   const { window } = launched
+  await waitForReady(window)
   await seedAndOpenCanvas(launched, 'Drive Widget Test')
 
   // ── 1. Add "Drive (folder)" to the desk ─────────────────────────────────

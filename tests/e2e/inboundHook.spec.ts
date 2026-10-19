@@ -108,6 +108,7 @@ async function openAutomationsPanel(window: Page): Promise<void> {
 test('(a) an inbound-hook widget renders at its created position and shows an honest state, never a fabricated URL', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const ORIGIN = { x: 650, y: 300 }
   const { widgetId, anchorId } = await window.evaluate(async (origin) => {
     const api = (window as unknown as { api: typeof window.api }).api
@@ -176,6 +177,7 @@ test('(a) an inbound-hook widget renders at its created position and shows an ho
 test('(b) a relayed payload update to an inbound-hook widget carries its lastPayload (not the config blob) across a mirror wire', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, hId, nId, linkId } = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Inbound hook payload wire' })
@@ -235,6 +237,7 @@ test('(b) a relayed payload update to an inbound-hook widget carries its lastPay
 test('(c) an inbound-hook widget is a valid link source via its hub button and the resulting wire appears in the Automations panel', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, hId, nId } = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Inbound hook link source' })

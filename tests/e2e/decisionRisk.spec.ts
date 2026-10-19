@@ -63,6 +63,7 @@ async function getHealth(window: import('@playwright/test').Page, id: string): P
 test('DECISION-RISK — flag via real context menu activates the red path; non-flagged sibling unaffected; no regressions', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const consoleErrors: string[] = []
   const pageErrors: string[] = []
   window.on('console', (msg) => {
@@ -253,6 +254,7 @@ test('DECISION-RISK — flag via real context menu activates the red path; non-f
 test('DECISION-RISK — undo cancels the Decision and the widget falls back off decision-risk', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const consoleErrors: string[] = []
   const pageErrors: string[] = []
   window.on('console', (msg) => {

@@ -144,6 +144,7 @@ async function openAutomationsPanel(window: Page): Promise<void> {
 test('(a) a fresh desk with no automations shows the FAB and an empty-state panel', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     await api.nodes.create({ parentId: null, kind: 'task', title: 'Fresh automations desk' })
@@ -160,6 +161,7 @@ test('(a) a fresh desk with no automations shows the FAB and an empty-state pane
 test('(b)/(c) a mirror wire and an agent appear as automations; a plain context wire does not', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const s = await seed(window, 'Automations rows test')
   await openTask(window, /Automations rows test/)
 
@@ -190,6 +192,7 @@ test('(b)/(c) a mirror wire and an agent appear as automations; a plain context 
 test('(d) toggling a wire automation flips widgetLinks.enabled', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const s = await seed(window, 'Automations toggle test')
   await openTask(window, /Automations toggle test/)
   await openAutomationsPanel(window)
@@ -213,6 +216,7 @@ test('(d) toggling a wire automation flips widgetLinks.enabled', async () => {
 test('(e) clicking Jump on an automation row changes the canvas pan', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const s = await seed(window, 'Automations jump test')
   await openTask(window, /Automations jump test/)
   await openAutomationsPanel(window)
@@ -236,6 +240,7 @@ test('(e) clicking Jump on an automation row changes the canvas pan', async () =
 test('(f) a mirror wire row reports a real run, then stale after a further source edit', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const s = await seed(window, 'Automations status test')
   await openTask(window, /Automations status test/)
   await openAutomationsPanel(window)
@@ -269,6 +274,7 @@ test('(f) a mirror wire row reports a real run, then stale after a further sourc
 test('(g) the data-receipt footer line is present with non-empty text', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   await seed(window, 'Automations receipt test')
   await openTask(window, /Automations receipt test/)
   await openAutomationsPanel(window)
@@ -285,6 +291,7 @@ test('(g) the data-receipt footer line is present with non-empty text', async ()
 test('(h) regression: the minimap FAB still opens and closes alongside the automations FAB', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   await seed(window, 'Automations regression test')
   await openTask(window, /Automations regression test/)
 

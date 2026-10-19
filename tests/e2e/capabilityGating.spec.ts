@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, sideMenuWidget } from './_helpers'
+import { launchApp, type LaunchedApp, sideMenuWidget, waitForReady } from './_helpers'
 
 // In-app runtime proof that the capability matrix gates the desktop UI.
 //
@@ -22,6 +22,7 @@ test.afterEach(async () => {
 
 async function bootAndOpenCanvas(l: LaunchedApp): Promise<void> {
   const { window } = l
+  await waitForReady(window)
   await window.waitForFunction(
     () => typeof (window as unknown as { api?: unknown }).api === 'object',
     null,
@@ -55,6 +56,7 @@ test('Free tier: Table widget is locked in the side menu, Sticky is not', async 
   await bootAndOpenCanvas(launched)
   const { window } = launched
 
+  await waitForReady(window)
   // Ungated widget → a normal tile.
   const sticky = await sideMenuWidget(window, 'sticky')
   await expect(sticky).toBeVisible()
@@ -70,6 +72,7 @@ test('Clicking a locked widget opens the upgrade prompt', async () => {
   await bootAndOpenCanvas(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await (await sideMenuWidget(window, 'table')).click()
 
   await expect(window.locator('[data-testid="upgrade-prompt-modal"]')).toBeVisible()
@@ -80,6 +83,7 @@ test('Clicking a locked widget opens the upgrade prompt', async () => {
 test('Free tier: 4th top-level desk is blocked with an upgrade prompt', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   await window.waitForFunction(
     () => typeof (window as unknown as { api?: unknown }).api === 'object',
     null,
@@ -125,6 +129,7 @@ test('Free tier: Table is locked in the CommandCenter quick-actions too', async 
   await bootAndOpenCanvas(launched)
   const { window } = launched
 
+  await waitForReady(window)
   // With a task on the canvas, the CommandCenter exposes widget quick-action
   // pills (Note, Table, …). The Table pill must open the upgrade prompt
   // instead of creating a table — proving the gate covers this path too.

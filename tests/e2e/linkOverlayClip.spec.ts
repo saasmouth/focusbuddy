@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // Regression check: the LinkOverlay (the fixed-position SVG that draws
 // widget-link bezier curves) must NOT cover the sidebar / chrome —
@@ -19,6 +19,7 @@ test('LinkOverlay clips to the canvas surface — does not cover sidebar', async
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForFunction(
     () => typeof (window as unknown as { api?: unknown }).api === 'object',
     null,

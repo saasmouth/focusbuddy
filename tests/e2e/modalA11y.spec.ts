@@ -67,6 +67,7 @@ test('NewNodeDialog: role=dialog + aria-modal, fields render, Escape closes, foc
 //    button ─────────────────────────────────────────────────────────────────
 async function seedStickyAndOpen(l: LaunchedApp): Promise<{ taskId: string; widgetId: string }> {
   const { window } = l
+  await waitForReady(window)
   // Wait for the renderer to finish its own first navigation before evaluating
   // in it. Without this the seed below races start-up: `window.api` may not
   // exist yet, and the initial load can destroy the execution context
@@ -111,6 +112,7 @@ async function seedStickyAndOpen(l: LaunchedApp): Promise<{ taskId: string; widg
 
 async function openMakeTaskDialog(l: LaunchedApp, widgetId: string): Promise<void> {
   const { window } = l
+  await waitForReady(window)
   await window.locator(`[data-widget-id="${widgetId}"] .widget-handle`).click({ button: 'right' })
   await window.waitForTimeout(250)
   // "Make this a task..." lives under the "Advanced" submenu (buildAdvanced()
@@ -142,6 +144,7 @@ async function openMakeTaskDialog(l: LaunchedApp, widgetId: string): Promise<voi
 test('MakeTaskDialog: dialog semantics, Tab trap, fields intact, Escape + Cancel both close', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedStickyAndOpen(launched)
 
   await openMakeTaskDialog(launched, widgetId)

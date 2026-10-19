@@ -37,6 +37,7 @@ async function seedTimer(l: LaunchedApp, taskTitle: string): Promise<string> {
 
 async function openTask(l: LaunchedApp, taskTitle: string): Promise<void> {
   const { window } = l
+  await waitForReady(window)
   await window.reload()
   await waitForReady(window)
   await window.getByRole('button', { name: new RegExp(taskTitle) }).first().click()
@@ -60,6 +61,7 @@ async function timerCount(l: LaunchedApp): Promise<number> {
 test('HM-1 — header right-click opens the unified menu with frame actions, and synced duplicate works', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const widgetId = await seedTimer(launched, 'HeaderMenuTest')
   await openTask(launched, 'HeaderMenuTest')
 

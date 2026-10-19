@@ -37,6 +37,7 @@ test.afterEach(async () => {
 test('test_plx_a11y_005_reduced_motion_suppresses_cursor_spotlight — and the app still functions with it on', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   // The Electron window's content is already loading by the time Playwright
   // hands us the Page, so CursorSpotlight's mount-time matchMedia check can
   // race ahead of emulateMedia. Force a reload so the app mounts fresh with
@@ -82,6 +83,7 @@ test('test_plx_a11y_005_reduced_motion_suppresses_cursor_spotlight — and the a
 test('test_plx_a11y_005_control_spotlight_animates_without_reduced_motion', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   await window.emulateMedia({ reducedMotion: 'no-preference' })
   await waitForReady(window)
   await gotoView(window, 'goHome')

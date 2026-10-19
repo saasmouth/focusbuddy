@@ -37,6 +37,7 @@ async function seedPage(l: LaunchedApp, taskTitle: string): Promise<string> {
 
 async function openTask(l: LaunchedApp, taskTitle: string): Promise<void> {
   const { window } = l
+  await waitForReady(window)
   await window.reload()
   await waitForReady(window)
   await window.getByRole('button', { name: new RegExp(taskTitle) }).first().click()
@@ -60,6 +61,7 @@ async function readLivingQuery(l: LaunchedApp, widgetId: string): Promise<string
 test('LP-1 — Make living enters living mode with a default query, no prompt', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const widgetId = await seedPage(launched, 'LivingPageTest')
   await openTask(launched, 'LivingPageTest')
 

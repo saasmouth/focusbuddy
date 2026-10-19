@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // diagramScratchpad.spec.ts
 //
@@ -24,6 +24,7 @@ test.afterEach(async () => {
 /** Boot app + dismiss modal, returns the first window. */
 async function boot(l: LaunchedApp): Promise<void> {
   const { window } = l
+  await waitForReady(window)
   await window.waitForFunction(
     () => typeof (window as unknown as { api?: unknown }).api === 'object',
     null,
@@ -39,6 +40,7 @@ async function seedWidget(
   content = ''
 ): Promise<{ taskId: string; widgetId: string }> {
   const { window } = l
+  await waitForReady(window)
   const seeded = await window.evaluate(
     async ({ k, c }: { k: string; c: string }) => {
       const api = (window as unknown as { api: typeof window.api }).api
@@ -83,6 +85,7 @@ async function seedWidget(
 test('BOOT: app boots with no uncaught renderer errors', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const errors: string[] = []
   window.on('pageerror', (e) => errors.push(e.message))
   await boot(launched)
@@ -96,6 +99,7 @@ test('BOOT: app boots with no uncaught renderer errors', async () => {
 test('DIAGRAM: React Flow canvas mounts with toolbar and no console errors', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const errors: string[] = []
   window.on('pageerror', (e) => errors.push(e.message))
 
@@ -121,6 +125,7 @@ test('DIAGRAM: React Flow canvas mounts with toolbar and no console errors', asy
 test('DIAGRAM: clicking Box toolbar button adds a node (no crash)', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const errors: string[] = []
   window.on('pageerror', (e) => errors.push(e.message))
 
@@ -163,6 +168,7 @@ test('DIAGRAM: clicking Box toolbar button adds a node (no crash)', async () => 
 test('DIAGRAM: pre-seeded graph renders existing nodes on mount', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const errors: string[] = []
   window.on('pageerror', (e) => errors.push(e.message))
 
@@ -191,6 +197,7 @@ test('DIAGRAM: pre-seeded graph renders existing nodes on mount', async () => {
 test('DIAGRAM: content persists to DB after adding a node (read-back)', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const errors: string[] = []
   window.on('pageerror', (e) => errors.push(e.message))
 
@@ -227,6 +234,7 @@ test('DIAGRAM: content persists to DB after adding a node (read-back)', async ()
 test('SCRATCHPAD: toolbar and SVG surface mount with no errors', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const errors: string[] = []
   window.on('pageerror', (e) => errors.push(e.message))
 
@@ -260,6 +268,7 @@ test('SCRATCHPAD: pointer events on the drawing surface cause no crash (interact
   // is present and accepts pointer events without throwing.
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const errors: string[] = []
   window.on('pageerror', (e) => errors.push(e.message))
 
@@ -328,6 +337,7 @@ test('SCRATCHPAD: pointer events on the drawing surface cause no crash (interact
 test('SCRATCHPAD: directly writing a stroke to content field persists and reads back', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const errors: string[] = []
   window.on('pageerror', (e) => errors.push(e.message))
 
@@ -373,6 +383,7 @@ test('SCRATCHPAD: directly writing a stroke to content field persists and reads 
 test('REGRESSION: existing sticky widget still renders after new widget kinds added', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const errors: string[] = []
   window.on('pageerror', (e) => errors.push(e.message))
 

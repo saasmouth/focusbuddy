@@ -93,6 +93,7 @@ test('single AI assistant + context-aware subtitle/suggestions + overlap fixes (
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const consoleErrors: string[] = []
   window.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text())

@@ -36,6 +36,7 @@ test('accept copy-scope folder share reconstructs nodes + widgets + navigates', 
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 

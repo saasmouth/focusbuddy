@@ -40,6 +40,7 @@ async function seedNote(l: LaunchedApp, content: string, taskTitle: string): Pro
 
 async function openTask(l: LaunchedApp, taskTitle: string): Promise<void> {
   const { window } = l
+  await waitForReady(window)
   await window.reload()
   await waitForReady(window)
   await window.getByRole('button', { name: new RegExp(taskTitle) }).first().click()
@@ -63,6 +64,7 @@ async function readContent(l: LaunchedApp, widgetId: string): Promise<string> {
 test('CM-1 — unified menu opens on a note with the canonical sections', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const widgetId = await seedNote(launched, 'the quick brown fox jumps', 'CtxMenuTest')
   await openTask(launched, 'CtxMenuTest')
 
@@ -87,6 +89,7 @@ test('CM-1 — unified menu opens on a note with the canonical sections', async 
 test('CM-2 — AI Assist runs a transform and Apply writes it back in place', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const widgetId = await seedNote(launched, 'the quick brown fox jumps', 'AiAssistApply')
   await openTask(launched, 'AiAssistApply')
 

@@ -145,6 +145,7 @@ async function openAutomationsPanel(window: Page): Promise<void> {
 test('(a) a webhook widget created via window.api.widgets.create renders webhook-url + webhook-test', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, widgetId } = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Webhook widget render' })
@@ -183,6 +184,7 @@ test('(a) a webhook widget created via window.api.widgets.create renders webhook
 test('(a3) the webhook widget has data-widget-id, renders at its created position, and is draggable', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const ORIGIN = { x: 777, y: 555 }
   const { taskId, widgetId, anchorId } = await window.evaluate(async (origin) => {
     const api = (window as unknown as { api: typeof window.api }).api
@@ -288,6 +290,7 @@ test('(a3) the webhook widget has data-widget-id, renders at its created positio
 test('(a2) "Send to a URL" is offered from the side menu and the right-click create-and-connect menu', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Webhook catalog check' })
@@ -330,6 +333,7 @@ test('(b) Send test POSTs a test JSON body to the configured URL and shows a gre
   const { url, requests } = await startLocalServer()
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Webhook send test' })
@@ -375,6 +379,7 @@ test('(c) editing a source wired into the webhook POSTs the source content after
   const { url, requests } = await startLocalServer()
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, aId, webhookId, linkId } = await window.evaluate(async (webhookUrl: string) => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Webhook wired send' })
@@ -428,6 +433,7 @@ test('(c) editing a source wired into the webhook POSTs the source content after
 test('(d1) "Send test" with no URL reports an honest error, not a fake success', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Webhook empty url' })
@@ -459,6 +465,7 @@ test('(d2) "Send test" against an unreachable local port reports an honest red e
   const deadUrl = await unreachableLocalUrl()
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Webhook unreachable url' })
@@ -491,6 +498,7 @@ test('(d3) a wired send to an unreachable URL records an honest wire error, neve
   const deadUrl = await unreachableLocalUrl()
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { taskId, aId, linkId } = await window.evaluate(async (webhookUrl: string) => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Webhook wired failure' })
@@ -538,6 +546,7 @@ test('(e) the webhook wire (A -> webhook) appears in the Automations panel with 
   const { url, requests } = await startLocalServer()
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { aId, linkId } = await window.evaluate(async (webhookUrl: string) => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Webhook automations row' })

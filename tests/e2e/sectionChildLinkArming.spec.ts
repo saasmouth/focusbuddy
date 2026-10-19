@@ -98,6 +98,7 @@ async function seedSectionWithChild(
 test('(a) a section child in FREE layout renders a WidgetFrame with the hub button', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const seeded = await seedSectionWithChild(window, 'Free layout child arming', 'free')
 
   // The child renders inside its own data-widget-id node (a full WidgetFrame,
@@ -114,6 +115,7 @@ test('(a) a section child in FREE layout renders a WidgetFrame with the hub butt
 test('(b) arming the hub on a free-layout section child and dropping on a top-level widget creates a link sourced from the child', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const seeded = await seedSectionWithChild(window, 'Free layout child arm and drop', 'free')
 
   const childFrame = window.locator(`[data-widget-id="${seeded.childId}"]`)
@@ -142,6 +144,7 @@ for (const layout of ['icons', 'list'] as const) {
   test(`(c) a section child in ${layout.toUpperCase()} layout renders via CompactChildView with NO hub button`, async () => {
     launched = await launchApp()
     const { window } = launched
+    await waitForReady(window)
     const seeded = await seedSectionWithChild(window, `${layout} layout no hub`, layout)
 
     // CompactChildView DOES stamp data-widget-id on its root div (for eject /
@@ -168,6 +171,7 @@ for (const layout of ['icons', 'list'] as const) {
   test(`(c-regression) dropping a link onto a section child in ${layout.toUpperCase()} layout still works`, async () => {
     launched = await launchApp()
     const { window } = launched
+    await waitForReady(window)
     const seeded = await seedSectionWithChild(window, `${layout} layout drop regression`, layout)
 
     const topLevelFrame = window.locator(`[data-widget-id="${seeded.topLevelId}"]`)

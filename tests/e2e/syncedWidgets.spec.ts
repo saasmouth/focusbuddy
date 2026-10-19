@@ -69,6 +69,7 @@ test('migration — app boots clean, sync_group_id column accessible', async () 
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   // Collect any uncaught page errors during boot.
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))

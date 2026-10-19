@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { hoverZoomControls, launchApp, type LaunchedApp } from './_helpers'
+import { hoverZoomControls, launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // Feature 1 — Cmd/Ctrl+click "dive into widget" when zoomed out:
 //   • zoomToWidget(id) store action sets zoom=1, activeWidgetId=id, bumps centerToken
@@ -67,6 +67,7 @@ async function zoomOutBelow08(window: import('@playwright/test').Page, steps = 4
 async function seedAndOpenTask(l: LaunchedApp): Promise<{ taskId: string; widgetId: string }> {
   const { window } = l
 
+  await waitForReady(window)
   await window.waitForFunction(
     () => typeof (window as unknown as { api?: unknown }).api === 'object',
     null,
@@ -119,6 +120,7 @@ test('app boots and canvas renders at zoom=1 (smoke)', async () => {
   const { widgetId } = await seedAndOpenTask(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 5_000 })
 
   const zoom = await readCanvasZoom(window)
@@ -132,6 +134,7 @@ test('zoomToWidget: meta+click at zoom<0.8 jumps canvas to zoom=1', async () => 
   const { widgetId } = await seedAndOpenTask(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 5_000 })
 
   // Zoom out to ~0.6 using the toolbar zoom-out button (4 clicks: 1.0 → 0.6)
@@ -171,6 +174,7 @@ test('ctrlKey+click (non-mac) at zoom < 0.8 also triggers zoomToWidget', async (
   const { widgetId } = await seedAndOpenTask(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 5_000 })
 
   // Zoom out to ~0.6
@@ -209,6 +213,7 @@ test('normal click (no modifier) at zoom < 0.8 does NOT jump zoom to 1', async (
   const { widgetId } = await seedAndOpenTask(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 5_000 })
 
   // Zoom out to ~0.6 using the toolbar button
@@ -248,6 +253,7 @@ test('meta+click at zoom >= 0.8 does NOT call zoomToWidget (guard condition)', a
   const { widgetId } = await seedAndOpenTask(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 5_000 })
 
   // Default zoom is 1.0 (>= 0.8 — guard should NOT fire)

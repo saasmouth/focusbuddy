@@ -75,6 +75,7 @@ test('(a) a mirror wire into a Document target writes the source text into the d
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const seeded = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Doc delivery wire' })
@@ -143,6 +144,7 @@ test('(b) a mirror wire into a timer ends in a loud, visible error — not a sil
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const seeded = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Timer delivery wire' })
@@ -206,6 +208,7 @@ test('(c) a mirror wire from a pdf source ends in a loud error — not a silent 
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const seeded = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'PDF source wire' })
@@ -270,6 +273,7 @@ test('(d) regression: a plain mirror wire note -> note still copies content', as
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const seeded = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Regression note mirror' })

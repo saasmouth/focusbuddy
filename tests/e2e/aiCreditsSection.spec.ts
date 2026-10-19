@@ -54,6 +54,7 @@ test('AI credits: app boots with no console errors', async () => {
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 
@@ -74,6 +75,7 @@ test('AI credits: chooser renders three modes, Automatic selected by default', a
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 
@@ -125,6 +127,7 @@ test('AI credits: switching modes persists without error and Anthropic/OpenAI ro
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 
@@ -200,6 +203,7 @@ test('AI credits: signed-out + auto/credits modes show sign-in prompt, no crash'
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 
@@ -240,6 +244,7 @@ test('AI credits: no regression — Settings panel fully renders without errors'
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 

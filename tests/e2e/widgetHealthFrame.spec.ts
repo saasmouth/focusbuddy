@@ -42,6 +42,7 @@ function healthDot(window: import('@playwright/test').Page, widgetId: string) {
 test('WIDGET-HEALTH — content change since last visit lights a frame + accessible dot', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const consoleErrors: string[] = []
   const pageErrors: string[] = []
   window.on('console', (msg) => {
@@ -134,6 +135,7 @@ test('WIDGET-HEALTH — content change since last visit lights a frame + accessi
 test('WIDGET-HEALTH — pure geometry move does not flicker a frame', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const consoleErrors: string[] = []
   const pageErrors: string[] = []
   window.on('console', (msg) => {
@@ -237,6 +239,7 @@ test('WIDGET-HEALTH — pure geometry move does not flicker a frame', async () =
 test('WIDGET-HEALTH — no regression: create, edit, select still work cleanly', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const consoleErrors: string[] = []
   const pageErrors: string[] = []
   window.on('console', (msg) => {

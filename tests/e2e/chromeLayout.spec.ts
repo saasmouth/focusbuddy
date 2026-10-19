@@ -23,6 +23,7 @@ test.afterEach(async () => {
 
 async function bootAndOpenTask(launched: LaunchedApp): Promise<string> {
   const { window } = launched
+  await waitForReady(window)
   await window.waitForFunction(
     () => typeof (window as unknown as { api?: unknown }).api === 'object',
     null,
@@ -63,6 +64,7 @@ test('Widgets are added from the side menu; the palette and header Add widget bu
   await bootAndOpenTask(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await hoverToolbar(window)
   await expect(window.locator('[data-testid="palette-add-button"]')).toHaveCount(0)
   await expect(window.locator('[data-testid="header-add-widget"]')).toHaveCount(0)
@@ -75,6 +77,7 @@ test('The Widgets section hides the folded redundant kinds (image / video / pdf 
   await bootAndOpenTask(launched)
   const { window } = launched
 
+  await waitForReady(window)
   // Expand Other widgets so every listed kind is in the DOM and visible.
   await window.locator('[data-testid="sidemenu-other-widgets-toggle"]').click()
   // File or link is a Files thing now: it lives under Apps (the Files tile),
@@ -92,6 +95,7 @@ test('a right-pinned widget reaches the right edge — no phantom rail inset', a
   const taskId = await bootAndOpenTask(launched)
   const { window } = launched
 
+  await waitForReady(window)
   // This replaces a test that opened and collapsed the AI rail and asserted
   // the BR-pinned minimap glided by >100px. That rail no longer exists —
   // nothing renders it and nothing could set its collapsed flag — yet the

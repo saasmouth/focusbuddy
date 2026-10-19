@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // Feature 2 — Browser-widget resolution presets:
 //   • A button (aria-label="Resize to a stored resolution") appears to the right of the URL bar
@@ -27,6 +27,7 @@ async function seedBrowserWidget(
 ): Promise<{ taskId: string; widgetId: string }> {
   const { window } = l
 
+  await waitForReady(window)
   await window.waitForFunction(
     () => typeof (window as unknown as { api?: unknown }).api === 'object',
     null,
@@ -86,6 +87,7 @@ test('browser widget toolbar has back, forward, reload and URL bar (existing too
   const { widgetId } = await seedBrowserWidget(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 5_000 })
 
   const widgetRoot = window.locator(`[data-widget-id="${widgetId}"]`)
@@ -109,6 +111,7 @@ test('aspect_ratio button is present in the browser widget toolbar', async () =>
   const { widgetId } = await seedBrowserWidget(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 5_000 })
 
   // Verify the resolution-preset button exists in the DOM (visibility check)
@@ -129,6 +132,7 @@ test('opening the preset menu shows 5 resolution options incl. Tablet landscape'
   const { widgetId } = await seedBrowserWidget(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 5_000 })
 
   // Click the resolution preset button via direct DOM click
@@ -162,6 +166,7 @@ test('clicking Tablet (landscape) preset resizes the widget to 1024×768', async
   const { widgetId, taskId } = await seedBrowserWidget(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 5_000 })
 
   await domClick(launched, `[data-widget-id="${widgetId}"] button[aria-label="Resize to a stored resolution"]`)
@@ -197,6 +202,7 @@ test('preset resize takes effect LIVE on the element (no hard refresh needed)', 
   const { widgetId } = await seedBrowserWidget(launched)
   const { window } = launched
 
+  await waitForReady(window)
   const frameSel = `[data-widget-id="${widgetId}"]`
   await window.waitForSelector(frameSel, { timeout: 5_000 })
 
@@ -237,6 +243,7 @@ test('clicking Mobile preset resizes the widget to 390×844', async () => {
   const { widgetId, taskId } = await seedBrowserWidget(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 5_000 })
 
   // Open the preset menu
@@ -280,6 +287,7 @@ test('clicking Tablet preset resizes the widget to 768×1024', async () => {
   const { widgetId, taskId } = await seedBrowserWidget(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 5_000 })
 
   await domClick(launched, `[data-widget-id="${widgetId}"] button[aria-label="Resize to a stored resolution"]`)
@@ -316,6 +324,7 @@ test('clicking Laptop preset resizes the widget to 1366×768', async () => {
   const { widgetId, taskId } = await seedBrowserWidget(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 5_000 })
 
   await domClick(launched, `[data-widget-id="${widgetId}"] button[aria-label="Resize to a stored resolution"]`)
@@ -352,6 +361,7 @@ test('clicking Desktop preset resizes the widget to 1920×1080', async () => {
   const { widgetId, taskId } = await seedBrowserWidget(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 5_000 })
 
   await domClick(launched, `[data-widget-id="${widgetId}"] button[aria-label="Resize to a stored resolution"]`)
@@ -388,6 +398,7 @@ test('clicking a preset closes the dropdown menu', async () => {
   const { widgetId } = await seedBrowserWidget(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 5_000 })
 
   // Open
@@ -428,6 +439,7 @@ test('currently matching preset size shows a check mark in the dropdown', async 
   const { widgetId, taskId } = await seedBrowserWidget(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 5_000 })
 
   // Apply Laptop preset (1366×768)
@@ -483,6 +495,7 @@ test('click-away backdrop closes the preset menu', async () => {
   const { widgetId } = await seedBrowserWidget(launched)
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 5_000 })
 
   // Open the menu

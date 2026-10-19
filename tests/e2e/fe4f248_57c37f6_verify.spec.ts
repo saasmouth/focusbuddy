@@ -92,6 +92,7 @@ for (const { kind, w: expectedW, h: expectedH } of NEW_DEFAULTS) {
 test('TIDY-1: handleAutoArrange completes without page error on a desk with multiple widgets', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (e) => pageErrors.push(e.message))
   await waitForReady(window)
@@ -206,6 +207,7 @@ test('MSG-3: message-composer renders when activeId is set in messaging store', 
 test('INBOX-1: PlexiInbox renders without crash and shows sign-in gate (no account)', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (e) => pageErrors.push(e.message))
   await waitForReady(window)
@@ -226,6 +228,7 @@ test('INBOX-1: PlexiInbox renders without crash and shows sign-in gate (no accou
 test('HDR-1: app boots and header renders without crash; platform inset class applied on darwin', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (e) => pageErrors.push(e.message))
   await waitForReady(window)

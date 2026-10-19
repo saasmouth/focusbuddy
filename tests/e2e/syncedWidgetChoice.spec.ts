@@ -57,6 +57,7 @@ async function duplicateVia(
   label: string
 ): Promise<boolean> {
   const { window } = l
+  await waitForReady(window)
   await openAdvanced(l, widgetId)
   const clicked = await clickInMenus(l, label)
   await window.waitForTimeout(400)
@@ -70,6 +71,7 @@ async function duplicateVia(
  */
 async function openAdvanced(l: LaunchedApp, widgetId: string): Promise<void> {
   const { window } = l
+  await waitForReady(window)
   await window.locator(`[data-widget-id="${widgetId}"] .widget-handle`).click({ button: 'right' })
   const root = window.locator('[data-canvas-ctx-menu]').first()
   await expect(root).toBeVisible({ timeout: 4_000 })
@@ -171,6 +173,7 @@ test('Duplicate (independent copy) does NOT link — edits never cross over', as
 test('synced copy exposes "Unlink from synced copies"; independent copy does not', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { widgetId } = await seedStickyAndOpen(launched)
 
   // After a SYNCED duplicate, the original is in a group → Unlink is offered.

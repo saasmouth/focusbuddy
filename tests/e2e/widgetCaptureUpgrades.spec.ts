@@ -126,6 +126,7 @@ test('sticky widget grows height when text overflows, capped at 640', async () =
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 
@@ -184,6 +185,7 @@ test('card widget fill toggle sets bgFill=true in persisted content', async () =
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 
@@ -230,6 +232,7 @@ test('card widget icon picker sets an emoji in persisted content', async () => {
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 
@@ -284,6 +287,7 @@ test('markdown widget has "Copy as markdown" toolbar button and clicking it caus
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 

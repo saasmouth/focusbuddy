@@ -37,6 +37,7 @@ function pwField(window: Page) {
 test('the sign-in password field keeps every typed character', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (e) => pageErrors.push(e.message))
   await waitForReady(window)

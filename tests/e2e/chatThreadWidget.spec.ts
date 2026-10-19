@@ -27,6 +27,7 @@ test('PCHAT-5a — chat-thread widget renders empty-state via IPC seed (no crash
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   // Capture renderer console errors for diagnostics.
   const consoleErrors: string[] = []
   const pageErrors: string[] = []
@@ -143,6 +144,7 @@ test('PCHAT-5b — chat-thread widget renders empty-state via palette add (real 
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const consoleErrors: string[] = []
   const pageErrors: string[] = []
   window.on('console', (msg) => {

@@ -36,6 +36,7 @@ async function seedNote(l: LaunchedApp, content: string, taskTitle: string): Pro
 
 async function openTask(l: LaunchedApp, taskTitle: string): Promise<void> {
   const { window } = l
+  await waitForReady(window)
   await window.reload()
   await waitForReady(window)
   await window.getByRole('button', { name: new RegExp(taskTitle) }).first().click()
@@ -59,6 +60,7 @@ async function stickyCount(l: LaunchedApp): Promise<number> {
 test('KB-1 — drive the unified menu by keyboard to create a sticky', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const widgetId = await seedNote(launched, 'keyboard nav test', 'MenuKeyboardTest')
   await openTask(launched, 'MenuKeyboardTest')
 

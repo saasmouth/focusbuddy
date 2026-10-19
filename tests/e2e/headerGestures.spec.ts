@@ -59,6 +59,7 @@ async function headerPoint(l: LaunchedApp, id: string): Promise<{ x: number; y: 
 test('Cmd-click on the header dives in (zoom→1) when zoomed out', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const id = await seedAndOpen(launched)
 
   // The zoom pill only mounts its − button while hovered.
@@ -112,6 +113,7 @@ test('Cmd-click on the header dives in (zoom→1) when zoomed out', async () => 
 test('Shift-click on the header toggles selection (no drag)', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const id = await seedAndOpen(launched)
 
   const pt = await headerPoint(launched, id)

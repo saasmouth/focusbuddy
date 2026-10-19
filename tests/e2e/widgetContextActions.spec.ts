@@ -34,6 +34,7 @@ async function seed(l: LaunchedApp): Promise<Record<string, string>> {
 
 async function openTask(l: LaunchedApp): Promise<void> {
   const { window } = l
+  await waitForReady(window)
   await window.reload()
   await waitForReady(window)
   await window.getByRole('button', { name: /CtxActionsTest/ }).first().click()
@@ -42,6 +43,7 @@ async function openTask(l: LaunchedApp): Promise<void> {
 
 async function headerMenuText(l: LaunchedApp, widgetId: string): Promise<string> {
   const { window } = l
+  await waitForReady(window)
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 8_000 })
   await window.click(`[data-widget-id="${widgetId}"]`, { button: 'right', position: { x: 110, y: 8 } })
   await window.waitForSelector('[data-canvas-ctx-menu]', { timeout: 4_000 })

@@ -40,6 +40,7 @@ async function openDecisionsPanel(window: Page): Promise<void> {
 test('DECISIONS PANEL — empty state, a flagged decision appears Current, flips to At risk on a real change, Retire removes it, Open desk navigates', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const consoleErrors: string[] = []
   const pageErrors: string[] = []
   window.on('console', (msg) => {

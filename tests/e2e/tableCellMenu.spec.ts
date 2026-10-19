@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // TableWidget column-aware right-click menu.
 // Seeds a task + a table + one row, then right-clicks a cell that
@@ -23,6 +23,7 @@ test('right-click a table cell → Create + connect menu seeded with the cell te
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForFunction(
     () => typeof (window as unknown as { api?: unknown }).api === 'object',
     null,

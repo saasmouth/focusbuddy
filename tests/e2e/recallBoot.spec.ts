@@ -19,6 +19,7 @@ test.afterEach(async () => {
 test('recall wiring: no console errors on app boot', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const consoleErrors: string[] = []
   window.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text())

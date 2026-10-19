@@ -57,6 +57,7 @@ test('OrgAdminView: mounts without JS errors', async () => {
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 
@@ -76,6 +77,7 @@ test('OrgAdminView: company working-hours inputs render', async () => {
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 
@@ -113,6 +115,7 @@ test('OrgAdminView: offices section with add-input and add-button render', async
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 

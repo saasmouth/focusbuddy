@@ -30,6 +30,7 @@ test('desk share dialog renders live sharing UI + preload surface is wired, no c
   launched = await launchApp()
   const { window, app } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   const consoleErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))

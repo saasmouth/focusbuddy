@@ -65,6 +65,7 @@ test('invite-by-email UI renders in the share dialog once a link exists', async 
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 

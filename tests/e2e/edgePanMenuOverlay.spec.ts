@@ -102,6 +102,7 @@ async function panMovedOverWindow(
 test('EDGE-PAN-1 — baseline: edge-pan works with nothing hovered/open', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (e) => pageErrors.push(e.message))
 
@@ -132,6 +133,7 @@ test('EDGE-PAN-1 — baseline: edge-pan works with nothing hovered/open', async 
 test('EDGE-PAN-2 — edge-pan stands down over floating chrome, and resumes off it', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (e) => pageErrors.push(e.message))
 
@@ -202,6 +204,7 @@ test('EDGE-PAN-2 — edge-pan stands down over floating chrome, and resumes off 
 test('EDGE-PAN-3 — edge-pan stands down while the context menu is open, resumes after close', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (e) => pageErrors.push(e.message))
 
@@ -267,6 +270,7 @@ test('EDGE-PAN-3 — edge-pan stands down while the context menu is open, resume
 test('EDGE-PAN-6 — edge-pan stands down over the zoom pill', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (e) => pageErrors.push(e.message))
 

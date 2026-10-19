@@ -41,6 +41,7 @@ test('(d) a sticky widget renders its body text at 13px in both rendered and edi
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const seeded = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Sticky body size' })
@@ -73,6 +74,7 @@ test('(d) a note widget renders its body text at 13px in both rendered and edit 
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const seeded = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Note body size' })
@@ -106,6 +108,7 @@ test('(d) a field widget (text-short, "widget" variant) renders its input at 13p
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const seeded = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Field body size' })
@@ -135,6 +138,7 @@ test('(d) a table cell (FieldEditor "cell" variant) renders at 13px and the tabl
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const seeded = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Table cell body size' })
@@ -213,6 +217,7 @@ test('(e) a heading inside a page widget renders LARGER than the 13px body size'
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const seeded = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Heading hierarchy check' })
@@ -252,6 +257,7 @@ test('(e) a table column header stays smaller (~11px) than the uniform 13px body
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const seeded = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Header hierarchy check' })

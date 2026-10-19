@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // VoiceRecorderWidget E2E.
 //
@@ -43,6 +43,7 @@ async function seedAndOpenVoiceWidget(
   content: string = ''
 ): Promise<SeededState> {
   const { window } = launched
+  await waitForReady(window)
   await window.waitForFunction(
     () => typeof (window as unknown as { api?: unknown }).api === 'object',
     null,

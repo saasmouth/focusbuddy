@@ -33,6 +33,7 @@ test.afterEach(async () => {
 /** Create a task and navigate to its canvas surface. */
 async function seedAndOpenCanvas(l: LaunchedApp, title: string): Promise<void> {
   const { window } = l
+  await waitForReady(window)
   await window.evaluate(async (t: string) => {
     const api = (window as unknown as { api: typeof window.api }).api
     await api.nodes.create({ parentId: null, kind: 'task', title: t })
@@ -52,6 +53,8 @@ test('WMN-1 — right-click Files submenu: native Document/Spreadsheet/Slides pr
   await seedAndOpenCanvas(launched, 'WMN-1 Task')
 
   const { window } = launched
+
+  await waitForReady(window)
   const surface = window.locator('[data-canvas-surface="true"]')
   await surface.click({ button: 'right', position: { x: 320, y: 280 } })
 
@@ -101,6 +104,8 @@ test('WMN-2 — Add object submenu: no empty category groups (Comms email is hid
   await seedAndOpenCanvas(launched, 'WMN-2 Task')
 
   const { window } = launched
+
+  await waitForReady(window)
   const surface = window.locator('[data-canvas-surface="true"]')
   await surface.click({ button: 'right', position: { x: 320, y: 280 } })
   const rootMenu = window.locator('[data-canvas-ctx-menu]').first()
@@ -137,6 +142,8 @@ test('WMN-3 — native doc/sheet/slides are offered (Apps); gdoc/gsheet/gslide/p
 
   const { window } = launched
 
+
+  await waitForReady(window)
   for (const key of ['docs', 'sheets', 'slides']) {
     const tile = window.locator(`[data-testid="office-sideapp-${key}"]`).first()
     await expect(tile).toBeVisible({ timeout: 3_000 })
@@ -161,6 +168,8 @@ test('WMN-4 — right-click Files > Document opens native office-add-dialog', as
   await seedAndOpenCanvas(launched, 'WMN-4 Task')
 
   const { window } = launched
+
+  await waitForReady(window)
   const surface = window.locator('[data-canvas-surface="true"]')
   await surface.click({ button: 'right', position: { x: 320, y: 280 } })
 

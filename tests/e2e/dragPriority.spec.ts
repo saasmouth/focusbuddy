@@ -82,6 +82,7 @@ function overlaps(
 // drives react-draggable (react-rnd's engine) reliably in this harness.
 async function dragWidgetBy(l: LaunchedApp, widgetId: string, dx: number, dy: number): Promise<void> {
   const { window } = l
+  await waitForReady(window)
   const handle = window.locator(`[data-widget-id="${widgetId}"] .widget-handle`)
   const box = await handle.boundingBox()
   if (!box) throw new Error(`no bounding box for widget-handle of ${widgetId}`)

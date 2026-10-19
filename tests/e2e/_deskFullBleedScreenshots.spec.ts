@@ -89,6 +89,7 @@ test('capture full-bleed desk chrome screenshots + sanity checks (UI-driven)', a
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const consoleErrors: string[] = []
   window.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text())

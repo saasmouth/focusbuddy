@@ -62,6 +62,7 @@ async function seedPair(
 test('sticky: editing one synced copy updates the other LIVE (no refresh)', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { a, b } = await seedPair(launched, 'sticky', 'before', 'grp-sticky')
 
   const firstSticky = window.locator(`[data-widget-id="${a}"]`)
@@ -78,6 +79,7 @@ test('sticky: editing one synced copy updates the other LIVE (no refresh)', asyn
 test('card: editing one synced copy title updates the other LIVE', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const card = JSON.stringify({ title: 'before', body: '', accent: '#6366f1' })
   const { a, b } = await seedPair(launched, 'card', card, 'grp-card')
 
@@ -92,6 +94,7 @@ test('card: editing one synced copy title updates the other LIVE', async () => {
 test('independent copy (no group) does NOT receive the edit', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { a, b } = await seedPair(launched, 'sticky', 'before', null)
 
   const firstSticky = window.locator(`[data-widget-id="${a}"]`)

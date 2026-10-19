@@ -20,6 +20,7 @@ test('Plexi3.0 reconciliation: single AI panel, pill+resume, Ryan chrome intact,
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const consoleErrors: string[] = []
   window.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text())

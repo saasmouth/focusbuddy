@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 import { writeFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
@@ -76,6 +76,7 @@ async function readSpyOpens(launched: LaunchedApp): Promise<{
 test('URL paste mode: paste a cloud link → renders hostname card → click fires shell.openExternal', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   await installShellSpy(launched)
 
   await window.waitForFunction(
@@ -139,6 +140,7 @@ test('URL paste mode: paste a cloud link → renders hostname card → click fir
 test('Local file mode: ingest a PNG, click the rendered image → shell.openPath fires with the stored path', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   await installShellSpy(launched)
 
   await window.waitForFunction(

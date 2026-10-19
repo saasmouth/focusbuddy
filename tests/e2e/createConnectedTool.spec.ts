@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // Right-click "Create + connect" — the menu we wired into Sticky / Note /
 // Markdown / Page / Field. Picking a kind from the menu must:
@@ -24,6 +24,7 @@ test('right-click on a sticky → Create + Connect → new tool and persisted li
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   // Wait for app boot. We can't gate on the "PlexiDesk" heading
   // because the launch sign-in modal also shows one and strict mode
   // trips. Wait for window.api to be exposed by the preload bridge —

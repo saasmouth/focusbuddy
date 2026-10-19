@@ -17,6 +17,7 @@ test('app boots and renders the React shell', async () => {
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   // waitForReady gates on (a) window.api being exposed and (b) the
   // sidebar wordmark heading being visible. Anchors via a regex so
   // the post-rebrand "PLEXII" string still matches.

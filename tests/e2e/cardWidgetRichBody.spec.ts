@@ -83,6 +83,7 @@ test('A — rendered body: <strong> for bold, <a> hrefs for bare URL and markdow
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const body = '**Important** see https://example.org and [docs](https://example.com/d)'
   const { widgetId } = await seedCardWidget(launched, body)
 
@@ -179,6 +180,7 @@ test('C — click body text enters edit mode; blur returns rendered; typed text 
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const body = '**Initial** body text'
   const { taskId, widgetId } = await seedCardWidget(launched, body)
 
@@ -231,6 +233,7 @@ test('D — edited body persists through app reload', async () => {
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const body = '**Initial** body text'
   const { taskId, widgetId } = await seedCardWidget(launched, body)
 

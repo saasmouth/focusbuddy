@@ -53,6 +53,7 @@ test.describe('side-menu moves (2026-10-10)', () => {
 
   test('IA-1 the desk menu no longer lists Calendar, Files, Vault or Plexii', async () => {
     const { window } = launched
+    await waitForReady(window)
     const sidebar = window.locator('aside').first()
     await expect(sidebar).toBeVisible({ timeout: 5_000 })
     for (const label of ['Calendar', 'Files', 'Vault', 'Plexii']) {
@@ -66,6 +67,7 @@ test.describe('side-menu moves (2026-10-10)', () => {
 
   test('IA-2 Attention opens into its six filters, and each one narrows the view', async () => {
     const { window } = launched
+    await waitForReady(window)
     // Collapsed by default: Attention is still one row that means everything.
     await expect(window.locator('[data-testid="sidebar-attention-filters"]')).toHaveCount(0)
 
@@ -99,6 +101,7 @@ test.describe('side-menu moves (2026-10-10)', () => {
 
   test('IA-3 Calendar and Files are in Office, beside the inbox', async () => {
     const { window } = launched
+    await waitForReady(window)
     await switchArea(window, 'office')
     await expect(window.locator('[data-testid="office-sidebar"]')).toBeVisible({ timeout: 8_000 })
 
@@ -124,6 +127,7 @@ test.describe('side-menu moves (2026-10-10)', () => {
 
   test('IA-4 the Vault is in Settings › Data', async () => {
     const { window } = launched
+    await waitForReady(window)
     await openSettings(window, 'data')
     await expect(window.locator('[data-testid="settings-vault"]')).toBeVisible({ timeout: 5_000 })
     await expect(window.locator('[data-testid="settings-vault-open"]')).toBeVisible()
@@ -131,6 +135,7 @@ test.describe('side-menu moves (2026-10-10)', () => {
 
   test('IA-5 Connected apps are in Settings › Advanced with no desk open', async () => {
     const { window } = launched
+    await waitForReady(window)
     // Not in the menu on Home…
     await expect(
       window.locator('aside').first().getByText('Connected Apps', { exact: true })

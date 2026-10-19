@@ -32,6 +32,7 @@ test('twofa-toggle is absent when signed out (TwoFactorSettings guards on token)
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 
@@ -64,6 +65,7 @@ test('sign-in modal does NOT show 2fa-code field by default (only after twoFacto
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (err) => pageErrors.push(err.message))
 

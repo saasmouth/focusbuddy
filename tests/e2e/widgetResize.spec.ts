@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // WidgetFrame header +/− buttons:
 //   - "Grow widget" multiplies w/h by 1.5 (capped 1400 × 900)
@@ -32,6 +32,7 @@ async function seedAndOpenStickyWidget(launched: LaunchedApp): Promise<{
 }> {
   const { window } = launched
 
+  await waitForReady(window)
   await window.waitForFunction(
     () => typeof (window as unknown as { api?: unknown }).api === 'object',
     null,
@@ -80,6 +81,7 @@ async function clickResizeButton(
   widgetId: string
 ): Promise<void> {
   const { window } = launched
+  await waitForReady(window)
   await window.evaluate(
     ({ testid }: { testid: string }) => {
       const btn = document.querySelector<HTMLButtonElement>(`[data-testid="${testid}"]`)

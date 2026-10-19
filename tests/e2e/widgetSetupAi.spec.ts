@@ -39,6 +39,7 @@ async function seedSticky(l: LaunchedApp, content: string, taskTitle: string): P
 
 async function openTask(l: LaunchedApp, taskTitle: string): Promise<void> {
   const { window } = l
+  await waitForReady(window)
   await window.reload()
   await waitForReady(window)
   await window.getByRole('button', { name: new RegExp(taskTitle) }).first().click()
@@ -62,6 +63,7 @@ async function readContent(l: LaunchedApp, widgetId: string): Promise<string> {
 test('AS-1 — Build with AI drafts items, approve and add appends a checklist', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const widgetId = await seedSticky(launched, 'Launch plan', 'BuildWithAiTest')
   await openTask(launched, 'BuildWithAiTest')
 

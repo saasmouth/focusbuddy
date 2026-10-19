@@ -74,6 +74,7 @@ test('A — checklist persistence: tick two lines and verify content before and 
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const initialContent = '[ ] one\n[ ] two\n[ ] three'
   const { taskId, widgetId } = await seedStickyWidget(launched, initialContent)
 
@@ -128,6 +129,7 @@ test('B — bold round-trip: **Friday** renders as <strong> and survives reload'
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   const { taskId, widgetId } = await seedStickyWidget(
     launched,
     'deadline **Friday** noon'
@@ -169,6 +171,7 @@ test('C — edit toggle: click rendered text enters edit mode; blur returns to r
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   // Seed a note with a checklist line plus plain text so we have both surfaces.
   const { widgetId } = await seedStickyWidget(launched, '[ ] task one\nsome plain text')
 
@@ -209,6 +212,7 @@ test('D — toolbar checklist toggle converts plain lines to checkboxes and back
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   // Seed an empty sticky so it starts in edit mode; type two lines.
   const { taskId, widgetId } = await seedStickyWidget(launched, '')
 

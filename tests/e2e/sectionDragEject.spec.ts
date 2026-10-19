@@ -96,6 +96,7 @@ async function seedSectionWithChild(
 test('right-click "Move out of section" ejects a grid child to the canvas', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { childId, sectionId, taskId } = await seedSectionWithChild(launched, 'grid')
 
   await window.waitForSelector(`[data-widget-id="${childId}"]`, { timeout: 5_000 })
@@ -145,6 +146,7 @@ test('right-click "Move out of section" ejects a grid child to the canvas', asyn
 test('icons layout: eject button (layers_clear) removes child from section', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { childId, taskId } = await seedSectionWithChild(launched, 'icons')
 
   await window.waitForSelector(`[data-widget-id="${childId}"]`, { timeout: 5_000 })
@@ -182,6 +184,7 @@ test('icons layout: eject button (layers_clear) removes child from section', asy
 test('list layout: eject button (layers_clear) removes child from section', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { childId, taskId } = await seedSectionWithChild(launched, 'list')
 
   await window.waitForSelector(`[data-widget-id="${childId}"]`, { timeout: 5_000 })
@@ -221,6 +224,7 @@ test('list layout: eject button (layers_clear) removes child from section', asyn
 test('icons layout: pointer drag outside section card ejects child to canvas', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { childId, taskId, sectionId } = await seedSectionWithChild(launched, 'icons')
 
   await window.waitForSelector(`[data-widget-id="${childId}"]`, { timeout: 5_000 })
@@ -309,6 +313,7 @@ test('icons layout: pointer drag outside section card ejects child to canvas', a
 test('icons layout: sub-threshold pointer motion (< 6px) does NOT eject child', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { childId, taskId } = await seedSectionWithChild(launched, 'icons')
 
   await window.waitForSelector(`[data-widget-id="${childId}"]`, { timeout: 5_000 })
@@ -394,6 +399,7 @@ test('icons layout: sub-threshold pointer motion (< 6px) does NOT eject child', 
 test('grid layout: WidgetFrame child is NOT drag-disabled (dragDisabled=isZonePinned only)', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { childId } = await seedSectionWithChild(launched, 'grid')
 
   await window.waitForSelector(`[data-widget-id="${childId}"]`, { timeout: 5_000 })
@@ -426,6 +432,7 @@ test('grid layout: WidgetFrame child is NOT drag-disabled (dragDisabled=isZonePi
 test('stacks layout: WidgetFrame child is NOT drag-disabled', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { childId } = await seedSectionWithChild(launched, 'stacks')
 
   await window.waitForSelector(`[data-widget-id="${childId}"]`, { timeout: 5_000 })
@@ -452,6 +459,7 @@ test('stacks layout: WidgetFrame child is NOT drag-disabled', async () => {
 test('free layout: right-click "Move out of section" ejects child to canvas', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { childId, taskId } = await seedSectionWithChild(launched, 'free')
 
   await window.waitForSelector(`[data-widget-id="${childId}"]`, { timeout: 5_000 })
@@ -483,6 +491,7 @@ test('free layout: right-click "Move out of section" ejects child to canvas', as
 test('header eject button (layers_clear) still ejects grid child', async () => {
   launched = await launchApp()
   const { window } = launched
+  await waitForReady(window)
   const { childId, taskId } = await seedSectionWithChild(launched, 'grid')
 
   await window.waitForSelector(`[data-widget-id="${childId}"]`, { timeout: 5_000 })

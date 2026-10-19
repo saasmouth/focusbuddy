@@ -30,6 +30,7 @@ test('step1 - app boots without console errors', async () => {
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   window.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text())
   })

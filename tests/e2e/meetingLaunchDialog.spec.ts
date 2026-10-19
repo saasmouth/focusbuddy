@@ -171,6 +171,7 @@ test('ML-5 — desk-start-meeting button is present in the Canvas toolbar', asyn
   launched = await launchApp()
   const { window } = launched
 
+  await waitForReady(window)
   // Use the same bootstrapping pattern as canvasUI.spec: wait for api, dismiss
   // sign-in modal, seed the node, reload, then click.
   await window.waitForFunction(
