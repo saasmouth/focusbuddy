@@ -191,6 +191,7 @@ echo "[install-local] version    $GOT_VER"
 shopt -s nullglob
 for old in /Applications/PlexiiDesk.app /Applications/PlexiiDesk\ *.app /Applications/PlexiDesk.app /Applications/PlexiDesk\ *.app; do
   [ "$old" = "$TARGET" ] && continue
+  [ -d "$old" ] || continue
   echo "[install-local] removing   $old"
   rm -rf "$old"
 done
@@ -213,8 +214,12 @@ echo "[install-local] installed  $TARGET"
 # install that otherwise succeeded.
 if [ "${SKIP_WARMUP:-0}" != "1" ]; then
   echo "[install-local] warming up (first launch is the slow one)…"
-  if bash "$(dirname "$0")/launch-local.sh" "$TARGET" --restart; then
+  rc=0
+  bash "$(dirname "$0")/launch-local.sh" "$TARGET" --restart || rc=$?
+  if [ "$rc" = "0" ]; then
     echo "[install-local] warm-up ok — it will open normally from now on"
+  elif [ "$rc" = "3" ]; then
+    echo "[install-local] installed, but an already-running instance kept the window (see above)." >&2
   else
     echo "[install-local] warm-up did not settle; open it with: npm run app" >&2
   fi

@@ -103,6 +103,21 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
       # one "up" when it had in fact handed off to that older instance.
       helpers=$(ps axo args= | grep -F "$APP/Contents/Frameworks" | grep -vc grep || true)
       if [ "${helpers:-0}" -ge 1 ]; then
+        # A launch that finds another instance holding the single-instance lock
+        # (same userData, so any build that shares it) comes up, passes the
+        # request to that instance, and quits a moment later. Reporting it as
+        # "up" put a stale build on screen and called it the new one. Look again
+        # after a pause, and name the instance that actually has the window.
+        sleep 4
+        if ! ps -p "$pid" >/dev/null 2>&1; then
+          LOCK="$HOME/Library/Application Support/plexii/SingletonLock"
+          holder=$(readlink "$LOCK" 2>/dev/null | sed -E 's/.*-([0-9]+)$/\1/')
+          holder_cmd=$(ps -o args= -p "${holder:-0}" 2>/dev/null || true)
+          echo "[launch] HANDED OFF — this build started, found another instance holding the lock, and quit." >&2
+          echo "[launch] running instance: pid ${holder:-?} ${holder_cmd:-<unknown>}" >&2
+          echo "[launch] quit that instance yourself to run $APP; it was not touched." >&2
+          exit 3
+        fi
         rss=$(ps -o rss= -p "$pid" 2>/dev/null | tr -d ' ')
         # Report the age of the process against the bundle, so a stale instance
         # can never again be reported as a successful launch.
