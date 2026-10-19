@@ -178,3 +178,79 @@ test('a work widget can be dropped INTO a widget on a desk', async () => {
 
   expect(await inner(), 'no widget nested inside the widget').toBe(before + 1)
 })
+
+test('a sticky dropped on a drawing becomes a placed object', async () => {
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  const id = await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const d = await api.documents.create({ docType: 'draw', title: 'Drop draw' } as never)
+    return (d as { id: string }).id
+  })
+  await window.evaluate((docId) => {
+    const v = (window as unknown as { __fbView?: { getState: () => { goDocument: (i: string) => void } } }).__fbView
+    v?.getState().goDocument(docId)
+  }, id)
+  await window.waitForSelector('[data-testid="draw-studio"]', { timeout: 20_000 })
+  await window.waitForTimeout(900)
+
+  const count = (): Promise<number> =>
+    window.evaluate(() => document.querySelectorAll('[data-testid^="widget-embed"]').length)
+  const before = await count()
+  await window.evaluate(() => {
+    const el = document.querySelector('[data-testid="draw-studio"]') as HTMLElement
+    const r = el.getBoundingClientRect()
+    const dt = new DataTransfer()
+    dt.setData('application/x-plexii-widget-new-file', 'sticky')
+    const at = { clientX: Math.round(r.left + r.width / 2), clientY: Math.round(r.top + r.height / 2), dataTransfer: dt, bubbles: true, cancelable: true }
+    el.dispatchEvent(new DragEvent('dragover', at))
+    el.dispatchEvent(new DragEvent('drop', at))
+  })
+  await window.waitForTimeout(1800)
+  expect(await count(), 'no widget was placed on the drawing').toBe(before + 1)
+})
+
+test('a sheet takes a widget both anchored to a cell and floating', async () => {
+  // "Sheets should allow both embedded in cell, or unembedded over the top."
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  const id = await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const d = await api.documents.create({ docType: 'sheet', title: 'Drop sheet' } as never)
+    return (d as { id: string }).id
+  })
+  await window.evaluate((docId) => {
+    const v = (window as unknown as { __fbView?: { getState: () => { goDocument: (i: string) => void } } }).__fbView
+    v?.getState().goDocument(docId)
+  }, id)
+  await window.waitForSelector('[data-testid="sheet-grid-wrap"]', { timeout: 20_000 })
+  await window.waitForTimeout(900)
+
+  // Dropped ONTO a cell: anchors to it.
+  await window.evaluate(() => {
+    const el = document.querySelector('[data-testid="sheet-grid-wrap"]') as HTMLElement
+    const r = el.getBoundingClientRect()
+    const dt = new DataTransfer()
+    dt.setData('application/x-plexii-widget-new-file', 'sticky')
+    const at = { clientX: Math.round(r.left + 120), clientY: Math.round(r.top + 60), dataTransfer: dt, bubbles: true, cancelable: true }
+    el.dispatchEvent(new DragEvent('dragover', at))
+    el.dispatchEvent(new DragEvent('drop', at))
+  })
+  await window.waitForTimeout(1800)
+
+  const placed = await window.evaluate(() =>
+    Array.from(document.querySelectorAll('[data-testid^="sheet-widget-"]')).map((e) => e.getAttribute('data-mode'))
+  )
+  expect(placed, 'nothing was placed on the sheet').toHaveLength(1)
+  expect(placed[0], 'a drop on a cell should anchor to it').toBe('cell')
+
+  // And it can be switched to floating, which is the other half of the ask.
+  await window.locator('[data-testid^="sheet-widget-"] button').first().click()
+  await window.waitForTimeout(700)
+  const after = await window.evaluate(() =>
+    Array.from(document.querySelectorAll('[data-testid^="sheet-widget-"]')).map((e) => e.getAttribute('data-mode'))
+  )
+  expect(after[0], 'could not switch the placement to floating').toBe('float')
+})

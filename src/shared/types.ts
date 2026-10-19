@@ -2746,6 +2746,35 @@ export interface SheetCellFormat {
   numFmt?: SheetNumberFormat
 }
 
+/**
+ * A live work widget placed on a sheet, either way the owner asked for:
+ * "sheets should allow both embedded in cell, or unembedded over the top."
+ *
+ * 'cell' anchors it to a cell, so it travels with the data as rows and
+ * columns are resized, inserted or scrolled — the widget belongs to that
+ * part of the sheet. 'float' pins it to a spot on the sheet surface, which
+ * is what you want for something that comments on the whole tab rather than
+ * on one row.
+ *
+ * Only the id is stored. A work widget is a file (docs/widget-files.md), so
+ * the sheet points at it and the current content is resolved on every
+ * render; the same widget can sit here, on desks and in a document at once.
+ */
+export interface SheetWidgetPlacement {
+  id: string
+  /** A desk widget id, or `wf:<file id>` for a work widget file. */
+  widgetId: string
+  mode: 'cell' | 'float'
+  /** mode 'cell': the anchor cell, zero-based. */
+  r?: number
+  c?: number
+  /** mode 'float': pixels from the sheet's top-left, inside the scroller. */
+  x?: number
+  y?: number
+  w: number
+  h: number
+}
+
 export interface SheetChartSpec {
   id: string
   type: 'bar' | 'line' | 'pie' | 'area' | 'scatter'
@@ -2856,6 +2885,8 @@ export interface SheetTab {
   merges?: SheetMerge[]
   freeze?: { rows: number; cols: number }
   charts?: SheetChartSpec[]
+  /** Live work widgets placed on this tab (anchored to a cell, or floating). */
+  widgets?: SheetWidgetPlacement[]
   pivots?: SheetPivotSpec[]
   condRules?: SheetCondRule[]
   validations?: SheetValidation[]

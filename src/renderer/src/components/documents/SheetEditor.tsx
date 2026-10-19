@@ -37,7 +37,9 @@ import {
 import { extendSeries, canToggleSeries, numericFill } from '../../lib/sheetFill'
 import { rewriteFormulaRefs, remapFormulaRefs, displayCell, makeWorkbook, makeNames } from '../../lib/sheetFormula'
 import { isSingleCell } from '@shared/gridClipboard'
-import SheetGrid from './sheet/SheetGrid'
+import SheetGrid, { ROW_HEADER_W, HEADER_H } from './sheet/SheetGrid'
+import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
+import WidgetEmbed from './embed/WidgetEmbed'
 import SheetToolbar from './sheet/SheetToolbar'
 import SheetMenuBar from './editor/SheetMenuBar'
 import SheetTabStrip from './sheet/SheetTabStrip'
@@ -393,6 +395,47 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
     (r: number): number => (liveHeight?.r === r ? liveHeight.h : tab.rowHeights?.[r] ?? DEFAULT_ROW_H),
     [liveHeight, tab.rowHeights]
   )
+
+  // ── Placed work widgets: where a cell is, and what is under a point ──────
+  //
+  // Both use the SAME widths the grid draws with (colWidthOf / rowHeightOf)
+  // and the grid's own exported header sizes, so an anchored widget sits on
+  // the gridline rather than near it. Duplicating those numbers here is how
+  // the overlay would drift the first time a default changed.
+  const cellOffset = useCallback(
+    (r: number, c: number): { x: number; y: number } => {
+      let x = ROW_HEADER_W
+      for (let i = 0; i < c; i++) x += colWidthOf(i)
+      let y = HEADER_H
+      for (let i = 0; i < r; i++) y += rowHeightOf(i)
+      return { x, y }
+    },
+    [colWidthOf, rowHeightOf]
+  )
+
+  /** The cell under a point in grid space, or null past the end of the data. */
+  const cellAtOffset = useCallback(
+    (px: number, py: number): { r: number; c: number } | null => {
+      if (px < ROW_HEADER_W || py < HEADER_H) return null
+      let x = ROW_HEADER_W
+      let c = -1
+      for (let i = 0; i < tab.columns.length; i++) {
+        const w = colWidthOf(i)
+        if (px < x + w) { c = i; break }
+        x += w
+      }
+      let y = HEADER_H
+      let r = -1
+      for (let i = 0; i < tab.rows.length; i++) {
+        const h = rowHeightOf(i)
+        if (py < y + h) { r = i; break }
+        y += h
+      }
+      return r >= 0 && c >= 0 ? { r, c } : null
+    },
+    [tab.columns.length, tab.rows.length, colWidthOf, rowHeightOf]
+  )
+
 
   // ── Selection + editing ───────────────────────────────────────────────────
   function focusGrid(): void {
@@ -1556,8 +1599,101 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
           ref={gridWrapRef}
           tabIndex={0}
           onKeyDown={(e) => void onGridKeyDown(e)}
-          className="flex-1 min-h-0"
+          // `relative` so placed work widgets can be positioned against the
+          // grid rather than the window. They live in this box, so they
+          // scroll with the sheet.
+          className="flex-1 min-h-0 relative"
+          data-testid="sheet-grid-wrap"
+          onDragOver={(e) => {
+            if (!acceptsWidgetDrag(e.dataTransfer)) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'copy'
+          }}
+          onDrop={(e) => {
+            if (!acceptsWidgetDrag(e.dataTransfer)) return
+            e.preventDefault()
+            // WHICH MODE A DROP MAKES. Dropped onto a cell it anchors to
+            // that cell, because that is what the pointer was over and what
+            // the user pointed at; the placement can be switched to floating
+            // afterwards from the widget's own control. Dropped past the end
+            // of the data there is no cell to belong to, so it floats.
+            const box = e.currentTarget.getBoundingClientRect()
+            const px = e.clientX - box.left + e.currentTarget.scrollLeft
+            const py = e.clientY - box.top + e.currentTarget.scrollTop
+            const cell = cellAtOffset(px, py)
+            void widgetIdFromDrop(e.dataTransfer).then((widgetId) => {
+              if (!widgetId) return
+              mutateTab((t) => ({
+                ...t,
+                widgets: [
+                  ...(t.widgets ?? []),
+                  cell
+                    ? { id: `sw-${Date.now().toString(36)}`, widgetId, mode: 'cell' as const, r: cell.r, c: cell.c, w: 320, h: 220 }
+                    : { id: `sw-${Date.now().toString(36)}`, widgetId, mode: 'float' as const, x: Math.round(px), y: Math.round(py), w: 320, h: 220 }
+                ]
+              }))
+            })
+          }}
         >
+          {/* Placed work widgets, both kinds, drawn over the grid. An
+              anchored one derives its position from its cell every render,
+              so it follows the data when columns are resized or rows are
+              inserted; a floating one keeps the spot it was put. */}
+          {(tab.widgets ?? []).map((pl) => {
+            const at =
+              pl.mode === 'cell'
+                ? cellOffset(pl.r ?? 0, pl.c ?? 0)
+                : { x: pl.x ?? 0, y: pl.y ?? 0 }
+            return (
+              <div
+                key={pl.id}
+                data-testid={`sheet-widget-${pl.id}`}
+                data-mode={pl.mode}
+                className="absolute z-20 rounded-lg overflow-hidden shadow-sm border border-[var(--edge-soft)] bg-[var(--surface-raised)]"
+                style={{ left: at.x, top: at.y, width: pl.w, height: pl.h }}
+              >
+                <div className="h-5 flex items-center gap-1 px-1 bg-[var(--surface-sunken)] border-b border-[var(--edge-hairline)]">
+                  <button
+                    className="text-[10px] text-[var(--ink-50)] hover:text-accent px-1 rounded"
+                    title={
+                      pl.mode === 'cell'
+                        ? 'Anchored to a cell — click to float it over the sheet'
+                        : 'Floating over the sheet — click to anchor it to a cell'
+                    }
+                    onClick={() =>
+                      mutateTab((t) => ({
+                        ...t,
+                        widgets: (t.widgets ?? []).map((w) =>
+                          w.id !== pl.id
+                            ? w
+                            : w.mode === 'cell'
+                              ? { ...w, mode: 'float' as const, x: cellOffset(w.r ?? 0, w.c ?? 0).x, y: cellOffset(w.r ?? 0, w.c ?? 0).y }
+                              : { ...w, mode: 'cell' as const, ...(cellAtOffset(w.x ?? 0, w.y ?? 0) ?? { r: 0, c: 0 }) }
+                        )
+                      }))
+                    }
+                  >
+                    {pl.mode === 'cell' ? 'In cell' : 'Floating'}
+                  </button>
+                  <button
+                    className="ml-auto text-[10px] text-[var(--ink-40)] hover:text-rose-600 px-1"
+                    // Removes the PLACEMENT only. The work widget is a file
+                    // and stays in Files and on any desk holding it; this
+                    // sheet simply stops showing it.
+                    title="Remove from this sheet"
+                    onClick={() =>
+                      mutateTab((t) => ({ ...t, widgets: (t.widgets ?? []).filter((w) => w.id !== pl.id) }))
+                    }
+                  >
+                    ×
+                  </button>
+                </div>
+                <div style={{ height: pl.h - 20 }}>
+                  <WidgetEmbed widgetId={pl.widgetId} />
+                </div>
+              </div>
+            )
+          })}
           <SheetGrid
             tab={tab}
             selection={selection}

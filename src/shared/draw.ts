@@ -169,7 +169,32 @@ export interface DrawImageObject extends DrawObjectBase {
   rotation?: number
 }
 
-export type DrawObject = DrawPathObject | DrawTextObject | DrawImageObject
+/**
+ * A live work widget placed on the drawing.
+ *
+ * It stores only the id, never a copy: a work widget is a file
+ * (docs/widget-files.md), so the drawing points at it and the renderer
+ * resolves the current content every time. The same widget can therefore sit
+ * on a drawing, on desks and in a document at once, and typing in any of
+ * them changes the one object.
+ *
+ * Deliberately unlike DrawImageObject, which embeds its bytes to keep the
+ * document self-contained. A widget is not bytes; a snapshot of one would be
+ * a copy that silently goes stale, which is the thing the file model exists
+ * to prevent.
+ */
+export interface DrawWidgetObject extends DrawObjectBase {
+  type: 'widget'
+  x: number
+  y: number
+  w: number
+  h: number
+  /** A desk widget id, or `wf:<file id>` for a work widget file. */
+  widgetId: string
+  rotation?: number
+}
+
+export type DrawObject = DrawPathObject | DrawTextObject | DrawImageObject | DrawWidgetObject
 
 // ── Layers ───────────────────────────────────────────────────────────────────
 
@@ -515,7 +540,11 @@ export function normalizeDrawBody(raw: unknown): DrawBody {
 
 export function objectBounds(o: DrawObject): Box {
   if (o.type === 'path') return pathBounds(o.path)
-  if (o.type === 'image') return { x: o.x, y: o.y, w: o.w, h: o.h }
+  // A widget is a plain box, like an image. Listed explicitly rather than
+  // left to fall through to the text branch below, which would read
+  // fontSize off it and produce NaN bounds — selection, alignment and the
+  // export frame all derive from this.
+  if (o.type === 'image' || o.type === 'widget') return { x: o.x, y: o.y, w: o.w, h: o.h }
   // Text height is a function of how it wraps, which only the renderer knows.
   // The model reports the single-line height as a floor; the editor replaces it
   // with the measured box once the text has been laid out.
@@ -728,7 +757,8 @@ export function gradientToSvg(g: DrawGradientDef): string {
  * rendering the objects, so the <defs> exist when the shapes point at them.
  */
 export function objectGradients(o: DrawObject): DrawGradientDef[] {
-  if (o.hidden || o.type === 'image') return []
+  // A widget has no paint of its own, like an image: it draws itself.
+  if (o.hidden || o.type === 'image' || o.type === 'widget') return []
   const out: DrawGradientDef[] = []
   const f = svgPaint(o.fill, o.id).gradient
   if (f) out.push(f)
@@ -834,6 +864,15 @@ function objectSvg(o: DrawObject, defs: string[]): string {
     if (!isDrawImageSrc(o.src)) return ''
     const rot = isNum(o.rotation) && o.rotation ? ` transform="rotate(${num(o.rotation)} ${num(o.x + o.w / 2)} ${num(o.y + o.h / 2)})"` : ''
     return `<image href="${esc(o.src)}" x="${num(o.x)}" y="${num(o.y)}" width="${num(o.w)}" height="${num(o.h)}" preserveAspectRatio="none"${rot}${objectStyle(o)}/>`
+  }
+  if (o.type === 'widget') {
+    // OMITTED FROM THE EXPORT, deliberately. A work widget is live: it
+    // renders from a file that keeps changing, and SVG has no way to carry
+    // that. Drawing a box where it sat would put something in the file that
+    // looks like the widget and is not — a snapshot that is wrong the moment
+    // the widget is edited. The same reasoning as the image branch above,
+    // which leaves out anything it cannot embed rather than linking to it.
+    return ''
   }
   const f = paintToSvg(o.fill, defs, o.id)
   const lh = (o.lineHeight ?? 1.2) * o.fontSize

@@ -97,11 +97,11 @@ interface Props {
   onToggleColGroup?: (groupIndex: number) => void
 }
 
-const ROW_HEADER_W = 44
+export const ROW_HEADER_W = 44
 // The column-label header row is a fixed height so frozen-row sticky offsets are
 // deterministic. DEFAULT_ROW_PX mirrors the 0.75cm default used by the editor.
-const HEADER_H = 30
-const DEFAULT_ROW_PX = 20 // Excel default row height (15pt at 96dpi)
+export const HEADER_H = 30
+export const DEFAULT_ROW_PX = 20 // Excel default row height (15pt at 96dpi)
 
 function inRange(range: CellRange | null, r: number, c: number): boolean {
   if (!range) return false

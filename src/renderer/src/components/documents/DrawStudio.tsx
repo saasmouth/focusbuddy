@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import WidgetEmbed from './embed/WidgetEmbed'
+import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import Icon from '../Icon'
 import DrawStudioMenuBar from './editor/DrawStudioMenuBar'
 import DrawLayersPanel from './draw/DrawLayersPanel'
@@ -24,6 +26,7 @@ import {
   type DrawBody,
   type DrawGradientDef,
   type DrawObject,
+  type DrawWidgetObject,
   type DrawPaint,
   type DrawPathObject,
   type DrawShapeKind,
@@ -1257,7 +1260,36 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
             : 'default'
 
   return (
-    <div className="h-full flex flex-col text-[13px]" data-testid="draw-studio">
+    <div
+      className="h-full flex flex-col text-[13px]"
+      data-testid="draw-studio"
+      onDragOver={(e) => {
+        if (!acceptsWidgetDrag(e.dataTransfer)) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+      }}
+      onDrop={(e) => {
+        if (!acceptsWidgetDrag(e.dataTransfer)) return
+        e.preventDefault()
+        void widgetIdFromDrop(e.dataTransfer).then((widgetId) => {
+          if (!widgetId) return
+          // Placed like any other object, on the active layer, so it moves,
+          // scales, reorders and deletes with the rest of the drawing.
+          const b = bodyRef.current
+          const obj: DrawWidgetObject = {
+            id: drawId('obj'),
+            type: 'widget',
+            widgetId,
+            x: Math.round(b.width * 0.25),
+            y: Math.round(b.height * 0.25),
+            w: Math.round(b.width * 0.4),
+            h: Math.round(b.width * 0.28)
+          }
+          commit(addObject(b, obj, targetLayerId(b)))
+          setSelection([obj.id])
+        })
+      }}
+    >
       <DrawStudioMenuBar
         actions={{
           undo,
@@ -1710,6 +1742,26 @@ function ObjectView({ o }: { o: DrawObject }): JSX.Element | null {
         transform={o.rotation ? `rotate(${o.rotation} ${o.x + o.w / 2} ${o.y + o.h / 2})` : undefined}
         style={style}
       />
+    )
+  }
+  if (o.type === 'widget') {
+    // A live work widget on the drawing. The canvas is SVG, so the widget —
+    // ordinary React and HTML — goes in a foreignObject. It is the real
+    // component, resolved from its id every render, so it never holds a
+    // stale copy of something that is edited elsewhere.
+    return (
+      <foreignObject
+        x={o.x}
+        y={o.y}
+        width={o.w}
+        height={o.h}
+        transform={o.rotation ? `rotate(${o.rotation} ${o.x + o.w / 2} ${o.y + o.h / 2})` : undefined}
+        style={style}
+      >
+        <div style={{ width: '100%', height: '100%' }}>
+          <WidgetEmbed widgetId={o.widgetId} />
+        </div>
+      </foreignObject>
     )
   }
   const f = svgPaint(o.fill, o.id)

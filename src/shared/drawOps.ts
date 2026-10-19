@@ -151,7 +151,11 @@ export function scaleObjects(body: DrawBody, ids: string[], from: Box, to: Box):
     const b = objectBounds(o)
     const nx = b.x * sx + e
     const ny = b.y * sy + f
-    if (o.type === 'image') return { ...o, x: nx, y: ny, w: Math.max(1, b.w * sx), h: Math.max(1, b.h * sy) }
+    // A widget scales like an image: the box changes, the contents re-lay
+    // out to fit it. Unlike text, there is no point size to scale — a table
+    // or chart inside reflows to whatever room it is given.
+    if (o.type === 'image' || o.type === 'widget')
+      return { ...o, x: nx, y: ny, w: Math.max(1, b.w * sx), h: Math.max(1, b.h * sy) }
     // Scaling text scales its point size with the vertical factor, which is what
     // makes dragging a corner feel like resizing the words rather than the box.
     return { ...o, x: nx, y: ny, w: Math.max(8, b.w * sx), fontSize: Math.max(1, o.fontSize * sy) }
