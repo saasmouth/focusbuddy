@@ -6,7 +6,7 @@
 // the scan once and re-caches.
 
 import type { FbNode, Widget } from '@shared/types'
-import { isWidgetFilePaneId, widgetFileIdFromGroup, widgetFromFile } from '@shared/widgetFiles'
+import { isWidgetFilePaneId, widgetFileIdFromGroup, widgetFileGroupId, widgetFromFile } from '@shared/widgetFiles'
 
 export interface ResolvedWidget {
   widget: Widget
@@ -75,6 +75,37 @@ const NON_EMBEDDABLE = new Set<Widget['kind']>(['section', 'minimap'])
 
 // Every desk with its embeddable widgets, for the picker. Desks with no
 // embeddable widgets are kept so the picker can show them honestly as empty.
+/**
+ * Work widget FILES that are not on any desk, as a pseudo-desk the picker can
+ * list beside the real ones.
+ *
+ * Without this the picker can only offer widgets that live on a desk, so the
+ * standard kind since 4.3.32 — a work widget with no desk, sitting in Files —
+ * was reachable by dragging it in and by no other route. A menu that cannot
+ * see most of your widgets is worse than no menu, because it looks complete.
+ *
+ * The ids handed back are `wf:<file id>` pane ids, which is what an embed
+ * needs and what makes the result editable in place.
+ */
+export async function listDesklessWidgetFiles(): Promise<Widget[]> {
+  try {
+    const files = await window.api.widgetFiles.list()
+    const out: Widget[] = []
+    for (const f of files) {
+      if (NON_EMBEDDABLE.has(f.kind)) continue
+      // Only the ones with no instance anywhere: a file that is already on a
+      // desk is listed under that desk, and showing it twice would make one
+      // object look like two.
+      const instances = await window.api.widgetFiles.instances(f.id)
+      if (instances.length) continue
+      out.push({ ...widgetFromFile(f), id: widgetFileGroupId(f.id) })
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
 export async function listDesksWithWidgets(): Promise<DeskWidgets[]> {
   const desks = await listDesks()
   const all = await Promise.all(
