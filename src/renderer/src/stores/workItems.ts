@@ -45,6 +45,42 @@ interface WorkItemStore {
 
 const EMITTED_ATTRS = new Set(WORK_ITEM_COLUMNS.filter((c) => c.rendererEmitted).map((c) => c.attr))
 
+/**
+ * Turn a main-process refusal into something a person can act on.
+ *
+ * The Attention layer is a per-device opt-in that ships OFF, so a create can
+ * legitimately be refused — but what reached the user was the raw rejection:
+ *
+ *   Error invoking remote method 'workItems:create': Error: Work items are
+ *   not enabled.
+ *
+ * That names an IPC channel and a flag, and says nothing about the switch in
+ * Settings that turns it on, so the only honest reading of it is "the app is
+ * broken". Every work-items write can be refused the same three ways, so the
+ * translation lives here rather than at each call site.
+ *
+ * Deliberately matched on the message text, not on a pre-flight capability
+ * check. workItemsEnabled() is probed asynchronously at load, so it reads
+ * false for a moment at boot and would refuse a create that the main process
+ * would have accepted. The main process is the authority on its own gate.
+ */
+export function friendlyWorkItemError(e: unknown): Error {
+  const raw = e instanceof Error ? e.message : String(e)
+  if (/not enabled/i.test(raw))
+    return new Error(
+      'The Attention layer is turned off, so there is nowhere to file this. Turn it on in Settings under Attention, then try again.'
+    )
+  if (/has not migrated/i.test(raw))
+    return new Error(
+      'This device has not finished preparing for Attention items yet. Restart Plexii and try again.'
+    )
+  if (/personal/i.test(raw))
+    return new Error(
+      'Attention items stay on this device until every member of the shared workspace is ready for them, so this one cannot be filed to a shared space yet.'
+    )
+  return e instanceof Error ? e : new Error(raw)
+}
+
 export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
   items: [],
   loaded: false,
@@ -57,7 +93,12 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
     }
   },
   create: async (draft) => {
-    const item = await window.api.workItems.create(draft)
+    let item: FbNode
+    try {
+      item = await window.api.workItems.create(draft)
+    } catch (e) {
+      throw friendlyWorkItemError(e)
+    }
     set({ items: [item, ...get().items] })
     // Live-path producer contract (§3): the create snapshot carries the full
     // renderer-emitted manifest (emitNodeCreate spreads it for work_items).
