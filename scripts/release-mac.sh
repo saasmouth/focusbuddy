@@ -75,6 +75,19 @@ if [ "$MAC_ARCH" = "universal" ]; then
   echo "Main binary is universal (${ARCHS})."
 fi
 
+# The model-split gate. Only meaningful once a release bundles the local AI
+# model, and it passes straight through before that, so it is safe to run on
+# every mac release rather than something to remember on the one that matters.
+#
+# What it stops: the model being left in the UPDATE zip. The mac updater is
+# custom and downloadFile() in src/main/autoUpdate.ts is a plain https.get of
+# the whole asset, so a model in the zip is re-downloaded in full by every user
+# at every release — ~388MB becoming ~2.9GB, including for users who never
+# touch AI. It also proves the dmg and the zip are the same application, since
+# they are two separate signed builds and could otherwise drift into shipping
+# different code to fresh installs and to updaters under one version number.
+node "${HERE0}/verify-model-split.mjs" "$VERSION" --release-dir="$DIR"
+
 # Sanity: the manifest must describe THIS version, otherwise we'd publish a
 # manifest that points clients at a different/older zip.
 if ! grep -q "version: ${VERSION}" "$YML"; then
