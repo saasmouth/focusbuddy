@@ -254,11 +254,24 @@ export interface LocalClientOptions {
   groundingCheck: boolean
 }
 
+// Defaults set to the configuration that is actually intended to ship, so a
+// test build exercises the real product rather than an experimental one.
+//
+//  schemaDecoding / promptVariants: measured no better than the base config,
+//    and schema decoding is what halved the build family. Off.
+//  smallGroundingRule: kept. Its +1/34 is noise, but it is strictly shorter
+//    than the full rule and a 4B has limited instruction-following budget.
+//  groundingCheck: OFF pending review. It repaired 18 spans and flagged 94
+//    while changing no verdict, and nobody has yet looked at whether those
+//    repairs were correct. Two reasons not to have it on here: unreviewed code
+//    silently rewriting someone's draft is not a thing to default to, and it
+//    would contaminate the very measurement this build exists for — with it on,
+//    "did the local model invent facts" actually measures model plus repair.
 let clientOptions: LocalClientOptions = {
-  schemaDecoding: true,
-  promptVariants: true,
+  schemaDecoding: false,
+  promptVariants: false,
   smallGroundingRule: true,
-  groundingCheck: true
+  groundingCheck: false
 }
 
 /** Where grounding findings go (the app shows them; tests and the eval read them). */
