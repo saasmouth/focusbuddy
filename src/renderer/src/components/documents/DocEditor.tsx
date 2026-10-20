@@ -714,19 +714,22 @@ export default function DocEditor({
 
       <div className="relative flex-1 min-w-0 overflow-auto">
       {!focusMode && (
-        <div className="max-w-3xl mx-auto px-8 pt-6">
-          {/* Google-Docs-style menu bar sits above the formatting toolbar. Every
-              item is wired to a real editor command, store action or export.
-
-              Menu bar AND toolbar pin together. The toolbar has been sticky on
-              its own for a while, which was worse than neither being sticky:
+        <div className="sticky top-0 z-20 w-full px-4 pt-2 bg-paper/95 backdrop-blur border-b border-[var(--edge-soft)]">
+          {/* ALL of the chrome pins, and it spans the full width.
+              
+              Two things were wrong. The toolbar was sticky on its own, so
               scrolling slid File/View/Tools out of reach while the formatting
-              row stayed, so the chrome came apart and the menus you reach for
-              most were the ones that left. Both live in one sticky block now,
-              and the background is opaque because document text scrolls
-              underneath it. */}
-          <div className="sticky top-0 z-20 -mx-8 px-8 bg-paper/95 backdrop-blur">
-          <div className="mb-1.5 pb-1.5 border-b border-[var(--edge-soft)]">
+              row stayed — the chrome came apart and the menus you reach for
+              most were the ones that left. And the whole block was capped at
+              max-w-3xl, narrower than the 900-1040px column of text it
+              formats, so a toolbar that fits one row on a wide window wrapped
+              onto three and ate the vertical space the document needed.
+              Full width is not cosmetic here: it is what buys the rows back.
+
+              It is the first child of the scroll container, so top-0 means it
+              never moves at all. The background is opaque because document
+              text scrolls underneath it. */}
+          <div className="mb-1 pb-1 border-b border-[var(--edge-soft)]">
             <DocMenuBar
               editor={editor}
               title={title}
@@ -759,9 +762,8 @@ export default function DocEditor({
             onExportDocx={() => void exportDocx()}
             onExportPdf={() => void exportPdf()}
           />
-          </div>
 
-          <div className="flex items-center gap-2 mt-2 mb-3 text-[11px] text-[var(--ink-50)] flex-wrap">
+          <div className="flex items-center gap-2 mt-1 mb-1.5 text-[11px] text-[var(--ink-50)] flex-wrap">
             <ReadingMeta editor={editor} />
 
             {/* Continuous vs Page, then orientation + paper when on a page. */}

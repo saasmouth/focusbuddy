@@ -76,7 +76,7 @@ export function friendlyWorkItemError(e: unknown): Error {
     )
   if (/personal/i.test(raw))
     return new Error(
-      'Attention items stay on this device until every member of the shared workspace is ready for them, so this one cannot be filed to a shared space yet.'
+      'Attention items are kept on this device while sharing for this workspace is off, so this one cannot be filed to a shared space yet.'
     )
   return e instanceof Error ? e : new Error(raw)
 }
