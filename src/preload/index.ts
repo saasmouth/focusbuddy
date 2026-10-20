@@ -1,6 +1,6 @@
 import type { WidgetInput } from '@shared/customWidgetSandbox'
 import type { WriteOrigin } from '../shared/writeOrigin'
-import type { LocalAiStatus, LocalDownloadProgress, CloudConsentRequest, GroundingReport, AiFeatureRoute, LocalEngineState } from '@shared/localAi'
+import type { LocalAiStatus, LocalDownloadProgress, CloudConsentRequest, GroundingReport, AiFeatureRoute, LocalEngineState, AnsweredBy } from '@shared/localAi'
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   ActionProposal,
@@ -2626,6 +2626,14 @@ const api = {
     getIntro: (): Promise<{ pending: boolean; from: 'auto' | 'credits' | 'byok' | 'local' | 'openai' | null; mode: 'auto' | 'credits' | 'byok' | 'local' | 'openai' }> =>
       ipcRenderer.invoke('localAi:getIntro'),
     dismissIntro: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('localAi:dismissIntro'),
+    setContentWriting: (v: 'cloud-if-key' | 'local' | 'ask' | null): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('localAi:setContentWriting', v),
+    setPreferredKey: (v: 'anthropic' | 'openai' | null): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('localAi:setPreferredKey', v),
+    onAnswered: (cb: (a: AnsweredBy) => void): (() => void) => {
+      const listener = (_e: unknown, a: AnsweredBy): void => cb(a)
+      ipcRenderer.on('localAi:answered', listener)
+      return () => ipcRenderer.removeListener('localAi:answered', listener)
+    },
     getEngine: (): Promise<LocalEngineState & { preload: { ran: boolean; why?: string; loadMs?: number | null } | null }> => ipcRenderer.invoke('localAi:getEngine'),
     onEngine: (cb: (s: LocalEngineState) => void): (() => void) => {
       const listener = (_e: unknown, s: LocalEngineState): void => cb(s)
@@ -2657,8 +2665,8 @@ const api = {
       ipcRenderer.on('localAi:grounding', listener)
       return () => ipcRenderer.removeListener('localAi:grounding', listener)
     },
-    onNotice: (cb: (n: { feature: string; message: string; action?: 'upgrade' | 'topup' }) => void): (() => void) => {
-      const listener = (_e: unknown, n: { feature: string; message: string; action?: 'upgrade' | 'topup' }): void => cb(n)
+    onNotice: (cb: (n: { feature: string; message: string; action?: 'upgrade' | 'topup' | 'keys' }) => void): (() => void) => {
+      const listener = (_e: unknown, n: { feature: string; message: string; action?: 'upgrade' | 'topup' | 'keys' }): void => cb(n)
       ipcRenderer.on('localAi:notice', listener)
       return () => ipcRenderer.removeListener('localAi:notice', listener)
     }

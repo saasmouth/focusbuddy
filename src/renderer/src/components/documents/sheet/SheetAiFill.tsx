@@ -9,6 +9,7 @@
 import { useState } from 'react'
 import Icon from '../../Icon'
 import { useAiBusyLabel } from '../../../lib/localAiEngine'
+import AnsweredBy from '../../ai/AnsweredBy'
 
 interface Props {
   headers: string[]
@@ -310,6 +311,7 @@ export default function SheetAiFill({
             </div>
           )}
 
+          <AnsweredBy feature="office" className="mt-2" />
           <div className="flex items-center gap-2 mt-2">
             {rows == null ? (
               <button

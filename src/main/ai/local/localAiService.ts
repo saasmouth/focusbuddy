@@ -20,6 +20,10 @@ import {
   setOpenAIModels,
   getLocalAiIntro,
   dismissLocalAiIntro,
+  getContentWriting,
+  setContentWriting,
+  getPreferredKey,
+  setPreferredKey,
   resolveAnthropicKey,
   resolveOpenAIKey
 } from '../../settingsStore'
@@ -33,6 +37,10 @@ import {
   setCloudProviders,
   setCreditFallback,
   anyLocalRouting,
+  setAnsweredSink,
+  effectiveRouteFor,
+  currentContentWriting,
+  type AnswerEngine,
   withCloudGrant,
   effectiveGate,
   currentLocalPolicy,
@@ -55,6 +63,8 @@ import {
   AI_FEATURES,
   AI_FEATURE_ROUTES,
   DEFAULT_LOCAL_POLICY,
+  DEFAULT_CONTENT_WRITING,
+  DEFAULT_PREFERRED_KEY,
   recommendTier,
   modelDownloadUrl,
   modelManifestUrl,
@@ -187,8 +197,12 @@ export function initLocalAi(): void {
   setRouterSettings({
     aiMode: getAiMode,
     featureRoutes: getAiFeatureRoutes,
-    policy: () => getLocalAiPolicy() ?? DEFAULT_LOCAL_POLICY
+    policy: () => getLocalAiPolicy() ?? DEFAULT_LOCAL_POLICY,
+    contentWriting: () => getContentWriting() ?? DEFAULT_CONTENT_WRITING,
+    preferredKey: () => getPreferredKey() ?? DEFAULT_PREFERRED_KEY
   })
+  // Which engine answered, per feature, for the "Answered by" line on every AI surface.
+  setAnsweredSink((a) => broadcast('localAi:answered', { ...a, label: engineLabel(a.engine) }))
   setModelTagger(tagModel)
   const openai = createOpenAIClient({ key: resolveOpenAIKey, models: () => ({ ...DEFAULT_OPENAI_MODELS, ...getOpenAIModels() }) })
   setCloudProviders({
@@ -262,6 +276,14 @@ export function initLocalAi(): void {
   app.on('before-quit', () => {
     void host?.stop()
   })
+}
+
+/** "Local (Qwen3 4B)" / "Anthropic (your key)" / … for the Answered-by line. */
+export function engineLabel(e: AnswerEngine): string {
+  if (e === 'local') return `Local (${(activeTier()?.name ?? 'on-device model').replace(/ Instruct$/, '')})`
+  if (e === 'anthropic') return 'Anthropic (your key)'
+  if (e === 'openai') return 'OpenAI (your key)'
+  return 'Plexii AI credits'
 }
 
 // ── Background preload ──────────────────────────────────────────────────────
@@ -357,6 +379,9 @@ export async function localAiStatus(): Promise<LocalAiStatus> {
     provider: providerChoice(),
     featureRoutes: getAiFeatureRoutes() as LocalAiStatus['featureRoutes'],
     cloudProviders: { anthropic: Boolean(resolveAnthropicKey()), openai: Boolean(resolveOpenAIKey()), credits: getCreditClient() !== null },
+    effectiveRoutes: Object.fromEntries(AI_FEATURES.map((f) => [f, effectiveRouteFor(f)])) as LocalAiStatus['effectiveRoutes'],
+    contentWriting: currentContentWriting(),
+    preferredKey: getPreferredKey() ?? DEFAULT_PREFERRED_KEY,
     openaiModels: { ...DEFAULT_OPENAI_MODELS, ...getOpenAIModels() },
     ramGB: ram,
     freeDiskBytes: await freeDisk(),
@@ -481,6 +506,18 @@ export function registerLocalAiIpc(): void {
     error: host?.lastError ?? null,
     preload: lastPreload
   }))
+  ipcMain.handle('localAi:setContentWriting', (_e, v: string | null) => {
+    if (v !== null && v !== 'cloud-if-key' && v !== 'local' && v !== 'ask') return { ok: false, error: 'Unknown setting.' }
+    setContentWriting(v)
+    broadcast('localAi:changed', null)
+    return { ok: true }
+  })
+  ipcMain.handle('localAi:setPreferredKey', (_e, v: string | null) => {
+    if (v !== null && v !== 'anthropic' && v !== 'openai') return { ok: false, error: 'Unknown key.' }
+    setPreferredKey(v)
+    broadcast('localAi:changed', null)
+    return { ok: true }
+  })
   // The one-time "local AI is now built in" notice (settingsStore.migrateAiMode).
   ipcMain.handle('localAi:getIntro', () => getLocalAiIntro())
   ipcMain.handle('localAi:dismissIntro', () => {

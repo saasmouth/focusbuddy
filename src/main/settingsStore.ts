@@ -69,6 +69,11 @@ interface Envelope {
   // Which AI source the user has chosen. Optional for forward-compat with
   // envelopes that never chose (absent → DEFAULT_AI_MODE).
   aiMode?: AiMode
+  // Content writing while the source is Local ('cloud-if-key' | 'local' |
+  // 'ask'); absent → DEFAULT_CONTENT_WRITING in src/shared/localAi.ts.
+  contentWriting?: string
+  // The saved key content writing prefers when both are saved.
+  preferredKey?: string
   // Which one-time AI-source migrations this profile has had (AI_MODE_MIGRATION).
   aiModeMigration?: number
   // The "local AI is now built in" notice: shown once, then dismissed. `from`
@@ -129,6 +134,8 @@ function load(): Envelope {
       ...(parsed.localAiPolicy === 'measured' || parsed.localAiPolicy === 'local-first'
         ? { localAiPolicy: parsed.localAiPolicy }
         : {}),
+      ...(['cloud-if-key', 'local', 'ask'].includes(String(parsed.contentWriting)) ? { contentWriting: parsed.contentWriting } : {}),
+      ...(parsed.preferredKey === 'anthropic' || parsed.preferredKey === 'openai' ? { preferredKey: parsed.preferredKey } : {}),
       ...(typeof parsed.aiModeMigration === 'number' ? { aiModeMigration: parsed.aiModeMigration } : {}),
       ...(parsed.localAiIntro && typeof parsed.localAiIntro === 'object'
         ? {
@@ -185,6 +192,30 @@ export function migrateAiMode(env: { aiMode?: AiMode; aiModeMigration?: number; 
   env.localAiIntro = { pending: true, from }
   env.aiModeMigration = AI_MODE_MIGRATION
   return true
+}
+
+/** Content writing while the source is Local, or null for the default. */
+export function getContentWriting(): 'cloud-if-key' | 'local' | 'ask' | null {
+  load()
+  const v = cache.contentWriting
+  return v === 'cloud-if-key' || v === 'local' || v === 'ask' ? v : null
+}
+export function setContentWriting(v: 'cloud-if-key' | 'local' | 'ask' | null): void {
+  load()
+  if (v) cache.contentWriting = v
+  else delete cache.contentWriting
+  save()
+}
+/** The saved key content writing prefers when both are saved, or null for the default. */
+export function getPreferredKey(): 'anthropic' | 'openai' | null {
+  load()
+  return cache.preferredKey === 'anthropic' || cache.preferredKey === 'openai' ? cache.preferredKey : null
+}
+export function setPreferredKey(v: 'anthropic' | 'openai' | null): void {
+  load()
+  if (v) cache.preferredKey = v
+  else delete cache.preferredKey
+  save()
 }
 
 /** The one-time local-AI notice, if it is still to be shown. */

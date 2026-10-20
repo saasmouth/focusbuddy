@@ -374,6 +374,14 @@ function sourceLabel(p: LocalAiStatus['provider']): string {
   return p === 'local' ? 'on this device' : p === 'openai' ? 'your OpenAI key' : p === 'byok' ? 'your Anthropic key' : 'Plexii AI credits'
 }
 
+const ENGINE_NOW: Record<LocalAiStatus['effectiveRoutes'][AiFeature], string> = {
+  local: 'On this device',
+  anthropic: 'Anthropic (your key)',
+  openai: 'OpenAI (your key)',
+  credits: 'Plexii AI credits',
+  cloud: 'Cloud AI'
+}
+
 function FeatureRoutes({
   st,
   busy,
@@ -383,28 +391,85 @@ function FeatureRoutes({
   busy: boolean
   onChange: (f: AiFeature, route: AiFeatureRoute | null) => void
 }): JSX.Element {
-  const globalLocal = st.provider === 'local'
   const available = (r: AiFeatureRoute): boolean =>
     r === 'local' || (r === 'cloud' ? st.cloudProviders.anthropic || st.cloudProviders.credits : st.cloudProviders[r])
+  const bothKeys = st.cloudProviders.anthropic && st.cloudProviders.openai
   return (
     <div className="mt-2" data-testid="local-ai-features">
       <div className="fb-t-caption uppercase tracking-wider text-[var(--ink-50)] mb-1">Feature by feature</div>
       <div className="fb-t-caption text-[var(--ink-50)] leading-snug mb-1.5">
-        Pass rates are from our test of the app’s real prompts, on the on-device model and on cloud AI. Any feature can
-        be upgraded to your own Anthropic or OpenAI key.
+        Where each feature runs right now, and how the on-device model scored against cloud AI in our tests of the
+        app’s real prompts. Writing, PlexiiWrite / PlexiiCells / PlexiiDeck drafts and Build with AI use your own
+        Anthropic or OpenAI key when one is saved, and run on this device otherwise.
       </div>
+      {st.provider === 'local' && (
+        <div className="flex flex-wrap items-center gap-2 fb-t-caption mb-1.5" data-testid="local-ai-content-writing">
+          <span className="text-[var(--ink-70)]">Writing and drafts:</span>
+          <select
+            value={st.contentWriting}
+            disabled={busy}
+            onChange={(e) => void window.api.localAi.setContentWriting(e.target.value as 'cloud-if-key' | 'local' | 'ask')}
+            className="fb-t-caption bg-transparent border border-[var(--edge-soft)] rounded px-1 py-0.5"
+          >
+            <option value="cloud-if-key">Use my own key when saved, else this device</option>
+            <option value="local">Always this device</option>
+            <option value="ask">Ask before using cloud AI</option>
+          </select>
+          {bothKeys && st.contentWriting === 'cloud-if-key' && (
+            <>
+              <span className="text-[var(--ink-70)]">Prefer:</span>
+              <select
+                value={st.preferredKey}
+                disabled={busy}
+                data-testid="local-ai-preferred-key"
+                onChange={(e) => void window.api.localAi.setPreferredKey(e.target.value as 'anthropic' | 'openai')}
+                className="fb-t-caption bg-transparent border border-[var(--edge-soft)] rounded px-1 py-0.5"
+              >
+                <option value="anthropic">Anthropic</option>
+                <option value="openai">OpenAI</option>
+              </select>
+            </>
+          )}
+        </div>
+      )}
       <div className="space-y-1">
         {AI_FEATURES.map((f) => {
           const g = st.gates[f]
           const route = st.featureRoutes[f] ?? null
-          const effective = route ?? (globalLocal ? 'local' : 'cloud')
+          const now = st.effectiveRoutes[f]
           return (
             <div key={f} className="fb-card rounded-[var(--radius-field)] px-2.5 py-1.5 fb-t-caption" data-testid={`local-ai-feature-${f}`}>
               <div className="flex items-center gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="text-[var(--ink-90)] font-medium">{AI_FEATURE_COPY[f].label}</div>
                   <div className="text-[var(--ink-50)] leading-snug">{AI_FEATURE_COPY[f].covers}</div>
+                  <div className="text-[var(--ink-70)] mt-0.5" data-testid={`local-ai-now-${f}`}>
+                    Now: {ENGINE_NOW[now]}
+                  </div>
                 </div>
+                {now !== 'local' && f !== 'media' && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    data-testid={`local-ai-test-local-${f}`}
+                    onClick={() => onChange(f, 'local')}
+                    className="fb-btn-surface fb-t-caption px-2 py-0.5 rounded"
+                    title="Run this feature on this device until you switch it back"
+                  >
+                    Test with local
+                  </button>
+                )}
+                {route !== null && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    data-testid={`local-ai-route-reset-${f}`}
+                    onClick={() => onChange(f, null)}
+                    className="fb-t-caption underline text-[var(--ink-60)]"
+                  >
+                    Back to default
+                  </button>
+                )}
                 <select
                   aria-label={`Where ${AI_FEATURE_COPY[f].label} runs`}
                   data-testid={`local-ai-route-${f}`}
@@ -413,7 +478,7 @@ function FeatureRoutes({
                   onChange={(e) => onChange(f, e.target.value === 'default' ? null : (e.target.value as AiFeatureRoute))}
                   className="fb-t-caption bg-transparent border border-[var(--edge-soft)] rounded px-1 py-0.5"
                 >
-                  <option value="default">Follow AI source ({sourceLabel(st.provider)})</option>
+                  <option value="default">Default ({sourceLabel(st.provider)})</option>
                   {AI_FEATURE_ROUTES.map((r) => (
                     <option key={r} value={r} disabled={!available(r) && route !== r}>
                       {ROUTE_LABEL[r]}
@@ -424,8 +489,8 @@ function FeatureRoutes({
               </div>
               <div className="text-[var(--ink-60)] mt-0.5 leading-snug">
                 On this device: {pct(g.localPassRate)} · cloud: {pct(g.cloudPassRate)}
-                {effective === 'local' && g.gate === 'labelled' && <> · {LOCAL_LABEL_COPY}</>}
-                {effective === 'local' && g.gate === 'cloud-only' && (
+                {now === 'local' && g.gate === 'labelled' && <> · {LOCAL_LABEL_COPY}</>}
+                {now === 'local' && g.gate === 'cloud-only' && (
                   <> · Not run on this device; you are asked before each request whether to use cloud AI instead.</>
                 )}
               </div>

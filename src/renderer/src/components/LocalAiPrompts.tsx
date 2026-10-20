@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import Icon from './Icon'
 import Modal from './plexi/Modal'
 import { openAiSettings } from '../stores/aiCredits'
-import { useLocalAiEngine, LOCAL_WARMING_COPY } from '../lib/localAiEngine'
+import { useLocalAiEngine, LOCAL_WARMING_COPY, startAnsweredTracking } from '../lib/localAiEngine'
 import type { CloudConsentRequest, GroundingReport, LocalAiStatus, LocalDownloadProgress } from '@shared/localAi'
 
 // The two things Local AI says on its own, mounted once in App:
@@ -18,7 +18,7 @@ import type { CloudConsentRequest, GroundingReport, LocalAiStatus, LocalDownload
 export default function LocalAiPrompts(): JSX.Element | null {
   const [queue, setQueue] = useState<CloudConsentRequest[]>([])
   const [notice, setNotice] = useState<string | null>(null)
-  const [noticeAction, setNoticeAction] = useState<'upgrade' | 'topup'>('upgrade')
+  const [noticeAction, setNoticeAction] = useState<'upgrade' | 'topup' | 'keys'>('upgrade')
   const [grounding, setGrounding] = useState<GroundingReport | null>(null)
   // The installed app came without the model (an update zip, or it could not
   // be kept): AI must say so and offer the one-time download, never just fail.
@@ -95,6 +95,7 @@ export default function LocalAiPrompts(): JSX.Element | null {
   // Catch-all for any surface without its own warm-up wording: while a request
   // is waiting on a cold load, say so once, app-wide.
   const engine = useLocalAiEngine()
+  useEffect(() => startAnsweredTracking(), [])
 
   const current = queue[0]
 
@@ -334,7 +335,7 @@ export default function LocalAiPrompts(): JSX.Element | null {
                 openAiSettings()
               }}
             >
-              {noticeAction === 'topup' ? 'Top up credits' : 'Upgrade with your own Anthropic or OpenAI key'}
+              {noticeAction === 'topup' ? 'Top up credits' : noticeAction === 'keys' ? 'Check your API keys' : 'Upgrade with your own Anthropic or OpenAI key'}
             </button>
           </span>
           <button type="button" aria-label="Dismiss" className="text-[var(--ink-50)] hover:text-[var(--ink-100)]" onClick={() => setNotice(null)}>

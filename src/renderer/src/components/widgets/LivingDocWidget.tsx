@@ -9,6 +9,7 @@ import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
+import AnsweredBy from '../ai/AnsweredBy'
 
 // Living Doc — a read-only document that writes itself. You give it a brief
 // (stored in widget.livingQuery), and the AI keeps a running summary of the
@@ -196,6 +197,7 @@ export default function LivingDocWidget({ widget, inline = false }: Props): JSX.
       >
         <Icon name={busy ? 'hourglass_empty' : 'refresh'} size={13} className={busy ? 'animate-spin' : ''} />
       </button>
+      <AnsweredBy feature="summaries" className="mt-1" />
     </div>
   )
 

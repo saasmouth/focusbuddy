@@ -15,6 +15,7 @@ import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
 import { confirmDialog } from '../plexi/PromptDialog'
+import AnsweredBy from '../ai/AnsweredBy'
 
 function formatAge(ts: number | null): string {
   if (!ts) return 'never'
@@ -689,6 +690,7 @@ function LivingHeader(props: LivingHeaderProps): JSX.Element {
           >
             <Icon name="refresh" size={13} className={busy ? 'animate-spin' : ''} />
           </button>
+          <AnsweredBy feature="summaries" className="mt-1" />
           <button
             onClick={onTogglePause}
             className="icon-btn !h-6 !w-6"

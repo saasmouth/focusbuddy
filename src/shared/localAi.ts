@@ -224,6 +224,17 @@ export interface LocalEngineState {
   error: string | null
 }
 
+/** Which engine produced an AI result (localAi:answered). */
+export interface AnsweredBy {
+  feature: AiFeature
+  purpose: string
+  engine: 'local' | 'anthropic' | 'openai' | 'credits'
+  /** "Local (Qwen3 4B)", "Anthropic (your key)", "OpenAI (your key)", "Plexii AI credits". */
+  label: string
+  model: string
+  at: number
+}
+
 /** What a surface says while the on-device model is loading. */
 export const LOCAL_WARMING_COPY = 'Starting local AI — this happens once per session…'
 
@@ -232,6 +243,10 @@ export interface LocalAiStatus {
   provider: AiProviderChoice
   featureRoutes: Partial<Record<AiFeature, AiFeatureRoute>>
   cloudProviders: CloudProvidersAvailable
+  /** Where each feature's requests go right now, all settings applied. */
+  effectiveRoutes: Record<AiFeature, 'local' | 'anthropic' | 'openai' | 'credits' | 'cloud'>
+  contentWriting: ContentWritingPolicy
+  preferredKey: PreferredKey
   /** OpenAI model per tier (the person's choice over the defaults). */
   openaiModels: { fast: string; standard: string; best: string }
   ramGB: number
@@ -312,16 +327,27 @@ export const NOT_TECHNICALLY_LOCAL: readonly AiFeature[] = ['media']
 export const CONTENT_WRITING_FEATURES: readonly AiFeature[] = ['office', 'writing', 'build']
 
 /**
- * THE switch for content writing under the local-first policy (pending the
- * owner's decision, 2026-10-20). 'local': it runs on the device with the
- * "works best with cloud AI" note (the owner's local-first choice). 'ask':
- * it is treated like a feature the device does not run — the person is asked
- * before each request goes to their cloud provider, and nothing is sent
- * otherwise. Only the default lives here; the router reads it through
- * setRouterSettings({ contentWriting }), so flipping it needs no other change.
+ * THE switch for content writing (writing, office, build) while the AI source
+ * is Local. Owner decision (2026-10-21): 'cloud-if-key'.
+ *   'cloud-if-key' — if the person has their own Anthropic or OpenAI key, these
+ *                    features use it (the one they prefer when both are saved,
+ *                    else Anthropic); with no key they run on the device with
+ *                    the quality note and an upgrade link. A key that fails
+ *                    (invalid, out of credit) answers that request on the
+ *                    device, with a note.
+ *   'local'        — on the device with the note, keys or not.
+ *   'ask'          — the person is asked before each request goes to cloud.
+ * An explicit per-feature route always wins. Assistant, background and
+ * summaries are not content writing and stay local-first. The router reads
+ * this through setRouterSettings({ contentWriting }), so changing the default
+ * needs no other change.
  */
-export type ContentWritingPolicy = 'local' | 'ask'
-export const DEFAULT_CONTENT_WRITING: ContentWritingPolicy = 'local'
+export type ContentWritingPolicy = 'cloud-if-key' | 'local' | 'ask'
+export const DEFAULT_CONTENT_WRITING: ContentWritingPolicy = 'cloud-if-key'
+
+/** Which saved key content writing prefers when both are saved. */
+export type PreferredKey = 'anthropic' | 'openai'
+export const DEFAULT_PREFERRED_KEY: PreferredKey = 'anthropic'
 
 /** A grounding review of content-writing output, as main reports it. */
 export interface GroundingReport {

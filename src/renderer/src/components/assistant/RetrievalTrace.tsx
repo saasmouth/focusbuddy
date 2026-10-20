@@ -15,6 +15,7 @@ import {
   type AssistantTrace
 } from '../../lib/traceView'
 import { useLocalAiWarming, LOCAL_WARMING_COPY } from '../../lib/localAiEngine'
+import AnsweredBy from '../ai/AnsweredBy'
 
 // What the assistant did, while it does it.
 //
@@ -364,6 +365,7 @@ export default function RetrievalTrace({
             )}
           </div>
         )}
+        {trace.status === 'done' && <AnsweredBy feature="assistant" since={trace.startedAt} className="mt-0.5 pl-6" />}
         {error && (
           <div
             key={error.key}

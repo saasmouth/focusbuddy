@@ -259,7 +259,7 @@ describe('content-writing switch (one flag)', () => {
   it("'local' runs measured-weak content writing on the device with a note; 'ask' makes it ask; nothing else changes", async () => {
     const router = await import('../../src/main/ai/local/providerRouter')
     const { DEFAULT_CONTENT_WRITING } = await import('../../src/shared/localAi')
-    expect(DEFAULT_CONTENT_WRITING).toBe('local')
+    expect(DEFAULT_CONTENT_WRITING).toBe('cloud-if-key')
     const cloudOnly = () => ({ gate: 'cloud-only' as const, localPassRate: 0.2, cloudPassRate: 0.55, family: null })
     router.setGateResolver(cloudOnly)
     let flag: 'local' | 'ask' = 'local'

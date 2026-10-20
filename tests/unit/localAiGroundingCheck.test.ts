@@ -46,3 +46,25 @@ describe('grounding review', () => {
     expect(r.repaired.length).toBeGreaterThanOrEqual(2)
   })
 })
+
+describe('spans across masked regions (ed662ea0 NUL masking)', () => {
+  it('a quotation containing a [placeholder] is repaired, and reported with its real text', async () => {
+    const { reviewProse } = await import('../../src/main/ai/local/groundingCheck')
+    const text = 'Tell the customer: “We’re working with engineering to resolve this; you’ll hear from us by [timeframe].” Then log it.'
+    const r = reviewProse(text, 'Write a support escalation procedure.', true)
+    const q = r.repaired.find((x) => x.kind === 'quote')
+    expect(q).toBeTruthy()
+    expect(q!.span).not.toMatch(/\u0000/)
+    expect(q!.span).toContain('[timeframe]')
+    expect(r.text).not.toContain('working with engineering')
+  })
+
+  it('CSS in an HTML attribute is neither repaired nor flagged', async () => {
+    const { reviewProse } = await import('../../src/main/ai/local/groundingCheck')
+    const html = '<h3 style="color: #1e3c72; font-size: 18px; margin-top: 0;">Kickoff</h3><table style="width: 100%; border-collapse: collapse;"><tr><td>Owner</td></tr></table>'
+    const r = reviewProse(html, 'Write a kickoff agenda.', true)
+    expect(r.repaired).toEqual([])
+    expect(r.flagged.filter((f) => /px|#1e3c72|100%/.test(f.span))).toEqual([])
+    expect(r.text).toBe(html)
+  })
+})

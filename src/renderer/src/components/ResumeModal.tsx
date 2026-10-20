@@ -4,6 +4,7 @@ import { useNodeStore } from '../stores/nodes'
 import Icon from './Icon'
 import { renderMarkdown } from '../lib/renderMarkdownLite'
 import { useAiBusyLabel } from '../lib/localAiEngine'
+import AnsweredBy from './ai/AnsweredBy'
 
 interface Props {
   task: FbNode
@@ -113,6 +114,7 @@ export default function ResumeModal({ task, onClose }: Props): JSX.Element {
               {generating ? warmLabel('Generating…') : content ? 'Regenerate' : 'Generate resume'}
             </span>
           </button>
+          <AnsweredBy feature="writing" className="mt-1" />
         </div>
       </div>
     </div>

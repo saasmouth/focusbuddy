@@ -195,7 +195,8 @@ describe('per-feature provider routing', () => {
     expect(router.tagModel('document', 'claude-sonnet-5-5')).toBe('route:anthropic:document:claude-sonnet-5-5')
     expect(router.tagModel('trail_summary', 'claude-haiku-4-5')).toBe('route:cloud:trail_summary:claude-haiku-4-5')
     router.setRouterSettings({ aiMode: () => 'byok', featureRoutes: () => ({ writing: 'openai' }) })
-    expect(router.tagModel('chat', 'claude-sonnet-5-5')).toBe('claude-sonnet-5-5')
+    // Always tagged now (so the router can say which engine answered which feature).
+    expect(router.tagModel('chat', 'claude-sonnet-5-5')).toBe('route:cloud:chat:claude-sonnet-5-5')
     expect(router.tagModel('doc_rewrite', 'claude-sonnet-5-5')).toBe('route:openai:doc_rewrite:claude-sonnet-5-5')
   })
 

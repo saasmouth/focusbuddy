@@ -32,6 +32,7 @@ import WidgetEmbed from './embed/WidgetEmbed'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import WidgetPickerDialog from './embed/WidgetPickerDialog'
 import { useAiBusyLabel } from '../../lib/localAiEngine'
+import AnsweredBy from '../ai/AnsweredBy'
 
 // PlexiDiagrams editor — a Draw.io / Lucidchart-style diagram and workflow map. Built
 // on React Flow but persists a clean, tool-agnostic MapBody (nodes carry their
@@ -984,6 +985,7 @@ function AiMapPanel({
           >
             {busy ? warmLabel('Generating…') : 'Generate'}
           </button>
+          <AnsweredBy feature="office" className="mt-1" />
         </div>
         <p className="text-[10px] text-[var(--ink-40)]">This replaces the current map. Cmd/Ctrl+Enter to run.</p>
       </div>

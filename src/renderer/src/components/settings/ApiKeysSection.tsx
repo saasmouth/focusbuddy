@@ -11,6 +11,7 @@
 // rendered by the shared <ApiKeyRow> component. Adding a third = pass
 // new props to a new <ApiKeyRow>; no further changes here.
 
+import { AI_FEATURES, AI_FEATURE_COPY } from '@shared/localAi'
 import { useEffect, useState } from 'react'
 import LocalAiSection from './LocalAiSection'
 import { confirmDialog } from '../plexi/PromptDialog'
@@ -333,13 +334,7 @@ function AiSourceSection(): JSX.Element {
         </label>
       )}
 
-      {status?.mode === 'local' && (
-        <div className="fb-t-caption text-[var(--ink-60)] mb-2 leading-snug" data-testid="ai-local-note">
-          PlexiiAssist, PlexiiBrain and the other AI features run on the on-device model below. No prompt or content
-          is sent to any AI service; a feature the on-device model is not good enough for asks before using cloud AI
-          for that one request.
-        </div>
-      )}
+      {status?.mode === 'local' && <LocalSourceNote />}
 
       {status?.mode === 'openai' && (
         <div className="fb-t-caption text-[var(--ink-60)] mb-2 leading-snug" data-testid="ai-openai-note">
@@ -749,6 +744,56 @@ function ApiKeyRow({
       >
         {config.helpLabel}
       </a>
+    </div>
+  )
+}
+
+// What "Local on this device" means right now, honestly: with no key saved
+// nothing leaves the computer; with a key saved, writing and drafts use it
+// (content writing = "cloud when a key exists") and the note says so.
+function LocalSourceNote(): JSX.Element {
+  const [cloudFeatures, setCloudFeatures] = useState<Array<{ label: string; engine: string }> | null>(null)
+  useEffect(() => {
+    const api = window.api?.localAi
+    if (!api?.getStatus) return
+    const load = (): void => {
+      void api
+        .getStatus()
+        .then((st) => {
+          const ENGINE: Record<string, string> = { anthropic: 'your Anthropic key', openai: 'your OpenAI key', credits: 'Plexii AI credits', cloud: 'cloud AI' }
+          setCloudFeatures(
+            AI_FEATURES.filter((f) => st.effectiveRoutes?.[f] && st.effectiveRoutes[f] !== 'local').map((f) => ({
+              label: AI_FEATURE_COPY[f].label,
+              engine: ENGINE[st.effectiveRoutes[f]] ?? 'cloud AI'
+            }))
+          )
+        })
+        .catch(() => undefined)
+    }
+    load()
+    return api.onChanged?.(() => load())
+  }, [])
+  const away = cloudFeatures ?? []
+  return (
+    <div className="fb-t-caption text-[var(--ink-60)] mb-2 leading-snug" data-testid="ai-local-note">
+      {away.length === 0 ? (
+        <>
+          PlexiiAssist, PlexiiBrain and the other AI features run on the on-device model below. No prompt or content is
+          sent to any AI service; a feature the on-device model is not good enough for asks before using cloud AI for
+          that one request.
+        </>
+      ) : (
+        <>
+          AI runs on the on-device model below, except{' '}
+          {away.map((a, i) => (
+            <span key={a.label}>
+              {i > 0 ? (i === away.length - 1 ? ' and ' : ', ') : ''}
+              {a.label} ({a.engine})
+            </span>
+          ))}
+          , which send their requests there. Switch any of them back to this device under Feature by feature.
+        </>
+      )}
     </div>
   )
 }

@@ -5,7 +5,7 @@
 // (LOCAL_WARMING_COPY), so the wait reads as a one-time start-up, not a hang.
 // One subscription for the whole renderer; components read it with a hook.
 import { useSyncExternalStore } from 'react'
-import { LOCAL_WARMING_COPY, type LocalEngineState } from '@shared/localAi'
+import { LOCAL_WARMING_COPY, type LocalEngineState, type AiFeature, type AnsweredBy } from '@shared/localAi'
 
 let current: LocalEngineState = { state: 'idle', waiting: 0, lastLoadMs: null, error: null }
 const listeners = new Set<() => void>()
@@ -54,3 +54,45 @@ export function useAiBusyLabel(): (label: string) => string {
 }
 
 export { LOCAL_WARMING_COPY }
+
+// ── Which engine answered ───────────────────────────────────────────────────
+//
+// Main reports every completed AI request with the engine that produced it
+// (providerRouter's answered sink). Each AI surface shows the latest one for
+// its feature: "Answered by: Local (Qwen3 4B)" / "Anthropic (your key)" /
+// "OpenAI (your key)" / "Plexii AI credits".
+
+const lastByFeature = new Map<AiFeature, AnsweredBy>()
+const answerListeners = new Set<() => void>()
+let answersStarted = false
+let version = 0
+
+function startAnswers(): void {
+  if (answersStarted) return
+  answersStarted = true
+  const api = (window as unknown as { api?: { localAi?: { onAnswered?: (cb: (a: AnsweredBy) => void) => () => void } } }).api?.localAi
+  api?.onAnswered?.((a) => {
+    lastByFeature.set(a.feature, a)
+    version++
+    for (const l of answerListeners) l()
+  })
+}
+
+/** The engine that answered this feature's latest request, since `since` (ms epoch). */
+export function useAnsweredBy(feature: AiFeature, since = 0): AnsweredBy | null {
+  useSyncExternalStore(
+    (fn) => {
+      startAnswers()
+      answerListeners.add(fn)
+      return () => answerListeners.delete(fn)
+    },
+    () => version
+  )
+  const a = lastByFeature.get(feature) ?? null
+  return a && a.at >= since ? a : null
+}
+
+/** Subscribe early (App mount) so answers that land before a surface opens are kept. */
+export function startAnsweredTracking(): void {
+  startAnswers()
+}

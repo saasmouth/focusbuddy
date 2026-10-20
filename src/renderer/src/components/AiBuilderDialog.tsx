@@ -6,6 +6,7 @@ import Icon from './Icon'
 import SuggestionPreview from './ai/SuggestionPreview'
 import CreditsMeter from './CreditsMeter'
 import { useAiBusyLabel } from '../lib/localAiEngine'
+import AnsweredBy from './ai/AnsweredBy'
 
 interface Props {
   taskId: string | null
@@ -159,6 +160,7 @@ export default function AiBuilderDialog({ taskId, onClose, onAccept, initialProm
                     : 'Generate'}
               </span>
             </button>
+            <AnsweredBy feature="build" className="mt-1" />
           </div>
         </div>
 

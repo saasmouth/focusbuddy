@@ -8,6 +8,7 @@ import SlideFace from './SlideFace'
 import { resolveTheme } from '@shared/slideThemes'
 import Icon from '../../Icon'
 import { useAiBusyLabel } from '../../../lib/localAiEngine'
+import AnsweredBy from '../../ai/AnsweredBy'
 
 type Mode = 'deck' | 'append' | 'redesign'
 
@@ -115,6 +116,7 @@ export default function AiSlidePanel({ theme, slideSummary, onApply, onClose }: 
         </div>
       )}
 
+      <AnsweredBy feature="office" className="mt-2" />
       <div className="flex items-center gap-2 mt-2">
         {preview == null ? (
           <button onClick={() => void run()} disabled={busy || !prompt.trim()} className="btn-primary text-[12px] px-3 py-1.5">

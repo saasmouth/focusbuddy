@@ -8,6 +8,7 @@ import { bucketByWeek, periodDelta, countByKey } from '../../lib/dashboardMetric
 import type { FbTable } from '@shared/fields'
 import type { ReportDef, ReportSchedule } from '@shared/reports'
 import { useAiBusyLabel } from '../../lib/localAiEngine'
+import AnsweredBy from '../ai/AnsweredBy'
 
 // PlexiReports: turn your tables into a written report, generated on a schedule
 // and emailed to the people who need it. The narrative is written by the AI when
@@ -374,6 +375,7 @@ function ReportEditor({
         >
           <Icon name="auto_awesome" size={15} /> {generating ? warmLabel('Generating…') : 'Generate now'}
         </button>
+        <AnsweredBy feature="summaries" className="mt-1" />
         <button
           onClick={() => void emailReport()}
           data-testid="report-email"

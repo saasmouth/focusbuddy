@@ -37,7 +37,9 @@ import {
   NOT_TECHNICALLY_LOCAL,
   CONTENT_WRITING_FEATURES,
   DEFAULT_CONTENT_WRITING,
+  DEFAULT_PREFERRED_KEY,
   type ContentWritingPolicy,
+  type PreferredKey,
   type LocalPolicy,
   type LocalGateInfo,
   type AiFeature,
@@ -71,6 +73,8 @@ export interface RouterSettings {
   policy?: () => LocalPolicy
   /** Content writing under local-first: on the device, or ask each time (DEFAULT_CONTENT_WRITING). */
   contentWriting?: () => ContentWritingPolicy
+  /** The saved key content writing prefers when both are saved. */
+  preferredKey?: () => PreferredKey
 }
 
 let settings: RouterSettings = {
@@ -140,10 +144,51 @@ export function anyLocalRouting(): boolean {
  * that provider. Registered with modelRouting at start-up.
  */
 export function tagModel(purpose: string, cloudModel: string): string {
+  const keyed = contentKeyFor(purpose)
+  if (keyed) return `route:key-${keyed}:${purpose}:${cloudModel}`
   const route = routeForPurpose(purpose)
   if (route === 'local') return `local:${purpose}`
-  if (route === 'cloud' && providerChoice() !== 'local') return cloudModel
+  // Always tagged, the default cloud route included: the routed client strips
+  // the tag before anything is sent, and knowing the purpose is what lets it
+  // say which engine answered which feature ("Answered by …").
   return `route:${route}:${purpose}:${cloudModel}`
+}
+
+/**
+ * Content writing under 'cloud-if-key' while the source is Local and the
+ * feature has no explicit route: the saved key to use (preferred when both
+ * are saved, else whichever exists), or null to stay on the device.
+ */
+export function contentKeyFor(purpose: string): 'anthropic' | 'openai' | null {
+  const feature = featureForPurpose(purpose)
+  if (!CONTENT_WRITING_FEATURES.includes(feature)) return null
+  if (providerChoice() !== 'local' || settings.featureRoutes()[feature]) return null
+  if (currentContentWriting() !== 'cloud-if-key') return null
+  const pref = settings.preferredKey?.() ?? DEFAULT_PREFERRED_KEY
+  const other = pref === 'anthropic' ? 'openai' : 'anthropic'
+  if (providers[pref]()) return pref
+  if (providers[other]()) return other
+  return null
+}
+
+/** Where a feature's requests go right now, every setting applied (for Settings). */
+export function effectiveRouteFor(feature: AiFeature): 'local' | 'anthropic' | 'openai' | 'credits' | 'cloud' {
+  const purpose = Object.entries(PURPOSE_FOR_FEATURE).find(([f]) => f === feature)?.[1] ?? 'chat'
+  const keyed = contentKeyFor(purpose)
+  if (keyed) return keyed
+  const r = routeForPurpose(purpose)
+  if (r !== 'cloud') return r
+  return providerChoice() === 'byok' ? 'anthropic' : providerChoice() === 'credits' ? 'credits' : 'cloud'
+}
+const PURPOSE_FOR_FEATURE: Record<AiFeature, string> = {
+  assistant: 'chat',
+  build: 'setup',
+  office: 'document',
+  writing: 'doc_rewrite',
+  summaries: 'trail_summary',
+  background: 'title_backfill',
+  agents: 'agent_step',
+  media: 'media'
 }
 
 // ── Cloud providers (registered by the app; injected in tests) ──────────────
@@ -181,17 +226,70 @@ export function setCreditFallback(f: CreditFallback): void {
   creditFallback = f
 }
 
+// ── Which engine answered ───────────────────────────────────────────────────
+//
+// Every request that completes reports the engine that produced it, per
+// feature, so each AI surface can say "Answered by: Local (Qwen3 4B) /
+// Anthropic (your key) / OpenAI (your key) / Plexii AI credits".
+export type AnswerEngine = 'local' | 'anthropic' | 'openai' | 'credits'
+export type AnsweredSink = (a: { feature: AiFeature; purpose: string; engine: AnswerEngine; model: string; at: number }) => void
+let answeredSink: AnsweredSink = () => undefined
+export function setAnsweredSink(fn: AnsweredSink): void {
+  answeredSink = fn
+}
+function answered(purpose: string, engine: AnswerEngine, model: string): void {
+  try {
+    answeredSink({ feature: featureForPurpose(purpose), purpose, engine, model, at: Date.now() })
+  } catch {
+    /* reporting never affects the answer */
+  }
+}
+function engineOfClient(c: Anthropic | null): AnswerEngine {
+  if (c && creditFallback.isCredits(c)) return 'credits'
+  if (c && c === providers.openai()) return 'openai'
+  return 'anthropic'
+}
+
+/** Why a saved key could not serve a request (refused, out of credit, rate-limited), or null. */
+export function keyRefusalNote(err: unknown, provider: 'anthropic' | 'openai'): string | null {
+  const e = err as { status?: number; message?: string } | null
+  const name = provider === 'anthropic' ? 'Anthropic' : 'OpenAI'
+  const status = typeof e?.status === 'number' ? e.status : Number(/\((\d{3})\)/.exec(e?.message ?? '')?.[1] ?? NaN)
+  const text = e?.message ?? ''
+  if (status === 401 || status === 403 || /invalid.{0,20}(api )?key|authentication/i.test(text)) return `Your ${name} key was refused`
+  if (status === 429 || status === 402 || /quota|credit balance|insufficient/i.test(text)) return `Your ${name} key is out of credit or rate-limited`
+  return null
+}
+
 async function withCreditFallback(
   client: Anthropic,
   body: Record<string, unknown>,
   opts: { signal?: AbortSignal },
   run: () => Promise<Anthropic.Message>,
-  purpose = 'generic'
+  purpose = 'generic',
+  keyProvider: 'anthropic' | 'openai' | null = null
 ): Promise<Anthropic.Message> {
   try {
     return await run()
   } catch (err) {
-    if (!creditFallback.isCredits(client) || opts.signal?.aborted) throw err
+    if (opts.signal?.aborted) throw err
+    // A saved key used automatically for content writing ('cloud-if-key'):
+    // refused or out of credit → this request on the device, with a note.
+    if (keyProvider) {
+      const why = keyRefusalNote(err, keyProvider)
+      if (!why || !runtime.installed()) throw err
+      const feature = featureForPurpose(purpose)
+      const model = typeof body.model === 'string' ? body.model : undefined
+      let local: Anthropic.Message
+      try {
+        local = await serveLocal({ ...body, model: `local:${purpose}` }, null, opts, model, { noCloud: true })
+      } catch {
+        throw err
+      }
+      noticeSink(feature, `${why}, so this was answered by the on-device AI.`, 'keys')
+      return local
+    }
+    if (!creditFallback.isCredits(client)) throw err
     const why = creditFallback.refusal(err)
     if (!why || !runtime.installed()) throw err
     const feature = featureForPurpose(purpose)
@@ -276,7 +374,7 @@ export function setConsentAsker(fn: ConsentAsker): void {
 }
 
 /** 'upgrade' → offer your own key; 'topup' → offer Plexii AI credits top-up. */
-export type NoticeAction = 'upgrade' | 'topup'
+export type NoticeAction = 'upgrade' | 'topup' | 'keys'
 export type NoticeSink = (feature: AiFeature, message: string, action?: NoticeAction) => void
 let noticeSink: NoticeSink = () => undefined
 const noticed = new Set<AiFeature>()
@@ -344,7 +442,10 @@ async function cloudForThisRequest(
   if (!up) throw new LocalUnavailableError(feature, NO_CLOUD_SET_UP)
   return withCloudGrant({ reason: 'consent', feature }, () =>
     (up.client.messages.create as unknown as CreateFn)({ ...body, model: cloudModel }, { signal: opts.signal })
-  ).then((m) => observeGrounding(body, m))
+  ).then((m) => {
+    answered(purposeOfModel(body.model), engineOfClient(up.client), cloudModel)
+    return observeGrounding(body, m)
+  })
 }
 
 const NO_CLOUD_SET_UP =
@@ -385,6 +486,7 @@ async function serveLocal(
   let msg: Anthropic.Message
   try {
     msg = await runLocal(runtime, body, opts)
+    answered(purpose, 'local', runtime.modelLabel())
   } catch (e) {
     // Tool use, images or attached files: the on-device model cannot do it at
     // all, under either policy. Ask before this one request goes to cloud.
@@ -441,7 +543,7 @@ export function cloudRoutedFromLocal(purpose: string): boolean {
 }
 
 const CLOUD_ROUTE = /^cloudroute:([^:]+):(.+)$/
-const PROVIDER_ROUTE = /^route:(cloud|anthropic|openai|credits):([^:]+):(.+)$/
+const PROVIDER_ROUTE = /^route:(cloud|anthropic|openai|credits|key-anthropic|key-openai):([^:]+):(.+)$/
 
 /** A tagged model id → the provider, purpose and real model it names. */
 function parseRoute(model: string): { provider: string; purpose: string; model: string } | null {
@@ -452,13 +554,15 @@ function parseRoute(model: string): { provider: string; purpose: string; model: 
 }
 
 function providerClient(provider: string, cloud: Anthropic | null): Anthropic | null {
-  if (provider === 'anthropic') return providers.anthropic()
-  if (provider === 'openai') return providers.openai()
+  if (provider === 'anthropic' || provider === 'key-anthropic') return providers.anthropic()
+  if (provider === 'openai' || provider === 'key-openai') return providers.openai()
   if (provider === 'credits') return providers.credits()
   return cloud
 }
 
 const NOT_SET_UP: Record<string, string> = {
+  'key-anthropic': 'Your Anthropic key is no longer saved. Add it again in Settings → AI · API keys.',
+  'key-openai': 'Your OpenAI key is no longer saved. Add it again in Settings → AI · API keys.',
   anthropic: 'This feature is set to use your Anthropic key, but none is saved. Add it in Settings → AI · API keys.',
   openai: 'This feature is set to use your OpenAI key, but none is saved. Add it in Settings → AI · API keys.',
   credits: 'This feature is set to use Plexii AI credits. Sign in to your Plexii account in Settings to use them.',
@@ -483,12 +587,18 @@ function dispatch(
     if (!client) return Promise.reject(new Error(NOT_SET_UP[routed.provider]))
     const feature = featureForPurpose(routed.purpose)
     const real = { ...body, model: routed.model }
+    const keyProvider = routed.provider === 'key-anthropic' ? 'anthropic' : routed.provider === 'key-openai' ? 'openai' : null
     return withCreditFallback(
       client,
       real,
       opts,
-      () => maybeGranted(feature, () => (client.messages.create as unknown as CreateFn)(real, { signal: opts.signal })),
-      routed.purpose
+      () =>
+        maybeGranted(feature, () => (client.messages.create as unknown as CreateFn)(real, { signal: opts.signal })).then((m) => {
+          answered(routed.purpose, engineOfClient(client), routed.model)
+          return m
+        }),
+      routed.purpose,
+      keyProvider
     ).then((m) => observeGrounding(real, m))
   }
   if (localOnlyActive()) {
@@ -504,9 +614,12 @@ function dispatch(
       new Error(providerChoice() === 'openai' ? NOT_SET_UP.openai : 'No Anthropic API key set. Open Settings → AI → API keys and paste your key.')
     )
   }
-  return withCreditFallback(target, body, opts, () => (target.messages.create as unknown as CreateFn)(body, { signal: opts.signal })).then((m) =>
-    observeGrounding(body, m)
-  )
+  return withCreditFallback(target, body, opts, () =>
+    (target.messages.create as unknown as CreateFn)(body, { signal: opts.signal }).then((m) => {
+      answered('generic', engineOfClient(target), model)
+      return m
+    })
+  ).then((m) => observeGrounding(body, m))
 }
 
 /**
@@ -555,7 +668,7 @@ export function routedClient(cloud: Anthropic | null): Anthropic | null {
         const routed = parseRoute(model)
         if (routed) {
           const c = providerClient(routed.provider, cloud)
-          if (c && routed.provider === 'credits') {
+          if (c && (routed.provider === 'credits' || creditFallback.isCredits(c))) {
             // The credits proxy refuses streaming: run it whole and deliver the
             // text in one piece through the same stream surface.
             return new LocalMessageStream((signal, onText) =>
@@ -566,11 +679,7 @@ export function routedClient(cloud: Anthropic | null): Anthropic | null {
               })
             )
           }
-          if (c) {
-            // The SDK (or OpenAI) stream starts its request inside this
-            // context, so a grant covers it.
-            return maybeGranted(featureForPurpose(routed.purpose), () => c.messages.stream({ ...body, model: routed.model } as never))
-          }
+          if (c) return routedStream(c, routed, body)
         }
         if (!model.startsWith('local:') && !routed && !localOnlyActive()) {
           const target = providerChoice() === 'openai' ? providers.openai() : cloud
@@ -581,6 +690,53 @@ export function routedClient(cloud: Anthropic | null): Anthropic | null {
     }
   }
   return client as unknown as Anthropic
+}
+
+/**
+ * A routed cloud request, streamed: the provider's own stream (started inside
+ * the grant, so the egress guard lets it through), relayed through the same
+ * on('text') / finalMessage() / abort() surface, reporting which engine
+ * answered. A saved key used automatically for content writing that is
+ * refused before any text arrived answers on the device instead, with a note.
+ */
+function routedStream(
+  c: Anthropic,
+  routed: { provider: string; purpose: string; model: string },
+  body: Record<string, unknown>
+): LocalMessageStream {
+  const feature = featureForPurpose(routed.purpose)
+  const keyProvider = routed.provider === 'key-anthropic' ? 'anthropic' : routed.provider === 'key-openai' ? 'openai' : null
+  return new LocalMessageStream(async (signal, onText) => {
+    let emitted = false
+    try {
+      const st = maybeGranted(feature, () => c.messages.stream({ ...body, model: routed.model } as never)) as unknown as {
+        on: (e: string, fn: (d: string) => void) => unknown
+        abort: () => void
+        finalMessage: () => Promise<Anthropic.Message>
+      }
+      st.on('text', (d: string) => {
+        emitted = true
+        onText(d)
+      })
+      if (signal.aborted) st.abort()
+      else signal.addEventListener('abort', () => st.abort(), { once: true })
+      const m = await st.finalMessage()
+      answered(routed.purpose, engineOfClient(c), routed.model)
+      return observeGrounding({ ...body, model: routed.model }, m)
+    } catch (err) {
+      if (!keyProvider || emitted || signal.aborted) throw err
+      const why = keyRefusalNote(err, keyProvider)
+      if (!why || !runtime.installed()) throw err
+      let local: Anthropic.Message
+      try {
+        local = await serveLocal({ ...body, model: `local:${routed.purpose}` }, null, { signal, onText }, routed.model, { noCloud: true })
+      } catch {
+        throw err
+      }
+      noticeSink(feature, `${why}, so this was answered by the on-device AI.`, 'keys')
+      return local
+    }
+  })
 }
 
 /**

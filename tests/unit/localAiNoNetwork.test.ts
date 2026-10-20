@@ -372,4 +372,35 @@ describe('Local on this device: no AI request leaves the machine', () => {
     router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({}) })
     setLocalRouteResolver((p) => router.routeForPurpose(p) === 'local')
   })
+
+  it('"cloud when a key exists": with keys saved only writing, office and build reach the key; set to "always this device", nothing leaves', async () => {
+    const router = await import('../../src/main/ai/local/providerRouter')
+    const { setModelTagger, setLocalRouteResolver } = await import('../../src/main/ai/modelRouting')
+    const { getModelClient } = await import('../../src/main/ai/modelClient')
+    const { createOpenAIClient } = await import('../../src/main/ai/local/openaiClient')
+    const openai = createOpenAIClient({ key: () => process.env.OPENAI_API_KEY ?? null, models: () => ({ fast: 'gpt-x-mini', standard: 'gpt-x', best: 'gpt-x' }) })
+    router.setCloudProviders({ anthropic: () => getModelClient(process.env.ANTHROPIC_API_KEY!), credits: () => null, openai: () => openai })
+    router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({}) })
+    setModelTagger(router.tagModel)
+    const ai = await import('../../src/main/ai/anthropic')
+    ai.invalidateAnthropicClient()
+    const { DESK } = await import('../../tools/local-ai-eval/fixtures')
+    // PlexiiAssist: on the device.
+    const before = remote.length
+    await ai.sendChat({ taskId: DESK, messages: [{ role: 'user', content: 'What is due this week?', ts: Date.now() }] } as never).catch(() => undefined)
+    expect(remote.slice(before)).toEqual([])
+    // Writing: your Anthropic key (the default preference), and nothing else.
+    await ai.transformText({ text: 'Some text.', instruction: 'Make it formal' }).catch(() => undefined)
+    const hit = remote.slice(before)
+    expect(hit.length).toBeGreaterThan(0)
+    expect(hit.every((r) => r.includes('api.anthropic.com'))).toBe(true)
+    remote.length = before
+    // "Always this device": nothing leaves.
+    router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({}), contentWriting: () => 'local' })
+    await ai.transformText({ text: 'Some text.', instruction: 'Make it formal' }).catch(() => undefined)
+    expect(remote.slice(before)).toEqual([])
+    router.setCloudProviders({ anthropic: () => null, credits: () => null, openai: () => null })
+    router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({}) })
+    setLocalRouteResolver((p) => router.routeForPurpose(p) === 'local')
+  })
 })

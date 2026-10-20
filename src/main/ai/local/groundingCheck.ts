@@ -65,7 +65,13 @@ const toFinding = (f: InventedSpecific): ReviewFinding => ({ span: f.span, kind:
 
 /** Review one piece of prose. Exported for tests. */
 export function reviewProse(text: string, supplied: string, repair: boolean): ReviewResult {
-  const all = checkInventedSpecifics(text, supplied).flagged
+  // The checker masks non-assertions (code, HTML tags, [placeholders]) with NUL,
+  // offsets preserved (ed662ea0). A finding that spans a masked region comes
+  // back with NULs in its span text; read the span from the original at the
+  // same offsets, so the repair still applies and the person sees real text.
+  const all = checkInventedSpecifics(text, supplied).flagged.map((f) =>
+    f.span.includes('\u0000') ? { ...f, span: text.slice(f.index, f.index + f.span.length) } : f
+  )
   const toRepair = repair ? all.filter((f) => f.confidence === 'high') : []
   let out = text
   // Replace from the end so earlier indices stay valid; skip overlaps.

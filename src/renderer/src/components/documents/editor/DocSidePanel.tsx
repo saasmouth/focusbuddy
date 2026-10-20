@@ -7,6 +7,7 @@ import WorkspaceAsk from './WorkspaceAsk'
 import { applyMention, filterMentionCandidates, matchMentionQuery } from '../../../lib/mentions'
 import MentionText from '../../views/chat/MentionText'
 import type { DocAi } from './useDocAi'
+import AnsweredBy from '../../ai/AnsweredBy'
 
 // The persistent right-side panel for PlexiDocs. Three tabs share one column:
 //   AI Assistant - a greeting plus quick actions over the real AI hook
@@ -153,6 +154,7 @@ function AiTab({ ai, userName, editor }: { ai: DocAi; userName?: string | null; 
           <Icon name="spellcheck" size={15} className="text-[rgb(var(--accent))]" />
           <span>Fix grammar</span>
         </button>
+        <AnsweredBy feature="writing" className="mt-1" />
         <button
           className={actionClass}
           onClick={() => setTranslateOpen((v) => !v)}

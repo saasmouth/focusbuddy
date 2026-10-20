@@ -9,6 +9,7 @@ import { useState } from 'react'
 import Icon from '../../Icon'
 import { isParseableFormula } from '../../../lib/sheetFormula'
 import { useAiBusyLabel } from '../../../lib/localAiEngine'
+import AnsweredBy from '../../ai/AnsweredBy'
 
 export interface FormulaPlan {
   formula: string
@@ -159,6 +160,7 @@ export default function SheetFormulaAssist({
         </div>
       )}
 
+      <AnsweredBy feature="office" className="mt-2" />
       <div className="flex items-center gap-2 mt-2">
         {preview == null ? (
           <button onClick={() => void run()} disabled={busy || !prompt.trim()} className="btn-primary text-[12px] px-3 py-1.5">
