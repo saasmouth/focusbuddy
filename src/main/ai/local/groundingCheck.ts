@@ -23,6 +23,8 @@ import { checkInventedSpecifics, GROUNDING_RULE_SMALL, type InventedSpecific, ty
 
 export interface ReviewFinding {
   span: string
+  /** Offset of `span` in the text that was reviewed (the prose, or the JSON string value it came from). */
+  index: number
   kind: InventedSpecific['kind']
   confidence: Confidence
   reason: string
@@ -61,17 +63,13 @@ const PLACEHOLDER: Record<InventedSpecific['kind'], string> = {
   org: 'organisation'
 }
 
-const toFinding = (f: InventedSpecific): ReviewFinding => ({ span: f.span, kind: f.kind, confidence: f.confidence, reason: f.reason })
+const toFinding = (f: InventedSpecific): ReviewFinding => ({ span: f.span, index: f.index, kind: f.kind, confidence: f.confidence, reason: f.reason })
 
 /** Review one piece of prose. Exported for tests. */
 export function reviewProse(text: string, supplied: string, repair: boolean): ReviewResult {
-  // The checker masks non-assertions (code, HTML tags, [placeholders]) with NUL,
-  // offsets preserved (ed662ea0). A finding that spans a masked region comes
-  // back with NULs in its span text; read the span from the original at the
-  // same offsets, so the repair still applies and the person sees real text.
-  const all = checkInventedSpecifics(text, supplied).flagged.map((f) =>
-    f.span.includes('\u0000') ? { ...f, span: text.slice(f.index, f.index + f.span.length) } : f
-  )
+  // Spans are sliced from the original output by the checker itself
+  // (cfef36ac): one source of truth, no repair of the span text here.
+  const all = checkInventedSpecifics(text, supplied).flagged
   const toRepair = repair ? all.filter((f) => f.confidence === 'high') : []
   let out = text
   // Replace from the end so earlier indices stay valid; skip overlaps.
@@ -133,4 +131,27 @@ export function reviewOutput(text: string, supplied: string, repair: boolean): R
   const next = walk(json.value, null)
   if (repaired.length === 0) return { text, repaired, flagged }
   return { text: text.slice(0, json.start) + JSON.stringify(next) + text.slice(json.end), repaired, flagged }
+}
+
+/**
+ * The invariant every finding must satisfy, checked by the eval on every
+ * finding it records: the span holds no masking NUL, and it is exactly the
+ * text at [index, index + span.length) of what was reviewed — the output
+ * itself, or (for JSON output) one of its string values.
+ */
+export function findingHolds(original: string, f: { span: string; index: number }): boolean {
+  if (f.span.includes('\u0000') || !f.span) return false
+  const at = (t: string): boolean => t.slice(f.index, f.index + f.span.length) === f.span
+  if (at(original)) return true
+  const json = extractJson(original)
+  if (!json) return false
+  let ok = false
+  const walk = (v: unknown): void => {
+    if (ok) return
+    if (typeof v === 'string') ok = at(v)
+    else if (Array.isArray(v)) v.forEach(walk)
+    else if (v && typeof v === 'object') Object.values(v as Record<string, unknown>).forEach(walk)
+  }
+  walk(json.value)
+  return ok
 }

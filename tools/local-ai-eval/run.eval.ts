@@ -175,6 +175,11 @@ let groundingNow = { repaired: 0, flagged: 0 }
 // whether it was applied, and the original output and supplied context.
 type GroundingDetail = { path: string; applied: boolean; original: string; supplied: string; repaired: unknown[]; flagged: unknown[] }
 let groundingDetail: GroundingDetail[] = []
+// Findings that break the invariant (NUL in the span, or the span is not the
+// text at its index). Must stay 0; the run fails otherwise.
+let invariantViolations: Array<{ task: string; span: string; index: number }> = []
+let currentTask = ''
+let findingHolds: (original: string, f: { span: string; index: number }) => boolean = () => true
 let restoreGuard: (() => void) | null = null
 let contextSize: number | null = null
 
@@ -227,9 +232,13 @@ beforeAll(async () => {
   }
   {
     const { setGroundingSink } = await import('../../src/main/ai/local/localClient')
+    findingHolds = (await import('../../src/main/ai/local/groundingCheck')).findingHolds
     setGroundingSink((r) => {
       groundingNow.repaired += r.repaired.length
       groundingNow.flagged += r.flagged.length
+      for (const f of [...r.repaired, ...r.flagged]) {
+        if (!findingHolds(r.original ?? '', f)) invariantViolations.push({ task: currentTask, span: f.span, index: f.index })
+      }
       groundingDetail.push({
         path: r.path,
         applied: r.applied === true,
@@ -317,6 +326,7 @@ describe(`local-ai eval: ${LABEL}`, () => {
         const before = { ...engineTokens }
         groundingNow = { repaired: 0, flagged: 0 }
         groundingDetail = []
+        currentTask = t.id
         let out
         try {
           out = await t.run()
@@ -388,7 +398,10 @@ describe(`local-ai eval: ${LABEL}`, () => {
         save(run)
       }
     }
+    ;(run as unknown as { groundingInvariantViolations: unknown[] }).groundingInvariantViolations = invariantViolations
     save(run)
     if (TARGET === 'local' && !JUDGE_ONLY) expect(run.egress).toEqual([])
+    // Every recorded finding: no NUL in the span, and the span is the text at its index.
+    expect(invariantViolations).toEqual([])
   })
 })
