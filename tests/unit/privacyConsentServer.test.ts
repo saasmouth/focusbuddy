@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pushPrivacyChoices } from '../../src/renderer/src/lib/privacyServer'
 import { setCrashReportsEnabled, setTelemetryEnabled } from '../../src/renderer/src/lib/telemetryPrefs'
+import { useCapabilityStore } from '../../src/renderer/src/stores/capabilities'
 
 const lib = (f: string): string => readFileSync(join(__dirname, '..', '..', 'src', 'renderer', 'src', 'lib', f), 'utf8')
 
@@ -17,7 +18,10 @@ function okFetch(): ReturnType<typeof vi.fn> {
   return vi.fn(async () => new Response('{"ok":true}', { status: 200 }))
 }
 
-beforeEach(() => localStorage.clear())
+beforeEach(() => {
+  localStorage.clear()
+  useCapabilityStore.setState({ serverFeatures: ['account_privacy'] })
+})
 
 describe('reports carry consent', () => {
   it('usage snapshot, first launch and crash bodies all say consent: true', () => {
@@ -66,6 +70,18 @@ describe('pushPrivacyChoices', () => {
     const bad = vi.fn(async () => new Response('', { status: 500 }))
     expect(await pushPrivacyChoices('tok', { accountKey: 'a1', fetchImpl: bad, httpUrl: 'https://api.test' })).toBe(false)
     const f = okFetch()
+    await pushPrivacyChoices('tok', { accountKey: 'a1', fetchImpl: f, httpUrl: 'https://api.test' })
+    expect(f).toHaveBeenCalledTimes(1)
+  })
+
+  it('against a server that does not advertise account_privacy: no request at all, and nothing remembered', async () => {
+    setTelemetryEnabled(true)
+    useCapabilityStore.setState({ serverFeatures: [] })
+    const f = okFetch()
+    expect(await pushPrivacyChoices('tok', { accountKey: 'a1', fetchImpl: f, httpUrl: 'https://api.test', force: true })).toBe(false)
+    expect(f).not.toHaveBeenCalled()
+    // Once the server is updated, the choice goes out.
+    useCapabilityStore.setState({ serverFeatures: ['account_privacy'] })
     await pushPrivacyChoices('tok', { accountKey: 'a1', fetchImpl: f, httpUrl: 'https://api.test' })
     expect(f).toHaveBeenCalledTimes(1)
   })

@@ -9,6 +9,7 @@ import {
 import { pushPrivacyChoices } from '../../lib/privacyServer'
 import { localOnlyMode, setLocalOnlyMode } from '../../lib/localOnlyMode'
 import { useAccountStore } from '../../stores/account'
+import { useServerFeature } from '../../stores/capabilities'
 import { HELP_BASE, PRICING_URL } from '../../lib/siteUrls'
 
 // Privacy + Help. Every switch here says what it sends and where, and the
@@ -88,6 +89,11 @@ function Switch({
 export default function PrivacyHelpSection(): JSX.Element {
   const token = useAccountStore((s) => s.sessionToken)
   const accountId = useAccountStore((s) => s.account?.id ?? null)
+  // Wording about what the SERVER does is shown only once the server says it
+  // does it (serverFeatures on /account/capabilities); the switch is honoured
+  // by this app either way.
+  const serverEnforces = useServerFeature('consent_enforced')
+  const privacyRoute = useServerFeature('account_privacy')
   const [shareUsage, setShareUsage] = useState(telemetryEnabled())
   const [shareCrashes, setShareCrashes] = useState(crashReportsEnabled())
   // Main-process switches. Shown at their defaults until main answers.
@@ -119,7 +125,7 @@ export default function PrivacyHelpSection(): JSX.Element {
 
   function reportingChanged(): void {
     // The server enforces the same opt-in, so it is told at once.
-    if (token) void pushPrivacyChoices(token, { force: true, accountKey: accountId ?? undefined })
+    if (token && privacyRoute) void pushPrivacyChoices(token, { force: true, accountKey: accountId ?? undefined })
   }
 
   function setMainPref(patch: { autoUpdateChecks?: boolean; backgroundAi?: boolean }): void {
@@ -164,8 +170,14 @@ export default function PrivacyHelpSection(): JSX.Element {
         </div>
         <p className="mb-2.5 text-[12px] text-[var(--ink-70)] leading-relaxed" data-testid="privacy-reporting-default">
           Usage data and crash reports are off unless you turn them on. Each switch applies to this computer and takes
-          effect at once; reports are sent only while you are signed in, and our server refuses them from anyone who
-          has not turned them on.
+          effect at once; reports are sent only while you are signed in.
+          {serverEnforces && (
+            <span data-testid="privacy-server-enforced">
+              {' '}
+              Our server refuses them from anyone who has not turned them on, and turning one off also deletes what it
+              had sent.
+            </span>
+          )}
         </p>
         <div className="space-y-2.5">
           <Switch

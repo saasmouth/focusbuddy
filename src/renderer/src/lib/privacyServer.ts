@@ -10,6 +10,7 @@
 
 import { signalConfig } from './signalConfig'
 import { crashReportsEnabled, telemetryEnabled } from './telemetryPrefs'
+import { serverSupports } from '../stores/capabilities'
 
 const LAST_PUSHED_KEY = 'plexii.privacy.lastPushed'
 
@@ -47,8 +48,18 @@ function rememberPushed(accountKey: string, value: string): void {
  */
 export async function pushPrivacyChoices(
   token: string,
-  opts: { force?: boolean; accountKey?: string; fetchImpl?: typeof fetch; httpUrl?: string } = {}
+  opts: {
+    force?: boolean
+    accountKey?: string
+    fetchImpl?: typeof fetch
+    httpUrl?: string
+    supported?: () => boolean
+  } = {}
 ): Promise<boolean> {
+  // Only a server that advertises account_privacy has the route; an older one
+  // would answer 404 on every sign-in. Nothing is remembered, so the choice is
+  // sent once the server is updated.
+  if (!(opts.supported ?? (() => serverSupports('account_privacy')))()) return false
   const choices = currentPrivacyChoices()
   const value = JSON.stringify(choices)
   const accountKey = opts.accountKey ?? token.slice(-12)

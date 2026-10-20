@@ -9,13 +9,18 @@
 
 import { useState } from 'react'
 import { useAccountStore } from '../../stores/account'
-import { useCapabilityStore } from '../../stores/capabilities'
+import { useCapabilityStore, useServerFeature } from '../../stores/capabilities'
 import { deleteMyAccount, requestDeleteEmailCode } from '../../lib/accountClient'
 
 type Stage = 'closed' | 'confirm' | 'deleting' | 'done'
 
 export default function DeleteAccountPanel(): JSX.Element | null {
   const token = useAccountStore((s) => s.sessionToken)
+  // Offered only once the server advertises the routes (serverFeatures on
+  // /account/capabilities). Against an older server there is no button that
+  // could fail, only how to ask instead.
+  const canDelete = useServerFeature('account_delete')
+  const canEmailCode = useServerFeature('account_delete_email')
   const [stage, setStage] = useState<Stage>('closed')
   const [typed, setTyped] = useState('')
   const [password, setPassword] = useState('')
@@ -54,7 +59,7 @@ export default function DeleteAccountPanel(): JSX.Element | null {
     )
     if (!r.ok) {
       if (r.error === 'totp_required') setNeedsTotp(true)
-      if (r.error === 'reauth_required') setUseEmailCode(true)
+      if (r.error === 'reauth_required' && canEmailCode) setUseEmailCode(true)
       setError(r.message)
       setStage('confirm')
       return
@@ -93,6 +98,15 @@ export default function DeleteAccountPanel(): JSX.Element | null {
     )
   }
 
+  if (!canDelete) {
+    return (
+      <p className="fb-t-caption text-[var(--ink-50)] leading-relaxed" data-testid="account-delete-unavailable">
+        Deleting your account from here comes with the next server update. Until then, email connect@plexiidesk.com
+        from your account&apos;s address and we delete your account and its data within 30 days.
+      </p>
+    )
+  }
+
   if (stage === 'closed') {
     return (
       <button
@@ -113,9 +127,10 @@ export default function DeleteAccountPanel(): JSX.Element | null {
       <div className="text-[12px] font-medium text-[var(--ink-90)]">Delete my account and data</div>
       <p className="fb-t-caption text-[var(--ink-70)] leading-relaxed">
         This permanently deletes your PlexiiDesk account and what our server holds for it: your synced workspace,
-        documents and files, shares and invites you sent, chat history, AI credit balance, referral credit, usage data,
-        crash reports and sign-in history. It cancels a paid plan. It cannot be undone. Anything the law requires us to
-        keep, such as invoices, is listed when the deletion completes. Work saved on this computer is not touched.
+        documents and files, shares and invites you sent, chat history, AI credit balance, referral credit, usage data
+        and crash reports. A paid subscription is cancelled straight away. It cannot be undone. Work you added to an
+        organisation&apos;s shared workspace stays with the organisation. What we must keep, such as invoices held by
+        Stripe, is listed when the deletion completes. Work saved on this computer is not touched.
       </p>
       <label className="block fb-t-caption text-[var(--ink-70)]">
         Type DELETE to confirm
@@ -166,12 +181,15 @@ export default function DeleteAccountPanel(): JSX.Element | null {
               className="fb-field w-full rounded-[var(--radius-field)] bg-[var(--surface-raised)] px-2 py-1.5 text-[12px]"
             />
           )}
-          <button
-            onClick={() => setUseEmailCode(true)}
-            className="fb-t-caption text-[var(--ink-50)] underline underline-offset-2"
-          >
-            No password? Use a code sent by email
-          </button>
+          {canEmailCode && (
+            <button
+              onClick={() => setUseEmailCode(true)}
+              data-testid="account-delete-use-email-code"
+              className="fb-t-caption text-[var(--ink-50)] underline underline-offset-2"
+            >
+              No password? Use a code sent by email
+            </button>
+          )}
         </div>
       )}
       {error && (

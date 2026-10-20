@@ -18,6 +18,7 @@ import { deliverTelemetry } from '../lib/telemetryReport'
 import { deliverCrashes } from '../lib/crashReport'
 import { crashReportsEnabled, telemetryEnabled } from '../lib/telemetryPrefs'
 import { pushPrivacyChoices } from '../lib/privacyServer'
+import { useServerFeature } from '../stores/capabilities'
 
 const REPORT_INTERVAL_MS = 6 * 60 * 60 * 1000 // every 6 hours while open
 const FOCUS_THROTTLE_MS = 10 * 60 * 1000 // at most one focus-triggered report / 10 min
@@ -26,6 +27,16 @@ const RETRY_DELAYS_MS = [1500, 5000] // retry a failed post twice, then give up 
 export default function TelemetryReporter(): null {
   const sessionToken = useAccountStore((s) => s.sessionToken)
   const accountId = useAccountStore((s) => s.account?.id ?? null)
+  const privacyRoute = useServerFeature('account_privacy')
+
+  // Tell the account what this person chose (lib/privacyServer): the server
+  // refuses reports from accounts that have not opted in. Only once the server
+  // advertises the route, and only when it differs from what the server last
+  // heard from this device.
+  useEffect(() => {
+    if (!sessionToken || !privacyRoute) return
+    void pushPrivacyChoices(sessionToken, { accountKey: accountId ?? undefined })
+  }, [sessionToken, accountId, privacyRoute])
   // Guards so overlapping triggers (mount + focus + interval) don't stack
   // concurrent reports, and so focus is throttled.
   const inFlight = useRef(false)
@@ -68,11 +79,6 @@ export default function TelemetryReporter(): null {
       }
     }
 
-    // Tell the account what this person chose (lib/privacyServer): the server
-    // refuses reports from accounts that have not opted in. Only sent when it
-    // differs from what the server last heard from this device.
-    void pushPrivacyChoices(token, { accountKey: accountId ?? undefined })
-
     // Report a few seconds after sign-in settles, then on a slow interval.
     const first = window.setTimeout(() => void report(), 8000)
     const interval = window.setInterval(() => void report(), REPORT_INTERVAL_MS)
@@ -90,7 +96,7 @@ export default function TelemetryReporter(): null {
       window.clearInterval(interval)
       window.removeEventListener('focus', onFocus)
     }
-  }, [sessionToken, accountId])
+  }, [sessionToken])
 
   return null
 }
