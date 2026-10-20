@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import Icon from './Icon'
 import Modal from './plexi/Modal'
 import { openAiSettings } from '../stores/aiCredits'
-import type { CloudConsentRequest } from '@shared/localAi'
+import type { CloudConsentRequest, GroundingReport } from '@shared/localAi'
 
 // The two things Local AI says on its own, mounted once in App:
 //
@@ -17,15 +17,18 @@ import type { CloudConsentRequest } from '@shared/localAi'
 export default function LocalAiPrompts(): JSX.Element | null {
   const [queue, setQueue] = useState<CloudConsentRequest[]>([])
   const [notice, setNotice] = useState<string | null>(null)
+  const [grounding, setGrounding] = useState<GroundingReport | null>(null)
 
   useEffect(() => {
     const api = window.api?.localAi
     if (!api?.onConsentRequest) return
     const offConsent = api.onConsentRequest((r) => setQueue((q) => [...q, r]))
     const offNotice = api.onNotice((n) => setNotice(n.message))
+    const offGrounding = api.onGrounding?.((r) => setGrounding(r)) ?? (() => undefined)
     return () => {
       offConsent()
       offNotice()
+      offGrounding()
     }
   }, [])
 
@@ -102,6 +105,54 @@ export default function LocalAiPrompts(): JSX.Element | null {
             </button>
           </div>
         </Modal>
+      )}
+      {grounding && (
+        <div
+          role="status"
+          className="fixed bottom-4 left-4 z-[9997] max-w-sm fb-card rounded-[var(--radius-field)] px-3 py-2 shadow-lg fb-t-caption leading-snug"
+          data-testid="local-ai-grounding"
+        >
+          <div className="flex items-start gap-2 mb-1">
+            <span className="flex-1 font-medium text-[var(--ink-90)]">Check these details</span>
+            <button type="button" aria-label="Dismiss" className="text-[var(--ink-50)] hover:text-[var(--ink-100)]" onClick={() => setGrounding(null)}>
+              ×
+            </button>
+          </div>
+          <div className="text-[var(--ink-60)] mb-1">
+            The {grounding.path === 'local' ? 'on-device model' : 'AI'} wrote specifics your request did not give it.
+          </div>
+          {grounding.repaired.length > 0 && (
+            <div className="mb-1" data-testid="local-ai-grounding-repaired">
+              <div className="text-[var(--ink-70)]">Replaced with a placeholder for you to fill in:</div>
+              {grounding.repaired.map((f, i) => (
+                <div key={`r${i}`} className="text-rose-700 dark:text-rose-300">
+                  <span className="line-through">{f.span}</span> <span className="text-[var(--ink-50)]">({f.kind})</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {grounding.flagged.length > 0 && (
+            <div data-testid="local-ai-grounding-flagged">
+              <div className="text-[var(--ink-70)]">Check these before you use them:</div>
+              {grounding.flagged.map((f, i) => (
+                <div
+                  key={`f${i}`}
+                  title={f.reason}
+                  data-confidence={f.confidence}
+                  className={
+                    f.confidence === 'high'
+                      ? 'text-rose-700 dark:text-rose-300 font-medium'
+                      : f.confidence === 'medium'
+                        ? 'text-amber-700 dark:text-amber-300'
+                        : 'text-[var(--ink-50)]'
+                  }
+                >
+                  {f.span}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
       {notice && (
         <div

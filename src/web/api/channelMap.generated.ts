@@ -655,6 +655,7 @@ export const LISTEN_CHANNELS: Readonly<Record<string, string>> = {
   'liveDesk.onDesks': 'liveDesk:desks',
   'localAi.onChanged': 'localAi:changed',
   'localAi.onConsentRequest': 'localAi:consentRequest',
+  'localAi.onGrounding': 'localAi:grounding',
   'localAi.onNotice': 'localAi:notice',
   'localAi.onProgress': 'localAi:progress',
   'mail.onNewMail': 'mail:newMail',

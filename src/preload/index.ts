@@ -1,6 +1,6 @@
 import type { WidgetInput } from '@shared/customWidgetSandbox'
 import type { WriteOrigin } from '../shared/writeOrigin'
-import type { LocalAiStatus, LocalDownloadProgress, CloudConsentRequest } from '@shared/localAi'
+import type { LocalAiStatus, LocalDownloadProgress, CloudConsentRequest, GroundingReport } from '@shared/localAi'
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   ActionProposal,
@@ -2639,6 +2639,11 @@ const api = {
       const listener = (_e: unknown, r: CloudConsentRequest): void => cb(r)
       ipcRenderer.on('localAi:consentRequest', listener)
       return () => ipcRenderer.removeListener('localAi:consentRequest', listener)
+    },
+    onGrounding: (cb: (r: GroundingReport) => void): (() => void) => {
+      const listener = (_e: unknown, r: GroundingReport): void => cb(r)
+      ipcRenderer.on('localAi:grounding', listener)
+      return () => ipcRenderer.removeListener('localAi:grounding', listener)
     },
     onNotice: (cb: (n: { feature: string; message: string }) => void): (() => void) => {
       const listener = (_e: unknown, n: { feature: string; message: string }): void => cb(n)

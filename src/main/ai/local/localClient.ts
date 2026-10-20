@@ -24,6 +24,7 @@
 
 import type Anthropic from '@anthropic-ai/sdk'
 import type { EngineGenerateResult, EngineMessage, LocalEngine } from './engineCore'
+import { isContentWriting, withSmallRule, suppliedText, reviewOutput, type ReviewResult } from './groundingCheck'
 
 export class LocalUnsupportedError extends Error {
   constructor(
@@ -247,9 +248,28 @@ export const PROMPT_VARIANTS: PromptVariant[] = [
 export interface LocalClientOptions {
   schemaDecoding: boolean
   promptVariants: boolean
+  /** Content-writing prompts carry GROUNDING_RULE_SMALL instead of the full rule. */
+  smallGroundingRule: boolean
+  /** Review content-writing output; repair high-confidence invented specifics. */
+  groundingCheck: boolean
 }
 
-let clientOptions: LocalClientOptions = { schemaDecoding: true, promptVariants: true }
+let clientOptions: LocalClientOptions = {
+  schemaDecoding: true,
+  promptVariants: true,
+  smallGroundingRule: true,
+  groundingCheck: true
+}
+
+/** Where grounding findings go (the app shows them; tests and the eval read them). */
+export type GroundingSink = (r: ReviewResult & { path: 'local' | 'cloud' }) => void
+let groundingSink: GroundingSink = () => undefined
+export function setGroundingSink(fn: GroundingSink): void {
+  groundingSink = fn
+}
+export function emitGrounding(r: ReviewResult & { path: 'local' | 'cloud' }): void {
+  if (r.repaired.length || r.flagged.length) groundingSink(r)
+}
 
 /** For the eval's A/B runs and tests. */
 export function setLocalClientOptions(o: Partial<LocalClientOptions>): void {
@@ -341,16 +361,30 @@ export async function runLocal(
   const lastUser = [...flat.messages].reverse().find((m) => m.role === 'user')?.content ?? ''
   const shape = jsonIntent(flat.system, lastUser)
   const jsonSchema = shape === 'object' && clientOptions.schemaDecoding ? (schemaFor(purpose, flat.system) ?? undefined) : undefined
-  const system = applyVariants(purpose, flat.system)
+  const content = isContentWriting(flat.system)
+  const varied = applyVariants(purpose, flat.system)
+  const system = content && clientOptions.smallGroundingRule ? withSmallRule(varied) : varied
   const engine = await deps.engine()
   const model = `local:${deps.modelLabel()}`
   const first = await engine.generate(
     { system, messages: flat.messages, maxTokens: flat.maxTokens, json: shape ?? false, jsonSchema, temperature: shape ? 0.1 : 0.3 },
     opts
   )
-  if (!shape || first.stopReason !== 'end_turn') return toMessage(model, first)
+  // Content-writing output: review for specifics the request never supplied,
+  // repairing the high-confidence ones into [placeholders].
+  const supplied = content && clientOptions.groundingCheck ? suppliedText(flat.system, flat.messages) : ''
+  const grounded = (m: Anthropic.Message): Anthropic.Message => {
+    if (!content || !clientOptions.groundingCheck) return m
+    const block = m.content[0] as { type: string; text?: string } | undefined
+    if (!block || block.type !== 'text' || !block.text) return m
+    const r = reviewOutput(block.text, supplied, true)
+    emitGrounding({ ...r, path: 'local' })
+    block.text = r.text
+    return m
+  }
+  if (!shape || first.stopReason !== 'end_turn') return grounded(toMessage(model, first))
   const problem = validateJsonOutput(first.text, shape, purpose)
-  if (!problem) return toMessage(model, first)
+  if (!problem) return grounded(toMessage(model, first))
 
   // One retry, telling the model exactly what was wrong. Streaming listeners
   // already saw the first attempt; the retry is not streamed (the consumer
@@ -384,7 +418,7 @@ export async function runLocal(
   // Both attempts failed the contract. The call site will fail honestly on
   // this text; the router may first offer cloud for this one request.
   if (retryProblem) Object.defineProperty(msg, LOCAL_UNUSABLE, { value: retryProblem, enumerable: false })
-  return msg
+  return retryProblem ? msg : grounded(msg)
 }
 
 /** Set (non-enumerable) on a local reply whose structured output failed validation twice. */

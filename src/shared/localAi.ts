@@ -252,3 +252,12 @@ export const DEFAULT_LOCAL_POLICY: LocalPolicy = 'measured'
 
 /** Features the on-device model cannot run at all, whatever the policy. */
 export const NOT_TECHNICALLY_LOCAL: readonly AiFeature[] = ['media']
+
+/** A grounding review of content-writing output, as main reports it. */
+export interface GroundingReport {
+  path: 'local' | 'cloud'
+  /** Replaced by a [placeholder] (local path, high confidence only). */
+  repaired: Array<{ span: string; kind: string; confidence: 'high' | 'medium' | 'low'; reason: string }>
+  /** Left as written, for the person to check. */
+  flagged: Array<{ span: string; kind: string; confidence: 'high' | 'medium' | 'low'; reason: string }>
+}

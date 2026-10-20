@@ -92,10 +92,15 @@ describe('choice and routing', () => {
     expect(resolveModel('chat')).toMatch(/^claude-/)
   })
 
-  it('returns the cloud client untouched when nothing routes locally', () => {
+  it('passes requests to the cloud client unchanged when nothing routes locally', async () => {
     setMode('byok')
     const c = cloudClient()
-    expect(routedClient(c)).toBe(c)
+    const r = routedClient(c)!
+    expect((r as unknown as { baseURL: string }).baseURL).toBe('https://api.anthropic.com')
+    const body = { model: 'claude-sonnet-5-5', max_tokens: 5, messages: [{ role: 'user', content: 'x' }] }
+    await r.messages.create(body as never)
+    expect(c.calls[0].body).toBe(body)
+    expect(engineCalls).toBe(0)
     expect(routedClient(null)).toBeNull()
   })
 })

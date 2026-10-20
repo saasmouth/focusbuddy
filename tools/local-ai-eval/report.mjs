@@ -118,6 +118,21 @@ if (localRuns.length) {
   }
   lines.push('')
 }
+const gRuns = ordered.filter((r) => r.results.some((x) => x.grounding))
+if (gRuns.length) {
+  lines.push('## Grounding review (invented specifics in content-writing output)')
+  lines.push('')
+  lines.push('| run | tasks reviewed with findings | spans repaired to [placeholders] | spans flagged to check |')
+  lines.push('| --- | --- | --- | --- |')
+  for (const r of gRuns) {
+    const rs = r.results.filter((x) => x.grounding)
+    const withF = rs.filter((x) => x.grounding.repaired + x.grounding.flagged > 0).length
+    const rep = rs.reduce((n, x) => n + x.grounding.repaired, 0)
+    const fl = rs.reduce((n, x) => n + x.grounding.flagged, 0)
+    lines.push(`| ${r.label} | ${withF}/${rs.length} | ${rep} | ${fl} |`)
+  }
+  lines.push('')
+}
 lines.push('## Network during generation')
 lines.push('')
 for (const r of ordered) {

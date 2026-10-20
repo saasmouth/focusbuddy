@@ -43,7 +43,17 @@ import {
 } from '@shared/localAi'
 import { localGateFor } from '@shared/localAiGates'
 import { MODEL_HAIKU } from '../modelRouting'
-import { createLocalClient, purposeOfModel, LocalMessageStream, runLocal, LocalUnsupportedError, localUnusableReason } from './localClient'
+import {
+  createLocalClient,
+  purposeOfModel,
+  LocalMessageStream,
+  runLocal,
+  LocalUnsupportedError,
+  localUnusableReason,
+  flattenRequest,
+  emitGrounding
+} from './localClient'
+import { isContentWriting, suppliedText, reviewOutput } from './groundingCheck'
 import type { LocalEngine } from './engineCore'
 
 // ── Policy inputs (injected so this module stays testable without Electron) ──
@@ -363,16 +373,53 @@ function dispatch(
       new Error('No Anthropic API key set. Open Settings → AI → API keys and paste your key.')
     )
   }
-  return (cloud.messages.create as unknown as CreateFn)(body, { signal: opts.signal })
+  return (cloud.messages.create as unknown as CreateFn)(body, { signal: opts.signal }).then((m) => observeGrounding(body, m))
+}
+
+/**
+ * Cloud replies to content-writing prompts are reviewed for specifics the
+ * request never supplied. Observation only: the reply is returned exactly as
+ * the model wrote it, and findings go to the person as "check this".
+ */
+function observeGrounding(body: Record<string, unknown>, msg: Anthropic.Message): Anthropic.Message {
+  try {
+    const flat = flattenRequest(body)
+    if (!isContentWriting(flat.system)) return msg
+    const text = msg.content
+      .filter((b) => b.type === 'text')
+      .map((b) => ('text' in b ? b.text : ''))
+      .join('')
+    if (!text) return msg
+    const r = reviewOutput(text, suppliedText(flat.system, flat.messages), false)
+    emitGrounding({ ...r, path: 'cloud' })
+  } catch {
+    /* a review that cannot run never touches the reply */
+  }
+  return msg
+}
+
+/** The cloud client with grounding observation on create(); requests pass through unchanged. */
+function observedCloud(cloud: Anthropic): Anthropic {
+  return {
+    get baseURL() {
+      return (cloud as unknown as { baseURL?: string }).baseURL
+    },
+    messages: {
+      create: async (body: Record<string, unknown>, options?: unknown) =>
+        observeGrounding(body, await (cloud.messages.create as unknown as (b: unknown, o?: unknown) => Promise<Anthropic.Message>)(body, options)),
+      stream: (body: Record<string, unknown>, options?: unknown) =>
+        (cloud.messages.stream as unknown as (b: unknown, o?: unknown) => unknown)(body, options)
+    }
+  } as unknown as Anthropic
 }
 
 /**
  * Wrap the cloud client (or null) so each request goes where policy says.
- * With no local routing configured anywhere, the cloud client is returned
- * untouched — the cloud path is byte-for-byte what it was before.
+ * With no local routing configured anywhere, requests go to the cloud client
+ * unchanged; only content-writing replies are observed for grounding.
  */
 export function routedClient(cloud: Anthropic | null): Anthropic | null {
-  if (!anyLocalRouting()) return cloud
+  if (!anyLocalRouting()) return cloud ? observedCloud(cloud) : null
   const client = {
     // isCreditClient() reads baseURL; a routed client is never the proxy, so
     // streaming is attempted and the local stream serves it.

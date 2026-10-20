@@ -35,6 +35,7 @@ import { setLocalRouteResolver, resolveCloudModel } from '../modelRouting'
 import { installEgressGuard } from './egressGuard'
 import { EngineHost, type WorkerHandle } from './engineHost'
 import { downloadModel, isInstalled, removeModel, finalPath, type DownloadProgress } from './downloadManager'
+import { setGroundingSink } from './localClient'
 import { setBundledEmbedder } from '../localModel'
 import { SIGNAL_BASE } from '../creditMode'
 import {
@@ -166,6 +167,11 @@ export function initLocalAi(): void {
   })
   setConsentAsker(askRendererForConsent)
   setNoticeSink((feature, message) => broadcast('localAi:notice', { feature, message }))
+  // Invented-specifics review of content-writing output (groundingCheck.ts):
+  // the person sees what was replaced with a placeholder and what to check.
+  setGroundingSink((r) =>
+    broadcast('localAi:grounding', { path: r.path, repaired: r.repaired.slice(0, 12), flagged: r.flagged.slice(0, 12) })
+  )
 
   app.on('before-quit', () => {
     void host?.stop()
