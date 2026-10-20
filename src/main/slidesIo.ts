@@ -9,7 +9,7 @@ import { readFile, writeFile } from 'fs/promises'
 // pptxgenjs and fflate are imported lazily inside the functions that use them,
 // so they stay out of the app's startup require path; a packaging gap can only
 // degrade pptx export/import to an error, never crash launch.
-import type { DeckTheme, Slide, SlidesBody, SlideTextElement, SlideImageElement, SlideTableElement, SlideChartElement, SlideShapeElement, SlideFill, SlideBorder } from '@shared/types'
+import type { DeckTheme, Slide, SlidesBody, SlideTextElement, SlideImageElement, SlideTableElement, SlideChartElement, SlideShapeElement, SlideFill, SlideBorder, SlideTextParagraph, SlideTextRun } from '@shared/types'
 import type { ChartType } from '@shared/chart'
 import { resolveTheme, SLIDE_W, SLIDE_H } from '@shared/slideThemes'
 import { migrateSlidesBody } from '@shared/slidesMigrate'
@@ -359,6 +359,79 @@ function slideImages(
   return out
 }
 
+// ── Theme colours ─────────────────────────────────────────────────────────────
+//
+// Most colours in a real deck are not literal: they are <a:schemeClr val="accent1">
+// pointing into ppt/theme/theme1.xml. Until this existed we read only explicit
+// srgbClr values and dropped the rest, which meant a deck built from its theme
+// (most of them) imported almost colourless.
+export type ThemeColors = Map<string, string>
+
+// The clrScheme slot names, in the order PowerPoint writes them, mapped to the
+// aliases that appear in slide XML. dk1/lt1 are referenced as tx1/bg1.
+const SCHEME_ALIAS: Record<string, string[]> = {
+  dk1: ['dk1', 'tx1'],
+  lt1: ['lt1', 'bg1'],
+  dk2: ['dk2', 'tx2'],
+  lt2: ['lt2', 'bg2'],
+  accent1: ['accent1'],
+  accent2: ['accent2'],
+  accent3: ['accent3'],
+  accent4: ['accent4'],
+  accent5: ['accent5'],
+  accent6: ['accent6'],
+  hlink: ['hlink'],
+  folHlink: ['folHlink']
+}
+
+export function parseTheme(files: Record<string, Uint8Array>, strFromU8: (u: Uint8Array) => string): ThemeColors {
+  const out: ThemeColors = new Map()
+  // Decks name the part theme1.xml by convention, but take whichever is there.
+  const key = Object.keys(files).find((k) => /^ppt\/theme\/theme\d+\.xml$/.test(k))
+  if (!key) return out
+  const scheme = /<a:clrScheme\b[\s\S]*?<\/a:clrScheme>/.exec(strFromU8(files[key]))?.[0]
+  if (!scheme) return out
+  for (const [slot, aliases] of Object.entries(SCHEME_ALIAS)) {
+    const frag = new RegExp(`<a:${slot}>([\\s\\S]*?)</a:${slot}>`).exec(scheme)?.[1]
+    if (!frag) continue
+    // A slot holds either an explicit srgbClr or a sysClr carrying lastClr.
+    const hex = /<a:srgbClr\s+val="([0-9A-Fa-f]{6})"/.exec(frag)?.[1]
+      ?? /<a:sysClr\b[^>]*lastClr="([0-9A-Fa-f]{6})"/.exec(frag)?.[1]
+    if (!hex) continue
+    for (const a of aliases) out.set(a, `#${hex.toLowerCase()}`)
+  }
+  return out
+}
+
+// Apply the lumMod/lumOff tint PowerPoint layers on a scheme colour, so
+// "accent1 at 40% luminance" is not imported as flat accent1.
+function applyLum(hex: string, frag: string): string {
+  const mod = /<a:lumMod\s+val="(\d+)"/.exec(frag)?.[1]
+  const off = /<a:lumOff\s+val="(\d+)"/.exec(frag)?.[1]
+  if (!mod && !off) return hex
+  const m = mod ? Number(mod) / 100000 : 1
+  const o = off ? Number(off) / 100000 : 0
+  const ch = (i: number): number => {
+    const v = parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) / 255
+    return Math.max(0, Math.min(255, Math.round((v * m + o) * 255)))
+  }
+  return `#${[0, 1, 2].map((i) => ch(i).toString(16).padStart(2, '0')).join('')}`
+}
+
+// A colour from any fragment that may hold srgbClr or a theme reference.
+// Returns undefined rather than a guess when neither is present.
+function colorIn(fragment: string | undefined, theme: ThemeColors): string | undefined {
+  if (!fragment) return undefined
+  const lit = /<a:srgbClr\s+val="([0-9A-Fa-f]{6})"([\s\S]*?)(?:\/>|<\/a:srgbClr>)/.exec(fragment)
+  if (lit) return applyLum(`#${lit[1].toLowerCase()}`, lit[2])
+  const sch = /<a:schemeClr\s+val="([A-Za-z0-9]+)"([\s\S]*?)(?:\/>|<\/a:schemeClr>)/.exec(fragment)
+  if (sch) {
+    const base = theme.get(sch[1])
+    if (base) return applyLum(base, sch[2])
+  }
+  return undefined
+}
+
 // ── Autoshapes ────────────────────────────────────────────────────────────────
 //
 // A pptx autoshape is a <p:sp> carrying <a:prstGeom prst="…">. Our model has
@@ -381,32 +454,33 @@ function shapeForPreset(prst: string): SlideShapeElement['shape'] | null {
 // An <a:srgbClr val="RRGGBB"> inside the given fragment, as a CSS colour.
 // Theme colours (<a:schemeClr>) are not resolved: we do not read theme1.xml, so
 // returning a guess would be inventing the deck's palette.
-function srgb(fragment: string | undefined): string | undefined {
-  const v = fragment ? /<a:srgbClr\s+val="([0-9A-Fa-f]{6})"/.exec(fragment)?.[1] : undefined
-  return v ? `#${v.toLowerCase()}` : undefined
+function srgb(fragment: string | undefined, theme: ThemeColors): string | undefined {
+  return colorIn(fragment, theme)
 }
 
 // Outside-in: the first <a:…Fill> that belongs to the shape itself, not to a
 // child run's text properties.
-function shapeFill(spPr: string): SlideFill | undefined {
+function shapeFill(spPr: string, theme: ThemeColors): SlideFill | undefined {
   if (/<a:noFill\s*\/>/.test(spPr)) return { type: 'none' }
   const solid = /<a:solidFill>([\s\S]*?)<\/a:solidFill>/.exec(spPr)?.[1]
-  const color = srgb(solid)
+  const color = srgb(solid, theme)
   if (color) return { type: 'solid', color }
   const grad = /<a:gradFill[\s\S]*?<\/a:gradFill>/.exec(spPr)?.[0]
   if (grad) {
-    const stops = [...grad.matchAll(/<a:srgbClr\s+val="([0-9A-Fa-f]{6})"/g)].map((m) => `#${m[1].toLowerCase()}`)
+    const stops = [...grad.matchAll(/<a:gs\b[\s\S]*?<\/a:gs>/g)]
+      .map((m) => colorIn(m[0], theme))
+      .filter((c): c is string => !!c)
     if (stops.length >= 2) return { type: 'gradient', color: stops[0], color2: stops[stops.length - 1] }
     if (stops.length === 1) return { type: 'solid', color: stops[0] }
   }
   return undefined
 }
 
-function shapeBorder(spPr: string): SlideBorder | undefined {
+function shapeBorder(spPr: string, theme: ThemeColors): SlideBorder | undefined {
   const ln = /<a:ln\b[^>]*>([\s\S]*?)<\/a:ln>/.exec(spPr)
   if (!ln) return undefined
   if (/<a:noFill\s*\/>/.test(ln[1])) return undefined
-  const color = srgb(ln[1])
+  const color = srgb(ln[1], theme)
   if (!color) return undefined
   // EMU width (12700 per point); default to a hairline when absent.
   const w = /<a:ln\b[^>]*\bw="(\d+)"/.exec(ln[0])?.[1]
@@ -422,7 +496,8 @@ function slideShapes(
   slideXml: string,
   slideIndex: number,
   sldCx: number,
-  sldCy: number
+  sldCy: number,
+  theme: ThemeColors
 ): { shapes: SlideShapeElement[]; skipped: number } {
   const shapes: SlideShapeElement[] = []
   let skipped = 0
@@ -441,8 +516,8 @@ function slideShapes(
     const off = /<a:off\s+x="(-?\d+)"\s+y="(-?\d+)"/.exec(spPr)
     const ext = /<a:ext\s+cx="(\d+)"\s+cy="(\d+)"/.exec(spPr)
     if (!off || !ext) continue // no transform of its own; we do not resolve layouts
-    const fill = shapeFill(spPr)
-    const border = shapeBorder(spPr)
+    const fill = shapeFill(spPr, theme)
+    const border = shapeBorder(spPr, theme)
     shapes.push({
       id: `shp-${slideIndex}-${idx++}`,
       type: 'shape',
@@ -457,6 +532,103 @@ function slideShapes(
     })
   }
   return { shapes, skipped }
+}
+
+// ── Rich text boxes ───────────────────────────────────────────────────────────
+//
+// Until this existed, slide text was flattened to a title string and a list of
+// bullet strings, which threw away position, alignment, bold, italic, colour
+// and size. Placeholders still become title/bullets, because that carries the
+// layout's meaning; every other text shape now arrives as a positioned element
+// with its runs intact.
+
+const ALIGN: Record<string, 'left' | 'center' | 'right'> = {
+  l: 'left', ctr: 'center', r: 'right', just: 'left', dist: 'left'
+}
+
+/** One <a:p> to a paragraph, keeping each <a:r>'s own formatting. */
+function richParagraph(pXml: string, theme: ThemeColors, ptToLogical: number): SlideTextParagraph | null {
+  const runs: SlideTextRun[] = []
+  for (const rChunk of pXml.split(/<a:r>/).slice(1)) {
+    const r = rChunk.split(/<\/a:r>/)[0]
+    const text = decodeXml([...r.matchAll(/<a:t>([\s\S]*?)<\/a:t>/g)].map((m) => m[1]).join(''))
+    if (text === '') continue
+    const rPr = /<a:rPr\b[^>]*>[\s\S]*?<\/a:rPr>|<a:rPr\b[^>]*\/>/.exec(r)?.[0] ?? ''
+    const sz = /\bsz="(\d+)"/.exec(rPr)?.[1]
+    const color = colorIn(/<a:solidFill>([\s\S]*?)<\/a:solidFill>/.exec(rPr)?.[1], theme)
+    runs.push({
+      text,
+      ...(/\bb="1"/.test(rPr) ? { bold: true } : {}),
+      ...(/\bi="1"/.test(rPr) ? { italic: true } : {}),
+      ...(/\bu="(?!none)[a-zA-Z]+"/.test(rPr) ? { underline: true } : {}),
+      ...(color ? { color } : {}),
+      ...(sz ? { fontSize: Math.max(1, Math.round((Number(sz) / 100) * ptToLogical)) } : {})
+    })
+  }
+  if (!runs.length) return null
+  const pPr = /<a:pPr\b[^>]*>/.exec(pXml)?.[0] ?? ''
+  const algn = /\balgn="(\w+)"/.exec(pPr)?.[1]
+  const lvl = /\blvl="(\d+)"/.exec(pPr)?.[1]
+  // A paragraph is a list item unless it explicitly opts out with <a:buNone/>.
+  const listStyle: SlideTextParagraph['listStyle'] = /<a:buNone\s*\/>/.test(pXml)
+    ? 'none'
+    : /<a:buAutoNum\b/.test(pXml)
+      ? 'number'
+      : /<a:buChar\b/.test(pXml)
+        ? 'bullet'
+        : undefined
+  return {
+    runs,
+    ...(algn && ALIGN[algn] ? { align: ALIGN[algn] } : {}),
+    ...(lvl ? { bulletLevel: Number(lvl) } : {}),
+    ...(listStyle ? { listStyle } : {})
+  }
+}
+
+function richParagraphs(xml: string, theme: ThemeColors, ptToLogical: number): SlideTextParagraph[] {
+  return xml
+    .split(/<a:p>|<a:p\s[^>]*>/)
+    .slice(1)
+    .map((chunk) => richParagraph(chunk.split(/<\/a:p>/)[0], theme, ptToLogical))
+    .filter((p): p is SlideTextParagraph => p !== null)
+}
+
+/** Non-placeholder text shapes, positioned, with formatting preserved. */
+function slideTextBoxes(
+  slideXml: string,
+  slideIndex: number,
+  sldCx: number,
+  sldCy: number,
+  theme: ThemeColors,
+  ptToLogical: number
+): SlideTextElement[] {
+  const out: SlideTextElement[] = []
+  let idx = 0
+  for (const chunk of stripGraphicFrames(slideXml).split(/<p:sp>/).slice(1)) {
+    const shape = chunk.split(/<\/p:sp>/)[0]
+    if (/<p:ph\b/.test(shape)) continue // placeholder: already the title/bullets
+    const tx = /<p:txBody>([\s\S]*?)<\/p:txBody>/.exec(shape)?.[1]
+    if (!tx) continue
+    const paragraphs = richParagraphs(tx, theme, ptToLogical)
+    if (!paragraphs.length) continue
+    const spPr = /<p:spPr\b[^>]*>([\s\S]*?)<\/p:spPr>/.exec(shape)?.[1] ?? shape
+    const off = /<a:off\s+x="(-?\d+)"\s+y="(-?\d+)"/.exec(spPr)
+    const ext = /<a:ext\s+cx="(\d+)"\s+cy="(\d+)"/.exec(spPr)
+    if (!off || !ext) continue // no transform of its own; layouts are not resolved
+    const anchor = /\banchor="(t|ctr|b)"/.exec(tx)?.[1]
+    out.push({
+      id: `txt-${slideIndex}-${idx++}`,
+      type: 'text',
+      x: Math.round((Number(off[1]) / sldCx) * SLIDE_W),
+      y: Math.round((Number(off[2]) / sldCy) * SLIDE_H),
+      w: Math.round((Number(ext[1]) / sldCx) * SLIDE_W),
+      h: Math.round((Number(ext[2]) / sldCy) * SLIDE_H),
+      z: 70 + idx,
+      paragraphs,
+      ...(anchor === 'ctr' ? { vAlign: 'middle' as const } : anchor === 'b' ? { vAlign: 'bottom' as const } : {})
+    })
+  }
+  return out
 }
 
 // The tables on a slide, as SlideTableElements. A pptx table is an <a:tbl> inside
@@ -502,6 +674,22 @@ function slideTables(slideXml: string, slideIndex: number, sldCx: number, sldCy:
     })
   }
   return out
+}
+
+// Keep only placeholder shapes before reading the slide's title and bullets.
+//
+// Non-placeholder text boxes now arrive as positioned elements of their own
+// (slideTextBoxes). Without this, their text would ALSO be read here and the
+// same sentence would appear twice on the imported slide: once as a bullet and
+// once in the box it actually came from.
+function placeholdersOnly(xml: string): string {
+  const head = xml.split(/<p:sp>/)[0]
+  const kept = xml
+    .split(/<p:sp>/)
+    .slice(1)
+    .filter((chunk) => /<p:ph\b/.test(chunk.split(/<\/p:sp>/)[0]))
+    .map((chunk) => `<p:sp>${chunk}`)
+  return head + kept.join('')
 }
 
 // Strip table/chart frames before pulling title/body text, so a table's cell text
@@ -618,7 +806,7 @@ export async function parsePptx(data: Uint8Array, name: string): Promise<SlidesI
     const slides: Slide[] = slideNames.map((sn, i) => {
       // Exclude table/chart frames from the title/body text so their cell text is
       // not double-counted as bullets.
-      const paras = paragraphs(stripGraphicFrames(strFromU8(files[sn])))
+      const paras = paragraphs(placeholdersOnly(stripGraphicFrames(strFromU8(files[sn]))))
       const title = paras[0] ?? `Slide ${i + 1}`
       const bullets = paras.slice(1)
       const notes = notesForSlide(files, sn, strFromU8)
@@ -627,14 +815,20 @@ export async function parsePptx(data: Uint8Array, name: string): Promise<SlidesI
 
     // Autoshapes whose geometry has no honest equivalent in our four shapes.
     let skippedShapes = 0
+    const theme = parseTheme(files, strFromU8)
+    // pptx font sizes are hundredths of a point; our space is SLIDE_W logical
+    // units across whatever the deck's real width is, so derive the conversion
+    // rather than assuming a 13.333in slide.
+    const ptToLogical = SLIDE_W / (sldCx / 914400) / 72
     const body = migrateSlidesBody({ slides })
     // Attach imported pictures and tables onto each migrated slide's element list
     // so they render alongside the title/body text rather than being dropped.
     body.slides.forEach((slide, i) => {
-      const shapeResult = slideShapes(strFromU8(files[slideNames[i]]), i, sldCx, sldCy)
+      const shapeResult = slideShapes(strFromU8(files[slideNames[i]]), i, sldCx, sldCy, theme)
       skippedShapes += shapeResult.skipped
       const extras = [
         ...shapeResult.shapes,
+        ...slideTextBoxes(strFromU8(files[slideNames[i]]), i, sldCx, sldCy, theme, ptToLogical),
         ...slideImages(files, slideNames[i], strFromU8, sldCx, sldCy),
         ...slideTables(strFromU8(files[slideNames[i]]), i, sldCx, sldCy),
         ...slideCharts(files, slideNames[i], strFromU8, i, sldCx, sldCy)
