@@ -38,6 +38,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.38',
+    date: '2026-10-21T12:00:00Z',
+    title: 'PlexiiDesk 4.3.38 \u2014 nothing offered that cannot work yet',
+    tag: 'polish',
+    summary:
+      'Everything in 4.3.37, with the privacy controls that need the server finished properly. Deleting your account from inside the app is not offered until the server can actually do it; until then the panel says so and gives you an address, instead of a button that fails.',
+    highlights: [
+      'Deleting your account from Settings waits for the server to advertise it. Until that update ships, the panel tells you plainly and asks you to email connect@plexiidesk.com \u2014 rather than offering a button that quietly fails.',
+      'The same rule applies to every privacy control that depends on the server: it is offered when it works, and honest about itself when it does not.',
+      'The app makes no third-party requests by default, and that is checked at runtime rather than claimed \u2014 fonts ship with the app, link icons come from the site being linked to, usage reporting and crash reports stay off until you switch them on.'
+    ]
+  },
+  {
     version: '4.3.37',
     date: '2026-10-21T09:00:00Z',
     title: 'PlexiiDesk 4.3.37 \u2014 work widgets everywhere, PlexiiWrite and friends, and privacy you can check',
