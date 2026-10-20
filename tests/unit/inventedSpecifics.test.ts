@@ -281,6 +281,52 @@ describe('HTML output', () => {
   })
 })
 
+describe('spans always come from the original text', () => {
+  // Detectors run on a masked copy where tags, code and placeholders are NUL.
+  // The quote detector's class excludes only a closing quote and a newline, so
+  // it matches straight across a masked region — and before this was fixed the
+  // span was sliced from the masked copy, so it came back with NUL bytes in
+  // it. A caller that matches or repairs BY SPAN TEXT then skips that finding
+  // silently, which is the worst failure mode available: it looks like a clean
+  // draft. Found by replaying the real eval spans, not by reading the code.
+
+  const noNul = (r: ReturnType<typeof checkInventedSpecifics>): void => {
+    for (const f of r.flagged) expect(f.span).not.toMatch(/\0/)
+  }
+
+  it('a quoted phrase interrupted by a tag has no NUL in its span', () => {
+    const html = '<p>The runbook says &ldquo;Escalate to <b>Engineering</b> within the hour&rdquo;.</p>'
+    const r = checkInventedSpecifics(html, 'Write a support note.')
+    noNul(r)
+  })
+
+  it('every reported span matches the original text at its own index', () => {
+    // The invariant that makes index and span usable together: this is what a
+    // caller relies on to highlight or replace, and it is cheap to assert.
+    const cases = [
+      '<p style="color:#333">Adoption rose 40% in &ldquo;Q3 <em>2025</em>&rdquo;.</p>',
+      'Plain prose with $1,200 and 40% and Acme Partners in it.',
+      'Code `const x = 40` then a real 40% claim.',
+      'A placeholder [owner name] then "a quoted claim of some length here".',
+      '<h3>Heading</h3><p>Introducing Lumen Flask for $39 on March 14.</p>'
+    ]
+    for (const text of cases) {
+      const r = checkInventedSpecifics(text, '')
+      noNul(r)
+      for (const f of r.flagged) {
+        expect(text.slice(f.index, f.index + f.span.length)).toBe(f.span)
+      }
+    }
+  })
+
+  it('still catches the claim inside that interrupted quote', () => {
+    // Guards the fix against being "no NUL because nothing is reported".
+    const html = '<p>It says &ldquo;adoption rose <b>40%</b> in the first year&rdquo;.</p>'
+    const spans = checkInventedSpecifics(html, 'Summarise the report.').flagged.map((f) => f.span)
+    expect(spans).toContain('40%')
+  })
+})
+
 describe('options', () => {
   it('allowNewNames lets a naming exercise through but still catches figures', () => {
     const out = 'Introducing Lumen Flask, yours for $39.'
