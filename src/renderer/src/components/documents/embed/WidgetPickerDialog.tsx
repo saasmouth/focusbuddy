@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Widget } from '@shared/types'
 import { WIDGET_CATALOG } from '../../../lib/widgetCatalog'
 import Icon from '../../Icon'
-import { listDesksWithWidgets, type DeskWidgets } from './widgetLookup'
+import { listDesksWithWidgets, listDesklessWidgetFiles, type DeskWidgets } from './widgetLookup'
 
-// The "Widget from a desk" picker. Lists every desk (task node) with its
+// The work widget picker. Lists the widgets that are on no desk first —
+// since 4.3.32 that is most of them — then every desk with its own
 // embeddable widgets, filterable by widget title, kind or desk name. Selecting
 // a widget hands its id back to the caller, which inserts the embed. Purely a
 // chooser: it never mutates widgets or desks.
@@ -26,9 +27,18 @@ export default function WidgetPickerDialog({ onPick, onClose }: Props): JSX.Elem
 
   useEffect(() => {
     let alive = true
-    listDesksWithWidgets()
-      .then((d) => {
-        if (alive) setDesks(d)
+    // Desks AND the work widgets that are on no desk. Since 4.3.32 a work
+    // widget is a file, so most of them live in Files rather than on a desk;
+    // listing only desks made the picker look complete while hiding the
+    // majority of what a person could insert.
+    Promise.all([listDesksWithWidgets(), listDesklessWidgetFiles()])
+      .then(([d, loose]) => {
+        if (!alive) return
+        setDesks(
+          loose.length
+            ? [{ desk: { id: '__files__', title: 'In Files (on no desk)' } as DeskWidgets['desk'], widgets: loose }, ...d]
+            : d
+        )
       })
       .catch((e) => {
         if (alive) setError((e as Error).message)

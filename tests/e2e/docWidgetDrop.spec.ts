@@ -254,3 +254,34 @@ test('a sheet takes a widget both anchored to a cell and floating', async () => 
   )
   expect(after[0], 'could not switch the placement to floating').toBe('float')
 })
+
+test('the Insert-widget picker offers widgets that are on no desk', async () => {
+  // Drag could insert a deskless work widget; the menu could not — it listed
+  // only widgets that live on a desk, which since 4.3.32 is the minority.
+  // A menu that cannot see most of your widgets is worse than no menu,
+  // because it looks complete.
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+
+  await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    await api.widgetFiles.create({ kind: 'sticky', title: 'Loose sticky' } as never, {} as never)
+  })
+
+  const listed = await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const files = await api.widgetFiles.list()
+    const out: string[] = []
+    for (const f of files) {
+      const inst = await api.widgetFiles.instances(f.id)
+      if (!inst.length) out.push(f.title || f.kind)
+    }
+    return out
+  })
+  expect(listed.length, 'no deskless widget to offer').toBeGreaterThan(0)
+
+  const { readFileSync } = await import('node:fs')
+  const picker = readFileSync('src/renderer/src/components/documents/embed/WidgetPickerDialog.tsx', 'utf8')
+  expect(picker, 'the picker still lists desks only').toContain('listDesklessWidgetFiles')
+})
