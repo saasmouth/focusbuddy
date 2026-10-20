@@ -266,7 +266,7 @@ describe('the start-up backfill', () => {
   it('can never be the reason the app fails to start', () => {
     expect(backfill).toContain('// A repair pass must never be the reason the app fails to start.')
     const main = read('main/index.ts')
-    expect(main).toContain('void runTitleBackfill()')
+    expect(main).toContain('void runTitleBackfill({ allowModel: backgroundModelAllowed() })')
     expect(main).toContain('.catch((e) => {')
   })
 
@@ -275,7 +275,7 @@ describe('the start-up backfill', () => {
     // would make this pass for the wrong reason.
     const main = read('main/index.ts')
     const backupCall = main.indexOf('  autoBackupOnLaunch()')
-    const backfillCall = main.indexOf('void runTitleBackfill()')
+    const backfillCall = main.indexOf('void runTitleBackfill({ allowModel: backgroundModelAllowed() })')
     expect(backupCall).toBeGreaterThan(-1)
     expect(backfillCall).toBeGreaterThan(-1)
     expect(backupCall).toBeLessThan(backfillCall)

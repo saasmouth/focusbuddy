@@ -3,12 +3,22 @@
 // `update:state` IPC event; the renderer subscribes and shows a small
 // banner when an update has been downloaded.
 //
-// Distribution channel: GitHub Releases. electron-builder generates
-// the `latest-mac.yml` metadata file alongside the .zip when we run
-// `npm run dist:release`, then publishes both to a draft release.
-// Installed copies poll for updates on boot + every 4h.
+// Distribution: PlexiiDesk reads the generic feed on dl.plexiidesk.com
+// (latest-mac.yml / latest.yml); PlexiiOffice reads GitHub releases (channel
+// `office`). Installed copies check 30 s after launch, every 6 hours, and on
+// wake from sleep, while "Check for updates automatically" is on (Settings >
+// Data > Privacy, privacyPrefs.ts). "Check now" works whatever the switch says.
+//
+// What a check sends: a GET of the feed file with electron-updater's own
+// User-Agent ("electron-builder"), Cache-Control: no-cache and a time-based
+// cache-busting query. electron-updater also adds `x-user-staging-id`, a random
+// id it stores in userData/.updaterId for staged rollouts; we strip it
+// (stripUpdaterIdentifiers) because it would let the feed host link every check
+// from one install. Staged rollouts are not used. Requests go through
+// electron-updater's own cookie-less session.
 
-import { app, autoUpdater as nativeAutoUpdater, BrowserWindow, shell } from 'electron'
+import { app, autoUpdater as nativeAutoUpdater, BrowserWindow, powerMonitor, shell } from 'electron'
+import { autoUpdateChecksEnabled, onPrivacyPrefsChange } from './privacyPrefs'
 import { detectPreviewBuild } from './appMode'
 import { flushBeforeUpdate } from './sessionPersistence'
 import { autoUpdater, type UpdateInfo, type ProgressInfo } from 'electron-updater'
@@ -204,6 +214,30 @@ export async function installUpdateAndRestart(): Promise<void> {
   autoUpdater.quitAndInstall(true, true)
 }
 
+// Headers electron-updater would add that identify an install. Nothing in a
+// feed request needs them: the files are static and the same for everyone.
+const IDENTIFYING_HEADERS = ['x-user-staging-id']
+
+export function stripUpdaterIdentifiers(headers: Record<string, unknown>): Record<string, unknown> {
+  for (const name of Object.keys(headers)) {
+    if (IDENTIFYING_HEADERS.includes(name.toLowerCase())) delete headers[name]
+  }
+  return headers
+}
+
+/**
+ * Wrap electron-updater's header builder so every feed and download request
+ * goes out without an install id. `computeFinalHeaders` is where it merges
+ * `x-user-staging-id` in (AppUpdater.getUpdateInfoAndProvider, 6.x).
+ */
+export function hardenUpdaterRequests(updater: object): void {
+  const u = updater as { computeFinalHeaders?: (h: Record<string, unknown>) => Record<string, unknown> }
+  const original = u.computeFinalHeaders
+  if (typeof original !== 'function') return
+  u.computeFinalHeaders = (h: Record<string, unknown>) =>
+    stripUpdaterIdentifiers(original.call(updater, h))
+}
+
 export function checkForUpdates(): void {
   // Manual checks (footer version click) are also a no-op on the preview
   // build, for the same reason installAutoUpdater bails there.
@@ -275,36 +309,54 @@ export function installAutoUpdater(): void {
     broadcast({ kind: 'error', message: err.message })
   )
 
-  // Kick off the first check shortly after boot so the user doesn't wait, then
-  // poll every 5 minutes.
-  //
-  // It was 4 hours, which meant a release took up to 4 hours to appear for
-  // anyone already running the app — and the footer showed nothing in the
-  // meantime, so the update looked missing rather than pending. That is
-  // exactly how it was reported.
-  //
-  // The cost of 5 minutes is one conditional GET of latest-mac.yml / latest.yml
-  // per client, a few hundred bytes, which is nothing next to a release nobody
-  // is offered.
-  //
-  // THE GUARD MATTERS MORE THAN THE INTERVAL. A poll this short must not fire
-  // while something is already happening:
-  //   - on Windows autoDownload is on, so a found update is already pulling a
-  //     ~240MB installer; re-checking over the top of that is how you get
-  //     overlapping downloads and a progress bar that jumps backwards.
-  //   - on macOS the banner is showing 'available' and the user may have
-  //     started the one-click download themselves; a fresh check broadcasts
-  //     'checking' and would blank that out from under them.
-  //   - 'ready' means it is downloaded and waiting for a restart. There is
-  //     nothing left to learn.
-  // So only idle / none / error are polled — the states where asking again is
-  // the useful thing to do.
-  const FIRST_CHECK_MS = 30 * 1000
-  const POLL_MS = 5 * 60 * 1000
-  const POLLABLE = new Set<UpdateState['kind']>(['idle', 'none', 'error'])
-  setTimeout(() => checkForUpdates(), FIRST_CHECK_MS)
-  setInterval(() => {
-    if (!POLLABLE.has(current.kind)) return
-    checkForUpdates()
-  }, POLL_MS)
+  hardenUpdaterRequests(autoUpdater)
+  scheduleAutomaticChecks()
+}
+
+// Automatic checks: 30 s after launch, every 6 hours, and on wake from sleep —
+// and only while the person leaves "Check for updates automatically" on.
+//
+// History: this was 4 hours, then 5 minutes (2026-10-08), because a release took
+// hours to appear for someone already running the app. 5 minutes meant 288
+// requests a day from every install, which is a usage signal in itself. 4.3.34
+// settles on launch + 6 h + wake, with a "Check now" button in Settings and the
+// footer for anyone who knows a release is out.
+//
+// THE GUARD MATTERS MORE THAN THE INTERVAL. A check must not fire while
+// something is already happening:
+//   - on Windows autoDownload is on, so a found update is already pulling a
+//     ~240MB installer; re-checking over the top of that is how you get
+//     overlapping downloads and a progress bar that jumps backwards.
+//   - on macOS the banner is showing 'available' and the user may have
+//     started the one-click download themselves; a fresh check broadcasts
+//     'checking' and would blank that out from under them.
+//   - 'ready' means it is downloaded and waiting for a restart. There is
+//     nothing left to learn.
+// So only idle / none / error are polled — the states where asking again is
+// the useful thing to do.
+export const FIRST_CHECK_MS = 30 * 1000
+export const POLL_MS = 6 * 60 * 60 * 1000
+const POLLABLE = new Set<UpdateState['kind']>(['idle', 'none', 'error'])
+
+function automaticCheck(): void {
+  if (!autoUpdateChecksEnabled()) return
+  if (!POLLABLE.has(current.kind)) return
+  checkForUpdates()
+}
+
+let scheduled = false
+function scheduleAutomaticChecks(): void {
+  if (scheduled) return
+  scheduled = true
+  setTimeout(() => automaticCheck(), FIRST_CHECK_MS)
+  setInterval(() => automaticCheck(), POLL_MS)
+  try {
+    powerMonitor.on('resume', () => automaticCheck())
+  } catch {
+    /* powerMonitor is unavailable before ready on some platforms; the interval still runs */
+  }
+  // Turning the switch back on checks once, so the person sees it working.
+  onPrivacyPrefsChange((p) => {
+    if (p.autoUpdateChecks) automaticCheck()
+  })
 }
