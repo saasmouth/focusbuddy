@@ -3893,6 +3893,38 @@ export interface PageContentSuggestion {
   needsApiKey?: boolean
 }
 
+/**
+ * Why both rules exist: every other prompt in this file already forbids
+ * invention, but the content GENERATORS did not, and one of them ("a genuinely
+ * useful first draft ... not an outline of placeholders") actively pushed the
+ * model to fill specifics in. A stronger model follows that more effectively,
+ * so the better the model the more it fabricated: the local-AI eval scored the
+ * cloud reference 4/9 on office tasks against the 4B's 6/9, marking Claude down
+ * for "states unsupplied facts about the team's wiki" and an invented
+ * power-drill statistic. The fix is not "invent nothing" — that yields the
+ * empty skeleton the original clause rightly guarded against — but the
+ * distinction it was missing: write the prose freely, never assert an
+ * unsupplied specific as fact.
+ */
+const GROUNDING_RULE =
+  ' Ground every specific in what you were given. Write the prose, the structure and ordinary' +
+  ' domain knowledge freely, because that is the draft and an empty skeleton is no use. But never' +
+  ' present an invented specific as fact: no statistic, study finding, quotation, price, date or' +
+  ' market figure you cannot source, and no detail about the reader\'s own world (their people,' +
+  ' customers, revenue, tools, deadlines or past decisions) that the request did not supply.' +
+  ' Where such a specific is genuinely needed and was not supplied, write a short bracketed' +
+  ' placeholder like [launch date] or [owner name] instead of a plausible guess. A placeholder' +
+  ' costs the user seconds to fill in; an invented figure they do not notice can reach a customer.' +
+  ' Prefer a shorter, fully grounded draft over a fuller one that is partly fiction.'
+
+const SHEET_DATA_RULE =
+  ' This data is a starting point the user will replace, so make the shape and formats realistic' +
+  ' (sensible column types, plausible magnitudes, consistent units and date formats) rather than' +
+  ' "example 1". Realistic shape is not licence to assert real-world facts: never give figures for' +
+  ' a named company, person, product or period as if they had been measured. When the task concerns' +
+  ' records the user already has and did not supply, leave clearly fillable placeholders rather' +
+  ' than inventing their numbers.'
+
 export async function suggestPageContent(
   prompt: string
 ): Promise<PageContentSuggestion> {
@@ -3911,7 +3943,8 @@ export async function suggestPageContent(
     '  - Start directly with the first heading or paragraph.\n' +
     '  - Use ## for section headings, - for bullets, - [ ] for open todos, - [x] for done.\n' +
     '  - Keep it tight — this lands inside a page, not as a standalone document.\n' +
-    '  - If the request is ambiguous, make a reasonable interpretation; do not ask back.'
+    '  - If the request is ambiguous, make a reasonable interpretation; do not ask back.' +
+    GROUNDING_RULE
 
   try {
     const resp = await c.messages.create({
@@ -3999,8 +4032,9 @@ export async function generateDocument(input: {
       const system =
         'You draft a complete, well-structured business document in Markdown.' +
         audienceLine +
-        ' Put the document title on the FIRST line as a single H1 (# Title). Then write the body using ## for section headings, prose paragraphs, and - for bullets only where a real list is warranted. Aim for a genuinely useful first draft the user will edit, not an outline of placeholders. Reply with raw Markdown only: no preamble, no code fences.' +
-        style
+        ' Put the document title on the FIRST line as a single H1 (# Title). Then write the body using ## for section headings, prose paragraphs, and - for bullets only where a real list is warranted. Aim for a genuinely useful first draft the user will edit. Reply with raw Markdown only: no preamble, no code fences.' +
+        style +
+        GROUNDING_RULE
       const resp = await c.messages.create({
         model: resolveModel('document'),
         max_tokens: 3000,
@@ -4031,7 +4065,8 @@ export async function generateDocument(input: {
       const system =
         'You design a spreadsheet as structured data.' +
         audienceLine +
-        ' Reply with ONLY a JSON object of the form {"title": string, "columns": string[], "rows": string[][]}. Use 2 to 8 short column headers. Provide 6 to 20 rows, each an array with exactly one string cell per column, filled with realistic, useful example data (not "example 1"). For a computed cell such as a total or a rate, put a spreadsheet formula starting with = that references cells in A1 style, for example "=SUM(B2:B9)". No markdown, no code fences, no prose outside the JSON.'
+        ' Reply with ONLY a JSON object of the form {"title": string, "columns": string[], "rows": string[][]}. Use 2 to 8 short column headers. Provide 6 to 20 rows, each an array with exactly one string cell per column, filled with useful example data. For a computed cell such as a total or a rate, put a spreadsheet formula starting with = that references cells in A1 style, for example "=SUM(B2:B9)". No markdown, no code fences, no prose outside the JSON.' +
+        SHEET_DATA_RULE
       const resp = await c.messages.create({
         model: resolveModel('document'),
         max_tokens: 2500,
@@ -4072,7 +4107,8 @@ export async function generateDocument(input: {
         'You design a clear node-and-edge diagram or workflow map.' +
         audienceLine +
         ' Reply with ONLY a JSON object of the form {"title": string, "nodes": [{"id": string, "label": string, "shape": "process"|"decision"|"terminator"|"data"|"database"|"circle"|"note"}], "edges": [{"source": string, "target": string, "label"?: string}]}. Use short stable ids like "n1","n2". Use "terminator" for start/end, "decision" for yes/no branches and give those outgoing edges a "Yes"/"No" label, "process" for steps, "data" for inputs or outputs, "database" for stored data. Produce 5 to 14 nodes that form one connected flow. Do NOT include x or y coordinates. No markdown, no code fences, no prose outside the JSON.' +
-        style
+        style +
+        GROUNDING_RULE
       const resp = await c.messages.create({
         model: resolveModel('document'),
         max_tokens: 2000,
@@ -4124,7 +4160,8 @@ export async function generateDocument(input: {
       'You design a clear, well-paced slide deck.' +
       audienceLine +
       ' Reply with ONLY a JSON object of the form {"title": string, "slides": [{"title": string, "bullets": string[], "notes": string, "layout": "title"|"bullets"|"section"}]}. Produce 5 to 10 slides that tell a coherent story with a beginning, middle and end. The first slide layout must be "title". Keep bullets to at most 6 short points per slide, and use an empty bullets array for title and section slides. Write one to three sentences of speaker notes per slide saying what to actually say. No markdown, no code fences, no prose outside the JSON.' +
-      style
+      style +
+      GROUNDING_RULE
     const resp = await c.messages.create({
       model: resolveModel('document'),
       max_tokens: 3000,
@@ -4199,7 +4236,11 @@ export async function generateDesignContent(input: {
     audienceLine +
     ' Reply with ONLY a JSON object of the form {"eyebrow"?: string, "headline": string, "subhead"?: string, "body"?: string, "cta"?: string, "background": "brand"|"light"|"dark"}. ' +
     'The headline is the single most important line, short and punchy (under 8 words). The eyebrow is a tiny kicker above it (1-3 words) and is optional. subhead is one supporting sentence. body is at most two short sentences and is optional for very visual pieces. cta is a short call to action when one fits. Choose "background": "brand" for bold social posts, "light" for clean professional pieces, "dark" for premium or tech moods. ' +
-    'Write in plain, confident, human words. No em dashes, no emoji, no markdown, no code fences, no prose outside the JSON.'
+    'Write in plain, confident, human words. No em dashes, no emoji, no markdown, no code fences, no prose outside the JSON.' +
+    GROUNDING_RULE +
+    ' This is marketing copy, so the pull is to add a discount, a date, a venue or a channel' +
+    ' because it reads better. Do not: an offer the user never made is the one mistake that' +
+    ' cannot be withdrawn once the piece is printed or posted.'
   try {
     const resp = await c.messages.create({
       model: resolveModel('document'),
@@ -4272,7 +4313,10 @@ export async function generateDesignVariations(input: {
     audienceLine +
     ` Reply with ONLY a JSON object {"concepts": [ ... ]} containing exactly ${n} concepts. Each concept is {"eyebrow"?: string, "headline": string, "subhead"?: string, "body"?: string, "cta"?: string, "background": "brand"|"light"|"dark", "layout": "left"|"centered"|"band"|"bold"|"split"|"minimal"}. ` +
     'Make the concepts genuinely different from each other: vary the angle and wording of the headline, the tone, the background mood, and the layout style across the set so the user has real choices, not minor rewrites. The headline is short and punchy (under 8 words). eyebrow is a 1-3 word kicker. subhead is one sentence. body is at most two short sentences and optional. cta is short when one fits. ' +
-    'Write in plain, confident, human words. No em dashes, no emoji, no markdown, no code fences, no prose outside the JSON.'
+    'Write in plain, confident, human words. No em dashes, no emoji, no markdown, no code fences, no prose outside the JSON.' +
+    GROUNDING_RULE +
+    ' Vary the angle, the tone and the wording across the set, never the facts: no concept may' +
+    ' carry a discount, date, venue or claim the brief does not contain.'
   try {
     const resp = await c.messages.create({
       model: resolveModel('document'),
@@ -5859,9 +5903,10 @@ export async function suggestDocContent(input: { prompt: string }): Promise<DocA
   const system =
     'You are a writing assistant embedded in a rich-text document editor. The user asks you to draft content, ' +
     'which will be previewed and then inserted at their cursor. Produce a genuinely useful, well-structured ' +
-    'draft, not an outline of placeholders. ' +
+    'draft. ' +
     DOC_HTML_CONTRACT +
-    DOC_STYLE_RULE
+    DOC_STYLE_RULE +
+    GROUNDING_RULE
   try {
     const resp = await c.messages.create({
       model: resolveModel('doc_rewrite'),
@@ -5895,7 +5940,9 @@ export async function rewriteSelection(input: { text: string; instruction: strin
     'You transform a passage of a document according to an instruction. Return ONLY the transformed passage, ' +
     'preserving the original meaning unless the instruction says otherwise. Do not add commentary or wrap the result in quotes. ' +
     DOC_HTML_CONTRACT +
-    DOC_STYLE_RULE
+    DOC_STYLE_RULE +
+    ' Rewriting is not licence to add: carry over only the facts the passage already contains,' +
+    ' and never introduce a figure, name, date or claim that was not in it.'
   try {
     const resp = await c.messages.create({
       model: resolveModel('doc_rewrite'),
@@ -6147,15 +6194,16 @@ export async function fillSheetRange(input: {
     'You generate spreadsheet data as JSON. Reply with ONLY a JSON object of the form ' +
     '{"rows": string[][]}. Each row must be an array of exactly ' +
     cols +
-    ' string cells, one per column, in the column order given. Produce realistic, useful values ' +
-    '(never "example 1"). For a computed column such as a total, rate or growth, put a real spreadsheet ' +
+    ' string cells, one per column, in the column order given. Produce useful values. ' +
+    'For a computed column such as a total, rate or growth, put a real spreadsheet ' +
     'formula starting with = that references A1-style cells, for example "=B2/B1-1". ' +
     (auto
       ? 'You are solving the user\'s problem, not illustrating it. Produce EVERY row the task genuinely ' +
         'requires to be complete and usable — for a project plan, every phase and step with no gaps; for a ' +
         'list, every real item. Do NOT stop at a few sample or explanatory rows, and do NOT pad with filler. '
       : '') +
-    'No markdown, no code fences, no prose outside the JSON.'
+    'No markdown, no code fences, no prose outside the JSON.' +
+    SHEET_DATA_RULE
   // Fallback system used only if a batch does not parse and was not truncated.
   // Some replies wrap the matrix in prose or pick a different shape; this is
   // maximally explicit and accepts a bare array, which parseSheetRows handles.
@@ -6164,7 +6212,8 @@ export async function fillSheetRange(input: {
     'Each row is an array of exactly ' +
     cols +
     ' string cells in the given column order. No object wrapper, no markdown, no code fences, no commentary. ' +
-    'Use real spreadsheet formulas starting with = for computed columns.'
+    'Use real spreadsheet formulas starting with = for computed columns.' +
+    SHEET_DATA_RULE
 
   // One attempt against a given system prompt + user message. Returns the parsed
   // matrix, or a discriminated failure so the caller can decide whether a retry
@@ -6312,7 +6361,8 @@ export async function generateSlideElements(input: {
     `Choose "theme" from exactly one of: ${themeIds}. ` +
     'Write one to three sentences of speaker notes per slide. ' +
     'No markdown, no code fences, no prose outside the JSON. ' +
-    'Write in plain, confident, human prose. Do not use em dashes or emoji. Do not use a bold label followed by a colon as a heading substitute.'
+    'Write in plain, confident, human prose. Do not use em dashes or emoji. Do not use a bold label followed by a colon as a heading substitute.' +
+    GROUNDING_RULE
   try {
     const resp = await c.messages.create({
       model: resolveModel('document'),
