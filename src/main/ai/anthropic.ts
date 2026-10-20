@@ -89,6 +89,7 @@ import { coerceAgentStatus, normalizeBlocker, enforceAgentStatus, parseVerifyRes
 import { parseBrowserEnvelope, buildBrowserAgentSystemPrompt, type BrowserEnvelope } from './browserAgentEnvelope'
 import { hasFindings, type BrowseFindings } from '@shared/browseFindings'
 import type { AgentStatus, AgentStepResult } from '@shared/types'
+import { GROUNDING_RULE, SHEET_DATA_RULE } from './groundingRules'
 import type {
   ActionProposal,
   ActivityEvent,
@@ -3904,38 +3905,6 @@ export interface PageContentSuggestion {
   error?: string
   needsApiKey?: boolean
 }
-
-/**
- * Why both rules exist: every other prompt in this file already forbids
- * invention, but the content GENERATORS did not, and one of them ("a genuinely
- * useful first draft ... not an outline of placeholders") actively pushed the
- * model to fill specifics in. A stronger model follows that more effectively,
- * so the better the model the more it fabricated: the local-AI eval scored the
- * cloud reference 4/9 on office tasks against the 4B's 6/9, marking Claude down
- * for "states unsupplied facts about the team's wiki" and an invented
- * power-drill statistic. The fix is not "invent nothing" — that yields the
- * empty skeleton the original clause rightly guarded against — but the
- * distinction it was missing: write the prose freely, never assert an
- * unsupplied specific as fact.
- */
-const GROUNDING_RULE =
-  ' Ground every specific in what you were given. Write the prose, the structure and ordinary' +
-  ' domain knowledge freely, because that is the draft and an empty skeleton is no use. But never' +
-  ' present an invented specific as fact: no statistic, study finding, quotation, price, date or' +
-  ' market figure you cannot source, and no detail about the reader\'s own world (their people,' +
-  ' customers, revenue, tools, deadlines or past decisions) that the request did not supply.' +
-  ' Where such a specific is genuinely needed and was not supplied, write a short bracketed' +
-  ' placeholder like [launch date] or [owner name] instead of a plausible guess. A placeholder' +
-  ' costs the user seconds to fill in; an invented figure they do not notice can reach a customer.' +
-  ' Prefer a shorter, fully grounded draft over a fuller one that is partly fiction.'
-
-const SHEET_DATA_RULE =
-  ' This data is a starting point the user will replace, so make the shape and formats realistic' +
-  ' (sensible column types, plausible magnitudes, consistent units and date formats) rather than' +
-  ' "example 1". Realistic shape is not licence to assert real-world facts: never give figures for' +
-  ' a named company, person, product or period as if they had been measured. When the task concerns' +
-  ' records the user already has and did not supply, leave clearly fillable placeholders rather' +
-  ' than inventing their numbers.'
 
 export async function suggestPageContent(
   prompt: string
