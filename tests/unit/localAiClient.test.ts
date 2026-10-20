@@ -170,7 +170,8 @@ describe('schema-constrained decoding and small-model variants', () => {
     setLocalClientOptions({ schemaDecoding: false })
     await runLocal(deps(e), body)
     expect(e.calls[1].jsonSchema).toBeUndefined()
-    setLocalClientOptions({ schemaDecoding: true })
+    // Leave the shipped default for the tests that follow.
+    setLocalClientOptions({ schemaDecoding: false })
   })
 
   it('adds explicit dates for chat only, never rewriting the call site prompt', () => {
@@ -182,7 +183,6 @@ describe('schema-constrained decoding and small-model variants', () => {
     expect(applyVariants('doc_rewrite', 'ORIGINAL PROMPT', now)).toBe('ORIGINAL PROMPT')
     setLocalClientOptions({ promptVariants: false })
     expect(applyVariants('chat', 'ORIGINAL PROMPT', now)).toBe('ORIGINAL PROMPT')
-    setLocalClientOptions({ promptVariants: true })
   })
 
   it('marks a reply that failed its contract twice as unusable', async () => {

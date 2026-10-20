@@ -12,6 +12,8 @@ import { serializeMentions, mentionKey, type ItemMention } from '../lib/itemMent
 import { usePeopleStore, personName } from '../lib/peopleDirectory'
 import { useAccountStore } from '../stores/account'
 import { parseSelectionList, normalizeSelectionText } from '../lib/selectionList'
+import AttentionOffNotice from './AttentionOffNotice'
+import { useWorkItemsCapability } from '../lib/workItemsCapability'
 
 // The ONE confirm stop (DEC-019), extracted so every capture surface renders
 // the SAME flow (DEC-028): the console overlay and the chat's inline card are
@@ -85,6 +87,7 @@ export default function AttentionConfirmCard({
   cancelLabel?: string
 }): JSX.Element {
   const createItem = useWorkItemStore((s) => s.create)
+  const attention = useWorkItemsCapability()
   const nodes = useNodeStore((s) => s.nodes)
   const reduceMotion = useReducedMotion()
   const updateFieldsStore = useWorkItemStore((s) => s.updateFields)
@@ -578,6 +581,17 @@ export default function AttentionConfirmCard({
     return (
       <div className="flex items-center gap-2 text-[12px] text-[var(--ink-40)] py-1.5">
         <Icon name="progress_activity" size={14} className="animate-spin" /> Classifying…
+      </div>
+    )
+  }
+
+  if (attention === 'off') {
+    return (
+      <div className="flex flex-col gap-2 py-1">
+        <AttentionOffNotice what="file this" />
+        <button onClick={onCancel} className="self-start fb-t-caption underline underline-offset-2 fb-press">
+          Back
+        </button>
       </div>
     )
   }

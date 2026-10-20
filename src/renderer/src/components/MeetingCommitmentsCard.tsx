@@ -9,6 +9,8 @@ import { useNoticeStore } from '../stores/notice'
 import { serializeMentions } from '../lib/itemMentions'
 import type { CarriedItem } from '@shared/meetings'
 import { buildMeetingMomentUrl } from '../lib/meetingLink'
+import AttentionOffNotice from './AttentionOffNotice'
+import { useWorkItemsCapability } from '../lib/workItemsCapability'
 
 // M3 (SPEC-003 §3.6) — the confirm stop for extracted commitments. This is
 // the screen that answers "nothing happens after": nothing files silently
@@ -115,6 +117,7 @@ export default function MeetingCommitmentsCard({
   onFiled: () => void
 }): JSX.Element | null {
   const createItem = useWorkItemStore((s) => s.create)
+  const attention = useWorkItemsCapability()
   const [rows, setRows] = useState(commitments)
   const [busy, setBusy] = useState(false)
   useEffect(() => setRows(commitments), [commitments])
@@ -196,6 +199,7 @@ export default function MeetingCommitmentsCard({
         </span>
         <span className="fb-t-caption text-[var(--ink-40)] ml-auto">nothing files until you say so</span>
       </div>
+      {attention === 'off' && <AttentionOffNotice what="file these as work items" className="mb-2" />}
       <div className="space-y-1.5">
         {rows.map((c, idx) => (
           <div
@@ -266,7 +270,7 @@ export default function MeetingCommitmentsCard({
         <span className="fb-t-caption text-[var(--ink-40)] flex-1">everything stays on this meeting’s desk</span>
         <button
           onClick={() => void fileChecked()}
-          disabled={busy || checkedCount === 0}
+          disabled={busy || checkedCount === 0 || attention === 'off'}
           className="btn-primary !h-8"
           data-testid="file-commitments"
         >
