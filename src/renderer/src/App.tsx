@@ -546,7 +546,7 @@ export default function App(): JSX.Element {
 
   return (
     <div className="fb-app-shell flex flex-col">
-      {/* Reports aggregate usage telemetry while signed in (admin Analytics). */}
+      {/* Opt-in usage + crash reporting while signed in; sends nothing unless the person turned it on in Settings > Privacy. */}
       <TelemetryReporter />
       {/* Keeps every desk with a public link up to date. Mounted at the root
           because publishing belongs to the app: it used to run only while the

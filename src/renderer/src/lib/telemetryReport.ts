@@ -2,6 +2,12 @@
 // from TelemetryReporter so the retry behaviour is unit-testable without
 // rendering the React effect: the component wires real collect/fetch, tests
 // pass fakes.
+//
+// Consent is checked here, at every attempt, not only by the caller: usage
+// reporting is opt-in (telemetryPrefs), so with the preference unset or off this
+// sends nothing, whoever calls it.
+
+import { telemetryEnabled } from './telemetryPrefs'
 
 export interface TelemetrySnapshotLike {
   appVersion: string
@@ -21,11 +27,15 @@ export interface DeliverOptions {
   retryDelaysMs?: number[]
   sleep?: (ms: number) => Promise<void>
   isCancelled?: () => boolean
+  // The consent check. Defaults to the real opt-in preference; tests may
+  // inject one. Re-read before every attempt so turning it off mid-retry stops.
+  enabled?: () => boolean
 }
 
 const defaultSleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
 async function postOnce(opts: DeliverOptions): Promise<boolean> {
+  if (!(opts.enabled ?? telemetryEnabled)()) return false
   const f = opts.fetchImpl ?? fetch
   try {
     const snapshot = await opts.collect()
@@ -46,9 +56,11 @@ async function postOnce(opts: DeliverOptions): Promise<boolean> {
 export async function deliverTelemetry(opts: DeliverOptions): Promise<boolean> {
   const delays = opts.retryDelaysMs ?? [1500, 5000]
   const sleep = opts.sleep ?? defaultSleep
+  const enabled = opts.enabled ?? telemetryEnabled
+  if (!enabled()) return false
   if (await postOnce(opts)) return true
   for (const delay of delays) {
-    if (opts.isCancelled?.()) return false
+    if (opts.isCancelled?.() || !enabled()) return false
     if (delay > 0) await sleep(delay)
     if (opts.isCancelled?.()) return false
     if (await postOnce(opts)) return true

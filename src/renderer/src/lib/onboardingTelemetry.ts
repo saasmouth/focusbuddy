@@ -2,7 +2,7 @@
 // telemetry snapshot up to the signal server and shows in the admin as a per-
 // user "onboarded" record. Best-effort and privacy-preserving: it sends only
 // aggregate flags (core done, how many modules completed, the last module id and
-// outcome), never document content. Respects the same telemetry opt-out as the
+// outcome), never document content. Respects the same opt-in (default off) as the
 // usage snapshot because it flows through the same /telemetry pipeline.
 
 const STATE_KEY = 'fb.onboarding.v2'

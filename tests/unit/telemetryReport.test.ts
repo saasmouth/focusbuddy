@@ -3,6 +3,9 @@ import { deliverTelemetry } from '../../src/renderer/src/lib/telemetryReport'
 
 const snapshot = { appVersion: '2.5.25', platform: 'mac', widgetTotal: 3 }
 const collect = () => Promise.resolve(snapshot)
+// These cover delivery mechanics for a person who opted in; the consent gate
+// itself is held by telemetryOptIn.test.tsx.
+const enabled = (): boolean => true
 const noWait = async (): Promise<void> => {}
 
 function okFetch(): typeof fetch {
@@ -12,7 +15,7 @@ function okFetch(): typeof fetch {
 describe('deliverTelemetry — robust telemetry delivery', () => {
   it('posts the snapshot to /telemetry with the bearer token on the first try', async () => {
     const f = okFetch()
-    const ok = await deliverTelemetry({ httpUrl: 'https://sig.test', token: 'tok123', collect, fetchImpl: f })
+    const ok = await deliverTelemetry({ httpUrl: 'https://sig.test', token: 'tok123', collect, fetchImpl: f, enabled })
     expect(ok).toBe(true)
     expect(f).toHaveBeenCalledTimes(1)
     const [url, init] = (f as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
@@ -32,6 +35,7 @@ describe('deliverTelemetry — robust telemetry delivery', () => {
       httpUrl: 'https://sig.test',
       token: 't',
       collect,
+      enabled,
       fetchImpl: f as unknown as typeof fetch,
       retryDelaysMs: [0, 0],
       sleep: noWait
@@ -46,6 +50,7 @@ describe('deliverTelemetry — robust telemetry delivery', () => {
       httpUrl: 'https://sig.test',
       token: 't',
       collect,
+      enabled,
       fetchImpl: f as unknown as typeof fetch,
       retryDelaysMs: [0, 0],
       sleep: noWait
@@ -60,6 +65,7 @@ describe('deliverTelemetry — robust telemetry delivery', () => {
       httpUrl: 'https://sig.test',
       token: 't',
       collect,
+      enabled,
       fetchImpl: f as unknown as typeof fetch,
       retryDelaysMs: [],
       sleep: noWait
@@ -74,6 +80,7 @@ describe('deliverTelemetry — robust telemetry delivery', () => {
       httpUrl: 'https://sig.test',
       token: 't',
       collect,
+      enabled,
       fetchImpl: f,
       isCancelled: () => true
     })
