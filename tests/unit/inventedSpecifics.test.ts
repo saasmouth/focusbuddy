@@ -247,6 +247,40 @@ describe('confidence', () => {
   })
 })
 
+describe('HTML output', () => {
+  // suggestDocContent and rewriteSelection return HTML fragments
+  // (DOC_HTML_CONTRACT), so quoted attribute values are the NORMAL case for
+  // them. Measured on a 3-sample local run before this was fixed: 36 of 141
+  // flags were CSS out of style="...", all of them high confidence, so all of
+  // them would have been repaired — and repairing a style attribute corrupts
+  // the markup it is part of.
+  const brief = 'Draft a kickoff email for the Pulse launch.'
+
+  it('does not read a style attribute as a fabricated quotation', () => {
+    const html =
+      '<h3 style="color: #1e3c72; font-size: 18px; margin-top: 0;">Pulse Launch</h3>' +
+      '<p>Follow up on the kickoff.</p>' +
+      '<hr style="border: 1px solid #e0e0e0; margin: 24px 0;" />'
+    const r = checkInventedSpecifics(html, brief)
+    expect(r.flagged.map((f) => f.span)).toEqual([])
+  })
+
+  it('still catches an invented specific in the prose between tags', () => {
+    // Guards the mask against hiding the content it sits around.
+    const html =
+      '<p style="color: #333">Adoption rose 40% and the file is named ' +
+      '&ldquo;Pulse-Launch-2024&rdquo;.</p>'
+    const spans = checkInventedSpecifics(html, brief).flagged.map((f) => f.span)
+    expect(spans).toContain('40%')
+  })
+
+  it('keeps numbers in prose that merely uses angle brackets', () => {
+    // The mask requires a letter after "<" so arithmetic survives.
+    const r = checkInventedSpecifics('Alert when x < 5 and y > 3 for 12 minutes.', 'Describe the alert.')
+    expect(r.flagged.map((f) => f.span)).toContain('12 minutes')
+  })
+})
+
 describe('options', () => {
   it('allowNewNames lets a naming exercise through but still catches figures', () => {
     const out = 'Introducing Lumen Flask, yours for $39.'

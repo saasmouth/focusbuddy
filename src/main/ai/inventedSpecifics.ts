@@ -163,18 +163,34 @@ function digits(s: string): string {
  * Remove the regions where a specific is not a factual assertion:
  *
  *  - fenced and inline code, and spreadsheet formulas, where digits are syntax;
+ *  - HTML tags, because an attribute value is syntax wearing quotation marks.
+ *    This one was measured, not guessed: on a 3-sample local run, 36 of 141
+ *    flags (26%) were CSS out of style="..." — 'color: #1e3c72; font-size:
+ *    18px' read as a fabricated quotation. Every one was high confidence, so
+ *    every one would have been REPAIRED, and repairing a style attribute
+ *    corrupts the markup. suggestDocContent and rewriteSelection both emit
+ *    HTML fragments (see DOC_HTML_CONTRACT), so this is the normal case for
+ *    them, not an edge case;
  *  - bracketed placeholders, because GROUNDING_RULE instructs the model to
  *    write "[launch date]" and flagging its own prescribed output would make
  *    the checker fight the rule it exists to enforce.
  *
  * Regions are blanked rather than deleted so every reported index still points
- * into the original string.
+ * into the original string, and they are blanked with NUL rather than spaces.
+ * Spaces looked harmless and were not: a masked tag became a run of spaces,
+ * \s+ in the name detector bridged it, and '<h3 ...>Pulse Launch</h3><p>Follow
+ * up' was reported as the name "Pulse Launch        Follow". NUL preserves the
+ * offsets exactly as spaces did, but no detector can match across it, so
+ * masking can only ever remove a finding and never invent one.
  */
 function maskNonAssertions(text: string): string {
-  const blank = (m: string): string => ' '.repeat(m.length)
+  const blank = (m: string): string => '\0'.repeat(m.length)
   return text
     .replace(/```[\s\S]*?```/g, blank)
     .replace(/`[^`\n]*`/g, blank)
+    // A letter must follow "<" so that prose like "if x < 5 and y > 3" keeps
+    // its numbers; only something shaped like a tag is masked.
+    .replace(/<\/?[a-zA-Z][^>]*>/g, blank)
     .replace(/^\s*=[^\n]*/gm, blank)
     .replace(/\[[^\]\n]{0,80}\]/g, blank)
 }
