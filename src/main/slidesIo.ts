@@ -513,25 +513,131 @@ function slideShapes(
       continue
     }
     const spPr = /<p:spPr\b[^>]*>([\s\S]*?)<\/p:spPr>/.exec(sp)?.[1] ?? sp
-    const off = /<a:off\s+x="(-?\d+)"\s+y="(-?\d+)"/.exec(spPr)
-    const ext = /<a:ext\s+cx="(\d+)"\s+cy="(\d+)"/.exec(spPr)
-    if (!off || !ext) continue // no transform of its own; we do not resolve layouts
+    // Placeholders were skipped above, so there is no layout box to inherit
+    // here: a non-placeholder shape either declares its own transform or
+    // cannot be placed, and guessing a position would move someone's artwork.
+    const box = ownBox(spPr)
+    if (!box) continue
     const fill = shapeFill(spPr, theme)
     const border = shapeBorder(spPr, theme)
     shapes.push({
       id: `shp-${slideIndex}-${idx++}`,
       type: 'shape',
       shape,
-      x: Math.round((Number(off[1]) / sldCx) * SLIDE_W),
-      y: Math.round((Number(off[2]) / sldCy) * SLIDE_H),
-      w: Math.round((Number(ext[1]) / sldCx) * SLIDE_W),
-      h: Math.round((Number(ext[2]) / sldCy) * SLIDE_H),
+      ...toLogical(box, sldCx, sldCy),
       z: 50 + idx,
       ...(fill ? { fill } : {}),
       ...(border ? { border } : {})
     })
   }
   return { shapes, skipped }
+}
+
+// ── Layout and master inheritance ─────────────────────────────────────────────
+//
+// A placeholder on a slide usually carries no <a:xfrm> of its own: its position
+// lives in the slide layout, and failing that the slide master. Without
+// following that chain, anything without its own transform had to be skipped,
+// and the title and bullets landed at our default positions rather than where
+// the deck put them.
+export interface PhBox { x: number; y: number; cx: number; cy: number }
+
+/** Follow one part's .rels to the first target matching `pattern`. */
+function relTarget(
+  files: Record<string, Uint8Array>,
+  partKey: string,
+  pattern: RegExp,
+  strFromU8: (u: Uint8Array) => string
+): string | null {
+  const dir = partKey.slice(0, partKey.lastIndexOf('/'))
+  const base = partKey.slice(partKey.lastIndexOf('/') + 1)
+  const rels = files[`${dir}/_rels/${base}.rels`]
+  if (!rels) return null
+  for (const rel of strFromU8(rels).match(/<Relationship\b[^>]*\/?>/g) ?? []) {
+    const target = /Target="([^"]+)"/.exec(rel)?.[1]
+    if (target && pattern.test(target)) {
+      // Targets are relative to the part's own folder.
+      return target.startsWith('/')
+        ? target.slice(1)
+        : new URL(target, `file:///${dir}/`).pathname.replace(/^\//, '')
+    }
+  }
+  return null
+}
+
+/** Placeholder boxes declared by one part, keyed by "idx:N" and "type:T". */
+function phBoxesIn(xml: string): Map<string, PhBox> {
+  const out = new Map<string, PhBox>()
+  for (const chunk of xml.split(/<p:sp>/).slice(1)) {
+    const sp = chunk.split(/<\/p:sp>/)[0]
+    const ph = /<p:ph\b[^>]*\/?>/.exec(sp)?.[0]
+    if (!ph) continue
+    const off = /<a:off\s+x="(-?\d+)"\s+y="(-?\d+)"/.exec(sp)
+    const ext = /<a:ext\s+cx="(\d+)"\s+cy="(\d+)"/.exec(sp)
+    if (!off || !ext) continue
+    const box: PhBox = { x: Number(off[1]), y: Number(off[2]), cx: Number(ext[1]), cy: Number(ext[2]) }
+    const idx = /\bidx="(\d+)"/.exec(ph)?.[1]
+    // An absent type attribute means body, per the OOXML default.
+    const type = /\btype="(\w+)"/.exec(ph)?.[1] ?? 'body'
+    if (idx && !out.has(`idx:${idx}`)) out.set(`idx:${idx}`, box)
+    if (!out.has(`type:${type}`)) out.set(`type:${type}`, box)
+  }
+  return out
+}
+
+/**
+ * The placeholder geometry a slide inherits: its layout's boxes, with the
+ * master's underneath for anything the layout leaves undeclared.
+ */
+export function inheritedPhBoxes(
+  files: Record<string, Uint8Array>,
+  slideName: string,
+  strFromU8: (u: Uint8Array) => string
+): Map<string, PhBox> {
+  const layoutKey = relTarget(files, slideName, /slideLayout\d+\.xml$/, strFromU8)
+  const masterKey = layoutKey ? relTarget(files, layoutKey, /slideMaster\d+\.xml$/, strFromU8) : null
+  const merged = new Map<string, PhBox>()
+  // Master first, so the layout's own boxes overwrite it.
+  for (const key of [masterKey, layoutKey]) {
+    if (!key || !files[key]) continue
+    for (const [k, v] of phBoxesIn(strFromU8(files[key]))) merged.set(k, v)
+  }
+  return merged
+}
+
+/** A shape's own <a:xfrm> box, if it declares one. */
+function ownBox(spPr: string): PhBox | undefined {
+  const off = /<a:off\s+x="(-?\d+)"\s+y="(-?\d+)"/.exec(spPr)
+  const ext = /<a:ext\s+cx="(\d+)"\s+cy="(\d+)"/.exec(spPr)
+  return off && ext
+    ? { x: Number(off[1]), y: Number(off[2]), cx: Number(ext[1]), cy: Number(ext[2]) }
+    : undefined
+}
+
+/** An EMU box in our logical space. */
+function toLogical(b: PhBox, sldCx: number, sldCy: number): { x: number; y: number; w: number; h: number } {
+  return {
+    x: Math.round((b.x / sldCx) * SLIDE_W),
+    y: Math.round((b.y / sldCy) * SLIDE_H),
+    w: Math.round((b.cx / sldCx) * SLIDE_W),
+    h: Math.round((b.cy / sldCy) * SLIDE_H)
+  }
+}
+
+/** The inherited box for a shape's <p:ph>, by idx first and then by type. */
+function boxForPh(ph: string, boxes: Map<string, PhBox>): PhBox | undefined {
+  const idx = /\bidx="(\d+)"/.exec(ph)?.[1]
+  if (idx && boxes.has(`idx:${idx}`)) return boxes.get(`idx:${idx}`)
+  const type = /\btype="(\w+)"/.exec(ph)?.[1] ?? 'body'
+  if (boxes.has(`type:${type}`)) return boxes.get(`type:${type}`)
+  // ctrTitle and title are the same slot as far as position goes; same for the
+  // body-ish variants, which layouts name inconsistently.
+  const alias: Record<string, string[]> = {
+    title: ['ctrTitle'], ctrTitle: ['title'],
+    body: ['subTitle', 'obj'], subTitle: ['body'], obj: ['body']
+  }
+  for (const a of alias[type] ?? []) if (boxes.has(`type:${a}`)) return boxes.get(`type:${a}`)
+  return undefined
 }
 
 // ── Rich text boxes ───────────────────────────────────────────────────────────
@@ -612,17 +718,13 @@ function slideTextBoxes(
     const paragraphs = richParagraphs(tx, theme, ptToLogical)
     if (!paragraphs.length) continue
     const spPr = /<p:spPr\b[^>]*>([\s\S]*?)<\/p:spPr>/.exec(shape)?.[1] ?? shape
-    const off = /<a:off\s+x="(-?\d+)"\s+y="(-?\d+)"/.exec(spPr)
-    const ext = /<a:ext\s+cx="(\d+)"\s+cy="(\d+)"/.exec(spPr)
-    if (!off || !ext) continue // no transform of its own; layouts are not resolved
+    const box = ownBox(spPr)
+    if (!box) continue
     const anchor = /\banchor="(t|ctr|b)"/.exec(tx)?.[1]
     out.push({
       id: `txt-${slideIndex}-${idx++}`,
       type: 'text',
-      x: Math.round((Number(off[1]) / sldCx) * SLIDE_W),
-      y: Math.round((Number(off[2]) / sldCy) * SLIDE_H),
-      w: Math.round((Number(ext[1]) / sldCx) * SLIDE_W),
-      h: Math.round((Number(ext[2]) / sldCy) * SLIDE_H),
+      ...toLogical(box, sldCx, sldCy),
       z: 70 + idx,
       paragraphs,
       ...(anchor === 'ctr' ? { vAlign: 'middle' as const } : anchor === 'b' ? { vAlign: 'bottom' as const } : {})
@@ -824,6 +926,7 @@ export async function parsePptx(data: Uint8Array, name: string): Promise<SlidesI
     // Attach imported pictures and tables onto each migrated slide's element list
     // so they render alongside the title/body text rather than being dropped.
     body.slides.forEach((slide, i) => {
+      const phBoxes = inheritedPhBoxes(files, slideNames[i], strFromU8)
       const shapeResult = slideShapes(strFromU8(files[slideNames[i]]), i, sldCx, sldCy, theme)
       skippedShapes += shapeResult.skipped
       const extras = [
@@ -833,6 +936,17 @@ export async function parsePptx(data: Uint8Array, name: string): Promise<SlidesI
         ...slideTables(strFromU8(files[slideNames[i]]), i, sldCx, sldCy),
         ...slideCharts(files, slideNames[i], strFromU8, i, sldCx, sldCy)
       ]
+      // The title and bullets become elements during migration, at our default
+      // positions. Where the deck's layout declares where its title and body
+      // belong, use that instead, so an imported slide keeps its composition
+      // rather than being re-laid-out as a generic one.
+      for (const el of slide.elements ?? []) {
+        if (el.type !== 'text') continue
+        const role = el.styleRole
+        if (role !== 'title' && role !== 'body') continue
+        const box = boxForPh(`<p:ph type="${role}"/>`, phBoxes)
+        if (box) Object.assign(el, toLogical(box, sldCx, sldCy))
+      }
       if (extras.length) slide.elements = [...(slide.elements ?? []), ...extras]
     })
 
