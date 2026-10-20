@@ -1,0 +1,83 @@
+// @vitest-environment node
+import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { friendlyWorkItemError } from '../../src/renderer/src/stores/workItems'
+
+// The Attention layer ships OFF — a per-device opt-in — so a work-item create
+// can legitimately be refused. What reached the user was the raw IPC rejection:
+//
+//   Error invoking remote method 'workItems:create': Error: Work items are not
+//   enabled.
+//
+// That names an IPC channel and an internal flag and says nothing about the
+// switch in Settings that turns it on, so the only honest reading of it is
+// "the app is broken". None of the five call sites that create work items
+// checked the capability first, so the translation belongs in the store.
+
+describe('a refused work-item create explains itself', () => {
+  const raw = (m: string) => new Error(`Error invoking remote method 'workItems:create': Error: ${m}`)
+
+  it('points at the Settings switch when the layer is off', () => {
+    const msg = friendlyWorkItemError(raw('Work items are not enabled.')).message
+    expect(msg).toMatch(/turned off/i)
+    expect(msg).toMatch(/settings/i)
+    expect(msg).toMatch(/attention/i)
+    // The thing that made the original useless: implementation detail as the
+    // entire user-facing explanation.
+    expect(msg).not.toMatch(/invoking remote method|workItems:create/i)
+  })
+
+  it('explains an un-migrated device', () => {
+    const msg = friendlyWorkItemError(raw('This device has not migrated for work items yet.')).message
+    expect(msg).toMatch(/restart/i)
+    expect(msg).not.toMatch(/invoking remote method/i)
+  })
+
+  it('explains the personal-only case', () => {
+    const msg = friendlyWorkItemError(raw('Work items are personal-only for this org.')).message
+    expect(msg).toMatch(/this device/i)
+    expect(msg).not.toMatch(/invoking remote method/i)
+  })
+
+  it('passes an unrelated error through unchanged', () => {
+    // A translator that rewrites everything hides real failures.
+    const e = new Error('database is locked')
+    expect(friendlyWorkItemError(e)).toBe(e)
+  })
+
+  it('survives a non-Error rejection', () => {
+    expect(friendlyWorkItemError('plain string').message).toBe('plain string')
+  })
+})
+
+describe("the document editor's chrome stays put when the page scrolls", () => {
+  // The formatting toolbar had been sticky on its own (Toolbar.tsx), which was
+  // worse than neither being sticky: scrolling slid File/View/Tools out of
+  // reach while the formatting row stayed behind, so the chrome came apart and
+  // the menus you reach for most were the ones that left. Doc was the only
+  // editor with this problem — Sheet, Slides, Design, Map and DrawStudio all
+  // mount their menu bar as a flex sibling of the scrolling body, so it never
+  // moved there.
+  const src = readFileSync(
+    join(__dirname, '..', '..', 'src/renderer/src/components/documents/DocEditor.tsx'),
+    'utf8'
+  )
+
+  it('pins the menu bar and the toolbar in one block', () => {
+    expect(src).toMatch(/className="sticky top-0 z-20 -mx-8 px-8 bg-paper\/95 backdrop-blur"/)
+  })
+
+  it('keeps an opaque background, because document text scrolls underneath', () => {
+    const sticky = /className="sticky top-0[^"]*"/.exec(src)?.[0] ?? ''
+    expect(sticky).toMatch(/bg-paper/)
+  })
+
+  it('still mounts the menu bar inside the pinned block, above the toolbar', () => {
+    const start = src.indexOf('sticky top-0 z-20 -mx-8')
+    const menu = src.indexOf('<DocMenuBar', start)
+    const toolbar = src.indexOf('<Toolbar', start)
+    expect(menu).toBeGreaterThan(start)
+    expect(toolbar).toBeGreaterThan(menu)
+  })
+})

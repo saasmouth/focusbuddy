@@ -716,7 +716,16 @@ export default function DocEditor({
       {!focusMode && (
         <div className="max-w-3xl mx-auto px-8 pt-6">
           {/* Google-Docs-style menu bar sits above the formatting toolbar. Every
-              item is wired to a real editor command, store action or export. */}
+              item is wired to a real editor command, store action or export.
+
+              Menu bar AND toolbar pin together. The toolbar has been sticky on
+              its own for a while, which was worse than neither being sticky:
+              scrolling slid File/View/Tools out of reach while the formatting
+              row stayed, so the chrome came apart and the menus you reach for
+              most were the ones that left. Both live in one sticky block now,
+              and the background is opaque because document text scrolls
+              underneath it. */}
+          <div className="sticky top-0 z-20 -mx-8 px-8 bg-paper/95 backdrop-blur">
           <div className="mb-1.5 pb-1.5 border-b border-[var(--edge-soft)]">
             <DocMenuBar
               editor={editor}
@@ -750,6 +759,7 @@ export default function DocEditor({
             onExportDocx={() => void exportDocx()}
             onExportPdf={() => void exportPdf()}
           />
+          </div>
 
           <div className="flex items-center gap-2 mt-2 mb-3 text-[11px] text-[var(--ink-50)] flex-wrap">
             <ReadingMeta editor={editor} />
