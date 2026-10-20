@@ -15,6 +15,7 @@ vi.mock('../../src/renderer/src/components/Icon', () => ({
 
 import PrivacyHelpSection from '../../src/renderer/src/components/settings/PrivacyHelpSection'
 import { localOnlyMode } from '../../src/renderer/src/lib/localOnlyMode'
+import { useCapabilityStore } from '../../src/renderer/src/stores/capabilities'
 import {
   crashReportsEnabled,
   setTelemetryEnabled,
@@ -42,6 +43,7 @@ let api: {
 
 beforeEach(() => {
   localStorage.clear()
+  useCapabilityStore.setState({ serverFeatures: [] })
   mainPrefs = { autoUpdateChecks: true, backgroundAi: false }
   api = {
     files: { openExternal: vi.fn() },
@@ -164,5 +166,18 @@ describe('Privacy settings', () => {
     expect(localOnlyMode()).toBe(true)
     expect(box('privacy-keep-local-toggle').checked).toBe(true)
     expect(host.querySelector('[data-testid="privacy-keep-local-note"]')?.textContent).toMatch(/not turned back on/)
+  })
+
+  it('claims server enforcement only when the server advertises it', () => {
+    mount()
+    expect(host.querySelector('[data-testid="privacy-server-enforced"]')).toBeNull()
+    expect(host.textContent).not.toMatch(/Our server refuses/)
+    act(() => root.unmount())
+    host.remove()
+    useCapabilityStore.setState({ serverFeatures: ['account_privacy', 'consent_enforced'] })
+    mount()
+    expect(host.querySelector('[data-testid="privacy-server-enforced"]')?.textContent).toMatch(
+      /refuses them from anyone who has not turned them on/
+    )
   })
 })

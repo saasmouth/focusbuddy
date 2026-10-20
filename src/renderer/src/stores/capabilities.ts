@@ -56,6 +56,11 @@ interface CapabilityStore {
   // the server did not say (an older server): treated as verified, because
   // accounts that existed before verification count as verified.
   emailVerified: boolean | null
+  // Features the signal server says it supports (`serverFeatures` on
+  // /account/capabilities, from the 4.3.34 server). Empty for an older server
+  // or while signed out, so a control that needs a newer route stays hidden
+  // instead of failing. See useServerFeature.
+  serverFeatures: string[]
   // When the plan is paid from the referral credit bank (section 4b), the date
   // the bank covers it until. null otherwise.
   creditPaidUntil: number | null
@@ -130,6 +135,7 @@ export const useCapabilityStore = create<CapabilityStore>((set, get) => ({
   storedTier: 'free',
   plan: 'free',
   emailVerified: null,
+  serverFeatures: [],
   creditPaidUntil: null,
   trial: DEFAULT_TRIAL,
   capabilities: localMap('free'),
@@ -161,6 +167,7 @@ export const useCapabilityStore = create<CapabilityStore>((set, get) => ({
         storedTier: 'free',
         plan: 'free',
         emailVerified: null,
+        serverFeatures: [],
         creditPaidUntil: null,
         trial: DEFAULT_TRIAL,
         capabilities: localMap('free'),
@@ -193,6 +200,7 @@ export const useCapabilityStore = create<CapabilityStore>((set, get) => ({
             storedTier: 'free',
             plan: 'free',
             emailVerified: null,
+        serverFeatures: [],
             creditPaidUntil: null,
             trial: DEFAULT_TRIAL,
             capabilities: localMap('free'),
@@ -223,6 +231,7 @@ export const useCapabilityStore = create<CapabilityStore>((set, get) => ({
         // Growth (Oct 2026) fields; absent on older servers.
         plan?: string
         emailVerified?: boolean
+        serverFeatures?: unknown
         creditPaidUntil?: number | string | null
       }
       if (!body.ok || !body.tier || !body.capabilities) {
@@ -242,6 +251,9 @@ export const useCapabilityStore = create<CapabilityStore>((set, get) => ({
         storedTier,
         plan,
         emailVerified: typeof body.emailVerified === 'boolean' ? body.emailVerified : null,
+        serverFeatures: Array.isArray(body.serverFeatures)
+          ? body.serverFeatures.filter((f): f is string => typeof f === 'string')
+          : [],
         creditPaidUntil: toEpochMs(body.creditPaidUntil),
         trial,
         capabilities: body.capabilities,
@@ -275,6 +287,21 @@ export function usePlan(): PlanId {
 }
 
 /** Hook — false only when the server says the email is NOT verified yet. */
+// The server features a control depends on (see serverFeatures above):
+//   account_privacy       PUT /account/privacy (lib/privacyServer)
+//   consent_enforced      the server refuses unconsented reports and deletes on opt-out
+//   account_delete        Delete my account and data (password re-auth)
+//   account_delete_email  the emailed-code path for accounts without a password
+export type ServerFeature = 'account_privacy' | 'consent_enforced' | 'account_delete' | 'account_delete_email'
+
+export function serverSupports(feature: ServerFeature): boolean {
+  return useCapabilityStore.getState().serverFeatures.includes(feature)
+}
+
+export function useServerFeature(feature: ServerFeature): boolean {
+  return useCapabilityStore((s) => s.serverFeatures.includes(feature))
+}
+
 export function useEmailUnverified(): boolean {
   return useCapabilityStore((s) => s.emailVerified === false)
 }

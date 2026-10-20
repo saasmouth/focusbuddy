@@ -11,8 +11,10 @@ const client = vi.hoisted(() => ({
   requestDeleteEmailCode: vi.fn()
 }))
 vi.mock('../../src/renderer/src/lib/accountClient', () => client)
+const features = vi.hoisted(() => ({ list: ['account_delete', 'account_delete_email'] as string[] }))
 vi.mock('../../src/renderer/src/stores/capabilities', () => ({
-  useCapabilityStore: { getState: () => ({ refresh: vi.fn() }) }
+  useCapabilityStore: { getState: () => ({ refresh: vi.fn() }) },
+  useServerFeature: (f: string) => features.list.includes(f)
 }))
 
 import DeleteAccountPanel from '../../src/renderer/src/components/settings/DeleteAccountPanel'
@@ -36,7 +38,13 @@ const flush = async (): Promise<void> => {
   })
 }
 
+function remount(): void {
+  act(() => root.render(<></>))
+  act(() => root.render(<DeleteAccountPanel />))
+}
+
 beforeEach(() => {
+  features.list = ['account_delete', 'account_delete_email']
   client.deleteMyAccount.mockReset()
   client.requestDeleteEmailCode.mockReset()
   ;(window as unknown as { api: unknown }).api = { account: { clearSession: vi.fn(async () => {}) } }
@@ -101,5 +109,21 @@ describe('Delete my account and data', () => {
     act(() => q<HTMLButtonElement>('account-delete-submit').click())
     await flush()
     expect(client.deleteMyAccount).toHaveBeenCalledWith('tok', { emailCode: '123456' })
+  })
+
+  it('against a server without the route: no button, just how to ask instead', () => {
+    features.list = []
+    remount()
+    expect(q('account-delete-open')).toBeNull()
+    expect(q('account-delete-unavailable')?.textContent).toMatch(/connect@plexiidesk\.com/)
+    expect(q('account-delete-unavailable')?.textContent).toMatch(/next server update/)
+  })
+
+  it('without the emailed-code route, the no-password option is not offered', () => {
+    features.list = ['account_delete']
+    remount()
+    act(() => q<HTMLButtonElement>('account-delete-open').click())
+    expect(q('account-delete-password')).not.toBeNull()
+    expect(q('account-delete-use-email-code')).toBeNull()
   })
 })
