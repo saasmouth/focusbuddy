@@ -116,7 +116,18 @@ describe('the Plexii spelling', () => {
     for (const file of walk(SRC)) {
       const rel = relative(SRC, file).split('\\').join('/')
       if (ALLOWED_FILES[rel]) continue
-      offenders.push(...offendersIn(rel, readFileSync(file, 'utf8'), file.endsWith('.tsx')))
+      const src = readFileSync(file, 'utf8')
+      // CHEAP CHECK FIRST, as in officeAppNames. offendersIn parses the file
+      // with the TypeScript compiler; over the whole renderer that is
+      // seconds, and it was tipping this guard past its budget whenever the
+      // machine was also running a build or another suite — a flake that
+      // varied run to run and said nothing about the code.
+      //
+      // A file with no `Plexi<Capital>` anywhere cannot have one in its UI
+      // text, so parsing it can only confirm what the substring said. Every
+      // file that could offend is still parsed exactly as before.
+      if (!OLD.test(src)) continue
+      offenders.push(...offendersIn(rel, src, file.endsWith('.tsx')))
     }
     expect(offenders, offenders.join('\n')).toEqual([])
   })

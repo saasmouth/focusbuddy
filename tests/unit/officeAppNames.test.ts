@@ -68,7 +68,19 @@ describe('the office app names', () => {
     for (const file of walk(SRC)) {
       const rel = relative(SRC, file).split('\\').join('/')
       if (SKIP.has(rel)) continue
-      for (const t of uiTexts(readFileSync(file, 'utf8'), file.endsWith('.tsx')))
+      const src = readFileSync(file, 'utf8')
+      // CHEAP CHECK FIRST. uiTexts parses the file with the TypeScript
+      // compiler, which over the whole renderer is seconds of work and was
+      // tipping this test past its 30s budget whenever the machine was also
+      // running a build or another suite — a flake that varied run to run
+      // and said nothing about the code.
+      //
+      // A file that does not contain a retired name as a SUBSTRING cannot
+      // contain one in its UI text either, so parsing it can only confirm
+      // what the substring already told us. The guard is unchanged: every
+      // file that could offend is still parsed exactly as before.
+      if (!RETIRED.test(src)) continue
+      for (const t of uiTexts(src, file.endsWith('.tsx')))
         if (RETIRED.test(t) && !isImportPath(t)) offenders.push(`${rel}: ${t.trim().slice(0, 140)}`)
     }
     expect(offenders, offenders.join('\n')).toEqual([])
