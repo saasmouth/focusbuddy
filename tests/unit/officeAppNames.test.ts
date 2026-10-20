@@ -23,7 +23,7 @@ import { PLEXI_PRODUCTS } from '../../src/shared/plexiSuite'
 const SRC = join(__dirname, '..', '..', 'src')
 
 // The retired product names, in either spelling.
-const RETIRED = /\bPlexii? ?(Docs|Sheets|Slides|Meet)\b/
+const RETIRED = /\bPlexii? ?(Docs?|Sheets?|Slides?|Meet)\b/
 
 // History keeps the names each release shipped with; the SQL schema's comments
 // are stored DDL, not something a person reads.
@@ -112,8 +112,8 @@ describe('the office app names', () => {
 
   it('the scanner catches a retired name and lets the new ones through', () => {
     const sample = `const a = 'Open PlexiiDocs'; const b = <h1>PlexiSheets</h1>; const c = 'PlexiiWrite'
-      const d = 'Google Docs'; const e = 'pleximeet'; const g = 'A Plexii Meet room'; // PlexiiSlides in a comment is fine`
+      const d = 'Google Docs'; const e = 'pleximeet'; const g = 'A Plexii Meet room'; const h = 'From a PlexiiDoc'; // PlexiiSlides in a comment is fine`
     const found = uiTexts(sample, true).filter((t) => RETIRED.test(t))
-    expect(found.sort()).toEqual(['A Plexii Meet room', 'Open PlexiiDocs', 'PlexiSheets'])
+    expect(found.sort()).toEqual(['A Plexii Meet room', 'From a PlexiiDoc', 'Open PlexiiDocs', 'PlexiSheets'])
   })
 })
