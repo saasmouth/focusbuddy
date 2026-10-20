@@ -38,6 +38,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.39-local.1',
+    date: '2026-10-21T18:00:00Z',
+    title: 'PlexiiDesk 4.3.39-local.1 \u2014 AI that runs on this computer (test build)',
+    tag: 'feature',
+    summary:
+      'A local test build. Settings \u2192 AI now has a third choice next to your own API key and Plexii AI credits: Local on this device. An AI model runs on your Mac, works offline and costs nothing per use, and while it is chosen no prompt or content is sent to any AI service. It is a smaller model than cloud AI, and the app says so feature by feature.',
+    highlights: [
+      'Local on this device: PlexiiAssist, PlexiiBrain answers, creating PlexiiWrite, PlexiiCells and PlexiiDeck files from a prompt (and sheet columns, fills and formulas), writing and rewriting, summaries, and background tidying (titles, document descriptions, memory) run on a 2.5 GB model on your Mac. Search by meaning in PlexiiBrain uses a small local model too, and voice notes are transcribed on the device.',
+      'Every feature shows how the on-device model did in our tests of the app\u2019s real prompts, next to cloud AI. Writing and summaries work, but say \u201cWorks best with cloud AI; local results may be incomplete.\u201d',
+      'Build with AI (setting up a desk of work widgets), agents, image generation and background removal are not run on the device. When you ask for one, Plexii asks whether to send that one request to the cloud; nothing is sent unless you say yes.',
+      'You can route any feature to cloud or to the device on its own, and switch back at any time. Nothing falls back to the cloud quietly.',
+      'Also fixed: on 4.3.30 to 4.3.38 every request to the Haiku model failed with \u201cConnection error.\u201d before it left the computer \u2014 naming untitled items, AI Assist rewrites, the command bar, capture sorting and inbox triage among them. And Build with AI no longer pulls an unrelated desk\u2019s notes into a new desk.'
+    ]
+  },
+  {
     version: '4.3.38',
     date: '2026-10-21T12:00:00Z',
     title: 'PlexiiDesk 4.3.38 \u2014 nothing offered that cannot work yet',
