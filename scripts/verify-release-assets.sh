@@ -50,7 +50,7 @@ note() { printf '  %s\n' "$1"; }
 echo "Verifying release ${TAG} on ${REPO}"
 
 # 1. Every required asset must return 200 (follow redirects to the CDN).
-echo "[1/5] reachability"
+echo "[1/6] reachability"
 for f in "${REQUIRED[@]}"; do
   code=$(curl -s -o /dev/null -w "%{http_code}" -L "${BASE}/${f}")
   if [ "$code" = "200" ]; then
@@ -84,17 +84,17 @@ verify_yml() {
   fi
 }
 
-echo "[2/5] mac metadata integrity"
+echo "[2/6] mac metadata integrity"
 verify_yml "latest-mac.yml"
 
-echo "[3/5] windows metadata integrity"
+echo "[3/6] windows metadata integrity"
 verify_yml "latest.yml"
 
 # 4. The in-app "What's new" must be updated for this release. The newest
 #    versioned entry in the desktop changelog must equal the released version,
 #    otherwise users who update get an empty / stale What's New modal. This is
 #    the concrete enforcement of "update What's New on every release".
-echo "[4/5] changelog freshness"
+echo "[4/6] changelog freshness"
 CHANGELOG_FILE="$(cd "$(dirname "$0")/.." && pwd)/src/renderer/src/lib/changelog.ts"
 if [ ! -f "$CHANGELOG_FILE" ]; then
   note "could not find changelog at ${CHANGELOG_FILE}"
@@ -109,7 +109,7 @@ else
   fi
 fi
 
-# ── [5/5] The feed the SHIPPED CLIENTS actually read ────────────────────────
+# ── [6/6] The feed the SHIPPED CLIENTS actually read ────────────────────────
 #
 # Everything above checks the GitHub release. That is where the website's
 # download button points, and it is NOT the update feed: electron-builder
@@ -122,7 +122,59 @@ fi
 # while users get nothing is worse than no gate, because it stops anyone
 # looking. So the version in each live feed must equal the version claimed.
 FEED="${FEED_ORIGIN:-https://dl.plexiidesk.com}"
-echo "[5/5] live update feed (${FEED})"
+# 5. The update zip must not have grown to model size.
+#
+#    The full integrity comparison between the dmg and the zip lives in
+#    scripts/verify-model-split.mjs, which runs on the LOCAL artifacts before
+#    upload, because doing it here would mean downloading both — over 3GB — on
+#    every verification. This is the cheap remote backstop for the one mistake
+#    that matters: the local AI model left inside the auto-update payload.
+#
+#    It costs one HEAD request. The mac updater fetches the whole zip with a
+#    plain https.get (no blockmap, no delta), so a model in there is paid in
+#    full by every user at every release.
+echo "[5/6] update payload size"
+# A ceiling AND a floor. The ceiling is the point: a bundled model inside the
+# update payload. The floor is because the first version of this check happily
+# printed "ok 0 MB" against a 404, whose body is 9 bytes — a gate that passes
+# when the asset is missing is worse than no gate, so the size must be both
+# present and plausible, and the response must actually be a 200.
+ZIP_CEILING_BYTES="${ZIP_CEILING_BYTES:-1500000000}"
+ZIP_FLOOR_BYTES="${ZIP_FLOOR_BYTES:-100000000}"
+zip_url="${BASE}/PlexiDesk-${VERSION}-mac-${MAC_ARCH}.zip"
+# One request, both facts. Only the FINAL response (after redirects to the
+# asset CDN) describes the file, so keep the last status and length seen.
+# tolower($0), NOT awk's IGNORECASE: that is a GNU extension and this repo
+# builds on macOS, whose BSD awk ignores it. With IGNORECASE the match worked
+# against GitHub (HTTP/2 lowercases header names) and silently found nothing
+# against any HTTP/1.1 origin that capitalises them, such as a Cloudflare or R2
+# response — a release gate that only works on one of its two origins.
+zip_head=$(curl -sI -L "$zip_url" | awk '
+  { line = tolower($0) }
+  line ~ /^http\// { code = $2 }
+  line ~ /^content-length:/ { len = $2 }
+  END { gsub(/\r/, "", code); gsub(/\r/, "", len); print code" "len }')
+zip_code="${zip_head%% *}"
+zip_len="${zip_head##* }"
+if [ "$zip_code" != "200" ]; then
+  note "UNREACHABLE  update zip returned HTTP ${zip_code:-none} — cannot check its size"
+  fail=1
+elif [ -z "$zip_len" ]; then
+  note "MALFORMED  update zip served no content-length"
+  fail=1
+elif [ "$zip_len" -lt "$ZIP_FLOOR_BYTES" ]; then
+  note "TOO SMALL  update zip is $((zip_len/1000000)) MB (floor $((ZIP_FLOOR_BYTES/1000000)) MB)."
+  note "           That is not a real build. Check what was uploaded."
+  fail=1
+elif [ "$zip_len" -gt "$ZIP_CEILING_BYTES" ]; then
+  note "TOO LARGE  update zip is $((zip_len/1000000)) MB (ceiling $((ZIP_CEILING_BYTES/1000000)) MB)."
+  note "           A bundled model belongs in the dmg only — see scripts/verify-model-split.mjs."
+  fail=1
+else
+  note "ok   update zip is $((zip_len/1000000)) MB (within $((ZIP_FLOOR_BYTES/1000000))-$((ZIP_CEILING_BYTES/1000000)) MB)"
+fi
+
+echo "[6/6] live update feed (${FEED})"
 for pair in "latest-mac.yml:mac" "latest.yml:win"; do
   f="${pair%%:*}"; plat="${pair##*:}"
   body="$(curl -fsSL "${FEED}/${f}" 2>/dev/null || true)"

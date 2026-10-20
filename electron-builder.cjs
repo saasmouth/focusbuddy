@@ -95,6 +95,45 @@ const macSigning = hasNotaryCreds
 // nests assets under /download/<tag>/. So the provider follows the origin.
 const { readActiveDomains, usesGithubReleases } = require('./scripts/read-active-domains.cjs')
 const { domains: ACTIVE_DOMAINS, describe: ACTIVE_DESCRIBE } = readActiveDomains(__dirname)
+/**
+ * Whether this packaging pass includes the local AI model.
+ *
+ * The owner's decision is that the model ships bundled, as the default engine,
+ * with bring-your-own-key as the upgrade — so a FRESH install must contain it.
+ * The auto-update payload must not, and that is not a preference: the mac
+ * updater is custom (macOS does not use electron-updater's feed) and
+ * downloadFile() in src/main/autoUpdate.ts is a plain https.get of the whole
+ * asset — no Range header, no blockmap, no delta. A model left in the update
+ * zip is therefore re-downloaded in full by every user at every release,
+ * turning a ~388MB update into ~2.9GB, including for users who never touch AI.
+ * Windows is unaffected: it goes through electron-updater's nsis blockmap,
+ * which reuses unchanged blocks, so the model stays in the Windows installer.
+ *
+ * electron-builder packages the app ONCE per platform and writes every target
+ * from that single directory, so one invocation cannot vary the contents per
+ * target. Hence two passes, and hence this env switch rather than a config
+ * variant. Stripping the model after the fact is not an option: removing a
+ * file from a signed bundle breaks the seal and voids notarisation, so the
+ * omission has to happen before signing.
+ *
+ * scripts/dist-mac-split.sh drives both passes and
+ * scripts/verify-model-split.mjs refuses to upload if this went wrong.
+ */
+const MODEL_RESOURCE_DIR = 'resources/models'
+
+function bundlesModel() {
+  if (process.env.PLEXII_OMIT_MODEL === '1') return false
+  // Absent until the local-AI work lands the weights. Until then every build
+  // behaves exactly as it did before, rather than failing on a missing path.
+  return require('node:fs').existsSync(require('node:path').join(__dirname, MODEL_RESOURCE_DIR))
+}
+
+function extraResourcesFor() {
+  const res = [{ from: 'resources/tessdata', to: 'tessdata' }]
+  if (bundlesModel()) res.push({ from: MODEL_RESOURCE_DIR, to: 'models' })
+  return res
+}
+
 const publishTarget = usesGithubReleases(ACTIVE_DOMAINS.downloads)
   ? { provider: 'github', owner: 'saasmouth', repo: 'plexii', releaseType: 'release' }
   : // The feed is the bucket ROOT, not a versioned prefix: the URL is compiled
@@ -202,7 +241,10 @@ module.exports = {
 
   // Bundle the English OCR training data (offline, on-device — no CDN fetch).
   // Copied into the app's Resources so ocr.ts can read it via process.resourcesPath.
-  extraResources: [{ from: 'resources/tessdata', to: 'tessdata' }],
+  //
+  // The local AI model joins it, EXCEPT when PLEXII_OMIT_MODEL=1. See
+  // bundlesModel() above for why that switch exists and what depends on it.
+  extraResources: extraResourcesFor(),
 
   publish: publishTarget,
 
