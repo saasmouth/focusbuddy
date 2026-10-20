@@ -54,7 +54,14 @@ export function rewriteJsonBody(
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return init
   const next = fn(parsed as Record<string, unknown>)
   if (next === parsed) return init
-  return { ...init, body: JSON.stringify(next) }
+  // The SDK has already set content-length for the ORIGINAL body. Sending a
+  // different body under that header makes undici refuse the request before
+  // it leaves ("Connection error."), which is how every Haiku 5.5 call —
+  // rewritten to add `thinking: disabled` — failed in 4.3.30–4.3.33. Drop the
+  // stale length; fetch computes the right one for the new body.
+  const headers = new Headers(init.headers as HeadersInit | undefined)
+  headers.delete('content-length')
+  return { ...init, headers, body: JSON.stringify(next) }
 }
 
 // Every Messages request goes through withModelDefaults (modelRouting.ts), so a
