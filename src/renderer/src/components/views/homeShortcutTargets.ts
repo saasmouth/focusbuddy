@@ -80,18 +80,6 @@ export function urlLabel(url: string): string {
   }
 }
 
-// Favicon for a website tile. Google's s2 service resolves icons reliably
-// across hosts that bury theirs; the tile falls back to a globe glyph when
-// the image fails to load.
-export function faviconUrl(url: string): string | null {
-  try {
-    const host = new URL(url).hostname
-    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`
-  } catch {
-    return null
-  }
-}
-
 // Stable identity for dedupe and list keys. Two targets are the same shortcut
 // when they lead to the same place, regardless of label.
 export function targetKey(t: ShortcutTarget): string {

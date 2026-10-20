@@ -27,6 +27,8 @@ import { closeDb, databaseFilePath, getDb } from './database'
 const BACKUP_EXT = 'fbbackup'
 const AUTO_PREFIX = 'auto-'
 const RESTORE_SNAPSHOT_PREFIX = 'before-restore-'
+const SYNC_RESUME_PREFIX = 'before-sync-resume-'
+const KEEP_SYNC_RESUME = 3
 const KEEP_AUTO = 7 // rotate: keep the last 7 automatic snapshots
 const AUTO_MIN_INTERVAL_MS = 12 * 60 * 60 * 1000 // at most one auto-backup / 12h
 
@@ -208,6 +210,28 @@ export function autoBackupOnLaunch(): void {
   } catch {
     /* never block boot */
   }
+}
+
+/**
+ * A snapshot taken just before "Keep this device local" is turned off and sync
+ * resumes. On resume, an item changed both here and on another device keeps the
+ * other device's version (sync is last-write-wins, server wins), so this is the
+ * copy of what this device had. Kept: the newest three. Resolves to its path.
+ */
+export async function snapshotBeforeSyncResume(): Promise<string> {
+  const dir = ensureBackupsDir()
+  const dest = join(dir, `${SYNC_RESUME_PREFIX}${timestamp()}.${BACKUP_EXT}`)
+  await getDb().backup(dest)
+  for (const old of listBackups(dir)
+    .filter((b) => b.name.startsWith(SYNC_RESUME_PREFIX))
+    .slice(KEEP_SYNC_RESUME)) {
+    try {
+      rmSync(old.path)
+    } catch {
+      /* ignore */
+    }
+  }
+  return dest
 }
 
 /** Summary for the settings UI. */

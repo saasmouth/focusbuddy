@@ -541,10 +541,10 @@ export default function LaunchSignInModal(): JSX.Element | null {
         </form>
 
         <p className="mt-4 pt-3 border-t border-white/[0.04] text-[10px] text-stone-500 leading-relaxed">
-          Your local data stays on this device. Only the items you share, and your
-          email, touch our server. No third-party trackers or ads. Anonymous,
-          aggregate usage helps us improve the app, and you can turn that off in
-          Settings.
+          Your work is saved on this computer first. Signed in, it syncs to your
+          account so your other devices and the people you share with can see it.
+          No third-party analytics or ad trackers. Usage data and crash reports are
+          off unless you turn them on in Settings › Data › Privacy.
         </p>
       </div>
     </div>,

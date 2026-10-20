@@ -120,6 +120,9 @@ import {
   type AiMode
 } from '../settingsStore'
 import { searchGifs } from '../gifSearch'
+import { withWebSearchOptIn } from '../webSearchOptIn'
+import { getPrivacyPrefs, setPrivacyPrefs, type PrivacyPrefs } from '../privacyPrefs'
+import { getSiteIcon } from '../siteIcons'
 import {
   collectPending,
   collectPendingOrg,
@@ -554,7 +557,9 @@ import { localModelStatus } from '../ai/localModel'
 import { getDocMetadata } from '../db/docMetadata'
 import { listMemories, addMemory, forgetMemory } from '../db/memory'
 import { extractMemoryFromDocuments } from '../ai/extractMemory'
-import { embedQuery } from '../ai/embeddings'
+// The question is embedded under the Background AI tasks gate: a cloud embedder
+// only while the person allows it, otherwise a local model or nothing.
+import { gatedEmbedQueryTagged } from '../backgroundAiGate'
 import { lookupAnswer, storeAnswer, bumpAnswerCacheVersion } from '../ai/answerCache'
 import type { MemoryKind } from '@shared/types'
 import {
@@ -644,6 +649,7 @@ import {
 import { fireHaptic, isHapticsAvailable, type HapticFeel } from '../haptics'
 import {
   backupInfo,
+  snapshotBeforeSyncResume,
   createBackup,
   defaultExportName,
   restoreFromFile,
@@ -1789,7 +1795,7 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('chat:send', (_e, req: ChatRequest) => {
     recordAiCall()
-    return sendChat(req)
+    return sendChat(withWebSearchOptIn(req))
   })
   // One step of the autonomous agent loop. Stateless: the renderer drives the
   // rounds (applies actions, builds observations, calls again). Each round is a
@@ -1857,7 +1863,7 @@ export function registerIpcHandlers(): void {
       const { requestId: _requestId, ...chatReq } = input
       try {
         await sendChatStream(
-          chatReq,
+          withWebSearchOptIn(chatReq),
           {
             onMentions: (m) => send('mentions', m),
             onSources: (t) => send('sources', t),
@@ -2594,6 +2600,16 @@ export function registerIpcHandlers(): void {
   // chooses; restore validates a chosen file, snapshots current data for safety,
   // swaps it in, and reports back so the renderer can reload onto the new data.
   ipcMain.handle('backup:info', () => backupInfo())
+  // Before "Keep this device local" is turned off (lib/localOnlyMode): keep a
+  // copy of this device's workspace, since resumed sync lets the server's
+  // version win where both sides changed an item.
+  ipcMain.handle('backup:snapshotBeforeSyncResume', async () => {
+    try {
+      return { ok: true as const, path: await snapshotBeforeSyncResume() }
+    } catch (err) {
+      return { ok: false as const, error: (err as Error).message }
+    }
+  })
   ipcMain.handle('backup:export', async () => {
     const parent = BrowserWindow.getFocusedWindow()
     const opts = {
@@ -2890,8 +2906,9 @@ export function registerIpcHandlers(): void {
         sources.map((s) => ({ docId: s.docId, title: s.title, docType: s.docType, snippet: s.snippet, cited: citedIds.has(s.docId) }))
       // Semantic answer cache: a near-identical question, with the workspace
       // unchanged since (version-stamped, so any doc edit invalidates it), reuses
-      // the prior answer for free — no model call. Embedding is LOCAL/free.
-      const qvec = await embedQuery(query)
+      // the prior answer for free — no model call. The embedding is local unless
+      // Background AI tasks is on (backgroundAiGate.ts).
+      const qvec = (await gatedEmbedQueryTagged(query))?.vector ?? null
       if (qvec) {
         const hit = lookupAnswer(qvec, Date.now())
         if (hit) {
@@ -4466,6 +4483,25 @@ export function registerIpcHandlers(): void {
 
   // GIF search runs in main so the Tenor key never reaches the renderer.
   ipcMain.handle('gif:search', (_e, query: string) => searchGifs(typeof query === 'string' ? query : ''))
+
+  // Privacy switches the main process enforces (privacyPrefs.ts): automatic
+  // update checks and Background AI tasks. Only booleans are accepted.
+  ipcMain.handle('privacy:getPrefs', () => getPrivacyPrefs())
+  ipcMain.handle('privacy:setPrefs', (_e, patch: Record<string, unknown>) => {
+    const clean: Partial<PrivacyPrefs> = {}
+    if (patch && typeof patch === 'object') {
+      if (typeof patch.autoUpdateChecks === 'boolean') clean.autoUpdateChecks = patch.autoUpdateChecks
+      if (typeof patch.backgroundAi === 'boolean') clean.backgroundAi = patch.backgroundAi
+    }
+    return setPrivacyPrefs(clean)
+  })
+
+  // Icons for links and connected apps, from the linked site itself and cached
+  // in userData (siteIcons.ts). `network` false = cache only, for sites the
+  // person did not choose (web search results).
+  ipcMain.handle('siteIcon:get', (_e, url: string, network: boolean) =>
+    typeof url === 'string' && url.length < 4096 ? getSiteIcon(url, network !== false) : null
+  )
 
   // Multi-device workspace sync. The renderer drives the network (it has the
   // signal URL + token); these expose the local-DB half: what to push, what to

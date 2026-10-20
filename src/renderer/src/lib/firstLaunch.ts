@@ -40,7 +40,7 @@ export async function reportFirstLaunch(d: FirstLaunchDeps): Promise<FirstLaunch
     const res = await d.fetchImpl(`${d.httpUrl.replace(/\/+$/, '')}/telemetry`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', authorization: `Bearer ${d.token}` },
-      body: JSON.stringify(snapshot)
+      body: JSON.stringify({ ...snapshot, consent: true })
     })
     if (!res.ok) return 'failed'
     try {

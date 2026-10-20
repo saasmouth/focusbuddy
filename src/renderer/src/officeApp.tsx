@@ -8,6 +8,15 @@ import ReactDOM from 'react-dom/client'
 import PlexiOfficeApp from './components/officeApp/PlexiOfficeApp'
 import ErrorBoundary from './components/ErrorBoundary'
 import './styles/globals.css'
+// The type stack, icon font and font-picker families ship with the app, as in
+// the desk window (main.tsx): PlexiiOffice loads no fonts from the network.
+import 'material-symbols/outlined.css'
+import '@fontsource-variable/inter'
+import '@fontsource-variable/lexend'
+import '@fontsource/jetbrains-mono'
+import '@fontsource/patrick-hand'
+import '@fontsource/atkinson-hyperlegible'
+import './assets/fonts/bundled-fonts.css'
 
 function isEditable(el: EventTarget | null): boolean {
   if (!el || !(el instanceof HTMLElement)) return false

@@ -12,6 +12,7 @@ import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
 import { fileSrc } from '../../lib/fileUrl'
+import { useSiteIcon } from '../../lib/siteIcon'
 import { exceedsSyncLimit, syncLimitLabel } from '@shared/fileSyncLimits'
 
 interface Props {
@@ -221,16 +222,7 @@ export default function FileWidget({ widget, inline = false }: Props): JSX.Eleme
         data-testid="file-open-url"
         title={`Open ${url} in browser`}
       >
-        <img
-          src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`}
-          alt=""
-          aria-hidden="true"
-          className="w-12 h-12 rounded-md shadow-sm"
-          draggable={false}
-          onError={(e) => {
-            ;(e.target as HTMLImageElement).style.visibility = 'hidden'
-          }}
-        />
+        <LinkIcon url={url} />
         <div className="text-[12px] font-medium text-[var(--ink-90)] truncate max-w-full">
           {widget.title || host}
         </div>
@@ -555,6 +547,22 @@ function GenericFilePreview({
         </div>
       </div>
     </button>
+  )
+}
+
+// A web link's icon, from the linked site itself (lib/siteIcon); a neutral link
+// glyph while it loads or when the site has none.
+function LinkIcon({ url }: { url: string }): JSX.Element {
+  const src = useSiteIcon(url)
+  if (!src) {
+    return (
+      <span aria-hidden="true" className="w-12 h-12 rounded-md inline-flex items-center justify-center text-[var(--ink-50)]">
+        <Icon name="link" size={28} />
+      </span>
+    )
+  }
+  return (
+    <img src={src} alt="" aria-hidden="true" className="w-12 h-12 rounded-md shadow-sm" draggable={false} />
   )
 }
 

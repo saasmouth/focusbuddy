@@ -2,14 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https: fb-file: fb-dev:; media-src 'self' fb-file: fb-dev: blob: data:; connect-src 'self' ws: wss: https:;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https: fb-file: fb-dev:; media-src 'self' fb-file: fb-dev: blob: data:; connect-src 'self' ws: wss: https:;" />
     <title>PlexiiOffice</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Lexend:wght@300..700&family=JetBrains+Mono:wght@400;500;600&family=Patrick+Hand&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..700,0..1,-50..200&display=swap"
-      rel="stylesheet"
-    />
+    <!--
+      Fonts are bundled (officeApp.tsx imports the same @fontsource /
+      material-symbols packages as the desk, plus assets/fonts). Nothing loads
+      from fonts.googleapis.com, and the CSP above no longer allows it.
+    -->
   </head>
   <body class="bg-desk-50">
     <div id="root"></div>

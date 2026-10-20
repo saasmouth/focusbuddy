@@ -15,6 +15,7 @@ import { useOrgStore, PERSONAL_ORG_ID } from '../stores/org'
 import { setOrgWorkspaceChangedHandler, setSharedWorkspaceChangedHandler } from './messagingSocket'
 import { registerSyncNudge } from './syncNudge'
 import { syncWakeCoalescer } from './syncWakeCoalescer'
+import { localOnlyMode } from './localOnlyMode'
 
 // Every item type carried over the sync transport. The personal loop has always
 // carried node and widget; rung 2 added document, table and row alongside the
@@ -31,7 +32,9 @@ type SyncItemType = 'node' | 'widget' | 'timeblock' | 'document' | 'table' | 'ro
 //
 // Model mirrors cloud-documents: per-item monotonic rev with last-write-wins
 // (server wins on a conflict), tombstones for deletes, an updated_at cursor.
-// Default-on for any signed-in account; a flag lets it be turned off.
+// Default-on for any signed-in account. Settings > Data > Privacy > "Keep this
+// device local" pauses the personal scope (lib/localOnlyMode); the older
+// fb.workspace.sync flag below still turns every scope off.
 
 const FLAG_KEY = 'fb.workspace.sync'
 const SYNC_INTERVAL_MS = 20_000
@@ -801,6 +804,18 @@ export async function syncWorkspaceOnce(): Promise<number> {
     // Per-desk shared scope: desks shared with this account by name, independent of
     // org membership. Runs once per cycle alongside the org loops.
     const sharedApplied = await syncSharedWorkspaceOnce(token)
+
+    // "Keep this device local" (lib/localOnlyMode): the personal workspace
+    // neither leaves nor arrives. Org workspaces and desks shared by name keep
+    // syncing above, because other people depend on them; the setting says so.
+    if (localOnlyMode()) {
+      const verdict = currentCycleFailure()
+      if (verdict === 'server') useSyncStatus.getState().setError('The server rejected a sync request.')
+      else if (verdict === 'offline') useSyncStatus.getState().setOffline()
+      else if (orgSyncOrder(activeOrg, memberOrgIds).length > 0) useSyncStatus.getState().setOk()
+      else useSyncStatus.getState().setDisabled()
+      return orgApplied + sharedApplied
+    }
 
     // ── Push local changes (personal scope) ──
     const pending = await window.api.workspaceSync.pending()

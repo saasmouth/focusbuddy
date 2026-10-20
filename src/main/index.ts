@@ -12,6 +12,7 @@ import { resolveWidgetInputs } from './db/widgetInputs'
 import { clearSessionForNewLaunch, markUiVisible, recordAnonLaunch } from './db/account'
 import { runRetentionSweep } from './db/retention'
 import { runTitleBackfill } from './titleBackfill'
+import { backgroundModelAllowed } from './backgroundAiGate'
 import { autoBackupOnLaunch } from './db/backup'
 import { registerIpcHandlers } from './ipc'
 import { runWidgetFileBackfill, setWidgetFileResolvers } from './db/widgetFiles'
@@ -828,7 +829,9 @@ app.whenReady().then(() => {
       })
   }, 8_000)
   setTimeout(() => {
-    void runTitleBackfill()
+    // Free titles always; a model only with Background AI tasks on, or when AI
+    // runs on this device (backgroundAiGate.ts).
+    void runTitleBackfill({ allowModel: backgroundModelAllowed() })
       .then((s) => {
         if (s.found > 0) {
           console.log(
@@ -874,8 +877,9 @@ app.whenReady().then(() => {
   // propose macros. Off by default; the user opts in from the Stream
   // Deck widget.
   installActivityTracker()
-  // Auto-updater — polls GitHub Releases on boot + every 4h, broadcasts
-  // state via the `update:state` IPC event. No-op in dev builds.
+  // Auto-updater — checks the update feed at launch, every 6 h and on wake
+  // while "Check for updates automatically" is on; broadcasts state via the
+  // `update:state` IPC event. No-op in dev builds.
   installAutoUpdater()
 
   // Install the application menu so the View-menu zoom items and the Cmd +/-/0

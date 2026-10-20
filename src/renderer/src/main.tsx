@@ -23,6 +23,8 @@ import '@fontsource-variable/lexend'
 import '@fontsource/jetbrains-mono'
 import '@fontsource/patrick-hand'
 import '@fontsource/atkinson-hyperlegible'
+// The font-picker families (lib/googleFonts.ts), bundled too.
+import './assets/fonts/bundled-fonts.css'
 import './styles/globals.css'
 
 // This is the MAIN PlexiDesk renderer, which mounts the one global AssistantOverlay.

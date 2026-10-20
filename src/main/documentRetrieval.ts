@@ -8,7 +8,9 @@
 
 import { listDocuments, getDocument } from './db/documents'
 import { extractDocText, selectPassages, snippetFor, type WorkspaceSource } from './workspaceRank'
-import { embedTexts, embedQueryTagged } from './ai/embeddings'
+// Through the Background AI tasks gate: content goes to a cloud embedder only
+// while the person allows it (backgroundAiGate.ts).
+import { gatedEmbedTexts as embedTexts, gatedEmbedQueryTagged as embedQueryTagged } from './backgroundAiGate'
 import { setEmbedding, listEmbeddings, listEmbeddingsTagged, hasEmbedding } from './db/embeddings'
 import { listDocMetadata, getDocMetadata, type DocMetadata } from './db/docMetadata'
 import { bumpAnswerCacheVersion } from './ai/answerCache'

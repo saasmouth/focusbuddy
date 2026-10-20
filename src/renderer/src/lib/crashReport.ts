@@ -3,6 +3,12 @@
 // the session token, and on success marks them forwarded so they aren't resent.
 // Best-effort: a failed POST simply leaves them unforwarded for the next flush,
 // and a missing bridge is a silent no-op.
+//
+// Opt-in: crash reports go only when the person turned them on (telemetryPrefs,
+// default off). The check lives here, not only in the caller, so no path can
+// post a crash without consent. Crashes are still recorded locally either way.
+
+import { crashReportsEnabled } from './telemetryPrefs'
 
 interface ForwardableCrash {
   id: string
@@ -27,7 +33,11 @@ export async function deliverCrashes(opts: {
   httpUrl: string
   token: string
   platform?: string
+  // The consent check; defaults to the real opt-in preference.
+  enabled?: () => boolean
+  fetchImpl?: typeof fetch
 }): Promise<number> {
+  if (!(opts.enabled ?? crashReportsEnabled)()) return 0
   const api = (window as unknown as { api?: CrashApi }).api
   const unforwarded = api?.crash?.unforwarded
   const markForwarded = api?.crash?.markForwarded
@@ -54,10 +64,10 @@ export async function deliverCrashes(opts: {
   }))
 
   try {
-    const res = await fetch(`${opts.httpUrl}/crash`, {
+    const res = await (opts.fetchImpl ?? fetch)(`${opts.httpUrl}/crash`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${opts.token}` },
-      body: JSON.stringify({ crashes })
+      body: JSON.stringify({ crashes, consent: true })
     })
     if (!res.ok) return 0
   } catch {

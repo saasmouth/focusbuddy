@@ -1209,7 +1209,9 @@ const api = {
     restore: (): Promise<
       { ok: true; safetyBackupPath: string } | { ok: false; canceled?: boolean; error?: string }
     > => ipcRenderer.invoke('backup:restore'),
-    revealFolder: (): Promise<{ ok: true }> => ipcRenderer.invoke('backup:revealFolder')
+    revealFolder: (): Promise<{ ok: true }> => ipcRenderer.invoke('backup:revealFolder'),
+    snapshotBeforeSyncResume: (): Promise<{ ok: true; path: string } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('backup:snapshotBeforeSyncResume')
   },
   templates: {
     list: (): Promise<Template[]> => ipcRenderer.invoke('templates:list'),
@@ -2107,6 +2109,20 @@ const api = {
       | { ok: false; needsKey: true }
       | { ok: false; error: string }
     > => ipcRenderer.invoke('gif:search', query)
+  },
+  // Privacy switches enforced in main (privacyPrefs.ts).
+  privacy: {
+    getPrefs: (): Promise<{ autoUpdateChecks: boolean; backgroundAi: boolean }> =>
+      ipcRenderer.invoke('privacy:getPrefs'),
+    setPrefs: (patch: {
+      autoUpdateChecks?: boolean
+      backgroundAi?: boolean
+    }): Promise<{ autoUpdateChecks: boolean; backgroundAi: boolean }> => ipcRenderer.invoke('privacy:setPrefs', patch)
+  },
+  // Link and connected-app icons, fetched from the linked site and cached
+  // locally (siteIcons.ts). Resolves to a data: URL, or null for the glyph.
+  siteIcon: {
+    get: (url: string, network: boolean): Promise<string | null> => ipcRenderer.invoke('siteIcon:get', url, network)
   },
   // Multi-device workspace sync — the renderer drives the network, main owns the
   // local DB. These expose the local half (collect changes, apply pulls, cursor).

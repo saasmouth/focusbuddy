@@ -194,7 +194,13 @@ export async function generateReport(id: string): Promise<GenerateReportResult> 
   // The model call is best-effort: any failure falls back to the honest data
   // summary, marked not-AI, rather than throwing and leaving the report unwritten.
   try {
-    const res = await sendChat({ taskId: null, messages: [{ role: 'user', content: prompt, ts: Date.now() }] })
+    const res = await sendChat({
+      taskId: null,
+      messages: [{ role: 'user', content: prompt, ts: Date.now() }],
+      // Scheduled runs never search the web: that would send the prompt to
+      // DuckDuckGo with nobody at the keyboard (webSearchOptIn.ts).
+      webSearch: false
+    })
     if (res.ok && res.message?.content) {
       output = res.message.content
       isAi = true

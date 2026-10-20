@@ -1,12 +1,12 @@
-import { useState } from 'react'
 import Icon from './Icon'
 import { logoForUrl } from '../lib/appLogos'
+import { useSiteIcon } from '../lib/siteIcon'
 
 // The one way to render a Connected App's icon. Fallback chain:
 //   1. iconPngBase64 — real macOS app icon captured at create-time (local apps)
 //   2. bundled catalog logo matched by URL — real brand logo, offline, crisp
-//   3. live favicon for custom web apps (Google's favicon service; CSP allows
-//      https: images) — real icon for any site without us shipping it
+//   3. the site's own icon for custom web apps, fetched from that site and
+//      cached locally (lib/siteIcon → main/siteIcons.ts); no third party sees it
 //   4. the original tinted Material Symbols tile, so nothing ever renders blank
 interface AppLike {
   url?: string | null
@@ -25,18 +25,13 @@ interface Props {
   className?: string
 }
 
-function faviconServiceUrl(url: string): string | null {
-  try {
-    const host = new URL(url).hostname
-    if (!host) return null
-    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`
-  } catch {
-    return null
-  }
-}
-
 export default function AppLogo({ app, size, glyphSize, className = '' }: Props): JSX.Element {
-  const [faviconFailed, setFaviconFailed] = useState(false)
+  const bundled = logoForUrl(app.url)
+  // Hooks before any early return. Only a custom web app with no bundled logo
+  // asks for its site's icon; built-in apps never fetch anything.
+  const favicon = useSiteIcon(
+    !app.iconPngBase64 && !bundled && app.kind !== 'local' && app.url ? app.url : null
+  )
 
   const box = { width: size, height: size }
   const imgClass = `rounded shrink-0 object-contain ${className}`
@@ -53,24 +48,12 @@ export default function AppLogo({ app, size, glyphSize, className = '' }: Props)
     )
   }
 
-  const bundled = logoForUrl(app.url)
   if (bundled) {
     return <img src={bundled} alt="" style={box} className={imgClass} draggable={false} />
   }
 
-  const favicon =
-    app.kind !== 'local' && !faviconFailed && app.url ? faviconServiceUrl(app.url) : null
   if (favicon) {
-    return (
-      <img
-        src={favicon}
-        alt=""
-        style={box}
-        className={imgClass}
-        draggable={false}
-        onError={() => setFaviconFailed(true)}
-      />
-    )
+    return <img src={favicon} alt="" style={box} className={imgClass} draggable={false} />
   }
 
   return (

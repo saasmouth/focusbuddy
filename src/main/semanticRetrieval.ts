@@ -5,7 +5,9 @@
 
 import { listKnowledge } from './db/knowledge'
 import type { KnowledgeEntry } from '@shared/knowledge'
-import { embedTexts, embedQueryTagged } from './ai/embeddings'
+// Through the Background AI tasks gate: content goes to a cloud embedder only
+// while the person allows it (backgroundAiGate.ts).
+import { gatedEmbedTexts as embedTexts, gatedEmbedQueryTagged as embedQueryTagged } from './backgroundAiGate'
 import { setEmbedding, listEmbeddings, listEmbeddingsTagged, hasEmbedding } from './db/embeddings'
 import { cosineSim, blendSemantic, gateSemantic, type ScoredItem } from '@shared/semantic'
 

@@ -179,7 +179,8 @@ interface ChatStore {
   activeMode: () => AiChatMode
   // The web-search globe (A4, R21), exactly the mode pattern: a not-yet-saved
   // chat holds the pending value; a saved conversation's lives on its meta.
-  // Default on.
+  // Off unless the person turned it on; their last choice becomes the default
+  // for new chats (webSearchDefault). On, the chat message goes to DuckDuckGo.
   pendingWebSearch: boolean
   // Flip the active conversation's globe. Works before the conversation exists
   // (sets pendingWebSearch) and after (persists on the row).
@@ -305,6 +306,27 @@ function fromStoredTrace(t: StoredTrace | null): AssistantTrace | null {
 
 const EMPTY_PROPOSALS: ActionProposal[] = []
 
+// Chat web search sends the chat message to DuckDuckGo, so it is OFF until the
+// person turns the globe on. Their last choice is remembered here and seeds
+// every new chat. Only a stored 'on' enables it.
+export const WEB_SEARCH_DEFAULT_KEY = 'plexii.chat.webSearchDefault'
+
+export function webSearchDefault(): boolean {
+  try {
+    return localStorage.getItem(WEB_SEARCH_DEFAULT_KEY) === 'on'
+  } catch {
+    return false
+  }
+}
+
+function setWebSearchDefault(on: boolean): void {
+  try {
+    localStorage.setItem(WEB_SEARCH_DEFAULT_KEY, on ? 'on' : 'off')
+  } catch {
+    /* storage unavailable: new chats start off */
+  }
+}
+
 export const useChatStore = create<ChatStore>((set, get) => ({
   messagesByTask: {},
   proposalsByMessage: {},
@@ -372,13 +394,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       void window.api.aiChat.setConversationMode(id, mode).catch(() => {})
     }
   },
-  pendingWebSearch: true,
+  pendingWebSearch: webSearchDefault(),
   activeWebSearch: () => {
     const id = get().activeConversationId
     if (!id) return get().pendingWebSearch
-    return get().conversations.find((c) => c.id === id)?.webSearch ?? true
+    return get().conversations.find((c) => c.id === id)?.webSearch ?? false
   },
   setWebSearch: (on) => {
+    // Remembered: the next new chat starts the way the person last left it.
+    setWebSearchDefault(on)
     const id = get().activeConversationId
     if (!id) {
       set({ pendingWebSearch: on })
@@ -441,10 +465,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       mentions: clearConversationMentions(get().mentions, key),
       pendingContext: null,
       // A fresh chat starts as a normal chat unless the caller (the Discover
-      // widget) asks for discovery straight after. The globe resets to its
-      // default-on too (R21 stickiness is per conversation, never inherited).
+      // widget) asks for discovery straight after. The globe starts as the
+      // person last left it (off until they first turn it on).
       pendingMode: 'chat',
-      pendingWebSearch: true
+      pendingWebSearch: webSearchDefault()
     })
   },
   openConversation: async (id) => {

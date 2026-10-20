@@ -17,6 +17,7 @@
 
 import type { DocType, FbDocument } from '@shared/types'
 import { initPreviewGuard, previewSyncBlocked } from './previewGuard'
+import { localOnlyMode } from './localOnlyMode'
 import {
   syncCloudDocs,
   putCloudDoc,
@@ -37,6 +38,8 @@ const REVS_KEY = 'fb.clouddocs.revs'
 export function cloudDocsEnabled(): boolean {
   try {
     if (previewSyncBlocked()) return false
+    // "Keep this device local" pauses the personal documents mirror too.
+    if (localOnlyMode()) return false
     return localStorage.getItem(FLAG_KEY) !== '0'
   } catch {
     return false

@@ -2,6 +2,7 @@ import { memo } from 'react'
 import type { Widget } from '@shared/types'
 import { WIDGET_CATALOG } from '../lib/widgetCatalog'
 import Icon from './Icon'
+import { useSiteIcon } from '../lib/siteIcon'
 
 // A read-only, content-aware preview of a widget. Fills its container, draws no
 // chrome, captures no pointer events — the caller scales it (tiny for a minimap
@@ -15,8 +16,11 @@ function hostOf(url: string): string {
     return url
   }
 }
-function faviconFor(url: string): string {
-  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostOf(url))}&sz=64`
+// The linked site's own icon (lib/siteIcon), or nothing while it loads or when
+// the site has none.
+function SiteFavicon({ url }: { url: string }): JSX.Element | null {
+  const src = useSiteIcon(/^https?:/i.test(url) ? url : `https://${url}`)
+  return src ? <img src={src} alt="" className="h-4 w-4 rounded" /> : null
 }
 function safeParse<T>(s: string | undefined | null): T | null {
   if (!s) return null
@@ -121,12 +125,7 @@ function renderPreview(widget: Widget): JSX.Element {
       return (
         <div className="h-full w-full bg-[var(--surface-raised)] flex flex-col overflow-hidden">
           <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-[var(--edge-soft)] shrink-0">
-            <img
-              src={faviconFor(c)}
-              alt=""
-              className="h-4 w-4 rounded"
-              onError={(e) => ((e.currentTarget.style.display = 'none'))}
-            />
+            <SiteFavicon url={c} />
             <span className="text-[12px] font-medium text-[var(--ink-90)] truncate">
               {host || 'Browser'}
             </span>

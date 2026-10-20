@@ -213,7 +213,9 @@ function writeTitle(table: Candidate['table'], id: string, title: string, c?: Ca
  * Safe to call on every launch: the log makes repeat runs cheap, and a run
  * that fails part-way simply leaves the rest for next time.
  */
-export async function runTitleBackfill(): Promise<BackfillSummary> {
+export async function runTitleBackfill(
+  opts: { allowModel?: boolean } = {}
+): Promise<BackfillSummary> {
   const summary: BackfillSummary = {
     found: 0,
     derived: 0,
@@ -271,6 +273,13 @@ export async function runTitleBackfill(): Promise<BackfillSummary> {
   if (needsModel.length === 0) return summary
 
   // ── Pass 2: one cheap call for the remainder ──────────────────────────────
+  // Only with the person's say-so (Background AI tasks, backgroundAiGate.ts):
+  // this pass sends item content to a model without a click. Not logged as
+  // seen, so turning the switch on names them at the next launch.
+  if (opts.allowModel === false) {
+    summary.skipped += needsModel.length
+    return summary
+  }
   const key = resolveAnthropicKey()
   if (!key) {
     // No key configured. Leave them for a launch that has one rather than

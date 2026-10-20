@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   SHORTCUT_SLOTS,
   describeShortcutTarget,
-  faviconUrl,
   migrateQuickLinks,
   normalizeUrl,
   targetKey,
@@ -72,13 +71,6 @@ describe('urlLabel', () => {
   it('is the hostname minus www', () => {
     expect(urlLabel('https://www.netsuite.com/login')).toBe('netsuite.com')
     expect(urlLabel('https://app.example.io/x')).toBe('app.example.io')
-  })
-})
-
-describe('faviconUrl', () => {
-  it('resolves through the favicon service by host', () => {
-    expect(faviconUrl('https://www.netsuite.com/login')).toContain('www.netsuite.com')
-    expect(faviconUrl('not a url')).toBeNull()
   })
 })
 

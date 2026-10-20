@@ -40,11 +40,12 @@ export default function TermsModal({ onClose }: Props): JSX.Element {
             <h4 className="text-[var(--ink-100)] font-semibold mb-1.5">1. Local-first, with sync when you sign in</h4>
             <p>
               PlexiiDesk is local-first. Your tasks, work widgets, documents, browsing history and
-              preferences live on your device. If you stay signed out, nothing leaves your machine.
-              When you sign in, the features you choose to use send the data they need to PlexiiDesk's
-              servers. Cloud sync keeps your workspace in step across your devices, and sharing,
-              chat, meetings and mail exchange content with the people and services you point them
-              at. You can export your data at any time, and keeping your own backups of work that
+              preferences are saved on your device first. While you are signed in, cloud sync keeps
+              your workspace in step across your devices through PlexiiDesk's servers, and sharing,
+              chat and meetings exchange content with the people you include. Mail and calendars you
+              connect talk straight to your provider. Even signed out, the app checks for updates and
+              fetches link icons and map tiles; Settings › Data › Privacy lists everything that
+              leaves your computer. Usage data and crash reports are sent only if you turn them on. You can export your data at any time, and keeping your own backups of work that
               matters is still wise.
             </p>
           </section>

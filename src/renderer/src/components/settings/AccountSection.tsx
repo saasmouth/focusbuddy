@@ -14,6 +14,7 @@ import { useCreditPaidUntil } from '../../stores/aiCredits'
 import { personDisplayName, personInitials } from '../../lib/personName'
 import Icon from '../Icon'
 import TwoFactorSettings from './TwoFactorSettings'
+import DeleteAccountPanel from './DeleteAccountPanel'
 
 export default function AccountSection(): JSX.Element {
   const account = useAccountStore((s) => s.account)
@@ -153,8 +154,8 @@ export default function AccountSection(): JSX.Element {
             </p>
           </div>
           <p className="fb-t-caption text-[var(--ink-50)] leading-relaxed">
-            Your local data stays on this device. Signing out keeps it; it only
-            disconnects shared-item sync and your plan until you sign back in.
+            Signing out keeps your work on this computer. Sync, sharing and your
+            plan pause until you sign back in.
           </p>
           <TwoFactorSettings />
 
@@ -175,6 +176,9 @@ export default function AccountSection(): JSX.Element {
           </button>
         </div>
       )}
+      {/* Outside the signed-in branch so its "deleted, and what is kept" result
+          stays on screen after the account (and the session) are gone. */}
+      <DeleteAccountPanel />
     </div>
   )
 }

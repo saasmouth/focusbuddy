@@ -20,13 +20,13 @@ import { loadUiScale, saveUiScale } from '../../src/renderer/src/lib/uiScale'
 
 beforeEach(() => localStorage.clear())
 
-describe('telemetry opt-out', () => {
-  it('defaults to on, and turning it off persists and is honoured', () => {
-    expect(telemetryEnabled()).toBe(true) // default on (honestly disclosed)
-    setTelemetryEnabled(false)
-    expect(telemetryEnabled()).toBe(false) // the switch actually works now
+describe('usage reporting opt-in', () => {
+  it('defaults to off, and an explicit choice persists and is honoured', () => {
+    expect(telemetryEnabled()).toBe(false) // opt-in: never chose means off
     setTelemetryEnabled(true)
     expect(telemetryEnabled()).toBe(true)
+    setTelemetryEnabled(false)
+    expect(telemetryEnabled()).toBe(false)
   })
 })
 
