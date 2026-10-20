@@ -138,6 +138,8 @@ export interface LocalGateInfo {
 /** A downloadable on-device model. The sha256 is the integrity anchor: it ships inside the signed app. */
 export interface LocalModelTier {
   id: 'compact' | 'standard'
+  /** Folder name inside the app bundle: Contents/Resources/models/<bundleId>/<file>. */
+  bundleId: string
   /** Display name, e.g. "Qwen3.5 4B". */
   name: string
   /** File name under userData/models and under models/ on the download host. */
@@ -162,8 +164,14 @@ export interface LocalModelTier {
 
 export const MODEL_DOWNLOAD_BASE = 'https://dl.plexiidesk.com/models'
 
-export function modelDownloadUrl(t: Pick<LocalModelTier, 'version' | 'file'>): string {
-  return `${MODEL_DOWNLOAD_BASE}/${t.version}/${t.file}`
+/**
+ * Where a model downloads from: Plexii's host, laid out as <base>/<version>/<file>.
+ * `base` overrides it (main reads PLEXII_MODEL_BASE_URL) so a local test build
+ * can download from a file:// folder with the same layout; the sha256 compiled
+ * into the app is checked either way.
+ */
+export function modelDownloadUrl(t: Pick<LocalModelTier, 'version' | 'file'>, base: string = MODEL_DOWNLOAD_BASE): string {
+  return `${base.replace(/\/$/, '')}/${t.version}/${t.file}`
 }
 
 /**
@@ -189,7 +197,8 @@ export interface LocalAiStatus {
   ramGB: number
   freeDiskBytes: number | null
   recommendedTier: LocalModelTier['id'] | null
-  tiers: Array<LocalModelTier & { installed: boolean; offered: boolean }>
+  /** source: 'bundle' = shipped inside the app; 'userData' = downloaded or kept from an older bundle. */
+  tiers: Array<LocalModelTier & { installed: boolean; offered: boolean; source: 'bundle' | 'userData' | null }>
   activeTier: LocalModelTier['id'] | null
   engine: { state: 'idle' | 'loading' | 'ready' | 'error'; error: string | null; gpu: string | false | null }
   download: LocalDownloadProgress | null

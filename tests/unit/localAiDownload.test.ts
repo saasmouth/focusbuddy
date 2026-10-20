@@ -6,7 +6,9 @@ import { createHash } from 'node:crypto'
 import { mkdtempSync, writeFileSync, existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { downloadModel, isInstalled, partPath, removeModel, type DownloadProgress } from '../../src/main/ai/local/downloadManager'
+import { downloadModel, isInstalled, partPath, removeModel, fetchWithFile, type DownloadProgress } from '../../src/main/ai/local/downloadManager'
+import { pathToFileURL } from 'node:url'
+import { mkdirSync } from 'node:fs'
 
 const BODY = Buffer.from('x'.repeat(50_000) + 'model-bytes-end')
 const SHA = createHash('sha256').update(BODY).digest('hex')
@@ -129,4 +131,19 @@ describe('downloadModel', () => {
     expect(isInstalled(dir, SPEC)).toBe(false)
     expect(existsSync(join(dir, 'test.gguf'))).toBe(false)
   })
+
+  it('downloads from a file:// test manifest folder, resuming with Range like HTTPS', async () => {
+    const host = mkdtempSync(join(tmpdir(), 'plexii-filehost-'))
+    mkdirSync(join(host, '1'))
+    writeFileSync(join(host, '1', 'test.gguf'), BODY)
+    const url = `${pathToFileURL(host).href}/1/test.gguf`
+    const noNetwork = (async () => {
+      throw new Error('network must not be used for file://')
+    }) as unknown as typeof fetch
+    writeFileSync(partPath(dir, 'test.gguf'), BODY.subarray(0, 12_345))
+    const r = await downloadModel({ ...SPEC, url }, { dir, fetch: fetchWithFile(noNetwork), freeBytes: plenty })
+    expect(r.ok).toBe(true)
+    expect(readFileSync(join(dir, 'test.gguf')).equals(BODY)).toBe(true)
+  })
 })
+

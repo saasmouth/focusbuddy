@@ -16,6 +16,7 @@ import type { LocalModelTier } from './localAi'
 export const LOCAL_MODEL_TIERS: readonly LocalModelTier[] = [
   {
     id: 'compact',
+    bundleId: 'qwen3-4b-instruct-2507',
     name: 'Qwen3 4B Instruct',
     file: 'Qwen3-4B-Instruct-2507-Q4_K_M.gguf',
     version: '1',
@@ -34,6 +35,7 @@ export const LOCAL_MODEL_TIERS: readonly LocalModelTier[] = [
 /** The embedding model for PlexiiBrain's semantic search on the device. */
 export const LOCAL_EMBED_MODEL = {
   id: 'embed' as const,
+  bundleId: 'nomic-embed-text-v1.5',
   name: 'nomic-embed-text v1.5',
   file: 'nomic-embed-text-v1.5.Q8_0.gguf',
   version: '1',

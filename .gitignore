@@ -66,3 +66,6 @@ release-local/
 
 # Stray root-level bundle output; the real compiled entry lives under out/.
 /index.js
+
+# On-device AI model weights: build input staged by scripts/fetch-bundled-models.mjs (never committed)
+resources/models/

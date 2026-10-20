@@ -1,9 +1,10 @@
 {
   "schema": 1,
-  "note": "On-device AI models for Plexii (Settings → AI → Local on this device). Published to https://dl.plexiidesk.com/models/<version>/<file> by scripts/upload-local-models.mjs. sha256 and size are of the exact file; src/shared/localModelCatalog.ts compiles the same values into the signed app and tests/unit/localModelCatalog.test.ts holds the two equal.",
+  "note": "On-device AI models for Plexii. Shipped inside the app at Contents/Resources/models/<bundleId>/<file> (build input: resources/models/<bundleId>/, staged by scripts/fetch-bundled-models.mjs, gitignored), and downloadable from https://dl.plexiidesk.com/models/<version>/<file> (scripts/upload-local-models.mjs) for installs that came without it. sha256 and sizeBytes are of the exact file; src/shared/localModelCatalog.ts compiles the same values into the signed app and tests/unit/localModelCatalog.test.ts holds the two equal.",
   "models": [
     {
       "id": "compact",
+      "bundleId": "qwen3-4b-instruct-2507",
       "name": "Qwen3 4B Instruct",
       "file": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
       "version": "1",
@@ -23,6 +24,7 @@
   ],
   "embedding": {
     "id": "embed",
+    "bundleId": "nomic-embed-text-v1.5",
     "name": "nomic-embed-text v1.5",
     "file": "nomic-embed-text-v1.5.Q8_0.gguf",
     "version": "1",

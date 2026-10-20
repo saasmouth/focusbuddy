@@ -16,11 +16,11 @@ describe('local model catalog', () => {
     for (const m of manifest.models) {
       const t = LOCAL_MODEL_TIERS.find((x) => x.id === m.id)!
       expect(t, m.id).toBeTruthy()
-      for (const k of ['name', 'file', 'version', 'sizeBytes', 'sha256', 'license', 'licenseUrl', 'sourceUrl', 'contextSize', 'kvCache', 'minRamGB', 'recommendedRamGB']) {
+      for (const k of ['bundleId', 'name', 'file', 'version', 'sizeBytes', 'sha256', 'license', 'licenseUrl', 'sourceUrl', 'contextSize', 'kvCache', 'minRamGB', 'recommendedRamGB']) {
         expect((t as Record<string, unknown>)[k], `${m.id}.${k}`).toEqual(m[k])
       }
     }
-    for (const k of ['name', 'file', 'version', 'sizeBytes', 'sha256', 'license', 'sourceUrl']) {
+    for (const k of ['bundleId', 'name', 'file', 'version', 'sizeBytes', 'sha256', 'license', 'sourceUrl']) {
       expect((LOCAL_EMBED_MODEL as Record<string, unknown>)[k], `embed.${k}`).toEqual(manifest.embedding[k])
     }
   })

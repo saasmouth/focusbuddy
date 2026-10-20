@@ -72,6 +72,26 @@ export function isInstalled(dir: string, spec: Pick<DownloadSpec, 'file' | 'size
   }
 }
 
+/**
+ * fetch() for file:// URLs (a local test manifest), honouring Range so resume
+ * works the same as over HTTPS. Everything else goes to the real fetch.
+ */
+export function fetchWithFile(base: typeof fetch): typeof fetch {
+  return (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    if (!url.startsWith('file:')) return base(input, init)
+    const path = decodeURIComponent(new URL(url).pathname)
+    if (!existsSync(path)) return new Response('not found', { status: 404 })
+    const size = statSync(path).size
+    const range = new Headers(init?.headers as HeadersInit | undefined).get('range')
+    const from = range ? Number(/bytes=(\d+)-/.exec(range)?.[1] ?? 0) : 0
+    if (from >= size && range) return new Response(null, { status: 416 })
+    const { Readable } = await import('node:stream')
+    const stream = Readable.toWeb(createReadStream(path, { start: from })) as unknown as ReadableStream<Uint8Array>
+    return new Response(stream, { status: range ? 206 : 200, headers: { 'content-length': String(size - from) } })
+  }) as typeof fetch
+}
+
 export async function sha256File(path: string): Promise<string> {
   const h = createHash('sha256')
   await new Promise<void>((resolve, reject) => {

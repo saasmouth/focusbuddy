@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import Icon from './Icon'
 import Modal from './plexi/Modal'
 import { openAiSettings } from '../stores/aiCredits'
-import type { CloudConsentRequest, GroundingReport } from '@shared/localAi'
+import type { CloudConsentRequest, GroundingReport, LocalAiStatus, LocalDownloadProgress } from '@shared/localAi'
 
 // The two things Local AI says on its own, mounted once in App:
 //
@@ -18,6 +18,35 @@ export default function LocalAiPrompts(): JSX.Element | null {
   const [queue, setQueue] = useState<CloudConsentRequest[]>([])
   const [notice, setNotice] = useState<string | null>(null)
   const [grounding, setGrounding] = useState<GroundingReport | null>(null)
+  // The installed app came without the model (an update zip, or it could not
+  // be kept): AI must say so and offer the one-time download, never just fail.
+  const [missing, setMissing] = useState<{ tierId: string; bytes: number } | null>(null)
+  const [dl, setDl] = useState<LocalDownloadProgress | null>(null)
+  const [dlError, setDlError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const api = window.api?.localAi
+    if (!api?.getStatus) return
+    const check = (): void => {
+      void api
+        .getStatus()
+        .then((st: LocalAiStatus) => {
+          const routesLocal = st.provider === 'local' || Object.values(st.featureRoutes).includes('local')
+          const tier = st.tiers.find((t) => t.id === st.activeTier)
+          if (routesLocal && tier && !tier.installed) {
+            setMissing({ tierId: tier.id, bytes: tier.sizeBytes + (st.embeddings.installed ? 0 : 146_146_432) })
+          } else setMissing(null)
+        })
+        .catch(() => undefined)
+    }
+    check()
+    const offC = api.onChanged(() => check())
+    const offP = api.onProgress((p) => setDl(p))
+    return () => {
+      offC()
+      offP()
+    }
+  }, [])
 
   useEffect(() => {
     const api = window.api?.localAi
@@ -105,6 +134,48 @@ export default function LocalAiPrompts(): JSX.Element | null {
             </button>
           </div>
         </Modal>
+      )}
+      {missing && (
+        <div
+          role="status"
+          className="fixed top-14 left-1/2 -translate-x-1/2 z-[9997] max-w-md fb-card rounded-[var(--radius-field)] px-3 py-2 shadow-lg fb-t-caption leading-snug"
+          data-testid="local-ai-missing"
+        >
+          <div className="font-medium text-[var(--ink-90)]">Local AI needs a one-time download ({(missing.bytes / 1e9).toFixed(1)} GB)</div>
+          <div className="text-[var(--ink-60)] mt-0.5">
+            AI runs on this computer, but the model is not here yet. Until it is, AI features cannot answer.
+          </div>
+          {dl && dl.tierId === missing.tierId && ['checking', 'downloading', 'verifying'].includes(dl.state) ? (
+            <div className="mt-1.5">
+              <div className="h-1.5 rounded bg-[var(--surface-sunken)] overflow-hidden">
+                <div className="h-full bg-accent" style={{ width: `${Math.min(100, (dl.receivedBytes / Math.max(1, dl.totalBytes)) * 100)}%` }} />
+              </div>
+              <div className="text-[var(--ink-50)] mt-0.5">
+                {dl.state === 'verifying' ? 'Checking the file…' : `${(dl.receivedBytes / 1e9).toFixed(1)} of ${(dl.totalBytes / 1e9).toFixed(1)} GB`}
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2 mt-1.5">
+              <button
+                type="button"
+                className="fb-t-caption px-3 py-1 rounded-[var(--radius-field)] bg-accent text-white fb-press"
+                data-testid="local-ai-missing-download"
+                onClick={() => {
+                  setDlError(null)
+                  void window.api.localAi.download(missing.tierId).then((r) => {
+                    if (!r.ok) setDlError(r.error ?? 'The download did not finish.')
+                  })
+                }}
+              >
+                Download
+              </button>
+              <button type="button" className="fb-t-caption px-3 py-1 fb-btn-surface fb-press text-[var(--ink-80)]" onClick={() => openAiSettings()}>
+                Settings
+              </button>
+            </div>
+          )}
+          {dlError && <div className="text-rose-600 dark:text-rose-400 mt-1">{dlError}</div>}
+        </div>
       )}
       {grounding && (
         <div

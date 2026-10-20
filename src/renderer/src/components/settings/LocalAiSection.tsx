@@ -188,7 +188,11 @@ export default function LocalAiSection(): JSX.Element {
                   </div>
                 )}
                 <div className="flex gap-1.5 mt-1.5">
-                  {t.installed ? (
+                  {t.installed && t.source === 'bundle' ? (
+                    <span className="text-emerald-700 dark:text-emerald-400 self-center" data-testid={`local-ai-bundled-${t.id}`}>
+                      Included with PlexiiDesk
+                    </span>
+                  ) : t.installed ? (
                     <>
                       <span className="text-emerald-700 dark:text-emerald-400 self-center">Downloaded and verified</span>
                       <button

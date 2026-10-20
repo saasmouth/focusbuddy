@@ -34,7 +34,8 @@ import {
 import { setLocalRouteResolver, resolveCloudModel } from '../modelRouting'
 import { installEgressGuard } from './egressGuard'
 import { EngineHost, type WorkerHandle } from './engineHost'
-import { downloadModel, isInstalled, removeModel, finalPath, type DownloadProgress } from './downloadManager'
+import { downloadModel, removeModel, fetchWithFile, type DownloadProgress } from './downloadManager'
+import { locateModel, verifyLocated, type ModelSpec, type Located } from './modelLocator'
 import { setGroundingSink } from './localClient'
 import { setBundledEmbedder } from '../localModel'
 import { SIGNAL_BASE } from '../creditMode'
@@ -72,18 +73,55 @@ export function activeTier(): LocalModelTier | null {
   return recommendTier(LOCAL_MODEL_TIERS, ramGB())
 }
 
+/**
+ * The models shipped inside the app (extraResources → Resources/models/<bundleId>/).
+ */
+export function bundleModelsDir(): string | null {
+  // Packaged: Contents/Resources/models (electron-builder extraResources from
+  // resources/models). Dev: the staged build input itself.
+  return app.isPackaged ? join(process.resourcesPath, 'models') : join(app.getAppPath(), 'resources', 'models')
+}
+
+function dirs(): { userDir: string; bundleDir: string | null } {
+  return { userDir: modelsDir(), bundleDir: bundleModelsDir() }
+}
+
+/** Every catalog model the app may carry in its bundle (for the updater). */
+export function bundledModelSpecs(): ModelSpec[] {
+  return [...LOCAL_MODEL_TIERS, LOCAL_EMBED_MODEL]
+}
+
+export function locate(spec: ModelSpec | null): Located | null {
+  return spec ? locateModel(spec, dirs()) : null
+}
+
 function tierInstalled(t: LocalModelTier | null): boolean {
-  return !!t && isInstalled(modelsDir(), t)
+  return !!locate(t)
 }
 
 function embedInstalled(): boolean {
-  return isInstalled(modelsDir(), LOCAL_EMBED_MODEL)
+  return !!locate(LOCAL_EMBED_MODEL)
+}
+
+const verifiedCacheFile = (): string => join(modelsDir(), 'bundle-verified.json')
+
+/** Checksum the located file once (bundled files: first use only). */
+async function ensureVerified(spec: ModelSpec): Promise<Located> {
+  const loc = locate(spec)
+  if (!loc) throw new LocalModelMissingError()
+  if (!(await verifyLocated(spec, loc, verifiedCacheFile()))) {
+    throw new Error(
+      'The on-device AI model that came with the app did not match its checksum, so it was not used. Reinstall PlexiiDesk, or download the model again in Settings → AI.'
+    )
+  }
+  return loc
 }
 
 /** Re-point the engine host after a download, delete or tier change. */
 export function refreshEngineModel(): void {
   const t = activeTier()
-  if (host) host.setModel(tierInstalled(t) ? finalPath(modelsDir(), t!.file) : null, t?.contextSize ?? 8192, 'auto', t?.kvCache)
+  const loc = locate(t)
+  if (host) host.setModel(loc ? loc.path : null, t?.contextSize ?? 8192, 'auto', t?.kvCache)
 }
 
 function broadcast(channel: string, payload: unknown): void {
@@ -153,16 +191,19 @@ export function initLocalAi(): void {
     installed: () => tierInstalled(activeTier()),
     modelLabel: () => activeTier()?.name.toLowerCase().replace(/\s+/g, '-') ?? 'none',
     engine: async () => {
-      if (!tierInstalled(activeTier()) || !host) throw new LocalModelMissingError()
+      const t = activeTier()
+      if (!t || !host) throw new LocalModelMissingError()
+      await ensureVerified(t)
       return host
     }
   })
   setBundledEmbedder({
     installed: embedInstalled,
     label: () => LOCAL_EMBED_MODEL.label,
-    embed: (texts, kind) => {
-      if (!host || !embedInstalled()) return Promise.reject(new Error('No local embedding model is installed.'))
-      return host.embed(finalPath(modelsDir(), LOCAL_EMBED_MODEL.file), texts, kind ?? 'document')
+    embed: async (texts, kind) => {
+      if (!host || !embedInstalled()) throw new Error('No local embedding model is installed.')
+      const loc = await ensureVerified(LOCAL_EMBED_MODEL)
+      return host.embed(loc.path, texts, kind ?? 'document')
     }
   })
   setConsentAsker(askRendererForConsent)
@@ -179,6 +220,10 @@ export function initLocalAi(): void {
 }
 
 // ── Status ──────────────────────────────────────────────────────────────────
+
+export async function freeDiskBytes(): Promise<number | null> {
+  return freeDisk()
+}
 
 async function freeDisk(): Promise<number | null> {
   try {
@@ -206,7 +251,7 @@ export async function localAiStatus(): Promise<LocalAiStatus> {
     ramGB: ram,
     freeDiskBytes: await freeDisk(),
     recommendedTier: rec?.id ?? null,
-    tiers: LOCAL_MODEL_TIERS.map((t) => ({ ...t, installed: tierInstalled(t), offered: ram >= t.minRamGB })),
+    tiers: LOCAL_MODEL_TIERS.map((t) => ({ ...t, installed: tierInstalled(t), source: locate(t)?.where ?? null, offered: ram >= t.minRamGB })),
     activeTier: active?.id ?? null,
     engine: {
       state: host?.state ?? 'idle',
@@ -241,13 +286,16 @@ function featureRepresentativePurpose(f: AiFeature): string {
 async function runDownload(tier: LocalModelTier): Promise<{ ok: boolean; error?: string }> {
   if (download) return { ok: false, error: 'A download is already running.' }
   const ctrl = new AbortController()
+  // PLEXII_MODEL_BASE_URL: a local test build downloads from a file:// folder
+  // laid out like the host (<version>/<file>); checksums are verified the same.
+  const base = process.env.PLEXII_MODEL_BASE_URL || undefined
   const files = [
-    { url: modelDownloadUrl(tier), file: tier.file, sizeBytes: tier.sizeBytes, sha256: tier.sha256 },
+    { url: modelDownloadUrl(tier, base), file: tier.file, sizeBytes: tier.sizeBytes, sha256: tier.sha256 },
     ...(embedInstalled()
       ? []
       : [
           {
-            url: modelDownloadUrl(LOCAL_EMBED_MODEL),
+            url: modelDownloadUrl(LOCAL_EMBED_MODEL, base),
             file: LOCAL_EMBED_MODEL.file,
             sizeBytes: LOCAL_EMBED_MODEL.sizeBytes,
             sha256: LOCAL_EMBED_MODEL.sha256
@@ -265,7 +313,7 @@ async function runDownload(tier: LocalModelTier): Promise<{ ok: boolean; error?:
   }
   try {
     for (const spec of files) {
-      const r = await downloadModel(spec, { dir: modelsDir(), fetch: (i, n) => globalThis.fetch(i, n), freeBytes: async () => freeDisk(), onProgress: emit }, ctrl.signal)
+      const r = await downloadModel(spec, { dir: modelsDir(), fetch: fetchWithFile((i, n) => globalThis.fetch(i, n)), freeBytes: async () => freeDisk(), onProgress: emit }, ctrl.signal)
       if (!r.ok) return { ok: false, error: r.error }
     }
     refreshEngineModel()

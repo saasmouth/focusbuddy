@@ -23,6 +23,8 @@ import { detectPreviewBuild } from './appMode'
 import { flushBeforeUpdate } from './sessionPersistence'
 import { autoUpdater, type UpdateInfo, type ProgressInfo } from 'electron-updater'
 import { spawn } from 'node:child_process'
+import { preserveBundledModels } from './ai/local/modelMigration'
+import { modelsDir, freeDiskBytes, bundledModelSpecs } from './ai/local/localAiService'
 import {
   createWriteStream,
   mkdtempSync,
@@ -157,6 +159,19 @@ export async function downloadAndInstallMacUpdate(): Promise<void> {
     const appName = readdirSync(unzipDir).find((n) => n.endsWith('.app'))
     if (!appName) throw new Error('The downloaded update did not contain an app bundle.')
     const newApp = join(unzipDir, appName)
+
+    // Keep the on-device AI model: update zips are built without it, so copy it
+    // out of this bundle into userData (verified) before the swap removes it.
+    // If that cannot be done, do not install — losing the model silently would
+    // leave AI not working after the update (modelMigration.ts).
+    broadcast({ kind: 'downloading', percent: 100 })
+    const kept = await preserveBundledModels(bundledModelSpecs(), {
+      userDir: modelsDir(),
+      oldBundleDir: join(targetApp, 'Contents', 'Resources', 'models'),
+      newBundleDir: join(newApp, 'Contents', 'Resources', 'models'),
+      freeBytes: freeDiskBytes
+    })
+    if (!kept.ok) throw new Error(kept.error)
 
     const script = join(work, 'install.sh')
     writeFileSync(script, MAC_INSTALL_SCRIPT, { mode: 0o755 })
