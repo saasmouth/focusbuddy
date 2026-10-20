@@ -157,23 +157,27 @@ describe('schema-constrained decoding and small-model variants', () => {
   it('passes the schema to the engine, and not when switched off', async () => {
     const e = engineOf(['{"reply":"hi","actions":[]}'])
     const body = { model: 'local:chat', max_tokens: 50, system: 'MUST be a single valid JSON object {"reply": "", "actions": []} {"kind":"create-table"}', messages: [{ role: 'user', content: 'x' }] }
+    // Both states set explicitly. This used to lean on the shipped default
+    // being true, so it broke the moment schema decoding was defaulted off for
+    // release — a test of "on vs off" should not depend on which one ships.
+    setLocalClientOptions({ schemaDecoding: true })
     await runLocal(deps(e), body)
     expect(e.calls[0].jsonSchema).toBeTruthy()
     setLocalClientOptions({ schemaDecoding: false })
     await runLocal(deps(e), body)
     expect(e.calls[1].jsonSchema).toBeUndefined()
-    setLocalClientOptions({ schemaDecoding: true })
   })
 
   it('adds explicit dates for chat only, never rewriting the call site prompt', () => {
     const now = new Date('2026-10-20T12:00:00Z')
+    // Set explicitly for the same reason as the schema test above.
+    setLocalClientOptions({ promptVariants: true })
     const out = applyVariants('chat', 'ORIGINAL PROMPT', now)
     expect(out.startsWith('ORIGINAL PROMPT')).toBe(true)
     expect(out).toContain('today is 2026-10-20, tomorrow is 2026-10-21')
     expect(applyVariants('doc_rewrite', 'ORIGINAL PROMPT', now)).toBe('ORIGINAL PROMPT')
     setLocalClientOptions({ promptVariants: false })
     expect(applyVariants('chat', 'ORIGINAL PROMPT', now)).toBe('ORIGINAL PROMPT')
-    setLocalClientOptions({ promptVariants: true })
   })
 
   it('marks a reply that failed its contract twice as unusable', async () => {
