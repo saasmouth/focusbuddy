@@ -1,5 +1,8 @@
 // The body shape of a LIVE FOLDER plus the pure operations the holder uses to
-// edit it. A live folder is shared under the same check-out model as live docs;
+// edit it. A live folder is shared under a lock-holder model: one member holds
+// the lock and edits, everyone else mirrors. Live DOCUMENTS no longer work this
+// way — they moved to CRDT co-editing with no lock (see LiveDocEditorView), so
+// do not describe the two as the same model;
 // its body is a flat list of entries (folders, files, inlined documents) keyed
 // by a stable id with a parentId pointer, so it carries the whole tree in one
 // JSON payload. Files reference a server blob id (see liveFolderClient); the

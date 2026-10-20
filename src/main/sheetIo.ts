@@ -1,8 +1,22 @@
 // Spreadsheet Office interop: import .xlsx/.csv into the v2 sheet body and
-// export the body to .xlsx/.csv. Uses SheetJS (already a dependency). Honest
-// about fidelity: values always; formulas where SheetJS exposes them; number
-// formats best-effort; merged cells collapse to their top-left value; styling
-// beyond what the body models is dropped; charts are not round-tripped.
+// export the body to .xlsx/.csv.
+//
+// Two libraries, on purpose. IMPORT and CSV export use SheetJS, which reads the
+// workbook model we need (ranges, cell addressing, merges, column and row
+// info). XLSX export goes through exceljs instead (buildStyledXlsx in
+// sheetXlsxWriter.ts), because visual styles — fonts, fills, colours,
+// alignment — have to survive into real Excel rather than arriving as bare
+// values and number formats.
+//
+// Honest about fidelity: values always; formulas where SheetJS exposes them;
+// number formats best-effort; merged cells collapse to their top-left value on
+// import; styling beyond what the body models is dropped; charts are not
+// round-tripped.
+//
+// Worth knowing: the pinned SheetJS (xlsx@0.18.5) is the last build published
+// to npm before the project moved to its own CDN, and npm audit reports high
+// severity against it (prototype pollution, ReDoS). Replacing or re-pinning it
+// is a maintenance decision with a deadline, not a feature.
 
 import { dialog, BrowserWindow } from 'electron'
 import { basename } from 'path'
