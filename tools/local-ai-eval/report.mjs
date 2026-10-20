@@ -74,6 +74,26 @@ lines.push(`| --- | ${ordered.map(() => '---').join(' | ')} |`)
 for (const f of FAMILIES) lines.push(`| ${f} | ${ordered.map((r) => fmtRate(famStats(r, [f]))).join(' | ')} |`)
 lines.push(`| **all** | ${ordered.map((r) => `**${fmtRate(famStats(r, FAMILIES))}**`).join(' | ')} |`)
 lines.push('')
+// Per prompt branch: a family average can hide one prompt going bad.
+const branchRuns = ordered.filter((r) => r.results.some((x) => x.branch))
+if (branchRuns.length) {
+  const branches = [...new Set(branchRuns.flatMap((r) => r.results.map((x) => x.branch).filter(Boolean)))].sort()
+  lines.push('## Pass rate by prompt branch')
+  lines.push('')
+  lines.push(`| prompt branch | ${branchRuns.map((r) => r.label).join(' | ')} |`)
+  lines.push(`| --- | ${branchRuns.map(() => '---').join(' | ')} |`)
+  for (const b of branches) {
+    lines.push(
+      `| ${b} | ${branchRuns
+        .map((r) => {
+          const rs = r.results.filter((x) => x.branch === b)
+          return rs.length ? `${rs.filter((x) => x.passed).length}/${rs.length}` : 'n/a'
+        })
+        .join(' | ')} |`
+    )
+  }
+  lines.push('')
+}
 lines.push('## Median wall time per task (includes prompt processing and generation)')
 lines.push('')
 lines.push(`| family | ${ordered.map((r) => r.label).join(' | ')} |`)

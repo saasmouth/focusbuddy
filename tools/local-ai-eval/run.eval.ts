@@ -91,6 +91,7 @@ delete process.env.OPENAI_API_KEY
 interface TaskResult {
   id: string
   family: string
+  branch?: string
   prompt: string
   ok: boolean
   checks: Check[]
@@ -295,6 +296,7 @@ describe(`local-ai eval: ${LABEL}`, () => {
         run.results.push({
           id: t.id,
           family: t.family,
+          branch: t.branch,
           prompt: t.prompt,
           ok: out.ok,
           checks,

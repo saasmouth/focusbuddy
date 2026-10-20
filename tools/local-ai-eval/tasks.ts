@@ -49,6 +49,8 @@ export interface EvalTask {
   rubric?: string
   /** Source material the judge needs to verify faithfulness. */
   judgeContext?: string
+  /** The prompt builder this task exercises (e.g. 'generateDocument:sheet'), for per-branch scores. */
+  branch?: string
   /** Targets the task applies to. Default both. Document enrichment has no
    *  cloud path in the product (it is local-only by design), so it is local-only here. */
   targets?: Array<'local' | 'cloud'>
@@ -75,6 +77,14 @@ const proposals = (o: TaskOutput): ActionProposal[] =>
 const CLAIMS_SENT = /\b(i('| ha)ve|i) (sent|emailed|posted|deleted|scheduled)\b|\bhas been sent\b|\bwas sent\b|\bsent it\b/i
 
 const ASSIST = { supportsQuestions: true, includeMemory: true }
+
+// Content-writing rubrics share one clause: inventing a specific nobody supplied
+// fails, AND so does a thin draft. Specifics the user did not give should be
+// [placeholders]; general knowledge, structure and prose are expected. A
+// grounding rule that makes drafts hollow is a regression, not a fix.
+const USEFUL =
+  ' Specifics the user did not supply (names, figures, dates, prices, places) must be [placeholders] or clearly framed as examples, never asserted as fact. ' +
+  'It must still be a substantive, useful draft a person could build on: a thin, hollow or mostly-placeholder draft fails as surely as an invented one.'
 
 export function buildTasks(api: () => Promise<Api>): EvalTask[] {
   const chat = (q: string, taskId: string | null = DESK) => async (): Promise<TaskOutput> =>
@@ -209,6 +219,7 @@ export function buildTasks(api: () => Promise<Api>): EvalTask[] {
     tasks.push({
       id,
       family: 'build',
+      branch: 'buildFromPrompt',
       prompt,
       run: async () => {
         const r = (await (await api()).buildFromPrompt({ prompt, taskId: null })) as AiBuildResponse
@@ -270,6 +281,7 @@ export function buildTasks(api: () => Promise<Api>): EvalTask[] {
     tasks.push({
       id,
       family: 'office',
+      branch: `generateDocument:${docType}`,
       prompt,
       run: async () => {
         const r = await (await api()).generateDocument({ docType, prompt })
@@ -279,7 +291,7 @@ export function buildTasks(api: () => Promise<Api>): EvalTask[] {
         const r = o.data as { ok?: boolean; body?: unknown } | undefined
         return [c('generated', !!r?.ok && !!r.body, o.error), ...(r?.ok ? check(r.body) : [])]
       },
-      rubric
+      rubric: rubric + USEFUL
     })
   }
   gen('office-doc', 'doc', 'A one-page project brief for moving our team wiki into PlexiiWrite: goals, scope, timeline, risks.', (b) => {
@@ -298,9 +310,35 @@ export function buildTasks(api: () => Promise<Api>): EvalTask[] {
     const m = b as { nodes?: unknown[]; edges?: unknown[] } | undefined
     return [c('>= 5 nodes', (m?.nodes?.length ?? 0) >= 5, `${m?.nodes?.length ?? 0}`), c('>= 4 edges', (m?.edges?.length ?? 0) >= 4, `${m?.edges?.length ?? 0}`)]
   }, 'A correct flowchart of the described refund process with a decision (approved / refused) and both outcomes connected.')
+  const docSections = (b: unknown): Check[] => {
+    const content = ((b as { content?: unknown[] })?.content ?? []) as unknown[]
+    return [c('has sections', content.length >= 4, `${content.length} nodes`)]
+  }
+  const sheetCheck = (minCols: number, minRows: number) => (b: unknown): Check[] => {
+    const d = sheetDims(b)
+    return [c(`>= ${minCols} columns`, d.cols >= minCols, `${d.cols}`), c(`>= ${minRows} rows`, d.rows >= minRows, `${d.rows}`)]
+  }
+  const slidesCheck = (n: number) => (b: unknown): Check[] => {
+    const slides = ((b as { slides?: unknown[] })?.slides ?? []) as unknown[]
+    return [c(`>= ${n} slides`, slides.length >= n, `${slides.length}`)]
+  }
+  const mapCheck = (n: number, e: number) => (b: unknown): Check[] => {
+    const m = b as { nodes?: unknown[]; edges?: unknown[] } | undefined
+    return [c(`>= ${n} nodes`, (m?.nodes?.length ?? 0) >= n, `${m?.nodes?.length ?? 0}`), c(`>= ${e} edges`, (m?.edges?.length ?? 0) >= e, `${m?.edges?.length ?? 0}`)]
+  }
+  gen('office-doc-2', 'doc', 'An onboarding guide for a new support agent joining our team: first week, tools, how we handle escalations.', docSections, 'A practical onboarding guide covering the first week, tools and escalations, organised so a new hire can follow it.')
+  gen('office-doc-3', 'doc', 'Meeting notes template for our weekly product review, pre-filled with this week\'s three agenda items: pricing page, onboarding drop-off, the mobile beta.', docSections, 'A usable notes document for the three named agenda items, with places for decisions and owners; it must not invent outcomes of a meeting that has not happened.')
+  gen('office-sheet-2', 'sheet', 'A content calendar for the next four weeks: date, channel, topic, owner, status.', sheetCheck(5, 4), 'A four-week calendar with exactly the requested columns and plausible rows; owners and dates the user did not give are placeholders or clearly examples.')
+  gen('office-sheet-3', 'sheet', 'A simple invoice tracker: client, invoice number, amount, due date, paid?', sheetCheck(5, 3), 'A tracker with the requested columns; any example rows are clearly examples, not invented real clients presented as the user\'s own.')
+  gen('office-slides-2', 'slides', 'A 6-slide internal training deck on how to write a good bug report.', slidesCheck(5), 'A coherent training deck with real, generally-true guidance on bug reports; no invented company statistics.')
+  gen('office-slides-3', 'slides', 'A 4-slide update for the board on our hiring: roles open, pipeline, risks, next steps.', slidesCheck(3), 'A board update structure for hiring; every number or name the user did not supply is a placeholder, not an invented fact.')
+  gen('office-map-2', 'map', 'An org chart: a CEO, with a Head of Product and a Head of Engineering reporting to them, and two engineers under the Head of Engineering.', mapCheck(5, 4), 'An org chart exactly matching the described reporting lines, nothing extra asserted.')
+  gen('office-map-3', 'map', 'A mind map of ideas for reducing customer churn.', mapCheck(5, 4), 'A sensible mind map of churn-reduction ideas from general knowledge; no invented facts about the user\'s own customers.')
+
   tasks.push({
     id: 'office-deck',
     family: 'office',
+    branch: 'generateSlideElements:deck',
     prompt: 'Deck: a 4-slide quarterly review for a small design studio',
     run: async () => {
       const r = await (await api()).generateSlideElements({ mode: 'deck', prompt: 'A 4-slide quarterly review for a small design studio: highlights, numbers to fill in, lessons, next quarter.' })
@@ -310,11 +348,27 @@ export function buildTasks(api: () => Promise<Api>): EvalTask[] {
       const r = o.data as { ok?: boolean; body?: { slides?: unknown[] } } | undefined
       return [c('generated', !!r?.ok, o.error), c('>= 3 slides', (r?.body?.slides?.length ?? 0) >= 3, `${r?.body?.slides?.length ?? 0}`)]
     },
-    rubric: 'A coherent short quarterly-review deck with the requested sections; it must not invent the studio\'s actual numbers as facts.'
+    rubric: 'A coherent short quarterly-review deck with the requested sections; it must not invent the studio\'s actual numbers as facts.' + USEFUL
+  })
+  tasks.push({
+    id: 'office-deck-2',
+    family: 'office',
+    branch: 'generateSlideElements:deck',
+    prompt: 'Deck: a 5-slide introduction to our volunteer programme for new volunteers',
+    run: async () => {
+      const r = await (await api()).generateSlideElements({ mode: 'deck', prompt: 'A 5-slide introduction to our volunteer programme for new volunteers: welcome, what you will do, how shifts work, who to ask, first steps.' })
+      return { ok: r.ok, text: r.ok ? JSON.stringify(r.body) : '', data: r, error: r.error }
+    },
+    checks: (o) => {
+      const r = o.data as { ok?: boolean; body?: { slides?: unknown[] } } | undefined
+      return [c('generated', !!r?.ok, o.error), c('>= 4 slides', (r?.body?.slides?.length ?? 0) >= 4, `${r?.body?.slides?.length ?? 0}`)]
+    },
+    rubric: 'A welcoming, coherent intro deck covering the five requested topics.' + USEFUL
   })
   tasks.push({
     id: 'cells-columns',
     family: 'office',
+    branch: 'suggestSheetColumns',
     prompt: 'PlexiiCells: columns for tracking job applications',
     run: async () => {
       const r = await (await api()).suggestSheetColumns({ prompt: 'Track my job applications' })
@@ -328,6 +382,7 @@ export function buildTasks(api: () => Promise<Api>): EvalTask[] {
   tasks.push({
     id: 'cells-fill',
     family: 'office',
+    branch: 'fillSheetRange',
     prompt: 'PlexiiCells: fill the five largest countries by area',
     run: async () => {
       const r = await (await api()).fillSheetRange({ prompt: 'The five largest countries in the world by land area', headers: ['Country', 'Area (km²)'], rangeRows: 5, auto: false })
@@ -342,6 +397,7 @@ export function buildTasks(api: () => Promise<Api>): EvalTask[] {
   tasks.push({
     id: 'cells-formula',
     family: 'office',
+    branch: 'suggestFormula',
     prompt: 'PlexiiCells: total of Amount where Status is Paid',
     run: async () => {
       const r = await (await api()).suggestFormula({ prompt: 'Total of the Amount column where Status is Paid', headers: ['Item', 'Amount', 'Status'], activeRef: 'E2', sample: [['Hosting', '120', 'Paid'], ['Design', '800', 'Unpaid'], ['Domain', '15', 'Paid']] })
@@ -355,6 +411,7 @@ export function buildTasks(api: () => Promise<Api>): EvalTask[] {
   tasks.push({
     id: 'design-copy',
     family: 'office',
+    branch: 'generateDesignContent',
     prompt: 'Design: an Instagram post for a 20% plant sale',
     run: async () => {
       const r = await (await api()).generateDesignContent({ prompt: 'Spring sale: 20% off all indoor plants this weekend only', designKind: 'Instagram post' })
@@ -364,14 +421,34 @@ export function buildTasks(api: () => Promise<Api>): EvalTask[] {
       const ct = ((o.data as { content?: { headline?: string } } | undefined)?.content ?? {}) as { headline?: string }
       return [c('headline', o.ok && !!ct.headline && ct.headline.length > 3, ct.headline)]
     },
-    rubric: 'Short, on-brief post copy that states the 20% off indoor plants, this weekend only; no invented details like prices, codes or addresses.'
+    rubric: 'Short, on-brief post copy that states the 20% off indoor plants, this weekend only; no invented details like prices, codes or addresses.' + USEFUL
   })
+  const design = (id: string, prompt: string, designKind: string, rubric: string): void => {
+    tasks.push({
+      id,
+      family: 'office',
+      branch: 'generateDesignContent',
+      prompt: `Design: ${designKind} — ${prompt}`,
+      run: async () => {
+        const r = await (await api()).generateDesignContent({ prompt, designKind })
+        return { ok: r.ok, text: JSON.stringify(r.content ?? {}), data: r, error: r.error }
+      },
+      checks: (o) => {
+        const ct = ((o.data as { content?: { headline?: string } } | undefined)?.content ?? {}) as { headline?: string }
+        return [c('headline', o.ok && !!ct.headline && ct.headline.length > 3, ct.headline)]
+      },
+      rubric: rubric + USEFUL
+    })
+  }
+  design('design-copy-2', 'Community clean-up at Riverside Park on Saturday 9am, bring gloves', 'Event flyer', 'Flyer copy with the event, place, day and time exactly as given; nothing extra invented.')
+  design('design-copy-3', 'Launch of our new budgeting app for students', 'LinkedIn banner', 'Banner copy for a student budgeting app launch; no invented features, prices or user numbers.')
 
   // ── writing: draft and rewrite ─────────────────────────────────────────────
   const draft = (id: string, prompt: string, rubric: string): void => {
     tasks.push({
       id,
       family: 'writing',
+      branch: 'suggestDocContent',
       prompt,
       run: async () => {
         const r = await (await api()).suggestDocContent({ prompt })
@@ -382,7 +459,7 @@ export function buildTasks(api: () => Promise<Api>): EvalTask[] {
         c('HTML per the editor contract', /<(p|h[1-3]|ul|ol)\b/i.test(o.text)),
         c('no code fences', !/```/.test(o.text))
       ],
-      rubric
+      rubric: rubric + USEFUL
     })
   }
   draft('draft-kickoff', 'Draft a short kickoff email for the Plexii Pulse launch project to the team: goals, timeline, and who owns what.', 'A usable kickoff email: clear goals, timeline and ownership; well structured; no placeholder text like [Name] left unexplained.')
@@ -393,6 +470,7 @@ export function buildTasks(api: () => Promise<Api>): EvalTask[] {
     tasks.push({
       id,
       family: 'writing',
+      branch: 'rewriteSelection',
       prompt: `${instruction}: ${text.slice(0, 80)}…`,
       run: async () => {
         const r = await (await api()).rewriteSelection({ text, instruction })
@@ -414,6 +492,7 @@ export function buildTasks(api: () => Promise<Api>): EvalTask[] {
     tasks.push({
       id,
       family,
+      branch: 'transformText',
       prompt: `${instruction} (${text.length} chars)`,
       run: async () => {
         const r = await (await api()).transformText({ text, instruction, kind: 'note' })
