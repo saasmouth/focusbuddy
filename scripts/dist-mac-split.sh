@@ -49,11 +49,33 @@ fi
 # machine, which is the worst place to find out.
 node scripts/require-signing-env.mjs
 
+# Prerequisites, ONCE for both passes.
+#
+# Two things the first version of this script got wrong, both caught by
+# running it rather than reading it:
+#
+#  - it skipped natives:x64 and natives:universal. electron-builder.cjs says so
+#    in its own comment next to the mac targets: the universal merge needs the
+#    x64 prebuilds fetched and merged first, which is why dist:mac:universal
+#    runs both before building.
+#  - it ran `electron-builder --mac dmg`, and naming a target on the command
+#    line DISCARDS the arch list in the config. The config asks for
+#    arch:['universal']; the CLI silently substituted the host arch, so pass 1
+#    produced PlexiDesk-<v>-mac-arm64.dmg and the script then failed looking
+#    for the universal name. Both passes now pass --universal explicitly.
+#
+# `npm run build` also runs once, deliberately. PLEXII_OMIT_MODEL changes only
+# extraResources, not the compiled JS, so building once and packaging twice
+# makes app.asar identical in both artifacts BY CONSTRUCTION rather than by
+# luck — which is the property verify-model-split.mjs then asserts.
+npm run natives:x64
+npm run natives:universal
+npm run build
+
 echo "=============================================================="
 echo " PASS 1 of 2: fresh-install dmg, WITH the model"
 echo "=============================================================="
-npm run build
-npx electron-builder --mac dmg --publish never
+npx electron-builder --mac dmg --universal --publish never
 
 DMG="${DIR}/PlexiDesk-${VERSION}-mac-${MAC_ARCH}.dmg"
 [ -f "$DMG" ] || { echo "pass 1 produced no dmg at ${DMG}" >&2; exit 1; }
@@ -66,7 +88,10 @@ echo "=============================================================="
 echo " PASS 2 of 2: update zip, WITHOUT the model"
 echo "=============================================================="
 # PLEXII_OMIT_MODEL is read by extraResourcesFor() in electron-builder.cjs.
-PLEXII_OMIT_MODEL=1 npx electron-builder --mac zip --publish never
+# --universal for the same reason as pass 1: naming a target on the command
+# line drops the config's arch list, and an arm64-only update zip would be
+# refused by every Intel Mac before any of our code runs.
+PLEXII_OMIT_MODEL=1 npx electron-builder --mac zip --universal --publish never
 
 mv "${DMG}.pass1" "$DMG"
 
