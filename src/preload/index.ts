@@ -2623,7 +2623,12 @@ const api = {
     setOpenAIModels: (models: { fast?: string; standard?: string; best?: string }): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('localAi:setOpenAIModels', models),
     listOpenAIModels: (): Promise<{ ok: boolean; error?: string; models: string[] }> => ipcRenderer.invoke('localAi:listOpenAIModels'),
-    getIntro: (): Promise<{ pending: boolean; from: 'auto' | 'credits' | 'byok' | 'local' | 'openai' | null; mode: 'auto' | 'credits' | 'byok' | 'local' | 'openai' }> =>
+    getIntro: (): Promise<{
+      pending: boolean
+      from: 'auto' | 'credits' | 'byok' | 'local' | 'openai' | null
+      mode: 'auto' | 'credits' | 'byok' | 'local' | 'openai'
+      contentKey: 'anthropic' | 'openai' | null
+    }> =>
       ipcRenderer.invoke('localAi:getIntro'),
     dismissIntro: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('localAi:dismissIntro'),
     setContentWriting: (v: 'cloud-if-key' | 'local' | 'ask' | null): Promise<{ ok: boolean; error?: string }> =>

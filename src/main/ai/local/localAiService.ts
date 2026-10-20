@@ -519,7 +519,10 @@ export function registerLocalAiIpc(): void {
     return { ok: true }
   })
   // The one-time "local AI is now built in" notice (settingsStore.migrateAiMode).
-  ipcMain.handle('localAi:getIntro', () => getLocalAiIntro())
+  ipcMain.handle('localAi:getIntro', () => {
+    const r = effectiveRouteFor('office')
+    return { ...getLocalAiIntro(), contentKey: r === 'anthropic' || r === 'openai' ? r : null }
+  })
   ipcMain.handle('localAi:dismissIntro', () => {
     dismissLocalAiIntro()
     return { ok: true }

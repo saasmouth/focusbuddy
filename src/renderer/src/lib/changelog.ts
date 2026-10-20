@@ -38,6 +38,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.39-local.4',
+    date: '2026-10-21T18:00:00Z',
+    title: 'PlexiiDesk 4.3.39-local.4 \u2014 local AI built in, your own key for writing (test build)',
+    tag: 'feature',
+    summary:
+      'A local test build. PlexiiDesk ships with an AI model that runs on this computer and uses it by default. If you have your own Anthropic or OpenAI key saved, writing, documents and Build with AI use it, because cloud AI does those much better; everything else stays on this computer. Every AI result now says which engine answered.',
+    highlights: [
+      'The 2.5 GB model is inside the app, so there is nothing to download. If you were on the automatic setting, AI now runs on this computer; if you chose your own key or Plexii AI credits, that has not changed.',
+      'With your own key saved, writing, PlexiiWrite, PlexiiCells and PlexiiDeck drafts and Build with AI use it (your preferred key when you have both). Without a key they run on this computer with a note that cloud AI does them better. If your key is refused or out of credit, that request is answered on this computer instead, with a note.',
+      'Every AI result shows \u201cAnswered by\u201d: Local, Anthropic (your key), OpenAI (your key) or Plexii AI credits. Settings \u2192 Local AI lists where each feature runs now, with \u201cTest with local\u201d to try any of them on this computer in one click.',
+      'In our tests of the app\u2019s real prompts, the on-device model comes close to cloud AI on PlexiiAssist answers (79% of tasks against 92%), matches it on background tidying, and is well behind it on summaries, writing, document drafts and Build with AI.',
+      'Drafts written on this computer are checked for invented specifics \u2014 figures, prices, dates and names that were not in what you gave it. The clearest are replaced with a [placeholder] to fill in; drafts from cloud AI are checked and anything found is listed, never changed.',
+      'When Plexii AI credits run out, a request is answered on this computer with a note and a link to top up. The model starts loading in the background a few seconds after launch, and says \u201cStarting local AI\u201d if you ask before it is ready.'
+    ]
+  },
+  {
     version: '4.3.39-local.3',
     date: '2026-10-21T21:00:00Z',
     title: 'PlexiiDesk 4.3.39-local.3 \u2014 local AI built in, upgrade with your own key (test build)',

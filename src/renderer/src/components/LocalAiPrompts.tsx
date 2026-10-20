@@ -74,13 +74,13 @@ export default function LocalAiPrompts(): JSX.Element | null {
 
   // The one-time "local AI is now built in" notice (settingsStore.migrateAiMode).
   type Mode = 'auto' | 'credits' | 'byok' | 'local' | 'openai'
-  const [intro, setIntro] = useState<{ from: Mode | null; mode: Mode } | null>(null)
+  const [intro, setIntro] = useState<{ from: Mode | null; mode: Mode; contentKey: 'anthropic' | 'openai' | null } | null>(null)
   useEffect(() => {
     const api = window.api?.localAi
     if (!api?.getIntro) return
     void api
       .getIntro()
-      .then((r) => setIntro(r.pending ? { from: r.from, mode: r.mode } : null))
+      .then((r) => setIntro(r.pending ? { from: r.from, mode: r.mode, contentKey: r.contentKey ?? null } : null))
       .catch(() => undefined)
   }, [])
   const closeIntro = (): void => {
@@ -133,9 +133,16 @@ export default function LocalAiPrompts(): JSX.Element | null {
           <div className="font-medium text-[var(--ink-100)] mb-1">Local AI is now built in</div>
           <div>
             PlexiiDesk now includes an AI model that runs on this computer: it works offline, costs nothing per use, and
-            sends nothing to any AI service. It is good at PlexiiAssist answers, summaries, rewrites and tidying titles;
-            longer drafts and Build with AI are better on cloud AI.
+            sends nothing to any AI service. It is good at PlexiiAssist answers, summaries and tidying titles; writing,
+            documents and Build with AI are better on cloud AI.
           </div>
+          {intro.mode === 'local' && (
+            <div className="mt-1" data-testid="local-ai-intro-content">
+              {intro.contentKey
+                ? `Writing, documents and Build with AI use your own ${intro.contentKey === 'anthropic' ? 'Anthropic' : 'OpenAI'} key, because you have one saved; everything else stays on this computer.`
+                : 'Writing, documents and Build with AI run here too, with a note that cloud AI does them better. Save your own Anthropic or OpenAI key and they will use it.'}
+            </div>
+          )}
           <div className="mt-1 text-[var(--ink-60)]">
             {intro.mode === 'local'
               ? intro.from === 'auto'
