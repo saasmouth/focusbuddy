@@ -270,9 +270,10 @@ let clientOptions: LocalClientOptions = {
   schemaDecoding: false,
   promptVariants: false,
   smallGroundingRule: true,
-  // Off by default (d2, 2026-10-20) until d2 has reviewed what it actually
-  // repaired: tools/local-ai-eval records every finding for that review.
-  groundingCheck: false
+  // On (d2's review of 141 real repairs, ed662ea0): the local path repairs
+  // high-confidence invented specifics into [placeholders]; HTML attributes are
+  // no longer read as quotations. Cloud replies are highlighted, never changed.
+  groundingCheck: true
 }
 
 /** Where grounding findings go (the app shows them; tests and the eval read them). */
