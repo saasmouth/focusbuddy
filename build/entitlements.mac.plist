@@ -5,8 +5,9 @@
   <!-- Hardened Runtime entitlements required to notarise an Electron app.
        Chromium's V8 JITs JavaScript, which needs the JIT + unsigned-executable-
        memory exceptions, and our native modules (better-sqlite3,
-       node-mac-haptics) are separately signed dylibs the app dlopen()s, which
-       needs library-validation disabled. Without these, a hardened-runtime build
+       node-mac-haptics, and node-llama-cpp's llama.cpp binding, which is the
+       on-device AI engine) are separately signed dylibs the app dlopen()s,
+       which needs library-validation disabled. Without these, a hardened-runtime build
        either fails to launch or fails notarisation. -->
   <key>com.apple.security.cs.allow-jit</key>
   <true/>
