@@ -82,10 +82,27 @@ function zipPaths(zip) {
   return out.split('\n').filter(Boolean)
 }
 
-/** Stream one member out of the zip and hash it, without extracting the rest. */
+/** Shell-quote for the /bin/sh pipelines below. */
+function q(s) {
+  return `'${String(s).replace(/'/g, `'\\''`)}'`
+}
+
+/**
+ * sha256 of a file, via shasum so the bytes stream rather than landing in a
+ * Buffer. The model is gigabytes; reading it into memory to hash it is a
+ * needless way to make a release gate fail on a build machine.
+ */
+function shaFile(path) {
+  const out = execFileSync('/bin/sh', ['-c', `shasum -a 256 ${q(path)}`], { encoding: 'utf8' })
+  return out.trim().split(/\s+/)[0]
+}
+
+/** sha256 of one zip member, streamed straight into shasum. */
 function zipMemberSha(zip, member) {
-  const buf = execFileSync('unzip', ['-p', zip, member], { maxBuffer: 1 << 30 })
-  return createHash('sha256').update(buf).digest('hex')
+  const out = execFileSync('/bin/sh', ['-c', `unzip -p ${q(zip)} ${q(member)} | shasum -a 256`], {
+    encoding: 'utf8'
+  })
+  return out.trim().split(/\s+/)[0]
 }
 
 function zipMemberText(zip, member) {
@@ -127,14 +144,12 @@ function walk(dir, base = dir, acc = []) {
   return acc
 }
 
-function sha256File(p) {
-  return createHash('sha256').update(readFileSync(p)).digest('hex')
-}
+// createHash stays imported for nothing else now; shaFile covers every case.
 
 // ---------------------------------------------------------------------------
 // 1. What each artifact actually contains.
 // ---------------------------------------------------------------------------
-console.log('[1/4] model placement')
+console.log('[1/5] model placement')
 
 const zipList = zipPaths(ZIP)
 const zipApp = zipList.find((p) => /\.app\/$/.test(p)) || zipList.find((p) => /\.app\//.test(p))
@@ -157,7 +172,12 @@ const dmg = withMountedDmg(DMG, (mnt) => {
     files,
     modelFiles,
     modelBytes: modelFiles.reduce((n, p) => n + statSync(join(appPath, p)).size, 0),
-    asarSha: existsSync(asar) ? sha256File(asar) : null,
+    asarSha: existsSync(asar) ? shaFile(asar) : null,
+    // path -> sha256 for the bundled model, so it can be checked against both
+    // the build inputs and the manifest.
+    modelShas: Object.fromEntries(
+      modelFiles.map((p) => [p.slice(MODEL_PREFIX.length), shaFile(join(appPath, p))])
+    ),
     plist: existsSync(join(appPath, 'Contents/Info.plist'))
       ? readFileSync(join(appPath, 'Contents/Info.plist'), 'utf8')
       : null
@@ -206,7 +226,7 @@ if (dmgHasModel) {
 //    lists by design, so _CodeSignature and the sealed resource map legitimately
 //    diverge. Everything else must line up.
 // ---------------------------------------------------------------------------
-console.log('[2/4] same application in both artifacts')
+console.log('[2/5] same application in both artifacts')
 
 const zipAsar = `${appName}/Contents/Resources/app.asar`
 if (!zipList.includes(zipAsar)) {
@@ -224,7 +244,7 @@ if (!zipList.includes(zipAsar)) {
     )
 }
 
-console.log('[3/4] version metadata agrees')
+console.log('[3/5] version metadata agrees')
 const plistVersion = (xml, key) => {
   const m = new RegExp(`<key>${key}</key>\\s*<string>([^<]*)</string>`).exec(xml || '')
   return m?.[1] ?? null
@@ -245,7 +265,7 @@ if (shipped && shipped !== VERSION)
 // ---------------------------------------------------------------------------
 // 4. The ONLY structural difference may be the model.
 // ---------------------------------------------------------------------------
-console.log('[4/4] the only difference is the model')
+console.log('[4/5] the only difference is the model')
 const SIGNATURE_NOISE = (p) =>
   p.includes('/_CodeSignature/') || p.startsWith('_CodeSignature/') || p.endsWith('/CodeResources')
 
@@ -271,6 +291,146 @@ if (unexpectedDmg.length === 0) ok(`the dmg adds only ${MODEL_PREFIX} files`)
 else {
   bad(`the dmg contains ${unexpectedDmg.length} non-model file(s) absent from the zip:`)
   for (const p of unexpectedDmg.slice(0, 10)) console.error(`          + ${p}`)
+}
+
+// ---------------------------------------------------------------------------
+// 5. The bundled model is the model that was meant to ship.
+//
+//    Two independent checks, because they catch different things:
+//
+//    a) bundled vs the BUILD INPUT (resources/models). Needs no manifest, so
+//       it works today. Catches the packaging step mangling the payload: a
+//       truncated copy, a file silently dropped, a symlink followed or not.
+//    b) bundled vs the MANIFEST. Catches a corrupt or substituted weights file
+//       that was already wrong before packaging, which (a) cannot see because
+//       it would compare a bad file against itself.
+//
+//    A manifest that exists and does not parse is a FAILURE, never a skip. A
+//    hash gate that quietly does nothing is the kind that gets discovered
+//    after shipping.
+// ---------------------------------------------------------------------------
+console.log('[5/5] the bundled model is the intended model')
+
+const SRC_DIR = join(ROOT, 'resources/models')
+
+if (!existsSync(SRC_DIR)) {
+  note('resources/models is absent here, so the bundled payload cannot be compared to its input')
+  note('(expected when the gate runs away from the build machine)')
+} else {
+  const srcFiles = walk(SRC_DIR)
+  const bundled = Object.keys(dmg.modelShas)
+  const missing = srcFiles.filter((p) => !bundled.includes(p))
+  const extra = bundled.filter((p) => !srcFiles.includes(p))
+
+  if (missing.length) {
+    bad(`${missing.length} model file(s) in resources/models did not reach the bundle:`)
+    for (const p of missing.slice(0, 10)) console.error(`          - ${p}`)
+  }
+  if (extra.length) {
+    bad(`${extra.length} model file(s) in the bundle are not in resources/models:`)
+    for (const p of extra.slice(0, 10)) console.error(`          + ${p}`)
+  }
+  let mismatched = 0
+  for (const rel of srcFiles) {
+    if (!bundled.includes(rel)) continue
+    if (shaFile(join(SRC_DIR, rel)) !== dmg.modelShas[rel]) {
+      bad(`bundled model file differs from its build input: ${rel}`)
+      mismatched++
+    }
+  }
+  if (!missing.length && !extra.length && !mismatched)
+    ok(`all ${srcFiles.length} model file(s) match resources/models byte for byte`)
+}
+
+// The manifest. Two shapes are accepted and the one found is named, so a
+// format change surfaces as a reported mismatch rather than a silent pass:
+//
+//   shasum style   "<sha256>  <path relative to the manifest's directory>"
+//   JSON           { "files": { "<path>": "<sha256>" } }  (also accepts a bare
+//                  { "<path>": "<sha256>" } map)
+//
+// Searched for inside the bundled model tree so it travels with the weights.
+const MANIFEST_NAMES = ['manifest.sha256', 'SHA256SUMS', 'manifest.json', 'model.manifest.json']
+
+function findManifest() {
+  if (!existsSync(SRC_DIR)) return null
+  for (const rel of walk(SRC_DIR)) {
+    const base = rel.split('/').pop()
+    if (MANIFEST_NAMES.includes(base)) return { rel, abs: join(SRC_DIR, rel) }
+  }
+  return null
+}
+
+function parseManifest(text, name) {
+  if (name.endsWith('.json')) {
+    const j = JSON.parse(text)
+    const map = j && typeof j === 'object' && j.files && typeof j.files === 'object' ? j.files : j
+    if (!map || typeof map !== 'object') throw new Error('no object of path -> sha256')
+    const out = {}
+    for (const [k, v] of Object.entries(map)) {
+      if (typeof v !== 'string' || !/^[0-9a-f]{64}$/i.test(v)) throw new Error(`bad sha256 for ${k}`)
+      out[k] = v.toLowerCase()
+    }
+    if (!Object.keys(out).length) throw new Error('manifest lists no files')
+    return out
+  }
+  const out = {}
+  for (const line of text.split('\n')) {
+    const t = line.trim()
+    if (!t || t.startsWith('#')) continue
+    // shasum writes "<hash>  <path>"; BSD and GNU differ only in the separator
+    // width, and "*" marks binary mode.
+    const m = /^([0-9a-f]{64})\s+\*?(.+)$/i.exec(t)
+    if (!m) throw new Error(`unparseable line: ${t.slice(0, 60)}`)
+    out[m[2].trim()] = m[1].toLowerCase()
+  }
+  if (!Object.keys(out).length) throw new Error('manifest lists no files')
+  return out
+}
+
+const manifest = findManifest()
+if (!manifest) {
+  note('no model manifest found; the bundled-vs-input check above is the only hash gate')
+  note(`(add one of ${MANIFEST_NAMES.join(', ')} inside resources/models to enable it)`)
+} else {
+  const dirPrefix = manifest.rel.includes('/') ? manifest.rel.slice(0, manifest.rel.lastIndexOf('/') + 1) : ''
+  let entries = null
+  try {
+    entries = parseManifest(readFileSync(manifest.abs, 'utf8'), manifest.rel)
+  } catch (e) {
+    bad(`manifest ${manifest.rel} did not parse: ${e.message}`)
+    bad(`supported: "<sha256>  <path>" lines, or JSON {"files":{"<path>":"<sha256>"}}`)
+  }
+  if (entries) {
+    ok(`manifest ${manifest.rel} lists ${Object.keys(entries).length} file(s)`)
+    let checked = 0
+    for (const [rel, want] of Object.entries(entries)) {
+      // Manifest paths are relative to the manifest's own directory.
+      const key = `${dirPrefix}${rel}`.replace(/^\.\//, '')
+      const got = dmg.modelShas[key]
+      if (!got) {
+        bad(`manifest lists ${rel}, which is not in the bundled model`)
+        continue
+      }
+      if (got !== want) {
+        bad(`sha256 mismatch for ${key}: manifest ${want.slice(0, 12)}… bundle ${got.slice(0, 12)}…`)
+        continue
+      }
+      checked++
+    }
+    if (checked === Object.keys(entries).length) ok(`every manifest hash matches the bundled file`)
+    // Weights present but unlisted are worth knowing about: an unverified file
+    // in the bundle is exactly what a manifest is supposed to rule out.
+    const unlisted = Object.keys(dmg.modelShas).filter(
+      (p) => !Object.keys(entries).some((rel) => `${dirPrefix}${rel}`.replace(/^\.\//, '') === p)
+    ).filter((p) => !MANIFEST_NAMES.includes(p.split('/').pop()))
+    if (unlisted.length) {
+      bad(`${unlisted.length} bundled model file(s) are not covered by the manifest:`)
+      for (const p of unlisted.slice(0, 10)) console.error(`          ? ${p}`)
+    } else {
+      ok('the manifest covers every bundled model file')
+    }
+  }
 }
 
 console.log(failed ? '\nMODEL-SPLIT GATE FAILED — do not upload.' : '\nModel-split gate passed.')
