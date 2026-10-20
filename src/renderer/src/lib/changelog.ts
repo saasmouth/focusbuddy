@@ -38,6 +38,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.37',
+    date: '2026-10-21T09:00:00Z',
+    title: 'PlexiiDesk 4.3.37 \u2014 work widgets everywhere, PlexiiWrite and friends, and privacy you can check',
+    tag: 'feature',
+    summary:
+      'Everything four strands of work have been building, in one place. Work widgets now live in every office app and inside each other, and Plexii can work on them wherever they are. The office apps have their own names. Nothing is sent anywhere without you switching it on, and the app no longer loads anything from Google.',
+    highlights: [
+      'The office apps have their own names: PlexiiWrite, PlexiiCells, PlexiiDeck and PlexiiCall, alongside PlexiiChat, PlexiiVault, PlexiiBrain and PlexiiAssist. Docs, Sheets, Slides and Meet read as a copy of somebody else\u2019s line-up; these are ours.',
+      'Drag a work widget into a document, slide, design, diagram, drawing or spreadsheet and it is the real, editable thing \u2014 not a picture of one. On a spreadsheet, anchor it to a cell so it travels with your data, or let it float over the top.',
+      'You can put a work widget inside another widget, and the menu can now insert the ones that live in Files with no desk, which is most of them.',
+      'Plexii can read and change a work widget wherever it lives. Before, it could only see the desk in front of it and said it could not find widgets that were sitting in a document or in Files.',
+      'Usage reporting and crash reports are off until you turn them on, chat web search is off by default, and there are switches for update checks and background AI.',
+      'The app ships its own fonts and takes link icons from the site itself, so opening it no longer fetches anything from Google.',
+      'You can delete your account, and consent is recorded server-side rather than taken on trust.',
+      'PlexiiDeck imports more of a PowerPoint faithfully: autoshapes, theme colours, positioned rich text, and titles that inherit their place from the layout and master.',
+      'The side menu is lined up, with every item the same height and a soft edge of its own, and dashboards take work widgets, connected apps and the Plexii apps.'
+    ]
+  },
+  {
     version: '4.3.33',
     date: '2026-10-19T09:00:00Z',
     title: 'PlexiiDesk 4.3.33 \u2014 Plexii, spelled the same everywhere',
