@@ -14,13 +14,13 @@ import type { AiFeature, LocalGate, LocalGateInfo } from './localAi'
 import { featureForPurpose } from './localAi'
 
 /** The run these numbers come from (a label in tools/local-ai-eval/results). */
-export const GATES_SOURCE: { chosen: string; reference: string } = { chosen: 'v3-ship', reference: 'v3-cloud' }
+export const GATES_SOURCE: { chosen: string; reference: string } = { chosen: 'v4-ship', reference: 'v4-cloud' }
 
 export const MEASURED: Record<AiFeature, { local: number | null; cloud: number | null; gate: LocalGate }> = {
   assistant: { local: 0.792, cloud: 0.917, gate: 'ok' },
-  build: { local: 0.167, cloud: 0.5, gate: 'cloud-only' },
-  office: { local: 0.2, cloud: 0.55, gate: 'cloud-only' },
-  writing: { local: 0.375, cloud: 0.875, gate: 'cloud-only' },
+  build: { local: 0.167, cloud: 0.778, gate: 'cloud-only' },
+  office: { local: 0.2, cloud: 0.583, gate: 'cloud-only' },
+  writing: { local: 0.417, cloud: 0.875, gate: 'cloud-only' },
   summaries: { local: 0.5, cloud: 1, gate: 'labelled' },
   background: { local: 1, cloud: 1, gate: 'ok' },
   agents: { local: null, cloud: null, gate: 'cloud-only' },

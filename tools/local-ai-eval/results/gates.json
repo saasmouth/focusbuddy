@@ -1,6 +1,6 @@
 {
-  "chosen": "v3-ship",
-  "reference": "v3-cloud",
+  "chosen": "v4-ship",
+  "reference": "v4-cloud",
   "rule": "ok >= 0.85*cloud; labelled >= 0.50*cloud; else cloud-only; unmeasured → cloud-only",
   "features": {
     "assistant": {
@@ -19,7 +19,7 @@
         "build"
       ],
       "local": 0.167,
-      "cloud": 0.5,
+      "cloud": 0.778,
       "gate": "cloud-only"
     },
     "office": {
@@ -27,14 +27,14 @@
         "office"
       ],
       "local": 0.2,
-      "cloud": 0.55,
+      "cloud": 0.583,
       "gate": "cloud-only"
     },
     "writing": {
       "families": [
         "writing"
       ],
-      "local": 0.375,
+      "local": 0.417,
       "cloud": 0.875,
       "gate": "cloud-only"
     },
