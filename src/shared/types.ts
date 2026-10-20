@@ -3191,6 +3191,9 @@ export interface MapNode {
   widgetId?: string
 }
 
+/** How a connector gets from one node to the other. */
+export type MapEdgeRouting = 'orthogonal' | 'straight'
+
 export interface MapEdge {
   id: string
   source: string
@@ -3200,6 +3203,28 @@ export interface MapEdge {
   targetHandle?: string | null
   style?: 'solid' | 'dashed'
   animated?: boolean
+  /**
+   * Absent means 'orthogonal', which is a deliberate change of behaviour for
+   * bodies written before this field existed. Those bodies render as straight
+   * lines today, and a straight line between two node centres goes through
+   * whatever sits between them — the diagram app's most visible weakness. An
+   * existing diagram becomes more readable, never less, so the improvement is
+   * worth applying to content already saved. 'straight' opts back out.
+   */
+  routing?: MapEdgeRouting
+  /**
+   * Corner radius in px for an orthogonal connector. Absent means a small
+   * default; 0 gives hard corners.
+   */
+  cornerRadius?: number
+  /** Which ends carry an arrowhead. Absent means 'end'. */
+  arrow?: 'end' | 'both' | 'none'
+  /**
+   * Manual corners, in map coordinates. When present the router is not used
+   * and these are followed, so a person can always overrule the automatic
+   * route rather than fight it.
+   */
+  waypoints?: Array<{ x: number; y: number }>
 }
 
 export interface MapBody {
