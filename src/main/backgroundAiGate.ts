@@ -14,7 +14,7 @@
 // Neither may reach a cloud provider unless the person turned Background AI
 // tasks on. Work that stays on this computer is not gated: titles derived from
 // an item's own text, and embeddings from a local model (Ollama today; the
-// bundled model once branch local-ai merges, see `setLocalRouting`).
+// the bundled model, see `setLocalRouting`).
 //
 // The gate sits at the call sites (index.ts and the two retrieval modules), not
 // inside src/main/ai/*, which the local-ai branch owns.
@@ -32,9 +32,8 @@ export type GatedEmbedResult =
 
 // ── Local routing seam ──────────────────────────────────────────────────────
 // True when AI is set to run on this device, so a "model call" never leaves the
-// computer. Until local-ai merges nothing sets this and it is false; the merge
-// wires it to the provider router (see the integration note in the 4.3.34
-// privacy report): `setLocalRouting(() => localOnlyActive())` in index.ts.
+// computer. index.ts wires it to the provider router right after initLocalAi():
+// `setLocalRouting(() => localOnlyActive())`.
 let localRouting: () => boolean = () => false
 
 export function setLocalRouting(fn: () => boolean): void {
@@ -50,9 +49,9 @@ export function backgroundModelAllowed(): boolean {
 }
 
 /** Local-only embedding: the vectors a local model gives, or a plain "off". */
-async function embedLocally(texts: string[]): Promise<GatedEmbedResult> {
+async function embedLocally(texts: string[], kind: 'document' | 'query'): Promise<GatedEmbedResult> {
   try {
-    const local = await localEmbed(texts)
+    const local = await localEmbed(texts, kind)
     if (local && local.vectors.length === texts.length) {
       // Same tags embeddings.ts writes, so stored vectors compare correctly.
       const model = local.model.startsWith('local:') ? local.model : `ollama:${local.model}`
@@ -70,16 +69,19 @@ async function embedLocally(texts: string[]): Promise<GatedEmbedResult> {
  * sweep, and for a search question. So it goes to a cloud provider only while
  * Background AI tasks is on; otherwise only a local model is asked.
  */
-export async function gatedEmbedTexts(texts: string[]): Promise<GatedEmbedResult> {
-  if (texts.length === 0) return embedTexts(texts)
-  if (backgroundModelAllowed()) return embedTexts(texts)
-  return embedLocally(texts)
+export async function gatedEmbedTexts(
+  texts: string[],
+  kind: 'document' | 'query' = 'document'
+): Promise<GatedEmbedResult> {
+  if (texts.length === 0) return embedTexts(texts, kind)
+  if (backgroundModelAllowed()) return embedTexts(texts, kind)
+  return embedLocally(texts, kind)
 }
 
 /** A search question's vector with its model tag, under the same rule. */
 export async function gatedEmbedQueryTagged(
   text: string
 ): Promise<{ vector: number[]; model: string } | null> {
-  const r = await gatedEmbedTexts([text])
+  const r = await gatedEmbedTexts([text], 'query')
   return r.ok && r.vectors[0] ? { vector: r.vectors[0], model: r.model } : null
 }

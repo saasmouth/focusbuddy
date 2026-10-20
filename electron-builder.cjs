@@ -163,7 +163,20 @@ module.exports = {
     // the universal merge, which refuses a single-arch file that is identical
     // in both slices. Excluded rather than whitelisted: whitelisting would
     // have shipped three stale binaries AND hidden the check.
-    '!**/node_modules/node-mac-haptics/bin/**'
+    '!**/node_modules/node-mac-haptics/bin/**',
+    // node-llama-cpp ships the llama.cpp SOURCE (34 MB) so it can compile when no
+    // prebuilt binary fits. The app never compiles (build: 'never'), so the
+    // source and the CLI templates stay out. Windows ships the CPU and Vulkan
+    // binaries; the CUDA packages (544 MB) are left out of every installer.
+    '!**/node_modules/node-llama-cpp/llama/gitRelease.bundle',
+    '!**/node_modules/node-llama-cpp/templates/**',
+    '!**/node_modules/@node-llama-cpp/*-cuda/**',
+    '!**/node_modules/@node-llama-cpp/*-cuda-ext/**',
+    // @reflink is a per-arch native addon that node-llama-cpp's own model
+    // downloader (ipull) imports lazily to clone files. The app never uses that
+    // downloader (src/main/ai/local/downloadManager.ts does the downloading),
+    // and an arm64-only .node breaks the universal merge.
+    '!**/node_modules/@reflink/**'
   ],
 
   asarUnpack: [
@@ -180,7 +193,11 @@ module.exports = {
     'node_modules/tesseract.js/**/*',
     'node_modules/tesseract.js-core/**/*',
     'node_modules/pdf-to-png-converter/**/*',
-    'node_modules/@napi-rs/**/*'
+    'node_modules/@napi-rs/**/*',
+    // The on-device model runtime (src/main/ai/local): the addon, its llama.cpp
+    // dylibs and the Metal library load from disk by path.
+    'node_modules/node-llama-cpp/**/*',
+    'node_modules/@node-llama-cpp/**/*'
   ],
 
   // Bundle the English OCR training data (offline, on-device — no CDN fetch).
@@ -264,6 +281,7 @@ module.exports = {
     //   sharp/build/Release/*.node        (sharp-darwin-x64 / -arm64v8)
     //   sharp/vendor/**                   (libvips, shipped per arch)
     //   onnxruntime-node/bin/**           (bin/napi-v3/<platform>/<arch>/)
+    //   @node-llama-cpp/mac-*/**          (mac-arm64-metal and mac-x64 packages)
     //
     // Both arch copies end up in both slices, which is what the merge sees and
     // objects to, and is also exactly what makes the universal app work on
@@ -271,7 +289,7 @@ module.exports = {
     // to a single path and MUST be fat, so it stays under the check.
     x64ArchFiles:
       '**/{@napi-rs/canvas-darwin-*/*.node,better-sqlite3/prebuilds/*.node,' +
-      'sharp/build/Release/*.node,sharp/vendor/**,onnxruntime-node/bin/**}',
+      'sharp/build/Release/*.node,sharp/vendor/**,onnxruntime-node/bin/**,@node-llama-cpp/mac-*/**}',
     // macOS permission strings. Without these in Info.plist macOS silently denies
     // getUserMedia for camera + microphone — the user never sees the system
     // prompt. NSCameraUsageDescription is what fixes the video-note capture.

@@ -110,6 +110,7 @@
     "mailparser": "^3.9.10",
     "mammoth": "^1.12.0",
     "material-symbols": "^0.45.5",
+    "node-llama-cpp": "3.22.1",
     "nodemailer": "^6.10.1",
     "pdf-parse": "^2.4.5",
     "pdf-to-png-converter": "^4.2.0",

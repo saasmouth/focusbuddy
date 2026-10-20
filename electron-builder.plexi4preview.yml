@@ -28,6 +28,15 @@ files:
   - package.json
   - "!**/node_modules/*/{CHANGELOG.md,README.md,readme.md}"
   - "!**/*.{ts,tsx,map}"
+  # The on-device model runtime never compiles llama.cpp (build: 'never'), so its
+  # bundled source and CLI templates stay out; CUDA binaries are left out too.
+  - "!**/node_modules/node-llama-cpp/llama/gitRelease.bundle"
+  - "!**/node_modules/node-llama-cpp/templates/**"
+  - "!**/node_modules/@node-llama-cpp/*-cuda/**"
+  - "!**/node_modules/@node-llama-cpp/*-cuda-ext/**"
+  # @reflink: lazily imported by node-llama-cpp's own downloader, which the app
+  # never uses; its arm64-only addon would break a universal merge.
+  - "!**/node_modules/@reflink/**"
 
 asarUnpack:
   - node_modules/better-sqlite3/**/*
@@ -40,6 +49,9 @@ asarUnpack:
   - node_modules/tesseract.js-core/**/*
   - node_modules/pdf-to-png-converter/**/*
   - node_modules/@napi-rs/**/*
+  # The on-device model runtime (src/main/ai/local): addon, dylibs, Metal library.
+  - node_modules/node-llama-cpp/**/*
+  - node_modules/@node-llama-cpp/**/*
 
 # Bundle the offline OCR training data (no CDN fetch).
 extraResources:

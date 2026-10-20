@@ -56,7 +56,14 @@ const FAT_ADDONS = ['node-mac-haptics/build/Release/haptics.node']
 // build missing its x64 slice would have passed that check and failed on an
 // Intel Mac. Both files are now required explicitly.
 const PREBUILD_ADDONS = [
-  { pkg: 'better-sqlite3', dir: 'better-sqlite3/prebuilds', files: ['darwin-arm64.node', 'darwin-x64.node'] }
+  { pkg: 'better-sqlite3', dir: 'better-sqlite3/prebuilds', files: ['darwin-arm64.node', 'darwin-x64.node'] },
+  // The on-device model runtime ships one package per arch: Metal on Apple
+  // Silicon, CPU on Intel (scripts/fetch-mac-x64-natives.mjs adds the latter).
+  {
+    pkg: 'node-llama-cpp',
+    dir: '@node-llama-cpp',
+    files: ['mac-arm64-metal/bins/mac-arm64-metal/llama-addon.node', 'mac-x64/bins/mac-x64/llama-addon.node']
+  }
 ]
 
 /**

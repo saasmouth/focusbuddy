@@ -33,6 +33,7 @@
 import { getDb } from './db/database'
 import { resolveAnthropicKey } from './settingsStore'
 import { getModelClient } from './ai/modelClient'
+import { clientForKey } from './ai/local/providerRouter'
 import { resolveModel } from './ai/modelRouting'
 import { deriveTitle, isUntitled, textFromBody } from '@shared/titles'
 import { deriveWidgetFileTitle, parseWidgetFileBody, widgetFileTypeLabel } from '@shared/widgetFiles'
@@ -213,6 +214,32 @@ function writeTitle(table: Candidate['table'], id: string, title: string, c?: Ca
  * Safe to call on every launch: the log makes repeat runs cheap, and a run
  * that fails part-way simply leaves the rest for next time.
  */
+// The model's instructions, exported so the local-AI eval harness measures the
+// exact prompt this pass sends (tools/local-ai-eval).
+export const TITLE_BACKFILL_SYSTEM =
+  'You name documents from their content. For each item you are given, reply with a ' +
+  'short title: 2 to 6 words, sentence case, naming what the item IS ABOUT. Do not ' +
+  'describe the format ("a spreadsheet of..."), do not add quotes, do not invent a ' +
+  'subject that is not in the content. If an item has nothing substantive to name, ' +
+  'return an empty string for it. Reply with JSON only, no prose: ' +
+  '{"titles":[{"i":0,"title":"..."}]}'
+
+/** Parse the model's reply into index → title. Throws on unparseable JSON (the caller treats that as "try next launch"). */
+export function parseBackfillTitles(text: string): Map<number, string> {
+  const parsed = JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, '')) as {
+    titles?: Array<{ i?: number; title?: string }>
+  }
+  const byIndex = new Map<number, string>()
+  for (const t of parsed.titles ?? []) {
+    if (typeof t?.i !== 'number' || typeof t?.title !== 'string') continue
+    const clean = t.title.trim().replace(/^["']|["']$/g, '')
+    // The model is held to the same bar as the free path: a name it returns
+    // that is itself a placeholder is not an answer.
+    if (clean && !isUntitled(clean)) byIndex.set(t.i, clean.slice(0, 60))
+  }
+  return byIndex
+}
+
 export async function runTitleBackfill(
   opts: { allowModel?: boolean } = {}
 ): Promise<BackfillSummary> {
@@ -280,8 +307,10 @@ export async function runTitleBackfill(
     summary.skipped += needsModel.length
     return summary
   }
-  const key = resolveAnthropicKey()
-  if (!key) {
+  // The routed client: the user's key, or the on-device model when AI is set
+  // to run locally (src/main/ai/local/providerRouter.ts).
+  const client = clientForKey(resolveAnthropicKey(), getModelClient)
+  if (!client) {
     // No key configured. Leave them for a launch that has one rather than
     // logging them as hopeless.
     summary.skipped += needsModel.length
@@ -296,17 +325,10 @@ export async function runTitleBackfill(
   }))
 
   try {
-    const client = getModelClient(key)
     const resp = await client.messages.create({
       model: resolveModel('title_backfill'),
       max_tokens: MAX_OUTPUT_TOKENS,
-      system:
-        'You name documents from their content. For each item you are given, reply with a ' +
-        'short title: 2 to 6 words, sentence case, naming what the item IS ABOUT. Do not ' +
-        'describe the format ("a spreadsheet of..."), do not add quotes, do not invent a ' +
-        'subject that is not in the content. If an item has nothing substantive to name, ' +
-        'return an empty string for it. Reply with JSON only, no prose: ' +
-        '{"titles":[{"i":0,"title":"..."}]}',
+      system: TITLE_BACKFILL_SYSTEM,
       messages: [{ role: 'user', content: JSON.stringify({ items }) }]
     })
     summary.usedModel = true
@@ -316,18 +338,7 @@ export async function runTitleBackfill(
       .map((b) => b.text)
       .join('')
       .trim()
-    const parsed = JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, '')) as {
-      titles?: Array<{ i?: number; title?: string }>
-    }
-
-    const byIndex = new Map<number, string>()
-    for (const t of parsed.titles ?? []) {
-      if (typeof t?.i !== 'number' || typeof t?.title !== 'string') continue
-      const clean = t.title.trim().replace(/^["']|["']$/g, '')
-      // The model is held to the same bar as the free path: a name it returns
-      // that is itself a placeholder is not an answer.
-      if (clean && !isUntitled(clean)) byIndex.set(t.i, clean.slice(0, 60))
-    }
+    const byIndex = parseBackfillTitles(text)
 
     for (let i = 0; i < batch.length; i++) {
       const c = batch[i]

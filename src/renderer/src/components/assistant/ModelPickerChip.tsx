@@ -37,6 +37,21 @@ export default function ModelPickerChip(): JSX.Element {
   const aiMode = useAiCreditsStore((s) => s.status?.mode ?? null)
   const note = planModelNote(creditPlan, aiMode)
 
+  // AI set to run on this device: there is one model, so there is nothing to
+  // pick. Say where it runs instead of offering cloud models that are not used.
+  if (aiMode === 'local') {
+    return (
+      <span
+        data-testid="composer-model-local"
+        title="AI runs on this device (Settings → AI). Nothing is sent to an AI service."
+        className="inline-flex items-center gap-1 rounded-full border border-[var(--edge-soft)] px-2 py-0.5 text-[10px] font-mono text-[var(--ink-60)]"
+      >
+        <Icon name="memory" size={11} className="shrink-0" />
+        <span>On this device</span>
+      </span>
+    )
+  }
+
   return (
     <div className="relative" ref={ref}>
       <button

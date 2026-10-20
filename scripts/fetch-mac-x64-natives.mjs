@@ -24,7 +24,12 @@ const NM = join(root, 'node_modules')
 
 // Each entry: the x64 package to fetch, and the installed package whose version
 // pins it (a platform package must match its parent exactly).
-const WANTED = [{ pkg: '@napi-rs/canvas-darwin-x64', versionFrom: '@napi-rs/canvas' }]
+const WANTED = [
+  { pkg: '@napi-rs/canvas-darwin-x64', versionFrom: '@napi-rs/canvas' },
+  // The on-device model runtime's Intel build (CPU; llama.cpp has no Metal
+  // backend on Intel Macs in these prebuilts). Version-locked to node-llama-cpp.
+  { pkg: '@node-llama-cpp/mac-x64', versionFrom: 'node-llama-cpp' }
+]
 
 const installedVersion = (name) => {
   const p = join(NM, name, 'package.json')
@@ -82,9 +87,14 @@ for (const { pkg, versionFrom } of WANTED) {
   // Prove the thing we unpacked really is an x86_64 binary. A silently-arm64
   // payload here would produce a "universal" app whose Intel slice cannot load
   // its own addon, and the failure would only show up on a user's Intel Mac.
-  const addons = readdirSync(dest).filter((f) => f.endsWith('.node'))
+  // Recursive: some packages keep the addon in a subdirectory
+  // (@node-llama-cpp/mac-x64/bins/mac-x64/llama-addon.node), and its dylibs
+  // must be x86_64 too.
+  const addons = readdirSync(dest, { recursive: true })
+    .map(String)
+    .filter((f) => f.endsWith('.node') || f.endsWith('.dylib'))
   if (addons.length === 0) {
-    console.error(`x64-natives: ${pkg} contains no .node addon`)
+    console.error(`x64-natives: ${pkg} contains no .node addon or .dylib`)
     failed = true
     continue
   }

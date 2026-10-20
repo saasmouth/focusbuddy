@@ -1,0 +1,157 @@
+# Plexii on the desktop, and a desk in a browser
+
+**Plexii is a desktop app.** The browser is not a second edition of it and is not
+somewhere you can have a workspace. It does exactly one job: when somebody is
+sent a desk, they can open it for 48 hours without installing anything or
+creating an account. Then it is deleted.
+
+What they open is nonetheless **the same renderer** — the desktop's own interface
+on the desktop's own data layer, compiled to WebAssembly — which is why the
+widget table below is worth having: it says what a recipient actually sees.
+
+Sharing between people who already have accounts, and within an organisation, is
+unchanged and lives on the desktop: those desks sync both ways and keep syncing.
+The browser is only for sharing with somebody who is not a user yet.
+
+Where they differ, it is for one of three reasons, and telling them apart is the
+whole point of this page:
+
+| | meaning |
+| --- | --- |
+| **Cannot** | A browser genuinely cannot do it. No amount of work changes this. |
+| **Chosen** | A browser could, and we decided it should not — almost always because doing it safely is not possible. |
+| **Not yet** | Ordinary remaining work. Nothing stands in the way. |
+
+Anything marked **Not yet** is a to-do list, not a limitation.
+
+---
+
+## Widgets
+
+All 46 kinds are listed. The renderer dispatches every one of them in both
+runtimes; a kind marked ✅ behaves identically.
+
+| Widget | Cloud | Why |
+| --- | --- | --- |
+| sticky | ✅ | |
+| note | ✅ | |
+| markdown | ⚠️ | Editing works. **Export to PDF/HTML** needs a headless print pipeline the browser has no equivalent for. *Not yet* — a server-side render would restore it. |
+| card | ✅ | |
+| page | ⚠️ | Works. **AI regeneration** is unported. *Not yet* |
+| doc | ✅ | |
+| living-doc | ⚠️ | Works. Scheduled AI regeneration unported. *Not yet* |
+| table | ⚠️ | Works. **Import from a CSV/spreadsheet file** needs a native file picker returning a path. *Not yet* — a drop/upload route would restore it. |
+| sheet | ✅ | |
+| slides | ✅ | |
+| chart | ✅ | |
+| field | ✅ | |
+| task-link | ✅ | |
+| timer | ✅ | |
+| color | ✅ | |
+| shape | ✅ | |
+| section | ✅ | |
+| minimap | ✅ | |
+| image | ✅ | Images are downsampled on ingest and served from OPFS through a service worker. |
+| image-gen | ❌ | Generation calls the image provider through the desktop. *Not yet* — needs a server-side generate route. |
+| video | ✅ | Range requests are served, so seeking works. |
+| voice-recorder | ⚠️ | Recording and playback work. **Transcription and action extraction** are unported. *Not yet* |
+| pdf | ⚠️ | Opens in a frame or a new tab rather than an embedded viewer. See *Embedded browsing* below. |
+| file | ✅ | Contents sync. Files over 50 MB are marked "on this device only". |
+| drive | ✅ | |
+| mindmap | ⚠️ | Works. **AI expansion** is unported. *Not yet* |
+| diagram | ✅ | |
+| map | ✅ | |
+| design | ✅ | |
+| calculator | ✅ | |
+| custom-block | ✅ | |
+| scratchpad | ✅ | |
+| streamdeck | ❌ | Sends key and media events to the operating system. **Cannot** |
+| local-app-launcher | ❌ | Launches native applications. **Cannot** |
+| webview | ⚠️ | See *Embedded browsing*. |
+| gdoc / gsheet / gslide | ⚠️ | Same — Google refuses to be framed, so these open in a tab. |
+| email | ⚠️ | Same frame limitation, and mail itself is unavailable (below). |
+| portal | ✅ | |
+| chat-thread | ✅ | |
+| meeting-record | ⚠️ | Records display. Live capture is unported. *Not yet* |
+| agent | ❌ | Agents execute on the machine — filesystem, shell, local models. **Chosen**: running them on our servers is a different product with different trust. |
+| webhook | ❌ | Outbound POSTs go through the main process to sidestep CORS; a tab would be refused by many endpoints. *Not yet* — a relay through Signal restores it. |
+| inbound-hook | ❌ | Already server-backed: it registers a hook with Signal, which relays payloads over the socket. Only the `webhooks` channel is unserved. *Not yet* |
+| attention | ❌ | Not for want of tables — `applySchemaAndMigrations` creates them here too. The gate is the problem: the desktop reads it from a JSON file beside the database and holds the per-org migration attestation there, and a tab has neither. *Not yet* — both must move to server-held state. |
+
+---
+
+## Capabilities
+
+| Capability | Cloud | Why |
+| --- | --- | --- |
+| Desks, rooms, widgets, canvas | ✅ | Same renderer, same database. |
+| Two-way sync with the desktop | ➖ | Not in a share window. The desktop syncs with the desktop; a shared desk is one-way by design. |
+| Drive files, folders, tags, trash, search | ✅ | Bytes live in OPFS; the 900 lines of Drive logic are shared code. |
+| Multiple tabs at once | ✅ | One tab holds the database and the rest talk to it. |
+| Offline use | ✅ | The database is local, as on the desktop. |
+| **Sign-in, orgs, a workspace of your own** | ➖ | Deliberately absent. The browser is not a place to keep work, so there is nothing to sign in to. Account and organisation sharing happens between installed apps. |
+| **48-hour desk shares** | ✅ | The reason the browser build exists. The recipient needs no account and no install, can rearrange and edit their copy, and is told plainly that it is not being kept. |
+| **Two-way sync from a shared desk** | ➖ | By design. A recipient's copy reaches nobody: it is a snapshot, not a seat at the desk. |
+| **Embedded browsing** | ⚠️ | The desktop embeds a real browser with its own cookie jar. A tab can only use an `<iframe>`, and most sites refuse framing outright. Shows the address and an "Open" button so a refusal is legible. **Cannot** |
+| **Mail (IMAP)** | ❌ | IMAP is a raw TCP protocol. A browser has no sockets. **Cannot** — would need Signal to hold the mailbox, which is a feature rather than a port. |
+| **The Vault** | ⚠️ | Shows whether a vault exists, always locked. Its PBKDF2 and AES-GCM are synchronous; the browser offers them only asynchronously. Hand-writing a cipher for the module that holds passwords is not acceptable. **Not yet** — the fix is to make the Vault's crypto async on both runtimes. |
+| **Provider keys (BYOK)** | ⚠️ | Anthropic only. A browser cannot hold a key safely, so the key goes to Signal, is encrypted at rest, and is used server-side; nothing reads it back. The other providers need their own proxies first. **Chosen**, then *Not yet*. |
+| **AI (credits)** | ✅ | Proxied through Signal exactly as on the desktop. |
+| **Agents** | ❌ | See the agent widget. **Chosen** |
+| OCR of scanned PDFs | ❌ | Needs native page rasterisation. Text that is already text extracts normally. **Cannot** |
+| Thumbnails | ⚠️ | Generated for images. PDFs, video frames and documents need native tooling. **Cannot** |
+| Open a file in its native app / reveal in Finder | ❌ | **Cannot** |
+| Import a folder tree | ❌ | A tab is never given a filesystem path. Dropping files works. **Cannot** |
+| Storing a linked image as a real file | ❌ | The desktop fetches and stores it; a tab is refused by CORS. Once the desktop stores it, the cloud shows it. **Cannot** (in the tab), solved by the pair. |
+| **PlexiProjects** (plans, Gantt, dependencies, baselines, resource levelling) | ⚠️ | Works. **Export to Microsoft Project XML** goes through a native save dialog — *Not yet*, a browser download restores it. Its "open" and "reveal in Finder" buttons are the native ones above. |
+| **PlexiBrain — knowledge** | ⚠️ | Entries are created, edited, searched by keyword and synced. **Semantic search** is not: it embeds through a local model on `localhost:11434` — from a tab, the *viewer's* machine — or OpenAI directly with a key a browser must never hold. Entries saved here are embedded the next time the desktop opens PlexiBrain, which is what `knowledge:reindex` is for. **Chosen** |
+| **PlexiBrain — memory** | ⚠️ | Remembering, listing and forgetting work. **Extracting memories from documents** runs through the same local model. **Chosen** |
+| **AI chat threads** | ⚠️ | The thread *store* is complete: conversations, messages, modes, the web-search toggle and desk links are all created, read and synced. **Sending a message to the assistant** is not served — `chat:sendStream` streams over a per-request channel (`chat:stream:<id>`) and the Worker bridge carries only a fixed set of subscriptions. *Not yet* — a streaming bridge restores it. |
+| **Focus sessions, energy log, habit garden** | ✅ | |
+| **Time blocks / calendar** | ✅ | Repeating series materialise on read, as on the desktop. |
+| **Dashboard layouts** | ✅ | |
+| **Connected apps** | ✅ | |
+| **Signals** (the arrival router's record) | ✅ | |
+| **Notifications** | ✅ | The durable substrate, same store. |
+| App auto-update | ➖ | Not applicable — the browser app is whatever was last deployed. |
+| Onboarding completion remembered | ✅ | `onboarding:record` writes the same `usage_counters` rows as the desktop. |
+
+---
+
+## The measured gap
+
+The browser serves **197 of the 529** channels the desktop exposes, up from 141.
+That number sounds worse than it is: a full session — sign-up, desk creation,
+widget editing, file upload, sharing — reaches for exactly **one** channel it
+does not have, `mail:getAccount`, and that one cannot exist.
+
+The rest of the unserved channels belong to features nobody touched in that
+session. They are reached in order of what people actually use.
+
+A channel the browser does not serve **rejects with its own name** rather than
+resolving to nothing, so the gap is measurable from a real session instead of
+estimated. `plexiiUnserved()` in the browser console lists what this session
+asked for and did not get.
+
+---
+
+## How this page was produced
+
+Not from memory. Each widget's row comes from reading which `window.api`
+namespaces its component calls and comparing them against the handler table the
+browser actually serves (`src/web/worker/handlers.ts`). Where a widget calls an
+unserved namespace, the specific methods were read to decide whether the feature
+is broken or only a secondary part of it — which is why `markdown` is ⚠️ rather
+than ❌: it calls `exportDoc`, but only to export.
+
+Regenerate the raw mapping with the query in this file's history, or check any
+row by grepping the component for `api.<namespace>.`.
+
+The counts are measured, not estimated: `Object.keys(HANDLERS).length` against
+the channel map derived from the preload. Two tests hold this page honest —
+`tests/unit/webHandlerChannels.test.ts` rejects a served channel that is not
+real or whose arguments disagree with the desktop's, and
+`tests/unit/webNewChannelsRun.test.ts` calls each served channel against a real
+migrated browser database and requires every namespace to be *wholly* served or
+to name the reason a channel is missing. A ⚠️ that says "not served" therefore
+has a matching entry in that test, or the suite fails.

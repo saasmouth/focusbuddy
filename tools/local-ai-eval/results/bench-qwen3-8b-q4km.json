@@ -1,0 +1,41 @@
+{
+  "model": "Qwen3-8B-Q4_K_M.gguf",
+  "diskBytes": 5027784512,
+  "machine": {
+    "cpu": "Apple M5",
+    "cores": 10,
+    "ramGB": 24,
+    "platform": "darwin-arm64"
+  },
+  "runtime": {
+    "nodeLlamaCpp": "3.22.1",
+    "gpu": "metal",
+    "node": "v25.9.0"
+  },
+  "contextSize": 16384,
+  "kvCache": "q8_0",
+  "timings": {
+    "getLlamaMs": 61,
+    "loadMs": 3195,
+    "prefillPromptTokens": 5976,
+    "prefillTtftMs": 14618,
+    "prefillTokPerSec": 409,
+    "followupTtftMs": 970,
+    "genTokens": 381,
+    "genTokPerSec": 17.4,
+    "shortTtftMs": 178
+  },
+  "memory": {
+    "rssBeforeMB": 82,
+    "rssAfterLoadMB": 6030,
+    "rssAfterRunMB": 5599,
+    "gpuUsedBeforeMB": 0,
+    "gpuUsedAfterLoadMB": 6326,
+    "gpuUsedAfterRunMB": 6327,
+    "unifiedMemory": true
+  },
+  "samples": {
+    "summary": "This document outlines the technical decisions and roadmap for improving a browser widget in an Electron-based application, focusing on enhancing login functionality, supporting Chrome extensions, and balancing canvas integration with real-browser features.\n\nThree specific things it says:\n1. The current browser widget uses Electron's `<webview>` and is a real Chromium browser, but lacks support fo",
+    "followup": "The document mentions that DRM streaming services like Netflix and Disney+ do not play in the browser widget due to the absence of the Widevine content decryption module in the current Electron versio"
+  }
+}

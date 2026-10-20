@@ -78,7 +78,20 @@ module.exports = {
     'out/**/*',
     'package.json',
     '!**/node_modules/*/{CHANGELOG.md,README.md,readme.md}',
-    '!**/*.{ts,tsx,map}'
+    '!**/*.{ts,tsx,map}',
+    // node-llama-cpp ships the llama.cpp SOURCE (34 MB) so it can compile when no
+    // prebuilt binary fits. The app never compiles (build: 'never'), so the
+    // source and the CLI templates stay out. Windows ships the CPU and Vulkan
+    // binaries; the CUDA packages (544 MB) are left out of every installer.
+    '!**/node_modules/node-llama-cpp/llama/gitRelease.bundle',
+    '!**/node_modules/node-llama-cpp/templates/**',
+    '!**/node_modules/@node-llama-cpp/*-cuda/**',
+    '!**/node_modules/@node-llama-cpp/*-cuda-ext/**',
+    // @reflink is a per-arch native addon that node-llama-cpp's own model
+    // downloader (ipull) imports lazily to clone files. The app never uses that
+    // downloader (src/main/ai/local/downloadManager.ts does the downloading),
+    // and an arm64-only .node breaks the universal merge.
+    '!**/node_modules/@reflink/**'
   ],
 
   asarUnpack: [
@@ -91,7 +104,11 @@ module.exports = {
     'node_modules/tesseract.js/**/*',
     'node_modules/tesseract.js-core/**/*',
     'node_modules/pdf-to-png-converter/**/*',
-    'node_modules/@napi-rs/**/*'
+    'node_modules/@napi-rs/**/*',
+    // The on-device model runtime (src/main/ai/local): the addon, its llama.cpp
+    // dylibs and the Metal library load from disk by path.
+    'node_modules/node-llama-cpp/**/*',
+    'node_modules/@node-llama-cpp/**/*'
   ],
 
   // Bundle the offline OCR training data (no CDN fetch).

@@ -24,6 +24,11 @@ export interface Rate {
 // $2/$10 while Sonnet 4.6 is $3/$15), so the version-specific patterns must be
 // listed before the bare family fallback.
 export const PRICING: Array<{ match: RegExp; rate: Rate }> = [
+  // The on-device model (Settings → AI → Local on this device). It runs on the
+  // user's own hardware, so it costs nothing per token. Listed first so no
+  // family pattern below can match a local id; without it the unknown id would
+  // fall to DEFAULT_RATE and the usage view would invent a cloud bill.
+  { match: /^local:/, rate: { inPerM: 0, outPerM: 0 } },
   // Fable 5 — the premium tier.
   { match: /fable/i, rate: { inPerM: 10, outPerM: 50 } },
   // Opus 5.5 dropped below Opus 5 — match it before bare opus.

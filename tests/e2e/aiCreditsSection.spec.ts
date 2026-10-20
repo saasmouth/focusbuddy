@@ -82,31 +82,28 @@ test('AI credits: chooser renders three modes, Automatic selected by default', a
   await waitForReady(window)
   await openSettingsToAiSection(window)
 
-  // All three mode buttons must exist.
-  const autoBtn = window.locator('[data-testid="ai-mode-auto"]')
+  // The three AI sources (Local on this device / Your own API key / Plexii AI
+  // credits). "Automatic" is the credits sub-option: a switch, not a source.
+  const localBtn = window.locator('[data-testid="ai-mode-local"]')
   const creditsBtn = window.locator('[data-testid="ai-mode-credits"]')
   const byokBtn = window.locator('[data-testid="ai-mode-byok"]')
+  const autoToggle = window.locator('[data-testid="ai-mode-auto"]')
 
-  await expect(autoBtn).toBeVisible({ timeout: 5_000 })
+  await expect(localBtn).toBeVisible({ timeout: 5_000 })
   await expect(creditsBtn).toBeVisible({ timeout: 5_000 })
   await expect(byokBtn).toBeVisible({ timeout: 5_000 })
 
   // Button labels must match the spec copy.
-  await expect(autoBtn).toContainText('Automatic')
-  await expect(creditsBtn).toContainText('Plexii credits')
-  await expect(byokBtn).toContainText('Your own key')
+  await expect(localBtn).toContainText('Local on this device')
+  await expect(byokBtn).toContainText('Your own API key')
+  await expect(creditsBtn).toContainText('Plexii AI credits')
 
-  // Default mode is 'auto' — its button carries the accent/highlighted class.
-  // We check it via aria/class rather than colour: the selected button has
-  // `bg-accent/10` in its className when status.mode === m.id.
-  const autoClass = await autoBtn.getAttribute('class')
-  expect(autoClass).toContain('bg-accent')
-
-  // The other two should NOT have the selected accent class.
-  const creditsClass = await creditsBtn.getAttribute('class')
-  const byokClass = await byokBtn.getAttribute('class')
-  expect(creditsClass).not.toContain('bg-accent')
-  expect(byokClass).not.toContain('bg-accent')
+  // Default mode is 'auto': the credits source is selected and its Automatic
+  // switch is on. Checked via class, not colour.
+  expect(await creditsBtn.getAttribute('class')).toContain('bg-accent')
+  expect(await localBtn.getAttribute('class')).not.toContain('bg-accent')
+  expect(await byokBtn.getAttribute('class')).not.toContain('bg-accent')
+  await expect(autoToggle).toBeChecked()
 
   // data-testid for credit balance and top-up are defined in the component
   // even in unsigned-out mode — verify their existence (they may be inside
@@ -134,43 +131,42 @@ test('AI credits: switching modes persists without error and Anthropic/OpenAI ro
   await waitForReady(window)
   await openSettingsToAiSection(window)
 
-  const autoBtn = window.locator('[data-testid="ai-mode-auto"]')
+  const autoToggle = window.locator('[data-testid="ai-mode-auto"]')
   const creditsBtn = window.locator('[data-testid="ai-mode-credits"]')
   const byokBtn = window.locator('[data-testid="ai-mode-byok"]')
+  const localBtn = window.locator('[data-testid="ai-mode-local"]')
 
-  // --- Switch to Your own key ---
+  // --- Switch to Your own API key ---
   await byokBtn.click()
   // Wait for the IPC to settle (setMode is async, state updates in React).
   await window.waitForTimeout(500)
-
-  // byok should now be highlighted.
-  const byokClassAfter = await byokBtn.getAttribute('class')
-  expect(byokClassAfter).toContain('bg-accent')
+  expect(await byokBtn.getAttribute('class')).toContain('bg-accent')
 
   // In byok mode the credit card (signed-in or signed-out prompt) must NOT show.
-  // The component conditionally renders {status && status.mode !== 'byok'}.
   const signInPrompt = window.locator('text=Sign in to your PlexiiDesk account')
   await expect(signInPrompt).toHaveCount(0, { timeout: 3_000 })
 
-  // --- Switch back to Automatic ---
-  await autoBtn.click()
-  await window.waitForTimeout(500)
-
-  const autoClassAfter = await autoBtn.getAttribute('class')
-  expect(autoClassAfter).toContain('bg-accent')
-
-  // Signed-out prompt reappears.
-  await expect(window.locator('[data-testid="ai-source-section"]').getByText(/sign in to your plexii account/i)).toBeVisible({ timeout: 3_000 })
-
-  // --- Switch to PlexiDesk credits ---
+  // --- Switch to Plexii AI credits (credits only) ---
   await creditsBtn.click()
   await window.waitForTimeout(500)
-
-  const creditsClassAfter = await creditsBtn.getAttribute('class')
-  expect(creditsClassAfter).toContain('bg-accent')
-
-  // Signed-out prompt still shows (user is not signed in).
+  expect(await creditsBtn.getAttribute('class')).toContain('bg-accent')
+  await expect(autoToggle).not.toBeChecked()
   await expect(window.locator('[data-testid="ai-source-section"]').getByText(/sign in to your plexii account/i)).toBeVisible({ timeout: 3_000 })
+
+  // --- Turn Automatic on (credits, then the user's own key) ---
+  await autoToggle.check()
+  await window.waitForTimeout(500)
+  await expect(autoToggle).toBeChecked()
+  expect(await creditsBtn.getAttribute('class')).toContain('bg-accent')
+
+  // --- Switch to Local on this device ---
+  await localBtn.click()
+  await window.waitForTimeout(500)
+  expect(await localBtn.getAttribute('class')).toContain('bg-accent')
+  await expect(window.locator('[data-testid="ai-local-note"]')).toBeVisible({ timeout: 3_000 })
+  // No credits card in local mode.
+  await expect(window.locator('[data-testid="ai-source-section"]').getByText(/sign in to your plexii account/i)).toHaveCount(0)
+  await expect(window.locator('[data-testid="local-ai-section"]')).toBeVisible()
 
   // Verify the Anthropic and OpenAI key rows are still present and unaffected.
   await window.evaluate(() => {

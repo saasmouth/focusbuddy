@@ -23,7 +23,17 @@ export default defineConfig({
         '@shared': resolve('src/shared')
       }
     },
-    define: APP_VERSION_DEFINE
+    define: APP_VERSION_DEFINE,
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/main/index.ts'),
+          // The on-device model runs in its own utility process (see
+          // src/main/ai/local/engineHost.ts); Electron forks this file by path.
+          localAiWorker: resolve('src/main/ai/local/localWorker.ts')
+        }
+      }
+    }
   },
   preload: {
     plugins: [externalizeDepsPlugin()],

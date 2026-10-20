@@ -33,7 +33,9 @@ const HANDLER_FILES = [
   'src/main/ipc/index.ts',
   'src/main/index.ts',
   'src/main/mdExternal.ts',
-  'src/main/activityTracker.ts'
+  'src/main/activityTracker.ts',
+  // Settings → AI → Local on this device (registerLocalAiIpc).
+  'src/main/ai/local/localAiService.ts'
 ]
 
 const registered = new Set(

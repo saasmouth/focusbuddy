@@ -39,8 +39,15 @@ export type SecretName = 'anthropic' | 'openai' | 'tenor' | 'pexels' | 'removebg
 // signed in and has balance, falling back to their own key; 'credits' forces
 // the metered proxy; 'byok' forces the user's own key. 'auto' is the default
 // so a fresh signup gets the trial-credit experience with zero setup, while a
-// power user who pastes a key keeps using it.
-export type AiMode = 'auto' | 'credits' | 'byok'
+// power user who pastes a key keeps using it. 'local' runs AI on the
+// on-device model (Settings → AI → Local on this device); in that mode nothing
+// about a prompt or its content is sent to any AI service, which
+// providerRouter.ts and egressGuard.ts enforce.
+export type AiMode = 'auto' | 'credits' | 'byok' | 'local'
+
+// Per-feature exceptions to the AI source (see src/shared/localAi.ts for the
+// feature list). Absent → the feature follows aiMode.
+export type AiFeatureRoutes = Partial<Record<string, 'local' | 'cloud'>>
 
 interface Envelope {
   // Base64-encoded ciphertext from safeStorage.encryptString.
@@ -48,6 +55,11 @@ interface Envelope {
   // Which AI source the user has chosen. Optional for forward-compat with
   // pre-credits envelopes (absent → 'auto').
   aiMode?: AiMode
+  // Per-feature AI source overrides. Optional; absent → none.
+  aiFeatureRoutes?: AiFeatureRoutes
+  // The on-device model tier the user chose ('compact' | 'standard'). Optional;
+  // absent → the tier recommended for this machine's RAM.
+  localModelTier?: string
   // True when web pop-ups should open as separate OS windows instead of on the
   // desk (Settings → Advanced). Optional; absent → false (on the desk).
   popupsNative?: boolean
@@ -78,7 +90,14 @@ function load(): Envelope {
     const parsed = JSON.parse(raw) as Partial<Envelope>
     cache = {
       keys: parsed.keys && typeof parsed.keys === 'object' ? parsed.keys : {},
-      aiMode: parsed.aiMode === 'credits' || parsed.aiMode === 'byok' ? parsed.aiMode : 'auto',
+      aiMode:
+        parsed.aiMode === 'credits' || parsed.aiMode === 'byok' || parsed.aiMode === 'local'
+          ? parsed.aiMode
+          : 'auto',
+      ...(parsed.aiFeatureRoutes && typeof parsed.aiFeatureRoutes === 'object'
+        ? { aiFeatureRoutes: sanitiseRoutes(parsed.aiFeatureRoutes) }
+        : {}),
+      ...(typeof parsed.localModelTier === 'string' ? { localModelTier: parsed.localModelTier } : {}),
       ...(parsed.popupsNative === true ? { popupsNative: true } : {}),
       ...(parsed.keepAppsSignedIn === false ? { keepAppsSignedIn: false } : {}),
       v: 1
@@ -187,6 +206,44 @@ export function getAiMode(): AiMode {
 export function setAiMode(mode: AiMode): void {
   load()
   cache.aiMode = mode
+  save()
+}
+
+function sanitiseRoutes(raw: unknown): AiFeatureRoutes {
+  const out: AiFeatureRoutes = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (v === 'local' || v === 'cloud') out[k] = v
+  }
+  return out
+}
+
+/** Per-feature AI source overrides. */
+export function getAiFeatureRoutes(): AiFeatureRoutes {
+  load()
+  return { ...(cache.aiFeatureRoutes ?? {}) }
+}
+
+/** Set (or with null, clear) one feature's AI source override. */
+export function setAiFeatureRoute(feature: string, route: 'local' | 'cloud' | null): void {
+  load()
+  const next = { ...(cache.aiFeatureRoutes ?? {}) }
+  if (route === null) delete next[feature]
+  else next[feature] = route
+  cache.aiFeatureRoutes = next
+  save()
+}
+
+/** The chosen on-device model tier, or null for "recommended". */
+export function getLocalModelTier(): string | null {
+  load()
+  return cache.localModelTier ?? null
+}
+
+export function setLocalModelTier(tier: string | null): void {
+  load()
+  if (tier) cache.localModelTier = tier
+  else delete cache.localModelTier
   save()
 }
 

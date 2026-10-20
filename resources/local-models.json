@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "note": "On-device AI models for Plexii (Settings → AI → Local on this device). Published to https://dl.plexiidesk.com/models/<version>/<file> by scripts/upload-local-models.mjs. sha256 and size are of the exact file; src/shared/localModelCatalog.ts compiles the same values into the signed app and tests/unit/localModelCatalog.test.ts holds the two equal.",
+  "models": [
+    {
+      "id": "compact",
+      "name": "Qwen3 4B Instruct",
+      "file": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+      "version": "1",
+      "sizeBytes": 2497281120,
+      "sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597",
+      "license": "Apache-2.0",
+      "licenseFile": "Qwen3-4B-Instruct-2507.LICENSE.txt",
+      "licenseUrl": "https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507/blob/cdbee75f17c01a7cc42f958dc650907174af0554/LICENSE",
+      "sourceUrl": "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/blob/a06e946bb6b655725eafa393f4a9745d460374c9/Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+      "baseModel": "https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507 (commit cdbee75f17c01a7cc42f958dc650907174af0554)",
+      "quantisation": "Q4_K_M (GGUF, unsloth)",
+      "contextSize": 16384,
+      "kvCache": "q8_0",
+      "minRamGB": 8,
+      "recommendedRamGB": 8
+    }
+  ],
+  "embedding": {
+    "id": "embed",
+    "name": "nomic-embed-text v1.5",
+    "file": "nomic-embed-text-v1.5.Q8_0.gguf",
+    "version": "1",
+    "sizeBytes": 146146432,
+    "sha256": "3e24342164b3d94991ba9692fdc0dd08e3fd7362e0aacc396a9a5c54a544c3b7",
+    "license": "Apache-2.0",
+    "licenseFile": "nomic-embed-text-v1.5.LICENSE.txt",
+    "licenseUrl": "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5",
+    "sourceUrl": "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/blob/0188c9bf409793f810680a5a431e7b899c46104c/nomic-embed-text-v1.5.Q8_0.gguf",
+    "quantisation": "Q8_0 (GGUF, Nomic AI)"
+  }
+}

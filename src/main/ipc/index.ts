@@ -282,6 +282,7 @@ import type { DocType, DocumentDraft, DocumentPatch, FbDocument, MailSendInput }
 import { sendMail } from '../mail/smtp'
 import { suggestReply, resetToneCache } from '../mail/aiReply'
 import { getModelClient } from '../ai/modelClient'
+import { clientForKey, withCloudGrant } from '../ai/local/providerRouter'
 import {
   createNode,
   deleteNode,
@@ -2073,6 +2074,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('ai:getStatus', () => getAiStatus())
   // Switch source; invalidate the cached client so the next call honours it.
   ipcMain.handle('ai:setMode', (_e, mode: AiMode) => {
+    if (mode !== 'auto' && mode !== 'credits' && mode !== 'byok' && mode !== 'local') return getAiStatus()
     setAiMode(mode)
     invalidateAnthropicClient()
     return getAiStatus()
@@ -3899,10 +3901,7 @@ export function registerIpcHandlers(): void {
         folders.filter((f) => !f.reserved).map((f) => f.path),
         // The same key path every other AI feature uses; no key is an honest
         // "cannot", not an empty plan.
-        liveTriageDeps(() => {
-          const key = resolveAnthropicKey()
-          return key ? (getModelClient(key) as never) : null
-        })
+        liveTriageDeps(() => clientForKey(resolveAnthropicKey(), getModelClient) as never)
       )
       // The unsubscribe target rides back with the plan so the renderer can
       // show WHERE it would send them — an opt-out you cannot see the
@@ -4580,11 +4579,15 @@ export function registerIpcHandlers(): void {
     if (!key) return { ok: false, error: 'No key set.' }
     try {
       const client = getModelClient(key)
-      const response = await client.messages.create({
-        model: MODEL_HAIKU,
-        max_tokens: 1,
-        messages: [{ role: 'user', content: 'hi' }]
-      })
+      // An explicit "Test key" click sends one fixed word and no content, so it
+      // is allowed even while AI runs locally (the egress guard needs the grant).
+      const response = await withCloudGrant({ reason: 'key-test' }, () =>
+        client.messages.create({
+          model: MODEL_HAIKU,
+          max_tokens: 1,
+          messages: [{ role: 'user', content: 'hi' }]
+        })
+      )
       if ((response.stop_reason as string) === 'refusal') {
         return { ok: false, error: 'Claude declined this request. Try rephrasing or breaking it into smaller steps.' }
       }

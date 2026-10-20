@@ -136,6 +136,10 @@ function applySnapshot(snap: CreditsSnapshot): void {
 export function shouldUseCredits(): boolean {
   const token = sessionToken()
   if (!token) return false
+  // 'local' reaches this only for a request granted cloud (the user said yes
+  // to "use cloud for this request", or routed that feature to cloud). Such a
+  // request takes the automatic path: credits when they can serve it, else the
+  // user's own key.
   const mode = getAiMode()
   if (mode === 'byok') return false
   if (mode === 'credits') return true
@@ -222,7 +226,7 @@ export function createMeteredFetch(deps: MeteredFetchDeps): typeof fetch {
     const originalInit = init
     const ownKeyRetry = (): Promise<Response> | null => {
       const ownKey = deps.ownKey()
-      if (deps.mode() === 'auto' && ownKey && originalInit?.body) {
+      if ((deps.mode() === 'auto' || deps.mode() === 'local') && ownKey && originalInit?.body) {
         const headers = new Headers(originalInit?.headers as HeadersInit | undefined)
         headers.delete('authorization')
         headers.set('x-api-key', ownKey)

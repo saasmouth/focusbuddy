@@ -1,0 +1,41 @@
+{
+  "model": "Qwen3.5-9B-Q4_K_M.gguf",
+  "diskBytes": 5680522464,
+  "machine": {
+    "cpu": "Apple M5",
+    "cores": 10,
+    "ramGB": 24,
+    "platform": "darwin-arm64"
+  },
+  "runtime": {
+    "nodeLlamaCpp": "3.22.1",
+    "gpu": "metal",
+    "node": "v25.9.0"
+  },
+  "contextSize": 16384,
+  "kvCache": "q8_0",
+  "timings": {
+    "getLlamaMs": 75,
+    "loadMs": 3265,
+    "prefillPromptTokens": 5980,
+    "prefillTtftMs": 13357,
+    "prefillTokPerSec": 448,
+    "followupTtftMs": 15300,
+    "genTokens": 362,
+    "genTokPerSec": 17.9,
+    "shortTtftMs": 208
+  },
+  "memory": {
+    "rssBeforeMB": 83,
+    "rssAfterLoadMB": 5389,
+    "rssAfterRunMB": 5080,
+    "gpuUsedBeforeMB": 0,
+    "gpuUsedAfterLoadMB": 6231,
+    "gpuUsedAfterRunMB": 6231,
+    "unifiedMemory": true
+  },
+  "samples": {
+    "summary": "This document outlines a phased architectural strategy to replace the deprecated `<webview` tag with a hybrid approach that maintains an integrated canvas experience while enabling native browser extensions and fixing authentication issues. It also details the successful implementation of AI-powered chat features in PlexiChat, such as recall and action extraction, and addresses technical limitatio",
+    "followup": "The document states that PlexiChat's AI features, such as channel recall and action extraction, are currently dormant and will only activate once an organization sets its Anthropic API key on the sign"
+  }
+}

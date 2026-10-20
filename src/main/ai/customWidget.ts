@@ -16,6 +16,8 @@
 import { getModelClient } from './modelClient'
 import { resolveAnthropicKey } from '../settingsStore'
 import {resolveModel, MODEL_HAIKU} from './modelRouting'
+import { clientForKey } from './local/providerRouter'
+import { routeModel } from './modelRouting'
 import { CUSTOM_WIDGET_MAX_CODE_BYTES } from '@shared/types'
 
 export interface GenerateCustomWidgetInput {
@@ -215,8 +217,8 @@ export async function generateCustomWidget(
   const spec = (input?.spec ?? '').trim()
   if (!spec) return { ok: false, error: 'Describe the work widget you want first.' }
 
-  const key = resolveAnthropicKey()
-  if (!key) {
+  const client = clientForKey(resolveAnthropicKey(), getModelClient)
+  if (!client) {
     return {
       ok: false,
       error: 'Add an Anthropic API key in Settings to build custom work widgets.',
@@ -256,7 +258,6 @@ export async function generateCustomWidget(
 
   let code: string
   try {
-    const client = getModelClient(key)
     const resp = await client.messages.create({
       model,
       max_tokens: GENERATION_TOKENS,
@@ -353,13 +354,12 @@ export async function nameCustomWidget(input: {
   spec: string
 }): Promise<{ name: string; icon: string }> {
   const fallbackName = (input?.spec ?? '').trim().split(/\s+/).slice(0, 4).join(' ') || 'Custom work widget'
-  const key = resolveAnthropicKey()
-  if (!key) return { name: fallbackName, icon: 'widgets' }
+  const client = clientForKey(resolveAnthropicKey(), getModelClient)
+  if (!client) return { name: fallbackName, icon: 'widgets' }
 
   try {
-    const client = getModelClient(key)
     const resp = await client.messages.create({
-      model: MODEL_HAIKU,
+      model: routeModel('custom_widget', MODEL_HAIKU),
       max_tokens: 120,
       system:
         'Name a small desktop work widget from its description. Reply with exactly one line ' +
