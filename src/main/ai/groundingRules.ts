@@ -31,7 +31,10 @@ export const GROUNDING_RULE =
   ' Where such a specific is genuinely needed and was not supplied, write a short bracketed' +
   ' placeholder like [launch date] or [owner name] instead of a plausible guess. A placeholder' +
   ' costs the user seconds to fill in; an invented figure they do not notice can reach a customer.' +
-  ' Prefer a shorter, fully grounded draft over a fuller one that is partly fiction.'
+  ' Use placeholders sparingly: most good writing needs none, and a draft peppered with brackets' +
+  ' is as useless as one full of invention. Reach for one only where a specific is unavoidable and' +
+  ' absent, never as a way to avoid writing. Prefer a shorter, fully grounded draft over a fuller' +
+  ' one that is partly fiction.'
 
 export const SHEET_DATA_RULE =
   ' This data is a starting point the user will replace, so make the shape and formats realistic' +

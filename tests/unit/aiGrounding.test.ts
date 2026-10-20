@@ -171,6 +171,15 @@ describe('the shared grounding rules', () => {
     expect(grounding).toMatch(/customers|revenue|deadlines/i)
   })
 
+  it('restrains placeholder use, so the cure is not the disease', () => {
+    // The regression this rule could itself cause: a draft peppered with
+    // [brackets] is as useless to the reader as one full of invention, and
+    // "write a placeholder instead of guessing" invites exactly that.
+    expect(grounding).toMatch(/sparingly/i)
+    expect(grounding).toMatch(/most good writing needs none/i)
+    expect(grounding).toMatch(/never as a way to avoid writing/i)
+  })
+
   it('still permits writing, and names the placeholder as the alternative', () => {
     // Without this the rule produces an empty skeleton, which is the failure
     // the original "not an outline of placeholders" clause guarded against.
