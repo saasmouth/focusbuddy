@@ -6,8 +6,11 @@
 //   2. <app>/Contents/Resources/models/<file> — shipped inside the signed app
 //      (electron-builder extraResources, outside app.asar). Loaded IN PLACE:
 //      never copied, never written to (writing into a signed .app breaks its
-//      seal). Its sha256 is checked once, on first use, and the result is
-//      remembered in userData (keyed by path, size and mtime), not in the bundle.
+//      seal). Checked once, on first use, against the manifest.sha256 that
+//      ships beside it (modelManifest.ts — the same file the release gate and
+//      the downloader read), which must agree with the sha256 compiled into the
+//      app. The result is remembered in userData (keyed by path, size and
+//      mtime), not in the bundle.
 //
 // Pure apart from the filesystem; every path is passed in, so it is tested
 // without Electron.
@@ -15,6 +18,7 @@
 import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { isInstalled, sha256File } from './downloadManager'
+import { readModelManifest, expectedSha } from './modelManifest'
 
 export interface ModelSpec {
   /** Folder inside the bundle's models/ directory. */
@@ -65,18 +69,43 @@ function readCache(file: string): VerifiedCache {
 }
 
 /**
- * Has this bundled file been checked against the catalog sha256? Hashes it the
- * first time (a few seconds for 2.5 GB) and remembers the answer in
- * `cacheFile` (in userData). A changed size or mtime re-checks.
+ * Has this bundled file been checked? Reads the manifest beside it (it must
+ * exist, parse, list the file, and agree with the catalog sha256), hashes the
+ * file the first time (a few seconds for 2.5 GB) and remembers the answer in
+ * `cacheFile` (in userData). A changed size or mtime re-checks. `onError`
+ * hears why a check failed (for the log; never the file's contents).
  */
-export async function verifyLocated(spec: ModelSpec, located: Located, cacheFile: string): Promise<boolean> {
+export async function verifyLocated(
+  spec: ModelSpec,
+  located: Located,
+  cacheFile: string,
+  onError?: (why: string) => void
+): Promise<boolean> {
   if (located.where === 'userData') return true // verified when it was installed
+  let want: string
+  try {
+    const m = readModelManifest(dirname(located.path))
+    if (!m) {
+      onError?.(`no manifest.sha256 beside ${spec.file}`)
+      return false
+    }
+    const e = expectedSha(m.entries, spec.file, spec.sha256)
+    if (!e.ok) {
+      onError?.(e.error)
+      return false
+    }
+    want = e.sha256
+  } catch (e) {
+    onError?.((e as Error).message)
+    return false
+  }
   const st = statSync(located.path)
   const cache = readCache(cacheFile)
   const hit = cache[located.path]
-  if (hit && hit.size === st.size && hit.mtimeMs === st.mtimeMs && hit.sha256 === spec.sha256) return hit.ok
-  const ok = (await sha256File(located.path)) === spec.sha256
-  cache[located.path] = { size: st.size, mtimeMs: st.mtimeMs, sha256: spec.sha256, ok }
+  if (hit && hit.size === st.size && hit.mtimeMs === st.mtimeMs && hit.sha256 === want) return hit.ok
+  const ok = (await sha256File(located.path)) === want
+  if (!ok) onError?.(`${spec.file} does not match its manifest checksum`)
+  cache[located.path] = { size: st.size, mtimeMs: st.mtimeMs, sha256: want, ok }
   try {
     mkdirSync(dirname(cacheFile), { recursive: true })
     writeFileSync(cacheFile, JSON.stringify(cache, null, 2))

@@ -1,30 +1,37 @@
 // Publish the on-device AI models to Plexii's download host (Cloudflare R2
-// behind dl.plexiidesk.com), under models/<version>/<file>.
+// behind dl.plexiidesk.com), laid out exactly like each model's folder inside
+// the app, per version:
 //
-//   node scripts/upload-local-models.mjs --dir <folder holding the .gguf files>          # dry run (default)
-//   node scripts/upload-local-models.mjs --dir <folder> --upload                          # really upload
+//   models/<bundleId>/<version>/<file>
+//   models/<bundleId>/<version>/LICENSE.txt
+//   models/<bundleId>/<version>/manifest.sha256    (the SAME file the app ships)
+//
+//   node scripts/upload-local-models.mjs            # dry run (default)
+//   node scripts/upload-local-models.mjs --upload   # really upload
+//   [--dir <models dir>]  default resources/models (staged by
+//                         scripts/fetch-bundled-models.mjs)
 //
 // What it does, in order, and refuses to continue past any failure:
-//   1. reads resources/local-models.json (the manifest: name, version, file,
-//      size, sha256, license, source URL);
-//   2. checks every file in --dir against it — exact byte size AND sha256 —
-//      so a wrong or truncated file can never be published under a checksum
-//      the app trusts (the app compiles the same checksums in:
+//   1. reads resources/local-models.json (name, version, file, size, sha256,
+//      licence, source URL — the app compiles the same checksums in:
 //      src/shared/localModelCatalog.ts, held equal by a unit test);
-//   3. uploads each model, its licence text (<file>.LICENSE.txt, as Apache-2.0
-//      requires a copy to travel with the weights) and the manifest itself
-//      (models/manifest.json), immutable-cached;
-//   4. verifies each public URL over HTTPS: status, content-length, and that a
-//      Range request is honoured (the in-app downloader resumes with Range).
+//   2. for each model directory, checks manifest.sha256 parses, lists every
+//      file in the directory, matches every file's sha256, and agrees with
+//      local-models.json for the weights — so a wrong or truncated file, or a
+//      wrong manifest, can never be published;
+//   3. uploads the weights and licence (immutable-cached), then the manifest
+//      last, so a client never sees a manifest for files not yet there;
+//   4. verifies each public URL over HTTPS: status, content-length, that a
+//      Range request is honoured (the in-app downloader resumes with Range),
+//      and that the published manifest is byte-identical to the staged one.
 //
 // R2 credentials are read from .env (R2_BUCKET, R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
 // R2_SECRET_ACCESS_KEY) the same way scripts/upload-release-assets.mjs reads
 // them, and are never printed. Uses the aws CLI against the R2 endpoint.
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { createReadStream, existsSync, readFileSync, statSync, writeFileSync, mkdtempSync } from 'node:fs'
+import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -33,13 +40,10 @@ const opt = (n) => {
   const i = args.indexOf(`--${n}`)
   return i >= 0 ? args[i + 1] : null
 }
-const DIR = opt('dir')
+const DIR = opt('dir') ?? join(root, 'resources', 'models')
 const UPLOAD = args.includes('--upload')
 const PUBLIC_BASE = 'https://dl.plexiidesk.com'
-if (!DIR) {
-  console.error('usage: node scripts/upload-local-models.mjs --dir <folder with the model files> [--upload]')
-  process.exit(2)
-}
+const MANIFEST_NAMES = ['manifest.sha256', 'manifest.json', 'model.manifest.json']
 
 const manifest = JSON.parse(readFileSync(join(root, 'resources', 'local-models.json'), 'utf8'))
 const entries = [...manifest.models, manifest.embedding]
@@ -62,24 +66,45 @@ const sha256 = (p) =>
   })
 
 let failed = false
-console.log(`local models: ${entries.length} file(s), ${UPLOAD ? 'UPLOAD' : 'dry run (pass --upload to publish)'}`)
+console.log(`local models: ${entries.length} model(s) from ${DIR}, ${UPLOAD ? 'UPLOAD' : 'dry run (pass --upload to publish)'}`)
+const plan = []
 for (const e of entries) {
-  const p = join(DIR, e.file)
-  if (!existsSync(p)) {
-    console.log(`  MISSING ${e.file}`)
+  const dir = join(DIR, e.bundleId)
+  const mf = join(dir, 'manifest.sha256')
+  if (!existsSync(mf)) {
+    console.log(`  MISSING ${e.bundleId}/manifest.sha256 (run scripts/fetch-bundled-models.mjs)`)
     failed = true
     continue
   }
-  const size = statSync(p).size
-  const digest = await sha256(p)
-  const ok = size === e.sizeBytes && digest === e.sha256
-  console.log(`  ${ok ? 'OK     ' : 'MISMATCH'} ${e.file}  ${size} bytes  sha256 ${digest}`)
-  if (!ok) failed = true
-  const lic = join(root, 'resources', 'local-model-licenses', e.licenseFile)
-  if (!existsSync(lic)) {
-    console.log(`  MISSING licence text resources/local-model-licenses/${e.licenseFile}`)
-    failed = true
+  const listed = {}
+  for (const line of readFileSync(mf, 'utf8').split('\n')) {
+    const t = line.trim()
+    if (!t || t.startsWith('#')) continue
+    const m = /^([0-9a-f]{64})\s+\*?(.+)$/i.exec(t)
+    if (!m) {
+      console.log(`  UNPARSEABLE ${e.bundleId}/manifest.sha256: ${t.slice(0, 60)}`)
+      failed = true
+      continue
+    }
+    listed[m[2].trim().replace(/^\.\//, '')] = m[1].toLowerCase()
   }
+  const present = readdirSync(dir).filter((f) => !MANIFEST_NAMES.includes(f) && !f.startsWith('.') && !f.endsWith('.part'))
+  for (const f of present) if (!listed[f]) { console.log(`  UNLISTED ${e.bundleId}/${f}`); failed = true }
+  for (const [f, want] of Object.entries(listed)) {
+    const p = join(dir, f)
+    if (!existsSync(p)) { console.log(`  MISSING ${e.bundleId}/${f}`); failed = true; continue }
+    const got = await sha256(p)
+    const pinOk = f !== e.file || (want === e.sha256 && statSync(p).size === e.sizeBytes)
+    const ok = got === want && pinOk
+    console.log(`  ${ok ? 'OK      ' : 'MISMATCH'} ${e.bundleId}/${f}  ${statSync(p).size} bytes  sha256 ${got}${pinOk ? '' : '  (not the sha256/size in local-models.json)'}`)
+    if (!ok) failed = true
+  }
+  if (!listed[e.file]) { console.log(`  manifest for ${e.bundleId} does not list ${e.file}`); failed = true }
+  const key = (f) => `models/${e.bundleId}/${e.version}/${f}`
+  for (const f of Object.keys(listed).sort()) {
+    plan.push({ src: join(dir, f), key: key(f), type: f.endsWith('.txt') ? 'text/plain; charset=utf-8' : 'application/octet-stream' })
+  }
+  plan.push({ src: mf, key: key('manifest.sha256'), type: 'text/plain; charset=utf-8' })
 }
 if (failed) {
   console.log('refusing: fix the files above first')
@@ -94,21 +119,6 @@ const awsEnv = {
   AWS_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
   AWS_DEFAULT_REGION: 'auto'
 }
-const tmp = mkdtempSync(join(tmpdir(), 'local-models-'))
-const manifestFile = join(tmp, 'manifest.json')
-writeFileSync(manifestFile, JSON.stringify(manifest, null, 2) + '\n')
-
-const plan = []
-for (const e of entries) {
-  plan.push({ src: join(DIR, e.file), key: `models/${e.version}/${e.file}`, type: 'application/octet-stream' })
-  plan.push({
-    src: join(root, 'resources', 'local-model-licenses', e.licenseFile),
-    key: `models/${e.version}/${e.file}.LICENSE.txt`,
-    type: 'text/plain; charset=utf-8'
-  })
-}
-plan.push({ src: manifestFile, key: 'models/manifest.json', type: 'application/json', mutable: true })
-
 for (const step of plan) {
   const cmd = [
     's3', 'cp', step.src, `s3://${bucket ?? '<R2_BUCKET>'}/${step.key}`,
@@ -141,14 +151,19 @@ for (const step of plan) {
 
 if (UPLOAD) {
   for (const e of entries) {
-    const url = `${PUBLIC_BASE}/models/${e.version}/${e.file}`
+    const base = `${PUBLIC_BASE}/models/${e.bundleId}/${e.version}`
+    const url = `${base}/${e.file}`
     const head = await fetch(url, { method: 'HEAD' })
     const len = Number(head.headers.get('content-length'))
     const range = await fetch(url, { headers: { Range: 'bytes=0-15' } })
     const okRange = range.status === 206
     await range.body?.cancel()
-    const ok = head.ok && len === e.sizeBytes && okRange
-    console.log(`  ${ok ? 'VERIFIED' : 'FAIL    '} ${url}  status ${head.status}, ${len} bytes, Range ${okRange ? 'honoured' : 'NOT honoured'}`)
+    const published = await (await fetch(`${base}/manifest.sha256`)).text()
+    const sameManifest = published === readFileSync(join(DIR, e.bundleId, 'manifest.sha256'), 'utf8')
+    const ok = head.ok && len === e.sizeBytes && okRange && sameManifest
+    console.log(
+      `  ${ok ? 'VERIFIED' : 'FAIL    '} ${url}  status ${head.status}, ${len} bytes, Range ${okRange ? 'honoured' : 'NOT honoured'}, manifest ${sameManifest ? 'identical' : 'DIFFERS'}`
+    )
     if (!ok) failed = true
   }
   process.exit(failed ? 1 : 0)

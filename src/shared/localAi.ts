@@ -165,13 +165,25 @@ export interface LocalModelTier {
 export const MODEL_DOWNLOAD_BASE = 'https://dl.plexiidesk.com/models'
 
 /**
- * Where a model downloads from: Plexii's host, laid out as <base>/<version>/<file>.
+ * Where a model downloads from: Plexii's host, laid out exactly like the
+ * model's folder inside the app, per version:
+ *
+ *   <base>/<bundleId>/<version>/<file>
+ *   <base>/<bundleId>/<version>/manifest.sha256   (the same manifest the app ships)
+ *   <base>/<bundleId>/<version>/LICENSE.txt
+ *
  * `base` overrides it (main reads PLEXII_MODEL_BASE_URL) so a local test build
- * can download from a file:// folder with the same layout; the sha256 compiled
- * into the app is checked either way.
+ * can download from a file:// folder with the same layout; the manifest and the
+ * sha256 compiled into the app are checked either way.
  */
-export function modelDownloadUrl(t: Pick<LocalModelTier, 'version' | 'file'>, base: string = MODEL_DOWNLOAD_BASE): string {
-  return `${base.replace(/\/$/, '')}/${t.version}/${t.file}`
+export function modelDownloadDir(t: Pick<LocalModelTier, 'version' | 'bundleId'>, base: string = MODEL_DOWNLOAD_BASE): string {
+  return `${base.replace(/\/$/, '')}/${t.bundleId}/${t.version}`
+}
+export function modelDownloadUrl(t: Pick<LocalModelTier, 'version' | 'bundleId' | 'file'>, base: string = MODEL_DOWNLOAD_BASE): string {
+  return `${modelDownloadDir(t, base)}/${t.file}`
+}
+export function modelManifestUrl(t: Pick<LocalModelTier, 'version' | 'bundleId'>, base: string = MODEL_DOWNLOAD_BASE): string {
+  return `${modelDownloadDir(t, base)}/manifest.sha256`
 }
 
 /**

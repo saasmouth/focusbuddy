@@ -4,8 +4,18 @@
 //   node scripts/fetch-bundled-models.mjs --from <dir>    # copy (APFS clone) files already on disk
 //   node scripts/fetch-bundled-models.mjs --check         # verify what is staged; change nothing
 //
-// Writes resources/models/<bundleId>/<file> and resources/models/<bundleId>/LICENSE.txt
-// for every entry in resources/local-models.json (models[] and embedding). That
+// Writes, for every entry in resources/local-models.json (models[] and embedding):
+//
+//   resources/models/<bundleId>/<file>              the weights
+//   resources/models/<bundleId>/LICENSE.txt         the licence text
+//   resources/models/<bundleId>/manifest.sha256     `shasum -a 256` of every file
+//                                                   above, paths relative to the
+//                                                   directory (src/main/ai/local/
+//                                                   modelManifest.ts: the one
+//                                                   format the release gate, the
+//                                                   app and the downloader read)
+//
+// That
 // folder is gitignored build input: electron-builder.cjs (extraResourcesFor)
 // copies it to Contents/Resources/models/ when it exists, and
 // scripts/verify-model-split.mjs checks the DMG carries it and the update zip
@@ -13,7 +23,7 @@
 // it is left in place; a mismatch is deleted and the script exits non-zero, so a
 // wrong file can never be packaged under a checksum the app trusts.
 import { createHash } from 'node:crypto'
-import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, copyFileSync } from 'node:fs'
+import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, copyFileSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -26,6 +36,7 @@ const from = args.includes('--from') ? args[args.indexOf('--from') + 1] : null
 const checkOnly = args.includes('--check')
 
 const manifest = JSON.parse(readFileSync(join(root, 'resources', 'local-models.json'), 'utf8'))
+const MANIFEST_NAMES = ['manifest.sha256', 'manifest.json', 'model.manifest.json']
 const entries = [...manifest.models, manifest.embedding]
 
 const sha256 = (p) =>
@@ -90,6 +101,27 @@ for (const e of entries) {
   else if (!existsSync(join(dir, 'LICENSE.txt'))) {
     console.log(`  MISSING  ${e.bundleId}/LICENSE.txt`)
     failed = true
+  }
+
+  // The manifest: every file in the directory but itself, sorted, in exactly
+  // the shape `shasum -a 256 <files>` prints ("<sha256>  <path>"). The weights'
+  // hash was just verified against local-models.json, so it is reused.
+  const files = readdirSync(dir).filter((f) => !MANIFEST_NAMES.includes(f) && !f.endsWith('.part') && !f.startsWith('.')).sort()
+  const want = {}
+  for (const f of files) want[f] = f === e.file ? e.sha256 : await sha256(join(dir, f))
+  const text = files.map((f) => `${want[f]}  ${f}`).join('\n') + '\n'
+  const mf = join(dir, 'manifest.sha256')
+  if (!checkOnly) {
+    writeFileSync(mf, text)
+    console.log(`  MANIFEST ${e.bundleId}/manifest.sha256  ${files.length} file(s): ${files.join(', ')}`)
+  } else if (!existsSync(mf)) {
+    console.log(`  MISSING  ${e.bundleId}/manifest.sha256`)
+    failed = true
+  } else if (readFileSync(mf, 'utf8') !== text) {
+    console.log(`  STALE    ${e.bundleId}/manifest.sha256 does not list exactly these files with these hashes`)
+    failed = true
+  } else {
+    console.log(`  OK       ${e.bundleId}/manifest.sha256`)
   }
 }
 if (failed) process.exit(1)

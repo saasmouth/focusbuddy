@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { LOCAL_MODEL_TIERS, LOCAL_EMBED_MODEL } from '../../src/shared/localModelCatalog'
-import { recommendTier, modelDownloadUrl } from '../../src/shared/localAi'
+import { recommendTier, modelDownloadUrl, modelManifestUrl } from '../../src/shared/localAi'
 
 const root = join(__dirname, '..', '..')
 const manifest = JSON.parse(readFileSync(join(root, 'resources', 'local-models.json'), 'utf8'))
@@ -33,8 +33,11 @@ describe('local model catalog', () => {
     }
   })
 
-  it('downloads only from Plexii’s own host, under models/', () => {
-    for (const t of LOCAL_MODEL_TIERS) expect(modelDownloadUrl(t)).toMatch(/^https:\/\/dl\.plexiidesk\.com\/models\/\d+\//)
+  it('downloads only from Plexii’s own host, laid out like the bundled folder: models/<bundleId>/<version>/', () => {
+    for (const t of LOCAL_MODEL_TIERS) {
+      expect(modelDownloadUrl(t)).toBe(`https://dl.plexiidesk.com/models/${t.bundleId}/${t.version}/${t.file}`)
+      expect(modelManifestUrl(t)).toBe(`https://dl.plexiidesk.com/models/${t.bundleId}/${t.version}/manifest.sha256`)
+    }
   })
 
   it('recommends by RAM and refuses machines below every tier', () => {

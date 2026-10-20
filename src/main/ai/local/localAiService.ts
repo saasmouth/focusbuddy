@@ -43,6 +43,7 @@ import { installEgressGuard } from './egressGuard'
 import { EngineHost, type WorkerHandle } from './engineHost'
 import { downloadModel, removeModel, fetchWithFile, type DownloadProgress } from './downloadManager'
 import { locateModel, verifyLocated, type ModelSpec, type Located } from './modelLocator'
+import { resolveDownloads } from './modelManifest'
 import { setGroundingSink } from './localClient'
 import { setBundledEmbedder } from '../localModel'
 import { SIGNAL_BASE, getCreditClient } from '../creditMode'
@@ -52,6 +53,7 @@ import {
   DEFAULT_LOCAL_POLICY,
   recommendTier,
   modelDownloadUrl,
+  modelManifestUrl,
   type AiFeature,
   type AiFeatureRoute,
   type CloudConsentRequest,
@@ -118,7 +120,7 @@ const verifiedCacheFile = (): string => join(modelsDir(), 'bundle-verified.json'
 async function ensureVerified(spec: ModelSpec): Promise<Located> {
   const loc = locate(spec)
   if (!loc) throw new LocalModelMissingError()
-  if (!(await verifyLocated(spec, loc, verifiedCacheFile()))) {
+  if (!(await verifyLocated(spec, loc, verifiedCacheFile(), (why) => console.warn(`[local-ai] bundled model not used: ${why}`)))) {
     throw new Error(
       'The on-device AI model that came with the app did not match its checksum, so it was not used. Reinstall PlexiiDesk, or download the model again in Settings → AI.'
     )
@@ -307,21 +309,11 @@ async function runDownload(tier: LocalModelTier): Promise<{ ok: boolean; error?:
   if (download) return { ok: false, error: 'A download is already running.' }
   const ctrl = new AbortController()
   // PLEXII_MODEL_BASE_URL: a local test build downloads from a file:// folder
-  // laid out like the host (<version>/<file>); checksums are verified the same.
+  // laid out like the host (<bundleId>/<version>/{<file>,manifest.sha256});
+  // the manifest and checksums are verified the same.
   const base = process.env.PLEXII_MODEL_BASE_URL || undefined
-  const files = [
-    { url: modelDownloadUrl(tier, base), file: tier.file, sizeBytes: tier.sizeBytes, sha256: tier.sha256 },
-    ...(embedInstalled()
-      ? []
-      : [
-          {
-            url: modelDownloadUrl(LOCAL_EMBED_MODEL, base),
-            file: LOCAL_EMBED_MODEL.file,
-            sizeBytes: LOCAL_EMBED_MODEL.sizeBytes,
-            sha256: LOCAL_EMBED_MODEL.sha256
-          }
-        ])
-  ]
+  const doFetch = fetchWithFile((i, n) => globalThis.fetch(i, n))
+  const wanted = [tier, ...(embedInstalled() ? [] : [LOCAL_EMBED_MODEL])]
   download = {
     ctrl,
     progress: { tierId: tier.id, file: tier.file, state: 'checking', receivedBytes: 0, totalBytes: tier.sizeBytes, error: null }
@@ -332,8 +324,17 @@ async function runDownload(tier: LocalModelTier): Promise<{ ok: boolean; error?:
     broadcast('localAi:progress', download.progress)
   }
   try {
-    for (const spec of files) {
-      const r = await downloadModel(spec, { dir: modelsDir(), fetch: fetchWithFile((i, n) => globalThis.fetch(i, n)), freeBytes: async () => freeDisk(), onProgress: emit }, ctrl.signal)
+    const specs = await resolveDownloads(
+      wanted.map((m) => ({ manifestUrl: modelManifestUrl(m, base), url: modelDownloadUrl(m, base), file: m.file, sizeBytes: m.sizeBytes, sha256: m.sha256 })),
+      doFetch,
+      ctrl.signal
+    )
+    if (!specs.ok) {
+      emit({ file: tier.file, state: 'error', receivedBytes: 0, totalBytes: tier.sizeBytes, error: specs.error })
+      return { ok: false, error: specs.error }
+    }
+    for (const spec of specs.files) {
+      const r = await downloadModel(spec, { dir: modelsDir(), fetch: doFetch, freeBytes: async () => freeDisk(), onProgress: emit }, ctrl.signal)
       if (!r.ok) return { ok: false, error: r.error }
     }
     refreshEngineModel()

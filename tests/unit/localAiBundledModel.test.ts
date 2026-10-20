@@ -4,10 +4,12 @@
 // real files (small stand-in models with real sha256s) in temp directories.
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createHash } from 'node:crypto'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { locateModel, verifyLocated, bundledPath } from '../../src/main/ai/local/modelLocator'
+import { parseModelManifest, formatModelManifest, readModelManifest, expectedSha } from '../../src/main/ai/local/modelManifest'
+import { execFileSync } from 'node:child_process'
 import { preserveBundledModels } from '../../src/main/ai/local/modelMigration'
 
 const BODY = Buffer.from('gguf-stand-in-'.repeat(5000))
@@ -25,6 +27,7 @@ beforeEach(() => {
   mkdirSync(join(oldBundle, SPEC.bundleId), { recursive: true })
   mkdirSync(newBundle, { recursive: true })
   writeFileSync(bundledPath(oldBundle, SPEC), BODY)
+  writeFileSync(join(oldBundle, SPEC.bundleId, 'manifest.sha256'), formatModelManifest({ [SPEC.file]: SPEC.sha256 }))
 })
 const plenty = async (): Promise<number> => 100e9
 
@@ -42,15 +45,78 @@ describe('resolution order', () => {
     expect(locateModel(SPEC, { userDir, bundleDir: null })).toBeNull()
   })
 
-  it('checks a bundled file against the catalog once, remembers it in userData, and refuses a wrong one', async () => {
+  it('checks a bundled file against the manifest beside it once, remembers it in userData, and refuses a wrong one', async () => {
     const cache = join(userDir, 'bundle-verified.json')
     const loc = locateModel(SPEC, { userDir, bundleDir: oldBundle })!
     expect(await verifyLocated(SPEC, loc, cache)).toBe(true)
     expect(JSON.parse(readFileSync(cache, 'utf8'))[loc.path].ok).toBe(true)
     // Nothing was written into the bundle.
-    expect(readdirSync(join(oldBundle, SPEC.bundleId))).toEqual(['model.gguf'])
+    expect(readdirSync(join(oldBundle, SPEC.bundleId)).sort()).toEqual(['manifest.sha256', 'model.gguf'])
+    // A catalog pin the manifest disagrees with: not loaded.
+    const why: string[] = []
     const wrong = { ...SPEC, sha256: 'f'.repeat(64) }
-    expect(await verifyLocated(wrong, loc, cache)).toBe(false)
+    expect(await verifyLocated(wrong, loc, cache, (w) => why.push(w))).toBe(false)
+    expect(why[0]).toMatch(/not the one this version of PlexiiDesk expects/)
+  })
+
+  it('refuses a bundled model with no manifest, an unparseable one, or weights that do not match it', async () => {
+    const cache = join(userDir, 'bundle-verified.json')
+    const loc = locateModel(SPEC, { userDir, bundleDir: oldBundle })!
+    const mf = join(oldBundle, SPEC.bundleId, 'manifest.sha256')
+    const why: string[] = []
+    writeFileSync(mf, 'garbage\n')
+    expect(await verifyLocated(SPEC, loc, cache, (w) => why.push(w))).toBe(false)
+    expect(why.pop()).toMatch(/unparseable/)
+    rmSync(mf)
+    expect(await verifyLocated(SPEC, loc, cache, (w) => why.push(w))).toBe(false)
+    expect(why.pop()).toMatch(/no manifest/)
+    // Manifest and pin agree, but the bytes on disk are not those bytes.
+    writeFileSync(mf, formatModelManifest({ [SPEC.file]: SPEC.sha256 }))
+    const corrupt = Buffer.from(BODY)
+    corrupt[10] = 0
+    writeFileSync(bundledPath(oldBundle, SPEC), corrupt)
+    expect(await verifyLocated(SPEC, loc, cache, (w) => why.push(w))).toBe(false)
+    expect(why.pop()).toMatch(/does not match its manifest checksum/)
+  })
+})
+
+describe('the manifest format (one format end to end)', () => {
+  it('reads exactly what `shasum -a 256 <files>` writes, and the JSON form', () => {
+    const d = mkdtempSync(join(tmpdir(), 'plexii-manifest-'))
+    writeFileSync(join(d, 'model.gguf'), BODY)
+    writeFileSync(join(d, 'LICENSE.txt'), 'licence')
+    const out = execFileSync('shasum', ['-a', '256', 'LICENSE.txt', 'model.gguf'], { cwd: d, encoding: 'utf8' })
+    const e = parseModelManifest(out, 'manifest.sha256')
+    expect(e['model.gguf']).toBe(SPEC.sha256)
+    expect(Object.keys(e).sort()).toEqual(['LICENSE.txt', 'model.gguf'])
+    // What fetch-bundled-models.mjs writes is byte-identical to shasum's output.
+    expect(formatModelManifest(e)).toBe(out)
+    expect(parseModelManifest(JSON.stringify({ files: e }), 'manifest.json')).toEqual(e)
+    expect(parseModelManifest(JSON.stringify(e), 'model.manifest.json')).toEqual(e)
+    writeFileSync(join(d, 'model.manifest.json'), JSON.stringify({ files: e }))
+    expect(readModelManifest(d)?.name).toBe('model.manifest.json')
+  })
+
+  it('an unparseable or empty manifest is an error, never a skip', () => {
+    expect(() => parseModelManifest('not a hash  file\n', 'manifest.sha256')).toThrow(/unparseable/)
+    expect(() => parseModelManifest('\n# only a comment\n', 'manifest.sha256')).toThrow(/lists no files/)
+    expect(() => parseModelManifest('{"files":{"a":"nothex"}}', 'manifest.json')).toThrow(/bad sha256/)
+    expect(() => parseModelManifest('{', 'manifest.json')).toThrow(/not valid JSON/)
+    expect(expectedSha({ 'a.gguf': SPEC.sha256 }, 'b.gguf', SPEC.sha256)).toMatchObject({ ok: false })
+  })
+
+  it('the staged build input, when present, carries a manifest listing every file with the catalog checksum', async () => {
+    const { LOCAL_MODEL_TIERS, LOCAL_EMBED_MODEL } = await import('../../src/shared/localModelCatalog')
+    const models = join(__dirname, '../../resources/models')
+    for (const m of [...LOCAL_MODEL_TIERS, LOCAL_EMBED_MODEL]) {
+      const d = join(models, m.bundleId)
+      if (!existsSync(d)) continue // not staged in this checkout (CI): the release gate checks the build
+      const mf = readModelManifest(d)
+      expect(mf, `${m.bundleId}/manifest.sha256`).not.toBeNull()
+      expect(expectedSha(mf!.entries, m.file, m.sha256).ok).toBe(true)
+      const files = readdirSync(d).filter((f) => !f.startsWith('.') && !['manifest.sha256', 'manifest.json', 'model.manifest.json'].includes(f))
+      expect(Object.keys(mf!.entries).sort()).toEqual(files.sort())
+    }
   })
 })
 

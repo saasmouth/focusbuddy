@@ -145,5 +145,60 @@ describe('downloadModel', () => {
     expect(r.ok).toBe(true)
     expect(readFileSync(join(dir, 'test.gguf')).equals(BODY)).toBe(true)
   })
-})
 
+  it('end to end from a file:// host laid out like dl.plexiidesk.com: the published manifest.sha256 is checked before the model is fetched', async () => {
+    const { resolveDownloads } = await import('../../src/main/ai/local/modelManifest')
+    const { modelDownloadUrl, modelManifestUrl } = await import('../../src/shared/localAi')
+    const host = mkdtempSync(join(tmpdir(), 'plexii-filehost-'))
+    const model = { bundleId: 'test-model', version: '1', file: 'test.gguf', sizeBytes: BODY.length, sha256: SHA }
+    mkdirSync(join(host, 'test-model', '1'), { recursive: true })
+    writeFileSync(join(host, 'test-model', '1', 'test.gguf'), BODY)
+    writeFileSync(join(host, 'test-model', '1', 'LICENSE.txt'), 'licence')
+    const lic = createHash('sha256').update('licence').digest('hex')
+    const mf = join(host, 'test-model', '1', 'manifest.sha256')
+    writeFileSync(mf, `${lic}  LICENSE.txt\n${SHA}  test.gguf\n`)
+    const base = pathToFileURL(host).href
+    const requested: string[] = []
+    const noNetwork = (async (u: string) => {
+      throw new Error(`network must not be used for file:// (${u})`)
+    }) as unknown as typeof fetch
+    const f = fetchWithFile(noNetwork)
+    const spy = (async (u: RequestInfo | URL, i?: RequestInit) => {
+      requested.push(String(u).slice(base.length))
+      return f(u, i)
+    }) as typeof fetch
+    const wanted = [{ manifestUrl: modelManifestUrl(model, base), url: modelDownloadUrl(model, base), file: model.file, sizeBytes: model.sizeBytes, sha256: model.sha256 }]
+
+    const ok = await resolveDownloads(wanted, spy)
+    expect(ok.ok).toBe(true)
+    if (!ok.ok) return
+    const r = await downloadModel(ok.files[0], { dir, fetch: spy, freeBytes: plenty })
+    expect(r.ok).toBe(true)
+    expect(requested).toEqual(['/test-model/1/manifest.sha256', '/test-model/1/test.gguf'])
+
+    // A manifest that disagrees with the checksum compiled into the app: refused, nothing fetched.
+    requested.length = 0
+    writeFileSync(mf, `${lic}  LICENSE.txt\n${'0'.repeat(64)}  test.gguf\n`)
+    const wrong = await resolveDownloads(wanted, spy)
+    expect(wrong.ok).toBe(false)
+    if (!wrong.ok) expect(wrong.error).toMatch(/not the one this version of PlexiiDesk expects/)
+    expect(requested).toEqual(['/test-model/1/manifest.sha256'])
+
+    // Unparseable: refused, never skipped.
+    writeFileSync(mf, 'this is not a manifest\n')
+    const bad = await resolveDownloads(wanted, spy)
+    expect(bad.ok).toBe(false)
+    if (!bad.ok) expect(bad.error).toMatch(/unparseable/)
+
+    // Not listed: refused.
+    writeFileSync(mf, `${lic}  LICENSE.txt\n`)
+    const unlisted = await resolveDownloads(wanted, spy)
+    expect(unlisted.ok).toBe(false)
+    if (!unlisted.ok) expect(unlisted.error).toMatch(/does not list test.gguf/)
+
+    // Missing manifest: refused with the server's answer.
+    const missing = await resolveDownloads([{ ...wanted[0], manifestUrl: `${base}/nope/manifest.sha256` }], spy)
+    expect(missing.ok).toBe(false)
+    if (!missing.ok) expect(missing.error).toMatch(/answered 404/)
+  })
+})
