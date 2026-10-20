@@ -45,7 +45,14 @@ test('Local AI: the source can be set to Local, and the panel shows models and m
   await expect(section).toBeVisible()
   // Tiers come from the signed catalog; each says whether this Mac can run it.
   await expect(section.locator('[data-testid^="local-ai-tier-"]').first()).toBeVisible({ timeout: 5_000 })
-  await expect(section.locator('[data-testid^="local-ai-download-"]').first()).toBeVisible()
+  // Shipped inside the app when resources/models is staged (the build input);
+  // otherwise offered as a download. Either way the panel says which.
+  const st0 = await window.evaluate(() => window.api.localAi.getStatus())
+  if (st0.tiers[0].source === 'bundle') {
+    await expect(section.locator('[data-testid^="local-ai-bundled-"]').first()).toContainText('Included with PlexiiDesk')
+  } else {
+    await expect(section.locator('[data-testid^="local-ai-download-"]').first()).toBeVisible()
+  }
   // Every feature is listed with its measured pass rates.
   for (const f of ['assistant', 'build', 'office', 'writing', 'summaries', 'background', 'agents', 'media']) {
     await expect(section.locator(`[data-testid="local-ai-feature-${f}"]`)).toContainText('On this device:')
@@ -55,10 +62,14 @@ test('Local AI: the source can be set to Local, and the panel shows models and m
   expect(status.provider).toBe('local')
 })
 
-test('Local AI: with no model downloaded, an AI action fails plainly and nothing is sent', async () => {
-  launched = await launchApp({ env: { PLEXI_APP: 'preview3', ANTHROPIC_API_KEY: '' }, userDataDir: profileWithLocalMode() })
+test('Local AI: an install without the model says it needs a one-time download, and an AI action fails plainly with nothing sent', async () => {
+  // An empty stand-in for the app bundle: the update-zip case, where the app
+  // came without the model and userData has none either.
+  const noBundle = mkdtempSync(join(tmpdir(), 'plexii-nobundle-'))
+  launched = await launchApp({ env: { PLEXI_APP: 'preview3', ANTHROPIC_API_KEY: '', PLEXII_BUNDLED_MODELS_DIR: noBundle }, userDataDir: profileWithLocalMode() })
   const { window } = launched
   await waitForReady(window)
+  await expect(window.getByText(/Local AI needs a one-time download \(2\.\d GB\)/)).toBeVisible({ timeout: 10_000 })
   const r = await window.evaluate(() =>
     window.api.ai.transformText({ text: 'please tidy this sentence up a bit', instruction: 'Make it formal' })
   )

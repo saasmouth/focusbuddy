@@ -101,6 +101,10 @@ export function activeTier(): LocalModelTier | null {
 export function bundleModelsDir(): string | null {
   // Packaged: Contents/Resources/models (electron-builder extraResources from
   // resources/models). Dev: the staged build input itself.
+  // Dev/test only: PLEXII_BUNDLED_MODELS_DIR stands in for the bundle, so the
+  // e2e suite can exercise an install that came WITHOUT the model (the update
+  // zip case). A packaged app always uses its own Resources/models.
+  if (!app.isPackaged && process.env.PLEXII_BUNDLED_MODELS_DIR) return canonicalPath(process.env.PLEXII_BUNDLED_MODELS_DIR)
   return canonicalPath(app.isPackaged ? join(process.resourcesPath, 'models') : join(app.getAppPath(), 'resources', 'models'))
 }
 

@@ -21,6 +21,10 @@ test('Build-with-AI opens from the canvas pill and degrades honestly with no key
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
+  // This spec exercises the CLOUD path with no key. Since 4.3.39 a fresh
+  // profile's AI source is Local (the model ships in the app), so choose the
+  // automatic cloud source explicitly, as an existing cloud user would have.
+  await window.evaluate(() => (window as unknown as { api: { ai: { setMode: (m: string) => Promise<unknown> } } }).api.ai.setMode('auto'))
   await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     await api.nodes.create({ parentId: null, kind: 'task', title: 'BuilderHost' })

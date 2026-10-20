@@ -127,7 +127,7 @@ export default function LocalAiPrompts(): JSX.Element | null {
         <div
           role="status"
           data-testid="local-ai-intro"
-          className="fixed bottom-4 left-4 z-[9997] max-w-sm fb-card rounded-[var(--radius-field)] px-3 py-2.5 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug"
+          className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[225] w-[min(420px,calc(100vw-32px))] fb-card rounded-[var(--radius-field)] px-3 py-2.5 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug"
         >
           <div className="font-medium text-[var(--ink-100)] mb-1">Local AI is now built in</div>
           <div>

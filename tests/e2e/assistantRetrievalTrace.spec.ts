@@ -113,6 +113,10 @@ test('ART-0 — the streaming transport is really exposed and really wired, with
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
+  // This spec exercises the CLOUD path with no key. Since 4.3.39 a fresh
+  // profile's AI source is Local (the model ships in the app), so choose the
+  // automatic cloud source explicitly, as an existing cloud user would have.
+  await window.evaluate(() => (window as unknown as { api: { ai: { setMode: (m: string) => Promise<unknown> } } }).api.ai.setMode('auto'))
 
   // 1. The preload exposes it. Without this the store silently falls back and
   //    no trace can ever appear, however correct the rest of the code is.

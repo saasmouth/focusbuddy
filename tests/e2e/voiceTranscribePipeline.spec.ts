@@ -166,6 +166,9 @@ test('A+B — buffer arrives in main intact; pipeline reaches OpenAI (expects 40
 
   try {
     await waitForReady(window)
+    // The cloud transcription path: since 4.3.39 a fresh profile's AI source is
+    // Local (which keeps voice notes on the device), so choose a cloud source.
+    await window.evaluate(() => (window as unknown as { api: { ai: { setMode: (m: string) => Promise<unknown> } } }).api.ai.setMode('auto'))
 
     // Step 1: seed a dummy OpenAI key + switch to cloud provider.
     await window.evaluate(async () => {
