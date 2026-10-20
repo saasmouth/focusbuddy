@@ -185,13 +185,26 @@ echo "[install-local] bundle id  $GOT_ID (unchanged)"
 echo "[install-local] app name   $GOT_NAME (displayed name only — app.getName() is '$GOT_PKG_NAME', userData is pinned to Application Support/plexii)"
 echo "[install-local] version    $GOT_VER"
 
-# Retire every previously installed PlexiDesk, whatever it is called, in either
-# spelling. This only removes bundles from /Applications; a copy that is still
-# RUNNING keeps running from memory until it quits.
+# Retire previously installed bundles, in either spelling. Bundles that carry a
+# DIFFERENT version in their name are kept: they are how you go back to the
+# previous build at the moment the new one misbehaves, and other sessions park
+# their own test builds there. What goes is the unversioned name (it hides
+# which build is which) and other copies of THIS version ("PlexiiDesk 4.3.34
+# (sidebar).app"). PRUNE_OLD=1 restores the old behaviour of removing every
+# PlexiiDesk bundle. This only removes bundles from /Applications; a copy that
+# is still RUNNING keeps running from memory until it quits.
 shopt -s nullglob
 for old in /Applications/PlexiiDesk.app /Applications/PlexiiDesk\ *.app /Applications/PlexiDesk.app /Applications/PlexiDesk\ *.app; do
   [ "$old" = "$TARGET" ] && continue
   [ -d "$old" ] || continue
+  case "$old" in
+    /Applications/PlexiiDesk.app|/Applications/PlexiDesk.app) ;;
+    *" ${VERSION}.app"|*" ${VERSION} ("*) ;;
+    *) if [ "${PRUNE_OLD:-0}" != "1" ]; then
+         echo "[install-local] keeping    $old (another version)"
+         continue
+       fi ;;
+  esac
   echo "[install-local] removing   $old"
   rm -rf "$old"
 done
