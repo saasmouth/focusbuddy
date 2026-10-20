@@ -26,6 +26,7 @@ import type {
   ChatWrapper,
   LlamaGrammar
 } from 'node-llama-cpp'
+import { JSON_OBJECT_GBNF, JSON_ARRAY_GBNF } from './jsonGrammars'
 
 export interface EngineMessage {
   role: 'user' | 'assistant'
@@ -154,8 +155,19 @@ export class EngineCore implements LocalEngine {
       tokenizer: this.model.tokenizer,
       customWrapperSettings: { qwen: { thoughts: 'discourage' }, gemma4: { reasoning: false } }
     })
-    this.jsonGrammar = await this.llama.getGrammarFor('json')
-    this.jsonArrayGrammar = await this.llama.getGrammarFor('json_arr')
+    // From embedded text, not llama.getGrammarFor(): that reads node-llama-cpp's
+    // grammars folder, which it cannot find from inside the packaged app's asar.
+    // Same options getGrammarFor applies (see jsonGrammars.ts).
+    this.jsonGrammar = await this.llama.createGrammar({
+      grammar: JSON_OBJECT_GBNF,
+      stopGenerationTriggers: ['\n\n\n\n'],
+      trimWhitespaceSuffix: true
+    })
+    this.jsonArrayGrammar = await this.llama.createGrammar({
+      grammar: JSON_ARRAY_GBNF,
+      stopGenerationTriggers: ['\n\n\n\n'],
+      trimWhitespaceSuffix: true
+    })
     this.loadedPath = opts.modelPath
     const tEnd = Date.now()
     this.loadMs = tEnd - t0
