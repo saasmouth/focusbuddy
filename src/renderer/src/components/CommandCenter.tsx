@@ -326,7 +326,7 @@ export default function CommandCenter({
     })
     items.push({
       id: 'sync-brain',
-      label: 'Sync workspace to Brain',
+      label: 'Sync workspace to PlexiiBrain',
       hint: 'Index every desk, document & file',
       icon: 'hub',
       kind: 'action',
@@ -426,11 +426,11 @@ export default function CommandCenter({
     })
     items.push({
       id: 'go-vault',
-      label: 'Vault',
+      label: 'PlexiiVault',
       hint: 'Encrypted credentials',
       icon: 'lock',
       kind: 'action',
-      score: q === '' ? 60 : matchScore('vault credentials passwords', q),
+      score: q === '' ? 60 : matchScore('plexiivault vault credentials passwords', q),
       run: () => {
         setActive(null)
         goVault()
@@ -447,17 +447,17 @@ export default function CommandCenter({
     }
     const navTargets: Array<{ id: string; label: string; hint: string; icon: string; words: string; viewKind: string; go: () => void }> = [
       { id: 'go-plexidesk', label: 'PlexiiDesk', hint: 'Home, desk, plans, tasks, calendar, files', icon: 'desktop_windows', words: 'plexidesk desk home plans projects tasks calendar files workspaces recent gantt', viewKind: 'plexidesk', go: goPlexiDesk },
-      { id: 'go-office', label: 'PlexiiOffice', hint: 'Docs, sheets, slides, mail, chat, meet, sign', icon: 'grid_view', words: 'plexioffice office docs sheets slides diagrams designs artwork sign documents mail inbox chat meet', viewKind: 'office', go: goOffice },
+      { id: 'go-office', label: 'PlexiiOffice', hint: 'Write, Cells, Deck, mail, chat, calls, sign', icon: 'grid_view', words: 'plexioffice office plexiiwrite write plexiicells cells plexiideck deck docs sheets slides diagrams designs artwork sign documents mail inbox chat meet call calls plexiicall', viewKind: 'office', go: goOffice },
       { id: 'go-plexipeople', label: 'PlexiiPeople', hint: 'Team status, directory, organisation map', icon: 'groups', words: 'plexipeople people team directory members organisation organization org map presence', viewKind: 'plexipeople', go: goPlexiPeople },
-      { id: 'go-plexibrain', label: 'PlexiiBrain', hint: 'Knowledge, search, flows, insights', icon: 'neurology', words: 'plexibrain brain knowledge search map flows agents connect api insights automation', viewKind: 'plexibrain', go: goPlexiBrain },
-      { id: 'go-documents', label: 'Documents', hint: 'Docs, sheets, slides', icon: 'article', words: 'documents docs sheets slides', viewKind: 'office', go: goOffice },
+      { id: 'go-plexibrain', label: 'PlexiiBrain', hint: 'Knowledge, search, flows, insights', icon: 'neurology', words: 'plexibrain plexiibrain brain knowledge search map flows agents connect api insights automation', viewKind: 'plexibrain', go: goPlexiBrain },
+      { id: 'go-documents', label: 'Documents', hint: 'Documents, spreadsheets, decks', icon: 'article', words: 'documents plexiiwrite write plexiicells cells spreadsheets plexiideck deck decks docs sheets slides', viewKind: 'office', go: goOffice },
       { id: 'go-design', label: 'PlexiiDesign', hint: 'Page layout — brochures, flyers, newsletters', icon: 'plexii:design', words: 'design plexidesign publisher indesign layout page brochure poster flyer newsletter booklet print masterpage', viewKind: 'design', go: goDesign },
       { id: 'go-draw', label: 'PlexiiDraw', hint: 'Vector and painting — pen, shapes, brushes', icon: 'brush', words: 'draw plexidraw illustrator photoshop vector paint brush pen bezier path svg artwork illustration logo icon', viewKind: 'draw', go: goDraw },
       { id: 'go-diagrams', label: 'PlexiiDiagrams', hint: 'Flowcharts, org charts, process maps', icon: 'account_tree', words: 'diagram plexidiagrams flowchart visio lucidchart org chart process swimlane mindmap connector', viewKind: 'office', go: () => goOffice('diagrams') },
       { id: 'go-files', label: 'Files', hint: 'File manager', icon: 'folder', words: 'files folders manager', viewKind: 'files', go: goFiles },
       { id: 'go-mail', label: 'Mail', hint: 'Email inbox', icon: 'mail', words: 'mail email inbox', viewKind: 'office', go: () => goOffice('mail') },
       { id: 'go-inbox', label: 'PlexiiInbox', hint: 'Notifications, share invites', icon: 'inbox', words: 'inbox notifications invites plexi', viewKind: 'office', go: () => goOffice('inbox') },
-      { id: 'go-messages', label: 'Messages', hint: 'Chats', icon: 'forum', words: 'messages chat dm', viewKind: 'office', go: () => goOffice('chat') }
+      { id: 'go-messages', label: 'PlexiiChat', hint: 'Channels and direct messages', icon: 'forum', words: 'plexiichat messages chat dm', viewKind: 'office', go: () => goOffice('chat') }
     ]
     for (const t of navTargets) {
       items.push({
@@ -579,7 +579,7 @@ export default function CommandCenter({
     const createTargets: Array<{ id: string; label: string; words: string; icon: string; key: string; viewKind: string; go: () => void }> = [
       { id: 'new-project', label: 'New plan', words: 'new plan project gantt timeline create', icon: 'account_tree', key: 'projects', viewKind: 'plexidesk', go: () => goPlexiDesk('plans') },
       { id: 'new-flow', label: 'New flow', words: 'new flow automation create', icon: 'bolt', key: 'flows', viewKind: 'plexibrain', go: () => goPlexiBrain('flows') },
-      { id: 'new-meeting', label: 'Start a meeting', words: 'new meeting meet call video start', icon: 'video_call', key: 'meet', viewKind: 'office', go: () => goOffice('meet') },
+      { id: 'new-meeting', label: 'Start a meeting', words: 'new meeting meet call plexiicall video start', icon: 'video_call', key: 'meet', viewKind: 'office', go: () => goOffice('meet') },
       // The remaining createable types. Their views already consume these keys
       // (PlexiReportsView / PlexiFormsView / PlexiBuildView / PlexiSignView /
       // MailView), so every "New <thing>" in the app is one palette command.

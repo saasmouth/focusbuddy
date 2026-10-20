@@ -80,7 +80,7 @@ export default function AddConnectedAppDialog({ onClose, onAdded }: Props): JSX.
   async function bindCredentials(appId: string, title: string, url: string): Promise<void> {
     if (!signInUser.trim() && !signInPass) return
     if (!vaultUnlocked) {
-      setCredError('Vault is locked — connect saved, but the sign-in details were not stored.')
+      setCredError('PlexiiVault is locked — connect saved, but the sign-in details were not stored.')
       return
     }
     try {
@@ -91,9 +91,9 @@ export default function AddConnectedAppDialog({ onClose, onAdded }: Props): JSX.
         secret: { password: signInPass }
       })
       if (entry) await setAppVaultEntry(appId, entry.id)
-      else setCredError('Could not write to the Vault — connected without sign-in details.')
+      else setCredError('Could not write to the PlexiiVault — connected without sign-in details.')
     } catch {
-      setCredError('Could not write to the Vault — connected without sign-in details.')
+      setCredError('Could not write to the PlexiiVault — connected without sign-in details.')
     }
   }
 
@@ -369,7 +369,7 @@ export default function AddConnectedAppDialog({ onClose, onAdded }: Props): JSX.
                 Sign in (optional)
               </div>
               <p className="text-[11px] text-[var(--ink-50)] leading-snug">
-                Saved to your Vault, encrypted, and filled in for you — so the app stays
+                Saved to your PlexiiVault, encrypted, and filled in for you — so the app stays
                 signed in and can report its unread count.
               </p>
               <div className="grid grid-cols-2 gap-2">
@@ -394,7 +394,7 @@ export default function AddConnectedAppDialog({ onClose, onAdded }: Props): JSX.
               </div>
               {!vaultUnlocked && (signInUser || signInPass) && (
                 <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-snug">
-                  Your Vault is locked. Unlock it in Apps → Vault first, or the app will
+                  Your PlexiiVault is locked. Unlock it in Apps → PlexiiVault first, or the app will
                   connect without these details.
                 </p>
               )}

@@ -61,7 +61,7 @@ test.describe('PlexiSheets AI Assistant panel', () => {
     await newSheet(window)
     const panel = window.locator('[data-testid="sheet-ai-panel"]')
     await expect(panel).toBeVisible({ timeout: 8_000 })
-    await expect(panel.getByText('AI Assistant')).toBeVisible()
+    await expect(panel.getByText('PlexiiAssist')).toBeVisible()
     await expect(panel.getByText('Here are some insights from your data')).toBeVisible()
     await expect(panel.getByText('Ask a question about your data')).toBeVisible()
 

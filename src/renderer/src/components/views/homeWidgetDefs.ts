@@ -184,7 +184,7 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
   { id: 'app-chat', name: 'Chat', blurb: 'Your conversations, here', icon: 'forum', tint: 'bg-sky-500/10 text-sky-500', category: 'Communication', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'md' },
   { id: 'app-calendar', name: 'Calendar', blurb: 'Your calendar, here', icon: 'calendar_month', tint: 'bg-violet-500/10 text-violet-500', category: 'Live', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'lg' },
   { id: 'app-files', name: 'Files', blurb: 'Your file library, here', icon: 'folder', tint: 'bg-sky-500/10 text-sky-500', category: 'Navigation', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'lg' },
-  { id: 'app-vault', name: 'Vault', blurb: 'Your vault, here', icon: 'plexii:vault', tint: 'bg-rose-500/10 text-rose-500', category: 'Navigation', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'md' },
+  { id: 'app-vault', name: 'PlexiiVault', blurb: 'Your vault, here', icon: 'plexii:vault', tint: 'bg-rose-500/10 text-rose-500', category: 'Navigation', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'md' },
   { id: 'app-browser', name: 'Browser', blurb: 'A page you want in front of you', icon: 'public', tint: 'bg-indigo-500/10 text-indigo-500', category: 'Live', defaultCol: 'main', multi: true, sizes: ['md', 'lg'], defaultSize: 'lg' },
   { id: 'app-launcher', name: 'App launcher', blurb: 'Your favourite connected apps with their real logos', icon: 'apps', tint: 'bg-emerald-500/10 text-emerald-500', category: 'Navigation', defaultCol: 'rail', sizes: ['sm', 'md'], defaultSize: 'sm' },
   // Actions
@@ -194,7 +194,7 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
   { id: 'new-desk', name: 'New desk', blurb: 'A fresh desk, one tap, straight in', icon: 'desk', tint: 'bg-teal-500/10 text-teal-500', category: 'Actions', defaultCol: 'rail', sizes: ['icon'], defaultSize: 'icon' },
   { id: 'discover', name: 'Discover', blurb: 'Start from any idea and let Plexii guide it into a desk', icon: 'plexii:discover', tint: 'bg-indigo-500/10 text-indigo-500', category: 'Actions', defaultCol: 'rail', sizes: ['icon'], defaultSize: 'icon' },
   // Communication
-  { id: 'new-meeting', name: 'New meeting', blurb: 'Start or schedule a PlexiiMeet and invite anyone', icon: 'plexii:meet', tint: 'bg-rose-500/10 text-rose-500', category: 'Communication', defaultCol: 'rail', sizes: ['icon', 'md'], defaultSize: 'icon' },
+  { id: 'new-meeting', name: 'New meeting', blurb: 'Start or schedule a PlexiiCall and invite anyone', icon: 'plexii:meet', tint: 'bg-rose-500/10 text-rose-500', category: 'Communication', defaultCol: 'rail', sizes: ['icon', 'md'], defaultSize: 'icon' },
   { id: 'pinned-conversation', name: 'Pinned conversation', blurb: 'One person or chat, unread count and one click away', icon: 'plexii:chat', tint: 'bg-sky-500/10 text-sky-500', category: 'Communication', multi: true, config: 'conversation', defaultCol: 'rail', sizes: ['sm', 'md'], defaultSize: 'sm' },
   { id: 'transcribe', name: 'Transcribe', blurb: 'Record and transcribe, then keep it where it belongs', icon: 'plexii:mic', tint: 'bg-violet-500/10 text-violet-500', category: 'Communication', defaultCol: 'rail', sizes: ['icon', 'md'], defaultSize: 'icon' },
   // Smart
@@ -236,5 +236,5 @@ export const QUICK_LINK_ROUTES: QuickLinkRoute[] = [
   { id: 'calendar', label: 'Calendar', icon: 'calendar_month', tone: 'text-amber-500' },
   { id: 'documents', label: 'Documents', icon: 'description', tone: 'text-sky-500' },
   { id: 'files', label: 'Files', icon: 'folder', tone: 'text-orange-500' },
-  { id: 'vault', label: 'Vault', icon: 'plexii:vault', tone: 'text-rose-500' }
+  { id: 'vault', label: 'PlexiiVault', icon: 'plexii:vault', tone: 'text-rose-500' }
 ]

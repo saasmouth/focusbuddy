@@ -1409,7 +1409,7 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
           <button
             onClick={() => setAiPanelOpen((v) => !v)}
             data-testid="sheet-ai-toggle"
-            title={aiPanelOpen ? 'Hide the AI Assistant' : 'Show the AI Assistant'}
+            title={aiPanelOpen ? 'Hide PlexiiAssist' : 'Show PlexiiAssist'}
             aria-pressed={aiPanelOpen}
             className={`shrink-0 inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[12px] ${
               aiPanelOpen
@@ -1418,7 +1418,7 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
             }`}
           >
             <Icon name="auto_awesome" size={13} />
-            Assistant
+            PlexiiAssist
           </button>
         </div>
 

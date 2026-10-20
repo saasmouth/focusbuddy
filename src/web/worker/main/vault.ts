@@ -71,7 +71,7 @@ export function listEntries(): [] {
 }
 
 const NEEDS_ASYNC_CRYPTO =
-  'The Vault cannot be unlocked in the browser yet: its AES-GCM and PBKDF2 are ' +
+  'The PlexiiVault cannot be unlocked in the browser yet: its AES-GCM and PBKDF2 are ' +
   'synchronous, and the browser provides them only asynchronously. Use the desktop app.'
 
 export function unlockVault(_master: string): never { throw new Error(NEEDS_ASYNC_CRYPTO) }

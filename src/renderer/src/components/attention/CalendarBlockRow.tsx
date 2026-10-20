@@ -280,7 +280,7 @@ export function CalendarBlockRow({ block, nowMs }: { block: TimeBlock; nowMs: nu
               <button
                 data-row-action
                 onClick={() => openMeetingMoment(record.id)}
-                title="Open this meeting's Record in PlexiiMeet"
+                title="Open this meeting's Record in PlexiiCall"
                 className={chipDoorClass}
                 data-testid="block-row-record"
               >

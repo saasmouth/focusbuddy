@@ -42,7 +42,7 @@ describe('DEC-117 — twins: every recipe the dialog wears is the composer\'s ow
     "placeholder={guests.length === 0 ? 'Name or email' : ''}",
     'absolute left-0 right-0 top-full mt-1 z-20 rounded-[var(--radius-row)] fb-glass-panel fb-pop-in p-1',
     // WHERE: one segmented question
-    "['plexi', 'videocam', 'Plexii Meet'],",
+    "['plexi', 'videocam', 'PlexiiCall'],",
     "['link', 'link', 'Paste link'],",
     "['inperson', 'place', 'In person'],",
     "['none', null, 'None']",

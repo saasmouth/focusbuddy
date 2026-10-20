@@ -81,7 +81,7 @@ export default function AIAssistantCard(): JSX.Element {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-[var(--ink-50)] font-semibold">
           <Icon name="auto_awesome" size={12} className="text-accent" />
-          <span>AI Assistant</span>
+          <span>PlexiiAssist</span>
         </div>
       </div>
 

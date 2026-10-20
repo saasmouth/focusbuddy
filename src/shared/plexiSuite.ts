@@ -75,12 +75,12 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   // ── PlexiOffice ──────────────────────────────────────────────────────────
   {
     key: 'plexidocs',
-    name: 'PlexiiDocs',
+    name: 'PlexiiWrite',
     group: 'office',
     tagline: 'AI-native documents.',
     status: 'ready',
     icon: 'article',
-    accent: '#3b82f6',
+    accent: '#9333ea',
     about: 'A Word-class editor where the AI is part of the page, not a bolted-on sidebar, and the document lives in the same workspace as your data.',
     edges: [
       'Ask the AI to write, restructure or summarise inline, grounded in your own documents.',
@@ -92,12 +92,12 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexisheets',
-    name: 'PlexiiSheets',
+    name: 'PlexiiCells',
     group: 'office',
     tagline: 'Smarter spreadsheets with live data and AI.',
     status: 'ready',
     icon: 'table_chart',
-    accent: '#22c55e',
+    accent: '#0891b2',
     about: 'A spreadsheet that understands its own columns, pulls in live data, and lets you ask the AI to build and explain formulas.',
     edges: [
       'Typed columns and real data types, not just a grid of strings.',
@@ -109,12 +109,12 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'plexislides',
-    name: 'PlexiiSlides',
+    name: 'PlexiiDeck',
     group: 'office',
     tagline: 'AI-assisted decks and sales materials.',
     status: 'ready',
     icon: 'slideshow',
-    accent: '#f97316',
+    accent: '#ec4899',
     about: 'Build a deck by describing it. The AI drafts slides, applies a coherent theme, and keeps everything editable.',
     edges: [
       'Generate a full deck from a prompt, then refine slide by slide.',
@@ -267,7 +267,7 @@ export const PLEXI_PRODUCTS: PlexiProduct[] = [
   },
   {
     key: 'pleximeet',
-    name: 'PlexiiMeet',
+    name: 'PlexiiCall',
     group: 'work',
     tagline: 'Meetings that turn into actions.',
     status: 'ready',

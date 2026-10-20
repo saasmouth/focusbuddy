@@ -100,7 +100,7 @@ export default function VaultBindPopover({ app, onClose }: Props): JSX.Element {
 
       {!unlocked && (
         <div className="px-2 py-3 text-[12px] text-[var(--ink-70)] leading-snug">
-          Vault is locked. Open the Vault from the sidebar and unlock it to bind
+          PlexiiVault is locked. Open the PlexiiVault from the sidebar and unlock it to bind
           credentials here.
         </div>
       )}

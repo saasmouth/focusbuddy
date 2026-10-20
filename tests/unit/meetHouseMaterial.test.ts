@@ -35,7 +35,7 @@ describe('PlexiMeet wears the house material — and reads like Home', () => {
   })
 
   it("the hero is Home's greeting header: display title, quiet subtitle, rose module chip", () => {
-    expect(view).toContain('fb-display-hero text-[24px] leading-tight text-[var(--ink-100)]">PlexiiMeet</h1>')
+    expect(view).toContain('fb-display-hero text-[24px] leading-tight text-[var(--ink-100)]">PlexiiCall</h1>')
     expect(view).toContain('bg-rose-500/10 text-rose-500')
     expect(view).toContain('data-testid="meet-hero"')
     expect(view).not.toContain('fb-display text-[15px] font-bold')

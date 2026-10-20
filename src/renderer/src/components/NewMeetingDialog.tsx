@@ -826,7 +826,7 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
               >
                 <Icon name="check" size={13} className="text-[rgb(var(--accent))] shrink-0 mt-px" />
                 <span>
-                  A Plexii Meet room opens for you the moment you start. Online teammates you picked are rung; everyone
+                  A PlexiiCall room opens for you the moment you start. Online teammates you picked are rung; everyone
                   else is emailed the join link — anyone with it can join, inside or outside your organisation.
                 </span>
               </div>
@@ -835,7 +835,7 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
                 <div className="flex rounded-full bg-[var(--surface-sunken)] p-1 select-none">
                   {(
                     [
-                      ['plexi', 'videocam', 'Plexii Meet'],
+                      ['plexi', 'videocam', 'PlexiiCall'],
                       ['link', 'link', 'Paste link'],
                       ['inperson', 'place', 'In person'],
                       ['none', null, 'None']
@@ -862,7 +862,7 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
                   <div className="flex items-start gap-1.5 mt-2 text-[12px] text-[var(--ink-70)] leading-snug">
                     <Icon name="check" size={13} className="text-[rgb(var(--accent))] shrink-0 mt-px" />
                     <span>
-                      A Plexii Meet link is created and emailed with the invite. Anyone with the link can join in
+                      A PlexiiCall link is created and emailed with the invite. Anyone with the link can join in
                       PlexiiDesk, inside or outside your organisation.
                     </span>
                   </div>

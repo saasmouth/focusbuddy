@@ -88,7 +88,7 @@ const CARD_META: Record<
     description: 'Big 25:00 timer with one-tap start — runs the existing focus session engine'
   },
   'ai-assistant': {
-    label: 'AI Assistant',
+    label: 'PlexiiAssist',
     icon: 'auto_awesome',
     description: 'Quick-ask card with one-tap suggestions and free-form chat — uses your Anthropic key'
   },

@@ -107,7 +107,7 @@ export default function BrainMapView(): JSX.Element {
     <div className="h-full w-full overflow-auto bg-[var(--surface-base)] text-[var(--ink-100)]" data-testid="brain-map-view">
       <div className="max-w-4xl mx-auto px-6 py-6">
         <DashboardHeader
-          title="Brain Map"
+          title="PlexiiBrain Map"
           subtitle="Your knowledge as a graph. Each entry is a node, linked to others it shares a tag with."
         />
 

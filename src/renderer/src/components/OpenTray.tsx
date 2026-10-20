@@ -227,7 +227,7 @@ export default function OpenTray(): JSX.Element | null {
             : { label: v.app ? humaniseKey(v.app) : 'Office', icon: 'apps', tone: AREA_TONES.office }
         }
         case 'messages':
-          return { label: 'Chat', icon: 'plexii:chat', tone: AREA_TONES.people }
+          return { label: 'PlexiiChat', icon: 'plexii:chat', tone: AREA_TONES.people }
         case 'mail':
           return { label: 'Mail', icon: 'mail', tone: AREA_TONES.calendar }
         default:

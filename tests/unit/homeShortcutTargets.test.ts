@@ -181,7 +181,7 @@ describe('describeShortcutTarget', () => {
     expect(describeShortcutTarget({ kind: 'desk-widget', nodeId: 'nope', widgetId: 'w1' }, WORLD).alive).toBe(false)
   })
   it('resolves known sections and flags unknown ids', () => {
-    expect(describeShortcutTarget({ kind: 'section', id: 'vault' }, EMPTY)).toMatchObject({ label: 'Vault', alive: true })
+    expect(describeShortcutTarget({ kind: 'section', id: 'vault' }, EMPTY)).toMatchObject({ label: 'PlexiiVault', alive: true })
     expect(describeShortcutTarget({ kind: 'section', id: 'bogus' }, EMPTY).alive).toBe(false)
   })
 })
@@ -201,7 +201,7 @@ describe('migrateQuickLinks', () => {
       title: 'Quick links',
       targets: [
         { kind: 'section', id: 'calendar', label: 'Calendar' },
-        { kind: 'section', id: 'vault', label: 'Vault' }
+        { kind: 'section', id: 'vault', label: 'PlexiiVault' }
       ]
     })
   })

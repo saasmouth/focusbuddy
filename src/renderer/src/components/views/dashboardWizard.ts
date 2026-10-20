@@ -320,7 +320,7 @@ export function planDashboard(
     add('activity', 3, 'And what the team has been doing')
   }
   if (surface === 'brain') {
-    add('discover', 5, 'Brain is where an idea becomes work')
+    add('discover', 5, 'PlexiiBrain is where an idea becomes work')
     add('navigator', 4, 'And where you browse what the workspace knows')
     add('continue', 3, 'With what you were last reading')
   }
@@ -443,7 +443,7 @@ export const SURFACE_LABEL: Record<DashboardSurface, string> = {
   home: 'Desks',
   office: 'Office',
   people: 'People',
-  brain: 'Brain'
+  brain: 'PlexiiBrain'
 }
 
 /**

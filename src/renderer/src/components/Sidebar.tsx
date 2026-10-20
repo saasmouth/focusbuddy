@@ -280,7 +280,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
               {showBrain && (
                 <CollapsedNavIcon
                   icon="neurology"
-                  label="Brain"
+                  label="PlexiiBrain"
                   tone={AREA_TONES.brain}
                   active={view.kind === 'plexibrain'}
                   onClick={() => goPlexiBrain()}

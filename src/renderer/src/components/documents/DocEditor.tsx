@@ -840,11 +840,11 @@ export default function DocEditor({
                     ? 'text-accent bg-accent/10'
                     : 'hover:bg-[color-mix(in_oklab,var(--surface-sunken)_70%,transparent)]'
                 }`}
-                title="Show the AI assistant"
+                title="Show PlexiiAssist"
                 data-testid="doc-assistant-toggle"
               >
                 <Icon name="auto_awesome" size={13} />
-                <span>Assistant</span>
+                <span>PlexiiAssist</span>
               </button>
               <button
                 onClick={() => setFocusMode(true)}

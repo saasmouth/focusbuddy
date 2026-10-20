@@ -758,7 +758,7 @@ export default function BookTimeDialog({
                     <div className="flex rounded-full bg-[var(--surface-sunken)] p-1 select-none">
                       {(
                         [
-                          ['plexi', 'videocam', 'Plexii Meet'],
+                          ['plexi', 'videocam', 'PlexiiCall'],
                           ['link', 'link', 'Paste link'],
                           ['inperson', 'place', 'In person'],
                           ['none', null, 'None']

@@ -670,7 +670,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
       { kind: 'page', id: 'tasks', title: 'Tasks' },
       { kind: 'page', id: 'calendar', title: 'Calendar' },
       { kind: 'page', id: 'files', title: 'Files' },
-      { kind: 'page', id: 'vault', title: 'Vault' },
+      { kind: 'page', id: 'vault', title: 'PlexiiVault' },
       ...nodes
         .filter((n) => n.kind === 'task')
         .map((n) => ({ kind: 'desk' as const, id: n.id, title: n.title || 'Untitled desk' })),

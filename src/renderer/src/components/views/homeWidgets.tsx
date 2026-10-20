@@ -1828,9 +1828,9 @@ export function CreateWidget(): JSX.Element {
   // plexiSuite.ts; Desk teal, matching the desks section and hero): what you
   // create is a product object, and the chip says which one.
   const items = [
-    { id: 'doc', label: 'Document', icon: 'description', tone: 'text-blue-500', onClick: () => void newDoc('doc') },
-    { id: 'sheet', label: 'Spreadsheet', icon: 'table_chart', tone: 'text-green-500', onClick: () => void newDoc('sheet') },
-    { id: 'slides', label: 'Deck', icon: 'slideshow', tone: 'text-orange-500', onClick: () => void newDoc('slides') },
+    { id: 'doc', label: 'Document', icon: 'description', tone: 'text-purple-600', onClick: () => void newDoc('doc') },
+    { id: 'sheet', label: 'Spreadsheet', icon: 'table_chart', tone: 'text-cyan-600', onClick: () => void newDoc('sheet') },
+    { id: 'slides', label: 'Deck', icon: 'slideshow', tone: 'text-pink-500', onClick: () => void newDoc('slides') },
     { id: 'desk', label: 'Desk', icon: 'desk', tone: 'text-teal-500', onClick: () => void newDesk() }
   ]
   return (

@@ -251,7 +251,7 @@ export default function ConnectedAppView({ appId }: Props): JSX.Element {
             className={`icon-btn ${app.vaultEntryId ? '!text-accent' : ''}`}
             title={
               app.vaultEntryId
-                ? 'Vault binding — auto-fill enabled'
+                ? 'PlexiiVault binding — auto-fill enabled'
                 : 'Bind vault credentials for auto-fill'
             }
           >

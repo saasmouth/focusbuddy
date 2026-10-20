@@ -1094,7 +1094,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
         <span className="w-px h-5 bg-[var(--edge-soft)] mx-1" />
         <ToolBtn
           icon="auto_awesome"
-          label="Assistant"
+          label="PlexiiAssist"
           active={aiPanelOpen}
           onClick={() => setAiPanelOpen((v) => !v)}
           testid="design-ai-toggle"

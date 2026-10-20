@@ -49,7 +49,7 @@ function UnlockedVaultView({ onLock }: { onLock: () => Promise<void> }): JSX.Ele
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-semibold text-[var(--ink-100)]">
-              Vault
+              PlexiiVault
             </h1>
             <p className="text-[12px] text-[var(--ink-50)]">
               Encrypted at rest with your master password. Stays on this device.
@@ -585,7 +585,7 @@ function EntryRow({
               // secret alive inside an undo closure. Confirm, honestly worded.
               void confirmDialog({
                 title: `Delete "${entry.title}"?`,
-                body: 'Vault entries are gone for good once deleted. This cannot be undone.',
+                body: 'PlexiiVault entries are gone for good once deleted. This cannot be undone.',
                 confirmLabel: 'Delete forever',
                 danger: true
               }).then((ok) => {

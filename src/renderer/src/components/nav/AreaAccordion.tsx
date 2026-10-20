@@ -105,7 +105,7 @@ type SectionId = 'desk' | 'apps' | 'widgets' | 'connected' | 'people' | 'brain'
 const SECTIONS: { id: SectionId; label: string; icon: string; tone: string }[] = [
   // Section heads take the hue of the area they open, from the same map as
   // every row inside them.
-  { id: 'desk', label: 'Desk', icon: 'desktop_windows', tone: AREA_TONES.home },
+  { id: 'desk', label: 'PlexiiDesk', icon: 'desktop_windows', tone: AREA_TONES.home },
   // "Office" named the room; the operator renamed it for what it holds.
   { id: 'apps', label: 'Apps', icon: 'apps', tone: AREA_TONES.office },
   // Widgets that are not an app (4.3.32): standalone widget files, and the way
@@ -117,7 +117,7 @@ const SECTIONS: { id: SectionId; label: string; icon: string; tone: string }[] =
   // section now so Work widgets can sit between the two. Same Apps tone.
   { id: 'connected', label: 'Connected apps', icon: 'hub', tone: AREA_TONES.office },
   { id: 'people', label: 'People', icon: 'groups', tone: AREA_TONES.people },
-  { id: 'brain', label: 'Brain', icon: 'neurology', tone: AREA_TONES.brain }
+  { id: 'brain', label: 'PlexiiBrain', icon: 'neurology', tone: AREA_TONES.brain }
 ]
 
 /** The section headers' colours, by id, so the four are coloured too. */
@@ -385,7 +385,7 @@ export default function AreaAccordion({
   const deskEnt = areaEnt('plexidesk', 'product_desk', 'Desk')
   const appsEnt = areaEnt('office', 'product_office', 'Apps')
   const peopleEnt = areaEnt('plexipeople', 'product_people', 'People')
-  const brainEnt = areaEnt('plexibrain', 'product_brain', 'Brain')
+  const brainEnt = areaEnt('plexibrain', 'product_brain', 'PlexiiBrain')
   // Which org's apps these are. Personal is the only aggregate — it is the
   // account that belongs to the person rather than to a company — so it is
   // also the only place a tile needs to say which account it came from.
@@ -670,7 +670,7 @@ export default function AreaAccordion({
 
       <Section
         id="brain"
-        label="Brain"
+        label="PlexiiBrain"
         icon="neurology"
         kind="plexibrain"
         locked={!brainEnt.enabled}

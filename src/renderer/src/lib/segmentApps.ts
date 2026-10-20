@@ -83,10 +83,10 @@ export const SEGMENT_APPS = {
     { key: 'map', label: 'Organisation Map', icon: 'account_tree', gateKind: 'people-map', tone: 'text-violet-500' }
   ],
   plexibrain: [
-    { key: 'home', label: 'Brain Home', icon: 'plexii:home', hub: true, tone: 'text-indigo-500' },
-    { key: 'ask', label: 'Ask Brain', icon: 'neurology', tone: 'text-indigo-500' },
+    { key: 'home', label: 'PlexiiBrain Home', icon: 'plexii:home', hub: true, tone: 'text-indigo-500' },
+    { key: 'ask', label: 'Ask PlexiiBrain', icon: 'neurology', tone: 'text-indigo-500' },
     { key: 'search', label: 'Search', icon: 'search', tone: 'text-sky-500' },
-    { key: 'map', label: 'Brain Map', icon: 'bubble_chart', tone: 'text-fuchsia-500' },
+    { key: 'map', label: 'PlexiiBrain Map', icon: 'bubble_chart', tone: 'text-fuchsia-500' },
     { key: 'decisions', label: 'Decisions', icon: 'gavel', tone: 'text-red-500' },
     { key: 'assemble', label: 'Assemble a desk', icon: 'dashboard_customize', tone: 'text-lime-600' },
     { key: 'flows', label: 'Flows', icon: 'bolt', tone: 'text-violet-500' },
@@ -105,8 +105,8 @@ export const SEGMENT_APPS = {
     // the Work widgets section), but it is not what the tile places.
     { key: 'mail', label: 'Mail', icon: 'mail', gateKind: 'mail', tone: 'text-rose-500', widgetKinds: ['inbox', 'mail-thread', 'email'] },
     { key: 'inbox', label: 'Inbox', icon: 'inbox', tone: 'text-amber-500', widgetKinds: ['inbox'] },
-    { key: 'chat', label: 'Chat', icon: 'forum', gateKind: 'messages', tone: 'text-sky-500', widgetKinds: ['chat-thread'] },
-    { key: 'meet', label: 'Meet', icon: 'video_call', gateKind: 'meetings', tone: 'text-violet-500', widgetKinds: ['meeting-record'] },
+    { key: 'chat', label: 'PlexiiChat', icon: 'forum', gateKind: 'messages', tone: 'text-sky-500', widgetKinds: ['chat-thread'] },
+    { key: 'meet', label: 'PlexiiCall', icon: 'video_call', gateKind: 'meetings', tone: 'text-violet-500', widgetKinds: ['meeting-record'] },
     { key: 'sign', label: 'Sign', icon: 'plexii:sign', gateKind: 'sign', tone: 'text-teal-500' },
     { key: 'browser', label: 'Browser', icon: 'public', tone: 'text-indigo-500', widgetKinds: ['webview', 'pdf', 'gdoc', 'gsheet', 'gslide'] },
     // Calendar and Files render inside Office and are real `office:<key>` views,
@@ -114,13 +114,13 @@ export const SEGMENT_APPS = {
     // Vault joins them for the same reason.
     { key: 'calendar', label: 'Calendar', icon: 'calendar_month', gateKind: 'calendar', tone: 'text-violet-500', widgetKinds: ['calendar'] },
     { key: 'files', label: 'Files', icon: 'folder', gateKind: 'files', tone: 'text-sky-500', widgetKinds: ['drive', 'file', 'image', 'video'] },
-    { key: 'vault', label: 'Vault', icon: 'lock', gateKind: 'vault', tone: 'text-slate-500' },
+    { key: 'vault', label: 'PlexiiVault', icon: 'lock', gateKind: 'vault', tone: 'text-slate-500' },
     // The document apps. Not comms apps — deep-linking one lands on the Office
     // hub filtered to that type — but `office:<key>` is a real view either way,
     // so the tray has to be able to name it.
-    { key: 'docs', label: 'PlexiiDocs', icon: 'description', tone: 'text-sky-500', widgetKinds: ['doc'] },
-    { key: 'sheets', label: 'PlexiiSheets', icon: 'table_chart', tone: 'text-emerald-500', widgetKinds: ['sheet'] },
-    { key: 'slides', label: 'PlexiiSlides', icon: 'slideshow', tone: 'text-orange-500', widgetKinds: ['slides'] },
+    { key: 'docs', label: 'PlexiiWrite', icon: 'description', tone: 'text-purple-600', widgetKinds: ['doc'] },
+    { key: 'sheets', label: 'PlexiiCells', icon: 'table_chart', tone: 'text-cyan-600', widgetKinds: ['sheet'] },
+    { key: 'slides', label: 'PlexiiDeck', icon: 'slideshow', tone: 'text-pink-500', widgetKinds: ['slides'] },
     { key: 'diagrams', label: 'PlexiiDiagrams', icon: 'account_tree', tone: 'text-violet-500', widgetKinds: ['diagram', 'map'] },
     { key: 'design', label: 'PlexiiDesign', icon: 'plexii:design', tone: 'text-fuchsia-500', widgetKinds: ['design'] },
     { key: 'draw', label: 'PlexiiDraw', icon: 'brush', tone: 'text-rose-500', widgetKinds: ['draw'] }

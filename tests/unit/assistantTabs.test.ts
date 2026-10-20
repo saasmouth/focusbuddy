@@ -24,7 +24,7 @@ describe('DEC-121/122 — the tab set', () => {
     // DEC-131: Calendar joins after Attention; PlexiiMessage reads "Message"
     expect(ASSISTANT_TABS).toEqual(['chat', 'attention', 'calendar', 'messages', 'agent'])
     const order = [
-      "{ id: 'chat', label: 'Plexii AI', mark: true }",
+      "{ id: 'chat', label: 'PlexiiAssist', mark: true }",
       "{ id: 'attention', label: 'Attention', icon: 'notifications' }",
       "{ id: 'calendar', label: 'Calendar', icon: 'calendar_month' }",
       "{ id: 'messages', label: 'Message', icon: 'chat' }",

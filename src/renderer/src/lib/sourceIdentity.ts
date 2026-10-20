@@ -44,7 +44,7 @@ const IDENTITIES: Record<string, SourceIdentity> = {
   chat: { icon: 'forum', tone: areaTone('home'), location: 'Plexii chats' },
   // Meeting transcripts (M4, SPEC-003 P4). They live in PlexiMeet, an Office
   // surface, so colour answers WHERE with the office tone.
-  meeting: { icon: 'video_call', tone: areaTone('office'), location: 'PlexiiMeet' }
+  meeting: { icon: 'video_call', tone: areaTone('office'), location: 'PlexiiCall' }
 }
 
 export function sourceIdentity(docType: string | undefined): SourceIdentity | null {

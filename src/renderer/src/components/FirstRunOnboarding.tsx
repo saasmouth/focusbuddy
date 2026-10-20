@@ -270,7 +270,7 @@ export default function FirstRunOnboarding(): JSX.Element | null {
                 { icon: 'mail', name: 'Mail', blurb: 'Read and reply to email, and turn any message into a task.' },
                 { icon: 'forum', name: 'Chat, calls & meetings', blurb: 'Message teammates, jump on a call, meet from any document.' },
                 { icon: 'public', name: 'People Map', blurb: 'See who is online across your organisation, and where.' },
-                { icon: 'lock', name: 'Vault & Sign', blurb: 'Encrypted passwords, plus documents sent for signature.' }
+                { icon: 'lock', name: 'PlexiiVault & Sign', blurb: 'Encrypted passwords, plus documents sent for signature.' }
               ].map((s) => (
                 <div key={s.name} className="flex gap-2.5 rounded-lg bg-white/5 border border-white/10 px-3 py-2.5">
                   <Icon name={s.icon} size={18} className="text-accent shrink-0 mt-0.5" />

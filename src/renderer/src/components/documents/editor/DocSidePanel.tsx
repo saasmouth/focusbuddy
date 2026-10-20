@@ -532,7 +532,7 @@ export default function DocSidePanel({
         {showAiTab &&
           tabBtn(
             'ai',
-            'AI Assistant',
+            'PlexiiAssist',
             'doc-tab-ai',
             <span className="rounded bg-[rgb(var(--accent)/0.14)] px-1 text-[9px] uppercase tracking-wide text-[rgb(var(--accent))]">Beta</span>
           )}

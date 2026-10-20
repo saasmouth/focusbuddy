@@ -142,7 +142,7 @@ describe('Apps — what the operator asked for, in order', () => {
     expect(accordion.indexOf("'Connected apps — ")).toBeLessThan(
       accordion.indexOf('label="People"')
     )
-    expect(accordion.indexOf('label="People"')).toBeLessThan(accordion.indexOf('label="Brain"'))
+    expect(accordion.indexOf('label="People"')).toBeLessThan(accordion.indexOf('label="PlexiiBrain"'))
     // Their subsections are the registry's, not a second copy.
     expect(accordion).toContain('SEGMENT_APPS.plexipeople')
     expect(accordion).toContain('SEGMENT_APPS.plexibrain')
@@ -159,7 +159,7 @@ describe('the Vault moved into Apps', () => {
   it('is registered as an Apps surface', () => {
     const vault = SEGMENT_APPS.office.find((a) => a.key === 'vault')
     expect(vault, 'the Vault is an office app').toBeTruthy()
-    expect(vault!.label).toBe('Vault')
+    expect(vault!.label).toBe('PlexiiVault')
   })
 
   it('renders inside the shell rather than throwing you out of Apps', () => {

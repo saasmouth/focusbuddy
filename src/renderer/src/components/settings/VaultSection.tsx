@@ -19,7 +19,7 @@ export default function VaultSection(): JSX.Element | null {
 
   return (
     <section className="px-3 py-3 space-y-2" data-testid="settings-vault">
-      <div className="fb-t-caption uppercase tracking-[0.12em] font-medium mb-1">Vault</div>
+      <div className="fb-t-caption uppercase tracking-[0.12em] font-medium mb-1">PlexiiVault</div>
       <p className="text-[12px] text-[var(--ink-50)]">
         Passwords and keys the app fills in for you, encrypted on this machine. Nothing in the
         vault is sent anywhere, and it stays locked until you unlock it.

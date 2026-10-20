@@ -161,8 +161,8 @@ export default function Footer(): JSX.Element {
               placement="top"
               content={
                 vaultUnlocked
-                  ? 'Vault unlocked. Your secrets stay on this device — PlexiiDesk never sees them.'
-                  : 'Vault is locked. Unlock it from the Vault view to use saved credentials.'
+                  ? 'PlexiiVault unlocked. Your secrets stay on this device — PlexiiDesk never sees them.'
+                  : 'PlexiiVault is locked. Unlock it from the PlexiiVault view to use saved credentials.'
               }
             >
               <span

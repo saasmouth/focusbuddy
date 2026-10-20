@@ -1102,7 +1102,7 @@ export default function MessagesView({ compact = false }: { compact?: boolean } 
                 <button
                   onClick={() => (compact && callTarget ? void startCall(callTarget, 'video') : goMeetings())}
                   aria-label={compact && callTarget ? `Meet with ${callTargetName}` : undefined}
-                  title={compact && callTarget ? `Meet with ${callTargetName} now — a video call` : 'Start a meeting in PlexiiMeet'}
+                  title={compact && callTarget ? `Meet with ${callTargetName} now — a video call` : 'Start a meeting in PlexiiCall'}
                   data-testid="messages-meet"
                   className={hdrBtn}
                 >

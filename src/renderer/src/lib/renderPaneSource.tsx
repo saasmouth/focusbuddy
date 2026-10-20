@@ -51,12 +51,12 @@ export function renderPaneSource(source: PaneSource, deps: PaneRenderDeps): JSX.
         <FocusChatSurface onOpenWidget={deps.onOpenWidget} />
       )
     case 'meet':
-      // Reserved for PlexiiMeet. Renders a placeholder in v1 so the pane model,
+      // Reserved for PlexiiCall. Renders a placeholder in v1 so the pane model,
       // drag, resize, and save all work end-to-end before live video lands.
       return (
         <PanePlaceholder
           icon="videocam"
-          title="PlexiiMeet"
+          title="PlexiiCall"
           note="Live video panes are coming. This pane is reserved and will hold your meeting here."
         />
       )

@@ -17,10 +17,10 @@ import { useCapabilityStore } from '../stores/capabilities'
 import type { CapabilityValue } from './capabilityDefaults'
 
 export const VIEW_CAPABILITY: Partial<Record<string, { cap: string; label: string }>> = {
-  vault: { cap: 'password_vault', label: 'Vault' },
-  messages: { cap: 'chat', label: 'Chat' },
+  vault: { cap: 'password_vault', label: 'PlexiiVault' },
+  messages: { cap: 'chat', label: 'PlexiiChat' },
   mail: { cap: 'mail', label: 'Mail' },
-  meetings: { cap: 'meet', label: 'Meetings' },
+  meetings: { cap: 'meet', label: 'PlexiiCall' },
   'people-map': { cap: 'people_map', label: 'People Map' },
   organization: { cap: 'org_directory', label: 'Organisation' },
   calendar: { cap: 'time_blocking', label: 'Calendar' },

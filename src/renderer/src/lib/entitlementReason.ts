@@ -41,9 +41,9 @@ export const DOC_TYPE_CAPABILITY: Record<DocType, string> = {
 
 // Human label per editor, used in the "<Editor> is not available" copy.
 export const DOC_TYPE_LABEL: Record<DocType, string> = {
-  doc: 'PlexiiDocs',
-  sheet: 'PlexiiSheets',
-  slides: 'PlexiiSlides',
+  doc: 'PlexiiWrite',
+  sheet: 'PlexiiCells',
+  slides: 'PlexiiDeck',
   map: 'PlexiiDiagrams',
   design: 'PlexiiDesign',
   draw: 'PlexiiDraw',

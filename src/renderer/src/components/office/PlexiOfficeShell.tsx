@@ -69,9 +69,9 @@ interface OfficeApp {
 }
 
 const APPS: OfficeApp[] = [
-  { key: 'docs', label: 'PlexiiDocs', blurb: 'Create documents', icon: 'description', tint: 'bg-sky-500', tone: 'text-sky-500', docType: 'doc' },
-  { key: 'sheets', label: 'PlexiiSheets', blurb: 'Create spreadsheets', icon: 'table_chart', tint: 'bg-emerald-500', tone: 'text-emerald-500', docType: 'sheet' },
-  { key: 'slides', label: 'PlexiiSlides', blurb: 'Create presentations', icon: 'slideshow', tint: 'bg-orange-500', tone: 'text-orange-500', docType: 'slides' },
+  { key: 'docs', label: 'PlexiiWrite', blurb: 'Create documents', icon: 'description', tint: 'bg-purple-600', tone: 'text-purple-600', docType: 'doc' },
+  { key: 'sheets', label: 'PlexiiCells', blurb: 'Create spreadsheets', icon: 'table_chart', tint: 'bg-cyan-600', tone: 'text-cyan-600', docType: 'sheet' },
+  { key: 'slides', label: 'PlexiiDeck', blurb: 'Create presentations', icon: 'slideshow', tint: 'bg-pink-500', tone: 'text-pink-500', docType: 'slides' },
   { key: 'diagrams', label: 'PlexiiDiagrams', blurb: 'Flowcharts and diagrams', icon: 'account_tree', tint: 'bg-violet-500', tone: 'text-violet-500', docType: 'map' },
   { key: 'design', label: 'PlexiiDesign', blurb: 'Page layout and print', icon: 'plexii:design', tint: 'bg-fuchsia-500', tone: 'text-fuchsia-500', docType: 'design' },
   { key: 'draw', label: 'PlexiiDraw', blurb: 'Vector and painting', icon: 'brush', tint: 'bg-rose-500', tone: 'text-rose-500', docType: 'draw' }
@@ -118,8 +118,8 @@ const COMMS_APPS: CommsApp[] = [
   // belongs beside. It renders INSIDE the office shell, like every other
   // Communicate app — opening your calendar should not throw you out of Office.
   { key: 'calendar', label: 'Calendar', blurb: 'Your week, and what is due', icon: 'calendar_month', tint: 'bg-violet-500', tone: 'text-violet-500', render: () => <CalendarView /> },
-  { key: 'chat', label: 'Chat', blurb: 'Channels and direct messages', icon: 'forum', tint: 'bg-sky-500', tone: 'text-sky-500', render: () => <MessagesView /> },
-  { key: 'meet', label: 'Meet', blurb: 'Video calls and meetings', icon: 'video_call', tint: 'bg-violet-500', tone: 'text-violet-500', render: () => <PlexiMeetView /> },
+  { key: 'chat', label: 'PlexiiChat', blurb: 'Channels and direct messages', icon: 'forum', tint: 'bg-sky-500', tone: 'text-sky-500', render: () => <MessagesView /> },
+  { key: 'meet', label: 'PlexiiCall', blurb: 'Video calls and meetings', icon: 'video_call', tint: 'bg-violet-500', tone: 'text-violet-500', render: () => <PlexiMeetView /> },
   { key: 'sign', label: 'Sign', blurb: 'Send and sign documents', icon: 'plexii:sign', tint: 'bg-teal-500', tone: 'text-teal-500', render: () => <PlexiSignView /> },
   // The browser that belongs to nobody. The desk browser is a widget and part
   // of that piece of work; this is for the other kind of browsing — looking
@@ -136,7 +136,7 @@ const COMMS_APPS: CommsApp[] = [
   // you have to dismiss to get back to what you were doing. Rendering it inside
   // the shell keeps the menu put, so opening the Vault does not throw you out
   // of Apps.
-  { key: 'vault', label: 'Vault', blurb: 'Encrypted credentials', icon: 'lock', tint: 'bg-slate-500', tone: 'text-slate-500', section: 'apps', render: () => <VaultView /> }
+  { key: 'vault', label: 'PlexiiVault', blurb: 'Encrypted credentials', icon: 'lock', tint: 'bg-slate-500', tone: 'text-slate-500', section: 'apps', render: () => <VaultView /> }
 ]
 
 // Which OS view kind each comms app stands in for, so we gate its menu entry and
@@ -215,12 +215,12 @@ function startOfDay(now: number): number {
 type RecentTab = 'all' | DocType | 'mail' | 'meet'
 const RECENT_TABS: { id: RecentTab; label: string }[] = [
   { id: 'all', label: 'All' },
-  { id: 'doc', label: 'Docs' },
-  { id: 'sheet', label: 'Sheets' },
-  { id: 'slides', label: 'Slides' },
+  { id: 'doc', label: 'Documents' },
+  { id: 'sheet', label: 'Spreadsheets' },
+  { id: 'slides', label: 'Decks' },
   { id: 'map', label: 'Draw' },
   { id: 'mail', label: 'Mail' },
-  { id: 'meet', label: 'Meet' }
+  { id: 'meet', label: 'Calls' }
 ]
 
 export default function PlexiOfficeShell({ initialApp }: { initialApp?: string } = {}): JSX.Element {
@@ -623,7 +623,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                 <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl text-violet-500" style={{ background: 'color-mix(in srgb, currentColor 12%, transparent)' }}>
                   <Icon name="video_call" size={22} />
                 </span>
-                <span className="text-[12.5px] font-medium">PlexiiMeet</span>
+                <span className="text-[12.5px] font-medium">PlexiiCall</span>
                 <span className="text-[10.5px] text-[var(--ink-50)] text-center leading-tight">Start a meeting</span>
               </button>
             )}
@@ -882,7 +882,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
               <Icon name="auto_awesome" size={18} />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-medium">AI Assistant</div>
+              <div className="text-[13px] font-medium">PlexiiAssist</div>
               <div className="text-[11.5px] text-[var(--ink-50)] truncate">Ask anything about your documents, data or presentations.</div>
             </div>
             <button
@@ -1219,7 +1219,7 @@ function tabLabel(t: 'all' | DocType): string {
   return t === 'all' ? 'All' : t === 'doc' ? 'Docs' : t === 'sheet' ? 'Sheets' : t === 'slides' ? 'Slides' : t === 'map' ? 'Diagrams' : t === 'design' ? 'Designs' : t === 'draw' ? 'Artwork' : t
 }
 function appLabel(t: DocType): string {
-  return t === 'doc' ? 'PlexiiDocs' : t === 'sheet' ? 'PlexiiSheets' : t === 'slides' ? 'PlexiiSlides' : t === 'map' ? 'PlexiiDiagrams' : t === 'design' ? 'PlexiiDesign' : t === 'draw' ? 'PlexiiDraw' : 'PlexiiOffice'
+  return t === 'doc' ? 'PlexiiWrite' : t === 'sheet' ? 'PlexiiCells' : t === 'slides' ? 'PlexiiDeck' : t === 'map' ? 'PlexiiDiagrams' : t === 'design' ? 'PlexiiDesign' : t === 'draw' ? 'PlexiiDraw' : 'PlexiiOffice'
 }
 const TEMPLATES: { id: string; label: string; docType: DocType; preview: string }[] = [
   { id: 'blank-doc', label: 'Blank document', docType: 'doc', preview: 'bg-gradient-to-br from-sky-500 to-sky-700' },

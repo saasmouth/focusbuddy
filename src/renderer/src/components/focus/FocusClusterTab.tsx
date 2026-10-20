@@ -181,7 +181,7 @@ function clusterLabel(cluster: FocusCluster, widgets: Widget[]): string {
       return w?.title || (w ? catalogFor(w.kind)?.label : null) || 'Work widget'
     }
     if (source.kind === 'chrome') return source.tab === 'add' ? 'Add' : 'AI Chat'
-    return 'PlexiiMeet'
+    return 'PlexiiCall'
   })
   if (names.length <= 2) return names.join(' + ')
   return `${names.slice(0, 2).join(' + ')} +${names.length - 2}`

@@ -23,7 +23,7 @@ import Icon from './Icon'
 //   connected → the session: where the video is, chat (mode permitting),
 //               End and Block
 //
-// Starting the session opens the pair's private PlexiiMeet room, docked to
+// Starting the session opens the pair's private PlexiiCall room, docked to
 // the side of the screen by the meeting overlay, so the person keeps working
 // with their partner in view. This dialog is the session's control panel; the
 // video lives in the room.
@@ -293,7 +293,7 @@ export default function PeerBodyDoubleDialog({ onClose }: Props): JSX.Element {
                 {signalConfig.useRemote ? (
                   <>
                     You will be matched with someone you do not know. You see each other on camera in a private
-                    PlexiiMeet room that only the two of you can join, and you can turn your camera off at any time.
+                    PlexiiCall room that only the two of you can join, and you can turn your camera off at any time.
                     They see a made-up session name like QuietCedar34, never your name or email. Nothing is
                     recorded. End the session whenever you like, or block someone so you are never matched again.
                   </>

@@ -74,7 +74,7 @@ test.describe('PlexiSlides side panel', () => {
   test('SP-1 — the panel renders with the AI Assistant and the Slide / Layout tabs', async () => {
     const panel = window.locator('[data-testid="slides-side-panel"]')
     await expect(panel).toBeVisible()
-    await expect(panel.getByText('AI Assistant')).toBeVisible()
+    await expect(panel.getByText('PlexiiAssist')).toBeVisible()
     await expect(panel.getByText('Here are some ideas for your slide')).toBeVisible()
 
     // The six per-slide actions.

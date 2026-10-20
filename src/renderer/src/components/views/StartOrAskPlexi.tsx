@@ -81,7 +81,7 @@ export default function StartOrAskPlexi(): JSX.Element {
       { kind: 'page', id: 'tasks', title: 'Tasks' },
       { kind: 'page', id: 'calendar', title: 'Calendar' },
       { kind: 'page', id: 'files', title: 'Files' },
-      { kind: 'page', id: 'vault', title: 'Vault' },
+      { kind: 'page', id: 'vault', title: 'PlexiiVault' },
       ...nodes
         .filter((n) => n.kind === 'task')
         .map((n) => ({ kind: 'desk' as const, id: n.id, title: n.title || 'Untitled desk' }))
@@ -201,7 +201,7 @@ export default function StartOrAskPlexi(): JSX.Element {
           hint: n.kind === 'task' ? 'Desk' : 'Room',
           icon: PICK_ICONS[n.kind === 'task' ? 'task' : 'folder']
         })),
-      ...(['Tasks', 'Calendar', 'Files', 'Vault'] as const).map((t) => ({
+      ...(['Tasks', 'Calendar', 'Files', 'PlexiiVault'] as const).map((t) => ({
         key: `page:${t.toLowerCase()}`,
         type: 'page' as const,
         id: t.toLowerCase(),
