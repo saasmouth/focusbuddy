@@ -1,4 +1,4 @@
-import { app, BrowserWindow, desktopCapturer, ipcMain, Menu, MenuItem, protocol, session, shell, net } from 'electron'
+import { app, BrowserWindow, desktopCapturer, ipcMain, Menu, protocol, session, shell, net } from 'electron'
 import { join, resolve as resolvePath, sep } from 'path'
 import { existsSync, readdirSync, renameSync, symlinkSync } from 'fs'
 import { pathToFileURL } from 'url'
@@ -17,6 +17,7 @@ import { localOnlyActive } from './ai/local/providerRouter'
 import { autoBackupOnLaunch } from './db/backup'
 import { registerIpcHandlers } from './ipc'
 import { initLocalAi, registerLocalAiIpc } from './ai/local/localAiService'
+import { attachWebContextMenu, registerWebMenuIpc } from './webContextMenu'
 import { runWidgetFileBackfill, setWidgetFileResolvers } from './db/widgetFiles'
 import { setDocTextResolvers } from './workspaceRank'
 import { mainWidgetResolvers } from './ai/widgetSummary'
@@ -639,6 +640,13 @@ app.on('web-contents-created', (_, contents) => {
     }
   })
 
+  // Pop-ups a page opened (sign-in windows, window.open), on the desk or as
+  // native windows: they are web content too and get the same menu.
+  if (contents.getType() === 'window' && (contents as unknown as { opener?: unknown }).opener) {
+    attachWebContextMenu(contents, 'popup')
+    return
+  }
+
   // Only attach to <webview> tag contents — not the main window's React renderer
   if (contents.getType() !== 'webview') return
 
@@ -713,51 +721,16 @@ app.on('web-contents-created', (_, contents) => {
     return { action: 'deny' }
   })
 
-  contents.on('context-menu', (_event, params) => {
-    // Editable fields keep a NATIVE menu so spellcheck suggestions, undo/redo,
-    // cut/copy/paste, select-all, and password-manager autofill all behave as
-    // the user expects inside the embedded browser. Replacing these with our own
-    // menu would silently break them, which the design forbids.
-    if (params.isEditable) {
-      const menu = new Menu()
-      for (const suggestion of params.dictionarySuggestions.slice(0, 5)) {
-        menu.append(new MenuItem({ label: suggestion, click: () => contents.replaceMisspelling(suggestion) }))
-      }
-      if (params.dictionarySuggestions.length > 0) menu.append(new MenuItem({ type: 'separator' }))
-      if (params.misspelledWord) {
-        menu.append(
-          new MenuItem({
-            label: 'Add to dictionary',
-            click: () => contents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
-          })
-        )
-        menu.append(new MenuItem({ type: 'separator' }))
-      }
-      menu.append(new MenuItem({ role: 'undo' }))
-      menu.append(new MenuItem({ role: 'redo' }))
-      menu.append(new MenuItem({ type: 'separator' }))
-      menu.append(new MenuItem({ role: 'cut' }))
-      menu.append(new MenuItem({ role: 'copy' }))
-      menu.append(new MenuItem({ role: 'paste' }))
-      menu.append(new MenuItem({ role: 'selectAll' }))
-      menu.popup()
-      return
-    }
-
-    // Non-editable content: suppress the native menu and hand off to the
-    // renderer's unified PlexiDesk menu, which classifies the target (text / image
-    // / link / video / empty) and offers the same sections as everywhere else.
-    const mainWin = BrowserWindow.getAllWindows()[0]
-    mainWin?.webContents.send('webview:context-menu', {
-      webContentsId: contents.id,
-      x: params.x,
-      y: params.y,
-      selectionText: params.selectionText || undefined,
-      linkURL: params.linkURL || undefined,
-      srcURL: params.srcURL || undefined,
-      mediaType: params.mediaType
-    })
-  })
+  // Right-click: the same native menu on every web surface (webContextMenu.ts).
+  // Connected apps are known by their partition; desk widgets and panels
+  // register their surface from the renderer.
+  let partition = ''
+  try {
+    partition = (contents.session as unknown as { storagePath?: string | null }).storagePath ?? ''
+  } catch {
+    partition = ''
+  }
+  attachWebContextMenu(contents, /connectedapp-/.test(partition) ? 'connected-app' : 'browser')
 })
 
 // A utility or GPU process dying does not kill the app, but it does break a
@@ -795,6 +768,7 @@ app.whenReady().then(() => {
   // "Local on this device", and the engine host. No model is loaded here; it
   // loads in a utility process on the first on-device request.
   initLocalAi()
+  registerWebMenuIpc()
   // Background AI tasks (privacy switch) gate cloud model calls only: with AI
   // on this device, title naming and embeddings run even with the switch off.
   setLocalRouting(() => localOnlyActive())

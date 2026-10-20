@@ -562,6 +562,7 @@ export const INVOKE_CHANNELS: Readonly<Record<string, string>> = {
   'voiceNote.setProvider': 'voice:setProvider',
   'voiceNote.transcribe': 'ai:transcribeAudio',
   'voiceNote.transcribeLive': 'voice:transcribeLive',
+  'webMenu.setSurface': 'webMenu:setSurface',
   'webhooks.send': 'webhooks:send',
   'widgetFiles.create': 'widgetFiles:create',
   'widgetFiles.createAndPlace': 'widgetFiles:createAndPlace',

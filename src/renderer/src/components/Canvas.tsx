@@ -2673,6 +2673,9 @@ export default function Canvas(): JSX.Element {
       <>
         <DeskGallery />
         <WidgetFocusMode />
+        {/* A browser work widget in focus mode with no desk open still gets its
+            "More work widget actions…" menu. */}
+        <BrowserContextMenu />
       </>
     )
   }

@@ -5,17 +5,32 @@ interface Entry {
 
 const byContentsId = new Map<number, Entry>()
 
+// Main builds the right-click menu natively (webContextMenu.ts); it needs to
+// know which webviews are browser work widgets on a desk, so the desk's own
+// actions are offered there and nowhere else.
+function tellMain(webContentsId: number, surface: 'desk' | null): void {
+  try {
+    void (window as unknown as { api?: { webMenu?: { setSurface: (id: number, s: 'desk' | null) => Promise<unknown> } } }).api?.webMenu?.setSurface(webContentsId, surface)
+  } catch {
+    /* no preload (tests): main falls back to the browser menu */
+  }
+}
+
 export function registerWebview(webContentsId: number, widgetId: string, el: HTMLElement): void {
   byContentsId.set(webContentsId, { widgetId, el })
+  tellMain(webContentsId, 'desk')
 }
 
 export function unregisterWebviewByContentsId(webContentsId: number): void {
-  byContentsId.delete(webContentsId)
+  if (byContentsId.delete(webContentsId)) tellMain(webContentsId, null)
 }
 
 export function unregisterWebviewByWidgetId(widgetId: string): void {
   for (const [id, entry] of byContentsId) {
-    if (entry.widgetId === widgetId) byContentsId.delete(id)
+    if (entry.widgetId === widgetId) {
+      byContentsId.delete(id)
+      tellMain(id, null)
+    }
   }
 }
 

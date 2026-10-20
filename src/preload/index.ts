@@ -1231,6 +1231,10 @@ const api = {
       ),
     delete: (id: string): Promise<boolean> => ipcRenderer.invoke('templates:delete', id)
   },
+  webMenu: {
+    setSurface: (webContentsId: number, surface: 'desk' | 'browser' | 'connected-app' | 'popup' | null): Promise<{ ok: boolean }> =>
+      ipcRenderer.invoke('webMenu:setSurface', webContentsId, surface)
+  },
   contextMenu: {
     onAction: (cb: (payload: ContextMenuPayload) => void): (() => void) => {
       const handler = (_: unknown, payload: ContextMenuPayload): void => cb(payload)
