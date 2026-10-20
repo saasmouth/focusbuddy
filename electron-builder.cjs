@@ -171,7 +171,12 @@ module.exports = {
     '!**/node_modules/node-llama-cpp/llama/gitRelease.bundle',
     '!**/node_modules/node-llama-cpp/templates/**',
     '!**/node_modules/@node-llama-cpp/*-cuda/**',
-    '!**/node_modules/@node-llama-cpp/*-cuda-ext/**'
+    '!**/node_modules/@node-llama-cpp/*-cuda-ext/**',
+    // @reflink is a per-arch native addon that node-llama-cpp's own model
+    // downloader (ipull) imports lazily to clone files. The app never uses that
+    // downloader (src/main/ai/local/downloadManager.ts does the downloading),
+    // and an arm64-only .node breaks the universal merge.
+    '!**/node_modules/@reflink/**'
   ],
 
   asarUnpack: [

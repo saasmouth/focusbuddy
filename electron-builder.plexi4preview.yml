@@ -34,6 +34,9 @@ files:
   - "!**/node_modules/node-llama-cpp/templates/**"
   - "!**/node_modules/@node-llama-cpp/*-cuda/**"
   - "!**/node_modules/@node-llama-cpp/*-cuda-ext/**"
+  # @reflink: lazily imported by node-llama-cpp's own downloader, which the app
+  # never uses; its arm64-only addon would break a universal merge.
+  - "!**/node_modules/@reflink/**"
 
 asarUnpack:
   - node_modules/better-sqlite3/**/*
