@@ -71,7 +71,8 @@ export default function DocumentsView(): JSX.Element {
   }, [refresh, refreshTrashed])
 
   // Turn a local document into a live, shared one and open it. Its current body
-  // becomes the server-canonical copy; from there it's check-out collaborative.
+  // becomes the server-canonical copy; from there members co-edit it in real
+  // time, merging changes rather than taking turns.
   // Once live, it appears in the dedicated Collaborations section.
   async function collaborate(id: string): Promise<void> {
     if (!token) {

@@ -80,9 +80,10 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
   const [inviteNote, setInviteNote] = useState<string | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
   const surfaceRef = useRef<HTMLDivElement | null>(null)
-  // Real-time co-editing for documents (other types still use check-out). We hold
-  // the Y.Doc + provider in a ref and flip a state flag once it's live so the
-  // editor re-renders with it.
+  // Real-time co-editing for a 'doc'. Every other live type co-edits too, over
+  // the JSON reconcile path below (jsonCollabRef); neither uses check-out. We
+  // hold the Y.Doc + provider in a ref and flip a state flag once it's live so
+  // the editor re-renders with it.
   const collabRef = useRef<{ docId: string; ydoc: Y.Doc; sync: YjsDocSync } | null>(null)
   const [collabReady, setCollabReady] = useState(false)
   // Debounce the body snapshot so co-editing writes storage at most every few
