@@ -67,7 +67,8 @@ describe('first_launch', () => {
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
     // The server records first_launch from the first /telemetry snapshot.
     expect(url).toBe('https://signal.test/telemetry')
-    expect(JSON.parse(String(init.body))).toEqual({ appVersion: '4.3.29', platform: 'darwin' })
+    // consent: the server refuses a post without it (4.3.34).
+    expect(JSON.parse(String(init.body))).toEqual({ appVersion: '4.3.29', platform: 'darwin', consent: true })
     expect(storage.getItem(FIRST_LAUNCH_KEY_PREFIX + 'acc1')).toBe('1000')
   })
   it('does not mark a failed send as sent', async () => {

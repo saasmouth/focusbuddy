@@ -67,7 +67,7 @@ export async function deliverCrashes(opts: {
     const res = await (opts.fetchImpl ?? fetch)(`${opts.httpUrl}/crash`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${opts.token}` },
-      body: JSON.stringify({ crashes })
+      body: JSON.stringify({ crashes, consent: true })
     })
     if (!res.ok) return 0
   } catch {

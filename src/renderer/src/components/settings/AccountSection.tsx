@@ -14,6 +14,7 @@ import { useCreditPaidUntil } from '../../stores/aiCredits'
 import { personDisplayName, personInitials } from '../../lib/personName'
 import Icon from '../Icon'
 import TwoFactorSettings from './TwoFactorSettings'
+import DeleteAccountPanel from './DeleteAccountPanel'
 
 export default function AccountSection(): JSX.Element {
   const account = useAccountStore((s) => s.account)
@@ -175,6 +176,9 @@ export default function AccountSection(): JSX.Element {
           </button>
         </div>
       )}
+      {/* Outside the signed-in branch so its "deleted, and what is kept" result
+          stays on screen after the account (and the session) are gone. */}
+      <DeleteAccountPanel />
     </div>
   )
 }

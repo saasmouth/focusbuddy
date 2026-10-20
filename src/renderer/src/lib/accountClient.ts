@@ -491,3 +491,50 @@ export async function takePendingBuild(token: string): Promise<string | null> {
     return null
   }
 }
+
+// ── Delete my account and data (self-service, 4.3.34) ───────────────────
+//
+// POST /accounts/me/delete with the typed confirmation and a re-authentication:
+// the password (plus a 2FA code when 2FA is on), or for an account without a
+// password a 6-digit code emailed by POST /accounts/me/delete/email-code. The
+// server deletes the account and everything tied to it, and answers with the
+// list of what it keeps and why (`kept`), which the app shows verbatim.
+
+export type DeleteAccountResult =
+  | { ok: true; kept: string[] }
+  | { ok: false; error: string; message: string }
+
+export async function deleteMyAccount(
+  token: string,
+  input: { password?: string; totp?: string; emailCode?: string }
+): Promise<DeleteAccountResult> {
+  try {
+    const { res, json } = await postJson<{
+      ok?: boolean
+      deleted?: boolean
+      kept?: unknown
+      error?: string
+      message?: string
+    }>('/accounts/me/delete', { confirm: 'DELETE', ...input }, token)
+    if (res.ok && json?.ok && json.deleted) {
+      const kept = Array.isArray(json.kept) ? json.kept.filter((k): k is string => typeof k === 'string') : []
+      return { ok: true, kept }
+    }
+    return {
+      ok: false,
+      error: json?.error ?? `http_${res.status}`,
+      message: json?.message ?? 'The account could not be deleted. Nothing was removed.'
+    }
+  } catch {
+    return { ok: false, error: 'network', message: 'Could not reach PlexiiDesk. Nothing was removed.' }
+  }
+}
+
+export async function requestDeleteEmailCode(token: string): Promise<{ ok: boolean; message?: string }> {
+  try {
+    const { res, json } = await postJson<{ ok?: boolean; message?: string }>('/accounts/me/delete/email-code', {}, token)
+    return res.ok && json?.ok ? { ok: true } : { ok: false, message: json?.message ?? 'The code could not be sent.' }
+  } catch {
+    return { ok: false, message: 'Could not reach PlexiiDesk.' }
+  }
+}
