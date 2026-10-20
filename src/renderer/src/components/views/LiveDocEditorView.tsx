@@ -32,11 +32,21 @@ import { reconcileMap, yToJson } from '../../lib/yjsJson'
 import { YjsDocSync } from '../../lib/yjsDocSync'
 import { sendSocketMessage, setYjsSocketHandler, setSocketOpenHandler } from '../../lib/messagingSocket'
 
-// Editor for a LIVE (collaborative) document. The body lives on the server; this
-// view checks the doc out (acquires the edit lock) and, while it holds the lock,
-// autosaves to the server with a heartbeat. When someone else holds the lock the
-// surface is read-only (marked inert) with a banner and a "Request access"
-// button; the takeover handshake transfers the lock without losing anyone's work.
+// Editor for a LIVE (collaborative) document. Everyone edits at once: there is
+// no lock and no check-out.
+//
+// For a 'doc' the CRDT is a Yjs document driven by YjsDocSync, with Tiptap's
+// Collaboration and CollaborationCaret extensions, so edits merge and each
+// member's cursor is visible. Every other live type goes through the JSON
+// reconcile engine. Either way the surface is never inert and nobody waits for
+// anyone else to hand over.
+//
+// This header used to describe a check-out model: acquire the edit lock,
+// heartbeat while holding it, read-only with a "Request access" banner for
+// everyone else, a takeover handshake to pass it on. That was removed when
+// co-editing landed, and the description outlived it by long enough to be
+// copied into marketing/PRODUCT-GUIDE.md, which then told the whole company we
+// could not say "real-time". If the model changes again, change this with it.
 
 interface Props {
   liveDocId: string
@@ -230,12 +240,10 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meta?.id, meta?.docType, liveDocId])
 
-  // Enforce read-only for non-holders by marking the editor subtree inert (the
-  // server also rejects writes without the lock, so this is belt-and-braces).
+  // Keep the editor surface live. Every live type co-edits in real time (Tiptap
+  // for 'doc', the JSON reconcile engine for the rest), so the surface is never
+  // inert: there is no check-out lock to be on the wrong side of.
   useEffect(() => {
-    // Every live editor type co-edits in real time (Tiptap for 'doc', the JSON
-    // reconcile engine for the rest), so the surface is never inert — there is no
-    // check-out lock any more.
     const el = surfaceRef.current
     if (el) (el as unknown as { inert: boolean }).inert = false
   }, [meta, bodyObj])

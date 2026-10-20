@@ -1,7 +1,34 @@
-// Slides Office interop. Export to native .pptx via pptxgenjs (elements map to
-// pptx text/shape/image/line), export to PDF by rendering each slide to an
-// offscreen page and printing, and a best-effort .pptx import that extracts text
-// (PowerPoint's full feature set does not round-trip; this is honest about that).
+// Slides Office interop: .pptx and PDF out, .pptx in.
+//
+// OUT. Native .pptx via pptxgenjs, with elements mapped to pptx
+// text/shape/image/line. PDF by rendering each slide to an offscreen page and
+// printing it.
+//
+// IN. parsePptx reads, from the slide XML and the parts it references:
+//   - text, as positioned elements with their runs (bold, italic, underline,
+//     colour, size) and paragraph alignment, indent level and list style;
+//   - the title and body placeholders, positioned from the slide layout and
+//     failing that the master (inheritedPhBoxes);
+//   - autoshapes with preset geometry, solid and gradient fill, and border;
+//   - pictures, inlined as data URIs so the deck is self-contained;
+//   - tables, with header-row detection;
+//   - charts, with their cached series;
+//   - speaker notes, with PowerPoint's own slide-number/date/footer
+//     placeholders filtered out;
+//   - theme colours from theme1.xml, so <a:schemeClr> references resolve.
+//
+// What does NOT come in, deliberately rather than by omission: geometry with no
+// honest equivalent in our four shapes (stars, arrows, callouts) is skipped and
+// counted in skippedShapes rather than squared off into rectangles; a colour
+// that resolves to neither a literal nor a theme slot is dropped rather than
+// guessed; a non-placeholder shape with no transform of its own is skipped,
+// because guessing a position would move someone's artwork; and a layout's
+// second and subsequent content placeholders still collapse into one bullet
+// list instead of keeping their separate boxes.
+//
+// Keep this list current. An earlier version of this header still said the
+// importer "extracts text", long after it had stopped being true, and that one
+// stale sentence sent a later reader to the wrong conclusion three times.
 
 import { dialog, BrowserWindow } from 'electron'
 import { basename } from 'path'
@@ -239,7 +266,7 @@ export async function exportSlidesPdf(body: SlidesBody, outPath: string): Promis
   }
 }
 
-// ── PPTX import (best-effort: text + speaker notes) ────────────────────────────
+// ── PPTX import ───────────────────────────────────────────────────────────────
 
 function decodeXml(s: string): string {
   return s
