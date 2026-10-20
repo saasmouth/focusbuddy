@@ -101,10 +101,59 @@ Object.assign(env, {
 })
 
 // Names only, never values.
-console.log(`apple credentials loaded: ${found.sort().join(' ') || 'NONE'}`)
-if (found.length === 0) {
+console.log(`apple credentials loaded from .env: ${found.sort().join(' ') || 'NONE'}`)
+
+// Which notarisation path this build will take, and the cost of the older one.
+//
+// notarytool takes its credentials as ARGUMENTS. On the app-specific-password
+// path that means the password itself appears in the process's command line,
+// where `ps` shows it to anything running as this user for as long as
+// notarisation takes — minutes, on a multi-GB upload. It was observed in this
+// repo's own build that way, which is how this warning came to exist. The App
+// Store Connect API key path passes a FILE PATH instead (--key), so no secret
+// is ever on a command line.
+//
+// Both paths are loaded above, and electron-builder prefers the API key when
+// it is present, so this is a notice rather than a gate: nothing here changes
+// which path is taken, it just stops the weaker one being the silent default.
+//
+// Each set must be COMPLETE to say anything. An earlier version of this notice
+// checked only APPLE_ID and the password, and announced "notarisation:
+// app-specific password" on a machine with no APPLE_TEAM_ID — directly under
+// its own line saying no credentials were found and the build would be ad-hoc.
+// A warning that contradicts the line above it teaches people to ignore both.
+const hasApiKey = ['APPLE_API_KEY', 'APPLE_API_KEY_ID', 'APPLE_API_ISSUER'].every((k) => env[k])
+const hasPassword = ['APPLE_ID', 'APPLE_APP_SPECIFIC_PASSWORD', 'APPLE_TEAM_ID'].every(
+  (k) => env[k]
+)
+if (!hasApiKey && !hasPassword) {
+  // Judged on the environment the build will actually run with, not on what
+  // .env contributed. The old warning keyed off .env alone, so it announced
+  // "no Apple credentials found" on a machine that had a complete set
+  // inherited from the shell — and would have said it just as loudly if the
+  // build were about to notarise successfully.
+  const partial = [...WANTED].filter((k) => env[k])
   console.log(
-    'WARNING: no Apple credentials found, so this build will be ad-hoc signed and NOT notarised.'
+    'WARNING: no COMPLETE Apple credential set, so this build will be ad-hoc signed and NOT notarised.'
+  )
+  if (partial.length) {
+    console.log(`  present but not enough: ${partial.sort().join(' ')}`)
+    console.log(
+      '  need either APPLE_API_KEY + APPLE_API_KEY_ID + APPLE_API_ISSUER (preferred),\n' +
+        '  or APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID.'
+    )
+  }
+} else if (hasApiKey) {
+  console.log('notarisation: App Store Connect API key (no secret on any command line)')
+} else if (hasPassword) {
+  console.log('notarisation: app-specific password (complete set)')
+  console.log(
+    '  NOTE: notarytool receives this password as a command-line argument, so it is\n' +
+      '  visible in `ps` to any process running as you while notarisation runs. To avoid\n' +
+      '  that, create an App Store Connect API key and put APPLE_API_KEY (the .p8 path),\n' +
+      '  APPLE_API_KEY_ID and APPLE_API_ISSUER in .env instead; electron-builder prefers\n' +
+      '  them automatically and the existing password entries can then be removed and\n' +
+      '  revoked.'
   )
 }
 
