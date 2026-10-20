@@ -27,13 +27,19 @@ const ROOT = join(__dirname, '..', '..')
 const AI = join(ROOT, 'src', 'main', 'ai', 'anthropic.ts')
 const src = readFileSync(AI, 'utf8')
 
+// The rule TEXT lives in its own SDK-free module so the local provider can
+// import the same strings instead of keeping a copy that drifts. The prompts
+// that consume it stay in anthropic.ts, so this test reads both files.
+const RULES = join(ROOT, 'src', 'main', 'ai', 'groundingRules.ts')
+const rulesSrc = readFileSync(RULES, 'utf8')
+
 /**
  * The retired phrasings are quoted in comments on purpose — the comment above
  * GROUNDING_RULE explains what went wrong by naming the clause that caused it.
  * Only the prompts themselves matter here, so strip comments before scanning
  * for a phrasing that must not come back.
  */
-const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+const code = (src + '\n' + rulesSrc).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 
 /**
  * The model routes that produce content a person then reads, edits or sends.
@@ -133,12 +139,23 @@ function writers(): Fn[] {
 }
 
 describe('the shared grounding rules', () => {
-  const grounding = src.slice(src.indexOf('const GROUNDING_RULE ='), src.indexOf('const SHEET_DATA_RULE ='))
-  const sheet = src.slice(src.indexOf('const SHEET_DATA_RULE ='), src.indexOf('const SHEET_DATA_RULE =') + 1200)
+  const grounding = rulesSrc.slice(
+    rulesSrc.indexOf('export const GROUNDING_RULE ='),
+    rulesSrc.indexOf('export const SHEET_DATA_RULE =')
+  )
+  const sheet = rulesSrc.slice(rulesSrc.indexOf('export const SHEET_DATA_RULE ='))
 
-  it('is declared', () => {
-    expect(src).toContain('const GROUNDING_RULE =')
-    expect(src).toContain('const SHEET_DATA_RULE =')
+  it('is declared, exported, and imported by the prompts that use it', () => {
+    expect(rulesSrc).toContain('export const GROUNDING_RULE =')
+    expect(rulesSrc).toContain('export const SHEET_DATA_RULE =')
+    expect(src).toContain("from './groundingRules'")
+  })
+
+  it('exists in exactly one place', () => {
+    // Prompt text that exists twice drifts, and a local path running an older
+    // rule than the cloud path is the failure this split exists to prevent.
+    expect(src).not.toContain('const GROUNDING_RULE =')
+    expect(src).not.toContain('const SHEET_DATA_RULE =')
   })
 
   // The three things the rule has to say. Soften any one of them and the
