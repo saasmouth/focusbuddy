@@ -97,10 +97,15 @@ export default function Toolbar({
 
   const sel = 'fb-field h-7 text-[11px] px-1 text-[var(--ink-70)]'
 
+  // No sticky, background or blur of its own any more: DocEditor pins the whole
+  // chrome block, and this row pinning separately is exactly what made the menu
+  // bar above it scroll away while the formatting row stayed behind. mb-4
+  // became mb-1 for the same reason the block went full width — the chrome was
+  // eating vertical space the document needed.
   return (
     <div
       data-testid="doc-toolbar"
-      className="sticky top-0 z-20 -mx-2 px-2 py-1.5 mb-4 flex items-center gap-0.5 flex-wrap bg-paper/95 backdrop-blur border-b border-[color-mix(in_oklab,var(--edge-soft)_70%,transparent)]"
+      className="py-1 mb-1 flex items-center gap-0.5 flex-wrap border-b border-[color-mix(in_oklab,var(--edge-soft)_70%,transparent)]"
     >
       <button className={btn(false)} title="Undo" onClick={() => editor.chain().focus().undo().run()}>
         <Icon name="undo" size={15} />

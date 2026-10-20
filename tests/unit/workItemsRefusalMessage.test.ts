@@ -64,13 +64,29 @@ describe("the document editor's chrome stays put when the page scrolls", () => {
     'utf8'
   )
 
-  it('pins the menu bar and the toolbar in one block', () => {
-    expect(src).toMatch(/className="sticky top-0 z-20 -mx-8 px-8 bg-paper\/95 backdrop-blur"/)
+  it('pins the whole chrome block, full width', () => {
+    const sticky = /className="sticky top-0[^"]*"/.exec(src)?.[0] ?? ''
+    expect(sticky).toMatch(/sticky top-0/)
+    // Full width is the half that buys the vertical space back: capped at
+    // max-w-3xl the toolbar was narrower than the 900-1040px text column it
+    // formats, so it wrapped onto three rows on a window wide enough for one.
+    expect(sticky).toMatch(/w-full/)
+    expect(sticky).not.toMatch(/max-w-3xl/)
   })
 
   it('keeps an opaque background, because document text scrolls underneath', () => {
     const sticky = /className="sticky top-0[^"]*"/.exec(src)?.[0] ?? ''
     expect(sticky).toMatch(/bg-paper/)
+  })
+
+  it('leaves the toolbar no sticky of its own', () => {
+    // Two separately-pinned rows is what came apart in the first place.
+    const toolbar = readFileSync(
+      join(__dirname, '..', '..', 'src/renderer/src/components/documents/editor/Toolbar.tsx'),
+      'utf8'
+    )
+    const root = /data-testid="doc-toolbar"[\s\S]{0,400}?className="([^"]*)"/.exec(toolbar)?.[1] ?? ''
+    expect(root).not.toMatch(/sticky/)
   })
 
   it('still mounts the menu bar inside the pinned block, above the toolbar', () => {
