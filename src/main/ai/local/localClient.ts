@@ -261,17 +261,23 @@ export interface LocalClientOptions {
 //    and schema decoding is what halved the build family. Off.
 //  smallGroundingRule: kept. Its +1/34 is noise, but it is strictly shorter
 //    than the full rule and a 4B has limited instruction-following budget.
-//  groundingCheck: OFF pending review. It repaired 18 spans and flagged 94
-//    while changing no verdict, and nobody has yet looked at whether those
-//    repairs were correct. Two reasons not to have it on here: unreviewed code
-//    silently rewriting someone's draft is not a thing to default to, and it
-//    would contaminate the very measurement this build exists for — with it on,
-//    "did the local model invent facts" actually measures model plus repair.
+//  groundingCheck: ON, now that the review is done. It was off while nobody
+//    had checked what it rewrites. Reviewed against all 141 proposed repairs
+//    from the 3-sample local run: 38 were CSS out of HTML attributes, all high
+//    confidence, so all would have been applied — repairing a style attribute
+//    corrupts the markup. That is fixed (ed662ea0) and replaying the real
+//    spans removes all 38 while losing no genuine catch. The other 103 each
+//    name a specific that appears nowhere in the context the model was given:
+//    unsupplied percentages, invented UI labels, a made-up file name, a
+//    fabricated ticket number. The repair action is sound too — the span is
+//    replaced with [percentage], [amount], [date], which is what GROUNDING_RULE
+//    prescribes, applied back-to-front so offsets stay valid, and JSON is
+//    reviewed string by string so a repair cannot break the structure.
 let clientOptions: LocalClientOptions = {
   schemaDecoding: false,
   promptVariants: false,
   smallGroundingRule: true,
-  groundingCheck: false
+  groundingCheck: true
 }
 
 /** Where grounding findings go (the app shows them; tests and the eval read them). */
