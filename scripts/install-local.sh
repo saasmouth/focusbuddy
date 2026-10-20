@@ -55,6 +55,13 @@ for arg in "$@"; do
   esac
 done
 
+# A missing runtime dependency is silent in the way that matters: the build
+# succeeds, the app launches, and only the feature you meant to test is gone.
+# node-llama-cpp — the whole local AI engine — was absent from a worktree's
+# node_modules once, and the build packaged, installed and started perfectly
+# without it. Check before spending a build.
+node "$(dirname "$0")/verify-build-deps.mjs" --pre
+
 if [ "$BUILD" = "1" ]; then
   LOG="release/install-local-build.log"
   mkdir -p release
@@ -215,6 +222,10 @@ ditto "$SRC" "$TARGET"
 xattr -dr com.apple.quarantine "$TARGET" 2>/dev/null || true
 
 echo "[install-local] installed  $TARGET"
+
+# The native modules have to be IN the bundle, not merely installed here.
+# "It compiled" says nothing about what electron-builder packaged.
+node "$(dirname "$0")/verify-build-deps.mjs" --app "$TARGET"
 
 # Warm the app up before handing it over.
 #

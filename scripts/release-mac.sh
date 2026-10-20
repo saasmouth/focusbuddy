@@ -75,6 +75,11 @@ if [ "$MAC_ARCH" = "universal" ]; then
   echo "Main binary is universal (${ARCHS})."
 fi
 
+# The native modules must be IN the artifact about to be published. A release
+# that packaged without node-llama-cpp installs and launches perfectly and has
+# no local AI at all, which is not something a user would report as a crash.
+node "${HERE0}/verify-build-deps.mjs" --app "$APP"
+
 # The model-split gate. Only meaningful once a release bundles the local AI
 # model, and it passes straight through before that, so it is safe to run on
 # every mac release rather than something to remember on the one that matters.
