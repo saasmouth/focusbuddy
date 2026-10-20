@@ -8,7 +8,7 @@ import { useAiCreditsStore } from '../../stores/aiCredits'
 // runs any model; on credits a model above the plan is sent as the best one the
 // plan includes (main/ai/modelRouting.ts modelForPlan).
 export function planModelNote(plan: string | null, mode: string | null): string | null {
-  if (mode === 'byok') return null
+  if (mode === 'byok' || mode === 'openai' || mode === 'local') return null
   if (plan === 'free') return 'On Plexii credits, Free runs Haiku. Your own key runs any model.'
   if (plan === 'pro' || plan === 'team') return 'On Plexii credits, Opus is on Pro+. Your own key runs any model.'
   return null

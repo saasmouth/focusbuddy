@@ -11,7 +11,7 @@
 import type { AIPurpose } from './types'
 
 /** Where AI requests are served. Persisted as the settings `aiMode`. */
-export type AiProviderChoice = 'local' | 'byok' | 'credits'
+export type AiProviderChoice = 'local' | 'byok' | 'credits' | 'openai'
 
 /** User-facing groups of AI features, each routable on its own. */
 export type AiFeature =
@@ -190,10 +190,27 @@ export function recommendTier<T extends Pick<LocalModelTier, 'id' | 'minRamGB' |
   return byMin.find((t) => ramGB >= t.minRamGB) ?? null
 }
 
+/**
+ * Where one feature's requests go. 'cloud' = the account default (Plexii AI
+ * credits when signed in, else your Anthropic key); the rest name a provider.
+ */
+export type AiFeatureRoute = 'local' | 'cloud' | 'anthropic' | 'openai' | 'credits'
+export const AI_FEATURE_ROUTES: readonly AiFeatureRoute[] = ['local', 'cloud', 'anthropic', 'openai', 'credits']
+
+/** The cloud providers this install can reach right now (keys saved / signed in). */
+export interface CloudProvidersAvailable {
+  anthropic: boolean
+  openai: boolean
+  credits: boolean
+}
+
 /** Status of local AI, as main reports it to the renderer. */
 export interface LocalAiStatus {
   provider: AiProviderChoice
-  featureRoutes: Partial<Record<AiFeature, 'local' | 'cloud'>>
+  featureRoutes: Partial<Record<AiFeature, AiFeatureRoute>>
+  cloudProviders: CloudProvidersAvailable
+  /** OpenAI model per tier (the person's choice over the defaults). */
+  openaiModels: { fast: string; standard: string; best: string }
   ramGB: number
   freeDiskBytes: number | null
   recommendedTier: LocalModelTier['id'] | null
@@ -253,11 +270,13 @@ export const LOCAL_LABEL_COPY = 'Works best with cloud AI; local results may be 
 export type LocalPolicy = 'measured' | 'local-first'
 
 /**
- * PENDING OWNER DECISION (2026-10-20): which policy is the default. Kept in
- * this one constant so the decision is a one-line change; the person can
- * switch in Settings → AI either way.
+ * Owner decision (2026-10-20): the bundled model is the default and everything
+ * it can technically run, runs on it ('local-first'). A feature that measured
+ * weak runs with a quality note and an offer to upgrade with your own key;
+ * what it cannot run at all (NOT_TECHNICALLY_LOCAL, and tool-using agents)
+ * asks before each request. 'measured' stays selectable in Settings → AI.
  */
-export const DEFAULT_LOCAL_POLICY: LocalPolicy = 'measured'
+export const DEFAULT_LOCAL_POLICY: LocalPolicy = 'local-first'
 
 /** Features the on-device model cannot run at all, whatever the policy. */
 export const NOT_TECHNICALLY_LOCAL: readonly AiFeature[] = ['media']

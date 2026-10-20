@@ -249,7 +249,7 @@ function AiSourceSection(): JSX.Element {
     void refreshCredits()
   }, [refreshCredits])
 
-  async function pick(mode: 'auto' | 'credits' | 'byok' | 'local'): Promise<void> {
+  async function pick(mode: 'auto' | 'credits' | 'byok' | 'local' | 'openai'): Promise<void> {
     if (busy) return
     setBusy(true)
     setNote(null)
@@ -284,17 +284,18 @@ function AiSourceSection(): JSX.Element {
   // One honest choice of where AI runs. "Plexii AI credits" covers both
   // credit modes: 'auto' (credits, then the user's own key when they run out)
   // and 'credits' (credits only); the difference is the switch under it.
-  const modes: Array<{ id: 'local' | 'byok' | 'credits'; label: string; sub: string }> = [
-    { id: 'local', label: 'Local on this device', sub: 'AI requests stay on this computer' },
-    { id: 'byok', label: 'Your own API key', sub: 'Direct to Anthropic' },
+  const modes: Array<{ id: 'local' | 'byok' | 'openai' | 'credits'; label: string; sub: string }> = [
+    { id: 'local', label: 'Local on this device', sub: 'Included with PlexiiDesk; requests stay on this computer' },
+    { id: 'byok', label: 'Your Anthropic key', sub: 'Direct to Anthropic (Claude)' },
+    { id: 'openai', label: 'Your OpenAI key', sub: 'Direct to OpenAI' },
     { id: 'credits', label: 'Plexii AI credits', sub: 'Your plan’s allowance and packs' }
   ]
-  const selected = (id: 'local' | 'byok' | 'credits'): boolean =>
+  const selected = (id: 'local' | 'byok' | 'openai' | 'credits'): boolean =>
     id === 'credits' ? status?.mode === 'credits' || status?.mode === 'auto' : status?.mode === id
 
   return (
     <div data-testid="ai-source-section">
-      <div className="grid grid-cols-3 gap-1.5 mb-2">
+      <div className="grid grid-cols-2 gap-1.5 mb-2">
         {modes.map((m) => (
           <button
             key={m.id}
@@ -340,7 +341,14 @@ function AiSourceSection(): JSX.Element {
         </div>
       )}
 
-      {status && status.mode !== 'byok' && status.mode !== 'local' && (
+      {status?.mode === 'openai' && (
+        <div className="fb-t-caption text-[var(--ink-60)] mb-2 leading-snug" data-testid="ai-openai-note">
+          AI requests go straight to OpenAI with your key (add it under API keys). Pick the models in Settings → Local
+          AI → Feature by feature, or send any feature back to the on-device model there.
+        </div>
+      )}
+
+      {status && status.mode !== 'byok' && status.mode !== 'local' && status.mode !== 'openai' && (
         <div className="fb-card rounded-[var(--radius-field)] px-2.5 py-2 mb-2">
           {!status.signedIn ? (
             <div className="fb-t-caption text-[var(--ink-50)] leading-snug">

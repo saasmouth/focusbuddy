@@ -285,9 +285,10 @@ describe('Local on this device: no AI request leaves the machine', () => {
     remote.length = before
   })
 
-  it('with the real quality gates and the person declining cloud: cloud-only features send nothing and say why', { timeout: 180_000 }, async () => {
+  it('with the real quality gates under the "measured" policy and the person declining cloud: cloud-only features send nothing and say why', { timeout: 180_000 }, async () => {
     const router = await import('../../src/main/ai/local/providerRouter')
     const { localGateFor } = await import('../../src/shared/localAiGates')
+    router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({}), policy: () => 'measured' })
     router.setGateResolver(localGateFor)
     let asked = 0
     router.setConsentAsker(async () => {
@@ -312,5 +313,63 @@ describe('Local on this device: no AI request leaves the machine', () => {
     expect(asked).toBeGreaterThanOrEqual(3)
     expect(remote).toEqual([])
     router.setGateResolver(() => ({ gate: 'ok', localPassRate: null, cloudPassRate: null, family: null }))
+    router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({}) })
+  })
+
+  it('the shipped default ("local-first") runs weak features on the device with a note, and still sends nothing', { timeout: 180_000 }, async () => {
+    const router = await import('../../src/main/ai/local/providerRouter')
+    const { localGateFor } = await import('../../src/shared/localAiGates')
+    const { DEFAULT_LOCAL_POLICY } = await import('../../src/shared/localAi')
+    expect(DEFAULT_LOCAL_POLICY).toBe('local-first')
+    router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({}) })
+    router.setGateResolver(localGateFor)
+    const notices: string[] = []
+    router.setNoticeSink((_f, m) => notices.push(m))
+    let asked = 0
+    router.setConsentAsker(async () => {
+      asked++
+      return false
+    })
+    const ai = await import('../../src/main/ai/anthropic')
+    const before = engineCalls.length
+    const build = await ai.buildFromPrompt({ prompt: 'A desk for my reading list', taskId: null })
+    expect(build.ok, JSON.stringify(build).slice(0, 400)).toBe(true)
+    expect(engineCalls.length).toBeGreaterThan(before)
+    expect(notices.some((n) => /Build with AI/i.test(n))).toBe(true)
+    // Media has no on-device model at all: still asks, and declining sends nothing.
+    const { generateImage } = await import('../../src/main/imageGen')
+    const img = await generateImage({ prompt: 'a red bicycle' })
+    expect(img.ok).toBe(false)
+    expect(asked).toBeGreaterThanOrEqual(1)
+    expect(remote).toEqual([])
+    router.setGateResolver(() => ({ gate: 'ok', localPassRate: null, cloudPassRate: null, family: null }))
+  })
+
+  it('a feature upgraded to "Your OpenAI key" while the source is Local reaches OpenAI only, and only for that feature', async () => {
+    const router = await import('../../src/main/ai/local/providerRouter')
+    const { createOpenAIClient } = await import('../../src/main/ai/local/openaiClient')
+    const { setModelTagger } = await import('../../src/main/ai/modelRouting')
+    const { setLocalRouteResolver } = await import('../../src/main/ai/modelRouting')
+    const openai = createOpenAIClient({ key: () => process.env.OPENAI_API_KEY ?? null, models: () => ({ fast: 'gpt-x-mini', standard: 'gpt-x', best: 'gpt-x' }) })
+    router.setCloudProviders({ anthropic: () => null, credits: () => null, openai: () => openai })
+    router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({ writing: 'openai' }) })
+    setModelTagger(router.tagModel)
+    const ai = await import('../../src/main/ai/anthropic')
+    ai.invalidateAnthropicClient()
+    const before = remote.length
+    await ai.transformText({ text: 'Some text.', instruction: 'Make it formal' }).catch(() => undefined)
+    const hit = remote.slice(before)
+    expect(hit.some((r) => r.includes('api.openai.com'))).toBe(true)
+    expect(hit.some((r) => r.includes('api.anthropic.com'))).toBe(false)
+    remote.length = before
+    // Every other feature is still on the device.
+    const n = engineCalls.length
+    const { DESK } = await import('../../tools/local-ai-eval/fixtures')
+    await ai.sendChat({ taskId: DESK, messages: [{ role: 'user', content: 'What is due this week?', ts: Date.now() }] } as never).catch(() => undefined)
+    expect(engineCalls.length).toBeGreaterThan(n)
+    expect(remote).toEqual([])
+    router.setCloudProviders({ anthropic: () => null, credits: () => null, openai: () => null })
+    router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({}) })
+    setLocalRouteResolver((p) => router.routeForPurpose(p) === 'local')
   })
 })

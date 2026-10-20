@@ -34,8 +34,16 @@ export default function CreditsMeter({ variant = 'compact' }: { variant?: 'compa
       </span>
     )
   }
-  if (!signedIn || !status || !status.signedIn) return null
   // On their own key, the balance is not what pays for this call.
+  if (status?.mode === 'openai') {
+    if (variant === 'full') return null
+    return (
+      <span className="fb-t-caption text-[var(--ink-50)] inline-flex items-center gap-1" data-testid="credits-meter">
+        <Icon name="key" size={12} /> Your OpenAI key
+      </span>
+    )
+  }
+  if (!signedIn || !status || !status.signedIn) return null
   if (status.mode === 'byok') {
     if (variant === 'full') return null
     return (

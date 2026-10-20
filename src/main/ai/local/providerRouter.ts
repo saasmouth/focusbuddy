@@ -58,9 +58,12 @@ import type { LocalEngine } from './engineCore'
 
 // ── Policy inputs (injected so this module stays testable without Electron) ──
 
+/** A per-feature route. 'cloud' is the account default (credits, then your Anthropic key). */
+export type FeatureRoute = 'local' | 'cloud' | 'anthropic' | 'openai' | 'credits'
+
 export interface RouterSettings {
-  aiMode: () => 'auto' | 'credits' | 'byok' | 'local'
-  featureRoutes: () => Partial<Record<string, 'local' | 'cloud'>>
+  aiMode: () => 'auto' | 'credits' | 'byok' | 'local' | 'openai'
+  featureRoutes: () => Partial<Record<string, FeatureRoute>>
   /** Local routing policy; absent → DEFAULT_LOCAL_POLICY. */
   policy?: () => LocalPolicy
 }
@@ -80,7 +83,7 @@ export function setRouterSettings(s: RouterSettings): void {
 
 export function providerChoice(): AiProviderChoice {
   const m = settings.aiMode()
-  return m === 'local' ? 'local' : m === 'byok' ? 'byok' : 'credits'
+  return m === 'local' ? 'local' : m === 'byok' ? 'byok' : m === 'openai' ? 'openai' : 'credits'
 }
 
 // ── Grants ──────────────────────────────────────────────────────────────────
@@ -111,16 +114,65 @@ export function localOnlyActive(): boolean {
 }
 
 /** Where a purpose runs: its feature's override, else the global source. */
-export function routeForPurpose(purpose: string): 'local' | 'cloud' {
+export function routeForPurpose(purpose: string): FeatureRoute {
   const override = settings.featureRoutes()[featureForPurpose(purpose)]
   if (override) return override
-  return providerChoice() === 'local' ? 'local' : 'cloud'
+  const p = providerChoice()
+  return p === 'local' ? 'local' : p === 'openai' ? 'openai' : 'cloud'
 }
 
 /** Whether any request could be served locally (global source or a feature route). */
 export function anyLocalRouting(): boolean {
   if (providerChoice() === 'local') return true
   return Object.values(settings.featureRoutes()).includes('local')
+}
+
+/**
+ * The model id a call site sends for a purpose: `local:<purpose>` on the
+ * device; the plain cloud model on the account's default cloud route (unless
+ * the source is Local, when cloud is only reached by a route tag); otherwise
+ * `route:<provider>:<purpose>:<cloud model>`, which the routed client sends to
+ * that provider. Registered with modelRouting at start-up.
+ */
+export function tagModel(purpose: string, cloudModel: string): string {
+  const route = routeForPurpose(purpose)
+  if (route === 'local') return `local:${purpose}`
+  if (route === 'cloud' && providerChoice() !== 'local') return cloudModel
+  return `route:${route}:${purpose}:${cloudModel}`
+}
+
+// ── Cloud providers (registered by the app; injected in tests) ──────────────
+
+export interface CloudProviders {
+  /** Your Anthropic key, direct. */
+  anthropic: () => Anthropic | null
+  /** Plexii AI credits (the metered proxy), when signed in. */
+  credits: () => Anthropic | null
+  /** Your OpenAI key (openaiClient.ts). */
+  openai: () => Anthropic | null
+}
+
+let providers: CloudProviders = { anthropic: () => null, credits: () => null, openai: () => null }
+export function setCloudProviders(p: CloudProviders): void {
+  providers = p
+}
+
+const PROVIDER_NAME: Record<string, string> = {
+  anthropic: 'Anthropic with your key',
+  openai: 'OpenAI with your key',
+  credits: 'Plexii AI credits',
+  cloud: 'cloud AI'
+}
+
+/** The upgrade a weak or unsupported local request is offered: your Anthropic key, else your OpenAI key, else credits. */
+function preferredUpgrade(cloud: Anthropic | null): { client: Anthropic; name: string } | null {
+  const a = providers.anthropic()
+  if (a) return { client: a, name: PROVIDER_NAME.anthropic }
+  const o = providers.openai()
+  if (o) return { client: o, name: PROVIDER_NAME.openai }
+  const c = providers.credits() ?? cloud
+  if (c) return { client: c, name: PROVIDER_NAME.credits }
+  return null
 }
 
 // ── The engine, consent and notices (wired by the app; injected in tests) ───
@@ -226,18 +278,17 @@ async function cloudForThisRequest(
   cloudModel: string
 ): Promise<Anthropic.Message | null> {
   const label = AI_FEATURE_COPY[feature].label
-  const yes = await askConsent({ feature, featureLabel: label, reason, cloudAvailable: cloud !== null })
+  const up = preferredUpgrade(cloud)
+  const yes = await askConsent({ feature, featureLabel: label, reason: up ? `${reason} It would go to ${up.name}.` : reason, cloudAvailable: up !== null })
   if (!yes) return null
-  if (!cloud) {
-    throw new LocalUnavailableError(
-      feature,
-      'Cloud AI is not set up: add your own Anthropic API key or sign in for Plexii AI credits in Settings → AI.'
-    )
-  }
+  if (!up) throw new LocalUnavailableError(feature, NO_CLOUD_SET_UP)
   return withCloudGrant({ reason: 'consent', feature }, () =>
-    (cloud.messages.create as unknown as CreateFn)({ ...body, model: cloudModel }, { signal: opts.signal })
-  )
+    (up.client.messages.create as unknown as CreateFn)({ ...body, model: cloudModel }, { signal: opts.signal })
+  ).then((m) => observeGrounding(body, m))
 }
+
+const NO_CLOUD_SET_UP =
+  'Cloud AI is not set up: add your own Anthropic or OpenAI API key, or sign in for Plexii AI credits, in Settings → AI.'
 
 async function serveLocal(
   body: Record<string, unknown>,
@@ -257,24 +308,11 @@ async function serveLocal(
         ? `${label} is not run on the on-device model: it has not been shown to work there in our tests.`
         : `${label} is not run on the on-device model: in our tests it passed ${percent(gate.localPassRate)} of ` +
           `tasks locally against ${percent(gate.cloudPassRate)} on cloud AI.`
-    const yes = await askConsent({ feature, featureLabel: label, reason, cloudAvailable: cloud !== null })
-    if (!yes) {
-      throw new LocalUnavailableError(
-        feature,
-        `${reason} Nothing was sent anywhere. To use it, choose "Use cloud for this request" when asked, or route ${label} to cloud in Settings → AI.`
-      )
-    }
-    if (!cloud) {
-      throw new LocalUnavailableError(
-        feature,
-        'Cloud AI is not set up: add your own Anthropic API key or sign in for Plexii AI credits in Settings → AI.'
-      )
-    }
-    // 'generic' and 'enrichment' are not cloud purposes: use the model the call
-    // site named, else the cheapest; never send an empty model id.
-    const cloudBody = { ...body, model: cloudModel }
-    return withCloudGrant({ reason: 'consent', feature }, () =>
-      (cloud.messages.create as unknown as CreateFn)(cloudBody, { signal: opts.signal })
+    const viaCloud = await cloudForThisRequest(body, cloud, opts, feature, reason, cloudModel)
+    if (viaCloud) return viaCloud
+    throw new LocalUnavailableError(
+      feature,
+      `${reason} Nothing was sent anywhere. To use it, choose "Use cloud for this request" when asked, or route ${label} to a cloud provider in Settings → AI.`
     )
   }
   if (gate.gate === 'labelled' && !noticed.has(feature)) {
@@ -334,12 +372,40 @@ export async function askCloudForNonLocalFeature(
   return yes ? 'allowed' : 'declined'
 }
 
-/** True when the source is Local and this purpose's feature is routed to cloud. */
+/** True when the source is Local and this purpose's feature is routed to a cloud provider. */
 export function cloudRoutedFromLocal(purpose: string): boolean {
-  return providerChoice() === 'local' && routeForPurpose(purpose) === 'cloud'
+  return providerChoice() === 'local' && routeForPurpose(purpose) !== 'local'
 }
 
 const CLOUD_ROUTE = /^cloudroute:([^:]+):(.+)$/
+const PROVIDER_ROUTE = /^route:(cloud|anthropic|openai|credits):([^:]+):(.+)$/
+
+/** A tagged model id → the provider, purpose and real model it names. */
+function parseRoute(model: string): { provider: string; purpose: string; model: string } | null {
+  const r = PROVIDER_ROUTE.exec(model)
+  if (r) return { provider: r[1], purpose: r[2], model: r[3] }
+  const legacy = CLOUD_ROUTE.exec(model)
+  return legacy ? { provider: 'cloud', purpose: legacy[1], model: legacy[2] } : null
+}
+
+function providerClient(provider: string, cloud: Anthropic | null): Anthropic | null {
+  if (provider === 'anthropic') return providers.anthropic()
+  if (provider === 'openai') return providers.openai()
+  if (provider === 'credits') return providers.credits()
+  return cloud
+}
+
+const NOT_SET_UP: Record<string, string> = {
+  anthropic: 'This feature is set to use your Anthropic key, but none is saved. Add it in Settings → AI · API keys.',
+  openai: 'This feature is set to use your OpenAI key, but none is saved. Add it in Settings → AI · API keys.',
+  credits: 'This feature is set to use Plexii AI credits. Sign in to your Plexii account in Settings to use them.',
+  cloud: 'This feature is set to use cloud AI, but cloud AI is not set up. Add your own API key or sign in for Plexii AI credits in Settings → AI.'
+}
+
+/** Run fn under a grant when the source is Local (a route the person chose is the grant). */
+function maybeGranted<T>(feature: AiFeature, fn: () => T): T {
+  return providerChoice() === 'local' ? grantStore.run({ reason: 'feature-route', feature }, fn) : fn()
+}
 
 function dispatch(
   body: Record<string, unknown>,
@@ -348,18 +414,14 @@ function dispatch(
 ): Promise<Anthropic.Message> {
   const model = typeof body.model === 'string' ? body.model : ''
   if (model.startsWith('local:')) return serveLocal(body, cloud, opts)
-  const routed = CLOUD_ROUTE.exec(model)
+  const routed = parseRoute(model)
   if (routed) {
-    // The user routed this feature to cloud while the source is Local: that
-    // setting is the grant, for this request.
-    if (!cloud) {
-      return Promise.reject(
-        new Error('This feature is set to use cloud AI, but cloud AI is not set up. Add your own API key or sign in for Plexii AI credits in Settings → AI.')
-      )
-    }
-    const feature = featureForPurpose(routed[1])
-    return withCloudGrant({ reason: 'feature-route', feature }, () =>
-      (cloud.messages.create as unknown as CreateFn)({ ...body, model: routed[2] }, { signal: opts.signal })
+    const client = providerClient(routed.provider, cloud)
+    if (!client) return Promise.reject(new Error(NOT_SET_UP[routed.provider]))
+    const feature = featureForPurpose(routed.purpose)
+    const real = { ...body, model: routed.model }
+    return maybeGranted(feature, () => (client.messages.create as unknown as CreateFn)(real, { signal: opts.signal })).then((m) =>
+      observeGrounding(real, m)
     )
   }
   if (localOnlyActive()) {
@@ -368,12 +430,14 @@ function dispatch(
     // device rather than send it anywhere.
     return serveLocal({ ...body, model: 'local:generic' }, cloud, opts, model || undefined)
   }
-  if (!cloud) {
+  // Source is OpenAI: a call site that names a Claude model goes to OpenAI too.
+  const target = providerChoice() === 'openai' ? providers.openai() : cloud
+  if (!target) {
     return Promise.reject(
-      new Error('No Anthropic API key set. Open Settings → AI → API keys and paste your key.')
+      new Error(providerChoice() === 'openai' ? NOT_SET_UP.openai : 'No Anthropic API key set. Open Settings → AI → API keys and paste your key.')
     )
   }
-  return (cloud.messages.create as unknown as CreateFn)(body, { signal: opts.signal }).then((m) => observeGrounding(body, m))
+  return (target.messages.create as unknown as CreateFn)(body, { signal: opts.signal }).then((m) => observeGrounding(body, m))
 }
 
 /**
@@ -398,59 +462,55 @@ function observeGrounding(body: Record<string, unknown>, msg: Anthropic.Message)
   return msg
 }
 
-/** The cloud client with grounding observation on create(); requests pass through unchanged. */
-function observedCloud(cloud: Anthropic): Anthropic {
-  return {
-    get baseURL() {
-      return (cloud as unknown as { baseURL?: string }).baseURL
-    },
-    messages: {
-      create: async (body: Record<string, unknown>, options?: unknown) =>
-        observeGrounding(body, await (cloud.messages.create as unknown as (b: unknown, o?: unknown) => Promise<Anthropic.Message>)(body, options)),
-      stream: (body: Record<string, unknown>, options?: unknown) =>
-        (cloud.messages.stream as unknown as (b: unknown, o?: unknown) => unknown)(body, options)
-    }
-  } as unknown as Anthropic
-}
-
 /**
- * Wrap the cloud client (or null) so each request goes where policy says.
- * With no local routing configured anywhere, requests go to the cloud client
- * unchanged; only content-writing replies are observed for grounding.
+ * Wrap the cloud client (or null) so each request goes where the person's
+ * choices say: the device, their Anthropic key, their OpenAI key, Plexii AI
+ * credits, or the account default. Untagged cloud requests reach the cloud
+ * client unchanged (only content-writing replies are observed for grounding).
+ * Null when nothing at all can serve (no model routed locally, no cloud).
  */
 export function routedClient(cloud: Anthropic | null): Anthropic | null {
-  if (!anyLocalRouting()) return cloud ? observedCloud(cloud) : null
+  if (!cloud && !anyLocalRouting() && !providers.openai() && !providers.anthropic() && !providers.credits()) return null
   const client = {
-    // isCreditClient() reads baseURL; a routed client is never the proxy, so
-    // streaming is attempted and the local stream serves it.
-    baseURL: 'local://device',
+    // isCreditClient() reads baseURL: the routed client reports the default
+    // cloud client's, so a credits client is still recognised as the proxy.
+    get baseURL() {
+      return anyLocalRouting() || providerChoice() === 'openai' ? 'local://device' : (cloud as unknown as { baseURL?: string } | null)?.baseURL
+    },
     messages: {
       create: (body: Record<string, unknown>, options?: { signal?: AbortSignal }) =>
         dispatch(body, cloud, { signal: options?.signal }),
       stream: (body: Record<string, unknown>) => {
         const model = typeof body.model === 'string' ? body.model : ''
-        const routed = CLOUD_ROUTE.exec(model)
-        if (routed && cloud) {
-          // Feature routed to cloud while the source is Local. The SDK stream
-          // starts its request inside this context, so the grant covers it.
-          const feature = featureForPurpose(routed[1])
-          return withCloudGrantSync({ reason: 'feature-route', feature }, () =>
-            cloud.messages.stream({ ...body, model: routed[2] } as never)
-          )
+        const routed = parseRoute(model)
+        if (routed) {
+          const c = providerClient(routed.provider, cloud)
+          if (c && routed.provider === 'credits') {
+            // The credits proxy refuses streaming: run it whole and deliver the
+            // text in one piece through the same stream surface.
+            return new LocalMessageStream((signal, onText) =>
+              dispatch(body, cloud, { signal }).then((m) => {
+                const text = m.content.map((b) => (b.type === 'text' ? b.text : '')).join('')
+                if (text) onText(text)
+                return m
+              })
+            )
+          }
+          if (c) {
+            // The SDK (or OpenAI) stream starts its request inside this
+            // context, so a grant covers it.
+            return maybeGranted(featureForPurpose(routed.purpose), () => c.messages.stream({ ...body, model: routed.model } as never))
+          }
         }
-        if (!model.startsWith('local:') && !routed && !localOnlyActive() && cloud) {
-          // Cloud streaming keeps the SDK's own stream object.
-          return cloud.messages.stream(body as never)
+        if (!model.startsWith('local:') && !routed && !localOnlyActive()) {
+          const target = providerChoice() === 'openai' ? providers.openai() : cloud
+          if (target) return target.messages.stream(body as never)
         }
         return new LocalMessageStream((signal, onText) => dispatch(body, cloud, { signal, onText }))
       }
     }
   }
   return client as unknown as Anthropic
-}
-
-function withCloudGrantSync<T>(grant: CloudGrant, fn: () => T): T {
-  return grantStore.run(grant, fn)
 }
 
 /**

@@ -15,7 +15,11 @@ import {
   getLocalModelTier,
   setLocalModelTier,
   getLocalAiPolicy,
-  setLocalAiPolicy
+  setLocalAiPolicy,
+  getOpenAIModels,
+  setOpenAIModels,
+  resolveAnthropicKey,
+  resolveOpenAIKey
 } from '../../settingsStore'
 import {
   setRouterSettings,
@@ -23,28 +27,33 @@ import {
   setConsentAsker,
   setNoticeSink,
   setCloudModelResolver,
-  routeForPurpose,
-  cloudRoutedFromLocal,
+  tagModel,
+  setCloudProviders,
+  withCloudGrant,
   effectiveGate,
   currentLocalPolicy,
   localOnlyActive,
   providerChoice,
   LocalModelMissingError
 } from './providerRouter'
-import { setLocalRouteResolver, resolveCloudModel } from '../modelRouting'
+import { setModelTagger, resolveCloudModel } from '../modelRouting'
+import { createOpenAIClient, DEFAULT_OPENAI_MODELS } from './openaiClient'
+import { getModelClient } from '../modelClient'
 import { installEgressGuard } from './egressGuard'
 import { EngineHost, type WorkerHandle } from './engineHost'
 import { downloadModel, removeModel, fetchWithFile, type DownloadProgress } from './downloadManager'
 import { locateModel, verifyLocated, type ModelSpec, type Located } from './modelLocator'
 import { setGroundingSink } from './localClient'
 import { setBundledEmbedder } from '../localModel'
-import { SIGNAL_BASE } from '../creditMode'
+import { SIGNAL_BASE, getCreditClient } from '../creditMode'
 import {
   AI_FEATURES,
+  AI_FEATURE_ROUTES,
   DEFAULT_LOCAL_POLICY,
   recommendTier,
   modelDownloadUrl,
   type AiFeature,
+  type AiFeatureRoute,
   type CloudConsentRequest,
   type LocalAiStatus,
   type LocalModelTier,
@@ -163,7 +172,16 @@ export function initLocalAi(): void {
     featureRoutes: getAiFeatureRoutes,
     policy: () => getLocalAiPolicy() ?? DEFAULT_LOCAL_POLICY
   })
-  setLocalRouteResolver((p) => routeForPurpose(p) === 'local', cloudRoutedFromLocal)
+  setModelTagger(tagModel)
+  const openai = createOpenAIClient({ key: resolveOpenAIKey, models: () => ({ ...DEFAULT_OPENAI_MODELS, ...getOpenAIModels() }) })
+  setCloudProviders({
+    anthropic: () => {
+      const k = resolveAnthropicKey()
+      return k ? getModelClient(k) : null
+    },
+    credits: getCreditClient,
+    openai: () => (resolveOpenAIKey() ? openai : null)
+  })
   setCloudModelResolver((p) => resolveCloudModel(p as AIPurpose))
   installEgressGuard({
     localOnly: localOnlyActive,
@@ -248,6 +266,8 @@ export async function localAiStatus(): Promise<LocalAiStatus> {
   return {
     provider: providerChoice(),
     featureRoutes: getAiFeatureRoutes() as LocalAiStatus['featureRoutes'],
+    cloudProviders: { anthropic: Boolean(resolveAnthropicKey()), openai: Boolean(resolveOpenAIKey()), credits: getCreditClient() !== null },
+    openaiModels: { ...DEFAULT_OPENAI_MODELS, ...getOpenAIModels() },
     ramGB: ram,
     freeDiskBytes: await freeDisk(),
     recommendedTier: rec?.id ?? null,
@@ -358,12 +378,38 @@ export function registerLocalAiIpc(): void {
     broadcast('localAi:changed', null)
     return { ok: true }
   })
-  ipcMain.handle('localAi:setFeatureRoute', (_e, feature: string, route: 'local' | 'cloud' | null) => {
+  ipcMain.handle('localAi:setFeatureRoute', (_e, feature: string, route: AiFeatureRoute | null) => {
     if (!(AI_FEATURES as readonly string[]).includes(feature)) return { ok: false, error: 'Unknown feature.' }
-    if (route !== null && route !== 'local' && route !== 'cloud') return { ok: false, error: 'Unknown route.' }
+    if (route !== null && !AI_FEATURE_ROUTES.includes(route)) return { ok: false, error: 'Unknown route.' }
     setAiFeatureRoute(feature, route)
     broadcast('localAi:changed', null)
     return { ok: true }
+  })
+  ipcMain.handle('localAi:setOpenAIModels', (_e, models: { fast?: string; standard?: string; best?: string }) => {
+    if (!models || typeof models !== 'object') return { ok: false, error: 'Bad models.' }
+    setOpenAIModels(models)
+    broadcast('localAi:changed', null)
+    return { ok: true }
+  })
+  // The chat models on the person's OpenAI account, for the model pickers. A
+  // listing sends no content, so it is allowed while AI runs on this device.
+  ipcMain.handle('localAi:listOpenAIModels', async () => {
+    const key = resolveOpenAIKey()
+    if (!key) return { ok: false, error: 'No OpenAI key saved.', models: [] as string[] }
+    try {
+      const res = await withCloudGrant({ reason: 'key-test' }, () =>
+        fetch('https://api.openai.com/v1/models', { headers: { authorization: `Bearer ${key}` } })
+      )
+      if (!res.ok) return { ok: false, error: `OpenAI answered ${res.status}.`, models: [] as string[] }
+      const body = (await res.json()) as { data?: Array<{ id: string }> }
+      const models = (body.data ?? [])
+        .map((m) => m.id)
+        .filter((id) => /^(gpt-|o\d|chatgpt-)/.test(id) && !/(audio|realtime|transcribe|tts|image|search|embedding)/.test(id))
+        .sort()
+      return { ok: true, models }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message.slice(0, 200), models: [] as string[] }
+    }
   })
   ipcMain.handle('localAi:setPolicy', (_e, policy: string | null) => {
     if (policy !== null && policy !== 'measured' && policy !== 'local-first') return { ok: false, error: 'Unknown policy.' }

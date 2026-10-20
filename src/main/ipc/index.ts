@@ -2074,7 +2074,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('ai:getStatus', () => getAiStatus())
   // Switch source; invalidate the cached client so the next call honours it.
   ipcMain.handle('ai:setMode', (_e, mode: AiMode) => {
-    if (mode !== 'auto' && mode !== 'credits' && mode !== 'byok' && mode !== 'local') return getAiStatus()
+    if (mode !== 'auto' && mode !== 'credits' && mode !== 'byok' && mode !== 'local' && mode !== 'openai') return getAiStatus()
     setAiMode(mode)
     invalidateAnthropicClient()
     return getAiStatus()

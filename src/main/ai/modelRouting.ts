@@ -148,18 +148,19 @@ export function getModelMode(): ModelMode {
 // Local AI (providerRouter.ts) registers here which purposes run on the
 // on-device model. Injected rather than imported so this table stays a pure
 // module with no settings or Electron dependency.
-let routesLocal: (purpose: string) => boolean = () => false
-// True when the AI source is Local but this purpose's feature is routed to
-// cloud: its id is tagged so the routed client sends it to cloud deliberately
-// (under a grant) instead of treating it as a stray cloud id and keeping it on
-// the device.
-let routedToCloudFromLocal: (purpose: string) => boolean = () => false
+// Local AI and the BYOK providers (providerRouter.ts) register here how a
+// purpose's model id is tagged for routing. Injected rather than imported so
+// this table stays a pure module with no settings or Electron dependency.
+let tagger: (purpose: string, cloudModel: string) => string = (_p, m) => m
+export function setModelTagger(fn: (purpose: string, cloudModel: string) => string): void {
+  tagger = fn
+}
+/** Back-compat: route purposes local / cloud-from-local (tests and older wiring). */
 export function setLocalRouteResolver(
   fn: (purpose: string) => boolean,
   cloudFromLocal: (purpose: string) => boolean = () => false
 ): void {
-  routesLocal = fn
-  routedToCloudFromLocal = cloudFromLocal
+  tagger = (p, m) => (fn(p) ? `local:${p}` : cloudFromLocal(p) ? `cloudroute:${p}:${m}` : m)
 }
 
 /** `cloudroute:<purpose>:<model>` → the model id, or the input unchanged. */
@@ -174,9 +175,7 @@ export function stripCloudRoute(model: string): string {
  * purpose so the local side knows which output contract and quality gate apply.
  */
 export function resolveModel(purpose: AIPurpose): string {
-  if (routesLocal(purpose)) return `local:${purpose}`
-  const cloud = resolveCloudModel(purpose)
-  return routedToCloudFromLocal(purpose) ? `cloudroute:${purpose}:${cloud}` : cloud
+  return tagger(purpose, resolveCloudModel(purpose))
 }
 
 /**
@@ -185,8 +184,7 @@ export function resolveModel(purpose: AIPurpose): string {
  * cloud choice is left exactly as the call site had it.
  */
 export function routeModel(purpose: AIPurpose, cloudModel: string): string {
-  if (routesLocal(purpose)) return `local:${purpose}`
-  return routedToCloudFromLocal(purpose) ? `cloudroute:${purpose}:${cloudModel}` : cloudModel
+  return tagger(purpose, cloudModel)
 }
 
 /** The cloud model for a purpose, ignoring local routing. */

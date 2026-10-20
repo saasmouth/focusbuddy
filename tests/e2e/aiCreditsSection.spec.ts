@@ -3,8 +3,8 @@
  * Settings → API keys section.
  *
  * Surfaces exercised:
- *   - AiSourceSection renders all three mode buttons (auto / credits / byok)
- *   - Default mode is 'auto' (highlighted on first boot)
+ *   - AiSourceSection renders the four sources (local / Anthropic key / OpenAI key / credits)
+ *   - Default source is 'local' — the model ships in the app (4.3.39 owner decision)
  *   - Switching between modes round-trips through ai:setMode IPC without error
  *   - While signed out, selecting auto or credits shows the sign-in prompt
  *     (not a balance or a crash)
@@ -44,7 +44,7 @@ async function openSettingsToAiSection(window: LaunchedApp['window']): Promise<v
   // Settings is tabbed; the AI source section (keys + credit chooser) lives on the
   // AI tab. Open it, then wait for the first mode button to be visible.
   await window.locator('[data-testid="settings-tab-ai"]').click()
-  await expect(window.locator('[data-testid="ai-mode-auto"]')).toBeVisible({ timeout: 5_000 })
+  await expect(window.locator('[data-testid="ai-mode-local"]')).toBeVisible({ timeout: 5_000 })
 }
 
 // ---------------------------------------------------------------------------
@@ -69,9 +69,9 @@ test('AI credits: app boots with no console errors', async () => {
 })
 
 // ---------------------------------------------------------------------------
-// Test 2 — AI-source chooser renders all three modes with 'auto' active.
+// Test 2 — AI-source chooser renders the four sources with Local active.
 // ---------------------------------------------------------------------------
-test('AI credits: chooser renders three modes, Automatic selected by default', async () => {
+test('AI credits: chooser renders four sources, Local on this device selected by default', async () => {
   launched = await launchApp()
   const { window } = launched
 
@@ -82,37 +82,37 @@ test('AI credits: chooser renders three modes, Automatic selected by default', a
   await waitForReady(window)
   await openSettingsToAiSection(window)
 
-  // The three AI sources (Local on this device / Your own API key / Plexii AI
-  // credits). "Automatic" is the credits sub-option: a switch, not a source.
+  // The four AI sources. "Automatic" is the credits sub-option: a switch, not
+  // a source, and it only shows when credits are the source.
   const localBtn = window.locator('[data-testid="ai-mode-local"]')
   const creditsBtn = window.locator('[data-testid="ai-mode-credits"]')
   const byokBtn = window.locator('[data-testid="ai-mode-byok"]')
-  const autoToggle = window.locator('[data-testid="ai-mode-auto"]')
+  const openaiBtn = window.locator('[data-testid="ai-mode-openai"]')
 
   await expect(localBtn).toBeVisible({ timeout: 5_000 })
   await expect(creditsBtn).toBeVisible({ timeout: 5_000 })
   await expect(byokBtn).toBeVisible({ timeout: 5_000 })
+  await expect(openaiBtn).toBeVisible({ timeout: 5_000 })
 
   // Button labels must match the spec copy.
   await expect(localBtn).toContainText('Local on this device')
-  await expect(byokBtn).toContainText('Your own API key')
+  await expect(byokBtn).toContainText('Your Anthropic key')
+  await expect(openaiBtn).toContainText('Your OpenAI key')
   await expect(creditsBtn).toContainText('Plexii AI credits')
 
-  // Default mode is 'auto': the credits source is selected and its Automatic
-  // switch is on. Checked via class, not colour.
-  expect(await creditsBtn.getAttribute('class')).toContain('bg-accent')
-  expect(await localBtn.getAttribute('class')).not.toContain('bg-accent')
+  // Default source is Local. Checked via class, not colour.
+  expect(await localBtn.getAttribute('class')).toContain('bg-accent')
+  expect(await creditsBtn.getAttribute('class')).not.toContain('bg-accent')
   expect(await byokBtn.getAttribute('class')).not.toContain('bg-accent')
-  await expect(autoToggle).toBeChecked()
+  await expect(window.locator('[data-testid="ai-local-note"]')).toBeVisible({ timeout: 3_000 })
+  await expect(window.locator('[data-testid="ai-mode-auto"]')).toHaveCount(0)
 
   // data-testid for credit balance and top-up are defined in the component
   // even in unsigned-out mode — verify their existence (they may be inside
   // a signed-in-only branch, so we only assert count > 0 OR that the signed-out
   // prompt is there).
-  // In the signed-out path the balance card is NOT rendered; instead the sign-in
-  // prompt is shown. Confirm the prompt text is present.
-  const signInPrompt = window.getByText(/sign in to your plexii account/i)
-  await expect(signInPrompt).toBeVisible({ timeout: 3_000 })
+  // On Local no credits card shows at all.
+  await expect(window.locator('[data-testid="ai-source-section"]').getByText(/sign in to your plexii account/i)).toHaveCount(0)
 
   expect(pageErrors).toHaveLength(0)
 })
@@ -145,6 +145,13 @@ test('AI credits: switching modes persists without error and Anthropic/OpenAI ro
   // In byok mode the credit card (signed-in or signed-out prompt) must NOT show.
   const signInPrompt = window.locator('text=Sign in to your PlexiiDesk account')
   await expect(signInPrompt).toHaveCount(0, { timeout: 3_000 })
+
+  // --- Switch to Your OpenAI key ---
+  const openaiBtn = window.locator('[data-testid="ai-mode-openai"]')
+  await openaiBtn.click()
+  await window.waitForTimeout(500)
+  expect(await openaiBtn.getAttribute('class')).toContain('bg-accent')
+  await expect(window.locator('[data-testid="ai-openai-note"]')).toBeVisible({ timeout: 3_000 })
 
   // --- Switch to Plexii AI credits (credits only) ---
   await creditsBtn.click()
@@ -206,7 +213,11 @@ test('AI credits: signed-out + auto/credits modes show sign-in prompt, no crash'
   await waitForReady(window)
   await openSettingsToAiSection(window)
 
-  // Confirm 'auto' (the default) shows the sign-in prompt.
+  // Choose credits with Automatic on: the signed-out prompt shows.
+  await window.locator('[data-testid="ai-mode-credits"]').click()
+  await window.waitForTimeout(500)
+  await window.locator('[data-testid="ai-mode-auto"]').check()
+  await window.waitForTimeout(500)
   const autoSection = window.locator('[data-testid="ai-source-section"]')
   const signInPrompt = autoSection.getByText(/sign in to your plexii account/i)
   await expect(signInPrompt).toBeVisible({ timeout: 5_000 })

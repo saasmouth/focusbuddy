@@ -79,6 +79,8 @@ export default function AutomationsFAB(): JSX.Element {
             ? 'AI transforms run on the on-device model; nothing is sent to an AI service. Mirror copies stay on your device.'
             : s.mode === 'byok'
               ? 'AI transforms run with your key, sent directly to Anthropic.'
+              : s.mode === 'openai'
+                ? 'AI transforms run with your key, sent directly to OpenAI.'
               : 'AI transforms run on Plexii credits, relayed through our server to Anthropic. Mirror copies stay on your device.'
         )
       })

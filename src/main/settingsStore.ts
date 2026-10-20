@@ -37,24 +37,41 @@ export type SecretName = 'anthropic' | 'openai' | 'tenor' | 'pexels' | 'removebg
 
 // How the app sources AI: 'auto' prefers PlexiDesk credits when the user is
 // signed in and has balance, falling back to their own key; 'credits' forces
-// the metered proxy; 'byok' forces the user's own key. 'auto' is the default
-// so a fresh signup gets the trial-credit experience with zero setup, while a
-// power user who pastes a key keeps using it. 'local' runs AI on the
-// on-device model (Settings → AI → Local on this device); in that mode nothing
+// the metered proxy; 'byok' forces the user's own Anthropic key; 'openai' the
+// user's own OpenAI key. 'local' runs AI on the on-device model that ships
+// inside the app (Settings → AI → Local on this device); in that mode nothing
 // about a prompt or its content is sent to any AI service, which
 // providerRouter.ts and egressGuard.ts enforce.
-export type AiMode = 'auto' | 'credits' | 'byok' | 'local'
+//
+// 'local' is the default (owner decision, 4.3.39): an install that has never
+// chosen a source runs on the device. A choice already saved ('auto' included)
+// is kept, so an existing user's AI does not change under them on update.
+export type AiMode = 'auto' | 'credits' | 'byok' | 'local' | 'openai'
+export const DEFAULT_AI_MODE: AiMode = 'local'
+const AI_MODES: readonly AiMode[] = ['auto', 'credits', 'byok', 'local', 'openai']
+
+/** The OpenAI models the person picked per tier (fast / standard / best). */
+export interface OpenAIModelChoice {
+  fast?: string
+  standard?: string
+  best?: string
+}
 
 // Per-feature exceptions to the AI source (see src/shared/localAi.ts for the
 // feature list). Absent → the feature follows aiMode.
-export type AiFeatureRoutes = Partial<Record<string, 'local' | 'cloud'>>
+export type AiFeatureRoute = 'local' | 'cloud' | 'anthropic' | 'openai' | 'credits'
+export type AiFeatureRoutes = Partial<Record<string, AiFeatureRoute>>
+const FEATURE_ROUTES: readonly AiFeatureRoute[] = ['local', 'cloud', 'anthropic', 'openai', 'credits']
 
 interface Envelope {
   // Base64-encoded ciphertext from safeStorage.encryptString.
   keys: Partial<Record<SecretName, string>>
   // Which AI source the user has chosen. Optional for forward-compat with
-  // pre-credits envelopes (absent → 'auto').
+  // envelopes that never chose (absent → DEFAULT_AI_MODE).
   aiMode?: AiMode
+  // OpenAI model per tier when OpenAI is a source. Optional; absent → defaults
+  // in src/main/ai/local/openaiClient.ts.
+  openaiModels?: OpenAIModelChoice
   // Per-feature AI source overrides. Optional; absent → none.
   aiFeatureRoutes?: AiFeatureRoutes
   // The on-device model tier the user chose ('compact' | 'standard'). Optional;
@@ -93,10 +110,10 @@ function load(): Envelope {
     const parsed = JSON.parse(raw) as Partial<Envelope>
     cache = {
       keys: parsed.keys && typeof parsed.keys === 'object' ? parsed.keys : {},
-      aiMode:
-        parsed.aiMode === 'credits' || parsed.aiMode === 'byok' || parsed.aiMode === 'local'
-          ? parsed.aiMode
-          : 'auto',
+      ...(AI_MODES.includes(parsed.aiMode as AiMode) ? { aiMode: parsed.aiMode as AiMode } : {}),
+      ...(parsed.openaiModels && typeof parsed.openaiModels === 'object'
+        ? { openaiModels: sanitiseOpenAIModels(parsed.openaiModels) }
+        : {}),
       ...(parsed.aiFeatureRoutes && typeof parsed.aiFeatureRoutes === 'object'
         ? { aiFeatureRoutes: sanitiseRoutes(parsed.aiFeatureRoutes) }
         : {}),
@@ -202,10 +219,31 @@ export function hasOwnAnthropicKey(): boolean {
   return Boolean(getSecret('anthropic'))
 }
 
-/** The user's chosen AI source. Defaults to 'auto'. */
+/** The user's chosen AI source. Defaults to DEFAULT_AI_MODE ('local'). */
 export function getAiMode(): AiMode {
   load()
-  return cache.aiMode ?? 'auto'
+  return cache.aiMode ?? DEFAULT_AI_MODE
+}
+
+function sanitiseOpenAIModels(raw: unknown): OpenAIModelChoice {
+  const out: OpenAIModelChoice = {}
+  for (const k of ['fast', 'standard', 'best'] as const) {
+    const v = (raw as Record<string, unknown>)[k]
+    if (typeof v === 'string' && /^[A-Za-z0-9._:-]{1,80}$/.test(v)) out[k] = v
+  }
+  return out
+}
+
+/** The OpenAI models chosen per tier (only those set). */
+export function getOpenAIModels(): OpenAIModelChoice {
+  load()
+  return { ...(cache.openaiModels ?? {}) }
+}
+
+export function setOpenAIModels(models: OpenAIModelChoice): void {
+  load()
+  cache.openaiModels = sanitiseOpenAIModels({ ...(cache.openaiModels ?? {}), ...models })
+  save()
 }
 
 /** Persist the AI-source choice. */
@@ -219,7 +257,7 @@ function sanitiseRoutes(raw: unknown): AiFeatureRoutes {
   const out: AiFeatureRoutes = {}
   if (!raw || typeof raw !== 'object') return out
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-    if (v === 'local' || v === 'cloud') out[k] = v
+    if (FEATURE_ROUTES.includes(v as AiFeatureRoute)) out[k] = v as AiFeatureRoute
   }
   return out
 }
@@ -231,7 +269,7 @@ export function getAiFeatureRoutes(): AiFeatureRoutes {
 }
 
 /** Set (or with null, clear) one feature's AI source override. */
-export function setAiFeatureRoute(feature: string, route: 'local' | 'cloud' | null): void {
+export function setAiFeatureRoute(feature: string, route: AiFeatureRoute | null): void {
   load()
   const next = { ...(cache.aiFeatureRoutes ?? {}) }
   if (route === null) delete next[feature]

@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import {
   AI_FEATURES,
   AI_FEATURE_COPY,
+  AI_FEATURE_ROUTES,
   LOCAL_LABEL_COPY,
   type AiFeature,
+  type AiFeatureRoute,
   type LocalAiStatus,
   type LocalDownloadProgress
 } from '@shared/localAi'
@@ -342,6 +344,18 @@ export default function LocalAiSection(): JSX.Element {
   )
 }
 
+const ROUTE_LABEL: Record<AiFeatureRoute, string> = {
+  local: 'On this device',
+  cloud: 'Cloud AI (account default)',
+  anthropic: 'Your Anthropic key',
+  openai: 'Your OpenAI key',
+  credits: 'Plexii AI credits'
+}
+
+function sourceLabel(p: LocalAiStatus['provider']): string {
+  return p === 'local' ? 'on this device' : p === 'openai' ? 'your OpenAI key' : p === 'byok' ? 'your Anthropic key' : 'Plexii AI credits'
+}
+
 function FeatureRoutes({
   st,
   busy,
@@ -349,14 +363,17 @@ function FeatureRoutes({
 }: {
   st: LocalAiStatus
   busy: boolean
-  onChange: (f: AiFeature, route: 'local' | 'cloud' | null) => void
+  onChange: (f: AiFeature, route: AiFeatureRoute | null) => void
 }): JSX.Element {
   const globalLocal = st.provider === 'local'
+  const available = (r: AiFeatureRoute): boolean =>
+    r === 'local' || (r === 'cloud' ? st.cloudProviders.anthropic || st.cloudProviders.credits : st.cloudProviders[r])
   return (
     <div className="mt-2" data-testid="local-ai-features">
       <div className="fb-t-caption uppercase tracking-wider text-[var(--ink-50)] mb-1">Feature by feature</div>
       <div className="fb-t-caption text-[var(--ink-50)] leading-snug mb-1.5">
-        Pass rates are from our test of the app’s real prompts, on the on-device model and on cloud AI.
+        Pass rates are from our test of the app’s real prompts, on the on-device model and on cloud AI. Any feature can
+        be upgraded to your own Anthropic or OpenAI key.
       </div>
       <div className="space-y-1">
         {AI_FEATURES.map((f) => {
@@ -372,14 +389,19 @@ function FeatureRoutes({
                 </div>
                 <select
                   aria-label={`Where ${AI_FEATURE_COPY[f].label} runs`}
+                  data-testid={`local-ai-route-${f}`}
                   value={route ?? 'default'}
                   disabled={busy}
-                  onChange={(e) => onChange(f, e.target.value === 'default' ? null : (e.target.value as 'local' | 'cloud'))}
+                  onChange={(e) => onChange(f, e.target.value === 'default' ? null : (e.target.value as AiFeatureRoute))}
                   className="fb-t-caption bg-transparent border border-[var(--edge-soft)] rounded px-1 py-0.5"
                 >
-                  <option value="default">Follow AI source ({globalLocal ? 'local' : 'cloud'})</option>
-                  <option value="local">On this device</option>
-                  <option value="cloud">Cloud AI</option>
+                  <option value="default">Follow AI source ({sourceLabel(st.provider)})</option>
+                  {AI_FEATURE_ROUTES.map((r) => (
+                    <option key={r} value={r} disabled={!available(r) && route !== r}>
+                      {ROUTE_LABEL[r]}
+                      {!available(r) ? (r === 'credits' ? ' (sign in)' : ' (no key saved)') : ''}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="text-[var(--ink-60)] mt-0.5 leading-snug">
@@ -393,6 +415,58 @@ function FeatureRoutes({
           )
         })}
       </div>
+      {st.cloudProviders.openai && <OpenAIModels st={st} busy={busy} />}
+    </div>
+  )
+}
+
+// Which OpenAI model serves each tier of request when OpenAI is used. The app's
+// requests are sized fast / standard / best; the list comes from the account.
+function OpenAIModels({ st, busy }: { st: LocalAiStatus; busy: boolean }): JSX.Element {
+  const [models, setModels] = useState<string[] | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  useEffect(() => {
+    let live = true
+    void window.api.localAi.listOpenAIModels().then((r) => {
+      if (!live) return
+      if (r.ok) setModels(r.models)
+      else setErr(r.error ?? 'Could not list your OpenAI models.')
+    })
+    return () => {
+      live = false
+    }
+  }, [])
+  const tiers: Array<{ id: 'fast' | 'standard' | 'best'; label: string }> = [
+    { id: 'fast', label: 'Quick requests' },
+    { id: 'standard', label: 'Most requests' },
+    { id: 'best', label: 'Hardest requests' }
+  ]
+  return (
+    <div className="mt-2 fb-card rounded-[var(--radius-field)] px-2.5 py-1.5 fb-t-caption" data-testid="openai-models">
+      <div className="text-[var(--ink-90)] font-medium mb-1">OpenAI models</div>
+      {err && <div className="text-[var(--ink-50)] leading-snug mb-1">{err} The saved choices below still apply.</div>}
+      {tiers.map((t) => {
+        const current = st.openaiModels[t.id]
+        const options = models && !models.includes(current) ? [current, ...models] : (models ?? [current])
+        return (
+          <label key={t.id} className="flex items-center gap-2 mt-0.5">
+            <span className="flex-1 text-[var(--ink-70)]">{t.label}</span>
+            <select
+              value={current}
+              disabled={busy || models === null}
+              data-testid={`openai-model-${t.id}`}
+              onChange={(e) => void window.api.localAi.setOpenAIModels({ [t.id]: e.target.value })}
+              className="fb-t-caption bg-transparent border border-[var(--edge-soft)] rounded px-1 py-0.5"
+            >
+              {options.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </label>
+        )
+      })}
     </div>
   )
 }

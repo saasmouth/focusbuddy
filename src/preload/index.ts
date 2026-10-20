@@ -1,6 +1,6 @@
 import type { WidgetInput } from '@shared/customWidgetSandbox'
 import type { WriteOrigin } from '../shared/writeOrigin'
-import type { LocalAiStatus, LocalDownloadProgress, CloudConsentRequest, GroundingReport } from '@shared/localAi'
+import type { LocalAiStatus, LocalDownloadProgress, CloudConsentRequest, GroundingReport, AiFeatureRoute } from '@shared/localAi'
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   ActionProposal,
@@ -744,7 +744,7 @@ const api = {
     }> => ipcRenderer.invoke('ai:suggestWidgetSetup', input),
     // AI source (PlexiDesk credits vs bring-your-own-key) + credit balance.
     getStatus: (): Promise<AiCreditStatus> => ipcRenderer.invoke('ai:getStatus'),
-    setMode: (mode: 'auto' | 'credits' | 'byok' | 'local'): Promise<AiCreditStatus> => ipcRenderer.invoke('ai:setMode', mode),
+    setMode: (mode: 'auto' | 'credits' | 'byok' | 'local' | 'openai'): Promise<AiCreditStatus> => ipcRenderer.invoke('ai:setMode', mode),
     refreshCredits: (): Promise<AiCreditStatus> => ipcRenderer.invoke('ai:refreshCredits'),
     markEmailVerified: (): Promise<AiCreditStatus> => ipcRenderer.invoke('ai:markEmailVerified'),
     // A refusal from the credits proxy, raised inside any AI call.
@@ -2618,8 +2618,11 @@ const api = {
     cancelDownload: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('localAi:cancelDownload'),
     deleteModel: (tierId: string): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('localAi:deleteModel', tierId),
     setTier: (tierId: string | null): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('localAi:setTier', tierId),
-    setFeatureRoute: (feature: string, route: 'local' | 'cloud' | null): Promise<{ ok: boolean; error?: string }> =>
+    setFeatureRoute: (feature: string, route: AiFeatureRoute | null): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('localAi:setFeatureRoute', feature, route),
+    setOpenAIModels: (models: { fast?: string; standard?: string; best?: string }): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('localAi:setOpenAIModels', models),
+    listOpenAIModels: (): Promise<{ ok: boolean; error?: string; models: string[] }> => ipcRenderer.invoke('localAi:listOpenAIModels'),
     tryIt: (): Promise<{ ok: boolean; text?: string; ms?: number; outputTokens?: number; ttftMs?: number | null; error?: string }> =>
       ipcRenderer.invoke('localAi:tryIt'),
     consentReply: (id: string, allow: boolean): Promise<{ ok: boolean }> => ipcRenderer.invoke('localAi:consentReply', id, allow),
