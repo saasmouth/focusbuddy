@@ -76,3 +76,41 @@ test('the embed offers no control that could trash the file', async () => {
   const render = readFileSync('src/renderer/src/components/widgets/renderWidget.tsx', 'utf8')
   expect(render, 'renderWidget now includes the desk chrome').not.toContain('WidgetFrame')
 })
+
+test('no office surface can trash the file behind an embedded widget', async () => {
+  // Asked by d1 before shipping, and worth pinning rather than answering
+  // once: `remove` on a `wf:` id trashes the FILE and every copy of it on
+  // every desk. Six editors now host embeds, each with its own delete — a
+  // sheet's ×, a draw object, a slide or design element, a document node.
+  // Every one of those must remove the PLACEMENT and leave the file alone.
+  //
+  // Source-level on purpose. A DOM probe only covers whichever surface
+  // happens to be open, and the risk here is a future editor wiring its
+  // delete to the widget store, which no runtime test would see until it
+  // had already destroyed someone's work.
+  const { readFileSync, readdirSync } = await import('node:fs')
+  const dir = 'src/renderer/src/components/documents'
+  const files: string[] = []
+  const walk = (d: string): void => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      if (e.isDirectory()) walk(`${d}/${e.name}`)
+      else if (e.name.endsWith('.tsx') || e.name.endsWith('.ts')) files.push(`${d}/${e.name}`)
+    }
+  }
+  walk(dir)
+  expect(files.length, 'found no editor sources to check').toBeGreaterThan(10)
+
+  const offenders: string[] = []
+  for (const f of files) {
+    const src = readFileSync(f, 'utf8')
+    if (/useWidgetStore\.getState\(\)\.remove\(/.test(src)) offenders.push(`${f}: calls widget store remove`)
+    if (/deleteWidgetAction|confirmTrashWidgetFile/.test(src)) offenders.push(`${f}: calls a widget trash helper`)
+  }
+  expect(offenders, `an office editor can trash a work widget file:\n${offenders.join('\n')}`).toEqual([])
+
+  // And the sheet's × specifically removes only its own placement.
+  const sheet = readFileSync(`${dir}/SheetEditor.tsx`, 'utf8')
+  expect(sheet, "the sheet's remove should filter its own widgets list").toContain(
+    "widgets: (t.widgets ?? []).filter((w) => w.id !== pl.id)"
+  )
+})
