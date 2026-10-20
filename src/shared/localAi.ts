@@ -216,6 +216,17 @@ export interface CloudProvidersAvailable {
   credits: boolean
 }
 
+/** The on-device engine, live (localAi:engine): 'loading' with waiting > 0 is a cold start someone is waiting on. */
+export interface LocalEngineState {
+  state: 'idle' | 'loading' | 'ready' | 'error'
+  waiting: number
+  lastLoadMs: number | null
+  error: string | null
+}
+
+/** What a surface says while the on-device model is loading. */
+export const LOCAL_WARMING_COPY = 'Starting local AI — this happens once per session…'
+
 /** Status of local AI, as main reports it to the renderer. */
 export interface LocalAiStatus {
   provider: AiProviderChoice

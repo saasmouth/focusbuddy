@@ -13,6 +13,7 @@ import {
   kindsFromPrompt,
   applyVariants,
   setLocalClientOptions,
+  getLocalClientOptions,
   localUnusableReason
 } from '../../src/main/ai/local/localClient'
 import type { EngineGenerateRequest, EngineGenerateResult, LocalEngine } from '../../src/main/ai/local/engineCore'
@@ -154,7 +155,12 @@ describe('schema-constrained decoding and small-model variants', () => {
     expect(schemaFor('doc_rewrite', 'Return ONLY JSON')).toBeNull()
   })
 
-  it('passes the schema to the engine, and not when switched off', async () => {
+  it('ships with schema decoding and prompt variants off (the eval found no gain), both switchable', () => {
+    expect(getLocalClientOptions()).toMatchObject({ schemaDecoding: false, promptVariants: false, smallGroundingRule: true, groundingCheck: true })
+  })
+
+  it('passes the schema to the engine when switched on, and not when switched off', async () => {
+    setLocalClientOptions({ schemaDecoding: true })
     const e = engineOf(['{"reply":"hi","actions":[]}'])
     const body = { model: 'local:chat', max_tokens: 50, system: 'MUST be a single valid JSON object {"reply": "", "actions": []} {"kind":"create-table"}', messages: [{ role: 'user', content: 'x' }] }
     await runLocal(deps(e), body)
@@ -166,6 +172,7 @@ describe('schema-constrained decoding and small-model variants', () => {
   })
 
   it('adds explicit dates for chat only, never rewriting the call site prompt', () => {
+    setLocalClientOptions({ promptVariants: true })
     const now = new Date('2026-10-20T12:00:00Z')
     const out = applyVariants('chat', 'ORIGINAL PROMPT', now)
     expect(out.startsWith('ORIGINAL PROMPT')).toBe(true)

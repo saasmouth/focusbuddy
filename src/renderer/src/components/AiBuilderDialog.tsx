@@ -5,6 +5,7 @@ import { useMagneticHover } from '../lib/useMagneticHover'
 import Icon from './Icon'
 import SuggestionPreview from './ai/SuggestionPreview'
 import CreditsMeter from './CreditsMeter'
+import { useAiBusyLabel } from '../lib/localAiEngine'
 
 interface Props {
   taskId: string | null
@@ -32,6 +33,7 @@ type State =
 // side = scrollable suggestion cards with checkboxes. Bottom action bar with
 // "Generate again" and "Add selected".
 export default function AiBuilderDialog({ taskId, onClose, onAccept, initialPrompt }: Props): JSX.Element {
+  const warmLabel = useAiBusyLabel()
   const [prompt, setPrompt] = useState(initialPrompt ?? '')
   const [state, setState] = useState<State>({ stage: 'prompt' })
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
@@ -151,7 +153,7 @@ export default function AiBuilderDialog({ taskId, onClose, onAccept, initialProm
               <Icon name="auto_awesome" size={12} />
               <span>
                 {state.stage === 'thinking'
-                  ? 'Thinking…'
+                  ? warmLabel('Thinking…')
                   : state.stage === 'ready'
                     ? 'Regenerate'
                     : 'Generate'}

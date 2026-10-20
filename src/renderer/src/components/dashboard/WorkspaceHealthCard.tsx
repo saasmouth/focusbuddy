@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ChatMessage, FbNode } from '@shared/types'
 import { useViewStore } from '../../stores/view'
 import Icon from '../Icon'
+import { useAiBusyLabel } from '../../lib/localAiEngine'
 
 interface Props {
   taskIds: Set<string>
@@ -172,6 +173,7 @@ Prefer surfacing patterns the user can't see at a glance: themes across folders,
 // runs only when the user clicks "Run AI analysis" — respects the
 // no-surprise-spending rule for the BYO API key.
 export default function WorkspaceHealthCard({ taskIds, nodes }: Props): JSX.Element {
+  const warmLabel = useAiBusyLabel()
   const goTask = useViewStore((s) => s.goTask)
   const goRoom = useViewStore((s) => s.goRoom)
   const [aiInsights, setAiInsights] = useState<HealthInsight[] | null>(null)
@@ -277,7 +279,7 @@ export default function WorkspaceHealthCard({ taskIds, nodes }: Props): JSX.Elem
             }
           >
             <Icon name={aiBusy ? 'hourglass_empty' : 'auto_awesome'} size={12} />
-            <span>{aiBusy ? 'Thinking…' : aiInsights ? 'Re-run AI' : 'Run AI analysis'}</span>
+            <span>{aiBusy ? warmLabel('Thinking…') : aiInsights ? 'Re-run AI' : 'Run AI analysis'}</span>
           </button>
         </div>
       </div>

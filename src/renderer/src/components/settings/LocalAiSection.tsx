@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLocalAiEngine } from '../../lib/localAiEngine'
 import {
   AI_FEATURES,
   AI_FEATURE_COPY,
@@ -252,9 +253,7 @@ export default function LocalAiSection(): JSX.Element {
             Try it
           </button>
           {trial && <div className="fb-t-caption text-[var(--ink-60)] mt-1 leading-snug" data-testid="local-ai-trial">{trial}</div>}
-          {st?.engine.state === 'error' && st.engine.error && (
-            <div className="fb-t-caption text-rose-600 dark:text-rose-400 mt-1 leading-snug">{st.engine.error}</div>
-          )}
+          <EngineStatusLine />
         </div>
       )}
 
@@ -340,6 +339,25 @@ export default function LocalAiSection(): JSX.Element {
           first whenever it is downloaded.
         </div>
       </details>
+    </div>
+  )
+}
+
+// Live: whether the model is loaded, loading, or failed, and how long the last
+// load took. A cold start is seconds; saying so here and at the point of use
+// (lib/localAiEngine.ts) keeps it from looking like a hang.
+function EngineStatusLine(): JSX.Element {
+  const e = useLocalAiEngine()
+  const secs = e.lastLoadMs !== null ? ` (last start took ${(e.lastLoadMs / 1000).toFixed(1)} s)` : ''
+  if (e.state === 'error' && e.error)
+    return <div className="fb-t-caption text-rose-600 dark:text-rose-400 mt-1 leading-snug" data-testid="local-ai-engine-status">{e.error}</div>
+  return (
+    <div className="fb-t-caption text-[var(--ink-60)] mt-1 leading-snug" data-testid="local-ai-engine-status">
+      {e.state === 'loading'
+        ? 'Starting local AI… this happens once per session.'
+        : e.state === 'ready'
+          ? `Loaded and ready${secs}.`
+          : `Not loaded right now: it starts in the background after launch, or when first used, and unloads after 10 minutes unused${secs}.`}
     </div>
   )
 }

@@ -18,6 +18,7 @@ import {
 import type { ResolvedAutonomy } from '../lib/autonomyPolicy'
 import Icon from './Icon'
 import { confirmDialog } from './plexi/PromptDialog'
+import { useLocalAiWarming } from '../lib/localAiEngine'
 
 // Proposal kinds that create content ON a desk canvas and therefore need an
 // active desk. When the assistant proposes one of these off a desk (e.g. a table
@@ -117,6 +118,7 @@ export default function ProposalCards({
   onConsume,
   onUndo
 }: ProposalCardsProps): JSX.Element {
+  const warming = useLocalAiWarming()
   const [busy, setBusy] = useState<string | null>(null)
   const [toast, setToast] = useState<{ id: string; ok: boolean; message: string } | null>(
     null
@@ -686,7 +688,7 @@ export default function ProposalCards({
                   </span>
                 )}
                 <span className="fb-t-caption text-accent font-medium px-1">
-                  {isBusy ? busyVerb(p.kind) : 'apply'}
+                  {isBusy ? (warming && p.kind === 'generate-document' ? 'starting local AI…' : busyVerb(p.kind)) : 'apply'}
                 </span>
               </div>
             </div>

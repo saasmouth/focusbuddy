@@ -18,6 +18,7 @@ import {
 import type { ChatMessage } from '@shared/types'
 import { checkActionConflicts } from '@shared/macroConflicts'
 import Icon from '../../Icon'
+import { useAiBusyLabel } from '../../../lib/localAiEngine'
 
 // AI macro tools for the SpeedDeck widget.
 //
@@ -313,6 +314,7 @@ export default function StreamDeckAI({
   onSaveButton,
   onSaveFolderWithChildren
 }: Props): JSX.Element | null {
+  const warmLabel = useAiBusyLabel()
   const [mode, setMode] = useState<Mode>('ask')
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
@@ -652,7 +654,7 @@ export default function StreamDeckAI({
                       'inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 8px 24px -8px rgba(139, 92, 246, 0.4)'
                   }}
                 >
-                  {busy ? 'Thinking…' : 'Generate'}
+                  {busy ? warmLabel('Thinking…') : 'Generate'}
                 </button>
               </div>
             </>

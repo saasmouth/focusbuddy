@@ -31,6 +31,7 @@ import { polygonClipPath } from '@shared/mapExport'
 import WidgetEmbed from './embed/WidgetEmbed'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import WidgetPickerDialog from './embed/WidgetPickerDialog'
+import { useAiBusyLabel } from '../../lib/localAiEngine'
 
 // PlexiDiagrams editor — a Draw.io / Lucidchart-style diagram and workflow map. Built
 // on React Flow but persists a clean, tool-agnostic MapBody (nodes carry their
@@ -918,6 +919,7 @@ function AiMapPanel({
   onClose: () => void
   onApply: (body: MapBody) => void
 }): JSX.Element {
+  const warmLabel = useAiBusyLabel()
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -980,7 +982,7 @@ function AiMapPanel({
             data-testid="map-ai-run"
             className="btn-primary text-[12px] px-3 py-1.5 disabled:opacity-50"
           >
-            {busy ? 'Generating…' : 'Generate'}
+            {busy ? warmLabel('Generating…') : 'Generate'}
           </button>
         </div>
         <p className="text-[10px] text-[var(--ink-40)]">This replaces the current map. Cmd/Ctrl+Enter to run.</p>

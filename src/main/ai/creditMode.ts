@@ -537,3 +537,19 @@ export async function startTopUp(amountUsd: number): Promise<TopUpResult> {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
+
+/**
+ * When an error from the credits client means Plexii AI credits cannot serve
+ * this request — balance spent or payment lapsed (402), email not verified, or
+ * the credits service unavailable — the short note to show; null for any other
+ * error (a bad request, a model limit, a network blip on the person's side).
+ */
+export function creditRefusalNote(err: unknown): string | null {
+  const e = err as { status?: number; message?: string; error?: unknown } | null
+  const status = typeof e?.status === 'number' ? e.status : null
+  const text = `${e?.message ?? ''} ${typeof e?.error === 'object' ? JSON.stringify(e?.error) : ''}`
+  if (status === 402 || /out_of_credits/.test(text)) return 'Out of Plexii AI credits'
+  if (status === 403 && /email_not_verified/.test(text)) return 'Plexii AI credits need a verified email'
+  if (status === 503 || /credits_unavailable|proxy_unavailable/.test(text)) return 'Plexii AI credits are unavailable right now'
+  return null
+}

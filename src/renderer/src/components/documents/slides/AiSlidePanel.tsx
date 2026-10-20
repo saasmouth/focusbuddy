@@ -7,6 +7,7 @@ import type { DeckTheme, SlidesBody } from '@shared/types'
 import SlideFace from './SlideFace'
 import { resolveTheme } from '@shared/slideThemes'
 import Icon from '../../Icon'
+import { useAiBusyLabel } from '../../../lib/localAiEngine'
 
 type Mode = 'deck' | 'append' | 'redesign'
 
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export default function AiSlidePanel({ theme, slideSummary, onApply, onClose }: Props): JSX.Element {
+  const warmLabel = useAiBusyLabel()
   const [mode, setMode] = useState<Mode>('deck')
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
@@ -116,7 +118,7 @@ export default function AiSlidePanel({ theme, slideSummary, onApply, onClose }: 
       <div className="flex items-center gap-2 mt-2">
         {preview == null ? (
           <button onClick={() => void run()} disabled={busy || !prompt.trim()} className="btn-primary text-[12px] px-3 py-1.5">
-            {busy ? 'Generating…' : 'Generate'}
+            {busy ? warmLabel('Generating…') : 'Generate'}
           </button>
         ) : (
           <>

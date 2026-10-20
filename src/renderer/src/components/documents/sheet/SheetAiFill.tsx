@@ -8,6 +8,7 @@
 
 import { useState } from 'react'
 import Icon from '../../Icon'
+import { useAiBusyLabel } from '../../../lib/localAiEngine'
 
 interface Props {
   headers: string[]
@@ -41,6 +42,7 @@ export default function SheetAiFill({
   onApply,
   onClose
 }: Props): JSX.Element {
+  const warmLabel = useAiBusyLabel()
   const [step, setStep] = useState<'columns' | 'rows'>('columns')
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
@@ -187,7 +189,7 @@ export default function SheetAiFill({
                 disabled={busy || !prompt.trim()}
                 className="btn-primary text-[12px] px-3 py-1.5"
               >
-                {busy ? 'Thinking…' : 'Suggest columns'}
+                {busy ? warmLabel('Thinking…') : 'Suggest columns'}
               </button>
             ) : (
               <>
@@ -315,7 +317,7 @@ export default function SheetAiFill({
                 disabled={busy || !prompt.trim()}
                 className="btn-primary text-[12px] px-3 py-1.5"
               >
-                {busy ? 'Generating…' : 'Generate rows'}
+                {busy ? warmLabel('Generating…') : 'Generate rows'}
               </button>
             ) : (
               <>

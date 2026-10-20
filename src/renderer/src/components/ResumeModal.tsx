@@ -3,6 +3,7 @@ import type { FbNode } from '@shared/types'
 import { useNodeStore } from '../stores/nodes'
 import Icon from './Icon'
 import { renderMarkdown } from '../lib/renderMarkdownLite'
+import { useAiBusyLabel } from '../lib/localAiEngine'
 
 interface Props {
   task: FbNode
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function ResumeModal({ task, onClose }: Props): JSX.Element {
+  const warmLabel = useAiBusyLabel()
   const update = useNodeStore((s) => s.update)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -108,7 +110,7 @@ export default function ResumeModal({ task, onClose }: Props): JSX.Element {
           >
             <Icon name={generating ? 'hourglass_top' : 'auto_awesome'} size={14} />
             <span>
-              {generating ? 'Generating…' : content ? 'Regenerate' : 'Generate resume'}
+              {generating ? warmLabel('Generating…') : content ? 'Regenerate' : 'Generate resume'}
             </span>
           </button>
         </div>

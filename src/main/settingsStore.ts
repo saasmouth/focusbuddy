@@ -69,6 +69,11 @@ interface Envelope {
   // Which AI source the user has chosen. Optional for forward-compat with
   // envelopes that never chose (absent → DEFAULT_AI_MODE).
   aiMode?: AiMode
+  // Which one-time AI-source migrations this profile has had (AI_MODE_MIGRATION).
+  aiModeMigration?: number
+  // The "local AI is now built in" notice: shown once, then dismissed. `from`
+  // is the source before the migration (null: none was stored).
+  localAiIntro?: { pending: boolean; from: AiMode | null }
   // OpenAI model per tier when OpenAI is a source. Optional; absent → defaults
   // in src/main/ai/local/openaiClient.ts.
   openaiModels?: OpenAIModelChoice
@@ -104,6 +109,9 @@ function load(): Envelope {
   try {
     if (!existsSync(filePath())) {
       cache = { keys: {}, v: 1 }
+      // A fresh profile: the migration's result (source 'local', the one-time
+      // notice) is written by the first save, like any other setting.
+      migrateAiMode(cache)
       return cache
     }
     const raw = readFileSync(filePath(), 'utf-8')
@@ -121,6 +129,15 @@ function load(): Envelope {
       ...(parsed.localAiPolicy === 'measured' || parsed.localAiPolicy === 'local-first'
         ? { localAiPolicy: parsed.localAiPolicy }
         : {}),
+      ...(typeof parsed.aiModeMigration === 'number' ? { aiModeMigration: parsed.aiModeMigration } : {}),
+      ...(parsed.localAiIntro && typeof parsed.localAiIntro === 'object'
+        ? {
+            localAiIntro: {
+              pending: parsed.localAiIntro.pending === true,
+              from: AI_MODES.includes(parsed.localAiIntro.from as AiMode) ? (parsed.localAiIntro.from as AiMode) : null
+            }
+          }
+        : {}),
       ...(parsed.popupsNative === true ? { popupsNative: true } : {}),
       ...(parsed.keepAppsSignedIn === false ? { keepAppsSignedIn: false } : {}),
       v: 1
@@ -132,8 +149,54 @@ function load(): Envelope {
     // eslint-disable-next-line no-console
     console.error('[settingsStore] load failed:', err)
     cache = { keys: {}, v: 1 }
+    // Never write over a file that could not be read: it may hold keys. The
+    // migration applies in memory for this run only.
+    migrateAiMode(cache)
+    return cache
+  }
+  if (migrateAiMode(cache)) {
+    try {
+      save()
+    } catch {
+      /* applied in memory for this run; written by the next save */
+    }
   }
   return cache
+}
+
+/**
+ * One-time, versioned AI-source migration (4.3.39: local AI ships inside the
+ * app and is the default). Runs once per profile:
+ *   - no stored source, or the old default 'auto'  → 'local'
+ *   - an explicit 'byok', 'openai' or 'credits'    → left alone: that person
+ *     chose a keyed or paid engine, and moving them to a 4B model silently
+ *     would be wrong ('credits' that cannot serve a request falls back to the
+ *     device for that request only — providerRouter.withCreditFallback)
+ *   - 'local'                                      → unchanged
+ * Per-feature overrides are never touched. Everyone gets the one-time "local
+ * AI is now built in" notice, with a one-click switch. Returns true when the
+ * envelope changed. Exported for tests; pure apart from its argument.
+ */
+export const AI_MODE_MIGRATION = 1
+export function migrateAiMode(env: { aiMode?: AiMode; aiModeMigration?: number; localAiIntro?: { pending: boolean; from: AiMode | null } }): boolean {
+  if ((env.aiModeMigration ?? 0) >= AI_MODE_MIGRATION) return false
+  const from = env.aiMode ?? null
+  if (from === null || from === 'auto') env.aiMode = 'local'
+  env.localAiIntro = { pending: true, from }
+  env.aiModeMigration = AI_MODE_MIGRATION
+  return true
+}
+
+/** The one-time local-AI notice, if it is still to be shown. */
+export function getLocalAiIntro(): { pending: boolean; from: AiMode | null; mode: AiMode } {
+  load()
+  return { pending: cache.localAiIntro?.pending === true, from: cache.localAiIntro?.from ?? null, mode: getAiMode() }
+}
+
+export function dismissLocalAiIntro(): void {
+  load()
+  cache.localAiIntro = { pending: false, from: cache.localAiIntro?.from ?? null }
+  save()
 }
 
 function save() {

@@ -27,6 +27,7 @@ import {
   type AgentProfile
 } from '../../lib/agentProfiles'
 import AgentProfileDialog from '../AgentProfileDialog'
+import { useAiBusyLabel } from '../../lib/localAiEngine'
 
 // Desk agent — a standing AI worker on the canvas. Its inputs are the widgets
 // wired INTO it; it runs its instruction over them and logs the result here.
@@ -74,6 +75,7 @@ function timeAgo(ts: number): string {
 }
 
 export default function AgentWidget({ widget }: Props): JSX.Element {
+  const warmLabel = useAiBusyLabel()
   const update = useWidgetStore((s) => s.update)
   const links = useLinksStore((s) => s.links)
   const widgets = useWidgetStore((s) => s.widgets)
@@ -665,7 +667,7 @@ export default function AgentWidget({ widget }: Props): JSX.Element {
           </div>
         ) : (
           <div className="text-[11px] text-[var(--ink-40)]" data-testid="agent-output">
-            {running ? 'Thinking…' : 'No output yet. Wire in some inputs, give an instruction, then Run.'}
+            {running ? warmLabel('Thinking…') : 'No output yet. Wire in some inputs, give an instruction, then Run.'}
           </div>
         )}
         {/* Review-before-apply: concrete changes the agent proposed this run

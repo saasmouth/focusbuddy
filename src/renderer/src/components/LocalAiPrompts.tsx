@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Icon from './Icon'
 import Modal from './plexi/Modal'
 import { openAiSettings } from '../stores/aiCredits'
+import { useLocalAiEngine, LOCAL_WARMING_COPY } from '../lib/localAiEngine'
 import type { CloudConsentRequest, GroundingReport, LocalAiStatus, LocalDownloadProgress } from '@shared/localAi'
 
 // The two things Local AI says on its own, mounted once in App:
@@ -17,6 +18,7 @@ import type { CloudConsentRequest, GroundingReport, LocalAiStatus, LocalDownload
 export default function LocalAiPrompts(): JSX.Element | null {
   const [queue, setQueue] = useState<CloudConsentRequest[]>([])
   const [notice, setNotice] = useState<string | null>(null)
+  const [noticeAction, setNoticeAction] = useState<'upgrade' | 'topup'>('upgrade')
   const [grounding, setGrounding] = useState<GroundingReport | null>(null)
   // The installed app came without the model (an update zip, or it could not
   // be kept): AI must say so and offer the one-time download, never just fail.
@@ -52,7 +54,10 @@ export default function LocalAiPrompts(): JSX.Element | null {
     const api = window.api?.localAi
     if (!api?.onConsentRequest) return
     const offConsent = api.onConsentRequest((r) => setQueue((q) => [...q, r]))
-    const offNotice = api.onNotice((n) => setNotice(n.message))
+    const offNotice = api.onNotice((n) => {
+      setNoticeAction(n.action ?? 'upgrade')
+      setNotice(n.message)
+    })
     const offGrounding = api.onGrounding?.((r) => setGrounding(r)) ?? (() => undefined)
     return () => {
       offConsent()
@@ -67,6 +72,30 @@ export default function LocalAiPrompts(): JSX.Element | null {
     return () => clearTimeout(t)
   }, [notice])
 
+  // The one-time "local AI is now built in" notice (settingsStore.migrateAiMode).
+  type Mode = 'auto' | 'credits' | 'byok' | 'local' | 'openai'
+  const [intro, setIntro] = useState<{ from: Mode | null; mode: Mode } | null>(null)
+  useEffect(() => {
+    const api = window.api?.localAi
+    if (!api?.getIntro) return
+    void api
+      .getIntro()
+      .then((r) => setIntro(r.pending ? { from: r.from, mode: r.mode } : null))
+      .catch(() => undefined)
+  }, [])
+  const closeIntro = (): void => {
+    setIntro(null)
+    void window.api.localAi.dismissIntro()
+  }
+  const switchTo = async (m: Mode): Promise<void> => {
+    await window.api.ai.setMode(m)
+    closeIntro()
+  }
+
+  // Catch-all for any surface without its own warm-up wording: while a request
+  // is waiting on a cold load, say so once, app-wide.
+  const engine = useLocalAiEngine()
+
   const current = queue[0]
 
   function answer(allow: boolean): void {
@@ -75,8 +104,71 @@ export default function LocalAiPrompts(): JSX.Element | null {
     setQueue((q) => q.slice(1))
   }
 
+  const MODE_LABEL: Record<Mode, string> = {
+    auto: 'Plexii AI credits',
+    credits: 'Plexii AI credits',
+    byok: 'your Anthropic key',
+    openai: 'your OpenAI key',
+    local: 'on-device AI'
+  }
+
   return (
     <>
+      {engine.state === 'loading' && engine.waiting > 0 && (
+        <div
+          role="status"
+          data-testid="local-ai-warming-chip"
+          className="fixed top-14 right-4 z-[9997] fb-card rounded-[var(--radius-field)] px-3 py-1.5 shadow fb-t-caption text-[var(--ink-80)] flex items-center gap-2"
+        >
+          <Icon name="memory" size={13} /> {LOCAL_WARMING_COPY}
+        </div>
+      )}
+      {intro && (
+        <div
+          role="status"
+          data-testid="local-ai-intro"
+          className="fixed bottom-4 left-4 z-[9997] max-w-sm fb-card rounded-[var(--radius-field)] px-3 py-2.5 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug"
+        >
+          <div className="font-medium text-[var(--ink-100)] mb-1">Local AI is now built in</div>
+          <div>
+            PlexiiDesk now includes an AI model that runs on this computer: it works offline, costs nothing per use, and
+            sends nothing to any AI service. It is good at PlexiiAssist answers, summaries, rewrites and tidying titles;
+            longer drafts and Build with AI are better on cloud AI.
+          </div>
+          <div className="mt-1 text-[var(--ink-60)]">
+            {intro.mode === 'local'
+              ? intro.from === 'auto'
+                ? 'Your AI now runs on this computer.'
+                : 'AI runs on this computer.'
+              : `You are using ${MODE_LABEL[intro.mode]}; that has not changed.`}
+          </div>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {intro.mode !== 'local' ? (
+              <button type="button" className="fb-btn-surface px-2 py-0.5 rounded" data-testid="local-ai-intro-use-local" onClick={() => void switchTo('local')}>
+                Use local AI
+              </button>
+            ) : intro.from && intro.from !== 'local' ? (
+              <button type="button" className="fb-btn-surface px-2 py-0.5 rounded" data-testid="local-ai-intro-switch-back" onClick={() => void switchTo(intro.from as Mode)}>
+                Switch back to {MODE_LABEL[intro.from]}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="fb-btn-surface px-2 py-0.5 rounded"
+                onClick={() => {
+                  closeIntro()
+                  openAiSettings()
+                }}
+              >
+                AI settings
+              </button>
+            )}
+            <button type="button" className="underline text-[var(--ink-60)]" data-testid="local-ai-intro-dismiss" onClick={closeIntro}>
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
       {current && (
         <Modal
           onClose={() => answer(false)}
@@ -242,7 +334,7 @@ export default function LocalAiPrompts(): JSX.Element | null {
                 openAiSettings()
               }}
             >
-              Upgrade with your own Anthropic or OpenAI key
+              {noticeAction === 'topup' ? 'Top up credits' : 'Upgrade with your own Anthropic or OpenAI key'}
             </button>
           </span>
           <button type="button" aria-label="Dismiss" className="text-[var(--ink-50)] hover:text-[var(--ink-100)]" onClick={() => setNotice(null)}>

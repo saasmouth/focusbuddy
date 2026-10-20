@@ -7,6 +7,7 @@ import { useLandOnContent } from '../../hooks/useLandOnContent'
 import { bucketByWeek, periodDelta, countByKey } from '../../lib/dashboardMetrics'
 import type { FbTable } from '@shared/fields'
 import type { ReportDef, ReportSchedule } from '@shared/reports'
+import { useAiBusyLabel } from '../../lib/localAiEngine'
 
 // PlexiReports: turn your tables into a written report, generated on a schedule
 // and emailed to the people who need it. The narrative is written by the AI when
@@ -215,6 +216,7 @@ function ReportEditor({
   tables: FbTable[]
   onChanged: () => Promise<void>
 }): JSX.Element {
+  const warmLabel = useAiBusyLabel()
   const [title, setTitle] = useState(report.title)
   const [recipientsText, setRecipientsText] = useState(report.recipients.join(', '))
   const [output, setOutput] = useState<string | null>(report.lastOutput)
@@ -370,7 +372,7 @@ function ReportEditor({
           data-testid="report-generate"
           className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-[rgb(var(--accent))] text-white text-[13px] font-medium hover:bg-[rgb(var(--accent-hover))] disabled:opacity-40"
         >
-          <Icon name="auto_awesome" size={15} /> {generating ? 'Generating…' : 'Generate now'}
+          <Icon name="auto_awesome" size={15} /> {generating ? warmLabel('Generating…') : 'Generate now'}
         </button>
         <button
           onClick={() => void emailReport()}

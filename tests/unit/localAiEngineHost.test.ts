@@ -124,3 +124,37 @@ describe('EngineHost', () => {
     await expect(host.generate(REQ)).rejects.toThrow(/No on-device model/)
   })
 })
+
+describe('EngineHost: warm-up state and preload', () => {
+  it('reports loading with a waiting request, then ready with the load time; a warm request waits on nothing', async () => {
+    const w = fakeWorker(okWorker)
+    const states: Array<{ state: string; waiting: number; lastLoadMs: number | null }> = []
+    const host = new EngineHost({ fork: w.fork, idleMs: 60_000, onState: (s) => states.push({ state: s.state, waiting: s.waiting, lastLoadMs: s.lastLoadMs }) })
+    host.setModel('/m.gguf', 8192)
+    await host.generate(REQ)
+    expect(states).toContainEqual({ state: 'loading', waiting: 1, lastLoadMs: null })
+    expect(states.at(-1)).toEqual({ state: 'ready', waiting: 0, lastLoadMs: 5 })
+    const before = states.length
+    await host.generate(REQ)
+    expect(states.slice(before).some((s) => s.waiting > 0)).toBe(false)
+    await host.stop()
+  })
+
+  it('preload loads ahead of the first request, which then waits on nothing; the idle timer still unloads it', async () => {
+    vi.useFakeTimers()
+    const w = fakeWorker(okWorker)
+    const states: Array<{ state: string; waiting: number }> = []
+    const host = new EngineHost({ fork: w.fork, idleMs: 1_000, onState: (s) => states.push({ state: s.state, waiting: s.waiting }) })
+    host.setModel('/m.gguf', 8192)
+    expect(await host.preload()).toBe(5)
+    expect(states.some((s) => s.waiting > 0)).toBe(false) // nobody was waiting
+    expect(host.state).toBe('ready')
+    const n = states.length
+    await host.generate(REQ)
+    expect(states.slice(n).some((s) => s.state === 'loading')).toBe(false)
+    expect(w.forks[0].sent.filter((m) => m.type === 'load')).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(1_500)
+    expect(w.forks[0].killed).toBe(true)
+    vi.useRealTimers()
+  })
+})

@@ -14,6 +14,7 @@ import {
   SOURCE_READ_TICK_MS,
   type AssistantTrace
 } from '../../lib/traceView'
+import { useLocalAiWarming, LOCAL_WARMING_COPY } from '../../lib/localAiEngine'
 
 // What the assistant did, while it does it.
 //
@@ -94,6 +95,7 @@ export default function RetrievalTrace({
   holdOpen,
   onOpenSource
 }: Props): JSX.Element | null {
+  const warming = useLocalAiWarming()
   const sourceCount = trace.sources.length
   // Live elapsed seconds while the work runs (P6): the machine narrates AND
   // keeps time, in tabular numerals so the line never jitters. Appears only
@@ -348,9 +350,12 @@ export default function RetrievalTrace({
                 // a contradiction, so the line settles on its honest label.
                 trace.status === 'running' && !settled ? Math.floor(liveElapsedS / 2) : -1
               )
+              // A cold on-device model: say so instead of rotating verbs over
+              // a load the person is waiting on.
+              const shown = trace.status === 'running' && !settled && warming ? LOCAL_WARMING_COPY : label
               return (
-                <span key={label} className="fb-trace-in text-[var(--ink-70)]">
-                  {label}
+                <span key={shown} className="fb-trace-in text-[var(--ink-70)]" data-testid={shown === LOCAL_WARMING_COPY ? 'local-ai-warming' : undefined}>
+                  {shown}
                 </span>
               )
             })()}

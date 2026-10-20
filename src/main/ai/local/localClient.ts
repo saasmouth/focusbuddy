@@ -254,9 +254,16 @@ export interface LocalClientOptions {
   groundingCheck: boolean
 }
 
+// Shipping defaults, from the eval (tools/local-ai-eval/results, v2-base vs
+// v2-tuned, v3-*): schema-constrained decoding halved Build with AI's output
+// (3515 → 1427 characters, 1/6 → 0/6) and lifted no family; the prompt
+// variants lifted none either. Both stay available (setLocalClientOptions, the
+// eval's EVAL_SCHEMA / EVAL_VARIANTS) but are off. The small grounding rule and
+// the invented-specifics check are on: neither changed pass rates measurably,
+// and the check keeps invented specifics from being presented as fact.
 let clientOptions: LocalClientOptions = {
-  schemaDecoding: true,
-  promptVariants: true,
+  schemaDecoding: false,
+  promptVariants: false,
   smallGroundingRule: true,
   groundingCheck: true
 }

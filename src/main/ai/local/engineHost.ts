@@ -29,6 +29,8 @@ export interface EngineHostDeps {
   /** Kill the worker after this long with nothing running. */
   idleMs: number
   log?: (msg: string) => void
+  /** Hears every state change, and how many requests are waiting on a load. */
+  onState?: (s: { state: HostState; waiting: number; lastLoadMs: number | null; error: string | null }) => void
 }
 
 export type HostState = 'idle' | 'loading' | 'ready' | 'error'
@@ -47,8 +49,25 @@ export class EngineHost implements LocalEngine {
   private loading: Promise<EngineStatus> | null = null
   private idleTimer: ReturnType<typeof setTimeout> | null = null
   private active = 0
-  state: HostState = 'idle'
+  private _state: HostState = 'idle'
+  /** Requests waiting for the model to finish loading (a cold start in front of them). */
+  private waiting = 0
+  /** How long the last load took, ms. */
+  lastLoadMs: number | null = null
   lastError: string | null = null
+  get waitingCount(): number {
+    return this.waiting
+  }
+  get state(): HostState {
+    return this._state
+  }
+  set state(s: HostState) {
+    this._state = s
+    this.emit()
+  }
+  private emit(): void {
+    this.deps.onState?.({ state: this._state, waiting: this.waiting, lastLoadMs: this.lastLoadMs, error: this.lastError })
+  }
   gpu: string | false | null = null
   /** The model + context the next generate() must have loaded. */
   private want: { path: string; ctx: number; gpu?: 'auto' | false; kvCache?: 'f16' | 'q8_0' } | null = null
@@ -117,9 +136,10 @@ export class EngineHost implements LocalEngine {
       this.loading = this.call<EngineStatus>({ type: 'load', modelPath: want.path, contextSize: want.ctx, gpu: want.gpu, kvCache: want.kvCache }).done
         .then((st) => {
           this.loadedModel = { path: want.path, ctx: want.ctx }
-          this.state = 'ready'
           this.lastError = null
           this.gpu = st.gpu
+          this.lastLoadMs = st.loadMs
+          this.state = 'ready'
           const b = st.loadBreakdownMs
           this.deps.log?.(
             `[local-ai] model loaded in ${st.loadMs} ms (gpu=${String(st.gpu)}, ctx=${st.contextSize}` +
@@ -128,8 +148,8 @@ export class EngineHost implements LocalEngine {
           return st
         })
         .catch((e: Error) => {
-          this.state = 'error'
           this.lastError = `The on-device model could not be loaded: ${e.message}`
+          this.state = 'error'
           throw new Error(this.lastError)
         })
         .finally(() => {
@@ -156,7 +176,16 @@ export class EngineHost implements LocalEngine {
     this.active++
     if (this.idleTimer) clearTimeout(this.idleTimer)
     try {
-      await this.ensureLoaded()
+      if (this.state === 'loading' || !this.loadedModel) {
+        this.waiting++
+        this.emit()
+        try {
+          await this.ensureLoaded()
+        } finally {
+          this.waiting--
+          this.emit()
+        }
+      } else await this.ensureLoaded()
       const { id, done } = this.call<EngineGenerateResult>({ type: 'generate', req }, opts.onText)
       const onAbort = (): void => {
         if (this.worker) this.worker.postMessage({ id: ++this.seq, type: 'abort', target: id })
@@ -168,6 +197,21 @@ export class EngineHost implements LocalEngine {
       } finally {
         opts.signal?.removeEventListener('abort', onAbort)
       }
+    } finally {
+      this.active--
+      this.touch()
+    }
+  }
+
+  /**
+   * Load the model now, ahead of the first request (the background preload at
+   * launch). Nothing waits on it; the idle timer applies as after any request.
+   */
+  async preload(): Promise<number | null> {
+    this.active++
+    try {
+      await this.ensureLoaded()
+      return this.lastLoadMs
     } finally {
       this.active--
       this.touch()

@@ -18,6 +18,8 @@ import {
   setLocalAiPolicy,
   getOpenAIModels,
   setOpenAIModels,
+  getLocalAiIntro,
+  dismissLocalAiIntro,
   resolveAnthropicKey,
   resolveOpenAIKey
 } from '../../settingsStore'
@@ -29,6 +31,8 @@ import {
   setCloudModelResolver,
   tagModel,
   setCloudProviders,
+  setCreditFallback,
+  anyLocalRouting,
   withCloudGrant,
   effectiveGate,
   currentLocalPolicy,
@@ -46,7 +50,7 @@ import { locateModel, verifyLocated, canonicalPath, type ModelSpec, type Located
 import { resolveDownloads } from './modelManifest'
 import { setGroundingSink } from './localClient'
 import { setBundledEmbedder } from '../localModel'
-import { SIGNAL_BASE, getCreditClient } from '../creditMode'
+import { SIGNAL_BASE, getCreditClient, isCreditClient, creditRefusalNote } from '../creditMode'
 import {
   AI_FEATURES,
   AI_FEATURE_ROUTES,
@@ -202,6 +206,9 @@ export function initLocalAi(): void {
   host = new EngineHost({
     idleMs: IDLE_MS,
     log: (m) => console.info(m),
+    // Every surface that runs AI shows "Starting local AI…" while a load is in
+    // progress (renderer lib/localAiEngine.ts), so a cold start reads as what it is.
+    onState: (st) => broadcast('localAi:engine', st),
     fork: (): WorkerHandle => {
       const child = utilityProcess.fork(join(__dirname, 'localAiWorker.js'), [], {
         serviceName: 'Plexii Local AI',
@@ -224,6 +231,7 @@ export function initLocalAi(): void {
       return host
     }
   })
+  schedulePreload()
   setBundledEmbedder({
     installed: embedInstalled,
     label: () => LOCAL_EMBED_MODEL.label,
@@ -234,7 +242,13 @@ export function initLocalAi(): void {
     }
   })
   setConsentAsker(askRendererForConsent)
-  setNoticeSink((feature, message) => broadcast('localAi:notice', { feature, message }))
+  setNoticeSink((feature, message, action) => broadcast('localAi:notice', { feature, message, action: action ?? 'upgrade' }))
+  // Plexii AI credits that cannot serve a request fall back to the device for
+  // that request (providerRouter.withCreditFallback). The stored choice stays.
+  setCreditFallback({
+    isCredits: (c) => isCreditClient(c as unknown as { baseURL?: string }),
+    refusal: creditRefusalNote
+  })
   // Invented-specifics review of content-writing output (groundingCheck.ts):
   // the person sees what was replaced with a placeholder and what to check.
   setGroundingSink((r) =>
@@ -244,6 +258,66 @@ export function initLocalAi(): void {
   app.on('before-quit', () => {
     void host?.stop()
   })
+}
+
+// ── Background preload ──────────────────────────────────────────────────────
+//
+// Loading the model takes seconds (most of it the first read of 2.5 GB). Left
+// lazy, that wait lands on whatever the person asks first. So when AI would run
+// on the device, start loading it in the background a while after launch —
+// after the window has painted and start-up work has settled — and let the
+// idle timer unload it as usual if it goes unused.
+//
+// Skipped: when AI does not route to the device; when the model is not here;
+// on a Mac below the tier's recommended memory; in macOS Low Power Mode; and
+// under the e2e harness (FB_TEST_USER_DATA), where a 2.5 GB load in every
+// launched test app would only add load. PLEXII_LOCAL_AI_PRELOAD=0 turns it
+// off (start-up measurements); =1 forces it on under the harness.
+const PRELOAD_DELAY_MS = 8_000
+
+async function lowPowerMode(): Promise<boolean> {
+  if (process.platform !== 'darwin') return false
+  try {
+    const { execFile } = await import('node:child_process')
+    const out = await new Promise<string>((resolve) =>
+      execFile('/usr/bin/pmset', ['-g'], { timeout: 2000 }, (_e, stdout) => resolve(String(stdout ?? '')))
+    )
+    return /lowpowermode\s+1/.test(out)
+  } catch {
+    return false
+  }
+}
+
+export type PreloadOutcome = { ran: false; why: string } | { ran: true; loadMs: number | null }
+export let lastPreload: PreloadOutcome | null = null
+
+export async function preloadIfLocal(): Promise<PreloadOutcome> {
+  const env = process.env.PLEXII_LOCAL_AI_PRELOAD
+  const skip = (why: string): PreloadOutcome => {
+    console.info(`[local-ai] preload skipped: ${why}`)
+    return (lastPreload = { ran: false, why })
+  }
+  if (env === '0') return skip('PLEXII_LOCAL_AI_PRELOAD=0')
+  if (process.env.FB_TEST_USER_DATA && env !== '1') return skip('test harness')
+  if (!anyLocalRouting()) return skip('AI does not run on this device')
+  const t = activeTier()
+  if (!t || !locate(t)) return skip('no on-device model here')
+  if (ramGB() < t.recommendedRamGB) return skip(`${ramGB()} GB memory is below the ${t.recommendedRamGB} GB this model wants`)
+  if (await lowPowerMode()) return skip('Low Power Mode is on')
+  if (!host || host.state === 'loading' || host.state === 'ready') return skip('already loading or loaded')
+  try {
+    await ensureVerified(t)
+    const loadMs = await host.preload()
+    console.info(`[local-ai] preloaded in ${loadMs} ms`)
+    return (lastPreload = { ran: true, loadMs })
+  } catch (e) {
+    return skip(`load failed: ${(e as Error).message}`)
+  }
+}
+
+function schedulePreload(): void {
+  const timer = setTimeout(() => void preloadIfLocal(), PRELOAD_DELAY_MS)
+  ;(timer as { unref?: () => void }).unref?.()
 }
 
 // ── Status ──────────────────────────────────────────────────────────────────
@@ -394,6 +468,19 @@ export function registerLocalAiIpc(): void {
     if (route !== null && !AI_FEATURE_ROUTES.includes(route)) return { ok: false, error: 'Unknown route.' }
     setAiFeatureRoute(feature, route)
     broadcast('localAi:changed', null)
+    return { ok: true }
+  })
+  ipcMain.handle('localAi:getEngine', () => ({
+    state: host?.state ?? 'idle',
+    waiting: host?.waitingCount ?? 0,
+    lastLoadMs: host?.lastLoadMs ?? null,
+    error: host?.lastError ?? null,
+    preload: lastPreload
+  }))
+  // The one-time "local AI is now built in" notice (settingsStore.migrateAiMode).
+  ipcMain.handle('localAi:getIntro', () => getLocalAiIntro())
+  ipcMain.handle('localAi:dismissIntro', () => {
+    dismissLocalAiIntro()
     return { ok: true }
   })
   ipcMain.handle('localAi:setOpenAIModels', (_e, models: { fast?: string; standard?: string; best?: string }) => {

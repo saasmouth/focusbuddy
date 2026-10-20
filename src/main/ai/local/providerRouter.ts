@@ -157,6 +157,51 @@ export function setCloudProviders(p: CloudProviders): void {
   providers = p
 }
 
+// ── Plexii AI credits that cannot serve a request ───────────────────────────
+//
+// An explicit 'credits' choice is kept as it is. But when a credits request is
+// refused (balance spent, payment lapsed, email unverified) or the proxy is
+// down, that ONE request is answered on the device instead of failing, with a
+// visible note naming why and offering a top-up. The stored choice is never
+// changed. Only when the on-device model is installed; otherwise the original
+// error stands.
+export interface CreditFallback {
+  /** Is this client the credits proxy? */
+  isCredits: (c: Anthropic) => boolean
+  /** The note to show when this error means credits cannot serve; null when it is some other error. */
+  refusal: (err: unknown) => string | null
+}
+let creditFallback: CreditFallback = { isCredits: () => false, refusal: () => null }
+export function setCreditFallback(f: CreditFallback): void {
+  creditFallback = f
+}
+
+async function withCreditFallback(
+  client: Anthropic,
+  body: Record<string, unknown>,
+  opts: { signal?: AbortSignal },
+  run: () => Promise<Anthropic.Message>,
+  purpose = 'generic'
+): Promise<Anthropic.Message> {
+  try {
+    return await run()
+  } catch (err) {
+    if (!creditFallback.isCredits(client) || opts.signal?.aborted) throw err
+    const why = creditFallback.refusal(err)
+    if (!why || !runtime.installed()) throw err
+    const feature = featureForPurpose(purpose)
+    const model = typeof body.model === 'string' ? body.model : undefined
+    let local: Anthropic.Message
+    try {
+      local = await serveLocal({ ...body, model: `local:${purpose}` }, null, opts, model, { noCloud: true })
+    } catch {
+      throw err // the device cannot do this one either: the credits refusal is the honest answer
+    }
+    noticeSink(feature, `${why}, so this was answered by the on-device AI.`, 'topup')
+    return local
+  }
+}
+
 const PROVIDER_NAME: Record<string, string> = {
   anthropic: 'Anthropic with your key',
   openai: 'OpenAI with your key',
@@ -225,7 +270,9 @@ export function setConsentAsker(fn: ConsentAsker): void {
   askConsent = fn
 }
 
-export type NoticeSink = (feature: AiFeature, message: string) => void
+/** 'upgrade' → offer your own key; 'topup' → offer Plexii AI credits top-up. */
+export type NoticeAction = 'upgrade' | 'topup'
+export type NoticeSink = (feature: AiFeature, message: string, action?: NoticeAction) => void
 let noticeSink: NoticeSink = () => undefined
 const noticed = new Set<AiFeature>()
 export function setNoticeSink(fn: NoticeSink): void {
@@ -295,12 +342,15 @@ async function serveLocal(
   cloud: Anthropic | null,
   opts: { signal?: AbortSignal; onText?: (d: string) => void },
   /** The cloud model the call site itself named, when it named one. */
-  callSiteModel?: string
+  callSiteModel?: string,
+  /** noCloud: a fallback FROM cloud (credits could not serve): never offer cloud again; fail instead. */
+  mode: { noCloud?: boolean } = {}
 ): Promise<Anthropic.Message> {
   const purpose = purposeOfModel(body.model)
   const feature = featureForPurpose(purpose)
   const gate = effectiveGate(purpose)
   const cloudModel = callSiteModel || cloudModelFor(purpose) || MODEL_HAIKU
+  if (gate.gate === 'cloud-only' && mode.noCloud) throw new LocalUnavailableError(feature, `${AI_FEATURE_COPY[feature].label} cannot run on the on-device model.`)
   if (gate.gate === 'cloud-only') {
     const label = AI_FEATURE_COPY[feature].label
     const reason =
@@ -325,7 +375,7 @@ async function serveLocal(
   } catch (e) {
     // Tool use, images or attached files: the on-device model cannot do it at
     // all, under either policy. Ask before this one request goes to cloud.
-    if (!(e instanceof LocalUnsupportedError)) throw e
+    if (!(e instanceof LocalUnsupportedError) || mode.noCloud) throw e
     const viaCloud = await cloudForThisRequest(body, cloud, opts, feature, `${e.message}`, cloudModel)
     if (viaCloud) return viaCloud
     throw new LocalUnavailableError(feature, `${e.message} Nothing was sent anywhere.`)
@@ -334,7 +384,7 @@ async function serveLocal(
   // for this one request, if the person agrees. Otherwise the call site fails
   // honestly on the local text.
   const unusable = localUnusableReason(msg)
-  if (unusable && currentLocalPolicy() === 'local-first' && !opts.onText) {
+  if (unusable && currentLocalPolicy() === 'local-first' && !opts.onText && !mode.noCloud) {
     const label = AI_FEATURE_COPY[feature].label
     const viaCloud = await cloudForThisRequest(
       body,
@@ -420,9 +470,13 @@ function dispatch(
     if (!client) return Promise.reject(new Error(NOT_SET_UP[routed.provider]))
     const feature = featureForPurpose(routed.purpose)
     const real = { ...body, model: routed.model }
-    return maybeGranted(feature, () => (client.messages.create as unknown as CreateFn)(real, { signal: opts.signal })).then((m) =>
-      observeGrounding(real, m)
-    )
+    return withCreditFallback(
+      client,
+      real,
+      opts,
+      () => maybeGranted(feature, () => (client.messages.create as unknown as CreateFn)(real, { signal: opts.signal })),
+      routed.purpose
+    ).then((m) => observeGrounding(real, m))
   }
   if (localOnlyActive()) {
     // A cloud model id reached the client while the source is Local and no
@@ -437,7 +491,9 @@ function dispatch(
       new Error(providerChoice() === 'openai' ? NOT_SET_UP.openai : 'No Anthropic API key set. Open Settings → AI → API keys and paste your key.')
     )
   }
-  return (target.messages.create as unknown as CreateFn)(body, { signal: opts.signal }).then((m) => observeGrounding(body, m))
+  return withCreditFallback(target, body, opts, () => (target.messages.create as unknown as CreateFn)(body, { signal: opts.signal })).then((m) =>
+    observeGrounding(body, m)
+  )
 }
 
 /**

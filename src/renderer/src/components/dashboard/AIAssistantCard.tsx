@@ -2,6 +2,7 @@ import { useState } from 'react'
 import MentionInputField from '../MentionInputField'
 import type { ChatMessage } from '@shared/types'
 import Icon from '../Icon'
+import { useAiBusyLabel } from '../../lib/localAiEngine'
 
 // AI Assistant card — a compact, dashboard-resident "ask anything" prompt
 // with three quick-action chips that mirror the suggestions in the 2.0
@@ -38,6 +39,7 @@ const QUICK_SUGGESTIONS = [
 ]
 
 export default function AIAssistantCard(): JSX.Element {
+  const warmLabel = useAiBusyLabel()
   const [input, setInput] = useState('')
   const [response, setResponse] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -122,7 +124,7 @@ export default function AIAssistantCard(): JSX.Element {
       {busy && !response && (
         <div className="mb-3 p-3 rounded-md bg-[var(--surface-sunken)] text-[11px] text-[var(--ink-50)] inline-flex items-center gap-2">
           <Icon name="hourglass_empty" size={12} />
-          <span>Thinking…</span>
+          <span>{warmLabel('Thinking…')}</span>
         </div>
       )}
 
