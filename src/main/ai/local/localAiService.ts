@@ -42,7 +42,7 @@ import { getModelClient } from '../modelClient'
 import { installEgressGuard } from './egressGuard'
 import { EngineHost, type WorkerHandle } from './engineHost'
 import { downloadModel, removeModel, fetchWithFile, type DownloadProgress } from './downloadManager'
-import { locateModel, verifyLocated, type ModelSpec, type Located } from './modelLocator'
+import { locateModel, verifyLocated, canonicalPath, type ModelSpec, type Located } from './modelLocator'
 import { resolveDownloads } from './modelManifest'
 import { setGroundingSink } from './localClient'
 import { setBundledEmbedder } from '../localModel'
@@ -69,8 +69,15 @@ const IDLE_MS = 10 * 60 * 1000
 let host: EngineHost | null = null
 let download: { ctrl: AbortController; progress: LocalDownloadProgress } | null = null
 
+/**
+ * userData/models, canonical. userData may be reached through a symlink
+ * (Application Support/focusbuddy → …/plexii; installed builds pass the
+ * symlinked spelling), and there is only ever one copy of each model: resolve
+ * once so downloads, the installed check and the disk-space figure all name
+ * the real directory.
+ */
 export function modelsDir(): string {
-  return join(app.getPath('userData'), 'models')
+  return canonicalPath(join(app.getPath('userData'), 'models'))
 }
 
 export function ramGB(): number {
@@ -90,7 +97,7 @@ export function activeTier(): LocalModelTier | null {
 export function bundleModelsDir(): string | null {
   // Packaged: Contents/Resources/models (electron-builder extraResources from
   // resources/models). Dev: the staged build input itself.
-  return app.isPackaged ? join(process.resourcesPath, 'models') : join(app.getAppPath(), 'resources', 'models')
+  return canonicalPath(app.isPackaged ? join(process.resourcesPath, 'models') : join(app.getAppPath(), 'resources', 'models'))
 }
 
 function dirs(): { userDir: string; bundleDir: string | null } {
@@ -245,9 +252,12 @@ export async function freeDiskBytes(): Promise<number | null> {
   return freeDisk()
 }
 
+// Free space on the volume that really holds userData (statfs of the canonical
+// path). It is a property of the volume, so a symlinked spelling of userData
+// cannot count anything twice; the models already on disk are not added to it.
 async function freeDisk(): Promise<number | null> {
   try {
-    const dir = app.getPath('userData')
+    const dir = canonicalPath(app.getPath('userData'))
     const s = await statfs(dir)
     return Number(s.bavail) * Number(s.bsize)
   } catch {

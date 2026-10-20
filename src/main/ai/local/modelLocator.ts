@@ -15,10 +15,39 @@
 // Pure apart from the filesystem; every path is passed in, so it is tested
 // without Electron.
 
-import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync, realpathSync } from 'node:fs'
+import { join, dirname, basename, resolve } from 'node:path'
 import { isInstalled, sha256File } from './downloadManager'
 import { readModelManifest, expectedSha } from './modelManifest'
+
+/**
+ * One spelling for a path. userData can be reached by two names on the same
+ * machine (Application Support/focusbuddy is a symlink to …/plexii, and
+ * installed builds start with --user-data-dir=…/focusbuddy), so any path the
+ * local-AI code compares, caches by, or reports goes through here first. For a
+ * path that does not exist yet, the nearest existing ancestor is resolved and
+ * the rest appended.
+ */
+export function canonicalPath(p: string): string {
+  const abs = resolve(p)
+  try {
+    return realpathSync(abs)
+  } catch {
+    const parent = dirname(abs)
+    return parent === abs ? abs : join(canonicalPath(parent), basename(abs))
+  }
+}
+
+/** True when two paths name the same file on disk (same device and inode), whatever their spelling. */
+export function sameFile(a: string, b: string): boolean {
+  try {
+    const x = statSync(a)
+    const y = statSync(b)
+    return x.dev === y.dev && x.ino === y.ino
+  } catch {
+    return false
+  }
+}
 
 export interface ModelSpec {
   /** Folder inside the bundle's models/ directory. */
@@ -44,11 +73,13 @@ export function bundledPath(bundleModelsDir: string, spec: ModelSpec): string {
 
 /** Find a model without hashing it (cheap; safe to call often). */
 export function locateModel(spec: ModelSpec, dirs: ModelDirs): Located | null {
-  if (isInstalled(dirs.userDir, spec)) return { path: join(dirs.userDir, spec.file), where: 'userData' }
+  // Paths come back canonical, so the engine, the verify cache and the status
+  // view never see one file under two names.
+  if (isInstalled(dirs.userDir, spec)) return { path: canonicalPath(join(dirs.userDir, spec.file)), where: 'userData' }
   if (dirs.bundleDir) {
     const p = bundledPath(dirs.bundleDir, spec)
     try {
-      if (existsSync(p) && statSync(p).size === spec.sizeBytes) return { path: p, where: 'bundle' }
+      if (existsSync(p) && statSync(p).size === spec.sizeBytes) return { path: canonicalPath(p), where: 'bundle' }
     } catch {
       /* unreadable: treat as absent */
     }
@@ -101,11 +132,12 @@ export async function verifyLocated(
   }
   const st = statSync(located.path)
   const cache = readCache(cacheFile)
-  const hit = cache[located.path]
+  const key = canonicalPath(located.path)
+  const hit = cache[key]
   if (hit && hit.size === st.size && hit.mtimeMs === st.mtimeMs && hit.sha256 === want) return hit.ok
   const ok = (await sha256File(located.path)) === want
   if (!ok) onError?.(`${spec.file} does not match its manifest checksum`)
-  cache[located.path] = { size: st.size, mtimeMs: st.mtimeMs, sha256: want, ok }
+  cache[key] = { size: st.size, mtimeMs: st.mtimeMs, sha256: want, ok }
   try {
     mkdirSync(dirname(cacheFile), { recursive: true })
     writeFileSync(cacheFile, JSON.stringify(cache, null, 2))

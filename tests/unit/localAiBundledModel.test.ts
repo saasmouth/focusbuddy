@@ -4,10 +4,10 @@
 // real files (small stand-in models with real sha256s) in temp directories.
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createHash } from 'node:crypto'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync, symlinkSync, linkSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { locateModel, verifyLocated, bundledPath } from '../../src/main/ai/local/modelLocator'
+import { locateModel, verifyLocated, bundledPath, canonicalPath, sameFile } from '../../src/main/ai/local/modelLocator'
 import { parseModelManifest, formatModelManifest, readModelManifest, expectedSha } from '../../src/main/ai/local/modelManifest'
 import { execFileSync } from 'node:child_process'
 import { preserveBundledModels } from '../../src/main/ai/local/modelMigration'
@@ -33,11 +33,12 @@ const plenty = async (): Promise<number> => 100e9
 
 describe('resolution order', () => {
   it('uses the bundle in place when userData has nothing, and userData first when it has a verified copy', async () => {
-    expect(locateModel(SPEC, { userDir, bundleDir: oldBundle })).toEqual({ path: bundledPath(oldBundle, SPEC), where: 'bundle' })
+    // Paths come back canonical (tmpdir is itself a symlink on macOS: /var → /private/var).
+    expect(locateModel(SPEC, { userDir, bundleDir: oldBundle })).toEqual({ path: realpathSync(bundledPath(oldBundle, SPEC)), where: 'bundle' })
     mkdirSync(userDir, { recursive: true })
     writeFileSync(join(userDir, SPEC.file), BODY)
     writeFileSync(join(userDir, `${SPEC.file}.verified`), SPEC.sha256 + '\n')
-    expect(locateModel(SPEC, { userDir, bundleDir: oldBundle })).toEqual({ path: join(userDir, SPEC.file), where: 'userData' })
+    expect(locateModel(SPEC, { userDir, bundleDir: oldBundle })).toEqual({ path: realpathSync(join(userDir, SPEC.file)), where: 'userData' })
   })
 
   it('finds nothing when neither has it (the "needs a one-time download" state)', () => {
@@ -192,5 +193,86 @@ describe('updater: keep the model before the bundle swap', () => {
     expect(keep).toBeGreaterThan(0)
     expect(abort).toBeGreaterThan(keep)
     expect(swap).toBeGreaterThan(abort)
+  })
+})
+
+// userData reached through a symlink: on the owner's Mac Application
+// Support/focusbuddy is a symlink to …/plexii and installed builds start with
+// --user-data-dir=…/focusbuddy. One model, two spellings: nothing may treat it
+// as two files, copy it again, re-hash it per spelling, or delete either.
+describe('symlinked userData (focusbuddy → plexii)', () => {
+  let real: string
+  let link: string
+  beforeEach(() => {
+    const appSupport = join(root, 'Application Support')
+    real = join(appSupport, 'plexii')
+    link = join(appSupport, 'focusbuddy')
+    mkdirSync(join(real, 'models'), { recursive: true })
+    symlinkSync(real, link)
+    writeFileSync(join(real, 'models', SPEC.file), BODY)
+    writeFileSync(join(real, 'models', `${SPEC.file}.verified`), SPEC.sha256 + '\n')
+  })
+
+  it('finds the one installed copy through either spelling, under its real path', () => {
+    const viaLink = locateModel(SPEC, { userDir: join(link, 'models'), bundleDir: oldBundle })
+    const viaReal = locateModel(SPEC, { userDir: join(real, 'models'), bundleDir: oldBundle })
+    expect(viaLink).toEqual(viaReal)
+    expect(viaLink?.where).toBe('userData')
+    expect(viaLink?.path).toBe(realpathSync(join(real, 'models', SPEC.file)))
+    expect(canonicalPath(join(link, 'models', 'not-yet', 'x.part'))).toBe(join(realpathSync(real), 'models', 'not-yet', 'x.part'))
+  })
+
+  it('the updater sees the model as already kept through the symlink, copies nothing and deletes nothing', async () => {
+    let copied = false
+    const r = await preserveBundledModels([SPEC], {
+      userDir: join(link, 'models'),
+      oldBundleDir: oldBundle,
+      newBundleDir: newBundle,
+      freeBytes: async () => 0, // would refuse if it tried to copy
+      copy: () => {
+        copied = true
+      }
+    })
+    expect(r).toEqual({ ok: true, copied: [], skipped: [SPEC.file] })
+    expect(copied).toBe(false)
+    expect(readFileSync(join(real, 'models', SPEC.file)).equals(BODY)).toBe(true)
+    expect(readFileSync(bundledPath(oldBundle, SPEC)).equals(BODY)).toBe(true)
+  })
+
+  it('a bundle file that IS the userData file (same inode) is not copied onto itself', async () => {
+    // No .verified marker, so only the inode check can recognise it.
+    rmSync(join(real, 'models', `${SPEC.file}.verified`))
+    rmSync(bundledPath(oldBundle, SPEC))
+    linkSync(join(real, 'models', SPEC.file), bundledPath(oldBundle, SPEC))
+    let copied = false
+    const r = await preserveBundledModels([SPEC], {
+      userDir: join(link, 'models'),
+      oldBundleDir: oldBundle,
+      newBundleDir: newBundle,
+      freeBytes: plenty,
+      copy: () => {
+        copied = true
+      }
+    })
+    expect(r.ok).toBe(true)
+    expect(copied).toBe(false)
+    expect(readFileSync(join(real, 'models', SPEC.file)).equals(BODY)).toBe(true)
+  })
+
+  it('a bundled model reached by two spellings is hashed and cached once', async () => {
+    const bundleLink = join(root, 'BundleLink')
+    symlinkSync(oldBundle, bundleLink)
+    const cache = join(link, 'models', 'bundle-verified.json')
+    const a = locateModel(SPEC, { userDir: join(root, 'empty'), bundleDir: oldBundle })!
+    const b = locateModel(SPEC, { userDir: join(root, 'empty'), bundleDir: bundleLink })!
+    expect(a.path).toBe(b.path)
+    expect(await verifyLocated(SPEC, a, cache)).toBe(true)
+    expect(await verifyLocated(SPEC, b, cache)).toBe(true)
+    expect(Object.keys(JSON.parse(readFileSync(join(real, 'models', 'bundle-verified.json'), 'utf8')))).toHaveLength(1)
+  })
+
+  it('sameFile compares inodes, not spellings', () => {
+    expect(sameFile(join(link, 'models', SPEC.file), join(real, 'models', SPEC.file))).toBe(true)
+    expect(sameFile(bundledPath(oldBundle, SPEC), join(real, 'models', SPEC.file))).toBe(false)
   })
 })

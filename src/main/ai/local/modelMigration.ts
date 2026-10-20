@@ -8,6 +8,12 @@
 // its sha256. Only then may the swap go ahead. If the copy cannot be made
 // (disk, checksum, I/O), the update is aborted rather than lose the model.
 //
+// Paths are compared by what they are on disk, never by spelling: userData can
+// be reached through a symlink (Application Support/focusbuddy → …/plexii), so
+// every directory is canonicalised first and a source that IS the destination
+// file (same device and inode) counts as already kept. Nothing here deletes a
+// model: the only file ever removed is this run's own .part copy.
+//
 // Copy, not move: the old bundle is signed and is about to be replaced anyway;
 // moving out of it would break its seal if the update were then cancelled. The
 // disk briefly holds two copies and returns to one when the swap removes the old
@@ -16,7 +22,7 @@
 import { copyFileSync, existsSync, mkdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { isInstalled, sha256File } from './downloadManager'
-import { bundledPath, type ModelSpec } from './modelLocator'
+import { bundledPath, canonicalPath, sameFile, type ModelSpec } from './modelLocator'
 
 export interface MigrationDeps {
   /** userData/models */
@@ -49,13 +55,21 @@ export async function preserveBundledModels(specs: ModelSpec[], deps: MigrationD
   const copied: string[] = []
   const skipped: string[] = []
   const copy = deps.copy ?? ((a, b) => copyFileSync(a, b))
+  const userDir = canonicalPath(deps.userDir)
+  const oldBundleDir = canonicalPath(deps.oldBundleDir)
+  const newBundleDir = canonicalPath(deps.newBundleDir)
   for (const spec of specs) {
-    const fromOld = bundledPath(deps.oldBundleDir, spec)
-    if (isInstalled(deps.userDir, spec) || sizeIs(bundledPath(deps.newBundleDir, spec), spec.sizeBytes) || !sizeIs(fromOld, spec.sizeBytes)) {
+    const fromOld = bundledPath(oldBundleDir, spec)
+    if (
+      isInstalled(userDir, spec) ||
+      sameFile(fromOld, join(userDir, spec.file)) ||
+      sizeIs(bundledPath(newBundleDir, spec), spec.sizeBytes) ||
+      !sizeIs(fromOld, spec.sizeBytes)
+    ) {
       skipped.push(spec.file)
       continue
     }
-    const free = await deps.freeBytes(deps.userDir)
+    const free = await deps.freeBytes(userDir)
     const need = spec.sizeBytes + (deps.marginBytes ?? GiB)
     if (free !== null && free < need) {
       return {
@@ -64,8 +78,8 @@ export async function preserveBundledModels(specs: ModelSpec[], deps: MigrationD
         error: `Not enough free disk space to keep the on-device AI model through this update (needs ${(need / 1e9).toFixed(1)} GB, ${(free / 1e9).toFixed(1)} GB free). The update was not installed; free some space and try again.`
       }
     }
-    mkdirSync(deps.userDir, { recursive: true })
-    const part = join(deps.userDir, `${spec.file}.part`)
+    mkdirSync(userDir, { recursive: true })
+    const part = join(userDir, `${spec.file}.part`)
     try {
       copy(fromOld, part)
       const digest = await sha256File(part)
@@ -77,8 +91,8 @@ export async function preserveBundledModels(specs: ModelSpec[], deps: MigrationD
           error: 'The on-device AI model in this app did not match its checksum when copying it for the update. The update was not installed.'
         }
       }
-      renameSync(part, join(deps.userDir, spec.file))
-      writeFileSync(join(deps.userDir, `${spec.file}.verified`), spec.sha256 + '\n')
+      renameSync(part, join(userDir, spec.file))
+      writeFileSync(join(userDir, `${spec.file}.verified`), spec.sha256 + '\n')
       copied.push(spec.file)
     } catch (e) {
       try {
