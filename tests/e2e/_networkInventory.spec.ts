@@ -32,10 +32,13 @@ const KNOWN_HOSTS: RegExp[] = [
   /^dl\.plexiidesk\.com$/, // update feed (packaged builds only)
   /^view\.plexiidesk\.com$/,
   /^(www\.)?plexiidesk\.com$/,
-  /^tile\.openstreetmap\.org$/, // map work widget tiles, once a place is set
-  /^www\.google\.com$/, // s2/favicons: icons for links and connected apps
-  /^t\d\.gstatic\.com$/ // where s2/favicons redirects for the icon itself
+  /^tile\.openstreetmap\.org$/ // map work widget tiles, once a place is set
 ]
+
+// Our own hosts. Anything else is a third party, and with default settings,
+// typical use must contact none (4.3.34: icons from the linked site itself,
+// fonts bundled, web search off, background AI off).
+const PLEXII = /^((www|api|dl|view)\.)?plexiidesk\.com$/
 
 const LOCAL = /^(localhost|127\.\d+\.\d+\.\d+|::1|\[::1\]|0\.0\.0\.0)$/
 
@@ -147,8 +150,14 @@ async function runPhase(
   return obs
 }
 
-function unknown(obs: Observed): string[] {
-  return [...new Set([...obs.chromium, ...obs.node])].filter((h) => !KNOWN_HOSTS.some((re) => re.test(h)))
+function unknown(obs: Observed, alsoAllowed: RegExp[] = []): string[] {
+  return [...new Set([...obs.chromium, ...obs.node])].filter(
+    (h) => ![...KNOWN_HOSTS, ...alsoAllowed].some((re) => re.test(h))
+  )
+}
+
+function thirdParty(obs: Observed): string[] {
+  return [...new Set([...obs.chromium, ...obs.node])].filter((h) => !PLEXII.test(h)).sort()
 }
 
 test.describe.configure({ mode: 'serial' })
@@ -230,13 +239,14 @@ test('NET-2 typical use, nothing connected: only the documented hosts', async ()
   })
   console.log('[netaudit] typical-use actions:', done.join(' | '))
   expect(unknown(obs)).toEqual([])
+  expect(thirdParty(obs)).toEqual([])
 })
 
 // Content that reaches out by design: a map work widget with a place set, and a
-// file work widget holding a web link. The inventory says the first loads
-// OpenStreetMap tiles and the second asks Google for the site's icon; this
-// confirms both, so those rows are observed rather than inferred.
-test('NET-3 a map and a web link: OpenStreetMap tiles and the Google favicon service', async () => {
+// file work widget holding a web link. The first loads OpenStreetMap tiles; the
+// second fetches the linked site's own icon from that site (4.3.34: no longer
+// Google's favicon service). This observes both rows rather than inferring them.
+test('NET-3 a map and a web link: OpenStreetMap tiles, and the icon from the linked site only', async () => {
   test.setTimeout(120_000)
   const obs = await runPhase('map-and-link', {}, async (l) => {
     const w = l.window
@@ -278,8 +288,39 @@ test('NET-3 a map and a web link: OpenStreetMap tiles and the Google favicon ser
   })
   const all = [...obs.chromium, ...obs.node]
   expect(all).toContain('tile.openstreetmap.org')
-  expect(all).toContain('www.google.com')
-  // Opening the link is a separate, explicit action; showing it is not.
-  expect(all).not.toContain('en.wikipedia.org')
-  expect(unknown(obs)).toEqual([])
+  // The icon comes from the site the person linked, from the main process
+  // (siteIcons.ts), and from nowhere else.
+  expect(obs.node).toContain('en.wikipedia.org')
+  expect(all.filter((h) => /google\.com$|gstatic\.com$/.test(h))).toEqual([])
+  // The renderer never loads the page itself; showing a link is not opening it.
+  expect(obs.chromiumUrls.filter((u) => u.includes('wikipedia.org'))).toEqual([])
+  expect(unknown(obs, [/^en\.wikipedia\.org$/])).toEqual([])
+})
+
+// PlexiiOffice used to load fonts.googleapis.com / fonts.gstatic.com on every
+// launch, from plexioffice.html itself. Fonts are bundled now: loading the
+// office shell and idling must contact no third party. (PLEXI_APP=office is the
+// only way the harness boots that shell; launchApp still gives it a throwaway
+// profile. The shell's IPC is refused under the harness at the app-names
+// baseline too — plexiOffice.spec.ts fails there identically — so this phase
+// does not depend on it: the fonts were requested by the page's own <link>s,
+// which is exactly what it watches.)
+test('NET-4 PlexiiOffice: launch and idle: no third party (no Google Fonts)', async () => {
+  test.setTimeout(150_000)
+  const obs = await runPhase('plexiioffice', { PLEXI_APP: 'office' }, async (l) => {
+    const w = l.window
+    await w.waitForLoadState('load')
+    expect(w.url()).toContain('plexioffice.html')
+    for (const id of ['office-new-doc', 'office-new-sheet', 'office-new-slides']) {
+      const b = w.locator(`[data-testid="${id}"]`)
+      if (await b.isVisible().catch(() => false)) {
+        await b.click().catch(() => {})
+        await w.waitForTimeout(2_000)
+      }
+    }
+    const family = await w.evaluate(() => getComputedStyle(document.body).fontFamily)
+    console.log('[netaudit] PlexiiOffice body font:', family)
+    await w.waitForTimeout(30_000)
+  })
+  expect(thirdParty(obs)).toEqual([])
 })
