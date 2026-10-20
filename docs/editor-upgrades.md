@@ -32,16 +32,37 @@ Meanwhile `marketing/PRODUCT-GUIDE.md` positions collaboration as a check-out
 model, one editor at a time, and §14 bans the words "real-time" and
 "simultaneous editing" outright.
 
-Those two things cannot both be current. Either the machinery is further along
-than the positioning, or it is built but deliberately not enabled. **Somebody
-who knows should settle this before any other work on this list**, because
-live co-editing is the single most common reason this category loses a deal,
-and the gap between "we cannot say it" and "it is in the repo with live
-cursors" is the most valuable unknown we have.
+**Settled, 2026-10-20: it ships.** `DocumentOpen.tsx` is the resolver every
+navigation to a document goes through, and it routes on scope:
 
-If it is shippable: it moves from the biggest weakness to a headline, and the
-claim gate needs rewriting. If it is not: the limitations table is right and
-this document's priority order stands as written.
+- a **personal** document opens `DocumentEditorView`, last-write-wins;
+- an **org-shared** document calls `ensureOrgLiveDoc` (idempotent room creation)
+  and opens `LiveDocEditorView`, which is the CRDT path with live cursors;
+- if the room cannot be ensured (offline, not a member) it falls back to the
+  plain editor so the document still opens.
+
+Its own header says why every navigation is routed through it: so a member "can
+never accidentally open an org doc in the clobber-prone editor". The scope field
+documents the same rule on `FbDocument.orgId`.
+
+So there is nothing to wire. Personal documents are last-write-wins **by
+design**, and that is the right design: joining a relay room for a private
+local document would push its contents to a server for no benefit, which is the
+opposite of what this product is.
+
+**What is actually wrong is the documentation.** `marketing/PRODUCT-GUIDE.md`
+§14 bans the words "real-time" and "simultaneous editing", and its limitations
+table says collaboration is "check-out model, one editor at a time". That
+understates a shipped capability, and it understates the single most common
+reason this category loses a deal.
+
+**One caveat before marketing claims it.** The two-account and two-window
+convergence specs exist (`crdtSharedDeskConvergeTwoAccountLive.spec.ts`,
+`crdtMultiTypeConvergeTwoWindowLive.spec.ts`) but self-skip unless
+`CRDT_LIVE_PROXY_BASE` is set, which needs a local signal server, a TLS proxy
+and a purpose-built app. So this is confirmed by reading the routing and by the
+unit suites (`yjsDocSync`, `yjsSeed`, `collaboration`), not by a run of the live
+harness. Run that harness once before putting the claim in front of a buyer.
 
 ---
 

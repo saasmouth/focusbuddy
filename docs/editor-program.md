@@ -47,8 +47,8 @@ do not win anyone from Illustrator.
 
 | Item | Why first |
 |---|---|
-| Wire co-editing into regular Documents | `YjsDocSync` runs in production today for Live Docs. `DocEditor` already takes a `collab` prop. The relay, CRDT, live cursors and update-log replay all exist. This is wiring, not building, and it converts the category's most common objection into a headline |
-| Rewrite the claim gate afterwards | §14 bans "real-time" and "simultaneous editing". Once the wiring lands that is false modesty, and the limitations table needs the same edit |
+| ~~Wire co-editing into regular Documents~~ | **Resolved: nothing to wire.** `DocumentOpen.tsx` already routes org-shared documents into the CRDT editor and personal ones into last-write-wins, which is the correct split. The work is to correct the claim gate, and to run the live convergence harness once so the claim is backed by a run and not by reading |
+| Rewrite the claim gate | §14 bans "real-time" and "simultaneous editing", and the limitations table says check-out. Both understate what org-shared documents actually do. This is now the whole of the co-editing work |
 | Pin or replace `xlsx@0.18.5` | Last npm build before SheetJS left npm, carries known advisories. A security decision with a deadline, not a feature |
 | Pick one diagramming surface | `map`, `diagram` and `mindmap` cover one job three times. Consolidation is cheaper than maintaining three and clearer in the picker |
 
