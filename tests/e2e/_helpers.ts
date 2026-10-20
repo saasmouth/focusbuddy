@@ -37,6 +37,10 @@ export async function launchApp(opts?: {
   // screenshot captures. Opt-in; empty by default so existing specs are
   // unaffected.
   extraArgs?: string[]
+  // Arguments placed BEFORE the '.' app path. Electron only honours Node flags
+  // such as `-r <module>` there (Playwright strips NODE_OPTIONS), which is how
+  // _networkInventory.spec.ts preloads its main-process socket recorder.
+  preArgs?: string[]
 }): Promise<LaunchedApp> {
   const userDataDir = opts?.userDataDir ?? mkdtempSync(join(tmpdir(), 'plexii-e2e-'))
   const ownsDir = !opts?.userDataDir
@@ -57,7 +61,7 @@ export async function launchApp(opts?: {
   delete cleanEnv.OPENAI_API_KEY
 
   const app = await electron.launch({
-    args: ['.', ...(opts?.extraArgs ?? [])],
+    args: [...(opts?.preArgs ?? []), '.', ...(opts?.extraArgs ?? [])],
     cwd: process.cwd(),
     env: {
       ...cleanEnv,
