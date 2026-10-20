@@ -286,6 +286,16 @@ export class EngineCore implements LocalEngine {
 
     let text = ''
     let first = 0
+    // Runaway-repetition guard: a small model occasionally falls into a loop
+    // inside a string (seen: an invented URL "…AaBbCcDd…" repeating for 14,000
+    // tokens until max_tokens, minutes of generation for nothing). Stop as soon
+    // as the tail is one unit repeating; the caller sees a cut-off reply and
+    // retries or fails honestly.
+    const loop = new AbortController()
+    const onOuterAbort = (): void => loop.abort()
+    opts.signal?.addEventListener('abort', onOuterAbort, { once: true })
+    let checkedAt = 0
+    let degenerate = false
     try {
       const res = await session.promptWithMeta(last.content, {
         maxTokens,
@@ -302,12 +312,19 @@ export class EngineCore implements LocalEngine {
             ? { grammar: this.jsonGrammar }
             : {}),
         ...(req.json === 'array' && this.jsonArrayGrammar ? { grammar: this.jsonArrayGrammar } : {}),
-        signal: opts.signal,
+        signal: loop.signal,
         stopOnAbortSignal: true,
         onTextChunk: (chunk: string) => {
           if (!first) first = Date.now()
           text += chunk
           opts.onText?.(chunk)
+          if (text.length - checkedAt >= 256) {
+            checkedAt = text.length
+            if (isRunawayRepetition(text)) {
+              degenerate = true
+              loop.abort()
+            }
+          }
         }
       })
       const finalText = res.response.filter((x): x is string => typeof x === 'string').join('')
@@ -315,13 +332,18 @@ export class EngineCore implements LocalEngine {
       const outputTokens = this.model.tokenize(text).length
       const stopReason: EngineStopReason = opts.signal?.aborted
         ? 'aborted'
-        : res.stopReason === 'maxTokens'
+        : degenerate
+          ? 'max_tokens'
+          : res.stopReason === 'maxTokens'
           ? 'max_tokens'
           : res.stopReason === 'abort'
             ? 'aborted'
             : 'end_turn'
       return { text, inputTokens, outputTokens, stopReason, ttftMs: first ? first - t0 : null, totalMs: Date.now() - t0 }
     } catch (e) {
+      if (degenerate && !opts.signal?.aborted) {
+        return { text, inputTokens, outputTokens: text ? this.model.tokenize(text).length : 0, stopReason: 'max_tokens', ttftMs: first ? first - t0 : null, totalMs: Date.now() - t0 }
+      }
       if (opts.signal?.aborted) {
         return {
           text,
@@ -334,6 +356,7 @@ export class EngineCore implements LocalEngine {
       }
       throw e
     } finally {
+      opts.signal?.removeEventListener('abort', onOuterAbort)
       session.dispose({ disposeSequence: false })
     }
   }
@@ -421,4 +444,22 @@ export class EmbedCore {
     this.queue = run.catch(() => undefined)
     return run
   }
+}
+
+/**
+ * True when the end of `text` is one short unit repeating: a 2–80 character
+ * unit at least 8 times in a row, spanning at least 300 characters. Ordinary
+ * output (tables, lists, rules) never meets all three. Exported for tests.
+ */
+export function isRunawayRepetition(text: string): boolean {
+  const tail = text.slice(-1200)
+  for (let unit = 2; unit <= 80; unit++) {
+    const reps = Math.max(8, Math.ceil(300 / unit))
+    if (tail.length < unit * reps) break
+    const u = tail.slice(-unit)
+    let ok = true
+    for (let k = 2; k <= reps && ok; k++) if (tail.slice(-unit * k, -unit * (k - 1)) !== u) ok = false
+    if (ok) return true
+  }
+  return false
 }

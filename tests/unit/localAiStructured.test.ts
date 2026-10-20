@@ -76,3 +76,18 @@ describe('tolerant parsing', () => {
     expect(r).toMatchObject({ ok: true, changed: false, text })
   })
 })
+
+describe('runaway repetition guard (engineCore.isRunawayRepetition)', () => {
+  it('catches the real loop the 4B model fell into, and leaves ordinary output alone', async () => {
+    const { isRunawayRepetition } = await import('../../src/main/ai/local/engineCore')
+    // Captured from a real Build with AI run (structured-before.json): an invented URL that never ended.
+    const loop = '"content": "https://docs.google.com/document/d/1aBcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz' + 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz'.repeat(12)
+    expect(isRunawayRepetition(loop)).toBe(true)
+    expect(isRunawayRepetition('x'.repeat(400))).toBe(true)
+    const table = '| Week | Task |\n| --- | --- |\n' + Array.from({ length: 30 }, (_, i) => `| ${i + 1} | Plan item ${i + 1} |`).join('\n')
+    expect(isRunawayRepetition(table)).toBe(false)
+    const json = JSON.stringify({ rows: Array.from({ length: 20 }, (_, i) => ({ Name: `Episode ${i + 1}`, Done: false })) })
+    expect(isRunawayRepetition(json)).toBe(false)
+    expect(isRunawayRepetition('----------')).toBe(false)
+  })
+})
