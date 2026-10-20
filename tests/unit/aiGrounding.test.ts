@@ -171,13 +171,13 @@ describe('the shared grounding rules', () => {
     expect(grounding).toMatch(/customers|revenue|deadlines/i)
   })
 
-  it('restrains placeholder use, so the cure is not the disease', () => {
-    // The regression this rule could itself cause: a draft peppered with
-    // [brackets] is as useless to the reader as one full of invention, and
-    // "write a placeholder instead of guessing" invites exactly that.
-    expect(grounding).toMatch(/sparingly/i)
-    expect(grounding).toMatch(/most good writing needs none/i)
-    expect(grounding).toMatch(/never as a way to avoid writing/i)
+  it('does not carry the unmeasured placeholder-restraint clause', () => {
+    // Removed after measurement: cloud scored 26/34 without it and 21/34 with
+    // it, and the regression it was meant to prevent was already disproved
+    // (drafts got longer under the rule, not thinner). Pinned so it is not
+    // re-added on the same plausible-sounding reasoning as last time.
+    expect(grounding).not.toMatch(/sparingly/i)
+    expect(grounding).not.toMatch(/most good writing needs none/i)
   })
 
   it('still permits writing, and names the placeholder as the alternative', () => {
