@@ -106,18 +106,36 @@ mainstream-competitive than anything else here.
 templates. Export `.pptx` through `pptxgenjs`; export PDF by rendering each
 slide offscreen and printing.
 
-**The gap is import, and it is severe.** `src/main/slidesIo.ts` says it plainly:
-a "best-effort `.pptx` import that extracts text" and speaker notes, because
-`pptxgenjs` is a generator and cannot read. So opening someone's deck gives you
-the words and nothing else. No shapes, no images, no positions, no layouts, no
-theme. For a product whose pitch includes placing an existing deck on the desk,
-this is the widest gap between what the picker implies and what happens.
+**Correction, 2026-10-20.** An earlier draft of this section said the importer
+"extracts text only: no shapes, images, positions or layouts". That was taken
+from the stale comment at the top of `slidesIo.ts` and was wrong. Reading the
+implementation, it already imports positioned images (EMU mapped to our logical
+space, media inlined as data URIs), tables with header-row detection, charts
+with their cached series, and speaker notes with placeholder filtering.
+
+**What was actually missing, and what is now done.** Autoshapes: every `<p:sp>`
+carrying `<a:prstGeom>` was dropped, so a deck of boxes and arrows opened as a
+deck of bullet points. `slideShapes()` now imports them with fill, gradient and
+border, and deliberately does **not** map geometry it cannot represent: a star
+or an arrow is skipped and counted in `skippedShapes` rather than squared off
+into a rectangle, because a flowchart whose arrows silently became boxes is
+worse than one honestly missing them. Covered by `tests/unit/pptxShapeImport.test.ts`.
+
+**Still missing.** Run-level text formatting (`a:rPr`: bold, italic, colour,
+size) is not read, so imported text arrives unstyled. Theme colours
+(`<a:schemeClr>`) are not resolved because `theme1.xml` is never opened, which
+is why only explicit `srgbClr` values survive. Layout and master inheritance is
+not resolved, so a shape with no transform of its own is skipped rather than
+positioned by guesswork.
 
 **To be competitive**
 
 | Priority | Work |
 |---|---|
-| 1 | Real `.pptx` import: unzip, parse `slideLayouts` and `slideMasters`, map shapes, text frames, images and positions onto our slide model. `fflate` is already in the import path |
+| ~~1~~ | ~~Import autoshapes with fill and border~~ Done 2026-10-20, with tests |
+| 1 | Run-level text formatting: read `a:rPr` so bold, italic, colour and size survive |
+| 1 | Resolve `theme1.xml` so `<a:schemeClr>` colours are real instead of dropped |
+| 2 | Resolve `slideLayouts` and `slideMasters` so placeholder-positioned shapes keep their place |
 | 2 | Round-trip the theme so an imported deck keeps its look on export |
 | 3 | Presenter view with notes and next-slide, and timing |
 | 4 | Slide-level comments |

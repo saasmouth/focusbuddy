@@ -9,7 +9,7 @@ import { readFile, writeFile } from 'fs/promises'
 // pptxgenjs and fflate are imported lazily inside the functions that use them,
 // so they stay out of the app's startup require path; a packaging gap can only
 // degrade pptx export/import to an error, never crash launch.
-import type { DeckTheme, Slide, SlidesBody, SlideTextElement, SlideImageElement, SlideTableElement, SlideChartElement } from '@shared/types'
+import type { DeckTheme, Slide, SlidesBody, SlideTextElement, SlideImageElement, SlideTableElement, SlideChartElement, SlideShapeElement, SlideFill, SlideBorder } from '@shared/types'
 import type { ChartType } from '@shared/chart'
 import { resolveTheme, SLIDE_W, SLIDE_H } from '@shared/slideThemes'
 import { migrateSlidesBody } from '@shared/slidesMigrate'
@@ -25,6 +25,10 @@ export interface SlidesImportResult {
   body?: SlidesBody
   name?: string
   error?: string
+  // Shapes whose pptx geometry has no honest equivalent in our four shapes
+  // (stars, arrows, callouts). Reported rather than squared off into
+  // rectangles, so the user is told what is missing instead of shown a lie.
+  skippedShapes?: number
 }
 
 function win(): BrowserWindow | undefined {
@@ -355,6 +359,106 @@ function slideImages(
   return out
 }
 
+// ── Autoshapes ────────────────────────────────────────────────────────────────
+//
+// A pptx autoshape is a <p:sp> carrying <a:prstGeom prst="…">. Our model has
+// four shapes, so only the preset families that genuinely correspond are mapped.
+// A star, arrow or callout is NOT squared off into a rectangle: a flowchart
+// whose arrows silently became boxes is worse than one honestly missing them,
+// and the caller is told how many were skipped.
+const PRST_SHAPE: Array<[RegExp, SlideShapeElement['shape']]> = [
+  [/^(roundRect|round1Rect|round2SameRect|round2DiagRect|snip\w*Rect)$/, 'roundRect'],
+  [/^(rect|flowChartProcess|flowChartPredefinedProcess|plaque)$/, 'rect'],
+  [/^(ellipse|flowChartConnector|donut)$/, 'ellipse'],
+  [/^(triangle|rtTriangle|flowChartExtract|flowChartMerge)$/, 'triangle']
+]
+
+function shapeForPreset(prst: string): SlideShapeElement['shape'] | null {
+  for (const [re, shape] of PRST_SHAPE) if (re.test(prst)) return shape
+  return null
+}
+
+// An <a:srgbClr val="RRGGBB"> inside the given fragment, as a CSS colour.
+// Theme colours (<a:schemeClr>) are not resolved: we do not read theme1.xml, so
+// returning a guess would be inventing the deck's palette.
+function srgb(fragment: string | undefined): string | undefined {
+  const v = fragment ? /<a:srgbClr\s+val="([0-9A-Fa-f]{6})"/.exec(fragment)?.[1] : undefined
+  return v ? `#${v.toLowerCase()}` : undefined
+}
+
+// Outside-in: the first <a:…Fill> that belongs to the shape itself, not to a
+// child run's text properties.
+function shapeFill(spPr: string): SlideFill | undefined {
+  if (/<a:noFill\s*\/>/.test(spPr)) return { type: 'none' }
+  const solid = /<a:solidFill>([\s\S]*?)<\/a:solidFill>/.exec(spPr)?.[1]
+  const color = srgb(solid)
+  if (color) return { type: 'solid', color }
+  const grad = /<a:gradFill[\s\S]*?<\/a:gradFill>/.exec(spPr)?.[0]
+  if (grad) {
+    const stops = [...grad.matchAll(/<a:srgbClr\s+val="([0-9A-Fa-f]{6})"/g)].map((m) => `#${m[1].toLowerCase()}`)
+    if (stops.length >= 2) return { type: 'gradient', color: stops[0], color2: stops[stops.length - 1] }
+    if (stops.length === 1) return { type: 'solid', color: stops[0] }
+  }
+  return undefined
+}
+
+function shapeBorder(spPr: string): SlideBorder | undefined {
+  const ln = /<a:ln\b[^>]*>([\s\S]*?)<\/a:ln>/.exec(spPr)
+  if (!ln) return undefined
+  if (/<a:noFill\s*\/>/.test(ln[1])) return undefined
+  const color = srgb(ln[1])
+  if (!color) return undefined
+  // EMU width (12700 per point); default to a hairline when absent.
+  const w = /<a:ln\b[^>]*\bw="(\d+)"/.exec(ln[0])?.[1]
+  const width = w ? Math.max(1, Math.round(Number(w) / 12700)) : 1
+  const dashed = /<a:prstDash\s+val="(dash|sysDash|lgDash|dashDot)"/.test(ln[1])
+  return { color, width, ...(dashed ? { style: 'dashed' as const } : {}) }
+}
+
+// The autoshapes on a slide, positioned in our logical space. Placeholder
+// shapes are skipped: their text is already read as the slide's title and
+// bullets, so emitting them again would duplicate every line.
+function slideShapes(
+  slideXml: string,
+  slideIndex: number,
+  sldCx: number,
+  sldCy: number
+): { shapes: SlideShapeElement[]; skipped: number } {
+  const shapes: SlideShapeElement[] = []
+  let skipped = 0
+  let idx = 0
+  for (const chunk of stripGraphicFrames(slideXml).split(/<p:sp>/).slice(1)) {
+    const sp = chunk.split(/<\/p:sp>/)[0]
+    if (/<p:ph\b/.test(sp)) continue // placeholder: already read as title/bullets
+    const prst = /<a:prstGeom\s+prst="([A-Za-z0-9]+)"/.exec(sp)?.[1]
+    if (!prst) continue
+    const shape = shapeForPreset(prst)
+    if (!shape) {
+      skipped++
+      continue
+    }
+    const spPr = /<p:spPr\b[^>]*>([\s\S]*?)<\/p:spPr>/.exec(sp)?.[1] ?? sp
+    const off = /<a:off\s+x="(-?\d+)"\s+y="(-?\d+)"/.exec(spPr)
+    const ext = /<a:ext\s+cx="(\d+)"\s+cy="(\d+)"/.exec(spPr)
+    if (!off || !ext) continue // no transform of its own; we do not resolve layouts
+    const fill = shapeFill(spPr)
+    const border = shapeBorder(spPr)
+    shapes.push({
+      id: `shp-${slideIndex}-${idx++}`,
+      type: 'shape',
+      shape,
+      x: Math.round((Number(off[1]) / sldCx) * SLIDE_W),
+      y: Math.round((Number(off[2]) / sldCy) * SLIDE_H),
+      w: Math.round((Number(ext[1]) / sldCx) * SLIDE_W),
+      h: Math.round((Number(ext[2]) / sldCy) * SLIDE_H),
+      z: 50 + idx,
+      ...(fill ? { fill } : {}),
+      ...(border ? { border } : {})
+    })
+  }
+  return { shapes, skipped }
+}
+
 // The tables on a slide, as SlideTableElements. A pptx table is an <a:tbl> inside
 // an <a:graphicFrame>; rows are <a:tr>, cells <a:tc>. Positioned from the frame's
 // transform (EMU → logical units).
@@ -521,11 +625,16 @@ export async function parsePptx(data: Uint8Array, name: string): Promise<SlidesI
       return { id: `imp-${i}`, title, bullets, notes, layout: bullets.length ? 'title-content' : 'title' }
     })
 
+    // Autoshapes whose geometry has no honest equivalent in our four shapes.
+    let skippedShapes = 0
     const body = migrateSlidesBody({ slides })
     // Attach imported pictures and tables onto each migrated slide's element list
     // so they render alongside the title/body text rather than being dropped.
     body.slides.forEach((slide, i) => {
+      const shapeResult = slideShapes(strFromU8(files[slideNames[i]]), i, sldCx, sldCy)
+      skippedShapes += shapeResult.skipped
       const extras = [
+        ...shapeResult.shapes,
         ...slideImages(files, slideNames[i], strFromU8, sldCx, sldCy),
         ...slideTables(strFromU8(files[slideNames[i]]), i, sldCx, sldCy),
         ...slideCharts(files, slideNames[i], strFromU8, i, sldCx, sldCy)
@@ -533,7 +642,7 @@ export async function parsePptx(data: Uint8Array, name: string): Promise<SlidesI
       if (extras.length) slide.elements = [...(slide.elements ?? []), ...extras]
     })
 
-    return { ok: true, name, body }
+    return { ok: true, name, body, ...(skippedShapes ? { skippedShapes } : {}) }
   } catch (e) {
     return { ok: false, error: `Could not read that file: ${(e as Error).message}` }
   }
