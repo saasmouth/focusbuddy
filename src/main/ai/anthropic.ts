@@ -6974,23 +6974,52 @@ function cleanOutline(nodes: unknown[], depth: number): WidgetFileOutlineNode[] 
 // The widget files whose name or content shares words with a build request,
 // best first, each as its serialised text (capped). Keyword overlap only — no
 // model, no embedding call — so it costs nothing when nothing matches.
+// Words that say nothing about WHICH file is meant. Without this list one shared
+// "with" or "their" made any file "relevant", and Build with AI then built a
+// rental-property desk around a launch date copied from an unrelated desk
+// (found by tools/local-ai-eval; it misled the cloud model too).
+const RELEVANCE_STOPWORDS = new Set(
+  ('with that this from have will your they them their what when where which into about over then than also some more ' +
+    'most each other these those there here want need make help like just only very such much many able should would could ' +
+    'every week weeks month months year years things thing start keep track desk work widget widgets').split(' ')
+)
+
+/**
+ * How relevant a widget file is to a Build with AI request: 0 means "leave it
+ * out". A file counts only when a meaningful word of the request names it (its
+ * title) or at least two different meaningful words appear in it. Exported for
+ * tests.
+ */
+export function widgetFileRelevance(prompt: string, title: string, body: string): number {
+  const words = new Set(
+    prompt
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 3 && !RELEVANCE_STOPWORDS.has(w))
+  )
+  const t = title.toLowerCase()
+  const hay = `${t} ${body.toLowerCase()}`
+  let score = 0
+  let distinct = 0
+  let inTitle = false
+  for (const w of words) {
+    if (!hay.includes(w)) continue
+    distinct++
+    if (t.includes(w)) {
+      inTitle = true
+      score += 3
+    } else score += 1
+  }
+  return inTitle || distinct >= 2 ? score : 0
+}
+
 function relevantWidgetFilesBlock(prompt: string, limit = 4, perFile = 1200): string {
   try {
-    const words = new Set(
-      prompt
-        .toLowerCase()
-        .split(/[^a-z0-9]+/)
-        .filter((w) => w.length > 3)
-    )
-    if (words.size === 0) return ''
     const resolvers = mainWidgetResolvers()
     const scored = listWidgetFiles()
       .map((f) => {
         const textBody = widgetFileBodyToText({ kind: f.kind, content: f.content }, f.title, resolvers)
-        const hay = `${f.title} ${textBody}`.toLowerCase()
-        let score = 0
-        for (const w of words) if (hay.includes(w)) score += f.title.toLowerCase().includes(w) ? 3 : 1
-        return { f, textBody, score }
+        return { f, textBody, score: widgetFileRelevance(prompt, f.title, textBody) }
       })
       .filter((x) => x.score > 0)
       .sort((a, b) => b.score - a.score)
