@@ -352,13 +352,22 @@ if (!existsSync(SRC_DIR)) {
 // Searched for inside the bundled model tree so it travels with the weights.
 const MANIFEST_NAMES = ['manifest.sha256', 'SHA256SUMS', 'manifest.json', 'model.manifest.json']
 
-function findManifest() {
-  if (!existsSync(SRC_DIR)) return null
-  for (const rel of walk(SRC_DIR)) {
-    const base = rel.split('/').pop()
-    if (MANIFEST_NAMES.includes(base)) return { rel, abs: join(SRC_DIR, rel) }
-  }
-  return null
+/**
+ * Every manifest in the tree, not the first one found.
+ *
+ * The layout is one model directory per model, each with its own
+ * manifest.sha256 — models/qwen3-4b-instruct-2507/ and
+ * models/nomic-embed-text-v1.5/. Returning only the first manifest checked one
+ * model and then reported the OTHER model's weights as "not covered", so the
+ * gate failed on a correct build. Coverage has to be the union across every
+ * manifest.
+ */
+function findManifests() {
+  if (!existsSync(SRC_DIR)) return []
+  return walk(SRC_DIR)
+    .filter((rel) => MANIFEST_NAMES.includes(rel.split('/').pop()))
+    .map((rel) => ({ rel, abs: join(SRC_DIR, rel) }))
+    .sort((a, b) => a.rel.localeCompare(b.rel))
 }
 
 function parseManifest(text, name) {
@@ -388,28 +397,38 @@ function parseManifest(text, name) {
   return out
 }
 
-const manifest = findManifest()
-if (!manifest) {
+const manifests = findManifests()
+if (!manifests.length) {
   note('no model manifest found; the bundled-vs-input check above is the only hash gate')
-  note(`(add one of ${MANIFEST_NAMES.join(', ')} inside resources/models to enable it)`)
+  note(`(add one of ${MANIFEST_NAMES.join(', ')} inside each model directory to enable it)`)
 } else {
-  const dirPrefix = manifest.rel.includes('/') ? manifest.rel.slice(0, manifest.rel.lastIndexOf('/') + 1) : ''
-  let entries = null
-  try {
-    entries = parseManifest(readFileSync(manifest.abs, 'utf8'), manifest.rel)
-  } catch (e) {
-    bad(`manifest ${manifest.rel} did not parse: ${e.message}`)
-    bad(`supported: "<sha256>  <path>" lines, or JSON {"files":{"<path>":"<sha256>"}}`)
-  }
-  if (entries) {
+  // Union of everything any manifest vouches for, as bundle-relative paths.
+  const covered = new Set()
+
+  for (const manifest of manifests) {
+    const dirPrefix = manifest.rel.includes('/')
+      ? manifest.rel.slice(0, manifest.rel.lastIndexOf('/') + 1)
+      : ''
+    let entries = null
+    try {
+      entries = parseManifest(readFileSync(manifest.abs, 'utf8'), manifest.rel)
+    } catch (e) {
+      bad(`manifest ${manifest.rel} did not parse: ${e.message}`)
+      bad('supported: "<sha256>  <path>" lines, or JSON {"files":{"<path>":"<sha256>"}}')
+      // Keep going: one unreadable manifest must not hide a second one's
+      // mismatches, and reporting every problem at once beats one per run.
+      continue
+    }
+
     ok(`manifest ${manifest.rel} lists ${Object.keys(entries).length} file(s)`)
     let checked = 0
     for (const [rel, want] of Object.entries(entries)) {
       // Manifest paths are relative to the manifest's own directory.
       const key = `${dirPrefix}${rel}`.replace(/^\.\//, '')
+      covered.add(key)
       const got = dmg.modelShas[key]
       if (!got) {
-        bad(`manifest lists ${rel}, which is not in the bundled model`)
+        bad(`manifest ${manifest.rel} lists ${rel}, which is not in the bundled model`)
         continue
       }
       if (got !== want) {
@@ -418,18 +437,20 @@ if (!manifest) {
       }
       checked++
     }
-    if (checked === Object.keys(entries).length) ok(`every manifest hash matches the bundled file`)
-    // Weights present but unlisted are worth knowing about: an unverified file
-    // in the bundle is exactly what a manifest is supposed to rule out.
-    const unlisted = Object.keys(dmg.modelShas).filter(
-      (p) => !Object.keys(entries).some((rel) => `${dirPrefix}${rel}`.replace(/^\.\//, '') === p)
-    ).filter((p) => !MANIFEST_NAMES.includes(p.split('/').pop()))
-    if (unlisted.length) {
-      bad(`${unlisted.length} bundled model file(s) are not covered by the manifest:`)
-      for (const p of unlisted.slice(0, 10)) console.error(`          ? ${p}`)
-    } else {
-      ok('the manifest covers every bundled model file')
-    }
+    if (checked === Object.keys(entries).length)
+      ok(`every hash in ${manifest.rel} matches the bundled file`)
+  }
+
+  // A bundled weight that no manifest vouches for is exactly what a manifest
+  // exists to rule out. The manifests themselves are not self-covering.
+  const unlisted = Object.keys(dmg.modelShas)
+    .filter((p) => !covered.has(p))
+    .filter((p) => !MANIFEST_NAMES.includes(p.split('/').pop()))
+  if (unlisted.length) {
+    bad(`${unlisted.length} bundled model file(s) are covered by no manifest:`)
+    for (const p of unlisted.slice(0, 10)) console.error(`          ? ${p}`)
+  } else {
+    ok(`the ${manifests.length} manifest(s) cover every bundled model file`)
   }
 }
 
