@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChatSource } from '@shared/types'
 import Icon from '../Icon'
+import { useSiteIcon } from '../../lib/siteIcon'
 import PlexiiThinking from './PlexiiThinking'
 import { isOpenable } from '../../lib/sourceTarget'
 import { sourceIdentity } from '../../lib/sourceIdentity'
@@ -58,22 +59,13 @@ interface Props {
   onOpenSource?: (source: ChatSource) => void
 }
 
-// A web result's favicon, with an honest fallback: if the favicon service
-// has nothing (or the machine is offline), show the neutral connect mark
-// rather than a broken image.
+// A web result's favicon. Search results are sites the person did not choose,
+// so nothing is fetched for them: a cached icon if they linked that site before
+// (lib/siteIcon, cache only), otherwise the neutral connect mark.
 function WebFavicon({ domain }: { domain: string }): React.JSX.Element {
-  const [failed, setFailed] = useState(false)
-  if (failed) return <Icon name="hub" size={12} className="shrink-0 text-[var(--ink-50)]" />
-  return (
-    <img
-      src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`}
-      width={12}
-      height={12}
-      className="shrink-0 rounded-[3px]"
-      onError={() => setFailed(true)}
-      alt=""
-    />
-  )
+  const src = useSiteIcon(domain ? `https://${domain}` : null, false)
+  if (!src) return <Icon name="hub" size={12} className="shrink-0 text-[var(--ink-50)]" />
+  return <img src={src} width={12} height={12} className="shrink-0 rounded-[3px]" alt="" />
 }
 
 function domainOf(url: string): string {

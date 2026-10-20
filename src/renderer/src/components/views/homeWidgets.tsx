@@ -20,12 +20,12 @@ import { RailCard } from '../plexi'
 import Modal from '../plexi/Modal'
 import Icon from '../Icon'
 import AppLogo from '../AppLogo'
+import { useSiteIcon } from '../../lib/siteIcon'
 import AddConnectedAppDialog from '../AddConnectedAppDialog'
 import NewMeetingDialog from '../NewMeetingDialog'
 import type { ActivityEvent, FbNode, SearchHit } from '@shared/types'
 import {
   describeShortcutTarget,
-  faviconUrl,
   normalizeUrl,
   targetKey,
   urlLabel,
@@ -264,27 +264,19 @@ function ShortcutGlyph({
   apps: ConnectedApp[]
   size: number
 }): JSX.Element {
-  const [imgReady, setImgReady] = useState(false)
+  // The site's own icon (lib/siteIcon); the globe shows until it arrives and
+  // stays when the site has none, so the tile is never blank.
+  const src = useSiteIcon(target.kind === 'url' ? target.url : null)
   if (target.kind === 'url') {
-    // The globe shows immediately; the favicon replaces it only once it has
-    // actually loaded, so the tile is never blank while the network thinks.
-    const src = faviconUrl(target.url)
     return (
       <span
         className="relative inline-flex items-center justify-center shrink-0"
         style={{ width: size, height: size }}
       >
-        {!imgReady && <Icon name="language" size={size} className="text-indigo-500" />}
-        {src && (
-          <img
-            src={src}
-            alt=""
-            width={size}
-            height={size}
-            className={`absolute inset-0 rounded ${imgReady ? '' : 'opacity-0'}`}
-            onLoad={() => setImgReady(true)}
-            onError={() => setImgReady(false)}
-          />
+        {src ? (
+          <img src={src} alt="" width={size} height={size} className="absolute inset-0 rounded" />
+        ) : (
+          <Icon name="language" size={size} className="text-indigo-500" />
         )}
       </span>
     )
