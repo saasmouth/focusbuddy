@@ -7,6 +7,22 @@
 import { readFile } from 'node:fs/promises'
 import { extname } from 'node:path'
 import * as XLSX from 'xlsx'
+import * as nodeFs from 'fs'
+
+// SheetJS 0.20 stopped auto-requiring node's fs so bundlers do not pull it in,
+// so readFile needs it handed over explicitly.
+//
+// The failure mode is silence, not an exception: writeFile writes nothing and
+// readFile then reports it cannot access the file. It depends on module
+// format. Under CommonJS, which is what this app's main process is built as,
+// SheetJS still finds fs on its own, so the 0.18 to 0.20 bump did not break
+// the shipped import — the vitest (ESM) run is where it surfaced.
+//
+// Binding it anyway, because "works only because the bundle happens to be
+// CommonJS" is a trap set for whoever changes the build format, and the
+// symptom they would get is a file import that fails with no error to explain
+// it.
+XLSX.set_fs(nodeFs)
 import type { TableSchema, FieldDefinition } from '@shared/fields'
 import { inferColumnType } from '@shared/gridInfer'
 import { parseCsv, type ImportTableDraft } from './fileImport'
