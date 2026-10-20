@@ -21,6 +21,18 @@
  * empty skeleton the original clause rightly guarded against — but the
  * distinction it was missing: write the prose freely, never assert an
  * unsupplied specific as fact.
+ *
+ * DELIBERATELY NOT HERE: a clause restraining placeholder use ("use them
+ * sparingly, most good writing needs none"). It reads like an obvious
+ * improvement — telling a model to write "[launch date]" rather than guess
+ * invites a draft peppered with brackets — and it was added on that reasoning
+ * alone, with no measurement. It was wrong twice over. The eval had ALREADY
+ * shown the feared regression was not happening: drafts got longer under this
+ * rule, 8.4k to 10.2k characters, not thinner. And the one run with the
+ * restraint scored cloud 21/34 against 26/34 without it. One sample per task,
+ * so 5 is near the noise floor, but a change with no measured benefit and a
+ * possible cost does not get the benefit of the doubt. If placeholder spam
+ * ever shows up in real drafts, measure it first and bring the numbers.
  */
 export const GROUNDING_RULE =
   ' Ground every specific in what you were given. Write the prose, the structure and ordinary' +
@@ -31,10 +43,7 @@ export const GROUNDING_RULE =
   ' Where such a specific is genuinely needed and was not supplied, write a short bracketed' +
   ' placeholder like [launch date] or [owner name] instead of a plausible guess. A placeholder' +
   ' costs the user seconds to fill in; an invented figure they do not notice can reach a customer.' +
-  ' Use placeholders sparingly: most good writing needs none, and a draft peppered with brackets' +
-  ' is as useless as one full of invention. Reach for one only where a specific is unavoidable and' +
-  ' absent, never as a way to avoid writing. Prefer a shorter, fully grounded draft over a fuller' +
-  ' one that is partly fiction.'
+  ' Prefer a shorter, fully grounded draft over a fuller one that is partly fiction.'
 
 export const SHEET_DATA_RULE =
   ' This data is a starting point the user will replace, so make the shape and formats realistic' +
