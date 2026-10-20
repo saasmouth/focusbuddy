@@ -1,0 +1,41 @@
+{
+  "model": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+  "diskBytes": 2497281120,
+  "machine": {
+    "cpu": "Apple M5",
+    "cores": 10,
+    "ramGB": 24,
+    "platform": "darwin-arm64"
+  },
+  "runtime": {
+    "nodeLlamaCpp": "3.22.1",
+    "gpu": "metal",
+    "node": "v25.9.0"
+  },
+  "contextSize": 16384,
+  "kvCache": "q8_0",
+  "timings": {
+    "getLlamaMs": 76,
+    "loadMs": 2273,
+    "prefillPromptTokens": 5976,
+    "prefillTtftMs": 11576,
+    "prefillTokPerSec": 516,
+    "followupTtftMs": 483,
+    "genTokens": 363,
+    "genTokPerSec": 35.1,
+    "shortTtftMs": 92
+  },
+  "memory": {
+    "rssBeforeMB": 83,
+    "rssAfterLoadMB": 4007,
+    "rssAfterRunMB": 3854,
+    "gpuUsedBeforeMB": 0,
+    "gpuUsedAfterLoadMB": 3902,
+    "gpuUsedAfterRunMB": 3902,
+    "unifiedMemory": true
+  },
+  "samples": {
+    "summary": "This document outlines a phased approach to improving the in-app browser experience in a desktop application by addressing login failures, Chrome extension support, and canvas fluidity through a hybrid architecture that balances real Chromium fidelity with seamless integration into the user interface.\n\n1. The current `<webview>` browser is real Chromium but has defects like missing User-Agent and ",
+    "followup": "The document states that Widevine DRM content (like Netflix or Disney+) does not play in the browser widget because Electron ships without a Widevine content decryption module, and a fix involving cas"
+  }
+}

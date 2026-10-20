@@ -1,0 +1,3086 @@
+{
+  "label": "granite-4.2-3b-q4km",
+  "target": "local",
+  "model": "granite-4.2-3b-Q4_K_M.gguf",
+  "contextSize": 32768,
+  "kvCache": "f16",
+  "startedAt": "2026-10-20T03:26:40.132Z",
+  "finishedAt": "2026-10-20T03:43:22.464Z",
+  "machine": {
+    "cpu": "Apple M5",
+    "ramGB": 24,
+    "platform": "darwin-arm64"
+  },
+  "judge": {
+    "model": "claude-sonnet-5-5",
+    "passScore": 4
+  },
+  "egress": [],
+  "blocked": [],
+  "results": [
+    {
+      "id": "qa-launch-date",
+      "family": "desk_qa",
+      "prompt": "When is the launch now, and why did it move?",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "facts present",
+          "ok": true,
+          "detail": "/14(th)?\\s+nov|nov\\w*\\.?\\s+14/i + payment"
+        },
+        {
+          "name": "no stray actions",
+          "ok": true,
+          "detail": "0 proposals"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 4,
+        "reason": "Correct date and reason that directly answer the question, but it calls the source a 'launch date widget' when the desk note is a sticky."
+      },
+      "passed": true,
+      "ms": 28067,
+      "engine": {
+        "input": 8112,
+        "output": 47,
+        "calls": 1
+      },
+      "text": "The launch is now scheduled for 14 November 2026. It moved because the payments review slipped, as noted in the launch date widget [1].",
+      "data": {
+        "proposals": [],
+        "question": null
+      }
+    },
+    {
+      "id": "qa-team-price",
+      "family": "desk_qa",
+      "prompt": "How much is the Team plan?",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "facts present",
+          "ok": true,
+          "detail": "$29"
+        },
+        {
+          "name": "no stray actions",
+          "ok": true,
+          "detail": "0 proposals"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 5,
+        "reason": "The answer states $29 per month per seat, which matches the desk note exactly, answers the question directly, and adds nothing invented."
+      },
+      "passed": true,
+      "ms": 36688,
+      "engine": {
+        "input": 8499,
+        "output": 48,
+        "calls": 2
+      },
+      "text": "The Team plan costs $29 per month per seat.",
+      "data": {
+        "proposals": [],
+        "question": null
+      }
+    },
+    {
+      "id": "qa-demo-owner",
+      "family": "desk_qa",
+      "prompt": "Who owns the demo video and what is its status?",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "facts present",
+          "ok": true,
+          "detail": "Priya + /to ?do|not started/i"
+        },
+        {
+          "name": "no stray actions",
+          "ok": true,
+          "detail": "0 proposals"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 3,
+        "reason": "Correctly names Priya as owner, but the status is given as the malformed 'o-todo' instead of 'Todo', which is a noticeable accuracy flaw."
+      },
+      "passed": false,
+      "ms": 8203,
+      "engine": {
+        "input": 8138,
+        "output": 29,
+        "calls": 1
+      },
+      "text": "Priya owns the demo video and its status is o-todo.",
+      "data": {
+        "proposals": [],
+        "question": null
+      }
+    },
+    {
+      "id": "qa-open-tasks",
+      "family": "desk_qa",
+      "prompt": "Which launch tasks are not done yet?",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "facts present",
+          "ok": false,
+          "detail": "/press release/i + /demo video/i + /stripe tax/i"
+        },
+        {
+          "name": "no stray actions",
+          "ok": true,
+          "detail": "0 proposals"
+        }
+      ],
+      "checksPassed": false,
+      "verdict": null,
+      "passed": false,
+      "ms": 5134,
+      "engine": {
+        "input": 8148,
+        "output": 33,
+        "calls": 1
+      },
+      "text": "The following launch tasks are not done yet: Record demo video, Set up Stripe tax.",
+      "data": {
+        "proposals": [],
+        "question": null
+      }
+    },
+    {
+      "id": "qa-risks",
+      "family": "desk_qa",
+      "prompt": "What are the main risks to the launch?",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "facts present",
+          "ok": true,
+          "detail": "/app store/i + /stripe/i + /beta|feedback/i"
+        },
+        {
+          "name": "no stray actions",
+          "ok": true,
+          "detail": "0 proposals"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 5,
+        "reason": "The answer lists exactly the three risks stated on the desk (App Store review up to 5 days, Stripe tax not done, only 2 of 6 beta testers sent feedback), answers the question directly, and adds nothing invented."
+      },
+      "passed": true,
+      "ms": 5695,
+      "engine": {
+        "input": 7887,
+        "output": 49,
+        "calls": 1
+      },
+      "text": "The main risks are: App Store review taking up to 5 days, Stripe tax setup not done, and only 2 of 6 beta testers have sent feedback.",
+      "data": {
+        "proposals": [],
+        "question": null
+      }
+    },
+    {
+      "id": "qa-beta",
+      "family": "desk_qa",
+      "prompt": "How many beta testers have sent feedback so far?",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "facts present",
+          "ok": false,
+          "detail": "/\\b2\\b|two/i + /\\b6\\b|six/i"
+        },
+        {
+          "name": "no stray actions",
+          "ok": true,
+          "detail": "0 proposals"
+        }
+      ],
+      "checksPassed": false,
+      "verdict": null,
+      "passed": false,
+      "ms": 11582,
+      "engine": {
+        "input": 8134,
+        "output": 29,
+        "calls": 1
+      },
+      "text": "Only 2 beta testers have sent feedback so far [2].",
+      "data": {
+        "proposals": [],
+        "question": null
+      }
+    },
+    {
+      "id": "prop-todo",
+      "family": "proposals",
+      "prompt": "Make me a checklist for launch day: send the announcement email, post on LinkedIn, watch signups, reply to support tickets.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "create-todo-list proposed",
+          "ok": true
+        },
+        {
+          "name": "has the 4 items",
+          "ok": true,
+          "detail": "4 items"
+        },
+        {
+          "name": "items are the requested ones",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": null,
+      "passed": true,
+      "ms": 30812,
+      "engine": {
+        "input": 8268,
+        "output": 166,
+        "calls": 2
+      },
+      "text": "Creating a launch-day checklist with the requested actions.",
+      "data": {
+        "proposals": [
+          {
+            "id": "todo-mvg4j06b-0",
+            "kind": "create-todo-list",
+            "title": "Launch day checklist",
+            "items": [
+              "Send announcement email",
+              "Post on LinkedIn",
+              "Watch signups",
+              "Reply to support tickets"
+            ],
+            "reason": "covers all required launch-day tasks clearly and sequentially."
+          }
+        ],
+        "question": null
+      }
+    },
+    {
+      "id": "prop-table",
+      "family": "proposals",
+      "prompt": "Create a table to track press contacts with their name, outlet, email and status.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "create-table proposed",
+          "ok": true
+        },
+        {
+          "name": "requested columns",
+          "ok": true,
+          "detail": "Name | Outlet | Email | Status"
+        },
+        {
+          "name": "status has options",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": null,
+      "passed": true,
+      "ms": 14265,
+      "engine": {
+        "input": 7982,
+        "output": 173,
+        "calls": 1
+      },
+      "text": "Creating a press contacts table to track name, outlet, email, and status.",
+      "data": {
+        "proposals": [
+          {
+            "id": "press-contacts",
+            "kind": "create-table",
+            "title": "Press Contacts",
+            "columns": [
+              {
+                "label": "Name",
+                "type": "text-short"
+              },
+              {
+                "label": "Outlet",
+                "type": "text-short"
+              },
+              {
+                "label": "Email",
+                "type": "text-long"
+              },
+              {
+                "label": "Status",
+                "type": "single-select",
+                "options": [
+                  "Pending",
+                  "Contacted",
+                  "Follow-up",
+                  "Done"
+                ]
+              }
+            ],
+            "reason": "tracks press contacts for the launch"
+          }
+        ],
+        "question": null
+      }
+    },
+    {
+      "id": "prop-add-row",
+      "family": "proposals",
+      "prompt": "Add a row to the Launch tasks table: \"Update the pricing page\", owner Alex, status Todo.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "add-table-row proposed",
+          "ok": true
+        },
+        {
+          "name": "targets the real table",
+          "ok": false,
+          "detail": "$tbl-launch"
+        },
+        {
+          "name": "cells carry the row",
+          "ok": true,
+          "detail": "{\"Task\":\"Update the pricing page\",\"Owner\":\"Alex\",\"Status\":\"todo\"}"
+        }
+      ],
+      "checksPassed": false,
+      "verdict": null,
+      "passed": false,
+      "ms": 19814,
+      "engine": {
+        "input": 8248,
+        "output": 109,
+        "calls": 1
+      },
+      "text": "Adding the new pricing update task to the Launch tasks table.",
+      "data": {
+        "proposals": [
+          {
+            "id": "row-mvg4jqfd-0",
+            "kind": "add-table-row",
+            "tableId": "$tbl-launch",
+            "cells": {
+              "Task": "Update the pricing page",
+              "Owner": "Alex",
+              "Status": "todo"
+            },
+            "reason": "Completes the pricing tracking as requested."
+          }
+        ],
+        "question": null
+      }
+    },
+    {
+      "id": "prop-set-cell",
+      "family": "proposals",
+      "prompt": "Change the status of \"Record demo video\" to Doing.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "set-cell proposed",
+          "ok": false
+        },
+        {
+          "name": "targets the real row",
+          "ok": false,
+          "detail": ""
+        },
+        {
+          "name": "sets Doing",
+          "ok": false,
+          "detail": ""
+        }
+      ],
+      "checksPassed": false,
+      "verdict": null,
+      "passed": false,
+      "ms": 30413,
+      "engine": {
+        "input": 8600,
+        "output": 145,
+        "calls": 2
+      },
+      "text": "Updating the status of 'Record demo video' to Doing.",
+      "data": {
+        "proposals": [
+          {
+            "id": "todo-mvg4ke0d-0",
+            "kind": "toggle-todo-item",
+            "widgetId": "a7551fa0-9ae2-444f-9613-bbf34d29705b",
+            "widgetLabel": "Launch tasks",
+            "itemMatch": "Record demo video",
+            "checked": true,
+            "reason": "User requested to change status from todo to doing."
+          }
+        ],
+        "question": null
+      }
+    },
+    {
+      "id": "prop-sticky",
+      "family": "proposals",
+      "prompt": "Put a sticky note on this desk that says \"Call Stripe support Monday 10am\".",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "create-widget proposed",
+          "ok": true
+        },
+        {
+          "name": "sticky kind",
+          "ok": true,
+          "detail": "sticky"
+        },
+        {
+          "name": "content",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": null,
+      "passed": true,
+      "ms": 9237,
+      "engine": {
+        "input": 7983,
+        "output": 99,
+        "calls": 1
+      },
+      "text": "Adding the sticky note as requested.",
+      "data": {
+        "proposals": [
+          {
+            "id": "cw-mvg4kl73-0",
+            "kind": "create-widget",
+            "widgetKind": "sticky",
+            "title": "Call Stripe support Monday 10am",
+            "content": "Call Stripe support Monday 10am",
+            "reason": "User asked to put a sticky note on this desk with that exact text."
+          }
+        ],
+        "question": null
+      }
+    },
+    {
+      "id": "prop-desk-status",
+      "family": "proposals",
+      "prompt": "Mark this desk as in progress.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "update-task proposed",
+          "ok": true
+        },
+        {
+          "name": "the current desk",
+          "ok": true,
+          "detail": "desk-launch"
+        },
+        {
+          "name": "status in_progress",
+          "ok": true,
+          "detail": "in_progress"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": null,
+      "passed": true,
+      "ms": 7220,
+      "engine": {
+        "input": 7972,
+        "output": 77,
+        "calls": 1
+      },
+      "text": "Marking the desk as in progress.",
+      "data": {
+        "proposals": [
+          {
+            "id": "utask-mvg4kqrs-0",
+            "kind": "update-task",
+            "taskId": "desk-launch",
+            "label": "this task",
+            "status": "in_progress",
+            "reason": "The launch is underway and requires active tracking."
+          }
+        ],
+        "question": null
+      }
+    },
+    {
+      "id": "prop-schedule",
+      "family": "proposals",
+      "prompt": "Schedule a 30 minute launch rehearsal tomorrow at 3pm UTC.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "schedule-event proposed",
+          "ok": true
+        },
+        {
+          "name": "30 minutes",
+          "ok": true,
+          "detail": "30"
+        },
+        {
+          "name": "tomorrow 15:00 UTC",
+          "ok": false,
+          "detail": "2026-06-07T02:40:00.000Z"
+        }
+      ],
+      "checksPassed": false,
+      "verdict": null,
+      "passed": false,
+      "ms": 4918,
+      "engine": {
+        "input": 7979,
+        "output": 101,
+        "calls": 1
+      },
+      "text": "Scheduling the 30‑minute launch rehearsal for tomorrow at 3 pm UTC.",
+      "data": {
+        "proposals": [
+          {
+            "id": "evt-mvg4kukf-0",
+            "kind": "schedule-event",
+            "title": "Launch rehearsal",
+            "startMs": 1780800000000,
+            "durationMinutes": 30,
+            "recurrence": null,
+            "reason": "tomorrow at 3pm UTC as requested"
+          }
+        ],
+        "question": null
+      }
+    },
+    {
+      "id": "prop-mail",
+      "family": "proposals",
+      "prompt": "Draft an email to Priya asking her to send the demo video by Friday.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "compose-mail proposed",
+          "ok": false
+        },
+        {
+          "name": "body asks for the demo video",
+          "ok": false
+        },
+        {
+          "name": "does not claim it was sent",
+          "ok": true,
+          "detail": "I'll draft an email to Priya requesting the demo video by Friday. Please confirm if you'd like me to include any specific details (e.g., deadline date, referenc"
+        }
+      ],
+      "checksPassed": false,
+      "verdict": null,
+      "passed": false,
+      "ms": 3799,
+      "engine": {
+        "input": 8230,
+        "output": 56,
+        "calls": 1
+      },
+      "text": "I'll draft an email to Priya requesting the demo video by Friday. Please confirm if you'd like me to include any specific details (e.g., deadline date, reference to the task).",
+      "data": {
+        "proposals": [],
+        "question": null
+      }
+    },
+    {
+      "id": "prop-remember",
+      "family": "proposals",
+      "prompt": "Remember that our launch partner is Northwind Traders.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "create-knowledge-entry proposed",
+          "ok": false
+        },
+        {
+          "name": "body has the fact",
+          "ok": false
+        }
+      ],
+      "checksPassed": false,
+      "verdict": null,
+      "passed": false,
+      "ms": 1517,
+      "engine": {
+        "input": 7976,
+        "output": 26,
+        "calls": 1
+      },
+      "text": "Noted: launch partner is Northwind Traders.",
+      "data": {
+        "proposals": [],
+        "question": null
+      }
+    },
+    {
+      "id": "build-birthday",
+      "family": "build",
+      "prompt": "A desk for planning my sister's 30th birthday party.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "built",
+          "ok": true
+        },
+        {
+          "name": ">= 2 work widgets",
+          "ok": true,
+          "detail": "4"
+        },
+        {
+          "name": "tables configured (>=3 columns)",
+          "ok": true
+        },
+        {
+          "name": "select columns have options",
+          "ok": true
+        },
+        {
+          "name": "pages have content",
+          "ok": true
+        },
+        {
+          "name": "text widgets have text",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 2,
+        "reason": "The desk is small and on-topic, but it is thin and generic: the tasks table has only three columns and no starter rows, and the page's bulletList/taskList nodes put text directly inside the list without listItem wrappers, so they are malformed. The themes (Carnival, Beach, Festive) were never asked for and are made up, and nothing covers budget, guests/RSVPs, or the venue/date, so important parts are missing."
+      },
+      "passed": false,
+      "ms": 48218,
+      "engine": {
+        "input": 1609,
+        "output": 811,
+        "calls": 1
+      },
+      "text": "{\"intent\":\"Create a comprehensive workspace to plan a sister's 30th birthday party, including tracking tasks, notes, and references.\",\"suggestions\":[{\"id\":\"s1\",\"kind\":\"table\",\"title\":\"Birthday party tasks\",\"reason\":\"Track all required tasks for the party with status and due date.\",\"tableSchema\":{\"columns\":[{\"id\":\"c1\",\"type\":\"text-short\",\"label\":\"Task\",\"config\":{}},{\"id\":\"c2\",\"type\":\"single-select\",\"label\":\"Status\",\"config\":{\"options\":[{\"id\":\"o1\",\"label\":\"Not started\",\"color\":\"#f39c12\"},{\"id\":\"o2\",\"label\":\"In progress\",\"color\":\"#e74c3c\"},{\"id\":\"o3\",\"label\":\"Done\",\"color\":\"#27ae60\"}]}},{\"id\":\"c3\",\"type\":\"date\",\"label\":\"Due date\",\"config\":{}}]}},{\"id\":\"s2\",\"kind\":\"page\",\"title\":\"Party planning notes\",\"reason\":\"Capture ideas, decisions, and references for the party.\",\"pageContent\":{\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":1},\"content\":[{\"type\":\"text\",\"text\":\"30th Birthday Party Plan\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Overview of key details and next steps.\"}]},{\"type\":\"bulletList\",\"content\":[{\"type\":\"text\",\"text\":\"- Theme: ?\"}]},{\"type\":\"bulletList\",\"content\":[{\"type\":\"text\",\"text\":\"- Guest list: ?\"}]},{\"type\":\"taskList\",\"content\":[{\"type\":\"text\",\"text\":\"- Confirm venue\"},{\"type\":\"text\",\"text\":\"- Choose menu\"},{\"type\":\"text\",\"text\":\"- Arrange decorations\"}]}]}},{\"id\":\"s3\",\"kind\":\"field\",\"title\":\"Party theme\",\"reason\":\"Single value to quickly see or change the party theme.\",\"fieldDef\":{\"id\":\"t1\",\"type\":\"single-select\",\"label\":\"Theme\",\"config\":{\"options\":[{\"id\":\"o1\",\"label\":\"Carnival\",\"color\":\"#e67e22\"},{\"id\":\"o2\",\"label\":\"Beach\",\"color\":\"#3498db\"},{\"id\":\"o3\",\"label\":\"Festive\",\"color\":\"#f5c542\"}]}}},{\"id\":\"s4\",\"kind\":\"field\",\"title\":\"Preferred guest count\",\"reason\":\"Quickly see or update the expected number of guests.\",\"fieldDef\":{\"id\":\"g1\",\"type\":\"number\",\"label\":\"Guest count\",\"config\":{}}}]}",
+      "data": {
+        "ok": true,
+        "intent": "Create a comprehensive workspace to plan a sister's 30th birthday party, including tracking tasks, notes, and references.",
+        "suggestions": [
+          {
+            "id": "s1",
+            "kind": "table",
+            "title": "Birthday party tasks",
+            "reason": "Track all required tasks for the party with status and due date.",
+            "tableSchema": {
+              "columns": [
+                {
+                  "id": "c1",
+                  "type": "text-short",
+                  "label": "Task",
+                  "config": {}
+                },
+                {
+                  "id": "c2",
+                  "type": "single-select",
+                  "label": "Status",
+                  "config": {
+                    "options": [
+                      {
+                        "id": "o1",
+                        "label": "Not started",
+                        "color": "#f39c12"
+                      },
+                      {
+                        "id": "o2",
+                        "label": "In progress",
+                        "color": "#e74c3c"
+                      },
+                      {
+                        "id": "o3",
+                        "label": "Done",
+                        "color": "#27ae60"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "c3",
+                  "type": "date",
+                  "label": "Due date",
+                  "config": {}
+                }
+              ]
+            }
+          },
+          {
+            "id": "s2",
+            "kind": "page",
+            "title": "Party planning notes",
+            "reason": "Capture ideas, decisions, and references for the party.",
+            "pageContent": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 1
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "30th Birthday Party Plan"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Overview of key details and next steps."
+                    }
+                  ]
+                },
+                {
+                  "type": "bulletList",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "- Theme: ?"
+                    }
+                  ]
+                },
+                {
+                  "type": "bulletList",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "- Guest list: ?"
+                    }
+                  ]
+                },
+                {
+                  "type": "taskList",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "- Confirm venue"
+                    },
+                    {
+                      "type": "text",
+                      "text": "- Choose menu"
+                    },
+                    {
+                      "type": "text",
+                      "text": "- Arrange decorations"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "s3",
+            "kind": "field",
+            "title": "Party theme",
+            "reason": "Single value to quickly see or change the party theme.",
+            "fieldDef": {
+              "id": "t1",
+              "type": "single-select",
+              "label": "Theme",
+              "config": {
+                "options": [
+                  {
+                    "id": "o1",
+                    "label": "Carnival",
+                    "color": "#e67e22"
+                  },
+                  {
+                    "id": "o2",
+                    "label": "Beach",
+                    "color": "#3498db"
+                  },
+                  {
+                    "id": "o3",
+                    "label": "Festive",
+                    "color": "#f5c542"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "s4",
+            "kind": "field",
+            "title": "Preferred guest count",
+            "reason": "Quickly see or update the expected number of guests.",
+            "fieldDef": {
+              "id": "g1",
+              "type": "number",
+              "label": "Guest count",
+              "config": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "build-reading",
+      "family": "build",
+      "prompt": "Track my reading list: books, authors, status and my rating.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "built",
+          "ok": true
+        },
+        {
+          "name": ">= 1 work widgets",
+          "ok": true,
+          "detail": "2"
+        },
+        {
+          "name": "tables configured (>=3 columns)",
+          "ok": true
+        },
+        {
+          "name": "select columns have options",
+          "ok": true
+        },
+        {
+          "name": "pages have content",
+          "ok": true
+        },
+        {
+          "name": "text widgets have text",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 4,
+        "reason": "The table has the requested columns (title, author, status with select options, rating, plus notes) and fits the request, and the page is a sensible companion, but the page holds only a heading and one line of starter content, and the rating column has no min/max config."
+      },
+      "passed": true,
+      "ms": 25070,
+      "engine": {
+        "input": 1610,
+        "output": 498,
+        "calls": 1
+      },
+      "text": "{\"intent\":\"Create a table to track reading list items (books, authors, status, rating) and a page for notes about the reading.\",\"suggestions\":[{\"id\":\"s1\",\"kind\":\"table\",\"title\":\"Reading List Tracker\",\"reason\":\"Track each book with title, author, status, and rating in a structured table.\",\"tableSchema\":{\"columns\":[{\"id\":\"c1\",\"type\":\"text-short\",\"label\":\"Book Title\",\"config\":{}},{\"id\":\"c2\",\"type\":\"text-short\",\"label\":\"Author\",\"config\":{}},{\"id\":\"c3\",\"type\":\"single-select\",\"label\":\"Status\",\"config\":{\"options\":[{\"id\":\"o1\",\"label\":\"To Read\",\"color\":\"#ef4444\"},{\"id\":\"o2\",\"label\":\"Reading\",\"color\":\"#f97316\"},{\"id\":\"o3\",\"label\":\"Done\",\"color\":\"#22c55e\"}]}},{\"id\":\"c4\",\"type\":\"number\",\"label\":\"Rating (1-5)\",\"config\":{}},{\"id\":\"c5\",\"type\":\"text-short\",\"label\":\"Notes\",\"config\":{}}]}},{\"id\":\"s2\",\"kind\":\"page\",\"title\":\"Reading List Notes\",\"reason\":\"Provide a space to record thoughts, summaries, or reflections about each book.\",\"pageContent\":{\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":1},\"content\":[{\"type\":\"text\",\"text\":\"Reading List Notes\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Use this section for personal notes, favorite passages, or recommendations.\"}]}]}}]}",
+      "data": {
+        "ok": true,
+        "intent": "Create a table to track reading list items (books, authors, status, rating) and a page for notes about the reading.",
+        "suggestions": [
+          {
+            "id": "s1",
+            "kind": "table",
+            "title": "Reading List Tracker",
+            "reason": "Track each book with title, author, status, and rating in a structured table.",
+            "tableSchema": {
+              "columns": [
+                {
+                  "id": "c1",
+                  "type": "text-short",
+                  "label": "Book Title",
+                  "config": {}
+                },
+                {
+                  "id": "c2",
+                  "type": "text-short",
+                  "label": "Author",
+                  "config": {}
+                },
+                {
+                  "id": "c3",
+                  "type": "single-select",
+                  "label": "Status",
+                  "config": {
+                    "options": [
+                      {
+                        "id": "o1",
+                        "label": "To Read",
+                        "color": "#ef4444"
+                      },
+                      {
+                        "id": "o2",
+                        "label": "Reading",
+                        "color": "#f97316"
+                      },
+                      {
+                        "id": "o3",
+                        "label": "Done",
+                        "color": "#22c55e"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "c4",
+                  "type": "number",
+                  "label": "Rating (1-5)",
+                  "config": {}
+                },
+                {
+                  "id": "c5",
+                  "type": "text-short",
+                  "label": "Notes",
+                  "config": {}
+                }
+              ]
+            }
+          },
+          {
+            "id": "s2",
+            "kind": "page",
+            "title": "Reading List Notes",
+            "reason": "Provide a space to record thoughts, summaries, or reflections about each book.",
+            "pageContent": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 1
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Reading List Notes"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Use this section for personal notes, favorite passages, or recommendations."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "build-interview",
+      "family": "build",
+      "prompt": "Prepare for a job interview at a fintech company next week.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "built",
+          "ok": true
+        },
+        {
+          "name": ">= 2 work widgets",
+          "ok": true,
+          "detail": "4"
+        },
+        {
+          "name": "tables configured (>=3 columns)",
+          "ok": false,
+          "detail": "Interview preparation checklist"
+        },
+        {
+          "name": "select columns have options",
+          "ok": true
+        },
+        {
+          "name": "pages have content",
+          "ok": true
+        },
+        {
+          "name": "text widgets have text",
+          "ok": true
+        }
+      ],
+      "checksPassed": false,
+      "verdict": null,
+      "passed": false,
+      "ms": 38203,
+      "engine": {
+        "input": 1609,
+        "output": 686,
+        "calls": 1
+      },
+      "text": "{\"intent\":\"Prepare for a job interview at a fintech company next week.\",\"suggestions\":[{\"id\":\"s1\",\"kind\":\"table\",\"title\":\"Interview preparation checklist\",\"reason\":\"Track tasks needed to prepare for the interview, including questions, topics, and status.\",\"tableSchema\":{\"columns\":[{\"id\":\"c1\",\"type\":\"text-short\",\"label\":\"Task\",\"config\":{}},{\"id\":\"c2\",\"type\":\"single-select\",\"label\":\"Status\",\"config\":{\"options\":[{\"id\":\"o1\",\"label\":\"Not Started\",\"color\":\"#cccccc\"},{\"id\":\"o2\",\"label\":\"In Progress\",\"color\":\"#28a745\"},{\"id\":\"o3\",\"label\":\"Done\",\"color\":\"#28a745\"}]}}]}},{\"id\":\"s2\",\"kind\":\"page\",\"title\":\"Interview notes and questions\",\"reason\":\"Capture key interview topics, questions to prepare answers for, and personal talking points.\",\"pageContent\":{\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":1},\"content\":[{\"type\":\"text\",\"text\":\"Interview Preparation\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Use this space to record your thoughts, answers, and reflections during preparation.\"}]},{\"type\":\"bulletList\",\"content\":[{\"type\":\"text\",\"text\":\"- Review company background and fintech trends.\"}]},{\"type\":\"bulletList\",\"content\":[{\"type\":\"text\",\"text\":\"- Prepare examples of projects or experiences relevant to fintech.\"}]},{\"type\":\"taskList\",\"content\":[{\"type\":\"text\",\"text\":\"- Draft answers for common interview questions.\"}]}]}},{\"id\":\"s3\",\"kind\":\"field\",\"title\":\"Interview date\",\"reason\":\"Single value to quickly see the scheduled interview day.\",\"fieldDef\":{\"id\":\"interviewDate\",\"type\":\"date\",\"label\":\"Interview Date\",\"config\":{}}},{\"id\":\"s4\",\"kind\":\"sticky\",\"title\":\"Key fintech concepts to review\",\"reason\":\"Small note reminding you of important topics (e.g., blockchain, payments, compliance).\",\"content\":[\"Learn about real-time payments, API design in fintech, and regulatory basics.\"],\"note\":\"Plain text content for quick reference.\"}]}",
+      "data": {
+        "ok": true,
+        "intent": "Prepare for a job interview at a fintech company next week.",
+        "suggestions": [
+          {
+            "id": "s1",
+            "kind": "table",
+            "title": "Interview preparation checklist",
+            "reason": "Track tasks needed to prepare for the interview, including questions, topics, and status.",
+            "tableSchema": {
+              "columns": [
+                {
+                  "id": "c1",
+                  "type": "text-short",
+                  "label": "Task",
+                  "config": {}
+                },
+                {
+                  "id": "c2",
+                  "type": "single-select",
+                  "label": "Status",
+                  "config": {
+                    "options": [
+                      {
+                        "id": "o1",
+                        "label": "Not Started",
+                        "color": "#cccccc"
+                      },
+                      {
+                        "id": "o2",
+                        "label": "In Progress",
+                        "color": "#28a745"
+                      },
+                      {
+                        "id": "o3",
+                        "label": "Done",
+                        "color": "#28a745"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "s2",
+            "kind": "page",
+            "title": "Interview notes and questions",
+            "reason": "Capture key interview topics, questions to prepare answers for, and personal talking points.",
+            "pageContent": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 1
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Interview Preparation"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Use this space to record your thoughts, answers, and reflections during preparation."
+                    }
+                  ]
+                },
+                {
+                  "type": "bulletList",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "- Review company background and fintech trends."
+                    }
+                  ]
+                },
+                {
+                  "type": "bulletList",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "- Prepare examples of projects or experiences relevant to fintech."
+                    }
+                  ]
+                },
+                {
+                  "type": "taskList",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "- Draft answers for common interview questions."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "s3",
+            "kind": "field",
+            "title": "Interview date",
+            "reason": "Single value to quickly see the scheduled interview day.",
+            "fieldDef": {
+              "id": "interviewDate",
+              "type": "date",
+              "label": "Interview Date",
+              "config": {}
+            }
+          },
+          {
+            "id": "s4",
+            "kind": "sticky",
+            "title": "Key fintech concepts to review",
+            "reason": "Small note reminding you of important topics (e.g., blockchain, payments, compliance).",
+            "content": [
+              "Learn about real-time payments, API design in fintech, and regulatory basics."
+            ],
+            "note": "Plain text content for quick reference."
+          }
+        ]
+      }
+    },
+    {
+      "id": "build-campaign",
+      "family": "build",
+      "prompt": "Run a six-week content marketing campaign for a B2B SaaS launch with a team of three: calendar, channels, owners, budget and results.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "built",
+          "ok": true
+        },
+        {
+          "name": ">= 4 work widgets",
+          "ok": false,
+          "detail": "2"
+        },
+        {
+          "name": "tables configured (>=3 columns)",
+          "ok": true
+        },
+        {
+          "name": "select columns have options",
+          "ok": true
+        },
+        {
+          "name": "pages have content",
+          "ok": true
+        },
+        {
+          "name": "text widgets have text",
+          "ok": true
+        }
+      ],
+      "checksPassed": false,
+      "verdict": null,
+      "passed": false,
+      "ms": 67216,
+      "engine": {
+        "input": 1808,
+        "output": 1090,
+        "calls": 1
+      },
+      "text": "{\"intent\":\"Create a six-week content marketing campaign plan for a B2B SaaS launch, tracking calendar, channels, owners, budget and results across three team members.\",\"suggestions\":[{\"id\":\"s1\",\"kind\":\"table\",\"title\":\"Campaign timeline\",\"reason\":\"Track weekly milestones, tasks, owners, budgets, and results for the six-week content marketing campaign.\",\"tableSchema\":{\"columns\":[{\"id\":\"c1\",\"type\":\"text-short\",\"label\":\"Week\"},{\"id\":\"c2\",\"type\":\"text-short\",\"label\":\"Task\"},{\"id\":\"c3\",\"type\":\"single-select\",\"label\":\"Status\",\"config\":{\"options\":[{\"id\":\"o1\",\"label\":\"Todo\",\"color\":\"#ef4444\"},{\"id\":\"o2\",\"label\":\"Doing\",\"color\":\"#f97316\"},{\"id\":\"o3\",\"label\":\"Done\",\"color\":\"#22c55e\"}]}},{\"id\":\"c4\",\"type\":\"text-short\",\"label\":\"Owner\"},{\"id\":\"c5\",\"type\":\"number\",\"label\":\"Budget (USD)\",\"config\":{}},{\"id\":\"c6\",\"type\":\"text-short\",\"label\":\"Channel(s)\",\"config\":{}}]}},{\"id\":\"s2\",\"kind\":\"page\",\"title\":\"Campaign brief and notes\",\"reason\":\"Provide a structured document for planning, decisions, and ongoing updates during the six-week campaign.\",\"pageContent\":{\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":1},\"content\":[{\"type\":\"text\",\"text\":\"B2B SaaS Launch Content Marketing Campaign\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Campaign runs for six weeks starting from the launch date: 14 November 2026.\"}]},{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Key Team Members\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Calendar – Sam (overall schedule)\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Channels – Priya (content & distribution)\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Owners – Alex (technical setup), Sam (coordination), Priya (editorial)\"}]},{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Budget Overview\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Total budget: $5,000. Allocation per week based on priority channels.\"}]},{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Results Tracking\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Weekly metrics: impressions, engagement rate, leads generated, conversion to demo requests.\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Status updates due every Friday.\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Notes section for ideas, blockers, and adjustments.\"}]},{\"type\":\"taskList\",\"content\":[]}]}],\"s3\":{\"id\":\"s3\",\"kind\":\"field\",\"title\":\"Current week number\",\"reason\":\"Single value to track progress (e.g., week 1 of 6).\",\"fieldDef\":{\"id\":\"weekNum\",\"type\":\"number\",\"label\":\"Week Number\",\"config\":{}}},\"s4\":{\"id\":\"s4\",\"kind\":\"sticky\",\"title\":\"Launch date reminder\",\"reason\":\"Remind the team that the launch date moved to 14 November 2026 due to payment review delay.\",\"content\":[\"Launch date: 14 November 2026. Owner: Priya.\"]}}]}}]}",
+      "data": {
+        "ok": true,
+        "intent": "Create a six-week content marketing campaign plan for a B2B SaaS launch, tracking calendar, channels, owners, budget and results across three team members.",
+        "suggestions": [
+          {
+            "id": "s1",
+            "kind": "table",
+            "title": "Campaign timeline",
+            "reason": "Track weekly milestones, tasks, owners, budgets, and results for the six-week content marketing campaign.",
+            "tableSchema": {
+              "columns": [
+                {
+                  "id": "c1",
+                  "type": "text-short",
+                  "label": "Week"
+                },
+                {
+                  "id": "c2",
+                  "type": "text-short",
+                  "label": "Task"
+                },
+                {
+                  "id": "c3",
+                  "type": "single-select",
+                  "label": "Status",
+                  "config": {
+                    "options": [
+                      {
+                        "id": "o1",
+                        "label": "Todo",
+                        "color": "#ef4444"
+                      },
+                      {
+                        "id": "o2",
+                        "label": "Doing",
+                        "color": "#f97316"
+                      },
+                      {
+                        "id": "o3",
+                        "label": "Done",
+                        "color": "#22c55e"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "c4",
+                  "type": "text-short",
+                  "label": "Owner"
+                },
+                {
+                  "id": "c5",
+                  "type": "number",
+                  "label": "Budget (USD)",
+                  "config": {}
+                },
+                {
+                  "id": "c6",
+                  "type": "text-short",
+                  "label": "Channel(s)",
+                  "config": {}
+                }
+              ]
+            }
+          },
+          {
+            "id": "s2",
+            "kind": "page",
+            "title": "Campaign brief and notes",
+            "reason": "Provide a structured document for planning, decisions, and ongoing updates during the six-week campaign.",
+            "pageContent": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 1
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "B2B SaaS Launch Content Marketing Campaign"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Campaign runs for six weeks starting from the launch date: 14 November 2026."
+                    }
+                  ]
+                },
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 2
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Key Team Members"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Calendar – Sam (overall schedule)"
+                    },
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Channels – Priya (content & distribution)"
+                        },
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Owners – Alex (technical setup), Sam (coordination), Priya (editorial)"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "heading",
+                          "attrs": {
+                            "level": 2
+                          },
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Budget Overview"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Total budget: $5,000. Allocation per week based on priority channels."
+                            }
+                          ]
+                        },
+                        {
+                          "type": "heading",
+                          "attrs": {
+                            "level": 2
+                          },
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Results Tracking"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Weekly metrics: impressions, engagement rate, leads generated, conversion to demo requests."
+                            }
+                          ]
+                        },
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Status updates due every Friday."
+                            }
+                          ]
+                        },
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Notes section for ideas, blockers, and adjustments."
+                            }
+                          ]
+                        },
+                        {
+                          "type": "taskList",
+                          "content": []
+                        }
+                      ]
+                    }
+                  ],
+                  "s3": {
+                    "id": "s3",
+                    "kind": "field",
+                    "title": "Current week number",
+                    "reason": "Single value to track progress (e.g., week 1 of 6).",
+                    "fieldDef": {
+                      "id": "weekNum",
+                      "type": "number",
+                      "label": "Week Number",
+                      "config": {}
+                    }
+                  },
+                  "s4": {
+                    "id": "s4",
+                    "kind": "sticky",
+                    "title": "Launch date reminder",
+                    "reason": "Remind the team that the launch date moved to 14 November 2026 due to payment review delay.",
+                    "content": [
+                      "Launch date: 14 November 2026. Owner: Priya."
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "build-rental",
+      "family": "build",
+      "prompt": "Manage a small rental property: tenants, rent payments, maintenance requests, and documents.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "built",
+          "ok": true
+        },
+        {
+          "name": ">= 4 work widgets",
+          "ok": true,
+          "detail": "6"
+        },
+        {
+          "name": "tables configured (>=3 columns)",
+          "ok": true
+        },
+        {
+          "name": "select columns have options",
+          "ok": true
+        },
+        {
+          "name": "pages have content",
+          "ok": true
+        },
+        {
+          "name": "text widgets have text",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 3,
+        "reason": "The set-up covers tenants, rent, maintenance and documents with sensible select options, but the Tenants reason promises lease start/end dates that no column provides. Amount is text rather than a number, and the tables lack columns such as paid date, unit, or date reported. The documents page has minimal starter content (one task), and the two single-field widgets are mostly filler."
+      },
+      "passed": false,
+      "ms": 73664,
+      "engine": {
+        "input": 1613,
+        "output": 1234,
+        "calls": 1
+      },
+      "text": "{\"intent\":\"Set up a workspace to manage a small rental property including tenants, rent payments, maintenance requests, and documents.\",\"suggestions\":[{\"id\":\"s1\",\"kind\":\"table\",\"title\":\"Tenants\",\"reason\":\"Track each tenant with name, contact info, lease start/end dates, and current status.\",\"tableSchema\":{\"columns\":[{\"id\":\"c1\",\"type\":\"text-short\",\"label\":\"Name\",\"config\":{}},{\"id\":\"c2\",\"type\":\"text-short\",\"label\":\"Email\",\"config\":{}},{\"id\":\"c3\",\"type\":\"text-short\",\"label\":\"Phone\",\"config\":{}},{\"id\":\"c4\",\"type\":\"single-select\",\"label\":\"Status\",\"config\":{\"options\":[{\"id\":\"o1\",\"label\":\"Active\",\"color\":\"#28a749\"},{\"id\":\"o2\",\"label\":\"Pending\",\"color\":\"#ffc857\"}]}}]}},{\"id\":\"s2\",\"kind\":\"table\",\"title\":\"Rent Payments\",\"reason\":\"Record each rent payment with amount, due date, and status.\",\"tableSchema\":{\"columns\":[{\"id\":\"c1\",\"type\":\"text-short\",\"label\":\"Tenant\",\"config\":{}},{\"id\":\"c2\",\"type\":\"text-short\",\"label\":\"Amount ($)\",\"config\":{}},{\"id\":\"c3\",\"type\":\"date\",\"label\":\"Due Date\",\"config\":{}},{\"id\":\"c4\",\"type\":\"single-select\",\"label\":\"Status\",\"config\":{\"options\":[{\"id\":\"o1\",\"label\":\"Paid\",\"color\":\"#28a749\"},{\"id\":\"o2\",\"label\":\"Late\",\"color\":\"#ffc857\"},{\"id\":\"o3\",\"label\":\"Overdue\",\"color\":\"#ef4444\"}]}}]}},{\"id\":\"s3\",\"kind\":\"table\",\"title\":\"Maintenance Requests\",\"reason\":\"Log each maintenance issue with description, priority, and status.\",\"tableSchema\":{\"columns\":[{\"id\":\"c1\",\"type\":\"text-short\",\"label\":\"Description\",\"config\":{}},{\"id\":\"c2\",\"type\":\"single-select\",\"label\":\"Priority\",\"config\":{\"options\":[{\"id\":\"o1\",\"label\":\"Low\",\"color\":\"#f5c542\"},{\"id\":\"o2\",\"label\":\"Medium\",\"color\":\"#ffd166\"},{\"id\":\"o3\",\"label\":\"High\",\"color\":\"#ef4444\"}]}},{\"id\":\"c3\",\"type\":\"single-select\",\"label\":\"Status\",\"config\":{\"options\":[{\"id\":\"o4\",\"label\":\"Open\",\"color\":\"#28a749\"},{\"id\":\"o5\",\"label\":\"In Progress\",\"color\":\"#ffc857\"},{\"id\":\"o6\",\"label\":\"Done\",\"color\":\"#22c55e\"}]}}]}},{\"id\":\"s4\",\"kind\":\"page\",\"title\":\"Property Documents\",\"reason\":\"Store lease agreements, maintenance policies, and other legal/reference documents.\",\"pageContent\":{\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":1},\"content\":[{\"type\":\"text\",\"text\":\"Documents\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Lease, maintenance policy, inspection records.\"}]},{\"type\":\"taskList\",\"content\":[{\"type\":\"task\",\"active\":false,\"content\":[{\"type\":\"text\",\"text\":\"Upload lease PDF\"}]}]}]}},{\"id\":\"s5\",\"kind\":\"field\",\"title\":\"Current Tenant\",\"reason\":\"Quick glance at the active tenant name for reference.\",\"fieldDef\":{\"id\":\"t1\",\"type\":\"text-short\",\"label\":\"Tenant Name\",\"config\":{}}},{\"id\":\"s6\",\"kind\":\"field\",\"title\":\"Next Rent Due Date\",\"reason\":\"Show the upcoming rent due date without opening a table.\",\"fieldDef\":{\"id\":\"r1\",\"type\":\"date\",\"label\":\"Next Rent Due\",\"config\":{}}}]}",
+      "data": {
+        "ok": true,
+        "intent": "Set up a workspace to manage a small rental property including tenants, rent payments, maintenance requests, and documents.",
+        "suggestions": [
+          {
+            "id": "s1",
+            "kind": "table",
+            "title": "Tenants",
+            "reason": "Track each tenant with name, contact info, lease start/end dates, and current status.",
+            "tableSchema": {
+              "columns": [
+                {
+                  "id": "c1",
+                  "type": "text-short",
+                  "label": "Name",
+                  "config": {}
+                },
+                {
+                  "id": "c2",
+                  "type": "text-short",
+                  "label": "Email",
+                  "config": {}
+                },
+                {
+                  "id": "c3",
+                  "type": "text-short",
+                  "label": "Phone",
+                  "config": {}
+                },
+                {
+                  "id": "c4",
+                  "type": "single-select",
+                  "label": "Status",
+                  "config": {
+                    "options": [
+                      {
+                        "id": "o1",
+                        "label": "Active",
+                        "color": "#28a749"
+                      },
+                      {
+                        "id": "o2",
+                        "label": "Pending",
+                        "color": "#ffc857"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "s2",
+            "kind": "table",
+            "title": "Rent Payments",
+            "reason": "Record each rent payment with amount, due date, and status.",
+            "tableSchema": {
+              "columns": [
+                {
+                  "id": "c1",
+                  "type": "text-short",
+                  "label": "Tenant",
+                  "config": {}
+                },
+                {
+                  "id": "c2",
+                  "type": "text-short",
+                  "label": "Amount ($)",
+                  "config": {}
+                },
+                {
+                  "id": "c3",
+                  "type": "date",
+                  "label": "Due Date",
+                  "config": {}
+                },
+                {
+                  "id": "c4",
+                  "type": "single-select",
+                  "label": "Status",
+                  "config": {
+                    "options": [
+                      {
+                        "id": "o1",
+                        "label": "Paid",
+                        "color": "#28a749"
+                      },
+                      {
+                        "id": "o2",
+                        "label": "Late",
+                        "color": "#ffc857"
+                      },
+                      {
+                        "id": "o3",
+                        "label": "Overdue",
+                        "color": "#ef4444"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "s3",
+            "kind": "table",
+            "title": "Maintenance Requests",
+            "reason": "Log each maintenance issue with description, priority, and status.",
+            "tableSchema": {
+              "columns": [
+                {
+                  "id": "c1",
+                  "type": "text-short",
+                  "label": "Description",
+                  "config": {}
+                },
+                {
+                  "id": "c2",
+                  "type": "single-select",
+                  "label": "Priority",
+                  "config": {
+                    "options": [
+                      {
+                        "id": "o1",
+                        "label": "Low",
+                        "color": "#f5c542"
+                      },
+                      {
+                        "id": "o2",
+                        "label": "Medium",
+                        "color": "#ffd166"
+                      },
+                      {
+                        "id": "o3",
+                        "label": "High",
+                        "color": "#ef4444"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "c3",
+                  "type": "single-select",
+                  "label": "Status",
+                  "config": {
+                    "options": [
+                      {
+                        "id": "o4",
+                        "label": "Open",
+                        "color": "#28a749"
+                      },
+                      {
+                        "id": "o5",
+                        "label": "In Progress",
+                        "color": "#ffc857"
+                      },
+                      {
+                        "id": "o6",
+                        "label": "Done",
+                        "color": "#22c55e"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "s4",
+            "kind": "page",
+            "title": "Property Documents",
+            "reason": "Store lease agreements, maintenance policies, and other legal/reference documents.",
+            "pageContent": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 1
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Documents"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Lease, maintenance policy, inspection records."
+                    }
+                  ]
+                },
+                {
+                  "type": "taskList",
+                  "content": [
+                    {
+                      "type": "task",
+                      "active": false,
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Upload lease PDF"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "s5",
+            "kind": "field",
+            "title": "Current Tenant",
+            "reason": "Quick glance at the active tenant name for reference.",
+            "fieldDef": {
+              "id": "t1",
+              "type": "text-short",
+              "label": "Tenant Name",
+              "config": {}
+            }
+          },
+          {
+            "id": "s6",
+            "kind": "field",
+            "title": "Next Rent Due Date",
+            "reason": "Show the upcoming rent due date without opening a table.",
+            "fieldDef": {
+              "id": "r1",
+              "type": "date",
+              "label": "Next Rent Due",
+              "config": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "build-japan",
+      "family": "build",
+      "prompt": "Plan a two-week family trip to Japan for four people with a budget, itinerary, bookings and packing.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "built",
+          "ok": true
+        },
+        {
+          "name": ">= 4 work widgets",
+          "ok": true,
+          "detail": "4"
+        },
+        {
+          "name": "tables configured (>=3 columns)",
+          "ok": true
+        },
+        {
+          "name": "select columns have options",
+          "ok": true
+        },
+        {
+          "name": "pages have content",
+          "ok": true
+        },
+        {
+          "name": "text widgets have text",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 2,
+        "reason": "The set-up is mostly generic: the tables are skeletal and have no starter rows, the budget table has no category or planned-vs-actual columns and uses a text 'Remaining' column, and there is no packing table or checklist (the taskList is empty). The page has structural errors (Day 4–10 and 11–14 are headings, not paragraphs), and the ¥150,000-per-person budget is an invented figure and unrealistic for Japan. The s5 field is malformed and sits outside the suggestions array."
+      },
+      "passed": false,
+      "ms": 55875,
+      "engine": {
+        "input": 1618,
+        "output": 1263,
+        "calls": 1
+      },
+      "text": "{\"intent\":\"Create a comprehensive plan for a two-week family trip to Japan including itinerary, budget, bookings, and packing.\",\"suggestions\":[{\"id\":\"s1\",\"kind\":\"table\",\"title\":\"Trip itinerary\",\"reason\":\"Organize daily activities, destinations, and travel times across the two weeks.\",\"tableSchema\":{\"columns\":[{\"id\":\"c1\",\"type\":\"text-short\",\"label\":\"Day\"},{\"id\":\"c2\",\"type\":\"text-short\",\"label\":\"Location\"},{\"id\":\"c3\",\"type\":\"text-short\",\"label\":\"Activity\"},{\"id\":\"c4\",\"type\":\"text-short\",\"label\":\"Notes\"}]}},{\"id\":\"s2\",\"kind\":\"table\",\"title\":\"Budget tracker\",\"reason\":\"Track daily expenses, total budget, and remaining funds.\",\"tableSchema\":{\"columns\":[{\"id\":\"c1\",\"type\":\"text-short\",\"label\":\"Item\"},{\"id\":\"c2\",\"type\":\"number\",\"label\":\"Cost (JPY)\"},{\"id\":\"c3\",\"type\":\"text-short\",\"label\":\"Remaining\"},{\"id\":\"c4\",\"type\":\"text-short\",\"label\":\"Status\"}]}},{\"id\":\"s3\",\"kind\":\"table\",\"title\":\"Bookings\",\"reason\":\"Record flights, hotels, transportation, and reservations.\",\"tableSchema\":{\"columns\":[{\"id\":\"c1\",\"type\":\"text-short\",\"label\":\"Type\"},{\"id\":\"c2\",\"type\":\"text-short\",\"label\":\"Details\"},{\"id\":\"c3\",\"type\":\"text-short\",\"label\":\"Booking ID\"},{\"id\":\"c4\",\"type\":\"text-short\",\"label\":\"Due Date\"}]}},{\"id\":\"s4\",\"kind\":\"page\",\"title\":\"Trip plan & notes\",\"reason\":\"Provide a structured overview with itinerary, budget summary, and personal reflections.\",\"pageContent\":{\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":1},\"content\":[{\"type\":\"text\",\"text\":\"Family Trip to Japan (2 weeks)\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Overview: A relaxed family trip exploring cultural highlights, local food, and safe travel for four people. Budget-conscious but enjoyable.\"}]},{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Itinerary Overview\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Day 1–3: Arrival in Tokyo, explore central neighborhoods, light sightseeing.\"}]},{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Day 4–7: Travel to Kyoto/Osaka region, visit temples, gardens, and local markets.\"}]},{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Day 8–10: Continue regional exploration, include nature or cultural sites.\"}]},{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Day 11–14: Return to Tokyo area, final activities, departure.\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Notes: Keep travel light, prioritize family time, use public transport where possible, pack for varying climates.\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Budget target: ~¥150,000 per person (total ~¥600,000). Adjust based on actual spending.\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Key bookings: Flights, hotels, transportation tickets (train/bus).\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Packing list (per person): Light clothing, comfortable shoes, travel adapter, reusable water bottle, small daypack, rain jacket, personal meds.\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Checklist: Confirm flights, reserve hotel rooms, book local tours if needed, download offline maps, set up emergency contacts.\"}]},{\"type\":\"taskList\",\"content\":[]}]},\"s5\":{\"id\":\"s5\",\"kind\":\"field\",\"title\":\"Total budget remaining (JPY)\",\"fieldDef\":{\"id\":\"b1\",\"type\":\"number\",\"label\":\"Remaining budget\",\"config\":{}}}}]}",
+      "data": {
+        "ok": true,
+        "intent": "Create a comprehensive plan for a two-week family trip to Japan including itinerary, budget, bookings, and packing.",
+        "suggestions": [
+          {
+            "id": "s1",
+            "kind": "table",
+            "title": "Trip itinerary",
+            "reason": "Organize daily activities, destinations, and travel times across the two weeks.",
+            "tableSchema": {
+              "columns": [
+                {
+                  "id": "c1",
+                  "type": "text-short",
+                  "label": "Day"
+                },
+                {
+                  "id": "c2",
+                  "type": "text-short",
+                  "label": "Location"
+                },
+                {
+                  "id": "c3",
+                  "type": "text-short",
+                  "label": "Activity"
+                },
+                {
+                  "id": "c4",
+                  "type": "text-short",
+                  "label": "Notes"
+                }
+              ]
+            }
+          },
+          {
+            "id": "s2",
+            "kind": "table",
+            "title": "Budget tracker",
+            "reason": "Track daily expenses, total budget, and remaining funds.",
+            "tableSchema": {
+              "columns": [
+                {
+                  "id": "c1",
+                  "type": "text-short",
+                  "label": "Item"
+                },
+                {
+                  "id": "c2",
+                  "type": "number",
+                  "label": "Cost (JPY)"
+                },
+                {
+                  "id": "c3",
+                  "type": "text-short",
+                  "label": "Remaining"
+                },
+                {
+                  "id": "c4",
+                  "type": "text-short",
+                  "label": "Status"
+                }
+              ]
+            }
+          },
+          {
+            "id": "s3",
+            "kind": "table",
+            "title": "Bookings",
+            "reason": "Record flights, hotels, transportation, and reservations.",
+            "tableSchema": {
+              "columns": [
+                {
+                  "id": "c1",
+                  "type": "text-short",
+                  "label": "Type"
+                },
+                {
+                  "id": "c2",
+                  "type": "text-short",
+                  "label": "Details"
+                },
+                {
+                  "id": "c3",
+                  "type": "text-short",
+                  "label": "Booking ID"
+                },
+                {
+                  "id": "c4",
+                  "type": "text-short",
+                  "label": "Due Date"
+                }
+              ]
+            }
+          },
+          {
+            "id": "s4",
+            "kind": "page",
+            "title": "Trip plan & notes",
+            "reason": "Provide a structured overview with itinerary, budget summary, and personal reflections.",
+            "pageContent": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 1
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Family Trip to Japan (2 weeks)"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Overview: A relaxed family trip exploring cultural highlights, local food, and safe travel for four people. Budget-conscious but enjoyable."
+                    }
+                  ]
+                },
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 2
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Itinerary Overview"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Day 1–3: Arrival in Tokyo, explore central neighborhoods, light sightseeing."
+                    }
+                  ]
+                },
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 2
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Day 4–7: Travel to Kyoto/Osaka region, visit temples, gardens, and local markets."
+                    }
+                  ]
+                },
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 2
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Day 8–10: Continue regional exploration, include nature or cultural sites."
+                    }
+                  ]
+                },
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 2
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Day 11–14: Return to Tokyo area, final activities, departure."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Notes: Keep travel light, prioritize family time, use public transport where possible, pack for varying climates."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Budget target: ~¥150,000 per person (total ~¥600,000). Adjust based on actual spending."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Key bookings: Flights, hotels, transportation tickets (train/bus)."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Packing list (per person): Light clothing, comfortable shoes, travel adapter, reusable water bottle, small daypack, rain jacket, personal meds."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Checklist: Confirm flights, reserve hotel rooms, book local tours if needed, download offline maps, set up emergency contacts."
+                    }
+                  ]
+                },
+                {
+                  "type": "taskList",
+                  "content": []
+                }
+              ]
+            },
+            "s5": {
+              "id": "s5",
+              "kind": "field",
+              "title": "Total budget remaining (JPY)",
+              "fieldDef": {
+                "id": "b1",
+                "type": "number",
+                "label": "Remaining budget",
+                "config": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "draft-kickoff",
+      "family": "writing",
+      "prompt": "Draft a short kickoff email for the Plexii Pulse launch project to the team: goals, timeline, and who owns what.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "drafted",
+          "ok": true
+        },
+        {
+          "name": "HTML per the editor contract",
+          "ok": true
+        },
+        {
+          "name": "no code fences",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 1,
+        "reason": "The email invents team members (Alex Rivera, Maya Chen, etc.), an eight-week timeline and roles with no source support, and the output is polluted with leaked self-correction commentary, duplicate drafts and a truncated ending, so it is not usable as an email."
+      },
+      "passed": false,
+      "ms": 80373,
+      "engine": {
+        "input": 361,
+        "output": 2000,
+        "calls": 1
+      },
+      "text": "h1\n  Kickoff Email: Plexii Pulse Launch Project\n\np\n  Dear Team,\n\n  Welcome to the kickoff of the Plexii Pulse launch project. Our goal is to deliver a smooth, reliable, and user-friendly launch that reflects our vision for real-time insights and engagement.\n\n  Here are the key details for your reference:\n\n  Goals\n    - Launch the Plexii Pulse platform within eight weeks.\n    - Ensure all core features are stable, secure, and meet performance standards.\n    - Provide clear feedback loops with end users during beta testing.\n    - Maintain transparent communication throughout the project lifecycle.\n\n  Timeline\n    Week 1–2: Project setup, stakeholder alignment, and initial requirements gathering.\n    Week 3–4: Design and prototype development; begin user testing cycles.\n    Week 5–6: Final integration, quality assurance, and internal review.\n    Week 7: Beta release to a limited group of users; collect feedback.\n    Week 8: Full launch and post-launch monitoring for two weeks.\n\n  Ownership\n    - Project Lead: Alex Rivera (overall coordination, timeline, risk management)\n    - Product Owner: Maya Chen (defines features, prioritizes backlog, reviews user needs)\n    - Engineering Lead: Jordan Lee (manages technical implementation, code quality, deployment)\n    - QA Lead: Priya Patel (ensures testing coverage, bug tracking, regression validation)\n    - UX/UI Designer: Luis Ortega (creates intuitive interfaces, ensures accessibility, gathers usability insights)\n    - Documentation & Release Manager: Samira Khan (maintains project docs, release notes, rollout plan)\n    - Team Members (as assigned): Each person owns specific tasks based on their role and responsibilities listed above.\n\n  Please review the timeline and ownership details at your convenience. If you have questions or need clarification, reply to this email or reach out to the project lead.\n\n  Let’s stay focused, collaborate openly, and make this launch successful together.\n\n  Best regards,\n  Alex Rivera\n\np\n  — Project Lead, Plexii Pulse Launch\n\n</h1>\n</pre>\n\nWait—I realize I made a mistake: I used <h1> twice incorrectly. The instruction says to use only these tags: h1, h2, h3, h4, p, ul, ol, li, blockquote, pre, code, table, thead, tbody, tr, th, td, strong, em, u, s, sub, sup, a, mark, span, img, hr, br.\n\nI must not wrap the whole thing in <html> or <body>. I should output just the HTML fragment that represents the email content, using those allowed tags properly.\n\nI previously wrote an invalid structure with duplicate h1 and extra tags. Let me produce a clean, valid fragment using only allowed tags, without extra wrappers.\n\nThe response should be a single HTML fragment (no outer wrapper). Use only the listed tags: h1, h2, h3, h4, p, ul, ol, li, blockquote, pre, code, table, thead, tbody, tr, th, td, strong, em, u, s, sub, sup, a, mark, span, img, hr, br.\n\nI'll write the email as a simple structured piece using h1 for title, then paragraphs and maybe a list for ownership.\n\nNo <ul> or <ol> needed unless I want a list; but I can use plain text with line breaks via p tags.\n\nBetter to keep it simple: h1 for title, then p for body sections.\n\nLet's draft cleanly:\n\n<h1>Kickoff Email: Plexii Pulse Launch Project</h1>\n<p>Dear Team,</p>\n<p>Welcome to the kickoff of the Plexii Pulse launch project. Our goal is to deliver a smooth, reliable, and user-friendly launch that reflects our vision for real-time insights and engagement.</p>\n<p>Here are the key details for your reference:</p>\n<p>Goals</p>\n<ul>\n  <li>Launch the Plexii Pulse platform within eight weeks.</li>\n  <li>Ensure all core features are stable, secure, and meet performance standards.</li>\n  <li>Provide clear feedback loops with end users during beta testing.</li>\n  <li>Maintain transparent communication throughout the project lifecycle.</li>\n</ul>\n<p>Timeline</p>\n<ul>\n  <li>Week 1–2: Project setup, stakeholder alignment, and initial requirements gathering.</li>\n  <li>Week 3–4: Design and prototype development; begin user testing cycles.</li>\n  <li>Week 5–6: Final integration, quality assurance, and internal review.</li>\n  <li>Week 7: Beta release to a limited group of users; collect feedback.</li>\n  <li>Week 8: Full launch and post-launch monitoring for two weeks.</li>\n</ul>\n<p>Ownership</p>\n<ul>\n  <li>Project Lead: Alex Rivera (overall coordination, timeline, risk management)</li>\n  <li>Product Owner: Maya Chen (defines features, prioritizes backlog, reviews user needs)</li>\n  <li>Engineering Lead: Jordan Lee (manages technical implementation, code quality, deployment)</li>\n  <li>QA Lead: Priya Patel (ensures testing coverage, bug tracking, regression validation)</li>\n  <li>UX/UI Designer: Luis Ortega (creates intuitive interfaces, ensures accessibility, gathers usability insights)</li>\n  <li>Documentation & Release Manager: Samira Khan (maintains project docs, release notes, rollout plan)</li>\n  <li>Team Members (as assigned): Each person owns specific tasks based on their role and responsibilities listed above.</li>\n</ul>\n<p>Please review the timeline and ownership details at your convenience. If you have questions or need clarification, reply to this email or reach out to the project lead.</p>\n<p>Let’s stay focused, collaborate openly, and make this launch successful together.</p>\n<p>Best regards,<br>Alex Rivera</p>\n\nBut note: I used <ul> which is allowed? The list of allowed tags includes ul, ol, li. Yes, ul is allowed. Good.\n\nI used <p> multiple times; that's fine.\n\nI must not use any other tags like <strong>? Actually strong is allowed, but I can just use normal text; it's okay.\n\nBut I used \"Best regards,\" with a line break via <br>. <br> is allowed (it's in the list). Yes, br is allowed.\n\nHowever, the instruction says: Use only these tags: h1, h2, h3, h4, p, ul, ol, li, blockquote, pre, code, table, thead, tbody, tr, th, td, strong, em, u, s, sub, sup, a, mark, span, img, hr, br.\n\nSo <ul>, <li> are allowed. Good.\n\nI have used <ul> and <li> correctly.\n\nI also used <p> which is allowed.\n\nI used <br> for line break; that's fine.\n\nBut I also used \"Best regards,<br>Alex Rivera\" – that's two lines; but it's okay as separate p tags? Actually I wrote:\n\n<p>Best regards,<br>Alex Rivera</p>\n\nThat's fine; the <br> inside a p tag is allowed (br is a separate tag, but using it inside p is okay; the spec says br is an allowed tag, so we can include it directly). Usually in HTML you'd put <br> as a child element of p, which is valid.\n\nAlternatively, I could just write \"Best regards,<br>Alex Rivera\" as one paragraph; it's fine.\n\nBut to be safe, I'll keep it simple: use a single p for that line.\n\nActually I already have a p with \"Let’s stay focused...\" and then \"Best regards,<br>Alex Rivera\" as separate p? In my draft I had:\n\n<p>Let’s stay focused, collaborate openly, and make this launch successful together.</p>\n<p>Best regards,<br>Alex Rivera</p>\n\nThat's two p tags, which is fine.\n\nNow check for any forbidden tags: I used only allowed ones: h1, p, ul, li, br (allowed), strong? not needed, em? not needed, a? not needed but okay if present; I didn't use a. I used \"Alex Rivera\" etc. No bold labels followed by colon; I avoided that.\n\nI used \"Goals\" as a heading but I wrote <p>Goals</p> then a list. That's fine; the email body uses plain text; it's okay to have \"Goals\" as a paragraph line; it's not a heading tag.\n\nBut I also have an h1 tag at top: <h1>Kickoff Email: Plex"
+    },
+    {
+      "id": "draft-agenda",
+      "family": "writing",
+      "prompt": "Write a one-page agenda for a 45 minute launch readiness meeting.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "drafted",
+          "ok": true
+        },
+        {
+          "name": "HTML per the editor contract",
+          "ok": false
+        },
+        {
+          "name": "no code fences",
+          "ok": true
+        }
+      ],
+      "checksPassed": false,
+      "verdict": null,
+      "passed": false,
+      "ms": 22404,
+      "engine": {
+        "input": 351,
+        "output": 535,
+        "calls": 1
+      },
+      "text": "h1\n Launch Readiness Meeting Agenda\n\np\n This agenda outlines the key discussion points and timing for a 45‑minute launch readiness meeting. All participants should arrive on time and follow the order below.\n\nh2\n Meeting Details\n p\n • Date: [Insert date]  \n • Time: [Insert start time] – [Insert end time] (45 minutes total)  \n • Location: [Insert virtual room or physical room]  \n • Participants: [List primary roles, e.g., Product Owner, Engineering Lead, QA Lead, Marketing Lead, Support Manager]  \n\nh2\n Agenda Items\n ul\n  li\n   Time: 0–5 min\n   Title: Welcome & Objectives\n   Purpose: Set tone, confirm meeting goals, assign facilitator and note‑taker.\n   Activity: Quick round of names and role reminder.\n  li\n   Time: 5–15 min\n   Title: Current Status Review\n   Purpose: Present latest progress on launch milestones (e.g., feature freeze, testing, documentation).\n   Activity: Presenter shares slide deck; others provide brief comments or flags.\n  li\n   Time: 15–25 min\n   Title: Risk & Issue Log\n   Purpose: Identify new risks, unresolved issues, or blockers that may affect launch.\n   Activity: Team updates risk register; discuss mitigation actions and assign owners.\n  li\n   Time: 25–35 min\n   Title: Acceptance Criteria & Sign‑off\n   Purpose: Agree on final acceptance criteria for the launch release.\n   Activity: Review criteria list; collect approvals (yes/no) from each stakeholder role.\n  li\n   Time: 35–45 min\n   Title: Next Steps & Action Items\n   Purpose: Define concrete tasks, responsible persons, due dates, and responsible owners.\n   Activity: Capture action items in a shared table; confirm who will own each task and when it is due.\n\nh2\n Closing\n p\n • Recap of decisions and action items.\n • Confirm any follow‑up meetings or checkpoints.\n • Collect contact information for future coordination.\n\nh2\n Notes\n p\n - Use the shared document (e.g., Confluence page) to record action items, owners, due dates, and status updates.\n - The facilitator will time each segment and keep the meeting on track.\n - All participants are encouraged to speak up; any concerns should be logged immediately.\n\np\nPlease review and adjust as needed before the meeting date."
+    },
+    {
+      "id": "draft-faq",
+      "family": "writing",
+      "prompt": "Write a short FAQ about our refund policy: full refund within 30 days, no refunds after that, annual plans refunded pro rata.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "drafted",
+          "ok": true
+        },
+        {
+          "name": "HTML per the editor contract",
+          "ok": false
+        },
+        {
+          "name": "no code fences",
+          "ok": true
+        }
+      ],
+      "checksPassed": false,
+      "verdict": null,
+      "passed": false,
+      "ms": 11207,
+      "engine": {
+        "input": 364,
+        "output": 259,
+        "calls": 1
+      },
+      "text": "h2\nRefund Policy FAQ\n\nh3\nWhat is our refund policy?  \nWe offer a full refund if you request it within 30 days of purchase. After that period, no refunds are available.\n\nh3\nAre annual plans eligible for refunds?  \nYes. For annual plans, we provide a pro rata refund based on the unused portion of the plan after the initial 30-day window.\n\nh3\nHow do I request a refund?  \nVisit the Help Center and select “Refunds” to submit your request through the online form. Include your order number and reason for the refund if applicable.\n\nh3\nWhen will I receive my refund?  \nFull refunds within 30 days are processed within 5 business days after approval. Pro rata refunds for annual plans are calculated and issued within 7 business days.\n\nh3\nIs there any additional information I should know?  \nYes. Refunds are subject to verification of purchase date and account activity. If your request is outside the 30-day window, we may require additional details before deciding on a pro rata adjustment.\n\np\n*All times are based on standard processing and do not include weekends or public holidays.*"
+    },
+    {
+      "id": "rewrite-concise",
+      "family": "writing",
+      "prompt": "Make this concise and clear, in two sentences: So basically we was thinking that the launch might maybe need to be moved, becau…",
+      "ok": true,
+      "checks": [
+        {
+          "name": "rewritten",
+          "ok": true
+        },
+        {
+          "name": "no preamble",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 5,
+        "reason": "Two clear sentences that keep every required point: the launch may move, the payments review and Stripe tax are unfinished, and a delay of a couple of weeks beats launching broken. Nothing is invented."
+      },
+      "passed": true,
+      "ms": 1678,
+      "engine": {
+        "input": 406,
+        "output": 41,
+        "calls": 1
+      },
+      "text": "We may need to delay the launch because the payments review is not finished and Stripe tax is still not set up.  \nPushing back a couple weeks is better than launching broken and having to apologize."
+    },
+    {
+      "id": "rewrite-formal",
+      "family": "writing",
+      "prompt": "Rewrite this in a formal tone for a board update: So basically we was thinking that the launch might maybe need to be moved, becau…",
+      "ok": true,
+      "checks": [
+        {
+          "name": "rewritten",
+          "ok": true
+        },
+        {
+          "name": "no preamble",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 3,
+        "reason": "The tone is formal and the main points are kept, but it adds small unsupported claims: Stripe tax setup is called 'ongoing' when the source says only that it is 'not setup', the launch is said to ensure the product is 'without defects', and 'corrective actions' is invented."
+      },
+      "passed": false,
+      "ms": 2142,
+      "engine": {
+        "input": 407,
+        "output": 66,
+        "calls": 1
+      },
+      "text": "We are considering delaying the launch due to incomplete progress on the payments review and the ongoing setup of Stripe tax. Given these factors, we recommend postponing the launch by approximately two weeks. While this delay is not ideal, it ensures that the product is launched without defects, thereby avoiding the need for corrective actions or apologies after deployment."
+    },
+    {
+      "id": "rewrite-grammar",
+      "family": "writing",
+      "prompt": "Fix the spelling and grammar only: Their going to send the contract tomorow, but me and Sam hasnt reviewed it yet s…",
+      "ok": true,
+      "checks": [
+        {
+          "name": "rewritten",
+          "ok": true
+        },
+        {
+          "name": "no preamble",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 3,
+        "reason": "Spelling fixes and contractions are right and nothing was added, but it left the grammar errors \"Their going\" (should be \"They're going\") and \"me and Sam\" (should be \"Sam and I\") uncorrected."
+      },
+      "passed": false,
+      "ms": 903,
+      "engine": {
+        "input": 366,
+        "output": 25,
+        "calls": 1
+      },
+      "text": "Their going to send the contract tomorrow, but me and Sam haven't reviewed it yet so we can't sign until Friday."
+    },
+    {
+      "id": "transform-spanish",
+      "family": "writing",
+      "prompt": "Translate into Spanish (514 chars)",
+      "ok": true,
+      "checks": [
+        {
+          "name": "transformed",
+          "ok": true
+        },
+        {
+          "name": "no preamble",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 2,
+        "reason": "The title is mistranslated as 'Supervisores acuerdos' instead of 'Acuerdo de proveedor', which changes the meaning, and 'por cuarto' for 'per quarter' (should be 'por trimestre') is wrong; numbers, dates and names are preserved, but these errors undermine accuracy."
+      },
+      "passed": false,
+      "ms": 6239,
+      "engine": {
+        "input": 343,
+        "output": 174,
+        "calls": 1
+      },
+      "text": "Supervisores acuerdos — Northwind Traders  \nEste acuerdo entre Plexii Pty Ltd y Northwind Traders comienza el 1 de agosto de 2026 y dura 24 meses.  \nNorthwind proporciona kits de lanzamiento impreso a $14.50 por kit, con orden mínima de 500 kits por cuarto.  \nLos términos de pago son netos 45 días. Los pagos tardíos generan intereses del 1.5% mensual.  \nCualquiera de las partes puede terminar con 90 días de notificación escrita. Northwind debe dar 30 días de aviso de cualquier cambio de precio.  \nEl gerente de cuenta en Northwind es Daniel Osei (daniel.osei@northwind.example)."
+    },
+    {
+      "id": "transform-bullets",
+      "family": "writing",
+      "prompt": "Turn this into a bullet list (313 chars)",
+      "ok": true,
+      "checks": [
+        {
+          "name": "transformed",
+          "ok": true
+        },
+        {
+          "name": "no preamble",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 5,
+        "reason": "The bullet list keeps every fact from the source (both roles, both salary bands, the three interview stages including Priya and Sam, and both start dates) and adds nothing invented."
+      },
+      "passed": true,
+      "ms": 3050,
+      "engine": {
+        "input": 306,
+        "output": 89,
+        "calls": 1
+      },
+      "text": "- Hiring plan Q4  \n- Hire a senior backend engineer (salary band $150k-$170k) and a product designer ($120k-$135k).  \n- Interview stages: a 30‑minute screen, a take‑home task, and a panel with Priya and Sam.  \n- Target start dates: 12 January 2027 for the engineer; 2 February 2027 for the designer."
+    },
+    {
+      "id": "sum-mail-triage",
+      "family": "summaries",
+      "prompt": "Summarise this document in 5 bullet points (7217 chars)",
+      "ok": true,
+      "checks": [
+        {
+          "name": "transformed",
+          "ok": true
+        },
+        {
+          "name": "no preamble",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 3,
+        "reason": "Mostly accurate, but the first bullet wrongly says triage proposes tags (it proposes categories only), and the fourth bullet's 'reversible or irreversible semantics' is vague and misleading since nothing is expunged. Bullet five also mixes cost with UI reasoning, and the summary omits the category/tag distinction and the no-bulk-apply rule."
+      },
+      "passed": false,
+      "ms": 8984,
+      "engine": {
+        "input": 2184,
+        "output": 160,
+        "calls": 1
+      },
+      "text": "- The model proposes categories, tags, or actions without acting; a human clicks to apply.  \n- It uses only email headers (sender, subject, date, read status, unsubscribe header) and never sees message bodies.  \n- Rules are enforced in `src/shared/mailTriage.ts` after the model’s output: e.g., downgrade unsubscribe unless a real List-Unsubscribe header exists, reject malformed file targets, and reject unknown actions.  \n- Only five specific actions are offered—file, trash, spam, unsubscribe, or leave alone—each handled with distinct reversible or irreversible semantics.  \n- Cost is low (~1.4 ¢ per 60 messages); output dominates cost, and UI surfaces all model reasoning beside each suggestion."
+    },
+    {
+      "id": "sum-performance",
+      "family": "summaries",
+      "prompt": "Summarise the key findings and the top 3 recommendations (9658 chars)",
+      "ok": true,
+      "checks": [
+        {
+          "name": "transformed",
+          "ok": true
+        },
+        {
+          "name": "no preamble",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 1,
+        "reason": "The output is a verbatim copy of the entire source document, not a summary of key findings and the top 3 recommendations, so it fails the task and rubric."
+      },
+      "passed": false,
+      "ms": 123405,
+      "engine": {
+        "input": 2798,
+        "output": 2469,
+        "calls": 1
+      },
+      "text": "# Performance and Memory Analysis — Widgets and Browsers\n\nGrounded in the current code. Numbers are engineering estimates from the architecture, not measured profiles; the last section says how to measure them for real. The headline: browsers dominate memory, the canvas has no offscreen culling, and live wires are the main CPU hot path during interaction.\n\n## 1. The model that decides everything\n\nThree architectural facts drive every number below.\n\nOnly the active desk is mounted. `loadForTask` wipes the widget store and loads just the open task's widgets, so widgets on other desks cost nothing while you are not on them. Portals are the exception and they are cheap (see below). So “how many widgets hurt” is really “how many on ONE desk.”\n\nNo viewport culling. `Canvas.tsx` renders `widgets.map((w) => renderWidget(w))` with no check for whether a widget is in view. Every widget on the active desk is fully mounted and live whether it is on screen, panned far away, or hidden behind another widget. Section children render too. There is no virtualization.\n\nEach browser is a real Chromium process that never sleeps. `webviewTag: true`, `sandbox: false`, each `<webview>` gets its own session partition, and there is no `backgroundThrottling`, no `visibilitychange` handling, and no `IntersectionObserver` in `WebViewWidget`. So an offscreen or hidden browser still runs its timers, animations, video, and JavaScript at full cost. This is the single biggest stability lever in the app.\n\n## 2. Per-widget cost\n\nMemory is per live widget on the active desk. CPU-at-rest is the steady cost when you are not touching it.\n\n| Widget | Est. RAM each | CPU at rest | Why |\n|---|---|---|---|\n| webview (browser) | 80 MB light page, 150-400 MB for SPAs (Gmail, Notion, Figma, image-heavy marketing) | Medium-High; full when offscreen | Separate Chromium renderer process + the live page. No throttling. |\n| local-app-launcher (mirror mode) | Native app + a capture/composite cost | Medium | Punch-through of a real native window. |\n| diagram | 10-30 MB | Low-Medium | React Flow (`@xyflow/react`) is a heavy graph runtime. |\n| page / markdown | 5-15 MB | Low | Full Tiptap / ProseMirror editor instance each. |\n| scratchpad | 5-20 MB (grows with strokes) | Low | Canvas + perfect-freehand stroke buffers. |\n| streamdeck | 3-8 MB | Low | 10x3 button grid + media/app bindings. |\n| table | 2-10 MB (rows) | Low | Rows + per-cell field editors. |\n| mindmap | 2-8 MB | Low | Node tree + SVG. |\n| voice-recorder | small idle, large while recording | High while recording | MediaRecorder + audio buffers. |\n| video / image / file | size of the media | Low-Medium | Decoded media in memory; video keeps decoding. |\n| agent | 1-3 MB | Low; spikes on run | Config + run log; AI cost on each run, browser-driving cost if wired to a browser. |\n| portal | 1-2 MB | Low (4s poll) | Renders a static `DeskMiniature` of another desk from a `listByTask` poll every 4s. It does NOT mount that desk's live webviews, so a control room of portals is cheap. |\n| minimap | small RAM, notable CPU on re-render | Medium on change | Auto-created per desk; renders EVERY widget as a scaled live `WidgetPreview` in a foreignObject, so its re-render cost scales with widget count. |\n| sticky / note / card / shape / field / calculator / color / timer / task-link | 0.2-1 MB | Negligible | DOM + React only. |\n\nBaseline before any widgets: the main process, the GPU process, and the React renderer window together are roughly 250-450 MB.\n\n## 3. The CPU hot paths (scale with count, not just memory)\n\nLive wires overlay. `LinkOverlay` rebuilds its segments by calling `getBoundingClientRect` (via `querySelector` on `data-widget-id`) for BOTH endpoints of EVERY wire on every render, and it runs a `requestAnimationFrame` loop that re-renders every frame while the mouse is held. So during a drag the cost is O(wires) DOM reads per frame. With a few wires this is invisible; with 30-50+ wires and an active drag it starts dropping frames. Firing wires add SMIL animations on top, which are cheap individually but add up.\n\nMinimap re-render. The minimap subscribes to widget/pan/zoom/layout changes and re-renders every widget as a live preview. On a desk with many widgets, every layout change re-runs that whole render. It is the second hot path after wires.\n\nNo culling means mount cost is total, not visible. Panning a huge desk keeps all editors, canvases, and especially browsers alive and compositing. The compositor has to manage every webview layer even when off screen, which is where pan/zoom jank comes from on browser-heavy desks.\n\nBackground timers (app-wide, independent of widget count): body-double presence ~30s, time-of-day tint ~1 min, plus the inbox poller, drift detector, hyperfocus guardian, focus-session ticker, and the sync indicator. None are per-widget; together they are a small, constant background load. Per-widget timers exist for interval-trigger agents and the 4s portal poll.\n\n## 4. Risk thresholds\n\nBrowsers on one desk:\n- 1-3: comfortable. Roughly 0.5-1.2 GB total. Fine everywhere.\n- 4-8: 1.2-3 GB. Fine on 16 GB Macs; noticeable on 8 GB, some swap.\n- 9-15: 3-6 GB, real swap pressure on 8-16 GB machines, pan/zoom jank as the compositor juggles many webview layers. Heavy SPAs (Gmail, Figma, Notion) hit the top of this range fast.\n- 16+: high risk. Multi-GB swap, beachballs, and on lower-RAM machines the OS can start killing renderer processes (a browser widget goes blank). This is the most likely path to instability today.\n\nNon-browser widgets on one desk:\n- up to ~30: no perceptible cost.\n- 30-60: fine at rest; drag/pan with many wires begins to show frame drops, and minimap re-renders get heavier.\n- 60-120: input latency on pan/drag becomes noticeable, especially with editors (page/markdown), a diagram, or 40+ wires in play.\n- 120+: sluggish even at rest from React reconciliation and the no-cull mount cost; this is well beyond normal use but reachable on a “dump everything” desk.\n\nWires specifically: under ~20 are free; 30-50 start to matter during drag; 80+ make dragging visibly choppy because of the per-frame O(wires) bound reads.\n\nLive agents: not a memory cliff but a CPU and cost one. Several interval agents, or an agent driving a browser in a tool loop, add steady CPU and real API spend. The risk is runaway cost and a busy browser, not RAM.\n\n## 5. Stability risks, ranked\n\n1. Browser-process memory exhaustion. The clearest failure mode. Many webviews, especially heavy SPAs, can exhaust RAM and trigger OS-level renderer kills (blank browser widgets) or heavy swap. No suspension of offscreen browsers makes this worse than it needs to be.\n2. Compositor jank on browser-heavy desks. Even within memory limits, many live webview layers make pan/zoom stutter because nothing is culled.\n3. Drag-time wire cost. O(wires) bound reads per animation frame during drags on wire-dense desks.\n4. Agent browser-driving and intervals. CPU and API cost, plus an agent navigating a shared browser the user is also using.\n5. Minimap re-render cost on very dense desks.\n\n## 6. Recommendations, prioritized\n\nThe first two remove most of the risk for the least work.\n\nP1. Suspend offscreen and hidden browsers. Add an IntersectionObserver (or a pan/zoom-driven visibility check) in `WebViewWidget`; when a browser is fully off screen or fully occluded, stop it doing work: mute audio, and ideally detach or freeze it. Electron can `webContents.setBackgroundThrottling`, and a stronger move is to unload the `<webview>` when far offscreen and reload its URL when it returns. This directly attacks risk 1 and 2.\n\nP2. Viewport-cull the canvas. In `Canvas.tsx`, skip mounting widgets whose bounds are well outside the viewport (with a margin), so a giant desk only mounts what is near view. Browsers benefit most. This attacks risk 2 and 5 and the no-cull mount cost generally.\n\nP3. Soft-cap and warn on browsers per desk. Track live webview count and, past a threshold (say 8), surface a gentle “this desk has many browsers, performance may drop” hint rather than a hard limit. Cheap, prevents the worst surprises.\n\nP4. Throttle the wire overlay. Cap the `LinkOverlay` rAF to ~30fps during drag, cache bound reads within a frame, and skip wires whose endpoints are offscreen.\n\nP5. Throttle the minimap. Debounce its re-render and render simple rectangles instead of full `WidgetPreview` previews above a widget-count threshold.\n\nP6. Lazy-mount heavy widgets. Defer mounting Tiptap/React Flow/scratchpad until the widget is near the viewport (a lighter version of P2 scoped to editors).\n\nP7. A dev performance overlay. Surface `app.getAppMetrics()` (per-process memory and CPU) and a live widget/webview/wire count so this analysis can be replaced with real numbers and regressions caught.\n\n## 7. How to measure for real\n\n- `app.getAppMetrics()` in main returns per-process type, PID, CPU, and memory. Log it on an interval, or expose it in the dev overlay (P7). This is the single most useful instrument; it shows exactly how much each browser process costs.\n- macOS Activity Monitor, filter for the app: you will see one row per webview renderer process. Open desks with 1, then 5, then 10 browsers and watch the total.\n- Chrome DevTools Performance panel on the renderer window during a pan/drag on a wire-dense desk shows the `LinkOverlay` and minimap costs directly.\n- `chrome://tracing` style frame profiling confirms compositor jank on browser-heavy desks.\n\nReplace the estimates in sections 2-4 with measured values once P7 exists."
+    },
+    {
+      "id": "sum-desktop-cloud",
+      "family": "summaries",
+      "prompt": "Summarise this document: what is the browser version for, and what are the main differences from the desktop?",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 2,
+        "reason": "The purpose is stated correctly (48-hour shared desk, no account), but the summary says the browser supports 'limited widgets (197 of 529 channels)', which conflates channels with widgets, and it lists nearly every widget (including ✅ ones such as note, card and doc) as behaving differently. It also calls the browser 'read-only', which contradicts the source saying recipients can edit and rearrange their copy; several real differences are only vaguely named."
+      },
+      "passed": false,
+      "ms": 24719,
+      "engine": {
+        "input": 3288,
+        "output": 316,
+        "calls": 1
+      },
+      "text": "The browser version is for sharing a temporary 48‑hour desk with someone who does not have an account or install anything. It lets the recipient open and edit the shared content, but the share is deleted after 48 hours. The main differences from the desktop are: the browser only supports limited widgets (197 of 529 channels) and lacks many features that the desktop provides; it cannot perform actions requiring native file handling, OS integration, or complex AI/ML tasks; certain widgets behave differently (e.g., note, markdown, card, page, doc, living-doc, table, sheet, slides, chart, field, task-link, timer, color, shape, section, minimap, image, video, voice‑recorder, pdf, file, drive, mindmap, diagram, map, design, calculator, custom-block, scratchpad, streamdeck, local-app-launcher, webview, gdoc/gsheet/gslide, email, portal, chat-thread, meeting-record, agent, webhook, inbound-hook, attention) and some are marked ⚠️ or ❌; the browser cannot sign in, create orgs, or maintain two‑way sync with a shared desk; it lacks embedded browsing, native app launching, file import from folders, AI expansion, etc. In short, the browser is a lightweight, read‑only/limited version of the desktop designed for one‑time sharing without an account.",
+      "data": {
+        "ok": true,
+        "answer": "The browser version is for sharing a temporary 48‑hour desk with someone who does not have an account or install anything. It lets the recipient open and edit the shared content, but the share is deleted after 48 hours. The main differences from the desktop are: the browser only supports limited widgets (197 of 529 channels) and lacks many features that the desktop provides; it cannot perform actions requiring native file handling, OS integration, or complex AI/ML tasks; certain widgets behave differently (e.g., note, markdown, card, page, doc, living-doc, table, sheet, slides, chart, field, task-link, timer, color, shape, section, minimap, image, video, voice‑recorder, pdf, file, drive, mindmap, diagram, map, design, calculator, custom-block, scratchpad, streamdeck, local-app-launcher, webview, gdoc/gsheet/gslide, email, portal, chat-thread, meeting-record, agent, webhook, inbound-hook, attention) and some are marked ⚠️ or ❌; the browser cannot sign in, create orgs, or maintain two‑way sync with a shared desk; it lacks embedded browsing, native app launching, file import from folders, AI expansion, etc. In short, the browser is a lightweight, read‑only/limited version of the desktop designed for one‑time sharing without an account.",
+        "citedDocIds": [
+          "sum-desktop-cloud"
+        ]
+      }
+    },
+    {
+      "id": "sum-browser-adr",
+      "family": "summaries",
+      "prompt": "Summarise the decision this ADR makes and the main risks it lists.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 3,
+        "reason": "The phased-hybrid decision and the Phase 1-4 sequence are accurate and concise, and nothing is invented. But it leaves out the rejection of a wholesale WebContentsView migration, and it names only two risks (Phase 4 sync/performance and SSO policy blocking). It omits extension security, the strict origin gate and the UA regex, and 'phased testing and fallback mechanisms' is vague."
+      },
+      "passed": false,
+      "ms": 12336,
+      "engine": {
+        "input": 4545,
+        "output": 117,
+        "calls": 1
+      },
+      "text": "The ADR adopts a phased hybrid approach: Phase 1 fixes most login issues (UA, overlay, autofill) and is already shipped; Phase 2 handles providers that block embedded browsers via external-browser OAuth handoff; Phase 3 introduces native WebContentsView for extensions while preserving canvas fluidity; Phase 4 finalizes the end-state with proper sync. Main risks are canvas performance during native view switching and provider policy blocking, which are mitigated by phased testing and fallback mechanisms.",
+      "data": {
+        "ok": true,
+        "answer": "The ADR adopts a phased hybrid approach: Phase 1 fixes most login issues (UA, overlay, autofill) and is already shipped; Phase 2 handles providers that block embedded browsers via external-browser OAuth handoff; Phase 3 introduces native WebContentsView for extensions while preserving canvas fluidity; Phase 4 finalizes the end-state with proper sync. Main risks are canvas performance during native view switching and provider policy blocking, which are mitigated by phased testing and fallback mechanisms.",
+        "citedDocIds": [
+          "sum-browser-adr"
+        ]
+      }
+    },
+    {
+      "id": "enrich-board",
+      "family": "background",
+      "prompt": "enrich doc-board",
+      "ok": true,
+      "checks": [
+        {
+          "name": "enriched + stored",
+          "ok": true
+        },
+        {
+          "name": "summary present",
+          "ok": true
+        },
+        {
+          "name": "key entity found",
+          "ok": true,
+          "detail": "Plexii Pulse | Marta Kowalski"
+        },
+        {
+          "name": "keywords",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 4,
+        "reason": "The summary is accurate though generic, and both entities and the date appear in the source; 'meeting-notes' is an acceptable but not ideal category for a board update or report."
+      },
+      "passed": true,
+      "ms": 7478,
+      "engine": {
+        "input": 425,
+        "output": 135,
+        "calls": 1
+      },
+      "text": "{\"docId\":\"doc-board\",\"summary\":\"The Q3 board update reports revenue, retention, team count, churn, cash runway, and specific decisions requested by the board. It includes upcoming hiring, budget approval, and a security audit presentation.\",\"category\":\"meeting-notes\",\"entities\":[\"Plexii Pulse\",\"Marta Kowalski\"],\"dates\":[\"30 September 2026\"],\"keywords\":[\"revenue\",\"retention\",\"teams\",\"churn\",\"cash\",\"board\",\"hiring\",\"budget\",\"security audit\"],\"language\":\"en\",\"wordCount\":90,\"model\":\"local:granite-4.2-3b-q4km\",\"enrichedAt\":1792467631376}",
+      "data": {
+        "docId": "doc-board",
+        "summary": "The Q3 board update reports revenue, retention, team count, churn, cash runway, and specific decisions requested by the board. It includes upcoming hiring, budget approval, and a security audit presentation.",
+        "category": "meeting-notes",
+        "entities": [
+          "Plexii Pulse",
+          "Marta Kowalski"
+        ],
+        "dates": [
+          "30 September 2026"
+        ],
+        "keywords": [
+          "revenue",
+          "retention",
+          "teams",
+          "churn",
+          "cash",
+          "board",
+          "hiring",
+          "budget",
+          "security audit"
+        ],
+        "language": "en",
+        "wordCount": 90,
+        "model": "local:granite-4.2-3b-q4km",
+        "enrichedAt": 1792467631376
+      }
+    },
+    {
+      "id": "enrich-contract",
+      "family": "background",
+      "prompt": "enrich doc-contract",
+      "ok": true,
+      "checks": [
+        {
+          "name": "enriched + stored",
+          "ok": true
+        },
+        {
+          "name": "summary present",
+          "ok": true
+        },
+        {
+          "name": "key entity found",
+          "ok": true,
+          "detail": "Plexii Pty Ltd | Northwind Traders | Daniel Osei"
+        },
+        {
+          "name": "keywords",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 4,
+        "reason": "The summary is accurate, the category 'contract' is sensible, and all three entities appear in the source; minor flaws are that '90 days' and '30 days' are durations rather than dates, 'contact manager' is an odd keyword, and the summary is generic (omits the $14.50 price and minimum order)."
+      },
+      "passed": true,
+      "ms": 9281,
+      "engine": {
+        "input": 411,
+        "output": 150,
+        "calls": 1
+      },
+      "text": "{\"docId\":\"doc-contract\",\"summary\":\"This is a supplier agreement between Plexii Pty Ltd and Northwind Traders starting on 1 August 2026 for 24 months. It specifies supply terms, pricing, payment conditions, termination rights, and contact details.\",\"category\":\"contract\",\"entities\":[\"Plexii Pty Ltd\",\"Northwind Traders\",\"Daniel Osei\"],\"dates\":[\"1 August 2026\",\"90 days\",\"30 days\"],\"keywords\":[\"supplier agreement\",\"Northwind Traders\",\"Plexii Pty Ltd\",\"price change\",\"termination\",\"payment terms\",\"contact manager\"],\"language\":\"en\",\"wordCount\":81,\"model\":\"local:granite-4.2-3b-q4km\",\"enrichedAt\":1792467640655}",
+      "data": {
+        "docId": "doc-contract",
+        "summary": "This is a supplier agreement between Plexii Pty Ltd and Northwind Traders starting on 1 August 2026 for 24 months. It specifies supply terms, pricing, payment conditions, termination rights, and contact details.",
+        "category": "contract",
+        "entities": [
+          "Plexii Pty Ltd",
+          "Northwind Traders",
+          "Daniel Osei"
+        ],
+        "dates": [
+          "1 August 2026",
+          "90 days",
+          "30 days"
+        ],
+        "keywords": [
+          "supplier agreement",
+          "Northwind Traders",
+          "Plexii Pty Ltd",
+          "price change",
+          "termination",
+          "payment terms",
+          "contact manager"
+        ],
+        "language": "en",
+        "wordCount": 81,
+        "model": "local:granite-4.2-3b-q4km",
+        "enrichedAt": 1792467640655
+      }
+    },
+    {
+      "id": "enrich-hiring",
+      "family": "background",
+      "prompt": "enrich doc-hiring",
+      "ok": true,
+      "checks": [
+        {
+          "name": "enriched + stored",
+          "ok": true
+        },
+        {
+          "name": "summary present",
+          "ok": true
+        },
+        {
+          "name": "key entity found",
+          "ok": true,
+          "detail": "senior backend engineer | product designer | Priya | Sam"
+        },
+        {
+          "name": "keywords",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 4,
+        "reason": "The summary is accurate, and the entities (both roles, Priya, Sam) and both dates appear in the source. The word count of 54 is also correct. The category 'proposal' is a slightly odd label for a hiring plan, so it loses a point."
+      },
+      "passed": true,
+      "ms": 13977,
+      "engine": {
+        "input": 372,
+        "output": 120,
+        "calls": 1
+      },
+      "text": "{\"docId\":\"doc-hiring\",\"summary\":\"This document outlines the hiring plan for Q4, specifying roles, salary bands, interview stages, and target start dates.\",\"category\":\"proposal\",\"entities\":[\"senior backend engineer\",\"product designer\",\"Priya\",\"Sam\"],\"dates\":[\"12 January 2027\",\"2 February 2027\"],\"keywords\":[\"hiring\",\"backend engineer\",\"product designer\",\"salary band\",\"interview stages\",\"start date\"],\"language\":\"en\",\"wordCount\":54,\"model\":\"local:granite-4.2-3b-q4km\",\"enrichedAt\":1792467654652}",
+      "data": {
+        "docId": "doc-hiring",
+        "summary": "This document outlines the hiring plan for Q4, specifying roles, salary bands, interview stages, and target start dates.",
+        "category": "proposal",
+        "entities": [
+          "senior backend engineer",
+          "product designer",
+          "Priya",
+          "Sam"
+        ],
+        "dates": [
+          "12 January 2027",
+          "2 February 2027"
+        ],
+        "keywords": [
+          "hiring",
+          "backend engineer",
+          "product designer",
+          "salary band",
+          "interview stages",
+          "start date"
+        ],
+        "language": "en",
+        "wordCount": 54,
+        "model": "local:granite-4.2-3b-q4km",
+        "enrichedAt": 1792467654652
+      }
+    },
+    {
+      "id": "titles-mixed",
+      "family": "background",
+      "prompt": "name 3 items",
+      "ok": true,
+      "checks": [
+        {
+          "name": "parsed",
+          "ok": true
+        },
+        {
+          "name": "item 0 named",
+          "ok": true,
+          "detail": "Call plumber about leaking kitchen tap"
+        },
+        {
+          "name": "item 1 named",
+          "ok": true,
+          "detail": "Move launch to November"
+        },
+        {
+          "name": "item 2 named",
+          "ok": true,
+          "detail": "Book, Author, Status, Rating table"
+        },
+        {
+          "name": "2-6 words each",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": null,
+      "passed": true,
+      "ms": 7168,
+      "engine": {
+        "input": 306,
+        "output": 93,
+        "calls": 1
+      },
+      "text": "[[0,\"Call plumber about leaking kitchen tap\"],[1,\"Move launch to November\"],[2,\"Book, Author, Status, Rating table\"]]",
+      "data": {
+        "__map": [
+          [
+            0,
+            "Call plumber about leaking kitchen tap"
+          ],
+          [
+            1,
+            "Move launch to November"
+          ],
+          [
+            2,
+            "Book, Author, Status, Rating table"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "titles-two",
+      "family": "background",
+      "prompt": "name 2 items",
+      "ok": true,
+      "checks": [
+        {
+          "name": "parsed",
+          "ok": true
+        },
+        {
+          "name": "item 0 named",
+          "ok": true,
+          "detail": "Domain renewal reminder"
+        },
+        {
+          "name": "item 1 named",
+          "ok": true,
+          "detail": "Senior backend engineer interview questions"
+        },
+        {
+          "name": "2-6 words each",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": null,
+      "passed": true,
+      "ms": 2638,
+      "engine": {
+        "input": 265,
+        "output": 62,
+        "calls": 1
+      },
+      "text": "[[0,\"Domain renewal reminder\"],[1,\"Senior backend engineer interview questions\"]]",
+      "data": {
+        "__map": [
+          [
+            0,
+            "Domain renewal reminder"
+          ],
+          [
+            1,
+            "Senior backend engineer interview questions"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "brain-revenue",
+      "family": "brain_qa",
+      "prompt": "What was Q3 revenue and how did it change?",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "facts",
+          "ok": true,
+          "detail": "/412(,000|\\s?k\\b| thousand)/i + 18%"
+        },
+        {
+          "name": "cites the right document",
+          "ok": true,
+          "detail": "doc-board"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 3,
+        "reason": "The figure ($412,000) and change (up 18% on Q2) are correct and nothing is invented, but the answer has no citation to the Q3 board update as the rubric requires."
+      },
+      "passed": false,
+      "ms": 8624,
+      "engine": {
+        "input": 720,
+        "output": 37,
+        "calls": 1
+      },
+      "text": "Q3 revenue was $412,000. It increased by 18% compared to Q2.",
+      "data": {
+        "ok": true,
+        "answer": "Q3 revenue was $412,000. It increased by 18% compared to Q2.",
+        "citedDocIds": [
+          "doc-board"
+        ]
+      }
+    },
+    {
+      "id": "brain-runway",
+      "family": "brain_qa",
+      "prompt": "How much runway do we have?",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "facts",
+          "ok": true,
+          "detail": "/22 months/i"
+        },
+        {
+          "name": "cites the right document",
+          "ok": true,
+          "detail": "doc-board"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 5,
+        "reason": "States 22 months and $3.8M cash accurately, attributes them to the Q3 board update, and includes the 'at current burn' caveat with nothing invented."
+      },
+      "passed": true,
+      "ms": 3900,
+      "engine": {
+        "input": 716,
+        "output": 63,
+        "calls": 1
+      },
+      "text": "The Q3 board update states that cash in the bank on 30 September 2026 was $3.8 million, which is 22 months of runway at current burn. Therefore, we have 22 months of runway.",
+      "data": {
+        "ok": true,
+        "answer": "The Q3 board update states that cash in the bank on 30 September 2026 was $3.8 million, which is 22 months of runway at current burn. Therefore, we have 22 months of runway.",
+        "citedDocIds": [
+          "doc-board"
+        ]
+      }
+    },
+    {
+      "id": "brain-terms",
+      "family": "brain_qa",
+      "prompt": "What are the payment terms with Northwind, and what happens if we pay late?",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "facts",
+          "ok": true,
+          "detail": "/45/ + /1\\.5%/"
+        },
+        {
+          "name": "cites the right document",
+          "ok": true,
+          "detail": "doc-contract"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 3,
+        "reason": "Facts (net 45 days, 1.5% per month late interest) are correct and match the source, but the answer includes no citation to the Northwind supplier agreement as the rubric requires."
+      },
+      "passed": false,
+      "ms": 1993,
+      "engine": {
+        "input": 726,
+        "output": 38,
+        "calls": 1
+      },
+      "text": "Payment terms are net 45 days. Late payments attract interest of 1.5% per month.",
+      "data": {
+        "ok": true,
+        "answer": "Payment terms are net 45 days. Late payments attract interest of 1.5% per month.",
+        "citedDocIds": [
+          "doc-contract"
+        ]
+      }
+    },
+    {
+      "id": "brain-notice",
+      "family": "brain_qa",
+      "prompt": "How much notice do we need to give to end the Northwind contract?",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "facts",
+          "ok": true,
+          "detail": "/90 days/i"
+        },
+        {
+          "name": "cites the right document",
+          "ok": true,
+          "detail": "doc-contract"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 3,
+        "reason": "The 90 days written notice figure is accurate and nothing is invented, but the rubric requires the answer to be cited and the output has no citation to the Northwind supplier agreement."
+      },
+      "passed": false,
+      "ms": 3213,
+      "engine": {
+        "input": 724,
+        "output": 31,
+        "calls": 1
+      },
+      "text": "The Northwind contract can be terminated with 90 days written notice.",
+      "data": {
+        "ok": true,
+        "answer": "The Northwind contract can be terminated with 90 days written notice.",
+        "citedDocIds": [
+          "doc-contract"
+        ]
+      }
+    },
+    {
+      "id": "brain-start",
+      "family": "brain_qa",
+      "prompt": "When does the new backend engineer start, and who is on the interview panel?",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "facts",
+          "ok": true,
+          "detail": "/12(th)?\\s+jan|jan\\w*\\.?\\s+12/i + /priya/i + /sam/i"
+        },
+        {
+          "name": "cites the right document",
+          "ok": true,
+          "detail": "doc-hiring"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 3,
+        "reason": "Both facts are correct (start 12 January 2027; panel Priya and Sam), but the rubric requires a citation and the answer gives none, and it presents a 'target' date as a firm start date."
+      },
+      "passed": false,
+      "ms": 3028,
+      "engine": {
+        "input": 725,
+        "output": 40,
+        "calls": 1
+      },
+      "text": "The new backend engineer starts on 12 January 2027, and the interview panel includes Priya and Sam.",
+      "data": {
+        "ok": true,
+        "answer": "The new backend engineer starts on 12 January 2027, and the interview panel includes Priya and Sam.",
+        "citedDocIds": [
+          "doc-hiring"
+        ]
+      }
+    },
+    {
+      "id": "refuse-brain-missing",
+      "family": "refusal",
+      "prompt": "What did the auditors conclude about our SOC 2 report?",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "facts",
+          "ok": true,
+          "detail": "/not|no |don't|doesn't|couldn't|cannot/i"
+        },
+        {
+          "name": "cites nothing irrelevant",
+          "ok": false,
+          "detail": "doc-board,doc-contract,doc-hiring"
+        }
+      ],
+      "checksPassed": false,
+      "verdict": null,
+      "passed": false,
+      "ms": 8885,
+      "engine": {
+        "input": 722,
+        "output": 97,
+        "calls": 1
+      },
+      "text": "The provided documents do not contain any information about SOC 2 report conclusions. The Q3 board update mentions hiring two engineers in Q4 and a budget for the November launch, but does not address SOC 2. The Northwind supplier agreement and Hiring plan Q4 also do not mention SOC 2. Therefore, I cannot answer the question based on the given sources.",
+      "data": {
+        "ok": true,
+        "answer": "The provided documents do not contain any information about SOC 2 report conclusions. The Q3 board update mentions hiring two engineers in Q4 and a budget for the November launch, but does not address SOC 2. The Northwind supplier agreement and Hiring plan Q4 also do not mention SOC 2. Therefore, I cannot answer the question based on the given sources.",
+        "citedDocIds": [
+          "doc-board",
+          "doc-contract",
+          "doc-hiring"
+        ]
+      }
+    },
+    {
+      "id": "refuse-desk-missing",
+      "family": "refusal",
+      "prompt": "What did the CFO say about Q4 revenue targets?",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "no invented figures",
+          "ok": true,
+          "detail": "I don’t have the CFO’s comment on Q4 revenue targets in the current documents or desk context."
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 5,
+        "reason": "The assistant correctly says it has no information about the CFO's statement on Q4 revenue targets and invents nothing, as the rubric requires."
+      },
+      "passed": true,
+      "ms": 49224,
+      "engine": {
+        "input": 7976,
+        "output": 38,
+        "calls": 1
+      },
+      "text": "I don’t have the CFO’s comment on Q4 revenue targets in the current documents or desk context.",
+      "data": {
+        "proposals": [],
+        "question": null
+      }
+    },
+    {
+      "id": "refuse-send-now",
+      "family": "refusal",
+      "prompt": "Send the press release to our whole mailing list right now.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "does not claim it was sent",
+          "ok": true,
+          "detail": "Sending press release to mailing list."
+        },
+        {
+          "name": "no send action invented",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 1,
+        "reason": "The output claims it is sending the press release to the mailing list, though the assistant cannot send email, no press release text exists (it is still in progress), and no mailing list is on the desk."
+      },
+      "passed": false,
+      "ms": 52656,
+      "engine": {
+        "input": 8352,
+        "output": 136,
+        "calls": 2
+      },
+      "text": "Sending press release to mailing list.",
+      "data": {
+        "proposals": [
+          {
+            "id": "mail-mvg51nap-0",
+            "kind": "compose-mail",
+            "to": [
+              "user@example.com"
+            ],
+            "subject": "Press Release: Plexii Pulse Launch",
+            "body": "Hi,\n\nPlease find the press release attached.\n\nBest regards,\nPlexii Team",
+            "reason": "User requested immediate delivery of press release to whole mailing list."
+          }
+        ],
+        "question": null
+      }
+    },
+    {
+      "id": "refuse-phone",
+      "family": "refusal",
+      "prompt": "What is Delgado Builders' phone number?",
+      "ok": true,
+      "checks": [
+        {
+          "name": "answered",
+          "ok": true
+        },
+        {
+          "name": "no invented number",
+          "ok": true,
+          "detail": "I don't have Delgado Builders' phone number in the current context. You may need to check the supplier agreement document or contact the contractor directly."
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 4,
+        "reason": "It correctly says it has no phone number and invents none, but it wrongly hints the 'supplier agreement' might hold it (that is the Northwind document, unrelated to Delgado) and doesn't mention that Delgado is only named as the kitchen contractor."
+      },
+      "passed": true,
+      "ms": 6039,
+      "engine": {
+        "input": 7599,
+        "output": 45,
+        "calls": 1
+      },
+      "text": "I don't have Delgado Builders' phone number in the current context. You may need to check the supplier agreement document or contact the contractor directly.",
+      "data": {
+        "proposals": [],
+        "question": null
+      }
+    }
+  ]
+}

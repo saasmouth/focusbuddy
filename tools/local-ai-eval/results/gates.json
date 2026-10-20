@@ -1,0 +1,56 @@
+{
+  "chosen": "qwen3-4b-2507-q4km-shipped",
+  "reference": "cloud-claude",
+  "rule": "ok >= 0.85*cloud; labelled >= 0.50*cloud; else cloud-only; unmeasured → cloud-only",
+  "features": {
+    "assistant": {
+      "families": [
+        "desk_qa",
+        "proposals",
+        "brain_qa",
+        "refusal"
+      ],
+      "local": 0.792,
+      "cloud": 0.917,
+      "gate": "ok"
+    },
+    "build": {
+      "families": [
+        "build"
+      ],
+      "local": 0.333,
+      "cloud": 1,
+      "gate": "cloud-only"
+    },
+    "writing": {
+      "families": [
+        "writing"
+      ],
+      "local": 0.375,
+      "cloud": 0.625,
+      "gate": "labelled"
+    },
+    "summaries": {
+      "families": [
+        "summaries"
+      ],
+      "local": 0.5,
+      "cloud": 1,
+      "gate": "labelled"
+    },
+    "background": {
+      "families": [
+        "background"
+      ],
+      "local": 1,
+      "cloud": 1,
+      "gate": "ok"
+    },
+    "agents": {
+      "families": [],
+      "local": null,
+      "cloud": null,
+      "gate": "cloud-only"
+    }
+  }
+}
