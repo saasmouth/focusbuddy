@@ -84,6 +84,12 @@ describe('runaway repetition guard (engineCore.isRunawayRepetition)', () => {
     const loop = '"content": "https://docs.google.com/document/d/1aBcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz' + 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz'.repeat(12)
     expect(isRunawayRepetition(loop)).toBe(true)
     expect(isRunawayRepetition('x'.repeat(400))).toBe(true)
+    // Also captured (structured-after-noschema.json): letters × digits, a 260-character period.
+    let ad = ''
+    for (let i = 0; i < 1100; i++) ad += String.fromCharCode(65 + (i % 26)) + String(i % 10)
+    expect(isRunawayRepetition('"content": "https://example.com/' + ad)).toBe(true)
+    const prose = Array.from({ length: 40 }, (_, i) => `Step ${i + 1}: review the budget line for week ${i + 1} and confirm the supplier.`).join(' ')
+    expect(isRunawayRepetition(prose)).toBe(false)
     const table = '| Week | Task |\n| --- | --- |\n' + Array.from({ length: 30 }, (_, i) => `| ${i + 1} | Plan item ${i + 1} |`).join('\n')
     expect(isRunawayRepetition(table)).toBe(false)
     const json = JSON.stringify({ rows: Array.from({ length: 20 }, (_, i) => ({ Name: `Episode ${i + 1}`, Done: false })) })

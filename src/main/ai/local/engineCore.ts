@@ -447,19 +447,25 @@ export class EmbedCore {
 }
 
 /**
- * True when the end of `text` is one short unit repeating: a 2–80 character
- * unit at least 8 times in a row, spanning at least 300 characters. Ordinary
- * output (tables, lists, rules) never meets all three. Exported for tests.
+ * True when the end of `text` has run away. Two shapes, both seen on the 4B
+ * model inside a JSON string (an invented URL or id that never ends):
+ *   - one unit repeating: 2–80 chars at least 8 times (≥300 chars), or
+ *     81–300 chars at least 3 times (≥600 chars) — "A1B2…Z0A1…" has a
+ *     260-character period;
+ *   - 800 characters with no whitespace and no JSON punctuation at all.
+ * Ordinary output (tables, lists, rules, prose, JSON) meets none of them.
+ * Exported for tests.
  */
 export function isRunawayRepetition(text: string): boolean {
-  const tail = text.slice(-1200)
-  for (let unit = 2; unit <= 80; unit++) {
-    const reps = Math.max(8, Math.ceil(300 / unit))
+  const tail = text.slice(-1800)
+  for (let unit = 2; unit <= 300; unit++) {
+    const reps = unit <= 80 ? Math.max(8, Math.ceil(300 / unit)) : Math.max(3, Math.ceil(600 / unit))
     if (tail.length < unit * reps) break
     const u = tail.slice(-unit)
     let ok = true
     for (let k = 2; k <= reps && ok; k++) if (tail.slice(-unit * k, -unit * (k - 1)) !== u) ok = false
     if (ok) return true
   }
-  return false
+  const last = text.slice(-800)
+  return last.length === 800 && !/[\s"{}\[\],:]/.test(last)
 }

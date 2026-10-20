@@ -346,7 +346,10 @@ export async function runLocal(
       system,
       messages: [
         ...flat.messages,
-        { role: 'assistant', content: first.text },
+        // A cut-off or runaway first attempt can be thousands of tokens; the
+        // retry needs to see what went wrong, not all of it (a 14,000-token
+        // loop replayed here overflowed the context window).
+        { role: 'assistant', content: first.text.length > 2000 ? `${first.text.slice(0, 2000)}…` : first.text },
         {
           role: 'user',
           content: `That reply was not usable: ${problem}. Reply again with ONLY the corrected JSON ${shape}, following the format in the instructions exactly.`
