@@ -202,14 +202,14 @@ export function createConversation(input: {
   // Plexii P6: the mode this conversation starts in. Omitted means normal chat.
   mode?: AiChatMode
   // A4 (R21): the globe's state at creation, for a toggle flipped before the
-  // first word. Omitted means on.
+  // first word. Omitted means off: web search sends the message to DuckDuckGo.
   webSearch?: boolean
 }): AiChatConversationMeta {
   const db = getDb()
   const id = randomUUID()
   const now = Date.now()
   const mode = toChatMode(input.mode ?? null)
-  const webSearch = input.webSearch !== false
+  const webSearch = input.webSearch === true
   db.prepare(
     `INSERT INTO ai_chat_conversations
       (id, org_id, task_id, title, created_at, updated_at, context_json, mode, web_search)

@@ -152,11 +152,12 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
   const setChatMode = useChatStore((s) => s.setMode)
   const mode = activeConversationId ? (activeMeta?.mode ?? 'chat') : pendingMode
   const discovering = mode === 'discovery'
-  // The web-search globe (A4, R21): per-conversation and sticky, default on.
+  // The web-search globe (A4, R21): per-conversation and sticky; off unless the
+  // person turns it on (their last choice seeds new chats, stores/chat.ts).
   // Same derivation pattern as the mode above.
   const pendingWebSearch = useChatStore((s) => s.pendingWebSearch)
   const setWebSearch = useChatStore((s) => s.setWebSearch)
-  const webSearchOn = activeConversationId ? (activeMeta?.webSearch ?? true) : pendingWebSearch
+  const webSearchOn = activeConversationId ? (activeMeta?.webSearch ?? false) : pendingWebSearch
   const thread = {
     key: conversationKey,
     label: startedIn?.label ?? ctx.label,
@@ -1571,8 +1572,8 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
               data-testid="chat-web-globe"
               title={
                 webSearchOn
-                  ? 'Web search is ON for this conversation — substantive turns search the live web. Click to turn off.'
-                  : 'Web search is OFF for this conversation — answers use only your workspace. Click to turn on.'
+                  ? 'Web search is ON for this conversation — substantive turns send your message to DuckDuckGo to search the live web. Click to turn off.'
+                  : 'Web search is OFF for this conversation — answers use only your workspace. Click to turn on: your message is then sent to DuckDuckGo to search the live web.'
               }
               className={`fb-press inline-flex items-center justify-center h-[26px] w-[26px] rounded-full border transition-colors ${
                 webSearchOn

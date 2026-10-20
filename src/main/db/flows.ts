@@ -201,7 +201,13 @@ async function runAction(action: FlowAction, ctx: { ai: string }): Promise<FlowR
       }
       case 'ai-step': {
         const prompt = fill(action.prompt, ctx)
-        const res = await sendChat({ taskId: null, messages: [{ role: 'user', content: prompt, ts: Date.now() }] })
+        const res = await sendChat({
+          taskId: null,
+          messages: [{ role: 'user', content: prompt, ts: Date.now() }],
+          // Scheduled runs never search the web: that would send the prompt to
+          // DuckDuckGo with nobody at the keyboard (webSearchOptIn.ts).
+          webSearch: false
+        })
         if (!res.ok || !res.message?.content) {
           return {
             ...base,
