@@ -38,6 +38,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.39-local.3',
+    date: '2026-10-21T21:00:00Z',
+    title: 'PlexiiDesk 4.3.39-local.3 \u2014 local AI built in, upgrade with your own key (test build)',
+    tag: 'feature',
+    summary:
+      'A local test build. PlexiiDesk now ships with an AI model that runs on this computer and uses it by default: it works offline, costs nothing per use, and while it is in use no prompt or content is sent to any AI service. Any feature can be upgraded to your own Anthropic or OpenAI key, or to Plexii AI credits, in Settings \u2192 AI.',
+    highlights: [
+      'The 2.5 GB model is inside the app, so there is nothing to download. If you were on the automatic setting, AI now runs on this computer; if you chose your own key or Plexii AI credits, that has not changed. A one-time card explains it and switches back in one click.',
+      'In our tests of the app\u2019s real prompts, the on-device model matches cloud AI on PlexiiAssist answers and background tidying, and is behind it on summaries, writing, PlexiiWrite, PlexiiCells and PlexiiDeck drafts, and Build with AI. Those run on the device with a note saying cloud AI does them better, and a link to upgrade. Agents that use tools, image generation and background removal ask before sending a request to the cloud.',
+      'Your own OpenAI key is now an AI source, alongside your own Anthropic key and Plexii AI credits, with a choice of model. Each feature can use a different one.',
+      'When Plexii AI credits run out or cannot be reached, a request is answered on this computer instead of failing, with a note and a link to top up. Your choice of credits stays as it is.',
+      'The model starts loading in the background a few seconds after launch. If you ask for something while it is still starting, the app says \u201cStarting local AI\u201d instead of a bare \u201cGenerating\u2026\u201d.',
+      'Drafts written on this computer are checked for invented specifics such as figures, prices, dates and names that were not in what you gave it. The clearest ones are replaced with a [placeholder] for you to fill in, and the rest are listed for you to check.'
+    ]
+  },
+  {
     version: '4.3.39-local.1',
     date: '2026-10-21T18:00:00Z',
     title: 'PlexiiDesk 4.3.39-local.1 \u2014 AI that runs on this computer (test build)',

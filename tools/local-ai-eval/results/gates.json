@@ -1,6 +1,6 @@
 {
-  "chosen": "qwen3-4b-2507-q4km-shipped",
-  "reference": "cloud-claude",
+  "chosen": "v3-ship",
+  "reference": "v3-cloud",
   "rule": "ok >= 0.85*cloud; labelled >= 0.50*cloud; else cloud-only; unmeasured → cloud-only",
   "features": {
     "assistant": {
@@ -18,25 +18,25 @@
       "families": [
         "build"
       ],
-      "local": 0.333,
-      "cloud": 1,
+      "local": 0.167,
+      "cloud": 0.5,
       "gate": "cloud-only"
     },
     "office": {
       "families": [
         "office"
       ],
-      "local": 0.667,
-      "cloud": 0.444,
-      "gate": "ok"
+      "local": 0.2,
+      "cloud": 0.55,
+      "gate": "cloud-only"
     },
     "writing": {
       "families": [
         "writing"
       ],
       "local": 0.375,
-      "cloud": 0.625,
-      "gate": "labelled"
+      "cloud": 0.875,
+      "gate": "cloud-only"
     },
     "summaries": {
       "families": [
