@@ -1,9 +1,26 @@
-// Google Fonts catalogue + on-demand loader, shared by the document, spreadsheet
-// and slide editors. The core type stack is self-hosted (bundled via @fontsource
-// / material-symbols and imported from main.tsx), and the main renderer CSP is
-// deliberately strict (no fonts.googleapis.com) so the app renders offline. So
-// loadGoogleFont never re-fetches a self-hosted family — that would only inject a
-// CSP-blocked <link> and spam the console for a font that is already present.
+// Font catalogue + loader, shared by the document, spreadsheet, slide and
+// design editors. Every family offered here ships with the app, so choosing one
+// never contacts a font CDN:
+//
+//   - the core type stack (Inter, JetBrains Mono, Lexend, Atkinson Hyperlegible,
+//     Patrick Hand) and Material Symbols come from the @fontsource /
+//     material-symbols packages, imported by main.tsx and officeApp.tsx;
+//   - the rest are vendored in assets/fonts (latin subset, regular and bold plus
+//     italics; SIL OFL 1.1, Permanent Marker Apache 2.0; licences in
+//     assets/fonts/FONT-LICENSES.txt) and declared by bundled-fonts.css below.
+//
+// Until 4.3.34 the picker offered ~100 Google Fonts fetched from
+// fonts.googleapis.com on demand, which told Google about every launch of
+// PlexiiOffice and every font chosen, and in the PlexiiDesk window never worked
+// at all (its CSP blocks the CDN). A document that still names a family no
+// longer offered falls back to the generic stack; its stored value is untouched.
+//
+// The exported names keep "Google" for the call sites' sake; the fonts are
+// Google Fonts families, served from the app itself.
+
+import '../assets/fonts/bundled-fonts.css'
+// Emitted with the bundle so the licences travel with the fonts.
+import '../assets/fonts/FONT-LICENSES.txt?url'
 
 export const GENERIC_FONTS = [
   { label: 'Default', value: '' },
@@ -12,56 +29,28 @@ export const GENERIC_FONTS = [
   { label: 'Mono', value: '"JetBrains Mono", ui-monospace, monospace' }
 ]
 
-// Broad set of popular Google Fonts. Each is loaded on demand.
+// Every family the pickers offer, all bundled. Keep in step with
+// assets/fonts/bundled-fonts.css and the type-stack imports; a unit test
+// (bundledFonts.test.ts) fails if one is offered without being bundled.
 export const GOOGLE_FONTS: string[] = [
-  'Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Poppins', 'Raleway', 'Oswald',
-  'Source Sans 3', 'Noto Sans', 'Nunito', 'Nunito Sans', 'Work Sans', 'Rubik', 'PT Sans',
-  'Ubuntu', 'Mukta', 'Quicksand', 'Karla', 'Mulish', 'Manrope', 'DM Sans', 'Heebo',
-  'Barlow', 'Kanit', 'Fira Sans', 'Cabin', 'Josefin Sans', 'Hind', 'Titillium Web',
-  'PT Serif', 'Merriweather', 'Playfair Display', 'Lora', 'Roboto Slab', 'Noto Serif',
-  'Bitter', 'Crimson Text', 'Libre Baskerville', 'EB Garamond', 'Cormorant Garamond',
-  'Source Serif 4', 'Spectral', 'Zilla Slab', 'Arvo', 'Domine', 'Frank Ruhl Libre',
-  'Roboto Mono', 'JetBrains Mono', 'Source Code Pro', 'Fira Code', 'IBM Plex Mono',
-  'Space Mono', 'Inconsolata', 'Ubuntu Mono', 'PT Mono',
-  'Roboto Condensed', 'Archivo', 'Archivo Narrow', 'Barlow Condensed', 'Saira',
-  'Exo 2', 'Teko', 'Bebas Neue', 'Anton', 'Pathway Gothic One',
-  'Dancing Script', 'Pacifico', 'Caveat', 'Lobster', 'Satisfy', 'Great Vibes',
-  'Shadows Into Light', 'Permanent Marker', 'Patrick Hand', 'Indie Flower', 'Kalam',
-  'Comfortaa', 'Righteous', 'Fredoka', 'Baloo 2', 'Abril Fatface', 'Yeseva One',
-  'Cardo', 'Alegreya', 'Vollkorn', 'Bree Serif', 'Maven Pro', 'Asap', 'Catamaran',
-  'Signika', 'Questrial', 'Jost', 'Sora', 'Outfit', 'Plus Jakarta Sans', 'Figtree',
-  'Albert Sans', 'Be Vietnam Pro', 'Onest', 'Schibsted Grotesk'
+  // Sans
+  'Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Poppins', 'Source Sans 3', 'Nunito',
+  'Work Sans', 'DM Sans', 'Raleway', 'Lexend', 'Atkinson Hyperlegible', 'Oswald',
+  // Serif
+  'Merriweather', 'Playfair Display', 'Lora', 'PT Serif', 'EB Garamond', 'Source Serif 4',
+  'Libre Baskerville',
+  // Mono
+  'JetBrains Mono', 'Fira Code', 'IBM Plex Mono', 'Source Code Pro', 'Roboto Mono',
+  // Display and handwriting
+  'Bebas Neue', 'Caveat', 'Dancing Script', 'Pacifico', 'Permanent Marker', 'Indie Flower',
+  'Patrick Hand'
 ]
 
-const loaded = new Set<string>()
-
-// Families that ship with the app (bundled @fontsource / material-symbols and
-// imported in main.tsx). These render without any network, and the renderer CSP
-// blocks fonts.googleapis.com, so a CDN fetch for them is both pointless and
-// noisy — skip it. Keep in sync with the imports in main.tsx / the type stack.
-const SELF_HOSTED = new Set([
-  'Inter',
-  'JetBrains Mono',
-  'Lexend',
-  'Atkinson Hyperlegible',
-  'Patrick Hand',
-  'Material Symbols Outlined'
-])
-
-// Inject the @font-face stylesheet for a family if not already loaded. No weight
-// axis is requested so the call always succeeds even for single-weight families;
-// bold/italic synthesise. Generic CSS stacks (containing a comma) and the
-// self-hosted families are ignored.
-export function loadGoogleFont(family: string): void {
-  if (!family || family.includes(',') || loaded.has(family) || SELF_HOSTED.has(family)) return
-  loaded.add(family)
-  const id = 'gf-' + family.replace(/[^a-z0-9]+/gi, '-').toLowerCase()
-  if (document.getElementById(id)) return
-  const link = document.createElement('link')
-  link.id = id
-  link.rel = 'stylesheet'
-  link.href = `https://fonts.googleapis.com/css2?family=${family.replace(/ /g, '+')}:ital,wght@0,400;0,600;0,700;1,400&display=swap`
-  document.head.appendChild(link)
+// Kept as a call-site hook: fonts are bundled, so there is nothing to fetch.
+// Never inject a remote stylesheet here; tests/unit/bundledFonts.test.ts holds
+// that line for the whole renderer.
+export function loadGoogleFont(_family: string): void {
+  /* every offered family is already declared by bundled-fonts.css */
 }
 
 // The CSS font-family value to store for a chosen Google family (with a fallback).

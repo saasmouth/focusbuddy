@@ -1,6 +1,7 @@
-// A searchable font picker over the full Google Fonts catalogue (plus the
-// generic stacks). Each visible family is loaded on demand and previewed in its
-// own typeface. Shared by the document, spreadsheet and slide editors.
+// A searchable font picker over the fonts bundled with the app (lib/googleFonts:
+// Google Fonts families served from the app itself, never a font CDN) plus the
+// generic stacks. Each family is previewed in its own typeface. Shared by the
+// document, spreadsheet and slide editors.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from '../../Icon'
@@ -61,7 +62,7 @@ export default function FontPicker({ value, onChange, compact }: Props): JSX.Ele
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search Google Fonts…"
+            placeholder="Search fonts…"
             className="fb-field w-full mb-1 px-2 py-1 text-[12px]"
           />
           <div className="max-h-64 overflow-auto">
