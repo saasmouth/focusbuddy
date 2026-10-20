@@ -233,7 +233,7 @@ export function isTrialCreditsExhausted(input: {
 
 /** The credit state main reports to the renderer (creditMode.getAiStatus). */
 export interface AiCreditStatus {
-  mode: 'auto' | 'credits' | 'byok'
+  mode: 'auto' | 'credits' | 'byok' | 'local'
   signedIn: boolean
   hasOwnKey: boolean
   balance: number | null

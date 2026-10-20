@@ -14,6 +14,7 @@ import { runRetentionSweep } from './db/retention'
 import { runTitleBackfill } from './titleBackfill'
 import { autoBackupOnLaunch } from './db/backup'
 import { registerIpcHandlers } from './ipc'
+import { initLocalAi, registerLocalAiIpc } from './ai/local/localAiService'
 import { runWidgetFileBackfill, setWidgetFileResolvers } from './db/widgetFiles'
 import { setDocTextResolvers } from './workspaceRank'
 import { mainWidgetResolvers } from './ai/widgetSummary'
@@ -787,6 +788,11 @@ app.whenReady().then(() => {
     app.setAppUserModelId('agency.saasmouth.plexidesk')
   }
   getDb()
+  // Local AI policy, before anything can make an AI call: the provider router,
+  // the egress guard that keeps AI traffic on the device while the source is
+  // "Local on this device", and the engine host. No model is loaded here; it
+  // loads in a utility process on the first on-device request.
+  initLocalAi()
   // Cookie flushing and "keep connected apps signed in" (sessionPersistence.ts).
   // BEFORE restoreExtensions, which is the first thing to open the browser and
   // connected-app partitions — session-created must already be listening.
@@ -851,6 +857,7 @@ app.whenReady().then(() => {
   setWidgetFileResolvers(mainWidgetResolvers)
   setDocTextResolvers(mainWidgetResolvers)
   registerIpcHandlers()
+  registerLocalAiIpc()
   registerMdExternal()
   // The notification substrate's scheduler (Attention S4): app-start sweep +
   // 30s cadence; durable rows mean scheduled banners survive restarts.

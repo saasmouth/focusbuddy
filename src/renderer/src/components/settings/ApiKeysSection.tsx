@@ -249,7 +249,7 @@ function AiSourceSection(): JSX.Element {
     void refreshCredits()
   }, [refreshCredits])
 
-  async function pick(mode: 'auto' | 'credits' | 'byok'): Promise<void> {
+  async function pick(mode: 'auto' | 'credits' | 'byok' | 'local'): Promise<void> {
     if (busy) return
     setBusy(true)
     setNote(null)
@@ -281,11 +281,16 @@ function AiSourceSection(): JSX.Element {
     }
   }
 
-  const modes: Array<{ id: 'auto' | 'credits' | 'byok'; label: string; sub: string }> = [
-    { id: 'auto', label: 'Automatic', sub: 'Credits first, then your key' },
-    { id: 'credits', label: 'Plexii credits', sub: 'Your plan’s allowance and packs' },
-    { id: 'byok', label: 'Your own key', sub: 'Direct to Anthropic' }
+  // One honest choice of where AI runs. "Plexii AI credits" covers both
+  // credit modes: 'auto' (credits, then the user's own key when they run out)
+  // and 'credits' (credits only); the difference is the switch under it.
+  const modes: Array<{ id: 'local' | 'byok' | 'credits'; label: string; sub: string }> = [
+    { id: 'local', label: 'Local on this device', sub: 'AI requests stay on this computer' },
+    { id: 'byok', label: 'Your own API key', sub: 'Direct to Anthropic' },
+    { id: 'credits', label: 'Plexii AI credits', sub: 'Your plan’s allowance and packs' }
   ]
+  const selected = (id: 'local' | 'byok' | 'credits'): boolean =>
+    id === 'credits' ? status?.mode === 'credits' || status?.mode === 'auto' : status?.mode === id
 
   return (
     <div data-testid="ai-source-section">
@@ -293,11 +298,12 @@ function AiSourceSection(): JSX.Element {
         {modes.map((m) => (
           <button
             key={m.id}
-            onClick={() => void pick(m.id)}
+            onClick={() => void pick(m.id === 'credits' && status?.mode === 'auto' ? 'auto' : m.id)}
             disabled={busy || status === null}
             data-testid={`ai-mode-${m.id}`}
+            aria-pressed={selected(m.id)}
             className={`fb-t-caption px-2 py-1.5 rounded-[var(--radius-field)] border text-left ${
-              status?.mode === m.id
+              selected(m.id)
                 ? 'border-accent bg-accent/10 text-[var(--ink-100)] fb-press'
                 : 'border-[var(--edge-soft)] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]'
             } disabled:opacity-50`}
@@ -310,7 +316,31 @@ function AiSourceSection(): JSX.Element {
         ))}
       </div>
 
-      {status && status.mode !== 'byok' && (
+      {status && (status.mode === 'auto' || status.mode === 'credits') && (
+        <label className="flex items-start gap-2 fb-t-caption text-[var(--ink-70)] mb-2 leading-snug">
+          <input
+            type="checkbox"
+            data-testid="ai-mode-auto"
+            checked={status.mode === 'auto'}
+            disabled={busy}
+            onChange={(e) => void pick(e.target.checked ? 'auto' : 'credits')}
+          />
+          <span>
+            Automatic: when credits run out, use my own API key
+            {!status.hasOwnKey && <span className="text-[var(--ink-50)]"> (add one under API keys)</span>}
+          </span>
+        </label>
+      )}
+
+      {status?.mode === 'local' && (
+        <div className="fb-t-caption text-[var(--ink-60)] mb-2 leading-snug" data-testid="ai-local-note">
+          PlexiiAssist, PlexiiBrain and the other AI features run on the on-device model below. No prompt or content
+          is sent to any AI service; a feature the on-device model is not good enough for asks before using cloud AI
+          for that one request.
+        </div>
+      )}
+
+      {status && status.mode !== 'byok' && status.mode !== 'local' && (
         <div className="fb-card rounded-[var(--radius-field)] px-2.5 py-2 mb-2">
           {!status.signedIn ? (
             <div className="fb-t-caption text-[var(--ink-50)] leading-snug">

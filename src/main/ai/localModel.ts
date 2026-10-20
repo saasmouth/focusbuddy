@@ -1,13 +1,21 @@
-// Local model client (Ollama). Runs chat completions and text embeddings against
-// a local Ollama server so document enrichment and semantic indexing happen
-// privately, offline and for free — no cloud key, no metered credit. This is the
-// engine behind file/document metadata enrichment and local semantic search.
+// Local model client. Two engines, in this order:
 //
-// Everything degrades honestly: if Ollama isn't running, or has no suitable
-// model, callers get null / an "unavailable" result and NOTHING is faked. The
-// base URL and model choices are overridable by env for anyone whose local setup
-// differs; otherwise we auto-pick a sensible chat model and embedding model from
-// whatever the server actually has installed.
+//   1. The BUNDLED engine — the on-device model the app downloads and runs
+//      itself (Settings → AI → Local on this device; src/main/ai/local/). This
+//      is the default and needs nothing installed.
+//   2. Ollama, as an advanced fallback — for anyone who already runs a local
+//      Ollama server and has no bundled model downloaded. It is reached only on
+//      localhost (or wherever FB_OLLAMA_URL points), never a cloud service.
+//
+// These power the jobs that were always meant to be private and free:
+// document enrichment (descriptions for retrieval), memory sweeps, and — when
+// an embedding model is present — semantic search vectors.
+//
+// Everything degrades honestly: with neither engine available, callers get
+// null / an "unavailable" result and NOTHING is faked.
+
+import { getLocalRuntime } from './local/providerRouter'
+import { runLocal } from './local/localClient'
 
 const BASE = (process.env.FB_OLLAMA_URL ?? 'http://localhost:11434').replace(/\/$/, '')
 
@@ -83,13 +91,30 @@ export interface LocalModelStatus {
 // Snapshot of what's usable right now — drives honest UI ("local AI not running")
 // and lets callers skip work when nothing is installed.
 export async function localModelStatus(): Promise<LocalModelStatus> {
-  const models = await listModels()
+  const bundled = getLocalRuntime()
+  const bundledChat = bundled.installed() ? `local:${bundled.modelLabel()}` : null
+  const bundledEmbed = bundledEmbedder?.installed() ? `local:${bundledEmbedder.label()}` : null
+  // Only ask Ollama when the bundled engine leaves a gap; a closed port costs a
+  // 3 s timeout otherwise.
+  const models = bundledChat && bundledEmbed ? [] : await listModels()
   return {
-    available: models.length > 0,
-    baseUrl: BASE,
-    chatModel: pickChatModel(models),
-    embedModel: pickEmbedModel(models)
+    available: bundledChat !== null || models.length > 0,
+    baseUrl: bundledChat ? 'on this device' : BASE,
+    chatModel: bundledChat ?? pickChatModel(models),
+    embedModel: bundledEmbed ?? pickEmbedModel(models)
   }
+}
+
+// The bundled embedder (an embedding GGUF run by the same engine). Registered
+// by the app at start-up; absent in tests unless a test registers one.
+export interface BundledEmbedder {
+  installed: () => boolean
+  label: () => string
+  embed: (texts: string[], kind?: 'document' | 'query') => Promise<number[][]>
+}
+let bundledEmbedder: BundledEmbedder | null = null
+export function setBundledEmbedder(e: BundledEmbedder | null): void {
+  bundledEmbedder = e
 }
 
 // One chat turn. `format: 'json'` asks Ollama to constrain output to valid JSON,
@@ -100,7 +125,24 @@ export async function localChat(input: {
   prompt: string
   json?: boolean
   timeoutMs?: number
+  /** Which job this is, for the bundled engine's output contract and gate. */
+  purpose?: string
 }): Promise<string | null> {
+  const bundled = getLocalRuntime()
+  if (bundled.installed()) {
+    try {
+      const msg = await runLocal(bundled, {
+        model: `local:${input.purpose ?? 'enrichment'}`,
+        max_tokens: 2048,
+        system: input.system ?? '',
+        messages: [{ role: 'user', content: input.prompt }]
+      })
+      const text = msg.content.map((b) => ('text' in b ? b.text : '')).join('')
+      return msg.stop_reason === 'end_turn' && text.trim() ? text : null
+    } catch {
+      return null
+    }
+  }
   const model = pickChatModel(await listModels())
   if (!model) return null
   const messages: Array<{ role: string; content: string }> = []
@@ -129,9 +171,18 @@ export async function localChat(input: {
 // them (so callers can keep the vector store dimension-consistent), or null when
 // no embedding model is available / the server is down. Never throws.
 export async function localEmbed(
-  texts: string[]
+  texts: string[],
+  kind: 'document' | 'query' = 'document'
 ): Promise<{ model: string; vectors: number[][] } | null> {
   if (texts.length === 0) return { model: '', vectors: [] }
+  if (bundledEmbedder?.installed()) {
+    try {
+      const vectors = await bundledEmbedder.embed(texts, kind)
+      if (vectors.length === texts.length) return { model: `local:${bundledEmbedder.label()}`, vectors }
+    } catch {
+      /* fall through to Ollama, then to the caller's honest fallback */
+    }
+  }
   const model = pickEmbedModel(await listModels())
   if (!model) return null
   const json = (await fetchJson(

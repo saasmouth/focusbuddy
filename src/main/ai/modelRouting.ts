@@ -145,7 +145,52 @@ export function getModelMode(): ModelMode {
   return currentMode
 }
 
+// Local AI (providerRouter.ts) registers here which purposes run on the
+// on-device model. Injected rather than imported so this table stays a pure
+// module with no settings or Electron dependency.
+let routesLocal: (purpose: string) => boolean = () => false
+// True when the AI source is Local but this purpose's feature is routed to
+// cloud: its id is tagged so the routed client sends it to cloud deliberately
+// (under a grant) instead of treating it as a stray cloud id and keeping it on
+// the device.
+let routedToCloudFromLocal: (purpose: string) => boolean = () => false
+export function setLocalRouteResolver(
+  fn: (purpose: string) => boolean,
+  cloudFromLocal: (purpose: string) => boolean = () => false
+): void {
+  routesLocal = fn
+  routedToCloudFromLocal = cloudFromLocal
+}
+
+/** `cloudroute:<purpose>:<model>` → the model id, or the input unchanged. */
+export function stripCloudRoute(model: string): string {
+  const m = /^cloudroute:[^:]+:(.+)$/.exec(model)
+  return m ? m[1] : model
+}
+
+/**
+ * The model a purpose runs on. A purpose routed to the on-device model gets
+ * `local:<purpose>`, which the routed client serves locally; that id names the
+ * purpose so the local side knows which output contract and quality gate apply.
+ */
 export function resolveModel(purpose: AIPurpose): string {
+  if (routesLocal(purpose)) return `local:${purpose}`
+  const cloud = resolveCloudModel(purpose)
+  return routedToCloudFromLocal(purpose) ? `cloudroute:${purpose}:${cloud}` : cloud
+}
+
+/**
+ * For call sites that name their cloud model directly: the same model when the
+ * purpose runs on cloud, `local:<purpose>` when it is routed to the device. The
+ * cloud choice is left exactly as the call site had it.
+ */
+export function routeModel(purpose: AIPurpose, cloudModel: string): string {
+  if (routesLocal(purpose)) return `local:${purpose}`
+  return routedToCloudFromLocal(purpose) ? `cloudroute:${purpose}:${cloudModel}` : cloudModel
+}
+
+/** The cloud model for a purpose, ignoring local routing. */
+export function resolveCloudModel(purpose: AIPurpose): string {
   switch (currentMode) {
     case 'haiku':
       return HAIKU

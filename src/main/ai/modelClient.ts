@@ -21,7 +21,10 @@ const byKey = new Map<string, Anthropic>()
 export function getModelClient(key: string): Anthropic {
   let c = byKey.get(key)
   if (!c) {
-    c = new Anthropic({ apiKey: key, fetch: defaultsFetch(globalThis.fetch) })
+    // Resolve globalThis.fetch per request, not once here: the local-AI egress
+    // guard wraps it, and a client cached before that must not hold the
+    // unwrapped function.
+    c = new Anthropic({ apiKey: key, fetch: defaultsFetch((i, n) => globalThis.fetch(i, n)) })
     byKey.set(key, c)
   }
   return c
@@ -31,7 +34,7 @@ export function getModelClient(key: string): Anthropic {
 // which needs a custom baseURL, headers and fetch). Still instantiated HERE so the
 // SDK dependency stays in one module.
 export function createAnthropic(opts: ConstructorParameters<typeof Anthropic>[0]): Anthropic {
-  const base = (opts?.fetch as typeof fetch | undefined) ?? globalThis.fetch
+  const base = (opts?.fetch as typeof fetch | undefined) ?? (((i, n) => globalThis.fetch(i, n)) as typeof fetch)
   return new Anthropic({ ...opts, fetch: defaultsFetch(base) })
 }
 

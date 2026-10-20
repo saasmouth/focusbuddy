@@ -17,6 +17,7 @@ import { app } from 'electron'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import type { TranscriptionProvider } from './ai/voiceNote'
+import { localOnlyActive } from './ai/local/providerRouter'
 
 interface PrefShape {
   provider: TranscriptionProvider
@@ -48,7 +49,14 @@ function load(): PrefShape {
   }
 }
 
+/**
+ * The transcription engine to use now. While the AI source is "Local on this
+ * device" it is always local Whisper, whatever this preference says: audio is
+ * content, and cloud transcription would send it to OpenAI. The saved
+ * preference is kept and applies again when the source is cloud.
+ */
 export function getTranscriptionProvider(): TranscriptionProvider {
+  if (localOnlyActive()) return 'local'
   return load().provider
 }
 

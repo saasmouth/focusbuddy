@@ -8,6 +8,7 @@
 
 import type Anthropic from '@anthropic-ai/sdk' // type-only: no runtime SDK dependency (AI-001)
 import { getModelClient } from './modelClient'
+import { clientForKey } from './local/providerRouter'
 import { resolveModel } from './modelRouting'
 import { resolveAnthropicKey } from '../settingsStore'
 import { structuredDigest, type SummaryCache } from './summaryCache'
@@ -58,9 +59,8 @@ export function buildResumePrompt(resume: StructuredResume): string {
 
 // The real model call, through the seam. Throws if no key (caller degrades).
 const realInvoke: ModelInvoke = async (prompt, model) => {
-  const key = resolveAnthropicKey()
-  if (!key) throw new Error('no-anthropic-key')
-  const client = getModelClient(key)
+  const client = clientForKey(resolveAnthropicKey(), getModelClient)
+  if (!client) throw new Error('no-anthropic-key')
   const resp = await client.messages.create({ model, max_tokens: 512, messages: [{ role: 'user', content: prompt }] })
   return extractText(resp)
 }
@@ -84,7 +84,7 @@ export async function generateResumeSummaryLive(resume: StructuredResume, opts: 
     const meta = markAiGenerated({ model: resolveModel('resume'), promptVersion: RESUME_PROMPT_VERSION, generatedAt: opts.now, sourceEventIds: resume.sourceEventIds })
     return { resume: withAiSummary(resume, cached), aiMetadata: meta, cacheHit: true, degraded: false } // RES-012
   }
-  const keyAvailable = opts.keyAvailable ?? (() => !!resolveAnthropicKey())
+  const keyAvailable = opts.keyAvailable ?? (() => !!clientForKey(resolveAnthropicKey(), getModelClient))
   if (!keyAvailable()) {
     return { resume, aiMetadata: null, cacheHit: false, degraded: true } // ARC-022: no key -> deterministic
   }

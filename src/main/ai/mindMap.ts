@@ -38,6 +38,8 @@ import { getModelClient } from './modelClient'
 import { resolveAnthropicKey } from '../settingsStore'
 import { findAgentsDirectory } from '../workspaceResolver'
 import { MODEL_HAIKU, MODEL_SONNET } from './modelRouting'
+import { clientForKey } from './local/providerRouter'
+import { routeModel } from './modelRouting'
 
 export type MindMapNodeKind = 'idea' | 'task' | 'question' | 'tool' | 'agent'
 
@@ -70,15 +72,14 @@ export async function expandMindMapNode(input: {
   // "focus on legal risk", etc. Empty in v1; UI affordance later.
   guidance?: string
 }): Promise<ExpandOk | ExpandErr> {
-  const key = resolveAnthropicKey()
-  if (!key) {
+  const client = clientForKey(resolveAnthropicKey(), getModelClient)
+  if (!client) {
     return {
       ok: false,
       error: 'No Anthropic key set. Add one in Settings → AI · API keys.',
       reason: 'no_key'
     }
   }
-  const client = getModelClient(key)
 
   const SYSTEM =
     'You expand a node in a personal mind map. Given the path of labels from the root and the current node, explore the idea FULLY and propose the distinct child branches that genuinely advance the thinking — not paraphrases, not synonyms.\n' +
@@ -113,7 +114,7 @@ export async function expandMindMapNode(input: {
 
   try {
     const resp = await client.messages.create({
-      model: MODEL_SONNET,
+      model: routeModel('document', MODEL_SONNET),
       // Generous so a rich node can return many high-quality branches without
       // being truncated mid-array (the count is decided by the idea, not a quota).
       max_tokens: 2048,
@@ -250,15 +251,14 @@ export async function suggestAgentsForNode(input: {
       reason: 'no_agents'
     }
   }
-  const key = resolveAnthropicKey()
-  if (!key) {
+  const client = clientForKey(resolveAnthropicKey(), getModelClient)
+  if (!client) {
     return {
       ok: false,
       error: 'No Anthropic key set. Add one in Settings → AI · API keys.',
       reason: 'no_key'
     }
   }
-  const client = getModelClient(key)
 
   // We compose a tight list — slug + first-line description — so the
   // model can pick without burning tokens on the full agent body.
@@ -291,7 +291,7 @@ export async function suggestAgentsForNode(input: {
 
   try {
     const resp = await client.messages.create({
-      model: MODEL_HAIKU, // cheap, 33-agent list × short rationale fits easily
+      model: routeModel('agent_step', MODEL_HAIKU), // cheap, 33-agent list × short rationale fits easily
       max_tokens: 512,
       system: SYSTEM,
       messages: [{ role: 'user', content: userMsg }]

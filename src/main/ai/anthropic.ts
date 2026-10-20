@@ -8,6 +8,7 @@ import {
   type RefCandidate
 } from '@shared/widgetRefs'
 import { getModelClient, invalidateModelClients } from './modelClient'
+import { routedClient, localOnlyActive } from './local/providerRouter'
 import { BROWSER_TOOLS, runBrowserTool } from './agentBrowser'
 import { getNode, listNodes } from '../db/nodes'
 import { getWidget, listWidgetsByTask } from '../db/widgets'
@@ -179,7 +180,15 @@ export function getSharedAiClient(): Anthropic | null {
   return getClient()
 }
 
+// Every AI call's client. With no local routing configured this is exactly the
+// cloud client below; with Local on (Settings → AI) it is the routed client,
+// which serves `local:` requests on the device and reaches cloud only under an
+// explicit grant (src/main/ai/local/providerRouter.ts).
 function getClient(): Anthropic | null {
+  return routedClient(getCloudClient())
+}
+
+function getCloudClient(): Anthropic | null {
   // Credit mode first: when the user is signed in and policy says to use
   // PlexiDesk credits, route through the metered proxy. The proxy client's
   // own fetch handles the out-of-credits hand-off (auto fall-back to the
@@ -1647,7 +1656,10 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
         }),
         // The R21 globe and ideation gating both land here: an off web pool
         // resolves empty without ever making the request.
-        gate.web ? searchWeb(lastUser, 5).catch(() => []) : Promise.resolve([]),
+        // AI on this device: the web search would send the question to a
+        // search engine, so it is not made at all (the egress guard would refuse
+        // it anyway; this keeps the attempt from happening).
+        gate.web && !localOnlyActive() ? searchWeb(lastUser, 5).catch(() => []) : Promise.resolve([]),
         // Availability probe, in parallel so disclosure costs no latency.
         embeddingConfigured().catch(() => false),
         // Mail is its own pool. The local store answers most questions with no

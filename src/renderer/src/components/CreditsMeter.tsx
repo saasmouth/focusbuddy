@@ -25,6 +25,15 @@ export default function CreditsMeter({ variant = 'compact' }: { variant?: 'compa
     if (signedIn) void refresh()
   }, [signedIn, refresh])
 
+  // On the device, no credits are spent and no key is used.
+  if (status?.mode === 'local') {
+    if (variant === 'full') return null
+    return (
+      <span className="fb-t-caption text-[var(--ink-50)] inline-flex items-center gap-1" data-testid="credits-meter">
+        <Icon name="memory" size={12} /> On this device
+      </span>
+    )
+  }
   if (!signedIn || !status || !status.signedIn) return null
   // On their own key, the balance is not what pays for this call.
   if (status.mode === 'byok') {

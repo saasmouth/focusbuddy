@@ -43,6 +43,7 @@ import MetricsOverlay from './components/MetricsOverlay'
 import LaunchSignInModal from './components/LaunchSignInModal'
 import UpgradePromptModal from './components/UpgradePromptModal'
 import CreditPromptModal from './components/CreditPromptModal'
+import LocalAiPrompts from './components/LocalAiPrompts'
 import VerifyEmailModal from './components/VerifyEmailModal'
 import InviteTeammateNudge from './components/InviteTeammateNudge'
 import GrowthEffects from './components/GrowthEffects'
@@ -824,6 +825,7 @@ export default function App(): JSX.Element {
             first_launch). */}
         <GrowthEffects />
         <CreditPromptModal />
+        <LocalAiPrompts />
         <VerifyEmailModal />
         <InviteTeammateNudge />
         <MetricsOverlay />

@@ -36,6 +36,8 @@ import type { ActionProposal } from '@shared/types'
 import { resolveAnthropicKey } from '../settingsStore'
 import { recordInvocation } from './agentHistory'
 import { MODEL_HAIKU, MODEL_OPUS, MODEL_SONNET } from './modelRouting'
+import { clientForKey } from './local/providerRouter'
+import { routeModel } from './modelRouting'
 
 export interface AgentInvocationContext {
   // Absolute path to the agent's .md file. The system prompt is
@@ -104,8 +106,8 @@ export interface InvokeErr {
 export async function invokeAgent(
   ctx: AgentInvocationContext
 ): Promise<InvokeOk | InvokeErr> {
-  const key = resolveAnthropicKey()
-  if (!key) {
+  const client = clientForKey(resolveAnthropicKey(), getModelClient)
+  if (!client) {
     return {
       ok: false,
       error: 'No Anthropic key set. Add one in Settings → AI · API keys.',
@@ -224,11 +226,10 @@ export async function invokeAgent(
     `[agentDispatcher] invoking "${agentName}" on "${ctx.nodeLabel}" — turn ${prevTurns + 1}/${MAX_CONVERSATION_TURNS * 2}`
   )
 
-  const client = getModelClient(key)
   let parsed: { reply: string; proposals: ActionProposal[] }
   try {
     const resp = await client.messages.create({
-      model,
+      model: routeModel('agent_step', model),
       max_tokens: 2048,
       system,
       messages

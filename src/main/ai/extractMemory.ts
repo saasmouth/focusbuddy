@@ -20,7 +20,8 @@ export async function extractMemoryFromText(input: {
   const raw = await localChat({
     system: MEMORY_SYSTEM,
     prompt: buildMemoryPrompt(input.title, input.text),
-    json: true
+    json: true,
+    purpose: 'memory_extract'
   })
   if (!raw) return { ok: false, added: 0, reason: 'no_local_model' }
   const drafts = parseMemoryResponse(raw)

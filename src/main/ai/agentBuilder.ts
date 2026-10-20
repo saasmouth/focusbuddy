@@ -16,6 +16,8 @@ import { getModelClient } from './modelClient'
 import { resolveAnthropicKey } from '../settingsStore'
 import { ensureAgentsDirectory } from '../workspaceResolver'
 import { MODEL_SONNET } from './modelRouting'
+import { clientForKey } from './local/providerRouter'
+import { routeModel } from './modelRouting'
 
 export type AgentModelTier = 'haiku' | 'sonnet' | 'opus'
 
@@ -105,8 +107,8 @@ export async function createAgent(
     }
   }
 
-  const key = resolveAnthropicKey()
-  if (!key) {
+  const client = clientForKey(resolveAnthropicKey(), getModelClient)
+  if (!client) {
     return {
       ok: false,
       error: 'No Anthropic key set. Add one in Settings → AI · API keys.',
@@ -117,7 +119,6 @@ export async function createAgent(
   // Generate the body via Claude. Sonnet is the right tier — agent
   // design is meta-work, but a one-paragraph user spec isn't deep
   // enough to need Opus.
-  const client = getModelClient(key)
 
   const SYSTEM =
     'You write Claude Code sub-agent markdown files. Output ONLY the body content (no preamble, no markdown fence). The body should:\n' +
@@ -151,7 +152,7 @@ export async function createAgent(
   let body: string
   try {
     const resp = await client.messages.create({
-      model: MODEL_SONNET,
+      model: routeModel('desk_agent', MODEL_SONNET),
       max_tokens: 1800,
       system: SYSTEM,
       messages: [{ role: 'user', content: userMsg }]

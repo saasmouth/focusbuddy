@@ -75,9 +75,11 @@ export default function AutomationsFAB(): JSX.Element {
         // byok → the user's own key, direct to Anthropic. credits/auto → through
         // PlexiDesk's own relay. Mirror wires are a local copy and never leave.
         setAiRoute(
-          s.mode === 'byok'
-            ? 'AI transforms run with your key, sent directly to Anthropic.'
-            : 'AI transforms run on Plexii credits, relayed through our server to Anthropic. Mirror copies stay on your device.'
+          s.mode === 'local'
+            ? 'AI transforms run on the on-device model; nothing is sent to an AI service. Mirror copies stay on your device.'
+            : s.mode === 'byok'
+              ? 'AI transforms run with your key, sent directly to Anthropic.'
+              : 'AI transforms run on Plexii credits, relayed through our server to Anthropic. Mirror copies stay on your device.'
         )
       })
       .catch(() => alive && setAiRoute(null))

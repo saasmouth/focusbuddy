@@ -1,5 +1,6 @@
 import type { WidgetInput } from '@shared/customWidgetSandbox'
 import type { WriteOrigin } from '../shared/writeOrigin'
+import type { LocalAiStatus, LocalDownloadProgress, CloudConsentRequest } from '@shared/localAi'
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   ActionProposal,
@@ -743,7 +744,7 @@ const api = {
     }> => ipcRenderer.invoke('ai:suggestWidgetSetup', input),
     // AI source (PlexiDesk credits vs bring-your-own-key) + credit balance.
     getStatus: (): Promise<AiCreditStatus> => ipcRenderer.invoke('ai:getStatus'),
-    setMode: (mode: 'auto' | 'credits' | 'byok'): Promise<AiCreditStatus> => ipcRenderer.invoke('ai:setMode', mode),
+    setMode: (mode: 'auto' | 'credits' | 'byok' | 'local'): Promise<AiCreditStatus> => ipcRenderer.invoke('ai:setMode', mode),
     refreshCredits: (): Promise<AiCreditStatus> => ipcRenderer.invoke('ai:refreshCredits'),
     markEmailVerified: (): Promise<AiCreditStatus> => ipcRenderer.invoke('ai:markEmailVerified'),
     // A refusal from the credits proxy, raised inside any AI call.
@@ -2594,7 +2595,38 @@ const api = {
       files: { total: number; indexed: number }
       conversations: { total: number; indexed: number }
       knowledge: { total: number }
-    }> => ipcRenderer.invoke('brain:coverage')
+    }> => ipcRenderer.invoke('brain:coverage'),
+    // The bundled on-device model (Settings → AI → Local on this device).
+    getStatus: (): Promise<LocalAiStatus> => ipcRenderer.invoke('localAi:getStatus'),
+    download: (tierId: string): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('localAi:download', tierId),
+    cancelDownload: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('localAi:cancelDownload'),
+    deleteModel: (tierId: string): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('localAi:deleteModel', tierId),
+    setTier: (tierId: string | null): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('localAi:setTier', tierId),
+    setFeatureRoute: (feature: string, route: 'local' | 'cloud' | null): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('localAi:setFeatureRoute', feature, route),
+    tryIt: (): Promise<{ ok: boolean; text?: string; ms?: number; outputTokens?: number; ttftMs?: number | null; error?: string }> =>
+      ipcRenderer.invoke('localAi:tryIt'),
+    consentReply: (id: string, allow: boolean): Promise<{ ok: boolean }> => ipcRenderer.invoke('localAi:consentReply', id, allow),
+    onProgress: (cb: (p: LocalDownloadProgress) => void): (() => void) => {
+      const listener = (_e: unknown, p: LocalDownloadProgress): void => cb(p)
+      ipcRenderer.on('localAi:progress', listener)
+      return () => ipcRenderer.removeListener('localAi:progress', listener)
+    },
+    onChanged: (cb: () => void): (() => void) => {
+      const listener = (): void => cb()
+      ipcRenderer.on('localAi:changed', listener)
+      return () => ipcRenderer.removeListener('localAi:changed', listener)
+    },
+    onConsentRequest: (cb: (r: CloudConsentRequest) => void): (() => void) => {
+      const listener = (_e: unknown, r: CloudConsentRequest): void => cb(r)
+      ipcRenderer.on('localAi:consentRequest', listener)
+      return () => ipcRenderer.removeListener('localAi:consentRequest', listener)
+    },
+    onNotice: (cb: (n: { feature: string; message: string }) => void): (() => void) => {
+      const listener = (_e: unknown, n: { feature: string; message: string }): void => cb(n)
+      ipcRenderer.on('localAi:notice', listener)
+      return () => ipcRenderer.removeListener('localAi:notice', listener)
+    }
   },
   agent: {
     // One round of the autonomous agent loop, driven by lib/agentRunner. The

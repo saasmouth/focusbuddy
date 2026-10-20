@@ -39,6 +39,10 @@ jobs:
           cache: npm
 
       - run: npm ci
+        # node-llama-cpp (on-device AI) ships prebuilt binaries; never let its
+        # postinstall download or compile llama.cpp on a CI runner.
+        env:
+          NODE_LLAMA_CPP_SKIP_DOWNLOAD: 'true'
 
       - name: Merge-readiness (up to date + typecheck + unit tests)
         run: npm run merge-check

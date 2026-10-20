@@ -56,6 +56,24 @@ jobs:
       # instead of failing, which is what we want for a build runner.
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+        env:
+          # The on-device model runtime (node-llama-cpp) ships prebuilt Windows
+          # binaries (CPU, Vulkan; CUDA is installed but not packaged). Never let
+          # its postinstall download or compile llama.cpp on the runner.
+          NODE_LLAMA_CPP_SKIP_DOWNLOAD: 'true'
+
+      # Prove the on-device AI runtime's prebuilt Windows binary loads on Windows
+      # (the app asks for exactly this: prebuilt only, never a build). CPU here:
+      # the runner has no GPU, so Vulkan is not exercised by this check.
+      - name: Check the on-device AI runtime loads
+        shell: bash
+        run: |
+          node --input-type=module -e "
+            const { getLlama } = await import('node-llama-cpp');
+            const llama = await getLlama({ gpu: false, build: 'never', usePrebuiltBinaries: true, progressLogs: false });
+            console.log('node-llama-cpp loaded:', llama.buildType, 'gpu=' + llama.gpu, 'cpu cores', llama.cpuMathCores);
+            await llama.dispose();
+          "
 
       # Set up the MSVC build environment explicitly. On Electron 37, node-gyp's
       # auto-detection of Visual Studio crashes on the runner with
