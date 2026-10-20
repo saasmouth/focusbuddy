@@ -153,8 +153,8 @@ export default function AccountSection(): JSX.Element {
             </p>
           </div>
           <p className="fb-t-caption text-[var(--ink-50)] leading-relaxed">
-            Your local data stays on this device. Signing out keeps it; it only
-            disconnects shared-item sync and your plan until you sign back in.
+            Signing out keeps your work on this computer. Sync, sharing and your
+            plan pause until you sign back in.
           </p>
           <TwoFactorSettings />
 
