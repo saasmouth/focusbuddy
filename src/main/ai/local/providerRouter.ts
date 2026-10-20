@@ -55,6 +55,7 @@ import {
   runLocal,
   LocalUnsupportedError,
   localUnusableReason,
+  localContractOf,
   flattenRequest,
   emitGrounding
 } from './localClient'
@@ -510,6 +511,15 @@ async function serveLocal(
       cloudModel
     )
     if (viaCloud) return viaCloud
+  }
+  // A call with a known contract never gets an unusable reply passed off as
+  // its answer (an empty table, no cards): it fails plainly instead.
+  const promised = localContractOf(msg)
+  if (unusable && promised) {
+    throw new LocalUnavailableError(
+      feature,
+      `The on-device model could not produce ${promised} for this request (${unusable}). Nothing was sent anywhere. Try again, rephrase it, or use your own key for ${AI_FEATURE_COPY[feature].label} in Settings → AI.`
+    )
   }
   return msg
 }

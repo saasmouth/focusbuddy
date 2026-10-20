@@ -25,6 +25,7 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import type { EngineGenerateResult, EngineMessage, LocalEngine } from './engineCore'
 import { isContentWriting, withSmallRule, suppliedText, reviewOutput, type ReviewResult } from './groundingCheck'
+import { parseStructured, contractFor } from './structuredOutput'
 
 export class LocalUnsupportedError extends Error {
   constructor(
@@ -86,55 +87,15 @@ export function extractJsonText(text: string): string | null {
   return s.slice(start, end + 1)
 }
 
-type Validator = (v: unknown) => string | null
 
-const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
-
-// The contracts whose shape is fixed. Anything else is checked for being
-// parseable JSON of the demanded kind, and the call site validates the rest.
-const VALIDATORS: Record<string, Validator> = {
-  chat: (v) => {
-    if (!isObj(v)) return 'the reply must be a JSON object'
-    if (typeof v.reply === 'string') {
-      if (v.actions !== undefined && !Array.isArray(v.actions)) return '"actions" must be an array'
-      return null
-    }
-    // askWorkspace's grounded-answer contract shares the chat purpose.
-    if (typeof v.answer === 'string') return null
-    return 'the object must have a string "reply" field and an "actions" array'
-  },
-  welcome: (v) => (isObj(v) && typeof v.reply === 'string' ? null : 'the object must have a string "reply" field'),
-  setup: (v) => {
-    if (!isObj(v) || !Array.isArray(v.suggestions)) return 'the object must have a "suggestions" array'
-    if (v.suggestions.length === 0) return '"suggestions" must not be empty'
-    for (const s of v.suggestions) {
-      if (!isObj(s) || typeof s.kind !== 'string') return 'every suggestion needs a "kind"'
-      if (s.kind === 'table') {
-        const cols = isObj(s.tableSchema) ? s.tableSchema.columns : undefined
-        if (!Array.isArray(cols) || cols.length === 0) return `table "${String(s.title ?? '')}" has no tableSchema.columns`
-      }
-      if (s.kind === 'page' && !(isObj(s.pageContent) && Array.isArray(s.pageContent.content))) {
-        return `page "${String(s.title ?? '')}" has no pageContent document`
-      }
-    }
-    return null
-  },
-  title_backfill: (v) => (isObj(v) && Array.isArray(v.titles) ? null : 'the object must have a "titles" array'),
-  enrichment: (v) => (isObj(v) && typeof v.summary === 'string' ? null : 'the object must have a string "summary"')
-}
-
-/** Validate model text against the demanded JSON shape. Returns an error or null. Exported for tests. */
-export function validateJsonOutput(text: string, shape: 'object' | 'array', purpose: string): string | null {
-  const raw = extractJsonText(text)
-  if (!raw) return `no JSON ${shape} was found`
-  let v: unknown
-  try {
-    v = JSON.parse(raw)
-  } catch (e) {
-    return `the JSON did not parse (${(e as Error).message})`
-  }
-  if (shape === 'array' ? !Array.isArray(v) : !isObj(v)) return `the output must be a JSON ${shape}`
-  return VALIDATORS[purpose]?.(v) ?? null
+/**
+ * Validate model text against the demanded JSON shape and the CALL's contract
+ * (structuredOutput.ts). Returns an error or null. Exported for tests; `system`
+ * identifies the contract (without it only the shape is checked).
+ */
+export function validateJsonOutput(text: string, shape: 'object' | 'array', purpose: string, system = ''): string | null {
+  const r = parseStructured(text, shape, purpose, system)
+  return r.ok ? null : r.problem
 }
 
 // ── Schema-constrained decoding ─────────────────────────────────────────────
@@ -177,42 +138,8 @@ export function schemaFor(purpose: string, system: string): Record<string, unkno
       additionalProperties: true
     }
   }
-  if (purpose === 'setup' && /"suggestions"/.test(system)) {
-    return {
-      type: 'object',
-      properties: {
-        intent: { type: 'string' },
-        suggestions: {
-          type: 'array',
-          minItems: 1,
-          items: { type: 'object', properties: { id: { type: 'string' }, kind: { type: 'string' } }, additionalProperties: true }
-        }
-      }
-    }
-  }
-  if (purpose === 'title_backfill') {
-    return {
-      type: 'object',
-      properties: {
-        titles: { type: 'array', items: { type: 'object', properties: { i: { type: 'integer' }, title: { type: 'string' } } } }
-      }
-    }
-  }
-  if (purpose === 'enrichment') {
-    const strs = { type: 'array', items: { type: 'string' } }
-    return {
-      type: 'object',
-      properties: {
-        summary: { type: 'string' },
-        category: { type: 'string' },
-        entities: strs,
-        dates: strs,
-        keywords: strs,
-        language: { type: 'string' }
-      }
-    }
-  }
-  return null
+  // Every other recognised contract carries its own structure-only schema.
+  return (contractFor(purpose, system)?.schema as Record<string, unknown> | undefined) ?? null
 }
 
 // ── Small-model prompt variants ─────────────────────────────────────────────
@@ -401,9 +328,15 @@ export async function runLocal(
     if (applied) block.text = r.text
     return m
   }
-  if (!shape || first.stopReason !== 'end_turn') return grounded(toMessage(model, first))
-  const problem = validateJsonOutput(first.text, shape, purpose)
-  if (!problem) return grounded(toMessage(model, first))
+  if (!shape) return grounded(toMessage(model, first))
+  // Structured: tolerant parse → the call's contract → strict validation
+  // (structuredOutput.ts). A reply cut off at max tokens is a failure to
+  // retry, not something to hand the call site half of.
+  const firstParsed = parseStructured(first.text, shape, purpose, flat.system)
+  const accept = (r: EngineGenerateResult, text: string): Anthropic.Message => grounded(toMessage(model, { ...r, text, stopReason: 'end_turn' }))
+  // A JSON value that closed is complete, even when generation then hit its limit.
+  if (firstParsed.ok) return accept(first, firstParsed.text)
+  const problem = firstParsed.problem
 
   // One retry, telling the model exactly what was wrong. Streaming listeners
   // already saw the first attempt; the retry is not streamed (the consumer
@@ -426,18 +359,30 @@ export async function runLocal(
     },
     { signal: opts.signal }
   )
-  const retryProblem = retry.stopReason === 'end_turn' ? validateJsonOutput(retry.text, shape, purpose) : 'cut off'
-  const chosen = retryProblem ? first : retry
-  const msg = toMessage(model, {
-    ...chosen,
+  const retryParsed = parseStructured(retry.text, shape, purpose, flat.system)
+  const retryProblem = retryParsed.ok ? null : retryParsed.problem
+  const totals = {
     inputTokens: first.inputTokens + retry.inputTokens,
     outputTokens: first.outputTokens + retry.outputTokens,
     totalMs: first.totalMs + retry.totalMs
-  })
-  // Both attempts failed the contract. The call site will fail honestly on
-  // this text; the router may first offer cloud for this one request.
-  if (retryProblem) Object.defineProperty(msg, LOCAL_UNUSABLE, { value: retryProblem, enumerable: false })
-  return retryProblem ? msg : grounded(msg)
+  }
+  if (!retryProblem && retryParsed.ok) return accept({ ...retry, ...totals }, retryParsed.text)
+  const msg = toMessage(model, { ...first, ...totals })
+  // Both attempts failed. The router may offer cloud for this one request;
+  // when the call's contract is known and that is declined, the request
+  // fails plainly (never "ok" with nothing in it).
+  Object.defineProperty(msg, LOCAL_UNUSABLE, { value: retryProblem ?? problem, enumerable: false })
+  const contract = contractFor(purpose, flat.system)
+  if (contract) Object.defineProperty(msg, LOCAL_CONTRACT, { value: contract.describe, enumerable: false })
+  return msg
+}
+
+/** Set (non-enumerable) on an unusable local reply whose call has a known contract: what was promised. */
+export const LOCAL_CONTRACT = Symbol.for('plexii.localContract')
+export function localContractOf(m: unknown): string | null {
+  if (!m || typeof m !== 'object') return null
+  const v = (m as Record<symbol, unknown>)[LOCAL_CONTRACT]
+  return typeof v === 'string' ? v : null
 }
 
 /** Set (non-enumerable) on a local reply whose structured output failed validation twice. */

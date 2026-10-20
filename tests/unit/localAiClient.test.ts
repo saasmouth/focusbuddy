@@ -48,12 +48,14 @@ describe('validateJsonOutput', () => {
     expect(validateJsonOutput('{"answer":"x [1]","sources":[1]}', 'object', 'chat')).toBeNull()
     expect(validateJsonOutput('```json\n{"reply":"ok"}\n```', 'object', 'chat')).toBeNull()
   })
-  it('names what is wrong', () => {
-    expect(validateJsonOutput('{"text":"x"}', 'object', 'chat')).toMatch(/reply/)
-    expect(validateJsonOutput('{"reply":"x","actions":{}}', 'object', 'chat')).toMatch(/actions/)
-    expect(validateJsonOutput('{"reply": "unterminated', 'object', 'chat')).toMatch(/no JSON|did not parse/)
-    expect(validateJsonOutput('{"suggestions":[{"kind":"table","title":"T"}]}', 'object', 'setup')).toMatch(/columns/)
-    expect(validateJsonOutput('{"suggestions":[]}', 'object', 'setup')).toMatch(/empty/)
+  it('names what is wrong, against the call\'s own contract', () => {
+    const CHAT = 'Reply with a JSON object {"reply": "...", "actions": []}'
+    const BUILD = 'Return JSON {"intent": "...", "suggestions": [ ... ]}'
+    expect(validateJsonOutput('{"text":"x"}', 'object', 'chat', CHAT)).toMatch(/reply/)
+    expect(validateJsonOutput('{"reply":"x","actions":{}}', 'object', 'chat', CHAT)).toMatch(/actions/)
+    expect(validateJsonOutput('{"reply": "unterminated', 'object', 'chat', CHAT)).toMatch(/cut off|no JSON|did not parse/)
+    expect(validateJsonOutput('{"suggestions":[{"kind":"table","title":"T"}]}', 'object', 'setup', BUILD)).toMatch(/columns/)
+    expect(validateJsonOutput('{"suggestions":[]}', 'object', 'setup', BUILD)).toMatch(/empty/)
     expect(validateJsonOutput('{"a":1}', 'array', 'generic')).toMatch(/array/)
   })
 })

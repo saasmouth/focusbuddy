@@ -228,7 +228,8 @@ describe('routing policy', () => {
     setConsentAsker(ask)
     setMode('local', {}, 'measured')
     const cloud1 = cloudClient()
-    await routedClient(cloud1)!.messages.create(body)
+    // A known contract that cannot be met fails plainly; it is never passed off as the answer.
+    await expect(routedClient(cloud1)!.messages.create(body)).rejects.toThrow(/could not produce a reply.*Nothing was sent anywhere/)
     expect(ask).not.toHaveBeenCalled()
     expect(cloud1.calls).toHaveLength(0)
     setMode('local', {}, 'local-first')
