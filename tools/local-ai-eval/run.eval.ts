@@ -74,6 +74,9 @@ const SCHEMA = process.env.EVAL_SCHEMA !== '0'
 const VARIANTS = process.env.EVAL_VARIANTS !== '0'
 const SMALL_RULE = process.env.EVAL_SMALL_RULE !== '0'
 const CHECK = process.env.EVAL_CHECK !== '0'
+// Evidence mode: run the invented-specifics check without changing output and
+// record every finding (EVAL_CHECK=0 EVAL_CHECK_OBSERVE=1).
+const CHECK_OBSERVE = process.env.EVAL_CHECK_OBSERVE === '1'
 const ONLY = (process.env.EVAL_ONLY || '').split(',').map((s) => s.trim()).filter(Boolean)
 const JUDGE = process.env.EVAL_JUDGE !== '0'
 const JUDGE_ONLY = process.env.EVAL_JUDGE_ONLY === '1'
@@ -109,6 +112,7 @@ interface TaskResult {
   text: string
   /** Grounding review findings during this task. */
   grounding?: { repaired: number; flagged: number }
+  groundingDetail?: unknown[]
   /** The product's structured output (proposals, suggestions, metadata), for re-checking. */
   data?: unknown
   error?: string
@@ -120,7 +124,7 @@ interface RunFile {
   model: string
   contextSize: number | null
   kvCache?: string
-  localOptions?: { schemaDecoding: boolean; promptVariants: boolean; smallGroundingRule: boolean; groundingCheck: boolean }
+  localOptions?: { schemaDecoding: boolean; promptVariants: boolean; smallGroundingRule: boolean; groundingCheck: boolean; groundingObserve?: boolean }
   startedAt: string
   finishedAt: string | null
   machine: { cpu: string; ramGB: number; platform: string }
@@ -167,6 +171,10 @@ let tasks: EvalTask[] = []
 const engineTokens = { input: 0, output: 0, calls: 0 }
 // Grounding findings per task (local repairs / reports, cloud reports).
 let groundingNow = { repaired: 0, flagged: 0 }
+// Every finding in full, for review: span, kind, confidence, reason, offset,
+// whether it was applied, and the original output and supplied context.
+type GroundingDetail = { path: string; applied: boolean; original: string; supplied: string; repaired: unknown[]; flagged: unknown[] }
+let groundingDetail: GroundingDetail[] = []
 let restoreGuard: (() => void) | null = null
 let contextSize: number | null = null
 
@@ -192,7 +200,7 @@ beforeAll(async () => {
     const { installEgressGuard } = await import('../../src/main/ai/local/egressGuard')
     const { SIGNAL_BASE } = await import('../../src/main/ai/creditMode')
     const { setLocalClientOptions } = await import('../../src/main/ai/local/localClient')
-    setLocalClientOptions({ schemaDecoding: SCHEMA, promptVariants: VARIANTS, smallGroundingRule: SMALL_RULE, groundingCheck: CHECK })
+    setLocalClientOptions({ schemaDecoding: SCHEMA, promptVariants: VARIANTS, smallGroundingRule: SMALL_RULE, groundingCheck: CHECK, groundingObserve: CHECK_OBSERVE })
     const core = new EngineCore()
     const st = await core.load({ modelPath: MODEL, contextSize: CTX, kvCache: KV })
     contextSize = st.contextSize
@@ -222,6 +230,14 @@ beforeAll(async () => {
     setGroundingSink((r) => {
       groundingNow.repaired += r.repaired.length
       groundingNow.flagged += r.flagged.length
+      groundingDetail.push({
+        path: r.path,
+        applied: r.applied === true,
+        original: r.original ?? '',
+        supplied: r.supplied ?? '',
+        repaired: r.repaired,
+        flagged: r.flagged
+      })
     })
   }
   watchNetwork()
@@ -287,7 +303,7 @@ describe(`local-ai eval: ${LABEL}`, () => {
         model: TARGET === 'local' ? MODEL.split('/').pop()! : 'resolveModel(purpose): claude-sonnet-5-5 / claude-haiku-5-5',
         contextSize,
         kvCache: TARGET === 'local' ? KV : undefined,
-        localOptions: TARGET === 'local' ? { schemaDecoding: SCHEMA, promptVariants: VARIANTS, smallGroundingRule: SMALL_RULE, groundingCheck: CHECK } : undefined,
+        localOptions: TARGET === 'local' ? { schemaDecoding: SCHEMA, promptVariants: VARIANTS, smallGroundingRule: SMALL_RULE, groundingCheck: CHECK, groundingObserve: CHECK_OBSERVE } : undefined,
         startedAt: new Date().toISOString(),
         finishedAt: null,
         machine: { cpu: cpus()[0]?.model ?? '', ramGB: Math.round(totalmem() / 2 ** 30), platform: `${process.platform}-${process.arch}` },
@@ -300,6 +316,7 @@ describe(`local-ai eval: ${LABEL}`, () => {
         const t0 = Date.now()
         const before = { ...engineTokens }
         groundingNow = { repaired: 0, flagged: 0 }
+        groundingDetail = []
         let out
         try {
           out = await t.run()
@@ -330,6 +347,7 @@ describe(`local-ai eval: ${LABEL}`, () => {
             : {}),
           text: out.text.slice(0, 60000),
           grounding: { ...groundingNow },
+          ...(groundingDetail.length ? { groundingDetail } : {}),
           data: toJsonSafe(out.data),
           error: out.error
         })

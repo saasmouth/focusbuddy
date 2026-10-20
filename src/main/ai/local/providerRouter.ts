@@ -35,6 +35,9 @@ import {
   LOCAL_LABEL_COPY,
   DEFAULT_LOCAL_POLICY,
   NOT_TECHNICALLY_LOCAL,
+  CONTENT_WRITING_FEATURES,
+  DEFAULT_CONTENT_WRITING,
+  type ContentWritingPolicy,
   type LocalPolicy,
   type LocalGateInfo,
   type AiFeature,
@@ -66,6 +69,8 @@ export interface RouterSettings {
   featureRoutes: () => Partial<Record<string, FeatureRoute>>
   /** Local routing policy; absent → DEFAULT_LOCAL_POLICY. */
   policy?: () => LocalPolicy
+  /** Content writing under local-first: on the device, or ask each time (DEFAULT_CONTENT_WRITING). */
+  contentWriting?: () => ContentWritingPolicy
 }
 
 let settings: RouterSettings = {
@@ -312,7 +317,15 @@ export function effectiveGate(purpose: string): LocalGateInfo {
   if (currentLocalPolicy() !== 'local-first') return g
   const feature = featureForPurpose(purpose)
   if (NOT_TECHNICALLY_LOCAL.includes(feature)) return { ...g, gate: 'cloud-only' }
+  // Content writing follows its own switch (DEFAULT_CONTENT_WRITING): 'ask'
+  // keeps a measured cloud-only gate as cloud-only, so each request asks.
+  if (CONTENT_WRITING_FEATURES.includes(feature) && currentContentWriting() === 'ask') return g
   return g.gate === 'cloud-only' ? { ...g, gate: 'labelled' } : g
+}
+
+/** The content-writing switch in force (setRouterSettings.contentWriting, else the default). */
+export function currentContentWriting(): ContentWritingPolicy {
+  return settings.contentWriting?.() ?? DEFAULT_CONTENT_WRITING
 }
 
 /** Ask, then (on yes) send this one request to cloud with the cloud model. */
@@ -510,8 +523,9 @@ function observeGrounding(body: Record<string, unknown>, msg: Anthropic.Message)
       .map((b) => ('text' in b ? b.text : ''))
       .join('')
     if (!text) return msg
-    const r = reviewOutput(text, suppliedText(flat.system, flat.messages), false)
-    emitGrounding({ ...r, path: 'cloud' })
+    const supplied = suppliedText(flat.system, flat.messages)
+    const r = reviewOutput(text, supplied, false)
+    emitGrounding({ ...r, path: 'cloud', original: text, supplied, applied: false })
   } catch {
     /* a review that cannot run never touches the reply */
   }

@@ -155,8 +155,8 @@ describe('schema-constrained decoding and small-model variants', () => {
     expect(schemaFor('doc_rewrite', 'Return ONLY JSON')).toBeNull()
   })
 
-  it('ships with schema decoding and prompt variants off (the eval found no gain), both switchable', () => {
-    expect(getLocalClientOptions()).toMatchObject({ schemaDecoding: false, promptVariants: false, smallGroundingRule: true, groundingCheck: true })
+  it('ships with schema decoding, prompt variants and the checker off (small rule on), all switchable', () => {
+    expect(getLocalClientOptions()).toMatchObject({ schemaDecoding: false, promptVariants: false, smallGroundingRule: true, groundingCheck: false })
   })
 
   it('passes the schema to the engine when switched on, and not when switched off', async () => {

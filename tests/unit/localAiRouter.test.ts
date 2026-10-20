@@ -254,3 +254,27 @@ describe('routing policy', () => {
     expect(ask).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('content-writing switch (one flag)', () => {
+  it("'local' runs measured-weak content writing on the device with a note; 'ask' makes it ask; nothing else changes", async () => {
+    const router = await import('../../src/main/ai/local/providerRouter')
+    const { DEFAULT_CONTENT_WRITING } = await import('../../src/shared/localAi')
+    expect(DEFAULT_CONTENT_WRITING).toBe('local')
+    const cloudOnly = () => ({ gate: 'cloud-only' as const, localPassRate: 0.2, cloudPassRate: 0.55, family: null })
+    router.setGateResolver(cloudOnly)
+    let flag: 'local' | 'ask' = 'local'
+    router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({}), policy: () => 'local-first', contentWriting: () => flag })
+    expect(router.effectiveGate('document').gate).toBe('labelled')
+    expect(router.effectiveGate('doc_rewrite').gate).toBe('labelled')
+    expect(router.effectiveGate('setup').gate).toBe('labelled')
+    flag = 'ask'
+    expect(router.effectiveGate('document').gate).toBe('cloud-only')
+    expect(router.effectiveGate('doc_rewrite').gate).toBe('cloud-only')
+    expect(router.effectiveGate('setup').gate).toBe('cloud-only')
+    // Not content writing: unaffected by the switch.
+    expect(router.effectiveGate('trail_summary').gate).toBe('labelled')
+    expect(router.effectiveGate('chat').gate).toBe('labelled')
+    router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({}) })
+    router.setGateResolver(() => ({ gate: 'ok', localPassRate: null, cloudPassRate: null, family: null }))
+  })
+})

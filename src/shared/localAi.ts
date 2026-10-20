@@ -304,6 +304,25 @@ export const DEFAULT_LOCAL_POLICY: LocalPolicy = 'local-first'
 /** Features the on-device model cannot run at all, whatever the policy. */
 export const NOT_TECHNICALLY_LOCAL: readonly AiFeature[] = ['media']
 
+/**
+ * The features whose prompts write content for the person (documents, sheets,
+ * decks, designs, rewrites, desks of work widgets) — the ones the grounding
+ * rule covers and the eval scores lowest on the device.
+ */
+export const CONTENT_WRITING_FEATURES: readonly AiFeature[] = ['office', 'writing', 'build']
+
+/**
+ * THE switch for content writing under the local-first policy (pending the
+ * owner's decision, 2026-10-20). 'local': it runs on the device with the
+ * "works best with cloud AI" note (the owner's local-first choice). 'ask':
+ * it is treated like a feature the device does not run — the person is asked
+ * before each request goes to their cloud provider, and nothing is sent
+ * otherwise. Only the default lives here; the router reads it through
+ * setRouterSettings({ contentWriting }), so flipping it needs no other change.
+ */
+export type ContentWritingPolicy = 'local' | 'ask'
+export const DEFAULT_CONTENT_WRITING: ContentWritingPolicy = 'local'
+
 /** A grounding review of content-writing output, as main reports it. */
 export interface GroundingReport {
   path: 'local' | 'cloud'

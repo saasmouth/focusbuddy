@@ -50,7 +50,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Your own OpenAI key is now an AI source, alongside your own Anthropic key and Plexii AI credits, with a choice of model. Each feature can use a different one.',
       'When Plexii AI credits run out or cannot be reached, a request is answered on this computer instead of failing, with a note and a link to top up. Your choice of credits stays as it is.',
       'The model starts loading in the background a few seconds after launch. If you ask for something while it is still starting, the app says \u201cStarting local AI\u201d instead of a bare \u201cGenerating\u2026\u201d.',
-      'Drafts written on this computer are checked for invented specifics such as figures, prices, dates and names that were not in what you gave it. The clearest ones are replaced with a [placeholder] for you to fill in, and the rest are listed for you to check.'
+      'Drafts written by cloud AI are checked for invented specifics \u2014 figures, prices, dates and names that were not in what you gave it \u2014 and any found are listed for you to check.'
     ]
   },
   {

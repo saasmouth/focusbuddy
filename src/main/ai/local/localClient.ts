@@ -252,6 +252,11 @@ export interface LocalClientOptions {
   smallGroundingRule: boolean
   /** Review content-writing output; repair high-confidence invented specifics. */
   groundingCheck: boolean
+  /**
+   * Review without changing anything (the eval's evidence mode): what the
+   * check WOULD repair and flag is reported, the output is left as written.
+   */
+  groundingObserve?: boolean
 }
 
 // Shipping defaults, from the eval (tools/local-ai-eval/results, v2-base vs
@@ -265,16 +270,20 @@ let clientOptions: LocalClientOptions = {
   schemaDecoding: false,
   promptVariants: false,
   smallGroundingRule: true,
-  groundingCheck: true
+  // Off by default (d2, 2026-10-20) until d2 has reviewed what it actually
+  // repaired: tools/local-ai-eval records every finding for that review.
+  groundingCheck: false
 }
 
 /** Where grounding findings go (the app shows them; tests and the eval read them). */
-export type GroundingSink = (r: ReviewResult & { path: 'local' | 'cloud' }) => void
+/** original/supplied/applied: for the eval's evidence record; the app never sends them anywhere. */
+export type GroundingReportFull = ReviewResult & { path: 'local' | 'cloud'; original?: string; supplied?: string; applied?: boolean }
+export type GroundingSink = (r: GroundingReportFull) => void
 let groundingSink: GroundingSink = () => undefined
 export function setGroundingSink(fn: GroundingSink): void {
   groundingSink = fn
 }
-export function emitGrounding(r: ReviewResult & { path: 'local' | 'cloud' }): void {
+export function emitGrounding(r: GroundingReportFull): void {
   if (r.repaired.length || r.flagged.length) groundingSink(r)
 }
 
@@ -379,14 +388,16 @@ export async function runLocal(
   )
   // Content-writing output: review for specifics the request never supplied,
   // repairing the high-confidence ones into [placeholders].
-  const supplied = content && clientOptions.groundingCheck ? suppliedText(flat.system, flat.messages) : ''
+  const reviewing = content && (clientOptions.groundingCheck || clientOptions.groundingObserve === true)
+  const supplied = reviewing ? suppliedText(flat.system, flat.messages) : ''
   const grounded = (m: Anthropic.Message): Anthropic.Message => {
-    if (!content || !clientOptions.groundingCheck) return m
+    if (!reviewing) return m
     const block = m.content[0] as { type: string; text?: string } | undefined
     if (!block || block.type !== 'text' || !block.text) return m
     const r = reviewOutput(block.text, supplied, true)
-    emitGrounding({ ...r, path: 'local' })
-    block.text = r.text
+    const applied = clientOptions.groundingCheck
+    emitGrounding({ ...r, path: 'local', original: block.text, supplied, applied })
+    if (applied) block.text = r.text
     return m
   }
   if (!shape || first.stopReason !== 'end_turn') return grounded(toMessage(model, first))
