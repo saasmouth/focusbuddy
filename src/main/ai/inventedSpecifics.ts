@@ -218,8 +218,22 @@ function isSupplied(span: string, haystack: string, haystackDigits: string): boo
 }
 
 interface Candidate {
-  span: string
+  /** Text as it appears in the MASKED string — guards only, never reported. */
+  masked: string
   index: number
+  /**
+   * Length of the region in the masked string. Masking is length-preserving,
+   * so [index, index + len) is the same region of the ORIGINAL text, and the
+   * reported span is always sliced from there.
+   *
+   * This exists because of a real bug. Detectors run on the masked string, and
+   * the quote detector's class excludes only a closing quote and a newline, so
+   * it can match straight across a masked region: '"Escalate to <b>Eng</b>"'
+   * yielded a span with NUL bytes in it. Any caller matching or repairing BY
+   * SPAN TEXT would then silently skip that repair. Reporting the original
+   * slice fixes every detector at once rather than patching one class.
+   */
+  len: number
   kind: SpecificKind
   reason: string
 }
@@ -228,10 +242,16 @@ interface Candidate {
 function candidates(masked: string, opts: CheckOptions): Candidate[] {
   const out: Candidate[] = []
   const push = (m: RegExpMatchArray, kind: SpecificKind, reason: string, group = 0): void => {
-    const span = (m[group] ?? '').trim()
+    const raw = m[group] ?? ''
+    const span = raw.trim()
     if (!span) return
-    const at = m.index === undefined ? -1 : m.index + (m[0].indexOf(span) < 0 ? 0 : m[0].indexOf(span))
-    out.push({ span, index: at, kind, reason })
+    if (m.index === undefined) return
+    // Offset of the group inside the whole match, then of the trimmed text
+    // inside the group, so index/len describe exactly the reported region.
+    const inMatch = m[0].indexOf(raw)
+    const lead = raw.indexOf(span)
+    const at = m.index + (inMatch < 0 ? 0 : inMatch) + (lead < 0 ? 0 : lead)
+    out.push({ masked: span, index: at, len: span.length, kind, reason })
   }
   const scan = (re: RegExp, fn: (m: RegExpMatchArray) => void): void => {
     for (const m of masked.matchAll(re)) fn(m)
@@ -291,9 +311,10 @@ function candidates(masked: string, opts: CheckOptions): Candidate[] {
   if (!opts.allowNewNames) {
     const headingsMasked = masked.replace(/^\s*#{1,6}[^\n]*/gm, (h) => ' '.repeat(h.length))
     for (const m of headingsMasked.matchAll(/([A-Z][a-z]{1,}(?:\s+[A-Z][a-z]{1,}){1,3})/g)) {
-      let span = m[1]
+      const run = m[1]
       let at = m.index ?? 0
-      let words = span.split(/\s+/)
+      let len = run.length
+      let words = run.split(/\s+/)
 
       // At a sentence start the first word's capital says nothing about
       // whether it is a name. Suppressing the whole run on that basis lost
@@ -302,9 +323,14 @@ function candidates(masked: string, opts: CheckOptions): Candidate[] {
       // than naming anything, and judge what is left.
       const atStart = /(?:^|[.!?:;]\s*|\n\s*(?:[-*#>]\s*)?)$/.test(headingsMasked.slice(0, at))
       if (atStart && words.length > 2 && SENTENCE_LEAD.has(words[0].toLowerCase())) {
-        at += words[0].length + 1
+        // Measure the lead word and its separator off the match itself rather
+        // than rebuilding the text, so index and len keep describing a real
+        // region of the original string even when the separator is not a
+        // single space.
+        const skip = /^\S+\s+/.exec(run)?.[0].length ?? 0
+        at += skip
+        len -= skip
         words = words.slice(1)
-        span = words.join(' ')
       }
 
       if (words.length < 2) continue
@@ -312,8 +338,9 @@ function candidates(masked: string, opts: CheckOptions): Candidate[] {
       if (NOT_A_NAME.has(words[0].toLowerCase())) continue
       if (SENTENCE_LEAD.has(words[0].toLowerCase())) continue
       out.push({
-        span,
+        masked: words.join(' '),
         index: at,
+        len,
         kind: 'name',
         reason: 'a name that does not appear in the brief or the source material'
       })
@@ -362,14 +389,21 @@ export function checkInventedSpecifics(
   const flagged: InventedSpecific[] = []
 
   for (const c of candidates(masked, opts)) {
-    if (isSupplied(c.span, haystack, haystackDigits)) continue
-    const key = `${c.kind}:${norm(c.span)}`
+    // The reported span ALWAYS comes from the original text, never from the
+    // masked copy the detectors ran on. Masking is length-preserving, so
+    // [index, index + len) is the same region in both — but the masked copy
+    // may hold NUL where a tag or a code span was, and a span carrying NUL
+    // cannot be matched or repaired by text.
+    const span = text.slice(c.index, c.index + c.len)
+    if (!span.trim()) continue
+    if (isSupplied(span, haystack, haystackDigits)) continue
+    const key = `${c.kind}:${norm(span)}`
     if (seen.has(key)) continue
     seen.add(key)
     flagged.push({
-      span: c.span,
+      span,
       kind: c.kind,
-      confidence: confidenceOf(c.kind, c.span),
+      confidence: confidenceOf(c.kind, span),
       reason: c.reason,
       index: c.index
     })
