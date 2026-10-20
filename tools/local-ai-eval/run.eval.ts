@@ -69,6 +69,9 @@ const MODEL = process.env.EVAL_MODEL || ''
 const CTX = Number(process.env.EVAL_CTX || 32768)
 // KV-cache precision; the shipped catalog uses q8_0 (EVAL_KV=q8_0).
 const KV = process.env.EVAL_KV === 'q8_0' ? 'q8_0' : 'f16'
+// A/B switches for the local path's quality work (default: the shipped setting, on).
+const SCHEMA = process.env.EVAL_SCHEMA !== '0'
+const VARIANTS = process.env.EVAL_VARIANTS !== '0'
 const ONLY = (process.env.EVAL_ONLY || '').split(',').map((s) => s.trim()).filter(Boolean)
 const JUDGE = process.env.EVAL_JUDGE !== '0'
 const JUDGE_ONLY = process.env.EVAL_JUDGE_ONLY === '1'
@@ -113,6 +116,7 @@ interface RunFile {
   model: string
   contextSize: number | null
   kvCache?: string
+  localOptions?: { schemaDecoding: boolean; promptVariants: boolean }
   startedAt: string
   finishedAt: string | null
   machine: { cpu: string; ramGB: number; platform: string }
@@ -181,6 +185,8 @@ beforeAll(async () => {
     const { EngineCore } = await import('../../src/main/ai/local/engineCore')
     const { installEgressGuard } = await import('../../src/main/ai/local/egressGuard')
     const { SIGNAL_BASE } = await import('../../src/main/ai/creditMode')
+    const { setLocalClientOptions } = await import('../../src/main/ai/local/localClient')
+    setLocalClientOptions({ schemaDecoding: SCHEMA, promptVariants: VARIANTS })
     const core = new EngineCore()
     const st = await core.load({ modelPath: MODEL, contextSize: CTX, kvCache: KV })
     contextSize = st.contextSize
@@ -268,6 +274,7 @@ describe(`local-ai eval: ${LABEL}`, () => {
         model: TARGET === 'local' ? MODEL.split('/').pop()! : 'resolveModel(purpose): claude-sonnet-5-5 / claude-haiku-5-5',
         contextSize,
         kvCache: TARGET === 'local' ? KV : undefined,
+        localOptions: TARGET === 'local' ? { schemaDecoding: SCHEMA, promptVariants: VARIANTS } : undefined,
         startedAt: new Date().toISOString(),
         finishedAt: null,
         machine: { cpu: cpus()[0]?.model ?? '', ramGB: Math.round(totalmem() / 2 ** 30), platform: `${process.platform}-${process.arch}` },

@@ -2623,6 +2623,8 @@ const api = {
     tryIt: (): Promise<{ ok: boolean; text?: string; ms?: number; outputTokens?: number; ttftMs?: number | null; error?: string }> =>
       ipcRenderer.invoke('localAi:tryIt'),
     consentReply: (id: string, allow: boolean): Promise<{ ok: boolean }> => ipcRenderer.invoke('localAi:consentReply', id, allow),
+    setPolicy: (policy: 'measured' | 'local-first' | null): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('localAi:setPolicy', policy),
     onProgress: (cb: (p: LocalDownloadProgress) => void): (() => void) => {
       const listener = (_e: unknown, p: LocalDownloadProgress): void => cb(p)
       ipcRenderer.on('localAi:progress', listener)

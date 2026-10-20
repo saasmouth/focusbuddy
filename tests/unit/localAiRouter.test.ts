@@ -43,8 +43,12 @@ function cloudClient(): Anthropic & { calls: Array<{ body: Record<string, unknow
 const gate = (g: LocalGateInfo['gate']): LocalGateInfo => ({ gate: g, localPassRate: 0.2, cloudPassRate: 0.95, family: 'build' })
 const text = (m: Anthropic.Message): string => (m.content[0] as { text: string }).text
 
-function setMode(mode: 'local' | 'byok' | 'auto', routes: Record<string, 'local' | 'cloud'> = {}): void {
-  setRouterSettings({ aiMode: () => mode, featureRoutes: () => routes })
+function setMode(
+  mode: 'local' | 'byok' | 'auto',
+  routes: Record<string, 'local' | 'cloud'> = {},
+  policy: 'measured' | 'local-first' = 'measured'
+): void {
+  setRouterSettings({ aiMode: () => mode, featureRoutes: () => routes, policy: () => policy })
 }
 
 beforeEach(() => {
@@ -190,5 +194,58 @@ describe('quality gates', () => {
     expect(cloud.calls[0].body.model).toBe(MODEL_HAIKU)
     await routedClient(cloud)!.messages.create({ model: 'local:enrichment', max_tokens: 1, messages: [{ role: 'user', content: 'x' }] })
     expect(cloud.calls[1].body.model).toBeTruthy()
+  })
+
+})
+
+describe('routing policy', () => {
+  it('local-first runs a cloud-only feature on the device, with the label; media still asks', async () => {
+    const { effectiveGate } = await import('../../src/main/ai/local/providerRouter')
+    setMode('local', {}, 'local-first')
+    setGateResolver(() => gate('cloud-only'))
+    expect(effectiveGate('setup').gate).toBe('labelled')
+    expect(effectiveGate('media').gate).toBe('cloud-only')
+    const ask = vi.fn(async () => false)
+    setConsentAsker(ask)
+    const m = await routedClient(cloudClient())!.messages.create({ model: 'local:setup', max_tokens: 5, messages: [{ role: 'user', content: 'x' }] })
+    expect(text(m)).toContain('local')
+    expect(ask).not.toHaveBeenCalled()
+    setMode('local', {}, 'measured')
+    expect(effectiveGate('setup').gate).toBe('cloud-only')
+  })
+
+  it('local-first offers cloud when the local answer is unusable; measured does not', async () => {
+    setGateResolver(() => gate('ok'))
+    const bad = { generate: async () => ({ text: '{"nope":1}', inputTokens: 1, outputTokens: 1, stopReason: 'end_turn' as const, ttftMs: 0, totalMs: 0 }) }
+    setLocalRuntime({ engine: async () => bad as never, modelLabel: () => 'test', installed: () => true })
+    const body = { model: 'local:chat', max_tokens: 5, system: 'MUST be a single valid JSON object {"reply": ""}', messages: [{ role: 'user', content: 'x' }] }
+    const ask = vi.fn(async () => true)
+    setConsentAsker(ask)
+    setMode('local', {}, 'measured')
+    const cloud1 = cloudClient()
+    await routedClient(cloud1)!.messages.create(body)
+    expect(ask).not.toHaveBeenCalled()
+    expect(cloud1.calls).toHaveLength(0)
+    setMode('local', {}, 'local-first')
+    const cloud2 = cloudClient()
+    const m = await routedClient(cloud2)!.messages.create(body)
+    expect(ask).toHaveBeenCalledOnce()
+    expect(text(m)).toBe('cloud')
+    expect(cloud2.calls[0].grant).toMatchObject({ reason: 'consent' })
+  })
+
+  it('a request needing tool use asks first under either policy, and sends nothing on no', async () => {
+    setGateResolver(() => gate('ok'))
+    const ask = vi.fn(async () => false)
+    setConsentAsker(ask)
+    for (const policy of ['measured', 'local-first'] as const) {
+      setMode('local', {}, policy)
+      const cloud = cloudClient()
+      await expect(
+        routedClient(cloud)!.messages.create({ model: 'local:desk_agent', max_tokens: 5, tools: [{ name: 't' }], messages: [{ role: 'user', content: 'x' }] } as never)
+      ).rejects.toThrow(/Nothing was sent anywhere/)
+      expect(cloud.calls).toHaveLength(0)
+    }
+    expect(ask).toHaveBeenCalledTimes(2)
   })
 })

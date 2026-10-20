@@ -136,6 +136,136 @@ export function validateJsonOutput(text: string, shape: 'object' | 'array', purp
   return VALIDATORS[purpose]?.(v) ?? null
 }
 
+// ── Schema-constrained decoding ─────────────────────────────────────────────
+//
+// For the contracts whose shape is fixed, the output is constrained by a JSON
+// schema (compiled to a llama.cpp grammar), not just "some JSON": field names,
+// their order, and — for the chat envelope — the action kinds themselves. The
+// allowed kinds are read from the system prompt the call site sent (the catalog
+// of `"kind":"…"` examples the model is shown), so this never keeps its own copy
+// of the prompt's vocabulary. Unknown contracts keep the generic JSON grammar.
+
+const ANY = { type: 'object', additionalProperties: true } as const
+
+/** The kinds a prompt's catalog demonstrates, e.g. "kind":"create-table". */
+export function kindsFromPrompt(system: string): string[] {
+  return [...new Set([...system.matchAll(/"kind"\s*:\s*"([a-z][a-z0-9-]*)"/g)].map((m) => m[1]))]
+}
+
+/** The JSON schema to constrain a purpose's output to, or null for generic JSON. Exported for tests. */
+export function schemaFor(purpose: string, system: string): Record<string, unknown> | null {
+  if (purpose === 'chat' || purpose === 'welcome') {
+    // PlexiiBrain's grounded answer shares the chat purpose.
+    if (/"answer"\s*:/.test(system) && /"sources"\s*:/.test(system)) {
+      return {
+        type: 'object',
+        properties: { answer: { type: 'string' }, sources: { type: 'array', items: { type: 'integer' } } }
+      }
+    }
+    if (!/"reply"/.test(system)) return null
+    const kinds = kindsFromPrompt(system)
+    const action =
+      kinds.length > 0
+        ? { type: 'object', properties: { kind: { enum: kinds } }, additionalProperties: true }
+        : ANY
+    // reply first, then actions (the stream consumer relies on that order);
+    // the optional question / blocks protocols may follow.
+    return {
+      type: 'object',
+      properties: { reply: { type: 'string' }, actions: { type: 'array', items: action } },
+      additionalProperties: true
+    }
+  }
+  if (purpose === 'setup' && /"suggestions"/.test(system)) {
+    return {
+      type: 'object',
+      properties: {
+        intent: { type: 'string' },
+        suggestions: {
+          type: 'array',
+          minItems: 1,
+          items: { type: 'object', properties: { id: { type: 'string' }, kind: { type: 'string' } }, additionalProperties: true }
+        }
+      }
+    }
+  }
+  if (purpose === 'title_backfill') {
+    return {
+      type: 'object',
+      properties: {
+        titles: { type: 'array', items: { type: 'object', properties: { i: { type: 'integer' }, title: { type: 'string' } } } }
+      }
+    }
+  }
+  if (purpose === 'enrichment') {
+    const strs = { type: 'array', items: { type: 'string' } }
+    return {
+      type: 'object',
+      properties: {
+        summary: { type: 'string' },
+        category: { type: 'string' },
+        entities: strs,
+        dates: strs,
+        keywords: strs,
+        language: { type: 'string' }
+      }
+    }
+  }
+  return null
+}
+
+// ── Small-model prompt variants ─────────────────────────────────────────────
+//
+// Additions the local path makes to a request for the on-device model only. A
+// variant may ADD context a small model needs spelled out; it never rewrites or
+// drops the call site's instructions (those belong to the prompt owners in
+// anthropic.ts). Each is measured by tools/local-ai-eval before it is on.
+
+export interface PromptVariant {
+  id: string
+  /** Applies to these purposes. */
+  purposes: string[]
+  /** Text appended to the system prompt. */
+  addendum: (now: Date) => string
+}
+
+const DAY = 86_400_000
+const isoDay = (d: Date): string => d.toISOString().slice(0, 10)
+
+export const PROMPT_VARIANTS: PromptVariant[] = [
+  {
+    // Measured: the 4B model put "tomorrow at 3pm" in 2024. The clock line is
+    // there; small models do not reliably do the date arithmetic from it.
+    id: 'explicit-dates',
+    purposes: ['chat', 'welcome', 'agent_step'],
+    addendum: (now) =>
+      `Dates, already worked out (UTC): today is ${isoDay(now)}, tomorrow is ${isoDay(new Date(now.getTime() + DAY))}. ` +
+      `The current year is ${now.getUTCFullYear()}. Use these for any startMs, dueDate or relative date.`
+  }
+]
+
+export interface LocalClientOptions {
+  schemaDecoding: boolean
+  promptVariants: boolean
+}
+
+let clientOptions: LocalClientOptions = { schemaDecoding: true, promptVariants: true }
+
+/** For the eval's A/B runs and tests. */
+export function setLocalClientOptions(o: Partial<LocalClientOptions>): void {
+  clientOptions = { ...clientOptions, ...o }
+}
+export function getLocalClientOptions(): LocalClientOptions {
+  return { ...clientOptions }
+}
+
+/** The system prompt with this purpose's variants applied. Exported for tests. */
+export function applyVariants(purpose: string, system: string, now = new Date()): string {
+  if (!clientOptions.promptVariants) return system
+  const add = PROMPT_VARIANTS.filter((v) => v.purposes.includes(purpose)).map((v) => v.addendum(now))
+  return add.length ? `${system}\n\n${add.join('\n')}` : system
+}
+
 // ── Request flattening ──────────────────────────────────────────────────────
 
 type AnyBlock = { type?: string; text?: string }
@@ -210,10 +340,12 @@ export async function runLocal(
   const flat = flattenRequest(body)
   const lastUser = [...flat.messages].reverse().find((m) => m.role === 'user')?.content ?? ''
   const shape = jsonIntent(flat.system, lastUser)
+  const jsonSchema = shape === 'object' && clientOptions.schemaDecoding ? (schemaFor(purpose, flat.system) ?? undefined) : undefined
+  const system = applyVariants(purpose, flat.system)
   const engine = await deps.engine()
   const model = `local:${deps.modelLabel()}`
   const first = await engine.generate(
-    { system: flat.system, messages: flat.messages, maxTokens: flat.maxTokens, json: shape ?? false, temperature: shape ? 0.1 : 0.3 },
+    { system, messages: flat.messages, maxTokens: flat.maxTokens, json: shape ?? false, jsonSchema, temperature: shape ? 0.1 : 0.3 },
     opts
   )
   if (!shape || first.stopReason !== 'end_turn') return toMessage(model, first)
@@ -225,7 +357,7 @@ export async function runLocal(
   // reads the final text), so nothing is shown twice.
   const retry = await engine.generate(
     {
-      system: flat.system,
+      system,
       messages: [
         ...flat.messages,
         { role: 'assistant', content: first.text },
@@ -236,18 +368,31 @@ export async function runLocal(
       ],
       maxTokens: flat.maxTokens,
       json: shape,
+      jsonSchema,
       temperature: 0.1
     },
     { signal: opts.signal }
   )
   const retryProblem = retry.stopReason === 'end_turn' ? validateJsonOutput(retry.text, shape, purpose) : 'cut off'
   const chosen = retryProblem ? first : retry
-  return toMessage(model, {
+  const msg = toMessage(model, {
     ...chosen,
     inputTokens: first.inputTokens + retry.inputTokens,
     outputTokens: first.outputTokens + retry.outputTokens,
     totalMs: first.totalMs + retry.totalMs
   })
+  // Both attempts failed the contract. The call site will fail honestly on
+  // this text; the router may first offer cloud for this one request.
+  if (retryProblem) Object.defineProperty(msg, LOCAL_UNUSABLE, { value: retryProblem, enumerable: false })
+  return msg
+}
+
+/** Set (non-enumerable) on a local reply whose structured output failed validation twice. */
+export const LOCAL_UNUSABLE = Symbol.for('plexii.localUnusable')
+export function localUnusableReason(m: unknown): string | null {
+  if (!m || typeof m !== 'object') return null
+  const v = (m as Record<symbol, unknown>)[LOCAL_UNUSABLE]
+  return typeof v === 'string' ? v : null
 }
 
 type Listener = (delta: string) => void

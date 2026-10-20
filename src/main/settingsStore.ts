@@ -60,6 +60,9 @@ interface Envelope {
   // The on-device model tier the user chose ('compact' | 'standard'). Optional;
   // absent → the tier recommended for this machine's RAM.
   localModelTier?: string
+  // Local AI routing policy ('measured' | 'local-first'); absent → the default
+  // in src/shared/localAi.ts.
+  localAiPolicy?: string
   // True when web pop-ups should open as separate OS windows instead of on the
   // desk (Settings → Advanced). Optional; absent → false (on the desk).
   popupsNative?: boolean
@@ -98,6 +101,9 @@ function load(): Envelope {
         ? { aiFeatureRoutes: sanitiseRoutes(parsed.aiFeatureRoutes) }
         : {}),
       ...(typeof parsed.localModelTier === 'string' ? { localModelTier: parsed.localModelTier } : {}),
+      ...(parsed.localAiPolicy === 'measured' || parsed.localAiPolicy === 'local-first'
+        ? { localAiPolicy: parsed.localAiPolicy }
+        : {}),
       ...(parsed.popupsNative === true ? { popupsNative: true } : {}),
       ...(parsed.keepAppsSignedIn === false ? { keepAppsSignedIn: false } : {}),
       v: 1
@@ -231,6 +237,19 @@ export function setAiFeatureRoute(feature: string, route: 'local' | 'cloud' | nu
   if (route === null) delete next[feature]
   else next[feature] = route
   cache.aiFeatureRoutes = next
+  save()
+}
+
+/** The local routing policy the person chose, or null for the default. */
+export function getLocalAiPolicy(): 'measured' | 'local-first' | null {
+  load()
+  return cache.localAiPolicy === 'measured' || cache.localAiPolicy === 'local-first' ? cache.localAiPolicy : null
+}
+
+export function setLocalAiPolicy(policy: 'measured' | 'local-first' | null): void {
+  load()
+  if (policy) cache.localAiPolicy = policy
+  else delete cache.localAiPolicy
   save()
 }
 

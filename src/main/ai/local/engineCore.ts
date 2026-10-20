@@ -41,6 +41,12 @@ export interface EngineGenerateRequest {
   temperature?: number
   /** Constrain output to syntactically valid JSON of this shape (llama.cpp grammar). */
   json?: 'object' | 'array' | false
+  /**
+   * A JSON schema the output must satisfy (llama.cpp grammar compiled from it).
+   * Stricter than `json`: field names, order and enums are enforced while the
+   * tokens are chosen. Falls back to the plain `json` grammar if it cannot compile.
+   */
+  jsonSchema?: Record<string, unknown>
 }
 
 export type EngineStopReason = 'end_turn' | 'max_tokens' | 'aborted' | 'model_context_window_exceeded'
@@ -105,6 +111,7 @@ export class EngineCore implements LocalEngine {
   private jsonGrammar: LlamaGrammar | null = null
   private jsonArrayGrammar: LlamaGrammar | null = null
   private chatWrapper: ChatWrapper | null = null
+  private schemaGrammars = new Map<string, LlamaGrammar | null>()
   private loadedPath: string | null = null
   private loadMs: number | null = null
   private loadBreakdown: EngineStatus['loadBreakdownMs'] = null
@@ -185,6 +192,7 @@ export class EngineCore implements LocalEngine {
     this.llama = null
     this.jsonGrammar = null
     this.jsonArrayGrammar = null
+    this.schemaGrammars.clear()
     this.chatWrapper = null
     this.loadedPath = null
     try {
@@ -194,6 +202,21 @@ export class EngineCore implements LocalEngine {
     } catch {
       /* disposal failures leave nothing for the caller to act on */
     }
+  }
+
+  /** Compile (once) a JSON-schema grammar; null if llama.cpp cannot express it. */
+  private async grammarForSchema(schema: Record<string, unknown>): Promise<LlamaGrammar | null> {
+    if (!this.llama) return null
+    const key = JSON.stringify(schema)
+    if (this.schemaGrammars.has(key)) return this.schemaGrammars.get(key) ?? null
+    let g: LlamaGrammar | null = null
+    try {
+      g = (await this.llama.createGrammarForJsonSchema(schema as never)) as unknown as LlamaGrammar
+    } catch {
+      g = null
+    }
+    this.schemaGrammars.set(key, g)
+    return g
   }
 
   countTokens(text: string): number {
@@ -259,6 +282,8 @@ export class EngineCore implements LocalEngine {
     })
     session.setChatHistory(history)
 
+    const schemaGrammar = req.jsonSchema ? await this.grammarForSchema(req.jsonSchema) : null
+
     let text = ''
     let first = 0
     try {
@@ -271,7 +296,11 @@ export class EngineCore implements LocalEngine {
         // Belt and braces for a model whose template ignores the switch above:
         // never spend the answer's budget on hidden reasoning.
         budgets: { thoughtTokens: 0 },
-        ...(req.json === 'object' && this.jsonGrammar ? { grammar: this.jsonGrammar } : {}),
+        ...(schemaGrammar
+          ? { grammar: schemaGrammar }
+          : req.json === 'object' && this.jsonGrammar
+            ? { grammar: this.jsonGrammar }
+            : {}),
         ...(req.json === 'array' && this.jsonArrayGrammar ? { grammar: this.jsonArrayGrammar } : {}),
         signal: opts.signal,
         stopOnAbortSignal: true,

@@ -13,7 +13,9 @@ import {
   getAiFeatureRoutes,
   setAiFeatureRoute,
   getLocalModelTier,
-  setLocalModelTier
+  setLocalModelTier,
+  getLocalAiPolicy,
+  setLocalAiPolicy
 } from '../../settingsStore'
 import {
   setRouterSettings,
@@ -23,6 +25,8 @@ import {
   setCloudModelResolver,
   routeForPurpose,
   cloudRoutedFromLocal,
+  effectiveGate,
+  currentLocalPolicy,
   localOnlyActive,
   providerChoice,
   LocalModelMissingError
@@ -35,6 +39,7 @@ import { setBundledEmbedder } from '../localModel'
 import { SIGNAL_BASE } from '../creditMode'
 import {
   AI_FEATURES,
+  DEFAULT_LOCAL_POLICY,
   recommendTier,
   modelDownloadUrl,
   type AiFeature,
@@ -44,7 +49,6 @@ import {
   type LocalDownloadProgress
 } from '@shared/localAi'
 import { LOCAL_MODEL_TIERS, LOCAL_EMBED_MODEL, tierById } from '@shared/localModelCatalog'
-import { localGateFor } from '@shared/localAiGates'
 import type { AIPurpose } from '@shared/types'
 
 const IDLE_MS = 10 * 60 * 1000
@@ -115,7 +119,11 @@ function askRendererForConsent(req: Omit<CloudConsentRequest, 'id'>): Promise<bo
 // ── Start-up ────────────────────────────────────────────────────────────────
 
 export function initLocalAi(): void {
-  setRouterSettings({ aiMode: getAiMode, featureRoutes: getAiFeatureRoutes })
+  setRouterSettings({
+    aiMode: getAiMode,
+    featureRoutes: getAiFeatureRoutes,
+    policy: () => getLocalAiPolicy() ?? DEFAULT_LOCAL_POLICY
+  })
   setLocalRouteResolver((p) => routeForPurpose(p) === 'local', cloudRoutedFromLocal)
   setCloudModelResolver((p) => resolveCloudModel(p as AIPurpose))
   installEgressGuard({
@@ -182,7 +190,8 @@ export async function localAiStatus(): Promise<LocalAiStatus> {
   const active = activeTier()
   const gates = {} as LocalAiStatus['gates']
   for (const f of AI_FEATURES) {
-    const g = localGateFor(featureRepresentativePurpose(f))
+    // The gate under the current policy, with the measured numbers.
+    const g = effectiveGate(featureRepresentativePurpose(f))
     gates[f] = { gate: g.gate, localPassRate: g.localPassRate, cloudPassRate: g.cloudPassRate }
   }
   return {
@@ -201,7 +210,8 @@ export async function localAiStatus(): Promise<LocalAiStatus> {
     download: download?.progress ?? null,
     gates,
     embeddings: { installed: embedInstalled(), name: LOCAL_EMBED_MODEL.name },
-    hardware: process.platform === 'darwin' ? (process.arch === 'arm64' ? 'metal' : 'cpu') : 'auto'
+    hardware: process.platform === 'darwin' ? (process.arch === 'arm64' ? 'metal' : 'cpu') : 'auto',
+    policy: currentLocalPolicy()
   }
 }
 
@@ -298,6 +308,12 @@ export function registerLocalAiIpc(): void {
     if (!(AI_FEATURES as readonly string[]).includes(feature)) return { ok: false, error: 'Unknown feature.' }
     if (route !== null && route !== 'local' && route !== 'cloud') return { ok: false, error: 'Unknown route.' }
     setAiFeatureRoute(feature, route)
+    broadcast('localAi:changed', null)
+    return { ok: true }
+  })
+  ipcMain.handle('localAi:setPolicy', (_e, policy: string | null) => {
+    if (policy !== null && policy !== 'measured' && policy !== 'local-first') return { ok: false, error: 'Unknown policy.' }
+    setLocalAiPolicy(policy)
     broadcast('localAi:changed', null)
     return { ok: true }
   })

@@ -194,6 +194,7 @@ export interface LocalAiStatus {
   engine: { state: 'idle' | 'loading' | 'ready' | 'error'; error: string | null; gpu: string | false | null }
   download: LocalDownloadProgress | null
   gates: Record<AiFeature, { gate: LocalGate; localPassRate: number | null; cloudPassRate: number | null }>
+  policy: LocalPolicy
   embeddings: { installed: boolean; name: string }
   /**
    * What will run the model on this computer, known before loading it:
@@ -225,3 +226,29 @@ export interface CloudConsentRequest {
 }
 
 export const LOCAL_LABEL_COPY = 'Works best with cloud AI; local results may be incomplete.'
+
+/**
+ * How features are routed while the AI source is Local.
+ *
+ *   measured     — the quality gates decide: a feature that measured well runs
+ *                  on the device, a weaker one runs with the label, and one that
+ *                  measured poorly asks before sending that request to cloud.
+ *   local-first  — everything the device can technically run, runs on it (the
+ *                  weaker ones with the label). Cloud is the fallback: when a
+ *                  local answer comes back unusable, the person is asked whether
+ *                  to send that one request to cloud.
+ *
+ * In both, nothing goes to cloud without a yes, and features with no on-device
+ * model at all (images, background removal) or that need tool use always ask.
+ */
+export type LocalPolicy = 'measured' | 'local-first'
+
+/**
+ * PENDING OWNER DECISION (2026-10-20): which policy is the default. Kept in
+ * this one constant so the decision is a one-line change; the person can
+ * switch in Settings → AI either way.
+ */
+export const DEFAULT_LOCAL_POLICY: LocalPolicy = 'measured'
+
+/** Features the on-device model cannot run at all, whatever the policy. */
+export const NOT_TECHNICALLY_LOCAL: readonly AiFeature[] = ['media']

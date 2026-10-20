@@ -307,6 +307,7 @@ export const INVOKE_CHANNELS: Readonly<Record<string, string>> = {
   'localAi.download': 'localAi:download',
   'localAi.getStatus': 'localAi:getStatus',
   'localAi.setFeatureRoute': 'localAi:setFeatureRoute',
+  'localAi.setPolicy': 'localAi:setPolicy',
   'localAi.setTier': 'localAi:setTier',
   'localAi.status': 'ai:localModelStatus',
   'localAi.tryIt': 'localAi:tryIt',

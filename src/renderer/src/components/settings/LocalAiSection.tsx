@@ -252,6 +252,34 @@ export default function LocalAiSection(): JSX.Element {
         </div>
       )}
 
+      {st && (
+        <div className="mt-2 fb-t-caption" data-testid="local-ai-policy">
+          <div className="uppercase tracking-wider text-[var(--ink-50)] mb-1">When a feature scored lower on this device</div>
+          {(
+            [
+              ['measured', 'Ask before using cloud', 'Features that measured well run here; the rest ask before sending that request to cloud AI.'],
+              ['local-first', 'Run everything this device can', 'Weaker features run here with a label; if an answer comes back unusable, you are asked whether to try cloud AI for it.']
+            ] as const
+          ).map(([id, label, sub]) => (
+            <label key={id} className="flex items-start gap-1.5 mb-1 leading-snug text-[var(--ink-70)]">
+              <input
+                type="radio"
+                name="local-ai-policy"
+                checked={st.policy === id}
+                disabled={busy}
+                data-testid={`local-ai-policy-${id}`}
+                onChange={() => void act(() => window.api.localAi.setPolicy(id))}
+              />
+              <span>
+                <span className="text-[var(--ink-90)] font-medium">{label}</span>
+                <span className="text-[var(--ink-50)]"> — {sub}</span>
+              </span>
+            </label>
+          ))}
+          <div className="text-[var(--ink-50)] leading-snug">Either way, nothing goes to cloud AI unless you say yes.</div>
+        </div>
+      )}
+
       {st && <FeatureRoutes st={st} busy={busy} onChange={(f, r) => void act(() => window.api.localAi.setFeatureRoute(f, r))} />}
 
       <div className="fb-t-caption uppercase tracking-wider text-[var(--ink-50)] mt-3 mb-1.5">PlexiiBrain on this device</div>

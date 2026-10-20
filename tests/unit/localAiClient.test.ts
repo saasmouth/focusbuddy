@@ -8,7 +8,12 @@ import {
   flattenRequest,
   runLocal,
   createLocalClient,
-  LocalUnsupportedError
+  LocalUnsupportedError,
+  schemaFor,
+  kindsFromPrompt,
+  applyVariants,
+  setLocalClientOptions,
+  localUnusableReason
 } from '../../src/main/ai/local/localClient'
 import type { EngineGenerateRequest, EngineGenerateResult, LocalEngine } from '../../src/main/ai/local/engineCore'
 
@@ -137,3 +142,45 @@ describe('runLocal', () => {
     expect(m.stop_reason).toBe('model_context_window_exceeded')
   })
 })
+
+describe('schema-constrained decoding and small-model variants', () => {
+  it('derives the chat envelope schema, with the action kinds the prompt teaches', () => {
+    const sys = 'Every response MUST be a single valid JSON object: {"reply": "...", "actions": []}. Example: {"kind":"create-table","title":"x"} and {"kind": "open-url"}'
+    expect(kindsFromPrompt(sys)).toEqual(['create-table', 'open-url'])
+    const sch = schemaFor('chat', sys) as { properties: { actions: { items: { properties: { kind: { enum: string[] } } } } } }
+    expect(sch.properties.actions.items.properties.kind.enum).toEqual(['create-table', 'open-url'])
+    expect(schemaFor('chat', 'Schema: {"answer":"…","sources":[1]}')).toMatchObject({ properties: { answer: { type: 'string' } } })
+    expect(schemaFor('title_backfill', '')).toMatchObject({ properties: { titles: { type: 'array' } } })
+    expect(schemaFor('doc_rewrite', 'Return ONLY JSON')).toBeNull()
+  })
+
+  it('passes the schema to the engine, and not when switched off', async () => {
+    const e = engineOf(['{"reply":"hi","actions":[]}'])
+    const body = { model: 'local:chat', max_tokens: 50, system: 'MUST be a single valid JSON object {"reply": "", "actions": []} {"kind":"create-table"}', messages: [{ role: 'user', content: 'x' }] }
+    await runLocal(deps(e), body)
+    expect(e.calls[0].jsonSchema).toBeTruthy()
+    setLocalClientOptions({ schemaDecoding: false })
+    await runLocal(deps(e), body)
+    expect(e.calls[1].jsonSchema).toBeUndefined()
+    setLocalClientOptions({ schemaDecoding: true })
+  })
+
+  it('adds explicit dates for chat only, never rewriting the call site prompt', () => {
+    const now = new Date('2026-10-20T12:00:00Z')
+    const out = applyVariants('chat', 'ORIGINAL PROMPT', now)
+    expect(out.startsWith('ORIGINAL PROMPT')).toBe(true)
+    expect(out).toContain('today is 2026-10-20, tomorrow is 2026-10-21')
+    expect(applyVariants('doc_rewrite', 'ORIGINAL PROMPT', now)).toBe('ORIGINAL PROMPT')
+    setLocalClientOptions({ promptVariants: false })
+    expect(applyVariants('chat', 'ORIGINAL PROMPT', now)).toBe('ORIGINAL PROMPT')
+    setLocalClientOptions({ promptVariants: true })
+  })
+
+  it('marks a reply that failed its contract twice as unusable', async () => {
+    const e = engineOf(['{"text":"bad"}', '{"also":"bad"}'])
+    const m = await runLocal(deps(e), { model: 'local:chat', max_tokens: 50, system: 'MUST be a single valid JSON object {"reply": ""}', messages: [{ role: 'user', content: 'x' }] })
+    expect(localUnusableReason(m)).toMatch(/reply/)
+    expect(Object.keys(m)).not.toContain('localUnusable')
+  })
+})
+

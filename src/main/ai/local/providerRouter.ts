@@ -33,13 +33,17 @@ import {
   featureForPurpose,
   AI_FEATURE_COPY,
   LOCAL_LABEL_COPY,
+  DEFAULT_LOCAL_POLICY,
+  NOT_TECHNICALLY_LOCAL,
+  type LocalPolicy,
+  type LocalGateInfo,
   type AiFeature,
   type AiProviderChoice,
   type CloudConsentRequest
 } from '@shared/localAi'
 import { localGateFor } from '@shared/localAiGates'
 import { MODEL_HAIKU } from '../modelRouting'
-import { createLocalClient, purposeOfModel, LocalMessageStream, runLocal } from './localClient'
+import { createLocalClient, purposeOfModel, LocalMessageStream, runLocal, LocalUnsupportedError, localUnusableReason } from './localClient'
 import type { LocalEngine } from './engineCore'
 
 // ── Policy inputs (injected so this module stays testable without Electron) ──
@@ -47,11 +51,17 @@ import type { LocalEngine } from './engineCore'
 export interface RouterSettings {
   aiMode: () => 'auto' | 'credits' | 'byok' | 'local'
   featureRoutes: () => Partial<Record<string, 'local' | 'cloud'>>
+  /** Local routing policy; absent → DEFAULT_LOCAL_POLICY. */
+  policy?: () => LocalPolicy
 }
 
 let settings: RouterSettings = {
   aiMode: () => 'auto',
   featureRoutes: () => ({})
+}
+
+export function currentLocalPolicy(): LocalPolicy {
+  return settings.policy?.() ?? DEFAULT_LOCAL_POLICY
 }
 
 export function setRouterSettings(s: RouterSettings): void {
@@ -183,6 +193,42 @@ function percent(n: number | null): string {
   return n === null ? 'not measured' : `${Math.round(n * 100)}%`
 }
 
+/**
+ * The gate a purpose gets under the current policy. 'measured' is the measured
+ * gate. 'local-first' runs everything the device can technically run: a
+ * cloud-only gate becomes 'labelled', except features with no on-device model.
+ */
+export function effectiveGate(purpose: string): LocalGateInfo {
+  const g = gateResolver(purpose)
+  if (currentLocalPolicy() !== 'local-first') return g
+  const feature = featureForPurpose(purpose)
+  if (NOT_TECHNICALLY_LOCAL.includes(feature)) return { ...g, gate: 'cloud-only' }
+  return g.gate === 'cloud-only' ? { ...g, gate: 'labelled' } : g
+}
+
+/** Ask, then (on yes) send this one request to cloud with the cloud model. */
+async function cloudForThisRequest(
+  body: Record<string, unknown>,
+  cloud: Anthropic | null,
+  opts: { signal?: AbortSignal },
+  feature: AiFeature,
+  reason: string,
+  cloudModel: string
+): Promise<Anthropic.Message | null> {
+  const label = AI_FEATURE_COPY[feature].label
+  const yes = await askConsent({ feature, featureLabel: label, reason, cloudAvailable: cloud !== null })
+  if (!yes) return null
+  if (!cloud) {
+    throw new LocalUnavailableError(
+      feature,
+      'Cloud AI is not set up: add your own Anthropic API key or sign in for Plexii AI credits in Settings → AI.'
+    )
+  }
+  return withCloudGrant({ reason: 'consent', feature }, () =>
+    (cloud.messages.create as unknown as CreateFn)({ ...body, model: cloudModel }, { signal: opts.signal })
+  )
+}
+
 async function serveLocal(
   body: Record<string, unknown>,
   cloud: Anthropic | null,
@@ -192,7 +238,8 @@ async function serveLocal(
 ): Promise<Anthropic.Message> {
   const purpose = purposeOfModel(body.model)
   const feature = featureForPurpose(purpose)
-  const gate = gateResolver(purpose)
+  const gate = effectiveGate(purpose)
+  const cloudModel = callSiteModel || cloudModelFor(purpose) || MODEL_HAIKU
   if (gate.gate === 'cloud-only') {
     const label = AI_FEATURE_COPY[feature].label
     const reason =
@@ -215,7 +262,7 @@ async function serveLocal(
     }
     // 'generic' and 'enrichment' are not cloud purposes: use the model the call
     // site named, else the cheapest; never send an empty model id.
-    const cloudBody = { ...body, model: callSiteModel || cloudModelFor(purpose) || MODEL_HAIKU }
+    const cloudBody = { ...body, model: cloudModel }
     return withCloudGrant({ reason: 'consent', feature }, () =>
       (cloud.messages.create as unknown as CreateFn)(cloudBody, { signal: opts.signal })
     )
@@ -224,7 +271,34 @@ async function serveLocal(
     noticed.add(feature)
     noticeSink(feature, `${AI_FEATURE_COPY[feature].label} ran on the on-device model. ${LOCAL_LABEL_COPY}`)
   }
-  return runLocal(runtime, body, opts)
+  let msg: Anthropic.Message
+  try {
+    msg = await runLocal(runtime, body, opts)
+  } catch (e) {
+    // Tool use, images or attached files: the on-device model cannot do it at
+    // all, under either policy. Ask before this one request goes to cloud.
+    if (!(e instanceof LocalUnsupportedError)) throw e
+    const viaCloud = await cloudForThisRequest(body, cloud, opts, feature, `${e.message}`, cloudModel)
+    if (viaCloud) return viaCloud
+    throw new LocalUnavailableError(feature, `${e.message} Nothing was sent anywhere.`)
+  }
+  // Local-first: the fallback for an answer that came back unusable is cloud,
+  // for this one request, if the person agrees. Otherwise the call site fails
+  // honestly on the local text.
+  const unusable = localUnusableReason(msg)
+  if (unusable && currentLocalPolicy() === 'local-first' && !opts.onText) {
+    const label = AI_FEATURE_COPY[feature].label
+    const viaCloud = await cloudForThisRequest(
+      body,
+      cloud,
+      opts,
+      feature,
+      `The on-device model's answer for ${label} did not come out in a usable shape (${unusable}).`,
+      cloudModel
+    )
+    if (viaCloud) return viaCloud
+  }
+  return msg
 }
 
 /**
