@@ -31,7 +31,10 @@ const KNOWN_HOSTS: RegExp[] = [
   /^api\.plexiidesk\.com$/, // signal server (account gate, capabilities, sync)
   /^dl\.plexiidesk\.com$/, // update feed (packaged builds only)
   /^view\.plexiidesk\.com$/,
-  /^(www\.)?plexiidesk\.com$/
+  /^(www\.)?plexiidesk\.com$/,
+  /^tile\.openstreetmap\.org$/, // map work widget tiles, once a place is set
+  /^www\.google\.com$/, // s2/favicons: icons for links and connected apps
+  /^t\d\.gstatic\.com$/ // where s2/favicons redirects for the icon itself
 ]
 
 const LOCAL = /^(localhost|127\.\d+\.\d+\.\d+|::1|\[::1\]|0\.0\.0\.0)$/
@@ -50,21 +53,37 @@ function hostOf(u: string): string | null {
   }
 }
 
+// Only events that are real outbound work count: a request starting, a stream
+// being opened for it, or a DNS lookup. Response headers also carry URLs (a
+// report-uri, a content-location) that the app never contacts, so a textual
+// scan over-reports; this reads the log's own event types instead.
+const REQUEST_EVENTS = new Set(['URL_REQUEST_START_JOB', 'REQUEST_ALIVE', 'HTTP_STREAM_JOB_CONTROLLER'])
+const DNS_EVENTS = new Set(['HOST_RESOLVER_MANAGER_REQUEST', 'HOST_RESOLVER_MANAGER_JOB'])
+
 function parseNetLog(file: string): { hosts: Set<string>; urls: Set<string> } {
   const hosts = new Set<string>()
   const urls = new Set<string>()
   if (!existsSync(file)) return { hosts, urls }
   const raw = readFileSync(file, 'utf8')
-  // The net-log is JSON, but Chromium leaves it unterminated if the process is
-  // killed, so scan it textually rather than JSON.parse it.
-  for (const m of raw.matchAll(/"(?:url|original_url|new_location)":"((?:https?|wss?):\/\/[^"]+)"/g)) {
-    urls.add(m[1])
-    const h = hostOf(m[1])
-    if (h) hosts.add(h)
+  // Chromium leaves the log unterminated when the process is killed; close it.
+  let log: { constants: { logEventTypes: Record<string, number> }; events: Array<{ type: number; params?: Record<string, unknown> }> }
+  try {
+    log = JSON.parse(raw)
+  } catch {
+    log = JSON.parse(raw.trimEnd().replace(/,$/, '') + ']}')
   }
-  for (const m of raw.matchAll(/"host":"([^"]+)"/g)) {
-    const h = m[1].replace(/:\d+$/, '')
-    if (h && !/^\d+$/.test(h)) hosts.add(h)
+  const typeName = new Map(Object.entries(log.constants.logEventTypes).map(([k, v]) => [v, k]))
+  for (const e of log.events) {
+    const t = typeName.get(e.type) ?? ''
+    const p = e.params ?? {}
+    if (REQUEST_EVENTS.has(t) && typeof p.url === 'string' && /^(https?|wss?):/.test(p.url)) {
+      urls.add(p.url)
+      const h = hostOf(p.url)
+      if (h) hosts.add(h)
+    } else if (DNS_EVENTS.has(t) && typeof p.host === 'string') {
+      const h = p.host.includes('://') ? hostOf(p.host) : p.host.replace(/:\d+$/, '')
+      if (h) hosts.add(h)
+    }
   }
   return { hosts, urls }
 }
@@ -123,7 +142,8 @@ async function runPhase(
   mkdirSync(outDir, { recursive: true })
   writeFileSync(join(outDir, `${name}.json`), JSON.stringify(obs, null, 2))
   console.log(`[netaudit] ${name}:`, JSON.stringify(obs, null, 2))
-  rmSync(dir, { recursive: true, force: true })
+  if (process.env.PLEXII_NETAUDIT_KEEP) console.log(`[netaudit] raw logs kept in ${dir}`)
+  else rmSync(dir, { recursive: true, force: true })
   return obs
 }
 
@@ -137,6 +157,9 @@ test('NET-1 signed out, idle at the account gate: only the documented hosts', as
   test.setTimeout(120_000)
   const obs = await runPhase('signed-out-idle', { PLEXI_E2E_REQUIRE_ACCOUNT: '1' }, async (l) => {
     await l.window.waitForFunction(() => typeof (window as unknown as { api?: unknown }).api === 'object')
+    // The gate really is up (a packaged build's first screen), not the harness's
+    // anonymous desk.
+    await expect(l.window.locator('[data-testid="account-required-note"]')).toBeVisible({ timeout: 15_000 })
     // Sit idle at the sign-in gate, as a person who has not signed in would.
     await l.window.waitForTimeout(60_000)
   })
@@ -206,5 +229,57 @@ test('NET-2 typical use, nothing connected: only the documented hosts', async ()
     done.push('idle 100 s')
   })
   console.log('[netaudit] typical-use actions:', done.join(' | '))
+  expect(unknown(obs)).toEqual([])
+})
+
+// Content that reaches out by design: a map work widget with a place set, and a
+// file work widget holding a web link. The inventory says the first loads
+// OpenStreetMap tiles and the second asks Google for the site's icon; this
+// confirms both, so those rows are observed rather than inferred.
+test('NET-3 a map and a web link: OpenStreetMap tiles and the Google favicon service', async () => {
+  test.setTimeout(120_000)
+  const obs = await runPhase('map-and-link', {}, async (l) => {
+    const w = l.window
+    await waitForReady(w)
+    const deskId = await openNewDesk(w, 'Map and link desk')
+    await w.evaluate(async (taskId) => {
+      const api = (window as unknown as { api: typeof window.api }).api
+      await api.widgets.create({
+        taskId,
+        kind: 'location-map',
+        title: 'Office',
+        content: JSON.stringify({ query: 'London', lat: 51.5072, lon: -0.1276, label: 'London', zoom: 12 }),
+        x: 40,
+        y: 40,
+        width: 420,
+        height: 320
+      })
+      await api.widgets.create({
+        taskId,
+        kind: 'file',
+        title: 'Reading',
+        content: 'https://en.wikipedia.org/wiki/Local-first_software',
+        x: 520,
+        y: 40,
+        width: 320,
+        height: 240
+      })
+      const s = (window as unknown as { __fbWidgets?: { getState: () => { load?: (id: string) => Promise<void> } } })
+        .__fbWidgets
+      await s?.getState().load?.(taskId)
+    }, deskId)
+    await w.reload()
+    await waitForReady(w)
+    await w.evaluate((i) => {
+      const v = window as unknown as { __fbView?: { getState: () => { goTask: (x: string) => void } } }
+      v.__fbView?.getState().goTask(i)
+    }, deskId)
+    await w.waitForTimeout(15_000)
+  })
+  const all = [...obs.chromium, ...obs.node]
+  expect(all).toContain('tile.openstreetmap.org')
+  expect(all).toContain('www.google.com')
+  // Opening the link is a separate, explicit action; showing it is not.
+  expect(all).not.toContain('en.wikipedia.org')
   expect(unknown(obs)).toEqual([])
 })
