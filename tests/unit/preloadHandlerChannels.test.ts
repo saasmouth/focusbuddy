@@ -35,7 +35,9 @@ const HANDLER_FILES = [
   'src/main/mdExternal.ts',
   'src/main/activityTracker.ts',
   // Settings → AI → Local on this device (registerLocalAiIpc).
-  'src/main/ai/local/localAiService.ts'
+  'src/main/ai/local/localAiService.ts',
+  // The web right-click menu's surface registry (registerWebMenuIpc).
+  'src/main/webContextMenu.ts'
 ]
 
 const registered = new Set(
