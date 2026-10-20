@@ -222,7 +222,11 @@ function mergeRuns(previous: RunFile, fresh: RunFile): RunFile {
     ...previous,
     egress: [...previous.egress, ...fresh.egress],
     blocked: [...previous.blocked, ...fresh.blocked],
-    results: previous.results.map((r) => byId.get(r.id) ?? r),
+    // Replace re-run tasks in place; append tasks the previous run did not have.
+    results: [
+      ...previous.results.map((r) => byId.get(r.id) ?? r),
+      ...fresh.results.filter((r) => !previous.results.some((p) => p.id === r.id))
+    ],
     finishedAt: fresh.finishedAt ?? previous.finishedAt
   }
 }

@@ -30,15 +30,19 @@ const opt = (n, d) => {
 const chosen = opt('chosen', null)
 const reference = opt('reference', 'cloud-claude')
 
-const FAMILIES = ['desk_qa', 'proposals', 'brain_qa', 'refusal', 'writing', 'summaries', 'build', 'background']
+const FAMILIES = ['desk_qa', 'proposals', 'brain_qa', 'refusal', 'writing', 'summaries', 'build', 'office', 'background']
 // App feature → the eval families that measure it (src/shared/localAi.ts).
 export const FEATURE_FAMILIES = {
   assistant: ['desk_qa', 'proposals', 'brain_qa', 'refusal'],
   build: ['build'],
+  office: ['office'],
   writing: ['writing'],
   summaries: ['summaries'],
   background: ['background'],
-  agents: []
+  agents: [],
+  // No language model: image generation and background removal have no
+  // on-device equivalent at all.
+  media: []
 }
 
 const runs = readdirSync(dir)

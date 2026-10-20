@@ -7,6 +7,7 @@
 // data URI, ready to drop onto the canvas as an image element.
 
 import { resolveOpenAIKey } from './settingsStore'
+import { askCloudForNonLocalFeature, withCloudGrant } from './ai/local/providerRouter'
 import { ingestFromBuffer } from './db/files'
 
 export interface ImageGenResult {
@@ -45,13 +46,24 @@ export async function generateImage(input: { prompt: string; width?: number; hei
     }
   }
 
+  // AI set to run on this device: there is no on-device image model, so the
+  // prompt goes to OpenAI only if the person agrees, for this one request.
+  const route = await askCloudForNonLocalFeature('media', 'OpenAI image generation', true)
+  if (route === 'declined') {
+    return {
+      ok: false,
+      error: 'Image generation has no on-device model, and AI is set to run on this device, so nothing was sent to OpenAI.'
+    }
+  }
   const size = pickSize(input.width ?? 1024, input.height ?? 1024)
   try {
-    const res = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'gpt-image-1', prompt, size, n: 1 })
-    })
+    const send = (): Promise<Response> =>
+      fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'gpt-image-1', prompt, size, n: 1 })
+      })
+    const res = route === 'allowed' ? await withCloudGrant({ reason: 'consent', feature: 'media' }, send) : await send()
     if (!res.ok) {
       const txt = await res.text().catch(() => '')
       // 401 means the key is present but rejected; surface that clearly.

@@ -5,7 +5,7 @@
   "contextSize": 16384,
   "kvCache": "q8_0",
   "startedAt": "2026-10-20T04:36:49.057Z",
-  "finishedAt": "2026-10-20T04:56:16.230Z",
+  "finishedAt": "2026-10-20T06:03:55.922Z",
   "machine": {
     "cpu": "Apple M5",
     "ramGB": 24,
@@ -3982,6 +3982,1420 @@
       "data": {
         "proposals": [],
         "question": null
+      }
+    },
+    {
+      "id": "office-doc",
+      "family": "office",
+      "prompt": "A one-page project brief for moving our team wiki into PlexiiWrite: goals, scope, timeline, risks.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "generated",
+          "ok": true
+        },
+        {
+          "name": "has sections",
+          "ok": true,
+          "detail": "10 nodes"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 4,
+        "reason": "The brief covers goals, scope, timeline and risks with specific, non-placeholder content at roughly one page, but it assumes details the user never gave (a six-week timeline, a 5–7 person pilot group, a mobile-access goal, and PlexiiWrite features such as version tracking) without flagging them as assumptions."
+      },
+      "passed": true,
+      "ms": 15689,
+      "engine": {
+        "input": 240,
+        "output": 449,
+        "calls": 1
+      },
+      "text": "{\"title\":\"Project Brief: Migrate Team Wiki to PlexiiWrite\",\"body\":{\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Goals\"}]},{\"type\":\"bulletList\",\"content\":[{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Replace the current team wiki platform with PlexiiWrite to improve content accessibility, collaboration, and version control.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Enhance real-time editing capabilities to support faster decision-making and reduce meeting time spent on documentation.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Ensure all existing knowledge base content is fully migrated with minimal data loss or formatting issues.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Improve searchability and mobile access to documents for remote and hybrid team members.\"}]}]}]},{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Scope\"}]},{\"type\":\"bulletList\",\"content\":[{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Migration of all active and historical wiki pages (including project plans, process documents, FAQs, and onboarding guides) from the current platform to PlexiiWrite.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Configuration of workspace structure, permissions, and templates to align with team workflows.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Training sessions for key team members to ensure adoption and effective use of the new platform.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Ongoing support during the transition period to address user questions and resolve technical issues.\"}]}]}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Excluded: Third-party tools used for external stakeholder communication or legacy system integrations not directly tied to documentation.\"}]},{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Timeline\"}]},{\"type\":\"bulletList\",\"content\":[{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Week 1–2\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\": Finalize content inventory, define migration strategy, and set up PlexiiWrite environment.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Week 3\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\": Begin content migration; conduct quality checks and validate formatting.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Week 4\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\": Launch soft launch with a pilot group (5–7 core team members) for feedback.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Week 5\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\": Full rollout to all team members; provide training and onboarding materials.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Week 6\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\": Post-migration review and optimization of workflows based on user input.\"}]}]}]},{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Risks & Mitigation\"}]},{\"type\":\"bulletList\",\"content\":[{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Data loss or corruption\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\": Mitigated through staged migration, backup of original content, and version tracking in PlexiiWrite.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"User resistance or low adoption\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\": Addressed via targeted training, clear communication of benefits, and early involvement of key influencers.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Technical issues during migration\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\": Mitigated by testing with a small subset of content first and having a rollback plan.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Inconsistent formatting post-migration\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\": Prevented by creating standardized templates and conducting pre-migration formatting audits.\"}]}]}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"This project will ensure our documentation remains reliable, accessible, and aligned with evolving team needs.\"}]}]}}",
+      "data": {
+        "ok": true,
+        "title": "Project Brief: Migrate Team Wiki to PlexiiWrite",
+        "body": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "heading",
+              "attrs": {
+                "level": 2
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Goals"
+                }
+              ]
+            },
+            {
+              "type": "bulletList",
+              "content": [
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Replace the current team wiki platform with PlexiiWrite to improve content accessibility, collaboration, and version control."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Enhance real-time editing capabilities to support faster decision-making and reduce meeting time spent on documentation."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Ensure all existing knowledge base content is fully migrated with minimal data loss or formatting issues."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Improve searchability and mobile access to documents for remote and hybrid team members."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "attrs": {
+                "level": 2
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Scope"
+                }
+              ]
+            },
+            {
+              "type": "bulletList",
+              "content": [
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Migration of all active and historical wiki pages (including project plans, process documents, FAQs, and onboarding guides) from the current platform to PlexiiWrite."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Configuration of workspace structure, permissions, and templates to align with team workflows."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Training sessions for key team members to ensure adoption and effective use of the new platform."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Ongoing support during the transition period to address user questions and resolve technical issues."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Excluded: Third-party tools used for external stakeholder communication or legacy system integrations not directly tied to documentation."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "attrs": {
+                "level": 2
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Timeline"
+                }
+              ]
+            },
+            {
+              "type": "bulletList",
+              "content": [
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Week 1–2",
+                          "marks": [
+                            {
+                              "type": "bold"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "text": ": Finalize content inventory, define migration strategy, and set up PlexiiWrite environment."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Week 3",
+                          "marks": [
+                            {
+                              "type": "bold"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "text": ": Begin content migration; conduct quality checks and validate formatting."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Week 4",
+                          "marks": [
+                            {
+                              "type": "bold"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "text": ": Launch soft launch with a pilot group (5–7 core team members) for feedback."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Week 5",
+                          "marks": [
+                            {
+                              "type": "bold"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "text": ": Full rollout to all team members; provide training and onboarding materials."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Week 6",
+                          "marks": [
+                            {
+                              "type": "bold"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "text": ": Post-migration review and optimization of workflows based on user input."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "attrs": {
+                "level": 2
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Risks & Mitigation"
+                }
+              ]
+            },
+            {
+              "type": "bulletList",
+              "content": [
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Data loss or corruption",
+                          "marks": [
+                            {
+                              "type": "bold"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "text": ": Mitigated through staged migration, backup of original content, and version tracking in PlexiiWrite."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "User resistance or low adoption",
+                          "marks": [
+                            {
+                              "type": "bold"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "text": ": Addressed via targeted training, clear communication of benefits, and early involvement of key influencers."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Technical issues during migration",
+                          "marks": [
+                            {
+                              "type": "bold"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "text": ": Mitigated by testing with a small subset of content first and having a rollback plan."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Inconsistent formatting post-migration",
+                          "marks": [
+                            {
+                              "type": "bold"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "text": ": Prevented by creating standardized templates and conducting pre-migration formatting audits."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "This project will ensure our documentation remains reliable, accessible, and aligned with evolving team needs."
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "office-sheet",
+      "family": "office",
+      "prompt": "A monthly household budget: categories, planned, actual and the difference.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "generated",
+          "ok": true
+        },
+        {
+          "name": ">= 3 columns",
+          "ok": true,
+          "detail": "4"
+        },
+        {
+          "name": ">= 4 rows",
+          "ok": true,
+          "detail": "9"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 2,
+        "reason": "The layout and rows are sensible, but every Difference formula (=-B+C) computes actual minus planned, which is the opposite of the required planned minus actual."
+      },
+      "passed": false,
+      "ms": 6702,
+      "engine": {
+        "input": 236,
+        "output": 220,
+        "calls": 1
+      },
+      "text": "{\"title\":\"Monthly Household Budget\",\"body\":{\"columns\":[\"Category\",\"Planned\",\"Actual\",\"Difference\"],\"rows\":[[\"Rent\",\"2000\",\"2050\",\"=-B2+C2\"],[\"Utilities\",\"300\",\"280\",\"=-B3+C3\"],[\"Groceries\",\"600\",\"650\",\"=-B4+C4\"],[\"Transportation\",\"400\",\"420\",\"=-B5+C5\"],[\"Entertainment\",\"200\",\"180\",\"=-B6+C6\"],[\"Dining Out\",\"150\",\"170\",\"=-B7+C7\"],[\"Savings\",\"500\",\"520\",\"=-B8+C8\"],[\"Health Insurance\",\"400\",\"400\",\"=-B9+C9\"],[\"Miscellaneous\",\"100\",\"120\",\"=-B10+C10\"]]}}",
+      "data": {
+        "ok": true,
+        "title": "Monthly Household Budget",
+        "body": {
+          "columns": [
+            "Category",
+            "Planned",
+            "Actual",
+            "Difference"
+          ],
+          "rows": [
+            [
+              "Rent",
+              "2000",
+              "2050",
+              "=-B2+C2"
+            ],
+            [
+              "Utilities",
+              "300",
+              "280",
+              "=-B3+C3"
+            ],
+            [
+              "Groceries",
+              "600",
+              "650",
+              "=-B4+C4"
+            ],
+            [
+              "Transportation",
+              "400",
+              "420",
+              "=-B5+C5"
+            ],
+            [
+              "Entertainment",
+              "200",
+              "180",
+              "=-B6+C6"
+            ],
+            [
+              "Dining Out",
+              "150",
+              "170",
+              "=-B7+C7"
+            ],
+            [
+              "Savings",
+              "500",
+              "520",
+              "=-B8+C8"
+            ],
+            [
+              "Health Insurance",
+              "400",
+              "400",
+              "=-B9+C9"
+            ],
+            [
+              "Miscellaneous",
+              "100",
+              "120",
+              "=-B10+C10"
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "office-slides",
+      "family": "office",
+      "prompt": "A 5-slide pitch for a neighbourhood tool library.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "generated",
+          "ok": true
+        },
+        {
+          "name": ">= 4 slides",
+          "ok": true,
+          "detail": "5"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 2,
+        "reason": "The deck has five coherent slides covering problem, solution, benefits and next steps, but slide 3 presents invented statistics as fact ('Portland and Toronto show 70%+ usage rates', 'up to $300 annually per family'), which breaks the rubric. The final 'Join Us' slide also has no bullets, so the ask is thin."
+      },
+      "passed": false,
+      "ms": 20735,
+      "engine": {
+        "input": 284,
+        "output": 591,
+        "calls": 1
+      },
+      "text": "{\"title\":\"Introducing NeighborTools: A Community Tool Library\",\"body\":{\"slides\":[{\"id\":\"mvga1u71-0\",\"title\":\"The Problem\",\"bullets\":[\"Homeowners lack access to expensive tools like drills or saws.\",\"Many tools sit unused in garages, underutilized and wasted.\",\"Repairing homes is often too costly or difficult for low-income families.\",\"Community sharing reduces waste, saves money, and builds trust.\",\"We’re solving a real need with a simple, accessible solution.\"],\"notes\":\"Start by acknowledging the everyday struggles people face. Highlight how tools are often underused or inaccessible. Emphasize that this isn’t just about convenience—it’s about equity and sustainability.\",\"layout\":\"bullets\"},{\"id\":\"mvga1u71-1\",\"title\":\"The Solution\",\"bullets\":[\"NeighborTools is a free, neighborhood-based tool library.\",\"Residents borrow tools by appointment or drop-in, no fees or membership required.\",\"We offer a curated selection of essential tools—drills, saws, hammers, etc.—with clear instructions and safety guidelines.\",\"Each tool is maintained, cleaned, and returned to ensure longevity.\",\"We host monthly workshops on tool use and home repair.\"],\"notes\":\"Present NeighborTools as simple, inclusive, and practical. Stress that it's not a commercial service—it’s community-driven. Mention the workshops to show added value beyond borrowing.\",\"layout\":\"bullets\"},{\"id\":\"mvga1u71-2\",\"title\":\"Why It Works\",\"bullets\":[\"Proven model: Tool libraries in cities like Portland and Toronto show 70%+ usage rates.\",\"Strong community trust leads to higher participation and accountability.\",\"Reduces household spending by up to $300 annually per family.\",\"Encourages neighbor-to-neighbor support and collaboration.\",\"Builds resilience through shared knowledge and skills.\"],\"notes\":\"Back up the idea with real-world data from successful programs. Show that this isn’t just a good idea—it’s been tested and works.\",\"layout\":\"bullets\"},{\"id\":\"mvga1u71-3\",\"title\":\"Next Steps\",\"bullets\":[\"Launch a pilot in one neighborhood with 20 core tools.\",\"Recruit 10 volunteers to manage borrowing and maintenance.\",\"Host a launch event with local families and community leaders.\",\"Collect feedback and expand to adjacent neighborhoods within 12 months.\",\"Measure usage, satisfaction, and cost savings quarterly.\"],\"notes\":\"Be specific about the first phase—clear, actionable, and realistic. Show progress and accountability. Emphasize community involvement from day one.\",\"layout\":\"bullets\"},{\"id\":\"mvga1u71-4\",\"title\":\"Join Us\",\"bullets\":[],\"notes\":\"Close with a call to action. Invite interest in volunteering, attending the launch, or helping spread the word. End on an optimistic note: this is a shared future where neighbors support each other through simple, practical tools.\",\"layout\":\"section\"}]}}",
+      "data": {
+        "ok": true,
+        "title": "Introducing NeighborTools: A Community Tool Library",
+        "body": {
+          "slides": [
+            {
+              "id": "mvga1u71-0",
+              "title": "The Problem",
+              "bullets": [
+                "Homeowners lack access to expensive tools like drills or saws.",
+                "Many tools sit unused in garages, underutilized and wasted.",
+                "Repairing homes is often too costly or difficult for low-income families.",
+                "Community sharing reduces waste, saves money, and builds trust.",
+                "We’re solving a real need with a simple, accessible solution."
+              ],
+              "notes": "Start by acknowledging the everyday struggles people face. Highlight how tools are often underused or inaccessible. Emphasize that this isn’t just about convenience—it’s about equity and sustainability.",
+              "layout": "bullets"
+            },
+            {
+              "id": "mvga1u71-1",
+              "title": "The Solution",
+              "bullets": [
+                "NeighborTools is a free, neighborhood-based tool library.",
+                "Residents borrow tools by appointment or drop-in, no fees or membership required.",
+                "We offer a curated selection of essential tools—drills, saws, hammers, etc.—with clear instructions and safety guidelines.",
+                "Each tool is maintained, cleaned, and returned to ensure longevity.",
+                "We host monthly workshops on tool use and home repair."
+              ],
+              "notes": "Present NeighborTools as simple, inclusive, and practical. Stress that it's not a commercial service—it’s community-driven. Mention the workshops to show added value beyond borrowing.",
+              "layout": "bullets"
+            },
+            {
+              "id": "mvga1u71-2",
+              "title": "Why It Works",
+              "bullets": [
+                "Proven model: Tool libraries in cities like Portland and Toronto show 70%+ usage rates.",
+                "Strong community trust leads to higher participation and accountability.",
+                "Reduces household spending by up to $300 annually per family.",
+                "Encourages neighbor-to-neighbor support and collaboration.",
+                "Builds resilience through shared knowledge and skills."
+              ],
+              "notes": "Back up the idea with real-world data from successful programs. Show that this isn’t just a good idea—it’s been tested and works.",
+              "layout": "bullets"
+            },
+            {
+              "id": "mvga1u71-3",
+              "title": "Next Steps",
+              "bullets": [
+                "Launch a pilot in one neighborhood with 20 core tools.",
+                "Recruit 10 volunteers to manage borrowing and maintenance.",
+                "Host a launch event with local families and community leaders.",
+                "Collect feedback and expand to adjacent neighborhoods within 12 months.",
+                "Measure usage, satisfaction, and cost savings quarterly."
+              ],
+              "notes": "Be specific about the first phase—clear, actionable, and realistic. Show progress and accountability. Emphasize community involvement from day one.",
+              "layout": "bullets"
+            },
+            {
+              "id": "mvga1u71-4",
+              "title": "Join Us",
+              "bullets": [],
+              "notes": "Close with a call to action. Invite interest in volunteering, attending the launch, or helping spread the word. End on an optimistic note: this is a shared future where neighbors support each other through simple, practical tools.",
+              "layout": "section"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "office-map",
+      "family": "office",
+      "prompt": "A flowchart of a customer refund request: received, checked against the policy, approved or refused, refund paid, customer told.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "generated",
+          "ok": true
+        },
+        {
+          "name": ">= 5 nodes",
+          "ok": true,
+          "detail": "6"
+        },
+        {
+          "name": ">= 4 edges",
+          "ok": true,
+          "detail": "6"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 5,
+        "reason": "The flowchart covers every step described (received, policy check, approved/refused decision, refund paid, customer told), with Yes/No branches that both reach 'Customer informed', and it adds nothing beyond the source."
+      },
+      "passed": true,
+      "ms": 7690,
+      "engine": {
+        "input": 341,
+        "output": 241,
+        "calls": 1
+      },
+      "text": "{\"title\":\"Customer Refund Request Process\",\"body\":{\"version\":1,\"nodes\":[{\"id\":\"n1\",\"x\":190,\"y\":60,\"label\":\"Refund request received\",\"shape\":\"process\",\"color\":\"#2563eb\"},{\"id\":\"n2\",\"x\":190,\"y\":190,\"label\":\"Check against refund policy\",\"shape\":\"process\",\"color\":\"#2563eb\"},{\"id\":\"n3\",\"x\":190,\"y\":320,\"label\":\"Refund approved?\",\"shape\":\"decision\",\"color\":\"#d97706\"},{\"id\":\"n4\",\"x\":80,\"y\":450,\"label\":\"Refund paid\",\"shape\":\"process\",\"color\":\"#2563eb\"},{\"id\":\"n5\",\"x\":190,\"y\":580,\"label\":\"Customer informed\",\"shape\":\"process\",\"color\":\"#2563eb\"},{\"id\":\"n6\",\"x\":300,\"y\":450,\"label\":\"Refund refused\",\"shape\":\"process\",\"color\":\"#2563eb\"}],\"edges\":[{\"id\":\"e-n1-n2\",\"source\":\"n1\",\"target\":\"n2\",\"style\":\"solid\"},{\"id\":\"e-n2-n3\",\"source\":\"n2\",\"target\":\"n3\",\"style\":\"solid\"},{\"id\":\"e-n3-n4\",\"source\":\"n3\",\"target\":\"n4\",\"label\":\"Yes\",\"style\":\"solid\"},{\"id\":\"e-n3-n6\",\"source\":\"n3\",\"target\":\"n6\",\"label\":\"No\",\"style\":\"solid\"},{\"id\":\"e-n4-n5\",\"source\":\"n4\",\"target\":\"n5\",\"style\":\"solid\"},{\"id\":\"e-n6-n5\",\"source\":\"n6\",\"target\":\"n5\",\"style\":\"solid\"}],\"viewport\":{\"x\":0,\"y\":0,\"zoom\":1}}}",
+      "data": {
+        "ok": true,
+        "title": "Customer Refund Request Process",
+        "body": {
+          "version": 1,
+          "nodes": [
+            {
+              "id": "n1",
+              "x": 190,
+              "y": 60,
+              "label": "Refund request received",
+              "shape": "process",
+              "color": "#2563eb"
+            },
+            {
+              "id": "n2",
+              "x": 190,
+              "y": 190,
+              "label": "Check against refund policy",
+              "shape": "process",
+              "color": "#2563eb"
+            },
+            {
+              "id": "n3",
+              "x": 190,
+              "y": 320,
+              "label": "Refund approved?",
+              "shape": "decision",
+              "color": "#d97706"
+            },
+            {
+              "id": "n4",
+              "x": 80,
+              "y": 450,
+              "label": "Refund paid",
+              "shape": "process",
+              "color": "#2563eb"
+            },
+            {
+              "id": "n5",
+              "x": 190,
+              "y": 580,
+              "label": "Customer informed",
+              "shape": "process",
+              "color": "#2563eb"
+            },
+            {
+              "id": "n6",
+              "x": 300,
+              "y": 450,
+              "label": "Refund refused",
+              "shape": "process",
+              "color": "#2563eb"
+            }
+          ],
+          "edges": [
+            {
+              "id": "e-n1-n2",
+              "source": "n1",
+              "target": "n2",
+              "style": "solid"
+            },
+            {
+              "id": "e-n2-n3",
+              "source": "n2",
+              "target": "n3",
+              "style": "solid"
+            },
+            {
+              "id": "e-n3-n4",
+              "source": "n3",
+              "target": "n4",
+              "label": "Yes",
+              "style": "solid"
+            },
+            {
+              "id": "e-n3-n6",
+              "source": "n3",
+              "target": "n6",
+              "label": "No",
+              "style": "solid"
+            },
+            {
+              "id": "e-n4-n5",
+              "source": "n4",
+              "target": "n5",
+              "style": "solid"
+            },
+            {
+              "id": "e-n6-n5",
+              "source": "n6",
+              "target": "n5",
+              "style": "solid"
+            }
+          ],
+          "viewport": {
+            "x": 0,
+            "y": 0,
+            "zoom": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "office-deck",
+      "family": "office",
+      "prompt": "Deck: a 4-slide quarterly review for a small design studio",
+      "ok": true,
+      "checks": [
+        {
+          "name": "generated",
+          "ok": true
+        },
+        {
+          "name": ">= 3 slides",
+          "ok": true,
+          "detail": "4"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 1,
+        "reason": "The deck states many invented figures as fact (85% retention from 72%, $12,500 average revenue, 4.7/5 satisfaction, 24 projects, 40% social engagement growth, 30% scope creep reduction), which directly violates the rubric's ban on inventing the studio's numbers, with no placeholders or caveats."
+      },
+      "passed": false,
+      "ms": 17987,
+      "engine": {
+        "input": 310,
+        "output": 546,
+        "calls": 1
+      },
+      "text": "{\"slides\":[{\"id\":\"ai-mvga2e0l-0\",\"title\":\"Key Highlights\",\"bullets\":[\"Launched 3 new brand identities for clients in emerging markets\",\"Increased client retention to 85% from 72% in Q2\",\"Delivered 100% of on-time project milestones across all portfolios\",\"Grew social media engagement by 40% year-over-year\"],\"notes\":\"We delivered strong results through focused client research and agile workflows. The market demand for culturally relevant design was a key driver. Client feedback emphasized clarity and emotional resonance in our work.\",\"layout\":\"title-content\",\"elements\":[{\"id\":\"mig-1\",\"type\":\"text\",\"x\":80,\"y\":60,\"w\":1120,\"h\":130,\"z\":1,\"styleRole\":\"title\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"top\",\"paragraphs\":[{\"runs\":[{\"text\":\"Key Highlights\",\"bold\":true,\"color\":\"#1c1917\",\"fontSize\":52}],\"align\":\"left\"}]},{\"id\":\"mig-2\",\"type\":\"text\",\"x\":80,\"y\":210,\"w\":1120,\"h\":450,\"z\":2,\"styleRole\":\"body\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"top\",\"paragraphs\":[{\"runs\":[{\"text\":\"Launched 3 new brand identities for clients in emerging markets\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Increased client retention to 85% from 72% in Q2\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Delivered 100% of on-time project milestones across all portfolios\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Grew social media engagement by 40% year-over-year\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"}]}],\"transition\":\"none\",\"background\":{\"type\":\"solid\",\"color\":\"#fdfaf3\"},\"schemaVersion\":2},{\"id\":\"ai-mvga2e0l-1\",\"title\":\"Performance Metrics\",\"bullets\":[\"Average project revenue: $12,500 (up 18% from Q2)\",\"Client satisfaction score: 4.7/5 (improved from 4.3)\",\"Projects completed: 24 (up 15% from previous quarter)\",\"Design-to-delivery cycle time: reduced by 12%\"],\"notes\":\"Revenue growth reflects both new business and deeper client engagement. The improved cycle time shows our process optimizations are working. Satisfaction scores indicate clients value our responsiveness and quality.\",\"layout\":\"title-content\",\"elements\":[{\"id\":\"mig-3\",\"type\":\"text\",\"x\":80,\"y\":60,\"w\":1120,\"h\":130,\"z\":1,\"styleRole\":\"title\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"top\",\"paragraphs\":[{\"runs\":[{\"text\":\"Performance Metrics\",\"bold\":true,\"color\":\"#1c1917\",\"fontSize\":52}],\"align\":\"left\"}]},{\"id\":\"mig-4\",\"type\":\"text\",\"x\":80,\"y\":210,\"w\":1120,\"h\":450,\"z\":2,\"styleRole\":\"body\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"top\",\"paragraphs\":[{\"runs\":[{\"text\":\"Average project revenue: $12,500 (up 18% from Q2)\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Client satisfaction score: 4.7/5 (improved from 4.3)\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Projects completed: 24 (up 15% from previous quarter)\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Design-to-delivery cycle time: reduced by 12%\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"}]}],\"transition\":\"none\",\"background\":{\"type\":\"solid\",\"color\":\"#fdfaf3\"},\"schemaVersion\":2},{\"id\":\"ai-mvga2e0l-2\",\"title\":\"Key Lessons Learned\",\"bullets\":[\"Early client discovery reduces scope creep by 30%\",\"Cross-functional collaboration improves creative consistency\",\"Clear project briefs cut rework by nearly 40%\",\"Remote team alignment requires structured check-ins\"],\"notes\":\"We now prioritize deep discovery in the first phase of every project. Team syncs have been standardized to ensure alignment across design, strategy, and development. These insights will inform how we structure future onboarding.\",\"layout\":\"title-content\",\"elements\":[{\"id\":\"mig-5\",\"type\":\"text\",\"x\":80,\"y\":60,\"w\":1120,\"h\":130,\"z\":1,\"styleRole\":\"title\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"top\",\"paragraphs\":[{\"runs\":[{\"text\":\"Key Lessons Learned\",\"bold\":true,\"color\":\"#1c1917\",\"fontSize\":52}],\"align\":\"left\"}]},{\"id\":\"mig-6\",\"type\":\"text\",\"x\":80,\"y\":210,\"w\":1120,\"h\":450,\"z\":2,\"styleRole\":\"body\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"top\",\"paragraphs\":[{\"runs\":[{\"text\":\"Early client discovery reduces scope creep by 30%\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Cross-functional collaboration improves creative consistency\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Clear project briefs cut rework by nearly 40%\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Remote team alignment requires structured check-ins\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"}]}],\"transition\":\"none\",\"background\":{\"type\":\"solid\",\"color\":\"#fdfaf3\"},\"schemaVersion\":2},{\"id\":\"ai-mvga2e0l-3\",\"title\":\"Next Quarter Focus\",\"bullets\":[\"Launch a new service: UX accessibility audits for inclusive design\",\"Expand into two new regional markets (Latin America and Southeast Asia)\",\"Invest in team training on sustainable design practices\",\"Set internal KPIs for client feedback velocity and innovation rate\"],\"notes\":\"We’re building on our momentum with strategic growth areas. Accessibility is a growing need and aligns with our values. Training will strengthen both creativity and responsibility in our work.\",\"layout\":\"title-content\",\"elements\":[{\"id\":\"mig-7\",\"type\":\"text\",\"x\":80,\"y\":60,\"w\":1120,\"h\":130,\"z\":1,\"styleRole\":\"title\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"top\",\"paragraphs\":[{\"runs\":[{\"text\":\"Next Quarter Focus\",\"bold\":true,\"color\":\"#1c1917\",\"fontSize\":52}],\"align\":\"left\"}]},{\"id\":\"mig-8\",\"type\":\"text\",\"x\":80,\"y\":210,\"w\":1120,\"h\":450,\"z\":2,\"styleRole\":\"body\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"top\",\"paragraphs\":[{\"runs\":[{\"text\":\"Launch a new service: UX accessibility audits for inclusive design\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Expand into two new regional markets (Latin America and Southeast Asia)\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Invest in team training on sustainable design practices\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Set internal KPIs for client feedback velocity and innovation rate\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"}]}],\"transition\":\"none\",\"background\":{\"type\":\"solid\",\"color\":\"#fdfaf3\"},\"schemaVersion\":2}],\"theme\":\"editorial\",\"schemaVersion\":2,\"size\":{\"w\":1280,\"h\":720}}",
+      "data": {
+        "ok": true,
+        "body": {
+          "slides": [
+            {
+              "id": "ai-mvga2e0l-0",
+              "title": "Key Highlights",
+              "bullets": [
+                "Launched 3 new brand identities for clients in emerging markets",
+                "Increased client retention to 85% from 72% in Q2",
+                "Delivered 100% of on-time project milestones across all portfolios",
+                "Grew social media engagement by 40% year-over-year"
+              ],
+              "notes": "We delivered strong results through focused client research and agile workflows. The market demand for culturally relevant design was a key driver. Client feedback emphasized clarity and emotional resonance in our work.",
+              "layout": "title-content",
+              "elements": [
+                {
+                  "id": "mig-1",
+                  "type": "text",
+                  "x": 80,
+                  "y": 60,
+                  "w": 1120,
+                  "h": 130,
+                  "z": 1,
+                  "styleRole": "title",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "top",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "Key Highlights",
+                          "bold": true,
+                          "color": "#1c1917",
+                          "fontSize": 52
+                        }
+                      ],
+                      "align": "left"
+                    }
+                  ]
+                },
+                {
+                  "id": "mig-2",
+                  "type": "text",
+                  "x": 80,
+                  "y": 210,
+                  "w": 1120,
+                  "h": 450,
+                  "z": 2,
+                  "styleRole": "body",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "top",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "Launched 3 new brand identities for clients in emerging markets",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Increased client retention to 85% from 72% in Q2",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Delivered 100% of on-time project milestones across all portfolios",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Grew social media engagement by 40% year-over-year",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    }
+                  ]
+                }
+              ],
+              "transition": "none",
+              "background": {
+                "type": "solid",
+                "color": "#fdfaf3"
+              },
+              "schemaVersion": 2
+            },
+            {
+              "id": "ai-mvga2e0l-1",
+              "title": "Performance Metrics",
+              "bullets": [
+                "Average project revenue: $12,500 (up 18% from Q2)",
+                "Client satisfaction score: 4.7/5 (improved from 4.3)",
+                "Projects completed: 24 (up 15% from previous quarter)",
+                "Design-to-delivery cycle time: reduced by 12%"
+              ],
+              "notes": "Revenue growth reflects both new business and deeper client engagement. The improved cycle time shows our process optimizations are working. Satisfaction scores indicate clients value our responsiveness and quality.",
+              "layout": "title-content",
+              "elements": [
+                {
+                  "id": "mig-3",
+                  "type": "text",
+                  "x": 80,
+                  "y": 60,
+                  "w": 1120,
+                  "h": 130,
+                  "z": 1,
+                  "styleRole": "title",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "top",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "Performance Metrics",
+                          "bold": true,
+                          "color": "#1c1917",
+                          "fontSize": 52
+                        }
+                      ],
+                      "align": "left"
+                    }
+                  ]
+                },
+                {
+                  "id": "mig-4",
+                  "type": "text",
+                  "x": 80,
+                  "y": 210,
+                  "w": 1120,
+                  "h": 450,
+                  "z": 2,
+                  "styleRole": "body",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "top",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "Average project revenue: $12,500 (up 18% from Q2)",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Client satisfaction score: 4.7/5 (improved from 4.3)",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Projects completed: 24 (up 15% from previous quarter)",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Design-to-delivery cycle time: reduced by 12%",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    }
+                  ]
+                }
+              ],
+              "transition": "none",
+              "background": {
+                "type": "solid",
+                "color": "#fdfaf3"
+              },
+              "schemaVersion": 2
+            },
+            {
+              "id": "ai-mvga2e0l-2",
+              "title": "Key Lessons Learned",
+              "bullets": [
+                "Early client discovery reduces scope creep by 30%",
+                "Cross-functional collaboration improves creative consistency",
+                "Clear project briefs cut rework by nearly 40%",
+                "Remote team alignment requires structured check-ins"
+              ],
+              "notes": "We now prioritize deep discovery in the first phase of every project. Team syncs have been standardized to ensure alignment across design, strategy, and development. These insights will inform how we structure future onboarding.",
+              "layout": "title-content",
+              "elements": [
+                {
+                  "id": "mig-5",
+                  "type": "text",
+                  "x": 80,
+                  "y": 60,
+                  "w": 1120,
+                  "h": 130,
+                  "z": 1,
+                  "styleRole": "title",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "top",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "Key Lessons Learned",
+                          "bold": true,
+                          "color": "#1c1917",
+                          "fontSize": 52
+                        }
+                      ],
+                      "align": "left"
+                    }
+                  ]
+                },
+                {
+                  "id": "mig-6",
+                  "type": "text",
+                  "x": 80,
+                  "y": 210,
+                  "w": 1120,
+                  "h": 450,
+                  "z": 2,
+                  "styleRole": "body",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "top",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "Early client discovery reduces scope creep by 30%",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Cross-functional collaboration improves creative consistency",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Clear project briefs cut rework by nearly 40%",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Remote team alignment requires structured check-ins",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    }
+                  ]
+                }
+              ],
+              "transition": "none",
+              "background": {
+                "type": "solid",
+                "color": "#fdfaf3"
+              },
+              "schemaVersion": 2
+            },
+            {
+              "id": "ai-mvga2e0l-3",
+              "title": "Next Quarter Focus",
+              "bullets": [
+                "Launch a new service: UX accessibility audits for inclusive design",
+                "Expand into two new regional markets (Latin America and Southeast Asia)",
+                "Invest in team training on sustainable design practices",
+                "Set internal KPIs for client feedback velocity and innovation rate"
+              ],
+              "notes": "We’re building on our momentum with strategic growth areas. Accessibility is a growing need and aligns with our values. Training will strengthen both creativity and responsibility in our work.",
+              "layout": "title-content",
+              "elements": [
+                {
+                  "id": "mig-7",
+                  "type": "text",
+                  "x": 80,
+                  "y": 60,
+                  "w": 1120,
+                  "h": 130,
+                  "z": 1,
+                  "styleRole": "title",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "top",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "Next Quarter Focus",
+                          "bold": true,
+                          "color": "#1c1917",
+                          "fontSize": 52
+                        }
+                      ],
+                      "align": "left"
+                    }
+                  ]
+                },
+                {
+                  "id": "mig-8",
+                  "type": "text",
+                  "x": 80,
+                  "y": 210,
+                  "w": 1120,
+                  "h": 450,
+                  "z": 2,
+                  "styleRole": "body",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "top",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "Launch a new service: UX accessibility audits for inclusive design",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Expand into two new regional markets (Latin America and Southeast Asia)",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Invest in team training on sustainable design practices",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Set internal KPIs for client feedback velocity and innovation rate",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    }
+                  ]
+                }
+              ],
+              "transition": "none",
+              "background": {
+                "type": "solid",
+                "color": "#fdfaf3"
+              },
+              "schemaVersion": 2
+            }
+          ],
+          "theme": "editorial",
+          "schemaVersion": 2,
+          "size": {
+            "w": 1280,
+            "h": 720
+          }
+        }
+      }
+    },
+    {
+      "id": "cells-columns",
+      "family": "office",
+      "prompt": "PlexiiCells: columns for tracking job applications",
+      "ok": true,
+      "checks": [
+        {
+          "name": "columns",
+          "ok": true,
+          "detail": "Application Date | Job Title | Company | Location | Application Status | Application Type | Notes"
+        },
+        {
+          "name": "has company and status",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": null,
+      "passed": true,
+      "ms": 966,
+      "engine": {
+        "input": 198,
+        "output": 28,
+        "calls": 1
+      },
+      "text": "Application Date | Job Title | Company | Location | Application Status | Application Type | Notes",
+      "data": {
+        "ok": true,
+        "columns": [
+          "Application Date",
+          "Job Title",
+          "Company",
+          "Location",
+          "Application Status",
+          "Application Type",
+          "Notes"
+        ]
+      }
+    },
+    {
+      "id": "cells-fill",
+      "family": "office",
+      "prompt": "PlexiiCells: fill the five largest countries by area",
+      "ok": true,
+      "checks": [
+        {
+          "name": "5 rows",
+          "ok": true,
+          "detail": "5"
+        },
+        {
+          "name": "correct countries",
+          "ok": true,
+          "detail": "Russia | Canada | United States | China | Brazil"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": null,
+      "passed": true,
+      "ms": 1813,
+      "engine": {
+        "input": 233,
+        "output": 46,
+        "calls": 1
+      },
+      "text": "[[\"Russia\",\"17.1\"],[\"Canada\",\"9.9\"],[\"United States\",\"9.8\"],[\"China\",\"9.6\"],[\"Brazil\",\"8.5\"]]",
+      "data": {
+        "ok": true,
+        "rows": [
+          [
+            "Russia",
+            "17.1"
+          ],
+          [
+            "Canada",
+            "9.9"
+          ],
+          [
+            "United States",
+            "9.8"
+          ],
+          [
+            "China",
+            "9.6"
+          ],
+          [
+            "Brazil",
+            "8.5"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "cells-formula",
+      "family": "office",
+      "prompt": "PlexiiCells: total of Amount where Status is Paid",
+      "ok": true,
+      "checks": [
+        {
+          "name": "a formula",
+          "ok": true,
+          "detail": "=SUMIF(C2:C10, \"Paid\", B2:B10)"
+        },
+        {
+          "name": "SUMIF over B by C",
+          "ok": true,
+          "detail": "=SUMIF(C2:C10, \"Paid\", B2:B10)"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": null,
+      "passed": true,
+      "ms": 1712,
+      "engine": {
+        "input": 390,
+        "output": 41,
+        "calls": 1
+      },
+      "text": "=SUMIF(C2:C10, \"Paid\", B2:B10) — This adds up all the amounts where the status is 'Paid'.",
+      "data": {
+        "ok": true,
+        "formula": "=SUMIF(C2:C10, \"Paid\", B2:B10)",
+        "explanation": "This adds up all the amounts where the status is 'Paid'."
+      }
+    },
+    {
+      "id": "design-copy",
+      "family": "office",
+      "prompt": "Design: an Instagram post for a 20% plant sale",
+      "ok": true,
+      "checks": [
+        {
+          "name": "headline",
+          "ok": true,
+          "detail": "20% Off All Indoor Plants"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 4,
+        "reason": "The copy is short and states 20% off indoor plants this weekend only, and it invents no prices, codes or addresses. Minor issues: 'All Indoor Plants' assumes the sale covers every plant, 'save big' slightly overstates a 20% discount, and 'home or office' adds a small unsourced detail."
+      },
+      "passed": true,
+      "ms": 2334,
+      "engine": {
+        "input": 307,
+        "output": 62,
+        "calls": 1
+      },
+      "text": "{\"eyebrow\":\"Weekend Only\",\"headline\":\"20% Off All Indoor Plants\",\"subhead\":\"Fresh greens, lush growth — save big this weekend\",\"body\":\"Perfect for your home or office.\",\"cta\":\"Shop now\",\"background\":\"light\"}",
+      "data": {
+        "ok": true,
+        "content": {
+          "eyebrow": "Weekend Only",
+          "headline": "20% Off All Indoor Plants",
+          "subhead": "Fresh greens, lush growth — save big this weekend",
+          "body": "Perfect for your home or office.",
+          "cta": "Shop now",
+          "background": "light"
+        }
       }
     }
   ]

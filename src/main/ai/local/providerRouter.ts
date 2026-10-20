@@ -227,6 +227,29 @@ async function serveLocal(
   return runLocal(runtime, body, opts)
 }
 
+/**
+ * For AI that has no on-device model at all (image generation, background
+ * removal): while the source is Local, ask before the one request goes to the
+ * cloud service. 'not-local' means the source is cloud and nothing needs asking;
+ * 'allowed' means run the request inside withCloudGrant; 'declined' means do
+ * not send it, and say so.
+ */
+export async function askCloudForNonLocalFeature(
+  feature: AiFeature,
+  service: string,
+  cloudAvailable: boolean
+): Promise<'not-local' | 'allowed' | 'declined'> {
+  if (!localOnlyActive()) return 'not-local'
+  const label = AI_FEATURE_COPY[feature].label
+  const yes = await askConsent({
+    feature,
+    featureLabel: label,
+    reason: `${label} has no on-device model: this request would go to ${service}.`,
+    cloudAvailable
+  })
+  return yes ? 'allowed' : 'declined'
+}
+
 /** True when the source is Local and this purpose's feature is routed to cloud. */
 export function cloudRoutedFromLocal(purpose: string): boolean {
   return providerChoice() === 'local' && routeForPurpose(purpose) === 'cloud'

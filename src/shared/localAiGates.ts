@@ -19,10 +19,12 @@ export const GATES_SOURCE: { chosen: string; reference: string } = { chosen: 'qw
 export const MEASURED: Record<AiFeature, { local: number | null; cloud: number | null; gate: LocalGate }> = {
   assistant: { local: 0.792, cloud: 0.917, gate: 'ok' },
   build: { local: 0.333, cloud: 1, gate: 'cloud-only' },
+  office: { local: 0.667, cloud: 0.444, gate: 'ok' },
   writing: { local: 0.375, cloud: 0.625, gate: 'labelled' },
   summaries: { local: 0.5, cloud: 1, gate: 'labelled' },
   background: { local: 1, cloud: 1, gate: 'ok' },
-  agents: { local: null, cloud: null, gate: 'cloud-only' }
+  agents: { local: null, cloud: null, gate: 'cloud-only' },
+  media: { local: null, cloud: null, gate: 'cloud-only' }
 }
 
 export function localGateFor(purpose: string): LocalGateInfo {

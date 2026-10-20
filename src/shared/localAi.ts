@@ -14,15 +14,25 @@ import type { AIPurpose } from './types'
 export type AiProviderChoice = 'local' | 'byok' | 'credits'
 
 /** User-facing groups of AI features, each routable on its own. */
-export type AiFeature = 'assistant' | 'build' | 'writing' | 'summaries' | 'background' | 'agents'
+export type AiFeature =
+  | 'assistant'
+  | 'build'
+  | 'office'
+  | 'writing'
+  | 'summaries'
+  | 'background'
+  | 'agents'
+  | 'media'
 
 export const AI_FEATURES: readonly AiFeature[] = [
   'assistant',
   'build',
+  'office',
   'writing',
   'summaries',
   'background',
-  'agents'
+  'agents',
+  'media'
 ] as const
 
 /**
@@ -36,7 +46,11 @@ export const AI_FEATURE_COPY: Record<AiFeature, { label: string; covers: string 
   },
   build: {
     label: 'Build with AI',
-    covers: 'Setting up a desk, generating documents and decks, custom work widgets'
+    covers: 'Setting up a desk with work widgets, smart stacks, custom work widgets'
+  },
+  office: {
+    label: 'PlexiiWrite, PlexiiCells and PlexiiDeck generation',
+    covers: 'Creating a document, sheet, deck, diagram or design from a prompt; sheet columns, fills and formulas'
   },
   writing: {
     label: 'Writing and rewriting',
@@ -53,21 +67,26 @@ export const AI_FEATURE_COPY: Record<AiFeature, { label: string; covers: string 
   agents: {
     label: 'Agents and browsing',
     covers: 'Desk agents, multi-step agent runs, the web-browsing agent'
+  },
+  media: {
+    label: 'Images and background removal',
+    covers: 'Generating images (OpenAI) and removing image backgrounds (remove.bg); there is no on-device model for these'
   }
 }
 
 /**
  * Every AI purpose belongs to exactly one feature. `enrichment` is the local
- * document describer (it has no cloud model and so no AIPurpose).
+ * document describer (it has no cloud model and so no AIPurpose); `media` stands
+ * for image generation and background removal, which are not language-model calls.
  */
-export const PURPOSE_FEATURE: Record<AIPurpose | 'enrichment' | 'generic', AiFeature> = {
+export const PURPOSE_FEATURE: Record<AIPurpose | 'enrichment' | 'generic' | 'media', AiFeature> = {
   chat: 'assistant',
   welcome: 'assistant',
   command_route: 'assistant',
   intent_classify: 'assistant',
   setup: 'build',
   smart_stack: 'build',
-  document: 'build',
+  document: 'office',
   custom_widget: 'build',
   doc_rewrite: 'writing',
   wire_transform: 'writing',
@@ -87,7 +106,8 @@ export const PURPOSE_FEATURE: Record<AIPurpose | 'enrichment' | 'generic', AiFea
   desk_agent: 'agents',
   agent_step: 'agents',
   browser_agent: 'agents',
-  generic: 'writing'
+  generic: 'writing',
+  media: 'media'
 }
 
 export function featureForPurpose(purpose: string): AiFeature {

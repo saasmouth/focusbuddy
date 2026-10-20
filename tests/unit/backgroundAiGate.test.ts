@@ -107,9 +107,11 @@ describe('title backfill', () => {
     const src = read('titleBackfill.ts')
     const gate = src.indexOf('if (opts.allowModel === false)')
     const key = src.indexOf('resolveAnthropicKey()', src.indexOf('// ── Pass 2'))
-    const client = src.indexOf('getModelClient(key)')
+    // Since local-ai: the routed client (your key, or the on-device model).
+    const client = src.indexOf('clientForKey(', src.indexOf('// ── Pass 2'))
     expect(gate).toBeGreaterThan(0)
     expect(gate).toBeLessThan(key)
+    expect(client).toBeGreaterThan(0)
     expect(gate).toBeLessThan(client)
   })
 })

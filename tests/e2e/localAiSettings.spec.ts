@@ -47,7 +47,7 @@ test('Local AI: the source can be set to Local, and the panel shows models and m
   await expect(section.locator('[data-testid^="local-ai-tier-"]').first()).toBeVisible({ timeout: 5_000 })
   await expect(section.locator('[data-testid^="local-ai-download-"]').first()).toBeVisible()
   // Every feature is listed with its measured pass rates.
-  for (const f of ['assistant', 'build', 'writing', 'summaries', 'background', 'agents']) {
+  for (const f of ['assistant', 'build', 'office', 'writing', 'summaries', 'background', 'agents', 'media']) {
     await expect(section.locator(`[data-testid="local-ai-feature-${f}"]`)).toContainText('On this device:')
   }
   // The choice persisted through main.

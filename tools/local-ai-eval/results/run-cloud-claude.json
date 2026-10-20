@@ -4,7 +4,7 @@
   "model": "resolveModel(purpose): claude-sonnet-5-5 / claude-haiku-5-5",
   "contextSize": null,
   "startedAt": "2026-10-20T01:28:59.829Z",
-  "finishedAt": "2026-10-20T02:46:22.778Z",
+  "finishedAt": "2026-10-20T06:03:33.620Z",
   "machine": {
     "cpu": "Apple M5",
     "ramGB": 24,
@@ -94,6 +94,15 @@
     "api.anthropic.com/v1/messages",
     "api.anthropic.com/v1/messages",
     "html.duckduckgo.com/html/",
+    "api.anthropic.com/v1/messages",
+    "api.anthropic.com/v1/messages",
+    "api.anthropic.com/v1/messages",
+    "api.anthropic.com/v1/messages",
+    "api.anthropic.com/v1/messages",
+    "api.anthropic.com/v1/messages",
+    "api.anthropic.com/v1/messages",
+    "api.anthropic.com/v1/messages",
+    "api.anthropic.com/v1/messages",
     "api.anthropic.com/v1/messages",
     "api.anthropic.com/v1/messages",
     "api.anthropic.com/v1/messages",
@@ -7969,6 +7978,1503 @@
       "data": {
         "proposals": [],
         "question": null
+      }
+    },
+    {
+      "id": "office-doc",
+      "family": "office",
+      "prompt": "A one-page project brief for moving our team wiki into PlexiiWrite: goals, scope, timeline, risks.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "generated",
+          "ok": true
+        },
+        {
+          "name": "has sections",
+          "ok": true,
+          "detail": "18 nodes"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 3,
+        "reason": "It is a specific, usable brief covering goals, scope, timeline and risks, but the Purpose section states unsupplied facts about the team's wiki (grown over several years, outdated and duplicated pages, people having to ask who to go to), the timeline is inconsistent (6 weeks vs 60 days vs retirement the following month), and it likely runs past one page."
+      },
+      "passed": false,
+      "ms": 12490,
+      "text": "{\"title\":\"Project Brief: Migrating the Team Wiki to PlexiiWrite\",\"body\":{\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Purpose\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Our team wiki has grown over several years into a mix of current guidance, outdated pages, and duplicated notes. Finding the right answer often depends on knowing who to ask rather than where to look. This project moves the wiki into PlexiiWrite and uses the move as a chance to clean up what we carry over, so that the new workspace is easier to trust and easier to maintain from day one.\"}]},{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Goals\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"The migration should leave us with a single, searchable home for team knowledge that people actually prefer to use. Success means the following outcomes are met within 60 days of launch.\"}]},{\"type\":\"bulletList\",\"content\":[{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"All pages identified as active are available in PlexiiWrite with working links, images, and attachments.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Every migrated section has a named owner responsible for keeping it current.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Search returns the correct page for the 20 most common team questions, tested before launch.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"The old wiki is set to read-only and then retired, with no team members still editing it.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Weekly active use in PlexiiWrite matches or exceeds use of the old wiki within two months.\"}]}]}]},{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Scope\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"In scope is the full content audit of the existing wiki, migration of pages judged worth keeping, a new top-level structure and naming convention, page templates for recurring document types such as runbooks and meeting notes, permission setup, and a short training session for the team.\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Out of scope are rewriting content that is accurate but merely inelegant, migrating archived project material that has not been touched in over two years (this will be exported to cold storage instead), and integrations with other tools beyond basic link redirects. These can be considered as a follow-on phase once the core migration is stable.\"}]},{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Timeline\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"The project runs about six weeks from kickoff to retirement of the old wiki.\"}]},{\"type\":\"bulletList\",\"content\":[{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Week 1: Audit existing pages, tag each as keep, update, or archive, and assign section owners.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Week 2: Design the new structure, templates, and permissions in PlexiiWrite, and review them with the team.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Weeks 3 and 4: Migrate content in batches by section, with owners checking their own pages for broken formatting and links.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Week 5: Run search tests, fix gaps, hold the training session, and announce the cutover date.\"}]}]},{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Week 6: Cut over, set the old wiki to read-only, and collect feedback. Retire the old wiki at the end of the following month if no blockers appear.\"}]}]}]},{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Risks and Mitigations\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"The largest risk is that owners treat migration as a low priority and leave pages half-reviewed. To reduce this, each owner receives a fixed list of pages and a deadline in week 4, and progress is reviewed in the weekly team meeting.\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Formatting loss is likely for tables, embedded files, and internal links. We will migrate a small pilot section first to learn what breaks, then adjust the process before moving the rest.\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"People may keep using the old wiki out of habit, which would split our knowledge across two places. A clear cutover date, an early read-only switch, and redirect notices on the old pages should prevent this.\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Finally, permissions can be misconfigured during setup, exposing sensitive pages or locking out the people who need them. We will define access groups during week 2 and have a second person verify them before any content is moved.\"}]},{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Roles and Next Steps\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"A project lead will coordinate the schedule and own communication with the team. Section owners are accountable for their content, and one administrator handles PlexiiWrite configuration and permissions. The immediate next steps are to confirm these three roles, schedule the kickoff, and begin the page audit.\"}]}]}}",
+      "data": {
+        "ok": true,
+        "title": "Project Brief: Migrating the Team Wiki to PlexiiWrite",
+        "body": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "heading",
+              "attrs": {
+                "level": 2
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Purpose"
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Our team wiki has grown over several years into a mix of current guidance, outdated pages, and duplicated notes. Finding the right answer often depends on knowing who to ask rather than where to look. This project moves the wiki into PlexiiWrite and uses the move as a chance to clean up what we carry over, so that the new workspace is easier to trust and easier to maintain from day one."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "attrs": {
+                "level": 2
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Goals"
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The migration should leave us with a single, searchable home for team knowledge that people actually prefer to use. Success means the following outcomes are met within 60 days of launch."
+                }
+              ]
+            },
+            {
+              "type": "bulletList",
+              "content": [
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "All pages identified as active are available in PlexiiWrite with working links, images, and attachments."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Every migrated section has a named owner responsible for keeping it current."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Search returns the correct page for the 20 most common team questions, tested before launch."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "The old wiki is set to read-only and then retired, with no team members still editing it."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Weekly active use in PlexiiWrite matches or exceeds use of the old wiki within two months."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "attrs": {
+                "level": 2
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Scope"
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "In scope is the full content audit of the existing wiki, migration of pages judged worth keeping, a new top-level structure and naming convention, page templates for recurring document types such as runbooks and meeting notes, permission setup, and a short training session for the team."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Out of scope are rewriting content that is accurate but merely inelegant, migrating archived project material that has not been touched in over two years (this will be exported to cold storage instead), and integrations with other tools beyond basic link redirects. These can be considered as a follow-on phase once the core migration is stable."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "attrs": {
+                "level": 2
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Timeline"
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The project runs about six weeks from kickoff to retirement of the old wiki."
+                }
+              ]
+            },
+            {
+              "type": "bulletList",
+              "content": [
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Week 1: Audit existing pages, tag each as keep, update, or archive, and assign section owners."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Week 2: Design the new structure, templates, and permissions in PlexiiWrite, and review them with the team."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Weeks 3 and 4: Migrate content in batches by section, with owners checking their own pages for broken formatting and links."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Week 5: Run search tests, fix gaps, hold the training session, and announce the cutover date."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Week 6: Cut over, set the old wiki to read-only, and collect feedback. Retire the old wiki at the end of the following month if no blockers appear."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "attrs": {
+                "level": 2
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Risks and Mitigations"
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The largest risk is that owners treat migration as a low priority and leave pages half-reviewed. To reduce this, each owner receives a fixed list of pages and a deadline in week 4, and progress is reviewed in the weekly team meeting."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Formatting loss is likely for tables, embedded files, and internal links. We will migrate a small pilot section first to learn what breaks, then adjust the process before moving the rest."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "People may keep using the old wiki out of habit, which would split our knowledge across two places. A clear cutover date, an early read-only switch, and redirect notices on the old pages should prevent this."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Finally, permissions can be misconfigured during setup, exposing sensitive pages or locking out the people who need them. We will define access groups during week 2 and have a second person verify them before any content is moved."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "attrs": {
+                "level": 2
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Roles and Next Steps"
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "A project lead will coordinate the schedule and own communication with the team. Section owners are accountable for their content, and one administrator handles PlexiiWrite configuration and permissions. The immediate next steps are to confirm these three roles, schedule the kickoff, and begin the page audit."
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "office-sheet",
+      "family": "office",
+      "prompt": "A monthly household budget: categories, planned, actual and the difference.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "generated",
+          "ok": true
+        },
+        {
+          "name": ">= 3 columns",
+          "ok": true,
+          "detail": "4"
+        },
+        {
+          "name": ">= 4 rows",
+          "ok": true,
+          "detail": "13"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 5,
+        "reason": "The sheet has the four required columns and 12 realistic household categories. Each Difference formula is planned minus actual with correct row references (rows 2–13), and the Total row sums the right ranges."
+      },
+      "passed": true,
+      "ms": 11256,
+      "text": "{\"title\":\"Monthly Household Budget\",\"body\":{\"columns\":[\"Category\",\"Planned\",\"Actual\",\"Difference\"],\"rows\":[[\"Rent\",\"1500\",\"1500\",\"=B2-C2\"],[\"Groceries\",\"600\",\"648\",\"=B3-C3\"],[\"Utilities\",\"220\",\"205\",\"=B4-C4\"],[\"Internet & Phone\",\"120\",\"120\",\"=B5-C5\"],[\"Transportation\",\"250\",\"272\",\"=B6-C6\"],[\"Insurance\",\"300\",\"300\",\"=B7-C7\"],[\"Dining Out\",\"180\",\"215\",\"=B8-C8\"],[\"Entertainment\",\"100\",\"85\",\"=B9-C9\"],[\"Healthcare\",\"90\",\"60\",\"=B10-C10\"],[\"Clothing\",\"80\",\"112\",\"=B11-C11\"],[\"Savings\",\"400\",\"400\",\"=B12-C12\"],[\"Miscellaneous\",\"100\",\"74\",\"=B13-C13\"],[\"Total\",\"=SUM(B2:B13)\",\"=SUM(C2:C13)\",\"=SUM(D2:D13)\"]]}}",
+      "data": {
+        "ok": true,
+        "title": "Monthly Household Budget",
+        "body": {
+          "columns": [
+            "Category",
+            "Planned",
+            "Actual",
+            "Difference"
+          ],
+          "rows": [
+            [
+              "Rent",
+              "1500",
+              "1500",
+              "=B2-C2"
+            ],
+            [
+              "Groceries",
+              "600",
+              "648",
+              "=B3-C3"
+            ],
+            [
+              "Utilities",
+              "220",
+              "205",
+              "=B4-C4"
+            ],
+            [
+              "Internet & Phone",
+              "120",
+              "120",
+              "=B5-C5"
+            ],
+            [
+              "Transportation",
+              "250",
+              "272",
+              "=B6-C6"
+            ],
+            [
+              "Insurance",
+              "300",
+              "300",
+              "=B7-C7"
+            ],
+            [
+              "Dining Out",
+              "180",
+              "215",
+              "=B8-C8"
+            ],
+            [
+              "Entertainment",
+              "100",
+              "85",
+              "=B9-C9"
+            ],
+            [
+              "Healthcare",
+              "90",
+              "60",
+              "=B10-C10"
+            ],
+            [
+              "Clothing",
+              "80",
+              "112",
+              "=B11-C11"
+            ],
+            [
+              "Savings",
+              "400",
+              "400",
+              "=B12-C12"
+            ],
+            [
+              "Miscellaneous",
+              "100",
+              "74",
+              "=B13-C13"
+            ],
+            [
+              "Total",
+              "=SUM(B2:B13)",
+              "=SUM(C2:C13)",
+              "=SUM(D2:D13)"
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "office-slides",
+      "family": "office",
+      "prompt": "A 5-slide pitch for a neighbourhood tool library.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "generated",
+          "ok": true
+        },
+        {
+          "name": ">= 4 slides",
+          "ok": true,
+          "detail": "5"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 2,
+        "reason": "The structure is good (problem, how it works, benefits, ask across five coherent slides), but the slide 2 claim that 'the average power drill is used for about 13 minutes in its lifetime' is an unsourced statistic presented as fact, and 'hundreds of dollars of tools' is also an unsupported figure, so the no-invented-statistics requirement fails."
+      },
+      "passed": false,
+      "ms": 9415,
+      "text": "{\"title\":\"The Neighbourhood Tool Library\",\"body\":{\"slides\":[{\"id\":\"mvga1h2d-0\",\"title\":\"The Neighbourhood Tool Library\",\"bullets\":[],\"notes\":\"Welcome everyone and thank you for coming. Tonight I want to show you a simple idea that could save our street money, clutter and a lot of unnecessary shopping trips.\",\"layout\":\"title\"},{\"id\":\"mvga1h2d-1\",\"title\":\"We all own tools we barely use\",\"bullets\":[\"The average power drill is used for about 13 minutes in its lifetime\",\"Most homes hold hundreds of dollars of tools that sit idle\",\"Buying for a single job is expensive and wasteful\",\"Garages and sheds fill up while projects still stall\",\"New neighbours and renters often have no tools at all\"],\"notes\":\"Start with something everyone recognises: the drill in the cupboard that comes out twice a year. Point out that this is a cost problem, a space problem and a fairness problem, since not everyone can afford to buy what a repair needs.\",\"layout\":\"bullets\"},{\"id\":\"mvga1h2d-2\",\"title\":\"A shared shelf that works like a library\",\"bullets\":[\"Neighbours borrow tools for free or for a small annual fee\",\"Items are checked out for a week, then returned\",\"A simple catalogue shows what is available\",\"Volunteers handle sign-ups, repairs and returns\",\"Donated and surplus tools stock the shelves from day one\"],\"notes\":\"Explain that the model is borrowed from book libraries, so people already understand how it works. Keep it concrete: you walk in, borrow a ladder or a sander, and bring it back when the job is done.\",\"layout\":\"bullets\"},{\"id\":\"mvga1h2d-3\",\"title\":\"What it gives the neighbourhood\",\"bullets\":[\"Real savings for households on every project\",\"Less waste, because fewer tools are bought and discarded\",\"Skills shared through workshops and repair days\",\"New connections between neighbours who would not otherwise meet\",\"More people able to fix and improve their own homes\"],\"notes\":\"This is the heart of the pitch. The savings are easy to measure, but the lasting value is the community that forms around a shared resource. Share a short story if you have one, such as a neighbour helping another learn to hang a shelf.\",\"layout\":\"bullets\"},{\"id\":\"mvga1h2d-4\",\"title\":\"How we get started\",\"bullets\":[\"Secure a small space such as a church hall, garage or community centre\",\"Collect donated tools through a neighbourhood drive\",\"Recruit ten volunteers to run opening hours\",\"Launch with a free community repair day\",\"We need your tools, your time or a space to host\"],\"notes\":\"Close with a clear, modest ask. We are not building anything huge, we are starting with a shelf, a sign-up sheet and a few willing people. Invite everyone to leave their name and one thing they could give before they go home.\",\"layout\":\"bullets\"}]}}",
+      "data": {
+        "ok": true,
+        "title": "The Neighbourhood Tool Library",
+        "body": {
+          "slides": [
+            {
+              "id": "mvga1h2d-0",
+              "title": "The Neighbourhood Tool Library",
+              "bullets": [],
+              "notes": "Welcome everyone and thank you for coming. Tonight I want to show you a simple idea that could save our street money, clutter and a lot of unnecessary shopping trips.",
+              "layout": "title"
+            },
+            {
+              "id": "mvga1h2d-1",
+              "title": "We all own tools we barely use",
+              "bullets": [
+                "The average power drill is used for about 13 minutes in its lifetime",
+                "Most homes hold hundreds of dollars of tools that sit idle",
+                "Buying for a single job is expensive and wasteful",
+                "Garages and sheds fill up while projects still stall",
+                "New neighbours and renters often have no tools at all"
+              ],
+              "notes": "Start with something everyone recognises: the drill in the cupboard that comes out twice a year. Point out that this is a cost problem, a space problem and a fairness problem, since not everyone can afford to buy what a repair needs.",
+              "layout": "bullets"
+            },
+            {
+              "id": "mvga1h2d-2",
+              "title": "A shared shelf that works like a library",
+              "bullets": [
+                "Neighbours borrow tools for free or for a small annual fee",
+                "Items are checked out for a week, then returned",
+                "A simple catalogue shows what is available",
+                "Volunteers handle sign-ups, repairs and returns",
+                "Donated and surplus tools stock the shelves from day one"
+              ],
+              "notes": "Explain that the model is borrowed from book libraries, so people already understand how it works. Keep it concrete: you walk in, borrow a ladder or a sander, and bring it back when the job is done.",
+              "layout": "bullets"
+            },
+            {
+              "id": "mvga1h2d-3",
+              "title": "What it gives the neighbourhood",
+              "bullets": [
+                "Real savings for households on every project",
+                "Less waste, because fewer tools are bought and discarded",
+                "Skills shared through workshops and repair days",
+                "New connections between neighbours who would not otherwise meet",
+                "More people able to fix and improve their own homes"
+              ],
+              "notes": "This is the heart of the pitch. The savings are easy to measure, but the lasting value is the community that forms around a shared resource. Share a short story if you have one, such as a neighbour helping another learn to hang a shelf.",
+              "layout": "bullets"
+            },
+            {
+              "id": "mvga1h2d-4",
+              "title": "How we get started",
+              "bullets": [
+                "Secure a small space such as a church hall, garage or community centre",
+                "Collect donated tools through a neighbourhood drive",
+                "Recruit ten volunteers to run opening hours",
+                "Launch with a free community repair day",
+                "We need your tools, your time or a space to host"
+              ],
+              "notes": "Close with a clear, modest ask. We are not building anything huge, we are starting with a shelf, a sign-up sheet and a few willing people. Invite everyone to leave their name and one thing they could give before they go home.",
+              "layout": "bullets"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "office-map",
+      "family": "office",
+      "prompt": "A flowchart of a customer refund request: received, checked against the policy, approved or refused, refund paid, customer told.",
+      "ok": true,
+      "checks": [
+        {
+          "name": "generated",
+          "ok": true
+        },
+        {
+          "name": ">= 5 nodes",
+          "ok": true,
+          "detail": "12"
+        },
+        {
+          "name": ">= 4 edges",
+          "ok": true,
+          "detail": "13"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 3,
+        "reason": "The decision node has both Yes and No branches connected through to notifying the customer, but the flowchart adds unrequested steps (log details, payment-confirmed loop, escalate to finance, update records, request closed), and nodes n7 onward sit about 10,000 px lower than the earlier nodes, which breaks the layout."
+      },
+      "passed": false,
+      "ms": 4668,
+      "text": "{\"title\":\"Customer Refund Request Workflow\",\"body\":{\"version\":1,\"nodes\":[{\"id\":\"n1\",\"x\":190,\"y\":60,\"label\":\"Refund request received\",\"shape\":\"terminator\",\"color\":\"#2563eb\"},{\"id\":\"n2\",\"x\":190,\"y\":190,\"label\":\"Log request details\",\"shape\":\"data\",\"color\":\"#0891b2\"},{\"id\":\"n3\",\"x\":190,\"y\":320,\"label\":\"Check request against refund policy\",\"shape\":\"process\",\"color\":\"#2563eb\"},{\"id\":\"n4\",\"x\":190,\"y\":450,\"label\":\"Meets policy?\",\"shape\":\"decision\",\"color\":\"#d97706\"},{\"id\":\"n5\",\"x\":80,\"y\":580,\"label\":\"Approve refund\",\"shape\":\"process\",\"color\":\"#2563eb\"},{\"id\":\"n6\",\"x\":300,\"y\":580,\"label\":\"Refuse refund and record reason\",\"shape\":\"process\",\"color\":\"#2563eb\"},{\"id\":\"n7\",\"x\":190,\"y\":10070,\"label\":\"Process payment to original method\",\"shape\":\"process\",\"color\":\"#2563eb\"},{\"id\":\"n8\",\"x\":80,\"y\":10200,\"label\":\"Refund payment confirmed?\",\"shape\":\"decision\",\"color\":\"#d97706\"},{\"id\":\"n9\",\"x\":80,\"y\":10330,\"label\":\"Update customer account records\",\"shape\":\"database\",\"color\":\"#16a34a\"},{\"id\":\"n10\",\"x\":190,\"y\":10460,\"label\":\"Notify customer of outcome\",\"shape\":\"process\",\"color\":\"#2563eb\"},{\"id\":\"n11\",\"x\":300,\"y\":10200,\"label\":\"Request closed\",\"shape\":\"terminator\",\"color\":\"#2563eb\"},{\"id\":\"n12\",\"x\":300,\"y\":10330,\"label\":\"Escalate payment issue to finance\",\"shape\":\"process\",\"color\":\"#2563eb\"}],\"edges\":[{\"id\":\"e-n1-n2\",\"source\":\"n1\",\"target\":\"n2\",\"style\":\"solid\"},{\"id\":\"e-n2-n3\",\"source\":\"n2\",\"target\":\"n3\",\"style\":\"solid\"},{\"id\":\"e-n3-n4\",\"source\":\"n3\",\"target\":\"n4\",\"style\":\"solid\"},{\"id\":\"e-n4-n5\",\"source\":\"n4\",\"target\":\"n5\",\"label\":\"Yes\",\"style\":\"solid\"},{\"id\":\"e-n4-n6\",\"source\":\"n4\",\"target\":\"n6\",\"label\":\"No\",\"style\":\"solid\"},{\"id\":\"e-n5-n7\",\"source\":\"n5\",\"target\":\"n7\",\"style\":\"solid\"},{\"id\":\"e-n7-n8\",\"source\":\"n7\",\"target\":\"n8\",\"style\":\"solid\"},{\"id\":\"e-n8-n9\",\"source\":\"n8\",\"target\":\"n9\",\"label\":\"Yes\",\"style\":\"solid\"},{\"id\":\"e-n8-n12\",\"source\":\"n8\",\"target\":\"n12\",\"label\":\"No\",\"style\":\"solid\"},{\"id\":\"e-n12-n7\",\"source\":\"n12\",\"target\":\"n7\",\"style\":\"solid\"},{\"id\":\"e-n6-n9\",\"source\":\"n6\",\"target\":\"n9\",\"style\":\"solid\"},{\"id\":\"e-n9-n10\",\"source\":\"n9\",\"target\":\"n10\",\"style\":\"solid\"},{\"id\":\"e-n10-n11\",\"source\":\"n10\",\"target\":\"n11\",\"style\":\"solid\"}],\"viewport\":{\"x\":0,\"y\":0,\"zoom\":1}}}",
+      "data": {
+        "ok": true,
+        "title": "Customer Refund Request Workflow",
+        "body": {
+          "version": 1,
+          "nodes": [
+            {
+              "id": "n1",
+              "x": 190,
+              "y": 60,
+              "label": "Refund request received",
+              "shape": "terminator",
+              "color": "#2563eb"
+            },
+            {
+              "id": "n2",
+              "x": 190,
+              "y": 190,
+              "label": "Log request details",
+              "shape": "data",
+              "color": "#0891b2"
+            },
+            {
+              "id": "n3",
+              "x": 190,
+              "y": 320,
+              "label": "Check request against refund policy",
+              "shape": "process",
+              "color": "#2563eb"
+            },
+            {
+              "id": "n4",
+              "x": 190,
+              "y": 450,
+              "label": "Meets policy?",
+              "shape": "decision",
+              "color": "#d97706"
+            },
+            {
+              "id": "n5",
+              "x": 80,
+              "y": 580,
+              "label": "Approve refund",
+              "shape": "process",
+              "color": "#2563eb"
+            },
+            {
+              "id": "n6",
+              "x": 300,
+              "y": 580,
+              "label": "Refuse refund and record reason",
+              "shape": "process",
+              "color": "#2563eb"
+            },
+            {
+              "id": "n7",
+              "x": 190,
+              "y": 10070,
+              "label": "Process payment to original method",
+              "shape": "process",
+              "color": "#2563eb"
+            },
+            {
+              "id": "n8",
+              "x": 80,
+              "y": 10200,
+              "label": "Refund payment confirmed?",
+              "shape": "decision",
+              "color": "#d97706"
+            },
+            {
+              "id": "n9",
+              "x": 80,
+              "y": 10330,
+              "label": "Update customer account records",
+              "shape": "database",
+              "color": "#16a34a"
+            },
+            {
+              "id": "n10",
+              "x": 190,
+              "y": 10460,
+              "label": "Notify customer of outcome",
+              "shape": "process",
+              "color": "#2563eb"
+            },
+            {
+              "id": "n11",
+              "x": 300,
+              "y": 10200,
+              "label": "Request closed",
+              "shape": "terminator",
+              "color": "#2563eb"
+            },
+            {
+              "id": "n12",
+              "x": 300,
+              "y": 10330,
+              "label": "Escalate payment issue to finance",
+              "shape": "process",
+              "color": "#2563eb"
+            }
+          ],
+          "edges": [
+            {
+              "id": "e-n1-n2",
+              "source": "n1",
+              "target": "n2",
+              "style": "solid"
+            },
+            {
+              "id": "e-n2-n3",
+              "source": "n2",
+              "target": "n3",
+              "style": "solid"
+            },
+            {
+              "id": "e-n3-n4",
+              "source": "n3",
+              "target": "n4",
+              "style": "solid"
+            },
+            {
+              "id": "e-n4-n5",
+              "source": "n4",
+              "target": "n5",
+              "label": "Yes",
+              "style": "solid"
+            },
+            {
+              "id": "e-n4-n6",
+              "source": "n4",
+              "target": "n6",
+              "label": "No",
+              "style": "solid"
+            },
+            {
+              "id": "e-n5-n7",
+              "source": "n5",
+              "target": "n7",
+              "style": "solid"
+            },
+            {
+              "id": "e-n7-n8",
+              "source": "n7",
+              "target": "n8",
+              "style": "solid"
+            },
+            {
+              "id": "e-n8-n9",
+              "source": "n8",
+              "target": "n9",
+              "label": "Yes",
+              "style": "solid"
+            },
+            {
+              "id": "e-n8-n12",
+              "source": "n8",
+              "target": "n12",
+              "label": "No",
+              "style": "solid"
+            },
+            {
+              "id": "e-n12-n7",
+              "source": "n12",
+              "target": "n7",
+              "style": "solid"
+            },
+            {
+              "id": "e-n6-n9",
+              "source": "n6",
+              "target": "n9",
+              "style": "solid"
+            },
+            {
+              "id": "e-n9-n10",
+              "source": "n9",
+              "target": "n10",
+              "style": "solid"
+            },
+            {
+              "id": "e-n10-n11",
+              "source": "n10",
+              "target": "n11",
+              "style": "solid"
+            }
+          ],
+          "viewport": {
+            "x": 0,
+            "y": 0,
+            "zoom": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "office-deck",
+      "family": "office",
+      "prompt": "Deck: a 4-slide quarterly review for a small design studio",
+      "ok": true,
+      "checks": [
+        {
+          "name": "generated",
+          "ok": true
+        },
+        {
+          "name": ">= 3 slides",
+          "ok": true,
+          "detail": "5"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 2,
+        "reason": "The numbers slide correctly uses placeholders, but the highlights slide states invented facts about the studio (\"two new clients from referrals\", \"shipped our biggest client project on time\", \"first internal design critique series\"). The deck also has 5 slides rather than the 4 requested."
+      },
+      "passed": false,
+      "ms": 8203,
+      "text": "{\"slides\":[{\"id\":\"ai-mvga1r00-0\",\"title\":\"Quarterly Review\",\"bullets\":[],\"notes\":\"Welcome the team and set the frame. This is a short look back at the quarter, the numbers, what we learned, and where we go next.\",\"layout\":\"title\",\"elements\":[{\"id\":\"mig-1\",\"type\":\"text\",\"x\":140,\"y\":280,\"w\":1000,\"h\":130,\"z\":1,\"styleRole\":\"title\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"middle\",\"paragraphs\":[{\"runs\":[{\"text\":\"Quarterly Review\",\"bold\":true,\"color\":\"#1c1917\",\"fontSize\":52}],\"align\":\"center\"}]}],\"transition\":\"none\",\"background\":{\"type\":\"solid\",\"color\":\"#fdfaf3\"},\"schemaVersion\":2},{\"id\":\"ai-mvga1r00-1\",\"title\":\"Highlights from the quarter\",\"bullets\":[\"Shipped our biggest client project on time\",\"Welcomed two new clients from referrals\",\"Refreshed the studio portfolio and case studies\",\"Ran our first internal design critique series\",\"Team took on more end-to-end work, from research to launch\"],\"notes\":\"Lead with wins to set a positive tone. Swap in the real project and client names, and give credit to the people who made each one happen.\",\"layout\":\"title-content\",\"elements\":[{\"id\":\"mig-2\",\"type\":\"text\",\"x\":80,\"y\":60,\"w\":1120,\"h\":130,\"z\":1,\"styleRole\":\"title\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"top\",\"paragraphs\":[{\"runs\":[{\"text\":\"Highlights from the quarter\",\"bold\":true,\"color\":\"#1c1917\",\"fontSize\":52}],\"align\":\"left\"}]},{\"id\":\"mig-3\",\"type\":\"text\",\"x\":80,\"y\":210,\"w\":1120,\"h\":450,\"z\":2,\"styleRole\":\"body\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"top\",\"paragraphs\":[{\"runs\":[{\"text\":\"Shipped our biggest client project on time\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Welcomed two new clients from referrals\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Refreshed the studio portfolio and case studies\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Ran our first internal design critique series\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Team took on more end-to-end work, from research to launch\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"}]}],\"transition\":\"none\",\"background\":{\"type\":\"solid\",\"color\":\"#fdfaf3\"},\"schemaVersion\":2},{\"id\":\"ai-mvga1r00-2\",\"title\":\"The numbers\",\"bullets\":[\"Revenue: [amount], versus [amount] last quarter\",\"Projects completed: [number]\",\"New clients: [number]\",\"Average project margin: [percent]\",\"Utilization across the team: [percent]\",\"Outstanding invoices: [amount]\"],\"notes\":\"Fill in each placeholder before the meeting. Pick two numbers that matter most and spend your time there rather than reading every line aloud.\",\"layout\":\"title-content\",\"elements\":[{\"id\":\"mig-4\",\"type\":\"text\",\"x\":80,\"y\":60,\"w\":1120,\"h\":130,\"z\":1,\"styleRole\":\"title\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"top\",\"paragraphs\":[{\"runs\":[{\"text\":\"The numbers\",\"bold\":true,\"color\":\"#1c1917\",\"fontSize\":52}],\"align\":\"left\"}]},{\"id\":\"mig-5\",\"type\":\"text\",\"x\":80,\"y\":210,\"w\":1120,\"h\":450,\"z\":2,\"styleRole\":\"body\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"top\",\"paragraphs\":[{\"runs\":[{\"text\":\"Revenue: [amount], versus [amount] last quarter\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Projects completed: [number]\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"New clients: [number]\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Average project margin: [percent]\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Utilization across the team: [percent]\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Outstanding invoices: [amount]\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"}]}],\"transition\":\"none\",\"background\":{\"type\":\"solid\",\"color\":\"#fdfaf3\"},\"schemaVersion\":2},{\"id\":\"ai-mvga1r00-3\",\"title\":\"What we learned\",\"bullets\":[\"Clear scoping up front saved us the most rework\",\"Early feedback rounds beat late big reveals\",\"Saying no to poor-fit projects protected our best work\",\"Handoffs slowed us down when notes were thin\"],\"notes\":\"Be honest about what did not go well. Each lesson should connect to something specific that happened this quarter, so it feels earned rather than generic.\",\"layout\":\"title-content\",\"elements\":[{\"id\":\"mig-6\",\"type\":\"text\",\"x\":80,\"y\":60,\"w\":1120,\"h\":130,\"z\":1,\"styleRole\":\"title\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"top\",\"paragraphs\":[{\"runs\":[{\"text\":\"What we learned\",\"bold\":true,\"color\":\"#1c1917\",\"fontSize\":52}],\"align\":\"left\"}]},{\"id\":\"mig-7\",\"type\":\"text\",\"x\":80,\"y\":210,\"w\":1120,\"h\":450,\"z\":2,\"styleRole\":\"body\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"top\",\"paragraphs\":[{\"runs\":[{\"text\":\"Clear scoping up front saved us the most rework\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Early feedback rounds beat late big reveals\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Saying no to poor-fit projects protected our best work\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Handoffs slowed us down when notes were thin\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"}]}],\"transition\":\"none\",\"background\":{\"type\":\"solid\",\"color\":\"#fdfaf3\"},\"schemaVersion\":2},{\"id\":\"ai-mvga1r00-4\",\"title\":\"Next quarter\",\"bullets\":[\"Set a clear revenue and margin target\",\"Tighten the scoping and kickoff process\",\"Document a simple handoff checklist\",\"Invest in one new skill or tool as a team\",\"Book the pipeline at least one month ahead\"],\"notes\":\"Keep the list short enough to actually deliver. Close by asking each person to name the one priority they will own.\",\"layout\":\"title-content\",\"elements\":[{\"id\":\"mig-8\",\"type\":\"text\",\"x\":80,\"y\":60,\"w\":1120,\"h\":130,\"z\":1,\"styleRole\":\"title\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"top\",\"paragraphs\":[{\"runs\":[{\"text\":\"Next quarter\",\"bold\":true,\"color\":\"#1c1917\",\"fontSize\":52}],\"align\":\"left\"}]},{\"id\":\"mig-9\",\"type\":\"text\",\"x\":80,\"y\":210,\"w\":1120,\"h\":450,\"z\":2,\"styleRole\":\"body\",\"fontFamily\":\"Georgia, \\\"Times New Roman\\\", serif\",\"vAlign\":\"top\",\"paragraphs\":[{\"runs\":[{\"text\":\"Set a clear revenue and margin target\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Tighten the scoping and kickoff process\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Document a simple handoff checklist\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Invest in one new skill or tool as a team\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"},{\"runs\":[{\"text\":\"Book the pipeline at least one month ahead\",\"color\":\"#44403c\",\"fontSize\":26}],\"align\":\"left\",\"bulletLevel\":0,\"listStyle\":\"bullet\"}]}],\"transition\":\"none\",\"background\":{\"type\":\"solid\",\"color\":\"#fdfaf3\"},\"schemaVersion\":2}],\"theme\":\"editorial\",\"schemaVersion\":2,\"size\":{\"w\":1280,\"h\":720}}",
+      "data": {
+        "ok": true,
+        "body": {
+          "slides": [
+            {
+              "id": "ai-mvga1r00-0",
+              "title": "Quarterly Review",
+              "bullets": [],
+              "notes": "Welcome the team and set the frame. This is a short look back at the quarter, the numbers, what we learned, and where we go next.",
+              "layout": "title",
+              "elements": [
+                {
+                  "id": "mig-1",
+                  "type": "text",
+                  "x": 140,
+                  "y": 280,
+                  "w": 1000,
+                  "h": 130,
+                  "z": 1,
+                  "styleRole": "title",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "middle",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "Quarterly Review",
+                          "bold": true,
+                          "color": "#1c1917",
+                          "fontSize": 52
+                        }
+                      ],
+                      "align": "center"
+                    }
+                  ]
+                }
+              ],
+              "transition": "none",
+              "background": {
+                "type": "solid",
+                "color": "#fdfaf3"
+              },
+              "schemaVersion": 2
+            },
+            {
+              "id": "ai-mvga1r00-1",
+              "title": "Highlights from the quarter",
+              "bullets": [
+                "Shipped our biggest client project on time",
+                "Welcomed two new clients from referrals",
+                "Refreshed the studio portfolio and case studies",
+                "Ran our first internal design critique series",
+                "Team took on more end-to-end work, from research to launch"
+              ],
+              "notes": "Lead with wins to set a positive tone. Swap in the real project and client names, and give credit to the people who made each one happen.",
+              "layout": "title-content",
+              "elements": [
+                {
+                  "id": "mig-2",
+                  "type": "text",
+                  "x": 80,
+                  "y": 60,
+                  "w": 1120,
+                  "h": 130,
+                  "z": 1,
+                  "styleRole": "title",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "top",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "Highlights from the quarter",
+                          "bold": true,
+                          "color": "#1c1917",
+                          "fontSize": 52
+                        }
+                      ],
+                      "align": "left"
+                    }
+                  ]
+                },
+                {
+                  "id": "mig-3",
+                  "type": "text",
+                  "x": 80,
+                  "y": 210,
+                  "w": 1120,
+                  "h": 450,
+                  "z": 2,
+                  "styleRole": "body",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "top",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "Shipped our biggest client project on time",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Welcomed two new clients from referrals",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Refreshed the studio portfolio and case studies",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Ran our first internal design critique series",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Team took on more end-to-end work, from research to launch",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    }
+                  ]
+                }
+              ],
+              "transition": "none",
+              "background": {
+                "type": "solid",
+                "color": "#fdfaf3"
+              },
+              "schemaVersion": 2
+            },
+            {
+              "id": "ai-mvga1r00-2",
+              "title": "The numbers",
+              "bullets": [
+                "Revenue: [amount], versus [amount] last quarter",
+                "Projects completed: [number]",
+                "New clients: [number]",
+                "Average project margin: [percent]",
+                "Utilization across the team: [percent]",
+                "Outstanding invoices: [amount]"
+              ],
+              "notes": "Fill in each placeholder before the meeting. Pick two numbers that matter most and spend your time there rather than reading every line aloud.",
+              "layout": "title-content",
+              "elements": [
+                {
+                  "id": "mig-4",
+                  "type": "text",
+                  "x": 80,
+                  "y": 60,
+                  "w": 1120,
+                  "h": 130,
+                  "z": 1,
+                  "styleRole": "title",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "top",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "The numbers",
+                          "bold": true,
+                          "color": "#1c1917",
+                          "fontSize": 52
+                        }
+                      ],
+                      "align": "left"
+                    }
+                  ]
+                },
+                {
+                  "id": "mig-5",
+                  "type": "text",
+                  "x": 80,
+                  "y": 210,
+                  "w": 1120,
+                  "h": 450,
+                  "z": 2,
+                  "styleRole": "body",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "top",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "Revenue: [amount], versus [amount] last quarter",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Projects completed: [number]",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "New clients: [number]",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Average project margin: [percent]",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Utilization across the team: [percent]",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Outstanding invoices: [amount]",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    }
+                  ]
+                }
+              ],
+              "transition": "none",
+              "background": {
+                "type": "solid",
+                "color": "#fdfaf3"
+              },
+              "schemaVersion": 2
+            },
+            {
+              "id": "ai-mvga1r00-3",
+              "title": "What we learned",
+              "bullets": [
+                "Clear scoping up front saved us the most rework",
+                "Early feedback rounds beat late big reveals",
+                "Saying no to poor-fit projects protected our best work",
+                "Handoffs slowed us down when notes were thin"
+              ],
+              "notes": "Be honest about what did not go well. Each lesson should connect to something specific that happened this quarter, so it feels earned rather than generic.",
+              "layout": "title-content",
+              "elements": [
+                {
+                  "id": "mig-6",
+                  "type": "text",
+                  "x": 80,
+                  "y": 60,
+                  "w": 1120,
+                  "h": 130,
+                  "z": 1,
+                  "styleRole": "title",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "top",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "What we learned",
+                          "bold": true,
+                          "color": "#1c1917",
+                          "fontSize": 52
+                        }
+                      ],
+                      "align": "left"
+                    }
+                  ]
+                },
+                {
+                  "id": "mig-7",
+                  "type": "text",
+                  "x": 80,
+                  "y": 210,
+                  "w": 1120,
+                  "h": 450,
+                  "z": 2,
+                  "styleRole": "body",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "top",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "Clear scoping up front saved us the most rework",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Early feedback rounds beat late big reveals",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Saying no to poor-fit projects protected our best work",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Handoffs slowed us down when notes were thin",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    }
+                  ]
+                }
+              ],
+              "transition": "none",
+              "background": {
+                "type": "solid",
+                "color": "#fdfaf3"
+              },
+              "schemaVersion": 2
+            },
+            {
+              "id": "ai-mvga1r00-4",
+              "title": "Next quarter",
+              "bullets": [
+                "Set a clear revenue and margin target",
+                "Tighten the scoping and kickoff process",
+                "Document a simple handoff checklist",
+                "Invest in one new skill or tool as a team",
+                "Book the pipeline at least one month ahead"
+              ],
+              "notes": "Keep the list short enough to actually deliver. Close by asking each person to name the one priority they will own.",
+              "layout": "title-content",
+              "elements": [
+                {
+                  "id": "mig-8",
+                  "type": "text",
+                  "x": 80,
+                  "y": 60,
+                  "w": 1120,
+                  "h": 130,
+                  "z": 1,
+                  "styleRole": "title",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "top",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "Next quarter",
+                          "bold": true,
+                          "color": "#1c1917",
+                          "fontSize": 52
+                        }
+                      ],
+                      "align": "left"
+                    }
+                  ]
+                },
+                {
+                  "id": "mig-9",
+                  "type": "text",
+                  "x": 80,
+                  "y": 210,
+                  "w": 1120,
+                  "h": 450,
+                  "z": 2,
+                  "styleRole": "body",
+                  "fontFamily": "Georgia, \"Times New Roman\", serif",
+                  "vAlign": "top",
+                  "paragraphs": [
+                    {
+                      "runs": [
+                        {
+                          "text": "Set a clear revenue and margin target",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Tighten the scoping and kickoff process",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Document a simple handoff checklist",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Invest in one new skill or tool as a team",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    },
+                    {
+                      "runs": [
+                        {
+                          "text": "Book the pipeline at least one month ahead",
+                          "color": "#44403c",
+                          "fontSize": 26
+                        }
+                      ],
+                      "align": "left",
+                      "bulletLevel": 0,
+                      "listStyle": "bullet"
+                    }
+                  ]
+                }
+              ],
+              "transition": "none",
+              "background": {
+                "type": "solid",
+                "color": "#fdfaf3"
+              },
+              "schemaVersion": 2
+            }
+          ],
+          "theme": "editorial",
+          "schemaVersion": 2,
+          "size": {
+            "w": 1280,
+            "h": 720
+          }
+        }
+      }
+    },
+    {
+      "id": "cells-columns",
+      "family": "office",
+      "prompt": "PlexiiCells: columns for tracking job applications",
+      "ok": true,
+      "checks": [
+        {
+          "name": "columns",
+          "ok": true,
+          "detail": "Company | Job title | Job posting URL | Location | Work arrangement | Salary range | Date applied | Application source | Status | Resume version | Cover letter sent | Contact name | Contact email | Referral | Interview date | Interview stage | Follow-up date | Offer amount | Next step | Notes"
+        },
+        {
+          "name": "has company and status",
+          "ok": true
+        }
+      ],
+      "checksPassed": true,
+      "verdict": null,
+      "passed": true,
+      "ms": 8567,
+      "text": "Company | Job title | Job posting URL | Location | Work arrangement | Salary range | Date applied | Application source | Status | Resume version | Cover letter sent | Contact name | Contact email | Referral | Interview date | Interview stage | Follow-up date | Offer amount | Next step | Notes",
+      "data": {
+        "ok": true,
+        "columns": [
+          "Company",
+          "Job title",
+          "Job posting URL",
+          "Location",
+          "Work arrangement",
+          "Salary range",
+          "Date applied",
+          "Application source",
+          "Status",
+          "Resume version",
+          "Cover letter sent",
+          "Contact name",
+          "Contact email",
+          "Referral",
+          "Interview date",
+          "Interview stage",
+          "Follow-up date",
+          "Offer amount",
+          "Next step",
+          "Notes"
+        ]
+      }
+    },
+    {
+      "id": "cells-fill",
+      "family": "office",
+      "prompt": "PlexiiCells: fill the five largest countries by area",
+      "ok": true,
+      "checks": [
+        {
+          "name": "5 rows",
+          "ok": true,
+          "detail": "5"
+        },
+        {
+          "name": "correct countries",
+          "ok": true,
+          "detail": "Russia | Canada | China | United States | Brazil"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": null,
+      "passed": true,
+      "ms": 1539,
+      "text": "[[\"Russia\",\"17098246\"],[\"Canada\",\"9984670\"],[\"China\",\"9596961\"],[\"United States\",\"9525067\"],[\"Brazil\",\"8515767\"]]",
+      "data": {
+        "ok": true,
+        "rows": [
+          [
+            "Russia",
+            "17098246"
+          ],
+          [
+            "Canada",
+            "9984670"
+          ],
+          [
+            "China",
+            "9596961"
+          ],
+          [
+            "United States",
+            "9525067"
+          ],
+          [
+            "Brazil",
+            "8515767"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "cells-formula",
+      "family": "office",
+      "prompt": "PlexiiCells: total of Amount where Status is Paid",
+      "ok": true,
+      "checks": [
+        {
+          "name": "a formula",
+          "ok": true,
+          "detail": "=SUMIF(C:C,\"Paid\",B:B)"
+        },
+        {
+          "name": "SUMIF over B by C",
+          "ok": true,
+          "detail": "=SUMIF(C:C,\"Paid\",B:B)"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": null,
+      "passed": true,
+      "ms": 2494,
+      "text": "=SUMIF(C:C,\"Paid\",B:B) — Adds up the Amount values in column B only for rows where Status in column C is \"Paid\".",
+      "data": {
+        "ok": true,
+        "formula": "=SUMIF(C:C,\"Paid\",B:B)",
+        "explanation": "Adds up the Amount values in column B only for rows where Status in column C is \"Paid\"."
+      }
+    },
+    {
+      "id": "design-copy",
+      "family": "office",
+      "prompt": "Design: an Instagram post for a 20% plant sale",
+      "ok": true,
+      "checks": [
+        {
+          "name": "headline",
+          "ok": true,
+          "detail": "20% off every indoor plant"
+        }
+      ],
+      "checksPassed": true,
+      "verdict": {
+        "score": 2,
+        "reason": "The copy states 20% off indoor plants this weekend only, but it adds details not in the brief: 'Spring Sale', 'in store', ferns and succulents as stock, and 'ends Sunday night' as a specific deadline."
+      },
+      "passed": false,
+      "ms": 1723,
+      "text": "{\"eyebrow\":\"Spring Sale\",\"headline\":\"20% off every indoor plant\",\"subhead\":\"This weekend only, bring some green home for less.\",\"body\":\"From leafy ferns to easy-care succulents, every plant in store is marked down. Sale ends Sunday night.\",\"cta\":\"Shop the sale\",\"background\":\"brand\"}",
+      "data": {
+        "ok": true,
+        "content": {
+          "eyebrow": "Spring Sale",
+          "headline": "20% off every indoor plant",
+          "subhead": "This weekend only, bring some green home for less.",
+          "body": "From leafy ferns to easy-care succulents, every plant in store is marked down. Sale ends Sunday night.",
+          "cta": "Shop the sale",
+          "background": "brand"
+        }
       }
     }
   ]

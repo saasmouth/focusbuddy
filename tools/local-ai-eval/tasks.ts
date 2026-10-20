@@ -17,6 +17,7 @@ export type Family =
   | 'desk_qa'
   | 'proposals'
   | 'build'
+  | 'office'
   | 'writing'
   | 'summaries'
   | 'background'
@@ -250,6 +251,121 @@ export function buildTasks(api: () => Promise<Api>): EvalTask[] {
   build('build-campaign', 'medium', 'Run a six-week content marketing campaign for a B2B SaaS launch with a team of three: calendar, channels, owners, budget and results.', 4)
   build('build-rental', 'medium', 'Manage a small rental property: tenants, rent payments, maintenance requests, and documents.', 4)
   build('build-japan', 'medium', 'Plan a two-week family trip to Japan for four people with a budget, itinerary, bookings and packing.', 4)
+
+  // ── office: PlexiiWrite / PlexiiCells / PlexiiDeck generation, diagrams, design ──
+  const sheetDims = (body: unknown): { cols: number; rows: number } => {
+    const b = body as { columns?: unknown[]; rows?: unknown[][]; sheets?: Array<{ cells?: Record<string, unknown>; columns?: unknown[]; rows?: unknown[][] }> } | undefined
+    if (b && Array.isArray(b.columns)) return { cols: b.columns.length, rows: Array.isArray(b.rows) ? b.rows.length : 0 }
+    const sh = b?.sheets?.[0] as Record<string, unknown> | undefined
+    if (sh && Array.isArray(sh.columns)) return { cols: (sh.columns as unknown[]).length, rows: Array.isArray(sh.rows) ? (sh.rows as unknown[]).length : 0 }
+    if (sh && sh.cells && typeof sh.cells === 'object') {
+      const keys = Object.keys(sh.cells as object)
+      const cols = new Set(keys.map((k) => k.replace(/\d+$/, ''))).size
+      const rows = new Set(keys.map((k) => k.replace(/^[A-Z]+/, ''))).size
+      return { cols, rows }
+    }
+    return { cols: 0, rows: 0 }
+  }
+  const gen = (id: string, docType: 'doc' | 'sheet' | 'slides' | 'map', prompt: string, check: (body: unknown) => Check[], rubric: string): void => {
+    tasks.push({
+      id,
+      family: 'office',
+      prompt,
+      run: async () => {
+        const r = await (await api()).generateDocument({ docType, prompt })
+        return { ok: r.ok, text: r.ok ? JSON.stringify({ title: r.title, body: r.body }) : '', data: r, error: r.error }
+      },
+      checks: (o) => {
+        const r = o.data as { ok?: boolean; body?: unknown } | undefined
+        return [c('generated', !!r?.ok && !!r.body, o.error), ...(r?.ok ? check(r.body) : [])]
+      },
+      rubric
+    })
+  }
+  gen('office-doc', 'doc', 'A one-page project brief for moving our team wiki into PlexiiWrite: goals, scope, timeline, risks.', (b) => {
+    const content = ((b as { content?: unknown[] })?.content ?? []) as unknown[]
+    return [c('has sections', content.length >= 4, `${content.length} nodes`)]
+  }, 'A usable one-page brief with goals, scope, timeline and risks for the stated project; specific, not placeholder text.')
+  gen('office-sheet', 'sheet', 'A monthly household budget: categories, planned, actual and the difference.', (b) => {
+    const d = sheetDims(b)
+    return [c('>= 3 columns', d.cols >= 3, `${d.cols}`), c('>= 4 rows', d.rows >= 4, `${d.rows}`)]
+  }, 'A sensible budget sheet with category, planned, actual and difference columns and realistic rows; the difference is consistent with planned minus actual if computed.')
+  gen('office-slides', 'slides', 'A 5-slide pitch for a neighbourhood tool library.', (b) => {
+    const slides = ((b as { slides?: unknown[] })?.slides ?? []) as unknown[]
+    return [c('>= 4 slides', slides.length >= 4, `${slides.length}`)]
+  }, 'About five coherent slides pitching a neighbourhood tool library: problem, how it works, benefits, ask; no invented statistics presented as fact.')
+  gen('office-map', 'map', 'A flowchart of a customer refund request: received, checked against the policy, approved or refused, refund paid, customer told.', (b) => {
+    const m = b as { nodes?: unknown[]; edges?: unknown[] } | undefined
+    return [c('>= 5 nodes', (m?.nodes?.length ?? 0) >= 5, `${m?.nodes?.length ?? 0}`), c('>= 4 edges', (m?.edges?.length ?? 0) >= 4, `${m?.edges?.length ?? 0}`)]
+  }, 'A correct flowchart of the described refund process with a decision (approved / refused) and both outcomes connected.')
+  tasks.push({
+    id: 'office-deck',
+    family: 'office',
+    prompt: 'Deck: a 4-slide quarterly review for a small design studio',
+    run: async () => {
+      const r = await (await api()).generateSlideElements({ mode: 'deck', prompt: 'A 4-slide quarterly review for a small design studio: highlights, numbers to fill in, lessons, next quarter.' })
+      return { ok: r.ok, text: r.ok ? JSON.stringify(r.body) : '', data: r, error: r.error }
+    },
+    checks: (o) => {
+      const r = o.data as { ok?: boolean; body?: { slides?: unknown[] } } | undefined
+      return [c('generated', !!r?.ok, o.error), c('>= 3 slides', (r?.body?.slides?.length ?? 0) >= 3, `${r?.body?.slides?.length ?? 0}`)]
+    },
+    rubric: 'A coherent short quarterly-review deck with the requested sections; it must not invent the studio\'s actual numbers as facts.'
+  })
+  tasks.push({
+    id: 'cells-columns',
+    family: 'office',
+    prompt: 'PlexiiCells: columns for tracking job applications',
+    run: async () => {
+      const r = await (await api()).suggestSheetColumns({ prompt: 'Track my job applications' })
+      return { ok: r.ok, text: (r.columns ?? []).join(' | '), data: r, error: r.error }
+    },
+    checks: (o) => {
+      const cols = ((o.data as { columns?: string[] } | undefined)?.columns ?? []) as string[]
+      return [c('columns', o.ok && cols.length >= 4, cols.join(' | ')), c('has company and status', has(cols.join(' '), /company|employer|organi[sz]ation/i, /status|stage/i))]
+    }
+  })
+  tasks.push({
+    id: 'cells-fill',
+    family: 'office',
+    prompt: 'PlexiiCells: fill the five largest countries by area',
+    run: async () => {
+      const r = await (await api()).fillSheetRange({ prompt: 'The five largest countries in the world by land area', headers: ['Country', 'Area (km²)'], rangeRows: 5, auto: false })
+      return { ok: r.ok, text: JSON.stringify(r.rows ?? []), data: r, error: r.error }
+    },
+    checks: (o) => {
+      const rows = ((o.data as { rows?: string[][] } | undefined)?.rows ?? []) as string[][]
+      const names = rows.map((r) => r[0] ?? '').join(' | ')
+      return [c('5 rows', rows.length === 5, `${rows.length}`), c('correct countries', has(names, /russia/i, /canada/i, /china/i, /united states|usa|u\.s\./i, /brazil/i), names)]
+    }
+  })
+  tasks.push({
+    id: 'cells-formula',
+    family: 'office',
+    prompt: 'PlexiiCells: total of Amount where Status is Paid',
+    run: async () => {
+      const r = await (await api()).suggestFormula({ prompt: 'Total of the Amount column where Status is Paid', headers: ['Item', 'Amount', 'Status'], activeRef: 'E2', sample: [['Hosting', '120', 'Paid'], ['Design', '800', 'Unpaid'], ['Domain', '15', 'Paid']] })
+      return { ok: r.ok, text: `${r.formula ?? ''} — ${r.explanation ?? ''}`, data: r, error: r.error }
+    },
+    checks: (o) => {
+      const f = ((o.data as { formula?: string } | undefined)?.formula ?? '') as string
+      return [c('a formula', /^=/.test(f), f), c('SUMIF over B by C', /SUMIFS?\(/i.test(f) && /B/i.test(f) && /C/i.test(f) && /paid/i.test(f), f)]
+    }
+  })
+  tasks.push({
+    id: 'design-copy',
+    family: 'office',
+    prompt: 'Design: an Instagram post for a 20% plant sale',
+    run: async () => {
+      const r = await (await api()).generateDesignContent({ prompt: 'Spring sale: 20% off all indoor plants this weekend only', designKind: 'Instagram post' })
+      return { ok: r.ok, text: JSON.stringify(r.content ?? {}), data: r, error: r.error }
+    },
+    checks: (o) => {
+      const ct = ((o.data as { content?: { headline?: string } } | undefined)?.content ?? {}) as { headline?: string }
+      return [c('headline', o.ok && !!ct.headline && ct.headline.length > 3, ct.headline)]
+    },
+    rubric: 'Short, on-brief post copy that states the 20% off indoor plants, this weekend only; no invented details like prices, codes or addresses.'
+  })
 
   // ── writing: draft and rewrite ─────────────────────────────────────────────
   const draft = (id: string, prompt: string, rubric: string): void => {

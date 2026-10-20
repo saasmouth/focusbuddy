@@ -4612,9 +4612,13 @@ export function registerIpcHandlers(): void {
     const key = resolveOpenAIKey()
     if (!key) return { ok: false, error: 'No key set.' }
     try {
-      const res = await fetch('https://api.openai.com/v1/models', {
-        headers: { authorization: `Bearer ${key}` }
-      })
+      // A key test lists models and sends no content, so it is allowed while AI
+      // runs on this device (the egress guard needs the grant).
+      const res = await withCloudGrant({ reason: 'key-test' }, () =>
+        fetch('https://api.openai.com/v1/models', {
+          headers: { authorization: `Bearer ${key}` }
+        })
+      )
       if (!res.ok) {
         const txt = await res.text().catch(() => '')
         const short = txt.length > 240 ? txt.slice(0, 240) + '…' : txt

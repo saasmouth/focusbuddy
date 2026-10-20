@@ -22,6 +22,14 @@
       "cloud": 1,
       "gate": "cloud-only"
     },
+    "office": {
+      "families": [
+        "office"
+      ],
+      "local": 0.667,
+      "cloud": 0.444,
+      "gate": "ok"
+    },
     "writing": {
       "families": [
         "writing"
@@ -47,6 +55,12 @@
       "gate": "ok"
     },
     "agents": {
+      "families": [],
+      "local": null,
+      "cloud": null,
+      "gate": "cloud-only"
+    },
+    "media": {
       "families": [],
       "local": null,
       "cloud": null,

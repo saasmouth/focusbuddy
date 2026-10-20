@@ -8,6 +8,7 @@
 // self-contained (works offline and in export).
 
 import { resolvePexelsKey, resolveRemoveBgKey } from './settingsStore'
+import { askCloudForNonLocalFeature, withCloudGrant } from './ai/local/providerRouter'
 
 export interface StockPhoto {
   id: string
@@ -72,13 +73,24 @@ export async function removeBackground(input: { dataUrl: string }): Promise<{ ok
   if (!key) return { ok: false, needsKey: true, error: 'Add a remove.bg API key in Settings → API Keys to remove image backgrounds.' }
   const b64 = input.dataUrl.replace(/^data:[^;]+;base64,/, '')
   if (!b64 || b64 === input.dataUrl) return { ok: false, error: 'Background removal needs an embedded image (insert it first).' }
+  // AI set to run on this device: there is no on-device background remover, so
+  // the image goes to remove.bg only if the person agrees, for this one request.
+  const route = await askCloudForNonLocalFeature('media', 'remove.bg', true)
+  if (route === 'declined') {
+    return {
+      ok: false,
+      error: 'Background removal has no on-device model, and AI is set to run on this device, so the image was not sent to remove.bg.'
+    }
+  }
   try {
     const body = new URLSearchParams({ image_file_b64: b64, size: 'auto' })
-    const res = await fetch('https://api.remove.bg/v1.0/removebg', {
-      method: 'POST',
-      headers: { 'X-Api-Key': key, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body
-    })
+    const send = (): Promise<Response> =>
+      fetch('https://api.remove.bg/v1.0/removebg', {
+        method: 'POST',
+        headers: { 'X-Api-Key': key, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body
+      })
+    const res = route === 'allowed' ? await withCloudGrant({ reason: 'consent', feature: 'media' }, send) : await send()
     if (!res.ok) {
       if (res.status === 403) return { ok: false, needsKey: true, error: 'Your remove.bg key was rejected or is out of credits.' }
       const t = await res.text().catch(() => '')

@@ -210,10 +210,12 @@ function featureRepresentativePurpose(f: AiFeature): string {
   const map: Record<AiFeature, string> = {
     assistant: 'chat',
     build: 'setup',
+    office: 'document',
     writing: 'doc_rewrite',
     summaries: 'trail_summary',
     background: 'title_backfill',
-    agents: 'agent_step'
+    agents: 'agent_step',
+    media: 'media'
   }
   return map[f]
 }

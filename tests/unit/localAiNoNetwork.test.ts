@@ -201,9 +201,56 @@ describe('Local on this device: no AI request leaves the machine', () => {
     const { generateCustomWidget } = await import('../../src/main/ai/customWidget')
     results.widget = await generateCustomWidget({ spec: 'A tip calculator' } as never)
 
+    // The rest of the suite's AI entry points (PlexiiWrite/Cells/Deck, design,
+    // dashboards, mail, meetings, capture, field AI, plans, wires, briefs).
+    const settle = async (name: string, p: Promise<unknown>): Promise<void> => {
+      try {
+        results[name] = await p
+      } catch (e) {
+        results[name] = { threw: (e as Error).message }
+      }
+    }
+    await settle('docGen', ai.generateDocument({ docType: 'doc', prompt: 'A short project brief' }))
+    await settle('sheetGen', ai.generateDocument({ docType: 'sheet', prompt: 'A budget' }))
+    await settle('deck', ai.generateSlideElements({ mode: 'deck', prompt: 'A 3-slide update' }))
+    await settle('design', ai.generateDesignContent({ prompt: 'Plant sale', designKind: 'Instagram post' }))
+    await settle('cellsCols', ai.suggestSheetColumns({ prompt: 'Track job applications' }))
+    await settle('cellsFill', ai.fillSheetRange({ prompt: 'Five fruit', headers: ['Fruit'], rangeRows: 5, auto: false }))
+    await settle('cellsFormula', ai.suggestFormula({ prompt: 'Sum of B', headers: ['A', 'B'], activeRef: 'C1' }))
+    await settle('mailDraft', ai.draftReply({ subject: 'Lunch?', from: 'sam@example.com', body: 'Free on Friday?' }, null))
+    await settle('meetingEnd', ai.processMeetingEnd({ transcript: 'We agreed to ship on Friday. Priya owns the demo.' } as never))
+    await settle('trail', ai.summarizeRecentTrail(DESK, Date.now() - 3_600_000))
+    await settle('stacks', ai.proposeSmartStacks(DESK))
+    await settle('brief', ai.generateDailyBrief())
+    await settle('standup', ai.generateStandupNarrative({ promptContext: 'Did X, Y', fallbackNarrative: 'fallback' }))
+    await settle('wire', ai.runTransformWire({ sourceContent: 'Notes about the launch', verb: 'summarize', targetCurrentContent: '' }))
+    await settle('command', ai.routeCommandBar({ system: 'Classify. Reply with JSON only: {"intent":"..."}', prompt: 'add a todo' } as never))
+    const { proposeCleanup } = await import('../../src/main/ai/cleanupRewrite')
+    await settle('cleanup', proposeCleanup('um so like call bob about the thing tmrw maybe'))
+    const { classifyCapture } = await import('../../src/main/ai/intentClassify')
+    await settle('intent', classifyCapture('maybe look into whether we should switch the newsletter tool at some point'))
+    const { extractCommitments } = await import('../../src/main/ai/extractCommitments')
+    await settle('commitments', extractCommitments({ text: 'I will send the deck by Friday.' } as never))
+    const { enhanceRecord } = await import('../../src/main/ai/enhanceRecord')
+    await settle('field', enhanceRecord({ text: 'Lunch with Sam on Friday at noon' } as never))
+    const { selectItemsForPlan } = await import('../../src/main/ai/planSelect')
+    await settle('plan', selectItemsForPlan('plan my week', [{ id: 'a', title: 'Write the brief' }] as never))
+    const { triageInbox } = await import('../../src/main/ai/mailTriage')
+    const { liveTriageDeps } = await import('../../src/main/ai/mailTriage')
+    await settle(
+      'triage',
+      triageInbox(
+        [{ uid: 1, from: 'news@shop.example', subject: 'Sale!', date: Date.now(), seen: false } as never],
+        ['Receipts'],
+        liveTriageDeps(() => clientForKey(process.env.ANTHROPIC_API_KEY ?? null, getModelClient) as never)
+      )
+    )
+    const { runTitleBackfill } = await import('../../src/main/titleBackfill')
+    await settle('titleBackfill', runTitleBackfill())
+
     expect(remote).toEqual([])
     // And the work really ran on the device, not merely failed before sending.
-    expect(engineCalls.length).toBeGreaterThanOrEqual(14)
+    expect(engineCalls.length).toBeGreaterThanOrEqual(28)
     expect(results.chat).toMatchObject({ ok: true })
     expect(results.stream).toMatchObject({ ok: true })
     expect(results.build).toMatchObject({ ok: true })
@@ -236,5 +283,34 @@ describe('Local on this device: no AI request leaves the machine', () => {
     expect(remote.slice(before).some((r) => r.includes('api.anthropic.com'))).toBe(true)
     router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({}) })
     remote.length = before
+  })
+
+  it('with the real quality gates and the person declining cloud: cloud-only features send nothing and say why', { timeout: 180_000 }, async () => {
+    const router = await import('../../src/main/ai/local/providerRouter')
+    const { localGateFor } = await import('../../src/shared/localAiGates')
+    router.setGateResolver(localGateFor)
+    let asked = 0
+    router.setConsentAsker(async () => {
+      asked++
+      return false
+    })
+    const ai = await import('../../src/main/ai/anthropic')
+    const build = await ai.buildFromPrompt({ prompt: 'A desk for my reading list', taskId: null })
+    expect(build.ok).toBe(false)
+    expect(build.error).toMatch(/Nothing was sent anywhere/)
+    const agent = await ai.runDeskAgent({ instruction: 'Summarise the inputs', inputs: [{ kind: 'note', title: 'n', content: 'hello' }] } as never)
+    expect(JSON.stringify(agent)).toMatch(/not run on the on-device model|Nothing was sent/)
+    const { generateImage } = await import('../../src/main/imageGen')
+    const img = await generateImage({ prompt: 'a red bicycle' })
+    expect(img.ok).toBe(false)
+    expect(img.error).toMatch(/no on-device model/)
+    const { removeBackground } = await import('../../src/main/stockMedia')
+    process.env.REMOVEBG_API_KEY = 'rb-test-not-real'
+    const rb = await removeBackground({ dataUrl: 'data:image/png;base64,iVBORw0KGgo=' })
+    delete process.env.REMOVEBG_API_KEY
+    expect(rb.ok).toBe(false)
+    expect(asked).toBeGreaterThanOrEqual(3)
+    expect(remote).toEqual([])
+    router.setGateResolver(() => ({ gate: 'ok', localPassRate: null, cloudPassRate: null, family: null }))
   })
 })
