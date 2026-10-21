@@ -2,7 +2,8 @@
 //  - click an anchor of ANY path to select it (Shift-click adds or removes);
 //    the path does not have to be selected first;
 //  - click a segment to select it (its two end anchors);
-//  - click inside a filled path to select all of its anchors;
+//  - click inside a filled path, or Alt-click its outline, to select all of
+//    its anchors;
 //  - drag on empty canvas for a marquee over anchors (Shift adds);
 //  - drag a selected anchor (or segment) to move every selected anchor; Shift
 //    constrains the move to 45°. A curved segment dragged on its own reshapes
@@ -119,6 +120,18 @@ export function directPointerDown(ctx: EditorCtx, e: ToolPointer): void {
     const node = o && o.type === 'path' ? o.path.subpaths[hit.ref.si].nodes[hit.ref.ni] : null
     const txn = ctx.history.begin('Move handle')
     setGesture(ctx, { kind: 'handle', ref: hit.ref, side: hit.side, smooth: !!node && isSmoothNode(node), txn, moved: false })
+    return
+  }
+  // Alt-click on an anchor or segment picks the whole path (Illustrator's
+  // Group Selection behaviour inside Direct Selection).
+  if (e.altKey && (hit?.kind === 'anchor' || hit?.kind === 'segment')) {
+    const id = hit.kind === 'anchor' ? hit.ref.id : hit.id
+    if (e.shiftKey) {
+      const anchors = { ...s.anchors }
+      delete anchors[id]
+      ctx.set({ selection: s.selection.includes(id) ? s.selection : [...s.selection, id], anchors })
+    } else ctx.select([id])
+    startMove(ctx, p, null)
     return
   }
   if (hit?.kind === 'anchor') {

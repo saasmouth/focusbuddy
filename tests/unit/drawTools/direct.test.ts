@@ -68,6 +68,15 @@ describe('Direct Selection (A)', () => {
     expect(h.state().anchors).toEqual({ l: [[0, 2], [0, 3]] })
   })
 
+  it('Alt-click on an anchor or segment selects the whole path', () => {
+    const h = harness(blank([line('l', [[0, 50], [100, 50], [200, 50]])]))
+    h.tool('direct')
+    h.click(150, 50, { alt: true })
+    expect(h.state().selection).toEqual(['l'])
+    expect(h.state().anchors).toEqual({})
+    expect(selectedAnchors(h.state())).toHaveLength(3)
+  })
+
   it('a marquee selects the anchors inside it, across paths; Shift-marquee adds', () => {
     const h = harness(blank([rect('a', 10, 10, 40, 40), rect('b', 100, 10, 40, 40)]))
     h.tool('direct')

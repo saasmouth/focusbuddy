@@ -6,10 +6,11 @@
 // The whole dialog is ONE undo step.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { pathBounds, pathToSvgD, transformPath, unionBox } from '@shared/drawGeometry'
 import { maxDeviation } from '@shared/draw/geometry/bezier'
 import { SIMPLIFY_DEFAULTS, type SimplifyOptions } from '@shared/draw/geometry/fit'
 import type { DrawDoc, DrawPathNode } from '@shared/draw/model'
-import { anchorCount, editableIds, getObject, simplifyPaths } from '@shared/draw/ops'
+import { anchorCount, editableIds, getObject, nodeMatrix, simplifyPaths } from '@shared/draw/ops'
 import type { DrawDialog, Txn } from '../editor/types'
 
 /** The fewest-points precision whose result stays within `maxError` px of every original path. */
@@ -33,6 +34,27 @@ export function autoSimplifyPrecision(doc: DrawDoc, ids: string[], opts: Omit<Si
   return Math.round(hi)
 }
 
+/** The original outline (grey) under the simplified one (accent), fitted to a small box. */
+function Compare({ base, result, ids }: { base: DrawDoc; result: DrawDoc; ids: string[] }): JSX.Element | null {
+  const shapes = ids
+    .map((id) => ({ a: getObject(base, id), b: getObject(result, id), m: nodeMatrix(base, id) }))
+    .filter((x): x is { a: DrawPathNode; b: DrawPathNode; m: ReturnType<typeof nodeMatrix> } => x.a?.type === 'path' && x.b?.type === 'path')
+  if (!shapes.length) return null
+  const box = unionBox(shapes.map((x) => pathBounds(transformPath(x.a.path, x.m))))
+  const pad = Math.max(box.w, box.h) * 0.05 + 1
+  const k = Math.max(box.w, box.h) / 300
+  return (
+    <svg viewBox={`${box.x - pad} ${box.y - pad} ${box.w + 2 * pad} ${box.h + 2 * pad}`} className="w-full h-40 rounded bg-[var(--surface-sunken)]" data-testid="draw-simplify-compare">
+      {shapes.map((x) => (
+        <g key={x.a.id}>
+          <path d={pathToSvgD(transformPath(x.a.path, x.m))} fill="none" stroke="#a8a29e" strokeWidth={3 * k} />
+          <path d={pathToSvgD(transformPath(x.b.path, x.m))} fill="none" stroke="#6d5dfc" strokeWidth={1.2 * k} />
+        </g>
+      ))}
+    </svg>
+  )
+}
+
 const simplify: DrawDialog = {
   id: 'simplify',
   title: 'Simplify',
@@ -44,6 +66,7 @@ const simplify: DrawDialog = {
     }, [])
     const [opts, setOpts] = useState<SimplifyOptions>(SIMPLIFY_DEFAULTS)
     const [preview, setPreview] = useState(true)
+    const [showOriginal, setShowOriginal] = useState(false)
     const txn = useRef<Txn | null>(null)
     const done = useRef(false)
     const result = useMemo(() => simplifyPaths(base, ids, opts), [base, ids, opts])
@@ -111,10 +134,15 @@ const simplify: DrawDialog = {
             Convert to Straight Lines
           </label>
           <label className="flex items-center gap-2">
+            <input type="checkbox" checked={showOriginal} onChange={(e) => setShowOriginal(e.target.checked)} data-testid="draw-simplify-original" />
+            Show Original Path
+          </label>
+          <label className="flex items-center gap-2">
             <input type="checkbox" checked={preview} onChange={(e) => setPreview(e.target.checked)} data-testid="draw-simplify-preview" />
             Preview
           </label>
         </div>
+        {showOriginal && <Compare base={base} result={result} ids={ids} />}
         <p className="fb-tabular text-[12px] text-[var(--ink-60)]" data-testid="draw-simplify-counts">
           Original: {before} points · Current: {after} points
         </p>
