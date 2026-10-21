@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { layerOf, type Graph, type Sel } from '@shared/diagram/ops'
+import { hiddenCount, layerOf, type Graph, type Sel } from '@shared/diagram/ops'
 import Icon from '../../Icon'
 import type { Commands } from './commands'
 
@@ -10,6 +10,7 @@ export function LayersPanel({ cmd, page, sel, onClose }: { cmd: Commands; page: 
   const layers = page.layers?.length ? page.layers : [{ id: 'layer-base', name: 'Base', visible: true, locked: false }]
   const [editing, setEditing] = useState<string | null>(null)
   const count = (id: string): number => page.nodes.filter((n) => layerOf(n) === id).length
+  const hidden = hiddenCount(page)
   return (
     <div className="absolute bottom-2 left-2 z-30 fb-glass-panel rounded-[var(--radius-row)] w-[250px] shadow-lg" data-testid="diagram-layers">
       <div className="flex items-center px-3 py-2 border-b border-[var(--edge-soft)]">
@@ -67,6 +68,17 @@ export function LayersPanel({ cmd, page, sel, onClose }: { cmd: Commands; page: 
         ))}
       </div>
       {!page.layers?.length && <p className="px-3 pb-2 text-[10px] text-[var(--ink-50)]">Add a layer to show, hide or lock groups of shapes together.</p>}
+      {hidden > 0 && (
+        <div className="flex items-center gap-2 px-3 py-2 border-t border-[var(--edge-soft)]">
+          <Icon name="visibility_off" size={13} className="text-[var(--ink-50)]" />
+          <span className="flex-1 text-[11px] text-[var(--ink-70)]">
+            {hidden} hidden shape{hidden === 1 ? '' : 's'} on this page
+          </span>
+          <button type="button" className="text-[11px] px-2 py-0.5 rounded hover:bg-[var(--surface-raised)] text-[rgb(var(--accent))]" onClick={() => cmd.showAllHidden()} data-testid="diagram-show-hidden">
+            Show all hidden
+          </button>
+        </div>
+      )}
     </div>
   )
 }

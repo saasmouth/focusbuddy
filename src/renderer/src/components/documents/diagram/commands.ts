@@ -307,6 +307,17 @@ function makeCommands(d: Deps) {
     setLocked(locked: boolean): void {
       d.update((g) => ops.setLocked(g, sel(), locked))
     },
+    // Hide the selected shapes; "Show all hidden" (Layers panel, Arrange menu)
+    // brings them back.
+    hideSelection(): void {
+      const ids = sel().nodes
+      if (!ids.size) return
+      d.update((g) => ops.setHidden(g, ids, true))
+      d.setSel(ops.emptySel())
+    },
+    showAllHidden(): void {
+      d.update((g) => ops.showAllHidden(g))
+    },
     toggleLock(): void {
       const g = page()
       const anyUnlocked = g.nodes.some((n) => sel().nodes.has(n.id) && !n.locked) || g.edges.some((e) => sel().edges.has(e.id) && !e.locked)
@@ -558,8 +569,12 @@ function makeCommands(d: Deps) {
         let out = b
         const firstEmpty = !getPage(b, d.pageIdxRef.current).nodes.length
         res.pages.forEach((p, i) => {
-          if (i === 0 && firstEmpty) out = withPage(out, d.pageIdxRef.current, { ...getPage(out, d.pageIdxRef.current), nodes: p.nodes, edges: p.edges })
-          else out = addPage(out, p.name || `Imported ${i + 1}`, ops.uid('page-'), { nodes: p.nodes, edges: p.edges }).body
+          // The file's own layers come along, so hidden draw.io layers can be shown again.
+          if (i === 0 && firstEmpty) {
+            const cur = getPage(out, d.pageIdxRef.current)
+            const layers = [...(cur.layers ?? []), ...(p.layers ?? [])]
+            out = withPage(out, d.pageIdxRef.current, { ...cur, nodes: p.nodes, edges: p.edges, ...(layers.length ? { layers } : {}) })
+          } else out = addPage(out, p.name || `Imported ${i + 1}`, ops.uid('page-'), { nodes: p.nodes, edges: p.edges, ...(p.layers ? { layers: p.layers } : {}) }).body
         })
         return normalizeMapBody(out)
       })

@@ -264,8 +264,9 @@ function nodeSvg(n: MapNode, themeId: string | undefined): string {
   return `<g transform="translate(${r(n.x)} ${r(n.y)})${rot}"${opacity}${shadow}>${inner}</g>`
 }
 
-function edgeSvg(e: MapEdge, route: Route, themeId: string | undefined, bg: string, defaultEnd: MapEdge['endArrow']): string {
-  const st = resolveEdgeStyle(e, themeId, defaultEnd ?? 'arrow')
+function edgeSvg(e: MapEdge, route: Route, themeId: string | undefined, bg: string): string {
+  // As in the editor: the page's default arrow applies to new lines only.
+  const st = resolveEdgeStyle(e, themeId)
   const dash = dashArray(st.dash, st.strokeWidth)
   let out = `<path class="pd-edge" d="${route.path}" fill="none" stroke="${st.stroke}" stroke-width="${st.strokeWidth}"${dash ? ` stroke-dasharray="${dash}"` : ''} stroke-linejoin="round" />`
   const size = 5 + st.strokeWidth * 2.2
@@ -350,7 +351,7 @@ export function mapToSvg(
   const ty = pad - minY
 
   // Lines under shapes (as on the canvas); shapes in z-order (array order).
-  const edgeLayer = edges.map((e) => (routes.has(e.id) ? edgeSvg(e, routes.get(e.id)!, themeId, bg, settings.defaultEndArrow) : '')).join('')
+  const edgeLayer = edges.map((e) => (routes.has(e.id) ? edgeSvg(e, routes.get(e.id)!, themeId, bg) : '')).join('')
   const nodeLayer = nodes.map((n) => nodeSvg(n, themeId)).join('')
   const needsIcons = nodes.some((n) => n.icon || getShape(n.shape).special === 'icon')
   const fontFace = needsIcons && opts.iconFontUrl ? `<style>@font-face{font-family:'Material Symbols Outlined';src:url(${opts.iconFontUrl}) format('woff2');}</style>` : ''

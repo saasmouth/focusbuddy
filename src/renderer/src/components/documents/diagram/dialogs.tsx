@@ -301,8 +301,12 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }): JSX.Eleme
 
 // ── data sources ────────────────────────────────────────────────────────────
 
-export function DataDialog({ cmd, onClose }: { cmd: Commands; onClose: () => void }): JSX.Element {
-  const [tab, setTab] = useState<'tables' | 'widgets' | 'apps' | 'tools'>('tables')
+export type DataTab = 'tables' | 'widgets' | 'apps' | 'tools'
+
+// initialTab: which source the dialog opens on (Insert › "Work widget from a
+// desk…" opens straight on Work widgets).
+export function DataDialog({ cmd, onClose, initialTab = 'tables' }: { cmd: Commands; onClose: () => void; initialTab?: DataTab }): JSX.Element {
+  const [tab, setTab] = useState<DataTab>(initialTab)
   const [widgetPicker, setWidgetPicker] = useState(false)
   return (
     <Modal title="Data sources" icon="database" onClose={onClose} width={560} testid="diagram-data-dialog">

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MapBody } from '@shared/types'
-import type { Graph, Sel } from '@shared/diagram/ops'
+import { hiddenCount, type Graph, type Sel } from '@shared/diagram/ops'
 import type { PageInfo } from '@shared/diagram/pages'
 import { SHAPES, SHAPE_CATEGORIES } from '@shared/diagram/shapes'
 import DrawMenuBar from '../editor/DrawMenuBar'
@@ -17,7 +17,7 @@ import { AiDialog, DataDialog, FindPanel, MermaidDialog, ShortcutsDialog, Templa
 // The editor frame: menu bar, toolbar, library | canvas | inspector, and the
 // pages + status bar. Owns which panels and dialogs are open.
 
-type Dialog = 'ai' | 'data' | 'find' | 'templates' | 'mermaid' | 'shortcuts' | null
+type Dialog = 'ai' | 'data' | 'data-widgets' | 'find' | 'templates' | 'mermaid' | 'shortcuts' | null
 
 export function DiagramChrome({
   cmd,
@@ -90,6 +90,7 @@ export function DiagramChrome({
 
   const hasSel = sel.nodes.size > 0
   const hasAny = sel.nodes.size > 0 || sel.edges.size > 0
+  const hiddenOnPage = hiddenCount(page)
 
   const menus = {
     file: (): MenuItem[] => [
@@ -178,7 +179,7 @@ export function DiagramChrome({
       { kind: 'item', label: 'Image…', icon: 'image', run: () => setLibrary(true) },
       { kind: 'sep' },
       { kind: 'item', label: 'From a Plexii table…', icon: 'table_chart', run: () => setDialog('data') },
-      { kind: 'item', label: 'Work widget from a desk…', icon: 'widgets', run: () => setDialog('data') },
+      { kind: 'item', label: 'Work widget from a desk…', icon: 'widgets', run: () => setDialog('data-widgets') },
       { kind: 'item', label: 'Template…', icon: 'dashboard', run: () => setDialog('templates') },
       { kind: 'item', label: 'Mermaid…', icon: 'code', run: () => setDialog('mermaid') },
       { kind: 'item', label: 'AI diagram…', icon: 'auto_awesome', run: () => setDialog('ai') },
@@ -194,6 +195,8 @@ export function DiagramChrome({
       { kind: 'item', label: 'Group', icon: 'link', shortcut: '⌘G', run: cmd.group, disabled: sel.nodes.size < 2 },
       { kind: 'item', label: 'Ungroup', icon: 'link_off', shortcut: '⇧⌘G', run: cmd.ungroup, disabled: !hasSel },
       { kind: 'item', label: 'Lock / unlock', icon: 'lock', shortcut: '⇧⌘L', run: cmd.toggleLock, disabled: !hasAny },
+      { kind: 'item', label: 'Hide', icon: 'visibility_off', run: cmd.hideSelection, disabled: !sel.nodes.size },
+      { kind: 'item', label: `Show all hidden${hiddenOnPage ? ` (${hiddenOnPage})` : ''}`, icon: 'visibility', run: cmd.showAllHidden, disabled: !hiddenOnPage },
       { kind: 'sep' },
       {
         kind: 'submenu',
@@ -316,7 +319,7 @@ export function DiagramChrome({
       </div>
       <PagesBar cmd={cmd} pages={pages} pageIdx={pageIdx} sel={sel} page={page} status={status} onLayers={() => setLayers((v) => !v)} readOnly={readOnly} />
       {dialog === 'ai' && <AiDialog cmd={cmd} onClose={() => setDialog(null)} />}
-      {dialog === 'data' && <DataDialog cmd={cmd} onClose={() => setDialog(null)} />}
+      {(dialog === 'data' || dialog === 'data-widgets') && <DataDialog cmd={cmd} onClose={() => setDialog(null)} initialTab={dialog === 'data-widgets' ? 'widgets' : 'tables'} />}
       {dialog === 'templates' && <TemplatesDialog cmd={cmd} onClose={() => setDialog(null)} onMermaid={() => setDialog('mermaid')} />}
       {dialog === 'mermaid' && <MermaidDialog cmd={cmd} onClose={() => setDialog(null)} />}
       {dialog === 'shortcuts' && <ShortcutsDialog onClose={() => setDialog(null)} />}
