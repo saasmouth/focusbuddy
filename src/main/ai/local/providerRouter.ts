@@ -344,6 +344,37 @@ export class LocalModelMissingError extends Error {
   }
 }
 
+/**
+ * The computer has less memory than the smallest on-device model needs, so no
+ * model can run here and downloading one would not help. Says so, and names
+ * the sources that do work.
+ */
+export class LocalModelNoMemoryError extends Error {
+  constructor(
+    public readonly ramGB: number,
+    public readonly neededGB: number
+  ) {
+    super(
+      `This computer has ${ramGB} GB of memory and the on-device model needs at least ${neededGB} GB, so AI cannot run on this computer. ` +
+        'To use AI, choose your own Anthropic or OpenAI key, or Plexii AI credits, as the AI source in Settings › AI.'
+    )
+    this.name = 'LocalModelNoMemoryError'
+  }
+}
+
+/**
+ * Why there is no on-device model to run: too little memory for every tier
+ * (LocalModelNoMemoryError), or a tier this computer can run that is not
+ * downloaded (LocalModelMissingError).
+ */
+export function noLocalModelError(ramGB: number, tiers: readonly { minRamGB: number }[]): Error {
+  if (tiers.length > 0) {
+    const neededGB = Math.min(...tiers.map((t) => t.minRamGB))
+    if (ramGB < neededGB) return new LocalModelNoMemoryError(ramGB, neededGB)
+  }
+  return new LocalModelMissingError()
+}
+
 export class LocalUnavailableError extends Error {
   constructor(
     public readonly feature: AiFeature,

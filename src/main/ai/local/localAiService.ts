@@ -46,7 +46,8 @@ import {
   currentLocalPolicy,
   localOnlyActive,
   providerChoice,
-  LocalModelMissingError
+  LocalModelMissingError,
+  noLocalModelError
 } from './providerRouter'
 import { setModelTagger, resolveCloudModel } from '../modelRouting'
 import { createOpenAIClient, DEFAULT_OPENAI_MODELS } from './openaiClient'
@@ -244,7 +245,10 @@ export function initLocalAi(): void {
     modelLabel: () => activeTier()?.name.toLowerCase().replace(/\s+/g, '-') ?? 'none',
     engine: async () => {
       const t = activeTier()
-      if (!t || !host) throw new LocalModelMissingError()
+      // No tier at all means this computer has too little memory for any of
+      // them: say that, not "not downloaded yet", which a download cannot fix.
+      if (!t) throw noLocalModelError(ramGB(), LOCAL_MODEL_TIERS)
+      if (!host) throw new LocalModelMissingError()
       await ensureVerified(t)
       return host
     }
@@ -566,6 +570,7 @@ export function registerLocalAiIpc(): void {
   // "Try it": one short real completion, so the user sees the model work (and
   // how fast) before relying on it. Runs only on the device.
   ipcMain.handle('localAi:tryIt', async () => {
+    if (!activeTier()) return { ok: false, error: noLocalModelError(ramGB(), LOCAL_MODEL_TIERS).message }
     if (!host || !tierInstalled(activeTier())) return { ok: false, error: 'The on-device model is not downloaded yet.' }
     const t0 = Date.now()
     try {
