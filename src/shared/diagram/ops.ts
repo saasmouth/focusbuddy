@@ -196,6 +196,29 @@ export function ungroup(g: Graph, ids: Set<string>): Graph {
   return { ...g, nodes: g.nodes.map((n) => (n.groupId && groups.has(n.groupId) ? stripUndef({ ...n, groupId: undefined }) : n)) }
 }
 
+// What a newly drawn line takes from the page settings. Both are written onto
+// the line itself, so changing a page default later never rewrites lines that
+// already exist (the arrow used to be left implicit when it was 'arrow', and
+// rendering filled it from whatever the default had since become).
+export function newEdgeDefaults(settings: { defaultRouting?: MapEdge['routing']; defaultEndArrow?: MapEdge['endArrow'] }): Pick<MapEdge, 'routing' | 'endArrow'> {
+  return { routing: settings.defaultRouting ?? 'orthogonal', endArrow: settings.defaultEndArrow ?? 'arrow' }
+}
+
+// Hide shapes (they stay in the document, but are not drawn, selected or
+// exported). Hidden shapes are always recoverable: showAllHidden brings back
+// every one on the page.
+export function setHidden(g: Graph, ids: Set<string>, hidden: boolean): Graph {
+  return { ...g, nodes: g.nodes.map((n) => (ids.has(n.id) ? stripUndef({ ...n, hidden: hidden || undefined }) : n)) }
+}
+
+export function showAllHidden(g: Graph): Graph {
+  return g.nodes.some((n) => n.hidden) ? { ...g, nodes: g.nodes.map((n) => (n.hidden ? stripUndef({ ...n, hidden: undefined }) : n)) } : g
+}
+
+export function hiddenCount(g: Graph): number {
+  return g.nodes.filter((n) => n.hidden).length
+}
+
 export function setLocked(g: Graph, sel: Sel, locked: boolean): Graph {
   return {
     ...g,

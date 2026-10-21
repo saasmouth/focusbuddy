@@ -28,7 +28,7 @@
 // so a PlexiDiagrams → draw.io → PlexiDiagrams round trip is lossless on shape.
 
 import { inflateSync, strFromU8 } from 'fflate'
-import type { MapArrowHead, MapEdge, MapNode, MapNodeStyle, MapRouting } from '../types'
+import type { MapArrowHead, MapEdge, MapNode, MapNodeStyle, MapRouting, MapLayer } from '../types'
 import { getShape, isShapeId } from './shapes'
 import { nodeSize, parsePort, portId } from './geom'
 
@@ -36,6 +36,11 @@ export interface DrawioPage {
   name: string
   nodes: MapNode[]
   edges: MapEdge[]
+  // draw.io layers beyond the default one, as PlexiiDiagrams layers. A hidden
+  // draw.io layer stays hidden here, but as a LAYER the user can show again
+  // from the Layers panel (it used to mark every shape on it hidden, with no
+  // way back).
+  layers?: MapLayer[]
 }
 
 export interface DrawioImport {
@@ -602,6 +607,18 @@ function pageFromModel(model: XmlEl, name: string, warnings: string[]): DrawioPa
     }
     return undefined
   }
+  // draw.io layers are the layer-ish children of the root. The first is the
+  // default layer (our base layer) unless it is hidden or locked; every other
+  // one becomes a real layer, keeping its name, visibility and lock.
+  const rootIds = new Set(unique.filter((c) => isLayerish(c) && (!c.parent || !byId.has(c.parent))).map((c) => c.id))
+  const drawioLayers = unique.filter((c) => isLayerish(c) && !!c.parent && rootIds.has(c.parent))
+  const layerMap = new Map<string, MapLayer>()
+  drawioLayers.forEach((c, i) => {
+    const hidden = hiddenLayers.has(c.id)
+    const locked = lockedLayers.has(c.id)
+    if (i === 0 && !hidden && !locked) return
+    layerMap.set(c.id, { id: `layer-${c.id}`, name: labelOf(c.value, c.style.s) || (i === 0 ? 'Default layer' : `Layer ${i + 1}`), visible: !hidden, locked })
+  })
 
   for (const c of unique) {
     if (!c.vertex || isEdgeLabel(c)) continue
@@ -677,8 +694,13 @@ function pageFromModel(model: XmlEl, name: string, warnings: string[]): DrawioPa
     const flipY = s.flipV === '1' ? !pickRes.flipY : !!pickRes.flipY
     if (s.flipH === '1') node.flipX = true
     if (flipY) node.flipY = true
-    if (s.locked === '1' || (layerOf(c) && lockedLayers.has(layerOf(c)!))) node.locked = true
-    if (c.el.attrs.visible === '0' || (layerOf(c) && hiddenLayers.has(layerOf(c)!))) node.hidden = true
+    // Visibility and lock that come from a draw.io layer live on our layer;
+    // only a cell's OWN visible="0" / locked marks the shape itself.
+    const ownLayer = layerOf(c)
+    const mapped = ownLayer ? layerMap.get(ownLayer) : undefined
+    if (mapped) node.layerId = mapped.id
+    if (s.locked === '1' || (!mapped && ownLayer && lockedLayers.has(ownLayer))) node.locked = true
+    if (c.el.attrs.visible === '0' || (!mapped && ownLayer && hiddenLayers.has(ownLayer))) node.hidden = true
     if (s.image) node.image = s.image
     // Parent: a container vertex → parentId; a group → groupId.
     const p = c.parent ? byId.get(c.parent) : undefined
@@ -788,10 +810,13 @@ function pageFromModel(model: XmlEl, name: string, warnings: string[]): DrawioPa
       if (pts.length) e.waypoints = pts
     }
     if (c.wrapper?.attrs.tooltip) e.description = c.wrapper.attrs.tooltip
+    const edgeLayer = layerOf(c)
+    if (edgeLayer && layerMap.has(edgeLayer)) e.layerId = layerMap.get(edgeLayer)!.id
     edges.push(e)
   }
   if (dangling) warnings.push(`${name}: ${dangling} edge(s) without both a source and a target shape were skipped`)
-  return { name, nodes, edges }
+  const layers = [...layerMap.values()]
+  return { name, nodes, edges, ...(layers.length ? { layers } : {}) }
 }
 
 function round2(v: number): number {
@@ -1082,13 +1107,15 @@ export function mapToDrawio(pages: DrawioPage[]): string {
     out.push('      <root>')
     out.push(`        <mxCell id="${rootId}" />`)
     out.push(`        <mxCell id="${layerId}" parent="${rootId}" />`)
+    // A shape on a hidden layer exports hidden, as it was drawn.
+    const hiddenLayerIds = new Set((page.layers ?? []).filter((l) => !l.visible).map((l) => l.id))
     for (const n of ordered) {
       const p = depths.get(n.id)! > 0 ? parentOf(n) : undefined
       const { w, h } = nodeSize(n)
       const x = p ? n.x - p.x : n.x
       const y = p ? n.y - p.y : n.y
       const parentAttr = p ? cid.get(p.id)! : layerId
-      const visible = n.hidden ? ' visible="0"' : ''
+      const visible = n.hidden || (n.layerId && hiddenLayerIds.has(n.layerId)) ? ' visible="0"' : ''
       const geo = `<mxGeometry x="${fmt(x)}" y="${fmt(y)}" width="${fmt(w)}" height="${fmt(h)}" as="geometry" />`
       const style = escAttr(nodeStyle(n))
       const value = escAttr(labelHtml(n.label ?? ''))

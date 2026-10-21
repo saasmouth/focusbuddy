@@ -72,6 +72,12 @@ async function openEditor(title: string): Promise<{ window: Page; id: string; er
   // source first, as an existing user would have (the repo's pattern).
   await window.evaluate(() => (window as unknown as { api: { ai: { setMode: (m: string) => Promise<unknown> } } }).api.ai.setMode('auto'))
   await expect(window.locator('[data-testid="local-ai-missing"]')).toHaveCount(0, { timeout: 5_000 })
+  // The one-time "Local AI is now built in" card sits bottom-centre on a fresh
+  // profile, over the editor's lower panels. Dismiss it ("Got it") whenever it
+  // is what stands in the way of an action, as a real user would.
+  await window.addLocatorHandler(window.locator('[data-testid="local-ai-intro"]'), async (card) => {
+    await card.locator('[data-testid="local-ai-intro-dismiss"]').click({ timeout: 4_000 })
+  }, { noWaitAfter: true })
   const id = await createMap(window, title)
   await expect(window.locator('[data-testid="diagram-editor"]')).toBeVisible({ timeout: 12_000 })
   await expect(window.locator('.react-flow__node').first()).toBeVisible({ timeout: 8_000 })
@@ -260,3 +266,46 @@ test('DGM-6 — Edit → Copy style / Paste style carry a style to another shape
     await dispose()
   }
 })
+
+test('DGM-7 — a hidden shape is recoverable: Hide shape, then Layers › Show all hidden', async () => {
+  const { window, id, errors, dispose } = await openEditor('Hide and show')
+  try {
+    const node = window.locator('.react-flow__node').first()
+    const nid = (await node.getAttribute('data-id'))!
+    await node.click({ button: 'right', timeout: 5_000 })
+    await window.locator('[data-testid="diagram-context-menu"]').getByText('Hide shape', { exact: true }).click({ timeout: 5_000 })
+    await expect(window.locator(`.react-flow__node[data-id="${nid}"]`)).toHaveCount(0)
+    await waitForSaved(window, id, (b) => !!(b.nodes ?? []).find((n) => n.id === nid && (n as { hidden?: boolean }).hidden))
+    // The Layers panel says so and brings it back.
+    await window.locator('[data-testid="diagram-layers-toggle"]').click({ timeout: 5_000 })
+    const show = window.locator('[data-testid="diagram-show-hidden"]')
+    await expect(show).toBeVisible()
+    await show.click({ timeout: 5_000 })
+    await expect(window.locator(`.react-flow__node[data-id="${nid}"]`)).toHaveCount(1)
+    await waitForSaved(window, id, (b) => !(b.nodes ?? []).some((n) => (n as { hidden?: boolean }).hidden))
+    await expect(show).toHaveCount(0)
+    expect(errors).toEqual([])
+  } finally {
+    await dispose()
+  }
+})
+
+test('DGM-8 — Insert › Work widget from a desk… opens the Data dialog on the Work widgets tab', async () => {
+  const { window, errors, dispose } = await openEditor('Insert widget')
+  try {
+    await window.locator('[data-testid="draw-menubar-insert"]').click({ timeout: 5_000 })
+    await window.locator('[data-testid="draw-menubar-insert-list"]').getByText('Work widget from a desk…', { exact: true }).click({ timeout: 5_000 })
+    await expect(window.locator('[data-testid="diagram-data-widget"]')).toBeVisible()
+    // and "From a Plexii table…" still opens on Tables
+    await window.locator('[data-testid="diagram-data-dialog"] [title="Close"]').first().click({ timeout: 5_000 })
+    await expect(window.locator('[data-testid="diagram-data-dialog"]')).toHaveCount(0)
+    await window.locator('[data-testid="draw-menubar-insert"]').click({ timeout: 5_000 })
+    await window.locator('[data-testid="draw-menubar-insert-list"]').getByText('From a Plexii table…', { exact: true }).click({ timeout: 5_000 })
+    await expect(window.locator('[data-testid="diagram-gen-table"]')).toBeVisible()
+    await expect(window.locator('[data-testid="diagram-data-widget"]')).toHaveCount(0)
+    expect(errors).toEqual([])
+  } finally {
+    await dispose()
+  }
+})
+

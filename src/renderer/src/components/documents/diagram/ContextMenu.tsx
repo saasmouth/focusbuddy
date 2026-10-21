@@ -50,6 +50,7 @@ export function ContextMenu({ x, y, target, cmd, sel, page, onClose }: { x: numb
             nodes.length > 1 ? { label: 'Group', icon: 'link', hint: '⌘G', run: cmd.group } : { label: 'Zoom to shape', icon: 'zoom_in', hint: '⇧2', run: cmd.zoomToSelection },
             ...(grouped ? [{ label: 'Ungroup', icon: 'link_off', hint: '⇧⌘G', run: cmd.ungroup } as Item] : []),
             { label: locked ? 'Unlock' : 'Lock', icon: locked ? 'lock_open' : 'lock', hint: '⇧⌘L', run: cmd.toggleLock },
+            { label: nodes.length > 1 ? 'Hide shapes' : 'Hide shape', icon: 'visibility_off', run: cmd.hideSelection },
             'sep',
             { label: 'Tidy these connections', icon: 'cleaning_services', run: () => void cmd.tidyConnections(), disabled: nodes.length < 2 }
           ]

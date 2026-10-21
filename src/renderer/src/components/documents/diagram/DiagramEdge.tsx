@@ -30,7 +30,9 @@ function DiagramEdgeImpl({ id, selected }: EdgeProps): JSX.Element | null {
   if (!edge || !route) return null
 
   const theme = getTheme(ctx.themeId)
-  const st = resolveEdgeStyle(edge, ctx.themeId, ctx.settings.defaultEndArrow ?? 'arrow')
+  // A line without its own end arrow is drawn with the format default, never
+  // the page setting: that setting is for NEW lines (stamped on creation).
+  const st = resolveEdgeStyle(edge, ctx.themeId)
   const color = selected ? SELECT_COLOR : st.stroke
   const width = selected ? Math.max(st.strokeWidth, 2) : st.strokeWidth
   const head = 5 + st.strokeWidth * 2.2

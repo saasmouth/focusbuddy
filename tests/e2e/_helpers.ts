@@ -67,7 +67,7 @@ export async function launchApp(opts?: {
       ...cleanEnv,
       FB_TEST_USER_DATA: userDataDir,
       NODE_ENV: 'test',
-      // Per-test overrides (e.g. PLEXI_APP=office to boot the PlexiOffice shell).
+      // Per-test overrides (e.g. PLEXI_APP=preview3 for the preview-build guard).
       ...(opts?.env ?? {})
     },
     timeout: 20_000

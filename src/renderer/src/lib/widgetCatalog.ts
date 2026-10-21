@@ -50,7 +50,8 @@ export const WIDGET_USE_CASE_GROUPS: WidgetUseCaseGroup[] = [
   {
     // Everything whose output is a picture: hand-drawn, diagrammed or generated.
     name: 'Draw & diagram',
-    kinds: ['design', 'draw', 'diagram', 'mindmap', 'map', 'scratchpad', 'shape', 'image-gen', 'color']
+    // 'diagram' (the legacy widget) is no longer offered; 'map' is PlexiiDiagrams.
+    kinds: ['design', 'draw', 'mindmap', 'map', 'scratchpad', 'shape', 'image-gen', 'color']
   },
   { name: 'People & messages', kinds: ['contacts', 'inbox', 'chat-thread'] },
   { name: 'Web & apps', kinds: ['webview', 'streamdeck', 'local-app-launcher', 'location-map'] },
@@ -664,7 +665,12 @@ export const WIDGET_CATALOG: WidgetCatalogEntry[] = [
     defaultWidth: 760,
     defaultHeight: 520,
     defaultContent: '',
-    isWebBased: false
+    isWebBased: false,
+    // No longer offered (4.3.40): PlexiiDiagrams (the 'map' kind, a full diagram
+    // editor with image and icon shapes) supersedes it. Existing Diagram widgets
+    // keep rendering and keep their Build with AI action; migration to diagram
+    // documents comes in a later release.
+    hideFromPicker: true
   },
   {
     kind: 'scratchpad',

@@ -101,7 +101,7 @@ export function Inspector({ cmd, page, sel, settings, readOnly }: { cmd: Command
         {nodes.length > 0 && tab === 'text' && <TextStyle cmd={cmd} nodes={nodes} themeId={settings.theme} palette={theme.palette} />}
         {nodes.length > 0 && tab === 'arrange' && <Arrange cmd={cmd} nodes={nodes} />}
         {nodes.length > 0 && tab === 'data' && <DataTab cmd={cmd} nodes={nodes} />}
-        {edges.length > 0 && <LineStyle cmd={cmd} edges={edges} themeId={settings.theme} palette={theme.palette} defaultEnd={settings.defaultEndArrow ?? 'arrow'} defaultRouting={settings.defaultRouting ?? 'orthogonal'} />}
+        {edges.length > 0 && <LineStyle cmd={cmd} edges={edges} themeId={settings.theme} palette={theme.palette} defaultRouting={settings.defaultRouting ?? 'orthogonal'} />}
         {!nodes.length && !edges.length && <PageSettings cmd={cmd} page={page} settings={settings} />}
       </div>
     </div>
@@ -734,8 +734,8 @@ function ArrowPicker({ value, onChange, testid }: { value: MapArrowHead | undefi
   )
 }
 
-function LineStyle({ cmd, edges, themeId, palette, defaultEnd, defaultRouting }: { cmd: Commands; edges: MapEdge[]; themeId?: string; palette: string[]; defaultEnd: MapArrowHead; defaultRouting: MapRouting }): JSX.Element {
-  const res = edges.map((e) => resolveEdgeStyle(e, themeId, defaultEnd))
+function LineStyle({ cmd, edges, themeId, palette, defaultRouting }: { cmd: Commands; edges: MapEdge[]; themeId?: string; palette: string[]; defaultRouting: MapRouting }): JSX.Element {
+  const res = edges.map((e) => resolveEdgeStyle(e, themeId))
   const routing = common(edges, (e) => e.routing ?? defaultRouting)
   return (
     <Section title={`Line${edges.length > 1 ? 's' : ''}`} testid="diagram-line-section">
@@ -789,7 +789,7 @@ function LineStyle({ cmd, edges, themeId, palette, defaultEnd, defaultRouting }:
           className="text-[11px] px-2 py-1 rounded bg-[var(--surface-sunken)]"
           onClick={() => {
             const e = edges[0]!
-            cmd.setEdges({ startArrow: e.endArrow ?? defaultEnd, endArrow: e.startArrow ?? 'none' })
+            cmd.setEdges({ startArrow: e.endArrow ?? 'arrow', endArrow: e.startArrow ?? 'none' })
           }}
         >
           Swap arrows

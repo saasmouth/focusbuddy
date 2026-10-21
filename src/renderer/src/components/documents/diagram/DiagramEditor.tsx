@@ -429,8 +429,7 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
       target,
       ...(sourceHandle ? { sourceHandle } : {}),
       ...(targetHandle ? { targetHandle } : {}),
-      routing: settings.defaultRouting ?? 'orthogonal',
-      ...(settings.defaultEndArrow && settings.defaultEndArrow !== 'arrow' ? { endArrow: settings.defaultEndArrow } : {})
+      ...ops.newEdgeDefaults(settings)
     }),
     [settings.defaultRouting, settings.defaultEndArrow]
   )
