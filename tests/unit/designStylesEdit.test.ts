@@ -5,17 +5,13 @@
 // style that a family inherits from, or that a kind of block points at.
 import { describe, it, expect } from 'vitest'
 import {
-  addCharacterStyle,
   addParagraphStyle,
   blockKindsUsing,
-  deleteCharacterStyle,
   deleteParagraphStyle,
   findParagraphStyle,
-  resolveCharacterStyle,
   resolveParagraphStyle,
   setBlockStyle,
   styleId,
-  updateCharacterStyle,
   updateParagraphStyle,
   type DesignStyleSheet
 } from '../../src/shared/designStyles'
@@ -130,29 +126,6 @@ describe('the block map', () => {
     // Body is the conventional id for 'paragraph'? No: the key is 'paragraph',
     // so Body sets nothing by convention and everything by fallback.
     expect(blockKindsUsing(sheet(), 'body')).toEqual([])
-  })
-})
-
-describe('character styles', () => {
-  it('adds, updates and resolves through its chain', () => {
-    const { sheet: s1, id } = addCharacterStyle(sheet(), { name: 'Small caps', props: { letterSpacing: 0.5 } })
-    expect(id).toBe('small-caps')
-    const s2 = updateCharacterStyle(s1, id, { props: { fontSize: 9 } })
-    expect(resolveCharacterStyle(s2, id)).toEqual({ letterSpacing: 0.5, fontSize: 9 })
-    // The patch merges into props rather than replacing them.
-    expect(resolveCharacterStyle(s2, 'strong-emphasis')).toEqual({ italic: true, bold: true })
-  })
-
-  it('re-bases children when a parent is deleted', () => {
-    const next = deleteCharacterStyle(sheet(), 'emphasis')
-    expect(next.character?.find((s) => s.id === 'strong-emphasis')?.basedOn).toBeUndefined()
-    expect(resolveCharacterStyle(next, 'strong-emphasis')).toEqual({ bold: true })
-  })
-
-  it('renames without disturbing the id anything else points at', () => {
-    const next = updateCharacterStyle(sheet(), 'emphasis', { name: 'Italic' })
-    expect(next.character?.find((s) => s.id === 'emphasis')?.name).toBe('Italic')
-    expect(next.character?.find((s) => s.id === 'strong-emphasis')?.basedOn).toBe('emphasis')
   })
 })
 

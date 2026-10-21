@@ -152,7 +152,7 @@ export default function LayoutPanel(p: Props): JSX.Element {
             </div>
             <p className="text-[10px] text-[var(--ink-40)] leading-snug" data-testid="design-baseline-note">
               The grid shows with the layout guides. Text only sits on it where a paragraph style asks to:
-              turn on &ldquo;Snap to the baseline grid&rdquo; in Layout &rarr; Paragraph &amp; character styles.
+              turn on &ldquo;Snap to the baseline grid&rdquo; in Layout &rarr; Paragraph styles.
             </p>
           </>
         )}

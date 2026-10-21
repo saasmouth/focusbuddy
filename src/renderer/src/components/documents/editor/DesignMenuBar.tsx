@@ -155,7 +155,7 @@ export default function DesignMenuBar({ actions }: { actions: DesignMenuActions 
       label: 'Layout',
       build: () => [
         { kind: 'item', label: 'Margins, columns & layers…', icon: 'grid_on', run: a.openLayout },
-        { kind: 'item', label: 'Paragraph & character styles…', icon: 'format_paint', run: a.openStyles },
+        { kind: 'item', label: 'Paragraph styles…', icon: 'format_paint', run: a.openStyles },
         { kind: 'item', label: 'Show layout guides', icon: a.aidsVisible ? 'visibility' : 'visibility_off', run: a.toggleAids, active: a.aidsVisible },
         { kind: 'item', label: 'Facing pages', icon: 'auto_stories', run: a.toggleFacing, active: a.facing },
         { kind: 'sep' },

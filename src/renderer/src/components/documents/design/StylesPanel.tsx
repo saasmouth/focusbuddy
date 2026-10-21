@@ -1,16 +1,12 @@
 import { useMemo, useState } from 'react'
 import {
-  addCharacterStyle,
   addParagraphStyle,
   blockKindsUsing,
-  deleteCharacterStyle,
   deleteParagraphStyle,
   descendantsOf,
   findParagraphStyle,
-  resolveCharacterStyle,
   resolveParagraphStyle,
   setBlockStyle,
-  updateCharacterStyle,
   updateParagraphStyle,
   type BlockStyleKey,
   type DesignStyleSheet
@@ -41,6 +37,15 @@ import type { FlowParaStyle } from '@shared/designFlow'
 // Hyphenation and baseline snapping live here rather than in their own panels
 // because they are properties of a paragraph style, and putting them anywhere
 // else would mean two places that set the same field.
+//
+// NO CHARACTER STYLES, deliberately. The sheet type has carried
+// DesignCharacterStyle since the engine landed, and a tab for defining them
+// was written and then taken out again: nothing can APPLY one. The flow engine
+// sets a line from a single style (FlowLine has one size, one family, one
+// colour), so styling a run inside a paragraph is an engine feature — mixed
+// measurement and mixed rendering — not a panel. A palette of styles that
+// cannot reach any text is the exact thing this branch exists to stop
+// shipping, so it is a known gap rather than a tab.
 
 interface Props {
   design: DesignBody
@@ -65,8 +70,6 @@ const FONTS = ['Georgia', 'Times New Roman', 'Garamond', 'Helvetica', 'Arial', '
 export default function StylesPanel({ design, onPatch }: Props): JSX.Element {
   const sheet = useMemo(() => documentStyleSheet(design), [design])
   const [selected, setSelected] = useState<string>('body')
-  const [charSelected, setCharSelected] = useState<string | null>(null)
-  const [tab, setTab] = useState<'paragraph' | 'character'>('paragraph')
 
   const style = findParagraphStyle(sheet, selected) ?? sheet.paragraph[0]
   // What the style actually sets, parents and all — the numbers to show, since
@@ -87,27 +90,9 @@ export default function StylesPanel({ design, onPatch }: Props): JSX.Element {
     write(updateParagraphStyle(sheet, style.id, { props: patch }))
   }
 
-  const charStyles = sheet.character ?? []
-  const charStyle = charStyles.find((s) => s.id === charSelected) ?? null
-  const charResolved = charStyle ? resolveCharacterStyle(sheet, charStyle.id) : {}
-
   return (
     <div className="text-[12px]" data-testid="design-styles-panel">
       <div className="flex items-center gap-1 mb-2">
-        <button
-          onClick={() => setTab('paragraph')}
-          className={`px-2 py-0.5 rounded fb-t-caption ${tab === 'paragraph' ? 'bg-[rgb(var(--accent)/0.14)] text-[rgb(var(--accent))]' : 'text-[var(--ink-50)]'}`}
-          data-testid="design-styles-tab-paragraph"
-        >
-          Paragraph styles
-        </button>
-        <button
-          onClick={() => setTab('character')}
-          className={`px-2 py-0.5 rounded fb-t-caption ${tab === 'character' ? 'bg-[rgb(var(--accent)/0.14)] text-[rgb(var(--accent))]' : 'text-[var(--ink-50)]'}`}
-          data-testid="design-styles-tab-character"
-        >
-          Character styles
-        </button>
         {!design.paragraphStyles && (
           <span className="ml-auto fb-t-caption text-[var(--ink-40)]" data-testid="design-styles-generated">
             These are the document&rsquo;s current styles. Editing one saves the set into the document.
@@ -115,7 +100,7 @@ export default function StylesPanel({ design, onPatch }: Props): JSX.Element {
         )}
       </div>
 
-      {tab === 'paragraph' ? (
+
         <div className="grid gap-3 md:grid-cols-3">
           {/* ── The styles ───────────────────────────────────────────────── */}
           <section>
@@ -407,161 +392,6 @@ export default function StylesPanel({ design, onPatch }: Props): JSX.Element {
             </div>
           </section>
         </div>
-      ) : (
-        /* ── Character styles ──────────────────────────────────────────────── */
-        <div className="grid gap-3 md:grid-cols-3">
-          <section>
-            <h4 className="fb-t-caption uppercase tracking-wide text-[var(--ink-40)] mb-1">Styles</h4>
-            {charStyles.length === 0 ? (
-              <p className="fb-t-caption text-[var(--ink-50)] leading-snug" data-testid="design-char-empty">
-                No character styles yet. They set a run of text inside a paragraph — a lead-in, a price, a
-                technical term — without touching the paragraph&rsquo;s own shape.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-0.5 max-h-44 overflow-auto pr-1" data-testid="design-char-list">
-                {charStyles.map((s) => (
-                  <li key={s.id}>
-                    <button
-                      onClick={() => setCharSelected(s.id)}
-                      className={`w-full text-left px-1.5 py-1 rounded-md ${
-                        s.id === charSelected ? 'bg-[rgb(var(--accent)/0.1)]' : 'hover:bg-[var(--surface-base)]'
-                      }`}
-                      data-testid={`design-char-${s.id}`}
-                    >
-                      <span className="block text-[12px] text-[var(--ink-90)]">{s.name}</span>
-                      <span className="block fb-t-caption text-[var(--ink-40)]">
-                        {s.basedOn ? `based on ${charStyles.find((c) => c.id === s.basedOn)?.name ?? s.basedOn}` : 'stands alone'}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="flex gap-1.5 mt-1.5">
-              <button
-                onClick={() => {
-                  const { sheet: next, id } = addCharacterStyle(sheet, {
-                    name: `Character ${charStyles.length + 1}`,
-                    ...(charSelected ? { basedOn: charSelected } : {})
-                  })
-                  write(next)
-                  setCharSelected(id)
-                }}
-                className="fb-btn-surface flex-1 px-2 py-1 text-[11px] hover:border-accent"
-                data-testid="design-char-new"
-              >
-                New style
-              </button>
-              <button
-                onClick={() => {
-                  if (!charStyle) return
-                  write(deleteCharacterStyle(sheet, charStyle.id))
-                  setCharSelected(null)
-                }}
-                disabled={!charStyle}
-                className="fb-btn-surface px-2 py-1 text-[11px] hover:bg-[var(--surface-sunken)] disabled:opacity-40"
-                data-testid="design-char-delete"
-              >
-                Delete
-              </button>
-            </div>
-          </section>
-
-          <section className="space-y-1.5 md:col-span-2">
-            {charStyle ? (
-              <>
-                <label className="block">
-                  <span className="fb-t-caption text-[var(--ink-50)]">Name</span>
-                  <input
-                    value={charStyle.name}
-                    onChange={(e) => write(updateCharacterStyle(sheet, charStyle.id, { name: e.target.value }))}
-                    className="fb-field w-full px-1.5 py-1 mt-0.5"
-                    data-testid="design-char-name"
-                  />
-                </label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <label className="block">
-                    <span className="fb-t-caption text-[var(--ink-50)]">Typeface</span>
-                    <select
-                      value={charResolved.fontFamily ?? ''}
-                      onChange={(e) =>
-                        write(updateCharacterStyle(sheet, charStyle.id, { props: { fontFamily: e.target.value || undefined } }))
-                      }
-                      className="fb-field w-full px-1.5 py-1 mt-0.5"
-                      data-testid="design-char-family"
-                    >
-                      <option value="">Leave as the paragraph&rsquo;s</option>
-                      {FONTS.map((f) => (
-                        <option key={f} value={f}>
-                          {f}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="fb-t-caption text-[var(--ink-50)]">Size</span>
-                    <input
-                      type="number"
-                      min={4}
-                      step={0.5}
-                      value={charResolved.fontSize ?? ''}
-                      placeholder="as the paragraph"
-                      onChange={(e) =>
-                        write(
-                          updateCharacterStyle(sheet, charStyle.id, {
-                            props: { fontSize: e.target.value ? Math.max(4, Number(e.target.value)) : undefined }
-                          })
-                        )
-                      }
-                      className="fb-field w-full px-1.5 py-1 mt-0.5"
-                      data-testid="design-char-size"
-                    />
-                  </label>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => write(updateCharacterStyle(sheet, charStyle.id, { props: { bold: !charResolved.bold } }))}
-                    className={`fb-btn-surface px-2 py-1 text-[11px] ${charResolved.bold ? 'border-accent text-[rgb(var(--accent))]' : ''}`}
-                    data-testid="design-char-bold"
-                  >
-                    B
-                  </button>
-                  <button
-                    onClick={() => write(updateCharacterStyle(sheet, charStyle.id, { props: { italic: !charResolved.italic } }))}
-                    className={`fb-btn-surface px-2 py-1 text-[11px] italic ${charResolved.italic ? 'border-accent text-[rgb(var(--accent))]' : ''}`}
-                    data-testid="design-char-italic"
-                  >
-                    I
-                  </button>
-                  <input
-                    type="color"
-                    value={(charResolved.color ?? '#111111').startsWith('#') ? (charResolved.color as string) : '#111111'}
-                    onChange={(e) => write(updateCharacterStyle(sheet, charStyle.id, { props: { color: e.target.value } }))}
-                    className="h-6 w-8 rounded border border-[var(--edge-soft)] bg-transparent"
-                    aria-label="Colour"
-                    data-testid="design-char-color"
-                  />
-                  <label className="flex-1">
-                    <span className="fb-t-caption text-[var(--ink-50)]">Letter spacing</span>
-                    <input
-                      type="number"
-                      step={0.1}
-                      value={charResolved.letterSpacing ?? 0}
-                      onChange={(e) =>
-                        write(updateCharacterStyle(sheet, charStyle.id, { props: { letterSpacing: Number(e.target.value) || 0 } }))
-                      }
-                      className="fb-field w-full px-1.5 py-1"
-                      data-testid="design-char-tracking"
-                    />
-                  </label>
-                </div>
-              </>
-            ) : (
-              <p className="fb-t-caption text-[var(--ink-50)]">Pick a character style, or make one.</p>
-            )}
-          </section>
-        </div>
-      )}
     </div>
   )
 }

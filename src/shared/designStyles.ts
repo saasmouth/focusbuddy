@@ -479,52 +479,6 @@ export function setBlockStyle(sheet: DesignStyleSheet, key: BlockStyleKey, id: s
   return { ...sheet, blockMap: map }
 }
 
-export function addCharacterStyle(
-  sheet: DesignStyleSheet,
-  style: { name: string; basedOn?: string; props?: Partial<CharacterProps> }
-): { sheet: DesignStyleSheet; id: string } {
-  const existing = sheet.character ?? []
-  const id = styleId(style.name, existing.map((s) => s.id))
-  const next: DesignCharacterStyle = {
-    id,
-    name: style.name.trim() || id,
-    ...(style.basedOn && existing.some((s) => s.id === style.basedOn) ? { basedOn: style.basedOn } : {}),
-    props: style.props ?? {}
-  }
-  return { sheet: { ...sheet, character: [...existing, next] }, id }
-}
-
-export function updateCharacterStyle(
-  sheet: DesignStyleSheet,
-  id: string,
-  patch: Partial<Omit<DesignCharacterStyle, 'id'>>
-): DesignStyleSheet {
-  return {
-    ...sheet,
-    character: (sheet.character ?? []).map((s) =>
-      s.id === id ? { ...s, ...patch, props: { ...s.props, ...(patch.props ?? {}) } } : s
-    )
-  }
-}
-
-export function deleteCharacterStyle(sheet: DesignStyleSheet, id: string): DesignStyleSheet {
-  const existing = sheet.character ?? []
-  if (!existing.some((s) => s.id === id)) return sheet
-  const parent = existing.find((s) => s.id === id)?.basedOn
-  return {
-    ...sheet,
-    character: existing
-      .filter((s) => s.id !== id)
-      .map((s) =>
-        s.basedOn === id
-          ? parent && parent !== s.id
-            ? { ...s, basedOn: parent }
-            : (({ basedOn: _drop, ...rest }) => rest)(s)
-          : s
-      )
-  }
-}
-
 /**
  * Which block kinds a paragraph style sets, as the panel shows it ("every
  * Heading 1"). A style nothing points at is still useful — it can be applied

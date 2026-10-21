@@ -1315,7 +1315,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
       )}
 
       {panel === 'styles' && (
-        <Panel title="Paragraph &amp; character styles">
+        <Panel title="Paragraph styles">
           <StylesPanel design={design} onPatch={patchLayout} />
         </Panel>
       )}

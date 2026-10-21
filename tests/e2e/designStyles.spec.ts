@@ -1,5 +1,5 @@
 /**
- * E2E for PlexiDesign's named styles — Layout → "Paragraph & character styles…".
+ * E2E for PlexiDesign's named styles — Layout → "Paragraph styles…".
  *
  * The sheet already drove the page (storyParagraphs resolves every block
  * through it), and a document without one got a generated default. What did
@@ -24,7 +24,7 @@ async function openStyles(window: Page): Promise<void> {
   if (await panel.isVisible().catch(() => false)) return
   await window.locator('[data-testid="design-menubar-layout"]').click()
   await window
-    .locator('[data-testid="design-menubar-layout-list"] button', { hasText: 'Paragraph & character styles' })
+    .locator('[data-testid="design-menubar-layout-list"] button', { hasText: 'Paragraph styles' })
     .first()
     .click()
   await expect(panel).toBeVisible({ timeout: 5_000 })
@@ -167,21 +167,6 @@ test.describe('PlexiDesign named styles', () => {
     await expect(window.locator('[data-testid="design-style-delete"]')).toBeDisabled()
   })
 
-  test('ST-7 character styles are a separate tab, honest when empty', async () => {
-    await openStyles(window)
-    await window.locator('[data-testid="design-styles-tab-character"]').click()
-    const empty = window.locator('[data-testid="design-char-empty"]')
-    const list = window.locator('[data-testid="design-char-list"]')
-    // One or the other, depending on what the document carries.
-    if (await empty.isVisible().catch(() => false)) {
-      await expect(empty).toContainText('without touching')
-    } else {
-      await expect(list).toBeVisible()
-    }
-    await window.locator('[data-testid="design-char-new"]').click()
-    await window.locator('[data-testid="design-char-name"]').fill('Lead-in')
-    await expect(window.locator('[data-testid="design-char-list"]')).toContainText('Lead-in')
-  })
 })
 
 test.describe('PlexiDesign baseline grid', () => {
