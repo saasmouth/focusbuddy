@@ -19,9 +19,34 @@ interface Props {
     columns: boolean
     guides: boolean
     wrap: boolean
+    /** The baseline grid, when the document has one. */
+    baseline?: boolean
   }
   /** Fires when a guide is clicked, so the editor can delete it. */
   onRemoveGuide?: (axis: 'v' | 'h', at: number) => void
+}
+
+/**
+ * Where the grid lines fall, in page coordinates, inside the margin box.
+ *
+ * Bounded deliberately: a one-pixel grid on a poster is a million elements and
+ * a hung window, so a grid finer than 2px is not drawn at all (the control will
+ * not offer one either), and the count is capped.
+ */
+function baselineYs(design: DesignBody): number[] {
+  const g = design.baselineGrid
+  const box = marginBox(design)
+  if (!g || g.spacing < 2) return []
+  const offset = g.offset ?? 0
+  const out: number[] = []
+  // Start at the first grid line at or after the top of the margin box.
+  let y = offset + Math.ceil((box.y - offset) / g.spacing) * g.spacing
+  const limit = box.y + box.h
+  while (y <= limit && out.length < 2000) {
+    out.push(Math.round(y * 100) / 100)
+    y += g.spacing
+  }
+  return out
 }
 
 export default function LayoutOverlay({ design, scale, show, onRemoveGuide }: Props): JSX.Element {
@@ -61,6 +86,32 @@ export default function LayoutOverlay({ design, scale, show, onRemoveGuide }: Pr
                 background: 'rgba(139,92,246,0.06)',
                 borderLeft: `${hair}px solid rgba(139,92,246,0.4)`,
                 borderRight: `${hair}px solid rgba(139,92,246,0.4)`
+              }}
+            />
+          ))}
+        </>
+      )}
+
+      {/* The baseline grid. Drawn under the guides and above the columns, as
+          hairlines across the margin box rather than the whole page — the grid
+          is what text sets to, and text lives inside the margins.
+
+          Every line is one element, which is fine at a page's worth (an A4 page
+          at a 12px grid is some ninety lines) and is what keeps it sharp at any
+          zoom without a canvas. */}
+      {show.baseline && design.baselineGrid && design.baselineGrid.spacing >= 2 && (
+        <>
+          {baselineYs(design).map((y) => (
+            <div
+              key={y}
+              data-testid="design-baseline-line"
+              style={{
+                position: 'absolute',
+                left: box.x,
+                top: y,
+                width: box.w,
+                height: hair,
+                background: 'rgba(14,165,233,0.35)'
               }}
             />
           ))}

@@ -56,6 +56,7 @@ import type { FlowMeasurer } from '@shared/designFlow'
 import LayoutOverlay from './design/LayoutOverlay'
 import LayoutPanel from './design/LayoutPanel'
 import PreflightPanel from './design/PreflightPanel'
+import StylesPanel from './design/StylesPanel'
 import { preflight, preflightSummary } from '@shared/designPreflight'
 import DesignRulers from './design/DesignRulers'
 import Icon from '../Icon'
@@ -136,7 +137,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [exportOpen, setExportOpen] = useState(false)
   const [panel, setPanel] = useState<
-    'none' | 'templates' | 'size' | 'ai' | 'stock' | 'layout' | 'redesign' | 'preflight'
+    'none' | 'templates' | 'size' | 'ai' | 'stock' | 'layout' | 'redesign' | 'preflight' | 'styles'
   >(
     () => (normalizeDesignBody(content).elements.length === 0 ? 'templates' : 'none')
   )
@@ -1048,6 +1049,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
             exportAs: (f) => void exportAs(f),
             openLayout: () => setPanel('layout'),
             openPreflight: () => setPanel('preflight'),
+            openStyles: () => setPanel('styles'),
             preflightHint,
             addPage,
             toggleFacing: () => patchLayout({ facing: !designRef.current.facing }),
@@ -1312,6 +1314,12 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
         </Panel>
       )}
 
+      {panel === 'styles' && (
+        <Panel title="Paragraph &amp; character styles">
+          <StylesPanel design={design} onPatch={patchLayout} />
+        </Panel>
+      )}
+
       {panel === 'preflight' && (
         <Panel title="Preflight for print">
           <PreflightPanel
@@ -1409,7 +1417,13 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
                     <LayoutOverlay
                       design={design}
                       scale={canvasW / design.width}
-                      show={{ margins: showLayoutAids, columns: showLayoutAids, guides: showLayoutAids, wrap: showLayoutAids }}
+                      show={{
+                        margins: showLayoutAids,
+                        columns: showLayoutAids,
+                        guides: showLayoutAids,
+                        wrap: showLayoutAids,
+                        baseline: showLayoutAids
+                      }}
                       onRemoveGuide={removeGuide}
                     />
                     {textEdit && design.stories?.[textEdit.storyId] && (

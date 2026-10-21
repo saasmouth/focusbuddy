@@ -400,3 +400,152 @@ export function defaultStyleSheet(scale: SheetScale, layout: SheetLayout): Desig
     }
   }
 }
+
+// ── Editing a sheet ──────────────────────────────────────────────────────────
+//
+// Every operation returns a NEW sheet for the same reason updateParagraphStyle
+// does: the document is held in React state, and undo depends on the previous
+// sheet still existing.
+
+/** A style id derived from its name: readable in a saved file, and unique. */
+export function styleId(name: string, taken: Iterable<string>): string {
+  const used = new Set(taken)
+  const base =
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40) || 'style'
+  if (!used.has(base)) return base
+  let n = 2
+  while (used.has(`${base}-${n}`)) n += 1
+  return `${base}-${n}`
+}
+
+/** Add a paragraph style. Returns the new sheet and the id it was given. */
+export function addParagraphStyle(
+  sheet: DesignStyleSheet,
+  style: { name: string; basedOn?: string; props?: Partial<FlowParaStyle> }
+): { sheet: DesignStyleSheet; id: string } {
+  const id = styleId(style.name, sheet.paragraph.map((s) => s.id))
+  const next: DesignParagraphStyle = {
+    id,
+    name: style.name.trim() || id,
+    ...(style.basedOn && findParagraphStyle(sheet, style.basedOn) ? { basedOn: style.basedOn } : {}),
+    props: style.props ?? {}
+  }
+  return { sheet: { ...sheet, paragraph: [...sheet.paragraph, next] }, id }
+}
+
+/**
+ * Delete a paragraph style.
+ *
+ * Its children are re-based onto ITS parent rather than orphaned, so a family
+ * does not silently lose the ink or the family it inherited. Anything in the
+ * block map that pointed at it falls back to the body style, which is what
+ * styleIdForBlock would have done anyway.
+ *
+ * The body style cannot be deleted: it is the base every resolution ends at,
+ * and a sheet without it has nothing to fall back to. Asking returns the sheet
+ * unchanged rather than throwing — a disabled button is the UI's job, and a
+ * thrown error in a render path is worse than a no-op.
+ */
+export function deleteParagraphStyle(sheet: DesignStyleSheet, id: string): DesignStyleSheet {
+  if (id === 'body' || !findParagraphStyle(sheet, id)) return sheet
+  const parent = findParagraphStyle(sheet, id)?.basedOn
+  const blockMap = Object.fromEntries(
+    Object.entries(sheet.blockMap ?? {}).filter(([, v]) => v !== id)
+  ) as DesignStyleSheet['blockMap']
+  return {
+    ...sheet,
+    paragraph: sheet.paragraph
+      .filter((s) => s.id !== id)
+      .map((s) =>
+        s.basedOn === id
+          ? parent && parent !== s.id
+            ? { ...s, basedOn: parent }
+            : (({ basedOn: _drop, ...rest }) => rest)(s)
+          : s
+      ),
+    ...(blockMap && Object.keys(blockMap).length ? { blockMap } : {})
+  }
+}
+
+/** Point a kind of block (every heading 1, every quote) at a style. */
+export function setBlockStyle(sheet: DesignStyleSheet, key: BlockStyleKey, id: string | null): DesignStyleSheet {
+  const map = { ...(sheet.blockMap ?? {}) }
+  if (id && findParagraphStyle(sheet, id)) map[key] = id
+  else delete map[key]
+  return { ...sheet, blockMap: map }
+}
+
+export function addCharacterStyle(
+  sheet: DesignStyleSheet,
+  style: { name: string; basedOn?: string; props?: Partial<CharacterProps> }
+): { sheet: DesignStyleSheet; id: string } {
+  const existing = sheet.character ?? []
+  const id = styleId(style.name, existing.map((s) => s.id))
+  const next: DesignCharacterStyle = {
+    id,
+    name: style.name.trim() || id,
+    ...(style.basedOn && existing.some((s) => s.id === style.basedOn) ? { basedOn: style.basedOn } : {}),
+    props: style.props ?? {}
+  }
+  return { sheet: { ...sheet, character: [...existing, next] }, id }
+}
+
+export function updateCharacterStyle(
+  sheet: DesignStyleSheet,
+  id: string,
+  patch: Partial<Omit<DesignCharacterStyle, 'id'>>
+): DesignStyleSheet {
+  return {
+    ...sheet,
+    character: (sheet.character ?? []).map((s) =>
+      s.id === id ? { ...s, ...patch, props: { ...s.props, ...(patch.props ?? {}) } } : s
+    )
+  }
+}
+
+export function deleteCharacterStyle(sheet: DesignStyleSheet, id: string): DesignStyleSheet {
+  const existing = sheet.character ?? []
+  if (!existing.some((s) => s.id === id)) return sheet
+  const parent = existing.find((s) => s.id === id)?.basedOn
+  return {
+    ...sheet,
+    character: existing
+      .filter((s) => s.id !== id)
+      .map((s) =>
+        s.basedOn === id
+          ? parent && parent !== s.id
+            ? { ...s, basedOn: parent }
+            : (({ basedOn: _drop, ...rest }) => rest)(s)
+          : s
+      )
+  }
+}
+
+/**
+ * Which block kinds a paragraph style sets, as the panel shows it ("every
+ * Heading 1"). A style nothing points at is still useful — it can be applied
+ * to one paragraph — but a person deleting a style should see what it holds.
+ */
+export function blockKindsUsing(sheet: DesignStyleSheet, id: string): BlockStyleKey[] {
+  const keys: BlockStyleKey[] = [
+    'title',
+    'subtitle',
+    'heading1',
+    'heading2',
+    'heading3',
+    'paragraph',
+    'list',
+    'quote',
+    'caption'
+  ]
+  return keys.filter((k) => {
+    const mapped = sheet.blockMap?.[k]
+    if (mapped) return mapped === id
+    // No entry: the key doubles as the conventional id.
+    return k === id && !!findParagraphStyle(sheet, k)
+  })
+}

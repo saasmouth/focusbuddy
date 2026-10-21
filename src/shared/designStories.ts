@@ -16,6 +16,7 @@ import { flowStory, type FlowBox, type FlowFrame, type FlowLine, type FlowMeasur
 import { layoutWithFootnotes, noteLines, type FootnoteDef, type FootnotePlacement } from './designFootnotes'
 import { storyFootnotes, withFootnoteMarkers } from './designFootnoteText'
 import { findLayoutStyle, storyParagraphs, typeScaleFor } from './designAutoLayout'
+import { defaultStyleSheet, type DesignStyleSheet } from './designStyles'
 import { parsePlainText, toPlainText, type ContentDoc } from './designContent'
 import { DEFAULT_BRAND_KIT, type OrgBrandKit } from './brandKit'
 import type { SlideElement, SlideTextElement } from './types'
@@ -31,6 +32,35 @@ function expandedObstacles(page: DesignPage, exclude: string[]): FlowBox[] {
 }
 
 /**
+ * The column width the type scale is derived from: the body size comes from the
+ * COLUMN, not the page, which is what keeps the measure readable whether the
+ * layout is one wide column or three narrow ones.
+ */
+function columnWidth(design: DesignBody): number {
+  const columns = design.columns?.count ?? 1
+  const gutter = design.columns?.gutter ?? 0
+  const m = design.margins
+  const boxW = m ? design.width - m.left - m.right : design.width
+  return (boxW - gutter * (columns - 1)) / Math.max(1, columns)
+}
+
+/**
+ * The sheet this document actually sets by: its own when it has one, otherwise
+ * the default generated from its layout preset and scale.
+ *
+ * The styles panel needs this, and it is the reason the panel can open on a
+ * document written before style sheets existed and show Body, Heading 1 and
+ * Quote already defined rather than an empty palette. Nothing is written to
+ * the document until something is edited: the panel writes the whole resolved
+ * sheet on its first change, which is what materialises it.
+ */
+export function documentStyleSheet(design: DesignBody, brand: OrgBrandKit = DEFAULT_BRAND_KIT): DesignStyleSheet {
+  if (design.paragraphStyles) return design.paragraphStyles
+  const style = findLayoutStyle(design.layoutStyleId ?? 'editorial')
+  return defaultStyleSheet(typeScaleFor(style, brand, columnWidth(design)), style)
+}
+
+/**
  * The styled paragraphs for one story, built from its blocks through the same
  * type scale the auto-layout engine uses — so text typed into a story afterwards
  * is set exactly like the text the wizard laid out.
@@ -39,11 +69,7 @@ export function paragraphsForStory(design: DesignBody, storyId: string, brand: O
   const doc = design.stories?.[storyId]
   if (!doc || doc.blocks.length === 0) return []
   const style = findLayoutStyle(design.layoutStyleId ?? 'editorial')
-  const columns = design.columns?.count ?? 1
-  const gutter = design.columns?.gutter ?? 0
-  const m = design.margins
-  const boxW = m ? design.width - m.left - m.right : design.width
-  const colW = (boxW - gutter * (columns - 1)) / Math.max(1, columns)
+  const colW = columnWidth(design)
   // The same type scale the wizard used, so text typed into a story afterwards
   // is set exactly like the text the wizard laid out.
   // The document's own sheet when it has one; otherwise storyParagraphs

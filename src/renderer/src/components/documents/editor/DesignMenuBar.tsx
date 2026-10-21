@@ -43,6 +43,8 @@ export interface DesignMenuActions {
   exportPrint: () => void
   /** Open the print check: what would go wrong on press, measured. */
   openPreflight: () => void
+  /** Open the named styles: the sheet the whole document sets by. */
+  openStyles: () => void
   /**
    * The print check's standing verdict ("Ready to print", "2 warnings"), shown
    * on the menu item itself. InDesign keeps preflight in the status bar for a
@@ -153,6 +155,7 @@ export default function DesignMenuBar({ actions }: { actions: DesignMenuActions 
       label: 'Layout',
       build: () => [
         { kind: 'item', label: 'Margins, columns & layers…', icon: 'grid_on', run: a.openLayout },
+        { kind: 'item', label: 'Paragraph & character styles…', icon: 'format_paint', run: a.openStyles },
         { kind: 'item', label: 'Show layout guides', icon: a.aidsVisible ? 'visibility' : 'visibility_off', run: a.toggleAids, active: a.aidsVisible },
         { kind: 'item', label: 'Facing pages', icon: 'auto_stories', run: a.toggleFacing, active: a.facing },
         { kind: 'sep' },

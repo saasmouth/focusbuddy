@@ -86,6 +86,77 @@ export default function LayoutPanel(p: Props): JSX.Element {
           </label>
         </div>
 
+        {/* ── Baseline grid ───────────────────────────────────────────────
+            The ruler every column locks to, so lines of text align across the
+            page and across a spread. The grid alone changes nothing: a
+            paragraph style has to ask to snap to it, which is a property of
+            the style and so lives in the styles panel. That is said here,
+            because a grid that appears to do nothing is worse than no grid. */}
+        <h4 className="text-[10px] uppercase tracking-wide text-[var(--ink-40)] pt-1">Baseline grid</h4>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={!!design.baselineGrid}
+            data-testid="design-baseline-toggle"
+            onChange={(e) =>
+              p.onPatch({
+                // The body's leading is the right default for a baseline grid,
+                // and 12px is the usual body leading here.
+                baselineGrid: e.target.checked ? { spacing: design.baselineGrid?.spacing ?? 12, offset: design.baselineGrid?.offset ?? 0 } : undefined
+              })
+            }
+            className="accent-[var(--accent)]"
+          />
+          <span className="text-[var(--ink-70)]">Use a baseline grid</span>
+        </label>
+        {design.baselineGrid && (
+          <>
+            <div className="grid grid-cols-2 gap-1.5">
+              <label className="flex items-center gap-1.5">
+                <span className="w-12 text-[var(--ink-50)]">Every</span>
+                <input
+                  type="number"
+                  min={2}
+                  max={200}
+                  step={0.5}
+                  value={design.baselineGrid.spacing}
+                  data-testid="design-baseline-spacing"
+                  onChange={(e) =>
+                    p.onPatch({
+                      baselineGrid: {
+                        ...design.baselineGrid!,
+                        // Floored at 2px: a finer grid is a hundred thousand
+                        // hairlines and a hung window, and it is not a grid
+                        // anyone sets type to.
+                        spacing: Math.max(2, Math.min(200, Number(e.target.value) || 12))
+                      }
+                    })
+                  }
+                  className="fb-field w-full min-w-0 px-1.5 py-1"
+                />
+              </label>
+              <label className="flex items-center gap-1.5">
+                <span className="w-12 text-[var(--ink-50)]">From</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={design.baselineGrid.offset ?? 0}
+                  data-testid="design-baseline-offset"
+                  onChange={(e) =>
+                    p.onPatch({ baselineGrid: { ...design.baselineGrid!, offset: Math.max(0, Number(e.target.value) || 0) } })
+                  }
+                  className="fb-field w-full min-w-0 px-1.5 py-1"
+                />
+              </label>
+            </div>
+            <p className="text-[10px] text-[var(--ink-40)] leading-snug" data-testid="design-baseline-note">
+              The grid shows with the layout guides. Text only sits on it where a paragraph style asks to:
+              turn on &ldquo;Snap to the baseline grid&rdquo; in Layout &rarr; Paragraph &amp; character styles.
+            </p>
+          </>
+        )}
+
         <h4 className="text-[10px] uppercase tracking-wide text-[var(--ink-40)] pt-1">Document</h4>
         <label className="flex items-center gap-2">
           <input
