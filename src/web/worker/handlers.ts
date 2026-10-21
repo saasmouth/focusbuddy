@@ -93,7 +93,6 @@ import {
 } from '../../main/db/workspaceSync'
 import { createConversation as createAiChatConversation, setConversationMode as setAiChatConversationMode, appendMessage as appendAiChatMessage, deleteConversation as deleteAiChatConversation, getConversation as getAiChatConversation, linkDesk as linkAiChatDesk, listConversations as listAiChatConversations, renameConversation as renameAiChatConversation, setConversationWebSearch as setAiChatConversationWebSearch, setMessageApplied as setAiChatMessageApplied } from '../../main/db/aiChat'
 import { createApp, deleteApp, getApp, listApps, updateApp } from '../../main/db/apps'
-import { deleteDashboardLayout, getDashboardLayout, setDashboardLayout } from '../../main/db/dashboardLayouts'
 import { deleteEmbedding } from '../../main/db/embeddings'
 import { currentEnergy, logEnergy, recentEnergy } from '../../main/db/energy'
 import { completeFocusSession, listRecentSessions, startFocusSession } from '../../main/db/focusSessions'
@@ -110,7 +109,7 @@ import { importDeskBundle } from '../../main/db/deskBundle'
 import type { PlexiAppDraft, PlexiAppPatch } from '@shared/apps'
 import type { KnowledgeDraft, KnowledgePatch } from '@shared/knowledge'
 import type { DepType, PlanTaskPatch } from '@shared/projects'
-import type { AiChatConversationContext, AiChatMode, ActionProposal, AppliedProposal, ChatMentionRef, ChatQuestion, ChatSource, DashboardCardKind, DashboardLayoutInput, EnergyLevel, FocusSessionCompletePatch, FocusSessionStartDraft, MemoryKind, StoredTrace, TimeBlockDraft, TimeBlockPatch } from '@shared/types'
+import type { AiChatConversationContext, AiChatMode, ActionProposal, AppliedProposal, ChatMentionRef, ChatQuestion, ChatSource, EnergyLevel, FocusSessionCompletePatch, FocusSessionStartDraft, MemoryKind, StoredTrace, TimeBlockDraft, TimeBlockPatch } from '@shared/types'
 import type { WorkingCalendar } from '@shared/workingCalendar'
 import type { PostInput } from '../../main/notifications/substrate'
 import type { DirectoryPerson } from '../../main/peopleDirectory'
@@ -450,11 +449,6 @@ export const HANDLERS: Record<string, Handler> = {
   'apps:get': h((id: string) => getApp(id)),
   'apps:list': h(() => listApps()),
   'apps:update': h((id: string, patch: PlexiAppPatch) => updateApp(id, patch)),
-
-  // ── Dashboard layouts ──
-  'dashboard:getLayout': h((key: string) => getDashboardLayout(key)),
-  'dashboard:resetLayout': h((key: string) => deleteDashboardLayout(key)),
-  'dashboard:setLayout': h((key: string, input: DashboardCardKind[] | DashboardLayoutInput) => setDashboardLayout(key, input)),
 
   // ── Energy log ──
   'energy:current': h(() => currentEnergy()),

@@ -638,12 +638,6 @@ import type {
   FbTableDraft,
   FbTablePatch
 } from '@shared/fields'
-import {
-  deleteDashboardLayout,
-  getDashboardLayout,
-  setDashboardLayout,
-  type DashboardLayoutInput
-} from '../db/dashboardLayouts'
 import { currentEnergy, logEnergy, recentEnergy } from '../db/energy'
 import {
   createTimeBlock,
@@ -706,7 +700,6 @@ import { getRecentActivity, recordActivity } from '../db/activity'
 import {
   generatePresenceNarration,
   generateProactiveWelcome,
-  generateDailyBrief,
   buildFromPrompt,
   generateResume,
   proposeSmartStacks,
@@ -754,7 +747,6 @@ import type {
   ChatRequest,
   ConnectedAppDraft,
   ConnectedAppPatch,
-  DashboardCardKind,
   EnergyLevel,
   TimeBlockDraft,
   TimeBlockPatch,
@@ -1901,7 +1893,6 @@ export function registerIpcHandlers(): void {
     }
   )
   ipcMain.handle('chat:hasApiKey', () => Boolean(resolveAnthropicKey()))
-  ipcMain.handle('ai:dailyBrief', () => generateDailyBrief())
   // Daily standup: the assistant catch-up duo (Work-Completed look-back woven with
   // the brief look-forward) into one narrative. The caller passes the synced-per-user
   // cursor and persists the returned toCursor. Read-only + honest-degrading.
@@ -2271,17 +2262,6 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('localApp:refreshIcon', (_e, appPath: string) =>
     refreshAppIcon(appPath)
-  )
-
-  // ── Dashboard layouts (Phase 6) ───────────────────────────────────────────
-  ipcMain.handle('dashboard:getLayout', (_e, key: string) => getDashboardLayout(key))
-  ipcMain.handle(
-    'dashboard:setLayout',
-    (_e, key: string, input: DashboardCardKind[] | DashboardLayoutInput) =>
-      setDashboardLayout(key, input)
-  )
-  ipcMain.handle('dashboard:resetLayout', (_e, key: string) =>
-    deleteDashboardLayout(key)
   )
 
   // ── Active organisation (multi-org tenancy) ───────────────────────────────

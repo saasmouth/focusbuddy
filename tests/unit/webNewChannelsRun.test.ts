@@ -51,7 +51,6 @@ beforeAll(async () => {
 const READS: ReadonlyArray<[string, unknown[]]> = [
   ['aiChat:listConversations', []],
   ['apps:list', []],
-  ['dashboard:getLayout', ['home']],
   ['energy:current', []],
   ['energy:recent', [24]],
   ['focus:recent', [10]],
@@ -138,7 +137,7 @@ describe('the channels the browser runtime newly serves', () => {
     }
 
     const SERVED_NAMESPACES = [
-      'aiChat', 'apps', 'dashboard', 'energy', 'focus', 'knowledge', 'memory',
+      'aiChat', 'apps', 'energy', 'focus', 'knowledge', 'memory',
       'projects', 'timeblocks', 'signals', 'notifications', 'people', 'onboarding'
     ]
 
@@ -167,11 +166,11 @@ describe('the channels the browser runtime newly serves', () => {
   // served, but the assistant sends through chat:sendStream, which is not.
   describe('features the comparison page marks as working', () => {
     const FEATURES: ReadonlyArray<[string, string[]]> = [
-      ['Focus sessions, energy log, habit garden', [
-        'stores/focusSession.ts', 'stores/energy.ts', 'components/HabitGarden.tsx'
-      ]],
+      // The habit garden and the dashboard-layouts store were part of the old
+      // project dashboard, which nothing rendered; both were retired in
+      // 4.3.41 along with the dashboard:* channels only they called.
+      ['Focus sessions, energy log', ['stores/focusSession.ts', 'stores/energy.ts']],
       ['Time blocks / calendar', ['stores/timeBlocks.ts']],
-      ['Dashboard layouts', ['stores/dashboardLayouts.ts']],
       ['Connected apps', ['stores/apps.ts']],
       ['Signals', ['stores/completionOffer.ts']]
     ]

@@ -107,9 +107,8 @@ runtimes; a kind marked ✅ behaves identically.
 | **PlexiBrain — knowledge** | ⚠️ | Entries are created, edited, searched by keyword and synced. **Semantic search** is not: it embeds through a local model on `localhost:11434` — from a tab, the *viewer's* machine — or OpenAI directly with a key a browser must never hold. Entries saved here are embedded the next time the desktop opens PlexiBrain, which is what `knowledge:reindex` is for. **Chosen** |
 | **PlexiBrain — memory** | ⚠️ | Remembering, listing and forgetting work. **Extracting memories from documents** runs through the same local model. **Chosen** |
 | **AI chat threads** | ⚠️ | The thread *store* is complete: conversations, messages, modes, the web-search toggle and desk links are all created, read and synced. **Sending a message to the assistant** is not served — `chat:sendStream` streams over a per-request channel (`chat:stream:<id>`) and the Worker bridge carries only a fixed set of subscriptions. *Not yet* — a streaming bridge restores it. |
-| **Focus sessions, energy log, habit garden** | ✅ | |
+| **Focus sessions, energy log** | ✅ | |
 | **Time blocks / calendar** | ✅ | Repeating series materialise on read, as on the desktop. |
-| **Dashboard layouts** | ✅ | |
 | **Connected apps** | ✅ | |
 | **Signals** (the arrival router's record) | ✅ | |
 | **Notifications** | ✅ | The durable substrate, same store. |

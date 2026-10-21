@@ -6,7 +6,9 @@
  * The restyle touched NewNodeDialog, Sidebar, DeskGallery, AllTasksView,
  * WorkspaceHeader and the canvas chrome (FloatingToolbar/ZoomControls/
  * CanvasBreadcrumb) with token/class swaps only. This spec drives the
- * real user-facing flows through each surface end to end.
+ * real user-facing flows through each surface end to end. (WorkspaceHeader
+ * belonged to the old project dashboard, which nothing rendered; it was
+ * retired in 4.3.41 and this spec never drove it.)
  *
  * Retargeted 2026-10-10 to where those flows live now. The behaviour it
  * protects is unchanged; the furniture moved:
