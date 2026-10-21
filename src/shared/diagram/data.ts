@@ -214,7 +214,7 @@ export function generateFromTable(table: FbTable, rows: FbRow[], opts: GenerateO
     ...(fieldIds.length ? { height: 48 + fieldIds.length * 16, width: 170 } : {}),
     binding: {
       source: { kind: 'table', tableId: table.id, rowId: r.id },
-      ...(fieldIds.length ? { fields: fieldIds } : {})
+      ...(fieldIds.length ? { fields: [...fieldIds] } : {})
     }
   }))
   const edges: MapEdge[] = []

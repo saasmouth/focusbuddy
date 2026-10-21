@@ -6,6 +6,7 @@
 import type { MapEdge, MapLayer, MapNode, MapNodeStyle } from '../types'
 import { boundsOf, contains, nodeBox, type Box } from './geom'
 import { getShape } from './shapes'
+import { fresh } from './sharedRefs'
 
 export interface Graph {
   nodes: MapNode[]
@@ -126,7 +127,9 @@ export function pasteClip(g: Graph, clip: Clip, offset: { x: number; y: number }
   const idMap = new Map<string, string>()
   for (const n of clip.nodes) idMap.set(n.id, uid('n'))
   const groupMap = new Map<string, string>()
-  const nodes = clip.nodes.map((n) => {
+  // Deep copies: a pasted shape must not share its style, data, binding or
+  // cells with the original (or with an earlier paste of the same clipboard).
+  const nodes = clip.nodes.map(fresh).map((n) => {
     const out: MapNode = { ...n, id: idMap.get(n.id)!, x: Math.round(n.x + offset.x), y: Math.round(n.y + offset.y), locked: undefined }
     if (n.parentId) out.parentId = idMap.get(n.parentId)
     if (n.groupId) {
@@ -137,6 +140,7 @@ export function pasteClip(g: Graph, clip: Clip, offset: { x: number; y: number }
   })
   const edges = clip.edges
     .filter((e) => idMap.has(e.source) && idMap.has(e.target))
+    .map(fresh)
     .map((e) => ({
       ...e,
       id: uid('e'),
@@ -152,6 +156,13 @@ export function pasteClip(g: Graph, clip: Clip, offset: { x: number; y: number }
 
 export function duplicate(g: Graph, sel: Sel, offset = 20): { graph: Graph; sel: Sel } {
   return pasteClip(g, copySelection(g, sel), { x: offset, y: offset })
+}
+
+// A whole page as a new, independent page: fresh ids and fresh objects,
+// including its layer list.
+export function copyPage(src: Graph & { layers?: MapLayer[] }): Graph & { layers?: MapLayer[] } {
+  const copy = pasteClip({ nodes: [], edges: [] }, copySelection(src, selectAll(src)), { x: 0, y: 0 }).graph
+  return { ...copy, ...(src.layers ? { layers: fresh(src.layers) } : {}) }
 }
 
 // ── arrange ─────────────────────────────────────────────────────────────────
@@ -193,12 +204,14 @@ export function setLocked(g: Graph, sel: Sel, locked: boolean): Graph {
   }
 }
 
+// The patch is copied per item: a multi-select edit that sets an object (a
+// style, a binding, waypoints) must give each shape its own.
 export function patchNodes(g: Graph, ids: Set<string>, patch: (n: MapNode) => Partial<MapNode>): Graph {
-  return { ...g, nodes: g.nodes.map((n) => (ids.has(n.id) ? stripUndef({ ...n, ...patch(n) }) : n)) }
+  return { ...g, nodes: g.nodes.map((n) => (ids.has(n.id) ? stripUndef({ ...n, ...fresh(patch(n)) }) : n)) }
 }
 
 export function patchEdges(g: Graph, ids: Set<string>, patch: (e: MapEdge) => Partial<MapEdge>): Graph {
-  return { ...g, edges: g.edges.map((e) => (ids.has(e.id) ? stripUndef({ ...e, ...patch(e) }) : e)) }
+  return { ...g, edges: g.edges.map((e) => (ids.has(e.id) ? stripUndef({ ...e, ...fresh(patch(e)) }) : e)) }
 }
 
 export function patchStyle(g: Graph, ids: Set<string>, style: Partial<MapNodeStyle>): Graph {

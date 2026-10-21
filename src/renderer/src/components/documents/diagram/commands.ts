@@ -14,6 +14,7 @@ import { mermaidToMap, mapToMermaid } from '@shared/diagram/mermaid'
 import { drawioToMap, mapToDrawio } from '@shared/diagram/drawio'
 import { generateFromTable, type GenerateOptions } from '@shared/diagram/data'
 import { normalizeMapBody } from '@shared/mapGraph'
+import { fresh } from '@shared/diagram/sharedRefs'
 import { alignBoxes, distributeBoxes, type AlignEdge } from '../map/mapAlign'
 import { mapTemplate, type MapTemplateId } from '../map/mapTemplates'
 import type { QuickDir } from './DiagramContext'
@@ -148,7 +149,7 @@ function makeCommands(d: Deps) {
       if (!from) return
       const size = nodeSize(from)
       const pos = ops.slotBeside(g, from, dir, size)
-      const n: MapNode = { ...makeNode(from.shape, { x: 0, y: 0 }), x: pos.x, y: pos.y, width: from.width, height: from.height, color: from.color, ...(from.style ? { style: from.style } : {}), label: getShape(from.shape).defaultLabel ?? '' }
+      const n: MapNode = { ...makeNode(from.shape, { x: 0, y: 0 }), x: pos.x, y: pos.y, width: from.width, height: from.height, color: from.color, ...(from.style ? { style: fresh(from.style) } : {}), label: getShape(from.shape).defaultLabel ?? '' }
       const side = { up: 'top', right: 'right', down: 'bottom', left: 'left' }[dir]
       const opp = { up: 'bottom', right: 'left', down: 'top', left: 'right' }[dir]
       add([n], [d.newEdge(from.id, n.id, side, opp)], true)
@@ -451,10 +452,8 @@ function makeCommands(d: Deps) {
     },
     duplicatePage(i: number): void {
       const src = getPage(d.bodyRef.current, i)
-      const clip = ops.copySelection(src, ops.selectAll(src))
-      const copy = ops.pasteClip({ nodes: [], edges: [] }, clip, { x: 0, y: 0 }).graph
       const name = `${pageList(d.bodyRef.current)[i]?.name ?? 'Page'} copy`
-      const { body, index } = addPage(d.bodyRef.current, name, ops.uid('page-'), { ...copy, layers: src.layers })
+      const { body, index } = addPage(d.bodyRef.current, name, ops.uid('page-'), ops.copyPage(src))
       d.updateBody(() => body)
       d.setPageIdx(index)
     },
