@@ -14,6 +14,7 @@ import type { ArgSpec } from './contracts'
 // here. Everything else is deliberately unconstrained; see contracts.ts.
 
 export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
+  'account:saveExport': [{ kind: 'any', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }],
   'account:saveSession': [{ kind: 'object', optional: false, nullable: false }],
   'account:setCachedEmail': [{ kind: 'string', optional: false, nullable: true }],
   'account:setSkipped': [{ kind: 'boolean', optional: false, nullable: false }],

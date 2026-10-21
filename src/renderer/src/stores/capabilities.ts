@@ -288,11 +288,21 @@ export function usePlan(): PlanId {
 
 /** Hook — false only when the server says the email is NOT verified yet. */
 // The server features a control depends on (see serverFeatures above):
-//   account_privacy       PUT /account/privacy (lib/privacyServer)
-//   consent_enforced      the server refuses unconsented reports and deletes on opt-out
-//   account_delete        Delete my account and data (password re-auth)
-//   account_delete_email  the emailed-code path for accounts without a password
-export type ServerFeature = 'account_privacy' | 'consent_enforced' | 'account_delete' | 'account_delete_email'
+//   account_privacy        PUT /account/privacy (lib/privacyServer)
+//   consent_enforced       the server refuses unconsented reports and deletes on opt-out
+//   account_export         Download my data (a ZIP of everything the server holds)
+//   account_archive        Close and archive my account (password re-auth)
+//   account_archive_email  the emailed-code path for accounts without a password
+//   account_restore        Restore my account (sign-in to a closed account)
+// account_delete / account_delete_email (4.3.34, never released) are retired:
+// the 4.3.40 server archives instead of deleting and no longer lists them.
+export type ServerFeature =
+  | 'account_privacy'
+  | 'consent_enforced'
+  | 'account_export'
+  | 'account_archive'
+  | 'account_archive_email'
+  | 'account_restore'
 
 export function serverSupports(feature: ServerFeature): boolean {
   return useCapabilityStore.getState().serverFeatures.includes(feature)

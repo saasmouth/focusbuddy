@@ -1410,6 +1410,25 @@ export function registerIpcHandlers(): void {
     return clearSession()
   })
   ipcMain.handle('account:setSkipped', (_e, skipped: boolean) => setSkipped(skipped))
+  // Settings > Account > Download my data: the renderer fetches the server's
+  // ZIP (it holds the session token) and this saves it where the person picks.
+  ipcMain.handle('account:saveExport', async (_e, bytes: Uint8Array, fileName: string) => {
+    const parent = BrowserWindow.getFocusedWindow()
+    const safe = String(fileName || '').replace(/[^A-Za-z0-9._-]/g, '') || 'plexiidesk-data.zip'
+    const opts = {
+      title: 'Save your PlexiiDesk data',
+      defaultPath: pathJoin(app.getPath('downloads'), safe.endsWith('.zip') ? safe : `${safe}.zip`),
+      filters: [{ name: 'ZIP archive', extensions: ['zip'] }]
+    }
+    const { canceled, filePath } = parent ? await dialog.showSaveDialog(parent, opts) : await dialog.showSaveDialog(opts)
+    if (canceled || !filePath) return { ok: false as const, canceled: true as const }
+    try {
+      await writeFile(filePath, Buffer.from(bytes))
+      return { ok: true as const, path: filePath }
+    } catch (e) {
+      return { ok: false as const, error: (e as Error).message }
+    }
+  })
   ipcMain.handle('account:setCachedEmail', (_e, email: string | null) =>
     setCachedEmail(email)
   )

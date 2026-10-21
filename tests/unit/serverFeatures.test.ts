@@ -27,23 +27,23 @@ describe('serverFeatures', () => {
     vi.stubGlobal('fetch', vi.fn(async () => capsResponse({})))
     await useCapabilityStore.getState().refresh()
     expect(useCapabilityStore.getState().serverFeatures).toEqual([])
-    expect(serverSupports('account_delete')).toBe(false)
+    expect(serverSupports('account_archive')).toBe(false)
     expect(serverSupports('account_privacy')).toBe(false)
   })
 
   it('the 4.3.34 server: what it lists is supported, junk entries are dropped', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => capsResponse({ serverFeatures: ['account_privacy', 'account_delete', 7, null] }))
+      vi.fn(async () => capsResponse({ serverFeatures: ['account_privacy', 'account_archive', 7, null] }))
     )
     await useCapabilityStore.getState().refresh()
-    expect(useCapabilityStore.getState().serverFeatures).toEqual(['account_privacy', 'account_delete'])
-    expect(serverSupports('account_delete')).toBe(true)
+    expect(useCapabilityStore.getState().serverFeatures).toEqual(['account_privacy', 'account_archive'])
+    expect(serverSupports('account_archive')).toBe(true)
     expect(serverSupports('consent_enforced')).toBe(false)
   })
 
   it('signing out forgets them', async () => {
-    useCapabilityStore.setState({ serverFeatures: ['account_delete'] })
+    useCapabilityStore.setState({ serverFeatures: ['account_archive'] })
     useAccountStore.setState({ sessionToken: null })
     await useCapabilityStore.getState().refresh()
     expect(useCapabilityStore.getState().serverFeatures).toEqual([])

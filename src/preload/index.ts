@@ -464,7 +464,13 @@ const api = {
     setSkipped: (skipped: boolean): Promise<void> =>
       ipcRenderer.invoke('account:setSkipped', skipped),
     setCachedEmail: (email: string | null): Promise<void> =>
-      ipcRenderer.invoke('account:setCachedEmail', email)
+      ipcRenderer.invoke('account:setCachedEmail', email),
+    // Save the server's export ZIP (fetched by the renderer) via a save dialog.
+    saveExport: (
+      bytes: Uint8Array,
+      fileName: string
+    ): Promise<{ ok: true; path: string } | { ok: false; canceled?: boolean; error?: string }> =>
+      ipcRenderer.invoke('account:saveExport', bytes, fileName)
   },
   // Desk layout overlay (PLX-APP-010 / UX-032). Per-(user, Desk, device class)
   // camera + selection, saved on user action and restored on Desk open.

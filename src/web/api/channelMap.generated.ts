@@ -7,6 +7,7 @@
 export const INVOKE_CHANNELS: Readonly<Record<string, string>> = {
   'account.clearSession': 'account:clearSession',
   'account.load': 'account:load',
+  'account.saveExport': 'account:saveExport',
   'account.saveSession': 'account:saveSession',
   'account.setCachedEmail': 'account:setCachedEmail',
   'account.setSkipped': 'account:setSkipped',
@@ -686,6 +687,7 @@ export const LISTEN_CHANNELS: Readonly<Record<string, string>> = {
 export const HANDLER_PARAMS: Readonly<Record<string, readonly string[]>> = {
   'account:clearSession': [],
   'account:load': [],
+  'account:saveExport': ['bytes', 'fileName'],
   'account:saveSession': ['input'],
   'account:setCachedEmail': ['email'],
   'account:setSkipped': ['skipped'],
