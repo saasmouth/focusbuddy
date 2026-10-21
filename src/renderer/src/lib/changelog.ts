@@ -52,7 +52,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       { label: 'The Office apps', href: `${HELP_BASE}/office-overview` }
     ],
     highlights: [
-      'AI that runs on this computer, built in: the 2.5 GB model is inside the app, works offline and costs nothing per use, and while it answers nothing is sent to any AI service. If you were on the automatic setting, AI now runs on this computer; if you chose your own key or Plexii AI credits, that has not changed.',
+      'AI that runs on this computer: works offline, costs nothing per use, and while it answers nothing is sent to any AI service. A new download of PlexiiDesk has the model inside; if you updated, a card offers the one-time 2.5 GB download, and AI switches to this computer only once the model is installed. If you chose your own key or Plexii AI credits, that has not changed.',
       'With your own Anthropic or OpenAI key saved, writing, PlexiiWrite, PlexiiCells and PlexiiDeck drafts and Build with AI use it, because cloud AI does those much better. Your own OpenAI key is now an AI source too, and each feature can use a different source.',
       'Every AI result shows \u201cAnswered by\u201d: Local, your own key, or Plexii AI credits. Settings \u2192 AI \u2192 Local on this device lists where each feature runs, with \u201cTest with local\u201d to try any of them on this computer.',
       'In our tests of the app\u2019s real prompts, the on-device model comes close to cloud AI on PlexiiAssist answers (79% of tasks against 92%), matches it on background tidying, and is well behind it on summaries, writing, document drafts and Build with AI.',
@@ -70,6 +70,9 @@ export const CHANGELOG: ChangelogEntry[] = [
       'PlexiiDesign has named paragraph styles (Layout \u2192 Paragraph styles\u2026): change Body and the whole family follows, and hyphenation and snapping to the new baseline grid are switches on a style. Swatches and spot inks (Layout \u2192 Swatches & spot inks\u2026): name a colour once and everything using it follows, apply it at a tint, and preflight lists the spot-ink plates a job needs.',
       'The Desk section of the menu has one Home at the top and no repeated rows. Agentic Ops moved to PlexiiBrain.',
       'Right-click works on web pages everywhere: the browser, a browser work widget on a desk, connected apps and sign-in pop-ups.',
+      'PlexiiDesign sets type in your brand kit\u2019s fonts and colours: the page, the styles panel and the brand swatches all follow the kit, and the text cursor lands where it looks like it should.',
+      'Settings \u2192 Account \u2192 Your data: back up everything on this computer to a file. Downloading what our server holds, and closing your account so it is archived and can be restored on request, arrive with the next server update; until then the panel says so.',
+      'PlexiiBrain ranks documents by the passage that best matches your question, not a whole-document average, and Settings \u2192 AI \u2192 Local on this device shows how much is ranked by meaning so far.',
       'The separate PlexiiOffice app is retired. Write, Cells, Deck and the rest of the Office apps are all inside PlexiiDesk.',
       'Fixed: in 4.3.30 to 4.3.33, some PlexiiDesign and PlexiiDraw changes showed on screen but were never saved: text added with Insert, multi-page designs, drawings with several shapes in one colour, and duplicated shapes. They save now, and a document that was stuck saves again.',
       'Fixed: in 4.3.30 to 4.3.33, every request to the Haiku model failed with \u201cConnection error.\u201d before it left the computer, including naming untitled items, AI Assist rewrites, the command bar, capture sorting and inbox triage.',
