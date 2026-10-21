@@ -31,7 +31,6 @@ export const commands: Command[] = [
     id: 'edit.undo',
     label: 'Undo',
     icon: 'undo',
-    shortcut: '⌘Z',
     menu: { path: 'edit', order: 100 },
     enabled: (ctx) => writable(ctx) && ctx.history.canUndo(),
     run: (ctx) => ctx.history.undo()
@@ -40,7 +39,6 @@ export const commands: Command[] = [
     id: 'edit.redo',
     label: 'Redo',
     icon: 'redo',
-    shortcut: '⇧⌘Z',
     menu: { path: 'edit', order: 110 },
     enabled: (ctx) => writable(ctx) && ctx.history.canRedo(),
     run: (ctx) => ctx.history.redo()
@@ -49,16 +47,22 @@ export const commands: Command[] = [
     id: 'edit.selectAll',
     label: 'Select all',
     icon: 'select_all',
-    shortcut: '⌘A',
     menu: { path: 'edit', order: 200 },
     // Nothing hidden or locked -- the same rule for the menu and for ⌘A.
     run: (ctx) => ctx.select(selectableObjectIds(ctx.doc()))
   },
   {
+    id: 'edit.deselect',
+    label: 'Deselect',
+    icon: 'deselect',
+    menu: { path: 'edit', order: 205 },
+    enabled: hasSelection,
+    run: (ctx) => ctx.select([])
+  },
+  {
     id: 'edit.duplicate',
     label: 'Duplicate',
     icon: 'file_copy',
-    shortcut: '⌘D',
     menu: { path: 'edit', order: 210 },
     enabled: (ctx) => writable(ctx) && hasSelection(ctx),
     run: (ctx) => {
@@ -74,7 +78,6 @@ export const commands: Command[] = [
     id: 'edit.delete',
     label: 'Delete',
     icon: 'delete',
-    shortcut: '⌫',
     menu: { path: 'edit', order: 220 },
     enabled: (ctx) => writable(ctx) && hasSelection(ctx),
     run: (ctx) => deleteSelection(ctx)

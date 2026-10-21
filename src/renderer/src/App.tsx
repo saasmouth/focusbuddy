@@ -462,7 +462,8 @@ export default function App(): JSX.Element {
   // Plexii consolidation — the conversation proposes builds now.)
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'k') {
+      // Exactly ⇧⌘K: with Option it is PlexiiDraw's Keyboard Shortcuts (⌥⇧⌘K, Illustrator's key).
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         const v = useViewStore.getState()
         if (v.view.kind === 'plexii') {

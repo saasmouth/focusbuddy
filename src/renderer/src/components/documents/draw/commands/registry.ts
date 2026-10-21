@@ -5,7 +5,9 @@
 // id, so adding one is adding to -- or adding -- ONE file. See README.md.
 
 import type { Command, MenuSpec } from '../editor/types'
-import { KEYMAP } from './keymap'
+import { drawTools } from '../tools/registry'
+import { KEYMAP, RESERVED_KEYS } from './keymap'
+import { eventKeyString, resolveKey, toolKeyString } from './keys'
 
 interface CommandModule {
   commands?: Command[]
@@ -14,12 +16,20 @@ interface CommandModule {
 
 const modules = import.meta.glob<CommandModule>('./*.commands.ts', { eager: true })
 
-const COMMANDS: Command[] = []
+const ALL: Command[] = []
 const MENUS: MenuSpec[] = []
 for (const m of Object.values(modules)) {
-  COMMANDS.push(...(m.commands ?? []))
+  ALL.push(...(m.commands ?? []))
   MENUS.push(...(m.menus ?? []))
 }
+// A `pending` command holds a key and a menu place for a feature another
+// package delivers (Transform Again until WP-TRANSFORM). The real command, once
+// merged, replaces it with no edit here or there.
+export function withoutReplacedPending(all: Command[]): Command[] {
+  const real = new Set(all.filter((c) => !c.pending).map((c) => c.id))
+  return all.filter((c) => !c.pending || !real.has(c.id))
+}
+const COMMANDS: Command[] = withoutReplacedPending(ALL)
 
 const BY_ID = new Map(COMMANDS.map((c) => [c.id, c]))
 
@@ -37,29 +47,19 @@ export function drawMenus(): MenuSpec[] {
 
 /**
  * The key string a keyboard event is looked up by: `mod+` for ⌘ or Ctrl, then
- * `shift+` when held, then the key ('z', 'escape', 'arrowleft', '['). Alt is
- * ignored, as it always has been for these shortcuts.
+ * `alt+`, then `shift+` when held, then the key (see keys.ts: eventKeyString).
  */
-export function keyString(e: { key: string; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }, withShift = true): string {
-  const parts: string[] = []
-  if (e.metaKey || e.ctrlKey) parts.push('mod')
-  if (withShift && e.shiftKey) parts.push('shift')
-  parts.push(e.key.toLowerCase())
-  return parts.join('+')
+export function keyString(e: { key: string; code?: string; metaKey: boolean; ctrlKey: boolean; altKey?: boolean; shiftKey: boolean }, withShift = true): string {
+  return eventKeyString(e, { shift: withShift })
 }
 
 /**
- * The binding for an event: an exact match first, then the same keys without
- * Shift (so ⇧⌘Y still redoes and ⇧-arrows still nudge -- the command reads
- * Shift itself -- while ⇧⌘Z is its own binding).
+ * The COMMAND an event runs, if any (see keys.ts: resolveKey for the order
+ * chords are tried in, the person's remappings and the reserved keys).
  */
-export function keyBinding(e: { key: string; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }): { command: string; preventDefault: boolean } | null {
-  const exact = KEYMAP[keyString(e, true)]
-  const loose = e.shiftKey ? KEYMAP[keyString(e, false)] : undefined
-  const hit = exact ?? loose
-  if (!hit) return null
-  const [command, flag] = hit
-  return { command, preventDefault: flag === 'prevent' }
+export function keyBinding(e: { key: string; code?: string; metaKey: boolean; ctrlKey: boolean; altKey?: boolean; shiftKey: boolean }): { command: string; preventDefault: boolean } | null {
+  const hit = resolveKey(e)
+  return hit?.kind === 'command' ? { command: hit.id, preventDefault: hit.prevent } : null
 }
 
 /** Problems with the registry: duplicate ids, keymap entries naming no command. Empty when healthy. */
@@ -71,6 +71,17 @@ export function commandRegistryProblems(): string[] {
     seen.add(c.id)
   }
   for (const [k, [id]] of Object.entries(KEYMAP)) if (!BY_ID.has(id)) out.push(`key "${k}" runs unknown command "${id}"`)
+  // A reserved Illustrator key may only go to the feature it is reserved for.
+  for (const [k, [id]] of Object.entries(KEYMAP)) {
+    const r = RESERVED_KEYS[k]
+    if (r && r[0] !== id) out.push(`key "${k}" is reserved for ${r[1]} ("${r[0]}", ${r[2]}) but runs "${id}"`)
+  }
+  for (const t of drawTools()) {
+    const k = toolKeyString(t.key)
+    const r = k ? RESERVED_KEYS[k] : undefined
+    if (r && r[0] !== `tool:${t.id}`) out.push(`tool key "${k}" of ${t.id} is reserved for ${r[1]} ("${r[0]}", ${r[2]})`)
+  }
+  for (const c of ALL) if (c.pending && !c.enabled) out.push(`pending command "${c.id}" must say it is disabled (enabled: () => false)`)
   const menuPaths = new Set(MENUS.map((m) => m.path))
   for (const c of COMMANDS) {
     if (!c.menu) continue

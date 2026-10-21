@@ -7,7 +7,7 @@ import Icon from '../../Icon'
 // are wired to that editor's real commands. Nothing here invents an action.
 
 export type MenuItem =
-  | { kind: 'item'; label: string; shortcut?: string; icon?: string; run: () => void; disabled?: boolean; active?: boolean }
+  | { kind: 'item'; label: string; shortcut?: string; icon?: string; run: () => void; disabled?: boolean; active?: boolean; hint?: string }
   | { kind: 'sep' }
   | { kind: 'submenu'; label: string; icon?: string; items: MenuItem[] }
 
@@ -87,6 +87,7 @@ function MenuDropdown({
             key={i}
             onClick={() => !it.disabled && onRun(it.run)}
             disabled={it.disabled}
+            title={it.hint}
             className={`flex items-center gap-2.5 w-full px-3 py-1.5 text-[13px] text-left ${
               it.disabled
                 ? 'text-[var(--ink-30)] cursor-default'
@@ -96,7 +97,10 @@ function MenuDropdown({
             <span className="w-4 shrink-0 text-[var(--ink-50)]">
               {it.active ? <Icon name="check" size={15} /> : it.icon ? <Icon name={it.icon} size={15} /> : null}
             </span>
-            <span className="flex-1 min-w-0 truncate">{it.label}</span>
+            <span className="flex-1 min-w-0 truncate">
+              {it.label}
+              {it.hint && <span className="block text-[11px] text-[var(--ink-40)] truncate">{it.hint}</span>}
+            </span>
             {it.shortcut && <span className="text-[11px] text-[var(--ink-40)] fb-tabular">{it.shortcut}</span>}
           </button>
         )
@@ -154,16 +158,20 @@ function SubmenuRow({
 export function MenuModal({
   title,
   children,
-  onClose
+  onClose,
+  width
 }: {
   title: string
   children: React.ReactNode
   onClose: () => void
+  /** Width in px; 340 when not given. */
+  width?: number
 }): JSX.Element {
   return (
     <div className="fb-scrim fixed inset-0 z-[60] flex items-center justify-center" onMouseDown={onClose}>
       <div
-        className="fb-card w-[340px] p-4"
+        className={`fb-card p-4 ${width ? 'max-w-[calc(100vw-32px)]' : 'w-[340px]'}`}
+        style={width ? { width } : undefined}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">

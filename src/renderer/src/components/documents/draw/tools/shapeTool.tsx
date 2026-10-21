@@ -17,7 +17,7 @@ interface ShapeGesture {
   to: Pt
 }
 
-export function shapeTool(spec: { id: string; kind: DrawShapeKind; label: string; icon: string; key: string; order: number; undoLabel: string }): DrawTool {
+export function shapeTool(spec: { id: string; kind: DrawShapeKind; label: string; icon: string; key?: string; order: number; undoLabel: string }): DrawTool {
   const { id, kind } = spec
   return {
     id,

@@ -60,7 +60,7 @@ async function paintedPixels(layerTestId: string): Promise<number> {
   })
 }
 
-test('EP-1 the toolbox offers the same 16 tools, in order, with their shortcut letters', async () => {
+test('EP-1 the toolbox offers the same 16 tools, in order, with their shortcut keys (Illustrator\'s since WP-KEYS)', async () => {
   await openDocument(window, await seedDrawDoc(window, v1Body([])))
   const titles = await window.locator('[data-testid^="draw-tool-"]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-testid')}=${e.getAttribute('title')}`))
   expect(titles).toEqual([
@@ -68,16 +68,16 @@ test('EP-1 the toolbox offers the same 16 tools, in order, with their shortcut l
     'draw-tool-node=Edit points (A)',
     'draw-tool-pen=Pen (P)',
     'draw-tool-pencil=Pencil (N)',
-    'draw-tool-rect=Rectangle (R)',
-    'draw-tool-roundRect=Rounded rectangle (D)',
-    'draw-tool-ellipse=Ellipse (O)',
-    'draw-tool-polygon=Polygon (U)',
-    'draw-tool-star=Star (S)',
-    'draw-tool-line=Line (L)',
+    'draw-tool-rect=Rectangle (M)',
+    'draw-tool-roundRect=Rounded rectangle',
+    'draw-tool-ellipse=Ellipse (L)',
+    'draw-tool-polygon=Polygon',
+    'draw-tool-star=Star',
+    'draw-tool-line=Line (\\)',
     'draw-tool-text=Type (T)',
     'draw-tool-brush=Brush (B)',
-    'draw-tool-eraser=Eraser (E)',
-    'draw-tool-bucket=Paint bucket (G)',
+    'draw-tool-eraser=Eraser (⇧E)',
+    'draw-tool-bucket=Paint bucket (K)',
     'draw-tool-eyedropper=Eyedropper (I)',
     'draw-tool-hand=Pan (H)'
   ])
@@ -94,7 +94,7 @@ test('EP-2 the menus list the same items, with the same enabled states', async (
     await expect(window.locator(`[data-testid="draw-studio-menubar-${menu}-list"]`)).toHaveCount(0)
     return items
   }
-  expect(await read('edit')).toEqual(['Undo (off)', 'Redo (off)', 'Select all', 'Duplicate (off)', 'Delete (off)'])
+  expect(await read('edit')).toEqual(['Undo (off)', 'Redo (off)', 'Select all', 'Deselect (off)', 'Duplicate (off)', 'Delete (off)', 'Keyboard shortcuts…'])
   expect(await read('layer')).toEqual(['New vector layer', 'New paint layer'])
   expect(await read('view')).toEqual(['Fit to window', 'Zoom to 100%', 'Grid', 'Snap to edges'])
 })
@@ -102,9 +102,9 @@ test('EP-2 the menus list the same items, with the same enabled states', async (
 test('EP-3 shapes, Pathfinder, undo/redo and Delete through the keyboard', async () => {
   const id = await seedDrawDoc(window, v1Body([]))
   await openDocument(window, id)
-  await window.keyboard.press('r')
+  await window.keyboard.press('m')
   await drag([100, 100], [300, 250])
-  await window.keyboard.press('o')
+  await window.keyboard.press('l')
   await drag([200, 150], [400, 350])
   await expect(window.locator('[data-testid^="draw-vector-"] path')).toHaveCount(2)
   await window.keyboard.press('Meta+a')
@@ -114,7 +114,7 @@ test('EP-3 shapes, Pathfinder, undo/redo and Delete through the keyboard', async
   await expect(window.locator('[data-testid^="draw-vector-"] path')).toHaveCount(2)
   await window.keyboard.press('Meta+Shift+z')
   await expect(window.locator('[data-testid^="draw-vector-"] path')).toHaveCount(1)
-  await window.keyboard.press('Meta+d')
+  await runMenu(window, 'edit', 'Duplicate')
   await expect(window.locator('[data-testid^="draw-vector-"] path')).toHaveCount(2)
   await window.keyboard.press('Delete')
   await expect(window.locator('[data-testid^="draw-vector-"] path')).toHaveCount(1)
@@ -215,11 +215,11 @@ test('EP-9 the eraser removes pixels and the bucket fills; the eyedropper picks 
   await window.locator('[data-testid="draw-add-raster-layer"]').click()
   const raster = window.locator('[data-testid^="draw-raster-"]')
   const testId = (await raster.getAttribute('data-testid'))!
-  await window.keyboard.press('g')
+  await window.keyboard.press('k')
   await click(50, 50)
   const full = await paintedPixels(testId)
   expect(full).toBeGreaterThan(400 * 300)
-  await window.keyboard.press('e')
+  await window.keyboard.press('Shift+E')
   await drag([20, 300], [780, 300], 10)
   expect(await paintedPixels(testId)).toBeLessThan(full)
   await window.keyboard.press('i')

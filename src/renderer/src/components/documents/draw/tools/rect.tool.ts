@@ -1,4 +1,4 @@
-// Rectangle tool (R): drag a box; Shift constrains it. See shapeTool.tsx.
+// Rectangle tool (M, as in Illustrator): drag a box; Shift constrains it. See shapeTool.tsx.
 import { shapeTool } from './shapeTool'
 
-export default shapeTool({ id: 'rect', kind: 'rect', label: 'Rectangle', icon: 'crop_square', key: 'R', order: 50, undoLabel: 'Rectangle' })
+export default shapeTool({ id: 'rect', kind: 'rect', label: 'Rectangle', icon: 'crop_square', key: 'M', order: 50, undoLabel: 'Rectangle' })

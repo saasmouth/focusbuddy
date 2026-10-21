@@ -119,7 +119,7 @@ describe('read-only mode for a drawing made by a newer PlexiiDraw', () => {
     await pointer('pointerdown', 20, 20)
     await pointer('pointermove', 120, 120)
     await pointer('pointerup', 120, 120)
-    await key('r')
+    await key('m') // the Rectangle tool's key (Illustrator's M)
     await pointer('pointerdown', 250, 200)
     await pointer('pointermove', 300, 260)
     await pointer('pointerup', 300, 260)

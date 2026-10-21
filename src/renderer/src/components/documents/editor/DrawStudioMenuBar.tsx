@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react'
 import { useStore } from 'zustand'
 import { MenuBarShell, type MenuDef, type MenuItem } from './menuBarKit'
 import { drawCommands, drawMenus } from '../draw/commands/registry'
+import { commandShortcutLabel, subscribeKeyOverrides } from '../draw/commands/keys'
 import type { Command, EditorCtx } from '../draw/editor/types'
 
 // The PlexiiDraw menu bar, built from the command registry: every menu, item,
@@ -10,13 +12,18 @@ import type { Command, EditorCtx } from '../draw/editor/types'
 // Items whose orders fall in different hundreds get a separator between them.
 
 function itemFor(ctx: EditorCtx, c: Command): MenuItem {
+  // The live key from the keymap (and the person's remapping), written for this
+  // platform; a command's own `shortcut` text only when the keymap holds none.
+  const shortcut = commandShortcutLabel(c.id) ?? c.shortcut
+  const disabled = c.enabled ? !c.enabled(ctx) : false
   return {
     kind: 'item',
     label: c.label,
     ...(c.icon ? { icon: c.icon } : {}),
-    ...(c.shortcut ? { shortcut: c.shortcut } : {}),
+    ...(shortcut ? { shortcut } : {}),
     run: () => ctx.run(c.id),
-    ...(c.enabled ? { disabled: !c.enabled(ctx) } : {}),
+    ...(c.enabled ? { disabled } : {}),
+    ...(disabled && c.pending ? { hint: c.pending } : {}),
     ...(c.checked ? { active: c.checked(ctx) } : {})
   }
 }
@@ -45,6 +52,9 @@ export function buildMenu(ctx: EditorCtx, path: string): MenuItem[] {
 }
 
 export default function DrawStudioMenuBar({ ctx }: { ctx: EditorCtx }): JSX.Element {
+  // Re-render when the person remaps a key, so the menus show the new one.
+  const [, setTick] = useState(0)
+  useEffect(() => subscribeKeyOverrides(() => setTick((t) => t + 1)), [])
   // Re-render when anything an item's enabled/checked state reads changes.
   useStore(ctx.store, (s) => `${s.past.length}|${s.future.length}|${s.selection.length}|${s.showGrid}|${s.snapOn}|${s.readOnly}|${s.liveUndoTick}|${s.pen ? 1 : 0}`)
   const menus: MenuDef[] = drawMenus()

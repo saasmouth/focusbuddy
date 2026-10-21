@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { beforeEach, describe, it, expect } from 'vitest'
 import { drawTools, toolRegistryProblems } from '../../../src/renderer/src/components/documents/draw/tools/registry'
 import { commandRegistryProblems, drawCommands, drawMenus } from '../../../src/renderer/src/components/documents/draw/commands/registry'
 import { KEYMAP } from '../../../src/renderer/src/components/documents/draw/commands/keymap'
+import { setKeyPlatform, toolKeyString } from '../../../src/renderer/src/components/documents/draw/commands/keys'
 import { drawPanels } from '../../../src/renderer/src/components/documents/draw/panels/registry'
 import { drawDialogs } from '../../../src/renderer/src/components/documents/draw/dialogs/registry'
 import { buildMenu } from '../../../src/renderer/src/components/documents/editor/DrawStudioMenuBar'
@@ -15,16 +16,16 @@ describe('registries', () => {
       'node:A',
       'pen:P',
       'pencil:N',
-      'rect:R',
-      'roundRect:D',
-      'ellipse:O',
-      'polygon:U',
-      'star:S',
-      'line:L',
+      'rect:M',
+      'roundRect:undefined',
+      'ellipse:L',
+      'polygon:undefined',
+      'star:undefined',
+      'line:\\',
       'text:T',
       'brush:B',
-      'eraser:E',
-      'bucket:G',
+      'eraser:Shift+E',
+      'bucket:K',
       'eyedropper:I',
       'hand:H'
     ])
@@ -36,8 +37,11 @@ describe('registries', () => {
     expect(toolRegistryProblems([a, { ...a }])).toEqual([`shortcut "V" is taken by both select and select`, 'tool id "select" is registered 2 times'])
   })
 
-  it('no tool letter is also a keymap binding, and every binding names a real command', () => {
-    for (const t of drawTools()) expect(KEYMAP[t.key!.toLowerCase()], t.id).toBeUndefined()
+  it('no tool key is also a keymap binding, and every binding names a real command', () => {
+    for (const t of drawTools()) {
+      const k = toolKeyString(t.key)
+      if (k) expect(KEYMAP[k], t.id).toBeUndefined()
+    }
     expect(commandRegistryProblems()).toEqual([])
   })
 
@@ -48,7 +52,7 @@ describe('registries', () => {
 
   it('panels and dialogs are discovered', () => {
     expect(drawPanels().map((p) => p.id)).toEqual(['inspector', 'layers'])
-    expect(drawDialogs().map((d) => d.id).sort()).toEqual(['artboard-size', 'help'])
+    expect(drawDialogs().map((d) => d.id).sort()).toEqual(['artboard-size', 'help', 'keyboard-shortcuts'])
   })
 
   it('every command\'s enabled() is pure: same answer twice, no state change', () => {
@@ -72,7 +76,12 @@ function describeMenu(items: MenuItem[], indent = ''): string[] {
   })
 }
 
-describe('the menu bar is built from commands, identical to the one it replaced', () => {
+// The menus as Phase 0 built them, plus WP-KEYS: Illustrator's keys shown
+// from the keymap (on a Mac here), Deselect, Keyboard shortcuts…, and the
+// Transform again stand-in on ⌘D.
+describe('the menu bar is built from commands', () => {
+  beforeEach(() => setKeyPlatform('mac'))
+
   it('has the same menus, items, icons, shortcuts, separators and submenus', () => {
     const h = harness(blank([rect('a', 0, 0, 10, 10)]))
     expect(drawMenus().filter((m) => !m.path.includes('/')).sort((a, b) => a.order - b.order).map((m) => `${m.path}:${m.label}`)).toEqual([
@@ -88,8 +97,8 @@ describe('the menu bar is built from commands, identical to the one it replaced'
     expect(all).toBe(
       [
         'file',
-        'New artwork|note_add|||',
-        'Make a copy|file_copy|||',
+        'New artwork|note_add|⌘N||',
+        'Make a copy|file_copy|⌥⌘S||',
         '---',
         'New from preset|aspect_ratio|>',
         '  Square canvas — 2048×2048||||',
@@ -118,20 +127,25 @@ describe('the menu bar is built from commands, identical to the one it replaced'
         'Redo|redo|⇧⌘Z|off|',
         '---',
         'Select all|select_all|⌘A||',
-        'Duplicate|file_copy|⌘D|off|',
+        'Deselect|deselect|⇧⌘A|off|',
+        'Duplicate|file_copy||off|',
         'Delete|delete|⌫|off|',
+        '---',
+        'Keyboard shortcuts…|keyboard|⌥⇧⌘K||',
         '',
         'object',
+        'Transform again||⌘D|off|',
+        '---',
         'Pathfinder|join_full|>',
         '  Unite||||',
         '  Minus front||||',
         '  Intersect||||',
         '  Exclude||||',
         'Arrange|layers|>',
-        '  Bring to front||||',
-        '  Bring forward||||',
-        '  Send backward||||',
-        '  Send to back||||',
+        '  Bring to front||⇧⌘]||',
+        '  Bring forward||⌘]||',
+        '  Send backward||⌘[||',
+        '  Send to back||⇧⌘[||',
         'Align|align_horizontal_center|>',
         '  Left||||',
         '  Center||||',
@@ -141,11 +155,11 @@ describe('the menu bar is built from commands, identical to the one it replaced'
         '  Bottom||||',
         '',
         'layer',
-        'New vector layer|shapes|||',
+        'New vector layer|shapes|⌘L||',
         'New paint layer|brush|||',
         '',
         'document',
-        'Artboard size…|aspect_ratio|||',
+        'Artboard size…|aspect_ratio|⌥⌘P||',
         'Background|format_color_fill|>',
         '  Transparent||||',
         '  White||||',
@@ -155,14 +169,14 @@ describe('the menu bar is built from commands, identical to the one it replaced'
         'Meeting|videocam|||',
         '',
         'view',
-        'Fit to window|fit_screen|||',
-        'Zoom to 100%|zoom_in|||',
+        'Fit to window|fit_screen|⌘0||',
+        'Zoom to 100%|zoom_in|⌘1||',
         '---',
-        'Grid|grid_4x4|||',
-        'Snap to edges|straighten|||on',
+        "Grid|grid_4x4|⌘'||",
+        'Snap to edges|straighten|⌘U||on',
         '',
         'help',
-        'How PlexiiDraw works|help|||'
+        'How PlexiiDraw works|help|F1||'
       ].join('\n')
     )
   })
@@ -173,10 +187,11 @@ describe('the menu bar is built from commands, identical to the one it replaced'
     h.key('ArrowRight')
     const edit = describeMenu(buildMenu(h.ed.ctx, 'edit'))
     expect(edit).toContain('Undo|undo|⌘Z||')
-    expect(edit).toContain('Duplicate|file_copy|⌘D||')
+    expect(edit).toContain('Duplicate|file_copy|||')
+    expect(edit).toContain('Deselect|deselect|⇧⌘A||')
     const ro = harness({ ...blank([rect('a', 0, 0, 10, 10)]), schemaVersion: 3 })
     const text = ['file', 'edit', 'object', 'layer', 'document'].flatMap((m) => describeMenu(buildMenu(ro.ed.ctx, m))).join('\n')
-    for (const off of ['Export PNG…', 'Export SVG…', 'Export PDF…', 'Undo', 'Redo', 'Duplicate', 'Delete', 'Unite', 'Bring to front', 'Left', 'New vector layer', 'New paint layer', 'Artboard size…', 'Transparent']) {
+    for (const off of ['Export PNG…', 'Export SVG…', 'Export PDF…', 'Undo', 'Redo', 'Duplicate', 'Delete', 'Transform again', 'Unite', 'Bring to front', 'Left', 'New vector layer', 'New paint layer', 'Artboard size…', 'Transparent']) {
       expect(text, off).toMatch(new RegExp(`(^|\\n)\\s*${off.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\|[^|]*\\|[^|]*\\|off\\|`))
     }
   })

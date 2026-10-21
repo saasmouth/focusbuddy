@@ -25,7 +25,7 @@ export function toolById(id: string): DrawTool | undefined {
   return BY_ID.get(id)
 }
 
-/** Problems with the registered tools (duplicate ids or shortcut keys); empty when healthy. */
+/** Problems with the registered tools (duplicate ids, duplicate or malformed shortcut keys); empty when healthy. */
 export function toolRegistryProblems(tools: DrawTool[] = TOOLS): string[] {
   const out: string[] = []
   const ids = new Map<string, number>()
@@ -33,7 +33,13 @@ export function toolRegistryProblems(tools: DrawTool[] = TOOLS): string[] {
   for (const t of tools) {
     ids.set(t.id, (ids.get(t.id) ?? 0) + 1)
     if (t.key) {
-      const k = t.key.toLowerCase()
+      // 'M', '\\' or 'Shift+E' (see DrawTool.key); the same form keys.ts reads.
+      const m = /^(Shift\+)?(.)$/.exec(t.key)
+      if (!m) {
+        out.push(`shortcut "${t.key}" of ${t.id} is not one key or Shift with one key`)
+        continue
+      }
+      const k = `${m[1] ? 'shift+' : ''}${m[2].toLowerCase()}`
       if (keys.has(k)) out.push(`shortcut "${t.key}" is taken by both ${keys.get(k)} and ${t.id}`)
       else keys.set(k, t.id)
     }

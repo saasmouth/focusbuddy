@@ -189,7 +189,9 @@ export default function CommandCenter({
   // launch. Esc inside palette = close.
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      // Exactly ⌘K. Chromium on a Mac reports 'k' even with Shift or Option
+      // held, and ⌥⇧⌘K is PlexiiDraw's Keyboard Shortcuts (Illustrator's key).
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key === 'k') {
         e.preventDefault()
         if (paletteOpen) closePalette()
         else openPalette()
