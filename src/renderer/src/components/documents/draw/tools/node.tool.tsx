@@ -6,7 +6,7 @@
 import type { Pt } from '@shared/drawGeometry'
 import { pathToSvgD } from '@shared/drawGeometry'
 import { editAnchor, getObject } from '@shared/draw/ops'
-import type { DrawTool, EditorCtx } from '../editor/types'
+import type { DrawTool, EditorCtx, Txn } from '../editor/types'
 import { hitNodeAt } from './helpers'
 
 interface NodeGesture {
@@ -14,6 +14,7 @@ interface NodeGesture {
   si: number
   ni: number
   part: 'anchor' | 'in' | 'out'
+  txn: Txn
 }
 
 function gesture(ctx: EditorCtx): NodeGesture | null {
@@ -35,9 +36,10 @@ const node: DrawTool = {
     const s = ctx.get()
     const hit = hitNodeAt(s.doc, s.selection, e.p, s.zoom)
     if (hit) {
-      // NB: this gesture opens no undo step of its own (it never has); its
-      // previews join the step before it.
-      ctx.set({ gesture: { toolId: 'node', data: hit satisfies NodeGesture } })
+      // One undo step per point drag. (It used to open none, so its previews
+      // joined the step before it and one undo took back both.)
+      const txn = ctx.history.begin('Edit point')
+      ctx.set({ gesture: { toolId: 'node', data: { ...hit, txn } satisfies NodeGesture } })
       return
     }
     const obj = ctx.hitTest(e.p)
@@ -51,7 +53,11 @@ const node: DrawTool = {
     // Alt breaks the handle pair. Editing a live shape's node detaches it
     // into a plain path, so a later Corner or Points change cannot regenerate
     // the outline and throw this edit away.
-    ctx.history.replace(editAnchor(ctx.doc(), d.id, d.si, d.ni, d.part, p, e.altKey))
+    d.txn.preview(editAnchor(ctx.doc(), d.id, d.si, d.ni, d.part, p, e.altKey))
+  },
+
+  onPointerUp(ctx) {
+    gesture(ctx)?.txn.commit()
   },
 
   Overlay({ state, k }) {

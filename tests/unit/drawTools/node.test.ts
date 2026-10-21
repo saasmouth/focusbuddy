@@ -41,13 +41,20 @@ describe('edit points tool (A)', () => {
     expect(h.state().selection).toEqual([])
   })
 
-  it('keeps its existing undo behaviour: a point drag opens no undo step of its own', () => {
-    // Documented as found: the drag's previews join the step before it, so one
-    // undo takes back both. Kept unchanged by the refactor; flagged for a fix.
+  it('a point drag is ONE undo step of its own; undo restores the shape, live parameters included', () => {
     const h = harness(blank([rect('r', 100, 100, 100, 100)]))
     h.click(150, 150)
+    h.tool('rect')
+    h.drag([300, 50], [350, 90]) // an earlier, unrelated step
+    h.ed.ctx.select(['r'])
     h.tool('node')
-    h.drag([100, 100], [80, 70])
-    expect(h.state().past).toHaveLength(0)
+    h.drag([100, 100], [80, 70], {}, 5)
+    expect(h.state().past).toHaveLength(2)
+    h.ed.history.undo()
+    const p = path(h, 'r')
+    expect(p.path.subpaths[0].nodes[0]).toMatchObject({ x: 100, y: 100 })
+    expect(p.shapeKind).toBe('rect')
+    // ...and the earlier step is still there, untouched.
+    expect(h.objects()).toHaveLength(2)
   })
 })
