@@ -2,7 +2,8 @@
  * E2E: shared-desk NAME + "Shared by <owner>" attribution badge (item 3), and the
  * Context-Engine "updated while away" frame lighting for a remotely-synced change
  * (item 4b, the full two-window visual counterpart to the decisive single-window
- * IPC proof in _fourFixesVerify.spec.ts's item4a). Same harness as
+ * IPC proof that was _fourFixesVerify.spec.ts's item4a, a one-off sweep retired
+ * in 4.3.41). Same harness as
  * deskShareTwoWindowLive.spec.ts — see that file's header for the full TLS-proxy
  * rationale and run recipe. Self-skips when DESKSHARE_LIVE_PROXY_BASE isn't set.
  *
@@ -10,7 +11,7 @@
  *  1. A signs up (real UI); A's real server-assigned handle is captured directly
  *     off the real /accounts/signup network response (not guessed/hardcoded).
  *  2. A creates a desk with one widget, shares it live with B by email (real UI:
- *     livedesk-email/livedesk-add).
+ *     the share picker, via _liveShareHelpers).
  *  3. B receives it; B's real "All desks" gallery shows the desk's real NAME on
  *     the card AND a real `data-testid="shared-badge"` whose tooltip/aria-label
  *     is exactly "Shared by <A's real handle>" — proving ownerHandles actually
@@ -33,6 +34,7 @@ import { test, expect, _electron as electron, type ElectronApplication, type Pag
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { openDeskShareSheet, shareLiveWithAccount } from './_liveShareHelpers'
 
 const PROXY_BASE = process.env.DESKSHARE_LIVE_PROXY_BASE
 
@@ -190,17 +192,8 @@ test('shared desk carries real owner-name attribution badge + updated-while-away
     }, deskId)
 
     // ── A shares live with B via the real Share dialog UI ────────────────────
-    await A.window.getByRole('button', { name: 'All desks' }).click()
-    const card = A.window.locator(`[data-testid="index-card-${deskId}"]`)
-    await expect(card).toBeVisible({ timeout: 10_000 })
-    await card.locator('button[title="Create a public link — anyone with it can view this desk"]').click()
-    const emailInput = A.window.locator('[data-testid="livedesk-email"]')
-    await expect(emailInput).toBeVisible({ timeout: 5_000 })
-    await emailInput.fill(emailB)
-    await A.window.locator('[data-testid="livedesk-add"]').click()
-    await expect(
-      A.window.getByText(new RegExp(`${emailB.replace(/[.+]/g, '\\$&')} now has live access`, 'i'))
-    ).toBeVisible({ timeout: 8_000 })
+    await openDeskShareSheet(A.window, deskId)
+    await shareLiveWithAccount(A.window, emailB)
     await A.window.keyboard.press('Escape')
     console.log('[BADGE] A shared the desk with B via real UI')
 
@@ -221,7 +214,7 @@ test('shared desk carries real owner-name attribution badge + updated-while-away
     // with A's real handle in the tooltip/aria-label ─────────────────────────
     await B.window.reload()
     await dismissOnboardingOnly(B.window)
-    await B.window.getByRole('button', { name: 'All desks' }).click()
+    await B.window.locator('[data-testid="desk-sidebar"]').getByRole('button', { name: 'All desks', exact: true }).click()
     const bCard = B.window.locator(`[data-testid="index-card-${deskId}"]`)
     await expect(bCard).toBeVisible({ timeout: 8_000 })
     await expect(bCard).toContainText(deskTitle)

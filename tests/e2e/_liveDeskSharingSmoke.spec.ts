@@ -3,8 +3,9 @@
  * Covers checks 1-3 from the dispatch brief against the BUILT app (default prod-signal
  * build — no server round trip needed since these checks are boot/UI/preload-only):
  *   1. App boots with the shared_root_id migration applied, no crash.
- *   2. Share dialog on a task desk renders "Live sharing (real-time)" with
- *      data-testid="livedesk-email" / "livedesk-add", no console errors.
+ *   2. Share dialog on a task desk renders "Live sharing (real-time)" with the
+ *      share picker (share-picker-search / -invite-email / -submit), and an email
+ *      can be staged for sharing, no console errors.
  *   3. window.api.workspaceSync.{pendingShared,applyRemoteShared,getCursorShared,
  *      localSharedRoots,adoptSharedDesk,stampSharedDesk,pruneSharedDesk} are all
  *      callable without throwing (preload wiring proof).
@@ -16,6 +17,7 @@
  */
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { openDeskShareSheet, stagePersonByEmail } from './_liveShareHelpers'
 
 let launched: LaunchedApp | null = null
 
@@ -124,29 +126,26 @@ test('desk share dialog renders live sharing UI + preload surface is wired, no c
 
   // Navigate via the real sidebar "All desks" row (goDesks view) — the gallery
   // that renders task-kind desks as cards with the share/link actions.
-  await window.getByRole('button', { name: 'All desks' }).click()
-  const card = window.locator(`[data-testid="index-card-${deskId2}"]`)
-  await expect(card).toBeVisible({ timeout: 10_000 })
-  await card.locator('button[title="Create a public link — anyone with it can view this desk"]').click()
-
+  await openDeskShareSheet(window, deskId2)
   const dialog = window.locator('[role="dialog"]').filter({ hasText: 'Share' }).first()
   await expect(dialog).toBeVisible({ timeout: 5_000 })
 
-  const liveSection = window.getByText('Live sharing (real-time)')
-  await expect(liveSection).toBeVisible({ timeout: 5_000 })
-  const emailInput = window.locator('[data-testid="livedesk-email"]')
-  const addButton = window.locator('[data-testid="livedesk-add"]')
-  await expect(emailInput).toBeVisible()
-  await expect(addButton).toBeVisible()
-
-  // Type an email to prove the input is wired (state updates enable the button).
-  await emailInput.fill('teammate@example.com')
-  await expect(addButton).toBeEnabled()
+  // Nothing staged yet, so there is nothing to share.
+  await expect(window.locator('[data-testid="share-picker-submit"]')).toBeDisabled()
+  // Type an email to prove the picker is wired: it offers the invite, staging
+  // it adds a chip, and the Share button enables. Not submitted -- this build
+  // has no signed-in account to share from.
+  await stagePersonByEmail(window, 'teammate@example.com')
+  await expect(window.locator('[data-testid="share-picker-chips"]')).toContainText('teammate@example.com')
 
   // No page errors and no console.error entries during the whole flow.
   expect(pageErrors, `page errors: ${JSON.stringify(pageErrors)}`).toHaveLength(0)
+  // "Failed to load resource" carries no URL. Checked with a response
+  // listener: here it is the production server's 404 for
+  // /public/server-features, fetched at boot and unrelated to sharing -- the
+  // same kind of line roomsDesksRestructure.spec filters.
   const seriousConsoleErrors = consoleErrors.filter(
-    (m) => !/Download the React DevTools|WebSocket connection|net::ERR_/.test(m)
+    (m) => !/Download the React DevTools|WebSocket connection|net::ERR_|Failed to load resource/.test(m)
   )
   expect(seriousConsoleErrors, `console errors: ${JSON.stringify(seriousConsoleErrors)}`).toHaveLength(0)
 })
