@@ -1,6 +1,7 @@
 // Edit menu, plus the editing keys that have no menu item (Escape, nudges).
 
-import { deleteObjects, duplicateObjects, editableIds, moveObjects, selectableObjectIds } from '@shared/draw/ops'
+import { deleteObjects, duplicateObjects, editableIds, moveObjects } from '@shared/draw/ops'
+import { exitIsolation, isIsolated, selectableInScope } from '../editor/isolation'
 import type { Command, EditorCtx, KeyInput, MenuSpec } from '../editor/types'
 import { finishPen } from '../tools/pen.tool'
 
@@ -52,7 +53,8 @@ export const commands: Command[] = [
     shortcut: '⌘A',
     menu: { path: 'edit', order: 200 },
     // Nothing hidden or locked -- the same rule for the menu and for ⌘A.
-    run: (ctx) => ctx.select(selectableObjectIds(ctx.doc()))
+    // In isolation mode, everything in the isolated group.
+    run: (ctx) => ctx.select(selectableInScope(ctx.get()))
   },
   {
     id: 'edit.duplicate',
@@ -84,6 +86,8 @@ export const commands: Command[] = [
     label: 'Finish path or deselect',
     run: (ctx) => {
       if (ctx.get().pen) finishPen(ctx, false)
+      // Esc leaves isolation mode, as in Illustrator.
+      else if (isIsolated(ctx.get())) exitIsolation(ctx)
       else ctx.select([])
     }
   },

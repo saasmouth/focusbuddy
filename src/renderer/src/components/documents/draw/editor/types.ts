@@ -66,6 +66,8 @@ export interface EditorState {
   dialog: OpenDialog | null
   /** Bumped when the co-editing undo stack changes, so Undo/Redo re-enable. */
   liveUndoTick: number
+  /** Isolation mode: the isolated groups' ids, outermost first; [] when not isolated (see editor/isolation.ts). */
+  isolation: string[]
 }
 
 /** A pointer event in ARTBOARD coordinates, with what tools read off it. */
@@ -193,8 +195,10 @@ export interface EditorCtx {
   run(commandId: string, args?: unknown): void
   /** Commit a paint layer's current pixels as one undo step. */
   commitRaster(layerId: string): void
-  /** The topmost selectable node under a point, honouring layer order, lock and visibility. */
+  /** The topmost selectable node under a point, honouring layer order, lock and visibility (and isolation mode). */
   hitTest(p: Pt): DrawNode | null
+  /** The innermost object under a point -- a member of a group, never the group (see editor/isolation.ts). */
+  hitTestDeep(p: Pt): DrawNode | null
 }
 
 // ── Extension points (see documents/draw/README.md) ──────────────────────────

@@ -8,7 +8,8 @@
 
 import type { Box, Pt } from '@shared/drawGeometry'
 import { rotateAbout } from '@shared/drawGeometry'
-import { editableIds, getObjects, mapObjects, moveObjects, nodeBounds, nodesBounds, rotateNode, scaleObjects } from '@shared/draw/ops'
+import { editableIds, moveObjects, rotateNodesWorld, scaleObjects } from '@shared/draw/ops'
+import { marqueeInScope } from '../editor/isolation'
 import type { DrawTool, EditorCtx, Txn } from '../editor/types'
 import { angleTo, handleAt, normBox, resizeBox, selectionBox, snapDelta, type HandleId } from './helpers'
 
@@ -27,18 +28,9 @@ function setGesture(ctx: EditorCtx, data: SelectGesture): void {
   ctx.set({ gesture: { toolId: 'select', data } })
 }
 
-/** The marquee: everything on a visible, unlocked layer whose visible bounds touch the box. */
+/** The marquee: everything at the current level (the isolated group's members in isolation mode) whose visible bounds touch the box. */
 function marqueeHits(ctx: EditorCtx, box: Box): string[] {
-  const hits: string[] = []
-  for (const l of ctx.doc().layers) {
-    if (l.kind !== 'vector' || !l.visible || l.locked) continue
-    for (const o of l.objects) {
-      if (o.hidden || o.locked || o.type === 'opaque') continue
-      const ob = nodeBounds(o)
-      if (ob.x < box.x + box.w && ob.x + ob.w > box.x && ob.y < box.y + box.h && ob.y + ob.h > box.y) hits.push(o.id)
-    }
-  }
-  return hits
+  return marqueeInScope(ctx.get(), box)
 }
 
 const select: DrawTool = {
@@ -109,9 +101,8 @@ const select: DrawTool = {
       return
     }
     if (d.kind === 'move') {
-      const objs = getObjects(ctx.doc(), d.ids)
-      if (!objs.length) return
-      const box = nodesBounds(objs)
+      const box = selectionBox(ctx.doc(), d.ids)
+      if (!box) return
       let dx = p.x - d.last.x
       let dy = p.y - d.last.y
       if (e.shiftKey) {
@@ -137,7 +128,7 @@ const select: DrawTool = {
     if (e.shiftKey) delta = Math.round(delta / 15) * 15
     if (Math.abs(delta) < 0.01) return
     const m = rotateAbout(d.center.x, d.center.y, delta)
-    d.txn.preview(mapObjects(ctx.doc(), d.ids, (o) => rotateNode(o, m, delta)))
+    d.txn.preview(rotateNodesWorld(ctx.doc(), d.ids, m, delta))
     setGesture(ctx, { ...d, last: d.last + delta })
   },
 
