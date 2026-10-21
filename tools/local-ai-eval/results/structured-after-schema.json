@@ -1,0 +1,1404 @@
+{
+  "label": "after-schema",
+  "schemaDecoding": true,
+  "samples": 3,
+  "at": "2026-10-21T00:12:08.318Z",
+  "results": [
+    {
+      "entry": "tableRows:fresh",
+      "brief": "podcast episodes",
+      "sample": 1,
+      "ok": true,
+      "n": 3,
+      "chars": 494,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Title",
+          "Duration",
+          "Host",
+          "Release Date",
+          "Status"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 361,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Title\",\n            \"type\": \"text-long\"\n        },\n        {\n            \"label\": \"Duration\",\n            \"type\": \"number\"\n        },\n        {\n            \"label\": \"Host\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Release Date\",\n            \"type\": \"date\"\n        },\n        {\n            \"label\": \"Status\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Planned\",\n                \"Recorded\",\n                \"Published\",\n                \"Archived\"\n            ]\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Episode 1: Introduction\",\n            \"Done\": false,\n            \"Title\": \"Welcome to the Podcast\",\n            \"Duration\": 25,\n            \"Host\": \"Alex Johnson\",\n            \"Release Date\": \"2023-10-01\",\n            \"Status\": \"Published\"\n        },\n        {\n            \"Name\": \"Episode 2: Tech Trends\",\n            \"Done\": true,\n            \"Title\": \"The Future of AI in 2024\",\n            \"Duration\": 45,\n            \"Host\": \"Sam Rivera\",\n            \"Release Date\": \"2023-10-15\",\n            \"Status\": \"Published\"\n        },\n        {\n            \"Name\": \"Episode 3: Lifestyle Tips\",\n            \"Done\": false,\n            \"Title\": \"How to Stay Productive\",\n            \"Duration\": 30,\n            \"Host\": \"Mia Chen\",\n            \"Release Date\": \"2023-11-01\",\n            \"Status\": \"Recorded\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 21924
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "contacts for my wedding vendors",
+      "sample": 1,
+      "ok": true,
+      "n": 3,
+      "chars": 448,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Email",
+          "Phone",
+          "Company",
+          "Role",
+          "Status"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 298,
+          "failure": [],
+          "text": "{\"columnsToAdd\": [{\"label\": \"Email\", \"type\": \"text-long\"}, {\"label\": \"Phone\", \"type\": \"text-long\"}, {\"label\": \"Company\", \"type\": \"text-short\"}, {\"label\": \"Role\", \"type\": \"single-select\", \"options\": [\"Caterer\", \"Florist\", \"Photographer\", \"Venue\", \"Music\", \"Transportation\", \"Ceremony Coordinator\"]}, {\"label\": \"Status\", \"type\": \"single-select\", \"options\": [\"Pending\", \"Confirmed\", \"On Hold\", \"Cancelled\"]}], \"rows\": [{\"Name\": \"Sarah Chen\", \"Email\": \"sarah.chen@florist.com\", \"Phone\": \"+1-555-1234\", \"Company\": \"Evergreen Florals\", \"Role\": \"Florist\", \"Status\": \"Confirmed\"}, {\"Name\": \"James Reed\", \"Email\": \"james.reed@cateringpro.com\", \"Phone\": \"+1-555-5678\", \"Company\": \"Golden Catering\", \"Role\": \"Caterer\", \"Status\": \"Confirmed\"}, {\"Name\": \"Lena Patel\", \"Email\": \"lena.patel@photogallery.com\", \"Phone\": \"+1-555-9012\", \"Company\": \"Sunrise Photography\", \"Role\": \"Photographer\", \"Status\": \"Pending\"}]}"
+        }
+      ],
+      "ms": 9123
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "my weekly workouts",
+      "sample": 1,
+      "ok": true,
+      "n": 4,
+      "chars": 578,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Type",
+          "Duration (min)",
+          "Day",
+          "Notes"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 368,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Type\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Cardio\",\n                \"Strength\",\n                \"Flexibility\",\n                \"HIIT\"\n            ]\n        },\n        {\n            \"label\": \"Duration (min)\",\n            \"type\": \"number\"\n        },\n        {\n            \"label\": \"Day\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Notes\",\n            \"type\": \"text-long\"\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Jump Rope\",\n            \"Done\": true,\n            \"Type\": \"Cardio\",\n            \"Duration (min)\": 15,\n            \"Day\": \"Monday\",\n            \"Notes\": \"3 rounds of 1 minute, rest 30 seconds between.\"\n        },\n        {\n            \"Name\": \"Push-ups & Squats\",\n            \"Done\": false,\n            \"Type\": \"Strength\",\n            \"Duration (min)\": 20,\n            \"Day\": \"Tuesday\",\n            \"Notes\": \"3 sets of 10 push-ups and 15 squats.\"\n        },\n        {\n            \"Name\": \"Yoga Flow\",\n            \"Done\": true,\n            \"Type\": \"Flexibility\",\n            \"Duration (min)\": 30,\n            \"Day\": \"Wednesday\",\n            \"Notes\": \"Full body stretch routine, focus on breathing.\"\n        },\n        {\n            \"Name\": \"Sprint Workout\",\n            \"Done\": false,\n            \"Type\": \"HIIT\",\n            \"Duration (min)\": 25,\n            \"Day\": \"Friday\",\n            \"Notes\": \"4 rounds of 30 seconds sprint, 1 minute rest.\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 20954
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "expenses for a trip to Japan",
+      "sample": 1,
+      "ok": true,
+      "n": 3,
+      "chars": 432,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Date",
+          "Amount",
+          "Category",
+          "Notes"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 334,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Date\",\n            \"type\": \"date\"\n        },\n        {\n            \"label\": \"Amount\",\n            \"type\": \"number\"\n        },\n        {\n            \"label\": \"Category\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Accommodation\",\n                \"Food & Dining\",\n                \"Transportation\",\n                \"Attractions\",\n                \"Shopping\",\n                \"Miscellaneous\"\n            ]\n        },\n        {\n            \"label\": \"Notes\",\n            \"type\": \"text-long\"\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Hotel Stay\",\n            \"Done\": false,\n            \"Date\": \"2024-03-15\",\n            \"Amount\": 800.0,\n            \"Category\": \"Accommodation\",\n            \"Notes\": \"Stay at Tokyo Grand Hotel for 3 nights\"\n        },\n        {\n            \"Name\": \"Restaurant Dinner\",\n            \"Done\": false,\n            \"Date\": \"2024-03-16\",\n            \"Amount\": 120.5,\n            \"Category\": \"Food & Dining\",\n            \"Notes\": \"Sushi at Sushi Saito, Shibuya\"\n        },\n        {\n            \"Name\": \"Airport Transfer\",\n            \"Done\": false,\n            \"Date\": \"2024-03-14\",\n            \"Amount\": 75.0,\n            \"Category\": \"Transportation\",\n            \"Notes\": \"Round trip from Narita to hotel\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 22140
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "job applications I have sent",
+      "sample": 1,
+      "ok": true,
+      "n": 3,
+      "chars": 679,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Company",
+          "Position",
+          "Application Date",
+          "Status",
+          "Notes"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 367,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Company\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Position\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Application Date\",\n            \"type\": \"date\"\n        },\n        {\n            \"label\": \"Status\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Applied\",\n                \"Interview Scheduled\",\n                \"Interview Completed\",\n                \"Rejected\",\n                \"Offer Received\",\n                \"Hired\"\n            ]\n        },\n        {\n            \"label\": \"Notes\",\n            \"type\": \"text-long\"\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Software Engineer Position\",\n            \"Company\": \"TechCorp Inc.\",\n            \"Position\": \"Senior Software Engineer\",\n            \"Application Date\": \"2023-10-01\",\n            \"Status\": \"Interview Scheduled\",\n            \"Notes\": \"Submitted resume and cover letter. Followed up via email on October 3rd.\"\n        },\n        {\n            \"Name\": \"Product Manager Role\",\n            \"Company\": \"Innovate Solutions\",\n            \"Position\": \"Product Manager\",\n            \"Application Date\": \"2023-10-05\",\n            \"Status\": \"Applied\",\n            \"Notes\": \"Submitted application with portfolio link included.\"\n        },\n        {\n            \"Name\": \"Data Analyst Position\",\n            \"Company\": \"DataFlow Analytics\",\n            \"Position\": \"Data Analyst\",\n            \"Application Date\": \"2023-10-10\",\n            \"Status\": \"Interview Completed\",\n            \"Notes\": \"Interviewed on October 15th. Asked about remote work options.\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 30320
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "books to read this year",
+      "sample": 1,
+      "ok": true,
+      "n": 3,
+      "chars": 494,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Title",
+          "Author",
+          "Genre",
+          "Read Status",
+          "Rating"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 368,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Title\",\n            \"type\": \"text-long\"\n        },\n        {\n            \"label\": \"Author\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Genre\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Fiction\",\n                \"Non-Fiction\",\n                \"Mystery\",\n                \"Science Fiction\",\n                \"Biography\",\n                \"Self-Help\"\n            ]\n        },\n        {\n            \"label\": \"Read Status\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Not Started\",\n                \"In Progress\",\n                \"Completed\"\n            ]\n        },\n        {\n            \"label\": \"Rating\",\n            \"type\": \"number\"\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"The Midnight Library\",\n            \"Title\": \"The Midnight Library\",\n            \"Author\": \"Matt Haig\",\n            \"Genre\": \"Fiction\",\n            \"Read Status\": \"Not Started\",\n            \"Rating\": 4.5\n        },\n        {\n            \"Name\": \"Sapiens\",\n            \"Title\": \"Sapiens: A Brief History of Humankind\",\n            \"Author\": \"Yuval Noah Harari\",\n            \"Genre\": \"Non-Fiction\",\n            \"Read Status\": \"In Progress\",\n            \"Rating\": 4.8\n        },\n        {\n            \"Name\": \"Atomic Habits\",\n            \"Title\": \"Atomic Habits: An Easy & Proven Way to Build Good Habits & Break Bad Ones\",\n            \"Author\": \"James Clear\",\n            \"Genre\": \"Self-Help\",\n            \"Read Status\": \"Completed\",\n            \"Rating\": 4.7\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 33322
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "client invoices for October",
+      "sample": 1,
+      "ok": true,
+      "n": 3,
+      "chars": 413,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Invoice Number",
+          "Client Name",
+          "Amount",
+          "Due Date",
+          "Status"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 352,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Invoice Number\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Client Name\",\n            \"type\": \"text-long\"\n        },\n        {\n            \"label\": \"Amount\",\n            \"type\": \"number\"\n        },\n        {\n            \"label\": \"Due Date\",\n            \"type\": \"date\"\n        },\n        {\n            \"label\": \"Status\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Pending\",\n                \"Paid\",\n                \"Overdue\"\n            ]\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Invoice-1001\",\n            \"Invoice Number\": \"INV-1001\",\n            \"Client Name\": \"Acme Corp\",\n            \"Amount\": 2500,\n            \"Due Date\": \"2023-10-15\",\n            \"Status\": \"Pending\"\n        },\n        {\n            \"Name\": \"Invoice-1002\",\n            \"Invoice Number\": \"INV-1002\",\n            \"Client Name\": \"Bright Solutions\",\n            \"Amount\": 1800,\n            \"Due Date\": \"2023-10-20\",\n            \"Status\": \"Paid\"\n        },\n        {\n            \"Name\": \"Invoice-1003\",\n            \"Invoice Number\": \"INV-1003\",\n            \"Client Name\": \"TechFlow Inc\",\n            \"Amount\": 3200,\n            \"Due Date\": \"2023-10-10\",\n            \"Status\": \"Overdue\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 23792
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "bugs to fix before launch",
+      "sample": 1,
+      "ok": true,
+      "n": 3,
+      "chars": 588,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Bug Description",
+          "Priority",
+          "Status",
+          "Assigned To"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 245,
+          "failure": [],
+          "text": "{\"columnsToAdd\": [{\"label\": \"Bug Description\", \"type\": \"text-long\"}, {\"label\": \"Priority\", \"type\": \"single-select\", \"options\": [\"Low\", \"Medium\", \"High\"]}, {\"label\": \"Status\", \"type\": \"single-select\", \"options\": [\"Open\", \"In Progress\", \"Resolved\"]}, {\"label\": \"Assigned To\", \"type\": \"text-short\"}], \"rows\": [{\"Name\": \"Fix login timeout issue\", \"Done\": false, \"Bug Description\": \"User session times out after 10 minutes of inactivity.\", \"Priority\": \"High\", \"Status\": \"Open\", \"Assigned To\": \"Alex\"}, {\"Name\": \"Improve mobile UI responsiveness\", \"Done\": false, \"Bug Description\": \"Mobile view on small screens is not responsive and elements overlap.\", \"Priority\": \"Medium\", \"Status\": \"In Progress\", \"Assigned To\": \"Sam\"}, {\"Name\": \"Fix payment gateway error on iOS\", \"Done\": false, \"Bug Description\": \"iOS devices show 'Payment failed' even when transaction succeeds.\", \"Priority\": \"High\", \"Status\": \"Open\", \"Assigned To\": \"Taylor\"}]}"
+        }
+      ],
+      "ms": 9431
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "recipes to try",
+      "sample": 1,
+      "ok": true,
+      "n": 3,
+      "chars": 135,
+      "error": null,
+      "detail": {
+        "columnsToAdd": []
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 79,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Spaghetti Bolognese\",\n            \"Done\": false\n        },\n        {\n            \"Name\": \"Vegan Quinoa Salad\",\n            \"Done\": false\n        },\n        {\n            \"Name\": \"Chocolate Chip Cookies\",\n            \"Done\": false\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 5605
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "what to plant in the vegetable garden and when",
+      "sample": 1,
+      "ok": true,
+      "n": 5,
+      "chars": 521,
+      "error": null,
+      "detail": {
+        "columnsToAdd": []
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 280,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Tomatoes\",\n            \"Done\": false,\n            \"Planting Date\": \"2024-03-15\",\n            \"Season\": \"Spring\",\n            \"Sunlight\": \"Full sun\"\n        },\n        {\n            \"Name\": \"Carrots\",\n            \"Done\": false,\n            \"Planting Date\": \"2024-04-01\",\n            \"Season\": \"Spring\",\n            \"Sunlight\": \"Partial sun\"\n        },\n        {\n            \"Name\": \"Lettuce\",\n            \"Done\": false,\n            \"Planting Date\": \"2024-04-10\",\n            \"Season\": \"Spring/Summer\",\n            \"Sunlight\": \"Partial sun\"\n        },\n        {\n            \"Name\": \"Peppers\",\n            \"Done\": false,\n            \"Planting Date\": \"2024-05-01\",\n            \"Season\": \"Summer\",\n            \"Sunlight\": \"Full sun\"\n        },\n        {\n            \"Name\": \"Zucchini\",\n            \"Done\": false,\n            \"Planting Date\": \"2024-05-15\",\n            \"Season\": \"Summer\",\n            \"Sunlight\": \"Full sun\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 14753
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "podcast episodes",
+      "sample": 2,
+      "ok": true,
+      "n": 3,
+      "chars": 503,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Title",
+          "Duration",
+          "Host",
+          "Release Date",
+          "Status"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 361,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Title\",\n            \"type\": \"text-long\"\n        },\n        {\n            \"label\": \"Duration\",\n            \"type\": \"number\"\n        },\n        {\n            \"label\": \"Host\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Release Date\",\n            \"type\": \"date\"\n        },\n        {\n            \"label\": \"Status\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Planned\",\n                \"Recorded\",\n                \"Edited\",\n                \"Published\"\n            ]\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Episode 1: Introduction\",\n            \"Done\": false,\n            \"Title\": \"Welcome to the Podcast\",\n            \"Duration\": 25,\n            \"Host\": \"Alex Johnson\",\n            \"Release Date\": \"2023-10-01\",\n            \"Status\": \"Published\"\n        },\n        {\n            \"Name\": \"Episode 2: Tech Trends\",\n            \"Done\": false,\n            \"Title\": \"The Future of AI in 2024\",\n            \"Duration\": 38,\n            \"Host\": \"Sam Rivera\",\n            \"Release Date\": \"2023-10-15\",\n            \"Status\": \"Recorded\"\n        },\n        {\n            \"Name\": \"Episode 3: Lifestyle Tips\",\n            \"Done\": false,\n            \"Title\": \"How to Stay Productive at Home\",\n            \"Duration\": 42,\n            \"Host\": \"Taylor Chen\",\n            \"Release Date\": \"2023-10-22\",\n            \"Status\": \"Edited\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 19399
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "contacts for my wedding vendors",
+      "sample": 2,
+      "ok": true,
+      "n": 3,
+      "chars": 446,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Email",
+          "Phone",
+          "Company",
+          "Service",
+          "Status"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 373,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Email\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Phone\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Company\",\n            \"type\": \"text-long\"\n        },\n        {\n            \"label\": \"Service\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Catering\",\n                \"Florist\",\n                \"Photography\",\n                \"Ceremony Planning\",\n                \"Music & Entertainment\",\n                \"Venue\",\n                \"Transportation\"\n            ]\n        },\n        {\n            \"label\": \"Status\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Pending\",\n                \"Confirmed\",\n                \"Cancelled\"\n            ]\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Sarah Chen\",\n            \"Email\": \"sarah.chen@email.com\",\n            \"Phone\": \"+1-555-1234\",\n            \"Company\": \"Golden Lotus Catering\",\n            \"Service\": \"Catering\",\n            \"Status\": \"Confirmed\"\n        },\n        {\n            \"Name\": \"James Reed\",\n            \"Email\": \"james.reed@email.com\",\n            \"Phone\": \"+1-555-5678\",\n            \"Company\": \"Sunrise Florals\",\n            \"Service\": \"Florist\",\n            \"Status\": \"Pending\"\n        },\n        {\n            \"Name\": \"Lena Patel\",\n            \"Email\": \"lena.patel@email.com\",\n            \"Phone\": \"+1-555-9012\",\n            \"Company\": \"Skyline Photography\",\n            \"Service\": \"Photography\",\n            \"Status\": \"Confirmed\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 20945
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "my weekly workouts",
+      "sample": 2,
+      "ok": true,
+      "n": 4,
+      "chars": 578,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Type",
+          "Duration (min)",
+          "Day",
+          "Notes"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 368,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Type\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Cardio\",\n                \"Strength\",\n                \"Flexibility\",\n                \"HIIT\"\n            ]\n        },\n        {\n            \"label\": \"Duration (min)\",\n            \"type\": \"number\"\n        },\n        {\n            \"label\": \"Day\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Notes\",\n            \"type\": \"text-long\"\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Jump Rope\",\n            \"Done\": true,\n            \"Type\": \"Cardio\",\n            \"Duration (min)\": 15,\n            \"Day\": \"Monday\",\n            \"Notes\": \"3 rounds of 1 minute, rest 30 seconds between.\"\n        },\n        {\n            \"Name\": \"Push-ups & Squats\",\n            \"Done\": false,\n            \"Type\": \"Strength\",\n            \"Duration (min)\": 20,\n            \"Day\": \"Tuesday\",\n            \"Notes\": \"3 sets of 10 push-ups and 15 squats.\"\n        },\n        {\n            \"Name\": \"Yoga Flow\",\n            \"Done\": true,\n            \"Type\": \"Flexibility\",\n            \"Duration (min)\": 30,\n            \"Day\": \"Wednesday\",\n            \"Notes\": \"Full body stretch routine, focus on breathing.\"\n        },\n        {\n            \"Name\": \"Sprint Workout\",\n            \"Done\": false,\n            \"Type\": \"HIIT\",\n            \"Duration (min)\": 25,\n            \"Day\": \"Friday\",\n            \"Notes\": \"4 rounds of 30 seconds sprint, 1 minute rest.\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 20506
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "expenses for a trip to Japan",
+      "sample": 2,
+      "ok": true,
+      "n": 3,
+      "chars": 433,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Date",
+          "Amount",
+          "Category",
+          "Notes"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 335,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Date\",\n            \"type\": \"date\"\n        },\n        {\n            \"label\": \"Amount\",\n            \"type\": \"number\"\n        },\n        {\n            \"label\": \"Category\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Accommodation\",\n                \"Food & Dining\",\n                \"Transportation\",\n                \"Attractions\",\n                \"Shopping\",\n                \"Miscellaneous\"\n            ]\n        },\n        {\n            \"label\": \"Notes\",\n            \"type\": \"text-long\"\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Hotel Stay\",\n            \"Done\": false,\n            \"Date\": \"2024-03-15\",\n            \"Amount\": 800.0,\n            \"Category\": \"Accommodation\",\n            \"Notes\": \"Stay at Tokyo Grand Hotel for 3 nights\"\n        },\n        {\n            \"Name\": \"Restaurant Dinner\",\n            \"Done\": false,\n            \"Date\": \"2024-03-16\",\n            \"Amount\": 150.0,\n            \"Category\": \"Food & Dining\",\n            \"Notes\": \"Sushi at Sushi Saito in Shinjuku\"\n        },\n        {\n            \"Name\": \"Airport Transfer\",\n            \"Done\": false,\n            \"Date\": \"2024-03-14\",\n            \"Amount\": 75.0,\n            \"Category\": \"Transportation\",\n            \"Notes\": \"Round trip from Narita to hotel\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 17450
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "job applications I have sent",
+      "sample": 2,
+      "ok": true,
+      "n": 3,
+      "chars": 488,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Company",
+          "Position",
+          "Application Date",
+          "Status"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 305,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Company\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Position\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Application Date\",\n            \"type\": \"date\"\n        },\n        {\n            \"label\": \"Status\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Applied\",\n                \"Interview Scheduled\",\n                \"Interview Completed\",\n                \"Rejected\",\n                \"Pending\"\n            ]\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Software Engineer Position\",\n            \"Company\": \"TechCorp Inc.\",\n            \"Position\": \"Senior Software Engineer\",\n            \"Application Date\": \"2023-10-01\",\n            \"Status\": \"Applied\",\n            \"Done\": false\n        },\n        {\n            \"Name\": \"Product Manager Role\",\n            \"Company\": \"Innovate Solutions\",\n            \"Position\": \"Product Manager\",\n            \"Application Date\": \"2023-10-05\",\n            \"Status\": \"Interview Scheduled\",\n            \"Done\": true\n        },\n        {\n            \"Name\": \"Data Analyst Position\",\n            \"Company\": \"DataFlow Analytics\",\n            \"Position\": \"Data Analyst\",\n            \"Application Date\": \"2023-10-10\",\n            \"Status\": \"Pending\",\n            \"Done\": false\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 20002
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "books to read this year",
+      "sample": 2,
+      "ok": true,
+      "n": 3,
+      "chars": 494,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Title",
+          "Author",
+          "Genre",
+          "Read Status",
+          "Rating"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 368,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Title\",\n            \"type\": \"text-long\"\n        },\n        {\n            \"label\": \"Author\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Genre\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Fiction\",\n                \"Non-Fiction\",\n                \"Mystery\",\n                \"Science Fiction\",\n                \"Biography\",\n                \"Self-Help\"\n            ]\n        },\n        {\n            \"label\": \"Read Status\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Not Started\",\n                \"In Progress\",\n                \"Completed\"\n            ]\n        },\n        {\n            \"label\": \"Rating\",\n            \"type\": \"number\"\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"The Midnight Library\",\n            \"Title\": \"The Midnight Library\",\n            \"Author\": \"Matt Haig\",\n            \"Genre\": \"Fiction\",\n            \"Read Status\": \"Not Started\",\n            \"Rating\": 4.5\n        },\n        {\n            \"Name\": \"Sapiens\",\n            \"Title\": \"Sapiens: A Brief History of Humankind\",\n            \"Author\": \"Yuval Noah Harari\",\n            \"Genre\": \"Non-Fiction\",\n            \"Read Status\": \"In Progress\",\n            \"Rating\": 4.8\n        },\n        {\n            \"Name\": \"Atomic Habits\",\n            \"Title\": \"Atomic Habits: An Easy & Proven Way to Build Good Habits & Break Bad Ones\",\n            \"Author\": \"James Clear\",\n            \"Genre\": \"Self-Help\",\n            \"Read Status\": \"Completed\",\n            \"Rating\": 4.7\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 31613
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "client invoices for October",
+      "sample": 2,
+      "ok": true,
+      "n": 3,
+      "chars": 413,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Invoice Number",
+          "Client Name",
+          "Amount",
+          "Due Date",
+          "Status"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 352,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Invoice Number\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Client Name\",\n            \"type\": \"text-long\"\n        },\n        {\n            \"label\": \"Amount\",\n            \"type\": \"number\"\n        },\n        {\n            \"label\": \"Due Date\",\n            \"type\": \"date\"\n        },\n        {\n            \"label\": \"Status\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Pending\",\n                \"Paid\",\n                \"Overdue\"\n            ]\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Invoice-1001\",\n            \"Invoice Number\": \"INV-1001\",\n            \"Client Name\": \"Acme Corp\",\n            \"Amount\": 2500,\n            \"Due Date\": \"2023-10-15\",\n            \"Status\": \"Pending\"\n        },\n        {\n            \"Name\": \"Invoice-1002\",\n            \"Invoice Number\": \"INV-1002\",\n            \"Client Name\": \"Bright Solutions\",\n            \"Amount\": 1800,\n            \"Due Date\": \"2023-10-20\",\n            \"Status\": \"Paid\"\n        },\n        {\n            \"Name\": \"Invoice-1003\",\n            \"Invoice Number\": \"INV-1003\",\n            \"Client Name\": \"TechNova Inc\",\n            \"Amount\": 3200,\n            \"Due Date\": \"2023-10-10\",\n            \"Status\": \"Overdue\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 23143
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "bugs to fix before launch",
+      "sample": 2,
+      "ok": true,
+      "n": 3,
+      "chars": 729,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Bug Description",
+          "Severity",
+          "Priority",
+          "Assigned To",
+          "Due Date"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 392,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Bug Description\",\n            \"type\": \"text-long\"\n        },\n        {\n            \"label\": \"Severity\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Low\",\n                \"Medium\",\n                \"High\"\n            ]\n        },\n        {\n            \"label\": \"Priority\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Critical\",\n                \"High\",\n                \"Medium\",\n                \"Low\"\n            ]\n        },\n        {\n            \"label\": \"Assigned To\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Due Date\",\n            \"type\": \"date\"\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Login page crashes on mobile devices\",\n            \"Bug Description\": \"The login form fails to load on iOS and Android browsers, causing a white screen.\",\n            \"Severity\": \"High\",\n            \"Priority\": \"Critical\",\n            \"Assigned To\": \"Alex Chen\",\n            \"Due Date\": \"2023-10-15\"\n        },\n        {\n            \"Name\": \"Payment gateway timeout during checkout\",\n            \"Bug Description\": \"After entering card details, the page hangs for over 30 seconds before showing an error.\",\n            \"Severity\": \"Medium\",\n            \"Priority\": \"High\",\n            \"Assigned To\": \"Samira Patel\",\n            \"Due Date\": \"2023-10-20\"\n        },\n        {\n            \"Name\": \"User profile image not updating after upload\",\n            \"Bug Description\": \"Uploaded images do not appear in the user profile section after refresh.\",\n            \"Severity\": \"Low\",\n            \"Priority\": \"Medium\",\n            \"Assigned To\": \"Jordan Lee\",\n            \"Due Date\": \"2023-10-18\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 23215
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "recipes to try",
+      "sample": 2,
+      "ok": true,
+      "n": 3,
+      "chars": 131,
+      "error": null,
+      "detail": {
+        "columnsToAdd": []
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 79,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Spaghetti Bolognese\",\n            \"Done\": false\n        },\n        {\n            \"Name\": \"Vegan Quinoa Salad\",\n            \"Done\": false\n        },\n        {\n            \"Name\": \"Chocolate Brownies\",\n            \"Done\": false\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 4762
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "what to plant in the vegetable garden and when",
+      "sample": 2,
+      "ok": true,
+      "n": 5,
+      "chars": 521,
+      "error": null,
+      "detail": {
+        "columnsToAdd": []
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 280,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Tomatoes\",\n            \"Done\": false,\n            \"Planting Date\": \"2024-03-15\",\n            \"Season\": \"Spring\",\n            \"Sunlight\": \"Full Sun\"\n        },\n        {\n            \"Name\": \"Carrots\",\n            \"Done\": false,\n            \"Planting Date\": \"2024-03-20\",\n            \"Season\": \"Spring\",\n            \"Sunlight\": \"Partial Sun\"\n        },\n        {\n            \"Name\": \"Lettuce\",\n            \"Done\": false,\n            \"Planting Date\": \"2024-04-01\",\n            \"Season\": \"Spring/Summer\",\n            \"Sunlight\": \"Partial Sun\"\n        },\n        {\n            \"Name\": \"Peppers\",\n            \"Done\": false,\n            \"Planting Date\": \"2024-04-10\",\n            \"Season\": \"Summer\",\n            \"Sunlight\": \"Full Sun\"\n        },\n        {\n            \"Name\": \"Zucchini\",\n            \"Done\": false,\n            \"Planting Date\": \"2024-04-15\",\n            \"Season\": \"Summer\",\n            \"Sunlight\": \"Full Sun\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 14479
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "podcast episodes",
+      "sample": 3,
+      "ok": true,
+      "n": 3,
+      "chars": 500,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Title",
+          "Duration",
+          "Host",
+          "Release Date",
+          "Status"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 362,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Title\",\n            \"type\": \"text-long\"\n        },\n        {\n            \"label\": \"Duration\",\n            \"type\": \"number\"\n        },\n        {\n            \"label\": \"Host\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Release Date\",\n            \"type\": \"date\"\n        },\n        {\n            \"label\": \"Status\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Planned\",\n                \"Recorded\",\n                \"Edited\",\n                \"Published\"\n            ]\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Episode 1: Introduction\",\n            \"Done\": false,\n            \"Title\": \"Welcome to the Podcast\",\n            \"Duration\": 25,\n            \"Host\": \"Alex Johnson\",\n            \"Release Date\": \"2023-10-01\",\n            \"Status\": \"Published\"\n        },\n        {\n            \"Name\": \"Episode 2: Tech Trends\",\n            \"Done\": false,\n            \"Title\": \"The Future of AI in 2024\",\n            \"Duration\": 38,\n            \"Host\": \"Sam Rivera\",\n            \"Release Date\": \"2023-10-15\",\n            \"Status\": \"Recorded\"\n        },\n        {\n            \"Name\": \"Episode 3: Lifestyle Tips\",\n            \"Done\": false,\n            \"Title\": \"How to Stay Productive at Home\",\n            \"Duration\": 42,\n            \"Host\": \"Mia Chen\",\n            \"Release Date\": \"2023-11-01\",\n            \"Status\": \"Edited\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 21401
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "contacts for my wedding vendors",
+      "sample": 3,
+      "ok": true,
+      "n": 3,
+      "chars": 448,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Email",
+          "Phone",
+          "Company",
+          "Role",
+          "Status"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 294,
+          "failure": [],
+          "text": "{\"columnsToAdd\": [{\"label\": \"Email\", \"type\": \"text-long\"}, {\"label\": \"Phone\", \"type\": \"text-long\"}, {\"label\": \"Company\", \"type\": \"text-short\"}, {\"label\": \"Role\", \"type\": \"single-select\", \"options\": [\"Caterer\", \"Florist\", \"Photographer\", \"Ceremony Coordinator\", \"Music\", \"Venue\"]}, {\"label\": \"Status\", \"type\": \"single-select\", \"options\": [\"Pending\", \"Confirmed\", \"On Hold\", \"Cancelled\"]}], \"rows\": [{\"Name\": \"Sarah Chen\", \"Email\": \"sarah.chen@florist.com\", \"Phone\": \"+1-555-1234\", \"Company\": \"Evergreen Florals\", \"Role\": \"Florist\", \"Status\": \"Confirmed\"}, {\"Name\": \"James Reed\", \"Email\": \"james.reed@cateringpro.com\", \"Phone\": \"+1-555-5678\", \"Company\": \"Golden Catering\", \"Role\": \"Caterer\", \"Status\": \"Confirmed\"}, {\"Name\": \"Lena Patel\", \"Email\": \"lena.patel@photogallery.com\", \"Phone\": \"+1-555-9012\", \"Company\": \"Sunrise Photography\", \"Role\": \"Photographer\", \"Status\": \"Pending\"}]}"
+        }
+      ],
+      "ms": 10114
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "my weekly workouts",
+      "sample": 3,
+      "ok": true,
+      "n": 3,
+      "chars": 391,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Type",
+          "Day",
+          "Duration (min)",
+          "Notes"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 226,
+          "failure": [],
+          "text": "{\"columnsToAdd\": [{\"label\": \"Type\", \"type\": \"single-select\", \"options\": [\"Cardio\", \"Strength\", \"Yoga\", \"Flexibility\", \"HIIT\"]}, {\"label\": \"Day\", \"type\": \"text-short\"}, {\"label\": \"Duration (min)\", \"type\": \"number\"}, {\"label\": \"Notes\", \"type\": \"text-long\"}], \"rows\": [{\"Name\": \"Jump Rope\", \"Done\": false, \"Type\": \"Cardio\", \"Day\": \"Monday\", \"Duration (min)\": 20, \"Notes\": \"Warm-up before gym session.\"}, {\"Name\": \"Push-ups\", \"Done\": true, \"Type\": \"Strength\", \"Day\": \"Tuesday\", \"Duration (min)\": 30, \"Notes\": \"Focus on form and core engagement.\"}, {\"Name\": \"Plank\", \"Done\": false, \"Type\": \"Flexibility\", \"Day\": \"Wednesday\", \"Duration (min)\": 15, \"Notes\": \"Hold for 30 seconds, repeat 3 times.\"}]}"
+        }
+      ],
+      "ms": 8684
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "expenses for a trip to Japan",
+      "sample": 3,
+      "ok": true,
+      "n": 3,
+      "chars": 433,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Date",
+          "Amount",
+          "Category",
+          "Notes"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 335,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Date\",\n            \"type\": \"date\"\n        },\n        {\n            \"label\": \"Amount\",\n            \"type\": \"number\"\n        },\n        {\n            \"label\": \"Category\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Accommodation\",\n                \"Food & Dining\",\n                \"Transportation\",\n                \"Attractions\",\n                \"Shopping\",\n                \"Miscellaneous\"\n            ]\n        },\n        {\n            \"label\": \"Notes\",\n            \"type\": \"text-long\"\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Hotel Stay\",\n            \"Done\": false,\n            \"Date\": \"2024-03-15\",\n            \"Amount\": 800.0,\n            \"Category\": \"Accommodation\",\n            \"Notes\": \"Stay at Tokyo Grand Hotel for 3 nights\"\n        },\n        {\n            \"Name\": \"Restaurant Dinner\",\n            \"Done\": false,\n            \"Date\": \"2024-03-16\",\n            \"Amount\": 150.0,\n            \"Category\": \"Food & Dining\",\n            \"Notes\": \"Sushi at Sushi Saito in Shinjuku\"\n        },\n        {\n            \"Name\": \"Airport Transfer\",\n            \"Done\": false,\n            \"Date\": \"2024-03-14\",\n            \"Amount\": 75.0,\n            \"Category\": \"Transportation\",\n            \"Notes\": \"Round trip from Narita to hotel\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 22174
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "job applications I have sent",
+      "sample": 3,
+      "ok": true,
+      "n": 3,
+      "chars": 488,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Company",
+          "Position",
+          "Application Date",
+          "Status"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 305,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Company\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Position\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Application Date\",\n            \"type\": \"date\"\n        },\n        {\n            \"label\": \"Status\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Applied\",\n                \"Interview Scheduled\",\n                \"Interview Completed\",\n                \"Rejected\",\n                \"Pending\"\n            ]\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Software Engineer Position\",\n            \"Company\": \"TechCorp Inc.\",\n            \"Position\": \"Senior Software Engineer\",\n            \"Application Date\": \"2023-10-01\",\n            \"Status\": \"Interview Scheduled\",\n            \"Done\": true\n        },\n        {\n            \"Name\": \"Product Manager Role\",\n            \"Company\": \"Innovate Solutions\",\n            \"Position\": \"Product Manager\",\n            \"Application Date\": \"2023-10-05\",\n            \"Status\": \"Applied\",\n            \"Done\": false\n        },\n        {\n            \"Name\": \"Data Analyst Position\",\n            \"Company\": \"DataFlow Analytics\",\n            \"Position\": \"Data Analyst\",\n            \"Application Date\": \"2023-10-10\",\n            \"Status\": \"Pending\",\n            \"Done\": false\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 18244
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "books to read this year",
+      "sample": 3,
+      "ok": true,
+      "n": 3,
+      "chars": 494,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Title",
+          "Author",
+          "Genre",
+          "Read Status",
+          "Rating"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 368,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Title\",\n            \"type\": \"text-long\"\n        },\n        {\n            \"label\": \"Author\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Genre\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Fiction\",\n                \"Non-Fiction\",\n                \"Mystery\",\n                \"Science Fiction\",\n                \"Biography\",\n                \"Self-Help\"\n            ]\n        },\n        {\n            \"label\": \"Read Status\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Not Started\",\n                \"In Progress\",\n                \"Completed\"\n            ]\n        },\n        {\n            \"label\": \"Rating\",\n            \"type\": \"number\"\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"The Midnight Library\",\n            \"Title\": \"The Midnight Library\",\n            \"Author\": \"Matt Haig\",\n            \"Genre\": \"Fiction\",\n            \"Read Status\": \"Not Started\",\n            \"Rating\": 4.5\n        },\n        {\n            \"Name\": \"Sapiens\",\n            \"Title\": \"Sapiens: A Brief History of Humankind\",\n            \"Author\": \"Yuval Noah Harari\",\n            \"Genre\": \"Non-Fiction\",\n            \"Read Status\": \"In Progress\",\n            \"Rating\": 4.8\n        },\n        {\n            \"Name\": \"Atomic Habits\",\n            \"Title\": \"Atomic Habits: An Easy & Proven Way to Build Good Habits & Break Bad Ones\",\n            \"Author\": \"James Clear\",\n            \"Genre\": \"Self-Help\",\n            \"Read Status\": \"Completed\",\n            \"Rating\": 4.7\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 21744
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "client invoices for October",
+      "sample": 3,
+      "ok": true,
+      "n": 3,
+      "chars": 413,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Invoice Number",
+          "Client Name",
+          "Amount",
+          "Due Date",
+          "Status"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 352,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Invoice Number\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Client Name\",\n            \"type\": \"text-long\"\n        },\n        {\n            \"label\": \"Amount\",\n            \"type\": \"number\"\n        },\n        {\n            \"label\": \"Due Date\",\n            \"type\": \"date\"\n        },\n        {\n            \"label\": \"Status\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Pending\",\n                \"Paid\",\n                \"Overdue\"\n            ]\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Invoice-1001\",\n            \"Invoice Number\": \"INV-1001\",\n            \"Client Name\": \"Acme Corp\",\n            \"Amount\": 2500,\n            \"Due Date\": \"2023-10-15\",\n            \"Status\": \"Pending\"\n        },\n        {\n            \"Name\": \"Invoice-1002\",\n            \"Invoice Number\": \"INV-1002\",\n            \"Client Name\": \"Bright Solutions\",\n            \"Amount\": 1800,\n            \"Due Date\": \"2023-10-20\",\n            \"Status\": \"Paid\"\n        },\n        {\n            \"Name\": \"Invoice-1003\",\n            \"Invoice Number\": \"INV-1003\",\n            \"Client Name\": \"TechNova Inc\",\n            \"Amount\": 3200,\n            \"Due Date\": \"2023-10-10\",\n            \"Status\": \"Overdue\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 19351
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "bugs to fix before launch",
+      "sample": 3,
+      "ok": true,
+      "n": 3,
+      "chars": 647,
+      "error": null,
+      "detail": {
+        "columnsToAdd": [
+          "Bug Description",
+          "Priority",
+          "Status",
+          "Assigned To"
+        ]
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 332,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Bug Description\",\n            \"type\": \"text-long\"\n        },\n        {\n            \"label\": \"Priority\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Low\",\n                \"Medium\",\n                \"High\"\n            ]\n        },\n        {\n            \"label\": \"Status\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Open\",\n                \"In Progress\",\n                \"Resolved\"\n            ]\n        },\n        {\n            \"label\": \"Assigned To\",\n            \"type\": \"text-short\"\n        }\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Login page crashes on mobile devices\",\n            \"Done\": false,\n            \"Bug Description\": \"The login form fails to load on iOS and Android devices with a white screen.\",\n            \"Priority\": \"High\",\n            \"Status\": \"Open\",\n            \"Assigned To\": \"Alex\"\n        },\n        {\n            \"Name\": \"Payment gateway timeout during checkout\",\n            \"Done\": false,\n            \"Bug Description\": \"After 30 seconds of inactivity, the payment page times out and shows an error.\",\n            \"Priority\": \"Medium\",\n            \"Status\": \"In Progress\",\n            \"Assigned To\": \"Sam\"\n        },\n        {\n            \"Name\": \"User profile image not loading\",\n            \"Done\": false,\n            \"Bug Description\": \"Profile images fail to load from the server, showing a placeholder instead.\",\n            \"Priority\": \"Low\",\n            \"Status\": \"Open\",\n            \"Assigned To\": \"Taylor\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 19494
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "recipes to try",
+      "sample": 3,
+      "ok": true,
+      "n": 3,
+      "chars": 131,
+      "error": null,
+      "detail": {
+        "columnsToAdd": []
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 79,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Spaghetti Bolognese\",\n            \"Done\": false\n        },\n        {\n            \"Name\": \"Vegan Quinoa Salad\",\n            \"Done\": false\n        },\n        {\n            \"Name\": \"Chocolate Brownies\",\n            \"Done\": false\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 4930
+    },
+    {
+      "entry": "tableRows:fresh",
+      "brief": "what to plant in the vegetable garden and when",
+      "sample": 3,
+      "ok": true,
+      "n": 5,
+      "chars": 521,
+      "error": null,
+      "detail": {
+        "columnsToAdd": []
+      },
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 280,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n    ],\n    \"rows\": [\n        {\n            \"Name\": \"Tomatoes\",\n            \"Done\": false,\n            \"Planting Date\": \"2024-03-15\",\n            \"Season\": \"Spring\",\n            \"Sunlight\": \"Full Sun\"\n        },\n        {\n            \"Name\": \"Carrots\",\n            \"Done\": false,\n            \"Planting Date\": \"2024-04-01\",\n            \"Season\": \"Spring\",\n            \"Sunlight\": \"Partial Sun\"\n        },\n        {\n            \"Name\": \"Lettuce\",\n            \"Done\": false,\n            \"Planting Date\": \"2024-04-10\",\n            \"Season\": \"Spring/Summer\",\n            \"Sunlight\": \"Partial Sun\"\n        },\n        {\n            \"Name\": \"Peppers\",\n            \"Done\": false,\n            \"Planting Date\": \"2024-05-01\",\n            \"Season\": \"Summer\",\n            \"Sunlight\": \"Full Sun\"\n        },\n        {\n            \"Name\": \"Zucchini\",\n            \"Done\": false,\n            \"Planting Date\": \"2024-05-15\",\n            \"Season\": \"Summer\",\n            \"Sunlight\": \"Full Sun\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 14801
+    },
+    {
+      "entry": "tableRows:existing",
+      "brief": "add the remaining launch tasks",
+      "sample": 1,
+      "ok": true,
+      "n": 4,
+      "chars": 368,
+      "error": null,
+      "detail": null,
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 154,
+          "failure": [],
+          "text": "{\"columnsToAdd\": [], \"rows\": [{\"Task\": \"Finalize product documentation\", \"Owner\": \"Alex\", \"Status\": \"Todo\", \"Due\": \"2023-10-15\"}, {\"Task\": \"Set up marketing campaign\", \"Owner\": \"Jamie\", \"Status\": \"Doing\", \"Due\": \"2023-10-12\"}, {\"Task\": \"Conduct user testing session\", \"Owner\": \"Taylor\", \"Status\": \"Todo\", \"Due\": \"2023-10-20\"}, {\"Task\": \"Prepare launch email sequence\", \"Owner\": \"Jordan\", \"Status\": \"Doing\", \"Due\": \"2023-10-18\"}]}"
+        }
+      ],
+      "ms": 4502
+    },
+    {
+      "entry": "tableRows:existing",
+      "brief": "five QA tasks for the release",
+      "sample": 1,
+      "ok": true,
+      "n": 5,
+      "chars": 443,
+      "error": null,
+      "detail": null,
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 233,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [],\n    \"rows\": [\n        {\n            \"Task\": \"Verify API endpoints\",\n            \"Owner\": \"Alice\",\n            \"Status\": \"Todo\",\n            \"Due\": \"2023-10-15\"\n        },\n        {\n            \"Task\": \"Test user authentication flow\",\n            \"Owner\": \"Bob\",\n            \"Status\": \"Todo\",\n            \"Due\": \"2023-10-16\"\n        },\n        {\n            \"Task\": \"Validate payment processing\",\n            \"Owner\": \"Charlie\",\n            \"Status\": \"Todo\",\n            \"Due\": \"2023-10-17\"\n        },\n        {\n            \"Task\": \"Check mobile responsiveness\",\n            \"Owner\": \"Diana\",\n            \"Status\": \"Todo\",\n            \"Due\": \"2023-10-18\"\n        },\n        {\n            \"Task\": \"Review security compliance\",\n            \"Owner\": \"Eve\",\n            \"Status\": \"Todo\",\n            \"Due\": \"2023-10-19\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 12643
+    },
+    {
+      "entry": "tableRows:existing",
+      "brief": "tasks for the marketing push",
+      "sample": 1,
+      "ok": true,
+      "n": 4,
+      "chars": 692,
+      "error": null,
+      "detail": null,
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 398,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Priority\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Low\",\n                \"Medium\",\n                \"High\"\n            ]\n        },\n        {\n            \"label\": \"Campaign\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Channel\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Social Media\",\n                \"Email\",\n                \"Paid Ads\",\n                \"Content Marketing\"\n            ]\n        }\n    ],\n    \"rows\": [\n        {\n            \"Task\": \"Create social media content calendar\",\n            \"Owner\": \"Sarah\",\n            \"Status\": \"Todo\",\n            \"Due\": \"2023-10-05\",\n            \"Priority\": \"High\",\n            \"Campaign\": \"Q4 Growth\",\n            \"Channel\": \"Social Media\"\n        },\n        {\n            \"Task\": \"Design email templates for new subscribers\",\n            \"Owner\": \"Mike\",\n            \"Status\": \"Doing\",\n            \"Due\": \"2023-10-10\",\n            \"Priority\": \"Medium\",\n            \"Campaign\": \"Welcome Series\",\n            \"Channel\": \"Email\"\n        },\n        {\n            \"Task\": \"Set up paid ad campaigns on Facebook and Instagram\",\n            \"Owner\": \"Lisa\",\n            \"Status\": \"Todo\",\n            \"Due\": \"2023-10-15\",\n            \"Priority\": \"High\",\n            \"Campaign\": \"Product Launch\",\n            \"Channel\": \"Paid Ads\"\n        },\n        {\n            \"Task\": \"Publish blog posts to drive SEO traffic\",\n            \"Owner\": \"David\",\n            \"Status\": \"Doing\",\n            \"Due\": \"2023-10-12\",\n            \"Priority\": \"Medium\",\n            \"Campaign\": \"Awareness\",\n            \"Channel\": \"Content Marketing\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 26904
+    },
+    {
+      "entry": "tableRows:existing",
+      "brief": "add the remaining launch tasks",
+      "sample": 2,
+      "ok": true,
+      "n": 4,
+      "chars": 355,
+      "error": null,
+      "detail": null,
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 153,
+          "failure": [],
+          "text": "{\"columnsToAdd\": [], \"rows\": [{\"Task\": \"Finalize product documentation\", \"Owner\": \"Alex\", \"Status\": \"Todo\", \"Due\": \"2023-10-15\"}, {\"Task\": \"Set up marketing campaign\", \"Owner\": \"Jamie\", \"Status\": \"Doing\", \"Due\": \"2023-10-12\"}, {\"Task\": \"Conduct user testing session\", \"Owner\": \"Taylor\", \"Status\": \"Todo\", \"Due\": \"2023-10-20\"}, {\"Task\": \"Review launch budget\", \"Owner\": \"Sam\", \"Status\": \"Done\", \"Due\": \"2023-10-05\"}]}"
+        }
+      ],
+      "ms": 6497
+    },
+    {
+      "entry": "tableRows:existing",
+      "brief": "five QA tasks for the release",
+      "sample": 2,
+      "ok": true,
+      "n": 5,
+      "chars": 451,
+      "error": null,
+      "detail": null,
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 188,
+          "failure": [],
+          "text": "{\"columnsToAdd\": [], \"rows\": [{\"Task\": \"Verify API endpoints\", \"Owner\": \"Alex\", \"Status\": \"Todo\", \"Due\": \"2023-10-15\"}, {\"Task\": \"Test user authentication flow\", \"Owner\": \"Sam\", \"Status\": \"Doing\", \"Due\": \"2023-10-14\"}, {\"Task\": \"Validate payment processing\", \"Owner\": \"Jordan\", \"Status\": \"Done\", \"Due\": \"2023-10-10\"}, {\"Task\": \"Check mobile responsiveness\", \"Owner\": \"Taylor\", \"Status\": \"Todo\", \"Due\": \"2023-10-16\"}, {\"Task\": \"Review error handling in frontend\", \"Owner\": \"Mia\", \"Status\": \"Doing\", \"Due\": \"2023-10-17\"}]}"
+        }
+      ],
+      "ms": 6954
+    },
+    {
+      "entry": "tableRows:existing",
+      "brief": "tasks for the marketing push",
+      "sample": 2,
+      "ok": true,
+      "n": 4,
+      "chars": 699,
+      "error": null,
+      "detail": null,
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 397,
+          "failure": [],
+          "text": "{\n    \"columnsToAdd\": [\n        {\n            \"label\": \"Priority\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Low\",\n                \"Medium\",\n                \"High\"\n            ]\n        },\n        {\n            \"label\": \"Campaign\",\n            \"type\": \"text-short\"\n        },\n        {\n            \"label\": \"Channel\",\n            \"type\": \"single-select\",\n            \"options\": [\n                \"Social Media\",\n                \"Email\",\n                \"Paid Ads\",\n                \"Content Marketing\"\n            ]\n        }\n    ],\n    \"rows\": [\n        {\n            \"Task\": \"Create social media content calendar\",\n            \"Owner\": \"Sarah\",\n            \"Status\": \"Todo\",\n            \"Due\": \"2023-10-05\",\n            \"Priority\": \"High\",\n            \"Campaign\": \"Q4 Growth\",\n            \"Channel\": \"Social Media\"\n        },\n        {\n            \"Task\": \"Design email templates for new subscribers\",\n            \"Owner\": \"Mike\",\n            \"Status\": \"Doing\",\n            \"Due\": \"2023-10-08\",\n            \"Priority\": \"Medium\",\n            \"Campaign\": \"Welcome Series\",\n            \"Channel\": \"Email\"\n        },\n        {\n            \"Task\": \"Set up paid ad campaigns on Facebook and Instagram\",\n            \"Owner\": \"Lisa\",\n            \"Status\": \"Todo\",\n            \"Due\": \"2023-10-10\",\n            \"Priority\": \"High\",\n            \"Campaign\": \"Product Launch\",\n            \"Channel\": \"Paid Ads\"\n        },\n        {\n            \"Task\": \"Publish blog posts about product benefits\",\n            \"Owner\": \"David\",\n            \"Status\": \"Doing\",\n            \"Due\": \"2023-10-12\",\n            \"Priority\": \"Medium\",\n            \"Campaign\": \"Product Launch\",\n            \"Channel\": \"Content Marketing\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 27589
+    },
+    {
+      "entry": "tableRows:existing",
+      "brief": "add the remaining launch tasks",
+      "sample": 3,
+      "ok": true,
+      "n": 4,
+      "chars": 355,
+      "error": null,
+      "detail": null,
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 153,
+          "failure": [],
+          "text": "{\"columnsToAdd\": [], \"rows\": [{\"Task\": \"Finalize product documentation\", \"Owner\": \"Alex\", \"Status\": \"Todo\", \"Due\": \"2023-10-15\"}, {\"Task\": \"Set up marketing campaign\", \"Owner\": \"Jamie\", \"Status\": \"Doing\", \"Due\": \"2023-10-18\"}, {\"Task\": \"Conduct user testing session\", \"Owner\": \"Taylor\", \"Status\": \"Todo\", \"Due\": \"2023-10-20\"}, {\"Task\": \"Review launch budget\", \"Owner\": \"Sam\", \"Status\": \"Done\", \"Due\": \"2023-10-10\"}]}"
+        }
+      ],
+      "ms": 4698
+    },
+    {
+      "entry": "tableRows:existing",
+      "brief": "five QA tasks for the release",
+      "sample": 3,
+      "ok": true,
+      "n": 5,
+      "chars": 443,
+      "error": null,
+      "detail": null,
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 205,
+          "failure": [],
+          "text": "{\"columnsToAdd\": [], \"rows\": [\n        { \"Task\": \"Verify API endpoints\", \"Owner\": \"Alice\", \"Status\": \"Todo\", \"Due\": \"2023-10-15\" },\n        { \"Task\": \"Test user authentication flow\", \"Owner\": \"Bob\", \"Status\": \"Todo\", \"Due\": \"2023-10-16\" },\n        { \"Task\": \"Validate payment processing\", \"Owner\": \"Charlie\", \"Status\": \"Todo\", \"Due\": \"2023-10-17\" },\n        { \"Task\": \"Check mobile responsiveness\", \"Owner\": \"Diana\", \"Status\": \"Todo\", \"Due\": \"2023-10-18\" },\n        { \"Task\": \"Review security compliance\", \"Owner\": \"Eve\", \"Status\": \"Todo\", \"Due\": \"2023-10-19\" }\n    ]}"
+        }
+      ],
+      "ms": 7108
+    },
+    {
+      "entry": "tableRows:existing",
+      "brief": "tasks for the marketing push",
+      "sample": 3,
+      "ok": true,
+      "n": 3,
+      "chars": 264,
+      "error": null,
+      "detail": null,
+      "engineCalls": 1,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 116,
+          "failure": [],
+          "text": "{\"columnsToAdd\": [], \"rows\": [{\"Task\": \"Create social media campaign\", \"Owner\": \"Sarah\", \"Status\": \"Todo\", \"Due\": \"2023-10-15\"}, {\"Task\": \"Design email templates\", \"Owner\": \"Mike\", \"Status\": \"Doing\", \"Due\": \"2023-10-12\"}, {\"Task\": \"Set up analytics tracking\", \"Owner\": \"Lisa\", \"Status\": \"Done\", \"Due\": \"2023-10-08\"}]}"
+        }
+      ],
+      "ms": 3371
+    },
+    {
+      "entry": "buildFromPrompt",
+      "brief": "A desk for my reading list",
+      "sample": 1,
+      "ok": false,
+      "n": 0,
+      "chars": 2,
+      "error": "The on-device model could not produce suggestion cards for Build with AI for this request (table \"Reading List\" has no tableSchema.columns). Nothing was sent anywhere. Try again, rephrase it, or use your own key for Build with AI in Settings → AI.",
+      "detail": null,
+      "engineCalls": 2,
+      "raws": [
+        {
+          "stop": "max_tokens",
+          "outputTokens": 10299,
+          "failure": [
+            "truncated",
+            "prose-after"
+          ],
+          "text": "{\n    \"intent\": \"Build a desk to manage and track a personal reading list with book titles, authors, status, and due dates for completion.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Reading List\",\n            \"reason\": \"Track books with title, author, status, and reading goal date\",\n            \"tableSchema\": {\n                \"columns\": 1 },\n            \"][\": 1,\n            \"][\": 2,\n            \"][\": 3,\n            \"][\": 4,\n            \"][\": 5,\n            \"][\": 6,\n            \"][\": 7,\n            \"][\": 8,\n            \"][\": 9,\n            \"][\": 10,\n            \"][\": 11,\n            \"][\": 12,\n            \"][\": 13,\n            \"][\": 14,\n            \"][\": 15,\n            \"][\": 16,\n            \"][\": 17,\n            \"][\": 18,\n            \"][\": 19,\n            \"][\": 20,\n            \"][\": 21,\n            \"][\": 22,\n            \"][\": 23,\n            \"][\": 24,\n            \"][\": 25,\n            \"][\": 26,\n            \"][\": 27,\n            \"][\": 28,\n            \"][\": 29,\n            \"][\": 30,\n            \"][\": 31,\n            \"][\": 32,\n            \"][\": 33,\n            \"][\": 34,\n            \"][\": 35,\n            \"][\": 36,\n            \"][\": 37,\n            \"][\": 38,\n            \"][\": 39,\n            \"][\": 40,\n            \"][\": 41,\n            \"][\": 42,\n            \"][\": 43,\n            \"][\": 44,\n            \"][\": 45,\n            \"][\": 46,\n            \"][\": 47,\n            \"][\": 48,\n            \"][\": 49,\n            \"][\": 50,\n            \"][\": 51,\n            \"][\": 52,\n            \"][\": 53,\n            \"][\": 54,\n            \"][\": 55,\n            \"][\": 56,\n            \"][\": 57,\n            \"][\": 58,\n            \"][\": 59,\n            \"][\": 60,\n            \"][\": 61,\n            \"][\": 62,\n            \"][\": 63,\n            \"][\": 64,\n            \"][\": 65,\n            \"][\": 66,\n            \"][\": 67,\n            \"][\": 68,\n            \"][\": 69,\n            \"][\": 70,\n            \"][\": 71,\n            \"][\": 72,\n            \"][\": 73,\n            \"][\": 74,\n            \"][\": 75,\n            \"][\": 76,\n            \"][\": 77,\n            \"][\": 78,\n            \"][\": 79,\n            \"][\": 80,\n            \"][\": 81,\n            \"][\": 82,\n            \"][\": 83,\n            \"][\": 84,\n            \"][\": 85,\n            \"][\": 86,\n            \"][\": 87,\n            \"][\": 88,\n            \"][\": 89,\n            \"][\": 90,\n            \"][\": 91,\n            \"][\": 92,\n            \"][\": 93,\n            \"][\": 94,\n            \"][\": 95,\n            \"][\": 96,\n            \"][\": 97,\n            \"][\": 98,\n            \"][\": 99,\n            \"][\": 100,\n            \"][\": 101,\n            \"][\": 102,\n            \"][\": 103,\n            \"][\": 104,\n            \"][\": 105,\n            \"][\": 106,\n            \"][\": 107,\n            \"][\": 108,\n            \"][\": 109,\n            \"][\": 110,\n            \"][\": 111,\n            \"][\": 112,\n            \"][\": 113,\n            \"][\": 114,\n            \"][\": 115,\n            \"][\": 116,\n            \"][\": 117,\n            \"][\": 118,\n            \"][\": 119,\n            \"][\": 120,\n            \"][\": 121,\n            \"][\": 122,\n            \"][\": 123,\n            \"][\": 124,\n            \"][\": 125,\n            \"][\": 126,\n            \"][\": 127,\n            \"][\": 128,\n            \"][\": 129,\n            \"][\": 130,\n            \"][\": 131,\n            \"][\": 132,\n            \"][\": 133,\n            \"][\": 134,\n            \"][\": 135,\n            \"][\": 136,\n            \"][\": 137,\n            \"][\": 138,\n            \"][\": 139,\n            \"][\": 140,\n            \"][\": 141,\n            \"][\": 142,\n            \"][\": 143,\n            \"][\": 144,\n            \"][\": 145,\n            \"][\": 146,\n            \"][\": 147,\n            \"][\": 148,\n            \"][\": 149,\n            \"][\": 150,\n            \"][\": 151,\n            \"][\": 152,\n            \"][\": 153,\n            \"][\": 154,\n            \"][\": 155,\n            \"][\": 156,\n            \"][\": 157,\n            \"][\": 158,\n            \"][\": 159,\n            \"][\": 160,\n            \"][\": 161,\n            \"][\": 162,\n            \"][\": 163,\n            \"][\": 164,\n            \"][\": 165,\n            \"][\": 166,\n            \"][\": 167,\n            \"][\": 168,\n            \"][\": 169,\n            \"][\": 170,\n            \"][\": 171,\n            \"][\": 172,\n            \"][\": 173,\n            \"][\": 174,\n            \"][\": 175,\n            \"][\": 176,\n            \"][\": 177,\n            \"][\": 178,\n            \"][\": 179,\n            \"][\": 180,\n            \"][\": 181,\n            \"][\": 182,\n            \"][\": 183,\n            \"][\": 184,\n            \"][\": 185,\n            \"][\": 186,\n            \"][\": 187,\n            \"][\": 188,\n            \"][\": 189,\n            \"][\": 190,\n            \"][\": 191,\n            \"][\": 192,\n            \"][\": 193,\n            \"][\": 194,\n            \"][\": 195,\n            \"][\": 196,\n            \"][\": 197,\n            \"][\": 198,\n            \"][\": 199,\n            \"][\": 200,\n            \"][\": 201,\n            \"][\": 202,\n            \"][\": 203,\n            \"][\": 204,\n            \"][\": 205,\n            \"][\": 206,\n            \"][\": 207,\n            \"][\": 208,\n            \"][\": 209,\n            \"][\": 210,\n            \"][\": 211,\n            \"][\": 212,\n            \"][\": 213,\n            \"][\": 214,\n            \"][\": 215,\n            \"][\": 216,\n            \"][\": 217,\n            \"][\": 218,\n            \"][\": 219,\n            \"][\": 220,\n            \"][\": 221,\n            \"][\": 222,\n            \"][\": 223,\n            \"][\": 224,\n            \"][\": 225,\n            \"][\": 226,\n            \"][\": 227,\n            \"][\": 228,\n            \"][\": 229,\n            \"][\": 230,\n            \"][\": 231,\n            \"][\": 232,\n            \"][\": 233,\n            \"][\": 234,\n            \"][\": 235,\n            \"][\": 236,\n            \"][\": 237,\n            \"][\": 238,\n            \"][\": 239,\n            \"][\": 240,\n            \"][\": 241,\n            \"][\": 242,\n            \"][\": 243,\n            \"][\": 244,\n            \"][\": 245,\n            \"][\": 246,\n            \"][\": 247,\n            \"][\": 248,\n            \"][\": 249,\n            \"][\": 250,\n            \"][\": 251,\n            \"][\": 252,\n            \"][\": 253,\n            \"][\": 254,\n            \"][\": 255,\n            \"][\": 256,\n            \"][\": 257,\n            \"][\": 258,\n            \"][\": 259,\n            \"][\": 260,\n            \"][\": 261,\n            \"][\": 262,\n            \"][\": 263,\n            \"][\": 264,\n            \"][\": 265,\n            \"][\": 266,\n            \"][\": 267,\n            \"][\": 268,\n            \"][\": 269,\n            \"][\": 270,\n            \"][\": 271,\n            \"][\": 272,\n            \"][\": 273,\n            \"][\": 274,\n            \"][\": 275,\n            \"][\": 276,\n            \"][\": 277,\n            \"][\": 278,\n            \"][\": 279,\n            \"][\": 280,\n            \"][\": 281,\n            \"][\": 282,\n            \"][\": 283,\n            \"][\": 284,\n            \"][\": 285,\n            \"][\": 286,\n            \"][\": 287,\n            \"][\": 288,\n            \"][\": 289,\n            \"][\": 290,\n            \"][\": 291,\n            \"][\": 292,\n            \"][\": 293,\n            \"][\": 294,\n            \"][\": 295,\n            \"][\": 296,\n            \"][\": 297,\n            \"][\": 298,\n            \"][\": 299,\n            \"][\": 300,\n            \"][\": 301,\n            \"][\": 302,\n            \"][\": 303,\n            \"][\": 304,\n            \"][\": 305,\n            \"][\": 306,\n            \"][\": 307,\n            \"][\": 308,\n            \"][\": 309,\n            \"][\": 310,\n            \"][\": 311,\n            \"][\": 312,\n            \"][\": 313,\n            \"][\": 314,\n            \"][\": 315,\n            \"][\": 316,\n            \"][\": 317,\n            \"][\": 318,\n            \"][\": 319,\n            \"][\": 320,\n            \"][\": 321,\n            \"][\": 322,\n            \"][\": 323,\n            \"][\": 324,\n            \"][\": 325,\n            \"][\": 326,\n            \"][\": 327,\n            \"][\": 328,\n            \"][\": 329,\n            \"][\": 330,\n            \"][\": 331,\n            \"][\": 332,\n            \"][\": 333,\n            \"][\": 334,\n            \"][\": 335,\n            \"][\": 336,\n            \"][\": 337,\n            \"][\": 338,\n            \"][\": 339,\n            \"][\": 340,\n            \"][\": 341,\n            \"][\": 342,\n            \"][\": 343,\n            \"][\": 344,\n            \"][\": 345,\n            \"][\": 346,\n            \"][\": 347,\n            \"][\": 348,\n            \"][\": 349,\n            \"][\": 350,\n            \"][\": 351,\n            \"][\": 352,\n            \"][\": 353,\n            \"][\": 354,\n            \"][\": 355,\n            \"][\": 356,\n            \"][\": 357,\n            \"][\": 358,\n            \"][\": 359,\n            \"][\": 360,\n            \"][\": 361,\n            \"][\": 362,\n            \"][\": 363,\n            \"][\": 364,\n            \"][\": 365,\n            \"][\": 366,\n            \"][\": 367,\n            \"][\": 368,\n            \"][\": 369,\n            \"][\": 370,\n            \"][\": 371,\n            \"][\": 372,\n            \"][\": 373,\n            \"][\": 374,\n            \"][\": 375,\n            \"][\": 376,\n            \"][\": 377,\n            \"][\": 378,\n            \"][\": 379,\n            \"][\": 380,\n            \"][\": 381,\n            \"][\": 382,\n            \"][\": 383,\n            \"][\": 384,\n            \"][\": 385,\n            \"][\": 386,\n            \"][\": 387,\n            \"][\": 388,\n            \"][\": 389,\n            \"][\": 390,\n            \"][\": 391,\n            \"][\": 392,\n            \"][\": 393,\n            \"][\": 394,\n            \"][\": 395,\n            \"][\": 396,\n            \"][\": 397,\n            \"][\": 398,\n            \"][\": 399,\n            \"][\": 400,\n            \"][\": 401,\n            \"][\": 402,\n            \"][\": 403,\n            \"][\": 404,\n            \"][\": 405,\n            \"][\": 406,\n            \"][\": 407,\n            \"][\": 408,\n            \"][\": 409,\n            \"][\": 410,\n            \"][\": 411,\n            \"][\": 412,\n            \"][\": 413,\n            \"][\": 414,\n            \"][\": 415,\n            \"][\": 416,\n            \"][\": 417,\n            \"][\": 418,\n            \"][\": 419,\n            \"][\": 420,\n            \"][\": 421,\n            \"][\": 422,\n            \"][\": 423,\n            \"][\": 424,\n            \"][\": 425,\n            \"][\": 426,\n            \"][\": 427,\n            \"][\": 428,\n            \"][\": 429,\n            \"][\": 430,\n            \"][\": 431,\n            \"][\": 432,\n            \"][\": 433,\n            \"][\": 434,\n            \"][\": 435,\n            \"][\": 436,\n            \"][\": 437,\n            \"][\": 438,\n            \"][\": 439,\n            \"][\": 440,\n            \"][\": 441,\n            \"][\": 442,\n            \"][\": 443,\n            \"][\": 444,\n            \"][\": 445,\n            \"][\": 446,\n            \"][\": 447,\n            \"][\": 448,\n            \"][\": 449,\n            \"][\": 450,\n            \"][\": 451,\n            \"][\": 452,\n            \"][\": 453,\n            \"][\": 454,\n            \"][\": 455,\n            \"][\": 456,\n            \"][\": 457,\n            \"][\": 458,\n            \"][\": 459,\n            \"][\": 460,\n            \"][\": 461,\n            \"][\": 462,\n            \"][\": 463,\n            \"][\": 464,\n            \"][\": 465,\n            \"][\": 466,\n            \"][\": 467,\n            \"][\": 468,\n            \"][\": 469,\n            \"][\": 470,\n            \"][\": 471,\n            \"][\": 472,\n            \"][\": 473,\n            \"][\": 474,\n            \"][\": 475,\n            \"][\": 476,\n            \"][\": 477,\n            \"][\": 478,\n            \"][\": 479,\n            \"][\": 480,\n            \"][\": 481,\n            \"][\": 482,\n            \"][\": 483,\n            \"][\": 484,\n            \"][\": 485,\n            \"][\": 486,\n            \"][\": 487,\n            \"][\": 488,\n            \"][\": 489,\n            \"][\": 490,\n            \"][\": 491,\n            \"][\": 492,\n            \"][\": 493,\n            \"][\": 494,\n            \"][\": 495,\n            \"][\": 496,\n            \"][\": 497,\n            \"][\": 498,\n            \"][\": 499,\n            \"][\": 500,\n            \"][\": 501,\n            \"][\": 502,\n            \"][\": 503,\n            \"][\": 504,\n            \"][\": 505,\n            \"][\": 506,\n            \"][\": 507,\n            \"][\": 508,\n            \"][\": 509,\n            \"][\": 510,\n            \"][\": 511,\n            \"][\": 512,\n            \"][\": 513,\n            \"][\": 514,\n            \"][\": 515,\n            \"][\": 516,\n            \"][\": 517,\n            \"][\": 518,\n            \"][\": 519,\n            \"][\": 520,\n            \"][\": 521,\n            \"][\": 522,\n            \"][\": 523,\n            \"][\": 524,\n            \"][\": 525,\n            \"][\": 526,\n            \"][\": 527,\n            \"][\": 528,\n            \"][\": 529,\n            \"][\": 530,\n            \"][\": 531,\n            \"][\": 532,\n            \"][\": 533,\n            \"][\": 534,\n            \"][\": 535,\n            \"][\": 536,\n            \"][\": 537,\n            \"][\": 538,\n            \"][\": 539,\n            \"][\": 540,\n            \"][\": 541,\n            \"][\": 542,\n            \"][\": 543,\n            \"][\": 544,\n            \"][\": 545,\n            \"][\": 546,\n            \"][\": 547,\n            \"][\": 548,\n            \"][\": 549,\n            \"][\": 550,\n            \"][\": 551,\n            \"][\": 552,\n            \"][\": 553,\n            \"][\": 554,\n            \"][\": 555,\n            \"][\": 556,\n            \"][\": 557,\n            \"][\": 558,\n            \"][\": 559,\n            \"][\": 560,\n            \"][\": 561,\n            \"][\": 562,\n            \"][\": 563,\n            \"][\": 564,\n            \"][\": 565,\n            \"][\": 566,\n            \"][\": 567,\n            \"][\": 568,\n            \"][\": 569,\n            \"][\": 570,\n            \"][\": 571,\n            \"][\": 572,\n            \"][\": 573,\n            \"][\": 574,\n            \"][\": 575,\n            \"][\": 576,\n            \"][\": 577,\n            \"][\": 578,\n            \"][\": 579,\n            \"][\": 580,\n            \"][\": 581,\n            \"][\": 582,\n            \"][\": 583,\n            \"][\": 584,\n            \"][\": 585,\n            \"][\": 586,\n            \"][\": 587,\n            \"][\": 588,\n            \"][\": 589,\n            \"][\": 590,\n            \"][\": 591,\n            \"][\": 592,\n            \"][\": 593,\n            \"][\": 594,\n            \"][\": 595,\n            \"][\": 596,\n            \"][\": 597,\n            \"][\": 598,\n            \"][\": 599,\n            \"][\": 600,\n            \"][\": 601,\n            \"][\": 602,\n            \"][\": 603,\n            \"][\": 604,\n            \"][\": 605,\n            \"][\": 606,\n            \"][\": 607,\n            \"][\": 608,\n            \"][\": 609,\n            \"][\": 610,\n            \"][\": 611,\n            \"][\": 612,\n            \"][\": 613,\n            \"][\": 614,\n            \"][\": 615,\n            \"][\": 616,\n            \"][\": 617,\n            \"][\": 618,\n            \"][\": 619,\n            \"][\": 620,\n            \"][\": 621,\n            \"][\": 622,\n            \"][\": 623,\n            \"][\": 624,\n            \"][\": 625,\n            \"][\": 626,\n            \"][\": 627,\n            \"][\": 628,\n            \"][\": 629,\n            \"][\": 630,\n            \"][\": 631,\n            \"][\": 632,\n            \"][\": 633,\n            \"][\": 634,\n            \"][\": 635,\n            \"][\": 636,\n            \"][\": 637,\n            \"][\": 638,\n            \"][\": 639,\n            \"][\": 640,\n            \"][\": 641,\n            \"][\": 642,\n            \"][\": 643,\n            \"][\": 644,\n            \"][\": 645,\n            \"][\": 646,\n            \"][\": 647,\n            \"][\": 648,\n            \"][\": 649,\n            \"][\": 650,\n            \"][\": 651,\n            \"][\": 652,\n            \"][\": 653,\n            \"][\": 654,\n            \"][\": 655,\n            \"][\": 656,\n            \"][\": 657,\n            \"][\": 658,\n            \"][\": 659,\n            \"][\": 660,\n            \"][\": 661,\n            \"][\": 662,\n            \"][\": 663,\n            \"][\": 664,\n            \"][\": 665,\n            \"][\": 666,\n            \"][\": 667,\n            \"][\": 668,\n            \"][\": 669,\n            \"][\": 670,\n            \"][\": 671,\n            \"][\": 672,\n            \"][\": 673,\n            \"][\": 674,\n            \"][\": 675,\n            \"][\": 676,\n            \"][\": 677,\n            \"][\": 678,\n            \"][\": 679,\n            \"][\": 680,\n            \"][\": 681,\n            \"][\": 682,\n            \"][\": 683,\n            \"][\": 684,\n            \"][\": 685,\n            \"][\": 686,\n            \"][\": 687,\n            \"][\": 688,\n            \"][\": 689,\n            \"][\": 690,\n            \"][\": 691,\n            \"][\": 692,\n            \"][\": 693,\n            \"][\": 694,\n            \"][\": 695,\n            \"][\": 696,\n            \"][\": 697,\n            \"][\": 698,\n            \"][\": 699,\n            \"][\": 700,\n            \"][\": 701,\n            \"][\": 702,\n            \"][\": 703,\n            \"][\": 704,\n            \"][\": 705,\n            \"][\": 706,\n            \"][\": 707,\n            \"][\": 708,\n            \"][\": 709,\n            \"][\": 710,\n            \"][\": 711,\n            \"][\": 712,\n            \"][\": 713,\n            \"][\": 714,\n            \"][\": 715,\n            \"][\": 716,\n            \"][\": 717,\n            \"][\": 718,\n            \"][\": 719,\n            \"][\": 720,\n            \"][\": 721,\n            \"][\": 722,\n            \"][\": 723,\n            \"][\": 724,\n            \"][\": 725,\n            \"][\": 726,\n            \"][\": 727,\n            \"][\": 728,\n            \"][\": 729,\n            \"][\": 730,\n            \"][\": 731,\n            \"][\": 732,\n            \"][\": 733,\n            \"][\": 734,\n            \"][\": 735,\n            \"][\": 736,\n            \"][\": 737,\n            \"][\": 738,\n            \"][\": 739,\n            \"][\": 740,\n            \"][\": 741,\n            \"][\": 742,\n            \"][\": 743,\n            \"][\": 744,\n            \"][\": 745,\n            \"][\": 746,\n            \"][\": 747,\n            \"][\": 748,\n            \"][\": 749,\n            \"][\": 750,\n            \"][\": 751,\n            \"][\": 752,\n            \"][\": 753,\n            \"][\": 754,\n            \"][\": 755,\n            \"][\": 756,\n            \"][\": 757,\n            \"][\": 758,\n            \"][\": 759,\n            \"][\": 760,\n            \"][\": 761,\n            \"][\": 762,\n            \"][\": 763,\n            \"][\": 764,\n            \"][\": 765,\n            \"][\": 766,\n            \"][\": 767,\n            \"][\": 768,\n            \"][\": 769,\n            \"][\": 770,\n            \"][\": 771,\n            \"][\": 772,\n            \"][\": 773,\n            \"][\": 774,\n            \"][\": 775,\n            \"][\": 776,\n            \"][\": 777,\n            \"][\": 778,\n            \"][\": 779,\n            \"][\": 780,\n            \"][\": 781,\n            \"][\": 782,\n            \"][\": 783,\n            \"][\": 784,\n            \"][\": 785,\n            \"][\": 786,\n            \"][\": 787,\n            \"][\": 788,\n            \"][\": 789,\n            \"][\": 790,\n            \"][\": 791,\n            \"][\": 792,\n            \"][\": 793,\n            \"][\": 794,\n            \"][\": 795,\n            \"][\": 796,\n            \"][\": 797,\n            \"][\": 798,\n            \"][\": 799,\n            \"][\": 800,\n            \"][\": 801,\n            \"][\": 802,\n            \"][\": 803,\n            \"][\": 804,\n            \"][\": 805,\n            \"][\": 806,\n            \"][\": 807,\n            \"][\": 808,\n            \"][\": 809,\n            \"][\": 810,\n            \"][\": 811,\n            \"][\": 812,\n            \"][\": 813,\n            \"][\": 814,\n            \"][\": 815,\n            \"][\": 816,\n            \"][\": 817,\n            \"][\": 818,\n            \"][\": 819,\n            \"][\": 820,\n            \"][\": 821,\n            \"][\": 822,\n            \"][\": 823,\n            \"][\": 824,\n            \"][\": 825,\n            \"][\": 826,\n            \"][\": 827,\n            \"][\": 828,\n            \"][\": 829,\n            \"][\": 830,\n            \"][\": 831,\n            \"][\": 832,\n            \"][\": 833,\n            \"][\": 834,\n            \"][\": 835,\n            \"][\": 836,\n            \"][\": 837,\n            \"][\": 838,\n            \"][\": 839,\n            \"][\": 840,\n            \"][\": 841,\n            \"][\": 842,\n            \"][\": 843,\n            \"][\": 844,\n            \"][\": 845,\n            \"][\": 846,\n            \"][\": 847,\n            \"][\": 848,\n            \"][\": 849,\n            \"][\": 850,\n            \"][\": 851,\n            \"][\": 852,\n            \"][\": 853,\n            \"][\": 854,\n            \"][\": 855,\n            \"][\": 856,\n            \"][\": 857,\n           "
+        },
+        {
+          "stop": "end_turn",
+          "outputTokens": 151,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Build a desk to manage and track a personal reading list with book titles, authors, status, and due dates for completion.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Reading List\",\n            \"reason\": \"Track books with title, author, status, and reading goal date\",\n            \"tableSchema\": {\n                \"columns\": 1\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Reading Notes\",\n            \"reason\": \"Space to record thoughts, reflections, and insights from books\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": [  ]\n            }\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 613218
+    },
+    {
+      "entry": "buildFromPrompt",
+      "brief": "Plan a birthday party for 20 people",
+      "sample": 1,
+      "ok": false,
+      "n": 0,
+      "chars": 2,
+      "error": "The on-device model could not produce suggestion cards for Build with AI for this request (table \"Guest List\" has no tableSchema.columns). Nothing was sent anywhere. Try again, rephrase it, or use your own key for Build with AI in Settings → AI.",
+      "detail": null,
+      "engineCalls": 2,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 675,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Plan a birthday party for 20 guests, including logistics, guest list, and activity schedule.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Guest List\",\n            \"reason\": \"Track names, contact info, and dietary restrictions for 20 attendees\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Party Plan & Schedule\",\n            \"reason\": \"Central document for the full party plan including timeline, activities, and flow\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": [  ]\n            }\n        },\n        {\n            \"kind\": \"table\",\n            \"title\": \"Party Activities & Timeline\",\n            \"reason\": \"Track scheduled events with start times, duration, and responsible person\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"date\",\n            \"label\": \"Party Date\",\n            \"type\": \"date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"time\",\n            \"label\": \"Start Time\",\n            \"type\": \"text-short\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"venue\",\n            \"label\": \"Venue\",\n            \"type\": \"text-long\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"theme\",\n            \"label\": \"Theme\",\n            \"type\": \"single-select\",\n            \"config\": {\n                \"options\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"budget\",\n            \"label\": \"Budget\",\n            \"type\": \"number\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Confirm guest list with parents and ensure dietary needs are noted (e.g., vegan, gluten-free).\"\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Send invites by Friday. Include RSVP deadline and party details.\"\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Plan a cake and games for the main event. Assign tasks to volunteers.\"\n        },\n        {\n            \"kind\": \"markdown\",\n            \"content\": \"# Birthday Party Plan\\n\\n## Overview\\n- Date: [to be filled]\\n- Time: [to be filled]\\n- Venue: [to be filled]\\n- Theme: [to be filled]\\n- Budget: $[to be filled]\\n\\n## Guest List\\n- 20 people (names and dietary restrictions to be confirmed)\\n\\n## Activities\\n- Welcome & photo booth (15 min)\\n- Games & snacks (60 min)\\n- Cake cutting & speeches (30 min)\\n- Closing & group photo (15 min)\\n\\n## Notes\\n- Confirm venue capacity and accessibility.\\n- Assign roles: host, games coordinator, food handler.\\n- Prepare backup plan for weather or last-minute cancellations.\"\n        }\n    ]\n}"
+        },
+        {
+          "stop": "end_turn",
+          "outputTokens": 673,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Plan a birthday party for 20 guests, including logistics, guest list, and activity schedule.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Guest List\",\n            \"reason\": \"Track names, contact info, and dietary restrictions for 20 attendees\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Party Plan & Schedule\",\n            \"reason\": \"Central document for the full party plan including timeline, activities, and flow\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": []\n            }\n        },\n        {\n            \"kind\": \"table\",\n            \"title\": \"Party Activities & Timeline\",\n            \"reason\": \"Track scheduled events with start times, duration, and responsible person\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"date\",\n            \"label\": \"Party Date\",\n            \"type\": \"date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"time\",\n            \"label\": \"Start Time\",\n            \"type\": \"text-short\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"venue\",\n            \"label\": \"Venue\",\n            \"type\": \"text-long\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"theme\",\n            \"label\": \"Theme\",\n            \"type\": \"single-select\",\n            \"config\": {\n                \"options\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"budget\",\n            \"label\": \"Budget\",\n            \"type\": \"number\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Confirm guest list with parents and ensure dietary needs are noted (e.g., vegan, gluten-free).\"\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Send invites by Friday. Include RSVP deadline and party details.\"\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Plan a cake and games for the main event. Assign tasks to volunteers.\"\n        },\n        {\n            \"kind\": \"markdown\",\n            \"content\": \"# Birthday Party Plan\\n\\n## Overview\\n- Date: [to be filled]\\n- Time: [to be filled]\\n- Venue: [to be filled]\\n- Theme: [to be filled]\\n- Budget: $[to be filled]\\n\\n## Guest List\\n- 20 people (names and dietary restrictions to be confirmed)\\n\\n## Activities\\n- Welcome & photo booth (15 min)\\n- Games & snacks (60 min)\\n- Cake cutting & speeches (30 min)\\n- Closing & group photo (15 min)\\n\\n## Notes\\n- Confirm venue capacity and accessibility.\\n- Assign roles: host, games coordinator, food handler.\\n- Prepare backup plan for weather or last-minute cancellations.\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 72240
+    },
+    {
+      "entry": "buildFromPrompt",
+      "brief": "Track my job search",
+      "sample": 1,
+      "ok": false,
+      "n": 0,
+      "chars": 2,
+      "error": "The on-device model could not produce suggestion cards for Build with AI for this request (table \"Job Applications\" has no tableSchema.columns). Nothing was sent anywhere. Try again, rephrase it, or use your own key for Build with AI in Settings → AI.",
+      "detail": null,
+      "engineCalls": 2,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 461,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Track job search activities including applications, status, and key details\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Job Applications\",\n            \"reason\": \"Track each job application with title, company, status, and date applied\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Job Search Plan\",\n            \"reason\": \"Document the overall strategy, goals, and next steps for job hunting\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"job-target\",\n            \"type\": \"text-long\",\n            \"label\": \"Target Role\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"location\",\n            \"type\": \"text-short\",\n            \"label\": \"Preferred Location\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"status\",\n            \"type\": \"single-select\",\n            \"label\": \"Search Status\",\n            \"config\": {\n                \"options\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"next-step\",\n            \"type\": \"text-long\",\n            \"label\": \"Next Action\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"timer\",\n            \"title\": \"Job Search Timer\",\n            \"reason\": \"Track time spent on job search activities\",\n            \"content\": {\n                \"targetSec\": 3600,\n                \"elapsedSec\": 0,\n                \"state\": \"idle\",\n                \"startedAt\": null\n            }\n        },\n        {\n            \"kind\": \"sticky\",\n            \"title\": \"Key Skills to Highlight\",\n            \"text\": \"Python, data analysis, cloud computing, project management\"\n        },\n        {\n            \"kind\": \"note\",\n            \"title\": \"Notes on Interview Prep\",\n            \"content\": \"Prepare for behavioral questions: STAR method. Practice coding problems from LeetCode.\"\n        }\n    ]\n}"
+        },
+        {
+          "stop": "end_turn",
+          "outputTokens": 459,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Track job search activities including applications, status, and key details\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Job Applications\",\n            \"reason\": \"Track each job application with title, company, status, and date applied\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Job Search Plan\",\n            \"reason\": \"Document the overall strategy, goals, and next steps for job hunting\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": []\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"job-target\",\n            \"type\": \"text-long\",\n            \"label\": \"Target Role\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"location\",\n            \"type\": \"text-short\",\n            \"label\": \"Preferred Location\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"status\",\n            \"type\": \"single-select\",\n            \"label\": \"Search Status\",\n            \"config\": {\n                \"options\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"next-step\",\n            \"type\": \"text-long\",\n            \"label\": \"Next Action\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"timer\",\n            \"title\": \"Job Search Timer\",\n            \"reason\": \"Track time spent on job search activities\",\n            \"content\": {\n                \"targetSec\": 3600,\n                \"elapsedSec\": 0,\n                \"state\": \"idle\",\n                \"startedAt\": null\n            }\n        },\n        {\n            \"kind\": \"sticky\",\n            \"title\": \"Key Skills to Highlight\",\n            \"text\": \"Python, data analysis, cloud computing, project management\"\n        },\n        {\n            \"kind\": \"note\",\n            \"title\": \"Notes on Interview Prep\",\n            \"content\": \"Prepare for behavioral questions: STAR method. Practice coding problems from LeetCode.\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 45140
+    },
+    {
+      "entry": "buildFromPrompt",
+      "brief": "A content calendar for my bakery’s Instagram",
+      "sample": 1,
+      "ok": false,
+      "n": 0,
+      "chars": 2,
+      "error": "The on-device model could not produce suggestion cards for Build with AI for this request (table \"Instagram Content Calendar\" has no tableSchema.columns). Nothing was sent anywhere. Try again, rephrase it, or use your own key for Build with AI in Settings → AI.",
+      "detail": null,
+      "engineCalls": 2,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 489,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Create a content calendar for a bakery's Instagram to plan and track posts by date, type, and theme.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Instagram Content Calendar\",\n            \"reason\": \"Track posts with date, theme, post type, caption notes, and status\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Content Planning Notes\",\n            \"reason\": \"Space to brainstorm themes, ideas, and captions for Instagram posts\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"theme\",\n            \"type\": \"text-long\",\n            \"label\": \"Current Theme\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"next-post-date\",\n            \"type\": \"date\",\n            \"label\": \"Next Post Date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"post-type\",\n            \"type\": \"single-select\",\n            \"label\": \"Post Type\",\n            \"config\": {\n                \"options\": [  ]\n            }\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Plan 3-5 posts per week. Include seasonal themes (e.g., holiday, summer), behind-the-scenes, customer spotlights, and product highlights.\"\n        },\n        {\n            \"kind\": \"webview\",\n            \"content\": \"https://www.instagram.com/bakeryname\"\n        },\n        {\n            \"kind\": \"markdown\",\n            \"content\": \"# Instagram Content Calendar Guidelines\\n\\n## Post Types\\n- Product shots\\n- Behind the scenes\\n- Customer testimonials\\n- Seasonal themes (e.g., pumpkin spice, winter holidays)\\n- Recipe of the day\\n- Giveaways and contests\\n\\n## Posting Schedule\\n- Weekly posts: Mon, Wed, Fri\\n- Weekend posts: Sat (customer spotlight), Sun (holiday-themed)\\n\\n## Caption Tips\\n- Use emojis\\n- Include a call-to-action (e.g., 'Tag us in your photo!')\\n- Mention local events or partnerships\"\n        }\n    ]\n}"
+        },
+        {
+          "stop": "end_turn",
+          "outputTokens": 489,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Create a content calendar for a bakery's Instagram to plan and track posts by date, type, theme, and status\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Instagram Content Calendar\",\n            \"reason\": \"Track posts with date, theme, post type, caption notes, and status\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Content Planning Notes\",\n            \"reason\": \"Space to brainstorm themes, ideas, and captions for Instagram posts\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": []\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"theme\",\n            \"type\": \"text-long\",\n            \"label\": \"Current Theme\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"next-post-date\",\n            \"type\": \"date\",\n            \"label\": \"Next Post Date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"post-type\",\n            \"type\": \"single-select\",\n            \"label\": \"Post Type\",\n            \"config\": {\n                \"options\": [  ]\n            }\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Plan 3-5 posts per week. Include seasonal themes (e.g., holiday, summer), behind-the-scenes, customer spotlights, and product highlights.\"\n        },\n        {\n            \"kind\": \"webview\",\n            \"content\": \"https://www.instagram.com/bakeryname\"\n        },\n        {\n            \"kind\": \"markdown\",\n            \"content\": \"# Instagram Content Calendar Guidelines\\n\\n## Post Types\\n- Product shots\\n- Behind the scenes\\n- Customer testimonials\\n- Seasonal themes (e.g., pumpkin spice, winter holidays)\\n- Recipe of the day\\n- Giveaways and contests\\n\\n## Posting Schedule\\n- Weekly posts: Mon, Wed, Fri\\n- Weekend posts: Sat (customer spotlight), Sun (holiday-themed)\\n\\n## Caption Tips\\n- Use emojis\\n- Include a call-to-action (e.g., 'Tag us in your photo!')\\n- Mention local events or partnerships\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 49178
+    },
+    {
+      "entry": "buildFromPrompt",
+      "brief": "Organise a two-week trip to Japan",
+      "sample": 1,
+      "ok": false,
+      "n": 0,
+      "chars": 2,
+      "error": "The on-device model could not produce suggestion cards for Build with AI for this request (table \"Trip Itinerary\" has no tableSchema.columns). Nothing was sent anywhere. Try again, rephrase it, or use your own key for Build with AI in Settings → AI.",
+      "detail": null,
+      "engineCalls": 2,
+      "raws": [
+        {
+          "stop": "max_tokens",
+          "outputTokens": 400,
+          "failure": [
+            "truncated",
+            "prose-after"
+          ],
+          "text": "{\n    \"intent\": \"Organize a two-week trip to Japan by tracking key details, planning activities, and managing logistics.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Trip Itinerary\",\n            \"reason\": \"Track daily activities, locations, and times for the two-week trip\",\n            \"tableSchema\": {\n                \"columns\": 1 },\n            \"columns\": [\n                 ],\n            \"type\": \"text-short\",\n            \"label\": \"Day\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"text-short\",\n            \"type\": \"text-short\",\n            \"label\": \"Location\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"text-long\",\n            \"type\": \"text-long\",\n            \"label\": \"Activities\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"date\",\n            \"type\": \"date\",\n            \"label\": \"Start Time\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"date\",\n            \"type\": \"date\",\n            \"label\": \"End Time\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"single-select\",\n            \"type\": \"single-select\",\n            \"label\": \"Priority\",\n            \"config\": {\n                \"options\": 1 },\n            \"label\": \"Priority\",\n            \"config\": {\n                \"options\": [ 1 ],\n                \"options\": [ 1 ],\n                \"options\": [ 1 ],\n                \"options\": [ 1 ],\n                \"options\": [ 1 ],\n                \"options\": [ 1 ],\n                \"options\": [ 1 ],\n                \"options\": [ 1 ],\n                \"options\": [ 1 ],\n                \"options\": [ 1 ],\n                \"options\": [ 1 ],\n                \"options\": [ 1 ],\n                \"options\": [ 1 ],\n                \"options\": [ 1 ],\n                \""
+        },
+        {
+          "stop": "end_turn",
+          "outputTokens": 672,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Organize a two-week trip to Japan by tracking key details, planning activities, and managing logistics.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Trip Itinerary\",\n            \"reason\": \"Track daily activities, locations, and times for the two-week trip\",\n            \"tableSchema\": {\n                \"columns\": 1 },\n            \"columns\": [\n                { \"id\": \"c1\", \"type\": \"text-short\", \"label\": \"Day\", \"config\": {} },\n                { \"id\": \"c2\", \"type\": \"text-long\", \"label\": \"Location\", \"config\": {} },\n                { \"id\": \"c3\", \"type\": \"text-long\", \"label\": \"Activities\", \"config\": {} },\n                { \"id\": \"c4\", \"type\": \"date\", \"label\": \"Start Time\", \"config\": {} },\n                { \"id\": \"c5\", \"type\": \"date\", \"label\": \"End Time\", \"config\": {} },\n                { \"id\": \"c6\", \"type\": \"single-select\", \"label\": \"Priority\", \"config\": { \"options\": [ { \"id\": \"low\", \"label\": \"Low\", \"color\": \"#6b7280\" }, { \"id\": \"medium\", \"label\": \"Medium\", \"color\": \"#f59e0b\" }, { \"id\": \"high\", \"label\": \"High\", \"color\": \"#ef4444\" } ] } }\n            ]\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Trip Plan & Notes\",\n            \"reason\": \"Central space for planning, decisions, and reflections on the trip\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": [ 1 ],\n                \"description\": \"Start typing your trip plan here — include goals, key dates, travel tips, cultural notes, and any other thoughts.\",\n                \"description\": \"Start typing your trip plan here — include goals, key dates, travel tips, cultural notes, and any other thoughts.\"\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"label\": \"Departure Date\",\n            \"type\": \"date\",\n            \"id\": \"departureDate\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"label\": \"Return Date\",\n            \"type\": \"date\",\n            \"id\": \"returnDate\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"label\": \"Budget\",\n            \"type\": \"number\",\n            \"id\": \"budget\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"webview\",\n            \"title\": \"Japan Travel Guide\",\n            \"content\": \"https://www.lonelyplanet.com/japan\"\n        },\n        {\n            \"kind\": \"pdf\",\n            \"title\": \"Flight & Visa Info\",\n            \"content\": \"https://www.japan.go.jp/en/visas\"\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Check visa requirements and confirm flight bookings before departure.\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 47682
+    },
+    {
+      "entry": "buildFromPrompt",
+      "brief": "Weekly meal planning for a family of four",
+      "sample": 1,
+      "ok": false,
+      "n": 0,
+      "chars": 2,
+      "error": "The on-device model could not produce suggestion cards for Build with AI for this request (table \"Weekly Meal Plan\" has no tableSchema.columns). Nothing was sent anywhere. Try again, rephrase it, or use your own key for Build with AI in Settings → AI.",
+      "detail": null,
+      "engineCalls": 2,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 789,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Create a weekly meal planning system for a family of four, including recipes, portions, and grocery lists.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Weekly Meal Plan\",\n            \"reason\": \"Track meals by day with recipe name, portion size, and prep time for a family of four\",\n            \"tableSchema\": {\n                \"columns\": 1 },\n            \"columns\": [\n                 ],\n            \"label\": \"Meal\",\n            \"type\": \"text-short\",\n            \"id\": \"c1\"\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"f1\",\n            \"type\": \"number\",\n            \"label\": \"Portion Size (serves)\",\n            \"config\": {\n                \"min\": 1,\n                \"max\": 8\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"f2\",\n            \"type\": \"text-long\",\n            \"label\": \"Recipe Notes\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"f3\",\n            \"type\": \"number\",\n            \"label\": \"Prep Time (minutes)\",\n            \"config\": {\n                \"min\": 0,\n                \"max\": 120\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"f4\",\n            \"type\": \"single-select\",\n            \"label\": \"Meal Type\",\n            \"config\": {\n                \"options\": 1 },\n            \"options\": [\n                {\"id\": \"o1\", \"label\": \"Breakfast\", \"color\": \"#f97316\"},\n                {\"id\": \"o2\", \"label\": \"Lunch\", \"color\": \"#059669\"},\n                {\"id\": \"o3\", \"label\": \"Dinner\", \"color\": \"#3b82f6\"},\n                {\"id\": \"o4\", \"label\": \"Snack\", \"color\": \"#ef4444\"}\n            ]\n        }\n    ],\n    \"description\": \"A table to plan meals by day with recipe name, portion size, prep time, and meal type for a family of four.\",\n    \"suggestions\": [\n        \"{\\\"kind\\\": \\\"page\\\", \\\"title\\\": \\\"Grocery List\\\", \\\"reason\\\": \\\"Compile all ingredients needed from the weekly meal plan\\\", \\\"pageContent\\\": {\\\"type\\\": \\\"doc\\\", \\\"content\\\": [{\\\"type\\\": \\\"heading\\\", \\\"attrs\\\": {\\\"level\\\": 1}, \\\"content\\\": [{\\\"type\\\": \\\"text\\\", \\\"text\\\": \\\"Grocery List\\\"}]}, {\\\"type\\\": \\\"paragraph\\\", \\\"content\\\": [{\\\"type\\\": \\\"text\\\", \\\"text\\\": \\\"Start typing ingredient lists here. Group by category (produce, dairy, etc.).\\\"}]}]}\",\n        \"{\\\"kind\\\": \\\"page\\\", \\\"title\\\": \\\"Meal Prep Calendar\\\", \\\"reason\\\": \\\"Visualize meal prep schedule with days and tasks\\\", \\\"pageContent\\\": {\\\"type\\\": \\\"doc\\\", \\\"content\\\": [{\\\"type\\\": \\\"heading\\\", \\\"attrs\\\": {\\\"level\\\": 1}, \\\"content\\\": [{\\\"type\\\": \\\"text\\\", \\\"text\\\": \\\"Meal Prep Calendar\\\"}]}, {\\\"type\\\": \\\"paragraph\\\", \\\"content\\\": [{\\\"type\\\": \\\"text\\\", \\\"text\\\": \\\"Use this to plan when to cook meals in advance. Mark days with prep tasks.\\\"}]}]}\",\n        \"{\\\"kind\\\": \\\"sticky\\\", \\\"title\\\": \\\"Family Preferences\\\", \\\"content\\\": \\\"Kids love veggies, no meat on Fridays, avoid gluten for one member.\\\"}\",\n        \"{\\\"kind\\\": \\\"note\\\", \\\"content\\\": \\\"Keep a running list of allergies and dietary restrictions (e.g., nut-free, dairy-free).\\\"}\"\n    ]\n}"
+        },
+        {
+          "stop": "end_turn",
+          "outputTokens": 575,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Create a weekly meal planning system for a family of four, including recipes, portions, and grocery lists.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Weekly Meal Plan\",\n            \"reason\": \"Track meals by day with recipe name, portion size, and prep time for a family of four\",\n            \"tableSchema\": {\n                \"columns\": 1 },\n            \"columns\": [\n                { \"id\": \"c1\", \"type\": \"text-short\", \"label\": \"Meal\", \"config\": {} },\n                { \"id\": \"c2\", \"type\": \"number\", \"label\": \"Portion Size (serves)\", \"config\": { \"min\": 1, \"max\": 8 } },\n                { \"id\": \"c3\", \"type\": \"text-long\", \"label\": \"Recipe Notes\", \"config\": {} },\n                { \"id\": \"c4\", \"type\": \"number\", \"label\": \"Prep Time (minutes)\", \"config\": { \"min\": 0, \"max\": 120 } },\n                { \"id\": \"c5\", \"type\": \"single-select\", \"label\": \"Meal Type\", \"config\": { \"options\": [ { \"id\": \"o1\", \"label\": \"Breakfast\", \"color\": \"#f97316\" }, { \"id\": \"o2\", \"label\": \"Lunch\", \"color\": \"#059669\" }, { \"id\": \"o3\", \"label\": \"Dinner\", \"color\": \"#3b82f6\" }, { \"id\": \"o4\", \"label\": \"Snack\", \"color\": \"#ef4444\" } ] } }\n            ]\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Grocery List\",\n            \"reason\": \"Compile all ingredients needed from the weekly meal plan\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": [ 1 ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Meal Prep Calendar\",\n            \"reason\": \"Visualize meal prep schedule with days and tasks\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": [ 1 ]\n            }\n        },\n        {\n            \"kind\": \"sticky\",\n            \"title\": \"Family Preferences\",\n            \"content\": \"Kids love veggies, no meat on Fridays, avoid gluten for one member.\"\n        },\n        {\n            \"kind\": \"note\",\n            \"content\": \"Keep a running list of allergies and dietary restrictions (e.g., nut-free, dairy-free).\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 62319
+    },
+    {
+      "entry": "buildFromPrompt",
+      "brief": "Onboard a new hire to my design team",
+      "sample": 1,
+      "ok": false,
+      "n": 0,
+      "chars": 2,
+      "error": "The on-device model could not produce suggestion cards for Build with AI for this request (table \"New Hire Onboarding Tracker\" has no tableSchema.columns). Nothing was sent anywhere. Try again, rephrase it, or use your own key for Build with AI in Settings → AI.",
+      "detail": null,
+      "engineCalls": 2,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 556,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Onboard a new hire to the design team by organizing key information, tracking onboarding tasks, and providing space for notes and documentation.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"New Hire Onboarding Tracker\",\n            \"reason\": \"Track each step of the onboarding process with status, assignee, and due date\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Onboarding Plan & Notes\",\n            \"reason\": \"Centralized space to document the onboarding plan, key decisions, and team feedback\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"new-hire-name\",\n            \"label\": \"New Hire Name\",\n            \"type\": \"text-short\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"onboarding-start-date\",\n            \"label\": \"Onboarding Start Date\",\n            \"type\": \"date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"design-tools-learned\",\n            \"label\": \"Design Tools Learned\",\n            \"type\": \"text-long\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"first-meeting-notes\",\n            \"label\": \"First Meeting Notes\",\n            \"type\": \"text-long\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"onboarding-status\",\n            \"label\": \"Onboarding Status\",\n            \"type\": \"single-select\",\n            \"config\": {\n                \"options\": [  ]\n            }\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Welcome to the design team! Please review the onboarding materials and complete your first task by Friday.\",\n            \"color\": \"#22c55e\"\n        },\n        {\n            \"kind\": \"webview\",\n            \"content\": \"https://design-team.onboard.example.com/new-hire-portal\"\n        },\n        {\n            \"kind\": \"gdoc\",\n            \"content\": \"https://docs.google.com/document/d/1aBcDeFgHiJkLmNoPqRsTuvWxyZ1234567890/edit\"\n        },\n        {\n            \"kind\": \"pdf\",\n            \"content\": \"https://example.com/onboarding-design-team-guide.pdf\"\n        }\n    ]\n}"
+        },
+        {
+          "stop": "end_turn",
+          "outputTokens": 556,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Onboard a new hire to the design team by organizing key information, tracking onboarding tasks, and providing space for notes and documentation.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"New Hire Onboarding Tracker\",\n            \"reason\": \"Track each step of the onboarding process with status, assignee, and due date\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Onboarding Plan & Notes\",\n            \"reason\": \"Centralized space to document the onboarding plan, key decisions, and team feedback\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"new-hire-name\",\n            \"label\": \"New Hire Name\",\n            \"type\": \"text-short\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"onboarding-start-date\",\n            \"label\": \"Onboarding Start Date\",\n            \"type\": \"date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"design-tools-learned\",\n            \"label\": \"Design Tools Learned\",\n            \"type\": \"text-long\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"first-meeting-notes\",\n            \"label\": \"First Meeting Notes\",\n            \"type\": \"text-long\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"onboarding-status\",\n            \"label\": \"Onboarding Status\",\n            \"type\": \"single-select\",\n            \"config\": {\n                \"options\": [  ]\n            }\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Welcome to the design team! Please review the onboarding materials and complete your first task by Friday.\",\n            \"color\": \"#22c55e\"\n        },\n        {\n            \"kind\": \"webview\",\n            \"content\": \"https://design-team.onboard.example.com/new-hire-portal\"\n        },\n        {\n            \"kind\": \"gdoc\",\n            \"content\": \"https://docs.google.com/document/d/1aBcDeFgHiJkLmNoPqRsTuvWxyZ1234567890/edit\"\n        },\n        {\n            \"kind\": \"pdf\",\n            \"content\": \"https://example.com/onboarding-design-team-guide.pdf\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 75849
+    },
+    {
+      "entry": "buildFromPrompt",
+      "brief": "A home renovation budget and schedule",
+      "sample": 1,
+      "ok": false,
+      "n": 0,
+      "chars": 2,
+      "error": "The on-device model could not produce suggestion cards for Build with AI for this request (table \"Renovation Tasks & Schedule\" has no tableSchema.columns). Nothing was sent anywhere. Try again, rephrase it, or use your own key for Build with AI in Settings → AI.",
+      "detail": null,
+      "engineCalls": 2,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 495,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Create a dedicated workspace to track and manage a home renovation project's budget and schedule, including key milestones, costs, and timelines.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Renovation Tasks & Schedule\",\n            \"reason\": \"Track individual tasks with their status, due dates, and estimated duration\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"table\",\n            \"title\": \"Budget Breakdown\",\n            \"reason\": \"Monitor expenses by category with actual vs. planned amounts\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Project Plan & Notes\",\n            \"reason\": \"Central space to document the overall plan, decisions, and ongoing thoughts\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"totalBudget\",\n            \"label\": \"Total Project Budget\",\n            \"type\": \"number\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"currentSpending\",\n            \"label\": \"Current Spending\",\n            \"type\": \"number\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"startDate\",\n            \"label\": \"Start Date\",\n            \"type\": \"date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"endDate\",\n            \"label\": \"End Date\",\n            \"type\": \"date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Initial phase: demolition and foundation work — start with a detailed timeline and cost estimate.\"\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Key contractors to confirm by [date] — ensure all quotes are finalized before moving to next phase.\"\n        },\n        {\n            \"kind\": \"webview\",\n            \"content\": \"https://www.home-renovation-planner.com/schedule-template\"\n        },\n        {\n            \"kind\": \"pdf\",\n            \"content\": \"https://example.com/budget-plan-2024.pdf\"\n        }\n    ]\n}"
+        },
+        {
+          "stop": "end_turn",
+          "outputTokens": 493,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Create a dedicated workspace to track and manage a home renovation project's budget and schedule, including key milestones, costs, and timelines.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Renovation Tasks & Schedule\",\n            \"reason\": \"Track individual tasks with their status, due dates, and estimated duration\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"table\",\n            \"title\": \"Budget Breakdown\",\n            \"reason\": \"Monitor expenses by category with actual vs. planned amounts\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Project Plan & Notes\",\n            \"reason\": \"Central space to document the overall plan, decisions, and ongoing thoughts\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": []\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"totalBudget\",\n            \"label\": \"Total Project Budget\",\n            \"type\": \"number\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"currentSpending\",\n            \"label\": \"Current Spending\",\n            \"type\": \"number\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"startDate\",\n            \"label\": \"Start Date\",\n            \"type\": \"date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"endDate\",\n            \"label\": \"End Date\",\n            \"type\": \"date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Initial phase: demolition and foundation work — start with a detailed timeline and cost estimate.\"\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Key contractors to confirm by [date] — ensure all quotes are finalized before moving to next phase.\"\n        },\n        {\n            \"kind\": \"webview\",\n            \"content\": \"https://www.home-renovation-planner.com/schedule-template\"\n        },\n        {\n            \"kind\": \"pdf\",\n            \"content\": \"https://example.com/budget-plan-2024.pdf\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 46292
+    },
+    {
+      "entry": "buildFromPrompt",
+      "brief": "A desk for my reading list",
+      "sample": 2,
+      "ok": false,
+      "n": 0,
+      "chars": 2,
+      "error": "The on-device model could not produce suggestion cards for Build with AI for this request (table \"Reading List\" has no tableSchema.columns). Nothing was sent anywhere. Try again, rephrase it, or use your own key for Build with AI in Settings → AI.",
+      "detail": null,
+      "engineCalls": 2,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 820,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Build a desk to manage and track a personal reading list with book titles, authors, status, and due dates for completion.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Reading List\",\n            \"reason\": \"Track books with title, author, status, and reading goal date\",\n            \"tableSchema\": {\n                \"columns\": 1 },\n            \"columns\": [\n                 ],\n            \"id\": \"c1\",\n            \"type\": \"text-long\",\n            \"label\": \"Title\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"table\",\n            \"title\": \"Reading List\",\n            \"reason\": \"Track books with title, author, status, and reading goal date\",\n            \"tableSchema\": {\n                \"columns\": 1\n            },\n            \"columns\": [\n                 ],\n            \"id\": \"c1\",\n            \"type\": \"text-long\",\n            \"label\": \"Title\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"table\",\n            \"title\": \"Reading List\",\n            \"reason\": \"Track books with title, author, status, and reading goal date\",\n            \"tableSchema\": {\n                \"columns\": 1\n            },\n            \"columns\": [\n                 ],\n            \"id\": \"c1\",\n            \"type\": \"text-long\",\n            \"label\": \"Title\",\n            \"config\": {}\n        }\n    ],\n    \"description\": \"The user wants a desk for their reading list. A table is the best choice to track individual books with key attributes like title, author, status, and due date. The table includes a text-long column for the book title, a text-long column for the author, a single-select column for status (e.g., 'To Read', 'Reading', 'Finished'), and a date column for the goal completion date. This structure allows for easy filtering, sorting, and tracking of progress.\",\n    \"suggestions\": [\n        \"{\\\"kind\\\": \\\"table\\\", \\\"title\\\": \\\"Reading List\\\", \\\"reason\\\": \\\"Track books with title, author, status, and reading goal date\\\", \\\"tableSchema\\\": {\\\"columns\\\": [{\\\"id\\\": \\\"c1\\\", \\\"type\\\": \\\"text-long\\\", \\\"label\\\": \\\"Title\\\", \\\"config\\\": {}}, {\\\"id\\\": \\\"c2\\\", \\\"type\\\": \\\"text-long\\\", \\\"label\\\": \\\"Author\\\", \\\"config\\\": {}}, {\\\"id\\\": \\\"c3\\\", \\\"type\\\": \\\"single-select\\\", \\\"label\\\": \\\"Status\\\", \\\"config\\\": {\\\"options\\\": [{\\\"id\\\": \\\"o1\\\", \\\"label\\\": \\\"To Read\\\", \\\"color\\\": \\\"#6366f1\\\"}, {\\\"id\\\": \\\"o2\\\", \\\"label\\\": \\\"Reading\\\", \\\"color\\\": \\\"#f59e0b\\\"}, {\\\"id\\\": \\\"o3\\\", \\\"label\\\": \\\"Finished\\\", \\\"color\\\": \\\"#10b981\\\"}]}}, {\\\"id\\\": \\\"c4\\\", \\\"type\\\": \\\"date\\\", \\\"label\\\": \\\"Due Date\\\", \\\"config\\\": {}}]}}\",\n        \"{\\\"kind\\\": \\\"page\\\", \\\"title\\\": \\\"Reading Notes\\\", \\\"reason\\\": \\\"Space to jot down thoughts, reflections, and insights from books\\\", \\\"pageContent\\\": {\\\"type\\\": \\\"doc\\\", \\\"content\\\": [{\\\"type\\\": \\\"heading\\\", \\\"attrs\\\": {\\\"level\\\": 1}, \\\"content\\\": [{\\\"type\\\": \\\"text\\\", \\\"text\\\": \\\"Reading Notes\\\"}]}, {\\\"type\\\": \\\"paragraph\\\", \\\"content\\\": [{\\\"type\\\": \\\"text\\\", \\\"text\\\": \\\"Start writing your thoughts here — what did you learn? What stood out? How does it connect to your goals?\\\"}]}]}}\",\n        \"{\\\"kind\\\": \\\"sticky\\\", \\\"title\\\": \\\"Next Book to Read\\\", \\\"reason\\\": \\\"Quick reminder of the next book on the list\\\", \\\"content\\\": \\\"The Midnight Library by Matt Haig\\\"}\"\n    ]\n}"
+        },
+        {
+          "stop": "end_turn",
+          "outputTokens": 402,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Build a desk to manage and track a personal reading list with book titles, authors, status, and due dates for completion.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Reading List\",\n            \"reason\": \"Track books with title, author, status, and reading goal date\",\n            \"tableSchema\": {\n                \"columns\": 1\n            },\n            \"columns\": [\n                { \"id\": \"c1\", \"type\": \"text-long\", \"label\": \"Title\", \"config\": {} },\n                { \"id\": \"c2\", \"type\": \"text-long\", \"label\": \"Author\", \"config\": {} },\n                { \"id\": \"c3\", \"type\": \"single-select\", \"label\": \"Status\", \"config\": { \"options\": [ { \"id\": \"o1\", \"label\": \"To Read\", \"color\": \"#6366f1\" }, { \"id\": \"o2\", \"label\": \"Reading\", \"color\": \"#f59e0b\" }, { \"id\": \"o3\", \"label\": \"Finished\", \"color\": \"#10b981\" } ] } },\n                { \"id\": \"c4\", \"type\": \"date\", \"label\": \"Due Date\", \"config\": {} }\n            ]\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Reading Notes\",\n            \"reason\": \"Space to jot down thoughts, reflections, and insights from books\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": [ 1 ]\n            }\n        },\n        {\n            \"kind\": \"sticky\",\n            \"title\": \"Next Book to Read\",\n            \"reason\": \"Quick reminder of the next book on the list\",\n            \"content\": \"The Midnight Library by Matt Haig\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 47675
+    },
+    {
+      "entry": "buildFromPrompt",
+      "brief": "Plan a birthday party for 20 people",
+      "sample": 2,
+      "ok": false,
+      "n": 0,
+      "chars": 2,
+      "error": "The on-device model could not produce suggestion cards for Build with AI for this request (table \"Guest List\" has no tableSchema.columns). Nothing was sent anywhere. Try again, rephrase it, or use your own key for Build with AI in Settings → AI.",
+      "detail": null,
+      "engineCalls": 2,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 686,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Plan a birthday party for 20 guests, including logistics, guest list, and activity schedule.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Guest List\",\n            \"reason\": \"Track names, contact info, and RSVP status of 20 attendees\",\n            \"tableSchema\": {\n                \"columns\": 1 },\n            \"config\": {\n                 } },\n        {\"kind\": \"table\", \"title\": \"Party Schedule\", \"reason\": \"Organize timeline of activities and events\", \"tableSchema\": {\"columns\": [{\"id\": \"c1\", \"type\": \"text-short\", \"label\": \"Time\", \"config\": {}}, {\"id\": \"c2\", \"type\": \"text-long\", \"label\": \"Activity\", \"config\": {}}, {\"id\": \"c3\", \"type\": \"single-select\", \"label\": \"Type\", \"config\": {\"options\": [{\"id\": \"o1\", \"label\": \"Food & Drink\", \"color\": \"#f97316\"}, {\"id\": \"o2\", \"label\": \"Game\", \"color\": \"#3b82f6\"}, {\"id\": \"o3\", \"label\": \"Music\", \"color\": \"#10b981\"}, {\"id\": \"o4\", \"label\": \"Break\", \"color\": \"#8b5cf6\"}]}}]}},\n        {\n            \"kind\": \"page\",\n            \"title\": \"Party Plan & Notes\",\n            \"reason\": \"Central space to document decisions, themes, and key details\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": 1\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"s1\",\n            \"type\": \"text-long\",\n            \"label\": \"Party Theme\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"s2\",\n            \"type\": \"single-select\",\n            \"label\": \"Venue Type\",\n            \"config\": {\n                \"options\": 1\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"s3\",\n            \"type\": \"date\",\n            \"label\": \"Date & Time\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"s4\",\n            \"type\": \"number\",\n            \"label\": \"Estimated Budget\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"sticky\",\n            \"id\": \"s5\",\n            \"content\": \"Confirm with guests: Do they have dietary restrictions or preferences?\"\n        },\n        {\n            \"kind\": \"sticky\",\n            \"id\": \"s6\",\n            \"content\": \"Plan a photo booth with props and a backdrop\"\n        },\n        {\n            \"kind\": \"webview\",\n            \"id\": \"s7\",\n            \"content\": \"https://www.google.com/calendar/render?action=TEMPLATE&text=Birthday+Party+for+20+People&dates=2024-04-15T18:00/2024-04-15T22:00\"\n        }\n    ]\n}"
+        },
+        {
+          "stop": "end_turn",
+          "outputTokens": 515,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Plan a birthday party for 20 guests, including logistics, guest list, and activity schedule.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Guest List\",\n            \"reason\": \"Track names, contact info, and RSVP status of 20 attendees\",\n            \"tableSchema\": {\n                \"columns\": 1\n            }\n        },\n        {\n            \"kind\": \"table\",\n            \"title\": \"Party Schedule\",\n            \"reason\": \"Organize timeline of activities and events\",\n            \"tableSchema\": {\n                \"columns\": 1\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Party Plan & Notes\",\n            \"reason\": \"Central space to document decisions, themes, and key details\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": []\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"s1\",\n            \"type\": \"text-long\",\n            \"label\": \"Party Theme\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"s2\",\n            \"type\": \"single-select\",\n            \"label\": \"Venue Type\",\n            \"config\": {\n                \"options\": []\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"s3\",\n            \"type\": \"date\",\n            \"label\": \"Date & Time\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"s4\",\n            \"type\": \"number\",\n            \"label\": \"Estimated Budget\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"sticky\",\n            \"id\": \"s5\",\n            \"content\": \"Confirm with guests: Do they have dietary restrictions or preferences?\"\n        },\n        {\n            \"kind\": \"sticky\",\n            \"id\": \"s6\",\n            \"content\": \"Plan a photo booth with props and a backdrop\"\n        },\n        {\n            \"kind\": \"webview\",\n            \"id\": \"s7\",\n            \"content\": \"https://www.google.com/calendar/render?action=TEMPLATE&text=Birthday+Party+for+20+People&dates=2024-04-15T18:00/2024-04-15T22:00\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 51916
+    },
+    {
+      "entry": "buildFromPrompt",
+      "brief": "Track my job search",
+      "sample": 2,
+      "ok": false,
+      "n": 0,
+      "chars": 2,
+      "error": "The on-device model could not produce suggestion cards for Build with AI for this request (table \"Job Applications Tracker\" has no tableSchema.columns). Nothing was sent anywhere. Try again, rephrase it, or use your own key for Build with AI in Settings → AI.",
+      "detail": null,
+      "engineCalls": 2,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 354,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Track job search activities including applications, status, and key details\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Job Applications Tracker\",\n            \"reason\": \"Track each job application with status, company, role, and date applied\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Job Search Plan & Notes\",\n            \"reason\": \"Central space to document goals, strategies, and key decisions\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"job-target\",\n            \"label\": \"Target Role\",\n            \"type\": \"text-long\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"location\",\n            \"label\": \"Preferred Location\",\n            \"type\": \"text-long\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"status\",\n            \"label\": \"Current Search Status\",\n            \"type\": \"single-select\",\n            \"config\": {\n                \"options\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"next-step\",\n            \"label\": \"Next Action\",\n            \"type\": \"text-long\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Start by listing 3 target roles and locations. Update the job tracker with each application.\",\n            \"title\": \"Quick Start\"\n        }\n    ]\n}"
+        },
+        {
+          "stop": "end_turn",
+          "outputTokens": 352,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Track job search activities including applications, status, and key details\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Job Applications Tracker\",\n            \"reason\": \"Track each job application with status, company, role, and date applied\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Job Search Plan & Notes\",\n            \"reason\": \"Central space to document goals, strategies, and key decisions\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": []\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"job-target\",\n            \"label\": \"Target Role\",\n            \"type\": \"text-long\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"location\",\n            \"label\": \"Preferred Location\",\n            \"type\": \"text-long\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"status\",\n            \"label\": \"Current Search Status\",\n            \"type\": \"single-select\",\n            \"config\": {\n                \"options\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"next-step\",\n            \"label\": \"Next Action\",\n            \"type\": \"text-long\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Start by listing 3 target roles and locations. Update the job tracker with each application.\",\n            \"title\": \"Quick Start\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 29382
+    },
+    {
+      "entry": "buildFromPrompt",
+      "brief": "A content calendar for my bakery’s Instagram",
+      "sample": 2,
+      "ok": false,
+      "n": 0,
+      "chars": 2,
+      "error": "The on-device model could not produce suggestion cards for Build with AI for this request (table \"Instagram Content Calendar\" has no tableSchema.columns). Nothing was sent anywhere. Try again, rephrase it, or use your own key for Build with AI in Settings → AI.",
+      "detail": null,
+      "engineCalls": 2,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 354,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Create a content calendar for a bakery's Instagram, including posts with titles, types, dates, and engagement goals.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Instagram Content Calendar\",\n            \"reason\": \"Track weekly Instagram posts with type, content title, date, and engagement goal\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Content Strategy & Themes\",\n            \"reason\": \"Document overarching themes, seasonal ideas, and post types for the bakery\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"theme\",\n            \"type\": \"text-long\",\n            \"label\": \"Current Theme\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"postType\",\n            \"type\": \"single-select\",\n            \"label\": \"Post Type\",\n            \"config\": {\n                \"options\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"engagementGoal\",\n            \"type\": \"text-long\",\n            \"label\": \"Engagement Goal\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"targetAudience\",\n            \"type\": \"text-long\",\n            \"label\": \"Target Audience\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"webview\",\n            \"content\": \"https://www.instagram.com/bakeryname\"\n        }\n    ]\n}"
+        },
+        {
+          "stop": "end_turn",
+          "outputTokens": 352,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Create a content calendar for a bakery's Instagram, including posts with titles, types, dates, and engagement goals.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Instagram Content Calendar\",\n            \"reason\": \"Track weekly Instagram posts with type, content title, date, and engagement goal\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Content Strategy & Themes\",\n            \"reason\": \"Document overarching themes, seasonal ideas, and post types for the bakery\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": []\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"theme\",\n            \"type\": \"text-long\",\n            \"label\": \"Current Theme\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"postType\",\n            \"type\": \"single-select\",\n            \"label\": \"Post Type\",\n            \"config\": {\n                \"options\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"engagementGoal\",\n            \"type\": \"text-long\",\n            \"label\": \"Engagement Goal\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"targetAudience\",\n            \"type\": \"text-long\",\n            \"label\": \"Target Audience\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"webview\",\n            \"content\": \"https://www.instagram.com/bakeryname\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 38557
+    },
+    {
+      "entry": "buildFromPrompt",
+      "brief": "Organise a two-week trip to Japan",
+      "sample": 2,
+      "ok": false,
+      "n": 0,
+      "chars": 2,
+      "error": "The on-device model could not produce suggestion cards for Build with AI for this request (table \"Trip Itinerary\" has no tableSchema.columns). Nothing was sent anywhere. Try again, rephrase it, or use your own key for Build with AI in Settings → AI.",
+      "detail": null,
+      "engineCalls": 2,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 623,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Organize a two-week trip to Japan by creating a structured plan with key details like itinerary, budget, accommodations, and travel logistics.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Trip Itinerary\",\n            \"reason\": \"Track daily activities, locations, and times for the two-week trip to Japan\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Japan Trip Plan\",\n            \"reason\": \"Central document for the full trip plan including goals, travel dates, budget breakdown, and key decisions\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": [  ]\n            }\n        },\n        {\n            \"kind\": \"table\",\n            \"title\": \"Budget Tracker\",\n            \"reason\": \"Track expenses by category (accommodation, food, transport, activities) with total amounts\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"table\",\n            \"title\": \"Accommodations & Hotels\",\n            \"reason\": \"List hotels with names, locations, prices, and check-in/out dates\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"start_date\",\n            \"type\": \"date\",\n            \"label\": \"Trip Start Date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"end_date\",\n            \"type\": \"date\",\n            \"label\": \"Trip End Date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"budget_total\",\n            \"type\": \"number\",\n            \"label\": \"Total Budget (USD)\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"primary_destination\",\n            \"type\": \"text-long\",\n            \"label\": \"Primary Destination (e.g., Tokyo, Kyoto)\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Plan to visit Tokyo for 10 days, Kyoto for 5 days, and include a day trip to Osaka. Book flights early and check visa requirements.\"\n        },\n        {\n            \"kind\": \"webview\",\n            \"content\": \"https://www.japan-guide.com\"\n        },\n        {\n            \"kind\": \"webview\",\n            \"content\": \"https://www.jal.co.jp/en\"\n        },\n        {\n            \"kind\": \"gdoc\",\n            \"content\": \"https://docs.google.com/document/d/1aBcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz\"\n        }\n    ]\n}"
+        },
+        {
+          "stop": "end_turn",
+          "outputTokens": 621,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Organize a two-week trip to Japan by creating a structured plan with key details like itinerary, budget, accommodations, and travel logistics.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Trip Itinerary\",\n            \"reason\": \"Track daily activities, locations, and times for the two-week trip to Japan\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Japan Trip Plan\",\n            \"reason\": \"Central document for the full trip plan including goals, travel dates, budget breakdown, and key decisions\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": []\n            }\n        },\n        {\n            \"kind\": \"table\",\n            \"title\": \"Budget Tracker\",\n            \"reason\": \"Track expenses by category (accommodation, food, transport, activities) with total amounts\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"table\",\n            \"title\": \"Accommodations & Hotels\",\n            \"reason\": \"List hotels with names, locations, prices, and check-in/out dates\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"start_date\",\n            \"type\": \"date\",\n            \"label\": \"Trip Start Date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"end_date\",\n            \"type\": \"date\",\n            \"label\": \"Trip End Date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"budget_total\",\n            \"type\": \"number\",\n            \"label\": \"Total Budget (USD)\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"primary_destination\",\n            \"type\": \"text-long\",\n            \"label\": \"Primary Destination (e.g., Tokyo, Kyoto)\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Plan to visit Tokyo for 10 days, Kyoto for 5 days, and include a day trip to Osaka. Book flights early and check visa requirements.\"\n        },\n        {\n            \"kind\": \"webview\",\n            \"content\": \"https://www.japan-guide.com\"\n        },\n        {\n            \"kind\": \"webview\",\n            \"content\": \"https://www.jal.co.jp/en\"\n        },\n        {\n            \"kind\": \"gdoc\",\n            \"content\": \"https://docs.google.com/document/d/1aBcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 61517
+    },
+    {
+      "entry": "buildFromPrompt",
+      "brief": "Weekly meal planning for a family of four",
+      "sample": 2,
+      "ok": false,
+      "n": 0,
+      "chars": 2,
+      "error": "The on-device model could not produce suggestion cards for Build with AI for this request (table \"Weekly Meal Plan\" has no tableSchema.columns). Nothing was sent anywhere. Try again, rephrase it, or use your own key for Build with AI in Settings → AI.",
+      "detail": null,
+      "engineCalls": 2,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 633,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Create a weekly meal planning system for a family of four, including tracking recipes, portions, and meal assignments.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Weekly Meal Plan\",\n            \"reason\": \"Track meals by day with recipe, portion size, and prep status for a family of four\",\n            \"tableSchema\": {\n                \"columns\": 1 },\n            \"columns\": [\n                 ],\n            \"id\": \"c1\",\n            \"type\": \"text-long\",\n            \"label\": \"Meal Name\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"f1\",\n            \"type\": \"number\",\n            \"label\": \"Portion Size (serves)\",\n            \"config\": {\n                \"min\": 1,\n                \"label\": \"Portion Size (serves)\"\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"f2\",\n            \"type\": \"single-select\",\n            \"label\": \"Meal Type\",\n            \"config\": {\n                \"options\": 1 },\n            \"options\": [\n                {\"id\": \"o1\", \"label\": \"Breakfast\", \"color\": \"#f97316\"},\n                {\"id\": \"o2\", \"label\": \"Lunch\", \"color\": \"#059669\"},\n                {\"id\": \"o3\", \"label\": \"Dinner\", \"color\": \"#3b82f6\"},\n                {\"id\": \"o4\", \"label\": \"Snack\", \"color\": \"#8b5cf6\"}\n            ]\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"f3\",\n            \"type\": \"date\",\n            \"label\": \"Day of Week\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"f4\",\n            \"type\": \"checkbox\",\n            \"label\": \"Prep Complete?\",\n            \"config\": {}\n        }\n    ],\n    \"description\": \"A table to track weekly meals with name, portion size, meal type, day, and prep status for a family of four.\",\n    \"suggestions\": [\n        \"{\\\"kind\\\": \\\"page\\\", \\\"title\\\": \\\"Meal Planning Notes\\\", \\\"reason\\\": \\\"Space to jot down ideas, substitutions, or family preferences\\\", \\\"pageContent\\\": {\\\"type\\\": \\\"doc\\\", \\\"content\\\": [{\\\"type\\\": \\\"heading\\\", \\\"attrs\\\": {\\\"level\\\": 1}, \\\"content\\\": [{\\\"type\\\": \\\"text\\\", \\\"text\\\": \\\"Meal Planning Notes\\\"}]}, {\\\"type\\\": \\\"paragraph\\\", \\\"content\\\": [{\\\"type\\\": \\\"text\\\", \\\"text\\\": \\\"Write down any dietary restrictions, favorite dishes, or meal swaps here.\\\"}]}]}\" ],\n    \"suggestions\": [\n        \"{\\\"kind\\\": \\\"sticky\\\", \\\"title\\\": \\\"Family Preferences\\\", \\\"content\\\": \\\"No gluten, one child allergic to nuts, two kids prefer vegetarian meals.\\\"\\n}\"\n    ]\n}"
+        },
+        {
+          "stop": "end_turn",
+          "outputTokens": 462,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Create a weekly meal planning system for a family of four, including tracking recipes, portions, and meal assignments.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Weekly Meal Plan\",\n            \"reason\": \"Track meals by day with recipe, portion size, and prep status for a family of four\",\n            \"tableSchema\": {\n                \"columns\": 1 },\n            \"columns\": [\n                { \"id\": \"c1\", \"type\": \"text-long\", \"label\": \"Meal Name\", \"config\": {} },\n                { \"id\": \"c2\", \"type\": \"number\", \"label\": \"Portion Size (serves)\", \"config\": { \"min\": 1 } },\n                { \"id\": \"c3\", \"type\": \"single-select\", \"label\": \"Meal Type\", \"config\": { \"options\": [ { \"id\": \"o1\", \"label\": \"Breakfast\", \"color\": \"#f97316\" }, { \"id\": \"o2\", \"label\": \"Lunch\", \"color\": \"#059669\" }, { \"id\": \"o3\", \"label\": \"Dinner\", \"color\": \"#3b82f6\" }, { \"id\": \"o4\", \"label\": \"Snack\", \"color\": \"#8b5cf6\" } ] } },\n                { \"id\": \"c4\", \"type\": \"date\", \"label\": \"Day of Week\", \"config\": {} },\n                { \"id\": \"c5\", \"type\": \"checkbox\", \"label\": \"Prep Complete?\", \"config\": {} }\n            ]\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Meal Planning Notes\",\n            \"reason\": \"Space to jot down ideas, substitutions, or family preferences\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": [ 1 ]\n            }\n        },\n        {\n            \"kind\": \"sticky\",\n            \"title\": \"Family Preferences\",\n            \"content\": \"No gluten, one child allergic to nuts, two kids prefer vegetarian meals.\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 42320
+    },
+    {
+      "entry": "buildFromPrompt",
+      "brief": "Onboard a new hire to my design team",
+      "sample": 2,
+      "ok": false,
+      "n": 0,
+      "chars": 2,
+      "error": "The on-device model could not produce suggestion cards for Build with AI for this request (table \"New Hire Onboarding Tracker\" has no tableSchema.columns). Nothing was sent anywhere. Try again, rephrase it, or use your own key for Build with AI in Settings → AI.",
+      "detail": null,
+      "engineCalls": 2,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 94,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Onboard a new hire to the design team by organizing key information, tracking onboarding tasks, and providing reference materials.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"New Hire Onboarding Tracker\",\n            \"reason\": \"Track each step of the onboarding process with status, assignee, and due date\",\n            \"tableSchema\": {\n                \"columns\": 1 } }] }"
+        },
+        {
+          "stop": "end_turn",
+          "outputTokens": 94,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Onboard a new hire to the design team by organizing key information, tracking onboarding tasks, and providing reference materials.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"New Hire Onboarding Tracker\",\n            \"reason\": \"Track each step of the onboarding process with status, assignee, and due date\",\n            \"tableSchema\": {\n                \"columns\": 1 } }] }"
+        }
+      ],
+      "ms": 8277
+    },
+    {
+      "entry": "buildFromPrompt",
+      "brief": "A home renovation budget and schedule",
+      "sample": 2,
+      "ok": false,
+      "n": 0,
+      "chars": 2,
+      "error": "The on-device model could not produce suggestion cards for Build with AI for this request (table \"Renovation Tasks & Schedule\" has no tableSchema.columns). Nothing was sent anywhere. Try again, rephrase it, or use your own key for Build with AI in Settings → AI.",
+      "detail": null,
+      "engineCalls": 2,
+      "raws": [
+        {
+          "stop": "end_turn",
+          "outputTokens": 458,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Create a dedicated workspace to track and manage a home renovation project's budget and schedule, including key milestones, costs, and timelines.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Renovation Tasks & Schedule\",\n            \"reason\": \"Track individual tasks with their status, due dates, and estimated duration\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"table\",\n            \"title\": \"Budget Breakdown\",\n            \"reason\": \"Monitor expenses by category with actual vs. planned amounts\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Project Plan & Notes\",\n            \"reason\": \"Central space to document the overall plan, decisions, and ongoing thoughts\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": [  ]\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"totalBudget\",\n            \"label\": \"Total Budget\",\n            \"type\": \"number\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"currentSpending\",\n            \"label\": \"Current Spending\",\n            \"type\": \"number\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"startDate\",\n            \"label\": \"Start Date\",\n            \"type\": \"date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"endDate\",\n            \"label\": \"End Date\",\n            \"type\": \"date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Initial phase: demolition and foundation work — start with a clear timeline and cost estimate.\"\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Key materials to budget for: flooring, plumbing, electrical, and HVAC.\"\n        },\n        {\n            \"kind\": \"webview\",\n            \"content\": \"https://www.home-renovation-schedule.com/sample-plan\"\n        }\n    ]\n}"
+        },
+        {
+          "stop": "end_turn",
+          "outputTokens": 456,
+          "failure": [],
+          "text": "{\n    \"intent\": \"Create a dedicated workspace to track and manage a home renovation project's budget and schedule, including key milestones, costs, and timelines.\",\n    \"suggestions\": [\n        {\n            \"kind\": \"table\",\n            \"title\": \"Renovation Tasks & Schedule\",\n            \"reason\": \"Track individual tasks with their status, due dates, and estimated duration\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"table\",\n            \"title\": \"Budget Breakdown\",\n            \"reason\": \"Monitor expenses by category with actual vs. planned amounts\",\n            \"tableSchema\": {\n                \"columns\": [  ]\n            }\n        },\n        {\n            \"kind\": \"page\",\n            \"title\": \"Project Plan & Notes\",\n            \"reason\": \"Central space to document the overall plan, decisions, and ongoing thoughts\",\n            \"pageContent\": {\n                \"type\": \"doc\",\n                \"content\": []\n            }\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"totalBudget\",\n            \"label\": \"Total Budget\",\n            \"type\": \"number\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"currentSpending\",\n            \"label\": \"Current Spending\",\n            \"type\": \"number\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"startDate\",\n            \"label\": \"Start Date\",\n            \"type\": \"date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"field\",\n            \"id\": \"endDate\",\n            \"label\": \"End Date\",\n            \"type\": \"date\",\n            \"config\": {}\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Initial phase: demolition and foundation work — start with a clear timeline and cost estimate.\"\n        },\n        {\n            \"kind\": \"sticky\",\n            \"content\": \"Key materials to budget for: flooring, plumbing, electrical, and HVAC.\"\n        },\n        {\n            \"kind\": \"webview\",\n            \"content\": \"https://www.home-renovation-schedule.com/sample-plan\"\n        }\n    ]\n}"
+        }
+      ],
+      "ms": 49095
+    }
+  ]
+}

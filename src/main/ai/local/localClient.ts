@@ -186,8 +186,16 @@ export interface LocalClientOptions {
   groundingObserve?: boolean
 }
 
-// Shipping defaults, from the eval (tools/local-ai-eval/results, v2-base vs
-// v2-tuned, v3-*): schema-constrained decoding halved Build with AI's output
+// Shipping defaults, from the eval. Schema-constrained decoding stays OFF, and
+// the reason is now known (structured-after-schema.json, 4.3.39-local.4):
+// node-llama-cpp's JSON-schema grammar does not honour additionalProperties —
+// anything not named in the schema is squeezed into nonsense ("][": 1 keys,
+// "columns": 1), so Build with AI's cards lost their content (0/15 valid) and
+// table rows came back thinner (5.6 vs 6.8 cells per row, 3.7 vs 5.3 proposed
+// columns). The generic JSON grammar plus tolerant parsing and the call's own
+// contract (structuredOutput.ts) gives 100% valid shape for tables (39/39) and
+// 23/24 for Build. Earlier measurement (tools/local-ai-eval/results, v2-base
+// vs v2-tuned, v3-*): schema-constrained decoding halved Build with AI's output
 // (3515 → 1427 characters, 1/6 → 0/6) and lifted no family; the prompt
 // variants lifted none either. Both stay available (setLocalClientOptions, the
 // eval's EVAL_SCHEMA / EVAL_VARIANTS) but are off. The small grounding rule and
