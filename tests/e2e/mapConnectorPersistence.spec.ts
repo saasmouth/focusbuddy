@@ -1,7 +1,18 @@
-// Ad-hoc sweep spec (plexidesk-tester): PlexiDraw/Maps — real UI-driven
-// two-shape + connector + label test, plus full-app-relaunch persistence.
-import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp } from './_helpers'
+// PlexiiDiagrams: two shapes, a connector drawn by a real pointer drag, a shape
+// renamed inline, and all of it surviving a FULL app relaunch against the same
+// userData. The only relaunch-persistence check diagrams have.
+//
+// It used to boot the standalone PlexiiOffice app (PLEXI_APP=office), retired in
+// c0712e64; it now opens the diagram inside the suite, as people do. It is also
+// strict where the old one was not: no "fallback" if the drag or the inline
+// rename fails to land; each must really happen.
+import { test, expect, type Page } from '@playwright/test'
+import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+
+interface Body {
+  nodes: { id: string; label: string }[]
+  edges: { id: string; source: string; target: string }[]
+}
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -11,152 +22,113 @@ test.afterEach(async () => {
   }
 })
 
-test('PlexiDraw: add two shapes, drag-connect a wire between them, label a shape, and it survives a full app relaunch', async () => {
-  test.setTimeout(60_000)
-  launched = await launchApp({ env: { PLEXI_APP: 'office' } })
+async function cloudAiSource(window: Page): Promise<void> {
+  // Since 4.3.39 a fresh profile routes AI locally; without the bundled model a
+  // notice sits over the editor's toolbar row. Not what this spec is about.
+  await window.evaluate(() => (window as unknown as { api: { ai: { setMode: (m: string) => Promise<unknown> } } }).api.ai.setMode('auto'))
+}
+
+async function openDoc(window: Page, id: string): Promise<void> {
+  await window.evaluate((docId: string) => (window as unknown as { __fbView?: { getState: () => { goDocument: (id: string) => void } } }).__fbView?.getState().goDocument(docId), id)
+  await expect(window.locator('[data-testid="diagram-editor"]')).toBeVisible({ timeout: 12_000 })
+}
+
+async function readBody(window: Page, id: string): Promise<Body> {
+  return window.evaluate(async (docId: string) => {
+    const api = (window as unknown as { api: { documents: { get: (id: string) => Promise<{ body: unknown } | null> } } }).api
+    return ((await api.documents.get(docId))?.body ?? { nodes: [], edges: [] }) as Body
+  }, id)
+}
+
+test('PlexiiDiagrams: two shapes, a drag-connected line and an inline rename survive a full app relaunch', async () => {
+  test.setTimeout(90_000)
+  launched = await launchApp()
   const { window } = launched
-
   await waitForReady(window)
-  await window.locator('[data-testid="office-new-map"]').click()
-  await expect(window.locator('[data-testid="map-add-process"]')).toBeVisible({ timeout: 10_000 })
-  // Starter node already present (1).
-  await expect(window.locator('.react-flow__node')).toHaveCount(1, { timeout: 5_000 })
+  await cloudAiSource(window)
 
-  // Add a second process shape — UI-driven click.
+  const id = await window.evaluate(async () => {
+    const api = (window as unknown as { api: { documents: { create: (o: Record<string, unknown>) => Promise<{ id: string }> } } }).api
+    return (await api.documents.create({ docType: 'map', title: 'Relaunch' })).id
+  })
+  await openDoc(window, id)
+  // A new diagram starts with one shape; add a second from the library.
+  await expect(window.locator('.react-flow__node')).toHaveCount(1, { timeout: 8_000 })
   await window.locator('[data-testid="map-add-process"]').click()
   await expect(window.locator('.react-flow__node')).toHaveCount(2, { timeout: 5_000 })
 
   const nodes = window.locator('.react-flow__node')
-  const nodeA = nodes.nth(0)
-  const nodeB = nodes.nth(1)
-  const idA = await nodeA.getAttribute('data-id')
-  const idB = await nodeB.getAttribute('data-id')
-  expect(idA).toBeTruthy()
-  expect(idB).toBeTruthy()
+  const idA = (await nodes.nth(0).getAttribute('data-id'))!
+  const idB = (await nodes.nth(1).getAttribute('data-id'))!
+  const nodeEl = (nid: string) => window.locator(`.react-flow__node[data-id="${nid}"]`)
 
-  // Spread them apart so their handles don't overlap (drag each node body).
-  const boxA0 = await nodeA.boundingBox()
-  const boxB0 = await nodeB.boundingBox()
-  expect(boxA0).toBeTruthy()
-  expect(boxB0).toBeTruthy()
-  if (boxA0 && boxB0) {
-    await window.mouse.move(boxA0.x + boxA0.width / 2, boxA0.y + boxA0.height / 2)
+  // Pull them apart so the connector has room.
+  for (const [nid, dx] of [[idA, -220], [idB, 220]] as const) {
+    const b = (await nodeEl(nid).boundingBox())!
+    await window.mouse.move(b.x + b.width / 2, b.y + b.height / 2)
     await window.mouse.down()
-    await window.mouse.move(boxA0.x + boxA0.width / 2 - 250, boxA0.y + boxA0.height / 2 - 150, { steps: 8 })
-    await window.mouse.up()
-    await window.mouse.move(boxB0.x + boxB0.width / 2, boxB0.y + boxB0.height / 2)
-    await window.mouse.down()
-    await window.mouse.move(boxB0.x + boxB0.width / 2 + 250, boxB0.y + boxB0.height / 2 + 150, { steps: 8 })
+    await window.mouse.move(b.x + b.width / 2 + dx, b.y + b.height / 2 + 40, { steps: 8 })
     await window.mouse.up()
   }
-  await window.waitForTimeout(200)
 
-  // Real UI drag from node A's right handle to node B's left handle — a real
-  // pointer gesture through React Flow's connection line, per ConnectionMode.Loose.
-  const handleA = window.locator(`.react-flow__node[data-id="${idA}"] .react-flow__handle-right`)
-  const handleB = window.locator(`.react-flow__node[data-id="${idB}"] .react-flow__handle-left`)
-  await expect(handleA).toBeVisible({ timeout: 5_000 })
-  await expect(handleB).toBeVisible({ timeout: 5_000 })
-  const hA = await handleA.boundingBox()
-  const hB = await handleB.boundingBox()
-  expect(hA).toBeTruthy()
-  expect(hB).toBeTruthy()
-  let dragWorked = false
-  if (hA && hB) {
-    await window.mouse.move(hA.x + hA.width / 2, hA.y + hA.height / 2)
-    await window.mouse.down()
-    await window.mouse.move((hA.x + hB.x) / 2, (hA.y + hB.y) / 2, { steps: 6 })
-    await window.mouse.move(hB.x + hB.width / 2, hB.y + hB.height / 2, { steps: 6 })
-    await window.mouse.up()
-    await window.waitForTimeout(400)
-    dragWorked = (await window.locator('.react-flow__edge').count()) > 0
-  }
-  console.log('[map-connector] real drag-connect gesture produced an edge:', dragWorked)
-
-  if (!dragWorked) {
-    // Harness limitation fallback (documented per plexidesk-tester guidance):
-    // drive the identical onConnect code path deterministically through the
-    // window.api document body, so the persistence + rendering contract is
-    // still proven even if the raw pointer gesture didn't land in headless
-    // Electron. This is API-driven, NOT UI-driven — flagged explicitly.
-    console.log('[map-connector] falling back to API-driven edge creation (pointer drag did not register)')
-  }
+  // A real pointer drag from A's right connection dot onto B.
+  await nodeEl(idA).hover()
+  const handle = nodeEl(idA).locator('.react-flow__handle-right').first()
+  const h = (await handle.boundingBox())!
+  const target = (await nodeEl(idB).boundingBox())!
+  await window.mouse.move(h.x + h.width / 2, h.y + h.height / 2)
+  await window.mouse.down()
+  await window.mouse.move((h.x + target.x) / 2, (h.y + target.y + target.height / 2) / 2, { steps: 6 })
+  await window.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 6 })
+  await window.mouse.up()
   await expect(window.locator('.react-flow__edge')).toHaveCount(1, { timeout: 5_000 })
 
-  // Label a shape — real UI double-click to rename.
-  await nodeA.dblclick()
-  const labelInput = window.locator(`.react-flow__node[data-id="${idA}"] input, .react-flow__node[data-id="${idA}"] textarea`).first()
-  const hasInlineInput = await labelInput.isVisible().catch(() => false)
-  console.log('[map-connector] double-click opened an inline label editor:', hasInlineInput)
-  if (hasInlineInput) {
-    await labelInput.fill('Renamed Shape A')
-    await window.keyboard.press('Enter')
-  }
-  // Read the persisted document body directly to confirm the graph — nodes,
-  // the edge, and (if the inline editor worked) the label — actually saved.
-  // The editor persists through a debounce chain (MapEditor 350ms -> documents
-  // 600ms), so a fixed short wait races the flush. Poll until the persisted
-  // body catches up to the two nodes + edge the DOM already shows; this proves
-  // the save genuinely lands (no dropped write) rather than reading mid-debounce.
-  const savedBefore = await window.evaluate(async () => {
-    const api = (window as unknown as { api: typeof window.api }).api
-    const readBody = async (): Promise<{ nodes: unknown[]; edges: unknown[] } | null> => {
-      const docs = await api.documents.list()
-      const mapDoc = docs.find((d) => d.docType === 'map')
-      if (!mapDoc) return null
-      const full = await api.documents.get(mapDoc.id)
-      return (full?.body as { nodes: unknown[]; edges: unknown[] }) ?? null
-    }
-    const deadline = Date.now() + 4_000
-    let body = await readBody()
-    while ((!body || body.nodes.length < 2 || body.edges.length < 1) && Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 150))
-      body = await readBody()
-    }
-    return body
-  })
-  expect(savedBefore).toBeTruthy()
-  const b = savedBefore as { nodes: unknown[]; edges: unknown[] }
-  expect(b.nodes.length).toBe(2)
-  expect(b.edges.length).toBe(1)
-  console.log('[map-connector] saved body before relaunch:', JSON.stringify(savedBefore))
+  // Rename A inline: double-click, type, Enter.
+  await nodeEl(idA).dblclick()
+  const editor = window.locator('[data-testid="diagram-label-editor"]')
+  await expect(editor).toBeVisible({ timeout: 5_000 })
+  await editor.fill('Renamed Shape A')
+  await window.keyboard.press('Enter')
+  await expect(nodeEl(idA)).toContainText('Renamed Shape A')
 
-  // Full app relaunch against the SAME userData dir — the strongest
-  // persistence proof (documented pattern in _helpers.ts / cursorMidWordDebounceRace.spec.ts).
+  // The save is debounced; wait until the stored body has all of it.
+  let before: Body = { nodes: [], edges: [] }
+  await expect
+    .poll(
+      async () => {
+        before = await readBody(window, id)
+        return before.edges.length === 1 && before.nodes.find((n) => n.id === idA)?.label === 'Renamed Shape A'
+      },
+      { timeout: 10_000 }
+    )
+    .toBe(true)
+  expect(before.nodes).toHaveLength(2)
+  expect(before.edges[0]!.source).toBe(idA)
+  expect(before.edges[0]!.target).toBe(idB)
+
+  // Full relaunch against the SAME userData directory.
   const dir = launched.userDataDir
   try {
-    await Promise.race([
-      launched.app.close(),
-      new Promise<void>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5_000))
-    ])
+    await Promise.race([launched.app.close(), new Promise<void>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5_000))])
   } catch {
     try {
       launched.app.process().kill()
     } catch {
-      /* already dead */
+      /* already gone */
     }
   }
-  launched = await launchApp({ userDataDir: dir, env: { PLEXI_APP: 'office' } })
+  launched = await launchApp({ userDataDir: dir })
   const w2 = launched.window
-  await w2.waitForLoadState('domcontentloaded')
-  // The PLEXI_APP=office standalone build renders its own root (officeApp.tsx)
-  // without the full App chrome, so waitForReady's footer-sync-chip gate never
-  // resolves here. This relaunch only reads the persisted body via window.api,
-  // so wait for the IPC bridge to exist — that is the real "ready to read" signal.
-  await w2.waitForFunction(
-    () => typeof (window as unknown as { api?: unknown }).api === 'object',
-    null,
-    { timeout: 10_000 }
-  )
+  await waitForReady(w2)
+  await cloudAiSource(w2)
 
-  const savedAfter = await w2.evaluate(async () => {
-    const api = (window as unknown as { api: typeof window.api }).api
-    const docs = await api.documents.list()
-    const mapDoc = docs.find((d) => d.docType === 'map')
-    if (!mapDoc) return null
-    const full = await api.documents.get(mapDoc.id)
-    return full?.body ?? null
-  })
-  expect(savedAfter).toEqual(savedBefore)
-  console.log('[map-connector] graph survived a full app relaunch: nodes/edges identical')
+  const after = await readBody(w2, id)
+  expect(after.nodes.map((n) => [n.id, n.label]).sort()).toEqual(before.nodes.map((n) => [n.id, n.label]).sort())
+  expect(after.edges.map((e) => [e.id, e.source, e.target])).toEqual(before.edges.map((e) => [e.id, e.source, e.target]))
+
+  // And the reopened editor shows it.
+  await openDoc(w2, id)
+  await expect(w2.locator('.react-flow__node')).toHaveCount(2, { timeout: 8_000 })
+  await expect(w2.locator('.react-flow__edge')).toHaveCount(1)
+  await expect(w2.locator(`.react-flow__node[data-id="${idA}"]`)).toContainText('Renamed Shape A')
 })

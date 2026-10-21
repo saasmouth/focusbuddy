@@ -296,31 +296,3 @@ test('NET-3 a map and a web link: OpenStreetMap tiles, and the icon from the lin
   expect(obs.chromiumUrls.filter((u) => u.includes('wikipedia.org'))).toEqual([])
   expect(unknown(obs, [/^en\.wikipedia\.org$/])).toEqual([])
 })
-
-// PlexiiOffice used to load fonts.googleapis.com / fonts.gstatic.com on every
-// launch, from plexioffice.html itself. Fonts are bundled now: loading the
-// office shell and idling must contact no third party. (PLEXI_APP=office is the
-// only way the harness boots that shell; launchApp still gives it a throwaway
-// profile. The shell's IPC is refused under the harness at the app-names
-// baseline too — plexiOffice.spec.ts fails there identically — so this phase
-// does not depend on it: the fonts were requested by the page's own <link>s,
-// which is exactly what it watches.)
-test('NET-4 PlexiiOffice: launch and idle: no third party (no Google Fonts)', async () => {
-  test.setTimeout(150_000)
-  const obs = await runPhase('plexiioffice', { PLEXI_APP: 'office' }, async (l) => {
-    const w = l.window
-    await w.waitForLoadState('load')
-    expect(w.url()).toContain('plexioffice.html')
-    for (const id of ['office-new-doc', 'office-new-sheet', 'office-new-slides']) {
-      const b = w.locator(`[data-testid="${id}"]`)
-      if (await b.isVisible().catch(() => false)) {
-        await b.click().catch(() => {})
-        await w.waitForTimeout(2_000)
-      }
-    }
-    const family = await w.evaluate(() => getComputedStyle(document.body).fontFamily)
-    console.log('[netaudit] PlexiiOffice body font:', family)
-    await w.waitForTimeout(30_000)
-  })
-  expect(thirdParty(obs)).toEqual([])
-})
