@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test'
-import { switchArea } from './_helpers'
+import { chooseCloudAiSource, switchArea } from './_helpers'
 
 // Shared PlexiiDraw e2e helpers, lifted from drawStudio.spec.ts so every Draw
 // spec drives the studio the same way (ARCHITECTURE §8.2). Specs launch with
@@ -15,6 +15,17 @@ import { switchArea } from './_helpers'
  * the rest of the run (display only; nothing is clicked or changed).
  */
 export async function keepNoticesOutOfTheWay(window: Page): Promise<void> {
+  // On a fresh profile the one-time "local AI is built in" card (local-ai-intro,
+  // bottom centre) swallows clicks on the canvas: dismiss it the way the app's
+  // own close button does, and close it if it appears later anyway.
+  await chooseCloudAiSource(window)
+  await window.addLocatorHandler(
+    window.locator('[data-testid="local-ai-intro"]'),
+    async () => {
+      await window.locator('[data-testid="local-ai-intro-dismiss"]').click({ timeout: 4_000 }).catch(() => undefined)
+    },
+    { noWaitAfter: true }
+  )
   await window.addLocatorHandler(
     window.locator('[data-testid="local-ai-missing"]'),
     async (card) => {
@@ -122,4 +133,37 @@ export function rectObject(id: string, x: number, y: number, w: number, h: numbe
     fill: { type: 'solid', color: '#6d5dfc' },
     ...extra
   }
+}
+
+/**
+ * A stored drawing read the same way whatever format it was saved in. Since
+ * 4.3.39-local.8 drawings save as v2 (artboards, an asset store) once edited;
+ * specs written against v1 bodies read the size and pictures through this:
+ * `width`/`height` are the first artboard's, and every image object and paint
+ * layer gets a `src` with its picture's data URL.
+ */
+export function storedView<T = Record<string, unknown>>(raw: unknown): T & { width: number; height: number; schemaVersion: number } {
+  const r = raw as {
+    schemaVersion?: number
+    width?: number
+    height?: number
+    artboards?: Array<{ w: number; h: number }>
+    assets?: Record<string, { dataUrl: string }>
+    layers?: Array<Record<string, unknown>>
+  }
+  if (!r.artboards) return { ...(r as object), schemaVersion: r.schemaVersion ?? 1 } as T & { width: number; height: number; schemaVersion: number }
+  const assets = r.assets ?? {}
+  const withSrc = (n: Record<string, unknown>): Record<string, unknown> => {
+    const out: Record<string, unknown> = { ...n }
+    if (n.type === 'image' && typeof n.assetId === 'string' && assets[n.assetId]) out.src = assets[n.assetId].dataUrl
+    if (Array.isArray(n.children)) out.children = (n.children as Array<Record<string, unknown>>).map(withSrc)
+    return out
+  }
+  const layers = (r.layers ?? []).map((l) => {
+    const out: Record<string, unknown> = { ...l }
+    if (l.kind === 'raster' && typeof l.assetId === 'string' && assets[l.assetId]) out.src = assets[l.assetId].dataUrl
+    if (Array.isArray(l.objects)) out.objects = (l.objects as Array<Record<string, unknown>>).map(withSrc)
+    return out
+  })
+  return { ...(r as object), layers, width: r.artboards[0].w, height: r.artboards[0].h, schemaVersion: r.schemaVersion ?? 2 } as T & { width: number; height: number; schemaVersion: number }
 }

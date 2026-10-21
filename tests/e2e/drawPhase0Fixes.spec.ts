@@ -8,7 +8,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
-import { dragOnStage, keepNoticesOutOfTheWay, openDocument, readStored, rectObject, runMenu, seedDrawDoc, stagePoint, v1Body, waitForSave } from './_drawHelpers'
+import { dragOnStage, keepNoticesOutOfTheWay, openDocument, readStored, rectObject, runMenu, seedDrawDoc, stagePoint, v1Body, waitForSave, storedView } from './_drawHelpers'
 
 let app: LaunchedApp
 let window: Page
@@ -209,8 +209,7 @@ test('P0-5 the artboard can grow around its centre: art and pixels move together
   // Undo puts the page and the art back in one step.
   await window.keyboard.press('Meta+z')
   await waitForSave(window)
-  const back = (await readStored(window, id)).raw as { width: number }
-  expect(back.width).toBe(400)
+  expect(storedView((await readStored(window, id)).raw).width).toBe(400)
 })
 
 test('P0-6 a drag on the canvas still draws (sanity: the fixes did not break drawing)', async () => {

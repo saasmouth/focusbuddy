@@ -13,7 +13,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
-import { keepNoticesOutOfTheWay, openDocument, readStored, runMenu, seedDrawDoc, stagePoint, v1Body, waitForSave } from './_drawHelpers'
+import { keepNoticesOutOfTheWay, openDocument, readStored, runMenu, seedDrawDoc, stagePoint, storedView, v1Body, waitForSave } from './_drawHelpers'
 
 let app: LaunchedApp
 let window: Page
@@ -122,7 +122,8 @@ async function mockOpenDialog(paths: string[]): Promise<void> {
 
 type Obj = { id: string; type: string; x?: number; y?: number; w?: number; h?: number; assetId?: string; src?: string; children?: Obj[]; path?: unknown }
 function objectsOf(raw: unknown): Obj[] {
-  const layers = (raw as { layers: Array<{ kind: string; objects?: Obj[] }> }).layers
+  // v1 or v2 (drawings save as v2 once edited): images carry their picture as src either way.
+  const layers = storedView<{ layers: Array<{ kind: string; objects?: Obj[] }> }>(raw).layers
   return layers.filter((l) => l.kind === 'vector').flatMap((l) => l.objects ?? [])
 }
 
@@ -150,7 +151,7 @@ test('IMP-1 File › Place a PNG, click to place it at actual size: an embedded 
   expect(img.x).toBeCloseTo(100, 0)
   expect(img.y).toBeCloseTo(120, 0)
   expect([img.w, img.h]).toEqual([120, 80])
-  // Embedded: the stored (v1) drawing carries the bytes, not a path to a file.
+  // Embedded: the stored drawing carries the bytes, not a path to a file.
   expect(String(img.src).startsWith('data:image/png;base64,')).toBe(true)
   await expect(window.locator('[data-testid="draw-vector-L1"] image')).toHaveCount(1)
 })
@@ -170,8 +171,8 @@ test('IMP-2 File › Open SVG makes a new drawing with every shape as an editabl
     return d ? (await api.documents.get(d.id))?.body : null
   })
   expect(stored).toBeTruthy()
-  expect((stored as { width: number }).width).toBe(300)
-  expect((stored as { height: number }).height).toBe(200)
+  expect(storedView(stored).width).toBe(300)
+  expect(storedView(stored).height).toBe(200)
   expect(objectsOf(stored).map((o) => o.type)).toEqual(['path', 'path', 'path', 'path', 'path'])
 })
 
@@ -184,8 +185,10 @@ test('IMP-3 File › Import SVG keeps a filtered element as a rasterised image (
   await expect(window.locator('[data-testid="draw-import-report"]')).toContainText('1 filter was not editable here and was rasterised as an embedded image')
   await window.locator('[data-testid="draw-import-report-ok"]').click()
   await waitForSave(window)
-  const objs = objectsOf((await readStored(window, id)).raw)
-  // A v1 drawing stays v1: the art arrives as loose objects, not a group.
+  const top = objectsOf((await readStored(window, id)).raw)
+  // v2 writes are on: the art arrives as one group named after the file, as in Illustrator.
+  expect(top.map((o) => o.type)).toEqual(['group'])
+  const objs = top[0].children!
   expect(objs.map((o) => o.type)).toEqual(['image', 'path'])
   expect(String(objs[0].src).startsWith('data:image/png;base64,')).toBe(true)
   // The raster covers the blur's region (10% beyond the 60 x 60 box each side).
@@ -214,9 +217,11 @@ test('IMP-4 Dropping an SVG and a PNG on the canvas places both where they land'
   await expect(window.locator('[data-testid="draw-vector-L1"] path')).toHaveCount(5, { timeout: 10_000 })
   await waitForSave(window)
   const objs = objectsOf((await readStored(window, id)).raw)
-  expect(objs.map((o) => o.type)).toEqual(['path', 'path', 'path', 'path', 'path', 'image'])
+  // The SVG arrives as one group of its five shapes (v2 writes are on); the PNG as an image.
+  expect(objs.map((o) => o.type)).toEqual(['group', 'image'])
+  expect(objs[0].children!.map((o) => o.type)).toEqual(['path', 'path', 'path', 'path', 'path'])
   // The SVG's page corner is at the drop point; the PNG cascades 16 px on.
-  const img = objs[5]
+  const img = objs[1]
   expect(img.x).toBeCloseTo(216, 0)
   expect(img.y).toBeCloseTo(166, 0)
   expect([img.w, img.h]).toEqual([40, 30])

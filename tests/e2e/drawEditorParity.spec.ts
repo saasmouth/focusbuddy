@@ -12,7 +12,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
-import { keepNoticesOutOfTheWay, openDocument, readStored, rectObject, runMenu, seedDrawDoc, stagePoint, v1Body, waitForSave } from './_drawHelpers'
+import { keepNoticesOutOfTheWay, openDocument, readStored, rectObject, runMenu, seedDrawDoc, stagePoint, v1Body, waitForSave, storedView } from './_drawHelpers'
 
 let app: LaunchedApp
 let window: Page
@@ -31,7 +31,7 @@ test.afterAll(async () => {
 type Obj = { id: string; type: string; shapeKind?: string; fill?: { type: string; color?: string }; path?: { subpaths: Array<{ closed: boolean; nodes: Array<{ x: number; y: number }> }> } }
 type Layer = { id: string; kind: string; visible: boolean; objects?: Obj[]; src?: string }
 async function stored(id: string): Promise<{ layers: Layer[]; width: number }> {
-  return (await readStored(window, id)).raw as { layers: Layer[]; width: number }
+  return storedView<{ layers: Layer[] }>((await readStored(window, id)).raw)
 }
 const objectsOf = (b: { layers: Layer[] }): Obj[] => b.layers.flatMap((l) => l.objects ?? [])
 

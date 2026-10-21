@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { keepNoticesOutOfTheWay } from './_drawHelpers'
 import { readFileSync, existsSync, rmSync, statSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -87,6 +88,7 @@ async function exportTo(
 test('DEX-1 — SVG export writes real vector data, gradients, strokes and text included', async () => {
   launched = await launchApp()
   await waitForReady(launched.window)
+  await keepNoticesOutOfTheWay(launched.window)
   const path = join(tmpdir(), `plexi-draw-test-${process.pid}.svg`)
   written.push(path)
 
@@ -117,6 +119,7 @@ test('DEX-1 — SVG export writes real vector data, gradients, strokes and text 
 test('DEX-2 — PNG export writes a real raster image at the artboard size', async () => {
   launched = await launchApp()
   await waitForReady(launched.window)
+  await keepNoticesOutOfTheWay(launched.window)
   const path = join(tmpdir(), `plexi-draw-test-${process.pid}.png`)
   written.push(path)
 
@@ -135,6 +138,7 @@ test('DEX-2 — PNG export writes a real raster image at the artboard size', asy
 test('DEX-3 — a transparent artboard exports PNG with real alpha, not a white rectangle', async () => {
   launched = await launchApp()
   await waitForReady(launched.window)
+  await keepNoticesOutOfTheWay(launched.window)
   const path = join(tmpdir(), `plexi-draw-alpha-${process.pid}.png`)
   written.push(path)
 
@@ -157,6 +161,7 @@ test('DEX-3 — a transparent artboard exports PNG with real alpha, not a white 
 test('DEX-4 — PDF export writes a real PDF', async () => {
   launched = await launchApp()
   await waitForReady(launched.window)
+  await keepNoticesOutOfTheWay(launched.window)
   const path = join(tmpdir(), `plexi-draw-test-${process.pid}.pdf`)
   written.push(path)
 
@@ -170,6 +175,7 @@ test('DEX-4 — PDF export writes a real PDF', async () => {
 test('DEX-5 — a cancelled save dialog writes nothing and reports no error', async () => {
   launched = await launchApp()
   await waitForReady(launched.window)
+  await keepNoticesOutOfTheWay(launched.window)
   await launched.app.evaluate(async ({ dialog }) => {
     // @ts-expect-error test override
     dialog.showSaveDialog = async () => ({ canceled: true })

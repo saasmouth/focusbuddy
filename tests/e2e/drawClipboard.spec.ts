@@ -200,7 +200,8 @@ test('CB-5 Alt-drag leaves the original and drops a copy', async () => {
   await window.keyboard.up('Alt')
   const objs = await storedObjects(id, 2)
   expect(box(objs[0])).toEqual({ x: 100, y: 100, w: 100, h: 100 })
-  expect(box(objs[1]).w).toBe(100)
+  // v2 stores coordinates unrounded: the copy is 100 wide to within float noise.
+  expect(box(objs[1]).w).toBeCloseTo(100, 6)
   expect(Math.abs(box(objs[1]).x - 400)).toBeLessThan(3)
   await waitForSave(window)
 })

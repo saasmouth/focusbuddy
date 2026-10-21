@@ -232,10 +232,17 @@ test('KEY-6 the menus show Illustrator’s keys', async () => {
   expect(await shortcuts('edit')).toEqual([
     'Undo=⌘Z',
     'Redo=⇧⌘Z',
-    'Select all=⌘A',
-    'Deselect=⇧⌘A',
+    'Cut=⌘X',
+    'Copy=⌘C',
+    'Paste=⌘V',
+    'Paste in Front=⌘F',
+    'Paste in Back=⌘B',
+    'Paste in Place=⇧⌘V',
+    'Paste on All Artboards=⌥⇧⌘V',
     'Duplicate=',
     'Delete=⌫',
+    'Select all=⌘A',
+    'Deselect=⇧⌘A',
     'Keyboard shortcuts…=⌥⇧⌘K'
   ])
   expect(await shortcuts('view')).toEqual([

@@ -11,6 +11,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
+import { keepNoticesOutOfTheWay } from './_drawHelpers'
 
 async function openDrawStudio(window: Page): Promise<void> {
   await switchArea(window, 'office')
@@ -49,6 +50,7 @@ test.describe('PlexiDraw studio', () => {
     app = await launchApp()
     window = app.window
     await waitForReady(window)
+    await keepNoticesOutOfTheWay(window)
     await openDrawStudio(window)
   })
 
