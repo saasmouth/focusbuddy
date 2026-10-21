@@ -25,7 +25,7 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import type { EngineGenerateResult, EngineMessage, LocalEngine } from './engineCore'
 import { isContentWriting, withSmallRule, suppliedText, reviewOutput, type ReviewResult } from './groundingCheck'
-import { parseStructured, contractFor } from './structuredOutput'
+import { parseStructured, contractFor, salvageTruncated } from './structuredOutput'
 
 export class LocalUnsupportedError extends Error {
   constructor(
@@ -56,18 +56,41 @@ const JSON_NEGATIVE = /\b(no|not|never|without)\s+(a\s+)?JSON\b/i
 const JSON_POSITIVE =
   /\b(return|respond|reply|output|answer)\b[^.\n]{0,60}\bJSON\b|\bJSON only\b|\bvalid JSON\b|\bstrict JSON\b|\bsingle (valid )?JSON\b|\bJSON object\b|\bJSON array\b/i
 
+// A system prompt that asks for the text itself (AI Assist, rewrites): prose,
+// whatever the text being worked on says.
+const PROSE_POSITIVE =
+  /\breturn only the (resulting|transformed|rewritten|revised|translated|corrected) (text|passage)\b|\bplain[- ]text (answer|reply) only\b/i
+
+/** The part of a user message that is the call's instruction, not material it carries. */
+function instructionPart(user: string): string {
+  return user.length <= 800 ? user : `${user.slice(0, 400)}\n${user.slice(-400)}`
+}
+
 /**
  * What output shape the prompt demands: 'object', 'array' or null for prose.
- * A prompt that says "no JSON" anywhere wants prose, whatever else it says.
  * Exported for tests.
+ *
+ * The SYSTEM prompt decides first: it is the call site's own instruction. "No
+ * JSON" there means prose; a JSON demand there means JSON; a prompt that asks
+ * for the resulting text means prose. Only a system prompt silent on format
+ * lets the user message decide, and then only its instruction (its head and
+ * tail), never the material in between. Before, the text being rewritten or
+ * summarised could flip a prose call into JSON decoding just by talking about
+ * JSON ("every endpoint must respond with a JSON object"), and the person's
+ * rewrite came back as an object.
  */
 export function jsonIntent(system: string, lastUser: string): 'object' | 'array' | null {
-  const text = `${system}\n${lastUser}`
-  if (JSON_NEGATIVE.test(text)) return null
-  if (!JSON_POSITIVE.test(text)) return null
-  const saysArray = /\bJSON array\b|start with \[/i.test(text)
-  const saysObject = /\bJSON object\b|first character (must be|of your reply is) \{|"\w+"\s*:/i.test(text)
-  return saysArray && !saysObject ? 'array' : 'object'
+  const shapeOf = (text: string): 'object' | 'array' => {
+    const saysArray = /\bJSON array\b|start with \[/i.test(text)
+    const saysObject = /\bJSON object\b|first character (must be|of your reply is) \{|"\w+"\s*:/i.test(text)
+    return saysArray && !saysObject ? 'array' : 'object'
+  }
+  if (JSON_NEGATIVE.test(system)) return null
+  if (JSON_POSITIVE.test(system)) return shapeOf(`${system}\n${instructionPart(lastUser)}`)
+  if (PROSE_POSITIVE.test(system)) return null
+  const asked = instructionPart(lastUser)
+  if (JSON_NEGATIVE.test(asked) || !JSON_POSITIVE.test(asked)) return null
+  return shapeOf(`${system}\n${asked}`)
 }
 
 // ── Validation ──────────────────────────────────────────────────────────────
@@ -286,6 +309,36 @@ function toMessage(model: string, r: EngineGenerateResult): Anthropic.Message {
   } as unknown as Anthropic.Message
 }
 
+// ── Raw-output trace (diagnostics only) ─────────────────────────────────────
+//
+// PLEXII_LOCAL_AI_TRACE=<file> (read by localAiService) appends one JSON line per on-device request:
+// the purpose, the contract, the shape, and the model's raw text and stop
+// reason for each attempt. Off unless that variable names a file; nothing is
+// ever sent anywhere. It exists so a failure a person saw can be captured as
+// the exact text the model produced (tests/fixtures/localAi/ keeps such
+// captures as regression fixtures).
+type TraceAttempt = { text: string; stopReason: string; inputTokens: number; outputTokens: number }
+// The writer is set by localAiService (main only): this module also runs in
+// the web worker bundle, which must not reach node:fs.
+let traceSink: ((entry: Record<string, unknown>) => void) | null = null
+export function setLocalTraceSink(fn: ((entry: Record<string, unknown>) => void) | null): void {
+  traceSink = fn
+}
+function trace(entry: Record<string, unknown>): void {
+  if (!traceSink) return
+  try {
+    traceSink({ at: new Date().toISOString(), ...entry })
+  } catch {
+    /* diagnostics must never break a request */
+  }
+}
+const attemptOf = (r: EngineGenerateResult): TraceAttempt => ({
+  text: r.text,
+  stopReason: r.stopReason,
+  inputTokens: r.inputTokens,
+  outputTokens: r.outputTokens
+})
+
 /** Run one request against the engine: JSON-constrain, validate, retry once. Exported for the router. */
 export async function runLocal(
   deps: LocalClientDeps,
@@ -320,15 +373,40 @@ export async function runLocal(
     if (applied) block.text = r.text
     return m
   }
-  if (!shape) return grounded(toMessage(model, first))
+  const traceBase = { purpose, shape, contract: contractFor(purpose, flat.system)?.id ?? null, systemChars: flat.system.length, streamed: !!opts.onText }
+  if (!shape) {
+    trace({ ...traceBase, first: attemptOf(first), ok: true })
+    return grounded(toMessage(model, first))
+  }
   // Structured: tolerant parse → the call's contract → strict validation
   // (structuredOutput.ts). A reply cut off at max tokens is a failure to
   // retry, not something to hand the call site half of.
   const firstParsed = parseStructured(first.text, shape, purpose, flat.system)
   const accept = (r: EngineGenerateResult, text: string): Anthropic.Message => grounded(toMessage(model, { ...r, text, stopReason: 'end_turn' }))
   // A JSON value that closed is complete, even when generation then hit its limit.
-  if (firstParsed.ok) return accept(first, firstParsed.text)
+  if (firstParsed.ok) {
+    trace({ ...traceBase, first: attemptOf(first), ok: true })
+    return accept(first, firstParsed.text)
+  }
   const problem = firstParsed.problem
+  const contract = contractFor(purpose, flat.system)
+  // Unusable: the router may offer cloud for this one request; when the call's
+  // contract is known and that is declined, the request fails plainly (never
+  // "ok" with nothing in it). `kind` lets that failure say WHY in plain words.
+  const unusable = (r: EngineGenerateResult, reason: string, kind: LocalUnusableKind): Anthropic.Message => {
+    const msg = toMessage(model, r)
+    Object.defineProperty(msg, LOCAL_UNUSABLE, { value: reason, enumerable: false })
+    Object.defineProperty(msg, LOCAL_UNUSABLE_KIND, { value: kind, enumerable: false })
+    if (contract) Object.defineProperty(msg, LOCAL_CONTRACT, { value: contract.describe, enumerable: false })
+    return msg
+  }
+  // The prompt itself did not fit the model's context window, so nothing was
+  // generated at all. That is not a reply with "no JSON" in it, and a retry
+  // (the same prompt, longer) cannot fit either: say what happened.
+  if (first.stopReason === 'model_context_window_exceeded') {
+    trace({ ...traceBase, first: attemptOf(first), problem: 'context window exceeded', ok: false })
+    return unusable(first, 'the request is longer than the on-device model can read at once', 'too-long')
+  }
 
   // One retry, telling the model exactly what was wrong. Streaming listeners
   // already saw the first attempt; the retry is not streamed (the consumer
@@ -361,15 +439,36 @@ export async function runLocal(
     outputTokens: first.outputTokens + retry.outputTokens,
     totalMs: first.totalMs + retry.totalMs
   }
+  trace({ ...traceBase, first: attemptOf(first), problem, retry: attemptOf(retry), retryProblem, ok: retryParsed.ok })
   if (!retryProblem && retryParsed.ok) return accept({ ...retry, ...totals }, retryParsed.text)
-  const msg = toMessage(model, { ...first, ...totals })
-  // Both attempts failed. The router may offer cloud for this one request;
-  // when the call's contract is known and that is declined, the request
-  // fails plainly (never "ok" with nothing in it).
-  Object.defineProperty(msg, LOCAL_UNUSABLE, { value: retryProblem ?? problem, enumerable: false })
-  const contract = contractFor(purpose, flat.system)
-  if (contract) Object.defineProperty(msg, LOCAL_CONTRACT, { value: contract.describe, enumerable: false })
-  return msg
+  // The first reply was cut off and the retry could not do better (typically:
+  // it ran out of room too, or did not fit at all). Keep what the first reply
+  // finished, if the call's contract still holds without the half-written
+  // tail (a complete answer whose last action card was cut, the rows before
+  // the cut-off one). An answer whose main text was itself cut is NOT kept.
+  if ('cutOff' in firstParsed && firstParsed.cutOff) {
+    const salvaged = salvageTruncated(first.text, shape, purpose, flat.system)
+    if (salvaged && salvaged.ok) {
+      trace({ ...traceBase, salvaged: salvaged.repairs })
+      return accept({ ...first, ...totals }, salvaged.text)
+    }
+  }
+  const outOfRoom =
+    retry.stopReason === 'model_context_window_exceeded' ||
+    (('cutOff' in firstParsed && firstParsed.cutOff) && (retry.stopReason === 'max_tokens' || !retry.text.trim()))
+  // Report the reason that explains the failure: a retry that could not even
+  // start says nothing about the reply ("no JSON object was found" was this).
+  const reason = retry.stopReason === 'model_context_window_exceeded' ? problem : (retryProblem ?? problem)
+  return unusable({ ...first, ...totals }, reason, outOfRoom ? 'out-of-room' : 'shape')
+}
+
+/** Why a local structured reply was unusable, for a plain-language failure. */
+export type LocalUnusableKind = 'too-long' | 'out-of-room' | 'shape'
+export const LOCAL_UNUSABLE_KIND = Symbol.for('plexii.localUnusableKind')
+export function localUnusableKind(m: unknown): LocalUnusableKind | null {
+  if (!m || typeof m !== 'object') return null
+  const v = (m as Record<symbol, unknown>)[LOCAL_UNUSABLE_KIND]
+  return v === 'too-long' || v === 'out-of-room' || v === 'shape' ? v : null
 }
 
 /** Set (non-enumerable) on an unusable local reply whose call has a known contract: what was promised. */

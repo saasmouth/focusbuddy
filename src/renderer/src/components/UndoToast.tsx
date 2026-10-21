@@ -34,8 +34,20 @@ export default function UndoToast(): JSX.Element | null {
       >
         {toast.kind === 'action' ? (
           <>
-            <Icon name="delete" size={15} className="text-stone-300" />
-            <span className="max-w-[280px] truncate">{toast.label}</span>
+            <Icon name={toast.entry?.toastIcon ?? 'delete'} size={15} className="text-stone-300" />
+            <span className="max-w-[280px] truncate" data-testid="undo-toast-label">{toast.label}</span>
+            {toast.entry?.toastAction && (
+              <button
+                onClick={() => {
+                  toast.entry?.toastAction?.run()
+                  dismiss()
+                }}
+                data-testid="undo-toast-action"
+                className="ml-1 inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-medium text-stone-200 hover:bg-white/10"
+              >
+                {toast.entry.toastAction.label}
+              </button>
+            )}
             <button
               onClick={() => void undo()}
               data-testid="undo-toast-undo"

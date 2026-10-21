@@ -6,6 +6,7 @@
 import { app, BrowserWindow, ipcMain, utilityProcess } from 'electron'
 import { join } from 'node:path'
 import { statfs } from 'node:fs/promises'
+import { appendFileSync } from 'node:fs'
 import { totalmem } from 'node:os'
 import { randomUUID } from 'node:crypto'
 import {
@@ -61,7 +62,7 @@ import { EngineHost, type WorkerHandle } from './engineHost'
 import { removeModel, fetchWithFile, type DownloadProgress } from './downloadManager'
 import { downloadModels } from './modelDownload'
 import { locateModel, verifyLocated, cachedVerification, canonicalPath, type ModelSpec, type Located } from './modelLocator'
-import { setGroundingSink } from './localClient'
+import { setGroundingSink, setLocalTraceSink } from './localClient'
 import { setBundledEmbedder } from '../localModel'
 import { SIGNAL_BASE, getCreditClient, isCreditClient, creditRefusalNote } from '../creditMode'
 import {
@@ -330,9 +331,15 @@ export function initLocalAi(): void {
   // install's bundled model, checked once in the background).
   void settleLocalAiMigration()
 
+  // Diagnostics only: PLEXII_LOCAL_AI_TRACE=<file> records the model's raw
+  // output per request (localClient.ts). Off unless set; nothing leaves the device.
+  const traceFile = process.env.PLEXII_LOCAL_AI_TRACE
+  if (traceFile) setLocalTraceSink((entry) => appendFileSync(traceFile, JSON.stringify(entry) + '\n'))
   setLocalRuntime({
     installed: () => tierInstalled(activeTier()),
     modelLabel: () => activeTier()?.name.toLowerCase().replace(/\s+/g, '-') ?? 'none',
+    // The same figure refreshEngineModel loads the engine with.
+    contextTokens: () => activeTier()?.contextSize ?? 8192,
     engine: async () => {
       const t = activeTier()
       // No tier at all means this computer has too little memory for any of

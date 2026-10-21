@@ -17,7 +17,8 @@ import { localOnlyActive } from './ai/local/providerRouter'
 import { autoBackupOnLaunch } from './db/backup'
 import { registerIpcHandlers } from './ipc'
 import { initLocalAi, registerLocalAiIpc } from './ai/local/localAiService'
-import { attachWebContextMenu, registerWebMenuIpc } from './webContextMenu'
+import { attachWebContextMenu, registerWebMenuIpc, setWebMenuDeskSource } from './webContextMenu'
+import { listNodes } from './db/nodes'
 import { runWidgetFileBackfill, setWidgetFileResolvers } from './db/widgetFiles'
 import { setDocTextResolvers } from './workspaceRank'
 import { mainWidgetResolvers } from './ai/widgetSummary'
@@ -766,6 +767,14 @@ app.whenReady().then(() => {
   // loads in a utility process on the first on-device request.
   initLocalAi()
   registerWebMenuIpc()
+  // "Add … to desk" in the web page right-click menu lists open desks, most
+  // recently changed first (the order the Home dashboard's Recent desks uses).
+  setWebMenuDeskSource(() =>
+    listNodes()
+      .filter((n) => n.kind === 'task' && !n.archived)
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .map((n) => ({ id: n.id, title: n.title }))
+  )
   // Background AI tasks (privacy switch) gate cloud model calls only: with AI
   // on this device, title naming and embeddings run even with the switch off.
   setLocalRouting(() => localOnlyActive())

@@ -194,4 +194,133 @@ for (const native of [false, true]) {
   })
 }
 
+// ── 4.3.41: the standalone browsers, Add to desk, PlexiiAssist and AI Assist ──
+// Owner: "Right click only offers copy, not AI tools or ability to add image,
+// video or highlighted text to a new desk or existing desk."
+
+type Flat = Array<{ id: string; label: string; enabled: boolean; path: string[] }>
+const flat = (app: ElectronApplication): Promise<Flat> =>
+  app.evaluate(() => ((globalThis as unknown as { __plexiiLastWebMenu?: { flat: Flat } }).__plexiiLastWebMenu?.flat ?? []) as never)
+/** Choose an item of the menu just recorded, as a click on it would. */
+const choose = (app: ElectronApplication, id: string): Promise<boolean> =>
+  app.evaluate((_e, item) => (globalThis as unknown as { __plexiiRunWebMenuItem: (id: string) => boolean }).__plexiiRunWebMenuItem(item), id)
+
+async function openWebPanel(window: LaunchedApp['window'], url: string): Promise<void> {
+  await window.evaluate((u) => (window as unknown as { __fbWebPanel: { getState: () => { openWeb: (u: string, o?: unknown) => void } } }).__fbWebPanel.getState().openWeb(u, { expanded: true }), url)
+}
+async function makeDesks(window: LaunchedApp['window'], titles: string[]): Promise<string[]> {
+  return window.evaluate(async (ts) => {
+    const ids: string[] = []
+    for (const t of ts) {
+      ids.push((await window.api.nodes.create({ parentId: null, kind: 'task', title: t })).id)
+      await new Promise((r) => setTimeout(r, 5)) // distinct updatedAt, so "most recent" is well defined
+    }
+    await (window as unknown as { __fbNodes: { getState: () => { refresh: () => Promise<void> } } }).__fbNodes.getState().refresh()
+    return ids
+  }, titles)
+}
+const widgetsOn = (window: LaunchedApp['window'], deskId: string): Promise<Array<{ kind: string; content: string; title: string }>> =>
+  window.evaluate(async (id) => (await window.api.widgets.listByTask(id)).map((w) => ({ kind: w.kind, content: w.content, title: w.title })), deskId)
+
+test('WCM-5 — the PlexiiOffice browser (standalone): the full menu, no desk-only items', async () => {
+  const { app, window } = await boot()
+  const url = `${origin}/m.html`
+  await window.evaluate((u) => {
+    localStorage.setItem('plexi.officeBrowser.url', u)
+    ;(window as unknown as { __fbView: { getState: () => { goOffice: (a: string) => void } } }).__fbView.getState().goOffice('browser')
+  }, url)
+  await waitLoaded(app, url)
+  await checkAll(app, url, 'browser')
+})
+
+test('WCM-6 — Add image to desk: an existing desk, most recent first; one undoable action with a toast', async () => {
+  const { app, window } = await boot()
+  const [older, recent] = await makeDesks(window, ['Older desk', 'Research desk'])
+  const url = `${origin}/m.html`
+  await openWebPanel(window, url)
+  await waitLoaded(app, url)
+  await rightClick(app, url, '#img')
+  const items = (await flat(app)).filter((e) => e.path[0] === 'Add image to desk')
+  expect(items.map((e) => e.label)).toEqual(['New desk…', 'Research desk', 'Older desk'])
+  expect(items.map((e) => e.id)).toEqual(['desk:image:new', `desk:image:${recent}`, `desk:image:${older}`])
+  expect(await choose(app, `desk:image:${recent}`)).toBe(true)
+  await expect.poll(async () => (await widgetsOn(window, recent)).map((w) => w.kind), { timeout: 10_000 }).toEqual(['image'])
+  await expect(window.getByTestId('undo-toast-label')).toHaveText('Added image to Research desk')
+  await expect(window.getByTestId('undo-toast-action')).toHaveText('Open desk')
+  await window.getByTestId('undo-toast-undo').click()
+  await expect.poll(async () => (await widgetsOn(window, recent)).length, { timeout: 10_000 }).toBe(0)
+})
+
+test('WCM-7 — Add selection to desk → New desk…: named from the page, the text lands as a sticky', async () => {
+  const { app, window } = await boot()
+  const url = `${origin}/m.html`
+  await openWebPanel(window, url)
+  await waitLoaded(app, url)
+  await rightClick(app, url, '#text', { select: true })
+  expect(await choose(app, 'desk:selection:new')).toBe(true)
+  const picker = window.getByTestId('add-to-desk-picker')
+  await expect(picker).toBeVisible()
+  await expect(window.getByTestId('add-to-desk-name')).toHaveValue('Menu test')
+  await expect(window.getByTestId('add-to-desk-becomes')).toHaveText('Becomes a sticky work widget')
+  await window.getByTestId('add-to-desk-name').fill('From the web')
+  await window.getByTestId('add-to-desk-create').click()
+  await expect(picker).toHaveCount(0)
+  const findDesk = (): Promise<string | null> =>
+    window.evaluate(async () => (await window.api.nodes.list()).find((n) => n.title === 'From the web' && n.kind === 'task')?.id ?? null)
+  await expect.poll(findDesk, { timeout: 10_000 }).not.toBeNull()
+  const deskId = (await findDesk())!
+  await expect
+    .poll(async () => (await widgetsOn(window, deskId)).map((w) => ({ kind: w.kind, content: w.content })), { timeout: 10_000 })
+    .toEqual([{ kind: 'sticky', content: 'Some selectable words here.' }])
+  await expect(window.getByTestId('undo-toast-label')).toHaveText('Added selection to a new desk, From the web')
+  // One undo takes the new desk and its work widget away together.
+  await window.getByTestId('undo-toast-undo').click()
+  await expect.poll(async () => window.evaluate(async () => (await window.api.nodes.list()).some((n) => n.title === 'From the web')), { timeout: 10_000 }).toBe(false)
+})
+
+test('WCM-8 — many desks: Add link to desk → Choose a desk… searches them all', async () => {
+  const { app, window } = await boot()
+  const ids = await makeDesks(window, Array.from({ length: 11 }, (_, i) => `Desk ${String.fromCharCode(65 + i)}`))
+  const url = `${origin}/m.html`
+  await openWebPanel(window, url)
+  await waitLoaded(app, url)
+  await rightClick(app, url, '#link')
+  const items = (await flat(app)).filter((e) => e.path[0] === 'Add link to desk')
+  expect(items).toHaveLength(1 + 8 + 1) // New desk…, the 8 most recent, Choose a desk…
+  expect(items[1].label).toBe('Desk K')
+  expect(items.at(-1)!.label).toBe('Choose a desk…')
+  expect(await choose(app, 'desk:link:choose')).toBe(true)
+  await window.getByTestId('add-to-desk-search').fill('desk a')
+  await expect(window.locator('[data-testid^="add-to-desk-desk-"]')).toHaveCount(1)
+  await window.getByTestId(`add-to-desk-desk-${ids[0]}`).click()
+  await expect.poll(async () => (await widgetsOn(window, ids[0])).map((w) => [w.kind, w.content]), { timeout: 10_000 }).toEqual([['webview', `${origin}/other.html`]])
+  await expect(window.getByTestId('undo-toast-label')).toHaveText('Added link to Desk A')
+})
+
+test('WCM-9 — selected text: Ask PlexiiAssist stages the passage; AI Assist previews without writing to the page', async () => {
+  const { app, window } = await boot()
+  const url = `${origin}/m.html`
+  await openWebPanel(window, url)
+  await waitLoaded(app, url)
+  await rightClick(app, url, '#text', { select: true })
+  const ai = (await flat(app)).filter((e) => e.path[0] === 'AI Assist').map((e) => e.label)
+  expect(ai).toEqual(expect.arrayContaining(['Summarise', 'Explain', 'Simplify', 'Rewrite', 'French', 'Formal', 'Custom Prompt…']))
+  expect(await choose(app, 'ask-assist')).toBe(true)
+  await expect
+    .poll(() =>
+      window.evaluate(() => {
+        const chat = (window as unknown as { __fbChat: { getState: () => { draftDocByThread: Record<string, unknown> } } }).__fbChat.getState()
+        return JSON.stringify(chat.draftDocByThread)
+      }),
+      { timeout: 10_000 }
+    )
+    .toMatch(/About this passage \(from Menu test.*Some selectable words here\./)
+  await rightClick(app, url, '#text', { select: true })
+  expect(await choose(app, 'ai:custom')).toBe(true)
+  const preview = window.getByTestId('ai-assist-preview')
+  await expect(preview).toBeVisible()
+  // Custom Prompt waits for the instruction; nothing ran, nothing was written.
+  await expect(window.getByTestId('ai-assist-run')).toBeDisabled()
+  await expect(window.getByTestId('ai-assist-apply')).toHaveCount(0)
+})
 

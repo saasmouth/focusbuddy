@@ -21,7 +21,6 @@ import AiBuilderDialog from './AiBuilderDialog'
 import ViewSelector from './views/ViewSelector'
 import type { AiBuildSuggestion } from '@shared/types'
 import CanvasContextMenu, { type CtxMenuItem } from './CanvasContextMenu'
-import AiAssistPreview from './contextMenu/AiAssistPreview'
 import WidgetSetupPreview from './contextMenu/WidgetSetupPreview'
 import BrowserContextMenu from './contextMenu/BrowserContextMenu'
 // Side-effect import registers the core widget context-action providers (sticky
@@ -3321,9 +3320,8 @@ export default function Canvas(): JSX.Element {
           onClose={() => setCtxMenu(null)}
         />
       )}
-      {/* The single AI Assist preview for the unified context menu. Portals to
-          body, so its placement in the tree does not matter. */}
-      <AiAssistPreview />
+      {/* The AI Assist preview is mounted once in App (the web page menu runs
+          it off the desk too). */}
       {/* The per-widget AI setup preview (Build with AI). Also body-portalled. */}
       <WidgetSetupPreview />
       {/* The unified menu for non-editable right-clicks inside browser widgets. */}
