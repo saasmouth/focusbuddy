@@ -242,7 +242,12 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   // one pass and never loops; and the result is written with `replace`, not
   // `commit`, because re-flowing is a consequence of an edit, not an edit.
   useEffect(() => {
-    const next = applyStoryFlows(design, domFlowMeasure)
+    // The brand kit decides the body and heading families and the accent, so
+    // it has to be the SAME kit the caret arithmetic uses (paragraphsForStory,
+    // below). Without it the page was typeset in the default families while
+    // the caret was measured in the person's own — so for anyone with a brand
+    // font, the caret drifted along the line.
+    const next = applyStoryFlows(design, domFlowMeasure, brand)
     if (next !== design) {
       designRef.current = next
       setDesign(next)
@@ -1327,13 +1332,13 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
 
       {panel === 'styles' && (
         <Panel title="Paragraph styles">
-          <StylesPanel design={design} onPatch={patchLayout} />
+          <StylesPanel design={design} brand={brand} onPatch={patchLayout} />
         </Panel>
       )}
 
       {panel === 'swatches' && (
         <Panel title="Swatches &amp; spot inks">
-          <SwatchesPanel design={design} selectedIds={selectedIds} onBody={(next) => commit(next)} />
+          <SwatchesPanel design={design} brand={brand} selectedIds={selectedIds} onBody={(next) => commit(next)} />
         </Panel>
       )}
 

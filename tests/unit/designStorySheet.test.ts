@@ -6,7 +6,8 @@
 // applyStoryFlows — the function the editor calls on every change — and assert
 // the PAGE changes, which is the only thing the person cares about.
 import { describe, it, expect } from 'vitest'
-import { applyStoryFlows, documentStyleSheet } from '../../src/shared/designStories'
+import { applyStoryFlows, documentStyleSheet, paragraphsForStory } from '../../src/shared/designStories'
+import { DEFAULT_BRAND_KIT } from '../../src/shared/brandKit'
 import { updateParagraphStyle } from '../../src/shared/designStyles'
 import { parsePlainText } from '../../src/shared/designContent'
 import type { DesignBody } from '../../src/shared/design'
@@ -44,8 +45,9 @@ function doc(src: string, frame: { w: number; h: number } = { w: 180, h: 400 }):
   } as unknown as DesignBody
 }
 
-const lines = (b: DesignBody): Array<{ text: string; y: number }> => {
-  const el = (b.pages?.[0].elements ?? [])[0] as { flowLines?: Array<{ text: string; y: number }> }
+type Line = { text: string; y: number; size: number; family?: string; color?: string }
+const lines = (b: DesignBody): Line[] => {
+  const el = (b.pages?.[0].elements ?? [])[0] as { flowLines?: Line[] }
   return el.flowLines ?? []
 }
 
@@ -133,5 +135,50 @@ describe('baseline snapping, from the switch to the page', () => {
     const d = { ...doc(src), baselineGrid: { spacing: 18, offset: 0 } }
     const out = lines(applyStoryFlows(d, measure))
     expect(out.some((l) => Math.abs(l.y % 18) > 0.01 && Math.abs((l.y % 18) - 18) > 0.01)).toBe(true)
+  })
+})
+
+describe('the brand kit reaches the page', () => {
+  // The kit decides the body and heading families and the accent colour. The
+  // editor typeset the page through applyStoryFlows WITHOUT it while measuring
+  // the caret through paragraphsForStory WITH it, so for anyone with a brand
+  // font the page was set in one family and the caret arithmetic done in
+  // another, and the caret drifted along the line.
+  const kit = {
+    ...DEFAULT_BRAND_KIT,
+    fontBody: 'Courier New',
+    fontHeading: 'Courier New',
+    colorPrimary: '#008800'
+  }
+
+  it('sets headings in the kit family, not the built-in one', () => {
+    // The BODY family is the serif stack under the default editorial preset
+    // whatever the kit says (style.serifBody), so the heading is where the
+    // kit shows through on this preset — and the accent colour always is.
+    // "##" is heading level 1, which is the one the sheet gives the accent to;
+    // "###" is level 2 and sets in ink.
+    const d = doc('## A heading\n\nBody copy.')
+    const theirs = lines(applyStoryFlows(d, measure, kit))
+    const builtIn = lines(applyStoryFlows(d, measure))
+    const headingOf = (ls: ReturnType<typeof lines>): (typeof ls)[number] =>
+      ls.reduce((a, b) => (b.size > a.size ? b : a), ls[0])
+    expect(headingOf(theirs).family).toBe('Courier New')
+    expect(headingOf(builtIn).family).not.toBe('Courier New')
+    expect(headingOf(theirs).color).toBe('#008800')
+  })
+
+  it('agrees with what the caret is measured from, which is the whole point', () => {
+    const d = doc('Body copy in the brand family.')
+    const set = lines(applyStoryFlows(d, measure, kit))
+    const forCaret = paragraphsForStory(d, 's1', kit)
+    expect(set[0].family).toBe(forCaret[0].style.fontFamily)
+    expect(set[0].size).toBeCloseTo(forCaret[0].style.fontSize, 5)
+  })
+
+  it('shows the kit accent in the generated style sheet', () => {
+    const sheet = documentStyleSheet(doc('x'), kit)
+    const h1 = sheet.paragraph.find((s) => s.id === 'heading1')
+    expect(h1?.props.color).toBe('#008800')
+    expect(h1?.props.fontFamily).toBe('Courier New')
   })
 })
