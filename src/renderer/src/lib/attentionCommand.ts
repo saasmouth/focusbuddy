@@ -31,9 +31,25 @@ export interface AttentionCommand {
   messageText: string | null
 }
 
-/** The token itself: "@attention", optionally trailing ':' or ',', at a word
- *  boundary so "user@attention.example" can never trip it. */
-const TOKEN = /(^|\s)@attention\b[:,]?/gi
+/** The capture words. DEC-144 renamed the surface Focus, so "@focus" is the
+ *  token people are taught; "@attention" stays a working alias so years of
+ *  muscle memory (and saved text) keep capturing. First entry is canonical. */
+export const CAPTURE_WORDS = ['focus', 'attention'] as const
+
+/** Is `partial` (what follows a typed "@", any case) a prefix of a capture
+ *  word? Empty counts: a bare "@" offers the capture row. One rule for ⌘K,
+ *  the chat picker and the home bar. */
+export function isCapturePrefix(partial: string): boolean {
+  const p = partial.trim().toLowerCase()
+  return CAPTURE_WORDS.some((w) => w.startsWith(p))
+}
+
+/** The token itself: "@focus" or "@attention", optionally trailing ':' or ',',
+ *  at a word boundary so "user@attention.example" can never trip it. */
+const TOKEN = /(^|\s)@(?:focus|attention)\b[:,]?/gi
+
+/** A query that opens with a capture word, with or without the "@". */
+export const LEADING_CAPTURE_WORD = /^@?(?:focus|attention)\b[:,]?\s*(.*)$/i
 
 /** Does this text carry the command at all? (Cheap guard for hot paths.) */
 export function hasAttentionCommand(text: string): boolean {
@@ -43,7 +59,7 @@ export function hasAttentionCommand(text: string): boolean {
 
 /** True only when the token OPENS the text — the pure capture gesture. */
 export function isLeadingAttention(text: string): boolean {
-  return /^@attention\b[:,]?/i.test(text.trim())
+  return /^@(?:focus|attention)\b[:,]?/i.test(text.trim())
 }
 
 function stripToken(text: string): string {

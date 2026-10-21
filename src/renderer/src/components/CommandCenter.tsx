@@ -9,7 +9,7 @@ import type { WidgetKind, SearchHit } from '@shared/types'
 import { WIDGET_CATALOG, isAdvancedKind } from '../lib/widgetCatalog'
 import { getNavPrefs, setNavPrefs } from '../lib/navPrefs'
 import Icon from './Icon'
-import { parseAttentionCommand, hasAttentionCommand } from '../lib/attentionCommand'
+import { parseAttentionCommand, hasAttentionCommand, isCapturePrefix, LEADING_CAPTURE_WORD } from '../lib/attentionCommand'
 import { useCapabilityEnabled, useCapabilityStore } from '../stores/capabilities'
 import { entitlementFor, capabilityForDocType, DOC_TYPE_LABEL } from '../lib/entitlementReason'
 import { canCreateWidget } from '../lib/gating'
@@ -482,17 +482,17 @@ export default function CommandCenter({
     // "attention" asked the model instead of opening Capture.
     const attnAddressed =
       (hasAttentionCommand(q) ||
-        /^@?attention\b/i.test(q) ||
-        (/^@([a-z]*)$/i.test(q) && 'attention'.startsWith(q.slice(1).toLowerCase())))
+        LEADING_CAPTURE_WORD.test(q) ||
+        (/^@([a-z]*)$/i.test(q) && isCapturePrefix(q.slice(1))))
     {
-      const attnPrefix = /^@?attention\b[:,]?\s*(.*)$/i.exec(q)
+      const attnPrefix = LEADING_CAPTURE_WORD.exec(q)
       // DEC-031: the token ANYWHERE in the query addresses Attention just as
       // explicitly as opening with it. Before this, "…by friday @attention"
       // scored as a fuzzy match, lost to Ask Plexii, and took a 30s round trip
       // through the model that filed nothing (operator live QA).
       const attnInline = !attnPrefix && hasAttentionCommand(q) ? parseAttentionCommand(q) : null
       const atPartial = !attnPrefix && !attnInline ? /^@([a-z]*)$/i.exec(q) : null
-      const atMatches = !!atPartial && 'attention'.startsWith(atPartial[1].toLowerCase())
+      const atMatches = !!atPartial && isCapturePrefix(atPartial[1])
       const prefill = attnPrefix?.[1]?.trim() ?? attnInline?.captureText ?? ''
       items.push({
         id: 'attention-capture',

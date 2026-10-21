@@ -134,7 +134,10 @@ describe('S5 wiring locks (file-level)', () => {
     expect(read('src/main/ipc/index.ts')).toContain("'workItems:classify'")
     // DEC-019(b): ONE universal entry, @attention prefix captures directly.
     expect(read('src/renderer/src/components/CommandCenter.tsx')).toContain('attention-capture')
-    expect(read('src/renderer/src/components/CommandCenter.tsx')).toContain('@?attention')
+    // DEC-144: the prefix grammar moved into the one parser (@focus, with
+    // @attention kept as an alias); ⌘K reads it from there.
+    expect(read('src/renderer/src/components/CommandCenter.tsx')).toContain('LEADING_CAPTURE_WORD')
+    expect(read('src/renderer/src/lib/attentionCommand.ts')).toContain('@?(?:focus|attention)')
     // The decay sweep rides the scheduler cadence.
     expect(read('src/main/notifications/scheduler.ts')).toContain('decayLooseThoughts(nowMs)')
   })

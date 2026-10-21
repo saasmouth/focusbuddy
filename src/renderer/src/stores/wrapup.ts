@@ -245,7 +245,13 @@ async function runWrapup(
       title,
       transcript,
       summary,
-      actionItems: proposals.filter((p) => p.kind === 'create-task').map((p) => ('title' in p ? p.title : '')),
+      // DEC-144 — action items are tasks in Focus (create-work-item); a
+      // create-task is a whole desk. The record lists both until the
+      // commitments extractor (below) replaces them with what it found.
+      actionItems: proposals
+        .filter((p) => p.kind === 'create-task' || p.kind === 'create-work-item')
+        .map((p) => ('title' in p ? p.title : ''))
+        .filter(Boolean),
       durationSec,
       // M5 — series identity rides the calendar origin onto the record;
       // "carried from last time" is an indexed lookup from here on.
@@ -451,6 +457,15 @@ async function runWrapup(
   // deliverables stay on ProposalCards. When the extractor produced
   // commitments, the overlapping create-task proposals leave the cards so
   // one obligation is never offered through two doors.
-  const cardProposals = commitments.length ? proposals.filter((p) => p.kind !== 'create-task') : proposals
+  // DEC-144: action items now arrive as create-work-item, so those overlap
+  // the commitments too; the record's action items become the commitments.
+  const cardProposals = commitments.length
+    ? proposals.filter((p) => p.kind !== 'create-task' && p.kind !== 'create-work-item')
+    : proposals
+  if (commitments.length && meeting?.id) {
+    await window.api.meetings
+      .update(meeting.id, { actionItems: commitments.map((c) => c.title).filter(Boolean) })
+      .catch(() => null)
+  }
   set({ status: 'review', summary, proposals: cardProposals, commitments, carried, meetingId: meeting?.id ?? null })
 }

@@ -18,6 +18,7 @@
 import { Extension } from '@tiptap/core'
 import Suggestion from '@tiptap/suggestion'
 import { ReactRenderer } from '@tiptap/react'
+import { isCapturePrefix } from '../../lib/attentionCommand'
 import MentionList from './MentionList'
 import { mentionReplaceRange } from '../../lib/mentionRange'
 import type { MentionListHandle } from './MentionList'
@@ -52,8 +53,7 @@ interface AttentionCommandRow {
 }
 
 function attentionCommandRow(query: string, conversationKey: string): AttentionCommandRow | null {
-  const q = query.trim().toLowerCase()
-  if (q && !'attention'.startsWith(q)) return null
+  if (!isCapturePrefix(query)) return null
   return {
     kind: 'capture',
     id: 'attention-command',

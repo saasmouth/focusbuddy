@@ -178,3 +178,19 @@ describe('one nesting rule, one desk (DEC-144)', () => {
     expect(widget).not.toContain("updateNode(n.id, { status: n.status === DONE ? 'open' : DONE })")
   })
 })
+
+import { workItemCatalogAddendum, ADD_SUBTASK_DEFINITION } from '../../src/main/ai/vocabulary'
+
+describe('the AI has one routing rule and the new words (DEC-144)', () => {
+  const rules = workItemCatalogAddendum()
+  it('one rule picks add-subtask vs create-work-item by where the task belongs', () => {
+    expect(rules).toContain('ONE ROUTING RULE')
+    expect(rules).toContain('A DESK IS OPEN')
+    expect(ADD_SUBTASK_DEFINITION).toContain('Focus list')
+  })
+  it('speaks "task" and "Focus", and knows @focus', () => {
+    expect(rules).toContain('never say "work item"')
+    expect(rules).toContain('"@focus"')
+    expect(rules).not.toContain('Attention queues')
+  })
+})

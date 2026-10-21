@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Icon from '../Icon'
-import { parseAttentionCommand } from '../../lib/attentionCommand'
+import { parseAttentionCommand, isCapturePrefix } from '../../lib/attentionCommand'
 import { useViewStore } from '../../stores/view'
 import { useNodeStore } from '../../stores/nodes'
 import { useChatStore, NEW_CHAT_KEY } from '../../stores/chat'
@@ -166,7 +166,7 @@ export default function StartOrAskPlexi(): JSX.Element {
     // DEC-028: Attention rides on top whenever the @-query prefixes it — the
     // Slack-style "type @a, Tab, done" path. Selection ARMS (see goItem).
     const attnRow: PickItem[] =
-      !atQuery.trim() || 'attention'.startsWith(atQuery.trim().toLowerCase())
+      isCapturePrefix(atQuery)
         ? [
             {
               key: 'capture:attention',
@@ -332,7 +332,7 @@ export default function StartOrAskPlexi(): JSX.Element {
                 if (e.key === 'Tab' && !e.shiftKey) {
                   const hl = pickItems[Math.min(highlight, pickItems.length - 1)]
                   const q = (atQuery ?? '').trim().toLowerCase()
-                  if (hl?.key === 'capture:attention' || (q && 'attention'.startsWith(q))) {
+                  if (hl?.key === 'capture:attention' || (q && isCapturePrefix(q))) {
                     e.preventDefault()
                     armAttention()
                     return
