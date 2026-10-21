@@ -35,6 +35,7 @@ import {
   type Pt
 } from './drawGeometry'
 import { safeCssColor } from './cssColor'
+import { esc, fixed, num } from './draw/markup'
 
 export type {
   Box,
@@ -535,6 +536,28 @@ function normStroke(v: unknown): DrawStroke | undefined {
   }
 }
 
+/**
+ * v1's normalisation rules, exported for the v2 normaliser (draw/normalize.ts)
+ * so a paint, a stroke or a path means exactly the same thing in both. Not
+ * for general use: call normalizeDrawBody / normalizeDrawDoc.
+ */
+export function normDrawPaint(v: unknown, dflt: DrawPaint): DrawPaint {
+  return normPaint(v, dflt)
+}
+export function normDrawStroke(v: unknown): DrawStroke | undefined {
+  return normStroke(v)
+}
+export function normDrawPath(v: unknown): DrawPath {
+  return normPath(v)
+}
+export function normDrawBlend(v: unknown): DrawBlend {
+  return normBlend(v)
+}
+/** A number clamped to 0..1, or `dflt` when it is not a finite number. */
+export function unit01(v: unknown, dflt: number): number {
+  return num01(v, dflt)
+}
+
 function normPath(v: unknown): DrawPath {
   if (!v || typeof v !== 'object') return emptyPath()
   const p = v as Record<string, unknown>
@@ -920,25 +943,8 @@ export function selectableObjectIds(body: DrawBody): string[] {
 // for a body that never went through normalizeDrawBody -- the serializer does
 // not trust its caller to have done that.
 
-/** Escape a string for use as XML text or a double- or single-quoted attribute. */
-function esc(s: string): string {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-/** A number as markup: finite values verbatim, anything else as 0. */
-function num(v: unknown): string {
-  return typeof v === 'number' && Number.isFinite(v) ? String(v) : '0'
-}
-
-/** A number to fixed places: finite values only, anything else as 0. */
-function fixed(v: number, places: number): string {
-  return (Number.isFinite(v) ? v : 0).toFixed(places)
-}
+// esc / num / fixed live in draw/markup.ts, shared with the v2 serializer so
+// the two cannot drift.
 
 function blendOk(v: unknown): v is DrawBlend {
   return typeof v === 'string' && (DRAW_BLEND_MODES as readonly string[]).includes(v)
@@ -974,11 +980,21 @@ export interface DrawGradientStopDef {
 export interface DrawGradientDef {
   kind: 'linear' | 'radial'
   id: string
-  /** objectBoundingBox endpoints. Linear only; a radial is always centred. */
+  /** objectBoundingBox endpoints. Linear only. */
   x1?: string
   y1?: string
   x2?: string
   y2?: string
+  /**
+   * Radial geometry in objectBoundingBox units. Absent = the centred circle
+   * (0.5, 0.5, r 0.5) v1 always drew; v2 paints may move the centre, change
+   * the radius and set a focal point.
+   */
+  cx?: string
+  cy?: string
+  r?: string
+  fx?: string
+  fy?: string
   stops: DrawGradientStopDef[]
 }
 
@@ -1033,7 +1049,8 @@ export function gradientToSvg(g: DrawGradientDef): string {
   if (g.kind === 'linear') {
     return `<linearGradient id="${esc(g.id)}" x1="${esc(g.x1 ?? '0')}" y1="${esc(g.y1 ?? '0.5')}" x2="${esc(g.x2 ?? '1')}" y2="${esc(g.y2 ?? '0.5')}">${stops}</linearGradient>`
   }
-  return `<radialGradient id="${esc(g.id)}" cx="0.5" cy="0.5" r="0.5">${stops}</radialGradient>`
+  const focal = g.fx != null && g.fy != null ? ` fx="${esc(g.fx)}" fy="${esc(g.fy)}"` : ''
+  return `<radialGradient id="${esc(g.id)}" cx="${esc(g.cx ?? '0.5')}" cy="${esc(g.cy ?? '0.5')}" r="${esc(g.r ?? '0.5')}"${focal}>${stops}</radialGradient>`
 }
 
 /**

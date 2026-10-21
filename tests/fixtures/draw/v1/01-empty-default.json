@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "width": 400,
+  "height": 300,
+  "background": {
+    "type": "solid",
+    "color": "#ffffff"
+  },
+  "layers": [
+    {
+      "id": "L1",
+      "kind": "vector",
+      "name": "L1",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "normal",
+      "objects": []
+    }
+  ],
+  "activeLayerId": "L1"
+}

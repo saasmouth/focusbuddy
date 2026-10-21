@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "width": 400,
+  "height": 300,
+  "background": {
+    "type": "solid",
+    "color": "#ffffff"
+  },
+  "activeLayerId": "l1",
+  "layers": [
+    {
+      "id": "l1",
+      "kind": "vector",
+      "name": "Shapes",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "normal",
+      "objects": [
+        {
+          "id": "grad",
+          "type": "path",
+          "shapeKind": "rect",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 20,
+                    "y": 20
+                  },
+                  {
+                    "x": 180,
+                    "y": 20
+                  },
+                  {
+                    "x": 180,
+                    "y": 120
+                  },
+                  {
+                    "x": 20,
+                    "y": 120
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "linear",
+            "angle": 45,
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#6d5dfc"
+              },
+              {
+                "offset": 1,
+                "color": "#ec4899"
+              }
+            ]
+          }
+        },
+        {
+          "id": "stroked",
+          "type": "path",
+          "shapeKind": "line",
+          "path": {
+            "subpaths": [
+              {
+                "closed": false,
+                "nodes": [
+                  {
+                    "x": 220,
+                    "y": 40
+                  },
+                  {
+                    "x": 370,
+                    "y": 140
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "none"
+          },
+          "stroke": {
+            "paint": {
+              "type": "solid",
+              "color": "#16a34a"
+            },
+            "width": 6,
+            "cap": "round",
+            "dash": [
+              12,
+              8
+            ]
+          }
+        },
+        {
+          "id": "type",
+          "type": "text",
+          "x": 20,
+          "y": 200,
+          "w": 360,
+          "text": "Vector & paint",
+          "fontSize": 32,
+          "fill": {
+            "type": "solid",
+            "color": "#1c1917"
+          }
+        }
+      ]
+    },
+    {
+      "id": "l2",
+      "kind": "raster",
+      "name": "Paint",
+      "visible": true,
+      "locked": false,
+      "opacity": 0.8,
+      "blend": "multiply",
+      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    }
+  ]
+}

@@ -7,7 +7,10 @@
 
 import { BrowserWindow, dialog } from 'electron'
 import { writeFile } from 'fs/promises'
-import { CSS_DPI, drawDpi, drawToHtml, drawToSvg, type DrawBody } from '@shared/draw'
+import { CSS_DPI, drawDpi, type DrawBody } from '@shared/draw'
+import { normalizeDrawDoc } from '@shared/draw/normalize'
+import { drawDocToHtml, drawDocToSvg, exportArtboard } from '@shared/draw/svg'
+import type { DrawDoc } from '@shared/draw/model'
 
 export interface DrawExportResult {
   ok: boolean
@@ -91,8 +94,14 @@ export function pngWithDpi(png: Buffer, dpi: number): Buffer {
   return inserted ? Buffer.concat(chunks) : png
 }
 
-export async function exportDraw(input: { draw: DrawBody; title: string; format: 'png' | 'svg' | 'pdf' }): Promise<DrawExportResult> {
-  const { draw, title, format } = input
+export async function exportDraw(input: { draw: DrawBody | DrawDoc; title: string; format: 'png' | 'svg' | 'pdf' }): Promise<DrawExportResult> {
+  const { title, format } = input
+  // Whatever the renderer sent -- a v1 body or a v2 document -- is normalised
+  // here (the renderer is not trusted to have done it) and written by the v2
+  // serializer, which is byte-identical to v1's for every v1 drawing.
+  const doc = normalizeDrawDoc(input.draw)
+  const board = exportArtboard(doc)
+  const draw = { width: board.w, height: board.h, dpi: doc.settings.dpi, transparent: board.background.type === 'none' }
   const safe = (title || 'artwork').replace(/[/\\?%*:|"<>]/g, '-')
   const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
   if (!parent) return { ok: false, error: 'No window is open to save from.' }
@@ -106,7 +115,7 @@ export async function exportDraw(input: { draw: DrawBody; title: string; format:
 
   if (format === 'svg') {
     try {
-      await writeFile(res.filePath, drawToSvg(draw), 'utf8')
+      await writeFile(res.filePath, drawDocToSvg(doc), 'utf8')
       return { ok: true, path: res.filePath }
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -120,8 +129,8 @@ export async function exportDraw(input: { draw: DrawBody; title: string; format:
     useContentSize: true,
     // A transparent artboard must stay transparent in the captured PNG, which
     // needs the offscreen window itself to be transparent.
-    transparent: draw.background.type === 'none',
-    backgroundColor: draw.background.type === 'none' ? '#00000000' : undefined,
+    transparent: draw.transparent,
+    backgroundColor: draw.transparent ? '#00000000' : undefined,
     webPreferences: { offscreen: true }
   })
   try {
@@ -129,7 +138,7 @@ export async function exportDraw(input: { draw: DrawBody; title: string; format:
     // physical size the document's dpi gives it (vectors stay vectors).
     // A document with no stored dpi is laid out exactly as it always was.
     const physical = format === 'pdf' && typeof draw.dpi === 'number' && draw.dpi > 0 ? pdfCssSize(draw) : undefined
-    const html = drawToHtml(draw, physical)
+    const html = drawDocToHtml(doc, { cssSize: physical })
     if (physical) win.setContentSize(Math.max(16, Math.min(8000, Math.ceil(physical.w))), Math.max(16, Math.min(8000, Math.ceil(physical.h))))
     await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
     // Give embedded raster layers and web fonts a beat to paint before capture.

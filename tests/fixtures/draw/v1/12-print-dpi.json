@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "width": 1240,
+  "height": 1754,
+  "background": {
+    "type": "solid",
+    "color": "#ffffff"
+  },
+  "layers": [
+    {
+      "id": "L1",
+      "kind": "vector",
+      "name": "L1",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "normal",
+      "objects": [
+        {
+          "id": "a",
+          "type": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 100,
+                    "y": 100
+                  },
+                  {
+                    "x": 600,
+                    "y": 100
+                  },
+                  {
+                    "x": 600,
+                    "y": 800
+                  },
+                  {
+                    "x": 100,
+                    "y": 800
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#1e3a8a"
+          }
+        }
+      ]
+    }
+  ],
+  "activeLayerId": "L1",
+  "dpi": 150
+}

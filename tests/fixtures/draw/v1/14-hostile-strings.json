@@ -1,0 +1,92 @@
+{
+  "width": 200,
+  "height": 200,
+  "background": {
+    "type": "solid",
+    "color": "red\"/><img src=\"x\" onerror=\"x\"><path fill=\""
+  },
+  "activeLayerId": "x\"/>",
+  "layers": [
+    {
+      "id": "L1\"><script>x</script>",
+      "kind": "vector",
+      "objects": [
+        {
+          "id": "x\"/><foreignObject>",
+          "type": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 0,
+                    "y": 0
+                  },
+                  {
+                    "x": 10,
+                    "y": 0
+                  },
+                  {
+                    "x": 10,
+                    "y": 10
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "linear",
+            "stops": [
+              {
+                "offset": 0,
+                "color": "red\"/><img>"
+              },
+              {
+                "offset": 1,
+                "color": "#fff\" onload=\"x"
+              }
+            ]
+          }
+        },
+        {
+          "id": "txt\"onmouseover=\"x",
+          "type": "text",
+          "x": 0,
+          "y": 0,
+          "w": 100,
+          "text": "<img src=x onerror=\"x\">",
+          "fontSize": 12,
+          "fontFamily": "Inter\"/><script>x</script>",
+          "fill": {
+            "type": "solid",
+            "color": "red;background:url(https://tracker.example/p.gif)"
+          }
+        },
+        {
+          "id": "img-remote",
+          "type": "image",
+          "x": 0,
+          "y": 0,
+          "w": 5,
+          "h": 5,
+          "src": "https://tracker.example/pixel.gif"
+        },
+        {
+          "id": "img-ok",
+          "type": "image",
+          "x": 0,
+          "y": 0,
+          "w": 5,
+          "h": 5,
+          "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        }
+      ]
+    },
+    {
+      "id": "R1",
+      "kind": "raster",
+      "src": "https://tracker.example/layer.png"
+    }
+  ]
+}
