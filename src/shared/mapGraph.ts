@@ -1,19 +1,9 @@
-import type { MapBody, MapEdge, MapNode, MapShape } from './types'
-import { SHAPES } from './diagram/shapes'
+import type { MapBody, MapEdge, MapNode } from './types'
 import { normalizeBody } from './diagram/normalize'
 
 // Pure graph helpers for PlexiDiagrams (the 'map' document type). Kept free of React
 // Flow and Electron so they can run in the renderer editor AND in the main
 // process AI generator, and be unit-tested directly.
-
-// Every placeable shape id, from the shape registry (legacy ids included). The
-// old hand-kept list here omitted six shapes, so the normaliser turned triangles,
-// stars, arrows, crosses, pentagons and callouts into rectangles on every load.
-export const MAP_SHAPES: MapShape[] = SHAPES.map((s) => s.id)
-
-export function emptyMapBody(): MapBody {
-  return { version: 1, nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } }
-}
 
 // A small starter so a blank map is not an empty void — one start node the user
 // builds out from. Mirrors how a fresh sheet/deck opens with something usable.

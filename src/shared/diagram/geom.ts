@@ -53,10 +53,6 @@ export function boundsOf(boxes: Box[]): { x: number; y: number; w: number; h: nu
   return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 }
 }
 
-export function intersects(a: Box, b: Box, pad = 0): boolean {
-  return a.x - pad < b.x + b.w && a.x + a.w + pad > b.x && a.y - pad < b.y + b.h && a.y + a.h + pad > b.y
-}
-
 export function contains(outer: Box, inner: Box): boolean {
   return inner.x >= outer.x && inner.y >= outer.y && inner.x + inner.w <= outer.x + outer.w && inner.y + inner.h <= outer.y + outer.h
 }

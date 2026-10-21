@@ -38,11 +38,6 @@ export function pad(w: number, h: number, l: number, t = l, rt = l, b = t): Rect
   return box(w, h, l, t, w - l - rt, h - t - b)
 }
 
-// Open polyline (no Z) from absolute points.
-export function pline(points: [number, number][]): string {
-  return `M${points.map(([x, y]) => P(x, y)).join(' L')}`
-}
-
 // Point on an ellipse at an angle in degrees (0 = east, 90 = south — screen space).
 export function onEllipse(cx: number, cy: number, rx: number, ry: number, deg: number): [number, number] {
   const a = (deg * Math.PI) / 180

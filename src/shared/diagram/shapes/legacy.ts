@@ -1,6 +1,6 @@
 // The original PlexiDiagrams shapes, ported to the registry. Their ids are saved
 // in existing documents, so they must never change. Geometry matches the old
-// clip-path outlines (shared/mapExport POLYGON_POINTS) so old diagrams look the
+// clip-path outlines (the former shared/mapExport POLYGON_POINTS) so old diagrams look the
 // same after the move to SVG rendering.
 
 import { type ShapeDef, ellipse, fpoly, inset, rect } from './types'
