@@ -557,6 +557,15 @@ describe('the editor (Illustrator keys, one undo step each)', () => {
   })
 })
 
+describe('tools that act on one object reach inside groups', () => {
+  it('the eyedropper picks the colour of the object inside a group', () => {
+    const h = harness(v2([{ id: 'g', type: 'group', children: [sq('a', 10, 10, 40, 40, { fill: { type: 'solid', color: '#12ab34' } })] }]))
+    h.tool('eyedropper')
+    h.click(30, 30)
+    expect(h.state().fill).toEqual({ type: 'solid', color: '#12ab34' })
+  })
+})
+
 describe('isolation mode', () => {
   const nested = (): Record<string, unknown> =>
     v2([

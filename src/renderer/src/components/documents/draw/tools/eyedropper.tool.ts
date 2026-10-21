@@ -18,7 +18,8 @@ const eyedropper: DrawTool = {
   onPointerDown(ctx, e) {
     const p = e.p
     // Prefer a vector object under the cursor; fall back to the painted pixels.
-    const obj = ctx.hitTest(p)
+    // The object itself, inside any group or mask (a group has no paint of its own).
+    const obj = ctx.hitTestDeep(p)
     if (obj && (obj.type === 'path' || obj.type === 'text') && obj.fill.type === 'solid') {
       const color = obj.fill.color
       ctx.set((s) => ({ fill: solid(color), brush: { ...s.brush, color } }))
