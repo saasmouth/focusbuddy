@@ -20,6 +20,7 @@ a keyboard shortcut. There, add one line per binding.
 | `editor/editor.ts` | The editor without React: the store, the context, and the pointer and keyboard dispatch. |
 | `editor/types.ts` | The contracts: `EditorState`, `EditorCtx`, `DrawTool`, `Command`, `MenuSpec`, `DrawPanel`, `DrawDialog`, and the services. |
 | `editor/history.ts` | Undo: `commit`, `replace`, `begin` / `preview` / `commit` / `cancel`. |
+| `editor/clipboard.ts` | Copy, Cut and the Paste family: the native clipboard payload, pasting between drawings, pictures and text from other apps, and `registerSvgPasteImporter` (the seam SVG import plugs into). The system clipboard itself is `src/main/drawClipboard.ts`; tests swap it with `setDrawClipboardBackend`. |
 | `tools/*.tool.ts(x)` | One tool per file, picked up automatically. |
 | `commands/*.commands.ts` | Commands and their menu placement, picked up automatically. |
 | `commands/keymap.ts` | Key bindings (Illustrator's defaults): one sorted line each, plus the keys reserved for features still to come. |

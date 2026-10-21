@@ -94,7 +94,23 @@ test('EP-2 the menus list the same items, with the same enabled states', async (
     await expect(window.locator(`[data-testid="draw-studio-menubar-${menu}-list"]`)).toHaveCount(0)
     return items
   }
-  expect(await read('edit')).toEqual(['Undo (off)', 'Redo (off)', 'Select all', 'Deselect (off)', 'Duplicate (off)', 'Delete (off)', 'Keyboard shortcuts…'])
+  // WP-CLIPBOARD's clipboard group (Illustrator's order), then Select all / Deselect, then WP-KEYS' dialog.
+  expect(await read('edit')).toEqual([
+    'Undo (off)',
+    'Redo (off)',
+    'Cut (off)',
+    'Copy (off)',
+    'Paste',
+    'Paste in Front',
+    'Paste in Back',
+    'Paste in Place',
+    'Paste on All Artboards',
+    'Duplicate (off)',
+    'Delete (off)',
+    'Select all',
+    'Deselect (off)',
+    'Keyboard shortcuts…'
+  ])
   expect(await read('layer')).toEqual(['New vector layer', 'New paint layer'])
   expect(await read('view')).toEqual(['Fit to window', 'Zoom to 100%', 'Grid', 'Snap to edges'])
 })

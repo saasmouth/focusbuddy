@@ -53,6 +53,18 @@ export function createDomServices(refs: StudioRefs, store: () => { getState(): E
         const b = primaryArtboard(doc())
         const z = Math.min((el.clientWidth - 48) / b.w, (el.clientHeight - 48) / b.h)
         store().setState({ zoom: Math.max(0.05, Math.min(4, z)) })
+      },
+      visibleRect: () => {
+        // The scroll viewport, mapped through the stage's on-screen box exactly
+        // as pointer events are (DrawStudio.toolPointer).
+        const el = refs.scroll.current
+        const stage = el?.querySelector('[data-testid="draw-stage"]')
+        if (!el || !stage) return null
+        const r = el.getBoundingClientRect()
+        const st = stage.getBoundingClientRect()
+        const z = store().getState().zoom
+        const b = primaryArtboard(doc())
+        return { x: (r.left + el.clientLeft - st.left) / z + b.x, y: (r.top + el.clientTop - st.top) / z + b.y, w: el.clientWidth / z, h: el.clientHeight / z }
       }
     },
     host: {

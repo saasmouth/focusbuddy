@@ -406,10 +406,18 @@ describe('the keys, in the editor', () => {
     ).toEqual([
       'Undo=Ctrl+Z',
       'Redo=Shift+Ctrl+Z',
-      'Select all=Ctrl+A',
-      'Deselect=Shift+Ctrl+A',
+      // Cut, Copy and Paste also have F2, F3 and F4; the menu names the Ctrl chord.
+      'Cut=Ctrl+X',
+      'Copy=Ctrl+C',
+      'Paste=Ctrl+V',
+      'Paste in Front=Ctrl+F',
+      'Paste in Back=Ctrl+B',
+      'Paste in Place=Shift+Ctrl+V',
+      'Paste on All Artboards=Alt+Shift+Ctrl+V',
       'Duplicate=',
       'Delete=Del',
+      'Select all=Ctrl+A',
+      'Deselect=Shift+Ctrl+A',
       'Keyboard shortcuts…=Alt+Shift+Ctrl+K'
     ])
     expect(toolShortcutLabel('eraser')).toBe('Shift+E')

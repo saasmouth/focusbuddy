@@ -170,8 +170,8 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
 
   // ── Keyboard ───────────────────────────────────────────────────────────────
 
-  /** Commands a key may run on a read-only drawing: they look, select and help; none edits. */
-  const READ_ONLY_KEYS = new Set(['edit.selectAll', 'edit.deselect', 'edit.escape', 'edit.keyboardShortcuts'])
+  /** Commands a key may run on a read-only drawing: they look, select, copy and help; none edits. */
+  const READ_ONLY_KEYS = new Set(['edit.copy', 'edit.selectAll', 'edit.deselect', 'edit.escape', 'edit.keyboardShortcuts'])
   const readOnlyKeyOk = (id: string): boolean => READ_ONLY_KEYS.has(id) || id.startsWith('view.') || id.startsWith('help.')
 
   function keyDown(e: KeyInput): void {

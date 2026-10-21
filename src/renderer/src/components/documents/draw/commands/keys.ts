@@ -275,13 +275,15 @@ export function effectiveKeymap(
 export function commandKeys(id: string): string[] {
   const keys: string[] = []
   for (const [k, t] of effectiveKeymap()) if (t.kind === 'command' && t.id === id) keys.push(k)
-  // The simplest chord first (⌘N before ⌥⌘N for New).
+  // The simplest chord first (⌘N before ⌥⌘N for New), and a letter chord
+  // before a function key (⌘X, not F2, labels Cut, as in Illustrator's menus).
   const weight = (k: string): number => {
     const p = parseKeyString(k)
     return (
       Number(p.mod) +
       Number(p.alt) +
       Number(p.shift) +
+      (/^f\d+$/.test(p.key) ? 3.5 : 0) +
       (platform === 'win' && k === 'backspace' ? 0.5 : 0)
     )
   }

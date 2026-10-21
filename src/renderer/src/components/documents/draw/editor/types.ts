@@ -162,6 +162,8 @@ export interface ViewportService {
   setScroll(left: number, top: number): void
   /** Fit the artboard to the window. */
   fit(): void
+  /** The part of the document the window shows, in document units (where Paste centres art). Optional: absent in headless runs. */
+  visibleRect?(): import('@shared/drawGeometry').Box | null
 }
 
 /** Where edits go, and the co-editing undo stack when there is one. */
