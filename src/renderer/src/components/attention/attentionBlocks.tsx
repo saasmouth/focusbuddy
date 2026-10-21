@@ -466,7 +466,7 @@ export function AnalyticsBlock({
         {openBreakdown && (
           <div className="mt-3 pt-3 border-t border-[var(--edge-soft)] grid gap-x-6 gap-y-1.5 md:grid-cols-2">
             {rows.length === 0 ? (
-              <div className="text-[11.5px] text-[var(--ink-30)]">Numbers appear as items do.</div>
+              <div className="text-[11.5px] text-[var(--ink-30)]">Numbers appear as tasks do.</div>
             ) : (
               rows.map((r) => {
                 const activeN = r.notStarted + r.inProgress + r.waiting
@@ -503,7 +503,7 @@ export function AnalyticsBlock({
   return (
     <BlockShell title="Analytics" icon="insights" tone="#0ea5e9" variant={variant}>
       {shown.length === 0 ? (
-        <div className="text-[11.5px] text-[var(--ink-30)]">Numbers appear as items do.</div>
+        <div className="text-[11.5px] text-[var(--ink-30)]">Numbers appear as tasks do.</div>
       ) : (
         <div className="flex flex-col gap-1.5">
           {shown.map((r) => {
@@ -600,7 +600,7 @@ export function StartHereBlock({ variant }: { variant: BlockVariant }): JSX.Elem
     if (!q) return
     const top = recs.map((r, n) => `${n + 1}. ${r.item.title} — ${r.reason}`).join('\n')
     const prompt = top
-      ? `${q}\n\nMy attention queue right now, most pressing first:\n${top}`
+      ? `${q}\n\nMy Focus list right now, most pressing first:\n${top}`
       : q
     stagePrompt(prompt)
     setAsk('')
@@ -636,7 +636,7 @@ export function StartHereBlock({ variant }: { variant: BlockVariant }): JSX.Elem
           <button
             onClick={askPlexii}
             disabled={!ask.trim()}
-            title="Opens a chat prefilled with your question and your top items — nothing is sent until you press send"
+            title="Opens a chat prefilled with your question and your top tasks — nothing is sent until you press send"
             className="inline-flex items-center gap-1.5 h-9 px-3 fb-btn-surface fb-press fb-t-label text-[var(--ink-100)] disabled:opacity-40 shrink-0"
           >
             <Icon name="auto_awesome" size={14} />

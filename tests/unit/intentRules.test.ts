@@ -20,6 +20,7 @@ import {
 
 const NOW = new Date('2026-08-25T10:00:00') // a Tuesday
 
+// DEC-144: Attention was renamed Focus and its items are "tasks"; these pins follow the new words.
 describe('hard triggers — every class, deterministically', () => {
   const cases: Array<[string, string]> = [
     ['Remind me to call Bob about the lease', 'to_do'],
@@ -149,7 +150,7 @@ describe('title extraction', () => {
     // "remind me to" told the AI what you meant; the item keeps the verb.
     expect(titleFromCapture('Remind me to call Bob')).toBe('Call Bob')
     expect(titleFromCapture('x'.repeat(200)).length).toBeLessThanOrEqual(120)
-    expect(titleFromCapture('   ')).toBe('Untitled work item')
+    expect(titleFromCapture('   ')).toBe('Untitled task')
   })
 })
 

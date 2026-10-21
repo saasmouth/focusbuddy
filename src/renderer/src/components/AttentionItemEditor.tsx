@@ -143,7 +143,7 @@ export default function AttentionItemEditor({
     if (busy) return
     const trimmed = title.trim()
     if (!trimmed) {
-      setError('An item needs a title.')
+      setError('A task needs a title.')
       return
     }
     setBusy(true)
@@ -222,7 +222,7 @@ export default function AttentionItemEditor({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Edit attention item"
+        aria-label="Edit task"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === 'Escape') onClose(false)
@@ -231,7 +231,7 @@ export default function AttentionItemEditor({
         className="fb-card w-[min(620px,94vw)] p-4 max-h-full overflow-y-auto"
       >
         <div className="flex items-center justify-between">
-          <div className="text-[14px] font-semibold text-[var(--ink-100)]">Edit item</div>
+          <div className="text-[14px] font-semibold text-[var(--ink-100)]">Edit task</div>
           <button onClick={() => onClose(false)} title="Close" className="icon-btn !h-7 !w-7">
             <Icon name="close" size={14} />
           </button>

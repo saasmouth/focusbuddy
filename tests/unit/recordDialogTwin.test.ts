@@ -18,6 +18,7 @@ const composer = read('renderer/src/components/BookTimeDialog.tsx')
 const meet = read('renderer/src/components/views/PlexiMeetView.tsx')
 const store = read('renderer/src/stores/guestCapture.ts')
 
+// DEC-144: Attention was renamed Focus and its items are "tasks"; these pins follow the new words.
 describe('DEC-118 — twins: the record dialog wears the composer\'s own strings', () => {
   const SHARED = [
     'relative grid grid-cols-2 rounded-full bg-[var(--surface-sunken)] p-1 select-none',
@@ -29,7 +30,7 @@ describe('DEC-118 — twins: the record dialog wears the composer\'s own strings
     "? 'bg-[var(--surface-raised)] border border-[var(--edge-soft)] text-[rgb(var(--accent))] shadow-[0_1px_3px_rgba(0,0,0,0.06)]'",
     'w-full px-3 py-2 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] outline-none [&:focus-visible]:outline-none border border-transparent focus:border-[rgb(var(--accent))] text-[13px] text-[var(--ink-100)] placeholder:text-[var(--ink-50)] resize-none transition-colors',
     'h-10 px-3 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] border border-[var(--edge-strong)] inline-flex items-center gap-2 text-[13px] text-[var(--ink-70)] fb-press transition-colors hover:text-[var(--ink-90)]',
-    'Attach a desk or work item',
+    'Attach a desk or task',
     'inline-flex items-center gap-1 h-6 px-2 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold',
     'to discard',
     'className="btn-primary ml-auto"',

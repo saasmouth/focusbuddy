@@ -14,7 +14,7 @@ export interface HealthPresentation {
 export const HEALTH_PRESENTATION: Record<HealthState, HealthPresentation> = {
   current: { label: 'Current', icon: 'check_circle', tone: 'emerald' },
   changed: { label: 'Changed', icon: 'fiber_manual_record', tone: 'sky' },
-  'attention-required': { label: 'Attention', icon: 'priority_high', tone: 'amber' },
+  'attention-required': { label: 'Needs attention', icon: 'priority_high', tone: 'amber' },
   'decision-risk': { label: 'Decision risk', icon: 'gpp_maybe', tone: 'rose' }
 }
 

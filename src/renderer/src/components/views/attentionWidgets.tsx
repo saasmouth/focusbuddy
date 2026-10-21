@@ -45,7 +45,7 @@ function WidgetShell({
     <div className="w-full h-full text-left flex flex-col p-3">
       <button
         onClick={() => goAttention()}
-        title="Open Attention"
+        title="Open Focus"
         className="flex items-center gap-2 fb-press text-left"
       >
         <Icon name={icon} size={15} className="text-[var(--ink-40)]" />
@@ -388,8 +388,8 @@ export function AttentionWidget({
         {onCapture && (
           <button
             onClick={onCapture}
-            title="Capture a new attention item"
-            aria-label="Capture a new attention item"
+            title="Add a task to Focus"
+            aria-label="Add a task to Focus"
             data-testid="attention-widget-capture"
             className="ml-auto inline-flex items-center justify-center h-6 w-6 rounded-full bg-accent/10 text-[rgb(var(--accent))] hover:bg-accent/20 fb-press"
           >

@@ -1038,9 +1038,9 @@ async function applyCreateWorkItem(
       sourceType: ctx.workItemSource?.sourceType ?? 'chat',
       sourceRef: ctx.workItemSource?.sourceRef
     })
-    return { ok: true, message: `Filed "${item.title}" to Attention` }
+    return { ok: true, message: `Added "${item.title}" to Focus` }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Could not create the work item.'
+    const msg = err instanceof Error ? err.message : 'Could not create the task.'
     return { ok: false, message: msg }
   }
 }
@@ -1645,7 +1645,7 @@ export function describeProposal(
     case 'add-subtask':
       return { icon: 'task_alt', verb: 'New task', subject: p.title }
     case 'create-work-item':
-      return { icon: 'notifications', verb: 'To Attention', subject: p.title }
+      return { icon: 'notifications', verb: 'To Focus', subject: p.title }
     case 'start-focus-session':
       return {
         icon: 'timer',

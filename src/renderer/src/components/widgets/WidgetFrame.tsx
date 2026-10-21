@@ -1168,11 +1168,11 @@ export default function WidgetFrame({
                       // stone bar, invisible on the dark one. Quiet, not gone.
                       'text-[var(--ink-50)] opacity-80 hover:opacity-100 hover:bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] hover:text-accent'
                 }`}
-                aria-label={attentionItem ? 'In Attention — open the queue' : 'Add to Attention'}
+                aria-label={attentionItem ? 'In Focus — open it' : 'Add to Focus'}
                 title={
                   attentionItem
-                    ? `In Attention: “${attentionItem.title || 'this widget'}” — click to open the queue`
-                    : 'Add to Attention'
+                    ? `In Focus: “${attentionItem.title || 'this widget'}” — click to open it`
+                    : 'Add to Focus'
                 }
                 data-testid={`widget-bell-${widget.id}`}
               >
@@ -1717,7 +1717,7 @@ function ExpandControl({
           >
             <Icon name="open_in_full" size={14} className="text-[var(--ink-50)] mt-[1px] shrink-0" />
             <div className="flex-1 min-w-0">
-              <div className="text-[12px] text-[var(--ink-90)]">Focus mode</div>
+              <div className="text-[12px] text-[var(--ink-90)]">Full view</div>
               <div className="text-[10px] text-[var(--ink-50)] leading-tight">
                 Full pane — hide everything else
               </div>

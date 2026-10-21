@@ -20,6 +20,7 @@ const meet = read('renderer/src/components/NewMeetingDialog.tsx')
 const composer = read('renderer/src/components/BookTimeDialog.tsx')
 const invite = read('renderer/src/lib/meetingInvite.ts')
 
+// DEC-144: Attention was renamed Focus and its items are "tasks"; these pins follow the new words.
 describe('DEC-117 — twins: every recipe the dialog wears is the composer\'s own string', () => {
   // If the composer's material ever changes, this list breaks in BOTH files
   // at once — the twin cannot drift quietly.
@@ -51,7 +52,7 @@ describe('DEC-117 — twins: every recipe the dialog wears is the composer\'s ow
     'placeholder="An address, a room, or where to meet"',
     // AGENDA and Attach
     'placeholder="What this meeting needs to settle"',
-    'Attach a desk or work item',
+    'Attach a desk or task',
     'inline-flex items-center gap-1 h-6 px-2 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold',
     // the footer
     'to discard',

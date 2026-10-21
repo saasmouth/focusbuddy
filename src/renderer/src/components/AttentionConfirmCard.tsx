@@ -823,7 +823,7 @@ export default function AttentionConfirmCard({
           >
             <div className="mt-2.5 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] px-3.5 py-3">
               <div className="text-[12.5px] text-[var(--ink-50)] mb-2">
-                {openDrawer === 'category' && 'What is this item asking you to do?'}
+                {openDrawer === 'category' && 'What is this task asking you to do?'}
                 {openDrawer === 'urgency' && 'How hard is it pushing?'}
                 {openDrawer === 'when' &&
                   (confirm.phrase
@@ -1019,7 +1019,7 @@ export default function AttentionConfirmCard({
                               key={s}
                               onClick={() => setCapTags([...capTags, s])}
                               className="h-6 px-2 rounded-full text-[11px] fb-press border border-[rgb(var(--accent)/0.35)] text-[rgb(var(--accent))] bg-[rgb(var(--accent)/0.08)] hover:bg-[rgb(var(--accent)/0.15)]"
-                              title={`Used on your items before — click to tag this one “${s}”`}
+                              title={`Used on your tasks before — click to tag this one “${s}”`}
                               data-testid={`tag-suggestion-${s}`}
                             >
                               #{s}

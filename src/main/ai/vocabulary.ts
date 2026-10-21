@@ -118,7 +118,7 @@ export const MEETING_WORK_ITEM_DELIVERABLE =
 export function meetingCaptureRule(): string {
   return (
     '- Use create-work-item for an action item someone needs to do (a single tracked to-do in their ' +
-    'Attention queues). Use create-task ONLY when a work stream deserves its own DESK — a whole ' +
+    'Focus list). Use create-task ONLY when a work stream deserves its own DESK — a whole ' +
     'workspace, not a line item.'
   )
 }

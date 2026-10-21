@@ -127,11 +127,11 @@ function MessageBell({
       <button
         onClick={marked ? () => goAttention() : onCapture}
         aria-pressed={!!marked}
-        aria-label={marked ? 'In Attention — open the queue' : 'Add to Attention'}
+        aria-label={marked ? 'In Focus — open it' : 'Add to Focus'}
         title={
           marked
-            ? `In Attention: “${marked.title || 'this message'}” — click to open the queue`
-            : "Add to Attention — you choose how it's filed (Respond by default)"
+            ? `In Focus: “${marked.title || 'this message'}” — click to open it`
+            : "Add to Focus — you choose how it's filed (Respond by default)"
         }
         data-testid={`msg-attention-${m.id}`}
         className={`h-6 w-6 inline-flex items-center justify-center rounded-full hover:bg-[var(--surface-sunken)] transition-colors ${

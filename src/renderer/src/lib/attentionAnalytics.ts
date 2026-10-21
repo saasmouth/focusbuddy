@@ -307,7 +307,7 @@ export function trendLines(items: FbNode[], nowMs: number): string[] {
   if (lastWk.length >= 3 && thisWk.length >= 1) {
     const delta = Math.round(((thisWk.length - lastWk.length) / lastWk.length) * 100)
     if (Math.abs(delta) >= 25)
-      lines.push(`New items are ${delta > 0 ? 'up' : 'down'} ${Math.abs(delta)}% this week.`)
+      lines.push(`New tasks are ${delta > 0 ? 'up' : 'down'} ${Math.abs(delta)}% this week.`)
     let best: { label: string; delta: number } | null = null
     for (const q of QUEUE_ORDER) {
       const a = thisWk.filter((i) => queueOf(i) === q).length
@@ -320,7 +320,7 @@ export function trendLines(items: FbNode[], nowMs: number): string[] {
     }
     if (best)
       lines.push(
-        `${best.label} items are ${best.delta > 0 ? 'up' : 'down'} ${Math.abs(best.delta)}% this week.`
+        `${best.label} tasks are ${best.delta > 0 ? 'up' : 'down'} ${Math.abs(best.delta)}% this week.`
       )
   }
 

@@ -150,7 +150,7 @@ export default function CaptureConsole(): JSX.Element | null {
               close()
             }}
             className="text-[13px] text-[var(--ink-40)] hover:text-[var(--ink-100)] fb-press"
-            title="Open the Attention page"
+            title="Open Focus"
           >
             Open Attention →
           </button>

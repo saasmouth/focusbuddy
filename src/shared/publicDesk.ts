@@ -356,7 +356,7 @@ export const PUBLIC_PLACEHOLDER_REASON: Readonly<Record<string, string>> = Objec
   'meeting-record': 'Meeting record — not available publicly',
   minimap: 'Minimap — not available publicly',
   design: 'Design — not available publicly',
-  attention: 'Attention — not available publicly'
+  attention: 'Focus — not available publicly'
 })
 
 /**

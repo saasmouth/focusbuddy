@@ -12,6 +12,7 @@ import { join } from 'node:path'
 const SRC = join(__dirname, '../..', 'src')
 const grid = readFileSync(join(SRC, 'renderer/src/components/views/WeekTimeGrid.tsx'), 'utf-8')
 
+// DEC-144: Attention was renamed Focus and its items are "tasks"; these pins follow the new words.
 describe('DEC-093 — a deadline chip drags like a queue row', () => {
   it('the chip is a drag source carrying the SAME payload the grid already accepts', () => {
     expect(grid).toContain("e.dataTransfer.setData('text/fb-workitem', i.id)")
@@ -27,7 +28,7 @@ describe('DEC-093 — a deadline chip drags like a queue row', () => {
   })
 
   it('the title teaches all three gestures', () => {
-    expect(grid).toContain('drag onto the grid to book time · click to open Attention')
+    expect(grid).toContain('drag onto the grid to book time · click to open Focus')
   })
 
   it('dragging a chip does NOT ring the queue rail as an unschedule target', () => {

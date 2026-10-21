@@ -2484,7 +2484,7 @@ function labelForProposal(p: ActionProposal): string {
     case 'create-task':
       return `New desk — ${p.title}`
     case 'create-work-item':
-      return `To Attention — ${p.title}`
+      return `To Focus — ${p.title}`
     case 'create-todo-list':
       return `Todo list — ${p.title} (${p.items.length} items)`
     case 'create-widget':

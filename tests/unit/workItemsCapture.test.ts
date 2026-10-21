@@ -48,6 +48,7 @@ function freshDb(): { raw: DatabaseSync; db: Db } {
 
 const DAY = 24 * 60 * 60 * 1000
 
+// DEC-144: Attention was renamed Focus and its items are "tasks"; these pins follow the new words.
 describe('Δ3 — the loose-thought decay tier', () => {
   it('dismisses untouched loose thoughts after the window, reason "decayed", quietly', () => {
     const { raw, db } = freshDb()
@@ -161,7 +162,7 @@ describe('S5 wiring locks (file-level)', () => {
     // operator ruling 2026-08-30: selecting Attention in ⌘K OPENS the Capture
     // window, typing happens there. The home bar keeps its pill.
     expect(read('src/renderer/src/components/CommandCenter.tsx')).not.toContain('attnArmed')
-    expect(read('src/renderer/src/components/CommandCenter.tsx')).toContain('Attention — open Capture')
+    expect(read('src/renderer/src/components/CommandCenter.tsx')).toContain('Focus — add a task')
     const home = read('src/renderer/src/components/views/StartOrAskPlexi.tsx')
     expect(home).toContain("'capture:attention'")
     expect(home).toContain('armAttention')

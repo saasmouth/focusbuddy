@@ -16,12 +16,13 @@ const tab = read('src/renderer/src/components/assistant/tabs/AssistantAttentionT
 // the page's quick summary and actions IN PLACE, a double-click opens the full
 // item over the page you are on. No click is a trip to the Attention page.
 
+// DEC-144: Attention was renamed Focus and its items are "tasks"; these pins follow the new words.
 describe('dec_128 — three depths in place', () => {
   it('at rest: the title and the due date; the title click toggles the summary, never navigates', () => {
     expect(row).toContain('onClick={() => setOpen((o) => !o)}')
     expect(row).toContain('aria-expanded={open}')
     expect(row).toContain('data-testid={`widget-item-toggle-${i.id}`}')
-    expect(row).toContain("title={open ? 'Hide details · double-click to open the item' : 'Click for details · double-click to open the item'}")
+    expect(row).toContain("title={open ? 'Hide details · double-click to open the task' : 'Click for details · double-click to open the task'}")
     expect(row).not.toContain('onClick={goAttention}\n          title={i.title}')
     // the rest row keeps DEC-050's anatomy: the date beside the title
     expect(row).toContain("new Date(i.dueAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })")
@@ -54,7 +55,7 @@ describe('dec_128 — three depths in place', () => {
     expect(row).toContain('onClick={() => startWithPlexii([i], nodes)}')
     expect(row).toContain('title="Snooze until tomorrow morning"')
     expect(row).toContain("onClick={() => void setState(i.id, 'archived')}")
-    expect(row).toContain('title="Open the item — the full view, right here"')
+    expect(row).toContain('title="Open the task — the full view, right here"')
     expect(row).toContain('data-testid={`widget-item-page-${i.id}`}')
     expect(row).toContain('onClick={() => goAttention()}')
     // snooze is the page's rule: tomorrow, 9am

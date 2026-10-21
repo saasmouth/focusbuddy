@@ -11,6 +11,7 @@ import { join } from 'node:path'
 const ROOT = join(__dirname, '..', '..')
 const view = readFileSync(join(ROOT, 'src/renderer/src/components/views/PlexiMeetView.tsx'), 'utf-8')
 
+// DEC-144: Attention was renamed Focus and its items are "tasks"; these pins follow the new words.
 describe('PlexiMeet wears the house material — and reads like Home', () => {
   // History: DEC-112 put the view on desk-paper (no-tod) with a raised,
   // bordered rail, a 15px display rail header and a glossy ROSE primary,
@@ -133,7 +134,7 @@ describe('PlexiMeet wears the house material — and reads like Home', () => {
   it("the Action items tab's section titles wear the same band — In Attention, From the summary, Carried from last time", () => {
     // History: DEC-136 left this tab's eyebrows as they were (not asked
     // for). DEC-137 — operator: "Now do the same for the Action items tab."
-    for (const t of ['<RecordSectionTitle>In Attention</RecordSectionTitle>', '<RecordSectionTitle>From the summary</RecordSectionTitle>'])
+    for (const t of ['<RecordSectionTitle>In Focus</RecordSectionTitle>', '<RecordSectionTitle>From the summary</RecordSectionTitle>'])
       expect(view).toContain(t)
     expect(view).not.toContain('tracking-wider text-[var(--ink-40)] mb-1.5">In Attention</div>')
     expect(view).not.toContain('tracking-wider text-[var(--ink-40)] mb-1.5">From the summary</div>')

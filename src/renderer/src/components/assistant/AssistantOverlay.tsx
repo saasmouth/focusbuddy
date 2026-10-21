@@ -84,7 +84,7 @@ const FULLSCREEN_PAGE =
 // with desk agents as its sub-view). Order matches the store's ASSISTANT_TABS.
 const TAB_META: { id: AssistantTab; label: string; icon?: string; mark?: boolean }[] = [
   { id: 'chat', label: 'Plexii AI', mark: true },
-  { id: 'attention', label: 'Attention', icon: 'notifications' },
+  { id: 'attention', label: 'Focus', icon: 'notifications' },
   { id: 'calendar', label: 'Calendar', icon: 'calendar_month' },
   { id: 'messages', label: 'Message', icon: 'chat' },
   { id: 'agent', label: 'Agents', icon: 'rocket_launch' }

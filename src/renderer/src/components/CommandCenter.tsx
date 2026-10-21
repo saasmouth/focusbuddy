@@ -502,9 +502,9 @@ export default function CommandCenter({
         // directly (DEC-031's grammar, unchanged), and chat + the home bar
         // keep their own flows.
         label: prefill
-          ? `Attention — capture “${prefill.slice(0, 40)}${prefill.length > 40 ? '…' : ''}”`
-          : 'Attention — open Capture',
-        hint: 'Opens the Capture window · @attention <text> files directly',
+          ? `Focus — add “${prefill.slice(0, 40)}${prefill.length > 40 ? '…' : ''}”`
+          : 'Focus — add a task',
+        hint: 'Opens the Capture window · @focus <text> adds it directly',
         icon: 'notifications',
         kind: 'action',
         // An explicit @-address (armed pill, full prefix, or @-partial)
@@ -517,7 +517,7 @@ export default function CommandCenter({
               ? 490
               : q === ''
                 ? 57
-                : matchScore('attention capture work item remind todo queue', q),
+                : matchScore('focus attention capture task remind todo queue', q),
         run: () => {
           window.dispatchEvent(
             new CustomEvent('fb:command-new-work-item', {

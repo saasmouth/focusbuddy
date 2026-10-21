@@ -187,7 +187,7 @@ function assertWritable(d: LifecycleDb): void {
   if (!nodesTableAcceptsWorkItems(d as never))
     throw new WorkItemWriteRefusedError(
       'WORK_ITEMS_NOT_MIGRATED',
-      'This device has not migrated for work items yet.'
+      'This device has not finished updating for Focus yet. Restart Plexii and try again.'
     )
 }
 
@@ -201,7 +201,7 @@ export function createWorkItemCore(
   if (orgId !== PERSONAL_ORG_ID)
     throw new WorkItemWriteRefusedError(
       'WORK_ITEMS_PERSONAL_ONLY',
-      'Work items are personal-scope only while the sharing switch is off.'
+      'Focus tasks are personal for now. Switch to your personal workspace to add one.'
     )
   // Leaf invariant: a work_item parent must be a desk/room, never a work_item.
   if (draft.parentId) {
@@ -209,7 +209,7 @@ export function createWorkItemCore(
       | { kind: string }
       | undefined
     if (parent?.kind === 'work_item')
-      throw new WorkItemWriteRefusedError('WORK_ITEM_PARENT_REFUSED', 'Nothing nests under a work item.')
+      throw new WorkItemWriteRefusedError('WORK_ITEM_PARENT_REFUSED', 'Nothing nests under a task in Focus.')
   }
   const id = draft.id ?? randomUUID()
   const state: WorkItemState = initialWorkItemState(draft.approvalState, draft.state)
@@ -395,7 +395,7 @@ export function setWorkItemState(id: string, state: WorkItemState, actor?: WorkI
         postNotification(db, {
           ref: id,
           queue: canonicalIntentClass(row.intent_class) ?? DEFAULT_INTENT_CLASS,
-          title: `${row.title || 'Work item'} — ${CLOSURE_VERB[state] ?? state}`,
+          title: `${row.title || 'Task'} — ${CLOSURE_VERB[state] ?? state}`,
           body: 'Loop closed.',
           dedupeKey: `wi-close:${id}:${state}`,
           category: 'attention',

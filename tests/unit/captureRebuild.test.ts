@@ -10,6 +10,7 @@ const read = (p: string): string => readFileSync(p, 'utf8')
 const console_ = read('src/renderer/src/components/CaptureConsole.tsx')
 const card = read('src/renderer/src/components/AttentionConfirmCard.tsx')
 
+// DEC-144: Attention was renamed Focus and its items are "tasks"; these pins follow the new words.
 describe('step 1 — two fields, two Enters, no tab bar', () => {
   it('the tab bar is gone: destination lives on the commit, not a mode', () => {
     expect(console_).not.toContain("'routed'")
@@ -53,7 +54,7 @@ describe('step 2 — five labelled pills, one drawer, a stated default', () => {
 
   it('one drawer at a time, each led by its question', () => {
     expect(card).toContain("'category' | 'urgency' | 'when' | 'people' | 'desk' | null")
-    expect(card).toContain('What is this item asking you to do?')
+    expect(card).toContain('What is this task asking you to do?')
     expect(card).toContain('How hard is it pushing?')
     expect(card).toContain('When should this come back to you?')
     expect(card).toContain('Where does this work already live?')

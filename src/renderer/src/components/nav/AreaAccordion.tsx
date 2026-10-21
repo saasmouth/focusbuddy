@@ -104,7 +104,7 @@ const DESK_VIEWS: {
   // `deskSlot`, the Sidebar's when there is — so a literal in either place
   // means one concept in two colours depending on which half drew it. That is
   // exactly how Rooms ended up sky in one and teal in the other.
-  { kind: 'attention', label: 'Attention', icon: 'notifications', tone: AREA_TONES.attention, go: (v) => v.goAttention() },
+  { kind: 'attention', label: 'Focus', icon: 'notifications', tone: AREA_TONES.attention, go: (v) => v.goAttention() },
   { kind: 'rooms', label: 'Rooms', icon: 'meeting_room', tone: AREA_TONES.rooms, go: (v) => v.goRooms() },
   { kind: 'desks', label: 'Desks', icon: 'desk', tone: AREA_TONES.desks, go: (v) => v.goDesks() },
   { kind: 'shared', label: 'Shared Desks', icon: 'folder_shared', tone: AREA_TONES.shared, go: (v) => v.goShared() },

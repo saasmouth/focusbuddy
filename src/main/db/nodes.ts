@@ -190,12 +190,12 @@ export function createNode(draft: NodeDraft): FbNode {
     if (!nodesTableAcceptsWorkItems(db))
       throw new WorkItemCreationRefusedError(
         'WORK_ITEMS_NOT_MIGRATED',
-        'This device has not migrated for work items yet.'
+        'This device has not finished updating for Focus yet. Restart Plexii and try again.'
       )
     if (getActiveOrgId() !== PERSONAL_ORG_ID)
       throw new WorkItemCreationRefusedError(
         'WORK_ITEMS_PERSONAL_ONLY',
-        'Work items are personal-scope only while the sharing switch is off.'
+        'Focus tasks are personal for now. Switch to your personal workspace to add one.'
       )
   }
   // Leaf invariant (§2.5.5): nothing is ever parented under a work_item.

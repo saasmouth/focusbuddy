@@ -241,7 +241,7 @@ function labelForKind(kind: WidgetKind): string {
     case 'contacts':
       return 'contacts'
     case 'attention':
-      return 'attention view'
+      return 'focus view'
     case 'meeting-record':
       return 'meeting record'
     default:

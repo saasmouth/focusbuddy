@@ -90,7 +90,7 @@ export function buildAttention(ctx: MenuContext): MenuContribution | null {
       id: 'core/attention',
       section: MenuSection.Context,
       priority: -1000, // above every other Context row
-      label: `Add ${n} to Attention…`,
+      label: `Add ${n} to Focus…`,
       icon: 'notifications',
       onSelect: () => {
         const p = presetForMulti(n)
@@ -104,7 +104,7 @@ export function buildAttention(ctx: MenuContext): MenuContribution | null {
     id: 'core/attention',
     section: MenuSection.Context,
     priority: -1000,
-    label: 'Add to Attention…',
+    label: 'Add to Focus…',
     icon: 'notifications',
     shortcut: undefined,
     onSelect: () => {

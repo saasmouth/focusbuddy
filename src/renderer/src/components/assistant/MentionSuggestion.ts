@@ -57,7 +57,7 @@ function attentionCommandRow(query: string, conversationKey: string): AttentionC
   return {
     kind: 'capture',
     id: 'attention-command',
-    title: 'Attention — capture what follows',
+    title: 'Focus — add what follows as a task',
     icon: 'notifications',
     taskId: null,
     conversationKey

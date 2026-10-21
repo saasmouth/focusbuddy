@@ -256,7 +256,7 @@ export function CalendarBlockRow({ block, nowMs }: { block: TimeBlock; nowMs: nu
               <button
                 data-row-action
                 onClick={openLinked}
-                title={linked ? (linked.kind === 'folder' ? 'Open the room' : 'Open the desk') : 'Open it in Attention'}
+                title={linked ? (linked.kind === 'folder' ? 'Open the room' : 'Open the desk') : 'Open it in Focus'}
                 className={chipDoorClass}
                 data-testid="block-row-linked"
               >

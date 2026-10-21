@@ -399,7 +399,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
             <div className="flex-1 min-w-0">
               <NavRow
                 icon="notifications"
-                label="Attention"
+                label="Focus"
                 tone={AREA_TONES.attention}
                 active={viewIsActive({ kind: 'attention' })}
                 onClick={() => {
@@ -411,7 +411,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
             <button
               onClick={() => setAttentionOpen((v) => !v)}
               className="icon-btn !h-6 !w-6 mr-1"
-              title={attentionOpen ? 'Hide the Attention filters' : 'Show the Attention filters'}
+              title={attentionOpen ? 'Hide the Focus filters' : 'Show the Focus filters'}
               aria-expanded={attentionOpen}
               data-testid="sidebar-attention-toggle"
             >

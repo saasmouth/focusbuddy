@@ -194,3 +194,32 @@ describe('the AI has one routing rule and the new words (DEC-144)', () => {
     expect(rules).not.toContain('Attention queues')
   })
 })
+
+describe('one concept, one set of words (DEC-144)', () => {
+  const r = (p: string): string => readFileSync(join(__dirname, '../../src', p), 'utf-8')
+  it('the page and every door to it say Focus', () => {
+    expect(r('renderer/src/components/views/AttentionView.tsx')).toContain('>Focus</h1>')
+    expect(r('renderer/src/components/Sidebar.tsx')).toContain('label="Focus"')
+    expect(r('renderer/src/components/nav/AreaAccordion.tsx')).toContain("{ kind: 'attention', label: 'Focus',")
+    expect(r('renderer/src/lib/contextMenu/universal.ts')).toContain("label: 'Add to Focus…',")
+    expect(r('renderer/src/components/widgets/WidgetFrame.tsx')).toContain(": 'Add to Focus'")
+  })
+  it('the full-pane widget view is "Full view", so "Focus" means one thing', () => {
+    const frame = r('renderer/src/components/widgets/WidgetFrame.tsx')
+    expect(frame).toContain('>Full view</div>')
+    expect(frame).not.toContain('>Focus mode</div>')
+  })
+  it('the Desks app lists desks; the home tiles read Focus', () => {
+    const desks = r('renderer/src/components/views/AllTasksView.tsx')
+    expect(desks).toContain('title="All desks"')
+    expect(desks).toContain('!isDeskTask(n,')
+    const home = r('renderer/src/components/views/homeWidgets.tsx')
+    expect(home).toContain('function useOpenFocusTasks()')
+    expect(home).toContain('rankScore(b, now) - rankScore(a, now)')
+  })
+  it('an email becomes a task in Focus, not a desk', () => {
+    const dlg = r('renderer/src/components/mail/EmailTaskDialog.tsx')
+    expect(dlg).toContain("sourceType: 'mail'")
+    expect(dlg).not.toContain("kind: 'task'")
+  })
+})

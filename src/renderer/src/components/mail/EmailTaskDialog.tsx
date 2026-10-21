@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { AxisValue, FbNode } from '@shared/types'
 import { useNodeStore } from '../../stores/nodes'
+import { useWorkItemStore } from '../../stores/workItems'
+import { isDeskTask } from '@shared/attentionProjection'
+import { URGENCY_LEVELS, type Urgency } from '../../lib/itemTags'
 import Icon from '../Icon'
 
-// Turn an email into a task. The user picks where it lands (All Tasks at the top
-// level, an existing folder/desk, or nested under an existing task), or creates a
-// new folder on the spot, then sets a due date and an urgency. The task is
-// created as a real node, so it shows in All Tasks and inside its folder.
+// Turn an email into a task (DEC-144). The task lands in Focus, the one list
+// of tasks, optionally filed on one of your desks, with a due date and an
+// urgency, and it points back at the email. It used to create a whole DESK
+// (or a folder and a desk) — the opposite of what "make a task" means, and a
+// second way to make the same thing the Add to Focus button already makes.
 
 interface EmailLike {
   subject: string
@@ -21,46 +24,15 @@ interface Props {
   onCreated: (title: string) => void
 }
 
-const URGENCY: Array<{ value: AxisValue; label: string }> = [
-  { value: 1, label: 'Low' },
-  { value: 2, label: 'Minor' },
-  { value: 3, label: 'Normal' },
-  { value: 4, label: 'High' },
-  { value: 5, label: 'Urgent' }
-]
-
-// Order nodes as a depth-indented tree so the destination list reads naturally.
-function orderTree(nodes: FbNode[]): Array<{ node: FbNode; depth: number }> {
-  const byParent = new Map<string | null, FbNode[]>()
-  for (const n of nodes) {
-    if (n.archived) continue
-    if (n.kind === 'work_item') continue // a work_item can never be a destination parent (S1)
-    const list = byParent.get(n.parentId) ?? []
-    list.push(n)
-    byParent.set(n.parentId, list)
-  }
-  for (const list of byParent.values()) list.sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title))
-  const out: Array<{ node: FbNode; depth: number }> = []
-  const walk = (parentId: string | null, depth: number): void => {
-    for (const n of byParent.get(parentId) ?? []) {
-      out.push({ node: n, depth })
-      walk(n.id, depth + 1)
-    }
-  }
-  walk(null, 0)
-  return out
-}
-
 export default function EmailTaskDialog({ email, onClose, onCreated }: Props): JSX.Element {
   const nodes = useNodeStore((s) => s.nodes)
   const refresh = useNodeStore((s) => s.refresh)
-  const createNode = useNodeStore((s) => s.create)
+  const createTask = useWorkItemStore((s) => s.create)
 
   const [title, setTitle] = useState(email.subject || '(no subject)')
-  const [parentId, setParentId] = useState<string | null>(null) // null = All Tasks (top level)
+  const [deskId, setDeskId] = useState<string>('') // '' = Focus only, no desk
   const [due, setDue] = useState('') // yyyy-mm-dd
-  const [urgency, setUrgency] = useState<AxisValue>(3)
-  const [newFolder, setNewFolder] = useState('')
+  const [urgency, setUrgency] = useState<Urgency>('normal')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -68,29 +40,32 @@ export default function EmailTaskDialog({ email, onClose, onCreated }: Props): J
     if (nodes.length === 0) void refresh()
   }, [nodes.length, refresh])
 
-  const tree = useMemo(() => orderTree(nodes), [nodes])
+  // Your own live desks — the same rule the Focus editor uses (shared and
+  // archived desks refuse a captured task), minus the tasks filed on them.
+  const desks = useMemo(() => {
+    const byId = new Map(nodes.map((n) => [n.id, n]))
+    return nodes
+      .filter((n) => n.kind === 'task' && !n.archived && !n.sharedRootId && !isDeskTask(n, (id) => byId.get(id)))
+      .sort((a, b) => a.title.localeCompare(b.title))
+  }, [nodes])
 
   async function submit(): Promise<void> {
     setBusy(true)
     setError(null)
     try {
-      let destination = parentId
-      // Create a new folder first if one was named.
-      if (newFolder.trim()) {
-        const folder = await createNode({ parentId: null, kind: 'folder', title: newFolder.trim() })
-        destination = folder.id
-      }
       const snippet = email.text.trim().slice(0, 400)
-      const dueMs = due ? new Date(`${due}T00:00:00`).getTime() : null
-      await createNode({
-        parentId: destination,
-        kind: 'task',
-        title: title.trim() || '(no subject)',
-        description: `From ${email.fromName} <${email.fromAddress}>\n\n${snippet}`,
-        priority: urgency,
-        dueDate: Number.isFinite(dueMs as number) ? dueMs : null
+      const finalTitle = title.trim() || '(no subject)'
+      await createTask({
+        title: finalTitle,
+        notes: `From ${email.fromName} <${email.fromAddress}>\n\n${snippet}`,
+        parentId: deskId || null,
+        intentClass: 'to_do',
+        dueAt: due ? new Date(`${due}T17:00:00`).toISOString() : null,
+        wiUrgency: urgency === 'normal' ? null : urgency,
+        sourceType: 'mail',
+        wiOrigin: 'human'
       })
-      onCreated(title.trim() || '(no subject)')
+      onCreated(finalTitle)
     } catch (e) {
       setBusy(false)
       setError((e as Error)?.message ?? 'Could not create the task.')
@@ -121,32 +96,20 @@ export default function EmailTaskDialog({ email, onClose, onCreated }: Props): J
         </label>
 
         <label className="block">
-          <span className="text-[11px] uppercase tracking-wide text-[var(--ink-40)]">Place it in</span>
+          <span className="text-[11px] uppercase tracking-wide text-[var(--ink-40)]">Desk (optional)</span>
           <select
-            value={parentId ?? ''}
-            onChange={(e) => setParentId(e.target.value || null)}
-            disabled={!!newFolder.trim()}
+            value={deskId}
+            onChange={(e) => setDeskId(e.target.value)}
             data-testid="email-task-destination"
-            className={inputCls + ' mt-1 disabled:opacity-50'}
+            className={inputCls + ' mt-1'}
           >
-            <option value="">All Tasks (top level)</option>
-            {tree.map(({ node, depth }) => (
-              <option key={node.id} value={node.id}>
-                {`${'  '.repeat(depth)}${node.kind === 'folder' ? '📁 ' : '• '}${node.title || 'Untitled'}`}
+            <option value="">No desk — just Focus</option>
+            {desks.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.title || 'Untitled desk'}
               </option>
             ))}
           </select>
-        </label>
-
-        <label className="block">
-          <span className="text-[11px] uppercase tracking-wide text-[var(--ink-40)]">…or new folder</span>
-          <input
-            value={newFolder}
-            onChange={(e) => setNewFolder(e.target.value)}
-            placeholder="Name a new folder to create and file it under"
-            data-testid="email-task-newfolder"
-            className={inputCls + ' mt-1'}
-          />
         </label>
 
         <div className="flex gap-3">
@@ -157,17 +120,17 @@ export default function EmailTaskDialog({ email, onClose, onCreated }: Props): J
           <div className="flex-1">
             <span className="text-[11px] uppercase tracking-wide text-[var(--ink-40)]">Urgency</span>
             <div className="mt-1 flex gap-1" data-testid="email-task-urgency">
-              {URGENCY.map((u) => (
+              {URGENCY_LEVELS.map((u) => (
                 <button
-                  key={u.value}
-                  onClick={() => setUrgency(u.value)}
-                  className={`flex-1 py-1.5 rounded text-[11px] border ${
-                    urgency === u.value
+                  key={u}
+                  onClick={() => setUrgency(u)}
+                  className={`flex-1 py-1.5 rounded text-[11px] border capitalize ${
+                    urgency === u
                       ? 'border-accent bg-accent/15 text-accent font-medium'
                       : 'border-[var(--edge-soft)] text-[var(--ink-50)]'
                   }`}
                 >
-                  {u.label}
+                  {u}
                 </button>
               ))}
             </div>

@@ -308,7 +308,7 @@ export default function StartOrAskPlexi(): JSX.Element {
           {attnArmed && (
             <span
               className="shrink-0 inline-flex items-center gap-1 text-[11px] font-medium text-accent bg-accent/10 border border-accent/20 rounded-md px-1.5 py-0.5"
-              title="Armed — Enter files what you type to Attention. Backspace on empty removes it."
+              title="Armed — Enter adds what you type to Focus. Backspace on empty removes it."
             >
               <Icon name="notifications" size={11} />
               @attention
@@ -396,7 +396,7 @@ export default function StartOrAskPlexi(): JSX.Element {
             data-testid="start-or-ask-input"
             placeholder={
               attnArmed
-                ? 'What needs attention? Enter files it…'
+                ? 'What do you need to do? Enter adds it to Focus…'
                 : searching
                   ? 'Search the web — results open right here in Plexii'
                   : 'Ask Plexii, search the web, or open anything — @ jumps to a desk, room or widget'

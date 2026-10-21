@@ -643,7 +643,7 @@ const readTools: McpToolDef<WorkspaceDeps>[] = [
   {
     name: 'plexii_list_work_items',
     description:
-      'List work items (the to-dos, reviews, decisions, replies, meetings-to-book…) from the Attention layer. ' +
+      'List tasks in Focus (to-dos, reviews, decisions, replies, meetings-to-book…), including tasks filed on desks. ' +
       `Filter by state (${WORK_ITEM_STATES.join(', ')}) or intent (${INTENT_CLASSES.join(', ')}). ` +
       'Default: active items only. Read-only.',
     inputSchema: {
@@ -1154,7 +1154,7 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
   {
     name: 'plexii_create_work_item',
     description:
-      'Create a work item in the Attention layer. It is born as AI-suggested (origin "ai") so the person can see where it came from. ' +
+      'Create a task in Focus (a work item). It is born as AI-suggested (origin "ai") so the person can see where it came from. ' +
       `intent is one of ${INTENT_CLASSES.join(', ')} (default to_do). Requires a write token.`,
     inputSchema: {
       type: 'object',
@@ -2394,7 +2394,7 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
     name: 'plexii_draft_email',
     description:
       'DRAFT an email for the person to review and send themselves. This does NOT send anything — nothing on this ' +
-      'surface can. The draft lands in the Attention layer as a "to_respond" item holding the recipient, subject ' +
+      'surface can. The draft lands in Focus as a "to_respond" task holding the recipient, subject ' +
       'and body, so it shows up in their queue ready to copy out. Requires a write token.',
     inputSchema: {
       type: 'object',
@@ -2429,7 +2429,7 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
           wiOrigin: 'ai'
         })
         return {
-          ...text(`Drafted (not sent) as work item ${n.id}. It is in the Attention queue for you to review and send.`),
+          ...text(`Drafted (not sent) as work item ${n.id}. It is in Focus for you to review and send.`),
           structuredContent: { id: n.id }
         }
       } catch (err) {
@@ -2440,7 +2440,7 @@ const writeTools: McpToolDef<WorkspaceDeps>[] = [
         const why = err instanceof Error ? err.message : 'work items are unavailable'
         if (!desk.id) {
           return toolError(
-            `${why} Pass a deskId and the draft will be left as a note on that desk instead, or turn work items on in Plexii.`
+            `${why} Pass a deskId and the draft will be left as a note on that desk instead, or switch Plexii to your personal workspace.`
           )
         }
         const w = deps.createWidget({

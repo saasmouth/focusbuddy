@@ -496,7 +496,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
         // DEC-044: a highlight in the CHAT marks the same way one in a doc
         // does — first row, first line titles it, the full selection rides
         // the notes. Works with no desk open (the item files standalone).
-        label: 'Add to Attention…',
+        label: 'Add to Focus…',
         icon: 'notifications',
         onClick: () => {
           // 'ai-chat' lands the preset's DEFAULT class (to_do): a highlighted
@@ -1413,7 +1413,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
                 <button
                   onClick={() => {
                     // Back to the composer, text restored where it was.
-                    const restore = `@attention ${inlineCapture.text}`
+                    const restore = `@focus ${inlineCapture.text}`
                     setInlineCapture(null)
                     window.dispatchEvent(new CustomEvent('fb:composer-stage', { detail: restore }))
                   }}
@@ -1433,7 +1433,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
                   setTimeout(() => setInlineFiled(null), 4000)
                 }}
                 onCancel={() => {
-                  const restore = `@attention ${inlineCapture.text}`
+                  const restore = `@focus ${inlineCapture.text}`
                   setInlineCapture(null)
                   window.dispatchEvent(new CustomEvent('fb:composer-stage', { detail: restore }))
                 }}

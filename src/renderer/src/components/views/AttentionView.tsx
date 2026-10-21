@@ -78,9 +78,9 @@ const GROUP_DWELL_MS = 700
  *  word (analysis/23's naming caution). */
 /** DEC-049 — how a KPI tile names itself once it is the active filter. */
 const KPI_LABEL: Record<string, string> = {
-  open: 'open items',
-  due_today: 'items due today',
-  overdue: 'overdue items',
+  open: 'open tasks',
+  due_today: 'tasks due today',
+  overdue: 'overdue tasks',
   in_progress: 'work in progress',
   waiting: 'waiting / blocked work',
   closed_7d: 'recently closed'
@@ -866,7 +866,7 @@ export default function AttentionView(): JSX.Element {
              lives in the row's coloured spine, so no icon competes with it. */
           <CompleteCircle
             onClick={() => void closeWithOffer(i, primary.state)}
-            title={`${primary.label} — close this item`}
+            title={`${primary.label} — close this task`}
           />
         )}
         <div className="flex-1 min-w-0">
@@ -1242,7 +1242,7 @@ export default function AttentionView(): JSX.Element {
               </button>
               <button
                 onClick={() => setEditing(i)}
-                title="Open the item"
+                title="Open the task"
                 className="icon-btn !h-6 !w-6"
               >
                 <Icon name="open_in_new" size={14} />
@@ -1263,7 +1263,7 @@ export default function AttentionView(): JSX.Element {
       <div className="fb-cq max-w-[1600px] mx-auto px-5 lg:px-8 xl:px-10 py-7">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <h1 className="fb-t-title text-[var(--ink-90)]">Attention</h1>
+            <h1 className="fb-t-title text-[var(--ink-90)]">Focus</h1>
             <p className="fb-t-body text-[var(--ink-50)] mt-1">
               Everything that needs you, filed by what it’s trying to do. Items live with their
               desks — this is the lens, not the drawer.
@@ -1275,7 +1275,7 @@ export default function AttentionView(): JSX.Element {
                 setSelectMode((v) => !v)
                 setSelected(new Set())
               }}
-              title="Select several items to hand to Plexii at once"
+              title="Select several tasks to hand to Plexii at once"
               className={`inline-flex items-center gap-1.5 h-9 px-3 fb-btn-surface fb-press fb-t-label ${
                 selectMode ? 'text-[rgb(var(--accent))]' : 'text-[var(--ink-70)] hover:text-[var(--ink-100)]'
               }`}
@@ -1648,8 +1648,8 @@ export default function AttentionView(): JSX.Element {
                                 aria-expanded={!folded}
                                 title={
                                   folded
-                                    ? `Show the ${cluster.rows.length} items on this desk`
-                                    : 'Hide this desk’s items'
+                                    ? `Show the ${cluster.rows.length} tasks on this desk`
+                                    : 'Hide this desk’s tasks'
                                 }
                                 className="w-full flex items-center gap-2 px-3 py-1.5 text-left fb-press"
                                 style={{

@@ -940,7 +940,7 @@ export default function NewMeetingDialog({ onClose }: { onClose: () => void }): 
                       className="h-10 px-3 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] border border-[var(--edge-strong)] inline-flex items-center gap-2 text-[13px] text-[var(--ink-70)] fb-press transition-colors hover:text-[var(--ink-90)]"
                     >
                       <Icon name="folder" size={15} />
-                      {attached ? attached.title : 'Attach a desk or work item'}
+                      {attached ? attached.title : 'Attach a desk or task'}
                       {attached && <Icon name="close" size={13} className="text-[var(--ink-40)]" />}
                     </button>
                     {attached && (

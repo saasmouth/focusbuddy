@@ -37,11 +37,11 @@ export default function AttentionBadge(): JSX.Element | null {
 
   if (headline === 0) return null
   return (
-    <Tooltip content="Attention — what needs you" placement="bottom">
+    <Tooltip content="Focus — what needs you" placement="bottom">
       <button
         onClick={() => goAttention()}
         className="icon-btn relative"
-        aria-label={`Attention: ${headline} item${headline === 1 ? '' : 's'} need you`}
+        aria-label={`Focus: ${headline} task${headline === 1 ? '' : 's'} need you`}
       >
         <Icon name="notifications" size={16} />
         <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-0.5 rounded-full bg-[var(--accent)] text-white text-[9px] leading-[15px] text-center fb-tabular">
