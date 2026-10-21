@@ -1310,6 +1310,39 @@ export function masterForPage(design: DesignBody, page: DesignPage | undefined):
   return masters[0] ?? null
 }
 
+/**
+ * A body whose `pages` array exists, with the live top-level content as page 1.
+ *
+ * A design starts life with `elements` and no `pages`: one page, implied.
+ * pageCountOf and spreadsOf both report that implied page, so everything that
+ * counts pages agrees — but everything that EDITS pages worked on
+ * `pages ?? []`, which is empty, and so built its answer out of nothing.
+ *
+ * Adding a page to a fresh design therefore destroyed it: the new array was
+ * [newPage], the active index pointed at the new page, and the top-level
+ * elements were replaced with the new page's empty ones. One page, nothing on
+ * it, and the artwork gone from both places. Reproduced, then fixed here
+ * rather than in each caller, because the next page operation written would
+ * have had the same hole.
+ *
+ * Returns the same object when `pages` is already there, so this is free to
+ * call on every edit.
+ */
+export function withPages(body: DesignBody): DesignBody {
+  if (body.pages?.length) return body
+  return {
+    ...body,
+    pages: [
+      {
+        id: `pg-${Math.random().toString(36).slice(2, 9)}`,
+        elements: body.elements ?? [],
+        ...(body.background ? { background: body.background } : {})
+      }
+    ],
+    activePage: 0
+  }
+}
+
 /** The number PRINTED on a page, honouring a document that starts at anything but 1. */
 export function pageNumberOf(design: DesignBody, index: number): number {
   return (design.pageNumberStart ?? 1) + index

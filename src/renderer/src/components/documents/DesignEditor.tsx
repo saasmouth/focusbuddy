@@ -42,7 +42,8 @@ import {
   type DesignCategory,
   type DesignLayer,
   type DesignMaster,
-  type DesignSize
+  type DesignSize,
+  withPages
 } from '@shared/design'
 import { applyStoryFlows, linkFrames, pruneOrphanStories, setStoryText as writeStoryText, storyText, unlinkFrame } from '@shared/designStories'
 import { LAYOUT_STYLES, findLayoutStyle } from '@shared/designAutoLayout'
@@ -282,9 +283,13 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     // While a master is being edited, the top-level elements ARE the master's,
     // so mirroring them onto the page would overwrite the page's own content.
     if (b.editingMasterId) return b
-    const active = b.activePage ?? 0
-    const pages = (b.pages ?? []).map((p, i) => (i === active ? { ...p, elements: b.elements, background: b.background } : p))
-    return { ...b, pages }
+    // withPages first: a design with no pages array has ONE implied page, and
+    // mapping over `pages ?? []` silently dropped it — which is how adding a
+    // second page to a fresh design deleted the first one's artwork.
+    const base = withPages(b)
+    const active = base.activePage ?? 0
+    const pages = (base.pages ?? []).map((p, i) => (i === active ? { ...p, elements: b.elements, background: b.background } : p))
+    return { ...base, pages }
   }
 
   // The single writer: records the prior body on the undo stack, clears redo, and
