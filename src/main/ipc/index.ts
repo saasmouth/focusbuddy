@@ -725,6 +725,7 @@ import {
   summarizeRecentTrail,
   suggestDocContent,
   rewriteSelection,
+  designAdvice,
   suggestSheetColumns,
   suggestFormula,
   fillSheetRange,
@@ -732,6 +733,7 @@ import {
   runAgentStep,
   verifyAgentGoal
 } from '../ai/anthropic'
+import type { DesignBrief } from '@shared/designAdvicePrompt'
 import { importDocx, exportDocx, exportPdf, pickImage, type PageSetupInput } from '../officeDocx'
 import { importSheet, exportSheet } from '../sheetIo'
 import { runSheetMacro } from '../sheetMacro'
@@ -1949,6 +1951,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('ai:rewriteSelection', (_e, input: { text: string; instruction: string }) => {
     recordAiCall()
     return rewriteSelection(input)
+  })
+  // The model's half of the design advisor. The brief is facts the renderer
+  // measured, not the document; main builds the prompt from it.
+  ipcMain.handle('ai:designAdvice', (_e, input: { brief: DesignBrief }) => {
+    recordAiCall()
+    return designAdvice(input)
   })
 
   // ── Office interop for the document editor (.docx / PDF / image) ───────────

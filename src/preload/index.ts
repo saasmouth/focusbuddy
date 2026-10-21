@@ -118,6 +118,7 @@ import type { PlexiApp, PlexiAppDraft, PlexiAppPatch } from '@shared/apps'
 import type { PlexiForm, PlexiFormDraft, PlexiFormPatch } from '@shared/forms'
 import type { PlexiSignRequest, PlexiSignDraft, PlexiSignPatch, SignAction } from '@shared/sign'
 import type { AiCreditStatus, AiCreditEvent } from '@shared/aiCredits'
+import type { DesignBrief } from '@shared/designAdvicePrompt'
 
 type VaultResult = { ok: true } | { ok: false; error: string }
 
@@ -676,6 +677,13 @@ const api = {
       instruction: string
     }): Promise<{ ok: boolean; html?: string; error?: string; needsApiKey?: boolean }> =>
       ipcRenderer.invoke('ai:rewriteSelection', input),
+    // Design review. `brief` is what the renderer measured (digest, findings,
+    // the words on the page) — never the document, which can be megabytes of
+    // image data that says nothing a model could act on.
+    designAdvice: (input: {
+      brief: DesignBrief
+    }): Promise<{ ok: boolean; html?: string; error?: string; needsApiKey?: boolean }> =>
+      ipcRenderer.invoke('ai:designAdvice', input),
     suggestTableRows: (
       tableId: string,
       prompt: string,
