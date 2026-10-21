@@ -22,22 +22,25 @@ export class History<T> {
   }
 
   // Record the state BEFORE a change. Same key within the window = same step.
-  record(before: T, key?: string, now = Date.now()): void {
+  // Returns true when this began a NEW step (live co-editing marks its own
+  // undo boundary there).
+  record(before: T, key?: string, now = Date.now()): boolean {
     const snap = JSON.stringify(before)
     if (key && key === this.lastKey && now - this.lastAt < this.coalesceMs) {
       this.lastAt = now
       this.future = []
-      return
+      return false
     }
     if (this.past[this.past.length - 1] === snap) {
       this.future = []
-      return
+      return false
     }
     this.past.push(snap)
     if (this.past.length > this.limit) this.past.shift()
     this.future = []
     this.lastKey = key ?? null
     this.lastAt = now
+    return true
   }
 
   undo(current: T): T | null {

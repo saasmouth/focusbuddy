@@ -20,6 +20,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import type { MapBody, MapEdge, MapNode, MapSettings } from '@shared/types'
+import type { LiveUndo } from '../../../lib/yjsKeyedJson'
 import { normalizeMapBody } from '@shared/mapGraph'
 import { getShape, shapePorts } from '@shared/diagram/shapes'
 import { nodeBox, nodeSize, portId, type Box } from '@shared/diagram/geom'
@@ -52,6 +53,11 @@ export interface DiagramEditorProps {
   // Live co-editing: a change in the body prop's identity is a peer's merge.
   foldExternal?: boolean
   readOnly?: boolean
+  // Live co-editing: undo/redo reverse only YOUR changes in the shared document
+  // (a Y.UndoManager on the local origin). Without it, undo restored a whole
+  // local snapshot, which reconciled over the shared doc and reverted whatever
+  // a collaborator had done since.
+  liveUndo?: LiveUndo
 }
 
 const nodeTypes = { shape: ShapeNode }
@@ -59,7 +65,7 @@ const edgeTypes = { diagram: DiagramEdge }
 
 export type Tool = 'select' | 'pan' | 'text'
 
-export default function DiagramEditor({ body: bodyProp, title, onChange, foldExternal = false, readOnly = false }: DiagramEditorProps): JSX.Element {
+export default function DiagramEditor({ body: bodyProp, title, onChange, foldExternal = false, readOnly = false, liveUndo }: DiagramEditorProps): JSX.Element {
   const rf = useReactFlow()
   const { zoom } = useViewport()
   const [body, setBodyState] = useState<MapBody>(() => normalizeMapBody(bodyProp))
@@ -89,6 +95,22 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
     setBodyState(b)
   }, [])
 
+  // ── live undo plumbing ──────────────────────────────────────────────────
+  // Local edits reach the shared document on a debounce (see "emit changes"),
+  // so an undo step's boundary is marked when it is FLUSHED: the previous
+  // step's pending body is written first, then the Y undo stack stops
+  // capturing, and everything written after belongs to the new step.
+  const liveUndoRef = useRef(liveUndo)
+  liveUndoRef.current = liveUndo
+  const flushRef = useRef<() => void>(() => undefined)
+  const stepBoundary = (): void => {
+    const live = liveUndoRef.current
+    if (!live) return
+    flushRef.current()
+    live.checkpoint()
+  }
+  useEffect(() => (liveUndo ? liveUndo.subscribe(() => setHistoryTick((t) => t + 1)) : undefined), [liveUndo])
+
   // ── the one write path ──────────────────────────────────────────────────
   // key: undefined = new undo step; string = coalesce with same-key edits;
   // false = no history (live drag frames after a checkpoint).
@@ -97,7 +119,7 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
       const b = bodyRef.current
       const idx = pageIdxRef.current
       const next = fn(getPage(b, idx))
-      if (key !== false) history.current.record(b, key)
+      if (key !== false && history.current.record(b, key)) stepBoundary()
       setBody(withPage(b, idx, { ...getPage(b, idx), ...next }))
       if (key !== false) setHistoryTick((t) => t + 1)
     },
@@ -106,14 +128,14 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   const updateBody = useCallback(
     (fn: (b: MapBody) => MapBody, key?: string | false) => {
       const b = bodyRef.current
-      if (key !== false) history.current.record(b, key)
+      if (key !== false && history.current.record(b, key)) stepBoundary()
       setBody(fn(b))
       if (key !== false) setHistoryTick((t) => t + 1)
     },
     [setBody]
   )
   const checkpoint = useCallback(() => {
-    history.current.record(bodyRef.current)
+    if (history.current.record(bodyRef.current)) stepBoundary()
     setHistoryTick((t) => t + 1)
   }, [])
 
@@ -148,6 +170,14 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
     }, 350)
     return () => window.clearTimeout(t)
   }, [body])
+
+  // Write any pending local edit now (live undo boundaries, and before undo).
+  flushRef.current = () => {
+    const json = JSON.stringify(bodyRef.current)
+    if (json === lastEmitted.current) return
+    lastEmitted.current = json
+    onChangeRef.current(bodyRef.current)
+  }
 
   // ── fold live co-editing merges ─────────────────────────────────────────
   const foldKey = useMemo(() => (foldExternal ? JSON.stringify(normalizeMapBody(bodyProp)) : ''), [bodyProp, foldExternal])
@@ -437,6 +467,8 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   // ── commands (menus, toolbar, shortcuts and inspector all call these) ───
   const cmd: Commands = useDiagramCommands({
     rf,
+    liveUndo: liveUndoRef,
+    flush: () => flushRef.current(),
     bodyRef,
     pageIdxRef,
     selRef,
@@ -609,8 +641,8 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
         tool={tool}
         setTool={setTool}
         zoom={zoom}
-        canUndo={history.current.canUndo}
-        canRedo={history.current.canRedo}
+        canUndo={liveUndo ? liveUndo.canUndo() : history.current.canUndo}
+        canRedo={liveUndo ? liveUndo.canRedo() : history.current.canRedo}
         readOnly={readOnly}
       >
         <div

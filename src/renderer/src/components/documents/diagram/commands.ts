@@ -6,6 +6,7 @@ import { nodeBox, nodeSize } from '@shared/diagram/geom'
 import * as ops from '@shared/diagram/ops'
 import { getPage, withPage, addPage, renamePage, deletePage, movePage, pageList } from '@shared/diagram/pages'
 import type { History } from '@shared/diagram/history'
+import type { LiveUndo } from '../../../lib/yjsKeyedJson'
 import type { DiagramTheme } from '@shared/diagram/style'
 import { tidyConnections } from '@shared/diagram/tidy'
 import { layoutDiagram, type LayoutAlgorithm } from '@shared/diagram/layout'
@@ -32,6 +33,9 @@ interface Deps {
   updateBody: (fn: (b: MapBody) => MapBody, key?: string | false) => void
   setBody: (b: MapBody) => void
   history: MutableRefObject<History<MapBody>>
+  // Present in a live shared document: undo/redo go through it instead.
+  liveUndo: MutableRefObject<LiveUndo | undefined>
+  flush: () => void
   setHistoryTick: (fn: (n: number) => number) => void
   setEditingId: (id: string | null) => void
   setPageIdx: (i: number) => void
@@ -256,6 +260,15 @@ function makeCommands(d: Deps) {
 
     // ── history ──────────────────────────────────────────────────────────
     undo(): void {
+      const live = d.liveUndo.current
+      if (live) {
+        // Reverse only our own last step; the result arrives back through the
+        // live document like a collaborator's change and is folded in.
+        d.flush()
+        live.undo()
+        d.setSel(ops.emptySel())
+        return
+      }
       const prev = d.history.current.undo(d.bodyRef.current)
       if (!prev) return
       d.setBody(prev)
@@ -263,6 +276,13 @@ function makeCommands(d: Deps) {
       d.setSel(ops.emptySel())
     },
     redo(): void {
+      const live = d.liveUndo.current
+      if (live) {
+        d.flush()
+        live.redo()
+        d.setSel(ops.emptySel())
+        return
+      }
       const next = d.history.current.redo(d.bodyRef.current)
       if (!next) return
       d.setBody(next)

@@ -79,3 +79,65 @@ describe('diagram co-editing reconciles by id', () => {
     expect(src).toContain("meta.docType === 'draw' || meta.docType === 'map' ? reconcileMapKeyed : reconcileMap")
   })
 })
+
+// Undo in a shared diagram reverses YOUR steps only. The editor used to undo by
+// restoring a whole local snapshot, which reconciled over the shared document
+// and reverted a collaborator's concurrent edit. Live documents now pass the
+// editor createLiveUndo (as PlexiiDraw does); its step boundaries are marked
+// when the editor flushes a new step (History.record returning true).
+describe('diagram undo in a shared document', () => {
+  it('undo reverses only my last step, keeping a collaborator’s edit made after it', async () => {
+    const { createLiveUndo } = await import('@renderer/lib/yjsKeyedJson')
+    const LOCAL = {}
+    const A = new Y.Doc()
+    const B = new Y.Doc()
+    const write = (doc: Y.Doc, b: MapBody, origin?: unknown): void =>
+      Y.transact(doc, () => reconcileMapKeyed(doc.getMap('root'), b as unknown as Record<string, unknown>), origin)
+    write(A, body([nd('a', '#ef4444', 0), nd('b', '#22c55e', 200)]))
+    sync(A, B)
+    const undo = createLiveUndo(A.getMap('root'), LOCAL)
+    // My step 1: move a.  (editor: History.record -> new step -> checkpoint)
+    undo.checkpoint()
+    write(A, body([nd('a', '#ef4444', 50), nd('b', '#22c55e', 200)]), LOCAL)
+    // My step 2: recolour a.
+    undo.checkpoint()
+    write(A, body([nd('a', '#000000', 50), nd('b', '#22c55e', 200)]), LOCAL)
+    sync(A, B)
+    // The collaborator then recolours b.
+    write(B, body([nd('a', '#000000', 50), nd('b', '#a855f7', 200)]))
+    sync(A, B)
+    undo.undo()
+    sync(A, B)
+    for (const doc of [A, B]) {
+      const byId = Object.fromEntries(get(doc).nodes.map((n) => [n.id, n]))
+      expect(byId.a!.color).toBe('#ef4444') // my step 2 reversed
+      expect(byId.a!.x).toBe(50) // my step 1 kept
+      expect(byId.b!.color).toBe('#a855f7') // their edit untouched
+    }
+    undo.undo()
+    expect(Object.fromEntries(get(A).nodes.map((n) => [n.id, n])).a!.x).toBe(0)
+    undo.redo()
+    expect(Object.fromEntries(get(A).nodes.map((n) => [n.id, n])).a!.x).toBe(50)
+  })
+
+  it('History.record says when a new step begins, which is where the boundary goes', async () => {
+    const { History } = await import('../../src/shared/diagram/history')
+    const h = new History<{ n: number }>()
+    expect(h.record({ n: 1 }, undefined, 0)).toBe(true)
+    expect(h.record({ n: 2 }, 'type', 10)).toBe(true)
+    expect(h.record({ n: 3 }, 'type', 20)).toBe(false) // coalesced typing
+    expect(h.record({ n: 3 }, undefined, 30)).toBe(true)
+    expect(h.record({ n: 3 }, undefined, 40)).toBe(false) // nothing changed
+  })
+
+  it('the live editor hands diagrams the own-change undo, and the editor uses it', () => {
+    const live = readFileSync(join(__dirname, '../../src/renderer/src/components/views/LiveDocEditorView.tsx'), 'utf-8')
+    expect(live).toContain("meta.docType === 'draw' || meta.docType === 'map' ? createLiveUndo(root, LOCAL) : null")
+    expect(live).toMatch(/<MapEditor[^>]*liveUndo=\{drawUndo \?\? undefined\}/)
+    const cmds = readFileSync(join(__dirname, '../../src/renderer/src/components/documents/diagram/commands.ts'), 'utf-8')
+    expect(cmds).toContain('live.undo()')
+    expect(cmds).toContain('live.redo()')
+    const ed = readFileSync(join(__dirname, '../../src/renderer/src/components/documents/diagram/DiagramEditor.tsx'), 'utf-8')
+    expect(ed).toContain('history.current.record(b, key)) stepBoundary()')
+  })
+})

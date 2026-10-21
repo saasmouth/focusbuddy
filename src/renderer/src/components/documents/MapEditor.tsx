@@ -1,5 +1,6 @@
 import { ReactFlowProvider } from '@xyflow/react'
 import type { MapBody } from '@shared/types'
+import type { LiveUndo } from '../../lib/yjsKeyedJson'
 import DiagramEditor from './diagram/DiagramEditor'
 
 // PlexiDiagrams editor — a Lucidchart-class diagram editor (see ./diagram/).
@@ -18,6 +19,8 @@ interface Props {
   // as a new body identity and folding them would fight the live editing state.
   foldExternal?: boolean
   readOnly?: boolean
+  // Live co-editing: own-change undo over the shared document.
+  liveUndo?: LiveUndo
 }
 
 export default function MapEditor(props: Props): JSX.Element {

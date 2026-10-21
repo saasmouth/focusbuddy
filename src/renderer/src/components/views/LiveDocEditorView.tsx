@@ -212,7 +212,9 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
     // yjsKeyedJson). Lists without ids still align by position. Every other
     // type is unchanged.
     const reconcile = meta.docType === 'draw' || meta.docType === 'map' ? reconcileMapKeyed : reconcileMap
-    const ownUndo = meta.docType === 'draw' ? createLiveUndo(root, LOCAL) : null
+    // Own-change undo for the id-keyed editors: undo reverses your steps only,
+    // never a collaborator's (a whole-snapshot undo reconciled over theirs).
+    const ownUndo = meta.docType === 'draw' || meta.docType === 'map' ? createLiveUndo(root, LOCAL) : null
     setDrawUndo(ownUndo)
     const refresh = (): void => {
       // yToJson returns a fresh object each time, so the editor's body prop
@@ -636,7 +638,7 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
           ))}
         {meta.docType === 'map' &&
           (collabBody !== null ? (
-            <MapEditor key={`${meta.id}:collab`} body={collabBody as MapBody} title={meta.title} onChange={onJsonChange} foldExternal />
+            <MapEditor key={`${meta.id}:collab`} body={collabBody as MapBody} title={meta.title} onChange={onJsonChange} foldExternal liveUndo={drawUndo ?? undefined} />
           ) : (
             <div className="p-6 text-[13px] text-[var(--ink-40)]" data-testid="livedoc-connecting">Connecting live editing…</div>
           ))}
