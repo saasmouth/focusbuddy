@@ -696,6 +696,19 @@ function searchGrid(starts: Anchor[], goals: Anchor[], obs: R[], region: R, pref
   return null
 }
 
+// Every point a grid search returns must lie inside the region it searched. A
+// frame-vs-page coordinate slip yields routes that still avoid every shape and
+// still line up, yet sit somewhere they were never searched (d2 found that
+// class surviving an 800-layout crossing sweep), so it is counted here where
+// the region is known. Tests assert the count stays at zero; at runtime an
+// escaping result is discarded and the search widens, never drawn.
+export const routingInvariants = { regionEscapes: 0 }
+function insideRegion(found: Found, region: R): boolean {
+  const ok = found.pts.every((p) => p.x >= region.x1 - 0.5 && p.x <= region.x2 + 0.5 && p.y >= region.y1 - 0.5 && p.y <= region.y2 + 0.5)
+  if (!ok) routingInvariants.regionEscapes++
+  return ok
+}
+
 // Search with a region that grows until a route is found.
 function searchOrtho(starts: Anchor[], goals: Anchor[], obstacles: R[], focus: R, prefX: number[], prefY: number[], cfg: SearchCfg): Found | null {
   if (!starts.length || !goals.length) return null
@@ -722,12 +735,12 @@ function searchOrtho(starts: Anchor[], goals: Anchor[], obstacles: R[], focus: R
       obs = usable.filter((o) => rectsTouch(o, region))
     }
     const found = searchGrid(starts, goals, obs, region, prefX, prefY, cfg)
-    if (found) return found
+    if (found && insideRegion(found, region)) return found
     if (pad !== Infinity && obs.length === usable.length) {
       // Region already held every obstacle; only the outer ring can help.
       const wide = inflate(bx, pad * 3 + 200)
       const again = searchGrid(starts, goals, obs, wide, prefX, prefY, cfg)
-      if (again) return again
+      if (again && insideRegion(again, wide)) return again
       return null
     }
   }

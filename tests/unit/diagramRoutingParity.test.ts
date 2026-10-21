@@ -8,7 +8,7 @@
 // sideToward/anchorOn/simplify (internal helpers; their observable effects are
 // covered by the route-level tests below).
 import { describe, expect, it } from 'vitest'
-import { routeAll, pathFromPoints, type Route } from '../../src/shared/diagram/routing'
+import { routeAll, pathFromPoints, routingInvariants, type Route } from '../../src/shared/diagram/routing'
 import type { MapEdge, MapNode } from '../../src/shared/types'
 
 type Pt = { x: number; y: number }
@@ -102,6 +102,7 @@ describe('the property that matters, over many layouts (parity)', () => {
       return seed % k
     }
     let checked = 0
+    routingInvariants.regionEscapes = 0
     for (const s0 of [12345, 777, 2026, 99991]) {
       seed = s0
       for (let trial = 0; trial < 200; trial++) {
@@ -119,6 +120,9 @@ describe('the property that matters, over many layouts (parity)', () => {
       }
     }
     expect(checked).toBeGreaterThan(400)
+    // d2's lesson: a route can avoid every shape and still have been computed
+    // in the wrong frame. Every searched route must lie inside its region.
+    expect(routingInvariants.regionEscapes).toBe(0)
   })
 
   it('moves to a free port when the natural one starts inside a shape', () => {
