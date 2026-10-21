@@ -41,6 +41,14 @@ export interface DesignMenuActions {
   toggleAids: () => void
   aidsVisible: boolean
   exportPrint: () => void
+  /** Open the print check: what would go wrong on press, measured. */
+  openPreflight: () => void
+  /**
+   * The print check's standing verdict ("Ready to print", "2 warnings"), shown
+   * on the menu item itself. InDesign keeps preflight in the status bar for a
+   * reason: a check you have to remember to run is a check nobody runs.
+   */
+  preflightHint?: string
 }
 
 export default function DesignMenuBar({ actions }: { actions: DesignMenuActions }): JSX.Element {
@@ -175,6 +183,8 @@ export default function DesignMenuBar({ actions }: { actions: DesignMenuActions 
       build: () => [
         { kind: 'item', label: 'Remove image background', icon: 'auto_awesome', run: a.removeBgSelected },
         { kind: 'sep' },
+        // Before the export, because it is what you do before the export.
+        { kind: 'item', label: 'Preflight for print…', icon: 'fact_check', hint: a.preflightHint, run: a.openPreflight },
         { kind: 'item', label: 'Print PDF (bleed + crop marks)', icon: 'print', run: a.exportPrint }
       ]
     },

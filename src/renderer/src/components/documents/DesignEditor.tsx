@@ -55,6 +55,8 @@ import { caretDocStart, type DocCaret, type DocSelection } from '@shared/designT
 import type { FlowMeasurer } from '@shared/designFlow'
 import LayoutOverlay from './design/LayoutOverlay'
 import LayoutPanel from './design/LayoutPanel'
+import PreflightPanel from './design/PreflightPanel'
+import { preflight, preflightSummary } from '@shared/designPreflight'
 import DesignRulers from './design/DesignRulers'
 import Icon from '../Icon'
 import SlideElementView from './slides/SlideElementView'
@@ -133,7 +135,9 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   const [design, setDesign] = useState<DesignBody>(() => normalizeDesignBody(content))
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [exportOpen, setExportOpen] = useState(false)
-  const [panel, setPanel] = useState<'none' | 'templates' | 'size' | 'ai' | 'stock' | 'layout' | 'redesign'>(
+  const [panel, setPanel] = useState<
+    'none' | 'templates' | 'size' | 'ai' | 'stock' | 'layout' | 'redesign' | 'preflight'
+  >(
     () => (normalizeDesignBody(content).elements.length === 0 ? 'templates' : 'none')
   )
   const [aiPrompt, setAiPrompt] = useState('')
@@ -898,6 +902,12 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
 
   // The flowed paragraphs of the story being typed into, which is what maps a
   // caret to a point on the page and back.
+  // The print check's standing verdict, for the Tools menu item. Arithmetic
+  // over the elements, so it costs what the live review costs and keeps the
+  // answer in front of someone instead of behind a menu they have to think to
+  // open.
+  const preflightHint = useMemo(() => preflightSummary(preflight(design)), [design])
+
   const editParagraphs = useMemo(
     () => (textEdit ? paragraphsForStory(design, textEdit.storyId, brand) : []),
     [design, textEdit?.storyId, brand]
@@ -1037,6 +1047,8 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
             removeBgSelected: () => void removeBgSelected(),
             exportAs: (f) => void exportAs(f),
             openLayout: () => setPanel('layout'),
+            openPreflight: () => setPanel('preflight'),
+            preflightHint,
             addPage,
             toggleFacing: () => patchLayout({ facing: !designRef.current.facing }),
             facing: design.facing === true,
@@ -1296,6 +1308,18 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
             onDeleteLayer={deleteLayer}
             onMoveSelectionToLayer={moveSelectionToLayer}
             hasSelection={selectedIds.length > 0}
+          />
+        </Panel>
+      )}
+
+      {panel === 'preflight' && (
+        <Panel title="Preflight for print">
+          <PreflightPanel
+            design={design}
+            onReveal={(page, elementId) => {
+              goToPage(page)
+              if (elementId) setSelectedIds([elementId])
+            }}
           />
         </Panel>
       )}
