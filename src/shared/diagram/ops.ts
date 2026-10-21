@@ -61,7 +61,7 @@ export function selectAll(g: Graph): Sel {
 }
 
 // Shapes and lines without a layerId belong to the Base layer.
-export const BASE_LAYER = 'layer-base'
+const BASE_LAYER = 'layer-base'
 export const layerOf = (x: { layerId?: string }): string => x.layerId ?? BASE_LAYER
 
 export function hiddenLayerIds(g: Graph): Set<string> {

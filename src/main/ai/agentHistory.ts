@@ -160,19 +160,6 @@ export function listConversation(conversationKey: string): InvocationRecord[] {
   return rows.map(rowToInvocation)
 }
 
-export function listInvocationsForNode(nodeId: string): InvocationRecord[] {
-  const db = getDb()
-  const rows = db
-    .prepare(
-      `SELECT * FROM agent_invocations
-        WHERE node_id = ?
-        ORDER BY invoked_at DESC
-        LIMIT 200`
-    )
-    .all(nodeId) as InvocationRow[]
-  return rows.map(rowToInvocation)
-}
-
 // ── Outcomes ───────────────────────────────────────────────────────────────
 
 export function recordOutcome(input: {

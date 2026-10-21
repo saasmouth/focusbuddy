@@ -5,8 +5,9 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 // over every action, the step ceiling holds, the R29 bans refuse on both
 // acting paths (indexed AND coordinates — the fallback can never bypass a
 // ban), and the download guard cancels an agent-driven download. The
-// in-page walker itself is proven in the built app by the fake-site probe
-// (_plexiiA6Bridge.spec.ts); here we fabricate its records.
+// in-page walker's records are fabricated here. Its built-app probe
+// (_plexiiA6Bridge.spec.ts) drove it through IPC handles no product code used;
+// both were retired in 4.3.41, so nothing exercises the walker in a real page.
 
 interface FakeWc {
   id: number

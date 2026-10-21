@@ -1,22 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import {
-  emptyMapBody,
-  starterMapBody,
-  normalizeMapBody,
-  autoLayout,
-  MAP_SHAPES
-} from '../../src/shared/mapGraph'
+import { starterMapBody, normalizeMapBody, autoLayout } from '../../src/shared/mapGraph'
+import { SHAPES } from '../../src/shared/diagram/shapes'
 import { mapTemplate } from '../../src/renderer/src/components/documents/map/mapTemplates'
 import type { MapBody } from '../../src/shared/types'
 
 describe('mapGraph — body factories', () => {
-  it('emptyMapBody is a valid empty graph', () => {
-    const b = emptyMapBody()
-    expect(b.version).toBe(1)
-    expect(b.nodes).toEqual([])
-    expect(b.edges).toEqual([])
-  })
-
   it('starterMapBody seeds a single Start node', () => {
     const b = starterMapBody()
     expect(b.nodes).toHaveLength(1)
@@ -63,7 +51,7 @@ describe('mapGraph — normalizeMapBody', () => {
     expect(a.x).toBe(0)
     expect(a.y).toBe(0)
     expect(a.color).toMatch(/^#/)
-    expect(MAP_SHAPES).toContain(a.shape)
+    expect(SHAPES.map((s) => s.id)).toContain(a.shape)
     const b = out.nodes.find((n) => n.id === 'b')!
     expect(b.shape).toBe('process') // invalid shape falls back to process
   })

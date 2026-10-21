@@ -153,7 +153,8 @@ export function groupIntoQueues(
 /** The ranker v1 (SPEC-019, F006): item-level signals ONLY — deadline
  *  proximity dominates, item-inactivity staleness second (an untouched item
  *  needs the eye more than a fresh one), explicit-human-ask a light thumb.
- *  Scored against attentionPrecision() over time (workItems:precision). */
+ *  Scored against attentionPrecision() over time (workItemAttentionPrecision
+ *  in main/db/workItems.ts). */
 export function rankScore(i: FbNode, nowMs: number): number {
   let score = 0
   // Calendar days, not 24-hour periods (lib/dueDates explains the difference).

@@ -17,6 +17,7 @@ import { test, expect, _electron as electron, type ElectronApplication, type Pag
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { openDeskShareSheet, shareLiveWithAccount } from './_liveShareHelpers'
 
 const PROXY_BASE = process.env.CRDT_LIVE_PROXY_BASE
 
@@ -133,17 +134,9 @@ test('shared desk: A shares with B, an edit on the desk converges via the desk p
     await A.window.reload()
     await dismissOnboarding(A.window)
 
-    // A shares the desk with B via the real Live-sharing dialog (livedesk-email/add).
-    await A.window.getByRole('button', { name: 'All desks' }).click()
-    const card = A.window.locator(`[data-testid="index-card-${deskId}"]`)
-    await expect(card).toBeVisible({ timeout: 10_000 })
-    await card.locator('button[title="Create a public link — anyone with it can view this desk"]').click()
-    await expect(A.window.locator('[data-testid="livedesk-email"]')).toBeVisible({ timeout: 5_000 })
-    await A.window.locator('[data-testid="livedesk-email"]').fill(emailB)
-    await A.window.locator('[data-testid="livedesk-add"]').click()
-    await expect(
-      A.window.getByText(new RegExp(`${emailB.replace(/[.+]/g, '\\$&')} now has live access`, 'i'))
-    ).toBeVisible({ timeout: 8_000 })
+    // A shares the desk with B via the real Live-sharing dialog (the share picker).
+    await openDeskShareSheet(A.window, deskId)
+    await shareLiveWithAccount(A.window, emailB)
 
     // B receives the shared desk into its local DB (materialised with shared_root_id).
     await until(

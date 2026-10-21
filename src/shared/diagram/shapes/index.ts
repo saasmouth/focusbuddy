@@ -18,7 +18,7 @@ import { CLOUD_SHAPES } from './cloud'
 import { ORGCHART_SHAPES } from './orgchart'
 import { MINDMAP_SHAPES } from './mindmap'
 import { WIREFRAME_SHAPES } from './wireframe'
-import { DEFAULT_PORTS, type ShapeCategory, type ShapeDef, type ShapeGeometry } from './types'
+import { DEFAULT_PORTS, type ShapeCategory, type ShapeDef } from './types'
 
 export * from './types'
 
@@ -86,10 +86,6 @@ export function searchShapes(query: string): ShapeDef[] {
     const hay = `${s.label} ${s.id} ${s.category} ${(s.keywords ?? []).join(' ')}`.toLowerCase()
     return words.every((w) => hay.includes(w))
   })
-}
-
-export function shapeGeometry(id: string, w: number, h: number): ShapeGeometry {
-  return getShape(id).draw(w, h)
 }
 
 export function shapePorts(id: string): [number, number][] {

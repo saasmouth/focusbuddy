@@ -125,35 +125,3 @@ export function markSynced(entries: Array<{ id: string; seq?: number | null }>):
     // best-effort
   }
 }
-
-// The subset of ids already in the local log — lets the engine skip re-recording a
-// server event it originated. Never throws.
-export function knownIds(ids: string[]): string[] {
-  if (ids.length === 0) return []
-  try {
-    const db = getDb()
-    const found: string[] = []
-    for (let i = 0; i < ids.length; i += 500) {
-      const chunk = ids.slice(i, i + 500)
-      const placeholders = chunk.map(() => '?').join(',')
-      const rows = db.prepare(`SELECT id FROM change_log WHERE id IN (${placeholders})`).all(...chunk) as Array<{ id: string }>
-      for (const r of rows) found.push(r.id)
-    }
-    return found
-  } catch {
-    return []
-  }
-}
-
-// All recorded events for one object, oldest-first — the input to a widget fold.
-// Never throws.
-export function eventsForObject(objectId: string): LocalChangeEvent[] {
-  try {
-    const rows = getDb()
-      .prepare('SELECT * FROM change_log WHERE object_id = ? ORDER BY created_at ASC, rowid ASC')
-      .all(objectId) as Row[]
-    return rows.map(rowTo)
-  } catch {
-    return []
-  }
-}

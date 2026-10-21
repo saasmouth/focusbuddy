@@ -1,15 +1,16 @@
 // Persisted workspace path override for the agent resolver.
 //
-// When the user explicitly points PlexiDesk at their workspace via
-// Settings, that path takes priority over all the auto-detected
-// candidates. Lives in `<userData>/workspace.json` as a tiny JSON
-// blob — same pattern as voiceProviderPref.
+// A path written to `<userData>/workspace.json` (a tiny JSON blob, same
+// pattern as voiceProviderPref) takes priority over all the auto-detected
+// candidates. Nothing in the app writes it any more -- the setter had no
+// caller and was retired in 4.3.41 -- but an override already on disk, or
+// one placed there by hand, is still honoured.
 //
 // Empty string / missing file = no override. The resolver falls
 // through to its other probes.
 
 import { app } from 'electron'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 
 interface PrefShape {
@@ -50,14 +51,4 @@ function load(): PrefShape {
 export function getWorkspaceOverride(): string | null {
   const p = load().workspacePath.trim()
   return p ? p : null
-}
-
-export function setWorkspaceOverride(path: string): void {
-  cache = { workspacePath: path.trim(), v: 1 }
-  try {
-    writeFileSync(filePath(), JSON.stringify(cache, null, 2), 'utf-8')
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[workspacePref] save failed:', err)
-  }
 }

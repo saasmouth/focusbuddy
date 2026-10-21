@@ -18,6 +18,7 @@ import { test, expect, _electron as electron, type ElectronApplication, type Pag
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { openDeskShareSheet, shareLiveWithAccount } from './_liveShareHelpers'
 
 const PROXY_BASE = process.env.CRDT_LIVE_PROXY_BASE
 
@@ -146,16 +147,8 @@ test('a wire drawn BEFORE sharing is seeded to the grantee when the desk is shar
     // fires seedDeskLinks, which must carry the pre-existing wire to B.
     await A.window.reload()
     await dismissOnboarding(A.window)
-    await A.window.getByRole('button', { name: 'All desks' }).click()
-    const card = A.window.locator(`[data-testid="index-card-${built.deskId}"]`)
-    await expect(card).toBeVisible({ timeout: 10_000 })
-    await card.locator('button[title="Create a public link — anyone with it can view this desk"]').click()
-    await expect(A.window.locator('[data-testid="livedesk-email"]')).toBeVisible({ timeout: 5_000 })
-    await A.window.locator('[data-testid="livedesk-email"]').fill(emailB)
-    await A.window.locator('[data-testid="livedesk-add"]').click()
-    await expect(
-      A.window.getByText(new RegExp(`${emailB.replace(/[.+]/g, '\\$&')} now has live access`, 'i'))
-    ).toBeVisible({ timeout: 8_000 })
+    await openDeskShareSheet(A.window, built.deskId)
+    await shareLiveWithAccount(A.window, emailB)
 
     // B receives the shared desk, then converges the PRE-EXISTING wire via the
     // seedDeskLinks baseline on l:desk:<rootId>.

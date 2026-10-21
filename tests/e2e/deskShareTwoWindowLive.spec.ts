@@ -34,8 +34,8 @@
  *  3. A opens the desk's real Share dialog via a real UI click (the "Create a
  *     public link" icon on its DesksView gallery card — the only UI entry point
  *     for a task-kind desk's ShareDialog, confirmed by reading DesksView.tsx),
- *     types B's email into the real `data-testid="livedesk-email"` input, and
- *     clicks the real `data-testid="livedesk-add"` button. Fully UI-driven.
+ *     types B's email into the real share picker (`share-picker-search`), picks
+ *     B, and presses `share-picker-submit`. Fully UI-driven.
  *  4. B (already signed in, own window) receives the desk into their own local
  *     SQLite within a few seconds of A's share click — verified via B's real
  *     window.api.nodes.list() (the desk's id is preserved byte-for-byte, and its
@@ -61,6 +61,7 @@ import { test, expect, _electron as electron, type ElectronApplication, type Pag
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { openDeskShareSheet, shareLiveWithAccount } from './_liveShareHelpers'
 
 const PROXY_BASE = process.env.DESKSHARE_LIVE_PROXY_BASE // e.g. https://localhost:8793
 
@@ -204,30 +205,18 @@ test('per-desk live sharing: two real accounts, ACL grant by email, bidirectiona
     await dismissOnboardingOnly(A.window)
 
     // ── Step: A opens the REAL Share dialog via a REAL UI click ─────────────
-    await A.window.getByRole('button', { name: 'All desks' }).click()
-    const card = A.window.locator(`[data-testid="index-card-${deskId}"]`)
-    await expect(card).toBeVisible({ timeout: 10_000 })
-    await card.locator('button[title="Create a public link — anyone with it can view this desk"]').click()
-
+    await openDeskShareSheet(A.window, deskId)
     const shareDialog = A.window.locator('[role="dialog"]').filter({ hasText: 'Live sharing (real-time)' })
     await expect(shareDialog).toBeVisible({ timeout: 5_000 })
 
-    const emailInput = A.window.locator('[data-testid="livedesk-email"]')
-    const addButton = A.window.locator('[data-testid="livedesk-add"]')
-    await expect(emailInput).toBeVisible()
-    await emailInput.fill(emailB)
-    // Default permission select is already 'edit' (LiveDeskSharing's initial
-    // state) — needed for B's edits to propagate back in the bidirectional
-    // check below, so leave it untouched rather than force it via evaluate.
+    // Default permission is already 'edit' (LiveDeskSharing's initial state) —
+    // needed for B's edits to propagate back in the bidirectional check below,
+    // so leave it untouched rather than force it via evaluate.
+    // B already has an account, so the grant is immediate (listed live with a
+    // "Remove access" control, not pending) — shareLiveWithAccount checks that.
     const t0 = Date.now()
-    await addButton.click()
-
-    // B already has an account, so the grant is immediate (server: "granted",
-    // not "invited") — confirm the real success copy the user would see.
-    await expect(A.window.getByText(new RegExp(`${emailB.replace(/[.+]/g, '\\$&')} now has live access`, 'i'))).toBeVisible({
-      timeout: 8_000
-    })
-    console.log('[DESKSHARE] A shared the desk with B via real UI (livedesk-email/livedesk-add)')
+    await shareLiveWithAccount(A.window, emailB)
+    console.log('[DESKSHARE] A shared the desk with B via real UI (share picker)')
 
     // ── Step: B receives the desk into their own local DB near-live ─────────
     const materialize = await pollUntil(
@@ -265,7 +254,7 @@ test('per-desk live sharing: two real accounts, ACL grant by email, bidirectiona
     // own "All desks" gallery.
     await B.window.reload()
     await dismissOnboardingOnly(B.window)
-    await B.window.getByRole('button', { name: 'All desks' }).click()
+    await B.window.locator('[data-testid="desk-sidebar"]').getByRole('button', { name: 'All desks', exact: true }).click()
     await expect(B.window.locator(`[data-testid="index-card-${deskId}"]`)).toBeVisible({ timeout: 8_000 })
     console.log('[DESKSHARE] shared desk renders on B\'s real "All desks" gallery, same id:', deskId)
 
@@ -404,11 +393,7 @@ test('per-desk live sharing: two real accounts, ACL grant by email, bidirectiona
 
     // ── Bonus: revoke B's access via the real "Remove access" button, confirm
     // B's local copy is pruned on the next cycle ─────────────────────────────
-    await A.window.getByRole('button', { name: 'All desks' }).click()
-    await A.window.locator(`[data-testid="index-card-${deskId}"]`)
-      .locator('button[title="Create a public link — anyone with it can view this desk"]')
-      .click()
-    await expect(A.window.locator('[data-testid="livedesk-email"]')).toBeVisible({ timeout: 5_000 })
+    await openDeskShareSheet(A.window, deskId)
     const t3 = Date.now()
     await A.window.locator('button[title="Remove access"]').first().click()
     await expect(A.window.locator('button[title="Remove access"]')).toHaveCount(0, { timeout: 5_000 })

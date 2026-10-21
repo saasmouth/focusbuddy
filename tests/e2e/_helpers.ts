@@ -399,6 +399,7 @@ export async function isAreaLocked(window: Page, kind: AreaKind): Promise<boolea
 type ProductRoute =
   | { mode: 'seg'; switch: AreaKind; app: string }
   | { mode: 'comms'; app: string }
+  | { mode: 'officeApp'; app: string }
   | { mode: 'direct'; go: string }
 
 const SEGMENT_OF: Record<string, ProductRoute> = {
@@ -411,7 +412,8 @@ const SEGMENT_OF: Record<string, ProductRoute> = {
   flow: { mode: 'seg', switch: 'plexibrain', app: 'flows' },
   api: { mode: 'seg', switch: 'plexibrain', app: 'api' },
   chat: { mode: 'comms', app: 'chat' },
-  meet: { mode: 'comms', app: 'meet' },
+  // PlexiiCall is a PlexiiApps tile (office-sideapp-*), not a Tools one.
+  meet: { mode: 'officeApp', app: 'meet' },
   build: { mode: 'direct', go: 'goApps' },
   form: { mode: 'direct', go: 'goForms' }
 }
@@ -434,6 +436,12 @@ export async function openProduct(window: Page, product: keyof typeof SEGMENT_OF
   if (route.mode === 'comms') {
     await switchArea(window, 'office')
     await window.locator(`[data-testid="office-comms-app-${route.app}"]`).click()
+    return
+  }
+
+  if (route.mode === 'officeApp') {
+    await switchArea(window, 'office')
+    await window.locator(`[data-testid="office-sideapp-${route.app}"]`).click()
     return
   }
 

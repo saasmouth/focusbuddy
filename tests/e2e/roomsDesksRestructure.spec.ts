@@ -6,8 +6,8 @@ import { launchApp, waitForReady, openProduct } from './_helpers'
 //   1. DECOUPLING — a folder ("Room") only shows in the Plans portfolio when
 //      is_plan = 1. A plain Room with a Desk (task) inside must NOT surface in
 //      Plans; a Room explicitly created as a Plan must.
-//   2. NAV — the sidebar "Rooms" entry expands to "All rooms" / "All desks",
-//      each opening an index view (rooms-index-view / desks-index-view).
+//   2. NAV — the sidebar "Rooms" entry opens the rooms index and its group
+//      lists "All desks" (rooms-index-view / desks-index-view).
 //   3. INDEX PAGES — five view modes (gallery/list/kanban/table/timeline),
 //      search, group-by and filter all function.
 //
@@ -40,18 +40,23 @@ test('boots cleanly with no console errors from the plan-flag migration', async 
   }
 })
 
-test('sidebar Rooms nav expands to All rooms / All desks and both index views render', async () => {
+test('sidebar Rooms nav lists All desks, and both index views render', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
+    // Rooms opens the rooms index; its chevron group (open by default) holds
+    // "All desks". There is no "All rooms" row any more: Rooms itself is that
+    // page. Scoped to the desk sidebar, because Home also carries "All desks"
+    // buttons (hero + dashboard rail) and an unscoped query matches all three.
+    const sidebar = window.locator('[data-testid="desk-sidebar"]')
 
-    await window.getByRole('button', { name: 'Rooms', exact: true }).click()
+    await sidebar.getByRole('button', { name: 'Rooms', exact: true }).click()
     await expect(window.locator('[data-testid="rooms-index-view"]')).toBeVisible({ timeout: 8_000 })
 
-    await window.getByRole('button', { name: 'All desks', exact: true }).click()
+    await sidebar.getByRole('button', { name: 'All desks', exact: true }).click()
     await expect(window.locator('[data-testid="desks-index-view"]')).toBeVisible({ timeout: 8_000 })
 
-    await window.getByRole('button', { name: 'All rooms', exact: true }).click()
+    await sidebar.getByRole('button', { name: 'Rooms', exact: true }).click()
     await expect(window.locator('[data-testid="rooms-index-view"]')).toBeVisible({ timeout: 8_000 })
   } finally {
     await dispose()

@@ -9,105 +9,12 @@
 // geometry, the style resolver, the connector router and the arrowheads — so an
 // export looks like what was on screen (routed lines, styles, themes, rotation).
 
-import type { MapBody, MapNode, MapEdge, MapShape } from './types'
+import type { MapBody, MapNode, MapEdge } from './types'
 import { getShape } from './diagram/shapes'
 import { nodeSize } from './diagram/geom'
 import { routeAll, type Route } from './diagram/routing'
 import { arrowHeadPath } from './diagram/arrowheads'
 import { dashArray, getTheme, resolveEdgeStyle, resolveNodeStyle, type ResolvedNodeStyle } from './diagram/style'
-
-// Shared fractional (0..1) polygon outlines for the polygon-based stencil shapes,
-// so the editor (as a CSS clip-path) and the export (as SVG points) draw exactly
-// the same outline from one definition.
-export const POLYGON_POINTS: Partial<Record<MapShape, [number, number][]>> = {
-  hexagon: [
-    [0.25, 0],
-    [0.75, 0],
-    [1, 0.5],
-    [0.75, 1],
-    [0.25, 1],
-    [0, 0.5]
-  ],
-  trapezoid: [
-    [0.2, 0],
-    [0.8, 0],
-    [1, 1],
-    [0, 1]
-  ],
-  chevron: [
-    [0, 0],
-    [0.75, 0],
-    [1, 0.5],
-    [0.75, 1],
-    [0, 1],
-    [0.25, 0.5]
-  ],
-  triangle: [
-    [0.5, 0],
-    [1, 1],
-    [0, 1]
-  ],
-  pentagon: [
-    [0.5, 0],
-    [1, 0.38],
-    [0.82, 1],
-    [0.18, 1],
-    [0, 0.38]
-  ],
-  // Five-point star: outer radius 0.5, inner 0.2, from a fixed unit circle so the
-  // editor clip-path and the SVG export draw the identical outline.
-  star: [
-    [0.5, 0],
-    [0.618, 0.338],
-    [0.976, 0.345],
-    [0.69, 0.562],
-    [0.794, 0.905],
-    [0.5, 0.7],
-    [0.206, 0.905],
-    [0.31, 0.562],
-    [0.024, 0.345],
-    [0.382, 0.338]
-  ],
-  cross: [
-    [0.33, 0],
-    [0.67, 0],
-    [0.67, 0.33],
-    [1, 0.33],
-    [1, 0.67],
-    [0.67, 0.67],
-    [0.67, 1],
-    [0.33, 1],
-    [0.33, 0.67],
-    [0, 0.67],
-    [0, 0.33],
-    [0.33, 0.33]
-  ],
-  arrow: [
-    [0, 0.3],
-    [0.6, 0.3],
-    [0.6, 0.1],
-    [1, 0.5],
-    [0.6, 0.9],
-    [0.6, 0.7],
-    [0, 0.7]
-  ],
-  callout: [
-    [0, 0],
-    [1, 0],
-    [1, 0.75],
-    [0.35, 0.75],
-    [0.2, 1],
-    [0.25, 0.75],
-    [0, 0.75]
-  ]
-}
-
-// CSS clip-path polygon() string for a polygon stencil shape (used by the editor).
-export function polygonClipPath(shape: MapShape): string | null {
-  const pts = POLYGON_POINTS[shape]
-  if (!pts) return null
-  return `polygon(${pts.map(([px, py]) => `${px * 100}% ${py * 100}%`).join(', ')})`
-}
 
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -115,7 +22,7 @@ function esc(s: string): string {
 
 // Greedy word-wrap by an estimated glyph width (0.56em), honouring explicit
 // line breaks, capped to what fits in the box height with an ellipsis.
-export function wrapText(label: string, widthPx: number, fontSize: number, maxLines: number): string[] {
+function wrapText(label: string, widthPx: number, fontSize: number, maxLines: number): string[] {
   // 0.52em is a typical average advance for Inter/Arial body text.
   const max = Math.max(3, Math.floor(widthPx / (fontSize * 0.52)))
   const out: string[] = []

@@ -133,33 +133,13 @@ describe('mapToSvg — lanes (swimlane containers)', () => {
   })
 })
 
-import { polygonClipPath } from '../../src/shared/mapExport'
-
 describe('polygon stencil shapes', () => {
-  it('polygonClipPath returns a CSS polygon for stencil shapes, null otherwise', () => {
-    for (const shape of ['hexagon', 'trapezoid', 'chevron', 'triangle', 'pentagon', 'star', 'cross', 'arrow', 'callout'] as const) {
-      expect(polygonClipPath(shape), `${shape} clip-path`).toContain('polygon(')
-    }
-    expect(polygonClipPath('process')).toBeNull()
-    expect(polygonClipPath('circle')).toBeNull()
-  })
-
   it('mapToSvg renders every polygon stencil shape with its outline and label', () => {
     for (const shape of ['hexagon', 'trapezoid', 'chevron', 'triangle', 'pentagon', 'star', 'cross', 'arrow', 'callout'] as const) {
       const { svg } = mapToSvg(body({ nodes: [{ id: 'n', x: 0, y: 0, label: 'Step', shape, color: '#2563eb' }] }))
       expect(svg, `${shape} should render a closed outline`).toMatch(/<path d="M[^"]+Z"/)
       expect(svg).toContain('>Step<')
     }
-  })
-
-  it('the legacy clip-path and the export draw the same star outline', () => {
-    // POLYGON_POINTS (kept for compatibility) and the registry's star share the
-    // same 10 vertices.
-    const clip = polygonClipPath('star')!
-    expect(clip.split(',').length).toBe(10)
-    const { svg } = mapToSvg(body({ nodes: [{ id: 'n', x: 0, y: 0, label: '', shape: 'star', color: '#111' }] }))
-    const d = svg.match(/<path d="(M[^"]+Z)"/)![1]
-    expect(d.split(/[ML]/).filter((p) => p.trim() && p.trim() !== 'Z').length).toBe(10)
   })
 })
 

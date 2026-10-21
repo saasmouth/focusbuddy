@@ -131,10 +131,11 @@ test('3 — action items from a created meeting turn into real task nodes', asyn
     return meetings
   })
 
-  // Navigate away and back to reload the view's store. Meet lives in the
-  // PlexiOffice Communicate menu now, so bounce off another comms app and back.
+  // Navigate away and back to reload the view's store. Meet (PlexiiCall) is a
+  // PlexiiApps tile in the Office side menu, so bounce off Inbox (a Tools tile)
+  // and back.
   await window.locator('[data-testid="office-comms-app-inbox"]').click()
-  await window.locator('[data-testid="office-comms-app-meet"]').click()
+  await window.locator('[data-testid="office-sideapp-meet"]').click()
   await window.waitForSelector('[data-testid="pleximeet-view"]', { timeout: 8_000 })
 
   // Click the Standup meeting row.

@@ -746,31 +746,6 @@ function safeTags(json: string): string[] {
   }
 }
 
-// Every live entry carrying ALL of the given tags (an AND query), newest first.
-// The engine behind a smart folder. An empty tag list matches nothing.
-export function entriesByTags(tags: string[]): FileEntry[] {
-  const clean = tags.map((t) => t.trim()).filter(Boolean)
-  if (!clean.length) return []
-  const db = getDb()
-  const placeholders = clean.map(() => '?').join(',')
-  const rows = db
-    .prepare(
-      `SELECT ${ENTRY_COLS} FROM fb_files
-       WHERE trashed_at IS NULL AND id IN (
-         SELECT file_id FROM fb_file_tags WHERE tag IN (${placeholders})
-         GROUP BY file_id HAVING COUNT(DISTINCT tag) = ?
-       )
-       ORDER BY updated_at DESC`
-    )
-    .all(...clean, clean.length) as EntryRow[]
-  const out: FileEntry[] = []
-  for (const row of rows) {
-    const entry = rowToEntry(row)
-    if (entry) out.push(entry)
-  }
-  return out
-}
-
 export function listSmartFolders(): SmartFolder[] {
   const db = getDb()
   const rows = db

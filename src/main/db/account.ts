@@ -289,18 +289,6 @@ export function setSkipped(skipped: boolean): void {
   })
 }
 
-// Update the cached email — called after a successful login/signup so
-// the next launch's login field can be pre-filled.
-export function setCachedEmail(email: string | null): void {
-  const cur = read()
-  write({
-    encryptedToken: cur.encryptedToken,
-    skippedAt: cur.skippedAt,
-    cachedEmail: email,
-    anonLaunches: cur.anonLaunches
-  })
-}
-
 /**
  * Whether this launch may run with no account at all.
  *

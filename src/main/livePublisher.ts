@@ -20,7 +20,9 @@ import {
 // are easy to get wrong:
 //
 //  - Publishing is debounced. Dragging a widget emits a change per frame, and
-//    each one must not become an HTTP request.
+//    each one must not become an HTTP request. The renderer does this
+//    (lib/useLiveDeskPublisher.ts): it fingerprints the projection and settles
+//    before calling publish, and awaits the result so a failure is recorded.
 //  - Publishing is conditional. An offline machine that comes back must not
 //    overwrite a newer revision published from another of the owner's devices,
 //    so every publish carries its base revision as If-Match and a 412 is
@@ -28,11 +30,6 @@ import {
 //  - Failures are recorded, not swallowed. An owner who thinks a page is live
 //    when publishing has been failing for an hour is worse off than one who is
 //    told, so the error is persisted and surfaced in the share manager.
-
-/** Changes settle for this long before a revision is published. */
-export const PUBLISH_DEBOUNCE_MS = 750
-/** Bounded backoff for retrying a failed publish. */
-const RETRY_DELAYS_MS = [1_000, 4_000, 15_000, 60_000]
 
 export interface PublishResult {
   ok: boolean
@@ -210,60 +207,4 @@ export function liveDeskForToken(token: string): LiveDeskRecord | null {
 }
 export function allLiveDesks(): LiveDeskRecord[] {
   return listLiveDesks()
-}
-
-// --- Debounced publishing ---------------------------------------------------
-
-interface Pending {
-  timer: NodeJS.Timeout | null
-  retry: number
-  latest: unknown
-  inFlight: boolean
-}
-const pending = new Map<string, Pending>()
-
-/**
- * Queue a projection for publication. Repeated calls collapse into one request
- * once changes stop, and a failure retries with bounded backoff using whatever
- * the newest projection is at that moment -- never a stale queued one.
- */
-export function queuePublish(deskId: string, projection: unknown): void {
-  let p = pending.get(deskId)
-  if (!p) {
-    p = { timer: null, retry: 0, latest: projection, inFlight: false }
-    pending.set(deskId, p)
-  }
-  p.latest = projection
-  if (p.timer) clearTimeout(p.timer)
-  p.timer = setTimeout(() => void flush(deskId), PUBLISH_DEBOUNCE_MS)
-}
-
-async function flush(deskId: string): Promise<void> {
-  const p = pending.get(deskId)
-  if (!p || p.inFlight) return
-  p.timer = null
-  p.inFlight = true
-  const result = await publishProjection(deskId, p.latest)
-  p.inFlight = false
-  if (result.ok) {
-    p.retry = 0
-    // Nothing newer arrived while publishing, so the queue is clean.
-    if (!p.timer) pending.delete(deskId)
-    return
-  }
-  // Bounded backoff. After the last delay the error stays recorded and the next
-  // real change will try again; we do not spin forever against a broken server.
-  const delay = RETRY_DELAYS_MS[Math.min(p.retry, RETRY_DELAYS_MS.length - 1)]
-  if (p.retry < RETRY_DELAYS_MS.length) {
-    p.retry += 1
-    p.timer = setTimeout(() => void flush(deskId), delay)
-  } else {
-    pending.delete(deskId)
-  }
-}
-
-/** Test seam: drop queued work without publishing it. */
-export function _resetPublishQueue(): void {
-  for (const p of pending.values()) if (p.timer) clearTimeout(p.timer)
-  pending.clear()
 }

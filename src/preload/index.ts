@@ -283,9 +283,7 @@ const api = {
     record: (input: Omit<WireRun, 'id'>): Promise<WireRun> =>
       ipcRenderer.invoke('wireRuns:record', input),
     listByWire: (wireId: string, limit?: number): Promise<WireRun[]> =>
-      ipcRenderer.invoke('wireRuns:listByWire', wireId, limit),
-    listByTask: (taskId: string, limit?: number): Promise<WireRun[]> =>
-      ipcRenderer.invoke('wireRuns:listByTask', taskId, limit)
+      ipcRenderer.invoke('wireRuns:listByWire', wireId, limit)
   },
   webhooks: {
     // Outbound POST from the main process (no CORS). Returns an honest result.
@@ -358,11 +356,6 @@ const api = {
       reason?: string
     }> => ipcRenderer.invoke('shares:importBundle', bundle),
     listAll: (): Promise<ShareLink[]> => ipcRenderer.invoke('shares:listAll'),
-    listForEntity: (
-      kind: ShareableKind,
-      entityId: string
-    ): Promise<ShareLink[]> =>
-      ipcRenderer.invoke('shares:listForEntity', kind, entityId),
     create: (input: {
       token: string
       kind: ShareableKind
@@ -397,10 +390,6 @@ const api = {
       action: unknown
     ): Promise<{ ok: boolean; error?: string; needsAccessibility?: boolean }> =>
       ipcRenderer.invoke('streamdeck:execute', action),
-    openAccessibilitySettings: (): Promise<{
-      ok: boolean
-      strategy: string
-    }> => ipcRenderer.invoke('streamdeck:openAccessibilitySettings'),
     checkAccessibility: (): Promise<boolean> =>
       ipcRenderer.invoke('streamdeck:checkAccessibility'),
     // Triggers the macOS native accessibility prompt with a working
@@ -460,8 +449,6 @@ const api = {
     clearSession: (): Promise<void> => ipcRenderer.invoke('account:clearSession'),
     setSkipped: (skipped: boolean): Promise<void> =>
       ipcRenderer.invoke('account:setSkipped', skipped),
-    setCachedEmail: (email: string | null): Promise<void> =>
-      ipcRenderer.invoke('account:setCachedEmail', email),
     // Save the server's export ZIP (fetched by the renderer) via a save dialog.
     saveExport: (
       bytes: Uint8Array,
@@ -882,25 +869,7 @@ const api = {
       }>
     > => ipcRenderer.invoke('crdt:unsynced', limit),
     markSynced: (entries: Array<{ id: string; seq?: number | null }>): Promise<void> =>
-      ipcRenderer.invoke('crdt:markSynced', entries),
-    knownIds: (ids: string[]): Promise<string[]> => ipcRenderer.invoke('crdt:knownIds', ids),
-    eventsForObject: (
-      objectId: string
-    ): Promise<
-      Array<{
-        id: string
-        partitionKey: string
-        seq: number | null
-        ts: string
-        objectType: string
-        objectId: string
-        field: string
-        dataClass: string
-        actor: string
-        payload: unknown
-        synced: boolean
-      }>
-    > => ipcRenderer.invoke('crdt:eventsForObject', objectId)
+      ipcRenderer.invoke('crdt:markSynced', entries)
   },
   connectedApps: {
     list: (): Promise<ConnectedApp[]> => ipcRenderer.invoke('connectedApps:list'),
@@ -996,9 +965,7 @@ const api = {
     isRunning: (input: {
       appPath: string | null
       title: string
-    }): Promise<boolean> => ipcRenderer.invoke('localApp:isRunning', input),
-    refreshIcon: (appPath: string): Promise<string | null> =>
-      ipcRenderer.invoke('localApp:refreshIcon', appPath)
+    }): Promise<boolean> => ipcRenderer.invoke('localApp:isRunning', input)
   },
   onboarding: {
     // Persist onboarding progress locally so it rides the next telemetry
@@ -1088,14 +1055,11 @@ const api = {
     ): Promise<ExternalCalendar | null> => ipcRenderer.invoke('extcal:update', id, patch),
     remove: (id: string): Promise<boolean> => ipcRenderer.invoke('extcal:remove', id),
     sync: (id: string): Promise<ExternalCalendarSyncResult> => ipcRenderer.invoke('extcal:sync', id),
-    syncAll: (): Promise<ExternalCalendarSyncResult[]> => ipcRenderer.invoke('extcal:syncAll'),
 
     // OAuth accounts. `connect` opens the system browser and resolves when the
     // provider redirects back to a loopback port.
     accounts: (): Promise<Array<{ id: string; provider: string; email: string | null }>> =>
       ipcRenderer.invoke('extcal:accounts'),
-    removeAccount: (id: string): Promise<boolean> =>
-      ipcRenderer.invoke('extcal:removeAccount', id),
     getProviderConfig: (
       provider: 'google' | 'microsoft'
     ): Promise<{ configured: boolean; clientId: string; hasSecret: boolean }> =>
@@ -1310,10 +1274,6 @@ const api = {
       parentId?: string | null
     ): Promise<{ ok: boolean; file?: FbFile; error?: string }> =>
       ipcRenderer.invoke('files:ingestUrl', url, parentId),
-    internaliseDeskImages: (
-      deskId: string
-    ): Promise<{ stored: number; failed: Array<{ widgetId: string; url: string; error: string }> }> =>
-      ipcRenderer.invoke('files:internaliseDeskImages', deskId),
     // Open a local file in the user's default app (Preview/Word/VS Code/etc.)
     open: (id: string): Promise<{ ok: true } | { ok: false; error: string }> =>
       ipcRenderer.invoke('files:open', id),
@@ -1413,7 +1373,6 @@ const api = {
       ipcRenderer.invoke('fileManager:removeTag', fileId, tag),
     allTags: (): Promise<Array<{ tag: string; count: number }>> => ipcRenderer.invoke('fileManager:allTags'),
     entriesByTag: (tag: string): Promise<FileEntry[]> => ipcRenderer.invoke('fileManager:entriesByTag', tag),
-    entriesByTags: (tags: string[]): Promise<FileEntry[]> => ipcRenderer.invoke('fileManager:entriesByTags', tags),
     untaggedEntries: (): Promise<FileEntry[]> => ipcRenderer.invoke('fileManager:untaggedEntries'),
     listSmartFolders: (): Promise<Array<{ id: string; name: string; tags: string[]; search: string }>> =>
       ipcRenderer.invoke('fileManager:listSmartFolders'),
@@ -1535,29 +1494,11 @@ const api = {
   // Voice command — floating mic interpreter. Takes a transcript plus a
   // pruned canvas snapshot and returns ActionProposal[] for the user to
   // review. Same Apply/Dismiss UX as the existing AI assistants.
-  // Agentic browsing (A6/B1) — the deterministic action bridge. The runtime
-  // (and the fake-site probe) drives a webview's webContents through one
-  // sanitised door; stopRun is the kill switch.
+  // Agentic browsing (A6/B1) — the deterministic action bridge. Runs are
+  // created and driven inside main (ai/browserAgent.ts); the renderer only
+  // holds the kill switch.
   agentBrowser: {
-    createRun: (
-      wcId: number
-    ): Promise<{ id: string; wcId: number; aborted: boolean; steps: number; downloadsCancelled: number }> =>
-      ipcRenderer.invoke('agentBrowser:createRun', wcId),
-    stopRun: (runId: string): Promise<boolean> => ipcRenderer.invoke('agentBrowser:stopRun', runId),
-    endRun: (runId: string): Promise<void> => ipcRenderer.invoke('agentBrowser:endRun', runId),
-    perform: (
-      runId: string,
-      action: Record<string, unknown> & { kind: string }
-    ): Promise<{
-      ok: boolean
-      refused?: string
-      detail?: string
-      pageUrl?: string
-      text?: string
-      elements?: Array<Record<string, unknown>>
-      captchaPresent?: boolean
-      image?: { base64Png: string; width: number; height: number }
-    }> => ipcRenderer.invoke('agentBrowser:perform', runId, action)
+    stopRun: (runId: string): Promise<boolean> => ipcRenderer.invoke('agentBrowser:stopRun', runId)
   },
   // The agentic-browsing loop (A6/B2): start a supervised run, answer its
   // consent pauses, stop it, watch its events, review the standing grants.
@@ -1706,23 +1647,6 @@ const api = {
       createdEntityRef?: string | null
     }): Promise<{ ok: true }> =>
       ipcRenderer.invoke('agents:recordOutcome', input),
-    listInvocationsForNode: (
-      nodeId: string
-    ): Promise<
-      Array<{
-        id: string
-        agentSlug: string
-        agentName: string
-        nodeId: string | null
-        nodeLabel: string
-        rootPath: string[]
-        reply: string
-        proposals: ActionProposal[]
-        conversationTurn: number
-        conversationKey: string
-        invokedAt: number
-      }>
-    > => ipcRenderer.invoke('agents:listInvocationsForNode', nodeId),
     statsForSlug: (
       slug: string
     ): Promise<{
@@ -1739,15 +1663,6 @@ const api = {
       message: string
       entityRef?: string | null
     }> => ipcRenderer.invoke('agents:undoLast'),
-    // Workspace path override — when set, the resolver pushes this
-    // path to the front of its probe list. Used by Settings to let
-    // users point PlexiDesk at their workspace if auto-detect missed it.
-    getWorkspaceOverride: (): Promise<string | null> =>
-      ipcRenderer.invoke('agents:getWorkspaceOverride'),
-    setWorkspaceOverride: (
-      path: string
-    ): Promise<{ ok: true }> =>
-      ipcRenderer.invoke('agents:setWorkspaceOverride', path),
     // Reveal a path in Finder. Wraps shell.showItemInFolder so the
     // renderer can offer "show me where PlexiDesk is reading agents from"
     // affordances without needing the Electron API directly.
@@ -1856,8 +1771,6 @@ const api = {
   // the opposite: real server mailboxes, one per message, and filing moves it.
   mailTags: {
     list: (): Promise<MailTag[]> => ipcRenderer.invoke('mailTags:list'),
-    listForNode: (nodeId: string): Promise<MailTag[]> =>
-      ipcRenderer.invoke('mailTags:listForNode', nodeId),
     create: (draft: MailTagDraft): Promise<MailTag> =>
       ipcRenderer.invoke('mailTags:create', draft),
     update: (id: string, patch: MailTagPatch): Promise<MailTag | null> =>
@@ -2171,7 +2084,6 @@ const api = {
       ipcRenderer.invoke('workItems:snooze', id, until),
     markRead: (id: string): Promise<void> => ipcRenderer.invoke('workItems:markRead', id),
     clearDetached: (id: string): Promise<void> => ipcRenderer.invoke('workItems:clearDetached', id),
-    counts: (): Promise<Record<string, number>> => ipcRenderer.invoke('workItems:counts'),
     badgeCounts: (): Promise<{ headline: number; byIntent: Record<string, number> }> =>
       ipcRenderer.invoke('workItems:badgeCounts'),
     // P1 migrated-peer confirmation: per-org gate + attestation record.
@@ -2230,7 +2142,6 @@ const api = {
       notes?: string
     ): Promise<{ title: string; note: string } | null> =>
       ipcRenderer.invoke('workItems:proposeCleanup', text, notes),
-    precision: (): Promise<number | null> => ipcRenderer.invoke('workItems:precision'),
     // Internal (S2): the arrival router's seam.
     kindOf: (id: string): Promise<string | null> => ipcRenderer.invoke('workItems:kindOf', id),
     applySyncEvent: (
@@ -2380,11 +2291,6 @@ const api = {
     // Categories are real mailboxes on the mail server: a message has exactly
     // one and filing MOVES it. Distinct from `mailTags` below, which are
     // Plexii-side views that move nothing.
-    listCategories: (): Promise<{
-      ok: boolean
-      categories?: Array<{ path: string; name: string; specialUse: string | null; reserved: boolean }>
-      error?: string
-    }> => ipcRenderer.invoke('mail:listCategories'),
     createCategory: (path: string): Promise<{ ok: boolean; created?: boolean; path?: string; error?: string }> =>
       ipcRenderer.invoke('mail:createCategory', path),
     move: (uid: number, target: string): Promise<{ ok: boolean; error?: string }> =>
@@ -2439,13 +2345,10 @@ const api = {
   liveDesk: {
     get: (deskId: string): Promise<LiveDeskRecord | null> =>
       ipcRenderer.invoke('liveDesk:get', deskId),
-    list: (): Promise<LiveDeskRecord[]> => ipcRenderer.invoke('liveDesk:list'),
     start: (deskId: string, fromHandle?: string): Promise<{ ok: boolean; token?: string; error?: string }> =>
       ipcRenderer.invoke('liveDesk:start', deskId, fromHandle),
     publish: (deskId: string, projection: unknown): Promise<{ ok: boolean; revision?: number; error?: string }> =>
       ipcRenderer.invoke('liveDesk:publish', deskId, projection),
-    queuePublish: (deskId: string, projection: unknown): Promise<{ ok: boolean }> =>
-      ipcRenderer.invoke('liveDesk:queuePublish', deskId, projection),
     uploadAsset: (deskId: string, assetId: string, mime: string, bytes: Uint8Array): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('liveDesk:uploadAsset', deskId, assetId, mime, bytes),
     setPaused: (deskId: string, paused: boolean): Promise<{ ok: boolean; error?: string }> =>
@@ -2774,8 +2677,6 @@ const api = {
       applied: Record<string, import('@shared/types').AppliedProposal>
     ): Promise<void> =>
       ipcRenderer.invoke('aiChat:setMessageApplied', conversationId, messageId, applied),
-    renameConversation: (id: string, title: string): Promise<void> =>
-      ipcRenderer.invoke('aiChat:renameConversation', id, title),
     deleteConversation: (id: string): Promise<void> =>
       ipcRenderer.invoke('aiChat:deleteConversation', id),
     // Plexii P5: link a desk the conversation produced/adopted. Element 0 of
@@ -2815,8 +2716,6 @@ const api = {
       ipcRenderer.invoke('projects:reschedule', projectId),
     captureBaseline: (projectId: string, name: string): Promise<{ id: string; name: string; createdAt: number }> =>
       ipcRenderer.invoke('projects:captureBaseline', projectId, name),
-    listBaselines: (projectId: string): Promise<Array<{ id: string; name: string; createdAt: number }>> =>
-      ipcRenderer.invoke('projects:listBaselines', projectId),
     getCalendar: (projectId: string): Promise<import('@shared/workingCalendar').WorkingCalendar> =>
       ipcRenderer.invoke('projects:getCalendar', projectId),
     setCalendar: (projectId: string, cal: import('@shared/workingCalendar').WorkingCalendar): Promise<boolean> =>
@@ -3124,8 +3023,6 @@ const api = {
     }): Promise<{ ok: true; widget: SavedCustomWidget } | { ok: false; error: string }> =>
       ipcRenderer.invoke('customWidget:save', input),
     delete: (id: string): Promise<{ ok: boolean }> => ipcRenderer.invoke('customWidget:delete', id),
-    rename: (id: string, name: string): Promise<{ ok: boolean }> =>
-      ipcRenderer.invoke('customWidget:rename', id, name),
     markUsed: (id: string): Promise<{ ok: boolean }> =>
       ipcRenderer.invoke('customWidget:markUsed', id)
   },

@@ -22,10 +22,9 @@ import { useCreditPaidUntil } from '../stores/aiCredits'
 //      so until then there is no trial to count down.
 //   1. Active trial (1+ day left): small green pill "Trial · 7d left",
 //      click → upgrade picker modal.
-//   2. Trial lapsed AND stored tier is Free: amber pill "Trial ended ·
-//      Upgrade", click → upgrade picker modal. Renders as a one-shot
-//      "Trial ended" modal automatically the first time the user opens
-//      the app after lapse (until they dismiss it).
+//   2. Trial lapsed AND stored tier is Free: amber pill "Free · Upgrade",
+//      click → upgrade picker modal. The modal only ever opens on that click;
+//      nothing pops it up on boot.
 //   3. No trial, stored tier is Pro/Team: nothing in the footer. User
 //      already paid — don't pester them.
 //
@@ -116,18 +115,13 @@ export default function TrialBadge(): JSX.Element | null {
 
 // The plans, with their real prices and AI allowances (lib/plans.ts, pinned to
 // the growth spec). "Choose a plan" opens the checkout modal; "Stay on Free"
-// records that this was seen so it does not reappear on every boot.
+// just closes. (It used to write fb.tier-picker-acknowledged for an automatic
+// boot-time modal that was never built; nothing read the key, so 4.3.41
+// stopped writing it.)
 function TierPickerModal({ onClose }: { onClose: () => void }): JSX.Element {
-  const stayOnFree = (): void => {
-    try {
-      localStorage.setItem('fb.tier-picker-acknowledged', '1')
-    } catch {
-      // ignore — modal still closes
-    }
-    onClose()
-  }
+  const stayOnFree = onClose
   const choose = (): void => {
-    stayOnFree()
+    onClose()
     promptUpgrade('Pick the plan that fits.', 'pro')
   }
   const openPricing = (): void => {

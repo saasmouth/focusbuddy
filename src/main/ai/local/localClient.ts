@@ -72,22 +72,6 @@ export function jsonIntent(system: string, lastUser: string): 'object' | 'array'
 
 // ── Validation ──────────────────────────────────────────────────────────────
 
-/** Pull the outermost JSON value out of model text (fences and stray prose tolerated). */
-export function extractJsonText(text: string): string | null {
-  let s = text.trim()
-  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i)
-  if (fence) s = fence[1].trim()
-  const firstObj = s.indexOf('{')
-  const firstArr = s.indexOf('[')
-  const start = firstObj < 0 ? firstArr : firstArr < 0 ? firstObj : Math.min(firstObj, firstArr)
-  if (start < 0) return null
-  const close = s[start] === '{' ? '}' : ']'
-  const end = s.lastIndexOf(close)
-  if (end <= start) return null
-  return s.slice(start, end + 1)
-}
-
-
 /**
  * Validate model text against the demanded JSON shape and the CALL's contract
  * (structuredOutput.ts). Returns an error or null. Exported for tests; `system`

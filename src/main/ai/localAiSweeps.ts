@@ -10,7 +10,6 @@ import {
   localAiContentHash,
   needsLocalAiPass,
   markLocalAiPass,
-  localAiPassCount,
   type LocalAiPass
 } from '../db/localAiLedger'
 
@@ -114,17 +113,6 @@ export async function sweepDocumentMemory(limit = LOCAL_AI_BATCH): Promise<Sweep
     added += r.added
   }
   return { processed, failed, added, remaining: Math.max(0, queue.length - processed) }
-}
-
-/** What each pass has covered, for the settings surface and the sweep loop. */
-export function localAiBacklog(): {
-  enrich: { done: number; pending: number }
-  memory: { done: number; pending: number }
-} {
-  return {
-    enrich: { done: localAiPassCount('enrich'), pending: pending('enrich').length },
-    memory: { done: localAiPassCount('memory'), pending: pending('memory').length }
-  }
 }
 
 /**
