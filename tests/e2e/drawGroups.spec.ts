@@ -55,8 +55,7 @@ async function dragArt(from: { x: number; y: number }, to: { x: number; y: numbe
   const b = await stagePoint(window, W, to)
   await window.mouse.move(a.x, a.y)
   await window.mouse.down()
-  await window.mouse.move((a.x + b.x) / 2, (a.y + b.y) / 2)
-  await window.mouse.move(b.x, b.y)
+  for (let i = 1; i <= 4; i++) await window.mouse.move(a.x + ((b.x - a.x) * i) / 4, a.y + ((b.y - a.y) * i) / 4)
   await window.mouse.up()
 }
 
@@ -72,10 +71,11 @@ async function runSubmenu(menuId: string, submenu: string, label: string): Promi
 test('OBJ-1 draw three shapes, ⌘G groups them, the group moves as one, ⌘Z undoes the move', async () => {
   const id = await seedDrawDoc(window, v2Body([]), 'Groups')
   await openDocument(window, id)
-  // The studio returns to the Selection tool after each shape, so pick Rectangle each time.
-  for (const x of [100, 250, 400]) {
-    await window.locator('[data-testid="draw-tool-rect"]').click()
+  // The studio returns to the Selection tool after each shape, so pick Rectangle (R) each time.
+  for (const [i, x] of [100, 250, 400].entries()) {
+    await window.keyboard.press('r')
     await dragArt({ x, y: 100 }, { x: x + 80, y: 180 })
+    await expect(window.locator('[data-testid^="draw-vector-"] path')).toHaveCount(i + 1)
   }
   await window.locator('[data-testid="draw-tool-select"]').click()
   await window.keyboard.press('ControlOrMeta+a')

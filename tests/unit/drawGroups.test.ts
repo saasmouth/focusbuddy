@@ -566,6 +566,44 @@ describe('tools that act on one object reach inside groups', () => {
   })
 })
 
+describe('saving never sends a value that reaches one object twice', () => {
+  /** Paths at which an object already seen is reached again (Electron IPC rejects these as "cyclic data"). */
+  function repeated(o: unknown): string[] {
+    const seen = new Set<object>()
+    const out: string[] = []
+    const walk = (v: unknown, path: string): void => {
+      if (!v || typeof v !== 'object') return
+      if (seen.has(v as object)) {
+        out.push(path)
+        return
+      }
+      seen.add(v as object)
+      for (const [k, x] of Object.entries(v as object)) walk(x, `${path}.${k}`)
+    }
+    walk(o, '$')
+    return out
+  }
+
+  it('three shapes drawn with the same fill, then grouped, are stored as a strict tree (v2 and v1)', () => {
+    for (const start of [v2([]), blank([])]) {
+      const h = harness(start)
+      for (const x of [100, 250, 350]) {
+        h.key('r')
+        h.drag([x, 100], [x + 40, 140])
+      }
+      // In memory the shapes share the one paint object, which is fine...
+      expect(top(h.doc()).map((o) => (o as DrawPathNode).fill).every((f, _i, all) => f === all[0])).toBe(true)
+      // ...but what goes to storage must not.
+      expect(repeated(h.emitted.at(-1))).toEqual([])
+      if (start.schemaVersion === 2) {
+        h.key('a', { meta: true })
+        h.key('g', { meta: true, code: 'KeyG' })
+        expect(repeated(h.emitted.at(-1))).toEqual([])
+      }
+    }
+  })
+})
+
 describe('isolation mode', () => {
   const nested = (): Record<string, unknown> =>
     v2([

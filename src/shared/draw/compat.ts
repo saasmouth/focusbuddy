@@ -150,6 +150,47 @@ export function pruneAssets(doc: DrawDoc): DrawDoc {
  *     only v2 can carry.
  */
 export function drawDocForStorage(doc: DrawDoc, opts: { stored?: number; allowV2?: boolean } = {}): DrawDoc | DrawBody {
+  return unshareRefs(storageForm(doc, opts))
+}
+
+/**
+ * The same tree with every object that is reached twice copied, so the result
+ * is a strict tree. In-memory documents legitimately share objects (every
+ * shape drawn with the current fill holds the SAME paint object), but
+ * Electron's IPC rejects a value that reaches one object twice as "cyclic
+ * data" -- the save then fails and the drawing is silently not stored. Only
+ * the repeated parts (small paints, in practice) are copied; nothing is
+ * mutated, and a body with no sharing comes back as the same object.
+ */
+export function unshareRefs<T>(value: T): T {
+  const seen = new Set<object>()
+  const walk = (v: unknown): unknown => {
+    if (!v || typeof v !== 'object') return v
+    if (seen.has(v)) return JSON.parse(JSON.stringify(v))
+    seen.add(v)
+    if (Array.isArray(v)) {
+      let changed = false
+      const out = v.map((x) => {
+        const y = walk(x)
+        if (y !== x) changed = true
+        return y
+      })
+      return changed ? out : v
+    }
+    let copy: Record<string, unknown> | null = null
+    for (const [k, x] of Object.entries(v)) {
+      const y = walk(x)
+      if (y !== x) {
+        copy = copy ?? { ...(v as Record<string, unknown>) }
+        copy[k] = y
+      }
+    }
+    return copy ?? v
+  }
+  return walk(value) as T
+}
+
+function storageForm(doc: DrawDoc, opts: { stored?: number; allowV2?: boolean }): DrawDoc | DrawBody {
   const allowV2 = opts.allowV2 ?? DRAW_V2_WRITES
   const pruned = pruneAssets(doc)
   if (!allowV2 && (opts.stored ?? 1) < 2 && isV1Representable(pruned)) return drawBodyForStorage(v2ToV1(pruned))
