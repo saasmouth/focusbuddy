@@ -2,6 +2,8 @@ import { useEffect, useMemo } from 'react'
 import { parseAssigneeIds } from '@shared/workItems'
 import { usePeopleStore, personName, type DirectoryPerson } from '../../lib/peopleDirectory'
 import { useOrgStore, PERSONAL_ORG_ID } from '../../stores/org'
+import { useAccountStore } from '../../stores/account'
+import { useViewStore } from '../../stores/view'
 import Icon from '../Icon'
 
 // DEC-144 — who a task is assigned to, in a team workspace.
@@ -20,17 +22,32 @@ function initials(name: string): string {
   )
 }
 
-/** Load the active team's people once, for the picker and the avatars. */
-export function useTeamPeople(): { people: DirectoryPerson[]; inTeam: boolean; attempted: boolean } {
+/**
+ * Load the active team's people, for the picker and the avatars. `ready` is
+ * true only once the list in hand was loaded for THIS workspace; a list from
+ * the previous workspace (or one fetched in Personal) never counts.
+ */
+export function useTeamPeople(): {
+  people: DirectoryPerson[]
+  inTeam: boolean
+  ready: boolean
+  failed: boolean
+  retry: () => void
+} {
   const orgId = useOrgStore((s) => s.activeOrgId)
   const people = usePeopleStore((s) => s.people)
   const attempted = usePeopleStore((s) => s.attempted)
+  const loadedFor = usePeopleStore((s) => s.loadedFor)
+  const loading = usePeopleStore((s) => s.loading)
+  const failed = usePeopleStore((s) => s.failed)
   const load = usePeopleStore((s) => s.load)
   const inTeam = !!orgId && orgId !== PERSONAL_ORG_ID
+  // A refresh keeps showing the list it already has for this workspace.
+  const ready = attempted && loadedFor === orgId
   useEffect(() => {
-    if (inTeam && !attempted) void load()
-  }, [inTeam, attempted, load])
-  return { people, inTeam, attempted }
+    if (inTeam && !loading && (!attempted || loadedFor !== orgId)) void load()
+  }, [inTeam, attempted, loadedFor, orgId, loading, load])
+  return { people: ready ? people : [], inTeam, ready, failed: ready && failed, retry: () => void load() }
 }
 
 /** Overlapping initials for a task's assignees (up to three, then +N). */
@@ -73,29 +90,50 @@ export function AssigneePicker({
   value: string[]
   onChange: (next: string[]) => void
 }): JSX.Element | null {
-  const { people, inTeam, attempted } = useTeamPeople()
+  const { people, inTeam, ready, failed, retry } = useTeamPeople()
+  // Refresh once each time the picker opens, so someone who joined since the
+  // list was loaded (the invite this picker points to) is there to pick.
+  useEffect(() => {
+    if (inTeam) retry()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inTeam])
+  const selfId = useAccountStore((s) => s.account?.id ?? null)
+  const goOrg = useViewStore((s) => s.goOrg)
   const sorted = useMemo(
     () =>
       [...people].sort(
-        (a, b) => Number(a.role === 'guest') - Number(b.role === 'guest') || personName(a).localeCompare(personName(b))
+        (a, b) =>
+          Number(a.accountId !== selfId) - Number(b.accountId !== selfId) ||
+          Number(a.role === 'guest') - Number(b.role === 'guest') ||
+          personName(a).localeCompare(personName(b))
       ),
-    [people]
+    [people, selfId]
   )
   if (!inTeam) return null
   // Someone already assigned who is not in the loaded directory (left the
   // team, or the directory failed to load) stays listed, so saving never
   // silently drops them.
-  const unknown = value.filter((id) => !people.some((p) => p.accountId === id))
+  const unknown = ready ? value.filter((id) => !people.some((p) => p.accountId === id)) : []
   const toggle = (id: string): void =>
     onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id])
+  // Joined people other than you. With none, the list is not broken: there is
+  // nobody to give the task to yet, and the picker says how to change that.
+  const others = people.filter((p) => p.accountId !== selfId)
   return (
     <div className="block mt-3" data-testid="assignee-picker">
       <span className="fb-t-caption text-[var(--ink-40)]">
         Assigned to <span className="text-[var(--ink-30)]">— it shows in each person’s Focus</span>
       </span>
-      {attempted && people.length === 0 ? (
-        <div className="mt-1 text-[12px] text-[var(--ink-50)]">
-          Could not load this team’s people. Check your connection and try again.
+      {!ready ? (
+        <div className="mt-1 text-[12px] text-[var(--ink-50)]" data-testid="assignee-picker-loading">
+          Loading this team’s people…
+        </div>
+      ) : failed ? (
+        <div className="mt-1 text-[12px] text-[var(--ink-50)] flex items-center gap-2" data-testid="assignee-picker-failed">
+          Could not load this team’s people. Check your connection.
+          <button type="button" onClick={retry} className="text-accent hover:underline">
+            Try again
+          </button>
         </div>
       ) : (
         <div className="mt-1 flex flex-wrap gap-1">
@@ -115,6 +153,7 @@ export function AssigneePicker({
               >
                 {on && <Icon name="check" size={12} />}
                 {personName(p)}
+                {p.accountId === selfId && <span className={on ? 'opacity-80' : 'text-[var(--ink-40)]'}>(you)</span>}
                 {p.role === 'guest' && <span className={on ? 'opacity-80' : 'text-[var(--ink-40)]'}>· Guest</span>}
               </button>
             )
@@ -132,6 +171,15 @@ export function AssigneePicker({
               Someone outside this workspace
             </button>
           ))}
+        </div>
+      )}
+      {ready && !failed && others.length === 0 && (
+        <div className="mt-1.5 text-[12px] text-[var(--ink-50)] flex items-center gap-2" data-testid="assignee-picker-nobody">
+          Nobody else has joined this workspace yet. Invite someone to assign tasks to them.
+          {/* The same destination as the workspace switcher's Manage organisation. */}
+          <button type="button" onClick={goOrg} className="text-accent hover:underline" data-testid="assignee-picker-invite">
+            Invite people
+          </button>
         </div>
       )}
     </div>

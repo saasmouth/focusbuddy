@@ -312,3 +312,107 @@ test('team Focus: tasks assigned to a member and a guest reach exactly them', as
     await G.dispose()
   }
 })
+
+// Owner report (4.3.40): "I can't seem to assign a task." Driven through the
+// UI this time: the row's Assign action, the picker, Save, and the member's
+// Focus. First with nobody else in the team (the picker says so and offers the
+// invite, rather than "could not load"), then after the member joins.
+test('team Focus: the owner assigns a task through the picker, and it reaches the member', async () => {
+  test.setTimeout(300_000)
+  const rand = Date.now()
+  const pw = 'Test-Account-123!'
+  const emails = { A: `assign.a.${rand}@example.com`, M: `assign.m.${rand}@example.com` }
+  const A = await launch('A2')
+  const M = await launch('M2')
+  try {
+    for (const w of [A, M]) await dismissOnboarding(w.window)
+    await signUp(A.window, emails.A, pw)
+    await signUp(M.window, emails.M, pw)
+    const tokenA = await sessionToken(A.window)
+    const created = (await apiPost(A.window, PROXY_BASE!, '/orgs', tokenA, { name: `Assign Team ${rand}` })) as { org?: { id: string } }
+    const orgId = created.org?.id
+    if (!orgId) throw new Error(`org create failed: ${JSON.stringify(created)}`)
+
+    for (const w of [A, M]) await enableAllFlagsReload(w.window)
+    for (const w of [A, M]) await dismissOnboarding(w.window)
+    await switchToOrg(A.window, orgId)
+
+    // The owner raises a task in the team; unassigned, it is in their own Focus.
+    const taskId = await A.window.evaluate(async () => {
+      const wi = (window as unknown as { __fbWorkItems: { getState: () => { create: (d: unknown) => Promise<{ id: string }> } } }).__fbWorkItems
+      return (await wi.getState().create({ title: 'Book the caterer' })).id
+    })
+    await A.window.evaluate(() => {
+      ;(window as unknown as { __fbView: { getState: () => { goAttention: () => void } } }).__fbView.getState().goAttention()
+    })
+    const row = A.window.locator(`[data-item-row][data-item-id="${taskId}"]`).first()
+    await expect(row).toBeVisible({ timeout: 15_000 })
+
+    // A new account is asked to verify its email; that prompt is not part of this.
+    const later = A.window.locator('[data-testid="verify-email-later"]')
+    if (await later.isVisible({ timeout: 5_000 }).catch(() => false)) await later.click()
+
+    const openAssign = async (): Promise<void> => {
+      if (await later.isVisible().catch(() => false)) await later.click()
+      await row.hover()
+      await row.locator('[data-testid="task-assign"]').click()
+      await expect(A.window.getByRole('dialog', { name: 'Edit task' })).toBeVisible()
+    }
+
+    // Nobody else yet: an honest hint and the way to fix it, not an error.
+    await openAssign()
+    const picker = A.window.locator('[data-testid="assignee-picker"]')
+    await expect(picker.locator('[data-testid="assignee-picker-nobody"]')).toBeVisible({ timeout: 15_000 })
+    await expect(picker).toContainText('Invite someone to assign tasks to them.')
+    await expect(picker).not.toContainText('Could not load')
+    await expect(picker.locator('[data-testid="assignee-picker-invite"]')).toBeVisible()
+    await A.window.keyboard.press('Escape')
+
+    // The member joins.
+    expect(((await apiPost(A.window, PROXY_BASE!, `/orgs/${orgId}/members`, tokenA, { email: emails.M, role: 'member' })) as { ok?: boolean }).ok).toBe(true)
+    await switchToOrg(M.window, orgId)
+    const mId = await accountId(M.window)
+    const mName = await M.window.evaluate(() => {
+      const s = (window as unknown as { __fbAccount: { getState: () => { account: { handle: string | null; firstName: string | null; email: string } | null } } }).__fbAccount
+      const a = s.getState().account!
+      return a.firstName || (a.handle && a.handle !== 'Someone' ? a.handle : null) || a.email
+    })
+
+    // Reopened, the picker lists them; pick and save.
+    await openAssign()
+    const chip = picker.getByRole('button', { name: mName, exact: false }).first()
+    await expect(chip).toBeVisible({ timeout: 15_000 })
+    await expect(picker.locator('[data-testid="assignee-picker-nobody"]')).toHaveCount(0)
+    await chip.click()
+    await expect(chip).toHaveAttribute('aria-pressed', 'true')
+    await A.window.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(A.window.getByRole('dialog', { name: 'Edit task' })).toHaveCount(0)
+
+    // Saved on the owner's device…
+    const saved = await A.window.evaluate(async (id) => {
+      const api = (window as unknown as { api: typeof window.api }).api
+      return ((await api.workItems.get(id)) as unknown as { assigneeIds: string | null } | null)?.assigneeIds ?? null
+    }, taskId)
+    expect(JSON.parse(saved ?? '[]')).toEqual([mId])
+    // …and in the member's Focus.
+    const ms = await until(M.window, focusList, (l) => l.some((i) => i.id === taskId), 90_000).catch(async (e) => {
+      const tokM = await sessionToken(M.window)
+      const diag = await M.window.evaluate(
+        async ({ base, tok, org, id }) => {
+          const res = await fetch(`${base}/workspace/org/sync?since=0`, { headers: { authorization: `Bearer ${tok}`, 'x-plexi-org': org } })
+          const body = await res.json()
+          const api = (window as unknown as { api: typeof window.api }).api
+          const node = await api.workItems.get(id)
+          return { status: res.status, serverHasIt: JSON.stringify(body).includes(id), serverSnippet: JSON.stringify(body).slice(0, 1500), localNode: node, orgActive: (window as unknown as { __fbOrg: { getState: () => { activeOrgId: string } } }).__fbOrg.getState().activeOrgId }
+        },
+        { base: PROXY_BASE!, tok: tokM, org: orgId, id: taskId }
+      )
+      console.log('[FOCUS-ASSIGN][diag member]', JSON.stringify(diag).slice(0, 3000))
+      throw e
+    })
+    console.log(`[FOCUS-ASSIGN] picker assignment reached the member in ${ms}ms (org ${orgId})`)
+  } finally {
+    await A.dispose()
+    await M.dispose()
+  }
+})

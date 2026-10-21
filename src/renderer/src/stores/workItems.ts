@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { FbNode } from '@shared/types'
-import { WORK_ITEM_COLUMNS } from '@shared/workItems'
+import { WORK_ITEM_COLUMNS, normalizeAssigneeIds } from '@shared/workItems'
 import { crdtEmitNodeCreate, crdtEmitNodeAttrs, crdtEmitNodeTitle } from '../lib/crdtBridge'
 import { nudgeSync } from '../lib/syncNudge'
 import { taskAttrsForItemPatch } from '@shared/attentionProjection'
@@ -55,20 +55,17 @@ const EMITTED_ATTRS = new Set(WORK_ITEM_COLUMNS.filter((c) => c.rendererEmitted)
  *   Error invoking remote method 'workItems:create': Error: …
  *
  * which names an IPC channel and reads as "the app is broken". Every
- * work-items write can be refused the same two ways, so the translation lives
- * here rather than at each call site. (DEC-144 retired the third: Focus is
- * always on, so "turned off" can no longer happen and no message names a
- * Settings switch that does not exist.) Matched on the message text; the main
+ * work-items write can be refused the same way, so the translation lives
+ * here rather than at each call site. (DEC-144 retired "turned off": Focus is
+ * always on, and no message names a Settings switch that does not exist.
+ * DEC-145 retired "personal only": team workspaces hold tasks.) Matched on the
+ * message text; the main
  * process is the authority on its own gate.
  */
 export function friendlyWorkItemError(e: unknown): Error {
   const raw = e instanceof Error ? e.message : String(e)
   if (/has not (migrated|finished updating)/i.test(raw))
     return new Error('This device has not finished updating for Focus yet. Restart Plexii and try again.')
-  if (/personal/i.test(raw))
-    return new Error(
-      'Focus tasks are personal for now, so this one cannot be added in a shared workspace. Switch to your personal workspace to add it.'
-    )
   return e instanceof Error ? e : new Error(raw)
 }
 
@@ -154,7 +151,12 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
         void import('./nodes').then((m) => m.useNodeStore.getState().refresh())
       } else {
         const attrs: Record<string, unknown> = {}
-        for (const [k, v] of Object.entries(patch)) if (EMITTED_ATTRS.has(k)) attrs[k] = v
+        // Each attr goes out in the form its column stores. assigneeIds comes
+        // from the editor as an array; sent as one, a receiver bound it into
+        // SQL as separate parameters (4.3.40: the assignee stored bare, so the
+        // task never reached their Focus).
+        for (const [k, v] of Object.entries(patch))
+          if (EMITTED_ATTRS.has(k)) attrs[k] = k === 'assigneeIds' ? (normalizeAssigneeIds(v) ?? null) : v
         if (typeof patch.title === 'string') attrs.title = patch.title
         if (Object.keys(attrs).length) crdtEmitNodeAttrs(id, attrs)
       }

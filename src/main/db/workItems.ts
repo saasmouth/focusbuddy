@@ -73,8 +73,11 @@ export function mineClause(selfId: string | null): { sql: string; args: string[]
   return {
     sql: ` AND (n.org_id = '${PERSONAL_ORG_ID}'
       OR (json_valid(n.assignee_ids) AND EXISTS (SELECT 1 FROM json_each(n.assignee_ids) WHERE value = ?))
+      OR n.assignee_ids = ?
       OR ((n.assignee_ids IS NULL OR n.assignee_ids = '' OR n.assignee_ids = '[]') AND (n.originator_id IS NULL OR n.originator_id = ?)))`,
-    args: [selfId, selfId]
+    // The bare match reads a 4.3.40 one-person assignment stored as the id
+    // itself (see normalizeAssigneeIds); ensureWorkItemSchema repairs those.
+    args: [selfId, selfId, selfId]
   }
 }
 
@@ -111,6 +114,13 @@ export function ensureWorkItemSchema(d: LifecycleDb & { exec(sql: string): void 
   // into device-local bookkeeping mid-lifecycle; the sweep is the contract).
   d.exec('DELETE FROM wi_local WHERE item_id NOT IN (SELECT id FROM nodes)')
   d.exec('DELETE FROM wi_deliveries WHERE item_id NOT IN (SELECT id FROM nodes)')
+  // A 4.3.40 one-person assignment stored as the bare account id (see
+  // normalizeAssigneeIds) becomes the JSON array every reader expects.
+  // Idempotent: a repaired value is valid JSON and no longer matches.
+  d.exec(
+    `UPDATE nodes SET assignee_ids = json_array(assignee_ids)
+       WHERE assignee_ids GLOB 'acc_*' AND NOT json_valid(assignee_ids)`
+  )
 }
 
 // ── wi_local helpers + the detach hook (§2.5.3 seam, wired at S2) ───────────
@@ -780,7 +790,7 @@ export function applyRemoteWorkItemSnapshot(
       // edit racing that echo lost to a 409. The writer pushes it; we don't.
       needs_sync: 0
     }
-    for (const def of WORK_ITEM_COLUMNS) vals[def.column] = (snapshot[def.attr] as never) ?? null
+    for (const def of WORK_ITEM_COLUMNS) vals[def.column] = (wireColumnValue(def.column, snapshot[def.attr]) as never) ?? null
     db.prepare(
       `INSERT INTO nodes (${cols.join(', ')}) VALUES (${cols.map((c) => `@${c}`).join(', ')})`
     ).run(vals)
@@ -790,7 +800,7 @@ export function applyRemoteWorkItemSnapshot(
     for (const def of WORK_ITEM_COLUMNS) {
       if (def.attr in snapshot) {
         sets.push(`${def.column} = @${def.column}`)
-        params[def.column] = snapshot[def.attr] as never
+        params[def.column] = wireColumnValue(def.column, snapshot[def.attr]) as never
       }
     }
     if (typeof snapshot.title === 'string') {
@@ -802,6 +812,16 @@ export function applyRemoteWorkItemSnapshot(
   return normalizeAppliedWorkItem(db, id)
 }
 
+/** A value from the wire, in the form its column stores. assignee_ids is a
+ *  JSON array string; a sender may deliver the array itself (4.3.40's live
+ *  path did), and binding an array spreads it into separate parameters (one
+ *  id stored bare, two ids failing the write). Anything that is not a valid
+ *  assignment is stored as nobody, never as junk. */
+export function wireColumnValue(column: string, value: unknown): unknown {
+  if (column === 'assignee_ids') return normalizeAssigneeIds(value) ?? null
+  return value
+}
+
 /** The live path's inbound attr write for a work_item (router branch of
  *  applyNodeAttr): manifest attrs land on their columns; a bare 'status' attr
  *  is IGNORED (the projection is derived, never written from the wire). */
@@ -810,7 +830,7 @@ export function applyRemoteWorkItemAttr(id: string, attr: string, value: unknown
   const def = WORK_ITEM_COLUMNS.find((c) => c.attr === attr)
   if (def) {
     db.prepare(`UPDATE nodes SET ${def.column} = ? WHERE id = ? AND kind = 'work_item'`).run(
-      value as never,
+      wireColumnValue(def.column, value) as never,
       id
     )
   } else if (attr === 'title' || attr === 'description') {
