@@ -108,6 +108,28 @@ describe('Direct Selection (A)', () => {
     expect(h.state().past[0].label).toBe('Move anchor points')
   })
 
+  it('an anchor of a path selected as an OBJECT is picked on its own and dragged alone', () => {
+    const h = harness(blank([rect('r', 100, 100, 100, 100)]))
+    h.click(150, 150) // the Selection tool: the whole object
+    h.tool('direct')
+    h.drag([100, 100], [80, 60])
+    expect(nodes(h, 'r').map((n) => [n.x, n.y])).toEqual([
+      [80, 60],
+      [200, 100],
+      [200, 200],
+      [100, 200]
+    ])
+    expect(path(h, 'r').shapeKind).toBe('path')
+  })
+
+  it('a marquee over every anchor, then a drag on one of them, moves them all', () => {
+    const h = harness(blank([rect('r', 100, 100, 100, 100)]))
+    h.tool('direct')
+    h.drag([90, 90], [210, 210])
+    h.drag([100, 100], [110, 100])
+    expect(nodes(h, 'r').map((n) => n.x)).toEqual([110, 210, 210, 110])
+  })
+
   it('a plain click on one of several selected anchors selects just it', () => {
     const h = harness(blank([rect('r', 100, 100, 100, 100)]))
     h.tool('direct')

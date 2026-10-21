@@ -61,9 +61,11 @@ export function isAnchorSelected(s: EditorState, r: AnchorRef): boolean {
 }
 
 /**
- * Select exactly these anchors (and `whole` paths entirely). A path whose every
- * anchor is listed collapses to "wholly selected". `keepEmpty` paths stay
- * selected with no anchors.
+ * Select exactly these anchors (and `whole` paths entirely, as objects). A
+ * path stays refined to its listed anchors even when every one is listed --
+ * picking all of a path's anchors is not the same as selecting the object
+ * (clicking one of them then drags them all). `keepEmpty` paths stay selected
+ * with no anchors.
  */
 export function selectAnchors(ctx: EditorCtx, refs: AnchorRef[], opts: { whole?: string[]; keepEmpty?: string[] } = {}): void {
   const doc = ctx.doc()
@@ -80,8 +82,7 @@ export function selectAnchors(ctx: EditorCtx, refs: AnchorRef[], opts: { whole?:
   for (const [id, list] of by) {
     if (selection.includes(id)) continue
     selection.push(id)
-    const total = allAnchorsOf(doc, id).length
-    if (list.length < total) anchors[id] = list
+    anchors[id] = list
   }
   for (const id of opts.keepEmpty ?? []) {
     if (selection.includes(id)) continue

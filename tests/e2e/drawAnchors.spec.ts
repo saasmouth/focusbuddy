@@ -22,6 +22,9 @@ test.beforeAll(async () => {
   window = app.window
   await waitForReady(window)
   await keepNoticesOutOfTheWay(window)
+  // The one-time local-AI introduction card sits fixed over the bottom of the
+  // canvas, where these drags end. Hidden for display only; nothing is clicked.
+  await window.addStyleTag({ content: '[data-testid="local-ai-intro"]{display:none!important}' })
 })
 
 test.afterAll(async () => {
@@ -47,6 +50,20 @@ function lineObject(id: string, pts: Array<[number, number]>): Record<string, un
 }
 
 const W = 800
+
+/** Open a stored drawing and wait for the stage to stop resizing (fit-to-window runs after mount). */
+async function open(id: string): Promise<void> {
+  await openDocument(window, id)
+  let last = -1
+  await expect
+    .poll(async () => {
+      const w = (await window.locator('[data-testid="draw-stage"]').boundingBox())?.width ?? 0
+      const stable = w > 0 && Math.abs(w - last) < 0.5
+      last = w
+      return stable
+    }, { intervals: [100, 150, 200, 250] })
+    .toBe(true)
+}
 
 async function at(p: { x: number; y: number }): Promise<{ x: number; y: number }> {
   return stagePoint(window, W, p)
@@ -74,13 +91,14 @@ async function tool(id: string): Promise<void> {
 async function runSubmenu(menuId: string, submenu: string, label: string): Promise<void> {
   await window.locator(`[data-testid="draw-studio-menubar-${menuId}"]`).click()
   const list = window.locator(`[data-testid="draw-studio-menubar-${menuId}-list"]`)
-  await list.locator('button').filter({ hasText: submenu }).first().hover()
+  // Match the submenu row exactly ("Path", not "Pathfinder").
+  await list.locator('button').filter({ hasText: new RegExp(`${submenu}(?!finder)`) }).first().hover()
   await list.locator('button').filter({ hasText: label }).first().click()
 }
 
 test('DA-1 add an anchor mid-segment, then drag it with Direct Selection', async () => {
   const id = await seedDrawDoc(window, v1Body([rectObject('r', 200, 200, 200, 200)]), 'Anchors 1')
-  await openDocument(window, id)
+  await open(id)
   await tool('addAnchor')
   await click({ x: 300, y: 200 })
   await tool('direct')
@@ -99,7 +117,7 @@ test('DA-1 add an anchor mid-segment, then drag it with Direct Selection', async
 
 test('DA-2 ⌘J joins two open lines into one path', async () => {
   const id = await seedDrawDoc(window, v1Body([lineObject('a', [[100, 300], [300, 300]]), lineObject('b', [[500, 300], [340, 300]])]), 'Anchors 2')
-  await openDocument(window, id)
+  await open(id)
   await tool('select')
   await click({ x: 200, y: 300 })
   const b = await at({ x: 420, y: 300 })
@@ -116,7 +134,7 @@ test('DA-2 ⌘J joins two open lines into one path', async () => {
 
 test('DA-3 the pen continues an open path from its end', async () => {
   const id = await seedDrawDoc(window, v1Body([lineObject('l', [[100, 100], [300, 100]])]), 'Anchors 3')
-  await openDocument(window, id)
+  await open(id)
   await tool('pen')
   await click({ x: 300, y: 100 })
   await click({ x: 300, y: 300 })
@@ -138,7 +156,7 @@ test('DA-4 Simplify previews, cancels cleanly, and applies', async () => {
     Array.from({ length: 120 }, (_, k): [number, number] => [100 + k * 5, 300 + 80 * Math.sin(k / 12)])
   )
   const id = await seedDrawDoc(window, v1Body([dense]), 'Anchors 4')
-  await openDocument(window, id)
+  await open(id)
   await tool('select')
   await click({ x: 100, y: 300 })
   await runSubmenu('object', 'Path', 'Simplify…')
@@ -162,7 +180,7 @@ test('DA-4 Simplify previews, cancels cleanly, and applies', async () => {
 
 test('DA-5 the knife cuts a filled rectangle in two', async () => {
   const id = await seedDrawDoc(window, v1Body([rectObject('r', 200, 200, 200, 200)]), 'Anchors 5')
-  await openDocument(window, id)
+  await open(id)
   await tool('knife')
   await drag({ x: 300, y: 160 }, { x: 300, y: 440 }, 10)
   await waitForSave(window)
@@ -173,7 +191,7 @@ test('DA-5 the knife cuts a filled rectangle in two', async () => {
 
 test('DA-6 the Anchor points panel rounds a selected corner', async () => {
   const id = await seedDrawDoc(window, v1Body([rectObject('r', 200, 200, 200, 200)]), 'Anchors 6')
-  await openDocument(window, id)
+  await open(id)
   await tool('direct')
   await click({ x: 400, y: 200 })
   await expect(window.locator('[data-testid="draw-anchors-panel"]')).toBeVisible()
@@ -183,7 +201,8 @@ test('DA-6 the Anchor points panel rounds a selected corner', async () => {
   await waitForSave(window)
   const nodes = objectsOf((await readStored(window, id)).raw)[0].path!.subpaths[0].nodes
   expect(nodes).toHaveLength(5)
-  expect(nodes[1]).toMatchObject({ x: 370, y: 200 })
+  expect(nodes[1].x).toBeCloseTo(370, 6)
+  expect(nodes[1].y).toBeCloseTo(200, 6)
   expect(nodes[2].x).toBeCloseTo(400, 6)
   expect(nodes[2].y).toBeCloseTo(230, 6)
 })

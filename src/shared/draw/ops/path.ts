@@ -338,6 +338,18 @@ export function replaceNode(doc: DrawDoc, id: string, nodes: DrawNode[]): DrawDo
 }
 
 /**
+ * A node's copy for a second piece: its paint, stroke and appearance are
+ * copied, never shared. Two nodes holding the same object would be one value
+ * reachable twice, which the IPC payload check rejects ("cyclic data") -- the
+ * save would silently fail.
+ */
+function pieceOf(o: DrawPathNode, path: DrawPath, id: string): DrawPathNode {
+  const { path: _p, ...rest } = withGeometry(o, path)
+  void _p
+  return { ...(structuredClone(rest) as Omit<DrawPathNode, 'path'>), path, id }
+}
+
+/**
  * Write a path's new subpaths back. A path left with no subpath is deleted; a
  * SINGLE path that fell into several pieces becomes several path objects (a
  * compound path keeps its pieces together, as one object). Returns the ids
@@ -349,7 +361,7 @@ function writePieces(doc: DrawDoc, o: DrawPathNode, subpaths: DrawSubpath[], was
     const next = withGeometry(o, { ...o.path, subpaths })
     return { doc: mapObject(doc, o.id, () => next), ids: [o.id] }
   }
-  const nodes: DrawPathNode[] = subpaths.map((sp, i) => ({ ...withGeometry(o, { ...o.path, subpaths: [sp] }), id: i === 0 ? o.id : drawId('obj') }))
+  const nodes: DrawPathNode[] = subpaths.map((sp, i) => (i === 0 ? withGeometry(o, { ...o.path, subpaths: [sp] }) : pieceOf(o, { ...o.path, subpaths: [sp] }, drawId('obj'))))
   return { doc: replaceNode(doc, o.id, nodes), ids: nodes.map((n) => n.id) }
 }
 
@@ -590,13 +602,15 @@ export function joinPathsByEnds(doc: DrawDoc, ids: string[], average = false): {
   let next = doc
   let ends = openEndpoints(next, ids)
   if (!ends.length) return null
+  // A lone open path closes; several are chained end to end and stay open.
+  const lone = new Set(ends.map((e) => `${e.id}:${e.si}`)).size === 1
   let last: string | null = null
   for (let guard = 0; guard < 500; guard++) {
     ends = openEndpoints(next, ids.filter((id) => getObject(next, id)))
     const subpathsWithEnds = new Set(ends.map((e) => `${e.id}:${e.si}`))
     if (subpathsWithEnds.size <= 1) {
-      // One open subpath left: close it.
-      if (ends.length === 2) {
+      // One open subpath left: close it, if it was the only one to begin with.
+      if (lone && ends.length === 2) {
         const r = joinEndpoints(next, ends[0], ends[1], average)
         if (r) return r
       }
@@ -758,7 +772,7 @@ export function knifeCut(doc: DrawDoc, ids: string[], line: Pt[]): { doc: DrawDo
     const local = line.map((p) => toLocal(next, id, p))
     const pieces = knifePath(o.path, local)
     if (!pieces || pieces.length < 2) continue
-    const nodes: DrawPathNode[] = pieces.map((path, i) => ({ ...withGeometry(o, path), id: i === 0 ? o.id : drawId('obj') }))
+    const nodes: DrawPathNode[] = pieces.map((path, i) => (i === 0 ? withGeometry(o, path) : pieceOf(o, path, drawId('obj'))))
     next = replaceNode(next, id, nodes)
     out.push(...nodes.map((n) => n.id))
   }

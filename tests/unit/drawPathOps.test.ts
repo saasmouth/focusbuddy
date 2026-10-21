@@ -717,6 +717,7 @@ describe('document ops', () => {
     const r = joinPathsByEnds(d, ['a', 'b'])!
     expect(objs(r.doc)).toHaveLength(1)
     expect(obj(r.doc, 'a').path.subpaths[0].nodes.map((n) => n.x)).toEqual([0, 100, 110, 200])
+    expect(obj(r.doc, 'a').path.subpaths[0].closed).toBe(false)
     // A single open path closes.
     const u = doc([pathObj('u', [sp(false, [0, 0], [100, 0], [100, 100])])])
     expect(obj(joinPathsByEnds(u, ['u'])!.doc, 'u').path.subpaths[0].closed).toBe(true)
@@ -780,6 +781,24 @@ describe('document ops', () => {
     const rc = roundAnchorCorners(d, [{ id: 'sq', si: 0, ni: 0 }], 10)
     expect(obj(rc.doc, 'sq').path.subpaths[0].nodes).toHaveLength(5)
     expect(rc.refs).toEqual([{ id: 'sq', si: 0, ni: 0 }, { id: 'sq', si: 0, ni: 1 }])
+  })
+
+  it('pieces never share an object (the IPC check would refuse the save as "cyclic data")', () => {
+    const d = doc([pathObj('sq', [sp(true, [0, 0], [100, 0], [100, 100], [0, 100])]), pathObj('l', [sp(false, [0, 200], [100, 200], [200, 200], [300, 200])])])
+    const sharedOnce = (x: unknown): boolean => {
+      const seen = new Set<object>()
+      const walk = (v: unknown): boolean => {
+        if (!v || typeof v !== 'object') return true
+        if (seen.has(v as object)) return false
+        seen.add(v as object)
+        return Object.values(v as Record<string, unknown>).every(walk)
+      }
+      return walk(x)
+    }
+    expect(sharedOnce(knifeCut(d, ['sq'], [{ x: 50, y: -10 }, { x: 50, y: 110 }]).doc.layers)).toBe(true)
+    expect(sharedOnce(cutPathAt(d, 'l', [{ si: 0, seg: 1, t: 0.5 }]).doc.layers)).toBe(true)
+    expect(sharedOnce(deleteAnchorsBreak(d, [{ id: 'l', si: 0, ni: 2 }]).doc.layers)).toBe(true)
+    expect(sharedOnce(erasePaths(d, ['l'], [{ x: 150, y: 190 }, { x: 150, y: 210 }], 4).doc.layers)).toBe(true)
   })
 
   it('extendSubpath continues an open path from either end and can close it', () => {

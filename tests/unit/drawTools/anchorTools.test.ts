@@ -141,6 +141,16 @@ describe('Knife, Path Eraser, Smooth', () => {
     for (const p of paths(h)) expect(p.fill).toEqual(obj(h, 'r').fill)
     expect(h.state().past).toHaveLength(1)
     expect(h.state().past[0].label).toBe('Knife')
+    // What is handed to the host for saving holds no object twice (the IPC
+    // payload check refuses that as "cyclic data").
+    const seen = new Set<object>()
+    const once = (v: unknown): boolean => {
+      if (!v || typeof v !== 'object') return true
+      if (seen.has(v as object)) return false
+      seen.add(v as object)
+      return Object.values(v as Record<string, unknown>).every(once)
+    }
+    expect(once(h.emitted.at(-1))).toBe(true)
   })
 
   it('a knife stroke that does not cross a shape says so and changes nothing', () => {

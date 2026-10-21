@@ -138,7 +138,11 @@ export function directPointerDown(ctx: EditorCtx, e: ToolPointer): void {
     if (e.shiftKey) {
       toggleAnchors(ctx, [hit.ref], 'toggle')
       if (!isAnchorSelected(ctx.get(), hit.ref)) return
-    } else if (!isAnchorSelected(s, hit.ref)) selectAnchors(ctx, [hit.ref])
+    } else if (!isAnchorSelected(s, hit.ref) || !Object.prototype.hasOwnProperty.call(s.anchors, hit.ref.id)) {
+      // An anchor of a path selected as a whole OBJECT is picked on its own
+      // (Illustrator); among anchors already picked, the drag takes them all.
+      selectAnchors(ctx, [hit.ref])
+    }
     startMove(ctx, p, e.shiftKey ? null : hit.ref)
     return
   }

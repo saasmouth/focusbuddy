@@ -60,14 +60,24 @@ async function paintedPixels(layerTestId: string): Promise<number> {
   })
 }
 
-test('EP-1 the toolbox offers the same 16 tools, in order, with their shortcut letters', async () => {
+test('EP-1 the toolbox offers every tool, in order, with its shortcut', async () => {
   await openDocument(window, await seedDrawDoc(window, v1Body([])))
   const titles = await window.locator('[data-testid^="draw-tool-"]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-testid')}=${e.getAttribute('title')}`))
   expect(titles).toEqual([
     'draw-tool-select=Select (V)',
-    'draw-tool-node=Edit points (A)',
+    'draw-tool-direct=Direct Selection (A)',
+    'draw-tool-lasso=Lasso (Q)',
     'draw-tool-pen=Pen (P)',
+    'draw-tool-curvature=Curvature (⇧~)',
+    'draw-tool-addAnchor=Add Anchor Point (+)',
+    'draw-tool-deleteAnchor=Delete Anchor Point (-)',
+    'draw-tool-anchorConvert=Anchor Point (⇧C)',
+    'draw-tool-scissors=Scissors (C)',
+    'draw-tool-knife=Knife',
     'draw-tool-pencil=Pencil (N)',
+    'draw-tool-smooth=Smooth',
+    'draw-tool-pathEraser=Path Eraser',
+    'draw-tool-join=Join',
     'draw-tool-rect=Rectangle (R)',
     'draw-tool-roundRect=Rounded rectangle (D)',
     'draw-tool-ellipse=Ellipse (O)',
