@@ -7,7 +7,7 @@ import { useOnboarding } from '../stores/onboarding'
 import { signalConfig } from '../lib/signalConfig'
 import { forgotPasswordUrl, webAccountUrl } from '../lib/siteUrls'
 import { requestRestoreEmailCode } from '../lib/accountClient'
-import { useServerFeature } from '../stores/capabilities'
+import { useCapabilityStore, usePublicServerFeature, useServerFeature } from '../stores/capabilities'
 import Icon from './Icon'
 
 // LaunchSignInModal — appears on app boot when the user isn't signed in.
@@ -55,7 +55,12 @@ export default function LaunchSignInModal(): JSX.Element | null {
   // has said it has the restore routes. Signed out there is usually no such
   // word yet, so the link stays hidden; the password path still appears,
   // because only a server WITH restore answers sign-in with account_archived.
-  const restoreRoutes = useServerFeature('account_restore')
+  // Signed out, the session-bound list is empty, so the public one
+  // (GET /public/server-features) is asked once the modal is up. Today's
+  // server has no such route: the answer is a 404, the list stays empty and
+  // the link stays hidden.
+  const restoreRoutes = useServerFeature('account_restore') || usePublicServerFeature('account_restore')
+  const loadPublicFeatures = useCapabilityStore((s) => s.loadPublicServerFeatures)
   const setSkipped = useAccountStore((s) => s.setSkipped)
   // Manual open requested from elsewhere (Settings account section, etc.).
   // When set, the modal shows even if the user previously skipped.
@@ -97,6 +102,10 @@ export default function LaunchSignInModal(): JSX.Element | null {
   const [restoreCode, setRestoreCode] = useState('')
   const [codeNote, setCodeNote] = useState<string | null>(null)
   const [restoreNotes, setRestoreNotes] = useState<string[] | null>(null)
+
+  useEffect(() => {
+    if (bootStatus === 'ready' && !account) void loadPublicFeatures()
+  }, [bootStatus, account, loadPublicFeatures])
 
   useEffect(() => {
     if (cachedEmail && !email) {

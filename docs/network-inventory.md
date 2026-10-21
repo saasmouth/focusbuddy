@@ -118,6 +118,10 @@ Base URL: `ACTIVE.api` (`src/shared/productDomains.ts:28`, read by
   `account:saveExport`); `POST /accounts/me/close` with the typed confirmation
   and the password (plus 2FA), or `POST /accounts/me/close/email-code` then the
   emailed code. Back up this computer stays local (`backup:export`).
+- Signed out, while the sign-in window is up: `GET /public/server-features`
+  (no token, no account; `stores/capabilities.ts loadPublicServerFeatures`),
+  so "Closed your account? Restore it" shows only where the server has it.
+  Any failure, including today's 404, keeps it hidden.
 - Restore my account (`LaunchSignInModal.tsx`, `OfficeAccountBar.tsx`), on use:
   `POST /accounts/restore` with the password or an emailed code
   (`POST /accounts/restore/email-code`), plus 2FA.

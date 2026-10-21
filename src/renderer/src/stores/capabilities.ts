@@ -61,6 +61,12 @@ interface CapabilityStore {
   // or while signed out, so a control that needs a newer route stays hidden
   // instead of failing. See useServerFeature.
   serverFeatures: string[]
+  // The same list from GET /public/server-features, read while SIGNED OUT
+  // (a closed account cannot sign in to fetch the list above). Fails closed:
+  // empty unless the server answered with a list. Used only for what a
+  // signed-out person may be offered, i.e. Restore my account.
+  publicServerFeatures: string[]
+  loadPublicServerFeatures: () => Promise<void>
   // When the plan is paid from the referral credit bank (section 4b), the date
   // the bank covers it until. null otherwise.
   creditPaidUntil: number | null
@@ -143,6 +149,20 @@ export const useCapabilityStore = create<CapabilityStore>((set, get) => ({
   orgRole: null,
   loadedAt: null,
   error: null,
+  publicServerFeatures: [],
+  loadPublicServerFeatures: async () => {
+    let list: string[] = []
+    try {
+      const res = await fetch(`${signalConfig.httpUrl.replace(/\/+$/, '')}/public/server-features`)
+      if (res.ok) {
+        const body = (await res.json()) as { serverFeatures?: unknown }
+        if (Array.isArray(body.serverFeatures)) list = body.serverFeatures.filter((f): f is string => typeof f === 'string')
+      }
+    } catch {
+      list = []
+    }
+    set({ publicServerFeatures: list })
+  },
   refresh: async () => {
     // Dev override wins over everything (login state, network). DEV-only.
     const forced = readDevForcedTier()
@@ -310,6 +330,11 @@ export function serverSupports(feature: ServerFeature): boolean {
 
 export function useServerFeature(feature: ServerFeature): boolean {
   return useCapabilityStore((s) => s.serverFeatures.includes(feature))
+}
+
+/** Signed out: what GET /public/server-features said (empty until it answers, and on any failure). */
+export function usePublicServerFeature(feature: ServerFeature): boolean {
+  return useCapabilityStore((s) => s.publicServerFeatures.includes(feature))
 }
 
 export function useEmailUnverified(): boolean {

@@ -64,7 +64,9 @@ beforeEach(() => {
     cachedEmail: 'closed@example.test'
   } as never)
   useOnboarding.setState({ status: 'done', activeModuleId: null } as never)
-  useCapabilityStore.setState({ serverFeatures: [] })
+  useCapabilityStore.setState({ serverFeatures: [], publicServerFeatures: [] })
+  // Today's server: no /public/server-features route.
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ message: 'Route GET:/public/server-features not found', statusCode: 404 }), { status: 404 })))
   host = document.createElement('div')
   document.body.appendChild(host)
   root = createRoot(host)
@@ -72,6 +74,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount())
   host.remove()
+  vi.unstubAllGlobals()
 })
 
 describe('Restore at sign-in', () => {
@@ -127,6 +130,39 @@ describe('Restore at sign-in', () => {
     act(() => q<HTMLButtonElement>('signin-submit')!.click())
     await flush()
     expect(document.body.textContent).toMatch(/An open account already uses this email address/)
+  })
+})
+
+describe('signed out: the public feature list', () => {
+  it('today\'s server answers 404: the link stays hidden', async () => {
+    mount()
+    await flush()
+    expect(fetch).toHaveBeenCalledWith(expect.stringMatching(/\/public\/server-features$/))
+    expect(q('signin-restore-start')).toBeNull()
+  })
+
+  it('a request that fails outright: the link stays hidden', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch') }))
+    mount()
+    await flush()
+    expect(q('signin-restore-start')).toBeNull()
+  })
+
+  it('a reply that is not a list: the link stays hidden', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html>gateway</html>', { status: 200 })))
+    mount()
+    await flush()
+    expect(q('signin-restore-start')).toBeNull()
+  })
+
+  it('the 4.3.40 server lists account_restore publicly: the link shows while signed out', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ ok: true, serverFeatures: ['account_restore', 'account_archive_email'] }), { status: 200 }))
+    )
+    mount()
+    await flush()
+    expect(q('signin-restore-start')?.textContent).toMatch(/Restore it/)
   })
 })
 
