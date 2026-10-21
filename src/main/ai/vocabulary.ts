@@ -95,10 +95,9 @@ const WORK_ITEM_RULES =
   'name in the title). update-task exists ONLY to edit the desk\'s own fields when the user asks to ' +
   'rename/complete/re-date THE DESK ITSELF, and create-task ONLY to open a brand-new workspace.\n'
 
-/** The gated addendum. Callers pass the live capability flag; '' while OFF so
- *  the model is never taught a verb that would no-op. */
-export function workItemCatalogAddendum(enabled: boolean): string {
-  if (!enabled) return ''
+/** The work-item addendum. Always injected since DEC-144 (Focus is always
+ *  on); it was gated on a per-device flag before, '' while OFF. */
+export function workItemCatalogAddendum(): string {
   return WORK_ITEM_CATALOG_ENTRY + '\n' + WORK_ITEM_RULES + '\n'
 }
 
@@ -108,17 +107,10 @@ export function workItemCatalogAddendum(enabled: boolean): string {
 export const MEETING_WORK_ITEM_DELIVERABLE =
   '  { "kind": "create-work-item", "title": "short action item", "notes": "optional detail", "intentClass": "to_do"|"to_review"|"to_decide"|"to_respond"|"to_meet"|"to_discuss"|"to_know", "reason": "what in the transcript calls for this" }\n'
 
-/** The capture-routing rule for meeting wrapups. OFF: the S0 legacy phrasing
- *  (create-task still carries action items, correctly defined as desk-
- *  creating). ON: action items become work items; desks are reserved for work
- *  streams that need their own space. */
-export function meetingCaptureRule(enabled: boolean): string {
-  if (!enabled) {
-    return (
-      '- Use create-task for an action item someone needs to do — it creates a DESK: a whole workspace ' +
-      'opens for that item, so the user can work it to completion there.'
-    )
-  }
+/** The capture-routing rule for meeting wrapups: action items become work
+ *  items; desks are reserved for work streams that need their own space.
+ *  (Before DEC-144 an OFF flag routed action items to create-task instead.) */
+export function meetingCaptureRule(): string {
   return (
     '- Use create-work-item for an action item someone needs to do (a single tracked to-do in their ' +
     'Attention queues). Use create-task ONLY when a work stream deserves its own DESK — a whole ' +

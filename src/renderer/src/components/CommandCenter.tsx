@@ -66,20 +66,6 @@ export default function CommandCenter({
 }: Props): JSX.Element {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [query, setQuery] = useState('')
-  // Attention S5: capability probe gates the capture entry — at boot, and
-  // re-probed live when the Settings toggle flips (DEC-023).
-  const [workItemsOn, setWorkItemsOn] = useState(false)
-  useEffect(() => {
-    const probe = (): void => {
-      window.api.workItems
-        .enabled()
-        .then(setWorkItemsOn)
-        .catch(() => {})
-    }
-    probe()
-    window.addEventListener('fb:workitems-toggled', probe)
-    return () => window.removeEventListener('fb:workitems-toggled', probe)
-  }, [])
   const [highlightIdx, setHighlightIdx] = useState(0)
   // DEC-028: the armed @attention pill — Tab on the Attention row (or on an
   // "@a…" partial) arms it; the query then IS the capture text.
@@ -495,11 +481,10 @@ export default function CommandCenter({
     // ALL of these, not just the literal token; without this, Enter on
     // "attention" asked the model instead of opening Capture.
     const attnAddressed =
-      workItemsOn &&
       (hasAttentionCommand(q) ||
         /^@?attention\b/i.test(q) ||
         (/^@([a-z]*)$/i.test(q) && 'attention'.startsWith(q.slice(1).toLowerCase())))
-    if (workItemsOn) {
+    {
       const attnPrefix = /^@?attention\b[:,]?\s*(.*)$/i.exec(q)
       // DEC-031: the token ANYWHERE in the query addresses Attention just as
       // explicitly as opening with it. Before this, "…by friday @attention"
@@ -902,7 +887,6 @@ export default function CommandCenter({
     query,
     nodes,
     deskObjectCounts,
-    workItemsOn,
     canSmartStack,
     activeTaskId,
     onOpenBodyDouble,

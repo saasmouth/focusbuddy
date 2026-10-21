@@ -678,20 +678,6 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
     ],
     [nodes, docList]
   )
-  // DEC-027: capability probe for the deterministic @attention interception —
-  // at mount, re-probed when the Settings toggle flips.
-  const [workItemsOn, setWorkItemsOn] = useState(false)
-  useEffect(() => {
-    const probe = (): void => {
-      window.api.workItems
-        .enabled()
-        .then(setWorkItemsOn)
-        .catch(() => {})
-    }
-    probe()
-    window.addEventListener('fb:workitems-toggled', probe)
-    return () => window.removeEventListener('fb:workitems-toggled', probe)
-  }, [])
 
   const composerIntents = useMemo(
     // Mid-conversation, short phrases are usually replies, so chat leads;
@@ -705,10 +691,10 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
     // it even rendered as the PRE-SELECTED ⏎ action (operator live QA). One
     // predicate, shared with the send path, so the two can never disagree.
     () =>
-      workItemsOn && hasAttentionCommand(draft)
+      hasAttentionCommand(draft)
         ? []
         : composerOmniIntents(draft, omniTargets, { chatFirst: messages.length > 0 }),
-    [draft, omniTargets, messages.length, workItemsOn]
+    [draft, omniTargets, messages.length]
   )
   const pickedIntent: OmniIntent | null =
     composerIntents.length > 0
@@ -753,7 +739,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
     //             "build me X @attention" gets both halves. This replaced a
     //             prompt rule the model could ignore — and did (live QA: only
     //             the page was created, the item never reached the queue).
-    const attn = workItemsOn ? parseAttentionCommand(content) : null
+    const attn = parseAttentionCommand(content)
     if (attn && attn.mode !== 'none') {
       ed?.commands.clearContent()
       setDraft('')
@@ -780,7 +766,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
     ed?.commands.clearContent()
     setDraft('')
     await send(thread.serverTaskId, content, thread.key)
-  }, [draft, send, thread.serverTaskId, thread.key, pickedIntent, performOmniIntent, composerMode, workItemsOn])
+  }, [draft, send, thread.serverTaskId, thread.key, pickedIntent, performOmniIntent, composerMode])
 
   async function handleSend(e: React.FormEvent): Promise<void> {
     e.preventDefault()

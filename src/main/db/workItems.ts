@@ -19,7 +19,6 @@ import { randomUUID } from 'crypto'
 import { getDb } from './database'
 import { getActiveOrgId, PERSONAL_ORG_ID } from './activeOrg'
 import { nodesTableAcceptsWorkItems } from './migrateNodesKind'
-import { isWorkItemsEnabled } from '../workItemsPref'
 import { mapNodeRow, type NodeRow } from './nodes'
 import { postNotification } from '../notifications/substrate'
 import { attentionPrecision } from '../meta/metrics'
@@ -164,8 +163,6 @@ export class WorkItemWriteRefusedError extends Error {
 }
 
 function assertWritable(d: LifecycleDb): void {
-  if (!isWorkItemsEnabled())
-    throw new WorkItemWriteRefusedError('WORK_ITEMS_DISABLED', 'Work items are not enabled.')
   if (!nodesTableAcceptsWorkItems(d as never))
     throw new WorkItemWriteRefusedError(
       'WORK_ITEMS_NOT_MIGRATED',

@@ -19,14 +19,13 @@ import {
 import { purgeMemoryForSubjects, type MemoryPurgeSummary } from './memoryPurge'
 import { nodesTableAcceptsWorkItems } from './migrateNodesKind'
 import { workItemDetachHook } from './workItems'
-import { isWorkItemsEnabled } from '../workItemsPref'
 import type { FbNode, NodeDraft, NodePatch } from '@shared/types'
 
 /** §2.6 + R006: work_item creation is triple-gated at the db chokepoint —
  *  capability flag ON, personal scope only while the exposure switch is OFF,
  *  and the local DDL must actually accept the kind (same-device guard). */
 export class WorkItemCreationRefusedError extends Error {
-  readonly code: 'WORK_ITEMS_DISABLED' | 'WORK_ITEMS_PERSONAL_ONLY' | 'WORK_ITEMS_NOT_MIGRATED'
+  readonly code: 'WORK_ITEMS_PERSONAL_ONLY' | 'WORK_ITEMS_NOT_MIGRATED'
   constructor(code: WorkItemCreationRefusedError['code'], message: string) {
     super(message)
     this.code = code
@@ -188,8 +187,6 @@ function nextSortOrder(parentId: string | null): number {
 export function createNode(draft: NodeDraft): FbNode {
   const db = getDb()
   if (draft.kind === 'work_item') {
-    if (!isWorkItemsEnabled())
-      throw new WorkItemCreationRefusedError('WORK_ITEMS_DISABLED', 'Work items are not enabled.')
     if (!nodesTableAcceptsWorkItems(db))
       throw new WorkItemCreationRefusedError(
         'WORK_ITEMS_NOT_MIGRATED',

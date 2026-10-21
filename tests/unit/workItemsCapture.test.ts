@@ -108,16 +108,18 @@ describe('S5 wiring locks (file-level)', () => {
     expect(ex).not.toContain("Work items aren't enabled yet.")
   })
 
-  it('the meeting system + voice system swap their capture routing with the flag', () => {
+  // DEC-144 rewrite: these used to swap routing with the flag, and the OFF
+  // phrasing sent action items to create-task. The flag is retired: meetings
+  // and voice always route action items to create-work-item.
+  it('the meeting system + voice system always route action items to work items', () => {
     const anthropic = read('src/main/ai/anthropic.ts')
     expect(anthropic).toContain('meetingEndSystem()')
-    expect(anthropic).toContain('meetingCaptureRule(workItemsOn)')
+    expect(anthropic).toContain('meetingCaptureRule()')
     const voice = read('src/main/ai/voiceNote.ts')
     expect(voice).toContain('VOICE_WORK_ITEM_SHAPE')
     const vocab = read('src/main/ai/vocabulary.ts')
     expect(vocab).toContain('Use create-work-item for an action item')
-    // The OFF phrasing still routes action items to create-task (no dead zone).
-    expect(vocab).toContain('Use create-task for an action item someone needs to do')
+    expect(vocab).not.toContain('Use create-task for an action item someone needs to do')
   })
 
   it('the capture console + classifier + seam are wired end to end', () => {

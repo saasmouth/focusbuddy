@@ -51,28 +51,7 @@ interface AttentionCommandRow {
   conversationKey: string
 }
 
-let workItemsOn = false
-let workItemsProbed = false
-function probeWorkItems(): void {
-  window.api.workItems
-    .enabled()
-    .then((v) => {
-      workItemsOn = v
-    })
-    .catch(() => {})
-}
-function ensureWorkItemsProbe(): void {
-  if (workItemsProbed) return
-  workItemsProbed = true
-  probeWorkItems()
-  window.addEventListener('fb:workitems-toggled', probeWorkItems)
-}
-// Probe at module load — waiting for the first "@" keystroke would race the
-// async answer and silently hide the Attention row on the picker's first open.
-ensureWorkItemsProbe()
-
 function attentionCommandRow(query: string, conversationKey: string): AttentionCommandRow | null {
-  if (!workItemsOn) return null
   const q = query.trim().toLowerCase()
   if (q && !'attention'.startsWith(q)) return null
   return {
@@ -163,7 +142,6 @@ export const MentionSuggestion = Extension.create<{ hooks: MentionSuggestionHook
         items: async ({ query }: { query: string }): Promise<MentionRef[]> => {
           const hooks = getHooks()
           if (!hooks) return []
-          ensureWorkItemsProbe()
           const already = activeMentions(hooks.current(), hooks.conversationKey())
           if (already.length >= MENTION_CAP) return []
           const found = await candidatesFor(query, hooks.conversationKey())

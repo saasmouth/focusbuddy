@@ -120,13 +120,17 @@ describe('dec_076 — the widget bell', () => {
   })
 
   it('dec_076_the_check_appears_only_when_there_is_something_to_complete', () => {
-    expect(frame).toContain('attentionOn && attentionItem && !titleEditing && (')
+    // DEC-144: the attentionOn flag guard is gone (Focus is always on).
+    expect(frame).toContain('attentionItem && !titleEditing && (')
     expect(frame).toContain('closeWorkItem(')
     // DEC-077: it is the one shared completion circle, beside the title.
     expect(frame).toContain('<CompleteCircle')
   })
 
-  it('dec_076_respects_the_workItems_flag_like_the_menu_does', () => {
-    expect(frame).toContain('workItemsEnabled()')
+  // DEC-144 rewrite: this pinned the bell to the workItems flag, as the menu
+  // was. The flag is retired, so the bell (like the menu) is always offered.
+  it('dec_076_the_bell_is_always_offered_now_the_flag_is_retired', () => {
+    expect(frame).not.toContain('workItemsEnabled()')
+    expect(frame).not.toContain('attentionOn')
   })
 })

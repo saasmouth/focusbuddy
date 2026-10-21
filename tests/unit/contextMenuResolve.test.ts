@@ -90,7 +90,11 @@ describe('resolveMenu — deterministic eight-item ceiling and ordering', () => 
     expect(ls).toContain('Create & link')
   })
 
-  it('folds three or more context rows into two slots (one inlined plus More actions)', () => {
+  // DEC-144 rewrite: this pinned "Action A" first with B and C under More. That
+  // held only while the Attention row was flag-gated off in tests. Focus is now
+  // always offered and takes the first slot, so the band's budget drops to one
+  // slot and all three rows fold under More actions.
+  it('folds context rows into the band budget (one slot beside the Attention row)', () => {
     registerWidgetContextActions('sticky', () => ({
       context: [
         { id: 'a', section: MenuSection.Context, priority: 0, label: 'Action A' },
@@ -100,10 +104,11 @@ describe('resolveMenu — deterministic eight-item ceiling and ordering', () => 
     }))
     const items = resolveMenu(widgetCtx(widget('sticky', 'x')))
     const ls = labels(items)
-    expect(ls[0]).toBe('Action A')
-    expect(ls).toContain('More actions')
+    expect(ls[0]).toMatch(/^Add to /)
+    expect(ls[1]).toBe('More actions')
+    expect(ls).not.toContain('Action A')
     const more = topLevel(items).find((i) => i.label === 'More actions')
-    expect(more?.children?.map((c) => c.label)).toEqual(['Action B', 'Action C'])
+    expect(more?.children?.map((c) => c.label)).toEqual(['Action A', 'Action B', 'Action C'])
   })
 
   it('keeps the canonical order, with Destructive always last', () => {
@@ -218,11 +223,14 @@ describe('resolveMenu — frame actions (unified header menu)', () => {
     expect(rich).toContain('Unlink from synced copies')
   })
 
+  // DEC-144 rewrite: header extras used to be index 0; the always-on Attention
+  // row now sits above them (CR-09 D-A: first on every object menu).
   it('prepends header extras into the context band', () => {
     const ctx = frameCtx(widget('webview', ''), {})
     ctx.headerExtras = [{ label: 'Pin to Apps', icon: 'push_pin', onClick: () => {} }]
     const items = resolveMenu(ctx)
-    expect(topLevel(items)[0]?.label).toBe('Pin to Apps')
+    expect(topLevel(items)[0]?.label).toMatch(/^Add to /)
+    expect(topLevel(items)[1]?.label).toBe('Pin to Apps')
   })
 })
 

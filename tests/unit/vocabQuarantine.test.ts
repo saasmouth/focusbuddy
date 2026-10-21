@@ -31,9 +31,10 @@ const flowsDb = read('src/main/db/flows.ts')
 const apiServer = read('src/main/apiServer.ts')
 
 describe('vocabulary module', () => {
-  it('the addendum is empty while the capability is OFF and teaches the verb only when ON', () => {
-    expect(workItemCatalogAddendum(false)).toBe('')
-    const on = workItemCatalogAddendum(true)
+  // DEC-144 rewrite: this pinned '' while the capability was OFF. The flag is
+  // retired (Focus is always on), so the addendum always teaches the verb.
+  it('the addendum always teaches the verb (the capability flag is retired)', () => {
+    const on = workItemCatalogAddendum()
     expect(on).toContain(CREATE_WORK_ITEM_KIND)
     expect(on).toContain('WORK ITEM')
     // The rule-4 refinement ships exactly when the tool exists, not before.
@@ -45,7 +46,7 @@ describe('vocabulary module', () => {
     // @attention" produced ONLY a create-page — the item never reached the
     // queue. Mid-sentence @attention keeps the model path by DEC-027, so the
     // rule has to make the obligation unmissable and explicitly non-exclusive.
-    const on = workItemCatalogAddendum(true)
+    const on = workItemCatalogAddendum()
     expect(on).toContain('ANYWHERE in the message')
     expect(on).toContain('STANDING ORDER')
     expect(on).toMatch(/emit\s+BOTH/)
@@ -87,8 +88,10 @@ describe('prompt sites import the shared definitions (no local redefinitions)', 
 
   it('the meeting-wrapup rule defines create-task as a desk (assembled from vocabulary since S5)', () => {
     const vocab = readFileSync(join(ROOT, 'src/main/ai/vocabulary.ts'), 'utf-8')
-    expect(vocab).toContain('it creates a DESK')
-    expect(anthropic).toContain('meetingCaptureRule(workItemsOn)')
+    // DEC-144: the OFF phrasing ("it creates a DESK") retired with the flag;
+    // the one rule left still defines create-task as a desk.
+    expect(vocab).toContain('deserves its own DESK')
+    expect(anthropic).toContain('meetingCaptureRule()')
     expect(anthropic).not.toContain('(each task opens its own workspace)')
   })
 
@@ -140,9 +143,12 @@ describe('create-work-item is reserved end-to-end', () => {
     expect(executor).toContain('applyCreateWorkItem')
   })
 
-  it('the gated addendum reaches both catalog consumers, flag-checked', () => {
-    const injections = anthropic.match(/workItemCatalogAddendum\(isWorkItemsEnabled\(\)\)/g) ?? []
+  // DEC-144 rewrite: was "flag-checked" — the flag is retired, so both catalog
+  // consumers inject the addendum unconditionally.
+  it('the addendum reaches both catalog consumers', () => {
+    const injections = anthropic.match(/workItemCatalogAddendum\(\)/g) ?? []
     expect(injections.length).toBe(2)
+    expect(anthropic).not.toContain('isWorkItemsEnabled')
   })
 })
 

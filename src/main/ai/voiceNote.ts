@@ -36,7 +36,6 @@ import { getModelClient } from './modelClient'
 import type { ActionProposal } from '@shared/types'
 import { CREATE_TASK_DEFINITION, VOICE_WORK_ITEM_SHAPE } from './vocabulary'
 import { normalizeIntentClass } from '@shared/workItems'
-import { isWorkItemsEnabled } from '../workItemsPref'
 import { resolveAnthropicKey, resolveOpenAIKey } from '../settingsStore'
 import { transcribeLocal, type EngineSegment } from './localWhisper'
 import { getTranscriptionProvider } from '../voiceProviderPref'
@@ -390,9 +389,8 @@ export async function extractActionsFromTranscript(
     '{"kind":"create-task","title":"…","notes":"…","reason":"…"}  (' +
     CREATE_TASK_DEFINITION +
     ')\n' +
-    // Δ13 (S5): "remind me to call Bob" is the canonical work-item utterance —
-    // the shape appears the moment the capability is on, never before.
-    (isWorkItemsEnabled() ? VOICE_WORK_ITEM_SHAPE : '') +
+    // Δ13 (S5): "remind me to call Bob" is the canonical work-item utterance.
+    VOICE_WORK_ITEM_SHAPE +
     '{"kind":"create-todo-list","title":"…","items":["…","…"],"reason":"…"}\n' +
     '{"kind":"create-widget","widgetKind":"sticky"|"note"|"markdown"|"page","title":"…","content":"…","reason":"…"}\n' +
     '{"kind":"create-page","title":"…","content":"…","reason":"…"}\n' +

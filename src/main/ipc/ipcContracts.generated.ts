@@ -413,7 +413,6 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'workItems:reclassify': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }],
   'workItems:revokeOrgAttestation': [{ kind: 'string', optional: false, nullable: false }],
   'workItems:scanPeople': [{ kind: 'string', optional: false, nullable: false }],
-  'workItems:setEnabled': [{ kind: 'boolean', optional: false, nullable: false }],
   'workItems:setState': [{ kind: 'string', optional: false, nullable: false }, { kind: 'any', optional: false, nullable: false }, { kind: 'object', optional: true, nullable: false }],
   'workItems:snooze': [{ kind: 'string', optional: false, nullable: false }, { kind: 'number', optional: false, nullable: true }],
   'workItems:updateFields': [{ kind: 'string', optional: false, nullable: false }, { kind: 'object', optional: false, nullable: false }, { kind: 'any', optional: false, nullable: false }, { kind: 'object', optional: true, nullable: false }],

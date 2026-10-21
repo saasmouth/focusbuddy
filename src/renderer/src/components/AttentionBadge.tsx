@@ -6,26 +6,20 @@ import Icon from './Icon'
 // The top-bar Attention count (S6, SPEC-015). Counts ONLY — state, not
 // substance: the number of non-terminal work items needing the person,
 // derived from work_item_state exclusively and excluding system-origin items
-// (DEC-016). Renders nothing while the capability is off or the count is
+// (DEC-016). Renders nothing while the count is
 // zero — restraint by design. Refreshes on a quiet interval plus whenever a
 // work-item mutation announces itself.
 
 export default function AttentionBadge(): JSX.Element | null {
   const goAttention = useViewStore((s) => s.goAttention)
-  const [enabled, setEnabled] = useState(false)
   const [headline, setHeadline] = useState(0)
 
   useEffect(() => {
     let alive = true
     async function load(): Promise<void> {
       try {
-        const on = await window.api.workItems.enabled()
-        if (!alive) return
-        setEnabled(on)
-        if (on) {
-          const counts = await window.api.workItems.badgeCounts()
-          if (alive) setHeadline(counts.headline)
-        }
+        const counts = await window.api.workItems.badgeCounts()
+        if (alive) setHeadline(counts.headline)
       } catch {
         /* early boot — next tick catches up */
       }
@@ -41,7 +35,7 @@ export default function AttentionBadge(): JSX.Element | null {
     }
   }, [])
 
-  if (!enabled || headline === 0) return null
+  if (headline === 0) return null
   return (
     <Tooltip content="Attention — what needs you" placement="bottom">
       <button

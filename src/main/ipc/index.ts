@@ -202,8 +202,6 @@ import {
 } from '../db/signals'
 import { proposeCleanup } from '../ai/cleanupRewrite'
 import {
-  isWorkItemsEnabled,
-  setWorkItemsEnabled,
   workItemsOrgEnabled,
   orgMigrationAttested,
   attestOrgMigrated,
@@ -927,16 +925,8 @@ export function registerIpcHandlers(): void {
   // DEC-026 (Δ6): the opt-in tidy proposal — gated on the deterministic
   // messiness test inside, null on any failure, never blocks a capture.
   ipcMain.handle('workItems:proposeCleanup', (_e, text: string, notes?: string) =>
-    isWorkItemsEnabled() ? proposeCleanup(String(text ?? ''), notes ? String(notes) : undefined) : null
+    proposeCleanup(String(text ?? ''), notes ? String(notes) : undefined)
   )
-  ipcMain.handle('workItems:enabled', () => isWorkItemsEnabled())
-  // V2 (DEC-023): the Settings toggle — the pref finally has a real switch.
-  // Prompt vocabulary reads the pref live per call; renderer surfaces
-  // re-probe on the fb:workitems-toggled event the Settings row dispatches.
-  ipcMain.handle('workItems:setEnabled', (_e, enabled: boolean) => {
-    setWorkItemsEnabled(enabled === true)
-    return isWorkItemsEnabled()
-  })
   // P1 migrated-peer confirmation (§2.6/§8): the per-org gate the SPEC-027
   // org-carry branch will consult. Record/revoke are operator actions.
   ipcMain.handle('workItems:orgEnabled', (_e, orgId: string) => workItemsOrgEnabled(String(orgId ?? '')))

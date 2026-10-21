@@ -8,7 +8,6 @@ import type { WidgetKind } from '@shared/types'
 import { MenuSection, type MenuContribution, type MenuContext } from './types'
 import { CREATE_AND_CONNECT_MENU } from '../createConnectedTool'
 import { presetForWidget, presetForMulti, presetForSelection, browserMarkUrl } from '../attentionPresets'
-import { workItemsEnabled } from '../workItemsCapability'
 import {
   createWidget,
   hasWorkableText,
@@ -55,7 +54,6 @@ const seedText = (ctx: MenuContext): string => workingText(ctx).text
 // takes it from there, and the filed item POINTS at the object
 // (sourceType/sourceRef) rather than copying it.
 export function buildAttention(ctx: MenuContext): MenuContribution | null {
-  if (!workItemsEnabled()) return null
   const obj = ctx.object
   if (obj.type === 'empty-canvas') return null
 

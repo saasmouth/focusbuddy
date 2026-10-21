@@ -47,7 +47,6 @@ import { widgetDisplayName } from '../../lib/widgetDisplayName'
 import { useWorkItemStore } from '../../stores/workItems'
 import { useViewStore } from '../../stores/view'
 import { liveItemForWidget } from '../../lib/widgetAttention'
-import { workItemsEnabled } from '../../lib/workItemsCapability'
 import { presetForWidget, browserMarkUrl } from '../../lib/attentionPresets'
 import { PRIMARY_ACTION, queueOf } from '../../lib/attentionQueues'
 import { useCloseWorkItem } from '../attention/useCloseWorkItem'
@@ -208,14 +207,13 @@ export default function WidgetFrame({
   // widget (sourceType/sourceRef), nothing files without the person's Enter.
   // A filled bell opens the queue. The check beside it closes the item with
   // its own queue verb through the one close path.
-  const attentionOn = workItemsEnabled()
   const workItems = useWorkItemStore((s) => s.items)
   const wiLoaded = useWorkItemStore((s) => s.loaded)
   const refreshWorkItems = useWorkItemStore((s) => s.refresh)
   useEffect(() => {
-    if (attentionOn && !wiLoaded) void refreshWorkItems()
-  }, [attentionOn, wiLoaded, refreshWorkItems])
-  const attentionItem = attentionOn ? liveItemForWidget(workItems, widget.id) : null
+    if (!wiLoaded) void refreshWorkItems()
+  }, [wiLoaded, refreshWorkItems])
+  const attentionItem = liveItemForWidget(workItems, widget.id)
   const goAttention = useViewStore((s) => s.goAttention)
   const closeWorkItem = useCloseWorkItem()
   function markWidgetForAttention(): void {
@@ -1155,7 +1153,7 @@ export default function WidgetFrame({
                 brand icon is a line SVG whose `filled` prop is a no-op — it
                 fills here explicitly); the circle is the one completion
                 form factor every surface shares. */}
-            {attentionOn && !titleEditing && (
+            {!titleEditing && (
               <button
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
@@ -1181,7 +1179,7 @@ export default function WidgetFrame({
                 <BellIcon size={13} active={!!attentionItem} />
               </button>
             )}
-            {attentionOn && attentionItem && !titleEditing && (
+            {attentionItem && !titleEditing && (
               <CompleteCircle
                 size={14}
                 className="widget-nodrag shrink-0"

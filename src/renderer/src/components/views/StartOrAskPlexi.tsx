@@ -153,18 +153,6 @@ export default function StartOrAskPlexi(): JSX.Element {
   // Tab (or picking the Attention row) arms it; the bar's text then IS the
   // capture, Enter routes it to the confirm card, Backspace-on-empty disarms.
   const [attnArmed, setAttnArmed] = useState(false)
-  const [workItemsOn, setWorkItemsOn] = useState(false)
-  useEffect(() => {
-    const probe = (): void => {
-      window.api.workItems
-        .enabled()
-        .then(setWorkItemsOn)
-        .catch(() => {})
-    }
-    probe()
-    window.addEventListener('fb:workitems-toggled', probe)
-    return () => window.removeEventListener('fb:workitems-toggled', probe)
-  }, [])
   function armAttention(): void {
     const i = goal.lastIndexOf('@')
     setGoal(i >= 0 ? goal.slice(0, i).trimEnd() : goal)
@@ -178,7 +166,7 @@ export default function StartOrAskPlexi(): JSX.Element {
     // DEC-028: Attention rides on top whenever the @-query prefixes it — the
     // Slack-style "type @a, Tab, done" path. Selection ARMS (see goItem).
     const attnRow: PickItem[] =
-      workItemsOn && (!atQuery.trim() || 'attention'.startsWith(atQuery.trim().toLowerCase()))
+      !atQuery.trim() || 'attention'.startsWith(atQuery.trim().toLowerCase())
         ? [
             {
               key: 'capture:attention',
@@ -220,7 +208,7 @@ export default function StartOrAskPlexi(): JSX.Element {
       8
     )
     return [...attnRow, ...ranked.map((r) => byId.get(r.id)).filter((x): x is PickItem => !!x)]
-  }, [atQuery, nodes, workItemsOn])
+  }, [atQuery, nodes])
 
   useEffect(() => {
     const q = atQuery?.trim() ?? ''
@@ -344,7 +332,7 @@ export default function StartOrAskPlexi(): JSX.Element {
                 if (e.key === 'Tab' && !e.shiftKey) {
                   const hl = pickItems[Math.min(highlight, pickItems.length - 1)]
                   const q = (atQuery ?? '').trim().toLowerCase()
-                  if (hl?.key === 'capture:attention' || (workItemsOn && q && 'attention'.startsWith(q))) {
+                  if (hl?.key === 'capture:attention' || (q && 'attention'.startsWith(q))) {
                     e.preventDefault()
                     armAttention()
                     return
@@ -390,7 +378,7 @@ export default function StartOrAskPlexi(): JSX.Element {
                 // DEC-031: an @attention token anywhere in the line is a
                 // deterministic capture — it must never fall through to the
                 // ask/search path (which is what silently swallowed it).
-                const attn = workItemsOn ? parseAttentionCommand(goal) : null
+                const attn = parseAttentionCommand(goal)
                 if (attn && attn.mode !== 'none') {
                   window.dispatchEvent(
                     new CustomEvent('fb:command-new-work-item', {

@@ -2125,8 +2125,6 @@ const api = {
     counts: (): Promise<Record<string, number>> => ipcRenderer.invoke('workItems:counts'),
     badgeCounts: (): Promise<{ headline: number; byIntent: Record<string, number> }> =>
       ipcRenderer.invoke('workItems:badgeCounts'),
-    setEnabled: (enabled: boolean): Promise<boolean> =>
-      ipcRenderer.invoke('workItems:setEnabled', enabled),
     // P1 migrated-peer confirmation: per-org gate + attestation record.
     orgEnabled: (orgId: string): Promise<boolean> => ipcRenderer.invoke('workItems:orgEnabled', orgId),
     orgAttestation: (orgId: string): Promise<{ attestedAt: number; note: string } | null> =>
@@ -2183,7 +2181,6 @@ const api = {
       notes?: string
     ): Promise<{ title: string; note: string } | null> =>
       ipcRenderer.invoke('workItems:proposeCleanup', text, notes),
-    enabled: (): Promise<boolean> => ipcRenderer.invoke('workItems:enabled'),
     precision: (): Promise<number | null> => ipcRenderer.invoke('workItems:precision'),
     // Internal (S2): the arrival router's seam.
     kindOf: (id: string): Promise<string | null> => ipcRenderer.invoke('workItems:kindOf', id),
