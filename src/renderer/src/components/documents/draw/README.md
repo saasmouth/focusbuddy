@@ -23,7 +23,8 @@ a keyboard shortcut. There, add one line per binding.
 | `src/shared/draw/geometry/{bezier,fit,pathEdit}.ts` | Bezier maths (split, nearest point, intersections), curve fitting (Simplify, Smooth, Curvature) and anchor-level path edits. |
 | `editor/history.ts` | Undo: `commit`, `replace`, `begin` / `preview` / `commit` / `cancel`. |
 | `editor/clipboard.ts` | Copy, Cut and the Paste family: the native clipboard payload, pasting between drawings, pictures and text from other apps, and `registerSvgPasteImporter`, the seam through which `commands/import.commands.ts` (WP-IMPORT) makes SVG on the clipboard paste as editable vectors (`pasteSvgImporter`). The system clipboard itself is `src/main/drawClipboard.ts`; tests swap it with `setDrawClipboardBackend`. |
-| `editor/menuClipboard.ts` | The app menu bar's Edit › Cut / Copy / Paste (Electron roles, which fire DOM clipboard events) run the same commands as ⌘X / ⌘C / ⌘V, never twice. |
+| `editor/menuClipboard.ts` | The app menu bar's Edit › Cut / Copy / Paste (main/index.ts `editMenu`, which calls webContents.cut/copy/paste so the DOM clipboard event fires even with no text selected) run the same commands as ⌘X / ⌘C / ⌘V, never twice. Files copied in Finder paste through `registerFilePasteImporter` exactly as File › Place places them. A copy never puts the SVG source on text/plain (Edit › Copy As › SVG Code does). |
+| `render/CanvasContextMenu.tsx` | The canvas right-click menu: registered commands only (`CANVAS_MENU`). |
 | `tools/*.tool.ts(x)` | One tool per file, picked up automatically. |
 | `commands/*.commands.ts` | Commands and their menu placement, picked up automatically. |
 | `commands/keymap.ts` | Key bindings (Illustrator's defaults): one sorted line each, plus the keys reserved for features still to come. |
@@ -280,6 +281,35 @@ means.
 - **The v2 gate.** Groups and masks are v2-only content. Their commands are
   disabled (and say why on their key) only where a drawing must stay v1 (a live
   session with someone on an older version); see `editor/v2gate.ts`.
+
+## Artboards (WP-ARTBOARD)
+
+- **Where things sit.** Every artboard is a rectangle in DOCUMENT space; art
+  lives in the same space and belongs to whichever artboard it sits inside
+  (`artOnArtboard`: wholly inside, unlocked). The stage shows the union of
+  all artboards (`artboardsBounds`); its top-left is that union's top-left,
+  so `ToolPointer.p` is always document space. The grey around the stage is
+  pasteboard and takes presses too.
+- **The active artboard** is `doc.activeArtboardId` (`primaryArtboard`). A
+  press on a page makes it active (`editor/artboards.ts` `activateArtboard`):
+  no undo step and no save of its own. New art, pastes, Paste in Place,
+  ⌘0 and the Artboard size dialog all act on the active one.
+- **Paint layers** are pictures of the FIRST page anchored at the origin
+  (`rasterFrame`), whichever artboard is active -- on screen, in export, and
+  when rasterizing or merging. Do not size a paint canvas from the active
+  artboard.
+- **Operations** are pure, in `@shared/draw/ops` (`artboards.ts`): add,
+  delete (the art stays), rename, patch, reorder, move (with the art on it),
+  duplicate (with copies of that art), fit, Rearrange All. Commands are in
+  `commands/artboards.commands.ts`; the tool is `tools/artboard.tool.tsx`
+  (⇧O); the panel `panels/artboards.panel.tsx` shows with several artboards
+  or while the tool is active.
+- **The gate.** Several, moved or named artboards are v2-only: commands ask
+  `artboardsEditable(state)` and refuse with `artboardsBlockedReason`.
+- **Export** with several artboards asks what to cover
+  (`dialogs/exportArtboards.dialog.tsx`): PNG/SVG one artboard, each to its
+  own file, or the whole canvas; PDF one page per artboard (named CSS @page
+  sizes, `drawDocToPagesHtml`) or the active one.
 
 ## Writing v2
 
