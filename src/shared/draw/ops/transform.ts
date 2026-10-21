@@ -36,7 +36,7 @@ import {
   translation,
   type RefPoint
 } from '../geometry/transform'
-import type { DrawDoc, DrawDocPaint, DrawDocStroke, DrawGroupNode, DrawImageNode, DrawNode, DrawPathNode, DrawTextNode, DrawWidgetNode } from '../model'
+import type { DrawAppearance, DrawDoc, DrawDocPaint, DrawEffect, DrawDocStroke, DrawGroupNode, DrawImageNode, DrawNode, DrawPathNode, DrawTextNode, DrawWidgetNode } from '../model'
 import { nodeBounds, nodePivot, scaleNode, translateNode } from './geometry'
 import { editableIds } from './objects'
 
@@ -212,6 +212,44 @@ function transformFrame(n: FrameNode, m: Matrix, opts: TransformOptions): DrawNo
 export function transformNode(n: DrawNode, m: Matrix, opts: TransformOptions = {}): DrawNode {
   if (n.type === 'opaque') return n
   if (isTranslation(m) && Math.abs(m[4]) < 1e-12 && Math.abs(m[5]) < 1e-12) return n
+  const out = transformNodeBody(n, m, opts)
+  // "Scale Strokes & Effects" also scales the appearance stack's strokes and
+  // every effect's distances. A matrix on the node scales them visually already.
+  if (!opts.scaleStrokes || isTranslation(m) || out.type === 'opaque' || !out.appearance) return out
+  if ((out.type === 'group' || out.type === 'text' || out.type === 'image' || out.type === 'widget') && out.transform) return out
+  return { ...out, appearance: scaleAppearance(out.appearance, m) } as DrawNode
+}
+
+/** An appearance stack with stroke widths and effect distances scaled by the transform. */
+export function scaleAppearance(a: DrawAppearance, m: Matrix): DrawAppearance {
+  const k = lengthScale(m)
+  if (Math.abs(k - 1) < 1e-12) return a
+  const effects = a.effects.map((e): DrawEffect => {
+    switch (e.kind) {
+      case 'dropShadow': {
+        const d = applyMatrix([m[0], m[1], m[2], m[3], 0, 0], { x: e.dx, y: e.dy })
+        return { ...e, dx: d.x, dy: d.y, blur: e.blur * k, ...(e.spread !== undefined ? { spread: e.spread * k } : {}) }
+      }
+      case 'innerGlow':
+      case 'outerGlow':
+        return { ...e, blur: e.blur * k }
+      case 'blur':
+      case 'feather':
+      case 'roundCorners':
+        return { ...e, radius: e.radius * k }
+      case 'offsetPath':
+        return { ...e, offset: e.offset * k }
+      case 'roughen':
+      case 'zigzag':
+        return { ...e, size: e.size * k }
+      default:
+        return e
+    }
+  })
+  return { ...a, strokes: a.strokes.map((l) => ({ ...l, stroke: scaleStroke(l.stroke, k)! })), effects }
+}
+
+function transformNodeBody(n: Exclude<DrawNode, { type: 'opaque' }>, m: Matrix, opts: TransformOptions): DrawNode {
   if (n.type === 'path') return transformPathNode(n, m, opts)
   if (n.type === 'group') {
     if (n.transform) return { ...n, transform: multiplyMatrix(m, n.transform) }

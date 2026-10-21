@@ -319,6 +319,23 @@ describe('transforming nodes', () => {
     expect(turned.stroke!.width).toBeCloseTo(2)
   })
 
+  it('Scale Strokes & Effects also scales the appearance stack and effect distances', () => {
+    const appearance = {
+      fills: [],
+      strokes: [{ id: 's1', stroke: { paint: { type: 'solid', color: '#000' }, width: 3 } }],
+      effects: [{ id: 'e1', kind: 'dropShadow', dx: 2, dy: 4, blur: 5, color: '#000', opacity: 0.5 }, { id: 'e2', kind: 'blur', radius: 1 }]
+    }
+    const a = { ...(node(doc([rect('a', 0, 0, 10, 10)]), 'a') as DrawPathNode), appearance } as DrawPathNode
+    const off = transformNode(a, scaling(2, 2)) as DrawPathNode
+    expect(off.appearance).toEqual(appearance)
+    const on = transformNode(a, scaling(2, 2), { scaleStrokes: true }) as DrawPathNode
+    expect(on.appearance!.strokes[0].stroke.width).toBe(6)
+    expect(on.appearance!.effects[0]).toMatchObject({ dx: 4, dy: 8, blur: 10 })
+    expect(on.appearance!.effects[1]).toMatchObject({ radius: 2 })
+    // A move scales nothing.
+    expect((transformNode(a, translation(5, 5), { scaleStrokes: true }) as DrawPathNode).appearance).toBe(a.appearance)
+  })
+
   it('a rounded rectangle keeps its corner radius unless Scale Corners is on', () => {
     const d = doc([rect('a', 0, 0, 100, 50, { shapeKind: 'roundRect', cornerRadius: 10 })])
     const off = transformNode(node(d, 'a'), scaling(2, 2)) as DrawPathNode
