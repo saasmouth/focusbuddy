@@ -454,11 +454,14 @@ export function looksLikeSvg(text: string): boolean {
 // ── SVG import seam (WP-IMPORT) ──────────────────────────────────────────────
 
 /**
- * How SVG paste turns markup into nodes. WP-IMPORT owns the SVG parser; it
- * registers it here (one call, from its own module) and SVG paste starts
- * working. Until it does, a paste that only has SVG says so honestly.
+ * How SVG paste turns markup into nodes. WP-IMPORT owns the SVG parser and
+ * registers it here from its own module (commands/import.commands.ts), so SVG
+ * on the clipboard -- Figma's Copy as SVG, a code editor, a browser -- pastes as
+ * editable vectors through the same importer as File › Import SVG. `info`
+ * carries what decides whether the art may use v2-only structure (groups).
  */
-export type SvgPasteImporter = (svg: string, target: DrawDoc) => { nodes: DrawNode[]; assets: Record<string, DrawAsset>; swatches?: DrawSwatch[]; report?: string } | { error: string }
+export type SvgPasteResult = { nodes: DrawNode[]; assets: Record<string, DrawAsset>; swatches?: DrawSwatch[]; report?: string } | { error: string }
+export type SvgPasteImporter = (svg: string, target: DrawDoc, info: { storedSchema: number }) => SvgPasteResult | Promise<SvgPasteResult>
 
 let svgImporter: SvgPasteImporter | null = null
 
@@ -470,7 +473,8 @@ export function svgPasteImporter(): SvgPasteImporter | null {
   return svgImporter
 }
 
-export const SVG_PASTE_PENDING = 'SVG paste arrives with SVG import.'
+/** Said only if no SVG importer is registered (a build without WP-IMPORT): never a silent failure. */
+export const SVG_PASTE_UNAVAILABLE = "This build can't read SVG from the clipboard."
 
 // ── The system clipboard ─────────────────────────────────────────────────────
 
@@ -641,7 +645,7 @@ interface Incoming {
 }
 
 /** Turn what the clipboard holds into nodes for `doc`, or a reason why not. */
-export function incomingFrom(ctx: EditorCtx, read: ClipboardReadResult): Incoming | { error: string } {
+export async function incomingFrom(ctx: EditorCtx, read: ClipboardReadResult): Promise<Incoming | { error: string }> {
   const doc = ctx.doc()
   if (read.native) {
     const parsed = parseClipboardPayload(read.native)
@@ -657,17 +661,23 @@ export function incomingFrom(ctx: EditorCtx, read: ClipboardReadResult): Incomin
   if (svg) {
     const importer = svgPasteImporter()
     if (importer) {
-      const res = importer(svg, doc)
+      let res: SvgPasteResult
+      try {
+        res = await importer(svg, doc, { storedSchema: ctx.get().storedSchema })
+      } catch (e) {
+        res = { error: e instanceof Error ? e.message : String(e) }
+      }
       if ('error' in res) {
         if (!read.image) return { error: `Couldn't paste the SVG: ${res.error}` }
         pending = `The SVG couldn't be read (${res.error}), so it was pasted as a picture.`
       } else if (res.nodes.length) {
-        const landed = landPayload(doc, { nodes: res.nodes, assets: res.assets, swatches: res.swatches ?? [] })
+        // The import awaited: land on the drawing as it is now.
+        const landed = landPayload(ctx.doc(), { nodes: res.nodes, assets: res.assets, swatches: res.swatches ?? [] })
         return { doc: landed.doc, nodes: landed.nodes, origin: null, note: res.report ?? null }
       }
     } else {
-      if (!read.image) return { error: SVG_PASTE_PENDING }
-      pending = `Pasted as a picture. ${SVG_PASTE_PENDING}`
+      if (!read.image) return { error: SVG_PASTE_UNAVAILABLE }
+      pending = `Pasted as a picture. ${SVG_PASTE_UNAVAILABLE}`
     }
   }
   if (read.image) {
@@ -749,7 +759,7 @@ export function placeIncoming(ctx: EditorCtx, inc: Incoming, mode: PasteMode): {
 export async function pasteFromClipboard(ctx: EditorCtx, mode: PasteMode): Promise<boolean> {
   if (ctx.get().readOnly) return false
   const read = await drawClipboardBackend().read()
-  const inc = incomingFrom(ctx, read)
+  const inc = await incomingFrom(ctx, read)
   if ('error' in inc) {
     ctx.status(inc.error)
     return false

@@ -8,7 +8,7 @@ import { nodeBounds, nodesBounds } from '../../../src/shared/draw/ops'
 import { allNodes } from '../../../src/shared/draw/tree'
 import { buildMenu } from '../../../src/renderer/src/components/documents/editor/DrawStudioMenuBar'
 import {
-  SVG_PASTE_PENDING,
+  SVG_PASTE_UNAVAILABLE,
   buildClipboard,
   centreDelta,
   landPayload,
@@ -51,6 +51,9 @@ let cb: FakeClipboard
 beforeEach(() => {
   cb = new FakeClipboard()
   setDrawClipboardBackend(cb)
+  // WP-IMPORT registers the real SVG importer when the command registry loads;
+  // tests that need it register it themselves (see "SVG paste, with WP-IMPORT").
+  registerSvgPasteImporter(null)
 })
 afterEach(() => {
   setDrawClipboardBackend(null)
@@ -457,16 +460,16 @@ describe('from other apps', () => {
     expect(h.doc().assets[img.assetId].mime).toBe('image/jpeg')
   })
 
-  it('SVG alone reports that SVG paste arrives with SVG import, and changes nothing', async () => {
+  it('with no SVG importer registered, SVG alone says so honestly and changes nothing', async () => {
     cb.next = { svg: '<svg xmlns="http://www.w3.org/2000/svg"><rect width="5" height="5"/></svg>' }
     const h = harness(blank([]))
     await run(h, 'edit.paste')
-    expect(h.state().status).toBe(SVG_PASTE_PENDING)
+    expect(h.state().status).toBe(SVG_PASTE_UNAVAILABLE)
     expect(h.objects()).toHaveLength(0)
     // SVG markup in plain text (Figma's Copy as SVG) is recognised as SVG too.
     cb.next = { text: '<?xml version="1.0"?>\n<svg viewBox="0 0 1 1"></svg>' }
     await run(h, 'edit.paste')
-    expect(h.state().status).toBe(SVG_PASTE_PENDING)
+    expect(h.state().status).toBe(SVG_PASTE_UNAVAILABLE)
   })
 
   it('SVG with a picture alongside pastes the picture and says why', async () => {
@@ -474,10 +477,10 @@ describe('from other apps', () => {
     const h = harness(blank([]))
     await run(h, 'edit.paste')
     expect(h.objects()[0].type).toBe('image')
-    expect(h.state().status).toBe(`Pasted as a picture. ${SVG_PASTE_PENDING}`)
+    expect(h.state().status).toBe(`Pasted as a picture. ${SVG_PASTE_UNAVAILABLE}`)
   })
 
-  it('once an SVG importer is registered (WP-IMPORT), SVG pastes as vectors', async () => {
+  it('a registered SVG importer turns SVG into vectors, with fresh ids and its report', async () => {
     registerSvgPasteImporter(() => ({ nodes: [rect('s', 0, 0, 10, 10) as unknown as DrawNode], assets: {}, report: '1 filter was not imported.' }))
     cb.next = { svg: '<svg/>', image: { dataUrl: PNG, w: 10, h: 10 } }
     const h = harness(blank([]))

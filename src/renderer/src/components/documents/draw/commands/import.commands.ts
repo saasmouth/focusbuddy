@@ -9,6 +9,7 @@ import type { DrawDoc, DrawImageNode } from '@shared/draw/model'
 import { editableIds, getObject, mapObject, primaryArtboard } from '@shared/draw/ops'
 import { useViewStore } from '../../../../stores/view'
 import { domImportDeps, importStructure, newDocStructure, openSvgAsDoc, prepareFile, prepareFiles, type ImportDeps, type ImportFile } from '../editor/importFiles'
+import { registerSvgPasteImporter, type SvgPasteImporter } from '../editor/clipboard'
 import { loadPlaceCursor, placeIntoDoc, showImportReport } from '../editor/place'
 import type { Command, EditorCtx } from '../editor/types'
 
@@ -184,6 +185,29 @@ async function placePdfPage(ctx: EditorCtx, args: unknown): Promise<void> {
     ctx.busy(null)
   }
 }
+
+// ── SVG paste (WP-CLIPBOARD's seam) ──────────────────────────────────────────
+
+const PASTED_SVG_NAME = 'Pasted SVG.svg'
+
+/**
+ * SVG on the clipboard pastes as editable vectors, through exactly what
+ * File › Import SVG does: the shared importer, anything it cannot edit
+ * rasterised and reported, v1 lowering for a drawing that must stay v1, and
+ * (in a v2 drawing) one group, as Illustrator pastes SVG code.
+ */
+export const pasteSvgImporter: SvgPasteImporter = async (svg, target, info) => {
+  const item = await prepareFile({ name: PASTED_SVG_NAME, bytes: new TextEncoder().encode(svg) }, host.deps(), {
+    structure: importStructure({ storedSchema: info.storedSchema, doc: target }),
+    docDpi: target.settings.dpi,
+    newId: drawId
+  })
+  if ('error' in item) return { error: item.error.startsWith(`${PASTED_SVG_NAME}: `) ? item.error.slice(PASTED_SVG_NAME.length + 2) : item.error }
+  const made = item.make({ x: 0, y: 0, w: item.size.w, h: item.size.h })
+  return { nodes: made.nodes, assets: made.assets, ...(item.report?.length ? { report: item.report.join(' ') } : {}) }
+}
+
+registerSvgPasteImporter(pasteSvgImporter)
 
 export const commands: Command[] = [
   {
