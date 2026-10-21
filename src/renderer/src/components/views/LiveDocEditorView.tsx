@@ -206,10 +206,12 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
     const root = ydoc.getMap('root')
     const LOCAL = {}
     localOriginRef.current = LOCAL
-    // A drawing's layers and objects are lists of things with ids, so they
-    // reconcile BY ID: reordering or deleting a shape never smears its fields
-    // onto the next one (see yjsKeyedJson). Every other type is unchanged.
-    const reconcile = meta.docType === 'draw' ? reconcileMapKeyed : reconcileMap
+    // A drawing's layers and objects, and a diagram's shapes, lines, layers and
+    // pages, are lists of things with ids, so they reconcile BY ID: reordering
+    // or deleting a shape never smears its fields onto the next one (see
+    // yjsKeyedJson). Lists without ids still align by position. Every other
+    // type is unchanged.
+    const reconcile = meta.docType === 'draw' || meta.docType === 'map' ? reconcileMapKeyed : reconcileMap
     const ownUndo = meta.docType === 'draw' ? createLiveUndo(root, LOCAL) : null
     setDrawUndo(ownUndo)
     const refresh = (): void => {
