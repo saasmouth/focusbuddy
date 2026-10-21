@@ -241,7 +241,8 @@ export function trimPoints(points: Pt[], startInset: number, endInset: number): 
 // Polyline → SVG path. Orthogonal routes may round their corners; `hops`
 // (segment index → distances along that segment) draws line-jump semicircles.
 function buildLinePath(points: Pt[], cornerRadius: number, hops?: Map<number, number[]>, hopRadius = 5): string {
-  if (!points.length) return ''
+  // Fewer than two points is not a line; a bare "M" would only hide that.
+  if (points.length < 2) return ''
   const n = points.length
   const segLen = (i: number): number => dist(points[i]!, points[i + 1]!)
   // Corner trim at each interior vertex.
@@ -327,7 +328,7 @@ function sampleCubics(segs: { a: Pt; c1: Pt; c2: Pt; b: Pt }[], perSeg: number):
 }
 
 export function pathFromPoints(points: Pt[], routing: MapRouting, opts?: { cornerRadius?: number }): string {
-  if (!points.length) return ''
+  if (points.length < 2) return ''
   if (routing === 'curved' && points.length > 2) return cubicPath(splineSegments(points))
   return buildLinePath(points, routing === 'orthogonal' ? Math.max(0, opts?.cornerRadius ?? 0) : 0)
 }
