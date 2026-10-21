@@ -11,7 +11,7 @@ export default function Toolbox({ ctx }: { ctx: EditorCtx }): JSX.Element {
   const fill = useStore(ctx.store, (s) => s.fill)
   const stroke = useStore(ctx.store, (s) => s.stroke)
   const swatches = useStore(ctx.store, (s) => s.doc.swatches)
-  const tools = drawTools()
+  const tools = drawTools().filter((t) => !t.hidden)
   return (
     <div className="shrink-0 w-10 border-r border-[var(--edge-soft)] py-1 overflow-y-auto" data-testid="draw-toolbox">
       {tools.map((t, i) => {

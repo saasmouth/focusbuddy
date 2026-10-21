@@ -26,6 +26,8 @@ a keyboard shortcut. There, add one line per binding.
 | `panels/*.panel.tsx` | Right-dock panels, picked up automatically. |
 | `dialogs/*.dialog.tsx` | Modal dialogs a command can open, picked up automatically. |
 | `render/*` | Rendering: `SceneView` (memoised per node), `Overlay`, `Toolbox`, `OptionsBar`, `TextEditor`. |
+| `src/shared/draw/import/*` | Import: `imageInfo.ts` (what a file is, its size and resolution) and `svg/` (the SVG importer, pure, with its import report). |
+| `editor/importFiles.ts`, `editor/place.ts`, `editor/fileDrop.ts` | Place, Open/Import SVG, Replace and file drops. Side effects come in through `ImportDeps`. |
 | `tests/unit/drawTools/harness.ts` | `ToolHarness`: drives the real editor headlessly. |
 
 ## Add a tool: one new file
@@ -88,6 +90,8 @@ Rules:
 - **Read-only drawings:** the dispatcher sends input only to tools with
   `readOnlySafe: true` (Select and Pan), and `history` refuses to write. Do not
   work around either.
+- A tool with `hidden: true` is a MODE a command switches to, not a toolbox
+  button (the Place cursor, `tools/place.tool.tsx`). It has no letter.
 - Shared geometry and snapping helpers live in `tools/helpers.ts`. The shape
   tools are built by `tools/shapeTool.tsx`, and the brush and eraser by
   `tools/paintTool.ts`, if your tool is a variant of one of those.

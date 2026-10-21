@@ -72,6 +72,7 @@ export function initialEditorState(content: unknown): EditorState {
     compat,
     storedSchema: declaredSchema(content),
     dialog: null,
+    placing: null,
     liveUndoTick: 0
   }
 }
@@ -117,7 +118,8 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
     status: (msg) => store.setState({ status: msg }),
     busy: (msg) => store.setState({ busy: msg }),
     select: (ids) => store.setState({ selection: ids }),
-    setTool: (id) => store.setState({ tool: id }),
+    // Choosing any other tool unloads the Place cursor, as in Illustrator.
+    setTool: (id) => store.setState(id === 'place' ? { tool: id } : { tool: id, placing: null }),
     run: (id, args) => {
       const c = commandById(id)
       if (c) void c.run(ctx, args)

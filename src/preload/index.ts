@@ -3130,7 +3130,18 @@ const api = {
       draw: import('@shared/draw').DrawBody
       title: string
       format: 'png' | 'svg' | 'pdf'
-    }): Promise<{ ok: boolean; path?: string; error?: string }> => ipcRenderer.invoke('draw:export', input)
+    }): Promise<{ ok: boolean; path?: string; error?: string }> => ipcRenderer.invoke('draw:export', input),
+    // File › Place / Open / Import: the native Open dialog and the picked files' bytes.
+    pickImportFiles: (input: {
+      purpose: 'place' | 'open' | 'import' | 'replace'
+    }): Promise<{ ok: boolean; files: Array<{ name: string; bytes: Uint8Array }>; skipped: Array<{ name: string; reason: string }> }> =>
+      ipcRenderer.invoke('draw:pickImportFiles', input),
+    // One page of a PDF (or PDF-compatible .ai) as a PNG, for placing it as an image.
+    pdfPage: (input: {
+      bytes: Uint8Array
+      page?: number
+    }): Promise<{ ok: boolean; dataUrl?: string; w?: number; h?: number; pages?: number; error?: string }> =>
+      ipcRenderer.invoke('draw:pdfPage', input)
   },
   // PlexiDiagrams export — one diagram out to .svg / .png / .jpg / .pdf. The IPC
   // channel keeps its historic 'map:' prefix; only the product name changed.
