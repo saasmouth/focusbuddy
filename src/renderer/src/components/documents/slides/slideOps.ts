@@ -33,7 +33,23 @@ export function duplicateElement(slide: Slide, id: string): { slide: Slide; newI
   const el = (slide.elements ?? []).find((e) => e.id === id)
   if (!el) return { slide, newId: id }
   const newId = elementId()
-  const copy = { ...el, id: newId, x: el.x + 20, y: el.y + 20 } as SlideElement
+  // A DEEP copy, not a spread.
+  //
+  // A spread gives the duplicate its own top-level object and leaves every
+  // nested one shared: original.fill === copy.fill, and the same for border,
+  // paragraphs and the runs inside them. Two consequences, both bad and
+  // neither obvious.
+  //
+  // Editing the copy's fill edited the original's too, because they were one
+  // object. And the saved body then contained the same object reachable by
+  // two paths, which is exactly what the IPC payload check rejected as
+  // "cyclic data" — the bug that broke saves after Draw's Duplicate and
+  // needed the 4.3.39-local.7 hotfix. Design's Duplicate had the same defect.
+  //
+  // structuredClone rather than JSON round-tripping: elements are plain
+  // persisted data, so it is safe, and it keeps undefined-valued keys instead
+  // of silently dropping them.
+  const copy = { ...structuredClone(el), id: newId, x: el.x + 20, y: el.y + 20 } as SlideElement
   return { slide: { ...slide, elements: [...(slide.elements ?? []), copy] }, newId }
 }
 
