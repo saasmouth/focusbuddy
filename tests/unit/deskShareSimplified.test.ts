@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   EXPIRY_CHOICES,
@@ -106,6 +106,9 @@ describe('nothing was dropped', () => {
     // neither live nor to a named person.
     expect(live).not.toContain('<EphemeralDeskShare')
     expect(sheet).toContain('mintEphemeralShare')
+    // The old nested component was left unmounted after the move and deleted
+    // in 4.3.41; the sheet is the one place that mints this link.
+    expect(existsSync(join(ROOT, 'src/renderer/src/components/EphemeralDeskShare.tsx'))).toBe(false)
   })
 
   it('all three transports are still reachable from the sheet', () => {

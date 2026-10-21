@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DELETE_HINT, manyRemovalLabels, otherDeskCount, removalLabels, removeHint, trashFileBody } from '../../src/renderer/src/lib/widgetRemovalCopy'
 import { catalogFor } from '../../src/renderer/src/lib/widgetCatalog'
@@ -77,16 +77,17 @@ describe('the words', () => {
 })
 
 describe('every × asks the same question', () => {
-  it('the frame header, the dock chip and the context menu all go through removeWorkWidget', () => {
+  // The dock chip (WidgetDock.tsx) was a third × until 4.3.41, when the
+  // never-mounted dock was deleted; the frame header and the context menu are
+  // the ×s that remain.
+  it('the frame header and the context menu both go through removeWorkWidget', () => {
     expect(read('components/widgets/WidgetFrame.tsx')).toContain('void removeWorkWidget(widget)')
-    expect(read('components/WidgetDock.tsx')).toContain('void removeWorkWidget(w)')
     const actions = read('lib/contextMenu/actions.ts')
     expect(actions).toContain('await removeWorkWidget(w)')
     expect(actions).toContain('removeWorkWidgets(ctx.object.widgets)')
-    // The old one-button confirm is gone from both ×s.
-    for (const f of ['components/widgets/WidgetFrame.tsx', 'components/WidgetDock.tsx']) {
-      expect(read(f)).not.toContain("title: 'Remove from the desk?'")
-    }
+    // The old one-button confirm is gone from the frame's ×.
+    expect(read('components/widgets/WidgetFrame.tsx')).not.toContain("title: 'Remove from the desk?'")
+    expect(existsSync(join(ROOT, 'components/WidgetDock.tsx'))).toBe(false)
   })
 
   it('offers both choices, the delete one marked as dangerous, with Cancel from the dialog', () => {

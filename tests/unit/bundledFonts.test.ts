@@ -30,16 +30,24 @@ describe('no remote fonts', () => {
     expect(hits).toEqual([])
   })
 
-  it('both windows’ CSPs allow fonts only from the app itself', () => {
-    for (const page of ['index.html', 'plexioffice.html']) {
-      const csp = /Content-Security-Policy" content="([^"]+)"/.exec(read(page))?.[1] ?? ''
-      expect(csp).toContain("font-src 'self' data:")
-      expect(csp).not.toMatch(/googleapis|gstatic/)
-    }
+  it('the window’s CSP allows fonts only from the app itself', () => {
+    const csp = /Content-Security-Policy" content="([^"]+)"/.exec(read('index.html'))?.[1] ?? ''
+    expect(csp).toContain("font-src 'self' data:")
+    expect(csp).not.toMatch(/googleapis|gstatic/)
   })
 
-  it('PlexiiOffice imports the same bundled type stack as the desk', () => {
-    const office = read('src/officeApp.tsx')
+  // PlexiiOffice used to be a second window with its own page and entry
+  // (plexioffice.html + src/officeApp.tsx), held here to the same bundled type
+  // stack. It was retired in 4.3.41; the Office area renders inside index.html.
+  // A second page would need its own CSP and font imports, so it must not come
+  // back unnoticed.
+  it('there is one renderer page, and the retired PlexiiOffice entry stays gone', () => {
+    expect(existsSync(join(R, 'plexioffice.html'))).toBe(false)
+    expect(existsSync(join(R, 'src', 'officeApp.tsx'))).toBe(false)
+  })
+
+  it('the desk imports the bundled type stack', () => {
+    const entry = read('src/main.tsx')
     for (const pkg of [
       'material-symbols/outlined.css',
       '@fontsource-variable/inter',
@@ -49,7 +57,7 @@ describe('no remote fonts', () => {
       '@fontsource/atkinson-hyperlegible',
       './assets/fonts/bundled-fonts.css'
     ]) {
-      expect(office).toContain(`import '${pkg}'`)
+      expect(entry).toContain(`import '${pkg}'`)
     }
   })
 })

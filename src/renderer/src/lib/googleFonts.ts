@@ -4,7 +4,7 @@
 //
 //   - the core type stack (Inter, JetBrains Mono, Lexend, Atkinson Hyperlegible,
 //     Patrick Hand) and Material Symbols come from the @fontsource /
-//     material-symbols packages, imported by main.tsx and officeApp.tsx;
+//     material-symbols packages, imported by main.tsx;
 //   - the rest are vendored in assets/fonts (latin subset, regular and bold plus
 //     italics; SIL OFL 1.1, Permanent Marker Apache 2.0; licences in
 //     assets/fonts/FONT-LICENSES.txt) and declared by bundled-fonts.css below.

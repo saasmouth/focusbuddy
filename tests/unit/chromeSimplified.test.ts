@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 // ── 2026-10-09 — the chrome pass ───────────────────────────────────────────
@@ -85,6 +85,9 @@ describe('one control per question: which organisation, which area', () => {
       // duplication that commit was right about.
       expect(src, `${name} no longer mounts OrgSwitcher`).not.toContain('<OrgSwitcher />')
     }
+    // Unmounted since the org half moved into WorkspaceSwitcher; the file
+    // itself was deleted in 4.3.41.
+    expect(existsSync(join(ROOT, 'src/renderer/src/components/OrgSwitcher.tsx'))).toBe(false)
   })
 
   it('the workspace trigger names the organisation and nothing else', () => {

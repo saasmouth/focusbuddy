@@ -126,9 +126,8 @@ export function computeSpawnPosition(g: SpawnGeometry): { x: number; y: number }
 }
 
 // Read the visible canvas surface so the viewport-centre fallback lands inside
-// what the user is actually looking at. Mirrors how MinimapWidget measures the
-// same element. Falls back to the window when the surface is not mounted (e.g.
-// a unit-test environment with no DOM).
+// what the user is actually looking at. Falls back to the window when the
+// surface is not mounted (e.g. a unit-test environment with no DOM).
 function readCanvasViewport(): { width: number; height: number } {
   if (typeof document !== 'undefined') {
     const el = document.querySelector<HTMLElement>('[data-canvas-surface="true"]')

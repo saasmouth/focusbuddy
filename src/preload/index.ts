@@ -19,9 +19,6 @@ import type {
   ConnectedAppDraft,
   ConnectedAppPatch,
   ContextMenuPayload,
-  DashboardCardKind,
-  DashboardLayout,
-  DashboardLayoutInput,
   EnergyLevel,
   EnergyLogEntry,
   TimeBlock,
@@ -614,15 +611,6 @@ const api = {
       ipcRenderer.invoke('livingPage:regenerate', widgetId)
   },
   ai: {
-    // The Daily Brief: a proactive summary built from real tasks / calendar /
-    // recent docs. No input — it reads the environment.
-    dailyBrief: (): Promise<{
-      ok: boolean
-      brief?: string
-      actions?: Array<{ taskId: string; title: string; startMs: number; durationMin: number }>
-      needsApiKey?: boolean
-      error?: string
-    }> => ipcRenderer.invoke('ai:dailyBrief'),
     // Mirror a compact {id,label} snapshot of chat conversations so the main
     // process prompt builder can offer real conversation ids to post-chat.
     setConversationSnapshot: (convs: Array<{ id: string; label: string }>): Promise<boolean> =>
@@ -1011,17 +999,6 @@ const api = {
     }): Promise<boolean> => ipcRenderer.invoke('localApp:isRunning', input),
     refreshIcon: (appPath: string): Promise<string | null> =>
       ipcRenderer.invoke('localApp:refreshIcon', appPath)
-  },
-  dashboard: {
-    getLayout: (key: string): Promise<DashboardLayout | null> =>
-      ipcRenderer.invoke('dashboard:getLayout', key),
-    setLayout: (
-      key: string,
-      input: DashboardCardKind[] | DashboardLayoutInput
-    ): Promise<DashboardLayout> =>
-      ipcRenderer.invoke('dashboard:setLayout', key, input),
-    resetLayout: (key: string): Promise<boolean> =>
-      ipcRenderer.invoke('dashboard:resetLayout', key)
   },
   onboarding: {
     // Persist onboarding progress locally so it rides the next telemetry
@@ -1426,8 +1403,6 @@ const api = {
     restoreDeep: (id: string): Promise<boolean> => ipcRenderer.invoke('fileManager:restoreDeep', id),
     purge: (id: string): Promise<boolean> => ipcRenderer.invoke('fileManager:purge', id),
     search: (query: string): Promise<FileEntry[]> => ipcRenderer.invoke('fileManager:search', query),
-    tagsFor: (fileId: string): Promise<Array<{ tag: string; source: 'user' | 'ai' }>> =>
-      ipcRenderer.invoke('fileManager:tagsFor', fileId),
     addTags: (
       fileId: string,
       tags: string[],
