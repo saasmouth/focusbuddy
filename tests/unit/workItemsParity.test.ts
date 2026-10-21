@@ -71,7 +71,8 @@ describe('allowlist parity (manifest ↔ transports)', () => {
 describe('the arrival router (§3 D1) is wired at every seam', () => {
   it('crdtSync branches all three apply paths to the workItems channel', () => {
     expect(crdt).toContain("if (snapshot.kind === 'work_item')")
-    expect(crdt).toContain("applySyncEvent({ type: 'create', snapshot })")
+    // DEC-144: the create carries the team it arrived on (orgOfPartition).
+    expect(crdt).toContain("applySyncEvent({ type: 'create', snapshot, orgId })")
     expect(crdt).toContain("applySyncEvent({ type: 'attr', id, attr, value })")
     expect(crdt).toContain("applySyncEvent({ type: 'trash', id, trashed: true })")
   })

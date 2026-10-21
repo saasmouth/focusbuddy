@@ -270,3 +270,15 @@ async function revalidateSessionSoon(token: string, attempt = 0): Promise<void> 
 if (typeof window !== 'undefined') {
   ;(window as unknown as { __fbAccount?: typeof useAccountStore }).__fbAccount = useAccountStore
 }
+
+// DEC-144 — tell the main process who is signed in, so a team workspace's
+// Focus shows the tasks assigned to you. Published when an account loads and
+// cleared only on a real sign-out (no session token). Offline at boot the
+// token survives with no account object, and the last published id must
+// survive with it — clearing it would empty team Focus every time the
+// network dropped.
+useAccountStore.subscribe((s, prev) => {
+  const id = s.account?.id ?? null
+  if (id && id !== (prev.account?.id ?? null)) void window.api?.people?.setSelf?.(id).catch(() => {})
+  else if (!s.sessionToken && prev.sessionToken) void window.api?.people?.setSelf?.(null).catch(() => {})
+})

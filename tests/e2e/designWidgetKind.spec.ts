@@ -17,12 +17,17 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, addWidgetToDesk } from './_helpers'
+import { launchApp, waitForReady, addWidgetToDesk, chooseCloudAiSource } from './_helpers'
 
 test('DWK-1 — API-seeded design widget provisions docType=design and mounts DesignEditor', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
+    // A fresh profile's AI source is Local since 4.3.39. Choose the cloud
+    // source explicitly: it is what these specs assume, and it clears the
+    // fixed "local AI missing" notice, which otherwise intercepts clicks on
+    // the design toolbar and fails as if Design were broken.
+    await chooseCloudAiSource(window)
 
     const { taskId, widgetId } = await window.evaluate(async () => {
       const api = (window as unknown as { api: typeof window.api }).api
@@ -42,6 +47,11 @@ test('DWK-1 — API-seeded design widget provisions docType=design and mounts De
 
     await window.reload()
     await waitForReady(window)
+    // A fresh profile's AI source is Local since 4.3.39. Choose the cloud
+    // source explicitly: it is what these specs assume, and it clears the
+    // fixed "local AI missing" notice, which otherwise intercepts clicks on
+    // the design toolbar and fails as if Design were broken.
+    await chooseCloudAiSource(window)
     await window.getByRole('button', { name: /DWK-1 Task/ }).first().click()
     await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 8_000 })
     await window.waitForTimeout(300)
@@ -85,6 +95,11 @@ test('DWK-2 — the PlexiDesign tile adds a design widget to the desk via the re
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
+    // A fresh profile's AI source is Local since 4.3.39. Choose the cloud
+    // source explicitly: it is what these specs assume, and it clears the
+    // fixed "local AI missing" notice, which otherwise intercepts clicks on
+    // the design toolbar and fails as if Design were broken.
+    await chooseCloudAiSource(window)
 
     await window.evaluate(async () => {
       const api = (window as unknown as { api: typeof window.api }).api
@@ -92,6 +107,11 @@ test('DWK-2 — the PlexiDesign tile adds a design widget to the desk via the re
     })
     await window.reload()
     await waitForReady(window)
+    // A fresh profile's AI source is Local since 4.3.39. Choose the cloud
+    // source explicitly: it is what these specs assume, and it clears the
+    // fixed "local AI missing" notice, which otherwise intercepts clicks on
+    // the design toolbar and fails as if Design were broken.
+    await chooseCloudAiSource(window)
     await window.getByRole('button', { name: /DWK-2 Task/ }).first().click()
     await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 8_000 })
     await window.waitForTimeout(300)

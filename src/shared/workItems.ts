@@ -41,6 +41,15 @@ export const WORK_ITEM_COLUMNS: readonly WorkItemColumnDef[] = [
   { column: 'mentions', attr: 'mentions', ddl: 'TEXT', rendererEmitted: true },
   { column: 'originator_id', attr: 'originatorId', ddl: 'TEXT', rendererEmitted: true },
   { column: 'recipient_id', attr: 'recipientId', ddl: 'TEXT', rendererEmitted: true },
+  // DEC-144 — the people a task is ASSIGNED to, as a JSON array of server
+  // account ids (organisation members and guests). Many people, not one: a
+  // task in a team workspace can be shared out. This is the routing field: in a
+  // team workspace a task appears in the Focus of everyone listed here, and a
+  // guest's device receives only the tasks that list them (server
+  // orgGuestScope). Distinct from `mentions` (who a task is ABOUT) and from the
+  // Plan-domain free-text `assignee` column (ARCHITECTURE §2.2). Empty or null =
+  // unassigned. Always written through normalizeAssigneeIds.
+  { column: 'assignee_ids', attr: 'assigneeIds', ddl: 'TEXT', rendererEmitted: true },
   // ISO-8601 string — collision-proof vs the numeric desk due_date (§2.2)
   { column: 'due_at', attr: 'dueAt', ddl: 'TEXT', rendererEmitted: true },
   { column: 'wi_urgency', attr: 'wiUrgency', ddl: 'TEXT', rendererEmitted: true },
@@ -87,6 +96,40 @@ export const WORK_ITEM_COLUMNS: readonly WorkItemColumnDef[] = [
   // at epoch N parks a row stamped N+1 instead of mis-applying it.
   { column: 'schema_epoch', attr: 'schemaEpoch', ddl: 'INTEGER', rendererEmitted: false }
 ] as const
+
+/** The most people one task can be assigned to. */
+export const MAX_ASSIGNEES = 50
+
+/**
+ * The one way an assignee list is written (DEC-144): a JSON array of distinct,
+ * non-empty account ids, sorted so the same set always serializes the same way
+ * (the server's guest rule compares bodies), or null when nobody is assigned.
+ * Accepts the stored JSON text or an array. Returns undefined for input that
+ * is not an assignee list at all, so a caller can refuse it.
+ */
+export function normalizeAssigneeIds(v: unknown): string | null | undefined {
+  if (v === null || v === undefined || v === '') return null
+  let arr: unknown = v
+  if (typeof v === 'string') {
+    try {
+      arr = JSON.parse(v)
+    } catch {
+      return undefined
+    }
+  }
+  if (!Array.isArray(arr)) return undefined
+  const ids = Array.from(new Set(arr.filter((x): x is string => typeof x === 'string').map((x) => x.trim()).filter(Boolean)))
+  if (ids.length !== arr.length && arr.some((x) => typeof x !== 'string')) return undefined
+  if (ids.length > MAX_ASSIGNEES) return undefined
+  ids.sort()
+  return ids.length ? JSON.stringify(ids) : null
+}
+
+/** The account ids in a stored assignee list ([] for none or junk). */
+export function parseAssigneeIds(v: unknown): string[] {
+  const norm = normalizeAssigneeIds(v)
+  return norm ? (JSON.parse(norm) as string[]) : []
+}
 
 /** This build's work_item schema epoch. Bump ONLY when a new epoch's rows
  *  would be unsafe for an older build to materialize as-is. */

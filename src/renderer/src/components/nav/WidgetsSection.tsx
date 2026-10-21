@@ -20,7 +20,7 @@ import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
 import { SubHeading, Tile, TileGrid } from './menuParts'
 import type { WidgetKind } from '@shared/types'
 import { isStandaloneWidgetKind } from '@shared/widgetFiles'
-import { DRAG_MIME, useCaseGroupOf, type WidgetCatalogEntry } from '../../lib/widgetCatalog'
+import { DRAG_MIME, caseGroupOf, type WidgetCatalogEntry } from '../../lib/widgetCatalog'
 import { moveWidgetKind, splitWidgetMenu, widgetMenuEntries, widgetMenuHint } from '../../lib/widgetMenu'
 import {
   hydrateWidgetMenuPrefs,
@@ -169,7 +169,7 @@ export default function WidgetsSection(): JSX.Element {
             name={entry.icon}
             size={22}
             filled
-            className={locked ? 'text-[var(--ink-40)] opacity-60' : widgetGroupTone(useCaseGroupOf(entry.kind))}
+            className={locked ? 'text-[var(--ink-40)] opacity-60' : widgetGroupTone(caseGroupOf(entry.kind))}
           />
           {locked && (
             <span className="absolute -top-1 -right-1.5 text-accent" aria-hidden="true">
@@ -340,7 +340,7 @@ export function WidgetsRail({ iconClass }: { iconClass: (active: boolean, tone?:
         aria-label={entry.label}
         data-testid={`rail-widget-${entry.kind}`}
         data-locked={locked ? 'true' : undefined}
-        className={iconClass(false, locked ? 'text-[var(--ink-40)]' : widgetGroupTone(useCaseGroupOf(entry.kind)))}
+        className={iconClass(false, locked ? 'text-[var(--ink-40)]' : widgetGroupTone(caseGroupOf(entry.kind)))}
       >
         <Icon name={entry.icon} size={16} filled />
       </button>

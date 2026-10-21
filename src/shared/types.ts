@@ -247,6 +247,8 @@ export interface FbNode {
   mentions?: string | null
   originatorId?: string | null
   recipientId?: string | null
+  /** DEC-144: JSON array of assignee account ids (members and guests). */
+  assigneeIds?: string | null
   dueAt?: string | null
   wiUrgency?: string | null
   sourceRef?: string | null
@@ -3157,7 +3159,10 @@ export type DocBody = { type: 'doc'; content?: unknown[] } | Record<string, unkn
 // position + shape + colour, edges carry an optional label and line style. The
 // editor (MapEditor) renders this on React Flow; the shape stays independent of
 // React Flow so it can sync to the cloud and later export cleanly.
-export type MapShape =
+// The original built-in shape ids. The full library lives in the shape registry
+// (shared/diagram/shapes), whose ids are also valid MapShape values; the
+// normaliser keeps any id the registry knows and maps unknown ones to 'process'.
+export type BuiltinMapShape =
   | 'process' // rectangle — a step / action
   | 'decision' // diamond — a branch / yes-no
   | 'terminator' // pill — start / end
@@ -3177,6 +3182,62 @@ export type MapShape =
   | 'lane' // swimlane / container band that groups shapes placed on top of it
   | 'widget' // live embed of a desk widget (widgetId on the node)
 
+// Any registered shape id (see shared/diagram/shapes). Typed open so the library
+// can grow without touching every switch; the normaliser is the gatekeeper.
+export type MapShape = BuiltinMapShape | (string & {})
+
+export type MapStrokeDash = 'solid' | 'dashed' | 'dotted' | 'dashdot' | 'none'
+
+// Everything a shape's look can override. Absent fields fall back to the shape's
+// colour (stroke) and the document theme, so a v1 node renders exactly as before.
+export interface MapNodeStyle {
+  fill?: string // CSS colour; 'none' for no fill
+  fillOpacity?: number // 0..1
+  stroke?: string
+  strokeWidth?: number
+  strokeDash?: MapStrokeDash
+  radius?: number // corner radius for rectangles
+  opacity?: number // whole-shape opacity 0..1
+  shadow?: boolean
+  fontFamily?: string
+  fontSize?: number
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
+  strike?: boolean
+  textColor?: string
+  textAlign?: 'left' | 'center' | 'right'
+  vAlign?: 'top' | 'middle' | 'bottom'
+}
+
+// A rule that restyles a data-linked shape when its row matches.
+export interface MapConditionalRule {
+  id: string
+  columnId: string
+  op: 'eq' | 'neq' | 'contains' | 'gt' | 'lt' | 'gte' | 'lte' | 'empty' | 'notEmpty'
+  value?: string
+  fill?: string
+  stroke?: string
+  textColor?: string
+  icon?: string
+}
+
+// Where a shape's content comes from. A table binding points at one row; the
+// label is rendered from a template like "{Name} · {Status}" using column names.
+export type MapDataSource =
+  | { kind: 'table'; tableId: string; rowId?: string }
+  | { kind: 'widget'; widgetId: string }
+  | { kind: 'app'; appId: string }
+  | { kind: 'tool'; toolId: string }
+
+export interface MapNodeBinding {
+  source: MapDataSource
+  labelTemplate?: string
+  rules?: MapConditionalRule[]
+  // Column ids shown as extra lines in the shape (data fields).
+  fields?: string[]
+}
+
 export interface MapNode {
   id: string
   x: number
@@ -3189,42 +3250,112 @@ export interface MapNode {
   // Only meaningful when shape === 'widget': the desk widget this node embeds.
   // The renderer resolves the widget live; a dangling id renders a missing state.
   widgetId?: string
+  // ── v2 (all optional; absent = v1 behaviour) ──
+  rotation?: number // degrees, clockwise
+  flipX?: boolean
+  flipY?: boolean
+  parentId?: string // container (lane / pool / frame) this node sits in
+  groupId?: string // nodes sharing a groupId select and move together
+  locked?: boolean
+  hidden?: boolean
+  layerId?: string
+  style?: MapNodeStyle
+  icon?: string // Material Symbols name drawn in the shape
+  image?: string // image URL or data: URL (image shapes)
+  link?: string // URL opened from the shape
+  description?: string // notes / tooltip
+  data?: Record<string, string> // custom data fields shown in the inspector
+  binding?: MapNodeBinding
+  cells?: string[][] // table shape contents, rows of cells
 }
 
-/** How a connector gets from one node to the other. */
-export type MapEdgeRouting = 'orthogonal' | 'straight'
+export type MapArrowHead =
+  | 'none'
+  | 'arrow' // filled triangle
+  | 'open' // open V
+  | 'triangle' // hollow triangle (UML generalisation)
+  | 'diamond' // filled diamond (UML composition)
+  | 'diamondOpen' // hollow diamond (UML aggregation)
+  | 'circle'
+  | 'circleOpen'
+  | 'bar'
+  | 'crowOne' // ERD: exactly one
+  | 'crowMany' // ERD: many
+  | 'crowOneOrMany'
+  | 'crowZeroOrOne'
+  | 'crowZeroOrMany'
+
+/**
+ * How a connector gets from one node to the other. Absent means 'orthogonal':
+ * bodies written before routing existed drew straight lines through whatever
+ * sat between their ends, so they deliberately get the clearer route now.
+ */
+export type MapRouting = 'orthogonal' | 'curved' | 'straight'
+/** The routings the 4.3.3x connector router (mapRouting.ts, since replaced by shared/diagram/routing.ts) understood; normalize maps them onto the new editor. */
+export type MapEdgeRouting = Extract<MapRouting, 'orthogonal' | 'straight'>
 
 export interface MapEdge {
   id: string
   source: string
   target: string
   label?: string
+  // Port on the node: 'top' | 'right' | 'bottom' | 'left', a fractional point
+  // 'p:0.25:0' (x:y of the node box), or null/absent for automatic.
   sourceHandle?: string | null
   targetHandle?: string | null
   style?: 'solid' | 'dashed'
   animated?: boolean
-  /**
-   * Absent means 'orthogonal', which is a deliberate change of behaviour for
-   * bodies written before this field existed. Those bodies render as straight
-   * lines today, and a straight line between two node centres goes through
-   * whatever sits between them — the diagram app's most visible weakness. An
-   * existing diagram becomes more readable, never less, so the improvement is
-   * worth applying to content already saved. 'straight' opts back out.
-   */
-  routing?: MapEdgeRouting
-  /**
-   * Corner radius in px for an orthogonal connector. Absent means a small
-   * default; 0 gives hard corners.
-   */
+  // ── v2 ──
+  routing?: MapRouting
+  // Manual corners in map coordinates; when present they are followed instead of
+  // routing, so a person can always overrule the automatic route.
+  waypoints?: { x: number; y: number }[]
+  /** Rounded-corner radius for an orthogonal line, px; 0 = hard corners. Absent = page default. */
   cornerRadius?: number
-  /** Which ends carry an arrowhead. Absent means 'end'. */
+  /** Legacy (4.3.3x) arrowhead switch; normalize folds it into startArrow/endArrow. */
   arrow?: 'end' | 'both' | 'none'
-  /**
-   * Manual corners, in map coordinates. When present the router is not used
-   * and these are followed, so a person can always overrule the automatic
-   * route rather than fight it.
-   */
-  waypoints?: Array<{ x: number; y: number }>
+  startArrow?: MapArrowHead
+  endArrow?: MapArrowHead
+  stroke?: string
+  strokeWidth?: number
+  dash?: MapStrokeDash // supersedes style when set
+  labelPos?: number // 0..1 along the line, default 0.5
+  fontSize?: number
+  textColor?: string
+  locked?: boolean
+  layerId?: string
+  description?: string
+}
+
+export interface MapLayer {
+  id: string
+  name: string
+  visible: boolean
+  locked: boolean
+}
+
+export interface MapSettings {
+  grid?: boolean // show grid (default on)
+  gridSize?: number // px, default 16
+  snap?: boolean // snap to grid (default on)
+  guides?: boolean // smart alignment guides (default on)
+  lineJumps?: boolean // hops where lines cross (default off)
+  background?: string
+  theme?: string // theme id from the editor's theme list
+  defaultRouting?: MapRouting
+  defaultEndArrow?: MapArrowHead
+  minimap?: boolean
+}
+
+// Extra pages after the first. The first page is the body's own nodes/edges, so
+// every existing reader of body.nodes keeps working.
+export interface MapPage {
+  id: string
+  name: string
+  nodes: MapNode[]
+  edges: MapEdge[]
+  layers?: MapLayer[]
+  viewport?: { x: number; y: number; zoom: number }
 }
 
 export interface MapBody {
@@ -3232,6 +3363,11 @@ export interface MapBody {
   nodes: MapNode[]
   edges: MapEdge[]
   viewport?: { x: number; y: number; zoom: number }
+  // ── v2 ──
+  layers?: MapLayer[]
+  pageName?: string // name of the first page
+  pages?: MapPage[] // pages 2..n
+  settings?: MapSettings
 }
 
 // The full document, body included.

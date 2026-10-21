@@ -1399,7 +1399,7 @@ function MeetingDetail({
           {view === 'commitments' && (
             <div className="px-4 py-4 space-y-5" data-testid="rendering-commitments">
               <p className="text-[12.5px] text-[var(--ink-50)] leading-snug">
-                Pulled from the transcript. Checking one off marks it complete everywhere in Plexii; the bell sends it to your Attention queue with a link back to the moment it was said.
+                Pulled from the transcript. Checking one off marks it complete everywhere in Plexii; the bell adds it to Focus with a link back to the moment it was said.
               </p>
               {carried.length > 0 && (
                 <CarriedFromLastTime
@@ -1504,7 +1504,7 @@ function MeetingDetail({
               {meeting.actionItems.length === 0 && filedItems.length === 0 && foundCommitments === null ? (
                 <p className="text-[13px] text-[var(--ink-50)]">
                   Nothing was committed to in this meeting — or nothing was recorded. Owners and
-                  routing into Attention arrive with extraction.
+                  tasks in Focus arrive with extraction.
                 </p>
               ) : (
                 unfiledLegacy.length > 0 && (

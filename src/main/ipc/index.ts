@@ -274,6 +274,7 @@ import { exportMap } from '../mapExport'
 import { importVsdx } from '../mapImport'
 import { searchStockPhotos, fetchImageDataUrl, removeBackground } from '../stockMedia'
 import { setPeopleDirectory, type DirectoryPerson } from '../peopleDirectory'
+import { setSelfAccountId } from '../selfAccount'
 import type { DesignBody } from '@shared/design'
 import type { DrawBody } from '@shared/draw'
 import { getBrandKit, saveBrandKit, hasBrandKit } from '../db/brandKit'
@@ -727,6 +728,7 @@ import {
   summarizeRecentTrail,
   suggestDocContent,
   rewriteSelection,
+  designAdvice,
   suggestSheetColumns,
   suggestFormula,
   fillSheetRange,
@@ -734,6 +736,7 @@ import {
   runAgentStep,
   verifyAgentGoal
 } from '../ai/anthropic'
+import type { DesignBrief } from '@shared/designAdvicePrompt'
 import { importDocx, exportDocx, exportPdf, pickImage, type PageSetupInput } from '../officeDocx'
 import { importSheet, exportSheet } from '../sheetIo'
 import { runSheetMacro } from '../sheetMacro'
@@ -1010,11 +1013,11 @@ export function registerIpcHandlers(): void {
     (
       _e,
       ev:
-        | { type: 'create'; snapshot: Record<string, unknown> }
+        | { type: 'create'; snapshot: Record<string, unknown>; orgId?: string | null }
         | { type: 'attr'; id: string; attr: string; value: unknown }
         | { type: 'trash'; id: string; trashed: boolean }
     ) => {
-      if (ev.type === 'create') return applyRemoteWorkItemSnapshot(ev.snapshot)
+      if (ev.type === 'create') return applyRemoteWorkItemSnapshot(ev.snapshot, ev.orgId ?? null)
       if (ev.type === 'attr') return applyRemoteWorkItemAttr(ev.id, ev.attr, ev.value)
       applyRemoteWorkItemTrash(ev.id, ev.trashed)
       return 'applied'
@@ -1952,6 +1955,12 @@ export function registerIpcHandlers(): void {
     recordAiCall()
     return rewriteSelection(input)
   })
+  // The model's half of the design advisor. The brief is facts the renderer
+  // measured, not the document; main builds the prompt from it.
+  ipcMain.handle('ai:designAdvice', (_e, input: { brief: DesignBrief }) => {
+    recordAiCall()
+    return designAdvice(input)
+  })
 
   // ── Office interop for the document editor (.docx / PDF / image) ───────────
   ipcMain.handle('office:importDocx', () => importDocx())
@@ -2073,6 +2082,11 @@ export function registerIpcHandlers(): void {
     if (mode !== 'auto' && mode !== 'credits' && mode !== 'byok' && mode !== 'local' && mode !== 'openai') return getAiStatus()
     setAiMode(mode)
     invalidateAnthropicClient()
+    // The AI source decides whether anything routes locally, so local-AI status
+    // changed too. Without this the renderer's "Local AI needs a one-time
+    // download" notice stayed up after switching to a cloud source, over every
+    // editor's toolbar, until the app restarted.
+    for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send('localAi:changed', null)
     return getAiStatus()
   })
   // Pull the live balance from the signal server (lazily grants the trial).
@@ -4231,6 +4245,10 @@ export function registerIpcHandlers(): void {
   // the mail search cache: main knows only what the app actually loaded.
   ipcMain.handle('people:setDirectory', (_e, people: DirectoryPerson[]) =>
     setPeopleDirectory(Array.isArray(people) ? people : [])
+  )
+  // DEC-144: who is signed in, so team-workspace Focus can show YOUR tasks.
+  ipcMain.handle('people:setSelf', (_e, accountId: string | null) =>
+    setSelfAccountId(typeof accountId === 'string' ? accountId : null)
   )
 
   // PlexiProjects: project plans, the Gantt schedule, dependencies and reschedule.

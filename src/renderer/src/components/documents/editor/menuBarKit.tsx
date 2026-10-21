@@ -129,7 +129,7 @@ function SubmenuRow({
         <Icon name="chevron_right" size={15} className="text-[var(--ink-40)] shrink-0" />
       </button>
       {open && (
-        <div className="fb-glass-panel rounded-[var(--radius-row)] fb-pop-in absolute left-full top-0 -mt-1 ml-0.5 z-50 min-w-[210px] py-1">
+        <div className="fb-glass-panel rounded-[var(--radius-row)] fb-pop-in absolute left-full top-0 -mt-1 ml-0.5 z-50 min-w-[210px] py-1 max-h-[70vh] overflow-y-auto">
           {items.map((it, i) => {
             if (it.kind !== 'item') return null
             return (

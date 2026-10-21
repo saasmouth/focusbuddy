@@ -159,7 +159,7 @@ export default function HomeDashboardRegion(): JSX.Element {
               </RailCard>
             )}
 
-            <RailCard title="My tasks" icon="check_circle" tone="accent" action={{ label: 'All tasks', onClick: () => v.goAllTasks() }}>
+            <RailCard title="My desks" icon="check_circle" tone="accent" action={{ label: 'All desks', onClick: () => v.goAllTasks() }}>
               {myTasks.length === 0 ? (
                 <EmptyCard text="No open desks. Enjoy the clear deck." />
               ) : (

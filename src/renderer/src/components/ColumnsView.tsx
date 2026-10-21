@@ -468,7 +468,7 @@ export default function ColumnsView({ taskId, widgets }: { taskId: string; widge
                         )}
                         <button
                           onClick={() => focusObject(w)}
-                          title="Open in focus mode"
+                          title="Open in full view"
                           data-testid={`column-focus-${w.id}`}
                           className="icon-btn h-6 w-6 text-[var(--ink-40)] hover:text-[rgb(var(--accent))]"
                         >

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { AssigneePicker } from './attention/Assignees'
+import { parseAssigneeIds, normalizeAssigneeIds } from '@shared/workItems'
 import { isoToLocalParts, localPartsToIso, formatMeetWhen } from '../lib/meetWhen'
 import { joinUrlOf, meetProviderLabel } from '../lib/meetInvite'
 import { blockDraftForMeeting, blockForItem } from '../lib/meetSchedule'
@@ -55,6 +57,9 @@ export default function AttentionItemEditor({
   const [cls, setCls] = useState(queueOf(item))
   const [due, setDue] = useState(isoToInputDate(item.dueAt))
   const [deskId, setDeskId] = useState(item.parentId ?? '')
+  // DEC-144 — who it is assigned to (team workspaces; the picker hides itself
+  // in Personal). Works the same for a captured task and a desk task.
+  const [assignees, setAssignees] = useState<string[]>(parseAssigneeIds(item.assigneeIds))
   // DEC-037 — the chosen context. Never mandatory.
   const [urgency, setUrgency] = useState<string>(urgencyOf(item) ?? 'normal')
   const [tagList, setTagList] = useState<string[]>(parseTags(item.tags))
@@ -157,6 +162,7 @@ export default function AttentionItemEditor({
       if (cls !== queueOf(item)) patch.intentClass = cls
       const nextDue = due ? new Date(`${due}T17:00:00`).toISOString() : null
       if (nextDue !== (item.dueAt ?? null)) patch.dueAt = nextDue
+      if (normalizeAssigneeIds(assignees) !== normalizeAssigneeIds(item.assigneeIds)) patch.assigneeIds = assignees
       if (!isDeskTask) {
         const nextUrgency = urgency === 'normal' ? null : urgency
         if (nextUrgency !== (item.wiUrgency ?? null)) patch.wiUrgency = nextUrgency
@@ -501,6 +507,8 @@ export default function AttentionItemEditor({
             </select>
           </label>
         </div>
+
+        <AssigneePicker value={assignees} onChange={setAssignees} />
 
         {!isDeskTask && (
         <div className="mt-3 flex flex-wrap items-end gap-3">

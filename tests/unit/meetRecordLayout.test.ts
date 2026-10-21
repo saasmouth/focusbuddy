@@ -219,7 +219,8 @@ describe('DEC-115 — the Record layout: renderings beside an always-visible tra
 
   it('Action items: checkbox closes with the house terminal state; the bell files with the meeting as source', () => {
     expect(view).toContain('data-testid="rendering-commitments"')
-    expect(view).toContain('the bell sends it to your Attention queue with a link back to the moment it was said')
+    // DEC-144: Attention is Focus.
+    expect(view).toContain('the bell adds it to Focus with a link back to the moment it was said')
     // The operator's keeper.
     expect(view).toContain('data-testid="find-commitments"')
     expect(view).toContain('an honest zero, not a failure')

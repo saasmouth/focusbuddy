@@ -1225,7 +1225,7 @@ async function applyDrillInWidget(
   // modal mounts inline.
   await useWidgetStore.getState().bringToFront(p.widgetId)
   useWidgetStore.getState().setFocused(p.widgetId)
-  return { ok: true, message: `Opened ${p.label} in focus mode` }
+  return { ok: true, message: `Opened ${p.label} in full view` }
 }
 
 async function applyToggleTodoItem(
@@ -1788,7 +1788,7 @@ export function describeProposal(
         subject: `"${p.itemMatch}" in ${p.widgetLabel}`
       }
     case 'drill-in-widget':
-      return { icon: 'zoom_in', verb: 'Open in focus mode', subject: p.label }
+      return { icon: 'zoom_in', verb: 'Open in full view', subject: p.label }
     case 'arrange-widgets':
       return {
         icon: 'dashboard_customize',

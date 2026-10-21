@@ -519,7 +519,7 @@ export function DeskAttentionWidget({
   const effective = scope === 'all' ? items : scoped
   const deskCount = fellBack ? 0 : scoped.length
   return (
-    <WidgetFrame widget={widget} headerLabel="attention" headerAccent="bg-violet-300/60 dark:bg-violet-400/25">
+    <WidgetFrame widget={widget} headerLabel="focus" headerAccent="bg-violet-300/60 dark:bg-violet-400/25">
       <div className="w-full h-full flex flex-col bg-[var(--surface-raised)]">
         <div className="flex items-center gap-1 px-3 pt-2.5">
           {(

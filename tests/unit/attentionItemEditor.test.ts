@@ -234,7 +234,8 @@ describe('DEC-045 — the Attention widget on any desk', () => {
     // renders its OWN WidgetFrame; this one must too, or it has no header to
     // drag, no background, and no z-order.
     const w = read('src/renderer/src/components/views/attentionWidgets.tsx')
-    expect(w).toContain('<WidgetFrame widget={widget} headerLabel="attention"')
+    // DEC-144: the widget header says focus (it said attention).
+    expect(w).toContain('<WidgetFrame widget={widget} headerLabel="focus"')
     expect(w).toContain('bg-[var(--surface-raised)]')
   })
 

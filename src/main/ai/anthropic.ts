@@ -1,5 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { validateChartConfig, type ChartConfig, type ChartTableShape } from '@shared/charts'
+import { buildAdvicePrompt, clampBrief, type DesignBrief } from '@shared/designAdvicePrompt'
 import { listTables } from '../db/tables'
 import { listEntries } from '../db/files'
 import {
@@ -5931,6 +5932,53 @@ export async function rewriteSelection(input: { text: string; instruction: strin
       messages: [
         { role: 'user', content: `Instruction: ${instruction}\n\nPassage:\n${text}` }
       ]
+    })
+    if ((resp.stop_reason as string) === 'refusal')
+      return { ok: false, error: 'Claude declined this request. Try rephrasing it.' }
+    const html = resp.content
+      .filter((b) => b.type === 'text')
+      .map((b) => ('text' in b ? b.text : ''))
+      .join('')
+      .trim()
+    if (!html) return { ok: false, error: 'Empty response from model.' }
+    return { ok: true, html }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+// ── Design review: the model's half of the design advisor ────────────────────
+//
+// PlexiDesign measures what is measurable itself (src/shared/designAdvisor):
+// contrast ratios, line length, leading, margins, hierarchy, overset text. That
+// runs on every keystroke, needs no key and cannot invent anything. What it
+// cannot do is judge — which of three fixes suits this piece, and whether the
+// headline is any good.
+//
+// So this call hands the measurements over as settled fact and asks only for
+// the judgement. The renderer sends a brief (a digest, the findings, the words
+// on the page); the document itself never crosses, because a design with
+// embedded images is megabytes of bytes no model could act on. The prompt is
+// built here, next to the key, from facts the renderer supplied — see
+// src/shared/designAdvicePrompt.ts.
+
+export async function designAdvice(input: { brief: DesignBrief }): Promise<DocAiResult> {
+  const c = getClient()
+  if (!c) return { ok: false, needsApiKey: true, error: 'No Anthropic API key set. Open Settings → AI · API keys to paste one.' }
+  const brief = clampBrief(input?.brief ?? ({} as DesignBrief))
+  // An empty canvas with nothing measured has nothing for a model to work on,
+  // and asking anyway is how a panel starts inventing a design nobody began.
+  if (!brief.text && brief.findings.length === 0 && !brief.purpose)
+    return { ok: false, error: 'Add something to the canvas first, or say what this design is for.' }
+
+  const prompt = buildAdvicePrompt(brief)
+  const system = prompt.system + ' ' + DOC_HTML_CONTRACT + DOC_STYLE_RULE + GROUNDING_RULE
+  try {
+    const resp = await c.messages.create({
+      model: resolveModel('doc_rewrite'),
+      max_tokens: 1200,
+      system,
+      messages: [{ role: 'user', content: prompt.user }]
     })
     if ((resp.stop_reason as string) === 'refusal')
       return { ok: false, error: 'Claude declined this request. Try rephrasing it.' }

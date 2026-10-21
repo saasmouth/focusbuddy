@@ -64,8 +64,11 @@ test('MEX-1 — SVG export writes a valid vector file with the node labels', asy
   expect(svg.startsWith('<svg')).toBe(true)
   expect(svg).toContain('Start')
   expect(svg).toContain('Do the thing')
-  expect(svg).toContain('marker-end="url(#arrow)"')
-  expect(svg).toContain('stroke-dasharray="6 4"') // the dashed edge
+  // Lines are drawn by the shared router with real arrowheads (as on the canvas).
+  expect(svg).toContain('class="pd-edge"')
+  expect(svg).toContain('class="pd-arrowhead"')
+  expect(svg).toContain('stroke-dasharray="9 6"') // the dashed edge (6w 4w at the 1.5px theme line)
+  expect(svg).toContain('>ok<') // its label
 })
 
 test('MEX-2 — PNG export writes a real raster image', async () => {

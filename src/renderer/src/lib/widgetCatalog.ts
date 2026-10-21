@@ -63,7 +63,7 @@ export const WIDGET_USE_CASE_GROUPS: WidgetUseCaseGroup[] = [
 ]
 
 /** The group a kind belongs to, or null when it has not been grouped yet. */
-export function useCaseGroupOf(kind: WidgetKind): string | null {
+export function caseGroupOf(kind: WidgetKind): string | null {
   for (const g of WIDGET_USE_CASE_GROUPS) if (g.kinds.includes(kind)) return g.name
   return null
 }
@@ -83,7 +83,7 @@ export function groupedPickerEntries(
     name: g.name,
     entries: entries.filter((e) => g.kinds.includes(e.kind))
   })).filter((g) => g.entries.length > 0)
-  const ungrouped = entries.filter((e) => useCaseGroupOf(e.kind) === null)
+  const ungrouped = entries.filter((e) => caseGroupOf(e.kind) === null)
   if (ungrouped.length > 0) out.push({ name: 'More', entries: ungrouped })
   return out
 }

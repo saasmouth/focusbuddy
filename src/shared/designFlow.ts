@@ -20,6 +20,8 @@
 // engine (exact, and cached onto the frame so export matches the screen) while
 // tests measure with a deterministic stand-in.
 
+import { longestFittingPrefix } from './hyphenate'
+
 export interface FlowBox {
   x: number
   y: number
@@ -89,6 +91,14 @@ export interface FlowParaStyle {
   widowLines?: number
   /** An oversized initial spanning this many lines. */
   dropCapLines?: number
+  /**
+   * Break long words across lines when it helps the line fit.
+   *
+   * Per paragraph style, as in InDesign, and worth having off by default:
+   * hyphenation earns its place in justified columns, where the alternative
+   * is stretched spaces, and is mostly a nuisance in a ragged-right heading.
+   */
+  hyphenate?: boolean
   /**
    * Lock this paragraph's lines to the document's baseline grid.
    *
@@ -442,7 +452,13 @@ function setParagraph(input: {
   let capLinesLeft = cap ? cap.lines : 0
   // The first word loses its initial letter when a drop cap takes it; the
   // character range still covers it, so the caret can sit before the cap.
-  const wordAt = (i: number): string => (cap && i === 0 ? words[0].text.slice(1) : words[i].text)
+  // How far into the current word we already are, when the line before it
+  // ended mid-word. Zero for every word that was placed whole.
+  let tail = 0
+  const wordAt = (i: number): string => {
+    const raw = cap && i === 0 ? words[0].text.slice(1) : words[i].text
+    return i === wi ? raw.slice(tail) : raw
+  }
 
   while (wi < words.length) {
     if (y + lineH > frame.h + 0.01) break
@@ -476,10 +492,32 @@ function setParagraph(input: {
         const candidate = line ? `${line} ${word}` : word
         // A single word wider than the column is still placed, whole: an
         // overflowing word is visible and fixable, a missing one is not.
-        if (line !== '' && widthOf(candidate) > spanW) break
-        if (lineStart < 0) lineStart = words[wi].start
+        if (line !== '' && widthOf(candidate) > spanW) {
+          // Before giving up on the word, try breaking it.
+          //
+          // Only when the REMAINDER is certain to land on another line of this
+          // same frame. setParagraph hands the caller a word index, not a
+          // character offset inside a word, so a tail left dangling at a frame
+          // edge would be re-emitted whole in the next frame — the same text
+          // twice. Requiring room for one more line here keeps the tail inside
+          // this call, which is the only place that can represent it.
+          const roomForAnother = y + lineH * 2 <= frame.h + 0.01
+          const hyphenated =
+            st.hyphenate && roomForAnother
+              ? longestFittingPrefix(word, (c) => widthOf(`${line} ${c}`) <= spanW)
+              : null
+          if (hyphenated) {
+            if (lineStart < 0) lineStart = words[wi].start + tail
+            line = `${line} ${hyphenated.prefix}`
+            lineEnd = words[wi].start + tail + hyphenated.at
+            tail += hyphenated.at
+          }
+          break
+        }
+        if (lineStart < 0) lineStart = words[wi].start + tail
         lineEnd = words[wi].end
         line = candidate
+        tail = 0
         wi++
       }
       if (line === '') continue

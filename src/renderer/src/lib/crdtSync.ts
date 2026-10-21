@@ -47,7 +47,8 @@ import {
   deviceId,
   crdtScopeSuffix,
   crdtObjectScope,
-  liveFolderPartition
+  liveFolderPartition,
+  orgOfPartition
 } from './syncFlags'
 import type { Widget, FbNode, TimeBlock, FbDocument, WidgetLink, WireType } from '@shared/types'
 import { WORK_ITEM_COLUMNS } from '@shared/workItems'
@@ -1205,12 +1206,14 @@ async function isWorkItemId(id: string): Promise<boolean> {
   return false
 }
 
-function applyNodeCreate(snapshot: Record<string, unknown>): void {
+function applyNodeCreate(snapshot: Record<string, unknown>, partitionKey?: string): void {
   const id = snapshot.id as string
   if (!id || tombstoned.has(id)) return
   if (snapshot.kind === 'work_item') {
     workItemIds.add(id)
-    void window.api.workItems.applySyncEvent({ type: 'create', snapshot }).catch(() => {
+    // DEC-144: a team task lands in its team, read off the partition it came on.
+    const orgId = orgOfPartition(partitionKey)
+    void window.api.workItems.applySyncEvent({ type: 'create', snapshot, orgId }).catch(() => {
       /* un-migrated / disabled device: the main side parks it (§2.1) */
     })
     return
@@ -1636,7 +1639,7 @@ function applyEvent(ev: ChangeEvent): void {
     }
   } else if (ev.objectType === 'node') {
     if (ev.field === 'create') {
-      void applyNodeCreate((ev.payload as CreatePayload).snapshot)
+      void applyNodeCreate((ev.payload as CreatePayload).snapshot, ev.partitionKey)
     } else if (ev.field === 'delete') {
       track(applyNodeDelete(ev.objectId))
     } else if (ev.field === 'attr' && (ev.payload as AttrPayload).at !== undefined) {

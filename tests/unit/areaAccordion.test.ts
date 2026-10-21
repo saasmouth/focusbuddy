@@ -321,3 +321,59 @@ describe('the library moved to the office dashboard', () => {
     }
   })
 })
+
+describe('the Desk section offers nothing twice (owner, 2026-10-21)', () => {
+  // "Remove [Workspaces, Agentic Ops, Recent, Desks] — they are duplicates of
+  // other menu functions. Move Home to the top." Each removed row names where
+  // the same place is reached, so a future reader can check the claim.
+  const desk = SEGMENT_APPS.plexidesk
+  const byKey = (k: string) => desk.find((a) => a.key === k)
+
+  it('Home is the first row of the Desk section, and the only Home in it', () => {
+    const body = accordion.slice(accordion.indexOf('{deskSlot ?? ('))
+    expect(body.indexOf('label="Home"')).toBeGreaterThan(-1)
+    expect(body.indexOf('label="Home"')).toBeLessThan(body.indexOf('DESK_VIEWS.map'))
+    expect(byKey('home')!.notInMenu).toBeTruthy()
+  })
+
+  it('hides the four duplicates, each with its reason, and keeps My Desk and Plans', () => {
+    for (const k of ['workspaces', 'tasks', 'recent']) {
+      expect(byKey(k)!.notInMenu, `${k} says where it lives instead`).toMatch(/\w{4,}/)
+    }
+    // Agentic Ops is not hidden but MOVED: it left the Desk registry entirely.
+    expect(byKey('ops')).toBeUndefined()
+    expect(byKey('desk')!.notInMenu).toBeUndefined()
+    expect(byKey('plans')!.notInMenu).toBeUndefined()
+    expect(accordion).toContain('!a.notInMenu &&')
+  })
+
+  it('keeps the hidden apps registered, so old links and tray tabs still open', () => {
+    const segments = read('renderer/src/components/segment/segments.tsx')
+    for (const k of ['workspaces', 'tasks', 'recent']) {
+      expect(segments).toContain(`appMeta('plexidesk', '${k}')`)
+    }
+  })
+
+  it('Agentic Ops moved to PlexiiBrain and opens the same console there', () => {
+    // Brain's Agents is a different page (AgentsView); without this row the
+    // Agentic Ops console would have had no menu route at all.
+    const brainOps = SEGMENT_APPS.plexibrain.find((a) => a.key === 'ops')
+    expect(brainOps?.label).toBe('Agentic Ops')
+    expect(brainOps?.notInMenu).toBeUndefined()
+    const segments = read('renderer/src/components/segment/segments.tsx')
+    expect(segments).toMatch(/appMeta\('plexibrain', 'ops'\)[^\n]*<AgenticOpsView \/>/)
+    // and it does not share Agents' icon, so the two rows can be told apart
+    expect(brainOps!.icon).not.toBe(SEGMENT_APPS.plexibrain.find((a) => a.key === 'agents')!.icon)
+  })
+
+  it('old Agentic Ops links, saved views and tray tabs forward to PlexiiBrain', async () => {
+    const { MOVED_APPS, movedApp } = await import('../../src/renderer/src/lib/segmentApps')
+    expect(MOVED_APPS['plexidesk:ops']).toEqual({ kind: 'plexibrain', app: 'ops' })
+    expect(movedApp('plexidesk', 'ops')).toEqual({ kind: 'plexibrain', app: 'ops' })
+    expect(movedApp('plexidesk', 'plans')).toEqual({ kind: 'plexidesk', app: 'plans' })
+    const view = read('renderer/src/stores/view.ts')
+    expect(view).toContain("goPlexiDesk: (app) => commit(movedApp('plexidesk', app)")
+    expect(view).toContain('movedApp(loose.kind, app)')
+    expect(read('renderer/src/stores/openTray.ts')).toContain('.map(forwardMoved)')
+  })
+})

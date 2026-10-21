@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { FbNode } from '@shared/types'
 import { WORK_ITEM_COLUMNS } from '@shared/workItems'
 import { crdtEmitNodeCreate, crdtEmitNodeAttrs, crdtEmitNodeTitle } from '../lib/crdtBridge'
+import { nudgeSync } from '../lib/syncNudge'
 import { taskAttrsForItemPatch } from '@shared/attentionProjection'
 
 // The work_item store (Attention S3, §4). Work items NEVER pass through
@@ -71,6 +72,44 @@ export function friendlyWorkItemError(e: unknown): Error {
   return e instanceof Error ? e : new Error(raw)
 }
 
+/**
+ * DEC-144 — "X assigned you a task". When the Focus list holds an open task
+ * that lists you as an assignee and was raised by someone else, post one
+ * notification for it. The dedupe key is per task and person, and the
+ * substrate keeps it across restarts, so each assignment announces itself
+ * exactly once — however many times the list refreshes. Lazy imports: this
+ * store also loads where there is no window (its unit tests).
+ */
+async function announceAssignments(items: FbNode[]): Promise<void> {
+  try {
+    const [{ useAccountStore }, { parseAssigneeIds, TERMINAL_WORK_ITEM_STATES }, { usePeopleStore, personName }] =
+      await Promise.all([import('./account'), import('@shared/workItems'), import('../lib/peopleDirectory')])
+    const self = useAccountStore.getState().account?.id
+    if (!self) return
+    const terminal = new Set<string>(TERMINAL_WORK_ITEM_STATES)
+    for (const i of items) {
+      if (!i.originatorId || i.originatorId === self) continue
+      if (i.workItemState && terminal.has(i.workItemState)) continue
+      if (!parseAssigneeIds(i.assigneeIds).includes(self)) continue
+      const from = usePeopleStore.getState().people.find((p) => p.accountId === i.originatorId)
+      await window.api.notifications
+        .post({
+          ref: i.id,
+          queue: i.intentClass ?? 'to_do',
+          title: `${from ? personName(from) : 'A teammate'} assigned you a task`,
+          body: i.title || 'Untitled task',
+          dedupeKey: `assigned:${i.id}:${self}`,
+          category: 'attention',
+          trigger: 'assigned',
+          origin: 'human'
+        } as never)
+        .catch(() => {})
+    }
+  } catch {
+    /* a notification is a courtesy; the task is in Focus either way */
+  }
+}
+
 export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
   items: [],
   loaded: false,
@@ -78,6 +117,7 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
     try {
       const items = await window.api.workItems.list()
       set({ items, loaded: true })
+      void announceAssignments(items)
     } catch {
       /* un-migrated / early boot — keep what we have */
     }
@@ -94,6 +134,8 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
     // renderer-emitted manifest (emitNodeCreate spreads it for work_items).
     crdtEmitNodeCreate(item)
     window.dispatchEvent(new CustomEvent('fb:workitems-changed'))
+    // DEC-144: push now, not at the next 20s poll.
+    nudgeSync()
     return item
   },
   updateFields: async (id, patch) => {
@@ -117,6 +159,9 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
         if (Object.keys(attrs).length) crdtEmitNodeAttrs(id, attrs)
       }
       window.dispatchEvent(new CustomEvent('fb:workitems-changed'))
+      // DEC-144: push now, not at the next 20s poll — a team guest has no
+      // live channel, so the poll path is how their change reaches the team.
+      nudgeSync()
     }
     return item
   },
@@ -129,6 +174,9 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
       // status projection (§2.3 F012); status itself is never emitted.
       crdtEmitNodeAttrs(id, { workItemState: state })
       window.dispatchEvent(new CustomEvent('fb:workitems-changed'))
+      // DEC-144: push now, not at the next 20s poll — a team guest has no
+      // live channel, so the poll path is how their change reaches the team.
+      nudgeSync()
     }
     return ok
   },
@@ -138,6 +186,9 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
       set({ items: get().items.map((i) => (i.id === id ? item : i)) })
       crdtEmitNodeAttrs(id, { intentClass })
       window.dispatchEvent(new CustomEvent('fb:workitems-changed'))
+      // DEC-144: push now, not at the next 20s poll — a team guest has no
+      // live channel, so the poll path is how their change reaches the team.
+      nudgeSync()
     }
     return item
   },
@@ -148,3 +199,9 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
     await window.api.workItems.markRead(id) // device-local — no emit
   }
 }))
+
+// Thin handle for debugging + e2e (same convention as __fbNodes): the real
+// store, not a mock. Changes nothing about user behaviour.
+if (typeof window !== 'undefined') {
+  ;(window as unknown as { __fbWorkItems?: typeof useWorkItemStore }).__fbWorkItems = useWorkItemStore
+}

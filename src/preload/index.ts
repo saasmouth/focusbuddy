@@ -118,6 +118,7 @@ import type { PlexiApp, PlexiAppDraft, PlexiAppPatch } from '@shared/apps'
 import type { PlexiForm, PlexiFormDraft, PlexiFormPatch } from '@shared/forms'
 import type { PlexiSignRequest, PlexiSignDraft, PlexiSignPatch, SignAction } from '@shared/sign'
 import type { AiCreditStatus, AiCreditEvent } from '@shared/aiCredits'
+import type { DesignBrief } from '@shared/designAdvicePrompt'
 
 type VaultResult = { ok: true } | { ok: false; error: string }
 
@@ -676,6 +677,13 @@ const api = {
       instruction: string
     }): Promise<{ ok: boolean; html?: string; error?: string; needsApiKey?: boolean }> =>
       ipcRenderer.invoke('ai:rewriteSelection', input),
+    // Design review. `brief` is what the renderer measured (digest, findings,
+    // the words on the page) — never the document, which can be megabytes of
+    // image data that says nothing a model could act on.
+    designAdvice: (input: {
+      brief: DesignBrief
+    }): Promise<{ ok: boolean; html?: string; error?: string; needsApiKey?: boolean }> =>
+      ipcRenderer.invoke('ai:designAdvice', input),
     suggestTableRows: (
       tableId: string,
       prompt: string,
@@ -2238,7 +2246,7 @@ const api = {
     kindOf: (id: string): Promise<string | null> => ipcRenderer.invoke('workItems:kindOf', id),
     applySyncEvent: (
       ev:
-        | { type: 'create'; snapshot: Record<string, unknown> }
+        | { type: 'create'; snapshot: Record<string, unknown>; orgId?: string | null }
         | { type: 'attr'; id: string; attr: string; value: unknown }
         | { type: 'trash'; id: string; trashed: boolean }
     ): Promise<string> => ipcRenderer.invoke('workItems:applySyncEvent', ev)
@@ -2721,7 +2729,9 @@ const api = {
         lastName: string | null
         role: string
       }>
-    ): Promise<void> => ipcRenderer.invoke('people:setDirectory', people)
+    ): Promise<void> => ipcRenderer.invoke('people:setDirectory', people),
+    /** DEC-144: the signed-in account id (null = signed out), for team Focus. */
+    setSelf: (accountId: string | null): Promise<string | null> => ipcRenderer.invoke('people:setSelf', accountId)
   },
   // Persisted AI-assistant chat history (local, free-standing conversations) —
   // backs the assistant's one conversation system.
@@ -3153,7 +3163,7 @@ const api = {
       map: import('@shared/types').MapBody
       title: string
       format: 'svg' | 'png' | 'jpg' | 'pdf'
-    }): Promise<{ ok: boolean; path?: string; error?: string }> => ipcRenderer.invoke('map:export', input),
+    }): Promise<{ ok: boolean; path?: string; error?: string; warning?: string }> => ipcRenderer.invoke('map:export', input),
     // Import a Visio .vsdx file (opens a picker) into a MapBody.
     import: (): Promise<{
       ok: boolean
