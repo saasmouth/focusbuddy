@@ -379,7 +379,10 @@ test.describe('Plexii hub (Phase 1)', () => {
     await expect(window.getByRole('img', { name: 'Plexii', exact: true }).first()).toBeVisible()
     // The retired names are gone from the chrome.
     await expect(window.getByRole('heading', { name: 'Assistant', exact: true })).toHaveCount(0)
-    await expect(window.getByText('Ask PlexiiBrain')).toHaveCount(0)
+    // Scoped to the hub: "Ask PlexiiBrain" is the PlexiiBrain app's own entry
+    // in the side menu (segmentApps.ts, office app names), which is meant to
+    // be there. What must not come back is the old name inside the assistant.
+    await expect(window.locator('[data-testid="plexii-hub"]').getByText('Ask PlexiiBrain')).toHaveCount(0)
   })
 
   test('the hub opens, and leaving restores the pill', async () => {
