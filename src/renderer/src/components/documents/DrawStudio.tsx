@@ -14,6 +14,7 @@ import type { DrawWidgetNode } from '@shared/draw/model'
 import { addObject, primaryArtboard, targetLayerId } from '@shared/draw/ops'
 import { walkNodes } from '@shared/draw/tree'
 import { createDrawEditor, type DrawEditor } from './draw/editor/editor'
+import { clipboardEventInfo, handleClipboardEvent, type ClipboardEventKind } from './draw/editor/menuClipboard'
 import { createDomServices } from './draw/editor/domServices'
 import { dragHasFiles, placeDroppedFiles, readDroppedFiles } from './draw/editor/fileDrop'
 import type { KeyInput, ToolPointer } from './draw/editor/types'
@@ -170,11 +171,22 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     function onKeyUp(e: KeyboardEvent): void {
       editor.keyUp(e)
     }
+    // The app menu's Edit › Cut / Copy / Paste (Electron roles) arrive as DOM
+    // clipboard events; see editor/menuClipboard.ts for why keys never double up.
+    function onClipboard(e: ClipboardEvent): void {
+      handleClipboardEvent(editor.ctx, e.type as ClipboardEventKind, clipboardEventInfo(e))
+    }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
+    document.addEventListener('cut', onClipboard)
+    document.addEventListener('copy', onClipboard)
+    document.addEventListener('paste', onClipboard)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
+      document.removeEventListener('cut', onClipboard)
+      document.removeEventListener('copy', onClipboard)
+      document.removeEventListener('paste', onClipboard)
     }
   }, [editor])
 
