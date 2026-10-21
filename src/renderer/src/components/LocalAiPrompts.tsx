@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import Icon from './Icon'
 import Modal from './plexi/Modal'
-import { openAiSettings } from '../stores/aiCredits'
+import { openAiSettings, useAiCreditsStore } from '../stores/aiCredits'
 import { useLocalAiEngine, LOCAL_WARMING_COPY, startAnsweredTracking } from '../lib/localAiEngine'
+import { introView, missingBanner, MODE_LABEL, gb, type AiModeName, type IntroInfo, type IntroView, type MissingBanner } from '../lib/localAiOffer'
 import type { CloudConsentRequest, GroundingReport, LocalAiStatus, LocalDownloadProgress } from '@shared/localAi'
 
 // The two things Local AI says on its own, mounted once in App:
@@ -14,17 +15,37 @@ import type { CloudConsentRequest, GroundingReport, LocalAiStatus, LocalDownload
 //   - A short notice the first time in a session that a feature which works,
 //     but less well, ran on the device ("works best with cloud AI; local
 //     results may be incomplete").
+//   - The one-time local-AI card: "now built in" with a verified model, or an
+//     opt-in download offer without one (lib/localAiOffer.introView).
+//   - "Local AI needs a one-time download", only while a feature really routes
+//     to a model that is not here (lib/localAiOffer.missingBanner).
+// The last two are dismissible and never shown over AI that works on another
+// engine.
+
+// The banner's dismissal lasts for the session (it returns next launch while
+// the model is still missing, because AI set to run here still cannot answer).
+let missingDismissedThisSession = false
 
 export default function LocalAiPrompts(): JSX.Element | null {
   const [queue, setQueue] = useState<CloudConsentRequest[]>([])
   const [notice, setNotice] = useState<string | null>(null)
   const [noticeAction, setNoticeAction] = useState<'upgrade' | 'topup' | 'keys'>('upgrade')
   const [grounding, setGrounding] = useState<GroundingReport | null>(null)
-  // The installed app came without the model (an update zip, or it could not
-  // be kept): AI must say so and offer the one-time download, never just fail.
-  const [missing, setMissing] = useState<{ tierId: string; bytes: number } | null>(null)
+  // AI set to run on this computer, with the model not here (it was chosen by
+  // hand, or the model was deleted): say so and offer the one-time download,
+  // never just fail. Dismissible.
+  const [missing, setMissing] = useState<MissingBanner | null>(null)
+  const [missingDismissed, setMissingDismissed] = useState(missingDismissedThisSession)
   const [dl, setDl] = useState<LocalDownloadProgress | null>(null)
   const [dlError, setDlError] = useState<string | null>(null)
+
+  // The one-time card (settingsStore.migrateAiMode): re-read whenever local-AI
+  // state changes, because a fresh install's bundled model finishes its check,
+  // or a download completes, after the window is up.
+  const [intro, setIntro] = useState<IntroInfo | null>(null)
+  // The variant the person closed; a different one (the offer, then "now
+  // built in" once the download completes) still shows.
+  const [closedView, setClosedView] = useState<IntroView | null>(null)
 
   useEffect(() => {
     const api = window.api?.localAi
@@ -32,17 +53,25 @@ export default function LocalAiPrompts(): JSX.Element | null {
     const check = (): void => {
       void api
         .getStatus()
-        .then((st: LocalAiStatus) => {
-          const routesLocal = st.provider === 'local' || Object.values(st.featureRoutes).includes('local')
-          const tier = st.tiers.find((t) => t.id === st.activeTier)
-          if (routesLocal && tier && !tier.installed) {
-            setMissing({ tierId: tier.id, bytes: tier.sizeBytes + (st.embeddings.installed ? 0 : 146_146_432) })
-          } else setMissing(null)
-        })
+        .then((st: LocalAiStatus) => setMissing(missingBanner(st)))
+        .catch(() => undefined)
+    }
+    const readIntro = (): void => {
+      if (!api.getIntro) return
+      void api
+        .getIntro()
+        .then((r) => setIntro({ pending: r.pending, from: r.from, mode: r.mode, contentKey: r.contentKey ?? null, model: r.model }))
         .catch(() => undefined)
     }
     check()
-    const offC = api.onChanged(() => check())
+    readIntro()
+    const offC = api.onChanged(() => {
+      check()
+      readIntro()
+      // The source may have changed under the Settings view (a deferred switch
+      // to Local completing): refresh what the AI source chooser shows.
+      void useAiCreditsStore.getState().sync?.()
+    })
     const offP = api.onProgress((p) => setDl(p))
     return () => {
       offC()
@@ -72,25 +101,28 @@ export default function LocalAiPrompts(): JSX.Element | null {
     return () => clearTimeout(t)
   }, [notice])
 
-  // The one-time "local AI is now built in" notice (settingsStore.migrateAiMode).
-  type Mode = 'auto' | 'credits' | 'byok' | 'local' | 'openai'
-  const [intro, setIntro] = useState<{ from: Mode | null; mode: Mode; contentKey: 'anthropic' | 'openai' | null } | null>(null)
-  useEffect(() => {
-    const api = window.api?.localAi
-    if (!api?.getIntro) return
-    void api
-      .getIntro()
-      .then((r) => setIntro(r.pending ? { from: r.from, mode: r.mode, contentKey: r.contentKey ?? null } : null))
-      .catch(() => undefined)
-  }, [])
+  type Mode = AiModeName
+  const rawView = introView(intro)
+  const view: IntroView = rawView === closedView ? 'none' : rawView
   const closeIntro = (): void => {
-    setIntro(null)
+    setClosedView(rawView)
     void window.api.localAi.dismissIntro()
   }
   const switchTo = async (m: Mode): Promise<void> => {
     await window.api.ai.setMode(m)
     closeIntro()
   }
+  const startDownload = (tierId: string): void => {
+    setDlError(null)
+    void window.api.localAi
+      .download(tierId)
+      .then((r) => {
+        if (!r.ok) setDlError(r.error ?? 'The download did not finish.')
+      })
+      .catch((e: Error) => setDlError(e.message || 'The download did not finish.'))
+  }
+  const downloadingTier = (tierId: string | null | undefined): boolean =>
+    !!dl && !!tierId && dl.tierId === tierId && ['checking', 'downloading', 'verifying'].includes(dl.state)
 
   // Catch-all for any surface without its own warm-up wording: while a request
   // is waiting on a cold load, say so once, app-wide.
@@ -105,14 +137,6 @@ export default function LocalAiPrompts(): JSX.Element | null {
     setQueue((q) => q.slice(1))
   }
 
-  const MODE_LABEL: Record<Mode, string> = {
-    auto: 'Plexii AI credits',
-    credits: 'Plexii AI credits',
-    byok: 'your Anthropic key',
-    openai: 'your OpenAI key',
-    local: 'on-device AI'
-  }
-
   return (
     <>
       {engine.state === 'loading' && engine.waiting > 0 && (
@@ -124,7 +148,59 @@ export default function LocalAiPrompts(): JSX.Element | null {
           <Icon name="memory" size={13} /> {LOCAL_WARMING_COPY}
         </div>
       )}
-      {intro && (
+      {intro && view === 'offer' && intro.model && (
+        <div
+          role="status"
+          data-testid="local-ai-intro"
+          data-variant="offer"
+          className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[225] w-[min(420px,calc(100vw-32px))] fb-card rounded-[var(--radius-field)] px-3 py-2.5 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug"
+        >
+          <div className="font-medium text-[var(--ink-100)] mb-1">Local AI is available as a download</div>
+          <div>
+            PlexiiDesk can run AI on this computer: it works offline, costs nothing per use, and sends nothing to any AI
+            service. It needs a one-time download of {gb(intro.model.bytes)}.
+          </div>
+          <div className="mt-1 text-[var(--ink-60)]" data-testid="local-ai-intro-unchanged">
+            You are using {MODE_LABEL[intro.mode]}; that has not changed. You can download it later in Settings › AI ›
+            Local on this device.
+          </div>
+          {downloadingTier(intro.model.tierId) && dl ? (
+            <div className="mt-1.5" data-testid="local-ai-intro-progress">
+              <div className="h-1.5 rounded bg-[var(--surface-sunken)] overflow-hidden">
+                <div className="h-full bg-accent" style={{ width: `${Math.min(100, (dl.receivedBytes / Math.max(1, dl.totalBytes)) * 100)}%` }} />
+              </div>
+              <div className="flex items-center gap-2 text-[var(--ink-50)] mt-0.5">
+                <span className="flex-1">
+                  {dl.state === 'verifying' ? 'Checking the file…' : `${gb(dl.receivedBytes)} of ${gb(dl.totalBytes)}`}
+                </span>
+                <button type="button" className="underline" data-testid="local-ai-intro-cancel" onClick={() => void window.api.localAi.cancelDownload()}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2 mt-2">
+              <button
+                type="button"
+                className="fb-t-caption px-3 py-1 rounded-[var(--radius-field)] bg-accent text-white fb-press"
+                data-testid="local-ai-intro-download"
+                onClick={() => startDownload(intro.model!.tierId!)}
+              >
+                Download ({gb(intro.model.bytes)})
+              </button>
+              <button type="button" className="underline text-[var(--ink-60)]" data-testid="local-ai-intro-dismiss" onClick={closeIntro}>
+                Not now
+              </button>
+            </div>
+          )}
+          {dlError && (
+            <div className="text-rose-600 dark:text-rose-400 mt-1" data-testid="local-ai-intro-error">
+              {dlError}
+            </div>
+          )}
+        </div>
+      )}
+      {intro && view === 'built-in' && (
         <div
           role="status"
           data-testid="local-ai-intro"
@@ -235,17 +311,33 @@ export default function LocalAiPrompts(): JSX.Element | null {
           </div>
         </Modal>
       )}
-      {missing && (
+      {missing && !missingDismissed && view !== 'offer' && (
         <div
           role="status"
           className="fixed top-14 left-1/2 -translate-x-1/2 z-[9997] max-w-md fb-card rounded-[var(--radius-field)] px-3 py-2 shadow-lg fb-t-caption leading-snug"
           data-testid="local-ai-missing"
         >
-          <div className="font-medium text-[var(--ink-90)]">Local AI needs a one-time download ({(missing.bytes / 1e9).toFixed(1)} GB)</div>
-          <div className="text-[var(--ink-60)] mt-0.5">
-            AI runs on this computer, but the model is not here yet. Until it is, AI features cannot answer.
+          <div className="flex items-start gap-2">
+            <div className="flex-1 font-medium text-[var(--ink-90)]">Local AI needs a one-time download ({gb(missing.bytes)})</div>
+            <button
+              type="button"
+              aria-label="Dismiss"
+              data-testid="local-ai-missing-dismiss"
+              className="text-[var(--ink-50)] hover:text-[var(--ink-100)]"
+              onClick={() => {
+                missingDismissedThisSession = true
+                setMissingDismissed(true)
+              }}
+            >
+              ×
+            </button>
           </div>
-          {dl && dl.tierId === missing.tierId && ['checking', 'downloading', 'verifying'].includes(dl.state) ? (
+          <div className="text-[var(--ink-60)] mt-0.5" data-testid="local-ai-missing-scope">
+            {missing.all
+              ? 'AI is set to run on this computer, but the model is not here yet. Until it is downloaded, AI features cannot answer; or choose another AI source in Settings › AI.'
+              : `${missing.features.join(', ')} ${missing.features.length === 1 ? 'is' : 'are'} set to run on this computer, but the model is not here yet. Until it is downloaded, ${missing.features.length === 1 ? 'that feature cannot' : 'those features cannot'} answer; everything else is unaffected.`}
+          </div>
+          {downloadingTier(missing.tierId) && dl ? (
             <div className="mt-1.5">
               <div className="h-1.5 rounded bg-[var(--surface-sunken)] overflow-hidden">
                 <div className="h-full bg-accent" style={{ width: `${Math.min(100, (dl.receivedBytes / Math.max(1, dl.totalBytes)) * 100)}%` }} />
@@ -260,12 +352,7 @@ export default function LocalAiPrompts(): JSX.Element | null {
                 type="button"
                 className="fb-t-caption px-3 py-1 rounded-[var(--radius-field)] bg-accent text-white fb-press"
                 data-testid="local-ai-missing-download"
-                onClick={() => {
-                  setDlError(null)
-                  void window.api.localAi.download(missing.tierId).then((r) => {
-                    if (!r.ok) setDlError(r.error ?? 'The download did not finish.')
-                  })
-                }}
+                onClick={() => startDownload(missing.tierId)}
               >
                 Download
               </button>

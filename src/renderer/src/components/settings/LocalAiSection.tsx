@@ -131,6 +131,15 @@ export default function LocalAiSection(): JSX.Element {
         desks and at agents. Each feature below shows how it did in our tests.
       </div>
 
+      {st && st.provider !== 'local' && st.tiers.some((t) => t.id === st.activeTier && !t.installed && t.offered) && (
+        <div className="fb-card rounded-[var(--radius-field)] px-2.5 py-2 mb-2 fb-t-caption text-[var(--ink-70)] leading-snug" data-testid="local-ai-offer-note">
+          The on-device model is not on this computer yet. Download it below (a one-time{' '}
+          {gb(st.tiers.find((t) => t.id === st.activeTier)!.sizeBytes + (st.embeddings.installed ? 0 : 146_146_432))}) to run AI
+          here. Until then your AI keeps using the source chosen above; nothing changes until the download has finished
+          and been checked.
+        </div>
+      )}
+
       {st?.hardware === 'cpu' && (
         <div className="fb-card rounded-[var(--radius-field)] px-2.5 py-2 mb-2 fb-t-caption text-amber-700 dark:text-amber-300 leading-snug" data-testid="local-ai-cpu-note">
           This Mac has an Intel processor, so the on-device model runs on the CPU without graphics acceleration, which

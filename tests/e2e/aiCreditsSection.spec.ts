@@ -4,7 +4,10 @@
  *
  * Surfaces exercised:
  *   - AiSourceSection renders the four sources (local / Anthropic key / OpenAI key / credits)
- *   - Default source is 'local' — the model ships in the app (4.3.39 owner decision)
+ *   - Default source is 'local' when a verified model is here (the DMG, or a dev
+ *     tree with resources/models staged); without one (update zip, Windows,
+ *     a dev tree without the models) the source stays on Plexii AI credits
+ *     ('auto') and Local is offered as a download (4.3.40)
  *   - Switching between modes round-trips through ai:setMode IPC without error
  *   - While signed out, selecting auto or credits shows the sign-in prompt
  *     (not a balance or a crash)
@@ -69,9 +72,10 @@ test('AI credits: app boots with no console errors', async () => {
 })
 
 // ---------------------------------------------------------------------------
-// Test 2 — AI-source chooser renders the four sources with Local active.
+// Test 2 — AI-source chooser renders the four sources; Local is the default
+// only where a model is here.
 // ---------------------------------------------------------------------------
-test('AI credits: chooser renders four sources, Local on this device selected by default', async () => {
+test('AI credits: chooser renders four sources, Local on this device selected by default only with a model here', async () => {
   launched = await launchApp()
   const { window } = launched
 
@@ -100,19 +104,27 @@ test('AI credits: chooser renders four sources, Local on this device selected by
   await expect(openaiBtn).toContainText('Your OpenAI key')
   await expect(creditsBtn).toContainText('Plexii AI credits')
 
-  // Default source is Local. Checked via class, not colour.
-  expect(await localBtn.getAttribute('class')).toContain('bg-accent')
-  expect(await creditsBtn.getAttribute('class')).not.toContain('bg-accent')
-  expect(await byokBtn.getAttribute('class')).not.toContain('bg-accent')
-  await expect(window.locator('[data-testid="ai-local-note"]')).toBeVisible({ timeout: 3_000 })
-  await expect(window.locator('[data-testid="ai-mode-auto"]')).toHaveCount(0)
-
-  // data-testid for credit balance and top-up are defined in the component
-  // even in unsigned-out mode — verify their existence (they may be inside
-  // a signed-in-only branch, so we only assert count > 0 OR that the signed-out
-  // prompt is there).
-  // On Local no credits card shows at all.
-  await expect(window.locator('[data-testid="ai-source-section"]').getByText(/sign in to your plexii account/i)).toHaveCount(0)
+  // Is a model here? (A dev tree with resources/models staged carries one; its
+  // checksum is checked in the background, after which the source is Local.)
+  const st = await window.evaluate(() => window.api.localAi.getStatus())
+  const modelHere = st.tiers.some((t) => t.id === st.activeTier && t.source !== null)
+  if (modelHere) {
+    // Default source is Local. Checked via class, not colour.
+    await expect.poll(async () => (await localBtn.getAttribute('class')) ?? '', { timeout: 30_000 }).toContain('bg-accent')
+    expect(await creditsBtn.getAttribute('class')).not.toContain('bg-accent')
+    expect(await byokBtn.getAttribute('class')).not.toContain('bg-accent')
+    await expect(window.locator('[data-testid="ai-local-note"]')).toBeVisible({ timeout: 3_000 })
+    await expect(window.locator('[data-testid="ai-mode-auto"]')).toHaveCount(0)
+    // On Local no credits card shows at all.
+    await expect(window.locator('[data-testid="ai-source-section"]').getByText(/sign in to your plexii account/i)).toHaveCount(0)
+  } else {
+    // No model: the previous default (credits, then your key) stays, and the
+    // Local card names the one-time download instead of "Included".
+    expect(await creditsBtn.getAttribute('class')).toContain('bg-accent')
+    expect(await localBtn.getAttribute('class')).not.toContain('bg-accent')
+    await expect(localBtn).toContainText(/One-time download \(2\.\d GB\)/)
+    await expect(window.locator('[data-testid="ai-mode-auto"]')).toBeChecked()
+  }
 
   expect(pageErrors).toHaveLength(0)
 })

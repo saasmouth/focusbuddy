@@ -100,6 +100,43 @@ function readCache(file: string): VerifiedCache {
 }
 
 /**
+ * The sha256 a bundled file must have: the manifest beside it must exist,
+ * parse, list the file and agree with the catalog pin. Throws (with the reason)
+ * when it does not.
+ */
+function bundledExpectedSha(spec: ModelSpec, located: Located): string {
+  const m = readModelManifest(dirname(located.path))
+  if (!m) throw new Error(`no manifest.sha256 beside ${spec.file}`)
+  const e = expectedSha(m.entries, spec.file, spec.sha256)
+  if (!e.ok) throw new Error(e.error)
+  return e.sha256
+}
+
+/**
+ * What is already known about a located file, without hashing anything:
+ * true = verified, false = checked and refused (or its manifest is unusable),
+ * null = not checked yet (a bundled file before its first use). Cheap enough
+ * to call while reading settings at start-up.
+ */
+export function cachedVerification(spec: ModelSpec, located: Located, cacheFile: string): boolean | null {
+  if (located.where === 'userData') return true // verified when it was installed
+  let want: string
+  try {
+    want = bundledExpectedSha(spec, located)
+  } catch {
+    return false
+  }
+  try {
+    const st = statSync(located.path)
+    const hit = readCache(cacheFile)[canonicalPath(located.path)]
+    if (hit && hit.size === st.size && hit.mtimeMs === st.mtimeMs && hit.sha256 === want) return hit.ok
+  } catch {
+    return false
+  }
+  return null
+}
+
+/**
  * Has this bundled file been checked? Reads the manifest beside it (it must
  * exist, parse, list the file, and agree with the catalog sha256), hashes the
  * file the first time (a few seconds for 2.5 GB) and remembers the answer in
@@ -115,17 +152,7 @@ export async function verifyLocated(
   if (located.where === 'userData') return true // verified when it was installed
   let want: string
   try {
-    const m = readModelManifest(dirname(located.path))
-    if (!m) {
-      onError?.(`no manifest.sha256 beside ${spec.file}`)
-      return false
-    }
-    const e = expectedSha(m.entries, spec.file, spec.sha256)
-    if (!e.ok) {
-      onError?.(e.error)
-      return false
-    }
-    want = e.sha256
+    want = bundledExpectedSha(spec, located)
   } catch (e) {
     onError?.((e as Error).message)
     return false

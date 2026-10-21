@@ -67,6 +67,12 @@ export async function launchApp(opts?: {
       ...cleanEnv,
       FB_TEST_USER_DATA: userDataDir,
       NODE_ENV: 'test',
+      // A tree with resources/models staged checks the bundled model's sha256
+      // once (it decides whether a fresh profile starts on Local). Share that
+      // result across the suite's throwaway profiles instead of re-hashing
+      // 2.5 GB in every launched app; the entry is keyed by path, size, mtime
+      // and the expected sha256 (localAiService.verifiedCacheFile).
+      PLEXII_MODEL_VERIFY_CACHE: join(tmpdir(), 'plexii-e2e-bundle-verified.json'),
       // Per-test overrides (e.g. PLEXI_APP=preview3 for the preview-build guard).
       ...(opts?.env ?? {})
     },

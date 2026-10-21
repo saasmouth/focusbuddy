@@ -2645,6 +2645,8 @@ const api = {
       from: 'auto' | 'credits' | 'byok' | 'local' | 'openai' | null
       mode: 'auto' | 'credits' | 'byok' | 'local' | 'openai'
       contentKey: 'anthropic' | 'openai' | null
+      /** The model this computer would use: ready, being checked, not here, or too little memory for any. */
+      model?: { state: 'ready' | 'checking' | 'absent' | 'unsupported'; tierId: string | null; bytes: number }
     }> =>
       ipcRenderer.invoke('localAi:getIntro'),
     dismissIntro: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('localAi:dismissIntro'),
