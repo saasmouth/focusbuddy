@@ -22,7 +22,9 @@ a keyboard shortcut. There, add one line per binding.
 | `editor/history.ts` | Undo: `commit`, `replace`, `begin` / `preview` / `commit` / `cancel`. |
 | `tools/*.tool.ts(x)` | One tool per file, picked up automatically. |
 | `commands/*.commands.ts` | Commands and their menu placement, picked up automatically. |
-| `commands/keymap.ts` | Key bindings: one sorted line each. |
+| `commands/keymap.ts` | Key bindings (Illustrator's defaults): one sorted line each, plus the keys reserved for features still to come. |
+| `commands/illustratorKeys.ts` | Adobe's default-shortcut table, every row, and what each means here. |
+| `commands/keys.ts` | Reading key presses, platform labels, per-profile remapping. |
 | `panels/*.panel.tsx` | Right-dock panels, picked up automatically. |
 | `dialogs/*.dialog.tsx` | Modal dialogs a command can open, picked up automatically. |
 | `render/*` | Rendering: `SceneView` (memoised per node), `Overlay`, `Toolbox`, `OptionsBar`, `TextEditor`. |
@@ -45,7 +47,7 @@ const measure: DrawTool = {
   icon: 'straighten',
   group: 5,             // toolbox section; a divider is drawn between sections
   order: 170,           // position in the toolbox (existing tools use 10..160)
-  // key: 'K',          // optional shortcut letter; a unit test fails on a clash
+  // key: 'Shift+W',    // optional: Illustrator's key for the tool ('M', 'Shift+W'); a unit test fails on a clash
   cursor: 'crosshair',
   onPointerDown(ctx, e) {
     // e.p is in ARTBOARD coordinates. Start a gesture: it routes the next moves
@@ -139,17 +141,40 @@ export const commands: Command[] = [
   never a no-op that looks like it worked. A command that runs and fails sets
   an honest `ctx.status(...)`.
 
-**Keyboard shortcut:** add ONE line to `commands/keymap.ts`, keeping the file
-sorted:
+**Keyboard shortcut:** PlexiiDraw uses Illustrator's default keys. Look your
+command up in `commands/illustratorKeys.ts` (Adobe's whole table, row by row)
+and in `RESERVED_KEYS` in `commands/keymap.ts`:
 
-```ts
-'mod+shift+h': ['object.flipHorizontal', 'prevent'],
-```
+- If Illustrator has a key for it, it is probably reserved under the id your
+  command should use (`'mod+g': ['object.group', ...]`). Register the command
+  with that id and add ONE line to `KEYMAP`, keeping the file sorted:
 
-`mod` is ⌘ or Ctrl. A Shift chord with no binding of its own falls back to the
-plain key. Tool letters live on the tools. `tests/unit/drawTools/registry.test.ts`
-fails on a key bound twice, a letter that collides with a binding, an unsorted
-keymap, or a binding naming an unknown command.
+  ```ts
+  'mod+g': ['object.group', 'prevent'],
+  ```
+
+  The reserved line can stay: a reservation is fulfilled when its own id takes
+  the key. Binding a reserved key to a different id fails the registry test.
+- A tool takes its key on the tool itself: `key: 'R'`, or `key: 'Shift+W'`,
+  with the tool id the reservation names (`'tool:rotate'`).
+- Key strings: `mod` (⌘ on a Mac, Ctrl on Windows), then `alt`, then `shift`,
+  then the key: a letter or digit, the unshifted US symbol on the key (`=`,
+  `[`, `'`, `\\`, `` ` ``), or the lower-cased `KeyboardEvent.key` (`escape`,
+  `arrowleft`, `f1`). `commands/keys.ts` reads events into this form on any
+  layout and writes keys for the platform (⇧⌘Z / Shift+Ctrl+Z); do not write
+  `shortcut:` text on a command whose key is in the keymap.
+- A Shift chord with no binding of its own falls back to the plain key unless
+  Illustrator reserves it (Shift+M is the Shape Builder, never the Rectangle's M).
+- Delivering a feature another package owns the key for? Do not take its key.
+  A stand-in command with `pending: 'arrives with …'` and `enabled: () => false`
+  holds a key and a menu place until the real command (same id) replaces it.
+
+`tests/unit/drawTools/registry.test.ts` and `illustratorKeys.test.ts` fail on a
+key bound twice, a tool key that collides with a binding, an unsorted keymap,
+a binding naming an unknown command, a reserved key given to the wrong thing,
+or a keymap that no longer matches Adobe's table. People can remap keys in
+Edit › Keyboard shortcuts…; that is stored per profile and never edits
+`keymap.ts`.
 
 ## Add a panel: one new file
 

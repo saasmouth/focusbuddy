@@ -14,11 +14,12 @@ import { putAsset } from '@shared/draw/assets'
 import { drawDocCompatibility, drawDocForStorage } from '@shared/draw/compat'
 import type { DrawDoc, DrawNode } from '@shared/draw/model'
 import { declaredSchema, normalizeDrawDoc } from '@shared/draw/normalize'
-import { hitNode, patchLayer, selectableObjectIds } from '@shared/draw/ops'
+import { hitNode, patchLayer } from '@shared/draw/ops'
 import { vectorLayersOf } from '@shared/draw/tree'
 import { DEFAULT_BRUSH } from '../brushes'
-import { commandById, keyBinding } from '../commands/registry'
-import { drawTools, toolById } from '../tools/registry'
+import { commandById } from '../commands/registry'
+import { resolveKey } from '../commands/keys'
+import { toolById } from '../tools/registry'
 import { createHistory } from './history'
 import type { EditorCtx, EditorState, History, HostService, KeyInput, RasterService, TextService, ToolPointer, ViewportService } from './types'
 
@@ -169,8 +170,11 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
 
   // ── Keyboard ───────────────────────────────────────────────────────────────
 
+  /** Commands a key may run on a read-only drawing: they look, select and help; none edits. */
+  const READ_ONLY_KEYS = new Set(['edit.selectAll', 'edit.deselect', 'edit.escape', 'edit.keyboardShortcuts'])
+  const readOnlyKeyOk = (id: string): boolean => READ_ONLY_KEYS.has(id) || id.startsWith('view.') || id.startsWith('help.')
+
   function keyDown(e: KeyInput): void {
-    const mod = e.metaKey || e.ctrlKey
     if (e.code === 'Space' && !e.inField) {
       store.setState({ spaceDown: true })
       e.preventDefault()
@@ -178,29 +182,39 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
     }
     // A field (the text box, an inspector input) keeps its own keys.
     if (e.inField) return
-    const key = e.key.toLowerCase()
     const s = store.getState()
-    if (s.readOnly) {
-      // Selection, Escape and the two tools that cannot edit.
-      if (mod && key === 'a') {
-        e.preventDefault()
-        store.setState({ selection: selectableObjectIds(s.doc) })
-      } else if (!mod && e.key === 'Escape') store.setState({ selection: [] })
-      else if (!mod && (key === 'v' || key === 'h')) store.setState({ tool: key === 'v' ? 'select' : 'hand' })
+    // An open dialog owns the keyboard; Escape closes it.
+    if (s.dialog) {
+      if (e.key === 'Escape') store.setState({ dialog: null })
       return
     }
-    const binding = keyBinding(e)
-    if (binding) {
-      const c = commandById(binding.command)
-      if (c && (!c.keyWhen || c.keyWhen(ctx))) {
-        if (binding.preventDefault) e.preventDefault()
-        void c.run(ctx, e)
-        return
-      }
+    // Type being edited on the canvas: no shortcut may eat a keystroke meant
+    // for the text, even if focus slipped off the text box. Escape ends it.
+    if (s.editingText && e.key !== 'Escape') return
+    const hit = resolveKey(e)
+    if (!hit) return
+    if (hit.kind === 'reserved') {
+      // Illustrator's key for a feature still to come: nothing happens, and it
+      // does not fall through to a different tool or command.
+      return
     }
-    if (mod) return
-    const match = drawTools().find((t) => t.key && t.key.toLowerCase() === key)
-    if (match) store.setState({ tool: match.id })
+    if (hit.kind === 'tool') {
+      const t = toolById(hit.id)
+      if (!t || (s.readOnly && !t.readOnlySafe)) return
+      store.setState({ tool: t.id })
+      return
+    }
+    const c = commandById(hit.id)
+    if (!c) return
+    if (s.readOnly && !readOnlyKeyOk(c.id)) return
+    if (c.keyWhen && !c.keyWhen(ctx)) return
+    if (hit.prevent) e.preventDefault()
+    if (c.enabled && !c.enabled(ctx)) {
+      // Never a silent no-op: say why the key did nothing when there is a reason to give.
+      if (c.pending) ctx.status(`${c.label} ${c.pending}.`)
+      return
+    }
+    void c.run(ctx, e)
   }
 
   function keyUp(e: { code: string }): void {

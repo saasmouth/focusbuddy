@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react'
 import { useStore } from 'zustand'
 import Icon from '../../../Icon'
 import { docPaintToCss } from '@shared/draw/svg'
 import { drawTools } from '../tools/registry'
+import { subscribeKeyOverrides, toolShortcutLabel } from '../commands/keys'
 import type { EditorCtx } from '../editor/types'
 
 /** The tool column, built from the tool registry, with the current fill and stroke under it. */
@@ -12,16 +14,20 @@ export default function Toolbox({ ctx }: { ctx: EditorCtx }): JSX.Element {
   const stroke = useStore(ctx.store, (s) => s.stroke)
   const swatches = useStore(ctx.store, (s) => s.doc.swatches)
   const tools = drawTools().filter((t) => !t.hidden)
+  // Re-render when the person remaps a key, so the tooltips show the new one.
+  const [, setTick] = useState(0)
+  useEffect(() => subscribeKeyOverrides(() => setTick((n) => n + 1)), [])
   return (
     <div className="shrink-0 w-10 border-r border-[var(--edge-soft)] py-1 overflow-y-auto" data-testid="draw-toolbox">
       {tools.map((t, i) => {
         const off = readOnly && !t.readOnlySafe
+        const key = toolShortcutLabel(t.id)
         return (
             <div key={t.id}>
               {i > 0 && tools[i - 1].group !== t.group && <div className="my-1 mx-2 h-px bg-[var(--edge-soft)]" />}
               <button
                 onClick={() => ctx.setTool(t.id)}
-                title={off ? `${t.label} — not available: this artwork is read-only` : `${t.label} (${t.key})`}
+                title={off ? `${t.label} — not available: this artwork is read-only` : key ? `${t.label} (${key})` : t.label}
                 aria-label={t.label}
                 aria-pressed={tool === t.id}
                 disabled={off}

@@ -1,22 +1,32 @@
-import { describe, it, expect } from 'vitest'
+import { beforeEach, describe, it, expect } from 'vitest'
 import { nodeBounds } from '../../../src/shared/draw/ops'
 import { drawTools } from '../../../src/renderer/src/components/documents/draw/tools/registry'
+import { RESERVED_KEYS } from '../../../src/renderer/src/components/documents/draw/commands/keymap'
+import { setKeyPlatform, toolKeyString } from '../../../src/renderer/src/components/documents/draw/commands/keys'
 import { blank, harness, rect } from './harness'
 
 const x = (h: ReturnType<typeof harness>, id: string): number => nodeBounds(h.objects().find((o) => o.id === id)!).x
 
 describe('the keyboard', () => {
-  it('every tool letter selects its tool (Shift or not), and ⌘ with a letter does not', () => {
-    for (const t of drawTools().filter((tool) => tool.key)) {
+  beforeEach(() => setKeyPlatform('mac'))
+
+  it('every tool key selects its tool; Shift with a tool letter does too unless Illustrator gives Shift+letter its own tool; ⌘ with a letter does not', () => {
+    const reservedShift = new Set(Object.keys(RESERVED_KEYS).filter((k) => k.startsWith('shift+')))
+    for (const t of drawTools()) {
+      const k = toolKeyString(t.key)
+      if (!k) continue
+      const shifted = k.startsWith('shift+')
+      const letter = shifted ? k.slice(6) : k
       const h = harness()
-      h.key(t.key!.toLowerCase())
+      h.key(shifted ? letter.toUpperCase() : letter, { shift: shifted, code: letter === '\\' ? 'Backslash' : undefined })
       expect(h.state().tool, t.id).toBe(t.id)
+      if (shifted) continue
       const g = harness()
-      g.key(t.key!, { shift: true })
-      expect(g.state().tool, `${t.id} with Shift`).toBe(t.id)
+      g.key(letter.toUpperCase(), { shift: true, code: letter === '\\' ? 'Backslash' : undefined })
+      expect(g.state().tool, `${t.id} with Shift`).toBe(reservedShift.has(`shift+${letter}`) ? 'select' : t.id)
     }
     const h = harness()
-    h.key('r', { meta: true })
+    h.key('m', { meta: true })
     expect(h.state().tool).toBe('select')
   })
 
@@ -38,10 +48,10 @@ describe('the keyboard', () => {
     expect(h.state().past).toHaveLength(2)
   })
 
-  it('⌘Z undoes, ⇧⌘Z and ⌘Y redo, ⌘D duplicates', () => {
+  it('⌘Z undoes, ⇧⌘Z redoes (and Ctrl on Windows); Duplicate runs from its menu item, ⌘D being Transform again', () => {
     const h = harness(blank([rect('a', 100, 100, 10, 10)]))
     h.ed.ctx.select(['a'])
-    h.key('d', { meta: true })
+    h.run('edit.duplicate')
     expect(h.objects()).toHaveLength(2)
     expect(h.state().selection).not.toEqual(['a'])
     h.key('z', { meta: true })
@@ -49,7 +59,8 @@ describe('the keyboard', () => {
     h.key('z', { meta: true, shift: true })
     expect(h.objects()).toHaveLength(2)
     h.key('z', { ctrl: true })
-    h.key('y', { ctrl: true })
+    expect(h.objects()).toHaveLength(1)
+    h.key('z', { ctrl: true, shift: true })
     expect(h.objects()).toHaveLength(2)
   })
 
@@ -81,13 +92,13 @@ describe('the keyboard', () => {
     expect(h.state().tool).toBe('select')
   })
 
-  it('read-only: only ⌘A, Escape, V and H do anything', () => {
+  it('read-only: only selecting, Escape, the view keys, V and H do anything', () => {
     const h = harness({ ...blank([rect('a', 0, 0, 10, 10)]), schemaVersion: 3 })
     h.key('a', { meta: true })
     expect(h.state().selection).toEqual(['a'])
     for (const k of ['Delete', 'ArrowRight', 'd']) h.key(k)
     h.key('d', { meta: true })
-    h.key('r')
+    h.key('m')
     expect(h.state().tool).toBe('select')
     h.key('h')
     expect(h.state().tool).toBe('hand')

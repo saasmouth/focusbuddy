@@ -190,7 +190,6 @@ export const commands: Command[] = [
     id: 'file.openSvg',
     label: 'Open SVG…',
     icon: 'folder_open',
-    shortcut: '⌘O',
     menu: { path: 'file', order: 105 },
     run: (ctx) => openSvg(ctx)
   },
@@ -198,7 +197,6 @@ export const commands: Command[] = [
     id: 'file.place',
     label: 'Place…',
     icon: 'add_photo_alternate',
-    shortcut: '⇧⌘P',
     menu: { path: 'file', order: 250 },
     enabled: writable,
     run: (ctx) => place(ctx, false)

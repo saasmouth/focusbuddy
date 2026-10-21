@@ -210,7 +210,11 @@ export interface DrawTool {
   group: number
   /** Position within the whole toolbox (sections are ordered by their first tool). */
   order: number
-  /** Single-letter shortcut, shown in the tooltip; conflicts fail a unit test. */
+  /**
+   * Shortcut as Illustrator writes it: one key ('M', '\\') or Shift with one
+   * key ('Shift+E'). Use Illustrator's default for the tool where it has one
+   * (commands/illustratorKeys.ts); conflicts fail a unit test.
+   */
   key?: string
   cursor?: string
   /** Shows the brush panel while active (the painting tools). */
@@ -241,8 +245,17 @@ export interface Command {
   id: string
   label: string
   icon?: string
-  /** Shortcut text shown in the menu (the binding itself lives in keymap.ts). */
+  /**
+   * Shortcut text for a key keymap.ts does not hold. A key bound in keymap.ts
+   * is shown from there, written for the platform, so leave this out.
+   */
   shortcut?: string
+  /**
+   * Set on a stand-in for a command another package delivers: it holds the
+   * key and the menu place, shows disabled with this reason ("arrives with
+   * Transform tools"), and is replaced automatically by the real command.
+   */
+  pending?: string
   menu?: CommandMenuPlacement
   /** Disabled commands show greyed with this reason; must be pure. */
   enabled?(ctx: EditorCtx): boolean
@@ -277,5 +290,7 @@ export interface DrawPanel {
 export interface DrawDialog {
   id: string
   title: string
+  /** Width in px (the default modal is 340). */
+  width?: number
   component: FC<{ ctx: EditorCtx; props?: Record<string, unknown>; close: () => void }>
 }

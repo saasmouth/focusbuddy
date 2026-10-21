@@ -23,6 +23,7 @@ import { toolById } from './draw/tools/registry'
 import OptionsBar from './draw/render/OptionsBar'
 import Overlay from './draw/render/Overlay'
 import ReadOnlyBanner from './draw/render/ReadOnlyBanner'
+import KeysNotice from './draw/render/KeysNotice'
 import ScratchView from './draw/render/ScratchView'
 import TextEditor from './draw/render/TextEditor'
 import Toolbox from './draw/render/Toolbox'
@@ -309,6 +310,8 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
 
       {state.readOnly && <ReadOnlyBanner compat={state.compat} />}
 
+      <KeysNotice ctx={ctx} />
+
       <OptionsBar ctx={ctx} />
 
       <div className="flex-1 min-h-0 flex">
@@ -399,7 +402,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
       </div>
 
       {dialog && (
-        <MenuModal title={dialog.title} onClose={closeDialog}>
+        <MenuModal title={dialog.title} onClose={closeDialog} width={dialog.width}>
           <dialog.component ctx={ctx} props={state.dialog?.props} close={closeDialog} />
         </MenuModal>
       )}

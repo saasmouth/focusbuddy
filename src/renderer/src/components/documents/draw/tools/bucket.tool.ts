@@ -1,4 +1,4 @@
-// Paint bucket (G): flood-fill an area of a paint layer with the current colour.
+// Paint bucket (K, Illustrator's Live Paint Bucket key): flood-fill an area of a paint layer with the current colour.
 
 import type { DrawTool } from '../editor/types'
 import { currentSolidColor } from './helpers'
@@ -10,7 +10,7 @@ const bucket: DrawTool = {
   icon: 'format_color_fill',
   group: 4,
   order: 140,
-  key: 'G',
+  key: 'K',
   cursor: 'crosshair',
   paint: true,
 
