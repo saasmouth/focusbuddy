@@ -12,6 +12,15 @@
 // http/https request+get, net/tls connect and dns lookup. The egress guard is
 // deliberately NOT installed here: this proves the router keeps the traffic
 // local by itself. The guard has its own test (localAiEgressGuard.test.ts).
+//
+// Ollama (the advanced local fallback, FB_OLLAMA_URL) is a stub server this
+// test starts on 127.0.0.1. It used to be whatever answered on
+// localhost:11434: on a developer machine running Ollama, the "no local
+// embedder" case listed the real models and ran a real embedding, which takes
+// seconds when Ollama has to load the model (it unloads after idling) and more
+// under CPU load. That pushed the test past its 5 s timeout now and then (the
+// rotating "localAiNoNetwork" failure), and made its result depend on which
+// models the machine happened to have installed.
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { mkdtempSync } from 'node:fs'
 import { join } from 'node:path'
@@ -45,6 +54,19 @@ vi.mock('../../src/main/db/account', () => ({
   loadAccountState: () => ({ sessionToken: 'session-token-for-test', skippedAt: null, cachedEmail: 'nonet@test.local' }),
   markUiVisible: () => {}
 }))
+
+// The Ollama stand-in: records every request; lists no models.
+const ollamaHits: string[] = []
+const ollamaStub = http.createServer((req, res) => {
+  ollamaHits.push(`${req.method} ${req.url}`)
+  if (req.url === '/api/tags') {
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ models: [] }))
+    return
+  }
+  res.writeHead(404)
+  res.end()
+})
 
 const remote: string[] = []
 const restores: Array<() => void> = []
@@ -97,6 +119,9 @@ const fakeEngine = {
 }
 
 beforeAll(async () => {
+  // Before anything imports localModel, which reads FB_OLLAMA_URL once.
+  await new Promise<void>((r) => ollamaStub.listen(0, '127.0.0.1', () => r()))
+  process.env.FB_OLLAMA_URL = `http://127.0.0.1:${(ollamaStub.address() as import('node:net').AddressInfo).port}`
   process.env.ANTHROPIC_API_KEY = 'sk-ant-test-not-real'
   process.env.OPENAI_API_KEY = 'sk-openai-test-not-real'
   const { initSqlite, openMemoryDatabase } = await import('../../src/web/worker/sqlite')
@@ -140,8 +165,10 @@ beforeAll(async () => {
   spy(dns, 'lookup', (a) => String(a[0]))
 }, 180_000)
 
-afterAll(() => {
+afterAll(async () => {
   for (const r of restores.reverse()) r()
+  delete process.env.FB_OLLAMA_URL
+  await new Promise<void>((r) => ollamaStub.close(() => r()))
   delete process.env.ANTHROPIC_API_KEY
   delete process.env.OPENAI_API_KEY
 })
@@ -265,11 +292,14 @@ describe('Local on this device: no AI request leaves the machine', () => {
     const { setBundledEmbedder } = await import('../../src/main/ai/localModel')
     setBundledEmbedder(null)
     const { embedTexts } = await import('../../src/main/ai/embeddings')
+    const before = ollamaHits.length
     const r = await embedTexts(['a passage'])
-    // Either the honest fallback (keyword search), or an Ollama server on THIS
-    // machine answered (the advanced option; localhost) — never OpenAI.
-    if (r.ok) expect(r.model.startsWith('ollama:')).toBe(true)
-    else expect(r.reason).toBe('no_key')
+    // The honest fallback (keyword search), never OpenAI. The only thing asked
+    // was the test's own Ollama stand-in (which has no models), never a real
+    // Ollama on this machine.
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.reason).toBe('no_key')
+    expect(ollamaHits.slice(before)).toContain('GET /api/tags')
     expect(remote).toEqual([])
   })
 
