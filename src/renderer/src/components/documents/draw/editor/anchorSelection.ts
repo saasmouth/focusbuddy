@@ -122,12 +122,46 @@ export function editablePaths(doc: DrawDoc): DrawPathNode[] {
   return all.filter((n) => ok.has(n.id)).reverse()
 }
 
+/**
+ * A fast lookup over the current anchor selection, for code that asks about
+ * many anchors at once (the overlay, hit-testing): built once, O(1) a query.
+ */
+export interface AnchorIndex {
+  count: number
+  has(r: AnchorRef): boolean
+}
+
+const indexCache = new WeakMap<EditorState, AnchorIndex>()
+
+export function anchorIndex(s: EditorState): AnchorIndex {
+  const cached = indexCache.get(s)
+  if (cached) return cached
+  const whole = new Set<string>()
+  const keys = new Set<string>()
+  let count = 0
+  for (const id of s.selection) {
+    const o = getObject(s.doc, id)
+    if (!o || o.type !== 'path') continue
+    const ex = explicitFor(s, id)
+    if (ex) {
+      for (const [si, ni] of ex) if (o.path.subpaths[si]?.nodes[ni]) keys.add(`${id}:${si}:${ni}`)
+      count += ex.length
+    } else {
+      whole.add(id)
+      for (const sp of o.path.subpaths) count += sp.nodes.length
+    }
+  }
+  const idx: AnchorIndex = { count, has: (r) => whole.has(r.id) || keys.has(`${r.id}:${r.si}:${r.ni}`) }
+  indexCache.set(s, idx)
+  return idx
+}
+
 /** Whether a handle of this anchor is shown (and so can be grabbed). */
 export function handlesShown(s: EditorState, r: AnchorRef): boolean {
   if (!s.selection.includes(r.id)) return false
-  const sel = selectedAnchors(s)
-  if (!s.pathPrefs.showHandles && sel.length > 1) return false
-  if (isAnchorSelected(s, r)) return true
+  const idx = anchorIndex(s)
+  if (!s.pathPrefs.showHandles && idx.count > 1) return false
+  if (idx.has(r)) return true
   // A neighbour of a selected anchor shows the handle that shapes the shared segment.
   const o = getObject(s.doc, r.id)
   if (!o || o.type !== 'path') return false
@@ -135,7 +169,7 @@ export function handlesShown(s: EditorState, r: AnchorRef): boolean {
   const n = sp.nodes.length
   const prev = r.ni > 0 ? r.ni - 1 : sp.closed ? n - 1 : -1
   const next = r.ni < n - 1 ? r.ni + 1 : sp.closed ? 0 : -1
-  return (prev >= 0 && isAnchorSelected(s, { ...r, ni: prev })) || (next >= 0 && isAnchorSelected(s, { ...r, ni: next }))
+  return (prev >= 0 && idx.has({ ...r, ni: prev })) || (next >= 0 && idx.has({ ...r, ni: next }))
 }
 
 /**
@@ -180,6 +214,8 @@ export function anchorHitAt(s: EditorState, p: Pt, opts: { handles?: boolean; an
   if (opts.segments !== false) {
     for (const o of pool) {
       const local = toLocal(doc, o.id, p)
+      // Cheap reject: outside the control hull's box (plus the pick radius) cannot be on the outline.
+      if (!nearHull(o, local, r * 4 + 1)) continue
       const h = nearestOnPath(o.path, local)
       if (!h) continue
       const at = toDoc(doc, o.id, h.point)
@@ -189,6 +225,27 @@ export function anchorHitAt(s: EditorState, p: Pt, opts: { handles?: boolean; an
     }
   }
   return null
+}
+
+function nearHull(o: DrawPathNode, p: Pt, pad: number): boolean {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const sp of o.path.subpaths)
+    for (const n of sp.nodes) {
+      for (const [x, y] of [
+        [n.x, n.y],
+        [n.inX ?? n.x, n.inY ?? n.y],
+        [n.outX ?? n.x, n.outY ?? n.y]
+      ]) {
+        if (x < minX) minX = x
+        if (x > maxX) maxX = x
+        if (y < minY) minY = y
+        if (y > maxY) maxY = y
+      }
+    }
+  return p.x >= minX - pad && p.x <= maxX + pad && p.y >= minY - pad && p.y <= maxY + pad
 }
 
 /** Is `ref` an end of an open subpath? */

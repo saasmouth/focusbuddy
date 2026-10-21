@@ -9,7 +9,7 @@ import type { MenuItem } from '../../../src/renderer/src/components/documents/ed
 import { blank, harness, rect } from './harness'
 
 describe('registries', () => {
-  it('every one of the 25 tools is registered, in toolbox order, with no clashing ids or letters', () => {
+  it('every one of the 26 tools is registered, in toolbox order, with no clashing ids or letters', () => {
     expect(drawTools().map((t) => `${t.id}:${t.key ?? t.shortcutLabel ?? ''}`)).toEqual([
       'select:V',
       'direct:A',
@@ -24,6 +24,7 @@ describe('registries', () => {
       'pencil:N',
       'smooth:',
       'pathEraser:',
+      'join:',
       'rect:R',
       'roundRect:D',
       'ellipse:O',

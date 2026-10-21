@@ -61,7 +61,7 @@ test.describe('PlexiDraw studio', () => {
       await expect(window.locator(`[data-testid="${t}"]`)).toBeVisible()
     }
     // Every tool the toolbox claims to have is really there.
-    for (const tool of ['select', 'node', 'pen', 'pencil', 'rect', 'ellipse', 'text', 'brush', 'eraser', 'bucket', 'eyedropper', 'hand']) {
+    for (const tool of ['select', 'direct', 'pen', 'pencil', 'rect', 'ellipse', 'text', 'brush', 'eraser', 'bucket', 'eyedropper', 'hand']) {
       await expect(window.locator(`[data-testid="draw-tool-${tool}"]`)).toBeVisible()
     }
   })

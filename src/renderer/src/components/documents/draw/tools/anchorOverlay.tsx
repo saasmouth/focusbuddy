@@ -7,7 +7,7 @@ import { pathToSvgD, transformPath } from '@shared/drawGeometry'
 import { cornerInfo, handleOf } from '@shared/draw/geometry/pathEdit'
 import { getObject, nodeMatrix, toDoc, type AnchorRef } from '@shared/draw/ops'
 import type { EditorState } from '../editor/types'
-import { anchorHitAt, editablePaths, handlesShown, isAnchorSelected, selectedAnchors } from '../editor/anchorSelection'
+import { anchorHitAt, anchorIndex, editablePaths, handlesShown, selectedAnchors } from '../editor/anchorSelection'
 
 const ACCENT = '#6d5dfc'
 
@@ -75,7 +75,7 @@ export function AnchorOverlay({ state, k, widgets = false, hover = true }: { sta
             sp.nodes.map((n, ni) => {
               const ref = { id: o.id, si, ni }
               const p = toDoc(s.doc, o.id, n)
-              const sel = isAnchorSelected(s, ref)
+              const sel = anchorIndex(s).has(ref)
               const shown = handlesShown(s, ref)
               const hin = shown ? handleOf(n, 'in') : null
               const hout = shown ? handleOf(n, 'out') : null
