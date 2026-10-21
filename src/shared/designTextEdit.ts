@@ -40,7 +40,7 @@ export function slots(doc: ContentDoc): EditSlot[] {
   doc.blocks.forEach((b, block) => {
     if (b.kind === 'list') {
       b.items.forEach((text, item) => out.push({ block, item, text, kind: 'list' }))
-    } else if (b.kind === 'image' || b.kind === 'divider' || b.kind === 'pagebreak') {
+    } else if (b.kind === 'image' || b.kind === 'divider' || b.kind === 'pagebreak' || b.kind === 'footnote') {
       // Nothing to type into.
     } else {
       out.push({ block, text: b.text, kind: b.kind })
@@ -63,7 +63,7 @@ export function textAt(doc: ContentDoc, caret: DocCaret): string {
   const b = doc.blocks[caret.block]
   if (!b) return ''
   if (b.kind === 'list') return b.items[caret.item ?? 0] ?? ''
-  if (b.kind === 'image' || b.kind === 'divider' || b.kind === 'pagebreak') return ''
+  if (b.kind === 'image' || b.kind === 'divider' || b.kind === 'pagebreak' || b.kind === 'footnote') return ''
   return b.text
 }
 
@@ -105,7 +105,7 @@ function setSlotText(doc: ContentDoc, slot: { block: number; item?: number }, te
     if (b.kind === 'list') {
       return { ...b, items: b.items.map((it, j) => (j === (slot.item ?? 0) ? text : it)) }
     }
-    if (b.kind === 'image' || b.kind === 'divider' || b.kind === 'pagebreak') return b
+    if (b.kind === 'image' || b.kind === 'divider' || b.kind === 'pagebreak' || b.kind === 'footnote') return b
     return { ...b, text }
   })
   return { blocks }
@@ -173,7 +173,7 @@ export function replaceRange(doc: ContentDoc, sel: DocSelection, text: string): 
     const key = `${bi}:-1`
     if (doomed.has(key)) return
     if (bi === all[a].block && all[a].item === undefined) {
-      if (blk.kind === 'image' || blk.kind === 'divider' || blk.kind === 'pagebreak') blocks.push(blk)
+      if (blk.kind === 'image' || blk.kind === 'divider' || blk.kind === 'pagebreak' || blk.kind === 'footnote') blocks.push(blk)
       else blocks.push({ ...blk, text: merged } as ContentBlock)
       return
     }
@@ -217,7 +217,7 @@ export function splitAt(doc: ContentDoc, sel: DocSelection): { doc: ContentDoc; 
     return { doc: { blocks: d.blocks.map((b, i) => (i === caret.block ? { ...blk, items } : b)) }, caret: { block: caret.block, item: item + 1, offset: 0 } }
   }
 
-  if (blk.kind === 'image' || blk.kind === 'divider' || blk.kind === 'pagebreak') return cleared
+  if (blk.kind === 'image' || blk.kind === 'divider' || blk.kind === 'pagebreak' || blk.kind === 'footnote') return cleared
 
   const head = blk.text.slice(0, caret.offset)
   const tail = blk.text.slice(caret.offset)

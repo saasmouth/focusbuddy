@@ -172,3 +172,40 @@ describe('placement', () => {
     expect(r.placements[0].height).toBe(0)
   })
 })
+
+describe('the space a note reserves', () => {
+  // The height was once total-width ÷ column-width, rounded up. That is a line
+  // short whenever a word will not fit in what is left of a line — which is
+  // most notes, because a note is short and often ends in a page reference or
+  // a URL. One line short is a note the frame then clips.
+  it('is measured by breaking the note into lines, not by dividing its width', () => {
+    // The measurer here gives every character 4px at 8px type, so a 100px
+    // column holds 25 characters — but only in whole words.
+    //
+    // Three 15-character words: 45 characters of word plus 2 spaces = 188px.
+    // The division says ceil(188 / 100) = 2 lines. Real wrapping cannot put
+    // two 60px words on a 100px line once the 8px space is counted, so it
+    // needs 3. The division under-reserves, and the frame clips the note.
+    const text = 'aaaaaaaaaaaaaaa bbbbbbbbbbbbbbb ccccccccccccccc'
+    const r = layoutWithFootnotes({
+      paragraphs: [para('x', [{ id: 'n', offset: 0 }])],
+      frames: [frame('a', 0, 400, 100)],
+      notes: [{ id: 'n', text }],
+      measure,
+      options: { style: noteStyle, gap: 0, ruleHeight: 0 }
+    })
+    const lineH = 8 * 1.3
+    expect(r.placements[0].height).toBeGreaterThan(2.5 * lineH)
+  })
+
+  it('reserves nothing when a frame holds no marker', () => {
+    const r = layoutWithFootnotes({
+      paragraphs: [para('no markers here')],
+      frames: [frame('a', 0, 300)],
+      notes: [{ id: 'n', text: 'Unreferenced.' }],
+      measure,
+      options: { style: noteStyle }
+    })
+    expect(r.placements[0].height).toBe(0)
+  })
+})

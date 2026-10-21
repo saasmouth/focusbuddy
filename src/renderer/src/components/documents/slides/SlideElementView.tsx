@@ -86,6 +86,11 @@ function TextContent({ el }: { el: SlideTextElement }): JSX.Element {
                 </div>
               )}
               <div
+                // Which kind of line this is, for anything that has to tell a
+                // footnote from the story without re-deriving the layout — a
+                // test, and a person reading the DOM to see why a note landed
+                // where it did.
+                data-flow-line={ln.footnote ? 'footnote' : 'body'}
                 style={{
                   position: 'absolute',
                   left: ln.x,

@@ -12,7 +12,9 @@
 // behaviour is testable without a DOM.
 
 import { storyFrames, storyIds, wrapObstacles, type DesignBody, type DesignPage } from './design'
-import { flowStory, type FlowBox, type FlowFrame, type FlowMeasurer, type FlowParagraph } from './designFlow'
+import { flowStory, type FlowBox, type FlowFrame, type FlowLine, type FlowMeasurer, type FlowParagraph, type FlowParaStyle } from './designFlow'
+import { layoutWithFootnotes, noteLines, type FootnoteDef, type FootnotePlacement } from './designFootnotes'
+import { storyFootnotes, withFootnoteMarkers } from './designFootnoteText'
 import { findLayoutStyle, storyParagraphs, typeScaleFor } from './designAutoLayout'
 import { parsePlainText, toPlainText, type ContentDoc } from './designContent'
 import { DEFAULT_BRAND_KIT, type OrgBrandKit } from './brandKit'
@@ -49,6 +51,100 @@ export function paragraphsForStory(design: DesignBody, storyId: string, brand: O
   return storyParagraphs(doc, style, typeScaleFor(style, brand, colW), design.paragraphStyles)
 }
 
+// ── Footnotes ────────────────────────────────────────────────────────────────
+//
+// The gap and the rule are passed explicitly rather than left to the engine's
+// defaults, because the SAME two numbers decide how much room the engine
+// reserves at the foot of a frame and where this module then draws the notes.
+// Two sets of defaults that agree today is a pair that drifts apart later.
+const NOTE_GAP = (bodySize: number): number => bodySize * 0.8
+const NOTE_RULE = 0.75
+
+/**
+ * The type footnotes are set in: smaller than the body and a little tighter,
+ * as in print, in the body's own family and colour so the page keeps one voice.
+ */
+export function footnoteStyle(paragraphs: FlowParagraph[]): FlowParaStyle {
+  // The body style, not the first paragraph's: a story that opens with a
+  // heading would otherwise set its notes in display type.
+  const sizes = paragraphs.map((p) => p.style.fontSize).filter((n) => n > 0)
+  const body = sizes.length ? sizes.sort((a, b) => a - b)[Math.floor(sizes.length / 2)] : 10
+  const from = paragraphs.find((p) => p.style.fontSize === body)?.style ?? paragraphs[0]?.style
+  const fontSize = Math.max(6, Math.round(body * 0.78 * 100) / 100)
+  return {
+    ...(from ?? { lineHeight: 1.3, align: 'left', font: `${fontSize}px serif` }),
+    fontSize,
+    lineHeight: 1.3,
+    align: 'left',
+    // The font shorthand has to be rebuilt: it carries the size the measurer
+    // uses, so inheriting the body's would measure the notes as body text.
+    font: (from?.font ?? `${fontSize}px serif`).replace(/\d+(?:\.\d+)?px/, `${fontSize}px`),
+    // Indents and space-around belong to the body's rhythm, not to a note.
+    spaceBefore: 0,
+    spaceAfter: 0,
+    indent: 0,
+    leftInset: 0,
+    rightInset: 0,
+    // Every ornament is cleared, and this is not housekeeping: inheriting the
+    // body's drop cap set the note's own first character — its marker — as a
+    // 17px initial, so the note printed with no number on it. Inheriting its
+    // bullet would have put a bullet on every note, and its rule-above would
+    // have drawn a second rule under the separator.
+    dropCapLines: 0,
+    bullet: undefined,
+    ruleAbove: undefined,
+    keepWithNext: false,
+    // A note is short; widow control inside it has nothing to protect and can
+    // only push a line into the body's space.
+    widowLines: 1,
+    // Whatever the body does, a note is not snapped to the baseline grid: it
+    // hangs from the foot of the frame, and the grid would move it off it.
+    snapToGrid: false
+  }
+}
+
+/**
+ * The lines for one frame's notes, positioned from the foot of the frame.
+ *
+ * Drawn with the same engine that set the body, so the line breaks are the
+ * ones the reserved height was measured from — and carried in the frame's own
+ * `flowLines` so the canvas, the PDF and the PNG all draw them identically,
+ * with `footnote: true` on every line so nothing mistakes a note for the story.
+ */
+export function footnoteLinesFor(
+  placement: FootnotePlacement,
+  frame: { w: number; h: number },
+  style: FlowParaStyle,
+  measure: FlowMeasurer,
+  bodySize: number
+): FlowLine[] {
+  if (!placement.notes.length || placement.height <= 0) return []
+  const gap = NOTE_GAP(bodySize)
+  // Where the notes begin: the space the engine reserved, minus the gap above
+  // them and the separator rule.
+  let y = frame.h - placement.height + gap + NOTE_RULE
+  const out: FlowLine[] = []
+  placement.notes.forEach((n, i) => {
+    const text = `${n.marker} ${n.text}`.trim()
+    const lines = noteLines(text, frame.w, style, measure)
+    lines.forEach((l, j) => {
+      out.push({
+        ...l,
+        y: l.y + y,
+        footnote: true,
+        // The separator rule sits above the first note only, a third of the
+        // column wide, which is how a footnote rule is set in print.
+        ...(i === 0 && j === 0
+          ? { rule: { width: 1 / 3, thickness: NOTE_RULE, color: style.color ?? 'currentColor' } }
+          : {})
+      })
+    })
+    const last = lines[lines.length - 1]
+    y += last ? last.y + last.lh : style.fontSize * style.lineHeight
+  })
+  return out
+}
+
 /**
  * Re-flow every story in the document and return a body whose frames carry the
  * fresh `flowLines`.
@@ -68,7 +164,10 @@ export function applyStoryFlows(design: DesignBody, measure: FlowMeasurer, brand
   for (const storyId of ids) {
     const chain = storyFrames(design, storyId)
     if (chain.length === 0) continue
-    const paragraphs = paragraphsForStory(design, storyId, brand)
+    // The notes this story defines, and its paragraphs with each [^id] token
+    // turned into a real superscript marker at a known offset.
+    const notes: FootnoteDef[] = storyFootnotes(design.stories?.[storyId])
+    const paragraphs = withFootnoteMarkers(paragraphsForStory(design, storyId, brand), notes)
 
     // Each frame carries the obstacles of ITS OWN page, minus this story's own
     // frames — a frame never wraps around itself or its siblings.
@@ -82,11 +181,33 @@ export function applyStoryFlows(design: DesignBody, measure: FlowMeasurer, brand
       obstacles: pages[c.pageIndex] ? expandedObstacles(pages[c.pageIndex], ownIds) : []
     }))
 
+    // With notes, the flow and the notes have to settle against each other: a
+    // note takes space from the foot of its frame, which can push its own
+    // marker onto the next frame. designFootnotes.ts runs that loop.
+    const refsExist = paragraphs.some((p) => (p.footnoteRefs ?? []).length > 0)
+    const noteStyle = footnoteStyle(paragraphs)
+    const bodySize = noteStyle.fontSize / 0.78
+    const laid = refsExist
+      ? layoutWithFootnotes({
+          paragraphs,
+          frames,
+          notes,
+          measure,
+          grid: design.baselineGrid,
+          options: { style: noteStyle, gap: NOTE_GAP(bodySize), ruleHeight: NOTE_RULE }
+        })
+      : null
     // The document's grid, so columns lock to one ruler across the page.
-    const result = flowStory({ paragraphs, frames, measure, grid: design.baselineGrid })
+    const result = laid ? laid.flow : flowStory({ paragraphs, frames, measure, grid: design.baselineGrid })
+    const placements = new Map((laid?.placements ?? []).map((pl) => [pl.frameId, pl]))
     chain.forEach((c, i) => {
+      const body = result.byFrame[c.element.id] ?? []
+      const pl = placements.get(c.element.id)
+      const frame = frames.find((f) => f.id === c.element.id)
+      const notesHere =
+        pl && frame ? footnoteLinesFor(pl, frame, noteStyle, measure, bodySize) : []
       results.set(c.element.id, {
-        lines: result.byFrame[c.element.id] ?? [],
+        lines: notesHere.length ? [...body, ...notesHere] : body,
         // Only the LAST frame of a chain can be overset; the others simply
         // handed their remainder on.
         overset: i === chain.length - 1 ? result.overset : false

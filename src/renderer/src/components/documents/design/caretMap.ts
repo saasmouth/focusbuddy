@@ -47,7 +47,13 @@ interface PlacedLine {
 export function placedLines(design: DesignBody, storyId: string): PlacedLine[] {
   const out: PlacedLine[] = []
   for (const { pageIndex, element } of storyFrames(design, storyId)) {
-    for (const line of element.flowLines ?? []) out.push({ line, frame: element, pageIndex })
+    // Footnote lines are in the frame's lines so they render and export with
+    // everything else, but they are not the story: a caret cannot go in them,
+    // and a click on one must fall through to the nearest body line.
+    for (const line of element.flowLines ?? []) {
+      if (line.footnote) continue
+      out.push({ line, frame: element, pageIndex })
+    }
   }
   return out
 }

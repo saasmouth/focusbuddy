@@ -20,6 +20,13 @@ export type ContentBlock =
   | { kind: 'image'; src: string; alt?: string; caption?: string }
   | { kind: 'divider' }
   | { kind: 'pagebreak' }
+  // A footnote's TEXT. The marker that summons it lives inline in another
+  // block as [^id]; this block is the note itself, written on its own line as
+  // "[^id]: the note", which is how footnotes are written in Markdown and so
+  // what someone is likely to type. It is not body copy and never sets as a
+  // paragraph: designFootnotes.ts places it at the foot of whichever frame its
+  // marker landed in.
+  | { kind: 'footnote'; id: string; text: string }
 
 export interface ContentDoc {
   blocks: ContentBlock[]
@@ -33,6 +40,7 @@ export function blockText(b: ContentBlock): string {
     case 'subtitle':
     case 'heading':
     case 'paragraph':
+    case 'footnote':
       return b.text
     case 'quote':
       return b.attribution ? `${b.text} — ${b.attribution}` : b.text
@@ -129,6 +137,11 @@ function normalizeBlock(raw: unknown): ContentBlock | null {
       return { kind: 'divider' }
     case 'pagebreak':
       return { kind: 'pagebreak' }
+    case 'footnote': {
+      const id = str(b.id).trim()
+      // A note with no id can never be referenced, so it is not a note.
+      return id ? { kind: 'footnote', id, text: str(b.text) } : null
+    }
     default:
       return null
   }
@@ -168,6 +181,16 @@ export function parsePlainText(input: string, opts: { firstLineIsTitle?: boolean
 
     if (line === '') {
       flushAll()
+      continue
+    }
+
+    // A footnote definition: "[^1]: the note". Taken before everything else,
+    // because the line also matches nothing else and because a note that got
+    // parsed as a paragraph would set as body copy in the middle of the page.
+    const footnote = /^\[\^([A-Za-z0-9_-]{1,32})\]:\s*(.*)$/.exec(line)
+    if (footnote) {
+      flushAll()
+      blocks.push({ kind: 'footnote', id: footnote[1], text: footnote[2].trim() })
       continue
     }
 
@@ -275,6 +298,9 @@ export function toPlainText(doc: ContentDoc): string {
         break
       case 'pagebreak':
         out.push('===')
+        break
+      case 'footnote':
+        out.push(`[^${b.id}]: ${b.text}`)
         break
     }
   }

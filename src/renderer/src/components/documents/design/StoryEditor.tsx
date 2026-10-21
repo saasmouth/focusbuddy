@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from '../../Icon'
 import { contentStats, parsePlainText } from '@shared/designContent'
+import { storyFootnotes } from '@shared/designFootnoteText'
 import type { DesignBody } from '@shared/design'
 
 // The story editor — where threaded text is actually written.
@@ -43,6 +44,37 @@ export default function StoryEditor({ design, storyId, text, overset, onChange, 
   }, [storyId])
 
   const stats = contentStats(parsePlainText(draft, { firstLineIsTitle: false }))
+  const notes = storyFootnotes(parsePlainText(draft, { firstLineIsTitle: false }))
+
+  /**
+   * Insert a footnote: a marker where the caret is, and its definition at the
+   * end, with the caret left in the definition so the next thing typed is the
+   * note. The number is the lowest unused one, so inserting between two
+   * existing notes does not collide — the printed numbering comes from reading
+   * order anyway, not from the id.
+   */
+  function insertFootnote(): void {
+    const el = ref.current
+    const at = el ? el.selectionStart : draft.length
+    const used = new Set(notes.map((n) => n.id))
+    let n = 1
+    while (used.has(String(n))) n += 1
+    const id = String(n)
+    const marker = `[^${id}]`
+    const withMarker = `${draft.slice(0, at)}${marker}${draft.slice(at)}`
+    const sep = withMarker.endsWith('\n') ? '\n' : '\n\n'
+    const next = `${withMarker}${sep}[^${id}]: `
+    setDraft(next)
+    lastExternal.current = next
+    onChange(next)
+    // After the state has landed, put the caret after the definition's colon.
+    requestAnimationFrame(() => {
+      const t = ref.current
+      if (!t) return
+      t.focus()
+      t.setSelectionRange(next.length, next.length)
+    })
+  }
   const frames = (design.pages ?? []).reduce(
     (n, pg) => n + pg.elements.filter((el) => el.type === 'text' && el.storyId === storyId).length,
     0
@@ -86,8 +118,27 @@ export default function StoryEditor({ design, storyId, text, overset, onChange, 
             </button>
           </div>
         )}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={insertFootnote}
+            className="fb-btn-surface px-2 py-1 text-[11px] hover:border-accent"
+            data-testid="design-insert-footnote"
+            title="Put a footnote marker here and its note at the foot of the frame"
+          >
+            Add a footnote
+          </button>
+          {notes.length > 0 && (
+            <span className="fb-t-caption text-[var(--ink-40)]" data-testid="design-footnote-count">
+              {notes.length} note{notes.length === 1 ? '' : 's'}
+            </span>
+          )}
+        </div>
         <p className="text-[10px] text-[var(--ink-40)] leading-snug">
           <code>###</code> heading · <code>-</code> bullet · <code>1.</code> numbered · <code>&gt;</code> quote · blank line for a new paragraph
+        </p>
+        <p className="text-[10px] text-[var(--ink-40)] leading-snug">
+          A footnote is <code>[^1]</code> where the marker goes, and <code>[^1]: the note</code> on its own line. The
+          note sets at the foot of whichever frame its marker lands in, and renumbers itself as the text moves.
         </p>
       </div>
     </div>

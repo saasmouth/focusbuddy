@@ -145,6 +145,16 @@ export interface FlowLine {
   letterSpacing?: number
   /** Present on a paragraph's first line when it has a marker. */
   bullet?: string
+  /**
+   * This line is a FOOTNOTE at the foot of the frame, not body copy.
+   *
+   * Notes are stored in the frame's lines so they render and export through
+   * the same path as everything else, which is why every consumer of those
+   * lines has to be able to tell them apart: a click on a note must not place
+   * a caret in the body text, and a note must not be counted when the advisor
+   * measures the body's line length.
+   */
+  footnote?: boolean
   // ── Where these characters came from ───────────────────────────────────────
   // The index of the paragraph in the flowed array, and the half-open character
   // range of that paragraph's text this line holds. Together they are what lets

@@ -97,12 +97,44 @@ export interface FootnoteOptions {
   maxPasses?: number
 }
 
-/** Height one note needs in a column of the given width. */
+/**
+ * Height one note needs in a column of the given width.
+ *
+ * Measured by actually breaking the note's lines, not by dividing its total
+ * width by the column's. The division is off by a line whenever a word will
+ * not fit in the space left on a line — which is most notes, since a note is
+ * short and often ends in a page reference or a URL. One line too few is
+ * reserved space the note then overflows, and the frame clips it.
+ */
 function noteHeight(text: string, width: number, style: FlowParaStyle, measure: FlowMeasurer): number {
   if (width <= 0) return style.fontSize * style.lineHeight
-  const w = measure(text, style.font)
-  const lines = Math.max(1, Math.ceil(w / width))
-  return lines * style.fontSize * style.lineHeight
+  const lines = noteLines(text, width, style, measure)
+  if (lines.length === 0) return style.fontSize * style.lineHeight
+  const last = lines[lines.length - 1]
+  return last.y + last.lh
+}
+
+/**
+ * The note's own lines, broken by the same engine that breaks the body text.
+ *
+ * Exported because the renderer needs exactly these lines: a note drawn with
+ * different line breaks from the ones its reserved height was computed from is
+ * a note that does not fit the space reserved for it.
+ */
+export function noteLines(
+  text: string,
+  width: number,
+  style: FlowParaStyle,
+  measure: FlowMeasurer
+): FlowResult['byFrame'][string] {
+  if (!text.trim() || width <= 0) return []
+  const r = flowStory({
+    paragraphs: [{ text, style }],
+    // Tall enough that nothing is ever cut: this is a measurement, not a page.
+    frames: [{ id: 'note', x: 0, y: 0, w: width, h: 1e6 }],
+    measure
+  })
+  return r.byFrame['note'] ?? []
 }
 
 /**

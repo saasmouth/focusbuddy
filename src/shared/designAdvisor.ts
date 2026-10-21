@@ -52,7 +52,10 @@ const isText = (e: SlideElement): e is SlideTextElement => e.type === 'text'
 
 /** Every line the flow engine produced for a text element, if it has flowed. */
 function linesOf(e: SlideTextElement): FlowLine[] {
-  return e.flowLines ?? []
+  // Footnotes live in the same array but are not body copy. Counting them
+  // would drag the measured line length and the smallest type size towards
+  // the notes, and report the body as something it is not.
+  return (e.flowLines ?? []).filter((l) => !l.footnote)
 }
 
 /**
