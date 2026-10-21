@@ -2067,6 +2067,11 @@ export function registerIpcHandlers(): void {
     if (mode !== 'auto' && mode !== 'credits' && mode !== 'byok' && mode !== 'local' && mode !== 'openai') return getAiStatus()
     setAiMode(mode)
     invalidateAnthropicClient()
+    // The AI source decides whether anything routes locally, so local-AI status
+    // changed too. Without this the renderer's "Local AI needs a one-time
+    // download" notice stayed up after switching to a cloud source, over every
+    // editor's toolbar, until the app restarted.
+    for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send('localAi:changed', null)
     return getAiStatus()
   })
   // Pull the live balance from the signal server (lazily grants the trial).
