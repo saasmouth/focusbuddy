@@ -184,7 +184,9 @@ if (UPLOAD || VERIFY_ONLY) {
     const problems = []
     let res
     try {
-      res = await fetch(url, { method: 'HEAD', cache: 'no-store' })
+      // identity: Cloudflare compresses text for a client that accepts gzip/br
+      // and then sends no Content-Length, which would read as 0 bytes here.
+      res = await fetch(url, { method: 'HEAD', cache: 'no-store', headers: { 'accept-encoding': 'identity' } })
     } catch (e) {
       console.log(`  FAIL     ${url}  ${e.message}`)
       failed = true
@@ -197,7 +199,7 @@ if (UPLOAD || VERIFY_ONLY) {
     if (cc !== step.cache) problems.push(`Cache-Control "${cc}", expected "${step.cache}"`)
     let extra = ''
     if (step.key.endsWith('manifest.sha256')) {
-      const published = await (await fetch(url, { cache: 'no-store' })).text()
+      const published = await (await fetch(url, { cache: 'no-store', headers: { 'accept-encoding': 'identity' } })).text()
       const same = published === readFileSync(step.src, 'utf8')
       if (!same) problems.push('manifest DIFFERS from the staged one')
       extra = `, manifest ${same ? 'identical' : 'DIFFERS'}`
