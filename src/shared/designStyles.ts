@@ -286,32 +286,62 @@ export function defaultStyleSheet(scale: SheetScale, layout: SheetLayout): Desig
       heading(1, scale.h1),
       heading(2, scale.h2),
       heading(3, scale.h3),
+      // Quote, list, caption and attribution reproduce storyParagraphs' values
+      // EXACTLY, down to the multiplier. The sheet's promise is that a
+      // document with no styles of its own sets as it always has; a quote that
+      // is "about right" would silently restyle every existing document the
+      // moment this is wired in, which is the kind of change nobody reports as
+      // a bug and everybody notices.
       {
         id: 'quote',
         name: 'Quote',
         basedOn: 'body',
         props: {
-          fontSize: r2(scale.quote),
+          fontSize: r2(scale.body * 1.05),
           italic: true,
           color: scale.muted,
-          leftInset: r2(scale.body * 1.5),
-          rightInset: r2(scale.body * 1.5),
-          spaceBefore: r2(scale.body * 0.8),
-          spaceAfter: r2(scale.body * 0.8),
-          align: 'left'
+          align: 'left',
+          leftInset: r2(scale.body * 1.2),
+          rightInset: r2(scale.body * 0.6),
+          spaceBefore: r2(scale.body * 0.7),
+          spaceAfter: r2(scale.body * 0.7)
+        }
+      },
+      {
+        id: 'quote-attribution',
+        name: 'Quote attribution',
+        basedOn: 'body',
+        props: {
+          fontSize: r2(scale.caption),
+          lineHeight: 1.3,
+          color: scale.muted,
+          align: 'left',
+          leftInset: r2(scale.body * 1.2),
+          spaceAfter: r2(scale.body * 0.7)
         }
       },
       {
         id: 'caption',
         name: 'Caption',
         basedOn: 'body',
-        props: { fontSize: r2(scale.caption), color: scale.muted, spaceAfter: r2(scale.body * 0.8) }
+        props: {
+          fontSize: r2(scale.caption),
+          lineHeight: 1.3,
+          color: scale.muted,
+          align: 'left',
+          spaceAfter: r2(scale.body * 0.7)
+        }
       },
       {
         id: 'list',
         name: 'List item',
         basedOn: 'body',
-        props: { leftInset: r2(scale.body * 1.2), spaceAfter: r2(scale.body * 0.25) }
+        props: {
+          align: 'left',
+          leftInset: r2(scale.body * 1.4),
+          spaceAfter: r2(scale.body * 0.22),
+          indent: 0
+        }
       },
       {
         id: 'title',

@@ -213,6 +213,33 @@ describe('the default sheet', () => {
     expect(h1.ruleAbove).toEqual({ width: 1, thickness: 1, color: '#2563eb' })
   })
 
+  it('reproduces the hard-coded quote, list and attribution exactly', () => {
+    // These are the ones most likely to drift, because they were buried in a
+    // switch rather than in a shared base. Values mirror storyParagraphs.
+    const q = resolveParagraphStyle(sheet, 'quote', base)
+    expect(q.fontSize).toBe(11.03) // body * 1.05
+    expect(q.italic).toBe(true)
+    expect(q.align).toBe('left')
+    expect(q.leftInset).toBe(12.6) // body * 1.2
+    expect(q.rightInset).toBe(6.3) // body * 0.6
+    expect(q.spaceBefore).toBe(7.35) // body * 0.7
+    expect(q.color).toBe('#78716c')
+    // Quote keeps the body family, not the heading family.
+    expect(q.fontFamily).toBe('Charter')
+
+    const li = resolveParagraphStyle(sheet, 'list', base)
+    expect(li.leftInset).toBe(14.7) // body * 1.4
+    expect(li.spaceAfter).toBe(2.31) // body * 0.22
+    expect(li.indent).toBe(0)
+    expect(li.align).toBe('left')
+
+    const attr = resolveParagraphStyle(sheet, 'quote-attribution', base)
+    expect(attr.fontSize).toBe(9)
+    expect(attr.lineHeight).toBe(1.3)
+    expect(attr.leftInset).toBe(12.6)
+    expect(attr.spaceAfter).toBe(7.35)
+  })
+
   it('omits the heading rule when the layout does not ask for one', () => {
     const plain = defaultStyleSheet(scale, { ...layout, headingRule: false })
     expect(resolveParagraphStyle(plain, 'heading1', base).ruleAbove).toBeUndefined()
