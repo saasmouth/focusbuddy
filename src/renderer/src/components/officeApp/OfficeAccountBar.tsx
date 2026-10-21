@@ -14,6 +14,7 @@ export default function OfficeAccountBar(): JSX.Element {
   const login = useAccountStore((s) => s.login)
   const signup = useAccountStore((s) => s.signup)
   const signOut = useAccountStore((s) => s.signOut)
+  const restore = useAccountStore((s) => s.restore)
 
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
@@ -21,6 +22,32 @@ export default function OfficeAccountBar(): JSX.Element {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Set when the right password met a CLOSED account (4.3.40): offer Restore.
+  const [archived, setArchived] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  async function restoreClosed(): Promise<void> {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      const r = await restore({ email: email.trim().toLowerCase(), password })
+      if (!r.ok) {
+        setError(
+          r.twoFactorRequired
+            ? 'This account uses two-factor authentication. Restore it from PlexiiDesk (Sign in > Restore my account) or at plexiidesk.com/account/delete.'
+            : r.message
+        )
+        return
+      }
+      setArchived(false)
+      setOpen(false)
+      setPassword('')
+      setNotice(r.notRestored.length ? `Restored. Not restored: ${r.notRestored.join(' ')}` : null)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function submit(): Promise<void> {
     if (busy || !email.trim() || !password) return
@@ -32,6 +59,7 @@ export default function OfficeAccountBar(): JSX.Element {
           ? await login({ email: email.trim(), password })
           : await signup({ email: email.trim(), password })
       if (!res.ok) {
+        setArchived(res.code === 'ARCHIVED')
         setError(res.error || 'Could not sign in.')
         return
       }
@@ -44,6 +72,12 @@ export default function OfficeAccountBar(): JSX.Element {
 
   if (account) {
     return (
+      <>
+      {notice && (
+        <div className="px-3 pt-2 text-[11px] text-[var(--ink-50)]" data-testid="office-restore-notice">
+          {notice}
+        </div>
+      )}
       <div className="px-3 py-2 border-t border-[var(--edge-soft)] flex items-center gap-2 text-[12px]">
         <Icon name="account_circle" size={16} className="text-accent shrink-0" />
         <span className="truncate text-[var(--ink-70)]">{personDisplayName(account, account.email)}</span>
@@ -55,6 +89,7 @@ export default function OfficeAccountBar(): JSX.Element {
           Sign out
         </button>
       </div>
+      </>
     )
   }
 
@@ -98,6 +133,17 @@ export default function OfficeAccountBar(): JSX.Element {
             className="fb-field w-full bg-[var(--surface-raised)] px-2 py-1 text-[12px]"
           />
           {error && <div className="text-[11px] text-red-600 dark:text-red-400">{error}</div>}
+          {archived && (
+            <button
+              type="button"
+              onClick={() => void restoreClosed()}
+              disabled={busy}
+              data-testid="office-restore-account"
+              className="w-full rounded-md px-2 py-1.5 text-[12px] bg-accent text-white disabled:opacity-50"
+            >
+              Restore my account
+            </button>
+          )}
           <button
             onClick={() => void submit()}
             disabled={busy || !email.trim() || !password}

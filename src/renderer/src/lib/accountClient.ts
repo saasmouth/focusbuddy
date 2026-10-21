@@ -41,7 +41,9 @@ interface AuthSuccess {
 interface AuthFailure {
   ok: false
   error: string
-  code: 'EMAIL_EXISTS' | 'INVALID_CREDENTIALS' | 'NETWORK' | 'BAD_INPUT' | 'SERVER' | 'TWO_FACTOR'
+  code: 'EMAIL_EXISTS' | 'INVALID_CREDENTIALS' | 'NETWORK' | 'BAD_INPUT' | 'SERVER' | 'TWO_FACTOR' | 'ARCHIVED'
+  /** code 'ARCHIVED': the account is closed and can be restored until eraseAt. */
+  archived?: { closedAt: number; eraseAt: number }
 }
 
 export type AuthResult = AuthSuccess | AuthFailure
@@ -144,7 +146,21 @@ export async function login(input: {
       account?: ServerAccount
       error?: string
       twoFactorRequired?: boolean
+      code?: string
+      archived?: { closedAt?: unknown; eraseAt?: unknown }
     }>('/accounts/login', input)
+    // The right password for a CLOSED account (4.3.40 server): it can be
+    // restored, so say so rather than "wrong password".
+    if (res.status === 403 && json?.code === 'account_archived') {
+      const closedAt = typeof json.archived?.closedAt === 'number' ? json.archived.closedAt : 0
+      const eraseAt = typeof json.archived?.eraseAt === 'number' ? json.archived.eraseAt : 0
+      return {
+        ok: false,
+        error: json.error || 'This account is closed. You can restore it.',
+        code: 'ARCHIVED',
+        archived: { closedAt, eraseAt }
+      }
+    }
     if (!res.ok || !json) {
       // Password was right but a second factor is needed (or the supplied code
       // was wrong) — surface this distinctly so the UI can prompt for the code.
@@ -492,48 +508,140 @@ export async function takePendingBuild(token: string): Promise<string | null> {
   }
 }
 
-// ── Delete my account and data (self-service, 4.3.34) ───────────────────
+// ── Your data and your account (4.3.40) ─────────────────────────────────
 //
-// POST /accounts/me/delete with the typed confirmation and a re-authentication:
-// the password (plus a 2FA code when 2FA is on), or for an account without a
-// password a 6-digit code emailed by POST /accounts/me/delete/email-code. The
-// server deletes the account and everything tied to it, and answers with the
-// list of what it keeps and why (`kept`), which the app shows verbatim.
+// Nobody deletes their own account: they CLOSE it, and the server archives it
+// so it can be restored for a retention period (12 months by default, the
+// server says the exact date), then erases it. Before closing, the person can
+// download everything the server holds as one ZIP. Each call is offered only
+// once the server lists its feature in serverFeatures (stores/capabilities):
+//   GET  /accounts/me/export              account_export
+//   POST /accounts/me/close               account_archive
+//   POST /accounts/me/close/email-code    account_archive_email
+//   POST /accounts/restore (+ /email-code) account_restore
+// The server's sentences (what cannot be restored, what is held) are shown as
+// they are, never paraphrased.
 
-export type DeleteAccountResult =
-  | { ok: true; kept: string[] }
+export type CloseAccountResult =
+  | { ok: true; closedAt: number; eraseAt: number; notRestorable: string[]; held: string[] }
   | { ok: false; error: string; message: string }
 
-export async function deleteMyAccount(
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((k): k is string => typeof k === 'string') : [])
+
+export async function closeMyAccount(
   token: string,
   input: { password?: string; totp?: string; emailCode?: string }
-): Promise<DeleteAccountResult> {
+): Promise<CloseAccountResult> {
   try {
     const { res, json } = await postJson<{
       ok?: boolean
-      deleted?: boolean
-      kept?: unknown
+      closed?: boolean
+      closedAt?: unknown
+      eraseAt?: unknown
+      notRestorable?: unknown
+      held?: unknown
       error?: string
       message?: string
-    }>('/accounts/me/delete', { confirm: 'DELETE', ...input }, token)
-    if (res.ok && json?.ok && json.deleted) {
-      const kept = Array.isArray(json.kept) ? json.kept.filter((k): k is string => typeof k === 'string') : []
-      return { ok: true, kept }
+    }>('/accounts/me/close', { confirm: 'CLOSE', ...input }, token)
+    if (res.ok && json?.ok && json.closed && typeof json.eraseAt === 'number') {
+      return {
+        ok: true,
+        closedAt: typeof json.closedAt === 'number' ? json.closedAt : Date.now(),
+        eraseAt: json.eraseAt,
+        notRestorable: strings(json.notRestorable),
+        held: strings(json.held)
+      }
     }
     return {
       ok: false,
       error: json?.error ?? `http_${res.status}`,
-      message: json?.message ?? 'The account could not be deleted. Nothing was removed.'
+      message: json?.message ?? 'Your account could not be closed. Nothing was changed.'
     }
   } catch {
-    return { ok: false, error: 'network', message: 'Could not reach PlexiiDesk. Nothing was removed.' }
+    return { ok: false, error: 'network', message: 'Could not reach PlexiiDesk. Nothing was changed.' }
   }
 }
 
-export async function requestDeleteEmailCode(token: string): Promise<{ ok: boolean; message?: string }> {
+export async function requestCloseEmailCode(token: string): Promise<{ ok: boolean; message?: string }> {
   try {
-    const { res, json } = await postJson<{ ok?: boolean; message?: string }>('/accounts/me/delete/email-code', {}, token)
+    const { res, json } = await postJson<{ ok?: boolean; message?: string }>('/accounts/me/close/email-code', {}, token)
     return res.ok && json?.ok ? { ok: true } : { ok: false, message: json?.message ?? 'The code could not be sent.' }
+  } catch {
+    return { ok: false, message: 'Could not reach PlexiiDesk.' }
+  }
+}
+
+export type ServerExportResult =
+  | { ok: true; bytes: Uint8Array; fileName: string }
+  | { ok: false; message: string }
+
+/** Download everything the server holds about the account, as a ZIP, into memory. */
+export async function downloadServerExport(token: string): Promise<ServerExportResult> {
+  try {
+    const res = await fetch(urlFor('/accounts/me/export'), { headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok && (res.headers.get('content-type') ?? '').includes('application/zip')) {
+      const name = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1]?.replace(/[^A-Za-z0-9._-]/g, '')
+      return {
+        ok: true,
+        bytes: new Uint8Array(await res.arrayBuffer()),
+        fileName: name || `plexiidesk-data-${new Date().toISOString().slice(0, 10)}.zip`
+      }
+    }
+    let message: string | undefined
+    try {
+      message = ((await res.json()) as { message?: string }).message
+    } catch {
+      message = undefined
+    }
+    return { ok: false, message: message ?? `Your data could not be downloaded (the server answered ${res.status}).` }
+  } catch {
+    return { ok: false, message: 'Could not reach PlexiiDesk. Check your connection and try again.' }
+  }
+}
+
+export type RestoreAccountResult =
+  | { ok: true; sessionToken: string; account: ServerAccount; notRestored: string[] }
+  | { ok: false; error: string; message: string; twoFactorRequired?: boolean }
+
+/** Restore a closed account (POST /accounts/restore). Signs in on success. */
+export async function restoreAccount(input: {
+  email: string
+  password?: string
+  emailCode?: string
+  totp?: string
+  deviceId?: string
+}): Promise<RestoreAccountResult> {
+  try {
+    const { res, json } = await postJson<{
+      ok?: boolean
+      restored?: boolean
+      sessionToken?: string
+      account?: ServerAccount
+      notRestored?: unknown
+      error?: string
+      message?: string
+      twoFactorRequired?: boolean
+    }>('/accounts/restore', input)
+    if (res.ok && json?.ok && json.restored && json.sessionToken && json.account) {
+      return { ok: true, sessionToken: json.sessionToken, account: json.account, notRestored: strings(json.notRestored) }
+    }
+    return {
+      ok: false,
+      error: json?.error ?? `http_${res.status}`,
+      message: json?.message ?? 'Your account could not be restored. Nothing was changed.',
+      twoFactorRequired: json?.twoFactorRequired === true
+    }
+  } catch {
+    return { ok: false, error: 'network', message: 'Could not reach PlexiiDesk. Nothing was changed.' }
+  }
+}
+
+export async function requestRestoreEmailCode(email: string): Promise<{ ok: boolean; message?: string }> {
+  try {
+    const { res, json } = await postJson<{ ok?: boolean; message?: string }>('/accounts/restore/email-code', { email })
+    return res.ok && json?.ok
+      ? { ok: true, message: json.message }
+      : { ok: false, message: json?.message ?? 'The code could not be sent.' }
   } catch {
     return { ok: false, message: 'Could not reach PlexiiDesk.' }
   }

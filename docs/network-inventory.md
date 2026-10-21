@@ -105,14 +105,22 @@ Base URL: `ACTIVE.api` (`src/shared/productDomains.ts:28`, read by
   `/account/capabilities` lists them in `serverFeatures`
   (`src/renderer/src/stores/capabilities.ts`, `useServerFeature`): the privacy
   `PUT` needs `account_privacy`; the "our server refuses / deletes on opt-out"
-  wording needs `consent_enforced`; Delete my account needs `account_delete`
-  (otherwise the panel says to email connect@plexiidesk.com); its emailed-code
-  path needs `account_delete_email`. Against an older server nothing new is
-  requested, so no request 404s.
-- Delete my account and data (Settings > Account,
-  `src/renderer/src/components/settings/DeleteAccountPanel.tsx`):
-  `POST /accounts/me/delete` with the typed confirmation and the password (plus
-  2FA), or `POST /accounts/me/delete/email-code` then the emailed code. On use.
+  wording needs `consent_enforced`; Download what our server holds needs
+  `account_export`; Close and archive my account needs `account_archive` (its
+  emailed-code path `account_archive_email`); Restore my account at sign-in
+  needs `account_restore` (it is offered when sign-in answers `account_archived`,
+  which only that server sends). Without them the panel says to email
+  connect@plexiidesk.com. Against an older server nothing new is requested, so
+  no request 404s. (`account_delete` from 4.3.34 is retired: closing archives.)
+- Your data and Close and archive my account (Settings > Account,
+  `src/renderer/src/components/settings/AccountDataPanel.tsx`), on use:
+  `GET /accounts/me/export` (a ZIP, saved through a save dialog by
+  `account:saveExport`); `POST /accounts/me/close` with the typed confirmation
+  and the password (plus 2FA), or `POST /accounts/me/close/email-code` then the
+  emailed code. Back up this computer stays local (`backup:export`).
+- Restore my account (`LaunchSignInModal.tsx`, `OfficeAccountBar.tsx`), on use:
+  `POST /accounts/restore` with the password or an emailed code
+  (`POST /accounts/restore/email-code`), plus 2FA.
 - Profile, 2FA, email verification, referrals, credit-bank, feature votes,
   account state (`/account/state/:key`): on use.
 - Browser sign-in opens `www.plexiidesk.com/account/login` and returns via a
@@ -309,16 +317,19 @@ What the server keeps, from the 4.3.34 server release (focusbuddy-signal, branch
   reporting on. Nothing functional reads them; the admin console labels its
   active-account figures as covering opted-in accounts only.
 - **Retention** (sweep at boot and every 6 h): telemetry, activity and funnel
-  events 13 months, `first_launch` only under consent, crash reports 30 days,
-  audit IP address and user agent nulled after 90 days (the audit rows stay so
-  the hash chain verifies).
+  events in use 13 months, `first_launch` only under consent, crash reports 30
+  days; rows leaving use are archived (never read) and erased 12 months later,
+  except that switching a stream off deletes at once. Audit IP address and user
+  agent nulled after 90 days (the audit rows stay so the hash chain verifies).
 - **Share-invite emails** carry plain links: no open pixel, no click redirect.
   Old `/e/o` and `/e/c` URLs in sent mail still answer and record nothing.
 - **Client IP** for audit and rate limits is `Fly-Client-IP` on Fly, otherwise
   the socket address; `X-Forwarded-For` is never trusted.
-- **Account deletion** (`POST /accounts/me/delete`, and the admin delete) runs
-  one cascade over every account-linked table, cancels a live Stripe
-  subscription first, and keeps only: Stripe's invoices and payment records,
+- **Closing an account** (`POST /accounts/me/close`) cancels a live Stripe
+  subscription first and archives every account-linked row and file: unusable,
+  never read, restorable for 12 months (`POST /accounts/restore`), then erased.
+  `GET /accounts/me/export` returns all of it as a ZIP first. **Erasure** (the
+  archive's end, or an operator on request) keeps only: Stripe's invoices and payment records,
   the address on the do-not-email list if it unsubscribed, a trial-credit-used
   marker, audit rows without IP or user agent, content added to an organisation
   that stays, content-free revoked-link stubs for 7 days, and backups rotating

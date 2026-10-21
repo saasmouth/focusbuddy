@@ -6,6 +6,7 @@ import { useSignInPrompt } from '../stores/signInPrompt'
 import { useOnboarding } from '../stores/onboarding'
 import { signalConfig } from '../lib/signalConfig'
 import { forgotPasswordUrl, webAccountUrl } from '../lib/siteUrls'
+import { requestRestoreEmailCode } from '../lib/accountClient'
 import Icon from './Icon'
 
 // LaunchSignInModal — appears on app boot when the user isn't signed in.
@@ -29,6 +30,12 @@ import Icon from './Icon'
 //
 // All auth goes through the signal server's /accounts/signup and
 // /accounts/login endpoints (see lib/accountClient.ts).
+//
+// A CLOSED account (4.3.40 server: closing archives it) cannot sign in, so it
+// is restored from here: the right password answers "account_archived", and
+// the modal offers "Restore my account" (POST /accounts/restore) with the same
+// password, or with a code sent by email for an account without one. After a
+// restore the modal stays up long enough to show what could not come back.
 
 // Only reachable in the e2e harness, where "Continue without account" still
 // exists: the skip is remembered for a week there, as it was for everyone.
@@ -42,6 +49,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
   const cachedEmail = useAccountStore((s) => s.cachedEmail)
   const signupAction = useAccountStore((s) => s.signup)
   const loginAction = useAccountStore((s) => s.login)
+  const restoreAction = useAccountStore((s) => s.restore)
   const setSkipped = useAccountStore((s) => s.setSkipped)
   // Manual open requested from elsewhere (Settings account section, etc.).
   // When set, the modal shows even if the user previously skipped.
@@ -76,6 +84,13 @@ export default function LaunchSignInModal(): JSX.Element | null {
   // Set once the server says this account has 2FA on; reveals the code field.
   const [twoFactor, setTwoFactor] = useState(false)
   const [code, setCode] = useState('')
+  // Restoring a closed account: how (its password, or an emailed code), the
+  // server's sentence about it, and afterwards what could not come back.
+  const [restoreVia, setRestoreVia] = useState<'password' | 'code' | null>(null)
+  const [archivedNote, setArchivedNote] = useState<string | null>(null)
+  const [restoreCode, setRestoreCode] = useState('')
+  const [codeNote, setCodeNote] = useState<string | null>(null)
+  const [restoreNotes, setRestoreNotes] = useState<string[] | null>(null)
 
   useEffect(() => {
     if (cachedEmail && !email) {
@@ -129,7 +144,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
   //    truly in the "no thanks" state.
   //  - User dismissed in this session.
   if (bootStatus !== 'ready') return null
-  if (account) return null
+  if (account && !restoreNotes) return null
   // An account is required on every real launch; only the e2e harness may run
   // without one. Required, the skip, the weekly throttle and the per-session
   // dismiss all stop applying, because each is a way out.
@@ -145,9 +160,45 @@ export default function LaunchSignInModal(): JSX.Element | null {
     if (skippedAt && Date.now() - skippedAt < SKIP_TTL_MS) return null
   }
 
+  async function handleRestore(): Promise<void> {
+    setBusy(true)
+    setError(null)
+    try {
+      const r = await restoreAction({
+        email: email.trim().toLowerCase(),
+        ...(restoreVia === 'code' ? { emailCode: restoreCode.trim() } : { password }),
+        ...(twoFactor && code.trim() ? { totp: code.trim() } : {})
+      })
+      if (r.ok) {
+        // Shown before the modal goes: what could not come back, verbatim.
+        setRestoreNotes(r.notRestored)
+        return
+      }
+      if (r.twoFactorRequired) {
+        setTwoFactor(true)
+        setError(twoFactor ? r.message : null)
+        return
+      }
+      setError(r.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function sendRestoreCode(): Promise<void> {
+    setError(null)
+    const r = await requestRestoreEmailCode(email.trim().toLowerCase())
+    if (r.ok) setCodeNote(r.message ?? 'If this address has a closed account, we have emailed it a code.')
+    else setError(r.message ?? 'The code could not be sent.')
+  }
+
   async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault()
     if (busy) return
+    if (restoreVia) {
+      await handleRestore()
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -167,6 +218,12 @@ export default function LaunchSignInModal(): JSX.Element | null {
       if (result.ok) {
         // Modal will unmount because `account` is now populated. No
         // additional close needed.
+        return
+      }
+      if (result.code === 'ARCHIVED') {
+        // The right password for a closed account: offer to restore it.
+        setArchivedNote(result.error)
+        setRestoreVia('password')
         return
       }
       if (result.code === 'TWO_FACTOR') {
@@ -207,6 +264,55 @@ export default function LaunchSignInModal(): JSX.Element | null {
   function handleClose(): void {
     setDismissedThisSession(true)
     closeManual()
+  }
+
+  if (restoreNotes) {
+    return createPortal(
+      <div
+        className="fb-scrim fixed inset-0 z-[280] flex items-center justify-center p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Your account is restored"
+      >
+        <div
+          className="w-full max-w-md rounded-2xl p-6 fb-glass-chrome border border-white/[0.08] shadow-2xl space-y-3"
+          style={{ background: 'rgba(20, 28, 48, 0.96)' }}
+          data-testid="signin-restored"
+        >
+          <h2 className="text-[15px] font-semibold text-stone-100">Your account is open again, with its data.</h2>
+          {restoreNotes.length > 0 ? (
+            <>
+              <p className="text-[11px] text-stone-400">What could not come back:</p>
+              <ul className="list-disc pl-4 text-[11px] text-stone-300 space-y-1" data-testid="signin-restored-notes">
+                {restoreNotes.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="text-[11px] text-stone-300">Everything that was archived came back.</p>
+          )}
+          <p className="text-[11px] text-stone-400">
+            You are on the Free plan until you subscribe again. Sign in again on your other devices.
+          </p>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="btn-primary !text-[12px]"
+              data-testid="signin-restored-continue"
+              onClick={() => {
+                setRestoreNotes(null)
+                setRestoreVia(null)
+                setArchivedNote(null)
+              }}
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )
   }
 
   return createPortal(
@@ -366,6 +472,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
               </div>
             </div>
           )}
+          {restoreVia !== 'code' && (
           <div>
             <label className="block text-[10px] uppercase tracking-wider text-stone-400 font-semibold mb-1">
               Password
@@ -433,6 +540,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
               </div>
             )}
           </div>
+          )}
 
           {mode === 'login' && twoFactor && (
             <div>
@@ -469,6 +577,73 @@ export default function LaunchSignInModal(): JSX.Element | null {
             >
               {error}
             </div>
+          )}
+
+          {mode === 'login' && restoreVia && (
+            <div
+              className="text-[11px] px-3 py-2 rounded-md space-y-2 text-stone-200"
+              style={{ background: 'rgba(139,92,246,0.10)', border: '1px solid rgba(139,92,246,0.30)' }}
+              data-testid="signin-archived"
+            >
+              <p>
+                {archivedNote ??
+                  'Restore a closed account with a code we email to its address. The account opens again with its data.'}
+              </p>
+              {restoreVia === 'code' && (
+                <div className="space-y-1.5">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={restoreCode}
+                      onChange={(e) => setRestoreCode(e.target.value)}
+                      placeholder="6-digit code"
+                      autoComplete="one-time-code"
+                      data-testid="signin-restore-code"
+                      className="flex-1 px-3 py-1.5 rounded-md text-stone-100 placeholder:text-stone-500 font-mono"
+                      style={{ background: 'rgba(0,0,0,0.32)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void sendRestoreCode()}
+                      disabled={!email.trim()}
+                      data-testid="signin-restore-send-code"
+                      className="shrink-0 px-2.5 rounded-md text-[11px] text-stone-200 border border-white/10 hover:border-white/25 disabled:opacity-50"
+                    >
+                      Email me a code
+                    </button>
+                  </div>
+                  {codeNote && <p className="text-stone-400">{codeNote}</p>}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setRestoreVia(null)
+                  setArchivedNote(null)
+                  setError(null)
+                }}
+                data-testid="signin-restore-cancel"
+                className="text-stone-400 hover:text-stone-100 underline underline-offset-2"
+              >
+                Not now
+              </button>
+            </div>
+          )}
+
+          {mode === 'login' && !restoreVia && (
+            <button
+              type="button"
+              onClick={() => {
+                setRestoreVia('code')
+                setArchivedNote(null)
+                setError(null)
+              }}
+              data-testid="signin-restore-start"
+              className="w-full text-[11px] text-stone-400 hover:text-stone-100 py-0.5"
+            >
+              Closed your account? Restore it
+            </button>
           )}
 
           {mode === 'login' && (
@@ -516,12 +691,20 @@ export default function LaunchSignInModal(): JSX.Element | null {
             )}
             <button
               type="submit"
-              disabled={busy || !email || !password || (mode === 'login' && twoFactor && !code.trim())}
+              disabled={
+                busy ||
+                !email ||
+                (restoreVia === 'code' ? !/^\d{6}$/.test(restoreCode.trim()) : !password) ||
+                (mode === 'login' && twoFactor && !code.trim())
+              }
+              data-testid="signin-submit"
               className="btn-primary !text-[12px] disabled:opacity-50"
             >
               {busy
                 ? 'Working…'
-                : mode === 'login'
+                : restoreVia
+                  ? 'Restore my account'
+                  : mode === 'login'
                   ? twoFactor
                     ? 'Verify'
                     : 'Log in'

@@ -94,6 +94,8 @@ export default function PrivacyHelpSection(): JSX.Element {
   // by this app either way.
   const serverEnforces = useServerFeature('consent_enforced')
   const privacyRoute = useServerFeature('account_privacy')
+  const canExport = useServerFeature('account_export')
+  const canClose = useServerFeature('account_archive')
   const [shareUsage, setShareUsage] = useState(telemetryEnabled())
   const [shareCrashes, setShareCrashes] = useState(crashReportsEnabled())
   // Main-process switches. Shown at their defaults until main answers.
@@ -264,8 +266,10 @@ export default function PrivacyHelpSection(): JSX.Element {
               Your personal workspace stops syncing: rooms, desks, work widgets, documents, tables, time blocks, files and
               synced preferences stay on this computer only, and changes from your other devices stop arriving here. You
               stay signed in for your plan. Workspaces and desks you share with other people, sharing, PlexiiChat,
-              PlexiiCall and live desks still go through our server. What is already on our server stays there until you
-              delete it (Account &gt; Delete my account and data).
+              PlexiiCall and live desks still go through our server. What is already on our server stays there
+              {canClose
+                ? ' until you close your account (Account > Close and archive my account).'
+                : '; to have it removed, email connect@plexiidesk.com.'}
             </Switch>
             {keepLocal && (
               <p
@@ -294,6 +298,16 @@ export default function PrivacyHelpSection(): JSX.Element {
               <li key={line}>{line}</li>
             ))}
           </ul>
+          <p className="mt-2 mb-1" data-testid="privacy-your-data">
+            {canExport
+              ? 'Your data on our server: download all of it as one file in Account > Your data, at any time.'
+              : 'Your data on our server: for a copy of all of it, email connect@plexiidesk.com.'}
+            {canClose
+              ? ' Closing your account archives it: nothing uses it, you can restore it for 12 months, then it is erased. Ask connect@plexiidesk.com to erase it sooner.'
+              : ' To close your account, email connect@plexiidesk.com.'}
+            {canClose &&
+              ' Usage data and crash reports leave use after their time (30 days for crashes, 13 months for usage) and are archived, unread, then erased 12 months later; turning a switch off deletes them at once.'}
+          </p>
           <button
             onClick={() => void window.api.files.openExternal(PRIVACY_GUIDE)}
             data-testid="privacy-guide"

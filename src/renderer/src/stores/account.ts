@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import {
   getMe,
   login as serverLogin,
+  restoreAccount as serverRestore,
+  type RestoreAccountResult,
   logout as serverLogout,
   signup as serverSignup,
   updateProfile as serverUpdateProfile,
@@ -68,6 +70,10 @@ interface AccountStore {
   }) => Promise<AuthResult>
   // Log in via the server, persist + populate on success.
   login: (input: { email: string; password: string; code?: string }) => Promise<AuthResult>
+  // Restore a CLOSED account (4.3.40 server) and sign in to it: the password,
+  // or an emailed code, plus 2FA when it had it on. The result carries the
+  // server's list of what could not come back, to show as it is.
+  restore: (input: { email: string; password?: string; emailCode?: string; totp?: string }) => Promise<RestoreAccountResult>
   // Update the signed-in user's real name. Returns true on success.
   updateName: (input: { firstName: string | null; lastName: string | null }) => Promise<boolean>
   // Sign out — wipe local + main session, tell the server to invalidate.
@@ -173,6 +179,20 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
         token: result.sessionToken,
         email: result.account.email
       })
+      set({
+        sessionToken: result.sessionToken,
+        account: result.account,
+        skippedAt: null,
+        cachedEmail: result.account.email
+      })
+    }
+    return result
+  },
+
+  restore: async (input) => {
+    const result = await serverRestore({ ...input, deviceId: installDeviceId() })
+    if (result.ok) {
+      await window.api.account.saveSession({ token: result.sessionToken, email: result.account.email })
       set({
         sessionToken: result.sessionToken,
         account: result.account,

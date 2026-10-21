@@ -12,8 +12,9 @@
 // name). Those exist to reach other people, so pausing them would quietly break
 // the people on the other end; the setting says so.
 //
-// What it does NOT do: delete anything already on the server (Account > Delete
-// my account and data does that). Turning it off resumes sync; a backup of this
+// What it does NOT do: remove anything already on the server (Account > Close
+// and archive my account takes it out of use, restorably; an erasure request to
+// connect@plexiidesk.com removes it for good). Turning it off resumes sync; a backup of this
 // device is saved first (main/db/backup.ts snapshotBeforeSyncResume), because
 // on resume an item changed both here and on another device keeps the other
 // device's version (server wins).
