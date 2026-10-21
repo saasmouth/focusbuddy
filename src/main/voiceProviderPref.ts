@@ -60,6 +60,22 @@ export function getTranscriptionProvider(): TranscriptionProvider {
   return load().provider
 }
 
+export interface TranscriptionProviderState {
+  /** What the person picked in Settings (kept while Local holds it). */
+  preferred: TranscriptionProvider
+  /** What the next recording really uses. */
+  effective: TranscriptionProvider
+  /** True when the AI source is Local, which keeps transcription on this device. */
+  heldLocal: boolean
+}
+
+/** The saved preference and the engine actually in force, so the UI never claims a switch that did not happen. */
+export function transcriptionProviderState(): TranscriptionProviderState {
+  const preferred = load().provider
+  const heldLocal = localOnlyActive()
+  return { preferred, effective: heldLocal ? 'local' : preferred, heldLocal }
+}
+
 export function setTranscriptionProvider(p: TranscriptionProvider): void {
   cache = { provider: p, v: 1 }
   try {

@@ -14,6 +14,7 @@
 import { AI_FEATURES, AI_FEATURE_COPY } from '@shared/localAi'
 import { useEffect, useState } from 'react'
 import LocalAiSection from './LocalAiSection'
+import { describeProviderSwitch, HELD_LOCAL_NOTE } from '../../lib/voiceProviderSwitch'
 import { confirmDialog } from '../plexi/PromptDialog'
 import CreditsMeter from '../CreditsMeter'
 import { useAiCreditsStore } from '../../stores/aiCredits'
@@ -427,6 +428,26 @@ function VoiceProviderToggle(): JSX.Element {
   const [provider, setProvider] = useState<'cloud' | 'local' | 'unavailable' | null>(null)
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
+  // True while the AI source is Local: main keeps transcription on this device
+  // whatever is picked here, so Cloud cannot take effect and is not offered.
+  const [heldLocal, setHeldLocal] = useState(false)
+
+  useEffect(() => {
+    const vn = window.api.voiceNote
+    const readState = (): void => {
+      if (!vn.getProviderState) return
+      void vn
+        .getProviderState()
+        .then((s) => {
+          setHeldLocal(s.heldLocal)
+          setProvider((cur) => (cur === 'unavailable' ? cur : s.effective))
+        })
+        .catch(() => undefined)
+    }
+    readState()
+    // Changing the AI source broadcasts localAi:changed (ai:setMode).
+    return window.api.localAi?.onChanged?.(() => readState())
+  }, [])
 
   useEffect(() => {
     void window.api.voiceNote
@@ -454,16 +475,10 @@ function VoiceProviderToggle(): JSX.Element {
     }
     try {
       const result = await window.api.voiceNote.setProvider(next)
-      if (!result.ok) {
-        setStatus(`Couldn't switch: ${result.error ?? 'unknown error'}`)
-        return
-      }
-      setProvider(next)
-      setStatus(
-        next === 'local'
-          ? 'Switched to Local Whisper. Future recordings transcribe on this Mac.'
-          : 'Switched to Cloud Whisper (OpenAI).'
-      )
+      const outcome = describeProviderSwitch(next, result)
+      if (outcome.selected) setProvider(outcome.selected)
+      if (result.heldLocal !== undefined) setHeldLocal(result.heldLocal)
+      setStatus(outcome.message)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setStatus(`Couldn\'t switch: ${msg}. Try restarting PlexiiDesk.`)
@@ -480,7 +495,7 @@ function VoiceProviderToggle(): JSX.Element {
       <div className="grid grid-cols-2 gap-1.5">
         <button
           onClick={() => void pick('cloud')}
-          disabled={busy || provider === null || provider === 'unavailable'}
+          disabled={busy || heldLocal || provider === null || provider === 'unavailable'}
           className={`fb-t-caption px-2.5 py-1.5 rounded-[var(--radius-field)] border ${
             provider === 'cloud'
               ? 'border-accent bg-accent/10 text-[var(--ink-100)] fb-press'
@@ -509,6 +524,11 @@ function VoiceProviderToggle(): JSX.Element {
           </div>
         </button>
       </div>
+      {heldLocal && !status && (
+        <div className="fb-t-caption text-[var(--ink-50)] mt-2 leading-snug" data-testid="voice-provider-held-local">
+          {HELD_LOCAL_NOTE}
+        </div>
+      )}
       {status && (
         <div className="fb-t-caption text-[var(--ink-50)] mt-2 leading-snug">
           {status}

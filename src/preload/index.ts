@@ -1538,10 +1538,18 @@ const api = {
       pcm: ArrayBuffer
     ): Promise<{ ok: boolean; text?: string; dropped?: boolean; error?: string }> =>
       ipcRenderer.invoke('voice:transcribeLive', pcm),
+    /** The saved pick, the engine really in force, and whether the Local AI source is holding it on this device. */
+    getProviderState: (): Promise<{ preferred: 'cloud' | 'local'; effective: 'cloud' | 'local'; heldLocal: boolean }> =>
+      ipcRenderer.invoke('voice:getProviderState'),
     setProvider: (
       p: 'cloud' | 'local'
-    ): Promise<{ ok: boolean; error?: string }> =>
-      ipcRenderer.invoke('voice:setProvider', p)
+    ): Promise<{
+      ok: boolean
+      error?: string
+      preferred?: 'cloud' | 'local'
+      effective?: 'cloud' | 'local'
+      heldLocal?: boolean
+    }> => ipcRenderer.invoke('voice:setProvider', p)
   },
   // Voice command — floating mic interpreter. Takes a transcript plus a
   // pruned canvas snapshot and returns ActionProposal[] for the user to

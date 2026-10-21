@@ -511,7 +511,8 @@ import {
 } from '../ai/agentHistory'
 import {
   getTranscriptionProvider,
-  setTranscriptionProvider
+  setTranscriptionProvider,
+  transcriptionProviderState
 } from '../voiceProviderPref'
 import {
   createRow,
@@ -3243,13 +3244,17 @@ export function registerIpcHandlers(): void {
     const samples = pcm instanceof Float32Array ? pcm : new Float32Array(pcm)
     return enqueueLiveChunk(samples)
   })
+  ipcMain.handle('voice:getProviderState', () => transcriptionProviderState())
+  // Returns the engine really in force with the result: while the AI source is
+  // Local, transcription stays on this device whatever was picked here, and the
+  // renderer must say so instead of reporting a switch to cloud.
   ipcMain.handle('voice:setProvider', async (_e, p: TranscriptionProvider) => {
     setTranscriptionProvider(p)
     if (p === 'local') {
       const result = await preloadLocalWhisper()
-      return { ok: result.ok, error: result.error }
+      return { ok: result.ok, error: result.error, ...transcriptionProviderState() }
     }
-    return { ok: true }
+    return { ok: true, ...transcriptionProviderState() }
   })
 
   // Voice prefs (the mascot hold + dictation UX). The voiceCommand
