@@ -253,6 +253,34 @@ means.
   model declares them; `svg.ts` draws appearance stacks and does not yet draw
   effects.
 
+## Groups, masks and isolation mode (WP-OBJ)
+
+- **Where things sit.** A layer's nodes are in artboard space; a group's
+  members are in the group's space, which its `transform` maps outwards. Use
+  `@shared/draw/ops` (`groups.ts`): `allPlaces`, `placeOf`, `parentMatrixOf`,
+  `worldBounds` / `nodesWorldBounds`, and `moveNodesWorld`,
+  `scaleNodesWorld`, `rotateNodesWorld` to act on a member wherever it is.
+  `moveObjects` and `scaleObjects` already go through these, so a tool that
+  uses them works inside groups for free.
+- **Clipping groups** are `{ type: 'group', clip: true }`; the TOPMOST member
+  is the clip path (a path, compound path or type). `clipGroupParts` (in
+  `ops/masks.ts`) is the one description the canvas and the exporter both
+  draw: the clip, the contents, the clip path's own fill (under) and stroke
+  (over). `nodeBounds` of a clipping group is its clip path's box.
+- **Hit-testing.** `ctx.hitTest(p)` returns the object at the current level
+  (top level, or inside the isolated group), honouring masks, locks and
+  hidden objects; `ctx.hitTestDeep(p)` returns the innermost object under the
+  point (for tools that act on one path, like Direct Selection or the
+  eyedropper).
+- **Isolation mode** is `state.isolation` (group ids, outermost first). Never
+  read it raw: `isolationChain(state)` (in `editor/isolation.ts`) drops any
+  part an undo or a peer removed. New art committed while isolated is moved
+  into the isolated group by the history's `adjust` hook, so a new tool needs
+  no code for it.
+- **The v2 gate.** Groups and masks are v2-only content. Their commands are
+  disabled (and say why on their key) in a drawing still written as v1; see
+  `holdsV2Content` in `commands/object.commands.ts`.
+
 ## Writing v2
 
 `DRAW_V2_WRITES` (`src/shared/draw/compat.ts`) is **off**. While it is off:

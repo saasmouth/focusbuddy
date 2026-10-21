@@ -4,7 +4,7 @@
 
 import type { Box, Pt } from '@shared/drawGeometry'
 import type { DrawDoc } from '@shared/draw/model'
-import { addLayer, getObject, getObjects, nodeBounds, nodesBounds, primaryArtboard, rasterLayerV2 } from '@shared/draw/ops'
+import { addLayer, getObject, nodeBounds, nodesWorldBounds, primaryArtboard, rasterLayerV2 } from '@shared/draw/ops'
 import type { EditorCtx, SnapGuide } from '../editor/types'
 
 export type HandleId = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
@@ -113,8 +113,8 @@ export function resizeBox(start: Box, handle: HandleId, p: Pt, keepAspect: boole
 
 /** The visible bounds of the current selection, or null when nothing is selected. */
 export function selectionBox(doc: DrawDoc, selection: string[]): Box | null {
-  const objs = getObjects(doc, selection)
-  return objs.length ? nodesBounds(objs) : null
+  // On the artboard, for members of (transformed) groups too.
+  return nodesWorldBounds(doc, selection)
 }
 
 /** Which selection handle, if any, is under a point. */

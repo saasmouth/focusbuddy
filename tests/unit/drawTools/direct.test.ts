@@ -232,3 +232,42 @@ describe('Direct Selection (A)', () => {
     expect(nodes(h, 'r')[0]).toMatchObject({ x: 100, y: 100 })
   })
 })
+
+describe('Direct Selection inside groups (WP-OBJ x WP-PATH)', () => {
+  const v2 = (objects: unknown[]): Record<string, unknown> => ({
+    schemaVersion: 2,
+    minWriterVersion: 2,
+    artboards: [{ id: 'ab1', name: 'Artboard 1', x: 0, y: 0, w: 800, h: 600, background: { type: 'solid', color: '#ffffff' } }],
+    activeLayerId: 'L1',
+    layers: [{ id: 'L1', kind: 'vector', name: 'Layer 1', visible: true, locked: false, opacity: 1, blend: 'normal', objects }],
+    assets: {},
+    swatches: [],
+    guides: [],
+    settings: {}
+  })
+
+  it('picks an anchor of a path inside a scaled group where it is drawn, and drags it on screen', () => {
+    // The group doubles its members: the rectangle's corner (10, 10) is drawn at (20, 20).
+    const h = harness(v2([{ id: 'g', type: 'group', transform: [2, 0, 0, 2, 0, 0], children: [rect('r', 10, 10, 50, 50)] }]))
+    h.tool('direct')
+    h.ed.ctx.set({ snapOn: false })
+    h.click(20, 20)
+    expect(h.state().selection).toEqual(['r'])
+    expect(selectedAnchors(h.state())).toHaveLength(1)
+    h.drag([20, 20], [30, 40])
+    const g = h.objects()[0] as { children: DrawPathNode[] }
+    const moved = g.children[0].path.subpaths[0].nodes.find((n) => Math.abs(n.x - 15) < 1e-6 && Math.abs(n.y - 20) < 1e-6)
+    expect(moved, 'the corner moves by (10, 20) on screen, (5, 10) in the group').toBeTruthy()
+  })
+
+  it('a click on a picture inside a group selects the picture itself, not its group', () => {
+    const img = { id: 'i', type: 'image', x: 100, y: 100, w: 40, h: 40, assetId: 'asset-00000000000000000000000000000000' }
+    const h = harness({
+      ...v2([{ id: 'g', type: 'group', children: [img, rect('r', 300, 300, 10, 10)] }]),
+      assets: { 'asset-00000000000000000000000000000000': { mime: 'image/png', dataUrl: 'data:image/png;base64,iVBORw0KGgo=', w: 1, h: 1 } }
+    })
+    h.tool('direct')
+    h.click(120, 120)
+    expect(h.state().selection).toEqual(['i'])
+  })
+})

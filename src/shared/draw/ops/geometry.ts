@@ -5,7 +5,7 @@
 
 import { frameBounds as v1FrameBounds, hitObject, objectBounds as v1ObjectBounds, objectPivot, objectRotation, type DrawObject } from '../../draw'
 import { applyMatrix, multiplyMatrix, transformPath, translatePath, unionBox, type Box, type Matrix, type Pt } from '../../drawGeometry'
-import type { DrawGroupNode, DrawImageNode, DrawNode, DrawTextNode, DrawWidgetNode } from '../model'
+import type { DrawGroupNode, DrawImageNode, DrawNode, DrawPathNode, DrawTextNode, DrawWidgetNode } from '../model'
 
 /** A frame node seen through the v1 lens, which only reads geometry fields (an image's asset is irrelevant here). */
 function asV1(n: DrawNode): DrawObject {
@@ -37,6 +37,56 @@ function transformBox(b: Box, m: Matrix): Box {
   return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }
 }
 
+// ── Clipping groups ──────────────────────────────────────────────────────────
+// The geometric facts about a clipping group live here, beside bounds and
+// hit-testing, so the canvas, the exporter and every selection rule agree on
+// what a mask covers. ops/masks.ts builds the Make / Release commands on them.
+
+/** A node that can be a clip path: a path (compound paths included) or type. */
+export function canClip(n: DrawNode | undefined): n is DrawPathNode | DrawTextNode {
+  if (!n) return false
+  if (n.type === 'path') return n.path.subpaths.some((sp) => sp.nodes.length > 0)
+  return n.type === 'text'
+}
+
+/**
+ * A clipping group's clip path -- its TOPMOST member, Illustrator's rule -- or
+ * null when the group does not clip (or its top member is something that
+ * cannot clip, in which case nothing is masked rather than guessing).
+ */
+export function clipShapeOf(g: DrawGroupNode): DrawPathNode | DrawTextNode | null {
+  if (!g.clip || g.children.length === 0) return null
+  const top = g.children[g.children.length - 1]
+  return canClip(top) ? top : null
+}
+
+/** Is `p` (in the clipping group's own space) inside the area the clip path lets through? */
+export function insideClip(clip: DrawPathNode | DrawTextNode, p: Pt): boolean {
+  if (clip.type === 'path') return hitObject(asV1({ ...clip, fill: { type: 'solid', color: '#000' }, stroke: undefined } as DrawNode), p, 0)
+  // Type clips with its frame: glyph outlines need the font (Create Outlines).
+  if (clip.transform) {
+    const inv = invert(clip.transform)
+    return inv ? hitObject(asV1(clip), applyMatrix(inv, p), 0) : false
+  }
+  return hitObject(asV1(clip), p, 0)
+}
+
+function paintShows(p: { type: string } | undefined): boolean {
+  return !!p && p.type !== 'none'
+}
+
+/** The clip path carries a visible fill of its own (Make Clipping Mask clears it; the user may add one back). */
+export function clipHasFill(clip: DrawPathNode | DrawTextNode): boolean {
+  if (clip.appearance) return clip.appearance.fills.some((f) => f.enabled !== false && paintShows(f.paint))
+  return paintShows(clip.fill)
+}
+
+/** The clip path carries a visible stroke of its own. */
+export function clipHasStroke(clip: DrawPathNode | DrawTextNode): boolean {
+  if (clip.appearance) return clip.appearance.strokes.some((s) => s.enabled !== false && s.stroke.width > 0 && paintShows(s.stroke.paint))
+  return !!clip.stroke && clip.stroke.width > 0 && paintShows(clip.stroke.paint)
+}
+
 /** True when the node has no geometry this build can measure (opaque, or an empty group). */
 export function isMeasurable(n: DrawNode): boolean {
   if (n.type === 'opaque') return false
@@ -47,7 +97,10 @@ export function isMeasurable(n: DrawNode): boolean {
 /** The box a node VISIBLY occupies on the artboard (rotation and transforms included). */
 export function nodeBounds(n: DrawNode): Box {
   if (n.type === 'group') {
-    const inner = unionBox(n.children.filter(isMeasurable).map(nodeBounds))
+    // A clipping group occupies exactly its clip path's box, as in Illustrator:
+    // whatever the mask hides is not part of the object's visible extent.
+    const clip = clipShapeOf(n)
+    const inner = clip ? nodeBounds(clip) : unionBox(n.children.filter(isMeasurable).map(nodeBounds))
     return n.transform ? transformBox(inner, n.transform) : inner
   }
   const b = v1ObjectBounds(asV1(n))
@@ -72,11 +125,15 @@ export function hitNode(n: DrawNode, p: Pt, slop = 0): boolean {
     const local = n.transform ? invert(n.transform) : null
     const q = n.transform ? (local ? applyMatrix(local, p) : null) : p
     if (!q) return false
-    // A clipping group is only hit inside its clip path.
-    if (n.clip && n.children.length) {
-      const clip = n.children[n.children.length - 1]
-      if (clip.type === 'path' && !hitObject(asV1({ ...clip, fill: { type: 'solid', color: '#000' } } as DrawNode), q, 0)) return false
-      return n.children.slice(0, -1).some((c) => hitNode(c, q, slop))
+    // A clipping group is hit only where its clip path lets the contents
+    // show -- or on the clip path's own paint, when it has been given some.
+    const clip = clipShapeOf(n)
+    if (clip) {
+      const inside = insideClip(clip, q)
+      if (inside && n.children.slice(0, -1).some((c) => hitNode(c, q, slop))) return true
+      if (clip.hidden) return false
+      if (inside && clipHasFill(clip)) return true
+      return clipHasStroke(clip) && hitNode({ ...clip, fill: { type: 'none' }, appearance: undefined } as DrawNode, q, slop)
     }
     return n.children.some((c) => hitNode(c, q, slop))
   }

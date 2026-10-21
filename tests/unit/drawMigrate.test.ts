@@ -156,7 +156,7 @@ describe('v2 rendering of what v1 could not hold', () => {
     expect(drawDocToSvg(doc)).toContain('<g transform="matrix(1 0 0 1 10 20)"><path d="M 0 0 L 10 0 L 10 10 L 0 10 Z" fill="#ff0000"/></g>')
   })
 
-  it('a clipping group clips with its TOPMOST member, which is not itself painted', () => {
+  it('a clipping group clips with its TOPMOST member, which is not itself painted as a shape', () => {
     const doc = normalizeDrawDoc(
       v2Doc([
         {
@@ -165,7 +165,10 @@ describe('v2 rendering of what v1 could not hold', () => {
           clip: true,
           children: [
             { id: 'art', type: 'path', path: sq(0, 0, 100, 100), fill: { type: 'solid', color: '#00ff00' } },
-            { id: 'mask', type: 'path', path: sq(25, 25, 50, 50), fill: { type: 'solid', color: '#000000' } }
+            // Make Clipping Mask leaves the clip path with no fill and no stroke.
+            // (A fill or stroke given to it afterwards IS drawn, as in
+            // Illustrator -- tests/unit/drawGroups.test.ts covers that.)
+            { id: 'mask', type: 'path', path: sq(25, 25, 50, 50), fill: { type: 'none' } }
           ]
         }
       ])
@@ -173,7 +176,7 @@ describe('v2 rendering of what v1 could not hold', () => {
     const svg = drawDocToSvg(doc)
     expect(svg).toContain('<clipPath id="clip-g"><path d="M 25 25 L 75 25 L 75 75 L 25 75 Z"/></clipPath>')
     expect(svg).toContain('<g clip-path="url(#clip-g)"><path d="M 0 0 L 100 0 L 100 100 L 0 100 Z" fill="#00ff00"/></g>')
-    expect(svg).not.toContain('fill="#000000"')
+    expect(svg).not.toContain('fill="none"')
   })
 
   it('swatch references resolve to their colour, tints mix towards white, a missing swatch paints nothing', () => {

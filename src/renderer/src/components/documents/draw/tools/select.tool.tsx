@@ -15,7 +15,8 @@ import type { Box, Matrix, Pt } from '@shared/drawGeometry'
 import { rotateAbout } from '@shared/drawGeometry'
 import { boxToBox, translation, type RefPoint } from '@shared/draw/geometry/transform'
 import type { DrawDoc } from '@shared/draw/model'
-import { editableIds, getObjects, moveObjects, nodeBounds, nodesBounds } from '@shared/draw/ops'
+import { editableIds, moveObjects, nodesWorldBounds } from '@shared/draw/ops'
+import { marqueeInScope } from '../editor/isolation'
 import type { DrawTool, EditorCtx, Txn } from '../editor/types'
 import { activeKey, alignState } from '../commands/align.commands'
 import { altDragDuplicate, relabelLastStep } from '../editor/clipboard'
@@ -41,18 +42,9 @@ function setGesture(ctx: EditorCtx, data: SelectGesture): void {
   ctx.set({ gesture: { toolId: 'select', data } })
 }
 
-/** The marquee: everything on a visible, unlocked layer whose visible bounds touch the box. */
+/** The marquee: everything at the current level (the isolated group's members in isolation mode) whose visible bounds touch the box. */
 function marqueeHits(ctx: EditorCtx, box: Box): string[] {
-  const hits: string[] = []
-  for (const l of ctx.doc().layers) {
-    if (l.kind !== 'vector' || !l.visible || l.locked) continue
-    for (const o of l.objects) {
-      if (o.hidden || o.locked || o.type === 'opaque') continue
-      const ob = nodeBounds(o)
-      if (ob.x < box.x + box.w && ob.x + ob.w > box.x && ob.y < box.y + box.h && ob.y + ob.h > box.y) hits.push(o.id)
-    }
-  }
-  return hits
+  return marqueeInScope(ctx.get(), box)
 }
 
 const select: DrawTool = {
@@ -124,9 +116,8 @@ const select: DrawTool = {
       return
     }
     if (d.kind === 'move') {
-      const objs = getObjects(ctx.doc(), d.ids)
-      if (!objs.length) return
-      const box = nodesBounds(objs)
+      const box = selectionBox(ctx.doc(), d.ids)
+      if (!box) return
       let dx = p.x - d.last.x
       let dy = p.y - d.last.y
       if (e.shiftKey) {
@@ -225,7 +216,7 @@ const select: DrawTool = {
   Overlay({ state, k }) {
     // The Align panel's key object, outlined in bold (whatever tool is active).
     const key = activeKey(state)
-    const keyBox = key ? getObjects(state.doc, [key]).map(nodeBounds)[0] : null
+    const keyBox = key ? nodesWorldBounds(state.doc, [key]) : null
     const keyMark = keyBox ? (
       <rect x={keyBox.x} y={keyBox.y} width={keyBox.w} height={keyBox.h} fill="none" stroke="#6d5dfc" strokeWidth={3 * k} data-testid="draw-align-key" />
     ) : null

@@ -2,13 +2,15 @@
 // a KEY object (which never moves) or to the artboard; distribute objects by
 // any of six edges or centres; distribute the spacing between them, evenly or
 // by an exact value measured from the key object. Groups move as units;
-// locked, hidden and opaque nodes never move. Pure functions over DrawDoc.
+// locked, hidden and opaque nodes never move. Everything is measured and moved
+// on the ARTBOARD, members of transformed groups included (their bounds and
+// moves go through the groups' matrices). Pure functions over DrawDoc.
 
 import type { Box } from '../../drawGeometry'
 import type { DrawDoc } from '../model'
 import { primaryArtboard } from './artboards'
-import { nodeBounds, nodesBounds, translateNode } from './geometry'
-import { editableIds, getObjects, mapObjects } from './objects'
+import { nodesWorldBounds } from './groups'
+import { editableIds, moveObjects } from './objects'
 
 export type AlignEdgeId = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom'
 export type AlignTarget = { kind: 'selection' } | { kind: 'artboard' } | { kind: 'key'; id: string }
@@ -43,16 +45,23 @@ function edgeOf(b: Box, e: AlignEdgeId | DistributeEdge): number {
 
 /** The editable nodes among `ids`, each with its visible bounds. */
 function measured(doc: DrawDoc, ids: string[]): Array<{ id: string; b: Box }> {
-  return getObjects(doc, editableIds(doc, ids)).map((o) => ({ id: o.id, b: nodeBounds(o) }))
+  const out: Array<{ id: string; b: Box }> = []
+  for (const id of editableIds(doc, ids)) {
+    const b = nodesWorldBounds(doc, [id])
+    if (b) out.push({ id, b })
+  }
+  return out
 }
 
 function shiftAll(doc: DrawDoc, shifts: Map<string, number>, h: boolean): DrawDoc {
   const ids = [...shifts.entries()].filter(([, d]) => Math.abs(d) > 1e-12).map(([id]) => id)
   if (!ids.length) return doc
-  return mapObjects(doc, ids, (o) => {
-    const d = shifts.get(o.id) ?? 0
-    return h ? translateNode(o, d, 0) : translateNode(o, 0, d)
-  })
+  let next = doc
+  for (const id of ids) {
+    const d = shifts.get(id) ?? 0
+    next = h ? moveObjects(next, [id], d, 0) : moveObjects(next, [id], 0, d)
+  }
+  return next
 }
 
 /** Is `keyId` a usable key object for this selection (selected and editable)? */
@@ -74,7 +83,7 @@ export function alignFrame(doc: DrawDoc, ids: string[], target: AlignTarget): Bo
     const key = items.find((i) => i.id === target.id)
     if (key) return key.b
   }
-  return nodesBounds(getObjects(doc, items.map((i) => i.id)))
+  return nodesWorldBounds(doc, items.map((i) => i.id))
 }
 
 /** Align Objects: move each editable node so its `edge` matches the target's. A key object stays put. */

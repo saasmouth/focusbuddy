@@ -87,6 +87,8 @@ export interface EditorState {
    * transform for Transform Again). Never part of the document or of undo.
    */
   toolState: Record<string, unknown>
+  /** Isolation mode: the isolated groups' ids, outermost first; [] when not isolated (see editor/isolation.ts). */
+  isolation: string[]
 }
 
 export interface PathPrefs {
@@ -225,8 +227,10 @@ export interface EditorCtx {
   run(commandId: string, args?: unknown): void
   /** Commit a paint layer's current pixels as one undo step. */
   commitRaster(layerId: string): void
-  /** The topmost selectable node under a point, honouring layer order, lock and visibility. */
+  /** The topmost selectable node under a point, honouring layer order, lock and visibility (and isolation mode). */
   hitTest(p: Pt): DrawNode | null
+  /** The innermost object under a point -- a member of a group, never the group (see editor/isolation.ts). */
+  hitTestDeep(p: Pt): DrawNode | null
 }
 
 // ── Extension points (see documents/draw/README.md) ──────────────────────────
@@ -290,6 +294,12 @@ export interface Command {
    * Transform tools"), and is replaced automatically by the real command.
    */
   pending?: string
+  /**
+   * Its run() says why it cannot work (and changes nothing) when it is
+   * disabled, so its key still runs it then: Group on a v1 drawing says that
+   * groups need the newer format instead of doing nothing.
+   */
+  explainsWhenDisabled?: boolean
   menu?: CommandMenuPlacement
   /** Disabled commands show greyed with this reason; must be pure. */
   enabled?(ctx: EditorCtx): boolean

@@ -199,6 +199,7 @@ describe("the keymap is Illustrator's published table", () => {
   it('the tools carry Illustrator’s keys: M, L, \\, Shift+E, K, and WP-PATH’s Q, Shift+~, +, -, Shift+C, C; Rounded rectangle, Polygon, Star, Knife, Smooth, Path Eraser and Join none', () => {
     expect(drawTools().filter((t) => !t.hidden).map((t) => `${t.id}:${t.key ?? ''}`)).toEqual([
       'select:V',
+      'groupSelect:',
       'direct:A',
       'lasso:Q',
       'pen:P',
@@ -285,9 +286,9 @@ describe('reading a key press', () => {
       kind: 'command',
       id: 'object.nudgeLeft'
     })
-    expect(resolveKey(ev('g', { code: 'KeyG', meta: true }))).toMatchObject({
+    expect(resolveKey(ev('b', { code: 'KeyB', meta: true, alt: true }))).toMatchObject({
       kind: 'reserved',
-      id: 'object.group'
+      id: 'object.blendMake'
     })
     expect(resolveKey(ev('Dead', { code: 'KeyD', alt: true, meta: true }))).toBeNull()
   })
@@ -546,8 +547,8 @@ describe('changing a key (per profile)', () => {
     expect(checkRemap('tool', 'rect', 'mod+alt+j', describe).error).toMatch(/single key/)
     expect(checkRemap('tool', 'rect', 'shift', describe).error).toMatch(/Press a key/)
     expect(checkRemap('tool', 'rect', 'm', describe)).toEqual({})
-    expect(checkRemap('command', 'edit.duplicate', 'mod+g', describe)).toEqual({
-      note: 'Illustrator uses ⌘G for Group the selected artwork, which PlexiiDraw does not have yet.'
+    expect(checkRemap('command', 'edit.duplicate', 'mod+alt+b', describe)).toEqual({
+      note: 'Illustrator uses ⌥⌘B for Blend objects, which PlexiiDraw does not have yet.'
     })
   })
 

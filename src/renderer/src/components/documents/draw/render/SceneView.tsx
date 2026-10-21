@@ -17,6 +17,7 @@ import { pathToSvgD } from '@shared/drawGeometry'
 import { assetSrc } from '@shared/draw/assets'
 import type { DrawArtboard, DrawAsset, DrawDocVectorLayer, DrawNode, DrawSwatch, Matrix } from '@shared/draw/model'
 import { clipId, svgDocPaint } from '@shared/draw/svg'
+import { clipGroupParts, clipSilhouette } from '@shared/draw/ops/masks'
 
 type Swatches = { swatches: DrawSwatch[] }
 
@@ -112,27 +113,41 @@ export const NodeView = memo(function NodeView({ o, assets, swatches }: NodeProp
   if (o.blend && o.blend !== 'normal') style.mixBlendMode = o.blend as never
 
   if (o.type === 'group') {
-    let children = o.children
-    let clip: JSX.Element | null = null
-    if (o.clip && children.length) {
-      const top = children[children.length - 1]
-      const d = top.type === 'path' ? pathToSvgD(top.path) : ''
-      if (d) {
-        clip = (
-          <clipPath id={clipId(o.id)}>
-            <path d={d} clipRule={top.type === 'path' && top.path.fillRule === 'evenodd' ? 'evenodd' : undefined} />
-          </clipPath>
-        )
-        children = children.slice(0, -1)
-      }
+    // The same parts the exporter writes (ops/masks clipGroupParts): the clip
+    // path defines the mask, its own fill (if any) goes under the contents and
+    // its own stroke (if any) over them, unclipped.
+    const parts = clipGroupParts(o)
+    const cid = clipId(o.id)
+    const clipD = parts.clip && parts.clip.type === 'path' ? pathToSvgD(parts.clip.path) : ''
+    const clip = !parts.clip ? null : parts.clip.type === 'path' ? (
+      clipD ? (
+        <clipPath id={cid}>
+          <path d={clipD} clipRule={parts.clip.path.fillRule === 'evenodd' ? 'evenodd' : undefined} />
+        </clipPath>
+      ) : null
+    ) : (
+      <clipPath id={cid}>
+        <NodeView o={clipSilhouette(parts.clip)} assets={assets} swatches={swatches} />
+      </clipPath>
+    )
+    const shown = clip ? [...(parts.under ? [parts.under] : []), ...parts.contents] : o.children
+    const inner = shown.map((c) => <NodeView key={c === parts.under ? `${c.id}:under` : c.id} o={c} assets={assets} swatches={swatches} />)
+    if (clip && parts.over) {
+      return (
+        <>
+          {clip}
+          <g transform={matrixAttr(o.transform)} style={style}>
+            <g clipPath={`url(#${cid})`}>{inner}</g>
+            <NodeView key={`${parts.over.id}:over`} o={parts.over} assets={assets} swatches={swatches} />
+          </g>
+        </>
+      )
     }
     return (
       <>
         {clip}
-        <g transform={matrixAttr(o.transform)} clipPath={clip ? `url(#${clipId(o.id)})` : undefined} style={style}>
-          {children.map((c) => (
-            <NodeView key={c.id} o={c} assets={assets} swatches={swatches} />
-          ))}
+        <g transform={matrixAttr(o.transform)} clipPath={clip ? `url(#${cid})` : undefined} style={style}>
+          {inner}
         </g>
       </>
     )

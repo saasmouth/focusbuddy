@@ -1,12 +1,49 @@
-// Object menu (Pathfinder, Arrange, Align) and the object edits the
-// inspector runs: appearance, live-shape parameters, type, path tools.
+// Object menu (Pathfinder, Arrange, Align, Group, Lock, Hide, Clipping Mask,
+// Compound Path, isolation mode) and the object edits the inspector runs:
+// appearance, live-shape parameters, type, path tools.
+//
+// Groups and clipping masks exist only in the v2 drawing format. While v2
+// writes are gated (DRAW_V2_WRITES, see compat.ts) a drawing that is still
+// written as v1 cannot hold them, so Group and Make Clipping Mask are disabled
+// there and say why -- they are never a silent no-op. Compound paths, Lock and
+// Hide need nothing v1 lacks and work in every drawing.
 
 import type { DrawBlend } from '@shared/draw'
 import type { BooleanOp } from '@shared/drawGeometry'
 import type { DrawDocPaint, DrawDocStroke, DrawNode, DrawTextNode } from '@shared/draw/model'
 import {
-  arrange,
+  arrangeNodes,
   booleanObjects,
+  artworkAboveIds,
+  canArrange,
+  canMakeCompound,
+  clearFlagAll,
+  clipGroupsFor,
+  clipShapeOf,
+  compoundPathIds,
+  editContentsTargets,
+  editMaskTarget,
+  fillRuleOf,
+  fillRuleTargets,
+  flagLayers,
+  flagNodes,
+  flaggedIds,
+  getObject,
+  groupNodes,
+  isClipPathPlace,
+  makeClipMask,
+  makeClipProblem,
+  makeCompoundPath,
+  otherLayerIds,
+  outermostIds,
+  pickForGrouping,
+  releaseClipMask,
+  releaseCompoundPath,
+  setFillRule,
+  ungroupNodes,
+  type FillRule,
+  type MakeClipProblem,
+  type NodePlace,
   distributeObjects,
   editableIds,
   joinPaths,
@@ -17,7 +54,10 @@ import {
   type AlignEdge,
   type ArrangeDir
 } from '@shared/draw/ops'
-import type { Command, EditorCtx, MenuSpec } from '../editor/types'
+import type { Command, EditorCtx, EditorState, MenuSpec } from '../editor/types'
+import { enterIsolation, exitIsolation, isIsolated, isolatedGroup, scopeNodes } from '../editor/isolation'
+import { DRAW_V2_WRITES } from '@shared/draw/compat'
+import { isV1Representable } from '@shared/draw/migrate'
 import { alignSelection, canAlign } from './align.commands'
 
 const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
@@ -26,7 +66,11 @@ export const menus: MenuSpec[] = [
   { path: 'object', label: 'Object', order: 30 },
   { path: 'object/Pathfinder', label: 'Pathfinder', icon: 'join_full', order: 100 },
   { path: 'object/Arrange', label: 'Arrange', icon: 'layers', order: 110 },
-  { path: 'object/Align', label: 'Align', icon: 'align_horizontal_center', order: 120 }
+  { path: 'object/Align', label: 'Align', icon: 'align_horizontal_center', order: 120 },
+  { path: 'object/Lock', label: 'Lock', icon: 'lock', order: 300 },
+  { path: 'object/Hide', label: 'Hide', icon: 'visibility_off', order: 320 },
+  { path: 'object/Clipping Mask', label: 'Clipping Mask', icon: 'crop', order: 400 },
+  { path: 'object/Compound Path', label: 'Compound Path', icon: 'join_left', order: 410 }
 ]
 
 /** Combine the selected paths (Pathfinder); one undo step. */
@@ -48,6 +92,24 @@ export function patchSelected(ctx: EditorCtx, fn: (o: DrawNode) => DrawNode, lab
   ctx.history.commit(mapObjects(s.doc, ids, fn), label)
 }
 
+/**
+ * Change paths and type in the selection -- and, for a selected group, every
+ * path and type inside it (but never a clipping group's clip path), which is
+ * what applying a colour to a group does in Illustrator.
+ */
+export function patchSelectedDeep(ctx: EditorCtx, fn: (o: DrawNode) => DrawNode, label: string): void {
+  const s = ctx.get()
+  const ids = editableIds(s.doc, s.selection)
+  if (!ids.length) return
+  const deep = (o: DrawNode): DrawNode => {
+    if (o.type !== 'group') return fn(o)
+    const clip = clipShapeOf(o)
+    const children = o.children.map((c) => (c === clip || c.locked ? c : deep(c)))
+    return children.every((c, i) => c === o.children[i]) ? o : { ...o, children }
+  }
+  ctx.history.commit(mapObjects(s.doc, ids, deep), label)
+}
+
 const BOOLEANS: Array<{ op: BooleanOp; label: string; id: string }> = [
   { op: 'union', label: 'Unite', id: 'unite' },
   { op: 'subtract', label: 'Minus front', id: 'minusFront' },
@@ -63,6 +125,346 @@ const ARRANGE: Array<{ dir: ArrangeDir; label: string }> = [
 ]
 
 const ALIGN: AlignEdge[] = ['left', 'center', 'right', 'top', 'middle', 'bottom']
+
+// ── Group, Lock, Hide, Clipping Mask, Compound Path, isolation ───────────────
+
+/**
+ * Can this drawing hold groups and clipping masks? Only once it is written in
+ * the v2 format: v2 writes are switched on, or it was stored as v2, or it
+ * already holds something only v2 can carry.
+ */
+export function holdsV2Content(s: EditorState): boolean {
+  return DRAW_V2_WRITES || s.storedSchema >= 2 || !isV1Representable(s.doc)
+}
+
+const V2_NEEDED = 'Groups and clipping masks need the newer PlexiiDraw drawing format, which this build does not write for this drawing yet.'
+
+/** Run `go` when `ok`, otherwise say why nothing happened (a key press reaches a command even when its menu item is greyed). */
+/** Runs made by guarded(): they say why they cannot work, so a key may run them while disabled. */
+const explaining = new WeakSet<Command['run']>()
+
+function guarded(ok: (ctx: EditorCtx) => boolean, why: (ctx: EditorCtx) => string, go: (ctx: EditorCtx) => void): Command['run'] {
+  const run: Command['run'] = (ctx) => {
+    if (ctx.get().readOnly) return
+    if (!ok(ctx)) {
+      ctx.status(why(ctx))
+      return
+    }
+    go(ctx)
+  }
+  explaining.add(run)
+  return run
+}
+
+const editableSel = (ctx: EditorCtx): string[] => editableIds(ctx.doc(), ctx.get().selection)
+
+function groupPicks(ctx: EditorCtx): NodePlace[] {
+  return pickForGrouping(ctx.doc(), ctx.get().selection, editableIds)
+}
+
+const canGroup = (ctx: EditorCtx): boolean => {
+  const picks = groupPicks(ctx)
+  return writable(ctx) && holdsV2Content(ctx.get()) && picks.length > 0 && !picks.some(isClipPathPlace)
+}
+
+const selectedGroups = (ctx: EditorCtx): string[] => {
+  const doc = ctx.doc()
+  return editableSel(ctx).filter((id) => getObject(doc, id)?.type === 'group')
+}
+
+/** The isolated group's id when isolated, so Unlock All / Show All stay inside it. */
+const isolatedId = (ctx: EditorCtx): string | undefined => isolatedGroup(ctx.get())?.id ?? undefined
+
+/** After Unlock All / Show All: select what came back, as Illustrator does (only what can be selected now). */
+function selectRestored(ctx: EditorCtx, ids: string[]): void {
+  const doc = ctx.doc()
+  ctx.select(outermostIds(doc, editableIds(doc, ids)))
+}
+
+const CLIP_PROBLEM: Record<Exclude<MakeClipProblem, null>, string> = {
+  nothing: 'Select the artwork to mask and, on top of it, the shape to mask it with.',
+  'one-object': 'Select at least two objects: the topmost one becomes the clipping path.',
+  'top-not-a-shape': 'The topmost selected object must be a path, a compound path or type to clip with.',
+  'clip-path-picked': 'That is already a clipping path. Release the mask first.'
+}
+
+const RULES: Array<{ rule: FillRule; label: string }> = [
+  { rule: 'nonzero', label: 'Non-zero winding fill rule' },
+  { rule: 'evenodd', label: 'Even-odd fill rule' }
+]
+
+const objectCommands: Command[] = [
+  {
+    id: 'object.group',
+    label: 'Group',
+    icon: 'group_work',
+    menu: { path: 'object', order: 200 },
+    enabled: canGroup,
+    run: guarded(
+      canGroup,
+      (ctx) => (!holdsV2Content(ctx.get()) ? V2_NEEDED : groupPicks(ctx).some(isClipPathPlace) ? CLIP_PROBLEM['clip-path-picked'] : 'Select the objects to group first.'),
+      (ctx) => {
+        const { doc, groupId } = groupNodes(ctx.doc(), groupPicks(ctx))
+        if (!groupId) return
+        ctx.history.commit(doc, 'Group')
+        ctx.select([groupId])
+      }
+    )
+  },
+  {
+    id: 'object.ungroup',
+    label: 'Ungroup',
+    icon: 'workspaces',
+    menu: { path: 'object', order: 201 },
+    enabled: (ctx) => writable(ctx) && selectedGroups(ctx).length > 0,
+    run: guarded(
+      (ctx) => selectedGroups(ctx).length > 0,
+      () => 'Select a group to ungroup.',
+      (ctx) => {
+        const { doc, ids, droppedEffects } = ungroupNodes(ctx.doc(), selectedGroups(ctx))
+        ctx.history.commit(doc, 'Ungroup')
+        ctx.select(ids)
+        if (droppedEffects) ctx.status('The group’s own effects were removed with it.')
+      }
+    )
+  },
+  // Lock
+  {
+    id: 'object.lock.selection',
+    label: 'Selection',
+    menu: { path: 'object/Lock', order: 0 },
+    enabled: (ctx) => writable(ctx) && editableSel(ctx).length > 0,
+    run: guarded(
+      (ctx) => editableSel(ctx).length > 0,
+      () => 'Select the objects to lock.',
+      (ctx) => {
+        ctx.history.commit(flagNodes(ctx.doc(), editableSel(ctx), 'locked'), 'Lock')
+        ctx.select([])
+      }
+    )
+  },
+  {
+    id: 'object.lock.above',
+    label: 'All artwork above',
+    menu: { path: 'object/Lock', order: 1 },
+    enabled: (ctx) => writable(ctx) && artworkAboveIds(ctx.doc(), editableSel(ctx), 'locked').length > 0,
+    run: guarded(
+      (ctx) => artworkAboveIds(ctx.doc(), editableSel(ctx), 'locked').length > 0,
+      () => 'Nothing overlaps the selection from above.',
+      (ctx) => ctx.history.commit(flagNodes(ctx.doc(), artworkAboveIds(ctx.doc(), editableSel(ctx), 'locked'), 'locked'), 'Lock')
+    )
+  },
+  {
+    id: 'object.lock.otherLayers',
+    label: 'Other layers',
+    menu: { path: 'object/Lock', order: 2 },
+    enabled: (ctx) => writable(ctx) && editableSel(ctx).length > 0 && otherLayerIds(ctx.doc(), editableSel(ctx), 'locked').length > 0,
+    run: guarded(
+      (ctx) => editableSel(ctx).length > 0 && otherLayerIds(ctx.doc(), editableSel(ctx), 'locked').length > 0,
+      () => 'There are no other unlocked layers.',
+      (ctx) => ctx.history.commit(flagLayers(ctx.doc(), otherLayerIds(ctx.doc(), editableSel(ctx), 'locked'), 'locked'), 'Lock other layers')
+    )
+  },
+  {
+    id: 'object.unlockAll',
+    label: 'Unlock all',
+    icon: 'lock_open',
+    menu: { path: 'object', order: 310 },
+    enabled: (ctx) => writable(ctx) && flaggedIds(ctx.doc(), 'locked', isolatedId(ctx)).length > 0,
+    run: guarded(
+      (ctx) => flaggedIds(ctx.doc(), 'locked', isolatedId(ctx)).length > 0,
+      () => 'Nothing is locked.',
+      (ctx) => {
+        const { doc, ids } = clearFlagAll(ctx.doc(), 'locked', isolatedId(ctx))
+        ctx.history.commit(doc, 'Unlock all')
+        selectRestored(ctx, ids)
+      }
+    )
+  },
+  // Hide
+  {
+    id: 'object.hide.selection',
+    label: 'Selection',
+    menu: { path: 'object/Hide', order: 0 },
+    enabled: (ctx) => writable(ctx) && editableSel(ctx).length > 0,
+    run: guarded(
+      (ctx) => editableSel(ctx).length > 0,
+      () => 'Select the objects to hide.',
+      (ctx) => {
+        ctx.history.commit(flagNodes(ctx.doc(), editableSel(ctx), 'hidden'), 'Hide')
+        ctx.select([])
+      }
+    )
+  },
+  {
+    id: 'object.hide.above',
+    label: 'All artwork above',
+    menu: { path: 'object/Hide', order: 1 },
+    enabled: (ctx) => writable(ctx) && artworkAboveIds(ctx.doc(), editableSel(ctx), 'hidden').length > 0,
+    run: guarded(
+      (ctx) => artworkAboveIds(ctx.doc(), editableSel(ctx), 'hidden').length > 0,
+      () => 'Nothing overlaps the selection from above.',
+      (ctx) => ctx.history.commit(flagNodes(ctx.doc(), artworkAboveIds(ctx.doc(), editableSel(ctx), 'hidden'), 'hidden'), 'Hide')
+    )
+  },
+  {
+    id: 'object.hide.otherLayers',
+    label: 'Other layers',
+    menu: { path: 'object/Hide', order: 2 },
+    enabled: (ctx) => writable(ctx) && editableSel(ctx).length > 0 && otherLayerIds(ctx.doc(), editableSel(ctx), 'hidden').length > 0,
+    run: guarded(
+      (ctx) => editableSel(ctx).length > 0 && otherLayerIds(ctx.doc(), editableSel(ctx), 'hidden').length > 0,
+      () => 'There are no other visible layers.',
+      (ctx) => ctx.history.commit(flagLayers(ctx.doc(), otherLayerIds(ctx.doc(), editableSel(ctx), 'hidden'), 'hidden'), 'Hide other layers')
+    )
+  },
+  {
+    id: 'object.showAll',
+    label: 'Show all',
+    icon: 'visibility',
+    menu: { path: 'object', order: 330 },
+    enabled: (ctx) => writable(ctx) && flaggedIds(ctx.doc(), 'hidden', isolatedId(ctx)).length > 0,
+    run: guarded(
+      (ctx) => flaggedIds(ctx.doc(), 'hidden', isolatedId(ctx)).length > 0,
+      () => 'Nothing is hidden.',
+      (ctx) => {
+        const { doc, ids } = clearFlagAll(ctx.doc(), 'hidden', isolatedId(ctx))
+        ctx.history.commit(doc, 'Show all')
+        selectRestored(ctx, ids)
+      }
+    )
+  },
+  // Clipping Mask
+  {
+    id: 'object.clip.make',
+    label: 'Make',
+    menu: { path: 'object/Clipping Mask', order: 0 },
+    enabled: (ctx) => writable(ctx) && holdsV2Content(ctx.get()) && makeClipProblem(ctx.doc(), ctx.get().selection) === null,
+    run: guarded(
+      (ctx) => holdsV2Content(ctx.get()) && makeClipProblem(ctx.doc(), ctx.get().selection) === null,
+      (ctx) => (!holdsV2Content(ctx.get()) ? V2_NEEDED : CLIP_PROBLEM[makeClipProblem(ctx.doc(), ctx.get().selection) ?? 'nothing']),
+      (ctx) => {
+        const { doc, groupId } = makeClipMask(ctx.doc(), ctx.get().selection)
+        if (!groupId) return
+        ctx.history.commit(doc, 'Make clipping mask')
+        ctx.select([groupId])
+      }
+    )
+  },
+  {
+    id: 'object.clip.release',
+    label: 'Release',
+    menu: { path: 'object/Clipping Mask', order: 1 },
+    enabled: (ctx) => writable(ctx) && clipGroupsFor(ctx.doc(), ctx.get().selection).length > 0,
+    run: guarded(
+      (ctx) => clipGroupsFor(ctx.doc(), ctx.get().selection).length > 0,
+      () => 'Select a clipping group to release.',
+      (ctx) => {
+        const { doc, groupIds } = releaseClipMask(ctx.doc(), ctx.get().selection)
+        ctx.history.commit(doc, 'Release clipping mask')
+        ctx.select(groupIds)
+      }
+    )
+  },
+  {
+    id: 'object.clip.editMask',
+    label: 'Edit mask',
+    menu: { path: 'object/Clipping Mask', order: 100 },
+    enabled: (ctx) => editMaskTarget(ctx.doc(), ctx.get().selection) !== null,
+    run: guarded(
+      (ctx) => editMaskTarget(ctx.doc(), ctx.get().selection) !== null,
+      () => 'Select one clipping group.',
+      (ctx) => ctx.select([editMaskTarget(ctx.doc(), ctx.get().selection)!])
+    )
+  },
+  {
+    id: 'object.clip.editContents',
+    label: 'Edit contents',
+    menu: { path: 'object/Clipping Mask', order: 101 },
+    enabled: (ctx) => editContentsTargets(ctx.doc(), ctx.get().selection).length > 0,
+    run: guarded(
+      (ctx) => editContentsTargets(ctx.doc(), ctx.get().selection).length > 0,
+      () => 'Select one clipping group with something in it.',
+      (ctx) => ctx.select(editContentsTargets(ctx.doc(), ctx.get().selection))
+    )
+  },
+  // Compound Path
+  {
+    id: 'object.compound.make',
+    label: 'Make',
+    menu: { path: 'object/Compound Path', order: 0 },
+    enabled: (ctx) => writable(ctx) && canMakeCompound(ctx.doc(), ctx.get().selection),
+    run: guarded(
+      (ctx) => canMakeCompound(ctx.doc(), ctx.get().selection),
+      () => 'Select two or more paths (or groups of paths) to make a compound path.',
+      (ctx) => {
+        const { doc, newId } = makeCompoundPath(ctx.doc(), ctx.get().selection)
+        if (!newId) return
+        ctx.history.commit(doc, 'Make compound path')
+        ctx.select([newId])
+      }
+    )
+  },
+  {
+    id: 'object.compound.release',
+    label: 'Release',
+    menu: { path: 'object/Compound Path', order: 1 },
+    enabled: (ctx) => writable(ctx) && compoundPathIds(ctx.doc(), ctx.get().selection).length > 0,
+    run: guarded(
+      (ctx) => compoundPathIds(ctx.doc(), ctx.get().selection).length > 0,
+      () => 'Select a compound path to release.',
+      (ctx) => {
+        const { doc, ids } = releaseCompoundPath(ctx.doc(), ctx.get().selection)
+        ctx.history.commit(doc, 'Release compound path')
+        ctx.select(ids)
+      }
+    )
+  },
+  ...RULES.map(
+    (r, i): Command => ({
+      id: `object.fillRule.${r.rule}`,
+      label: r.label,
+      menu: { path: 'object/Compound Path', order: 100 + i },
+      enabled: (ctx) => writable(ctx) && fillRuleTargets(ctx.doc(), ctx.get().selection).length > 0,
+      checked: (ctx) => fillRuleOf(ctx.doc(), ctx.get().selection) === r.rule,
+      run: guarded(
+        (ctx) => fillRuleTargets(ctx.doc(), ctx.get().selection).length > 0,
+        () => 'Select a path to set its fill rule.',
+        (ctx) => ctx.history.commit(setFillRule(ctx.doc(), ctx.get().selection, r.rule), 'Fill rule')
+      )
+    })
+  ),
+  // Isolation mode
+  {
+    id: 'object.isolate',
+    label: 'Isolate selected group',
+    icon: 'center_focus_strong',
+    menu: { path: 'object', order: 500 },
+    enabled: (ctx) => isolatableSelection(ctx) !== null,
+    run: guarded(
+      (ctx) => isolatableSelection(ctx) !== null,
+      () => 'Select one group to isolate.',
+      (ctx) => void enterIsolation(ctx, isolatableSelection(ctx)!)
+    )
+  },
+  {
+    id: 'object.exitIsolation',
+    label: 'Exit isolation mode',
+    icon: 'filter_center_focus',
+    menu: { path: 'object', order: 501 },
+    enabled: (ctx) => isIsolated(ctx.get()),
+    run: (ctx) => exitIsolation(ctx)
+  }
+]
+
+/** The one selected group that sits at the current level (top level, or in the isolated group), or null. */
+function isolatableSelection(ctx: EditorCtx): string | null {
+  const s = ctx.get()
+  if (s.readOnly || s.selection.length !== 1) return null
+  const id = s.selection[0]
+  const here = scopeNodes(s).find(({ node }) => node.id === id)
+  return here && here.node.type === 'group' && !here.node.locked && !here.node.hidden ? id : null
+}
 
 export const commands: Command[] = [
   ...BOOLEANS.map(
@@ -80,8 +482,12 @@ export const commands: Command[] = [
       id: `object.arrange.${a.dir}`,
       label: a.label,
       menu: { path: 'object/Arrange', order: i },
-      enabled: writable,
-      run: (ctx) => ctx.history.commit(arrange(ctx.doc(), ctx.get().selection, a.dir), 'Arrange')
+      // Within each object's own layer or group (inside groups too).
+      enabled: (ctx) => writable(ctx) && canArrange(ctx.doc(), editableIds(ctx.doc(), ctx.get().selection), a.dir),
+      run: (ctx) => {
+        const s = ctx.get()
+        ctx.history.commit(arrangeNodes(s.doc, editableIds(s.doc, s.selection), a.dir), a.label)
+      }
     })
   ),
   ...ALIGN.map(
@@ -146,7 +552,7 @@ export const commands: Command[] = [
     run: (ctx, paint) => {
       // With nothing selected this sets the fill the NEXT shape is drawn with.
       ctx.set({ fill: paint as DrawDocPaint })
-      patchSelected(ctx, (o) => (o.type === 'path' || o.type === 'text' ? { ...o, fill: paint as DrawDocPaint } : o), 'Fill')
+      patchSelectedDeep(ctx, (o) => (o.type === 'path' || o.type === 'text' ? { ...o, fill: paint as DrawDocPaint } : o), 'Fill')
     }
   },
   {
@@ -155,7 +561,7 @@ export const commands: Command[] = [
     run: (ctx, stroke) => {
       const s = stroke as DrawDocStroke | undefined
       ctx.set({ stroke: s })
-      patchSelected(ctx, (o) => (o.type === 'path' || o.type === 'text' ? (s ? { ...o, stroke: s } : { ...o, stroke: undefined }) : o), 'Stroke')
+      patchSelectedDeep(ctx, (o) => (o.type === 'path' || o.type === 'text' ? (s ? { ...o, stroke: s } : { ...o, stroke: undefined }) : o), 'Stroke')
     }
   },
   {
@@ -172,5 +578,6 @@ export const commands: Command[] = [
     id: 'object.textPatch',
     label: 'Type settings',
     run: (ctx, patch) => patchSelected(ctx, (o) => (o.type === 'text' ? ctx.text.measure({ ...o, ...(patch as Partial<DrawTextNode>) }) : o), 'Type')
-  }
+  },
+  ...objectCommands.map((c) => (explaining.has(c.run) ? { ...c, explainsWhenDisabled: true } : c))
 ]

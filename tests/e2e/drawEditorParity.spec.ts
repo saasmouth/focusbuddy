@@ -65,6 +65,8 @@ test('EP-1 the toolbox offers every tool, in order, with its shortcut (Illustrat
   const titles = await window.locator('[data-testid^="draw-tool-"]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-testid')}=${e.getAttribute('title')}`))
   expect(titles).toEqual([
     'draw-tool-select=Select (V) — double-click for options',
+    // WP-OBJ: Group Selection has no default letter, as in Illustrator.
+    'draw-tool-groupSelect=Group selection',
     'draw-tool-direct=Direct Selection (A)',
     'draw-tool-lasso=Lasso (Q)',
     'draw-tool-pen=Pen (P)',

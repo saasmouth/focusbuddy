@@ -25,6 +25,8 @@ export interface HistoryHooks {
   host: HostService
   /** Called after undo/redo restores a document, so paint layers repaint from it. */
   onRestore(): void
+  /** Optional last word on an edit before it lands (isolation mode adopts new art into the isolated group). */
+  adjust?(prev: DrawDoc, next: DrawDoc): DrawDoc
 }
 
 const NOOP_TXN: Txn = { preview: () => {}, commit: () => {}, cancel: () => {} }
@@ -43,6 +45,7 @@ export function createHistory(store: StoreLike, hooks: HistoryHooks): History {
       if (s.readOnly) return
       const prev = s.doc
       if (next === prev) return
+      if (hooks.adjust) next = hooks.adjust(prev, next)
       const lu = live()
       if (lu) lu.checkpoint()
       else store.setState((st) => ({ past: [...st.past.slice(-(DEPTH - 1)), { doc: prev, label }], future: [] }))
@@ -50,8 +53,9 @@ export function createHistory(store: StoreLike, hooks: HistoryHooks): History {
     },
 
     replace(next) {
-      if (store.getState().readOnly) return
-      setDoc(next)
+      const s = store.getState()
+      if (s.readOnly) return
+      setDoc(hooks.adjust && next !== s.doc ? hooks.adjust(s.doc, next) : next)
     },
 
     begin(label = 'Edit') {

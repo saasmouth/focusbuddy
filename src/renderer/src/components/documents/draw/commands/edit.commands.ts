@@ -1,6 +1,7 @@
 // Edit menu, plus the editing keys that have no menu item (Escape, nudges).
 
-import { deleteAnchorsBreak, deleteObjects, duplicateObjects, editableIds, moveAnchors, moveObjects, selectableObjectIds } from '@shared/draw/ops'
+import { deleteAnchorsBreak, deleteObjects, duplicateObjects, editableIds, moveAnchors, moveObjects } from '@shared/draw/ops'
+import { exitIsolation, isIsolated, selectableInScope } from '../editor/isolation'
 import type { Command, EditorCtx, KeyInput, MenuSpec } from '../editor/types'
 import { partialAnchors, wholeSelection } from '../editor/anchorSelection'
 import { discardPlaceItem } from '../editor/place'
@@ -80,7 +81,8 @@ export const commands: Command[] = [
     // Its own group after the clipboard and duplicate/delete items (Illustrator keeps it out of Edit's paste group).
     menu: { path: 'edit', order: 300 },
     // Nothing hidden or locked -- the same rule for the menu and for ⌘A.
-    run: (ctx) => ctx.select(selectableObjectIds(ctx.doc()))
+    // In isolation mode, everything in the isolated group.
+    run: (ctx) => ctx.select(selectableInScope(ctx.get()))
   },
   {
     id: 'edit.deselect',
@@ -121,6 +123,8 @@ export const commands: Command[] = [
       if (ctx.get().pen) finishPen(ctx, false)
       else if (ctx.get().curvature) finishCurvature(ctx, false)
       else if (ctx.get().placing) discardPlaceItem(ctx)
+      // Esc leaves isolation mode, as in Illustrator.
+      else if (isIsolated(ctx.get())) exitIsolation(ctx)
       else ctx.select([])
     }
   },

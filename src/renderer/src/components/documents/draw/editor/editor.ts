@@ -21,6 +21,7 @@ import { commandById } from '../commands/registry'
 import { resolveKey } from '../commands/keys'
 import { toolById } from '../tools/registry'
 import { createHistory } from './history'
+import { adoptIntoIsolation, canvasDoubleClick, hitForSelection, hitLeaf } from './isolation'
 import type { EditorCtx, EditorState, History, HostService, KeyInput, RasterService, TextService, ToolPointer, ViewportService } from './types'
 
 export interface EditorServices {
@@ -38,7 +39,8 @@ export interface DrawEditor {
   pointerMove(e: ToolPointer): void
   pointerUp(e: ToolPointer): void
   pointerLeave(): void
-  doubleClick(): void
+  /** A double-click at `p` (artboard coordinates; the last pointer position when absent). */
+  doubleClick(p?: Pt): void
   keyDown(e: KeyInput): void
   keyUp(e: { code: string }): void
   /** Fold a document that changed underneath the editor (a co-editing peer, an own-change undo). */
@@ -79,7 +81,8 @@ export function initialEditorState(content: unknown): EditorState {
     penTarget: null,
     curvature: null,
     pathPrefs: { showHandles: true, smoothFidelity: 50, brushSize: 10 },
-    toolState: {}
+    toolState: {},
+    isolation: []
   }
 }
 
@@ -109,7 +112,12 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
     services.host.emit(drawDocForStorage(doc, { stored: s.storedSchema }))
   }
 
-  const history = createHistory(store, { emit, host: services.host, onRestore: () => services.raster.invalidate() })
+  const history = createHistory(store, {
+    emit,
+    host: services.host,
+    onRestore: () => services.raster.invalidate(),
+    adjust: (prev, next) => adoptIntoIsolation(store.getState(), prev, next)
+  })
 
   const ctx: EditorCtx = {
     store,
@@ -138,7 +146,10 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
       const put = putAsset(doc.assets, src)
       history.commit(patchLayer({ ...doc, assets: put.assets }, layerId, { assetId: put.id }), 'Paint')
     },
-    hitTest: (p) => hitTestDoc(store.getState().doc, p, store.getState().zoom)
+    // Groups are hit through their members, clipping groups only where the
+    // mask shows, and in isolation mode only inside the isolated group.
+    hitTest: (p) => hitForSelection(store.getState(), p),
+    hitTestDeep: (p) => hitLeaf(store.getState(), p)
   }
 
   // ── Pointer ────────────────────────────────────────────────────────────────
@@ -228,6 +239,7 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
     if (c.enabled && !c.enabled(ctx)) {
       // Never a silent no-op: say why the key did nothing when there is a reason to give.
       if (c.pending) ctx.status(`${c.label} ${c.pending}.`)
+      else if (c.explainsWhenDisabled) void c.run(ctx, e)
       return
     }
     void c.run(ctx, e)
@@ -245,9 +257,11 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
     pointerMove,
     pointerUp,
     pointerLeave: () => store.setState({ cursorPt: null }),
-    doubleClick: () => {
+    doubleClick: (p) => {
       // Double-click finishes a pen path in progress, whatever tool is active.
       if (store.getState().pen) ctx.run('pen.finish', { close: false })
+      // With the Selection tool it enters (or leaves) isolation mode.
+      else canvasDoubleClick(ctx, p ?? store.getState().cursorPt)
     },
     keyDown,
     keyUp,

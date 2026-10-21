@@ -21,6 +21,7 @@ import type { KeyInput, ToolPointer } from './draw/editor/types'
 import { dialogById } from './draw/dialogs/registry'
 import { drawPanels } from './draw/panels/registry'
 import { toolById } from './draw/tools/registry'
+import IsolationBar from './draw/render/IsolationBar'
 import OptionsBar from './draw/render/OptionsBar'
 import Overlay from './draw/render/Overlay'
 import ReadOnlyBanner from './draw/render/ReadOnlyBanner'
@@ -326,6 +327,8 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
 
       <OptionsBar ctx={ctx} />
 
+      <IsolationBar ctx={ctx} />
+
       <div className="flex-1 min-h-0 flex">
         <Toolbox ctx={ctx} />
 
@@ -338,7 +341,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
             onPointerUp={(e) => editor.pointerUp(toolPointer(e))}
             onPointerCancel={(e) => editor.pointerUp(toolPointer(e))}
             onPointerLeave={() => editor.pointerLeave()}
-            onDoubleClick={() => editor.doubleClick()}
+            onDoubleClick={(e) => editor.doubleClick(toolPointer(e).p)}
             onContextMenu={(e) => e.stopPropagation()}
             data-testid="draw-stage"
             className="relative mx-auto touch-none select-none shadow-lg"

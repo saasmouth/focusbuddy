@@ -6,10 +6,11 @@
 // same calls. Phase 0's selection only ever holds top-level ids.
 
 import { drawId } from '../../draw'
-import type { Box } from '../../drawGeometry'
+import { applyMatrix, type Box } from '../../drawGeometry'
 import type { DrawDoc, DrawDocVectorLayer, DrawGroupNode, DrawNode } from '../model'
 import { findNode, mapNodesDeep, vectorLayersOf } from '../tree'
-import { scaleNode, translateNode } from './geometry'
+import { clipShapeOf, translateNode } from './geometry'
+import { allPlaces, containerOf, invertMatrix, moveNodesWorld, parentMatrix, scaleNodesWorld, withChildren } from './groups'
 
 /** The layer a node lives on (at any depth), or undefined when the id is unknown. */
 export function layerOf(doc: DrawDoc, id: string): DrawDocVectorLayer | undefined {
@@ -158,7 +159,7 @@ function cloneWithNewIds(n: DrawNode): DrawNode {
   return { ...structuredClone(n), id }
 }
 
-/** Copies of the top-level nodes `ids`, offset by (dx, dy), placed directly above the originals' layer stack. */
+/** Copies of the nodes `ids`, offset by (dx, dy) on screen, placed directly above the originals' layer stack (or group). */
 export function duplicateObjects(doc: DrawDoc, ids: string[], dx = 12, dy = 12): { doc: DrawDoc; newIds: string[] } {
   const wanted = new Set(ids)
   const newIds: string[] = []
@@ -173,11 +174,27 @@ export function duplicateObjects(doc: DrawDoc, ids: string[], dx = 12, dy = 12):
     }
     return copies.length ? { ...l, objects: [...l.objects, ...copies] } : l
   })
-  return { doc: { ...doc, layers }, newIds }
+  // Members of groups (selected in isolation mode, with Group Selection or
+  // Edit Contents) are copied inside their own group, on top of its members
+  // (under a clip path), offset on screen by the same (dx, dy).
+  let next: DrawDoc = { ...doc, layers }
+  const nested = allPlaces(doc).filter((p) => p.parents.length > 0 && wanted.has(p.node.id) && p.node.type !== 'opaque' && !p.parents.some((g) => wanted.has(g.id)))
+  for (const p of nested) {
+    const m = parentMatrix(p.parents)
+    const inv = invertMatrix([m[0], m[1], m[2], m[3], 0, 0])
+    const d = inv ? applyMatrix(inv, { x: dx, y: dy }) : { x: dx, y: dy }
+    const copy = translateNode({ ...cloneWithNewIds(p.node), name: p.node.name ? `${p.node.name} copy` : undefined } as DrawNode, d.x, d.y)
+    newIds.push(copy.id)
+    const g = p.parents[p.parents.length - 1]
+    const clipped = clipShapeOf(g) !== null
+    next = withChildren(next, containerOf(p), (children) => (clipped ? [...children.slice(0, -1), copy, children[children.length - 1]] : [...children, copy]))
+  }
+  return { doc: next, newIds }
 }
 
+/** Move nodes by (dx, dy) on the artboard -- inside a transformed group too (see groups.ts). */
 export function moveObjects(doc: DrawDoc, ids: string[], dx: number, dy: number): DrawDoc {
-  return mapObjects(doc, ids, (n) => translateNode(n, dx, dy))
+  return moveNodesWorld(doc, ids, dx, dy)
 }
 
 /**
@@ -185,11 +202,9 @@ export function moveObjects(doc: DrawDoc, ids: string[], dx: number, dy: number)
  * multi-node selection resizes as one unit, exactly as a single node does.
  */
 export function scaleObjects(doc: DrawDoc, ids: string[], from: Box, to: Box): DrawDoc {
-  const sx = from.w > 1e-6 ? to.w / from.w : 1
-  const sy = from.h > 1e-6 ? to.h / from.h : 1
-  const e = to.x - from.x * sx
-  const f = to.y - from.y * sy
-  return mapObjects(doc, ids, (n) => scaleNode(n, sx, sy, e, f))
+  // Artboard-space boxes; a member of a transformed group is scaled through
+  // the group's matrix so it follows the handles on screen (see groups.ts).
+  return scaleNodesWorld(doc, ids, from, to)
 }
 
 /** The visible bounds of a set of nodes (opaque ones, which have no geometry here, left out). */

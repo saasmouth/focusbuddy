@@ -39,6 +39,7 @@ import {
 import type { DrawAppearance, DrawDoc, DrawDocPaint, DrawEffect, DrawDocStroke, DrawGroupNode, DrawImageNode, DrawNode, DrawPathNode, DrawTextNode, DrawWidgetNode } from '../model'
 import { nodeBounds, nodePivot, scaleNode, translateNode } from './geometry'
 import { editableIds } from './objects'
+import { allPlaces, applyNodeMatrix, invertMatrix as invertNodeMatrix, isIdentityMatrix, parentMatrix } from './groups'
 
 export interface TransformOptions {
   /** Multiply stroke widths and dashes by the transform's length scale (Illustrator: "Scale Strokes & Effects"). */
@@ -280,13 +281,13 @@ export function selectionNeedsFrameMatrix(doc: DrawDoc, ids: string[], m: Matrix
 }
 
 /** Map every wanted node (anywhere in the tree) through `fn`; `copy` places the result directly above the original instead. */
-function rebuild(doc: DrawDoc, wanted: Set<string>, fn: (n: DrawNode) => DrawNode, copy: boolean, newIds: string[]): DrawDoc {
+function rebuild(doc: DrawDoc, wanted: Set<string>, fn: (n: DrawNode, original: DrawNode) => DrawNode, copy: boolean, newIds: string[]): DrawDoc {
   const walk = (nodes: DrawNode[]): DrawNode[] => {
     let changed = false
     const out: DrawNode[] = []
     for (const n of nodes) {
       if (wanted.has(n.id)) {
-        const next = fn(copy ? cloneWithNewIds(n) : n)
+        const next = fn(copy ? cloneWithNewIds(n) : n, n)
         if (copy) {
           out.push(n, next)
           newIds.push(next.id)
@@ -350,8 +351,36 @@ export function transformObjectsBy(doc: DrawDoc, ids: string[], matrixFor: (n: D
   const wanted = new Set(editableIds(doc, ids))
   const newIds: string[] = []
   if (!wanted.size) return { doc, newIds }
-  const next = rebuild(doc, wanted, (n) => transformNode(n, matrixFor(n), opts), copy, newIds)
+  const inGroups = parentMatrices(doc, wanted)
+  const next = rebuild(
+    doc,
+    wanted,
+    (n, original) => {
+      const pm = inGroups.get(original.id)
+      const inv = pm ? invertNodeMatrix(pm) : null
+      if (!pm || !inv) return transformNode(n, matrixFor(original), opts)
+      // A member of a transformed group: `m` is meant on the artboard (and is
+      // measured there), so it is applied in the member's own space as
+      // inverse(parent) · m · parent. Groups are v2 content, so members may
+      // take a frame matrix.
+      const m = matrixFor(applyNodeMatrix(original, pm))
+      return transformNode(n, multiplyMatrix(inv, multiplyMatrix(m, pm)), { ...opts, frameMatrix: true })
+    },
+    copy,
+    newIds
+  )
   return { doc: next, newIds }
+}
+
+/** Members of transformed groups among `wanted`: id -> the matrix from the member's space to the artboard. */
+function parentMatrices(doc: DrawDoc, wanted: Set<string>): Map<string, Matrix> {
+  const out = new Map<string, Matrix>()
+  for (const p of allPlaces(doc)) {
+    if (!wanted.has(p.node.id) || !p.parents.length) continue
+    const pm = parentMatrix(p.parents)
+    if (!isIdentityMatrix(pm)) out.set(p.node.id, pm)
+  }
+  return out
 }
 
 // ── Transform Each ───────────────────────────────────────────────────────────

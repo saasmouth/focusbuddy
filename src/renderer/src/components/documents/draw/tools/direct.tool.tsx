@@ -164,8 +164,9 @@ export function directPointerDown(ctx: EditorCtx, e: ToolPointer): void {
     return
   }
 
-  // Inside a path: the whole path (all its anchors); any other object: itself.
-  const inside = pathUnder(ctx, p) ?? ctx.hitTest(p)?.id ?? null
+  // Inside a path: the whole path (all its anchors); any other object: itself,
+  // even inside groups (Direct Selection reaches past groups, as in Illustrator).
+  const inside = pathUnder(ctx, p) ?? ctx.hitTestDeep(p)?.id ?? null
   if (inside) {
     if (e.shiftKey) {
       const sel = s.selection.includes(inside) ? s.selection.filter((id) => id !== inside) : [...s.selection, inside]
