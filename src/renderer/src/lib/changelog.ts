@@ -38,6 +38,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.39-local.7',
+    date: '2026-10-21T05:48:00Z',
+    title: 'PlexiiDesk 4.3.39-local.7 \u2014 duplicating in PlexiiDraw no longer stops the drawing saving (test build)',
+    tag: 'fix',
+    summary:
+      'A local test build that fixes one bug in 4.3.39-local.6. Everything else is the same.',
+    highlights: [
+      'Fixed: after Edit \u2192 Duplicate in PlexiiDraw, the drawing showed \u201cCouldn\u2019t save\u201d and every later save of it failed. Duplicates are now fully independent copies, and a drawing already in that state saves again.'
+    ]
+  },
+  {
     version: '4.3.39-local.6',
     date: '2026-10-21T04:02:00Z',
     title: 'PlexiiDesk 4.3.39-local.6 \u2014 PDF export works again, and PlexiiDraw fixes (test build)',
