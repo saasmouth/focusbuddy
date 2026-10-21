@@ -7,6 +7,7 @@ import { useOnboarding } from '../stores/onboarding'
 import { signalConfig } from '../lib/signalConfig'
 import { forgotPasswordUrl, webAccountUrl } from '../lib/siteUrls'
 import { requestRestoreEmailCode } from '../lib/accountClient'
+import { useServerFeature } from '../stores/capabilities'
 import Icon from './Icon'
 
 // LaunchSignInModal — appears on app boot when the user isn't signed in.
@@ -50,6 +51,11 @@ export default function LaunchSignInModal(): JSX.Element | null {
   const signupAction = useAccountStore((s) => s.signup)
   const loginAction = useAccountStore((s) => s.login)
   const restoreAction = useAccountStore((s) => s.restore)
+  // "Closed your account? Restore it" (by emailed code) only once a server
+  // has said it has the restore routes. Signed out there is usually no such
+  // word yet, so the link stays hidden; the password path still appears,
+  // because only a server WITH restore answers sign-in with account_archived.
+  const restoreRoutes = useServerFeature('account_restore')
   const setSkipped = useAccountStore((s) => s.setSkipped)
   // Manual open requested from elsewhere (Settings account section, etc.).
   // When set, the modal shows even if the user previously skipped.
@@ -631,7 +637,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
             </div>
           )}
 
-          {mode === 'login' && !restoreVia && (
+          {mode === 'login' && !restoreVia && restoreRoutes && (
             <button
               type="button"
               onClick={() => {

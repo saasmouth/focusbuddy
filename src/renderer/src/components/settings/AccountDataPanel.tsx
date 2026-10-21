@@ -56,7 +56,7 @@ function YourData({ token }: { token: string }): JSX.Element {
       }
       const saved = await window.api.account.saveExport(r.bytes, r.fileName)
       if (saved.ok) setNote({ ok: true, text: `Saved ${saved.path.split(/[\\/]/).pop()}.` })
-      else if (!saved.canceled) setNote({ ok: false, text: saved.error ?? 'The file could not be saved.' })
+      else if (!saved.canceled) setNote({ ok: false, text: 'The file could not be saved there. Choose another folder and try again.' })
     } finally {
       setBusy(null)
     }
@@ -68,7 +68,7 @@ function YourData({ token }: { token: string }): JSX.Element {
     try {
       const r = await window.api.backup.export()
       if (r.ok) setNote({ ok: true, text: `Saved ${r.path.split(/[\\/]/).pop()}.` })
-      else if (!r.canceled) setNote({ ok: false, text: r.error ?? 'The backup could not be saved.' })
+      else if (!r.canceled) setNote({ ok: false, text: 'The backup could not be saved there. Choose another folder and try again.' })
     } finally {
       setBusy(null)
     }
