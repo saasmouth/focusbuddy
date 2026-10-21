@@ -93,6 +93,16 @@ export function listEmbeddingsTagged(
   return out
 }
 
+// Just the model tag per stored vector, for coverage and staleness checks that
+// never compare vectors: parsing every vector's JSON to read its tag would cost
+// the whole store on every call, and coverage is probed on every chat turn.
+export function listEmbeddingModels(itemType: string): Map<string, { model: string }> {
+  const rows = getDb()
+    .prepare('SELECT item_id, model FROM fb_embeddings WHERE item_type = ? AND org_id = ?')
+    .all(itemType, getActiveOrgId()) as Pick<EmbeddingRow, 'item_id' | 'model'>[]
+  return new Map(rows.map((r) => [r.item_id, { model: r.model }]))
+}
+
 export function hasEmbedding(itemType: string, itemId: string): boolean {
   const row = getDb()
     .prepare('SELECT 1 FROM fb_embeddings WHERE item_type = ? AND item_id = ? AND org_id = ?')

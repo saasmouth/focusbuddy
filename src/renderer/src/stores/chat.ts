@@ -265,7 +265,8 @@ function toStoredTrace(t: AssistantTrace | undefined): StoredTrace | null {
     mentions: t.mentions,
     retrievalMs: t.retrievalMs,
     error: t.error,
-    semantic: t.semantic
+    semantic: t.semantic,
+    semanticCoverage: t.semanticCoverage ?? null
   }
 }
 
@@ -285,6 +286,7 @@ function fromStoredTrace(t: StoredTrace | null): AssistantTrace | null {
     mentions: t.mentions ?? [],
     sources: t.sources ?? [],
     semantic: t.semantic ?? null,
+    semanticCoverage: t.semanticCoverage ?? null,
     tools: t.tools ?? [],
     // A restored trace is finished work — there is no in-flight action to name.
     activity: null,
@@ -1067,6 +1069,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               sources: t.sources,
               // Absent on an older main process: stays unknown, discloses nothing.
               semantic: t.semantic ?? null,
+              semanticCoverage: t.semanticCoverage ?? null,
               // What actually ran (A4 gating). Absent = everything, pre-A4 truth.
               searched: t.searched ?? null
             }),

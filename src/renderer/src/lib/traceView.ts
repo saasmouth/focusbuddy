@@ -43,6 +43,10 @@ export interface AssistantTrace {
   // null/absent = unknown (older main process, restored trace without the
   // field). Optional so existing fixtures and stored traces stay valid.
   semantic?: boolean | null
+  // Share of the workspace the semantic route could compare, 0..1. Below 100%
+  // the search line says so: the rest was ranked by keyword. null/absent =
+  // unknown, nothing disclosed.
+  semanticCoverage?: number | null
   // What actually ran this turn (A4, AI-10): workspace false means the search
   // was deliberately gated (discovery ideation) and the trace must not draw a
   // search line at all. null/absent = unknown (older main process, restored
@@ -241,13 +245,23 @@ function webSources(trace: AssistantTrace): ChatSource[] {
   return trace.sources.filter((s) => s.docType === 'web')
 }
 
+// With a semantic route, coverage below 100% means part of the workspace had
+// no vector the route could compare and was ranked by keyword alone — which
+// reads as an assistant that only knows recent things. Said once, as a share.
+// Rounded DOWN so 99.6% never reads as complete; silent at full or unknown.
+function partialMeaning(coverage: number | null | undefined): string {
+  if (typeof coverage !== 'number' || !Number.isFinite(coverage)) return ''
+  const pct = Math.max(0, Math.floor(coverage * 100))
+  return pct >= 100 ? '' : ` · ${pct}% ranked by meaning`
+}
+
 function retrieveLabel(trace: AssistantTrace): string {
   const ms = trace.retrievalMs
   const timing = typeof ms === 'number' ? ` · ${ms}ms` : ''
   // Honest about HOW it searched (defect #15): with no embedding route the
   // match is literal keywords — "churn" does not find "attrition" — and the
   // label must not imply otherwise. Silent when semantic ran or is unknown.
-  const how = trace.semantic === false ? ' · keyword match' : ''
+  const how = trace.semantic === false ? ' · keyword match' : partialMeaning(trace.semanticCoverage)
   const ws = workspaceSources(trace)
   if (ws.length === 0) return `Searched your workspace · nothing relevant${timing}${how}`
   return `Searched your workspace · ${plural(ws.length, 'source')}${timing}${how}`

@@ -136,11 +136,31 @@ export function localAiBacklog(): {
  * embedding model configured they report a reason and write nothing, which is
  * the honest outcome rather than a silent keyword-only downgrade.
  */
-export async function sweepEmbeddings(): Promise<{
+//
+// Both pools embed through the Background AI tasks gate, so with the switch off
+// only a local model is asked and, with none, nothing is sent and the reason
+// comes back.
+//
+// Single-flight: the 5-minute tick and an on-demand kick (a key saved, the
+// switch turned on) must not embed the same backlog twice in parallel. A call
+// made while a sweep is running joins that sweep.
+export interface EmbeddingSweepResult {
   documents: number
   knowledge: number
   reason?: string
-}> {
+}
+
+let embeddingSweep: Promise<EmbeddingSweepResult> | null = null
+
+export function sweepEmbeddings(): Promise<EmbeddingSweepResult> {
+  if (embeddingSweep) return embeddingSweep
+  embeddingSweep = runEmbeddingSweep().finally(() => {
+    embeddingSweep = null
+  })
+  return embeddingSweep
+}
+
+async function runEmbeddingSweep(): Promise<EmbeddingSweepResult> {
   const docs = await reindexDocuments(false)
   const knowledge = await reindexKnowledge(false)
   return {
@@ -148,4 +168,15 @@ export async function sweepEmbeddings(): Promise<{
     knowledge: knowledge.embedded,
     reason: docs.reason ?? knowledge.reason
   }
+}
+
+/**
+ * Start a sweep now without waiting for it — for the moments the corpus becomes
+ * embeddable, or embeddable under a different model: an OpenAI key saved, or
+ * Background AI tasks turned on. Rather than leave the person on keyword search
+ * until the next 5-minute tick. Never throws; a failure leaves keyword search in
+ * place exactly as before.
+ */
+export function kickEmbeddingSweep(): void {
+  void sweepEmbeddings().catch((err) => console.error('[local-ai] embedding sweep failed:', err))
 }

@@ -20,8 +20,17 @@
 // inside src/main/ai/*, which the local-ai branch owns.
 
 import { backgroundAiEnabled } from './privacyPrefs'
-import { embedTexts, type EmbedResult } from './ai/embeddings'
-import { localEmbed } from './ai/localModel'
+import { embedTexts, activeEmbedModel, type EmbedResult } from './ai/embeddings'
+import { localEmbed, localModelStatus } from './ai/localModel'
+
+/**
+ * How many texts one backfill request carries. localEmbed sends the whole
+ * array in ONE call on a 60 s timeout, so an unbounded backlog times out, the
+ * request returns null and every item in it is lost — the backfill silently
+ * achieves nothing at exactly the scale it exists for. Batching also makes
+ * progress durable: a later failure keeps the batches already written.
+ */
+export const EMBED_BATCH = 16
 
 /** Why a background job did not use a model. Shown in Settings next to search coverage. */
 export const BACKGROUND_AI_OFF = 'background_ai_off' as const
@@ -84,4 +93,23 @@ export async function gatedEmbedQueryTagged(
 ): Promise<{ vector: number[]; model: string } | null> {
   const r = await gatedEmbedTexts([text], 'query')
   return r.ok && r.vectors[0] ? { vector: r.vectors[0], model: r.model } : null
+}
+
+/**
+ * The model tag the GATED route would write right now, without embedding
+ * anything: the live route when background AI is allowed, otherwise the local
+ * embedder only (or null when there is none). Reindexers compare stored vectors
+ * against this to find stale ones, and coverage counts what this route can
+ * actually compare. It must agree with gatedEmbedTexts, or a backfill with
+ * Background AI tasks off would treat local vectors as stale while the gate
+ * refuses the cloud route that would replace them. Never throws.
+ */
+export async function gatedActiveEmbedModel(): Promise<string | null> {
+  if (backgroundModelAllowed()) return activeEmbedModel().catch(() => null)
+  try {
+    const m = (await localModelStatus()).embedModel
+    return m ? (m.startsWith('local:') ? m : `ollama:${m}`) : null
+  } catch {
+    return null
+  }
 }

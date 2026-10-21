@@ -53,6 +53,7 @@ import { normalizeIntentClass } from '@shared/workItems'
 import { MEMORY_SYSTEM, buildChatMemoryPrompt, parseMemoryResponse } from './memoryExtract'
 import { addMemory, listMemoriesBalanced } from '../db/memory'
 import { embeddingConfigured } from './embeddings'
+import { chatRetrievalCoverage, traceSemantic } from '../embeddingCoverage'
 import { createChatStreamConsumer } from './chatStreamConsumer'
 import { renderAttachments } from './chatAttachments'
 import { renderMentions } from './chatMentions'
@@ -1539,6 +1540,9 @@ interface PreparedChatCall {
   // means literal keyword matching, and the trace discloses it. Null when
   // retrieval never ran.
   semantic: boolean | null
+  // Share of what this turn searched that was ranked by meaning, 0..1
+  // (embeddingCoverage.chatRetrievalCoverage). Null when unknown.
+  semanticCoverage: number | null
   // What actually ran this turn (A4, AI-10): discovery ideation turns gate
   // both pools, and the R21 globe gates the web. Reported to the renderer so
   // the trace never claims a search that did not happen.
@@ -1620,6 +1624,8 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
   // Whether an embedding route existed for this search (defect #15). Null =
   // unknown (retrieval skipped or failed), and the trace discloses nothing.
   let semanticAvailable: boolean | null = null
+  // How much of it that route could actually compare. Null = unknown.
+  let semanticCoverage: number | null = null
   // What actually ran, reported honestly to the trace (A4, AI-10).
   let searched = { workspace: false, web: false }
   const t0 = Date.now()
@@ -1651,7 +1657,7 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
       // (see WEB_SEARCH_MIN_QUERY). Web results continue the same [n] space so
       // one numbering rules every citation, internal or web.
       const emptyMail = { sources: [], rounds: 0, exhausted: false, fetched: 0 }
-      const [rawSources, webResults, semanticOn, mailGround] = await Promise.all([
+      const [rawSources, webResults, semanticOn, mailGround, coverage] = await Promise.all([
         retrieveSources(lastUser, undefined, scope.length ? scope : undefined, {
           excludeChatId: req.conversationId
         }),
@@ -1668,9 +1674,17 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
         // through history rather than settling for whatever happens to be cached.
         // Gated on the same workspace decision as the rest of retrieval, so a
         // pure ideation turn never touches the mail server.
-        gate.workspace ? mailGroundingForQuestion(lastUser).catch(() => emptyMail) : Promise.resolve(emptyMail)
+        gate.workspace ? mailGroundingForQuestion(lastUser).catch(() => emptyMail) : Promise.resolve(emptyMail),
+        // Coverage probe, same deal. Availability alone overstates the truth: a
+        // route can exist while most of the workspace has no vector it can
+        // compare, which reads as an assistant that only knows recent things.
+        chatRetrievalCoverage()
       ])
-      semanticAvailable = semanticOn
+      // Measured against the GATED route: with Background AI tasks off and no
+      // local model, a saved OpenAI key embeds nothing (traceSemantic).
+      const honest = traceSemantic(semanticOn, coverage)
+      semanticAvailable = honest.semantic
+      semanticCoverage = honest.semanticCoverage
       // Mail joins the workspace pool BEFORE numbering, so an email is cited [n]
       // exactly like a document and the model has one numbering to obey. Appended
       // rather than interleaved: retrieveSources has already ranked its own pool,
@@ -1775,6 +1789,7 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
     sources: citedSources,
     retrievalMs: Date.now() - t0,
     semantic: semanticAvailable,
+    semanticCoverage,
     searched
   }
 }
@@ -2198,6 +2213,7 @@ export async function sendChatStream(
     sources: prepared.sources,
     elapsedMs: prepared.retrievalMs,
     semantic: prepared.semantic ?? undefined,
+    semanticCoverage: prepared.semanticCoverage ?? undefined,
     searched: prepared.searched
   })
 

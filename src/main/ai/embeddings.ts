@@ -54,6 +54,28 @@ export async function embedTexts(texts: string[], kind: 'document' | 'query' = '
   }
 }
 
+/**
+ * The model tag `embedTexts` WOULD write right now, without embedding anything.
+ * Mirrors the preference order above — the local embedder first (the bundled
+ * model tags itself `local:<label>`, an Ollama model is tagged `ollama:<name>`),
+ * then OpenAI unless AI is set to run on this device — so a stored vector's tag
+ * can be compared against the live route and a vector written by a different
+ * embedder recognised as stale. Null when no route is configured. Never throws.
+ *
+ * Ungated: what the Background AI tasks switch allows is decided at the call
+ * site (backgroundAiGate.gatedActiveEmbedModel), the same split as embedTexts.
+ */
+export async function activeEmbedModel(): Promise<string | null> {
+  try {
+    const embedModel = (await localModelStatus()).embedModel
+    if (embedModel) return embedModel.startsWith('local:') ? embedModel : `ollama:${embedModel}`
+  } catch {
+    // Local probe unavailable — fall through to the cloud route.
+  }
+  if (localOnlyActive()) return null
+  return resolveOpenAIKey() ? EMBED_MODEL : null
+}
+
 export async function embedQuery(text: string): Promise<number[] | null> {
   const r = await embedTexts([text], 'query')
   return r.ok && r.vectors[0] ? r.vectors[0] : null

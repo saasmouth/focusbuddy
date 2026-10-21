@@ -2622,12 +2622,16 @@ const api = {
         withText: number
         indexed: number
         embedded: number
+        // Comparable to the live (gated) embedder; absent = not measured.
+        meaningUsable?: number
+        meaningStale?: number
         enriched: number
         memoryScanned: number
       }
       files: { total: number; indexed: number }
       conversations: { total: number; indexed: number }
-      knowledge: { total: number }
+      knowledge: { total: number; meaningUsable?: number }
+      meaningModel?: string | null
     }> => ipcRenderer.invoke('brain:coverage'),
     // The bundled on-device model (Settings → AI → Local on this device).
     getStatus: (): Promise<LocalAiStatus> => ipcRenderer.invoke('localAi:getStatus'),

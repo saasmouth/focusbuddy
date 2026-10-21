@@ -10,11 +10,17 @@ import { listDocuments, getDocument } from './db/documents'
 import { extractDocText, selectPassages, snippetFor, type WorkspaceSource } from './workspaceRank'
 // Through the Background AI tasks gate: content goes to a cloud embedder only
 // while the person allows it (backgroundAiGate.ts).
-import { gatedEmbedTexts as embedTexts, gatedEmbedQueryTagged as embedQueryTagged } from './backgroundAiGate'
-import { setEmbedding, listEmbeddings, listEmbeddingsTagged, hasEmbedding } from './db/embeddings'
+import {
+  gatedEmbedTexts as embedTexts,
+  gatedEmbedQueryTagged as embedQueryTagged,
+  gatedActiveEmbedModel,
+  EMBED_BATCH
+} from './backgroundAiGate'
+import { coverageFor, needsEmbedding, type CoverageReport } from './ai/coverageMath'
+import { setEmbedding, listEmbeddings, listEmbeddingsTagged, listEmbeddingModels } from './db/embeddings'
 import { listDocMetadata, getDocMetadata, type DocMetadata } from './db/docMetadata'
 import { bumpAnswerCacheVersion } from './ai/answerCache'
-import { cosineSim, blendSemantic, gateSemantic, type ScoredItem } from '@shared/semantic'
+import { cosineSim, blendSemantic, gateSemantic, semanticShare, type ScoredItem } from '@shared/semantic'
 import { reindexDocumentChunks } from './chunkIndex'
 
 const KIND = 'document'
@@ -148,17 +154,25 @@ export async function embedDocument(docId: string): Promise<void> {
 
 // Backfill embeddings for documents lacking one (or all, when force). Returns the
 // count embedded and, if it could not, why (e.g. no_key) so the UI stays honest.
-// Embedding batch size. The whole backlog used to go in ONE request: with a
-// large workspace that is hundreds of kilobytes of text in a single call, and
-// because a failure returned `embedded: 0` and wrote nothing, a backlog too big
-// to embed in one shot could never shrink — it failed identically every time.
-// Batching makes progress durable: each batch that succeeds is persisted, and a
-// later failure leaves the earlier work in place.
-const EMBED_BATCH = 16
-
+// Batched (EMBED_BATCH, backgroundAiGate.ts). The whole backlog used to go in ONE
+// request: with a large workspace that is hundreds of kilobytes of text in a
+// single call, and because a failure returned `embedded: 0` and wrote nothing, a
+// backlog too big to embed in one shot could never shrink — it failed
+// identically every time. Batching makes progress durable: each batch that
+// succeeds is persisted, and a later failure leaves the earlier work in place.
+//
+// A vector written by a different embedder than the live (gated) route counts
+// as missing — see needsEmbedding. Without that, switching embedder (a local
+// model installed, Background AI tasks turned off or on) left every document
+// keyword-only until a forced reindex nobody knew to run.
 export async function reindexDocuments(force = false): Promise<{ embedded: number; reason?: string }> {
   const items = loadDocItems()
-  const todo = force ? items : items.filter((d) => !hasEmbedding(KIND, d.docId))
+  let todo = items
+  if (!force) {
+    const active = await gatedActiveEmbedModel()
+    const tagged = listEmbeddingModels(KIND)
+    todo = items.filter((d) => needsEmbedding(tagged.get(d.docId), active))
+  }
   if (todo.length === 0) return { embedded: 0 }
   let embedded = 0
   let reason: string | undefined
@@ -180,6 +194,15 @@ export async function reindexDocuments(force = false): Promise<{ embedded: numbe
     })
   }
   return reason ? { embedded, reason } : { embedded }
+}
+
+/** Coverage of the document pool against a given live embedder. Pure lookup. */
+export function documentCoverage(activeModel: string | null): CoverageReport {
+  return coverageFor(
+    loadDocItemsCached().map((d) => d.docId),
+    listEmbeddingModels(KIND),
+    activeModel
+  )
 }
 
 // Semantic + keyword blended search over documents, returned as WorkspaceSource
@@ -211,8 +234,10 @@ export async function semanticSearchDocuments(query: string, limit = 6): Promise
   })
   // The #5 gate runs BEFORE the blend: relative band + keyword corroboration
   // (see gateSemantic) — an uncorroborated cosine field admits nothing, so
-  // enabling embeddings can no longer inject six unrelated documents.
-  return blendSemantic(gateSemantic(scored), { limit }).map((d, i) => ({
+  // enabling embeddings can no longer inject six unrelated documents. Index
+  // coverage of this set goes to the blend so a partly-indexed corpus does not
+  // lock its un-indexed remainder out (see BlendOpts.coverage).
+  return blendSemantic(gateSemantic(scored), { limit, coverage: semanticShare(scored) }).map((d, i) => ({
     docId: d.docId,
     title: d.title || 'Untitled',
     docType: d.docType,

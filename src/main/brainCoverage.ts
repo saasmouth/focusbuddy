@@ -3,6 +3,7 @@ import { getActiveOrgId } from './db/activeOrg'
 import { listDocuments, getDocument } from './db/documents'
 import { extractDocText } from './workspaceRank'
 import { localAiPassCount } from './db/localAiLedger'
+import { workspaceCoverage, type WorkspaceCoverage } from './embeddingCoverage'
 
 // What the assistant can actually see.
 //
@@ -20,13 +21,22 @@ export interface BrainCoverage {
     total: number
     withText: number
     indexed: number
+    /** Documents holding a whole-document vector under ANY model. */
     embedded: number
+    /** Documents the live (gated) embedder can actually compare. What
+     *  "Ranked by meaning" means; `embedded` overstates it whenever vectors are model-stale. Absent
+     *  when the measurement failed: unknown, not zero. */
+    meaningUsable?: number
+    /** Documents whose only vectors were written by a different embedder. */
+    meaningStale?: number
     enriched: number
     memoryScanned: number
   }
   files: { total: number; indexed: number }
   conversations: { total: number; indexed: number }
-  knowledge: { total: number }
+  knowledge: { total: number; meaningUsable?: number }
+  /** The embedder search questions go to; null when none is allowed. */
+  meaningModel?: string | null
 }
 
 function countDistinctChunkSources(sourceType: string): number {
@@ -51,8 +61,16 @@ function scalar(sql: string, ...params: unknown[]): number {
   }
 }
 
-export function brainCoverage(): BrainCoverage {
+export async function brainCoverage(): Promise<BrainCoverage> {
   const org = getActiveOrgId()
+  // Model-aware coverage. Best-effort: on failure the fields stay absent and
+  // the panel falls back to the raw count rather than showing an invented 0.
+  let meaning: WorkspaceCoverage | null = null
+  try {
+    meaning = await workspaceCoverage()
+  } catch {
+    meaning = null
+  }
   const metas = listDocuments()
   let withText = 0
   for (const m of metas) {
@@ -69,6 +87,9 @@ export function brainCoverage(): BrainCoverage {
         "SELECT count(*) AS c FROM fb_embeddings WHERE item_type = 'document' AND org_id = ?",
         org
       ),
+      ...(meaning
+        ? { meaningUsable: meaning.documents.usable, meaningStale: meaning.documents.stale }
+        : {}),
       enriched: scalar('SELECT count(*) AS c FROM fb_document_metadata'),
       memoryScanned: localAiPassCount('memory')
     },
@@ -80,6 +101,14 @@ export function brainCoverage(): BrainCoverage {
       total: scalar('SELECT count(*) AS c FROM ai_chat_conversations'),
       indexed: countDistinctChunkSources('chat')
     },
-    knowledge: { total: scalar('SELECT count(*) AS c FROM fb_knowledge') }
+    knowledge: {
+      total: scalar('SELECT count(*) AS c FROM fb_knowledge'),
+      ...(meaning ? { meaningUsable: meaning.knowledge.usable } : {})
+    },
+    ...(meaning
+      ? {
+          meaningModel: meaning.model
+        }
+      : {})
   }
 }
