@@ -25,6 +25,7 @@ import { drawId, solid } from '@shared/draw'
 import { multiplyMatrix, transformPath, type Box, type Matrix, type Pt } from '@shared/drawGeometry'
 import { assetIdFor, dataUrlMime } from '@shared/draw/assets'
 import { DRAW_V2_WRITES } from '@shared/draw/compat'
+import { v2BlockedReason } from './v2gate'
 import { v1Obstacle } from '@shared/draw/migrate'
 import type { DrawArtboard, DrawAsset, DrawDoc, DrawDocVectorLayer, DrawGroupNode, DrawImageNode, DrawNode, DrawSwatch, DrawTextNode } from '@shared/draw/model'
 import { normalizeDrawDoc } from '@shared/draw/normalize'
@@ -416,11 +417,11 @@ export function centreDelta(box: Box, at: Pt): { dx: number; dy: number } {
 
 /**
  * Why a document can no longer be written the way it is stored, after a paste:
- * a drawing still saved as v1 (while v2 writes are off) cannot take content
- * only v2 can hold. Null when the paste is fine.
+ * a drawing that must stay v1 (v2 writes off, as in a live session with someone
+ * on an older version) cannot take content only v2 can hold. Null when fine.
  */
-export function pasteStorageObstacle(before: DrawDoc, after: DrawDoc, storedSchema: number): string | null {
-  if (DRAW_V2_WRITES || storedSchema >= 2) return null
+export function pasteStorageObstacle(before: DrawDoc, after: DrawDoc, storedSchema: number, v2Writes: boolean = DRAW_V2_WRITES): string | null {
+  if (v2Writes || storedSchema >= 2) return null
   if (v1Obstacle(before) !== null) return null
   return v1Obstacle(after)
 }
@@ -461,7 +462,7 @@ export function looksLikeSvg(text: string): boolean {
  * carries what decides whether the art may use v2-only structure (groups).
  */
 export type SvgPasteResult = { nodes: DrawNode[]; assets: Record<string, DrawAsset>; swatches?: DrawSwatch[]; report?: string } | { error: string }
-export type SvgPasteImporter = (svg: string, target: DrawDoc, info: { storedSchema: number }) => SvgPasteResult | Promise<SvgPasteResult>
+export type SvgPasteImporter = (svg: string, target: DrawDoc, info: { storedSchema: number; v2Writes: boolean }) => SvgPasteResult | Promise<SvgPasteResult>
 
 let svgImporter: SvgPasteImporter | null = null
 
@@ -663,7 +664,7 @@ export async function incomingFrom(ctx: EditorCtx, read: ClipboardReadResult): P
     if (importer) {
       let res: SvgPasteResult
       try {
-        res = await importer(svg, doc, { storedSchema: ctx.get().storedSchema })
+        res = await importer(svg, doc, { storedSchema: ctx.get().storedSchema, v2Writes: ctx.get().v2Writes })
       } catch (e) {
         res = { error: e instanceof Error ? e.message : String(e) }
       }
@@ -769,9 +770,10 @@ export async function pasteFromClipboard(ctx: EditorCtx, mode: PasteMode): Promi
     ctx.status(placed.error)
     return false
   }
-  const why = pasteStorageObstacle(ctx.doc(), placed.doc, ctx.get().storedSchema)
+  const st = ctx.get()
+  const why = pasteStorageObstacle(ctx.doc(), placed.doc, st.storedSchema, st.v2Writes)
   if (why) {
-    ctx.status(`Can't paste into this drawing yet: it is saved in the older format, which can't hold ${why}.`)
+    ctx.status(`Can't paste into this drawing yet: it is saved in the older format, which can't hold ${why} (${v2BlockedReason(st)}).`)
     return false
   }
   ctx.history.commit(placed.doc, PASTE_LABEL[mode])

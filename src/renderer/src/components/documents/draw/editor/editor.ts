@@ -11,7 +11,7 @@ import { createStore, type StoreApi } from 'zustand/vanilla'
 import { solid } from '@shared/draw'
 import type { Pt } from '@shared/drawGeometry'
 import { putAsset } from '@shared/draw/assets'
-import { drawDocCompatibility, drawDocForStorage } from '@shared/draw/compat'
+import { DRAW_V2_WRITES, drawDocCompatibility, drawDocForStorage } from '@shared/draw/compat'
 import type { DrawDoc, DrawNode } from '@shared/draw/model'
 import { declaredSchema, normalizeDrawDoc } from '@shared/draw/normalize'
 import { hitNode, patchLayer } from '@shared/draw/ops'
@@ -77,6 +77,8 @@ export function initialEditorState(content: unknown): EditorState {
     dialog: null,
     placing: null,
     liveUndoTick: 0,
+    v2Writes: DRAW_V2_WRITES,
+    v2Blocked: null,
     anchors: {},
     penTarget: null,
     curvature: null,
@@ -109,7 +111,7 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
   function emit(doc: DrawDoc): void {
     const s = store.getState()
     if (s.readOnly) return
-    services.host.emit(drawDocForStorage(doc, { stored: s.storedSchema }))
+    services.host.emit(drawDocForStorage(doc, { stored: s.storedSchema, allowV2: s.v2Writes }))
   }
 
   const history = createHistory(store, {

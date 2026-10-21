@@ -31,6 +31,8 @@ import { seedYDocFromPm } from '../../lib/yjsSeed'
 import { reconcileMap, yToJson } from '../../lib/yjsJson'
 import { createLiveUndo, reconcileMapKeyed, type LiveUndo } from '../../lib/yjsKeyedJson'
 import { YjsDocSync } from '../../lib/yjsDocSync'
+import { DRAW_V2_AWARENESS_FIELD, liveRoomReadsDrawV2 } from '../../lib/drawLiveSchema'
+import { LIVE_V1_PEER_REASON } from '../documents/draw/editor/v2gate'
 import { sendSocketMessage, setYjsSocketHandler, setSocketOpenHandler } from '../../lib/messagingSocket'
 
 // Editor for a LIVE (collaborative) document. Everyone edits at once: there is
@@ -114,6 +116,9 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
   // PlexiiDraw only: an undo stack of this person's own changes (see
   // createLiveUndo). The other JSON editors keep their existing undo.
   const [drawUndo, setDrawUndo] = useState<LiveUndo | null>(null)
+  // PlexiiDraw only: does everyone in the session read the v2 drawing format?
+  // If not, the drawing stays v1 for this session (see lib/drawLiveSchema).
+  const [drawPeersReadV2, setDrawPeersReadV2] = useState(true)
 
   useEffect(() => {
     // Live docs co-edit via Yjs (Tiptap for 'doc', the JSON reconcile engine for
@@ -245,8 +250,18 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
     setSocketOpenHandler(() => sync.rejoin())
     const acct = useAccountStore.getState().account?.id
     if (acct) sync.awareness.setLocalStateField('account', acct)
+    // Say this build reads and writes v2 drawings, and watch whether everyone else does.
+    let onPeers: (() => void) | null = null
+    if (meta.docType === 'draw') {
+      sync.awareness.setLocalStateField(DRAW_V2_AWARENESS_FIELD, true)
+      onPeers = () => setDrawPeersReadV2(liveRoomReadsDrawV2(sync.awareness.getStates(), sync.awareness.clientID))
+      sync.awareness.on('change', onPeers)
+      onPeers()
+    }
     jsonCollabRef.current = { docId: liveDocId, ydoc, sync, root, reconcile }
     return () => {
+      if (onPeers) sync.awareness.off('change', onPeers)
+      setDrawPeersReadV2(true)
       ownUndo?.destroy()
       setDrawUndo(null)
       root.unobserveDeep(observer)
@@ -653,6 +668,7 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
               onChange={onJsonChange}
               foldExternal
               liveUndo={drawUndo ?? undefined}
+              v2Blocked={drawPeersReadV2 ? null : LIVE_V1_PEER_REASON}
             />
           ) : (
             <div className="p-6 text-[13px] text-[var(--ink-40)]" data-testid="livedoc-connecting">Connecting live editing…</div>

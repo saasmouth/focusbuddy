@@ -6,6 +6,7 @@
 import type { Matrix, Pt } from '@shared/drawGeometry'
 import { isFiniteMatrix, uiReflect } from '@shared/draw/geometry/transform'
 import { resetBoundingBox, selectionNeedsFrameMatrix, turnedFrameIds } from '@shared/draw/ops'
+import { v2BlockedReason } from '../editor/v2gate'
 import type { Command, EditorCtx, MenuSpec } from '../editor/types'
 import { applyAboutRef, applyTransform, canTransformAgain, editableBounds, editableSelection, transformAgain, v2Allowed } from '../transform/apply'
 import { transformPrefs } from '../transform/prefs'
@@ -73,7 +74,7 @@ export const commands: Command[] = [
     run: (ctx) => {
       const s = ctx.get()
       if (!v2Allowed(s)) {
-        ctx.status('Reset Bounding Box needs the newer drawing format, which is not switched on yet.')
+        ctx.status(`Reset Bounding Box needs the newer drawing format: ${v2BlockedReason(s)}.`)
         return
       }
       const next = resetBoundingBox(s.doc, s.selection)

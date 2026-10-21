@@ -9,6 +9,7 @@ import * as raster from './draw/raster'
 import { scrollToKeepPoint, wheelZoom } from './draw/viewport'
 import { drawId } from '@shared/draw'
 import { assetSrc } from '@shared/draw/assets'
+import { DRAW_V2_WRITES } from '@shared/draw/compat'
 import { docPaintToCss } from '@shared/draw/svg'
 import type { DrawWidgetNode } from '@shared/draw/model'
 import { addObject, primaryArtboard, targetLayerId } from '@shared/draw/ops'
@@ -50,6 +51,12 @@ interface Props {
    * whatever a collaborator changed since it was taken.
    */
   liveUndo?: LiveUndo
+  /**
+   * Live co-editing only: why this drawing must stay in the older (v1) format
+   * for this session -- someone present cannot read v2 -- or null/absent when
+   * it may become v2. v2-only commands then show disabled with this reason.
+   */
+  v2Blocked?: string | null
 }
 
 function keyInput(e: KeyboardEvent): KeyInput {
@@ -66,7 +73,7 @@ function keyInput(e: KeyboardEvent): KeyInput {
   }
 }
 
-export default function DrawStudio({ content, title, onChange, foldExternal = false, liveUndo }: Props): JSX.Element {
+export default function DrawStudio({ content, title, onChange, foldExternal = false, liveUndo, v2Blocked = null }: Props): JSX.Element {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
   const canvases = useRef<Map<string, HTMLCanvasElement>>(new Map())
@@ -85,6 +92,8 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   if (!editorRef.current) {
     const refs = { canvases: canvases.current, loaded: loaded.current, scratch, scroll: scrollRef, onChange: onChangeRef, title: titleRef, liveUndo: liveUndoRef }
     editorRef.current = createDrawEditor(content, createDomServices(refs, () => editorRef.current!.store))
+    // Before anything can be edited: a live session with an older participant keeps the drawing v1.
+    if (v2Blocked) editorRef.current.store.setState({ v2Writes: false, v2Blocked })
   }
   const editor = editorRef.current
   const { ctx, store } = editor
@@ -103,6 +112,11 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     }
     editor.fold(content)
   }, [content, foldExternal, editor])
+
+  // A participant joining or leaving a live session can turn v2 writes off or back on.
+  useEffect(() => {
+    store.setState(v2Blocked ? { v2Writes: false, v2Blocked } : { v2Writes: DRAW_V2_WRITES, v2Blocked: null })
+  }, [v2Blocked, store])
 
   // Re-render when the live own-change stack changes, so Undo enables correctly.
   useEffect(() => (liveUndo ? liveUndo.subscribe(() => store.setState((s) => ({ liveUndoTick: s.liveUndoTick + 1 }))) : undefined), [liveUndo, store])

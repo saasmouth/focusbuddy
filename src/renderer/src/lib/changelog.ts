@@ -38,6 +38,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    // Started by the PlexiiDraw Phase 1 merge (draw-int); the release adds the rest of this build's notes.
+    version: '4.3.39-local.8',
+    date: '2026-10-21',
+    title: 'PlexiiDesk 4.3.39-local.8 \u2014 PlexiiDraw saves drawings in its new format (test build)',
+    tag: 'feature',
+    summary:
+      'A local test build. PlexiiDraw gains Illustrator\u2019s keyboard shortcuts, cut, copy and paste, Place and SVG import, path editing, transform tools, and groups, clipping masks and compound paths.',
+    highlights: [
+      'Drawings now save in the new PlexiiDraw format. Open and edit them in this version or newer; older versions of PlexiiDesk may not show groups, masks or extra artboards.'
+    ]
+  },
+  {
     version: '4.3.39-local.7',
     date: '2026-10-21T05:48:00Z',
     title: 'PlexiiDesk 4.3.39-local.7 \u2014 duplicating in PlexiiDraw no longer stops the drawing saving (test build)',

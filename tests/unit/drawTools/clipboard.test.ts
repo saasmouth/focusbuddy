@@ -20,7 +20,7 @@ import {
   type ClipboardWriteInput,
   type DrawClipboardBackend
 } from '../../../src/renderer/src/components/documents/draw/editor/clipboard'
-import { blank, harness, rect, type Harness } from './harness'
+import { blank, harness, rect, withOlderPeer, type Harness } from './harness'
 
 // A 1x1 PNG and a tiny JPEG header (only the bytes' identity matters here).
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
@@ -393,15 +393,25 @@ describe('between drawings', () => {
     expect(((reused.nodes[0] as DrawGroupNode).children[0] as DrawPathNode).fill).toEqual({ type: 'swatch', id: 'mine' })
   })
 
-  it('into a drawing still stored as v1 (v2 writes off), content only v2 can hold is refused with the reason', async () => {
+  it('into a v1 drawing, v2-only content pastes and the drawing becomes v2 (v2 writes are on)', async () => {
     const src = harness(swatchDoc())
     src.ed.ctx.select(['g'])
     await run(src, 'edit.copy')
     const dst = harness(blank([]))
     await run(dst, 'edit.paste')
+    expect(dst.objects().map((o) => o.type)).toEqual(['group'])
+    expect((dst.emitted.at(-1) as { schemaVersion: number }).schemaVersion).toBe(2)
+  })
+
+  it('in a live session with someone on an older version (v2 writes off), content only v2 can hold is refused with the reason', async () => {
+    const src = harness(swatchDoc())
+    src.ed.ctx.select(['g'])
+    await run(src, 'edit.copy')
+    const dst = withOlderPeer(harness(blank([])))
+    await run(dst, 'edit.paste')
     expect(dst.objects()).toHaveLength(0)
     expect(dst.state().past).toHaveLength(0)
-    expect(dst.state().status).toMatch(/^Can't paste into this drawing yet: it is saved in the older format, which can't hold /)
+    expect(dst.state().status).toMatch(/^Can't paste into this drawing yet: it is saved in the older format, which can't hold .+ \(someone in this live session is using an older version of PlexiiDesk/)
     // Plain v1 art pastes into it fine and it stays a v1 drawing.
     src.ed.ctx.select(['other'])
     await run(src, 'edit.copy')
@@ -460,8 +470,8 @@ describe('from other apps', () => {
     expect([img.x, img.y, img.w, img.h]).toEqual([140, 110, 120, 80])
     expect(h.doc().assets[img.assetId]).toMatchObject({ mime: 'image/png', dataUrl: PNG, w: 120, h: 80 })
     expect(h.state().past.map((p) => p.label)).toEqual(['Paste'])
-    // A v1 drawing can hold a picture, so this stays a v1 save.
-    expect((h.emitted.at(-1) as { schemaVersion: number }).schemaVersion).toBe(1)
+    // v2 writes are on: a v1 drawing becomes v2 on its first edit.
+    expect((h.emitted.at(-1) as { schemaVersion: number }).schemaVersion).toBe(2)
   })
 
   it('a JPEG keeps its own bytes, and a picture larger than the window is scaled to fit it', async () => {

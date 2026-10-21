@@ -45,7 +45,7 @@ import { buildMenu } from '../../src/renderer/src/components/documents/editor/Dr
 import { hitChainAt, isolationChain } from '../../src/renderer/src/components/documents/draw/editor/isolation'
 import { keyBinding } from '../../src/renderer/src/components/documents/draw/commands/registry'
 import { setKeyPlatform } from '../../src/renderer/src/components/documents/draw/commands/keys'
-import { blank, harness, rect } from './drawTools/harness'
+import { blank, harness, rect, withOlderPeer } from './drawTools/harness'
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -408,8 +408,8 @@ describe('Compound paths (pure)', () => {
     expect(a).toBe(-b)
     expect(pointInPath(p.path, { x: 50, y: 50 })).toBe(false) // the hole
     expect(pointInPath(p.path, { x: 10, y: 50 })).toBe(true) // the ring
-    // Already a v1-representable object: compound paths need no v2.
-    expect((drawDocForStorage(c, { stored: 1 }) as { schemaVersion: number }).schemaVersion).toBe(1)
+    // Already a v1-representable object: compound paths need no v2 (a v1-only live session can still store them as v1).
+    expect((drawDocForStorage(c, { stored: 1, allowV2: false }) as { schemaVersion: number }).schemaVersion).toBe(1)
   })
 
   it('groups of paths count; a group with type in it does not', () => {
@@ -489,14 +489,23 @@ describe('the editor (Illustrator keys, one undo step each)', () => {
     expect(ids(h.objects())).toEqual(['a', 'b', 'c'])
   })
 
-  it('a drawing still written as v1 cannot hold groups: Group is greyed and the key says why, changing nothing', () => {
+  it('a v1 drawing groups, and becomes v2 on that edit (v2 writes are on)', () => {
     const h = harness(blank([rect('a', 0, 0, 10, 10), rect('b', 20, 0, 10, 10)]))
+    h.ed.ctx.select(['a', 'b'])
+    expect(menuText(h, 'object')).toMatch(/"label":"Group"[^}]*"disabled":false/)
+    h.key('g', { meta: true, code: 'KeyG' })
+    expect(h.objects().map((o) => o.type)).toEqual(['group'])
+    expect((h.emitted.at(-1) as { schemaVersion: number }).schemaVersion).toBe(2)
+  })
+
+  it('in a live session with someone on an older version the drawing stays v1: Group is greyed and the key says why, changing nothing', () => {
+    const h = withOlderPeer(harness(blank([rect('a', 0, 0, 10, 10), rect('b', 20, 0, 10, 10)])))
     h.ed.ctx.select(['a', 'b'])
     expect(menuText(h, 'object')).toMatch(/"label":"Group"[^}]*"disabled":true/)
     h.key('g', { meta: true, code: 'KeyG' })
     expect(ids(h.objects())).toEqual(['a', 'b'])
     expect(h.state().past).toHaveLength(0)
-    expect(h.state().status).toMatch(/newer PlexiiDraw drawing format/)
+    expect(h.state().status).toMatch(/newer PlexiiDraw drawing format: someone in this live session is using an older version of PlexiiDesk/)
     // Compound paths are v1 content, so they still work there.
     h.key('8', { meta: true, code: 'Digit8' })
     expect(h.objects()).toHaveLength(1)

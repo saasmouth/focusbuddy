@@ -75,9 +75,15 @@ describe.each(corpus)('v1 -> v2: $name', ({ raw }) => {
     expect(normalizeDrawDoc(once)).toEqual(once)
   })
 
-  it('writes back exactly what v1 writes while v2 writes are off', () => {
-    expect(DRAW_V2_WRITES).toBe(false)
-    expect(JSON.stringify(drawDocForStorage(v2))).toBe(JSON.stringify(drawBodyForStorage(v1)))
+  it('with v2 writes off (a live session with an older participant) writes back exactly what v1 writes', () => {
+    expect(JSON.stringify(drawDocForStorage(v2, { allowV2: false }))).toBe(JSON.stringify(drawBodyForStorage(v1)))
+  })
+
+  it('by default (v2 writes on since local.8) is written as v2, and reads back as the same drawing', () => {
+    expect(DRAW_V2_WRITES).toBe(true)
+    const out = drawDocForStorage(v2) as DrawDoc
+    expect(out.schemaVersion).toBe(2)
+    expect(normalizeDrawDoc(out)).toEqual(normalizeDrawDoc(drawDocForStorage(v2, { allowV2: true })))
   })
 
   it('is representable as v1 and judged the same by the v1 and v2 guards', () => {
@@ -320,10 +326,10 @@ describe('v2 forward compatibility', () => {
   })
 })
 
-describe('writing: v2 is gated behind the guard', () => {
+describe('writing: v2 is on (local.8); off only where a live session needs v1', () => {
   it('with writes off, a migrated v1 drawing is written as v1 -- an older app can open it', () => {
     const v1 = normalizeDrawBody(JSON.parse(readFileSync(join(CORPUS_DIR, '10-raster-layers.json'), 'utf8')))
-    const out = drawDocForStorage(v1ToV2(v1)) as DrawBody
+    const out = drawDocForStorage(v1ToV2(v1), { allowV2: false }) as DrawBody
     expect(out.schemaVersion).toBe(1)
     expect(JSON.stringify(out)).toBe(JSON.stringify(drawBodyForStorage(v1)))
   })
@@ -343,7 +349,7 @@ describe('writing: v2 is gated behind the guard', () => {
 
   it('a drawing that already IS v2 stays v2 even with writes off (writing it as v1 would lose it)', () => {
     const doc = normalizeDrawDoc(v2Doc([{ id: 'g', type: 'group', children: [] }]))
-    expect((drawDocForStorage(doc, { stored: 2 }) as DrawDoc).schemaVersion).toBe(2)
+    expect((drawDocForStorage(doc, { stored: 2, allowV2: false }) as DrawDoc).schemaVersion).toBe(2)
   })
 
   it('v2ToV1 refuses rather than drops what v1 cannot hold', () => {

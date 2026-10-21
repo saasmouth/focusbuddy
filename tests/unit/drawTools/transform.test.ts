@@ -8,7 +8,7 @@ import { lastTransform } from '../../../src/renderer/src/components/documents/dr
 import { resetTransformPrefs, setTransformPrefs } from '../../../src/renderer/src/components/documents/draw/transform/prefs'
 import { transformOrigin } from '../../../src/renderer/src/components/documents/draw/tools/transformTool'
 import { alignState } from '../../../src/renderer/src/components/documents/draw/commands/align.commands'
-import { blank, harness, rect, type Harness } from './harness'
+import { blank, harness, rect, withOlderPeer, type Harness } from './harness'
 
 beforeEach(() => resetTransformPrefs())
 
@@ -145,14 +145,20 @@ describe('Reflect tool (O)', () => {
     expectBox(box(h, 'a'), 130, 100, 10, 10)
   })
 
-  it('refuses honestly to reflect text on a drawing that cannot hold a frame matrix yet, and does it on a v2 drawing', () => {
+  it('reflects text in a v1 drawing (it becomes v2); refuses honestly in a v1-only live session; does it on a v2 drawing', () => {
     const t = { id: 't', type: 'text', x: 10, y: 10, w: 100, text: 'Hi', fontSize: 20, fill: { type: 'solid', color: '#000' } }
-    const h = harness(blank([t]))
+    const m = harness(blank([t]))
+    m.ed.ctx.select(['t'])
+    m.tool('reflect')
+    m.drag([60, 0], [60, 50])
+    expect((obj(m, 't') as { transform?: number[] }).transform).toBeDefined()
+    expect((m.emitted.at(-1) as { schemaVersion: number }).schemaVersion).toBe(2)
+    const h = withOlderPeer(harness(blank([t])))
     h.ed.ctx.select(['t'])
     h.tool('reflect')
     h.drag([60, 0], [60, 50])
     expect(h.state().past).toHaveLength(0)
-    expect(h.state().status).toMatch(/newer drawing format/)
+    expect(h.state().status).toMatch(/newer drawing format: someone in this live session is using an older version of PlexiiDesk/)
     const g = v2([t])
     g.ed.ctx.select(['t'])
     g.tool('reflect')
@@ -327,22 +333,29 @@ describe('Object › Transform commands', () => {
     expect(h.state().dialog?.id).toBe('transform-each')
   })
 
-  it('Flip Horizontal mirrors about the reference point; on v1 drawings text cannot be flipped (honestly disabled)', async () => {
+  it('Flip Horizontal mirrors about the reference point; text flips too, except in a v1-only live session (honestly disabled)', async () => {
     const h = harness(blank([rect('a', 0, 0, 10, 10)]))
     h.ed.ctx.select(['a'])
     setTransformPrefs({ refPoint: 'l' })
     h.run('object.flipHorizontal')
     expectBox(box(h, 'a'), -10, 0, 10, 10)
-    const t = harness(blank([{ id: 't', type: 'text', x: 0, y: 0, w: 50, text: 'x', fontSize: 12, fill: { type: 'solid', color: '#000' } }]))
-    t.ed.ctx.select(['t'])
+    const text = { id: 't', type: 'text', x: 0, y: 0, w: 50, text: 'x', fontSize: 12, fill: { type: 'solid', color: '#000' } }
     const { commandById } = await import('../../../src/renderer/src/components/documents/draw/commands/registry')
+    const n = harness(blank([text]))
+    n.ed.ctx.select(['t'])
+    expect(commandById('object.flipHorizontal')!.enabled!(n.ed.ctx)).toBe(true)
+    const t = withOlderPeer(harness(blank([text])))
+    t.ed.ctx.select(['t'])
     expect(commandById('object.flipHorizontal')!.enabled!(t.ed.ctx)).toBe(false)
   })
 
   it('Reset Bounding Box is enabled only for turned frames on a drawing that can hold a matrix', async () => {
     const { commandById } = await import('../../../src/renderer/src/components/documents/draw/commands/registry')
     const reset = commandById('object.transform.resetBoundingBox')!
-    const v1 = harness(blank([image('i', 0, 0, 40, 30, { rotation: 30 })]))
+    const migrated = harness(blank([image('i', 0, 0, 40, 30, { rotation: 30 })]))
+    migrated.ed.ctx.select(['i'])
+    expect(reset.enabled!(migrated.ed.ctx)).toBe(true)
+    const v1 = withOlderPeer(harness(blank([image('i', 0, 0, 40, 30, { rotation: 30 })])))
     v1.ed.ctx.select(['i'])
     expect(reset.enabled!(v1.ed.ctx)).toBe(false)
     const h = v2([image('i', 0, 0, 40, 30, { rotation: 30 }), rect('a', 0, 0, 5, 5)])

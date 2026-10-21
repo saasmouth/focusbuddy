@@ -2,11 +2,11 @@
 // Compound Path, isolation mode) and the object edits the inspector runs:
 // appearance, live-shape parameters, type, path tools.
 //
-// Groups and clipping masks exist only in the v2 drawing format. While v2
-// writes are gated (DRAW_V2_WRITES, see compat.ts) a drawing that is still
-// written as v1 cannot hold them, so Group and Make Clipping Mask are disabled
-// there and say why -- they are never a silent no-op. Compound paths, Lock and
-// Hide need nothing v1 lacks and work in every drawing.
+// Groups and clipping masks exist only in the v2 drawing format. v2 writes are
+// on, so a v1 drawing becomes v2 when grouped; only where a drawing must stay
+// v1 (a live session with someone on an older version, editor/v2gate.ts) are
+// Group and Make Clipping Mask disabled, and they say why -- never a silent
+// no-op. Compound paths, Lock and Hide need nothing v1 lacks.
 
 import type { DrawBlend } from '@shared/draw'
 import type { BooleanOp } from '@shared/drawGeometry'
@@ -56,8 +56,7 @@ import {
 } from '@shared/draw/ops'
 import type { Command, EditorCtx, EditorState, MenuSpec } from '../editor/types'
 import { enterIsolation, exitIsolation, isIsolated, isolatedGroup, scopeNodes } from '../editor/isolation'
-import { DRAW_V2_WRITES } from '@shared/draw/compat'
-import { isV1Representable } from '@shared/draw/migrate'
+import { v2BlockedReason, v2Writable } from '../editor/v2gate'
 import { alignSelection, canAlign } from './align.commands'
 
 const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
@@ -134,10 +133,10 @@ const ALIGN: AlignEdge[] = ['left', 'center', 'right', 'top', 'middle', 'bottom'
  * already holds something only v2 can carry.
  */
 export function holdsV2Content(s: EditorState): boolean {
-  return DRAW_V2_WRITES || s.storedSchema >= 2 || !isV1Representable(s.doc)
+  return v2Writable(s)
 }
 
-const V2_NEEDED = 'Groups and clipping masks need the newer PlexiiDraw drawing format, which this build does not write for this drawing yet.'
+const v2Needed = (s: EditorState): string => `Groups and clipping masks need the newer PlexiiDraw drawing format: ${v2BlockedReason(s)}.`
 
 /** Run `go` when `ok`, otherwise say why nothing happened (a key press reaches a command even when its menu item is greyed). */
 /** Runs made by guarded(): they say why they cannot work, so a key may run them while disabled. */
@@ -202,7 +201,7 @@ const objectCommands: Command[] = [
     enabled: canGroup,
     run: guarded(
       canGroup,
-      (ctx) => (!holdsV2Content(ctx.get()) ? V2_NEEDED : groupPicks(ctx).some(isClipPathPlace) ? CLIP_PROBLEM['clip-path-picked'] : 'Select the objects to group first.'),
+      (ctx) => (!holdsV2Content(ctx.get()) ? v2Needed(ctx.get()) : groupPicks(ctx).some(isClipPathPlace) ? CLIP_PROBLEM['clip-path-picked'] : 'Select the objects to group first.'),
       (ctx) => {
         const { doc, groupId } = groupNodes(ctx.doc(), groupPicks(ctx))
         if (!groupId) return
@@ -342,7 +341,7 @@ const objectCommands: Command[] = [
     enabled: (ctx) => writable(ctx) && holdsV2Content(ctx.get()) && makeClipProblem(ctx.doc(), ctx.get().selection) === null,
     run: guarded(
       (ctx) => holdsV2Content(ctx.get()) && makeClipProblem(ctx.doc(), ctx.get().selection) === null,
-      (ctx) => (!holdsV2Content(ctx.get()) ? V2_NEEDED : CLIP_PROBLEM[makeClipProblem(ctx.doc(), ctx.get().selection) ?? 'nothing']),
+      (ctx) => (!holdsV2Content(ctx.get()) ? v2Needed(ctx.get()) : CLIP_PROBLEM[makeClipProblem(ctx.doc(), ctx.get().selection) ?? 'nothing']),
       (ctx) => {
         const { doc, groupId } = makeClipMask(ctx.doc(), ctx.get().selection)
         if (!groupId) return

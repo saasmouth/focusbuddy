@@ -937,13 +937,13 @@ describe('lowering to the older drawing format', () => {
       '<linearGradient id="g" gradientUnits="userSpaceOnUse" x1="100" y1="100" x2="150" y2="160"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#fff"/></linearGradient><rect x="100" y="100" width="80" height="60" fill="url(#g)"/>'
   )
 
-  it('produces only what v1 can hold, and the document stays v1', () => {
+  it('produces only what v1 can hold, and the document stays v1 where v1 is required (a live session with an older version)', () => {
     const out = imp(src, { mode: 'open', structure: 'v1' })
     const list = importedNodes(out)
     expect(list.every((n) => n.type !== 'group')).toBe(true)
     const doc = svgToDrawDoc(out, newId)
     expect(isV1Representable(doc)).toBe(true)
-    expect((drawDocForStorage(doc) as { schemaVersion: number }).schemaVersion).toBe(1)
+    expect((drawDocForStorage(doc, { allowV2: false }) as { schemaVersion: number }).schemaVersion).toBe(1)
     const text = out.report.lines().join(' ')
     expect(text).toMatch(/3 groups were released/)
     expect(text).toMatch(/group had its opacity applied/)

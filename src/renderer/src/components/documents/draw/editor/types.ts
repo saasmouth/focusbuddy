@@ -69,6 +69,13 @@ export interface EditorState {
   /** Bumped when the co-editing undo stack changes, so Undo/Redo re-enable. */
   liveUndoTick: number
   /**
+   * May a v1 drawing become v2 when edited (DRAW_V2_WRITES, unless a live
+   * session has a participant who cannot read v2)? See editor/v2gate.ts.
+   */
+  v2Writes: boolean
+  /** Why v2 writes are off, as a clause ("someone in this live session ..."); null when on. */
+  v2Blocked: string | null
+  /**
    * Direct selection (WP-PATH): path id -> the [subpath, node] pairs selected.
    * A selected path with NO entry is wholly selected (every anchor); an entry
    * with an empty list is a path selected with none of its anchors. Any

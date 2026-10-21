@@ -15,7 +15,7 @@ import {
   type DrawClipboardBackend
 } from '../../../src/renderer/src/components/documents/draw/editor/clipboard'
 import type { ImportDeps } from '../../../src/renderer/src/components/documents/draw/editor/importFiles'
-import { blank, harness, rect, type Harness } from './harness'
+import { blank, harness, rect, withOlderPeer, type Harness } from './harness'
 
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 
@@ -93,9 +93,18 @@ describe('SVG paste, with WP-IMPORT', () => {
     expect(svgPasteImporter()).toBe(pasteSvgImporter)
   })
 
-  it('Figma SVG text pastes as editable shapes with their colours, one undo step, and a v1 drawing stays v1', async () => {
+  it('a v1 drawing takes it as one group named Pasted SVG and becomes v2 (v2 writes are on)', async () => {
     cb.next = { text: FIGMA }
     const h = harness(blank([]))
+    await paste(h)
+    expect(h.objects().map((o) => o.type)).toEqual(['group'])
+    expect(h.objects()[0].name).toBe('Pasted SVG')
+    expect((h.emitted.at(-1) as { schemaVersion: number }).schemaVersion).toBe(2)
+  })
+
+  it('Figma SVG text pastes as editable shapes with their colours, one undo step; in a v1-only live session the drawing stays v1', async () => {
+    cb.next = { text: FIGMA }
+    const h = withOlderPeer(harness(blank([])))
     await paste(h)
     const objs = h.objects()
     expect(objs.map((o) => o.type)).toEqual(['path', 'path'])

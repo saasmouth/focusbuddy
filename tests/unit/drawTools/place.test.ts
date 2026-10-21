@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { DOMParser as XmlDomParser } from '@xmldom/xmldom'
-import { harness, blank, rect } from './harness'
+import { harness, blank, rect, withOlderPeer } from './harness'
 import { bytesToBase64 } from '../../../src/shared/draw/import/imageInfo'
 import type { XmlDocument } from '../../../src/shared/draw/import/svg'
 import type { DrawDoc, DrawGroupNode, DrawImageNode, DrawNode, DrawPathNode } from '../../../src/shared/draw/model'
@@ -198,15 +198,20 @@ describe('preparing files', () => {
 })
 
 describe('the drawing format a placement may use', () => {
-  it('a v1 drawing stays v1 (v2 writes are gated); a v2 drawing takes groups', () => {
-    const h1 = harness(blank())
+  it('a v1 drawing takes groups (v2 writes are on); in a v1-only live session it stays v1; a v2 drawing always does', () => {
+    expect(importStructure(harness(blank()).state())).toBe('v2')
+    const h1 = withOlderPeer(harness(blank()))
     expect(importStructure(h1.state())).toBe('v1')
+    expect(importStructure(withOlderPeer(harness(v2Body())).state())).toBe('v2')
     const h2 = harness(v2Body())
     expect(importStructure(h2.state())).toBe('v2')
   })
 
-  it('placing an SVG into a v1 drawing leaves it writable as v1', async () => {
-    const h = harness(blank())
+  it('placing an SVG into a v1 drawing makes it v2; in a v1-only live session it stays writable as v1', async () => {
+    const n = harness(blank())
+    await placeDroppedFiles(n.ed.ctx, [{ name: 'logo.svg', bytes: SVG }], { x: 0, y: 0 }, deps)
+    expect((n.emitted.at(-1) as { schemaVersion: number }).schemaVersion).toBe(2)
+    const h = withOlderPeer(harness(blank()))
     await placeDroppedFiles(h.ed.ctx, [{ name: 'logo.svg', bytes: SVG }], { x: 0, y: 0 }, deps)
     expect(isV1Representable(h.doc())).toBe(true)
     expect((h.emitted.at(-1) as { schemaVersion: number }).schemaVersion).toBe(1)
@@ -275,7 +280,8 @@ describe('the File menu commands', () => {
   })
 
   it('Place as template… is only on where a template layer can be stored, and makes one', async () => {
-    expect(commandById('file.placeTemplate')!.enabled!(harness(blank()).ed.ctx)).toBe(false)
+    expect(commandById('file.placeTemplate')!.enabled!(withOlderPeer(harness(blank())).ed.ctx)).toBe(false)
+    expect(commandById('file.placeTemplate')!.enabled!(harness(blank()).ed.ctx)).toBe(true)
     setImportHost(host([{ name: 'sketch.png', bytes: png(50, 40) }]))
     const h = harness(v2Body())
     expect(commandById('file.placeTemplate')!.enabled!(h.ed.ctx)).toBe(true)
@@ -311,9 +317,10 @@ describe('the File menu commands', () => {
     await settle()
     expect(opened).toHaveLength(1)
     expect(opened[0].title).toBe('poster')
-    const body = opened[0].body as { schemaVersion: number; width: number; height: number }
-    // v2 writes are gated: a drawing that fits v1 is stored as v1, readable by every build.
-    expect(body).toMatchObject({ schemaVersion: 1, width: 100, height: 50 })
+    const body = opened[0].body as { schemaVersion: number; artboards: Array<{ w: number; h: number }> }
+    // v2 writes are on: a new drawing is stored as v2 (builds from local.6 open it read-only, older ones may not).
+    expect(body.schemaVersion).toBe(2)
+    expect(body.artboards[0]).toMatchObject({ w: 100, h: 50 })
     expect(drawDocCompatibility(body).readOnly).toBe(false)
     const doc: DrawDoc = normalizeDrawDoc(body)
     // The full-page red rect became the page colour.

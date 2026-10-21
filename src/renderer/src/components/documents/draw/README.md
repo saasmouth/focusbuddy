@@ -278,29 +278,31 @@ means.
   into the isolated group by the history's `adjust` hook, so a new tool needs
   no code for it.
 - **The v2 gate.** Groups and masks are v2-only content. Their commands are
-  disabled (and say why on their key) in a drawing still written as v1; see
-  `holdsV2Content` in `commands/object.commands.ts`.
+  disabled (and say why on their key) only where a drawing must stay v1 (a live
+  session with someone on an older version); see `editor/v2gate.ts`.
 
 ## Writing v2
 
-`DRAW_V2_WRITES` (`src/shared/draw/compat.ts`) is **off**. While it is off:
+`DRAW_V2_WRITES` (`src/shared/draw/compat.ts`) is **on** from 4.3.39-local.8.
 
-- a drawing that uses nothing v1 lacks is written as v1, byte-identical to the
-  v1 writer, so every older app can still edit it;
-- a drawing that is already v2 stays v2.
-
-**Turning on v2 writes:** do this only once the guard release (the first build
-that opens newer drawings read-only instead of dropping what it does not know)
-has been out long enough that users no longer run older builds. It is a
-one-line change, and `tests/unit/drawMigrate.test.ts` documents what changes.
-
-Two more rules while writes are off:
-
-- Do not ship a feature that creates v2-only content (groups, several
-  artboards, swatches) before writes are on. `drawDocForStorage` would then
-  write v2 for that drawing, which pre-guard builds cannot open safely.
-- Live co-editing upgrades a room to v2 only when every participant can read
-  v2. Advertising that is future work in `LiveDocEditorView`.
+- A v1 drawing becomes v2 on its first edit and save (`minWriterVersion` 2).
+  Opening one without editing never rewrites it: the editor only saves on a
+  history step.
+- Builds from 4.3.39-local.6 on open a v2 drawing read-only (the guard).
+  4.3.33 and earlier have no guard: editing a v2 drawing there can drop what
+  they do not understand. What's New says so.
+- **Live co-editing:** every client of a live drawing advertises `drawV2: true`
+  in its awareness state (`lib/drawLiveSchema.ts`). While anyone present does
+  not, the session keeps a v1 drawing v1: `LiveDocEditorView` passes
+  `v2Blocked` to `DrawStudio`, which turns the editor's `v2Writes` off, and the
+  v2-only commands (Group, Make Clipping Mask, Place as template, reflecting or
+  shearing text, images and work widgets, Reset Bounding Box, pasting v2-only
+  art) show disabled and say why. A drawing that is already v2 stays v2.
+- **One gate.** Every command that may create v2-only content asks
+  `v2Writable(state)` (`editor/v2gate.ts`) and words its refusal with
+  `v2BlockedReason(state)`. Do not test `DRAW_V2_WRITES` directly.
+- Tests: `withOlderPeer(harness(...))` (`tests/unit/drawTools/harness.ts`) is
+  the v1-only live session; a plain harness is a normal drawing. Test both.
 
 ## Test it
 

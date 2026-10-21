@@ -20,6 +20,7 @@ import { floodFillPixels, parseHex, toHex } from '../../../src/renderer/src/comp
 import { createDrawEditor, type DrawEditor } from '../../../src/renderer/src/components/documents/draw/editor/editor'
 import type { EditorState, RasterService, ToolPointer } from '../../../src/renderer/src/components/documents/draw/editor/types'
 import type { LiveUndo } from '../../../src/renderer/src/lib/yjsKeyedJson'
+import { LIVE_V1_PEER_REASON } from '../../../src/renderer/src/components/documents/draw/editor/v2gate'
 
 export class FakeRaster implements RasterService {
   buffers = new Map<string, Uint8ClampedArray>()
@@ -256,5 +257,15 @@ export function harness(content: unknown = blank(), opts: { liveUndo?: LiveUndo;
     dblclick: () => ed.doubleClick(),
     run: (id, args) => ed.ctx.run(id, args)
   }
+  return h
+}
+
+/**
+ * The editor as a live co-editing session with someone on an older version of
+ * PlexiiDesk sees it: v2 writes are off, so a v1 drawing must stay v1 (see
+ * editor/v2gate.ts). Everywhere else v2 writes are on (DRAW_V2_WRITES).
+ */
+export function withOlderPeer<H extends Harness>(h: H): H {
+  h.ed.ctx.set({ v2Writes: false, v2Blocked: LIVE_V1_PEER_REASON })
   return h
 }

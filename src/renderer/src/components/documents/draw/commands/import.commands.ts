@@ -198,7 +198,7 @@ const PASTED_SVG_NAME = 'Pasted SVG.svg'
  */
 export const pasteSvgImporter: SvgPasteImporter = async (svg, target, info) => {
   const item = await prepareFile({ name: PASTED_SVG_NAME, bytes: new TextEncoder().encode(svg) }, host.deps(), {
-    structure: importStructure({ storedSchema: info.storedSchema, doc: target }),
+    structure: importStructure({ storedSchema: info.storedSchema, doc: target, v2Writes: info.v2Writes }),
     docDpi: target.settings.dpi,
     newId: drawId
   })

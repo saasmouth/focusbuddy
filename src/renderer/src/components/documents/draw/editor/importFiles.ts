@@ -13,7 +13,6 @@
 // The side effects (XML parsing, rasterising, gunzip, PDF rendering) come in
 // through ImportDeps, so all of this runs headless in tests.
 
-import { DRAW_V2_WRITES } from '@shared/draw/compat'
 import { putAsset } from '@shared/draw/assets'
 import {
   actualSize,
@@ -36,7 +35,8 @@ import {
   type SvgImportOutput,
   type XmlDocument
 } from '@shared/draw/import/svg'
-import { isV1Representable } from '@shared/draw/migrate'
+import { DRAW_V2_WRITES } from '@shared/draw/compat'
+import { v2Writable } from './v2gate'
 import type { Box, DrawDoc, DrawGroupNode, DrawImageNode } from '@shared/draw/model'
 import { scalePlaced, withFreshIds, type PlaceItem } from './place'
 import type { EditorState } from './types'
@@ -71,8 +71,8 @@ export interface PrepareOptions {
  * drawing that is already v2 -- stored as v2, or already holding v2-only
  * content -- may; a v1 drawing must stay writable by older builds.
  */
-export function importStructure(s: Pick<EditorState, 'storedSchema' | 'doc'>): 'v1' | 'v2' {
-  return DRAW_V2_WRITES || s.storedSchema >= 2 || !isV1Representable(s.doc) ? 'v2' : 'v1'
+export function importStructure(s: Pick<EditorState, 'storedSchema' | 'doc' | 'v2Writes'>): 'v1' | 'v2' {
+  return v2Writable(s) ? 'v2' : 'v1'
 }
 
 /** The structure a brand-new drawing from a file may use. */

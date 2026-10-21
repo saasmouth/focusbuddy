@@ -5,10 +5,9 @@
 // Object › Transform › Transform Again (⌘D).
 
 import type { Box, Matrix } from '@shared/drawGeometry'
-import { DRAW_V2_WRITES } from '@shared/draw/compat'
 import { keyIncrementPx } from '@shared/draw/fieldExpr'
 import { about, isTranslation, refPointOf, translation, type RefPoint } from '@shared/draw/geometry/transform'
-import { isV1Representable } from '@shared/draw/migrate'
+import { v2BlockedReason, v2Writable } from '../editor/v2gate'
 import type { DrawDoc, DrawNode } from '@shared/draw/model'
 import {
   editableIds,
@@ -40,12 +39,13 @@ export type TransformRecord =
 const LAST = 'transform.last'
 
 /** Is this drawing allowed to hold v2-only content (a frame matrix)? */
-export function v2Allowed(s: Pick<EditorState, 'doc' | 'storedSchema'>): boolean {
-  return DRAW_V2_WRITES || s.storedSchema >= 2 || !isV1Representable(s.doc)
+export function v2Allowed(s: Pick<EditorState, 'doc' | 'storedSchema' | 'v2Writes'>): boolean {
+  return v2Writable(s)
 }
 
-export const FRAME_MATRIX_REFUSAL =
-  'Reflecting, shearing or skewing text, images and work widgets needs the newer drawing format, which is not switched on yet — paths and shapes can be transformed any way.'
+export function frameMatrixRefusal(s: Pick<EditorState, 'v2Blocked'>): string {
+  return `Reflecting, shearing or skewing text, images and work widgets needs the newer drawing format: ${v2BlockedReason(s)}. Paths and shapes can be transformed any way.`
+}
 
 /** The selection's editable ids (locked, hidden and opaque nodes left out). */
 export function editableSelection(s: Pick<EditorState, 'doc' | 'selection'>): string[] {
@@ -59,7 +59,7 @@ export function editableBounds(doc: DrawDoc, ids: string[]): Box | null {
 }
 
 /** The transform options in force: the preferences, plus whether this drawing may hold frame matrices. */
-export function transformOptions(s: Pick<EditorState, 'doc' | 'storedSchema'>, override: Partial<TransformOptions> = {}): TransformOptions {
+export function transformOptions(s: Pick<EditorState, 'doc' | 'storedSchema' | 'v2Writes'>, override: Partial<TransformOptions> = {}): TransformOptions {
   const p = transformPrefs.getState()
   return { scaleStrokes: p.scaleStrokes, scaleCorners: p.scaleCorners, frameMatrix: v2Allowed(s), ...override }
 }
@@ -88,8 +88,8 @@ export function planMatrix(ctx: EditorCtx, m: Matrix | ((n: DrawNode) => Matrix)
   const s = ctx.get()
   const ids = editableIds(from, s.selection)
   if (!ids.length) return { doc: from, newIds: [], error: 'Select something that is not locked or hidden first.' }
-  const opts = transformOptions({ doc: from, storedSchema: s.storedSchema }, optsOverride)
-  if (!opts.frameMatrix && selectionNeedsFrameMatrix(from, ids, m)) return { doc: from, newIds: [], error: FRAME_MATRIX_REFUSAL }
+  const opts = transformOptions({ doc: from, storedSchema: s.storedSchema, v2Writes: s.v2Writes }, optsOverride)
+  if (!opts.frameMatrix && selectionNeedsFrameMatrix(from, ids, m)) return { doc: from, newIds: [], error: frameMatrixRefusal(s) }
   const res = typeof m === 'function' ? transformObjectsBy(from, ids, m, opts, copy) : transformObjects(from, ids, m, opts, copy)
   const doc = remeasure(ctx, from, res.doc, copy ? res.newIds : ids)
   return { doc, newIds: res.newIds }
@@ -158,7 +158,7 @@ export function applyEach(ctx: EditorCtx, params: TransformEachParams, copy: boo
   }
   const opts = transformOptions(s)
   if (!opts.frameMatrix && selectionNeedsFrameMatrix(s.doc, ids, (n) => transformEachMatrix(nodesBounds([n]), params, () => 1))) {
-    ctx.status(FRAME_MATRIX_REFUSAL)
+    ctx.status(frameMatrixRefusal(s))
     return false
   }
   const res = transformEach(s.doc, ids, params, opts, copy, rand)

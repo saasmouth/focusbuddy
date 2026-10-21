@@ -8,7 +8,7 @@ import { useStore } from 'zustand'
 import { transformEach } from '@shared/draw/ops'
 import type { DrawDialog } from '../editor/types'
 import DialogFrame from '../transform/DialogFrame'
-import { applyEach, editableSelection, transformOptions, FRAME_MATRIX_REFUSAL } from '../transform/apply'
+import { applyEach, editableSelection, transformOptions, frameMatrixRefusal } from '../transform/apply'
 import { Check, NumField, RefLocator } from '../transform/fields'
 import { rememberDialog, setTransformPrefs, transformPrefs } from '../transform/prefs'
 import { selectionNeedsFrameMatrix, transformEachMatrix, nodesBounds } from '@shared/draw/ops'
@@ -45,8 +45,8 @@ const each: DrawDialog = {
         deps={[key, seed, prefs.scaleStrokes, prefs.scaleCorners]}
         plan={(from) => {
           if (zero) return { doc: from, error: 'A scale of 0% would flatten the artwork to nothing.' }
-          const opts = transformOptions({ doc: from, storedSchema: ctx.get().storedSchema })
-          if (!opts.frameMatrix && selectionNeedsFrameMatrix(from, sel, (n) => transformEachMatrix(nodesBounds([n]), p, () => 1))) return { doc: from, error: FRAME_MATRIX_REFUSAL }
+          const opts = transformOptions({ doc: from, storedSchema: ctx.get().storedSchema, v2Writes: ctx.get().v2Writes })
+          if (!opts.frameMatrix && selectionNeedsFrameMatrix(from, sel, (n) => transformEachMatrix(nodesBounds([n]), p, () => 1))) return { doc: from, error: frameMatrixRefusal(ctx.get()) }
           return { doc: transformEach(from, sel, p, opts, false, seeded(seed)).doc }
         }}
         apply={(copy) => {

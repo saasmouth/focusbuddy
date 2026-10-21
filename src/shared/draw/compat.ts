@@ -5,12 +5,11 @@
 // up -- anything newer than this build understands opens read-only and is
 // never saved over.
 //
-// Writing: an app that can read v2 must still not WRITE v2 until the guard
-// release (the first build that opens newer drawings read-only instead of
-// silently dropping what it does not know) has been in people's hands long
-// enough. Until DRAW_V2_WRITES is switched on, every drawing that uses nothing
-// v1 lacks is written as v1 -- byte-compatible with every older app -- and a
-// drawing that is already v2 stays v2 (writing it back as v1 would lose it).
+// Writing: DRAW_V2_WRITES is on (4.3.39-local.8), so a v1 drawing becomes v2
+// on its first edit. With writes off (allowV2: false -- a live session with
+// someone on an older version), a drawing that uses nothing v1 lacks is written
+// as v1, byte-compatible with every older app, and a drawing that is already
+// v2 stays v2 (writing it back as v1 would lose it).
 
 import { DRAW_OBJECT_TYPES, drawBodyForStorage, type DrawBody, type DrawCompatibility, type DrawReadOnlyReason } from '../draw'
 import { isV1Representable, v2ToV1 } from './migrate'
@@ -18,10 +17,14 @@ import { DRAW_DOC_VERSION, DRAW_EFFECT_KINDS, DRAW_NODE_TYPES, type DrawDoc } fr
 
 /**
  * Whether this build WRITES schema 2 for drawings that could still be written
- * as v1. OFF until the guard release has shipped and had time to spread; see
- * documents/draw/README.md, "Turning on v2 writes".
+ * as v1. ON from 4.3.39-local.8: a v1 drawing becomes v2 on its first edit and
+ * save (opening one without editing never rewrites it). A live co-editing
+ * session with someone who cannot read v2 keeps the drawing v1 for that session
+ * (the editor's v2Writes; see documents/draw/editor/v2gate.ts). Builds from
+ * 4.3.39-local.6 on open newer drawings read-only; 4.3.33 and earlier have no
+ * guard. See documents/draw/README.md, "Writing v2".
  */
-export const DRAW_V2_WRITES = false
+export const DRAW_V2_WRITES = true
 
 type Raw = Record<string, unknown>
 

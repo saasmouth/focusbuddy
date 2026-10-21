@@ -149,7 +149,7 @@ describe('the menu bar is built from commands', () => {
         '  App icon — 1024×1024||||',
         '  Logo mark — 512×512||||',
         'Place…|add_photo_alternate|⇧⌘P||',
-        'Place as template…|layers||off|',
+        'Place as template…|layers|||',
         'Import SVG…|polyline|||',
         'Replace image…|swap_horiz||off|',
         '---',
