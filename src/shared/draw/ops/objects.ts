@@ -9,7 +9,8 @@ import { drawId } from '../../draw'
 import type { Box } from '../../drawGeometry'
 import type { DrawDoc, DrawDocVectorLayer, DrawGroupNode, DrawNode } from '../model'
 import { findNode, mapNodesDeep, vectorLayersOf } from '../tree'
-import { scaleNode, translateNode } from './geometry'
+import { translateNode } from './geometry'
+import { moveNodesWorld, scaleNodesWorld } from './groups'
 
 /** The layer a node lives on (at any depth), or undefined when the id is unknown. */
 export function layerOf(doc: DrawDoc, id: string): DrawDocVectorLayer | undefined {
@@ -166,8 +167,9 @@ export function duplicateObjects(doc: DrawDoc, ids: string[], dx = 12, dy = 12):
   return { doc: { ...doc, layers }, newIds }
 }
 
+/** Move nodes by (dx, dy) on the artboard -- inside a transformed group too (see groups.ts). */
 export function moveObjects(doc: DrawDoc, ids: string[], dx: number, dy: number): DrawDoc {
-  return mapObjects(doc, ids, (n) => translateNode(n, dx, dy))
+  return moveNodesWorld(doc, ids, dx, dy)
 }
 
 /**
@@ -175,11 +177,9 @@ export function moveObjects(doc: DrawDoc, ids: string[], dx: number, dy: number)
  * multi-node selection resizes as one unit, exactly as a single node does.
  */
 export function scaleObjects(doc: DrawDoc, ids: string[], from: Box, to: Box): DrawDoc {
-  const sx = from.w > 1e-6 ? to.w / from.w : 1
-  const sy = from.h > 1e-6 ? to.h / from.h : 1
-  const e = to.x - from.x * sx
-  const f = to.y - from.y * sy
-  return mapObjects(doc, ids, (n) => scaleNode(n, sx, sy, e, f))
+  // Artboard-space boxes; a member of a transformed group is scaled through
+  // the group's matrix so it follows the handles on screen (see groups.ts).
+  return scaleNodesWorld(doc, ids, from, to)
 }
 
 /** The visible bounds of a set of nodes (opaque ones, which have no geometry here, left out). */

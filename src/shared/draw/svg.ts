@@ -16,6 +16,8 @@ import { pathToSvgD } from '../drawGeometry'
 import { safeCssColor } from '../cssColor'
 import { assetSrc } from './assets'
 import { esc, fixed, isNum, num } from './markup'
+import { clipGroupParts } from './ops/masks'
+import { clipGroupMarkup, clipPathMarkup } from './svg/masks'
 import type {
   DrawArtboard,
   DrawDoc,
@@ -154,10 +156,7 @@ function frameTransform(t: Matrix | undefined, rotation: number | undefined, px:
   return v ? ` transform="${v}"` : ''
 }
 
-/** The SVG id of a clipping group's clip path, held to the id-safe alphabet like gradientId. */
-export function clipId(idHint: string): string {
-  return `clip-${String(idHint).replace(/[^A-Za-z0-9_-]/g, '_')}`
-}
+export { clipId } from './svg/masks'
 
 // ── Nodes ────────────────────────────────────────────────────────────────────
 
@@ -238,24 +237,22 @@ function textSvg(doc: DrawDoc, o: DrawTextNode, defs: string[]): string {
 
 function groupSvg(doc: DrawDoc, g: DrawGroupNode, defs: string[]): string {
   const tr = matrixOk(g.transform) ? ` transform="${matrixStr(g.transform)}"` : ''
-  let children = g.children
-  let clipAttr = ''
-  if (g.clip && children.length) {
-    // Illustrator's clipping group: the topmost member is the clip path, and
-    // is not itself painted.
-    const top = children[children.length - 1]
-    const d = top.type === 'path' ? pathToSvgD(top.path) : ''
-    if (d) {
-      const id = clipId(g.id)
-      const rule = top.type === 'path' && top.path.fillRule === 'evenodd' ? ' clip-rule="evenodd"' : ''
-      defs.push(`<clipPath id="${esc(id)}"><path d="${esc(d)}"${rule}/></clipPath>`)
-      clipAttr = ` clip-path="url(#${esc(id)})"`
-      children = children.slice(0, -1)
+  const parts = clipGroupParts(g)
+  if (parts.clip) {
+    // Illustrator's clipping group: the topmost member is the clip path. It is
+    // painted only if it was given a fill (under the contents) or a stroke
+    // (over them, unclipped).
+    const def = clipPathMarkup(g.id, parts.clip, (n) => nodeSvg(doc, n, defs))
+    if (def) {
+      defs.push(def)
+      const inner = [...(parts.under ? [parts.under] : []), ...parts.contents].map((c) => nodeSvg(doc, c, defs)).join('')
+      const over = parts.over ? nodeSvg(doc, parts.over, defs) : ''
+      return clipGroupMarkup({ groupId: g.id, transformAttr: tr, styleAttr: styleAttr(g), inner, over })
     }
   }
-  const inner = children.map((c) => nodeSvg(doc, c, defs)).join('')
+  const inner = g.children.map((c) => nodeSvg(doc, c, defs)).join('')
   if (!inner) return ''
-  return `<g${tr}${clipAttr}${styleAttr(g)}>${inner}</g>`
+  return `<g${tr}${styleAttr(g)}>${inner}</g>`
 }
 
 /** One node as markup, appending any definitions it needs to `defs`. */
