@@ -38,6 +38,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.39-local.5',
+    date: '2026-10-21T03:07:00Z',
+    title: 'PlexiiDesk 4.3.39-local.5 — Focus: one list for everything you need to do (test build)',
+    tag: 'feature',
+    summary:
+      'A local test build. Attention and your tasks are now one list called Focus, and it is always on. Everything in 4.3.39-local.4 is here too, along with a live design review in PlexiiDesign and diagram connectors that route around shapes.',
+    highlights: [
+      'Attention is now Focus, and everything on it is a task. Tasks on your desks show up in Focus, and editing, counting, reminding and closing them works the same as any other task.',
+      'Focus is always on, so the Attention switch is gone from Settings. Meetings, the AI and mail’s “Make a task” all add to the same list; type @focus to capture one (@attention still works).',
+      'In a shared team workspace, Focus tasks are not available yet; Plexii says so and asks you to switch to your personal workspace.',
+      'PlexiiDesign’s AI panel opens with a live review of the page: problems and suggestions, each one dismissable, worked out on this computer with no AI call. When there is nothing to flag it says so.',
+      'Diagram connectors now route around shapes instead of through them, on screen and in every export. Existing diagrams get the improvement too.',
+      'Fixed: saving privacy settings, and some edits from the Attention editor, connected calendars and AI chat, could be refused with an error.',
+      'Security: spreadsheet import and export moved off a version of SheetJS with known vulnerabilities.'
+    ]
+  },
+  {
     version: '4.3.39-local.4',
     date: '2026-10-21T18:00:00Z',
     title: 'PlexiiDesk 4.3.39-local.4 \u2014 local AI built in, your own key for writing (test build)',
