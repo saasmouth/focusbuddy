@@ -44,6 +44,12 @@ export default function AttentionItemEditor({
   onClose: (changed: boolean) => void
 }): JSX.Element {
   const updateFields = useWorkItemStore((s) => s.updateFields)
+  // DEC-144 — a task filed on a desk is edited here too. It holds title,
+  // notes, due date and queue (its own columns); urgency, tags, mentions and
+  // the meeting fields belong to a captured item only, so they are not
+  // offered for it rather than offered and silently dropped. And it must stay
+  // ON a desk: a task with no desk above it is a desk itself.
+  const isDeskTask = item.kind === 'task'
   const [title, setTitle] = useState(item.title ?? '')
   const [notes, setNotes] = useState(item.description ?? '')
   const [cls, setCls] = useState(queueOf(item))
@@ -151,12 +157,14 @@ export default function AttentionItemEditor({
       if (cls !== queueOf(item)) patch.intentClass = cls
       const nextDue = due ? new Date(`${due}T17:00:00`).toISOString() : null
       if (nextDue !== (item.dueAt ?? null)) patch.dueAt = nextDue
-      const nextUrgency = urgency === 'normal' ? null : urgency
-      if (nextUrgency !== (item.wiUrgency ?? null)) patch.wiUrgency = nextUrgency
-      const nextTags = serializeTags(tagList)
-      if (nextTags !== (item.tags ?? null)) patch.tags = nextTags
-      const nextMentions = serializeMentions(mentionList)
-      if (nextMentions !== (item.mentions ?? null)) patch.mentions = nextMentions
+      if (!isDeskTask) {
+        const nextUrgency = urgency === 'normal' ? null : urgency
+        if (nextUrgency !== (item.wiUrgency ?? null)) patch.wiUrgency = nextUrgency
+        const nextTags = serializeTags(tagList)
+        if (nextTags !== (item.tags ?? null)) patch.tags = nextTags
+        const nextMentions = serializeMentions(mentionList)
+        if (nextMentions !== (item.mentions ?? null)) patch.mentions = nextMentions
+      }
 
       // DEC-064 — the meeting. Only sent when the item IS a Meet: the fields
       // are hidden for every other class, so writing them from a stale state
@@ -164,7 +172,7 @@ export default function AttentionItemEditor({
       // another class leaves the values ALONE rather than deleting them —
       // reclassifying is not the same as saying the meeting never happened, and
       // switching back must not have silently destroyed the details.
-      if (cls === 'to_meet') {
+      if (cls === 'to_meet' && !isDeskTask) {
         const nextStart = localPartsToIso(meetDate, meetTime)
         if (nextStart !== (item.meetStartAt ?? null)) patch.meetStartAt = nextStart
         const nextDur = meetDur === '' ? null : Number(meetDur)
@@ -177,7 +185,12 @@ export default function AttentionItemEditor({
         if (nextRsvp !== (item.meetRsvp ?? null)) patch.meetRsvp = nextRsvp
       }
       let changed = Object.keys(patch).length > 0
-      if (changed) await updateFields(item.id, patch)
+      if (changed && !(await updateFields(item.id, patch))) {
+        // A refused write (DEC-144) is said out loud, never shown as saved.
+        setError('That change could not be saved. Nothing was changed.')
+        setBusy(false)
+        return
+      }
 
       // The desk is a NODE move, not a work-item field — same call the
       // Detached shelf's recovery uses.
@@ -271,7 +284,7 @@ export default function AttentionItemEditor({
             the same question in two places. Every field is optional — an item
             can be "meet with Sam" long before any of it is known, and the queue
             only dresses it as an invitation once something is. */}
-        {cls === 'to_meet' && (
+        {cls === 'to_meet' && !isDeskTask && (
           <div className="mt-3 rounded-[var(--radius-row)] border border-[var(--edge-soft)] bg-[var(--surface-raised)] px-3 py-2.5">
             <div className="flex items-center gap-1.5 mb-2">
               <Icon name="event" size={13} className="text-[var(--ink-40)]" />
@@ -479,7 +492,7 @@ export default function AttentionItemEditor({
               onChange={(e) => setDeskId(e.target.value)}
               className="fb-field mt-1 bg-[var(--surface-raised)] px-2 py-1.5 text-[12px] max-w-[260px]"
             >
-              <option value="">No desk</option>
+              {!isDeskTask && <option value="">No desk</option>}
               {desks.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.title || 'Untitled desk'}
@@ -489,6 +502,7 @@ export default function AttentionItemEditor({
           </label>
         </div>
 
+        {!isDeskTask && (
         <div className="mt-3 flex flex-wrap items-end gap-3">
           <div>
             <span className="fb-t-caption text-[var(--ink-40)]">Urgency</span>
@@ -509,6 +523,7 @@ export default function AttentionItemEditor({
             </div>
           </div>
         </div>
+        )}
 
         {item.sourceUrl && (
           <div className="block mt-3">
@@ -543,6 +558,7 @@ export default function AttentionItemEditor({
           </div>
         )}
 
+        {!isDeskTask && (
         <div className="block mt-3">
           <span className="fb-t-caption text-[var(--ink-40)]">
             Tags &amp; mentions{' '}
@@ -555,6 +571,7 @@ export default function AttentionItemEditor({
             onMentions={setMentionList}
           />
         </div>
+        )}
 
         {error && <div className="mt-2 text-[12px] text-red-600 dark:text-red-400">{error}</div>}
 

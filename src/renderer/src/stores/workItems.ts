@@ -1,7 +1,9 @@
 import { create } from 'zustand'
 import type { FbNode } from '@shared/types'
 import { WORK_ITEM_COLUMNS } from '@shared/workItems'
-import { crdtEmitNodeCreate, crdtEmitNodeAttrs } from '../lib/crdtBridge'
+import { crdtEmitNodeCreate, crdtEmitNodeAttrs, crdtEmitNodeTitle } from '../lib/crdtBridge'
+import { taskAttrsForItemPatch } from '@shared/attentionProjection'
+import { useNodeStore } from './nodes'
 
 // The work_item store (Attention S3, §4). Work items NEVER pass through
 // useNodeStore — listNodes excludes the kind, and every desk/room surface is
@@ -69,10 +71,21 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
     const item = await window.api.workItems.updateFields(id, patch)
     if (item) {
       set({ items: get().items.map((i) => (i.id === id ? item : i)) })
-      const attrs: Record<string, unknown> = {}
-      for (const [k, v] of Object.entries(patch)) if (EMITTED_ATTRS.has(k)) attrs[k] = v
-      if (typeof patch.title === 'string') attrs.title = patch.title
-      if (Object.keys(attrs).length) crdtEmitNodeAttrs(id, attrs)
+      if (item.kind === 'task') {
+        // DEC-144: a desk task edited in Focus syncs in the task's vocabulary
+        // (description, dueDate) — the same registers the desk's own editor
+        // emits — and the desk surfaces re-read it, so both views agree.
+        const { title, ...taskAttrs } = taskAttrsForItemPatch(patch) ?? {}
+        if (title !== undefined) crdtEmitNodeTitle(id, title)
+        if (Object.keys(taskAttrs).length) crdtEmitNodeAttrs(id, taskAttrs as Record<string, unknown>)
+        void useNodeStore.getState().refresh()
+      } else {
+        const attrs: Record<string, unknown> = {}
+        for (const [k, v] of Object.entries(patch)) if (EMITTED_ATTRS.has(k)) attrs[k] = v
+        if (typeof patch.title === 'string') attrs.title = patch.title
+        if (Object.keys(attrs).length) crdtEmitNodeAttrs(id, attrs)
+      }
+      window.dispatchEvent(new CustomEvent('fb:workitems-changed'))
     }
     return item
   },

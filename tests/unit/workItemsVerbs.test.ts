@@ -32,7 +32,10 @@ function freshDb(): { raw: DatabaseSync; db: Db } {
       status TEXT NOT NULL DEFAULT 'open',
       trashed_at INTEGER,
       org_id TEXT NOT NULL DEFAULT 'personal',
-      updated_at INTEGER NOT NULL DEFAULT 0
+      updated_at INTEGER NOT NULL DEFAULT 0,
+      -- Real nodes columns the DEC-144 Focus counts read.
+      archived INTEGER NOT NULL DEFAULT 0,
+      due_date INTEGER
     );
   `)
   const db: Db = {
@@ -271,6 +274,17 @@ describe('counts', () => {
     raw.exec("UPDATE nodes SET trashed_at = 1 WHERE id = 'trash'")
     raw.exec("INSERT INTO nodes (id, kind, title, work_item_state, org_id) VALUES ('org', 'work_item', 'O', 'open', 'some-org')")
     expect(workItemCountsCore(db, 'personal')).toEqual({ open: 2, completed: 1 })
+  })
+
+  it('DEC-144: counts tasks filed on desks by their effective state, never the desk itself', () => {
+    const { raw, db } = freshDb()
+    wi(raw, 'a', 'open')
+    raw.exec("INSERT INTO nodes (id, kind, title) VALUES ('desk', 'task', 'A desk')")
+    raw.exec("INSERT INTO nodes (id, parent_id, kind, title, status) VALUES ('t1', 'desk', 'task', 'Open task', 'open')")
+    raw.exec("INSERT INTO nodes (id, parent_id, kind, title, status) VALUES ('t2', 'desk', 'task', 'Done task', 'done')")
+    raw.exec("INSERT INTO nodes (id, parent_id, kind, title, status, work_item_state) VALUES ('t3', 'desk', 'task', 'Waiting', 'open', 'waiting')")
+    raw.exec("INSERT INTO nodes (id, parent_id, kind, title, archived) VALUES ('t4', 'desk', 'task', 'Archived', 1)")
+    expect(workItemCountsCore(db, 'personal')).toEqual({ open: 2, completed: 1, waiting: 1 })
   })
 })
 

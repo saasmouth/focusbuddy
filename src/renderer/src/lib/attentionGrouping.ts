@@ -65,8 +65,27 @@ export function nestRows<T extends { depth: number }>(rows: readonly T[]): Neste
   return roots
 }
 
-const parentOf = (i: FbNode): string | null =>
-  i.groupId && i.groupId !== i.id ? i.groupId : null
+// DEC-144 — one parent rule for both kinds. A captured item nests by groupId;
+// a task on a desk nests by parentId (a task under a task is its step). Only
+// parents that are themselves in the list count (childMap checks), so a task's
+// desk is never mistaken for its parent item.
+const parentOf = (i: FbNode): string | null => {
+  if (i.groupId && i.groupId !== i.id) return i.groupId
+  if (i.kind === 'task' && i.parentId && i.parentId !== i.id) return i.parentId
+  return null
+}
+
+/** The desk an item sits on: its nearest ancestor that is not itself an item
+ *  in `items` (a work item's parent, or the desk above a chain of tasks). */
+export function deskOf(i: FbNode, items: FbNode[], nodes: FbNode[]): string | null {
+  const inList = new Set(items.map((x) => x.id))
+  const byId = new Map(nodes.map((n) => [n.id, n]))
+  let cur = i.parentId ?? null
+  for (let hops = 0; cur && inList.has(cur) && hops < 16; hops++) {
+    cur = byId.get(cur)?.parentId ?? items.find((x) => x.id === cur)?.parentId ?? null
+  }
+  return cur
+}
 
 /** Manual order beats the ranker ONLY where the operator has actually placed
  *  something. sortOrder 0 means "never dragged", and those keep their

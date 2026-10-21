@@ -1,4 +1,5 @@
 import type { FbNode } from '@shared/types'
+import { isDeskTask } from '@shared/attentionProjection'
 
 // Attention feeders (S7, SPEC-022/023/024 intelligence-light; CR-08(b)'s
 // enabler). Feeders READ desk/plan state and surface it AS attention signals —
@@ -56,6 +57,9 @@ export function deskDueSignals(nodes: FbNode[], nowMs: number): FeederSignal[] {
   for (const n of nodes) {
     if (n.archived || n.status === 'done' || n.status === 'parked') continue
     if (n.dueDate == null) continue
+    // DEC-144: a task filed on a desk is already in Focus as itself; a feeder
+    // row for its due date was the same task listed twice.
+    if (isDeskTask(n, (id) => byId.get(id))) continue
     const ms = n.dueDate - nowMs
     if (ms > 7 * DAY) continue
     const days = Math.floor(ms / DAY)
