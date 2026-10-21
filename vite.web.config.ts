@@ -37,7 +37,10 @@ function swapModules(map: Record<string, string>): Plugin {
 // registered twice -- and the Worker is the side that actually runs the data
 // layer, which is why leaving it off the second list failed there and nowhere
 // else.
-const MODULE_SWAPS: Record<string, string> = {
+//
+// Exported because tests/unit/webBundleGraph.test.ts walks the same graph with
+// the same swaps, to fail in the unit suite when anything Node-only gets in.
+export const MODULE_SWAPS: Record<string, string> = {
   // The database, on WebAssembly instead of a file in userData.
   'src/main/db/database.ts': 'src/web/worker/database.ts',
   // Session state: owned by the page in the browser, not by the Worker.
@@ -60,7 +63,28 @@ const MODULE_SWAPS: Record<string, string> = {
   // The Vault: metadata is real, the crypto refuses. Its PBKDF2 and AES-GCM are
   // synchronous and the browser offers them only asynchronously, and a
   // hand-written cipher is not an acceptable way around that.
-  'src/main/db/vault.ts': 'src/web/worker/main/vault.ts'
+  'src/main/db/vault.ts': 'src/web/worker/main/vault.ts',
+  // AI routing between the on-device model and the cloud. The browser has no
+  // device model, and the desktop router holds its per-request cloud grant in
+  // Node's AsyncLocalStorage -- reached through the live Resume summary, it
+  // broke this build outright.
+  'src/main/ai/local/providerRouter.ts': 'src/web/worker/main/providerRouter.ts',
+  // Privacy switches live in a JSON file in Electron's userData. Reached through
+  // the Background AI gate; it pulled Electron's npm stub (which calls
+  // child_process and fs at load) into the Worker.
+  'src/main/privacyPrefs.ts': 'src/web/worker/main/privacyPrefs.ts'
+}
+
+// Path aliases plus the Node-module shims. Exported for the same test.
+export const WEB_ALIASES: Record<string, string> = {
+  '@renderer': resolve('src/renderer/src'),
+  '@shared': resolve('src/shared'),
+  '@office': resolve('src/renderer/src/office'),
+  '@runtime': resolve('src/renderer/src/runtime'),
+  crypto: resolve('src/web/shims/crypto.ts'),
+  path: resolve('src/web/shims/path.ts'),
+  'node:crypto': resolve('src/web/shims/crypto.ts'),
+  'better-sqlite3': resolve('src/web/shims/betterSqlite3.ts')
 }
 
 export default defineConfig({
@@ -73,16 +97,7 @@ export default defineConfig({
   base: process.env.VITE_WEB_BASE ?? '/',
   plugins: [react(), swapModules(MODULE_SWAPS)],
   resolve: {
-    alias: {
-      '@renderer': resolve('src/renderer/src'),
-      '@shared': resolve('src/shared'),
-      '@office': resolve('src/renderer/src/office'),
-      '@runtime': resolve('src/renderer/src/runtime'),
-      crypto: resolve('src/web/shims/crypto.ts'),
-      path: resolve('src/web/shims/path.ts'),
-      'node:crypto': resolve('src/web/shims/crypto.ts'),
-      'better-sqlite3': resolve('src/web/shims/betterSqlite3.ts')
-    }
+    alias: WEB_ALIASES
   },
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   optimizeDeps: {
