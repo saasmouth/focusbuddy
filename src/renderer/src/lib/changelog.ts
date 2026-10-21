@@ -38,15 +38,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    // Started by the PlexiiDraw Phase 1 merge (draw-int); the release adds the rest of this build's notes.
     version: '4.3.39-local.8',
-    date: '2026-10-21',
-    title: 'PlexiiDesk 4.3.39-local.8 \u2014 PlexiiDraw saves drawings in its new format (test build)',
+    date: '2026-10-21T07:17:00Z',
+    title: 'PlexiiDesk 4.3.39-local.8 \u2014 PlexiiDraw grows up, a new diagram editor, and Focus in team workspaces (test build)',
     tag: 'feature',
     summary:
-      'A local test build. PlexiiDraw gains Illustrator\u2019s keyboard shortcuts, cut, copy and paste, Place and SVG import, path editing, transform tools, and groups, clipping masks and compound paths.',
+      'A local test build. PlexiiDraw gains Illustrator\u2019s keyboard shortcuts and most of its everyday tools. Diagrams has a new editor. Focus works in team workspaces. PlexiiDesign\u2019s AI panel now says what to do about what it finds.',
     highlights: [
-      'Drawings now save in the new PlexiiDraw format. Open and edit them in this version or newer; older versions of PlexiiDesk may not show groups, masks or extra artboards.'
+      'PlexiiDraw: Illustrator keyboard shortcuts, with a one-time note of the keys that moved and Edit \u2192 Keyboard Shortcuts to change them. Place, Import SVG and Open SVG, and drag files in. Cut, copy and paste, including Paste in Front, Back and in Place, and to and from other apps.',
+      'PlexiiDraw: Direct Selection, Pen improvements, add, delete and convert points, Curvature, Scissors, Knife, Join, Average and Simplify. Rotate, Reflect, Scale and Shear with dialogs, Transform Again (\u2318D), Transform Each and a Transform panel. Align to a key object. Groups and isolation mode, clipping masks and compound paths.',
+      'PlexiiDraw saves drawings in its new format. Older versions of PlexiiDesk may not show groups, masks or extra artboards.',
+      'Diagrams has a new editor: 430 shapes in 16 categories and searchable icons, lines that route around shapes, Tidy, automatic layouts, pages and layers, themes, shapes linked to Plexii tables, import from Mermaid, draw.io and Visio, and export to SVG, PNG, PDF and draw.io.',
+      'Focus works in team workspaces: assign a task to members or guests, see who it is assigned to, and moving a desk into a team takes its tasks with it.',
+      'PlexiiDesign: \u201cWhat I\u2019d do about it\u201d turns the live review into advice, and can refresh as you work. Footnotes, swatches and spot inks, and preflight.',
+      'The Desk section of the menu has one Home at the top and no repeated rows. Agentic Ops moved to PlexiiBrain.',
+      'Fixed: copies made with Duplicate, Paste or Place in PlexiiDraw, Diagrams, PlexiiDesign and Slides shared colours and text with the original, so changing one changed both.',
+      'Fixed: the \u201cLocal AI needs a one-time download\u201d notice stayed on screen after switching to a cloud AI source.'
     ]
   },
   {
