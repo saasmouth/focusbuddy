@@ -246,12 +246,6 @@ import {
   recordOutcome as recordSignalOutcome
 } from '../db/signals'
 import { proposeCleanup } from '../ai/cleanupRewrite'
-import {
-  workItemsOrgEnabled,
-  orgMigrationAttested,
-  attestOrgMigrated,
-  revokeOrgAttestation
-} from '../workItemsPref'
 import { staleDesks } from '../db/nodeActivity'
 import { createDeskLayoutStore } from '../db/deskLayoutStore'
 import type { DeskLayout, DeviceClass } from '@shared/deskLayout'
@@ -983,16 +977,6 @@ export function registerIpcHandlers(): void {
   // messiness test inside, null on any failure, never blocks a capture.
   ipcMain.handle('workItems:proposeCleanup', (_e, text: string, notes?: string) =>
     proposeCleanup(String(text ?? ''), notes ? String(notes) : undefined)
-  )
-  // P1 migrated-peer confirmation (§2.6/§8): the per-org gate the SPEC-027
-  // org-carry branch will consult. Record/revoke are operator actions.
-  ipcMain.handle('workItems:orgEnabled', (_e, orgId: string) => workItemsOrgEnabled(String(orgId ?? '')))
-  ipcMain.handle('workItems:orgAttestation', (_e, orgId: string) => orgMigrationAttested(String(orgId ?? '')))
-  ipcMain.handle('workItems:attestOrgMigrated', (_e, orgId: string, note: string) =>
-    attestOrgMigrated(String(orgId ?? ''), String(note ?? ''))
-  )
-  ipcMain.handle('workItems:revokeOrgAttestation', (_e, orgId: string) =>
-    revokeOrgAttestation(String(orgId ?? ''))
   )
   // Lifecycle L3: computed desk staleness — the Stale Desks widget's feed.
   ipcMain.handle('nodes:staleDesks', () => staleDesks())

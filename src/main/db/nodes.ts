@@ -21,11 +21,11 @@ import { nodesTableAcceptsWorkItems } from './migrateNodesKind'
 import { workItemDetachHook } from './workItems'
 import type { FbNode, NodeDraft, NodePatch } from '@shared/types'
 
-/** §2.6 + R006: work_item creation is triple-gated at the db chokepoint —
- *  capability flag ON, personal scope only while the exposure switch is OFF,
- *  and the local DDL must actually accept the kind (same-device guard). */
+/** R006: work_item creation is refused at the db chokepoint only when the
+ *  local DDL does not yet accept the kind (same-device guard). The capability
+ *  flag (DEC-144) and the personal-only scope (DEC-145) are gone. */
 export class WorkItemCreationRefusedError extends Error {
-  readonly code: 'WORK_ITEMS_PERSONAL_ONLY' | 'WORK_ITEMS_NOT_MIGRATED'
+  readonly code: 'WORK_ITEMS_NOT_MIGRATED'
   constructor(code: WorkItemCreationRefusedError['code'], message: string) {
     super(message)
     this.code = code
