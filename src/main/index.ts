@@ -1,4 +1,4 @@
-import { app, BrowserWindow, desktopCapturer, ipcMain, Menu, protocol, session, shell, net } from 'electron'
+import { app, BrowserWindow, desktopCapturer, ipcMain, Menu, protocol, session, shell, net, webContents } from 'electron'
 import { join, resolve as resolvePath, sep } from 'path'
 import { existsSync, readdirSync, renameSync, symlinkSync } from 'fs'
 import { pathToFileURL } from 'url'
@@ -332,6 +332,48 @@ function sendZoom(dir: 'in' | 'out' | 'reset'): void {
   win?.webContents.send('app:zoom', dir)
 }
 
+/**
+ * Edit › Cut, Copy and Paste send the command to the focused page, ALWAYS.
+ *
+ * The plain Electron roles (`role: 'copy'`) go through Chromium's own
+ * validation, which only fires the page's copy event when the page has a TEXT
+ * selection: with a shape selected in PlexiiDraw (no text selected), clicking
+ * Edit › Copy did nothing at all -- no copy event, nothing on the clipboard
+ * (measured on Electron 44 with the real menu item; 4.3.41). webContents.copy()
+ * fires the copy event either way, so the page decides: a text field copies its
+ * text exactly as before, and PlexiiDraw copies the selected art
+ * (documents/draw/editor/menuClipboard.ts). The keys behave as they did: a
+ * page that handles ⌘C itself prevents the key, and the menu never sees it.
+ */
+function editAction(action: 'cut' | 'copy' | 'paste'): void {
+  const wc = webContents.getFocusedWebContents() ?? BrowserWindow.getFocusedWindow()?.webContents
+  if (!wc || wc.isDestroyed()) return
+  wc[action]()
+}
+
+function editMenu(isMac: boolean): Electron.MenuItemConstructorOptions {
+  return {
+    label: 'Edit',
+    submenu: [
+      { role: 'undo' },
+      { role: 'redo' },
+      { type: 'separator' },
+      { label: 'Cut', accelerator: 'CommandOrControl+X', click: () => editAction('cut') },
+      { label: 'Copy', accelerator: 'CommandOrControl+C', click: () => editAction('copy') },
+      { label: 'Paste', accelerator: 'CommandOrControl+V', click: () => editAction('paste') },
+      ...(isMac
+        ? ([
+            { role: 'pasteAndMatchStyle' },
+            { role: 'delete' },
+            { role: 'selectAll' },
+            { type: 'separator' },
+            { label: 'Speech', submenu: [{ role: 'startSpeaking' }, { role: 'stopSpeaking' }] }
+          ] as Electron.MenuItemConstructorOptions[])
+        : ([{ role: 'delete' }, { type: 'separator' }, { role: 'selectAll' }] as Electron.MenuItemConstructorOptions[]))
+    ]
+  }
+}
+
 // Build the application menu. There was previously no explicit menu, so the app
 // ran on Electron's default, whose View-menu zoom roles were never wired to the
 // app's own scale. This template restores the standard menus (so copy/paste,
@@ -361,7 +403,7 @@ function buildAppMenu(): Electron.Menu {
         ]
       : []),
     { role: 'fileMenu' },
-    { role: 'editMenu' },
+    editMenu(isMac),
     {
       label: 'View',
       submenu: [

@@ -47,7 +47,7 @@ vi.mock('electron', () => {
   return { clipboard, ClipboardItem, nativeImage, BrowserWindow: class {}, dialog: {} }
 })
 
-import { DRAW_CLIPBOARD_NATIVE, clipboardEntry, jpegTypeIn, readDrawClipboard, svgFlavour, svgTypeIn, writeDrawClipboard } from '../../src/main/drawClipboard'
+import { DRAW_CLIPBOARD_NATIVE, clipboardEntry, filePathsFromFilenamesPlist, filePathsFromUriList, jpegTypeIn, readDrawClipboard, setClipboardFileReader, svgFlavour, svgTypeIn, writeDrawClipboard } from '../../src/main/drawClipboard'
 
 const PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 const PNG = `data:image/png;base64,${PNG_B64}`
@@ -68,11 +68,13 @@ beforeEach(() => {
 })
 
 describe('the clipboard entry a copy writes', () => {
-  it('on macOS: native JSON, SVG as text and as public.svg-image, and the PNG as raw public.png with its real size declared', async () => {
+  it('on macOS: native JSON, SVG as public.svg-image, and the PNG as raw public.png with its real size declared -- no SVG source as text', async () => {
     const e = clipboardEntry({ json: '{"k":1}', svg: SVG, png: PNG, pngScale: 2 }, 'darwin')
-    expect(Object.keys(e).sort()).toEqual([raw('public.png'), raw('public.svg-image'), 'text/plain', DRAW_CLIPBOARD_NATIVE].sort())
+    expect(Object.keys(e).sort()).toEqual([raw('public.png'), raw('public.svg-image'), DRAW_CLIPBOARD_NATIVE].sort())
     expect(await text(e[DRAW_CLIPBOARD_NATIVE])).toBe('{"k":1}')
-    expect(e['text/plain']).toBe(SVG)
+    // An app that takes text before pictures (Pages, a web editor) pasted the
+    // SVG source instead of the picture while the markup was text/plain.
+    expect(e['text/plain']).toBeUndefined()
     expect(await text(e[raw('public.svg-image')])).toBe(SVG)
     const png = await bytes(e[raw('public.png')])
     expect(png.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a')
@@ -92,13 +94,17 @@ describe('the clipboard entry a copy writes', () => {
   it('a missing or non-PNG picture is left out rather than written wrong', () => {
     expect(Object.keys(clipboardEntry({ json: '{}', svg: SVG, pngScale: 2 }, 'darwin'))).not.toContain(raw('public.png'))
     expect(Object.keys(clipboardEntry({ json: '{}', svg: SVG, png: 'data:image/png;base64,AAAA', pngScale: 2 }, 'darwin'))).not.toContain(raw('public.png'))
-    expect(Object.keys(clipboardEntry({ json: '{}', svg: SVG, png: 'javascript:alert(1)', pngScale: 2 }, 'darwin'))).toHaveLength(3)
+    expect(Object.keys(clipboardEntry({ json: '{}', svg: SVG, png: 'javascript:alert(1)', pngScale: 2 }, 'darwin'))).toHaveLength(2)
+  })
+
+  it('Copy As › SVG Code writes the markup as text and nothing else', () => {
+    expect(clipboardEntry({ json: '{}', svg: SVG, png: PNG, pngScale: 2, svgAsText: true }, 'darwin')).toEqual({ 'text/plain': SVG })
   })
 
   it('writes everything in ONE clipboard item (separate writes would replace each other)', async () => {
     expect(await writeDrawClipboard({ json: '{}', svg: SVG, png: PNG, pngScale: 2 })).toEqual({ ok: true })
     expect(state.written).toHaveLength(1)
-    expect(Object.keys(state.written[0]).length).toBeGreaterThanOrEqual(4)
+    expect(Object.keys(state.written[0]).length).toBeGreaterThanOrEqual(3)
     expect(await writeDrawClipboard({ json: 1, svg: SVG } as never)).toEqual({ ok: false, error: 'Nothing to copy.' })
   })
 })
@@ -144,5 +150,40 @@ describe('reading the clipboard', () => {
     expect((await readDrawClipboard()).image).toBeUndefined()
     state.items = [{ types: ['text/plain', DRAW_CLIPBOARD_NATIVE], data: { [DRAW_CLIPBOARD_NATIVE]: Buffer.from('{}') } }]
     expect(await readDrawClipboard()).toEqual({ native: '{}' })
+  })
+})
+
+describe('files copied in Finder', () => {
+  const NAMES = raw('NSFilenamesPboardType')
+  const plist = (paths: string[]): string =>
+    `<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><array>${paths.map((p) => `<string>${p.replace(/&/g, '&amp;')}</string>`).join('')}</array></plist>`
+
+  it('reads file URLs and the filenames list', () => {
+    expect(filePathsFromUriList('# comment\r\nfile:///Users/me/A%20B.pdf\r\nhttps://example.com/x.png\nfile:///tmp/c.svg')).toEqual(['/Users/me/A B.pdf', '/tmp/c.svg'])
+    expect(filePathsFromFilenamesPlist(plist(['/Users/me/R&D.png', '/tmp/x.pdf']))).toEqual(['/Users/me/R&D.png', '/tmp/x.pdf'])
+  })
+
+  it('pastes the FILES, not their names or icons, every file of a multi-file copy once', async () => {
+    const read: string[][] = []
+    setClipboardFileReader(async (paths) => {
+      read.push(paths)
+      return { files: paths.map((p) => ({ name: p.split('/').pop()!, bytes: new Uint8Array([1, 2, 3]) })), skipped: [] }
+    })
+    // What Finder writes for two files: per item a file URL; the name as text; the icon as a picture.
+    state.items = [
+      { types: ['text/uri-list', 'text/plain', 'image/png', NAMES], data: { 'text/uri-list': Buffer.from('file:///tmp/a.pdf'), 'text/plain': Buffer.from('a.pdf'), 'image/png': Buffer.from(PNG_B64, 'base64'), [NAMES]: Buffer.from(plist(['/tmp/a.pdf', '/tmp/b.png'])) } },
+      { types: ['text/uri-list'], data: { 'text/uri-list': Buffer.from('file:///tmp/b.png') } }
+    ]
+    const r = await readDrawClipboard()
+    expect(read).toEqual([['/tmp/a.pdf', '/tmp/b.png']])
+    expect(r.files?.map((f) => f.name)).toEqual(['a.pdf', 'b.png'])
+    expect(r.text).toBeUndefined()
+    expect(r.image).toBeUndefined()
+  })
+
+  it('says which copied files could not be read', async () => {
+    setClipboardFileReader(async () => ({ files: [], skipped: [{ name: 'huge.pdf', reason: 'larger than 64 MB' }] }))
+    state.items = [{ types: ['text/uri-list'], data: { 'text/uri-list': Buffer.from('file:///tmp/huge.pdf') } }]
+    expect(await readDrawClipboard()).toEqual({ skippedFiles: [{ name: 'huge.pdf', reason: 'larger than 64 MB' }] })
   })
 })

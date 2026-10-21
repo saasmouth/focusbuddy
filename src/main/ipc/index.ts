@@ -1946,10 +1946,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('design:export', (_e, input: { design: DesignBody; title: string; format: 'png' | 'pdf' }) => exportDesign(input))
   // The argument type is written inline rather than as Parameters<typeof …> so
   // the generated IPC contract registry can derive a real shape for it.
-  ipcMain.handle('draw:export', (_e, input: { draw: DrawBody; title: string; format: 'png' | 'svg' | 'pdf' }) => exportDraw(input))
+  ipcMain.handle('draw:export', (_e, input: { draw: DrawBody; title: string; format: 'png' | 'svg' | 'pdf'; scope?: 'artboard' | 'each' | 'canvas' | 'pages'; artboardId?: string }) => exportDraw(input))
   ipcMain.handle('draw:pickImportFiles', (_e, input: { purpose: 'place' | 'open' | 'import' | 'replace' }) => pickDrawImportFiles(input))
   ipcMain.handle('draw:pdfPage', (_e, input: { bytes: Uint8Array; page?: number }) => renderDrawPdfPage(input))
-  ipcMain.handle('draw:clipboardWrite', (_e, input: { json: string; svg: string; png?: string; pngScale: number }) => writeDrawClipboard(input))
+  ipcMain.handle('draw:clipboardWrite', (_e, input: { json: string; svg: string; png?: string; pngScale: number; svgAsText?: boolean }) => writeDrawClipboard(input))
   ipcMain.handle('draw:clipboardRead', () => readDrawClipboard())
   ipcMain.handle('map:export', (_e, input: Parameters<typeof exportMap>[0]) => exportMap(input))
   ipcMain.handle('map:import', () => importVsdx())

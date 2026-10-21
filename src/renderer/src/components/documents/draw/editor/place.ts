@@ -187,8 +187,9 @@ export function placeNext(ctx: EditorCtx, rect: Box, newId: (prefix: string) => 
     return
   }
   ctx.set({ placing: null, tool: 'select' })
+  // The "Click to place…" prompt must not outlive the placing.
+  ctx.status(`Placed ${item.name}.`)
   if (reports.length) showImportReport(ctx, reports)
-  else ctx.status(`Placed ${item.name}.`)
 }
 
 /** The import report dialog (see dialogs/importReport.dialog.tsx). */

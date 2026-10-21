@@ -474,6 +474,28 @@ export function svgPasteImporter(): SvgPasteImporter | null {
   return svgImporter
 }
 
+// ── File paste seam (WP-IMPORT) ──────────────────────────────────────────────
+
+/** A file copied in Finder, as the main process read it from disk. */
+export interface ClipboardFile {
+  name: string
+  bytes: Uint8Array
+}
+
+/**
+ * How files copied in Finder paste: exactly what File › Place makes of them
+ * (an image, an SVG as editable art, a PDF page as an image), registered by
+ * commands/import.commands.ts. The nodes come back at their actual size, laid
+ * out from (0, 0); the paste centres them in the window.
+ */
+export type FilePasteImporter = (files: ClipboardFile[], target: DrawDoc, info: { storedSchema: number; v2Writes: boolean }) => Promise<{ nodes: DrawNode[]; assets: Record<string, DrawAsset>; note: string | null } | { error: string }>
+
+let fileImporter: FilePasteImporter | null = null
+
+export function registerFilePasteImporter(fn: FilePasteImporter | null): void {
+  fileImporter = fn
+}
+
 /** Said only if no SVG importer is registered (a build without WP-IMPORT): never a silent failure. */
 export const SVG_PASTE_UNAVAILABLE = "This build can't read SVG from the clipboard."
 
@@ -482,12 +504,18 @@ export const SVG_PASTE_UNAVAILABLE = "This build can't read SVG from the clipboa
 export interface ClipboardWriteInput {
   json: string
   svg: string
+  /** Copy As › SVG Code: put only the markup on the clipboard, as text. */
+  svgAsText?: boolean
   /** A PNG data URL rendered at `pngScale` x the art's size, when one could be made. */
   png?: string
   pngScale: number
 }
 
 export interface ClipboardReadResult {
+  /** Files copied in Finder, read from disk (their names and icons on the clipboard are ignored). */
+  files?: ClipboardFile[]
+  /** Copied files that could not be read, and why. */
+  skippedFiles?: Array<{ name: string; reason: string }>
   /** PlexiiDraw's own JSON. */
   native?: string
   /** SVG markup (from an SVG flavour, or text that is an SVG document). */
@@ -600,13 +628,37 @@ export async function copySelection(ctx: EditorCtx): Promise<boolean> {
     return false
   }
   const b = drawClipboardBackend()
-  const png = await b.rasterize(built.svg, built.size.w, built.size.h, 2)
-  const res = await b.write({ json: built.json, svg: built.svg, png: png ?? undefined, pngScale: 2 })
+  const n = built.payload.nodes.length
+  // Art holding photos takes a moment to draw as a picture: say so, so a
+  // paste into another app is not tried before the clipboard has it.
+  ctx.busy('Copying…')
+  try {
+    const png = await b.rasterize(built.svg, built.size.w, built.size.h, 2)
+    const res = await b.write({ json: built.json, svg: built.svg, png: png ?? undefined, pngScale: 2 })
+    if (!res.ok) {
+      ctx.status(`Couldn't copy: ${res.error ?? 'the clipboard refused the write.'}`)
+      return false
+    }
+    ctx.status(png ? `Copied ${n} object${n === 1 ? '' : 's'}.` : `Copied ${n} object${n === 1 ? '' : 's'} as vectors only: the picture other apps paste could not be drawn.`)
+    return true
+  } finally {
+    ctx.busy(null)
+  }
+}
+
+/** Edit › Copy As › SVG Code: the selection's SVG markup on the clipboard as plain text (code editors, Figma's paste, chat). */
+export async function copySvgCode(ctx: EditorCtx): Promise<boolean> {
+  const built = buildClipboard(ctx.doc(), copyableIds(ctx))
+  if (!built) {
+    ctx.status('Select something to copy.')
+    return false
+  }
+  const res = await drawClipboardBackend().write({ json: built.json, svg: built.svg, pngScale: 1, svgAsText: true })
   if (!res.ok) {
     ctx.status(`Couldn't copy: ${res.error ?? 'the clipboard refused the write.'}`)
     return false
   }
-  ctx.status(null)
+  ctx.status('Copied the SVG code.')
   return true
 }
 
@@ -648,6 +700,16 @@ interface Incoming {
 /** Turn what the clipboard holds into nodes for `doc`, or a reason why not. */
 export async function incomingFrom(ctx: EditorCtx, read: ClipboardReadResult): Promise<Incoming | { error: string }> {
   const doc = ctx.doc()
+  const skipped = (read.skippedFiles ?? []).map((f) => `${f.name} was not read: ${f.reason}.`)
+  if (read.files?.length || skipped.length) {
+    if (!read.files?.length) return { error: skipped.join(' ') }
+    if (!fileImporter) return { error: "This build can't paste files; use File › Place." }
+    const res = await fileImporter(read.files, doc, { storedSchema: ctx.get().storedSchema, v2Writes: ctx.get().v2Writes })
+    if ('error' in res) return { error: [res.error, ...skipped].join(' ') }
+    const landed = landPayload(ctx.doc(), { nodes: res.nodes, assets: res.assets, swatches: [] })
+    const note = [res.note, ...skipped].filter(Boolean).join(' ') || null
+    return { doc: landed.doc, nodes: landed.nodes, origin: null, note }
+  }
   if (read.native) {
     const parsed = parseClipboardPayload(read.native)
     if (parsed && parsed.nodes.length) {

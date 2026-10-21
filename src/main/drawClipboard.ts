@@ -7,11 +7,15 @@
 //   - PlexiiDraw's native JSON as a web custom format. Chromium registers it
 //     per platform, so another PlexiiDraw window -- or the browser build, via
 //     navigator.clipboard -- reads it back exactly;
-//   - the SVG markup as text/plain (Figma, code editors, chat) and under the
-//     platform's SVG flavour (public.svg-image on macOS, the registered
-//     "image/svg+xml" format elsewhere), so vector apps get vectors. Writing
-//     the plain 'image/svg+xml' type does NOT do that on macOS: Chromium files
-//     it as text only (verified on Electron 44.7.2);
+//   - the SVG markup under the platform's SVG flavour (public.svg-image on
+//     macOS, the registered "image/svg+xml" format elsewhere), so vector apps
+//     get vectors. Writing the plain 'image/svg+xml' type does NOT do that on
+//     macOS: Chromium files it as text only (verified on Electron 44.7.2).
+//     NOT as text/plain: an app that takes text before pictures (Pages' body
+//     text, a web editor reading text/plain first, a chat box) then pasted
+//     the SVG source -- megabytes of it for art holding a photo -- instead of
+//     the picture. Edit › Copy As › SVG Code puts the markup on the clipboard
+//     as text when that is what is wanted (copySvgCode below);
 //   - a PNG picture for Office, Keynote, Slack and the like. On macOS it goes in
 //     as raw public.png so the bytes are kept as written -- 'image/png' is
 //     re-encoded, which drops the pHYs chunk -- and the pHYs chunk declares the
@@ -25,7 +29,9 @@
 // through that MIME type.
 
 import { clipboard, ClipboardItem, nativeImage } from 'electron'
+import { fileURLToPath } from 'url'
 import { pngWithDpi } from './drawExport'
+import { readPicked } from './drawImport'
 
 /** The native PlexiiDraw format: a web custom format, so the browser build can read it too. */
 export const DRAW_CLIPBOARD_NATIVE = 'web application/vnd.plexii.draw+json'
@@ -55,9 +61,21 @@ export interface DrawClipboardWriteInput {
   svg: string
   png?: string
   pngScale: number
+  /** Copy As › SVG Code: the markup as plain text and nothing else. */
+  svgAsText?: boolean
+}
+
+/** A file copied in Finder / Explorer, read from disk because its URL was on the clipboard. */
+export interface DrawClipboardFile {
+  name: string
+  bytes: Uint8Array
 }
 
 export interface DrawClipboardReadResult {
+  /** Files copied in Finder (file URLs on the clipboard): pasted like File › Place, never as their names. */
+  files?: DrawClipboardFile[]
+  /** Copied files that could not be read, and why. */
+  skippedFiles?: Array<{ name: string; reason: string }>
   native?: string
   svg?: string
   image?: { dataUrl: string; w: number; h: number }
@@ -75,9 +93,9 @@ function pngBytes(dataUrl: string | undefined): Buffer | null {
 
 /** The clipboard entry for a copy, as plain data (exported so it can be checked without a clipboard). */
 export function clipboardEntry(input: DrawClipboardWriteInput, platform: NodeJS.Platform = process.platform): Record<string, string | Blob> {
+  if (input.svgAsText) return { 'text/plain': input.svg }
   const entry: Record<string, string | Blob> = {
     [DRAW_CLIPBOARD_NATIVE]: new Blob([input.json], { type: 'application/json' }),
-    'text/plain': input.svg,
     [raw(svgFlavour(platform))]: new Blob([input.svg], { type: 'image/svg+xml' })
   }
   const png = pngBytes(input.png)
@@ -117,10 +135,77 @@ async function readType(item: Electron.ClipboardItem, type: string, limit: numbe
   }
 }
 
+/** Local file paths from a text/uri-list (RFC 2483: one URI per line, # comments). Only file: URLs. */
+export function filePathsFromUriList(list: string): string[] {
+  const out: string[] = []
+  for (const line of list.split(/\r?\n/)) {
+    const u = line.trim()
+    if (!u || u.startsWith('#') || !/^file:\/\//i.test(u)) continue
+    try {
+      const p = fileURLToPath(u)
+      if (p && !out.includes(p)) out.push(p)
+    } catch {
+      // not a local file URL (file://server/share on macOS): ignored
+    }
+  }
+  return out
+}
+
+/** Paths in macOS's NSFilenamesPboardType property list (every file of a multi-file Finder copy). */
+export function filePathsFromFilenamesPlist(xml: string): string[] {
+  const out: string[] = []
+  const re = /<string>([^<]*)<\/string>/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(xml))) {
+    const p = m[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&')
+    if (p.startsWith('/') && !out.includes(p)) out.push(p)
+  }
+  return out
+}
+
+/** The copied files' paths, from every item's file URL or the filenames list. */
+async function copiedFilePaths(items: Electron.ClipboardItem[]): Promise<string[]> {
+  const paths: string[] = []
+  const add = (ps: string[]): void => {
+    for (const p of ps) if (!paths.includes(p)) paths.push(p)
+  }
+  for (const item of items) {
+    if (item.types.includes('text/uri-list')) {
+      const b = await readType(item, 'text/uri-list', CLIPBOARD_LIMITS.text)
+      if (b) add(filePathsFromUriList(b.toString('utf8')))
+    }
+    const names = item.types.find((t) => t === raw('NSFilenamesPboardType'))
+    if (names) {
+      const b = await readType(item, names, CLIPBOARD_LIMITS.text)
+      if (b) add(filePathsFromFilenamesPlist(b.toString('utf8')))
+    }
+  }
+  return paths
+}
+
+/** Read the copied files (capped in size and count, exactly as File › Place reads picked ones). */
+let readFiles: (paths: string[]) => Promise<{ files: DrawClipboardFile[]; skipped: Array<{ name: string; reason: string }> }> = readPicked
+
+/** For tests: replace the file reader. */
+export function setClipboardFileReader(fn: typeof readFiles): void {
+  readFiles = fn
+}
+
 export async function readDrawClipboard(): Promise<DrawClipboardReadResult> {
   try {
     const out: DrawClipboardReadResult = {}
-    for (const item of await clipboard.read()) {
+    const items = await clipboard.read()
+    // Files copied in Finder come first: the clipboard also carries their
+    // NAMES as text and their ICONS as pictures, and pasting either of those
+    // is never what copying a file meant.
+    const paths = await copiedFilePaths(items)
+    if (paths.length) {
+      const r = await readFiles(paths)
+      if (r.files.length) out.files = r.files
+      if (r.skipped.length) out.skippedFiles = r.skipped
+      return out
+    }
+    for (const item of items) {
       const types = item.types
       if (out.native === undefined && types.includes(DRAW_CLIPBOARD_NATIVE)) {
         const b = await readType(item, DRAW_CLIPBOARD_NATIVE, CLIPBOARD_LIMITS.native)
