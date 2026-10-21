@@ -78,7 +78,8 @@ export function initialEditorState(content: unknown): EditorState {
     anchors: {},
     penTarget: null,
     curvature: null,
-    pathPrefs: { showHandles: true, smoothFidelity: 50, brushSize: 10 }
+    pathPrefs: { showHandles: true, smoothFidelity: 50, brushSize: 10 },
+    toolState: {}
   }
 }
 
@@ -196,6 +197,16 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
     // Type being edited on the canvas: no shortcut may eat a keystroke meant
     // for the text, even if focus slipped off the text box. Escape ends it.
     if (s.editingText && e.key !== 'Escape') return
+    // Enter opens the active tool's options (Illustrator: Rotate, Scale... and
+    // the Selection tool's Move dialog).
+    if (e.key === 'Enter' && !e.altKey && !e.metaKey && !e.ctrlKey && !s.readOnly) {
+      const active = toolById(s.tool)
+      if (active?.onOptions) {
+        e.preventDefault()
+        active.onOptions(ctx)
+        return
+      }
+    }
     const hit = resolveKey(e)
     if (!hit) return
     if (hit.kind === 'reserved') {

@@ -35,6 +35,12 @@ describe('registries', () => {
       'star:',
       'line:\\',
       'text:T',
+      'rotate:R',
+      'reflect:O',
+      'scale:S',
+      'shear:',
+      'reshape:',
+      'freeTransform:E',
       'brush:B',
       'eraser:Shift+E',
       'bucket:K',
@@ -63,8 +69,22 @@ describe('registries', () => {
   })
 
   it('panels and dialogs are discovered', () => {
-    expect(drawPanels().map((p) => p.id)).toEqual(['inspector', 'anchors', 'layers'])
-    expect(drawDialogs().map((d) => d.id).sort()).toEqual(['artboard-size', 'average', 'help', 'import-report', 'keyboard-shortcuts', 'place-pdf-page', 'simplify'])
+    expect(drawPanels().map((p) => p.id)).toEqual(['inspector', 'anchors', 'transform', 'align', 'layers'])
+    expect(drawDialogs().map((d) => d.id).sort()).toEqual([
+      'artboard-size',
+      'average',
+      'help',
+      'import-report',
+      'keyboard-shortcuts',
+      'place-pdf-page',
+      'simplify',
+      'transform-each',
+      'transform-move',
+      'transform-reflect',
+      'transform-rotate',
+      'transform-scale',
+      'transform-shear'
+    ])
   })
 
   it('every command\'s enabled() is pure: same answer twice, no state change', () => {
@@ -159,7 +179,17 @@ describe('the menu bar is built from commands', () => {
         'Keyboard shortcuts…|keyboard|⌥⇧⌘K||',
         '',
         'object',
-        'Transform again||⌘D|off|',
+        'Transform|transform|>',
+        '  Transform Again|repeat|⌘D|off|',
+        '  Move…||⇧⌘M|off|',
+        '  Rotate…|||off|',
+        '  Reflect…|||off|',
+        '  Scale…|||off|',
+        '  Shear…|||off|',
+        '  Transform Each…||⌥⇧⌘D|off|',
+        '  Reset Bounding Box|||off|',
+        '  Flip Horizontal|flip||off|',
+        '  Flip Vertical|flip||off|',
         '---',
         'Pathfinder|join_full|>',
         '  Unite||||',
@@ -172,12 +202,23 @@ describe('the menu bar is built from commands', () => {
         '  Send backward||⌘[||',
         '  Send to back||⇧⌘[||',
         'Align|align_horizontal_center|>',
-        '  Left||||',
-        '  Center||||',
-        '  Right||||',
-        '  Top||||',
-        '  Middle||||',
-        '  Bottom||||',
+        '  Left|||off|',
+        '  Center|||off|',
+        '  Right|||off|',
+        '  Top|||off|',
+        '  Middle|||off|',
+        '  Bottom|||off|',
+        '  Vertical distribute top|||off|',
+        '  Vertical distribute center|||off|',
+        '  Vertical distribute bottom|||off|',
+        '  Horizontal distribute left|||off|',
+        '  Horizontal distribute center|||off|',
+        '  Horizontal distribute right|||off|',
+        '  Vertical distribute space|||off|',
+        '  Horizontal distribute space|||off|',
+        '  Align to selection||||on',
+        '  Align to key object||||',
+        '  Align to artboard||||',
         'Path|timeline|>',
         '  Join|link|⌘J|off|',
         '  Average…||⌥⌘J|off|',
@@ -222,9 +263,15 @@ describe('the menu bar is built from commands', () => {
     expect(edit).toContain('Undo|undo|⌘Z||')
     expect(edit).toContain('Duplicate|file_copy|||')
     expect(edit).toContain('Deselect|deselect|⇧⌘A||')
+    // Something selected: the transform commands come on; Transform Again needs a transform first.
+    const object = describeMenu(buildMenu(h.ed.ctx, 'object'))
+    expect(object).toContain('  Move…||⇧⌘M||')
+    expect(object).toContain('  Transform Again|repeat|⌘D||')
+    expect(object).toContain('  Left||||')
+    expect(object).toContain('  Reset Bounding Box|||off|')
     const ro = harness({ ...blank([rect('a', 0, 0, 10, 10)]), schemaVersion: 3 })
     const text = ['file', 'edit', 'object', 'layer', 'document'].flatMap((m) => describeMenu(buildMenu(ro.ed.ctx, m))).join('\n')
-    for (const off of ['Place…', 'Import SVG…', 'Place as template…', 'Replace image…', 'Export PNG…', 'Export SVG…', 'Export PDF…', 'Undo', 'Redo', 'Cut', 'Paste', 'Paste in Front', 'Paste in Back', 'Paste in Place', 'Paste on All Artboards', 'Duplicate', 'Delete', 'Transform again', 'Unite', 'Bring to front', 'Left', 'New vector layer', 'New paint layer', 'Artboard size…', 'Transparent']) {
+    for (const off of ['Place…', 'Import SVG…', 'Place as template…', 'Replace image…', 'Export PNG…', 'Export SVG…', 'Export PDF…', 'Undo', 'Redo', 'Cut', 'Paste', 'Paste in Front', 'Paste in Back', 'Paste in Place', 'Paste on All Artboards', 'Duplicate', 'Delete', 'Transform Again', 'Move…', 'Rotate…', 'Flip Horizontal', 'Unite', 'Bring to front', 'Left', 'New vector layer', 'New paint layer', 'Artboard size…', 'Transparent']) {
       expect(text, off).toMatch(new RegExp(`(^|\\n)\\s*${off.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\|[^|]*\\|[^|]*\\|off\\|`))
     }
   })

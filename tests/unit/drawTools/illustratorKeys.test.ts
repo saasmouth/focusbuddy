@@ -219,6 +219,12 @@ describe("the keymap is Illustrator's published table", () => {
       'star:',
       'line:\\',
       'text:T',
+      'rotate:R',
+      'reflect:O',
+      'scale:S',
+      'shear:',
+      'reshape:',
+      'freeTransform:E',
       'brush:B',
       'eraser:Shift+E',
       'bucket:K',
@@ -301,29 +307,33 @@ describe('the keys, in the editor', () => {
       h.key(key, m)
       expect(h.state().tool, key).toBe(tool)
     }
-    for (const key of ['r', 'o', 's', 'u', 'g', 'e', 'd']) {
+    // R, O, S and E are WP-TRANSFORM's Rotate, Reflect, Scale and Free Transform.
+    for (const [key, tool] of [['r', 'rotate'], ['o', 'reflect'], ['s', 'scale'], ['e', 'freeTransform']]) {
+      const h = harness()
+      h.key(key)
+      expect(h.state().tool, key).toBe(tool)
+    }
+    for (const key of ['u', 'g', 'd']) {
       const h = harness()
       h.key(key)
       expect(h.state().tool, key).toBe('select')
     }
   })
 
-  it('⌘D is Transform again: it duplicates nothing, says why, and Duplicate stays in the Edit menu', () => {
+  it('⌘D is Transform Again (WP-TRANSFORM): with nothing transformed yet it duplicates nothing, and Duplicate stays in the Edit menu', () => {
     const h = harness(blank([rect('a', 10, 10, 20, 20)]))
     h.ed.ctx.select(['a'])
     expect(h.key('d', { meta: true }).prevented).toBe(true)
     expect(h.objects()).toHaveLength(1)
     expect(h.state().past).toHaveLength(0)
-    expect(h.state().status).toBe('Transform again arrives with Transform tools.')
     h.run('edit.duplicate')
     expect(h.objects()).toHaveLength(2)
-    const object = buildMenu(h.ed.ctx, 'object')
-    expect(object[0]).toMatchObject({
+    const transform = buildMenu(h.ed.ctx, 'object').find((i) => i.kind === 'submenu' && i.label === 'Transform')
+    expect(transform && transform.kind === 'submenu' && transform.items[0]).toMatchObject({
       kind: 'item',
-      label: 'Transform again',
+      label: 'Transform Again',
       shortcut: '⌘D',
-      disabled: true,
-      hint: 'arrives with Transform tools'
+      disabled: true
     })
   })
 
@@ -338,7 +348,9 @@ describe('the keys, in the editor', () => {
     const real: Command = { id: 'object.transformAgain', label: 'Transform Again', run: () => {} }
     expect(withoutReplacedPending([stand, real])).toEqual([real])
     expect(withoutReplacedPending([stand])).toEqual([stand])
-    expect(commandById('object.transformAgain')?.pending).toBe('arrives with Transform tools')
+    // WP-TRANSFORM delivered it: the registry holds the real one.
+    expect(commandById('object.transformAgain')?.pending).toBeUndefined()
+    expect(commandById('object.transformAgain')?.label).toBe('Transform Again')
   })
 
   it('⌘Y no longer redoes (it is Outline view in Illustrator); ⇧⌘Z does', () => {
@@ -653,12 +665,13 @@ describe('the Keyboard shortcuts dialog’s rows', () => {
     expect(tools.filter((r) => r.kind === 'tool').map((r) => r.id)).toEqual(
       drawTools().filter((t) => !t.hidden).map((t) => t.id)
     )
-    expect(tools.find((r) => r.id === 'tool:rotate')).toMatchObject({
+    expect(tools.find((r) => r.id === 'tool:gradient')).toMatchObject({
       kind: 'reserved',
-      keys: ['r'],
-      reason: 'Arrives with Transform tools',
+      keys: ['g'],
+      reason: 'Arrives with gradients and patterns',
       remappable: false
     })
+    expect(tools.find((r) => r.id === 'rotate')).toMatchObject({ kind: 'tool', keys: ['r'], remappable: true })
     expect(tools.find((r) => r.id === 'tool:mesh')).toMatchObject({
       reason: 'Not in PlexiiDraw yet'
     })
@@ -681,8 +694,9 @@ describe('the Keyboard shortcuts dialog’s rows', () => {
       keys: ['mod+shift+]']
     })
     expect(menu.find((r) => r.id === 'object.transformAgain')).toMatchObject({
-      reason: 'Arrives with Transform tools',
-      remappable: false
+      section: 'Object › Transform',
+      keys: ['mod+d'],
+      remappable: true
     })
     expect(menu.find((r) => r.id === 'object.nudgeLeft')).toMatchObject({
       section: 'Canvas keys',

@@ -81,6 +81,12 @@ export interface EditorState {
   curvature: { points: Array<{ x: number; y: number; corner?: boolean }> } | null
   /** Path-editing preferences (Properties panel, tool options). */
   pathPrefs: PathPrefs
+  /**
+   * State a tool, panel or command keeps BETWEEN gestures, keyed by its owner
+   * (a transform tool's origin, the Align panel's key object, the last
+   * transform for Transform Again). Never part of the document or of undo.
+   */
+  toolState: Record<string, unknown>
 }
 
 export interface PathPrefs {
@@ -250,6 +256,8 @@ export interface DrawTool {
   onPointerDown?(ctx: EditorCtx, e: ToolPointer): void
   onPointerMove?(ctx: EditorCtx, e: ToolPointer): void
   onPointerUp?(ctx: EditorCtx, e: ToolPointer): void
+  /** The tool's options dialog: double-clicking its toolbox button, or Enter while it is active. */
+  onOptions?(ctx: EditorCtx): void
   /** Optional per-tool overlay (previews, handles), drawn in artboard units; k = 1/zoom. */
   Overlay?: FC<{ state: EditorState; k: number }>
   /** Stacking order of overlays (lower first). */

@@ -6,6 +6,7 @@ import { partialAnchors, wholeSelection } from '../editor/anchorSelection'
 import { discardPlaceItem } from '../editor/place'
 import { finishCurvature } from '../tools/curvature.tool'
 import { finishPen, popPenAnchor } from '../tools/pen.tool'
+import { nudgeSelection } from '../transform/apply'
 
 const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 const hasSelection = (ctx: EditorCtx): boolean => ctx.get().selection.length > 0
@@ -36,19 +37,21 @@ export function deleteSelection(ctx: EditorCtx): void {
 }
 
 /**
- * Arrow keys: move the selection by the keyboard increment (Document
- * settings, 1 px by default), ten times that with Shift. Anchors picked with
- * Direct Selection move on their own; whole objects move as objects.
+ * Arrow keys: anchors picked with Direct Selection move on their own (by the
+ * document's Keyboard Increment, ×10 with Shift); otherwise the selection
+ * moves as objects through the transform code, where Alt nudges a copy and the
+ * nudge is remembered for Transform Again (transform/apply.ts).
  */
 function nudge(dx: number, dy: number): Command['run'] {
   return (ctx, args) => {
     const s = ctx.get()
+    const anchors = partialAnchors(s)
+    if (!anchors.length) return nudgeSelection(ctx, dx, dy, args as KeyInput | undefined)
     const inc = s.doc.settings.keyIncrement && s.doc.settings.keyIncrement > 0 ? s.doc.settings.keyIncrement : 1
     const step = ((args as KeyInput | undefined)?.shiftKey ? 10 : 1) * inc
     let doc = moveObjects(s.doc, editableIds(s.doc, wholeSelection(s)), dx * step, dy * step)
-    const anchors = partialAnchors(s)
-    if (anchors.length) doc = moveAnchors(doc, anchors, dx * step, dy * step)
-    ctx.history.commit(doc, anchors.length ? 'Nudge anchor points' : 'Nudge')
+    doc = moveAnchors(doc, anchors, dx * step, dy * step)
+    ctx.history.commit(doc, 'Nudge anchor points')
   }
 }
 
@@ -91,6 +94,7 @@ export const commands: Command[] = [
     id: 'edit.duplicate',
     label: 'Duplicate',
     icon: 'file_copy',
+    // ⌘D is Transform Again, as in Illustrator (Object › Transform).
     menu: { path: 'edit', order: 210 },
     enabled: (ctx) => writable(ctx) && hasSelection(ctx),
     run: (ctx) => {

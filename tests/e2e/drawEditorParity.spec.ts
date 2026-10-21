@@ -64,7 +64,7 @@ test('EP-1 the toolbox offers every tool, in order, with its shortcut (Illustrat
   await openDocument(window, await seedDrawDoc(window, v1Body([])))
   const titles = await window.locator('[data-testid^="draw-tool-"]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-testid')}=${e.getAttribute('title')}`))
   expect(titles).toEqual([
-    'draw-tool-select=Select (V)',
+    'draw-tool-select=Select (V) — double-click for options',
     'draw-tool-direct=Direct Selection (A)',
     'draw-tool-lasso=Lasso (Q)',
     'draw-tool-pen=Pen (P)',
@@ -85,6 +85,12 @@ test('EP-1 the toolbox offers every tool, in order, with its shortcut (Illustrat
     'draw-tool-star=Star',
     'draw-tool-line=Line (\\)',
     'draw-tool-text=Type (T)',
+    'draw-tool-rotate=Rotate (R) — double-click for options',
+    'draw-tool-reflect=Reflect (O) — double-click for options',
+    'draw-tool-scale=Scale (S) — double-click for options',
+    'draw-tool-shear=Shear — double-click for options',
+    'draw-tool-reshape=Reshape',
+    'draw-tool-freeTransform=Free Transform (E)',
     'draw-tool-brush=Brush (B)',
     'draw-tool-eraser=Eraser (⇧E)',
     'draw-tool-bucket=Paint bucket (K)',
@@ -140,6 +146,7 @@ test('EP-3 shapes, Pathfinder, undo/redo and Delete through the keyboard', async
   await expect(window.locator('[data-testid^="draw-vector-"] path')).toHaveCount(2)
   await window.keyboard.press('Meta+Shift+z')
   await expect(window.locator('[data-testid^="draw-vector-"] path')).toHaveCount(1)
+  // ⌘D is Transform Again now (Illustrator); Duplicate stays in the Edit menu.
   await runMenu(window, 'edit', 'Duplicate')
   await expect(window.locator('[data-testid^="draw-vector-"] path')).toHaveCount(2)
   await window.keyboard.press('Delete')

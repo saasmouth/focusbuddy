@@ -175,17 +175,15 @@ describe('the Keyboard shortcuts dialog', () => {
     expect(testid('draw-shortcuts-set')!.textContent).toBe('Illustrator defaults')
     expect(rowText('tool:rect')).toBe('RectangleM')
     expect(rowText('tool:roundRect')).toBe('Rounded rectanglenone')
-    expect(rowText('reserved:tool:rotate')).toBe('Rotate toolArrives with Transform toolsR')
+    expect(rowText('reserved:tool:gradient')).toBe('Gradient toolArrives with gradients and patternsG')
     await clickEl(testid('draw-shortcuts-group-menu'))
     const heads = [...host.querySelectorAll('[data-testid="draw-shortcuts-list"] h4')].map(
       (h) => h.textContent
     )
-    expect(heads.slice(0, 4)).toEqual(['File', 'File › New from preset', 'Edit', 'Object'])
+    expect(heads.slice(0, 4)).toEqual(['File', 'File › New from preset', 'Edit', 'Object › Transform'])
     expect(heads).toContain('Canvas keys')
     expect(heads[heads.length - 1]).toBe('From Illustrator, still to come')
-    expect(rowText('command:object.transformAgain')).toBe(
-      'Transform againArrives with Transform tools⌘D'
-    )
+    expect(rowText('command:object.transformAgain')).toBe('Transform Again⌘D')
     expect(rowText('command:edit.undo')).toBe('Undo⌘Z')
   })
 
@@ -217,19 +215,19 @@ describe('the Keyboard shortcuts dialog', () => {
       'V is already used by the Select tool.'
     )
     expect(keyOverrides().tools).toEqual({})
-    await key('R', { code: 'KeyR' }, rec)
+    await key('G', { code: 'KeyG' }, rec)
     expect(testid('draw-shortcut-message')!.textContent).toBe(
-      'Illustrator uses R for Rotate tool, which PlexiiDraw does not have yet.'
+      'Illustrator uses G for Gradient tool, which PlexiiDraw does not have yet.'
     )
-    expect(keyOverrides().tools).toEqual({ rect: 'r' })
-    expect(JSON.parse(localStorage.getItem(OVERRIDES_STORAGE_KEY)!).tools).toEqual({ rect: 'r' })
+    expect(keyOverrides().tools).toEqual({ rect: 'g' })
+    expect(JSON.parse(localStorage.getItem(OVERRIDES_STORAGE_KEY)!).tools).toEqual({ rect: 'g' })
     expect(testid('draw-shortcuts-set')!.textContent).toBe('Illustrator defaults, changed')
-    expect(rowText('tool:rect')).toContain('R')
+    expect(rowText('tool:rect')).toContain('G')
     // The canvas answers to the new key once the dialog is closed.
     await key('Escape')
-    await key('r')
+    await key('g')
     expect(pressed('rect')).toBe('true')
-    expect(testid('draw-tool-rect')!.getAttribute('title')).toBe('Rectangle (R)')
+    expect(testid('draw-tool-rect')!.getAttribute('title')).toBe('Rectangle (G)')
     // Reset all brings Illustrator's key back.
     await key('˚', { metaKey: true, altKey: true, shiftKey: true, code: 'KeyK' })
     await clickEl(testid('draw-shortcuts-reset-all'))

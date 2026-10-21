@@ -34,6 +34,14 @@ describe('the keyboard', () => {
     expect(h.state().tool).toBe('select')
   })
 
+  it('E is Free Transform and ⇧E the Eraser, as in Illustrator', () => {
+    const h = harness()
+    h.key('e')
+    expect(h.state().tool).toBe('freeTransform')
+    h.key('E', { shift: true })
+    expect(h.state().tool).toBe('eraser')
+  })
+
   it('Delete and Backspace remove the editable selection, and are always swallowed', () => {
     const h = harness(blank([rect('a', 10, 10, 10, 10), rect('b', 50, 10, 10, 10)]))
     h.ed.ctx.select(['a'])
@@ -52,12 +60,17 @@ describe('the keyboard', () => {
     expect(h.state().past).toHaveLength(2)
   })
 
-  it('⌘Z undoes, ⇧⌘Z redoes (and Ctrl on Windows); Duplicate runs from its menu item, ⌘D being Transform again', () => {
+  it('⌘Z undoes, ⇧⌘Z redoes (and Ctrl on Windows); ⌘D is Transform Again (an Alt-nudged copy, repeated)', () => {
     const h = harness(blank([rect('a', 100, 100, 10, 10)]))
     h.ed.ctx.select(['a'])
-    h.run('edit.duplicate')
+    h.key('ArrowRight', { alt: true })
     expect(h.objects()).toHaveLength(2)
+    h.key('d', { meta: true })
+    expect(h.objects()).toHaveLength(3)
     expect(h.state().selection).not.toEqual(['a'])
+    expect(x(h, h.state().selection[0])).toBe(102)
+    h.key('z', { meta: true })
+    expect(h.objects()).toHaveLength(2)
     h.key('z', { meta: true })
     expect(h.objects()).toHaveLength(1)
     h.key('z', { meta: true, shift: true })
