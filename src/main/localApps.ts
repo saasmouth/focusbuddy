@@ -219,12 +219,6 @@ async function readIconFileName(appPath: string): Promise<string | null> {
   }
 }
 
-// Re-fetch an icon for an existing connected app (e.g. user moved the .app).
-// Returns null if the path no longer points to a valid bundle.
-export async function refreshAppIcon(appPath: string): Promise<string | null> {
-  return captureAppIcon(appPath)
-}
-
 // ── Launch ───────────────────────────────────────────────────────────────────
 //
 // The launcher tile must always "bring the user back to the app", regardless

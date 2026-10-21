@@ -383,18 +383,6 @@ export function setMessageApplied(
   ).run(Object.keys(applied).length ? JSON.stringify(applied) : null, messageId, conversationId)
 }
 
-/** Rename a conversation. */
-export function renameConversation(id: string, title: string): void {
-  const db = getDb()
-  db.prepare(`UPDATE ai_chat_conversations SET title = ?, updated_at = ? WHERE id = ? AND org_id = ?`).run(
-    title.trim(),
-    Date.now(),
-    id,
-    getActiveOrgId()
-  )
-  pokeChatChunks(id) // the title weighs 5:1 in chunk search — keep it current
-}
-
 /** Delete a conversation and all its messages. */
 export function deleteConversation(id: string): void {
   const db = getDb()

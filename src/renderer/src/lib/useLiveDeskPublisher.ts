@@ -8,10 +8,10 @@ import { warmCache } from './liveDeskResolvers'
 
 // Keeps a published desk current.
 //
-// The projection is rebuilt from the live stores and handed to the main process,
-// which debounces and publishes. Rebuilding on every store change is cheap
-// (it is a pure map over the widgets already in memory) and it is the debounce
-// in the main process that keeps a drag from becoming a request per frame.
+// The projection is rebuilt from the live stores, fingerprinted, and published
+// after a short settle. Rebuilding on every store change is cheap (it is a pure
+// map over the widgets already in memory), and the fingerprint plus the settle
+// are what keep a drag from becoming a request per frame.
 
 export interface LiveDeskStatus {
   token: string | null

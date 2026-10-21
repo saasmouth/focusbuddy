@@ -50,7 +50,3 @@ export function clearSession(): void {
 export function setSkipped(_skipped: boolean): void {
   throw new Error(OWNED_ELSEWHERE)
 }
-
-export function setCachedEmail(_email: string | null): void {
-  throw new Error(OWNED_ELSEWHERE)
-}

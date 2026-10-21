@@ -90,7 +90,6 @@ export function accountNamespace(): Record<string, unknown> {
       write(EMAIL_KEY, input.email)
     },
     clearSession: async () => { logout() },
-    setSkipped: async (skipped: boolean) => { write(SKIPPED_KEY, skipped ? String(Date.now()) : null) },
-    setCachedEmail: async (email: string | null) => { write(EMAIL_KEY, email) }
+    setSkipped: async (skipped: boolean) => { write(SKIPPED_KEY, skipped ? String(Date.now()) : null) }
   }
 }

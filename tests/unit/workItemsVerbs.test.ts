@@ -291,7 +291,9 @@ describe('counts', () => {
 describe('namespace parity locks (§4)', () => {
   const ROOT = join(__dirname, '..', '..')
   const read = (p: string): string => readFileSync(join(ROOT, p), 'utf-8')
-  const VERBS = ['list', 'get', 'create', 'updateFields', 'setState', 'reclassify', 'snooze', 'markRead', 'counts']
+  // `counts` left the list in 4.3.41: its binding had no caller and was retired.
+  // workItemCountsCore is still covered by the describe block above.
+  const VERBS = ['list', 'get', 'create', 'updateFields', 'setState', 'reclassify', 'snooze', 'markRead']
 
   it('every verb is wired IPC → preload', () => {
     const ipc = read('src/main/ipc/index.ts')

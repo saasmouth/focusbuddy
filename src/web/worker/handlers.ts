@@ -46,7 +46,7 @@ import {
 } from '../../main/db/connectedApps'
 import { getVaultMeta, isUnlocked, lockVault, listEntries } from '../../main/db/vault'
 import { getModelMode, setModelMode } from '../../main/ai/modelRouting'
-import { noteCheck, liveDeskFor, allLiveDesks } from '../../main/livePublisher'
+import { noteCheck, liveDeskFor } from '../../main/livePublisher'
 import { getRecentHistory, recordVisit } from '../../main/db/browsing'
 import { recordActivity, getRecentActivity } from '../../main/db/activity'
 import { listClustersForTask, saveCluster, deleteCluster } from '../../main/db/focusClusters'
@@ -57,7 +57,7 @@ import {
 } from '../../main/db/canvasSnapshots'
 import { createDeskLayoutStore } from '../../main/db/deskLayoutStore'
 import {
-  recordEvent, unsyncedEvents, markSynced, knownIds, eventsForObject
+  recordEvent, unsyncedEvents, markSynced
 } from '../../main/db/changeLog'
 import { refreshCredits, getAiStatus } from '../../main/ai/creditMode'
 import { getDb } from '../../main/db/database'
@@ -69,7 +69,7 @@ import {
   listTrashedEntries as listTrashedFileEntries, restoreEntryDeep as restoreFileEntryDeep,
   purgeEntry as purgeFileEntry, searchEntries as searchFileEntries,
   tagsFor as fileTagsFor, addTags as addFileTags, removeTag as removeFileTag,
-  allTags as allFileTags, entriesByTag as fileEntriesByTag, entriesByTags as fileEntriesByTags,
+  allTags as allFileTags, entriesByTag as fileEntriesByTag,
   untaggedEntries as untaggedFileEntries, listSmartFolders as listFileSmartFolders,
   createSmartFolder as createFileSmartFolder, deleteSmartFolder as deleteFileSmartFolder,
   smartFolderEntries as fileSmartFolderEntries, fileDocument, locateDocument,
@@ -91,7 +91,7 @@ import {
   getSyncCursorShared, setSyncCursorShared, stampSharedDesk, adoptSharedDesk,
   pruneSharedDesk, listLocalSharedRoots
 } from '../../main/db/workspaceSync'
-import { createConversation as createAiChatConversation, setConversationMode as setAiChatConversationMode, appendMessage as appendAiChatMessage, deleteConversation as deleteAiChatConversation, getConversation as getAiChatConversation, linkDesk as linkAiChatDesk, listConversations as listAiChatConversations, renameConversation as renameAiChatConversation, setConversationWebSearch as setAiChatConversationWebSearch, setMessageApplied as setAiChatMessageApplied } from '../../main/db/aiChat'
+import { createConversation as createAiChatConversation, setConversationMode as setAiChatConversationMode, appendMessage as appendAiChatMessage, deleteConversation as deleteAiChatConversation, getConversation as getAiChatConversation, linkDesk as linkAiChatDesk, listConversations as listAiChatConversations, setConversationWebSearch as setAiChatConversationWebSearch, setMessageApplied as setAiChatMessageApplied } from '../../main/db/aiChat'
 import { createApp, deleteApp, getApp, listApps, updateApp } from '../../main/db/apps'
 import { deleteDashboardLayout, getDashboardLayout, setDashboardLayout } from '../../main/db/dashboardLayouts'
 import { deleteEmbedding } from '../../main/db/embeddings'
@@ -99,7 +99,7 @@ import { currentEnergy, logEnergy, recentEnergy } from '../../main/db/energy'
 import { completeFocusSession, listRecentSessions, startFocusSession } from '../../main/db/focusSessions'
 import { createKnowledge, deleteKnowledge, getKnowledge, listKnowledge, updateKnowledge } from '../../main/db/knowledge'
 import { addMemory, forgetMemory, listMemories } from '../../main/db/memory'
-import { addDependency, captureBaseline, getProjectPlan, levelResources, listBaselines, listProjectSummaries, loadProjectCalendar, removeDependency, rescheduleProject, saveProjectCalendar, setDependency, setTaskPlan } from '../../main/db/projectPlan'
+import { addDependency, captureBaseline, getProjectPlan, levelResources, listProjectSummaries, loadProjectCalendar, removeDependency, rescheduleProject, saveProjectCalendar, setDependency, setTaskPlan } from '../../main/db/projectPlan'
 import { listSignals, markPrompted, matchState, recordSignal, recordOutcome as recordSignalOutcome } from '../../main/db/signals'
 import { createTimeBlock, deleteTimeBlock, updateTimeBlock, listBlocksInRange, materializeRecurringBlocks } from '../../main/db/timeBlocks'
 import { postNotification } from '../../main/notifications/substrate'
@@ -293,7 +293,6 @@ export const HANDLERS: Record<string, Handler> = {
   // now: it captures widget markup from a live renderer, which is the desk the
   // owner has open, not a projection this runtime can rebuild on its own.
   'liveDesk:get': h((deskId: string) => liveDeskFor(deskId)),
-  'liveDesk:list': h(() => allLiveDesks()),
   'liveDesk:note': h((deskId: string, skip: string | null) => noteCheck(deskId, skip)),
 
   // ── desk layout, snapshots, links, clusters ──────────────────────────────
@@ -338,8 +337,6 @@ export const HANDLERS: Record<string, Handler> = {
   // same entries re-pushed on every cycle -- the failure that reached sync_rev
   // 7,319 on a widget once before.
   'crdt:markSynced': h((entries: Array<{ id: string; seq?: number | null }>) => markSynced(entries)),
-  'crdt:knownIds': h((ids: string[]) => knownIds(ids)),
-  'crdt:eventsForObject': h((objectId: string) => eventsForObject(objectId)),
 
   // ── AI credits ───────────────────────────────────────────────────────────
   // Credits are the browser's AI path: with no keychain there is no BYOK here,
@@ -394,7 +391,6 @@ export const HANDLERS: Record<string, Handler> = {
   'fileManager:removeTag': h((fileId: string, tag: string) => removeFileTag(fileId, tag)),
   'fileManager:allTags': h(() => allFileTags()),
   'fileManager:entriesByTag': h((tag: string) => fileEntriesByTag(tag)),
-  'fileManager:entriesByTags': h((tags: string[]) => fileEntriesByTags(tags)),
   'fileManager:untaggedEntries': h(() => untaggedFileEntries()),
   'fileManager:listSmartFolders': h(() => listFileSmartFolders()),
   'fileManager:createSmartFolder': h((name: string, tags: string[], search?: string) =>
@@ -440,7 +436,6 @@ export const HANDLERS: Record<string, Handler> = {
   'aiChat:getConversation': h((id: string) => getAiChatConversation(id)),
   'aiChat:linkDesk': h((conversationId: string, taskId: string, makePrimary?: boolean) => linkAiChatDesk(conversationId, taskId, makePrimary)),
   'aiChat:listConversations': h(() => listAiChatConversations()),
-  'aiChat:renameConversation': h((id: string, title: string) => renameAiChatConversation(id, title)),
   'aiChat:setConversationWebSearch': h((id: string, on: boolean) => setAiChatConversationWebSearch(id, !!on)),
   'aiChat:setMessageApplied': h((conversationId: string, messageId: string, applied: Record<string, AppliedProposal>) => setAiChatMessageApplied(messageId, conversationId, applied)),
 
@@ -489,7 +484,6 @@ export const HANDLERS: Record<string, Handler> = {
   'projects:getCalendar': h((projectId: string) => loadProjectCalendar(projectId)),
   'projects:level': h((projectId: string) => levelResources(projectId)),
   'projects:list': h(() => listProjectSummaries()),
-  'projects:listBaselines': h((projectId: string) => listBaselines(projectId)),
   'projects:plan': h((projectId: string) => getProjectPlan(projectId)),
   'projects:removeDep': h((predId: string, succId: string) => removeDependency(predId, succId)),
   'projects:reschedule': h((projectId: string) => rescheduleProject(projectId)),

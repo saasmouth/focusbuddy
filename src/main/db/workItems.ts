@@ -694,7 +694,12 @@ export function clearWorkItemDetached(id: string): void {
   setDetachedFrom(getDb(), id, null)
 }
 
-/** MET-006 wiring: attention precision over recent terminal transitions.
+/** MET-006: attention precision over recent terminal transitions. Nothing
+ *  reads it at runtime since 4.3.41 retired the uncalled workItems:precision
+ *  channel; it stays because it is the one implementation of the metric the
+ *  spec makes a release gate (PLX-MET-013), so that gate has something real
+ *  to call.
+ *
  *  acted = the item was closed with its class verb; dismissed = it was noise.
  *  'reclassified' is neutral (a re-bin, not a verdict) and decayed dismissals
  *  are the system's own act — both excluded. R-03 (taxonomy alignment):
@@ -720,10 +725,6 @@ export function workItemAttentionPrecision(windowDays = 30): number | null {
       outcome: r.state === 'dismissed' ? ('dismissed' as const) : ('acted' as const)
     }))
   return attentionPrecision(transitions)
-}
-
-export function workItemCounts(): Record<string, number> {
-  return workItemCountsCore(getDb(), getActiveOrgId(), getSelfAccountId())
 }
 
 /** The arrival router's server side (§3 D1): materialize or update an inbound

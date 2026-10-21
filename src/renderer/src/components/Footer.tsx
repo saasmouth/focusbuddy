@@ -82,6 +82,17 @@ export default function Footer(): JSX.Element {
     if (!showWhatsNew) setUnseen(hasUnseenChanges())
   }, [showWhatsNew])
 
+  // Help → What's New and Help → Terms of Use in the macOS menu bar send these
+  // events to the window. The footer owns both panels, so it answers them; for
+  // from the move to the menu bar (Sept 2026) until 4.3.41 nothing listened, so
+  // both menu items did nothing. Optional because the browser has no menu bar.
+  useEffect(() => {
+    return window.api.app?.onMenuEvent?.((event) => {
+      if (event === 'show-whats-new') setShowWhatsNew(true)
+      else if (event === 'show-terms') setShowTerms(true)
+    })
+  }, [])
+
   const newestEntry = CHANGELOG[0]
   const buildDate = newestEntry
     ? new Date(newestEntry.date).toISOString().slice(0, 10)

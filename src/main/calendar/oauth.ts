@@ -144,11 +144,6 @@ export function listAccounts(): Array<{ id: string; provider: string; email: str
     .all() as Array<{ id: string; provider: string; email: string | null }>
 }
 
-export function deleteAccount(id: string): boolean {
-  const res = getDb().prepare('DELETE FROM external_accounts WHERE id = ?').run(id)
-  return (res.changes ?? 0) > 0
-}
-
 // ── The flow ────────────────────────────────────────────────────────────────
 
 const base64url = (b: Buffer): string =>

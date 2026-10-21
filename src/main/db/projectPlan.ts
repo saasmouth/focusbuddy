@@ -168,17 +168,6 @@ export function captureBaseline(projectId: string, name: string, nowMs = Date.no
   return { id, name: cleanName, createdAt: created }
 }
 
-export function listBaselines(projectId: string): Array<{ id: string; name: string; createdAt: number }> {
-  const db = getDb()
-  return db
-    .prepare('SELECT id, name, created_at FROM fb_project_baselines WHERE project_id = ? ORDER BY created_at DESC')
-    .all(projectId)
-    .map((r) => {
-      const row = r as { id: string; name: string; created_at: number }
-      return { id: row.id, name: row.name, createdAt: row.created_at }
-    })
-}
-
 function latestBaselineTasks(projectId: string): BaselineTasks | null {
   const db = getDb()
   const row = db

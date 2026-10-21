@@ -11,7 +11,6 @@ import {
 } from '../db/contacts'
 import {
   listMailTags,
-  listMailTagsForNode,
   createMailTag,
   updateMailTag,
   deleteMailTag,
@@ -33,12 +32,11 @@ import {
   deleteCalendar as deleteExternalCalendar,
   listEvents as listExternalEvents
 } from '../db/externalCalendars'
-import { syncCalendar, syncAll, feedUrlProblem } from '../calendar/sync'
+import { syncCalendar, feedUrlProblem } from '../calendar/sync'
 import { pushInternalCalendar } from '../calendar/push'
 import {
   connect as connectOAuth,
   listAccounts as listOAuthAccounts,
-  deleteAccount as deleteOAuthAccount,
   getProviderConfig,
   setProviderConfig,
   listRemoteCalendars
@@ -47,7 +45,6 @@ import type { ExternalCalendarDraft } from '@shared/types'
 import {
   createLiveDesk,
   publishProjection,
-  queuePublish,
   uploadLiveAsset,
   setLivePaused,
   stopLiveDesk,
@@ -208,8 +205,6 @@ import {
   snoozeWorkItem,
   markWorkItemRead,
   clearWorkItemDetached,
-  workItemCounts,
-  workItemAttentionPrecision,
   attentionBadgeCounts,
   type WorkItemDraft,
   type WorkItemState,
@@ -263,7 +258,6 @@ import {
   getCustomWidget,
   saveCustomWidget,
   deleteCustomWidget,
-  renameCustomWidget,
   markCustomWidgetUsed
 } from '../db/customWidgets'
 import { exportDesign } from '../designExport'
@@ -333,8 +327,6 @@ import {
   recordEvent as recordChangeEvent,
   unsyncedEvents as unsyncedChangeEvents,
   markSynced as markChangeSynced,
-  knownIds as knownChangeIds,
-  eventsForObject as changeEventsForObject,
   type RecordInput as ChangeRecordInput
 } from '../db/changeLog'
 import { getLaunchInfo } from '../launchVersion'
@@ -349,7 +341,6 @@ import {
 import {
   recordWireRun,
   listWireRunsByWire,
-  listWireRunsByTask,
   type WireRunInput
 } from '../db/wireRuns'
 import {
@@ -364,12 +355,10 @@ import {
   loadAccountState,
   anonymousLaunchAllowed,
   saveSession,
-  setCachedEmail,
   setSkipped
 } from '../db/account'
 import {
   executeAction,
-  openAccessibilitySettings,
   openSettingsAppPlain,
   revealAppBundleInFinder,
   type ExecuteResult
@@ -381,7 +370,6 @@ import {
   createShareLink,
   deleteShareLink,
   listAllShareLinks,
-  listShareLinksForEntity,
   listSharedWithMe,
   removeSharedItem,
   revokeShareLink,
@@ -406,8 +394,7 @@ import {
   describeLocalApp,
   isLocalAppRunning,
   launchLocalApp,
-  pickLocalApp,
-  refreshAppIcon
+  pickLocalApp
 } from '../localApps'
 import {
   deleteFile,
@@ -431,7 +418,6 @@ import {
   removeTag as removeFileTag,
   allTags as allFileTags,
   entriesByTag as fileEntriesByTag,
-  entriesByTags as fileEntriesByTags,
   untaggedEntries as untaggedFileEntries,
   listSmartFolders as listFileSmartFolders,
   createSmartFolder as createFileSmartFolder,
@@ -447,7 +433,7 @@ import {
   moveFileToOrg,
 } from '../db/files'
 import { ingestFromPath, importFolderTree } from '../db/filesFromDisk'
-import { ingestImageFromUrl, internaliseDeskImages } from '../db/filesFromUrl'
+import { ingestImageFromUrl } from '../db/filesFromUrl'
 import { extractFileText } from '../fileText'
 import { ingestWorkspaceIntoBrain } from '../brainIngest'
 import { extractDocText, retrieveSources, relatedDocuments } from '../workspaceSearch'
@@ -470,11 +456,7 @@ import { preloadLocalWhisper } from '../ai/localWhisper'
 import { enqueueLiveChunk } from '../ai/liveDecode'
 import { getVoiceCommandPrefs, setVoiceCommandPrefs } from '../voiceCommandPref'
 import {
-  createAgentRun,
-  stopAgentRun,
-  endAgentRun,
-  performAgentAction,
-  type AgentAction
+  stopAgentRun
 } from '../ai/browserActions'
 import { runBrowserAgent, stopBrowserAgent, resolveBrowserConsent } from '../ai/browserAgent'
 import { steerAgentRun } from '../ai/browserActions'
@@ -498,13 +480,8 @@ import {
   type AgentTool
 } from '../ai/agentBuilder'
 import { shell as electronShell } from 'electron'
-import {
-  getWorkspaceOverride,
-  setWorkspaceOverride
-} from '../workspacePref'
 import { invokeAgent } from '../ai/agentDispatcher'
 import {
-  listInvocationsForNode,
   recordOutcome,
   statsForSlug,
   undoLastApply
@@ -573,7 +550,6 @@ import {
   setDependency,
   removeDependency,
   captureBaseline,
-  listBaselines,
   loadProjectCalendar,
   saveProjectCalendar,
   levelResources,
@@ -696,7 +672,6 @@ import {
   createConversation as createAiChatConversation,
   appendMessage as appendAiChatMessage,
   setMessageApplied as setAiChatMessageApplied,
-  renameConversation as renameAiChatConversation,
   deleteConversation as deleteAiChatConversation,
   linkDesk as linkAiChatDesk,
   setConversationMode as setAiChatConversationMode,
@@ -923,7 +898,6 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('workItems:markRead', (_e, id: string) => markWorkItemRead(id))
   ipcMain.handle('workItems:clearDetached', (_e, id: string) => clearWorkItemDetached(id))
-  ipcMain.handle('workItems:counts', () => workItemCounts())
   ipcMain.handle('workItems:badgeCounts', () => attentionBadgeCounts())
   // S5: the capture classifier (hard rules first — zero model latency on the
   // common cases; Haiku fallback; loose_thought floor) and the capability
@@ -996,9 +970,6 @@ export function registerIpcHandlers(): void {
   )
   // Lifecycle L3: computed desk staleness — the Stale Desks widget's feed.
   ipcMain.handle('nodes:staleDesks', () => staleDesks())
-  // Attention precision (MET-006 wiring): acted vs dismissed over recent
-  // terminal transitions — the metric Q1's threshold recalibrates against.
-  ipcMain.handle('workItems:precision', () => workItemAttentionPrecision())
   // The notification substrate (S4, §5): the one posting door. The renderer's
   // live banners post records-of-record through it; scheduled deliveries are
   // swept by the main scheduler.
@@ -1273,31 +1244,12 @@ export function registerIpcHandlers(): void {
   // sanitized projection (src/renderer/src/lib/publicDeskProjection.ts); these
   // handlers get it to Signal and report what is actually live.
   ipcMain.handle('liveDesk:get', (_e, deskId: string) => liveDeskFor(deskId))
-  // Returned as plain objects built here rather than whatever the row mapper
-  // produced: an IPC result has to survive structured cloning, and a value that
-  // does not makes invoke() hang rather than reject, which is invisible.
-  ipcMain.handle('liveDesk:list', () =>
-    allLiveDesks().map((d) => ({
-      deskId: String(d.deskId),
-      token: String(d.token),
-      revision: Number(d.revision),
-      lastPublishedAt: d.lastPublishedAt === null ? null : Number(d.lastPublishedAt),
-      lastError: d.lastError === null ? null : String(d.lastError),
-      paused: Boolean(d.paused),
-      createdAt: Number(d.createdAt)
-    }))
-  )
   ipcMain.handle('liveDesk:start', (_e, deskId: string, fromHandle?: string) =>
     createLiveDesk(deskId, fromHandle)
   )
   ipcMain.handle('liveDesk:publish', (_e, deskId: string, projection: unknown) =>
     publishProjection(deskId, projection)
   )
-  // Fire-and-forget: coalesces rapid edits into one revision.
-  ipcMain.handle('liveDesk:queuePublish', (_e, deskId: string, projection: unknown) => {
-    queuePublish(deskId, projection)
-    return { ok: true }
-  })
   ipcMain.handle('liveDesk:uploadAsset', (_e, deskId: string, assetId: string, mime: string, bytes: Uint8Array) =>
     uploadLiveAsset(deskId, assetId, mime, bytes)
   )
@@ -1353,11 +1305,6 @@ export function registerIpcHandlers(): void {
 
   // Share-link CRUD
   ipcMain.handle('shares:listAll', () => listAllShareLinks())
-  ipcMain.handle(
-    'shares:listForEntity',
-    (_e, kind: 'folder' | 'task' | 'widget', entityId: string) =>
-      listShareLinksForEntity(kind, entityId)
-  )
   ipcMain.handle(
     'shares:create',
     (
@@ -1430,9 +1377,6 @@ export function registerIpcHandlers(): void {
       return { ok: false as const, error: (e as Error).message }
     }
   })
-  ipcMain.handle('account:setCachedEmail', (_e, email: string | null) =>
-    setCachedEmail(email)
-  )
 
   // Stream Deck — single execute endpoint takes any action (single or
   // multi-step) and runs it. Returns {ok, error?} for the renderer to
@@ -1440,9 +1384,6 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     'streamdeck:execute',
     (_e, action: StreamDeckAction): Promise<ExecuteResult> => executeAction(action)
-  )
-  ipcMain.handle('streamdeck:openAccessibilitySettings', () =>
-    openAccessibilitySettings()
   )
   // Lets the renderer ask "are we trusted for accessibility right now?"
   // Used so the dialog can stop nagging once the user has flipped the
@@ -1535,9 +1476,6 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wireRuns:record', (_e, input: WireRunInput) => recordWireRun(input))
   ipcMain.handle('wireRuns:listByWire', (_e, wireId: string, limit?: number) =>
     listWireRunsByWire(wireId, limit)
-  )
-  ipcMain.handle('wireRuns:listByTask', (_e, taskId: string, limit?: number) =>
-    listWireRunsByTask(taskId, limit)
   )
   // Outbound webhook POST (Lever 3, Phase 0). Runs in main so there's no CORS and
   // the desk's data goes straight out to the user's URL. https/http only; bounded
@@ -2027,9 +1965,6 @@ export function registerIpcHandlers(): void {
     ) => saveCustomWidget(getDb(), input)
   )
   ipcMain.handle('customWidget:delete', (_e, id: string) => deleteCustomWidget(getDb(), id))
-  ipcMain.handle('customWidget:rename', (_e, id: string, name: string) =>
-    renameCustomWidget(getDb(), id, name)
-  )
   ipcMain.handle('customWidget:markUsed', (_e, id: string) => {
     markCustomWidgetUsed(getDb(), id)
     return { ok: true }
@@ -2157,8 +2092,6 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('crdt:markSynced', (_e, entries: Array<{ id: string; seq?: number | null }>) =>
     markChangeSynced(entries)
   )
-  ipcMain.handle('crdt:knownIds', (_e, ids: string[]) => knownChangeIds(ids))
-  ipcMain.handle('crdt:eventsForObject', (_e, objectId: string) => changeEventsForObject(objectId))
   // Persist onboarding progress locally so it rides the next telemetry snapshot.
   ipcMain.handle(
     'onboarding:record',
@@ -2268,9 +2201,6 @@ export function registerIpcHandlers(): void {
     'localApp:isRunning',
     (_e, input: { appPath: string | null; title: string }) =>
       isLocalAppRunning(input)
-  )
-  ipcMain.handle('localApp:refreshIcon', (_e, appPath: string) =>
-    refreshAppIcon(appPath)
   )
 
   // ── Dashboard layouts (Phase 6) ───────────────────────────────────────────
@@ -2455,9 +2385,6 @@ export function registerIpcHandlers(): void {
   // Nothing here touches the mail server: a folder is a view, which is what
   // makes every one of these operations safe and reversible.
   ipcMain.handle('mailTags:list', () => listMailTags())
-  ipcMain.handle('mailTags:listForNode', (_e, nodeId: string) =>
-    listMailTagsForNode(String(nodeId))
-  )
   ipcMain.handle('mailTags:create', (_e, draft: MailTagDraft) => createMailTag(draft))
   ipcMain.handle('mailTags:update', (_e, id: string, patch: MailTagPatch) =>
     updateMailTag(String(id), patch)
@@ -2526,7 +2453,6 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('extcal:remove', (_e, id: string) => deleteExternalCalendar(id))
   ipcMain.handle('extcal:sync', (_e, id: string) => syncCalendar(id))
-  ipcMain.handle('extcal:syncAll', () => syncAll())
 
   // OAuth
   // ── Browser extensions ────────────────────────────────────────────────────
@@ -2548,7 +2474,6 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('browserExt:remove', (_e, path: string) => removeExtension(path))
 
   ipcMain.handle('extcal:accounts', () => listOAuthAccounts())
-  ipcMain.handle('extcal:removeAccount', (_e, id: string) => deleteOAuthAccount(id))
   ipcMain.handle('extcal:getProviderConfig', (_e, provider: 'google' | 'microsoft') => ({
     configured: Boolean(getProviderConfig(provider)?.clientId),
     clientId: getProviderConfig(provider)?.clientId ?? '',
@@ -2618,9 +2543,6 @@ export function registerIpcHandlers(): void {
   // depending on a host and often a login that is not ours.
   ipcMain.handle('files:ingestUrl', (_e, url: string, parentId?: string | null) =>
     ingestImageFromUrl(String(url || ''), { parentId: parentId ?? null })
-  )
-  ipcMain.handle('files:internaliseDeskImages', (_e, deskId: string) =>
-    internaliseDeskImages(String(deskId || ''))
   )
   ipcMain.handle('files:delete', (_e, id: string) => deleteFile(id))
 
@@ -2881,7 +2803,6 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('fileManager:removeTag', (_e, fileId: string, tag: string) => removeFileTag(fileId, tag))
   ipcMain.handle('fileManager:allTags', () => allFileTags())
   ipcMain.handle('fileManager:entriesByTag', (_e, tag: string) => fileEntriesByTag(tag))
-  ipcMain.handle('fileManager:entriesByTags', (_e, tags: string[]) => fileEntriesByTags(tags))
   ipcMain.handle('fileManager:untaggedEntries', () => untaggedFileEntries())
   ipcMain.handle('fileManager:listSmartFolders', () => listFileSmartFolders())
   ipcMain.handle('fileManager:createSmartFolder', (_e, name: string, tags: string[], search?: string) =>
@@ -3154,18 +3075,8 @@ export function registerIpcHandlers(): void {
   // renderer can show "Agents from: <path>" and offer Open-in-Finder.
   ipcMain.handle('mindmap:listAgents', () => listAvailableAgents())
 
-  // Workspace path override + Open-in-Finder. Exposed under the
-  // `agents:` namespace because the resolver primarily serves the
-  // agent system, but the resolved path is useful for any other
-  // tool that wants to read from .claude/.
-  ipcMain.handle('agents:getWorkspaceOverride', () => getWorkspaceOverride())
-  ipcMain.handle(
-    'agents:setWorkspaceOverride',
-    (_e, path: string) => {
-      setWorkspaceOverride(path)
-      return { ok: true }
-    }
-  )
+  // Open-in-Finder for the workspace the resolver found. Exposed under the
+  // `agents:` namespace because the resolver primarily serves the agent system.
   ipcMain.handle('agents:revealInFinder', (_e, path: string) => {
     try {
       electronShell.showItemInFolder(path)
@@ -3245,10 +3156,6 @@ export function registerIpcHandlers(): void {
     }
   )
   ipcMain.handle(
-    'agents:listInvocationsForNode',
-    (_e, nodeId: string) => listInvocationsForNode(nodeId)
-  )
-  ipcMain.handle(
     'agents:statsForSlug',
     (_e, slug: string) => statsForSlug(slug)
   )
@@ -3287,15 +3194,10 @@ export function registerIpcHandlers(): void {
       setVoiceCommandPrefs(patch)
   )
   // Agentic browsing (A6/B1) — the deterministic action bridge. Every page
-  // action funnels through agentBrowser:perform's single door; stop flips
-  // the run's kill switch and every later action refuses. B2's loop and the
-  // fake-site probe drive the same four handles.
-  ipcMain.handle('agentBrowser:createRun', (_e, wcId: number) => createAgentRun(wcId))
+  // action funnels through performAgentAction's single door inside main (the
+  // B2 loop in ai/browserAgent.ts); the renderer holds only the kill switch,
+  // which flips the run's abort flag so every later action refuses.
   ipcMain.handle('agentBrowser:stopRun', (_e, runId: string) => stopAgentRun(runId))
-  ipcMain.handle('agentBrowser:endRun', (_e, runId: string) => endAgentRun(runId))
-  ipcMain.handle('agentBrowser:perform', (_e, runId: string, action: AgentAction) =>
-    performAgentAction(runId, action)
-  )
   // The agentic-browsing loop (A6/B2): start returns the runId immediately;
   // progress arrives as browserAgent:event pushes. consent answers the R26
   // pause; the grant list is reviewable and revocable (settings, B3/B4).
@@ -3862,15 +3764,6 @@ export function registerIpcHandlers(): void {
   // Nothing in this block acts on its own. `mail:triage` returns a PLAN; the
   // renderer shows it and the person applies what they agree with, one row at a
   // time, through the ordinary move/trash/spam handlers below.
-  ipcMain.handle('mail:listCategories', async () => {
-    const acc = await currentMailAccount()
-    if (!acc.ok) return { ok: false as const, error: acc.error }
-    try {
-      return { ok: true as const, categories: await listMailboxes(acc.config) }
-    } catch (err) {
-      return { ok: false as const, error: (err as Error).message }
-    }
-  })
   ipcMain.handle('mail:createCategory', async (_e, path: string) => {
     const acc = await currentMailAccount()
     if (!acc.ok) return { ok: false as const, error: acc.error }
@@ -4255,9 +4148,6 @@ export function registerIpcHandlers(): void {
     (_e, conversationId: string, messageId: string, applied: Record<string, AppliedProposal>) =>
       setAiChatMessageApplied(messageId, conversationId, applied)
   )
-  ipcMain.handle('aiChat:renameConversation', (_e, id: string, title: string) =>
-    renameAiChatConversation(id, title)
-  )
   ipcMain.handle('aiChat:deleteConversation', (_e, id: string) => deleteAiChatConversation(id))
   ipcMain.handle(
     'aiChat:linkDesk',
@@ -4293,7 +4183,6 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('projects:reschedule', (_e, projectId: string) => rescheduleProject(projectId))
   ipcMain.handle('projects:captureBaseline', (_e, projectId: string, name: string) => captureBaseline(projectId, name))
-  ipcMain.handle('projects:listBaselines', (_e, projectId: string) => listBaselines(projectId))
   ipcMain.handle('projects:getCalendar', (_e, projectId: string) => loadProjectCalendar(projectId))
   ipcMain.handle('projects:setCalendar', (_e, projectId: string, cal: WorkingCalendar) => saveProjectCalendar(projectId, cal))
   ipcMain.handle('projects:level', (_e, projectId: string) => levelResources(projectId))

@@ -84,13 +84,3 @@ export function listWireRunsByWire(wireId: string, limit = MAX_PER_WIRE): WireRu
     .all(wireId, limit) as WireRunRow[]
   return rows.map(rowToRun)
 }
-
-// The recent write history across a whole desk, newest first — feeds the desk
-// Automations panel's activity view.
-export function listWireRunsByTask(taskId: string, limit = 100): WireRun[] {
-  const db = getDb()
-  const rows = db
-    .prepare('SELECT * FROM wire_runs WHERE task_id = ? ORDER BY at DESC LIMIT ?')
-    .all(taskId, limit) as WireRunRow[]
-  return rows.map(rowToRun)
-}

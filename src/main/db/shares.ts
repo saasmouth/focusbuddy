@@ -98,19 +98,6 @@ export function createShareLink(input: {
   }
 }
 
-export function listShareLinksForEntity(
-  kind: ShareableKind,
-  entityId: string
-): ShareLink[] {
-  const db = getDb()
-  const rows = db
-    .prepare(
-      'SELECT * FROM share_links WHERE kind = ? AND entity_id = ? ORDER BY created_at DESC'
-    )
-    .all(kind, entityId) as ShareLinkRow[]
-  return rows.map(rowToShareLink)
-}
-
 export function listAllShareLinks(): ShareLink[] {
   const db = getDb()
   const rows = db
