@@ -269,6 +269,40 @@ export interface LocalAiStatus {
   hardware: 'metal' | 'cpu' | 'auto'
 }
 
+/** The engine an effective route names, for "Now:" in Settings › AI › Local on this device › Feature by feature. */
+export const ENGINE_NOW_LABEL: Record<LocalAiStatus['effectiveRoutes'][AiFeature], string> = {
+  local: 'On this device',
+  anthropic: 'Anthropic (your key)',
+  openai: 'OpenAI (your key)',
+  credits: 'Plexii AI credits',
+  cloud: 'Cloud AI'
+}
+
+/**
+ * Where a feature's next request really goes, as the "Now:" line of its
+ * Feature by feature row says it.
+ *
+ * effectiveRoutes names the route a request starts on, which for an ask-first
+ * feature is 'local' even though the device never answers it: a cloud-only
+ * gate on that route asks before each request (providerRouter.serveLocal). And
+ * images and background removal have no on-device model at all and no
+ * language-model route: they go to OpenAI and remove.bg with the person's own
+ * keys, asking first while the source is Local (askCloudForNonLocalFeature).
+ */
+export function featureNowLabel(
+  feature: AiFeature,
+  st: Pick<LocalAiStatus, 'provider' | 'effectiveRoutes' | 'gates'>
+): string {
+  if (NOT_TECHNICALLY_LOCAL.includes(feature)) {
+    return st.provider === 'local'
+      ? 'Asks before each request, then sends it to OpenAI (images) or remove.bg (backgrounds). Never on this device.'
+      : 'OpenAI (images) and remove.bg (backgrounds), with your keys'
+  }
+  const now = st.effectiveRoutes[feature]
+  if (now === 'local' && st.gates[feature].gate === 'cloud-only') return 'Asks before each request to use cloud AI'
+  return ENGINE_NOW_LABEL[now]
+}
+
 export interface LocalDownloadProgress {
   tierId: string
   file: string

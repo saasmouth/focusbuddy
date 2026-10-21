@@ -5,6 +5,7 @@ import {
   AI_FEATURE_COPY,
   AI_FEATURE_ROUTES,
   LOCAL_LABEL_COPY,
+  featureNowLabel,
   type AiFeature,
   type AiFeatureRoute,
   type LocalAiStatus,
@@ -374,14 +375,6 @@ function sourceLabel(p: LocalAiStatus['provider']): string {
   return p === 'local' ? 'on this device' : p === 'openai' ? 'your OpenAI key' : p === 'byok' ? 'your Anthropic key' : 'Plexii AI credits'
 }
 
-const ENGINE_NOW: Record<LocalAiStatus['effectiveRoutes'][AiFeature], string> = {
-  local: 'On this device',
-  anthropic: 'Anthropic (your key)',
-  openai: 'OpenAI (your key)',
-  credits: 'Plexii AI credits',
-  cloud: 'Cloud AI'
-}
-
 function FeatureRoutes({
   st,
   busy,
@@ -444,7 +437,7 @@ function FeatureRoutes({
                   <div className="text-[var(--ink-90)] font-medium">{AI_FEATURE_COPY[f].label}</div>
                   <div className="text-[var(--ink-50)] leading-snug">{AI_FEATURE_COPY[f].covers}</div>
                   <div className="text-[var(--ink-70)] mt-0.5" data-testid={`local-ai-now-${f}`}>
-                    Now: {ENGINE_NOW[now]}
+                    Now: {featureNowLabel(f, st)}
                   </div>
                 </div>
                 {now !== 'local' && f !== 'media' && (
