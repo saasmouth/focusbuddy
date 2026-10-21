@@ -27,6 +27,29 @@ export interface FlowBox {
   h: number
 }
 
+/**
+ * A rhythm that text can be locked to, so columns line up across a page.
+ *
+ * In PAGE coordinates, not frame coordinates — that is the whole point. Two
+ * columns only align if they are measured against the same ruler, and a frame
+ * sitting 7px lower than its neighbour must not get its own private grid.
+ *
+ * HONEST LIMIT: this positions LINE BOXES, not true baselines. The renderer
+ * centres text in a CSS line box, so where the baseline falls inside it
+ * depends on the font's ascent — a metric the engine never sees, since it
+ * measures through a width-only callback. With one line height, which is the
+ * case body copy cares about, line boxes on the grid mean baselines on the
+ * grid, and columns align exactly. Mixed sizes locked to the same grid will
+ * align their line boxes rather than their baselines, and may sit a fraction
+ * of a point out from a true metric grid.
+ */
+export interface BaselineGrid {
+  /** Distance between grid lines, in px. Usually the body line height. */
+  spacing: number
+  /** Where the first grid line sits, in page coordinates. Defaults to 0. */
+  offset?: number
+}
+
 export interface FlowFrame extends FlowBox {
   id: string
   /**
@@ -66,6 +89,15 @@ export interface FlowParaStyle {
   widowLines?: number
   /** An oversized initial spanning this many lines. */
   dropCapLines?: number
+  /**
+   * Lock this paragraph's lines to the document's baseline grid.
+   *
+   * Per paragraph style, as in InDesign: body copy locks so columns line up
+   * across the page, while a heading or a caption usually should not, because
+   * forcing a 24pt heading onto a 15px rhythm leaves a gap wherever the two
+   * do not divide.
+   */
+  snapToGrid?: boolean
   /** A rule drawn above the paragraph, as a fraction of the column width. */
   ruleAbove?: { width: number; thickness: number; color: string }
 }
@@ -184,11 +216,14 @@ export function flowStory(input: {
   obstacles?: FlowBox[]
   /** Gap kept between the text and an obstacle. */
   wrapOffset?: number
+  /** The document's baseline grid, when it has one. */
+  grid?: BaselineGrid
   measure: FlowMeasurer
 }): FlowResult {
   const { paragraphs, frames, measure } = input
   const obstacles = input.obstacles ?? []
   const wrapOffset = input.wrapOffset ?? 0
+  const grid = input.grid && input.grid.spacing > 0 ? input.grid : null
 
   const byFrame: Record<string, FlowLine[]> = {}
   const cursor: Cursor = { para: 0, word: 0 }
@@ -251,8 +286,32 @@ export function flowStory(input: {
         if (y + lineH + nextLh > frame.h + 0.01) break
       }
 
+      // Lock to the grid, when the document has one and this style asks.
+      //
+      // Two steps, and both are needed. Snapping only the first line puts the
+      // paragraph on the grid and lets every line after it drift off again;
+      // quantising only the line height keeps the rhythm but starts it
+      // wherever the previous paragraph happened to end. Together they put
+      // every line of the paragraph on a grid line.
+      let para2 = para
+      if (grid && st.snapToGrid) {
+        const offset = grid.offset ?? 0
+        const pageY = frame.y + y
+        // Forward only: pulling a line UP to a nearer grid line would overlap
+        // whatever sits above it.
+        const snappedPage = offset + Math.ceil((pageY - offset) / grid.spacing - 1e-6) * grid.spacing
+        y = snappedPage - frame.y
+        const quantised = Math.ceil((lineH - 1e-6) / grid.spacing) * grid.spacing
+        if (quantised > 0 && Math.abs(quantised - lineH) > 1e-6) {
+          para2 = { ...para, style: { ...st, lineHeight: quantised / st.fontSize } }
+        }
+        // Re-check the fit: snapping pushes text DOWN, so a line that fitted
+        // before the snap may not fit after it.
+        if (y + Math.max(lineH, quantised) > frame.h + 0.01) break
+      }
+
       const set = setParagraph({
-        para,
+        para: para2,
         paraIndex: cursor.para,
         words,
         startWord: cursor.word,
