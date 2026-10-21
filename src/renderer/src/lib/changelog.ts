@@ -38,6 +38,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.41',
+    date: '2026-10-21T22:23:00Z',
+    title: 'PlexiiDesk 4.3.41 \u2014 fixes, and old parts taken out',
+    tag: 'fix',
+    summary:
+      'A maintenance release on top of 4.3.40: a few fixes, and old screens and plumbing that nothing could reach have been removed. Nothing you use has moved.',
+    highlights: [
+      'Fixed: Help \u2192 What\u2019s New and Help \u2192 Terms of Use in the menu bar did nothing. They open the right panel again.',
+      'Fixed: after you signed in, the sign-in window kept your password filled in, so it was still there if you signed out.',
+      'Removed: old screens and settings plumbing that no part of PlexiiDesk could open any more, including the retired standalone PlexiiOffice screens. The app is smaller and nothing you use has changed.'
+    ]
+  },
+  {
     version: '4.3.40',
     date: '2026-10-21T09:20:00Z',
     title: 'PlexiiDesk 4.3.40 \u2014 AI on your Mac, Focus, a grown-up PlexiiDraw and a new diagram editor',
