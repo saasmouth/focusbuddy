@@ -140,7 +140,9 @@ describe('the Plexii spelling', () => {
   })
 
   it('the window titles, the MCP extension and the agent profiles use it', () => {
-    for (const p of ['index.html', 'plexioffice.html', 'src/renderer/index.html', 'src/renderer/plexioffice.html']) {
+    // One renderer page since 4.3.41: the standalone PlexiiOffice page and the
+    // stale built copies that sat at the repo root were removed.
+    for (const p of ['src/renderer/index.html', 'src/web/index.html']) {
       expect(read(p), p).not.toMatch(/<title>[^<]*\bPlexi[A-Z]/)
     }
     const bridge = read('tools/plexii-mcp-bridge/server/index.js')

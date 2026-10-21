@@ -68,7 +68,7 @@ import {
   deleteEntry as deleteFileEntry, restoreEntries as restoreFileEntries,
   listTrashedEntries as listTrashedFileEntries, restoreEntryDeep as restoreFileEntryDeep,
   purgeEntry as purgeFileEntry, searchEntries as searchFileEntries,
-  tagsFor as fileTagsFor, addTags as addFileTags, removeTag as removeFileTag,
+  addTags as addFileTags, removeTag as removeFileTag,
   allTags as allFileTags, entriesByTag as fileEntriesByTag, entriesByTags as fileEntriesByTags,
   untaggedEntries as untaggedFileEntries, listSmartFolders as listFileSmartFolders,
   createSmartFolder as createFileSmartFolder, deleteSmartFolder as deleteFileSmartFolder,
@@ -387,7 +387,6 @@ export const HANDLERS: Record<string, Handler> = {
   'fileManager:restoreDeep': h((id: string) => restoreFileEntryDeep(id)),
   'fileManager:purge': h((id: string) => purgeFileEntry(id)),
   'fileManager:search': h((query: string) => searchFileEntries(query)),
-  'fileManager:tagsFor': h((fileId: string) => fileTagsFor(fileId)),
   'fileManager:addTags': h((fileId: string, tags: string[], source?: 'user' | 'ai') =>
     addFileTags(fileId, tags, source)),
   'fileManager:removeTag': h((fileId: string, tag: string) => removeFileTag(fileId, tag)),

@@ -70,8 +70,8 @@ if (!process.env.FB_TEST_USER_DATA) {
 // real PlexiDesk data. Must be set BEFORE app.whenReady() so getPath('userData')
 // picks up the override on first access.
 // Which product is this binary? See detectOfficeBuild for why app.getName() alone
-// is not enough. Set the app name early so getName(), the menu, the renderer
-// selection, and the default paths are all office-correct from here on.
+// is not enough. Set the app name early so getName(), the menu and the default
+// paths are all office-correct from here on.
 const isOfficeBuild = detectOfficeBuild({
   plexiAppEnv: process.env['PLEXI_APP'],
   execPath: process.execPath,
@@ -563,15 +563,12 @@ function createCommandCenter(): BrowserWindow {
     guardNavigation(e, url, 'will-navigate')
   })
 
-  // Which product is this build? The PlexiOffice electron-builder config sets
-  // productName 'PlexiOffice' (→ app.getName()); PLEXI_APP=office forces it in dev.
-  // PlexiOffice loads its own renderer entry; everything else is PlexiDesk.
-  const officeMode =
-    process.env['PLEXI_APP'] === 'office' || app.getName().toLowerCase().includes('office')
-  const rendererHtml = officeMode ? 'plexioffice.html' : 'index.html'
-
+  // Every build loads the one renderer entry. The standalone PlexiiOffice
+  // renderer (plexioffice.html) was retired in 4.3.41, so an office-named
+  // binary gets the full app here; isOfficeBuild above still keeps such a
+  // binary off PlexiiDesk's userData and single-instance lock.
   if (isDev && process.env['ELECTRON_RENDERER_URL']) {
-    win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/${officeMode ? 'plexioffice.html' : ''}`)
+    win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/`)
     win.webContents.once('did-finish-load', () => {
       win.webContents.openDevTools({ mode: 'detach' })
     })
@@ -585,7 +582,7 @@ function createCommandCenter(): BrowserWindow {
       }
     })
   } else {
-    win.loadFile(join(__dirname, `../renderer/${rendererHtml}`))
+    win.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
   // Capture a renderer/GPU process death (WS03). This is the most severe crash

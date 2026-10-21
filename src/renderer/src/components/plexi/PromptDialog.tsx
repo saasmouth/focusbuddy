@@ -5,8 +5,8 @@ import { create } from 'zustand'
 // Electron does not implement (it returns null without showing anything, so
 // every menu item that relied on it silently did nothing; see the e2e notes in
 // livingDocWidget.spec.ts). Call promptText(...) from any handler and await the
-// answer; PromptDialogHost must be mounted once per renderer root (App.tsx and
-// PlexiOfficeApp.tsx both mount it).
+// answer; PromptDialogHost must be mounted once per renderer root (App.tsx
+// mounts it).
 //
 // The dialog carries proper dialog semantics: role, aria-modal, labelled title,
 // initial focus on the input, a Tab trap inside the panel, Escape to cancel and

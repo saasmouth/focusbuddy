@@ -195,7 +195,6 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'fileManager:restoreDeep': [{ kind: 'string', optional: false, nullable: false }],
   'fileManager:reveal': [{ kind: 'string', optional: false, nullable: false }],
   'fileManager:search': [{ kind: 'string', optional: false, nullable: false }],
-  'fileManager:tagsFor': [{ kind: 'string', optional: false, nullable: false }],
   'files:delete': [{ kind: 'string', optional: false, nullable: false }],
   'files:extractText': [{ kind: 'string', optional: false, nullable: false }],
   'files:get': [{ kind: 'string', optional: false, nullable: false }],

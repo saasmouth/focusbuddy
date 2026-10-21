@@ -1403,8 +1403,6 @@ const api = {
     restoreDeep: (id: string): Promise<boolean> => ipcRenderer.invoke('fileManager:restoreDeep', id),
     purge: (id: string): Promise<boolean> => ipcRenderer.invoke('fileManager:purge', id),
     search: (query: string): Promise<FileEntry[]> => ipcRenderer.invoke('fileManager:search', query),
-    tagsFor: (fileId: string): Promise<Array<{ tag: string; source: 'user' | 'ai' }>> =>
-      ipcRenderer.invoke('fileManager:tagsFor', fileId),
     addTags: (
       fileId: string,
       tags: string[],

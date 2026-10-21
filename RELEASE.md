@@ -95,6 +95,9 @@ zips show no downloads beyond the release gate's own check.
 Still in the code on purpose: `detectOfficeBuild` and the office branch in the
 main process. They keep a stray office binary out of PlexiiDesk's database and
 single-instance lock. Remove them in a normal release, not a hurried one.
+From 4.3.41 the standalone renderer is gone as well (`plexioffice.html`,
+`officeApp.tsx`, `components/officeApp/`): an office-named binary loads the
+same `index.html` as PlexiiDesk, under its own userData directory.
 
 `npm run release:mac` uploads the current `PlexiDesk-X.Y.Z-mac-universal`
 artifacts and `latest-mac.yml` (with `--clobber`, so re-running is safe). It also

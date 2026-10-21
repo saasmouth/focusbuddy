@@ -147,6 +147,3 @@ export async function buildFolderShareSnapshot(
     items: await buildEntries(folderId)
   }
 }
-
-// Import-side helpers (materialize, countDocs) live in officeShareImport.ts so
-// they stay free of the editor/HTML imports this module pulls in.

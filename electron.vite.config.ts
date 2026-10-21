@@ -62,10 +62,9 @@ export default defineConfig({
       minify: 'esbuild',
       rollupOptions: {
         input: {
-          index: resolve('src/renderer/index.html'),
-          // Second product entry — the standalone PlexiOffice app. Same built
-          // bundle; the main process loads this HTML when running as PlexiOffice.
-          plexioffice: resolve('src/renderer/plexioffice.html')
+          // One entry. The standalone PlexiiOffice renderer (plexioffice.html)
+          // was retired in 4.3.41; the in-suite Office area is part of index.
+          index: resolve('src/renderer/index.html')
         },
         output: {
           // Split the heavy, feature-specific vendor libraries into their own

@@ -23,8 +23,9 @@ const read = (p: string): string => readFileSync(join(ROOT, p), 'utf-8')
 
 const AUTH_FIELDS = [
   'src/renderer/src/components/LaunchSignInModal.tsx',
-  'src/renderer/src/components/FirstRunOnboarding.tsx',
-  'src/renderer/src/components/officeApp/OfficeAccountBar.tsx'
+  'src/renderer/src/components/FirstRunOnboarding.tsx'
+  // components/officeApp/OfficeAccountBar.tsx was the third, until the
+  // standalone PlexiiOffice renderer it belonged to was retired in 4.3.41.
 ]
 
 describe('auth fields opt out of macOS text substitution', () => {
