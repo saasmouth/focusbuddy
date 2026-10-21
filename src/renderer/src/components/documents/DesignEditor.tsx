@@ -57,6 +57,7 @@ import type { FlowMeasurer } from '@shared/designFlow'
 import LayoutOverlay from './design/LayoutOverlay'
 import LayoutPanel from './design/LayoutPanel'
 import PreflightPanel from './design/PreflightPanel'
+import { useElementClipboard } from './slides/useElementClipboard'
 import StylesPanel from './design/StylesPanel'
 import SwatchesPanel from './design/SwatchesPanel'
 import { preflight, preflightSummary } from '@shared/designPreflight'
@@ -343,6 +344,34 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     commit({ ...saved, pages: nextPages, activePage: nextPages.length - 1, elements: np.elements, background: np.background })
     setSelectedIds([])
   }
+  /**
+   * Copy a page, with everything on it, and put it straight after.
+   *
+   * Every element needs a fresh id and a deep copy: two pages sharing an
+   * element id makes selection ambiguous, and two pages sharing a fill object
+   * means recolouring one recolours the other.
+   */
+  function duplicatePage(i: number): void {
+    const saved = withPages(syncActivePage(designRef.current))
+    const ps = saved.pages ?? []
+    const src = ps[i]
+    if (!src) return
+    const copy: import('@shared/design').DesignPage = {
+      ...structuredClone(src),
+      id: `pg-${Date.now().toString(36)}`,
+      elements: (src.elements ?? []).map((el) => ({ ...structuredClone(el), id: elementId() }))
+    }
+    const nextPages = [...ps.slice(0, i + 1), copy, ...ps.slice(i + 1)]
+    commit({
+      ...saved,
+      pages: nextPages,
+      activePage: i + 1,
+      elements: copy.elements,
+      background: copy.background ?? saved.background
+    })
+    setSelectedIds([])
+  }
+
   function deletePage(i: number): void {
     const saved = syncActivePage(designRef.current)
     const ps = saved.pages ?? []
@@ -420,6 +449,30 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     )
     setSelectedIds(newIds)
   }
+  // Cut / Copy / Paste. The hook owns the DOM clipboard events — which is what
+  // makes ⌘C/⌘V and the native Edit menu run the same code — and the three
+  // functions it returns are what this editor's own Edit menu calls.
+  const clipboard = useElementClipboard({
+    canvas: () => ({ w: designRef.current.width, h: designRef.current.height }),
+    selected: () => {
+      const els = designRef.current.elements ?? []
+      const ids = new Set(selectedIds)
+      return els.filter((e) => ids.has(e.id))
+    },
+    topZ: () => (designRef.current.elements ?? []).reduce((m, e) => Math.max(m, e.z ?? 0), 0),
+    newId: elementId,
+    onPaste: (els) => {
+      mutate((s) => els.reduce((acc, el) => addElement(acc, el), s))
+      setSelectedIds(els.map((e) => e.id))
+    },
+    onCut: (ids) => {
+      mutate((s) => ids.reduce((acc, id) => deleteElement(acc, id), s))
+      setSelectedIds([])
+    },
+    // While the caret is in text on the page, ⌘C means "copy these words".
+    enabled: () => !textEdit
+  })
+
   function align(edge: AlignEdge): void {
     if (selectedIds.length < 1) return
     mutate((s) => alignElements(s, selectedIds, edge))
@@ -1071,6 +1124,14 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
             openPreflight: () => setPanel('preflight'),
             openStyles: () => setPanel('styles'),
             openSwatches: () => setPanel('swatches'),
+            copySelection: clipboard.copy,
+            cutSelection: clipboard.cut,
+            pasteClipboard: clipboard.paste,
+            canPaste: clipboard.hasClip,
+            duplicateSelection: duplicateSelected,
+            duplicatePage,
+            hasSelection: selectedIds.length > 0,
+            activePage: design.activePage ?? 0,
             preflightHint,
             addPage,
             toggleFacing: () => patchLayout({ facing: !designRef.current.facing }),
@@ -1584,18 +1645,34 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
                         <Icon name="close" size={9} />
                       </button>
                     )}
+                    <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          duplicatePage(i)
+                        }}
+                        data-testid={`design-page-duplicate-${i}`}
+                        className="absolute -top-1 -left-1 hidden group-hover/pg:block rounded-full bg-[var(--surface-raised)] border border-[var(--edge-soft)] p-0.5 text-[var(--ink-60)] hover:text-accent"
+                        title={`Duplicate page ${pageNumberOf(design, i)}`}
+                      >
+                        <Icon name="file_copy" size={9} />
+                      </button>
                   </div>
                 )
               })}
             </div>
           ))}
+          {/* The add control reads as a button, not as a grey label. The owner
+              reported "I can't see where to add the second page" against the
+              old version of this: an unbordered, low-contrast "+ Page" at the
+              end of a strip that, on a single-page design, had nothing else in
+              it at all (see withPages). */}
           <button
             onClick={addPage}
             data-testid="design-page-add"
-            className="h-7 px-2 rounded text-[12px] text-[var(--ink-60)] hover:bg-[var(--surface-sunken)] inline-flex items-center gap-1"
-            title="Add a page"
+            className="fb-btn-surface h-7 shrink-0 px-2.5 rounded text-[12px] text-[var(--ink-80)] hover:border-accent inline-flex items-center gap-1"
+            title="Add a page at the end"
           >
-            <Icon name="add" size={14} /> Page
+            <Icon name="add" size={14} /> Add page
           </button>
         </div>
         </div>
