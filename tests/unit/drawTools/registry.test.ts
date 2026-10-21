@@ -9,9 +9,11 @@ import type { MenuItem } from '../../../src/renderer/src/components/documents/ed
 import { blank, harness, rect } from './harness'
 
 describe('registries', () => {
-  it('every one of the 16 tools is registered, in toolbox order, with no clashing ids or letters', () => {
-    expect(drawTools().map((t) => `${t.id}:${t.key}`)).toEqual([
+  it('every one of the 17 tools is registered, in toolbox order, with no clashing ids or letters', () => {
+    expect(drawTools().map((t) => `${t.id}:${t.key ?? ''}`)).toEqual([
       'select:V',
+      // Group Selection has no default letter, as in Illustrator.
+      'groupSelect:',
       'node:A',
       'pen:P',
       'pencil:N',
@@ -37,7 +39,7 @@ describe('registries', () => {
   })
 
   it('no tool letter is also a keymap binding, and every binding names a real command', () => {
-    for (const t of drawTools()) expect(KEYMAP[t.key!.toLowerCase()], t.id).toBeUndefined()
+    for (const t of drawTools()) if (t.key) expect(KEYMAP[t.key.toLowerCase()], t.id).toBeUndefined()
     expect(commandRegistryProblems()).toEqual([])
   })
 
@@ -128,10 +130,11 @@ describe('the menu bar is built from commands, identical to the one it replaced'
         '  Intersect||||',
         '  Exclude||||',
         'Arrange|layers|>',
-        '  Bring to front||||',
-        '  Bring forward||||',
-        '  Send backward||||',
-        '  Send to back||||',
+        // Nothing is selected, so nothing can move (WP-OBJ: Illustrator's keys, honest enabling).
+        '  Bring to front||⇧⌘]|off|',
+        '  Bring forward||⌘]|off|',
+        '  Send backward||⌘[|off|',
+        '  Send to back||⇧⌘[|off|',
         'Align|align_horizontal_center|>',
         '  Left||||',
         '  Center||||',
@@ -139,6 +142,35 @@ describe('the menu bar is built from commands, identical to the one it replaced'
         '  Top||||',
         '  Middle||||',
         '  Bottom||||',
+        // WP-OBJ: groups, lock/hide, clipping masks, compound paths, isolation mode.
+        '---',
+        'Group|group_work|⌘G|off|',
+        'Ungroup|workspaces|⇧⌘G|off|',
+        '---',
+        'Lock|lock|>',
+        '  Selection||⌘2|off|',
+        '  All artwork above|||off|',
+        '  Other layers|||off|',
+        'Unlock all|lock_open|⌥⌘2|off|',
+        'Hide|visibility_off|>',
+        '  Selection||⌘3|off|',
+        '  All artwork above|||off|',
+        '  Other layers|||off|',
+        'Show all|visibility|⌥⌘3|off|',
+        '---',
+        'Clipping Mask|crop|>',
+        '  Make||⌘7|off|',
+        '  Release||⌥⌘7|off|',
+        '  Edit mask|||off|',
+        '  Edit contents|||off|',
+        'Compound Path|join_left|>',
+        '  Make||⌘8|off|',
+        '  Release||⌥⇧⌘8|off|',
+        '  Non-zero winding fill rule|||off|',
+        '  Even-odd fill rule|||off|',
+        '---',
+        'Isolate selected group|center_focus_strong||off|',
+        'Exit isolation mode|filter_center_focus||off|',
         '',
         'layer',
         'New vector layer|shapes|||',
