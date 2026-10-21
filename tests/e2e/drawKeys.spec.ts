@@ -87,7 +87,7 @@ test('KEY-1 the first open shows what moved, links to every shortcut, and stays 
   ).toBe('dismissed')
 })
 
-test('KEY-2 M, L and \\ draw a rectangle, an ellipse and a line; R, O and S pick nothing', async () => {
+test('KEY-2 M, L and \\ draw a rectangle, an ellipse and a line; R, O and S pick Rotate, Reflect and Scale', async () => {
   const id = await seedDrawDoc(window, v1Body([]))
   await openDocument(window, id)
   await window.keyboard.press('m')
@@ -96,9 +96,10 @@ test('KEY-2 M, L and \\ draw a rectangle, an ellipse and a line; R, O and S pick
   await drag([260, 60], [400, 160])
   await window.keyboard.press('Backslash')
   await drag([460, 60], [600, 160])
-  for (const k of ['r', 'o', 's']) {
+  // WP-TRANSFORM delivered Illustrator's R, O and S.
+  for (const [k, tool] of [['r', 'rotate'], ['o', 'reflect'], ['s', 'scale']]) {
     await window.keyboard.press(k)
-    await expect(toolPressed('select')).toHaveAttribute('aria-pressed', 'true')
+    await expect(toolPressed(tool)).toHaveAttribute('aria-pressed', 'true')
   }
   await window.keyboard.press('Shift+E')
   await expect(toolPressed('eraser')).toHaveAttribute('aria-pressed', 'true')
@@ -111,26 +112,17 @@ test('KEY-2 M, L and \\ draw a rectangle, an ellipse and a line; R, O and S pick
   expect((await objects(id)).map((o) => o.shapeKind)).toEqual(['rect', 'ellipse', 'line'])
 })
 
-test('KEY-3 ⌘D is Transform again (disabled, with its reason), Duplicate is in the Edit menu, ⌘] and ⇧⌘A work', async () => {
+test('KEY-3 ⌘D is Transform Again (it repeats the last transform), Duplicate is in the Edit menu, ⌘] and ⇧⌘A work', async () => {
   const id = await seedDrawDoc(
     window,
     v1Body([rectObject('a', 100, 100, 100, 100), rectObject('b', 300, 100, 100, 100)])
   )
   await openDocument(window, id)
   await click(150, 150)
+  // Nothing transformed yet: ⌘D has nothing to repeat and duplicates nothing.
   await window.keyboard.press('Meta+d')
-  await expect(window.locator('[data-testid="draw-status"]')).toContainText(
-    'Transform again arrives with Transform tools.'
-  )
-  await window.locator('[data-testid="draw-studio-menubar-object"]').click()
-  const ta = window
-    .locator('[data-testid="draw-studio-menubar-object-list"] button')
-    .filter({ hasText: 'Transform again' })
-  await expect(ta).toBeDisabled()
-  await expect(ta).toContainText('arrives with Transform tools')
-  await expect(ta).toContainText('⌘D')
-  // Close the menu with its own button: Escape would also deselect, as in Illustrator.
-  await window.locator('[data-testid="draw-studio-menubar-object"]').click()
+  await waitForSave(window)
+  expect(await objects(id)).toHaveLength(2)
   await runMenu(window, 'edit', 'Duplicate')
   await waitForSave(window)
   expect(await objects(id)).toHaveLength(3)
@@ -139,10 +131,15 @@ test('KEY-3 ⌘D is Transform again (disabled, with its reason), Duplicate is in
   await window.keyboard.press('Meta+Shift+BracketLeft')
   await waitForSave(window)
   expect((await objects(id))[0].id).toBe(copyId)
+  // ⌥→ nudges a copy; ⌘D then repeats that (another copy, one step further).
+  await window.keyboard.press('Alt+ArrowRight')
+  await window.keyboard.press('Meta+d')
+  await waitForSave(window)
+  expect(await objects(id)).toHaveLength(5)
   await window.keyboard.press('Meta+Shift+a')
   await window.keyboard.press('Delete')
   await waitForSave(window)
-  expect(await objects(id)).toHaveLength(3)
+  expect(await objects(id)).toHaveLength(5)
 })
 
 test('KEY-4 ⌥⇧⌘K lists every shortcut, searchable; a remapped key works and survives a reload', async () => {
@@ -153,8 +150,8 @@ test('KEY-4 ⌥⇧⌘K lists every shortcut, searchable; a remapped key works an
   await expect(dialog).toBeVisible()
   await expect(window.locator('[data-testid="draw-shortcut-row-tool:rect"]')).toContainText('M')
   await expect(
-    window.locator('[data-testid="draw-shortcut-row-reserved:tool:rotate"]')
-  ).toContainText('Arrives with Transform tools')
+    window.locator('[data-testid="draw-shortcut-row-reserved:tool:gradient"]')
+  ).toContainText('Arrives with gradients and patterns')
   await window.locator('[data-testid="draw-shortcuts-search"]').fill('⌘D')
   await expect(window.locator('[data-testid^="draw-shortcut-row-"]')).toHaveCount(1)
   await expect(
@@ -167,9 +164,9 @@ test('KEY-4 ⌥⇧⌘K lists every shortcut, searchable; a remapped key works an
   await expect(window.locator('[data-testid="draw-shortcut-message"]')).toHaveText(
     'V is already used by the Select tool.'
   )
-  await window.keyboard.press('r')
+  await window.keyboard.press('g')
   await expect(window.locator('[data-testid="draw-shortcut-message"]')).toContainText(
-    'Illustrator uses R for Rotate tool'
+    'Illustrator uses G for Gradient tool'
   )
   await expect(window.locator('[data-testid="draw-shortcuts-set"]')).toHaveText(
     'Illustrator defaults, changed'
@@ -181,9 +178,9 @@ test('KEY-4 ⌥⇧⌘K lists every shortcut, searchable; a remapped key works an
   await window.reload()
   await waitForReady(window)
   await openDocument(window, id)
-  await window.keyboard.press('r')
+  await window.keyboard.press('g')
   await expect(toolPressed('rect')).toHaveAttribute('aria-pressed', 'true')
-  await expect(toolPressed('rect')).toHaveAttribute('title', 'Rectangle (R)')
+  await expect(toolPressed('rect')).toHaveAttribute('title', 'Rectangle (G)')
   await drag([100, 100], [300, 250])
   await waitForSave(window)
   expect((await objects(id)).map((o) => o.shapeKind)).toEqual(['rect'])

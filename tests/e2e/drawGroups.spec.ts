@@ -71,9 +71,9 @@ async function runSubmenu(menuId: string, submenu: string, label: string): Promi
 test('OBJ-1 draw three shapes, ⌘G groups them, the group moves as one, ⌘Z undoes the move', async () => {
   const id = await seedDrawDoc(window, v2Body([]), 'Groups')
   await openDocument(window, id)
-  // The studio returns to the Selection tool after each shape, so pick Rectangle (R) each time.
+  // The studio returns to the Selection tool after each shape, so pick Rectangle (M, Illustrator's key) each time.
   for (const [i, x] of [100, 250, 400].entries()) {
-    await window.keyboard.press('r')
+    await window.keyboard.press('m')
     await dragArt({ x, y: 100 }, { x: x + 80, y: 180 })
     await expect(window.locator('[data-testid^="draw-vector-"] path')).toHaveCount(i + 1)
   }
@@ -175,23 +175,22 @@ test('OBJ-3 double-click a group to isolate it; the bar shows; a click selects i
   await expect(bar).toHaveCount(0)
 })
 
-test('OBJ-4 a drawing still written as v1 refuses to group, honestly, and Compound Path still works there', async () => {
+test('OBJ-4 a v1 drawing groups and is saved as v2 (v2 writes are on); Compound Path works too', async () => {
+  // (The v1-only case -- a live session with someone on an older version -- is covered by the unit tests.)
   const id = await seedDrawDoc(window, v1Body([rectObject('a', 100, 100, 300, 300), rectObject('b', 175, 175, 150, 150)]), 'Old format')
   await openDocument(window, id)
   await runMenu(window, 'edit', 'Select all')
-  await window.locator('[data-testid="draw-studio-menubar-object"]').click()
-  await expect(window.locator('[data-testid="draw-studio-menubar-object-list"] button', { hasText: 'Ungroup' })).toBeDisabled()
-  await expect(window.locator('[data-testid="draw-studio-menubar-object-list"] button').filter({ hasText: /^.*Group⌘G$/ }).first()).toBeDisabled()
-  await window.keyboard.press('Escape')
   await window.keyboard.press('ControlOrMeta+g')
   await waitForSave(window)
-  expect(objectsOf((await readStored(window, id)).raw).map((o) => o.type)).toEqual(['path', 'path'])
+  let stored = await readStored(window, id)
+  expect(objectsOf(stored.raw).map((o) => o.type)).toEqual(['group'])
+  expect((stored.raw as { schemaVersion: number }).schemaVersion).toBe(2)
+  await window.keyboard.press('ControlOrMeta+z')
   await runMenu(window, 'edit', 'Select all')
   await window.keyboard.press('ControlOrMeta+8')
   await waitForSave(window)
-  const stored = await readStored(window, id)
+  stored = await readStored(window, id)
   const objs = objectsOf(stored.raw)
   expect(objs).toHaveLength(1)
   expect(objs[0].path!.subpaths).toHaveLength(2)
-  expect((stored.raw as { schemaVersion: number }).schemaVersion).toBe(1)
 })

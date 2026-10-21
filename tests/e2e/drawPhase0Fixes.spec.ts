@@ -176,14 +176,22 @@ test('P0-4 resizing the artboard keeps painted pixels where they were, at their 
     .toBe('100-119')
   // And the stored layer was re-laid at the new size, not left to be stretched later.
   await waitForSave(window)
-  const stored = (await readStored(window, id)).raw as { width: number; layers: Array<{ id: string; src?: string }> }
-  expect(stored.width).toBe(800)
+  // Saved as v2 since local.8 (artboards, assets); a v1 body would carry width and src itself.
+  const stored = (await readStored(window, id)).raw as {
+    width?: number
+    artboards?: Array<{ w: number }>
+    assets?: Record<string, { dataUrl: string }>
+    layers: Array<{ id: string; src?: string; assetId?: string }>
+  }
+  expect(stored.artboards ? stored.artboards[0].w : stored.width).toBe(800)
+  const layer = stored.layers.find((l) => l.id === 'P1')!
+  const layerSrc = layer.src ?? stored.assets![layer.assetId!].dataUrl
   const dims = await window.evaluate(async (s) => {
     const img = new Image()
     img.src = s
     await img.decode()
     return `${img.naturalWidth}x${img.naturalHeight}`
-  }, stored.layers.find((l) => l.id === 'P1')!.src!)
+  }, layerSrc)
   expect(dims).toBe('800x300')
 })
 
