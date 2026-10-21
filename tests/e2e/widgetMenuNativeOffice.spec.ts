@@ -9,8 +9,10 @@
  * 1. Right-click "Add object" → "Files" submenu lists: Document, Spreadsheet,
  *    Slides, File or link — and does NOT contain: Doc (gdoc), Sheet (gsheet),
  *    Slides (gslide label from gslide kind), PDF.
- * 2. No empty category group appears in "Add object" (Comms had only email
- *    which is hideFromPicker=true; it must not appear as an empty group).
+ * 2. No empty category group appears in "Add object", and a hideFromPicker
+ *    entry stays out of its group: Comms now carries Contacts and Inbox, so it
+ *    is listed, but its Email entry (hideFromPicker=true) is not. (Comms used
+ *    to hold only Email, so the old check was "Comms is hidden".)
  * 3. (4.3.32: the "+ Widget" palette is gone.) The PlexiDocs / Sheets /
  *    Slides tiles offer their kinds for the desk; no gdoc / gsheet / gslide /
  *    pdf is offered anywhere.
@@ -98,7 +100,7 @@ test('WMN-1 — right-click Files submenu: native Document/Spreadsheet/Slides pr
 
 // ── Test 2: No empty category groups in "Add object" ─────────────────────────
 
-test('WMN-2 — Add object submenu: no empty category groups (Comms email is hidden)', async () => {
+test('WMN-2 — Add object submenu: groups are non-empty; Comms lists Contacts/Inbox but not the hidden Email', async () => {
   launched = await launchApp()
   await waitForReady(launched.window)
   await seedAndOpenCanvas(launched, 'WMN-2 Task')
@@ -119,14 +121,20 @@ test('WMN-2 — Add object submenu: no empty category groups (Comms email is hid
   const addObjMenu = window.locator('[data-canvas-ctx-menu]').nth(1)
   await expect(addObjMenu).toBeVisible({ timeout: 3_000 })
 
-  // "Comms" should NOT be present — its only entry (email) is hideFromPicker.
-  // The buildCtxMenu filter `.filter(group => group.children.length > 0)` removes it.
-  const commsVisible = await addObjMenu.getByRole('menuitem', { name: 'Comms' }).isVisible().catch(() => false)
-  expect(commsVisible, '"Comms" category group must not appear (all entries hidden)').toBe(false)
-
-  // Spot-check: "Notes" and "Files" DO appear (they have visible entries).
+  // Groups with visible entries appear.
   await expect(addObjMenu.getByRole('menuitem', { name: 'Notes' })).toBeVisible()
   await expect(addObjMenu.getByRole('menuitem', { name: 'Files' })).toBeVisible()
+
+  // Comms has visible entries now (Contacts, Inbox), so it is listed; its
+  // Email entry is hideFromPicker and must not be offered inside it.
+  const comms = addObjMenu.getByRole('menuitem', { name: 'Comms' })
+  await expect(comms).toBeVisible()
+  await comms.hover()
+  const commsMenu = window.locator('[data-canvas-ctx-menu]').nth(2)
+  await expect(commsMenu).toBeVisible({ timeout: 3_000 })
+  await expect(commsMenu.getByRole('menuitem', { name: 'Contacts', exact: true })).toBeVisible()
+  await expect(commsMenu.getByRole('menuitem', { name: 'Inbox', exact: true })).toBeVisible()
+  await expect(commsMenu.getByRole('menuitem', { name: 'Email', exact: true })).toHaveCount(0)
 })
 
 // ── Test 3: the native office kinds, not Google ones ──────────────────────────

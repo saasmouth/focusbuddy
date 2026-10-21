@@ -114,11 +114,8 @@ test.describe('side-menu moves (2026-10-10)', () => {
     const sidebar = window.locator('[data-testid="office-sidebar"]')
     await expect(sidebar.locator('[data-testid="office-comms-app-inbox"]')).toBeVisible()
     await expect(sidebar.locator('[data-testid="office-comms-app-calendar"]')).toBeVisible()
-    // Files is an app, not a comms surface, so it is listed with the Browser.
-    await expect(sidebar.locator('[data-testid="office-sideapp-files"]')).toBeVisible()
-
-    // And NOT back in the home rail, which is where it hid the first time.
-    await expect(window.locator('[data-testid="office-home-places"]')).toHaveCount(0)
+    // Files sits under Tools, beside the Browser.
+    await expect(sidebar.locator('[data-testid="office-comms-app-files"]')).toBeVisible()
 
     // Opening it keeps you in Office rather than throwing you out of it.
     await sidebar.locator('[data-testid="office-comms-app-calendar"]').click()

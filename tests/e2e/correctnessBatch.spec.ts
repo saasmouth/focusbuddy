@@ -24,7 +24,7 @@ async function openProduct(window: Page, name: string, key: string): Promise<voi
 
   if (name === 'PlexiiMeet') {
     await switchArea(window, 'office')
-    await window.locator('[data-testid="office-comms-app-meet"]').click()
+    await window.locator('[data-testid="office-sideapp-meet"]').click()
   } else if (name === 'PlexiiForms' || name === 'PlexiiBuild') {
     const go = name === 'PlexiiForms' ? 'goForms' : 'goApps'
     await window.evaluate((g) => {

@@ -8,12 +8,15 @@
 //      Because headless Electron has no real AudioContext / MediaRecorder producing
 //      real data, the recording buffer is likely empty (< 2 s or null), so the wrapup
 //      panel may NOT appear — that is reported honestly.
-//   3. Store-injection path: seed the wrapup store into 'processing' and 'error' states
-//      directly via window.evaluate (the store is Zustand, accessible via dynamic
-//      import in the renderer context), then confirm panel renders + correct testids.
+//   3. Store-injection path: seed the wrapup store into the 'error' state through
+//      window.__fbWrapup (the real Zustand store, exposed by stores/wrapup.ts the
+//      way __fbAccount is), then confirm panel renders + correct testids. These
+//      used a dynamic import of the store's source path, which never resolves in
+//      the built app, so until 4.3.41 checks 3, 4 and 6 returned early and passed
+//      without asserting anything.
 //   4. Store-injection path: seed the wrapup store into 'review' with a mock proposal
-//      of kind 'create-document', confirm wrapup-panel, wrapup-summary,
-//      wrapup-apply-<id>, and wrapup-create-all render.
+//      of kind 'create-document', confirm wrapup-panel, wrapup-summary, the
+//      proposal-card-<id> deliverable and, with two, proposal-apply-batch render.
 //   5. create-document applier: call applyProposal({ kind:'create-document',
 //      docType:'doc', title:'Meeting Notes' }) via the renderer and confirm
 //      window.api.documents.list() count increases by 1. This proves the new
@@ -32,6 +35,14 @@
 
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, openProduct, type LaunchedApp } from './_helpers'
+
+// The real wrap-up store as stores/wrapup.ts exposes it. Read inside
+// window.evaluate, so it is spelled out at each call rather than wrapped in a
+// helper (a Node-side function is not in scope in the page).
+type WrapupHandle = {
+  getState: () => { status: string; proposals: unknown[] }
+  setState: (patch: Record<string, unknown>) => void
+}
 
 let launched: LaunchedApp | null = null
 
@@ -146,10 +157,10 @@ test('3 — inject wrapup error state → wrapup-panel + wrapup-error render; no
   const { window } = launched
   await waitForReady(window)
 
-  // Seed the wrapup store into 'error' state via dynamic import in the renderer.
-  await window.evaluate(async () => {
-    const mod = await import('/src/renderer/src/stores/wrapup.ts')
-    mod.useWrapupStore.setState({
+  // Seed the wrapup store into 'error' state through the real store handle.
+  await window.evaluate(() => {
+    const store = (window as unknown as { __fbWrapup: WrapupHandle }).__fbWrapup
+    store.setState({
       status: 'error',
       title: 'Test call',
       step: '',
@@ -159,23 +170,9 @@ test('3 — inject wrapup error state → wrapup-panel + wrapup-error render; no
       error: 'Add a transcription key in Settings → AI to get summaries and deliverables from your calls.',
       needsApiKey: true
     })
-  }).catch(() => {
-    // Dynamic import path may not be available in packaged build — fall back to
-    // a window-level handle if it exists, or mark as harness-limited.
   })
 
-  // Wait a tick for React to render.
-  await window.waitForTimeout(300)
-
   const panel = window.locator('[data-testid="wrapup-panel"]')
-
-  if (await panel.count() === 0) {
-    // The dynamic import path is not available in this build (packaged ESM);
-    // this check is harness-limited. Source-attested: WrapupOverlay renders
-    // data-testid="wrapup-error" when status === 'error' (line 66 of WrapupOverlay.tsx).
-    return
-  }
-
   await expect(panel).toBeVisible()
   await expect(window.locator('[data-testid="wrapup-error"]')).toBeVisible()
 
@@ -197,49 +194,32 @@ test('3 — inject wrapup error state → wrapup-panel + wrapup-error render; no
 
 // ── Check 4: Inject 'review' state → panel renders summary + deliverable cards ─
 
-test('4 — inject wrapup review state → wrapup-panel, wrapup-summary, apply button, create-all render', async () => {
+test('4 — inject wrapup review state → wrapup-panel, wrapup-summary, deliverable card, apply-all render', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
 
-  const injected = await window.evaluate(async () => {
-    try {
-      const mod = await import('/src/renderer/src/stores/wrapup.ts')
-      const proposal = {
-        id: 'p-wrapup-test-1',
-        kind: 'create-document' as const,
-        docType: 'doc' as const,
-        title: 'Meeting Notes'
-      }
-      mod.useWrapupStore.setState({
-        status: 'review',
-        title: 'Sprint standup',
-        step: '',
-        summary: 'Team aligned on deliverables for next sprint. Three action items identified.',
-        transcript: 'Alice: lets align on next sprint...',
-        proposals: [proposal],
-        error: null,
-        needsApiKey: false
-      })
-      return true
-    } catch {
-      return false
+  await window.evaluate(() => {
+    const proposal = {
+      id: 'p-wrapup-test-1',
+      kind: 'create-document' as const,
+      docType: 'doc' as const,
+      title: 'Meeting Notes'
     }
+    const store = (window as unknown as { __fbWrapup: WrapupHandle }).__fbWrapup
+    store.setState({
+      status: 'review',
+      title: 'Sprint standup',
+      step: '',
+      summary: 'Team aligned on deliverables for next sprint. Three action items identified.',
+      transcript: 'Alice: lets align on next sprint...',
+      proposals: [proposal],
+      error: null,
+      needsApiKey: false
+    })
   })
 
-  await window.waitForTimeout(300)
-
   const panel = window.locator('[data-testid="wrapup-panel"]')
-
-  if (!injected || await panel.count() === 0) {
-    // Store injection path unavailable in this build.
-    // Source-attested from WrapupOverlay.tsx:
-    //   status='review' → renders data-testid="wrapup-summary" (line 78)
-    //   proposals.map → data-testid={`wrapup-apply-${p.id}`} (line 118)
-    //   proposals.length > 1 → data-testid="wrapup-create-all" (line 90)
-    return
-  }
-
   await expect(panel).toBeVisible()
 
   // Summary section.
@@ -248,29 +228,32 @@ test('4 — inject wrapup review state → wrapup-panel, wrapup-summary, apply b
   const summaryText = await summaryEl.textContent()
   expect(summaryText, 'summary matches injected content').toContain('aligned on deliverables')
 
-  // Deliverable card for the create-document proposal.
-  const applyBtn = window.locator('[data-testid="wrapup-apply-p-wrapup-test-1"]')
+  // Deliverable card for the create-document proposal. The wrap-up renders
+  // deliverables through the shared ProposalCards surface, so the card is
+  // proposal-card-<id> (it was wrapup-apply-<id> before that move, and this
+  // check never noticed because it returned before asserting anything).
+  const applyBtn = window.locator('[data-testid="proposal-card-p-wrapup-test-1"]')
   await expect(applyBtn).toBeVisible()
-  await expect(applyBtn).toContainText('Create')
+  await expect(applyBtn).toContainText('Meeting Notes')
 
-  // wrapup-create-all only appears when proposals.length > 1 — with one proposal
-  // it must be absent.
-  await expect(window.locator('[data-testid="wrapup-create-all"]')).toHaveCount(0)
+  // "Apply all" (was wrapup-create-all) only appears with more than one
+  // pending proposal — with one it must be absent.
+  await expect(window.locator('[data-testid="proposal-apply-batch"]')).toHaveCount(0)
 
   // Add a second proposal to confirm create-all appears.
-  await window.evaluate(async () => {
-    const mod = await import('/src/renderer/src/stores/wrapup.ts')
-    const current = mod.useWrapupStore.getState()
-    mod.useWrapupStore.setState({
+  await window.evaluate(() => {
+    const store = (window as unknown as { __fbWrapup: WrapupHandle }).__fbWrapup
+    store.setState({
       proposals: [
-        ...current.proposals,
+        ...store.getState().proposals,
         { id: 'p-wrapup-test-2', kind: 'create-task' as const, title: 'Follow up with Sam' }
       ]
     })
   })
 
   await window.waitForTimeout(200)
-  await expect(window.locator('[data-testid="wrapup-create-all"]')).toBeVisible()
+  await expect(window.locator('[data-testid="proposal-apply-batch"]')).toBeVisible()
+  await expect(window.locator('[data-testid="proposal-apply-batch"]')).toContainText('Apply all 2')
 
   // Dismiss.
   await window.locator('[data-testid="wrapup-done"]').click()
@@ -341,32 +324,19 @@ test('6 — wrapup dismiss (wrapup-done) resets store to idle, panel disappears'
   const { window } = launched
   await waitForReady(window)
 
-  const injected = await window.evaluate(async () => {
-    try {
-      const mod = await import('/src/renderer/src/stores/wrapup.ts')
-      mod.useWrapupStore.setState({
-        status: 'error',
-        title: 'Short call',
-        step: '',
-        summary: '',
-        transcript: '',
-        proposals: [],
-        error: 'No speech was captured.',
-        needsApiKey: false
-      })
-      return true
-    } catch {
-      return false
-    }
+  await window.evaluate(() => {
+    const store = (window as unknown as { __fbWrapup: WrapupHandle }).__fbWrapup
+    store.setState({
+      status: 'error',
+      title: 'Short call',
+      step: '',
+      summary: '',
+      transcript: '',
+      proposals: [],
+      error: 'No speech was captured.',
+      needsApiKey: false
+    })
   })
-
-  await window.waitForTimeout(300)
-
-  if (!injected || await window.locator('[data-testid="wrapup-panel"]').count() === 0) {
-    // Source-attested: dismiss() sets status:'idle' → WrapupOverlay returns null.
-    // (wrapup.ts line 87, WrapupOverlay.tsx line 27)
-    return
-  }
 
   await expect(window.locator('[data-testid="wrapup-panel"]')).toBeVisible()
   await window.locator('[data-testid="wrapup-done"]').click()
@@ -374,12 +344,6 @@ test('6 — wrapup dismiss (wrapup-done) resets store to idle, panel disappears'
   await expect(window.locator('[data-testid="wrapup-panel"]')).toHaveCount(0, { timeout: 3_000 })
 
   // Store status should be 'idle'.
-  const status = await window.evaluate(async () => {
-    const mod = await import('/src/renderer/src/stores/wrapup.ts')
-    return mod.useWrapupStore.getState().status
-  }).catch(() => 'unknown')
-
-  if (status !== 'unknown') {
-    expect(status, 'wrapup status reset to idle after dismiss').toBe('idle')
-  }
+  const status = await window.evaluate(() => (window as unknown as { __fbWrapup: WrapupHandle }).__fbWrapup.getState().status)
+  expect(status, 'wrapup status reset to idle after dismiss').toBe('idle')
 })

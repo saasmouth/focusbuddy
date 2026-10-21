@@ -114,6 +114,15 @@ export const useWrapupStore = create<WrapupState>((set) => ({
   dismiss: () => set({ status: 'idle', title: '', step: '', summary: '', transcript: '', proposals: [], error: null, needsApiKey: false, folderId: null, folderName: '', transcriptDocId: null, meetingId: null, commitments: [], carried: [] })
 }))
 
+// Expose the store on window so e2e specs can put the review panel into a known
+// state (wrapupOverlay.spec): a real meeting cannot produce audio in headless
+// Electron. A thin handle to the real store, not a mock -- the same pattern as
+// __fbAccount and __fbWorkItems -- and it changes nothing about how the app
+// behaves.
+if (typeof window !== 'undefined') {
+  ;(window as unknown as { __fbWrapup?: typeof useWrapupStore }).__fbWrapup = useWrapupStore
+}
+
 // The wrap-up pipeline, extracted so `begin` can wrap the whole thing in one
 // try/catch. Sets state through the store's setter.
 interface WrapupInput {
