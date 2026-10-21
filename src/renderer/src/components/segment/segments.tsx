@@ -44,7 +44,6 @@ export function PlexiDeskShell({ initialApp }: { initialApp?: string } = {}): JS
     { ...appMeta('plexidesk', 'desk'), blurb: 'The working canvas you build on', tint: 'bg-sky-500', tone: 'text-sky-500', render: () => <Canvas /> },
     { ...appMeta('plexidesk', 'workspaces'), blurb: 'Organisations and sub-workspaces', tint: 'bg-teal-500', tone: 'text-teal-500', render: () => <OrgAdminView /> },
     { ...appMeta('plexidesk', 'plans'), blurb: 'Timelines, milestones and Gantt charts', tint: 'bg-violet-500', tone: 'text-violet-500', render: () => <PlexiProjectsView /> },
-    { ...appMeta('plexidesk', 'ops'), blurb: 'Your agent workforce: triage, proposals and boardrooms', tint: 'bg-cyan-600', tone: 'text-cyan-600', render: () => <AgenticOpsView /> },
     { ...appMeta('plexidesk', 'tasks'), blurb: 'Every desk across your rooms, in one list', tint: 'bg-emerald-500', tone: 'text-emerald-500', render: () => <AllTasksView /> },
     { ...appMeta('plexidesk', 'recent'), blurb: 'Documents you last opened', tint: 'bg-rose-500', tone: 'text-rose-500', render: () => <RecentView /> }
   ]
@@ -105,6 +104,7 @@ export function PlexiBrainShell({ initialApp }: { initialApp?: string } = {}): J
           { ...appMeta('plexibrain', 'assemble'), blurb: 'Gather related items into a new desk', tint: 'bg-lime-600', tone: 'text-lime-600', render: () => <AssembleDeskView /> },
           { ...appMeta('plexibrain', 'flows'), blurb: 'Automations that run your work', tint: 'bg-violet-500', tone: 'text-violet-500', render: () => <PlexiFlowView /> },
           { ...appMeta('plexibrain', 'agents'), blurb: 'Standing AI workers on your desks', tint: 'bg-emerald-500', tone: 'text-emerald-500', render: () => <AgentsView /> },
+          { ...appMeta('plexibrain', 'ops'), blurb: 'Your agent workforce: triage, proposals and boardrooms', tint: 'bg-cyan-600', tone: 'text-cyan-600', render: () => <AgenticOpsView /> },
           { ...appMeta('plexibrain', 'connect'), blurb: 'Your connected apps and integrations', tint: 'bg-cyan-500', tone: 'text-cyan-500', render: () => <ConnectedAppsHubView /> },
           { ...appMeta('plexibrain', 'api'), blurb: 'Connect and call external services', tint: 'bg-amber-500', tone: 'text-amber-500', render: () => <PlexiApiView /> },
           { ...appMeta('plexibrain', 'insights'), blurb: 'Dashboards and reporting', tint: 'bg-rose-500', tone: 'text-rose-500', render: () => <InsightsView /> }

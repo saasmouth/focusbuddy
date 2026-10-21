@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { View } from './view'
+import { MOVED_APPS } from '../lib/segmentApps'
 import {
   openIn,
   closeIn,
@@ -26,6 +27,13 @@ interface OpenTrayStore {
   clear: () => void
 }
 
+// A tab saved for an app that has since moved area (MOVED_APPS) reopens it
+// where it lives now, under its new key, instead of naming a dead route.
+function forwardMoved(e: TrayEntry): TrayEntry {
+  const to = MOVED_APPS[e.key]
+  return to ? { ...e, key: `${to.kind}:${to.app}`, view: { kind: to.kind, app: to.app } as View } : e
+}
+
 function load(): TrayEntry[] {
   try {
     const raw = localStorage.getItem(KEY)
@@ -34,14 +42,16 @@ function load(): TrayEntry[] {
     if (!Array.isArray(parsed.entries)) return []
     // Anything without a key and a view is not an entry. A half-written record
     // would otherwise render as a nameless tab that navigates nowhere.
-    return parsed.entries.filter(
-      (e): e is TrayEntry =>
-        !!e &&
-        typeof e === 'object' &&
-        typeof (e as TrayEntry).key === 'string' &&
-        !!(e as TrayEntry).view &&
-        typeof (e as TrayEntry).at === 'number'
-    )
+    return parsed.entries
+      .filter(
+        (e): e is TrayEntry =>
+          !!e &&
+          typeof e === 'object' &&
+          typeof (e as TrayEntry).key === 'string' &&
+          !!(e as TrayEntry).view &&
+          typeof (e as TrayEntry).at === 'number'
+      )
+      .map(forwardMoved)
   } catch {
     return []
   }
