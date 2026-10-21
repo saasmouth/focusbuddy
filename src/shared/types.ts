@@ -927,6 +927,12 @@ export interface ChatRetrievalTrace {
   // find "attrition" and nothing said so). Absent on an older main process
   // (version skew): read as unknown, disclose nothing.
   semantic?: boolean
+  // How much of the workspace that semantic route could actually compare, 0..1
+  // (embeddingCoverage.ts). `semantic: true` with low coverage is the common
+  // and otherwise invisible case: an embedder is in use, but most items have no
+  // vector it can compare, so they are ranked by keyword. Absent on an older
+  // main process or when the probe failed: read as unknown, disclose nothing.
+  semanticCoverage?: number
   // What actually ran this turn (A4, AI-10). A discovery ideation turn gates
   // both pools and the trace must not claim a search that never happened;
   // false here suppresses the corresponding trace line. Absent on an older
@@ -3501,6 +3507,9 @@ export interface StoredTrace {
   // How the search matched (defect #15): false = keyword-only. Optional so
   // traces stored before this field simply read as unknown.
   semantic?: boolean | null
+  // Share of the workspace ranked by meaning (see ChatRetrievalTrace). Optional
+  // so traces stored before this field read as unknown.
+  semanticCoverage?: number | null
 }
 
 export interface AiChatConversationMeta {

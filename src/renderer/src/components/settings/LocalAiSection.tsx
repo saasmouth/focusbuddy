@@ -25,12 +25,16 @@ interface Coverage {
     withText: number
     indexed: number
     embedded: number
+    meaningUsable?: number
+    meaningStale?: number
     enriched: number
     memoryScanned: number
   }
   files: { total: number; indexed: number }
   conversations: { total: number; indexed: number }
-  knowledge: { total: number }
+  knowledge: { total: number; meaningUsable?: number }
+  passages?: { total: number; usable: number }
+  meaningModel?: string | null
 }
 
 const gb = (n: number): string => `${(n / 1e9).toFixed(1)} GB`
@@ -320,8 +324,30 @@ export default function LocalAiSection(): JSX.Element {
             <Stat n={coverage.conversations.indexed} of={coverage.conversations.total} /> conversations.
             <br />
             Described: <Stat n={coverage.documents.enriched} of={coverage.documents.withText} />
-            {' · '}Ranked by meaning: <Stat n={coverage.documents.embedded} of={coverage.documents.withText} />
+            {/*
+              "Ranked by meaning" counts what the search model in use can
+              actually compare. A vector written by a different model counts
+              for nothing at search time, so it is shown as waiting, not as done.
+              Older main processes omit meaningUsable: fall back to the raw count.
+            */}
+            {' · '}Ranked by meaning:{' '}
+            <span data-testid="brain-coverage-meaning">
+              <Stat n={coverage.documents.meaningUsable ?? coverage.documents.embedded} of={coverage.documents.withText} />
+            </span>
+            {/* Only claim re-indexing when there is a model to re-index with. */}
+            {coverage.meaningModel && (coverage.documents.meaningStale ?? 0) > 0 && (
+              <span className="text-[var(--ink-50)]"> ({coverage.documents.meaningStale} from an earlier search model, re-indexing)</span>
+            )}
             {' · '}Read for memory: <Stat n={coverage.documents.memoryScanned} of={coverage.documents.withText} />
+            {coverage.passages && coverage.passages.total > 0 && (
+              <>
+                <br />
+                Passages ranked by meaning:{' '}
+                <span data-testid="brain-coverage-passages">
+                  <Stat n={coverage.passages.usable} of={coverage.passages.total} />
+                </span>
+              </>
+            )}
           </div>
         </div>
       )}

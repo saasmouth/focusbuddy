@@ -82,7 +82,8 @@ describe('embeddings', () => {
 
 describe('every embedding path in main goes through the gate', () => {
   it('the retrieval modules import the gated functions, not ai/embeddings', () => {
-    for (const f of ['documentRetrieval.ts', 'semanticRetrieval.ts']) {
+    // chunkEmbeddings.ts: document passages, embedded by the same sweep.
+    for (const f of ['documentRetrieval.ts', 'semanticRetrieval.ts', 'chunkEmbeddings.ts']) {
       const src = read(f)
       expect(src).toContain("from './backgroundAiGate'")
       expect(src).not.toMatch(/from '\.\/ai\/embeddings'/)

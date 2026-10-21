@@ -549,6 +549,7 @@ import {
 import { reindexDocumentChunks } from '../chunkIndex'
 import { enrichDocument, enrichAllDocuments } from '../ai/enrichDocuments'
 import { brainCoverage } from '../brainCoverage'
+import { kickEmbeddingSweep } from '../ai/localAiSweeps'
 import {
   exportWorkspaceJson,
   importWorkspaceJson,
@@ -4437,6 +4438,13 @@ export function registerIpcHandlers(): void {
       // No client cache to invalidate — Whisper calls construct the
       // fetch directly per request, so the next call picks up the new
       // key automatically.
+      //
+      // A key arriving (or changing) is when the workspace becomes embeddable,
+      // or embeddable under a different model, so sweep now rather than at the
+      // next 5-minute tick. The sweep embeds through the Background AI tasks
+      // gate: with the switch off, this key is not used for it and only a local
+      // model is asked. Fire-and-forget: the save must not wait on it.
+      kickEmbeddingSweep()
       return { ok: true, ...hint('openai') }
     } catch (err) {
       return { ok: false, error: (err as Error).message }
@@ -4530,7 +4538,13 @@ export function registerIpcHandlers(): void {
       if (typeof patch.autoUpdateChecks === 'boolean') clean.autoUpdateChecks = patch.autoUpdateChecks
       if (typeof patch.backgroundAi === 'boolean') clean.backgroundAi = patch.backgroundAi
     }
-    return setPrivacyPrefs(clean)
+    const wasOn = getPrivacyPrefs().backgroundAi
+    const next = setPrivacyPrefs(clean)
+    // Background AI tasks just turned ON: the cloud embedder (if a key is saved)
+    // is now allowed, so vectors from a local-only model may be stale and the
+    // un-indexed backlog can finally move. Sweep now, not at the next tick.
+    if (!wasOn && next.backgroundAi) kickEmbeddingSweep()
+    return next
   })
 
   // Icons for links and connected apps, from the linked site itself and cached
