@@ -337,3 +337,19 @@ describe('the sheet drives the flow engine', () => {
     expect(items.map((i) => i.style.bullet)).toEqual(['•', '•'])
   })
 })
+
+describe('the sheet lives in the document', () => {
+  it('is optional, so a body written before styles existed still loads', () => {
+    // paragraphStyles is absent on every document saved to date. The flow
+    // engine must treat that as "generate the default", not as "no styles".
+    const body = { schemaVersion: 1, width: 816, height: 1056, elements: [] } as never
+    expect((body as { paragraphStyles?: unknown }).paragraphStyles).toBeUndefined()
+    const paras = storyParagraphs(
+      { blocks: [{ kind: 'paragraph', text: 'x' }] },
+      findLayoutStyle('editorial'),
+      { ...scale, lead: 15 } as never,
+      undefined
+    )
+    expect(paras[0].style.fontSize).toBe(10.5)
+  })
+})

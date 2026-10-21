@@ -21,6 +21,7 @@
 import type { SlideElement, SlideFill, SlideTextElement, SlideShapeElement } from './types'
 import { hasPageToken, resolvePageTokens } from './designFlow'
 import { normalizeContent, parsePlainText, type ContentDoc } from './designContent'
+import type { DesignStyleSheet } from './designStyles'
 import { type OrgBrandKit, DEFAULT_BRAND_KIT, readableTextOn, contrastRatio, hexToRgb } from './brandKit'
 import { fillToCss, gradient } from './fills'
 import { chartToSvg } from './chart'
@@ -81,6 +82,15 @@ export interface DesignBody {
   pageNumberStart?: number
   /** Which master is being edited, or null when editing normal pages. */
   editingMasterId?: string | null
+  /**
+   * Named paragraph and character styles for this document.
+   *
+   * Absent means "use the sheet generated from the layout preset", which sets
+   * exactly as the hard-coded path used to — so every document written before
+   * styles existed still reads correctly, and one only gains a stored sheet
+   * when someone edits a style.
+   */
+  paragraphStyles?: DesignStyleSheet
 }
 
 export interface DesignPage {
