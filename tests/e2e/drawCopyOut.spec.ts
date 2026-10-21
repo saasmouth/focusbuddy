@@ -150,9 +150,13 @@ test('CO-2 a browser pasting it gets an image (Chromium pasting into an editable
 test('CO-3 the app menu\'s Edit › Copy copies the selected art (it did nothing with no TEXT selected)', async () => {
   await openWithRect()
   const before = readPasteboard().changeCount
-  await app.app.evaluate(({ Menu }) => {
+  // As a person does: the app is in front, then Edit › Copy in the menu bar.
+  await app.app.evaluate(({ app: a, BrowserWindow, Menu }) => {
+    a.focus({ steal: true })
+    const win = BrowserWindow.getAllWindows().find((w) => w.isVisible())!
+    win.focus()
     const edit = Menu.getApplicationMenu()!.items.find((i) => i.label === 'Edit')!
-    edit.submenu!.items.find((i) => i.label === 'Copy')!.click()
+    edit.submenu!.items.find((i) => i.label === 'Copy')!.click(undefined, win, win.webContents)
   })
   const pb = await nextPasteboard(before)
   expect(pb.changeCount).toBeGreaterThan(before)
@@ -177,8 +181,12 @@ test('CO-5 Copy As › SVG Code puts the markup on the pasteboard as text', asyn
   await openWithRect()
   const before = readPasteboard().changeCount
   await window.locator('[data-testid="draw-studio-menubar-edit"]').click()
-  await window.locator('[data-testid="draw-studio-menubar-edit-list"] button').filter({ hasText: 'Copy As' }).hover()
-  await window.locator('button').filter({ hasText: 'SVG Code' }).click()
+  const item = window.locator('button').filter({ hasText: 'SVG Code' })
+  await expect(async () => {
+    await window.locator('[data-testid="draw-studio-menubar-edit-list"] button').filter({ hasText: 'Copy As' }).hover()
+    await expect(item).toBeVisible({ timeout: 1_000 })
+  }).toPass({ timeout: 10_000 })
+  await item.click()
   const pb = await nextPasteboard(before)
   expect(pb.text).toMatch(/^<svg [^>]*viewBox="100 120 160 90"/)
 })
@@ -191,11 +199,17 @@ test('CO-6 files copied in Finder paste as art -- a PDF page and a PNG -- never 
   writeFileSync(pngPath, png(64, 48))
   const id = await seedDrawDoc(window, v1Body([]), 'Finder paste')
   await openDocument(window, id)
-  copyFilesLikeFinder([pdfPath, pngPath])
-  expect(readPasteboard().bytes['public.file-url']).toBeGreaterThan(0)
+  // (Another process on this Mac may write the pasteboard too: copy until both files are on it.)
+  await expect(async () => {
+    copyFilesLikeFinder([pdfPath, pngPath])
+    expect(readPasteboard().items).toBe(2)
+  }).toPass({ timeout: 10_000 })
   await window.keyboard.press('Meta+v')
-  // (Rendering the PDF page takes a moment on a busy machine.)
-  await expect.poll(async () => (await stored(id)).map((o) => (o.type === 'text' ? `text:${o.text}` : o.type)), { timeout: 30_000 }).toEqual(['image', 'image'])
+  // (Rendering the PDF page takes a moment on a busy machine.) The status line is part of what is compared, so a failure says why.
+  const status = async (): Promise<string> => (await window.locator('[data-testid="draw-status"]').textContent().catch(() => '')) ?? ''
+  await expect
+    .poll(async () => [...(await stored(id)).map((o) => (o.type === 'text' ? `text:${o.text}` : o.type)), /could not|was not read|cannot/.test(await status()) ? `status:${await status()}` : 'ok'], { timeout: 30_000 })
+    .toEqual(['image', 'image', 'ok'])
   const objs = await stored(id)
   // The PDF page at its size in points, rendered as a PNG; the PNG at its own size.
   expect([objs[0].w, objs[0].h]).toEqual([300, 200])

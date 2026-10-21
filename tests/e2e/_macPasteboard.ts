@@ -12,6 +12,8 @@ function jxa(src: string): string {
 }
 
 export interface PasteboardView {
+  /** How many items (Finder writes one per file). */
+  items: number
   changeCount: number
   types: string[]
   bytes: Record<string, number>
@@ -36,7 +38,7 @@ export function readPasteboard(): PasteboardView {
     }
     var img = $.NSImage.alloc.initWithPasteboard(pb)
     var s = pb.stringForType('public.utf8-plain-text')
-    JSON.stringify({ changeCount: pb.changeCount, types: types, bytes: bytes, image: img.isNil() ? null : { w: img.size.width, h: img.size.height }, text: s.isNil() ? null : s.js })
+    JSON.stringify({ items: Number(items.count), changeCount: pb.changeCount, types: types, bytes: bytes, image: img.isNil() ? null : { w: img.size.width, h: img.size.height }, text: s.isNil() ? null : s.js })
   `)
   // JXA hands NSUInteger values back as strings.
   const v = JSON.parse(out) as PasteboardView
@@ -52,13 +54,11 @@ export function copyFilesLikeFinder(paths: string[]): void {
     ObjC.import('AppKit')
     var pb = $.NSPasteboard.generalPasteboard
     pb.clearContents
-    // One pasteboard item per file, each with its file URL, as Finder writes them.
-    var items = ${JSON.stringify(paths)}.map(function (p) {
-      var it = $.NSPasteboardItem.alloc.init
-      it.setStringForType($.NSURL.fileURLWithPath(p).absoluteString, 'public.file-url')
-      return it
-    })
-    pb.writeObjects($(items))
+    // File URLs written as NSURL objects, as Finder writes them: one item per
+    // file, plus the legacy filenames list naming them all.
+    var arr = $.NSMutableArray.array;
+    ${JSON.stringify(paths)}.forEach(function (p) { arr.addObject($.NSURL.fileURLWithPath(p)) })
+    if (!pb.writeObjects(arr)) throw new Error('the pasteboard refused the files')
     'ok'
   `)
 }

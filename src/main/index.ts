@@ -345,8 +345,10 @@ function sendZoom(dir: 'in' | 'out' | 'reset'): void {
  * (documents/draw/editor/menuClipboard.ts). The keys behave as they did: a
  * page that handles ⌘C itself prevents the key, and the menu never sees it.
  */
-function editAction(action: 'cut' | 'copy' | 'paste'): void {
-  const wc = webContents.getFocusedWebContents() ?? BrowserWindow.getFocusedWindow()?.webContents
+function editAction(action: 'cut' | 'copy' | 'paste', win?: Electron.BaseWindow): void {
+  // The focused page (a webview's own page when one has focus), else the page
+  // of the window the menu was used in.
+  const wc = webContents.getFocusedWebContents() ?? BrowserWindow.getFocusedWindow()?.webContents ?? (win instanceof BrowserWindow ? win.webContents : undefined)
   if (!wc || wc.isDestroyed()) return
   wc[action]()
 }
@@ -358,9 +360,9 @@ function editMenu(isMac: boolean): Electron.MenuItemConstructorOptions {
       { role: 'undo' },
       { role: 'redo' },
       { type: 'separator' },
-      { label: 'Cut', accelerator: 'CommandOrControl+X', click: () => editAction('cut') },
-      { label: 'Copy', accelerator: 'CommandOrControl+C', click: () => editAction('copy') },
-      { label: 'Paste', accelerator: 'CommandOrControl+V', click: () => editAction('paste') },
+      { label: 'Cut', accelerator: 'CommandOrControl+X', click: (_item, win) => editAction('cut', win) },
+      { label: 'Copy', accelerator: 'CommandOrControl+C', click: (_item, win) => editAction('copy', win) },
+      { label: 'Paste', accelerator: 'CommandOrControl+V', click: (_item, win) => editAction('paste', win) },
       ...(isMac
         ? ([
             { role: 'pasteAndMatchStyle' },
