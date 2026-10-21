@@ -98,6 +98,19 @@ describe('checkArgs', () => {
     const cyclic: { self?: unknown } = {}
     cyclic.self = cyclic
     expect(checkArgs([any], [cyclic])?.got).toBe('cyclic data')
+    const deep: { a: { b: { back?: unknown } } } = { a: { b: {} } }
+    deep.a.b.back = deep
+    expect(checkArgs([any], [deep])?.got).toBe('cyclic data')
+  })
+
+  it('accepts the same object reached by two paths (shared, not cyclic), as structured clone does', () => {
+    const any: ArgSpec = { kind: 'any', optional: false, nullable: false }
+    // Two drawn shapes sharing the one default fill object: refusing this made
+    // a two-shape drawing fail to save ("documents:update ... cyclic data").
+    const fill = { type: 'solid', color: '#1c1917' }
+    const body = { layers: [{ objects: [{ id: 'a', fill }, { id: 'b', fill }] }] }
+    expect(checkArgs([any, any], ['doc-id', body])).toBeNull()
+    expect(checkArgs([any, any], [fill, fill])).toBeNull()
   })
 
   it('explains the refusal without naming anything internal', () => {
