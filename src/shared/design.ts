@@ -23,6 +23,7 @@ import { hasPageToken, resolvePageTokens } from './designFlow'
 import { normalizeContent, parsePlainText, type ContentDoc } from './designContent'
 import type { DesignStyleSheet } from './designStyles'
 import type { BaselineGrid } from './designFlow'
+import type { DesignSwatch } from './designSwatches'
 import { type OrgBrandKit, DEFAULT_BRAND_KIT, readableTextOn, contrastRatio, hexToRgb } from './brandKit'
 import { fillToCss, gradient } from './fills'
 import { chartToSvg } from './chart'
@@ -98,6 +99,12 @@ export interface DesignBody {
    * — a grid is for running text in columns, not for everything.
    */
   baselineGrid?: BaselineGrid
+  /**
+   * Named colours, including spot inks. Absent means the document uses raw
+   * colours only, which is every document written before this existed — a
+   * fill without a swatchId keeps working untouched.
+   */
+  swatches?: DesignSwatch[]
 }
 
 export interface DesignPage {
