@@ -49,7 +49,6 @@ import {
 import { localGateFor } from '@shared/localAiGates'
 import { MODEL_HAIKU } from '../modelRouting'
 import {
-  createLocalClient,
   purposeOfModel,
   LocalMessageStream,
   runLocal,
@@ -788,11 +787,6 @@ function routedStream(
  */
 export function clientForKey(key: string | null, makeCloud: (key: string) => Anthropic): Anthropic | null {
   return routedClient(key ? makeCloud(key) : null)
-}
-
-/** A bare local client (no cloud fallback), for local-only jobs like document enrichment. */
-export function localOnlyClient(): Anthropic {
-  return createLocalClient(runtime) as unknown as Anthropic
 }
 
 /** Test hook: forget which labelled features already showed their notice. */
