@@ -398,9 +398,8 @@ export default function Canvas(): JSX.Element {
   // (palette state is local to WidgetPalette now — it manages its own
   // popover open/closed; we removed the canvas-level toggle.)
   const [animatingPan, setAnimatingPan] = useState(false)
-  // (The minimap measures the canvas viewport itself via its own
-  // ResizeObserver — see MinimapWidget — so Canvas no longer tracks a
-  // separate, unread viewportSize here.)
+  // (Canvas no longer tracks a separate, unread viewportSize here; the
+  // retired minimap widget used to measure the viewport itself.)
   // Edge-pan / "infinite map" camera. The hook installs a rAF loop
   // that pans the canvas when the cursor enters a 80px margin near
   // any edge — closer to the edge = faster pan (quadratic ramp).
