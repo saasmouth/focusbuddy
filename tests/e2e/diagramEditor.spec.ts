@@ -65,6 +65,12 @@ async function openEditor(title: string): Promise<{ window: Page; id: string; er
   const errors: string[] = []
   window.on('pageerror', (e) => errors.push(e.message))
   await waitForReady(window)
+  // Since 4.3.39 a fresh profile routes AI locally, and without the bundled model
+  // a "Local AI needs a one-time download" notice sits over every editor's
+  // toolbar row. These specs are not about AI, so choose the automatic cloud
+  // source first, as an existing user would have (the repo's pattern).
+  await window.evaluate(() => (window as unknown as { api: { ai: { setMode: (m: string) => Promise<unknown> } } }).api.ai.setMode('auto'))
+  await expect(window.locator('[data-testid="local-ai-missing"]')).toHaveCount(0, { timeout: 5_000 })
   const id = await createMap(window, title)
   await expect(window.locator('[data-testid="diagram-editor"]')).toBeVisible({ timeout: 12_000 })
   await expect(window.locator('.react-flow__node').first()).toBeVisible({ timeout: 8_000 })
