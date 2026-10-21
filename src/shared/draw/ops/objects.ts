@@ -143,9 +143,10 @@ export function deleteObjects(doc: DrawDoc, ids: string[]): DrawDoc {
 
 /** A copy of a node with a fresh id -- and fresh ids for every member of a group. */
 function cloneWithNewIds(n: DrawNode): DrawNode {
-  const id = drawId('obj')
-  if (n.type === 'group') return { ...n, id, children: n.children.map(cloneWithNewIds) }
-  return { ...n, id }
+  // Deep: a saved drawing must not hold the same object twice (the main
+  // process refuses shared references in an IPC payload as possible cycles).
+  const fresh = (c: DrawNode): DrawNode => (c.type === 'group' ? { ...c, id: drawId('obj'), children: c.children.map(fresh) } : { ...c, id: drawId('obj') })
+  return fresh(structuredClone(n))
 }
 
 /** Copies of the top-level nodes `ids`, offset by (dx, dy), placed directly above the originals' layer stack. */

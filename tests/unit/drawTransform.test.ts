@@ -34,6 +34,7 @@ import {
   alignTo,
   distributeEdges,
   distributeSpacing,
+  duplicateObjects,
   frameFit,
   getObject,
   needsFrameMatrix,
@@ -410,6 +411,22 @@ describe('transforming nodes', () => {
     expect(ids).toEqual(['a', copied.newIds[0], 'b', 'lk'])
     expect(nodeBounds(node(copied.doc, copied.newIds[0])).y).toBe(50)
     expect(nodeBounds(node(copied.doc, 'a')).y).toBe(0)
+  })
+
+  it('a copy shares no object with its original, so the drawing can be saved (no repeated references)', () => {
+    const d = doc([rect('a', 0, 0, 10, 10, { stroke: { paint: { type: 'solid', color: '#000' }, width: 1, dash: [2, 2] } })])
+    const res = transformObjects(d, ['a'], translation(0, 0), {}, true)
+    const seen = new Set<object>()
+    const walk = (v: unknown): void => {
+      if (!v || typeof v !== 'object') return
+      expect(seen.has(v as object)).toBe(false)
+      seen.add(v as object)
+      for (const x of Object.values(v as object)) walk(x)
+    }
+    walk(res.doc.layers)
+    // Edit › Duplicate makes the same promise.
+    seen.clear()
+    walk(duplicateObjects(d, ['a']).doc.layers)
   })
 
   it('selectionNeedsFrameMatrix finds a frame that only a matrix could hold', () => {

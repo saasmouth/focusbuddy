@@ -320,10 +320,14 @@ function rebuild(doc: DrawDoc, wanted: Set<string>, fn: (n: DrawNode) => DrawNod
   return any ? { ...doc, layers } : doc
 }
 
+/**
+ * A deep copy with fresh ids. Deep, not spread: a saved drawing must not hold
+ * the same object twice (the main process refuses shared references in IPC
+ * payloads as possible cycles), so a copy shares nothing with its original.
+ */
 function cloneWithNewIds(n: DrawNode): DrawNode {
-  const id = drawId('obj')
-  if (n.type === 'group') return { ...n, id, children: n.children.map(cloneWithNewIds) }
-  return { ...n, id }
+  const fresh = (c: DrawNode): DrawNode => (c.type === 'group' ? { ...c, id: drawId('obj'), children: c.children.map(fresh) } : { ...c, id: drawId('obj') })
+  return fresh(structuredClone(n))
 }
 
 export interface TransformResult {
