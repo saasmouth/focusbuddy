@@ -1,4 +1,4 @@
-// Parity with the 4.3.39 connector router (src/shared/mapRouting.ts, by d2).
+// Parity with the 4.3.39 connector router (src/shared/mapRouting.ts, by d2; deleted in 4.3.39-local.8).
 // PlexiiDiagrams now routes every connector through src/shared/diagram/routing.ts,
 // so each guarantee mapRouting.test.ts pinned is restated here against the new
 // router, before the old one is removed. Same layouts, same seeds, same bars.

@@ -3,14 +3,14 @@ import {
   WIDGET_CATALOG,
   WIDGET_USE_CASE_GROUPS,
   groupedPickerEntries,
-  useCaseGroupOf
+  caseGroupOf
 } from '../../src/renderer/src/lib/widgetCatalog'
 
 const visible = WIDGET_CATALOG.filter((e) => !e.hideFromPicker)
 
 describe('widget use-case groups', () => {
   it('places every pickable widget in exactly one group', () => {
-    const ungrouped = visible.filter((e) => useCaseGroupOf(e.kind) === null).map((e) => e.kind)
+    const ungrouped = visible.filter((e) => caseGroupOf(e.kind) === null).map((e) => e.kind)
     expect(ungrouped, 'ungrouped pickable kinds').toEqual([])
 
     const counts = new Map<string, number>()

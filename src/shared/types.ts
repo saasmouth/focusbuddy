@@ -3291,7 +3291,7 @@ export type MapArrowHead =
  * sat between their ends, so they deliberately get the clearer route now.
  */
 export type MapRouting = 'orthogonal' | 'curved' | 'straight'
-/** The routings the 4.3.3x connector router (mapRouting.ts) understands. */
+/** The routings the 4.3.3x connector router (mapRouting.ts, since replaced by shared/diagram/routing.ts) understood; normalize maps them onto the new editor. */
 export type MapEdgeRouting = Extract<MapRouting, 'orthogonal' | 'straight'>
 
 export interface MapEdge {
