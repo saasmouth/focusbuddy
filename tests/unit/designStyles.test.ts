@@ -14,6 +14,8 @@ import {
   type SheetLayout
 } from '../../src/shared/designStyles'
 import type { FlowParaStyle } from '../../src/shared/designFlow'
+import { storyParagraphs, findLayoutStyle } from '../../src/shared/designAutoLayout'
+import type { ContentDoc } from '../../src/shared/designContent'
 
 const scale: SheetScale = {
   body: 10.5, h1: 24, h2: 18, h3: 14, quote: 12, caption: 9, title: 42, subtitle: 20,
@@ -44,8 +46,17 @@ describe('resolution', () => {
     expect(h1.bold).toBe(true)
     expect(h1.fontFamily).toBe('Söhne')
     expect(h1.color).toBe('#2563eb')
-    // widowLines came from Body and survived, which is the point of basedOn.
-    expect(h1.widowLines).toBe(2)
+    // A heading overrides nearly everything Body sets, and deliberately CLEARS
+    // Body's widow control, so it is the wrong style to demonstrate
+    // inheritance with. List is the right one: it sets only its insets and
+    // spacing, and takes the rest.
+    expect(h1.widowLines).toBeUndefined()
+
+    const li = resolveParagraphStyle(sheet, 'list', base)
+    expect(li.widowLines).toBe(2) // inherited from Body
+    expect(li.color).toBe('#1c1917') // inherited from Body
+    expect(li.fontFamily).toBe('Charter') // inherited from Body
+    expect(li.leftInset).toBe(14.7) // its own
   })
 
   it('rebuilds the font shorthand from whatever size actually won', () => {
@@ -256,5 +267,73 @@ describe('fontShorthand', () => {
     expect(fontShorthand({ fontSize: 12, fontFamily: 'Inter' })).toBe('12px Inter')
     expect(fontShorthand({ fontSize: 12, fontFamily: 'Inter', bold: true })).toBe('700 12px Inter')
     expect(fontShorthand({ fontSize: 12, fontFamily: 'Inter', italic: true, bold: true })).toBe('italic 700 12px Inter')
+  })
+})
+
+describe('the sheet drives the flow engine', () => {
+  // storyParagraphs now resolves every paragraph through the sheet instead of
+  // writing styles inline. These two tests are the contract for that swap:
+  // without a sheet nothing changes, and with one everything does.
+  const content: ContentDoc = {
+    blocks: [
+      { kind: 'heading', level: 1, text: 'H1' },
+      { kind: 'paragraph', text: 'First.' },
+      { kind: 'paragraph', text: 'Second.' },
+      { kind: 'list', ordered: false, items: ['one', 'two'] },
+      { kind: 'quote', text: 'A quote.', attribution: 'Someone' }
+    ]
+  }
+  const s2 = { ...scale, lead: 15 }
+
+  it('changes nothing for a document with no sheet of its own', () => {
+    // The compatibility guarantee, checked across every layout preset rather
+    // than the one that happened to be convenient. This was verified against a
+    // golden capture of the pre-refactor output and found identical; the test
+    // keeps it that way by pinning the values that used to be written inline.
+    for (const id of ['editorial', 'report', 'magazine', 'booklet']) {
+      const paras = storyParagraphs(content, findLayoutStyle(id), s2 as never)
+      const heading = paras[0].style
+      expect(heading.fontSize).toBe(24)
+      expect(heading.bold).toBe(true)
+      expect(heading.keepWithNext).toBe(true)
+      // Headings never carried widow control inline, and must not pick it up
+      // from Body by inheritance.
+      expect(heading.widowLines).toBeUndefined()
+
+      const body = paras[1].style
+      expect(body.fontSize).toBe(10.5)
+      expect(body.widowLines).toBe(2)
+
+      const quote = paras.find((p) => p.text === 'A quote.')!.style
+      expect(quote.italic).toBe(true)
+      expect(quote.fontSize).toBe(11.03)
+      expect(quote.widowLines).toBeUndefined()
+
+      const attribution = paras.find((p) => p.text.startsWith('—'))!.style
+      expect(attribution.fontSize).toBe(9)
+    }
+  })
+
+  it('reflows the whole document when a style changes', () => {
+    // The payoff: one edit, every paragraph of that style moves.
+    const base0 = defaultStyleSheet(scale, layout)
+    const bigger = updateParagraphStyle(base0, 'body', { props: { fontSize: 20 } })
+    const paras = storyParagraphs(content, findLayoutStyle('editorial'), s2 as never, bigger)
+    const bodies = paras.filter((p) => p.text === 'First.' || p.text === 'Second.')
+    expect(bodies).toHaveLength(2)
+    for (const b of bodies) {
+      expect(b.style.fontSize).toBe(20)
+      // The shorthand the measurer uses must follow the size, or the text is
+      // measured at one size and drawn at another.
+      expect(b.style.font).toContain('20px')
+    }
+    // The heading sets its own size, so it must NOT have moved.
+    expect(paras[0].style.fontSize).toBe(24)
+  })
+
+  it('keeps per-item context that cannot live in a style', () => {
+    const paras = storyParagraphs(content, findLayoutStyle('editorial'), s2 as never)
+    const items = paras.filter((p) => p.text === 'one' || p.text === 'two')
+    expect(items.map((i) => i.style.bullet)).toEqual(['•', '•'])
   })
 })

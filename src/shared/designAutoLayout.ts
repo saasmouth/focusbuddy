@@ -26,6 +26,12 @@ import {
   type DesignSize
 } from './design'
 import { flowStory, type FlowFrame, type FlowMeasurer, type FlowParaStyle, type FlowParagraph } from './designFlow'
+import {
+  defaultStyleSheet,
+  resolveParagraphStyle,
+  styleIdForBlock,
+  type DesignStyleSheet
+} from './designStyles'
 import { contentStats, pullQuoteFrom, type ContentBlock, type ContentDoc } from './designContent'
 import { DEFAULT_BRAND_KIT, type OrgBrandKit } from './brandKit'
 import type { SlideElement, SlideFill, SlideShapeElement, SlideTextElement } from './types'
@@ -242,7 +248,12 @@ function round(n: number): number {
  * and subtitle are NOT included: they are placed as their own display frames on
  * the opening page, which is what lets them span all the columns.
  */
-export function storyParagraphs(content: ContentDoc, style: LayoutStyle, scale: Scale): FlowParagraph[] {
+export function storyParagraphs(
+  content: ContentDoc,
+  style: LayoutStyle,
+  scale: Scale,
+  sheet?: DesignStyleSheet
+): FlowParagraph[] {
   const out: FlowParagraph[] = []
   const bodyBase: FlowParaStyle = {
     fontSize: round(scale.body),
@@ -255,6 +266,17 @@ export function storyParagraphs(content: ContentDoc, style: LayoutStyle, scale: 
     widowLines: 2
   }
 
+  // One code path, not two. A document that carries no sheet gets the default
+  // one generated from this same preset and scale, which reproduces the values
+  // that used to be written inline here — asserted in designStyles.test.ts and
+  // by a golden comparison of this function's output across all four presets.
+  // Keeping a separate "no sheet" branch would mean the common case and the
+  // styled case could drift apart without anything noticing.
+  const sheets = sheet ?? defaultStyleSheet(scale, style)
+  /** A block's resolved style, before any context-dependent adjustment. */
+  const styled = (b: ContentBlock): FlowParaStyle =>
+    resolveParagraphStyle(sheets, styleIdForBlock(sheets, b), bodyBase)
+
   let firstBodyParagraph = true
   content.blocks.forEach((b, blockIndex) => {
     switch (b.kind) {
@@ -262,35 +284,17 @@ export function storyParagraphs(content: ContentDoc, style: LayoutStyle, scale: 
       case 'subtitle':
         // Set separately, as display type on the opener.
         break
-      case 'heading': {
-        const size = b.level === 1 ? scale.h1 : b.level === 2 ? scale.h2 : scale.h3
-        out.push({
-          text: b.text,
-          source: { block: blockIndex },
-          style: {
-            fontSize: round(size),
-            lineHeight: 1.2,
-            font: font(size, scale.headFamily, { bold: true }),
-            fontFamily: scale.headFamily,
-            bold: true,
-            align: 'left',
-            color: b.level === 1 ? scale.accent : scale.ink,
-            spaceBefore: round(scale.body * (b.level === 1 ? 1.5 : 1.1)),
-            spaceAfter: round(scale.body * 0.35),
-            keepWithNext: true,
-            ...(style.headingRule && b.level === 1
-              ? { ruleAbove: { width: 1, thickness: Math.max(1, round(scale.body * 0.07)), color: scale.accent } }
-              : {})
-          }
-        })
+      case 'heading':
+        out.push({ text: b.text, source: { block: blockIndex }, style: styled(b) })
         break
-      }
       case 'paragraph':
         out.push({
           text: b.text,
           source: { block: blockIndex },
           style: {
-            ...bodyBase,
+            ...styled(b),
+            // Context, not style: whether a paragraph is the FIRST cannot live
+            // in a named style, because the same style sets both.
             ...(firstBodyParagraph && style.dropCap ? { dropCapLines: 3 } : {}),
             // Printed prose indents continuation paragraphs instead of spacing
             // them, but only when the text is justified — mixing both looks wrong.
@@ -304,14 +308,9 @@ export function storyParagraphs(content: ContentDoc, style: LayoutStyle, scale: 
           out.push({
             text: item,
             source: { block: blockIndex, item: i },
-            style: {
-              ...bodyBase,
-              align: 'left',
-              leftInset: round(scale.body * 1.4),
-              bullet: b.ordered ? `${i + 1}.` : '•',
-              spaceAfter: round(scale.body * 0.22),
-              indent: 0
-            }
+            // The bullet is per-item context, so it is applied over the style
+            // rather than being part of it.
+            style: { ...styled(b), bullet: b.ordered ? `${i + 1}.` : '•' }
           })
         })
         break
@@ -319,33 +318,12 @@ export function storyParagraphs(content: ContentDoc, style: LayoutStyle, scale: 
         out.push({
           text: b.text,
           source: { block: blockIndex },
-          style: {
-            fontSize: round(scale.body * 1.05),
-            lineHeight: style.leading,
-            font: font(scale.body * 1.05, scale.bodyFamily, { italic: true }),
-            fontFamily: scale.bodyFamily,
-            italic: true,
-            align: 'left',
-            color: scale.muted,
-            leftInset: round(scale.body * 1.2),
-            rightInset: round(scale.body * 0.6),
-            spaceBefore: round(scale.body * 0.7),
-            spaceAfter: round(scale.body * 0.7)
-          }
+          style: styled(b)
         })
         if (b.attribution) {
           out.push({
             text: `— ${b.attribution}`,
-            style: {
-              fontSize: round(scale.caption),
-              lineHeight: 1.3,
-              font: font(scale.caption, scale.bodyFamily),
-              fontFamily: scale.bodyFamily,
-              align: 'left',
-              color: scale.muted,
-              leftInset: round(scale.body * 1.2),
-              spaceAfter: round(scale.body * 0.7)
-            }
+            style: resolveParagraphStyle(sheets, 'quote-attribution', bodyBase)
           })
         }
         break

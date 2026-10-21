@@ -274,6 +274,13 @@ export function defaultStyleSheet(scale: SheetScale, layout: SheetLayout): Desig
       spaceBefore: r2(scale.body * (level === 1 ? 1.5 : 1.1)),
       spaceAfter: r2(scale.body * 0.35),
       keepWithNext: true,
+      // Explicitly cleared, not merely unset. Headings are based on Body so a
+      // change of ink or family carries through the family, but Body's widow
+      // control must not come with it: the inline code never gave a heading
+      // widowLines, and inheriting it would change where a long heading
+      // breaks across frames. Setting it to undefined is how a child opts OUT
+      // of a parent's property under a spread merge.
+      widowLines: undefined,
       ...(layout.headingRule && level === 1
         ? { ruleAbove: { width: 1, thickness: Math.max(1, r2(scale.body * 0.07)), color: scale.accent } }
         : {})
@@ -304,7 +311,10 @@ export function defaultStyleSheet(scale: SheetScale, layout: SheetLayout): Desig
           leftInset: r2(scale.body * 1.2),
           rightInset: r2(scale.body * 0.6),
           spaceBefore: r2(scale.body * 0.7),
-          spaceAfter: r2(scale.body * 0.7)
+          spaceAfter: r2(scale.body * 0.7),
+          // Cleared for the same reason as the headings: the inline code built
+          // a quote from scratch and never gave it widow control.
+          widowLines: undefined
         }
       },
       {
@@ -317,7 +327,8 @@ export function defaultStyleSheet(scale: SheetScale, layout: SheetLayout): Desig
           color: scale.muted,
           align: 'left',
           leftInset: r2(scale.body * 1.2),
-          spaceAfter: r2(scale.body * 0.7)
+          spaceAfter: r2(scale.body * 0.7),
+          widowLines: undefined
         }
       },
       {
