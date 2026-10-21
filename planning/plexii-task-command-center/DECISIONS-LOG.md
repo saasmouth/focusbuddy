@@ -4926,3 +4926,58 @@ capture" and DEC-020's feeders stand, under the new name.
 **Open:** org-scope Focus (SPEC-027) still needs the per-org attestation
 ported before a Team workspace can hold tasks; the plexiidesk.com help pages
 still say Attention (separate repo, gated deploy).
+
+## DEC-145 — Focus tasks in team workspaces, assigned to several people (members and guests)
+
+**Operator ruling (Michael, 2026-10-21):** "make focus tasks work on team
+workspaces, if the task is assigned to multiple people who have been invited to
+the organisation or as a guest to the focus project."
+
+**Model.** One new manifest column, `assignee_ids` — a JSON array of server
+account ids, written only through `normalizeAssigneeIds` (deduped, sorted,
+≤ 50; null when nobody). It is the routing field; `mentions` stays "who it is
+about" and the Plan-domain free-text `assignee` stays untouched (GAP-016 pin
+narrowed to the bare column name). Desk tasks take it in their own column, so
+both kinds stay one concept (DEC-144).
+
+**Team workspaces hold tasks.** The personal-only refusals are gone. The S1
+migration shipped in 4.2.0 (2026-08-25); an older peer parks an inbound task
+rather than breaking. The per-org attestation gate (workItemsPref) is no
+longer consulted; it is kept as data only.
+
+**Whose Focus.** `mineClause`: in a team, your Focus (list, badge, counts,
+deadline nudges) is the tasks assigned to you, plus unassigned ones you raised,
+plus older desk tasks with no recorded creator (the whole team keeps seeing
+those rather than silently losing them). Main learns who is signed in from the
+renderer (`selfAccount`, kept in sync_meta; cleared only on a real sign-out,
+never offline). Team tasks and team desk tasks record `originator_id`.
+
+**Guests (server, orgGuestScope).** Org guests — invited to the organisation,
+or made guests by a project desk shared to them — used to pull every org-wide
+row (a read leak) and could write nothing. Now a guest's org pull carries only
+the tasks assigned to them, their desk and room as title-only stubs (the FK
+needs the parents; a desk task without its desk would read as a desk), and
+body-less tombstones for tasks they lost. A guest write is a merge of the
+progress columns (state, status, started/completed, updated) onto the server's
+copy, with no base revision; anything that says what the task is (title, notes,
+assignees, desk, dates, queue, scope, trash) is refused with a reason.
+
+**Sync fixes the live run found.** A task arriving on a team partition now lands
+in that team (it was hard-coded to Personal), and is stored clean rather than
+dirty (every receiver used to echo-push it, bumping the revision and losing a
+racing edit to a 409). Task mutations nudge the poll at once (a guest has no
+live channel). Moving a desk into a team carries its tasks.
+
+**UI.** "Assigned to" picker in the task editor (members, then guests,
+labelled), assignee avatars on Focus rows, and one "X assigned you a task"
+notification per assignment (deduped across restarts).
+
+**Verified live** (tests/e2e/focusTeamTasksLive.spec.ts, three accounts on a
+real signal server): member received their tasks in ~10–50 ms, guest exactly
+theirs in ~1.3 s with no other content, guest's close seen by the owner, an
+unassign removed the task from the guest in ~1.7 s.
+
+**Open:** the server half needs a Fly deploy (owner go-ahead). The attribute
+path still marks a received row dirty via the trigger (pre-existing; harmless
+now that guests merge without base revisions). MCP and the AI do not set
+assignees yet.

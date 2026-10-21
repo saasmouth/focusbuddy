@@ -753,6 +753,7 @@ export function applyRemoteWorkItemSnapshot(
       'created_at',
       'updated_at',
       'org_id',
+      'needs_sync',
       ...WORK_ITEM_COLUMNS.map((c) => c.column)
     ]
     const now = Date.now()
@@ -771,7 +772,12 @@ export function applyRemoteWorkItemSnapshot(
       updated_at: now,
       // DEC-144: a task that arrived on a team partition belongs to that team;
       // it was hard-coded to Personal while tasks were personal-only.
-      org_id: orgId || PERSONAL_ORG_ID
+      org_id: orgId || PERSONAL_ORG_ID,
+      // DEC-144: an arrival is not a local edit. Stored dirty (the column
+      // default), every receiver re-pushed the task it had just been sent,
+      // bumping the server revision for nothing — and a teammate's genuine
+      // edit racing that echo lost to a 409. The writer pushes it; we don't.
+      needs_sync: 0
     }
     for (const def of WORK_ITEM_COLUMNS) vals[def.column] = (snapshot[def.attr] as never) ?? null
     db.prepare(

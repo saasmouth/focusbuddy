@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { FbNode } from '@shared/types'
 import { WORK_ITEM_COLUMNS } from '@shared/workItems'
 import { crdtEmitNodeCreate, crdtEmitNodeAttrs, crdtEmitNodeTitle } from '../lib/crdtBridge'
+import { nudgeSync } from '../lib/syncNudge'
 import { taskAttrsForItemPatch } from '@shared/attentionProjection'
 
 // The work_item store (Attention S3, §4). Work items NEVER pass through
@@ -133,6 +134,8 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
     // renderer-emitted manifest (emitNodeCreate spreads it for work_items).
     crdtEmitNodeCreate(item)
     window.dispatchEvent(new CustomEvent('fb:workitems-changed'))
+    // DEC-144: push now, not at the next 20s poll.
+    nudgeSync()
     return item
   },
   updateFields: async (id, patch) => {
@@ -156,6 +159,9 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
         if (Object.keys(attrs).length) crdtEmitNodeAttrs(id, attrs)
       }
       window.dispatchEvent(new CustomEvent('fb:workitems-changed'))
+      // DEC-144: push now, not at the next 20s poll — a team guest has no
+      // live channel, so the poll path is how their change reaches the team.
+      nudgeSync()
     }
     return item
   },
@@ -168,6 +174,9 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
       // status projection (§2.3 F012); status itself is never emitted.
       crdtEmitNodeAttrs(id, { workItemState: state })
       window.dispatchEvent(new CustomEvent('fb:workitems-changed'))
+      // DEC-144: push now, not at the next 20s poll — a team guest has no
+      // live channel, so the poll path is how their change reaches the team.
+      nudgeSync()
     }
     return ok
   },
@@ -177,6 +186,9 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
       set({ items: get().items.map((i) => (i.id === id ? item : i)) })
       crdtEmitNodeAttrs(id, { intentClass })
       window.dispatchEvent(new CustomEvent('fb:workitems-changed'))
+      // DEC-144: push now, not at the next 20s poll — a team guest has no
+      // live channel, so the poll path is how their change reaches the team.
+      nudgeSync()
     }
     return item
   },
@@ -187,3 +199,9 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
     await window.api.workItems.markRead(id) // device-local — no emit
   }
 }))
+
+// Thin handle for debugging + e2e (same convention as __fbNodes): the real
+// store, not a mock. Changes nothing about user behaviour.
+if (typeof window !== 'undefined') {
+  ;(window as unknown as { __fbWorkItems?: typeof useWorkItemStore }).__fbWorkItems = useWorkItemStore
+}
