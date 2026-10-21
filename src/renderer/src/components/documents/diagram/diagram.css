@@ -1,0 +1,113 @@
+/* PlexiDiagrams canvas styles. Selection uses one accent (#2563eb) everywhere:
+   shape frames, resize handles, connector glow, bend points, multi-select bounds. */
+
+.pd-canvas .react-flow__node {
+  /* Shapes draw their own frame; React Flow's default selection outline would double it. */
+  box-shadow: none !important;
+  outline: none !important;
+  background: transparent;
+}
+
+/* Connection points: hidden until hover/selection/connecting, then crisp. */
+.pd-canvas .react-flow__handle.pd-port {
+  width: 9px;
+  height: 9px;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1.5px solid #2563eb;
+  opacity: 0;
+  transition: opacity 120ms ease, scale 120ms ease;
+  z-index: 5;
+}
+.pd-canvas .react-flow__node:hover .react-flow__handle.pd-port,
+.pd-canvas .react-flow__handle.pd-port.pd-port-on {
+  opacity: 1;
+}
+.pd-canvas .react-flow__handle.pd-port:hover,
+.pd-canvas .react-flow__handle.pd-port.connectingto,
+.pd-canvas .react-flow__handle.pd-port.valid {
+  background: #2563eb;
+  scale: 1.35;
+}
+.pd-canvas .react-flow__handle-top.pd-port,
+.pd-canvas .react-flow__handle-bottom.pd-port {
+  transform: translate(-50%, 0);
+}
+.pd-canvas .react-flow__handle-top.pd-port {
+  top: -5px;
+}
+.pd-canvas .react-flow__handle-bottom.pd-port {
+  bottom: -5px;
+}
+.pd-canvas .react-flow__handle-left.pd-port,
+.pd-canvas .react-flow__handle-right.pd-port {
+  transform: translate(0, -50%);
+}
+.pd-canvas .react-flow__handle-left.pd-port {
+  left: -5px;
+}
+.pd-canvas .react-flow__handle-right.pd-port {
+  right: -5px;
+}
+
+/* Resize handles are drawn by NodeResizer; keep them above the frame. */
+.pd-canvas .react-flow__resize-control.handle {
+  z-index: 6;
+}
+
+/* Box selection (marquee). */
+.pd-canvas .react-flow__selection {
+  background: rgba(37, 99, 235, 0.07);
+  border: 1px solid rgba(37, 99, 235, 0.65);
+  border-radius: 3px;
+}
+.pd-canvas .react-flow__nodesselection-rect {
+  display: none; /* our own dashed bounds replace it */
+}
+
+/* Edges: wide invisible hit area comes from interactionWidth; make hover visible. */
+.pd-canvas .react-flow__edge:hover .react-flow__edge-path {
+  filter: drop-shadow(0 0 2px rgba(37, 99, 235, 0.45));
+}
+.pd-canvas .react-flow__edge.selected .react-flow__edge-path {
+  stroke-linecap: round;
+}
+
+.pd-guide {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.pd-edge-flow {
+  animation: pd-dash 0.9s linear infinite;
+}
+@keyframes pd-dash {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.pd-tool-pan .react-flow__pane {
+  cursor: grab;
+}
+.pd-tool-text .react-flow__pane {
+  cursor: text;
+}
+
+/* Library thumbnails. */
+.pd-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 46px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: grab;
+}
+.pd-thumb:hover {
+  background: var(--surface-sunken);
+  border-color: var(--edge-soft);
+}

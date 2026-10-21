@@ -137,23 +137,28 @@ function mindMapGraph(content: string): {
   }
 }
 
-/** A flow diagram already carries positions; only the shape needs narrowing. */
+/**
+ * A flow diagram already carries positions; only the shape needs narrowing.
+ * Accepts both formats: the legacy diagram widget's React Flow shape
+ * ({ position, data: { label } }) and a PlexiDiagrams MapBody ({ x, y, label }).
+ * Reading only the first silently blanked every map's labels and positions.
+ */
 function diagramGraph(content: string): {
   nodes: { id: string; label: string; x: number; y: number }[]
   edges: { id: string; from: string; to: string; label: string | null }[]
 } | null {
   try {
     const g = JSON.parse(content) as {
-      nodes?: { id: string; position?: { x: number; y: number }; data?: { label?: string } }[]
+      nodes?: { id: string; position?: { x: number; y: number }; data?: { label?: string }; x?: number; y?: number; label?: string }[]
       edges?: { id?: string; source: string; target: string; label?: string }[]
     }
     if (!Array.isArray(g.nodes) || g.nodes.length === 0) return null
     return {
       nodes: g.nodes.map((n) => ({
         id: n.id,
-        label: String(n.data?.label ?? ''),
-        x: n.position?.x ?? 0,
-        y: n.position?.y ?? 0
+        label: String(n.data?.label ?? n.label ?? ''),
+        x: n.position?.x ?? n.x ?? 0,
+        y: n.position?.y ?? n.y ?? 0
       })),
       edges: (g.edges ?? []).map((e, i) => ({
         id: e.id ?? `e${i}`,

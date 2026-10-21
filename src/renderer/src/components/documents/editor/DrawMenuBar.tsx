@@ -1,26 +1,25 @@
-import { useState } from 'react'
 import { openDocHistory } from '../DocHistoryPanel'
 import { confirmDialog, promptText } from '../../plexi/PromptDialog'
-import type { MapShape } from '@shared/types'
 import { useDocumentsStore } from '../../../stores/documents'
 import { useViewStore } from '../../../stores/view'
 import { launchMeeting } from '../../../lib/startMeeting'
-import { MenuBarShell, MenuModal, type MenuDef } from './menuBarKit'
+import { MenuBarShell, type MenuDef, type MenuItem } from './menuBarKit'
 
-// A menu bar for PlexiDiagrams (the flowchart / mind-map canvas). It is a
-// lightweight React-Flow surface: you add shape nodes, connect them, and fit the
-// view. It has no undo history or file export of its own, so this menu bar
-// deliberately does NOT show Edit/Download/Format — only the actions the canvas
-// can really do, plus the document-level File actions.
+// The PlexiDiagrams menu bar. Document-level File actions live here; the editor
+// supplies everything else (import/export, Edit, View, Insert, Arrange, Help) as
+// menu items wired to its real commands, so nothing here invents an action.
 //
 // The file name predates the PlexiDiagrams rename; PlexiDraw is now the separate
 // vector + painting studio and has its own DrawStudioMenuBar.
 
 export interface DrawMenuActions {
-  shapes: { shape: MapShape; label: string }[]
-  addNode: (shape: MapShape) => void
-  insertWidget: () => void
-  fitView: () => void
+  // Extra File items (import / export), shown after the document actions.
+  file: () => MenuItem[]
+  edit: () => MenuItem[]
+  view: () => MenuItem[]
+  insert: () => MenuItem[]
+  arrange: () => MenuItem[]
+  help: () => MenuItem[]
 }
 
 export default function DrawMenuBar({ actions }: { actions: DrawMenuActions }): JSX.Element {
@@ -31,7 +30,6 @@ export default function DrawMenuBar({ actions }: { actions: DrawMenuActions }): 
   const remove = useDocumentsStore((s) => s.remove)
   const goDocument = useViewStore((s) => s.goDocument)
   const goDocuments = useViewStore((s) => s.goDocuments)
-  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const title = active?.title ?? 'Untitled diagram'
 
   async function newDiagram(): Promise<void> {
@@ -72,46 +70,19 @@ export default function DrawMenuBar({ actions }: { actions: DrawMenuActions }): 
         { kind: 'sep' },
         { kind: 'item', label: 'Rename', icon: 'edit', run: doRename },
         { kind: 'item', label: 'Version history', icon: 'history', run: () => { if (active) openDocHistory(active.id) } },
+        { kind: 'sep' },
+        ...a.file(),
+        { kind: 'sep' },
+        { kind: 'item', label: 'Start a meeting', icon: 'videocam', run: () => void launchMeeting({ kind: 'draw', id: active?.id ?? '', title: title || 'Diagram meeting' }) },
         { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void moveToTrash() }
       ]
     },
-    {
-      id: 'insert',
-      label: 'Insert',
-      build: () => [
-        ...a.shapes.map((s) => ({ kind: 'item' as const, label: s.label, run: () => a.addNode(s.shape) })),
-        { kind: 'sep' as const },
-        { kind: 'item' as const, label: 'Work widget from a desk', icon: 'widgets', run: a.insertWidget },
-        { kind: 'sep' as const },
-        { kind: 'item' as const, label: 'Meeting', icon: 'videocam', run: () => void launchMeeting({ kind: 'draw', id: active?.id ?? '', title: title || 'Diagram meeting' }) }
-      ]
-    },
-    {
-      id: 'view',
-      label: 'View',
-      build: () => [{ kind: 'item', label: 'Fit to view', icon: 'fit_screen', run: a.fitView }]
-    },
-    {
-      id: 'help',
-      label: 'Help',
-      build: () => [{ kind: 'item', label: 'How to diagram', icon: 'help', run: () => setShortcutsOpen(true) }]
-    }
+    { id: 'edit', label: 'Edit', build: a.edit },
+    { id: 'view', label: 'View', build: a.view },
+    { id: 'insert', label: 'Insert', build: a.insert },
+    { id: 'arrange', label: 'Arrange', build: a.arrange },
+    { id: 'help', label: 'Help', build: a.help }
   ]
 
-  return (
-    <>
-      <MenuBarShell menus={menus} testid="draw-menubar" />
-      {shortcutsOpen && (
-        <MenuModal title="How to diagram" onClose={() => setShortcutsOpen(false)}>
-          <ul className="space-y-1.5 text-[13px] text-[var(--ink-70)] list-disc pl-4">
-            <li>Add a shape from the Insert menu or the stencil palette.</li>
-            <li>Double-click a node to rename it.</li>
-            <li>Drag from a node&apos;s dot to connect it to another.</li>
-            <li>Double-click a connector to label it.</li>
-            <li>Press Delete or Backspace to remove the selection.</li>
-          </ul>
-        </MenuModal>
-      )}
-    </>
-  )
+  return <MenuBarShell menus={menus} testid="draw-menubar" />
 }
