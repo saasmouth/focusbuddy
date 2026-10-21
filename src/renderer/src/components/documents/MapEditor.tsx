@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { promptText } from '../plexi/PromptDialog'
+import RoutedEdge from './map/RoutedEdge'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -347,19 +348,28 @@ function toFlowNodes(body: MapBody): Node<ShapeData>[] {
     }
   }))
 }
+// One edge type, so the editor draws what the export will draw. Declared at
+// module scope: a fresh object each render makes React Flow remount every edge.
+const EDGE_TYPES = { routed: RoutedEdge }
+
 function edgeStyle(e: MapEdge): React.CSSProperties {
   return e.style === 'dashed' ? { strokeDasharray: '6 4', stroke: '#64748b' } : { stroke: '#64748b' }
 }
 function toFlowEdges(body: MapBody): Edge[] {
   return body.edges.map((e) => ({
     id: e.id,
+    type: 'routed',
     source: e.source,
     target: e.target,
     sourceHandle: e.sourceHandle ?? null,
     targetHandle: e.targetHandle ?? null,
     label: e.label,
     animated: !!e.animated,
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
+    // routing travels in data so the edge component can read it without the
+    // body being threaded through React Flow.
+    data: { routing: e.routing ?? 'orthogonal' },
+    markerStart: e.arrow === 'both' ? { type: MarkerType.ArrowClosed, color: '#64748b' } : undefined,
+    markerEnd: e.arrow === 'none' ? undefined : { type: MarkerType.ArrowClosed, color: '#64748b' },
     style: edgeStyle(e),
     labelStyle: { fontSize: 11, fill: '#334155' },
     labelBgStyle: { fill: '#ffffff', fillOpacity: 0.85 }
@@ -782,6 +792,7 @@ function MapInner({ body, title, onChange, foldExternal = false }: Props): JSX.E
           }}
           nodes={nodes}
           edges={edges}
+          edgeTypes={EDGE_TYPES}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}

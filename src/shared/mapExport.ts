@@ -5,6 +5,7 @@
 // PNG / JPG / PDF. No fabrication: an empty map exports an honest empty canvas.
 
 import type { MapBody, MapNode, MapEdge, MapShape } from './types'
+import { routeOrthogonal, routeToPath, type RouteRect, type RoutePoint } from './mapRouting'
 
 // Shared fractional (0..1) polygon outlines for the polygon-based stencil shapes,
 // so the editor (as a CSS clip-path) and the export (as SVG points) draw exactly
@@ -260,18 +261,67 @@ function borderPoint(fromX: number, fromY: number, box: { cx: number; cy: number
   return { x: box.cx - dx * scale, y: box.cy - dy * scale }
 }
 
-function edgeSvg(e: MapEdge, byId: Map<string, { cx: number; cy: number; w: number; h: number }>): string {
+/** A box as the router wants it: top-left plus size, not centre plus size. */
+function toRect(b: { cx: number; cy: number; w: number; h: number }): RouteRect {
+  return { x: b.cx - b.w / 2, y: b.cy - b.h / 2, w: b.w, h: b.h }
+}
+
+/**
+ * The points a connector passes through.
+ *
+ * Explicit waypoints win: a person who has dragged a corner has overruled the
+ * router on purpose, and recomputing would undo their edit every render.
+ */
+export function edgePoints(
+  e: MapEdge,
+  byId: Map<string, { cx: number; cy: number; w: number; h: number }>
+): RoutePoint[] {
   const a = byId.get(e.source)
   const b = byId.get(e.target)
-  if (!a || !b) return ''
-  const start = borderPoint(b.cx, b.cy, a)
-  const end = borderPoint(a.cx, a.cy, b)
+  if (!a || !b) return []
+  if (e.waypoints?.length) {
+    const start = borderPoint(e.waypoints[0].x, e.waypoints[0].y, a)
+    const end = borderPoint(e.waypoints[e.waypoints.length - 1].x, e.waypoints[e.waypoints.length - 1].y, b)
+    return [start, ...e.waypoints, end]
+  }
+  if (e.routing === 'straight') return [borderPoint(b.cx, b.cy, a), borderPoint(a.cx, a.cy, b)]
+  const from = toRect(a)
+  const to = toRect(b)
+  const obstacles = [...byId.values()].map(toRect)
+  // toRect allocates, so the endpoint rects above are not the same objects as
+  // the ones in `obstacles`. Pass the list the router can identify them in.
+  const all = obstacles.map((r) =>
+    Math.abs(r.x - from.x) < 0.01 && Math.abs(r.y - from.y) < 0.01
+      ? from
+      : Math.abs(r.x - to.x) < 0.01 && Math.abs(r.y - to.y) < 0.01
+        ? to
+        : r
+  )
+  return routeOrthogonal(from, to, all)
+}
+
+function edgeSvg(e: MapEdge, byId: Map<string, { cx: number; cy: number; w: number; h: number }>): string {
+  const pts = edgePoints(e, byId)
+  if (pts.length < 2) return ''
+  const start = pts[0]
+  const end = pts[pts.length - 1]
   const dash = e.style === 'dashed' ? ' stroke-dasharray="6 4"' : ''
-  const line = `<line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" stroke="#64748b" stroke-width="2"${dash} marker-end="url(#arrow)" />`
+  const arrow = e.arrow ?? 'end'
+  const heads =
+    (arrow === 'both' ? ' marker-start="url(#arrow)"' : '') +
+    (arrow === 'none' ? '' : ' marker-end="url(#arrow)"')
+  const d = routeToPath(pts, e.routing === 'straight' ? 0 : (e.cornerRadius ?? 8))
+  const line = `<path d="${d}" fill="none" stroke="#64748b" stroke-width="2"${dash}${heads} />`
   let label = ''
   if (e.label) {
-    const mx = (start.x + end.x) / 2
-    const my = (start.y + end.y) / 2
+    // Mid-POINT of the path by segment count, not the midpoint of the straight
+    // line between the ends: on a route that goes around something, those are
+    // nowhere near each other and the label would float off the line.
+    const mid = pts.length === 2
+      ? { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 }
+      : pts[Math.floor(pts.length / 2)]
+    const mx = mid.x
+    const my = mid.y
     const wpx = e.label.length * 7 + 8
     label =
       `<rect x="${mx - wpx / 2}" y="${my - 9}" width="${wpx}" height="18" rx="3" fill="#fff" fill-opacity="0.9" />` +

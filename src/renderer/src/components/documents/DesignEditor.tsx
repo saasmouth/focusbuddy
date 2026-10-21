@@ -1893,6 +1893,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
 
         {aiPanelOpen && (
           <DesignAiPanel
+            body={design}
             selectedText={selectedTextValue}
             onApplyText={applyAiText}
             onInsertText={insertAiText}

@@ -235,6 +235,41 @@ describe('drawGeometry — boolean operations', () => {
     expect(u.subpaths).toHaveLength(1)
   })
 
+  it('the four operations stay consistent with each other across many layouts', () => {
+    // Every other boolean test here states an answer worked out by hand, which
+    // only covers the layouts someone thought of. These identities hold for
+    // ANY two regions, so they check the four operations against each other
+    // over cases nobody enumerated:
+    //
+    //   |A ∪ B| + |A ∩ B| = |A| + |B|
+    //   |A ^ B|           = |A ∪ B| − |A ∩ B|
+    //   |A − B| + |B − A| = |A ^ B|
+    //
+    // netArea, not area: a subtraction leaves a hole wound against its shell,
+    // and summing unsigned ring areas would count the hole as solid.
+    let seed = 4242
+    const rnd = (n: number): number => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff
+      return seed % n
+    }
+    let checked = 0
+    for (let i = 0; i < 120; i++) {
+      const p = rectPath(rnd(50), rnd(50), 20 + rnd(80), 20 + rnd(80))
+      const q = rectPath(rnd(100), rnd(100), 20 + rnd(80), 20 + rnd(80))
+      const union = netArea(booleanPath(p, q, 'union'))
+      const inter = netArea(booleanPath(p, q, 'intersect'))
+      const xor = netArea(booleanPath(p, q, 'exclude'))
+      expect(Math.abs(union + inter - (area(p) + area(q)))).toBeLessThan(1)
+      expect(Math.abs(xor - (union - inter))).toBeLessThan(1)
+      expect(
+        Math.abs(netArea(booleanPath(p, q, 'subtract')) + netArea(booleanPath(q, p, 'subtract')) - xor)
+      ).toBeLessThan(1)
+      checked++
+    }
+    // Guards the loop against passing because it never ran.
+    expect(checked).toBe(120)
+  })
+
   it('curves work too — a circle minus an overlapping circle', () => {
     const c1 = ellipsePath(0, 0, 50, 50)
     const c2 = ellipsePath(50, 0, 50, 50)

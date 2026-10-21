@@ -53,10 +53,69 @@ describe('mapToSvg', () => {
         edges: [{ id: 'e1', source: 'a', target: 'b', label: 'yes', style: 'solid' }]
       })
     )
-    expect(svg).toContain('<line')
+    // A path rather than a line since connectors became orthogonal: a routed
+    // connector has corners, and <line> cannot express one.
+    expect(svg).toContain('<path d="M')
     expect(svg).toContain('marker-end="url(#arrow)"')
     expect(svg).toContain('>yes<')
     expect(svg).toContain('id="arrow"')
+  })
+
+  it('routes a connector around a node standing between its ends', () => {
+    // The behaviour the whole routing change exists for. Three boxes in a row;
+    // the connector from the first to the third must not pass through the
+    // middle one, which is exactly what the old straight line did.
+    const { svg } = mapToSvg(
+      body({
+        nodes: [
+          { id: 'a', x: 0, y: 0, label: 'A', shape: 'process', color: '#2563eb' },
+          { id: 'mid', x: 220, y: 0, label: 'M', shape: 'process', color: '#2563eb' },
+          { id: 'b', x: 440, y: 0, label: 'B', shape: 'process', color: '#2563eb' }
+        ],
+        edges: [{ id: 'e1', source: 'a', target: 'b', style: 'solid' }]
+      })
+    )
+    const d = /<path d="([^"]+)" fill="none"/.exec(svg)?.[1] ?? ''
+    expect(d).not.toBe('')
+    // Straight through would be a single horizontal run at the shared centre
+    // line. Going around means leaving it, so the path must contain a vertical
+    // move: more than one distinct y among its coordinates.
+    const ys = [...d.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map((m) => Number(m[2]))
+    expect(new Set(ys).size).toBeGreaterThan(1)
+  })
+
+  it('honours routing:"straight" for an edge that asks for it', () => {
+    const { svg } = mapToSvg(
+      body({
+        nodes: [
+          { id: 'a', x: 0, y: 0, label: 'A', shape: 'process', color: '#2563eb' },
+          { id: 'b', x: 300, y: 200, label: 'B', shape: 'process', color: '#2563eb' }
+        ],
+        edges: [{ id: 'e1', source: 'a', target: 'b', routing: 'straight' }]
+      })
+    )
+    const d = /<path d="([^"]+)" fill="none"/.exec(svg)?.[1] ?? ''
+    // Two points, no corners.
+    expect(d.split('L')).toHaveLength(2)
+    expect(d).not.toContain('Q')
+  })
+
+  it('follows explicit waypoints instead of routing', () => {
+    // A person who dragged a corner has overruled the router on purpose;
+    // recomputing would undo their edit on every render.
+    const { svg } = mapToSvg(
+      body({
+        nodes: [
+          { id: 'a', x: 0, y: 0, label: 'A', shape: 'process', color: '#2563eb' },
+          { id: 'b', x: 300, y: 200, label: 'B', shape: 'process', color: '#2563eb' }
+        ],
+        edges: [{ id: 'e1', source: 'a', target: 'b', waypoints: [{ x: 500, y: 500 }] }]
+      })
+    )
+    const d = /<path d="([^"]+)" fill="none"/.exec(svg)?.[1] ?? ''
+    // The waypoint is far outside any sensible automatic route, so its
+    // presence in the path proves it was followed rather than recomputed.
+    expect(d).toMatch(/5\d\d/)
   })
 
   it('marks a dashed edge with a stroke-dasharray', () => {

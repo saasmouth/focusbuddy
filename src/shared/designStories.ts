@@ -44,7 +44,9 @@ export function paragraphsForStory(design: DesignBody, storyId: string, brand: O
   const colW = (boxW - gutter * (columns - 1)) / Math.max(1, columns)
   // The same type scale the wizard used, so text typed into a story afterwards
   // is set exactly like the text the wizard laid out.
-  return storyParagraphs(doc, style, typeScaleFor(style, brand, colW))
+  // The document's own sheet when it has one; otherwise storyParagraphs
+  // generates the default, which sets as it always did.
+  return storyParagraphs(doc, style, typeScaleFor(style, brand, colW), design.paragraphStyles)
 }
 
 /**
