@@ -222,8 +222,9 @@ test('IMP-4 Dropping an SVG and a PNG on the canvas places both where they land'
   expect(objs[0].children!.map((o) => o.type)).toEqual(['path', 'path', 'path', 'path', 'path'])
   // The SVG's page corner is at the drop point; the PNG cascades 16 px on.
   const img = objs[1]
-  expect(img.x).toBeCloseTo(216, 0)
-  expect(img.y).toBeCloseTo(166, 0)
+  // Within a screen pixel: the stage is fitted to the window, so one pixel can be more than one artboard unit.
+  expect(Math.abs((img.x ?? 0) - 216)).toBeLessThan(1.5)
+  expect(Math.abs((img.y ?? 0) - 166)).toBeLessThan(1.5)
   expect([img.w, img.h]).toEqual([40, 30])
   // One drop, one undo step.
   await window.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z')

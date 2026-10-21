@@ -109,10 +109,11 @@ async function reloadInto(id: string): Promise<void> {
 test('SP-1 three rectangles drawn with the current fill save, and are all there after a reload', async () => {
   const id = await seedDrawDoc(window, v1Body([]), 'Shared paint')
   await openDocument(window, id)
-  await window.locator('[data-testid="draw-tool-rect"]').click()
-  await drag([50, 50], [150, 150])
-  await drag([200, 50], [300, 150])
-  await drag([350, 50], [450, 150])
+  // The studio returns to the Selection tool after each shape, so pick Rectangle each time.
+  for (const x of [50, 200, 350]) {
+    await window.locator('[data-testid="draw-tool-rect"]').click()
+    await drag([x, 50], [x + 100, 150])
+  }
   await expectSaved()
   const before = (await storedObjects(id)).filter((o) => o.type === 'path')
   expect(before, 'all three rectangles reached the main process').toHaveLength(3)
