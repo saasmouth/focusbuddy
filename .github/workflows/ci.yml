@@ -45,6 +45,14 @@ jobs:
         env:
           CI: 'true'
 
+      # The browser runtime, which plexiidesk.com's /share/ app is built from.
+      # Nothing else here builds it, so a desktop-only import reaching it broke
+      # the site's compose step for three integration tips before anyone saw.
+      # tests/unit/webBundleGraph.test.ts names the import chain; this is the
+      # real build behind it.
+      - name: Web build
+        run: npm run web:build
+
   electron-smoke:
     needs: typecheck-and-unit
     runs-on: ubuntu-latest
