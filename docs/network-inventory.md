@@ -158,8 +158,8 @@ Base URL: `ACTIVE.api` (`src/shared/productDomains.ts:28`, read by
 - PlexiiDesk: generic feed at `ACTIVE.downloads` = `dl.plexiidesk.com`
   (`electron-builder.cjs:98`; `latest-mac.yml`, `latest.yml`). macOS downloads the
   release zip itself (`src/main/updaterInstall.ts:26`, `macAssetUrl`).
-- PlexiiOffice: GitHub provider, `saasmouth/plexii`, channel `office`
-  (`electron-builder.plexioffice.cjs:68-72`).
+- PlexiiOffice (standalone): RETIRED 2026-10-21. No build is made and nothing
+  publishes to its `office` channel; the Office apps ship inside PlexiiDesk.
 - Schedule: packaged builds only, 30 s after launch, every 6 h and on wake from
   sleep (`src/main/autoUpdate.ts:337-354`), only from idle/none/error, and only
   while **Check for updates automatically** is on (Settings > Data > Privacy,

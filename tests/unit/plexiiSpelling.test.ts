@@ -184,13 +184,10 @@ describe('the Plexii spelling', () => {
 describe('the identities the rename must not touch', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const builder = require('../../electron-builder.cjs') as Record<string, unknown>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const office = require('../../electron-builder.plexioffice.cjs') as Record<string, unknown>
   const pkg = JSON.parse(read('package.json')) as { name: string; productName?: string }
 
-  it('shows PlexiiDesk / PlexiiOffice as the app name', () => {
+  it('shows PlexiiDesk as the app name', () => {
     expect(builder.productName).toBe('PlexiiDesk')
-    expect(office.productName).toBe('PlexiiOffice')
     expect((builder.dmg as { title: string }).title).toBe('PlexiiDesk ${version}')
     expect((builder.nsis as { shortcutName: string }).shortcutName).toBe('PlexiiDesk')
     expect(read('electron-builder.plexi4preview.yml')).toMatch(/^productName: PlexiiDesk 4 Preview$/m)
@@ -201,12 +198,10 @@ describe('the identities the rename must not touch', () => {
 
   it('keeps the bundle ids (TCC grants, LaunchServices, safeStorage)', () => {
     expect(builder.appId).toBe('app.haptyx.desktop')
-    expect(office.appId).toBe('app.plexioffice.desktop')
   })
 
   it('keeps the artifact filenames the update feeds and the site download buttons name', () => {
     expect(builder.artifactName).toBe('PlexiDesk-${version}-${os}-${arch}.${ext}')
-    expect(office.artifactName).toBe('PlexiOffice-${version}-${os}-${arch}.${ext}')
     // The mac one-click updater fetches this zip itself and copies whatever
     // .app is inside over the running bundle, so the bundle's own name can move.
     expect(read('src/main/updaterInstall.ts')).toContain('`PlexiDesk-${version}-mac-${arch}.zip`')

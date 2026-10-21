@@ -1,3 +1,7 @@
+> **RETIRED 2026-10-21.** The owner ruled that everything ships as one Plexii suite.
+> The standalone PlexiiOffice app is no longer built, released or updated. This document
+> is kept as history. See RELEASE.md, "Standalone PlexiiOffice: retired".
+
 # Scoping: splitting PlexiOffice into its own product
 
 Status: scoped, direction chosen, not started. Date: 2026-06-21.

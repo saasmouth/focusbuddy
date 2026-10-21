@@ -83,6 +83,11 @@ with something behind it.
 
 ## Decision
 
+**2026-10-21, operator:** everything is in one Plexii suite. Option C (split the
+products) is rejected and the standalone PlexiiOffice app is retired; it is no
+longer built, released or updated. The narrative choice between A and B is still
+open.
+
 *Operator to rule. Record the outcome here with a date and a one-line rationale,*
 *then reconcile the affected documents:*
 

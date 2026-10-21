@@ -72,33 +72,29 @@ gh release upload vX.Y.Z \
 # 6. FINAL GATE — the release is not done until this is green:
 npm run release:verify
 
-# 7. PlexiOffice ships from this same repo on a separate update channel
-#    ('office'), so it MUST get its assets on the SAME (now latest) release tag,
-#    or its updater 404s — electron-updater reads the channel manifest from the
-#    newest release, and a PlexiDesk-only release leaves office-mac.yml behind on
-#    the previous tag. Build the office app (mac arm64) and attach its set:
-npm run dist:office:zip   # produces release-office/PlexiOffice-X.Y.Z-mac-arm64.zip + .blockmap + office-mac.yml
-gh release upload vX.Y.Z \
-  release-office/PlexiOffice-X.Y.Z-mac-arm64.zip \
-  release-office/PlexiOffice-X.Y.Z-mac-arm64.zip.blockmap \
-  release-office/office-mac.yml --clobber
-
-# 8. OFFICE GATE — the office channel is not done until this is green:
-npm run release:verify:office
+# 7. (Retired.) The standalone PlexiiOffice app is no longer built or released.
+#    Do not build it or attach an office set. See "Standalone PlexiiOffice: retired".
 ```
 
-## The office channel (do not forget it)
+## Standalone PlexiiOffice: retired (2026-10-21)
 
-PlexiOffice is the standalone second app. It is built from this same codebase and
-published to the **same GitHub releases**, but on the `office` channel: its bundled
-`app-update.yml` carries `channel: office`, so electron-updater reads
-`office-mac.yml` (not `latest-mac.yml`). The recurring trap: cutting a PlexiDesk
-release creates a new *latest* release, and electron-updater always reads the
-channel manifest from the latest release. If that release has no `office-mac.yml`,
-every PlexiOffice client's update check 404s — the exact same silent-break the main
-gate prevents for mac/win. So every release that bumps the version MUST also attach
-the office set to the same tag and pass `npm run release:verify:office`. Office is
-mac arm64 only today (no Windows office build in CI yet).
+The owner ruled that everything ships as one Plexii suite. The standalone
+PlexiiOffice app is retired: **do not build it, release it, attach an office
+asset set, or try to fix its update channel.** The Office apps (PlexiiWrite,
+PlexiiCells, PlexiiDeck and the rest) ship inside PlexiiDesk.
+
+What was removed: `electron-builder.plexioffice.cjs`, the `dev:office`,
+`dist:office:zip`, `dist:office:release` and `release:verify:office` scripts,
+`scripts/verify-office-release.sh`, and the standalone smoke spec
+`tests/e2e/plexiOffice.spec.ts`. The last standalone build was 4.3.33.
+
+Installed copies stop updating. That was already true: from 4.3.33 its feed
+pointed at `github.com/saasmouth/plexii`, which does not exist, and its release
+zips show no downloads beyond the release gate's own check.
+
+Still in the code on purpose: `detectOfficeBuild` and the office branch in the
+main process. They keep a stray office binary out of PlexiiDesk's database and
+single-instance lock. Remove them in a normal release, not a hurried one.
 
 `npm run release:mac` uploads the current `PlexiDesk-X.Y.Z-mac-universal`
 artifacts and `latest-mac.yml` (with `--clobber`, so re-running is safe). It also

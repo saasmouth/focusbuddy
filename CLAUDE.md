@@ -10,6 +10,12 @@ standalone spelling; new user-facing copy must respect it.
 Electron + React 18 + zustand + TipTap desktop app. `better-sqlite3` in main;
 `node:sqlite` in tests. Dev via electron-vite.
 
+## Standalone PlexiiOffice is retired (2026-10-21)
+
+Do not build, release or update the standalone PlexiiOffice app, and do not
+attach an office asset set to a release. Everything ships as one Plexii suite
+(PlexiiDesk). See RELEASE.md, "Standalone PlexiiOffice: retired".
+
 ## Gates — run before every commit, no exceptions
 
 ```bash
