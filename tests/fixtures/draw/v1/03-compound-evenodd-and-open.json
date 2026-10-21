@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "width": 400,
+  "height": 300,
+  "background": {
+    "type": "solid",
+    "color": "#ffffff"
+  },
+  "layers": [
+    {
+      "id": "L1",
+      "kind": "vector",
+      "name": "L1",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "normal",
+      "objects": [
+        {
+          "id": "donut",
+          "type": "path",
+          "path": {
+            "fillRule": "evenodd",
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 20,
+                    "y": 20
+                  },
+                  {
+                    "x": 180,
+                    "y": 20
+                  },
+                  {
+                    "x": 180,
+                    "y": 180
+                  },
+                  {
+                    "x": 20,
+                    "y": 180
+                  }
+                ]
+              },
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 60,
+                    "y": 60
+                  },
+                  {
+                    "x": 140,
+                    "y": 60
+                  },
+                  {
+                    "x": 140,
+                    "y": 140
+                  },
+                  {
+                    "x": 60,
+                    "y": 140
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#111827"
+          }
+        },
+        {
+          "id": "open",
+          "type": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": false,
+                "nodes": [
+                  {
+                    "x": 10,
+                    "y": 10,
+                    "outX": 60,
+                    "outY": -20
+                  },
+                  {
+                    "x": 120,
+                    "y": 80,
+                    "inX": 90,
+                    "inY": 120,
+                    "outX": 150,
+                    "outY": 40
+                  },
+                  {
+                    "x": 200,
+                    "y": 10,
+                    "inX": 180,
+                    "inY": -10
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#fde68a"
+          },
+          "stroke": {
+            "paint": {
+              "type": "solid",
+              "color": "#92400e"
+            },
+            "width": 4
+          }
+        },
+        {
+          "id": "multi-open",
+          "type": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": false,
+                "nodes": [
+                  {
+                    "x": 200,
+                    "y": 200
+                  },
+                  {
+                    "x": 250,
+                    "y": 220
+                  }
+                ]
+              },
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 300,
+                    "y": 200
+                  },
+                  {
+                    "x": 350,
+                    "y": 220
+                  },
+                  {
+                    "x": 320,
+                    "y": 260
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "none"
+          },
+          "stroke": {
+            "paint": {
+              "type": "solid",
+              "color": "#000"
+            },
+            "width": 1
+          }
+        }
+      ]
+    }
+  ],
+  "activeLayerId": "L1"
+}

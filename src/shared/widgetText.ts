@@ -250,13 +250,18 @@ export function docBodyToText(docType: string, body: unknown, resolvers: WidgetT
     const words: string[] = []
     const names: string[] = []
     let objects = 0
+    // Schema v2 drawings nest objects in groups; their words count too.
+    const visit = (objs: Array<Record<string, unknown>>, depth: number): void => {
+      for (const o of objs) {
+        if (o.type === 'text' && typeof o.text === 'string' && o.text.trim()) words.push(o.text.trim())
+        if (o.type === 'group' && Array.isArray(o.children) && depth < 64) visit(o.children as Array<Record<string, unknown>>, depth + 1)
+      }
+    }
     for (const layer of layers) {
       if (typeof layer.name === 'string' && layer.name.trim()) names.push(layer.name.trim())
       const objs = Array.isArray(layer.objects) ? (layer.objects as Array<Record<string, unknown>>) : []
       objects += objs.length
-      for (const o of objs) {
-        if (o.type === 'text' && typeof o.text === 'string' && o.text.trim()) words.push(o.text.trim())
-      }
+      visit(objs, 0)
     }
     const shape = `Drawing: ${layers.length} layer${layers.length === 1 ? '' : 's'}, ${objects} object${objects === 1 ? '' : 's'}`
     const out = [shape, names.length ? `Layers: ${names.join(', ')}` : '', words.join('\n')]

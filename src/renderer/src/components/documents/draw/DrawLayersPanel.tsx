@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Icon from '../../Icon'
-import { DRAW_BLEND_MODES, type DrawBlend, type DrawLayer } from '@shared/draw'
+import { DRAW_BLEND_MODES, type DrawBlend } from '@shared/draw'
+import type { DrawDocLayer as DrawLayer } from '@shared/draw/model'
 
 // The PlexiDraw layers panel. One stack holds both vector and painted layers, so
 // this list is deliberately kind-agnostic: every row offers the same visibility,

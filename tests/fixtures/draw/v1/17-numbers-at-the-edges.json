@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "width": 16,
+  "height": 12000,
+  "background": {
+    "type": "solid",
+    "color": "#ffffff"
+  },
+  "layers": [
+    {
+      "id": "L1",
+      "kind": "vector",
+      "name": "L1",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "normal",
+      "objects": [
+        {
+          "id": "tiny",
+          "type": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 0.0001,
+                    "y": 1e-7
+                  },
+                  {
+                    "x": 1.123456789,
+                    "y": 0
+                  },
+                  {
+                    "x": 0.5,
+                    "y": 0.333333333333
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#000"
+          }
+        },
+        {
+          "id": "huge",
+          "type": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": -5000,
+                    "y": -5000
+                  },
+                  {
+                    "x": 15000,
+                    "y": -5000
+                  },
+                  {
+                    "x": 15000,
+                    "y": 15000
+                  },
+                  {
+                    "x": -5000,
+                    "y": 15000
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "none"
+          },
+          "stroke": {
+            "paint": {
+              "type": "solid",
+              "color": "#f00"
+            },
+            "width": 0.01
+          }
+        },
+        {
+          "id": "negtext",
+          "type": "text",
+          "x": -50,
+          "y": -10,
+          "w": 8,
+          "text": "w",
+          "fontSize": 1,
+          "fill": {
+            "type": "solid",
+            "color": "#000"
+          }
+        }
+      ]
+    }
+  ],
+  "activeLayerId": "L1"
+}

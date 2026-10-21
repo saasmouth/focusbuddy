@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "width": 400,
+  "height": 300,
+  "background": {
+    "type": "solid",
+    "color": "#ffffff"
+  },
+  "layers": [
+    {
+      "id": "L1",
+      "kind": "vector",
+      "name": "L1",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "normal",
+      "objects": [
+        {
+          "id": "t-plain",
+          "type": "text",
+          "x": 10,
+          "y": 10,
+          "w": 300,
+          "text": "Hello PlexiiDraw",
+          "fontSize": 32,
+          "fill": {
+            "type": "solid",
+            "color": "#1c1917"
+          }
+        },
+        {
+          "id": "t-lines",
+          "type": "text",
+          "x": 10,
+          "y": 60,
+          "w": 120,
+          "text": "Measured lines win over the estimate",
+          "fontSize": 14,
+          "fill": {
+            "type": "solid",
+            "color": "#000"
+          },
+          "lines": [
+            "Measured lines",
+            "win over the",
+            "estimate"
+          ],
+          "lineHeight": 1.5
+        },
+        {
+          "id": "t-center",
+          "type": "text",
+          "x": 150,
+          "y": 60,
+          "w": 200,
+          "text": "Centred\nwith a break",
+          "fontSize": 18,
+          "align": "center",
+          "fill": {
+            "type": "linear",
+            "angle": 0,
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#6d5dfc"
+              },
+              {
+                "offset": 1,
+                "color": "#ec4899"
+              }
+            ]
+          },
+          "fontFamily": "Playfair Display, serif",
+          "fontWeight": 700,
+          "italic": true
+        },
+        {
+          "id": "t-right",
+          "type": "text",
+          "x": 10,
+          "y": 150,
+          "w": 380,
+          "text": "Right & <escaped> \"quotes\"",
+          "fontSize": 20,
+          "align": "right",
+          "letterSpacing": 2.5,
+          "fill": {
+            "type": "solid",
+            "color": "#0f172a",
+            "opacity": 0.7
+          },
+          "stroke": {
+            "paint": {
+              "type": "solid",
+              "color": "#ef4444"
+            },
+            "width": 1,
+            "cap": "round",
+            "join": "bevel",
+            "dash": [
+              3,
+              1
+            ]
+          }
+        },
+        {
+          "id": "t-rot",
+          "type": "text",
+          "x": 100,
+          "y": 200,
+          "w": 150,
+          "text": "Turned",
+          "fontSize": 24,
+          "rotation": -30,
+          "fill": {
+            "type": "solid",
+            "color": "#16a34a"
+          }
+        },
+        {
+          "id": "t-empty-lines",
+          "type": "text",
+          "x": 10,
+          "y": 240,
+          "w": 100,
+          "text": "a\n\nb",
+          "fontSize": 12,
+          "fill": {
+            "type": "solid",
+            "color": "#000"
+          },
+          "lines": [
+            "a",
+            "",
+            "b"
+          ]
+        },
+        {
+          "id": "t-wrap-estimate",
+          "type": "text",
+          "x": 200,
+          "y": 240,
+          "w": 60,
+          "text": "a fairly long sentence that must wrap by estimate",
+          "fontSize": 10,
+          "fill": {
+            "type": "solid",
+            "color": "#000"
+          }
+        }
+      ]
+    }
+  ],
+  "activeLayerId": "L1"
+}

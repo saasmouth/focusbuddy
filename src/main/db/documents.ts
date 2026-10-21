@@ -14,6 +14,8 @@ import { migrateSlidesBody } from '@shared/slidesMigrate'
 import { normalizeMapBody, starterMapBody } from '@shared/mapGraph'
 import { normalizeDesignBody, blankDesign, findDesignSize } from '@shared/design'
 import { normalizeDrawBody, blankDrawBody, findDrawSize } from '@shared/draw'
+import { drawDocCompatibility, refusesDrawDocOverwrite } from '@shared/draw/compat'
+import { declaredSchema, normalizeDrawDoc } from '@shared/draw/normalize'
 import { brandHeadingStyles } from '@shared/brandKit'
 import { getBrandKit, hasBrandKit } from './brandKit'
 
@@ -64,7 +66,20 @@ function parseBody(
     // Designs are normalised so a bad size or missing elements still opens.
     if (type === 'design') return normalizeDesignBody(parsed)
     // Artwork likewise: a body with no layers still opens with somewhere to draw.
-    if (type === 'draw') return normalizeDrawBody(parsed)
+    // EXCEPT a drawing made by a newer PlexiiDraw: normalising it here would
+    // drop what that app added before anything could even look at it. It goes
+    // out verbatim; the studio opens it read-only and updateDocument refuses to
+    // overwrite it (see drawCompatibility).
+    if (type === 'draw') {
+      if (drawDocCompatibility(parsed).readOnly) return parsed
+      // A schema-2 drawing is normalised as v2 and stays v2; a v1 drawing stays
+      // v1 at rest (v2 writes are gated -- see draw/compat.ts).
+      // (FbDocument's body union predates the v2 draw model; a v2 document is
+      // still a draw body, so it is passed through as one.)
+      return declaredSchema(parsed) >= 2 || (parsed && typeof parsed === 'object' && 'artboards' in parsed)
+        ? (normalizeDrawDoc(parsed) as unknown as FbDocument['body'])
+        : normalizeDrawBody(parsed)
+    }
     return parsed
   } catch {
     // Corrupt or empty — hand back a valid empty body for the type so the
@@ -211,7 +226,14 @@ export function updateDocument(id: string, patch: DocumentPatch): FbDocument | n
     sets.push('title = @title')
     params.title = patch.title
   }
-  if (patch.body !== undefined) {
+  // Never let this build overwrite a drawing a newer PlexiiDraw made with one
+  // it re-encoded: the studio opens such a drawing read-only and never saves,
+  // and this is the backstop for any other caller. The rest of the patch (a
+  // rename, say) still applies.
+  const refuseBody =
+    patch.body !== undefined && existing.docType === 'draw' && refusesDrawDocOverwrite(existing.body, patch.body)
+  if (refuseBody) console.warn(`[documents] refused to overwrite newer-format drawing ${id} with an older-format body`)
+  if (patch.body !== undefined && !refuseBody) {
     sets.push('body = @body')
     params.body = JSON.stringify(patch.body)
     // Name it from what the user just wrote, if it still has no name.

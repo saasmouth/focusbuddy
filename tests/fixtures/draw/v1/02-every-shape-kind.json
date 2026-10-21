@@ -1,0 +1,462 @@
+{
+  "schemaVersion": 1,
+  "width": 400,
+  "height": 300,
+  "background": {
+    "type": "solid",
+    "color": "#ffffff"
+  },
+  "layers": [
+    {
+      "id": "L1",
+      "kind": "vector",
+      "name": "L1",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "normal",
+      "objects": [
+        {
+          "id": "rect",
+          "type": "path",
+          "shapeKind": "rect",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 10,
+                    "y": 10
+                  },
+                  {
+                    "x": 90,
+                    "y": 10
+                  },
+                  {
+                    "x": 90,
+                    "y": 70
+                  },
+                  {
+                    "x": 10,
+                    "y": 70
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#6d5dfc"
+          }
+        },
+        {
+          "id": "rr",
+          "type": "path",
+          "shapeKind": "roundRect",
+          "cornerRadius": 12,
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 112,
+                    "y": 10,
+                    "inX": 105.4,
+                    "inY": 10
+                  },
+                  {
+                    "x": 178,
+                    "y": 10,
+                    "outX": 184.6,
+                    "outY": 10
+                  },
+                  {
+                    "x": 190,
+                    "y": 22,
+                    "inX": 190,
+                    "inY": 15.4
+                  },
+                  {
+                    "x": 190,
+                    "y": 58,
+                    "outX": 190,
+                    "outY": 64.6
+                  },
+                  {
+                    "x": 178,
+                    "y": 70,
+                    "inX": 184.6,
+                    "inY": 70
+                  },
+                  {
+                    "x": 112,
+                    "y": 70,
+                    "outX": 105.4,
+                    "outY": 70
+                  },
+                  {
+                    "x": 100,
+                    "y": 58,
+                    "inX": 100,
+                    "inY": 64.6
+                  },
+                  {
+                    "x": 100,
+                    "y": 22,
+                    "outX": 100,
+                    "outY": 15.4
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#ec4899"
+          }
+        },
+        {
+          "id": "ell",
+          "type": "path",
+          "shapeKind": "ellipse",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 250,
+                    "y": 10,
+                    "inX": 233.4,
+                    "inY": 10,
+                    "outX": 266.6,
+                    "outY": 10
+                  },
+                  {
+                    "x": 280,
+                    "y": 40,
+                    "inX": 280,
+                    "inY": 23.4,
+                    "outX": 280,
+                    "outY": 56.6
+                  },
+                  {
+                    "x": 250,
+                    "y": 70,
+                    "inX": 266.6,
+                    "inY": 70,
+                    "outX": 233.4,
+                    "outY": 70
+                  },
+                  {
+                    "x": 220,
+                    "y": 40,
+                    "inX": 220,
+                    "inY": 56.6,
+                    "outX": 220,
+                    "outY": 23.4
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#16a34a"
+          }
+        },
+        {
+          "id": "poly",
+          "type": "path",
+          "shapeKind": "polygon",
+          "sides": 6,
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 340,
+                    "y": 10
+                  },
+                  {
+                    "x": 366,
+                    "y": 25
+                  },
+                  {
+                    "x": 366,
+                    "y": 55
+                  },
+                  {
+                    "x": 340,
+                    "y": 70
+                  },
+                  {
+                    "x": 314,
+                    "y": 55
+                  },
+                  {
+                    "x": 314,
+                    "y": 25
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#f59e0b"
+          }
+        },
+        {
+          "id": "star",
+          "type": "path",
+          "shapeKind": "star",
+          "sides": 5,
+          "innerRatio": 0.5,
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 50,
+                    "y": 0
+                  },
+                  {
+                    "x": 61,
+                    "y": 35
+                  },
+                  {
+                    "x": 98,
+                    "y": 35
+                  },
+                  {
+                    "x": 68,
+                    "y": 57
+                  },
+                  {
+                    "x": 79,
+                    "y": 91
+                  },
+                  {
+                    "x": 50,
+                    "y": 70
+                  },
+                  {
+                    "x": 21,
+                    "y": 91
+                  },
+                  {
+                    "x": 32,
+                    "y": 57
+                  },
+                  {
+                    "x": 2,
+                    "y": 35
+                  },
+                  {
+                    "x": 39,
+                    "y": 35
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#0ea5e9"
+          }
+        },
+        {
+          "id": "line",
+          "type": "path",
+          "shapeKind": "line",
+          "path": {
+            "subpaths": [
+              {
+                "closed": false,
+                "nodes": [
+                  {
+                    "x": 120,
+                    "y": 120
+                  },
+                  {
+                    "x": 260,
+                    "y": 200
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "none"
+          },
+          "stroke": {
+            "paint": {
+              "type": "solid",
+              "color": "#1c1917"
+            },
+            "width": 2,
+            "cap": "round"
+          }
+        },
+        {
+          "id": "pencil",
+          "type": "path",
+          "shapeKind": "pencil",
+          "path": {
+            "subpaths": [
+              {
+                "closed": false,
+                "nodes": [
+                  {
+                    "x": 10,
+                    "y": 10,
+                    "outX": 60,
+                    "outY": -20
+                  },
+                  {
+                    "x": 120,
+                    "y": 80,
+                    "inX": 90,
+                    "inY": 120,
+                    "outX": 150,
+                    "outY": 40
+                  },
+                  {
+                    "x": 200,
+                    "y": 10,
+                    "inX": 180,
+                    "inY": -10
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "none"
+          },
+          "stroke": {
+            "paint": {
+              "type": "solid",
+              "color": "#7c3aed"
+            },
+            "width": 3,
+            "cap": "round",
+            "join": "round"
+          }
+        },
+        {
+          "id": "pen",
+          "type": "path",
+          "shapeKind": "pen",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 280,
+                    "y": 150
+                  },
+                  {
+                    "x": 380,
+                    "y": 160,
+                    "inX": 360,
+                    "inY": 120
+                  },
+                  {
+                    "x": 330,
+                    "y": 280
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#22c55e"
+          },
+          "stroke": {
+            "paint": {
+              "type": "solid",
+              "color": "#000000"
+            },
+            "width": 1
+          }
+        },
+        {
+          "id": "plain",
+          "type": "path",
+          "shapeKind": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 20,
+                    "y": 200
+                  },
+                  {
+                    "x": 60,
+                    "y": 200
+                  },
+                  {
+                    "x": 60,
+                    "y": 240
+                  },
+                  {
+                    "x": 20,
+                    "y": 240
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#ef4444"
+          }
+        },
+        {
+          "id": "nokind",
+          "type": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 70,
+                    "y": 200
+                  },
+                  {
+                    "x": 110,
+                    "y": 200
+                  },
+                  {
+                    "x": 110,
+                    "y": 240
+                  },
+                  {
+                    "x": 70,
+                    "y": 240
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#64748b"
+          }
+        }
+      ]
+    }
+  ],
+  "activeLayerId": "L1"
+}

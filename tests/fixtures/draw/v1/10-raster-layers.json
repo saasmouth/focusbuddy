@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "width": 400,
+  "height": 300,
+  "background": {
+    "type": "solid",
+    "color": "#ffffff"
+  },
+  "layers": [
+    {
+      "id": "R-empty",
+      "kind": "raster",
+      "name": "R-empty",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "normal",
+      "src": ""
+    },
+    {
+      "id": "L1",
+      "kind": "vector",
+      "name": "L1",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "normal",
+      "objects": [
+        {
+          "id": "mid",
+          "type": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 50,
+                    "y": 50
+                  },
+                  {
+                    "x": 150,
+                    "y": 50
+                  },
+                  {
+                    "x": 150,
+                    "y": 150
+                  },
+                  {
+                    "x": 50,
+                    "y": 150
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#22c55e"
+          }
+        }
+      ]
+    },
+    {
+      "id": "R-paint",
+      "kind": "raster",
+      "name": "R-paint",
+      "visible": true,
+      "locked": false,
+      "opacity": 0.8,
+      "blend": "multiply",
+      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR42mNk+M/AwMDAxMDAwAAAFUMBBnjB2ScAAAAASUVORK5CYII="
+    },
+    {
+      "id": "R-hidden",
+      "kind": "raster",
+      "name": "R-hidden",
+      "visible": false,
+      "locked": false,
+      "opacity": 1,
+      "blend": "normal",
+      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    },
+    {
+      "id": "R-same-bytes",
+      "kind": "raster",
+      "name": "R-same-bytes",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "normal",
+      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR42mNk+M/AwMDAxMDAwAAAFUMBBnjB2ScAAAAASUVORK5CYII="
+    }
+  ],
+  "activeLayerId": "R-same-bytes"
+}

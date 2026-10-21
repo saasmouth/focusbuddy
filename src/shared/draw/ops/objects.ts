@@ -1,0 +1,186 @@
+// Object lifecycle on a v2 document: find, add, change, delete, duplicate,
+// move, scale. Pure functions; unchanged branches keep their identity.
+//
+// Ids address nodes ANYWHERE in the tree (a group's members included), so a
+// later direct-selection or isolation mode can edit inside groups through the
+// same calls. Phase 0's selection only ever holds top-level ids.
+
+import { drawId } from '../../draw'
+import type { Box } from '../../drawGeometry'
+import type { DrawDoc, DrawDocVectorLayer, DrawGroupNode, DrawNode } from '../model'
+import { findNode, mapNodesDeep, vectorLayersOf } from '../tree'
+import { scaleNode, translateNode } from './geometry'
+
+/** The layer a node lives on (at any depth), or undefined when the id is unknown. */
+export function layerOf(doc: DrawDoc, id: string): DrawDocVectorLayer | undefined {
+  const hit = findNode(doc, id)
+  return hit ? (doc.layers.find((l) => l.id === hit.layerId) as DrawDocVectorLayer) : undefined
+}
+
+export function getObject(doc: DrawDoc, id: string): DrawNode | undefined {
+  return findNode(doc, id)?.node
+}
+
+/** The nodes for `ids`, in paint order (bottom first), each once. */
+export function getObjects(doc: DrawDoc, ids: string[]): DrawNode[] {
+  const wanted = new Set(ids)
+  const out: DrawNode[] = []
+  for (const l of vectorLayersOf(doc)) {
+    const visit = (nodes: DrawNode[]): void => {
+      for (const n of nodes) {
+        if (wanted.has(n.id)) out.push(n)
+        else if (n.type === 'group') visit(n.children)
+      }
+    }
+    visit(l.objects)
+  }
+  return out
+}
+
+/**
+ * The ids the user may act on: on a visible, unlocked layer; not hidden, not
+ * locked, and not inside a hidden or locked group; and not opaque (made by a
+ * newer PlexiiDraw, which this build cannot edit without damaging it).
+ */
+export function editableIds(doc: DrawDoc, ids: string[]): string[] {
+  const wanted = new Set(ids)
+  const out: string[] = []
+  for (const l of vectorLayersOf(doc)) {
+    if (l.locked || !l.visible) continue
+    const visit = (nodes: DrawNode[], blocked: boolean): void => {
+      for (const n of nodes) {
+        const off = blocked || n.locked === true || n.hidden === true
+        if (wanted.has(n.id) && !off && n.type !== 'opaque') out.push(n.id)
+        if (n.type === 'group') visit(n.children, off)
+      }
+    }
+    visit(l.objects, false)
+  }
+  return out
+}
+
+/**
+ * What "Select all" picks: every top-level node on a visible, unlocked layer
+ * that is neither hidden nor locked nor opaque.
+ */
+export function selectableObjectIds(doc: DrawDoc): string[] {
+  const out: string[] = []
+  for (const l of vectorLayersOf(doc)) {
+    if (!l.visible || l.locked) continue
+    for (const n of l.objects) if (!n.hidden && !n.locked && n.type !== 'opaque') out.push(n.id)
+  }
+  return out
+}
+
+/** Every top-level node with its layer, bottom layer first. */
+export function allObjects(doc: DrawDoc): Array<{ layerId: string; object: DrawNode }> {
+  const out: Array<{ layerId: string; object: DrawNode }> = []
+  for (const l of vectorLayersOf(doc)) for (const o of l.objects) out.push({ layerId: l.id, object: o })
+  return out
+}
+
+/**
+ * Add a node to a layer. A raster (or missing, or locked) target falls back to
+ * the topmost editable vector layer, and if there is none a fresh layer is made
+ * -- so a draw gesture can never silently go nowhere.
+ */
+export function addObject(doc: DrawDoc, node: DrawNode, layerId?: string): DrawDoc {
+  const vectors = vectorLayersOf(doc)
+  const target = vectors.find((l) => l.id === layerId && !l.locked) ?? [...vectors].reverse().find((l) => !l.locked)
+  if (!target) {
+    const fresh: DrawDocVectorLayer = {
+      id: drawId('lyr'),
+      kind: 'vector',
+      name: `Layer ${doc.layers.length + 1}`,
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blend: 'normal',
+      objects: [node]
+    }
+    return { ...doc, layers: [...doc.layers, fresh], activeLayerId: fresh.id }
+  }
+  return {
+    ...doc,
+    activeLayerId: target.id,
+    layers: doc.layers.map((l) => (l.id === target.id ? { ...target, objects: [...target.objects, node] } : l))
+  }
+}
+
+/** Change the nodes with these ids, wherever they are; everything else keeps its identity. */
+export function mapObjects(doc: DrawDoc, ids: string[], fn: (n: DrawNode) => DrawNode): DrawDoc {
+  const wanted = new Set(ids)
+  return {
+    ...doc,
+    layers: doc.layers.map((l) => (l.kind === 'vector' ? { ...l, objects: mapNodesDeep(l.objects, (n) => (wanted.has(n.id) ? fn(n) : n)) } : l))
+  }
+}
+
+export function mapObject(doc: DrawDoc, id: string, fn: (n: DrawNode) => DrawNode): DrawDoc {
+  return {
+    ...doc,
+    layers: doc.layers.map((l) => {
+      if (l.kind !== 'vector') return l
+      const objects = mapNodesDeep(l.objects, (n) => (n.id === id ? fn(n) : n))
+      return objects === l.objects ? l : { ...l, objects }
+    })
+  }
+}
+
+function removeDeep(nodes: DrawNode[], wanted: Set<string>): DrawNode[] {
+  return nodes
+    .filter((n) => !wanted.has(n.id))
+    .map((n) => (n.type === 'group' ? ({ ...n, children: removeDeep(n.children, wanted) } as DrawGroupNode) : n))
+}
+
+export function deleteObjects(doc: DrawDoc, ids: string[]): DrawDoc {
+  const wanted = new Set(ids)
+  return {
+    ...doc,
+    layers: doc.layers.map((l) => (l.kind === 'vector' ? { ...l, objects: removeDeep(l.objects, wanted) } : l))
+  }
+}
+
+/** A copy of a node with a fresh id -- and fresh ids for every member of a group. */
+function cloneWithNewIds(n: DrawNode): DrawNode {
+  const id = drawId('obj')
+  if (n.type === 'group') return { ...n, id, children: n.children.map(cloneWithNewIds) }
+  return { ...n, id }
+}
+
+/** Copies of the top-level nodes `ids`, offset by (dx, dy), placed directly above the originals' layer stack. */
+export function duplicateObjects(doc: DrawDoc, ids: string[], dx = 12, dy = 12): { doc: DrawDoc; newIds: string[] } {
+  const wanted = new Set(ids)
+  const newIds: string[] = []
+  const layers = doc.layers.map((l) => {
+    if (l.kind !== 'vector') return l
+    const copies: DrawNode[] = []
+    for (const o of l.objects) {
+      if (!wanted.has(o.id) || o.type === 'opaque') continue
+      const copy = cloneWithNewIds(o)
+      newIds.push(copy.id)
+      copies.push(translateNode({ ...copy, name: o.name ? `${o.name} copy` : undefined } as DrawNode, dx, dy))
+    }
+    return copies.length ? { ...l, objects: [...l.objects, ...copies] } : l
+  })
+  return { doc: { ...doc, layers }, newIds }
+}
+
+export function moveObjects(doc: DrawDoc, ids: string[], dx: number, dy: number): DrawDoc {
+  return mapObjects(doc, ids, (n) => translateNode(n, dx, dy))
+}
+
+/**
+ * Scale nodes so the box they occupy becomes `to` -- the selection handles. A
+ * multi-node selection resizes as one unit, exactly as a single node does.
+ */
+export function scaleObjects(doc: DrawDoc, ids: string[], from: Box, to: Box): DrawDoc {
+  const sx = from.w > 1e-6 ? to.w / from.w : 1
+  const sy = from.h > 1e-6 ? to.h / from.h : 1
+  const e = to.x - from.x * sx
+  const f = to.y - from.y * sy
+  return mapObjects(doc, ids, (n) => scaleNode(n, sx, sy, e, f))
+}
+
+/** The visible bounds of a set of nodes (opaque ones, which have no geometry here, left out). */
+export { nodesBounds as objectsBounds } from './geometry'

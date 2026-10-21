@@ -1,0 +1,337 @@
+{
+  "schemaVersion": 1,
+  "width": 400,
+  "height": 300,
+  "background": {
+    "type": "solid",
+    "color": "#ffffff"
+  },
+  "layers": [
+    {
+      "id": "L1",
+      "kind": "vector",
+      "name": "L1",
+      "visible": true,
+      "locked": false,
+      "opacity": 0.8,
+      "blend": "screen",
+      "objects": [
+        {
+          "id": "o1",
+          "type": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 10,
+                    "y": 10
+                  },
+                  {
+                    "x": 110,
+                    "y": 10
+                  },
+                  {
+                    "x": 110,
+                    "y": 110
+                  },
+                  {
+                    "x": 10,
+                    "y": 110
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#ff0000"
+          },
+          "opacity": 0.5
+        },
+        {
+          "id": "o2",
+          "type": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 60,
+                    "y": 60
+                  },
+                  {
+                    "x": 160,
+                    "y": 60
+                  },
+                  {
+                    "x": 160,
+                    "y": 160
+                  },
+                  {
+                    "x": 60,
+                    "y": 160
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#00ff00"
+          },
+          "blend": "multiply"
+        },
+        {
+          "id": "o3",
+          "type": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 110,
+                    "y": 110
+                  },
+                  {
+                    "x": 210,
+                    "y": 110
+                  },
+                  {
+                    "x": 210,
+                    "y": 210
+                  },
+                  {
+                    "x": 110,
+                    "y": 210
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#0000ff"
+          },
+          "opacity": 0.25,
+          "blend": "color-dodge"
+        },
+        {
+          "id": "hidden",
+          "type": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 200,
+                    "y": 10
+                  },
+                  {
+                    "x": 250,
+                    "y": 10
+                  },
+                  {
+                    "x": 250,
+                    "y": 60
+                  },
+                  {
+                    "x": 200,
+                    "y": 60
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#000"
+          },
+          "hidden": true
+        },
+        {
+          "id": "locked",
+          "type": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 260,
+                    "y": 10
+                  },
+                  {
+                    "x": 310,
+                    "y": 10
+                  },
+                  {
+                    "x": 310,
+                    "y": 60
+                  },
+                  {
+                    "x": 260,
+                    "y": 60
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#444"
+          },
+          "locked": true,
+          "name": "Locked square"
+        }
+      ]
+    },
+    {
+      "id": "L2",
+      "kind": "vector",
+      "name": "L2",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "difference",
+      "objects": [
+        {
+          "id": "top",
+          "type": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 150,
+                    "y": 150
+                  },
+                  {
+                    "x": 250,
+                    "y": 150
+                  },
+                  {
+                    "x": 250,
+                    "y": 250
+                  },
+                  {
+                    "x": 150,
+                    "y": 250
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#000000"
+          }
+        }
+      ]
+    },
+    {
+      "id": "L3-hidden",
+      "kind": "vector",
+      "name": "L3-hidden",
+      "visible": false,
+      "locked": false,
+      "opacity": 1,
+      "blend": "normal",
+      "objects": [
+        {
+          "id": "never",
+          "type": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 0,
+                    "y": 0
+                  },
+                  {
+                    "x": 400,
+                    "y": 0
+                  },
+                  {
+                    "x": 400,
+                    "y": 300
+                  },
+                  {
+                    "x": 0,
+                    "y": 300
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#000"
+          }
+        }
+      ]
+    },
+    {
+      "id": "L4-locked",
+      "kind": "vector",
+      "name": "L4-locked",
+      "visible": true,
+      "locked": true,
+      "opacity": 1,
+      "blend": "normal",
+      "objects": [
+        {
+          "id": "still-drawn",
+          "type": "path",
+          "path": {
+            "subpaths": [
+              {
+                "closed": true,
+                "nodes": [
+                  {
+                    "x": 5,
+                    "y": 250
+                  },
+                  {
+                    "x": 35,
+                    "y": 250
+                  },
+                  {
+                    "x": 35,
+                    "y": 280
+                  },
+                  {
+                    "x": 5,
+                    "y": 280
+                  }
+                ]
+              }
+            ]
+          },
+          "fill": {
+            "type": "solid",
+            "color": "#999"
+          }
+        }
+      ]
+    },
+    {
+      "id": "L5-empty",
+      "kind": "vector",
+      "name": "L5-empty",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "normal",
+      "objects": []
+    }
+  ],
+  "activeLayerId": "L5-empty"
+}

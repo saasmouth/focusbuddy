@@ -22,7 +22,7 @@ describe('pdfPageSize', () => {
     const dir = join(__dirname, '../../src/main')
     const offenders = readdirSync(dir)
       .filter((f) => f.endsWith('.ts'))
-      .filter((f) => /pxToMicron|25400\s*\)?\s*\/\s*96/.test(readFileSync(join(dir, f), 'utf-8')))
+      .filter((f) => /pxToMicron|pdfPageMicrons|25400/.test(readFileSync(join(dir, f), 'utf-8')))
     expect(offenders).toEqual([])
   })
 })
