@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Icon from '../Icon'
 import { sanitizeHtml } from '../../lib/htmlSanitize'
 import WorkspaceAsk from './editor/WorkspaceAsk'
+import { adviseDesign, adviceSummary } from '@shared/designAdvisor'
+import type { DesignBody } from '@shared/design'
 
 // The persistent right-side AI Assistant panel for PlexiDesign. It mirrors the
 // PlexiDocs side panel and the PlexiSheets AI panel in structure, tokens and
@@ -25,6 +27,10 @@ import WorkspaceAsk from './editor/WorkspaceAsk'
 type ApplyMode = 'replace' | 'insert'
 
 interface Props {
+  // The live document, so the advisor can look at it on every change. Passed
+  // rather than read from a store because this panel is otherwise pure, and a
+  // panel that reaches for global state is one that cannot be tested.
+  body?: DesignBody | null
   // The plain text of the currently selected text element, or null when the
   // selection is empty or is not a text element. The parent reads this from the
   // real design via elementText(), so the AI always works on real content.
@@ -53,12 +59,21 @@ function htmlToPlainText(html: string): string {
 }
 
 export default function DesignAiPanel({
+  body,
   selectedText,
   onApplyText,
   onInsertText,
   userName,
   onCollapse
 }: Props): JSX.Element {
+  // Recomputed on every document change. It is arithmetic over the elements,
+  // with no I/O and no model call, so this is cheap enough to do inline — the
+  // whole point of keeping the measurable rules out of the AI path.
+  const [dismissed, setDismissed] = useState<string[]>([])
+  const advice = useMemo(
+    () => (body ? adviseDesign(body, { mute: [] }).filter((a) => !dismissed.includes(a.id)) : []),
+    [body, dismissed]
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [needsSelection, setNeedsSelection] = useState(false)
@@ -204,6 +219,58 @@ export default function DesignAiPanel({
             </span>
             <p className="text-[13px] leading-snug text-[var(--ink-80)]">{greeting}</p>
           </div>
+
+          {/* Live review. Above the prompt box on purpose: the useful thing on
+              opening this panel is usually what is already wrong, not a blank
+              field. Every item here is measured from the document — no model
+              call, nothing to wait for, nothing that can be invented. */}
+          {body && (
+            <div data-testid="design-advice">
+              <div className="flex items-center justify-between mb-1">
+                <span className="fb-t-caption uppercase tracking-[0.12em] text-[var(--ink-50)]">
+                  Live review
+                </span>
+                <span className="fb-t-caption text-[var(--ink-50)]">{adviceSummary(advice)}</span>
+              </div>
+              {advice.length === 0 ? (
+                <p className="fb-t-caption text-[var(--ink-50)] leading-snug">
+                  Nothing to flag. Type, contrast, spacing and margins all look sound.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-1">
+                  {advice.map((a) => (
+                    <li
+                      key={a.id}
+                      data-testid={`advice-${a.rule}`}
+                      className="group flex items-start gap-1.5 rounded-md px-1.5 py-1 hover:bg-[var(--surface-sunken)]"
+                    >
+                      <Icon
+                        name={a.severity === 'problem' ? 'error' : 'lightbulb'}
+                        size={13}
+                        className={
+                          a.severity === 'problem'
+                            ? 'mt-0.5 shrink-0 text-rose-600 dark:text-rose-400'
+                            : 'mt-0.5 shrink-0 text-[var(--ink-50)]'
+                        }
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-[12px] leading-snug text-[var(--ink-90)]">{a.title}</span>
+                        <span className="block fb-t-caption leading-snug text-[var(--ink-50)]">{a.detail}</span>
+                      </span>
+                      <button
+                        className="ml-auto opacity-0 group-hover:opacity-100 text-[var(--ink-40)] hover:text-[var(--ink-70)] shrink-0"
+                        title="Dismiss"
+                        aria-label={`Dismiss: ${a.title}`}
+                        onClick={() => setDismissed((d) => [...d, a.id])}
+                      >
+                        <Icon name="close" size={12} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {/* Quick actions. The first two need a selected text element; the others
               produce fresh ideas that are inserted as new text. */}
