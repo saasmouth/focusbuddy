@@ -26,6 +26,7 @@ import '@fontsource/atkinson-hyperlegible'
 // The font-picker families (lib/googleFonts.ts), bundled too.
 import './assets/fonts/bundled-fonts.css'
 import './styles/globals.css'
+import { runZoomCommand } from './lib/zoomCommands'
 
 // This is the MAIN PlexiDesk renderer, which mounts the one global AssistantOverlay.
 // The flag lets shared editors (DocEditor, used here AND in the standalone
@@ -41,9 +42,10 @@ ensureFirstRunDefaults()
 applyUiScale(loadUiScale())
 applyDensity(loadDensity())
 
-// The View menu and the Cmd +/-/0 shortcuts step the same stored scale.
+// The View menu and the Cmd +/-/0 shortcuts step the same stored scale --
+// unless an editor with its own canvas zoom (PlexiiDraw) has claimed them.
 window.api.app.onZoom((dir) => {
-  stepUiScale(dir)
+  runZoomCommand(dir, stepUiScale)
 })
 
 // Attach the active-organisation header to every signal-server request, before

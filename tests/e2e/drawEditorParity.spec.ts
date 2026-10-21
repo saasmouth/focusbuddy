@@ -97,6 +97,7 @@ test('EP-1 the toolbox offers every tool, in order, with its shortcut (Illustrat
     'draw-tool-eraser=Eraser (⇧E)',
     'draw-tool-bucket=Paint bucket (K)',
     'draw-tool-eyedropper=Eyedropper (I)',
+    'draw-tool-artboard=Artboard (⇧O)',
     'draw-tool-hand=Pan (H)'
   ])
 })
@@ -127,10 +128,11 @@ test('EP-2 the menus list the same items, with the same enabled states', async (
     'Delete (off)',
     'Select all',
     'Deselect (off)',
+    'Select all on active artboard',
     'Keyboard shortcuts…'
   ])
   expect(await read('layer')).toEqual(['New vector layer', 'New paint layer'])
-  expect(await read('view')).toEqual(['Fit to window', 'Zoom to 100%', 'Grid', 'Snap to edges'])
+  expect(await read('view')).toEqual(['Fit Artboard in Window', 'Fit All in Window', 'Zoom to 100%', 'Next Artboard (off)', 'Previous Artboard (off)', 'Grid', 'Snap to edges'])
 })
 
 test('EP-3 shapes, Pathfinder, undo/redo and Delete through the keyboard', async () => {

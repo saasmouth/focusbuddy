@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from 'zustand'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
+import { claimZoomCommands } from '../../lib/zoomCommands'
 import type { LiveUndo } from '../../lib/yjsKeyedJson'
 import { loadGoogleFont, familyLabel } from '../../lib/googleFonts'
 import DrawStudioMenuBar from './editor/DrawStudioMenuBar'
@@ -248,6 +249,18 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     sc.scrollTop = next.scrollTop
   }, [zoom])
 
+  // The app's zoom keys and View › Zoom items zoom the DRAWING while it is
+  // open (⌘0 fits the active artboard, as in Illustrator), even when the app
+  // menu takes the key before the page sees it (lib/zoomCommands.ts).
+  useEffect(
+    () =>
+      claimZoomCommands((dir) => {
+        ctx.run(dir === 'in' ? 'view.zoomIn' : dir === 'out' ? 'view.zoomOut' : 'view.fit')
+        return true
+      }),
+    [ctx]
+  )
+
   // Fit the artboard on first paint so a 4K canvas is not opened at 1:1.
   const fitted = useRef(false)
   useEffect(() => {
@@ -383,7 +396,35 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
         <Toolbox ctx={ctx} />
 
         {/* Canvas */}
-        <div ref={scrollRef} className="flex-1 min-w-0 overflow-auto bg-stone-200/60 dark:bg-black/40 p-6" data-testid="draw-canvas-scroll">
+        {/* The grey around the stage is pasteboard: a press there goes to the
+            tool too (draw an artboard with the Artboard tool, start a marquee,
+            deselect), in the same document coordinates. Only presses on the
+            grey itself -- never the scrollbars, never the stage's own. */}
+        <div
+          ref={scrollRef}
+          className="flex-1 min-w-0 overflow-auto bg-stone-200/60 dark:bg-black/40 p-6"
+          data-testid="draw-canvas-scroll"
+          onPointerDown={(e) => {
+            const el = e.currentTarget
+            if (e.target !== el || e.button === 2) return
+            const r = el.getBoundingClientRect()
+            if (e.clientX - r.left - el.clientLeft >= el.clientWidth || e.clientY - r.top - el.clientTop >= el.clientHeight) return
+            el.setPointerCapture(e.pointerId)
+            editor.pointerDown(toolPointer(e))
+          }}
+          onPointerMove={(e) => {
+            if (e.target === e.currentTarget) editor.pointerMove(toolPointer(e))
+          }}
+          onPointerUp={(e) => {
+            if (e.target === e.currentTarget) editor.pointerUp(toolPointer(e))
+          }}
+          onPointerCancel={(e) => {
+            if (e.target === e.currentTarget) editor.pointerUp(toolPointer(e))
+          }}
+          onContextMenu={(e) => {
+            if (e.target === e.currentTarget) onContextMenu(e)
+          }}
+        >
           <div
             ref={stageRef}
             onPointerDown={onPointerDown}

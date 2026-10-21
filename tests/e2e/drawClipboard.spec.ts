@@ -84,7 +84,9 @@ test('CB-1 copy then paste duplicates with the same geometry and a new id; the s
     return { svg, pngSig: png.subarray(0, 8).toString('hex'), pngW: png.readUInt32BE(16), pngH: png.readUInt32BE(20), text: await clipboard.readText() }
   })
   expect(content.svg).toMatch(/^<svg [^>]*viewBox="100 120 160 90"/)
-  expect(content.text).toBe(content.svg)
+  // Not as text (4.3.41): apps that take text before pictures pasted the SVG
+  // source instead of the picture. Edit › Copy As › SVG Code does that on purpose.
+  expect(content.text).not.toContain('<svg')
   expect(content.pngSig).toBe('89504e470d0a1a0a')
   // The picture is the art at 2x (320 x 180), not the whole artboard.
   expect([content.pngW, content.pngH]).toEqual([320, 180])
