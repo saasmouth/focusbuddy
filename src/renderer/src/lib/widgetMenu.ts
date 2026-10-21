@@ -45,7 +45,12 @@ export function kindsRepresentedByApps(
 export function tileWidgetKind(app: { key: string; widgetKinds?: readonly WidgetKind[] }): WidgetKind | undefined {
   // Only a kind the catalogue knows: Meet's meeting record is minted by the
   // wrap-up and deliberately never hand-placed as an empty shell.
-  return (app.widgetKinds ?? []).find((k) => catalogFor(k) !== null)
+  // Never a kind that is no longer offered (hideFromPicker): a tile must not be
+  // a back door to a retired widget.
+  return (app.widgetKinds ?? []).find((k) => {
+    const entry = catalogFor(k)
+    return entry !== null && !entry.hideFromPicker
+  })
 }
 
 /** The kinds the Widgets section lists, in catalogue order. */
