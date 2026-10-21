@@ -133,6 +133,20 @@ describe('Restore at sign-in', () => {
   })
 })
 
+describe('signing in', () => {
+  it('does not crash when the session list turns account_restore on (hook order stays fixed)', () => {
+    const errors: unknown[] = []
+    const spy = vi.spyOn(console, 'error').mockImplementation((e) => errors.push(e))
+    mount()
+    act(() => useCapabilityStore.setState({ serverFeatures: ['account_restore'] }))
+    act(() => useCapabilityStore.setState({ serverFeatures: [] }))
+    act(() => useCapabilityStore.setState({ serverFeatures: ['account_restore'], publicServerFeatures: ['account_restore'] }))
+    spy.mockRestore()
+    expect(errors.filter((e) => /hooks|#310|#311/i.test(String(e)))).toEqual([])
+    expect(q('signin-restore-start')).not.toBeNull()
+  })
+})
+
 describe('signed out: the public feature list', () => {
   it('today\'s server answers 404: the link stays hidden', async () => {
     mount()

@@ -59,7 +59,11 @@ export default function LaunchSignInModal(): JSX.Element | null {
   // (GET /public/server-features) is asked once the modal is up. Today's
   // server has no such route: the answer is a 404, the list stays empty and
   // the link stays hidden.
-  const restoreRoutes = useServerFeature('account_restore') || usePublicServerFeature('account_restore')
+  // Both hooks, every render (never `a() || b()`: short-circuiting a hook
+  // changes the hook count when signing in and crashes the tree, React #311).
+  const sessionRestore = useServerFeature('account_restore')
+  const publicRestore = usePublicServerFeature('account_restore')
+  const restoreRoutes = sessionRestore || publicRestore
   const loadPublicFeatures = useCapabilityStore((s) => s.loadPublicServerFeatures)
   const setSkipped = useAccountStore((s) => s.setSkipped)
   // Manual open requested from elsewhere (Settings account section, etc.).
