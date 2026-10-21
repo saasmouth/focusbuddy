@@ -279,6 +279,52 @@ export function stripTrailingCommas(raw: string): string {
   return out
 }
 
+/**
+ * A cut-off JSON reply, closed at its last COMPLETE element: everything up to
+ * the last whole top-level field or whole array entry is kept, the half-written
+ * remainder is dropped, and the open brackets are closed. Never closes a
+ * half-written string or object, so text that was cut mid-sentence is never
+ * passed off as finished. Null when nothing whole can be kept. Exported for tests.
+ *
+ * Cut points are only allowed directly inside the top-level value, or between
+ * the entries of an array that sits directly inside it ({ reply, actions: [] },
+ * { rows: [] }, { suggestions: [] }): deeper, an entry would be kept half-made.
+ */
+export function closeTruncated(text: string): string | null {
+  let s = text
+  const fence = s.match(/```(?:json|JSON)?\s*([\s\S]*)$/)
+  if (fence && /[[{]/.test(fence[1])) s = fence[1].replace(/```[\s\S]*$/, '')
+  const start = s.search(/[[{]/)
+  if (start < 0) return null
+  const stack: string[] = []
+  let inStr = false
+  let esc = false
+  let best: { at: number; closers: string } | null = null
+  const allowed = (): boolean => stack.length === 1 || (stack.length === 2 && stack[1] === ']')
+  const mark = (at: number): void => {
+    if (allowed()) best = { at, closers: [...stack].reverse().join('') }
+  }
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i]
+    if (inStr) {
+      if (esc) esc = false
+      else if (ch === '\\') esc = true
+      else if (ch === '"') inStr = false
+      continue
+    }
+    if (ch === '"') inStr = true
+    else if (ch === '{' || ch === '[') stack.push(ch === '{' ? '}' : ']')
+    else if (ch === '}' || ch === ']') {
+      if (stack.pop() !== ch) return null
+      if (stack.length === 0) return null // it closed: not truncated, nothing to repair
+      mark(i + 1)
+    } else if (ch === ',') mark(i)
+  }
+  if (!best) return null
+  const b = best as { at: number; closers: string }
+  return s.slice(start, b.at) + b.closers
+}
+
 export type StructuredResult =
   | { ok: true; value: unknown; text: string; changed: boolean; contract: Contract | null; repairs: string[] }
   | { ok: false; problem: string; contract: Contract | null; cutOff: boolean }
@@ -324,4 +370,18 @@ export function parseStructured(text: string, shape: 'object' | 'array', purpose
   if (problem) return { ok: false, problem, contract, cutOff: false }
   const changed = repairs.length > 0
   return { ok: true, value: v, text: changed ? JSON.stringify(v) : text, changed, contract, repairs }
+}
+
+/**
+ * The last resort for a reply that was cut off and could not be retried in
+ * full (the on-device model ran out of room): close it at its last complete
+ * element and accept it only if THE CALL'S contract still holds. A reply whose
+ * main field was itself cut off fails here, honestly.
+ */
+export function salvageTruncated(text: string, shape: 'object' | 'array', purpose: string, system: string): StructuredResult | null {
+  const closed = closeTruncated(text)
+  if (!closed) return null
+  const r = parseStructured(closed, shape, purpose, system)
+  if (!r.ok) return null
+  return { ...r, text: r.changed ? r.text : closed, changed: true, repairs: [...r.repairs, 'closed-truncated'] }
 }

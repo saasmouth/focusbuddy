@@ -198,7 +198,7 @@ describe('every call is validated against its own contract', () => {
     expect(seen.length - from).toBe(2) // first + one retry
     expect(seen.at(-1)!.user).toMatch(/"rows" is empty/)
     expect(r.ok).toBe(false)
-    expect(r.error).toMatch(/could not produce rows.*Nothing was sent anywhere/)
+    expect(r.error).toMatch(/could not write rows.*Nothing was sent anywhere/)
   })
 
   it('the retry names the CALL\'s contract, never another call\'s', async () => {

@@ -54,6 +54,8 @@ import {
   runLocal,
   LocalUnsupportedError,
   localUnusableReason,
+  localUnusableKind,
+  type LocalUnusableKind,
   localContractOf,
   flattenRequest,
   emitGrounding
@@ -332,6 +334,8 @@ export interface LocalRuntime {
   modelLabel: () => string
   /** Whether a bundled model file is installed and verified (no loading). */
   installed: () => boolean
+  /** The on-device model's context window, in tokens (the active tier's). */
+  contextTokens?: () => number
 }
 
 export class LocalModelMissingError extends Error {
@@ -374,6 +378,22 @@ export function noLocalModelError(ramGB: number, tiers: readonly { minRamGB: num
   return new LocalModelMissingError()
 }
 
+/**
+ * What the person reads when the on-device model could not produce what a
+ * call promised. Plain words, no parser jargon; says nothing was sent, and
+ * what to do next. Exported for tests.
+ */
+export function unusableMessage(promised: string, kind: LocalUnusableKind | null, featureLabel: string): string {
+  const useKey = `or use your own key for ${featureLabel} in Settings → AI.`
+  if (kind === 'too-long') {
+    return `That was more than the on-device model can read at once, so it could not write ${promised}. Nothing was sent anywhere. Ask about less at a time, ${useKey}`
+  }
+  if (kind === 'out-of-room') {
+    return `The on-device model ran out of room before it finished ${promised}. Nothing was sent anywhere. Ask for something shorter or narrower, ${useKey}`
+  }
+  return `The on-device model could not write ${promised} this time. Nothing was sent anywhere. Try again or rephrase it, ${useKey}`
+}
+
 export class LocalUnavailableError extends Error {
   constructor(
     public readonly feature: AiFeature,
@@ -390,6 +410,19 @@ let runtime: LocalRuntime = {
   },
   modelLabel: () => 'none',
   installed: () => false
+}
+/**
+ * The on-device model's context window in tokens, or null when unknown. Call
+ * sites that pack retrieved material size it to this when the call runs on
+ * the device: a cloud model reads 200k tokens, the on-device one 16k.
+ */
+export function localContextTokens(): number | null {
+  try {
+    const n = runtime.contextTokens?.()
+    return typeof n === 'number' && n > 0 ? n : null
+  } catch {
+    return null
+  }
 }
 export function getLocalRuntime(): LocalRuntime {
   return runtime
@@ -537,7 +570,11 @@ async function serveLocal(
       cloud,
       opts,
       feature,
-      `The on-device model's answer for ${label} did not come out in a usable shape (${unusable}).`,
+      localUnusableKind(msg) === 'too-long'
+        ? `${label} was more than the on-device model can read at once.`
+        : localUnusableKind(msg) === 'out-of-room'
+          ? `The on-device model ran out of room before it finished the answer for ${label}.`
+          : `The on-device model's answer for ${label} did not come out in a usable shape.`,
       cloudModel
     )
     if (viaCloud) return viaCloud
@@ -546,10 +583,10 @@ async function serveLocal(
   // its answer (an empty table, no cards): it fails plainly instead.
   const promised = localContractOf(msg)
   if (unusable && promised) {
-    throw new LocalUnavailableError(
-      feature,
-      `The on-device model could not produce ${promised} for this request (${unusable}). Nothing was sent anywhere. Try again, rephrase it, or use your own key for ${AI_FEATURE_COPY[feature].label} in Settings → AI.`
-    )
+    // The technical reason goes to the log; the person reads what happened in
+    // plain words ("no JSON object was found" next to an answer was 4.3.40).
+    console.warn(`[local-ai] ${purpose}: unusable structured reply (${localUnusableKind(msg) ?? 'shape'}): ${unusable}`)
+    throw new LocalUnavailableError(feature, unusableMessage(promised, localUnusableKind(msg), AI_FEATURE_COPY[feature].label))
   }
   return msg
 }

@@ -9,7 +9,7 @@ import {
   type RefCandidate
 } from '@shared/widgetRefs'
 import { getModelClient, invalidateModelClients } from './modelClient'
-import { routedClient, localOnlyActive } from './local/providerRouter'
+import { routedClient, localOnlyActive, localContextTokens } from './local/providerRouter'
 import { BROWSER_TOOLS, runBrowserTool } from './agentBrowser'
 import { getNode, listNodes } from '../db/nodes'
 import { getWidget, listWidgetsByTask } from '../db/widgets'
@@ -78,7 +78,7 @@ import {
   isCreditClient,
   isStreamingUnsupported
 } from './creditMode'
-import { groundingBlock, retrievalSourceLine, packSources, type GroundingSource } from './grounding'
+import { groundingBlock, retrievalSourceLine, packSources, localRetrievalBudget, fitGroundingSources, type GroundingSource } from './grounding'
 import {
   cachedSystem,
   cachedUserContent,
@@ -217,6 +217,34 @@ export function invalidateAnthropicClient(): void {
 }
 
 // Model IDs are now resolved per-call via `resolveModel(purpose)` in ./modelRouting.
+
+/** The ask paths' sources, fitted to the on-device context when the 'chat' purpose runs there. */
+function fitAskSources(sources: GroundingSource[], fixedChars: number): { kept: GroundingSource[]; note: string } {
+  const budget = localRetrievalBudgetFor('chat', fixedChars)
+  if (budget === undefined) return { kept: sources, note: '' }
+  const fit = fitGroundingSources(sources, budget)
+  return {
+    kept: fit.kept,
+    note:
+      fit.dropped > 0
+        ? `\n\n(${fit.dropped} further matching document${fit.dropped === 1 ? ' was' : 's were'} found but did not fit; say so if the answer may be incomplete.)`
+        : ''
+  }
+}
+
+/** Characters of the RETRIEVED MATERIAL block's own wording, around the passages. */
+const RETRIEVAL_FRAME_CHARS = 1500
+
+/**
+ * The retrieved-material budget for a call that will run on the on-device
+ * model (its model id is `local:<purpose>`), sized to that model's context
+ * window; undefined (the cloud budget) otherwise. See localRetrievalBudget.
+ */
+function localRetrievalBudgetFor(purpose: Parameters<typeof resolveModel>[0], fixedChars: number): number | undefined {
+  if (!String(resolveModel(purpose)).startsWith('local:')) return undefined
+  const ctx = localContextTokens()
+  return ctx ? localRetrievalBudget(ctx, fixedChars) : undefined
+}
 
 function formatActivityForPrompt(events: ActivityEvent[]): string {
   if (events.length === 0) return '(no recorded activity in the window)'
@@ -1629,6 +1657,10 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
   // What actually ran, reported honestly to the trace (A4, AI-10).
   let searched = { workspace: false, web: false }
   const t0 = Date.now()
+  // The prompt's fixed parts, built once: the retrieval budget on the device
+  // is what the context window has left after them.
+  const baseSystem = buildSystemPrompt(req.taskId, req.supportsQuestions, req.includeMemory, req.mode)
+  const attachmentsBlock = renderAttachments(req.attachments, req.pinnedWidgetId)
   try {
     const lastUser = [...req.messages].reverse().find((m) => m.role === 'user')?.content ?? ''
     // Turn-level gating (A4, AI-10): discovery ideation turns skip the whole
@@ -1697,7 +1729,19 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
       // prompt, the citation chips in the UI and the text the model can actually
       // read must be ONE set — trim afterwards and the model can cite [25] having
       // never been shown it, which is indistinguishable from a hallucination.
-      const packed = packSources(admitted)
+      // On the on-device model the budget is its context window, not a cloud
+      // model's: 140k characters of passages overflowed 16k tokens, and the
+      // answer was cut short or never started (4.3.40). Sources that do not
+      // fit are counted and the model is told, below.
+      const localBudget = localRetrievalBudgetFor(
+        'chat',
+        baseSystem.length +
+          renderedMentions.block.length +
+          attachmentsBlock.length +
+          req.messages.reduce((n, m) => n + (typeof m.content === 'string' ? m.content.length : 0), 0) +
+          RETRIEVAL_FRAME_CHARS
+      )
+      const packed = packSources(admitted, localBudget)
       const sources = packed.kept
       if (sources.length > 0 || webResults.length > 0) {
         // Honest about demote-not-exclude, and it only claims a related-desk
@@ -1775,9 +1819,9 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
     // (mentions, retrieval, attachments) as an uncached suffix so they don't
     // change the cached hash.
     system: cachedSystem(
-      buildSystemPrompt(req.taskId, req.supportsQuestions, req.includeMemory, req.mode),
+      baseSystem,
       // What the user named by hand leads what the system went looking for.
-      renderedMentions.block + retrieval + renderAttachments(req.attachments, req.pinnedWidgetId)
+      renderedMentions.block + retrieval + attachmentsBlock
     ),
     msgs: req.messages
       .filter((m) => m.role === 'user' || m.role === 'assistant')
@@ -2227,6 +2271,7 @@ export async function sendChatStream(
     onQuestion: cb.onQuestion
   })
   let stopReason = ''
+  let finalText = ''
 
   try {
     // The PlexiDesk-credits proxy rejects streaming requests outright
@@ -2292,6 +2337,14 @@ export async function sendChatStream(
       )
     }
     stopReason = (finalMsg.stop_reason as string) ?? ''
+    // The final message is the reply of record. From a cloud stream it is the
+    // streamed text; from the on-device model it can differ — the validated
+    // retry, or a cut-off reply closed at its last complete part — and parsing
+    // the first, streamed attempt instead threw that work away.
+    finalText = finalMsg.content
+      .filter((b) => b.type === 'text')
+      .map((b) => ('text' in b ? b.text : ''))
+      .join('')
     if (stopReason === 'refusal') {
       cb.onError({
         ok: false,
@@ -2324,7 +2377,7 @@ export async function sendChatStream(
   // request with neither `complete` nor `error`, and the renderer would spin
   // forever waiting for an event that is never coming.
   try {
-    let text = consumer.text().trim()
+    let text = (finalText.trim() && stopReason !== 'aborted' ? finalText : consumer.text()).trim()
 
     // A response with no text at all is not an answer, and it is not something
     // the user can act on -- they asked a question and got a shrug. It happened
@@ -2779,10 +2832,14 @@ export async function askWorkspace(
     '- Be concise and direct.\n' +
     'Return ONLY a single valid JSON object, no prose outside it, no markdown fences. The first character must be { and the last must be }.\n' +
     'Schema: {"answer":"string (may include [n] citation markers)","sources":[1,2]} — sources is the 1-based numbers of the documents you actually used, empty if the answer is not in the documents.'
-  const docList = sources.map(groundingBlock).join('\n\n---\n\n')
   const convo = history.length
     ? 'Earlier in this conversation:\n' + history.map((h) => `Q: ${h.question}\nA: ${h.answer}`).join('\n') + '\n\n'
     : ''
+  // On the on-device model, only what fits its context window (see
+  // localRetrievalBudget); the model is told when matches were left out.
+  const fit = fitAskSources(sources, system.length + convo.length + question.length + 400)
+  sources = fit.kept
+  const docList = sources.map(groundingBlock).join('\n\n---\n\n') + fit.note
   // Documents lead as the cacheable prefix; the conversation + question are the
   // uncached suffix. On a follow-up that retrieves the same documents (notably the
   // single-document scope), the doc prefix is read from cache instead of re-billed.
@@ -2851,10 +2908,14 @@ export async function askWorkspaceStream(
     '- This may be a follow-up: resolve references like "it" or "that" using the earlier conversation, but still ground the answer in the documents.\n' +
     '- Cite the documents you used inline with [n] markers matching their numbers.\n' +
     '- Be concise and direct. Write a plain-text answer only — no JSON, no markdown code fences.'
-  const docList = sources.map(groundingBlock).join('\n\n---\n\n')
   const convo = history.length
     ? 'Earlier in this conversation:\n' + history.map((h) => `Q: ${h.question}\nA: ${h.answer}`).join('\n') + '\n\n'
     : ''
+  // On the on-device model, only what fits its context window (see
+  // localRetrievalBudget); the model is told when matches were left out.
+  const fit = fitAskSources(sources, system.length + convo.length + question.length + 400)
+  sources = fit.kept
+  const docList = sources.map(groundingBlock).join('\n\n---\n\n') + fit.note
   // Documents lead as the cacheable prefix; conversation + question are the
   // uncached suffix (see askWorkspace). The single-document scope, where the same
   // doc is asked about repeatedly, reads the doc prefix from cache each follow-up.
