@@ -5,6 +5,7 @@ import { docToHtml } from './docHtml'
 import { normalizeBody, activeTab, colLabel } from './sheetBody'
 import { displayCell, makeWorkbook } from './sheetFormula'
 import { normalizeMapBody } from '@shared/mapGraph'
+import { mapToSvg } from '@shared/mapExport'
 
 // Build a read-only, browser-renderable snapshot of an office document. The body
 // is rendered to safe, structural HTML here on the desktop (where the editors and
@@ -68,7 +69,15 @@ function mapHtml(body: MapBody): string {
   const edges = m.edges
     .map((e) => `<li>${esc(labelOf(e.source))} → ${esc(labelOf(e.target))}${e.label ? ` <em>(${esc(e.label)})</em>` : ''}</li>`)
     .join('')
-  return `<div class="office-map"><h4>Nodes</h4><ul>${nodes || '<li>(none)</li>'}</ul><h4>Connections</h4><ul>${edges || '<li>(none)</li>'}</ul></div>`
+  // The picture first (the same renderer as export), then a text outline for
+  // screen readers and search.
+  let picture = ''
+  try {
+    picture = m.nodes.length ? `<div class="office-map-svg" style="overflow:auto;max-width:100%">${mapToSvg(m, { padding: 24 }).svg}</div>` : ''
+  } catch {
+    picture = ''
+  }
+  return `<div class="office-map">${picture}<h4>Nodes</h4><ul>${nodes || '<li>(none)</li>'}</ul><h4>Connections</h4><ul>${edges || '<li>(none)</li>'}</ul></div>`
 }
 
 // Render a document's body to read-only HTML for the viewer. Per-type, honest:

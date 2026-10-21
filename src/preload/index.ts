@@ -3139,7 +3139,7 @@ const api = {
       map: import('@shared/types').MapBody
       title: string
       format: 'svg' | 'png' | 'jpg' | 'pdf'
-    }): Promise<{ ok: boolean; path?: string; error?: string }> => ipcRenderer.invoke('map:export', input),
+    }): Promise<{ ok: boolean; path?: string; error?: string; warning?: string }> => ipcRenderer.invoke('map:export', input),
     // Import a Visio .vsdx file (opens a picker) into a MapBody.
     import: (): Promise<{
       ok: boolean

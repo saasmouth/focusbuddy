@@ -61,6 +61,8 @@ const DELIBERATELY_SINGLE: Record<string, string> = {
     'the icon for one Stream Deck button; the button is the unit, not the file',
   'components/widgets/streamdeck/StreamDeckButtonConfig.tsx':
     'the icon for a single button being configured; a second file has nowhere to go',
+  'components/documents/diagram/Inspector.tsx':
+    'the image of the one selected image shape; a shape shows one picture (several images go through the library, which takes many)',
   'components/views/chat/ChatComposer.tsx':
     'the chat protocol carries ONE attachment per message (onSend takes `attachment: MessageAttachment | null`), so `multiple` here would drop every file after the first. Needs a protocol change, not an attribute.'
 }

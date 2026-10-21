@@ -1,29 +1,15 @@
 import type { MapBody, MapEdge, MapNode, MapShape } from './types'
+import { SHAPES } from './diagram/shapes'
+import { normalizeBody } from './diagram/normalize'
 
 // Pure graph helpers for PlexiDiagrams (the 'map' document type). Kept free of React
 // Flow and Electron so they can run in the renderer editor AND in the main
 // process AI generator, and be unit-tested directly.
 
-export const MAP_SHAPES: MapShape[] = [
-  'process',
-  'decision',
-  'terminator',
-  'data',
-  'database',
-  'circle',
-  'note',
-  // Extra stencil shapes (polygon outlines).
-  'hexagon',
-  'trapezoid',
-  'chevron',
-  // A swimlane / container band; groups the shapes placed on top of it.
-  'lane',
-  // A live desk-widget embed; carries widgetId on the node. Inserted from the
-  // editor's Insert menu, never proposed by the AI generator.
-  'widget'
-]
-
-const VALID_SHAPES = new Set<string>(MAP_SHAPES)
+// Every placeable shape id, from the shape registry (legacy ids included). The
+// old hand-kept list here omitted six shapes, so the normaliser turned triangles,
+// stars, arrows, crosses, pentagons and callouts into rectangles on every load.
+export const MAP_SHAPES: MapShape[] = SHAPES.map((s) => s.id)
 
 export function emptyMapBody(): MapBody {
   return { version: 1, nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } }
@@ -44,63 +30,11 @@ export function starterMapBody(): MapBody {
 
 // Defensive normaliser: accepts anything parsed from disk / the cloud / an AI
 // reply and returns a valid MapBody, dropping malformed entries and edges that
-// point at missing nodes (so the editor never throws on a bad body).
+// point at missing nodes (so the editor never throws on a bad body). v2 fields
+// (styles, rotation, groups, layers, pages, settings, bindings) are kept when
+// well-formed. See shared/diagram/normalize.ts.
 export function normalizeMapBody(raw: unknown): MapBody {
-  const o = (raw && typeof raw === 'object' ? raw : {}) as Partial<MapBody>
-  const nodesIn = Array.isArray(o.nodes) ? o.nodes : []
-  const nodes: MapNode[] = []
-  const seen = new Set<string>()
-  for (const n of nodesIn) {
-    if (!n || typeof n !== 'object') continue
-    const c = n as Partial<MapNode>
-    if (typeof c.id !== 'string' || seen.has(c.id)) continue
-    seen.add(c.id)
-    nodes.push({
-      id: c.id,
-      x: Number.isFinite(c.x) ? (c.x as number) : 0,
-      y: Number.isFinite(c.y) ? (c.y as number) : 0,
-      label: typeof c.label === 'string' ? c.label : '',
-      shape: VALID_SHAPES.has(c.shape as string) ? (c.shape as MapShape) : 'process',
-      color: typeof c.color === 'string' && c.color ? c.color : '#2563eb',
-      ...(Number.isFinite(c.width) ? { width: c.width as number } : {}),
-      ...(Number.isFinite(c.height) ? { height: c.height as number } : {}),
-      // Preserve widget references. Dropping this would silently unlink every
-      // widget node on load, so it is part of the normaliser's whitelist.
-      ...(typeof c.widgetId === 'string' && c.widgetId ? { widgetId: c.widgetId } : {})
-    })
-  }
-  const ids = new Set(nodes.map((n) => n.id))
-  const edgesIn = Array.isArray(o.edges) ? o.edges : []
-  const edges: MapEdge[] = []
-  const seenE = new Set<string>()
-  for (const e of edgesIn) {
-    if (!e || typeof e !== 'object') continue
-    const c = e as Partial<MapEdge>
-    if (typeof c.source !== 'string' || typeof c.target !== 'string') continue
-    if (!ids.has(c.source) || !ids.has(c.target)) continue
-    const id = typeof c.id === 'string' && c.id ? c.id : `e-${c.source}-${c.target}`
-    if (seenE.has(id)) continue
-    seenE.add(id)
-    edges.push({
-      id,
-      source: c.source,
-      target: c.target,
-      ...(typeof c.label === 'string' && c.label ? { label: c.label } : {}),
-      ...(c.sourceHandle != null ? { sourceHandle: c.sourceHandle } : {}),
-      ...(c.targetHandle != null ? { targetHandle: c.targetHandle } : {}),
-      style: c.style === 'dashed' ? 'dashed' : 'solid',
-      ...(c.animated ? { animated: true } : {})
-    })
-  }
-  const vp =
-    o.viewport && typeof o.viewport === 'object'
-      ? {
-          x: Number.isFinite(o.viewport.x) ? o.viewport.x : 0,
-          y: Number.isFinite(o.viewport.y) ? o.viewport.y : 0,
-          zoom: Number.isFinite(o.viewport.zoom) && o.viewport.zoom! > 0 ? o.viewport.zoom! : 1
-        }
-      : { x: 0, y: 0, zoom: 1 }
-  return { version: 1, nodes, edges, viewport: vp }
+  return normalizeBody(raw)
 }
 
 // Top-down layered layout used for AI-generated graphs (the model returns nodes
