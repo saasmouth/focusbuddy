@@ -72,10 +72,11 @@ async function runSubmenu(menuId: string, submenu: string, label: string): Promi
 test('OBJ-1 draw three shapes, ⌘G groups them, the group moves as one, ⌘Z undoes the move', async () => {
   const id = await seedDrawDoc(window, v2Body([]), 'Groups')
   await openDocument(window, id)
-  await window.locator('[data-testid="draw-tool-rect"]').click()
-  await dragArt({ x: 100, y: 100 }, { x: 180, y: 180 })
-  await dragArt({ x: 250, y: 100 }, { x: 330, y: 180 })
-  await dragArt({ x: 400, y: 100 }, { x: 480, y: 180 })
+  // The studio returns to the Selection tool after each shape, so pick Rectangle each time.
+  for (const x of [100, 250, 400]) {
+    await window.locator('[data-testid="draw-tool-rect"]').click()
+    await dragArt({ x, y: 100 }, { x: x + 80, y: 180 })
+  }
   await window.locator('[data-testid="draw-tool-select"]').click()
   await window.keyboard.press('ControlOrMeta+a')
   await window.keyboard.press('ControlOrMeta+g')

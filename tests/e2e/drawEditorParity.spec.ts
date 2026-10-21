@@ -60,11 +60,13 @@ async function paintedPixels(layerTestId: string): Promise<number> {
   })
 }
 
-test('EP-1 the toolbox offers the same 16 tools, in order, with their shortcut letters', async () => {
+test('EP-1 the toolbox offers the same tools (16, plus WP-OBJ\'s Group selection), in order, with their shortcut letters', async () => {
   await openDocument(window, await seedDrawDoc(window, v1Body([])))
   const titles = await window.locator('[data-testid^="draw-tool-"]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-testid')}=${e.getAttribute('title')}`))
   expect(titles).toEqual([
     'draw-tool-select=Select (V)',
+    // WP-OBJ: Group Selection has no default letter, as in Illustrator.
+    'draw-tool-groupSelect=Group selection',
     'draw-tool-node=Edit points (A)',
     'draw-tool-pen=Pen (P)',
     'draw-tool-pencil=Pencil (N)',
