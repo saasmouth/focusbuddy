@@ -47,6 +47,21 @@ export interface DesignMenuActions {
   openStyles: () => void
   /** Open the palette: named colours and spot inks. */
   openSwatches: () => void
+  // ── Clipboard ──────────────────────────────────────────────────────────────
+  // The same three functions the DOM clipboard events run, so Edit › Copy and
+  // ⌘C cannot drift apart.
+  copySelection: () => void
+  cutSelection: () => void
+  pasteClipboard: () => void
+  /** Whether a menu-driven paste has anything to paste. */
+  canPaste: boolean
+  duplicateSelection: () => void
+  /** Something is selected on the page, so the selection items are live. */
+  hasSelection: boolean
+  /** Copy the current page, with everything on it, and put it straight after. */
+  duplicatePage: (index: number) => void
+  /** Which page is showing, for the page items. */
+  activePage: number
   /**
    * The print check's standing verdict ("Ready to print", "2 warnings"), shown
    * on the menu item itself. InDesign keeps preflight in the status bar for a
@@ -123,6 +138,11 @@ export default function DesignMenuBar({ actions }: { actions: DesignMenuActions 
         { kind: 'item', label: 'Undo', shortcut: '⌘Z', icon: 'undo', run: a.undo },
         { kind: 'item', label: 'Redo', shortcut: '⌘⇧Z', icon: 'redo', run: a.redo },
         { kind: 'sep' },
+        { kind: 'item', label: 'Cut', shortcut: '⌘X', icon: 'content_cut', run: a.cutSelection, disabled: !a.hasSelection },
+        { kind: 'item', label: 'Copy', shortcut: '⌘C', icon: 'content_copy', run: a.copySelection, disabled: !a.hasSelection },
+        { kind: 'item', label: 'Paste', shortcut: '⌘V', icon: 'content_paste', run: a.pasteClipboard, disabled: !a.canPaste },
+        { kind: 'item', label: 'Duplicate', shortcut: '⌘D', icon: 'file_copy', run: a.duplicateSelection, disabled: !a.hasSelection },
+        { kind: 'sep' },
         { kind: 'item', label: 'Delete selection', shortcut: '⌫', icon: 'delete', run: a.deleteSelected }
       ]
     },
@@ -146,7 +166,7 @@ export default function DesignMenuBar({ actions }: { actions: DesignMenuActions 
         { kind: 'item', label: 'Line', icon: 'horizontal_rule', run: a.addLine },
         { kind: 'item', label: 'Work widget from a desk', icon: 'widgets', run: a.addWidget },
         { kind: 'sep' },
-        { kind: 'item', label: 'Page', icon: 'note_add', run: a.addPage },
+        { kind: 'item', label: 'Add page', icon: 'note_add', run: a.addPage },
         { kind: 'item', label: 'Page-number frame', icon: 'tag', run: a.insertPageNumber },
         { kind: 'sep' },
         { kind: 'item', label: 'Meeting', icon: 'videocam', run: () => void launchMeeting({ kind: 'design', id: active?.id ?? '', title: a.title || 'Design meeting' }) }
@@ -178,6 +198,10 @@ export default function DesignMenuBar({ actions }: { actions: DesignMenuActions 
             ...(a.editingMasterId ? [{ kind: 'sep' as const }, { kind: 'item' as const, label: 'Stop editing master', run: () => a.editMaster(null) }] : [])
           ]
         },
+        { kind: 'sep' },
+        { kind: 'sep' },
+        { kind: 'item', label: 'Add page', icon: 'note_add', run: a.addPage },
+        { kind: 'item', label: 'Duplicate this page', icon: 'file_copy', run: () => a.duplicatePage(a.activePage) },
         { kind: 'sep' },
         { kind: 'item', label: 'Link text frames into one story', icon: 'link', run: a.linkFrames, disabled: !a.canLink },
         { kind: 'item', label: 'Unlink frame from its story', icon: 'link_off', run: a.unlinkFrame, disabled: !a.canUnlink }

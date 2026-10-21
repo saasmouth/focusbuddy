@@ -39,6 +39,7 @@ import {
   withGroupMembers,
   type AlignEdge
 } from './slides/slideOps'
+import { useElementClipboard } from './slides/useElementClipboard'
 import { useRegisterEditorCommands, type EditorCommand } from '../../stores/editorCommands'
 import Icon from '../Icon'
 import WidgetPickerDialog from './embed/WidgetPickerDialog'
@@ -204,6 +205,27 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
     setSel(insertAt)
     setSelectedIds([])
     setGalleryOpen(false)
+  }
+  /**
+   * Copy a slide, with everything on it, straight after itself.
+   *
+   * Deep copies with fresh element ids: two slides sharing an element id makes
+   * selection ambiguous, and two slides sharing a fill or a paragraph object
+   * means editing one edits the other — the bug fixed in 6d22bff2 for ⌘D on a
+   * single element, one level up.
+   */
+  function duplicateSlide(i: number): void {
+    const src = slides[i]
+    if (!src) return
+    const copy: Slide = {
+      ...structuredClone(src),
+      id: `sl-${Date.now().toString(36)}`,
+      elements: (src.elements ?? []).map((el) => ({ ...structuredClone(el), id: elementId() }))
+    }
+    const at = i + 1
+    commit({ ...body, slides: [...slides.slice(0, at), copy, ...slides.slice(at)] })
+    setSel(at)
+    setSelectedIds([])
   }
   function deleteSlide(i: number): void {
     if (slides.length <= 1) return
@@ -495,6 +517,30 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
     mutateSlide(() => s)
     setSelectedIds(newIds)
   }
+  // Cut / Copy / Paste, shared with PlexiiDesign: the hook owns the DOM
+  // clipboard events, so ⌘C/⌘V and the native Edit menu run the same code.
+  const clipboard = useElementClipboard({
+    canvas: () => ({ w: body.size?.w ?? 1280, h: body.size?.h ?? 720 }),
+    selected: () => {
+      const ids = new Set(selectedIds)
+      return (slides[slideIdx]?.elements ?? []).filter((e) => ids.has(e.id))
+    },
+    topZ: () => (slides[slideIdx]?.elements ?? []).reduce((m, e) => Math.max(m, e.z ?? 0), 0),
+    newId: elementId,
+    onPaste: (els) => {
+      mutateSlide((s) => els.reduce((acc, el) => addElement(acc, el), s))
+      setSelectedIds(els.map((e) => e.id))
+    },
+    onCut: (ids) => {
+      mutateSlide((s) => ids.reduce((acc, id) => deleteElement(acc, id), s))
+      setSelectedIds([])
+    },
+    // No `enabled` guard needed here: a slide's text is edited in a real
+    // <textarea> inside SlideCanvas, and the hook already declines any
+    // clipboard event whose target is a field. PlexiiDesign needs the guard
+    // because its on-page caret is not a field.
+  })
+
   function deleteSelection(): void {
     if (!selectedIds.length) return
     mutateSlide((s) => selectedIds.reduce((acc, id) => deleteElement(acc, id), s))
@@ -628,7 +674,13 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
             present: () => setPresenting(true),
             checkA11y: () => setA11yIssues(checkSlidesA11y(body)),
             newSlide: () => addSlideFromTemplate('blank'),
+            duplicateSlide: () => duplicateSlide(slideIdx),
             deleteSlide: () => deleteSlide(slideIdx),
+            copySelection: clipboard.copy,
+            cutSelection: clipboard.cut,
+            pasteClipboard: clipboard.paste,
+            canPaste: clipboard.hasClip,
+            hasSelection: selectedIds.length > 0,
             moveSlideUp: () => moveSlide(slideIdx, -1),
             moveSlideDown: () => moveSlide(slideIdx, 1),
             duplicateSelection,
@@ -680,7 +732,8 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
               <div className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 flex flex-col gap-0.5">
                 <button onClick={() => moveSlide(i, -1)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5" title="Move up"><Icon name="keyboard_arrow_up" size={12} /></button>
                 <button onClick={() => moveSlide(i, 1)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5" title="Move down"><Icon name="keyboard_arrow_down" size={12} /></button>
-                <button onClick={() => deleteSlide(i)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5 text-red-500" title="Delete"><Icon name="close" size={12} /></button>
+                <button onClick={() => duplicateSlide(i)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5" title="Duplicate this slide" data-testid={`slides-duplicate-${i}`}><Icon name="file_copy" size={12} /></button>
+                <button onClick={() => deleteSlide(i)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5 text-red-500" title="Delete" data-testid={`slides-delete-${i}`}><Icon name="close" size={12} /></button>
               </div>
             </div>
           ))}

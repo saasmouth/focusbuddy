@@ -29,6 +29,15 @@ export interface SlidesMenuActions {
   moveSlideUp: () => void
   moveSlideDown: () => void
   duplicateSelection: () => void
+  /** Copy this slide, with everything on it, straight after itself. */
+  duplicateSlide: () => void
+  // The same three functions the DOM clipboard events run, so Edit › Copy and
+  // ⌘C cannot drift apart.
+  copySelection: () => void
+  cutSelection: () => void
+  pasteClipboard: () => void
+  canPaste: boolean
+  hasSelection: boolean
   deleteSelection: () => void
   insertText: () => void
   insertImage: () => void
@@ -114,7 +123,10 @@ export default function SlidesMenuBar({ actions }: { actions: SlidesMenuActions 
         { kind: 'item', label: 'Undo', shortcut: '⌘Z', icon: 'undo', run: a.undo, disabled: !a.canUndo },
         { kind: 'item', label: 'Redo', shortcut: '⌘Y', icon: 'redo', run: a.redo, disabled: !a.canRedo },
         { kind: 'sep' },
-        { kind: 'item', label: 'Duplicate selection', shortcut: '⌘D', icon: 'file_copy', run: a.duplicateSelection },
+        { kind: 'item', label: 'Cut', shortcut: '⌘X', icon: 'content_cut', run: a.cutSelection, disabled: !a.hasSelection },
+        { kind: 'item', label: 'Copy', shortcut: '⌘C', icon: 'content_copy', run: a.copySelection, disabled: !a.hasSelection },
+        { kind: 'item', label: 'Paste', shortcut: '⌘V', icon: 'content_paste', run: a.pasteClipboard, disabled: !a.canPaste },
+        { kind: 'item', label: 'Duplicate selection', shortcut: '⌘D', icon: 'file_copy', run: a.duplicateSelection, disabled: !a.hasSelection },
         { kind: 'item', label: 'Delete selection', shortcut: '⌫', icon: 'delete', run: a.deleteSelection }
       ]
     },
@@ -156,6 +168,7 @@ export default function SlidesMenuBar({ actions }: { actions: SlidesMenuActions 
       label: 'Slide',
       build: () => [
         { kind: 'item', label: 'New slide', icon: 'add', run: a.newSlide },
+        { kind: 'item', label: 'Duplicate slide', icon: 'file_copy', run: a.duplicateSlide },
         { kind: 'item', label: 'Delete slide', icon: 'delete', run: a.deleteSlide },
         { kind: 'sep' },
         { kind: 'item', label: 'Move slide up', icon: 'arrow_upward', run: a.moveSlideUp },
