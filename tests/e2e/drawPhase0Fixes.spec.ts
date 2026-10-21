@@ -105,11 +105,11 @@ test('P0-3 dragging a live star\'s point turns it into a path, so Points can no 
   }
   const id = await seedDrawDoc(window, v1Body([star]))
   await openDocument(window, id)
-  // Select it, then switch to Edit points and drag the top point up.
+  // Select it, then switch to Direct Selection and drag the top point up.
   const centre = await stagePoint(window, 800, { x: 400, y: 300 })
   await window.mouse.click(centre.x, centre.y)
   await expect(window.locator('[data-testid="draw-shape-sides"]')).toBeVisible()
-  await window.locator('[data-testid="draw-tool-node"]').click()
+  await window.locator('[data-testid="draw-tool-direct"]').click()
   const top = await stagePoint(window, 800, { x: 400, y: 100 })
   const up = await stagePoint(window, 800, { x: 400, y: 40 })
   await window.mouse.move(top.x, top.y)

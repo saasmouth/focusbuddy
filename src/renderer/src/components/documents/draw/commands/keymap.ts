@@ -43,16 +43,18 @@ export const KEYMAP: Record<string, readonly [string, 'prevent'?]> = {
   'mod+[': ['object.arrange.backward', 'prevent'],
   'mod+]': ['object.arrange.forward', 'prevent'],
   'mod+a': ['edit.selectAll', 'prevent'],
+  'mod+alt+j': ['path.average', 'prevent'],
   'mod+alt+n': ['file.new', 'prevent'],
   'mod+alt+p': ['document.artboardSize', 'prevent'],
   'mod+alt+s': ['file.copy', 'prevent'],
+  'mod+alt+shift+j': ['path.averageJoin', 'prevent'],
   'mod+alt+shift+k': ['edit.keyboardShortcuts', 'prevent'],
   'mod+alt+shift+v': ['edit.pasteOnAllArtboards', 'prevent'],
   'mod+b': ['edit.pasteInBack', 'prevent'],
   'mod+c': ['edit.copy', 'prevent'],
   'mod+d': ['object.transformAgain', 'prevent'],
   'mod+f': ['edit.pasteInFront', 'prevent'],
-  'mod+j': ['object.join', 'prevent'],
+  'mod+j': ['path.join', 'prevent'],
   'mod+l': ['layer.newVector', 'prevent'],
   'mod+n': ['file.new', 'prevent'],
   'mod+o': ['file.openSvg', 'prevent'],
@@ -66,7 +68,6 @@ export const KEYMAP: Record<string, readonly [string, 'prevent'?]> = {
   'mod+v': ['edit.paste', 'prevent'],
   'mod+x': ['edit.cut', 'prevent'],
   'mod+z': ['edit.undo', 'prevent']
-
 }
 
 /**
@@ -84,10 +85,7 @@ export const KEYMAP: Record<string, readonly [string, 'prevent'?]> = {
  * - Numpad + reaches the editor as '+', the main-row plus as Shift+=.
  */
 export const RESERVED_KEYS: Record<string, readonly [string, string, string]> = {
-  '+': ['tool:addAnchor', 'Add Anchor Point tool', 'WP-PATH'],
-  '-': ['tool:deleteAnchor', 'Delete Anchor Point tool', 'WP-PATH'],
   '/': ['paint.noneMode', 'Select no stroke/fill mode', 'WP-COLOR'],
-  c: ['tool:scissors', 'Scissors tool', 'WP-PATH'],
   d: ['paint.defaultFillStroke', 'Set fill and stroke to default', 'WP-COLOR'],
   e: ['tool:freeTransform', 'Free Transform tool', 'WP-ENVELOPE'],
   f: ['view.screenMode', 'Toggle between screen modes: Normal Screen Mode, Full Screen Mode with Menu Bar, Full Screen Mode', 'WP-VIEWPORT'],
@@ -173,15 +171,12 @@ export const RESERVED_KEYS: Record<string, readonly [string, string, string]> = 
   'mod+t': ['window.character', 'Open the Character panel', 'WP-TYPE-A'],
   'mod+y': ['view.outline', 'Toggle between Outline and GPU Preview of the document', 'WP-VIEWPORT'],
   o: ['tool:reflect', 'Reflect tool', 'WP-TRANSFORM'],
-  q: ['tool:lasso', 'Lasso tool', 'WP-PATH'],
   r: ['tool:rotate', 'Rotate tool', 'WP-TRANSFORM'],
   s: ['tool:scale', 'Scale tool', 'WP-TRANSFORM'],
   'shift+,': ['paint.colorMode', 'Select color fill mode', 'WP-COLOR'],
   'shift+.': ['paint.gradientMode', 'Select gradient fill mode', 'WP-PAINT'],
   'shift+=': ['tool:addAnchor', 'Add Anchor Point tool', 'WP-PATH'],
-  'shift+`': ['tool:curvature', 'Curvature tool', '-'],
   'shift+b': ['tool:blobBrush', 'Blob Brush tool', 'WP-BRUSHV'],
-  'shift+c': ['tool:anchorPoint', 'Switch to Anchor Point tool', 'WP-PATH'],
   'shift+d': ['view.drawingMode', 'Switch through drawing modes', '-'],
   'shift+f3': ['window.colorGuide', 'Open Color Guide', 'WP-COLOR'],
   'shift+f5': ['window.graphicStyles', 'Show/hide Graphic Styles panel', 'WP-APPEAR'],

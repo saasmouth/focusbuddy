@@ -2,7 +2,7 @@ import { beforeEach, describe, it, expect } from 'vitest'
 import { nodeBounds } from '../../../src/shared/draw/ops'
 import { drawTools } from '../../../src/renderer/src/components/documents/draw/tools/registry'
 import { RESERVED_KEYS } from '../../../src/renderer/src/components/documents/draw/commands/keymap'
-import { setKeyPlatform, toolKeyString } from '../../../src/renderer/src/components/documents/draw/commands/keys'
+import { effectiveKeymap, setKeyPlatform, toolKeyString } from '../../../src/renderer/src/components/documents/draw/commands/keys'
 import { blank, harness, rect } from './harness'
 
 const x = (h: ReturnType<typeof harness>, id: string): number => nodeBounds(h.objects().find((o) => o.id === id)!).x
@@ -23,7 +23,11 @@ describe('the keyboard', () => {
       if (shifted) continue
       const g = harness()
       g.key(letter.toUpperCase(), { shift: true, code: letter === '\\' ? 'Backslash' : undefined })
-      expect(g.state().tool, `${t.id} with Shift`).toBe(reservedShift.has(`shift+${letter}`) ? 'select' : t.id)
+      // Shift+letter is the letter's tool unless that chord is a key of its own:
+      // another tool's (Shift+C, the Anchor Point tool) or reserved (Shift+M).
+      const own = effectiveKeymap().get(`shift+${letter}`)
+      const expected = own?.kind === 'tool' ? own.id : own || reservedShift.has(`shift+${letter}`) ? 'select' : t.id
+      expect(g.state().tool, `${t.id} with Shift`).toBe(expected)
     }
     const h = harness()
     h.key('m', { meta: true })

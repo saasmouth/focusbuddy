@@ -303,6 +303,20 @@ describe('Paste on All Artboards', () => {
     expect(h.state().past.map((p) => p.label)).toEqual(['Paste on All Artboards', 'Paste in Place'])
   })
 
+  it('with only some anchors of a path selected (Direct Selection), Copy and Cut take the whole path, as Illustrator does', async () => {
+    const h = harness(blank([rect('a', 10, 10, 40, 40), rect('b', 100, 100, 10, 10)]))
+    h.ed.ctx.select(['a'])
+    h.ed.ctx.set({ anchors: { a: [[0, 0]] } })
+    await run(h, 'edit.copy')
+    const parsed = parseClipboardPayload(cb.written.at(-1)!.json)!
+    expect(parsed.nodes).toHaveLength(1)
+    expect((parsed.nodes[0] as DrawPathNode).path.subpaths[0].nodes).toHaveLength(pathOf(h, 'a').path.subpaths[0].nodes.length)
+    h.ed.ctx.select(['a'])
+    h.ed.ctx.set({ anchors: { a: [[0, 0]] } })
+    await run(h, 'edit.cut')
+    expect(h.objects().map((o) => o.id)).toEqual(['b'])
+  })
+
   it('pastes one copy per artboard at the same place on each, one step', async () => {
     const h = harness(v2([rect('a', 10, 20, 10, 10)], { artboards: boards }))
     h.ed.ctx.select(['a'])

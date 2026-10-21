@@ -19,6 +19,8 @@ a keyboard shortcut. There, add one line per binding.
 | `src/shared/draw/compat.ts` | The forward-compatibility guard and the v2 write gate. |
 | `editor/editor.ts` | The editor without React: the store, the context, and the pointer and keyboard dispatch. |
 | `editor/types.ts` | The contracts: `EditorState`, `EditorCtx`, `DrawTool`, `Command`, `MenuSpec`, `DrawPanel`, `DrawDialog`, and the services. |
+| `editor/anchorSelection.ts` | The anchor-level selection (Direct Selection and the anchor tools) and the anchor/handle/segment hit-test they share. Set `anchorTool: true` on a tool that edits anchors. |
+| `src/shared/draw/geometry/{bezier,fit,pathEdit}.ts` | Bezier maths (split, nearest point, intersections), curve fitting (Simplify, Smooth, Curvature) and anchor-level path edits. |
 | `editor/history.ts` | Undo: `commit`, `replace`, `begin` / `preview` / `commit` / `cancel`. |
 | `editor/clipboard.ts` | Copy, Cut and the Paste family: the native clipboard payload, pasting between drawings, pictures and text from other apps, and `registerSvgPasteImporter`, the seam through which `commands/import.commands.ts` (WP-IMPORT) makes SVG on the clipboard paste as editable vectors (`pasteSvgImporter`). The system clipboard itself is `src/main/drawClipboard.ts`; tests swap it with `setDrawClipboardBackend`. |
 | `editor/menuClipboard.ts` | The app menu bar's Edit › Cut / Copy / Paste (Electron roles, which fire DOM clipboard events) run the same commands as ⌘X / ⌘C / ⌘V, never twice. |

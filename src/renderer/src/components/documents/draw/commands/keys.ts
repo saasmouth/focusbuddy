@@ -324,6 +324,8 @@ const ALT_TOLERANT = /^(arrow(left|right|up|down)|backspace|delete|escape|enter|
  * a feature still to come stops the search and does nothing -- Shift+M is the
  * Shape Builder in Illustrator, so here it is not the Rectangle tool's M.
  */
+const tools = (): DrawTool[] => drawTools()
+
 export function resolveKey(e: KeyEventLike): KeyResolution {
   const map = effectiveKeymap()
   const base = baseKey(e)
@@ -337,7 +339,13 @@ export function resolveKey(e: KeyEventLike): KeyResolution {
     const hit = map.get(k)
     if (hit) return hit
     const r = RESERVED_KEYS[k]
-    if (r) return { kind: 'reserved', key: k, id: r[0], label: r[1] }
+    if (r) {
+      // A second key for a tool that has arrived (main-row Shift+= for the
+      // Add Anchor Point tool's numpad +) selects it, unless remapped away.
+      const tool = r[0].startsWith('tool:') ? r[0].slice(5) : null
+      if (tool && tools().some((t) => t.id === tool) && !(tool in overrides.tools)) return { kind: 'tool', id: tool }
+      return { kind: 'reserved', key: k, id: r[0], label: r[1] }
+    }
   }
   return null
 }

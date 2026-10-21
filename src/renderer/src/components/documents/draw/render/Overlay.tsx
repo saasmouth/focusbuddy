@@ -5,7 +5,7 @@
 
 import type { DrawArtboard } from '@shared/draw/model'
 import type { EditorState } from '../editor/types'
-import { drawTools } from '../tools/registry'
+import { drawTools, toolById } from '../tools/registry'
 import { HANDLES, handlePoint, selectionBox } from '../tools/helpers'
 
 const GRID = 50
@@ -49,7 +49,7 @@ export default function Overlay({ state, board, stageW, stageH }: { state: Edito
       })}
 
       {/* Selection frame */}
-      {selBox && state.tool !== 'node' && (
+      {selBox && !toolById(state.tool)?.anchorTool && (
         <g data-testid="draw-selection">
           <rect x={selBox.x} y={selBox.y} width={selBox.w} height={selBox.h} fill="none" stroke="#6d5dfc" strokeWidth={k} />
           <line x1={selBox.x + selBox.w / 2} y1={selBox.y} x2={selBox.x + selBox.w / 2} y2={selBox.y - 22 * k} stroke="#6d5dfc" strokeWidth={k} />

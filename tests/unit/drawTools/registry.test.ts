@@ -10,19 +10,29 @@ import type { MenuItem } from '../../../src/renderer/src/components/documents/ed
 import { blank, harness, rect } from './harness'
 
 describe('registries', () => {
-  it('every one of the 16 tools is registered, in toolbox order, with no clashing ids or letters', () => {
+  it('every one of the 27 tools is registered, in toolbox order, with no clashing ids or letters', () => {
     // Hidden tools are modes a command switches to (the Place cursor), not toolbox buttons.
     expect(drawTools().filter((t) => t.hidden).map((t) => t.id)).toEqual(['place'])
-    expect(drawTools().filter((t) => !t.hidden).map((t) => `${t.id}:${t.key}`)).toEqual([
+    expect(drawTools().filter((t) => !t.hidden).map((t) => `${t.id}:${t.key ?? ''}`)).toEqual([
       'select:V',
-      'node:A',
+      'direct:A',
+      'lasso:Q',
       'pen:P',
+      'curvature:Shift+`',
+      'addAnchor:+',
+      'deleteAnchor:-',
+      'anchorConvert:Shift+C',
+      'scissors:C',
+      'knife:',
       'pencil:N',
+      'smooth:',
+      'pathEraser:',
+      'join:',
       'rect:M',
-      'roundRect:undefined',
+      'roundRect:',
       'ellipse:L',
-      'polygon:undefined',
-      'star:undefined',
+      'polygon:',
+      'star:',
       'line:\\',
       'text:T',
       'brush:B',
@@ -53,8 +63,8 @@ describe('registries', () => {
   })
 
   it('panels and dialogs are discovered', () => {
-    expect(drawPanels().map((p) => p.id)).toEqual(['inspector', 'layers'])
-    expect(drawDialogs().map((d) => d.id).sort()).toEqual(['artboard-size', 'help', 'import-report', 'keyboard-shortcuts', 'place-pdf-page'])
+    expect(drawPanels().map((p) => p.id)).toEqual(['inspector', 'anchors', 'layers'])
+    expect(drawDialogs().map((d) => d.id).sort()).toEqual(['artboard-size', 'average', 'help', 'import-report', 'keyboard-shortcuts', 'place-pdf-page', 'simplify'])
   })
 
   it('every command\'s enabled() is pure: same answer twice, no state change', () => {
@@ -168,6 +178,14 @@ describe('the menu bar is built from commands', () => {
         '  Top||||',
         '  Middle||||',
         '  Bottom||||',
+        'Path|timeline|>',
+        '  Join|link|⌘J|off|',
+        '  Average…||⌥⌘J|off|',
+        '  Average & Join||⌥⇧⌘J|off|',
+        '  Simplify…|||off|',
+        '  Add Anchor Points|||off|',
+        '  Remove Anchor Points|remove||off|',
+        '  Cut Path at Selected Anchor Points|content_cut||off|',
         '',
         'layer',
         'New vector layer|shapes|⌘L||',

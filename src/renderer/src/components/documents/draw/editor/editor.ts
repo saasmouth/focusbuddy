@@ -74,7 +74,11 @@ export function initialEditorState(content: unknown): EditorState {
     storedSchema: declaredSchema(content),
     dialog: null,
     placing: null,
-    liveUndoTick: 0
+    liveUndoTick: 0,
+    anchors: {},
+    penTarget: null,
+    curvature: null,
+    pathPrefs: { showHandles: true, smoothFidelity: 50, brushSize: 10 }
   }
 }
 
@@ -118,7 +122,8 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
     host: services.host,
     status: (msg) => store.setState({ status: msg }),
     busy: (msg) => store.setState({ busy: msg }),
-    select: (ids) => store.setState({ selection: ids }),
+    // An object-level selection replaces any anchor-level one.
+    select: (ids) => store.setState({ selection: ids, anchors: {} }),
     // Choosing any other tool unloads the Place cursor, as in Illustrator.
     setTool: (id) => store.setState(id === 'place' ? { tool: id } : { tool: id, placing: null }),
     run: (id, args) => {

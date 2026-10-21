@@ -179,7 +179,9 @@ describe("the keymap is Illustrator's published table", () => {
       expect(label.length).toBeGreaterThan(2)
       expect(pkg).toMatch(/^(WP-[A-Z-]+|-)$/)
     }
-    expect(RESERVED_KEYS['shift+=']).toEqual(RESERVED_KEYS['+'])
+    // Main-row Shift+= is the Add Anchor Point tool's second key (its own key is numpad +).
+    expect(RESERVED_KEYS['shift+=']?.[0]).toBe('tool:addAnchor')
+    expect(toolKeyOf('addAnchor')).toBe('+')
     const keys = Object.keys(RESERVED_KEYS)
     expect(keys).toEqual([...keys].sort())
     for (const k of keys) expect(KEYMAP[k], k).toBeUndefined()
@@ -194,12 +196,22 @@ describe("the keymap is Illustrator's published table", () => {
     ])
   })
 
-  it('the tools carry Illustrator’s keys: M, L, \\, Shift+E, K; Rounded rectangle, Polygon and Star none', () => {
+  it('the tools carry Illustrator’s keys: M, L, \\, Shift+E, K, and WP-PATH’s Q, Shift+~, +, -, Shift+C, C; Rounded rectangle, Polygon, Star, Knife, Smooth, Path Eraser and Join none', () => {
     expect(drawTools().filter((t) => !t.hidden).map((t) => `${t.id}:${t.key ?? ''}`)).toEqual([
       'select:V',
-      'node:A',
+      'direct:A',
+      'lasso:Q',
       'pen:P',
+      'curvature:Shift+`',
+      'addAnchor:+',
+      'deleteAnchor:-',
+      'anchorConvert:Shift+C',
+      'scissors:C',
+      'knife:',
       'pencil:N',
+      'smooth:',
+      'pathEraser:',
+      'join:',
       'rect:M',
       'roundRect:',
       'ellipse:L',
@@ -554,7 +566,8 @@ describe('the one-time notice lists exactly what moved', () => {
   // The defaults at draw-p0 (3015cc6b), before the switch.
   const OLD_TOOLS: Record<string, string> = {
     select: 'v',
-    node: 'a',
+    // WP-PATH renamed the Direct Selection tool from node to direct; its key, A, did not move.
+    direct: 'a',
     pen: 'p',
     pencil: 'n',
     rect: 'r',
