@@ -225,7 +225,7 @@ export default function PlexiSuiteHome(): JSX.Element {
     { icon: 'dashboard', label: 'Open my desk', onClick: () => v.goHome() },
     { icon: 'add', label: 'New desk', onClick: () => void newDesk() },
     { icon: 'plexii:templates', label: 'Templates', onClick: () => v.goMarketplace() },
-    { icon: 'check_circle', label: 'All tasks', onClick: () => v.goAllTasks() },
+    { icon: 'check_circle', label: 'All desks', onClick: () => v.goAllTasks() },
     ...(viewEnabled('calendar')
       ? [{ icon: 'calendar_today', label: 'Calendar', onClick: () => v.goCalendar() }]
       : [])

@@ -2246,7 +2246,7 @@ const api = {
     kindOf: (id: string): Promise<string | null> => ipcRenderer.invoke('workItems:kindOf', id),
     applySyncEvent: (
       ev:
-        | { type: 'create'; snapshot: Record<string, unknown> }
+        | { type: 'create'; snapshot: Record<string, unknown>; orgId?: string | null }
         | { type: 'attr'; id: string; attr: string; value: unknown }
         | { type: 'trash'; id: string; trashed: boolean }
     ): Promise<string> => ipcRenderer.invoke('workItems:applySyncEvent', ev)
@@ -2729,7 +2729,9 @@ const api = {
         lastName: string | null
         role: string
       }>
-    ): Promise<void> => ipcRenderer.invoke('people:setDirectory', people)
+    ): Promise<void> => ipcRenderer.invoke('people:setDirectory', people),
+    /** DEC-144: the signed-in account id (null = signed out), for team Focus. */
+    setSelf: (accountId: string | null): Promise<string | null> => ipcRenderer.invoke('people:setSelf', accountId)
   },
   // Persisted AI-assistant chat history (local, free-standing conversations) —
   // backs the assistant's one conversation system.

@@ -1,4 +1,4 @@
-import { statusForWorkItemState, DEFAULT_INTENT_CLASS, canonicalIntentClass } from './workItems'
+import { statusForWorkItemState, DEFAULT_INTENT_CLASS, canonicalIntentClass, normalizeAssigneeIds } from './workItems'
 import type { FbNode, TaskStatus } from './types'
 
 // One record, two lenses.
@@ -101,6 +101,8 @@ export interface TaskAttrsFromItem {
   description?: string
   dueDate?: number | null
   intentClass?: string
+  /** DEC-144: a desk task is assigned the same way as any task. */
+  assigneeIds?: string | null
 }
 
 /**
@@ -142,6 +144,12 @@ export function taskAttrsForItemPatch(patch: Record<string, unknown>): TaskAttrs
         out.intentClass = canonical
         break
       }
+      case 'assigneeIds': {
+        const norm = normalizeAssigneeIds(value)
+        if (norm === undefined) return null
+        out.assigneeIds = norm
+        break
+      }
       default:
         return null
     }
@@ -150,4 +158,4 @@ export function taskAttrsForItemPatch(patch: Record<string, unknown>): TaskAttrs
 }
 
 /** The item-editor fields a desk task supports. Focus hides the rest for one. */
-export const TASK_EDITABLE_ITEM_FIELDS = ['title', 'notes', 'dueAt', 'intentClass'] as const
+export const TASK_EDITABLE_ITEM_FIELDS = ['title', 'notes', 'dueAt', 'intentClass', 'assigneeIds'] as const

@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { AssigneeAvatars } from '../attention/Assignees'
 import type { FbNode } from '@shared/types'
 import { useWorkItemStore } from '../../stores/workItems'
 import { useNodeStore } from '../../stores/nodes'
@@ -1117,7 +1118,11 @@ export default function AttentionView(): JSX.Element {
             />
           )}
           {i.dueAt && dueChip(i, nowMs)}
-          {assignees.length > 0 && (
+          {/* DEC-144 — real assignees when the task has them; otherwise the
+              people it mentions, as before. */}
+          {i.assigneeIds ? (
+            <AssigneeAvatars assigneeIds={i.assigneeIds} />
+          ) : assignees.length > 0 && (
             <span className="flex items-center -space-x-1.5 pl-0.5">
               {assignees.slice(0, 3).map((m) => (
                 <span

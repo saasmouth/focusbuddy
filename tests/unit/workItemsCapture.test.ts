@@ -149,7 +149,8 @@ describe('S5 wiring locks (file-level)', () => {
     // (onPick skipped; a kind with no resolver must never become one).
     const sugg = read('src/renderer/src/components/assistant/MentionSuggestion.ts')
     expect(sugg).toContain("kind: 'capture'")
-    expect(sugg).toContain("title: 'attention'")
+    // DEC-144: the picker row reads focus (@attention still works as an alias).
+    expect(sugg).toContain("title: 'focus'")
     // A LEADING @attention send never reaches the model — it renders the
     // shared confirm card INLINE in the chat (DEC-028). DEC-031 moved the
     // grammar itself into the shared parser, so the panel reads THAT rather

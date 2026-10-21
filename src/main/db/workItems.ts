@@ -18,6 +18,7 @@
 import { randomUUID } from 'crypto'
 import { getDb } from './database'
 import { getActiveOrgId, PERSONAL_ORG_ID } from './activeOrg'
+import { getSelfAccountId } from '../selfAccount'
 import { nodesTableAcceptsWorkItems } from './migrateNodesKind'
 import { mapNodeRow, type NodeRow } from './nodes'
 import { postNotification } from '../notifications/substrate'
@@ -34,6 +35,7 @@ import {
   DEFAULT_INTENT_CLASS,
   MAX_GROUP_DEPTH,
   canonicalIntentClass,
+  normalizeAssigneeIds,
   initialWorkItemState,
   statusForWorkItemState,
   type WorkItemState
@@ -56,6 +58,25 @@ const IN_FOCUS = `n.trashed_at IS NULL AND (n.kind = 'work_item' OR (n.kind = 't
 // A desk task's state is its own work_item_state when set, else its status
 // read through stateForTaskStatus.
 const EFFECTIVE_STATE = `COALESCE(n.work_item_state, CASE n.status WHEN 'in_progress' THEN 'in_progress' WHEN 'done' THEN 'completed' WHEN 'parked' THEN 'dismissed' ELSE 'open' END)`
+
+/**
+ * DEC-144 — whose Focus a row belongs in. In the Personal workspace, all of it:
+ * everything there is yours. In a team workspace, a task is in YOUR Focus when
+ * your account id is among its assignees, or when nobody is assigned and you
+ * raised it (or nobody is recorded as raising it: older desk tasks, which the
+ * whole team keeps seeing rather than silently losing). Returns the SQL to AND
+ * onto an `n`-aliased query and the bound args it needs, in order. Signed out
+ * (no self id) applies no filter: a team workspace needs an account anyway.
+ */
+export function mineClause(selfId: string | null): { sql: string; args: string[] } {
+  if (!selfId) return { sql: '', args: [] }
+  return {
+    sql: ` AND (n.org_id = '${PERSONAL_ORG_ID}'
+      OR (json_valid(n.assignee_ids) AND EXISTS (SELECT 1 FROM json_each(n.assignee_ids) WHERE value = ?))
+      OR ((n.assignee_ids IS NULL OR n.assignee_ids = '' OR n.assignee_ids = '[]') AND (n.originator_id IS NULL OR n.originator_id = ?)))`,
+    args: [selfId, selfId]
+  }
+}
 
 // ── Schema (columns + satellites §2.4) ──────────────────────────────────────
 
@@ -142,6 +163,8 @@ export interface WorkItemDraft {
   wiOrigin?: 'human' | 'ai' | 'system'
   originatorId?: string | null
   recipientId?: string | null
+  /** DEC-144: who the task is assigned to (account ids). */
+  assigneeIds?: string[] | string | null
 }
 
 /** DEC-018 A-1 (Dispatch D4 seam): who performed a write — a person, an agent
@@ -163,6 +186,7 @@ function taskColumnsForItemPatch(patch: Record<string, unknown>): Record<string,
   if (attrs.description !== undefined) cols.description = attrs.description
   if (attrs.dueDate !== undefined) cols.due_date = attrs.dueDate
   if (attrs.intentClass !== undefined) cols.intent_class = attrs.intentClass
+  if (attrs.assigneeIds !== undefined) cols.assignee_ids = attrs.assigneeIds
   return cols
 }
 
@@ -198,11 +222,15 @@ export function createWorkItemCore(
   actor?: WorkItemActor
 ): { id: string } {
   assertWritable(d)
-  if (orgId !== PERSONAL_ORG_ID)
-    throw new WorkItemWriteRefusedError(
-      'WORK_ITEMS_PERSONAL_ONLY',
-      'Focus tasks are personal for now. Switch to your personal workspace to add one.'
-    )
+  // DEC-144: a team workspace holds Focus tasks too (it was refused here, with
+  // the per-org attestation as the planned key). The S1 migration that teaches
+  // a device the work_item kind shipped in 4.2.0 (2026-08-25); a device older
+  // than that parks an inbound task instead of applying it (workspaceSync
+  // park-inbound), so a team task can never break an old peer's sync.
+  const assigneeIds = normalizeAssigneeIds(draft.assigneeIds)
+  if (assigneeIds === undefined)
+    throw new WorkItemWriteRefusedError('WORK_ITEM_ASSIGNEES_REFUSED', 'That is not a list of people to assign.')
+  const originatorId = draft.originatorId ?? (orgId === PERSONAL_ORG_ID ? null : getSelfAccountId())
   // Leaf invariant: a work_item parent must be a desk/room, never a work_item.
   if (draft.parentId) {
     const parent = d.prepare('SELECT kind FROM nodes WHERE id = ?').get(draft.parentId) as
@@ -218,10 +246,10 @@ export function createWorkItemCore(
     `INSERT INTO nodes (
        id, parent_id, kind, title, description, status,
        priority, interest, importance, sort_order, created_at, updated_at,
-       org_id, work_item_state, intent_class, originator_id, recipient_id,
+       org_id, work_item_state, intent_class, originator_id, recipient_id, assignee_ids,
        due_at, wi_urgency, tags, mentions, source_ref, source_url, source_type, confidence,
        approval_state, reason_code, wi_origin, schema_epoch
-     ) VALUES (?, ?, 'work_item', ?, ?, ?, 3, 3, 3, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     ) VALUES (?, ?, 'work_item', ?, ?, ?, 3, 3, 3, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     draft.parentId ?? null,
@@ -233,8 +261,9 @@ export function createWorkItemCore(
     orgId,
     state,
     canonicalIntentClass(draft.intentClass) ?? DEFAULT_INTENT_CLASS,
-    draft.originatorId ?? null,
-    draft.recipientId ?? draft.originatorId ?? null,
+    originatorId,
+    draft.recipientId ?? originatorId,
+    assigneeIds,
     draft.dueAt ?? null,
     draft.wiUrgency ?? null,
     draft.tags ?? null,
@@ -444,19 +473,22 @@ export function decayLooseThoughts(nowMs = Date.now()): number {
  *  everything else surface passively (page/widget), never as banners. */
 export function postDeadlineNudgesCore(
   d: LifecycleDb & { exec(sql: string): void },
-  nowMs: number
+  nowMs: number,
+  selfId: string | null = null
 ): number {
+  // DEC-144: in a team workspace you are nudged about YOUR tasks only.
+  const mine = mineClause(selfId)
   const soon = new Date(nowMs + 24 * 60 * 60 * 1000).toISOString()
   const nowIso = new Date(nowMs).toISOString()
   const rows = d
     .prepare(
-      `SELECT id, title, intent_class, due_at FROM nodes
-       WHERE kind = 'work_item' AND trashed_at IS NULL
-         AND intent_class IN ('to_do','to_review','to_meet','to_decide','to_respond')
-         AND due_at IS NOT NULL AND due_at > ? AND due_at <= ?
-         AND work_item_state IN (${ACTIVE_IN})`
+      `SELECT n.id AS id, n.title AS title, n.intent_class AS intent_class, n.due_at AS due_at FROM nodes n
+       WHERE n.kind = 'work_item' AND n.trashed_at IS NULL
+         AND n.intent_class IN ('to_do','to_review','to_meet','to_decide','to_respond')
+         AND n.due_at IS NOT NULL AND n.due_at > ? AND n.due_at <= ?
+         AND n.work_item_state IN (${ACTIVE_IN})${mine.sql}`
     )
-    .all(nowIso, soon) as Array<{ id: string; title: string; intent_class: string; due_at: string }>
+    .all(nowIso, soon, ...mine.args) as Array<{ id: string; title: string; intent_class: string; due_at: string }>
   // DEC-144 — a task filed on a desk is in Focus too, so its due date nudges
   // the same way (numeric due_date, read as the ISO the loop below expects).
   const deskTasks = d
@@ -466,9 +498,9 @@ export function postDeadlineNudgesCore(
        WHERE n.kind = 'task' AND p.kind = 'task' AND n.trashed_at IS NULL AND COALESCE(n.archived, 0) = 0
          AND COALESCE(n.intent_class, 'to_do') IN ('to_do','to_review','to_meet','to_decide','to_respond')
          AND n.due_date IS NOT NULL AND n.due_date > ? AND n.due_date <= ?
-         AND ${EFFECTIVE_STATE} IN (${ACTIVE_IN})`
+         AND ${EFFECTIVE_STATE} IN (${ACTIVE_IN})${mine.sql}`
     )
-    .all(nowMs, nowMs + 24 * 60 * 60 * 1000) as Array<{ id: string; title: string; intent_class: string; due_date: number }>
+    .all(nowMs, nowMs + 24 * 60 * 60 * 1000, ...mine.args) as Array<{ id: string; title: string; intent_class: string; due_date: number }>
   for (const t of deskTasks) {
     rows.push({ id: t.id, title: t.title, intent_class: t.intent_class, due_at: new Date(t.due_date).toISOString() })
   }
@@ -497,13 +529,13 @@ export function postDeadlineNudgesCore(
   const dayAgo = new Date(nowMs - 24 * 60 * 60 * 1000).toISOString()
   const fyis = d
     .prepare(
-      `SELECT id, title, due_at FROM nodes
-       WHERE kind = 'work_item' AND trashed_at IS NULL
-         AND intent_class = 'to_know'
-         AND due_at IS NOT NULL AND due_at > ? AND due_at <= ?
-         AND work_item_state IN (${ACTIVE_IN})`
+      `SELECT n.id AS id, n.title AS title, n.due_at AS due_at FROM nodes n
+       WHERE n.kind = 'work_item' AND n.trashed_at IS NULL
+         AND n.intent_class = 'to_know'
+         AND n.due_at IS NOT NULL AND n.due_at > ? AND n.due_at <= ?
+         AND n.work_item_state IN (${ACTIVE_IN})${mine.sql}`
     )
-    .all(dayAgo, nowIso) as Array<{ id: string; title: string; due_at: string }>
+    .all(dayAgo, nowIso, ...mine.args) as Array<{ id: string; title: string; due_at: string }>
   for (const r of fyis) {
     const day = r.due_at.slice(0, 10)
     const { posted: ok } = postNotification(d, {
@@ -524,7 +556,7 @@ export function postDeadlineNudgesCore(
 }
 
 export function postDeadlineNudges(nowMs = Date.now()): number {
-  return postDeadlineNudgesCore(getDb(), nowMs)
+  return postDeadlineNudgesCore(getDb(), nowMs, getSelfAccountId())
 }
 
 /** Δ10 (main-side half): a source type is SUPPRESSED for auto-surfacing when
@@ -557,6 +589,8 @@ export function sourceTypeSuppressed(sourceType: string): boolean {
 
 export function listWorkItems(): FbNode[] {
   const db = getDb()
+  // DEC-144: in a team workspace, the tasks that are yours (mineClause).
+  const mine = mineClause(getSelfAccountId())
   // Work items AND the tasks filed on desks: one record seen through one lens.
   //
   // A desk task is selected by its PARENT being a task, because a desk and a
@@ -573,10 +607,10 @@ export function listWorkItems(): FbNode[] {
          AND (
            n.kind = 'work_item'
            OR (n.kind = 'task' AND COALESCE(n.archived, 0) = 0 AND p.kind = 'task')
-         )
+         )${mine.sql}
        ORDER BY n.created_at DESC`
     )
-    .all(getActiveOrgId()) as Array<NodeRow & { _detached_from_id: string | null; _snooze_until: number | null }>
+    .all(getActiveOrgId(), ...mine.args) as Array<NodeRow & { _detached_from_id: string | null; _snooze_until: number | null }>
   return rows.map((r) =>
     asAttentionItem({
       ...mapNodeRow(r),
@@ -619,15 +653,16 @@ export function updateWorkItemFields(
  *  total that excludes wi_origin='system' (DEC-016). */
 export function attentionBadgeCounts(): { headline: number; byIntent: Record<string, number> } {
   const db = getDb()
+  const mine = mineClause(getSelfAccountId())
   const rows = db
     .prepare(
       `SELECT n.intent_class AS intent, n.wi_origin AS origin, COUNT(*) AS n FROM nodes n
        LEFT JOIN nodes p ON p.id = n.parent_id
-       WHERE ${IN_FOCUS} AND n.org_id = ?
+       WHERE ${IN_FOCUS} AND n.org_id = ?${mine.sql}
          AND ${EFFECTIVE_STATE} IN (${ACTIVE_IN})
        GROUP BY n.intent_class, n.wi_origin`
     )
-    .all(getActiveOrgId()) as Array<{ intent: string | null; origin: string | null; n: number }>
+    .all(getActiveOrgId(), ...mine.args) as Array<{ intent: string | null; origin: string | null; n: number }>
   const byIntent: Record<string, number> = {}
   let headline = 0
   for (const r of rows) {
@@ -688,14 +723,17 @@ export function workItemAttentionPrecision(windowDays = 30): number | null {
 }
 
 export function workItemCounts(): Record<string, number> {
-  return workItemCountsCore(getDb(), getActiveOrgId())
+  return workItemCountsCore(getDb(), getActiveOrgId(), getSelfAccountId())
 }
 
 /** The arrival router's server side (§3 D1): materialize or update an inbound
  *  work_item event from the LIVE path through the one code path — never
  *  through nodes:create/tryCreateNode (which force status='open' and refuse
  *  the kind at the protocol boundary). */
-export function applyRemoteWorkItemSnapshot(snapshot: Record<string, unknown>): RemoteWorkItemVerdict {
+export function applyRemoteWorkItemSnapshot(
+  snapshot: Record<string, unknown>,
+  orgId: string | null = null
+): RemoteWorkItemVerdict {
   const db = getDb()
   const id = String(snapshot.id ?? '')
   if (!id) return 'not-work-item'
@@ -715,6 +753,7 @@ export function applyRemoteWorkItemSnapshot(snapshot: Record<string, unknown>): 
       'created_at',
       'updated_at',
       'org_id',
+      'needs_sync',
       ...WORK_ITEM_COLUMNS.map((c) => c.column)
     ]
     const now = Date.now()
@@ -731,7 +770,14 @@ export function applyRemoteWorkItemSnapshot(snapshot: Record<string, unknown>): 
       sort_order: 0,
       created_at: now,
       updated_at: now,
-      org_id: PERSONAL_ORG_ID
+      // DEC-144: a task that arrived on a team partition belongs to that team;
+      // it was hard-coded to Personal while tasks were personal-only.
+      org_id: orgId || PERSONAL_ORG_ID,
+      // DEC-144: an arrival is not a local edit. Stored dirty (the column
+      // default), every receiver re-pushed the task it had just been sent,
+      // bumping the server revision for nothing — and a teammate's genuine
+      // edit racing that echo lost to a 409. The writer pushes it; we don't.
+      needs_sync: 0
     }
     for (const def of WORK_ITEM_COLUMNS) vals[def.column] = (snapshot[def.attr] as never) ?? null
     db.prepare(
@@ -913,6 +959,12 @@ export function updateWorkItemFieldsCore(
     }
     if (level + height(id, 1) > MAX_GROUP_DEPTH) return false
   }
+  if (patch.assigneeIds !== undefined) {
+    // DEC-144: one serialization, or a refusal — never a half-parsed list.
+    const norm = normalizeAssigneeIds(patch.assigneeIds)
+    if (norm === undefined) return false
+    patch = { ...patch, assigneeIds: norm }
+  }
   const sets: string[] = []
   const params: Record<string, unknown> = { id, now: Date.now() }
   for (const [key, col] of Object.entries(PATCHABLE)) {
@@ -949,15 +1001,16 @@ export function markWorkItemReadCore(d: LifecycleDb, id: string): void {
   ).run(id, Date.now())
 }
 
-export function workItemCountsCore(d: LifecycleDb, orgId: string): Record<string, number> {
+export function workItemCountsCore(d: LifecycleDb, orgId: string, selfId: string | null = null): Record<string, number> {
+  const mine = mineClause(selfId)
   const rows = d
     .prepare(
       `SELECT ${EFFECTIVE_STATE} AS state, COUNT(*) AS n FROM nodes n
        LEFT JOIN nodes p ON p.id = n.parent_id
-       WHERE ${IN_FOCUS} AND n.org_id = ?
+       WHERE ${IN_FOCUS} AND n.org_id = ?${mine.sql}
        GROUP BY state`
     )
-    .all(orgId) as Array<{ state: string | null; n: number }>
+    .all(orgId, ...mine.args) as Array<{ state: string | null; n: number }>
   const out: Record<string, number> = {}
   for (const r of rows) out[r.state ?? 'open'] = r.n
   return out

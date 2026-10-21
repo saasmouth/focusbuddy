@@ -333,7 +333,7 @@ export default function AllTasksView(): JSX.Element {
         </div>
 
         <div className="fb-t-caption text-center">
-          {visible.length} of {counts.open + counts.done} task{visible.length === 1 ? '' : 's'}{' '}
+          {visible.length} of {counts.open + counts.done} desk{visible.length === 1 ? '' : 's'}{' '}
           shown
         </div>
       </div>

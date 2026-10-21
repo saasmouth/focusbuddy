@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto'
+import { getSelfAccountId } from '../selfAccount'
 import { WORK_ITEM_COLUMNS } from '@shared/workItems'
 import { getDb } from './database'
 import { statusForWorkItemState } from '@shared/workItems'
@@ -9,7 +10,6 @@ import {
   assertNotWorkItemRoot,
   assertParentAcceptsChildren,
   collectActiveSubtree,
-  detachAndReviveWorkItemDescendants,
   listTrashedRoots,
   purgeDeskPermanently,
   purgeExpiredTrash,
@@ -192,11 +192,6 @@ export function createNode(draft: NodeDraft): FbNode {
         'WORK_ITEMS_NOT_MIGRATED',
         'This device has not finished updating for Focus yet. Restart Plexii and try again.'
       )
-    if (getActiveOrgId() !== PERSONAL_ORG_ID)
-      throw new WorkItemCreationRefusedError(
-        'WORK_ITEMS_PERSONAL_ONLY',
-        'Focus tasks are personal for now. Switch to your personal workspace to add one.'
-      )
   }
   // Leaf invariant (§2.5.5): nothing is ever parented under a work_item.
   assertParentAcceptsChildren(db, draft.parentId)
@@ -229,6 +224,13 @@ export function createNode(draft: NodeDraft): FbNode {
     orgId: getActiveOrgId(),
     now
   })
+  // DEC-144: a task filed on a desk in a team workspace records who raised it,
+  // so an unassigned one shows in its creator's Focus rather than everyone's.
+  if (draft.kind === 'task' && draft.parentId && getActiveOrgId() !== PERSONAL_ORG_ID) {
+    const parentKind = (db.prepare('SELECT kind FROM nodes WHERE id = ?').get(draft.parentId) as { kind?: string } | undefined)?.kind
+    const self = getSelfAccountId()
+    if (parentKind === 'task' && self) db.prepare('UPDATE nodes SET originator_id = ? WHERE id = ?').run(self, id)
+  }
   const created = getNode(id)
   if (!created) throw new Error('Node creation failed post-insert')
   return created
@@ -378,20 +380,19 @@ export function moveNodeToOrg(rootId: string, orgId: string, teamId: string | nu
   if (!orgId) return []
   const exists = db.prepare('SELECT id FROM nodes WHERE id = ? AND trashed_at IS NULL').get(rootId)
   if (!exists) return []
-  // §2.6 scope invariant: a work_item may not enter a sync scope whose peers
-  // are unconfirmed — the org sweep refuses to carry them. They are detached
-  // (park-local) so the moved subtree never carries a cross-org parent link;
-  // the count is surfaced by the caller's toast (S6) via the detached return.
-  // P1: the confirmation gate exists (workItemsPref.workItemsOrgEnabled) —
-  // the org-carry branch that consults it lands with the SPEC-027 pass, so
-  // parking stays unconditional here until that architecture is ruled.
-  const all = collectActiveSubtree(db, rootId)
-  const kindOf = db.prepare('SELECT kind FROM nodes WHERE id = ?')
-  const ids = all.filter((i) => (kindOf.get(i) as { kind: string } | undefined)?.kind !== 'work_item')
-  const parkedCount = detachAndReviveWorkItemDescendants(db, [rootId], workItemDetachHook(db))
-  if (parkedCount > 0) {
-    // eslint-disable-next-line no-console
-    console.warn(`[moveNodeToOrg] ${parkedCount} work item(s) stayed personal (park-local)`)
+  // DEC-144: Focus tasks travel with their desk. They used to be detached and
+  // parked in Personal (§2.6, pending the SPEC-027 org-carry branch); a team
+  // workspace holds tasks now, so a desk moved into a team brings its tasks.
+  // A carried task with no recorded creator is stamped as yours, so it lands
+  // in YOUR team Focus instead of every member's (mineClause treats an
+  // unassigned task with no creator as the whole team's).
+  const ids = collectActiveSubtree(db, rootId)
+  const self = getSelfAccountId()
+  if (self) {
+    const stamp = db.prepare(
+      "UPDATE nodes SET originator_id = ? WHERE id = ? AND kind = 'work_item' AND originator_id IS NULL"
+    )
+    for (const i of ids) stamp.run(self, i)
   }
   // Tables backing any table widget on the moved desks must travel too, or the
   // widget lands on the other member pointing at a table that never synced (blank

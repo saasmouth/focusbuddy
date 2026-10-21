@@ -114,11 +114,16 @@ describe('standing S1 pins', () => {
     expect(nodes).toMatch(/LEFT JOIN wi_local/)
   })
 
+  // DEC-144 rewrite: this matched /assignee/i, which held while work items had
+  // no assignees at all. They now carry `assignee_ids` (a JSON array of account
+  // ids, its own manifest column). The invariant it guards is unchanged: the
+  // Plan-domain free-text `nodes.assignee` column is never read or written by
+  // a work-item module — so the bare column name is what stays forbidden.
   it('nodes.assignee stays Plan-domain: no work-item module touches it (GAP-016)', () => {
     for (const file of tsFiles(MAIN)) {
       const base = file.slice(MAIN.length + 1)
       if (!/workitem/i.test(base)) continue
-      expect(readFileSync(file, 'utf-8')).not.toMatch(/assignee/i)
+      expect(readFileSync(file, 'utf-8')).not.toMatch(/\bassignee\b(?!_ids|Ids)/i)
     }
   })
 

@@ -110,7 +110,8 @@ describe('the rows the operator named have their own tone', () => {
     // Same destination, same hue, whichever width the sidebar is at. The rail
     // had voided its tone too, while the prop's own comment claimed otherwise.
     const rail = sidebar.slice(sidebar.indexOf('<CollapsedNavIcon'))
-    expect(rail).toContain('label="Attention"    tone={AREA_TONES.attention}')
+    // DEC-144: the collapsed rail says Focus, in Attention's tone.
+    expect(rail).toContain('label="Focus"    tone={AREA_TONES.attention}')
     expect(rail).toContain('label="Trash"        tone={AREA_TONES.trash}')
     expect(sidebar).toContain(
       "`${tone ?? 'text-[var(--ink-50)]'} hover:bg-[var(--surface-sunken)]`"

@@ -371,8 +371,8 @@ export default function CommandCenter({
     }
     items.push({
       id: 'go-all-tasks',
-      label: 'All tasks',
-      hint: 'Browse + filter every task',
+      label: 'All desks',
+      hint: 'Browse + filter every desk (tasks live in Focus)',
       icon: 'checklist',
       kind: 'action',
       score: q === '' ? 85 : matchScore('all tasks list', q),

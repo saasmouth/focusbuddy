@@ -104,6 +104,7 @@ import { listSignals, markPrompted, matchState, recordSignal, recordOutcome as r
 import { createTimeBlock, deleteTimeBlock, updateTimeBlock, listBlocksInRange, materializeRecurringBlocks } from '../../main/db/timeBlocks'
 import { postNotification } from '../../main/notifications/substrate'
 import { setPeopleDirectory } from '../../main/peopleDirectory'
+import { setSelfAccountId } from '../../main/selfAccount'
 import { setOnboardingSummary } from '../../main/db/telemetry'
 import { importDeskBundle } from '../../main/db/deskBundle'
 import type { PlexiAppDraft, PlexiAppPatch } from '@shared/apps'
@@ -538,6 +539,8 @@ export const HANDLERS: Record<string, Handler> = {
   'notifications:post': h((input: PostInput) => postNotification(getDb() as never, input)),
   'people:setDirectory': h((people: DirectoryPerson[]) =>
     setPeopleDirectory(Array.isArray(people) ? people : [])),
+  'people:setSelf': h((accountId: string | null) =>
+    setSelfAccountId(typeof accountId === 'string' ? accountId : null)),
 }
 
 /** Channels this runtime answers. The renderer asks before it calls. */

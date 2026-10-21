@@ -184,7 +184,7 @@ export const MentionSuggestion = Extension.create<{ hooks: MentionSuggestionHook
                   attrs: {
                     kind: 'capture',
                     id: 'attention-command',
-                    title: 'attention',
+                    title: 'focus',
                     icon: 'notifications',
                     taskId: null,
                     conversationKey: (ref as { conversationKey: string }).conversationKey

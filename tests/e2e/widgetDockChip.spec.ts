@@ -51,7 +51,7 @@ async function readCanvasTransform(
 // We detect it via the "Close focus mode" button that WidgetFocusMode
 // always renders (aria-label="Close focus mode").
 async function isFocusModeOpen(window: import('@playwright/test').Page): Promise<boolean> {
-  const btn = window.getByRole('button', { name: 'Close focus mode' })
+  const btn = window.getByRole('button', { name: 'Close full view' })
   return btn.isVisible().catch(() => false)
 }
 

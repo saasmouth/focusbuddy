@@ -195,7 +195,7 @@ export default function OrgAdminView(): JSX.Element {
         title: `Invite ${email}?`,
         body: `${email} is external to this organisation${orgDomain ? ` (${orgDomain})` : ''}. ${
           inviteRole === 'guest'
-            ? 'As a guest they get read-only access to everything shared with this organisation.'
+            ? 'As a guest they see only the tasks assigned to them in the shared workspace, with the desk each one is on, and can mark them done. Its desks, documents and files stay private.'
             : 'They will join as a full member with access to shared content.'
         }`,
         confirmLabel: 'Invite external person',
