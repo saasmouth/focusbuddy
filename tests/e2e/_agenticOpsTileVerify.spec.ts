@@ -98,7 +98,11 @@ test('Agentic Ops tile (in PlexiiBrain) renders embedded console; Plans unaffect
     console.log(`[agentic-ops] guest url=${guest.url} title=${JSON.stringify(guest.title)}`)
     console.log(`[agentic-ops] guest text sample: ${guest.text.slice(0, 400).replace(/\n/g, ' | ')}`)
     expect(guest.url.startsWith('http://localhost:8765')).toBe(true)
-    expect(guest.title).toBe('Archeon Projects')
+    // The console is a separate local service and renames its page title on its
+    // own schedule ("Archeon Projects" became "Archeon"); assert the product,
+    // not a wording this app does not control. The content checks below still
+    // prove the real console loaded rather than a blank or offline pane.
+    expect(guest.title).toMatch(/^Archeon\b/)
     // The loaded UI must carry real console content, not a blank pane.
     expect(guest.text.length).toBeGreaterThan(200)
     expect(/triage|board|project|queue/i.test(guest.text)).toBe(true)
