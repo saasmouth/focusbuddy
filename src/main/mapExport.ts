@@ -7,6 +7,7 @@ import { BrowserWindow, dialog } from 'electron'
 import { writeFile } from 'fs/promises'
 import { mapToSvg } from '@shared/mapExport'
 import type { MapBody } from '@shared/types'
+import { pdfPageSize } from './pdfPageSize'
 
 export interface MapExportResult {
   ok: boolean
@@ -15,11 +16,6 @@ export interface MapExportResult {
 }
 
 type MapFormat = 'svg' | 'png' | 'jpg' | 'pdf'
-
-// CSS px to PDF microns: 1px at 96dpi = 25400/96 microns.
-function pxToMicron(px: number): number {
-  return Math.round((px * 25400) / 96)
-}
 
 export async function exportMap(input: {
   map: MapBody
@@ -70,7 +66,7 @@ export async function exportMap(input: {
     } else {
       const pdf = await win.webContents.printToPDF({
         printBackground: true,
-        pageSize: { width: pxToMicron(width), height: pxToMicron(height) },
+        pageSize: pdfPageSize(width, height),
         // Electron 44 dropped `marginType`; explicit numbers are the custom case.
         margins: { top: 0, right: 0, bottom: 0, left: 0 }
       })

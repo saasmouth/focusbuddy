@@ -8,16 +8,12 @@
 import { BrowserWindow, dialog } from 'electron'
 import { writeFile } from 'fs/promises'
 import { drawToHtml, drawToSvg, type DrawBody } from '@shared/draw'
+import { pdfPageSize } from './pdfPageSize'
 
 export interface DrawExportResult {
   ok: boolean
   path?: string
   error?: string
-}
-
-// CSS px to PDF microns: 1px at 96dpi = 1/96 inch = 25400/96 microns.
-function pxToMicron(px: number): number {
-  return Math.round((px * 25400) / 96)
 }
 
 export async function exportDraw(input: { draw: DrawBody; title: string; format: 'png' | 'svg' | 'pdf' }): Promise<DrawExportResult> {
@@ -71,7 +67,7 @@ export async function exportDraw(input: { draw: DrawBody; title: string; format:
     } else {
       const pdf = await win.webContents.printToPDF({
         printBackground: true,
-        pageSize: { width: pxToMicron(draw.width), height: pxToMicron(draw.height) },
+        pageSize: pdfPageSize(draw.width, draw.height),
         margins: { top: 0, bottom: 0, left: 0, right: 0 }
       })
       await writeFile(res.filePath, pdf)

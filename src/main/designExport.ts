@@ -6,16 +6,12 @@
 import { BrowserWindow, dialog } from 'electron'
 import { writeFile } from 'fs/promises'
 import { designToHtml, designToHtmlAllPages, designPrintHtml, designPrintSize, type DesignBody } from '@shared/design'
+import { pdfPageSize } from './pdfPageSize'
 
 export interface DesignExportResult {
   ok: boolean
   path?: string
   error?: string
-}
-
-// CSS px to PDF microns: 1px at 96dpi = 1/96 inch = 25400/96 microns.
-function pxToMicron(px: number): number {
-  return Math.round((px * 25400) / 96)
 }
 
 export async function exportDesign(input: {
@@ -68,7 +64,7 @@ export async function exportDesign(input: {
     } else {
       const pdf = await win.webContents.printToPDF({
         printBackground: true,
-        pageSize: { width: pxToMicron(pageW), height: pxToMicron(pageH) },
+        pageSize: pdfPageSize(pageW, pageH),
         // Electron 44 dropped `marginType`: explicit numbers ARE the custom
         // case now, so the zero margins below mean exactly what they did before.
         margins: { top: 0, right: 0, bottom: 0, left: 0 }
