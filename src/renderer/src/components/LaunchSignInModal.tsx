@@ -190,6 +190,8 @@ export default function LaunchSignInModal(): JSX.Element | null {
       })
       if (r.ok) {
         // Shown before the modal goes: what could not come back, verbatim.
+        setPassword('')
+        setRestoreCode('')
         setRestoreNotes(r.notRestored)
         return
       }
@@ -236,7 +238,11 @@ export default function LaunchSignInModal(): JSX.Element | null {
             })
       if (result.ok) {
         // Modal will unmount because `account` is now populated. No
-        // additional close needed.
+        // additional close needed. The password is not kept in this
+        // component's state for the next time it opens (after a sign-out or
+        // closing the account, it would come back already filled in).
+        setPassword('')
+        setCode('')
         return
       }
       if (result.code === 'ARCHIVED') {
