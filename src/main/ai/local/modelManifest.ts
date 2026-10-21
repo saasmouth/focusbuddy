@@ -22,6 +22,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { serverAnswerMessage } from './downloadManager'
 
 export const MANIFEST_NAMES = ['manifest.sha256', 'manifest.json', 'model.manifest.json'] as const
 
@@ -124,7 +125,7 @@ export async function resolveDownloads(
     let text: string
     try {
       const res = await doFetch(m.manifestUrl, { signal })
-      if (!res.ok) return { ok: false, error: `Could not fetch the model's checksum list (the download server answered ${res.status}).` }
+      if (!res.ok) return { ok: false, error: serverAnswerMessage(res.status, 'checksum list') }
       text = await res.text()
     } catch (e) {
       if (signal?.aborted) return { ok: false, error: 'Download cancelled.' }

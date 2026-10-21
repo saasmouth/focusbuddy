@@ -103,6 +103,22 @@ export async function sha256File(path: string): Promise<string> {
   return h.digest('hex')
 }
 
+/**
+ * What to tell a person when the download host answers with an error status,
+ * for the checksum list or the model itself. Names the status (support reads
+ * it) and what it means for them; a 404 is "not published yet", a 5xx is the
+ * server's trouble, and in both cases nothing on this computer changed.
+ */
+export function serverAnswerMessage(status: number, what: 'model' | 'checksum list' = 'model'): string {
+  if (status === 404 || status === 403 || status === 410) {
+    return `The download server does not have this ${what === 'model' ? 'model' : "model's checksum list"} (it answered ${status}), so nothing was downloaded. Your AI keeps working as it is; try again later.`
+  }
+  if (status >= 500) {
+    return `The download server is having trouble (it answered ${status}). Try again in a few minutes; a partial download resumes where it stopped.`
+  }
+  return `The download server answered ${status}, so the ${what} was not downloaded. Try again later.`
+}
+
 function fmtGB(n: number): string {
   return `${(n / 1e9).toFixed(1)} GB`
 }
@@ -170,7 +186,7 @@ export async function downloadModel(spec: DownloadSpec, deps: DownloadDeps, sign
     } else if (res.status === 416 && have > 0) {
       // Nothing left to send; fall through to verification.
     } else if (res.status !== 200 && res.status !== 206) {
-      return fail('http', `The download server answered ${res.status}.`, have)
+      return fail('http', serverAnswerMessage(res.status), have)
     }
     if (res.status !== 416) {
       if (!res.body) return fail('http', 'The download server sent no data.', have)
