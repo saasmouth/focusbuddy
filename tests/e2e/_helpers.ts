@@ -306,14 +306,34 @@ export async function grantCapability(window: Page, cap: string): Promise<void> 
  *   not one. Switching the AI source clears the notice (d8's 1ffd31f3), so
  *   this doubles as the way to get it off the canvas.
  *
+ * It also dismisses the one-time "local AI is now built in" intro card, which
+ * is the SECOND fixed element in this family: bottom centre, z-225, and it too
+ * intercepts clicks — it is what blocks "Add a page and continue the story" at
+ * the foot of the story editor, 30 seconds of retries ending in a timeout that
+ * reads as a page-layout bug. Switching the source does not clear this one, so
+ * it is dismissed explicitly (localAi.dismissIntro, the same call the card's
+ * own close button makes).
+ *
  * Call it after waitForReady and before touching the UI. Returns silently if
  * the api is not exposed, so a spec that does not need AI is unaffected.
  */
 export async function chooseCloudAiSource(window: Page, mode: 'auto' | 'byok' = 'auto'): Promise<void> {
   await window.evaluate(async (m: string) => {
-    const api = (window as unknown as { api?: { ai?: { setMode?: (x: string) => Promise<unknown> } } }).api
+    const api = (
+      window as unknown as {
+        api?: {
+          ai?: { setMode?: (x: string) => Promise<unknown> }
+          localAi?: { dismissIntro?: () => Promise<unknown> }
+        }
+      }
+    ).api
     if (api?.ai?.setMode) await api.ai.setMode(m)
+    if (api?.localAi?.dismissIntro) await api.localAi.dismissIntro()
   }, mode)
+  // dismissIntro only records the dismissal; a card already on screen is
+  // closed by its own control, so press it when it is there.
+  const intro = window.locator('[data-testid="local-ai-intro-dismiss"]')
+  if (await intro.isVisible().catch(() => false)) await intro.click().catch(() => undefined)
 }
 
 // ── The area switcher ────────────────────────────────────────────────────────
