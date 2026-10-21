@@ -13,7 +13,7 @@
 //     is on; a local model on this computer is not gated, since nothing leaves.
 //     The gate sits at the two call sites in index.ts (backgroundAiGate.ts).
 //
-// Same persistence pattern as workItemsPref.ts: one small JSON file in userData,
+// Same persistence pattern as voiceProviderPref.ts: one small JSON file in userData,
 // cached after the first read, written through on set. Not a secret. A missing
 // file or a missing field reads as the default.
 

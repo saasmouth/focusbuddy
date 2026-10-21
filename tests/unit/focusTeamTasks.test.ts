@@ -137,3 +137,26 @@ describe('a task arriving live lands in its team', () => {
     expect(nodes).toContain('const ids = collectActiveSubtree(db, rootId)')
   })
 })
+
+describe('the per-org attestation gate is gone (DEC-145 superseded it)', () => {
+  const root = join(__dirname, '../..')
+  const read = (p: string): string => readFileSync(join(root, p), 'utf-8')
+  const channels = ['workItems:orgEnabled', 'workItems:orgAttestation', 'workItems:attestOrgMigrated', 'workItems:revokeOrgAttestation']
+
+  it('no channel, handler, bridge or contract survives', () => {
+    for (const file of ['src/main/ipc/index.ts', 'src/preload/index.ts', 'src/main/ipc/ipcContracts.generated.ts', 'src/web/api/channelMap.generated.ts']) {
+      const src = read(file)
+      for (const ch of channels) expect(src, `${ch} in ${file}`).not.toContain(`'${ch}'`)
+    }
+  })
+  it('the pref module and its browser stub are deleted, and nothing aliases them', () => {
+    expect(() => read('src/main/workItemsPref.ts')).toThrow()
+    expect(() => read('src/web/worker/main/workItemsPref.ts')).toThrow()
+    expect(read('vite.web.config.ts')).not.toContain('workItemsPref')
+  })
+  it('creation is refused only for an unmigrated table', () => {
+    const nodes = read('src/main/db/nodes.ts')
+    expect(nodes).toContain("readonly code: 'WORK_ITEMS_NOT_MIGRATED'")
+    expect(nodes).not.toContain('WORK_ITEMS_PERSONAL_ONLY')
+  })
+})

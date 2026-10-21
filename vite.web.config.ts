@@ -46,10 +46,6 @@ const MODULE_SWAPS: Record<string, string> = {
   'src/main/settingsStore.ts': 'src/web/worker/main/settingsStore.ts',
   // Row-change fan-out: postMessage rather than webContents.send.
   'src/main/tableEvents.ts': 'src/web/worker/main/tableEvents.ts',
-  // Work-item preferences: Focus itself is always on (DEC-144), but a tab has
-  // nowhere to hold the per-org migration attestation, so org scope reads off
-  // until that moves to server-held state.
-  'src/main/workItemsPref.ts': 'src/web/worker/main/workItemsPref.ts',
   // Drive file bytes live on OPFS rather than on a disk. Only the byte store is
   // swapped -- db/files.ts itself, all 900 lines of folders, tags, smart
   // folders, trash and search, is the same code on both runtimes.

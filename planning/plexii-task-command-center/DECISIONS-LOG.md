@@ -4944,6 +4944,11 @@ both kinds stay one concept (DEC-144).
 migration shipped in 4.2.0 (2026-08-25); an older peer parks an inbound task
 rather than breaking. The per-org attestation gate (workItemsPref) is no
 longer consulted; it is kept as data only.
+**4.3.41:** removed outright. DEC-145 is what SPEC-027's migrated-peer gate
+was waiting for, so `workItemsPref` (both runtimes), the four
+`workItems:orgEnabled|orgAttestation|attestOrgMigrated|revokeOrgAttestation`
+channels and `WORK_ITEMS_PERSONAL_ONLY` are gone. A leftover
+`work-items.json` in userData is unread and harmless.
 
 **Whose Focus.** `mineClause`: in a team, your Focus (list, badge, counts,
 deadline nudges) is the tasks assigned to you, plus unassigned ones you raised,
