@@ -1,38 +1,50 @@
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady } from './_helpers'
 
-// Verifies the new Agentic Ops tile (segments.tsx + AgenticOpsView.tsx):
-// 1. The PlexiDesk shell tile grid shows "Agentic Ops" alongside Plans.
+// Verifies the Agentic Ops tile (segments.tsx + AgenticOpsView.tsx):
+// 1. The PlexiiBrain shell tile grid shows "Agentic Ops" beside Agents (it moved
+//    there from PlexiDesk on 2026-10-21), the menu lists it under Brain only,
+//    and an old PlexiDesk link to it forwards to Brain.
 // 2. Opening it renders the embedded ops console webview (the local dashboard
 //    at localhost:8765 is live), with the real console content loaded in the
 //    guest, not a blank pane and not the offline state.
-// 3. Neighbouring Plans tile still opens PlexiProjectsView (no regression).
+// 3. PlexiDesk's Plans tile still opens PlexiProjectsView (no regression).
 //
 // Read-only against the live dashboard service: the guest page is inspected
 // with getURL/getTitle/innerText only. No writes, no service restarts.
 
-test('Agentic Ops tile renders embedded console; Plans unaffected', async () => {
+test('Agentic Ops tile (in PlexiiBrain) renders embedded console; Plans unaffected', async () => {
   test.setTimeout(120_000)
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
     await expect(window.locator('text=Something went wrong')).toHaveCount(0)
 
-    // Enter the PlexiDesk segment shell (tiles home).
-    await window.evaluate(() => {
-      const w = window as unknown as {
-        __fbView?: { getState: () => { goPlexiDesk: (app?: string) => void } }
-      }
-      w.__fbView?.getState().goPlexiDesk()
-    })
+    type Nav = { getState: () => { goPlexiDesk: (app?: string) => void; goPlexiBrain: (app?: string) => void; view: { kind: string; app?: string } } }
+    const nav = (fn: 'goPlexiDesk' | 'goPlexiBrain', app?: string): Promise<void> =>
+      window.evaluate(
+        ([f, a]) => (window as unknown as { __fbView?: Nav }).__fbView?.getState()[f as 'goPlexiDesk'](a ?? undefined),
+        [fn, app ?? null] as const
+      )
 
-    // 1. Tile grid shows Agentic Ops next to Plans.
+    // An old PlexiDesk link to Agentic Ops forwards to its new home in Brain.
+    await nav('goPlexiDesk', 'ops')
+    const landed = await window.evaluate(() => (window as unknown as { __fbView?: Nav }).__fbView?.getState().view)
+    expect(landed).toEqual({ kind: 'plexibrain', app: 'ops' })
+
+    // The menu offers it under Brain, and no longer under Desk.
+    await expect(window.locator('[data-testid="nav-plexibrain-ops"]')).toBeVisible({ timeout: 10_000 })
+    await expect(window.locator('[data-testid="nav-plexidesk-ops"]')).toHaveCount(0)
+
+    // Enter the PlexiiBrain segment shell (tiles home).
+    await nav('goPlexiBrain')
+
+    // 1. Tile grid shows Agentic Ops next to Agents.
     const opsTile = window.locator('[data-testid="segment-tile-ops"]')
-    const plansTile = window.locator('[data-testid="segment-tile-plans"]')
     await expect(opsTile).toBeVisible({ timeout: 10_000 })
-    await expect(plansTile).toBeVisible()
+    await expect(window.locator('[data-testid="segment-tile-agents"]')).toBeVisible()
     await expect(opsTile).toContainText('Agentic Ops')
-    console.log('[agentic-ops] tile grid shows Agentic Ops alongside Plans')
+    console.log('[agentic-ops] Brain tile grid shows Agentic Ops beside Agents')
 
     // 2. Open it. The probe should find the live dashboard and mount the webview.
     await opsTile.click()
@@ -86,13 +98,18 @@ test('Agentic Ops tile renders embedded console; Plans unaffected', async () => 
     console.log(`[agentic-ops] guest url=${guest.url} title=${JSON.stringify(guest.title)}`)
     console.log(`[agentic-ops] guest text sample: ${guest.text.slice(0, 400).replace(/\n/g, ' | ')}`)
     expect(guest.url.startsWith('http://localhost:8765')).toBe(true)
-    expect(guest.title).toBe('Archeon Projects')
+    // The console is a separate local service and renames its page title on its
+    // own schedule ("Archeon Projects" became "Archeon"); assert the product,
+    // not a wording this app does not control. The content checks below still
+    // prove the real console loaded rather than a blank or offline pane.
+    expect(guest.title).toMatch(/^Archeon\b/)
     // The loaded UI must carry real console content, not a blank pane.
     expect(guest.text.length).toBeGreaterThan(200)
     expect(/triage|board|project|queue/i.test(guest.text)).toBe(true)
 
-    // 3. Regression: back to tiles home, Plans still opens PlexiProjectsView.
-    await window.locator('[data-testid="nav-plexidesk-home"]').click()
+    // 3. Regression: PlexiDesk's tiles home, Plans still opens PlexiProjectsView.
+    await nav('goPlexiDesk')
+    const plansTile = window.locator('[data-testid="segment-tile-plans"]')
     await expect(plansTile).toBeVisible({ timeout: 10_000 })
     await plansTile.click()
     await expect(window.locator('[data-testid="plexiprojects-view"]')).toBeVisible({

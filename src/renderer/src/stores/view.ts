@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { AttentionFilter } from '../lib/attentionQueues'
 import { recordViewVisit } from '../lib/viewRecency'
+import { movedApp } from '../lib/segmentApps'
 
 // Current pane view — replaces the assumption that the main area always shows a task canvas.
 // As PlexiDesk grows into a workspace OS, the main pane routes between Home Dashboard,
@@ -173,6 +174,13 @@ function readLastView(): View {
         case 'plexiflow':
           // Flow / API / Build / Form moved into PlexiBrain.
           return { kind: 'plexibrain', app: app === 'flow' ? 'flows' : app }
+        case 'plexidesk':
+        case 'plexibrain':
+        case 'plexipeople': {
+          // An app that moved area since this view was saved opens where it lives now.
+          const to = movedApp(loose.kind, app)
+          return { ...(JSON.parse(raw) as object), kind: to.kind, app: to.app } as View
+        }
         default:
           return JSON.parse(raw) as View
       }
@@ -256,7 +264,7 @@ export const useViewStore = create<ViewStore>((set, get) => {
     goMail: (openUid) => commit({ kind: 'mail', openUid }),
     goDocuments: () => commit({ kind: 'documents' }),
     goOffice: (app, doc) => commit({ kind: 'office', app, doc }),
-    goPlexiDesk: (app) => commit({ kind: 'plexidesk', app }),
+    goPlexiDesk: (app) => commit(movedApp('plexidesk', app) as View),
     goPlexiPeople: (app) => commit({ kind: 'plexipeople', app }),
     goPlexiBrain: (app) => commit({ kind: 'plexibrain', app }),
     goPlexii: () => commit({ kind: 'plexii' }),

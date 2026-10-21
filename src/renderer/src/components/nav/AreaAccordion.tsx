@@ -405,9 +405,12 @@ export default function AreaAccordion({
     if (!appsLoaded) void refreshApps()
   }, [appsLoaded, refreshApps])
 
-  /** Hide what the backbone would refuse, so no row is a dead affordance. */
+  /**
+   * Hide what the backbone would refuse, so no row is a dead affordance, and
+   * what another row already reaches (`notInMenu`), so nothing is offered twice.
+   */
   const shown = (apps: readonly SegmentAppMeta[]): SegmentAppMeta[] =>
-    apps.filter((a) => !a.gateKind || enabled(a.gateKind))
+    apps.filter((a) => !a.notInMenu && (!a.gateKind || enabled(a.gateKind)))
 
   const officeApps = shown(SEGMENT_APPS.office)
   const byKey = (keys: readonly string[]): SegmentAppMeta[] =>
@@ -449,6 +452,18 @@ export default function AreaAccordion({
       >
         {deskSlot ?? (
         <div className="px-2 pt-1">
+          {/* Home first, as in the desk sidebar's own list. It is the one Home
+              row: the registry's desk hub is kept out of the app list below
+              (notInMenu), and both routes draw the same Home dashboard. The
+              testid is the hub row's old one, so existing checks still find it. */}
+          <Row
+            label="Home"
+            icon="plexii:home"
+            tone={AREA_TONES.home}
+            active={activeArea === 'home' || isActive('plexidesk', 'home')}
+            onClick={() => useViewStore.getState().goHome()}
+            testid="nav-plexidesk-home"
+          />
           {DESK_VIEWS.map((d) => (
             <Row
               key={d.kind}
