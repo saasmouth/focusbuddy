@@ -183,7 +183,12 @@ let settling: Promise<boolean> | null = null
  */
 export function settleLocalAiMigration(): Promise<boolean> {
   if (settling) return settling
-  settling = (async () => {
+  // Cleared by .finally on the promise, not a finally inside the async body:
+  // when the body returns before its first await (no model yet, the usual
+  // start-up case), an inner finally runs BEFORE this assignment, leaving the
+  // already-resolved `false` here for good, and every later call (the one
+  // after a download included) returned it without checking anything.
+  const run = async (): Promise<boolean> => {
     try {
       if (!localAiMigrationPending()) return false
       const t = activeTier()
@@ -204,11 +209,13 @@ export function settleLocalAiMigration(): Promise<boolean> {
     } catch (e) {
       console.warn(`[local-ai] could not complete the switch to Local: ${(e as Error).message}`)
       return false
-    } finally {
-      settling = null
     }
-  })()
-  return settling
+  }
+  const p = run().finally(() => {
+    if (settling === p) settling = null
+  })
+  settling = p
+  return p
 }
 
 /** What the one-time card needs to know about the model (localAi:getIntro). */

@@ -169,7 +169,17 @@ test('MIG-5 — the offer\'s Download fetches from the host, verifies, and compl
     await card.locator('[data-testid="local-ai-intro-download"]').click()
     await expect(window.locator('[data-testid="local-ai-intro-progress"]')).toBeVisible({ timeout: 15_000 })
     // Downloaded, verified, and the deferred switch completed.
-    await expect.poll(async () => (await window.evaluate(() => window.api.ai.getStatus())).mode, { timeout: 540_000, intervals: [2_000] }).toBe('local')
+    // 'local' when done; a failed download names its reason instead of timing out.
+    await expect
+      .poll(
+        async () => {
+          const err = await window.locator('[data-testid="local-ai-intro-error"]').textContent().catch(() => null)
+          if (err) return `download error: ${err}`
+          return (await window.evaluate(() => window.api.ai.getStatus())).mode
+        },
+        { timeout: 540_000, intervals: [2_000] }
+      )
+      .toBe('local')
     const built = window.locator('[data-testid="local-ai-intro"]')
     await expect(built).toContainText('Local AI is now built in', { timeout: 10_000 })
     await expect(window.locator('[data-testid="local-ai-intro-switch-back"]')).toContainText('Switch back to Plexii AI credits')
