@@ -2631,6 +2631,7 @@ const api = {
       files: { total: number; indexed: number }
       conversations: { total: number; indexed: number }
       knowledge: { total: number; meaningUsable?: number }
+      passages?: { total: number; usable: number }
       meaningModel?: string | null
     }> => ipcRenderer.invoke('brain:coverage'),
     // The bundled on-device model (Settings → AI → Local on this device).

@@ -1,8 +1,9 @@
 // The retrieval half of the coverage port, on the REAL retrieval modules with a
 // fake store: model-stale vectors count as missing, the knowledge backfill is
-// batched, a partly-indexed pool does not lock its un-indexed items out,
-// coverage is measured against the GATED route, and the chat trace says how
-// much of a search was ranked by meaning.
+// batched, a partly-indexed pool does not lock its un-indexed items out, a
+// document ranks on its best passage (with the whole-document vector as the
+// fallback), coverage is measured against the GATED route, and the chat trace
+// says how much of a search was ranked by meaning.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -19,6 +20,7 @@ let gatedModel: string | null = 'm'
 let queryVec: Rec | null = { vector: [1, 0], model: 'm' }
 let failAfterBatches = Infinity
 const embedCalls: string[][] = []
+let passageScores = new Map<string, number>()
 
 vi.mock('../../src/main/db/embeddings', () => ({
   setEmbedding: (k: string, id: string, vector: number[], model: string) => pool(k).set(id, { vector, model }),
@@ -34,6 +36,11 @@ vi.mock('../../src/main/db/documents', () => ({
 vi.mock('../../src/main/db/docMetadata', () => ({ listDocMetadata: () => new Map(), getDocMetadata: () => null }))
 vi.mock('../../src/main/ai/answerCache', () => ({ bumpAnswerCacheVersion: () => undefined }))
 vi.mock('../../src/main/chunkIndex', () => ({ reindexDocumentChunks: () => undefined, chunkIndexActive: () => true }))
+vi.mock('../../src/main/chunkEmbeddings', () => ({
+  bestChunkScores: (q: Rec | null) => (q ? new Map(passageScores) : new Map()),
+  passageModelsBySource: () => new Map(),
+  chunkEmbeddingCoverage: () => ({ total: 0, embedded: 0, stale: 0, usable: 0, fraction: 1 })
+}))
 vi.mock('../../src/main/backgroundAiGate', () => ({
   EMBED_BATCH: 16,
   gatedActiveEmbedModel: async () => gatedModel,
@@ -72,6 +79,7 @@ beforeEach(() => {
   queryVec = { vector: [1, 0], model: 'm' }
   failAfterBatches = Infinity
   embedCalls.length = 0
+  passageScores = new Map()
 })
 
 describe('reindexers treat a model-stale vector as missing', () => {
@@ -138,6 +146,31 @@ describe('a partly-indexed knowledge pool does not lock out its un-indexed entri
   })
 })
 
+describe('documents rank on their best passage', () => {
+  beforeEach(() => {
+    // Both documents mention the query once; A's whole-document vector is a
+    // blurred centroid that misses it, B's is middling. A's best passage nails it.
+    seedDoc('A', 'Quarterly plan', 'long document; somewhere deep inside it discusses attrition among staff')
+    seedDoc('B', 'Staff handbook', 'general handbook text that mentions attrition in passing')
+    pool('document').set('A', { vector: at(0.05), model: 'm' })
+    pool('document').set('B', { vector: at(0.6), model: 'm' })
+  })
+
+  it('without passage vectors the whole-document centroid buries A', async () => {
+    const out = await semanticSearchDocuments('attrition', 2)
+    expect(out[0].docId).toBe('B')
+  })
+
+  it('with a passage vector, A ranks first on its best passage', async () => {
+    passageScores = new Map([['A', 0.95]])
+    const out = await semanticSearchDocuments('attrition', 2)
+    expect(out[0].docId).toBe('A')
+    // B has no passage vector yet: it falls back to its whole-document vector
+    // rather than being scored zero.
+    expect(out.map((d) => d.docId)).toContain('B')
+  })
+})
+
 describe('coverage', () => {
   it('knowledge: stale and missing vectors are not usable', () => {
     seedKnowledge('k1', 'a', 'a')
@@ -148,6 +181,14 @@ describe('coverage', () => {
     expect(knowledgeCoverage('m')).toMatchObject({ total: 3, embedded: 2, stale: 1, usable: 1 })
   })
 
+  it('documents: a passage vector makes a document usable even when its whole-document vector is stale', () => {
+    seedDoc('A', 'a', 'alpha')
+    seedDoc('B', 'b', 'beta')
+    pool('document').set('A', { vector: [1], model: 'old' })
+    pool('document').set('B', { vector: [1], model: 'old' })
+    const r = documentCoverage('m', new Map([['A', { model: 'm' }]]))
+    expect(r).toMatchObject({ total: 2, usable: 1, stale: 1 })
+  })
 
   it('is measured against the GATED route: Background AI off and no local model is an honest 0', async () => {
     gatedModel = null
@@ -163,6 +204,7 @@ describe('coverage', () => {
     const cov = {
       knowledge: report(10, 10),
       documents: report(90, 90),
+      documentChunks: report(300, 300),
       model: 'm',
       fraction: 1
     }

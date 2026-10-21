@@ -23,8 +23,9 @@ export interface BrainCoverage {
     indexed: number
     /** Documents holding a whole-document vector under ANY model. */
     embedded: number
-    /** Documents the live (gated) embedder can actually compare. What
-     *  "Ranked by meaning" means; `embedded` overstates it whenever vectors are model-stale. Absent
+    /** Documents the live (gated) embedder can actually compare — through a
+     *  passage vector or the whole-document fallback. What "Ranked by meaning"
+     *  means; `embedded` overstates it whenever vectors are model-stale. Absent
      *  when the measurement failed: unknown, not zero. */
     meaningUsable?: number
     /** Documents whose only vectors were written by a different embedder. */
@@ -35,6 +36,8 @@ export interface BrainCoverage {
   files: { total: number; indexed: number }
   conversations: { total: number; indexed: number }
   knowledge: { total: number; meaningUsable?: number }
+  /** Document passages with a comparable vector, the backfill's backlog. */
+  passages?: { total: number; usable: number }
   /** The embedder search questions go to; null when none is allowed. */
   meaningModel?: string | null
 }
@@ -107,6 +110,7 @@ export async function brainCoverage(): Promise<BrainCoverage> {
     },
     ...(meaning
       ? {
+          passages: { total: meaning.documentChunks.total, usable: meaning.documentChunks.usable },
           meaningModel: meaning.model
         }
       : {})

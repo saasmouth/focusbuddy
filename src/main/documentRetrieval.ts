@@ -22,6 +22,7 @@ import { listDocMetadata, getDocMetadata, type DocMetadata } from './db/docMetad
 import { bumpAnswerCacheVersion } from './ai/answerCache'
 import { cosineSim, blendSemantic, gateSemantic, semanticShare, type ScoredItem } from '@shared/semantic'
 import { reindexDocumentChunks } from './chunkIndex'
+import { bestChunkScores } from './chunkEmbeddings'
 
 const KIND = 'document'
 // Cap the text we embed so a very long document stays inside the embedding
@@ -196,11 +197,29 @@ export async function reindexDocuments(force = false): Promise<{ embedded: numbe
   return reason ? { embedded, reason } : { embedded }
 }
 
-/** Coverage of the document pool against a given live embedder. Pure lookup. */
-export function documentCoverage(activeModel: string | null): CoverageReport {
+/**
+ * Coverage of the document pool against a given live embedder, per DOCUMENT: a
+ * document is usable when the query side can compare it at all — through a
+ * passage vector (what ranking prefers) or, failing that, its whole-document
+ * vector (the fallback). Stale = holds vectors, none of them comparable.
+ */
+export function documentCoverage(
+  activeModel: string | null,
+  passageSources: ReadonlyMap<string, { model: string }> = new Map()
+): CoverageReport {
+  const whole = listEmbeddingModels(KIND)
+  const merged = new Map<string, { model: string }>()
+  for (const d of loadDocItemsCached()) {
+    const passage = passageSources.get(d.docId)
+    const doc = whole.get(d.docId)
+    // Prefer whichever record is comparable; otherwise any record (stale).
+    const usable = [passage, doc].find((r) => r && activeModel !== null && r.model === activeModel)
+    const rec = usable ?? passage ?? doc
+    if (rec) merged.set(d.docId, rec)
+  }
   return coverageFor(
     loadDocItemsCached().map((d) => d.docId),
-    listEmbeddingModels(KIND),
+    merged,
     activeModel
   )
 }
@@ -217,8 +236,19 @@ export async function semanticSearchDocuments(query: string, limit = 6): Promise
   const vectors = q
     ? listEmbeddingsTagged(KIND)
     : new Map<string, { vector: number[]; model: string }>()
+  // Best PASSAGE score per document, when its chunks carry vectors. This is the
+  // primary semantic signal: a whole-document vector is a blurred centroid of
+  // everything the document says (capped at EMBED_CHARS), which a short specific
+  // question cannot match. Measured on a real corpus, 29 questions drawn from
+  // deep inside documents: whole-document vectors put the containing document
+  // first 19/29 times (mean rank 5.55), passage vectors 23/29 (mean rank 2.28).
+  // The whole-document vector stays as the fallback for a document whose chunks
+  // are not embedded yet — absence of a passage vector is not irrelevance.
+  // The same query vector is reused: one embedding per search, not two.
+  const passageBest = q ? bestChunkScores(q, 'document') : new Map<string, number>()
   const scored: ScoredItem<DocItem>[] = items.map((d) => {
     const rec = vectors.get(d.docId)
+    const passage = passageBest.get(d.docId)
     return {
       item: d,
       keyword: keywordScore(d, query),
@@ -227,9 +257,11 @@ export async function semanticSearchDocuments(query: string, limit = 6): Promise
       // mix, and two different same-dim models would score garbage silently).
       // Mismatches fall back to keyword-only for that item until reindexed.
       semantic:
-        q && rec && rec.model === q.model && rec.vector.length === q.vector.length
-          ? cosineSim(q.vector, rec.vector)
-          : null
+        passage !== undefined
+          ? passage
+          : q && rec && rec.model === q.model && rec.vector.length === q.vector.length
+            ? cosineSim(q.vector, rec.vector)
+            : null
     }
   })
   // The #5 gate runs BEFORE the blend: relative band + keyword corroboration

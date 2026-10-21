@@ -1,6 +1,7 @@
 // @vitest-environment node
 // The embedding sweep (5-minute tick, plus a kick when an OpenAI key is saved or
-// Background AI tasks is turned on): two triggers never embed the same backlog
+// Background AI tasks is turned on): it covers document PASSAGES as well as
+// whole documents and knowledge, and two triggers never embed the same backlog
 // twice in parallel.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -34,6 +35,12 @@ vi.mock('../../src/main/semanticRetrieval', () => ({
     return { embedded: 1 }
   }
 }))
+vi.mock('../../src/main/chunkEmbeddings', () => ({
+  reindexChunkEmbeddings: async (sourceType: string) => {
+    state.calls.push(`passages:${sourceType}`)
+    return { embedded: 7, pruned: 3, reason: 'background_ai_off' }
+  }
+}))
 
 import { sweepEmbeddings } from '../../src/main/ai/localAiSweeps'
 
@@ -43,12 +50,12 @@ beforeEach(() => {
 })
 
 describe('sweepEmbeddings', () => {
-  it('embeds documents then knowledge and reports both', async () => {
+  it('embeds document passages too, last, and reports their count and prunes', async () => {
     const p = sweepEmbeddings()
     await vi.waitFor(() => expect(state.release).not.toBeNull())
     state.release!()
-    expect(await p).toEqual({ documents: 2, knowledge: 1, reason: undefined })
-    expect(state.calls).toEqual(['documents', 'knowledge'])
+    expect(await p).toEqual({ documents: 2, knowledge: 1, passages: 7, pruned: 3, reason: 'background_ai_off' })
+    expect(state.calls).toEqual(['documents', 'knowledge', 'passages:document'])
   })
 
   it('a trigger during a running sweep joins it instead of starting a second', async () => {

@@ -5,6 +5,7 @@ import { enrichDocument } from './enrichDocuments'
 import { extractMemoryFromText } from './extractMemory'
 import { reindexDocuments } from '../documentRetrieval'
 import { reindexKnowledge } from '../semanticRetrieval'
+import { reindexChunkEmbeddings } from '../chunkEmbeddings'
 import {
   localAiContentHash,
   needsLocalAiPass,
@@ -137,9 +138,12 @@ export function localAiBacklog(): {
  * the honest outcome rather than a silent keyword-only downgrade.
  */
 //
-// Both pools embed through the Background AI tasks gate, so with the switch off
-// only a local model is asked and, with none, nothing is sent and the reason
-// comes back.
+// Three pools: whole-document vectors (the fallback), knowledge entries, and
+// document PASSAGES — the signal document ranking prefers (chunkEmbeddings.ts).
+// Passages go last: they are the largest pool, and the chunk sweep that creates
+// them runs at 12 s, well before the first embedding sweep. Every pool embeds
+// through the Background AI tasks gate, so with the switch off only a local
+// model is asked and, with none, nothing is sent and the reason comes back.
 //
 // Single-flight: the 5-minute tick and an on-demand kick (a key saved, the
 // switch turned on) must not embed the same backlog twice in parallel. A call
@@ -147,6 +151,8 @@ export function localAiBacklog(): {
 export interface EmbeddingSweepResult {
   documents: number
   knowledge: number
+  passages: number
+  pruned: number
   reason?: string
 }
 
@@ -163,10 +169,13 @@ export function sweepEmbeddings(): Promise<EmbeddingSweepResult> {
 async function runEmbeddingSweep(): Promise<EmbeddingSweepResult> {
   const docs = await reindexDocuments(false)
   const knowledge = await reindexKnowledge(false)
+  const passages = await reindexChunkEmbeddings('document', false)
   return {
     documents: docs.embedded,
     knowledge: knowledge.embedded,
-    reason: docs.reason ?? knowledge.reason
+    passages: passages.embedded,
+    pruned: passages.pruned,
+    reason: docs.reason ?? knowledge.reason ?? passages.reason
   }
 }
 

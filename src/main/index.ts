@@ -961,9 +961,12 @@ app.whenReady().then(() => {
       // calls measured in seconds, so running them first starves embeddings
       // behind a backlog that can take an hour to drain.
       const v = await sweepEmbeddings()
-      if (v.documents + v.knowledge > 0) {
+      if (v.documents + v.knowledge + v.passages > 0) {
         // eslint-disable-next-line no-console
-        console.log(`[local-ai] embedded ${v.documents} document(s), ${v.knowledge} knowledge entr(ies)`)
+        console.log(
+          `[local-ai] embedded ${v.documents} document(s), ${v.knowledge} knowledge entr(ies), ` +
+            `${v.passages} passage(s)` + (v.pruned > 0 ? `; pruned ${v.pruned} orphaned passage vector(s)` : '')
+        )
       } else if (v.reason) {
         // A backlog that embeds nothing must say why. Silence here is what made
         // the shortfall invisible: coverage simply sat below 100% with no

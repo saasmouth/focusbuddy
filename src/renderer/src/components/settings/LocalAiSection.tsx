@@ -33,6 +33,7 @@ interface Coverage {
   files: { total: number; indexed: number }
   conversations: { total: number; indexed: number }
   knowledge: { total: number; meaningUsable?: number }
+  passages?: { total: number; usable: number }
   meaningModel?: string | null
 }
 
@@ -329,6 +330,15 @@ export default function LocalAiSection(): JSX.Element {
               <span className="text-[var(--ink-50)]"> ({coverage.documents.meaningStale} from an earlier search model, re-indexing)</span>
             )}
             {' · '}Read for memory: <Stat n={coverage.documents.memoryScanned} of={coverage.documents.withText} />
+            {coverage.passages && coverage.passages.total > 0 && (
+              <>
+                <br />
+                Passages ranked by meaning:{' '}
+                <span data-testid="brain-coverage-passages">
+                  <Stat n={coverage.passages.usable} of={coverage.passages.total} />
+                </span>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -17,13 +17,17 @@ import { gatedActiveEmbedModel } from './backgroundAiGate'
 import type { CoverageReport } from './ai/coverageMath'
 import { knowledgeCoverage } from './semanticRetrieval'
 import { documentCoverage } from './documentRetrieval'
+import { chunkEmbeddingCoverage, passageModelsBySource } from './chunkEmbeddings'
 import { chunkIndexActive } from './chunkIndex'
 
 export interface WorkspaceCoverage {
   /** PlexiiBrain entries. */
   knowledge: CoverageReport
-  /** Documents with a whole-document vector the route can compare. */
+  /** Documents reachable by meaning — through a passage vector or, failing
+   *  that, the whole-document fallback. */
   documents: CoverageReport
+  /** Document passages (chunks) individually: the backfill's real backlog. */
+  documentChunks: CoverageReport
   /** The embedder the gated route would use; null when none is allowed. */
   model: string | null
   /** Usable share of knowledge + documents together, weighted by pool size. */
@@ -34,10 +38,11 @@ export interface WorkspaceCoverage {
 export async function workspaceCoverage(): Promise<WorkspaceCoverage> {
   const model = await gatedActiveEmbedModel()
   const knowledge = knowledgeCoverage(model)
-  const documents = documentCoverage(model)
+  const documents = documentCoverage(model, passageModelsBySource('document', model))
+  const documentChunks = chunkEmbeddingCoverage('document', model)
   const total = knowledge.total + documents.total
   const usable = knowledge.usable + documents.usable
-  return { knowledge, documents, model, fraction: total === 0 ? 1 : usable / total }
+  return { knowledge, documents, documentChunks, model, fraction: total === 0 ? 1 : usable / total }
 }
 
 /**
