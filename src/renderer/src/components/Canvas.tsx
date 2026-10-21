@@ -3058,8 +3058,11 @@ export default function Canvas(): JSX.Element {
               )
             })}
           </div>
+          {/* The desk runs full-bleed beneath the floating menu; Columns starts at
+              the menu's right edge (--fb-dock-inset) so its toolbar and first
+              column are not underneath it. */}
           {deskViewMode === 'columns' && activeTaskId && (
-            <div className="absolute inset-0 z-[60]">
+            <div className="absolute inset-y-0 right-0 left-[var(--fb-dock-inset,0px)] z-[60]" data-testid="columns-host">
               <ColumnsView taskId={activeTaskId} widgets={widgets} />
             </div>
           )}

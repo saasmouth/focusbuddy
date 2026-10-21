@@ -78,7 +78,7 @@ export default function DeskDataViews({
 
   return (
     <div
-      className="absolute inset-0 z-[60] bg-[var(--surface-sunken)] flex flex-col"
+      className="absolute inset-y-0 right-0 left-[var(--fb-dock-inset,0px)] z-[60] bg-[var(--surface-sunken)] flex flex-col"
       data-testid={`data-view-${layout}`}
       data-desk-view={layout}
     >
