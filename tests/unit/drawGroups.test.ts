@@ -637,6 +637,24 @@ describe('isolation mode', () => {
   })
 })
 
+describe('Duplicate inside groups', () => {
+  it('⌘D on a member copies it inside its own group (under a clip path), offset on screen', () => {
+    const h = harness(v2([{ id: 'g', type: 'group', transform: [2, 0, 0, 2, 0, 0], clip: true, children: [sq('a', 10, 10, 20, 20), sq('m', 0, 0, 100, 100, { fill: { type: 'none' } })] }]))
+    h.ed.ctx.select(['g'])
+    h.run('object.clip.editContents')
+    h.key('d', { meta: true })
+    const g = getObject(h.doc(), 'g') as DrawGroupNode
+    expect(g.children).toHaveLength(3)
+    expect(g.children[2].id).toBe('m')
+    const copy = h.state().selection[0]
+    expect(g.children[1].id).toBe(copy)
+    const a = worldBounds(h.doc(), 'a')!
+    const c = worldBounds(h.doc(), copy)!
+    expect(c.x - a.x).toBeCloseTo(12)
+    expect(c.y - a.y).toBeCloseTo(12)
+  })
+})
+
 describe('the Group Selection tool', () => {
   const tree = (): Record<string, unknown> =>
     v2([{ id: 'g', type: 'group', children: [sq('a', 10, 10, 20, 20), { id: 'inner', type: 'group', children: [sq('b', 50, 10, 20, 20), sq('c', 80, 10, 20, 20)] }] }])
