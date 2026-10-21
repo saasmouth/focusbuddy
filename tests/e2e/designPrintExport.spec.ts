@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, chooseCloudAiSource } from './_helpers'
 import { readFileSync, existsSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -35,6 +35,11 @@ test('DPX-1 — print PDF exports a real, larger-than-trim PDF with crop marks',
   launched = await launchApp()
   const { window, app } = launched
   await waitForReady(window)
+  // A fresh profile's AI source is Local since 4.3.39. Choose the cloud
+  // source explicitly: it is what these specs assume, and it clears the
+  // fixed "local AI missing" notice, which otherwise intercepts clicks on
+  // the design toolbar and fails as if Design were broken.
+  await chooseCloudAiSource(window)
 
   const path = join(tmpdir(), `plexi-design-print-${process.pid}.pdf`)
   written.push(path)

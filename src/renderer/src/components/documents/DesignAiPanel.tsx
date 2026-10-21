@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from '../Icon'
 import { sanitizeHtml } from '../../lib/htmlSanitize'
 import WorkspaceAsk from './editor/WorkspaceAsk'
 import { adviseDesign, adviceSummary } from '@shared/designAdvisor'
+import { briefKey, designBrief } from '@shared/designAdvicePrompt'
 import type { DesignBody } from '@shared/design'
 
 // The persistent right-side AI Assistant panel for PlexiDesign. It mirrors the
@@ -20,6 +21,21 @@ import type { DesignBody } from '@shared/design'
 // When an action needs a selected text element and there is none, the panel shows
 // an honest inline message rather than inventing content. A missing Anthropic key
 // surfaces as the real error string from the AI call.
+//
+// The review is in two layers, which is the whole design of the thing:
+//
+//   Live review   arithmetic over the document (adviseDesign). Runs on every
+//                 keystroke, needs no key, cannot invent anything, and says
+//                 exactly what is measurably wrong.
+//   What I'd do   the model, given those findings AS FACT, asked only for the
+//                 judgement measurement cannot supply: what to do about each
+//                 one here, and what to write instead.
+//
+// The second layer runs proactively — unprompted, as someone works — when the
+// AI source is the on-device model, because that costs nothing per call. On a
+// cloud source it is a toggle that is off until the person turns it on, with
+// the cost said plainly, since a panel that quietly spends credits while you
+// type is not assistance.
 
 // How the result lands back on the canvas once the user confirms it.
 //   replace - overwrite the selected text element's text (Improve, Shorten)
@@ -81,6 +97,82 @@ export default function DesignAiPanel({
   const [applyMode, setApplyMode] = useState<ApplyMode>('insert')
   const [ask, setAsk] = useState('')
   const [copied, setCopied] = useState(false)
+
+  // ── The model's layer over the measured findings ──────────────────────────
+  const [purpose, setPurpose] = useState('')
+  const [reviewHtml, setReviewHtml] = useState<string | null>(null)
+  const [reviewBusy, setReviewBusy] = useState(false)
+  const [reviewCopied, setReviewCopied] = useState(false)
+  const [reviewError, setReviewError] = useState<string | null>(null)
+  // Proactive review, and whether the source makes it free. Off until the real
+  // status says the on-device model is answering; a cloud source has to be
+  // turned on deliberately.
+  const [autoReview, setAutoReview] = useState(false)
+  const [onDevice, setOnDevice] = useState(false)
+  // The brief last reviewed, so a proactive pass fires on a real change to the
+  // document and not on a re-render.
+  const reviewedKey = useRef<string | null>(null)
+
+  // The facts that go to the model: a digest, the findings, the words on the
+  // page. Never the document — a design with embedded images is megabytes of
+  // bytes no model could act on.
+  const brief = useMemo(
+    () => (body ? designBrief(body, advice, { purpose }) : null),
+    [body, advice, purpose]
+  )
+  const key = brief ? briefKey(brief) : null
+
+  useEffect(() => {
+    let live = true
+    void window.api.ai
+      .getStatus()
+      .then((st) => {
+        if (!live) return
+        const local = st.mode === 'local'
+        setOnDevice(local)
+        if (local) setAutoReview(true)
+      })
+      .catch(() => {
+        /* no status: leave the proactive review off rather than guess */
+      })
+    return () => {
+      live = false
+    }
+  }, [])
+
+  async function review(): Promise<void> {
+    if (!brief || reviewBusy) return
+    reviewedKey.current = key
+    setReviewBusy(true)
+    setReviewError(null)
+    try {
+      const res = await window.api.ai.designAdvice({ brief })
+      if (!res.ok || !res.html) {
+        setReviewError(res.error || (res.needsApiKey ? 'No Anthropic API key set.' : 'The AI returned nothing.'))
+        return
+      }
+      setReviewHtml(res.html)
+    } catch (e) {
+      setReviewError((e as Error).message)
+    } finally {
+      setReviewBusy(false)
+    }
+  }
+
+  // Proactive pass. Waits for the document to settle, so it answers what
+  // someone has written rather than what they were halfway through typing.
+  useEffect(() => {
+    if (!autoReview || !brief || !key || reviewBusy) return
+    if (reviewedKey.current === key) return
+    // Nothing on the canvas and nothing measured: there is no question to ask,
+    // and asking anyway is how a panel starts inventing a design nobody began.
+    if (!brief.text && brief.findings.length === 0 && !brief.purpose) return
+    const t = setTimeout(() => void review(), 1500)
+    return () => clearTimeout(t)
+    // `review` closes over this same brief; re-running on its identity would
+    // retrigger on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoReview, key, reviewBusy])
 
   const greeting =
     userName && userName.trim()
@@ -167,6 +259,18 @@ export default function DesignAiPanel({
     if (applyMode === 'replace') onApplyText(text)
     else onInsertText(text)
     setResultHtml(null)
+  }
+
+  async function copyReview(): Promise<void> {
+    if (!reviewHtml) return
+    const text = htmlToPlainText(reviewHtml)
+    try {
+      await navigator.clipboard.writeText(text)
+      setReviewCopied(true)
+      setTimeout(() => setReviewCopied(false), 1500)
+    } catch {
+      /* clipboard unavailable; leave the review on screen */
+    }
   }
 
   async function copyResult(): Promise<void> {
@@ -268,6 +372,87 @@ export default function DesignAiPanel({
                     </li>
                   ))}
                 </ul>
+              )}
+            </div>
+          )}
+
+          {/* The model's layer over the measured findings. It is given them as
+              fact and asked only for the judgement arithmetic cannot do: what
+              to do about each one in this piece, and what to write instead.
+              Proactive when the on-device model is answering, because that
+              costs nothing; a deliberate toggle on a cloud source, because a
+              panel that quietly spends credits while you type is not help. */}
+          {body && (
+            <div className="flex flex-col gap-1.5" data-testid="design-ai-review">
+              <div className="flex items-center justify-between gap-2">
+                <span className="fb-t-caption uppercase tracking-[0.12em] text-[var(--ink-50)]">
+                  What I&rsquo;d do about it
+                </span>
+                <label
+                  className="flex cursor-pointer items-center gap-1 fb-t-caption text-[var(--ink-50)]"
+                  title={
+                    onDevice
+                      ? 'Reviews the design as you work, on the model running on this device. No credits, nothing leaves the machine.'
+                      : 'Reviews the design as you work. Each pass is a call to your cloud AI source and uses credits or your own key.'
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    checked={autoReview}
+                    onChange={(e) => setAutoReview(e.target.checked)}
+                    data-testid="design-ai-review-auto"
+                  />
+                  <span>{onDevice ? 'As I work (on-device)' : 'As I work (uses credits)'}</span>
+                </label>
+              </div>
+              <input
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                placeholder="What is this for? e.g. a conference poster"
+                className="fb-field w-full px-2.5 py-1.5 text-[12px]"
+                aria-label="What this design is for"
+                data-testid="design-ai-purpose"
+              />
+              <button
+                className={actionClass}
+                onClick={() => void review()}
+                disabled={reviewBusy}
+                data-testid="design-ai-review-run"
+              >
+                <Icon name="rate_review" size={15} className="text-[rgb(var(--accent))]" />
+                <span>{reviewHtml ? 'Review again' : 'Ask what to do about these'}</span>
+              </button>
+              {reviewBusy && (
+                <div
+                  className="flex items-center gap-1.5 text-[12px] text-[var(--ink-50)]"
+                  data-testid="design-ai-review-busy"
+                >
+                  <Icon name="autorenew" size={14} className="animate-spin" />
+                  <span>Looking at the design.</span>
+                </div>
+              )}
+              {reviewError && (
+                <div
+                  className="rounded-lg border border-red-300/60 bg-red-50/70 px-3 py-2 text-[12px] text-red-600 dark:bg-red-950/30 dark:text-red-300"
+                  data-testid="design-ai-review-error"
+                >
+                  {reviewError}
+                </div>
+              )}
+              {reviewHtml != null && (
+                <div className="flex flex-col gap-1.5" data-testid="design-ai-review-result">
+                  <div
+                    className="prose prose-sm prose-stone dark:prose-invert max-h-72 max-w-none overflow-auto rounded-lg bg-[var(--surface-base)] p-3 text-[12.5px]"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(reviewHtml) }}
+                  />
+                  <button
+                    onClick={() => void copyReview()}
+                    className="self-start fb-btn-surface px-3 py-1.5 text-[12px] text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]"
+                    data-testid="design-ai-review-copy"
+                  >
+                    {reviewCopied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
               )}
             </div>
           )}

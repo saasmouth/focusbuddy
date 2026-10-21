@@ -35,6 +35,7 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'agents:run': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }, { kind: 'object', optional: true, nullable: false }, { kind: 'string', optional: true, nullable: false }, { kind: 'number', optional: true, nullable: false }],
   'agents:setWorkspaceOverride': [{ kind: 'string', optional: false, nullable: false }],
   'agents:statsForSlug': [{ kind: 'string', optional: false, nullable: false }],
+  'ai:designAdvice': [{ kind: 'object', optional: false, nullable: false }],
   'ai:enhanceRecord': [{ kind: 'object', optional: false, nullable: false }],
   'ai:extractActionsFromTranscript': [{ kind: 'object', optional: false, nullable: false }],
   'ai:extractCommitments': [{ kind: 'object', optional: false, nullable: false }],
