@@ -22,6 +22,7 @@ import type { SlideElement, SlideFill, SlideTextElement, SlideShapeElement } fro
 import { hasPageToken, resolvePageTokens } from './designFlow'
 import { normalizeContent, parsePlainText, type ContentDoc } from './designContent'
 import type { DesignStyleSheet } from './designStyles'
+import type { BaselineGrid } from './designFlow'
 import { type OrgBrandKit, DEFAULT_BRAND_KIT, readableTextOn, contrastRatio, hexToRgb } from './brandKit'
 import { fillToCss, gradient } from './fills'
 import { chartToSvg } from './chart'
@@ -91,6 +92,12 @@ export interface DesignBody {
    * when someone edits a style.
    */
   paragraphStyles?: DesignStyleSheet
+  /**
+   * The baseline grid columns lock to. Absent means no grid, which is what
+   * every document saved so far has and what a social post or a poster wants
+   * — a grid is for running text in columns, not for everything.
+   */
+  baselineGrid?: BaselineGrid
 }
 
 export interface DesignPage {

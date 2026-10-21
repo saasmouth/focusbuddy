@@ -82,7 +82,8 @@ export function applyStoryFlows(design: DesignBody, measure: FlowMeasurer, brand
       obstacles: pages[c.pageIndex] ? expandedObstacles(pages[c.pageIndex], ownIds) : []
     }))
 
-    const result = flowStory({ paragraphs, frames, measure })
+    // The document's grid, so columns lock to one ruler across the page.
+    const result = flowStory({ paragraphs, frames, measure, grid: design.baselineGrid })
     chain.forEach((c, i) => {
       results.set(c.element.id, {
         lines: result.byFrame[c.element.id] ?? [],
