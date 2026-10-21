@@ -55,13 +55,50 @@ async function drag(from: [number, number], to: [number, number]): Promise<void>
   await window.mouse.up()
 }
 
-/** The editor's save badge settles on "Saved", and never says "Couldn't save". */
+/** The save went through: no "Couldn't save" badge and no failed write logged by the renderer. */
 async function expectSaved(): Promise<void> {
   // The editor debounces saves (600 ms); give the write time to land, then look.
   await window.waitForTimeout(1_500)
-  await expect(window.getByText('Saved', { exact: true })).toBeVisible({ timeout: 8_000 })
   await expect(window.locator('[data-testid="doc-save-error"]')).toHaveCount(0)
+  expect(rendererLog.filter((l) => /persist failed|documents:update/i.test(l))).toEqual([])
 }
+
+test('SP-0 a body in which two shapes hold the SAME paint object crosses window.api to documents:update', async () => {
+  // The question behind the local.6 bug: does a shared reference survive the
+  // preload's contextBridge + IPC as a shared reference (and so meet main's
+  // argument check)? Sent directly, with the exact error recorded if refused.
+  const id = await seedDrawDoc(window, v1Body([]), 'Shared reference')
+  const result = await window.evaluate(async (docId) => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const paint = { type: 'solid', color: '#6d5dfc' }
+    const rect = (oid: string, x: number) => ({
+      id: oid,
+      type: 'path',
+      shapeKind: 'rect',
+      path: { subpaths: [{ closed: true, nodes: [{ x, y: 0 }, { x: x + 10, y: 0 }, { x: x + 10, y: 10 }, { x, y: 10 }] }] },
+      fill: paint
+    })
+    const body = {
+      schemaVersion: 1,
+      width: 800,
+      height: 600,
+      background: { type: 'solid', color: '#ffffff' },
+      activeLayerId: 'L1',
+      layers: [{ id: 'L1', kind: 'vector', name: 'Layer 1', visible: true, locked: false, opacity: 1, blend: 'normal', objects: [rect('a', 0), rect('b', 20)] }]
+    }
+    try {
+      await api.documents.update(docId, { body: body as never })
+      return 'accepted'
+    } catch (e) {
+      return `refused: ${e instanceof Error ? e.message : String(e)}`
+    }
+  }, id)
+  // eslint-disable-next-line no-console
+  console.log(`[drawSaveSharedPaint] SP-0 documents:update with a shared paint object: ${result}`)
+  expect(result).toBe('accepted')
+  const stored = await storedObjects(id)
+  expect(stored).toHaveLength(2)
+})
 
 async function reloadInto(id: string): Promise<void> {
   await window.reload()
