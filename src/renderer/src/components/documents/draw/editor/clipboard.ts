@@ -354,15 +354,18 @@ export function insertInLayer(doc: DrawDoc, layerId: string, nodes: DrawNode[], 
  * Alt-drag duplicate (Illustrator): the originals go back where they started
  * and copies take their place at the drop point, each copy directly above its
  * original. `doc` is the document as the drag left it (originals moved by
- * dx, dy). Returns the new document and the copies' ids, in the order given.
+ * dx, dy); `before` is the document from before the drag, when known.
+ * Returns the new document and the copies' ids, in the order given.
  */
-export function altDragDuplicate(doc: DrawDoc, ids: string[], dx: number, dy: number): { doc: DrawDoc; newIds: string[] } {
+export function altDragDuplicate(doc: DrawDoc, ids: string[], dx: number, dy: number, before?: DrawDoc): { doc: DrawDoc; newIds: string[] } {
   let next = doc
   const newIds: string[] = []
   for (const n of getObjects(doc, ids)) {
     if (n.type === 'opaque') continue
     const copy = withFreshIds(n)
-    const back = translateNode(n, -dx, -dy)
+    // The original exactly as it was before the drag when that is known; moving
+    // it back by -dx would leave floating-point noise in its coordinates.
+    const back = (before && findNode(before, n.id)?.node) || translateNode(n, -dx, -dy)
     const placed = insertBeside(next, n.id, [copy], 'above')
     if (!placed) continue
     next = mapNodeShallow(placed, n.id, back)

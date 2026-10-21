@@ -513,6 +513,12 @@ describe('Alt-drag duplicate', () => {
     expect(ids(h)).toEqual(['a', 'b'])
   })
 
+  it('puts the original back exactly, even after a fractional drag (screen pixels at any zoom)', () => {
+    const h = harness(blank([rect('a', 100, 100, 100, 100)]), { zoom: 0.37 })
+    h.drag([150.1234, 150.987], [449.333, 349.71], { alt: true }, 7)
+    expect(pathOf(h, 'a')).toEqual(rect('a', 100, 100, 100, 100))
+  })
+
   it('Alt let go before the drop is a plain move, labelled Move', () => {
     const h = harness(blank([rect('a', 10, 10, 20, 20)]))
     h.down(20, 20, { alt: true })

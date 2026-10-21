@@ -169,7 +169,9 @@ const select: DrawTool = {
     if (d.kind === 'move' && e.altKey) {
       // Alt-drag duplicate (Illustrator): the originals stay put and copies land
       // where the drag ended, each directly above its original.
-      const dup = altDragDuplicate(ctx.doc(), d.ids, d.last.x - d.start.x, d.last.y - d.start.y)
+      // The step's "before" (recorded at pointer-down) restores the originals exactly.
+      const before = ctx.get().past.at(-1)?.doc
+      const dup = altDragDuplicate(ctx.doc(), d.ids, d.last.x - d.start.x, d.last.y - d.start.y, before)
       d.txn.preview(dup.doc)
       d.txn.commit()
       relabelLastStep(ctx, 'Duplicate')
