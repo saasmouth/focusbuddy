@@ -5,7 +5,6 @@ import type { DrawBlend } from '@shared/draw'
 import type { BooleanOp } from '@shared/drawGeometry'
 import type { DrawDocPaint, DrawDocStroke, DrawNode, DrawTextNode } from '@shared/draw/model'
 import {
-  alignObjects,
   arrange,
   booleanObjects,
   distributeObjects,
@@ -19,6 +18,7 @@ import {
   type ArrangeDir
 } from '@shared/draw/ops'
 import type { Command, EditorCtx, MenuSpec } from '../editor/types'
+import { alignSelection, canAlign } from './align.commands'
 
 const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 
@@ -89,8 +89,9 @@ export const commands: Command[] = [
       id: `object.align.${edge}`,
       label: edge[0].toUpperCase() + edge.slice(1),
       menu: { path: 'object/Align', order: i },
-      enabled: writable,
-      run: (ctx) => ctx.history.commit(alignObjects(ctx.doc(), ctx.get().selection, edge), 'Align')
+      // To the selection, the key object or the artboard (align.commands.ts).
+      enabled: canAlign,
+      run: (ctx) => alignSelection(ctx, edge)
     })
   ),
   {

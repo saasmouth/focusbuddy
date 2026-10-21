@@ -1,8 +1,9 @@
 // Edit menu, plus the editing keys that have no menu item (Escape, nudges).
 
-import { deleteObjects, duplicateObjects, editableIds, moveObjects, selectableObjectIds } from '@shared/draw/ops'
+import { deleteObjects, duplicateObjects, editableIds, selectableObjectIds } from '@shared/draw/ops'
 import type { Command, EditorCtx, KeyInput, MenuSpec } from '../editor/types'
 import { finishPen } from '../tools/pen.tool'
+import { nudgeSelection } from '../transform/apply'
 
 const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 const hasSelection = (ctx: EditorCtx): boolean => ctx.get().selection.length > 0
@@ -18,12 +19,9 @@ export function deleteSelection(ctx: EditorCtx): void {
   ctx.select([])
 }
 
+/** An arrow key: the document's Keyboard Increment, ×10 with Shift; Alt nudges a copy (see transform/apply). */
 function nudge(dx: number, dy: number): Command['run'] {
-  return (ctx, args) => {
-    const step = (args as KeyInput | undefined)?.shiftKey ? 10 : 1
-    const s = ctx.get()
-    ctx.history.commit(moveObjects(s.doc, editableIds(s.doc, s.selection), dx * step, dy * step), 'Nudge')
-  }
+  return (ctx, args) => nudgeSelection(ctx, dx, dy, args as KeyInput | undefined)
 }
 
 export const commands: Command[] = [
@@ -58,7 +56,7 @@ export const commands: Command[] = [
     id: 'edit.duplicate',
     label: 'Duplicate',
     icon: 'file_copy',
-    shortcut: '⌘D',
+    // ⌘D is Transform Again, as in Illustrator (Object › Transform).
     menu: { path: 'edit', order: 210 },
     enabled: (ctx) => writable(ctx) && hasSelection(ctx),
     run: (ctx) => {

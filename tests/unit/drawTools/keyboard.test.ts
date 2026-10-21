@@ -6,11 +6,21 @@ import { blank, harness, rect } from './harness'
 const x = (h: ReturnType<typeof harness>, id: string): number => nodeBounds(h.objects().find((o) => o.id === id)!).x
 
 describe('the keyboard', () => {
-  it('every tool letter selects its tool (Shift or not), and ⌘ with a letter does not', () => {
-    for (const t of drawTools()) {
+  it('every tool letter selects its tool (Shift or not, unless a Shift chord is another tool\'s), and ⌘ with a letter does not', () => {
+    const keyed = drawTools().filter((t) => t.key)
+    const chords = new Set(keyed.filter((t) => t.key!.startsWith('Shift+')).map((t) => t.key!.slice(6).toLowerCase()))
+    for (const t of keyed) {
+      if (t.key!.startsWith('Shift+')) {
+        const letter = t.key!.slice(6)
+        const h = harness()
+        h.key(letter, { shift: true })
+        expect(h.state().tool, `${t.id} on ${t.key}`).toBe(t.id)
+        continue
+      }
       const h = harness()
       h.key(t.key!.toLowerCase())
       expect(h.state().tool, t.id).toBe(t.id)
+      if (chords.has(t.key!.toLowerCase())) continue
       const g = harness()
       g.key(t.key!, { shift: true })
       expect(g.state().tool, `${t.id} with Shift`).toBe(t.id)
@@ -18,6 +28,14 @@ describe('the keyboard', () => {
     const h = harness()
     h.key('r', { meta: true })
     expect(h.state().tool).toBe('select')
+  })
+
+  it('E is Free Transform and ⇧E the Eraser, as in Illustrator', () => {
+    const h = harness()
+    h.key('e')
+    expect(h.state().tool).toBe('freeTransform')
+    h.key('E', { shift: true })
+    expect(h.state().tool).toBe('eraser')
   })
 
   it('Delete and Backspace remove the editable selection, and are always swallowed', () => {
@@ -38,12 +56,17 @@ describe('the keyboard', () => {
     expect(h.state().past).toHaveLength(2)
   })
 
-  it('⌘Z undoes, ⇧⌘Z and ⌘Y redo, ⌘D duplicates', () => {
+  it('⌘Z undoes, ⇧⌘Z and ⌘Y redo; ⌘D is Transform Again (an Alt-nudged copy, repeated)', () => {
     const h = harness(blank([rect('a', 100, 100, 10, 10)]))
     h.ed.ctx.select(['a'])
-    h.key('d', { meta: true })
+    h.key('ArrowRight', { alt: true })
     expect(h.objects()).toHaveLength(2)
+    h.key('d', { meta: true })
+    expect(h.objects()).toHaveLength(3)
     expect(h.state().selection).not.toEqual(['a'])
+    expect(x(h, h.state().selection[0])).toBe(102)
+    h.key('z', { meta: true })
+    expect(h.objects()).toHaveLength(2)
     h.key('z', { meta: true })
     expect(h.objects()).toHaveLength(1)
     h.key('z', { meta: true, shift: true })

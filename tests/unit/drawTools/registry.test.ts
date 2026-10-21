@@ -9,21 +9,27 @@ import type { MenuItem } from '../../../src/renderer/src/components/documents/ed
 import { blank, harness, rect } from './harness'
 
 describe('registries', () => {
-  it('every one of the 16 tools is registered, in toolbox order, with no clashing ids or letters', () => {
-    expect(drawTools().map((t) => `${t.id}:${t.key}`)).toEqual([
+  it('every tool is registered, in toolbox order, with Illustrator\'s letters and no clashing ids or letters', () => {
+    expect(drawTools().map((t) => `${t.id}:${t.key ?? ''}`)).toEqual([
       'select:V',
       'node:A',
       'pen:P',
       'pencil:N',
-      'rect:R',
+      'rect:M',
       'roundRect:D',
-      'ellipse:O',
+      'ellipse:L',
       'polygon:U',
-      'star:S',
-      'line:L',
+      'star:',
+      'line:\\',
       'text:T',
+      'rotate:R',
+      'reflect:O',
+      'scale:S',
+      'shear:',
+      'reshape:',
+      'freeTransform:E',
       'brush:B',
-      'eraser:E',
+      'eraser:Shift+E',
       'bucket:G',
       'eyedropper:I',
       'hand:H'
@@ -37,7 +43,7 @@ describe('registries', () => {
   })
 
   it('no tool letter is also a keymap binding, and every binding names a real command', () => {
-    for (const t of drawTools()) expect(KEYMAP[t.key!.toLowerCase()], t.id).toBeUndefined()
+    for (const t of drawTools().filter((x) => x.key)) expect(KEYMAP[t.key!.toLowerCase()], t.id).toBeUndefined()
     expect(commandRegistryProblems()).toEqual([])
   })
 
@@ -47,8 +53,17 @@ describe('registries', () => {
   })
 
   it('panels and dialogs are discovered', () => {
-    expect(drawPanels().map((p) => p.id)).toEqual(['inspector', 'layers'])
-    expect(drawDialogs().map((d) => d.id).sort()).toEqual(['artboard-size', 'help'])
+    expect(drawPanels().map((p) => p.id)).toEqual(['inspector', 'transform', 'align', 'layers'])
+    expect(drawDialogs().map((d) => d.id).sort()).toEqual([
+      'artboard-size',
+      'help',
+      'transform-each',
+      'transform-move',
+      'transform-reflect',
+      'transform-rotate',
+      'transform-scale',
+      'transform-shear'
+    ])
   })
 
   it('every command\'s enabled() is pure: same answer twice, no state change', () => {
@@ -118,10 +133,22 @@ describe('the menu bar is built from commands, identical to the one it replaced'
         'Redo|redo|⇧⌘Z|off|',
         '---',
         'Select all|select_all|⌘A||',
-        'Duplicate|file_copy|⌘D|off|',
+        'Duplicate|file_copy||off|',
         'Delete|delete|⌫|off|',
         '',
         'object',
+        'Transform|transform|>',
+        '  Transform Again|repeat|⌘D|off|',
+        '  Move…||⇧⌘M|off|',
+        '  Rotate…|||off|',
+        '  Reflect…|||off|',
+        '  Scale…|||off|',
+        '  Shear…|||off|',
+        '  Transform Each…||⌥⇧⌘D|off|',
+        '  Reset Bounding Box|||off|',
+        '  Flip Horizontal|flip||off|',
+        '  Flip Vertical|flip||off|',
+        '---',
         'Pathfinder|join_full|>',
         '  Unite||||',
         '  Minus front||||',
@@ -133,12 +160,23 @@ describe('the menu bar is built from commands, identical to the one it replaced'
         '  Send backward||||',
         '  Send to back||||',
         'Align|align_horizontal_center|>',
-        '  Left||||',
-        '  Center||||',
-        '  Right||||',
-        '  Top||||',
-        '  Middle||||',
-        '  Bottom||||',
+        '  Left|||off|',
+        '  Center|||off|',
+        '  Right|||off|',
+        '  Top|||off|',
+        '  Middle|||off|',
+        '  Bottom|||off|',
+        '  Vertical distribute top|||off|',
+        '  Vertical distribute center|||off|',
+        '  Vertical distribute bottom|||off|',
+        '  Horizontal distribute left|||off|',
+        '  Horizontal distribute center|||off|',
+        '  Horizontal distribute right|||off|',
+        '  Vertical distribute space|||off|',
+        '  Horizontal distribute space|||off|',
+        '  Align to selection||||on',
+        '  Align to key object||||',
+        '  Align to artboard||||',
         '',
         'layer',
         'New vector layer|shapes|||',
@@ -173,10 +211,16 @@ describe('the menu bar is built from commands, identical to the one it replaced'
     h.key('ArrowRight')
     const edit = describeMenu(buildMenu(h.ed.ctx, 'edit'))
     expect(edit).toContain('Undo|undo|⌘Z||')
-    expect(edit).toContain('Duplicate|file_copy|⌘D||')
+    expect(edit).toContain('Duplicate|file_copy|||')
+    // Something selected: the transform commands come on; Transform Again needs a transform first.
+    const object = describeMenu(buildMenu(h.ed.ctx, 'object'))
+    expect(object).toContain('  Move…||⇧⌘M||')
+    expect(object).toContain('  Transform Again|repeat|⌘D||')
+    expect(object).toContain('  Left||||')
+    expect(object).toContain('  Reset Bounding Box|||off|')
     const ro = harness({ ...blank([rect('a', 0, 0, 10, 10)]), schemaVersion: 3 })
     const text = ['file', 'edit', 'object', 'layer', 'document'].flatMap((m) => describeMenu(buildMenu(ro.ed.ctx, m))).join('\n')
-    for (const off of ['Export PNG…', 'Export SVG…', 'Export PDF…', 'Undo', 'Redo', 'Duplicate', 'Delete', 'Unite', 'Bring to front', 'Left', 'New vector layer', 'New paint layer', 'Artboard size…', 'Transparent']) {
+    for (const off of ['Export PNG…', 'Export SVG…', 'Export PDF…', 'Undo', 'Redo', 'Duplicate', 'Delete', 'Transform Again', 'Move…', 'Rotate…', 'Flip Horizontal', 'Unite', 'Bring to front', 'Left', 'New vector layer', 'New paint layer', 'Artboard size…', 'Transparent']) {
       expect(text, off).toMatch(new RegExp(`(^|\\n)\\s*${off.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\|[^|]*\\|[^|]*\\|off\\|`))
     }
   })

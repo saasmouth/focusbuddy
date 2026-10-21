@@ -21,7 +21,13 @@ export default function Toolbox({ ctx }: { ctx: EditorCtx }): JSX.Element {
               {i > 0 && tools[i - 1].group !== t.group && <div className="my-1 mx-2 h-px bg-[var(--edge-soft)]" />}
               <button
                 onClick={() => ctx.setTool(t.id)}
-                title={off ? `${t.label} — not available: this artwork is read-only` : `${t.label} (${t.key})`}
+                onDoubleClick={() => {
+                  // Illustrator: double-click a tool for its options dialog.
+                  if (off || !t.onOptions) return
+                  ctx.setTool(t.id)
+                  t.onOptions(ctx)
+                }}
+                title={off ? `${t.label} — not available: this artwork is read-only` : `${t.label}${t.key ? ` (${t.key})` : ''}${t.onOptions ? ' — double-click for options' : ''}`}
                 aria-label={t.label}
                 aria-pressed={tool === t.id}
                 disabled={off}

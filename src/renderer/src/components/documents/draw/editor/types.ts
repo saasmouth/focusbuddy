@@ -66,6 +66,12 @@ export interface EditorState {
   dialog: OpenDialog | null
   /** Bumped when the co-editing undo stack changes, so Undo/Redo re-enable. */
   liveUndoTick: number
+  /**
+   * State a tool, panel or command keeps BETWEEN gestures, keyed by its owner
+   * (a transform tool's origin, the Align panel's key object, the last
+   * transform for Transform Again). Never part of the document or of undo.
+   */
+  toolState: Record<string, unknown>
 }
 
 /** A pointer event in ARTBOARD coordinates, with what tools read off it. */
@@ -208,7 +214,11 @@ export interface DrawTool {
   group: number
   /** Position within the whole toolbox (sections are ordered by their first tool). */
   order: number
-  /** Single-letter shortcut, shown in the tooltip; conflicts fail a unit test. */
+  /**
+   * Shortcut, shown in the tooltip: one letter ('R'), or 'Shift+<letter>' for
+   * a Shift chord ('Shift+E'). A plain letter also answers with Shift held,
+   * unless another tool claims that Shift chord. Conflicts fail a unit test.
+   */
   key?: string
   cursor?: string
   /** Shows the brush panel while active (the painting tools). */
@@ -218,6 +228,8 @@ export interface DrawTool {
   onPointerDown?(ctx: EditorCtx, e: ToolPointer): void
   onPointerMove?(ctx: EditorCtx, e: ToolPointer): void
   onPointerUp?(ctx: EditorCtx, e: ToolPointer): void
+  /** The tool's options dialog: double-clicking its toolbox button, or Enter while it is active. */
+  onOptions?(ctx: EditorCtx): void
   /** Optional per-tool overlay (previews, handles), drawn in artboard units; k = 1/zoom. */
   Overlay?: FC<{ state: EditorState; k: number }>
   /** Stacking order of overlays (lower first). */

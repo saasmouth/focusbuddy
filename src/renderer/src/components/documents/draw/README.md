@@ -43,7 +43,8 @@ const measure: DrawTool = {
   icon: 'straighten',
   group: 5,             // toolbox section; a divider is drawn between sections
   order: 170,           // position in the toolbox (existing tools use 10..160)
-  // key: 'K',          // optional shortcut letter; a unit test fails on a clash
+  // key: 'K',          // optional shortcut letter, or 'Shift+K'; a unit test fails on a clash
+  // onOptions(ctx) {},  // optional options dialog: Enter while active, or double-click the tool
   cursor: 'crosshair',
   onPointerDown(ctx, e) {
     // e.p is in ARTBOARD coordinates. Start a gesture: it routes the next moves
@@ -80,8 +81,13 @@ Rules:
   - Never mutate a document. Build new ones with the `@shared/draw/ops`
     functions.
 - **Tool-private gesture state goes in `state.gesture`**, keyed by your tool id,
-  as in the example. Shared state goes in its own `EditorState` field, which is
-  an explicit change to `editor/types.ts`.
+  as in the example. State that must outlive a gesture (a transform origin, a
+  key object) goes in `state.toolState[<your id>]`. Shared state goes in its
+  own `EditorState` field, which is an explicit change to `editor/types.ts`.
+- **Transforms go through `transform/apply.ts`** (`applyTransform`,
+  `planMatrix`), so they honour Scale Strokes & Effects and Scale Corners,
+  refuse frame matrices on drawings that cannot hold them, and are remembered
+  for Transform Again (⌘D).
 - **Side effects go through services**: `ctx.raster` for paint-layer pixels,
   `ctx.text` for measuring type, `ctx.viewport` and `ctx.host`. That is what
   lets the harness drive your tool with fakes.

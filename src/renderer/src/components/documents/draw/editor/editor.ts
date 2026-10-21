@@ -72,7 +72,8 @@ export function initialEditorState(content: unknown): EditorState {
     compat,
     storedSchema: declaredSchema(content),
     dialog: null,
-    liveUndoTick: 0
+    liveUndoTick: 0,
+    toolState: {}
   }
 }
 
@@ -197,8 +198,18 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
       }
     }
     if (mod) return
-    const match = drawTools().find((t) => t.key && t.key.toLowerCase() === key)
-    if (match) store.setState({ tool: match.id })
+    // Enter opens the active tool's options (Illustrator: Rotate, Scale... and
+    // the Selection tool's Move dialog).
+    if (e.key === 'Enter' && !e.altKey) {
+      const active = toolById(s.tool)
+      if (active?.onOptions) {
+        e.preventDefault()
+        active.onOptions(ctx)
+        return
+      }
+    }
+    const id = toolForKey(key, e.shiftKey)
+    if (id) store.setState({ tool: id })
   }
 
   function keyUp(e: { code: string }): void {
@@ -227,6 +238,17 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
       services.raster.invalidate()
     }
   }
+}
+
+/** The tool a letter selects: a 'Shift+<letter>' tool wins while Shift is held, otherwise the plain letter. */
+export function toolForKey(key: string, shift: boolean): string | null {
+  const k = key.toLowerCase()
+  const tools = drawTools()
+  if (shift) {
+    const chord = tools.find((t) => t.key && t.key.toLowerCase() === `shift+${k}`)
+    if (chord) return chord.id
+  }
+  return tools.find((t) => t.key && t.key.toLowerCase() === k)?.id ?? null
 }
 
 /** Every vector-layer node id, for tests and the debug hook. */
