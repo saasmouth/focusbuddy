@@ -277,7 +277,8 @@ export const NodeView = memo(function NodeView({ o, assets, swatches }: NodeProp
 
 interface LayerProps {
   layer: DrawDocVectorLayer
-  board: DrawArtboard
+  /** The document rectangle the stage shows (every artboard's union). */
+  board: Pick<DrawArtboard, 'x' | 'y' | 'w' | 'h'>
   stageW: number
   stageH: number
   assets: Record<string, DrawAsset>

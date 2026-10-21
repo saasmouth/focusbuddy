@@ -230,6 +230,7 @@ describe("the keymap is Illustrator's published table", () => {
       'eraser:Shift+E',
       'bucket:K',
       'eyedropper:I',
+      'artboard:Shift+O',
       'hand:H'
     ])
   })
@@ -443,6 +444,7 @@ describe('the keys, in the editor', () => {
       'Delete=Del',
       'Select all=Ctrl+A',
       'Deselect=Shift+Ctrl+A',
+      'Select all on active artboard=Alt+Ctrl+A',
       'Keyboard shortcuts…=Alt+Shift+Ctrl+K'
     ])
     expect(toolShortcutLabel('eraser')).toBe('Shift+E')

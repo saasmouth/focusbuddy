@@ -1,5 +1,5 @@
 import { useStore } from 'zustand'
-import { deleteObjects, getObject, mapObject, nodeFrame, primaryArtboard } from '@shared/draw/ops'
+import { artboardsBounds, deleteObjects, getObject, mapObject, nodeFrame } from '@shared/draw/ops'
 import { fontShorthand } from '../textMeasure'
 import type { EditorCtx } from '../editor/types'
 
@@ -16,7 +16,8 @@ export default function TextEditor({ ctx }: { ctx: EditorCtx }): JSX.Element | n
   const editing = editingText ? getObject(doc, editingText) : null
   const o = editing && editing.type === 'text' ? editing : null
   if (!o) return null
-  const board = primaryArtboard(doc)
+  // Positioned on the stage, whose top-left is the artboards' union's.
+  const board = artboardsBounds(doc)
   return (
     <textarea
       autoFocus

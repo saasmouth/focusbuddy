@@ -3,7 +3,8 @@
 // (saving, co-editing undo, export through the main process).
 
 import type { DrawBody } from '@shared/draw'
-import { primaryArtboard } from '@shared/draw/ops'
+import type { Box } from '@shared/drawGeometry'
+import { artboardsBounds, primaryArtboard, rasterFrame } from '@shared/draw/ops'
 import type { LiveUndo } from '../../../../lib/yjsKeyedJson'
 import { fontShorthand, layoutText } from '../textMeasure'
 import { createCanvasRaster } from './canvasRaster'
@@ -23,13 +24,42 @@ export interface StudioRefs {
 /** Services bound to a studio's refs; `store` is read lazily, once the editor exists. */
 export function createDomServices(refs: StudioRefs, store: () => { getState(): EditorState; setState(p: Partial<EditorState>): void }): EditorServices {
   const doc = (): EditorState['doc'] => store().getState().doc
+
+  /**
+   * Zoom so `box` (document units) fills the window, then scroll it to the
+   * middle once the stage has been laid out at the new zoom. With one artboard
+   * and the whole artboard asked for, this is the old Fit to window exactly.
+   */
+  function fitBox(box: Box): void {
+    const el = refs.scroll.current
+    if (!el || !(box.w > 0) || !(box.h > 0)) return
+    const z = Math.max(0.05, Math.min(4, Math.min((el.clientWidth - 48) / box.w, (el.clientHeight - 48) / box.h)))
+    store().setState({ zoom: z })
+    const centre = (): void => {
+      const sc = refs.scroll.current
+      const stage = sc?.querySelector('[data-testid="draw-stage"]') as HTMLElement | null
+      if (!sc || !stage) return
+      const f = artboardsBounds(doc())
+      const zz = store().getState().zoom
+      const sr = stage.getBoundingClientRect()
+      const cr = sc.getBoundingClientRect()
+      const left = sc.scrollLeft + (sr.left - cr.left - sc.clientLeft) + (box.x - f.x) * zz - (sc.clientWidth - box.w * zz) / 2
+      const top = sc.scrollTop + (sr.top - cr.top - sc.clientTop) + (box.y - f.y) * zz - (sc.clientHeight - box.h * zz) / 2
+      sc.scrollLeft = Math.max(0, left)
+      sc.scrollTop = Math.max(0, top)
+    }
+    // Two frames: React commits the new zoom, then the browser lays it out.
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => requestAnimationFrame(centre))
+  }
+
   return {
     raster: createCanvasRaster({
       canvases: refs.canvases,
       loaded: refs.loaded,
       scratch: refs.scratch,
+      // Paint layers are pictures of the first page (rasterFrame), whichever artboard is active.
       size: () => {
-        const b = primaryArtboard(doc())
+        const b = rasterFrame(doc())
         return { w: b.w, h: b.h }
       }
     }),
@@ -47,13 +77,8 @@ export function createDomServices(refs: StudioRefs, store: () => { getState(): E
         sc.scrollLeft = left
         sc.scrollTop = top
       },
-      fit: () => {
-        const el = refs.scroll.current
-        if (!el) return
-        const b = primaryArtboard(doc())
-        const z = Math.min((el.clientWidth - 48) / b.w, (el.clientHeight - 48) / b.h)
-        store().setState({ zoom: Math.max(0.05, Math.min(4, z)) })
-      },
+      fit: () => fitBox(primaryArtboard(doc())),
+      fitBox,
       visibleRect: () => {
         // The scroll viewport, mapped through the stage's on-screen box exactly
         // as pointer events are (DrawStudio.toolPointer).
@@ -63,14 +88,14 @@ export function createDomServices(refs: StudioRefs, store: () => { getState(): E
         const r = el.getBoundingClientRect()
         const st = stage.getBoundingClientRect()
         const z = store().getState().zoom
-        const b = primaryArtboard(doc())
+        const b = artboardsBounds(doc())
         return { x: (r.left + el.clientLeft - st.left) / z + b.x, y: (r.top + el.clientTop - st.top) / z + b.y, w: el.clientWidth / z, h: el.clientHeight / z }
       }
     },
     host: {
       emit: (stored) => refs.onChange.current(stored),
       liveUndo: () => refs.liveUndo.current,
-      exportAs: async (format) => {
+      exportAs: async (format, opts) => {
         const s = store()
         // A drawing this build cannot fully show cannot be honestly exported:
         // the file would silently leave out what the newer app added.
@@ -81,7 +106,7 @@ export function createDomServices(refs: StudioRefs, store: () => { getState(): E
         s.setState({ busy: `Exporting ${format.toUpperCase()}…` })
         try {
           // The main process accepts a v1 body or a v2 document and normalises it.
-          const res = await window.api.draw.export({ draw: doc() as unknown as DrawBody, title: refs.title.current || 'drawing', format })
+          const res = await window.api.draw.export({ draw: doc() as unknown as DrawBody, title: refs.title.current || 'drawing', format, ...(opts ?? {}) })
           if (res.ok && res.path) s.setState({ status: `Saved to ${res.path}` })
           else if (res.error) s.setState({ status: res.error })
         } finally {

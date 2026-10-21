@@ -3,7 +3,7 @@
 import { drawId, solid } from '@shared/draw'
 import type { Pt } from '@shared/drawGeometry'
 import type { DrawTextNode } from '@shared/draw/model'
-import { addObject, primaryArtboard, targetLayerId } from '@shared/draw/ops'
+import { addObject, artboardAt, primaryArtboard, targetLayerId } from '@shared/draw/ops'
 import type { DrawTool } from '../editor/types'
 import { normBox } from './helpers'
 
@@ -47,7 +47,7 @@ const text: DrawTool = {
       type: 'text',
       x: wide ? box.x : d.from.x,
       y: wide ? box.y : d.from.y,
-      w: wide ? box.w : Math.min(320, Math.max(80, primaryArtboard(doc).w - d.from.x - 8)),
+      w: wide ? box.w : Math.min(320, Math.max(80, ((b) => b.x + b.w)(artboardAt(doc, d.from) ?? primaryArtboard(doc)) - d.from.x - 8)),
       text: '',
       fontSize: size,
       fill: s.fill.type === 'none' ? solid('#1c1917') : s.fill

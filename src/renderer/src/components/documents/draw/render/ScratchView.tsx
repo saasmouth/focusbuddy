@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react'
  * adopted directly rather than copied, so what you see mid-stroke is exactly
  * the pixels that will be composited when you lift the pointer.
  */
-export default function ScratchView({ canvas, stageW, stageH, opacity, blend }: { canvas: HTMLCanvasElement; stageW: number; stageH: number; opacity: number; blend: string }): JSX.Element {
+export default function ScratchView({ canvas, box, opacity, blend }: { canvas: HTMLCanvasElement; box: { left: number; top: number; width: number; height: number }; opacity: number; blend: string }): JSX.Element {
   const host = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     const el = host.current
@@ -22,8 +22,8 @@ export default function ScratchView({ canvas, stageW, stageH, opacity, blend }: 
     <div
       ref={host}
       data-testid="draw-scratch"
-      className="absolute left-0 top-0 pointer-events-none"
-      style={{ width: stageW, height: stageH, opacity, mixBlendMode: (blend === 'source-over' ? 'normal' : blend) as never }}
+      className="absolute pointer-events-none"
+      style={{ ...box, opacity, mixBlendMode: (blend === 'source-over' ? 'normal' : blend) as never }}
     />
   )
 }

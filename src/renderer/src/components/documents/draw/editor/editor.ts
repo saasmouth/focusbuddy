@@ -18,9 +18,10 @@ import { hitNode, patchLayer } from '@shared/draw/ops'
 import { vectorLayersOf } from '@shared/draw/tree'
 import { DEFAULT_BRUSH } from '../brushes'
 import { commandById } from '../commands/registry'
-import { resolveKey } from '../commands/keys'
+import { fieldKeepsKey, resolveKey } from '../commands/keys'
 import { toolById } from '../tools/registry'
 import { createHistory } from './history'
+import { activateArtboardAt } from './artboards'
 import { adoptIntoIsolation, canvasDoubleClick, hitForSelection, hitLeaf } from './isolation'
 import type { EditorCtx, EditorState, History, HostService, KeyInput, RasterService, TextService, ToolPointer, ViewportService } from './types'
 
@@ -164,6 +165,8 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
       toolById('hand')?.onPointerDown?.(ctx, e)
       return
     }
+    // A click on a page makes that artboard the active one, whatever the tool.
+    activateArtboardAt(ctx, e.p)
     // Read-only: look, select and pan -- the select tool knows how.
     if (s.readOnly) {
       toolById('select')?.onPointerDown?.(ctx, e)
@@ -190,7 +193,7 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
   // ── Keyboard ───────────────────────────────────────────────────────────────
 
   /** Commands a key may run on a read-only drawing: they look, select, copy and help; none edits. */
-  const READ_ONLY_KEYS = new Set(['edit.copy', 'edit.selectAll', 'edit.deselect', 'edit.escape', 'edit.keyboardShortcuts'])
+  const READ_ONLY_KEYS = new Set(['edit.copy', 'edit.selectAll', 'edit.selectAllOnArtboard', 'edit.deselect', 'edit.escape', 'edit.keyboardShortcuts'])
   const readOnlyKeyOk = (id: string): boolean => READ_ONLY_KEYS.has(id) || id.startsWith('view.') || id.startsWith('help.')
 
   function keyDown(e: KeyInput): void {
@@ -199,8 +202,9 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
       e.preventDefault()
       return
     }
-    // A field (the text box, an inspector input) keeps its own keys.
-    if (e.inField) return
+    // A field (the text box, an inspector input) keeps its own keys -- except
+    // a command chord pressed in one of the studio's own fields (fieldKeepsKey).
+    if (e.inField && (!e.inStudioField || fieldKeepsKey(e))) return
     const s = store.getState()
     // An open dialog owns the keyboard; Escape closes it.
     if (s.dialog) {

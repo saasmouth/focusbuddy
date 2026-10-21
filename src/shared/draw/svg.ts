@@ -17,6 +17,7 @@ import { safeCssColor } from '../cssColor'
 import { assetSrc } from './assets'
 import { esc, fixed, isNum, num } from './markup'
 import { clipGroupParts } from './ops/masks'
+import { artboardsBounds, rasterFrame } from './ops/artboards'
 import { clipGroupMarkup, clipPathMarkup } from './svg/masks'
 import type {
   DrawArtboard,
@@ -283,12 +284,15 @@ export function nodeSvg(doc: DrawDoc, o: DrawNode, defs: string[]): string {
   }
 }
 
-function layerSvg(doc: DrawDoc, l: DrawDocLayer, board: DrawArtboard, defs: string[]): string {
+function layerSvg(doc: DrawDoc, l: DrawDocLayer, defs: string[]): string {
   const style = styleAttr(l)
   if (l.kind === 'raster') {
     const src = assetSrc(doc.assets, l.assetId)
     if (!src) return ''
-    return `<g${style}><image href="${esc(src)}" x="${num(board.x)}" y="${num(board.y)}" width="${num(board.w)}" height="${num(board.h)}" preserveAspectRatio="none"/></g>`
+    // A paint layer is a picture of the first page, anchored at the origin
+    // (rasterFrame) -- on every artboard and in every export frame.
+    const f = rasterFrame(doc)
+    return `<g${style}><image href="${esc(src)}" x="${num(f.x)}" y="${num(f.y)}" width="${num(f.w)}" height="${num(f.h)}" preserveAspectRatio="none"/></g>`
   }
   // A template layer is a tracing aid: shown dimmed in the editor, never exported.
   if (l.template) return ''
@@ -307,17 +311,24 @@ export function exportArtboard(doc: DrawDoc, artboardId?: string): DrawArtboard 
  * named). Paint layers ride along as embedded images; widgets and opaque nodes
  * are left out; every other node is real vector markup.
  */
-export function drawDocToSvg(doc: DrawDoc, opts: { artboardId?: string } = {}): string {
-  const board = exportArtboard(doc, opts.artboardId)
+export function drawDocToSvg(doc: DrawDoc, opts: { artboardId?: string; canvas?: boolean; bgHint?: string } = {}): string {
+  // `canvas`: the whole canvas -- every artboard together, each with its own
+  // background, framed on their union (Export with "whole canvas").
+  const board = opts.canvas ? { ...artboardsBounds(doc), background: { type: 'none' } as DrawArtboard['background'] } : exportArtboard(doc, opts.artboardId)
   const defs: string[] = []
   const w = num(board.w)
   const h = num(board.h)
   const layers = doc.layers
     .filter((l) => l.visible)
-    .map((l) => layerSvg(doc, l, board, defs))
+    .map((l) => layerSvg(doc, l, defs))
     .join('')
-  const bgPaint = paintAttr(doc, board.background, defs, 'bg')
-  const bg = bgPaint.value === 'none' ? '' : `<rect x="${num(board.x)}" y="${num(board.y)}" width="${w}" height="${h}" fill="${esc(bgPaint.value)}"/>`
+  const pages = opts.canvas ? doc.artboards : [board]
+  const bg = pages
+    .map((a, i) => {
+      const bgPaint = paintAttr(doc, a.background, defs, i === 0 ? (opts.bgHint ?? 'bg') : `${opts.bgHint ?? 'bg'}${i}`)
+      return bgPaint.value === 'none' ? '' : `<rect x="${num(a.x)}" y="${num(a.y)}" width="${num(a.w)}" height="${num(a.h)}" fill="${esc(bgPaint.value)}"/>`
+    })
+    .join('')
   const defsBlock = defs.length ? `<defs>${defs.join('')}</defs>` : ''
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="${num(board.x)} ${num(board.y)} ${w} ${h}">` +
@@ -326,8 +337,8 @@ export function drawDocToSvg(doc: DrawDoc, opts: { artboardId?: string } = {}): 
 }
 
 /** A standalone HTML page wrapping drawDocToSvg, for the offscreen PNG/PDF capture (see drawToHtml). */
-export function drawDocToHtml(doc: DrawDoc, opts: { artboardId?: string; cssSize?: { w: number; h: number } } = {}): string {
-  const board = exportArtboard(doc, opts.artboardId)
+export function drawDocToHtml(doc: DrawDoc, opts: { artboardId?: string; canvas?: boolean; cssSize?: { w: number; h: number } } = {}): string {
+  const board = opts.canvas ? { ...artboardsBounds(doc), background: { type: 'none' } as DrawArtboard['background'] } : exportArtboard(doc, opts.artboardId)
   const transparent = resolvePaint(doc, board.background)?.type === 'none'
   const w = opts.cssSize ? opts.cssSize.w : board.w
   const h = opts.cssSize ? opts.cssSize.h : board.h
@@ -336,6 +347,29 @@ export function drawDocToHtml(doc: DrawDoc, opts: { artboardId?: string; cssSize
     `html,body{width:${num(w)}px;height:${num(h)}px;background:${transparent ? 'transparent' : 'none'}}` +
     (opts.cssSize ? `svg{display:block;width:${num(w)}px;height:${num(h)}px}` : '') +
     `</style></head>` +
-    `<body>${drawDocToSvg(doc, { artboardId: opts.artboardId })}</body></html>`
+    `<body>${drawDocToSvg(doc, { artboardId: opts.artboardId, canvas: opts.canvas })}</body></html>`
+  )
+}
+
+/**
+ * Every artboard as one page of a PDF, in panel order: a page per artboard,
+ * each laid out at its own CSS size (`cssSize` turns an artboard's pixels into
+ * the CSS px Chromium prints at) and given its own page size with a named
+ * CSS @page -- so a 3-artboard drawing prints as a 3-page PDF whose pages keep
+ * their own sizes. Print with preferCSSPageSize.
+ */
+export function drawDocToPagesHtml(doc: DrawDoc, cssSize: (a: DrawArtboard) => { w: number; h: number }): string {
+  const pages = doc.artboards.map((a, i) => {
+    const s = cssSize(a)
+    return { a, i, w: num(s.w), h: num(s.h) }
+  })
+  const css =
+    `*{margin:0;padding:0;box-sizing:border-box}html,body{background:transparent}` +
+    pages.map((p) => `@page ab${p.i}{size:${p.w}px ${p.h}px;margin:0}.ab${p.i}{page:ab${p.i};width:${p.w}px;height:${p.h}px;overflow:hidden;break-after:page}.ab${p.i} svg{display:block;width:${p.w}px;height:${p.h}px}`).join('') +
+    `div:last-child{break-after:auto}`
+  return (
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${css}</style></head><body>` +
+    pages.map((p) => `<div class="ab${p.i}">${drawDocToSvg(doc, { artboardId: p.a.id, bgHint: `bg-ab${p.i}` })}</div>`).join('') +
+    `</body></html>`
   )
 }
