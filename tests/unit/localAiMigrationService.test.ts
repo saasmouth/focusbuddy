@@ -104,6 +104,17 @@ describe('the AI-source migration in the running app', () => {
     expect(svc.introModelState().state).toBe('ready')
   })
 
+  it('a settle that finds nothing (start-up, no model yet) does not stop the one after the download from completing', async () => {
+    const { svc, store } = await app({ v: 1, keys: {}, aiMode: 'auto' })
+    // Start-up: nothing here, returns before any await.
+    expect(await svc.settleLocalAiMigration()).toBe(false)
+    expect(await svc.settleLocalAiMigration()).toBe(false)
+    installInUserData()
+    // After the download: must really check again, and complete.
+    expect(await svc.settleLocalAiMigration()).toBe(true)
+    expect(store.getAiMode()).toBe('local')
+  })
+
   it('update when the model is already downloaded: straight to local, nothing pending', async () => {
     const { svc, store } = await app({ v: 1, keys: {}, aiMode: 'auto' }, { before: installInUserData })
     expect(store.getAiMode()).toBe('local')
