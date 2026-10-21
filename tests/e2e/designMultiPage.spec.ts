@@ -4,7 +4,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, switchArea } from './_helpers'
+import { launchApp, waitForReady, switchArea, chooseCloudAiSource } from './_helpers'
 
 async function openDesignStudio(window: Page): Promise<void> {
   await switchArea(window, 'office')
@@ -21,6 +21,11 @@ test('DMP-1 — add pages, per-page content, switching retains each page', async
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
+    // A fresh profile's AI source is Local since 4.3.39. Choose the cloud
+    // source explicitly: it is what these specs assume, and it clears the
+    // fixed "local AI missing" notice, which otherwise intercepts clicks on
+    // the design toolbar and fails as if Design were broken.
+    await chooseCloudAiSource(window)
     await openDesignStudio(window)
 
     // The page rail starts with a single page.

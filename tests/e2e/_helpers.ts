@@ -290,6 +290,32 @@ export async function grantCapability(window: Page, cap: string): Promise<void> 
   if (!ok) throw new Error(`window.__fbCapabilities not exposed — cannot grant ${cap}`)
 }
 
+/**
+ * Choose the automatic CLOUD AI source, as an existing cloud user would have.
+ *
+ * Since 4.3.39 a fresh profile's AI source is Local, because the model ships
+ * in the app. Two consequences for e2e, and the second is the one that wastes
+ * an afternoon:
+ *
+ *   a spec exercising the cloud path with no key is now testing the LOCAL
+ *   path unless it says otherwise;
+ *
+ *   when the model is not present, a fixed "local AI missing" notice sits at
+ *   top centre on z-9997 and INTERCEPTS CLICKS. A spec then fails on
+ *   `design-add-text` not being clickable, which reads as a Design bug and is
+ *   not one. Switching the AI source clears the notice (d8's 1ffd31f3), so
+ *   this doubles as the way to get it off the canvas.
+ *
+ * Call it after waitForReady and before touching the UI. Returns silently if
+ * the api is not exposed, so a spec that does not need AI is unaffected.
+ */
+export async function chooseCloudAiSource(window: Page, mode: 'auto' | 'byok' = 'auto'): Promise<void> {
+  await window.evaluate(async (m: string) => {
+    const api = (window as unknown as { api?: { ai?: { setMode?: (x: string) => Promise<unknown> } } }).api
+    if (api?.ai?.setMode) await api.ai.setMode(m)
+  }, mode)
+}
+
 // ── The area switcher ────────────────────────────────────────────────────────
 // Desk / Office / People / Brain are tabs in every area's menu
 // (segment/SegmentSwitcher.tsx), each carrying `switch-<kind>`.

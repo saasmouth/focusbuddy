@@ -9,7 +9,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, chooseCloudAiSource } from './_helpers'
 import { existsSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -86,6 +86,11 @@ test.describe('PlexiDesign redesign wizard', () => {
     app = await launchApp()
     window = app.window
     await waitForReady(window)
+    // A fresh profile's AI source is Local since 4.3.39. Choose the cloud
+    // source explicitly: it is what these specs assume, and it clears the
+    // fixed "local AI missing" notice, which otherwise intercepts clicks on
+    // the design toolbar and fails as if Design were broken.
+    await chooseCloudAiSource(window)
     await openPublication(window)
   })
 
