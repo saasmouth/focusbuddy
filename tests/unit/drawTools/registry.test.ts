@@ -9,12 +9,21 @@ import type { MenuItem } from '../../../src/renderer/src/components/documents/ed
 import { blank, harness, rect } from './harness'
 
 describe('registries', () => {
-  it('every one of the 16 tools is registered, in toolbox order, with no clashing ids or letters', () => {
-    expect(drawTools().map((t) => `${t.id}:${t.key}`)).toEqual([
+  it('every one of the 25 tools is registered, in toolbox order, with no clashing ids or letters', () => {
+    expect(drawTools().map((t) => `${t.id}:${t.key ?? t.shortcutLabel ?? ''}`)).toEqual([
       'select:V',
-      'node:A',
+      'direct:A',
+      'lasso:Q',
       'pen:P',
+      'curvature:⇧~',
+      'addAnchor:+',
+      'deleteAnchor:-',
+      'anchorConvert:⇧C',
+      'scissors:C',
+      'knife:',
       'pencil:N',
+      'smooth:',
+      'pathEraser:',
       'rect:R',
       'roundRect:D',
       'ellipse:O',
@@ -37,7 +46,7 @@ describe('registries', () => {
   })
 
   it('no tool letter is also a keymap binding, and every binding names a real command', () => {
-    for (const t of drawTools()) expect(KEYMAP[t.key!.toLowerCase()], t.id).toBeUndefined()
+    for (const t of drawTools()) if (t.key) expect(KEYMAP[t.key.toLowerCase()], t.id).toBeUndefined()
     expect(commandRegistryProblems()).toEqual([])
   })
 
@@ -47,8 +56,8 @@ describe('registries', () => {
   })
 
   it('panels and dialogs are discovered', () => {
-    expect(drawPanels().map((p) => p.id)).toEqual(['inspector', 'layers'])
-    expect(drawDialogs().map((d) => d.id).sort()).toEqual(['artboard-size', 'help'])
+    expect(drawPanels().map((p) => p.id)).toEqual(['inspector', 'anchors', 'layers'])
+    expect(drawDialogs().map((d) => d.id).sort()).toEqual(['artboard-size', 'average', 'help', 'simplify'])
   })
 
   it('every command\'s enabled() is pure: same answer twice, no state change', () => {
@@ -139,6 +148,14 @@ describe('the menu bar is built from commands, identical to the one it replaced'
         '  Top||||',
         '  Middle||||',
         '  Bottom||||',
+        'Path|timeline|>',
+        '  Join|link|⌘J|off|',
+        '  Average…||⌥⌘J|off|',
+        '  Average & Join||⌥⇧⌘J|off|',
+        '  Simplify…|||off|',
+        '  Add Anchor Points|||off|',
+        '  Remove Anchor Points|remove||off|',
+        '  Cut Path at Selected Anchor Points|content_cut||off|',
         '',
         'layer',
         'New vector layer|shapes|||',

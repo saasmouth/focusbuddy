@@ -72,7 +72,11 @@ export function initialEditorState(content: unknown): EditorState {
     compat,
     storedSchema: declaredSchema(content),
     dialog: null,
-    liveUndoTick: 0
+    liveUndoTick: 0,
+    anchors: {},
+    penTarget: null,
+    curvature: null,
+    pathPrefs: { showHandles: true, smoothFidelity: 50, brushSize: 10 }
   }
 }
 
@@ -116,7 +120,8 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
     host: services.host,
     status: (msg) => store.setState({ status: msg }),
     busy: (msg) => store.setState({ busy: msg }),
-    select: (ids) => store.setState({ selection: ids }),
+    // An object-level selection replaces any anchor-level one.
+    select: (ids) => store.setState({ selection: ids, anchors: {} }),
     setTool: (id) => store.setState({ tool: id }),
     run: (id, args) => {
       const c = commandById(id)

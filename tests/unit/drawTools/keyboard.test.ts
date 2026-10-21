@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { nodeBounds } from '../../../src/shared/draw/ops'
 import { drawTools } from '../../../src/renderer/src/components/documents/draw/tools/registry'
+import { KEYMAP } from '../../../src/renderer/src/components/documents/draw/commands/keymap'
 import { blank, harness, rect } from './harness'
 
 const x = (h: ReturnType<typeof harness>, id: string): number => nodeBounds(h.objects().find((o) => o.id === id)!).x
@@ -8,11 +9,15 @@ const x = (h: ReturnType<typeof harness>, id: string): number => nodeBounds(h.ob
 describe('the keyboard', () => {
   it('every tool letter selects its tool (Shift or not), and ⌘ with a letter does not', () => {
     for (const t of drawTools()) {
+      // Tools picked by a keymap chord instead of a letter (Anchor Point ⇧C, Curvature ⇧~).
+      if (!t.key) continue
       const h = harness()
-      h.key(t.key!.toLowerCase())
+      h.key(t.key.toLowerCase())
       expect(h.state().tool, t.id).toBe(t.id)
+      // A Shift chord with a binding of its own (⇧C) is that binding, not the letter.
+      if (KEYMAP[`shift+${t.key.toLowerCase()}`]) continue
       const g = harness()
-      g.key(t.key!, { shift: true })
+      g.key(t.key, { shift: true })
       expect(g.state().tool, `${t.id} with Shift`).toBe(t.id)
     }
     const h = harness()

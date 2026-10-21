@@ -66,6 +66,28 @@ export interface EditorState {
   dialog: OpenDialog | null
   /** Bumped when the co-editing undo stack changes, so Undo/Redo re-enable. */
   liveUndoTick: number
+  /**
+   * Direct selection (WP-PATH): path id -> the [subpath, node] pairs selected.
+   * A selected path with NO entry is wholly selected (every anchor); an entry
+   * with an empty list is a path selected with none of its anchors. Any
+   * object-level select (ctx.select) clears it. See editor/anchorSelection.ts.
+   */
+  anchors: Record<string, Array<[number, number]>>
+  /** The pen is continuing this open end (null for a new path). */
+  penTarget: { id: string; si: number; end: 'start' | 'end' } | null
+  /** The Curvature tool's path in progress (0 undo entries until finished). */
+  curvature: { points: Array<{ x: number; y: number; corner?: boolean }> } | null
+  /** Path-editing preferences (Properties panel, tool options). */
+  pathPrefs: PathPrefs
+}
+
+export interface PathPrefs {
+  /** Show handles when several anchors are selected (one selected anchor always shows its handles). */
+  showHandles: boolean
+  /** Smooth tool fidelity, 0 (accurate) .. 100 (smooth). */
+  smoothFidelity: number
+  /** Path Eraser and Smooth tool reach, in screen px. */
+  brushSize: number
 }
 
 /** A pointer event in ARTBOARD coordinates, with what tools read off it. */
@@ -210,6 +232,8 @@ export interface DrawTool {
   order: number
   /** Single-letter shortcut, shown in the tooltip; conflicts fail a unit test. */
   key?: string
+  /** Tooltip text for a shortcut that is a keymap chord rather than a letter (e.g. '⇧C'). */
+  shortcutLabel?: string
   cursor?: string
   /** Shows the brush panel while active (the painting tools). */
   paint?: boolean
@@ -222,6 +246,8 @@ export interface DrawTool {
   Overlay?: FC<{ state: EditorState; k: number }>
   /** Stacking order of overlays (lower first). */
   overlayOrder?: number
+  /** Works on anchors: the selection's bounding box (and its handles) is hidden while it is active. */
+  anchorTool?: boolean
 }
 
 export type MenuId = 'file' | 'edit' | 'object' | 'layer' | 'document' | 'view' | 'help' | (string & {})

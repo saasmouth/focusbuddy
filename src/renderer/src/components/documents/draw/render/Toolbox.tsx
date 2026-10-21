@@ -21,7 +21,7 @@ export default function Toolbox({ ctx }: { ctx: EditorCtx }): JSX.Element {
               {i > 0 && tools[i - 1].group !== t.group && <div className="my-1 mx-2 h-px bg-[var(--edge-soft)]" />}
               <button
                 onClick={() => ctx.setTool(t.id)}
-                title={off ? `${t.label} — not available: this artwork is read-only` : `${t.label} (${t.key})`}
+                title={off ? `${t.label} — not available: this artwork is read-only` : (t.shortcutLabel ?? t.key) ? `${t.label} (${t.shortcutLabel ?? t.key})` : t.label}
                 aria-label={t.label}
                 aria-pressed={tool === t.id}
                 disabled={off}

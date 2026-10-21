@@ -729,12 +729,13 @@ export function roundAnchorCorners(doc: DrawDoc, refs: AnchorRef[], r: number): 
  * Drag a segment: a curved segment reshapes through the dragged point (its
  * handles move, its anchors stay); a straight one moves with both anchors.
  */
-export function dragSegment(doc: DrawDoc, id: string, si: number, seg: number, t: number, target: Pt, from: Pt): DrawDoc {
+export function dragSegment(doc: DrawDoc, id: string, si: number, seg: number, t: number, target: Pt, from: Pt, bend = false): DrawDoc {
   const o = editablePath(doc, id)
   const sp = o?.path.subpaths[si]
   if (!o || !sp || seg >= segmentCount(sp)) return doc
   const c = segmentOf(sp, seg)
-  if (isStraight(c)) {
+  // `bend` (the Anchor Point tool) curves even a straight segment.
+  if (isStraight(c) && !bend) {
     const n = sp.nodes.length
     return moveAnchors(doc, [{ id, si, ni: seg }, { id, si, ni: (seg + 1) % n }], target.x - from.x, target.y - from.y)
   }

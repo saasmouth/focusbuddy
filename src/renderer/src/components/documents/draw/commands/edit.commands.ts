@@ -1,28 +1,53 @@
 // Edit menu, plus the editing keys that have no menu item (Escape, nudges).
 
-import { deleteObjects, duplicateObjects, editableIds, moveObjects, selectableObjectIds } from '@shared/draw/ops'
+import { deleteAnchorsBreak, deleteObjects, duplicateObjects, editableIds, moveAnchors, moveObjects, selectableObjectIds } from '@shared/draw/ops'
 import type { Command, EditorCtx, KeyInput, MenuSpec } from '../editor/types'
-import { finishPen } from '../tools/pen.tool'
+import { partialAnchors, wholeSelection } from '../editor/anchorSelection'
+import { finishCurvature } from '../tools/curvature.tool'
+import { finishPen, popPenAnchor } from '../tools/pen.tool'
 
 const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 const hasSelection = (ctx: EditorCtx): boolean => ctx.get().selection.length > 0
 
 export const menus: MenuSpec[] = [{ path: 'edit', label: 'Edit', order: 20 }]
 
-/** Delete the selected objects that are not locked or hidden (one undo step). */
+/**
+ * Delete the selected objects that are not locked or hidden (one undo step).
+ * Anchors picked with Direct Selection go with their segments instead, and
+ * the rest of their path stays.
+ */
 export function deleteSelection(ctx: EditorCtx): void {
   const s = ctx.get()
-  const ids = editableIds(s.doc, s.selection)
-  if (!ids.length) return
-  ctx.history.commit(deleteObjects(s.doc, ids), 'Delete')
-  ctx.select([])
+  const anchors = partialAnchors(s)
+  const ids = editableIds(s.doc, wholeSelection(s))
+  if (!ids.length && !anchors.length) return
+  let doc = s.doc
+  let kept: string[] = []
+  if (anchors.length) {
+    const r = deleteAnchorsBreak(doc, anchors)
+    doc = r.doc
+    kept = r.ids
+  }
+  if (ids.length) doc = deleteObjects(doc, ids)
+  if (doc === s.doc) return
+  ctx.history.commit(doc, anchors.length ? 'Delete anchor points' : 'Delete')
+  ctx.select(kept)
 }
 
+/**
+ * Arrow keys: move the selection by the keyboard increment (Document
+ * settings, 1 px by default), ten times that with Shift. Anchors picked with
+ * Direct Selection move on their own; whole objects move as objects.
+ */
 function nudge(dx: number, dy: number): Command['run'] {
   return (ctx, args) => {
-    const step = (args as KeyInput | undefined)?.shiftKey ? 10 : 1
     const s = ctx.get()
-    ctx.history.commit(moveObjects(s.doc, editableIds(s.doc, s.selection), dx * step, dy * step), 'Nudge')
+    const inc = s.doc.settings.keyIncrement && s.doc.settings.keyIncrement > 0 ? s.doc.settings.keyIncrement : 1
+    const step = ((args as KeyInput | undefined)?.shiftKey ? 10 : 1) * inc
+    let doc = moveObjects(s.doc, editableIds(s.doc, wholeSelection(s)), dx * step, dy * step)
+    const anchors = partialAnchors(s)
+    if (anchors.length) doc = moveAnchors(doc, anchors, dx * step, dy * step)
+    ctx.history.commit(doc, anchors.length ? 'Nudge anchor points' : 'Nudge')
   }
 }
 
@@ -33,8 +58,9 @@ export const commands: Command[] = [
     icon: 'undo',
     shortcut: '⌘Z',
     menu: { path: 'edit', order: 100 },
-    enabled: (ctx) => writable(ctx) && ctx.history.canUndo(),
-    run: (ctx) => ctx.history.undo()
+    // Inside a pen path, ⌘Z takes back its last point (Illustrator).
+    enabled: (ctx) => writable(ctx) && (ctx.get().pen !== null || ctx.history.canUndo()),
+    run: (ctx) => (ctx.get().pen ? popPenAnchor(ctx) : ctx.history.undo())
   },
   {
     id: 'edit.redo',
@@ -84,6 +110,7 @@ export const commands: Command[] = [
     label: 'Finish path or deselect',
     run: (ctx) => {
       if (ctx.get().pen) finishPen(ctx, false)
+      else if (ctx.get().curvature) finishCurvature(ctx, false)
       else ctx.select([])
     }
   },
@@ -94,7 +121,11 @@ export const commands: Command[] = [
   {
     id: 'pen.finish',
     label: 'Finish pen path',
-    keyWhen: (ctx) => ctx.get().pen !== null,
-    run: (ctx, args) => finishPen(ctx, (args as { close?: boolean } | undefined)?.close === true)
+    keyWhen: (ctx) => ctx.get().pen !== null || ctx.get().curvature !== null,
+    run: (ctx, args) => {
+      const close = (args as { close?: boolean } | undefined)?.close === true
+      if (ctx.get().pen) finishPen(ctx, close)
+      else finishCurvature(ctx, close)
+    }
   }
 ]

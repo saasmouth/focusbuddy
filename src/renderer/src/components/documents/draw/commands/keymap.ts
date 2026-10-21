@@ -23,7 +23,12 @@ export const KEYMAP: Record<string, readonly [string, 'prevent'?]> = {
   escape: ['edit.escape'],
   'mod+a': ['edit.selectAll', 'prevent'],
   'mod+d': ['edit.duplicate', 'prevent'],
+  'mod+j': ['path.join', 'prevent'],
+  'mod+shift+j': ['path.averageJoin', 'prevent'],
   'mod+shift+z': ['edit.redo', 'prevent'],
   'mod+y': ['edit.redo', 'prevent'],
-  'mod+z': ['edit.undo', 'prevent']
+  'mod+z': ['edit.undo', 'prevent'],
+  'mod+∆': ['path.average', 'prevent'],
+  'shift+c': ['tool.anchorConvert'],
+  'shift+~': ['tool.curvature']
 }
