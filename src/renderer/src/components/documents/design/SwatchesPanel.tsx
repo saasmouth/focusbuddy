@@ -188,7 +188,7 @@ export default function SwatchesPanel({ design, brand, selectedIds, onBody }: Pr
                 disabled={swatch.locked}
                 title={
                   swatch.locked
-                    ? 'Brand colours come from the brand kit; edit it there'
+                    ? 'Brand colours come from the brand kit — change them with the Brand kit button in the toolbar'
                     : usage.length
                       ? `${usage.length} element${usage.length === 1 ? '' : 's'} keep this colour and lose the link — the artwork will not change`
                       : 'Delete this swatch'
