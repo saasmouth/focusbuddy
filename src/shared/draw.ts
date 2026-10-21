@@ -18,6 +18,7 @@
 import {
   emptyPath,
   ellipsePath,
+  hitPath,
   linePath,
   pathBounds,
   pathToSvgD,
@@ -30,7 +31,8 @@ import {
   unionBox,
   type Box,
   type DrawPath,
-  type Matrix
+  type Matrix,
+  type Pt
 } from './drawGeometry'
 import { safeCssColor } from './cssColor'
 
@@ -194,7 +196,36 @@ export interface DrawWidgetObject extends DrawObjectBase {
   rotation?: number
 }
 
-export type DrawObject = DrawPathObject | DrawTextObject | DrawImageObject | DrawWidgetObject
+/**
+ * An object this build does not understand, kept VERBATIM.
+ *
+ * A newer PlexiiDraw can add object kinds (groups, symbols, type on a path…).
+ * Before this existed the normaliser dropped anything it did not recognise, so
+ * an older app that merely opened a newer drawing and then saved -- or co-edited
+ * it live -- silently destroyed the newer work. Now the original JSON rides
+ * along untouched in `raw`, is never drawn, never hit-tested and never edited,
+ * and `drawBodyForStorage` writes it back exactly as it arrived. A document that
+ * holds one opens read-only (see drawCompatibility), so in practice it is only
+ * ever carried, not changed.
+ *
+ * The raw object never reaches markup: every renderer and the serializer skip
+ * this type, so it needs no sanitising beyond the id used as a React key.
+ */
+export interface DrawOpaqueObject extends DrawObjectBase {
+  type: 'opaque'
+  /** The `type` the object arrived with, for the "unsupported object" notice. */
+  originalType: string
+  raw: Record<string, unknown>
+}
+
+export type DrawObject = DrawPathObject | DrawTextObject | DrawImageObject | DrawWidgetObject | DrawOpaqueObject
+
+/** Object kinds this build can draw and edit. Anything else is carried as opaque. */
+export const DRAW_OBJECT_TYPES = ['path', 'text', 'image', 'widget'] as const
+
+export function isOpaqueObject(o: DrawObject): o is DrawOpaqueObject {
+  return o.type === 'opaque'
+}
 
 // ── Layers ───────────────────────────────────────────────────────────────────
 
@@ -328,6 +359,114 @@ export function blankDrawBody(size: DrawSize): DrawBody {
   }
 }
 
+// ── Forward compatibility ────────────────────────────────────────────────────
+
+/**
+ * The newest document schema this build can both read and write.
+ *
+ * A body carries `schemaVersion` (the shape it is written in) and, from v2 on,
+ * `minWriterVersion` (the oldest app allowed to write it back). Either one
+ * above this number means the document was made by a newer PlexiiDraw: this
+ * build can show what it understands, but must not save over it, because its
+ * normaliser would quietly drop whatever the newer app added.
+ */
+export const DRAW_SCHEMA_VERSION = 1
+
+export type DrawReadOnlyReason = 'newer-schema' | 'unknown-objects' | 'unknown-layers'
+
+export interface DrawCompatibility {
+  /** True when this build must not save over the document. */
+  readOnly: boolean
+  reasons: DrawReadOnlyReason[]
+  /** The schema version the body declares (1 when it declares none). */
+  schemaVersion: number
+  /** The oldest app version allowed to write it (defaults to schemaVersion). */
+  minWriterVersion: number
+  /** Distinct object `type`s this build does not know, in first-seen order. */
+  unknownTypes: string[]
+  /** How many objects carry one of those types. */
+  unknownCount: number
+}
+
+function declaredVersion(v: unknown, dflt: number): number {
+  return typeof v === 'number' && Number.isFinite(v) && v >= 1 ? Math.floor(v) : dflt
+}
+
+/** Whether a raw object's `type` is one this build draws (a missing type reads as a path, as it always has). */
+function isKnownObjectType(t: unknown): boolean {
+  return t === undefined || (typeof t === 'string' && (DRAW_OBJECT_TYPES as readonly string[]).includes(t))
+}
+
+/**
+ * Can this build edit `raw`, or only show it?
+ *
+ * Read straight off the untrusted JSON, before any normalisation, because
+ * normalising is exactly the step that would lose what a newer app wrote. Every
+ * place that loads a drawing to EDIT it asks this first: the studio (which opens
+ * read-only with a banner), the main-process document store (which then hands
+ * the body over verbatim and refuses to overwrite it), and live co-editing.
+ */
+export function drawCompatibility(raw: unknown): DrawCompatibility {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  const schemaVersion = declaredVersion(r.schemaVersion, 1)
+  const minWriterVersion = declaredVersion(r.minWriterVersion, schemaVersion)
+  const unknownTypes: string[] = []
+  let unknownCount = 0
+  let unknownLayers = false
+  const layers = Array.isArray(r.layers) ? (r.layers as unknown[]) : []
+  for (const layer of layers) {
+    if (!layer || typeof layer !== 'object') continue
+    const l = layer as Record<string, unknown>
+    // A layer kind this build has no renderer for would otherwise be read as an
+    // empty vector layer -- the same silent loss one level up.
+    if (l.kind !== undefined && l.kind !== 'vector' && l.kind !== 'raster') unknownLayers = true
+    const objects = Array.isArray(l.objects) ? (l.objects as unknown[]) : []
+    for (const o of objects) {
+      if (!o || typeof o !== 'object') continue
+      const t = (o as Record<string, unknown>).type
+      if (isKnownObjectType(t)) continue
+      unknownCount += 1
+      const label = typeof t === 'string' ? t : String(t)
+      if (!unknownTypes.includes(label)) unknownTypes.push(label)
+    }
+  }
+  const reasons: DrawReadOnlyReason[] = []
+  if (schemaVersion > DRAW_SCHEMA_VERSION || minWriterVersion > DRAW_SCHEMA_VERSION) reasons.push('newer-schema')
+  if (unknownCount > 0) reasons.push('unknown-objects')
+  if (unknownLayers) reasons.push('unknown-layers')
+  return { readOnly: reasons.length > 0, reasons, schemaVersion, minWriterVersion, unknownTypes, unknownCount }
+}
+
+/**
+ * Must a save of `incoming` be refused because it would overwrite `stored`?
+ *
+ * Yes when the stored drawing is one this build can only show (see
+ * drawCompatibility) and the incoming body is one this build produced -- i.e.
+ * a downgrade. A body that is itself newer (a newer copy arriving verbatim,
+ * say from sync or version history) is not refused: it carries the newer data
+ * rather than erasing it.
+ */
+export function refusesDrawOverwrite(stored: unknown, incoming: unknown): boolean {
+  return drawCompatibility(stored).readOnly && !drawCompatibility(incoming).readOnly
+}
+
+/**
+ * The body as it should be written to storage or a co-editing peer.
+ *
+ * Every object this build understood is written as it is; every opaque object
+ * is written back as the exact JSON it arrived as, so a document that passes
+ * through an older app comes out holding everything a newer one put in.
+ */
+export function drawBodyForStorage(body: DrawBody): DrawBody {
+  let touched = false
+  const layers = body.layers.map((l) => {
+    if (l.kind !== 'vector' || !l.objects.some(isOpaqueObject)) return l
+    touched = true
+    return { ...l, objects: l.objects.map((o) => (isOpaqueObject(o) ? (o.raw as unknown as DrawObject) : o)) }
+  })
+  return touched ? { ...body, layers } : body
+}
+
 // ── Normalisation ────────────────────────────────────────────────────────────
 
 function clampDim(n: unknown, dflt: number): number {
@@ -424,7 +563,26 @@ function normPath(v: unknown): DrawPath {
   return { subpaths, ...(p.fillRule === 'evenodd' ? { fillRule: 'evenodd' as const } : {}) }
 }
 
-function normObject(v: unknown): DrawObject | null {
+/**
+ * Image bytes a NEWER body keeps in its asset store (`assets[id].dataUrl`, see
+ * the v2 model) rather than inline. Read only so that a drawing made by a newer
+ * app can still be SHOWN here, read-only; it is held to the same embedded-bytes
+ * rule as an inline src.
+ */
+type AssetLookup = (id: unknown) => string | undefined
+
+function assetLookup(assets: unknown): AssetLookup {
+  const a = (assets && typeof assets === 'object' ? assets : {}) as Record<string, unknown>
+  return (id) => {
+    if (typeof id !== 'string' || !Object.prototype.hasOwnProperty.call(a, id)) return undefined
+    const entry = a[id] as Record<string, unknown> | null
+    return entry && typeof entry === 'object' && isDrawImageSrc(entry.dataUrl) ? entry.dataUrl : undefined
+  }
+}
+
+const NO_ASSETS: AssetLookup = () => undefined
+
+function normObject(v: unknown, asset: AssetLookup = NO_ASSETS): DrawObject | null {
   if (!v || typeof v !== 'object') return null
   const o = v as Record<string, unknown>
   // See DRAW_ID_PATTERN: an id that is not one this app could have minted is
@@ -459,11 +617,39 @@ function normObject(v: unknown): DrawObject | null {
       ...(normStroke(o.stroke) ? { stroke: normStroke(o.stroke)! } : {})
     }
   }
+  if (o.type === 'widget') {
+    // A live work widget. It was missing here, so it fell through to the path
+    // branch below, had no geometry and was DROPPED: every widget placed on a
+    // drawing vanished the next time the document was opened. The id is only
+    // ever a React prop for WidgetEmbed, never markup, but it is still held to a
+    // plain shape and length.
+    if (typeof o.widgetId !== 'string' || !/^[A-Za-z0-9:_-]{1,200}$/.test(o.widgetId)) return null
+    return {
+      ...shared,
+      type: 'widget',
+      x: isNum(o.x) ? o.x : 0,
+      y: isNum(o.y) ? o.y : 0,
+      w: isNum(o.w) ? Math.max(1, o.w) : 320,
+      h: isNum(o.h) ? Math.max(1, o.h) : 240,
+      widgetId: o.widgetId,
+      ...(isNum(o.rotation) ? { rotation: o.rotation } : {})
+    }
+  }
+  if (o.type === 'opaque' && o.raw && typeof o.raw === 'object' && typeof o.originalType === 'string') {
+    // Already carried once (an in-memory body normalised again): keep the
+    // original JSON, never wrap it twice.
+    return { id, type: 'opaque', originalType: o.originalType, raw: o.raw as Record<string, unknown> }
+  }
+  if (!isKnownObjectType(o.type)) {
+    // Made by a newer PlexiiDraw. Carried verbatim -- see DrawOpaqueObject.
+    return { id, type: 'opaque', originalType: String(o.type), raw: o }
+  }
   if (o.type === 'image') {
     // Embedded image bytes only (see isDrawImageSrc). Nothing in the editor
     // makes an image object with anything else, so this only ever drops content
     // that arrived from outside pointing somewhere it should not.
-    if (!isDrawImageSrc(o.src)) return null
+    const src = isDrawImageSrc(o.src) ? o.src : asset(o.assetId)
+    if (!src) return null
     return {
       ...shared,
       type: 'image',
@@ -471,7 +657,7 @@ function normObject(v: unknown): DrawObject | null {
       y: isNum(o.y) ? o.y : 0,
       w: isNum(o.w) ? Math.max(1, o.w) : 200,
       h: isNum(o.h) ? Math.max(1, o.h) : 200,
-      src: o.src,
+      src,
       ...(typeof o.alt === 'string' ? { alt: o.alt } : {}),
       ...(isNum(o.rotation) ? { rotation: o.rotation } : {})
     }
@@ -493,7 +679,7 @@ function normObject(v: unknown): DrawObject | null {
   }
 }
 
-function normLayer(v: unknown, index: number): DrawLayer {
+function normLayer(v: unknown, index: number, asset: AssetLookup = NO_ASSETS): DrawLayer {
   const l = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>
   const base = {
     id: isSafeDrawId(l.id) ? l.id : drawId('lyr'),
@@ -507,10 +693,10 @@ function normLayer(v: unknown, index: number): DrawLayer {
     // An empty layer, or embedded pixels. A remote address is treated as an
     // empty layer: the raster tools could not read it back anyway (it taints
     // the canvas), and loading it would ping its owner from every viewer.
-    return { ...base, kind: 'raster', src: isDrawImageSrc(l.src) ? l.src : '' }
+    return { ...base, kind: 'raster', src: isDrawImageSrc(l.src) ? l.src : (asset(l.assetId) ?? '') }
   }
   const objects = Array.isArray(l.objects)
-    ? (l.objects as unknown[]).map(normObject).filter((o): o is DrawObject => o !== null)
+    ? (l.objects as unknown[]).map((o) => normObject(o, asset)).filter((o): o is DrawObject => o !== null)
     : []
   return { ...base, kind: 'vector', objects }
 }
@@ -522,24 +708,57 @@ function normLayer(v: unknown, index: number): DrawLayer {
  */
 export function normalizeDrawBody(raw: unknown): DrawBody {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
-  const layers = Array.isArray(r.layers) ? (r.layers as unknown[]).map(normLayer) : []
+  const asset = assetLookup(r.assets)
+  const layers = Array.isArray(r.layers) ? (r.layers as unknown[]).map((l, i) => normLayer(l, i, asset)) : []
   if (layers.length === 0) layers.push(vectorLayer('Layer 1'))
   const activeLayerId = typeof r.activeLayerId === 'string' && layers.some((l) => l.id === r.activeLayerId) ? r.activeLayerId : layers[layers.length - 1].id
+  // A newer body keeps its page size on its first artboard instead of at the
+  // top level. Reading it there lets this build SHOW such a drawing at the right
+  // size (read-only, see drawCompatibility) rather than on a default canvas.
+  const board = Array.isArray(r.artboards) && r.artboards[0] && typeof r.artboards[0] === 'object' ? (r.artboards[0] as Record<string, unknown>) : null
   return {
     schemaVersion: 1,
-    width: clampDim(r.width, 1920),
-    height: clampDim(r.height, 1080),
-    background: normPaint(r.background, solid('#ffffff')),
+    width: clampDim(r.width ?? board?.w, 1920),
+    height: clampDim(r.height ?? board?.h, 1080),
+    background: normPaint(r.background ?? board?.background, solid('#ffffff')),
     layers,
     activeLayerId,
     ...(typeof r.dpi === 'number' && r.dpi > 0 ? { dpi: Math.round(r.dpi) } : {})
   }
 }
 
+/** True for a frame object (text, image, work widget) that is turned. */
+export function isRotatedFrame(o: DrawObject): boolean {
+  return objectRotation(o) !== 0
+}
+
 // ── Object helpers ───────────────────────────────────────────────────────────
 
-export function objectBounds(o: DrawObject): Box {
+/** Degrees of a frame object's rotation, 0 for paths (whose rotation is baked into their nodes). */
+export function objectRotation(o: DrawObject): number {
+  if (o.type === 'text' || o.type === 'image' || o.type === 'widget') return isNum(o.rotation) ? o.rotation : 0
+  return 0
+}
+
+/**
+ * The point a frame object rotates about -- the SAME point both renderers and
+ * the exporter pass to `rotate()`. Images and widgets turn about their centre;
+ * text about the middle of its top edge, which is where the first line hangs.
+ */
+export function objectPivot(o: DrawTextObject | DrawImageObject | DrawWidgetObject): Pt {
+  return o.type === 'text' ? { x: o.x + o.w / 2, y: o.y } : { x: o.x + o.w / 2, y: o.y + o.h / 2 }
+}
+
+/**
+ * The box an object occupies BEFORE its rotation: a path's geometric bounds, or
+ * a frame object's own x/y/w/h. This is what scaling and the text editor work
+ * in -- the frame is what gets resized, then rotated.
+ */
+export function frameBounds(o: DrawObject): Box {
   if (o.type === 'path') return pathBounds(o.path)
+  // An opaque object has no geometry this build understands. It is never
+  // selectable, so this only keeps the function total.
+  if (o.type === 'opaque') return { x: 0, y: 0, w: 0, h: 0 }
   // A widget is a plain box, like an image. Listed explicitly rather than
   // left to fall through to the text branch below, which would read
   // fontSize off it and produce NaN bounds — selection, alignment and the
@@ -552,22 +771,73 @@ export function objectBounds(o: DrawObject): Box {
   return { x: o.x, y: o.y, w: o.w, h: lines * o.fontSize * (o.lineHeight ?? 1.2) }
 }
 
+function rotatePt(p: Pt, c: Pt, degrees: number): Pt {
+  const a = (degrees * Math.PI) / 180
+  const cos = Math.cos(a)
+  const sin = Math.sin(a)
+  const dx = p.x - c.x
+  const dy = p.y - c.y
+  return { x: c.x + dx * cos - dy * sin, y: c.y + dx * sin + dy * cos }
+}
+
+/**
+ * The box an object VISIBLY occupies on the artboard. For a rotated text,
+ * image or widget that is the bounding box of its turned frame, not the frame
+ * itself -- selecting, marquee-picking, aligning and snapping all measure what
+ * you can see. (It used to return the unrotated frame, so a turned photo was
+ * selected and aligned as if it had never been turned.)
+ */
+export function objectBounds(o: DrawObject): Box {
+  const frame = frameBounds(o)
+  const deg = objectRotation(o)
+  if (!deg || o.type === 'path' || o.type === 'opaque') return frame
+  const c = objectPivot(o)
+  const corners = [
+    { x: frame.x, y: frame.y },
+    { x: frame.x + frame.w, y: frame.y },
+    { x: frame.x + frame.w, y: frame.y + frame.h },
+    { x: frame.x, y: frame.y + frame.h }
+  ].map((p) => rotatePt(p, c, deg))
+  const xs = corners.map((p) => p.x)
+  const ys = corners.map((p) => p.y)
+  const x = Math.min(...xs)
+  const y = Math.min(...ys)
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }
+}
+
 export function objectsBounds(objs: DrawObject[]): Box {
-  return unionBox(objs.map(objectBounds))
+  return unionBox(objs.filter((o) => o.type !== 'opaque').map(objectBounds))
+}
+
+/**
+ * Is `p` on the object? Paths test their real geometry (fill and stroke);
+ * frame objects test their frame in their OWN rotated space, so a click on the
+ * visible corner of a turned image hits it and a click in the empty triangle
+ * its old unrotated box used to cover does not. Opaque objects are never hit.
+ */
+export function hitObject(o: DrawObject, p: Pt, slop = 0): boolean {
+  if (o.type === 'opaque') return false
+  if (o.type === 'path') return hitPath(o.path, p, { filled: o.fill.type !== 'none', strokeWidth: o.stroke?.width, slop })
+  const frame = frameBounds(o)
+  const deg = objectRotation(o)
+  const q = deg ? rotatePt(p, objectPivot(o), -deg) : p
+  return q.x >= frame.x && q.x <= frame.x + frame.w && q.y >= frame.y && q.y <= frame.y + frame.h
 }
 
 export function moveObject(o: DrawObject, dx: number, dy: number): DrawObject {
   if (o.type === 'path') return { ...o, path: translatePath(o.path, dx, dy) }
+  if (o.type === 'opaque') return o
   return { ...o, x: o.x + dx, y: o.y + dy }
 }
 
 export function transformObject(o: DrawObject, m: Matrix): DrawObject {
   if (o.type === 'path') return { ...o, path: transformPath(o.path, m) }
+  if (o.type === 'opaque') return o
   // Non-path objects are axis-aligned frames, so a transform is applied to the
   // frame corners and the result re-fitted to a box. Rotation stays a separate
   // property (as it does in the design studio) rather than being baked in.
   const x2 = o.x + o.w
-  const y2 = o.y + (o.type === 'image' ? o.h : objectBounds(o).h)
+  const y2 = o.y + (o.type === 'image' ? o.h : frameBounds(o).h)
   const p1 = { x: m[0] * o.x + m[2] * o.y + m[4], y: m[1] * o.x + m[3] * o.y + m[5] }
   const p2 = { x: m[0] * x2 + m[2] * y2 + m[4], y: m[1] * x2 + m[3] * y2 + m[5] }
   const nx = Math.min(p1.x, p2.x)
@@ -625,6 +895,21 @@ export function allObjects(body: DrawBody): Array<{ layerId: string; object: Dra
 
 export function findObject(body: DrawBody, objectId: string): { layerId: string; object: DrawObject } | undefined {
   return allObjects(body).find((e) => e.object.id === objectId)
+}
+
+/**
+ * What "Select all" may pick: every object on a visible, unlocked vector layer
+ * that is itself neither hidden nor locked (nor opaque). The keyboard ⌘A always
+ * filtered like this; the Edit menu's Select all did not, so a locked object
+ * landed in the selection and Align then moved it.
+ */
+export function selectableObjectIds(body: DrawBody): string[] {
+  const out: string[] = []
+  for (const l of body.layers) {
+    if (l.kind !== 'vector' || !l.visible || l.locked) continue
+    for (const o of l.objects) if (!o.hidden && !o.locked && o.type !== 'opaque') out.push(o.id)
+  }
+  return out
 }
 
 // ── Rendering ────────────────────────────────────────────────────────────────
@@ -757,8 +1042,9 @@ export function gradientToSvg(g: DrawGradientDef): string {
  * rendering the objects, so the <defs> exist when the shapes point at them.
  */
 export function objectGradients(o: DrawObject): DrawGradientDef[] {
-  // A widget has no paint of its own, like an image: it draws itself.
-  if (o.hidden || o.type === 'image' || o.type === 'widget') return []
+  // A widget has no paint of its own, like an image: it draws itself. An
+  // opaque object is never drawn at all.
+  if (o.hidden || o.type === 'image' || o.type === 'widget' || o.type === 'opaque') return []
   const out: DrawGradientDef[] = []
   const f = svgPaint(o.fill, o.id).gradient
   if (f) out.push(f)
@@ -874,6 +1160,8 @@ function objectSvg(o: DrawObject, defs: string[]): string {
     // which leaves out anything it cannot embed rather than linking to it.
     return ''
   }
+  // Something a newer PlexiiDraw made: never written as markup by this build.
+  if (o.type === 'opaque') return ''
   const f = paintToSvg(o.fill, defs, o.id)
   const lh = (o.lineHeight ?? 1.2) * o.fontSize
   const anchor = o.align === 'center' ? 'middle' : o.align === 'right' ? 'end' : 'start'
@@ -936,12 +1224,31 @@ export function drawToSvg(body: DrawBody): string {
   )
 }
 
-/** A standalone HTML page wrapping the SVG, for the offscreen PNG/PDF capture. */
-export function drawToHtml(body: DrawBody): string {
+/**
+ * A standalone HTML page wrapping the SVG, for the offscreen PNG/PDF capture.
+ *
+ * By default the page is the artboard's pixel size. `cssSize` lays the same
+ * vector drawing out at a different CSS size instead -- how the PDF export
+ * gives the page its physical size from the document's dpi without
+ * rasterising anything (the SVG's viewBox scales the vectors).
+ */
+export function drawToHtml(body: DrawBody, cssSize?: { w: number; h: number }): string {
   const transparent = body.background.type === 'none'
+  const w = cssSize ? cssSize.w : body.width
+  const h = cssSize ? cssSize.h : body.height
   return (
     `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;box-sizing:border-box}` +
-    `html,body{width:${num(body.width)}px;height:${num(body.height)}px;background:${transparent ? 'transparent' : 'none'}}</style></head>` +
+    `html,body{width:${num(w)}px;height:${num(h)}px;background:${transparent ? 'transparent' : 'none'}}` +
+    (cssSize ? `svg{display:block;width:${num(w)}px;height:${num(h)}px}` : '') +
+    `</style></head>` +
     `<body>${drawToSvg(body)}</body></html>`
   )
+}
+
+/** CSS reference pixels per inch -- what a document with no stored dpi has always been exported at. */
+export const CSS_DPI = 96
+
+/** The resolution a document declares, falling back to CSS's 96 for documents that never stored one. */
+export function drawDpi(body: { dpi?: number }): number {
+  return typeof body.dpi === 'number' && Number.isFinite(body.dpi) && body.dpi > 0 ? body.dpi : CSS_DPI
 }

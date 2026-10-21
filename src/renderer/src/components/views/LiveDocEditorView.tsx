@@ -29,6 +29,7 @@ import { buildDocExtensions } from '../documents/editor/extensions'
 import { parseDocBody } from '../documents/editor/headingStyles'
 import { seedYDocFromPm } from '../../lib/yjsSeed'
 import { reconcileMap, yToJson } from '../../lib/yjsJson'
+import { createLiveUndo, reconcileMapKeyed, type LiveUndo } from '../../lib/yjsKeyedJson'
 import { YjsDocSync } from '../../lib/yjsDocSync'
 import { sendSocketMessage, setYjsSocketHandler, setSocketOpenHandler } from '../../lib/messagingSocket'
 
@@ -101,9 +102,18 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
   // above). The Y.Doc holds the body via the reconcile engine; remote changes
   // refresh collabBody + bump collabVersion (which re-keys the editor), while
   // local edits reconcile in under a private origin so they don't re-key.
-  const jsonCollabRef = useRef<{ docId: string; ydoc: Y.Doc; sync: YjsDocSync; root: Y.Map<unknown> } | null>(null)
+  const jsonCollabRef = useRef<{
+    docId: string
+    ydoc: Y.Doc
+    sync: YjsDocSync
+    root: Y.Map<unknown>
+    reconcile: (map: Y.Map<unknown>, obj: Record<string, unknown>) => void
+  } | null>(null)
   const localOriginRef = useRef<object>({})
   const [collabBody, setCollabBody] = useState<unknown>(null)
+  // PlexiiDraw only: an undo stack of this person's own changes (see
+  // createLiveUndo). The other JSON editors keep their existing undo.
+  const [drawUndo, setDrawUndo] = useState<LiveUndo | null>(null)
 
   useEffect(() => {
     // Live docs co-edit via Yjs (Tiptap for 'doc', the JSON reconcile engine for
@@ -196,6 +206,12 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
     const root = ydoc.getMap('root')
     const LOCAL = {}
     localOriginRef.current = LOCAL
+    // A drawing's layers and objects are lists of things with ids, so they
+    // reconcile BY ID: reordering or deleting a shape never smears its fields
+    // onto the next one (see yjsKeyedJson). Every other type is unchanged.
+    const reconcile = meta.docType === 'draw' ? reconcileMapKeyed : reconcileMap
+    const ownUndo = meta.docType === 'draw' ? createLiveUndo(root, LOCAL) : null
+    setDrawUndo(ownUndo)
     const refresh = (): void => {
       // yToJson returns a fresh object each time, so the editor's body prop
       // changes identity and its body-sync effect folds the merge in.
@@ -218,7 +234,9 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
       }
       const body = useDocCollabStore.getState().bodyObj
       if (body && typeof body === 'object') {
-        Y.transact(ydoc, () => reconcileMap(root, body as Record<string, unknown>), LOCAL)
+        Y.transact(ydoc, () => reconcile(root, body as Record<string, unknown>), LOCAL)
+        // Seeding the shared document is not an edit anyone can undo.
+        ownUndo?.clear()
       }
       refresh()
     }
@@ -227,8 +245,10 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
     setSocketOpenHandler(() => sync.rejoin())
     const acct = useAccountStore.getState().account?.id
     if (acct) sync.awareness.setLocalStateField('account', acct)
-    jsonCollabRef.current = { docId: liveDocId, ydoc, sync, root }
+    jsonCollabRef.current = { docId: liveDocId, ydoc, sync, root, reconcile }
     return () => {
+      ownUndo?.destroy()
+      setDrawUndo(null)
       root.unobserveDeep(observer)
       setYjsSocketHandler(null)
       setSocketOpenHandler(null)
@@ -333,7 +353,7 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
   function onJsonChange(body: unknown): void {
     const ref = jsonCollabRef.current
     if (!ref || !body || typeof body !== 'object') return
-    Y.transact(ref.ydoc, () => reconcileMap(ref.root, body as Record<string, unknown>), localOriginRef.current)
+    Y.transact(ref.ydoc, () => ref.reconcile(ref.root, body as Record<string, unknown>), localOriginRef.current)
     scheduleSnapshot(body)
   }
 
@@ -626,7 +646,14 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
           ))}
         {meta.docType === 'draw' &&
           (collabBody !== null ? (
-            <DrawStudio key={`${meta.id}:collab`} content={collabBody} title={meta.title} onChange={onJsonChange} foldExternal />
+            <DrawStudio
+              key={`${meta.id}:collab`}
+              content={collabBody}
+              title={meta.title}
+              onChange={onJsonChange}
+              foldExternal
+              liveUndo={drawUndo ?? undefined}
+            />
           ) : (
             <div className="p-6 text-[13px] text-[var(--ink-40)]" data-testid="livedoc-connecting">Connecting live editing…</div>
           ))}

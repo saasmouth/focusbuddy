@@ -6,7 +6,10 @@
 import {
   activeLayer,
   drawId,
+  frameBounds,
   objectBounds,
+  objectPivot,
+  objectRotation,
   objectsBounds,
   shapePath,
   type DrawBody,
@@ -15,7 +18,7 @@ import {
   type DrawPathObject,
   type DrawVectorLayer
 } from './draw'
-import { booleanPath, fitPathToBox, transformPath, type BooleanOp, type Box } from './drawGeometry'
+import { booleanPath, fitPathToBox, transformPath, type BooleanOp, type Box, type Pt } from './drawGeometry'
 
 export type AlignEdge = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom'
 export type ArrangeDir = 'front' | 'forward' | 'backward' | 'back'
@@ -44,12 +47,16 @@ export function getObjects(body: DrawBody, ids: string[]): DrawObject[] {
   return out
 }
 
-/** Objects the user may actually act on: not hidden, not locked, on an editable layer. */
+/**
+ * Objects the user may actually act on: not hidden, not locked, on an editable
+ * layer -- and not an opaque object a newer app made, which this build cannot
+ * edit without damaging it.
+ */
 export function editableIds(body: DrawBody, ids: string[]): string[] {
   const out: string[] = []
   for (const l of vectorLayers(body)) {
     if (l.locked || !l.visible) continue
-    for (const o of l.objects) if (ids.includes(o.id) && !o.locked && !o.hidden) out.push(o.id)
+    for (const o of l.objects) if (ids.includes(o.id) && !o.locked && !o.hidden && o.type !== 'opaque') out.push(o.id)
   }
   return out
 }
@@ -117,7 +124,7 @@ export function duplicateObjects(body: DrawBody, ids: string[], dx = 12, dy = 12
     if (l.kind !== 'vector') return l
     const copies: DrawObject[] = []
     for (const o of l.objects) {
-      if (!wanted.has(o.id)) continue
+      if (!wanted.has(o.id) || o.type === 'opaque') continue
       const id = drawId('obj')
       newIds.push(id)
       copies.push(offsetObject({ ...o, id, name: o.name ? `${o.name} copy` : undefined }, dx, dy))
@@ -129,6 +136,7 @@ export function duplicateObjects(body: DrawBody, ids: string[], dx = 12, dy = 12
 
 function offsetObject(o: DrawObject, dx: number, dy: number): DrawObject {
   if (o.type === 'path') return { ...o, path: transformPath(o.path, [1, 0, 0, 1, dx, dy]) }
+  if (o.type === 'opaque') return o
   return { ...o, x: o.x + dx, y: o.y + dy }
 }
 
@@ -148,6 +156,8 @@ export function scaleObjects(body: DrawBody, ids: string[], from: Box, to: Box):
   const f = to.y - from.y * sy
   return mapObjects(body, ids, (o) => {
     if (o.type === 'path') return { ...o, path: transformPath(o.path, [sx, 0, 0, sy, e, f]) }
+    if (o.type === 'opaque') return o
+    if (objectRotation(o)) return scaleRotatedFrame(o, sx, sy, e, f)
     const b = objectBounds(o)
     const nx = b.x * sx + e
     const ny = b.y * sy + f
@@ -162,10 +172,39 @@ export function scaleObjects(body: DrawBody, ids: string[], from: Box, to: Box):
   })
 }
 
+/**
+ * Scale a TURNED frame object with the selection box.
+ *
+ * The selection box is the visible (rotated) bounds, so mapping the frame's own
+ * corners through the scale -- what the unrotated case does -- would stretch
+ * the frame by the wrong amount and drift it off its pivot. Instead the pivot
+ * point is carried through the scale exactly, and the frame keeps its rotation
+ * with its size scaled. A non-uniform scale of a turned frame would really be a
+ * skew, which a frame cannot hold; this keeps it upright in its own axes.
+ */
+function scaleRotatedFrame(o: Exclude<DrawObject, DrawPathObject | { type: 'opaque' }>, sx: number, sy: number, e: number, f: number): DrawObject {
+  const frame = frameBounds(o)
+  const pivot = objectPivot(o)
+  const moved: Pt = { x: pivot.x * sx + e, y: pivot.y * sy + f }
+  const ax = Math.abs(sx)
+  const ay = Math.abs(sy)
+  if (o.type === 'text') {
+    const w = Math.max(8, frame.w * ax)
+    // Text pivots on the middle of its top edge.
+    return { ...o, x: moved.x - w / 2, y: moved.y, w, fontSize: Math.max(1, o.fontSize * ay) }
+  }
+  const w = Math.max(1, frame.w * ax)
+  const h = Math.max(1, frame.h * ay)
+  return { ...o, x: moved.x - w / 2, y: moved.y - h / 2, w, h }
+}
+
 // ── Z-order ──────────────────────────────────────────────────────────────────
 
 export function arrange(body: DrawBody, ids: string[], dir: ArrangeDir): DrawBody {
-  const wanted = new Set(ids)
+  // Only what the user may act on: a locked or hidden object stays where it is
+  // in the stack even if a stale selection still names it.
+  const wanted = new Set(editableIds(body, ids))
+  if (wanted.size === 0) return body
   return {
     ...body,
     layers: body.layers.map((l) => {
@@ -202,7 +241,12 @@ export function arrange(body: DrawBody, ids: string[], dir: ArrangeDir): DrawBod
  * selected, to the artboard, which is how every editor behaves and saves a
  * "centre this on the page" from needing its own command.
  */
-export function alignObjects(body: DrawBody, ids: string[], edge: AlignEdge): DrawBody {
+export function alignObjects(body: DrawBody, allIds: string[], edge: AlignEdge): DrawBody {
+  // A locked or hidden object is never moved by Align, whatever the selection
+  // says. The menu's Select all used to put locked objects in the selection
+  // and Align then moved them; filtering here makes that impossible from ANY
+  // caller, not just the one that was fixed.
+  const ids = editableIds(body, allIds)
   const objs = getObjects(body, ids)
   if (objs.length === 0) return body
   const frame: Box = objs.length === 1 ? { x: 0, y: 0, w: body.width, h: body.height } : objectsBounds(objs)
@@ -226,7 +270,9 @@ export function alignObjects(body: DrawBody, ids: string[], edge: AlignEdge): Dr
 }
 
 /** Even gaps between three or more objects along one axis. */
-export function distributeObjects(body: DrawBody, ids: string[], axis: 'h' | 'v'): DrawBody {
+export function distributeObjects(body: DrawBody, allIds: string[], axis: 'h' | 'v'): DrawBody {
+  // Same rule as alignObjects: locked and hidden objects never move.
+  const ids = editableIds(body, allIds)
   const objs = getObjects(body, ids)
   if (objs.length < 3) return body
   const sorted = objs
@@ -352,6 +398,106 @@ export function reshape(body: DrawBody, id: string, patch: { cornerRadius?: numb
     const next = { ...o, ...patch }
     return { ...next, path: fitPathToBox(shapePath(o.shapeKind, box, next), box) }
   })
+}
+
+// ── Node editing ─────────────────────────────────────────────────────────────
+
+export type NodePart = 'anchor' | 'in' | 'out'
+
+/** Live shapes: kinds whose geometry is re-derived from parameters by `reshape`. */
+const LIVE_SHAPE_KINDS = new Set(['rect', 'roundRect', 'ellipse', 'polygon', 'star', 'line'])
+
+/**
+ * Drag one anchor or bezier handle of a path to `p`.
+ *
+ * Dragging an anchor carries its handles with it. Dragging a handle mirrors the
+ * opposite one unless `breakPair` (Alt) is held, which turns the node into a
+ * corner. Editing a node of a LIVE shape detaches it into a plain path, exactly
+ * as Illustrator expands a live shape you direct-select: the shape keeps the
+ * parameters (corner radius, points, inset) no longer, because a later change
+ * to one of them would regenerate the outline from scratch and throw the hand
+ * edit away. Before this, the stale kind survived and did exactly that.
+ */
+export function moveNode(body: DrawBody, id: string, si: number, ni: number, part: NodePart, p: Pt, breakPair = false): DrawBody {
+  return mapObject(body, id, (o) => {
+    if (o.type !== 'path') return o
+    const subpaths = o.path.subpaths.map((sp, i) => {
+      if (i !== si) return sp
+      return {
+        ...sp,
+        nodes: sp.nodes.map((n, j) => {
+          if (j !== ni) return n
+          if (part === 'anchor') {
+            const dx = p.x - n.x
+            const dy = p.y - n.y
+            return {
+              x: p.x,
+              y: p.y,
+              ...(n.inX != null ? { inX: n.inX + dx, inY: (n.inY ?? 0) + dy } : {}),
+              ...(n.outX != null ? { outX: n.outX + dx, outY: (n.outY ?? 0) + dy } : {})
+            }
+          }
+          if (part === 'out') {
+            // Alt breaks the handle pair, otherwise they stay mirrored.
+            return breakPair ? { ...n, outX: p.x, outY: p.y } : { ...n, outX: p.x, outY: p.y, inX: 2 * n.x - p.x, inY: 2 * n.y - p.y }
+          }
+          return breakPair ? { ...n, inX: p.x, inY: p.y } : { ...n, inX: p.x, inY: p.y, outX: 2 * n.x - p.x, outY: 2 * n.y - p.y }
+        })
+      }
+    })
+    const edited: DrawPathObject = { ...o, path: { ...o.path, subpaths } }
+    if (!o.shapeKind || !LIVE_SHAPE_KINDS.has(o.shapeKind)) return edited
+    const { cornerRadius: _r, sides: _s, innerRatio: _i, ...rest } = edited
+    void _r
+    void _s
+    void _i
+    return { ...rest, shapeKind: 'path' }
+  })
+}
+
+// ── Artboard ─────────────────────────────────────────────────────────────────
+
+/** Where the existing artwork stays pinned when the artboard changes size. */
+export type ArtboardAnchor = 'nw' | 'n' | 'ne' | 'w' | 'c' | 'e' | 'sw' | 's' | 'se'
+
+export const ARTBOARD_ANCHORS: ArtboardAnchor[] = ['nw', 'n', 'ne', 'w', 'c', 'e', 'sw', 's', 'se']
+
+/**
+ * The offset every piece of artwork moves by when the artboard goes from
+ * `from` to `to` pinned at `anchor`: nothing for the top-left (the old
+ * behaviour), half the growth for a centre, all of it for the far edge.
+ */
+export function artboardResizeOffset(from: { w: number; h: number }, to: { w: number; h: number }, anchor: ArtboardAnchor): { dx: number; dy: number } {
+  const fx = anchor.includes('w') ? 0 : anchor.includes('e') ? 1 : 0.5
+  const fy = anchor.startsWith('n') ? 0 : anchor.startsWith('s') ? 1 : 0.5
+  return { dx: Math.round((to.w - from.w) * fx), dy: Math.round((to.h - from.h) * fy) }
+}
+
+/**
+ * Resize the artboard, moving every vector object by the anchor offset so the
+ * composition stays pinned where the user asked. Raster layers are NOT handled
+ * here: their pixels have to be re-laid onto a canvas of the new size at 1:1
+ * (raster.reframeRaster), which needs a canvas, so the editor does it and passes
+ * the new pixels in `rasterSrc`. Without that, a paint layer's old PNG was
+ * stretched to the new artboard on screen and -- on the next stroke -- baked
+ * into the file stretched.
+ */
+export function resizeArtboard(
+  body: DrawBody,
+  w: number,
+  h: number,
+  anchor: ArtboardAnchor = 'nw',
+  rasterSrc: Record<string, string> = {}
+): DrawBody {
+  const { dx, dy } = artboardResizeOffset({ w: body.width, h: body.height }, { w, h }, anchor)
+  const layers = body.layers.map((l): DrawLayer => {
+    if (l.kind === 'raster') return Object.prototype.hasOwnProperty.call(rasterSrc, l.id) ? { ...l, src: rasterSrc[l.id] } : l
+    if (!dx && !dy) return l
+    // Every object moves, locked and hidden ones included: this is the page
+    // moving under the art, not the user dragging a selection.
+    return { ...l, objects: l.objects.map((o) => offsetObject(o, dx, dy)) }
+  })
+  return { ...body, width: w, height: h, layers }
 }
 
 // ── Layers ───────────────────────────────────────────────────────────────────

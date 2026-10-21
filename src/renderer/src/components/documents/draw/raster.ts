@@ -45,6 +45,38 @@ export async function loadIntoCanvas(canvas: HTMLCanvasElement, src: string): Pr
   })
 }
 
+/**
+ * A paint layer's pixels re-laid onto an artboard of a new size, unscaled.
+ *
+ * The old pixels are drawn at their old artboard size, offset by (dx, dy) --
+ * the anchor offset the vector art moves by too -- onto a fresh canvas the size
+ * of the new artboard. Growing the artboard adds transparent margin; shrinking
+ * it crops. Nothing is resampled, which is the point: resizing used to stretch
+ * the layer's PNG to the new size.
+ */
+export async function reframeRaster(
+  src: string,
+  from: { w: number; h: number },
+  to: { w: number; h: number },
+  dx: number,
+  dy: number
+): Promise<string> {
+  if (!src) return ''
+  const canvas = createCanvas(to.w, to.h)
+  const drawn = await new Promise<boolean>((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      context(canvas).drawImage(img, dx, dy, from.w, from.h)
+      resolve(true)
+    }
+    img.onerror = () => resolve(false)
+    img.src = src
+  })
+  // Pixels that cannot be decoded are handed back untouched rather than
+  // replaced with an empty layer: a failed resize must never erase paint.
+  return drawn ? canvasToDataUrl(canvas) : src
+}
+
 export function canvasToDataUrl(canvas: HTMLCanvasElement): string {
   return canvas.toDataURL('image/png')
 }

@@ -1,16 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import WidgetEmbed from './embed/WidgetEmbed'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
+import type { LiveUndo } from '../../lib/yjsKeyedJson'
 import Icon from '../Icon'
 import DrawStudioMenuBar from './editor/DrawStudioMenuBar'
 import DrawLayersPanel from './draw/DrawLayersPanel'
 import DrawInspector from './draw/DrawInspector'
 import * as raster from './draw/raster'
 import { fontShorthand, layoutText } from './draw/textMeasure'
+import { scrollToKeepPoint, wheelZoom } from './draw/viewport'
 import { loadGoogleFont, familyLabel } from '../../lib/googleFonts'
 import {
+  drawBodyForStorage,
+  drawCompatibility,
   drawId,
   drawToSvg,
+  frameBounds,
+  hitObject,
   isDrawImageSrc,
   normalizeDrawBody,
   objectGradients,
@@ -18,12 +24,14 @@ import {
   objectsBounds,
   paintToCss,
   rasterLayer,
+  selectableObjectIds,
   shapePath,
   solid,
   svgPaint,
   vectorLayer,
   type DrawBlend,
   type DrawBody,
+  type DrawCompatibility,
   type DrawGradientDef,
   type DrawObject,
   type DrawWidgetObject,
@@ -39,6 +47,7 @@ import {
   addObject,
   alignObjects,
   arrange,
+  artboardResizeOffset,
   booleanObjects,
   deleteObjects,
   distributeObjects,
@@ -52,20 +61,22 @@ import {
   mapObjects,
   mergeVectorLayerDown,
   moveLayer,
+  moveNode,
   moveObjects,
   patchLayer,
   removeLayer,
   reshape,
+  resizeArtboard,
   reversePath,
   scaleObjects,
   setPathClosed,
   targetLayerId,
   type AlignEdge,
-  type ArrangeDir
+  type ArrangeDir,
+  type ArtboardAnchor
 } from '@shared/drawOps'
 import {
   fitPathToBox,
-  hitPath,
   pathToSvgD,
   rotateAbout,
   simplifyPolyline,
@@ -96,6 +107,13 @@ interface Props {
   onChange: (body: unknown) => void
   /** Live co-editing only: fold a peer's merged body back in. */
   foldExternal?: boolean
+  /**
+   * Live co-editing only: an undo stack of THIS person's changes (see
+   * yjsKeyedJson.createLiveUndo). When present, undo and redo go through it
+   * instead of restoring whole snapshots -- a snapshot would also roll back
+   * whatever a collaborator changed since it was taken.
+   */
+  liveUndo?: LiveUndo
 }
 
 type Tool =
@@ -168,16 +186,39 @@ interface Guide {
   at: number
 }
 
-export default function DrawStudio({ content, title, onChange, foldExternal = false }: Props): JSX.Element {
+export default function DrawStudio({ content, title, onChange, foldExternal = false, liveUndo }: Props): JSX.Element {
   const [body, setBody] = useState<DrawBody>(() => normalizeDrawBody(content))
   const bodyRef = useRef(body)
   bodyRef.current = body
+  // Made by a newer PlexiiDraw (or holding objects this build cannot draw)?
+  // Then this build shows it but must never write it back: its normaliser
+  // would quietly drop whatever the newer app added. Every path that edits the
+  // document runs through commit/replace/pushHistory, which all stop here, and
+  // nothing ever reaches onChange.
+  const compat = useMemo(() => drawCompatibility(content), [content])
+  const readOnly = compat.readOnly
+  const readOnlyRef = useRef(readOnly)
+  readOnlyRef.current = readOnly
+  /** Hand an edited body to the host for saving / co-editing. */
+  const emit = useCallback(
+    (next: DrawBody) => {
+      if (readOnlyRef.current) return
+      // Opaque objects go back out exactly as they came in (see DrawOpaqueObject).
+      onChange(drawBodyForStorage(next))
+    },
+    [onChange]
+  )
   const [past, setPast] = useState<DrawBody[]>([])
   const [future, setFuture] = useState<DrawBody[]>([])
   const pastRef = useRef(past)
   pastRef.current = past
   const futureRef = useRef(future)
   futureRef.current = future
+  const liveUndoRef = useRef(liveUndo)
+  liveUndoRef.current = liveUndo
+  // Re-render when the live stack changes, so Edit > Undo enables correctly.
+  const [, setLiveTick] = useState(0)
+  useEffect(() => (liveUndo ? liveUndo.subscribe(() => setLiveTick((t) => t + 1)) : undefined), [liveUndo])
 
   const [tool, setTool] = useState<Tool>('select')
   const toolRef = useRef(tool)
@@ -229,30 +270,37 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
 
   const commit = useCallback(
     (next: DrawBody) => {
+      if (readOnlyRef.current) return
       const prev = bodyRef.current
       if (next === prev) return
-      // `prev` is captured BEFORE the ref moves on. Reading bodyRef.current
-      // inside the updater would run after the reassignment below and push the
-      // NEW body onto the undo stack, which makes undo a no-op — the exact bug
-      // the e2e pathfinder test caught.
-      setPast((p) => [...p.slice(-79), prev])
-      setFuture([])
+      if (liveUndoRef.current) {
+        // Live: this change is its own step on the own-change stack.
+        liveUndoRef.current.checkpoint()
+      } else {
+        // `prev` is captured BEFORE the ref moves on. Reading bodyRef.current
+        // inside the updater would run after the reassignment below and push the
+        // NEW body onto the undo stack, which makes undo a no-op — the exact bug
+        // the e2e pathfinder test caught.
+        setPast((p) => [...p.slice(-79), prev])
+        setFuture([])
+      }
       bodyRef.current = next
       setBody(next)
-      onChange(next)
+      emit(next)
     },
-    [onChange]
+    [emit]
   )
 
   // A change that should NOT create an undo entry (a live drag preview committed
   // on pointer-up already recorded its own "before").
   const replace = useCallback(
     (next: DrawBody) => {
+      if (readOnlyRef.current) return
       bodyRef.current = next
       setBody(next)
-      onChange(next)
+      emit(next)
     },
-    [onChange]
+    [emit]
   )
 
   /**
@@ -261,12 +309,24 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
    * the whole drag collapses into one undo entry.
    */
   const pushHistory = useCallback(() => {
+    if (readOnlyRef.current) return
+    if (liveUndoRef.current) {
+      // Live: everything streamed until the next checkpoint is one step.
+      liveUndoRef.current.checkpoint()
+      return
+    }
     const prev = bodyRef.current
     setPast((p) => [...p.slice(-79), prev])
     setFuture([])
   }, [])
 
   const undo = useCallback(() => {
+    if (liveUndoRef.current) {
+      // Reverts only this person's last step; the result comes back through
+      // the co-editing fold like any other change to the shared document.
+      liveUndoRef.current.undo()
+      return
+    }
     const p = pastRef.current
     if (!p.length) return
     const prev = p[p.length - 1]
@@ -274,13 +334,17 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     setFuture([bodyRef.current, ...futureRef.current.slice(0, 79)])
     bodyRef.current = prev
     setBody(prev)
-    onChange(prev)
+    emit(prev)
     // The raster canvases must be repainted from the restored document, or the
     // pixels on screen would still show the undone stroke.
     loadedRaster.current.clear()
-  }, [onChange])
+  }, [emit])
 
   const redo = useCallback(() => {
+    if (liveUndoRef.current) {
+      liveUndoRef.current.redo()
+      return
+    }
     const f = futureRef.current
     if (!f.length) return
     const next = f[0]
@@ -288,9 +352,9 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     setPast([...pastRef.current.slice(-79), bodyRef.current])
     bodyRef.current = next
     setBody(next)
-    onChange(next)
+    emit(next)
     loadedRaster.current.clear()
-  }, [onChange])
+  }, [emit])
 
   // Fold a peer's merge in live co-editing. Never pushed onto undo — another
   // person's edit is not ours to take back.
@@ -465,12 +529,9 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
       for (let oi = l.objects.length - 1; oi >= 0; oi--) {
         const o = l.objects[oi]
         if (o.hidden || o.locked) continue
-        if (o.type === 'path') {
-          if (hitPath(o.path, p, { filled: o.fill.type !== 'none', strokeWidth: o.stroke?.width, slop: 4 / zoomRef.current })) return o
-        } else {
-          const ob = objectBounds(o)
-          if (p.x >= ob.x && p.x <= ob.x + ob.w && p.y >= ob.y && p.y <= ob.y + ob.h) return o
-        }
+        // Rotation-aware: a turned text, image or work widget is hit where it
+        // is drawn, not where its unrotated frame would be.
+        if (hitObject(o, p, 4 / zoomRef.current)) return o
       }
     }
     return null
@@ -652,6 +713,35 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     [commit]
   )
 
+  /**
+   * Resize the artboard, pinned at `anchor`. Vector art moves by the anchor
+   * offset in the pure op; each paint layer's pixels are re-laid onto a canvas
+   * of the new size at 1:1 first, so nothing is stretched -- on screen or, after
+   * the next stroke, in the file. One undo entry for the whole change.
+   */
+  const resizeArtboardTo = useCallback(
+    async (w: number, h: number, anchor: ArtboardAnchor) => {
+      const b = bodyRef.current
+      if (readOnlyRef.current || (w === b.width && h === b.height)) return
+      const { dx, dy } = artboardResizeOffset({ w: b.width, h: b.height }, { w, h }, anchor)
+      const rasterSrc: Record<string, string> = {}
+      const painted = b.layers.filter((l) => l.kind === 'raster' && l.src)
+      if (painted.length) setBusy('Resizing…')
+      try {
+        for (const l of painted) {
+          if (l.kind !== 'raster') continue
+          rasterSrc[l.id] = await raster.reframeRaster(l.src, { w: b.width, h: b.height }, { w, h }, dx, dy)
+        }
+      } finally {
+        if (painted.length) setBusy(null)
+      }
+      // Built from the CURRENT body: anything committed while the pixels were
+      // being re-laid is kept.
+      commit(resizeArtboard(bodyRef.current, w, h, anchor, rasterSrc))
+    },
+    [commit]
+  )
+
   // ── Pointer state machine ──────────────────────────────────────────────────
 
   const setDragBoth = useCallback((d: Drag) => {
@@ -693,6 +783,18 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     if (t === 'hand' || spaceRef.current || e.button === 1) {
       const sc = scrollRef.current
       setDragBoth({ kind: 'pan', fromClient: { x: e.clientX, y: e.clientY }, scroll: { l: sc?.scrollLeft ?? 0, t: sc?.scrollTop ?? 0 } })
+      return
+    }
+
+    if (readOnlyRef.current) {
+      // Read-only: look, select and pan -- nothing that changes the artwork.
+      const hit = hitTest(p)
+      if (hit) {
+        setSelection(e.shiftKey ? [...new Set([...selectionRef.current, hit.id])] : [hit.id])
+        return
+      }
+      if (!e.shiftKey) setSelection([])
+      setDragBoth({ kind: 'marquee', from: p, to: p, additive: e.shiftKey })
       return
     }
 
@@ -905,6 +1007,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
       replace(
         mapObjects(bodyRef.current, d.ids, (o) => {
           if (o.type === 'path') return { ...o, path: transformPath(o.path, m) }
+          if (o.type === 'opaque') return o
           return { ...o, rotation: (o.rotation ?? 0) + delta }
         })
       )
@@ -913,36 +1016,10 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     }
 
     if (d.kind === 'node') {
-      replace(
-        mapObject(bodyRef.current, d.id, (o) => {
-          if (o.type !== 'path') return o
-          const subpaths = o.path.subpaths.map((sp, si) => {
-            if (si !== d.si) return sp
-            return {
-              ...sp,
-              nodes: sp.nodes.map((n, ni) => {
-                if (ni !== d.ni) return n
-                if (d.part === 'anchor') {
-                  const dx = p.x - n.x
-                  const dy = p.y - n.y
-                  return {
-                    x: p.x,
-                    y: p.y,
-                    ...(n.inX != null ? { inX: n.inX + dx, inY: (n.inY ?? 0) + dy } : {}),
-                    ...(n.outX != null ? { outX: n.outX + dx, outY: (n.outY ?? 0) + dy } : {})
-                  }
-                }
-                if (d.part === 'out') {
-                  // Alt breaks the handle pair, otherwise they stay mirrored.
-                  return e.altKey ? { ...n, outX: p.x, outY: p.y } : { ...n, outX: p.x, outY: p.y, inX: 2 * n.x - p.x, inY: 2 * n.y - p.y }
-                }
-                return e.altKey ? { ...n, inX: p.x, inY: p.y } : { ...n, inX: p.x, inY: p.y, outX: 2 * n.x - p.x, outY: 2 * n.y - p.y }
-              })
-            }
-          })
-          return { ...o, path: { ...o.path, subpaths } }
-        })
-      )
+      // Alt breaks the handle pair. Editing a live shape's node detaches it
+      // into a plain path (see moveNode), so a later Corner or Points change
+      // cannot regenerate the outline and throw this edit away.
+      replace(moveNode(bodyRef.current, d.id, d.si, d.ni, d.part, p, e.altKey))
     }
   }
 
@@ -1036,7 +1113,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
       // A click with no movement collapses a multi-selection to the item clicked.
       const hit = hitTest(p)
       if (hit && !e.shiftKey && selectionRef.current.length > 1) setSelection([hit.id])
-      if (hit && hit.type === 'text' && e.detail >= 2) setEditingText(hit.id)
+      if (hit && hit.type === 'text' && e.detail >= 2 && !readOnlyRef.current) setEditingText(hit.id)
     }
 
     setDragBoth(null)
@@ -1126,6 +1203,15 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
         return
       }
       const key = e.key.toLowerCase()
+      if (readOnlyRef.current) {
+        // Read-only: selection, Escape and the two tools that cannot edit.
+        if (mod && key === 'a') {
+          e.preventDefault()
+          setSelection(selectableObjectIds(bodyRef.current))
+        } else if (!mod && e.key === 'Escape') setSelection([])
+        else if (!mod && (key === 'v' || key === 'h')) setTool(key === 'v' ? 'select' : 'hand')
+        return
+      }
       if (mod && key === 'z') {
         e.preventDefault()
         if (e.shiftKey) redo()
@@ -1144,12 +1230,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
       }
       if (mod && key === 'a') {
         e.preventDefault()
-        const all: string[] = []
-        for (const l of bodyRef.current.layers) {
-          if (l.kind !== 'vector' || !l.visible || l.locked) continue
-          for (const o of l.objects) if (!o.hidden && !o.locked) all.push(o.id)
-        }
-        setSelection(all)
+        setSelection(selectableObjectIds(bodyRef.current))
         return
       }
       if (mod) return
@@ -1196,18 +1277,38 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     }
   }, [undo, redo, duplicateSelection, deleteSelection, finishPen, commit])
 
-  // Cmd/Ctrl + wheel zooms about the pointer, like every canvas app.
+  // Cmd/Ctrl + wheel zooms about the pointer, like every canvas app. The
+  // artboard point under the pointer is remembered before the zoom and the
+  // view is scrolled after layout so that same point is under the pointer
+  // again. (It used to scale the zoom only, so the drawing slid away from the
+  // cursor towards the top-left on every notch.)
+  const zoomAnchor = useRef<{ docX: number; docY: number; clientX: number; clientY: number } | null>(null)
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
     function onWheel(e: WheelEvent): void {
       if (!e.ctrlKey && !e.metaKey) return
       e.preventDefault()
-      setZoom((z) => Math.max(0.05, Math.min(16, z * (e.deltaY < 0 ? 1.1 : 1 / 1.1))))
+      const r = stageRef.current?.getBoundingClientRect()
+      if (r) {
+        const z = zoomRef.current
+        zoomAnchor.current = { docX: (e.clientX - r.left) / z, docY: (e.clientY - r.top) / z, clientX: e.clientX, clientY: e.clientY }
+      }
+      setZoom((z) => wheelZoom(z, e.deltaY))
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
   }, [])
+  useLayoutEffect(() => {
+    const a = zoomAnchor.current
+    zoomAnchor.current = null
+    const sc = scrollRef.current
+    const r = stageRef.current?.getBoundingClientRect()
+    if (!a || !sc || !r) return
+    const next = scrollToKeepPoint({ ...a, stageLeft: r.left, stageTop: r.top, zoom, scrollLeft: sc.scrollLeft, scrollTop: sc.scrollTop })
+    sc.scrollLeft = next.scrollLeft
+    sc.scrollTop = next.scrollTop
+  }, [zoom])
 
   // Fit the artboard on first paint so a 4K canvas is not opened at 1:1.
   const fitted = useRef(false)
@@ -1227,6 +1328,12 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
 
   const exportAs = useCallback(
     async (format: 'png' | 'svg' | 'pdf') => {
+      // A drawing this build cannot fully show cannot be honestly exported: the
+      // file would silently leave out what the newer app added.
+      if (readOnlyRef.current) {
+        setStatus('This artwork was made in a newer PlexiiDraw — update to export it.')
+        return
+      }
       setBusy(`Exporting ${format.toUpperCase()}…`)
       try {
         const res = await window.api.draw.export({ draw: bodyRef.current, title: title || 'drawing', format })
@@ -1294,17 +1401,12 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
         actions={{
           undo,
           redo,
-          canUndo: past.length > 0,
-          canRedo: future.length > 0,
+          canUndo: liveUndo ? liveUndo.canUndo() : past.length > 0,
+          canRedo: liveUndo ? liveUndo.canRedo() : future.length > 0,
           exportAs,
-          selectAll: () => {
-            const all: string[] = []
-            for (const l of bodyRef.current.layers) {
-              if (l.kind !== 'vector') continue
-              for (const o of l.objects) all.push(o.id)
-            }
-            setSelection(all)
-          },
+          // The same rule as ⌘A: nothing hidden or locked. This used to take
+          // every object, so a locked one could then be moved by Align.
+          selectAll: () => setSelection(selectableObjectIds(bodyRef.current)),
           deleteSelection,
           duplicateSelection,
           boolean: runBoolean,
@@ -1318,7 +1420,8 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
           setShowGrid,
           snapOn,
           setSnapOn,
-          resize: (w: number, h: number) => commit({ ...bodyRef.current, width: w, height: h }),
+          resize: (w: number, h: number, anchor: ArtboardAnchor = 'nw') => void resizeArtboardTo(w, h, anchor),
+          readOnly,
           setBackground: (p: DrawPaint) => commit({ ...bodyRef.current, background: p }),
           background: body.background,
           width: W,
@@ -1326,6 +1429,8 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
           hasSelection: selection.length > 0
         }}
       />
+
+      {readOnly && <ReadOnlyBanner compat={compat} />}
 
       {/* Tool options strip */}
       <div className="shrink-0 flex items-center gap-2 px-2 py-1 border-b border-[var(--edge-soft)] bg-[color-mix(in_oklab,var(--surface-sunken)_50%,transparent)]">
@@ -1383,11 +1488,12 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
               {i > 0 && TOOLS[i - 1].group !== t.group && <div className="my-1 mx-2 h-px bg-[var(--edge-soft)]" />}
               <button
                 onClick={() => setTool(t.id)}
-                title={`${t.label} (${t.key})`}
+                title={readOnly && t.id !== 'select' && t.id !== 'hand' ? `${t.label} — not available: this artwork is read-only` : `${t.label} (${t.key})`}
                 aria-label={t.label}
                 aria-pressed={tool === t.id}
+                disabled={readOnly && t.id !== 'select' && t.id !== 'hand'}
                 data-testid={`draw-tool-${t.id}`}
-                className={`w-8 h-8 mx-1 rounded flex items-center justify-center ${
+                className={`w-8 h-8 mx-1 rounded flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed ${
                   tool === t.id ? 'bg-accent/15 text-accent' : 'text-[var(--ink-60)] hover:bg-[var(--surface-sunken)]'
                 }`}
               >
@@ -1516,7 +1622,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
                   left: editingObj.x * zoom,
                   top: editingObj.y * zoom,
                   width: editingObj.w * zoom,
-                  height: Math.max(objectBounds(editingObj).h, editingObj.fontSize) * zoom,
+                  height: Math.max(frameBounds(editingObj).h, editingObj.fontSize) * zoom,
                   font: fontShorthand({ ...editingObj, fontSize: editingObj.fontSize * zoom }),
                   lineHeight: String(editingObj.lineHeight ?? 1.2),
                   letterSpacing: `${(editingObj.letterSpacing ?? 0) * zoom}px`,
@@ -1530,6 +1636,9 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
 
         {/* Right column: inspector over layers */}
         <div className="shrink-0 flex flex-col border-l border-[var(--edge-soft)]" style={{ width: 240 }}>
+          {/* A disabled fieldset turns every control inside it off natively,
+              which is what read-only needs: nothing to forget per control. */}
+          <fieldset disabled={readOnly} className="contents">
           <div className="flex-1 min-h-0 overflow-auto">
             <DrawInspector
               selected={selectedObjects}
@@ -1585,6 +1694,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
               onRasterize={(id) => void rasterizeLayer(id)}
             />
           </div>
+          </fieldset>
         </div>
       </div>
     </div>
@@ -1592,6 +1702,33 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
 }
 
 // ── Layer & overlay rendering ────────────────────────────────────────────────
+
+/**
+ * The honest notice a read-only drawing carries. It says what happened and
+ * what to do, and promises only what is true: nothing here will be saved, and
+ * the parts this build cannot show are kept, untouched, in the file.
+ */
+function ReadOnlyBanner({ compat }: { compat: DrawCompatibility }): JSX.Element {
+  const details: string[] = []
+  if (compat.reasons.includes('newer-schema')) details.push(`It was saved in a newer file format (version ${Math.max(compat.schemaVersion, compat.minWriterVersion)}).`)
+  if (compat.reasons.includes('unknown-objects'))
+    details.push(
+      `${compat.unknownCount} object${compat.unknownCount === 1 ? '' : 's'} (${compat.unknownTypes.join(', ')}) can't be shown here; they are kept in the file untouched.`
+    )
+  if (compat.reasons.includes('unknown-layers')) details.push('Some layers are of a kind this version cannot show.')
+  return (
+    <div
+      role="status"
+      data-testid="draw-readonly-banner"
+      className="shrink-0 flex items-start gap-2 px-3 py-1.5 border-b border-amber-300/60 bg-amber-50 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200 text-[12px]"
+    >
+      <Icon name="lock" size={14} className="mt-[1px] shrink-0" />
+      <span>
+        <strong>Made in a newer PlexiiDraw — update to edit.</strong> This copy is read-only, so nothing you do here is saved. {details.join(' ')}
+      </span>
+    </div>
+  )
+}
 
 /**
  * Shows the live, uncommitted stroke. The scratch canvas element is adopted
@@ -1703,7 +1840,8 @@ function GradientView({ g }: { g: DrawGradientDef }): JSX.Element {
 }
 
 function ObjectView({ o }: { o: DrawObject }): JSX.Element | null {
-  if (o.hidden) return null
+  // Hidden, or something a newer PlexiiDraw made that this build cannot draw.
+  if (o.hidden || o.type === 'opaque') return null
   const style: React.CSSProperties = {}
   if (o.opacity != null && o.opacity < 1) style.opacity = o.opacity
   if (o.blend && o.blend !== 'normal') style.mixBlendMode = o.blend as never
@@ -1723,6 +1861,9 @@ function ObjectView({ o }: { o: DrawObject }): JSX.Element | null {
         strokeLinecap={o.stroke?.cap}
         strokeLinejoin={o.stroke?.join}
         strokeDasharray={o.stroke?.dash && o.stroke.dash.length ? o.stroke.dash.join(' ') : undefined}
+        // The exporter writes stroke-miterlimit; the screen has to draw the same
+        // corners or a sharp join looks different in the file than in the app.
+        strokeMiterlimit={o.stroke?.miterLimit}
         style={style}
       />
     )
@@ -1782,6 +1923,13 @@ function ObjectView({ o }: { o: DrawObject }): JSX.Element | null {
       fillOpacity={f.opacity}
       stroke={s?.value}
       strokeWidth={o.stroke?.width}
+      strokeOpacity={s?.opacity}
+      // Text strokes carry the same styling the exporter writes for them
+      // (strokeAttrs serves paths and text alike), so screen and file agree.
+      strokeLinecap={o.stroke?.cap}
+      strokeLinejoin={o.stroke?.join}
+      strokeDasharray={o.stroke?.dash && o.stroke.dash.length ? o.stroke.dash.join(' ') : undefined}
+      strokeMiterlimit={o.stroke?.miterLimit}
       transform={o.rotation ? `rotate(${o.rotation} ${o.x + o.w / 2} ${o.y})` : undefined}
       style={style}
     >
