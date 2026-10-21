@@ -17,6 +17,7 @@ import { normalizeMapBody } from '@shared/mapGraph'
 import { fresh } from '@shared/diagram/sharedRefs'
 import { alignBoxes, distributeBoxes, type AlignEdge } from '../map/mapAlign'
 import { mapTemplate, type MapTemplateId } from '../map/mapTemplates'
+import { shortcutKey } from './keys'
 import type { QuickDir } from './DiagramContext'
 import type { Tool } from './DiagramEditor'
 
@@ -37,6 +38,8 @@ interface Deps {
   // Present in a live shared document: undo/redo go through it instead.
   liveUndo: MutableRefObject<LiveUndo | undefined>
   flush: () => void
+  styleClip: MutableRefObject<Partial<MapNodeStyle> | null>
+  pasteOffset: MutableRefObject<number>
   setHistoryTick: (fn: (n: number) => number) => void
   setEditingId: (id: string | null) => void
   setPageIdx: (i: number) => void
@@ -60,8 +63,11 @@ const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform
 function makeCommands(d: Deps) {
   const page = (): ops.Graph => getPage(d.bodyRef.current, d.pageIdxRef.current)
   const sel = (): ops.Sel => d.selRef.current
-  let styleClipboard: Partial<MapNodeStyle> | null = null
-  let lastPasteOffset = 0
+  // Copied style and the repeat-paste offset are the editor's, held in refs:
+  // the command object can be rebuilt (a theme or settings change) between a
+  // copy and its paste, and closure variables here would be lost with it.
+  const styleClip = d.styleClip
+  const pasteOffset = d.pasteOffset
 
   const viewportCenter = (): { x: number; y: number } => {
     const r = d.wrapRef.current?.getBoundingClientRect()
@@ -211,7 +217,7 @@ function makeCommands(d: Deps) {
       const s = sel()
       if (!s.nodes.size) return false
       const clip = ops.copySelection(page(), s)
-      lastPasteOffset = 0
+      pasteOffset.current = 0
       const json = JSON.stringify(clip)
       try {
         data?.setData('text/plain', json)
@@ -230,8 +236,8 @@ function makeCommands(d: Deps) {
       try {
         const parsed = JSON.parse(text)
         if (ops.isClip(parsed)) {
-          lastPasteOffset += 24
-          const { graph, sel: s } = ops.pasteClip(page(), parsed, { x: lastPasteOffset, y: lastPasteOffset })
+          pasteOffset.current += 24
+          const { graph, sel: s } = ops.pasteClip(page(), parsed, { x: pasteOffset.current, y: pasteOffset.current })
           d.update(() => graph)
           d.setSel(s)
           return
@@ -367,12 +373,12 @@ function makeCommands(d: Deps) {
     },
     copyStyle(): void {
       const n = page().nodes.find((x) => sel().nodes.has(x.id))
-      styleClipboard = n ? { ...(n.style ?? {}), stroke: n.style?.stroke ?? n.color } : null
+      styleClip.current = n ? { ...(n.style ?? {}), stroke: n.style?.stroke ?? n.color } : null
     },
     pasteStyle(): void {
-      if (styleClipboard) cmds.setStyle(styleClipboard)
+      if (styleClip.current) cmds.setStyle(styleClip.current)
     },
-    hasStyleClipboard: (): boolean => !!styleClipboard,
+    hasStyleClipboard: (): boolean => !!styleClip.current,
     setSettings(patch: Partial<MapSettings>, key?: string): void {
       d.updateBody((b) => {
         const s: MapSettings = { ...(b.settings ?? {}), ...patch }
@@ -660,7 +666,7 @@ function makeCommands(d: Deps) {
     // ── keyboard ─────────────────────────────────────────────────────────
     handleKey(e: KeyboardEvent, ui: { setTool: (t: Tool) => void }): boolean {
       const mod = isMac ? e.metaKey : e.ctrlKey
-      const k = e.key.toLowerCase()
+      const k = shortcutKey(e)
       const step = e.shiftKey ? 10 : 1
       if (k === 'delete' || k === 'backspace') return cmds.deleteSelection(), true
       if (k === 'escape') return cmds.clearSelection(), true

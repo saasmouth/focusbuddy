@@ -19,7 +19,7 @@ import {
   type FinalConnectionState
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import type { MapBody, MapEdge, MapNode, MapSettings } from '@shared/types'
+import type { MapBody, MapEdge, MapNode, MapNodeStyle, MapSettings } from '@shared/types'
 import type { LiveUndo } from '../../../lib/yjsKeyedJson'
 import { normalizeMapBody } from '@shared/mapGraph'
 import { getShape, shapePorts } from '@shared/diagram/shapes'
@@ -60,6 +60,7 @@ export interface DiagramEditorProps {
   liveUndo?: LiveUndo
 }
 
+const NO_SETTINGS: MapSettings = {}
 const nodeTypes = { shape: ShapeNode }
 const edgeTypes = { diagram: DiagramEdge }
 
@@ -73,6 +74,8 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   const [pageIdx, setPageIdxState] = useState(0)
   const pageIdxRef = useRef(0)
   const history = useRef(new History<MapBody>())
+  const styleClip = useRef<Partial<MapNodeStyle> | null>(null)
+  const pasteOffset = useRef(0)
   const [, setHistoryTick] = useState(0)
   const [sel, setSelState] = useState<ops.Sel>(ops.emptySel)
   const selRef = useRef(sel)
@@ -202,7 +205,9 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
 
   // ── derived page state ──────────────────────────────────────────────────
   const page = getPage(body, pageIdx)
-  const settings: MapSettings = body.settings ?? {}
+  // Stable when the body has no settings: a fresh {} each render rebuilt the
+  // command object every render (losing its state and re-rendering every node).
+  const settings: MapSettings = body.settings ?? NO_SETTINGS
   const themeId = settings.theme ?? 'plexii'
   const theme = getTheme(themeId)
   const hiddenLayers = useMemo(() => ops.hiddenLayerIds(page), [page])
@@ -469,6 +474,8 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
     rf,
     liveUndo: liveUndoRef,
     flush: () => flushRef.current(),
+    styleClip,
+    pasteOffset,
     bodyRef,
     pageIdxRef,
     selRef,

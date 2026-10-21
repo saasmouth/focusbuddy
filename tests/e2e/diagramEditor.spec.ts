@@ -20,6 +20,7 @@ interface SavedNode {
   id: string
   shape: string
   binding?: { source?: { kind?: string } }
+  style?: { bold?: boolean }
 }
 interface SavedBody {
   nodes?: SavedNode[]
@@ -201,6 +202,59 @@ test('DGM-4 — Data dialog offers Tables, Widgets, Apps and Tools; an app tile 
 
     const body = await waitForSaved(window, id, (b) => (b.nodes ?? []).some((n) => n.binding?.source?.kind === 'app'))
     expect(body.nodes!.find((n) => n.binding?.source?.kind === 'app')!.shape).toBe('app-tile')
+    expect(errors).toEqual([])
+  } finally {
+    await dispose()
+  }
+})
+
+test('DGM-5 — copy style / paste style shortcuts (⌥⌘C / ⌥⌘V) carry a style to another shape', async () => {
+  const { window, id, errors, dispose } = await openEditor('Style shortcuts')
+  try {
+    const mod = process.platform === 'darwin' ? 'Meta' : 'Control'
+    // A second shape to paste onto.
+    await window.locator('[data-testid="map-add-decision"]').click()
+    const both = await waitForSaved(window, id, (b) => (b.nodes?.length ?? 0) >= 2)
+    const [first, second] = [both.nodes![0]!, both.nodes![1]!]
+    const nodeEl = (nid: string) => window.locator(`.react-flow__node[data-id="${nid}"]`)
+    // Make the first shape bold, then copy its style.
+    await nodeEl(first.id).click()
+    await window.keyboard.press(`${mod}+b`)
+    await waitForSaved(window, id, (b) => !!b.nodes?.find((n) => n.id === first.id)?.style?.bold)
+    await window.keyboard.press(`Alt+${mod}+KeyC`)
+    // Paste it onto the second.
+    await nodeEl(second.id).click()
+    await window.keyboard.press(`Alt+${mod}+KeyV`)
+    const after = await waitForSaved(window, id, (b) => !!b.nodes?.find((n) => n.id === second.id)?.style?.bold)
+    expect(after.nodes!.find((n) => n.id === second.id)!.style!.bold).toBe(true)
+    expect(errors).toEqual([])
+  } finally {
+    await dispose()
+  }
+})
+
+test('DGM-6 — Edit → Copy style / Paste style carry a style to another shape', async () => {
+  const { window, id, errors, dispose } = await openEditor('Style menu')
+  try {
+    const mod = process.platform === 'darwin' ? 'Meta' : 'Control'
+    await window.locator('[data-testid="map-add-decision"]').click()
+    const both = await waitForSaved(window, id, (b) => (b.nodes?.length ?? 0) >= 2)
+    const [first, second] = [both.nodes![0]!, both.nodes![1]!]
+    const nodeEl = (nid: string) => window.locator(`.react-flow__node[data-id="${nid}"]`)
+    const editMenu = async (item: string): Promise<void> => {
+      await window.locator('[data-testid="draw-menubar-edit"]').click()
+      await window.locator('[data-testid="draw-menubar-edit-list"]').getByText(item, { exact: true }).click()
+    }
+    await nodeEl(first.id).click()
+    await window.keyboard.press(`${mod}+b`)
+    await waitForSaved(window, id, (b) => !!b.nodes?.find((n) => n.id === first.id)?.style?.bold)
+    await editMenu('Copy style')
+    // Something that re-renders the editor between copy and paste: the copied
+    // style must survive it (it used to be lost on every render).
+    await nodeEl(second.id).click()
+    await editMenu('Paste style')
+    const after = await waitForSaved(window, id, (b) => !!b.nodes?.find((n) => n.id === second.id)?.style?.bold)
+    expect(after.nodes!.find((n) => n.id === second.id)!.style!.bold).toBe(true)
     expect(errors).toEqual([])
   } finally {
     await dispose()
