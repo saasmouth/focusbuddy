@@ -197,13 +197,25 @@ export function applySwatchEdit(body: DesignBody, swatchId: string, patch: Parti
   })
 }
 
-/** Point a fill at a swatch, caching the resolved colour alongside. */
+/**
+ * Point a fill at a swatch, caching the resolved colour alongside.
+ *
+ * No tint means FULL STRENGTH, so any tint the fill was carrying is cleared.
+ * Keeping it left the fill self-contradictory — the cached colour at 100% and
+ * a tint of 20 next to it — and nothing looked wrong until something resolved
+ * the pair later (deleting the swatch, or re-opening the file), at which point
+ * the artwork changed colour on its own. A fill must always draw what its own
+ * (swatch, tint) pair resolves to.
+ */
 export function assignSwatch(
   fill: SlideFill & SwatchRef,
   swatch: DesignSwatch,
   tint?: number
 ): SlideFill & SwatchRef {
-  return { ...fill, swatchId: swatch.id, ...(tint === undefined ? {} : { tint }), color: tintedColor(swatch.color, tint) }
+  const next: SlideFill & SwatchRef = { ...fill, swatchId: swatch.id, color: tintedColor(swatch.color, tint) }
+  if (tint === undefined) delete next.tint
+  else next.tint = tint
+  return next
 }
 
 /** Drop the link but keep the colour, so detaching never changes the artwork. */
@@ -242,4 +254,89 @@ export function defaultSwatches(brand: OrgBrandKit = DEFAULT_BRAND_KIT): DesignS
 /** Spot inks used in this document, for preflight and the printer. */
 export function spotInks(body: DesignBody): DesignSwatch[] {
   return (body.swatches ?? []).filter((s) => s.spot && swatchUsage(body, s.id).length > 0)
+}
+
+// ── Managing the palette ─────────────────────────────────────────────────────
+
+/** A swatch id derived from its name: readable in a saved file, and unique. */
+export function swatchId(name: string, taken: Iterable<string>): string {
+  const used = new Set(taken)
+  const base =
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40) || 'swatch'
+  if (!used.has(base)) return base
+  let n = 2
+  while (used.has(`${base}-${n}`)) n += 1
+  return `${base}-${n}`
+}
+
+/**
+ * Add a swatch. Returns the new body and the id it was given.
+ *
+ * A document that has never had a palette gets the default one first, so the
+ * list a person sees is Brand primary, Black, White, Paper, Ink and then their
+ * new colour — not one lonely swatch.
+ */
+export function addSwatch(
+  body: DesignBody,
+  swatch: { name: string; color: string; spot?: { inkName: string } },
+  brand?: OrgBrandKit
+): { body: DesignBody; id: string } {
+  const existing = body.swatches ?? defaultSwatches(brand)
+  const id = swatchId(swatch.name, existing.map((s) => s.id))
+  const next: DesignSwatch = {
+    id,
+    name: swatch.name.trim() || id,
+    color: swatch.color,
+    ...(swatch.spot?.inkName.trim() ? { spot: { inkName: swatch.spot.inkName.trim() } } : {})
+  }
+  return { body: { ...body, swatches: [...existing, next] }, id }
+}
+
+/**
+ * Delete a swatch without changing the artwork.
+ *
+ * Every fill that pointed at it keeps the colour it was drawing and loses only
+ * the link, which is what detaching means. A locked swatch (a brand colour) is
+ * not deletable, and asking is a no-op rather than an error — a disabled
+ * button is the UI's job.
+ */
+export function deleteSwatch(body: DesignBody, id: string): DesignBody {
+  const existing = body.swatches ?? []
+  const swatch = existing.find((s) => s.id === id)
+  if (!swatch || swatch.locked) return body
+  const detached = mapElements(body, (e) => {
+    const f = (e as { fill?: SlideFill & SwatchRef }).fill
+    if (!f || f.swatchId !== id) return e
+    return { ...e, fill: detachSwatch(body, f) } as SlideElement
+  })
+  return { ...detached, swatches: existing.filter((s) => s.id !== id) }
+}
+
+/**
+ * Point every one of these elements' fills at a swatch, at an optional tint.
+ *
+ * Elements with no fill are left alone: a text frame or a line has no fill to
+ * colour, and inventing one would put a box behind the words.
+ */
+export function assignSwatchTo(
+  body: DesignBody,
+  elementIds: string[],
+  swatchIdToUse: string,
+  tint?: number
+): DesignBody {
+  const swatch = findSwatch(body, swatchIdToUse)
+  if (!swatch || elementIds.length === 0) return body
+  const ids = new Set(elementIds)
+  return mapElements(body, (e) => {
+    if (!ids.has(e.id)) return e
+    const f = (e as { fill?: SlideFill & SwatchRef }).fill
+    if (!f || f.type === 'none') return e
+    const next = assignSwatch(f, swatch, tint)
+    if (next.color === f.color && next.swatchId === f.swatchId && next.tint === f.tint) return e
+    return { ...e, fill: next } as SlideElement
+  })
 }

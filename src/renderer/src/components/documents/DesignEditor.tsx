@@ -57,6 +57,7 @@ import LayoutOverlay from './design/LayoutOverlay'
 import LayoutPanel from './design/LayoutPanel'
 import PreflightPanel from './design/PreflightPanel'
 import StylesPanel from './design/StylesPanel'
+import SwatchesPanel from './design/SwatchesPanel'
 import { preflight, preflightSummary } from '@shared/designPreflight'
 import DesignRulers from './design/DesignRulers'
 import Icon from '../Icon'
@@ -137,7 +138,16 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [exportOpen, setExportOpen] = useState(false)
   const [panel, setPanel] = useState<
-    'none' | 'templates' | 'size' | 'ai' | 'stock' | 'layout' | 'redesign' | 'preflight' | 'styles'
+    | 'none'
+    | 'templates'
+    | 'size'
+    | 'ai'
+    | 'stock'
+    | 'layout'
+    | 'redesign'
+    | 'preflight'
+    | 'styles'
+    | 'swatches'
   >(
     () => (normalizeDesignBody(content).elements.length === 0 ? 'templates' : 'none')
   )
@@ -1050,6 +1060,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
             openLayout: () => setPanel('layout'),
             openPreflight: () => setPanel('preflight'),
             openStyles: () => setPanel('styles'),
+            openSwatches: () => setPanel('swatches'),
             preflightHint,
             addPage,
             toggleFacing: () => patchLayout({ facing: !designRef.current.facing }),
@@ -1317,6 +1328,12 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
       {panel === 'styles' && (
         <Panel title="Paragraph styles">
           <StylesPanel design={design} onPatch={patchLayout} />
+        </Panel>
+      )}
+
+      {panel === 'swatches' && (
+        <Panel title="Swatches &amp; spot inks">
+          <SwatchesPanel design={design} selectedIds={selectedIds} onBody={(next) => commit(next)} />
         </Panel>
       )}
 
