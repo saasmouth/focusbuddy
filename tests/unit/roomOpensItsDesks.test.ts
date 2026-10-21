@@ -44,8 +44,7 @@ describe('every room door goes through goRoom, not goProject', () => {
   const doors: Array<[string, string, string]> = [
     ['renderer/src/components/views/RoomsView.tsx', 'the Rooms index', 's.goDesks'],
     ['renderer/src/components/pins/PinTray.tsx', 'a pinned room', 's.goRoom'],
-    ['renderer/src/components/views/InboxView.tsx', 'accepting a shared room', 's.goRoom'],
-    ['renderer/src/components/StageManagerStrip.tsx', 'back-to-room from a desk', 's.goRoom']
+    ['renderer/src/components/views/InboxView.tsx', 'accepting a shared room', 's.goRoom']
   ]
 
   for (const [file, what, selector] of doors) {
@@ -54,16 +53,17 @@ describe('every room door goes through goRoom, not goProject', () => {
     })
   }
 
-  // Two more doors were guarded here until 4.3.41: Home's folders card and
-  // the workspace health card, both in the old project dashboard, which
-  // MainPane had stopped rendering. They were retired with the rest of that
-  // dead renderer code, so the guard becomes: they stay gone. If one comes
-  // back it must be added to the list above and go through goRoom like every
-  // other door.
+  // Three more doors were guarded here until 4.3.41: Home's folders card and
+  // the workspace health card (both in the old project dashboard, which
+  // MainPane had stopped rendering) and the desk's StageManagerStrip (never
+  // mounted). They were retired with the rest of that dead renderer code, so
+  // the guard becomes: they stay gone. If one comes back it must be added to
+  // the list above and go through goRoom like every other door.
   it('the retired room doors stay retired', () => {
     for (const file of [
       'renderer/src/components/dashboard/FoldersCard.tsx',
-      'renderer/src/components/dashboard/WorkspaceHealthCard.tsx'
+      'renderer/src/components/dashboard/WorkspaceHealthCard.tsx',
+      'renderer/src/components/StageManagerStrip.tsx'
     ]) {
       expect(existsSync(join(ROOT, 'src', file)), `${file} is back -- add it to the doors`).toBe(false)
     }

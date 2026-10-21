@@ -1,10 +1,9 @@
 /**
- * shareInvite.spec.ts — E2E coverage for the invite-by-email + multi-recipient badge feature.
+ * shareInvite.spec.ts — E2E coverage for the invite-by-email feature.
  *
- * PART A — SharedRecipientBadges renders when recipientsByEntity is populated:
- *   Verified as part of the full end-to-end flow in PART B. After a real invite
- *   the store calls refreshRecipients() which populates recipientsByEntity; the
- *   sidebar then renders [data-testid="shared-recipient-badges"] for that folder.
+ * PART A (the multi-recipient badge on a sidebar row) was removed in 4.3.41:
+ * SharedRecipientBadges was never mounted, so PART A's only test asserted the
+ * absence of a badge nothing could render. The component was deleted.
  *
  * PART B — Real invite flow end-to-end (against the live signal server):
  *   1. Boot the built app with isolated userData (hermetic local DB).
@@ -21,9 +20,6 @@
  *   9. Assert the invite success message appears.
  *  10. Assert the recipient row with status "invited" appears inside the dialog.
  *  11. Close the dialog.
- *  12. Assert [data-testid="shared-recipient-badges"] is now visible on the folder row.
- *  13. Hover the badge and assert [data-testid="shared-recipient-tooltip"] shows the
- *      invitee's email or handle.
  */
 
 import { test, expect } from '@playwright/test'
@@ -197,65 +193,4 @@ test('invite-by-email UI renders in the share dialog once a link exists', async 
 
   // ── Final: no unexpected page errors. ────────────────────────────────────
   expect(pageErrors).toHaveLength(0)
-})
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PART A (isolated) — SharedRecipientBadges renders when injected via store
-// ─────────────────────────────────────────────────────────────────────────────
-
-test('shared-recipient-badges does NOT appear for folders with no recipients', async () => {
-  launched = await launchApp()
-  const { window } = launched
-
-  await waitForReady(window)
-
-  // Create a folder and a share link (no session, no server invites → no recipients).
-  const rand = Date.now()
-  const title = `No Recipients Desk ${rand}`
-
-  await window.evaluate(
-    async ({ folderTitle, token }: { folderTitle: string; token: string }) => {
-      const api = (window as unknown as { api: typeof window.api }).api
-      const folder = await api.nodes.create({
-        parentId: null,
-        kind: 'folder',
-        title: folderTitle
-      })
-      await api.shares.create({
-        token,
-        kind: 'folder',
-        entityId: (folder as { id: string }).id,
-        label: folderTitle,
-        scope: 'view',
-        expiresAt: null
-      })
-    },
-    { folderTitle: title, token: `no-recip-tok-${rand}` }
-  )
-
-  await window.reload()
-  await waitForReady(window)
-
-  // Wait for the folder row.
-  await window.waitForFunction(
-    ({ t }: { t: string }) => {
-      const rows = Array.from(document.querySelectorAll('[role="treeitem"]'))
-      return rows.some((r) => r.textContent?.includes(t))
-    },
-    { t: title },
-    { timeout: 8_000 }
-  )
-
-  // Wait for shares store to load (shared-out-badge marks that outgoing is populated).
-  await window.waitForFunction(
-    () => document.querySelector('[data-testid="shared-out-badge"]') !== null,
-    { timeout: 8_000 }
-  )
-
-  // No session → refreshRecipients() returns {} → no recipient badges.
-  const recipientBadges = window.locator('[data-testid="shared-recipient-badges"]')
-  await expect(recipientBadges).toHaveCount(0)
-
-  // The plain shared-out-badge should be there instead.
-  await expect(window.locator('[data-testid="shared-out-badge"]')).toHaveCount(1)
 })

@@ -9,7 +9,6 @@ import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
 // Produces PNGs in test-results/:
 //   desk-fullbleed.png       — whole desk, full-bleed surface + floating chrome
 //   desk-header.png          — close crop of the floating header pill
-//   desk-switcher.png        — breadcrumb hover-expand + StageManagerStrip open
 //   desk-bottombar.png       — UnifiedBottomBar, collapsed-state pass
 //   desk-bottombar-full.png  — UnifiedBottomBar expanded, all widgets + mic row
 //   desk-minimap.png         — bottom-right minimap overlay, singular
@@ -199,25 +198,8 @@ test('capture full-bleed desk chrome screenshots + sanity checks (UI-driven)', a
   }
   console.log('Saved test-results/desk-header.png')
 
-  // ── 3. Desk switcher — hover breadcrumb, open StageManagerStrip ─────────
-  await breadcrumb.hover()
-  await window.waitForTimeout(500)
-  const switcherStrip = window.locator('[data-testid="stage-manager-strip"]')
-  const switcherFound = await switcherStrip.isVisible({ timeout: 3_000 }).catch(() => false)
-  if (!switcherFound) {
-    // Fallback: click the breadcrumb to force-expand if hover alone doesn't do it.
-    await breadcrumb.click().catch(() => {})
-    await window.waitForTimeout(400)
-  }
-  const switcherVisible = await switcherStrip.isVisible({ timeout: 3_000 }).catch(() => false)
-  console.log('desk switcher (stage-manager-strip) visible:', switcherVisible)
-  await window.waitForTimeout(400)
-  await window.screenshot({ path: 'test-results/desk-switcher.png' })
-  console.log('Saved test-results/desk-switcher.png')
-
-  // Move mouse away to close the switcher before continuing.
-  await window.mouse.move(viewport.width / 2, viewport.height / 2)
-  await window.waitForTimeout(400)
+  // (Section 3, the desk switcher capture, opened StageManagerStrip. That strip
+  // was never mounted and was deleted in 4.3.41, so the capture was removed.)
 
   // ── 4a. UnifiedBottomBar — collapsed-state screenshot ─────────────────────
   await window.mouse.move(viewport.width / 2, viewport.height / 2)

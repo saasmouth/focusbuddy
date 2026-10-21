@@ -16,7 +16,6 @@ describe('renderer dialog hardening', () => {
     const migrated = [
       'src/renderer/src/components/Footer.tsx',
       'src/renderer/src/components/ShareDialog.tsx',
-      'src/renderer/src/components/WidgetDock.tsx',
       'src/renderer/src/components/settings/ApiKeysSection.tsx',
       'src/renderer/src/components/views/WeekTimeGrid.tsx',
       'src/renderer/src/components/widgets/WidgetFrame.tsx',
