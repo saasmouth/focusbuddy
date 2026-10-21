@@ -51,7 +51,7 @@ export async function confirmPermanentDelete(entry: {
   const expected = (entry.title || '').trim()
   const typed = await promptText({
     title: `Type the ${noun}'s name to confirm`,
-    label: `“${title}” and everything Plexii learned from it are erased immediately. Attention items on it are preserved — they move to your Attention page. This cannot be undone.`,
+    label: `“${title}” and everything Plexii learned from it are erased immediately. Tasks on it are preserved — they move to Focus. This cannot be undone.`,
     placeholder: expected || `Untitled ${noun}`,
     confirmLabel: 'Delete permanently',
     danger: true,
@@ -75,7 +75,7 @@ export async function confirmPermanentDelete(entry: {
   if (result.revived > 0) {
     await confirmDialog({
       title: `“${title}” deleted permanently`,
-      body: `${result.revived} attention item${result.revived === 1 ? ' was' : 's were'} preserved and moved to your Attention page.`,
+      body: `${result.revived} task${result.revived === 1 ? ' was' : 's were'} preserved and moved to Focus.`,
       confirmLabel: 'OK'
     })
   }
@@ -91,7 +91,7 @@ export async function leaveSharedDesk(node: FbNode): Promise<void> {
   if (!rootId || !accountId) return
   const ok = await confirmDialog({
     title: `Leave “${node.title || 'this desk'}”?`,
-    body: 'It disappears from your workspace; the other participants keep it. Any attention items of yours on it move to your Attention page.',
+    body: 'It disappears from your workspace; the other participants keep it. Any tasks of yours on it move to Focus.',
     confirmLabel: 'Leave share',
     danger: true
   })

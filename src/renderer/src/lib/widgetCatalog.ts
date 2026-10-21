@@ -193,9 +193,9 @@ export const WIDGET_CATALOG: WidgetCatalogEntry[] = [
     // any desk. Defaults to THIS desk's items; one tap widens to all.
     kind: 'attention',
     category: 'Tools',
-    label: 'Attention',
+    label: 'Focus',
     icon: 'notifications',
-    hint: 'This desk’s attention items — or all of them',
+    hint: 'This desk’s tasks — or all of Focus',
     defaultWidth: 380,
     defaultHeight: 340,
     defaultContent: '{"scope":"desk"}',

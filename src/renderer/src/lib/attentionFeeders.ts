@@ -1,5 +1,6 @@
 import { dueStanding, dueLabel, type DueStanding } from './dueDates'
 import type { FbNode } from '@shared/types'
+import { isDeskTask } from '@shared/attentionProjection'
 
 // Attention feeders (S7, SPEC-022/023/024 intelligence-light; CR-08(b)'s
 // enabler). Feeders READ desk/plan state and surface it AS attention signals —
@@ -54,6 +55,9 @@ export function deskDueSignals(nodes: FbNode[], nowMs: number): FeederSignal[] {
   for (const n of nodes) {
     if (n.archived || n.status === 'done' || n.status === 'parked') continue
     if (n.dueDate == null) continue
+    // DEC-144: a task filed on a desk is already in Focus as itself; a feeder
+    // row for its due date was the same task listed twice.
+    if (isDeskTask(n, (id) => byId.get(id))) continue
     // Calendar days in local time (lib/dueDates): a desk due today, stored as
     // local midnight, is "Due today" all day, not "Past due" from 00:01.
     const due = dueStanding(n.dueDate, nowMs)

@@ -28,7 +28,7 @@ export interface LifecycleDb {
 export class WorkItemDeleteRefusedError extends Error {
   readonly code = 'WORK_ITEM_DELETE_REFUSED'
   constructor() {
-    super('Work items are dismissed or reclassified, never deleted directly.')
+    super('Tasks in Focus are dismissed or reclassified, never deleted directly.')
     this.name = 'WorkItemDeleteRefusedError'
   }
 }
@@ -38,7 +38,7 @@ export class WorkItemDeleteRefusedError extends Error {
 export class WorkItemParentRefusedError extends Error {
   readonly code = 'WORK_ITEM_PARENT_REFUSED'
   constructor() {
-    super('Nothing can be placed under a work item.')
+    super('Nothing can be placed under a task in Focus.')
     this.name = 'WorkItemParentRefusedError'
   }
 }

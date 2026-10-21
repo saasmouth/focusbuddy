@@ -1,4 +1,4 @@
-import { statusForWorkItemState, DEFAULT_INTENT_CLASS } from './workItems'
+import { statusForWorkItemState, DEFAULT_INTENT_CLASS, canonicalIntentClass } from './workItems'
 import type { FbNode, TaskStatus } from './types'
 
 // One record, two lenses.
@@ -94,3 +94,60 @@ export function attentionItemsFrom(nodes: readonly FbNode[]): FbNode[] {
   }
   return out
 }
+
+/** The item fields a desk task can hold, keyed by the TASK's attribute names. */
+export interface TaskAttrsFromItem {
+  title?: string
+  description?: string
+  dueDate?: number | null
+  intentClass?: string
+}
+
+/**
+ * Translate an item-shaped edit (what Focus's editor and the MCP tools send)
+ * into a desk task's own attributes (DEC-144).
+ *
+ * Same fact, the task's vocabulary: `notes` is the task's description and the
+ * ISO `dueAt` is its numeric `dueDate`. Returns null when the patch carries a
+ * field a task does not have (urgency, tags, mentions, the meeting fields,
+ * work_item_state...) or a value that cannot be stored, so the caller refuses
+ * the whole edit rather than applying half of it and reporting success.
+ */
+export function taskAttrsForItemPatch(patch: Record<string, unknown>): TaskAttrsFromItem | null {
+  const out: TaskAttrsFromItem = {}
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) continue
+    switch (key) {
+      case 'title':
+        if (typeof value !== 'string' || !value.trim()) return null
+        out.title = value.trim()
+        break
+      case 'notes':
+        if (value !== null && typeof value !== 'string') return null
+        out.description = value ?? ''
+        break
+      case 'dueAt': {
+        if (value === null) {
+          out.dueDate = null
+          break
+        }
+        const ms = typeof value === 'string' ? Date.parse(value) : NaN
+        if (!Number.isFinite(ms)) return null
+        out.dueDate = ms
+        break
+      }
+      case 'intentClass': {
+        const canonical = canonicalIntentClass(value)
+        if (!canonical) return null
+        out.intentClass = canonical
+        break
+      }
+      default:
+        return null
+    }
+  }
+  return out
+}
+
+/** The item-editor fields a desk task supports. Focus hides the rest for one. */
+export const TASK_EDITABLE_ITEM_FIELDS = ['title', 'notes', 'dueAt', 'intentClass'] as const

@@ -13,10 +13,14 @@
 // import; styling beyond what the body models is dropped; charts are not
 // round-tripped.
 //
-// Worth knowing: the pinned SheetJS (xlsx@0.18.5) is the last build published
-// to npm before the project moved to its own CDN, and npm audit reports high
-// severity against it (prototype pollution, ReDoS). Replacing or re-pinning it
-// is a maintenance decision with a deadline, not a feature.
+// Worth knowing about the SheetJS pin. 0.18.5 was the last build published to
+// npm, and it carried high-severity advisories (prototype pollution, ReDoS).
+// We are now on 0.20.3, installed from the vendor's own CDN
+// (https://cdn.sheetjs.com/...tgz) because the project left npm. That is a URL
+// dependency on purpose: npm has no newer build to resolve, and pinning the
+// vulnerable one to keep a registry-shaped entry would be the worse trade.
+// Check the tarball URL still resolves when bumping; a dead CDN fails the
+// install rather than silently falling back.
 
 import { dialog, BrowserWindow } from 'electron'
 import { basename } from 'path'

@@ -51,7 +51,6 @@ import { useViewStore } from '../../stores/view'
 import { useWidgetFilesStore } from '../../stores/widgetFiles'
 import { isStandaloneWidgetKind, isWidgetFilePaneId, widgetFileIdFromGroup } from '@shared/widgetFiles'
 import { liveItemForWidget } from '../../lib/widgetAttention'
-import { workItemsEnabled } from '../../lib/workItemsCapability'
 import { presetForWidget, browserMarkUrl } from '../../lib/attentionPresets'
 import { PRIMARY_ACTION, queueOf } from '../../lib/attentionQueues'
 import { useCloseWorkItem } from '../attention/useCloseWorkItem'
@@ -216,14 +215,13 @@ export default function WidgetFrame({
   // widget (sourceType/sourceRef), nothing files without the person's Enter.
   // A filled bell opens the queue. The check beside it closes the item with
   // its own queue verb through the one close path.
-  const attentionOn = workItemsEnabled()
   const workItems = useWorkItemStore((s) => s.items)
   const wiLoaded = useWorkItemStore((s) => s.loaded)
   const refreshWorkItems = useWorkItemStore((s) => s.refresh)
   useEffect(() => {
-    if (attentionOn && !wiLoaded) void refreshWorkItems()
-  }, [attentionOn, wiLoaded, refreshWorkItems])
-  const attentionItem = attentionOn ? liveItemForWidget(workItems, widget.id) : null
+    if (!wiLoaded) void refreshWorkItems()
+  }, [wiLoaded, refreshWorkItems])
+  const attentionItem = liveItemForWidget(workItems, widget.id)
   const goAttention = useViewStore((s) => s.goAttention)
   const closeWorkItem = useCloseWorkItem()
   function markWidgetForAttention(): void {
@@ -1192,7 +1190,7 @@ export default function WidgetFrame({
                 brand icon is a line SVG whose `filled` prop is a no-op — it
                 fills here explicitly); the circle is the one completion
                 form factor every surface shares. */}
-            {attentionOn && !titleEditing && (
+            {!titleEditing && (
               <button
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
@@ -1207,18 +1205,18 @@ export default function WidgetFrame({
                       // stone bar, invisible on the dark one. Quiet, not gone.
                       'text-[var(--ink-50)] opacity-80 hover:opacity-100 hover:bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] hover:text-accent'
                 }`}
-                aria-label={attentionItem ? 'In Attention — open the queue' : 'Add to Attention'}
+                aria-label={attentionItem ? 'In Focus — open it' : 'Add to Focus'}
                 title={
                   attentionItem
-                    ? `In Attention: “${attentionItem.title || 'this widget'}” — click to open the queue`
-                    : 'Add to Attention'
+                    ? `In Focus: “${attentionItem.title || 'this widget'}” — click to open it`
+                    : 'Add to Focus'
                 }
                 data-testid={`widget-bell-${widget.id}`}
               >
                 <BellIcon size={13} active={!!attentionItem} />
               </button>
             )}
-            {attentionOn && attentionItem && !titleEditing && (
+            {attentionItem && !titleEditing && (
               <CompleteCircle
                 size={14}
                 className="widget-nodrag shrink-0"
@@ -1757,7 +1755,7 @@ function ExpandControl({
           >
             <Icon name="open_in_full" size={14} className="text-[var(--ink-50)] mt-[1px] shrink-0" />
             <div className="flex-1 min-w-0">
-              <div className="text-[12px] text-[var(--ink-90)]">Focus mode</div>
+              <div className="text-[12px] text-[var(--ink-90)]">Full view</div>
               <div className="text-[10px] text-[var(--ink-50)] leading-tight">
                 Full pane — hide everything else
               </div>

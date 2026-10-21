@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Icon from '../Icon'
-import { parseAttentionCommand } from '../../lib/attentionCommand'
+import { parseAttentionCommand, isCapturePrefix } from '../../lib/attentionCommand'
 import { useViewStore } from '../../stores/view'
 import { useNodeStore } from '../../stores/nodes'
 import { useChatStore, NEW_CHAT_KEY } from '../../stores/chat'
@@ -153,18 +153,6 @@ export default function StartOrAskPlexi(): JSX.Element {
   // Tab (or picking the Attention row) arms it; the bar's text then IS the
   // capture, Enter routes it to the confirm card, Backspace-on-empty disarms.
   const [attnArmed, setAttnArmed] = useState(false)
-  const [workItemsOn, setWorkItemsOn] = useState(false)
-  useEffect(() => {
-    const probe = (): void => {
-      window.api.workItems
-        .enabled()
-        .then(setWorkItemsOn)
-        .catch(() => {})
-    }
-    probe()
-    window.addEventListener('fb:workitems-toggled', probe)
-    return () => window.removeEventListener('fb:workitems-toggled', probe)
-  }, [])
   function armAttention(): void {
     const i = goal.lastIndexOf('@')
     setGoal(i >= 0 ? goal.slice(0, i).trimEnd() : goal)
@@ -178,7 +166,7 @@ export default function StartOrAskPlexi(): JSX.Element {
     // DEC-028: Attention rides on top whenever the @-query prefixes it — the
     // Slack-style "type @a, Tab, done" path. Selection ARMS (see goItem).
     const attnRow: PickItem[] =
-      workItemsOn && (!atQuery.trim() || 'attention'.startsWith(atQuery.trim().toLowerCase()))
+      isCapturePrefix(atQuery)
         ? [
             {
               key: 'capture:attention',
@@ -220,7 +208,7 @@ export default function StartOrAskPlexi(): JSX.Element {
       8
     )
     return [...attnRow, ...ranked.map((r) => byId.get(r.id)).filter((x): x is PickItem => !!x)]
-  }, [atQuery, nodes, workItemsOn])
+  }, [atQuery, nodes])
 
   useEffect(() => {
     const q = atQuery?.trim() ?? ''
@@ -320,7 +308,7 @@ export default function StartOrAskPlexi(): JSX.Element {
           {attnArmed && (
             <span
               className="shrink-0 inline-flex items-center gap-1 text-[11px] font-medium text-accent bg-accent/10 border border-accent/20 rounded-md px-1.5 py-0.5"
-              title="Armed — Enter files what you type to Attention. Backspace on empty removes it."
+              title="Armed — Enter adds what you type to Focus. Backspace on empty removes it."
             >
               <Icon name="notifications" size={11} />
               @attention
@@ -344,7 +332,7 @@ export default function StartOrAskPlexi(): JSX.Element {
                 if (e.key === 'Tab' && !e.shiftKey) {
                   const hl = pickItems[Math.min(highlight, pickItems.length - 1)]
                   const q = (atQuery ?? '').trim().toLowerCase()
-                  if (hl?.key === 'capture:attention' || (workItemsOn && q && 'attention'.startsWith(q))) {
+                  if (hl?.key === 'capture:attention' || (q && isCapturePrefix(q))) {
                     e.preventDefault()
                     armAttention()
                     return
@@ -390,7 +378,7 @@ export default function StartOrAskPlexi(): JSX.Element {
                 // DEC-031: an @attention token anywhere in the line is a
                 // deterministic capture — it must never fall through to the
                 // ask/search path (which is what silently swallowed it).
-                const attn = workItemsOn ? parseAttentionCommand(goal) : null
+                const attn = parseAttentionCommand(goal)
                 if (attn && attn.mode !== 'none') {
                   window.dispatchEvent(
                     new CustomEvent('fb:command-new-work-item', {
@@ -408,7 +396,7 @@ export default function StartOrAskPlexi(): JSX.Element {
             data-testid="start-or-ask-input"
             placeholder={
               attnArmed
-                ? 'What needs attention? Enter files it…'
+                ? 'What do you need to do? Enter adds it to Focus…'
                 : searching
                   ? 'Search the web — results open right here in Plexii'
                   : 'Ask Plexii, search the web, or open anything — @ jumps to a desk, room or work widget'

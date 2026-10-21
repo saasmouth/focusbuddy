@@ -9,7 +9,7 @@ import type { WidgetKind, SearchHit } from '@shared/types'
 import { WIDGET_CATALOG, isAdvancedKind } from '../lib/widgetCatalog'
 import { getNavPrefs, setNavPrefs } from '../lib/navPrefs'
 import Icon from './Icon'
-import { parseAttentionCommand, hasAttentionCommand } from '../lib/attentionCommand'
+import { parseAttentionCommand, hasAttentionCommand, isCapturePrefix, LEADING_CAPTURE_WORD } from '../lib/attentionCommand'
 import { useCapabilityEnabled, useCapabilityStore } from '../stores/capabilities'
 import { entitlementFor, capabilityForDocType, DOC_TYPE_LABEL } from '../lib/entitlementReason'
 import { isStandaloneWidgetKind } from '@shared/widgetFiles'
@@ -68,20 +68,6 @@ export default function CommandCenter({
 }: Props): JSX.Element {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [query, setQuery] = useState('')
-  // Attention S5: capability probe gates the capture entry — at boot, and
-  // re-probed live when the Settings toggle flips (DEC-023).
-  const [workItemsOn, setWorkItemsOn] = useState(false)
-  useEffect(() => {
-    const probe = (): void => {
-      window.api.workItems
-        .enabled()
-        .then(setWorkItemsOn)
-        .catch(() => {})
-    }
-    probe()
-    window.addEventListener('fb:workitems-toggled', probe)
-    return () => window.removeEventListener('fb:workitems-toggled', probe)
-  }, [])
   const [highlightIdx, setHighlightIdx] = useState(0)
   // DEC-028: the armed @attention pill — Tab on the Attention row (or on an
   // "@a…" partial) arms it; the query then IS the capture text.
@@ -497,19 +483,18 @@ export default function CommandCenter({
     // ALL of these, not just the literal token; without this, Enter on
     // "attention" asked the model instead of opening Capture.
     const attnAddressed =
-      workItemsOn &&
       (hasAttentionCommand(q) ||
-        /^@?attention\b/i.test(q) ||
-        (/^@([a-z]*)$/i.test(q) && 'attention'.startsWith(q.slice(1).toLowerCase())))
-    if (workItemsOn) {
-      const attnPrefix = /^@?attention\b[:,]?\s*(.*)$/i.exec(q)
+        LEADING_CAPTURE_WORD.test(q) ||
+        (/^@([a-z]*)$/i.test(q) && isCapturePrefix(q.slice(1))))
+    {
+      const attnPrefix = LEADING_CAPTURE_WORD.exec(q)
       // DEC-031: the token ANYWHERE in the query addresses Attention just as
       // explicitly as opening with it. Before this, "…by friday @attention"
       // scored as a fuzzy match, lost to Ask Plexii, and took a 30s round trip
       // through the model that filed nothing (operator live QA).
       const attnInline = !attnPrefix && hasAttentionCommand(q) ? parseAttentionCommand(q) : null
       const atPartial = !attnPrefix && !attnInline ? /^@([a-z]*)$/i.exec(q) : null
-      const atMatches = !!atPartial && 'attention'.startsWith(atPartial[1].toLowerCase())
+      const atMatches = !!atPartial && isCapturePrefix(atPartial[1])
       const prefill = attnPrefix?.[1]?.trim() ?? attnInline?.captureText ?? ''
       items.push({
         id: 'attention-capture',
@@ -519,9 +504,9 @@ export default function CommandCenter({
         // directly (DEC-031's grammar, unchanged), and chat + the home bar
         // keep their own flows.
         label: prefill
-          ? `Attention — capture “${prefill.slice(0, 40)}${prefill.length > 40 ? '…' : ''}”`
-          : 'Attention — open Capture',
-        hint: 'Opens the Capture window · @attention <text> files directly',
+          ? `Focus — add “${prefill.slice(0, 40)}${prefill.length > 40 ? '…' : ''}”`
+          : 'Focus — add a task',
+        hint: 'Opens the Capture window · @focus <text> adds it directly',
         icon: 'notifications',
         kind: 'action',
         // An explicit @-address (armed pill, full prefix, or @-partial)
@@ -534,7 +519,7 @@ export default function CommandCenter({
               ? 490
               : q === ''
                 ? 57
-                : matchScore('attention capture work item remind todo queue', q),
+                : matchScore('focus attention capture task remind todo queue', q),
         run: () => {
           window.dispatchEvent(
             new CustomEvent('fb:command-new-work-item', {
@@ -934,7 +919,6 @@ export default function CommandCenter({
     query,
     nodes,
     deskObjectCounts,
-    workItemsOn,
     canSmartStack,
     activeTaskId,
     onOpenBodyDouble,

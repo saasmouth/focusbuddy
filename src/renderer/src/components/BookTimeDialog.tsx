@@ -850,11 +850,11 @@ export default function BookTimeDialog({
                     setAttachOpen((open) => !open)
                   }
                 }}
-                title={attached ? `Attached to ${attached.title}` : 'Attach a desk or work item'}
+                title={attached ? `Attached to ${attached.title}` : 'Attach a desk or task'}
                  className="h-10 px-3 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] border border-[var(--edge-strong)] inline-flex items-center gap-2 text-[13px] text-[var(--ink-70)] fb-press transition-colors hover:text-[var(--ink-90)] max-w-[340px]"
               >
                 <Icon name={attached ? 'link' : 'folder'} size={15} />
-                <span className="truncate">{attached ? attached.title : 'Attach a desk or work item'}</span>
+                <span className="truncate">{attached ? attached.title : 'Attach a desk or task'}</span>
                 <Icon name="expand_more" size={14} className="text-[var(--ink-40)] shrink-0" />
               </button>
               {attached && (
@@ -888,11 +888,11 @@ export default function BookTimeDialog({
                         setAttachOpen(false)
                       }
                     }}
-                    placeholder="Search desks and work items"
-                    aria-label="Search desks and work items"
+                    placeholder="Search desks and tasks"
+                    aria-label="Search desks and tasks"
                     className="mb-1 h-9 w-full rounded-[var(--radius-field)] bg-[var(--surface-sunken)] px-3 text-[13px] text-[var(--ink-100)] outline-none border border-transparent focus:border-[rgb(var(--accent))]"
                   />
-                  <div role="listbox" aria-label="Desks and work items" className="max-h-52 overflow-y-auto">
+                  <div role="listbox" aria-label="Desks and tasks" className="max-h-52 overflow-y-auto">
                     {attachableNodes.map((node) => (
                       <button
                         key={node.id}
@@ -914,13 +914,13 @@ export default function BookTimeDialog({
                         <Icon name={node.kind === 'folder' ? 'folder' : 'check_box'} size={15} />
                         <span className="truncate">{node.title}</span>
                         <span className="ml-auto text-[10px] uppercase tracking-wide text-[var(--ink-40)]">
-                          {node.kind === 'folder' ? 'Desk' : node.kind === 'work_item' ? 'Attention' : 'Task'}
+                          {node.kind === 'folder' ? 'Desk' : node.kind === 'work_item' ? 'Task' : 'Desk'}
                         </span>
                       </button>
                     ))}
                     {attachableNodes.length === 0 && (
                       <div className="px-2 py-3 text-center text-[12px] text-[var(--ink-50)]">
-                        No matching desks or work items
+                        No matching desks or tasks
                       </div>
                     )}
                   </div>

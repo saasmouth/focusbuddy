@@ -1,3 +1,4 @@
+// DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady } from './_helpers'
 
@@ -134,7 +135,7 @@ test('CONTEXT-HEALTH-STRIP — reachability: related-desk change surfaces an att
     await expect(strip).toBeVisible()
     await expect(strip).toContainText('Related')
     await expect(strip).toContainText('Desk Beta')
-    await expect(strip).toContainText('Attention')
+    await expect(strip).toContainText('Needs attention')
 
     // Cross-check against the same context:* read surface the strip itself calls.
     const apiCheck = await window.evaluate(async (id) => {

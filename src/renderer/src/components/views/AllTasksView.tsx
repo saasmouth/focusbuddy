@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { isDeskTask } from '@shared/attentionProjection'
 import type { FbNode } from '@shared/types'
 import { useNodeStore } from '../../stores/nodes'
 import { useFocusSessionStore } from '../../stores/focusSession'
@@ -167,7 +168,14 @@ export default function AllTasksView(): JSX.Element {
   })
 
   const now = Date.now()
-  const allTasks = useMemo(() => nodes.filter((n) => n.kind === 'task'), [nodes])
+  // DEC-144 — this is the Desks app: it lists DESKS. It used to list every
+  // kind='task' node, which mixed desks with the tasks filed on them and left
+  // out captured tasks entirely. Tasks live in Focus, the one list; a desk is
+  // a task node whose parent is not itself a task.
+  const allTasks = useMemo(() => {
+    const byId = new Map(nodes.map((n) => [n.id, n]))
+    return nodes.filter((n) => n.kind === 'task' && !isDeskTask(n, (id) => byId.get(id)))
+  }, [nodes])
 
   // Pre-compute counts for filter chips
   const counts = useMemo(() => {
@@ -233,7 +241,7 @@ export default function AllTasksView(): JSX.Element {
             "All Desks — Every desk across every room, flat.", copied from the
             desks view, while the page below it listed tasks with Today /
             Overdue / Upcoming / Done filters and tick-to-complete. */}
-        <DashboardHeader title="All Tasks" subtitle="Every task across every desk, in one list." />
+        <DashboardHeader title="All desks" subtitle="Every desk across every room. Tasks live in Focus." />
 
         {/* Filter chips */}
         <div className="flex flex-wrap items-center gap-1.5">

@@ -1,3 +1,4 @@
+// DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
 
@@ -174,7 +175,7 @@ test('UI: focusing a widget opens the split-view Focus Mode overlay without cras
   await expect(expandBtn).toBeVisible({ timeout: 5_000 })
   await expandBtn.click({ force: true })
 
-  const focusModeOption = window.getByText('Focus mode', { exact: true })
+  const focusModeOption = window.getByText('Full view', { exact: true })
   await expect(focusModeOption).toBeVisible({ timeout: 3_000 })
   await focusModeOption.click({ force: true })
 
@@ -208,7 +209,7 @@ test('UI: focus-nav next/prev cycles the focused widget', async () => {
   await expect(widgetEl).toBeVisible({ timeout: 5_000 })
   await widgetEl.hover()
   await widgetEl.locator('button[aria-label="Expand options"]').click({ force: true })
-  await window.getByText('Focus mode', { exact: true }).click({ force: true })
+  await window.getByText('Full view', { exact: true }).click({ force: true })
 
   const overlay = window.locator('[data-testid="widget-focus-mode"]')
   await expect(overlay).toBeVisible({ timeout: 5_000 })
@@ -248,7 +249,7 @@ test('UI: chat chrome tab opens FocusChatSurface without crashing', async () => 
   await expect(widgetEl).toBeVisible({ timeout: 5_000 })
   await widgetEl.hover()
   await widgetEl.locator('button[aria-label="Expand options"]').click({ force: true })
-  await window.getByText('Focus mode', { exact: true }).click({ force: true })
+  await window.getByText('Full view', { exact: true }).click({ force: true })
 
   const overlay = window.locator('[data-testid="widget-focus-mode"]')
   await expect(overlay).toBeVisible({ timeout: 5_000 })

@@ -1,3 +1,4 @@
+// DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 /**
  * The assistant's Notion-mirror chrome: a pill on EVERY screen, opening into
  * Sidebar / Floating / Fullscreen over one conversation.
@@ -242,7 +243,7 @@ test('AC-5 — focus mode suppresses the assistant entirely; exit restores it as
   const widgetEl = window.locator(`[data-widget-id="${aId}"]`).first()
   await widgetEl.hover()
   await widgetEl.locator('button[aria-label="Expand options"]').click({ force: true })
-  await window.getByText('Focus mode', { exact: true }).click({ force: true })
+  await window.getByText('Full view', { exact: true }).click({ force: true })
   await expect(window.locator('[data-testid="widget-focus-mode"]')).toBeVisible({ timeout: 5000 })
 
   // The assistant is GONE — no open panel and no pill either. The AI Chat tab

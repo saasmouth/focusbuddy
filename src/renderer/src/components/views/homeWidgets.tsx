@@ -12,6 +12,9 @@ import { usePresenceStore } from '../../stores/presence'
 import { useCapabilityEnabled } from '../../stores/capabilities'
 import { useWidgetStore } from '../../stores/widgets'
 import { useChatStore } from '../../stores/chat'
+import { useWorkItemStore } from '../../stores/workItems'
+import { isTerminalState, rankScore } from '../../lib/attentionQueues'
+import { deskOf } from '../../lib/attentionGrouping'
 import { splitFavourites } from '../../lib/connectedAppSort'
 import { personDisplayName } from '../../lib/personName'
 import { transcribeRecording } from '../../lib/transcribeRecording'
@@ -1930,20 +1933,53 @@ export function FocusTimerWidget({ size = 'sm' }: { size?: WidgetSize } = {}): J
 
 // ── Smart ────────────────────────────────────────────────────────────────────
 
-export function OverdueRadarWidget({ size = 'sm' }: { size?: WidgetSize } = {}): JSX.Element {
+/** DEC-144 — the open tasks in Focus, the one list. These tiles read it
+ *  rather than the desk tree, so a captured task counts the same as one filed
+ *  on a desk, and a desk itself (not a task) never shows up as one. */
+function useOpenFocusTasks(): FbNode[] {
+  const items = useWorkItemStore((s) => s.items)
+  const loaded = useWorkItemStore((s) => s.loaded)
+  const refresh = useWorkItemStore((s) => s.refresh)
+  useEffect(() => {
+    if (!loaded) void refresh()
+  }, [loaded, refresh])
+  return useMemo(
+    () => items.filter((i) => !isTerminalState(i.workItemState) && i.detachedFromId == null && !i.archived),
+    [items]
+  )
+}
+
+/** Open a task where it lives: its desk when it has one, else Focus. */
+function useOpenTask(): (t: FbNode) => void {
+  const items = useWorkItemStore((s) => s.items)
   const nodes = useNodeStore((s) => s.nodes)
   const openDesk = useOpenDesk()
+  const goAttention = useViewStore((s) => s.goAttention)
+  return (t) => {
+    const deskId = deskOf(t, items, nodes)
+    const desk = deskId ? nodes.find((n) => n.id === deskId && n.kind === 'task') : null
+    if (desk) openDesk(desk)
+    else goAttention()
+  }
+}
+
+const dueMs = (t: FbNode): number | null => (t.dueAt ? Date.parse(t.dueAt) : t.dueDate ?? null)
+
+export function OverdueRadarWidget({ size = 'sm' }: { size?: WidgetSize } = {}): JSX.Element {
+  const open = useOpenFocusTasks()
+  const openTask = useOpenTask()
   const cap = size === 'md' ? 5 : 3
   const overdue = useMemo(() => {
     const dayStart = new Date()
     dayStart.setHours(0, 0, 0, 0)
-    return nodes
-      .filter(
-        (n) => n.kind === 'task' && n.status !== 'done' && !n.archived && n.dueDate != null && n.dueDate < dayStart.getTime()
-      )
-      .sort((a, b) => (a.dueDate ?? 0) - (b.dueDate ?? 0))
+    return open
+      .filter((n) => {
+        const d = dueMs(n)
+        return d != null && d < dayStart.getTime()
+      })
+      .sort((a, b) => (dueMs(a) ?? 0) - (dueMs(b) ?? 0))
       .slice(0, cap)
-  }, [nodes, cap])
+  }, [open, cap])
   return (
     <RailCard title="Overdue radar" icon="priority_high" tone="rose">
       {overdue.length === 0 ? (
@@ -1955,13 +1991,13 @@ export function OverdueRadarWidget({ size = 'sm' }: { size?: WidgetSize } = {}):
           {overdue.map((n) => (
             <li key={n.id}>
               <button
-                onClick={() => openDesk(n)}
+                onClick={() => openTask(n)}
                 className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left hover:bg-[var(--surface-sunken)] transition-colors"
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
                 <span className="flex-1 min-w-0 truncate fb-t-body text-[var(--ink-100)]">{n.title || 'Untitled task'}</span>
                 <span className="shrink-0 text-[10.5px] text-rose-500 fb-tabular">
-                  due {new Date(n.dueDate ?? 0).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  due {new Date(dueMs(n) ?? 0).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                 </span>
               </button>
             </li>
@@ -1973,40 +2009,33 @@ export function OverdueRadarWidget({ size = 'sm' }: { size?: WidgetSize } = {}):
 }
 
 export function OneThingNowWidget(): JSX.Element {
-  const nodes = useNodeStore((s) => s.nodes)
-  const openDesk = useOpenDesk()
-  // The single most pressing task: urgency x importance, due-date pressure as
-  // the tiebreak. Deliberately not a list — one thing, then the next.
+  const open = useOpenFocusTasks()
+  const openTask = useOpenTask()
+  // DEC-144 — the single most pressing task, by the SAME ranker that orders
+  // Focus, so this tile and the top of Focus never disagree. Deliberately not
+  // a list — one thing, then the next.
   const pick = useMemo(() => {
-    const open = nodes.filter((n) => n.kind === 'task' && n.status !== 'done' && !n.archived)
     if (open.length === 0) return null
-    return [...open].sort((a, b) => {
-      const sa = (a.priority ?? 3) + (a.importance ?? 3)
-      const sb = (b.priority ?? 3) + (b.importance ?? 3)
-      if (sb !== sa) return sb - sa
-      const da = a.dueDate ?? Infinity
-      const db = b.dueDate ?? Infinity
-      if (da !== db) return da - db
-      return b.updatedAt - a.updatedAt
-    })[0]
-  }, [nodes])
+    const now = Date.now()
+    return [...open].sort((a, b) => rankScore(b, now) - rankScore(a, now))[0]
+  }, [open])
   const room = useNodeStore((s) => (pick?.parentId ? s.nodes.find((n) => n.id === pick.parentId) ?? null : null))
   return (
     <RailCard title="One thing now" icon="target" tone="amber">
       {!pick ? (
-        <EmptyState text="No open desks. Enjoy it." />
+        <EmptyState text="Nothing open in Focus. Enjoy it." />
       ) : (
         <div className="flex-1 min-w-0 flex items-center gap-3" data-testid="home-one-thing">
           <div className="min-w-0 flex-1">
             <div className="fb-t-title text-[var(--ink-100)] truncate">{pick.title || 'Untitled task'}</div>
             <div className="mt-0.5 fb-t-caption truncate">
-              {[room?.title, pick.dueDate ? `due ${new Date(pick.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : null]
+              {[room?.title, dueMs(pick) != null ? `due ${new Date(dueMs(pick) ?? 0).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : null]
                 .filter(Boolean)
-                .join(' · ') || 'Picked by urgency and importance'}
+                .join(' · ') || 'The top of your Focus list'}
             </div>
           </div>
           <button
-            onClick={() => openDesk(pick)}
+            onClick={() => openTask(pick)}
             data-testid="home-one-thing-open"
             className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-[12.5px] font-medium bg-[rgb(var(--accent))] text-white hover:bg-[rgb(var(--accent-hover))] transition-colors"
           >

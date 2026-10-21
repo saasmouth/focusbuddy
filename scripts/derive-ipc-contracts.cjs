@@ -92,11 +92,33 @@ function specOf(param) {
   }
   return { kind, optional, nullable }
 }
+// Split a parameter list on its TOP-LEVEL commas only. A bare split(',') cut
+// `patch: Record<string, unknown>` into two parameters, inventing a required
+// third argument for workItems:updateFields that no caller sends -- so the
+// validator refused every Attention-editor save (DEC-144). Commas inside
+// <...>, {...}, (...) and [...] belong to a type, not to the list.
+function splitTopLevel(sig) {
+  const out = []
+  let depth = 0
+  let cur = ''
+  for (let i = 0; i < sig.length; i++) {
+    const c = sig[i]
+    if (c === '<' || c === '{' || c === '(' || c === '[') depth++
+    // '=>' is an arrow, not a closing angle bracket.
+    else if ((c === '>' && sig[i - 1] !== '=') || c === '}' || c === ')' || c === ']') depth = Math.max(0, depth - 1)
+    if (c === ',' && depth === 0) {
+      out.push(cur)
+      cur = ''
+    } else cur += c
+  }
+  out.push(cur)
+  return out
+}
 function derive() {
   const sigs = parse()
   const out = {}
   for (const [ch, sig] of Object.entries(sigs)) {
-    const params = sig.split(',').map((p) => p.trim()).filter(Boolean).slice(1)
+    const params = splitTopLevel(sig).map((p) => p.trim()).filter(Boolean).slice(1)
     if (params.length === 0) continue
     const specs = params.map(specOf)
     // Only register a channel where at least one argument is actually enforceable.
@@ -104,7 +126,7 @@ function derive() {
   }
   return out
 }
-module.exports = { derive, parse, specOf }
+module.exports = { derive, parse, specOf, splitTopLevel }
 // `--write` regenerates the committed registry; with no flag it prints the JSON
 // so a test or a human can diff it against what is on disk.
 if (require.main === module) {

@@ -247,7 +247,7 @@ export function titleFromCapture(text: string): string {
       .replace(/^(remind me to|i need to|i have to|don'?t forget to)\s+/i, '')
       .trim()
   )
-  return (t.length > 120 ? `${t.slice(0, 117)}…` : t) || 'Untitled work item'
+  return (t.length > 120 ? `${t.slice(0, 117)}…` : t) || 'Untitled task'
 }
 
 // ── Multi-intent captures (DEC-025) ─────────────────────────────────────────

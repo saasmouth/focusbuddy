@@ -7,8 +7,6 @@ import { deskCaptureContext } from '../lib/captureContext'
 import AttentionConfirmCard, { CLASS_LABEL } from './AttentionConfirmCard'
 import { CAPTURE_LEADINS, ROTATE_MS } from '../lib/captureCopy'
 import { usePeopleStore } from '../lib/peopleDirectory'
-import AttentionOffNotice from './AttentionOffNotice'
-import { useWorkItemsCapability } from './../lib/workItemsCapability'
 
 // Capture (the Attention capture window, rebuilt as Book time's sibling —
 // same visual language, same tokens, same restraint). The tab bar is GONE:
@@ -36,7 +34,6 @@ export default function CaptureConsole(): JSX.Element | null {
   const source = useCaptureConsole((s) => s.source)
   const close = useCaptureConsole((s) => s.close)
   const createItem = useWorkItemStore((s) => s.create)
-  const attention = useWorkItemsCapability()
 
   const [text, setText] = useState('')
   const [notes, setNotes] = useState('')
@@ -85,7 +82,7 @@ export default function CaptureConsole(): JSX.Element | null {
    *  no AI touch by contract (the old Unrouted, now a commit path). */
   async function fileVerbatim(): Promise<void> {
     const t = text.trim()
-    if (!t || busy || attention === 'off') return
+    if (!t || busy) return
     setBusy(true)
     try {
       const title = t.length > 120 ? `${t.slice(0, 117)}…` : t
@@ -153,13 +150,12 @@ export default function CaptureConsole(): JSX.Element | null {
               close()
             }}
             className="text-[13px] text-[var(--ink-40)] hover:text-[var(--ink-100)] fb-press"
-            title="Open the Attention page"
+            title="Open Focus"
           >
-            Open Attention →
+            Open Focus →
           </button>
         </div>
 
-        {attention === 'off' && <AttentionOffNotice what="file what you capture" className="mt-3" />}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain -mx-6 px-6">
         {confirmText == null ? (
           <>

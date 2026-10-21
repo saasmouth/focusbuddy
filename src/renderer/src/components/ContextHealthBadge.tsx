@@ -18,7 +18,7 @@ const PRESENTATION: Record<
     dot: 'bg-sky-500'
   },
   'attention-required': {
-    label: 'Attention',
+    label: 'Needs attention',
     icon: 'priority_high',
     text: 'text-amber-600 dark:text-amber-400',
     bg: 'bg-amber-500/10',

@@ -1,11 +1,10 @@
-// Persisted work-items capability flag (Attention layer, S0).
+// Persisted work-items preferences (the Focus layer).
 //
-// `workItems.enabled` gates everything the Attention build ships: while OFF
-// (the default, and the only shipped state until the S1 migration and S3
-// surfaces land) the AI prompt layer never documents "create-work-item",
-// no work_item row can be created, and the reserved action kind no-ops with
-// an honest message. Flipping it ON is a per-device opt-in that later stages
-// additionally guard behind the schema migration check.
+// DEC-144: work items are no longer optional. The old per-device `enabled`
+// switch (default OFF, DEC-023's Settings row) is gone: Focus is the one list
+// of tasks, so it is always on. A legacy `enabled` key in an existing file is
+// ignored and dropped on the next save. What remains here is the per-org
+// migration attestation, which still gates org-scope work items (SPEC-027).
 //
 // Same persistence pattern as voiceProviderPref.ts: a one-line JSON file in
 // userData, cached after first read, write-through on set. Not a secret.
@@ -22,7 +21,6 @@ interface OrgAttestation {
 }
 
 interface PrefShape {
-  enabled: boolean
   v: 1
   /**
    * P1 migrated-peer confirmation (ARCHITECTURE §2.6/§8): the org-scope switch
@@ -44,13 +42,12 @@ function load(): PrefShape {
   if (cache) return cache
   try {
     if (!existsSync(filePath())) {
-      cache = { enabled: false, v: 1 }
+      cache = { v: 1 }
       return cache
     }
     const raw = readFileSync(filePath(), 'utf-8')
     const parsed = JSON.parse(raw) as Partial<PrefShape>
     cache = {
-      enabled: parsed.enabled === true,
       v: 1,
       // Carry attestations through the round-trip — dropping them here would
       // silently un-confirm every org on restart.
@@ -60,13 +57,9 @@ function load(): PrefShape {
     }
     return cache
   } catch {
-    cache = { enabled: false, v: 1 }
+    cache = { v: 1 }
     return cache
   }
-}
-
-export function isWorkItemsEnabled(): boolean {
-  return load().enabled
 }
 
 // ── P1 migrated-peer confirmation ───────────────────────────────────────────
@@ -99,10 +92,9 @@ export function orgMigrationAttested(orgId: string): OrgAttestation | null {
   return load().orgAttestations?.[orgId] ?? null
 }
 
-/** The P1 per-org switch: capability ON and this org's peers confirmed migrated. */
+/** The P1 per-org switch: this org's peers confirmed migrated. */
 export function workItemsOrgEnabled(orgId: string): boolean {
-  const p = load()
-  return p.enabled && p.orgAttestations?.[orgId] != null
+  return load().orgAttestations?.[orgId] != null
 }
 
 function save(): void {
@@ -112,9 +104,4 @@ function save(): void {
     // eslint-disable-next-line no-console
     console.error('[workItemsPref] save failed:', err)
   }
-}
-
-export function setWorkItemsEnabled(enabled: boolean): void {
-  cache = { ...load(), enabled }
-  save()
 }

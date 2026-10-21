@@ -48,6 +48,7 @@ function freshDb(): { raw: DatabaseSync; db: Db } {
 
 const DAY = 24 * 60 * 60 * 1000
 
+// DEC-144: Attention was renamed Focus and its items are "tasks"; these pins follow the new words.
 describe('Δ3 — the loose-thought decay tier', () => {
   it('dismisses untouched loose thoughts after the window, reason "decayed", quietly', () => {
     const { raw, db } = freshDb()
@@ -108,16 +109,18 @@ describe('S5 wiring locks (file-level)', () => {
     expect(ex).not.toContain("Work items aren't enabled yet.")
   })
 
-  it('the meeting system + voice system swap their capture routing with the flag', () => {
+  // DEC-144 rewrite: these used to swap routing with the flag, and the OFF
+  // phrasing sent action items to create-task. The flag is retired: meetings
+  // and voice always route action items to create-work-item.
+  it('the meeting system + voice system always route action items to work items', () => {
     const anthropic = read('src/main/ai/anthropic.ts')
     expect(anthropic).toContain('meetingEndSystem()')
-    expect(anthropic).toContain('meetingCaptureRule(workItemsOn)')
+    expect(anthropic).toContain('meetingCaptureRule()')
     const voice = read('src/main/ai/voiceNote.ts')
     expect(voice).toContain('VOICE_WORK_ITEM_SHAPE')
     const vocab = read('src/main/ai/vocabulary.ts')
     expect(vocab).toContain('Use create-work-item for an action item')
-    // The OFF phrasing still routes action items to create-task (no dead zone).
-    expect(vocab).toContain('Use create-task for an action item someone needs to do')
+    expect(vocab).not.toContain('Use create-task for an action item someone needs to do')
   })
 
   it('the capture console + classifier + seam are wired end to end', () => {
@@ -132,7 +135,10 @@ describe('S5 wiring locks (file-level)', () => {
     expect(read('src/main/ipc/index.ts')).toContain("'workItems:classify'")
     // DEC-019(b): ONE universal entry, @attention prefix captures directly.
     expect(read('src/renderer/src/components/CommandCenter.tsx')).toContain('attention-capture')
-    expect(read('src/renderer/src/components/CommandCenter.tsx')).toContain('@?attention')
+    // DEC-144: the prefix grammar moved into the one parser (@focus, with
+    // @attention kept as an alias); ⌘K reads it from there.
+    expect(read('src/renderer/src/components/CommandCenter.tsx')).toContain('LEADING_CAPTURE_WORD')
+    expect(read('src/renderer/src/lib/attentionCommand.ts')).toContain('@?(?:focus|attention)')
     // The decay sweep rides the scheduler cadence.
     expect(read('src/main/notifications/scheduler.ts')).toContain('decayLooseThoughts(nowMs)')
   })
@@ -156,7 +162,7 @@ describe('S5 wiring locks (file-level)', () => {
     // operator ruling 2026-08-30: selecting Attention in ⌘K OPENS the Capture
     // window, typing happens there. The home bar keeps its pill.
     expect(read('src/renderer/src/components/CommandCenter.tsx')).not.toContain('attnArmed')
-    expect(read('src/renderer/src/components/CommandCenter.tsx')).toContain('Attention — open Capture')
+    expect(read('src/renderer/src/components/CommandCenter.tsx')).toContain('Focus — add a task')
     const home = read('src/renderer/src/components/views/StartOrAskPlexi.tsx')
     expect(home).toContain("'capture:attention'")
     expect(home).toContain('armAttention')

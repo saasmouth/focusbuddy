@@ -4,8 +4,11 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { friendlyWorkItemError } from '../../src/renderer/src/stores/workItems'
 
-// The Attention layer ships OFF — a per-device opt-in — so a work-item create
-// can legitimately be refused. What reached the user was the raw IPC rejection:
+// DEC-144 rewrite: this file pinned the "turned off — use the Settings switch"
+// message. Focus is always on and that switch is gone, so no message may name
+// it. The other refusals keep their translation. History of the original:
+// the Attention layer shipped OFF — a per-device opt-in — so a work-item create
+// could legitimately be refused. What reached the user was the raw IPC rejection:
 //
 //   Error invoking remote method 'workItems:create': Error: Work items are not
 //   enabled.
@@ -18,25 +21,21 @@ import { friendlyWorkItemError } from '../../src/renderer/src/stores/workItems'
 describe('a refused work-item create explains itself', () => {
   const raw = (m: string) => new Error(`Error invoking remote method 'workItems:create': Error: ${m}`)
 
-  it('points at the Settings switch when the layer is off', () => {
-    const msg = friendlyWorkItemError(raw('Work items are not enabled.')).message
-    expect(msg).toMatch(/turned off/i)
-    expect(msg).toMatch(/settings/i)
-    expect(msg).toMatch(/attention/i)
-    // The thing that made the original useless: implementation detail as the
-    // entire user-facing explanation.
-    expect(msg).not.toMatch(/invoking remote method|workItems:create/i)
+  it('never points at a Settings switch (there is none since DEC-144)', () => {
+    const src = readFileSync(join(__dirname, '../../src/renderer/src/stores/workItems.ts'), 'utf-8')
+    expect(src).not.toMatch(/Turn it on in Settings/)
+    expect(src).not.toMatch(/layer is turned off/i)
   })
 
   it('explains an un-migrated device', () => {
-    const msg = friendlyWorkItemError(raw('This device has not migrated for work items yet.')).message
+    const msg = friendlyWorkItemError(raw('This device has not finished updating for Focus yet. Restart Plexii and try again.')).message
     expect(msg).toMatch(/restart/i)
     expect(msg).not.toMatch(/invoking remote method/i)
   })
 
   it('explains the personal-only case', () => {
-    const msg = friendlyWorkItemError(raw('Work items are personal-only for this org.')).message
-    expect(msg).toMatch(/this device/i)
+    const msg = friendlyWorkItemError(raw('Focus tasks are personal for now. Switch to your personal workspace to add one.')).message
+    expect(msg).toMatch(/personal workspace/i)
     expect(msg).not.toMatch(/invoking remote method/i)
   })
 

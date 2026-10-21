@@ -15,6 +15,8 @@ import {
   queueTint
 } from '../../lib/attentionQueues'
 import { asAttentionItem } from '@shared/attentionProjection'
+import { useCloseWorkItem } from '../attention/useCloseWorkItem'
+import { useWorkItemStore } from '../../stores/workItems'
 import TaskTable from './TaskTable'
 import type { Widget, FbNode, TaskStatus } from '@shared/types'
 import { parseAttachments, derivedStart } from '@shared/taskPlanning'
@@ -103,6 +105,13 @@ function DeskTaskList({ widget }: { widget: Widget }): JSX.Element {
   // Queue and snooze are written through the work-item path (one record, two
   // lenses), which the node store does not observe — so it is told to re-read.
   const refreshNodes = useNodeStore((s) => s.refresh)
+  const closeWorkItem = useCloseWorkItem()
+  const setItemState = useWorkItemStore((s) => s.setState)
+  const itemsLoaded = useWorkItemStore((s) => s.loaded)
+  const refreshItems = useWorkItemStore((s) => s.refresh)
+  useEffect(() => {
+    if (!itemsLoaded) void refreshItems()
+  }, [itemsLoaded, refreshItems])
   const updateWidget = useWidgetStore((s) => s.update)
 
   const model = useMemo(() => parse(widget.content), [widget.content])
@@ -280,8 +289,17 @@ function DeskTaskList({ widget }: { widget: Widget }): JSX.Element {
     await createNode({ parentId: deskId, kind: 'task', title })
   }
 
+  // DEC-144 — the tick closes the task through the ONE close path every
+  // Focus surface uses, with its queue's own state (Responded is
+  // 'responded', not a bare 'done' that wiped it), and with the same
+  // subtask and desk-complete offers. Reopening goes through the same store.
   const toggle = (n: FbNode): void => {
-    void updateNode(n.id, { status: n.status === DONE ? 'open' : DONE })
+    const item = asAttentionItem(n)
+    const run =
+      n.status === DONE
+        ? setItemState(n.id, 'open')
+        : closeWorkItem(item, (PRIMARY_ACTION[queueOf(item)] ?? PRIMARY_ACTION.to_do).state)
+    void Promise.resolve(run).then(() => refreshNodes())
   }
 
   /** What "done" is called for this task's queue: Reviewed, Decided, Answered… */

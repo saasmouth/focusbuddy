@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest'
 import {
   parseAttentionCommand,
   hasAttentionCommand,
-  isLeadingAttention
+  isLeadingAttention,
+  isCapturePrefix,
+  CAPTURE_WORDS,
+  LEADING_CAPTURE_WORD
 } from '../../src/renderer/src/lib/attentionCommand'
 
 // DEC-031 — @attention ANYWHERE is a deterministic capture. Leading is the
@@ -82,5 +85,26 @@ describe('parseAttentionCommand', () => {
       expect(hasAttentionCommand('draft the deck @attention')).toBe(true)
       expect(parseAttentionCommand('draft the deck @attention').mode).toBe('inline')
     }
+  })
+})
+
+describe('DEC-144 — @focus is the token, @attention stays an alias', () => {
+  it('both words capture, leading and inline', () => {
+    expect(parseAttentionCommand('@focus call Bob Thursday')).toEqual({
+      mode: 'leading',
+      captureText: 'call Bob Thursday',
+      messageText: null
+    })
+    expect(parseAttentionCommand('@attention call Bob Thursday').mode).toBe('leading')
+    expect(parseAttentionCommand('draft the deck by friday @focus').mode).toBe('inline')
+    expect(hasAttentionCommand('mail me at me@focus.example')).toBe(false)
+  })
+
+  it('one prefix rule for every picker', () => {
+    for (const p of ['', 'f', 'FO', 'focus', 'a', 'att', 'attention']) expect(isCapturePrefix(p)).toBe(true)
+    for (const p of ['x', 'fox', 'attend', 'focused']) expect(isCapturePrefix(p)).toBe(false)
+    expect(CAPTURE_WORDS[0]).toBe('focus')
+    expect(LEADING_CAPTURE_WORD.exec('focus: call Bob')?.[1]).toBe('call Bob')
+    expect(LEADING_CAPTURE_WORD.exec('@attention call Bob')?.[1]).toBe('call Bob')
   })
 })

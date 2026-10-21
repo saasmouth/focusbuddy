@@ -48,7 +48,6 @@ import {
   MEETING_WORK_ITEM_DELIVERABLE,
   meetingCaptureRule
 } from './vocabulary'
-import { isWorkItemsEnabled } from '../workItemsPref'
 import { normalizeIntentClass } from '@shared/workItems'
 import { MEMORY_SYSTEM, buildChatMemoryPrompt, parseMemoryResponse } from './memoryExtract'
 import { addMemory, listMemoriesBalanced } from '../db/memory'
@@ -551,7 +550,7 @@ function buildSystemPrompt(
     '  "actions": [ /* zero or more action objects */ ]\n' +
     '}\n\n' +
     ACTION_KINDS_CATALOG +
-    workItemCatalogAddendum(isWorkItemsEnabled()) +
+    workItemCatalogAddendum() +
     '⚠ HARD RULES:\n' +
     '1. The user sees ONLY two things: (a) the "reply" field rendered as markdown, and (b) one action card for each item in the "actions" array. They do NOT see anything else you write. Describing work widgets in prose inside "reply" does NOT create them — the actions array must contain the entries.\n' +
     '2. For pure chat / questions / no-action requests: actions = []. Just put your answer in reply.\n' +
@@ -2519,7 +2518,7 @@ function buildAgentSystemPrompt(taskId: string | null): string {
     '  "blocker": null  /* a sentence WHEN status is blocked or need_input; otherwise null */\n' +
     '}\n\n' +
     ACTION_KINDS_CATALOG +
-    workItemCatalogAddendum(isWorkItemsEnabled()) +
+    workItemCatalogAddendum() +
     'LOOP RULES:\n' +
     '- Each round the app applies your actions and returns an OBSERVATIONS block: one line per action, [applied] or [FAILED], with any created id. READ it before deciding the next round.\n' +
     '- To reference something you created earlier THIS RUN, use "$<id>" with the id you gave that create action (e.g. create-table "id":"leads" then a later add-table-row "tableId":"$leads"). Only the OBSERVATIONS confirm what exists.\n' +
@@ -6401,7 +6400,6 @@ export interface MeetingEndResult {
 // with the work-items capability (S5) — the meeting is the surface most likely
 // to produce action items, so it teaches create-work-item the moment it exists.
 function meetingEndSystem(): string {
-  const workItemsOn = isWorkItemsEnabled()
   return `You process the transcript of a meeting or call and return a JSON object with a summary and the concrete deliverables that came out of the conversation.
 
 Return ONLY a single JSON object. No prose, no markdown fences. The first character must be { and the last must be }.
@@ -6414,14 +6412,14 @@ Shape:
 
 ${REASON_CONTRACT}
 Each deliverable is exactly one of:
-${workItemsOn ? MEETING_WORK_ITEM_DELIVERABLE : ''}  { "kind": "create-task", "title": "short desk title", "notes": "optional detail", "reason": "what in the transcript calls for this" }
+${MEETING_WORK_ITEM_DELIVERABLE}  { "kind": "create-task", "title": "short desk title", "notes": "optional detail", "reason": "what in the transcript calls for this" }
   { "kind": "create-knowledge-entry", "title": "fact or decision title", "body": "the real content from the conversation", "tags": ["optional"], "reason": "a rule you will want applied next time, not just today" }
   { "kind": "create-document", "docType": "doc", "title": "document title", "reason": "somewhere for the budget to live before the numbers arrive" }   // docType is one of doc (a written document), sheet (a spreadsheet), slides (a deck), map (a diagram / flowchart), design (a design canvas)
 
 HARD RULES:
 - The summary and every deliverable MUST be grounded in the transcript. Never invent facts, names, numbers, owners, dates, or decisions that were not stated.
 - Each deliverable's "reason" must cite something specific that was actually said.
-${meetingCaptureRule(workItemsOn)} Use create-document for a written deliverable (doc), structured or tabular data like an action register or budget (sheet), or a presentation (slides). Use create-knowledge-entry for a decision, fact, or research finding worth keeping.
+${meetingCaptureRule()} Use create-document for a written deliverable (doc), structured or tabular data like an action register or budget (sheet), or a presentation (slides). Use create-knowledge-entry for a decision, fact, or research finding worth keeping.
 - If the conversation produced no clear deliverables, return "deliverables": [].
 - Never exceed 10 deliverables.`
 }

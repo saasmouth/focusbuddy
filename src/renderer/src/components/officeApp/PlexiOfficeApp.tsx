@@ -54,8 +54,9 @@ export default function PlexiOfficeApp(): JSX.Element {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [askOpen, setAskOpen] = useState(false)
 
-  // Turn the open document into a live (collaborative) document and open it in the
-  // check-out editor. Reuses the same live-docs system as PlexiDesk.
+  // Turn the open document into a live (collaborative) document and open it in
+  // the co-editing editor, where members type at once and their changes merge.
+  // Reuses the same live-docs system as PlexiDesk.
   async function collaborate(): Promise<void> {
     if (!active) return
     const tok = useAccountStore.getState().sessionToken

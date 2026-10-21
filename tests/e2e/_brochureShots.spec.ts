@@ -1,3 +1,4 @@
+// DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp, switchArea, isAreaLocked } from './_helpers'
 import { resolve } from 'path'
@@ -208,7 +209,7 @@ test('capture brochure screenshots (UI-driven, honest content)', async () => {
   await expect(widgetA).toBeVisible({ timeout: 5_000 })
   await widgetA.scrollIntoViewIfNeeded().catch(() => {})
   const expandBtn = widgetA.locator('button[aria-label="Expand options"]')
-  const focusModeOption = window.getByText('Focus mode', { exact: true })
+  const focusModeOption = window.getByText('Full view', { exact: true })
   // Retry the hover -> click sequence a few times: the popover's position is
   // computed in a useEffect on `open`, so an occasional race between the click
   // and that effect can close/miss it. Re-hover + re-click if the option

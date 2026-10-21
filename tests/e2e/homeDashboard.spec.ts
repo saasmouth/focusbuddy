@@ -1,3 +1,4 @@
+// DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 // E2E verification for the PlexiSuite home live dashboard.
 // Covers: (1) all sections render, (2) search bar navigates, (3) quick actions,
 // (4) real-data cards with honest empty states + seeded content, (5) people panel.
@@ -82,7 +83,7 @@ test('3a. hero-action-all-tasks -> All Tasks view', async () => {
 
   await window.locator('[data-testid="hero-action-all-tasks"]').click()
   // AllTasksView renders an <h1>All Tasks</h1>
-  await expect(window.locator('h1').filter({ hasText: 'All Tasks' })).toBeVisible({ timeout: 8000 })
+  await expect(window.locator('h1').filter({ hasText: 'All desks' })).toBeVisible({ timeout: 8000 })
 })
 
 test('3b. hero-action-calendar -> Calendar view', async () => {

@@ -28,6 +28,7 @@ import type { Principal } from '../../src/shared/permission'
 
 // Design principles, native-app contracts, governance, accessibility, presence.
 
+// DEC-144: Attention was renamed Focus and its items are "tasks"; these pins follow the new words.
 describe('plx_prin_001 — no manual action to preserve one own context', () => {
   it('test_plx_prin_001_automatic_capture', () => {
     expect(CAPTURE_MODE).toBe('automatic')
@@ -135,7 +136,7 @@ describe('plx_a11y_004 — health states distinguishable without colour', () => 
   it('test_plx_a11y_004_shape_and_text', () => {
     expect(statesDistinguishableWithoutColour()).toBe(true) // distinct icon + label per state
     expect(healthPresentation('attention-required').icon).toBe('priority_high')
-    expect(healthPresentation('attention-required').label).toBe('Attention')
+    expect(healthPresentation('attention-required').label).toBe('Needs attention') // DEC-144: 'Attention' now names the Focus page's old name; the health state says what it means
     // no two states share an icon or a label
     const icons = Object.values(HEALTH_PRESENTATION).map((p) => p.icon)
     expect(new Set(icons).size).toBe(icons.length)

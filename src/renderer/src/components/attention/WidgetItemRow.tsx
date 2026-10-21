@@ -160,14 +160,14 @@ export function WidgetItemRow({
             size={15}
             className="shrink-0"
             onClick={() => void closeItem(i, primary.state)}
-            title={`${primary.label} — close this item`}
+            title={`${primary.label} — close this task`}
             dataTestId={`widget-item-complete-${i.id}`}
           />
         )}
         <button
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
-          title={open ? 'Hide details · double-click to open the item' : 'Click for details · double-click to open the item'}
+          title={open ? 'Hide details · double-click to open the task' : 'Click for details · double-click to open the task'}
           data-testid={`widget-item-toggle-${i.id}`}
           className="min-w-0 flex-1 text-left fb-press"
         >
@@ -443,7 +443,7 @@ export function WidgetItemRow({
             )}
             <button
               onClick={() => setEditing(true)}
-              title="Open the item — the full view, right here"
+              title="Open the task — the full view, right here"
               data-testid={`widget-item-edit-${i.id}`}
               className={actionClass}
             >
@@ -451,7 +451,7 @@ export function WidgetItemRow({
             </button>
             <button
               onClick={() => goAttention()}
-              title="Open the Attention page"
+              title="Open Focus"
               data-testid={`widget-item-page-${i.id}`}
               className={`${actionClass} ml-auto`}
             >

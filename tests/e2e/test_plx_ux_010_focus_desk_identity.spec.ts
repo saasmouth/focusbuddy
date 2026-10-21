@@ -1,3 +1,4 @@
+// DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
 
@@ -58,7 +59,7 @@ async function openFocusModeOn(window: LaunchedApp['window'], widgetId: string):
   const expandBtn = widgetEl.locator('button[aria-label="Expand options"]')
   await expect(expandBtn).toBeVisible({ timeout: 5_000 })
   await expandBtn.click({ force: true })
-  const focusModeOption = window.getByText('Focus mode', { exact: true })
+  const focusModeOption = window.getByText('Full view', { exact: true })
   await expect(focusModeOption).toBeVisible({ timeout: 3_000 })
   await focusModeOption.click({ force: true })
 }

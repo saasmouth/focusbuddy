@@ -73,7 +73,7 @@ export default function WidgetFocusDock({
     e.stopPropagation()
     const headerExtras: CtxMenuItem[] = [
       {
-        label: 'Focus this work widget',
+        label: 'Show in full view',
         icon: 'center_focus_strong',
         onClick: () => onPick(w.id)
       }

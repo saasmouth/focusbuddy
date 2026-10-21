@@ -142,7 +142,7 @@ function findUntitled(seen: Set<string>): Candidate[] {
     out.push({
       table: 'nodes',
       id: n.id,
-      noun: n.kind === 'task' ? 'desk' : n.kind === 'folder' ? 'room' : 'work item',
+      noun: n.kind === 'task' ? 'desk' : n.kind === 'folder' ? 'room' : 'task',
       text: n.description ?? ''
     })
   }

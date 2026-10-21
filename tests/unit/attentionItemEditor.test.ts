@@ -5,6 +5,7 @@ import { join } from 'path'
 // DEC-036 — the item editor, and the row gestures around it.
 const read = (rel: string): string => readFileSync(join(process.cwd(), rel), 'utf8')
 
+// DEC-144: Attention was renamed Focus and its items are "tasks"; these pins follow the new words.
 describe('DEC-036 — double-click opens the whole item for editing', () => {
   const editor = read('src/renderer/src/components/AttentionItemEditor.tsx')
   const view = read('src/renderer/src/components/views/AttentionView.tsx')
@@ -206,10 +207,10 @@ describe('DEC-044 — the highlight travels the WHOLE path to the notes', () => 
     )
   })
 
-  it('the AI chat selection menu offers Add to Attention — FIRST', () => {
+  it('the AI chat selection menu offers Add to Focus — FIRST', () => {
     const chat = read('src/renderer/src/components/ChatPanel.tsx')
     const menu = chat.slice(chat.indexOf('function ctxMenuItems'), chat.indexOf('Save selection as sticky'))
-    expect(menu).toContain('Add to Attention…')
+    expect(menu).toContain('Add to Focus…')
     expect(chat).toContain("presetForSelection('ai-chat', text)")
     // Standalone-friendly: filing must NOT require an open desk.
     expect(menu).not.toContain('disabled: noTask')
@@ -423,7 +424,7 @@ describe('DEC-050 — the item rows read like a project tool', () => {
 
   it('every row has the project-tool anatomy', () => {
     expect(view).toContain('<ItemStatusPill') // status you can change in place
-    expect(view).toContain('close this item') // the completion circle
+    expect(view).toContain('close this task') // the completion circle
     expect(view).toContain('subtaskProgress(i.id, items') // the "2/5" progress
     expect(view).toContain("name=\"flag\"") // priority
     expect(view).toContain('assignees.slice(0, 3)') // who is on it
@@ -465,7 +466,7 @@ describe('DEC-051 — desk + home widgets carry the same row anatomy', () => {
   it('widget rows are cards with the queue spine, a completion circle and status', () => {
     expect(row).toContain('rounded-md border border-[var(--edge-soft)]')
     expect(row).toContain('absolute left-0 top-1.5 bottom-1.5') // the spine
-    expect(row).toContain('close this item') // the completion circle
+    expect(row).toContain('close this task') // the completion circle
     expect(row).toContain('<ItemStatusPill') // status, changeable in place
     expect(row).toContain('statusLabel(i.workItemState, primary.label)') // dense dot
     expect(widgets).toContain("import { WidgetItemRow } from '../attention/WidgetItemRow'")

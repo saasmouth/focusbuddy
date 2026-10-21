@@ -1,3 +1,4 @@
+// DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 /**
  * sidebarVisualParity.spec.ts
  *
@@ -113,7 +114,7 @@ test('Desk Sidebar and OfficeSidebar share the same visual system', async () => 
     //     reached from Home; Calendar and Files moved into Office and Vault
     //     into Settings on 2026-10-10, so this is the list the desk menu
     //     actually carries.
-    for (const label of ['Home', 'Attention', 'Rooms', 'All desks', 'Shared', 'Trash']) {
+    for (const label of ['Home', 'Focus', 'Rooms', 'All desks', 'Shared', 'Trash']) {
       await expect(deskSidebar.getByText(label, { exact: true })).toBeVisible({ timeout: 3_000 })
     }
 
@@ -194,7 +195,7 @@ test('Desk Sidebar and OfficeSidebar share the same visual system', async () => 
     const attentionRow = window
       .locator('aside')
       .first()
-      .getByText('Attention', { exact: true })
+      .getByText('Focus', { exact: true })
       .locator('..')
     await attentionRow.click()
     await window.waitForTimeout(400)

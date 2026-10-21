@@ -112,6 +112,9 @@ function freshDb(): { raw: DatabaseSync; db: Db } {
   raw.exec(`
     CREATE TABLE nodes (
       id TEXT PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL DEFAULT '',
+      -- parent_id, due_date, archived: the real nodes columns the DEC-144
+      -- desk-task arm of the deadline sweep reads.
+      parent_id TEXT, due_date INTEGER, archived INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'open', trashed_at INTEGER,
       org_id TEXT NOT NULL DEFAULT 'personal', updated_at INTEGER NOT NULL DEFAULT 0
     );
@@ -147,6 +150,27 @@ describe('the deadline nudge — once per item per due-day, capped substrate', (
     expect(postDeadlineNudgesCore(db, NOW + 60_000)).toBe(0) // once EVER per due-day
     const out = sweepDeliveries(db, NOW + 120_000)
     expect(out.filter((d) => d.queue === 'to_do')).toHaveLength(1)
+  })
+})
+
+describe('DEC-144 — desk tasks are in Focus, so they nudge and never double-list', () => {
+  it('a task filed on a desk, due within 24h, gets the same deadline nudge', () => {
+    const { raw, db } = freshDb()
+    raw.exec("INSERT INTO nodes (id, kind, title) VALUES ('desk', 'task', 'A desk')")
+    const ins = raw.prepare("INSERT INTO nodes (id, parent_id, kind, title, status, due_date) VALUES (?, ?, 'task', ?, ?, ?)")
+    ins.run('soon', 'desk', 'Send the deck', 'open', NOW + 6 * 60 * 60 * 1000)
+    ins.run('closed', 'desk', 'Already done', 'done', NOW + 6 * 60 * 60 * 1000)
+    ins.run('far', 'desk', 'Next week', 'open', NOW + 5 * DAY)
+    // The desk itself is not an item, even with a due date.
+    raw.exec(`UPDATE nodes SET due_date = ${NOW + 60 * 60 * 1000} WHERE id = 'desk'`)
+    expect(postDeadlineNudgesCore(db, NOW)).toBe(1)
+    expect(postDeadlineNudgesCore(db, NOW + 60_000)).toBe(0)
+  })
+
+  it('deskDueSignals skips a task filed on a desk (it is already listed as itself)', () => {
+    const desk = { id: 'd', kind: 'task', title: 'Desk', status: 'open', parentId: null, dueDate: NOW + DAY } as FbNode
+    const task = { id: 't', kind: 'task', title: 'Task', status: 'open', parentId: 'd', dueDate: NOW + DAY } as FbNode
+    expect(deskDueSignals([desk, task], NOW).map((s) => s.id)).toEqual(['d'])
   })
 })
 

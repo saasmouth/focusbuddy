@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import type { FbNode } from '@shared/types'
 import { WORK_ITEM_COLUMNS } from '@shared/workItems'
-import { crdtEmitNodeCreate, crdtEmitNodeAttrs } from '../lib/crdtBridge'
+import { crdtEmitNodeCreate, crdtEmitNodeAttrs, crdtEmitNodeTitle } from '../lib/crdtBridge'
+import { taskAttrsForItemPatch } from '@shared/attentionProjection'
 
 // The work_item store (Attention S3, §4). Work items NEVER pass through
 // useNodeStore — listNodes excludes the kind, and every desk/room surface is
@@ -48,35 +49,24 @@ const EMITTED_ATTRS = new Set(WORK_ITEM_COLUMNS.filter((c) => c.rendererEmitted)
 /**
  * Turn a main-process refusal into something a person can act on.
  *
- * The Attention layer is a per-device opt-in that ships OFF, so a create can
- * legitimately be refused — but what reached the user was the raw rejection:
+ * What reached the user was the raw rejection, e.g.
  *
- *   Error invoking remote method 'workItems:create': Error: Work items are
- *   not enabled.
+ *   Error invoking remote method 'workItems:create': Error: …
  *
- * That names an IPC channel and a flag, and says nothing about the switch in
- * Settings that turns it on, so the only honest reading of it is "the app is
- * broken". Every work-items write can be refused the same three ways, so the
- * translation lives here rather than at each call site.
- *
- * Deliberately matched on the message text, not on a pre-flight capability
- * check. workItemsEnabled() is probed asynchronously at load, so it reads
- * false for a moment at boot and would refuse a create that the main process
- * would have accepted. The main process is the authority on its own gate.
+ * which names an IPC channel and reads as "the app is broken". Every
+ * work-items write can be refused the same two ways, so the translation lives
+ * here rather than at each call site. (DEC-144 retired the third: Focus is
+ * always on, so "turned off" can no longer happen and no message names a
+ * Settings switch that does not exist.) Matched on the message text; the main
+ * process is the authority on its own gate.
  */
 export function friendlyWorkItemError(e: unknown): Error {
   const raw = e instanceof Error ? e.message : String(e)
-  if (/not enabled/i.test(raw))
-    return new Error(
-      'The Attention layer is turned off, so there is nowhere to file this. Turn it on in Settings under Attention, then try again.'
-    )
-  if (/has not migrated/i.test(raw))
-    return new Error(
-      'This device has not finished preparing for Attention items yet. Restart Plexii and try again.'
-    )
+  if (/has not (migrated|finished updating)/i.test(raw))
+    return new Error('This device has not finished updating for Focus yet. Restart Plexii and try again.')
   if (/personal/i.test(raw))
     return new Error(
-      'Attention items are kept on this device while sharing for this workspace is off, so this one cannot be filed to a shared space yet.'
+      'Focus tasks are personal for now, so this one cannot be added in a shared workspace. Switch to your personal workspace to add it.'
     )
   return e instanceof Error ? e : new Error(raw)
 }
@@ -110,10 +100,23 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
     const item = await window.api.workItems.updateFields(id, patch)
     if (item) {
       set({ items: get().items.map((i) => (i.id === id ? item : i)) })
-      const attrs: Record<string, unknown> = {}
-      for (const [k, v] of Object.entries(patch)) if (EMITTED_ATTRS.has(k)) attrs[k] = v
-      if (typeof patch.title === 'string') attrs.title = patch.title
-      if (Object.keys(attrs).length) crdtEmitNodeAttrs(id, attrs)
+      if (item.kind === 'task') {
+        // DEC-144: a desk task edited in Focus syncs in the task's vocabulary
+        // (description, dueDate) — the same registers the desk's own editor
+        // emits — and the desk surfaces re-read it, so both views agree.
+        const { title, ...taskAttrs } = taskAttrsForItemPatch(patch) ?? {}
+        if (title !== undefined) crdtEmitNodeTitle(id, title)
+        if (Object.keys(taskAttrs).length) crdtEmitNodeAttrs(id, taskAttrs as Record<string, unknown>)
+        // Lazy: the node store reads window at load, and this module is also
+        // imported where there is no window (friendlyWorkItemError's tests).
+        void import('./nodes').then((m) => m.useNodeStore.getState().refresh())
+      } else {
+        const attrs: Record<string, unknown> = {}
+        for (const [k, v] of Object.entries(patch)) if (EMITTED_ATTRS.has(k)) attrs[k] = v
+        if (typeof patch.title === 'string') attrs.title = patch.title
+        if (Object.keys(attrs).length) crdtEmitNodeAttrs(id, attrs)
+      }
+      window.dispatchEvent(new CustomEvent('fb:workitems-changed'))
     }
     return item
   },

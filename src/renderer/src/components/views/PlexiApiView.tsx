@@ -228,7 +228,7 @@ export default function PlexiApiView(): JSX.Element {
           </p>
           {/* Plexii over MCP — search/read with any token, add with a write token. */}
           <p className="mt-2 text-[11.5px] text-[var(--ink-50)]" data-testid="mcp-howto">
-            AI tools can work in your workspace over MCP: search and read desks, work items, documents, tables,
+            AI tools can work in your workspace over MCP: search and read desks, tasks in Focus, documents, tables,
             knowledge, the calendar and meeting transcripts with any token; a write token also lets them add work
             items, desks, knowledge, documents, table rows and time blocks, and run flows that stay inside your
             workspace. Nothing deletes, and nothing sends or calls out — a flow that emails or hits an external URL

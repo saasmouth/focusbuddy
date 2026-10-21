@@ -1,3 +1,4 @@
+// DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 /**
  * ONE conversation system (Phase 4.5).
  *
@@ -76,7 +77,7 @@ async function enterFocusMode(window: Page, widgetId: string): Promise<void> {
   const widgetEl = window.locator(`[data-widget-id="${widgetId}"]`).first()
   await widgetEl.hover()
   await widgetEl.locator('button[aria-label="Expand options"]').click({ force: true })
-  await window.getByText('Focus mode', { exact: true }).click({ force: true })
+  await window.getByText('Full view', { exact: true }).click({ force: true })
   await expect(window.locator('[data-testid="widget-focus-mode"]')).toBeVisible({ timeout: 5000 })
 }
 

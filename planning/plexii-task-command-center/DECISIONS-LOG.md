@@ -4865,3 +4865,64 @@ the log carries no other handler error.
    renderer: deleting a table has always been local-only, exactly the bug
    DEC-142 fixed for desks. A future round should wire it into the real
    table-delete path rather than leaving it to a cleanup script.
+
+## DEC-144 — Attention and tasks become one concept: Focus, and every item in it is a task
+
+**Operator ruling (Michael, 2026-10-21):** "Attention and plans/tasks seem to
+have gotten jumbled. Merge them system wide into one concept, so the logic is
+consistent in all areas." Asked to choose, he ruled: the page and area are
+called **Focus**, each thing on it is a **task**; the Attention switch is
+**always on and removed**; and to keep the word single-meaning, the work
+widget's full-pane **"Focus mode" becomes "Full view"**.
+
+**What was wrong (measured in the code, not assumed).** Attention shipped
+default-OFF behind a per-device `work-items.json` flag whose only control was a
+row under Settings → AI, so users saw "not turned on" and could not find the
+switch. Half the surfaces ignored the flag (the page listed desk tasks while
+capture, the badge, the menu row and the AI verb were off). And the
+bb3cde12 projection had joined desk tasks to Attention on READ only: editing a
+desk task from Attention wrote nothing but the queue and the re-read returned
+null; counts, deadline nudges and the "Desk complete?" offer used work-item-
+only rules; a desk task with a due date was listed twice; the desk widget's
+tick wrote a bare `done` over the queue's own state; meetings, the AI, mail
+and ⌘K each had their own idea of what "make a task" created.
+
+**What is now true.**
+1. **No flag.** `isWorkItemsEnabled`/`setWorkItemsEnabled`, the
+   `workItems:enabled|setEnabled` channels, the Settings row and every renderer
+   probe are gone; the cloud runtime reports on too. Org attestation (SPEC-027)
+   is untouched: Focus tasks are still personal-scope, now with an honest
+   message saying so.
+2. **One record, written both ways.** `getWorkItem` reads desk tasks through
+   the `listWorkItems` lens. `taskAttrsForItemPatch` maps an item edit into
+   the task's own columns (title, notes→description, dueAt→due_date, queue)
+   and refuses — whole — any field a task cannot hold; the editor hides those
+   fields for a task and never offers "No desk" (that would make a desk).
+3. **One membership rule in SQL** (`IN_FOCUS` + `EFFECTIVE_STATE`, the twin of
+   `isDeskTask` + `asAttentionItem`) drives the badge, the state counts and
+   the deadline nudges. The desk-due feeder skips desk tasks.
+4. **One nesting rule** (groupId for items, parentId for tasks) and
+   `deskOf()`, so the close flow finds the real desk; the desk Tasks widget
+   tick goes through `useCloseWorkItem` with the queue's own closing state.
+5. **One way in.** The AI has one routing rule (add-subtask when a desk is
+   open and the task belongs there, create-work-item otherwise; never
+   create-task or create-todo-list) and speaks task/Focus. Meetings record
+   their real action items. Mail's "Make a task" adds a Focus task (optionally
+   on a desk) instead of a desk. `@focus` is the capture token; `@attention`
+   stays a working alias.
+6. **One set of words.** Every user-facing "Attention"/"work item" now says
+   Focus/task; the desk-health state reads "Needs attention"; the Desks app
+   lists desks only ("All desks"); the Overdue and One-thing home tiles read
+   the Focus list and its ranker.
+
+**Unchanged on purpose:** every id, kind, IPC channel, MCP tool name, slug
+and the `work_item` storage (the lexicon rule); the wire meaning of
+`create-task` (a desk); release history in the changelog; the doc editor's
+writing-focus mode and the focus-session timer, which really are focus.
+
+**Superseded:** DEC-023's Settings switch (removed). DEC-019's "one place to
+capture" and DEC-020's feeders stand, under the new name.
+
+**Open:** org-scope Focus (SPEC-027) still needs the per-org attestation
+ported before a Team workspace can hold tasks; the plexiidesk.com help pages
+still say Attention (separate repo, gated deploy).

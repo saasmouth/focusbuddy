@@ -1,3 +1,4 @@
+// DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 /**
  * E2E spec: restyleVisual — captures the restyled folders/desks/tasks
  * surfaces (commit a49a0d9) across all four theme modes so a human/AI
@@ -161,7 +162,7 @@ test('restyled surfaces render correctly across all four themes', async () => {
         w.__fbView?.getState().goAllTasks()
       })
       await window.waitForTimeout(500)
-      await expect(window.getByText('All Tasks', { exact: true })).toBeVisible()
+      await expect(window.getByText('All desks', { exact: true })).toBeVisible()
       await window.screenshot({ path: join(SHOTS_DIR, `${mode}-alltasks.png`), fullPage: false })
 
       // (d) Desk gallery with 2+ desks

@@ -19,11 +19,10 @@ import { randomUUID } from 'crypto'
 import { getDb } from './database'
 import { getActiveOrgId, PERSONAL_ORG_ID } from './activeOrg'
 import { nodesTableAcceptsWorkItems } from './migrateNodesKind'
-import { isWorkItemsEnabled } from '../workItemsPref'
 import { mapNodeRow, type NodeRow } from './nodes'
 import { postNotification } from '../notifications/substrate'
 import { attentionPrecision } from '../meta/metrics'
-import { asAttentionItem } from '@shared/attentionProjection'
+import { asAttentionItem, taskAttrsForItemPatch } from '@shared/attentionProjection'
 import type { FbNode } from '@shared/types'
 import type { LifecycleDb } from './nodeLifecycle'
 import {
@@ -48,6 +47,15 @@ export type { WorkItemState }
 const sqlIn = (xs: readonly string[]): string => xs.map((s) => `'${s}'`).join(',')
 const ACTIVE_IN = sqlIn(ACTIVE_WORK_ITEM_STATES)
 const TERMINAL_IN = sqlIn(TERMINAL_WORK_ITEM_STATES)
+
+// DEC-144 — the one Focus list in SQL. A row is in Focus when it is a
+// work_item, or a task filed on a desk (its parent is a task; a desk itself is
+// not an item). `n` is the row, `p` its parent: callers LEFT JOIN the parent.
+// The SQL twin of isDeskTask + asAttentionItem, so counts agree with the list.
+const IN_FOCUS = `n.trashed_at IS NULL AND (n.kind = 'work_item' OR (n.kind = 'task' AND COALESCE(n.archived, 0) = 0 AND p.kind = 'task'))`
+// A desk task's state is its own work_item_state when set, else its status
+// read through stateForTaskStatus.
+const EFFECTIVE_STATE = `COALESCE(n.work_item_state, CASE n.status WHEN 'in_progress' THEN 'in_progress' WHEN 'done' THEN 'completed' WHEN 'parked' THEN 'dismissed' ELSE 'open' END)`
 
 // ── Schema (columns + satellites §2.4) ──────────────────────────────────────
 
@@ -146,6 +154,18 @@ export interface WorkItemActor {
   missionRef?: string
 }
 
+/** A desk task's columns for an item-shaped patch, or null to refuse it. */
+function taskColumnsForItemPatch(patch: Record<string, unknown>): Record<string, unknown> | null {
+  const attrs = taskAttrsForItemPatch(patch)
+  if (!attrs) return null
+  const cols: Record<string, unknown> = {}
+  if (attrs.title !== undefined) cols.title = attrs.title
+  if (attrs.description !== undefined) cols.description = attrs.description
+  if (attrs.dueDate !== undefined) cols.due_date = attrs.dueDate
+  if (attrs.intentClass !== undefined) cols.intent_class = attrs.intentClass
+  return cols
+}
+
 function logActor(op: string, id: string, actor?: WorkItemActor): void {
   if (!actor || actor.kind === 'human') return
   // eslint-disable-next-line no-console
@@ -164,12 +184,10 @@ export class WorkItemWriteRefusedError extends Error {
 }
 
 function assertWritable(d: LifecycleDb): void {
-  if (!isWorkItemsEnabled())
-    throw new WorkItemWriteRefusedError('WORK_ITEMS_DISABLED', 'Work items are not enabled.')
   if (!nodesTableAcceptsWorkItems(d as never))
     throw new WorkItemWriteRefusedError(
       'WORK_ITEMS_NOT_MIGRATED',
-      'This device has not migrated for work items yet.'
+      'This device has not finished updating for Focus yet. Restart Plexii and try again.'
     )
 }
 
@@ -183,7 +201,7 @@ export function createWorkItemCore(
   if (orgId !== PERSONAL_ORG_ID)
     throw new WorkItemWriteRefusedError(
       'WORK_ITEMS_PERSONAL_ONLY',
-      'Work items are personal-scope only while the sharing switch is off.'
+      'Focus tasks are personal for now. Switch to your personal workspace to add one.'
     )
   // Leaf invariant: a work_item parent must be a desk/room, never a work_item.
   if (draft.parentId) {
@@ -191,7 +209,7 @@ export function createWorkItemCore(
       | { kind: string }
       | undefined
     if (parent?.kind === 'work_item')
-      throw new WorkItemWriteRefusedError('WORK_ITEM_PARENT_REFUSED', 'Nothing nests under a work item.')
+      throw new WorkItemWriteRefusedError('WORK_ITEM_PARENT_REFUSED', 'Nothing nests under a task in Focus.')
   }
   const id = draft.id ?? randomUUID()
   const state: WorkItemState = initialWorkItemState(draft.approvalState, draft.state)
@@ -377,7 +395,7 @@ export function setWorkItemState(id: string, state: WorkItemState, actor?: WorkI
         postNotification(db, {
           ref: id,
           queue: canonicalIntentClass(row.intent_class) ?? DEFAULT_INTENT_CLASS,
-          title: `${row.title || 'Work item'} — ${CLOSURE_VERB[state] ?? state}`,
+          title: `${row.title || 'Task'} — ${CLOSURE_VERB[state] ?? state}`,
           body: 'Loop closed.',
           dedupeKey: `wi-close:${id}:${state}`,
           category: 'attention',
@@ -439,13 +457,28 @@ export function postDeadlineNudgesCore(
          AND work_item_state IN (${ACTIVE_IN})`
     )
     .all(nowIso, soon) as Array<{ id: string; title: string; intent_class: string; due_at: string }>
+  // DEC-144 — a task filed on a desk is in Focus too, so its due date nudges
+  // the same way (numeric due_date, read as the ISO the loop below expects).
+  const deskTasks = d
+    .prepare(
+      `SELECT n.id AS id, n.title AS title, COALESCE(n.intent_class, 'to_do') AS intent_class, n.due_date AS due_date
+       FROM nodes n LEFT JOIN nodes p ON p.id = n.parent_id
+       WHERE n.kind = 'task' AND p.kind = 'task' AND n.trashed_at IS NULL AND COALESCE(n.archived, 0) = 0
+         AND COALESCE(n.intent_class, 'to_do') IN ('to_do','to_review','to_meet','to_decide','to_respond')
+         AND n.due_date IS NOT NULL AND n.due_date > ? AND n.due_date <= ?
+         AND ${EFFECTIVE_STATE} IN (${ACTIVE_IN})`
+    )
+    .all(nowMs, nowMs + 24 * 60 * 60 * 1000) as Array<{ id: string; title: string; intent_class: string; due_date: number }>
+  for (const t of deskTasks) {
+    rows.push({ id: t.id, title: t.title, intent_class: t.intent_class, due_at: new Date(t.due_date).toISOString() })
+  }
   let posted = 0
   for (const r of rows) {
     const day = r.due_at.slice(0, 10)
     const { posted: ok } = postNotification(d, {
       ref: r.id,
       queue: r.intent_class,
-      title: r.title || 'Work item',
+      title: r.title || 'Task',
       body: 'Due within 24 hours.',
       deliverAt: nowMs,
       dedupeKey: `wi-due:${r.id}:${day}`,
@@ -554,12 +587,22 @@ export function listWorkItems(): FbNode[] {
   )
 }
 
+/** One item by id, read through the same lens as listWorkItems: a work_item,
+ *  or a task filed on a desk projected as one (DEC-144). Before this a desk
+ *  task listed in Focus but could not be fetched, so every write path that
+ *  re-read after saving (updateFields, setState, reclassify) returned null and
+ *  the edit looked lost. A desk itself is still not an item. */
 export function getWorkItem(id: string): FbNode | null {
   const db = getDb()
-  const row = db.prepare(`SELECT * FROM nodes WHERE id = ? AND kind = 'work_item'`).get(id) as
-    | NodeRow
-    | undefined
-  return row ? mapNodeRow(row) : null
+  const row = db
+    .prepare(
+      `SELECT n.* FROM nodes n
+       LEFT JOIN nodes p ON p.id = n.parent_id
+       WHERE n.id = ? AND n.trashed_at IS NULL
+         AND (n.kind = 'work_item' OR (n.kind = 'task' AND COALESCE(n.archived, 0) = 0 AND p.kind = 'task'))`
+    )
+    .get(id) as NodeRow | undefined
+  return row ? asAttentionItem(mapNodeRow(row)) : null
 }
 
 export function updateWorkItemFields(
@@ -578,10 +621,11 @@ export function attentionBadgeCounts(): { headline: number; byIntent: Record<str
   const db = getDb()
   const rows = db
     .prepare(
-      `SELECT intent_class AS intent, wi_origin AS origin, COUNT(*) AS n FROM nodes
-       WHERE kind = 'work_item' AND trashed_at IS NULL AND org_id = ?
-         AND work_item_state IN (${ACTIVE_IN})
-       GROUP BY intent_class, wi_origin`
+      `SELECT n.intent_class AS intent, n.wi_origin AS origin, COUNT(*) AS n FROM nodes n
+       LEFT JOIN nodes p ON p.id = n.parent_id
+       WHERE ${IN_FOCUS} AND n.org_id = ?
+         AND ${EFFECTIVE_STATE} IN (${ACTIVE_IN})
+       GROUP BY n.intent_class, n.wi_origin`
     )
     .all(getActiveOrgId()) as Array<{ intent: string | null; origin: string | null; n: number }>
   const byIntent: Record<string, number> = {}
@@ -800,20 +844,22 @@ export function updateWorkItemFieldsCore(
       .get(id) as { kind: string } | undefined
     if (parent?.kind !== 'task') return false
 
-    // ONLY the queue. The rest of the work-item manifest -- work_item_state,
-    // groupId, wiUrgency, approvalState -- is a machine a task does not run:
-    // its `status` is the truth, and stamping a second state onto it is the
-    // drifting copy the tasks/Attention unification exists to prevent.
-    const canonical =
-      patch.intentClass === undefined ? undefined : canonicalIntentClass(patch.intentClass)
-    if (patch.intentClass !== undefined && !canonical) return false
-    if (canonical === undefined) return false
-    d.prepare('UPDATE nodes SET intent_class = ?, updated_at = ? WHERE id = ?').run(
-      canonical,
-      Date.now(),
-      id
-    )
-    logActor('reclassify', id, actor)
+    // The fields a task and an item share, written in the TASK's own columns
+    // (DEC-144; before this only the queue was written and the rest of an
+    // edit made in Focus vanished). The rest of the work-item manifest --
+    // work_item_state, groupId, wiUrgency, tags, the meeting fields -- is a
+    // machine a task does not run: its `status` is the truth, and stamping a
+    // second state onto it is the drifting copy the unification exists to
+    // prevent. A patch carrying one of those is refused whole, never half
+    // applied, so the caller can say so instead of showing a phantom save.
+    const sets = taskColumnsForItemPatch(patch)
+    if (!sets) return false
+    const cols = Object.keys(sets)
+    if (cols.length === 0) return false
+    d.prepare(
+      `UPDATE nodes SET ${cols.map((c) => `${c} = @${c}`).join(', ')}, updated_at = @now WHERE id = @id`
+    ).run({ ...sets, now: Date.now(), id })
+    logActor(cols.length === 1 && cols[0] === 'intent_class' ? 'reclassify' : 'update', id, actor)
     return true
   }
 
@@ -906,9 +952,10 @@ export function markWorkItemReadCore(d: LifecycleDb, id: string): void {
 export function workItemCountsCore(d: LifecycleDb, orgId: string): Record<string, number> {
   const rows = d
     .prepare(
-      `SELECT work_item_state AS state, COUNT(*) AS n FROM nodes
-       WHERE kind = 'work_item' AND trashed_at IS NULL AND org_id = ?
-       GROUP BY work_item_state`
+      `SELECT ${EFFECTIVE_STATE} AS state, COUNT(*) AS n FROM nodes n
+       LEFT JOIN nodes p ON p.id = n.parent_id
+       WHERE ${IN_FOCUS} AND n.org_id = ?
+       GROUP BY state`
     )
     .all(orgId) as Array<{ state: string | null; n: number }>
   const out: Record<string, number> = {}

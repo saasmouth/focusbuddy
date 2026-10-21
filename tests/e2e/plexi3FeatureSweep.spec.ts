@@ -1,3 +1,4 @@
+// DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 /**
  * Targeted sweep for the remaining Plexi3.0 user-visible claims not covered by
  * their own dedicated spec files:
@@ -203,7 +204,7 @@ test('SWEEP-6 — AllTasksView lists tasks correctly at a normal (well under 120
       const w = window as unknown as { __fbView?: { getState: () => { goAllTasks: () => void } } }
       w.__fbView?.getState().goAllTasks()
     })
-    await expect(window.getByRole('heading', { name: 'All Tasks', level: 1 })).toBeVisible({ timeout: 8_000 })
+    await expect(window.getByRole('heading', { name: 'All desks', level: 1 })).toBeVisible({ timeout: 8_000 })
 
     // Scope to the AllTasksView row list itself (TaskRow renders the title as
     // a <button>) — a bare text= locator also matches the (currently

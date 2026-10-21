@@ -827,7 +827,7 @@ export default function CalendarView(): JSX.Element {
               </select>
               <button
                 onClick={() => openConsole()}
-                title="Capture a new attention item"
+                title="Add a task to Focus"
                 className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-[var(--radius-field)] fb-glass-row fb-press fb-t-label text-[var(--ink-80)] hover:text-[var(--ink-100)] hover:bg-accent/[0.06] transition-colors"
               >
                 <Icon name="add" size={15} /> New
@@ -926,7 +926,7 @@ export default function CalendarView(): JSX.Element {
                   onClick={() => goAttention()}
                   className="fb-t-caption text-[var(--ink-40)] hover:text-[var(--ink-80)] fb-press shrink-0"
                 >
-                  Open Attention
+                  Open Focus
                 </button>
               </div>
               <select

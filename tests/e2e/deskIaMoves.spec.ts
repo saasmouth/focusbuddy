@@ -1,3 +1,4 @@
+// DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 /**
  * E2E for the 2026-10-10 side-menu moves.
  *
@@ -60,7 +61,7 @@ test.describe('side-menu moves (2026-10-10)', () => {
       await expect(sidebar.getByText(label, { exact: true })).toHaveCount(0)
     }
     // The rows that stayed are still there — this is a move, not a cull.
-    for (const label of ['Home', 'Attention', 'Rooms', 'All desks', 'Shared', 'Trash']) {
+    for (const label of ['Home', 'Focus', 'Rooms', 'All desks', 'Shared', 'Trash']) {
       await expect(sidebar.getByText(label, { exact: true })).toBeVisible({ timeout: 3_000 })
     }
   })

@@ -1,3 +1,4 @@
+// DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 /**
  * E2E spec: restyleFunctional — proves the design-system restyle of the
  * folders/desks/tasks surfaces (commit a49a0d9) did not break behavior.
@@ -145,7 +146,7 @@ test('restyled folders/desks/tasks surfaces: functional flows still work', async
       w.__fbView?.getState().goAllTasks()
     })
     await window.waitForTimeout(500)
-    await expect(window.getByText('All Tasks', { exact: true })).toBeVisible({ timeout: 5_000 })
+    await expect(window.getByText('All desks', { exact: true })).toBeVisible({ timeout: 5_000 })
 
     // Click through two filter chips.
     await window.getByRole('button', { name: /^Overdue/ }).click()

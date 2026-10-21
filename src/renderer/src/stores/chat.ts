@@ -239,19 +239,7 @@ interface ChatStore {
 // through send(), and several of them (⌘K's Ask row, the home bar, voice) call
 // it DIRECTLY, bypassing the composer where the @attention interception lives.
 // That bypass is exactly how a "…@attention" from ⌘K reached the model and
-// filed nothing. The capability is probed once here, refreshed on the Settings
-// toggle, so the check inside send() is synchronous.
-let workItemsOn = false
-const probeWorkItems = (): void => {
-  window.api?.workItems
-    ?.enabled?.()
-    .then((v: boolean) => {
-      workItemsOn = v
-    })
-    .catch(() => {})
-}
-probeWorkItems()
-window.addEventListener('fb:workitems-toggled', probeWorkItems)
+// filed nothing. Focus is always on (DEC-144), so the check is unconditional.
 
 const GLOBAL_KEY = '__global__'
 const EMPTY_MESSAGES: ChatMessage[] = []
@@ -704,7 +692,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     // DEC-031: @attention is deterministic on EVERY path. The composer strips
     // the token before it calls send(), so this fires only for the direct
     // callers above — a double capture is impossible by construction.
-    if (workItemsOn) {
+    {
       const attn = parseAttentionCommand(content)
       if (attn.mode !== 'none') {
         window.dispatchEvent(

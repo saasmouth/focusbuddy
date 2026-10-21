@@ -1,25 +1,11 @@
 // Work-item preferences for the cloud runtime.
 //
-// The desktop keeps these in a JSON file beside the database and gates the
-// Attention layer on them. The cloud runtime reports the feature off, and that
-// is a real answer rather than a placeholder.
-//
-// What is missing is the preferences, not the tables: applySchemaAndMigrations
-// calls ensureWorkItemSchema, so wi_local, wi_deliveries and the work_item
-// columns on nodes are all present in a browser database. The desktop reads the
-// gate from a JSON file beside the database, and a tab has no such file -- so
-// there is nowhere to record a per-user answer and nowhere to hold the per-org
-// attestation that the migration requires.
-//
-// Turning it on means porting both to server-held state, at which point these
-// stop being constants. Until then they return the truth: off.
-export function isWorkItemsEnabled(): boolean {
-  return false
-}
-
-export function setWorkItemsEnabled(_enabled: boolean): void {
-  throw new Error('Work items cannot be enabled from the browser runtime yet.')
-}
+// DEC-144: Focus (work items) is always on, here as on the desktop; the
+// tables are present because applySchemaAndMigrations calls
+// ensureWorkItemSchema. What a tab still lacks is somewhere to hold the
+// per-org migration attestation, so org scope reports off -- a real answer,
+// not a placeholder. Porting the attestation to server-held state is what
+// turns these into reads.
 
 export function workItemsOrgEnabled(_orgId: string): boolean {
   return false

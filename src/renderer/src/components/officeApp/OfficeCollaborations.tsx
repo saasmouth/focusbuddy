@@ -5,7 +5,8 @@ import Icon from '../Icon'
 
 // The signed-in user's live (collaborative) documents — ones they made
 // collaborative or were invited to. Reuses the same live-docs client PlexiDesk
-// uses; clicking one opens the check-out editor in the office shell.
+// uses; clicking one opens the co-editing editor in the office shell, where
+// members edit at the same time rather than taking turns.
 
 function docIcon(t: string): string {
   return t === 'sheet' ? 'table' : t === 'slides' ? 'slideshow' : t === 'map' ? 'account_tree' : 'description'

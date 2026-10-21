@@ -99,7 +99,7 @@ export default function TrashView(): JSX.Element {
     const typed = await promptText({
       title: `Permanently delete ${ids.length} item${ids.length === 1 ? '' : 's'}?`,
       label:
-        'Each one and everything Plexii learned from it is erased immediately. Attention items are preserved — they move to your Attention page. Type DELETE to confirm.',
+        'Each one and everything Plexii learned from it is erased immediately. Tasks filed on them are preserved — they move to Focus. Type DELETE to confirm.',
       placeholder: 'DELETE',
       confirmLabel: 'Delete permanently',
       danger: true,
@@ -138,7 +138,7 @@ export default function TrashView(): JSX.Element {
           title: 'Permanent delete finished',
           body:
             (revived > 0
-              ? `${revived} attention item${revived === 1 ? ' was' : 's were'} preserved and moved to your Attention page. `
+              ? `${revived} task${revived === 1 ? ' was' : 's were'} preserved and moved to Focus. `
               : '') + (failed > 0 ? `${failed} item${failed === 1 ? '' : 's'} could not be deleted.` : ''),
           confirmLabel: 'OK'
         })

@@ -56,13 +56,38 @@ table says collaboration is "check-out model, one editor at a time". That
 understates a shipped capability, and it understates the single most common
 reason this category loses a deal.
 
-**One caveat before marketing claims it.** The two-account and two-window
-convergence specs exist (`crdtSharedDeskConvergeTwoAccountLive.spec.ts`,
-`crdtMultiTypeConvergeTwoWindowLive.spec.ts`) but self-skip unless
-`CRDT_LIVE_PROXY_BASE` is set, which needs a local signal server, a TLS proxy
-and a purpose-built app. So this is confirmed by reading the routing and by the
-unit suites (`yjsDocSync`, `yjsSeed`, `collaboration`), not by a run of the live
-harness. Run that harness once before putting the claim in front of a buyer.
+**The harness has now been run, 2026-10-20.** Local signal server on a fresh
+DB, TLS proxy in front of it, app rebuilt against it, then
+`crdtMultiTypeConvergeTwoWindowLive.spec.ts` with `CRDT_LIVE_PROXY_BASE` set.
+Two real Electron windows, one real socket. It passed in 48.1s:
+
+```
+node create      converged A->B in 600ms
+node rename      converged A->B in  25ms
+widget create    converged A->B in 114ms
+widget content   converged A->B in   8ms
+document         converged A->B in   8ms
+```
+
+**Be precise about what that proves, because it is not everything.** The
+document assertion creates a document on window A through the store (which
+fires the real CRDT emit, asserted explicitly rather than assumed) and waits for
+it to appear in window B's list. So the CRDT transport converges document
+RECORDS across two windows over a real socket.
+
+It does not exercise two people typing into the same document BODY at once and
+merging through Yjs and Tiptap. That merge logic is covered by
+`tests/unit/yjsDocSync.test.ts` (both-sides edits without echo loops, late
+joiner replays the log, awareness relay) and `yjsSeed.test.ts` (seeding is
+idempotent, content never doubles) — but with in-process fakes, not a real
+socket.
+
+**So the gap worth closing is a named, small one:** a two-window spec that opens
+the SAME live document in both, types in both, and asserts the bodies converge
+with both cursors visible. Everything underneath it is already proven. Until
+that exists, a claim about live co-editing rests on a verified transport plus
+unit-tested merge logic, which is strong, rather than on an end-to-end
+demonstration of the thing being claimed.
 
 ---
 

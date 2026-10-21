@@ -121,8 +121,10 @@ describe('M3 — wiring', () => {
     expect(w).toContain('meeting?.id && savedSegments.length && forceLocalTranscription')
     expect(w).toContain('commitments = validateCommitments(ex.commitments, savedSegments, selfId)')
   })
+  // DEC-144 rewrite: action items arrive as create-work-item now that Focus is
+  // always on, so both kinds leave the cards when commitments exist.
   it('C6 — commitments and create-task proposals are one door, not two', () => {
-    expect(w).toContain("commitments.length ? proposals.filter((p) => p.kind !== 'create-task') : proposals")
+    expect(w).toContain("proposals.filter((p) => p.kind !== 'create-task' && p.kind !== 'create-work-item')")
   })
   it('Q14 — the host gets ONE machine-authored To Know brief', () => {
     expect(w).toContain("intentClass: 'to_know'")

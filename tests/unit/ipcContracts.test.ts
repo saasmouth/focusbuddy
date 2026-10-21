@@ -108,3 +108,30 @@ describe('checkArgs', () => {
     expect(msg).not.toMatch(/\/Users\/|SQLITE|at .*\(/)
   })
 })
+
+describe('DEC-144 — a comma inside a type is not a new parameter', () => {
+  const { splitTopLevel } = require('../../scripts/derive-ipc-contracts.cjs') as {
+    splitTopLevel: (s: string) => string[]
+  }
+  it('splits only on top-level commas', () => {
+    expect(splitTopLevel('_e, id: string, patch: Record<string, unknown>, actor?: A').map((s) => s.trim())).toEqual([
+      '_e',
+      'id: string',
+      'patch: Record<string, unknown>',
+      'actor?: A'
+    ])
+    expect(splitTopLevel('_e, o: { a: string, b: number }, f: (x: number, y: number) => void').length).toBe(3)
+  })
+  it('the channels the old split broke take only the arguments callers send', () => {
+    const c = IPC_ARG_CONTRACTS
+    expect(c['workItems:updateFields'].filter((s) => !s.optional)).toHaveLength(2)
+    expect(c['extcal:update'].filter((s) => !s.optional)).toHaveLength(2)
+    expect(c['aiChat:setMessageApplied'].filter((s) => !s.optional)).toHaveLength(3)
+  })
+})
+
+describe('DEC-144 — privacy:setPrefs takes one patch, not a phantom second argument', () => {
+  it('the privacy save is not refused for an argument nobody sends', () => {
+    expect(IPC_ARG_CONTRACTS['privacy:setPrefs'].filter((s) => !s.optional)).toHaveLength(1)
+  })
+})

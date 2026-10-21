@@ -621,7 +621,7 @@ export default function WeekTimeGrid({
                           e.stopPropagation()
                           setEditItem(i)
                         }}
-                        title={`Due: ${i.title} — drag onto the grid to book time · click to open Attention · double-click for details`}
+                        title={`Due: ${i.title} — drag onto the grid to book time · click to open Focus · double-click for details`}
                         className={`relative w-full text-left truncate rounded-[var(--radius-chip)] border border-dashed pl-2.5 pr-1.5 py-1 fb-press bg-[var(--surface-raised)] ${
                           compact ? 'text-[10.5px]' : 'text-[11px]'
                         } leading-snug`}

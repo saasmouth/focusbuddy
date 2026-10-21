@@ -53,7 +53,6 @@ export const CHANGELOG: ChangelogEntry[] = [
       'When Plexii AI credits run out, a request is answered on this computer with a note and a link to top up. The model starts loading in the background a few seconds after launch, and says \u201cStarting local AI\u201d if you ask before it is ready.',
       'Fixed: asking a table\u2019s AI for rows and columns on this computer offered to use the cloud (\u201cdid not come out in a usable shape\u201d) or came back with \u201cAI returned no rows\u201d, even though the on-device model had written the rows correctly. Every AI feature that returns structured results is now checked against what that feature asked for.',
       'Right-click now works on web pages everywhere: the standalone browser, a browser work widget on a desk, connected apps and sign-in pop-ups, with Back, Forward and Reload, link and image actions, and Cut, Copy and Paste.',
-      'With Attention turned off, Capture and the places that file work items now say so and link to the switch, instead of showing an error.',
     ]
   },
   {

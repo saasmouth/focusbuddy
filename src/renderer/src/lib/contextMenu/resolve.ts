@@ -10,7 +10,8 @@
 // row; richer ones become a submenu parent. Worst case is therefore
 // Context(2) + AiAssist + Create/Convert + Organise + Share + Advanced +
 // Destructive = 8, and it never exceeds that regardless of how rich the object
-// is.
+// is. The Attention row (always offered since DEC-144) takes one of the two
+// Context slots when present: Attention + Context(1) + … = 8.
 
 import type { CtxMenuItem } from '../../components/CanvasContextMenu'
 import { MenuSection, type MenuContext, type MenuContribution, type WidgetContribution } from './types'
@@ -68,14 +69,16 @@ function sectionSlot(
 
 // Context band: inline up to two highest-priority rows; if there are more, keep
 // the single most important inlined and fold the remainder into one More
-// submenu, so the band never claims more than two top-level slots.
-function contextSlots(rows: MenuContribution[], ctx: MenuContext): CtxMenuItem[] {
+// submenu, so the band never claims more than `max` top-level slots (two, or
+// one when the Attention row already took the band's other slot).
+function contextSlots(rows: MenuContribution[], ctx: MenuContext, max: 1 | 2): CtxMenuItem[] {
   const live = rows.filter((r) => passes(r, ctx)).sort(sortByPriority)
   if (live.length === 0) return []
-  if (live.length <= 2) return live.map((r) => toItem(r, ctx))
+  if (live.length <= max) return live.map((r) => toItem(r, ctx))
+  const inline = max - 1
   return [
-    toItem(live[0], ctx),
-    { label: 'More actions', icon: 'more_horiz', children: live.slice(1).map((r) => toItem(r, ctx)) }
+    ...live.slice(0, inline).map((r) => toItem(r, ctx)),
+    { label: 'More actions', icon: 'more_horiz', children: live.slice(inline).map((r) => toItem(r, ctx)) }
   ]
 }
 
@@ -136,14 +139,15 @@ export function resolveMenu(ctx: MenuContext): CtxMenuItem[] {
   // Marking the object you just right-clicked is the most common reason to
   // open this menu; burying it under Create/Convert made it unreachable.
   const attn = buildAttention(ctx)
-  if (attn && !suppress['attention']) slots.push(toItem(attn, ctx))
+  const attnTaken = !!attn && !suppress['attention']
+  if (attnTaken) slots.push(toItem(attn, ctx))
 
   // 1. Context — kind-specific header extras (a widget's own rows) first, then
   // the registered context-band rows.
   if (ctx.headerExtras && ctx.headerExtras.length) {
     slots.push(...ctx.headerExtras)
   }
-  const ctxSlots = contextSlots(wc.context, ctx)
+  const ctxSlots = contextSlots(wc.context, ctx, attnTaken ? 1 : 2)
   slots.push(...ctxSlots)
 
   // 2. AI Assist

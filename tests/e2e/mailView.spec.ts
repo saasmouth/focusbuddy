@@ -1,3 +1,4 @@
+// DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 // Mail view E2E — exercises the new IMAP email surface (Steps 1-6 per the
 // test brief). No real IMAP credentials are used; the bogus-server test
 // proves the full renderer→preload→ipcMain→imapflow→error-mapping chain.
@@ -181,7 +182,7 @@ test('step6 - existing nav entries (Home, All Tasks, Calendar, Vault) still rout
 
   const navItems = [
     { name: /^Home$/i },
-    { name: /^All Tasks$/i },
+    { name: /^All desks$/i },
     { name: /^Calendar$/i },
     { name: /^Vault$/i }
   ]

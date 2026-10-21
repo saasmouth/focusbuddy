@@ -4,7 +4,7 @@ import { useWorkItemStore } from '../../stores/workItems'
 import { useNodeStore } from '../../stores/nodes'
 import { promptText } from '../plexi/PromptDialog'
 import { isTerminalState, queueOf, PRIMARY_ACTION } from '../../lib/attentionQueues'
-import { subtreeIds } from '../../lib/attentionGrouping'
+import { subtreeIds, deskOf } from '../../lib/attentionGrouping'
 
 // DEC-051 — closing an item, with its accounting, as ONE code path.
 //
@@ -38,6 +38,7 @@ export function useCloseWorkItem(): CloseWorkItem {
         .filter(
           (x): x is FbNode => !!x && !isTerminalState(x.workItemState) && x.detachedFromId == null
         )
+      const closedKids: string[] = []
       if (openKids.length > 0) {
         const pick = await promptText({
           title: 'Close its subtasks too?',
@@ -55,18 +56,22 @@ export function useCloseWorkItem(): CloseWorkItem {
           for (const k of openKids) {
             const verb = PRIMARY_ACTION[queueOf(k)] ?? PRIMARY_ACTION.to_do
             await setState(k.id, verb.state)
+            closedKids.push(k.id)
           }
         }
       }
       await setState(i.id, state)
-      const deskId = i.parentId
+      // DEC-144: the DESK, not the item's parent. A task's step has a task as
+      // its parent; offering "mark the desk done" for that task was wrong.
+      const deskId = deskOf(i, items, nodes)
       if (!deskId) return
       const desk = nodes.find((n) => n.id === deskId && n.kind === 'task')
       if (!desk || desk.status === 'done' || desk.status === 'parked') return
+      const closedNow = new Set([i.id, ...closedKids])
       const remaining = items.filter(
         (x) =>
-          x.id !== i.id &&
-          x.parentId === deskId &&
+          !closedNow.has(x.id) &&
+          deskOf(x, items, nodes) === deskId &&
           !isTerminalState(x.workItemState) &&
           x.detachedFromId == null
       )

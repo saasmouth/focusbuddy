@@ -12,8 +12,6 @@ import { serializeMentions, mentionKey, type ItemMention } from '../lib/itemMent
 import { usePeopleStore, personName } from '../lib/peopleDirectory'
 import { useAccountStore } from '../stores/account'
 import { parseSelectionList, normalizeSelectionText } from '../lib/selectionList'
-import AttentionOffNotice from './AttentionOffNotice'
-import { useWorkItemsCapability } from '../lib/workItemsCapability'
 
 // The ONE confirm stop (DEC-019), extracted so every capture surface renders
 // the SAME flow (DEC-028): the console overlay and the chat's inline card are
@@ -87,7 +85,6 @@ export default function AttentionConfirmCard({
   cancelLabel?: string
 }): JSX.Element {
   const createItem = useWorkItemStore((s) => s.create)
-  const attention = useWorkItemsCapability()
   const nodes = useNodeStore((s) => s.nodes)
   const reduceMotion = useReducedMotion()
   const updateFieldsStore = useWorkItemStore((s) => s.updateFields)
@@ -585,17 +582,6 @@ export default function AttentionConfirmCard({
     )
   }
 
-  if (attention === 'off') {
-    return (
-      <div className="flex flex-col gap-2 py-1">
-        <AttentionOffNotice what="file this" />
-        <button onClick={onCancel} className="self-start fb-t-caption underline underline-offset-2 fb-press">
-          Back
-        </button>
-      </div>
-    )
-  }
-
   const eyebrow = 'text-[10.5px] font-semibold tracking-wider text-[var(--ink-40)] mb-1'
   const catAccent = !catTouched
   const whenAccent = whenInferred && !whenTouched
@@ -837,7 +823,7 @@ export default function AttentionConfirmCard({
           >
             <div className="mt-2.5 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] px-3.5 py-3">
               <div className="text-[12.5px] text-[var(--ink-50)] mb-2">
-                {openDrawer === 'category' && 'What is this item asking you to do?'}
+                {openDrawer === 'category' && 'What is this task asking you to do?'}
                 {openDrawer === 'urgency' && 'How hard is it pushing?'}
                 {openDrawer === 'when' &&
                   (confirm.phrase
@@ -1033,7 +1019,7 @@ export default function AttentionConfirmCard({
                               key={s}
                               onClick={() => setCapTags([...capTags, s])}
                               className="h-6 px-2 rounded-full text-[11px] fb-press border border-[rgb(var(--accent)/0.35)] text-[rgb(var(--accent))] bg-[rgb(var(--accent)/0.08)] hover:bg-[rgb(var(--accent)/0.15)]"
-                              title={`Used on your items before — click to tag this one “${s}”`}
+                              title={`Used on your tasks before — click to tag this one “${s}”`}
                               data-testid={`tag-suggestion-${s}`}
                             >
                               #{s}

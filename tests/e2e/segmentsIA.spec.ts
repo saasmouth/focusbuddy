@@ -1,3 +1,4 @@
+// DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 /**
  * E2E for the three-segment top-level IA: PlexiDesk, PlexiOffice and PlexiBrain.
  * Opens each segment from the global sidebar, asserts a representative app
@@ -37,7 +38,7 @@ test.describe('three-segment IA', () => {
       const w = window as unknown as { __fbView?: { getState: () => Record<string, () => void> } }
       w.__fbView?.getState().goAllTasks?.()
     })
-    await expect(window.getByRole('heading', { name: 'All Tasks' })).toBeVisible({ timeout: 8_000 })
+    await expect(window.getByRole('heading', { name: 'All desks' })).toBeVisible({ timeout: 8_000 })
   })
 
   test('PlexiOffice opens and its Docs app is present', async () => {

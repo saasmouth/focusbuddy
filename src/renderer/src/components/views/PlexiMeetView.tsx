@@ -1415,7 +1415,7 @@ function MeetingDetail({
                   disabled={extracting}
                   className="fb-btn-surface inline-flex items-center gap-1.5 text-[12px] h-8 px-3 text-[var(--ink-90)] fb-press disabled:opacity-50"
                   data-testid="find-commitments"
-                  title="Extract commitments from the transcript — they go through the confirm stop, never silently into Attention"
+                  title="Extract commitments from the transcript — they go through the confirm stop, never silently into Focus"
                 >
                   <Icon name="auto_awesome" size={14} className="text-[rgb(var(--accent))]" />
                   {extracting ? 'Reading the transcript…' : 'Find commitments'}
@@ -1441,7 +1441,7 @@ function MeetingDetail({
 
               {filedItems.length > 0 && (
                 <div data-testid="meet-filed-items">
-                  <RecordSectionTitle>In Attention</RecordSectionTitle>
+                  <RecordSectionTitle>In Focus</RecordSectionTitle>
                   <div className="divide-y divide-[var(--edge-soft)]">
                     {filedItems.map((i) => {
                       const done = isTerminalState(itemState(i))
@@ -1490,9 +1490,9 @@ function MeetingDetail({
                           </div>
                           <span
                             className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-[rgb(var(--accent))]"
-                            title="This item is in your Attention queue and points back at this meeting"
+                            title="This task is in Focus and points back at this meeting"
                           >
-                            <Icon name="notifications" size={14} filled /> In Attention
+                            <Icon name="notifications" size={14} filled /> In Focus
                           </span>
                         </div>
                       )
@@ -1521,11 +1521,11 @@ function MeetingDetail({
                             onClick={() => void sendLegacyToAttention(i, item)}
                             disabled={!!filing[i]}
                             className="inline-flex items-center gap-1 text-[11px] h-7 px-2 rounded-full fb-press transition-colors text-[var(--ink-50)] hover:text-[rgb(var(--accent))] hover:bg-[rgb(var(--accent)/0.08)] disabled:opacity-50"
-                            title="Send to Attention — it will point back at this meeting"
+                            title="Add to Focus — it will point back at this meeting"
                             data-testid={`meet-legacy-bell-${i}`}
                           >
                             <Icon name="notifications" size={14} />
-                            {filing[i] ? 'Filing…' : 'Attention'}
+                            {filing[i] ? 'Adding…' : 'Add to Focus'}
                           </button>
                           <button
                             onClick={() => void makeTask(i, item)}
