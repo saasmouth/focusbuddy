@@ -71,7 +71,7 @@ test('MIG-1 — update with no model: an auto (credits) profile keeps its engine
   expect(r.ok).toBe(false)
   expect(r.error ?? '').not.toMatch(/not downloaded/i)
 
-  // Not now: gone, and it stays gone after a reload (recorded in main).
+  // Maybe later: gone, and it stays gone after a reload (recorded in main).
   await card.locator('[data-testid="local-ai-intro-dismiss"]').click()
   await expect(window.locator('[data-testid="local-ai-intro"]')).toHaveCount(0)
   await window.reload()

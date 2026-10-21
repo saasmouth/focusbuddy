@@ -212,7 +212,10 @@ describe('LocalAiPrompts as rendered', () => {
     })
     expect(v.calls).toContain('download:compact')
     expect(v.q('local-ai-intro-error')!.textContent).toContain('answered 404')
-    // Not now: dismissed, and recorded.
+    // Maybe later: dismissed, and recorded. (Never "Not now": the e2e harness
+    // dismisses the launch sign-in modal by a button of that name.)
+    expect(v.q('local-ai-intro-dismiss')!.textContent).toBe('Maybe later')
+    expect(card!.textContent).not.toMatch(/not now|skip|continue without account/i)
     await act(async () => {
       v.q('local-ai-intro-dismiss')!.click()
     })

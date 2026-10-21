@@ -188,8 +188,11 @@ export default function LocalAiPrompts(): JSX.Element | null {
               >
                 Download ({gb(intro.model.bytes)})
               </button>
+              {/* Not "Not now": tests/e2e/_helpers.waitForReady dismisses the launch
+                  sign-in modal by a button named /continue without account|skip|not now/,
+                  and a second match makes that locator ambiguous, leaving the modal up. */}
               <button type="button" className="underline text-[var(--ink-60)]" data-testid="local-ai-intro-dismiss" onClick={closeIntro}>
-                Not now
+                Maybe later
               </button>
             </div>
           )}
