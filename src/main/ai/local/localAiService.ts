@@ -160,6 +160,19 @@ export function refreshEngineModel(): void {
   if (host) host.setModel(loc ? loc.path : null, t?.contextSize ?? 8192, 'auto', t?.kvCache)
 }
 
+/**
+ * Tell every window the local-AI picture changed.
+ *
+ * Exported for the one mutation that lives outside this module: the AI source
+ * switch (ai:setMode). It changes `provider` and with it every effective
+ * route, so a renderer holding the old picture keeps showing, for instance,
+ * the "Local AI needs a one-time download" notice after the person has moved
+ * to a cloud source — a fixed banner that then sits over the toolbar.
+ */
+export function notifyLocalAiChanged(): void {
+  broadcast('localAi:changed', null)
+}
+
 function broadcast(channel: string, payload: unknown): void {
   for (const w of BrowserWindow.getAllWindows()) {
     if (!w.isDestroyed()) w.webContents.send(channel, payload)

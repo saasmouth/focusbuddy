@@ -733,6 +733,7 @@ import {
   runAgentStep,
   verifyAgentGoal
 } from '../ai/anthropic'
+import { notifyLocalAiChanged } from '../ai/local/localAiService'
 import type { DesignBrief } from '@shared/designAdvicePrompt'
 import { importDocx, exportDocx, exportPdf, pickImage, type PageSetupInput } from '../officeDocx'
 import { importSheet, exportSheet } from '../sheetIo'
@@ -2075,6 +2076,11 @@ export function registerIpcHandlers(): void {
     if (mode !== 'auto' && mode !== 'credits' && mode !== 'byok' && mode !== 'local' && mode !== 'openai') return getAiStatus()
     setAiMode(mode)
     invalidateAnthropicClient()
+    // The source decides every effective route, so the local-AI picture just
+    // changed too. Without this the renderer keeps the old one: moving off
+    // Local left the "Local AI needs a one-time download" notice on screen,
+    // a fixed banner sitting over the toolbar beneath it.
+    notifyLocalAiChanged()
     return getAiStatus()
   })
   // Pull the live balance from the signal server (lazily grants the trial).
