@@ -2,6 +2,7 @@ import type { WidgetInput } from '@shared/customWidgetSandbox'
 import type { WriteOrigin } from '../shared/writeOrigin'
 import type { LocalAiStatus, LocalDownloadProgress, CloudConsentRequest, GroundingReport, AiFeatureRoute, LocalEngineState, AnsweredBy } from '@shared/localAi'
 import { contextBridge, ipcRenderer } from 'electron'
+import type { WebMenuCommand } from '@shared/webMenu'
 import type {
   ActionProposal,
   ActivityEvent,
@@ -1188,7 +1189,15 @@ const api = {
   },
   webMenu: {
     setSurface: (webContentsId: number, surface: 'desk' | 'browser' | 'connected-app' | 'popup' | null): Promise<{ ok: boolean }> =>
-      ipcRenderer.invoke('webMenu:setSurface', webContentsId, surface)
+      ipcRenderer.invoke('webMenu:setSurface', webContentsId, surface),
+    // An Add to desk / PlexiiAssist / AI Assist item chosen in the native
+    // right-click menu on a web page (main/webContextMenu.ts): the renderer
+    // does the work (it owns the desks, the undo history and the preview).
+    onCommand: (cb: (cmd: WebMenuCommand) => void): (() => void) => {
+      const handler = (_: unknown, cmd: WebMenuCommand): void => cb(cmd)
+      ipcRenderer.on('webMenu:command', handler)
+      return () => ipcRenderer.removeListener('webMenu:command', handler)
+    }
   },
   contextMenu: {
     onAction: (cb: (payload: ContextMenuPayload) => void): (() => void) => {

@@ -16,6 +16,8 @@ import Icon from '../Icon'
 import { useAiAssistPreview } from '../../stores/aiAssistPreview'
 import { useWidgetStore } from '../../stores/widgets'
 import { createConnectedTool } from '../../lib/createConnectedTool'
+import AnsweredBy from '../ai/AnsweredBy'
+import { useAddToDeskPicker } from '../../stores/addToDeskPicker'
 
 const PLAIN_TEXT_KINDS = ['sticky', 'note', 'markdown']
 
@@ -24,6 +26,8 @@ export default function AiAssistPreview(): JSX.Element | null {
     useAiAssistPreview()
   const [instr, setInstr] = useState('')
   const ranFor = useRef<string | null>(null)
+  // When this run started: "Answered by" names the engine of THIS result.
+  const [ranAt, setRanAt] = useState(0)
 
   // Reset the editable instruction whenever a new request opens.
   useEffect(() => {
@@ -37,6 +41,7 @@ export default function AiAssistPreview(): JSX.Element | null {
     if (!request) return
     if (!instruction.trim()) return
     setLoading()
+    setRanAt(Date.now())
     const r = await window.api.ai.transformText({
       text: request.text,
       instruction,
@@ -49,8 +54,8 @@ export default function AiAssistPreview(): JSX.Element | null {
   // Auto-run for preset actions. Custom actions wait for the user to type and
   // press Run (status starts at idle for those).
   useEffect(() => {
-    if (open && request && status === 'loading' && ranFor.current !== request.instruction + request.sourceWidgetId) {
-      ranFor.current = request.instruction + request.sourceWidgetId
+    if (open && request && status === 'loading' && ranFor.current !== request.instruction + (request.sourceWidgetId ?? request.text)) {
+      ranFor.current = request.instruction + (request.sourceWidgetId ?? request.text)
       void run(request.instruction)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -61,7 +66,7 @@ export default function AiAssistPreview(): JSX.Element | null {
   async function apply(): Promise<void> {
     if (!result || !request) return
     const store = useWidgetStore.getState()
-    const w = store.widgets.find((x) => x.id === request.sourceWidgetId)
+    const w = request.sourceWidgetId ? store.widgets.find((x) => x.id === request.sourceWidgetId) : undefined
     if (!w) {
       close()
       return
@@ -76,6 +81,20 @@ export default function AiAssistPreview(): JSX.Element | null {
       // connected sticky rather than risk corrupting structured content.
       await createConnectedTool({ sourceWidgetId: w.id, kind: 'sticky', content: result.slice(0, 2000) })
     }
+    close()
+  }
+
+  // Text from a web page: the result goes to a desk as its own work widget.
+  function addResultToDesk(): void {
+    if (!result || !request?.web) return
+    useAddToDeskPicker.getState().open({
+      command: 'add-to-desk',
+      target: 'selection',
+      desk: 'choose',
+      text: result,
+      pageUrl: request.web.pageUrl,
+      pageTitle: request.web.pageTitle
+    })
     close()
   }
 
@@ -145,6 +164,7 @@ export default function AiAssistPreview(): JSX.Element | null {
               >
                 {result}
               </div>
+              <AnsweredBy feature="writing" since={ranAt} className="mt-1" />
             </div>
           )}
         </div>
@@ -161,15 +181,26 @@ export default function AiAssistPreview(): JSX.Element | null {
             </button>
           ) : (
             <>
-              <button
-                data-testid="ai-assist-apply"
-                onClick={() => void apply()}
-                className="px-3 py-1.5 rounded bg-accent text-white text-sm font-medium"
-              >
-                Apply
-              </button>
+              {request.web ? (
+                <button
+                  data-testid="ai-assist-add-to-desk"
+                  onClick={addResultToDesk}
+                  className="px-3 py-1.5 rounded bg-accent text-white text-sm font-medium"
+                >
+                  Add to desk…
+                </button>
+              ) : (
+                <button
+                  data-testid="ai-assist-apply"
+                  onClick={() => void apply()}
+                  className="px-3 py-1.5 rounded bg-accent text-white text-sm font-medium"
+                >
+                  Apply
+                </button>
+              )}
               <button
                 onClick={() => void copy()}
+                data-testid="ai-assist-copy"
                 className="fb-btn-surface px-3 py-1.5 text-sm text-[var(--ink-90)]"
               >
                 Copy

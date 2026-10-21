@@ -18,6 +18,10 @@ export interface HistoryEntry {
    *  read differently from the step's name ("Removed “Plan” from this desk"
    *  for the step "Remove “Plan” from this desk"). Defaults to `label`. */
   toast?: string
+  /** The action toast's icon (default: delete, the common case). */
+  toastIcon?: string
+  /** A second button on the action toast beside Undo, e.g. "Open desk". */
+  toastAction?: { label: string; run: () => void }
   undo: () => Promise<void> | void
   redo: () => Promise<void> | void
 }

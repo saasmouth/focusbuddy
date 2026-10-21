@@ -11,20 +11,21 @@
 
 import { MenuSection, type MenuContribution, type MenuContext } from './types'
 import { runAiAssist, hasWorkableText } from './actions'
+import {
+  AI_DIRECT_ACTIONS,
+  AI_LANGUAGES,
+  AI_TONES,
+  CUSTOM_LANGUAGE_INSTRUCTION,
+  CUSTOM_TONE_INSTRUCTION,
+  toneInstruction,
+  translateInstruction
+} from '@shared/aiTextActions'
 
-// Direct one-tap rewrites.
-const DIRECT_ACTIONS: Array<{ id: string; label: string; instruction: string }> = [
-  { id: 'expand', label: 'Expand', instruction: 'Expand this text with more detail and supporting points, keeping the same voice.' },
-  { id: 'simplify', label: 'Simplify', instruction: 'Simplify this text so it is easy to read, removing jargon and shortening sentences.' },
-  { id: 'summarise', label: 'Summarise', instruction: 'Summarise this text concisely, keeping the key points.' },
-  { id: 'rewrite', label: 'Rewrite', instruction: 'Rewrite this text to read more clearly and naturally, preserving the meaning.' },
-  { id: 'grammar', label: 'Fix Grammar', instruction: 'Fix the spelling, grammar and punctuation. Change nothing else.' },
-  { id: 'clarity', label: 'Improve Clarity', instruction: 'Improve the clarity and flow without changing the meaning or adding new information.' },
-  { id: 'continue', label: 'Continue Writing', instruction: 'Continue writing from where this text ends, in the same voice and style. Return the original text followed by the continuation.' }
-]
-
-const TONES = ['Professional', 'Casual', 'Friendly', 'Direct', 'Concise', 'Formal']
-const LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Japanese', 'Chinese']
+// The actions, tones and languages live in @shared/aiTextActions so the
+// native right-click menu on web pages offers the same words and instructions.
+const DIRECT_ACTIONS = AI_DIRECT_ACTIONS
+const TONES = AI_TONES
+const LANGUAGES = AI_LANGUAGES
 
 // Build the single AI Assist contribution. Returns null when there is no text
 // to work on, so the section collapses rather than showing a dead row.
@@ -51,14 +52,14 @@ export function buildAiAssistContribution(ctx: MenuContext): MenuContribution | 
         section: MenuSection.AiAssist,
         priority: 0,
         label: tone,
-        onSelect: (c) => runAiAssist(c, `Tone ${tone}`, `Rewrite this text in a ${tone.toLowerCase()} tone, keeping the meaning.`)
+        onSelect: (c) => runAiAssist(c, `Tone ${tone}`, toneInstruction(tone))
       })),
       {
         id: 'core/ai/tone/custom',
         section: MenuSection.AiAssist,
         priority: 99,
         label: 'Custom tone...',
-        onSelect: (c) => runAiAssist(c, 'Custom tone', 'Rewrite this text in the following tone: ', true)
+        onSelect: (c) => runAiAssist(c, 'Custom tone', CUSTOM_TONE_INSTRUCTION, true)
       }
     ]
   }
@@ -75,14 +76,14 @@ export function buildAiAssistContribution(ctx: MenuContext): MenuContribution | 
         section: MenuSection.AiAssist,
         priority: 0,
         label: lang,
-        onSelect: (c) => runAiAssist(c, `Translate to ${lang}`, `Translate this text into ${lang}. Return only the translation.`)
+        onSelect: (c) => runAiAssist(c, `Translate to ${lang}`, translateInstruction(lang))
       })),
       {
         id: 'core/ai/translate/custom',
         section: MenuSection.AiAssist,
         priority: 99,
         label: 'Custom language...',
-        onSelect: (c) => runAiAssist(c, 'Translate', 'Translate this text into the following language: ', true)
+        onSelect: (c) => runAiAssist(c, 'Translate', CUSTOM_LANGUAGE_INSTRUCTION, true)
       }
     ]
   }

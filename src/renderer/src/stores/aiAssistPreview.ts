@@ -15,8 +15,15 @@ export interface AiAssistRequest {
   label: string
   // The instruction sent to the model.
   instruction: string
-  sourceWidgetId: string
-  sourceKind: WidgetKind
+  /** The work widget the text came from; absent for text read on a web page. */
+  sourceWidgetId?: string
+  sourceKind?: WidgetKind
+  /**
+   * Text selected on a web page (the right-click menu on the standalone
+   * browser or a browser work widget). Nothing is written back to a page, so
+   * the preview offers Copy and Add to desk instead of Apply.
+   */
+  web?: { pageUrl: string; pageTitle: string }
   // The exact text to transform: the selection if there was one, else the
   // whole widget text.
   text: string

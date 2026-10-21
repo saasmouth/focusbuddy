@@ -73,6 +73,9 @@ import { installCapabilityWatcher } from './stores/capabilities'
 import { useViewStore } from './stores/view'
 import { useActionHistory } from './stores/actionHistory'
 import UndoToast from './components/UndoToast'
+import AiAssistPreview from './components/contextMenu/AiAssistPreview'
+import AddToDeskPicker from './components/browser/AddToDeskPicker'
+import WebMenuCommandHost from './components/browser/WebMenuCommandHost'
 import CompletionToast from './components/CompletionToast'
 import NoticeToast from './components/NoticeToast'
 import GuestCaptureBar from './components/GuestCaptureBar'
@@ -806,6 +809,11 @@ export default function App(): JSX.Element {
         <FeatureSpotlightPopup />
         <OnboardingHub />
         <UndoToast />
+        {/* The one AI Assist preview (work widget menu and web page menu), the
+            Add to desk picker, and what the web page right-click menu asks for. */}
+        <AiAssistPreview />
+        <AddToDeskPicker />
+        <WebMenuCommandHost />
         <CompletionToast />
         <NoticeToast />
         {/* DEC-075 — yesterday's never-completed blocks greet the launch once. */}
