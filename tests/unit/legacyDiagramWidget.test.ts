@@ -6,7 +6,8 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
 import { catalogFor, groupedPickerEntries } from '../../src/renderer/src/lib/widgetCatalog'
-import { widgetMenuEntries } from '../../src/renderer/src/lib/widgetMenu'
+import { tileWidgetKind, widgetMenuEntries } from '../../src/renderer/src/lib/widgetMenu'
+import { SEGMENT_APPS } from '../../src/renderer/src/lib/segmentApps'
 
 const src = (p: string): string => readFileSync(join(__dirname, '../../src/renderer/src', p), 'utf-8')
 
@@ -28,4 +29,17 @@ describe('legacy Diagram widget', () => {
     expect(src('lib/contextMenu/providers.ts')).toContain("'mindmap', 'diagram'")
     expect(src('lib/widgetSetup.ts')).toContain("'diagram',")
   })
+
+  it('no app tile is a back door to it: dragging or adding the PlexiiDiagrams tile places a diagram document', () => {
+    // Found by the help writer: the tile's first widget kind was 'diagram', so
+    // "Add PlexiiDiagrams to this desk" and dragging the tile made the legacy widget.
+    expect(tileWidgetKind(SEGMENT_APPS.office.find((a) => a.key === 'diagrams')!)).toBe('map')
+    for (const kind of Object.keys(SEGMENT_APPS) as (keyof typeof SEGMENT_APPS)[]) {
+      for (const app of SEGMENT_APPS[kind]) {
+        const placed = tileWidgetKind(app)
+        if (placed) expect(catalogFor(placed)?.hideFromPicker, `${kind}:${app.key} places ${placed}`).toBeFalsy()
+      }
+    }
+  })
 })
+

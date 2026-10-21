@@ -133,7 +133,10 @@ export const SEGMENT_APPS = {
     { key: 'docs', label: 'PlexiiWrite', icon: 'description', tone: 'text-purple-600', widgetKinds: ['doc'] },
     { key: 'sheets', label: 'PlexiiCells', icon: 'table_chart', tone: 'text-cyan-600', widgetKinds: ['sheet'] },
     { key: 'slides', label: 'PlexiiDeck', icon: 'slideshow', tone: 'text-pink-500', widgetKinds: ['slides'] },
-    { key: 'diagrams', label: 'PlexiiDiagrams', icon: 'account_tree', tone: 'text-violet-500', widgetKinds: ['diagram', 'map'] },
+    // 'map' first: dragging or adding the tile places a PlexiiDiagrams document.
+    // 'diagram' (the legacy widget, no longer offered) stays listed so it is
+    // still "represented under Apps" and never reappears as a Work widget.
+    { key: 'diagrams', label: 'PlexiiDiagrams', icon: 'account_tree', tone: 'text-violet-500', widgetKinds: ['map', 'diagram'] },
     { key: 'design', label: 'PlexiiDesign', icon: 'plexii:design', tone: 'text-fuchsia-500', widgetKinds: ['design'] },
     { key: 'draw', label: 'PlexiiDraw', icon: 'brush', tone: 'text-rose-500', widgetKinds: ['draw'] }
   ]
