@@ -50,7 +50,8 @@ export const commands: Command[] = [
     label: 'Select all',
     icon: 'select_all',
     shortcut: '⌘A',
-    menu: { path: 'edit', order: 200 },
+    // Its own group after the clipboard and duplicate/delete items (Illustrator keeps it out of Edit's paste group).
+    menu: { path: 'edit', order: 300 },
     // Nothing hidden or locked -- the same rule for the menu and for ⌘A.
     run: (ctx) => ctx.select(selectableObjectIds(ctx.doc()))
   },

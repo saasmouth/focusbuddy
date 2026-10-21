@@ -22,8 +22,14 @@ export const KEYMAP: Record<string, readonly [string, 'prevent'?]> = {
   enter: ['pen.finish'],
   escape: ['edit.escape'],
   'mod+a': ['edit.selectAll', 'prevent'],
+  'mod+b': ['edit.pasteInBack', 'prevent'],
+  'mod+c': ['edit.copy', 'prevent'],
   'mod+d': ['edit.duplicate', 'prevent'],
+  'mod+f': ['edit.pasteInFront', 'prevent'],
+  'mod+shift+v': ['edit.pasteInPlace', 'prevent'],
   'mod+shift+z': ['edit.redo', 'prevent'],
+  'mod+v': ['edit.paste', 'prevent'],
+  'mod+x': ['edit.cut', 'prevent'],
   'mod+y': ['edit.redo', 'prevent'],
   'mod+z': ['edit.undo', 'prevent']
 }

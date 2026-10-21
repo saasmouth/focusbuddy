@@ -117,9 +117,17 @@ describe('the menu bar is built from commands, identical to the one it replaced'
         'Undo|undo|⌘Z|off|',
         'Redo|redo|⇧⌘Z|off|',
         '---',
-        'Select all|select_all|⌘A||',
+        'Cut|content_cut|⌘X|off|',
+        'Copy|content_copy|⌘C|off|',
+        'Paste|content_paste|⌘V||',
+        'Paste in Front|flip_to_front|⌘F||',
+        'Paste in Back|flip_to_back|⌘B||',
+        'Paste in Place|place_item|⇧⌘V||',
+        'Paste on All Artboards|dashboard|⌥⇧⌘V|off|',
         'Duplicate|file_copy|⌘D|off|',
         'Delete|delete|⌫|off|',
+        '---',
+        'Select all|select_all|⌘A||',
         '',
         'object',
         'Pathfinder|join_full|>',
@@ -176,7 +184,7 @@ describe('the menu bar is built from commands, identical to the one it replaced'
     expect(edit).toContain('Duplicate|file_copy|⌘D||')
     const ro = harness({ ...blank([rect('a', 0, 0, 10, 10)]), schemaVersion: 3 })
     const text = ['file', 'edit', 'object', 'layer', 'document'].flatMap((m) => describeMenu(buildMenu(ro.ed.ctx, m))).join('\n')
-    for (const off of ['Export PNG…', 'Export SVG…', 'Export PDF…', 'Undo', 'Redo', 'Duplicate', 'Delete', 'Unite', 'Bring to front', 'Left', 'New vector layer', 'New paint layer', 'Artboard size…', 'Transparent']) {
+    for (const off of ['Export PNG…', 'Export SVG…', 'Export PDF…', 'Undo', 'Redo', 'Cut', 'Paste', 'Paste in Front', 'Paste in Back', 'Paste in Place', 'Paste on All Artboards', 'Duplicate', 'Delete', 'Unite', 'Bring to front', 'Left', 'New vector layer', 'New paint layer', 'Artboard size…', 'Transparent']) {
       expect(text, off).toMatch(new RegExp(`(^|\\n)\\s*${off.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\|[^|]*\\|[^|]*\\|off\\|`))
     }
   })

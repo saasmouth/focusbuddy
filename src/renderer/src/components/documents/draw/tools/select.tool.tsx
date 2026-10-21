@@ -2,7 +2,8 @@
 // (Shift constrains to an axis; edges snap), drag a handle to scale (Shift
 // keeps the aspect, Alt scales from the centre), drag the knob above the box to
 // rotate (Shift snaps to 15°), drag on empty canvas for a marquee. Double-click
-// a text object to type into it.
+// a text object to type into it. Alt-drag (Option-drag) moves a copy and
+// leaves the original where it was.
 //
 // On a read-only drawing it only selects (click or marquee): nothing moves.
 
@@ -10,6 +11,7 @@ import type { Box, Pt } from '@shared/drawGeometry'
 import { rotateAbout } from '@shared/drawGeometry'
 import { editableIds, getObjects, mapObjects, moveObjects, nodeBounds, nodesBounds, rotateNode, scaleObjects } from '@shared/draw/ops'
 import type { DrawTool, EditorCtx, Txn } from '../editor/types'
+import { altDragDuplicate, relabelLastStep } from '../editor/clipboard'
 import { angleTo, handleAt, normBox, resizeBox, selectionBox, snapDelta, type HandleId } from './helpers'
 
 type SelectGesture =
@@ -91,7 +93,8 @@ const select: DrawTool = {
           ? s.selection
           : [hit.id]
       ctx.select(ids)
-      const txn = ctx.history.begin('Move')
+      // Alt (Option) held when the drag ends duplicates instead (see onPointerUp).
+      const txn = ctx.history.begin(e.altKey ? 'Duplicate' : 'Move')
       setGesture(ctx, { kind: 'move', start: p, last: p, ids: editableIds(ctx.doc(), ids), moved: false, txn })
       return
     }
@@ -163,7 +166,19 @@ const select: DrawTool = {
       if (hit && hit.type === 'text' && e.detail >= 2 && !s.readOnly) ctx.set({ editingText: hit.id })
       return
     }
+    if (d.kind === 'move' && e.altKey) {
+      // Alt-drag duplicate (Illustrator): the originals stay put and copies land
+      // where the drag ended, each directly above its original.
+      const dup = altDragDuplicate(ctx.doc(), d.ids, d.last.x - d.start.x, d.last.y - d.start.y)
+      d.txn.preview(dup.doc)
+      d.txn.commit()
+      relabelLastStep(ctx, 'Duplicate')
+      ctx.select(dup.newIds)
+      return
+    }
     d.txn.commit()
+    // Alt was let go mid-drag: a plain move after all.
+    if (d.kind === 'move') relabelLastStep(ctx, 'Move')
   },
 
   Overlay({ state, k }) {
