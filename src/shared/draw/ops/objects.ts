@@ -141,11 +141,21 @@ export function deleteObjects(doc: DrawDoc, ids: string[]): DrawDoc {
   }
 }
 
-/** A copy of a node with a fresh id -- and fresh ids for every member of a group. */
+/**
+ * A copy of a node with a fresh id -- and fresh ids for every member of a group.
+ *
+ * DEEP, not `{ ...n }`: a shallow copy left the duplicate sharing the original's
+ * fill, stroke, gradient and dash objects by reference. The IPC payload check
+ * then saw the same object twice and refused every save of that drawing as
+ * "cyclic data", and an in-place paint edit would have changed both shapes.
+ */
 function cloneWithNewIds(n: DrawNode): DrawNode {
   const id = drawId('obj')
-  if (n.type === 'group') return { ...n, id, children: n.children.map(cloneWithNewIds) }
-  return { ...n, id }
+  if (n.type === 'group') {
+    const { children, ...rest } = n
+    return { ...structuredClone(rest), id, children: children.map(cloneWithNewIds) }
+  }
+  return { ...structuredClone(n), id }
 }
 
 /** Copies of the top-level nodes `ids`, offset by (dx, dy), placed directly above the originals' layer stack. */
