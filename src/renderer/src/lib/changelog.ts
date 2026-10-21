@@ -38,6 +38,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.39-local.6',
+    date: '2026-10-21T04:02:00Z',
+    title: 'PlexiiDesk 4.3.39-local.6 \u2014 PDF export works again, and PlexiiDraw fixes (test build)',
+    tag: 'fix',
+    summary:
+      'A local test build. Everything in 4.3.39-local.5, plus a fix for PDF export from PlexiiDesign, PlexiiDraw and diagrams, and a set of PlexiiDraw fixes.',
+    highlights: [
+      'Fixed: exporting a design, drawing or diagram as PDF failed. It works again, at the right page size.',
+      'PlexiiDraw: a drawing made at a set resolution exports at its real size, so an A4 artboard prints on A4, and PNGs say what resolution they are.',
+      'PlexiiDraw: Select all and Align leave locked and hidden objects alone; zooming with \u2318 and the wheel zooms where the pointer is; the miter limit shows on screen; resizing the artboard no longer stretches or blanks paint layers; rotated text and images are picked where they are drawn; and editing a point on a shape keeps the edit.',
+      'PlexiiDraw: work widgets placed on a drawing were dropped when it was reopened. They stay now.',
+      'PlexiiDraw co-editing: undo only undoes your own changes, never a collaborator\u2019s, and reordering or deleting objects no longer mixes up two objects.',
+      'A drawing made in a newer version of PlexiiDraw opens read-only, with a note to update, instead of losing what this version does not understand.'
+    ]
+  },
+  {
     version: '4.3.39-local.5',
     date: '2026-10-21T03:07:00Z',
     title: 'PlexiiDesk 4.3.39-local.5 — Focus: one list for everything you need to do (test build)',
