@@ -11,7 +11,7 @@
 // Same rule as v1: everything that reaches markup is escaped, a finite number,
 // or a member of a closed set, even for a document that skipped normalize.
 
-import { DRAW_BLEND_MODES, estimateWrap, gradientToSvg, isDrawImageSrc, svgPaint, type DrawBlend, type DrawGradientDef, type DrawPaint, type DrawSvgPaint } from '../draw'
+import { DRAW_BLEND_MODES, estimateWrap, gradientToSvg, isDrawImageSrc, paintToCss, svgPaint, type DrawBlend, type DrawGradientDef, type DrawPaint, type DrawSvgPaint } from '../draw'
 import { pathToSvgD } from '../drawGeometry'
 import { safeCssColor } from '../cssColor'
 import { assetSrc } from './assets'
@@ -55,6 +55,11 @@ export function resolvePaint(doc: Pick<DrawDoc, 'swatches'>, p: DrawDocPaint | u
   if (!rgb) return { type: 'solid', color }
   const mix = rgb.map((v) => Math.round(255 - (255 - v) * tint).toString(16).padStart(2, '0')).join('')
   return { type: 'solid', color: `#${mix}` }
+}
+
+/** A paint as a CSS value (swatches resolved), for on-screen surfaces that are not SVG. */
+export function docPaintToCss(doc: Pick<DrawDoc, 'swatches'>, p: DrawDocPaint | undefined): string {
+  return paintToCss(resolvePaint(doc, p) as DrawPaint | undefined)
 }
 
 function hasGradientExtras(p: DrawDocPaint): boolean {

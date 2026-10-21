@@ -53,6 +53,9 @@ import {
   type Matrix
 } from './model'
 import { MAX_GROUP_DEPTH } from './tree'
+import { fieldHook, type DrawFieldScope } from './fieldHooks'
+
+export { registerDrawField, unregisterDrawField, type DrawFieldHook, type DrawFieldScope } from './fieldHooks'
 
 type Raw = Record<string, unknown>
 
@@ -66,37 +69,11 @@ function arr(v: unknown): unknown[] {
 
 // ── Field hooks ──────────────────────────────────────────────────────────────
 
-/** Where a hooked field lives. */
-export type DrawFieldScope = 'doc' | 'layer' | 'artboard' | 'node'
-
-/** Normalise one field's untrusted value; return undefined to drop it. */
-export type DrawFieldHook = (value: unknown) => unknown
-
-const fieldHooks: Record<DrawFieldScope, Map<string, DrawFieldHook>> = {
-  doc: new Map(),
-  layer: new Map(),
-  artboard: new Map(),
-  node: new Map()
-}
-
-/**
- * Teach the normaliser a field a feature package adds -- from the package's
- * own file, without editing the model or this one.
- *
- * Without a hook an unknown field is still KEPT verbatim (forward
- * compatibility), but nothing vouches for its value; with one, every load
- * passes the value through `normalize` first, exactly as the built-in fields
- * are. A package that renders its field must register a hook for it. Built-in
- * fields cannot be overridden.
- */
-export function registerDrawField(scope: DrawFieldScope, key: string, normalize: DrawFieldHook): void {
-  fieldHooks[scope].set(key, normalize)
-}
-
-/** For tests: forget a hook. */
-export function unregisterDrawField(scope: DrawFieldScope, key: string): void {
-  fieldHooks[scope].delete(key)
-}
+// Packages register normalisers for fields they add (see fieldHooks.ts). Every
+// file in ./fields/ is loaded here, so those hooks are in place wherever a
+// drawing is normalised -- renderer, main process, tests -- without anyone
+// importing them by name.
+import.meta.glob('./fields/*.ts', { eager: true })
 
 /**
  * The keys of `o` that `known` does not list: hooked ones normalised by their
@@ -104,10 +81,9 @@ export function unregisterDrawField(scope: DrawFieldScope, key: string): void {
  */
 function extras(o: Raw, known: readonly string[], scope?: DrawFieldScope): Raw {
   const out: Raw = {}
-  const hooks = scope ? fieldHooks[scope] : undefined
   for (const k of Object.keys(o)) {
     if (known.includes(k)) continue
-    const hook = hooks?.get(k)
+    const hook = scope ? fieldHook(scope, k) : undefined
     if (!hook) {
       out[k] = o[k]
       continue

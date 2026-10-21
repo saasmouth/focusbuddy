@@ -1,5 +1,6 @@
 import Icon from '../../Icon'
-import { DRAW_BLEND_MODES, solid, type DrawBlend, type DrawObject, type DrawPaint, type DrawStroke, type DrawTextObject } from '@shared/draw'
+import { DRAW_BLEND_MODES, solid, type DrawBlend } from '@shared/draw'
+import type { DrawDocPaint as DrawPaint, DrawDocStroke as DrawStroke, DrawNode as DrawObject, DrawTextNode as DrawTextObject } from '@shared/draw/model'
 import type { BooleanOp } from '@shared/drawGeometry'
 import type { AlignEdge, ArrangeDir } from '@shared/drawOps'
 import { BRUSH_PRESETS, brushFromPreset, type BrushSettings } from './brushes'

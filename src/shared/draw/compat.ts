@@ -81,6 +81,16 @@ export function drawDocCompatibility(raw: unknown): DrawCompatibility {
   return { readOnly: reasons.length > 0, reasons, schemaVersion, minWriterVersion, unknownTypes, unknownCount }
 }
 
+/**
+ * Must a save of `incoming` be refused because it would overwrite `stored`?
+ * Yes when the stored drawing is one this build can only show and the
+ * incoming body is one it could have produced -- a downgrade. (The schema-2
+ * reader's twin of refusesDrawOverwrite in draw.ts.)
+ */
+export function refusesDrawDocOverwrite(stored: unknown, incoming: unknown): boolean {
+  return drawDocCompatibility(stored).readOnly && !drawDocCompatibility(incoming).readOnly
+}
+
 /** Opaque nodes back to the JSON they arrived as, anywhere in the tree. */
 function restoreOpaque<T>(nodes: T[]): T[] {
   let changed = false

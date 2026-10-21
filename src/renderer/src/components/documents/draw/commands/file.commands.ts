@@ -1,0 +1,96 @@
+// File menu: new, copy, presets, export, rename, history, trash.
+
+import { DRAW_SIZES, blankDrawBody } from '@shared/draw'
+import { openDocHistory } from '../../DocHistoryPanel'
+import { confirmDialog, promptText } from '../../../plexi/PromptDialog'
+import { useDocumentsStore } from '../../../../stores/documents'
+import { useViewStore } from '../../../../stores/view'
+import type { Command, EditorCtx, MenuSpec } from '../editor/types'
+
+const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
+
+function title(): string {
+  return useDocumentsStore.getState().active?.title ?? 'Untitled artwork'
+}
+
+export const menus: MenuSpec[] = [
+  { path: 'file', label: 'File', order: 10 },
+  { path: 'file/New from preset', label: 'New from preset', icon: 'aspect_ratio', order: 200 }
+]
+
+export const commands: Command[] = [
+  {
+    id: 'file.new',
+    label: 'New artwork',
+    icon: 'note_add',
+    menu: { path: 'file', order: 100 },
+    run: async () => {
+      const doc = await useDocumentsStore.getState().createBlank('draw')
+      useViewStore.getState().goDocument(doc.id)
+    }
+  },
+  {
+    id: 'file.copy',
+    label: 'Make a copy',
+    icon: 'file_copy',
+    menu: { path: 'file', order: 110 },
+    run: async () => {
+      const active = useDocumentsStore.getState().active
+      const copy = await window.api.documents.create({ docType: 'draw', title: `Copy of ${title()}`, body: active?.body })
+      useViewStore.getState().goDocument(copy.id)
+    }
+  },
+  ...DRAW_SIZES.map(
+    (s, i): Command => ({
+      id: `file.newPreset.${s.id}`,
+      label: `${s.label} — ${s.w}×${s.h}`,
+      menu: { path: 'file/New from preset', order: i },
+      run: async () => {
+        const doc = await window.api.documents.create({ docType: 'draw', title: s.label, body: blankDrawBody(s) })
+        useViewStore.getState().goDocument(doc.id)
+      }
+    })
+  ),
+  // Off when read-only: the file would leave out what a newer app added.
+  { id: 'file.exportPng', label: 'Export PNG…', icon: 'image', menu: { path: 'file', order: 300 }, enabled: writable, run: (ctx) => ctx.host.exportAs('png') },
+  { id: 'file.exportSvg', label: 'Export SVG…', icon: 'polyline', menu: { path: 'file', order: 310 }, enabled: writable, run: (ctx) => ctx.host.exportAs('svg') },
+  { id: 'file.exportPdf', label: 'Export PDF…', icon: 'picture_as_pdf', menu: { path: 'file', order: 320 }, enabled: writable, run: (ctx) => ctx.host.exportAs('pdf') },
+  {
+    id: 'file.rename',
+    label: 'Rename',
+    icon: 'edit',
+    menu: { path: 'file', order: 400 },
+    run: async () => {
+      const next = await promptText({ title: 'Rename artwork', initial: title(), confirmLabel: 'Rename' })
+      if (next != null && next.trim()) void useDocumentsStore.getState().rename(next.trim())
+    }
+  },
+  {
+    id: 'file.history',
+    label: 'Version history',
+    icon: 'history',
+    menu: { path: 'file', order: 410 },
+    run: () => {
+      const active = useDocumentsStore.getState().active
+      if (active) openDocHistory(active.id)
+    }
+  },
+  {
+    id: 'file.trash',
+    label: 'Move to trash',
+    icon: 'delete',
+    menu: { path: 'file', order: 420 },
+    run: async () => {
+      const active = useDocumentsStore.getState().active
+      if (!active) return
+      const ok = await confirmDialog({
+        title: `Move "${title()}" to trash?`,
+        body: 'You can restore it from the Documents trash.',
+        confirmLabel: 'Move to trash'
+      })
+      if (!ok) return
+      await useDocumentsStore.getState().remove(active.id)
+      useViewStore.getState().goDocuments()
+    }
+  }
+]

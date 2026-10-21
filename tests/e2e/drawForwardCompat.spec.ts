@@ -26,11 +26,13 @@ test.afterAll(async () => {
   await app.dispose()
 })
 
+// This build reads and writes schema 2, so a drawing from a NEWER PlexiiDraw
+// is schema 3, holding an object kind no build knows yet.
 function newerDoc(): Record<string, unknown> {
   return {
-    ...v1Body([rectObject('r1', 40, 40, 200, 120), { id: 'g1', type: 'group', clip: true, children: [rectObject('r2', 300, 300, 50, 50)] }]),
-    schemaVersion: 2,
-    minWriterVersion: 2
+    ...v1Body([rectObject('r1', 40, 40, 200, 120), { id: 'g1', type: 'hologram', depth: 3, children: [rectObject('r2', 300, 300, 50, 50)] }]),
+    schemaVersion: 3,
+    minWriterVersion: 3
   }
 }
 
@@ -56,7 +58,7 @@ test('FC-1 a newer drawing opens read-only with a banner, and nothing is saved o
   expect(after.body).toBe(before.body)
   expect(after.updatedAt).toBe(before.updatedAt)
   // And the newer object is still in the stored body, verbatim.
-  expect(after.body).toContain('"type":"group"')
+  expect(after.body).toContain('"type":"hologram"')
 })
 
 test('FC-2 an unknown object kind in a v1 drawing is kept, shown read-only, and the store refuses a downgrade', async () => {

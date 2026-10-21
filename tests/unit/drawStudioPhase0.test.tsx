@@ -97,15 +97,18 @@ async function key(k: string, init: KeyboardEventInit = {}): Promise<void> {
 }
 
 describe('read-only mode for a drawing made by a newer PlexiiDraw', () => {
+  // This build reads and writes schema 2 (the v2 model), so "newer" is schema
+  // 3 -- here holding an object kind no build knows yet.
   const newer = (): Record<string, unknown> =>
-    body([rect('a', 10), { id: 'g', type: 'group', children: [rect('inner', 200)] }], { schemaVersion: 2, minWriterVersion: 2 })
+    body([rect('a', 10), { id: 'g', type: 'hologram', children: [rect('inner', 200)] }], { schemaVersion: 3, minWriterVersion: 3 })
 
   it('shows the banner, says what is kept, and never calls onChange whatever you do', async () => {
     const onChange = vi.fn()
     await mount(newer(), onChange)
     const banner = host.querySelector('[data-testid="draw-readonly-banner"]')
     expect(banner?.textContent).toContain('Made in a newer PlexiiDraw — update to edit')
-    expect(banner?.textContent).toContain('1 object (group)')
+    expect(banner?.textContent).toContain('1 object (hologram)')
+    expect(banner?.textContent).toContain('newer file format (version 3)')
 
     // Select everything and try every edit the keyboard offers.
     await key('a', { metaKey: true })

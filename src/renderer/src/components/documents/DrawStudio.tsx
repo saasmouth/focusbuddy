@@ -1,105 +1,37 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import WidgetEmbed from './embed/WidgetEmbed'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useStore } from 'zustand'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import type { LiveUndo } from '../../lib/yjsKeyedJson'
-import Icon from '../Icon'
-import DrawStudioMenuBar from './editor/DrawStudioMenuBar'
-import DrawLayersPanel from './draw/DrawLayersPanel'
-import DrawInspector from './draw/DrawInspector'
-import * as raster from './draw/raster'
-import { fontShorthand, layoutText } from './draw/textMeasure'
-import { scrollToKeepPoint, wheelZoom } from './draw/viewport'
 import { loadGoogleFont, familyLabel } from '../../lib/googleFonts'
-import {
-  drawBodyForStorage,
-  drawCompatibility,
-  drawId,
-  drawToSvg,
-  frameBounds,
-  hitObject,
-  isDrawImageSrc,
-  normalizeDrawBody,
-  objectGradients,
-  objectBounds,
-  objectsBounds,
-  paintToCss,
-  rasterLayer,
-  selectableObjectIds,
-  shapePath,
-  solid,
-  svgPaint,
-  vectorLayer,
-  type DrawBlend,
-  type DrawBody,
-  type DrawCompatibility,
-  type DrawGradientDef,
-  type DrawObject,
-  type DrawWidgetObject,
-  type DrawPaint,
-  type DrawPathObject,
-  type DrawShapeKind,
-  type DrawStroke,
-  type DrawTextObject,
-  type DrawVectorLayer
-} from '@shared/draw'
-import {
-  addLayer,
-  addObject,
-  alignObjects,
-  arrange,
-  artboardResizeOffset,
-  booleanObjects,
-  deleteObjects,
-  distributeObjects,
-  duplicateLayer,
-  duplicateObjects,
-  editableIds,
-  getObject,
-  getObjects,
-  joinPaths,
-  mapObject,
-  mapObjects,
-  mergeVectorLayerDown,
-  moveLayer,
-  moveNode,
-  moveObjects,
-  patchLayer,
-  removeLayer,
-  reshape,
-  resizeArtboard,
-  reversePath,
-  scaleObjects,
-  setPathClosed,
-  targetLayerId,
-  type AlignEdge,
-  type ArrangeDir,
-  type ArtboardAnchor
-} from '@shared/drawOps'
-import {
-  fitPathToBox,
-  pathToSvgD,
-  rotateAbout,
-  simplifyPolyline,
-  smoothPathFromPoints,
-  transformPath,
-  type BooleanOp,
-  type Box,
-  type DrawNode,
-  type Pt
-} from '@shared/drawGeometry'
+import DrawStudioMenuBar from './editor/DrawStudioMenuBar'
+import { MenuModal } from './editor/menuBarKit'
+import * as raster from './draw/raster'
+import { scrollToKeepPoint, wheelZoom } from './draw/viewport'
+import { drawId } from '@shared/draw'
+import { assetSrc } from '@shared/draw/assets'
+import { docPaintToCss } from '@shared/draw/svg'
+import type { DrawWidgetNode } from '@shared/draw/model'
+import { addObject, primaryArtboard, targetLayerId } from '@shared/draw/ops'
+import { walkNodes } from '@shared/draw/tree'
+import { createDrawEditor, type DrawEditor } from './draw/editor/editor'
+import { createDomServices } from './draw/editor/domServices'
+import type { KeyInput, ToolPointer } from './draw/editor/types'
+import { dialogById } from './draw/dialogs/registry'
+import { drawPanels } from './draw/panels/registry'
+import { toolById } from './draw/tools/registry'
+import OptionsBar from './draw/render/OptionsBar'
+import Overlay from './draw/render/Overlay'
+import ReadOnlyBanner from './draw/render/ReadOnlyBanner'
+import ScratchView from './draw/render/ScratchView'
+import TextEditor from './draw/render/TextEditor'
+import Toolbox from './draw/render/Toolbox'
+import { VectorLayerView } from './draw/render/SceneView'
 
-// PlexiDraw — the vector + painting studio.
-//
-// One document, one layer stack, two halves. Vector layers carry editable bezier
-// objects (pen, shapes, type) with fills, strokes, gradients and pathfinder
-// booleans; raster layers carry pixels a brush, eraser and paint bucket work on
-// directly. Both obey the same visibility, lock, opacity and blend controls, and
-// both export together.
-//
-// The interaction model is a single pointer state machine (`dragRef`) rather than
-// a tool-per-handler tangle: every gesture starts in onPointerDown, is advanced
-// by onPointerMove and is committed once in onPointerUp. That is what makes
-// undo exactly one entry per gesture rather than one per mouse movement.
+// PlexiiDraw -- the vector + painting studio. This file is only the SHELL: it
+// mounts the editor (documents/draw/editor), wires real services into it
+// (canvases, the font engine, the scroll viewport, the host), and lays out
+// the toolbox, canvas, panels, menu bar and dialogs. Tools, commands, panels
+// and dialogs are registered by their own files -- see documents/draw/README.md.
 
 interface Props {
   content: unknown
@@ -116,248 +48,48 @@ interface Props {
   liveUndo?: LiveUndo
 }
 
-type Tool =
-  | 'select'
-  | 'node'
-  | 'pen'
-  | 'pencil'
-  | 'rect'
-  | 'roundRect'
-  | 'ellipse'
-  | 'polygon'
-  | 'star'
-  | 'line'
-  | 'text'
-  | 'brush'
-  | 'eraser'
-  | 'bucket'
-  | 'eyedropper'
-  | 'hand'
-
-const TOOLS: Array<{ id: Tool; icon: string; label: string; key: string; group: number }> = [
-  { id: 'select', icon: 'arrow_selector_tool', label: 'Select', key: 'V', group: 0 },
-  { id: 'node', icon: 'polyline', label: 'Edit points', key: 'A', group: 0 },
-  { id: 'pen', icon: 'draw', label: 'Pen', key: 'P', group: 1 },
-  { id: 'pencil', icon: 'gesture', label: 'Pencil', key: 'N', group: 1 },
-  { id: 'rect', icon: 'crop_square', label: 'Rectangle', key: 'R', group: 2 },
-  { id: 'roundRect', icon: 'rounded_corner', label: 'Rounded rectangle', key: 'D', group: 2 },
-  { id: 'ellipse', icon: 'circle', label: 'Ellipse', key: 'O', group: 2 },
-  { id: 'polygon', icon: 'hexagon', label: 'Polygon', key: 'U', group: 2 },
-  { id: 'star', icon: 'star', label: 'Star', key: 'S', group: 2 },
-  { id: 'line', icon: 'horizontal_rule', label: 'Line', key: 'L', group: 2 },
-  { id: 'text', icon: 'title', label: 'Type', key: 'T', group: 3 },
-  { id: 'brush', icon: 'brush', label: 'Brush', key: 'B', group: 4 },
-  { id: 'eraser', icon: 'ink_eraser', label: 'Eraser', key: 'E', group: 4 },
-  { id: 'bucket', icon: 'format_color_fill', label: 'Paint bucket', key: 'G', group: 4 },
-  { id: 'eyedropper', icon: 'colorize', label: 'Eyedropper', key: 'I', group: 4 },
-  { id: 'hand', icon: 'pan_tool', label: 'Pan', key: 'H', group: 5 }
-]
-
-const SHAPE_TOOLS: Record<string, DrawShapeKind> = {
-  rect: 'rect',
-  roundRect: 'roundRect',
-  ellipse: 'ellipse',
-  polygon: 'polygon',
-  star: 'star',
-  line: 'line'
-}
-
-const PAINT_TOOLS = new Set<Tool>(['brush', 'eraser', 'bucket'])
-
-type HandleId = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
-const HANDLES: HandleId[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
-
-type Drag =
-  | null
-  | { kind: 'marquee'; from: Pt; to: Pt; additive: boolean }
-  | { kind: 'move'; start: Pt; last: Pt; ids: string[]; moved: boolean }
-  | { kind: 'scale'; handle: HandleId; startBox: Box; curBox: Box; ids: string[] }
-  | { kind: 'rotate'; center: Pt; last: number; ids: string[] }
-  | { kind: 'shape'; shapeKind: DrawShapeKind; from: Pt; to: Pt }
-  | { kind: 'textBox'; from: Pt; to: Pt }
-  | { kind: 'pencil'; points: Pt[] }
-  | { kind: 'paint'; layerId: string; last: { x: number; y: number; pressure: number }; erase: boolean }
-  | { kind: 'node'; id: string; si: number; ni: number; part: 'anchor' | 'in' | 'out' }
-  | { kind: 'penDrag'; index: number }
-  | { kind: 'pan'; fromClient: Pt; scroll: { l: number; t: number } }
-
-interface Guide {
-  axis: 'x' | 'y'
-  at: number
+function keyInput(e: KeyboardEvent): KeyInput {
+  const el = e.target as HTMLElement | null
+  return {
+    key: e.key,
+    code: e.code,
+    metaKey: e.metaKey,
+    ctrlKey: e.ctrlKey,
+    shiftKey: e.shiftKey,
+    altKey: e.altKey,
+    inField: !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable),
+    preventDefault: () => e.preventDefault()
+  }
 }
 
 export default function DrawStudio({ content, title, onChange, foldExternal = false, liveUndo }: Props): JSX.Element {
-  const [body, setBody] = useState<DrawBody>(() => normalizeDrawBody(content))
-  const bodyRef = useRef(body)
-  bodyRef.current = body
-  // Made by a newer PlexiiDraw (or holding objects this build cannot draw)?
-  // Then this build shows it but must never write it back: its normaliser
-  // would quietly drop whatever the newer app added. Every path that edits the
-  // document runs through commit/replace/pushHistory, which all stop here, and
-  // nothing ever reaches onChange.
-  const compat = useMemo(() => drawCompatibility(content), [content])
-  const readOnly = compat.readOnly
-  const readOnlyRef = useRef(readOnly)
-  readOnlyRef.current = readOnly
-  /** Hand an edited body to the host for saving / co-editing. */
-  const emit = useCallback(
-    (next: DrawBody) => {
-      if (readOnlyRef.current) return
-      // Opaque objects go back out exactly as they came in (see DrawOpaqueObject).
-      onChange(drawBodyForStorage(next))
-    },
-    [onChange]
-  )
-  const [past, setPast] = useState<DrawBody[]>([])
-  const [future, setFuture] = useState<DrawBody[]>([])
-  const pastRef = useRef(past)
-  pastRef.current = past
-  const futureRef = useRef(future)
-  futureRef.current = future
-  const liveUndoRef = useRef(liveUndo)
-  liveUndoRef.current = liveUndo
-  // Re-render when the live stack changes, so Edit > Undo enables correctly.
-  const [, setLiveTick] = useState(0)
-  useEffect(() => (liveUndo ? liveUndo.subscribe(() => setLiveTick((t) => t + 1)) : undefined), [liveUndo])
-
-  const [tool, setTool] = useState<Tool>('select')
-  const toolRef = useRef(tool)
-  toolRef.current = tool
-  const [selection, setSelection] = useState<string[]>([])
-  const selectionRef = useRef(selection)
-  selectionRef.current = selection
-  const [zoom, setZoom] = useState(1)
-  const zoomRef = useRef(zoom)
-  zoomRef.current = zoom
-
-  const [fill, setFill] = useState<DrawPaint>(solid('#6d5dfc'))
-  const [stroke, setStroke] = useState<DrawStroke | undefined>(undefined)
-  const [brush, setBrush] = useState<raster.BrushSettings>(raster.DEFAULT_BRUSH)
-  const brushRef = useRef(brush)
-  brushRef.current = brush
-  const fillRef = useRef(fill)
-  fillRef.current = fill
-  const strokeRef = useRef(stroke)
-  strokeRef.current = stroke
-
-  const [drag, setDrag] = useState<Drag>(null)
-  const dragRef = useRef<Drag>(null)
-  const [penNodes, setPenNodes] = useState<DrawNode[] | null>(null)
-  const penRef = useRef<DrawNode[] | null>(null)
-  penRef.current = penNodes
-  const [cursorPt, setCursorPt] = useState<Pt | null>(null)
-  const [editingText, setEditingText] = useState<string | null>(null)
-  const [guides, setGuides] = useState<Guide[]>([])
-  const [status, setStatus] = useState<string | null>(null)
-  const [busy, setBusy] = useState<string | null>(null)
-  const [showGrid, setShowGrid] = useState(false)
-  const [snapOn, setSnapOn] = useState(true)
-  const snapRef = useRef(snapOn)
-  snapRef.current = snapOn
-  const [spaceDown, setSpaceDown] = useState(false)
-  const spaceRef = useRef(false)
-
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
-  const rasterRefs = useRef<Map<string, HTMLCanvasElement>>(new Map())
-  const loadedRaster = useRef<Map<string, string>>(new Map())
-  // The in-progress stroke lives here until pointer-up, then composites onto its
-  // layer in one pass at the stroke's own opacity.
-  const scratchRef = useRef<HTMLCanvasElement | null>(null)
-  const [scratchVisible, setScratchVisible] = useState(false)
+  const canvases = useRef<Map<string, HTMLCanvasElement>>(new Map())
+  const loaded = useRef<Map<string, string>>(new Map())
+  const scratch = useRef<HTMLCanvasElement | null>(null)
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+  const titleRef = useRef(title)
+  titleRef.current = title
+  const liveUndoRef = useRef(liveUndo)
+  liveUndoRef.current = liveUndo
 
-  // ── History ────────────────────────────────────────────────────────────────
+  // One editor per mounted studio. Services read through refs, so they always
+  // see the current DOM and props.
+  const editorRef = useRef<DrawEditor | null>(null)
+  if (!editorRef.current) {
+    const refs = { canvases: canvases.current, loaded: loaded.current, scratch, scroll: scrollRef, onChange: onChangeRef, title: titleRef, liveUndo: liveUndoRef }
+    editorRef.current = createDrawEditor(content, createDomServices(refs, () => editorRef.current!.store))
+  }
+  const editor = editorRef.current
+  const { ctx, store } = editor
+  const state = useStore(store)
+  const { doc, zoom, tool } = state
+  const board = primaryArtboard(doc)
 
-  const commit = useCallback(
-    (next: DrawBody) => {
-      if (readOnlyRef.current) return
-      const prev = bodyRef.current
-      if (next === prev) return
-      if (liveUndoRef.current) {
-        // Live: this change is its own step on the own-change stack.
-        liveUndoRef.current.checkpoint()
-      } else {
-        // `prev` is captured BEFORE the ref moves on. Reading bodyRef.current
-        // inside the updater would run after the reassignment below and push the
-        // NEW body onto the undo stack, which makes undo a no-op — the exact bug
-        // the e2e pathfinder test caught.
-        setPast((p) => [...p.slice(-79), prev])
-        setFuture([])
-      }
-      bodyRef.current = next
-      setBody(next)
-      emit(next)
-    },
-    [emit]
-  )
-
-  // A change that should NOT create an undo entry (a live drag preview committed
-  // on pointer-up already recorded its own "before").
-  const replace = useCallback(
-    (next: DrawBody) => {
-      if (readOnlyRef.current) return
-      bodyRef.current = next
-      setBody(next)
-      emit(next)
-    },
-    [emit]
-  )
-
-  /**
-   * Record the current body as an undo point without changing it. Used at the
-   * START of a gesture that will then stream its changes through `replace`, so
-   * the whole drag collapses into one undo entry.
-   */
-  const pushHistory = useCallback(() => {
-    if (readOnlyRef.current) return
-    if (liveUndoRef.current) {
-      // Live: everything streamed until the next checkpoint is one step.
-      liveUndoRef.current.checkpoint()
-      return
-    }
-    const prev = bodyRef.current
-    setPast((p) => [...p.slice(-79), prev])
-    setFuture([])
-  }, [])
-
-  const undo = useCallback(() => {
-    if (liveUndoRef.current) {
-      // Reverts only this person's last step; the result comes back through
-      // the co-editing fold like any other change to the shared document.
-      liveUndoRef.current.undo()
-      return
-    }
-    const p = pastRef.current
-    if (!p.length) return
-    const prev = p[p.length - 1]
-    setPast(p.slice(0, -1))
-    setFuture([bodyRef.current, ...futureRef.current.slice(0, 79)])
-    bodyRef.current = prev
-    setBody(prev)
-    emit(prev)
-    // The raster canvases must be repainted from the restored document, or the
-    // pixels on screen would still show the undone stroke.
-    loadedRaster.current.clear()
-  }, [emit])
-
-  const redo = useCallback(() => {
-    if (liveUndoRef.current) {
-      liveUndoRef.current.redo()
-      return
-    }
-    const f = futureRef.current
-    if (!f.length) return
-    const next = f[0]
-    setFuture(f.slice(1))
-    setPast([...pastRef.current.slice(-79), bodyRef.current])
-    bodyRef.current = next
-    setBody(next)
-    emit(next)
-    loadedRaster.current.clear()
-  }, [emit])
-
-  // Fold a peer's merge in live co-editing. Never pushed onto undo — another
-  // person's edit is not ours to take back.
+  // Fold a peer's merge (or an own-change undo coming back) in live co-editing.
+  // Never pushed onto undo -- another person's edit is not ours to take back.
   const firstFold = useRef(true)
   useEffect(() => {
     if (!foldExternal) return
@@ -365,909 +97,76 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
       firstFold.current = false
       return
     }
-    const next = normalizeDrawBody(content)
-    bodyRef.current = next
-    setBody(next)
-    loadedRaster.current.clear()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, foldExternal])
+    editor.fold(content)
+  }, [content, foldExternal, editor])
 
-  // ── Raster layer canvases ──────────────────────────────────────────────────
+  // Re-render when the live own-change stack changes, so Undo enables correctly.
+  useEffect(() => (liveUndo ? liveUndo.subscribe(() => store.setState((s) => ({ liveUndoTick: s.liveUndoTick + 1 }))) : undefined), [liveUndo, store])
+
+  // ── Paint layers ───────────────────────────────────────────────────────────
 
   /**
-   * A STABLE ref callback per layer id.
-   *
-   * An inline `ref={(el) => register(l.id, el)}` looks equivalent but is not:
-   * its identity changes every render, so React detaches (calling it with null)
-   * and reattaches on every single render. That left two real defects — a stroke
-   * started in that window found no canvas and silently did nothing, and the
-   * detach dropped the "these pixels are already loaded" marker, so the next
-   * render re-loaded the layer, clearing the canvas and racing an async image
-   * decode against the live stroke. Caching one callback per id means React
-   * attaches once, on mount, and detaches only on a real unmount.
+   * A STABLE ref callback per layer id. An inline ref would detach (null) and
+   * reattach on every render: a stroke started in that window found no canvas,
+   * and the detach dropped the "already loaded" marker, so the layer reloaded
+   * mid-stroke. One cached callback per id attaches once and detaches only on a
+   * real unmount.
    */
-  const rasterRefCallbacks = useRef<Map<string, (el: HTMLCanvasElement | null) => void>>(new Map())
-  const rasterRefFor = useCallback((id: string) => {
-    const cache = rasterRefCallbacks.current
-    let fn = cache.get(id)
+  const refCallbacks = useRef<Map<string, (el: HTMLCanvasElement | null) => void>>(new Map())
+  function rasterRefFor(id: string): (el: HTMLCanvasElement | null) => void {
+    let fn = refCallbacks.current.get(id)
     if (!fn) {
-      fn = (el: HTMLCanvasElement | null): void => {
-        if (el) {
-          rasterRefs.current.set(id, el)
-        } else {
-          rasterRefs.current.delete(id)
+      fn = (el): void => {
+        if (el) canvases.current.set(id, el)
+        else {
+          canvases.current.delete(id)
           // A genuinely unmounted canvas comes back blank, so the layer must be
           // re-loaded from its stored pixels when it remounts.
-          loadedRaster.current.delete(id)
-          cache.delete(id)
+          loaded.current.delete(id)
+          refCallbacks.current.delete(id)
         }
       }
-      cache.set(id, fn)
+      refCallbacks.current.set(id, fn)
     }
     return fn
-  }, [])
+  }
 
-  // Paint each raster layer's stored PNG into its canvas whenever the stored
-  // pixels change identity. The loadedRaster map is the guard that stops a
-  // re-render mid-stroke from wiping the live, uncommitted brush work.
+  // Paint each layer's stored pixels into its canvas whenever they change. The
+  // `loaded` map stops a re-render mid-stroke from wiping live brush work.
   useEffect(() => {
-    for (const layer of body.layers) {
+    for (const layer of doc.layers) {
       if (layer.kind !== 'raster') continue
-      const canvas = rasterRefs.current.get(layer.id)
+      const canvas = canvases.current.get(layer.id)
       if (!canvas) continue
-      if (loadedRaster.current.get(layer.id) === layer.src) continue
-      loadedRaster.current.set(layer.id, layer.src)
-      void raster.loadIntoCanvas(canvas, layer.src)
+      const src = assetSrc(doc.assets, layer.assetId) ?? ''
+      if (loaded.current.get(layer.id) === src) continue
+      loaded.current.set(layer.id, src)
+      void raster.loadIntoCanvas(canvas, src)
     }
-  }, [body])
-
-  /** Read a raster canvas back into the document — one undo entry per stroke. */
-  const commitRaster = useCallback(
-    (layerId: string) => {
-      const canvas = rasterRefs.current.get(layerId)
-      if (!canvas) return
-      const src = raster.canvasToDataUrl(canvas)
-      loadedRaster.current.set(layerId, src)
-      commit(patchLayer(bodyRef.current, layerId, { src } as never))
-    },
-    [commit]
-  )
+  }, [doc])
 
   // ── Fonts ──────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    for (const l of body.layers) {
+    for (const l of doc.layers) {
       if (l.kind !== 'vector') continue
-      for (const o of l.objects) if (o.type === 'text' && o.fontFamily) loadGoogleFont(familyLabel(o.fontFamily))
-    }
-  }, [body.layers])
-
-  /** Re-measure a text object's line breaks with the real font engine. */
-  const measureText = useCallback((o: DrawTextObject): DrawTextObject => {
-    const { lines } = layoutText({
-      text: o.text,
-      width: o.w,
-      font: fontShorthand(o),
-      letterSpacing: o.letterSpacing,
-      fontSize: o.fontSize,
-      lineHeight: o.lineHeight
-    })
-    return { ...o, lines }
-  }, [])
-
-  // ── Geometry helpers ───────────────────────────────────────────────────────
-
-  const docPt = useCallback((e: { clientX: number; clientY: number }): Pt => {
-    const r = stageRef.current?.getBoundingClientRect()
-    if (!r) return { x: 0, y: 0 }
-    return { x: (e.clientX - r.left) / zoomRef.current, y: (e.clientY - r.top) / zoomRef.current }
-  }, [])
-
-  const selectedObjects = useMemo(() => getObjects(body, selection), [body, selection])
-  const selBox: Box | null = selectedObjects.length ? objectsBounds(selectedObjects) : null
-
-  /**
-   * Snap a moving box's edges to the artboard's edges and centre and to the
-   * other objects' edges, returning the corrected delta plus the guides to draw.
-   */
-  const snapDelta = useCallback(
-    (box: Box, dx: number, dy: number, ignore: string[]): { dx: number; dy: number; guides: Guide[] } => {
-      if (!snapRef.current) return { dx, dy, guides: [] }
-      const b = bodyRef.current
-      const tol = 6 / zoomRef.current
-      const xs: number[] = [0, b.width / 2, b.width]
-      const ys: number[] = [0, b.height / 2, b.height]
-      for (const l of b.layers) {
-        if (l.kind !== 'vector' || !l.visible) continue
-        for (const o of l.objects) {
-          if (ignore.includes(o.id) || o.hidden) continue
-          const ob = objectBounds(o)
-          xs.push(ob.x, ob.x + ob.w / 2, ob.x + ob.w)
-          ys.push(ob.y, ob.y + ob.h / 2, ob.y + ob.h)
-        }
-      }
-      const g: Guide[] = []
-      let bestDx = dx
-      let bestDistX = tol
-      for (const edge of [box.x + dx, box.x + box.w / 2 + dx, box.x + box.w + dx]) {
-        for (const candidate of xs) {
-          const d = Math.abs(candidate - edge)
-          if (d < bestDistX) {
-            bestDistX = d
-            bestDx = dx + (candidate - edge)
-            g.push({ axis: 'x', at: candidate })
-          }
-        }
-      }
-      let bestDy = dy
-      let bestDistY = tol
-      for (const edge of [box.y + dy, box.y + box.h / 2 + dy, box.y + box.h + dy]) {
-        for (const candidate of ys) {
-          const d = Math.abs(candidate - edge)
-          if (d < bestDistY) {
-            bestDistY = d
-            bestDy = dy + (candidate - edge)
-            g.push({ axis: 'y', at: candidate })
-          }
-        }
-      }
-      return {
-        dx: bestDx,
-        dy: bestDy,
-        guides: g.filter((x) => (x.axis === 'x' ? bestDistX < tol : bestDistY < tol))
-      }
-    },
-    []
-  )
-
-  /** Topmost object under a point, honouring layer order and lock/visibility. */
-  const hitTest = useCallback((p: Pt): DrawObject | null => {
-    const b = bodyRef.current
-    for (let li = b.layers.length - 1; li >= 0; li--) {
-      const l = b.layers[li]
-      if (l.kind !== 'vector' || !l.visible || l.locked) continue
-      for (let oi = l.objects.length - 1; oi >= 0; oi--) {
-        const o = l.objects[oi]
-        if (o.hidden || o.locked) continue
-        // Rotation-aware: a turned text, image or work widget is hit where it
-        // is drawn, not where its unrotated frame would be.
-        if (hitObject(o, p, 4 / zoomRef.current)) return o
-      }
-    }
-    return null
-  }, [])
-
-  /** The scratch surface, sized to the artboard. Created once, reused per stroke. */
-  const ensureScratch = useCallback((): HTMLCanvasElement => {
-    const b = bodyRef.current
-    let c = scratchRef.current
-    if (!c || c.width !== b.width || c.height !== b.height) {
-      c = raster.createCanvas(b.width, b.height)
-      scratchRef.current = c
-    }
-    return c
-  }, [])
-
-  /**
-   * The paint layer to draw on, creating one if the document has none the tools
-   * can use. Returns null only when the active layer is a LOCKED paint layer,
-   * where silently making a second one would be the wrong answer.
-   */
-  const ensurePaintLayer = useCallback((): string | null => {
-    const b = bodyRef.current
-    const active = b.layers.find((l) => l.id === b.activeLayerId)
-    if (active && active.kind === 'raster') {
-      if (active.locked) {
-        setStatus('That paint layer is locked — unlock it to paint on it.')
-        return null
-      }
-      return active.id
-    }
-    // Prefer an unlocked paint layer that already exists over making another.
-    const existing = [...b.layers].reverse().find((l) => l.kind === 'raster' && !l.locked)
-    if (existing) {
-      replace({ ...b, activeLayerId: existing.id })
-      return existing.id
-    }
-    const layer = rasterLayer(`Paint ${b.layers.filter((l) => l.kind === 'raster').length + 1}`)
-    commit(addLayer(b, layer, b.activeLayerId))
-    return layer.id
-  }, [commit, replace])
-
-  const activeRasterLayerId = useCallback((): string | null => {
-    const b = bodyRef.current
-    const l = b.layers.find((x) => x.id === b.activeLayerId)
-    if (l && l.kind === 'raster' && !l.locked) return l.id
-    return null
-  }, [])
-
-  // ── Commands ───────────────────────────────────────────────────────────────
-
-  const deleteSelection = useCallback(() => {
-    const ids = editableIds(bodyRef.current, selectionRef.current)
-    if (!ids.length) return
-    commit(deleteObjects(bodyRef.current, ids))
-    setSelection([])
-  }, [commit])
-
-  const duplicateSelection = useCallback(() => {
-    const ids = editableIds(bodyRef.current, selectionRef.current)
-    if (!ids.length) return
-    const { body: next, newIds } = duplicateObjects(bodyRef.current, ids)
-    commit(next)
-    setSelection(newIds)
-  }, [commit])
-
-  const runBoolean = useCallback(
-    (op: BooleanOp) => {
-      const ids = editableIds(bodyRef.current, selectionRef.current)
-      const { body: next, newId } = booleanObjects(bodyRef.current, ids, op)
-      if (next === bodyRef.current) return
-      commit(next)
-      setSelection(newId ? [newId] : [])
-      if (!newId) setStatus('The subtraction removed the shape entirely.')
-    },
-    [commit]
-  )
-
-  const patchSelected = useCallback(
-    (fn: (o: DrawObject) => DrawObject) => {
-      const ids = editableIds(bodyRef.current, selectionRef.current)
-      if (!ids.length) return
-      commit(mapObjects(bodyRef.current, ids, fn))
-    },
-    [commit]
-  )
-
-  const applyFill = useCallback(
-    (paint: DrawPaint) => {
-      setFill(paint)
-      patchSelected((o) => (o.type === 'path' || o.type === 'text' ? { ...o, fill: paint } : o))
-    },
-    [patchSelected]
-  )
-
-  const applyStroke = useCallback(
-    (s: DrawStroke | undefined) => {
-      setStroke(s)
-      patchSelected((o) => (o.type === 'path' || o.type === 'text' ? (s ? { ...o, stroke: s } : { ...o, stroke: undefined }) : o))
-    },
-    [patchSelected]
-  )
-
-  const addLayerOfKind = useCallback(
-    (kind: 'vector' | 'raster') => {
-      const b = bodyRef.current
-      const layer = kind === 'vector' ? vectorLayer(`Layer ${b.layers.length + 1}`) : rasterLayer(`Paint ${b.layers.filter((l) => l.kind === 'raster').length + 1}`)
-      commit(addLayer(b, layer, b.activeLayerId))
-    },
-    [commit]
-  )
-
-  /** Turn a vector layer's shapes into pixels, so paint tools can work on them. */
-  const rasterizeLayer = useCallback(
-    async (layerId: string) => {
-      const b = bodyRef.current
-      const layer = b.layers.find((l) => l.id === layerId)
-      if (!layer || layer.kind !== 'vector') return
-      setBusy('Rasterizing…')
-      try {
-        const isolated: DrawBody = { ...b, background: { type: 'none' }, layers: [{ ...layer, opacity: 1, blend: 'normal' }] }
-        const canvas = await raster.svgToCanvas(drawToSvg(isolated), b.width, b.height)
-        const next = rasterLayer(layer.name)
-        next.src = raster.canvasToDataUrl(canvas)
-        next.opacity = layer.opacity
-        next.blend = layer.blend
-        next.visible = layer.visible
-        const withNew = addLayer(bodyRef.current, next, layerId)
-        commit(removeLayer(withNew, layerId))
-      } finally {
-        setBusy(null)
-      }
-    },
-    [commit]
-  )
-
-  /** Merge down: vectors fold directly; a raster pair is composited on a canvas. */
-  const mergeDown = useCallback(
-    async (layerId: string) => {
-      const b = bodyRef.current
-      const i = b.layers.findIndex((l) => l.id === layerId)
-      if (i <= 0) {
-        setStatus('The bottom layer has nothing below it to merge into.')
-        return
-      }
-      const upper = b.layers[i]
-      const lower = b.layers[i - 1]
-      if (upper.kind === 'vector' && lower.kind === 'vector') {
-        commit(mergeVectorLayerDown(b, layerId))
-        return
-      }
-      setBusy('Merging…')
-      try {
-        const render = async (layer: typeof upper): Promise<HTMLCanvasElement> => {
-          if (layer.kind === 'raster') {
-            const c = raster.createCanvas(b.width, b.height)
-            await raster.loadIntoCanvas(c, layer.src)
-            return c
-          }
-          return raster.svgToCanvas(drawToSvg({ ...b, background: { type: 'none' }, layers: [{ ...layer, opacity: 1, blend: 'normal' }] }), b.width, b.height)
-        }
-        const lowerCanvas = await render(lower)
-        const upperCanvas = await render(upper)
-        // The lower layer's own opacity/blend stay with the merged layer, so the
-        // picture is unchanged; only the upper layer is baked in.
-        raster.compositeOnto(lowerCanvas, upperCanvas, upper.opacity, upper.blend)
-        const merged = rasterLayer(lower.name)
-        merged.src = raster.canvasToDataUrl(lowerCanvas)
-        merged.opacity = lower.opacity
-        merged.blend = lower.blend
-        let next = addLayer(bodyRef.current, merged, lower.id)
-        next = removeLayer(next, upper.id)
-        next = removeLayer(next, lower.id)
-        commit(next)
-      } finally {
-        setBusy(null)
-      }
-    },
-    [commit]
-  )
-
-  /**
-   * Resize the artboard, pinned at `anchor`. Vector art moves by the anchor
-   * offset in the pure op; each paint layer's pixels are re-laid onto a canvas
-   * of the new size at 1:1 first, so nothing is stretched -- on screen or, after
-   * the next stroke, in the file. One undo entry for the whole change.
-   */
-  const resizeArtboardTo = useCallback(
-    async (w: number, h: number, anchor: ArtboardAnchor) => {
-      const b = bodyRef.current
-      if (readOnlyRef.current || (w === b.width && h === b.height)) return
-      const { dx, dy } = artboardResizeOffset({ w: b.width, h: b.height }, { w, h }, anchor)
-      const rasterSrc: Record<string, string> = {}
-      const painted = b.layers.filter((l) => l.kind === 'raster' && l.src)
-      if (painted.length) setBusy('Resizing…')
-      try {
-        for (const l of painted) {
-          if (l.kind !== 'raster') continue
-          rasterSrc[l.id] = await raster.reframeRaster(l.src, { w: b.width, h: b.height }, { w, h }, dx, dy)
-        }
-      } finally {
-        if (painted.length) setBusy(null)
-      }
-      // Built from the CURRENT body: anything committed while the pixels were
-      // being re-laid is kept.
-      commit(resizeArtboard(bodyRef.current, w, h, anchor, rasterSrc))
-    },
-    [commit]
-  )
-
-  // ── Pointer state machine ──────────────────────────────────────────────────
-
-  const setDragBoth = useCallback((d: Drag) => {
-    dragRef.current = d
-    setDrag(d)
-  }, [])
-
-  const finishPen = useCallback(
-    (close: boolean) => {
-      const nodes = penRef.current
-      setPenNodes(null)
-      if (!nodes || nodes.length < 2) return
-      const obj: DrawPathObject = {
-        id: drawId('obj'),
-        type: 'path',
-        shapeKind: 'pen',
-        path: { subpaths: [{ closed: close, nodes }] },
-        fill: close ? fillRef.current : { type: 'none' },
-        stroke: strokeRef.current ?? { paint: solid('#1c1917'), width: 2, cap: 'round', join: 'round' }
-      }
-      commit(addObject(bodyRef.current, obj, targetLayerId(bodyRef.current)))
-      setSelection([obj.id])
-    },
-    [commit]
-  )
-
-  function onPointerDown(e: React.PointerEvent): void {
-    if (e.button === 2) return
-    // The text box is a child of the stage, so its own clicks bubble here. They
-    // belong to the textarea: letting them through captured the pointer and
-    // started dragging the object, which made the box impossible to type in.
-    const target = e.target as HTMLElement | null
-    if (target && (target.tagName === 'TEXTAREA' || target.closest('[data-text-editing="1"]'))) return
-    const p = docPt(e)
-    const t = toolRef.current
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-
-    // Pan wins over every tool while space is held or the middle button is used.
-    if (t === 'hand' || spaceRef.current || e.button === 1) {
-      const sc = scrollRef.current
-      setDragBoth({ kind: 'pan', fromClient: { x: e.clientX, y: e.clientY }, scroll: { l: sc?.scrollLeft ?? 0, t: sc?.scrollTop ?? 0 } })
-      return
-    }
-
-    if (readOnlyRef.current) {
-      // Read-only: look, select and pan -- nothing that changes the artwork.
-      const hit = hitTest(p)
-      if (hit) {
-        setSelection(e.shiftKey ? [...new Set([...selectionRef.current, hit.id])] : [hit.id])
-        return
-      }
-      if (!e.shiftKey) setSelection([])
-      setDragBoth({ kind: 'marquee', from: p, to: p, additive: e.shiftKey })
-      return
-    }
-
-    if (t === 'eyedropper') {
-      pickColorAt(p)
-      return
-    }
-
-    if (PAINT_TOOLS.has(t)) {
-      // A paint tool with nowhere to paint used to do nothing but flash a status
-      // line that was easy to miss — which read, correctly, as "the brush is
-      // broken". It now creates the paint layer it needs and carries on.
-      let layerId = activeRasterLayerId()
-      if (!layerId) {
-        layerId = ensurePaintLayer()
-        if (!layerId) return
-        // The canvas for a layer created this instant has not mounted yet, so
-        // the stroke starts on the next gesture rather than being swallowed.
-        setStatus('Added a paint layer for you — draw away.')
-        return
-      }
-      const canvas = rasterRefs.current.get(layerId)
-      if (!canvas) {
-        setStatus('That paint layer is not ready yet — try the stroke again.')
-        return
-      }
-      if (t === 'bucket') {
-        if (raster.floodFill(canvas, p.x, p.y, currentSolidColor(), 0.12)) commitRaster(layerId)
-        else setStatus('That area is already this colour.')
-        return
-      }
-      // Strokes are built at full strength on a scratch canvas and composited
-      // once on pointer-up, so a half-opacity stroke is even rather than blotchy
-      // where its own stamps overlap.
-      const scratch = ensureScratch()
-      raster.clearCanvas(scratch)
-      const pressure = e.pressure > 0 ? e.pressure : 0.5
-      raster.paintDot(raster.context(scratch), { x: p.x, y: p.y, pressure }, brushRef.current)
-      setScratchVisible(true)
-      dragRef.current = { kind: 'paint', layerId, last: { x: p.x, y: p.y, pressure }, erase: t === 'eraser' }
-      return
-    }
-
-    if (t === 'pen') {
-      const nodes = penRef.current ?? []
-      // Clicking the first node closes the path.
-      if (nodes.length >= 2 && Math.hypot(nodes[0].x - p.x, nodes[0].y - p.y) < 8 / zoomRef.current) {
-        finishPen(true)
-        return
-      }
-      const next = [...nodes, { x: p.x, y: p.y }]
-      penRef.current = next
-      setPenNodes(next)
-      setDragBoth({ kind: 'penDrag', index: next.length - 1 })
-      return
-    }
-
-    if (t === 'pencil') {
-      setDragBoth({ kind: 'pencil', points: [p] })
-      return
-    }
-
-    if (t === 'text') {
-      // A click drops a default box; a drag sizes one. Both are what a type tool
-      // is expected to do.
-      setDragBoth({ kind: 'textBox', from: p, to: p })
-      return
-    }
-
-    const shapeKind = SHAPE_TOOLS[t]
-    if (shapeKind) {
-      setDragBoth({ kind: 'shape', shapeKind, from: p, to: p })
-      return
-    }
-
-    if (t === 'node') {
-      const hitNode = hitNodeAt(p)
-      if (hitNode) {
-        setDragBoth({ kind: 'node', ...hitNode })
-        return
-      }
-      const obj = hitTest(p)
-      setSelection(obj ? [obj.id] : [])
-      return
-    }
-
-    // Select tool.
-    const handle = selBox ? handleAt(p, selBox) : null
-    if (handle === 'rot' && selBox) {
-      setDragBoth({ kind: 'rotate', center: { x: selBox.x + selBox.w / 2, y: selBox.y + selBox.h / 2 }, last: angleTo({ x: selBox.x + selBox.w / 2, y: selBox.y + selBox.h / 2 }, p), ids: [...selectionRef.current] })
-      pushHistory()
-      return
-    }
-    if (handle && selBox) {
-      setDragBoth({ kind: 'scale', handle: handle as HandleId, startBox: selBox, curBox: selBox, ids: [...selectionRef.current] })
-      pushHistory()
-      return
-    }
-
-    const hit = hitTest(p)
-    if (hit) {
-      const additive = e.shiftKey
-      const ids = additive
-        ? selectionRef.current.includes(hit.id)
-          ? selectionRef.current.filter((i) => i !== hit.id)
-          : [...selectionRef.current, hit.id]
-        : selectionRef.current.includes(hit.id)
-          ? selectionRef.current
-          : [hit.id]
-      setSelection(ids)
-      selectionRef.current = ids
-      pushHistory()
-      setDragBoth({ kind: 'move', start: p, last: p, ids: editableIds(bodyRef.current, ids), moved: false })
-      return
-    }
-
-    if (!e.shiftKey) setSelection([])
-    setDragBoth({ kind: 'marquee', from: p, to: p, additive: e.shiftKey })
-  }
-
-  function onPointerMove(e: React.PointerEvent): void {
-    const p = docPt(e)
-    setCursorPt(p)
-    const d = dragRef.current
-    if (!d) return
-
-    if (d.kind === 'pan') {
-      const sc = scrollRef.current
-      if (sc) {
-        sc.scrollLeft = d.scroll.l - (e.clientX - d.fromClient.x)
-        sc.scrollTop = d.scroll.t - (e.clientY - d.fromClient.y)
-      }
-      return
-    }
-
-    if (d.kind === 'paint') {
-      const scratch = scratchRef.current
-      if (!scratch) return
-      const pressure = e.pressure > 0 ? e.pressure : 0.5
-      raster.paintSegment(raster.context(scratch), d.last, { x: p.x, y: p.y, pressure }, brushRef.current)
-      d.last = { x: p.x, y: p.y, pressure }
-      return
-    }
-
-    if (d.kind === 'marquee') {
-      setDragBoth({ ...d, to: p })
-      return
-    }
-
-    if (d.kind === 'shape') {
-      setDragBoth({ ...d, to: e.shiftKey ? squareOff(d.from, p) : p })
-      return
-    }
-
-    if (d.kind === 'textBox') {
-      setDragBoth({ ...d, to: p })
-      return
-    }
-
-    if (d.kind === 'pencil') {
-      setDragBoth({ ...d, points: [...d.points, p] })
-      return
-    }
-
-    if (d.kind === 'penDrag') {
-      const nodes = penRef.current
-      if (!nodes) return
-      const n = nodes[d.index]
-      // Dragging after placing a node pulls a symmetric pair of handles out of
-      // it, which is exactly how a bezier pen behaves everywhere.
-      const next = nodes.slice()
-      next[d.index] = { ...n, outX: p.x, outY: p.y, inX: 2 * n.x - p.x, inY: 2 * n.y - p.y }
-      penRef.current = next
-      setPenNodes(next)
-      return
-    }
-
-    if (d.kind === 'move') {
-      const objs = getObjects(bodyRef.current, d.ids)
-      if (!objs.length) return
-      const box = objectsBounds(objs)
-      let dx = p.x - d.last.x
-      let dy = p.y - d.last.y
-      if (e.shiftKey) {
-        // Constrain to the dominant axis, measured from the gesture's origin.
-        if (Math.abs(p.x - d.start.x) > Math.abs(p.y - d.start.y)) dy = d.start.y - d.last.y
-        else dx = d.start.x - d.last.x
-      }
-      const snapped = snapDelta(box, dx, dy, d.ids)
-      setGuides(snapped.guides)
-      replace(moveObjects(bodyRef.current, d.ids, snapped.dx, snapped.dy))
-      dragRef.current = { ...d, last: { x: d.last.x + snapped.dx, y: d.last.y + snapped.dy }, moved: true }
-      return
-    }
-
-    if (d.kind === 'scale') {
-      const next = resizeBox(d.startBox, d.handle, p, e.shiftKey, e.altKey)
-      replace(scaleObjects(bodyRef.current, d.ids, d.curBox, next))
-      dragRef.current = { ...d, curBox: next }
-      setDrag({ ...d, curBox: next })
-      return
-    }
-
-    if (d.kind === 'rotate') {
-      const a = angleTo(d.center, p)
-      let delta = a - d.last
-      if (e.shiftKey) delta = Math.round(delta / 15) * 15
-      if (Math.abs(delta) < 0.01) return
-      const m = rotateAbout(d.center.x, d.center.y, delta)
-      replace(
-        mapObjects(bodyRef.current, d.ids, (o) => {
-          if (o.type === 'path') return { ...o, path: transformPath(o.path, m) }
-          if (o.type === 'opaque') return o
-          return { ...o, rotation: (o.rotation ?? 0) + delta }
-        })
-      )
-      dragRef.current = { ...d, last: d.last + delta }
-      return
-    }
-
-    if (d.kind === 'node') {
-      // Alt breaks the handle pair. Editing a live shape's node detaches it
-      // into a plain path (see moveNode), so a later Corner or Points change
-      // cannot regenerate the outline and throw this edit away.
-      replace(moveNode(bodyRef.current, d.id, d.si, d.ni, d.part, p, e.altKey))
-    }
-  }
-
-  function onPointerUp(e: React.PointerEvent): void {
-    const d = dragRef.current
-    setGuides([])
-    if (!d) return
-    const p = docPt(e)
-
-    if (d.kind === 'paint') {
-      const scratch = scratchRef.current
-      const canvas = rasterRefs.current.get(d.layerId)
-      if (scratch && canvas) {
-        raster.compositeStroke(canvas, scratch, brushRef.current.opacity, brushRef.current.blend, d.erase)
-        raster.clearCanvas(scratch)
-        commitRaster(d.layerId)
-      }
-      setScratchVisible(false)
-    } else if (d.kind === 'marquee') {
-      const box = normBox(d.from, d.to)
-      if (box.w > 2 / zoom || box.h > 2 / zoom) {
-        const hits: string[] = []
-        for (const l of bodyRef.current.layers) {
-          if (l.kind !== 'vector' || !l.visible || l.locked) continue
-          for (const o of l.objects) {
-            if (o.hidden || o.locked) continue
-            const ob = objectBounds(o)
-            if (ob.x < box.x + box.w && ob.x + ob.w > box.x && ob.y < box.y + box.h && ob.y + ob.h > box.y) hits.push(o.id)
-          }
-        }
-        setSelection(d.additive ? [...new Set([...selectionRef.current, ...hits])] : hits)
-      }
-    } else if (d.kind === 'shape') {
-      const box = normBox(d.from, d.to)
-      const isLine = d.shapeKind === 'line'
-      if (box.w > 1 || box.h > 1) {
-        const path = isLine ? shapePath('line', { x: d.from.x, y: d.from.y, w: d.to.x - d.from.x, h: d.to.y - d.from.y }) : fitPathToBox(shapePath(d.shapeKind, box), box)
-        const obj: DrawPathObject = {
-          id: drawId('obj'),
-          type: 'path',
-          shapeKind: d.shapeKind,
-          path,
-          fill: isLine ? { type: 'none' } : fillRef.current,
-          stroke: isLine ? strokeRef.current ?? { paint: solid('#1c1917'), width: 2, cap: 'round' } : strokeRef.current,
-          ...(d.shapeKind === 'roundRect' ? { cornerRadius: Math.min(box.w, box.h) * 0.15 } : {}),
-          ...(d.shapeKind === 'polygon' ? { sides: 6 } : {}),
-          ...(d.shapeKind === 'star' ? { sides: 5, innerRatio: 0.5 } : {})
-        }
-        commit(addObject(bodyRef.current, obj, targetLayerId(bodyRef.current)))
-        setSelection([obj.id])
-        setTool('select')
-      }
-    } else if (d.kind === 'textBox') {
-      const box = normBox(d.from, d.to)
-      const wide = box.w > 8
-      const size = wide ? Math.max(8, Math.min(200, box.h > 12 ? box.h * 0.5 : 48)) : 48
-      const obj = measureText({
-        id: drawId('obj'),
-        type: 'text',
-        x: wide ? box.x : d.from.x,
-        y: wide ? box.y : d.from.y,
-        w: wide ? box.w : Math.min(320, Math.max(80, bodyRef.current.width - d.from.x - 8)),
-        text: '',
-        fontSize: size,
-        fill: fillRef.current.type === 'none' ? solid('#1c1917') : fillRef.current
+      walkNodes(l.objects, (o) => {
+        if (o.type === 'text' && o.fontFamily) loadGoogleFont(familyLabel(o.fontFamily))
       })
-      commit(addObject(bodyRef.current, obj, targetLayerId(bodyRef.current)))
-      setSelection([obj.id])
-      setEditingText(obj.id)
-      setTool('select')
-    } else if (d.kind === 'pencil') {
-      const pts = simplifyPolyline(d.points, 1.6 / zoom)
-      if (pts.length >= 2) {
-        const obj: DrawPathObject = {
-          id: drawId('obj'),
-          type: 'path',
-          shapeKind: 'pencil',
-          path: smoothPathFromPoints(pts, false),
-          fill: { type: 'none' },
-          stroke: strokeRef.current ?? { paint: solid(currentSolidColor()), width: 2, cap: 'round', join: 'round' }
-        }
-        commit(addObject(bodyRef.current, obj, targetLayerId(bodyRef.current)))
-        setSelection([obj.id])
-      }
-    } else if (d.kind === 'penDrag') {
-      // Nothing to commit: the node is already in the draft path.
-    } else if (d.kind === 'move' && !d.moved) {
-      // The gesture recorded an undo point on pointer-down but changed nothing,
-      // so drop it rather than leaving a no-op step in the history.
-      setPast((prev) => prev.slice(0, -1))
-      // A click with no movement collapses a multi-selection to the item clicked.
-      const hit = hitTest(p)
-      if (hit && !e.shiftKey && selectionRef.current.length > 1) setSelection([hit.id])
-      if (hit && hit.type === 'text' && e.detail >= 2 && !readOnlyRef.current) setEditingText(hit.id)
     }
-
-    setDragBoth(null)
-  }
-
-  function pickColorAt(p: Pt): void {
-    const b = bodyRef.current
-    // Prefer a vector object under the cursor; fall back to the painted pixels.
-    const obj = hitTest(p)
-    if (obj && (obj.type === 'path' || obj.type === 'text') && obj.fill.type === 'solid') {
-      setFill(solid(obj.fill.color))
-      setBrush((s) => ({ ...s, color: obj.fill.type === 'solid' ? obj.fill.color : s.color }))
-      setStatus(`Picked ${obj.fill.color}`)
-      return
-    }
-    for (let i = b.layers.length - 1; i >= 0; i--) {
-      const l = b.layers[i]
-      if (l.kind !== 'raster' || !l.visible) continue
-      const canvas = rasterRefs.current.get(l.id)
-      if (!canvas) continue
-      const hex = raster.samplePixel(canvas, p.x, p.y)
-      if (hex) {
-        setFill(solid(hex))
-        setBrush((s) => ({ ...s, color: hex }))
-        setStatus(`Picked ${hex}`)
-        return
-      }
-    }
-    setStatus('Nothing to pick there — that spot is empty.')
-  }
-
-  function currentSolidColor(): string {
-    const f = fillRef.current
-    if (f.type === 'solid') return f.color
-    if (f.type === 'linear' || f.type === 'radial') return f.stops[0].color
-    return brushRef.current.color
-  }
-
-  /** Which selection handle, if any, is under a point. */
-  function handleAt(p: Pt, box: Box): HandleId | 'rot' | null {
-    const r = 7 / zoom
-    const rotY = box.y - 22 / zoom
-    if (Math.hypot(p.x - (box.x + box.w / 2), p.y - rotY) <= r) return 'rot'
-    for (const h of HANDLES) {
-      const hp = handlePoint(box, h)
-      if (Math.abs(p.x - hp.x) <= r && Math.abs(p.y - hp.y) <= r) return h
-    }
-    return null
-  }
-
-  /** Which path node or bezier handle, if any, is under a point. */
-  function hitNodeAt(p: Pt): { id: string; si: number; ni: number; part: 'anchor' | 'in' | 'out' } | null {
-    const r = 7 / zoom
-    for (const id of selectionRef.current) {
-      const o = getObject(bodyRef.current, id)
-      if (!o || o.type !== 'path') continue
-      for (let si = 0; si < o.path.subpaths.length; si++) {
-        const sp = o.path.subpaths[si]
-        for (let ni = 0; ni < sp.nodes.length; ni++) {
-          const n = sp.nodes[ni]
-          if (n.outX != null && Math.hypot(p.x - n.outX, p.y - (n.outY ?? 0)) <= r) return { id, si, ni, part: 'out' }
-          if (n.inX != null && Math.hypot(p.x - n.inX, p.y - (n.inY ?? 0)) <= r) return { id, si, ni, part: 'in' }
-          if (Math.hypot(p.x - n.x, p.y - n.y) <= r) return { id, si, ni, part: 'anchor' }
-        }
-      }
-    }
-    return null
-  }
+  }, [doc.layers])
 
   // ── Keyboard ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    function editingField(t: EventTarget | null): boolean {
-      const el = t as HTMLElement | null
-      return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
-    }
     function onKeyDown(e: KeyboardEvent): void {
-      const mod = e.metaKey || e.ctrlKey
-      if (e.code === 'Space' && !editingField(e.target)) {
-        spaceRef.current = true
-        setSpaceDown(true)
-        e.preventDefault()
-        return
-      }
-      if (editingField(e.target)) {
-        if (e.key === 'Escape') (e.target as HTMLElement).blur()
-        return
-      }
-      const key = e.key.toLowerCase()
-      if (readOnlyRef.current) {
-        // Read-only: selection, Escape and the two tools that cannot edit.
-        if (mod && key === 'a') {
-          e.preventDefault()
-          setSelection(selectableObjectIds(bodyRef.current))
-        } else if (!mod && e.key === 'Escape') setSelection([])
-        else if (!mod && (key === 'v' || key === 'h')) setTool(key === 'v' ? 'select' : 'hand')
-        return
-      }
-      if (mod && key === 'z') {
-        e.preventDefault()
-        if (e.shiftKey) redo()
-        else undo()
-        return
-      }
-      if (mod && key === 'y') {
-        e.preventDefault()
-        redo()
-        return
-      }
-      if (mod && key === 'd') {
-        e.preventDefault()
-        duplicateSelection()
-        return
-      }
-      if (mod && key === 'a') {
-        e.preventDefault()
-        setSelection(selectableObjectIds(bodyRef.current))
-        return
-      }
-      if (mod) return
-      if (e.key === 'Escape') {
-        if (penRef.current) finishPen(false)
-        else setSelection([])
-        return
-      }
-      if (e.key === 'Enter' && penRef.current) {
-        finishPen(false)
-        return
-      }
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault()
-        deleteSelection()
-        return
-      }
-      if (e.key === '[' || e.key === ']') {
-        setBrush((b) => ({ ...b, size: Math.max(1, Math.min(400, b.size + (e.key === ']' ? Math.max(1, b.size * 0.15) : -Math.max(1, b.size * 0.15)))) }))
-        return
-      }
-      if (e.key.startsWith('Arrow') && selectionRef.current.length) {
-        e.preventDefault()
-        const step = e.shiftKey ? 10 : 1
-        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
-        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
-        commit(moveObjects(bodyRef.current, editableIds(bodyRef.current, selectionRef.current), dx, dy))
-        return
-      }
-      const match = TOOLS.find((t) => t.key.toLowerCase() === key)
-      if (match) setTool(match.id)
+      const k = keyInput(e)
+      // Escape leaves a field (the text box, an inspector input).
+      if (k.inField && e.code !== 'Space' && e.key === 'Escape') (e.target as HTMLElement).blur()
+      editor.keyDown(k)
     }
     function onKeyUp(e: KeyboardEvent): void {
-      if (e.code === 'Space') {
-        spaceRef.current = false
-        setSpaceDown(false)
-      }
+      editor.keyUp(e)
     }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
@@ -1275,13 +174,13 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
     }
-  }, [undo, redo, duplicateSelection, deleteSelection, finishPen, commit])
+  }, [editor])
 
-  // Cmd/Ctrl + wheel zooms about the pointer, like every canvas app. The
-  // artboard point under the pointer is remembered before the zoom and the
-  // view is scrolled after layout so that same point is under the pointer
-  // again. (It used to scale the zoom only, so the drawing slid away from the
-  // cursor towards the top-left on every notch.)
+  // ── Zoom ───────────────────────────────────────────────────────────────────
+
+  // Cmd/Ctrl + wheel zooms about the pointer: the artboard point under it is
+  // remembered before the zoom and the view is scrolled after layout so the
+  // same point is under the pointer again.
   const zoomAnchor = useRef<{ docX: number; docY: number; clientX: number; clientY: number } | null>(null)
   useEffect(() => {
     const el = scrollRef.current
@@ -1291,14 +190,14 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
       e.preventDefault()
       const r = stageRef.current?.getBoundingClientRect()
       if (r) {
-        const z = zoomRef.current
+        const z = store.getState().zoom
         zoomAnchor.current = { docX: (e.clientX - r.left) / z, docY: (e.clientY - r.top) / z, clientX: e.clientX, clientY: e.clientY }
       }
-      setZoom((z) => wheelZoom(z, e.deltaY))
+      store.setState((s) => ({ zoom: wheelZoom(s.zoom, e.deltaY) }))
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [])
+  }, [store])
   useLayoutEffect(() => {
     const a = zoomAnchor.current
     zoomAnchor.current = null
@@ -1312,59 +211,54 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
 
   // Fit the artboard on first paint so a 4K canvas is not opened at 1:1.
   const fitted = useRef(false)
-  const fitToWindow = useCallback(() => {
-    const el = scrollRef.current
-    if (!el) return
-    const z = Math.min((el.clientWidth - 48) / bodyRef.current.width, (el.clientHeight - 48) / bodyRef.current.height)
-    setZoom(Math.max(0.05, Math.min(4, z)))
-  }, [])
   useEffect(() => {
     if (fitted.current) return
     fitted.current = true
-    fitToWindow()
-  }, [fitToWindow])
+    ctx.viewport.fit()
+  }, [ctx])
 
-  // ── Export ─────────────────────────────────────────────────────────────────
+  // ── Pointer ────────────────────────────────────────────────────────────────
 
-  const exportAs = useCallback(
-    async (format: 'png' | 'svg' | 'pdf') => {
-      // A drawing this build cannot fully show cannot be honestly exported: the
-      // file would silently leave out what the newer app added.
-      if (readOnlyRef.current) {
-        setStatus('This artwork was made in a newer PlexiiDraw — update to export it.')
-        return
-      }
-      setBusy(`Exporting ${format.toUpperCase()}…`)
-      try {
-        const res = await window.api.draw.export({ draw: bodyRef.current, title: title || 'drawing', format })
-        if (res.ok && res.path) setStatus(`Saved to ${res.path}`)
-        else if (res.error) setStatus(res.error)
-      } finally {
-        setBusy(null)
-      }
-    },
-    [title]
-  )
+  function toolPointer(e: React.PointerEvent | React.MouseEvent): ToolPointer {
+    const r = stageRef.current?.getBoundingClientRect()
+    const z = store.getState().zoom
+    const b = primaryArtboard(store.getState().doc)
+    const p = r ? { x: (e.clientX - r.left) / z + b.x, y: (e.clientY - r.top) / z + b.y } : { x: 0, y: 0 }
+    const pe = e as React.PointerEvent
+    return {
+      p,
+      clientX: e.clientX,
+      clientY: e.clientY,
+      button: e.button,
+      shiftKey: e.shiftKey,
+      altKey: e.altKey,
+      metaKey: e.metaKey,
+      ctrlKey: e.ctrlKey,
+      pressure: typeof pe.pressure === 'number' ? pe.pressure : 0,
+      detail: e.detail
+    }
+  }
+
+  function onPointerDown(e: React.PointerEvent): void {
+    if (e.button === 2) return
+    // The text box is a child of the stage, so its own clicks bubble here. They
+    // belong to the textarea: capturing the pointer would start dragging the
+    // object and make the box impossible to type in.
+    const target = e.target as HTMLElement | null
+    if (target && (target.tagName === 'TEXTAREA' || target.closest('[data-text-editing="1"]'))) return
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    editor.pointerDown(toolPointer(e))
+  }
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  const W = body.width
-  const H = body.height
-  const stageW = W * zoom
-  const stageH = H * zoom
-  const editing = editingText ? getObject(body, editingText) : null
-  const editingObj = editing && editing.type === 'text' ? editing : null
-
-  const cursor =
-    tool === 'hand' || spaceDown
-      ? 'grab'
-      : tool === 'text'
-        ? 'text'
-        : tool === 'eyedropper'
-          ? 'crosshair'
-          : PAINT_TOOLS.has(tool) || tool === 'pen' || tool === 'pencil' || SHAPE_TOOLS[tool]
-            ? 'crosshair'
-            : 'default'
+  const stageW = board.w * zoom
+  const stageH = board.h * zoom
+  const cursor = tool === 'hand' || state.spaceDown ? 'grab' : (toolById(tool)?.cursor ?? 'default')
+  const panels = useMemo(() => drawPanels(), [])
+  const dialog = state.dialog ? dialogById(state.dialog.id) : undefined
+  const closeDialog = (): void => store.setState({ dialog: null })
+  const bgNone = board.background.type === 'none'
 
   return (
     <div
@@ -1382,154 +276,41 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
           if (!widgetId) return
           // Placed like any other object, on the active layer, so it moves,
           // scales, reorders and deletes with the rest of the drawing.
-          const b = bodyRef.current
-          const obj: DrawWidgetObject = {
+          const d = ctx.doc()
+          const b = primaryArtboard(d)
+          const obj: DrawWidgetNode = {
             id: drawId('obj'),
             type: 'widget',
             widgetId,
-            x: Math.round(b.width * 0.25),
-            y: Math.round(b.height * 0.25),
-            w: Math.round(b.width * 0.4),
-            h: Math.round(b.width * 0.28)
+            x: Math.round(b.w * 0.25),
+            y: Math.round(b.h * 0.25),
+            w: Math.round(b.w * 0.4),
+            h: Math.round(b.w * 0.28)
           }
-          commit(addObject(b, obj, targetLayerId(b)))
-          setSelection([obj.id])
+          ctx.history.commit(addObject(d, obj, targetLayerId(d)), 'Place work widget')
+          ctx.select([obj.id])
         })
       }}
     >
-      <DrawStudioMenuBar
-        actions={{
-          undo,
-          redo,
-          canUndo: liveUndo ? liveUndo.canUndo() : past.length > 0,
-          canRedo: liveUndo ? liveUndo.canRedo() : future.length > 0,
-          exportAs,
-          // The same rule as ⌘A: nothing hidden or locked. This used to take
-          // every object, so a locked one could then be moved by Align.
-          selectAll: () => setSelection(selectableObjectIds(bodyRef.current)),
-          deleteSelection,
-          duplicateSelection,
-          boolean: runBoolean,
-          arrange: (d: ArrangeDir) => commit(arrange(bodyRef.current, selectionRef.current, d)),
-          align: (edge: AlignEdge) => commit(alignObjects(bodyRef.current, selectionRef.current, edge)),
-          addLayer: addLayerOfKind,
-          fitToWindow,
-          setZoom,
-          zoom,
-          showGrid,
-          setShowGrid,
-          snapOn,
-          setSnapOn,
-          resize: (w: number, h: number, anchor: ArtboardAnchor = 'nw') => void resizeArtboardTo(w, h, anchor),
-          readOnly,
-          setBackground: (p: DrawPaint) => commit({ ...bodyRef.current, background: p }),
-          background: body.background,
-          width: W,
-          height: H,
-          hasSelection: selection.length > 0
-        }}
-      />
+      <DrawStudioMenuBar ctx={ctx} />
 
-      {readOnly && <ReadOnlyBanner compat={compat} />}
+      {state.readOnly && <ReadOnlyBanner compat={state.compat} />}
 
-      {/* Tool options strip */}
-      <div className="shrink-0 flex items-center gap-2 px-2 py-1 border-b border-[var(--edge-soft)] bg-[color-mix(in_oklab,var(--surface-sunken)_50%,transparent)]">
-        <span className="text-[11px] text-[var(--ink-50)] w-24 truncate">{TOOLS.find((t) => t.id === tool)?.label}</span>
-        <button onClick={() => setZoom((z) => Math.max(0.05, z / 1.25))} title="Zoom out" className="icon-btn !h-6 !w-6">
-          <Icon name="zoom_out" size={15} />
-        </button>
-        <span className="fb-tabular text-[11px] w-12 text-center text-[var(--ink-60)]" data-testid="draw-zoom">
-          {Math.round(zoom * 100)}%
-        </span>
-        <button onClick={() => setZoom((z) => Math.min(16, z * 1.25))} title="Zoom in" className="icon-btn !h-6 !w-6">
-          <Icon name="zoom_in" size={15} />
-        </button>
-        <button onClick={fitToWindow} title="Fit to window" className="icon-btn !h-6 !w-6">
-          <Icon name="fit_screen" size={15} />
-        </button>
-        <div className="w-px h-4 bg-[var(--edge-soft)]" />
-        <button
-          onClick={() => setShowGrid((v) => !v)}
-          title="Show grid"
-          className={`icon-btn !h-6 !w-6 ${showGrid ? 'bg-accent/15 text-accent' : ''}`}
-        >
-          <Icon name="grid_4x4" size={15} />
-        </button>
-        <button
-          onClick={() => setSnapOn((v) => !v)}
-          title="Snap to edges and centres"
-          data-testid="draw-snap-toggle"
-          className={`icon-btn !h-6 !w-6 ${snapOn ? 'bg-accent/15 text-accent' : ''}`}
-        >
-          <Icon name="straighten" size={15} />
-        </button>
-        <div className="flex-1" />
-        <span className="fb-tabular text-[11px] text-[var(--ink-40)]">
-          {W} × {H}
-        </span>
-        {(busy || status) && (
-          <span className="text-[11px] text-[var(--ink-50)] inline-flex items-center gap-1 max-w-[320px] truncate" data-testid="draw-status">
-            {busy && <Icon name="autorenew" size={12} className="animate-spin" />}
-            {busy ?? status}
-            {status && !busy && (
-              <button onClick={() => setStatus(null)} className="text-[var(--ink-40)] hover:text-[var(--ink-70)]">
-                <Icon name="close" size={11} />
-              </button>
-            )}
-          </span>
-        )}
-      </div>
+      <OptionsBar ctx={ctx} />
 
       <div className="flex-1 min-h-0 flex">
-        {/* Tool box */}
-        <div className="shrink-0 w-10 border-r border-[var(--edge-soft)] py-1 overflow-y-auto" data-testid="draw-toolbox">
-          {TOOLS.map((t, i) => (
-            <div key={t.id}>
-              {i > 0 && TOOLS[i - 1].group !== t.group && <div className="my-1 mx-2 h-px bg-[var(--edge-soft)]" />}
-              <button
-                onClick={() => setTool(t.id)}
-                title={readOnly && t.id !== 'select' && t.id !== 'hand' ? `${t.label} — not available: this artwork is read-only` : `${t.label} (${t.key})`}
-                aria-label={t.label}
-                aria-pressed={tool === t.id}
-                disabled={readOnly && t.id !== 'select' && t.id !== 'hand'}
-                data-testid={`draw-tool-${t.id}`}
-                className={`w-8 h-8 mx-1 rounded flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed ${
-                  tool === t.id ? 'bg-accent/15 text-accent' : 'text-[var(--ink-60)] hover:bg-[var(--surface-sunken)]'
-                }`}
-              >
-                <Icon name={t.icon} size={17} />
-              </button>
-            </div>
-          ))}
-          <div className="my-1 mx-2 h-px bg-[var(--edge-soft)]" />
-          <div className="mx-1 mt-1 flex flex-col items-center gap-1">
-            <div
-              className="w-6 h-6 rounded border border-[var(--edge-firm)]"
-              style={{ background: paintToCss(fill) }}
-              title="Current fill"
-              data-testid="draw-current-fill"
-            />
-            <div
-              className="w-6 h-6 rounded border-2"
-              style={{ borderColor: stroke ? paintToCss(stroke.paint) : 'var(--edge-firm)' }}
-              title="Current stroke"
-              data-testid="draw-current-stroke"
-            />
-          </div>
-        </div>
+        <Toolbox ctx={ctx} />
 
         {/* Canvas */}
         <div ref={scrollRef} className="flex-1 min-w-0 overflow-auto bg-stone-200/60 dark:bg-black/40 p-6" data-testid="draw-canvas-scroll">
           <div
             ref={stageRef}
             onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-            onPointerLeave={() => setCursorPt(null)}
-            onDoubleClick={() => {
-              if (penRef.current) finishPen(false)
-            }}
+            onPointerMove={(e) => editor.pointerMove(toolPointer(e))}
+            onPointerUp={(e) => editor.pointerUp(toolPointer(e))}
+            onPointerCancel={(e) => editor.pointerUp(toolPointer(e))}
+            onPointerLeave={() => editor.pointerLeave()}
+            onDoubleClick={() => editor.doubleClick()}
             onContextMenu={(e) => e.stopPropagation()}
             data-testid="draw-stage"
             className="relative mx-auto touch-none select-none shadow-lg"
@@ -1539,654 +320,76 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
               cursor,
               // A checkerboard shows through a transparent artboard, so "no
               // background" reads as genuinely transparent rather than white.
-              backgroundImage:
-                body.background.type === 'none'
-                  ? 'linear-gradient(45deg,#d6d3d1 25%,transparent 25%),linear-gradient(-45deg,#d6d3d1 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d6d3d1 75%),linear-gradient(-45deg,transparent 75%,#d6d3d1 75%)'
-                  : undefined,
-              backgroundSize: body.background.type === 'none' ? '16px 16px' : undefined,
-              backgroundPosition: body.background.type === 'none' ? '0 0,0 8px,8px -8px,-8px 0' : undefined,
-              background: body.background.type === 'none' ? undefined : paintToCss(body.background)
+              backgroundImage: bgNone
+                ? 'linear-gradient(45deg,#d6d3d1 25%,transparent 25%),linear-gradient(-45deg,#d6d3d1 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d6d3d1 75%),linear-gradient(-45deg,transparent 75%,#d6d3d1 75%)'
+                : undefined,
+              backgroundSize: bgNone ? '16px 16px' : undefined,
+              backgroundPosition: bgNone ? '0 0,0 8px,8px -8px,-8px 0' : undefined,
+              background: bgNone ? undefined : docPaintToCss(doc, board.background)
             }}
           >
-            {body.layers.map((l) =>
+            {doc.layers.map((l) =>
               !l.visible ? null : l.kind === 'raster' ? (
                 <canvas
                   key={l.id}
                   ref={rasterRefFor(l.id)}
-                  width={W}
-                  height={H}
+                  width={board.w}
+                  height={board.h}
                   data-testid={`draw-raster-${l.id}`}
                   className="absolute left-0 top-0 pointer-events-none"
                   style={{ width: stageW, height: stageH, opacity: l.opacity, mixBlendMode: l.blend as never }}
                 />
               ) : (
-                <VectorLayerView key={l.id} layer={l} width={W} height={H} stageW={stageW} stageH={stageH} hiddenId={editingText} />
+                <VectorLayerView
+                  key={l.id}
+                  layer={l}
+                  board={board}
+                  stageW={stageW}
+                  stageH={stageH}
+                  assets={doc.assets}
+                  swatches={doc.swatches}
+                  hiddenId={state.editingText}
+                />
               )
             )}
 
-            {scratchVisible && scratchRef.current && (
-              <ScratchView
-                canvas={scratchRef.current}
-                stageW={stageW}
-                stageH={stageH}
-                opacity={brush.opacity}
-                blend={tool === 'eraser' ? 'normal' : brush.blend}
-              />
+            {state.scratchVisible && scratch.current && (
+              <ScratchView canvas={scratch.current} stageW={stageW} stageH={stageH} opacity={state.brush.opacity} blend={tool === 'eraser' ? 'normal' : state.brush.blend} />
             )}
 
-            <Overlay
-              body={body}
-              zoom={zoom}
-              stageW={stageW}
-              stageH={stageH}
-              tool={tool}
-              selection={selection}
-              selBox={selBox}
-              drag={drag}
-              penNodes={penNodes}
-              cursorPt={cursorPt}
-              guides={guides}
-              showGrid={showGrid}
-              fill={fill}
-              stroke={stroke}
-            />
+            <Overlay state={state} board={board} stageW={stageW} stageH={stageH} />
 
-            {editingObj && (
-              <textarea
-                autoFocus
-                data-text-editing="1"
-                value={editingObj.text}
-                data-testid="draw-text-editor"
-                onChange={(e) => {
-                  const next = measureText({ ...editingObj, text: e.target.value })
-                  replace(mapObject(bodyRef.current, editingObj.id, () => next))
-                }}
-                onBlur={() => {
-                  // An empty box the user walked away from is removed rather
-                  // than left as an invisible, unselectable object. A box with
-                  // words in it needs no commit here: creating it already pushed
-                  // an undo entry, and the keystrokes since then went through
-                  // `replace`, so one undo takes the whole box away.
-                  if (!editingObj.text.trim()) {
-                    commit(deleteObjects(bodyRef.current, [editingObj.id]))
-                    setSelection([])
-                  }
-                  setEditingText(null)
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') (e.target as HTMLTextAreaElement).blur()
-                  e.stopPropagation()
-                }}
-                className="absolute bg-transparent outline outline-1 outline-[var(--accent)] resize-none overflow-hidden"
-                style={{
-                  left: editingObj.x * zoom,
-                  top: editingObj.y * zoom,
-                  width: editingObj.w * zoom,
-                  height: Math.max(frameBounds(editingObj).h, editingObj.fontSize) * zoom,
-                  font: fontShorthand({ ...editingObj, fontSize: editingObj.fontSize * zoom }),
-                  lineHeight: String(editingObj.lineHeight ?? 1.2),
-                  letterSpacing: `${(editingObj.letterSpacing ?? 0) * zoom}px`,
-                  textAlign: editingObj.align ?? 'left',
-                  color: editingObj.fill.type === 'solid' ? editingObj.fill.color : '#1c1917'
-                }}
-              />
-            )}
+            <TextEditor ctx={ctx} />
           </div>
         </div>
 
-        {/* Right column: inspector over layers */}
+        {/* Right column: the panel dock. A disabled fieldset turns every
+            control inside it off natively, which is what read-only needs. */}
         <div className="shrink-0 flex flex-col border-l border-[var(--edge-soft)]" style={{ width: 240 }}>
-          {/* A disabled fieldset turns every control inside it off natively,
-              which is what read-only needs: nothing to forget per control. */}
-          <fieldset disabled={readOnly} className="contents">
-          <div className="flex-1 min-h-0 overflow-auto">
-            <DrawInspector
-              selected={selectedObjects}
-              fill={selectedObjects.length === 1 && (selectedObjects[0].type === 'path' || selectedObjects[0].type === 'text') ? selectedObjects[0].fill : fill}
-              stroke={
-                selectedObjects.length === 1 && (selectedObjects[0].type === 'path' || selectedObjects[0].type === 'text') ? selectedObjects[0].stroke : stroke
-              }
-              onFill={applyFill}
-              onStroke={applyStroke}
-              onOpacity={(v) => patchSelected((o) => ({ ...o, opacity: v }))}
-              onBlend={(b: DrawBlend) => patchSelected((o) => ({ ...o, blend: b }))}
-              onReshape={(patch) => {
-                const id = selection[0]
-                if (id) commit(reshape(bodyRef.current, id, patch))
-              }}
-              onBoolean={runBoolean}
-              onAlign={(edge) => commit(alignObjects(bodyRef.current, selection, edge))}
-              onDistribute={(axis) => commit(distributeObjects(bodyRef.current, selection, axis))}
-              onArrange={(dir) => commit(arrange(bodyRef.current, selection, dir))}
-              onReverse={() => {
-                let next = bodyRef.current
-                for (const id of selection) next = reversePath(next, id)
-                commit(next)
-              }}
-              onSetClosed={(closed) => {
-                let next = bodyRef.current
-                for (const id of selection) next = setPathClosed(next, id, closed)
-                commit(next)
-              }}
-              onJoin={() => {
-                const { body: next, newId } = joinPaths(bodyRef.current, selection)
-                if (next === bodyRef.current) return
-                commit(next)
-                setSelection(newId ? [newId] : [])
-              }}
-              onTextPatch={(patch) => patchSelected((o) => (o.type === 'text' ? measureText({ ...o, ...patch }) : o))}
-              brush={brush}
-              onBrush={(patch) => setBrush((b) => ({ ...b, ...patch }))}
-              showBrush={PAINT_TOOLS.has(tool) || tool === 'eyedropper'}
-            />
-          </div>
-          <div className="shrink-0 border-t border-[var(--edge-soft)]" style={{ height: 260 }}>
-            <DrawLayersPanel
-              layers={body.layers}
-              activeLayerId={body.activeLayerId}
-              onSelect={(id) => replace({ ...bodyRef.current, activeLayerId: id })}
-              onPatch={(id, patch) => commit(patchLayer(bodyRef.current, id, patch as never))}
-              onAdd={addLayerOfKind}
-              onDuplicate={(id) => commit(duplicateLayer(bodyRef.current, id))}
-              onDelete={(id) => commit(removeLayer(bodyRef.current, id))}
-              onMove={(id, delta) => commit(moveLayer(bodyRef.current, id, delta))}
-              onMergeDown={(id) => void mergeDown(id)}
-              onRasterize={(id) => void rasterizeLayer(id)}
-            />
-          </div>
+          <fieldset disabled={state.readOnly} className="contents">
+            {panels
+              .filter((p) => !p.when || p.when(state))
+              .map((p) => {
+                const Panel = p.component
+                return p.height ? (
+                  <div key={p.id} className="shrink-0 border-t border-[var(--edge-soft)]" style={{ height: p.height }}>
+                    <Panel ctx={ctx} />
+                  </div>
+                ) : (
+                  <div key={p.id} className="flex-1 min-h-0 overflow-auto">
+                    <Panel ctx={ctx} />
+                  </div>
+                )
+              })}
           </fieldset>
         </div>
       </div>
+
+      {dialog && (
+        <MenuModal title={dialog.title} onClose={closeDialog}>
+          <dialog.component ctx={ctx} props={state.dialog?.props} close={closeDialog} />
+        </MenuModal>
+      )}
     </div>
   )
-}
-
-// ── Layer & overlay rendering ────────────────────────────────────────────────
-
-/**
- * The honest notice a read-only drawing carries. It says what happened and
- * what to do, and promises only what is true: nothing here will be saved, and
- * the parts this build cannot show are kept, untouched, in the file.
- */
-function ReadOnlyBanner({ compat }: { compat: DrawCompatibility }): JSX.Element {
-  const details: string[] = []
-  if (compat.reasons.includes('newer-schema')) details.push(`It was saved in a newer file format (version ${Math.max(compat.schemaVersion, compat.minWriterVersion)}).`)
-  if (compat.reasons.includes('unknown-objects'))
-    details.push(
-      `${compat.unknownCount} object${compat.unknownCount === 1 ? '' : 's'} (${compat.unknownTypes.join(', ')}) can't be shown here; they are kept in the file untouched.`
-    )
-  if (compat.reasons.includes('unknown-layers')) details.push('Some layers are of a kind this version cannot show.')
-  return (
-    <div
-      role="status"
-      data-testid="draw-readonly-banner"
-      className="shrink-0 flex items-start gap-2 px-3 py-1.5 border-b border-amber-300/60 bg-amber-50 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200 text-[12px]"
-    >
-      <Icon name="lock" size={14} className="mt-[1px] shrink-0" />
-      <span>
-        <strong>Made in a newer PlexiiDraw — update to edit.</strong> This copy is read-only, so nothing you do here is saved. {details.join(' ')}
-      </span>
-    </div>
-  )
-}
-
-/**
- * Shows the live, uncommitted stroke. The scratch canvas element is adopted
- * directly rather than copied, so what you see mid-stroke is exactly the pixels
- * that will be composited when you lift the pointer.
- */
-function ScratchView({
-  canvas,
-  stageW,
-  stageH,
-  opacity,
-  blend
-}: {
-  canvas: HTMLCanvasElement
-  stageW: number
-  stageH: number
-  opacity: number
-  blend: string
-}): JSX.Element {
-  const host = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    const el = host.current
-    if (!el) return
-    canvas.style.width = '100%'
-    canvas.style.height = '100%'
-    canvas.style.display = 'block'
-    el.appendChild(canvas)
-    return () => {
-      if (canvas.parentNode === el) el.removeChild(canvas)
-    }
-  }, [canvas])
-  return (
-    <div
-      ref={host}
-      data-testid="draw-scratch"
-      className="absolute left-0 top-0 pointer-events-none"
-      style={{ width: stageW, height: stageH, opacity, mixBlendMode: (blend === 'source-over' ? 'normal' : blend) as never }}
-    />
-  )
-}
-
-function VectorLayerView({
-  layer,
-  width,
-  height,
-  stageW,
-  stageH,
-  hiddenId
-}: {
-  layer: DrawVectorLayer
-  width: number
-  height: number
-  stageW: number
-  stageH: number
-  /** The object currently being typed into, hidden so its text is not drawn twice. */
-  hiddenId?: string | null
-}): JSX.Element {
-  // Gradients come from the same description the exporter serializes
-  // (svgPaint / objectGradients in @shared/draw), so a gradient can never look
-  // different on screen than in the file.
-  //
-  // They are collected HERE, before any shape renders, and drawn as React
-  // elements. The earlier version had each ObjectView push markup into a shared
-  // array that this component joined into dangerouslySetInnerHTML -- but child
-  // components render AFTER their parent returns, so the join always saw an
-  // empty array: on-screen gradients pointed at <defs> that were never
-  // written, and the moment that ordering was "fixed" the object ids and
-  // colours of a shared drawing would have gone into innerHTML unescaped.
-  // React attributes cannot break out of their element, whatever they hold.
-  const visible = layer.objects.filter((o) => o.id !== hiddenId)
-  const gradients = visible.flatMap(objectGradients)
-  return (
-    <svg
-      width={stageW}
-      height={stageH}
-      viewBox={`0 0 ${width} ${height}`}
-      data-testid={`draw-vector-${layer.id}`}
-      className="absolute left-0 top-0 pointer-events-none"
-      style={{ opacity: layer.opacity, mixBlendMode: layer.blend as never }}
-    >
-      <defs>
-        {gradients.map((g, i) => (
-          // Index as well as id: a duplicate id in a document from elsewhere
-          // must not make React drop or reorder a definition.
-          <GradientView key={`${i}:${g.id}`} g={g} />
-        ))}
-      </defs>
-      {visible.map((o) => (
-        <ObjectView key={o.id} o={o} />
-      ))}
-    </svg>
-  )
-}
-
-function GradientView({ g }: { g: DrawGradientDef }): JSX.Element {
-  const stops = g.stops.map((s, i) => <stop key={i} offset={s.offset} stopColor={s.color} stopOpacity={s.opacity} />)
-  if (g.kind === 'linear') {
-    return (
-      <linearGradient id={g.id} x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2}>
-        {stops}
-      </linearGradient>
-    )
-  }
-  return (
-    <radialGradient id={g.id} cx="0.5" cy="0.5" r="0.5">
-      {stops}
-    </radialGradient>
-  )
-}
-
-function ObjectView({ o }: { o: DrawObject }): JSX.Element | null {
-  // Hidden, or something a newer PlexiiDraw made that this build cannot draw.
-  if (o.hidden || o.type === 'opaque') return null
-  const style: React.CSSProperties = {}
-  if (o.opacity != null && o.opacity < 1) style.opacity = o.opacity
-  if (o.blend && o.blend !== 'normal') style.mixBlendMode = o.blend as never
-
-  if (o.type === 'path') {
-    const f = svgPaint(o.fill, o.id)
-    const s = o.stroke ? svgPaint(o.stroke.paint, `${o.id}-s`) : null
-    return (
-      <path
-        d={pathToSvgD(o.path)}
-        fill={f.value}
-        fillOpacity={f.opacity}
-        fillRule={o.path.fillRule === 'evenodd' ? 'evenodd' : undefined}
-        stroke={s?.value}
-        strokeWidth={o.stroke?.width}
-        strokeOpacity={s?.opacity}
-        strokeLinecap={o.stroke?.cap}
-        strokeLinejoin={o.stroke?.join}
-        strokeDasharray={o.stroke?.dash && o.stroke.dash.length ? o.stroke.dash.join(' ') : undefined}
-        // The exporter writes stroke-miterlimit; the screen has to draw the same
-        // corners or a sharp join looks different in the file than in the app.
-        strokeMiterlimit={o.stroke?.miterLimit}
-        style={style}
-      />
-    )
-  }
-  if (o.type === 'image') {
-    // Embedded image bytes only -- see isDrawImageSrc. A body that skipped
-    // normalisation still never makes the viewer fetch a remote address.
-    if (!isDrawImageSrc(o.src)) return null
-    return (
-      <image
-        href={o.src}
-        x={o.x}
-        y={o.y}
-        width={o.w}
-        height={o.h}
-        preserveAspectRatio="none"
-        transform={o.rotation ? `rotate(${o.rotation} ${o.x + o.w / 2} ${o.y + o.h / 2})` : undefined}
-        style={style}
-      />
-    )
-  }
-  if (o.type === 'widget') {
-    // A live work widget on the drawing. The canvas is SVG, so the widget —
-    // ordinary React and HTML — goes in a foreignObject. It is the real
-    // component, resolved from its id every render, so it never holds a
-    // stale copy of something that is edited elsewhere.
-    return (
-      <foreignObject
-        x={o.x}
-        y={o.y}
-        width={o.w}
-        height={o.h}
-        transform={o.rotation ? `rotate(${o.rotation} ${o.x + o.w / 2} ${o.y + o.h / 2})` : undefined}
-        style={style}
-      >
-        <div style={{ width: '100%', height: '100%' }}>
-          <WidgetEmbed widgetId={o.widgetId} />
-        </div>
-      </foreignObject>
-    )
-  }
-  const f = svgPaint(o.fill, o.id)
-  const s = o.stroke ? svgPaint(o.stroke.paint, `${o.id}-s`) : null
-  const lh = (o.lineHeight ?? 1.2) * o.fontSize
-  const lines = o.lines && o.lines.length ? o.lines : o.text.split('\n')
-  const anchor = o.align === 'center' ? 'middle' : o.align === 'right' ? 'end' : 'start'
-  const ax = o.align === 'center' ? o.x + o.w / 2 : o.align === 'right' ? o.x + o.w : o.x
-  return (
-    <text
-      fontFamily={o.fontFamily ?? 'Inter, system-ui, sans-serif'}
-      fontSize={o.fontSize}
-      fontWeight={o.fontWeight}
-      fontStyle={o.italic ? 'italic' : undefined}
-      letterSpacing={o.letterSpacing || undefined}
-      textAnchor={anchor}
-      fill={f.value}
-      fillOpacity={f.opacity}
-      stroke={s?.value}
-      strokeWidth={o.stroke?.width}
-      strokeOpacity={s?.opacity}
-      // Text strokes carry the same styling the exporter writes for them
-      // (strokeAttrs serves paths and text alike), so screen and file agree.
-      strokeLinecap={o.stroke?.cap}
-      strokeLinejoin={o.stroke?.join}
-      strokeDasharray={o.stroke?.dash && o.stroke.dash.length ? o.stroke.dash.join(' ') : undefined}
-      strokeMiterlimit={o.stroke?.miterLimit}
-      transform={o.rotation ? `rotate(${o.rotation} ${o.x + o.w / 2} ${o.y})` : undefined}
-      style={style}
-    >
-      {lines.map((l, i) => (
-        <tspan key={i} x={ax} y={o.y + o.fontSize + i * lh}>
-          {l || ' '}
-        </tspan>
-      ))}
-    </text>
-  )
-}
-
-function Overlay(props: {
-  body: DrawBody
-  zoom: number
-  stageW: number
-  stageH: number
-  tool: Tool
-  selection: string[]
-  selBox: Box | null
-  drag: Drag
-  penNodes: DrawNode[] | null
-  cursorPt: Pt | null
-  guides: Guide[]
-  showGrid: boolean
-  fill: DrawPaint
-  stroke: DrawStroke | undefined
-}): JSX.Element {
-  const { body, zoom, stageW, stageH, selBox, drag, penNodes, cursorPt, guides, showGrid } = props
-  const k = 1 / zoom // keep overlay strokes and handles a constant on-screen size
-  const grid = 50
-
-  return (
-    <svg
-      width={stageW}
-      height={stageH}
-      viewBox={`0 0 ${body.width} ${body.height}`}
-      className="absolute left-0 top-0 pointer-events-none"
-      data-testid="draw-overlay"
-    >
-      {showGrid && (
-        <g opacity={0.25}>
-          {Array.from({ length: Math.floor(body.width / grid) }, (_, i) => (
-            <line key={`gx${i}`} x1={(i + 1) * grid} y1={0} x2={(i + 1) * grid} y2={body.height} stroke="#0ea5e9" strokeWidth={k} />
-          ))}
-          {Array.from({ length: Math.floor(body.height / grid) }, (_, i) => (
-            <line key={`gy${i}`} x1={0} y1={(i + 1) * grid} x2={body.width} y2={(i + 1) * grid} stroke="#0ea5e9" strokeWidth={k} />
-          ))}
-        </g>
-      )}
-
-      {guides.map((g, i) =>
-        g.axis === 'x' ? (
-          <line key={i} x1={g.at} y1={0} x2={g.at} y2={body.height} stroke="#ec4899" strokeWidth={k} />
-        ) : (
-          <line key={i} x1={0} y1={g.at} x2={body.width} y2={g.at} stroke="#ec4899" strokeWidth={k} />
-        )
-      )}
-
-      {/* Live previews */}
-      {drag?.kind === 'marquee' && (
-        <rect
-          {...rectProps(normBox(drag.from, drag.to))}
-          fill="rgba(109,93,252,0.12)"
-          stroke="#6d5dfc"
-          strokeWidth={k}
-          strokeDasharray={`${3 * k} ${3 * k}`}
-        />
-      )}
-      {drag?.kind === 'shape' && (
-        <path
-          d={pathToSvgD(
-            drag.shapeKind === 'line'
-              ? shapePath('line', { x: drag.from.x, y: drag.from.y, w: drag.to.x - drag.from.x, h: drag.to.y - drag.from.y })
-              : fitPathToBox(shapePath(drag.shapeKind, normBox(drag.from, drag.to)), normBox(drag.from, drag.to))
-          )}
-          fill={drag.shapeKind === 'line' ? 'none' : paintToCss(props.fill)}
-          stroke="#6d5dfc"
-          strokeWidth={k}
-        />
-      )}
-      {drag?.kind === 'pencil' && (
-        <polyline points={drag.points.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke={props.stroke ? paintToCss(props.stroke.paint) : '#1c1917'} strokeWidth={(props.stroke?.width ?? 2)} />
-      )}
-
-      {/* Pen draft */}
-      {penNodes && penNodes.length > 0 && (
-        <g>
-          <path d={pathToSvgD({ subpaths: [{ closed: false, nodes: penNodes }] })} fill="none" stroke="#6d5dfc" strokeWidth={1.5 * k} />
-          {cursorPt && (
-            <line
-              x1={penNodes[penNodes.length - 1].x}
-              y1={penNodes[penNodes.length - 1].y}
-              x2={cursorPt.x}
-              y2={cursorPt.y}
-              stroke="#6d5dfc"
-              strokeWidth={k}
-              strokeDasharray={`${3 * k} ${3 * k}`}
-            />
-          )}
-          {penNodes.map((n, i) => (
-            <rect key={i} x={n.x - 3 * k} y={n.y - 3 * k} width={6 * k} height={6 * k} fill="#ffffff" stroke="#6d5dfc" strokeWidth={k} />
-          ))}
-        </g>
-      )}
-
-      {/* Node editing */}
-      {props.tool === 'node' &&
-        props.selection.map((id) => {
-          const o = getObject(body, id)
-          if (!o || o.type !== 'path') return null
-          return (
-            <g key={id}>
-              <path d={pathToSvgD(o.path)} fill="none" stroke="#6d5dfc" strokeWidth={k} />
-              {o.path.subpaths.flatMap((sp, si) =>
-                sp.nodes.map((n, ni) => (
-                  <g key={`${si}-${ni}`}>
-                    {n.inX != null && (
-                      <>
-                        <line x1={n.x} y1={n.y} x2={n.inX} y2={n.inY} stroke="#6d5dfc" strokeWidth={k} opacity={0.6} />
-                        <circle cx={n.inX} cy={n.inY} r={3 * k} fill="#6d5dfc" />
-                      </>
-                    )}
-                    {n.outX != null && (
-                      <>
-                        <line x1={n.x} y1={n.y} x2={n.outX} y2={n.outY} stroke="#6d5dfc" strokeWidth={k} opacity={0.6} />
-                        <circle cx={n.outX} cy={n.outY} r={3 * k} fill="#6d5dfc" />
-                      </>
-                    )}
-                    <rect x={n.x - 3.5 * k} y={n.y - 3.5 * k} width={7 * k} height={7 * k} fill="#ffffff" stroke="#6d5dfc" strokeWidth={1.5 * k} />
-                  </g>
-                ))
-              )}
-            </g>
-          )
-        })}
-
-      {/* Selection frame */}
-      {selBox && props.tool !== 'node' && (
-        <g data-testid="draw-selection">
-          <rect {...rectProps(selBox)} fill="none" stroke="#6d5dfc" strokeWidth={k} />
-          <line x1={selBox.x + selBox.w / 2} y1={selBox.y} x2={selBox.x + selBox.w / 2} y2={selBox.y - 22 * k} stroke="#6d5dfc" strokeWidth={k} />
-          <circle cx={selBox.x + selBox.w / 2} cy={selBox.y - 22 * k} r={4 * k} fill="#ffffff" stroke="#6d5dfc" strokeWidth={1.5 * k} />
-          {HANDLES.map((h) => {
-            const p = handlePoint(selBox, h)
-            return <rect key={h} x={p.x - 4 * k} y={p.y - 4 * k} width={8 * k} height={8 * k} fill="#ffffff" stroke="#6d5dfc" strokeWidth={1.5 * k} />
-          })}
-        </g>
-      )}
-    </svg>
-  )
-}
-
-// ── Small geometry utilities used by the interaction layer ───────────────────
-
-function rectProps(b: Box): { x: number; y: number; width: number; height: number } {
-  return { x: b.x, y: b.y, width: b.w, height: b.h }
-}
-
-function normBox(a: Pt, b: Pt): Box {
-  return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) }
-}
-
-/** Shift-drag: force the gesture into a square, keeping the dominant extent. */
-function squareOff(from: Pt, to: Pt): Pt {
-  const dx = to.x - from.x
-  const dy = to.y - from.y
-  const s = Math.max(Math.abs(dx), Math.abs(dy))
-  return { x: from.x + Math.sign(dx || 1) * s, y: from.y + Math.sign(dy || 1) * s }
-}
-
-function handlePoint(b: Box, h: HandleId): Pt {
-  const midX = b.x + b.w / 2
-  const midY = b.y + b.h / 2
-  const right = b.x + b.w
-  const bottom = b.y + b.h
-  switch (h) {
-    case 'nw':
-      return { x: b.x, y: b.y }
-    case 'n':
-      return { x: midX, y: b.y }
-    case 'ne':
-      return { x: right, y: b.y }
-    case 'e':
-      return { x: right, y: midY }
-    case 'se':
-      return { x: right, y: bottom }
-    case 's':
-      return { x: midX, y: bottom }
-    case 'sw':
-      return { x: b.x, y: bottom }
-    default:
-      return { x: b.x, y: midY }
-  }
-}
-
-function angleTo(center: Pt, p: Pt): number {
-  return (Math.atan2(p.y - center.y, p.x - center.x) * 180) / Math.PI
-}
-
-/**
- * The new box for a handle drag. Shift keeps the aspect ratio; Alt resizes about
- * the centre. A box is never allowed to collapse past 1px, which is what stops a
- * shape from inverting into nothing and becoming unselectable.
- */
-export function resizeBox(start: Box, handle: HandleId, p: Pt, keepAspect: boolean, fromCenter: boolean): Box {
-  const left = handle.includes('w')
-  const right = handle.includes('e')
-  const top = handle.startsWith('n')
-  const bottom = handle.startsWith('s')
-  let x = start.x
-  let y = start.y
-  let w = start.w
-  let h = start.h
-
-  if (right) w = p.x - start.x
-  if (left) {
-    w = start.x + start.w - p.x
-    x = p.x
-  }
-  if (bottom) h = p.y - start.y
-  if (top) {
-    h = start.y + start.h - p.y
-    y = p.y
-  }
-
-  if (keepAspect && start.w > 0 && start.h > 0 && (left || right) && (top || bottom)) {
-    const ratio = start.w / start.h
-    if (Math.abs(w / ratio) > Math.abs(h)) h = w / ratio
-    else w = h * ratio
-    if (top) y = start.y + start.h - h
-    if (left) x = start.x + start.w - w
-  }
-
-  if (fromCenter) {
-    const cx = start.x + start.w / 2
-    const cy = start.y + start.h / 2
-    if (left || right) {
-      w = Math.abs(w) * (left ? 1 : 1)
-      const halfW = Math.abs(right ? p.x - cx : cx - p.x)
-      w = halfW * 2
-      x = cx - halfW
-    }
-    if (top || bottom) {
-      const halfH = Math.abs(bottom ? p.y - cy : cy - p.y)
-      h = halfH * 2
-      y = cy - halfH
-    }
-  }
-
-  if (w < 0) {
-    x += w
-    w = -w
-  }
-  if (h < 0) {
-    y += h
-    h = -h
-  }
-  return { x, y, w: Math.max(1, w), h: Math.max(1, h) }
 }
