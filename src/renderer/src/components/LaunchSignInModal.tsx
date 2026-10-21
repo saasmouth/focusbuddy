@@ -7,6 +7,7 @@ import { useOnboarding } from '../stores/onboarding'
 import { signalConfig } from '../lib/signalConfig'
 import { forgotPasswordUrl, webAccountUrl } from '../lib/siteUrls'
 import { requestRestoreEmailCode } from '../lib/accountClient'
+import { useCapabilityStore, usePublicServerFeature, useServerFeature } from '../stores/capabilities'
 import Icon from './Icon'
 
 // LaunchSignInModal — appears on app boot when the user isn't signed in.
@@ -50,6 +51,20 @@ export default function LaunchSignInModal(): JSX.Element | null {
   const signupAction = useAccountStore((s) => s.signup)
   const loginAction = useAccountStore((s) => s.login)
   const restoreAction = useAccountStore((s) => s.restore)
+  // "Closed your account? Restore it" (by emailed code) only once a server
+  // has said it has the restore routes. Signed out there is usually no such
+  // word yet, so the link stays hidden; the password path still appears,
+  // because only a server WITH restore answers sign-in with account_archived.
+  // Signed out, the session-bound list is empty, so the public one
+  // (GET /public/server-features) is asked once the modal is up. Today's
+  // server has no such route: the answer is a 404, the list stays empty and
+  // the link stays hidden.
+  // Both hooks, every render (never `a() || b()`: short-circuiting a hook
+  // changes the hook count when signing in and crashes the tree, React #311).
+  const sessionRestore = useServerFeature('account_restore')
+  const publicRestore = usePublicServerFeature('account_restore')
+  const restoreRoutes = sessionRestore || publicRestore
+  const loadPublicFeatures = useCapabilityStore((s) => s.loadPublicServerFeatures)
   const setSkipped = useAccountStore((s) => s.setSkipped)
   // Manual open requested from elsewhere (Settings account section, etc.).
   // When set, the modal shows even if the user previously skipped.
@@ -91,6 +106,10 @@ export default function LaunchSignInModal(): JSX.Element | null {
   const [restoreCode, setRestoreCode] = useState('')
   const [codeNote, setCodeNote] = useState<string | null>(null)
   const [restoreNotes, setRestoreNotes] = useState<string[] | null>(null)
+
+  useEffect(() => {
+    if (bootStatus === 'ready' && !account) void loadPublicFeatures()
+  }, [bootStatus, account, loadPublicFeatures])
 
   useEffect(() => {
     if (cachedEmail && !email) {
@@ -631,7 +650,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
             </div>
           )}
 
-          {mode === 'login' && !restoreVia && (
+          {mode === 'login' && !restoreVia && restoreRoutes && (
             <button
               type="button"
               onClick={() => {

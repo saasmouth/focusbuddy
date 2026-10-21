@@ -35,7 +35,7 @@ export default function OfficeAccountBar(): JSX.Element {
       if (!r.ok) {
         setError(
           r.twoFactorRequired
-            ? 'This account uses two-factor authentication. Restore it from PlexiiDesk (Sign in > Restore my account) or at plexiidesk.com/account/delete.'
+            ? 'This account uses two-factor authentication, which this window cannot ask for. Sign in to it in PlexiiDesk with the same address and password; it then offers to restore the account and asks for your code.'
             : r.message
         )
         return

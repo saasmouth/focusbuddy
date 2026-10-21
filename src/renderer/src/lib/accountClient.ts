@@ -156,7 +156,10 @@ export async function login(input: {
       const eraseAt = typeof json.archived?.eraseAt === 'number' ? json.archived.eraseAt : 0
       return {
         ok: false,
-        error: json.error || 'This account is closed. You can restore it.',
+        error:
+          eraseAt > 0
+            ? `This account is closed. You can restore it until ${shortDate(eraseAt)}, with its data.`
+            : 'This account is closed. You can restore it, with its data.',
         code: 'ARCHIVED',
         archived: { closedAt, eraseAt }
       }
@@ -522,6 +525,50 @@ export async function takePendingBuild(token: string): Promise<string | null> {
 // The server's sentences (what cannot be restored, what is held) are shown as
 // they are, never paraphrased.
 
+// What the person reads when one of these calls fails. Always the app's own
+// words, chosen by the server's stable error code (or the HTTP status), never
+// the server's text: a server message is not written for this screen, an
+// older server's is not written for people at all, and a proxy's error page
+// is not a sentence. Anything unrecognised gets the plain fallback, which says
+// nothing changed and how to get help.
+const NOTHING_CHANGED = 'Nothing was changed. Try again, or email connect@plexiidesk.com.'
+const PLAIN: Record<string, string> = {
+  network: 'Could not reach PlexiiDesk. Check your connection and try again. Nothing was changed.',
+  rate_limited: 'Too many attempts. Wait 15 minutes, then try again.',
+  confirm_required: 'Type CLOSE to confirm.',
+  reauth_required: 'Confirm it is you: enter your password, or ask for a code by email.',
+  bad_password: 'That password is not right.',
+  totp_required: 'Enter the code from your authenticator app, or a recovery code.',
+  bad_totp: 'That authenticator code is not right, or has expired.',
+  bad_email_code: 'That code is not right, or has expired. Ask for a new one.',
+  password_account: 'Your account has a password. Confirm with your password instead.',
+  email_failed: 'We could not send the code just now. Try again in a minute.',
+  sole_owner:
+    'You are the only owner of an organisation other people are still in. Make another member an owner (or remove the other members) first, then close your account.',
+  pays_for_team:
+    'Your plan pays for a Team organisation other people use. Cancel the subscription in Billing first (the organisation moves to Free), then close your account.',
+  subscription_cancel_failed:
+    'Your subscription could not be cancelled automatically, so your account was not closed. Cancel it in Billing, then try again, or email connect@plexiidesk.com.',
+  invalid_credentials: 'That email and password, or code, do not match a closed account.',
+  invalid_email: 'Enter the email address of the closed account.',
+  email_in_use:
+    'An open account already uses this email address, so the closed one cannot be restored here. Email connect@plexiidesk.com and we will sort it out with you.',
+  not_found: 'There is no closed account to restore for this address.',
+  export_too_large: 'Your data is too large for one download. Email connect@plexiidesk.com and we will send it to you in parts.',
+  export_failed: 'Your data could not be packed just now. Try again in a minute.'
+}
+
+/** The app's sentence for a failed privacy call: by error code, else by status. */
+export function plainAccountError(error: string | undefined, status: number): string {
+  if (error && PLAIN[error]) return PLAIN[error]
+  if (status === 429) return PLAIN.rate_limited
+  if (status === 404) return `This is not available on PlexiiDesk's server yet. ${NOTHING_CHANGED}`
+  return `Something went wrong. ${NOTHING_CHANGED}`
+}
+
+const shortDate = (ms: number): string =>
+  new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
+
 export type CloseAccountResult =
   | { ok: true; closedAt: number; eraseAt: number; notRestorable: string[]; held: string[] }
   | { ok: false; error: string; message: string }
@@ -552,22 +599,19 @@ export async function closeMyAccount(
         held: strings(json.held)
       }
     }
-    return {
-      ok: false,
-      error: json?.error ?? `http_${res.status}`,
-      message: json?.message ?? 'Your account could not be closed. Nothing was changed.'
-    }
+    const error = json?.error ?? `http_${res.status}`
+    return { ok: false, error, message: plainAccountError(json?.error, res.status) }
   } catch {
-    return { ok: false, error: 'network', message: 'Could not reach PlexiiDesk. Nothing was changed.' }
+    return { ok: false, error: 'network', message: PLAIN.network }
   }
 }
 
 export async function requestCloseEmailCode(token: string): Promise<{ ok: boolean; message?: string }> {
   try {
-    const { res, json } = await postJson<{ ok?: boolean; message?: string }>('/accounts/me/close/email-code', {}, token)
-    return res.ok && json?.ok ? { ok: true } : { ok: false, message: json?.message ?? 'The code could not be sent.' }
+    const { res, json } = await postJson<{ ok?: boolean; error?: string }>('/accounts/me/close/email-code', {}, token)
+    return res.ok && json?.ok ? { ok: true } : { ok: false, message: plainAccountError(json?.error, res.status) }
   } catch {
-    return { ok: false, message: 'Could not reach PlexiiDesk.' }
+    return { ok: false, message: PLAIN.network }
   }
 }
 
@@ -587,15 +631,15 @@ export async function downloadServerExport(token: string): Promise<ServerExportR
         fileName: name || `plexiidesk-data-${new Date().toISOString().slice(0, 10)}.zip`
       }
     }
-    let message: string | undefined
+    let error: string | undefined
     try {
-      message = ((await res.json()) as { message?: string }).message
+      error = ((await res.json()) as { error?: string }).error
     } catch {
-      message = undefined
+      error = undefined
     }
-    return { ok: false, message: message ?? `Your data could not be downloaded (the server answered ${res.status}).` }
+    return { ok: false, message: plainAccountError(error, res.status) }
   } catch {
-    return { ok: false, message: 'Could not reach PlexiiDesk. Check your connection and try again.' }
+    return { ok: false, message: PLAIN.network }
   }
 }
 
@@ -628,21 +672,21 @@ export async function restoreAccount(input: {
     return {
       ok: false,
       error: json?.error ?? `http_${res.status}`,
-      message: json?.message ?? 'Your account could not be restored. Nothing was changed.',
+      message: plainAccountError(json?.error, res.status),
       twoFactorRequired: json?.twoFactorRequired === true
     }
   } catch {
-    return { ok: false, error: 'network', message: 'Could not reach PlexiiDesk. Nothing was changed.' }
+    return { ok: false, error: 'network', message: PLAIN.network }
   }
 }
 
 export async function requestRestoreEmailCode(email: string): Promise<{ ok: boolean; message?: string }> {
   try {
-    const { res, json } = await postJson<{ ok?: boolean; message?: string }>('/accounts/restore/email-code', { email })
+    const { res, json } = await postJson<{ ok?: boolean; error?: string }>('/accounts/restore/email-code', { email })
     return res.ok && json?.ok
-      ? { ok: true, message: json.message }
-      : { ok: false, message: json?.message ?? 'The code could not be sent.' }
+      ? { ok: true, message: 'If this address has a closed account, we have emailed it a code. It works for 15 minutes.' }
+      : { ok: false, message: plainAccountError(json?.error, res.status) }
   } catch {
-    return { ok: false, message: 'Could not reach PlexiiDesk.' }
+    return { ok: false, message: PLAIN.network }
   }
 }
