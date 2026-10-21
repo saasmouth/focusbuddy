@@ -12,6 +12,7 @@ import {
   type DesignSwatch
 } from '@shared/designSwatches'
 import type { DesignBody } from '@shared/design'
+import type { OrgBrandKit } from '@shared/brandKit'
 
 // Named colours, including spot inks — the other engine that shipped with no
 // control attached to it.
@@ -32,17 +33,24 @@ import type { DesignBody } from '@shared/design'
 
 interface Props {
   design: DesignBody
+  /**
+   * The organisation's brand kit, so "Brand primary" is the person's actual
+   * brand colour. Falling back to the built-in kit showed a locked swatch
+   * called Brand primary in a colour that was not their brand, and told them
+   * to go and edit the brand kit to change it.
+   */
+  brand: OrgBrandKit
   /** Ids of the current selection, so a swatch can be applied to it. */
   selectedIds: string[]
   /** Replace the document. Swatch edits rewrite element fills, so this is a body, not a patch. */
   onBody: (next: DesignBody) => void
 }
 
-export default function SwatchesPanel({ design, selectedIds, onBody }: Props): JSX.Element {
+export default function SwatchesPanel({ design, brand, selectedIds, onBody }: Props): JSX.Element {
   // A document with no palette of its own shows the default one. Nothing is
   // written until something is added, applied or edited — the same bargain the
   // styles panel makes.
-  const swatches = useMemo(() => design.swatches ?? defaultSwatches(), [design.swatches])
+  const swatches = useMemo(() => design.swatches ?? defaultSwatches(brand), [design.swatches, brand])
   const [selected, setSelected] = useState<string>(swatches[0]?.id ?? '')
   const [tint, setTint] = useState(100)
   const [newName, setNewName] = useState('')
@@ -180,7 +188,7 @@ export default function SwatchesPanel({ design, selectedIds, onBody }: Props): J
                 disabled={swatch.locked}
                 title={
                   swatch.locked
-                    ? 'Brand colours come from the brand kit; edit it there'
+                    ? 'Brand colours come from the brand kit — change them with the Brand kit button in the toolbar'
                     : usage.length
                       ? `${usage.length} element${usage.length === 1 ? '' : 's'} keep this colour and lose the link — the artwork will not change`
                       : 'Delete this swatch'
@@ -262,11 +270,15 @@ export default function SwatchesPanel({ design, selectedIds, onBody }: Props): J
               const name = newName.trim()
               if (!name) return
               const base = design.swatches ? design : { ...design, swatches }
-              const { body, id } = addSwatch(base, {
-                name,
-                color: newColor,
-                ...(newInk.trim() ? { spot: { inkName: newInk.trim() } } : {})
-              })
+              const { body, id } = addSwatch(
+                base,
+                {
+                  name,
+                  color: newColor,
+                  ...(newInk.trim() ? { spot: { inkName: newInk.trim() } } : {})
+                },
+                brand
+              )
               onBody(body)
               setSelected(id)
               setNewName('')

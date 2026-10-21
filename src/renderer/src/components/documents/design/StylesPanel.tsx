@@ -13,6 +13,7 @@ import {
 } from '@shared/designStyles'
 import { documentStyleSheet } from '@shared/designStories'
 import type { DesignBody } from '@shared/design'
+import type { OrgBrandKit } from '@shared/brandKit'
 import type { FlowParaStyle } from '@shared/designFlow'
 
 // Named styles — the backbone a page-layout tool is built on, and the thing
@@ -49,6 +50,13 @@ import type { FlowParaStyle } from '@shared/designFlow'
 
 interface Props {
   design: DesignBody
+  /**
+   * The organisation's brand kit. The generated sheet takes its families and
+   * its accent from it, so without the real one the panel would show — and on
+   * the first edit SAVE — type in the built-in families rather than the
+   * person's own.
+   */
+  brand: OrgBrandKit
   /** Write the sheet (and, on the first edit, materialise it). */
   onPatch: (patch: Partial<DesignBody>) => void
 }
@@ -67,8 +75,8 @@ const BLOCK_LABELS: Array<{ key: BlockStyleKey; label: string }> = [
 
 const FONTS = ['Georgia', 'Times New Roman', 'Garamond', 'Helvetica', 'Arial', 'Inter', 'Verdana', 'Courier New']
 
-export default function StylesPanel({ design, onPatch }: Props): JSX.Element {
-  const sheet = useMemo(() => documentStyleSheet(design), [design])
+export default function StylesPanel({ design, brand, onPatch }: Props): JSX.Element {
+  const sheet = useMemo(() => documentStyleSheet(design, brand), [design, brand])
   const [selected, setSelected] = useState<string>('body')
 
   const style = findParagraphStyle(sheet, selected) ?? sheet.paragraph[0]
