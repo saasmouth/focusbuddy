@@ -702,7 +702,7 @@ function searchGrid(starts: Anchor[], goals: Anchor[], obs: R[], region: R, pref
 // class surviving an 800-layout crossing sweep), so it is counted here where
 // the region is known. Tests assert the count stays at zero; at runtime an
 // escaping result is discarded and the search widens, never drawn.
-export const routingInvariants = { regionEscapes: 0 }
+export const routingInvariants = { regionEscapes: 0, fallbacks: 0 }
 function insideRegion(found: Found, region: R): boolean {
   const ok = found.pts.every((p) => p.x >= region.x1 - 0.5 && p.x <= region.x2 + 0.5 && p.y >= region.y1 - 0.5 && p.y <= region.y2 + 0.5)
   if (!ok) routingInvariants.regionEscapes++
@@ -1000,6 +1000,7 @@ export function routeEdge(req: RouteRequest, obstacles: Box[], opts?: RouteOptio
       sE = bestEnd(sEnds, cS, towardS)
       tE = bestEnd(tEnds, cT, towardT)
       points = elbow(sE.p0, sE.p1, sE.dir, tE.p1, tE.p0, tE.dir)
+      routingInvariants.fallbacks++
     }
   } else {
     // Route leg by leg through the waypoints, in order.

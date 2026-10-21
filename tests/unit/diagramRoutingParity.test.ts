@@ -76,10 +76,43 @@ describe('routing parity', () => {
   })
 
   it('never returns an empty route, even when the target is walled in', () => {
+    // d2's cage: its walls sit inside the clearance of the target's stubs, so
+    // the router frees the wall a stub starts in (an anchor inside an obstacle
+    // could otherwise have no route at all). With no opening, crossing one wall
+    // is the honest answer; crossing several would not be.
     const cage = [r(360, 360, 120, 20), r(360, 460, 120, 20), r(360, 360, 20, 120), r(460, 360, 20, 120)]
     const pts = route(r(0, 0), r(400, 400, 40, 40), cage)
     expect(pts.length).toBeGreaterThanOrEqual(2)
     expect(isOrthogonal(pts)).toBe(true)
+    expect(cage.filter((w) => crosses(pts, w)).length).toBeLessThanOrEqual(1)
+  })
+
+  it('the true last resort (no region wide enough) is still a well-formed route', () => {
+    // A sealed cage set back beyond the stubs' clearance: nothing is freed, the
+    // bounded widening (80, 400, every obstacle, one outer ring) finds nothing,
+    // and the router falls back to an elbow. d2's point: that path deserves the
+    // happy path's scrutiny, because a fallback that always "works" hides
+    // failures.
+    const a = r(0, 0)
+    const b = r(400, 400, 40, 40)
+    const cage = [r(330, 330, 180, 20), r(330, 490, 180, 20), r(330, 330, 20, 180), r(490, 330, 20, 180)]
+    const before = routingInvariants.fallbacks
+    const pts = route(a, b, cage)
+    expect(routingInvariants.fallbacks).toBe(before + 1) // it really is the fallback
+    expect(pts.length).toBeGreaterThanOrEqual(2)
+    expect(isOrthogonal(pts)).toBe(true)
+    expect(onBorder(pts[0]!, a)).toBe(true)
+    expect(onBorder(pts[pts.length - 1]!, b)).toBe(true)
+    // Bounded: within the two shapes' extent plus their stubs.
+    const STUB = 16
+    for (const p of pts) {
+      expect(p.x).toBeGreaterThanOrEqual(Math.min(a.x, b.x) - STUB - 0.5)
+      expect(p.x).toBeLessThanOrEqual(Math.max(a.x + a.w, b.x + b.w) + STUB + 0.5)
+      expect(p.y).toBeGreaterThanOrEqual(Math.min(a.y, b.y) - STUB - 0.5)
+      expect(p.y).toBeLessThanOrEqual(Math.max(a.y + a.h, b.y + b.h) + STUB + 0.5)
+    }
+    // and the export still draws it as a real path, not an empty one
+    expect(pathFromPoints(pts, 'orthogonal', { cornerRadius: 8 })).toMatch(/^M/)
   })
 
   it('honours an explicit side', () => {
