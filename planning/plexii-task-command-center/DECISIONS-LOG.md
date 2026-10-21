@@ -4949,6 +4949,19 @@ was waiting for, so `workItemsPref` (both runtimes), the four
 `workItems:orgEnabled|orgAttestation|attestOrgMigrated|revokeOrgAttestation`
 channels and `WORK_ITEMS_PERSONAL_ONLY` are gone. A leftover
 `work-items.json` in userData is unread and harmless.
+**4.3.41, owner's test of 4.3.40 ("I can't seem to assign a task"):** three
+faults on the path. (1) The people directory loaded once per session, usually
+in Personal at start-up, so in the team the picker read "could not load" and
+offered nobody; it now follows the active workspace and sign-in, drops stale
+answers, refreshes when the picker opens, and says "Invite someone to assign
+tasks to them" when nobody else has joined. (2) An assignment made after the
+task existed went out on the live path as the editor's array; better-sqlite3
+spreads an array argument, so one assignee was stored as the bare id (never
+matched by json_each) and two failed the write. Emitted normalised now,
+coerced on receipt (`wireColumnValue`), a bare `acc_…` id read as one person,
+and repaired at start-up. (3) People without a name all read as the server's
+placeholder "Someone"; they read as their address. The row has an Assign
+action in a team. Live-verified: tests/e2e/focusTeamTasksLive.spec.ts, picker test.
 
 **Whose Focus.** `mineClause`: in a team, your Focus (list, badge, counts,
 deadline nudges) is the tasks assigned to you, plus unassigned ones you raised,

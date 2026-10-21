@@ -2,8 +2,16 @@
 // verbatim from WidgetFocusMode.renderInline so BOTH the classic single-card path
 // and the split-view panes render widgets identically (spec §5). Any widget kind
 // added here shows up in single AND split with no further wiring.
+//
+// A kind with no inline variant (the Tasks, Focus, Calendar, Inbox, Drive …
+// widgets) is not left blank: it renders its canvas component in the
+// 'embedded' surface, where WidgetFrame fills the box it is given instead of
+// sitting at its desk coordinates (the same path the widget file view uses).
+// Returning null here was the empty full-view card.
 
 import type { Widget } from '@shared/types'
+import { WidgetSurfaceContext } from './widgetSurface'
+import { renderWidget } from '../components/widgets/renderWidget'
 import StickyWidget from '../components/widgets/StickyWidget'
 import NoteWidget from '../components/widgets/NoteWidget'
 import MarkdownWidget from '../components/widgets/MarkdownWidget'
@@ -124,6 +132,15 @@ export function renderWidgetInline(w: Widget): JSX.Element | null {
     case 'email':
       return <WebViewWidget widget={w} inline />
     default:
-      return null
+      return renderEmbedded(w)
   }
+}
+
+/** Kinds Full view shows through their canvas component (no inline variant). */
+function renderEmbedded(w: Widget): JSX.Element {
+  return (
+    <div className="h-full w-full relative" data-focus-embedded-kind={w.kind}>
+      <WidgetSurfaceContext.Provider value="embedded">{renderWidget(w)}</WidgetSurfaceContext.Provider>
+    </div>
+  )
 }

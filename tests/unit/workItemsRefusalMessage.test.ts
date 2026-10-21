@@ -33,10 +33,12 @@ describe('a refused work-item create explains itself', () => {
     expect(msg).not.toMatch(/invoking remote method/i)
   })
 
-  it('explains the personal-only case', () => {
-    const msg = friendlyWorkItemError(raw('Focus tasks are personal for now. Switch to your personal workspace to add one.')).message
-    expect(msg).toMatch(/personal workspace/i)
-    expect(msg).not.toMatch(/invoking remote method/i)
+  it('never says Focus tasks are personal-only (DEC-145: team workspaces hold tasks)', () => {
+    const src = readFileSync(join(__dirname, '../../src/renderer/src/stores/workItems.ts'), 'utf-8')
+    expect(src).not.toMatch(/personal for now/i)
+    // An error that merely mentions "personal" is not rewritten into that claim.
+    const e = new Error('Could not open the personal workspace database')
+    expect(friendlyWorkItemError(e)).toBe(e)
   })
 
   it('passes an unrelated error through unchanged', () => {

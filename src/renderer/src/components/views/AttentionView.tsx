@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useOrgStore, PERSONAL_ORG_ID } from '../../stores/org'
 import { AssigneeAvatars } from '../attention/Assignees'
 import type { FbNode } from '@shared/types'
 import { useWorkItemStore } from '../../stores/workItems'
@@ -378,6 +379,9 @@ export default function AttentionView(): JSX.Element {
   // shows the untouched title + notes; Copy puts them on the clipboard.
   // DEC-036 — double-click opens the whole item for editing.
   const [editing, setEditing] = useState<FbNode | null>(null)
+  // In a team workspace a task can be assigned; the row offers it directly
+  // rather than only behind double-click (owner: "I can't seem to assign a task").
+  const inTeam = useOrgStore((s) => s.activeOrgId !== PERSONAL_ORG_ID)
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   // DEC-062 — which desk clusters are folded shut. Session-scoped by design:
@@ -1245,6 +1249,17 @@ export default function AttentionView(): JSX.Element {
               >
                 <Icon name="archive" size={14} />
               </button>
+              {inTeam && (
+                <button
+                  onClick={() => setEditing(i)}
+                  title="Assign — choose who it is for"
+                  aria-label="Assign"
+                  data-testid="task-assign"
+                  className="icon-btn !h-6 !w-6"
+                >
+                  <Icon name="person_add" size={14} />
+                </button>
+              )}
               <button
                 onClick={() => setEditing(i)}
                 title="Open the task"

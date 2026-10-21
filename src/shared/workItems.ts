@@ -107,10 +107,18 @@ export const MAX_ASSIGNEES = 50
  * Accepts the stored JSON text or an array. Returns undefined for input that
  * is not an assignee list at all, so a caller can refuse it.
  */
+// 4.3.40 wrote a one-person assignment as the bare id: the live path emitted
+// the editor's array, and better-sqlite3 spreads an array argument into
+// separate parameters, so `["acc_x"]` landed as `acc_x`. Such a value is read
+// (and repaired) as that one id. Only a server account id qualifies, so other
+// junk still reads as invalid.
+const BARE_ACCOUNT_ID = /^acc_[A-Za-z0-9]+$/
+
 export function normalizeAssigneeIds(v: unknown): string | null | undefined {
   if (v === null || v === undefined || v === '') return null
   let arr: unknown = v
   if (typeof v === 'string') {
+    if (BARE_ACCOUNT_ID.test(v.trim())) return JSON.stringify([v.trim()])
     try {
       arr = JSON.parse(v)
     } catch {
