@@ -3130,7 +3130,10 @@ const api = {
       draw: import('@shared/draw').DrawBody
       title: string
       format: 'png' | 'svg' | 'pdf'
-    }): Promise<{ ok: boolean; path?: string; error?: string }> => ipcRenderer.invoke('draw:export', input)
+    }): Promise<{ ok: boolean; path?: string; error?: string }> => ipcRenderer.invoke('draw:export', input),
+    // The system clipboard: native JSON + SVG + PNG out, and back (src/main/drawClipboard.ts).
+    clipboardWrite: (input: { json: string; svg: string; png?: string; pngScale: number }): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('draw:clipboardWrite', input),
+    clipboardRead: (): Promise<{ native?: string; svg?: string; image?: { dataUrl: string; w: number; h: number }; text?: string; error?: string }> => ipcRenderer.invoke('draw:clipboardRead')
   },
   // PlexiDiagrams export — one diagram out to .svg / .png / .jpg / .pdf. The IPC
   // channel keeps its historic 'map:' prefix; only the product name changed.

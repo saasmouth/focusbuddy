@@ -154,6 +154,7 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'documents:restoreSnapshot': [{ kind: 'string', optional: false, nullable: false }],
   'documents:update': [{ kind: 'string', optional: false, nullable: false }, { kind: 'object', optional: false, nullable: false }, { kind: 'string', optional: true, nullable: false }],
   'documents:upsert': [{ kind: 'object', optional: false, nullable: false }],
+  'draw:clipboardWrite': [{ kind: 'object', optional: false, nullable: false }],
   'draw:export': [{ kind: 'object', optional: false, nullable: false }],
   'energy:log': [{ kind: 'string', optional: false, nullable: false }],
   'energy:recent': [{ kind: 'number', optional: false, nullable: false }],

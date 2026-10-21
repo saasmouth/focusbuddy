@@ -268,6 +268,7 @@ import {
 } from '../db/customWidgets'
 import { exportDesign } from '../designExport'
 import { exportDraw } from '../drawExport'
+import { readDrawClipboard, writeDrawClipboard } from '../drawClipboard'
 import { exportMap } from '../mapExport'
 import { importVsdx } from '../mapImport'
 import { searchStockPhotos, fetchImageDataUrl, removeBackground } from '../stockMedia'
@@ -2006,6 +2007,8 @@ export function registerIpcHandlers(): void {
   // The argument type is written inline rather than as Parameters<typeof …> so
   // the generated IPC contract registry can derive a real shape for it.
   ipcMain.handle('draw:export', (_e, input: { draw: DrawBody; title: string; format: 'png' | 'svg' | 'pdf' }) => exportDraw(input))
+  ipcMain.handle('draw:clipboardWrite', (_e, input: { json: string; svg: string; png?: string; pngScale: number }) => writeDrawClipboard(input))
+  ipcMain.handle('draw:clipboardRead', () => readDrawClipboard())
   ipcMain.handle('map:export', (_e, input: Parameters<typeof exportMap>[0]) => exportMap(input))
   ipcMain.handle('map:import', () => importVsdx())
   ipcMain.handle('design:planLayout', (_e, input: { outline: Array<{ i: number; kind: string; words: number; preview: string }>; styles: Array<{ id: string; name: string; blurb: string; columns: number }>; page: { width: number; height: number; label: string } }) =>
