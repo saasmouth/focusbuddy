@@ -73,8 +73,19 @@ function payloadIssue(value: unknown, depth: number, budget: PayloadBudget): str
   }
   if (value instanceof Date) return Number.isFinite(value.getTime()) ? null : 'an invalid date'
 
+  // `seen` holds the objects on the path from the root to here, so only a
+  // real cycle is refused. The same object reached twice by different paths
+  // (two shapes sharing one fill object) is ordinary structured-clone data;
+  // refusing it made a drawing with two shapes fail to save. Work stays
+  // bounded by MAX_VALUES however much is shared.
   if (budget.seen.has(value)) return 'cyclic data'
   budget.seen.add(value)
+  const issue = containerIssue(value, depth, budget)
+  budget.seen.delete(value)
+  return issue
+}
+
+function containerIssue(value: object, depth: number, budget: PayloadBudget): string | null {
   if (Array.isArray(value)) {
     if (value.length > MAX_COLLECTION_ITEMS) return 'an oversized array'
     for (const item of value) {
