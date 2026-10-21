@@ -22,6 +22,8 @@ const SRC = join(ROOT, 'src', 'renderer', 'src')
  *
  * - The Home dashboard has its own tiles, which it calls "home widgets"; the
  *   owner asked for those to stay as they are.
+ * - diagram/iconNames.ts is generated Material Symbols glyph ids ("widgets" is
+ *   a glyph name, never shown as text).
  * - changelog.ts is history: entries before 4.3.32 are left as they shipped.
  *   The 4.3.32 entry IS checked, separately, below.
  */
@@ -31,6 +33,7 @@ const ALLOWLIST_FILES = new Set([
   'components/views/homeWidgetDefs.ts',
   'components/views/DashboardWizardOverlay.tsx',
   'components/views/dashboardEmbeds.tsx',
+  'components/documents/diagram/iconNames.ts',
   'lib/changelog.ts'
 ])
 

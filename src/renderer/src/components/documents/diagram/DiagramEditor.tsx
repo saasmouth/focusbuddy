@@ -30,6 +30,7 @@ import { getTheme } from '@shared/diagram/style'
 import * as ops from '@shared/diagram/ops'
 import { getPage, withPage, pageList } from '@shared/diagram/pages'
 import { useTablesStore } from '../../../stores/tables'
+import { acceptsWidgetDrag, widgetIdFromDrop } from '../../../lib/widgetDropInsert'
 import { DiagramCtx, type DiagramCtxValue, type QuickDir } from './DiagramContext'
 import { ShapeNode, SELECT_COLOR } from './ShapeNode'
 import { DiagramEdge } from './DiagramEdge'
@@ -558,6 +559,13 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
       if (readOnly) return
       e.preventDefault()
       const flow = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY })
+      // A work widget dragged in from the side menu becomes a live widget shape.
+      if (acceptsWidgetDrag(e.dataTransfer)) {
+        void widgetIdFromDrop(e.dataTransfer).then((id) => {
+          if (id) cmd.addWidget(id, flow)
+        })
+        return
+      }
       const shape = e.dataTransfer.getData('application/x-plexii-shape')
       const icon = e.dataTransfer.getData('application/x-plexii-icon')
       if (shape) cmd.addShape(shape, { center: flow })

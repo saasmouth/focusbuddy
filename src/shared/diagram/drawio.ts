@@ -1037,7 +1037,7 @@ function fmt(v: number): string {
 }
 
 export function mapToDrawio(pages: DrawioPage[]): string {
-  const out: string[] = ['<mxfile host="PlexiDiagrams" type="device" compressed="false">']
+  const out: string[] = ['<mxfile host="PlexiiDiagrams" type="device" compressed="false">']
   pages.forEach((page, pi) => {
     const nodes = page.nodes ?? []
     const edges = page.edges ?? []

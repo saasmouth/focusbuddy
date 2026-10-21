@@ -119,7 +119,7 @@ export function Toolbar({
       />
       <Sep />
       <IconBtn icon="dashboard" label="Templates" title="Start from a template" onClick={() => onOpen('templates')} disabled={readOnly} testid="diagram-templates" />
-      <IconBtn icon="database" label="Data" title="Build from Plexii tables, widgets, apps and tools" onClick={() => onOpen('data')} disabled={readOnly} testid="diagram-data" />
+      <IconBtn icon="database" label="Data" title="Build from Plexii tables, work widgets, apps and tools" onClick={() => onOpen('data')} disabled={readOnly} testid="diagram-data" />
       <IconBtn icon="auto_awesome" label="AI" title="Generate a diagram from a description" onClick={() => onOpen('ai')} disabled={readOnly} testid="map-ai" />
       <div className="flex-1" />
       <IconBtn icon="search" title="Find and replace (⌘F)" onClick={() => onOpen('find')} testid="diagram-find" />

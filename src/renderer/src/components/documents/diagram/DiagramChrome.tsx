@@ -101,7 +101,7 @@ export function DiagramChrome({
           { kind: 'item', label: 'Mermaid…', icon: 'code', run: () => setDialog('mermaid') },
           { kind: 'item', label: 'draw.io / diagrams.net file…', icon: 'draw', run: () => ((fileKind.current = 'drawio'), fileRef.current?.click()) },
           { kind: 'item', label: 'Visio (.vsdx)…', icon: 'schema', run: () => void cmd.importVsdx().then((e) => e && setStatus(e)) },
-          { kind: 'item', label: 'PlexiDiagrams JSON…', icon: 'data_object', run: () => ((fileKind.current = 'json'), fileRef.current?.click()) }
+          { kind: 'item', label: 'PlexiiDiagrams JSON…', icon: 'data_object', run: () => ((fileKind.current = 'json'), fileRef.current?.click()) }
         ]
       },
       {
@@ -120,7 +120,7 @@ export function DiagramChrome({
           { kind: 'item', label: 'Mermaid (.mmd)', run: () => cmd.exportText('mermaid') },
           { kind: 'item', label: 'Copy as Mermaid', run: () => (cmd.copyMermaid(), setStatus('Mermaid copied to the clipboard.')) },
           { kind: 'item', label: 'draw.io (.drawio), all pages', run: () => cmd.exportText('drawio') },
-          { kind: 'item', label: 'PlexiDiagrams JSON', run: () => cmd.exportText('json') }
+          { kind: 'item', label: 'PlexiiDiagrams JSON', run: () => cmd.exportText('json') }
         ]
       }
     ],

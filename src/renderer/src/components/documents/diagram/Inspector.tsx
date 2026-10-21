@@ -536,7 +536,7 @@ function Binding({ cmd, node }: { cmd: Commands; node: MapNode }): JSX.Element {
     return (
       <div className="text-[11px] text-[var(--ink-60)] space-y-1">
         <div>
-          Linked to {b.source.kind === 'widget' ? 'a desk widget' : b.source.kind === 'app' ? `the ${b.source.appId.split(':')[1]} app` : `the ${b.source.toolId} tool`}.
+          Linked to {b.source.kind === 'widget' ? 'a work widget' : b.source.kind === 'app' ? `the ${b.source.appId.split(':')[1]} app` : `the ${b.source.toolId} tool`}.
         </div>
         <button type="button" className="text-[11px] px-2 py-1 rounded bg-[var(--surface-sunken)]" onClick={() => cmd.setNode(node.id, { binding: undefined })}>
           Unlink

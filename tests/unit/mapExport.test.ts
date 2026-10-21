@@ -193,3 +193,81 @@ describe('mapToSvg — v2 features', () => {
     expect(t.svg).toContain('<svg')
   })
 })
+
+// Connector routing guarantees, carried over from the 4.3.39 router's tests so
+// the behaviour they pinned survives the move to the shared diagram router.
+describe('mapToSvg — connector routing', () => {
+  const edgePath = (svg: string): string => /<path class="pd-edge" d="([^"]+)"/.exec(svg)?.[1] ?? ''
+  const coords = (d: string): { x: number; y: number }[] =>
+    [...d.matchAll(/[ML]\s*(-?[\d.]+)[ ,](-?[\d.]+)/g)].map((m) => ({ x: Number(m[1]), y: Number(m[2]) }))
+
+  it('routes a connector around a node standing between its ends', () => {
+    // Three boxes in a row; a straight line from the first to the third would
+    // run through the middle one at the shared centre line.
+    const { svg } = mapToSvg(
+      body({
+        nodes: [
+          { id: 'a', x: 0, y: 0, label: 'A', shape: 'process', color: '#2563eb' },
+          { id: 'mid', x: 220, y: 0, label: 'M', shape: 'process', color: '#2563eb' },
+          { id: 'b', x: 440, y: 0, label: 'B', shape: 'process', color: '#2563eb' }
+        ],
+        edges: [{ id: 'e1', source: 'a', target: 'b', style: 'solid' }]
+      })
+    )
+    const pts = coords(edgePath(svg))
+    expect(pts.length).toBeGreaterThan(2)
+    expect(new Set(pts.map((p) => p.y)).size).toBeGreaterThan(1)
+    // and no horizontal run passes through the middle box (x 220..340, y 0..48).
+    // Path coordinates are in map space: the export padding is a group transform.
+    for (let i = 1; i < pts.length; i++) {
+      const [p, q] = [pts[i - 1]!, pts[i]!]
+      if (p.y === q.y && p.y > 0 && p.y < 48) {
+        expect(Math.max(p.x, q.x) <= 220 || Math.min(p.x, q.x) >= 340).toBe(true)
+      }
+    }
+  })
+
+  it('honours routing:"straight" for an edge that asks for it', () => {
+    const { svg } = mapToSvg(
+      body({
+        nodes: [
+          { id: 'a', x: 0, y: 0, label: 'A', shape: 'process', color: '#2563eb' },
+          { id: 'b', x: 300, y: 200, label: 'B', shape: 'process', color: '#2563eb' }
+        ],
+        edges: [{ id: 'e1', source: 'a', target: 'b', routing: 'straight' }]
+      })
+    )
+    const d = edgePath(svg)
+    expect(coords(d)).toHaveLength(2)
+    expect(d).not.toMatch(/[QCA]/)
+  })
+
+  it('follows explicit waypoints instead of routing', () => {
+    // A person who dragged a corner overruled the router on purpose.
+    const { svg } = mapToSvg(
+      body({
+        nodes: [
+          { id: 'a', x: 0, y: 0, label: 'A', shape: 'process', color: '#2563eb' },
+          { id: 'b', x: 300, y: 200, label: 'B', shape: 'process', color: '#2563eb' }
+        ],
+        edges: [{ id: 'e1', source: 'a', target: 'b', waypoints: [{ x: 500, y: 500 }] }]
+      })
+    )
+    expect(edgePath(svg)).toMatch(/5\d\d/)
+  })
+
+  it('draws heads for the legacy arrow:"both" and none for arrow:"none"', () => {
+    const two = (arrow: 'both' | 'none'): number =>
+      (mapToSvg(
+        body({
+          nodes: [
+            { id: 'a', x: 0, y: 0, label: 'A', shape: 'process', color: '#2563eb' },
+            { id: 'b', x: 300, y: 0, label: 'B', shape: 'process', color: '#2563eb' }
+          ],
+          edges: [{ id: 'e1', source: 'a', target: 'b', arrow }]
+        })
+      ).svg.match(/class="pd-arrowhead"/g) ?? []).length
+    expect(two('both')).toBe(2)
+    expect(two('none')).toBe(0)
+  })
+})

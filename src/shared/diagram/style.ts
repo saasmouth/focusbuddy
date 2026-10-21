@@ -247,8 +247,9 @@ export function resolveEdgeStyle(edge: MapEdge, themeId?: string, defaultEndArro
     stroke: edge.stroke || t.line,
     strokeWidth: edge.strokeWidth ?? t.lineWidth,
     dash: edge.dash ?? (edge.style === 'dashed' ? 'dashed' : 'solid'),
-    startArrow: edge.startArrow ?? 'none',
-    endArrow: edge.endArrow ?? defaultEndArrow,
+    // `arrow` is the older both/none/end switch, honoured when no explicit head is set.
+    startArrow: edge.startArrow ?? (edge.arrow === 'both' ? 'arrow' : 'none'),
+    endArrow: edge.endArrow ?? (edge.arrow === 'none' ? 'none' : defaultEndArrow),
     fontSize: edge.fontSize ?? 11,
     textColor: edge.textColor || (t.id === 'blueprint' || t.id === 'dark' ? t.textColor : '#334155')
   }

@@ -8,6 +8,8 @@ import { SEGMENT_APPS } from '../../../lib/segmentApps'
 import { WIDGET_CATALOG } from '../../../lib/widgetCatalog'
 import WidgetPickerDialog from '../embed/WidgetPickerDialog'
 import Icon from '../../Icon'
+import AnsweredBy from '../../ai/AnsweredBy'
+import { useAiBusyLabel } from '../../../lib/localAiEngine'
 import * as ops from '@shared/diagram/ops'
 import type { Commands } from './commands'
 import type { MapTemplateId } from '../map/mapTemplates'
@@ -53,6 +55,7 @@ function ModeToggle({ mode, setMode }: { mode: 'add' | 'replace'; setMode: (m: '
 
 export function AiDialog({ cmd, onClose }: { cmd: Commands; onClose: () => void }): JSX.Element {
   const [prompt, setPrompt] = useState('')
+  const warmLabel = useAiBusyLabel()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<'add' | 'replace'>('replace')
@@ -72,7 +75,7 @@ export function AiDialog({ cmd, onClose }: { cmd: Commands; onClose: () => void 
   }
   return (
     <Modal title="Generate a diagram with AI" icon="auto_awesome" onClose={onClose}>
-      <p className="text-[11px] text-[var(--ink-50)]">Describe a process, decision flow, system or structure. The model returns the steps and connections; PlexiDiagrams lays them out.</p>
+      <p className="text-[11px] text-[var(--ink-50)]">Describe a process, decision flow, system or structure. The model returns the steps and connections; PlexiiDiagrams lays them out.</p>
       <textarea
         autoFocus
         value={prompt}
@@ -93,9 +96,10 @@ export function AiDialog({ cmd, onClose }: { cmd: Commands; onClose: () => void 
           Cancel
         </button>
         <button type="button" onClick={() => void run()} disabled={busy || !prompt.trim()} className="btn-primary text-[12px] px-3 py-1.5 disabled:opacity-50" data-testid="map-ai-run">
-          {busy ? 'Generating…' : 'Generate'}
+          {busy ? warmLabel('Generating…') : 'Generate'}
         </button>
       </div>
+      <AnsweredBy feature="office" className="mt-1" />
       <p className="text-[10px] text-[var(--ink-40)]">⌘/Ctrl+Enter to run. Undo (⌘Z) restores the previous page.</p>
     </Modal>
   )

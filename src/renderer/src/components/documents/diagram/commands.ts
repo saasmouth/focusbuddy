@@ -128,8 +128,8 @@ function makeCommands(d: Deps) {
     addImageUrl(url: string, center = viewportCenter()): void {
       add([makeNode(imageShapeId(), center, { image: url, label: '', width: 240, height: 160 })])
     },
-    addWidget(widgetId: string): void {
-      add([makeNode('widget', viewportCenter(), { widgetId, label: '' })])
+    addWidget(widgetId: string, at?: { x: number; y: number }): void {
+      add([makeNode('widget', at ?? viewportCenter(), { widgetId, label: '' })])
     },
     // A batch from a dialog (apps, tools, data cards), laid out from 0,0; it is
     // moved into clear space below the existing shapes.
@@ -554,12 +554,12 @@ function makeCommands(d: Deps) {
       try {
         const parsed = JSON.parse(text)
         const b = normalizeMapBody(parsed)
-        if (!b.nodes.length && !b.pages?.length) return 'That file has no PlexiDiagrams shapes.'
+        if (!b.nodes.length && !b.pages?.length) return 'That file has no PlexiiDiagrams shapes.'
         d.updateBody(() => ({ ...b, viewport: d.bodyRef.current.viewport }))
         d.setPageIdx(0)
         return null
       } catch (e) {
-        return `Not a valid PlexiDiagrams JSON file: ${(e as Error).message}`
+        return `Not a valid PlexiiDiagrams JSON file: ${(e as Error).message}`
       }
     },
     async exportAs(format: 'svg' | 'png' | 'jpg' | 'pdf', scope: 'page' | 'selection' = 'page'): Promise<string> {
