@@ -38,115 +38,40 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '4.3.39-local.8',
-    date: '2026-10-21T07:17:00Z',
-    title: 'PlexiiDesk 4.3.39-local.8 \u2014 PlexiiDraw grows up, a new diagram editor, and Focus in team workspaces (test build)',
+    version: '4.3.40',
+    date: '2026-10-21T09:20:00Z',
+    title: 'PlexiiDesk 4.3.40 \u2014 AI on your Mac, Focus, a grown-up PlexiiDraw and a new diagram editor',
     tag: 'feature',
     summary:
-      'A local test build. PlexiiDraw gains Illustrator\u2019s keyboard shortcuts and most of its everyday tools. Diagrams has a new editor. Focus works in team workspaces. PlexiiDesign\u2019s AI panel now says what to do about what it finds.',
+      'PlexiiDesk now has AI that runs on this computer, built in. Attention and your tasks are one list called Focus, which works in team workspaces. PlexiiDraw gains Illustrator\u2019s shortcuts and most of its everyday tools, Diagrams has a new editor, and the Office apps all live inside PlexiiDesk.',
+    links: [
+      { label: 'PlexiiDraw', href: `${HELP_BASE}/draw-overview` },
+      { label: 'Diagrams', href: `${HELP_BASE}/diagrams-overview` },
+      { label: 'PlexiiDesign', href: `${HELP_BASE}/design-overview` },
+      { label: 'Focus', href: `${HELP_BASE}/attention-overview` },
+      { label: 'The Office apps', href: `${HELP_BASE}/office-overview` }
+    ],
     highlights: [
+      'AI that runs on this computer, built in: the 2.5 GB model is inside the app, works offline and costs nothing per use, and while it answers nothing is sent to any AI service. If you were on the automatic setting, AI now runs on this computer; if you chose your own key or Plexii AI credits, that has not changed.',
+      'With your own Anthropic or OpenAI key saved, writing, PlexiiWrite, PlexiiCells and PlexiiDeck drafts and Build with AI use it, because cloud AI does those much better. Your own OpenAI key is now an AI source too, and each feature can use a different source.',
+      'Every AI result shows \u201cAnswered by\u201d: Local, your own key, or Plexii AI credits. Settings \u2192 Local AI lists where each feature runs, with \u201cTest with local\u201d to try any of them on this computer.',
+      'In our tests of the app\u2019s real prompts, the on-device model comes close to cloud AI on PlexiiAssist answers (79% of tasks against 92%), matches it on background tidying, and is well behind it on summaries, writing, document drafts and Build with AI.',
+      'Drafts written on this computer are checked for invented specifics: figures, prices, dates and names that were not in what you gave it. The clearest are replaced with a [placeholder]; drafts from cloud AI are checked and anything found is listed, never changed.',
+      'When Plexii AI credits run out, a request is answered on this computer with a note and a link to top up. Agents, image generation and background removal ask before sending a request to the cloud.',
+      'Attention is now Focus, one always-on list: tasks on your desks show up in it, meetings, the AI and mail\u2019s \u201cMake a task\u201d all add to it, and @focus captures one (@attention still works). In team workspaces you can assign tasks to members or guests, and moving a desk into a team takes its tasks with it.',
       'PlexiiDraw: Illustrator keyboard shortcuts, with a one-time note of the keys that moved and Edit \u2192 Keyboard Shortcuts to change them. Place, Import SVG and Open SVG, and drag files in. Cut, copy and paste, including Paste in Front, Back and in Place, and to and from other apps.',
       'PlexiiDraw: Direct Selection, Pen improvements, add, delete and convert points, Curvature, Scissors, Knife, Join, Average and Simplify. Rotate, Reflect, Scale and Shear with dialogs, Transform Again (\u2318D), Transform Each and a Transform panel. Align to a key object. Groups and isolation mode, clipping masks and compound paths.',
-      'PlexiiDraw saves drawings in its new format. Older versions of PlexiiDesk may not show groups, masks or extra artboards.',
+      'PlexiiDraw saves drawings in a new format. Older versions of PlexiiDesk may not show groups, masks or extra artboards, and a drawing made in a newer version opens read-only with a note to update instead of losing what an older version does not understand.',
+      'PlexiiDraw fixes: an A4 artboard exports on A4; Select all and Align leave locked and hidden objects alone; \u2318-wheel zooms where the pointer is; resizing the artboard no longer stretches paint layers; rotated text and images are picked where they are drawn; work widgets on a drawing stay when it is reopened; undo in a shared drawing only undoes your own changes.',
       'Diagrams has a new editor: 430 shapes in 16 categories and searchable icons, lines that route around shapes, Tidy, automatic layouts, pages and layers, themes, shapes linked to Plexii tables, import from Mermaid, draw.io and Visio, and export to SVG, PNG, PDF and draw.io.',
-      'Focus works in team workspaces: assign a task to members or guests, see who it is assigned to, and moving a desk into a team takes its tasks with it.',
-      'PlexiiDesign: \u201cWhat I\u2019d do about it\u201d turns the live review into advice, and can refresh as you work. Footnotes, swatches and spot inks, and preflight.',
+      'PlexiiDesign: the AI panel opens with a live review of the page, and \u201cWhat I\u2019d do about it\u201d turns that review into advice. With on-device AI it can refresh as you work.',
       'The Desk section of the menu has one Home at the top and no repeated rows. Agentic Ops moved to PlexiiBrain.',
-      'Fixed: copies made with Duplicate, Paste or Place in PlexiiDraw, Diagrams, PlexiiDesign and Slides shared colours and text with the original, so changing one changed both.',
-      'Fixed: the \u201cLocal AI needs a one-time download\u201d notice stayed on screen after switching to a cloud AI source.'
-    ]
-  },
-  {
-    version: '4.3.39-local.7',
-    date: '2026-10-21T05:48:00Z',
-    title: 'PlexiiDesk 4.3.39-local.7 \u2014 duplicating in PlexiiDraw no longer stops the drawing saving (test build)',
-    tag: 'fix',
-    summary:
-      'A local test build that fixes one bug in 4.3.39-local.6. Everything else is the same.',
-    highlights: [
-      'Fixed: after Edit \u2192 Duplicate in PlexiiDraw, the drawing showed \u201cCouldn\u2019t save\u201d and every later save of it failed. Duplicates are now fully independent copies, and a drawing already in that state saves again.'
-    ]
-  },
-  {
-    version: '4.3.39-local.6',
-    date: '2026-10-21T04:02:00Z',
-    title: 'PlexiiDesk 4.3.39-local.6 \u2014 PDF export works again, and PlexiiDraw fixes (test build)',
-    tag: 'fix',
-    summary:
-      'A local test build. Everything in 4.3.39-local.5, plus a fix for PDF export from PlexiiDesign, PlexiiDraw and diagrams, and a set of PlexiiDraw fixes.',
-    highlights: [
-      'Fixed: exporting a design, drawing or diagram as PDF failed. It works again, at the right page size.',
-      'PlexiiDraw: a drawing made at a set resolution exports at its real size, so an A4 artboard prints on A4, and PNGs say what resolution they are.',
-      'PlexiiDraw: Select all and Align leave locked and hidden objects alone; zooming with \u2318 and the wheel zooms where the pointer is; the miter limit shows on screen; resizing the artboard no longer stretches or blanks paint layers; rotated text and images are picked where they are drawn; and editing a point on a shape keeps the edit.',
-      'PlexiiDraw: work widgets placed on a drawing were dropped when it was reopened. They stay now.',
-      'PlexiiDraw co-editing: undo only undoes your own changes, never a collaborator\u2019s, and reordering or deleting objects no longer mixes up two objects.',
-      'A drawing made in a newer version of PlexiiDraw opens read-only, with a note to update, instead of losing what this version does not understand.'
-    ]
-  },
-  {
-    version: '4.3.39-local.5',
-    date: '2026-10-21T03:07:00Z',
-    title: 'PlexiiDesk 4.3.39-local.5 — Focus: one list for everything you need to do (test build)',
-    tag: 'feature',
-    summary:
-      'A local test build. Attention and your tasks are now one list called Focus, and it is always on. Everything in 4.3.39-local.4 is here too, along with a live design review in PlexiiDesign and diagram connectors that route around shapes.',
-    highlights: [
-      'Attention is now Focus, and everything on it is a task. Tasks on your desks show up in Focus, and editing, counting, reminding and closing them works the same as any other task.',
-      'Focus is always on, so the Attention switch is gone from Settings. Meetings, the AI and mail’s “Make a task” all add to the same list; type @focus to capture one (@attention still works).',
-      'In a shared team workspace, Focus tasks are not available yet; Plexii says so and asks you to switch to your personal workspace.',
-      'PlexiiDesign’s AI panel opens with a live review of the page: problems and suggestions, each one dismissable, worked out on this computer with no AI call. When there is nothing to flag it says so.',
-      'Diagram connectors now route around shapes instead of through them, on screen and in every export. Existing diagrams get the improvement too.',
-      'Fixed: saving privacy settings, and some edits from the Attention editor, connected calendars and AI chat, could be refused with an error.',
+      'Right-click works on web pages everywhere: the browser, a browser work widget on a desk, connected apps and sign-in pop-ups.',
+      'The separate PlexiiOffice app is retired. Write, Cells, Deck and the rest of the Office apps are all inside PlexiiDesk.',
+      'Fixed: in 4.3.30 to 4.3.33, some PlexiiDesign and PlexiiDraw changes showed on screen but were never saved: text added with Insert, multi-page designs, drawings with several shapes in one colour, and duplicated shapes. They save now, and a document that was stuck saves again.',
+      'Fixed: in 4.3.30 to 4.3.33, every request to the Haiku model failed with \u201cConnection error.\u201d before it left the computer, including naming untitled items, AI Assist rewrites, the command bar, capture sorting and inbox triage.',
+      'Fixed: exporting a design, drawing or diagram as PDF failed. Saving privacy settings, and some edits from connected calendars and AI chat, could be refused with an error. Copies made with Duplicate, Paste or Place shared colours and text with the original, so changing one changed both.',
       'Security: spreadsheet import and export moved off a version of SheetJS with known vulnerabilities.'
-    ]
-  },
-  {
-    version: '4.3.39-local.4',
-    date: '2026-10-21T18:00:00Z',
-    title: 'PlexiiDesk 4.3.39-local.4 \u2014 local AI built in, your own key for writing (test build)',
-    tag: 'feature',
-    summary:
-      'A local test build. PlexiiDesk ships with an AI model that runs on this computer and uses it by default. If you have your own Anthropic or OpenAI key saved, writing, documents and Build with AI use it, because cloud AI does those much better; everything else stays on this computer. Every AI result now says which engine answered.',
-    highlights: [
-      'The 2.5 GB model is inside the app, so there is nothing to download. If you were on the automatic setting, AI now runs on this computer; if you chose your own key or Plexii AI credits, that has not changed.',
-      'With your own key saved, writing, PlexiiWrite, PlexiiCells and PlexiiDeck drafts and Build with AI use it (your preferred key when you have both). Without a key they run on this computer with a note that cloud AI does them better. If your key is refused or out of credit, that request is answered on this computer instead, with a note.',
-      'Every AI result shows \u201cAnswered by\u201d: Local, Anthropic (your key), OpenAI (your key) or Plexii AI credits. Settings \u2192 Local AI lists where each feature runs now, with \u201cTest with local\u201d to try any of them on this computer in one click.',
-      'In our tests of the app\u2019s real prompts, the on-device model comes close to cloud AI on PlexiiAssist answers (79% of tasks against 92%), matches it on background tidying, and is well behind it on summaries, writing, document drafts and Build with AI.',
-      'Drafts written on this computer are checked for invented specifics \u2014 figures, prices, dates and names that were not in what you gave it. The clearest are replaced with a [placeholder] to fill in; drafts from cloud AI are checked and anything found is listed, never changed.',
-      'When Plexii AI credits run out, a request is answered on this computer with a note and a link to top up. The model starts loading in the background a few seconds after launch, and says \u201cStarting local AI\u201d if you ask before it is ready.',
-      'Fixed: asking a table\u2019s AI for rows and columns on this computer offered to use the cloud (\u201cdid not come out in a usable shape\u201d) or came back with \u201cAI returned no rows\u201d, even though the on-device model had written the rows correctly. Every AI feature that returns structured results is now checked against what that feature asked for.',
-      'Right-click now works on web pages everywhere: the standalone browser, a browser work widget on a desk, connected apps and sign-in pop-ups, with Back, Forward and Reload, link and image actions, and Cut, Copy and Paste.',
-    ]
-  },
-  {
-    version: '4.3.39-local.3',
-    date: '2026-10-21T21:00:00Z',
-    title: 'PlexiiDesk 4.3.39-local.3 \u2014 local AI built in, upgrade with your own key (test build)',
-    tag: 'feature',
-    summary:
-      'A local test build. PlexiiDesk now ships with an AI model that runs on this computer and uses it by default: it works offline, costs nothing per use, and while it is in use no prompt or content is sent to any AI service. Any feature can be upgraded to your own Anthropic or OpenAI key, or to Plexii AI credits, in Settings \u2192 AI.',
-    highlights: [
-      'The 2.5 GB model is inside the app, so there is nothing to download. If you were on the automatic setting, AI now runs on this computer; if you chose your own key or Plexii AI credits, that has not changed. A one-time card explains it and switches back in one click.',
-      'In our tests of the app\u2019s real prompts, the on-device model comes close to cloud AI on PlexiiAssist answers (79% of tasks against 92%), matches it on background tidying, and is behind it on summaries, writing, PlexiiWrite, PlexiiCells and PlexiiDeck drafts, and Build with AI. Those run on the device with a note saying cloud AI does them better, and a link to upgrade. Agents that use tools, image generation and background removal ask before sending a request to the cloud.',
-      'Your own OpenAI key is now an AI source, alongside your own Anthropic key and Plexii AI credits, with a choice of model. Each feature can use a different one.',
-      'When Plexii AI credits run out or cannot be reached, a request is answered on this computer instead of failing, with a note and a link to top up. Your choice of credits stays as it is.',
-      'The model starts loading in the background a few seconds after launch. If you ask for something while it is still starting, the app says \u201cStarting local AI\u201d instead of a bare \u201cGenerating\u2026\u201d.',
-      'Drafts written by cloud AI are checked for invented specifics \u2014 figures, prices, dates and names that were not in what you gave it \u2014 and any found are listed for you to check.'
-    ]
-  },
-  {
-    version: '4.3.39-local.1',
-    date: '2026-10-21T18:00:00Z',
-    title: 'PlexiiDesk 4.3.39-local.1 \u2014 AI that runs on this computer (test build)',
-    tag: 'feature',
-    summary:
-      'A local test build. Settings \u2192 AI now has a third choice next to your own API key and Plexii AI credits: Local on this device. An AI model runs on your Mac, works offline and costs nothing per use, and while it is chosen no prompt or content is sent to any AI service. It is a smaller model than cloud AI, and the app says so feature by feature.',
-    highlights: [
-      'Local on this device: PlexiiAssist, PlexiiBrain answers, creating PlexiiWrite, PlexiiCells and PlexiiDeck files from a prompt (and sheet columns, fills and formulas), writing and rewriting, summaries, and background tidying (titles, document descriptions, memory) run on a 2.5 GB model on your Mac. Search by meaning in PlexiiBrain uses a small local model too, and voice notes are transcribed on the device.',
-      'Every feature shows how the on-device model did in our tests of the app\u2019s real prompts, next to cloud AI. Writing and summaries work, but say \u201cWorks best with cloud AI; local results may be incomplete.\u201d',
-      'Build with AI (setting up a desk of work widgets), agents, image generation and background removal are not run on the device. When you ask for one, Plexii asks whether to send that one request to the cloud; nothing is sent unless you say yes.',
-      'You can route any feature to cloud or to the device on its own, and switch back at any time. Nothing falls back to the cloud quietly.',
-      'Also fixed: on 4.3.30 to 4.3.38 every request to the Haiku model failed with \u201cConnection error.\u201d before it left the computer \u2014 naming untitled items, AI Assist rewrites, the command bar, capture sorting and inbox triage among them. And Build with AI no longer pulls an unrelated desk\u2019s notes into a new desk.'
     ]
   },
   {
