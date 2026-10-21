@@ -254,7 +254,18 @@ export function defaultStyleSheet(scale: SheetScale, layout: SheetLayout): Desig
       align: layout.justify ? 'justify' : 'left',
       color: scale.ink,
       spaceAfter: r2(scale.body * 0.5),
-      widowLines: 2
+      widowLines: 2,
+      // Stated, not omitted, so the switch is findable — this is the single
+      // property that decides whether justified columns get rivers of white.
+      //
+      // OFF by default, deliberately, even though justified text is exactly
+      // where hyphenation earns its place. Turning it on changes where every
+      // line breaks, which for a saved multi-page document means repagination
+      // and possibly text that now oversets. Looser spacing in an old
+      // brochure is a smaller harm than silently re-flowing it, so this is an
+      // opt-in: one property on the Body style, and the whole document
+      // re-flows with it.
+      hyphenate: false
     }
   }
 
