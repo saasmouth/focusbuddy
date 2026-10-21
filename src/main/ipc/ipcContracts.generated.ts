@@ -155,6 +155,8 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'documents:update': [{ kind: 'string', optional: false, nullable: false }, { kind: 'object', optional: false, nullable: false }, { kind: 'string', optional: true, nullable: false }],
   'documents:upsert': [{ kind: 'object', optional: false, nullable: false }],
   'draw:export': [{ kind: 'object', optional: false, nullable: false }],
+  'draw:pdfPage': [{ kind: 'object', optional: false, nullable: false }],
+  'draw:pickImportFiles': [{ kind: 'object', optional: false, nullable: false }],
   'energy:log': [{ kind: 'string', optional: false, nullable: false }],
   'energy:recent': [{ kind: 'number', optional: false, nullable: false }],
   'export:html': [{ kind: 'object', optional: false, nullable: false }],
