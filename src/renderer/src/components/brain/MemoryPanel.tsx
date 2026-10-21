@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Icon from '../Icon'
 import type { MemoryItem, MemoryKind } from '@shared/types'
+import { noLocalModelNote } from '../../lib/localAiOffer'
 
 // Manage what the assistant durably knows about you: view facts, standing
 // preferences and open commitments, remember something by hand, forget an item,
@@ -47,11 +48,14 @@ export default function MemoryPanel(): JSX.Element {
     setNote(null)
     try {
       const r = await window.api.memory.extractDocuments()
-      setNote(
-        r.reason === 'no_local_model'
-          ? 'No local model is running, so nothing was learned. Start Ollama to enable this.'
-          : `Learned ${r.added} item${r.added === 1 ? '' : 's'} from ${r.scanned} document${r.scanned === 1 ? '' : 's'}.`
-      )
+      if (r.reason === 'no_local_model') {
+        // Say what is actually missing on THIS computer (the bundled model is
+        // the engine; Ollama is only an advanced fallback).
+        const st = await window.api.localAi?.getStatus?.().catch(() => null)
+        setNote(noLocalModelNote(st ?? null))
+      } else {
+        setNote(`Learned ${r.added} item${r.added === 1 ? '' : 's'} from ${r.scanned} document${r.scanned === 1 ? '' : 's'}.`)
+      }
     } catch (e) {
       setNote(`Could not learn from documents: ${(e as Error).message || 'unknown error'}`)
     } finally {

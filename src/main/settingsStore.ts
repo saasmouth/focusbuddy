@@ -43,9 +43,11 @@ export type SecretName = 'anthropic' | 'openai' | 'tenor' | 'pexels' | 'removebg
 // about a prompt or its content is sent to any AI service, which
 // providerRouter.ts and egressGuard.ts enforce.
 //
-// 'local' is the default (owner decision, 4.3.39): an install that has never
-// chosen a source runs on the device. A choice already saved ('auto' included)
-// is kept, so an existing user's AI does not change under them on update.
+// 'local' is the default (owner decision, 4.3.39) for an install that has
+// never chosen a source AND has a verified on-device model to run it on; see
+// migrateAiMode for what happens when the model is not there (an update zip,
+// Windows, a low-memory Mac): the previous source is kept and Local is offered
+// as a download, never switched on with nothing to answer.
 export type AiMode = 'auto' | 'credits' | 'byok' | 'local' | 'openai'
 export const DEFAULT_AI_MODE: AiMode = 'local'
 const AI_MODES: readonly AiMode[] = ['auto', 'credits', 'byok', 'local', 'openai']
@@ -77,8 +79,14 @@ interface Envelope {
   // Which one-time AI-source migrations this profile has had (AI_MODE_MIGRATION).
   aiModeMigration?: number
   // The "local AI is now built in" notice: shown once, then dismissed. `from`
-  // is the source before the migration (null: none was stored).
+  // is the source before the migration (null: none was stored). With no model
+  // on this computer the same one-time card offers the download instead.
   localAiIntro?: { pending: boolean; from: AiMode | null }
+  // The switch to Local that waits for the model (migrateAiMode): `kept` is the
+  // source this profile stays on meanwhile, `from` what was stored before.
+  // Completed by completeLocalAiMigration once a verified model is here, or
+  // dropped when the person chooses a source themselves.
+  localAiPending?: { kept: AiMode; from: AiMode | null }
   // OpenAI model per tier when OpenAI is a source. Optional; absent → defaults
   // in src/main/ai/local/openaiClient.ts.
   openaiModels?: OpenAIModelChoice
@@ -114,9 +122,9 @@ function load(): Envelope {
   try {
     if (!existsSync(filePath())) {
       cache = { keys: {}, v: 1 }
-      // A fresh profile: the migration's result (source 'local', the one-time
+      // A fresh profile: the migration's result (the source, the one-time
       // notice) is written by the first save, like any other setting.
-      migrateAiMode(cache)
+      migrateAiMode(cache, probeReadiness())
       return cache
     }
     const raw = readFileSync(filePath(), 'utf-8')
@@ -145,6 +153,14 @@ function load(): Envelope {
             }
           }
         : {}),
+      ...(parsed.localAiPending && typeof parsed.localAiPending === 'object' && AI_MODES.includes(parsed.localAiPending.kept as AiMode)
+        ? {
+            localAiPending: {
+              kept: parsed.localAiPending.kept as AiMode,
+              from: AI_MODES.includes(parsed.localAiPending.from as AiMode) ? (parsed.localAiPending.from as AiMode) : null
+            }
+          }
+        : {}),
       ...(parsed.popupsNative === true ? { popupsNative: true } : {}),
       ...(parsed.keepAppsSignedIn === false ? { keepAppsSignedIn: false } : {}),
       v: 1
@@ -158,10 +174,10 @@ function load(): Envelope {
     cache = { keys: {}, v: 1 }
     // Never write over a file that could not be read: it may hold keys. The
     // migration applies in memory for this run only.
-    migrateAiMode(cache)
+    migrateAiMode(cache, probeReadiness())
     return cache
   }
-  if (migrateAiMode(cache)) {
+  if (migrateAiMode(cache, probeReadiness())) {
     try {
       save()
     } catch {
@@ -172,25 +188,121 @@ function load(): Envelope {
 }
 
 /**
- * One-time, versioned AI-source migration (4.3.39: local AI ships inside the
- * app and is the default). Runs once per profile:
- *   - no stored source, or the old default 'auto'  → 'local'
- *   - an explicit 'byok', 'openai' or 'credits'    → left alone: that person
- *     chose a keyed or paid engine, and moving them to a 4B model silently
- *     would be wrong ('credits' that cannot serve a request falls back to the
- *     device for that request only — providerRouter.withCreditFallback)
- *   - 'local'                                      → unchanged
- * Per-feature overrides are never touched. Everyone gets the one-time "local
- * AI is now built in" notice, with a one-click switch. Returns true when the
- * envelope changed. Exported for tests; pure apart from its argument.
+ * Whether the on-device model this computer would use is here and usable,
+ * known WITHOUT hashing anything (main registers the probe at start-up; see
+ * localAiService.localModelReadiness):
+ *   ready       — downloaded and verified, or bundled and already checked
+ *                 against its manifest checksum;
+ *   unverified  — bundled, the right size, not checked yet (first launch of a
+ *                 fresh install: the check runs in the background and then
+ *                 completes the migration);
+ *   absent      — no model (an update zip, Windows, deleted), or one that
+ *                 failed its checksum;
+ *   unsupported — this computer has too little memory for any model.
+ * Until a probe is registered every profile reads as 'absent', which is safe:
+ * the switch to Local is then deferred and completed by
+ * completeLocalAiMigration once the model has been checked.
  */
-export const AI_MODE_MIGRATION = 1
-export function migrateAiMode(env: { aiMode?: AiMode; aiModeMigration?: number; localAiIntro?: { pending: boolean; from: AiMode | null } }): boolean {
-  if ((env.aiModeMigration ?? 0) >= AI_MODE_MIGRATION) return false
-  const from = env.aiMode ?? null
-  if (from === null || from === 'auto') env.aiMode = 'local'
-  env.localAiIntro = { pending: true, from }
+export type LocalModelReadiness = 'ready' | 'unverified' | 'absent' | 'unsupported'
+let readinessProbe: ((chosenTier: string | null) => LocalModelReadiness) | null = null
+export function setLocalModelReadinessProbe(fn: ((chosenTier: string | null) => LocalModelReadiness) | null): void {
+  readinessProbe = fn
+}
+function probeReadiness(): LocalModelReadiness {
+  try {
+    return readinessProbe ? readinessProbe(cache.localModelTier ?? null) : 'absent'
+  } catch {
+    return 'absent'
+  }
+}
+
+/**
+ * One-time, versioned AI-source migration. Runs once per profile (version 2,
+ * 4.3.40). Local AI ships inside the Mac DMG, but NOT in the Mac update zip, on
+ * Windows, or on a Mac with too little memory, so the switch depends on a
+ * usable model actually being here:
+ *
+ *   no stored source, or the old default 'auto':
+ *     model ready  → 'local', with the one-time "local AI is now built in" card
+ *     otherwise    → the source stays what it was ('auto' when none was
+ *                    stored: credits when signed in, else your own key), the
+ *                    switch is recorded as pending (localAiPending) and
+ *                    completes when the model has been downloaded and checked,
+ *                    and the one-time card offers that download instead
+ *   an explicit 'byok', 'openai', 'credits' or 'local' → left alone: that
+ *     person chose (a keyed or paid engine is never swapped for a 4B model;
+ *     'local' chosen by hand keeps its own "needs a download" notice)
+ *
+ * Profiles that ran version 1 (the 4.3.39-local.x test builds), which moved
+ * 'auto'/unset to 'local' without looking for a model: if they are on 'local'
+ * and no model is here, they go back to the source recorded before (or 'auto'
+ * when none was), with the switch pending and the download offered. A version-1
+ * profile whose model is here is unchanged.
+ *
+ * Per-feature overrides are never touched. Returns true when the envelope
+ * changed. Exported for tests; pure apart from its arguments.
+ */
+export const AI_MODE_MIGRATION = 2
+type MigratableEnvelope = {
+  aiMode?: AiMode
+  aiModeMigration?: number
+  localAiIntro?: { pending: boolean; from: AiMode | null }
+  localAiPending?: { kept: AiMode; from: AiMode | null }
+}
+export function migrateAiMode(env: MigratableEnvelope, readiness: LocalModelReadiness = 'absent'): boolean {
+  const done = env.aiModeMigration ?? 0
+  if (done >= AI_MODE_MIGRATION) return false
+  const ready = readiness === 'ready'
+  if (done < 1) {
+    const from = env.aiMode ?? null
+    if (from === null || from === 'auto') {
+      if (ready) env.aiMode = 'local'
+      else {
+        env.aiMode = from ?? 'auto'
+        env.localAiPending = { kept: env.aiMode, from }
+      }
+    }
+    env.localAiIntro = { pending: true, from }
+  } else if (env.aiMode === 'local' && !ready) {
+    // Version 1 put this profile on a model that is not here: a dead AI.
+    const from = env.localAiIntro?.from ?? null
+    const back: AiMode = from && from !== 'local' ? from : 'auto'
+    env.aiMode = back
+    env.localAiPending = { kept: back, from }
+    env.localAiIntro = { pending: true, from }
+  }
   env.aiModeMigration = AI_MODE_MIGRATION
+  return true
+}
+
+/**
+ * The deferred half of migrateAiMode: once a verified model is here, a profile
+ * still on the source it was kept on moves to Local and sees the one-time "now
+ * built in" card (with its one-click switch back). A profile whose source was
+ * changed meanwhile keeps that choice. Returns true when the envelope changed.
+ */
+export function completeLocalAiMigrationIn(env: MigratableEnvelope, readiness: LocalModelReadiness): boolean {
+  const p = env.localAiPending
+  if (!p || readiness !== 'ready') return false
+  delete env.localAiPending
+  if (env.aiMode === p.kept) {
+    env.aiMode = 'local'
+    env.localAiIntro = { pending: true, from: p.from }
+  }
+  return true
+}
+
+/** Whether a switch to Local is waiting for the model. */
+export function localAiMigrationPending(): boolean {
+  load()
+  return Boolean(cache.localAiPending)
+}
+
+/** Complete a pending switch to Local (call only after the model was verified). */
+export function completeLocalAiMigration(): boolean {
+  load()
+  if (!completeLocalAiMigrationIn(cache, 'ready')) return false
+  save()
   return true
 }
 
@@ -340,10 +452,14 @@ export function setOpenAIModels(models: OpenAIModelChoice): void {
   save()
 }
 
-/** Persist the AI-source choice. */
+/**
+ * Persist the AI-source choice. A choice the person makes themselves ends any
+ * pending switch to Local: from here on their pick stands.
+ */
 export function setAiMode(mode: AiMode): void {
   load()
   cache.aiMode = mode
+  delete cache.localAiPending
   save()
 }
 

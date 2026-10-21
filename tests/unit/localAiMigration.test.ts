@@ -1,7 +1,8 @@
 // @vitest-environment node
-// 4.3.39: local AI ships inside the app and becomes the default. The one-time,
-// versioned AI-source migration (settingsStore.migrateAiMode), run against
-// real settings files, and the credits → device fallback for one request.
+// 4.3.39: local AI ships inside the app and becomes the default where a model
+// is actually here. The one-time, versioned AI-source migration
+// (settingsStore.migrateAiMode), run against real settings files, and the
+// credits → device fallback for one request.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -24,6 +25,11 @@ async function freshStore(envelope: unknown | null, raw?: string) {
 }
 const onDisk = () => JSON.parse(readFileSync(join(USERDATA, 'secrets.json'), 'utf8'))
 
+// 4.3.40: the switch to Local happens only when a usable model is HERE. The
+// Mac update zip, Windows and low-memory Macs have none; moving those people to
+// Local left their AI unable to answer. Without a model the previous source is
+// kept, the switch waits (localAiPending) and the one-time card offers the
+// download; the switch completes once the model is downloaded and verified.
 describe('migrateAiMode (pure)', () => {
   it.each([
     [undefined, 'local'],
@@ -32,22 +38,97 @@ describe('migrateAiMode (pure)', () => {
     ['byok', 'byok'],
     ['openai', 'openai'],
     ['credits', 'credits']
-  ] as const)('stored %s → %s, with the one-time notice', async (before, after) => {
+  ] as const)('model ready: stored %s → %s, with the one-time notice and nothing pending', async (before, after) => {
     const { migrateAiMode, AI_MODE_MIGRATION } = await freshStore(null)
     const env: Parameters<typeof migrateAiMode>[0] = before ? { aiMode: before } : {}
-    expect(migrateAiMode(env)).toBe(true)
+    expect(migrateAiMode(env, 'ready')).toBe(true)
     expect(env.aiMode).toBe(after)
     expect(env.aiModeMigration).toBe(AI_MODE_MIGRATION)
     expect(env.localAiIntro).toEqual({ pending: true, from: before ?? null })
+    expect(env.localAiPending).toBeUndefined()
+  })
+
+  it.each(['absent', 'unverified', 'unsupported'] as const)('model %s: unset and auto keep their engine (auto), and the switch waits', async (readiness) => {
+    const { migrateAiMode } = await freshStore(null)
+    for (const before of [undefined, 'auto'] as const) {
+      const env: Parameters<typeof migrateAiMode>[0] = before ? { aiMode: before } : {}
+      expect(migrateAiMode(env, readiness)).toBe(true)
+      expect(env.aiMode).toBe('auto')
+      expect(env.localAiPending).toEqual({ kept: 'auto', from: before ?? null })
+      expect(env.localAiIntro).toEqual({ pending: true, from: before ?? null })
+    }
+  })
+
+  it.each(['byok', 'openai', 'credits', 'local'] as const)('model absent: an explicit %s choice is left alone, nothing pending', async (mode) => {
+    const { migrateAiMode } = await freshStore(null)
+    const env: Parameters<typeof migrateAiMode>[0] = { aiMode: mode }
+    migrateAiMode(env, 'absent')
+    expect(env.aiMode).toBe(mode)
+    expect(env.localAiPending).toBeUndefined()
+  })
+
+  it('the default with no probe registered is "absent": never a switch to Local on an unknown model', async () => {
+    const { migrateAiMode } = await freshStore(null)
+    const env: Parameters<typeof migrateAiMode>[0] = { aiMode: 'auto' }
+    migrateAiMode(env)
+    expect(env.aiMode).toBe('auto')
+  })
+
+  it('a 4.3.39-local.x profile (version 1) moved to local with no model goes back to its recorded source, or auto', async () => {
+    const { migrateAiMode, AI_MODE_MIGRATION } = await freshStore(null)
+    const fromAuto: Parameters<typeof migrateAiMode>[0] = { aiMode: 'local', aiModeMigration: 1, localAiIntro: { pending: false, from: 'auto' } }
+    expect(migrateAiMode(fromAuto, 'absent')).toBe(true)
+    expect(fromAuto).toMatchObject({ aiMode: 'auto', aiModeMigration: AI_MODE_MIGRATION, localAiPending: { kept: 'auto', from: 'auto' }, localAiIntro: { pending: true, from: 'auto' } })
+    const fromNone: Parameters<typeof migrateAiMode>[0] = { aiMode: 'local', aiModeMigration: 1, localAiIntro: { pending: false, from: null } }
+    migrateAiMode(fromNone, 'absent')
+    expect(fromNone.aiMode).toBe('auto')
+    // Someone who was on their own key and took the intro's "Use local AI".
+    const fromKey: Parameters<typeof migrateAiMode>[0] = { aiMode: 'local', aiModeMigration: 1, localAiIntro: { pending: false, from: 'byok' } }
+    migrateAiMode(fromKey, 'unsupported')
+    expect(fromKey.aiMode).toBe('byok')
+  })
+
+  it('a version-1 profile whose model is here, or that is not on local, is unchanged', async () => {
+    const { migrateAiMode } = await freshStore(null)
+    const ready: Parameters<typeof migrateAiMode>[0] = { aiMode: 'local', aiModeMigration: 1, localAiIntro: { pending: false, from: 'auto' } }
+    migrateAiMode(ready, 'ready')
+    expect(ready).toMatchObject({ aiMode: 'local', localAiIntro: { pending: false, from: 'auto' } })
+    expect(ready.localAiPending).toBeUndefined()
+    const switched: Parameters<typeof migrateAiMode>[0] = { aiMode: 'credits', aiModeMigration: 1, localAiIntro: { pending: false, from: 'auto' } }
+    migrateAiMode(switched, 'absent')
+    expect(switched).toMatchObject({ aiMode: 'credits', localAiIntro: { pending: false } })
+    expect(switched.localAiPending).toBeUndefined()
   })
 
   it('runs once: a migrated profile that later chose credits keeps credits', async () => {
     const { migrateAiMode } = await freshStore(null)
     const env: Parameters<typeof migrateAiMode>[0] = { aiMode: 'auto' }
-    migrateAiMode(env)
+    migrateAiMode(env, 'ready')
     env.aiMode = 'auto' // the person switched back to credits after the notice
-    expect(migrateAiMode(env)).toBe(false)
+    expect(migrateAiMode(env, 'ready')).toBe(false)
     expect(env.aiMode).toBe('auto')
+  })
+
+  it('the deferred switch completes only with a verified model, and only if the source was not changed meanwhile', async () => {
+    const { migrateAiMode, completeLocalAiMigrationIn } = await freshStore(null)
+    const env: Parameters<typeof migrateAiMode>[0] = { aiMode: 'auto' }
+    migrateAiMode(env, 'absent')
+    env.localAiIntro = { pending: false, from: 'auto' } // they closed the offer
+    expect(completeLocalAiMigrationIn(env, 'unverified')).toBe(false)
+    expect(completeLocalAiMigrationIn(env, 'absent')).toBe(false)
+    expect(env.aiMode).toBe('auto')
+    expect(completeLocalAiMigrationIn(env, 'ready')).toBe(true)
+    expect(env.aiMode).toBe('local')
+    expect(env.localAiPending).toBeUndefined()
+    // The "now built in" card, with its switch back to what they had.
+    expect(env.localAiIntro).toEqual({ pending: true, from: 'auto' })
+
+    const changed: Parameters<typeof migrateAiMode>[0] = { aiMode: 'auto' }
+    migrateAiMode(changed, 'absent')
+    changed.aiMode = 'byok'
+    expect(completeLocalAiMigrationIn(changed, 'ready')).toBe(true)
+    expect(changed.aiMode).toBe('byok')
+    expect(changed.localAiPending).toBeUndefined()
   })
 })
 
@@ -56,12 +137,38 @@ describe('on real settings files', () => {
     USERDATA = ''
   })
 
-  it('a long-standing credits-on-auto profile moves to local, keeps keys and per-feature routes, and is written once', async () => {
-    const s = await freshStore({ v: 1, keys: { anthropic: 'ENC' }, aiMode: 'auto', aiFeatureRoutes: { office: 'anthropic', writing: 'cloud' } })
+  async function storeWith(envelope: unknown | null, readiness: 'ready' | 'unverified' | 'absent' | 'unsupported') {
+    const s = await freshStore(envelope)
+    s.setLocalModelReadinessProbe(() => readiness)
+    return s
+  }
+
+  it('an update with NO model: a credits-on-auto profile stays on auto, keeps keys and routes, and is offered the download', async () => {
+    const s = await storeWith({ v: 1, keys: { anthropic: 'ENC' }, aiMode: 'auto', aiFeatureRoutes: { office: 'anthropic', writing: 'cloud' } }, 'absent')
+    expect(s.getAiMode()).toBe('auto')
+    const disk = onDisk()
+    expect(disk.aiMode).toBe('auto')
+    expect(disk.aiModeMigration).toBe(2)
+    expect(disk.localAiPending).toEqual({ kept: 'auto', from: 'auto' })
+    expect(disk.keys).toEqual({ anthropic: 'ENC' })
+    expect(disk.aiFeatureRoutes).toEqual({ office: 'anthropic', writing: 'cloud' })
+    expect(s.getLocalAiIntro()).toEqual({ pending: true, from: 'auto', mode: 'auto' })
+    expect(s.localAiMigrationPending()).toBe(true)
+    // The model arrives (downloaded and verified): the switch completes, written to disk.
+    expect(s.completeLocalAiMigration()).toBe(true)
+    expect(s.getAiMode()).toBe('local')
+    expect(onDisk().aiMode).toBe('local')
+    expect(onDisk().localAiPending).toBeUndefined()
+    expect(s.getLocalAiIntro()).toEqual({ pending: true, from: 'auto', mode: 'local' })
+    expect(s.completeLocalAiMigration()).toBe(false)
+  })
+
+  it('an update WITH the model: a credits-on-auto profile moves to local, keeps keys and per-feature routes, and is written once', async () => {
+    const s = await storeWith({ v: 1, keys: { anthropic: 'ENC' }, aiMode: 'auto', aiFeatureRoutes: { office: 'anthropic', writing: 'cloud' } }, 'ready')
     expect(s.getAiMode()).toBe('local')
     const disk = onDisk()
     expect(disk.aiMode).toBe('local')
-    expect(disk.aiModeMigration).toBe(1)
+    expect(disk.aiModeMigration).toBe(2)
     expect(disk.keys).toEqual({ anthropic: 'ENC' })
     expect(disk.aiFeatureRoutes).toEqual({ office: 'anthropic', writing: 'cloud' })
     expect(s.getAiFeatureRoutes()).toEqual({ office: 'anthropic', writing: 'cloud' })
@@ -70,33 +177,60 @@ describe('on real settings files', () => {
     expect(onDisk().localAiIntro.pending).toBe(false)
   })
 
+  it('choosing a source by hand ends a pending switch: a later download does not override the choice', async () => {
+    const s = await storeWith({ v: 1, keys: {}, aiMode: 'auto' }, 'absent')
+    expect(s.localAiMigrationPending()).toBe(true)
+    s.setAiMode('byok')
+    expect(s.localAiMigrationPending()).toBe(false)
+    expect(onDisk().localAiPending).toBeUndefined()
+    expect(s.completeLocalAiMigration()).toBe(false)
+    expect(s.getAiMode()).toBe('byok')
+  })
+
+  it('a local.x test-build profile stuck on local with no model is moved back to its previous engine on load', async () => {
+    const s = await storeWith({ v: 1, keys: {}, aiMode: 'local', aiModeMigration: 1, localAiIntro: { pending: false, from: 'credits' } }, 'absent')
+    expect(s.getAiMode()).toBe('credits')
+    expect(onDisk()).toMatchObject({ aiMode: 'credits', aiModeMigration: 2, localAiPending: { kept: 'credits', from: 'credits' } })
+    expect(s.getLocalAiIntro().pending).toBe(true)
+  })
+
   it.each(['byok', 'openai', 'credits'] as const)('an explicit %s choice is left alone (and still gets the notice)', async (mode) => {
-    const s = await freshStore({ v: 1, keys: {}, aiMode: mode })
+    const s = await storeWith({ v: 1, keys: {}, aiMode: mode }, 'ready')
     expect(s.getAiMode()).toBe(mode)
     expect(onDisk().aiMode).toBe(mode)
     expect(s.getLocalAiIntro()).toEqual({ pending: true, from: mode, mode })
   })
 
   it('a profile already set to local by hand reads as migrated, unchanged', async () => {
-    const s = await freshStore({ v: 1, keys: {}, aiMode: 'local' })
+    const s = await storeWith({ v: 1, keys: {}, aiMode: 'local' }, 'ready')
     expect(s.getAiMode()).toBe('local')
-    expect(onDisk().aiModeMigration).toBe(1)
+    expect(onDisk().aiModeMigration).toBe(2)
   })
 
   it('an already-migrated profile is not migrated again', async () => {
-    const s = await freshStore({ v: 1, keys: {}, aiMode: 'auto', aiModeMigration: 1, localAiIntro: { pending: false, from: 'auto' } })
+    const s = await storeWith({ v: 1, keys: {}, aiMode: 'auto', aiModeMigration: 2, localAiIntro: { pending: false, from: 'auto' } }, 'ready')
     expect(s.getAiMode()).toBe('auto')
     expect(s.getLocalAiIntro().pending).toBe(false)
   })
 
-  it('a fresh profile is local, with the notice', async () => {
-    const s = await freshStore(null)
+  it('a fresh install with a verified model is local, with the notice', async () => {
+    const s = await storeWith(null, 'ready')
     expect(s.getAiMode()).toBe('local')
     expect(s.getLocalAiIntro()).toEqual({ pending: true, from: null, mode: 'local' })
   })
 
+  it('a fresh install without one (Windows, or the bundled model not yet checked) is on auto, the switch pending', async () => {
+    for (const r of ['absent', 'unverified'] as const) {
+      const s = await storeWith(null, r)
+      expect(s.getAiMode()).toBe('auto')
+      expect(s.localAiMigrationPending()).toBe(true)
+      expect(s.getLocalAiIntro()).toEqual({ pending: true, from: null, mode: 'auto' })
+    }
+  })
+
   it('a settings file that cannot be read is never written over (it may hold keys)', async () => {
     const s = await freshStore(null, '{ not json')
+    s.setLocalModelReadinessProbe(() => 'ready')
     expect(s.getAiMode()).toBe('local')
     expect(readFileSync(join(USERDATA, 'secrets.json'), 'utf8')).toBe('{ not json')
     expect(existsSync(join(USERDATA, 'secrets.json'))).toBe(true)

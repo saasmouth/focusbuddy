@@ -18,6 +18,11 @@ describe('ai:setMode refreshes local-AI status', () => {
 
   it('the notice really does re-check on that event', () => {
     const prompts = readFileSync(join(__dirname, '../../src/renderer/src/components/LocalAiPrompts.tsx'), 'utf-8')
-    expect(prompts).toContain('api.onChanged(() => check())')
+    const start = prompts.indexOf('api.onChanged(')
+    expect(start).toBeGreaterThan(-1)
+    const handler = prompts.slice(start, prompts.indexOf('})', start))
+    expect(handler).toContain('check()')
+    // …and so does the one-time card (a deferred switch to Local completing).
+    expect(handler).toContain('readIntro()')
   })
 })

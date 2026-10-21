@@ -25,7 +25,11 @@ import {
   getPreferredKey,
   setPreferredKey,
   resolveAnthropicKey,
-  resolveOpenAIKey
+  resolveOpenAIKey,
+  setLocalModelReadinessProbe,
+  localAiMigrationPending,
+  completeLocalAiMigration,
+  type LocalModelReadiness
 } from '../../settingsStore'
 import {
   setRouterSettings,
@@ -54,9 +58,9 @@ import { createOpenAIClient, DEFAULT_OPENAI_MODELS } from './openaiClient'
 import { getModelClient } from '../modelClient'
 import { installEgressGuard } from './egressGuard'
 import { EngineHost, type WorkerHandle } from './engineHost'
-import { downloadModel, removeModel, fetchWithFile, type DownloadProgress } from './downloadManager'
-import { locateModel, verifyLocated, canonicalPath, type ModelSpec, type Located } from './modelLocator'
-import { resolveDownloads } from './modelManifest'
+import { removeModel, fetchWithFile, type DownloadProgress } from './downloadManager'
+import { downloadModels } from './modelDownload'
+import { locateModel, verifyLocated, cachedVerification, canonicalPath, type ModelSpec, type Located } from './modelLocator'
 import { setGroundingSink } from './localClient'
 import { setBundledEmbedder } from '../localModel'
 import { SIGNAL_BASE, getCreditClient, isCreditClient, creditRefusalNote } from '../creditMode'
@@ -67,8 +71,6 @@ import {
   DEFAULT_CONTENT_WRITING,
   DEFAULT_PREFERRED_KEY,
   recommendTier,
-  modelDownloadUrl,
-  modelManifestUrl,
   type AiFeature,
   type AiFeatureRoute,
   type CloudConsentRequest,
@@ -99,11 +101,16 @@ export function ramGB(): number {
   return Math.round(totalmem() / 2 ** 30)
 }
 
-/** The tier in use: the user's pick if it is offered here, else the recommendation. */
-export function activeTier(): LocalModelTier | null {
-  const picked = tierById(getLocalModelTier())
+/** The tier a choice resolves to here: the pick if this computer can run it, else the recommendation. */
+function tierFor(chosen: string | null): LocalModelTier | null {
+  const picked = tierById(chosen)
   if (picked && picked.minRamGB <= ramGB()) return picked
   return recommendTier(LOCAL_MODEL_TIERS, ramGB())
+}
+
+/** The tier in use: the user's pick if it is offered here, else the recommendation. */
+export function activeTier(): LocalModelTier | null {
+  return tierFor(getLocalModelTier())
 }
 
 /**
@@ -140,7 +147,80 @@ function embedInstalled(): boolean {
   return !!locate(LOCAL_EMBED_MODEL)
 }
 
-const verifiedCacheFile = (): string => join(modelsDir(), 'bundle-verified.json')
+// Where the bundled-model checksum result is remembered. Development and test
+// runs may share one cache across throwaway profiles (PLEXII_MODEL_VERIFY_CACHE,
+// set by the e2e harness) so each launched app does not re-hash 2.5 GB; the
+// entry is keyed by path, size, mtime and the expected sha256, so sharing it
+// cannot vouch for a different file. A packaged app always uses its own.
+const verifiedCacheFile = (): string =>
+  !app.isPackaged && process.env.PLEXII_MODEL_VERIFY_CACHE
+    ? process.env.PLEXII_MODEL_VERIFY_CACHE
+    : join(modelsDir(), 'bundle-verified.json')
+
+/**
+ * Is the model this computer would use here and usable, known without hashing
+ * (settingsStore.migrateAiMode decides the AI source with it)? `chosenTier` is
+ * passed in because the settings store asks while it is still loading.
+ */
+export function localModelReadiness(chosenTier: string | null = getLocalModelTier()): LocalModelReadiness {
+  const t = tierFor(chosenTier)
+  if (!t) return 'unsupported'
+  const loc = locate(t)
+  if (!loc) return 'absent'
+  const v = cachedVerification(t, loc, verifiedCacheFile())
+  return v === true ? 'ready' : v === false ? 'absent' : 'unverified'
+}
+// Registered as the module loads, before anything can read settings.
+setLocalModelReadinessProbe((chosen) => localModelReadiness(chosen))
+
+let settling: Promise<boolean> | null = null
+/**
+ * Complete a switch to Local that was waiting for the model
+ * (settingsStore.migrateAiMode): when the model this computer uses is here and
+ * passes its checksum, a profile still on the source it was kept on moves to
+ * Local. Runs at start-up (a fresh install's bundled model is checked once, in
+ * the background) and after a download. Returns true when the source changed.
+ */
+export function settleLocalAiMigration(): Promise<boolean> {
+  if (settling) return settling
+  settling = (async () => {
+    try {
+      if (!localAiMigrationPending()) return false
+      const t = activeTier()
+      const loc = locate(t)
+      if (!t || !loc) return false
+      const ok = await verifyLocated(t, loc, verifiedCacheFile(), (why) => console.warn(`[local-ai] bundled model not used: ${why}`))
+      if (!ok || !localAiMigrationPending()) return false
+      completeLocalAiMigration()
+      console.info('[local-ai] the on-device model is here and verified: the deferred switch to Local is complete')
+      refreshEngineModel()
+      try {
+        ;(await import('../anthropic')).invalidateAnthropicClient()
+      } catch {
+        /* the next AI call resolves its client afresh anyway */
+      }
+      broadcast('localAi:changed', null)
+      return true
+    } catch (e) {
+      console.warn(`[local-ai] could not complete the switch to Local: ${(e as Error).message}`)
+      return false
+    } finally {
+      settling = null
+    }
+  })()
+  return settling
+}
+
+/** What the one-time card needs to know about the model (localAi:getIntro). */
+export function introModelState(): { state: 'ready' | 'checking' | 'absent' | 'unsupported'; tierId: string | null; bytes: number } {
+  const t = activeTier()
+  const r = localModelReadiness()
+  return {
+    state: r === 'unverified' ? 'checking' : r,
+    tierId: t?.id ?? null,
+    bytes: t ? t.sizeBytes + (embedInstalled() ? 0 : LOCAL_EMBED_MODEL.sizeBytes) : 0
+  }
+}
 
 /** Checksum the located file once (bundled files: first use only). */
 async function ensureVerified(spec: ModelSpec): Promise<Located> {
@@ -239,6 +319,9 @@ export function initLocalAi(): void {
     }
   })
   refreshEngineModel()
+  // A switch to Local waiting on a model that is in fact here (a fresh
+  // install's bundled model, checked once in the background).
+  void settleLocalAiMigration()
 
   setLocalRuntime({
     installed: () => tierInstalled(activeTier()),
@@ -441,20 +524,11 @@ async function runDownload(tier: LocalModelTier): Promise<{ ok: boolean; error?:
     broadcast('localAi:progress', download.progress)
   }
   try {
-    const specs = await resolveDownloads(
-      wanted.map((m) => ({ manifestUrl: modelManifestUrl(m, base), url: modelDownloadUrl(m, base), file: m.file, sizeBytes: m.sizeBytes, sha256: m.sha256 })),
-      doFetch,
-      ctrl.signal
-    )
-    if (!specs.ok) {
-      emit({ file: tier.file, state: 'error', receivedBytes: 0, totalBytes: tier.sizeBytes, error: specs.error })
-      return { ok: false, error: specs.error }
-    }
-    for (const spec of specs.files) {
-      const r = await downloadModel(spec, { dir: modelsDir(), fetch: doFetch, freeBytes: async () => freeDisk(), onProgress: emit }, ctrl.signal)
-      if (!r.ok) return { ok: false, error: r.error }
-    }
+    const r = await downloadModels(wanted, { dir: modelsDir(), fetch: doFetch, freeBytes: async () => freeDisk(), onProgress: emit, base }, ctrl.signal)
+    if (!r.ok) return { ok: false, error: r.error }
     refreshEngineModel()
+    download = null
+    await settleLocalAiMigration()
     return { ok: true }
   } finally {
     download = null
@@ -525,7 +599,7 @@ export function registerLocalAiIpc(): void {
   // The one-time "local AI is now built in" notice (settingsStore.migrateAiMode).
   ipcMain.handle('localAi:getIntro', () => {
     const r = effectiveRouteFor('office')
-    return { ...getLocalAiIntro(), contentKey: r === 'anthropic' || r === 'openai' ? r : null }
+    return { ...getLocalAiIntro(), contentKey: r === 'anthropic' || r === 'openai' ? r : null, model: introModelState() }
   })
   ipcMain.handle('localAi:dismissIntro', () => {
     dismissLocalAiIntro()

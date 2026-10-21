@@ -14,6 +14,7 @@
 import { AI_FEATURES, AI_FEATURE_COPY } from '@shared/localAi'
 import { useEffect, useState } from 'react'
 import LocalAiSection from './LocalAiSection'
+import { localSourceSub } from '../../lib/localAiOffer'
 import { describeProviderSwitch, HELD_LOCAL_NOTE } from '../../lib/voiceProviderSwitch'
 import { confirmDialog } from '../plexi/PromptDialog'
 import CreditsMeter from '../CreditsMeter'
@@ -245,6 +246,24 @@ function AiSourceSection(): JSX.Element {
   const openVerify = useVerifyEmailStore((s) => s.open)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
+  // Whether the on-device model is here: the Local card says "Included" only
+  // when it is, and otherwise names the one-time download.
+  const [localModel, setLocalModel] = useState<{ installed: boolean; bytes: number; offered: boolean } | null>(null)
+  useEffect(() => {
+    const api = window.api?.localAi
+    if (!api?.getStatus) return
+    const read = (): void => {
+      void api
+        .getStatus()
+        .then((st) => {
+          const t = st.tiers.find((x) => x.id === st.activeTier) ?? null
+          setLocalModel(t ? { installed: t.installed, bytes: t.sizeBytes, offered: t.offered } : { installed: false, bytes: 0, offered: false })
+        })
+        .catch(() => undefined)
+    }
+    read()
+    return api.onChanged?.(() => read())
+  }, [])
 
   useEffect(() => {
     // Pull the live balance once on open.
@@ -287,7 +306,7 @@ function AiSourceSection(): JSX.Element {
   // credit modes: 'auto' (credits, then the user's own key when they run out)
   // and 'credits' (credits only); the difference is the switch under it.
   const modes: Array<{ id: 'local' | 'byok' | 'openai' | 'credits'; label: string; sub: string }> = [
-    { id: 'local', label: 'Local on this device', sub: 'Included with PlexiiDesk; requests stay on this computer' },
+    { id: 'local', label: 'Local on this device', sub: localSourceSub(localModel) },
     { id: 'byok', label: 'Your Anthropic key', sub: 'Direct to Anthropic (Claude)' },
     { id: 'openai', label: 'Your OpenAI key', sub: 'Direct to OpenAI' },
     { id: 'credits', label: 'Plexii AI credits', sub: 'Your plan’s allowance and packs' }
