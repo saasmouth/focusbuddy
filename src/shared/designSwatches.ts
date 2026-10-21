@@ -113,10 +113,29 @@ export function swatchUsage(body: DesignBody, swatchId: string): string[] {
   return out
 }
 
-/** Map every element on every page, returning a new body only if something changed. */
+/**
+ * Map every element on every page, returning a new body only if something
+ * changed — and PRESERVING the active page's mirror.
+ *
+ * A design body deliberately stores the active page's elements twice: the
+ * editor's syncActivePage assigns `pages[active].elements = body.elements`,
+ * the same array, so single-page code paths and older readers keep working.
+ *
+ * The first version of this mapped both copies independently, which quietly
+ * broke that: one array became two, and each element became two equal objects
+ * where the editor expects one. The colours still looked right, because
+ * syncActivePage overwrites the page from the top level on the next commit,
+ * which is exactly why it would have gone unnoticed — while doubling the
+ * objects, doing the work twice, and destroying the identity that undo
+ * diffing and reference-based reconciliation rely on.
+ *
+ * So the active page reuses the SAME mapped array rather than mapping again.
+ */
 function mapElements(body: DesignBody, fn: (e: SlideElement) => SlideElement): DesignBody {
-  let touched = false
+  // Returns the original array when nothing in it changed, so identity is a
+  // reliable "did this change" signal for callers.
   const run = (els: SlideElement[]): SlideElement[] => {
+    let touched = false
     const next = els.map((e) => {
       const r = fn(e)
       if (r !== e) touched = true
@@ -124,9 +143,27 @@ function mapElements(body: DesignBody, fn: (e: SlideElement) => SlideElement): D
     })
     return touched ? next : els
   }
-  const pages = body.pages?.map((p) => ({ ...p, elements: run(p.elements ?? []) }))
-  const elements = run(body.elements ?? [])
-  if (!touched) return body
+
+  const original = body.elements ?? []
+  const elements = run(original)
+  const active = body.activePage ?? 0
+  let changed = elements !== original
+
+  const pages = body.pages?.map((p, i) => {
+    const own = p.elements ?? []
+    // The mirrored page shares the top level's array; give it the same mapped
+    // array back rather than a second copy of the same work.
+    if (i === active && own === original) {
+      if (elements === original) return p
+      return { ...p, elements }
+    }
+    const mapped = run(own)
+    if (mapped === own) return p
+    changed = true
+    return { ...p, elements: mapped }
+  })
+
+  if (!changed) return body
   return { ...body, ...(pages ? { pages } : {}), elements }
 }
 

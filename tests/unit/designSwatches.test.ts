@@ -133,6 +133,46 @@ describe('editing a swatch moves everything that uses it', () => {
   })
 })
 
+describe("the active page's mirror", () => {
+  // A design body stores the active page's elements TWICE on purpose: the
+  // editor's syncActivePage assigns pages[active].elements = body.elements,
+  // the same array, so single-page paths and older readers keep working.
+  //
+  // An edit that maps both copies independently turns one array into two and
+  // each element into two equal objects. Nothing looks wrong — the next
+  // commit re-mirrors them — while the object count doubles and the identity
+  // that undo diffing and reference-based reconciliation rely on is gone.
+  const mirrored = (): DesignBody => {
+    const els = [el('a', fill({ swatchId: 'brand' }))]
+    return {
+      schemaVersion: 1, width: 100, height: 100,
+      elements: els, activePage: 0,
+      pages: [{ id: 'p1', elements: els }, { id: 'p2', elements: [el('b', fill({ swatchId: 'brand' }))] }],
+      swatches: SW
+    } as unknown as DesignBody
+  }
+
+  it('is intact in the fixture, or this test proves nothing', () => {
+    const b = mirrored()
+    expect(b.elements).toBe(b.pages![0].elements)
+  })
+
+  it('survives an edit', () => {
+    const next = applySwatchEdit(mirrored(), 'brand', { color: '#ff0000' })
+    expect(next.elements).toBe(next.pages![0].elements)
+  })
+
+  it('does not duplicate the element objects', () => {
+    const next = applySwatchEdit(mirrored(), 'brand', { color: '#ff0000' })
+    expect(next.elements![0]).toBe(next.pages![0].elements![0])
+  })
+
+  it('still updates pages that are NOT mirrored', () => {
+    const next = applySwatchEdit(mirrored(), 'brand', { color: '#ff0000' })
+    expect((next.pages![1].elements![0] as { fill?: SlideFill }).fill?.color).toBe('#ff0000')
+  })
+})
+
 describe('attaching and detaching', () => {
   it('assign caches the resolved colour alongside the link', () => {
     const f = assignSwatch(fill({ color: '#000000' }), SW[0], 50)
