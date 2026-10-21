@@ -135,13 +135,18 @@ export function scalePlaced(n: DrawNode, k: number, e: number, f: number): DrawN
   }
 }
 
-/** Fresh ids throughout (a file placed twice must not share ids). */
+/**
+ * Fresh ids throughout, and fresh objects: a file placed twice must share
+ * neither ids nor paint objects with the first placement (a saved drawing is a
+ * strict tree, and an edit to one copy must never reach the other).
+ */
 export function withFreshIds(nodes: DrawNode[], newId: (prefix: string) => string): DrawNode[] {
-  return nodes.map((n) => {
+  const fresh = (n: DrawNode): DrawNode => {
     const id = newId(n.type === 'group' ? 'grp' : n.type === 'image' ? 'img' : n.type === 'text' ? 'txt' : 'obj')
-    if (n.type === 'group') return { ...n, id, children: withFreshIds(n.children, newId) }
+    if (n.type === 'group') return { ...n, id, children: n.children.map(fresh) }
     return { ...n, id }
-  })
+  }
+  return structuredClone(nodes).map(fresh)
 }
 
 /**

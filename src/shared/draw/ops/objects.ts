@@ -85,7 +85,13 @@ export function allObjects(doc: DrawDoc): Array<{ layerId: string; object: DrawN
  * the topmost editable vector layer, and if there is none a fresh layer is made
  * -- so a draw gesture can never silently go nowhere.
  */
-export function addObject(doc: DrawDoc, node: DrawNode, layerId?: string): DrawDoc {
+export function addObject(doc: DrawDoc, added: DrawNode, layerId?: string): DrawDoc {
+  // The drawing owns what is added: a deep copy. Every drawing tool builds its
+  // node from the editor's CURRENT fill and stroke, one object shared by every
+  // new shape; stored as is, three rectangles drawn in a row would hold one
+  // paint object three times (refused by the save path's cycle check before
+  // 4.3.39-local.7, and an edit to one would reach all three).
+  const node = structuredClone(added)
   const vectors = vectorLayersOf(doc)
   const target = vectors.find((l) => l.id === layerId && !l.locked) ?? [...vectors].reverse().find((l) => !l.locked)
   if (!target) {

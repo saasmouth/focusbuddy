@@ -132,7 +132,9 @@ export function releaseCompoundPath(doc: DrawDoc, ids: string[]): { doc: DrawDoc
     const pieces: DrawPathNode[] = node.path.subpaths.map((sp, i) => {
       const { fillRule: _f, ...pathRest } = node.path
       void _f
-      return { ...node, id: i === 0 ? node.id : drawId('obj'), shapeKind: 'path', path: { ...pathRest, subpaths: [sp] } }
+      // Each piece owns its paint (a deep copy): two shapes never share one object.
+      const own = i === 0 ? node : structuredClone(node)
+      return { ...own, id: i === 0 ? node.id : drawId('obj'), shapeKind: 'path', path: { ...pathRest, subpaths: [structuredClone(sp)] } }
     })
     out.push(...pieces.map((x) => x.id))
     next = withChildren(next, containerOf(p), (children) => children.flatMap((n) => (n.id === node.id ? pieces : [n])))
