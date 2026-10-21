@@ -8,6 +8,12 @@ import type { FlowLine } from '../../src/shared/designFlow'
 // Advice that can be wrong is worse than none: a panel that cries wolf gets
 // closed and never reopened. So every rule is tested in both directions — it
 // fires on the fault, and it stays silent on a document that is fine.
+//
+// These fixtures once said `kind: 'solid'` because the code under test did,
+// and the real field is `type`. Both were wrong together, so the contrast
+// rule never fired on a real document and every test still passed. Fixtures
+// copied from the implementation test nothing; they have to be built from the
+// shipped type.
 
 const line = (text: string, over: Partial<FlowLine> = {}): FlowLine => ({
   x: 0, y: 0, w: 400, text, lastOfPara: false,
@@ -23,7 +29,7 @@ const text = (over: Partial<SlideTextElement> = {}): SlideTextElement => ({
 
 const doc = (els: SlideElement[], over: Partial<DesignBody> = {}): DesignBody => ({
   schemaVersion: 1, width: 816, height: 1056,
-  background: { kind: 'solid', color: '#ffffff' },
+  background: { type: 'solid', color: '#ffffff' },
   elements: els,
   ...over
 }) as DesignBody
@@ -80,6 +86,33 @@ describe('contrast', () => {
     ]))
     expect(rules(big)).not.toContain('contrast')
     expect(rules(small)).toContain('contrast')
+  })
+
+  it("uses the element's OWN fill when it has one, not the page behind it", () => {
+    // White text on a dark box on a white page is fine, and judging it
+    // against the page would call it unreadable. This branch had no coverage
+    // at all while backdrop() was reading the wrong field.
+    const onDark = adviseDesign(
+      doc([
+        text({
+          fill: { type: 'solid', color: '#111111' },
+          flowLines: [line('legible', { size: 14, color: '#ffffff' })]
+        } as Partial<SlideTextElement>)
+      ])
+    )
+    expect(rules(onDark)).not.toContain('contrast')
+
+    // The same white text on a white box IS unreadable, and the element fill
+    // is what proves it.
+    const onWhite = adviseDesign(
+      doc([
+        text({
+          fill: { type: 'solid', color: '#ffffff' },
+          flowLines: [line('invisible', { size: 14, color: '#ffffff' })]
+        } as Partial<SlideTextElement>)
+      ])
+    )
+    expect(rules(onWhite)).toContain('contrast')
   })
 
   it('says nothing when there is no known background to compare against', () => {

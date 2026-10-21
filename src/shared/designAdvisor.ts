@@ -19,7 +19,7 @@
 
 import { contrastRatio } from './brandKit'
 import type { DesignBody, DesignMargins } from './design'
-import type { SlideElement, SlideTextElement } from './types'
+import type { SlideElement, SlideTextElement, SlideFill } from './types'
 import type { FlowLine } from './designFlow'
 
 export type AdviceSeverity = 'problem' | 'suggestion' | 'idea'
@@ -70,13 +70,23 @@ function sizesOf(e: SlideTextElement): number[] {
     .filter((n): n is number => typeof n === 'number' && n > 0)
 }
 
-/** Solid background behind an element: its own fill, else the page's. */
+/**
+ * Solid background behind an element: its own fill, else the page's.
+ *
+ * Typed against SlideFill rather than cast to a structural shape. The first
+ * version of this checked `fill.kind === 'solid'`, and the field is `type` —
+ * so backdrop always returned null and the contrast rule, the most useful one
+ * here, never fired on a real document. The tests passed because the fixtures
+ * were written from the same wrong assumption as the code. A real type makes
+ * the compiler catch it instead.
+ */
+function solidOf(fill: SlideFill | undefined): string | null {
+  return fill && fill.type === 'solid' && typeof fill.color === 'string' ? fill.color : null
+}
+
 function backdrop(e: SlideElement, body: DesignBody): string | null {
-  const own = (e as { fill?: { kind?: string; color?: string } }).fill
-  if (own && own.kind === 'solid' && typeof own.color === 'string') return own.color
-  const bg = body.background as { kind?: string; color?: string } | undefined
-  if (bg && bg.kind === 'solid' && typeof bg.color === 'string') return bg.color
-  return null
+  const own = 'fill' in e ? solidOf((e as { fill?: SlideFill }).fill) : null
+  return own ?? solidOf(body.background)
 }
 
 /**
