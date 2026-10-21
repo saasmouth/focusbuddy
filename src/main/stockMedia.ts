@@ -28,13 +28,13 @@ export async function searchStockPhotos(input: { query: string; perPage?: number
   const q = (input.query || '').trim()
   if (!q) return { ok: false, error: 'Type something to search for.' }
   const key = resolvePexelsKey()
-  if (!key) return { ok: false, needsKey: true, error: 'Add a free Pexels API key in Settings → API Keys to search stock photos.' }
+  if (!key) return { ok: false, needsKey: true, error: 'Add a free Pexels API key in Settings → AI · API keys to search stock photos.' }
   try {
     const res = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&per_page=${Math.min(input.perPage ?? 24, 80)}`, {
       headers: { Authorization: key }
     })
     if (!res.ok) {
-      if (res.status === 401) return { ok: false, needsKey: true, error: 'Your Pexels key was rejected. Check it in Settings → API Keys.' }
+      if (res.status === 401) return { ok: false, needsKey: true, error: 'Your Pexels key was rejected. Check it in Settings → AI · API keys.' }
       return { ok: false, error: `Stock search failed (${res.status}).` }
     }
     const json = (await res.json()) as { photos?: Array<Record<string, unknown>> }
@@ -70,7 +70,7 @@ export async function fetchImageDataUrl(input: { url: string }): Promise<{ ok: b
 
 export async function removeBackground(input: { dataUrl: string }): Promise<{ ok: boolean; dataUrl?: string; error?: string; needsKey?: boolean }> {
   const key = resolveRemoveBgKey()
-  if (!key) return { ok: false, needsKey: true, error: 'Add a remove.bg API key in Settings → API Keys to remove image backgrounds.' }
+  if (!key) return { ok: false, needsKey: true, error: 'Add a remove.bg API key in Settings → AI · API keys to remove image backgrounds.' }
   const b64 = input.dataUrl.replace(/^data:[^;]+;base64,/, '')
   if (!b64 || b64 === input.dataUrl) return { ok: false, error: 'Background removal needs an embedded image (insert it first).' }
   // AI set to run on this device: there is no on-device background remover, so

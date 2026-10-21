@@ -338,8 +338,8 @@ function AiSourceSection(): JSX.Element {
 
       {status?.mode === 'openai' && (
         <div className="fb-t-caption text-[var(--ink-60)] mb-2 leading-snug" data-testid="ai-openai-note">
-          AI requests go straight to OpenAI with your key (add it under API keys). Pick the models in Settings → Local
-          AI → Feature by feature, or send any feature back to the on-device model there.
+          AI requests go straight to OpenAI with your key (add it under API keys). To pick the models, or to send any
+          feature back to the on-device model, open Settings › AI › Local on this device › Feature by feature.
         </div>
       )}
 

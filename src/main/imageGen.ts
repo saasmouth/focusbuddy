@@ -42,7 +42,7 @@ export async function generateImage(input: { prompt: string; width?: number; hei
     return {
       ok: false,
       needsKey: true,
-      error: 'Add your OpenAI API key in Settings → API Keys to generate images.'
+      error: 'Add your OpenAI API key in Settings → AI · API keys to generate images.'
     }
   }
 
@@ -67,7 +67,7 @@ export async function generateImage(input: { prompt: string; width?: number; hei
     if (!res.ok) {
       const txt = await res.text().catch(() => '')
       // 401 means the key is present but rejected; surface that clearly.
-      if (res.status === 401) return { ok: false, needsKey: true, error: 'Your OpenAI key was rejected. Check it in Settings → API Keys.' }
+      if (res.status === 401) return { ok: false, needsKey: true, error: 'Your OpenAI key was rejected. Check it in Settings → AI · API keys.' }
       return { ok: false, error: `Image generation failed (${res.status}): ${shorten(txt)}` }
     }
     const json = (await res.json()) as { data?: Array<{ b64_json?: string; url?: string }> }

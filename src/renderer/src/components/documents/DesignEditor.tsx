@@ -604,7 +604,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
         placeImage(res.dataUrl)
         setImgPrompt('')
       } else if (res.needsKey) {
-        setStatus(res.error ?? 'Add your OpenAI API key in Settings → API Keys to generate images.')
+        setStatus(res.error ?? 'Add your OpenAI API key in Settings → AI · API keys to generate images.')
       } else {
         setStatus(res.error ?? 'Image generation failed.')
       }
@@ -625,7 +625,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
         if (!res.photos.length) setStatus('No photos found for that search.')
       } else if (res.needsKey) {
         setStockResults([])
-        setStatus(res.error ?? 'Add a free Pexels API key in Settings → API Keys to search stock photos.')
+        setStatus(res.error ?? 'Add a free Pexels API key in Settings → AI · API keys to search stock photos.')
       } else {
         setStatus(res.error ?? 'Stock search failed.')
       }
@@ -655,7 +655,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
         const id = selected.id
         mutate((s) => updateElement(s, id, { src: res.dataUrl }))
       } else if (res.needsKey) {
-        setStatus(res.error ?? 'Add a remove.bg API key in Settings → API Keys to remove backgrounds.')
+        setStatus(res.error ?? 'Add a remove.bg API key in Settings → AI · API keys to remove backgrounds.')
       } else {
         setStatus(res.error ?? 'Background removal failed.')
       }
@@ -1329,7 +1329,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
               ))}
             </div>
           )}
-          <p className="text-[10px] text-[var(--ink-40)] mt-1.5">Photos from Pexels. A free Pexels API key (Settings → API Keys) enables search.</p>
+          <p className="text-[10px] text-[var(--ink-40)] mt-1.5">Photos from Pexels. A free Pexels API key (Settings → AI · API keys) enables search.</p>
         </Panel>
       )}
 

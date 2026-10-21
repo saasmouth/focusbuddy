@@ -439,7 +439,7 @@ export default function MindMapWidget({ widget, inline = false }: Props): JSX.El
       if (inv.agents.length === 0) {
         if (inv.source === 'userData-new' || inv.source === 'none') {
           setErrorMsg(
-            `No agents found. Looked in:\n  ${inv.agentsDir ?? '(no writable directory)'}\n\nClick "+ New" to author one. To point PlexiiDesk at an existing workspace with .claude/agents/, use Settings → Workspace path.`
+            `No agents found. Looked in:\n  ${inv.agentsDir ?? '(no writable directory)'}\n\nClick "+ New" to author one, or put your agent .md files in that folder and run Find agents again.`
           )
         } else {
           setErrorMsg(

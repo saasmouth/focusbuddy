@@ -141,7 +141,7 @@ async function transcribeCloud(
   if (!key) {
     return {
       ok: false,
-      error: 'No OpenAI key set. Add one in Settings → AI · API keys, or switch to Local in Voice settings.',
+      error: 'No OpenAI key set. Add one in Settings → AI · API keys, or choose Local transcription in Settings → AI.',
       reason: 'no_key'
     }
   }
