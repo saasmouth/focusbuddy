@@ -272,6 +272,7 @@ import { exportMap } from '../mapExport'
 import { importVsdx } from '../mapImport'
 import { searchStockPhotos, fetchImageDataUrl, removeBackground } from '../stockMedia'
 import { setPeopleDirectory, type DirectoryPerson } from '../peopleDirectory'
+import { setSelfAccountId } from '../selfAccount'
 import type { DesignBody } from '@shared/design'
 import type { DrawBody } from '@shared/draw'
 import { getBrandKit, saveBrandKit, hasBrandKit } from '../db/brandKit'
@@ -1008,11 +1009,11 @@ export function registerIpcHandlers(): void {
     (
       _e,
       ev:
-        | { type: 'create'; snapshot: Record<string, unknown> }
+        | { type: 'create'; snapshot: Record<string, unknown>; orgId?: string | null }
         | { type: 'attr'; id: string; attr: string; value: unknown }
         | { type: 'trash'; id: string; trashed: boolean }
     ) => {
-      if (ev.type === 'create') return applyRemoteWorkItemSnapshot(ev.snapshot)
+      if (ev.type === 'create') return applyRemoteWorkItemSnapshot(ev.snapshot, ev.orgId ?? null)
       if (ev.type === 'attr') return applyRemoteWorkItemAttr(ev.id, ev.attr, ev.value)
       applyRemoteWorkItemTrash(ev.id, ev.trashed)
       return 'applied'
@@ -4225,6 +4226,10 @@ export function registerIpcHandlers(): void {
   // the mail search cache: main knows only what the app actually loaded.
   ipcMain.handle('people:setDirectory', (_e, people: DirectoryPerson[]) =>
     setPeopleDirectory(Array.isArray(people) ? people : [])
+  )
+  // DEC-144: who is signed in, so team-workspace Focus can show YOUR tasks.
+  ipcMain.handle('people:setSelf', (_e, accountId: string | null) =>
+    setSelfAccountId(typeof accountId === 'string' ? accountId : null)
   )
 
   // PlexiProjects: project plans, the Gantt schedule, dependencies and reschedule.

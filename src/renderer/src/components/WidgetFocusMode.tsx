@@ -765,7 +765,7 @@ function FocusModeInner(): JSX.Element | null {
               <button
                 onClick={() => setFocused(null)}
                 className="icon-btn"
-                aria-label="Close focus mode"
+                aria-label="Close full view"
                 title="Close (Esc)"
               >
                 <Icon name="close" size={16} />
@@ -864,7 +864,7 @@ function FocusModeInner(): JSX.Element | null {
               <button
                 onClick={() => setFocused(null)}
                 className="icon-btn"
-                aria-label="Close focus mode"
+                aria-label="Close full view"
                 title="Close (Esc)"
               >
                 <Icon name="close" size={16} />

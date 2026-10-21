@@ -247,6 +247,8 @@ export interface FbNode {
   mentions?: string | null
   originatorId?: string | null
   recipientId?: string | null
+  /** DEC-144: JSON array of assignee account ids (members and guests). */
+  assigneeIds?: string | null
   dueAt?: string | null
   wiUrgency?: string | null
   sourceRef?: string | null

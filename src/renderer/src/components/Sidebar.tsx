@@ -294,7 +294,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
 
           <CollapsedNavIcon icon="plexii:home"  label="Home"         tone={AREA_TONES.home}  active={viewIsActive({ kind: 'home' })}       onClick={() => { setActive(null); goHome() }} />
           {/* Monochrome by plexidesk-75's rail rule: no tone, accent only when active. */}
-          <CollapsedNavIcon icon="notifications" label="Attention"    tone={AREA_TONES.attention}  active={viewIsActive({ kind: 'attention' })} onClick={() => { setActive(null); goAttention() }} />
+          <CollapsedNavIcon icon="notifications" label="Focus"    tone={AREA_TONES.attention}  active={viewIsActive({ kind: 'attention' })} onClick={() => { setActive(null); goAttention() }} />
           <CollapsedNavIcon icon="meeting_room"  label="Rooms"        tone={AREA_TONES.rooms}     active={viewIsActive({ kind: 'rooms' })}      onClick={() => { setActive(null); goRooms() }} />
           <CollapsedNavIcon icon="desk"          label="Desks"        tone={AREA_TONES.desks}    active={viewIsActive({ kind: 'desks' })}      onClick={() => { setActive(null); goDesks() }} />
           <CollapsedNavIcon icon="folder_shared" label="Shared Desks" tone={AREA_TONES.shared} active={viewIsActive({ kind: 'shared' })}    onClick={() => { setActive(null); goShared() }} />

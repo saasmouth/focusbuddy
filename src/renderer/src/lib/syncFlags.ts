@@ -158,6 +158,13 @@ export function crdtScopeSuffix(activeOrgId: string | null | undefined, accountI
 // With no shared root it falls back to the active-workspace scope (org or account).
 // This precedence (desk > org > account) is the contract that keeps a shared object
 // on the shared channel and a private object off it.
+/** DEC-144 — the org a partition key belongs to (`<type>:org:<orgId>`), or
+ *  null for an account or desk partition (those land in Personal). */
+export function orgOfPartition(partitionKey: string | null | undefined): string | null {
+  const m = /^[a-z]+:org:(.+)$/.exec(partitionKey ?? '')
+  return m ? m[1] : null
+}
+
 export function crdtObjectScope(
   sharedRootId: string | null | undefined,
   activeOrgId: string | null | undefined,

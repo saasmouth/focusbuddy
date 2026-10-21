@@ -1718,7 +1718,7 @@ function ExpandControl({
         }}
         className="h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] hover:bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] hover:text-[var(--ink-100)]"
         aria-label="Expand options"
-        title="Expand — bigger on desk or full focus mode"
+        title="Expand — bigger on desk or full view"
       >
         <Icon name="open_in_full" size={13} />
       </button>

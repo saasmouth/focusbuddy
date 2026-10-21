@@ -88,7 +88,7 @@ describe('taskAttrsForItemPatch — the item edit in the task vocabulary', () =>
   })
 
   it('names exactly the fields it accepts', () => {
-    expect([...TASK_EDITABLE_ITEM_FIELDS].sort()).toEqual(['dueAt', 'intentClass', 'notes', 'title'])
+    expect([...TASK_EDITABLE_ITEM_FIELDS].sort()).toEqual(['assigneeIds', 'dueAt', 'intentClass', 'notes', 'title'])
   })
 })
 

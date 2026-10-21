@@ -98,7 +98,7 @@ export default function WorkspaceHeader({
                 }
               }}
               className="btn-primary !text-[12px]"
-              title="Enter the project's most actionable task in focus mode"
+              title="Open the project's most actionable task"
             >
               <Icon name="center_focus_strong" size={13} />
               <span>Focus Mode</span>

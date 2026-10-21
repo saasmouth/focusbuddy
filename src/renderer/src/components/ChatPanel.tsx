@@ -1405,7 +1405,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
             <div className="mb-2 rounded-[var(--radius-field)] border border-accent/35 bg-[var(--surface-raised)] p-2.5">
               <div className="flex items-center gap-2 mb-2">
                 <span className="inline-flex items-center gap-1 px-1.5 h-5 rounded bg-accent/[0.14] text-[rgb(var(--accent))] fb-t-caption font-medium">
-                  @attention
+                  @focus
                 </span>
                 <span className="fb-t-caption text-[var(--ink-50)] truncate flex-1 min-w-0">
                   “{inlineCapture.text.slice(0, 60)}
@@ -1443,7 +1443,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
           )}
           {inlineFiled && (
             <div className="mb-2 flex items-center gap-1.5 fb-t-caption text-[var(--ink-60)]">
-              <Icon name="check_circle" size={13} /> Filed to Attention · {inlineFiled}
+              <Icon name="check_circle" size={13} /> Added to Focus · {inlineFiled}
             </div>
           )}
           <div

@@ -172,7 +172,7 @@ export default function StartOrAskPlexi(): JSX.Element {
               key: 'capture:attention',
               type: 'page',
               id: 'attention-capture',
-              title: 'attention',
+              title: 'focus',
               hint: 'Capture — Tab to arm',
               icon: 'notifications'
             }
@@ -311,7 +311,7 @@ export default function StartOrAskPlexi(): JSX.Element {
               title="Armed — Enter adds what you type to Focus. Backspace on empty removes it."
             >
               <Icon name="notifications" size={11} />
-              @attention
+              @focus
             </span>
           )}
           <input
