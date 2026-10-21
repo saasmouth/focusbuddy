@@ -240,6 +240,9 @@ export function rasterInfo(bytes: Uint8Array, kind: ImportKind): RasterInfo | nu
   if (!info || !(info.w > 0) || !(info.h > 0)) return null
   // A declared resolution outside any real device's range is noise, not a size.
   if (info.ppi !== undefined && !(info.ppi >= 1 && info.ppi <= 10000)) delete info.ppi
+  // PNG and BMP store pixels per METRE as an integer, so 72 ppi arrives as
+  // 72.009: the resolution the author chose is the whole number.
+  if (info.ppi !== undefined && Math.abs(info.ppi - Math.round(info.ppi)) < 0.05) info.ppi = Math.round(info.ppi)
   return info
 }
 

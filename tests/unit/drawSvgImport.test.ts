@@ -719,7 +719,9 @@ describe('what a placed file is, read from its bytes', () => {
   })
 
   it('reads pixel size, declared resolution and EXIF orientation', () => {
-    expect(rasterInfo(png(640, 480, 144), 'png')).toEqual({ w: 640, h: 480, ppi: expect.closeTo(144, 1) })
+    expect(rasterInfo(png(640, 480, 144), 'png')).toEqual({ w: 640, h: 480, ppi: 144 })
+    // 72 ppi is stored as 2835 pixels per metre (72.009): read back as 72.
+    expect(rasterInfo(png(10, 10, 72), 'png')!.ppi).toBe(72)
     expect(rasterInfo(jpeg(400, 300, { dpi: 300 }), 'jpeg')).toEqual({ w: 400, h: 300, ppi: 300 })
     // Orientation 6: stored sideways, shown upright -- the placed frame is 300 x 400.
     expect(rasterInfo(jpeg(400, 300, { orientation: 6 }), 'jpeg')).toEqual({ w: 300, h: 400, orientation: 6 })

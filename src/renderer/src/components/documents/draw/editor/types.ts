@@ -64,6 +64,8 @@ export interface EditorState {
   /** The schema the document was loaded as; it is never written back older. */
   storedSchema: number
   dialog: OpenDialog | null
+  /** Files loaded into the Place cursor (File › Place), waiting to be clicked or dragged in. */
+  placing: import('./place').PlaceQueue | null
   /** Bumped when the co-editing undo stack changes, so Undo/Redo re-enable. */
   liveUndoTick: number
 }
@@ -215,6 +217,8 @@ export interface DrawTool {
   paint?: boolean
   /** Usable on a read-only drawing (looks, never edits). */
   readOnlySafe?: boolean
+  /** Not shown in the toolbox: a mode a command switches to (the Place cursor). */
+  hidden?: boolean
   onPointerDown?(ctx: EditorCtx, e: ToolPointer): void
   onPointerMove?(ctx: EditorCtx, e: ToolPointer): void
   onPointerUp?(ctx: EditorCtx, e: ToolPointer): void

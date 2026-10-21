@@ -10,7 +10,9 @@ import { blank, harness, rect } from './harness'
 
 describe('registries', () => {
   it('every one of the 16 tools is registered, in toolbox order, with no clashing ids or letters', () => {
-    expect(drawTools().map((t) => `${t.id}:${t.key}`)).toEqual([
+    // Hidden tools are modes a command switches to (the Place cursor), not toolbox buttons.
+    expect(drawTools().filter((t) => t.hidden).map((t) => t.id)).toEqual(['place'])
+    expect(drawTools().filter((t) => !t.hidden).map((t) => `${t.id}:${t.key}`)).toEqual([
       'select:V',
       'node:A',
       'pen:P',
@@ -37,7 +39,7 @@ describe('registries', () => {
   })
 
   it('no tool letter is also a keymap binding, and every binding names a real command', () => {
-    for (const t of drawTools()) expect(KEYMAP[t.key!.toLowerCase()], t.id).toBeUndefined()
+    for (const t of drawTools()) if (t.key) expect(KEYMAP[t.key.toLowerCase()], t.id).toBeUndefined()
     expect(commandRegistryProblems()).toEqual([])
   })
 
@@ -48,7 +50,7 @@ describe('registries', () => {
 
   it('panels and dialogs are discovered', () => {
     expect(drawPanels().map((p) => p.id)).toEqual(['inspector', 'layers'])
-    expect(drawDialogs().map((d) => d.id).sort()).toEqual(['artboard-size', 'help'])
+    expect(drawDialogs().map((d) => d.id).sort()).toEqual(['artboard-size', 'help', 'import-report', 'place-pdf-page'])
   })
 
   it('every command\'s enabled() is pure: same answer twice, no state change', () => {
@@ -89,6 +91,7 @@ describe('the menu bar is built from commands, identical to the one it replaced'
       [
         'file',
         'New artwork|note_add|||',
+        'Open SVG…|folder_open|⌘O||',
         'Make a copy|file_copy|||',
         '---',
         'New from preset|aspect_ratio|>',
@@ -104,6 +107,10 @@ describe('the menu bar is built from commands, identical to the one it replaced'
         '  Story / Reel — 1080×1920||||',
         '  App icon — 1024×1024||||',
         '  Logo mark — 512×512||||',
+        'Place…|add_photo_alternate|⇧⌘P||',
+        'Place as template…|layers||off|',
+        'Import SVG…|polyline|||',
+        'Replace image…|swap_horiz||off|',
         '---',
         'Export PNG…|image|||',
         'Export SVG…|polyline|||',
@@ -176,7 +183,7 @@ describe('the menu bar is built from commands, identical to the one it replaced'
     expect(edit).toContain('Duplicate|file_copy|⌘D||')
     const ro = harness({ ...blank([rect('a', 0, 0, 10, 10)]), schemaVersion: 3 })
     const text = ['file', 'edit', 'object', 'layer', 'document'].flatMap((m) => describeMenu(buildMenu(ro.ed.ctx, m))).join('\n')
-    for (const off of ['Export PNG…', 'Export SVG…', 'Export PDF…', 'Undo', 'Redo', 'Duplicate', 'Delete', 'Unite', 'Bring to front', 'Left', 'New vector layer', 'New paint layer', 'Artboard size…', 'Transparent']) {
+    for (const off of ['Place…', 'Import SVG…', 'Place as template…', 'Replace image…', 'Export PNG…', 'Export SVG…', 'Export PDF…', 'Undo', 'Redo', 'Duplicate', 'Delete', 'Unite', 'Bring to front', 'Left', 'New vector layer', 'New paint layer', 'Artboard size…', 'Transparent']) {
       expect(text, off).toMatch(new RegExp(`(^|\\n)\\s*${off.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\|[^|]*\\|[^|]*\\|off\\|`))
     }
   })

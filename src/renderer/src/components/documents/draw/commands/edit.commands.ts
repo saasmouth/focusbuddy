@@ -3,6 +3,7 @@
 import { deleteObjects, duplicateObjects, editableIds, moveObjects, selectableObjectIds } from '@shared/draw/ops'
 import type { Command, EditorCtx, KeyInput, MenuSpec } from '../editor/types'
 import { finishPen } from '../tools/pen.tool'
+import { discardPlaceItem } from '../editor/place'
 
 const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 const hasSelection = (ctx: EditorCtx): boolean => ctx.get().selection.length > 0
@@ -84,6 +85,7 @@ export const commands: Command[] = [
     label: 'Finish path or deselect',
     run: (ctx) => {
       if (ctx.get().pen) finishPen(ctx, false)
+      else if (ctx.get().placing) discardPlaceItem(ctx)
       else ctx.select([])
     }
   },

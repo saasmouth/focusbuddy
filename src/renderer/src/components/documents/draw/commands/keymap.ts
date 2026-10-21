@@ -23,6 +23,8 @@ export const KEYMAP: Record<string, readonly [string, 'prevent'?]> = {
   escape: ['edit.escape'],
   'mod+a': ['edit.selectAll', 'prevent'],
   'mod+d': ['edit.duplicate', 'prevent'],
+  'mod+o': ['file.openSvg', 'prevent'],
+  'mod+shift+p': ['file.place', 'prevent'],
   'mod+shift+z': ['edit.redo', 'prevent'],
   'mod+y': ['edit.redo', 'prevent'],
   'mod+z': ['edit.undo', 'prevent']

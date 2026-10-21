@@ -7,7 +7,7 @@ const x = (h: ReturnType<typeof harness>, id: string): number => nodeBounds(h.ob
 
 describe('the keyboard', () => {
   it('every tool letter selects its tool (Shift or not), and ⌘ with a letter does not', () => {
-    for (const t of drawTools()) {
+    for (const t of drawTools().filter((tool) => tool.key)) {
       const h = harness()
       h.key(t.key!.toLowerCase())
       expect(h.state().tool, t.id).toBe(t.id)

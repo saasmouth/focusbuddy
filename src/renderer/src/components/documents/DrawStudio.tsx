@@ -15,6 +15,7 @@ import { addObject, primaryArtboard, targetLayerId } from '@shared/draw/ops'
 import { walkNodes } from '@shared/draw/tree'
 import { createDrawEditor, type DrawEditor } from './draw/editor/editor'
 import { createDomServices } from './draw/editor/domServices'
+import { dragHasFiles, placeDroppedFiles, readDroppedFiles } from './draw/editor/fileDrop'
 import type { KeyInput, ToolPointer } from './draw/editor/types'
 import { dialogById } from './draw/dialogs/registry'
 import { drawPanels } from './draw/panels/registry'
@@ -265,11 +266,23 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
       className="h-full flex flex-col text-[13px]"
       data-testid="draw-studio"
       onDragOver={(e) => {
+        // Files from the desktop are placed where they are dropped (WP-IMPORT).
+        if (dragHasFiles(e.dataTransfer)) {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = state.readOnly ? 'none' : 'copy'
+          return
+        }
         if (!acceptsWidgetDrag(e.dataTransfer)) return
         e.preventDefault()
         e.dataTransfer.dropEffect = 'copy'
       }}
       onDrop={(e) => {
+        if (dragHasFiles(e.dataTransfer) && e.dataTransfer.files.length) {
+          e.preventDefault()
+          const at = toolPointer(e).p
+          void readDroppedFiles(e.dataTransfer.files).then((files) => placeDroppedFiles(ctx, files, at))
+          return
+        }
         if (!acceptsWidgetDrag(e.dataTransfer)) return
         e.preventDefault()
         void widgetIdFromDrop(e.dataTransfer).then((widgetId) => {
