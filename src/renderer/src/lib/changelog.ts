@@ -87,9 +87,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Settings \u2192 Account \u2192 Your data: back up everything on this computer to a file. Downloading what our server holds, and closing your account so it is archived and can be restored on request, arrive with the next server update; until then the panel says so.',
       'PlexiiBrain ranks documents by the passage that best matches your question, not a whole-document average, and Settings \u2192 AI \u2192 Local on this device shows how much is ranked by meaning so far.',
       'The separate PlexiiOffice app is retired. Write, Cells, Deck and the rest of the Office apps are all inside PlexiiDesk.',
-      'Fixed: in 4.3.30 to 4.3.33, some PlexiiDesign and PlexiiDraw changes showed on screen but were never saved: text added with Insert, multi-page designs, drawings with several shapes in one colour, and duplicated shapes. They save now, and a document that was stuck saves again.',
       'Fixed: in 4.3.30 to 4.3.33, every request to the Haiku model failed with \u201cConnection error.\u201d before it left the computer, including naming untitled items, AI Assist rewrites, the command bar, capture sorting and inbox triage.',
-      'Fixed: exporting a design, drawing or diagram as PDF failed. Saving privacy settings, and some edits from connected calendars and AI chat, could be refused with an error. Copies made with Duplicate, Paste or Place shared colours and text with the original, so changing one changed both.',
+      'Fixed: exporting a design, drawing or diagram as PDF failed. Copies made with Duplicate, Paste or Place shared colours and text with the original, so changing one changed both.',
       'Security: spreadsheet import and export moved off a version of SheetJS with known vulnerabilities.'
     ]
   },
