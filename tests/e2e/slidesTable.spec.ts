@@ -37,7 +37,10 @@ test('ST-1 — insert a table, render it, edit a cell and add a row', async () =
     await startBlankSlides(window)
 
     await window.getByRole('button', { name: 'Insert', exact: true }).click()
-    await window.locator('text=Table').first().click()
+    // Scoped to the Insert menu: a bare `text=Table` first matches the side
+    // menu's Table work-widget tile (sidemenu-widget-table), which is not this
+    // action, so the spec never reached the insert path.
+    await window.locator('[data-testid="slides-menubar-insert-list"]').getByText('Table', { exact: true }).click()
     await window.waitForTimeout(400)
 
     const tableEl = window.locator('[data-testid="slide-element"][data-eltype="table"]')
