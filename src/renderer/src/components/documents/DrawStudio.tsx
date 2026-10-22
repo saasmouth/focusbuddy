@@ -662,8 +662,10 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
         panels={panelEls.length ? <>{panelEls}</> : undefined}
       >
       <div className="h-full min-w-0 flex flex-col min-h-0">
-      {/* Notices sit beside a pinned panel, never under it. */}
-      <div className="shrink-0" style={inset ? { paddingLeft: inset } : undefined}>
+      {/* Notices sit beside a pinned panel, never under it. In a short host (a
+          desk widget) they give way to the canvas and scroll, rather than
+          leaving it a sliver: the canvas row keeps at least 120 px. */}
+      <div className="shrink min-h-0 overflow-y-auto" data-testid="draw-notices" style={inset ? { paddingLeft: inset } : undefined}>
         {state.readOnly && <ReadOnlyBanner compat={state.compat} />}
 
         <KeysNotice ctx={ctx} />
@@ -671,7 +673,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
         <IsolationBar ctx={ctx} />
       </div>
 
-      <div className="flex-1 min-h-0 flex">
+      <div className="flex-1 min-h-[120px] flex">
         {/* Canvas */}
         {/* The grey around the stage is pasteboard: a press there goes to the
             tool too (draw an artboard with the Artboard tool, start a marquee,
