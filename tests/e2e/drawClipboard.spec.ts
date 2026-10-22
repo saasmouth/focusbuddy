@@ -5,28 +5,30 @@
  * picture put there by "another app" (the main process, writing a PNG) pastes
  * as an image object. Every result is read back from the stored document.
  *
- * This spec uses the machine's real clipboard. Its text is saved before and
- * put back after.
+ * This spec uses the machine's real clipboard. Everything on it (every item
+ * and type: text, pictures, file URLs) is saved before and put back after.
  */
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 import { keepNoticesOutOfTheWay, openDocument, readStored, rectObject, runMenu, seedDrawDoc, stagePoint, v1Body, waitForSave } from './_drawHelpers'
+import { restorePasteboard, savePasteboard, type SavedPasteboard } from './_macPasteboard'
 
 let app: LaunchedApp
 let window: Page
-let savedText = ''
+let savedPasteboard: SavedPasteboard | null = null
 
 test.beforeAll(async () => {
   app = await launchApp({ env: { PLEXI_APP: 'preview3' } })
   window = app.window
   await waitForReady(window)
   await keepNoticesOutOfTheWay(window)
-  savedText = await app.app.evaluate(({ clipboard }) => clipboard.readText())
+  // Every item and type on the real pasteboard, put back in afterAll.
+  if (process.platform === 'darwin') savedPasteboard = savePasteboard()
 })
 
 test.afterAll(async () => {
-  await app.app.evaluate(({ clipboard }, t) => clipboard.writeText(t), savedText).catch(() => undefined)
+  if (savedPasteboard) restorePasteboard(savedPasteboard)
   await app.dispose()
 })
 

@@ -7,7 +7,8 @@
  * Finder pasting as art, not as their names.
  *
  * Throwaway profile (launchApp), PLEXI_APP=preview3. This spec uses the
- * machine's real clipboard; its text is saved before and put back after.
+ * machine's real clipboard; everything on it (every item and type: text,
+ * pictures, file URLs) is saved before and put back after.
  */
 
 import { test, expect, type Page } from '@playwright/test'
@@ -17,11 +18,11 @@ import { join } from 'path'
 import { deflateSync } from 'zlib'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 import { keepNoticesOutOfTheWay, openDocument, readStored, rectObject, seedDrawDoc, stagePoint, storedView, v1Body } from './_drawHelpers'
-import { copyFilesLikeFinder, readPasteboard } from './_macPasteboard'
+import { copyFilesLikeFinder, readPasteboard, restorePasteboard, savePasteboard, type SavedPasteboard } from './_macPasteboard'
 
 let app: LaunchedApp
 let window: Page
-let savedText = ''
+let savedPasteboard: SavedPasteboard | null = null
 let dir: string
 
 test.skip(process.platform !== 'darwin', 'reads the macOS pasteboard')
@@ -31,12 +32,13 @@ test.beforeAll(async () => {
   window = app.window
   await waitForReady(window)
   await keepNoticesOutOfTheWay(window)
-  savedText = await app.app.evaluate(({ clipboard }) => clipboard.readText())
+  // Every item and type on the real pasteboard, put back in afterAll.
+  if (process.platform === 'darwin') savedPasteboard = savePasteboard()
   dir = mkdtempSync(join(tmpdir(), 'plexii-draw-copyout-'))
 })
 
 test.afterAll(async () => {
-  await app.app.evaluate(({ clipboard }, t) => clipboard.writeText(t), savedText).catch(() => undefined)
+  if (savedPasteboard) restorePasteboard(savedPasteboard)
   await app.dispose()
   rmSync(dir, { recursive: true, force: true })
 })
