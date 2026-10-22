@@ -228,6 +228,62 @@ if (ribbonPath && bar) {
         sweepFailed = true
       }
     }
+    // ---- PASS 3b: bar-scoped text lookups ---------------------------------
+    // The sweep above only sees controls that HAVE a testid. A spec can also
+    // reach a control by its text, and then a conversion that moved the control
+    // out of the bar entirely is invisible: Cells' SE-12 did
+    // `bar.locator('button', { hasText: /AI fill/i })` while AI fill had become
+    // a RAIL action, so .click() auto-waited to the 30s test timeout and the
+    // failure read as a slow test rather than a missing control.
+    const tabLabels = new Set()
+    decls.forEach((d, k) => {
+      const end = k + 1 < decls.length ? decls[k + 1].line : stopAt
+      for (let i = d.line; i < end; i++) {
+        for (const m of ribbonLines[i].matchAll(/label="([^"]+)"/g)) tabLabels.add(m[1])
+      }
+    })
+    const railLabels = new Set()
+    for (let i = stopAt; i < ribbonLines.length; i++) {
+      for (const m of ribbonLines[i].matchAll(/label:\s*'([^']+)'/g)) railLabels.add(m[1])
+    }
+    const matches = (text, set) => [...set].some((l) => l.toLowerCase().includes(text.toLowerCase()))
+
+    const moved = []
+    for (const spec of specs) {
+      const txt = readFileSync(join(specDir, spec), 'utf8')
+      if (!txt.includes(bar)) continue
+      // Only lookups genuinely scoped to the bar. A spec mentioning the bar
+      // somewhere and using hasText elsewhere (a dialog's Cancel) is not this
+      // bug, and flagging it would make the check noise.
+      const barVars = new Set(
+        [...txt.matchAll(new RegExp(`const\\s+(\\w+)\\s*=\\s*[^\\n]*${bar}[^\\n]*`, 'g'))].map((m) => m[1])
+      )
+      const lookups = []
+      for (const v of barVars) {
+        for (const m of txt.matchAll(new RegExp(`\\b${v}\\s*\\.locator\\([^)]*hasText:\\s*/([^/]+)/`, 'g'))) {
+          lookups.push(m[1].replace(/\\/g, ''))
+        }
+      }
+      // the inline form, without a variable
+      for (const m of txt.matchAll(new RegExp(`${bar}"?\\]\\)\\s*\\.locator\\([^)]*hasText:\\s*/([^/]+)/`, 'g'))) {
+        lookups.push(m[1].replace(/\\/g, ''))
+      }
+      for (const text of new Set(lookups)) {
+        if (matches(text, tabLabels)) continue
+        const where = matches(text, railLabels) ? 'the RAIL, not the bar' : 'no ribbon control at all'
+        moved.push({ spec, text, where })
+        sweepFailed = true
+      }
+    }
+    if (moved.length) {
+      console.log(`\n  ${moved.length} bar-scoped text lookup(s) that cannot match:`)
+      for (const m of moved) console.log(`    ${m.spec}: /${m.text}/ matches ${m.where}`)
+      console.log(`  A locator like bar.locator('button', { hasText: /x/ }) auto-waits, so this`)
+      console.log(`  presents as a 30s test timeout rather than a missing control.`)
+    } else {
+      console.log(`  no bar-scoped text lookup reaches a control that left the bar`)
+    }
+
     if (gaps.length) {
       console.log(`\n  ${gaps.length} spec(s) reach a control without selecting its tab:`)
       for (const g of gaps) console.log(`    ${g.spec}: needs ${g.missing.join(', ')} for ${g.ids.join(' ')}`)
