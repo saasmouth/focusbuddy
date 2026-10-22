@@ -55,6 +55,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Fixed: on-device AI could refuse a first question about a desk with \u201cConversation hit the model context window\u201d. The desk is now fitted to what the model can read, and the answer says what was left out.',
       'Fixed: in PlexiiDesign, adding a page to a design started from a template could lose the template\u2019s artwork, and the print bleed setting had gone missing from the toolbar.',
       'Fixed: Focus\u2019s full view shows every kind of task, and assigning a task to a teammate works end to end.',
+      'Fixed: in PlexiiCells, pasting a formula where its references would fall off the sheet quietly pointed them at A1, giving a wrong answer that looked right. It now shows #REF!, as Excel does, and so does deleting a row a formula refers to. Dragging to resize a row works anywhere along the row\u2019s edge.',
       'Fixed: Help \u2192 What\u2019s New and Help \u2192 Terms of Use in the menu bar did nothing. After you signed in, the sign-in window kept your password filled in.',
       'Removed: old screens and settings plumbing that nothing could open any more, including the retired standalone PlexiiOffice screens.'
     ]
