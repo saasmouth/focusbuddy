@@ -84,6 +84,8 @@ function emptyBody(kind: SnippetKind): SnippetBody {
       return { kind: 'design', elements: [] }
     case 'diagram':
       return { kind: 'diagram', nodes: [], edges: [] }
+    case 'draw':
+      return { kind: 'draw', objects: [] }
   }
 }
 

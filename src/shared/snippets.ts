@@ -31,7 +31,7 @@
  * What a snippet holds. The kind decides which surfaces can take it, and how
  * its body is read — each kind has its own body shape below.
  */
-export type SnippetKind = 'doc' | 'widget' | 'sheet' | 'slide' | 'design' | 'diagram'
+export type SnippetKind = 'doc' | 'widget' | 'sheet' | 'slide' | 'design' | 'diagram' | 'draw'
 
 /** Personal to the author, or shared with everyone in the org. */
 export type SnippetScope = 'personal' | 'org'
@@ -80,7 +80,7 @@ export interface SlideSnippetBody {
   elements: unknown[]
 }
 
-/** Design or Draw canvas elements, positioned relative to the block's top-left. */
+/** PlexiiDesign canvas elements, positioned relative to the block's top-left. */
 export interface DesignSnippetBody {
   kind: 'design'
   elements: unknown[]
@@ -93,6 +93,17 @@ export interface DiagramSnippetBody {
   edges: unknown[]
 }
 
+/**
+ * PlexiiDraw objects (shared/draw.ts DrawObject), positioned relative to the
+ * block's top-left. Its own kind, not 'design': Draw's objects and Design's
+ * elements are different models, and the kind/body agreement check exists so a
+ * surface is never handed an object another app wrote.
+ */
+export interface DrawSnippetBody {
+  kind: 'draw'
+  objects: unknown[]
+}
+
 export type SnippetBody =
   | DocSnippetBody
   | WidgetSnippetBody
@@ -100,6 +111,7 @@ export type SnippetBody =
   | SlideSnippetBody
   | DesignSnippetBody
   | DiagramSnippetBody
+  | DrawSnippetBody
 
 export interface Snippet {
   id: string
@@ -227,7 +239,7 @@ export const ORG_SNIPPET_REACH_NOTE = ORG_SNIPPETS_SYNC
   ? 'Everyone in this organisation can use it.'
   : 'Saved on this computer. Sharing with your organisation arrives with sync.'
 
-export const SNIPPET_KINDS: SnippetKind[] = ['doc', 'widget', 'sheet', 'slide', 'design', 'diagram']
+export const SNIPPET_KINDS: SnippetKind[] = ['doc', 'widget', 'sheet', 'slide', 'design', 'diagram', 'draw']
 
 const KIND_LABEL: Record<SnippetKind, string> = {
   doc: 'Document block',
@@ -235,7 +247,8 @@ const KIND_LABEL: Record<SnippetKind, string> = {
   sheet: 'Cells block',
   slide: 'Slide elements',
   design: 'Design elements',
-  diagram: 'Diagram fragment'
+  diagram: 'Diagram fragment',
+  draw: 'Drawing'
 }
 
 export function snippetKindLabel(kind: SnippetKind): string {
@@ -248,7 +261,8 @@ const KIND_ICON: Record<SnippetKind, string> = {
   sheet: 'table_chart',
   slide: 'slideshow',
   design: 'palette',
-  diagram: 'account_tree'
+  diagram: 'account_tree',
+  draw: 'draw'
 }
 
 export function snippetKindIcon(kind: SnippetKind): string {
@@ -314,6 +328,8 @@ export function snippetSummary(s: Snippet): string {
       if (!b.nodes.length && !b.edges.length) return 'Empty'
       return `${b.nodes.length} shape(s), ${b.edges.length} connector(s)`
     }
+    case 'draw':
+      return b.objects.length ? `${b.objects.length} object(s)` : 'Empty'
   }
 }
 
@@ -334,6 +350,8 @@ export function snippetBodyIsEmpty(b: SnippetBody): boolean {
       return b.elements.length === 0
     case 'diagram':
       return b.nodes.length === 0 && b.edges.length === 0
+    case 'draw':
+      return b.objects.length === 0
   }
 }
 

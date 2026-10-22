@@ -141,6 +141,7 @@ that did not happen, which is why `usageCount` means something.
 | `slide` | slide elements | modelled, not wired |
 | `design` | canvas elements | modelled, not wired |
 | `diagram` | nodes + edges | modelled, not wired |
+| `draw` | PlexiiDraw objects | modelled, not wired |
 
 The document surface is first because it is the one that needs both link modes
 and because the live-embed mechanism already existed there to build on. The
@@ -305,7 +306,12 @@ SheetSnippetBody   { kind: 'sheet',   rows: string[][], formats?: Record<string,
 SlideSnippetBody   { kind: 'slide',   elements: unknown[] }
 DesignSnippetBody  { kind: 'design',  elements: unknown[] }
 DiagramSnippetBody { kind: 'diagram', nodes: unknown[], edges: unknown[] }
+DrawSnippetBody    { kind: 'draw',    objects: unknown[] }
 ```
+
+`draw` is its own kind rather than `design`: PlexiiDraw's objects
+(`shared/draw.ts`) and PlexiiDesign's elements are different models, and the
+kind/body agreement check is what keeps one app's objects out of the other.
 
 `doc` and `widget` are wired. `sheet`, `slide`, `design` and `diagram` are
 typed and stored but register no target yet.
