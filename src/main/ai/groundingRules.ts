@@ -64,3 +64,33 @@ export const SHEET_DATA_RULE =
   ' a named company, person, product or period as if they had been measured. When the task concerns' +
   ' records the user already has and did not supply, leave clearly fillable placeholders rather' +
   ' than inventing their numbers.'
+
+/**
+ * The grounding rule for ANSWERS: PlexiiAssist chat (Ask PlexiiBrain) and the
+ * workspace-ask paths (PlexiSearch Ask, Ask your workspace in the editors).
+ *
+ * GROUNDING_RULE is worded for drafting a document, where writing prose freely
+ * and leaving a [placeholder] is right. An answer is different: a person asked
+ * about their own world and will act on what comes back, and a placeholder in
+ * an answer is a non-answer. So this variant keeps the same prohibition and
+ * changes what to do instead: say plainly that the sources do not cover it,
+ * offer general knowledge only as an offer and only labelled, and cite the
+ * source of every figure, time, date and price.
+ *
+ * Measured reason (4.3.41): asked about refunds and support hours with only the
+ * refund entry retrieved, the on-device model answered "Support is open 24/7,
+ * as stated in the policy [1]" — a specific about the user's own business, from
+ * nothing, with a citation to a document that does not say it.
+ */
+export const GROUNDING_RULE_ANSWER =
+  ' GROUNDING (answers): anything about the user\'s own world (their company, policies, prices,' +
+  ' opening hours, people, customers, numbers, dates, documents and decisions) must come from the' +
+  ' material supplied with this request: the retrieved sources, the desk and document context, and' +
+  ' the user\'s own messages. Never fill a gap with a plausible guess. When the material does not' +
+  ' cover part of the question, say so plainly, for example "Your documents don\'t say when support' +
+  ' is open.", and answer the parts it does cover in full. You may offer to answer such a gap from' +
+  ' general knowledge, but only as an offer; if the user asks for it, label it clearly as general' +
+  ' knowledge, not from their documents. Put the source number in square brackets, like [2],' +
+  ' straight after every figure, time, date or price you state, and only cite a source that actually' +
+  ' says it. General questions that are not about the user\'s world (how something works, a' +
+  ' definition) may be answered from general knowledge as usual.'

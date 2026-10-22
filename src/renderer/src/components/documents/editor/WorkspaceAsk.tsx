@@ -1,3 +1,5 @@
+import type { AnswerGrounding } from '@shared/types'
+import { CheckedText, CheckSummary } from '../../ai/CheckThis'
 import { useRef, useState } from 'react'
 import MentionInputField from '../../MentionInputField'
 import type { ActionProposal, AppliedProposal } from '@shared/types'
@@ -42,7 +44,7 @@ export default function WorkspaceAsk({
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState<number | null>(null)
   const [thread, setThread] = useState<
-    Array<{ question: string; answer: string; sources: WsSource[]; proposals: ActionProposal[] }>
+    Array<{ question: string; answer: string; sources: WsSource[]; proposals: ActionProposal[]; grounding?: AnswerGrounding }>
   >([])
   // Applied-state for the shared ProposalCards (the approval-card standard).
   const [applied, setApplied] = useState<Record<string, AppliedProposal>>({})
@@ -95,7 +97,8 @@ export default function WorkspaceAsk({
           question: text,
           answer,
           sources: (res.sources ?? []).map((s) => ({ docId: s.docId, title: s.title, docType: s.docType, cited: s.cited })),
-          proposals: res.proposals ?? []
+          proposals: res.proposals ?? [],
+          grounding: res.grounding
         }
         return copy
       })
@@ -163,7 +166,10 @@ export default function WorkspaceAsk({
       {thread.map((entry, i) => (
         <div key={i} className="flex flex-col gap-1 rounded-lg bg-[var(--surface-base)] p-2" data-testid="workspace-ask-answer">
           <div className="text-[11.5px] font-medium text-[var(--ink-70)]">{entry.question}</div>
-          <div className="whitespace-pre-wrap text-[12.5px] text-[var(--ink-90)] leading-relaxed">{entry.answer}</div>
+          <div className="whitespace-pre-wrap text-[12.5px] text-[var(--ink-90)] leading-relaxed">
+            <CheckedText text={entry.answer} grounding={entry.grounding} />
+          </div>
+          <CheckSummary grounding={entry.grounding} />
           {entry.sources.some((s) => s.cited) && (
             <div className="flex flex-wrap gap-1 pt-0.5">
               {entry.sources

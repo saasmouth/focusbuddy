@@ -57,6 +57,7 @@ const PLACEHOLDER: Record<InventedSpecific['kind'], string> = {
   money: 'amount',
   percent: 'percentage',
   date: 'date',
+  time: 'time',
   quote: 'quote',
   number: 'number',
   name: 'name',
@@ -66,7 +67,13 @@ const PLACEHOLDER: Record<InventedSpecific['kind'], string> = {
 const toFinding = (f: InventedSpecific): ReviewFinding => ({ span: f.span, index: f.index, kind: f.kind, confidence: f.confidence, reason: f.reason })
 
 /** Review one piece of prose. Exported for tests. */
-export function reviewProse(text: string, supplied: string, repair: boolean): ReviewResult {
+export function reviewProse(
+  text: string,
+  supplied: string,
+  repair: boolean,
+  /** The words a repaired span becomes; default a [placeholder] named for its kind. */
+  placeholder: (kind: InventedSpecific['kind']) => string = (k) => `[${PLACEHOLDER[k]}]`
+): ReviewResult {
   // Spans are sliced from the original output by the checker itself
   // (cfef36ac): one source of truth, no repair of the span text here.
   const all = checkInventedSpecifics(text, supplied).flagged
@@ -77,7 +84,7 @@ export function reviewProse(text: string, supplied: string, repair: boolean): Re
   for (const f of [...toRepair].sort((a, b) => b.index - a.index)) {
     const end = f.index + f.span.length
     if (end > lastStart || out.slice(f.index, end) !== f.span) continue
-    out = out.slice(0, f.index) + `[${PLACEHOLDER[f.kind]}]` + out.slice(end)
+    out = out.slice(0, f.index) + placeholder(f.kind) + out.slice(end)
     lastStart = f.index
   }
   const repairedSet = new Set(toRepair)

@@ -74,6 +74,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
   const appliedProposals = useChatStore((s) => s.appliedProposals)
   const sourcesByMessage = useChatStore((s) => s.sourcesByMessage)
   const blocksByMessage = useChatStore((s) => s.blocksByMessage)
+  const groundingByMessage = useChatStore((s) => s.groundingByMessage)
   const liveTraceByThread = useChatStore((s) => s.liveTraceByThread)
   const traceByMessage = useChatStore((s) => s.traceByMessage)
   const traceDisclosureByMessage = useChatStore((s) => s.traceDisclosureByMessage)
@@ -1122,6 +1123,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
           const proposals = proposalsByMessage[String(m.ts)] ?? []
           const sources = sourcesByMessage[String(m.ts)] ?? []
           const uiBlocks = blocksByMessage[String(m.ts)] ?? []
+          const grounding = groundingByMessage[String(m.ts)]
           const blocks = deriveAssistantBlocks(m, proposals, sources, uiBlocks)
           // Interactive blocks answer for the user only on the latest turn and
           // only while nothing is in flight — older blocks stay visible as a
@@ -1173,6 +1175,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
                     onConsumeProposal={(id) => consumeProposal(m.ts, id)}
                     onOpenSource={(s) => void openSource(s)}
                     citedSources={citedSources}
+                    grounding={grounding}
                     uiEnabled={uiEnabled}
                     onUiSubmit={(text) => {
                       if (useChatStore.getState().sending) return

@@ -2854,7 +2854,9 @@ export function registerIpcHandlers(): void {
         hist
       )
       // Cache a successful answer for the current workspace version.
-      if (res.ok && res.answer && qvec) storeAnswer(qvec, res.answer, res.citedDocIds ?? [], Date.now())
+      // An answer the grounding check marked is not cached: a repeat would lose
+      // its "check this" marks, and it should be asked afresh anyway.
+      if (res.ok && res.answer && qvec && !res.grounding) storeAnswer(qvec, res.answer, res.citedDocIds ?? [], Date.now())
       const cited = new Set(res.citedDocIds ?? [])
       const sourceMeta = buildSourceMeta(cited)
       // "Offer to create anything": once the answer is in, let the brain propose
