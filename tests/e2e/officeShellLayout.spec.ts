@@ -192,7 +192,7 @@ async function checkShell(window: Page, app: AppCase, label: string): Promise<vo
   await expect(window.locator(t(app.rail))).toBeVisible({ timeout: 12_000 })
   // The one-time Local AI card sits bottom-centre on a fresh profile; dismiss it as a person would.
   const intro = window.locator('[data-testid="local-ai-intro-dismiss"]')
-  if (await intro.isVisible().catch(() => false)) await intro.click()
+  if (await intro.isVisible().catch(() => false)) await intro.click({ timeout: 2_000 }).catch(() => undefined) // it can unmount between the check and the click
 
   // 1. Not under the floating menu, and below the bar.
   const dock = await box(window, '[data-testid="sidebar-dock"]').catch(() => null)
@@ -570,7 +570,7 @@ for (const app of APPS) {
       })
       await openNarrowWidget(window, app)
       const intro = window.locator('[data-testid="local-ai-intro-dismiss"]')
-      if (await intro.isVisible().catch(() => false)) await intro.click()
+      if (await intro.isVisible().catch(() => false)) await intro.click({ timeout: 2_000 }).catch(() => undefined) // it can unmount between the check and the click
       const bar = await box(window, `[data-testid="${app.bar}"]`)
       // Host rule (SPEC §6): nothing between the widget and the shell may be wider than the widget.
       // A flex item left at min-width:auto grows to its content (the widest toolbar) and overflows;

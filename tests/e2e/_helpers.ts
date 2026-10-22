@@ -338,8 +338,16 @@ export async function chooseCloudAiSource(window: Page, mode: 'auto' | 'byok' = 
   }, mode)
   // dismissIntro only records the dismissal; a card already on screen is
   // closed by its own control, so press it when it is there.
+  //
+  // With a SHORT timeout. The card can unmount between isVisible() and click()
+  // (dismissIntro above, or its own fade), and a bare click() then waits the
+  // default action timeout — 30s, the whole test budget — for an element that
+  // is gone, with a .catch that only fires after the test has already timed
+  // out. That made specs pass in ~3s or hang to exactly 30s (snippets SN-1/3/4/5
+  // and SD-1 on the 4.3.41 final pass, 3 of 8 isolated repeats).
   const intro = window.locator('[data-testid="local-ai-intro-dismiss"]')
-  if (await intro.isVisible().catch(() => false)) await intro.click().catch(() => undefined)
+  if (await intro.isVisible().catch(() => false)) await intro.click({ timeout: 2_000 }).catch(() => undefined)
+  await intro.waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => undefined)
 }
 
 // ── The area switcher ────────────────────────────────────────────────────────

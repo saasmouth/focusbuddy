@@ -93,7 +93,7 @@ for (const app of APPS) {
       const d = await w.api.documents.create({ docType: t, title: 'Font picker' })
       w.__fbView?.getState().goDocument(d.id)
     }, app.docType)
-    if (await intro.isVisible().catch(() => false)) await intro.click()
+    if (await intro.isVisible().catch(() => false)) await intro.click({ timeout: 2_000 }).catch(() => undefined) // it can unmount between the check and the click
     await app.prepare(window)
 
     const btn = window.locator(`[data-testid="${app.bar}"] [data-testid="font-picker-btn"]`)
