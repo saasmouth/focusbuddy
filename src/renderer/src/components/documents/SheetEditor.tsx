@@ -40,8 +40,7 @@ import { isSingleCell } from '@shared/gridClipboard'
 import SheetGrid, { ROW_HEADER_W, HEADER_H } from './sheet/SheetGrid'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import WidgetEmbed from './embed/WidgetEmbed'
-import SheetToolbar from './sheet/SheetToolbar'
-import SheetMenuBar from './editor/SheetMenuBar'
+import SheetMenuBar, { type SheetMenuActions } from './editor/SheetMenuBar'
 import SheetTabStrip from './sheet/SheetTabStrip'
 import SheetChart from './sheet/SheetChart'
 import SheetPivot from './sheet/SheetPivot'
@@ -56,6 +55,7 @@ import { runSheetScript, type SheetScriptResult } from '../../lib/sheetScript'
 import { applyQuery, stepLabel, type QueryStep, type QueryTable, type SheetQuery } from '../../lib/sheetQuery'
 import type { SheetCondRule, SheetValidation, SheetCondOp } from '@shared/types'
 import SheetAiPanel from './sheet/SheetAiPanel'
+import CellsChrome from './CellsChrome'
 import { useSheetAi } from './sheet/useSheetAi'
 import Icon from '../Icon'
 
@@ -1334,87 +1334,71 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
     setNamesOpen((v) => !v)
   }
 
-  return (
-    <div className="flex flex-col h-full">
-      {/* Google-Sheets-style menu bar above the toolbar. Every item is wired to a
-          real SheetEditor op or a documents-store action. */}
-      <div className="px-2 pt-1.5 pb-1 border-b border-[var(--edge-soft)]">
-        <SheetMenuBar
-          actions={{
-            title,
-            activeFormat: cellFormat(tab, focus.r, focus.c),
-            undo,
-            redo,
-            canUndo: undoStack.current.length > 0,
-            canRedo: redoStack.current.length > 0,
-            format: applyToSelection,
-            numberFormat: applyNumberFormat,
-            insertRowAbove: () => mutateTab((t) => insertRowFixed(t, selection.r0)),
-            insertRowBelow: () => mutateTab((t) => insertRowFixed(t, selection.r1 + 1)),
-            insertColLeft: () => mutateTab((t) => insertColFixed(t, selection.c0)),
-            insertColRight: () => mutateTab((t) => insertColFixed(t, selection.c1 + 1)),
-            deleteRow: () => mutateTab((t) => deleteRowFixed(t, selection.r0)),
-            deleteCol: () => mutateTab((t) => deleteColFixed(t, selection.c0)),
-            sort: (dir) => mutateTab((t) => sortByColumn(t, selection.c0, dir)),
-            toggleFilter: () =>
-              mutateTab((t) => ({
-                ...t,
-                filterActive: !t.filterActive,
-                ...(t.filterActive ? { filters: {} } : {})
-              })),
-            filterActive: !!tab.filterActive,
-            insertChart,
-            insertSparkline,
-            insertPivot: () => setPivotOpen(true),
-            conditionalFormat: () => setCondOpen(true),
-            dataValidation: () => setValidationOpen(true),
-            addSheet: addTab,
-            namedRanges: () => setNamesOpen((v) => !v),
-            importFile: () => void importFile(),
-            exportFile: (f) => void exportFile(f),
-            aiFill: () => setAiOpen((v) => !v)
-          }}
-        />
-      </div>
-      <SheetToolbar
-        activeFont={cellFormat(tab, focus.r, focus.c)?.fontFamily}
-        onFormat={applyToSelection}
-        onNumberFormat={applyNumberFormat}
-        onInsertRow={() => mutateTab((t) => insertRowFixed(t, selection.r0))}
-        onDeleteRow={() => mutateTab((t) => deleteRowFixed(t, selection.r0))}
-        onInsertCol={() => mutateTab((t) => insertColFixed(t, selection.c0))}
-        onDeleteCol={() => mutateTab((t) => deleteColFixed(t, selection.c0))}
-        onSort={(dir) => mutateTab((t) => sortByColumn(t, selection.c0, dir))}
-        onConditionalFormat={() => setCondOpen(true)}
-        onDataValidation={() => setValidationOpen(true)}
-        onMergeCells={toggleMerge}
-        isMerged={selectionIsMerged}
-        onInsertPivot={() => setPivotOpen(true)}
-        onInsertSparkline={insertSparkline}
-        onInsertLookup={() => setLookupOpen(true)}
-        onMacros={() => setMacrosOpen(true)}
-        onQuery={() => setQueryOpen(true)}
-        filterActive={!!tab.filterActive}
-        onToggleFilter={() =>
-          mutateTab((t) => ({
-            ...t,
-            filterActive: !t.filterActive,
-            // Turning the filter off clears any per-column hide-sets.
-            ...(t.filterActive ? { filters: {} } : {})
-          }))
-        }
-        onInsertChart={insertChart}
-        onImport={() => void importFile()}
-        onExport={(f) => void exportFile(f)}
-        onAiFill={() => setAiOpen((v) => !v)}
-        onUndo={undo}
-        onRedo={redo}
-        canUndo={undoStack.current.length > 0}
-        canRedo={redoStack.current.length > 0}
-      />
+  // The sheet's operations, built once. SheetMenuBar takes them as its
+  // `actions`, and the ribbon reads the same object through CellsChrome —
+  // so the menu and the bar can never offer different behaviour for the
+  // same command.
+  const sheetActions: SheetMenuActions = {
+    title,
+    activeFormat: cellFormat(tab, focus.r, focus.c),
+    undo,
+    redo,
+    canUndo: undoStack.current.length > 0,
+    canRedo: redoStack.current.length > 0,
+    format: applyToSelection,
+    numberFormat: applyNumberFormat,
+    insertRowAbove: () => mutateTab((t) => insertRowFixed(t, selection.r0)),
+    insertRowBelow: () => mutateTab((t) => insertRowFixed(t, selection.r1 + 1)),
+    insertColLeft: () => mutateTab((t) => insertColFixed(t, selection.c0)),
+    insertColRight: () => mutateTab((t) => insertColFixed(t, selection.c1 + 1)),
+    deleteRow: () => mutateTab((t) => deleteRowFixed(t, selection.r0)),
+    deleteCol: () => mutateTab((t) => deleteColFixed(t, selection.c0)),
+    sort: (dir) => mutateTab((t) => sortByColumn(t, selection.c0, dir)),
+    toggleFilter: () =>
+      mutateTab((t) => ({
+        ...t,
+        filterActive: !t.filterActive,
+        ...(t.filterActive ? { filters: {} } : {})
+      })),
+    filterActive: !!tab.filterActive,
+    insertChart,
+    insertSparkline,
+    insertPivot: () => setPivotOpen(true),
+    conditionalFormat: () => setCondOpen(true),
+    dataValidation: () => setValidationOpen(true),
+    addSheet: addTab,
+    namedRanges: openNames,
+    importFile: () => void importFile(),
+    exportFile: (f) => void exportFile(f),
+    aiFill: () => setAiOpen((v) => !v)
+  }
 
-      <div className="flex-1 flex flex-row min-h-0">
-      <div className="flex-1 flex flex-col min-h-0 px-3 py-2">
+  return (
+    <CellsChrome
+      actions={sheetActions}
+      readOnly={false}
+      menuBar={<SheetMenuBar actions={sheetActions} />}
+      activeFormat={cellFormat(tab, focus.r, focus.c)}
+      activeFont={cellFormat(tab, focus.r, focus.c)?.fontFamily}
+      isMerged={selectionIsMerged}
+      onMergeCells={toggleMerge}
+      onInsertLookup={() => setLookupOpen(true)}
+      onMacros={() => setMacrosOpen(true)}
+      onQuery={() => setQueryOpen(true)}
+      aiOpen={aiPanelOpen}
+      onAiOpen={setAiPanelOpen}
+      renderAssistant={() => <SheetAiPanel ai={sheetAi} onImportSource={importFile} />}
+      bottom={
+        <SheetTabStrip body={body} onSwitch={switchTab} onAdd={addTab} onRename={renameTab} onDelete={deleteTab} />
+      }
+    >
+      {/* The grid. `min-w-0` matters and is not decoration: SPEC §6 wants it
+          on every flex item down to the shell, and the grid's own
+          min-content width is wide — without it the shell cannot shrink
+          inside a 480px desk widget and the bar overflows. The shell's
+          canvas slot carries no overflow of its own, so the scroller here
+          is the one the grid already had. */}
+      <div className="flex h-full min-h-0 min-w-0 flex-col px-3 py-2">
         {/* Formula bar */}
         <div className="flex items-center gap-2 mb-2 shrink-0">
           <span className="text-[11px] font-mono text-[var(--ink-40)] w-12 text-center shrink-0">
@@ -1448,20 +1432,6 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
           >
             <Icon name="label" size={13} />
             Names
-          </button>
-          <button
-            onClick={() => setAiPanelOpen((v) => !v)}
-            data-testid="sheet-ai-toggle"
-            title={aiPanelOpen ? 'Hide PlexiiAssist' : 'Show PlexiiAssist'}
-            aria-pressed={aiPanelOpen}
-            className={`shrink-0 inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[12px] ${
-              aiPanelOpen
-                ? 'border-accent bg-accent/[0.12] text-accent'
-                : 'border-[var(--edge-firm)] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]'
-            }`}
-          >
-            <Icon name="auto_awesome" size={13} />
-            PlexiiAssist
           </button>
         </div>
 
@@ -1905,18 +1875,7 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
           />
         )}
       </div>
-
-        {aiPanelOpen && (
-          <SheetAiPanel
-            ai={sheetAi}
-            onCollapse={() => setAiPanelOpen(false)}
-            onImportSource={importFile}
-          />
-        )}
-      </div>
-
-      <SheetTabStrip body={body} onSwitch={switchTab} onAdd={addTab} onRename={renameTab} onDelete={deleteTab} />
-    </div>
+    </CellsChrome>
   )
 }
 

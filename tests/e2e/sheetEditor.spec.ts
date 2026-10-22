@@ -32,7 +32,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, gotoView } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, gotoView, selectBarTab } from './_helpers'
 
 // ── Shared navigation helpers ─────────────────────────────────────────────────
 
@@ -169,9 +169,9 @@ test('SE-1 — blank spreadsheet opens with toolbar, grid and tab strip', async 
 
     // Undo and Redo buttons present (disabled on fresh sheet)
     const toolbar = window.locator('[data-testid="sheet-toolbar"]')
-    await expect(toolbar.getByTitle('Undo')).toBeVisible()
-    await expect(toolbar.getByTitle('Redo')).toBeVisible()
-    await expect(toolbar.getByTitle('Bold')).toBeVisible()
+    await expect(toolbar.getByRole('button', { name: /Undo/i })).toBeVisible()
+    await expect(toolbar.getByRole('button', { name: /Redo/i })).toBeVisible()
+    await expect(toolbar.getByRole('button', { name: /Bold/i })).toBeVisible()
 
     // Default tab is "Sheet 1"
     await expect(window.locator('[data-testid="sheet-tab-strip"]').locator('text=Sheet 1')).toBeVisible()
@@ -263,7 +263,9 @@ test('SE-4 — number format: select Currency from sheet-number-format; cell dis
     await clickCell(window, 0, 0)
     await window.waitForTimeout(100)
 
-    // The NUMBER_FORMATS array in SheetToolbar: index 3 = Currency ($), decimals 2
+    // NUMBER_FORMATS in cellsRibbon.tsx: index 3 = Currency ($), decimals 2. The
+    // option is selected by VALUE, so the placeholder at the top of the list
+    // does not shift the indices.
     const fmtSelect = window.locator('[data-testid="sheet-number-format"]')
     await fmtSelect.selectOption('3')
     await window.waitForTimeout(200)
@@ -290,7 +292,7 @@ test('SE-5 — bold a cell via toolbar; rendered fontWeight is bold and body.for
 
     // Select A1 then click Bold in the toolbar
     await clickCell(window, 0, 0)
-    await window.locator('[data-testid="sheet-toolbar"]').getByTitle('Bold').click()
+    await window.locator('[data-testid="sheet-toolbar"]').getByRole('button', { name: /Bold/i }).click()
     await window.waitForTimeout(200)
 
     // The cell's display div should have font-weight: 700 (bold)
@@ -337,7 +339,8 @@ test('SE-6 — insert row and column; grid dimensions change and persist', async
 
     // Select A1, insert a row above it
     await clickCell(window, 0, 0)
-    await window.locator('[data-testid="sheet-toolbar"]').getByTitle('Insert row above').click()
+    await selectBarTab(window, 'sheet-toolbar', 'insert')
+    await window.locator('[data-testid="sheet-toolbar"]').getByRole('button', { name: /Insert row above/i }).click()
     await window.waitForTimeout(200)
 
     const rowsAfterInsert = await window.locator('[data-testid="sheet-grid"] tbody tr').count()
@@ -350,7 +353,8 @@ test('SE-6 — insert row and column; grid dimensions change and persist', async
     // Now insert a column at the current selection (still at 0,0 logical, but row insert
     // put focus still at 0,0); select the original Marker cell to anchor correctly
     await clickCell(window, 0, 0)
-    await window.locator('[data-testid="sheet-toolbar"]').getByTitle('Insert column left').click()
+    await selectBarTab(window, 'sheet-toolbar', 'insert')
+    await window.locator('[data-testid="sheet-toolbar"]').getByRole('button', { name: /Insert column left/i }).click()
     await window.waitForTimeout(200)
 
     const colsAfterInsert = (await window.locator('[data-testid="sheet-grid"] thead th').count()) - 1
@@ -416,7 +420,7 @@ test('SE-7 — undo reverts an edit; redo reapplies it', async () => {
     // First undo again to get back to "Original" so redo can fire.
     // Actually let us just verify redo via toolbar button:
     // We are now at "Original" (after one undo). Click Redo button.
-    const redoBtn = window.locator('[data-testid="sheet-toolbar"]').getByTitle('Redo')
+    const redoBtn = window.locator('[data-testid="sheet-toolbar"]').getByRole('button', { name: /Redo/i })
     // The redo button is enabled only if there's something to redo. After one
     // undo from "Edited→Original", redo should re-apply "Edited".
     // But we then pressed Ctrl+Z a second time above — that undid "Original" to
@@ -428,7 +432,7 @@ test('SE-7 — undo reverts an edit; redo reapplies it', async () => {
     expect(shown, 'RedoTest entered').toBe('RedoTest')
 
     // Undo via toolbar
-    const undoBtn = window.locator('[data-testid="sheet-toolbar"]').getByTitle('Undo')
+    const undoBtn = window.locator('[data-testid="sheet-toolbar"]').getByRole('button', { name: /Undo/i })
     await undoBtn.click()
     await window.waitForTimeout(200)
     const afterUndoBtn = await cellText(window, 1, 0)
@@ -525,7 +529,8 @@ test('SE-9 — select a range, insert bar chart, sheet-chart node renders', asyn
 
     // Click Insert chart button → menu appears
     const toolbar = window.locator('[data-testid="sheet-toolbar"]')
-    await toolbar.getByTitle('Insert chart').click()
+    await selectBarTab(window, 'sheet-toolbar', 'insert')
+    await toolbar.getByRole('button', { name: /Insert chart/i }).click()
     await expect(window.locator('text=bar chart')).toBeVisible({ timeout: 3_000 })
 
     // Click "bar chart"
@@ -667,9 +672,8 @@ test('SE-11 — sheet:import stub loads a SheetBodyV2; export stub shows path in
 
     // Open the IO menu and click Import
     const toolbar = window.locator('[data-testid="sheet-toolbar"]')
-    await toolbar.getByTitle('Import / export').click()
-    await expect(window.locator('text=Import .xlsx / .csv')).toBeVisible({ timeout: 3_000 })
-    await window.locator('text=Import .xlsx / .csv').click()
+    await selectBarTab(window, 'sheet-toolbar', 'tools')
+    await toolbar.getByRole('button', { name: /Import \.xlsx \/ \.csv/i }).click()
     await window.waitForTimeout(400)
 
     // The grid should now show "Sprocket" in cell (0,0)
@@ -696,9 +700,8 @@ test('SE-11 — sheet:import stub loads a SheetBodyV2; export stub shows path in
     await expect(window.locator('[data-testid="sheet-status"]')).not.toBeVisible({ timeout: 2_000 })
 
     // Open IO menu and export
-    await toolbar.getByTitle('Import / export').click()
-    await expect(window.locator('text=Export .xlsx')).toBeVisible({ timeout: 3_000 })
-    await window.locator('text=Export .xlsx').click()
+    await selectBarTab(window, 'sheet-toolbar', 'tools')
+    await toolbar.getByRole('button', { name: /Export \.xlsx/i }).click()
     await window.waitForTimeout(300)
 
     // Status should show the saved path
@@ -1002,6 +1005,7 @@ test('SE-19 — conditional formatting "greater than 100" paints A1 but not A2',
 
     // Select A1 so the rule's range is A1:A1, then open the dialog.
     await clickCell(window, 0, 0)
+    await selectBarTab(window, 'sheet-toolbar', 'data')
     await window.locator('[data-testid="sheet-condformat-btn"]').click()
     await expect(window.locator('[data-testid="sheet-condformat-dialog"]')).toBeVisible({ timeout: 3_000 })
 
@@ -1036,6 +1040,7 @@ test('SE-20 — data validation list dropdown sets a value and strict mode rejec
 
     // Define a strict list validation on B1 (Open / Done).
     await clickCell(window, 0, 1)
+    await selectBarTab(window, 'sheet-toolbar', 'data')
     await window.locator('[data-testid="sheet-validation-btn"]').click()
     await expect(window.locator('[data-testid="sheet-validation-dialog"]')).toBeVisible({ timeout: 3_000 })
     await window.locator('[data-testid="validation-list"]').fill('Open, Done')
@@ -1104,6 +1109,7 @@ test('SE-22 — create a filter, uncheck a value, matching rows are hidden', asy
     await setViaFormulaBar(window, 2, 0, 'apple', [3, 0])
 
     // Turn on filtering; funnels appear on headers.
+    await selectBarTab(window, 'sheet-toolbar', 'data')
     await window.locator('[data-testid="sheet-filter-btn"]').click()
     await expect(window.locator('[data-testid="col-filter-0"]')).toBeVisible({ timeout: 3_000 })
 
@@ -1147,6 +1153,7 @@ test('SE-23 — pivot: sum a value column grouped by a row column', async () => 
     // Select A1:B4, open the pivot dialog (defaults: rows=A, values=B, sum).
     await clickCell(window, 0, 0)
     await window.locator('[data-testid="cell-3-1"]').click({ modifiers: ['Shift'] })
+    await selectBarTab(window, 'sheet-toolbar', 'data')
     await window.locator('[data-testid="sheet-pivot-btn"]').click()
     await expect(window.locator('[data-testid="sheet-pivot-dialog"]')).toBeVisible({ timeout: 3_000 })
     await window.locator('[data-testid="pivot-create"]').click()
@@ -1183,6 +1190,7 @@ test('SE-24 — pivot slicer: unchecking a value hides it and updates the total'
 
     await clickCell(window, 0, 0)
     await window.locator('[data-testid="cell-3-1"]').click({ modifiers: ['Shift'] })
+    await selectBarTab(window, 'sheet-toolbar', 'data')
     await window.locator('[data-testid="sheet-pivot-btn"]').click()
     await expect(window.locator('[data-testid="sheet-pivot-dialog"]')).toBeVisible({ timeout: 3_000 })
     await window.locator('[data-testid="pivot-create"]').click()

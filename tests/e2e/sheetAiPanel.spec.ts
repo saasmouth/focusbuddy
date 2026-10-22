@@ -68,7 +68,14 @@ test.describe('PlexiSheets AI Assistant panel', () => {
     // Recent Activity and Data Connections are honest empty states, never the
     // mockup's invented people or integration badges.
     await expect(window.locator('[data-testid="sheet-ai-activity-empty"]')).toContainText('No recent activity yet.')
-    await expect(window.locator('[data-testid="sheet-ai-connections-empty"]')).toContainText('No data sources connected yet.')
+    // The panel describes snapshot IMPORTS, not live connections, because that
+    // is what the editor actually does — the component says so in as many
+    // words. This assertion used to expect "No data sources connected yet.",
+    // which was the old framing and would have us testing for a capability the
+    // app deliberately stopped implying.
+    await expect(window.locator('[data-testid="sheet-ai-import-empty"]')).toContainText(
+      'Bring in a snapshot from an Excel workbook or CSV file'
+    )
     // No invented connections leak in.
     await expect(panel).not.toContainText('Google Analytics')
     await expect(panel).not.toContainText('HubSpot')

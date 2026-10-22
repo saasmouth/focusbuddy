@@ -4,9 +4,16 @@ import { sanitizeHtml } from '../../../lib/htmlSanitize'
 import WorkspaceAsk from '../editor/WorkspaceAsk'
 import type { SheetAi } from './useSheetAi'
 
-// The persistent right-side AI Assistant panel for PlexiSheets. It mirrors the
-// PlexiDocs side panel in structure, tokens and quality, but its content is
-// grounded in the active sheet's real cells.
+// The AI Assistant BODY for PlexiiCells, hosted in the shared ShellSidePane.
+//
+// It used to be the whole right-hand panel — its own <aside>, width, border,
+// header and collapse. On the office shell the pane owns all of that, so
+// keeping them here would draw two headers, two borders and two collapse
+// buttons. This is now the content only, which is the same division Diagrams'
+// AiPane and Write's side-pane bodies follow. The pane's title and its
+// `sheet-ai-collapse` control live on the shell header.
+//
+// Its content is still grounded in the active sheet's real cells.
 //
 // What is real here: the Insights and Ask flows both run on the real AI hook
 // (useSheetAi -> window.api.ai.suggestDocContent) over the real sheet data. The
@@ -20,11 +27,10 @@ import type { SheetAi } from './useSheetAi'
 
 interface Props {
   ai: SheetAi
-  onCollapse: () => void
   onImportSource: () => Promise<void>
 }
 
-export default function SheetAiPanel({ ai, onCollapse, onImportSource }: Props): JSX.Element {
+export default function SheetAiPanel({ ai, onImportSource }: Props): JSX.Element {
   const [question, setQuestion] = useState('')
   const [importing, setImporting] = useState(false)
 
@@ -35,31 +41,11 @@ export default function SheetAiPanel({ ai, onCollapse, onImportSource }: Props):
   }
 
   return (
-    <aside
-      className="flex h-full w-80 shrink-0 flex-col border-l border-[var(--edge-soft)] bg-[var(--surface-raised)]"
+    <div
+      className="flex h-full min-h-0 flex-col"
       aria-label="Sheet assistant panel"
       data-testid="sheet-ai-panel"
     >
-      {/* Header */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-[var(--edge-soft)] px-3 py-2.5">
-        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))]">
-          <Icon name="auto_awesome" size={14} />
-        </span>
-        <span className="text-[13px] font-semibold text-[var(--ink-90)]">PlexiiAssist</span>
-        <span className="rounded bg-[rgb(var(--accent)/0.14)] px-1 text-[9px] uppercase tracking-wide text-[rgb(var(--accent))]">
-          Beta
-        </span>
-        <button
-          onClick={onCollapse}
-          className="ml-auto icon-btn"
-          aria-label="Collapse assistant"
-          title="Collapse assistant"
-          data-testid="sheet-ai-collapse"
-        >
-          <Icon name="chevron_right" size={16} />
-        </button>
-      </div>
-
       <div className="min-h-0 flex-1 overflow-auto">
         <div className="flex flex-col gap-4 p-3">
           <WorkspaceAsk />
@@ -173,7 +159,7 @@ export default function SheetAiPanel({ ai, onCollapse, onImportSource }: Props):
             <h3 className="text-[12.5px] font-semibold text-[var(--ink-90)]">Import data</h3>
             <div
               className="rounded-lg border border-dashed border-[var(--edge-soft)] p-3 text-[12px] leading-relaxed text-[var(--ink-50)]"
-              data-testid="sheet-ai-connections-empty"
+              data-testid="sheet-ai-import-empty"
             >
               Bring in a snapshot from an Excel workbook or CSV file. Importing replaces the current workbook and can
               be undone.
@@ -198,6 +184,6 @@ export default function SheetAiPanel({ ai, onCollapse, onImportSource }: Props):
           </section>
         </div>
       </div>
-    </aside>
+    </div>
   )
 }

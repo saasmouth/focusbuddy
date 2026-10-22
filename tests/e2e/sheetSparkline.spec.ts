@@ -18,7 +18,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, selectBarTab } from './_helpers'
 
 async function openSheet(window: Page): Promise<void> {
   await switchArea(window, 'office')
@@ -113,6 +113,7 @@ test.describe('PlexiSheets sparklines', () => {
     // Select A1:E1 (single row), then insert a sparkline. It lands in F1 (col 5).
     await clickCell(window, 0, 0)
     await window.locator('[data-testid="cell-0-4"]').click({ modifiers: ['Shift'] })
+    await selectBarTab(window, 'sheet-toolbar', 'insert')
     await window.locator('[data-testid="sheet-insert-sparkline"]').click()
     await window.waitForTimeout(200)
 

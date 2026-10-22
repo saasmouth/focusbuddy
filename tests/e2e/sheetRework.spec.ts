@@ -98,7 +98,7 @@ test('REWORK-1 — select-all corner selects whole used grid; Bold applies to al
     await window.waitForTimeout(150)
 
     const toolbar = window.locator('[data-testid="sheet-toolbar"]')
-    await toolbar.getByTitle('Bold').click()
+    await toolbar.getByRole('button', { name: /Bold/i }).click()
     await window.waitForTimeout(200)
 
     const fw00 = await window
