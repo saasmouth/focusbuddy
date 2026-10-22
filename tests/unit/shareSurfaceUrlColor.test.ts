@@ -161,7 +161,8 @@ describe('renderer source guards', () => {
       ['components/documents/DocEditor.tsx', 'scoped CSS: useId scope, numeric page geometry, headingCss (values checked)'],
       ['components/documents/DesignAiPanel.tsx', 'sanitizeHtml'],
       ['components/documents/sheet/SheetAiPanel.tsx', 'sanitizeHtml'],
-      ['components/documents/editor/DocSidePanel.tsx', 'sanitizeHtml']
+      ['components/documents/editor/DocSidePanel.tsx', 'sanitizeHtml'],
+      ['components/documents/embed/SnippetDocBody.tsx', 'sanitizeHtml over docToHtml of a stored snippet (the editor\'s own schema)']
     ])
     // The attribute itself, not a mention: DrawStudio's comment explaining why
     // the sink was removed does not count.
