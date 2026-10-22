@@ -60,7 +60,7 @@ import { useElementClipboard } from './slides/useElementClipboard'
 import StylesPanel from './design/StylesPanel'
 import StartFromMenu from './design/StartFromMenu'
 import { DESIGN_TABS, type DesignCtx, type DesignPanelId } from './design/ribbon'
-import { BarButton, ContextBar, OfficeShellLayout, PANEL_SHEET_BELOW, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail, type RailItem, type SidePane } from '../office/shell'
+import { BarButton, ContextBar, OfficeShellLayout, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail, type RailItem, type SidePane } from '../office/shell'
 import SwatchesPanel from './design/SwatchesPanel'
 import { preflight, preflightSummary } from '@shared/designPreflight'
 import DesignRulers from './design/DesignRulers'
@@ -313,29 +313,6 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [design])
-
-  // Is the editor narrow enough that the shell shows panels as sheets? Below
-  // that width an overlay panel and the side pane BOTH cover the canvas, and
-  // the side pane (z-40, full width bar the rail) sits over the panel — so in
-  // a desk widget the panel you just opened was unreachable behind the
-  // assistant. Measured on this editor's own root, like the shell does, never
-  // on the window: a desk widget is narrow inside a wide window.
-  const rootRef = useRef<HTMLDivElement | null>(null)
-  const [sheetShell, setSheetShell] = useState(false)
-  useEffect(() => {
-    const el = rootRef.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(() => setSheetShell(el.clientWidth < PANEL_SHEET_BELOW))
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
-  // Opening a tool panel in a sheet-width shell puts the side pane away: there
-  // is room for one of them, and the one just asked for wins.
-  const showPanel = (next: DesignPanelId | 'none' | 'ai'): void => {
-    if (next !== 'none' && sheetShell && sidePane !== null) changeSidePane(null)
-    setPanel(next)
-  }
 
   // Measure the canvas wrapper: its width fits the page, its left edge decides
   // whether a pinned panel is over it.
@@ -1307,7 +1284,17 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     // lives in the shared right pane and its toggle is in the bar, like
     // Write's and Diagrams'. "AI design" stays: it generates a whole layout
     // from a prompt, which is a tool.
-    { id: 'ai-generate', label: 'AI design', icon: 'auto_awesome', kind: 'panel', group: 9, order: 0, pinned: 'bottom', onSelect: () => showPanel(panel === 'ai' ? 'none' : 'ai'), testid: 'design-ai-btn' }
+    //
+    // All five panels belong here, as Deck's do. Until now only AI design was,
+    // and the other four opened from ribbon tabs alone: a layout program's
+    // Page layout panel is used constantly, and reaching it meant a trip to
+    // the Layout tab every time. The ribbon buttons stay — two doors to one
+    // panel, each with its own id.
+    { id: 'panel-layout', label: 'Page layout', icon: 'dashboard', kind: 'panel', group: 9, order: 0, pinned: 'bottom', onSelect: () => setPanel((p) => (p === 'layout' ? 'none' : 'layout')), testid: 'design-rail-layout' },
+    { id: 'panel-styles', label: 'Paragraph styles', icon: 'format_paint', kind: 'panel', group: 9, order: 1, pinned: 'bottom', onSelect: () => setPanel((p) => (p === 'styles' ? 'none' : 'styles')), testid: 'design-rail-styles' },
+    { id: 'panel-swatches', label: 'Swatches & spot inks', icon: 'invert_colors', kind: 'panel', group: 9, order: 2, pinned: 'bottom', onSelect: () => setPanel((p) => (p === 'swatches' ? 'none' : 'swatches')), testid: 'design-rail-swatches' },
+    { id: 'panel-preflight', label: 'Preflight for print', icon: 'rule', kind: 'panel', group: 9, order: 3, pinned: 'bottom', onSelect: () => setPanel((p) => (p === 'preflight' ? 'none' : 'preflight')), testid: 'design-rail-preflight' },
+    { id: 'ai-generate', label: 'AI design', icon: 'auto_awesome', kind: 'panel', group: 9, order: 4, pinned: 'bottom', onSelect: () => setPanel((p) => (p === 'ai' ? 'none' : 'ai')), testid: 'design-ai-btn' }
   ]
 
   // ── The ContextBar's context ──────────────────────────────────────────────
@@ -1332,6 +1319,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     ),
     guidesVisible: showLayoutAids,
     facing: design.facing === true,
+    bleed: design.bleed ?? 0,
     layers: designLayers(design).map((l) => ({ id: l.id, name: l.name })),
     cmd: {
       patchElement: (patch) => {
@@ -1410,9 +1398,14 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
       duplicatePage: () => duplicatePage(design.activePage ?? 0),
       toggleGuides: () => setShowLayoutAids((v) => !v),
       toggleFacing: () => patchLayout({ facing: !designRef.current.facing }),
+      // Clamped as the retired control clamped it: 0-100 logical px, whole
+      // numbers. designPrintSize reads design.bleed, and with no way to set it
+      // the "Print PDF (bleed + crop marks)" export promised a bleed that was
+      // always zero.
+      setBleed: (px) => patchLayout({ bleed: Math.min(100, Math.max(0, Math.round(px || 0))) }),
       brandify,
       openBrandKit: () => setBrandOpen(true),
-      openPanel: (id) => showPanel(id),
+      openPanel: (id) => setPanel(id),
       exportAs: (f) => void exportAs(f),
       exportPrint: () => void exportAs('pdf', true),
       checkA11y: () => {
@@ -1438,10 +1431,10 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
             addWidget: () => setWidgetPickerOpen(true),
             removeBgSelected: () => void removeBgSelected(),
             exportAs: (f) => void exportAs(f),
-            openLayout: () => showPanel('layout'),
-            openPreflight: () => showPanel('preflight'),
-            openStyles: () => showPanel('styles'),
-            openSwatches: () => showPanel('swatches'),
+            openLayout: () => setPanel('layout'),
+            openPreflight: () => setPanel('preflight'),
+            openStyles: () => setPanel('styles'),
+            openSwatches: () => setPanel('swatches'),
             copySelection: clipboard.copy,
             cutSelection: clipboard.cut,
             pasteClipboard: clipboard.paste,
@@ -1809,7 +1802,6 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
 
   return (
     <div
-      ref={rootRef}
       className="flex flex-col h-full"
       data-testid="design-editor"
       onDragOver={(e) => {

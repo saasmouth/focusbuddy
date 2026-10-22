@@ -73,6 +73,7 @@ export interface DesignCtx {
     duplicatePage: () => void
     toggleGuides: () => void
     toggleFacing: () => void
+    setBleed: (px: number) => void
     brandify: () => void
     openBrandKit: () => void
     openPanel: (id: DesignPanelId) => void
@@ -88,6 +89,8 @@ export interface DesignCtx {
   startFrom: ReactNode
   guidesVisible: boolean
   facing: boolean
+  /** Print bleed in logical px (design.bleed). */
+  bleed: number
   layers: Array<{ id: string; name: string }>
 }
 
@@ -333,6 +336,18 @@ const layoutTab: BarTab<DesignCtx> = {
       <BarButton icon="grid_on" label="Margins, columns & layers…" showLabel onClick={() => c.cmd.openPanel('layout')} testid="design-layout-btn" />
       <BarToggle icon="visibility" label="Layout guides" pressed={c.guidesVisible} onChange={c.cmd.toggleGuides} testid="design-aids-toggle" />
       <BarToggle icon="auto_stories" label="Facing pages" pressed={c.facing} onChange={c.cmd.toggleFacing} testid="design-facing-toggle-bar" />
+      <BarSep />
+      {/* Bleed belongs with page setup, not buried in the export menu where it
+          used to live. Keeping the id: it still sets design.bleed, so a spec
+          written against it is still testing the same thing (SPEC §4.1). */}
+      <BarNumber
+        label="Bleed (px)"
+        value={c.bleed}
+        min={0}
+        max={100}
+        onChange={c.cmd.setBleed}
+        testid="design-bleed-input"
+      />
     </>
   )
 }
