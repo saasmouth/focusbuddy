@@ -35,6 +35,7 @@ import VaultView from '../views/VaultView'
 import { useSharesStore } from '../../stores/shares'
 import AreaAccordion from '../nav/AreaAccordion'
 import PlexiiIcon, { PlexiiTileIcon, PlexiiDocIcon } from '../PlexiiIcon'
+import { docTypeEntity } from '../../lib/plexiiIconMap'
 import Icon from '../Icon'
 import WorkspaceSwitcher from '../WorkspaceSwitcher'
 import {
@@ -671,7 +672,15 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                       data-testid={`office-template-${tp.id}`}
                       className="fb-btn-surface group text-left overflow-hidden hover:border-[rgb(var(--accent)/0.5)] transition"
                     >
-                      <div className={`h-24 ${tp.preview} flex items-center justify-center`}>
+                      {/* A template whose app has a Plexii icon shows that tile on the card's
+                          own surface, the way brand icons sit everywhere else
+                          (the tile carries the colour), with a hairline above
+                          the label. A sunken band read as a hole in dark. */}
+                      <div
+                        className={`h-24 flex items-center justify-center ${
+                          docTypeEntity(tp.docType) ? 'border-b border-[var(--edge-hairline)]' : tp.preview
+                        }`}
+                      >
                         <PlexiiDocIcon docType={tp.docType} size={36} fallback={TYPE_ICON[tp.docType]?.icon ?? 'description'} fallbackClassName="text-white/90" />
                       </div>
                       <div className="px-2.5 py-2">
