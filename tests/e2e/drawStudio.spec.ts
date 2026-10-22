@@ -11,7 +11,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
-import { keepNoticesOutOfTheWay } from './_drawHelpers'
+import { barTab, keepNoticesOutOfTheWay, openDrawPanel, pickTool } from './_drawHelpers'
 
 async function openDrawStudio(window: Page): Promise<void> {
   await switchArea(window, 'office')
@@ -58,18 +58,22 @@ test.describe('PlexiDraw studio', () => {
     await app.dispose()
   })
 
-  test('DR-1 the studio opens with its toolbox, layers and inspector', async () => {
-    for (const t of ['draw-toolbox', 'draw-inspector', 'draw-layers-panel', 'draw-stage', 'draw-studio-menubar']) {
+  test('DR-1 the studio opens on the office shell: rail, top bar, Layers panel', async () => {
+    for (const t of ['draw-toolbox', 'draw-bar', 'draw-stage', 'draw-studio-menubar']) {
       await expect(window.locator(`[data-testid="${t}"]`)).toBeVisible()
     }
-    // Every tool the toolbox claims to have is really there.
-    for (const tool of ['select', 'direct', 'pen', 'pencil', 'rect', 'ellipse', 'text', 'brush', 'eraser', 'bucket', 'eyedropper', 'hand']) {
+    await openDrawPanel(window, 'layers')
+    await expect(window.locator('[data-testid="draw-layers-panel"]')).toBeVisible()
+    // Every tool the rail claims to have is really there (on show, or in its flyout).
+    for (const tool of ['select', 'direct', 'pen', 'pencil', 'rect', 'text', 'brush', 'eraser', 'bucket', 'eyedropper', 'hand']) {
       await expect(window.locator(`[data-testid="draw-tool-${tool}"]`)).toBeVisible()
     }
+    await pickTool(window, 'ellipse')
+    await pickTool(window, 'select')
   })
 
   test('DR-2 drawing a rectangle puts a real path on the canvas', async () => {
-    await window.locator('[data-testid="draw-tool-rect"]').click()
+    await pickTool(window, 'rect')
     await dragOnStage(window, { x: 40, y: 40 }, { x: 160, y: 140 })
     await expect(paths(window)).toHaveCount(1)
     // The tool returns to Select once a shape is committed, so the new shape can
@@ -78,12 +82,13 @@ test.describe('PlexiDraw studio', () => {
   })
 
   test('DR-3 a second shape, then Unite, leaves ONE combined path', async () => {
-    await window.locator('[data-testid="draw-tool-ellipse"]').click()
+    await pickTool(window, 'ellipse')
     await dragOnStage(window, { x: 110, y: 90 }, { x: 240, y: 200 })
     await expect(paths(window)).toHaveCount(2)
 
     // Select both, then run the pathfinder.
     await window.keyboard.press('Meta+a')
+    await barTab(window, 'path')
     await window.locator('[data-testid="draw-bool-union"]').click()
     await expect(paths(window)).toHaveCount(1)
 
@@ -102,11 +107,12 @@ test.describe('PlexiDraw studio', () => {
   })
 
   test('DR-5 a paint layer accepts a brush stroke and keeps the pixels', async () => {
+    await openDrawPanel(window, 'layers')
     await window.locator('[data-testid="draw-add-raster-layer"]').click()
     const canvas = window.locator('[data-testid^="draw-raster-"]').first()
     await expect(canvas).toBeVisible()
 
-    await window.locator('[data-testid="draw-tool-brush"]').click()
+    await pickTool(window, 'brush')
     await dragOnStage(window, { x: 60, y: 200 }, { x: 260, y: 230 })
 
     // Measure the real pixels: the stroke must have laid down non-transparent
@@ -124,6 +130,7 @@ test.describe('PlexiDraw studio', () => {
   })
 
   test('DR-6 hiding a layer removes it from the canvas, showing it brings it back', async () => {
+    await openDrawPanel(window, 'layers')
     // Rows render top-of-stack first, so the LAST row is the bottom (vector) layer.
     const vectorRow = window.locator('[data-testid^="draw-layer-row-"]').last()
     const before = await paths(window).count()
@@ -134,10 +141,12 @@ test.describe('PlexiDraw studio', () => {
     await expect(paths(window)).toHaveCount(before)
   })
 
-  test('DR-7 the brush controls only appear for a painting tool', async () => {
-    await window.locator('[data-testid="draw-tool-brush"]').click()
+  test('DR-7 the Brush tab (and its controls) only appear for a painting tool', async () => {
+    await pickTool(window, 'brush')
+    await barTab(window, 'brush')
     await expect(window.locator('[data-testid="draw-brush-size"]')).toBeVisible()
-    await window.locator('[data-testid="draw-tool-select"]').click()
+    await pickTool(window, 'select')
+    await expect(window.locator('[data-testid="draw-bar-tab-brush"]')).toHaveCount(0)
     await expect(window.locator('[data-testid="draw-brush-size"]')).toHaveCount(0)
   })
 
@@ -148,7 +157,7 @@ test.describe('PlexiDraw studio', () => {
     await expect(window.locator('[data-testid="draw-studio"]')).toBeVisible({ timeout: 10_000 })
     await expect(window.locator('[data-testid^="draw-raster-"]')).toHaveCount(0)
 
-    await window.locator('[data-testid="draw-tool-brush"]').click()
+    await pickTool(window, 'brush')
     await dragOnStage(window, { x: 60, y: 80 }, { x: 240, y: 140 })
     // The first gesture provisions the layer it needs.
     await expect(window.locator('[data-testid^="draw-raster-"]')).toHaveCount(1, { timeout: 5_000 })
@@ -170,6 +179,7 @@ test.describe('PlexiDraw studio', () => {
   test('DR-7c every brush preset lays down its own kind of mark', async () => {
     const ids = ['round-soft', 'airbrush', 'pencil', 'ink', 'calligraphy', 'marker', 'charcoal', 'chalk', 'spray', 'watercolour', 'oil']
     const canvas = window.locator('[data-testid^="draw-raster-"]').first()
+    await barTab(window, 'brush')
     let y = 260
     for (const id of ids) {
       await window.locator(`[data-testid="draw-brush-${id}"]`).click()
@@ -194,7 +204,7 @@ test.describe('PlexiDraw studio', () => {
   })
 
   test('DR-7d the type tool makes a box you can actually type into', async () => {
-    await window.locator('[data-testid="draw-tool-text"]').click()
+    await pickTool(window, 'text')
     await dragOnStage(window, { x: 60, y: 60 }, { x: 420, y: 130 })
 
     const editor = window.locator('[data-testid="draw-text-editor"]')
@@ -220,7 +230,7 @@ test.describe('PlexiDraw studio', () => {
   })
 
   test('DR-7f clicking away commits the words onto the artwork, exactly once', async () => {
-    await window.locator('[data-testid="draw-tool-select"]').click()
+    await pickTool(window, 'select')
     await dragOnStage(window, { x: 900, y: 400 }, { x: 902, y: 402 })
     await expect(window.locator('[data-testid="draw-text-editor"]')).toHaveCount(0, { timeout: 5_000 })
     const drawn = window.locator('[data-testid^="draw-vector-"] text')
@@ -230,10 +240,10 @@ test.describe('PlexiDraw studio', () => {
 
   test('DR-7g an empty type box is discarded rather than left invisible', async () => {
     const before = await window.locator('[data-testid^="draw-vector-"] text').count()
-    await window.locator('[data-testid="draw-tool-text"]').click()
+    await pickTool(window, 'text')
     await dragOnStage(window, { x: 60, y: 300 }, { x: 300, y: 340 })
     await expect(window.locator('[data-testid="draw-text-editor"]')).toBeVisible()
-    await window.locator('[data-testid="draw-tool-select"]').click()
+    await pickTool(window, 'select')
     await dragOnStage(window, { x: 900, y: 60 }, { x: 902, y: 62 })
     await expect(window.locator('[data-testid^="draw-vector-"] text')).toHaveCount(before, { timeout: 5_000 })
   })
@@ -243,6 +253,7 @@ test.describe('PlexiDraw studio', () => {
     // entries carry the office-sideapp- prefix.
     await window.locator('[data-testid="office-sideapp-draw"]').click()
     await expect(window.locator('[data-testid="draw-studio"]')).toBeVisible({ timeout: 10_000 })
+    await openDrawPanel(window, 'layers')
     await expect(window.locator('[data-testid="draw-layers-panel"]')).toBeVisible()
     // A brand-new artwork starts with exactly one empty vector layer.
     await expect(window.locator('[data-testid^="draw-layer-row-"]')).toHaveCount(1)

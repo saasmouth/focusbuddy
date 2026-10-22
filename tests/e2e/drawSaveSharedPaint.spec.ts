@@ -14,7 +14,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
-import { keepNoticesOutOfTheWay, openDocument, readStored, runMenu, seedDrawDoc, stagePoint, v1Body } from './_drawHelpers'
+import { keepNoticesOutOfTheWay, openDocument, readStored, runMenu, seedDrawDoc, stagePoint, v1Body, pickTool } from './_drawHelpers'
 
 let app: LaunchedApp
 let window: Page
@@ -111,7 +111,7 @@ test('SP-1 three rectangles drawn with the current fill save, and are all there 
   await openDocument(window, id)
   // The studio returns to the Selection tool after each shape, so pick Rectangle each time.
   for (const x of [50, 200, 350]) {
-    await window.locator('[data-testid="draw-tool-rect"]').click()
+    await pickTool(window, 'rect')
     await drag([x, 50], [x + 100, 150])
   }
   await expectSaved()
@@ -131,7 +131,7 @@ test('SP-1 three rectangles drawn with the current fill save, and are all there 
 test('SP-2 Edit › Duplicate saves, and the copy is there after a reload', async () => {
   const id = await seedDrawDoc(window, v1Body([]), 'Duplicated paint')
   await openDocument(window, id)
-  await window.locator('[data-testid="draw-tool-rect"]').click()
+  await pickTool(window, 'rect')
   await drag([50, 50], [150, 150])
   await expectSaved()
   // The new rectangle is selected; Duplicate it from the Edit menu.

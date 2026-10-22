@@ -7,7 +7,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
-import { keepNoticesOutOfTheWay, openDocument, readStored, rectObject, seedDrawDoc, stagePoint, v1Body, waitForSave } from './_drawHelpers'
+import { barTab, keepNoticesOutOfTheWay, openDocument, readStored, rectObject, seedDrawDoc, stagePoint, v1Body, waitForSave } from './_drawHelpers'
 
 let app: LaunchedApp
 let window: Page
@@ -46,10 +46,11 @@ async function clickAt(p: { x: number; y: number }, modifiers: Array<'Alt' | 'Sh
   for (const m of modifiers) await window.keyboard.up(m)
 }
 
-test('TR-1 typing W = 200 in the Transform panel makes the object 200 wide', async () => {
+test('TR-1 typing W = 200 in the Object tab\'s Transform fields makes the object 200 wide', async () => {
   const id = await seedDrawDoc(window, v1Body([rectObject('r', 100, 100, 100, 50)]))
   await openDocument(window, id)
   await clickAt({ x: 150, y: 125 })
+  await barTab(window, 'object')
   const w = window.locator('[data-testid="draw-transform-w"]')
   await expect(w).toHaveValue('100 px')
   await w.fill('200')
@@ -113,13 +114,14 @@ test('TR-3 Alt-drag moves a copy, and ⌘D (Transform Again) repeats it', async 
   expect(xs[1] - xs[0]).toBeGreaterThan(50)
 })
 
-test('TR-4 Align panel: clicking a selected object makes it the key object, which stays put', async () => {
+test('TR-4 Align tab: clicking a selected object makes it the key object, which stays put', async () => {
   const id = await seedDrawDoc(window, v1Body([rectObject('a', 100, 100, 40, 40), rectObject('b', 300, 200, 60, 60), rectObject('c', 500, 150, 40, 40)]))
   await openDocument(window, id)
   await window.keyboard.press('v')
   await clickAt({ x: 120, y: 120 })
   await clickAt({ x: 330, y: 230 }, ['Shift'])
   await clickAt({ x: 520, y: 170 }, ['Shift'])
+  await barTab(window, 'align')
   await window.locator('[data-testid="draw-align-to"]').selectOption('key')
   await clickAt({ x: 330, y: 230 })
   await expect(window.locator('[data-testid="draw-align-key"]')).toHaveCount(1)

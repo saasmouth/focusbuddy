@@ -12,7 +12,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
-import { keepNoticesOutOfTheWay, openDocument, readStored, rectObject, seedDrawDoc, stagePoint, v1Body, waitForSave } from './_drawHelpers'
+import { barTab, keepNoticesOutOfTheWay, openDocument, pickTool, readStored, rectObject, seedDrawDoc, stagePoint, v1Body, waitForSave } from './_drawHelpers'
 
 let app: LaunchedApp
 let window: Page
@@ -84,7 +84,8 @@ async function drag(from: { x: number; y: number }, to: { x: number; y: number }
 }
 
 async function tool(id: string): Promise<void> {
-  await window.locator(`[data-testid="draw-tool-${id}"]`).click()
+  // From the rail: the tool's own button, or its flyout (the Pen family, Scissors and Knife...).
+  await pickTool(window, id)
 }
 
 /** Hover a submenu of a top-level menu and run one of its items. */
@@ -189,12 +190,13 @@ test('DA-5 the knife cuts a filled rectangle in two', async () => {
   for (const o of objs) expect(o.path!.subpaths[0].closed).toBe(true)
 })
 
-test('DA-6 the Anchor points panel rounds a selected corner', async () => {
+test('DA-6 the Anchors tab rounds a selected corner', async () => {
   const id = await seedDrawDoc(window, v1Body([rectObject('r', 200, 200, 200, 200)]), 'Anchors 6')
   await open(id)
   await tool('direct')
   await click({ x: 400, y: 200 })
-  await expect(window.locator('[data-testid="draw-anchors-panel"]')).toBeVisible()
+  // The Anchors tab appears with the anchor selection (contextual tabs never switch on their own).
+  await barTab(window, 'anchors')
   await expect(window.locator('[data-testid="draw-anchors-count"]')).toHaveText('1 selected')
   await window.locator('[data-testid="draw-anchor-radius"]').fill('30')
   await window.locator('[data-testid="draw-anchor-round"]').click()

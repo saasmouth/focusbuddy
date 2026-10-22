@@ -13,7 +13,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
-import { keepNoticesOutOfTheWay, openDocument, readStored, rectObject, seedDrawDoc, v1Body } from './_drawHelpers'
+import { barTab, keepNoticesOutOfTheWay, openDocument, openDrawPanel, readStored, rectObject, seedDrawDoc, v1Body } from './_drawHelpers'
 
 let app: LaunchedApp
 let window: Page
@@ -69,7 +69,12 @@ test('AB-1 three artboards: drawn with ⇧O on the pasteboard, added from the me
 
   // ⇧O, then drag on the grey pasteboard to the right of the page.
   await window.keyboard.press('Shift+O')
+  // The Artboard tab comes with the tool; its "Artboards…" opens the panel,
+  // pinned so it stays open while drawing on the pasteboard.
+  await barTab(window, 'artboard')
+  await window.locator('[data-testid="draw-artboard-panel-open"]').click()
   await expect(window.locator('[data-testid="draw-artboards-panel"]')).toBeVisible()
+  await window.locator('[data-testid="draw-panel-artboards-pin"]').click()
   const stage = (await window.locator('[data-testid="draw-stage"]').boundingBox())!
   const scroll = (await window.locator('[data-testid="draw-canvas-scroll"]').boundingBox())!
   const room = scroll.x + scroll.width - (stage.x + stage.width)
@@ -125,6 +130,8 @@ test('AB-1 three artboards: drawn with ⇧O on the pasteboard, added from the me
   const boxes = [...pdf.matchAll(/\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]/g)].map((m) => [Math.round(Number(m[1])), Math.round(Number(m[2]))])
   const b = await boards(id)
   expect(boxes.sort()).toEqual(b.map((a) => [Math.round(a.w * 0.75), Math.round(a.h * 0.75)]).sort())
+  // Unpin, so the panel does not reopen with the next drawing in this profile.
+  await window.locator('[data-testid="draw-panel-artboards-pin"]').click()
 })
 
 test('AB-2 PNG of each artboard writes one file per artboard at its pixel size; navigation goes artboard to artboard', async () => {
@@ -203,6 +210,7 @@ test('AB-3 Paste on All Artboards puts a copy at the same spot on every artboard
     ])
 
   // Rename in the panel: double-click the name.
+  await openDrawPanel(window, 'artboards')
   await window.locator('[data-testid="draw-artboards-row-1"]').dblclick()
   await window.locator('[data-testid="draw-artboards-rename"]').fill('Back cover')
   await window.locator('[data-testid="draw-artboards-rename"]').press('Enter')

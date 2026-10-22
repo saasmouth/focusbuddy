@@ -12,7 +12,7 @@ import { existsSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
-import { keepNoticesOutOfTheWay, openDocument, readStored, rectObject, runMenu, seedDrawDoc, stagePoint, v1Body, waitForSave } from './_drawHelpers'
+import { keepNoticesOutOfTheWay, openDocument, readStored, rectObject, runMenu, seedDrawDoc, stagePoint, v1Body, waitForSave, pickTool } from './_drawHelpers'
 
 let app: LaunchedApp
 let window: Page
@@ -77,7 +77,7 @@ test('OBJ-1 draw three shapes, ⌘G groups them, the group moves as one, ⌘Z un
     await dragArt({ x, y: 100 }, { x: x + 80, y: 180 })
     await expect(window.locator('[data-testid^="draw-vector-"] path')).toHaveCount(i + 1)
   }
-  await window.locator('[data-testid="draw-tool-select"]').click()
+  await pickTool(window, 'select')
   await window.keyboard.press('ControlOrMeta+a')
   await window.keyboard.press('ControlOrMeta+g')
   await waitForSave(window)

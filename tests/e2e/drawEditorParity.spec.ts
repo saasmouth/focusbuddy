@@ -1,6 +1,6 @@
 /**
  * PlexiiDraw editor parity: drives every tool, the keyboard, the menus, the
- * inspector and the layers panel in the real app, reading results back from
+ * top bar (formerly the inspector) and the Layers panel in the real app, reading results back from
  * the stored document and the DOM.
  *
  * Written for the Phase 0 refactor (DrawStudio split into tool, command and
@@ -12,7 +12,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
-import { keepNoticesOutOfTheWay, openDocument, readStored, rectObject, runMenu, seedDrawDoc, stagePoint, v1Body, waitForSave, storedView } from './_drawHelpers'
+import { barTab, keepNoticesOutOfTheWay, openDocument, openDrawPanel, readStored, rectObject, runMenu, seedDrawDoc, stagePoint, v1Body, waitForSave, storedView } from './_drawHelpers'
 
 let app: LaunchedApp
 let window: Page
@@ -60,38 +60,24 @@ async function paintedPixels(layerTestId: string): Promise<number> {
   })
 }
 
-test('EP-1 the toolbox offers every tool, in order, with its shortcut (Illustrator\'s since WP-KEYS)', async () => {
+test('EP-1 the rail offers every tool, in toolbox order, with its live shortcut; flyouts hold the rest', async () => {
   await openDocument(window, await seedDrawDoc(window, v1Body([])))
-  const titles = await window.locator('[data-testid^="draw-tool-"]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-testid')}=${e.getAttribute('title')}`))
-  expect(titles).toEqual([
+  // The office shell's rail: one button per tool or flyout (the flyout shows its
+  // first tool, or the one last used), tooltips and names from the live keymap.
+  const rail = await window
+    .locator('[data-testid="draw-toolbox"] button[data-rail-kind="tool"]')
+    .evaluateAll((els) => els.map((e) => `${e.getAttribute('data-testid')}=${e.getAttribute('aria-label')}`))
+  expect(rail).toEqual([
     'draw-tool-select=Select (V) — double-click for options',
-    // WP-OBJ: Group Selection has no default letter, as in Illustrator.
-    'draw-tool-groupSelect=Group selection',
     'draw-tool-direct=Direct Selection (A)',
     'draw-tool-lasso=Lasso (Q)',
     'draw-tool-pen=Pen (P)',
-    'draw-tool-curvature=Curvature (⇧`)',
-    'draw-tool-addAnchor=Add Anchor Point (+)',
-    'draw-tool-deleteAnchor=Delete Anchor Point (-)',
-    'draw-tool-anchorConvert=Anchor Point (⇧C)',
     'draw-tool-scissors=Scissors (C)',
-    'draw-tool-knife=Knife',
     'draw-tool-pencil=Pencil (N)',
-    'draw-tool-smooth=Smooth',
-    'draw-tool-pathEraser=Path Eraser',
-    'draw-tool-join=Join',
     'draw-tool-rect=Rectangle (M)',
-    'draw-tool-roundRect=Rounded rectangle',
-    'draw-tool-ellipse=Ellipse (L)',
-    'draw-tool-polygon=Polygon',
-    'draw-tool-star=Star',
-    'draw-tool-line=Line (\\)',
     'draw-tool-text=Type (T)',
     'draw-tool-rotate=Rotate (R) — double-click for options',
-    'draw-tool-reflect=Reflect (O) — double-click for options',
     'draw-tool-scale=Scale (S) — double-click for options',
-    'draw-tool-shear=Shear — double-click for options',
-    'draw-tool-reshape=Reshape',
     'draw-tool-freeTransform=Free Transform (E)',
     'draw-tool-brush=Brush (B)',
     'draw-tool-eraser=Eraser (⇧E)',
@@ -100,6 +86,40 @@ test('EP-1 the toolbox offers every tool, in order, with its shortcut (Illustrat
     'draw-tool-artboard=Artboard (⇧O)',
     'draw-tool-hand=Pan (H)'
   ])
+  const flyout = async (id: string): Promise<string[]> => {
+    await window.locator(`[data-testid="draw-toolbox-flyout-${id}"]`).click()
+    const items = await window.locator('[data-testid="draw-toolbox-flyout-menu"] [role="menuitemradio"]').evaluateAll((els) =>
+      els.map((e) => {
+        const label = e.querySelector('span.flex-1')?.textContent ?? ''
+        const key = e.querySelector('span.fb-tabular')?.textContent
+        return `${e.getAttribute('data-testid')}=${label}${key ? ` (${key})` : ''}`
+      })
+    )
+    await window.keyboard.press('Escape')
+    await expect(window.locator('[data-testid="draw-toolbox-flyout-menu"]')).toHaveCount(0)
+    return items
+  }
+  // Every tool of the toolbox, in its order: the flyouts hold the ones not on show.
+  expect(await flyout('direct')).toEqual(['draw-tool-groupSelect-flyout=Group selection', 'draw-tool-direct-flyout=Direct Selection (A)'])
+  expect(await flyout('pen')).toEqual([
+    'draw-tool-pen-flyout=Pen (P)',
+    'draw-tool-curvature-flyout=Curvature (⇧`)',
+    'draw-tool-addAnchor-flyout=Add Anchor Point (+)',
+    'draw-tool-deleteAnchor-flyout=Delete Anchor Point (-)',
+    'draw-tool-anchorConvert-flyout=Anchor Point (⇧C)'
+  ])
+  expect(await flyout('scissors')).toEqual(['draw-tool-scissors-flyout=Scissors (C)', 'draw-tool-knife-flyout=Knife'])
+  expect(await flyout('pencil')).toEqual(['draw-tool-pencil-flyout=Pencil (N)', 'draw-tool-smooth-flyout=Smooth', 'draw-tool-pathEraser-flyout=Path Eraser', 'draw-tool-join-flyout=Join'])
+  expect(await flyout('shapes')).toEqual([
+    'draw-tool-rect-flyout=Rectangle (M)',
+    'draw-tool-roundRect-flyout=Rounded rectangle',
+    'draw-tool-ellipse-flyout=Ellipse (L)',
+    'draw-tool-polygon-flyout=Polygon',
+    'draw-tool-star-flyout=Star',
+    'draw-tool-line-flyout=Line (\\)'
+  ])
+  expect(await flyout('rotate')).toEqual(['draw-tool-rotate-flyout=Rotate (R)', 'draw-tool-reflect-flyout=Reflect (O)'])
+  expect(await flyout('scale')).toEqual(['draw-tool-scale-flyout=Scale (S)', 'draw-tool-shear-flyout=Shear', 'draw-tool-reshape-flyout=Reshape'])
 })
 
 test('EP-2 the menus list the same items, with the same enabled states', async () => {
@@ -144,6 +164,8 @@ test('EP-3 shapes, Pathfinder, undo/redo and Delete through the keyboard', async
   await drag([200, 150], [400, 350])
   await expect(window.locator('[data-testid^="draw-vector-"] path')).toHaveCount(2)
   await window.keyboard.press('Meta+a')
+  // Pathfinder is on the Path tab, shown while paths are selected.
+  await barTab(window, 'path')
   await window.locator('[data-testid="draw-bool-union"]').click()
   await expect(window.locator('[data-testid^="draw-vector-"] path')).toHaveCount(1)
   await window.keyboard.press('Meta+z')
@@ -233,6 +255,8 @@ test('EP-8 the brush with no paint layer makes one, then paints; every preset le
   await drag([60, 160], [240, 220])
   expect(await paintedPixels(testId)).toBeGreaterThan(0)
   let y = 260
+  // The brush presets are on the Brush tab, shown while a painting tool is active.
+  await barTab(window, 'brush')
   for (const preset of ['round-soft', 'airbrush', 'pencil', 'ink', 'calligraphy', 'marker', 'charcoal', 'chalk', 'spray', 'watercolour', 'oil']) {
     await window.locator(`[data-testid="draw-brush-${preset}"]`).click()
     const before = await paintedPixels(testId)
@@ -249,6 +273,7 @@ test('EP-8 the brush with no paint layer makes one, then paints; every preset le
 test('EP-9 the eraser removes pixels and the bucket fills; the eyedropper picks a shape colour', async () => {
   const id = await seedDrawDoc(window, v1Body([rectObject('a', 600, 400, 100, 100, { fill: { type: 'solid', color: '#ff8800' } })]))
   await openDocument(window, id)
+  await openDrawPanel(window, 'layers')
   await window.locator('[data-testid="draw-add-raster-layer"]').click()
   const raster = window.locator('[data-testid^="draw-raster-"]')
   const testId = (await raster.getAttribute('data-testid'))!
@@ -264,9 +289,10 @@ test('EP-9 the eraser removes pixels and the bucket fills; the eyedropper picks 
   await expect(window.locator('[data-testid="draw-status"]')).toContainText('Picked #ff8800')
 })
 
-test('EP-10 the layers panel adds, hides and shows layers; the inspector recolours', async () => {
+test('EP-10 the Layers panel adds, hides and shows layers; Home recolours', async () => {
   const id = await seedDrawDoc(window, v1Body([rectObject('a', 100, 100, 100, 100)]))
   await openDocument(window, id)
+  await openDrawPanel(window, 'layers')
   await window.locator('[data-testid="draw-add-vector-layer"]').click()
   await expect(window.locator('[data-testid^="draw-layer-row-"]')).toHaveCount(2)
   const bottom = window.locator('[data-testid^="draw-layer-row-"]').last()
@@ -275,6 +301,8 @@ test('EP-10 the layers panel adds, hides and shows layers; the inspector recolou
   await bottom.locator('button').first().click()
   await expect(window.locator('[data-testid^="draw-vector-"] path')).toHaveCount(1)
   await click(150, 150)
+  await barTab(window, 'home')
+  await window.locator('[data-testid="draw-fill"]').click()
   await window.locator('[data-testid="draw-fill-color"]').fill('#123456')
   await waitForSave(window)
   expect(objectsOf(await stored(id))[0].fill).toEqual({ type: 'solid', color: '#123456' })
@@ -284,7 +312,7 @@ test('EP-11 View: grid and snap toggle from the menu; zoom buttons change the zo
   await openDocument(window, await seedDrawDoc(window, v1Body([])))
   const zoom = window.locator('[data-testid="draw-zoom"]')
   const before = await zoom.textContent()
-  await window.locator('button[title="Zoom in"]').click()
+  await window.locator('[data-testid="draw-zoom-in"]').click()
   await expect(zoom).not.toHaveText(before ?? '')
   await runMenu(window, 'view', 'Zoom to 100%')
   await expect(zoom).toHaveText('100%')

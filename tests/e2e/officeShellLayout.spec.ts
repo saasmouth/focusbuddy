@@ -37,6 +37,20 @@ const APPS: AppCase[] = [
     undo: 'diagram-undo',
     corner: 'diagram-layers-toggle',
     sidePane: { toggle: 'diagram-sidepane-toggle', pane: 'diagram-sidepane', content: 'diagram-ai-pane' }
+  },
+  {
+    // PlexiiDraw has no bottom strip (no pages bar) and no content pane (no AI
+    // or comments pane in the drawing editor), so it has no corner control and
+    // no side pane to check: both are absent, not stand-ins.
+    name: 'PlexiiDraw',
+    docType: 'draw',
+    shell: 'draw-shell',
+    bar: 'draw-bar',
+    rail: 'draw-toolbox',
+    canvas: 'draw-canvas-scroll',
+    panelOpener: 'draw-rail-layers',
+    panel: 'draw-panel-layers',
+    undo: 'draw-undo'
   }
 ]
 

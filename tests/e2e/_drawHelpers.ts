@@ -167,3 +167,48 @@ export function storedView<T = Record<string, unknown>>(raw: unknown): T & { wid
   })
   return { ...(r as object), layers, width: r.artboards[0].w, height: r.artboards[0].h, schemaVersion: r.schemaVersion ?? 2 } as T & { width: number; height: number; schemaVersion: number }
 }
+
+// ── The office shell (rail, top bar, overlay panels) ─────────────────────────
+
+/**
+ * Choose a tool from the rail, as a person does: its own button when it is on
+ * show, otherwise from its flyout (the Pen family, the shapes, Scissors and
+ * Knife, Rotate and Reflect, Scale/Shear/Reshape, Direct/Group Selection,
+ * Pencil/Smooth/Path Eraser/Join), opened from the button's corner triangle.
+ */
+export async function pickTool(window: Page, id: string): Promise<void> {
+  const own = window.locator(`[data-testid="draw-toolbox"] [data-testid="draw-tool-${id}"]`)
+  if (await own.isVisible().catch(() => false)) {
+    await own.click()
+    return
+  }
+  // Find the flyout holding it: open each flyout until its menu lists the tool.
+  const triangles = window.locator('[data-testid^="draw-toolbox-flyout-"]:not([data-testid="draw-toolbox-flyout-menu"])')
+  for (let i = 0; i < (await triangles.count()); i++) {
+    await triangles.nth(i).click()
+    const item = window.locator(`[data-testid="draw-tool-${id}-flyout"]`)
+    if (await item.isVisible().catch(() => false)) {
+      await item.click()
+      await expect(window.locator(`[data-testid="draw-tool-${id}"]`)).toHaveAttribute('aria-pressed', 'true')
+      return
+    }
+    await window.keyboard.press('Escape')
+    await expect(window.locator('[data-testid="draw-toolbox-flyout-menu"]')).toHaveCount(0)
+  }
+  throw new Error(`no rail button or flyout item for the ${id} tool`)
+}
+
+/** Switch the top bar to a tab (a contextual one must be showing). */
+export async function barTab(window: Page, id: string): Promise<void> {
+  const tab = window.locator(`[data-testid="draw-bar-tab-${id}"]`)
+  await expect(tab).toBeVisible()
+  await tab.click()
+  await expect(tab).toHaveAttribute('aria-selected', 'true')
+}
+
+/** Open an overlay panel (layers, artboards) from its rail button, if it is not open already. */
+export async function openDrawPanel(window: Page, id: string): Promise<void> {
+  const panel = window.locator(`[data-testid="draw-panel-${id}"]`)
+  if (!(await panel.isVisible().catch(() => false))) await window.locator(`[data-testid="draw-rail-${id}"]`).click()
+  await expect(panel).toBeVisible()
+}

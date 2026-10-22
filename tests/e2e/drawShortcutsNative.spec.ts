@@ -16,7 +16,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
-import { keepNoticesOutOfTheWay, openDocument, readStored, rectObject, seedDrawDoc, stagePoint, storedView, v1Body } from './_drawHelpers'
+import { barTab, keepNoticesOutOfTheWay, openDocument, readStored, rectObject, seedDrawDoc, stagePoint, storedView, v1Body } from './_drawHelpers'
 import { KEY, postKeyToPid, readPasteboard } from './_macPasteboard'
 
 let app: LaunchedApp
@@ -88,9 +88,10 @@ test('NK-1 ⇧⌘P opens Place and ⌘O opens Open SVG, pressed as a person pres
 test('NK-2 the same chords fire while one of the studio\'s fields has focus (they used to do nothing)', async () => {
   await openDrawing()
   await recordOpens()
-  // Select the shape so the Transform panel's number fields show, and focus one.
+  // Select the shape so the Object tab's Transform fields show, and focus one.
   const p = await stagePoint(window, 800, { x: 180, y: 165 })
   await window.mouse.click(p.x, p.y)
+  await barTab(window, 'object')
   const field = window.locator('[data-testid="draw-transform-x"]')
   await field.click()
   expect(await window.evaluate(() => document.activeElement?.tagName)).toBe('INPUT')

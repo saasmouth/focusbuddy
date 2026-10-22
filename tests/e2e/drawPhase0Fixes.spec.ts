@@ -8,7 +8,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
-import { dragOnStage, keepNoticesOutOfTheWay, openDocument, readStored, rectObject, runMenu, seedDrawDoc, stagePoint, v1Body, waitForSave, storedView } from './_drawHelpers'
+import { barTab, dragOnStage, keepNoticesOutOfTheWay, openDocument, readStored, rectObject, runMenu, seedDrawDoc, stagePoint, v1Body, waitForSave, storedView, pickTool } from './_drawHelpers'
 
 let app: LaunchedApp
 let window: Page
@@ -40,7 +40,9 @@ test('P0-1 Edit › Select all then Align left never moves a locked object', asy
   )
   await openDocument(window, id)
   await runMenu(window, 'edit', 'Select all')
-  await window.locator('[data-testid="draw-align-left"]').click()
+  // The inspector's align row and the Align panel are one Align tab now.
+  await barTab(window, 'align')
+  await window.locator('[data-testid="draw-alignpanel-left"]').click()
   await waitForSave(window)
   const objs = objectsOf((await readStored(window, id)).raw)
   expect(minX(objs.find((o) => o.id === 'locked')!)).toBe(500)
@@ -53,7 +55,7 @@ test('P0-2 ⌘/Ctrl-wheel zooms about the pointer', async () => {
   await openDocument(window, id)
   // Zoom in with the buttons until the artboard is larger than the window, so
   // there is room to scroll and the anchor can be held exactly.
-  for (let i = 0; i < 6; i++) await window.locator('button[title="Zoom in"]').click()
+  for (let i = 0; i < 6; i++) await window.locator('[data-testid="draw-zoom-in"]').click()
   const scroller = await window.locator('[data-testid="draw-canvas-scroll"]').boundingBox()
   if (!scroller) throw new Error('no canvas')
   const pointer = { x: scroller.x + scroller.width * 0.7, y: scroller.y + scroller.height * 0.6 }
@@ -108,8 +110,9 @@ test('P0-3 dragging a live star\'s point turns it into a path, so Points can no 
   // Select it, then switch to Direct Selection and drag the top point up.
   const centre = await stagePoint(window, 800, { x: 400, y: 300 })
   await window.mouse.click(centre.x, centre.y)
+  await barTab(window, 'shape')
   await expect(window.locator('[data-testid="draw-shape-sides"]')).toBeVisible()
-  await window.locator('[data-testid="draw-tool-direct"]').click()
+  await pickTool(window, 'direct')
   const top = await stagePoint(window, 800, { x: 400, y: 100 })
   const up = await stagePoint(window, 800, { x: 400, y: 40 })
   await window.mouse.move(top.x, top.y)
@@ -123,8 +126,9 @@ test('P0-3 dragging a live star\'s point turns it into a path, so Points can no 
   expect(o.shapeKind).toBe('path')
   expect(o.sides).toBeUndefined()
   expect(o.path!.subpaths[0].nodes[0].y).toBeLessThan(70)
-  // The Shape section that offered Points is gone: there is nothing left to regenerate.
-  await window.locator('[data-testid="draw-tool-select"]').click()
+  // The Shape tab that offered Points is gone: there is nothing left to regenerate.
+  await pickTool(window, 'select')
+  await expect(window.locator('[data-testid="draw-bar-tab-shape"]')).toHaveCount(0)
   await expect(window.locator('[data-testid="draw-shape-sides"]')).toHaveCount(0)
 })
 
@@ -215,7 +219,7 @@ test('P0-5 the artboard can grow around its centre: art and pixels move together
 test('P0-6 a drag on the canvas still draws (sanity: the fixes did not break drawing)', async () => {
   const id = await seedDrawDoc(window, v1Body([]))
   await openDocument(window, id)
-  await window.locator('[data-testid="draw-tool-rect"]').click()
+  await pickTool(window, 'rect')
   await dragOnStage(window, { x: 40, y: 40 }, { x: 160, y: 140 })
   await expect(window.locator('[data-testid^="draw-vector-"] path')).toHaveCount(1)
 })
