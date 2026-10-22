@@ -48,6 +48,7 @@ import { ContextBar } from '../../src/renderer/src/components/office/shell'
 import { CELLS_TABS, type CCtx } from '../../src/renderer/src/components/documents/sheet/cellsRibbon'
 import type { SheetMenuActions } from '../../src/renderer/src/components/documents/editor/SheetMenuBar'
 import type { SheetTab } from '../../src/shared/types'
+import SaveSnippetDialog from '../../src/renderer/src/components/snippets/SaveSnippetDialog'
 
 /** A tab of `rows` × `cols` blank cells, with the given cells filled ("A1" style keys). */
 function tabWith(cells: Record<string, string>, rows = 10, cols = 6, extra: Partial<SheetTab> = {}): SheetTab {
@@ -473,5 +474,17 @@ describe('where the commands live on the shell', () => {
     expect(btn('sheet-save-snippet').disabled).toBe(false)
     act(() => btn('sheet-save-snippet').click())
     expect(saveSnippet).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('the save dialog says what will not be kept', () => {
+  it('shows the not-kept line when the surface supplies one, and nothing when it does not', () => {
+    const t = tabWith({ A1: '1' }, 4, 4, { colWidths: { 0: 120 } })
+    const sel = { r0: 0, c0: 0, r1: 0, c1: 0 }
+    act(() => root.render(<SaveSnippetDialog body={sheetBodyFromSelection(t, sel)!} notKept={sheetSnippetNotKept(t, sel)} onClose={() => {}} />))
+    expect(document.querySelector('[data-testid="save-snippet-not-kept"]')?.textContent).toBe('Column widths are not saved with a snippet.')
+    expect(document.querySelector('[data-testid="save-snippet-preview"]')?.textContent).toBe('1 × 1 cells')
+    act(() => root.render(<SaveSnippetDialog body={sheetBodyFromSelection(SUM, A1_A3)!} notKept={sheetSnippetNotKept(SUM, A1_A3)} onClose={() => {}} />))
+    expect(document.querySelector('[data-testid="save-snippet-not-kept"]')).toBeNull()
   })
 })
