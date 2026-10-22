@@ -412,8 +412,8 @@ Before handing a conversion back, every item, with evidence:
   - bottom: Macros panel `sheet-macros-btn` · Query panel `sheet-query-btn` · AI fill
 - **Pin:** Undo, Redo.
 - **Home:** Font · B/I/U · Text colour · Fill colour · Align ×3 · Merge `sheet-merge-btn` · Number format `sheet-number-format` · Clear formatting.
-- **Insert:** Rows and columns (insert and delete) · Chart · Pivot · Sparkline · Lookup · Sheet · Named range · Meeting.
-- **Data:** Sort ↑/↓ · **Filter** (BarToggle, the SAME state as the rail item; §3.7) · Conditional formatting… `sheet-condformat-btn` · Validation… `sheet-validation-btn` · Named ranges… · Macros… · Query….
+- **Insert:** Rows and columns (insert and delete) · Chart · Pivot · Sparkline · Lookup · Saved snippet… `sheet-insert-snippet` (the snippet library, sheet snippets, aimed at this spreadsheet; also Insert › Insert snippet…) · Sheet · Named range · Meeting.
+- **Data:** Sort ↑/↓ · **Filter** (BarToggle, the SAME state as the rail item; §3.7) · Conditional formatting… `sheet-condformat-btn` · Validation… `sheet-validation-btn` · Named ranges… · Save as snippet… `sheet-save-snippet` (the selected range; also Edit › Save selection as snippet…; see docs/saved-snippets.md) · Macros… · Query….
 - **Side pane (§2.5a):** SheetAiPanel (`sheet-ai-panel` content, `collapseTestid="sheet-ai-collapse"`); `sheet-ai-toggle` becomes the right-slot side-pane toggle (rail "AI fill" may be a `sidePane` item).
 - **File menu:** Import/export.
 

@@ -137,17 +137,17 @@ that did not happen, which is why `usageCount` means something.
 |---|---|---|
 | `doc` | TipTap nodes + plain text | **yes** — duplicate and live |
 | `widget` | kind, title, content, size, colour | **yes** — duplicate only, see below |
-| `sheet` | row-major values + per-cell formats | modelled, not wired |
+| `sheet` | cell input (formulas as written) + origin, per-cell formats, merges, validation | **yes**: duplicate only, see below |
 | `slide` | slide elements | **yes**: duplicate only, see below |
 | `design` | page elements + the stories and swatches they use | **yes**: duplicate only, see below |
 | `diagram` | nodes + edges | **yes**: duplicate only, see below |
 | `draw` | PlexiiDraw objects + the assets and swatches they use | **yes**: duplicate only, see below |
 
 The document surface is first because it is the one that needs both link modes
-and because the live-embed mechanism already existed there to build on. The
-kinds still marked "not wired" are typed end to end but **no surface registers
-them yet** — a kind with no target simply offers no destination, which is why
-the picker says "nothing open can take this" instead of failing.
+and because the live-embed mechanism already existed there to build on. Every
+kind now has a surface. A kind whose surface is not open simply offers no
+destination, which is why the picker says "nothing open can take this" instead
+of failing.
 
 ### Why a desk offers Duplicate only
 
@@ -388,6 +388,80 @@ Insert snippet… and the Insert tab's Saved snippet… (`design-insert-snippet`
 with the library inserts. Tests: `tests/unit/designSnippets.test.tsx` and
 `tests/e2e/snippetsDesign.spec.ts`.
 
+### Why a spreadsheet offers Duplicate only
+
+PlexiiCells (`documents/sheet/cellsSnippets.ts`) saves the selected range and
+pastes it back at the active cell. A sheet snippet is Cells' copy and paste of
+a range with a name, and it runs Cells' own paste code:
+
+- **Formulas, not values.** `rows` holds each cell's input, so `=A1+A2` is
+  saved as written and recalculates where it lands. The range's top-left is
+  saved as `origin`, and insertion shifts every formula by (landing cell minus
+  origin) through `rewriteFormulaRefs`, which is exactly what ⌘V does for an
+  in-app copy: relative parts move, absolute (`$`) parts stay, and a reference
+  pointing **outside** the block moves too, as it does when pasting here or in
+  Excel. `=A1+A2` saved from A3 and inserted at C3 reads `=C1+C2`. A body with
+  no origin is written literally, as an external paste is.
+- **A reference that would leave the sheet is declined, not repointed.** Cells'
+  paste clamps a relative reference that would shift above row 1 or left of
+  column A to row 1 / column A, so `=C4*2` pasted four rows up silently reads
+  `=A1*2` (Excel shows `#REF!`). A snippet declines instead and names the cell
+  in the destination's terms: "Placed at A1, the formula landing in A1 would
+  point above row 1 or left of column A." The reason reaches the library
+  verbatim through `SnippetInsertResult`. Paste's clamping is an existing bug,
+  reported and left for Cells' owner.
+- **More than ⌘V carries.** ⌘V goes through the system clipboard as plain TSV,
+  so it carries values only. A snippet is stored, so it carries what an Excel
+  paste of the range carries: per-cell formats (number formats included),
+  merges inside the range and data validation clipped to it, all relative to
+  the top-left. A merge crossing the edge of the selection widens the saved
+  range to take it whole, as Excel's selection does.
+- **Not carried, and said so at save time.** Conditional formatting (a scale or
+  data-bar rule is computed over its whole range, so a clipped copy would
+  change meaning), column widths and row heights (properties of whole columns
+  and rows, which paste leaves alone). When the selection has any of them, the
+  save dialog names them in one line (`save-snippet-not-kept`), so the loss is
+  known before anything is saved. Charts, pivots and widgets are objects over
+  the sheet, not cells in it, and are not part of a range.
+- **Landing.** The block lands at the selection's top-left (the active cell for
+  a single cell) and overwrites the cells under it, blanks included, without
+  asking, because ⌘V never asks. The formats, merges and validation under it
+  are replaced by the block's own; a validation rule that covered more than
+  the block keeps its rule on what is left. A destination merge the block
+  would cut through is declined ("you can't change part of a merged cell").
+  One `mutateTab`, so one undo removes it; the landed range becomes the
+  selection with its top-left active, and every formula recalculates on the
+  next render. It declines past Excel's grid (1,048,576 rows × 16,384
+  columns), because XLSX could not hold the result, and when no cell is
+  active. Cells has no read-only state today; `insertSheetSnippet` takes
+  `readOnly` and declines on it, so the editor only has to pass the truth.
+
+Live is refused for reasons any one of which would be enough:
+
+- **A cell holds a string.** The grid, the formula engine, sort, filter, fill,
+  pivots and charts all read `rows` directly. A live block would need a
+  reference type resolved into cells before any of them ran, a second sheet
+  model beside the real one.
+- **Export would freeze it.** XLSX and CSV are written from the stored rows
+  (`main/sheetXlsxWriter.ts`). A live block would either export as whatever
+  was last resolved, a copy presented as live, or as nothing.
+- **Recalculation and references.** Formulas elsewhere on the sheet point at
+  the block's cells. If the master changed shape, every one of those references
+  would silently point at different data.
+- **Co-editing.** A shared workbook reaches collaborators through the live
+  document, but snippets do not sync (`ORG_SNIPPETS_SYNC` is false), so every
+  peer would see a missing reference where the cells should be.
+
+So the spreadsheet target declares `supports: ['duplicate']` and the library
+shows one button. The target id is the mounted editor (`sheet:<useId>`), so
+the same workbook in the editor and in a desk widget is two destinations. The
+commands sit with their neighbours: Edit › Save selection as snippet… and the
+Data tab's Save as snippet… (`sheet-save-snippet`, beside Named ranges, the
+other range action), Insert › Insert snippet… and the Insert tab's Saved
+snippet… (`sheet-insert-snippet`). Cells has no cell context menu, so there is
+none to add them to. Tests: `tests/unit/cellsSnippets.test.tsx` and
+`tests/e2e/snippetsCells.spec.ts`.
+
 Adding a surface is a registration, not a change to the core:
 
 ```ts
@@ -516,7 +590,7 @@ the content and `insertSnippetLive` takes an id.
 ```ts
 DocSnippetBody     { kind: 'doc',     content: unknown[], text: string }
 WidgetSnippetBody  { kind: 'widget',  widgetKind, title, content, width, height, color }
-SheetSnippetBody   { kind: 'sheet',   rows: string[][], formats?: Record<string, unknown> }
+SheetSnippetBody   { kind: 'sheet',   rows: string[][], formats?, origin?, merges?, validations? }
 SlideSnippetBody   { kind: 'slide',   elements: unknown[] }
 DesignSnippetBody  { kind: 'design',  elements: unknown[], stories?, swatches? }
 DiagramSnippetBody { kind: 'diagram', nodes: unknown[], edges: unknown[] }
@@ -527,8 +601,8 @@ DrawSnippetBody    { kind: 'draw',    objects: unknown[], assets?, swatches? }
 (`shared/draw/model.ts`) and PlexiiDesign's elements are different models, and the
 kind/body agreement check is what keeps one app's objects out of the other.
 
-`doc`, `widget`, `draw`, `diagram`, `slide` and `design` are wired. `sheet` is
-typed and stored but registers no target yet.
+`doc`, `widget`, `sheet`, `slide`, `design`, `diagram` and `draw` are all
+wired.
 
 If a shape does not fit, change it in `shared/snippets.ts` and add its case to
 `snippetSummary` and `snippetBodyIsEmpty` — the compiler will name both, because
@@ -614,6 +688,7 @@ Each of these is a case where the plausible-looking behaviour is the wrong one.
 | `.../desk/deskSnippets.ts` | the desk as a snippet surface (duplicate only) |
 | `.../documents/draw/editor/drawSnippets.ts` | PlexiiDraw as a snippet surface (duplicate only) |
 | `.../documents/design/designSnippets.ts` | PlexiiDesign as a snippet surface (duplicate only): stories and swatches travel |
+| `.../documents/sheet/cellsSnippets.ts` | PlexiiCells as a snippet surface (duplicate only): formulas shift as paste shifts them; formats, merges and validation travel |
 | `.../documents/draw/commands/snippets.commands.ts` | Edit › Save selection as snippet… and Insert snippet… (also on the canvas context menu) |
 | `.../documents/draw/dialogs/{saveSnippet,snippetLibrary}.dialog.tsx` | the app's dialogs, shown `frameless` by the studio |
 | `lib/contextMenu/` | `FrameCallbacks.onSaveAsSnippet`, beside `onSaveAsFile` |
@@ -648,6 +723,20 @@ sync body.
   touches the snippet and declines read-only, master-page threaded text and
   undrawable bodies; the target claims Duplicate only, registers while mounted
   and withdraws on unmount; the shell's two buttons.
+- `tests/unit/cellsSnippets.test.tsx`: Cells: capture is pure, keeps formulas
+  as written with their origin, and makes formats, merges (widening to take a
+  crossing one whole) and validation relative; the save dialog's not-kept line;
+  insertion produces exactly what ⌘V of an in-app copy produces (relative
+  shifted, absolute kept, outside references shifted), writes an origin-less
+  body literally, pads ragged rows, grows the sheet, replaces formats, merges
+  and validation under the block, never touches the snippet or the tab, and
+  declines read-only, no active cell, off the grid, a split merge and a
+  reference leaving the sheet, naming the cell; damaged bodies read as empty;
+  the target claims Duplicate only, registers while mounted, withdraws on
+  unmount and its reason reaches the store verbatim; the shell's two buttons.
+- `tests/e2e/snippetsCells.spec.ts`: Cells in the real app: 2, 3 and `=A1+A2`
+  saved from Edit, inserted at C1 as a duplicate reading 2, 3 and `=C1+C2`
+  showing 5, the original untouched, persisted, one undo.
 - `tests/e2e/snippetsDesign.spec.ts`: Design in the real app: two linked
   frames and a shape saved from Edit, inserted back as a duplicate whose
   frames read a new story with the same words, on the page, persisted, one

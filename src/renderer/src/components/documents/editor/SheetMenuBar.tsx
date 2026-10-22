@@ -47,6 +47,10 @@ export interface SheetMenuActions {
   importFile: () => void
   exportFile: (f: 'xlsx' | 'csv') => void
   aiFill: () => void
+  /** Save the selected range as a snippet (docs/saved-snippets.md). */
+  saveSnippet: () => void
+  /** Open the snippet library aimed at this spreadsheet. */
+  insertSnippet: () => void
 }
 
 export default function SheetMenuBar({ actions }: { actions: SheetMenuActions }): JSX.Element {
@@ -120,7 +124,9 @@ export default function SheetMenuBar({ actions }: { actions: SheetMenuActions })
       label: 'Edit',
       build: () => [
         { kind: 'item', label: 'Undo', shortcut: '⌘Z', icon: 'undo', run: a.undo, disabled: !a.canUndo },
-        { kind: 'item', label: 'Redo', shortcut: '⌘Y', icon: 'redo', run: a.redo, disabled: !a.canRedo }
+        { kind: 'item', label: 'Redo', shortcut: '⌘Y', icon: 'redo', run: a.redo, disabled: !a.canRedo },
+        { kind: 'sep' },
+        { kind: 'item', label: 'Save selection as snippet…', icon: 'bookmark_add', run: a.saveSnippet }
       ]
     },
     {
@@ -147,6 +153,8 @@ export default function SheetMenuBar({ actions }: { actions: SheetMenuActions })
         { kind: 'sep' },
         { kind: 'item', label: 'Sheet', icon: 'tab', run: a.addSheet },
         { kind: 'item', label: 'Named range', icon: 'data_object', run: a.namedRanges },
+        { kind: 'sep' },
+        { kind: 'item', label: 'Insert snippet…', icon: 'bookmarks', run: a.insertSnippet },
         { kind: 'sep' },
         { kind: 'item', label: 'Meeting', icon: 'videocam', run: () => void launchMeeting({ kind: 'sheet', id: active?.id ?? '', title: a.title || 'Spreadsheet meeting' }) }
       ]

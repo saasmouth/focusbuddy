@@ -27,6 +27,12 @@ export interface SaveSnippetDialogProps {
   body: SnippetBody
   /** Suggested name, usually derived from the selection. */
   suggestedName?: string
+  /**
+   * One line naming what in the selection the snippet will NOT keep, when the
+   * surface knows (Cells: conditional formatting, column widths). Saying so at
+   * save time is the difference between a known limit and a quiet loss.
+   */
+  notKept?: string | null
   onSaved?: (id: string) => void
   onClose: () => void
 }
@@ -34,6 +40,7 @@ export interface SaveSnippetDialogProps {
 export default function SaveSnippetDialog({
   body,
   suggestedName,
+  notKept,
   onSaved,
   onClose
 }: SaveSnippetDialogProps): JSX.Element {
@@ -122,6 +129,11 @@ export default function SaveSnippetDialog({
                 })}
               </div>
             </div>
+            {notKept && (
+              <div className="mb-2 text-[11px] text-[var(--ink-50)]" data-testid="save-snippet-not-kept">
+                {notKept}
+              </div>
+            )}
 
             <label className="mb-1 block text-[11px] text-[var(--ink-60)]" htmlFor="snippet-name">
               Name

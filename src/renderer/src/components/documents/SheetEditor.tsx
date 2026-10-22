@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { SheetBody, SheetBodyV2, SheetCellFormat, SheetChartSpec, SheetNumberFormat, SheetTab } from '@shared/types'
 import { SHEET_FUNCTIONS } from '../../lib/sheetFormula'
 import {
@@ -58,6 +58,21 @@ import SheetAiPanel from './sheet/SheetAiPanel'
 import CellsChrome from './CellsChrome'
 import { useSheetAi } from './sheet/useSheetAi'
 import Icon from '../Icon'
+import SnippetLibrary from '../snippets/SnippetLibrary'
+import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
+import type { SheetSnippetBody, Snippet, SnippetInsertResult, SnippetKind } from '@shared/snippets'
+import {
+  cellsSnippetTargetId,
+  insertSheetSnippet,
+  newValidationId,
+  sheetBodyFromSelection,
+  sheetSnippetNotKept,
+  suggestedSheetSnippetName,
+  useCellsSnippetTarget
+} from './sheet/cellsSnippets'
+
+/** The library opened from a spreadsheet shows only what a spreadsheet can take. */
+const SHEET_KINDS: SnippetKind[] = ['sheet']
 
 // Excel-class spreadsheet editor. The body is held locally as v2 (legacy v1
 // bodies are lifted on mount); every edit pushes an undo snapshot and flows to
@@ -280,6 +295,14 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
   // when the clipboard text still matches what we copied — an external copy is
   // pasted literally, since we can't know its origin.
   const clipboardCopy = useRef<{ text: string; r: number; c: number } | null>(null)
+  // Saved snippets: the library (insert) and the save dialog (capture). The
+  // draft carries the one line naming what the selection has that a snippet
+  // will not keep, so the dialog can say so before anything is saved.
+  const [snippetLibraryOpen, setSnippetLibraryOpen] = useState(false)
+  const [snippetDraft, setSnippetDraft] = useState<{ body: SheetSnippetBody; notKept: string | null } | null>(null)
+  // This mounted editor, as a snippet destination: the same workbook in the
+  // editor and in a desk widget are two places, and a closed one is none.
+  const snippetScope = useId()
 
   const idx = body.activeSheet ?? 0
   const tab = activeTab(body)
@@ -1334,6 +1357,42 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
     setNamesOpen((v) => !v)
   }
 
+  // Capture: the selected range becomes a sheet snippet body (cell input with
+  // formulas as written, the origin they are relative to, formats, merges and
+  // validation), or an empty one so the dialog can say there is nothing to save.
+  function saveSelectionAsSnippet(): void {
+    setSnippetDraft({
+      body: sheetBodyFromSelection(tab, selection) ?? { kind: 'sheet', rows: [] },
+      notKept: sheetSnippetNotKept(tab, selection)
+    })
+  }
+  // Insertion: a duplicate pasted at the selection's top-left, exactly as ⌘V
+  // lands an in-app copy (relative references shifted, absolute kept, the
+  // cells under it overwritten without asking). ONE mutateTab, so one undo
+  // takes it back; the landed range becomes the selection, and every formula
+  // recalculates on the render that follows. A refusal names its reason, on
+  // the status line and, verbatim, in the library.
+  function insertSnippetHere(snippet: Snippet): SnippetInsertResult {
+    const landing = insertSheetSnippet(tab, snippet, {
+      at: { r: selection.r0, c: selection.c0 },
+      readOnly: false,
+      newId: newValidationId
+    })
+    if ('declined' in landing) {
+      setStatus(landing.declined)
+      return { ok: false, reason: landing.declined }
+    }
+    setEditing(null)
+    mutateTab(() => landing.tab)
+    // The landed range is the selection, with its top-left the active cell,
+    // as after an Excel paste.
+    setAnchor({ r: landing.range.r1, c: landing.range.c1 })
+    setFocus({ r: landing.range.r0, c: landing.range.c0 })
+    setStatus(null)
+    return true
+  }
+  useCellsSnippetTarget(snippetScope, title, insertSnippetHere)
+
   // The sheet's operations, built once. SheetMenuBar takes them as its
   // `actions`, and the ribbon reads the same object through CellsChrome —
   // so the menu and the bar can never offer different behaviour for the
@@ -1370,7 +1429,9 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
     namedRanges: openNames,
     importFile: () => void importFile(),
     exportFile: (f) => void exportFile(f),
-    aiFill: () => setAiOpen((v) => !v)
+    aiFill: () => setAiOpen((v) => !v),
+    saveSnippet: saveSelectionAsSnippet,
+    insertSnippet: () => setSnippetLibraryOpen(true)
   }
 
   return (
@@ -1525,6 +1586,19 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
               mutateTab((t) => ({ ...t, validations: (t.validations ?? []).filter((x) => x.id !== id) }))
             }
             onClose={() => setValidationOpen(false)}
+          />
+        )}
+
+        {snippetLibraryOpen && (
+          <SnippetLibrary kinds={SHEET_KINDS} targetId={cellsSnippetTargetId(snippetScope)} onClose={() => setSnippetLibraryOpen(false)} />
+        )}
+
+        {snippetDraft && (
+          <SaveSnippetDialog
+            body={snippetDraft.body}
+            notKept={snippetDraft.notKept}
+            suggestedName={suggestedSheetSnippetName(snippetDraft.body)}
+            onClose={() => setSnippetDraft(null)}
           />
         )}
 
