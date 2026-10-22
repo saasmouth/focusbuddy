@@ -1,3 +1,5 @@
+import type { AnswerGrounding } from '@shared/types'
+import { CheckedText, CheckSummary } from '../ai/CheckThis'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from '../Icon'
 import { DashboardHeader, StatusPill, PLEXI_CARD } from '../plexi'
@@ -15,7 +17,7 @@ import type { SearchHit } from '@shared/types'
 type AskState =
   | { status: 'idle' }
   | { status: 'asking' }
-  | { status: 'answered'; answer: string; sources: AskSource[] }
+  | { status: 'answered'; answer: string; sources: AskSource[]; grounding?: AnswerGrounding }
   | { status: 'nokey' }
   | { status: 'error'; message: string }
 
@@ -137,7 +139,7 @@ export default function PlexiSearchView(): JSX.Element {
         else setAsk({ status: 'error', message: r.error || 'Could not answer that right now.' })
         return
       }
-      setAsk({ status: 'answered', answer: r.answer || '', sources: r.sources || [] })
+      setAsk({ status: 'answered', answer: r.answer || '', sources: r.sources || [], grounding: r.grounding })
     } catch {
       if (seq === askSeq.current) setAsk({ status: 'error', message: 'Could not answer that right now.' })
     }
@@ -279,7 +281,10 @@ export default function PlexiSearchView(): JSX.Element {
                     Answer
                   </span>
                 </div>
-                <p className="text-[13.5px] text-[var(--ink-90)] leading-relaxed whitespace-pre-wrap">{ask.answer}</p>
+                <p className="text-[13.5px] text-[var(--ink-90)] leading-relaxed whitespace-pre-wrap">
+                  <CheckedText text={ask.answer} grounding={ask.grounding} />
+                </p>
+                <CheckSummary grounding={ask.grounding} className="mt-1.5" />
                 {ask.sources.filter((s) => s.cited).length > 0 && (
                   <div className="mt-3 pt-3 border-t border-[var(--edge-soft)]">
                     <span className="text-[11px] text-[var(--ink-50)]">Sources</span>

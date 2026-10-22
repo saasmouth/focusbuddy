@@ -5,6 +5,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { WebMenuCommand } from '@shared/webMenu'
 import type {
   ActionProposal,
+  AnswerGrounding,
   ActivityEvent,
   ActivityRecordDraft,
   AiBuildResponse,
@@ -1312,6 +1313,7 @@ const api = {
       citedDocIds?: string[]
       sources?: Array<{ docId: string; title: string; docType: string; snippet: string; cited: boolean }>
       proposals?: ActionProposal[]
+      grounding?: AnswerGrounding
       needsApiKey?: boolean
       error?: string
     }> => ipcRenderer.invoke('workspace:ask', question, history),
@@ -1328,6 +1330,7 @@ const api = {
       answer?: string
       sources?: Array<{ docId: string; title: string; docType: string; snippet: string; cited: boolean }>
       proposals?: ActionProposal[]
+      grounding?: AnswerGrounding
       needsApiKey?: boolean
       error?: string
     }> => {

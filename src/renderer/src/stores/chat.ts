@@ -15,6 +15,7 @@ import type {
   ChatQuestion,
   ChatResponse,
   ChatSource,
+  AnswerGrounding,
   ChatUiBlock,
   AiChatMode,
   StoredTrace
@@ -80,6 +81,10 @@ interface ChatStore {
   // the reply. Retrieval already ran server-side to build the prompt — this is
   // the same set, surfaced rather than discarded.
   sourcesByMessage: Record<string, ChatSource[]>
+  // What the grounding check found in each answer (specifics its sources do
+  // not support), keyed by message timestamp, for the "check this" marks.
+  // In-session: a reopened conversation keeps the repaired prose, not the marks.
+  groundingByMessage: Record<string, AnswerGrounding>
   // Interactive UI blocks each assistant turn carried (Plexii P4), keyed by the
   // message timestamp. Rendered inside the turn; a tap sends the selection back
   // as the user's next message.
@@ -322,6 +327,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   proposalsByMessage: {},
   appliedProposals: {},
   sourcesByMessage: {},
+  groundingByMessage: {},
   blocksByMessage: {},
   liveTraceByThread: {},
   traceByMessage: {},
@@ -653,6 +659,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const nextProposals = { ...get().proposalsByMessage }
     const nextApplied = { ...get().appliedProposals }
     const nextSources = { ...get().sourcesByMessage }
+    const nextGrounding = { ...get().groundingByMessage }
     const nextBlocks = { ...get().blocksByMessage }
     const nextTraces = { ...get().traceByMessage }
     const nextDisclosure = { ...get().traceDisclosureByMessage }
@@ -664,6 +671,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
       delete nextProposals[String(m.ts)]
       delete nextSources[String(m.ts)]
+      delete nextGrounding[String(m.ts)]
       delete nextBlocks[String(m.ts)]
       delete nextTraces[String(m.ts)]
       delete nextDisclosure[String(m.ts)]
@@ -682,6 +690,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       proposalsByMessage: nextProposals,
       appliedProposals: nextApplied,
       sourcesByMessage: nextSources,
+      groundingByMessage: nextGrounding,
       blocksByMessage: nextBlocks,
       traceByMessage: nextTraces,
       traceDisclosureByMessage: nextDisclosure,
@@ -913,6 +922,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       // not grounding, and only grounding earns a chip.
       if (resp.ok && resp.sources && resp.sources.length > 0) {
         updates.sourcesByMessage = { ...get().sourcesByMessage, [tsKey]: resp.sources }
+      }
+      if (resp.ok && resp.grounding) {
+        updates.groundingByMessage = { ...get().groundingByMessage, [tsKey]: resp.grounding }
       }
       // Interactive blocks land with the completed envelope (Plexii P4).
       if (resp.ok && resp.blocks && resp.blocks.length > 0) {
@@ -1154,6 +1166,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const nextProposals = { ...get().proposalsByMessage }
     const nextApplied = { ...get().appliedProposals }
     const nextSources = { ...get().sourcesByMessage }
+    const nextGrounding = { ...get().groundingByMessage }
     const nextBlocks = { ...get().blocksByMessage }
     const nextTraces = { ...get().traceByMessage }
     const nextDisclosure = { ...get().traceDisclosureByMessage }
@@ -1165,6 +1178,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
       delete nextProposals[String(m.ts)]
       delete nextSources[String(m.ts)]
+      delete nextGrounding[String(m.ts)]
       delete nextBlocks[String(m.ts)]
       delete nextTraces[String(m.ts)]
       delete nextDisclosure[String(m.ts)]
@@ -1180,6 +1194,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       proposalsByMessage: nextProposals,
       appliedProposals: nextApplied,
       sourcesByMessage: nextSources,
+      groundingByMessage: nextGrounding,
       blocksByMessage: nextBlocks,
       traceByMessage: nextTraces,
       traceDisclosureByMessage: nextDisclosure,

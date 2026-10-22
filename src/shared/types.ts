@@ -954,8 +954,22 @@ export interface ChatQuestion {
   allowFreeText: boolean
 }
 
+/**
+ * What the grounding check found in an answer (main/ai/answerGrounding.ts):
+ * specifics the answer states that its sources do not. `repaired` were
+ * replaced by "[not in your documents]" (on-device answers, high confidence);
+ * `flagged` are left as written for the person to check.
+ */
+export interface AnswerGrounding {
+  path: 'local' | 'cloud'
+  repaired: Array<{ span: string; kind: string; confidence: 'high' | 'medium' | 'low'; reason: string }>
+  flagged: Array<{ span: string; kind: string; confidence: 'high' | 'medium' | 'low'; reason: string }>
+}
+
 export interface ChatResponse {
   ok: boolean
+  // Specifics the answer states that its sources do not (absent when clean).
+  grounding?: AnswerGrounding
   message?: ChatMessage
   error?: string
   needsApiKey?: boolean

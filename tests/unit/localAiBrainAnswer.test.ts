@@ -91,6 +91,19 @@ beforeAll(async () => {
       }) as never
   })
   setModelTagger(router.tagModel)
+  // The repro's workspace: fifteen long handbook documents (the captured
+  // replies are about them, and grounded answers are checked against them).
+  const { createDocument } = await import('../../src/main/db/documents')
+  const para = (d: number, i: number): string =>
+    `Section ${i} of handbook ${d}. Refunds within 30 days are paid in full within 5 business days; after 30 days the customer receives store credit only. ` +
+    `Standard shipping is free over $80 to Australia, New Zealand or the United Kingdom; express shipping in Australia costs $15 and arrives in 2 business days. The support desk is staffed Monday to Friday, 9am to 5pm Sydney time.`
+  for (let d = 1; d <= 15; d++) {
+    createDocument({
+      docType: 'doc',
+      title: `Customer handbook part ${d}`,
+      body: { type: 'doc', content: Array.from({ length: 14 }, (_, i) => ({ type: 'paragraph', content: [{ type: 'text', text: para(d, i + 1) }] })) }
+    } as never)
+  }
 }, 120_000)
 
 beforeEach(() => {
@@ -166,17 +179,6 @@ describe('the owner\'s case, replayed from the captured model output', () => {
 
 describe('retrieval is sized to the on-device context window', () => {
   it('fifteen long documents leave the reply its room', async () => {
-    const { createDocument } = await import('../../src/main/db/documents')
-    const para = (d: number, i: number): string =>
-      `Section ${i} of handbook ${d}. Refunds within 30 days are paid in full within 5 business days; after 30 days the customer receives store credit only. ` +
-      `Standard shipping is free over $80; express shipping in Australia costs $15. The support desk is staffed Monday to Friday, 9am to 5pm Sydney time.`
-    for (let d = 1; d <= 15; d++) {
-      createDocument({
-        docType: 'doc',
-        title: `Customer handbook part ${d}`,
-        body: { type: 'doc', content: Array.from({ length: 14 }, (_, i) => ({ type: 'paragraph', content: [{ type: 'text', text: para(d, i + 1) }] })) }
-      } as never)
-    }
     script = [{ text: '{"reply":"ok","actions":[]}', stopReason: 'end_turn', inputTokens: 1, outputTokens: 1 }]
     await chatStream('Summarise everything our handbook documents say about refunds, shipping and support hours.')
     const sent = calls[0]

@@ -19,7 +19,7 @@
 // vouch for it and cannot tell that it did.
 
 /** What kind of specific was asserted. */
-export type SpecificKind = 'number' | 'name' | 'date' | 'money' | 'percent' | 'org' | 'quote'
+export type SpecificKind = 'number' | 'name' | 'date' | 'money' | 'percent' | 'org' | 'quote' | 'time'
 
 /**
  * How safe this finding is to act on without a person looking.
@@ -195,6 +195,27 @@ function maskNonAssertions(text: string): string {
     .replace(/\[[^\]\n]{0,80}\]/g, blank)
 }
 
+/** A time span in canonical form: "9 am" / "9:00am" → "9am", "24 / 7" → "24/7", "Mon - Fri" → "mon-fri". */
+function canonTime(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\./g, '')
+    .replace(/:00(?=\s?[ap]m)/g, '')
+    .replace(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*day\b/g, '$1')
+    .replace(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*/g, '$1')
+    .replace(/\s*(?:to|through|thru|–|—)\s*/g, '-')
+    .replace(/\s+/g, '')
+}
+
+/**
+ * True when the supplied context grounds a time. By text, never by digits: the
+ * digit test below would ground "24/7" on any context holding "247" anywhere
+ * in its run of numbers, which a page of figures easily does.
+ */
+function isTimeSupplied(span: string, contextCanon: string): boolean {
+  return contextCanon.includes(canonTime(span))
+}
+
 /** True when the supplied context grounds this span. */
 function isSupplied(span: string, haystack: string, haystackDigits: string): boolean {
   const n = norm(span)
@@ -276,6 +297,31 @@ function candidates(masked: string, opts: CheckOptions): Candidate[] {
   scan(/\bQ[1-4](?:\s+(?:19|20)\d{2})?\b/g, (m) => push(m, 'date', 'a specific quarter that is not in the brief'))
   scan(/\b(?:19|20)\d{2}\b/g, (m) => push(m, 'date', 'a specific year that is not in the brief'))
 
+  // Day-first dates: "3 March", "21st October 2026".
+  scan(
+    /\b\d{1,2}(?:st|nd|rd|th)?\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+\d{4})?\b/gi,
+    (m) => push(m, 'date', 'a specific date that is not in the source material')
+  )
+
+  // Times and opening hours: "9am", "5:30 pm", "17:00", "24/7", "24 hours a
+  // day", "around the clock", "Monday to Friday". A chat answer that says
+  // "support is open 24/7" from documents that never say so is the case this
+  // exists for (4.3.41): each is a claim about the user's world with
+  // unambiguous syntax, so it is high confidence like a date.
+  scan(/\b\d{1,2}(?::\d{2})?\s?(?:am|pm|a\.m\.|p\.m\.)(?![a-z])/gi, (m) => push(m, 'time', 'a time that is not in the source material'))
+  scan(/\b(?:[01]?\d|2[0-3]):[0-5]\d\b(?!\s?(?:am|pm|a\.m\.|p\.m\.))/gi, (m) => push(m, 'time', 'a time that is not in the source material'))
+  scan(/\b24\s?\/\s?7\b|\b24\s?(?:hours?|hrs?)\s+a\s+day\b|\b(?:a)?round[- ]the[- ]clock\b/gi, (m) =>
+    push(m, 'time', 'opening hours that are not in the source material')
+  )
+  scan(
+    /\b(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?\s*(?:to|through|thru|-|–|—)\s*(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?\b/gi,
+    (m) => {
+      // Abbreviations alone ("sat to sun") are too short to trust; whole day names only.
+      if (!/day/i.test(m[0])) return
+      push(m, 'time', 'days of the week that are not in the source material')
+    }
+  )
+
   // A number with a real-world unit. The unit is what makes it a claim.
   scan(new RegExp(String.raw`\b\d[\d,]*(?:\.\d+)?\s*(?:${UNIT})\b`, 'gi'), (m) =>
     push(m, 'number', 'a quantity that is not in the brief')
@@ -350,7 +396,7 @@ function candidates(masked: string, opts: CheckOptions): Candidate[] {
 }
 
 /** Confidence order: the unambiguous kinds first, the loosest detector last. */
-const KIND_ORDER: SpecificKind[] = ['money', 'percent', 'date', 'quote', 'number', 'org', 'name']
+const KIND_ORDER: SpecificKind[] = ['money', 'percent', 'date', 'time', 'quote', 'number', 'org', 'name']
 
 const CONFIDENCE_ORDER: Confidence[] = ['high', 'medium', 'low']
 
@@ -360,7 +406,7 @@ const CONFIDENCE_ORDER: Confidence[] = ['high', 'medium', 'low']
  * and only the digits tell them apart.
  */
 function confidenceOf(kind: SpecificKind, span: string): Confidence {
-  if (kind === 'money' || kind === 'percent' || kind === 'date' || kind === 'quote') return 'high'
+  if (kind === 'money' || kind === 'percent' || kind === 'date' || kind === 'time' || kind === 'quote') return 'high'
   if (kind === 'name' || kind === 'org') return 'medium'
   return /\d/.test(span) ? 'medium' : 'low'
 }
@@ -383,6 +429,7 @@ export function checkInventedSpecifics(
   const context = (Array.isArray(supplied) ? supplied : [supplied]).filter(Boolean).join('\n')
   const haystack = norm(context)
   const haystackDigits = digits(context)
+  const contextTimes = canonTime(context)
 
   const masked = maskNonAssertions(text)
   const seen = new Set<string>()
@@ -396,7 +443,7 @@ export function checkInventedSpecifics(
     // cannot be matched or repaired by text.
     const span = text.slice(c.index, c.index + c.len)
     if (!span.trim()) continue
-    if (isSupplied(span, haystack, haystackDigits)) continue
+    if (c.kind === 'time' ? isTimeSupplied(span, contextTimes) : isSupplied(span, haystack, haystackDigits)) continue
     const key = `${c.kind}:${norm(span)}`
     if (seen.has(key)) continue
     seen.add(key)
@@ -436,3 +483,14 @@ export const GROUNDING_RULE_SMALL =
   ' but never state a number, name, date, price, percentage or quotation that the' +
   ' request did not give you. If you need one, write it in square brackets like' +
   ' [launch date]. Never guess a specific.'
+
+/**
+ * GROUNDING_RULE_ANSWER for a small local model: the same prohibition, blunt,
+ * in the order a 4B is most likely to still follow at the end. See
+ * groundingRules.ts for why answers need their own rule.
+ */
+export const GROUNDING_RULE_ANSWER_SMALL =
+  ' GROUNDING (answers): only state facts about the user\'s business that appear in the sources' +
+  ' given to you. Never guess a number, time, opening hours, date, price or name. If the sources do' +
+  ' not say, write "Your documents don\'t say" and what is missing. Put the source number like [1]' +
+  ' after every figure, time, date or price.'

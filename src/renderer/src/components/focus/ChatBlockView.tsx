@@ -1,7 +1,9 @@
 import ReactMarkdown from 'react-markdown'
 import rehypeSectionIcons from '../../lib/rehypeSectionIcons'
 import remarkGfm from 'remark-gfm'
-import type { AppliedProposal, ChatBlock, ChatSource } from '@shared/types'
+import type { AnswerGrounding, AppliedProposal, ChatBlock, ChatSource } from '@shared/types'
+import { checkSpansFor, remarkCheckThis } from '../../lib/checkThis'
+import { CHECK_MARK_CLASS, CheckSummary } from '../ai/CheckThis'
 import ProposalCards from '../ProposalCards'
 
 const REHYPE_PLUGINS = [rehypeSectionIcons]
@@ -46,6 +48,9 @@ interface Props {
   // text goes. A host that passes neither renders blocks as an inert record.
   uiEnabled?: boolean
   onUiSubmit?: (text: string) => void
+  // What the grounding check found in this answer: its specifics that no
+  // source supports are marked "check this" in the prose, with one line below.
+  grounding?: AnswerGrounding
 }
 
 export default function ChatBlockView({
@@ -58,7 +63,8 @@ export default function ChatBlockView({
   onOpenSource,
   citedSources,
   uiEnabled,
-  onUiSubmit
+  onUiSubmit,
+  grounding
 }: Props): JSX.Element | null {
   // A citation is clickable only when we both know where it goes and have a way
   // to get there. Anything else stays plain text rather than offering a click
@@ -68,6 +74,8 @@ export default function ChatBlockView({
     const found = citedSources.find((s) => String(s.n) === n)
     return found && isOpenable(found) ? found : null
   }
+
+  const checkSpans = checkSpansFor(grounding)
 
   switch (block.kind) {
     // ── Live blocks ──────────────────────────────────────────────────────────
@@ -79,7 +87,7 @@ export default function ChatBlockView({
       return (
         <div className="fb-chat-prose text-[var(--ink-90)] md-rendered">
           <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkCitations]}
+            remarkPlugins={checkSpans.length ? [remarkGfm, remarkCitations, remarkCheckThis(checkSpans)] : [remarkGfm, remarkCitations]}
             rehypePlugins={REHYPE_PLUGINS}
             components={{
               a: ({ href, children, ...rest }) => (
@@ -92,6 +100,14 @@ export default function ChatBlockView({
               // untouched, so this override costs nothing when there are no
               // citations. Rendered as a small accent chip so a claim and its
               // grounding read as one thing.
+              mark: ({ node, children, ...rest }) => {
+                const why = node?.properties?.dataCheck ?? node?.properties?.['data-check']
+                return (
+                  <mark {...rest} data-testid={why ? 'check-this' : undefined} title={why ? String(why) : undefined} className={why ? CHECK_MARK_CLASS : undefined}>
+                    {children}
+                  </mark>
+                )
+              },
               span: ({ node, children, ...rest }) => {
                 // hProperties keys arrive in hast VERBATIM ('data-citation'),
                 // not camelized — reading only dataCitation missed every chip
@@ -130,6 +146,7 @@ export default function ChatBlockView({
           >
             {block.markdown}
           </ReactMarkdown>
+          <CheckSummary grounding={grounding} className="mt-1" />
         </div>
       )
 

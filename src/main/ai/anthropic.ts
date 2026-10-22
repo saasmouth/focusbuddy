@@ -56,6 +56,7 @@ import { embeddingConfigured } from './embeddings'
 import { chatRetrievalCoverage, traceSemantic } from '../embeddingCoverage'
 import { createChatStreamConsumer } from './chatStreamConsumer'
 import { renderAttachments } from './chatAttachments'
+import { answerRule, groundAnswer, type AnswerGrounding } from './answerGrounding'
 import { renderMentions } from './chatMentions'
 import { mentionedDeskIds, reportResolutions, resolveMentions } from './mentionResolver'
 import { extractMentions } from '@shared/mentionText'
@@ -230,6 +231,18 @@ function fitAskSources(sources: GroundingSource[], fixedChars: number): { kept: 
         ? `\n\n(${fit.dropped} further matching document${fit.dropped === 1 ? ' was' : 's were'} found but did not fit; say so if the answer may be incomplete.)`
         : ''
   }
+}
+
+/**
+ * Check a chat reply against what it was given (answerGrounding.ts). `model`
+ * is the model that answered: an on-device reply ("local:…") has invented
+ * high-confidence specifics replaced; a cloud reply is only highlighted.
+ */
+function groundChatResponse(r: ChatResponse, supplied: string, model: string): ChatResponse {
+  if (!r.ok || !r.message || !r.message.content) return r
+  const g = groundAnswer(r.message.content, supplied, model.startsWith('local:'))
+  if (!g.grounding) return r
+  return { ...r, message: { ...r.message, content: g.text }, grounding: g.grounding }
 }
 
 /** Characters of the RETRIEVED MATERIAL block's own wording, around the passages. */
@@ -566,7 +579,7 @@ function buildSystemPrompt(
   // Plexii P6: 'discovery' appends the guided-discovery posture on top of
   // everything else. The envelope and every protocol above are unchanged.
   mode?: AiChatMode
-): string {
+): { instructions: string; context: string } {
   const base =
     'You are PlexiiDesk, the in-app pair-worker for an ADHD-friendly desktop app built around desks — focused workspaces. ' +
     'You help the user think, plan, research, and complete the work on the desk they currently have open. ' +
@@ -642,11 +655,11 @@ function buildSystemPrompt(
   ]
     .filter(Boolean)
     .join('\n')
-  const withExtras = `${base}\n\n${extras}`
-  if (!taskId) return withExtras
-  const block = taskBlock(taskId)
-  if (!block) return withExtras
-  return `${withExtras}\n\n${block}`
+  // Instructions and context are returned apart: the answer grounding check
+  // reads the context (what the model was GIVEN) and never the instructions,
+  // whose worked examples ("roughly 17 hours ahead") would ground anything.
+  const block = taskId ? taskBlock(taskId) : ''
+  return { instructions: base, context: block ? `${extras}\n\n${block}` : extras }
 }
 
 // Current wall-clock fact so relative phrases ("tomorrow at 3pm") resolve to a
@@ -1559,6 +1572,8 @@ interface PreparedChatCall {
   system: CacheTextBlock[]
   msgs: Array<{ role: 'user' | 'assistant'; content: string }>
   sources: ChatSource[]
+  /** What the answer was given to stand on, for the grounding check (answerGrounding.ts). */
+  groundingSupplied: string
   retrievalMs: number
   // What each @-mention actually produced (Phase 4.2). Empty when the request
   // carried none. Derived from the same pass that built the prompt block, so
@@ -1659,7 +1674,11 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
   const t0 = Date.now()
   // The prompt's fixed parts, built once: the retrieval budget on the device
   // is what the context window has left after them.
-  const baseSystem = buildSystemPrompt(req.taskId, req.supportsQuestions, req.includeMemory, req.mode)
+  const prompt = buildSystemPrompt(req.taskId, req.supportsQuestions, req.includeMemory, req.mode)
+  // Answer grounding (answerGrounding.ts): the rule for the engine that will
+  // answer — the blunt variant on the device, the full one on cloud AI.
+  const answersLocally = String(resolveModel('chat')).startsWith('local:')
+  const baseSystem = `${prompt.instructions}\n\n${answerRule(answersLocally).trim()}\n\n${prompt.context}`
   const attachmentsBlock = renderAttachments(req.attachments, req.pinnedWidgetId)
   try {
     const lastUser = [...req.messages].reverse().find((m) => m.role === 'user')?.content ?? ''
@@ -1831,6 +1850,15 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
       })),
     mentions: mentionReport,
     sources: citedSources,
+    // Everything the answer may rest on: desk and workspace context, what the
+    // user named, the retrieved passages, attachments and the user's messages.
+    groundingSupplied: [
+      prompt.context,
+      renderedMentions.block,
+      retrieval,
+      attachmentsBlock,
+      ...req.messages.filter((m) => m.role === 'user').map((m) => (typeof m.content === 'string' ? m.content : ''))
+    ].join('\n'),
     retrievalMs: Date.now() - t0,
     semantic: semanticAvailable,
     semanticCoverage,
@@ -2075,7 +2103,7 @@ export async function sendChat(req: ChatRequest): Promise<ChatResponse> {
     }
   }
   try {
-    const { system, msgs, sources: citedSources, mentions: mentionReport } = await prepareChatCall(req)
+    const { system, msgs, sources: citedSources, mentions: mentionReport, groundingSupplied } = await prepareChatCall(req)
     // DELIBERATELY no `tools:` passed. We tried Anthropic native tool-use and
     // the model defaults to prose too often even when the prompt commands
     // tools. AI Builder uses a strict JSON-required prompt (same pattern as
@@ -2109,8 +2137,9 @@ export async function sendChat(req: ChatRequest): Promise<ChatResponse> {
 
     const built = buildChatResponse(text, citedSources, mentionReport, chatGateContext(req))
     if (built) {
-      void maybeExtractChatMemory(req, built)
-      return built
+      const grounded = groundChatResponse(built, groundingSupplied, String(resp.model ?? ''))
+      void maybeExtractChatMemory(req, grounded)
+      return grounded
     }
     return unparseableChatResponse(text, resp.stop_reason as string, citedSources, mentionReport)
   } catch (e) {
@@ -2272,6 +2301,7 @@ export async function sendChatStream(
   })
   let stopReason = ''
   let finalText = ''
+  let answeredModel = ''
 
   try {
     // The PlexiDesk-credits proxy rejects streaming requests outright
@@ -2341,6 +2371,7 @@ export async function sendChatStream(
     // streamed text; from the on-device model it can differ — the validated
     // retry, or a cut-off reply closed at its last complete part — and parsing
     // the first, streamed attempt instead threw that work away.
+    answeredModel = String(finalMsg.model ?? '')
     finalText = finalMsg.content
       .filter((b) => b.type === 'text')
       .map((b) => ('text' in b ? b.text : ''))
@@ -2415,8 +2446,9 @@ export async function sendChatStream(
 
     const built = buildChatResponse(text, prepared.sources, prepared.mentions, chatGateContext(req))
     if (built) {
-      cb.onComplete(built)
-      void maybeExtractChatMemory(req, built)
+      const grounded = groundChatResponse(built, prepared.groundingSupplied, answeredModel)
+      cb.onComplete(grounded)
+      void maybeExtractChatMemory(req, grounded)
       return
     }
     const fallback = unparseableChatResponse(text, stopReason, prepared.sources, prepared.mentions)
@@ -2816,6 +2848,7 @@ export async function askWorkspace(
   ok: boolean
   answer?: string
   citedDocIds?: string[]
+  grounding?: AnswerGrounding
   needsApiKey?: boolean
   error?: string
 }> {
@@ -2831,7 +2864,9 @@ export async function askWorkspace(
     '- Cite the documents you used with [n] markers matching their numbers.\n' +
     '- Be concise and direct.\n' +
     'Return ONLY a single valid JSON object, no prose outside it, no markdown fences. The first character must be { and the last must be }.\n' +
-    'Schema: {"answer":"string (may include [n] citation markers)","sources":[1,2]} — sources is the 1-based numbers of the documents you actually used, empty if the answer is not in the documents.'
+    'Schema: {"answer":"string (may include [n] citation markers)","sources":[1,2]} — sources is the 1-based numbers of the documents you actually used, empty if the answer is not in the documents.' +
+    '\n' +
+    answerRule(String(resolveModel('chat')).startsWith('local:')).trim()
   const convo = history.length
     ? 'Earlier in this conversation:\n' + history.map((h) => `Q: ${h.question}\nA: ${h.answer}`).join('\n') + '\n\n'
     : ''
@@ -2873,13 +2908,15 @@ export async function askWorkspace(
     } catch (e) {
       return { ok: false, error: 'AI returned invalid JSON: ' + (e as Error).message }
     }
-    const answer = String((parsed as { answer?: unknown }).answer ?? '').slice(0, 4000)
+    const rawAnswer = String((parsed as { answer?: unknown }).answer ?? '').slice(0, 4000)
     const rawSources = (parsed as { sources?: unknown }).sources
     const nums = Array.isArray(rawSources) ? rawSources : []
     const citedDocIds = nums
       .map((n) => sources[Number(n) - 1]?.docId)
       .filter((id): id is string => typeof id === 'string')
-    return { ok: true, answer, citedDocIds: [...new Set(citedDocIds)] }
+    // Checked against exactly what it was given (answerGrounding.ts).
+    const g = groundAnswer(rawAnswer, `${docList}\n${convo}\n${question}`, String(resp.model ?? '').startsWith('local:'))
+    return { ok: true, answer: g.text, citedDocIds: [...new Set(citedDocIds)], ...(g.grounding ? { grounding: g.grounding } : {}) }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
@@ -2894,7 +2931,7 @@ export async function askWorkspaceStream(
   sources: GroundingSource[],
   history: Array<{ question: string; answer: string }>,
   onDelta: (text: string) => void
-): Promise<{ ok: boolean; answer?: string; citedDocIds?: string[]; needsApiKey?: boolean; error?: string }> {
+): Promise<{ ok: boolean; answer?: string; citedDocIds?: string[]; grounding?: AnswerGrounding; needsApiKey?: boolean; error?: string }> {
   const c = getClient()
   if (!c) return { ok: false, needsApiKey: true, error: 'No Anthropic API key set. Open Settings · AI · API keys to paste one.' }
   if (!sources.length) {
@@ -2907,7 +2944,8 @@ export async function askWorkspaceStream(
     '- If the documents do not contain the answer, say so plainly. NEVER invent facts, numbers, names, dates or quotes that are not present in the sources.\n' +
     '- This may be a follow-up: resolve references like "it" or "that" using the earlier conversation, but still ground the answer in the documents.\n' +
     '- Cite the documents you used inline with [n] markers matching their numbers.\n' +
-    '- Be concise and direct. Write a plain-text answer only — no JSON, no markdown code fences.'
+    '- Be concise and direct. Write a plain-text answer only — no JSON, no markdown code fences.\n' +
+    answerRule(String(resolveModel('chat')).startsWith('local:')).trim()
   const convo = history.length
     ? 'Earlier in this conversation:\n' + history.map((h) => `Q: ${h.question}\nA: ${h.answer}`).join('\n') + '\n\n'
     : ''
@@ -2964,11 +3002,14 @@ export async function askWorkspaceStream(
       recordAiUsage(resolveModel('chat'), final.usage?.input_tokens ?? 0, final.usage?.output_tokens ?? 0, ct.read, ct.write)
     }
     if ((final.stop_reason as string) === 'refusal') return { ok: false, error: 'Claude declined this request.' }
-    const answer = full.trim().slice(0, 4000)
+    // Checked against exactly what it was given (answerGrounding.ts). The
+    // streamed prose was already on screen; the finished answer replaces it.
+    const g = groundAnswer(full.trim().slice(0, 4000), `${docList}\n${convo}\n${question}`, String(final.model ?? '').startsWith('local:'))
+    const answer = g.text
     const citedDocIds = sources
       .filter((_, i) => new RegExp(`\\[${i + 1}\\]`).test(answer))
       .map((s) => s.docId)
-    return { ok: true, answer, citedDocIds: [...new Set(citedDocIds)] }
+    return { ok: true, answer, citedDocIds: [...new Set(citedDocIds)], ...(g.grounding ? { grounding: g.grounding } : {}) }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
