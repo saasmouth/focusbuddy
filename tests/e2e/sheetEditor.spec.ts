@@ -736,10 +736,11 @@ test('SE-12 — AI two-step: suggest columns → create them → generate rows �
     await clickCell(window, 0, 0)
     await window.waitForTimeout(100)
 
-    // Open AI panel via toolbar button (the "AI fill" button)
-    const toolbar = window.locator('[data-testid="sheet-toolbar"]')
-    const aiFillBtn = toolbar.locator('button', { hasText: /AI fill/i })
-    await aiFillBtn.click()
+    // AI fill is a RAIL action now, not a bar button — the conversion moved it
+    // out of the toolbar entirely, so no tab selection reaches it. Addressed by
+    // its testid rather than its text, because the rail shows icons and keeps
+    // the label in aria-label.
+    await window.locator('[data-testid="sheet-rail-ai"]').click()
     await expect(window.locator('[data-testid="sheet-ai-fill"]')).toBeVisible({ timeout: 3_000 })
 
     const aiPanel = window.locator('[data-testid="sheet-ai-fill"]')

@@ -61,7 +61,13 @@ test.describe('PlexiSheets AI Assistant panel', () => {
     await newSheet(window)
     const panel = window.locator('[data-testid="sheet-ai-panel"]')
     await expect(panel).toBeVisible({ timeout: 8_000 })
-    await expect(panel.getByText('PlexiiAssist')).toBeVisible()
+    // The pane's NAME is shell chrome now. ShellSidePane owns the header, so
+    // "PlexiiAssist" renders on sheet-side-panel rather than inside the panel
+    // body — the division the office shell imposes, not a loss: the name is
+    // still on screen, which is what this assertion is about. Scoped to the
+    // side panel rather than the window so it still proves the name belongs to
+    // THIS pane.
+    await expect(window.locator('[data-testid="sheet-side-panel"]').getByText('PlexiiAssist')).toBeVisible()
     await expect(panel.getByText('Here are some insights from your data')).toBeVisible()
     await expect(panel.getByText('Ask a question about your data')).toBeVisible()
 
