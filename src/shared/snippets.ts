@@ -277,17 +277,26 @@ export type SnippetHostKind = 'doc' | 'desk' | 'sheet' | 'slide' | 'design' | 'd
 /**
  * Which kinds each host renders AS ITSELF, with no conversion.
  *
- * Every host renders its own kind. The one that is not obvious is `doc`, which
- * also renders `widget` natively because a Write document registers
- * WidgetEmbedNode alongside DocEmbedNode and SnippetEmbedNode — so a widget
- * inside a document is a real widget, not a picture of one. Read from the
- * registered extensions rather than assumed.
+ * Every host renders its own kind, and only its own kind, with ONE exception:
+ * a desk renders 'widget' because a desk's native content IS widgets.
+ *
+ * A Write document looks like a second exception and is not. It registers
+ * WidgetEmbedNode, so a document can certainly contain a work widget — but that
+ * node stores a `widgetId` and embeds an EXISTING widget by reference. A widget
+ * SNIPPET body is a template: no widget, no id. Rendering one natively would
+ * mean CREATING a widget, and resolving a live instance must stay read-only, or
+ * merely opening a document would mint rows. So a widget snippet landing in a
+ * document is a conversion, not a native render.
+ *
+ * That distinction cost an earlier version of this comment its accuracy, which
+ * is why it is spelled out: "this host can contain that thing" and "this host
+ * can render that BODY" are different claims.
  *
  * Anything absent here needs conversion to land, which is a different thing with
- * different rules (see linkModesFor).
+ * different rules (see instanceModeFor).
  */
 const NATIVE_KINDS: Record<SnippetHostKind, readonly SnippetKind[]> = {
-  doc: ['doc', 'widget'],
+  doc: ['doc'],
   desk: ['widget'],
   sheet: ['sheet'],
   slide: ['slide'],

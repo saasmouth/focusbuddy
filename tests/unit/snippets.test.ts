@@ -195,10 +195,12 @@ describe('a host is never offered a link mode it cannot honour', () => {
   })
 
   it('knows what each host renders as itself', () => {
-    // A doc renders a widget natively because it registers WidgetEmbedNode —
-    // the widget in a document is a real widget, not a picture of one.
     expect(canRenderNatively('doc', 'doc')).toBe(true)
-    expect(canRenderNatively('widget', 'doc')).toBe(true)
+    // NOT widget-in-doc, though a document CAN contain a work widget:
+    // WidgetEmbedNode embeds an existing widget by id, while a widget snippet
+    // body is a template with no widget. Rendering it natively would have to
+    // CREATE one, and resolving a live instance must stay read-only.
+    expect(canRenderNatively('widget', 'doc')).toBe(false)
     expect(canRenderNatively('diagram', 'doc')).toBe(false)
     expect(canRenderNatively('widget', 'desk')).toBe(true)
     expect(canRenderNatively('sheet', 'sheet')).toBe(true)
@@ -212,6 +214,7 @@ describe('a host is never offered a link mode it cannot honour', () => {
     // decides EDITABILITY instead — see instanceModeFor below.
     expect(linkModesFor(t({ host: 'doc' }), 'doc')).toEqual(['duplicate', 'live'])
     expect(linkModesFor(t({ host: 'doc' }), 'diagram')).toEqual(['duplicate', 'live'])
+    expect(linkModesFor(t({ host: 'doc' }), 'widget')).toEqual(['duplicate', 'live'])
   })
 
   it('still refuses a kind the target does not accept at all', () => {
@@ -226,7 +229,7 @@ describe('a host is never offered a link mode it cannot honour', () => {
 describe('how a placed instance behaves', () => {
   it('a live instance of a native kind is editable, and edits the master', () => {
     expect(instanceModeFor('doc', 'doc', 'live')).toBe('editable')
-    expect(instanceModeFor('widget', 'doc', 'live')).toBe('editable')
+    expect(instanceModeFor('widget', 'desk', 'live')).toBe('editable')
   })
 
   it('a live instance of a converted kind is read-only, not editable', () => {
@@ -234,6 +237,7 @@ describe('how a placed instance behaves', () => {
     // written back through: that would overwrite the master with its own lossy
     // form — edit the image of a diagram and the diagram becomes an image.
     expect(instanceModeFor('diagram', 'doc', 'live')).toBe('readonly')
+    expect(instanceModeFor('widget', 'doc', 'live')).toBe('readonly')
     expect(instanceModeFor('sheet', 'slide', 'live')).toBe('readonly')
   })
 
