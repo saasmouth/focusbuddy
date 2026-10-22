@@ -2073,6 +2073,12 @@ body {
 .titlebar-nodrag {
   -webkit-app-region: no-drag;
 }
+/* A layout-only wrapper inside the title bar (e.g. full-width centring) that
+   must not report a region of its own: an inherited `drag` on it re-covers
+   any no-drag control earlier in the DOM. See App.tsx #fb-header-add. */
+.titlebar-noregion {
+  -webkit-app-region: none;
+}
 
 .react-resizable-handle {
   z-index: 10;

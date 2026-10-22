@@ -617,7 +617,15 @@ export default function App(): JSX.Element {
             which would make a flex-centred button drift as you moved around.
             pointer-events-none on the wrapper so the empty space either side
             stays draggable titlebar. */}
-        <div className="absolute inset-x-0 flex justify-center pointer-events-none">
+        {/* titlebar-noregion: pointer-events-none does NOT exempt an element from
+            the window's drag region. This full-width wrapper inherited `drag`
+            from the header and, coming after the left group in the DOM, laid
+            a drag rect back over it — so on a real Mac a click on back /
+            desk name / view selector moved the window instead of reaching the
+            app (Playwright input bypasses the OS hit-test, so e2e stayed green).
+            `none` reports no region at all; the header behind stays draggable.
+            Guarded by tests/e2e/titlebarDragRegions.spec.ts. */}
+        <div className="titlebar-noregion absolute inset-x-0 flex justify-center pointer-events-none">
           <div className="titlebar-nodrag pointer-events-auto" id="fb-header-add" />
         </div>
 
