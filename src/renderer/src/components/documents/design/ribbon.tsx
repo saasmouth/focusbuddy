@@ -2,6 +2,7 @@ import {
   BarButton,
   BarColor,
   BarCustom,
+  BarDialogButton,
   BarGroup,
   BarMenu,
   BarNumber,
@@ -60,6 +61,10 @@ export interface DesignCtx {
     order: (dir: 'forward' | 'back' | 'front' | 'backmost') => void
     duplicate: () => void
     remove: () => void
+    /** Save the selected elements as a snippet (the dialog names it). */
+    saveSnippet: () => void
+    /** Open the saved-snippets library, scoped to design snippets, aimed at this design. */
+    insertSnippet: () => void
     setLayer: (id: string) => void
     setWrap: (mode: 'none' | 'square', offset?: number) => void
     openStory: () => void
@@ -242,6 +247,7 @@ const insertTab: BarTab<DesignCtx> = {
       <BarGroup label="From a library">
         <BarButton icon="photo_library" label="Stock photos…" showLabel onClick={() => c.cmd.openPanel('stock')} testid="design-stock-btn" />
         <BarButton icon="dashboard_customize" label="Templates…" showLabel onClick={() => c.cmd.openPanel('templates')} testid="design-templates-open" />
+        <BarDialogButton icon="bookmarks" label="Saved snippet" onOpen={c.cmd.insertSnippet} testid="design-insert-snippet" />
       </BarGroup>
       <span className="shrink-0 px-1.5 text-[11px] text-[var(--ink-50)]">
         Text, shapes and lines are tools on the left: pick one, then click or drag on the page.
@@ -278,6 +284,7 @@ const arrangeTab: BarTab<DesignCtx> = {
           <BarButton icon="link_off" label="Ungroup" disabled={n === 0} onClick={c.cmd.ungroup} testid="design-ungroup" />
           <BarButton icon="flip_to_front" label="Bring forward" disabled={n === 0} onClick={() => c.cmd.order('forward')} testid="design-order-forward" />
           <BarButton icon="flip_to_back" label="Send back" disabled={n === 0} onClick={() => c.cmd.order('back')} testid="design-order-back" />
+          <BarDialogButton icon="bookmark_add" label="Save as snippet" onOpen={c.cmd.saveSnippet} disabled={n === 0} disabledReason="select something first" testid="design-save-snippet" />
         </BarGroup>
         <BarSep />
         <BarGroup label="Layer and wrap">

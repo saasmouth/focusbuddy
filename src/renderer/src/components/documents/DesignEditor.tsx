@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { DeckTheme, Slide, SlideElement, SlideTextElement } from '@shared/types'
 import SlideCanvas from './slides/SlideCanvas'
 import {
@@ -76,6 +76,10 @@ import { useAccountStore } from '../../stores/account'
 import { personDisplayName } from '../../lib/personName'
 import WidgetPickerDialog from './embed/WidgetPickerDialog'
 import { checkDesignA11y } from '../../lib/designA11y'
+import SnippetLibrary from '../snippets/SnippetLibrary'
+import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
+import type { DesignSnippetBody, Snippet } from '@shared/snippets'
+import { designBodyFromSelection, designSnippetTargetId, insertDesignSnippet, suggestedDesignSnippetName, useDesignSnippetTarget } from './design/designSnippets'
 
 // PlexiDesign — the on-platform design studio. A design is a single arbitrary-size
 // canvas of the same elements a slide uses, so this editor reuses the proven slide
@@ -96,6 +100,9 @@ interface Props {
 
 
 
+
+/** Stable, so the library's refresh effect (keyed on kinds) runs once per open. */
+const DESIGN_KINDS: ['design'] = ['design']
 
 // Which right-hand pane was last open, remembered per app like the other
 // office editors' (plexii.diagram.sidePane, plexii.slides.pinnedPanels).
@@ -213,6 +220,14 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   // When the last keystroke landed, so a run of typing is one undo step.
   const lastTypedAt = useRef(0)
   const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
+  // Saved snippets: the library (insert) and the save dialog (capture). The
+  // dialog gets an EMPTY body when nothing is selected, so it can say so
+  // rather than the menu item appearing to do nothing.
+  const [snippetLibraryOpen, setSnippetLibraryOpen] = useState(false)
+  const [snippetDraft, setSnippetDraft] = useState<DesignSnippetBody | null>(null)
+  // This mounted editor, as a snippet destination: the same design open in the
+  // editor and in a desk widget is two destinations, so the id is the mount.
+  const snippetScope = useId()
   // Which of the shared right pane's panes is showing, or null for collapsed
   // (SPEC §2.5a). The host owns it and remembers it per app, exactly as
   // Diagrams and Write do; PlexiiAssist is the default so the assistant stays
@@ -556,6 +571,35 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     // While the caret is in text on the page, ⌘C means "copy these words".
     enabled: () => !textEdit
   })
+
+  // Capture: the selection becomes a design snippet body (positions relative
+  // to its top-left, with the stories and swatches it points at), or an empty
+  // one so the dialog can say there is nothing to save.
+  function saveSelectionAsSnippet(): void {
+    setSnippetDraft(designBodyFromSelection(designRef.current, selectedIds) ?? { kind: 'design', elements: [] })
+  }
+  // Insertion: a duplicate onto the page being edited, through the paste
+  // engine (fresh element and story ids, groups remapped, on top, clamped onto
+  // the page), with its swatches resolved by name. ONE commit, so one undo
+  // takes it all back, and the copy is selected afterwards. A design has no
+  // read-only state today, so the only refusals are the snippet's own (another
+  // kind, nothing drawable, threaded text aimed at a master page), and each
+  // says why on the status line.
+  function insertSnippetHere(snippet: Snippet): boolean {
+    const landing = insertDesignSnippet(designRef.current, snippet, { newId: elementId, readOnly: false, brand })
+    if ('declined' in landing) {
+      setStatus(landing.declined)
+      return false
+    }
+    // Inserting is an object edit: leave text editing first, as a click on
+    // the canvas would.
+    setTextEdit(null)
+    commit(landing.body)
+    setTool('select')
+    setSelectedIds(landing.ids)
+    return true
+  }
+  useDesignSnippetTarget(snippetScope, title, insertSnippetHere)
 
   function align(edge: AlignEdge): void {
     if (selectedIds.length < 1) return
@@ -1359,6 +1403,8 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
       },
       duplicate: duplicateSelected,
       remove: deleteSelected,
+      saveSnippet: saveSelectionAsSnippet,
+      insertSnippet: () => setSnippetLibraryOpen(true),
       setLayer: moveSelectionToLayer,
       setWrap: (mode, offset) => {
         const id = selectedIds[0]
@@ -1440,6 +1486,8 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
             pasteClipboard: clipboard.paste,
             canPaste: clipboard.hasClip,
             duplicateSelection: duplicateSelected,
+            saveSelectionAsSnippet,
+            insertSnippet: () => setSnippetLibraryOpen(true),
             duplicatePage,
             hasSelection: selectedIds.length > 0,
             activePage: design.activePage ?? 0,
@@ -2054,6 +2102,14 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
       </OfficeShellLayout>
 
       {brandOpen && <BrandKitModal onClose={() => setBrandOpen(false)} />}
+
+      {snippetLibraryOpen && (
+        <SnippetLibrary kinds={DESIGN_KINDS} targetId={designSnippetTargetId(snippetScope)} onClose={() => setSnippetLibraryOpen(false)} />
+      )}
+
+      {snippetDraft && (
+        <SaveSnippetDialog body={snippetDraft} suggestedName={suggestedDesignSnippetName(snippetDraft)} onClose={() => setSnippetDraft(null)} />
+      )}
 
       {widgetPickerOpen && (
         <WidgetPickerDialog

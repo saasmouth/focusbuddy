@@ -347,9 +347,9 @@ Before handing a conversion back, every item, with evidence:
   - shape: Fill `design-fill-color`
   - all: Opacity `design-opacity`, Rotation `design-rotation`
   - nothing selected: Background `design-bg-color`
-- **Insert:** Text, Shapes, Image, Stock, Logo, Page `design-page-add`, Page-number frame, Work widget. These are one-shot inserts at a default position, keeping the `design-add-*` ids with their old meaning.
+- **Insert:** Text, Shapes, Image, Stock, Logo, Page `design-page-add`, Page-number frame, Work widget, Saved snippet… `design-insert-snippet` (the snippet library, design snippets, aimed at this design; also Insert › Insert snippet…). These are one-shot inserts at a default position, keeping the `design-add-*` ids with their old meaning.
 - **Arrange:**
-  - Align `design-align-*` · Distribute · Group `design-group` / Ungroup · Forward/Back · Duplicate `design-duplicate` / Delete `design-delete-element`
+  - Align `design-align-*` · Distribute · Group `design-group` / Ungroup · Forward/Back · Save as snippet… `design-save-snippet` (also Edit › Save selection as snippet…; see docs/saved-snippets.md) · Duplicate `design-duplicate` / Delete `design-delete-element`
   - Layer `design-element-layer` · Wrap (`design-wrap-none`/`-square`, `design-wrap-offset`)
 - **Layout:**
   - **Start from ▾** (`BarCustom` wrapping d2's self-contained `design-start-btn` / `design-start-menu`: every template and size by category, plus Custom size W × H in px/mm/in and orientation. It replaced `design-templates-btn` and `design-size-btn` in 26960d67) · Margins, columns &amp; layers… (the `design-layout-panel` controls, as a panel) · Guides `design-aids-toggle` · Facing pages · Master pages ▾

@@ -80,10 +80,25 @@ export interface SlideSnippetBody {
   elements: unknown[]
 }
 
-/** PlexiiDesign canvas elements, positioned relative to the block's top-left. */
+/**
+ * PlexiiDesign canvas elements (shared/types SlideElement, as a design page
+ * holds them), positioned relative to the block's top-left.
+ *
+ * A threaded text frame shows a slice of a STORY that lives once on the
+ * document (DesignBody.stories), not text of its own, so the stories the
+ * frames read travel with them, keyed by the id the frames name; insertion
+ * mints fresh story ids. A fill can name a swatch (DesignBody.swatches), so
+ * the swatches the fills name travel too and are resolved by name on insert.
+ * Both are exactly what the elements use, nothing more, and both are optional
+ * so a body written before they existed still reads.
+ */
 export interface DesignSnippetBody {
   kind: 'design'
   elements: unknown[]
+  /** Story documents the elements' threaded frames read, keyed by story id (DesignBody.stories). */
+  stories?: Record<string, unknown>
+  /** Swatches the elements' fills name (DesignBody.swatches). */
+  swatches?: unknown[]
 }
 
 /** A diagram fragment: nodes plus the edges between them. */

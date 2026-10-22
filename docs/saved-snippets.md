@@ -139,7 +139,7 @@ that did not happen, which is why `usageCount` means something.
 | `widget` | kind, title, content, size, colour | **yes** — duplicate only, see below |
 | `sheet` | row-major values + per-cell formats | modelled, not wired |
 | `slide` | slide elements | **yes**: duplicate only, see below |
-| `design` | canvas elements | modelled, not wired |
+| `design` | page elements + the stories and swatches they use | **yes**: duplicate only, see below |
 | `diagram` | nodes + edges | **yes**: duplicate only, see below |
 | `draw` | PlexiiDraw objects + the assets and swatches they use | **yes**: duplicate only, see below |
 
@@ -306,6 +306,88 @@ Insert › Insert snippet… and Insert › Saved snippet… with the inserts, p
 both in the command palette. Tests: `tests/unit/deckSnippets.test.tsx` and
 `tests/e2e/snippetsDeck.spec.ts`.
 
+### Why a design offers Duplicate only
+
+PlexiiDesign (`documents/design/designSnippets.ts`) saves the selected page
+elements and inserts them back onto the page being edited. Like the deck, it is
+Design's copy and paste with a name and runs the clipboard's own code
+(`shared/elementClipboard.ts`) both ways: the clipboard builder on capture, then
+the block moved so its top-left is the origin; the clipboard's validating parser
+and paste engine on insertion, centred, with no nudge. So it gets fresh ids,
+groups remapped, z above everything on the page, and a block clamped onto the
+page. What Design adds is what its elements POINT AT rather than hold:
+
+- **Stories.** A threaded text frame holds no text; it shows a slice of a story
+  that lives once on the document (`DesignBody.stories`). Capture carries the
+  stories the selected frames read, normalised as a loaded document normalises
+  them, and drops the frames' `flowLines` and `overset`, which are a cache of
+  the flow through the source's chain. Insertion writes each story under a
+  **fresh story id** and points the new frames at it, so the copy is its own
+  story and never joins the original's chain. Threads between frames **inside**
+  the selection are kept, in chain order, renumbered 1, 2, 3. Threads to frames
+  **outside** it are cut: the copy is a chain of just the selected frames, and
+  it carries the **whole** story, as InDesign does when one frame of a threaded
+  story is copied. Whatever no longer fits shows as overset (the red marker), so
+  no words are silently dropped. A frame whose story is missing or empty lands
+  as a plain frame rather than a dangling reference. Plain (unthreaded) frames
+  carry their own paragraphs, as any element does.
+- **Swatches.** A fill can name a swatch (`fill.swatchId`). Capture carries
+  exactly the swatches the fills name; a fill naming a swatch the document no
+  longer has keeps its colour and loses the dead link, as detaching does.
+  Insertion **resolves by name**: a destination swatch with the same name wins
+  (the fill is pointed at it and its cached colour rewritten to what that
+  swatch draws at the fill's tint, the invariant `designSwatches.ts` keeps);
+  otherwise the swatch is added under a fresh id, spot ink and all. A
+  destination with no palette resolves against, and is given, the default one
+  (Brand primary, Black, White…), which is what its Swatches panel already
+  shows. No swatch id is ever left dangling.
+- **Paragraph styles are not carried**, deliberately. A story's blocks name no
+  style: each block resolves through the document's sheet by its kind (Body,
+  Heading 1, Quote…, `styleIdForBlock`), and `normalizeContent` strips any
+  explicit override on load. So a heading lands set as the destination's
+  Heading 1, which is what pasting text into another document means, and there
+  is no style id that could dangle. Character styles are not referenced by
+  stories at all.
+- **Images and work widgets** keep their `src` and `widgetId`, as a paste keeps
+  them. A **layer** the destination lacks, hides or locks is dropped, so the
+  copy lands on the base layer where it can be seen and selected.
+
+The insertion is computed whole, then committed once through the editor's one
+writer, so one undo removes it and the copy is selected afterwards. The body it
+commits is already synced: the implied single page is materialised
+(`withPages`) and the active page's elements are the **same array** as the
+top-level `elements`, the mirror `syncActivePage` keeps. While a master page is
+being edited the block lands on the master, except threaded text, which is
+declined with a reason on the status line: a master's frames are never part of
+the flow (`storyFrames` reads pages), so it would land as an empty box. Design
+has no read-only state today; `insertDesignSnippet` takes `readOnly` and
+declines on it, so the editor only has to pass the truth when it has one.
+
+Live is refused for the same kinds of reason as the deck's, each sufficient:
+
+- **Export and print would freeze or drop it.** PNG, PDF, the print PDF with
+  bleed and crop marks, and preflight are all computed from the `DesignBody`
+  alone (`designToHtml`, `designPrintHtml`, `designPreflight.ts`). None has a
+  snippet resolver, so a live block would leave a hole or a copy frozen at
+  export time, which is a duplicate presented as live.
+- **Text flow cannot see through a reference.** A threaded frame's lines come
+  from the flow engine over the document's own chains and wrap obstacles
+  (`applyStoryFlows`). A story resolved from the library at render time would
+  be outside that pass, so it could neither flow nor wrap around, nor be wrapped
+  around by, anything on the page.
+- **Co-editing.** A shared design's body reaches collaborators through the live
+  document, but snippets do not sync (`ORG_SNIPPETS_SYNC` is false), so every
+  peer would see the reference as missing.
+
+So the design target declares `supports: ['duplicate']` and the library shows
+one button. The target id is the mounted editor (`design:<useId>`), so the same
+design in the editor and in a desk widget is two destinations. The commands sit
+with their neighbours: Edit › Save selection as snippet… and Arrange › Save as
+snippet… (`design-save-snippet`) with the other selection actions, Insert ›
+Insert snippet… and the Insert tab's Saved snippet… (`design-insert-snippet`)
+with the library inserts. Tests: `tests/unit/designSnippets.test.tsx` and
+`tests/e2e/snippetsDesign.spec.ts`.
+
 Adding a surface is a registration, not a change to the core:
 
 ```ts
@@ -436,7 +518,7 @@ DocSnippetBody     { kind: 'doc',     content: unknown[], text: string }
 WidgetSnippetBody  { kind: 'widget',  widgetKind, title, content, width, height, color }
 SheetSnippetBody   { kind: 'sheet',   rows: string[][], formats?: Record<string, unknown> }
 SlideSnippetBody   { kind: 'slide',   elements: unknown[] }
-DesignSnippetBody  { kind: 'design',  elements: unknown[] }
+DesignSnippetBody  { kind: 'design',  elements: unknown[], stories?, swatches? }
 DiagramSnippetBody { kind: 'diagram', nodes: unknown[], edges: unknown[] }
 DrawSnippetBody    { kind: 'draw',    objects: unknown[], assets?, swatches? }
 ```
@@ -445,8 +527,8 @@ DrawSnippetBody    { kind: 'draw',    objects: unknown[], assets?, swatches? }
 (`shared/draw/model.ts`) and PlexiiDesign's elements are different models, and the
 kind/body agreement check is what keeps one app's objects out of the other.
 
-`doc`, `widget`, `draw`, `diagram` and `slide` are wired. `sheet` and `design`
-are typed and stored but register no target yet.
+`doc`, `widget`, `draw`, `diagram`, `slide` and `design` are wired. `sheet` is
+typed and stored but registers no target yet.
 
 If a shape does not fit, change it in `shared/snippets.ts` and add its case to
 `snippetSummary` and `snippetBodyIsEmpty` — the compiler will name both, because
@@ -531,6 +613,7 @@ Each of these is a case where the plausible-looking behaviour is the wrong one.
 | `.../documents/editor/docSnippets.ts` | the document as a snippet surface |
 | `.../desk/deskSnippets.ts` | the desk as a snippet surface (duplicate only) |
 | `.../documents/draw/editor/drawSnippets.ts` | PlexiiDraw as a snippet surface (duplicate only) |
+| `.../documents/design/designSnippets.ts` | PlexiiDesign as a snippet surface (duplicate only): stories and swatches travel |
 | `.../documents/draw/commands/snippets.commands.ts` | Edit › Save selection as snippet… and Insert snippet… (also on the canvas context menu) |
 | `.../documents/draw/dialogs/{saveSnippet,snippetLibrary}.dialog.tsx` | the app's dialogs, shown `frameless` by the studio |
 | `lib/contextMenu/` | `FrameCallbacks.onSaveAsSnippet`, beside `onSaveAsFile` |
@@ -557,6 +640,18 @@ sync body.
 - `tests/e2e/snippetsDraw.spec.ts`: Draw in the real app: save a selection
   from the Edit menu, insert it back as a duplicate, and read two copies with
   distinct ids and identical geometry back from the stored drawing.
+- `tests/unit/designSnippets.test.tsx`: Design: capture is pure, relative,
+  carries the story a threaded frame reads (threads inside the selection kept,
+  outside cut) and exactly the swatches its fills name; insertion mints fresh
+  element and story ids, resolves swatches by name, materialises the implied
+  page with the mirror intact, clamps onto the page, survives a reload, never
+  touches the snippet and declines read-only, master-page threaded text and
+  undrawable bodies; the target claims Duplicate only, registers while mounted
+  and withdraws on unmount; the shell's two buttons.
+- `tests/e2e/snippetsDesign.spec.ts`: Design in the real app: two linked
+  frames and a shape saved from Edit, inserted back as a duplicate whose
+  frames read a new story with the same words, on the page, persisted, one
+  undo.
 - `tests/e2e/snippets.spec.ts` — the round trip in the real app: save a
   selection, insert a duplicate, insert a live instance, edit the master and
   prove the live instance changed while the duplicate did not, delete the master

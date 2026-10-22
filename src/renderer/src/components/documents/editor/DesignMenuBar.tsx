@@ -56,6 +56,10 @@ export interface DesignMenuActions {
   /** Whether a menu-driven paste has anything to paste. */
   canPaste: boolean
   duplicateSelection: () => void
+  /** Save the selected elements as a reusable snippet. */
+  saveSelectionAsSnippet: () => void
+  /** Open the saved-snippets library to insert one onto the page being edited. */
+  insertSnippet: () => void
   /** Something is selected on the page, so the selection items are live. */
   hasSelection: boolean
   /** Copy the current page, with everything on it, and put it straight after. */
@@ -143,7 +147,16 @@ export default function DesignMenuBar({ actions }: { actions: DesignMenuActions 
         { kind: 'item', label: 'Paste', shortcut: '⌘V', icon: 'content_paste', run: a.pasteClipboard, disabled: !a.canPaste },
         { kind: 'item', label: 'Duplicate', shortcut: '⌘D', icon: 'file_copy', run: a.duplicateSelection, disabled: !a.hasSelection },
         { kind: 'sep' },
-        { kind: 'item', label: 'Delete selection', shortcut: '⌫', icon: 'delete', run: a.deleteSelected }
+        { kind: 'item', label: 'Delete selection', shortcut: '⌫', icon: 'delete', run: a.deleteSelected },
+        { kind: 'sep' },
+        {
+          kind: 'item',
+          label: 'Save selection as snippet…',
+          icon: 'bookmark_add',
+          hint: 'Keep it for reuse in any design',
+          run: a.saveSelectionAsSnippet,
+          disabled: !a.hasSelection
+        }
       ]
     },
     {
@@ -165,6 +178,7 @@ export default function DesignMenuBar({ actions }: { actions: DesignMenuActions 
         },
         { kind: 'item', label: 'Line', icon: 'horizontal_rule', run: a.addLine },
         { kind: 'item', label: 'Work widget from a desk', icon: 'widgets', run: a.addWidget },
+        { kind: 'item', label: 'Insert snippet…', icon: 'bookmarks', run: a.insertSnippet },
         { kind: 'sep' },
         { kind: 'item', label: 'Add page', icon: 'note_add', run: a.addPage },
         { kind: 'item', label: 'Page-number frame', icon: 'tag', run: a.insertPageNumber },
