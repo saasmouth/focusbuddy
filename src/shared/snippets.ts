@@ -65,13 +65,36 @@ export interface WidgetSnippetBody {
   color: string | null
 }
 
-/** A rectangular block of cells, values and formats together. */
+/**
+ * A rectangular block of cells from PlexiiCells: what a copy and paste of the
+ * range carries, so a snippet lands exactly as pasting that range would.
+ *
+ * `rows` holds each cell's INPUT, not its displayed value: a formula is kept as
+ * written ("=A1+A2"), so the block is reusable and recalculates where it lands.
+ * Formulas are stored as they read at the block's `origin` (its top-left on the
+ * sheet it was saved from), and insertion shifts their relative references by
+ * where the block lands minus that origin, exactly as Cells' own paste does
+ * for an in-app copy; absolute ($) parts stay. A body with no origin (written
+ * by something other than Cells' capture) is written literally, as an external
+ * paste is.
+ *
+ * Every coordinate below is relative to the block's top-left. The shapes are
+ * Cells' own (shared/types SheetCellFormat, SheetMerge, SheetValidationRule)
+ * but typed loosely here: the body has been through the database, so the
+ * surface validates it on insert rather than this type promising it.
+ */
 export interface SheetSnippetBody {
   kind: 'sheet'
-  /** Row-major values. Ragged rows are padded on insert, never on save. */
+  /** Row-major cell input (formulas as written). Ragged rows are padded on insert, never on save. */
   rows: string[][]
-  /** Per-cell formats keyed "r,c" relative to the block's top-left. */
+  /** Per-cell formats keyed "r,c" relative to the block's top-left (SheetCellFormat). */
   formats?: Record<string, unknown>
+  /** Where the block's top-left sat when saved (0-based), which formula references are relative to. */
+  origin?: { r: number; c: number }
+  /** Merged ranges inside the block, relative and inclusive (SheetMerge). */
+  merges?: Array<{ r1: number; c1: number; r2: number; c2: number }>
+  /** Data validation over parts of the block, relative and inclusive (SheetValidation without id). */
+  validations?: Array<{ r1: number; c1: number; r2: number; c2: number; rule: unknown; strict?: boolean }>
 }
 
 /** One or more slide elements, positioned relative to the block's top-left. */
@@ -326,7 +349,9 @@ export function isSnippetScope(v: unknown): v is SnippetScope {
  * it that way.
  */
 export function snippetSearchText(s: Snippet): string {
-  const body = s.body.kind === 'doc' ? s.body.text : ''
+  // A sheet block is found by what its cells say (a label, a heading, a
+  // formula's text), which is what a person remembers about it.
+  const body = s.body.kind === 'doc' ? s.body.text : s.body.kind === 'sheet' ? sheetBodyText(s.body) : ''
   return [s.name, s.description, s.tags.join(' '), body].join(' ').toLowerCase()
 }
 
@@ -383,7 +408,12 @@ export function snippetBodyIsEmpty(b: SnippetBody): boolean {
     case 'widget':
       return !b.widgetKind
     case 'sheet':
-      return b.rows.length === 0 || b.rows.every((r) => r.every((c) => !c.trim()))
+      // A formatted or merged block with no text is still something to keep
+      // (a styled header row, a blank form); only a block with nothing at all
+      // in it is empty.
+      if (b.rows.length === 0) return true
+      if (b.rows.some((r) => Array.isArray(r) && r.some((c) => typeof c === 'string' && c.trim() !== ''))) return false
+      return !Object.keys(b.formats ?? {}).length && !(b.merges ?? []).length && !(b.validations ?? []).length
     case 'slide':
     case 'design':
       return b.elements.length === 0
@@ -394,7 +424,29 @@ export function snippetBodyIsEmpty(b: SnippetBody): boolean {
   }
 }
 
+/** The text in a sheet block's cells, tab-separated by column and one line per row. */
+export function sheetBodyText(b: SheetSnippetBody): string {
+  if (!Array.isArray(b.rows)) return ''
+  return b.rows
+    .map((r) => (Array.isArray(r) ? r.filter((c) => typeof c === 'string').join('\t') : ''))
+    .join('\n')
+}
+
 /** Does the body's own discriminator agree with the snippet's kind? */
 export function snippetBodyMatchesKind(kind: SnippetKind, b: SnippetBody): boolean {
-  return b.kind === kind
+  if (b.kind !== kind) return false
+  // A sheet body is read cell by cell, and its origin decides how every
+  // formula shifts. A damaged one (rows that are not rows, an origin that is
+  // not a cell) reads back as an honestly empty block rather than landing
+  // formulas pointed at the wrong cells.
+  if (b.kind === 'sheet') {
+    if (!Array.isArray(b.rows) || !b.rows.every((r) => Array.isArray(r))) return false
+    const o = b.origin as unknown
+    if (o !== undefined) {
+      if (!o || typeof o !== 'object') return false
+      const { r, c } = o as { r?: unknown; c?: unknown }
+      if (!Number.isInteger(r) || !Number.isInteger(c) || (r as number) < 0 || (c as number) < 0) return false
+    }
+  }
+  return true
 }

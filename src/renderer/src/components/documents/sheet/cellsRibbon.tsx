@@ -3,6 +3,7 @@ import {
   BarButton,
   BarColor,
   BarCustom,
+  BarDialogButton,
   BarMenu,
   BarSelect,
   BarSep,
@@ -163,6 +164,8 @@ const insertTab: BarTab<CCtx> = {
       <BarButton icon="show_chart" label="Insert a sparkline of the selection into the next cell" onClick={c.a.insertSparkline} testid="sheet-insert-sparkline" />
       <BarButton icon="search" label="Insert a lookup (XLOOKUP) into the active cell" onClick={c.insertLookup} testid="sheet-lookup-btn" />
       <BarSep />
+      <BarDialogButton icon="bookmarks" label="Saved snippet" onOpen={c.a.insertSnippet} testid="sheet-insert-snippet" />
+      <BarSep />
       <BarButton icon="add" label="Add a sheet" onClick={c.a.addSheet} />
     </>
   )
@@ -185,6 +188,7 @@ const dataTab: BarTab<CCtx> = {
       <BarButton icon="pivot_table_chart" label="Pivot table from the selection" onClick={c.a.insertPivot} testid="sheet-pivot-btn" />
       <BarButton icon="account_tree" label="Query — shape data with refreshable transform steps" onClick={c.query} testid="sheet-query-btn" />
       <BarButton icon="label" label="Named ranges" onClick={c.a.namedRanges} />
+      <BarDialogButton icon="bookmark_add" label="Save as snippet" onOpen={c.a.saveSnippet} readOnlySafe testid="sheet-save-snippet" />
     </>
   )
 }
