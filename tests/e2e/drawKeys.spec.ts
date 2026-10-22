@@ -245,6 +245,9 @@ test('KEY-6 the menus show Illustrator’s keys', async () => {
     'Select all=⌘A',
     'Deselect=⇧⌘A',
     'Select all on active artboard=⌥⌘A',
+    // Saved snippets have no Illustrator key, so none is bound.
+    'Save selection as snippet…=',
+    'Insert snippet…=',
     'Keyboard shortcuts…=⌥⇧⌘K'
   ])
   expect(await shortcuts('view')).toEqual([
