@@ -387,17 +387,22 @@ test('SR2-5 — default row height matches Excel (20px); dragging the row-resize
     expect(defaultHeight, `default row height should be ~20px (Excel parity), got ${defaultHeight}px`).toBeLessThanOrEqual(22)
 
     // Drag the row-0 bottom resize handle down by 30px.
+    //
+    // `hover()` rather than a bare mouse.move to the bounding box: it runs
+    // Playwright's actionability checks, so if anything covers this 6px strip
+    // the failure NAMES the obscuring element instead of the mousedown landing
+    // somewhere harmless and the drag silently doing nothing. That is what used
+    // to happen here, and the old `toBeAttached` could not see it — an attached
+    // handle and a reachable one are different claims.
     const handle = window.locator('[data-testid="row-header-0"] span[title="Drag to resize row"]')
     await expect(handle).toBeAttached({ timeout: 3_000 })
     const box = await handle.boundingBox()
     expect(box, 'row resize handle must have a bounding box').not.toBeNull()
 
-    if (box) {
-      await window.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-      await window.mouse.down()
-      await window.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 30, { steps: 8 })
-      await window.mouse.up()
-    }
+    await handle.hover({ timeout: 5_000 })
+    await window.mouse.down()
+    await window.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2 + 30, { steps: 8 })
+    await window.mouse.up()
     await window.waitForTimeout(250)
 
     const afterHeight = await window
@@ -406,16 +411,16 @@ test('SR2-5 — default row height matches Excel (20px); dragging the row-resize
     // eslint-disable-next-line no-console
     console.log(`[SR2-5 evidence] row0 height default=${defaultHeight}px after-drag=${afterHeight}px`)
 
-    if (afterHeight > defaultHeight) {
-      expect(afterHeight, `row height should increase after drag (before=${defaultHeight}px, after=${afterHeight}px)`).toBeGreaterThan(
-        defaultHeight
-      )
-    } else {
-      // eslint-disable-next-line no-console
-      console.log(
-        `[SR2-5] row-resize drag did not register via synthetic mouse (before=${defaultHeight}px, after=${afterHeight}px). Default row height confirmed independently above.`
-      )
-    }
+    // Asserted unconditionally. This used to be wrapped in
+    // `if (afterHeight > defaultHeight)`, which only asserts the increase when
+    // it has already happened and logs a note otherwise — so the drag half of
+    // this test could never fail, while its title promised it was covered. A
+    // test that cannot fail is worse than a skipped one, because it reads as
+    // coverage.
+    expect(
+      afterHeight,
+      `row height should increase after dragging the handle down 30px (before=${defaultHeight}px, after=${afterHeight}px)`
+    ).toBeGreaterThan(defaultHeight)
   } finally {
     await dispose()
   }
