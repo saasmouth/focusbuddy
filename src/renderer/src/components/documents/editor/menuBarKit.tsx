@@ -151,6 +151,7 @@ function SubmenuRow({
                 key={i}
                 onClick={() => !it.disabled && onRun(it.run)}
                 disabled={it.disabled}
+                title={it.hint}
                 className={`flex items-center gap-2.5 w-full px-3 py-1.5 text-[13px] text-left ${
                   it.disabled
                     ? 'text-[var(--ink-30)] cursor-default'
@@ -158,7 +159,11 @@ function SubmenuRow({
                 }`}
               >
                 <span className="w-4 shrink-0 text-[var(--ink-50)]">{it.active ? <Icon name="check" size={15} /> : null}</span>
-                <span className="flex-1 min-w-0 truncate">{it.label}</span>
+                <span className="flex-1 min-w-0 truncate">
+                  {it.label}
+                  {/* Why a submenu item is off, as for top-level items (it was dropped here). */}
+                  {it.hint && <span className="block text-[11px] text-[var(--ink-40)] truncate">{it.hint}</span>}
+                </span>
                 {it.shortcut && <span className="text-[11px] text-[var(--ink-40)] fb-tabular">{it.shortcut}</span>}
               </button>
             )
