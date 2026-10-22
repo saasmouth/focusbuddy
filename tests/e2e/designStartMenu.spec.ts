@@ -10,7 +10,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign } from './_helpers'
+import { launchApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign, selectBarTab } from './_helpers'
 
 test.describe.configure({ timeout: 90_000 })
 
@@ -23,6 +23,7 @@ async function openDesign(window: Page): Promise<void> {
 
 async function openMenu(window: Page): Promise<void> {
   if (await window.locator('[data-testid="design-start-menu"]').isVisible().catch(() => false)) return
+  await selectBarTab(window, 'design-toolbar', 'layout')
   await window.locator('[data-testid="design-start-btn"]').click()
   await expect(window.locator('[data-testid="design-start-menu"]')).toBeVisible({ timeout: 5_000 })
 }
@@ -181,7 +182,8 @@ test('SM-6 — both menus close on an outside click, so neither is left over the
     await clickAway()
     await expect(edit).toHaveCount(0)
 
-    await window.locator('[data-testid="design-start-btn"]').click()
+    await selectBarTab(window, 'design-toolbar', 'layout')
+  await window.locator('[data-testid="design-start-btn"]').click()
     const start = window.locator('[data-testid="design-start-menu"]')
     await expect(start).toBeVisible()
     await clickAway()

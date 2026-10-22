@@ -10,7 +10,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign, selectBarTab } from './_helpers'
 
 async function openPublication(window: Page): Promise<void> {
   await switchArea(window, 'office')
@@ -43,11 +43,13 @@ async function makeStory(window: Page): Promise<void> {
   await window.mouse.down()
   await window.mouse.move(cb.x + cb.width - 2, cb.y + cb.height - 2)
   await window.mouse.up()
+  await selectBarTab(window, 'design-toolbar', 'text')
   await window.locator('[data-testid="design-link-frames"]').click()
   const port = window.locator('[data-testid="design-thread-port"]').first()
   const pb = await port.boundingBox()
   if (!pb) throw new Error('no thread port')
   await window.mouse.click(pb.x + 14, pb.y + 24)
+  await selectBarTab(window, 'design-toolbar', 'text')
   await window.locator('[data-testid="design-open-story"]').click()
   await window
     .locator('[data-testid="design-story-text"]')

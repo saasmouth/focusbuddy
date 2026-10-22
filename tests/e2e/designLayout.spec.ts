@@ -10,7 +10,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, chooseCloudAiSource, placeDesign } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, chooseCloudAiSource, placeDesign, selectBarTab } from './_helpers'
 
 /** Start a real publication from the PlexiDesign hub, not a bare canvas. */
 async function openPublication(window: Page): Promise<void> {
@@ -132,9 +132,12 @@ test.describe('PlexiDesign page layout', () => {
   })
 
   test('DL-8 two text frames link into one story that flows through both', async () => {
-    // Two frames on the page, then link them.
-    await placeDesign(window, 'text')
-    await placeDesign(window, 'text')
+    // Two frames on the page, then link them. Place them apart: an armed tool
+    // drops its default at the press, so two default placements land on top of
+    // each other and the marquee below selects ONE frame — which leaves
+    // "Link text frames" disabled and reads exactly like a broken button.
+    await placeDesign(window, 'text', { fx: 0.3, fy: 0.25 })
+    await placeDesign(window, 'text', { fx: 0.3, fy: 0.6 })
     await window.keyboard.press('Escape')
 
     // Select both by marquee over the whole canvas.
@@ -145,6 +148,12 @@ test.describe('PlexiDesign page layout', () => {
     await window.mouse.down()
     await window.mouse.move(cb.x + cb.width - 2, cb.y + cb.height - 2)
     await window.mouse.up()
+
+    // Threading moved to the contextual Text tab (SPEC §6.3); it never
+
+    // auto-switches, so the spec has to ask for it.
+
+    await selectBarTab(window, 'design-toolbar', 'text')
 
     await expect(window.locator('[data-testid="design-link-frames"]')).toBeVisible({ timeout: 5_000 })
     await window.locator('[data-testid="design-link-frames"]').click()
@@ -162,6 +171,7 @@ test.describe('PlexiDesign page layout', () => {
 
     // Threaded copy is written in the story editor now, not in the inspector —
     // a five-page article cannot be typed inside a two-inch column.
+    await selectBarTab(window, 'design-toolbar', 'text')
     await window.locator('[data-testid="design-open-story"]').click()
     await expect(window.locator('[data-testid="design-story-editor"]')).toBeVisible({ timeout: 5_000 })
     const story = window.locator('[data-testid="design-story-text"]')

@@ -17,7 +17,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign, selectBarTab } from './_helpers'
 
 async function openDesignStudio(window: Page): Promise<void> {
   await switchArea(window, 'office')
@@ -118,7 +118,11 @@ test.describe('PlexiDesign preflight', () => {
     // Deselect first, so the selection that appears can only have come from
     // the click on the finding.
     await window.locator('[data-testid="slide-canvas"]').click({ position: { x: 300, y: 500 } })
-    await expect(window.locator('[data-testid="design-canvas-inspector"]')).toBeVisible({ timeout: 5_000 })
+    // Nothing selected: the right-hand canvas inspector is retired (D1), and
+  // Home says so in its place. Home has to be asked for — a new design opens
+  // on Layout, where the Start-from control lives.
+  await selectBarTab(window, 'design-toolbar', 'home')
+  await expect(window.locator('[data-testid="design-toolbar-panel"]')).toContainText('Select something to format it', { timeout: 5_000 })
 
     await window.locator('[data-testid="preflight-trim-safety"]').click()
     // The text inspector only renders for a selected text element.

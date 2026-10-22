@@ -11,7 +11,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign } from './_helpers'
+import { launchApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign, selectBarTab } from './_helpers'
 
 async function openDesignStudio(window: Page): Promise<void> {
   await switchArea(window, 'office')
@@ -63,7 +63,8 @@ test('DAP-TPL \u2014 a template\u2019s artwork survives adding a page', async ()
 
     const tpl = window.locator('[data-testid="design-template-social-quote"]')
     if (!(await tpl.isVisible().catch(() => false))) {
-      await window.locator('[data-testid="design-start-btn"]').click()
+      await selectBarTab(window, 'design-toolbar', 'layout')
+  await window.locator('[data-testid="design-start-btn"]').click()
     }
     await expect(tpl).toBeVisible({ timeout: 6_000 })
     await tpl.click()

@@ -19,7 +19,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign, selectBarTab } from './_helpers'
 
 const REWRITE_HTML = '<p>Stubbed improved copy.</p>'
 const SUGGEST_HTML = '<p>Stubbed design idea.</p>'
@@ -76,7 +76,11 @@ async function addAndSelectText(window: Page): Promise<void> {
 async function clearSelection(window: Page): Promise<void> {
   // Pressing Escape and clicking the canvas wrapper background deselects.
   await window.locator('[data-testid="slide-canvas"]').click({ position: { x: 4, y: 4 } })
-  await expect(window.locator('[data-testid="design-canvas-inspector"]')).toBeVisible({ timeout: 5_000 })
+  // Nothing selected: the right-hand canvas inspector is retired (D1), and
+  // Home says so in its place. Home has to be asked for — a new design opens
+  // on Layout, where the Start-from control lives.
+  await selectBarTab(window, 'design-toolbar', 'home')
+  await expect(window.locator('[data-testid="design-toolbar-panel"]')).toContainText('Select something to format it', { timeout: 5_000 })
 }
 
 test.describe('PlexiDesign AI panel', () => {

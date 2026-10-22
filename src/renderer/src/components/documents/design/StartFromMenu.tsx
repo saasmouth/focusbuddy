@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from '../../Icon'
+import { BarPopover } from '../../office/shell'
 import {
   customDesignSize,
   describeSize,
@@ -34,41 +35,48 @@ interface Props {
    * Open once, unprompted, on a brand-new empty design. The chip grid used to
    * be the first-run help by simply always being there; this is the same help
    * without the permanent cost.
+   *
+   * The "once" is the EDITOR'S to remember, not this component's: the control
+   * unmounts whenever another ContextBar tab is shown, so a flag held here
+   * re-fires every time someone comes back to the Layout tab — the menu would
+   * spring open again and again, and a click meant to open it would toggle it
+   * shut instead.
    */
   autoOpen?: boolean
+  /** Told once, when the unprompted opening has happened. */
+  onAutoOpened?: () => void
 }
 
-export default function StartFromMenu({ size, onTemplate, onSize, autoOpen }: Props): JSX.Element {
+export default function StartFromMenu({ size, onTemplate, onSize, autoOpen, onAutoOpened }: Props): JSX.Element {
   const [open, setOpen] = useState(false)
   const [custom, setCustom] = useState(false)
   const groups = useMemo(() => startMenuGroups(), [])
-  const wrap = useRef<HTMLDivElement | null>(null)
+  const trigger = useRef<HTMLButtonElement | null>(null)
+  const firstEntry = useRef<HTMLButtonElement | null>(null)
   const opened = useRef(false)
 
-  // The one-off opening, exactly once per mount even if the design stays empty.
+  // Put focus in the menu when it opens. Keyboard users land on the list
+  // rather than nowhere, and Escape closes it — BarPopover handles Escape on
+  // its own element and registers no document listener (SPEC §2.4), so with
+  // focus left on the canvas the key went to the editor's handler instead and
+  // the menu stayed open. That is also what a mouse user expects.
+  useEffect(() => {
+    if (open) firstEntry.current?.focus()
+  }, [open])
+
   useEffect(() => {
     if (autoOpen && !opened.current) {
       opened.current = true
       setOpen(true)
+      onAutoOpened?.()
     }
-  }, [autoOpen])
+  }, [autoOpen, onAutoOpened])
 
-  // Close on an outside click or Escape, like every other menu in the app.
-  useEffect(() => {
-    if (!open) return
-    function onDown(e: MouseEvent): void {
-      if (!wrap.current?.contains(e.target as Node)) setOpen(false)
-    }
-    function onKey(e: KeyboardEvent): void {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
+  // No outside-click or Escape handling here: BarPopover owns both, and it
+  // must, because the panel is PORTALLED to the body. The handler this
+  // replaces watched for mousedown outside the component's own wrapper — and
+  // the portalled panel is outside it, so pressing any entry closed the menu
+  // before the click could land. Every row looked dead.
 
   function choose(fn: () => void): void {
     fn()
@@ -77,8 +85,9 @@ export default function StartFromMenu({ size, onTemplate, onSize, autoOpen }: Pr
   }
 
   return (
-    <div className="relative" ref={wrap}>
+    <div className="relative">
       <button
+        ref={trigger}
         onClick={() => setOpen((v) => !v)}
         className="fb-btn-surface inline-flex h-7 items-center gap-1 rounded px-2 text-[12px] text-[var(--ink-80)] hover:border-accent"
         title="Start from a template, or set the page size"
@@ -90,22 +99,30 @@ export default function StartFromMenu({ size, onTemplate, onSize, autoOpen }: Pr
       </button>
 
       {open && (
-        <div
-          className="fb-glass-panel absolute left-0 top-full z-40 mt-1 max-h-[70vh] w-72 overflow-auto rounded-[var(--radius-row)] py-1 fb-pop-in"
-          data-testid="design-start-menu"
+        <BarPopover
+          anchor={trigger.current}
+          onClose={() => {
+            setOpen(false)
+            setCustom(false)
+          }}
+          label="Start from"
+          testid="design-start-menu"
+          minWidth={288}
         >
+          <div className="max-h-[70vh] w-72 overflow-auto py-1">
           <p className="px-3 py-1 fb-t-caption text-[var(--ink-40)] leading-snug">
             A template brings a layout and its size. A size changes the page and keeps your work.
           </p>
 
-          {groups.map((g) => (
+          {groups.map((g, gi) => (
             <section key={g.id}>
               <div className="px-3 pt-1.5 pb-0.5 fb-t-caption uppercase tracking-wide text-[var(--ink-40)]">
                 {g.label}
               </div>
-              {g.entries.map((e) => (
+              {g.entries.map((e, i) => (
                 <button
                   key={`${e.kind}-${e.id}`}
+                  ref={gi === 0 && i === 0 ? firstEntry : undefined}
                   onClick={() =>
                     choose(() =>
                       e.kind === 'template'
@@ -141,8 +158,9 @@ export default function StartFromMenu({ size, onTemplate, onSize, autoOpen }: Pr
                 <span>Custom size…</span>
               </button>
             )}
+            </div>
           </div>
-        </div>
+        </BarPopover>
       )}
     </div>
   )

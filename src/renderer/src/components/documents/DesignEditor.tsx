@@ -15,7 +15,9 @@ import {
   setElementText,
   ungroupElements,
   updateElement,
-  type AlignEdge
+  type AlignEdge,
+  styleTextElement,
+  setParagraphAlign
 } from './slides/slideOps'
 import {
   BASE_LAYER_ID,
@@ -43,7 +45,7 @@ import {
   withPages
 } from '@shared/design'
 import { applyStoryFlows, linkFrames, pruneOrphanStories, setStoryText as writeStoryText, storyText, unlinkFrame } from '@shared/designStories'
-import { LAYOUT_STYLES, findLayoutStyle } from '@shared/designAutoLayout'
+import { findLayoutStyle } from '@shared/designAutoLayout'
 import type { ContentDoc } from '@shared/designContent'
 import RedesignWizard from './design/RedesignWizard'
 import StoryEditor from './design/StoryEditor'
@@ -57,7 +59,8 @@ import PreflightPanel from './design/PreflightPanel'
 import { useElementClipboard } from './slides/useElementClipboard'
 import StylesPanel from './design/StylesPanel'
 import StartFromMenu from './design/StartFromMenu'
-import { ToolRail, type RailItem } from '../office/shell'
+import { DESIGN_TABS, type DesignCtx, type DesignPanelId } from './design/ribbon'
+import { ContextBar, OfficeShellLayout, ShellPanel, ToolRail, type RailItem } from '../office/shell'
 import SwatchesPanel from './design/SwatchesPanel'
 import { preflight, preflightSummary } from '@shared/designPreflight'
 import DesignRulers from './design/DesignRulers'
@@ -66,7 +69,7 @@ import SlideElementView from './slides/SlideElementView'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import { useBrandStore } from '../../stores/brand'
 import BrandKitModal from './BrandKitModal'
-import { GOOGLE_FONTS, loadGoogleFont, fontFamilyValue, familyLabel } from '../../lib/googleFonts'
+import { GOOGLE_FONTS, loadGoogleFont, familyLabel } from '../../lib/googleFonts'
 import DesignAiPanel from './DesignAiPanel'
 import DesignMenuBar from './editor/DesignMenuBar'
 import { useAccountStore } from '../../stores/account'
@@ -91,10 +94,6 @@ interface Props {
   foldExternal?: boolean
 }
 
-const EXPORT_FORMATS: { id: 'png' | 'pdf'; label: string }[] = [
-  { id: 'png', label: 'PNG image' },
-  { id: 'pdf', label: 'PDF' }
-]
 
 
 
@@ -149,12 +148,30 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   // A brand-new, empty design: the Start-from menu opens itself once, which is
   // the first-run help the permanent chip grid used to provide.
-  const [startEmpty] = useState(() => normalizeDesignBody(content).elements.length === 0)
+  const [startEmpty, setStartEmpty] = useState(() => normalizeDesignBody(content).elements.length === 0)
 
   // ── Armed tools (spec §3.2, owner decision D4) ─────────────────────────────
   // A tool is armed until it places something, then the editor returns to
   // Select — as PowerPoint and Canva do. Double-clicking a tool locks it, as
   // Illustrator's tool lock does, and Esc always returns to Select.
+  // Which ContextBar tab is showing, and whether its row is collapsed (D5).
+  // Host-owned, as the shell requires.
+  // A brand-new empty design opens on Layout, where the Start-from control
+  // lives and opens itself once — the first-run help the permanent chip grid
+  // used to be. Anchoring it to the EDITOR's first render rather than the
+  // control's mount is what stops the menu springing open again every time
+  // someone returns to the Layout tab, and stops a click meant to open it
+  // from toggling it shut.
+  // Panels you use WITH a selection — swatches, styles, layout, preflight —
+  // open PINNED, because an unpinned overlay closes on an outside click and
+  // the outside click is the whole job: select a shape, then give it a
+  // colour. Unpinned they shut the moment you touched the canvas.
+  const [pinnedPanels, setPinnedPanels] = useState<string[]>(['layout', 'styles', 'swatches', 'preflight'])
+
+  const [activeTab, setActiveTab] = useState(() =>
+    normalizeDesignBody(content).elements.length === 0 ? 'layout' : 'home'
+  )
+  const [barCollapsed, setBarCollapsed] = useState(false)
   const [tool, setTool] = useState<DesignTool>('select')
   const [toolLocked, setToolLocked] = useState(false)
   function armTool(next: DesignTool, lock = false): void {
@@ -162,17 +179,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     setToolLocked(lock && next !== 'select')
     if (next !== 'select') setSelectedIds([])
   }
-  const [exportOpen, setExportOpen] = useState(false)
-  const [panel, setPanel] = useState<
-    | 'none'
-    | 'ai'
-    | 'stock'
-    | 'layout'
-    | 'redesign'
-    | 'preflight'
-    | 'styles'
-    | 'swatches'
-  >(
+  const [panel, setPanel] = useState<DesignPanelId | 'none' | 'ai'>(
     () => 'none'
   )
   const [aiPrompt, setAiPrompt] = useState('')
@@ -941,7 +948,6 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   }
 
   async function exportAs(format: 'png' | 'pdf', printMarks = false): Promise<void> {
-    setExportOpen(false)
     setBusy(printMarks ? 'Exporting print PDF…' : `Exporting ${format.toUpperCase()}…`)
     setStatus(null)
     try {
@@ -961,7 +967,6 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
 
   const editingMasterId = design.editingMasterId ?? null
   const editingMaster: DesignMaster | null = editingMasterId ? (design.masters ?? []).find((m) => m.id === editingMasterId) ?? null : null
-  const layers = designLayers(design)
 
   // Which elements the canvas is editing right now: a master's own furniture
   // while in master-edit mode, otherwise the page's content.
@@ -1218,28 +1223,124 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     { id: 'tool-line', label: 'Line', icon: 'horizontal_rule', kind: 'tool', group: 1, order: 5, shortcut: '\\', flyout: 'shapes', onSelect: () => armTool('line'), onOptions: () => armTool('line', true), testid: 'design-tool-line' },
     { id: 'image', label: 'Image', icon: 'image', kind: 'action', group: 2, order: 0, onSelect: () => void addImageFromFile(), testid: 'design-add-image' },
     { id: 'logo', label: 'Logo', icon: 'badge', kind: 'action', group: 2, order: 1, onSelect: () => placeLogo(), testid: 'design-add-logo' },
-    { id: 'widget', label: 'Work widget from a desk', icon: 'widgets', kind: 'action', group: 2, order: 2, onSelect: () => setWidgetPickerOpen(true), testid: 'design-add-widget' }
+    { id: 'widget', label: 'Work widget from a desk', icon: 'widgets', kind: 'action', group: 2, order: 2, onSelect: () => setWidgetPickerOpen(true), testid: 'design-add-widget' },
+    // Bottom group: the panels (SPEC §3.1). PlexiiAssist stays a toggle here
+    // until chunk 6 moves it into the shared right-hand ShellSidePane.
+    { id: 'ai-generate', label: 'AI design', icon: 'auto_awesome', kind: 'panel', group: 9, order: 0, pinned: 'bottom', onSelect: () => setPanel((p) => (p === 'ai' ? 'none' : 'ai')), testid: 'design-ai-btn' },
+    { id: 'assist', label: 'PlexiiAssist', icon: 'auto_awesome', kind: 'panel', group: 9, order: 1, pinned: 'bottom', onSelect: () => setAiPanelOpen((v) => !v), testid: 'design-ai-toggle' }
   ]
 
-  return (
-    <div
-      className="flex flex-col h-full"
-      data-testid="design-editor"
-      onDragOver={(e) => {
-        if (!acceptsWidgetDrag(e.dataTransfer)) return
-        e.preventDefault()
-        e.dataTransfer.dropEffect = 'copy'
-      }}
-      onDrop={(e) => {
-        if (!acceptsWidgetDrag(e.dataTransfer)) return
-        e.preventDefault()
-        void widgetIdFromDrop(e.dataTransfer).then((id) => {
-          if (id) addWidget(id)
+  // ── The ContextBar's context ──────────────────────────────────────────────
+  // Every property the right-hand inspector used to show, as commands the
+  // tabs call (SPEC §6.3, owner ruling D1). The tabs are declarative; all the
+  // document knowledge stays here, where it already was.
+  const selectedEls = (design.elements ?? []).filter((e) => selectedIds.includes(e.id))
+  const barCtx: DesignCtx = {
+    design,
+    selected: selectedEls,
+    first: selectedEls[0] ?? null,
+    fonts: GOOGLE_FONTS,
+    palette: [brand.colorPrimary, brand.colorSecondary, brand.colorNeutral, '#1c1917', '#ffffff'].filter(Boolean) as string[],
+    startFrom: (
+      <StartFromMenu
+        size={{ w: design.width, h: design.height }}
+        onTemplate={applyTemplate}
+        onSize={changeSize}
+        autoOpen={startEmpty}
+        onAutoOpened={() => setStartEmpty(false)}
+      />
+    ),
+    guidesVisible: showLayoutAids,
+    facing: design.facing === true,
+    layers: designLayers(design).map((l) => ({ id: l.id, name: l.name })),
+    cmd: {
+      patchElement: (patch) => {
+        const id = selectedIds[0]
+        if (id) mutate((sl) => updateElement(sl, id, patch))
+      },
+      patchText: ({ fontFamily, ...runPatch }) => {
+        const id = selectedIds[0]
+        if (!id) return
+        mutate((sl) => {
+          const el = (sl.elements ?? []).find((e) => e.id === id)
+          if (!el || el.type !== 'text') return sl
+          // The family is a property of the element; weight, slant, size and
+          // colour are properties of its runs.
+          const next = Object.keys(runPatch).length ? styleTextElement(el, runPatch) : el
+          // The styled element first, the family after it: `next` is the whole
+          // element, so spreading it last would put the OLD family back.
+          return updateElement(sl, id, { ...next, ...(fontFamily ? { fontFamily } : {}) })
         })
-      }}
-    >
-      {/* Menu bar — real design-canvas actions. */}
-      <div className="px-2 pt-1.5 pb-1 border-b border-[var(--edge-soft)]">
+      },
+      setAlign: (al) => {
+        const id = selectedIds[0]
+        if (!id) return
+        mutate((sl) => {
+          const el = (sl.elements ?? []).find((e) => e.id === id)
+          return el && el.type === 'text' ? updateElement(sl, id, setParagraphAlign(el, al)) : sl
+        })
+      },
+      setBackground: (color) => patchLayout({ background: { type: 'solid', color } }),
+      align,
+      distribute,
+      group,
+      ungroup,
+      order: (dir) => {
+        const id = selectedIds[0]
+        if (id) mutate((sl) => reorderZ(sl, id, dir))
+      },
+      duplicate: duplicateSelected,
+      remove: deleteSelected,
+      setLayer: moveSelectionToLayer,
+      setWrap: (mode, offset) => {
+        const id = selectedIds[0]
+        if (!id) return
+        // `wrap` is an object on the element — { mode, offset } — not a string
+        // with a sibling field. Writing the wrong shape armed nothing: the
+        // flow engine reads wrap.mode, so text would never have wrapped.
+        mutate((sl) => {
+          const el = (sl.elements ?? []).find((e) => e.id === id) as { wrap?: { mode: 'none' | 'square'; offset?: number } } | undefined
+          const current = el?.wrap
+          return updateElement(sl, id, {
+            wrap: { mode, offset: offset ?? current?.offset ?? 12 }
+          } as unknown as Partial<SlideElement>)
+        })
+      },
+      openStory: () => {
+        const el = selectedEls[0] as { storyId?: string } | undefined
+        if (el?.storyId) setOpenStoryId(el.storyId)
+      },
+      linkFrames: linkSelectedFrames,
+      unlinkFrame: unlinkSelected,
+      setStoryColumns: (n) =>
+        patchLayout({
+          columns: { count: Math.max(1, Math.min(6, n)), gutter: designRef.current.columns?.gutter ?? 16 }
+        }),
+      setStoryStyle: (id) => patchLayout({ layoutStyleId: id }),
+      setAlt: (text) => {
+        const id = selectedIds[0]
+        if (id) mutate((sl) => updateElement(sl, id, { alt: text } as Partial<SlideElement>))
+      },
+      removeBackground: () => void removeBgSelected(),
+      addPage,
+      duplicatePage: () => duplicatePage(design.activePage ?? 0),
+      toggleGuides: () => setShowLayoutAids((v) => !v),
+      toggleFacing: () => patchLayout({ facing: !designRef.current.facing }),
+      brandify,
+      openBrandKit: () => setBrandOpen(true),
+      openPanel: (id) => setPanel(id),
+      exportAs: (f) => void exportAs(f),
+      exportPrint: () => void exportAs('pdf', true),
+      checkA11y: () => {
+        const issues = checkDesignA11y(designRef.current)
+        setStatus(issues.length ? `Accessibility: ${issues[0].message}` : 'Accessibility: no issues found.')
+      }
+    }
+  }
+
+  // The existing menu bar, now rendered inside the ContextBar's first row
+  // beside the tab strip (SPEC §1, owner decision D2).
+  const menuBar = (
         <DesignMenuBar
           actions={{
             title,
@@ -1283,140 +1384,18 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
             exportPrint: () => void exportAs('pdf', true)
           }}
         />
-      </div>
-      {/* Toolbar */}
-      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-[var(--edge-soft)] flex-wrap text-[12px]">
-        <button
-          onClick={undo}
-          disabled={past.length === 0}
-          data-testid="design-undo"
-          title="Undo (Cmd/Ctrl+Z)"
-          className="inline-flex items-center px-2 py-1.5 rounded-lg hover:bg-[var(--surface-sunken)] disabled:opacity-30"
-        >
-          <Icon name="undo" size={15} />
-        </button>
-        <button
-          onClick={redo}
-          disabled={future.length === 0}
-          data-testid="design-redo"
-          title="Redo (Cmd/Ctrl+Shift+Z)"
-          className="inline-flex items-center px-2 py-1.5 rounded-lg hover:bg-[var(--surface-sunken)] disabled:opacity-30"
-        >
-          <Icon name="redo" size={15} />
-        </button>
-        <span className="w-px h-5 bg-[var(--edge-soft)] mx-1" />
-        {/* One control for the template AND the page size. It replaces a grid
-            of chips that stood permanently on the canvas and a second panel
-            for sizes; it is self-contained so it can move into the shared
-            office top bar unchanged. */}
-        <StartFromMenu
-          size={{ w: design.width, h: design.height }}
-          onTemplate={applyTemplate}
-          onSize={changeSize}
-          autoOpen={startEmpty}
-        />
-        <ToolBtn
-          icon="auto_fix_high"
-          label="Redesign"
-          active={panel === 'redesign'}
-          onClick={() => setPanel((p) => (p === 'redesign' ? 'none' : 'redesign'))}
-          testid="design-redesign-btn"
-        />
-        <ToolBtn icon="grid_on" label="Layout" active={panel === 'layout'} onClick={() => setPanel((p) => (p === 'layout' ? 'none' : 'layout'))} testid="design-layout-btn" />
-        <ToolBtn
-          icon={showLayoutAids ? 'visibility' : 'visibility_off'}
-          label="Guides"
-          active={showLayoutAids}
-          onClick={() => setShowLayoutAids((v) => !v)}
-          testid="design-aids-toggle"
-        />
-        <span className="w-px h-5 bg-[var(--edge-soft)] mx-1" />
+  )
 
-        <ToolBtn icon="image" label="Image" onClick={() => void addImageFromFile()} testid="design-add-image" />
-        <span className="w-px h-5 bg-[var(--edge-soft)] mx-1" />
-        <ToolBtn icon="auto_awesome" label="AI design" active={panel === 'ai'} onClick={() => setPanel((p) => (p === 'ai' ? 'none' : 'ai'))} testid="design-ai-btn" />
-        <ToolBtn icon="photo_library" label="Stock" active={panel === 'stock'} onClick={() => setPanel((p) => (p === 'stock' ? 'none' : 'stock'))} testid="design-stock-btn" />
-        <ToolBtn icon="badge" label="Logo" onClick={placeLogo} testid="design-add-logo" />
-        <ToolBtn icon="palette" label="Brandify" onClick={brandify} testid="design-brandify" />
-        <ToolBtn icon="tune" label="Brand kit" onClick={() => setBrandOpen(true)} testid="design-brand-kit-btn" />
-        <span className="w-px h-5 bg-[var(--edge-soft)] mx-1" />
-        <ToolBtn
-          icon="auto_awesome"
-          label="PlexiiAssist"
-          active={aiPanelOpen}
-          onClick={() => setAiPanelOpen((v) => !v)}
-          testid="design-ai-toggle"
-        />
-        <div className="relative">
-          {/* The trigger has to out-rank its own dismiss backdrop. The backdrop
-              is `fixed inset-0 z-30` and a SIBLING of this button inside this
-              `relative` box, so with no z-index of its own the button sat under
-              it: once the menu was open, the control that opened it could not
-              close it, and the click was swallowed. Clicks anywhere else still
-              land on the backdrop and dismiss.
-              (Raising this whole box instead does nothing — the backdrop rides
-              up with it, being a child of the same box.) */}
-          <span className={exportOpen ? 'relative z-40' : undefined}>
-            <ToolBtn icon="download" label="Export" active={exportOpen} onClick={() => setExportOpen((v) => !v)} testid="design-export-btn" />
-          </span>
-          {exportOpen && (
-            <>
-              <div className="fixed inset-0 z-30" onClick={() => setExportOpen(false)} />
-              <div className="fb-glass-panel rounded-[var(--radius-row)] fb-pop-in absolute left-0 mt-1 z-40 w-36 p-1" data-testid="design-export-menu">
-                {EXPORT_FORMATS.map((f) => (
-                  <button
-                    key={f.id}
-                    onClick={() => void exportAs(f.id)}
-                    data-testid={`design-export-${f.id}`}
-                    className="w-full text-left px-2.5 py-1.5 rounded-md text-[12px] hover:bg-[var(--surface-sunken)]"
-                  >
-                    {f.label}
-                  </button>
-                ))}
-                <div className="my-1 border-t border-[var(--edge-soft)]" />
-                <label className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-[var(--ink-60)]">
-                  <span className="flex-1">Bleed (px)</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    data-testid="design-bleed-input"
-                    value={design.bleed ?? 0}
-                    onChange={(e) => update({ bleed: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
-                    onClick={(e) => e.stopPropagation()}
-                    className="fb-field w-14 px-1 py-0.5 text-[11px]"
-                  />
-                </label>
-                <button
-                  onClick={() => void exportAs('pdf', true)}
-                  data-testid="design-export-print"
-                  className="w-full text-left px-2.5 py-1.5 rounded-md text-[12px] hover:bg-[var(--surface-sunken)]"
-                  title="PDF with bleed + crop marks for a print shop"
-                >
-                  Print PDF (crop marks)
-                </button>
-                <div className="my-1 border-t border-[var(--edge-soft)]" />
-                <button
-                  onClick={() => {
-                    setExportOpen(false)
-                    const issues = checkDesignA11y(design)
-                    setStatus(issues.length ? `Accessibility: ${issues[0].message}` : 'Accessibility: no issues found.')
-                  }}
-                  data-testid="design-a11y-check"
-                  className="w-full text-left px-2.5 py-1.5 rounded-md text-[12px] hover:bg-[var(--surface-sunken)]"
-                  title="Check the design for accessibility issues"
-                >
-                  Check accessibility
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Panels */}
+  const shellPanels = (
+    <>
       {panel === 'ai' && (
-        <Panel title="Generate with AI">
+        <ShellPanel
+          id="ai"
+          title="Generate with AI"
+          open
+          onClose={() => setPanel('none')}
+          testid="design-panel-ai"
+        >
           <div className="space-y-2">
             <div>
               <div className="text-[11px] text-[var(--ink-50)] mb-1">Describe the design — AI writes on-brand copy and lays it out. Generate variations to pick from a set of on-brand options.</div>
@@ -1454,10 +1433,16 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
               </div>
             </div>
           </div>
-        </Panel>
+        </ShellPanel>
       )}
       {panel === 'redesign' && (
-        <Panel title="Pour in your text and lay it out">
+        <ShellPanel
+          id="redesign"
+          title="Pour in your text and lay it out"
+          open
+          onClose={() => setPanel('none')}
+          testid="design-panel-redesign"
+        >
           <RedesignWizard
             size={size}
             brand={brand}
@@ -1467,11 +1452,20 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
             onApply={applyRedesign}
             onCancel={() => setPanel('none')}
           />
-        </Panel>
+        </ShellPanel>
       )}
 
       {panel === 'layout' && (
-        <Panel title="Page layout">
+        <ShellPanel
+          id="layout"
+          pinnable
+          pinned={pinnedPanels.includes('layout')}
+          onPinnedChange={(v) => setPinnedPanels((list) => (v ? [...list, 'layout'] : list.filter((x) => x !== 'layout')))}
+          title="Page layout"
+          open
+          onClose={() => setPanel('none')}
+          testid="design-panel-layout"
+        >
           <LayoutPanel
             design={design}
             activePage={design.activePage ?? 0}
@@ -1487,23 +1481,50 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
             onMoveSelectionToLayer={moveSelectionToLayer}
             hasSelection={selectedIds.length > 0}
           />
-        </Panel>
+        </ShellPanel>
       )}
 
       {panel === 'styles' && (
-        <Panel title="Paragraph styles">
+        <ShellPanel
+          id="styles"
+          pinnable
+          pinned={pinnedPanels.includes('styles')}
+          onPinnedChange={(v) => setPinnedPanels((list) => (v ? [...list, 'styles'] : list.filter((x) => x !== 'styles')))}
+          title="Paragraph styles"
+          open
+          onClose={() => setPanel('none')}
+          testid="design-panel-styles"
+        >
           <StylesPanel design={design} brand={brand} onPatch={patchLayout} />
-        </Panel>
+        </ShellPanel>
       )}
 
       {panel === 'swatches' && (
-        <Panel title="Swatches &amp; spot inks">
+        <ShellPanel
+          id="swatches"
+          pinnable
+          pinned={pinnedPanels.includes('swatches')}
+          onPinnedChange={(v) => setPinnedPanels((list) => (v ? [...list, 'swatches'] : list.filter((x) => x !== 'swatches')))}
+          title="Swatches &amp; spot inks"
+          open
+          onClose={() => setPanel('none')}
+          testid="design-panel-swatches"
+        >
           <SwatchesPanel design={design} brand={brand} selectedIds={selectedIds} onBody={(next) => commit(next)} />
-        </Panel>
+        </ShellPanel>
       )}
 
       {panel === 'preflight' && (
-        <Panel title="Preflight for print">
+        <ShellPanel
+          id="preflight"
+          pinnable
+          pinned={pinnedPanels.includes('preflight')}
+          onPinnedChange={(v) => setPinnedPanels((list) => (v ? [...list, 'preflight'] : list.filter((x) => x !== 'preflight')))}
+          title="Preflight for print"
+          open
+          onClose={() => setPanel('none')}
+          testid="design-panel-preflight"
+        >
           <PreflightPanel
             design={design}
             onReveal={(page, elementId) => {
@@ -1511,11 +1532,17 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
               if (elementId) setSelectedIds([elementId])
             }}
           />
-        </Panel>
+        </ShellPanel>
       )}
 
       {panel === 'stock' && (
-        <Panel title="Stock photos">
+        <ShellPanel
+          id="stock"
+          title="Stock photos"
+          open
+          onClose={() => setPanel('none')}
+          testid="design-panel-stock"
+        >
           <div className="flex gap-1.5 mb-2">
             <input
               value={stockQuery}
@@ -1544,7 +1571,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
             </div>
           )}
           <p className="text-[10px] text-[var(--ink-40)] mt-1.5">Photos from Pexels. A free Pexels API key (Settings → AI · API keys) enables search.</p>
-        </Panel>
+        </ShellPanel>
       )}
 
       {(busy || status) && (
@@ -1560,7 +1587,11 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
       )}
 
       {/* Canvas + inspector */}
-      <div className="flex-1 min-h-0 flex">
+    </>
+  )
+
+  const shellRail = (
+    <>
         {/* The shared office ToolRail (spec §2.1). Tools arm a mode; the rail
             shows which, and never listens for keys — this editor's one key
             handler does that. */}
@@ -1571,7 +1602,166 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
           testid="design-rail"
           ariaLabel="Design tools"
         />
-        <div className="flex-1 min-w-0 flex flex-col">
+    </>
+  )
+
+  const pageRail = (
+    <>
+        {/* Page rail — switch, add, delete pages of a multi-page document. */}
+        <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border-t border-[var(--edge-soft)] bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] overflow-x-auto" data-testid="design-page-rail">
+          {/* Pages, grouped into spreads when the document is set to facing
+              pages, so a booklet's rail reads the way the booklet does. Each
+              button shows the PRINTED page number and the master it inherits. */}
+          {spreadsOf(design).map((spread, si) => (
+            <div key={`sp-${si}`} className="shrink-0 flex items-center gap-0.5 px-0.5 rounded" style={design.facing ? { background: 'color-mix(in oklab, var(--edge-soft) 60%, transparent)' } : undefined}>
+              {spread.map((i) => {
+                const pg = pages[i]
+                if (!pg) return null
+                const pgMaster = masterForPage(design, pg)
+                return (
+                  <div key={pg.id} className="relative group/pg shrink-0">
+                    <button
+                      onClick={() => goToPage(i)}
+                      data-testid={`design-page-${i}`}
+                      className={`h-7 min-w-7 px-2 rounded text-[12px] border ${
+                        i === activePage ? 'border-accent bg-accent/10 text-accent font-medium' : 'border-[var(--edge-soft)] text-[var(--ink-60)] hover:bg-[var(--surface-sunken)]'
+                      }`}
+                      title={`Page ${pageNumberOf(design, i)}${pgMaster ? ` — ${pgMaster.name}` : ' — no master'}`}
+                    >
+                      {pageNumberOf(design, i)}
+                      {pgMaster && <span className="ml-0.5 text-[9px] opacity-60">{pgMaster.name.replace(/^Master\s*/, '')}</span>}
+                    </button>
+                    {pages.length > 1 && (
+                      <button
+                        onClick={() => deletePage(i)}
+                        data-testid={`design-page-delete-${i}`}
+                        className="absolute -top-1 -right-1 hidden group-hover/pg:flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--surface-raised)] border border-[var(--edge-firm)] text-[var(--ink-50)] hover:text-rose-500"
+                        title={`Delete page ${pageNumberOf(design, i)}`}
+                      >
+                        <Icon name="close" size={9} />
+                      </button>
+                    )}
+                    <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          duplicatePage(i)
+                        }}
+                        data-testid={`design-page-duplicate-${i}`}
+                        className="absolute -top-1 -left-1 hidden group-hover/pg:block rounded-full bg-[var(--surface-raised)] border border-[var(--edge-soft)] p-0.5 text-[var(--ink-60)] hover:text-accent"
+                        title={`Duplicate page ${pageNumberOf(design, i)}`}
+                      >
+                        <Icon name="file_copy" size={9} />
+                      </button>
+                  </div>
+                )
+              })}
+            </div>
+          ))}
+          {/* The add control reads as a button, not as a grey label. The owner
+              reported "I can't see where to add the second page" against the
+              old version of this: an unbordered, low-contrast "+ Page" at the
+              end of a strip that, on a single-page design, had nothing else in
+              it at all (see withPages). */}
+          <button
+            onClick={addPage}
+            data-testid="design-page-add"
+            className="fb-btn-surface h-7 shrink-0 px-2.5 rounded text-[12px] text-[var(--ink-80)] hover:border-accent inline-flex items-center gap-1"
+            title="Add a page at the end"
+          >
+            <Icon name="add" size={14} /> Add page
+          </button>
+        </div>
+    </>
+  )
+
+  return (
+    <div
+      className="flex flex-col h-full"
+      data-testid="design-editor"
+      onDragOver={(e) => {
+        if (!acceptsWidgetDrag(e.dataTransfer)) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+      }}
+      onDrop={(e) => {
+        if (!acceptsWidgetDrag(e.dataTransfer)) return
+        e.preventDefault()
+        void widgetIdFromDrop(e.dataTransfer).then((id) => {
+          if (id) addWidget(id)
+        })
+      }}
+    >
+      {/* Row 1 and Row 2 of the office shell: the menu bar and the tab strip
+          share a row, and the active tab's controls are the row beneath
+          (SPEC §1, D2). This is where the right-hand inspector went (D1). */}
+
+      <OfficeShellLayout
+        testid="design-shell"
+        bar={
+        <ContextBar
+          tabs={DESIGN_TABS}
+          ctx={barCtx}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          collapsed={barCollapsed}
+          onCollapsedChange={setBarCollapsed}
+          menuBar={menuBar}
+          pinnedStart={
+            <>
+              <button
+                onClick={undo}
+                disabled={past.length === 0}
+                data-testid="design-undo"
+                title="Undo (Cmd/Ctrl+Z)"
+                className="inline-flex items-center px-1.5 py-1 rounded hover:bg-[var(--surface-sunken)] disabled:opacity-30"
+              >
+                <Icon name="undo" size={15} />
+              </button>
+              <button
+                onClick={redo}
+                disabled={future.length === 0}
+                data-testid="design-redo"
+                title="Redo (Cmd/Ctrl+Shift+Z)"
+                className="inline-flex items-center px-1.5 py-1 rounded hover:bg-[var(--surface-sunken)] disabled:opacity-30"
+              >
+                <Icon name="redo" size={15} />
+              </button>
+            </>
+          }
+          rightSlot={<span className="px-1.5 text-[11px] text-[var(--ink-50)] fb-tabular" data-testid="design-status-slot">{status}</span>}
+          testid="design-toolbar"
+        />
+        }
+        rail={shellRail}
+        bottom={pageRail}
+        panels={shellPanels}
+        rightPane={
+          <>
+            {openStoryId && design.stories?.[openStoryId] && (
+              <StoryEditor
+                design={design}
+                storyId={openStoryId}
+                text={storyText(design, openStoryId)}
+                overset={storyFrames(design, openStoryId).some((f) => f.element.overset === true)}
+                onChange={(t) => setStoryText(openStoryId, t)}
+                onClose={() => setOpenStoryId(null)}
+                onAddPage={() => continueStoryOnNewPage(openStoryId)}
+              />
+            )}
+            {aiPanelOpen && (
+              <DesignAiPanel
+                body={design}
+                selectedText={selectedTextValue}
+                onApplyText={applyAiText}
+                onInsertText={insertAiText}
+                userName={userName}
+                onCollapse={() => setAiPanelOpen(false)}
+              />
+            )}
+          </>
+        }
+      >
+        <div className="h-full min-h-0 flex flex-col">
         <div ref={wrapRef} className="flex-1 min-w-0 overflow-auto bg-stone-200/50 dark:bg-black/30 flex items-start justify-center p-6">
           <div>
             {editingMaster && (
@@ -1727,439 +1917,8 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
             </DesignRulers>
           </div>
         </div>
-        {/* Page rail — switch, add, delete pages of a multi-page document. */}
-        <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border-t border-[var(--edge-soft)] bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] overflow-x-auto" data-testid="design-page-rail">
-          {/* Pages, grouped into spreads when the document is set to facing
-              pages, so a booklet's rail reads the way the booklet does. Each
-              button shows the PRINTED page number and the master it inherits. */}
-          {spreadsOf(design).map((spread, si) => (
-            <div key={`sp-${si}`} className="shrink-0 flex items-center gap-0.5 px-0.5 rounded" style={design.facing ? { background: 'color-mix(in oklab, var(--edge-soft) 60%, transparent)' } : undefined}>
-              {spread.map((i) => {
-                const pg = pages[i]
-                if (!pg) return null
-                const pgMaster = masterForPage(design, pg)
-                return (
-                  <div key={pg.id} className="relative group/pg shrink-0">
-                    <button
-                      onClick={() => goToPage(i)}
-                      data-testid={`design-page-${i}`}
-                      className={`h-7 min-w-7 px-2 rounded text-[12px] border ${
-                        i === activePage ? 'border-accent bg-accent/10 text-accent font-medium' : 'border-[var(--edge-soft)] text-[var(--ink-60)] hover:bg-[var(--surface-sunken)]'
-                      }`}
-                      title={`Page ${pageNumberOf(design, i)}${pgMaster ? ` — ${pgMaster.name}` : ' — no master'}`}
-                    >
-                      {pageNumberOf(design, i)}
-                      {pgMaster && <span className="ml-0.5 text-[9px] opacity-60">{pgMaster.name.replace(/^Master\s*/, '')}</span>}
-                    </button>
-                    {pages.length > 1 && (
-                      <button
-                        onClick={() => deletePage(i)}
-                        data-testid={`design-page-delete-${i}`}
-                        className="absolute -top-1 -right-1 hidden group-hover/pg:flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--surface-raised)] border border-[var(--edge-firm)] text-[var(--ink-50)] hover:text-rose-500"
-                        title={`Delete page ${pageNumberOf(design, i)}`}
-                      >
-                        <Icon name="close" size={9} />
-                      </button>
-                    )}
-                    <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          duplicatePage(i)
-                        }}
-                        data-testid={`design-page-duplicate-${i}`}
-                        className="absolute -top-1 -left-1 hidden group-hover/pg:block rounded-full bg-[var(--surface-raised)] border border-[var(--edge-soft)] p-0.5 text-[var(--ink-60)] hover:text-accent"
-                        title={`Duplicate page ${pageNumberOf(design, i)}`}
-                      >
-                        <Icon name="file_copy" size={9} />
-                      </button>
-                  </div>
-                )
-              })}
-            </div>
-          ))}
-          {/* The add control reads as a button, not as a grey label. The owner
-              reported "I can't see where to add the second page" against the
-              old version of this: an unbordered, low-contrast "+ Page" at the
-              end of a strip that, on a single-page design, had nothing else in
-              it at all (see withPages). */}
-          <button
-            onClick={addPage}
-            data-testid="design-page-add"
-            className="fb-btn-surface h-7 shrink-0 px-2.5 rounded text-[12px] text-[var(--ink-80)] hover:border-accent inline-flex items-center gap-1"
-            title="Add a page at the end"
-          >
-            <Icon name="add" size={14} /> Add page
-          </button>
         </div>
-        </div>
-
-        {openStoryId && design.stories?.[openStoryId] && (
-          <StoryEditor
-            design={design}
-            storyId={openStoryId}
-            text={storyText(design, openStoryId)}
-            overset={storyFrames(design, openStoryId).some((f) => f.element.overset === true)}
-            onChange={(t) => setStoryText(openStoryId, t)}
-            onClose={() => setOpenStoryId(null)}
-            onAddPage={() => continueStoryOnNewPage(openStoryId)}
-          />
-        )}
-
-        {selected && (
-          <div className="w-56 shrink-0 border-l border-[var(--edge-soft)] p-3 overflow-auto text-[12px]" data-testid="design-inspector">
-            <div className="text-[10px] uppercase tracking-wide text-[var(--ink-40)] mb-2">{selected.type}</div>
-            {selected.type === 'shape' && (
-              <Field label="Fill">
-                <ColorInput
-                  value={selected.fill?.color ?? '#000000'}
-                  onChange={(c) => mutate((s) => updateElement(s, selected.id, { fill: { type: 'solid', color: c } }))}
-                  testid="design-fill-color"
-                />
-              </Field>
-            )}
-            {selected.type === 'image' && (
-              <Field label="Alt text">
-                <input
-                  value={selected.alt ?? ''}
-                  data-testid="design-alt"
-                  placeholder="Describe the image"
-                  onChange={(e) => mutate((s) => updateElement(s, selected.id, { alt: e.target.value }))}
-                  className="fb-field w-full px-1.5 py-1"
-                />
-              </Field>
-            )}
-            {selected.type === 'text' && (
-              <>
-                <Field label="Font">
-                  <select
-                    value={familyLabel(selected.fontFamily)}
-                    data-testid="design-font-family"
-                    onChange={(e) => {
-                      const fam = e.target.value
-                      loadGoogleFont(fam)
-                      mutate((s) => updateElement(s, selected.id, { fontFamily: fontFamilyValue(fam) }))
-                    }}
-                    className="fb-field w-full px-1.5 py-1"
-                    style={{ fontFamily: selected.fontFamily }}
-                  >
-                    {!GOOGLE_FONTS.includes(familyLabel(selected.fontFamily)) && familyLabel(selected.fontFamily) !== 'Default' && (
-                      <option value={familyLabel(selected.fontFamily)}>{familyLabel(selected.fontFamily)}</option>
-                    )}
-                    {GOOGLE_FONTS.map((fam) => (
-                      <option key={fam} value={fam} style={{ fontFamily: `"${fam}", sans-serif` }}>
-                        {fam}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Text color">
-                  <ColorInput
-                    value={selected.paragraphs[0]?.runs[0]?.color ?? '#1c1917'}
-                    onChange={(c) =>
-                      mutate((s) => updateElement(s, selected.id, {
-                        paragraphs: selected.paragraphs.map((p) => ({ ...p, runs: p.runs.map((r) => ({ ...r, color: c })) }))
-                      }))
-                    }
-                    testid="design-text-color"
-                  />
-                </Field>
-                <Field label="Alignment">
-                  <div className="flex gap-1">
-                    {(['left', 'center', 'right'] as const).map((a) => (
-                      <button
-                        key={a}
-                        onClick={() => mutate((s) => updateElement(s, selected.id, { paragraphs: selected.paragraphs.map((p) => ({ ...p, align: a })) }))}
-                        data-testid={`design-align-text-${a}`}
-                        className={`flex-1 px-2 py-1 rounded border text-[11px] ${
-                          (selected.paragraphs[0]?.align ?? 'left') === a ? 'border-accent text-accent' : 'border-[var(--edge-firm)] hover:bg-[var(--surface-sunken)]'
-                        }`}
-                      >
-                        <Icon name={`format_align_${a}`} size={13} />
-                      </button>
-                    ))}
-                  </div>
-                </Field>
-                <Field label="Style">
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => mutate((s) => updateElement(s, selected.id, { paragraphs: selected.paragraphs.map((p) => ({ ...p, runs: p.runs.map((r) => ({ ...r, bold: !r.bold })) })) }))}
-                      data-testid="design-bold"
-                      className={`flex-1 px-2 py-1 rounded border text-[12px] font-bold ${selected.paragraphs[0]?.runs[0]?.bold ? 'border-accent text-accent' : 'border-[var(--edge-firm)]'}`}
-                    >
-                      B
-                    </button>
-                    <button
-                      onClick={() => mutate((s) => updateElement(s, selected.id, { paragraphs: selected.paragraphs.map((p) => ({ ...p, runs: p.runs.map((r) => ({ ...r, italic: !r.italic })) })) }))}
-                      className={`flex-1 px-2 py-1 rounded border text-[12px] italic ${selected.paragraphs[0]?.runs[0]?.italic ? 'border-accent text-accent' : 'border-[var(--edge-firm)]'}`}
-                    >
-                      I
-                    </button>
-                    <button
-                      onClick={() => mutate((s) => updateElement(s, selected.id, { paragraphs: selected.paragraphs.map((p) => ({ ...p, runs: p.runs.map((r) => ({ ...r, underline: !r.underline })) })) }))}
-                      className={`flex-1 px-2 py-1 rounded border text-[12px] underline ${selected.paragraphs[0]?.runs[0]?.underline ? 'border-accent text-accent' : 'border-[var(--edge-firm)]'}`}
-                    >
-                      U
-                    </button>
-                  </div>
-                </Field>
-                <Field label="Font size">
-                  <input
-                    type="number"
-                    min={6}
-                    value={selected.paragraphs[0]?.runs[0]?.fontSize ?? 24}
-                    data-testid="design-font-size"
-                    onChange={(e) => {
-                      const fs = Math.max(6, Math.round(Number(e.target.value) || 24))
-                      mutate((s) => updateElement(s, selected.id, {
-                        paragraphs: selected.paragraphs.map((p) => ({ ...p, runs: p.runs.map((r) => ({ ...r, fontSize: fs })) }))
-                      }))
-                    }}
-                    className="fb-field w-full px-1.5 py-1"
-                  />
-                </Field>
-              </>
-            )}
-            {selected.type === 'image' && (
-              <button
-                onClick={() => void removeBgSelected()}
-                disabled={!!busy}
-                data-testid="design-remove-bg"
-                className="fb-btn-surface w-full mb-2 px-2 py-1.5 text-[12px] hover:border-accent disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
-              >
-                <Icon name="auto_awesome" size={14} /> Remove background
-              </button>
-            )}
-            <Field label={`Opacity ${Math.round((selected.opacity ?? 1) * 100)}%`}>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={Math.round((selected.opacity ?? 1) * 100)}
-                data-testid="design-opacity"
-                onChange={(e) => mutate((s) => updateElement(s, selected.id, { opacity: Math.max(0, Math.min(1, Number(e.target.value) / 100)) }))}
-                className="w-full accent-accent"
-              />
-            </Field>
-            <Field label="Rotation (deg)">
-              <input
-                type="number"
-                value={Math.round(selected.rotation ?? 0)}
-                data-testid="design-rotation"
-                onChange={(e) => mutate((s) => updateElement(s, selected.id, { rotation: Math.round(Number(e.target.value) || 0) }))}
-                className="fb-field w-full px-1.5 py-1"
-              />
-            </Field>
-
-            {/* ── Text wrap ───────────────────────────────────────────────── */}
-            <div className="mt-2 pt-2 border-t border-[var(--edge-soft)]" data-testid="design-wrap-controls">
-              <div className="text-[10px] uppercase tracking-wide text-[var(--ink-40)] mb-1.5">Text wrap</div>
-              <div className="flex gap-1">
-                {(
-                  [
-                    { mode: 'none' as const, icon: 'layers_clear', label: 'None — story text runs behind this' },
-                    { mode: 'square' as const, icon: 'wrap_text', label: 'Around the bounding box' }
-                  ]
-                ).map((opt) => {
-                  const on = (selected.wrap?.mode ?? 'none') === opt.mode
-                  return (
-                    <button
-                      key={opt.mode}
-                      onClick={() => mutate((sl) => updateElement(sl, selected.id, { wrap: { mode: opt.mode, offset: selected.wrap?.offset ?? 12 } }))}
-                      data-testid={`design-wrap-${opt.mode}`}
-                      title={opt.label}
-                      className={`fb-btn-surface flex-1 px-2 py-1 hover:bg-[var(--surface-sunken)] ${on ? 'border-accent text-accent' : ''}`}
-                    >
-                      <Icon name={opt.icon} size={14} />
-                    </button>
-                  )
-                })}
-              </div>
-              {selected.wrap?.mode === 'square' && (
-                <Field label="Standoff">
-                  <input
-                    type="number"
-                    min={0}
-                    value={Math.round(selected.wrap.offset ?? 12)}
-                    data-testid="design-wrap-offset"
-                    onChange={(e) =>
-                      mutate((sl) => updateElement(sl, selected.id, { wrap: { mode: 'square', offset: Math.max(0, Number(e.target.value) || 0) } }))
-                    }
-                    className="fb-field w-full px-1.5 py-1"
-                  />
-                </Field>
-              )}
-            </div>
-
-            {/* ── Threaded text ───────────────────────────────────────────── */}
-            {selected.type === 'text' && (
-              <div className="mt-2 pt-2 border-t border-[var(--edge-soft)]" data-testid="design-thread-controls">
-                <div className="text-[10px] uppercase tracking-wide text-[var(--ink-40)] mb-1.5">Story</div>
-                {selected.storyId ? (
-                  <>
-                    <p className="text-[10px] text-[var(--ink-40)] mb-1.5">
-                      Frame {selected.storyOrder ?? '?'} of a threaded story{selected.overset ? ' — this frame is full' : ''}.
-                    </p>
-                    <button
-                      onClick={() => {
-                        setTextEdit(null)
-                        setOpenStoryId(selected.storyId!)
-                      }}
-                      data-testid="design-open-story"
-                      className="fb-btn-surface w-full px-2 py-1 text-[11px] hover:border-accent inline-flex items-center justify-center gap-1"
-                    >
-                      <Icon name="edit_note" size={13} /> Edit the story
-                    </button>
-                    <div className="grid grid-cols-2 gap-1 mt-1.5">
-                      <label className="flex items-center gap-1">
-                        <span className="text-[10px] text-[var(--ink-50)]">Cols</span>
-                        <input
-                          type="number"
-                          min={1}
-                          max={6}
-                          value={design.columns?.count ?? 1}
-                          data-testid="design-story-columns"
-                          onChange={(e) =>
-                            patchLayout({ columns: { count: Math.max(1, Math.min(6, Number(e.target.value) || 1)), gutter: design.columns?.gutter ?? 16 } })
-                          }
-                          className="fb-field w-full min-w-0 px-1 py-0.5"
-                        />
-                      </label>
-                      <label className="flex items-center gap-1">
-                        <span className="text-[10px] text-[var(--ink-50)]">Look</span>
-                        <select
-                          value={design.layoutStyleId ?? 'editorial'}
-                          data-testid="design-story-style"
-                          onChange={(e) => patchLayout({ layoutStyleId: e.target.value })}
-                          className="fb-field w-full min-w-0 px-1 py-0.5"
-                        >
-                          {LAYOUT_STYLES.map((st) => (
-                            <option key={st.id} value={st.id}>
-                              {st.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-                    <button onClick={unlinkSelected} data-testid="design-unlink" className="fb-btn-surface w-full mt-1.5 px-2 py-1 text-[11px] hover:bg-[var(--surface-sunken)]">
-                      Unlink this frame
-                    </button>
-                  </>
-                ) : (
-                  <p className="text-[10px] text-[var(--ink-40)]">
-                    Select two or more text frames and choose <strong>Link frames</strong> to pour one story through them — or use{' '}
-                    <strong>Redesign</strong> to lay a whole document out at once.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {selectedTextFrames.length >= 2 && (
-              <button onClick={linkSelectedFrames} data-testid="design-link-frames" className="fb-btn-surface w-full mt-1.5 px-2 py-1 text-[11px] hover:bg-[var(--surface-sunken)]">
-                Link {selectedTextFrames.length} frames into one story
-              </button>
-            )}
-
-            {/* ── Layer ───────────────────────────────────────────────────── */}
-            {layers.length > 1 && (
-              <Field label="Layer">
-                <select
-                  value={selected.layerId ?? BASE_LAYER_ID}
-                  data-testid="design-element-layer"
-                  onChange={(e) => mutate((sl) => updateElement(sl, selected.id, { layerId: e.target.value === BASE_LAYER_ID ? undefined : e.target.value }))}
-                  className="fb-field w-full px-1.5 py-1"
-                >
-                  {layers.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            )}
-
-            {selectedIds.length > 1 && (
-              <div className="mt-2 pt-2 border-t border-[var(--edge-soft)]" data-testid="design-arrange">
-                <div className="text-[10px] uppercase tracking-wide text-[var(--ink-40)] mb-1.5">Arrange {selectedIds.length}</div>
-                <div className="grid grid-cols-6 gap-1">
-                  {([
-                    ['left', 'align_horizontal_left'],
-                    ['hcenter', 'align_horizontal_center'],
-                    ['right', 'align_horizontal_right'],
-                    ['top', 'align_vertical_top'],
-                    ['vcenter', 'align_vertical_center'],
-                    ['bottom', 'align_vertical_bottom']
-                  ] as [AlignEdge, string][]).map(([edge, icon]) => (
-                    <button key={edge} onClick={() => align(edge)} data-testid={`design-align-${edge}`} title={`Align ${edge}`} className="fb-btn-surface px-1.5 py-1 hover:bg-[var(--surface-sunken)]">
-                      <Icon name={icon} size={13} />
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-1 mt-1.5">
-                  <button onClick={() => distribute('h')} disabled={selectedIds.length < 3} className="fb-btn-surface flex-1 px-2 py-1 text-[11px] hover:bg-[var(--surface-sunken)] disabled:opacity-40">
-                    Distribute H
-                  </button>
-                  <button onClick={() => distribute('v')} disabled={selectedIds.length < 3} className="fb-btn-surface flex-1 px-2 py-1 text-[11px] hover:bg-[var(--surface-sunken)] disabled:opacity-40">
-                    Distribute V
-                  </button>
-                </div>
-                <div className="flex gap-1 mt-1.5">
-                  <button onClick={group} data-testid="design-group" className="fb-btn-surface flex-1 px-2 py-1 text-[11px] hover:bg-[var(--surface-sunken)]">
-                    Group
-                  </button>
-                  <button onClick={ungroup} className="fb-btn-surface flex-1 px-2 py-1 text-[11px] hover:bg-[var(--surface-sunken)]">
-                    Ungroup
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-1 mt-3">
-              <button onClick={() => mutate((s) => reorderZ(s, selected.id, 'forward'))} className="fb-btn-surface flex-1 px-2 py-1 hover:bg-[var(--surface-sunken)]" title="Bring forward">
-                <Icon name="flip_to_front" size={14} />
-              </button>
-              <button onClick={() => mutate((s) => reorderZ(s, selected.id, 'back'))} className="fb-btn-surface flex-1 px-2 py-1 hover:bg-[var(--surface-sunken)]" title="Send back">
-                <Icon name="flip_to_back" size={14} />
-              </button>
-              <button onClick={duplicateSelected} data-testid="design-duplicate" className="fb-btn-surface flex-1 px-2 py-1 hover:bg-[var(--surface-sunken)]" title="Duplicate (Cmd/Ctrl+D)">
-                <Icon name="content_copy" size={14} />
-              </button>
-              <button
-                onClick={deleteSelected}
-                data-testid="design-delete-element"
-                className="flex-1 px-2 py-1 rounded border border-red-300 dark:border-red-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
-                title="Delete (Del)"
-              >
-                <Icon name="delete" size={14} />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {!selected && (
-          <div className="w-56 shrink-0 border-l border-[var(--edge-soft)] p-3 text-[12px]" data-testid="design-canvas-inspector">
-            <div className="text-[10px] uppercase tracking-wide text-[var(--ink-40)] mb-2">Canvas</div>
-            <Field label="Background">
-              <ColorInput
-                value={design.background?.type === 'solid' ? design.background.color ?? '#ffffff' : '#ffffff'}
-                onChange={(c) => update({ background: { type: 'solid', color: c } })}
-                testid="design-bg-color"
-              />
-            </Field>
-            <p className="text-[11px] text-[var(--ink-40)] mt-2">Select an element to edit it, or use the toolbar to add one.</p>
-          </div>
-        )}
-
-        {aiPanelOpen && (
-          <DesignAiPanel
-            body={design}
-            selectedText={selectedTextValue}
-            onApplyText={applyAiText}
-            onInsertText={insertAiText}
-            userName={userName}
-            onCollapse={() => setAiPanelOpen(false)}
-          />
-        )}
-      </div>
+      </OfficeShellLayout>
 
       {brandOpen && <BrandKitModal onClose={() => setBrandOpen(false)} />}
 
@@ -2224,18 +1983,6 @@ function DesignThumb({ design, width }: { design: DesignBody; width: number }): 
   )
 }
 
-function ToolBtn({ icon, label, onClick, active, testid }: { icon: string; label: string; onClick: () => void; active?: boolean; testid?: string }): JSX.Element {
-  return (
-    <button
-      onClick={onClick}
-      data-testid={testid}
-      className={`inline-flex items-center gap-1 px-2 py-1.5 rounded-lg ${active ? 'bg-accent/10 text-accent' : 'hover:bg-[var(--surface-sunken)]'}`}
-    >
-      <Icon name={icon} size={15} /> <span>{label}</span>
-    </button>
-  )
-}
-
 /**
  * The content to seed the wizard with for a document that has a story but no
  * recorded source — an older layout, or one built by hand. Reading the story
@@ -2247,32 +1994,5 @@ function firstStoryContent(design: DesignBody): ContentDoc | undefined {
   return first && first.blocks.length ? first : undefined
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }): JSX.Element {
-  return (
-    <div className="px-3 py-2.5 border-b border-[var(--edge-soft)] bg-[var(--surface-sunken)]">
-      <div className="text-[11px] font-medium text-[var(--ink-70)] mb-1.5">{title}</div>
-      {children}
-    </div>
-  )
-}
 
-function Field({ label, children }: { label: string; children: React.ReactNode }): JSX.Element {
-  return (
-    <label className="block mb-2">
-      <span className="text-[11px] text-[var(--ink-50)]">{label}</span>
-      <div className="mt-1">{children}</div>
-    </label>
-  )
-}
 
-function ColorInput({ value, onChange, testid }: { value: string; onChange: (c: string) => void; testid?: string }): JSX.Element {
-  return (
-    <input
-      type="color"
-      value={value.startsWith('#') ? value : '#000000'}
-      data-testid={testid}
-      onChange={(e) => onChange(e.target.value)}
-      className="fb-field w-full h-7 cursor-pointer"
-    />
-  )
-}

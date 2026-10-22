@@ -95,6 +95,25 @@ const APPS: AppCase[] = [
     undo: 'slides-undo',
     page: 'slide-canvas',
     sidePane: { toggle: 'slides-sidepane-toggle', pane: 'slides-side-panel', content: 'slides-ai-assistant' }
+  },
+  {
+    name: 'PlexiiDesign',
+    docType: 'design',
+    shell: 'design-shell',
+    bar: 'design-toolbar',
+    rail: 'design-rail',
+    canvas: 'slide-canvas',
+    // The rail's bottom group opens the overlay panels; AI design is the one
+    // that needs no selection and no key, so it is the stable opener to drive.
+    panelOpener: 'design-ai-btn',
+    panel: 'design-panel-ai',
+    undo: 'design-undo',
+    // Design's bottom strip is the page rail; its add control is the furthest
+    // right thing in it, so it is what the Plexii pill would cover.
+    corner: 'design-page-add'
+    // sidePane: PlexiiAssist moves into the shared pane in the next chunk;
+    // until then it is still Design's own right-hand column, and claiming a
+    // ShellSidePane here would assert something that does not exist.
   }
 ]
 

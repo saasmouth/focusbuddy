@@ -798,3 +798,26 @@ export async function placeDesign(
     ...(drag ? { drag } : {})
   })
 }
+
+/**
+ * Show a ContextBar tab (office shell SPEC §2.3).
+ *
+ * Never clicks a tab that is already active: a second click on the active tab
+ * is a double-click, which collapses Row 2 (D5) and hides the very controls
+ * the caller is reaching for.
+ */
+export async function selectBarTab(window: Page, bar: string, tab: string): Promise<void> {
+  const el = window.locator(`[data-testid="${bar}-tab-${tab}"]`)
+  // Narrow windows fold trailing tabs into "More ▾" (SPEC §2.6), and which
+  // tabs fold changes as the active tab's controls change the row's width.
+  // A spec that assumes every tab is always on the strip passes on a wide
+  // window and fails on a narrow one, which is the worst kind of flake.
+  if (!(await el.isVisible().catch(() => false))) {
+    const more = window.locator(`[data-testid="${bar}-tab-more"]`)
+    if (await more.isVisible().catch(() => false)) await more.click()
+  }
+  await expect(el).toBeVisible({ timeout: 5_000 })
+  if ((await el.getAttribute('aria-selected')) === 'true') return
+  await el.click()
+  await expect(el).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 })
+}
