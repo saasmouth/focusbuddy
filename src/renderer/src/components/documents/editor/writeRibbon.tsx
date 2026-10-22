@@ -185,7 +185,7 @@ const insertTab: BarTab<WCtx> = {
       <BarSep />
       <BarButton icon="widgets" label="Insert work widget" onClick={c.insertWidget} />
       <BarSep />
-      <BarButton icon="description" label="Header and footer" onClick={() => c.togglePanel('headerfooter')} controls={shellPanelDomId('headerfooter')} />
+      <BarButton icon="web_asset" label="Header & footer" onClick={() => c.togglePanel('headerfooter')} controls={shellPanelDomId('headerfooter')} testid="doc-headerfooter-btn" />
     </>
   )
 }
@@ -341,6 +341,10 @@ export const WRITE_TABS: BarTab<WCtx>[] = [homeTab, insertTab, layoutTab, review
  * pinned to the bottom the way Diagrams pins its own.
  */
 export function writeRailItems(): RailItem<WCtx>[] {
+  // No Find item: the ContextBar's right slot carries Find & replace and is
+  // visible on every tab, so a rail copy only duplicates the accessible name —
+  // DE-1 looks that control up by name and a second one is a strict-mode
+  // violation. Write had exactly one find button before the conversion.
   return [
     {
       id: 'styles',
@@ -372,18 +376,6 @@ export function writeRailItems(): RailItem<WCtx>[] {
       hidden: (c) => !c.pageView,
       onSelect: (c) => c.togglePanel('margins'),
       testid: 'doc-toggle-margins'
-    },
-    {
-      id: 'find',
-      label: 'Find & replace',
-      icon: 'search',
-      kind: 'action',
-      group: 1,
-      order: 0,
-      shortcut: '⌘F',
-      readOnlySafe: true,
-      onSelect: (c) => c.openDialog('find'),
-      testid: 'doc-rail-find'
     },
     {
       id: 'office',

@@ -731,3 +731,18 @@ export async function showDocPane(window: Page, pane: 'outline' | 'comments' | '
   const tab = window.locator(`[data-testid="doc-tab-${pane}"]`)
   if ((await tab.getAttribute('aria-selected')) !== 'true') await tab.click()
 }
+
+/**
+ * Show Write's Styles panel, whatever state it is in.
+ *
+ * `doc-styles-btn` toggles the panel, so pressing it blind depends on whether
+ * the panel was already open — and picking a style from it does not close it,
+ * so a spec that opens it, picks a row, then presses the button again to "open"
+ * it is actually closing it. This opens only when it is closed.
+ */
+export async function showDocStyles(window: Page): Promise<void> {
+  const panel = window.locator('[data-testid="doc-styles-panel"]')
+  if (await panel.isVisible().catch(() => false)) return
+  await window.locator('[data-testid="doc-styles-btn"]').click()
+  await expect(panel).toBeVisible({ timeout: 5_000 })
+}

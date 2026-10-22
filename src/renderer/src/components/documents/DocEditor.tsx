@@ -899,6 +899,12 @@ export default function DocEditor({
         // Focus mode keeps its calm single column: no rail, no tabs, no panes.
         <div className="relative flex-1 min-w-0 overflow-auto">{docBody}</div>
       ) : (
+        // `flex-1 min-w-0` matters and is not decoration: the outer element is a
+        // flex ROW, so without min-w-0 this item will not shrink below its
+        // content's min-content width. Embedded in a 480px desk widget the whole
+        // shell then rendered at ~1162px and the bar overflowed the widget. The
+        // scroll container this replaced carried exactly these two classes.
+        <div className="flex-1 min-w-0 h-full">
         <WriteChrome
           editor={editor}
           readOnly={false}
@@ -937,7 +943,15 @@ export default function DocEditor({
           showRuler={showRuler}
           onSetShowRuler={() => toggleRuler()}
           suggesting={suggesting}
-          onSetSuggesting={setSuggesting}
+          onSetSuggesting={(next) => {
+            // Suggesting is three things, not one: the React flag the bar reads,
+            // the author/colour the marks are attributed to, and the editor
+            // command that actually starts recording. Setting only the flag made
+            // the control look armed while nothing was tracked.
+            setSuggesting(next)
+            editor?.commands.setTrackUser({ author: userName || user?.name || 'You', color: user?.color || '#2563eb' })
+            editor?.commands.setSuggesting(next)
+          }}
           hasTracked={hasTracked}
           onAcceptAll={() => editor?.commands.acceptAllChanges()}
           onRejectAll={() => editor?.commands.rejectAllChanges()}
@@ -988,6 +1002,7 @@ export default function DocEditor({
               the conversion. */}
           <div className="relative h-full overflow-auto">{docBody}</div>
         </WriteChrome>
+        </div>
       )}
 
       {widgetPickerOpen && (

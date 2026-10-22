@@ -26,7 +26,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, gotoView, selectBarTab } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, gotoView, selectBarTab, showDocStyles } from './_helpers'
 
 // ── Shared navigation helpers ─────────────────────────────────────────────────
 
@@ -184,15 +184,13 @@ test('DE-2 — toolbar formatting: bold, italic, underline, heading, bullet list
     await expect(surface).toContainText('Format me')
 
     // Heading 2 via the Styles panel (row-2 = "Heading 1" which maps to h2).
-    await window.locator('[data-testid="doc-styles-btn"]').click()
-    await expect(window.locator('[data-testid="doc-styles-panel"]')).toBeVisible({ timeout: 3_000 })
+    await showDocStyles(window)
     await window.locator('[data-testid="doc-styles-panel"] [data-testid="doc-style-row-2"] button').first().click()
     await window.waitForTimeout(300)
     await expect(surface.locator('h2').first()).toContainText('Format me')
 
     // Back to Normal text via the Styles panel.
-    await window.locator('[data-testid="doc-styles-btn"]').click()
-    await expect(window.locator('[data-testid="doc-styles-panel"]')).toBeVisible({ timeout: 3_000 })
+    await showDocStyles(window)
     await window.locator('[data-testid="doc-styles-panel"] [data-testid="doc-style-row-0"]').click()
     await window.waitForTimeout(300)
     await expect(surface.locator('p').first()).toContainText('Format me')
@@ -818,8 +816,14 @@ test('DE-10 — persistence: edit flows to saveBody and survives re-open', async
     })
 
     // Re-open via Recent
-    await expect(window.locator('text=Untitled document').first()).toBeVisible({ timeout: 5_000 })
-    await window.locator('text=Untitled document').first().click()
+    // The Recent card shows the name the document derived from its own content
+    // (titleBackfill + shared/titles.ts), not "Untitled document". Scoped to the
+    // card, because the save also raises a toast carrying the same name.
+    const recent = window
+      .locator('[data-testid="doc-recent-card"]')
+      .filter({ hasText: 'Persisted content for reload test' })
+    await expect(recent.first()).toBeVisible({ timeout: 5_000 })
+    await recent.first().click()
 
     const reloadedSurface = window.locator('[data-testid="doc-editor-surface"]')
     await reloadedSurface.waitFor({ state: 'visible', timeout: 8_000 })

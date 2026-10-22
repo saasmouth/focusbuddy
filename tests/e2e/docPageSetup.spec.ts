@@ -211,14 +211,12 @@ test('DPS-3 — margins: preset Narrow sets 0.5 all sides; custom top=1.5 update
 
     // Apply Narrow preset (0.5" all sides).
     await menu.locator('[data-testid="doc-margin-preset-narrow"]').click()
-    // The preset click fires onPick but not onClose. The backdrop overlay
-    // (fixed inset-0 z-30) stays visible. Close it by clicking the backdrop
-    // itself (its onClick is onClose) via evaluate, bypassing the z-stack.
+    // Picking a preset applies it and leaves the panel open, so close it
+    // explicitly. The margins form is a ShellPanel on the office shell, which
+    // owns its own close control — it is no longer a popover over a
+    // `fixed inset-0 z-30` scrim, which is what this used to click.
     await window.waitForTimeout(300)
-    await window.evaluate(() => {
-      const backdrop = document.querySelector('.fixed.inset-0.z-30') as HTMLElement | null
-      backdrop?.click()
-    })
+    await window.locator('[data-testid="doc-panel-margins-close"]').click()
     await expect(menu).not.toBeVisible({ timeout: 3_000 })
 
     // Verify saved body has the narrow preset margins.
@@ -240,11 +238,8 @@ test('DPS-3 — margins: preset Narrow sets 0.5 all sides; custom top=1.5 update
     await topInput.press('Tab')
     await window.waitForTimeout(400)
 
-    // Close the menu via the backdrop (same reason as above).
-    await window.evaluate(() => {
-      const backdrop = document.querySelector('.fixed.inset-0.z-30') as HTMLElement | null
-      backdrop?.click()
-    })
+    // Close the panel by its own control (same reason as above).
+    await window.locator('[data-testid="doc-panel-margins-close"]').click()
     await expect(menu).not.toBeVisible({ timeout: 3_000 })
 
     // Saved body.page.margin.top must be 1.5.

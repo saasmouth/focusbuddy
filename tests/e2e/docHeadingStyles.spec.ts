@@ -295,7 +295,9 @@ test('DHS-4 — named H2 style wins over prior inline font-size on heading text'
     // Apply an inline font size of 12px to the heading text via the toolbar Size
     // dropdown. This creates a <span style="font-size:12px"> inside the <h2>.
     await selectAll(window)
-    await window.locator('select[title="Font size"]').selectOption('12')
+    // The shell's bar fields expose their name through aria-label, not a title
+    // attribute, so address this one by role and name.
+    await window.getByRole('combobox', { name: 'Font size' }).selectOption('12')
     await window.waitForTimeout(300)
 
     // Now set the H2 named style size to 40 in the Styles panel.
@@ -376,8 +378,15 @@ test('DHS-5 — headingStyles persist after autosave; H2 still styled at 36px on
       timeout: 5_000
     })
 
-    // Re-open the document.
-    await window.locator('text=Untitled document').first().click()
+    // Re-open the document. The Recent card shows the title the document derived
+    // from its own content (titleBackfill + shared/titles.ts), not "Untitled
+    // document"; scoped to the card because the save also raises a toast with
+    // the same name.
+    await window
+      .locator('[data-testid="doc-recent-card"]')
+      .filter({ hasText: 'Persisted heading' })
+      .first()
+      .click()
     const reloadedSurface = window.locator('[data-testid="doc-editor-surface"]')
     await expect(reloadedSurface).toBeVisible({ timeout: 8_000 })
     await expect(reloadedSurface).toContainText('Persisted heading', { timeout: 5_000 })
