@@ -26,9 +26,18 @@ export interface RenderedMentions {
   admitted: Map<string, { chars: number; truncated: boolean }>
 }
 
-export function renderMentions(resolved: readonly ResolvedMention[]): RenderedMentions {
+/** Characters of the block's own wording and each item's header (for budgeting). */
+export const MENTIONS_FRAME_CHARS = 600
+export const MENTION_ITEM_FRAME_CHARS = 160
+
+// `total` is the character budget for the referenced text: the cloud default,
+// or a smaller one when the prompt has to fit the on-device model's window.
+// A reference that gets no room is not admitted, so the report the renderer
+// receives (and the chip) never claims it was read.
+export function renderMentions(resolved: readonly ResolvedMention[], total = TOTAL): RenderedMentions {
   const admitted = new Map<string, { chars: number; truncated: boolean }>()
   if (resolved.length === 0) return { block: '', admitted }
+  const budget = Math.min(TOTAL, Math.max(0, total))
 
   let used = 0
   const blocks: string[] = []
@@ -37,7 +46,7 @@ export function renderMentions(resolved: readonly ResolvedMention[]): RenderedMe
     // Unresolved: no block, no admission, and therefore no claim anywhere. The
     // reason travels back to the renderer instead, which marks the chip broken.
     if (!text) continue
-    const room = TOTAL - used
+    const room = budget - used
     if (room <= 0) break
     const slice = text.slice(0, room)
     // Truncation can happen in TWO places: the resolver's own per-reference cap

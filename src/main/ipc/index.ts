@@ -161,6 +161,7 @@ import {
   resetConnection as resetMailConnection, archiveMessage,
   listMailboxes, createMailbox, moveMessage, trashMessage, junkMessage } from '../mail/imap'
 import { triageInbox, liveTriageDeps, TRIAGE_BATCH } from '../ai/mailTriage'
+import { contextWindowError } from '../ai/promptFit'
 import { isUsableCategoryName } from '@shared/mailTriage'
 // NOTE: mail-OAuth wiring temporarily reverted for the 4.1.1 release. The
 // ../mail/oauth and ../mail/oauthProviders modules, explainImapError, and the
@@ -4497,7 +4498,7 @@ export function registerIpcHandlers(): void {
         return { ok: false, error: 'Claude declined this request. Try rephrasing or breaking it into smaller steps.' }
       }
       if ((response.stop_reason as string) === 'model_context_window_exceeded') {
-        return { ok: false, error: 'Conversation hit the model context window. Start a fresh session.' }
+        return { ok: false, error: contextWindowError(0) }
       }
       return { ok: true, model: response.model }
     } catch (err) {

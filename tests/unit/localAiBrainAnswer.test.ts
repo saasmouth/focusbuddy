@@ -150,7 +150,11 @@ describe('the owner\'s case, replayed from the captured model output', () => {
     expect(r.error).toBeUndefined()
     expect(r.complete?.ok).toBe(true)
     const final = JSON.parse(c.retry!.text) as { reply: string }
-    expect(r.complete?.message?.content).toBe(final.reply.trim())
+    // The retry's reply, whole; then, because fifteen long handbooks do not all
+    // fit a 16k-token window, the line saying what was left out (promptFit).
+    const content = r.complete?.message?.content ?? ''
+    expect(content.startsWith(final.reply.trim())).toBe(true)
+    expect(content.slice(final.reply.trim().length)).toMatch(/^\n\n\*Not everything was read: .* matching workspace items were left out\./)
   })
 
   it('a prompt that does not fit at all: no retry, and the message says so plainly', async () => {
