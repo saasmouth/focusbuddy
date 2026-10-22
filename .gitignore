@@ -69,3 +69,7 @@ release-local/
 
 # On-device AI model weights: build input staged by scripts/fetch-bundled-models.mjs (never committed)
 resources/models/
+
+# Stray compiler output: a bare `tsc` without --noEmit writes a .jsx/.js twin beside
+# every .tsx. The source tree has no real .jsx files, so never track one here.
+src/**/*.jsx
