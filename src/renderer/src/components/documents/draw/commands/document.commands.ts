@@ -1,12 +1,11 @@
 // Document menu: artboard size (with an anchor), background, meeting.
 
 import { solid } from '@shared/draw'
-import { assetSrc, putAsset } from '@shared/draw/assets'
 import type { DrawDocPaint } from '@shared/draw/model'
-import { artboardResizeOffset, primaryArtboard, rasterArtboard, resizeArtboard, setArtboardBackground, type ArtboardAnchor } from '@shared/draw/ops'
+import { applyPaintFollow, artboardResizeOffset, planPaintFollow, primaryArtboard, resizeArtboard, setArtboardBackground, type ArtboardAnchor } from '@shared/draw/ops'
+import { relayPaint } from '../editor/artboards'
 import { launchMeeting } from '../../../../lib/startMeeting'
 import { useDocumentsStore } from '../../../../stores/documents'
-import * as raster from '../raster'
 import type { Command, EditorCtx, MenuSpec } from '../editor/types'
 
 const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
@@ -17,41 +16,32 @@ export const menus: MenuSpec[] = [
 ]
 
 /**
- * Resize the artboard, pinned at `anchor`. Vector art moves by the anchor
- * offset; each paint layer's pixels are re-laid onto a canvas of the new size
- * at 1:1 first, so nothing is stretched. One undo step.
+ * Resize the artboard, pinned at `anchor`. With one artboard the vector art
+ * moves by the anchor offset; with several the artboard moves instead and
+ * the art stays. The artboard's page-sized paint layers (ops/artboards.ts
+ * planPaintFollow) are re-laid onto a canvas of the new size at 1:1, moving
+ * with the art, so nothing is stretched. One undo step.
  */
 export async function resizeArtboardTo(ctx: EditorCtx, w: number, h: number, anchor: ArtboardAnchor): Promise<void> {
   const doc = ctx.doc()
   const board = primaryArtboard(doc)
   if (ctx.get().readOnly || (w === board.w && h === board.h)) return
   const { dx, dy } = artboardResizeOffset({ w: board.w, h: board.h }, { w, h }, anchor)
-  const relaid: Record<string, string> = {}
-  // Paint layers are pictures of the first page: only resizing THAT artboard
-  // re-lays them. With several artboards the page moves rather than the art,
-  // so the pixels stay where they are (offset 0).
-  const paintsHere = rasterArtboard(doc).id === board.id
-  const multi = doc.artboards.length > 1
-  const painted = paintsHere ? doc.layers.filter((l) => l.kind === 'raster' && assetSrc(doc.assets, l.assetId)) : []
-  if (painted.length) ctx.busy('Resizing…')
+  // With several artboards the page moves rather than the art, so the pixels stay put.
+  const shift = doc.artboards.length > 1 ? { dx: 0, dy: 0 } : { dx, dy }
+  const sized = resizeArtboard(doc, w, h, anchor)
+  const after = sized.artboards.find((a) => a.id === board.id)!
+  const plans = planPaintFollow(doc, board, after, shift)
+  if (plans.length) ctx.busy('Resizing…')
   try {
-    for (const l of painted) {
-      if (l.kind !== 'raster') continue
-      relaid[l.id] = await raster.reframeRaster(assetSrc(doc.assets, l.assetId) ?? '', { w: board.w, h: board.h }, { w, h }, multi ? 0 : dx, multi ? 0 : dy)
-    }
+    const { ids, assets } = await relayPaint(ctx, plans)
+    // Built from the CURRENT document: anything committed while the pixels
+    // were being re-laid is kept.
+    const now = resizeArtboard(ctx.doc(), w, h, anchor)
+    ctx.history.commit(applyPaintFollow({ ...now, assets: { ...now.assets, ...assets } }, plans, ids), 'Artboard size')
   } finally {
-    if (painted.length) ctx.busy(null)
+    if (plans.length) ctx.busy(null)
   }
-  // Built from the CURRENT document: anything committed while the pixels were
-  // being re-laid is kept.
-  let assets = ctx.doc().assets
-  const ids: Record<string, string | undefined> = {}
-  for (const [layerId, src] of Object.entries(relaid)) {
-    const put = putAsset(assets, src)
-    assets = put.assets
-    ids[layerId] = put.id
-  }
-  ctx.history.commit(resizeArtboard(ctx.doc(), w, h, anchor, ids, assets), 'Artboard size')
 }
 
 const BACKGROUNDS: Array<{ id: string; label: string; paint: DrawDocPaint }> = [

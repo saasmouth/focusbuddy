@@ -4,7 +4,7 @@
 
 import type { DrawBody } from '@shared/draw'
 import type { Box } from '@shared/drawGeometry'
-import { artboardsBounds, primaryArtboard, rasterFrame } from '@shared/draw/ops'
+import { artboardsBounds, primaryArtboard, rasterFrame, rasterLayerFrame } from '@shared/draw/ops'
 import type { LiveUndo } from '../../../../lib/yjsKeyedJson'
 import { fontShorthand, layoutText } from '../textMeasure'
 import { clampZoom } from '../viewport'
@@ -68,10 +68,12 @@ export function createDomServices(refs: StudioRefs, store: () => { getState(): E
       canvases: refs.canvases,
       loaded: refs.loaded,
       scratch: refs.scratch,
-      // Paint layers are pictures of the first page (rasterFrame), whichever artboard is active.
-      size: () => {
-        const b = rasterFrame(doc())
-        return { w: b.w, h: b.h }
+      // Each paint layer's pixels lie in its own frame (the first page at the
+      // origin unless it has followed an artboard), whichever artboard is active.
+      frame: (layerId) => {
+        const d = doc()
+        const l = layerId ? d.layers.find((x) => x.id === layerId) : undefined
+        return l ? rasterLayerFrame(d, l) : rasterFrame(d)
       }
     }),
     text: {

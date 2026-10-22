@@ -2,7 +2,7 @@
 // raster half of Merge down need real pixels, so they render on a canvas.
 
 import { putAsset, assetSrc } from '@shared/draw/assets'
-import type { DrawDoc, DrawDocLayer } from '@shared/draw/model'
+import type { Box, DrawDoc, DrawDocLayer } from '@shared/draw/model'
 import {
   addLayer,
   duplicateLayer,
@@ -11,6 +11,7 @@ import {
   patchLayer,
   rasterArtboard,
   rasterFrame,
+  rasterLayerFrame,
   rasterLayerV2,
   removeLayer,
   vectorLayerV2,
@@ -31,10 +32,10 @@ export function addLayerOfKind(ctx: EditorCtx, kind: 'vector' | 'raster'): void 
   ctx.history.commit(addLayer(doc, layer, doc.activeLayerId), kind === 'vector' ? 'New layer' : 'New paint layer')
 }
 
-/** The document with only `layer`, at full strength, on a transparent page -- for flattening it. */
-function isolated(doc: DrawDoc, layer: DrawDocLayer): DrawDoc {
-  // Framed on the paint layers' own frame (the first page, at the origin).
-  const board = { ...rasterArtboard(doc), ...rasterFrame(doc) }
+/** The document with only `layer`, at full strength, on a transparent page framed on `frame` -- for flattening it. */
+function isolated(doc: DrawDoc, layer: DrawDocLayer, frame: Box = rasterFrame(doc)): DrawDoc {
+  // Framed on a paint layer's frame (by default the first page, at the origin).
+  const board = { ...rasterArtboard(doc), ...frame }
   return {
     ...doc,
     artboards: [{ ...board, background: { type: 'none' } }],
@@ -75,16 +76,22 @@ export async function mergeDown(ctx: EditorCtx, layerId: string): Promise<void> 
     ctx.history.commit(mergeVectorLayerDown(doc, layerId), 'Merge down')
     return
   }
-  const board = rasterFrame(doc)
+  // The merged pixels keep the lower paint layer's frame (or the upper one's
+  // when only that is paint): each layer is drawn where it lies.
+  const board = lower.kind === 'raster' ? rasterLayerFrame(doc, lower) : rasterLayerFrame(doc, upper)
   ctx.busy('Merging…')
   try {
     const render = async (layer: DrawDocLayer): Promise<HTMLCanvasElement> => {
       if (layer.kind === 'raster') {
+        const f = rasterLayerFrame(doc, layer)
+        const own = raster.createCanvas(f.w, f.h)
+        await raster.loadIntoCanvas(own, assetSrc(doc.assets, layer.assetId) ?? '')
+        if (f.x === board.x && f.y === board.y && f.w === board.w && f.h === board.h) return own
         const c = raster.createCanvas(board.w, board.h)
-        await raster.loadIntoCanvas(c, assetSrc(doc.assets, layer.assetId) ?? '')
+        raster.context(c).drawImage(own, f.x - board.x, f.y - board.y)
         return c
       }
-      return raster.svgToCanvas(drawDocToSvg(isolated(doc, layer)), board.w, board.h)
+      return raster.svgToCanvas(drawDocToSvg(isolated(doc, layer, board)), board.w, board.h)
     }
     const lowerCanvas = await render(lower)
     const upperCanvas = await render(upper)
@@ -92,7 +99,9 @@ export async function mergeDown(ctx: EditorCtx, layerId: string): Promise<void> 
     // picture is unchanged; only the upper layer is baked in.
     raster.compositeOnto(lowerCanvas, upperCanvas, upper.opacity, upper.blend)
     const put = putAsset(ctx.doc().assets, raster.canvasToDataUrl(lowerCanvas))
-    const merged = { ...rasterLayerV2(lower.name), assetId: put.id, opacity: lower.opacity, blend: lower.blend }
+    const legacy = rasterFrame(doc)
+    const sameAsLegacy = board.x === legacy.x && board.y === legacy.y && board.w === legacy.w && board.h === legacy.h
+    const merged = { ...rasterLayerV2(lower.name), assetId: put.id, opacity: lower.opacity, blend: lower.blend, ...(sameAsLegacy ? {} : { frame: board }) }
     let next = addLayer({ ...ctx.doc(), assets: put.assets }, merged, lower.id)
     next = removeLayer(next, upper.id)
     next = removeLayer(next, lower.id)

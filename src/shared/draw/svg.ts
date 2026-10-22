@@ -17,7 +17,7 @@ import { safeCssColor } from '../cssColor'
 import { assetSrc } from './assets'
 import { esc, fixed, isNum, num } from './markup'
 import { clipGroupParts } from './ops/masks'
-import { artboardsBounds, rasterFrame } from './ops/artboards'
+import { artboardsBounds, rasterLayerFrame } from './ops/artboards'
 import { clipGroupMarkup, clipPathMarkup } from './svg/masks'
 import type {
   DrawArtboard,
@@ -289,9 +289,10 @@ function layerSvg(doc: DrawDoc, l: DrawDocLayer, defs: string[]): string {
   if (l.kind === 'raster') {
     const src = assetSrc(doc.assets, l.assetId)
     if (!src) return ''
-    // A paint layer is a picture of the first page, anchored at the origin
-    // (rasterFrame) -- on every artboard and in every export frame.
-    const f = rasterFrame(doc)
+    // A paint layer's pixels lie in its own frame (rasterLayerFrame: the first
+    // page at the origin unless it has followed an artboard) -- one picture,
+    // drawn wherever it is, in every export frame.
+    const f = rasterLayerFrame(doc, l)
     return `<g${style}><image href="${esc(src)}" x="${num(f.x)}" y="${num(f.y)}" width="${num(f.w)}" height="${num(f.h)}" preserveAspectRatio="none"/></g>`
   }
   // A template layer is a tracing aid: shown dimmed in the editor, never exported.

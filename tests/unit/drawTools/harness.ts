@@ -15,6 +15,7 @@ import { estimateWrap, solid } from '../../../src/shared/draw'
 import type { Pt } from '../../../src/shared/drawGeometry'
 import type { DrawDoc, DrawNode } from '../../../src/shared/draw/model'
 import { vectorLayersOf } from '../../../src/shared/draw/tree'
+import { rasterFrame, rasterLayerFrame } from '../../../src/shared/draw/ops'
 import { stampsForDot, stampsForSegment, type BrushSettings, type StrokePoint } from '../../../src/renderer/src/components/documents/draw/brushes'
 import { floodFillPixels, parseHex, toHex } from '../../../src/renderer/src/components/documents/draw/raster'
 import { createDrawEditor, type DrawEditor } from '../../../src/renderer/src/components/documents/draw/editor/editor'
@@ -25,14 +26,30 @@ import { LIVE_V1_PEER_REASON } from '../../../src/renderer/src/components/docume
 export class FakeRaster implements RasterService {
   buffers = new Map<string, Uint8ClampedArray>()
   scratch: Uint8ClampedArray | null = null
+  /** The frame of the stroke in progress (its layer's). */
+  strokeFrame = { x: 0, y: 0, w: 0, h: 0 }
   /** Layers whose surface is "not mounted yet". */
   unmounted = new Set<string>()
   invalidations = 0
-  constructor(private size: () => { w: number; h: number }) {}
+  /** Every reframe asked for, in order. */
+  reframes: Array<{ src: string; from: { w: number; h: number }; to: { w: number; h: number }; dx: number; dy: number }> = []
+  /** Sources the fake "cannot decode" (reframe hands them back untouched). */
+  undecodable = new Set<string>()
+  /**
+   * `frame` is a paint layer's frame in document space (its pixel size and
+   * where it lies); without an id, the default frame. Points reach the fake
+   * in document space, as they reach the real service.
+   */
+  constructor(private frame: (layerId?: string) => { x: number; y: number; w: number; h: number }) {}
+
+  private size(layerId?: string): { w: number; h: number } {
+    const f = this.frame(layerId)
+    return { w: f.w, h: f.h }
+  }
 
   buffer(layerId: string): Uint8ClampedArray {
     let b = this.buffers.get(layerId)
-    const { w, h } = this.size()
+    const { w, h } = this.size(layerId)
     if (!b || b.length !== w * h * 4) {
       b = new Uint8ClampedArray(w * h * 4)
       this.buffers.set(layerId, b)
@@ -48,19 +65,22 @@ export class FakeRaster implements RasterService {
     return n
   }
 
+  /** Set a pixel by its position in the LAYER's own pixels. */
   setPixel(layerId: string, x: number, y: number, rgba: [number, number, number, number]): void {
-    const { w } = this.size()
+    const { w } = this.size(layerId)
     const b = this.buffer(layerId)
     b.set(rgba, (y * w + x) * 4)
   }
 
   private stamp(target: Uint8ClampedArray, s: { x: number; y: number; rx: number; ry: number; alpha: number }, color: string): void {
-    const { w, h } = this.size()
+    const { w, h } = this.strokeFrame
     const rgb = parseHex(color) ?? { r: 0, g: 0, b: 0 }
     const r = Math.max(s.rx, s.ry)
-    for (let y = Math.max(0, Math.floor(s.y - r)); y <= Math.min(h - 1, Math.ceil(s.y + r)); y++) {
-      for (let x = Math.max(0, Math.floor(s.x - r)); x <= Math.min(w - 1, Math.ceil(s.x + r)); x++) {
-        if ((x - s.x) ** 2 + (y - s.y) ** 2 > r * r) continue
+    const cx = s.x - this.strokeFrame.x
+    const cy = s.y - this.strokeFrame.y
+    for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(h - 1, Math.ceil(cy + r)); y++) {
+      for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(w - 1, Math.ceil(cx + r)); x++) {
+        if ((x - cx) ** 2 + (y - cy) ** 2 > r * r) continue
         const i = (y * w + x) * 4
         target[i] = rgb.r
         target[i + 1] = rgb.g
@@ -76,12 +96,12 @@ export class FakeRaster implements RasterService {
   floodFill(layerId: string, p: Pt, color: string, tolerance: number): boolean {
     const rgb = parseHex(color)
     if (!rgb) return false
-    const { w, h } = this.size()
-    return floodFillPixels(this.buffer(layerId), w, h, Math.floor(p.x), Math.floor(p.y), [rgb.r, rgb.g, rgb.b, 255], tolerance)
+    const f = this.frame(layerId)
+    return floodFillPixels(this.buffer(layerId), f.w, f.h, Math.floor(p.x - f.x), Math.floor(p.y - f.y), [rgb.r, rgb.g, rgb.b, 255], tolerance)
   }
-  beginStroke(p: StrokePoint, brush: BrushSettings): void {
-    const { w, h } = this.size()
-    this.scratch = new Uint8ClampedArray(w * h * 4)
+  beginStroke(p: StrokePoint, brush: BrushSettings, layerId?: string): void {
+    this.strokeFrame = { ...this.frame(layerId) }
+    this.scratch = new Uint8ClampedArray(this.strokeFrame.w * this.strokeFrame.h * 4)
     for (const s of stampsForDot(p, brush)) this.stamp(this.scratch, s, brush.color)
   }
   strokeTo(from: StrokePoint, to: StrokePoint, brush: BrushSettings): void {
@@ -92,6 +112,7 @@ export class FakeRaster implements RasterService {
     const sc = this.scratch
     if (!sc || !this.hasSurface(layerId)) return false
     const b = this.buffer(layerId)
+    if (b.length !== sc.length) return false
     const k = Math.max(0, Math.min(1, brush.opacity))
     for (let i = 0; i < sc.length; i += 4) {
       const a = (sc[i + 3] / 255) * k
@@ -108,12 +129,12 @@ export class FakeRaster implements RasterService {
     return true
   }
   sample(layerId: string, p: Pt): string | null {
-    const { w, h } = this.size()
-    const x = Math.floor(p.x)
-    const y = Math.floor(p.y)
-    if (x < 0 || y < 0 || x >= w || y >= h) return null
+    const f = this.frame(layerId)
+    const x = Math.floor(p.x - f.x)
+    const y = Math.floor(p.y - f.y)
+    if (x < 0 || y < 0 || x >= f.w || y >= f.h) return null
     const b = this.buffer(layerId)
-    const i = (y * w + x) * 4
+    const i = (y * f.w + x) * 4
     return b[i + 3] === 0 ? null : toHex(b[i], b[i + 1], b[i + 2])
   }
   snapshot(layerId: string): string {
@@ -121,6 +142,12 @@ export class FakeRaster implements RasterService {
   }
   invalidate(): void {
     this.invalidations += 1
+  }
+  /** A stand-in re-lay: a distinct, valid data URL naming what was asked for (the fake decodes nothing). */
+  async reframe(src: string, from: { w: number; h: number }, to: { w: number; h: number }, dx: number, dy: number): Promise<string> {
+    this.reframes.push({ src, from, to, dx, dy })
+    if (this.undecodable.has(src)) return src
+    return `data:image/png;base64,${Buffer.from(`relaid:${to.w}x${to.h}@${dx},${dy}:${src.length}`).toString('base64')}`
   }
 }
 
@@ -191,9 +218,10 @@ export function harness(
   const scroll = { left: 0, top: 0 }
   // The fake raster needs the artboard size; the editor exists by the time it asks.
   const holder: { ed?: DrawEditor } = {}
-  const raster = new FakeRaster(() => {
-    const b = holder.ed!.store.getState().doc.artboards[0]
-    return { w: b.w, h: b.h }
+  const raster = new FakeRaster((layerId) => {
+    const d = holder.ed!.store.getState().doc
+    const l = layerId ? d.layers.find((x) => x.id === layerId) : undefined
+    return l ? rasterLayerFrame(d, l) : rasterFrame(d)
   })
   const ed = createDrawEditor(content, {
     raster,

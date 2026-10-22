@@ -14,37 +14,49 @@ export interface CanvasRasterRefs {
   loaded: Map<string, string>
   /** The scratch surface for the stroke in progress. */
   scratch: { current: HTMLCanvasElement | null }
-  /** The artboard's pixel size. */
-  size(): { w: number; h: number }
+  /** A paint layer's frame in document space (its pixels' size and where they lie); the default frame without an id. */
+  frame(layerId?: string): { x: number; y: number; w: number; h: number }
 }
 
 export function createCanvasRaster(refs: CanvasRasterRefs): RasterService {
-  /** The scratch surface, sized to the artboard. Created once, reused per stroke. */
-  function ensureScratch(): HTMLCanvasElement {
-    const { w, h } = refs.size()
+  /** The frame of the stroke in progress: scratch pixels are in that layer's own coordinates. */
+  let strokeOrigin = { x: 0, y: 0 }
+
+  /** The scratch surface, sized to the layer being painted. Created once, reused per stroke. */
+  function ensureScratch(layerId?: string): HTMLCanvasElement {
+    const f = refs.frame(layerId)
+    strokeOrigin = { x: f.x, y: f.y }
     let c = refs.scratch.current
-    if (!c || c.width !== w || c.height !== h) {
-      c = raster.createCanvas(w, h)
+    if (!c || c.width !== f.w || c.height !== f.h) {
+      c = raster.createCanvas(f.w, f.h)
       refs.scratch.current = c
     }
     return c
   }
 
+  /** A document point in a layer's own pixel coordinates. */
+  const local = <P extends Pt>(layerId: string, p: P): P => {
+    const f = refs.frame(layerId)
+    return { ...p, x: p.x - f.x, y: p.y - f.y }
+  }
+  const inStroke = <P extends Pt>(p: P): P => ({ ...p, x: p.x - strokeOrigin.x, y: p.y - strokeOrigin.y })
+
   return {
     hasSurface: (layerId) => refs.canvases.has(layerId),
     floodFill(layerId, p: Pt, color, tolerance) {
       const canvas = refs.canvases.get(layerId)
-      return canvas ? raster.floodFill(canvas, p.x, p.y, color, tolerance) : false
+      const q = local(layerId, p)
+      return canvas ? raster.floodFill(canvas, q.x, q.y, color, tolerance) : false
     },
-    beginStroke(p: StrokePoint, brush: BrushSettings) {
-      const scratch = ensureScratch()
+    beginStroke(p: StrokePoint, brush: BrushSettings, layerId?: string) {
+      const scratch = ensureScratch(layerId)
       raster.clearCanvas(scratch)
-      raster.paintDot(raster.context(scratch), p, brush)
+      raster.paintDot(raster.context(scratch), inStroke(p), brush)
     },
     strokeTo(from, to, brush) {
       const scratch = refs.scratch.current
       if (!scratch) return
-      raster.paintSegment(raster.context(scratch), from, to, brush)
+      raster.paintSegment(raster.context(scratch), inStroke(from), inStroke(to), brush)
     },
     endStroke(layerId, brush, erase) {
       const scratch = refs.scratch.current
@@ -56,19 +68,23 @@ export function createCanvasRaster(refs: CanvasRasterRefs): RasterService {
     },
     sample(layerId, p) {
       const canvas = refs.canvases.get(layerId)
-      return canvas ? raster.samplePixel(canvas, p.x, p.y) : null
+      const q = local(layerId, p)
+      return canvas ? raster.samplePixel(canvas, q.x, q.y) : null
     },
     snapshot(layerId) {
       const canvas = refs.canvases.get(layerId)
       if (!canvas) return ''
       const src = raster.canvasToDataUrl(canvas)
       refs.loaded.set(layerId, src)
+      // What the studio's loader compares against: these pixels, at this size, are on screen.
+      canvas.dataset.loadedSize = `${canvas.width}x${canvas.height}`
       return src
     },
     invalidate() {
       // The canvases must be repainted from the restored document, or the
       // pixels on screen would still show an undone stroke.
       refs.loaded.clear()
-    }
+    },
+    reframe: (src, from, to, dx, dy) => raster.reframeRaster(src, from, to, dx, dy)
   }
 }

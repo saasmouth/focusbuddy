@@ -33,7 +33,7 @@
 //     is the extra, general matrix, applied outside the rotation.
 
 import type { DrawBlend, DrawGradientStop, DrawShapeKind } from '../draw'
-import type { DrawPath, Matrix, Pt } from '../drawGeometry'
+import type { Box, DrawPath, Matrix, Pt } from '../drawGeometry'
 
 export type { DrawBlend, DrawGradientStop, DrawShapeKind } from '../draw'
 export type { Box, DrawPath, Matrix, Pt } from '../drawGeometry'
@@ -263,6 +263,14 @@ export interface DrawDocRasterLayer extends DrawDocLayerBase {
   kind: 'raster'
   /** Key into DrawDoc.assets; absent for an empty layer. */
   assetId?: string
+  /**
+   * Where the layer's pixels lie, in document space: its picture is exactly
+   * frame.w × frame.h pixels with its top-left at (frame.x, frame.y). Absent
+   * means the first page at the origin (rasterFrame), as every drawing before
+   * 4.3.41 has it. Written when the layer follows its artboard (moved,
+   * resized or rearranged); see ops/artboards.ts.
+   */
+  frame?: Box
 }
 
 export type DrawDocLayer = DrawDocVectorLayer | DrawDocRasterLayer

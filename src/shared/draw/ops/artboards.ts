@@ -104,6 +104,109 @@ export function rasterFrame(doc: DrawDoc): Box {
   return { x: 0, y: 0, w: a.w, h: a.h }
 }
 
+// ── Paint layers follow their artboard (4.3.41) ──────────────────────────────
+//
+// HOW A PAINT LAYER BELONGS TO AN ARTBOARD: by its own origin and extent, the
+// same rule as vector art. A paint layer's pixels lie in its frame
+// (rasterLayerFrame); it is ON an artboard when that frame lies wholly inside
+// the artboard, and it is that artboard's PAGE-SIZED paint when the frame is
+// exactly the artboard's rectangle (what every paint layer is today: the
+// first page, at the origin). There is no artboard id on the layer, so
+// deleting, reordering or renaming an artboard never strands or re-targets
+// paint, and a drawing that is never rearranged keeps no new field at all.
+//
+//   - Moving an artboard (the tool, Rearrange All, the panel) with "Move/Copy
+//     Artwork with Artboard" on moves the paint layers ON it, with the vector
+//     art, in the same step. Only the frame moves; the pixels are untouched.
+//   - Resizing an artboard re-lays its PAGE-SIZED paint layers onto a canvas
+//     of the new size, unscaled: growing adds transparent margin, shrinking
+//     crops, and the pixels stay where they are in the document (or move with
+//     the art by Document › Artboard size's anchor). Paint smaller than the
+//     page is left alone, like art.
+//   - Locked paint layers stay put, as locked art does.
+
+/** Where a paint layer's pixels lie in document space. */
+export function rasterLayerFrame(doc: DrawDoc, l: DrawDocLayer): Box {
+  return l.kind === 'raster' && l.frame ? l.frame : rasterFrame(doc)
+}
+
+const sameBox = (a: Box, b: Box): boolean => a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h
+
+/** Paint layers on an artboard (frame wholly inside it), unlocked: what moves with it. */
+export function paintOnArtboard(doc: DrawDoc, board: Box): string[] {
+  return doc.layers.filter((l) => l.kind === 'raster' && !l.locked && boxInside(rasterLayerFrame(doc, l), board)).map((l) => l.id)
+}
+
+/** Move paint layers' frames by (dx, dy): no pixels change. */
+function movePaint(doc: DrawDoc, ids: Set<string>, dx: number, dy: number): DrawDoc {
+  if (!ids.size || (!dx && !dy)) return doc
+  return {
+    ...doc,
+    layers: doc.layers.map((l) => {
+      if (l.kind !== 'raster' || !ids.has(l.id)) return l
+      const f = rasterLayerFrame(doc, l)
+      return { ...l, frame: { x: f.x + dx, y: f.y + dy, w: f.w, h: f.h } }
+    })
+  }
+}
+
+/** One paint layer to re-lay because its artboard changed size: its frame before and after, and where its old pixels go on the new canvas. */
+export interface PaintRelay {
+  layerId: string
+  from: Box
+  to: Box
+  /** Offset of the old pixels' top-left on the new canvas. */
+  dx: number
+  dy: number
+}
+
+/**
+ * The paint layers that follow an artboard going from `before` to `after`
+ * (its rectangle): its page-sized, unlocked paint layers, when the size
+ * changes. `shift` is how far the art itself moves (Document › Artboard size
+ * on a one-artboard drawing moves the art by the anchor offset); the pixels
+ * move with it. Nothing to do when only the position changed.
+ */
+export function planPaintFollow(doc: DrawDoc, before: Box, after: Box, shift: { dx: number; dy: number } = { dx: 0, dy: 0 }): PaintRelay[] {
+  if (before.w === after.w && before.h === after.h) return []
+  const out: PaintRelay[] = []
+  for (const l of doc.layers) {
+    if (l.kind !== 'raster' || l.locked) continue
+    const from = rasterLayerFrame(doc, l)
+    if (!sameBox(from, before)) continue
+    const to = { x: after.x, y: after.y, w: after.w, h: after.h }
+    out.push({ layerId: l.id, from, to, dx: from.x + shift.dx - to.x, dy: from.y + shift.dy - to.y })
+  }
+  return out
+}
+
+/**
+ * Apply re-laid paint: each planned layer takes its new frame and the asset
+ * id of its re-laid pixels (`assetIds[layerId]`, whose bytes must be in
+ * `assets`; undefined for an empty layer). A layer missing from `assetIds`
+ * could not be re-laid and is left exactly as it was. The frame is left out
+ * where it is the default (the first page at the origin), so a one-artboard
+ * drawing writes nothing new.
+ */
+export function applyPaintFollow(doc: DrawDoc, plans: PaintRelay[], assetIds: Record<string, string | undefined>, assets: DrawDoc['assets'] = doc.assets): DrawDoc {
+  if (!plans.length) return doc
+  const byId = new Map(plans.map((p) => [p.layerId, p]))
+  const legacy = rasterFrame(doc)
+  return {
+    ...doc,
+    assets,
+    layers: doc.layers.map((l): DrawDocLayer => {
+      const p = byId.get(l.id)
+      if (!p || l.kind !== 'raster' || !Object.prototype.hasOwnProperty.call(assetIds, l.id)) return l
+      const { assetId: _a, frame: _f, ...rest } = l
+      void _a
+      void _f
+      const assetId = assetIds[l.id]
+      return { ...rest, ...(assetId ? { assetId } : {}), ...(sameBox(p.to, legacy) ? {} : { frame: p.to }) }
+    })
+  }
+}
+
 /** The union of every artboard: what the canvas shows. */
 export function artboardsBounds(doc: DrawDoc): Box {
   let x0 = Infinity
@@ -267,15 +370,21 @@ function moveTopLevel(doc: DrawDoc, ids: Set<string>, dx: number, dy: number): D
 /**
  * Move artboards by (dx, dy). With `withArt` (Illustrator's "Move/Copy
  * Artwork with Artboard", on by default) the art sitting on each one moves
- * with it -- and only that art.
+ * with it -- and only that art -- and so do the paint layers on it.
  */
 export function moveArtboards(doc: DrawDoc, ids: string[], dx: number, dy: number, withArt = true): DrawDoc {
   if (!dx && !dy) return doc
   const set = new Set(ids)
   const art = new Set<string>()
-  if (withArt) for (const a of doc.artboards) if (set.has(a.id)) for (const x of artOnArtboard(doc, a)) art.add(x.node.id)
+  const paint = new Set<string>()
+  if (withArt)
+    for (const a of doc.artboards)
+      if (set.has(a.id)) {
+        for (const x of artOnArtboard(doc, a)) art.add(x.node.id)
+        for (const id of paintOnArtboard(doc, a)) paint.add(id)
+      }
   const moved = { ...doc, artboards: doc.artboards.map((a) => (set.has(a.id) ? { ...a, x: Math.round(a.x + dx), y: Math.round(a.y + dy) } : a)) }
-  return moveTopLevel(moved, art, Math.round(dx), Math.round(dy))
+  return movePaint(moveTopLevel(moved, art, Math.round(dx), Math.round(dy)), paint, Math.round(dx), Math.round(dy))
 }
 
 /**
@@ -435,12 +544,16 @@ export function rearrangeArtboards(doc: DrawDoc, opts: RearrangeOptions): DrawDo
   // Each artboard's art is found BEFORE anything moves, so art is never
   // claimed by an artboard that only arrives over it mid-rearrange.
   const carried = doc.artboards.map((a) => (opts.withArt ? artOnArtboard(doc, a).map((x) => x.node.id) : []))
+  const carriedPaint = doc.artboards.map((a) => (opts.withArt ? paintOnArtboard(doc, a) : []))
   const claimed = new Set<string>()
   let next: DrawDoc = { ...doc, artboards: doc.artboards.map((a, i) => ({ ...a, x: pos[i].x, y: pos[i].y })) }
   doc.artboards.forEach((a, i) => {
     const ids = new Set(carried[i].filter((id) => !claimed.has(id)))
     ids.forEach((id) => claimed.add(id))
     next = moveTopLevel(next, ids, pos[i].x - a.x, pos[i].y - a.y)
+    const paint = new Set(carriedPaint[i].filter((id) => !claimed.has(id)))
+    paint.forEach((id) => claimed.add(id))
+    next = movePaint(next, paint, pos[i].x - a.x, pos[i].y - a.y)
   })
   const same = next.artboards.every((a, i) => a.x === doc.artboards[i].x && a.y === doc.artboards[i].y)
   return same ? doc : next

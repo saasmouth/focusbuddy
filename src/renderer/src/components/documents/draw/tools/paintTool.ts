@@ -50,7 +50,7 @@ export function strokeTool(spec: { id: string; label: string; icon: string; key:
       const layerId = paintTarget(ctx)
       if (!layerId) return
       const pressure = e.pressure > 0 ? e.pressure : 0.5
-      ctx.raster.beginStroke({ x: e.p.x, y: e.p.y, pressure }, ctx.get().brush)
+      ctx.raster.beginStroke({ x: e.p.x, y: e.p.y, pressure }, ctx.get().brush, layerId)
       ctx.set({ scratchVisible: true, gesture: { toolId: id, data: { layerId, last: { x: e.p.x, y: e.p.y, pressure }, erase } satisfies PaintGesture } })
     },
 

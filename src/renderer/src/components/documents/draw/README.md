@@ -366,10 +366,28 @@ means.
   press on a page makes it active (`editor/artboards.ts` `activateArtboard`):
   no undo step and no save of its own. New art, pastes, Paste in Place,
   ⌘0 and the Artboard size dialog all act on the active one.
-- **Paint layers** are pictures of the FIRST page anchored at the origin
-  (`rasterFrame`), whichever artboard is active -- on screen, in export, and
-  when rasterizing or merging. Do not size a paint canvas from the active
-  artboard.
+- **Paint layers** lie in their own frame (`rasterLayerFrame`): a picture of
+  exactly `frame.w` × `frame.h` pixels whose top-left is at `frame.x`,
+  `frame.y` in document space. A layer with no `frame` is the FIRST page at
+  the origin (`rasterFrame`), as every drawing before 4.3.41 has it -- on
+  screen, in export, and when rasterizing. Do not size a paint canvas from
+  the active artboard. The raster service takes points in document space
+  and maps them to each layer's own pixels (`beginStroke(p, brush, layerId)`).
+- **Paint follows its artboard** (4.3.41) by its own origin and extent, the
+  rule vector art follows -- no artboard id on the layer. A paint layer is
+  ON an artboard when its frame lies wholly inside it (`paintOnArtboard`);
+  it is the artboard's page-sized paint when its frame IS the artboard.
+  Moving artboards (the tool, Rearrange All; with Move/Copy Artwork on)
+  moves the frames of the paint on them with the art, in the same step, and
+  never touches pixels. Resizing an artboard (the tool's handles, the
+  Artboard tab, the Options dialog, the panel, Fit to Artwork/Selected Art,
+  Document › Artboard size) re-lays its page-sized paint onto the new size,
+  unscaled -- growing adds transparent margin, shrinking crops, the pixels
+  stay where they were in the document -- via `planPaintFollow` +
+  `editor/artboards.ts` (`changeArtboardWithPaint`, `followResizeInPlace`),
+  one undo step. Locked paint stays put; a picture that cannot be decoded is
+  left as it was. Duplicating an artboard does not copy paint layers (a
+  paint layer is a layer, not art on the page).
 - **Operations** are pure, in `@shared/draw/ops` (`artboards.ts`): add,
   delete (the art stays), rename, patch, reorder, move (with the art on it),
   duplicate (with copies of that art), fit, Rearrange All. Commands are in

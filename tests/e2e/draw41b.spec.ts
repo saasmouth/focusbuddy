@@ -8,6 +8,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
+import { deflateSync } from 'zlib'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 import { keepNoticesOutOfTheWay, openDocument, openDrawPanel, readStored, rectObject, runMenu, seedDrawDoc, stagePoint, v1Body } from './_drawHelpers'
 
@@ -196,4 +197,150 @@ test('HA-1 View › Hide Artboards (⇧⌘H): the page fill and edges go so the 
   await window.locator('[data-testid="draw-studio-menubar-view-list"] button').filter({ hasText: 'Show Artboards' }).first().click()
   await expect(t('draw-artboards')).toBeVisible()
   await expect(t('draw-stage')).not.toHaveAttribute('data-artboards-hidden', '1')
+})
+
+// ── Paint layers follow their artboard ──────────────────────────────────────
+
+function crc32(buf: Buffer): number {
+  let c = 0xffffffff
+  for (let i = 0; i < buf.length; i++) {
+    c ^= buf[i]
+    for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xedb88320 : c >>> 1
+  }
+  return (c ^ 0xffffffff) >>> 0
+}
+
+/** A real PNG, w x h: the left half red, the right half blue. */
+function halvesPng(w: number, h: number): string {
+  const chunk = (type: string, data: Buffer): Buffer => {
+    const len = Buffer.alloc(4)
+    len.writeUInt32BE(data.length)
+    const td = Buffer.concat([Buffer.from(type, 'latin1'), data])
+    const crc = Buffer.alloc(4)
+    crc.writeUInt32BE(crc32(td))
+    return Buffer.concat([len, td, crc])
+  }
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(w, 0)
+  ihdr.writeUInt32BE(h, 4)
+  ihdr[8] = 8
+  ihdr[9] = 2
+  const row = Buffer.alloc(1 + w * 3)
+  for (let x = 0; x < w; x++) row.set(x < w / 2 ? [255, 0, 0] : [0, 0, 255], 1 + x * 3)
+  const raw = Buffer.concat(Array.from({ length: h }, () => row))
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))])
+  return `data:image/png;base64,${png.toString('base64')}`
+}
+
+/** Decode a stored picture in the page: its size and the RGBA at some points. */
+async function pixels(dataUrl: string, points: Array<[number, number]>): Promise<{ w: number; h: number; at: number[][] }> {
+  return window.evaluate(
+    async ({ src, pts }) => {
+      const img = new Image()
+      await new Promise<void>((res, rej) => {
+        img.onload = () => res()
+        img.onerror = () => rej(new Error('undecodable'))
+        img.src = src
+      })
+      const c = document.createElement('canvas')
+      c.width = img.naturalWidth
+      c.height = img.naturalHeight
+      const g = c.getContext('2d')!
+      g.drawImage(img, 0, 0)
+      return { w: c.width, h: c.height, at: pts.map(([x, y]) => Array.from(g.getImageData(x, y, 1, 1).data)) }
+    },
+    { src: dataUrl, pts: points }
+  )
+}
+
+type PaintStored = { artboards: Board[]; layers: Array<{ id: string; kind: string; assetId?: string; frame?: { x: number; y: number; w: number; h: number }; objects?: Array<{ id: string; path?: { subpaths: Array<{ nodes: Array<{ x: number; y: number }> }> } }> }>; assets: Record<string, { dataUrl: string }> }
+
+test('PF-1 paint follows its artboard: moved with the Artboard tool together with the art, then resized from the tab with the pixels cropped or extended, never stretched', async () => {
+  const body = {
+    schemaVersion: 2,
+    minWriterVersion: 2,
+    artboards: [
+      { id: 'artboard-1', name: 'Artboard 1', x: 0, y: 0, w: 400, h: 300, background: { type: 'solid', color: '#ffffff' } },
+      { id: 'b2', name: 'Artboard 2', x: 500, y: 0, w: 300, h: 300, background: { type: 'solid', color: '#ffffff' } }
+    ],
+    activeArtboardId: 'artboard-1',
+    layers: [
+      { id: 'L1', kind: 'vector', name: 'Layer 1', visible: true, locked: false, opacity: 1, blend: 'normal', objects: [rectObject('r', 20, 20, 40, 40)] },
+      { id: 'P', kind: 'raster', name: 'Paint', visible: true, locked: false, opacity: 1, blend: 'normal', assetId: 'asset-halves' }
+    ],
+    activeLayerId: 'L1',
+    assets: { 'asset-halves': { mime: 'image/png', dataUrl: halvesPng(400, 300), w: 400, h: 300 } },
+    swatches: [],
+    guides: [],
+    settings: {}
+  }
+  const id = await seedDrawDoc(window, body, 'Paint follows')
+  await openDocument(window, id)
+  const read = async (): Promise<PaintStored> => (await readStored(window, id)).raw as PaintStored
+  const paint = async () => (await read()).layers.find((l) => l.id === 'P')!
+
+  // The Artboard tool: drag inside Artboard 1 (empty spot) down by about 100 document units.
+  await t('draw-canvas-scroll').focus()
+  await window.keyboard.press('Shift+O')
+  const union = { x: 0, w: 800 }
+  const stage = (await t('draw-stage').boundingBox())!
+  const k = stage.width / union.w
+  const from = { x: stage.x + 300 * k, y: stage.y + 200 * k }
+  await window.mouse.move(from.x, from.y)
+  await window.mouse.down()
+  await window.mouse.move(from.x, from.y + 50 * k)
+  await window.mouse.move(from.x, from.y + 100 * k)
+  await window.mouse.up()
+  await expect.poll(async () => (await read()).artboards[0].y).toBeGreaterThan(80)
+  const moved = (await read()).artboards[0]
+  // Art and pixels moved together, by the artboard's amount; the picture is untouched.
+  await expect.poll(async () => (await paint()).frame).toEqual({ x: moved.x, y: moved.y, w: 400, h: 300 })
+  expect((await paint()).assetId).toBe('asset-halves')
+  const r = (await read()).layers[0].objects!.find((o) => o.id === 'r')!
+  expect(r.path!.subpaths[0].nodes[0]).toEqual({ x: 20 + moved.x, y: 20 + moved.y })
+  // On screen, the paint canvas sits exactly on the artboard.
+  const ab = (await t('draw-artboard-artboard-1').boundingBox())!
+  const cv = (await t('draw-raster-P').boundingBox())!
+  expect(Math.abs(ab.x - cv.x)).toBeLessThan(2)
+  expect(Math.abs(ab.y - cv.y)).toBeLessThan(2)
+  expect(Math.abs(ab.width - cv.width)).toBeLessThan(2)
+
+  // One undo step for the move: undo, then redo.
+  await t('draw-undo').click()
+  await expect.poll(async () => (await paint()).frame ?? null).toBeNull()
+  await t('draw-redo').click()
+  await expect.poll(async () => (await paint()).frame?.y).toBe(moved.y)
+
+  // Wider from the Artboard tab: 400 -> 600. The new picture is 600 wide with
+  // red then blue exactly where they were, and transparent margin after.
+  await t('draw-bar-tab-artboard').click()
+  await t('draw-artboard-w').fill('600')
+  await t('draw-artboard-w').press('Enter')
+  await expect.poll(async () => (await paint()).assetId).not.toBe('asset-halves')
+  const s1 = await read()
+  const p1 = s1.layers.find((l) => l.id === 'P')!
+  expect(p1.frame).toEqual({ x: moved.x, y: moved.y, w: 600, h: 300 })
+  const wide = await pixels(s1.assets[p1.assetId!].dataUrl, [
+    [100, 150],
+    [300, 150],
+    [500, 150]
+  ])
+  expect([wide.w, wide.h]).toEqual([600, 300])
+  expect(wide.at[0].slice(0, 4)).toEqual([255, 0, 0, 255])
+  expect(wide.at[1].slice(0, 4)).toEqual([0, 0, 255, 255])
+  expect(wide.at[2][3]).toBe(0)
+
+  // Narrower: 600 -> 150 crops (still red, never squeezed).
+  await t('draw-artboard-w').fill('150')
+  await t('draw-artboard-w').press('Enter')
+  await expect.poll(async () => (await paint()).frame?.w).toBe(150)
+  const s2 = await read()
+  const p2 = s2.layers.find((l) => l.id === 'P')!
+  const narrow = await pixels(s2.assets[p2.assetId!].dataUrl, [[140, 150]])
+  expect([narrow.w, narrow.h]).toEqual([150, 300])
+  expect(narrow.at[0].slice(0, 4)).toEqual([255, 0, 0, 255])
+  // Undo is one step per resize: back to 600 with the wide picture.
+  await t('draw-undo').click()
+  await expect.poll(async () => (await paint()).frame?.w).toBe(600)
+  expect((await paint()).assetId).toBe(p1.assetId)
 })

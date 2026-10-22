@@ -185,8 +185,12 @@ export interface RasterService {
   hasSurface(layerId: string): boolean
   /** Scanline flood fill; false when nothing changed. */
   floodFill(layerId: string, p: Pt, color: string, tolerance: number): boolean
-  /** Start a brush stroke on the scratch surface with a dot at `p`. */
-  beginStroke(p: StrokePoint, brush: BrushSettings): void
+  /**
+   * Start a brush stroke on the scratch surface with a dot at `p`, for the
+   * paint layer `layerId` (the scratch takes that layer's frame; points are
+   * in document space). Without a layer id, the default frame.
+   */
+  beginStroke(p: StrokePoint, brush: BrushSettings, layerId?: string): void
   /** Extend the scratch stroke. */
   strokeTo(from: StrokePoint, to: StrokePoint, brush: BrushSettings): void
   /** Lay the scratch stroke onto the layer (or punch it out) and clear the scratch. False when there was nothing to lay. */
@@ -197,6 +201,14 @@ export interface RasterService {
   snapshot(layerId: string): string
   /** Forget what is on screen, so every layer is repainted from the document (after undo/redo/fold). */
   invalidate(): void
+  /**
+   * A paint layer's stored picture (`src`, `from` pixels in size) re-laid,
+   * unscaled, onto a canvas of `to`'s size with its top-left at (dx, dy):
+   * growing adds transparent margin, shrinking crops. Resolves to `src`
+   * itself when the picture cannot be decoded (the caller then leaves that
+   * layer alone). Optional: raster.reframeRaster is used without it.
+   */
+  reframe?(src: string, from: { w: number; h: number }, to: { w: number; h: number }, dx: number, dy: number): Promise<string>
 }
 
 /** Real-font line breaking for text objects. */

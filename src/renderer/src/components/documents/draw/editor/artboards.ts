@@ -4,9 +4,11 @@
 // operations themselves are pure, in @shared/draw/ops (artboards.ts).
 
 import { drawId } from '@shared/draw'
+import { assetSrc, putAsset } from '@shared/draw/assets'
 import type { Box } from '@shared/drawGeometry'
 import type { DrawDoc, DrawNode } from '@shared/draw/model'
-import { artboardAt, artboardById, primaryArtboard, setActiveArtboard } from '@shared/draw/ops'
+import { applyPaintFollow, artboardAt, artboardById, planPaintFollow, primaryArtboard, setActiveArtboard, type PaintRelay } from '@shared/draw/ops'
+import * as raster from '../raster'
 import { withFreshIds } from './clipboard'
 import { v2BlockedReason, v2Writable } from './v2gate'
 import type { EditorCtx, EditorState } from './types'
@@ -92,4 +94,86 @@ export function steppedArtboard(doc: DrawDoc, step: number): string | null {
 /** Is `id` an artboard of this drawing? */
 export function hasArtboard(doc: DrawDoc, id: unknown): id is string {
   return typeof id === 'string' && !!artboardById(doc, id)
+}
+
+// ── Paint layers follow their artboard (4.3.41) ──────────────────────────────
+
+/**
+ * Re-lay the planned paint layers' pixels (ops/artboards.ts planPaintFollow)
+ * from their stored pictures: unscaled, cropped or with transparent margin.
+ * Returns the new asset ids by layer (undefined for an empty layer, which
+ * only takes its new frame) and the asset store holding the new bytes. A
+ * picture that cannot be decoded is left out, so that layer stays exactly as
+ * it was rather than being blanked.
+ */
+export async function relayPaint(ctx: Pick<EditorCtx, 'doc' | 'raster'>, plans: PaintRelay[]): Promise<{ ids: Record<string, string | undefined>; assets: DrawDoc['assets'] }> {
+  const doc = ctx.doc()
+  let assets = doc.assets
+  const ids: Record<string, string | undefined> = {}
+  for (const p of plans) {
+    const l = doc.layers.find((x) => x.id === p.layerId)
+    if (!l || l.kind !== 'raster') continue
+    const src = assetSrc(doc.assets, l.assetId)
+    if (!src) {
+      ids[p.layerId] = undefined
+      continue
+    }
+    const from = { w: p.from.w, h: p.from.h }
+    const to = { w: p.to.w, h: p.to.h }
+    const out = ctx.raster.reframe ? await ctx.raster.reframe(src, from, to, p.dx, p.dy) : await raster.reframeRaster(src, from, to, p.dx, p.dy)
+    if (!out || out === src) continue
+    const put = putAsset(assets, out, { w: p.to.w, h: p.to.h })
+    assets = put.assets
+    ids[p.layerId] = put.id
+  }
+  return { ids, assets }
+}
+
+/**
+ * Change one artboard's frame (Artboard tab W/H, a preset, orientation, the
+ * Options dialog, the panel, Fit to Artwork / Selected Art) with its
+ * page-sized paint layers following, in ONE undo step. `build` makes the
+ * change from a document; it is applied again to the document as it is once
+ * the pixels are ready, so nothing committed meanwhile is lost.
+ */
+export async function changeArtboardWithPaint(ctx: EditorCtx, id: string, build: (doc: DrawDoc) => DrawDoc, label: string): Promise<void> {
+  const doc = ctx.doc()
+  const before = artboardById(doc, id)
+  const next = build(doc)
+  const after = artboardById(next, id)
+  if (!before || !after || next === doc) return
+  const plans = planPaintFollow(doc, before, after)
+  if (!plans.length) {
+    ctx.history.commit(next, label)
+    return
+  }
+  ctx.busy('Resizing paint…')
+  try {
+    const { ids, assets } = await relayPaint(ctx, plans)
+    const now = build(ctx.doc())
+    ctx.history.commit(applyPaintFollow({ ...now, assets: { ...now.assets, ...assets } }, plans, ids), label)
+  } finally {
+    ctx.busy(null)
+  }
+}
+
+/**
+ * After a streamed resize (the Artboard tool's handles) whose step is already
+ * on the undo stack: re-lay the page-sized paint of the artboard that went
+ * from `before` to its current frame, folded into that same step.
+ */
+export async function followResizeInPlace(ctx: EditorCtx, beforeDoc: DrawDoc, id: string): Promise<void> {
+  const before = artboardById(beforeDoc, id)
+  const after = artboardById(ctx.doc(), id)
+  if (!before || !after) return
+  const plans = planPaintFollow(beforeDoc, before, after)
+  if (!plans.length) return
+  ctx.busy('Resizing paint…')
+  try {
+    const { ids, assets } = await relayPaint({ doc: () => beforeDoc, raster: ctx.raster }, plans)
+    const now = ctx.doc()
+    ctx.history.replace(applyPaintFollow({ ...now, assets: { ...now.assets, ...assets } }, plans, ids))
+  } finally {
+    ctx.busy(null)
+  }
 }

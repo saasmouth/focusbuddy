@@ -67,7 +67,10 @@ function hostileV2(): Record<string, unknown> {
           { id: 'opq', type: 'hologram', markup: `<svg onload="${PWN}">` }
         ]
       },
-      { id: 'R', kind: 'raster', assetId: 'asset-remote' }
+      { id: 'R', kind: 'raster', assetId: 'asset-remote' },
+      // A paint layer's own frame (4.3.41) reaches the <image>'s x, y, width and height.
+      { id: 'R2', kind: 'raster', assetId: 'asset-ok', frame: { x: HOSTILE, y: `1${HOSTILE}`, w: HOSTILE, h: 5 } },
+      { id: 'R3', kind: 'raster', assetId: 'asset-ok', frame: { x: 3, y: 4, w: 5, h: `6" onload="${PWN}` } }
     ]
   }
 }

@@ -13,7 +13,7 @@ import { assetSrc } from '@shared/draw/assets'
 import { DRAW_V2_WRITES } from '@shared/draw/compat'
 import { docPaintToCss } from '@shared/draw/svg'
 import type { DrawWidgetNode } from '@shared/draw/model'
-import { addObject, artboardsBounds, primaryArtboard, rasterFrame, targetLayerId } from '@shared/draw/ops'
+import { addObject, artboardsBounds, primaryArtboard, rasterFrame, rasterLayerFrame, targetLayerId } from '@shared/draw/ops'
 import { walkNodes } from '@shared/draw/tree'
 import { createDrawEditor, type DrawEditor } from './draw/editor/editor'
 import { clipboardEventInfo, handleClipboardEvent, type ClipboardEventKind } from './draw/editor/menuClipboard'
@@ -214,8 +214,12 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
       const canvas = canvases.current.get(layer.id)
       if (!canvas) continue
       const src = assetSrc(doc.assets, layer.assetId) ?? ''
-      if (loaded.current.get(layer.id) === src) continue
+      // A canvas whose size changed (its layer followed a resized artboard)
+      // was cleared by the browser: it reloads even when the picture did not change.
+      const sized = canvas.dataset.loadedSize === `${canvas.width}x${canvas.height}`
+      if (loaded.current.get(layer.id) === src && sized) continue
       loaded.current.set(layer.id, src)
+      canvas.dataset.loadedSize = `${canvas.width}x${canvas.height}`
       void raster.loadIntoCanvas(canvas, src)
     }
   }, [doc])
@@ -396,9 +400,13 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
 
   const stageW = frame.w * zoom
   const stageH = frame.h * zoom
-  // Paint layers are pictures of the first page, anchored at the origin.
-  const rf = rasterFrame(doc)
-  const rasterStyle = { left: (rf.x - frame.x) * zoom, top: (rf.y - frame.y) * zoom, width: rf.w * zoom, height: rf.h * zoom }
+  // Each paint layer's pixels lie in its own frame (rasterLayerFrame: the
+  // first page at the origin unless it has followed an artboard).
+  const boxStyle = (f: { x: number; y: number; w: number; h: number }) => ({ left: (f.x - frame.x) * zoom, top: (f.y - frame.y) * zoom, width: f.w * zoom, height: f.h * zoom })
+  // The stroke in progress is shown over the layer it is being laid on.
+  const strokeLayerId = (state.gesture?.data as { layerId?: unknown } | undefined)?.layerId
+  const strokeLayer = doc.layers.find((l) => l.id === strokeLayerId)
+  const scratchStyle = boxStyle(strokeLayer ? rasterLayerFrame(doc, strokeLayer) : rasterFrame(doc))
   const cursor = tool === 'hand' || state.spaceDown ? 'grab' : (toolById(tool)?.cursor ?? 'default')
   // ── Office shell: rail, top bar, overlay panels ───────────────────────────
 
@@ -655,11 +663,11 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
                 <canvas
                   key={l.id}
                   ref={rasterRefFor(l.id)}
-                  width={rf.w}
-                  height={rf.h}
+                  width={rasterLayerFrame(doc, l).w}
+                  height={rasterLayerFrame(doc, l).h}
                   data-testid={`draw-raster-${l.id}`}
                   className="absolute pointer-events-none"
-                  style={{ ...rasterStyle, opacity: l.opacity, mixBlendMode: l.blend as never }}
+                  style={{ ...boxStyle(rasterLayerFrame(doc, l)), opacity: l.opacity, mixBlendMode: l.blend as never }}
                 />
               ) : (
                 <VectorLayerView
@@ -676,7 +684,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
             )}
 
             {state.scratchVisible && scratch.current && (
-              <ScratchView canvas={scratch.current} box={rasterStyle} opacity={state.brush.opacity} blend={tool === 'eraser' ? 'normal' : state.brush.blend} />
+              <ScratchView canvas={scratch.current} box={scratchStyle} opacity={state.brush.opacity} blend={tool === 'eraser' ? 'normal' : state.brush.blend} />
             )}
 
             <Overlay state={state} board={board} frame={frame} stageW={stageW} stageH={stageH} />

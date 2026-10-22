@@ -6,14 +6,16 @@
 //   - Alt-drag an artboard to duplicate it (and its art) at the drop point;
 //   - drag one of the active artboard's eight handles to resize it (Shift
 //     keeps its proportions, Alt resizes about its centre). Resizing never
-//     moves or scales the art.
+//     moves or scales the art; the artboard's page-sized paint layers are
+//     re-laid to the new size (cropped or extended, never stretched).
+//   - moving an artboard carries its art AND the paint layers on it.
 // Each gesture is one undo step. Several artboards are v2-only content, so a
 // drawing that must stay v1 for a live session refuses with the reason.
 
 import type { Box, Pt } from '@shared/drawGeometry'
 import type { DrawDoc } from '@shared/draw/model'
 import { addArtboard, artboardAt, artboardById, duplicateArtboard, moveArtboards, normalArtboardRect, patchArtboard, primaryArtboard } from '@shared/draw/ops'
-import { activateArtboard, copyNode, guardArtboards, moveArtWithArtboard, newArtboardId } from '../editor/artboards'
+import { activateArtboard, copyNode, followResizeInPlace, guardArtboards, moveArtWithArtboard, newArtboardId } from '../editor/artboards'
 import type { DrawTool, EditorCtx, Txn } from '../editor/types'
 import { HANDLES, handlePoint, normBox, resizeBox, squareOff, type HandleId } from './helpers'
 
@@ -101,8 +103,10 @@ const artboard: DrawTool = {
       return
     }
     if (d.mode === 'resize') {
-      if (d.resized) d.txn.commit()
-      else d.txn.cancel()
+      if (!d.resized) return d.txn.cancel()
+      d.txn.commit()
+      // The artboard's page-sized paint follows (re-laid, never stretched), in this same step.
+      void followResizeInPlace(ctx, d.before, d.id)
       return
     }
     if (d.mode === 'dup') {

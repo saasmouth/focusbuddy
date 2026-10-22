@@ -31,6 +31,7 @@ import {
   allArtboardsBox,
   artboardsBlockedReason,
   artboardsEditable,
+  changeArtboardWithPaint,
   copyNode,
   guardArtboards,
   hasArtboard,
@@ -158,8 +159,8 @@ export const commands: Command[] = [
       if (!patch || !hasArtboard(ctx.doc(), id)) return
       const { id: _drop, ...rest } = patch as DrawArtboard
       void _drop
-      const next = patchArtboard(ctx.doc(), id, rest)
-      if (next !== ctx.doc()) ctx.history.commit(next, label ?? 'Artboard Options')
+      // A new size carries the artboard's page-sized paint layers (re-laid, never stretched).
+      return changeArtboardWithPaint(ctx, id, (d) => patchArtboard(d, id, rest), label ?? 'Artboard Options')
     }
   },
   {
@@ -172,8 +173,8 @@ export const commands: Command[] = [
       if (!guardArtboards(ctx)) return
       const b = artworkBounds(ctx.doc())
       if (!b) return ctx.status('There is no artwork to fit the artboard to.')
-      const next = fitArtboardTo(ctx.doc(), target(ctx, args).id, b)
-      if (next !== ctx.doc()) ctx.history.commit(next, 'Fit Artboard to Artwork')
+      const id = target(ctx, args).id
+      return changeArtboardWithPaint(ctx, id, (d) => fitArtboardTo(d, id, b), 'Fit Artboard to Artwork')
     }
   },
   {
@@ -186,8 +187,8 @@ export const commands: Command[] = [
       if (!guardArtboards(ctx)) return
       const b = nodesWorldBounds(ctx.doc(), ctx.get().selection)
       if (!b) return ctx.status('Select the artwork to fit the artboard to.')
-      const next = fitArtboardTo(ctx.doc(), target(ctx, args).id, b)
-      if (next !== ctx.doc()) ctx.history.commit(next, 'Fit Artboard to Selected Art')
+      const id = target(ctx, args).id
+      return changeArtboardWithPaint(ctx, id, (d) => fitArtboardTo(d, id, b), 'Fit Artboard to Selected Art')
     }
   },
   {
