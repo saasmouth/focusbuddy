@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""SUPERSEDED 2026-10-22 by scripts/brand/make-app-icon.mjs (the owner's PlexiiDesk
-tile). Kept for the record of the earlier blue-ii dock icon.
-
-Regenerate the OS app icons (build/icon.png, .ico, .icns) from the brand
+"""Regenerate the OS app icons (build/icon.png, .ico, .icns) from the brand
 kit's measured geometry (Brand Motion mission, 2026-08-23).
 
 The squircle is the app's established dock tile (832px rounded rect, radius

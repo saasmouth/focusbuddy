@@ -115,7 +115,7 @@ const opt = (name) => {
   return i >= 0 ? args[i + 1] : undefined
 }
 
-export function defaultSource() {
+function defaultSource() {
   if (process.env.PLEXII_ICON_SOURCE) return process.env.PLEXII_ICON_SOURCE
   let repo = ROOT
   try {
@@ -175,7 +175,7 @@ export const slugOf = (folder) => folder.toLowerCase().replace(/[\s_]+/g, '-')
  * Keep the largest connected opaque component (with its holes) grown by `grow`
  * px; zero everything else. Returns the cleaned RGBA buffer and the kept bbox.
  */
-export function cleanTile(data, W, H, grow = 2) {
+function cleanTile(data, W, H, grow = 2) {
   const N = W * H
   const core = new Uint8Array(N)
   for (let i = 0; i < N; i++) core[i] = data[i * 4 + 3] >= 128 ? 1 : 0
@@ -302,7 +302,7 @@ export function cleanTile(data, W, H, grow = 2) {
  * anti-aliasing always sits next to coverage; specks and the faint halo a
  * lanczos downscale rings out past the edge do not.
  */
-export function strayPixels(data, W, H, zero = false) {
+function strayPixels(data, W, H, zero = false) {
   let strays = 0
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
@@ -593,10 +593,7 @@ async function main() {
   }
 }
 
-// Run only as a script: scripts/brand/make-app-icon.mjs imports cleanTile.
-if (process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname)) {
-  main().catch((err) => {
-    console.error(err)
-    process.exit(1)
-  })
-}
+main().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})
