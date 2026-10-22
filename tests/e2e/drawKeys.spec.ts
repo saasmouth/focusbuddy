@@ -250,9 +250,12 @@ test('KEY-6 the menus show Illustrator’s keys', async () => {
   expect(await shortcuts('view')).toEqual([
     'Fit Artboard in Window=⌘0',
     'Fit All in Window=⌥⌘0',
+    // Illustrator has no default key for Zoom to Selection.
+    'Zoom to Selection=',
     'Zoom to 100%=⌘1',
     'Next Artboard=',
     'Previous Artboard=',
+    'Hide Artboards=⇧⌘H',
     "Grid=⌘'",
     'Snap to edges=⌘U'
   ])

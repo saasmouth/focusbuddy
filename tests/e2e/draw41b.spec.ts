@@ -39,8 +39,9 @@ async function selectionOnScreen(): Promise<{ x: number; y: number; width: numbe
 }
 
 test('ZS-1 Zoom to Selection: greyed with its reason until something is selected, then fits it with padding, beside a pinned panel too', async () => {
-  // An 800 × 600 page with a small square near its bottom-right corner.
-  const id = await seedDrawDoc(window, v1Body([rectObject('small', 640, 460, 40, 30)]), 'Zoom to selection')
+  // An 800 × 600 page with a square near its bottom-right corner (big
+  // enough that fitting it never hits the 1600% zoom cap).
+  const id = await seedDrawDoc(window, v1Body([rectObject('small', 560, 400, 160, 120)]), 'Zoom to selection')
   await openDocument(window, id)
 
   // Nothing selected: the View menu item is off and says why.
@@ -59,7 +60,7 @@ test('ZS-1 Zoom to Selection: greyed with its reason until something is selected
 
   // Select the square and zoom to it from the View menu.
   const before = await zoomPct()
-  const at = await stagePoint(window, 800, { x: 660, y: 475 })
+  const at = await stagePoint(window, 800, { x: 640, y: 460 })
   await window.mouse.click(at.x, at.y)
   await expect(window.locator('[data-testid="draw-selection"]')).toHaveCount(1)
   await runMenu(window, 'view', 'Zoom to Selection')

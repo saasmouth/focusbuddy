@@ -152,7 +152,18 @@ test('EP-2 the menus list the same items, with the same enabled states', async (
     'Keyboard shortcuts…'
   ])
   expect(await read('layer')).toEqual(['New vector layer', 'New paint layer'])
-  expect(await read('view')).toEqual(['Fit Artboard in Window', 'Fit All in Window', 'Zoom to 100%', 'Next Artboard (off)', 'Previous Artboard (off)', 'Grid', 'Snap to edges'])
+  expect(await read('view')).toEqual([
+    'Fit Artboard in Window',
+    'Fit All in Window',
+    // Off with nothing selected; the menu says why under the item.
+    'Zoom to Selectionselect something to zoom to (off)',
+    'Zoom to 100%',
+    'Next Artboard (off)',
+    'Previous Artboard (off)',
+    'Hide Artboards',
+    'Grid',
+    'Snap to edges'
+  ])
 })
 
 test('EP-3 shapes, Pathfinder, undo/redo and Delete through the keyboard', async () => {
