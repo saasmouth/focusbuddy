@@ -277,7 +277,7 @@ test('LBP-2 — Settings shows "Passages ranked by meaning: X of Y" and it fills
 // What the owner actually saw on 4.3.41. The sentence in the check is the
 // 4.3.40 template ("could not produce … (no JSON object was found)"), which
 // 4.3.41 has no code to write: it was SAVED with two PlexiiAssist turns on
-// 2026-10-22, before 4.3.41 was built, and every reopening of those
+// under 4.3.40, before 4.3.41 existed, and every reopening of those
 // conversations shows it again beside the saved answer. Needs no model.
 const SAVED_4340_WARNING =
   'The on-device model could not produce a reply for this request (no JSON object was found). Nothing was sent anywhere. Try again, rephrase it, or use your own key for PlexiiAssist and PlexiiBrain answers in Settings → AI.'
