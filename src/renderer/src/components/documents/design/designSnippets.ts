@@ -287,7 +287,22 @@ export function insertDesignSnippet(design: DesignBody, snippet: Snippet, at: De
   const centred = { ...clip, elements: clip.elements.map((e) => translate(e, dx, dy)) }
   const pasted = pasteElements(centred, { canvas: { w: design.width, h: design.height }, topZ, newId: at.newId, offset: 0 }).map((e, i) => {
     const src = centred.elements[i]
-    return src ? translateLineEnd(e, e.x - src.x, e.y - src.y) : e
+    if (!src) return e
+    const moved = translateLineEnd(e, e.x - src.x, e.y - src.y)
+    // The story a frame read is taken from the SOURCE element, never from what
+    // pasteElements returned: an ordinary paste may drop storyId/storyOrder
+    // (it cannot know which stories travelled), and the remap below must see
+    // the snippet's own ids to give each carried story a fresh one.
+    if (moved.type === 'text' && src.type === 'text') {
+      const t = { ...moved } as SlideTextElement
+      const from = src as SlideTextElement
+      if (from.storyId) {
+        t.storyId = from.storyId
+        if (from.storyOrder !== undefined) t.storyOrder = from.storyOrder
+      }
+      return t
+    }
+    return moved
   })
 
   // Fresh story ids, never one the destination already uses.
