@@ -4,6 +4,7 @@ import {
   targetAccepts,
   type Snippet,
   type SnippetDraft,
+  type SnippetInsertResult,
   type SnippetLink,
   type SnippetPatch,
   type SnippetQuery,
@@ -140,17 +141,20 @@ export const useSnippetsStore = create<SnippetsState>((set, get) => ({
       set({ error: `${target.label} cannot take a ${snippet.kind} snippet.` })
       return false
     }
-    let took = false
+    let outcome: SnippetInsertResult = false
     try {
-      took = await target.insert(snippet, link)
+      outcome = await target.insert(snippet, link)
     } catch (e) {
       set({ error: (e as Error).message || 'The snippet could not be inserted.' })
       return false
     }
-    if (!took) {
-      // The surface declined. It knows why (no selection, read-only); say so
-      // plainly rather than reporting a success.
-      set({ error: `${target.label} did not take the snippet.` })
+    if (outcome !== true) {
+      // The surface declined. A target that knows WHY says so — which cell a
+      // formula would have pointed off-sheet, which merge the block would have
+      // split — and that reason reaches the user verbatim rather than being
+      // flattened into a generic message it cannot act on.
+      const reason = typeof outcome === 'object' && outcome.reason ? outcome.reason : null
+      set({ error: reason ?? `${target.label} did not take the snippet.` })
       return false
     }
     set({ error: null })
