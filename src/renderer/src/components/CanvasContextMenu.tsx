@@ -1,12 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Icon from './Icon'
+import PlexiiIcon from './PlexiiIcon'
+import type { EntityRef } from '../lib/plexiiIconMap'
 import { useMenuOverlay } from '../lib/useMenuOverlay'
 import { collectMenuRects, resolvePosition } from '../lib/floatingChrome'
 
 export interface CtxMenuItem {
   label?: string
   icon?: string
+  /** The entity the item adds or opens: drawn with its Plexii icon, `icon` as fallback. */
+  entity?: EntityRef
   shortcut?: string
   separator?: boolean
   disabled?: boolean
@@ -299,7 +303,9 @@ function MenuPanel({
                   : `text-[var(--ink-90)] ${active === i ? 'bg-[var(--surface-sunken)]' : 'hover:bg-[var(--surface-sunken)]'}`
               }`}
             >
-              {item.icon ? (
+              {item.entity ? (
+                <PlexiiIcon kind={item.entity.kind} id={item.entity.id} size={16} fallback={item.icon} fallbackClassName="text-[var(--ink-50)]" />
+              ) : item.icon ? (
                 <Icon name={item.icon} size={14} className="text-[var(--ink-50)]" />
               ) : (
                 <span className="w-3.5" />

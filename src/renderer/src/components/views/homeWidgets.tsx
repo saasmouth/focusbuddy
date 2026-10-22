@@ -21,6 +21,8 @@ import { transcribeRecording } from '../../lib/transcribeRecording'
 import { saveTranscriptDoc } from '../../lib/meetingWrapup'
 import { RailCard } from '../plexi'
 import Modal from '../plexi/Modal'
+import PlexiiIcon from '../PlexiiIcon'
+import type { EntityRef } from '../../lib/plexiiIconMap'
 import Icon from '../Icon'
 import AppLogo from '../AppLogo'
 import { useSiteIcon } from '../../lib/siteIcon'
@@ -252,6 +254,16 @@ export function AppLauncherWidget(): JSX.Element {
 
 type ConnectedApp = ReturnType<typeof useConnectedAppsStore.getState>['apps'][number]
 
+/** Shortcut sections that are an app or tool with a Plexii icon (lib/plexiiIconMap). */
+const SECTION_ENTITY: Record<string, EntityRef> = {
+  shared: { kind: 'tool', id: 'shared' },
+  plans: { kind: 'tool', id: 'projects' },
+  tasks: { kind: 'tool', id: 'all-tasks' },
+  calendar: { kind: 'app', id: 'calendar' },
+  files: { kind: 'app', id: 'files' },
+  vault: { kind: 'app', id: 'vault' }
+}
+
 // The visual for one shortcut: favicon for websites (globe fallback), the real
 // app logo for connected apps, a toned Plexii icon for everything else.
 function ShortcutGlyph({
@@ -310,6 +322,22 @@ function ShortcutChip({
   chip: number
   glyph: number
 }): JSX.Element {
+  // Entities with their own tile — a section that is an app or tool, or a
+  // connected app — wear it bare at the chip's size: a tile inside a tinted
+  // chip is a border around a border.
+  const entity = target.kind === 'section' ? SECTION_ENTITY[target.id] : undefined
+  const app = target.kind === 'connected-app' ? apps.find((a) => a.id === target.appId) : undefined
+  if (entity || app) {
+    return (
+      <span className="inline-flex items-center justify-center shrink-0" style={{ width: chip, height: chip }}>
+        {entity ? (
+          <PlexiiIcon kind={entity.kind} id={entity.id} size={chip - 4} fallback={icon} fallbackClassName={tone} />
+        ) : (
+          <AppLogo app={app!} size={chip - 4} glyphSize={glyph} />
+        )}
+      </span>
+    )
+  }
   return (
     <span
       className={`inline-flex items-center justify-center shrink-0 fb-chip-lit ${tone}`}
@@ -1823,10 +1851,10 @@ export function CreateWidget(): JSX.Element {
   // plexiSuite.ts; Desk teal, matching the desks section and hero): what you
   // create is a product object, and the chip says which one.
   const items = [
-    { id: 'doc', label: 'Document', icon: 'description', tone: 'text-purple-600', onClick: () => void newDoc('doc') },
-    { id: 'sheet', label: 'Spreadsheet', icon: 'table_chart', tone: 'text-cyan-600', onClick: () => void newDoc('sheet') },
-    { id: 'slides', label: 'Deck', icon: 'slideshow', tone: 'text-pink-500', onClick: () => void newDoc('slides') },
-    { id: 'desk', label: 'Desk', icon: 'desk', tone: 'text-teal-500', onClick: () => void newDesk() }
+    { id: 'doc', app: 'docs', label: 'Document', icon: 'description', tone: 'text-purple-600', onClick: () => void newDoc('doc') },
+    { id: 'sheet', app: 'sheets', label: 'Spreadsheet', icon: 'table_chart', tone: 'text-cyan-600', onClick: () => void newDoc('sheet') },
+    { id: 'slides', app: 'slides', label: 'Deck', icon: 'slideshow', tone: 'text-pink-500', onClick: () => void newDoc('slides') },
+    { id: 'desk', app: 'plexidesk', label: 'Desk', icon: 'desk', tone: 'text-teal-500', onClick: () => void newDesk() }
   ]
   return (
     <RailCard title="Create new" icon="add_circle" tone="accent">
@@ -1841,10 +1869,9 @@ export function CreateWidget(): JSX.Element {
             {/* Chip-over-label, the sm shortcut tile grammar: the ~95px-wide
                 cols-2 cells cannot fit Document beside a chip, but fit it
                 centred under one. */}
-            <span
-              className={`inline-flex h-8 w-8 items-center justify-center shrink-0 fb-chip-lit ${it.tone}`}
-            >
-              <Icon name={it.icon} size={20} />
+            {/* What you create wears its app's Plexii tile, bare. */}
+            <span className="inline-flex h-8 w-8 items-center justify-center shrink-0">
+              <PlexiiIcon kind="app" id={it.app} size={30} fallback={it.icon} fallbackClassName={it.tone} />
             </span>
             <span className="max-w-full truncate text-[11px] font-medium leading-none text-[var(--ink-100)]">
               {it.label}

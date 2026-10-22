@@ -1,5 +1,14 @@
 import { useState } from 'react'
 import Icon from './Icon'
+import PlexiiIcon from './PlexiiIcon'
+import type { EntityRef } from '../lib/plexiiIconMap'
+
+/** Module dashboards that are an entity with a Plexii icon of its own. */
+const MODULE_ENTITY: Record<string, EntityRef> = {
+  forms: { kind: 'tool', id: 'forms' },
+  flows: { kind: 'tool', id: 'flows' },
+  meet: { kind: 'app', id: 'meet' }
+}
 import { DashboardHeader, StatTile, RailCard, StatusPill, PLEXI_CARD, Sparkline, type Tone } from './plexi'
 
 // A recent-item card on the dashboard's recent grid.
@@ -200,7 +209,19 @@ export default function ModuleDashboard(props: ModuleDashboardProps): JSX.Elemen
         {!embedded && (
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-2.5">
-            <Icon name={icon} size={22} className={`mt-0.5 shrink-0 ${accentClass}`} filled />
+            {MODULE_ENTITY[moduleKey] ? (
+              <PlexiiIcon
+                kind={MODULE_ENTITY[moduleKey].kind}
+                id={MODULE_ENTITY[moduleKey].id}
+                size={28}
+                fallback={icon}
+                fallbackFilled
+                className="shrink-0"
+                fallbackClassName={`mt-0.5 ${accentClass}`}
+              />
+            ) : (
+              <Icon name={icon} size={22} className={`mt-0.5 shrink-0 ${accentClass}`} filled />
+            )}
             <DashboardHeader title={title} greeting={greeting} subtitle={subtitle} />
           </div>
           <div className="shrink-0 flex items-center gap-2">

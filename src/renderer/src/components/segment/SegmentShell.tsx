@@ -2,6 +2,8 @@ import { useCallback } from 'react'
 import { useViewStore } from '../../stores/view'
 import type { SegmentKind } from '../../lib/segmentApps'
 import Icon from '../Icon'
+import PlexiiIcon, { PlexiiTileIcon } from '../PlexiiIcon'
+import { segmentAppEntity, viewKindEntity } from '../../lib/plexiiIconMap'
 import WorkspaceSwitcher from '../WorkspaceSwitcher'
 import AreaAccordion from '../nav/AreaAccordion'
 import UpgradeCard from '../UpgradeCard'
@@ -131,7 +133,14 @@ export default function SegmentShell({ def, initialApp }: { def: SegmentDef; ini
           <PageEnter id="segment-home" className="h-full overflow-auto">
             <div className="max-w-[1100px] mx-auto px-6 py-8">
               <div className="flex items-center gap-2.5 mb-1">
-                <Icon name={def.icon} size={22} className="text-[rgb(var(--accent))]" />
+                {(() => {
+                  const area = viewKindEntity(def.kind)
+                  return area ? (
+                    <PlexiiIcon kind={area.kind} id={area.id} size={28} fallback={def.icon} />
+                  ) : (
+                    <Icon name={def.icon} size={22} className="text-[rgb(var(--accent))]" />
+                  )
+                })()}
                 <h1 className="text-[22px] font-semibold">{def.title}</h1>
               </div>
               <p className="text-[13px] text-[var(--ink-50)] mb-6">{def.subtitle}</p>
@@ -143,9 +152,16 @@ export default function SegmentShell({ def, initialApp }: { def: SegmentDef; ini
                     data-testid={`segment-tile-${a.key}`}
                     className="fb-btn-surface flex flex-col items-start gap-2.5 p-4 text-left hover:border-[rgb(var(--accent)/0.5)] hover:shadow-sm transition"
                   >
-                    <span className={`inline-flex items-center justify-center w-11 h-11 rounded-xl ${a.tone}`} style={{ background: 'color-mix(in srgb, currentColor 12%, transparent)' }}>
-                      <Icon name={a.icon} size={22} />
-                    </span>
+                    {(() => {
+                      const ent = segmentAppEntity(def.kind, a.key)
+                      return ent ? (
+                        <PlexiiTileIcon kind={ent.kind} id={ent.id} fallback={a.icon} tone={a.tone} />
+                      ) : (
+                        <span className={`inline-flex items-center justify-center w-11 h-11 rounded-xl ${a.tone}`} style={{ background: 'color-mix(in srgb, currentColor 12%, transparent)' }}>
+                          <Icon name={a.icon} size={22} />
+                        </span>
+                      )
+                    })()}
                     <span className="text-[14px] font-semibold">{a.label}</span>
                     <span className="text-[12px] text-[var(--ink-50)] leading-snug">{a.blurb}</span>
                   </button>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SearchHit, Widget, WidgetKind } from '@shared/types'
 import { DashboardHeader } from '../plexi'
+import PlexiiIcon from '../PlexiiIcon'
 import Icon from '../Icon'
 import { catalogFor } from '../../lib/widgetCatalog'
 import { bringWidgetToDesk } from '../../lib/bringWidgetToDesk'
@@ -228,7 +229,7 @@ export default function AssembleDeskView(): JSX.Element {
                   key={w.id}
                   className="inline-flex items-center gap-1.5 rounded-full bg-[var(--surface-sunken)] px-2.5 py-1 text-[12px]"
                 >
-                  <Icon name={catalogFor(w.kind)?.icon ?? 'widgets'} size={13} className="text-[var(--ink-50)]" />
+                  <PlexiiIcon kind="widget" id={w.kind} size={16} fallback={catalogFor(w.kind)?.icon ?? 'widgets'} className="shrink-0" fallbackClassName="text-[var(--ink-50)]" />
                   <span className="max-w-[160px] truncate">{labelFor(w)}</span>
                   <button
                     type="button"
@@ -299,7 +300,11 @@ function Row(props: {
       data-checked={checked}
     >
       <input type="checkbox" checked={checked} onChange={onToggle} />
-      <Icon name={kind ? catalogFor(kind as WidgetKind)?.icon ?? 'widgets' : 'widgets'} size={15} className="text-[var(--ink-50)] shrink-0" />
+      {kind ? (
+        <PlexiiIcon kind="widget" id={kind} size={18} fallback={catalogFor(kind as WidgetKind)?.icon ?? 'widgets'} className="shrink-0" fallbackClassName="text-[var(--ink-50)]" />
+      ) : (
+        <Icon name="widgets" size={15} className="text-[var(--ink-50)] shrink-0" />
+      )}
       <span className="min-w-0 flex-1">
         <span className="block text-[13px] text-[var(--ink-90)] truncate">{title}</span>
         {snippet && <span className="block text-[12px] text-[var(--ink-55)] truncate">{snippet}</span>}

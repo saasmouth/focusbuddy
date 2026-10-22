@@ -11,6 +11,8 @@
 // can say so instead of lying about a name it cached.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import PlexiiIcon from './PlexiiIcon'
+import { segmentAppEntity, type EntityRef } from '../lib/plexiiIconMap'
 import Icon from './Icon'
 import { widgetFileType } from '@shared/widgetFiles'
 import { useViewStore, type View } from '../stores/view'
@@ -69,6 +71,8 @@ interface Resolved {
    * "apps" glyph that makes every connected app look identical.
    */
   app?: ConnectedApp
+  /** The app, tool or work widget the tab is, when it has a Plexii icon (lib/plexiiIconMap). */
+  entity?: EntityRef | null
 }
 
 export default function OpenTray(): JSX.Element | null {
@@ -168,8 +172,15 @@ export default function OpenTray(): JSX.Element | null {
                 : d?.docType === 'design'
                   ? 'palette'
                   : 'description'
+      // A widget file wears its kind's icon; a document, its app's.
+      const entity: EntityRef | null =
+        d?.docType === 'widget' && d.widgetKind
+          ? { kind: 'widget', id: d.widgetKind }
+          : DOC_APP_KEY[d?.docType ?? '']
+            ? { kind: 'app', id: DOC_APP_KEY[d?.docType ?? ''] }
+            : null
       return d
-        ? { label: d.title || 'Untitled', icon, tone }
+        ? { label: d.title || 'Untitled', icon, tone, entity }
         : { label: 'Document', icon: 'description', tone, missing: docs.length > 0 }
     }
     return (e: TrayEntry): Resolved => {
@@ -223,13 +234,13 @@ export default function OpenTray(): JSX.Element | null {
           // it -- which is exactly what a second copy of the list produced.
           const meta = lookupApp(v.kind, v.app)
           return meta
-            ? { label: meta.label, icon: meta.icon, tone: meta.tone }
+            ? { label: meta.label, icon: meta.icon, tone: meta.tone, entity: segmentAppEntity(v.kind, meta.key) }
             : { label: v.app ? humaniseKey(v.app) : 'Office', icon: 'apps', tone: AREA_TONES.office }
         }
         case 'messages':
-          return { label: 'PlexiiChat', icon: 'plexii:chat', tone: AREA_TONES.people }
+          return { label: 'PlexiiChat', icon: 'plexii:chat', tone: AREA_TONES.people, entity: { kind: 'app', id: 'chat' } }
         case 'mail':
-          return { label: 'Mail', icon: 'mail', tone: AREA_TONES.calendar }
+          return { label: 'Mail', icon: 'mail', tone: AREA_TONES.calendar, entity: { kind: 'app', id: 'mail' } }
         default:
           return { label: 'Open', icon: 'circle' }
       }
@@ -372,6 +383,16 @@ export default function OpenTray(): JSX.Element | null {
                   <span className={`shrink-0 ${r.missing ? 'opacity-40' : ''}`}>
                     <AppLogo app={r.app} size={14} glyphSize={10} />
                   </span>
+                ) : r.entity ? (
+                  <PlexiiIcon
+                    kind={r.entity.kind}
+                    id={r.entity.id}
+                    size={16}
+                    fallback={r.icon}
+                    fallbackFilled
+                    className={r.missing ? 'opacity-40' : ''}
+                    fallbackClassName={r.missing ? '' : (r.tone ?? 'text-[var(--ink-60)]')}
+                  />
                 ) : (
                   <Icon
                     name={r.icon}

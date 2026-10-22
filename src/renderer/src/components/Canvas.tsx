@@ -1973,6 +1973,7 @@ export default function Canvas(): JSX.Element {
     const toItem = (entry: WidgetCatalogEntry): CtxMenuItem => ({
       label: entry.label,
       icon: entry.icon,
+      entity: { kind: 'widget', id: entry.kind },
       onClick: () => addObject(entry)
     })
     const coreGroups: CtxMenuItem[] = CATEGORIES.map((cat) => ({
