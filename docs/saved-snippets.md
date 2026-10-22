@@ -138,7 +138,7 @@ that did not happen, which is why `usageCount` means something.
 | `doc` | TipTap nodes + plain text | **yes** — duplicate and live |
 | `widget` | kind, title, content, size, colour | **yes** — duplicate only, see below |
 | `sheet` | row-major values + per-cell formats | modelled, not wired |
-| `slide` | slide elements | modelled, not wired |
+| `slide` | slide elements | **yes**: duplicate only, see below |
 | `design` | canvas elements | modelled, not wired |
 | `diagram` | nodes + edges | **yes**: duplicate only, see below |
 | `draw` | PlexiiDraw objects + the assets and swatches they use | **yes**: duplicate only, see below |
@@ -261,6 +261,50 @@ Tests: `tests/unit/diagramSnippets.test.ts` (capture, insertion, the
 target's contract), `tests/unit/diagramSnippetsTarget.test.tsx` (registers on
 mount, withdraws on unmount and when read-only) and
 `tests/e2e/snippetsDiagram.spec.ts` (the round trip in the app).
+
+### Why a deck offers Duplicate only
+
+PlexiiDeck (`documents/slides/deckSnippets.ts`) saves the selected slide
+elements (text boxes, shapes, lines, images, tables, charts, work-widget
+embeds) and inserts them back onto the current slide. A slide snippet is copy
+and paste with a name, and it runs the clipboard's own code
+(`shared/elementClipboard.ts`) both ways: capture uses the clipboard builder
+(z-sorted deep copy), then moves the block so its top-left is the origin;
+insertion validates the stored body with the clipboard parser, centres the
+block on the page and hands it to the paste engine with no nudge. So it gets
+exactly what a paste gets: fresh ids throughout, groups remapped so the copy
+never joins the original's group, z above everything on the slide, and a block
+clamped onto the page. Linked data travels as a paste carries it: a chart keeps
+its sheet `source` (Refresh still works), an image keeps its `src`, and a
+work-widget embed keeps its `widgetId`, so it stays a live embed of that
+widget. The insertion is one commit, so one undo removes it, and the copy is
+selected afterwards. While presenting, the deck declines.
+
+Live is refused for three reasons, any one of which would be enough:
+
+- **No element renders other elements.** A slide is a flat list. A live slide
+  snippet would need a composite element resolved into child elements at
+  render time in the canvas, the thumbnails, presenting, Morph, and both
+  exporters (PPTX through pptxgenjs and the PDF page builder in
+  `main/slidesIo.ts`). That is a second element tree beside the real one, the
+  parallel mechanism the guide says not to build.
+- **Exports would drop or freeze it.** Today a static export has no snippet
+  resolver. A live instance would leave a PPTX or PDF either as a placeholder,
+  which silently drops the content, or as a snapshot taken at export time,
+  which is a frozen copy presented as live.
+- **Snippets do not reach other machines yet** (`ORG_SNIPPETS_SYNC` is
+  false). Decks are co-edited and presented from other computers, where every
+  live instance would resolve to "no longer exists". A document accepts that
+  today; a deck someone is about to present from another laptop should not.
+
+So the deck target declares `supports: ['duplicate']` and the library shows one
+button. The target id is the mounted editor (`slides:<useId>`), so two decks
+open at once, or the same deck in a desk widget and in the editor, are two
+destinations. The commands sit with their neighbours: Edit › Save selection as
+snippet… and Arrange › Save as snippet… with the other selection actions,
+Insert › Insert snippet… and Insert › Saved snippet… with the inserts, plus
+both in the command palette. Tests: `tests/unit/deckSnippets.test.tsx` and
+`tests/e2e/snippetsDeck.spec.ts`.
 
 Adding a surface is a registration, not a change to the core:
 
@@ -401,7 +445,7 @@ DrawSnippetBody    { kind: 'draw',    objects: unknown[], assets?, swatches? }
 (`shared/draw/model.ts`) and PlexiiDesign's elements are different models, and the
 kind/body agreement check is what keeps one app's objects out of the other.
 
-`doc`, `widget`, `draw` and `diagram` are wired. `sheet`, `slide` and `design`
+`doc`, `widget`, `draw`, `diagram` and `slide` are wired. `sheet` and `design`
 are typed and stored but register no target yet.
 
 If a shape does not fit, change it in `shared/snippets.ts` and add its case to

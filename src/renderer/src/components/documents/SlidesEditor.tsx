@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { DeckTheme, Slide, SlideElement, SlideLayout, SlidesBody, SlideTransition } from '@shared/types'
 import { resolveTheme, layoutElements, applyThemeToDeck, BUILTIN_THEMES } from '@shared/slideThemes'
 import { SLIDE_TEMPLATES } from '@shared/slideTemplates'
@@ -43,6 +43,10 @@ import { useElementClipboard } from './slides/useElementClipboard'
 import { useRegisterEditorCommands, type EditorCommand } from '../../stores/editorCommands'
 import Icon from '../Icon'
 import WidgetPickerDialog from './embed/WidgetPickerDialog'
+import SnippetLibrary from '../snippets/SnippetLibrary'
+import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
+import type { Snippet, SlideSnippetBody } from '@shared/snippets'
+import { DECK_PAGE, deckSnippetTargetId, slideBodyFromSelection, slideElementsFromSnippet, suggestedSlideSnippetName, useDeckSnippetTarget } from './slides/deckSnippets'
 
 // PowerPoint-class slides editor on the office shell (SPEC §6.4). The deck is
 // held as v2 (element-based) in local state; legacy decks migrate on mount. The
@@ -71,6 +75,9 @@ const writePref = (k: string, v: unknown): void => {
   }
 }
 
+/** Stable, so the library's refresh effect (keyed on kinds) runs once per open. */
+const SLIDE_KINDS: ['slide'] = ['slide']
+
 interface Props {
   body: SlidesBody
   title: string
@@ -94,6 +101,14 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
   const [a11yIssues, setA11yIssues] = useState<A11yIssue[] | null>(null)
   const [galleryOpen, setGalleryOpen] = useState(false)
   const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
+  // Saved snippets: the library (insert) and the save dialog (capture). The
+  // dialog gets an EMPTY body when nothing is selected, so it can say so
+  // rather than the menu item appearing to do nothing.
+  const [snippetLibraryOpen, setSnippetLibraryOpen] = useState(false)
+  const [snippetDraft, setSnippetDraft] = useState<SlideSnippetBody | null>(null)
+  // This mounted editor, as a snippet destination: two decks open at once are
+  // two destinations, so the id is the mount, not the document.
+  const snippetScope = useId()
   const [status, setStatus] = useState<string | null>(null)
   const [canvasW, setCanvasW] = useState(720)
   // Shell state: the active tab, Row 2 collapse (D5), the overlay panels and the
@@ -620,6 +635,28 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
     mutateSlide(() => s)
     setSelectedIds(newIds)
   }
+  // Capture: the selection becomes a slide snippet body (positions relative to
+  // its top-left), or an empty one so the dialog can say there is nothing to save.
+  function saveSelectionAsSnippet(): void {
+    setSnippetDraft(slideBodyFromSelection(slide, selectedIds) ?? { kind: 'slide', elements: [] })
+  }
+  // Insertion: a duplicate onto the CURRENT slide, through the paste engine
+  // (fresh ids, groups remapped, on top, on the page), selected afterwards, as
+  // ONE commit so one undo takes it all back. Declines while presenting.
+  function insertSlideSnippet(snippet: Snippet): boolean {
+    if (!slides[slideIdx]) return false
+    const els = slideElementsFromSnippet(snippet, {
+      canvas: { w: body.size?.w ?? DECK_PAGE.w, h: body.size?.h ?? DECK_PAGE.h },
+      topZ: (slides[slideIdx]?.elements ?? []).reduce((m, e) => Math.max(m, e.z ?? 0), 0),
+      newId: elementId,
+      readOnly: presenting
+    })
+    if (!els) return false
+    mutateSlide((s) => els.reduce((acc, el) => addElement(acc, el), s))
+    setTool('select')
+    setSelectedIds(els.map((e) => e.id))
+    return true
+  }
   // Cut / Copy / Paste, shared with PlexiiDesign: the hook owns the DOM
   // clipboard events, so ⌘C/⌘V and the native Edit menu run the same code.
   const clipboard = useElementClipboard({
@@ -650,6 +687,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
     setSelectedIds([])
   }
   const anyGrouped = (slide.elements ?? []).some((e) => selectedIds.includes(e.id) && e.groupId)
+  useDeckSnippetTarget(snippetScope, title, insertSlideSnippet)
 
   // Keyboard-direct manipulation of the selection: arrow keys nudge the whole
   // selection by 1 (10 with Shift), Cmd/Ctrl+D duplicates, Delete/Backspace
@@ -731,6 +769,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
         { id: 'sl-widget', label: 'Insert work widget from a desk', icon: 'widgets', group: 'Insert', keywords: 'embed desk canvas', run: () => setWidgetPickerOpen(true) },
         { id: 'sl-chart', label: 'Insert chart', icon: 'bar_chart', group: 'Insert', keywords: 'graph plot data sheet', run: insertChart },
         { id: 'sl-table', label: 'Insert table', icon: 'table_chart', group: 'Insert', keywords: 'grid rows columns cells', run: insertTable },
+        { id: 'sl-snippet', label: 'Insert snippet', icon: 'bookmarks', group: 'Insert', keywords: 'saved reuse library', run: () => setSnippetLibraryOpen(true) },
         { id: 'sl-new', label: 'New slide', icon: 'add_to_photos', group: 'Slide', keywords: 'add template', run: () => setGalleryOpen(true) },
         { id: 'sl-present', label: 'Present deck', icon: 'play_arrow', group: 'Slide', keywords: 'slideshow play', run: () => setPresenting(true) },
         { id: 'sl-ai', label: 'AI: generate or redesign slides', icon: 'auto_awesome', group: 'AI', keywords: 'design make beautiful', run: () => setSidePane('generate') },
@@ -744,6 +783,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
         cmds.push(
           { id: 'sl-dup', label: multi ? `Duplicate ${n} elements` : 'Duplicate element', icon: 'content_copy', shortcut: '⌘D', group: 'Arrange', run: duplicateSelection },
           { id: 'sl-del', label: multi ? `Delete ${n} elements` : 'Delete element', icon: 'delete', group: 'Arrange', keywords: 'remove', run: deleteSelection },
+          { id: 'sl-save-snippet', label: 'Save selection as snippet', icon: 'bookmark_add', group: 'Arrange', keywords: 'saved reuse library keep', run: saveSelectionAsSnippet },
           { id: 'sl-ch', label: 'Centre on slide horizontally', icon: 'align_horizontal_center', group: 'Arrange', keywords: 'align center middle slide', run: () => centreSelection('h') },
           { id: 'sl-cv', label: 'Centre on slide vertically', icon: 'align_vertical_center', group: 'Arrange', keywords: 'align center middle slide', run: () => centreSelection('v') },
           { id: 'sl-front', label: 'Bring to front', icon: 'flip_to_front', group: 'Arrange', keywords: 'z order top', run: () => reorderSelection('front') },
@@ -819,6 +859,8 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
       insertTable,
       insertChart,
       insertWidget: () => setWidgetPickerOpen(true),
+      insertSnippet: () => setSnippetLibraryOpen(true),
+      saveSnippet: saveSelectionAsSnippet,
       openGallery: () => setGalleryOpen(true),
       duplicateSlide: () => duplicateSlide(slideIdx),
       applyLayout,
@@ -908,6 +950,8 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
             moveSlideDown: () => moveSlide(slideIdx, 1),
             duplicateSelection,
             deleteSelection,
+            saveSelectionAsSnippet,
+            insertSnippet: () => setSnippetLibraryOpen(true),
             insertText,
             insertImage: () => void insertImage(),
             insertShape,
@@ -1140,6 +1184,14 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
           }}
           onClose={() => setWidgetPickerOpen(false)}
         />
+      )}
+
+      {snippetLibraryOpen && (
+        <SnippetLibrary kinds={SLIDE_KINDS} targetId={deckSnippetTargetId(snippetScope)} onClose={() => setSnippetLibraryOpen(false)} />
+      )}
+
+      {snippetDraft && (
+        <SaveSnippetDialog body={snippetDraft} suggestedName={suggestedSlideSnippetName(snippetDraft)} onClose={() => setSnippetDraft(null)} />
       )}
 
       {presenting && <PresentOverlay slides={slides} theme={theme} startIndex={slideIdx} onClose={() => setPresenting(false)} />}

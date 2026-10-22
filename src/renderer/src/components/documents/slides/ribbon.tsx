@@ -71,6 +71,10 @@ export interface DeckCtx {
     insertTable: () => void
     insertChart: () => void
     insertWidget: () => void
+    /** Open the saved-snippets library, scoped to slide snippets, aimed at this deck. */
+    insertSnippet: () => void
+    /** Save the selected elements as a snippet (the dialog names it). */
+    saveSnippet: () => void
     openGallery: () => void
     duplicateSlide: () => void
     applyLayout: (l: SlideLayout) => void
@@ -273,6 +277,7 @@ const insertTab: BarTab<DeckCtx> = {
       <BarButton icon="table_chart" label="Table" showLabel onClick={c.ed.insertTable} testid="slides-insert-table" />
       <BarButton icon="bar_chart" label="Chart" showLabel onClick={c.ed.insertChart} testid="slides-insert-chart" />
       <BarDialogButton icon="widgets" label="Work widget" onOpen={c.ed.insertWidget} testid="slides-insert-widget" />
+      <BarDialogButton icon="bookmarks" label="Saved snippet" onOpen={c.ed.insertSnippet} testid="slides-insert-snippet" />
       {/* The old toolbar's AI button opened deck generation in one click; it still does. */}
       <BarButton icon="auto_awesome" label="AI slides" showLabel onClick={() => c.openSidePane('generate')} controls={SIDE_PANE_DOM_ID} testid="slides-insert-ai" />
       <BarSep />
@@ -390,6 +395,7 @@ const arrangeTab: BarTab<DeckCtx> = {
         <BarSep />
         <BarButton icon="content_copy" label="Duplicate" shortcut="⌘D" onClick={c.ed.duplicateSelection} disabled={none} disabledReason={nothing} testid="slides-el-duplicate" />
         <BarButton icon="delete" label="Delete" shortcut="⌫" onClick={c.ed.deleteSelection} disabled={none} disabledReason={nothing} testid="slides-el-delete" />
+        <BarDialogButton icon="bookmark_add" label="Save as snippet" onOpen={c.ed.saveSnippet} disabled={none} disabledReason={nothing} testid="slides-save-snippet" />
         <FrameControls c={c} />
       </>
     )
