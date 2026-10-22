@@ -203,6 +203,9 @@ export function BarNumber({ label, value, onChange, min, max, step = 1, suffix, 
     const n = Number(draft)
     if (draft.trim() === '' || !Number.isFinite(n)) return setDraft(value === undefined ? '' : String(value))
     const c = Math.min(max ?? Infinity, Math.max(min ?? -Infinity, n))
+    // Leaving the field (or Enter) with the value unchanged is not an edit:
+    // an app would otherwise record an empty undo step on every blur.
+    if (c === value) return setDraft(String(c))
     onChange(c)
   }
   return (
