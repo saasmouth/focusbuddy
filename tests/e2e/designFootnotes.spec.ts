@@ -10,7 +10,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign, selectBarTab } from './_helpers'
 
 async function openPublication(window: Page): Promise<void> {
   await switchArea(window, 'office')
@@ -21,9 +21,9 @@ async function openPublication(window: Page): Promise<void> {
 
 /** Two linked frames carrying one story, with the story editor open. */
 async function openStory(window: Page): Promise<void> {
-  await window.locator('[data-testid="design-add-text"]').click()
+  await placeDesign(window, 'text')
   await window.keyboard.press('Escape')
-  await window.locator('[data-testid="design-add-text"]').click()
+  await placeDesign(window, 'text')
   await window.keyboard.press('Escape')
 
   const canvas = window.locator('[data-testid="slide-canvas"]')
@@ -34,6 +34,12 @@ async function openStory(window: Page): Promise<void> {
   await window.mouse.move(cb.x + cb.width - 2, cb.y + cb.height - 2)
   await window.mouse.up()
 
+  // Threading moved to the contextual Text tab (SPEC §6.3); it never
+
+  // auto-switches, so the spec has to ask for it.
+
+  await selectBarTab(window, 'design-toolbar', 'text')
+
   await expect(window.locator('[data-testid="design-link-frames"]')).toBeVisible({ timeout: 5_000 })
   await window.locator('[data-testid="design-link-frames"]').click()
 
@@ -41,6 +47,7 @@ async function openStory(window: Page): Promise<void> {
   const pb = await port.boundingBox()
   if (!pb) throw new Error('no thread port')
   await window.mouse.click(pb.x + 14, pb.y + 24)
+  await selectBarTab(window, 'design-toolbar', 'text')
   await window.locator('[data-testid="design-open-story"]').click()
   await expect(window.locator('[data-testid="design-story-editor"]')).toBeVisible({ timeout: 5_000 })
 }
@@ -61,6 +68,13 @@ test.describe('PlexiDesign footnotes', () => {
   let window: Page
 
   test.beforeAll(async () => {
+    // The 30s default (playwright.config.ts) is the TEST budget, and this hook
+    // does a cold app launch, the AI-source choice, navigation and content
+    // setup inside it. On a machine running several suites at once that is a
+    // coin flip: the failure then reads "beforeAll hook timeout" with whatever
+    // it happened to be waiting for, which looks like the app being broken.
+    // The hook gets its own budget; every TEST still has 30s.
+    test.setTimeout(90_000)
     app = await launchApp()
     window = app.window
     await waitForReady(window)

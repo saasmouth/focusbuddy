@@ -95,6 +95,28 @@ const APPS: AppCase[] = [
     undo: 'slides-undo',
     page: 'slide-canvas',
     sidePane: { toggle: 'slides-sidepane-toggle', pane: 'slides-side-panel', content: 'slides-ai-assistant' }
+  },
+  {
+    name: 'PlexiiDesign',
+    docType: 'design',
+    shell: 'design-shell',
+    bar: 'design-toolbar',
+    rail: 'design-rail',
+    canvas: 'slide-canvas',
+    // Page layout, from the rail: it needs no selection and no key, and it is
+    // PINNABLE, which is what makes the "page clears a pinned panel" check
+    // below do any work. Driving the AI design panel instead would skip that
+    // assertion silently, since the check is gated on a pin button existing —
+    // and a pinned panel over the page is precisely the bug that cost DL-8.
+    panelOpener: 'design-rail-layout',
+    panel: 'design-panel-layout',
+    // The page itself, so the pinned-panel check has something to measure.
+    page: 'slide-canvas',
+    undo: 'design-undo',
+    // Design's bottom strip is the page rail; its add control is the furthest
+    // right thing in it, so it is what the Plexii pill would cover.
+    corner: 'design-page-add',
+    sidePane: { toggle: 'design-sidepane-toggle', pane: 'design-sidepane', content: 'design-ai-panel' }
   }
 ]
 

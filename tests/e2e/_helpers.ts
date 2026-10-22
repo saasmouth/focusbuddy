@@ -359,11 +359,22 @@ export async function openAreaSwitcher(window: Page): Promise<void> {
   }
   const menu = window.locator('[data-testid="workspace-switcher-menu"]')
   if (await menu.isVisible().catch(() => false)) return
+  // WAIT for the trigger rather than probing it. Probing made this a silent
+  // no-op whenever the chrome had not mounted yet, and the caller then timed
+  // out on switch-<area> as if the area did not exist: a 30s beforeAll failure
+  // with no mention of the switcher in it. On a machine running several e2e
+  // suites at once that is the difference between green and a mystery red —
+  // designFootnotes failed this way three times and passed alone every time.
   const trigger = window.locator('[data-testid="workspace-switcher-trigger"]').first()
-  if (await trigger.isVisible().catch(() => false)) {
+  await expect(trigger, 'the workspace switcher trigger never mounted').toBeVisible({ timeout: 20_000 })
+  await trigger.click()
+  // One retry: the first press can be swallowed by chrome that mounts over it
+  // (the local-AI cards, the feature-spotlight card), and a dropdown that did
+  // not open is indistinguishable from an area that is not there.
+  if (!(await menu.isVisible().catch(() => false))) {
     await trigger.click()
-    await expect(menu).toBeVisible({ timeout: 8_000 })
   }
+  await expect(menu).toBeVisible({ timeout: 8_000 })
 }
 
 export type AreaKind = 'plexidesk' | 'office' | 'plexipeople' | 'plexibrain'
@@ -686,31 +697,6 @@ export async function suppressFeatureSpotlights(window: Page): Promise<void> {
 }
 
 /**
- * Select an office-shell ContextBar tab, so the controls on it are rendered.
- *
- * On the shared shell a tab's controls are only in the DOM while that tab is
- * active (SPEC §2.2) — unlike the single always-visible toolbar each app had
- * before. So a spec that reaches for a control which now lives on Insert,
- * Layout, Data, Review or Tools has to select its tab first, or it will wait
- * out its timeout on an element that was never rendered. Home is the default
- * tab, so controls there need no call.
- *
- * `bar` is the ContextBar testid (doc-toolbar, sheet-toolbar, diagram-toolbar…)
- * and `tab` the tab id, giving `${bar}-tab-${tab}`.
- */
-export async function selectBarTab(window: Page, bar: string, tab: string): Promise<void> {
-  const t = window.locator(`[data-testid="${bar}-tab-${tab}"]`)
-  await expect(t).toBeVisible({ timeout: 5_000 })
-  // Idempotent on purpose: clicking the ALREADY-active tab a second time is a
-  // double-click, which collapses row 2 (owner ruling D5) and hides the very
-  // controls the caller is reaching for. So selecting the current tab is a
-  // no-op rather than a click.
-  if ((await t.getAttribute('aria-selected')) === 'true') return
-  await t.click()
-  await expect(t).toHaveAttribute('aria-selected', 'true', { timeout: 3_000 })
-}
-
-/**
  * Show one of Write's right-hand content panes (outline / comments / ai).
  *
  * `doc-comments-toggle` and `doc-outline-toggle` are TOGGLES: pressing one while
@@ -770,4 +756,54 @@ export async function placeSlide(
     ...(at ? { at: { x: box.width * at.fx, y: box.height * at.fy } } : {}),
     ...(drag ? { drag } : {})
   })
+}
+
+/**
+ * placeElement for PlexiiDesign, with this app's canvas and shape flyout
+ * filled in — so a spec says `placeDesign(window, 'rect')` rather than
+ * repeating the same three options 27 times.
+ *
+ * `at` is a FRACTION of the canvas box, not pixels: the canvas is a scaled
+ * page, often about 400px wide in a test window, so absolute coordinates land
+ * outside it and place nothing — which reads exactly like the tool being
+ * broken.
+ */
+export async function placeDesign(
+  window: Page,
+  tool: string,
+  at?: { fx: number; fy: number },
+  drag?: { dx: number; dy: number }
+): Promise<{ x: number; y: number }> {
+  const canvas = '[data-testid="slide-canvas"]'
+  const box = await window.locator(canvas).boundingBox()
+  if (!box) throw new Error('placeDesign: the canvas was not laid out')
+  return placeElement(window, 'design', tool, {
+    canvas,
+    flyout: 'shapes',
+    ...(at ? { at: { x: box.width * at.fx, y: box.height * at.fy } } : {}),
+    ...(drag ? { drag } : {})
+  })
+}
+
+/**
+ * Show a ContextBar tab (office shell SPEC §2.3).
+ *
+ * Never clicks a tab that is already active: a second click on the active tab
+ * is a double-click, which collapses Row 2 (D5) and hides the very controls
+ * the caller is reaching for.
+ */
+export async function selectBarTab(window: Page, bar: string, tab: string): Promise<void> {
+  const el = window.locator(`[data-testid="${bar}-tab-${tab}"]`)
+  // Narrow windows fold trailing tabs into "More ▾" (SPEC §2.6), and which
+  // tabs fold changes as the active tab's controls change the row's width.
+  // A spec that assumes every tab is always on the strip passes on a wide
+  // window and fails on a narrow one, which is the worst kind of flake.
+  if (!(await el.isVisible().catch(() => false))) {
+    const more = window.locator(`[data-testid="${bar}-tab-more"]`)
+    if (await more.isVisible().catch(() => false)) await more.click()
+  }
+  await expect(el).toBeVisible({ timeout: 5_000 })
+  if ((await el.getAttribute('aria-selected')) === 'true') return
+  await el.click()
+  await expect(el).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 })
 }

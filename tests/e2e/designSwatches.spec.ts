@@ -10,7 +10,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign } from './_helpers'
 
 async function openDesign(window: Page): Promise<void> {
   await switchArea(window, 'office')
@@ -62,7 +62,7 @@ test.describe('PlexiDesign swatches', () => {
     await chooseCloudAiSource(window)
     await openDesign(window)
     // Something to colour.
-    await window.locator('[data-testid="design-add-rect"]').click()
+    await placeDesign(window, 'rect')
   })
 
   test.afterAll(async () => {

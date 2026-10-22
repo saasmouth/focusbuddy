@@ -10,7 +10,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, switchArea, chooseCloudAiSource } from './_helpers'
+import { launchApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign } from './_helpers'
 
 test.describe.configure({ timeout: 90_000 })
 
@@ -43,7 +43,7 @@ test('CP-1 — Design: ⌘C and ⌘V add a copy, offset and on top', async () =>
     await chooseCloudAiSource(window)
     await openDesign(window)
 
-    await window.locator('[data-testid="design-add-rect"]').click()
+    await placeDesign(window, 'rect')
     await expect.poll(() => elementCount(window), { timeout: 6_000 }).toBe(1)
     await selectFirst(window)
 
@@ -75,7 +75,7 @@ test('CP-2 — Design: the Edit menu does the same, and Cut removes the original
     await chooseCloudAiSource(window)
     await openDesign(window)
 
-    await window.locator('[data-testid="design-add-rect"]').click()
+    await placeDesign(window, 'rect')
     await expect.poll(() => elementCount(window), { timeout: 6_000 }).toBe(1)
     await selectFirst(window)
 
@@ -102,7 +102,7 @@ test('CP-3 — Design: an element copied on page 1 pastes onto page 2', async ()
     await chooseCloudAiSource(window)
     await openDesign(window)
 
-    await window.locator('[data-testid="design-add-rect"]').click()
+    await placeDesign(window, 'rect')
     await expect.poll(() => elementCount(window), { timeout: 6_000 }).toBe(1)
     await selectFirst(window)
     await menu(window, 'design-menubar', 'edit', 'Copy')
@@ -129,8 +129,8 @@ test('CP-4 — Design: a page can be duplicated, with everything on it', async (
     await chooseCloudAiSource(window)
     await openDesign(window)
 
-    await window.locator('[data-testid="design-add-rect"]').click()
-    await window.locator('[data-testid="design-add-ellipse"]').click()
+    await placeDesign(window, 'rect')
+    await placeDesign(window, 'ellipse')
     await expect.poll(() => elementCount(window), { timeout: 6_000 }).toBe(2)
 
     await menu(window, 'design-menubar', 'layout', 'Duplicate this page')

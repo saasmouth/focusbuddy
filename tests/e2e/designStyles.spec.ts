@@ -10,7 +10,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign, selectBarTab } from './_helpers'
 
 async function openPublication(window: Page): Promise<void> {
   await switchArea(window, 'office')
@@ -32,9 +32,9 @@ async function openStyles(window: Page): Promise<void> {
 
 /** A threaded frame carrying a story, so there is flowed text to re-set. */
 async function makeStory(window: Page): Promise<void> {
-  await window.locator('[data-testid="design-add-text"]').click()
+  await placeDesign(window, 'text')
   await window.keyboard.press('Escape')
-  await window.locator('[data-testid="design-add-text"]').click()
+  await placeDesign(window, 'text')
   await window.keyboard.press('Escape')
   const canvas = window.locator('[data-testid="slide-canvas"]')
   const cb = await canvas.boundingBox()
@@ -43,11 +43,13 @@ async function makeStory(window: Page): Promise<void> {
   await window.mouse.down()
   await window.mouse.move(cb.x + cb.width - 2, cb.y + cb.height - 2)
   await window.mouse.up()
+  await selectBarTab(window, 'design-toolbar', 'text')
   await window.locator('[data-testid="design-link-frames"]').click()
   const port = window.locator('[data-testid="design-thread-port"]').first()
   const pb = await port.boundingBox()
   if (!pb) throw new Error('no thread port')
   await window.mouse.click(pb.x + 14, pb.y + 24)
+  await selectBarTab(window, 'design-toolbar', 'text')
   await window.locator('[data-testid="design-open-story"]').click()
   await window
     .locator('[data-testid="design-story-text"]')
@@ -71,6 +73,13 @@ test.describe('PlexiDesign named styles', () => {
   let window: Page
 
   test.beforeAll(async () => {
+    // The 30s default (playwright.config.ts) is the TEST budget, and this hook
+    // does a cold app launch, the AI-source choice, navigation and content
+    // setup inside it. On a machine running several suites at once that is a
+    // coin flip: the failure then reads "beforeAll hook timeout" with whatever
+    // it happened to be waiting for, which looks like the app being broken.
+    // The hook gets its own budget; every TEST still has 30s.
+    test.setTimeout(90_000)
     app = await launchApp()
     window = app.window
     await waitForReady(window)
@@ -186,6 +195,7 @@ test.describe('PlexiDesign baseline grid', () => {
   })
 
   test('BG-1 the grid can be turned on, and draws on the page', async () => {
+    await selectBarTab(window, 'design-toolbar', 'layout')
     await window.locator('[data-testid="design-layout-btn"]').click()
     await expect(window.locator('[data-testid="design-layout-panel"]')).toBeVisible({ timeout: 5_000 })
     // Nothing drawn until there is a grid.

@@ -10,7 +10,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, chooseCloudAiSource } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, chooseCloudAiSource, placeDesign, selectBarTab } from './_helpers'
 
 /** Start a real publication from the PlexiDesign hub, not a bare canvas. */
 async function openPublication(window: Page): Promise<void> {
@@ -24,6 +24,10 @@ async function openPublication(window: Page): Promise<void> {
 }
 
 async function openLayoutPanel(window: Page): Promise<void> {
+  // Ask for the Layout tab rather than relying on it: a new design happens to
+  // open on it, so these clicks landed by luck, and a change of default tab
+  // would have turned this whole file red for no reason of its own.
+  await selectBarTab(window, 'design-toolbar', 'layout')
   if (!(await window.locator('[data-testid="design-layout-panel"]').isVisible().catch(() => false))) {
     await window.locator('[data-testid="design-layout-btn"]').click()
   }
@@ -35,6 +39,13 @@ test.describe('PlexiDesign page layout', () => {
   let window: Page
 
   test.beforeAll(async () => {
+    // The 30s default (playwright.config.ts) is the TEST budget, and this hook
+    // does a cold app launch, the AI-source choice, navigation and content
+    // setup inside it. On a machine running several suites at once that is a
+    // coin flip: the failure then reads "beforeAll hook timeout" with whatever
+    // it happened to be waiting for, which looks like the app being broken.
+    // The hook gets its own budget; every TEST still has 30s.
+    test.setTimeout(90_000)
     app = await launchApp()
     window = app.window
     await waitForReady(window)
@@ -95,6 +106,7 @@ test.describe('PlexiDesign page layout', () => {
   })
 
   test('DL-5 toggling the layout aids hides the grid without touching the content', async () => {
+    await selectBarTab(window, 'design-toolbar', 'layout')
     await window.locator('[data-testid="design-aids-toggle"]').click()
     await expect(window.locator('[data-testid="design-margin-box"]')).toHaveCount(0)
     await window.locator('[data-testid="design-aids-toggle"]').click()
@@ -108,7 +120,7 @@ test.describe('PlexiDesign page layout', () => {
     await editBtn.click()
     await expect(window.locator('[data-testid="design-master-banner"]')).toBeVisible()
 
-    await window.locator('[data-testid="design-add-text"]').click()
+    await placeDesign(window, 'text')
     // Leaving master-edit mode returns to the page, where the frame must now
     // render as inert underlay rather than as page content.
     await window.locator('[data-testid="design-master-banner"] button').click()
@@ -132,19 +144,35 @@ test.describe('PlexiDesign page layout', () => {
   })
 
   test('DL-8 two text frames link into one story that flows through both', async () => {
-    // Two frames on the page, then link them.
-    await window.locator('[data-testid="design-add-text"]').click()
-    await window.locator('[data-testid="design-add-text"]').click()
+    // Two frames on the page, then link them. Place them apart: an armed tool
+    // drops its default at the press, so two default placements land on top of
+    // each other and the marquee below selects ONE frame — which leaves
+    // "Link text frames" disabled and reads exactly like a broken button.
+    await placeDesign(window, 'text', { fx: 0.3, fy: 0.25 })
+    await placeDesign(window, 'text', { fx: 0.3, fy: 0.6 })
     await window.keyboard.press('Escape')
 
-    // Select both by marquee over the whole canvas.
+    // Rubber-band both frames. The press must land on EMPTY stage, and it now
+    // starts at the page's TOP-RIGHT corner: pinned ShellPanels float over the
+    // canvas by design (SPEC §2.4), and the Layout panel this spec opened sits
+    // over the top-LEFT corner the press used to use — its header swallowed
+    // the gesture, so no marquee began, nothing was selected, and "Link text
+    // frames" stayed disabled while being present, visible and stable.
     const canvas = window.locator('[data-testid="slide-canvas"]')
     const cb = await canvas.boundingBox()
     if (!cb) throw new Error('the canvas was not laid out')
-    await window.mouse.move(cb.x + 2, cb.y + 2)
+    await window.mouse.move(cb.x + cb.width - 6, cb.y + 6)
     await window.mouse.down()
-    await window.mouse.move(cb.x + cb.width - 2, cb.y + cb.height - 2)
+    // The move/up listeners are on `window`, so the far corner may sit below
+    // the viewport on a tall page — only the press has to be on the stage.
+    await window.mouse.move(cb.x + 4, cb.y + cb.height - 4, { steps: 8 })
     await window.mouse.up()
+
+    // Threading moved to the contextual Text tab (SPEC §6.3); it never
+
+    // auto-switches, so the spec has to ask for it.
+
+    await selectBarTab(window, 'design-toolbar', 'text')
 
     await expect(window.locator('[data-testid="design-link-frames"]')).toBeVisible({ timeout: 5_000 })
     await window.locator('[data-testid="design-link-frames"]').click()
@@ -162,6 +190,7 @@ test.describe('PlexiDesign page layout', () => {
 
     // Threaded copy is written in the story editor now, not in the inspector —
     // a five-page article cannot be typed inside a two-inch column.
+    await selectBarTab(window, 'design-toolbar', 'text')
     await window.locator('[data-testid="design-open-story"]').click()
     await expect(window.locator('[data-testid="design-story-editor"]')).toBeVisible({ timeout: 5_000 })
     const story = window.locator('[data-testid="design-story-text"]')

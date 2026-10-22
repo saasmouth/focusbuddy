@@ -19,7 +19,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign, selectBarTab } from './_helpers'
 
 const REWRITE_HTML = '<p>Stubbed improved copy.</p>'
 const SUGGEST_HTML = '<p>Stubbed design idea.</p>'
@@ -67,7 +67,7 @@ async function openDesignStudio(window: Page): Promise<void> {
 
 /** Add a text element to the canvas and select it, via the toolbar. */
 async function addAndSelectText(window: Page): Promise<void> {
-  await window.locator('[data-testid="design-add-text"]').click()
+  await placeDesign(window, 'text')
   // Adding a text element selects it; the text inspector confirms a text selection.
   await expect(window.locator('[data-testid="design-font-family"]')).toBeVisible({ timeout: 5_000 })
 }
@@ -76,7 +76,11 @@ async function addAndSelectText(window: Page): Promise<void> {
 async function clearSelection(window: Page): Promise<void> {
   // Pressing Escape and clicking the canvas wrapper background deselects.
   await window.locator('[data-testid="slide-canvas"]').click({ position: { x: 4, y: 4 } })
-  await expect(window.locator('[data-testid="design-canvas-inspector"]')).toBeVisible({ timeout: 5_000 })
+  // Nothing selected: the right-hand canvas inspector is retired (D1), and
+  // Home says so in its place. Home has to be asked for — a new design opens
+  // on Layout, where the Start-from control lives.
+  await selectBarTab(window, 'design-toolbar', 'home')
+  await expect(window.locator('[data-testid="design-toolbar-panel"]')).toContainText('Select something to format it', { timeout: 5_000 })
 }
 
 test.describe('PlexiDesign AI panel', () => {
@@ -103,12 +107,19 @@ test.describe('PlexiDesign AI panel', () => {
     await expect(window.locator('[data-testid="design-ai-panel"]')).toBeVisible()
     await expect(window.locator('[data-testid="design-ai-improve"]')).toBeVisible()
 
-    // Collapse via the panel's own button.
-    await window.locator('[data-testid="design-ai-collapse"]').click()
+    // Collapse via the pane's own button. PlexiiAssist is a pane of the shared
+    // ShellSidePane now, so this is the PANE's collapse and carries the pane's
+    // id: its meaning changed — it may be putting the story editor away, not
+    // the assistant — and SPEC §4.1 wants a new id when the meaning moves, so
+    // a spec written against the old one fails loudly instead of passing by
+    // luck. It is also what officeShellLayout's shared check looks for.
+    await window.locator('[data-testid="design-sidepane-collapse"]').click()
     await expect(window.locator('[data-testid="design-ai-panel"]')).toHaveCount(0)
 
-    // Reopen via the toolbar toggle.
-    await window.locator('[data-testid="design-ai-toggle"]').click()
+    // Reopen from the bar. The rail's old assist toggle is gone: the rail is
+    // tools (SPEC §3.1), and a content pane's toggle belongs in the bar, which
+    // is where Write's and Diagrams' are.
+    await window.locator('[data-testid="design-sidepane-toggle"]').click()
     await expect(window.locator('[data-testid="design-ai-panel"]')).toBeVisible()
   })
 
