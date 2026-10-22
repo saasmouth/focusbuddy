@@ -61,14 +61,27 @@ test.describe('PlexiSheets AI Assistant panel', () => {
     await newSheet(window)
     const panel = window.locator('[data-testid="sheet-ai-panel"]')
     await expect(panel).toBeVisible({ timeout: 8_000 })
-    await expect(panel.getByText('PlexiiAssist')).toBeVisible()
+    // The pane's NAME is shell chrome now. ShellSidePane owns the header, so
+    // "PlexiiAssist" renders on sheet-side-panel rather than inside the panel
+    // body — the division the office shell imposes, not a loss: the name is
+    // still on screen, which is what this assertion is about. Scoped to the
+    // side panel rather than the window so it still proves the name belongs to
+    // THIS pane.
+    await expect(window.locator('[data-testid="sheet-side-panel"]').getByText('PlexiiAssist')).toBeVisible()
     await expect(panel.getByText('Here are some insights from your data')).toBeVisible()
     await expect(panel.getByText('Ask a question about your data')).toBeVisible()
 
     // Recent Activity and Data Connections are honest empty states, never the
     // mockup's invented people or integration badges.
     await expect(window.locator('[data-testid="sheet-ai-activity-empty"]')).toContainText('No recent activity yet.')
-    await expect(window.locator('[data-testid="sheet-ai-connections-empty"]')).toContainText('No data sources connected yet.')
+    // The panel describes snapshot IMPORTS, not live connections, because that
+    // is what the editor actually does — the component says so in as many
+    // words. This assertion used to expect "No data sources connected yet.",
+    // which was the old framing and would have us testing for a capability the
+    // app deliberately stopped implying.
+    await expect(window.locator('[data-testid="sheet-ai-import-empty"]')).toContainText(
+      'Bring in a snapshot from an Excel workbook or CSV file'
+    )
     // No invented connections leak in.
     await expect(panel).not.toContainText('Google Analytics')
     await expect(panel).not.toContainText('HubSpot')

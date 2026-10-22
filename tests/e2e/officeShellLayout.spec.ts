@@ -117,6 +117,25 @@ const APPS: AppCase[] = [
     // right thing in it, so it is what the Plexii pill would cover.
     corner: 'design-page-add',
     sidePane: { toggle: 'design-sidepane-toggle', pane: 'design-sidepane', content: 'design-ai-panel' }
+  },
+  {
+    name: 'PlexiiCells',
+    docType: 'sheet',
+    shell: 'sheet-shell',
+    bar: 'sheet-toolbar',
+    rail: 'sheet-rail',
+    canvas: 'sheet-grid-wrap',
+    // Import / export is Cells' one real ShellPanel: its rail item calls
+    // togglePanel and CellsChrome supplies the body. The other rail tools open
+    // SheetEditor's own modals, so naming one of those here would assert a
+    // panel that never appears.
+    panelOpener: 'sheet-rail-office',
+    panel: 'sheet-panel-office',
+    undo: 'sheet-undo',
+    // The sheet tab strip IS a bottom-right control, so unlike Write this row
+    // genuinely exercises the clear-of-the-Plexii-pill check.
+    corner: 'sheet-tab-strip',
+    sidePane: { toggle: 'sheet-ai-toggle', pane: 'sheet-side-panel', content: 'sheet-ai-panel' }
   }
 ]
 

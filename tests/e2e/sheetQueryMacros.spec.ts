@@ -11,7 +11,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady } from './_helpers'
+import { launchApp, waitForReady, selectBarTab } from './_helpers'
 
 async function openDocumentsHub(window: Page): Promise<void> {
   await window.evaluate(() => {
@@ -68,6 +68,7 @@ test('SQM-1 — query panel filters rows and leaves the source refreshable', asy
     await setViaFormulaBar(window, 2, 1, '200', [0, 0])
 
     // Open the query panel and capture the sheet as the source.
+    await selectBarTab(window, 'sheet-toolbar', 'data')
     await window.locator('[data-testid="sheet-query-btn"]').click()
     await expect(window.locator('[data-testid="sheet-query-panel"]')).toBeVisible({ timeout: 5_000 })
     await window.locator('[data-testid="query-capture"]').click()
@@ -116,6 +117,7 @@ test('SQM-2 — a macro that doubles column A updates the cells', async () => {
     await setViaFormulaBar(window, 1, 0, '20', [0, 1])
     await setViaFormulaBar(window, 2, 0, '30', [0, 1])
 
+    await selectBarTab(window, 'sheet-toolbar', 'tools')
     await window.locator('[data-testid="sheet-macros-btn"]').click()
     await expect(window.locator('[data-testid="sheet-macros-panel"]')).toBeVisible({ timeout: 3_000 })
 

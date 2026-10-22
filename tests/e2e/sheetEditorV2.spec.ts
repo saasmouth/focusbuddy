@@ -28,7 +28,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, selectBarTab } from './_helpers'
 
 // ── Shared navigation helpers ─────────────────────────────────────────────────
 
@@ -257,7 +257,7 @@ test('SE-V2-3 — Ctrl+A selects all cells; Bold applies across all cells and pe
 
     // Now apply Bold via the sheet toolbar.
     const toolbar = window.locator('[data-testid="sheet-toolbar"]')
-    await toolbar.getByTitle('Bold').click()
+    await toolbar.getByRole('button', { name: /Bold/i }).click()
     await window.waitForTimeout(200)
 
     // Verify that cell (0,0) is rendered bold.
@@ -390,9 +390,8 @@ test('SE-V2-5 — import stub with formula cell computes; export IPC invoked and
 
     // Open the IO menu and click Import.
     const toolbar = window.locator('[data-testid="sheet-toolbar"]')
-    await toolbar.getByTitle('Import / export').click()
-    await expect(window.locator('text=Import .xlsx / .csv')).toBeVisible({ timeout: 3_000 })
-    await window.locator('text=Import .xlsx / .csv').click()
+    await selectBarTab(window, 'sheet-toolbar', 'tools')
+    await toolbar.getByRole('button', { name: /Import \.xlsx \/ \.csv/i }).click()
     await window.waitForTimeout(500)
 
     // After import: A1 = "10", B1 = "20", C1 formula should compute to "30".
@@ -419,9 +418,8 @@ test('SE-V2-5 — import stub with formula cell computes; export IPC invoked and
     await expect(window.locator('[data-testid="sheet-status"]')).not.toBeVisible({ timeout: 2_000 })
 
     // Open IO menu, export.
-    await toolbar.getByTitle('Import / export').click()
-    await expect(window.locator('text=Export .xlsx')).toBeVisible({ timeout: 3_000 })
-    await window.locator('text=Export .xlsx').click()
+    await selectBarTab(window, 'sheet-toolbar', 'tools')
+    await toolbar.getByRole('button', { name: /Export \.xlsx/i }).click()
     await window.waitForTimeout(300)
 
     // Status must show the saved path from the stubbed IPC.
