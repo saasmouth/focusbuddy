@@ -8,7 +8,7 @@
 // app adds itself to APPS.
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, suppressFeatureSpotlights, waitForReady, type LaunchedApp } from './_helpers'
 
 interface AppCase {
   name: string
@@ -204,6 +204,7 @@ for (const app of APPS) {
     const { window } = launched
     await waitForReady(window)
     await window.evaluate(() => localStorage.setItem('fb.sidebar.width', '480'))
+    await suppressFeatureSpotlights(window) // the new-feature card docks bottom-right ~750ms after a boot and races the corner checks
     await window.reload()
     await waitForReady(window)
     const dock = await box(window, '[data-testid="sidebar-dock"]')
@@ -226,6 +227,7 @@ for (const app of APPS) {
       await api.widgets.create({ taskId: task.id, kind: docType, content: (doc as { id: string }).id, x: 240, y: 160, width: 480, height: 380 } as never)
       return task.id
     }, app.docType)
+    await suppressFeatureSpotlights(window) // the new-feature card docks bottom-right ~750ms after a boot and races the corner checks
     await window.reload()
     await waitForReady(window)
     await window.evaluate((id: string) => (window as unknown as { __fbView?: { getState: () => { goTask: (i: string) => void } } }).__fbView?.getState().goTask(id), taskId)
