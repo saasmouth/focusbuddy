@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   ReactFlow,
   Background,
@@ -39,6 +39,10 @@ import { useDiagramCommands, type Commands } from './commands'
 import { DiagramChrome } from './DiagramChrome'
 import { QuickShapeMenu } from './QuickShapeMenu'
 import { ContextMenu, type ContextTarget } from './ContextMenu'
+import type { DiagramSnippetBody } from '@shared/snippets'
+import SaveSnippetDialog from '../../snippets/SaveSnippetDialog'
+import SnippetLibrary from '../../snippets/SnippetLibrary'
+import { diagramSnippetTargetId, suggestedDiagramSnippetName, useDiagramSnippetTarget } from './diagramSnippets'
 import './diagram.css'
 
 // PlexiDiagrams — a Lucidchart-class diagram editor on React Flow. The saved
@@ -504,6 +508,24 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
     wrapRef
   })
 
+  // ── saved snippets ──────────────────────────────────────────────────────
+  // This mounted editor is the destination, not the document: the same diagram
+  // open in the document view and in a work widget is two targets (useId).
+  const snippetSurface = useId()
+  useDiagramSnippetTarget(snippetSurface, title, readOnly, cmd.insertSnippetBody)
+  const [snippetDraft, setSnippetDraft] = useState<DiagramSnippetBody | null>(null)
+  const [snippetLibraryOpen, setSnippetLibraryOpen] = useState(false)
+  // With nothing selected the dialog still opens, on an empty body, and says
+  // there is nothing to save: better than a menu item that appears to do nothing.
+  const saveSelectionAsSnippet = useCallback(() => {
+    setCtxMenu(null)
+    setSnippetDraft(cmd.snippetBody() ?? { kind: 'diagram', nodes: [], edges: [] })
+  }, [cmd])
+  const openSnippetLibrary = useCallback(() => {
+    setCtxMenu(null)
+    if (!readOnly) setSnippetLibraryOpen(true)
+  }, [readOnly])
+
   // ── rotation ────────────────────────────────────────────────────────────
   const beginRotate = useCallback(
     (id: string, e: React.PointerEvent) => {
@@ -679,6 +701,8 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
         canUndo={liveUndo ? liveUndo.canUndo() : history.current.canUndo}
         canRedo={liveUndo ? liveUndo.canRedo() : history.current.canRedo}
         readOnly={readOnly}
+        onSaveSnippet={saveSelectionAsSnippet}
+        onInsertSnippet={openSnippetLibrary}
       >
         <div
           ref={wrapRef}
@@ -833,9 +857,28 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
               onClose={() => setQuickMenu(null)}
             />
           )}
-          {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} target={ctxMenu.target} cmd={cmd} sel={sel} page={page} onClose={() => setCtxMenu(null)} />}
+          {ctxMenu && (
+            <ContextMenu
+              x={ctxMenu.x}
+              y={ctxMenu.y}
+              target={ctxMenu.target}
+              cmd={cmd}
+              sel={sel}
+              page={page}
+              readOnly={readOnly}
+              onSaveSnippet={saveSelectionAsSnippet}
+              onInsertSnippet={openSnippetLibrary}
+              onClose={() => setCtxMenu(null)}
+            />
+          )}
         </div>
       </DiagramChrome>
+      {snippetDraft && (
+        <SaveSnippetDialog body={snippetDraft} suggestedName={suggestedDiagramSnippetName(snippetDraft)} onClose={() => setSnippetDraft(null)} />
+      )}
+      {snippetLibraryOpen && (
+        <SnippetLibrary kinds={['diagram']} targetId={diagramSnippetTargetId(snippetSurface)} onClose={() => setSnippetLibraryOpen(false)} />
+      )}
     </DiagramCtx.Provider>
   )
 }

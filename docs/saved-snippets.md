@@ -140,14 +140,14 @@ that did not happen, which is why `usageCount` means something.
 | `sheet` | row-major values + per-cell formats | modelled, not wired |
 | `slide` | slide elements | modelled, not wired |
 | `design` | canvas elements | modelled, not wired |
-| `diagram` | nodes + edges | modelled, not wired |
+| `diagram` | nodes + edges | **yes**: duplicate only, see below |
 | `draw` | PlexiiDraw objects + the assets and swatches they use | **yes**: duplicate only, see below |
 
 The document surface is first because it is the one that needs both link modes
 and because the live-embed mechanism already existed there to build on. The
-remaining four are typed end to end but **no surface registers them yet** — a
-kind with no target simply offers no destination, which is why the picker says
-"nothing open can take this" instead of failing.
+kinds still marked "not wired" are typed end to end but **no surface registers
+them yet** — a kind with no target simply offers no destination, which is why
+the picker says "nothing open can take this" instead of failing.
 
 ### Why a desk offers Duplicate only
 
@@ -217,6 +217,48 @@ adds beside it and selects the copy, as a paste does in Draw. It declines (and
 says why on the status line) on a read-only drawing, a hidden target layer, a
 live request, a body of another kind, and v2-only art (a group) in a drawing a
 live session keeps in the older format.
+
+### Why a diagram offers Duplicate only
+
+PlexiiDiagrams (`documents/diagram/diagramSnippets.ts`) captures a selection
+with `copySelection`, so a diagram snippet is exactly what Copy would take: the
+selected shapes, everything inside a selected container or swimlane, and only
+the connectors whose **both** ends are in the fragment. Positions are moved so
+the fragment's top-left is 0,0. A child picked without its container drops the
+dangling `parentId`, and locks are dropped, as a paste drops them.
+
+Insertion goes through `pasteClip`, so it is a paste in every way that counts:
+the stored body is normalised like a loaded diagram, then placed with fresh
+node, connector and group ids, connectors and containers remapped onto the new
+shapes, deep copies so the page never shares an object with the snippet, one
+undo step, and the new shapes selected. The block is centred in the visible
+canvas (a snippet's own positions are relative, so there is no "original spot"
+to offset from) and nudged while it would sit exactly on shapes already there.
+A layer is page-local, so a shape whose layer is not on the destination page
+goes to Base. Data bindings and work widget links are kept: they name a table
+or a widget, which is just as valid in another diagram. A read-only diagram
+registers no target, and its `insert` refuses as well.
+
+Live is not offered, because a diagram cannot honour it without a second
+mechanism or a silent copy:
+
+- **Co-editing.** A shared diagram's body reaches collaborators, but snippets
+  do not sync (`ORG_SNIPPETS_SYNC` is false and `snippet` is not a workspace
+  item type), so every peer would see the reference as missing.
+- **Export.** Mermaid, draw.io, Visio, JSON, SVG and PNG are all written from
+  the `MapBody` alone. A reference node would either be dropped, or be frozen
+  into a copy at export time, which is a duplicate under another name.
+- **Connectors.** Edges join node ids on the page. Shapes resolved inside a
+  live block would not be page nodes, so nothing could connect to them, and
+  routing, containers and layers would treat the block as one opaque box.
+
+So the target declares `supports: ['duplicate']`, and the library shows one
+button. The menu items are Edit › "Save selection as snippet…" (also on a
+shape's right-click menu) and Insert › "Insert snippet…" (also on the canvas
+right-click menu). The target id is the mounted editor's `useId`, so the same
+diagram open in the document view and in a work widget is two destinations.
+Tests: `tests/unit/diagramSnippets.test.ts` and
+`tests/e2e/snippetsDiagram.spec.ts`.
 
 Adding a surface is a registration, not a change to the core:
 
@@ -357,7 +399,7 @@ DrawSnippetBody    { kind: 'draw',    objects: unknown[], assets?, swatches? }
 (`shared/draw/model.ts`) and PlexiiDesign's elements are different models, and the
 kind/body agreement check is what keeps one app's objects out of the other.
 
-`doc`, `widget` and `draw` are wired. `sheet`, `slide`, `design` and `diagram`
+`doc`, `widget`, `draw` and `diagram` are wired. `sheet`, `slide` and `design`
 are typed and stored but register no target yet.
 
 If a shape does not fit, change it in `shared/snippets.ts` and add its case to

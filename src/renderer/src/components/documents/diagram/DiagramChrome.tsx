@@ -58,6 +58,8 @@ export function DiagramChrome({
   canUndo,
   canRedo,
   readOnly,
+  onSaveSnippet,
+  onInsertSnippet,
   children
 }: {
   cmd: Commands
@@ -74,6 +76,9 @@ export function DiagramChrome({
   canUndo: boolean
   canRedo: boolean
   readOnly: boolean
+  // Saved snippets: the editor owns the dialogs; the menus only open them.
+  onSaveSnippet?: () => void
+  onInsertSnippet?: () => void
   children: React.ReactNode
 }): JSX.Element {
   // Panels start closed so the canvas is unobstructed (an overlay over a fresh
@@ -236,6 +241,7 @@ export function DiagramChrome({
       { kind: 'item', label: 'Copy', icon: 'content_copy', shortcut: '⌘C', run: () => document.execCommand('copy'), disabled: !hasSel },
       { kind: 'item', label: 'Paste', icon: 'content_paste', shortcut: '⌘V', run: () => void cmd.paste(null) },
       { kind: 'item', label: 'Duplicate', icon: 'control_point_duplicate', shortcut: '⌘D', run: cmd.duplicate, disabled: !hasSel },
+      ...(onSaveSnippet ? [{ kind: 'item' as const, label: 'Save selection as snippet…', icon: 'bookmark_add', run: onSaveSnippet }] : []),
       { kind: 'item', label: 'Delete', icon: 'delete', shortcut: '⌫', run: cmd.deleteSelection, disabled: !hasAny },
       { kind: 'sep' },
       { kind: 'item', label: 'Select all', icon: 'select_all', shortcut: '⌘A', run: cmd.selectAll },
@@ -284,6 +290,7 @@ export function DiagramChrome({
       { kind: 'item', label: 'Work widget from a desk…', icon: 'widgets', run: () => setDialog('data-widgets') },
       { kind: 'item', label: 'Template…', icon: 'dashboard', run: () => setDialog('templates') },
       { kind: 'item', label: 'Mermaid…', icon: 'code', run: () => setDialog('mermaid') },
+      ...(onInsertSnippet ? [{ kind: 'item' as const, label: 'Insert snippet…', icon: 'bookmarks', run: onInsertSnippet, disabled: readOnly }] : []),
       { kind: 'item', label: 'AI diagram…', icon: 'auto_awesome', run: () => setSidePane('ai') },
       { kind: 'sep' },
       { kind: 'item', label: 'New page', icon: 'note_add', run: cmd.addPage }

@@ -8,7 +8,29 @@ export type ContextTarget = { kind: 'node'; id: string } | { kind: 'edge'; id: s
 
 type Item = { label: string; icon: string; run: () => void; hint?: string; disabled?: boolean } | 'sep'
 
-export function ContextMenu({ x, y, target, cmd, sel, page, onClose }: { x: number; y: number; target: ContextTarget; cmd: Commands; sel: Sel; page: Graph; onClose: () => void }): JSX.Element {
+export function ContextMenu({
+  x,
+  y,
+  target,
+  cmd,
+  sel,
+  page,
+  readOnly = false,
+  onSaveSnippet,
+  onInsertSnippet,
+  onClose
+}: {
+  x: number
+  y: number
+  target: ContextTarget
+  cmd: Commands
+  sel: Sel
+  page: Graph
+  readOnly?: boolean
+  onSaveSnippet?: () => void
+  onInsertSnippet?: () => void
+  onClose: () => void
+}): JSX.Element {
   const nodes = page.nodes.filter((n) => sel.nodes.has(n.id))
   const locked = nodes.some((n) => n.locked) || page.edges.some((e) => sel.edges.has(e.id) && e.locked)
   const grouped = nodes.some((n) => n.groupId)
@@ -16,6 +38,7 @@ export function ContextMenu({ x, y, target, cmd, sel, page, onClose }: { x: numb
     target.kind === 'pane'
       ? [
           { label: 'Paste', icon: 'content_paste', hint: '⌘V', run: () => void navigator.clipboard?.readText().then((t) => cmd.paste(dataFromText(t))).catch(() => cmd.paste(null)) },
+          ...(onInsertSnippet ? [{ label: 'Insert snippet…', icon: 'bookmarks', run: onInsertSnippet, disabled: readOnly } as Item] : []),
           { label: 'Add text here', icon: 'title', run: () => cmd.addShape('note', { center: target.flow, edit: true }) },
           { label: 'Add a box here', icon: 'crop_square', run: () => cmd.addShape('process', { center: target.flow, edit: true }) },
           'sep',
@@ -40,6 +63,7 @@ export function ContextMenu({ x, y, target, cmd, sel, page, onClose }: { x: numb
             { label: 'Cut', icon: 'content_cut', hint: '⌘X', run: () => document.execCommand('cut') },
             { label: 'Copy', icon: 'content_copy', hint: '⌘C', run: () => document.execCommand('copy') },
             { label: 'Duplicate', icon: 'control_point_duplicate', hint: '⌘D', run: cmd.duplicate },
+            ...(onSaveSnippet ? [{ label: 'Save selection as snippet…', icon: 'bookmark_add', run: onSaveSnippet } as Item] : []),
             { label: 'Delete', icon: 'delete', hint: '⌫', run: cmd.deleteSelection },
             'sep',
             { label: 'Copy style', icon: 'format_paint', hint: '⌥⌘C', run: cmd.copyStyle },

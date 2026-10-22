@@ -18,6 +18,8 @@ import { fresh } from '@shared/diagram/sharedRefs'
 import { alignBoxes, distributeBoxes, type AlignEdge } from '../map/mapAlign'
 import { mapTemplate, type MapTemplateId } from '../map/mapTemplates'
 import { shortcutKey } from './keys'
+import { diagramBodyFromSelection, placeDiagramSnippet } from './diagramSnippets'
+import type { DiagramSnippetBody } from '@shared/snippets'
 import type { QuickDir } from './DiagramContext'
 import type { Tool } from './DiagramEditor'
 
@@ -275,6 +277,21 @@ function makeCommands(d: Deps) {
       const { graph, sel: s } = ops.duplicate(page(), sel())
       d.update(() => graph)
       d.setSel(s)
+    },
+
+    // ── saved snippets (diagramSnippets.ts) ───────────────────────────────
+    // The selection as a snippet body, or null when no shape is selected.
+    snippetBody(): DiagramSnippetBody | null {
+      return diagramBodyFromSelection(page(), sel())
+    },
+    // Insert a saved fragment like a paste: fresh ids, centred in view, one
+    // undo step, selected afterwards. False when there was nothing to place.
+    insertSnippetBody(body: DiagramSnippetBody): boolean {
+      const placed = placeDiagramSnippet(page(), body, viewportCenter(), grid())
+      if (!placed) return false
+      d.update(() => placed.graph)
+      d.setSel(placed.sel)
+      return true
     },
 
     // ── history ──────────────────────────────────────────────────────────
