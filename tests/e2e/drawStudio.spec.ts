@@ -42,6 +42,31 @@ function paths(window: Page): ReturnType<Page['locator']> {
   return window.locator('[data-testid^="draw-vector-"] path')
 }
 
+/**
+ * A NEW artwork while one is open, as a person makes it now: PlexiiDraw's tile
+ * in the side menu (office-sideapp-draw) leaves the open artwork for the
+ * Office hub filtered to drawings -- by design it never creates a file the
+ * person did not ask for -- and the hub's PlexiiDraw tile (office-app-draw)
+ * makes the new one. Both halves are checked: the side tile alone creates
+ * nothing, and the hub tile opens a fresh studio.
+ */
+async function newArtworkFromSideMenu(window: Page): Promise<void> {
+  const count = (): Promise<number> =>
+    window.evaluate(async () => {
+      const api = (window as unknown as { api: typeof window.api }).api
+      const docs = (await api.documents.list()) as Array<{ docType?: string }>
+      return docs.filter((d) => d.docType === 'draw').length
+    })
+  const before = await count()
+  await window.locator('[data-testid="office-sideapp-draw"]').click()
+  await expect(window.locator('[data-testid="draw-studio"]')).toHaveCount(0, { timeout: 10_000 })
+  await expect(window.locator('[data-testid="office-app-draw"]')).toBeVisible({ timeout: 10_000 })
+  expect(await count()).toBe(before)
+  await window.locator('[data-testid="office-app-draw"]').click()
+  await expect(window.locator('[data-testid="draw-studio"]')).toBeVisible({ timeout: 10_000 })
+  await expect.poll(count).toBe(before + 1)
+}
+
 test.describe('PlexiDraw studio', () => {
   let app: LaunchedApp
   let window: Page
@@ -153,8 +178,7 @@ test.describe('PlexiDraw studio', () => {
   test('DR-7b picking the brush with NO paint layer makes one and then paints', async () => {
     // This is the bug users hit: a fresh artwork has only a vector layer, so the
     // brush silently refused and the canvas stayed blank.
-    await window.locator('[data-testid="office-sideapp-draw"]').click()
-    await expect(window.locator('[data-testid="draw-studio"]')).toBeVisible({ timeout: 10_000 })
+    await newArtworkFromSideMenu(window)
     await expect(window.locator('[data-testid^="draw-raster-"]')).toHaveCount(0)
 
     await pickTool(window, 'brush')
@@ -249,10 +273,9 @@ test.describe('PlexiDraw studio', () => {
   })
 
   test('DR-8 a second artwork opens cleanly from the office side menu', async () => {
-    // With a document already open the office chrome shows its side menu, whose
-    // entries carry the office-sideapp- prefix.
-    await window.locator('[data-testid="office-sideapp-draw"]').click()
-    await expect(window.locator('[data-testid="draw-studio"]')).toBeVisible({ timeout: 10_000 })
+    // With a document already open the side menu's PlexiiApps tiles carry the
+    // office-sideapp- prefix; the new artwork is made from the hub it opens.
+    await newArtworkFromSideMenu(window)
     await openDrawPanel(window, 'layers')
     await expect(window.locator('[data-testid="draw-layers-panel"]')).toBeVisible()
     // A brand-new artwork starts with exactly one empty vector layer.
