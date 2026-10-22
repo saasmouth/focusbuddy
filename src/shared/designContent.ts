@@ -113,6 +113,17 @@ function str(v: unknown): string {
   return typeof v === 'string' ? v : ''
 }
 
+/**
+ * An explicit per-block paragraph-style override, kept through normalisation.
+ *
+ * styleIdForBlock (designStyles.ts) honours `block.styleId` ahead of the
+ * sheet's block map, and normalizeBlock rebuilds every block field by field —
+ * so before this, an override could not survive a save and reload. Nothing in
+ * the UI sets one yet, which is why nobody had seen it: dormant, not live.
+ */
+const styleOverride = (b: Record<string, unknown>): { styleId?: string } =>
+  typeof b.styleId === 'string' && b.styleId !== '' ? { styleId: b.styleId } : {}
+
 function normalizeBlock(raw: unknown): ContentBlock | null {
   if (!raw || typeof raw !== 'object') return null
   const b = raw as Record<string, unknown>
@@ -120,17 +131,17 @@ function normalizeBlock(raw: unknown): ContentBlock | null {
     case 'title':
     case 'subtitle':
     case 'paragraph':
-      return { kind: b.kind, text: str(b.text) } as ContentBlock
+      return { kind: b.kind, text: str(b.text), ...styleOverride(b) } as ContentBlock
     case 'heading': {
       const lvl = b.level === 2 ? 2 : b.level === 3 ? 3 : 1
-      return { kind: 'heading', level: lvl, text: str(b.text) }
+      return { kind: 'heading', level: lvl, text: str(b.text), ...styleOverride(b) }
     }
     case 'list': {
       const items = Array.isArray(b.items) ? (b.items as unknown[]).map(str).filter((t) => t !== '') : []
-      return items.length ? { kind: 'list', ordered: b.ordered === true, items } : null
+      return items.length ? { kind: 'list', ordered: b.ordered === true, items, ...styleOverride(b) } : null
     }
     case 'quote':
-      return { kind: 'quote', text: str(b.text), ...(str(b.attribution) ? { attribution: str(b.attribution) } : {}) }
+      return { kind: 'quote', text: str(b.text), ...(str(b.attribution) ? { attribution: str(b.attribution) } : {}), ...styleOverride(b) }
     case 'image':
       return str(b.src) ? { kind: 'image', src: str(b.src), ...(str(b.alt) ? { alt: str(b.alt) } : {}), ...(str(b.caption) ? { caption: str(b.caption) } : {}) } : null
     case 'divider':
