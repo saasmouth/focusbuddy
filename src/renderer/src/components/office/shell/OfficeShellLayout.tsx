@@ -4,16 +4,31 @@ import { ASIDE_COLLAPSE_BELOW, PANEL_SHEET_BELOW, PANEL_WIDTH } from './layout'
 
 // The office shell frame (spec §1, §2.4, §2.6): ContextBar on top, ToolRail on
 // the left, an optional navigator (Deck thumbnails), the canvas, an optional
-// bottom strip, and the overlay-panel column that floats over the canvas's left
-// edge. No right column exists (owner D1). The frame measures ITSELF (never the
-// window), so a desk widget gets the same narrow behaviour as a full editor.
+// bottom strip, the overlay-panel column that floats over the canvas's left
+// edge, and the ONE right content pane (ShellSidePane: comments, outline, AI;
+// never a property inspector, owner D1 as amended). The frame measures ITSELF
+// (never the window), so a desk widget gets the same narrow behaviour as a full
+// editor.
 
 interface ShellSize {
   width: number
   height: number
   sheetPanels: boolean
+  /** The shell reaches the window's bottom-right corner, where the Plexii pill floats; corner content keeps clear of it. */
+  pillCorner: boolean
 }
-const ShellSizeContext = createContext<ShellSize>({ width: Infinity, height: Infinity, sheetPanels: false })
+const ShellSizeContext = createContext<ShellSize>({ width: Infinity, height: Infinity, sheetPanels: false, pillCorner: false })
+
+// The Plexii pill (AssistantOverlay) floats 14px right of the window edge and
+// within ~120px of its bottom. It publishes --fb-pill-clear-right and
+// --fb-corner-stack-bottom only while it shows, so padding with them is zero
+// when it is hidden. A shell whose box ends there (a full editor, not a desk
+// widget) pads its bottom strip and side pane by those variables.
+const PILL_CORNER_REACH = 160
+const reachesPillCorner = (el: HTMLElement): boolean => {
+  const r = el.getBoundingClientRect()
+  return r.width > 0 && r.right >= window.innerWidth - 2 && r.bottom >= window.innerHeight - PILL_CORNER_REACH
+}
 export const useShellSize = (): ShellSize => useContext(ShellSizeContext)
 
 export interface OfficeShellLayoutProps {
@@ -24,19 +39,21 @@ export interface OfficeShellLayoutProps {
   asideLabel?: string
   bottom?: ReactNode
   panels?: ReactNode
+  /** The ONE right content pane (<ShellSidePane>): comments, outline, AI. Never a property inspector. */
+  rightPane?: ReactNode
   testid: string
 }
 
-export default function OfficeShellLayout({ bar, rail, children, leftAside, asideLabel = 'Navigator', bottom, panels, testid }: OfficeShellLayoutProps): JSX.Element {
+export default function OfficeShellLayout({ bar, rail, children, leftAside, asideLabel = 'Navigator', bottom, panels, rightPane, testid }: OfficeShellLayoutProps): JSX.Element {
   const root = useRef<HTMLDivElement>(null)
-  const [size, setSize] = useState<{ width: number; height: number }>({ width: Infinity, height: Infinity })
+  const [size, setSize] = useState<{ width: number; height: number; pillCorner: boolean }>({ width: Infinity, height: Infinity, pillCorner: false })
   const [asideOpen, setAsideOpen] = useState(false)
   useEffect(() => {
     const el = root.current
     if (!el || typeof ResizeObserver === 'undefined') return
     const ro = new ResizeObserver((entries) => {
       const r = entries[0]!.contentRect
-      setSize({ width: r.width, height: r.height })
+      setSize({ width: r.width, height: r.height, pillCorner: reachesPillCorner(el) })
     })
     ro.observe(el)
     return () => ro.disconnect()
@@ -47,7 +64,7 @@ export default function OfficeShellLayout({ bar, rail, children, leftAside, asid
     <ShellSizeContext.Provider value={ctx}>
       <div ref={root} data-testid={testid} className="h-full min-h-0 flex flex-col">
         {bar}
-        <div className="flex-1 min-h-0 flex">
+        <div className="relative flex-1 min-h-0 flex">
           {rail}
           {leftAside && !asideCollapsed && <div className="shrink-0 h-full min-h-0 border-r border-[var(--edge-soft)]">{leftAside}</div>}
           <div className="relative flex-1 min-w-0 min-h-0 flex flex-col" data-testid={`${testid}-main`}>
@@ -65,7 +82,11 @@ export default function OfficeShellLayout({ bar, rail, children, leftAside, asid
             )}
             {asideCollapsed && asideOpen && <div className="absolute inset-y-0 left-0 z-20 fb-glass-panel border-r border-[var(--edge-soft)]">{leftAside}</div>}
             <div className="relative flex-1 min-h-0">{children}</div>
-            {bottom}
+            {bottom && (
+              <div className="shrink-0" data-pill-clear={size.pillCorner || undefined} style={size.pillCorner ? { paddingRight: 'var(--fb-pill-clear-right, 0px)' } : undefined}>
+                {bottom}
+              </div>
+            )}
             {/* Overlay panels: one column beside the rail (spec §2.4). Pointer
                 events only on the panels themselves, so the canvas stays usable. */}
             {panels && (
@@ -78,6 +99,7 @@ export default function OfficeShellLayout({ bar, rail, children, leftAside, asid
               </div>
             )}
           </div>
+          {rightPane}
         </div>
       </div>
     </ShellSizeContext.Provider>

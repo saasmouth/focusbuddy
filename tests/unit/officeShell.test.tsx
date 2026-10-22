@@ -1,5 +1,5 @@
 // The shared office shell (SPEC §2, §9): ToolRail, flyouts, ContextBar, the
-// bar primitives, ShellPanel and the Row 1 folding plan.
+// bar primitives, ShellPanel, ShellSidePane and the Row 1 folding plan.
 
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -20,6 +20,8 @@ import {
   ContextBar,
   OfficeShellLayout,
   ShellPanel,
+  ShellSidePane,
+  SIDE_PANE_DOM_ID,
   ToolRail,
   planRow1,
   railSlots,
@@ -27,7 +29,8 @@ import {
   resolveActiveTab,
   visibleTabs,
   type BarTab,
-  type RailItem
+  type RailItem,
+  type SidePane
 } from '../../src/renderer/src/components/office/shell'
 
 let host: HTMLDivElement
@@ -85,6 +88,7 @@ describe('railSlots / railTooltip (pure)', () => {
     expect(railTooltip('Rotate', 'R', { options: true })).toBe('Rotate (R) — double-click for options')
     expect(railTooltip('Pen', 'P', { disabledReason: 'not available: this document is read-only' })).toBe('Pen — not available: this document is read-only')
     expect(railTooltip('Group selection', undefined, {})).toBe('Group selection')
+    expect(railTooltip('Rectangle', 'M', { options: true, optionsHint: 'double-click to keep it selected' })).toBe('Rectangle (M) — double-click to keep it selected')
   })
 })
 
@@ -330,6 +334,189 @@ describe('ShellPanel', () => {
   })
 })
 
+describe('panel toggles', () => {
+  it('a press on the panel\u2019s own toggle (aria-controls) is not "outside": the toggle\u2019s click decides', () => {
+    const onClose = vi.fn()
+    render(
+      <>
+        <button data-testid="toggle" aria-controls="shell-panel-layers" />
+        <ShellPanel id="layers" title="Layers" open onClose={onClose} testid="p"><div /></ShellPanel>
+      </>
+    )
+    expect(tid('p').id).toBe('shell-panel-layers')
+    act(() => {
+      tid('toggle').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    })
+    expect(onClose).not.toHaveBeenCalled()
+  })
+  it('rail panel items declare which panel they control', () => {
+    render(<ToolRail<Ctx> testid="r" ctx={{ sel: '' }} items={[item({ id: 'layers', kind: 'panel' }), item({ id: 'lib', kind: 'panel', controls: 'library', order: 1 })]} />)
+    expect(tid('r-layers').getAttribute('aria-controls')).toBe('shell-panel-layers')
+    expect(tid('r-lib').getAttribute('aria-controls')).toBe('shell-panel-library')
+  })
+})
+
+describe('ShellSidePane: the one right content pane (SPEC §2.5a)', () => {
+  const panes: SidePane[] = [
+    { id: 'comments', title: 'Comments', icon: 'chat', badge: '3', testid: 'doc-side-panel-comments', render: () => <p data-testid="comments-body">c</p> },
+    { id: 'ai', title: 'AI', icon: 'auto_awesome', testid: 'doc-side-panel-ai', render: () => <p data-testid="ai-body">a</p> }
+  ]
+
+  it('collapsed: a slim edge tab with one opener per pane, and no content mounted', () => {
+    const onChange = vi.fn()
+    render(<ShellSidePane testid="sp" panes={panes} activeId={null} onChange={onChange} />)
+    expect(tid('sp-edge').id).toBe(SIDE_PANE_DOM_ID)
+    expect($$('[data-testid^="sp-open-"]').map((b) => b.dataset.testid)).toEqual(['sp-open-comments', 'sp-open-ai'])
+    expect($('[data-testid="comments-body"]')).toBeNull()
+    expect(tid('sp-open-comments').textContent).toContain('3') // the badge survives collapse
+    act(() => tid('sp-open-ai').click())
+    expect(onChange).toHaveBeenCalledWith('ai')
+  })
+
+  it('open: one pane at a time, its content keeps the app’s testid, the switcher and collapse report to the host', () => {
+    const onChange = vi.fn()
+    render(<ShellSidePane testid="sp" panes={panes} activeId="comments" onChange={onChange} />)
+    expect(tid('sp').id).toBe(SIDE_PANE_DOM_ID)
+    expect(tid('sp').dataset.pane).toBe('comments')
+    expect(tid('doc-side-panel-comments').contains(tid('comments-body'))).toBe(true)
+    expect($('[data-testid="ai-body"]')).toBeNull()
+    expect(tid('sp-tab-comments').getAttribute('aria-selected')).toBe('true')
+    expect(tid('sp-tab-ai').getAttribute('aria-selected')).toBe('false')
+    act(() => tid('sp-tab-ai').click())
+    expect(onChange).toHaveBeenLastCalledWith('ai')
+    act(() => tid('sp-collapse').click())
+    expect(onChange).toHaveBeenLastCalledWith(null)
+  })
+
+  it('the edge’s expand chevron reopens the pane you last had open (first pane before any)', () => {
+    const onChange = vi.fn()
+    render(<ShellSidePane testid="sp" panes={panes} activeId={null} onChange={onChange} />)
+    act(() => tid('sp-expand').click())
+    expect(onChange).toHaveBeenLastCalledWith('comments')
+    render(<ShellSidePane testid="sp" panes={panes} activeId="ai" onChange={onChange} />)
+    render(<ShellSidePane testid="sp" panes={panes} activeId={null} onChange={onChange} />)
+    act(() => tid('sp-expand').click())
+    expect(onChange).toHaveBeenLastCalledWith('ai')
+  })
+
+  it('existing ids survive conversion: tab and collapse ids can be kept', () => {
+    const kept: SidePane[] = panes.map((p) => ({ ...p, tabTestid: `doc-tab-${p.id}` }))
+    render(<ShellSidePane testid="doc-side-panel" collapseTestid="sheet-ai-collapse" panes={kept} activeId="ai" onChange={noop} />)
+    expect(tid('doc-tab-comments').getAttribute('role')).toBe('tab')
+    expect(tid('doc-tab-ai').getAttribute('aria-selected')).toBe('true')
+    expect($('[data-testid="sheet-ai-collapse"]')).not.toBeNull()
+    expect(tid('doc-side-panel').tagName).toBe('ASIDE')
+  })
+
+  it('a single pane shows its title instead of a switcher', () => {
+    render(<ShellSidePane testid="sp" panes={[panes[1]!]} activeId="ai" onChange={noop} />)
+    expect($('[data-testid^="sp-tab-"]')).toBeNull()
+    expect(tid('sp').textContent).toContain('AI')
+  })
+
+  it('an unknown active id collapses to the edge tab; no panes renders nothing', () => {
+    render(<ShellSidePane testid="sp" panes={panes} activeId="gone" onChange={noop} />)
+    expect($('[data-testid="sp-edge"]')).not.toBeNull()
+    render(<ShellSidePane testid="sp" panes={[]} activeId={null} onChange={noop} />)
+    expect($('[data-testid^="sp"]')).toBeNull()
+  })
+
+  it('sits at the right of the frame, after the canvas, not inside it', () => {
+    render(
+      <OfficeShellLayout testid="s" bar={<div />} rail={<div data-testid="rail" />} rightPane={<ShellSidePane testid="sp" panes={panes} activeId="ai" onChange={noop} />}>
+        <div />
+      </OfficeShellLayout>
+    )
+    const main = tid('s-main')
+    expect(main.contains(tid('sp'))).toBe(false)
+    expect(main.nextElementSibling).toBe(tid('sp'))
+  })
+
+  it('below the narrow breakpoint it opens as a sheet over the canvas and Esc inside it collapses it', () => {
+    const Orig = globalThis.ResizeObserver
+    class RO {
+      constructor(private cb: ResizeObserverCallback) {}
+      observe(): void {
+        this.cb([{ contentRect: { width: 400, height: 300 } } as ResizeObserverEntry], this as unknown as ResizeObserver)
+      }
+      disconnect(): void {}
+      unobserve(): void {}
+    }
+    globalThis.ResizeObserver = RO as unknown as typeof ResizeObserver
+    try {
+      const onChange = vi.fn()
+      render(
+        <OfficeShellLayout testid="s" bar={<div />} rail={<div />} rightPane={<ShellSidePane testid="sp" panes={panes} activeId="ai" onChange={onChange} />}>
+          <div />
+        </OfficeShellLayout>
+      )
+      expect(tid('sp').dataset.sheet).toBe('true')
+      expect(tid('sp').className).toContain('absolute')
+      key(tid('ai-body'), 'Escape')
+      expect(onChange).toHaveBeenCalledWith(null)
+    } finally {
+      globalThis.ResizeObserver = Orig
+    }
+  })
+
+  it('in the window’s bottom-right corner (a full editor) the bottom strip and the pane keep clear of the Plexii pill', () => {
+    const Orig = globalThis.ResizeObserver
+    class RO {
+      constructor(private cb: ResizeObserverCallback) {}
+      observe(): void {
+        this.cb([{ contentRect: { width: 900, height: 600 } } as ResizeObserverEntry], this as unknown as ResizeObserver)
+      }
+      disconnect(): void {}
+      unobserve(): void {}
+    }
+    globalThis.ResizeObserver = RO as unknown as typeof ResizeObserver
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 900, height: 600, right: window.innerWidth, bottom: window.innerHeight, x: 0, y: 0, toJSON: () => ({}) } as DOMRect)
+    try {
+      render(
+        <OfficeShellLayout testid="s" bar={<div />} rail={<div />} bottom={<div data-testid="strip" />} rightPane={<ShellSidePane testid="sp" panes={panes} activeId="ai" onChange={noop} />}>
+          <div />
+        </OfficeShellLayout>
+      )
+      // (happy-dom drops var() from inline styles, so the reservation is read from its marker; the e2e guard checks the real padding.)
+      expect(tid('strip').parentElement!.dataset.pillClear).toBe('true')
+      expect(tid('doc-side-panel-ai').dataset.pillClear).toBe('true')
+    } finally {
+      rect.mockRestore()
+      globalThis.ResizeObserver = Orig
+    }
+    // Not in the corner (a desk widget, or no ResizeObserver): no reservation.
+    render(
+      <OfficeShellLayout key="fresh" testid="s" bar={<div />} rail={<div />} bottom={<div data-testid="strip" />} rightPane={<ShellSidePane testid="sp" panes={panes} activeId="ai" onChange={noop} />}>
+        <div />
+      </OfficeShellLayout>
+    )
+    expect(tid('doc-side-panel-ai').dataset.pillClear).toBeUndefined()
+    expect(tid('strip').parentElement!.dataset.pillClear).toBeUndefined()
+  })
+
+  it('docked (wide) it is a column, and Esc is left to the app', () => {
+    const onChange = vi.fn()
+    render(<ShellSidePane testid="sp" panes={panes} activeId="ai" onChange={onChange} />)
+    expect(tid('sp').dataset.sheet).toBeUndefined()
+    expect(tid('sp').style.width).toBe('320px')
+    key(tid('ai-body'), 'Escape')
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('rail and bar toggles point aria-controls at the side pane, and a rail pane item shows pressed while its pane is open', () => {
+    render(
+      <>
+        <ToolRail<Ctx> testid="r" ctx={{ sel: '' }} openPanels={['ai']} items={[item({ id: 'ai', kind: 'panel', sidePane: true }), item({ id: 'lib', kind: 'panel', order: 1 })]} />
+        <BarToggle label="Side pane" pressed onChange={noop} controls={SIDE_PANE_DOM_ID} testid="t" />
+      </>
+    )
+    expect(tid('r-ai').getAttribute('aria-controls')).toBe(SIDE_PANE_DOM_ID)
+    expect(tid('r-ai').getAttribute('aria-pressed')).toBe('true')
+    expect(tid('r-lib').getAttribute('aria-pressed')).toBe('false')
+    expect(tid('t').getAttribute('aria-controls')).toBe(SIDE_PANE_DOM_ID)
+  })
+})
+
 describe('keyboard scope (binding): the shell adds no document or window key listener', () => {
   it('mounting the rail, bar, layout and an open panel registers no keydown/keyup/keypress anywhere global', () => {
     const calls: string[] = []
@@ -350,6 +537,7 @@ describe('keyboard scope (binding): the shell adds no document or window key lis
           bar={<ContextBar<Ctx> testid="b" tabs={[{ id: 'home', label: 'Home', render: () => <BarButton label="B" onClick={noop} /> }]} ctx={{ sel: '' }} activeTab="home" onTabChange={noop} menuBar={null} />}
           rail={<ToolRail<Ctx> testid="r" ctx={{ sel: '' }} items={[item({ id: 'select', shortcut: 'V' }), item({ id: 'rect', flyout: 's', order: 1 }), item({ id: 'ell', flyout: 's', order: 2 })]} />}
           panels={<ShellPanel id="l" title="L" open onClose={noop} testid="p"><div /></ShellPanel>}
+          rightPane={<ShellSidePane testid="sp" panes={[{ id: 'a', title: 'A', icon: 'x', render: () => <div /> }]} activeId="a" onChange={noop} />}
         >
           <div />
         </OfficeShellLayout>

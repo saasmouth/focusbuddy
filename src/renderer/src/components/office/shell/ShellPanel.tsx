@@ -18,6 +18,8 @@ export interface ShellPanelProps {
   open: boolean
   onClose: () => void
   width?: number
+  /** Take the column's remaining height (a library or long list) instead of sizing to content. */
+  fill?: boolean
   pinnable?: boolean
   pinned?: boolean
   onPinnedChange?: (v: boolean) => void
@@ -29,7 +31,10 @@ export interface ShellPanelProps {
   testid: string
 }
 
-export default function ShellPanel({ id, title, icon, open, onClose, width, pinnable, pinned = false, onPinnedChange, onRectChange, returnFocus, ignoreOutside, children, testid }: ShellPanelProps): JSX.Element | null {
+/** The DOM id of a ShellPanel; controls that toggle it set aria-controls to this. */
+export const shellPanelDomId = (id: string): string => `shell-panel-${id}`
+
+export default function ShellPanel({ id, title, icon, open, onClose, width, fill, pinnable, pinned = false, onPinnedChange, onRectChange, returnFocus, ignoreOutside, children, testid }: ShellPanelProps): JSX.Element | null {
   const ref = useRef<HTMLElement>(null)
   const opener = useRef<HTMLElement | null>(null)
   const { sheetPanels } = useShellSize()
@@ -63,6 +68,9 @@ export default function ShellPanel({ id, title, icon, open, onClose, width, pinn
     const down = (e: PointerEvent): void => {
       const t = e.target as Node
       if (ref.current?.contains(t)) return
+      // A control that toggles this panel (aria-controls) handles its own click;
+      // closing here too would make that click reopen the panel.
+      if ((t as Element).closest?.(`[aria-controls="${shellPanelDomId(id)}"]`)) return
       if (ignoreOutside?.().some((el) => el?.contains(t))) return
       onClose()
     }
@@ -79,6 +87,7 @@ export default function ShellPanel({ id, title, icon, open, onClose, width, pinn
   return (
     <section
       ref={ref}
+      id={shellPanelDomId(id)}
       role="dialog"
       aria-modal={false}
       aria-label={title}
@@ -92,7 +101,7 @@ export default function ShellPanel({ id, title, icon, open, onClose, width, pinn
           close()
         }
       }}
-      className={`pointer-events-auto fb-glass-panel rounded-[var(--radius-row)] shadow-lg flex flex-col min-h-0 ${sheetPanels ? 'flex-1' : 'max-h-full'}`}
+      className={`pointer-events-auto fb-glass-panel rounded-[var(--radius-row)] shadow-lg flex flex-col min-h-0 ${sheetPanels || fill ? 'flex-1' : 'max-h-full'}`}
       style={!sheetPanels && width ? { width } : undefined}
     >
       <header className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 border-b border-[var(--edge-soft)]">

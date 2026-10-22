@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import Icon from '../../Icon'
 import Tooltip from '../../Tooltip'
 
@@ -18,6 +19,8 @@ export interface BarCommon {
   readOnlySafe?: boolean
   shortcut?: string // host-formatted from the app's live keymap
   testid?: string
+  /** Id of what this control opens or toggles (e.g. a ShellPanel's DOM id); sets aria-controls. */
+  controls?: string
 }
 
 /** Resolve disabled + the reason shown in the tooltip. Exported for tests. */
@@ -30,6 +33,65 @@ export function useBarState(p: BarCommon): { disabled: boolean; reason?: string 
 export function barTip(label: string, shortcut?: string, reason?: string): string {
   if (reason) return `${label} — ${reason}`
   return shortcut ? `${label} (${shortcut})` : label
+}
+
+/**
+ * A popover anchored under a bar control, portalled to <body> and clamped to
+ * the window. Row 2 scrolls horizontally, and a scroller clips vertically too,
+ * so nothing that drops down may render inside it (SPEC §2.6). Closes on an
+ * outside press (listener present only while open) or Escape inside it.
+ */
+export function BarPopover({ anchor, onClose, children, role = 'dialog', label, testid, minWidth = 176 }: {
+  anchor: HTMLElement | null
+  onClose: () => void
+  children: ReactNode
+  role?: 'dialog' | 'menu'
+  label?: string
+  testid?: string
+  minWidth?: number
+}): JSX.Element {
+  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+  useLayoutEffect(() => {
+    if (!anchor) return
+    const r = anchor.getBoundingClientRect()
+    const w = ref.current?.offsetWidth ?? minWidth
+    const h = ref.current?.offsetHeight ?? 200
+    const left = Math.max(4, Math.min(r.left, window.innerWidth - w - 4))
+    const below = r.bottom + 4
+    const top = below + h > window.innerHeight - 4 ? Math.max(4, r.top - h - 4) : below
+    setPos({ left, top })
+  }, [anchor, minWidth])
+  useEffect(() => {
+    const down = (e: PointerEvent): void => {
+      const t = e.target as Node
+      if (ref.current?.contains(t) || anchor?.contains(t)) return
+      onClose()
+    }
+    document.addEventListener('pointerdown', down, true)
+    return () => document.removeEventListener('pointerdown', down, true)
+  }, [anchor, onClose])
+  return createPortal(
+    <div
+      ref={ref}
+      role={role}
+      aria-label={label}
+      data-testid={testid}
+      onKeyDown={(e) => {
+        e.stopPropagation()
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          onClose()
+          anchor?.focus()
+        }
+      }}
+      style={{ position: 'fixed', left: pos?.left ?? -9999, top: pos?.top ?? -9999, minWidth }}
+      className="z-[70] fb-glass-panel rounded-[var(--radius-row)] fb-pop-in"
+    >
+      {children}
+    </div>,
+    document.body
+  )
 }
 
 const BTN = 'h-7 min-w-7 px-1.5 inline-flex items-center justify-center gap-1 rounded text-[12px] transition-colors disabled:opacity-35 disabled:cursor-not-allowed'
@@ -47,7 +109,7 @@ export function BarButton({ icon, label, showLabel, onClick, ...common }: IconLa
   const tip = barTip(label, common.shortcut, reason)
   return (
     <Tooltip content={tip} placement="bottom">
-      <button type="button" aria-label={tip} disabled={disabled} data-testid={common.testid} onClick={onClick} className={`${BTN} ${IDLE}`}>
+      <button type="button" aria-label={tip} aria-controls={common.controls} disabled={disabled} data-testid={common.testid} onClick={onClick} className={`${BTN} ${IDLE}`}>
         {icon && <Icon name={icon} size={16} />}
         {(showLabel || !icon) && <span>{label}</span>}
       </button>
@@ -64,6 +126,7 @@ export function BarToggle({ icon, label, showLabel, pressed, onChange, ...common
         type="button"
         aria-label={tip}
         aria-pressed={pressed}
+        aria-controls={common.controls}
         disabled={disabled}
         data-testid={common.testid}
         onClick={() => onChange(!pressed)}
@@ -183,19 +246,12 @@ export function BarColor({ icon = 'palette', label, value, onChange, palette, al
   const { disabled, reason } = useBarState(common)
   const tip = barTip(label, common.shortcut, reason)
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLSpanElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const down = (e: PointerEvent): void => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', down, true)
-    return () => document.removeEventListener('pointerdown', down, true)
-  }, [open])
+  const btn = useRef<HTMLButtonElement>(null)
   return (
-    <span ref={ref} className="relative inline-flex">
+    <span className="relative inline-flex">
       <Tooltip content={tip} placement="bottom">
         <button
+          ref={btn}
           type="button"
           aria-label={tip}
           aria-haspopup="dialog"
@@ -210,40 +266,40 @@ export function BarColor({ icon = 'palette', label, value, onChange, palette, al
         </button>
       </Tooltip>
       {open && (
-        <div
-          role="dialog"
-          aria-label={label}
-          data-testid={common.testid ? `${common.testid}-popover` : undefined}
-          onKeyDown={(e) => {
-            e.stopPropagation()
-            if (e.key === 'Escape') setOpen(false)
-          }}
-          className="absolute top-full left-0 mt-1 z-50 fb-glass-panel rounded-[var(--radius-row)] p-2 w-[176px] fb-pop-in"
-        >
-          <div className="grid grid-cols-8 gap-1">
-            {palette.map((c) => (
-              <button
-                key={c}
-                type="button"
-                aria-label={c}
-                onClick={() => {
-                  onChange(c)
-                  setOpen(false)
-                }}
-                className={`w-4 h-4 rounded-sm border ${value === c ? 'ring-2 ring-accent' : 'border-[var(--edge-soft)]'}`}
-                style={{ background: c }}
-              />
-            ))}
+        <BarPopover anchor={btn.current} onClose={() => setOpen(false)} label={label} testid={common.testid ? `${common.testid}-popover` : undefined}>
+          <div className="p-2 w-[176px]">
+            <div className="grid grid-cols-8 gap-1">
+              {palette.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-label={c}
+                  onClick={() => {
+                    onChange(c)
+                    setOpen(false)
+                  }}
+                  className={`w-4 h-4 rounded-sm border ${value === c ? 'ring-2 ring-accent' : 'border-[var(--edge-soft)]'}`}
+                  style={{ background: c }}
+                />
+              ))}
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <input type="color" aria-label={`${label}: custom`} value={value && /^#[0-9a-f]{6}$/i.test(value) ? value : '#000000'} onChange={(e) => onChange(e.target.value)} className="w-7 h-6 p-0 border-0 bg-transparent" />
+              {allowNone && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(undefined)
+                    setOpen(false)
+                  }}
+                  className="text-[11px] text-[var(--ink-60)] hover:text-[var(--ink-90)]"
+                >
+                  None
+                </button>
+              )}
+            </div>
           </div>
-          <div className="mt-2 flex items-center gap-2">
-            <input type="color" aria-label={`${label}: custom`} value={value && /^#[0-9a-f]{6}$/i.test(value) ? value : '#000000'} onChange={(e) => onChange(e.target.value)} className="w-7 h-6 p-0 border-0 bg-transparent" />
-            {allowNone && (
-              <button type="button" onClick={() => { onChange(undefined); setOpen(false) }} className="text-[11px] text-[var(--ink-60)] hover:text-[var(--ink-90)]">
-                None
-              </button>
-            )}
-          </div>
-        </div>
+        </BarPopover>
       )}
     </span>
   )
@@ -252,6 +308,7 @@ export function BarColor({ icon = 'palette', label, value, onChange, palette, al
 export interface BarMenuItem {
   label: string
   icon?: string
+  preview?: ReactNode // e.g. an arrowhead drawing, in place of an icon
   run: () => void
   active?: boolean
   disabled?: boolean
@@ -259,61 +316,47 @@ export interface BarMenuItem {
   shortcut?: string
 }
 
-export function BarMenu({ icon, label, showLabel = true, items, ...common }: IconLabel & { items: (BarMenuItem | 'sep')[] }): JSX.Element {
+export function BarMenu({ icon, label, showLabel = true, valueLabel, items, ...common }: IconLabel & { valueLabel?: ReactNode; items: (BarMenuItem | 'sep')[] }): JSX.Element {
   const { disabled, reason } = useBarState(common)
   const tip = barTip(label, common.shortcut, reason)
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLSpanElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const down = (e: PointerEvent): void => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', down, true)
-    return () => document.removeEventListener('pointerdown', down, true)
-  }, [open])
+  const btn = useRef<HTMLButtonElement>(null)
   return (
-    <span ref={ref} className="relative inline-flex">
+    <span className="relative inline-flex">
       <Tooltip content={tip} placement="bottom">
-        <button type="button" aria-label={tip} aria-haspopup="menu" aria-expanded={open} disabled={disabled} data-testid={common.testid} onClick={() => setOpen((v) => !v)} className={`${BTN} ${IDLE}`}>
+        <button ref={btn} type="button" aria-label={tip} aria-haspopup="menu" aria-expanded={open} disabled={disabled} data-testid={common.testid} onClick={() => setOpen((v) => !v)} className={`${BTN} ${IDLE}`}>
           {icon && <Icon name={icon} size={16} />}
-          {showLabel && <span>{label}</span>}
+          {valueLabel ?? (showLabel && <span>{label}</span>)}
           <Icon name="expand_more" size={14} />
         </button>
       </Tooltip>
       {open && (
-        <div
-          role="menu"
-          data-testid={common.testid ? `${common.testid}-menu` : undefined}
-          onKeyDown={(e) => {
-            e.stopPropagation()
-            if (e.key === 'Escape') setOpen(false)
-          }}
-          className="absolute top-full left-0 mt-1 z-50 fb-glass-panel rounded-[var(--radius-row)] py-1 min-w-[200px] fb-pop-in"
-        >
-          {items.map((it, i) =>
-            it === 'sep' ? (
-              <div key={`s${i}`} className="my-1 h-px bg-[var(--edge-soft)]" />
-            ) : (
-              <button
-                key={it.label}
-                type="button"
-                role="menuitem"
-                disabled={it.disabled}
-                data-testid={it.testid}
-                onClick={() => {
-                  setOpen(false)
-                  it.run()
-                }}
-                className="w-full flex items-center gap-2 px-2.5 py-1 text-[12px] text-left text-[var(--ink-80)] hover:bg-[var(--surface-sunken)] disabled:opacity-40"
-              >
-                <span className="w-4 inline-flex justify-center">{it.icon ? <Icon name={it.icon} size={15} /> : it.active ? <Icon name="check" size={14} /> : null}</span>
-                <span className="flex-1">{it.label}</span>
-                {it.shortcut && <span className="text-[var(--ink-40)] fb-tabular">{it.shortcut}</span>}
-              </button>
-            )
-          )}
-        </div>
+        <BarPopover anchor={btn.current} onClose={() => setOpen(false)} role="menu" testid={common.testid ? `${common.testid}-menu` : undefined} minWidth={200}>
+          <div className="py-1 max-h-[60vh] overflow-auto">
+            {items.map((it, i) =>
+              it === 'sep' ? (
+                <div key={`s${i}`} className="my-1 h-px bg-[var(--edge-soft)]" />
+              ) : (
+                <button
+                  key={`${it.label}-${i}`}
+                  type="button"
+                  role="menuitem"
+                  disabled={it.disabled}
+                  data-testid={it.testid}
+                  onClick={() => {
+                    setOpen(false)
+                    it.run()
+                  }}
+                  className={`w-full flex items-center gap-2 px-2.5 py-1 text-[12px] text-left text-[var(--ink-80)] hover:bg-[var(--surface-sunken)] disabled:opacity-40 ${it.active ? 'font-semibold' : ''}`}
+                >
+                  <span className="min-w-4 inline-flex justify-center">{it.preview ?? (it.icon ? <Icon name={it.icon} size={15} /> : it.active ? <Icon name="check" size={14} /> : null)}</span>
+                  <span className="flex-1">{it.label}</span>
+                  {it.shortcut && <span className="text-[var(--ink-40)] fb-tabular">{it.shortcut}</span>}
+                </button>
+              )
+            )}
+          </div>
+        </BarPopover>
       )}
     </span>
   )

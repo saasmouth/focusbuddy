@@ -9,6 +9,10 @@ export const PANEL_SHEET_BELOW = 520
 export const ASIDE_COLLAPSE_BELOW = 640
 /** Default and minimum overlay-panel width. */
 export const PANEL_WIDTH = 280
+/** Default width of the right content pane (comments, outline, AI). */
+export const SIDE_PANE_WIDTH = 320
+/** The side pane's DOM id: what its toggles point aria-controls at. */
+export const SIDE_PANE_DOM_ID = 'shell-sidepane'
 /** Width the folded "≡" menu button takes in Row 1. */
 export const FOLDED_MENU_WIDTH = 34
 /** Width the "More ▾" tab takes in Row 1. */
