@@ -4,25 +4,24 @@ import Icon from '../../Icon'
 import type { Commands } from './commands'
 
 // Layers for the current page: show/hide, lock, rename, delete, and move the
-// selection onto a layer. Shapes without a layer belong to "Base".
+// selection onto a layer. Shapes without a layer belong to "Base". Rendered as
+// the CONTENT of the Layers ShellPanel (office shell, SPEC §2.4), which owns the
+// header, close and pin.
 
-export function LayersPanel({ cmd, page, sel, onClose }: { cmd: Commands; page: Graph; sel: Sel; onClose: () => void }): JSX.Element {
+export function LayersPanel({ cmd, page, sel }: { cmd: Commands; page: Graph; sel: Sel }): JSX.Element {
   const layers = page.layers?.length ? page.layers : [{ id: 'layer-base', name: 'Base', visible: true, locked: false }]
   const [editing, setEditing] = useState<string | null>(null)
   const count = (id: string): number => page.nodes.filter((n) => layerOf(n) === id).length
   const hidden = hiddenCount(page)
   return (
-    <div className="absolute bottom-2 left-2 z-30 fb-glass-panel rounded-[var(--radius-row)] w-[250px] shadow-lg" data-testid="diagram-layers">
-      <div className="flex items-center px-3 py-2 border-b border-[var(--edge-soft)]">
-        <span className="text-[12px] font-semibold flex-1">Layers</span>
+    <div data-testid="diagram-layers">
+      <div className="flex items-center px-3 py-1.5 border-b border-[var(--edge-soft)]">
+        <span className="text-[11px] text-[var(--ink-60)] flex-1">Top of the list draws on top</span>
         <button type="button" className="icon-btn" title="Add layer" onClick={() => cmd.addLayer()} data-testid="diagram-layer-add">
           <Icon name="add" size={15} />
         </button>
-        <button type="button" className="icon-btn" title="Close" onClick={onClose}>
-          <Icon name="close" size={15} />
-        </button>
       </div>
-      <div className="py-1 max-h-[260px] overflow-auto">
+      <div className="py-1">
         {[...layers].reverse().map((l) => (
           <div key={l.id} className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--surface-sunken)]">
             <button type="button" className="icon-btn" title={l.visible ? 'Hide layer' : 'Show layer'} onClick={() => page.layers?.length && cmd.updateLayer(l.id, { visible: !l.visible })}>

@@ -27,6 +27,9 @@ import type { Tool } from './DiagramEditor'
 
 interface Deps {
   rf: ReactFlowInstance
+  // Width of the pinned overlay panels on the canvas's left (SPEC §2.4): Fit
+  // and zoom-to-selection centre the drawing in what is actually visible.
+  fitInset: MutableRefObject<number>
   bodyRef: MutableRefObject<MapBody>
   pageIdxRef: MutableRefObject<number>
   selRef: MutableRefObject<ops.Sel>
@@ -105,16 +108,25 @@ function makeCommands(d: Deps) {
     if (edit && nodes.length === 1) window.setTimeout(() => d.setEditingId(nodes[0]!.id), 30)
   }
 
-  const fit = (): void => void d.rf.fitView({ padding: 0.2, duration: 250 })
+  type Pct = `${number}%`
+  type Px = `${number}px`
+  const insetPadding = (pct: number): { top: Pct; right: Pct; bottom: Pct; left: Pct | Px } => ({
+    top: `${pct}%`,
+    right: `${pct}%`,
+    bottom: `${pct}%`,
+    left: d.fitInset.current > 0 ? `${Math.round(d.fitInset.current + 24)}px` : `${pct}%`
+  })
+  const fit = (): void => void d.rf.fitView({ padding: insetPadding(10), duration: 250 })
 
   const cmds = {
     // ── create ────────────────────────────────────────────────────────────
-    addShape(shapeId: string, opts: { center?: { x: number; y: number }; edit?: boolean } = {}): string {
+    addShape(shapeId: string, opts: { center?: { x: number; y: number }; edit?: boolean; size?: { w: number; h: number } } = {}): string {
       const center = opts.center ?? viewportCenter()
       // Stagger repeated clicks so new shapes don't stack invisibly.
       const occupied = page().nodes.some((n) => Math.abs(n.x + nodeSize(n).w / 2 - center.x) < 6 && Math.abs(n.y + nodeSize(n).h / 2 - center.y) < 6)
       const c = occupied && !opts.center ? { x: center.x + 24, y: center.y + 24 } : center
-      const n = makeNode(shapeId, c)
+      // An armed shape dragged out on the canvas takes the dragged size (SPEC §3.2).
+      const n = makeNode(shapeId, c, opts.size ? { width: Math.max(16, Math.round(opts.size.w)), height: Math.max(12, Math.round(opts.size.h)) } : {})
       add([n], [], opts.edit)
       return n.id
     },
@@ -452,7 +464,7 @@ function makeCommands(d: Deps) {
     zoomTo: (z: number): void => void d.rf.zoomTo(z, { duration: 150 }),
     zoomToSelection(): void {
       const ids = [...sel().nodes]
-      if (ids.length) void d.rf.fitView({ nodes: ids.map((id) => ({ id })), padding: 0.4, duration: 250 })
+      if (ids.length) void d.rf.fitView({ nodes: ids.map((id) => ({ id })), padding: insetPadding(20), duration: 250 })
     },
     focusNode(id: string): void {
       selectNodes([id])
@@ -679,12 +691,13 @@ function makeCommands(d: Deps) {
     },
 
     // ── keyboard ─────────────────────────────────────────────────────────
-    handleKey(e: KeyboardEvent, ui: { setTool: (t: Tool) => void }): boolean {
+    handleKey(e: KeyboardEvent, ui: { setTool: (t: Tool) => void; tool: Tool }): boolean {
       const mod = isMac ? e.metaKey : e.ctrlKey
       const k = shortcutKey(e)
       const step = e.shiftKey ? 10 : 1
       if (k === 'delete' || k === 'backspace') return cmds.deleteSelection(), true
-      if (k === 'escape') return cmds.clearSelection(), true
+      // Esc first disarms a tool (SPEC §3.2), then clears the selection.
+      if (k === 'escape') return ui.tool !== 'select' ? ui.setTool('select') : cmds.clearSelection(), true
       if (k === 'enter' && !mod) return cmds.editSelected(), true
       if (k === 'arrowleft') return cmds.nudge(-step, 0), true
       if (k === 'arrowright') return cmds.nudge(step, 0), true
@@ -716,6 +729,9 @@ function makeCommands(d: Deps) {
       if (k === 'v') return ui.setTool('select'), true
       if (k === 'h') return ui.setTool('pan'), true
       if (k === 't') return ui.setTool('text'), true
+      // Suite shape letters (Illustrator's, as in Draw): M rectangle, L ellipse.
+      if (k === 'm') return ui.setTool('shape:process'), true
+      if (k === 'l') return ui.setTool('shape:circle'), true
       return false
     }
   }

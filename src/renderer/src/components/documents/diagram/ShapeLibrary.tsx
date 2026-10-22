@@ -35,7 +35,7 @@ function writeSet(key: string, s: Set<string>): void {
 export function ShapeLibrary({ cmd, themeId, readOnly }: { cmd: Commands; themeId: string; readOnly: boolean }): JSX.Element {
   const [tab, setTab] = useState<'shapes' | 'icons' | 'images'>('shapes')
   return (
-    <div className="h-full flex flex-col w-[244px] border-r border-[var(--edge-soft)] bg-[var(--surface-raised)]" data-testid="diagram-library">
+    <div className="h-full min-h-0 flex flex-col w-full" data-testid="diagram-library">
       <div className="shrink-0 flex items-center gap-0.5 px-2 pt-2">
         {(
           [

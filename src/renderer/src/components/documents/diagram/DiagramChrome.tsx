@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MapBody } from '@shared/types'
 import { hiddenCount, type Graph, type Sel } from '@shared/diagram/ops'
 import type { PageInfo } from '@shared/diagram/pages'
@@ -6,18 +6,42 @@ import { SHAPES, SHAPE_CATEGORIES } from '@shared/diagram/shapes'
 import DrawMenuBar from '../editor/DrawMenuBar'
 import type { MenuItem } from '../editor/menuBarKit'
 import Icon from '../../Icon'
+import { BarButton, BarMenu, BarToggle, ContextBar, OfficeShellLayout, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail } from '../../office/shell'
 import type { Commands } from './commands'
 import type { Tool } from './DiagramEditor'
-import { Toolbar } from './Toolbar'
 import { ShapeLibrary } from './ShapeLibrary'
-import { Inspector } from './Inspector'
 import { LayersPanel } from './LayersPanel'
-import { AiDialog, DataDialog, FindPanel, MermaidDialog, ShortcutsDialog, TemplatesDialog } from './dialogs'
+import { AiPane, DataDialog, FindPanel, MermaidDialog, ShortcutsDialog, TemplatesDialog } from './dialogs'
+import { Binding, CustomData, IconInput } from './parts'
+import { DIAGRAM_TABS, diagramCtx, diagramRailItems, type DiagramDialog, type DiagramPanel, type DiagramSidePane } from './ribbon'
 
-// The editor frame: menu bar, toolbar, library | canvas | inspector, and the
-// pages + status bar. Owns which panels and dialogs are open.
+// The PlexiiDiagrams frame on the shared office shell (SPEC §6.1): the menu bar
+// and ribbon tabs on one row, the active tab's controls under them, the tool
+// rail on the left, the canvas, the pages bar, and overlay panels beside the
+// rail, and the shared right side pane for content (the AI). No property
+// inspector (owner ruling D1, as amended). Owns which panels, panes and dialogs
+// are open; the tool and selection live in the editor.
 
-type Dialog = 'ai' | 'data' | 'data-widgets' | 'find' | 'templates' | 'mermaid' | 'shortcuts' | null
+const TAB_KEY = 'plexii.diagram.ribbonTab'
+const COLLAPSE_KEY = 'plexii.diagram.ribbonCollapsed'
+const PINS_KEY = 'plexii.diagram.pinnedPanels'
+const SIDE_KEY = 'plexii.diagram.sidePane'
+
+const readPref = <T,>(k: string, fallback: T): T => {
+  try {
+    const v = localStorage.getItem(k)
+    return v === null ? fallback : (JSON.parse(v) as T)
+  } catch {
+    return fallback
+  }
+}
+const writePref = (k: string, v: unknown): void => {
+  try {
+    localStorage.setItem(k, JSON.stringify(v))
+  } catch {
+    /* preferences are a convenience */
+  }
+}
 
 export function DiagramChrome({
   cmd,
@@ -27,7 +51,9 @@ export function DiagramChrome({
   pages,
   sel,
   tool,
+  toolLocked,
   setTool,
+  onPanelInset,
   zoom,
   canUndo,
   canRedo,
@@ -41,34 +67,42 @@ export function DiagramChrome({
   pages: PageInfo[]
   sel: Sel
   tool: Tool
-  setTool: (t: Tool) => void
+  toolLocked: boolean
+  setTool: (t: Tool, lock?: boolean) => void
+  onPanelInset: (px: number) => void
   zoom: number
   canUndo: boolean
   canRedo: boolean
   readOnly: boolean
   children: React.ReactNode
 }): JSX.Element {
-  const [library, setLibrary] = useState(true)
-  const [inspector, setInspector] = useState(true)
-  const [layers, setLayers] = useState(false)
-  const [dialog, setDialog] = useState<Dialog>(null)
+  // Panels start closed so the canvas is unobstructed (an overlay over a fresh
+  // diagram would cover the shapes people place). Pinned panels reopen with the
+  // editor: pin the Library once and it stays.
+  const [pinned, setPinned] = useState<DiagramPanel[]>(() => readPref<DiagramPanel[]>(PINS_KEY, []))
+  const [open, setOpen] = useState<DiagramPanel[]>(() => readPref<DiagramPanel[]>(PINS_KEY, []))
+  const [dialog, setDialog] = useState<DiagramDialog | null>(null)
+  const [tab, setTab] = useState<string>(() => readPref(TAB_KEY, 'home'))
+  const [collapsed, setCollapsed] = useState<boolean>(() => readPref(COLLAPSE_KEY, false))
   const [status, setStatusText] = useState<string | null>(null)
   const statusTimer = useRef<number>()
   const fileRef = useRef<HTMLInputElement>(null)
+  const imageRef = useRef<HTMLInputElement>(null)
+  const imageReplace = useRef<string | undefined>(undefined)
   const fileKind = useRef<'drawio' | 'json'>('drawio')
   const settings = body.settings ?? {}
 
-  const setStatus = (msg: string): void => {
+  const setStatus = useCallback((msg: string): void => {
     setStatusText(msg || null)
     window.clearTimeout(statusTimer.current)
     if (msg) statusTimer.current = window.setTimeout(() => setStatusText(null), 6000)
-  }
+  }, [])
 
-  // ⌘F opens find; ? opens shortcuts.
+  // ⌘F opens find; ? opens shortcuts (the app's own keys, not the shell's).
   useEffect(() => {
     const k = (e: KeyboardEvent): void => {
       const t = e.target as HTMLElement
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault()
         setDialog('find')
@@ -78,6 +112,46 @@ export function DiagramChrome({
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
   }, [])
+
+  // The right side pane: which content pane shows (null = the slim edge tab), remembered per app.
+  const [sidePane, setSidePaneState] = useState<DiagramSidePane | null>(() => {
+    const v = readPref<string | null>(SIDE_KEY, null)
+    return v === 'ai' ? v : null
+  })
+  const setSidePane = useCallback((p: DiagramSidePane | null) => {
+    setSidePaneState(p)
+    writePref(SIDE_KEY, p)
+  }, [])
+  const toggleSidePane = useCallback((p: DiagramSidePane) => setSidePane(sidePane === p ? null : p), [sidePane, setSidePane])
+
+  const isOpen = useCallback((p: DiagramPanel) => open.includes(p), [open])
+  const openPanel = useCallback((p: DiagramPanel) => setOpen((o) => (o.includes(p) ? o : [...o, p])), [])
+  const closePanel = useCallback((p: DiagramPanel) => setOpen((o) => o.filter((x) => x !== p)), [])
+  const togglePanel = useCallback((p: DiagramPanel) => setOpen((o) => (o.includes(p) ? o.filter((x) => x !== p) : [...o, p])), [])
+  const setPin = (p: DiagramPanel, v: boolean): void =>
+    setPinned((cur) => {
+      const next = v ? [...new Set([...cur, p])] : cur.filter((x) => x !== p)
+      writePref(PINS_KEY, next)
+      return next
+    })
+  // Data panels belong to one shape; close them when the selection moves on.
+  const selKey = [...sel.nodes].join(',')
+  useEffect(() => {
+    setOpen((o) => o.filter((p) => !(['icon', 'label', 'link', 'data-fields', 'binding'] as DiagramPanel[]).includes(p) || sel.nodes.size === 1 || (p === 'icon' && sel.nodes.size > 0)))
+  }, [selKey, sel.nodes.size])
+
+  // Pinned panels inset Fit and zoom-to-selection (SPEC §2.4).
+  const panelRects = useRef<Record<string, DOMRect | null>>({})
+  const canvasLeft = useRef<HTMLDivElement>(null)
+  const reportInset = useCallback(
+    (id: string, rect: DOMRect | null) => {
+      panelRects.current[id] = rect
+      const left = canvasLeft.current?.getBoundingClientRect().left ?? 0
+      const right = Math.max(0, ...Object.values(panelRects.current).map((r) => (r ? r.right - left : 0)))
+      onPanelInset(right)
+    },
+    [onPanelInset]
+  )
 
   const exportFmt = async (f: 'svg' | 'png' | 'jpg' | 'pdf', scope: 'page' | 'selection' = 'page'): Promise<void> => {
     setStatus(`Exporting ${f.toUpperCase()}…`)
@@ -91,6 +165,35 @@ export function DiagramChrome({
   const hasSel = sel.nodes.size > 0
   const hasAny = sel.nodes.size > 0 || sel.edges.size > 0
   const hiddenOnPage = hiddenCount(page)
+
+  const ctx = useMemo(
+    () =>
+      diagramCtx({
+        cmd,
+        page,
+        sel,
+        settings,
+        themeId: settings.theme,
+        readOnly,
+        zoom,
+        tool,
+        setTool,
+        openDialog: (d) => setDialog(d),
+        togglePanel,
+        openPanel,
+        isPanelOpen: isOpen,
+        sidePane,
+        toggleSidePane,
+        setStatus,
+        pickImage: (replaceNodeId) => {
+          imageReplace.current = replaceNodeId
+          imageRef.current?.click()
+        }
+      }),
+    [cmd, page, sel, settings, readOnly, zoom, tool, setTool, togglePanel, openPanel, isOpen, sidePane, toggleSidePane, setStatus]
+  )
+  const railItems = useMemo(() => diagramRailItems(), [])
+  const [lastShape, setLastShape] = useState<string>('shape:process')
 
   const menus = {
     file: (): MenuItem[] => [
@@ -148,9 +251,9 @@ export function DiagramChrome({
       { kind: 'item', label: 'Zoom out', icon: 'zoom_out', shortcut: '⌘−', run: cmd.zoomOut },
       { kind: 'item', label: 'Actual size', icon: 'crop_free', shortcut: '⌘0', run: () => cmd.zoomTo(1) },
       { kind: 'sep' },
-      { kind: 'item', label: 'Shape library', icon: 'category', run: () => setLibrary((v) => !v), active: library },
-      { kind: 'item', label: 'Inspector', icon: 'tune', run: () => setInspector((v) => !v), active: inspector },
-      { kind: 'item', label: 'Layers', icon: 'layers', run: () => setLayers((v) => !v), active: layers },
+      { kind: 'item', label: 'Shape library', icon: 'category', run: () => togglePanel('library'), active: isOpen('library') },
+      { kind: 'item', label: 'Layers', icon: 'layers', run: () => togglePanel('layers'), active: isOpen('layers') },
+      { kind: 'item', label: 'Ribbon', icon: 'view_day', run: () => changeCollapsed(!collapsed), active: !collapsed },
       { kind: 'sep' },
       { kind: 'item', label: 'Grid', icon: 'grid_on', run: () => cmd.setSettings({ grid: settings.grid === false ? undefined : false }), active: settings.grid !== false },
       { kind: 'item', label: 'Snap to grid', icon: 'grid_goldenratio', run: () => cmd.setSettings({ snap: settings.snap === false ? undefined : false }), active: settings.snap !== false },
@@ -159,7 +262,6 @@ export function DiagramChrome({
       { kind: 'item', label: 'Minimap', icon: 'map', run: () => cmd.setSettings({ minimap: settings.minimap === false ? undefined : false }), active: settings.minimap !== false }
     ],
     insert: (): MenuItem[] => [
-      // The everyday shapes first; the whole library is one submenu per category.
       ...(['process', 'decision', 'terminator', 'data', 'database', 'circle'] as const).map((id) => {
         const s = SHAPES.find((x) => x.id === id)!
         return { kind: 'item' as const, label: s.label, run: () => void cmd.addShape(id) }
@@ -176,13 +278,13 @@ export function DiagramChrome({
       { kind: 'item', label: 'Table', icon: 'table', run: () => void cmd.addShape(SHAPES.find((s) => s.special === 'table')?.id ?? 'process') },
       { kind: 'item', label: 'Sticky note', icon: 'sticky_note_2', run: () => void cmd.addShape(SHAPES.find((s) => s.special === 'sticky')?.id ?? 'note') },
       { kind: 'item', label: 'Swimlane', icon: 'view_column', run: () => void cmd.addShape('lane') },
-      { kind: 'item', label: 'Image…', icon: 'image', run: () => setLibrary(true) },
+      { kind: 'item', label: 'Image…', icon: 'image', run: () => ctx.pickImage() },
       { kind: 'sep' },
       { kind: 'item', label: 'From a Plexii table…', icon: 'table_chart', run: () => setDialog('data') },
       { kind: 'item', label: 'Work widget from a desk…', icon: 'widgets', run: () => setDialog('data-widgets') },
       { kind: 'item', label: 'Template…', icon: 'dashboard', run: () => setDialog('templates') },
       { kind: 'item', label: 'Mermaid…', icon: 'code', run: () => setDialog('mermaid') },
-      { kind: 'item', label: 'AI diagram…', icon: 'auto_awesome', run: () => setDialog('ai') },
+      { kind: 'item', label: 'AI diagram…', icon: 'auto_awesome', run: () => setSidePane('ai') },
       { kind: 'sep' },
       { kind: 'item', label: 'New page', icon: 'note_add', run: cmd.addPage }
     ],
@@ -256,8 +358,32 @@ export function DiagramChrome({
     ]
   }
 
+  const changeTab = useCallback((id: string) => {
+    setTab(id)
+    writePref(TAB_KEY, id)
+  }, [])
+  const changeCollapsed = (v: boolean): void => {
+    setCollapsed(v)
+    writePref(COLLAPSE_KEY, v)
+  }
+
+  const one = sel.nodes.size === 1 ? page.nodes.find((n) => sel.nodes.has(n.id)) : undefined
+  const panelProps = (id: DiagramPanel) => ({
+    id,
+    open: isOpen(id),
+    onClose: () => closePanel(id),
+    pinnable: true,
+    pinned: pinned.includes(id),
+    onPinnedChange: (v: boolean) => setPin(id, v),
+    onRectChange: (r: DOMRect | null) => reportInset(id, r),
+    returnFocus: () => document.querySelector<HTMLElement>('[data-testid="diagram-canvas"]')?.focus({ preventScroll: true }),
+    testid: `diagram-panel-${id}`
+  })
+
+  const zoomItems = [0.25, 0.5, 0.75, 1, 1.5, 2, 4].map((z) => ({ label: `${z * 100}%`, active: Math.abs(zoom - z) < 0.01, run: () => cmd.zoomTo(z) }))
+
   return (
-    <div className="h-full w-full flex flex-col bg-[var(--surface-raised)] relative" data-testid="diagram-editor">
+    <div className="h-full w-full flex flex-col bg-[var(--surface-raised)] relative" data-testid="diagram-editor" data-tool-locked={toolLocked ? 'true' : undefined}>
       <input
         ref={fileRef}
         type="file"
@@ -283,42 +409,167 @@ export function DiagramChrome({
           if (notes.length) setStatus([...new Set(notes)].join(' · '))
         }}
       />
-      <div className="shrink-0 px-2 pt-1.5 pb-1 border-b border-[var(--edge-soft)] flex items-center gap-2">
-        <div className="flex-1 min-w-0">
-          <DrawMenuBar actions={menus} />
-        </div>
-        <button type="button" className="icon-btn" title={library ? 'Hide shape library' : 'Show shape library'} onClick={() => setLibrary((v) => !v)} data-testid="diagram-toggle-library">
-          <Icon name="left_panel_open" size={16} />
-        </button>
-        <button type="button" className="icon-btn" title={inspector ? 'Hide inspector' : 'Show inspector'} onClick={() => setInspector((v) => !v)} data-testid="diagram-toggle-inspector">
-          <Icon name="right_panel_open" size={16} />
-        </button>
-      </div>
-      <Toolbar
-        cmd={cmd}
-        page={page}
-        sel={sel}
-        tool={tool}
-        setTool={setTool}
-        zoom={zoom}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        themeId={settings.theme}
-        readOnly={readOnly}
-        onOpen={(d) => setDialog(d)}
-        status={setStatus}
+      <input
+        ref={imageRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        data-testid="diagram-image-picker"
+        onChange={async (e) => {
+          const files = [...(e.target.files ?? [])]
+          e.target.value = ''
+          const replace = imageReplace.current
+          imageReplace.current = undefined
+          if (!files.length) return
+          if (replace) {
+            const f = files[0]!
+            if (f.size > 2_500_000) return setStatus('Images up to 2.5 MB can be stored in a diagram.')
+            const url = await new Promise<string>((res) => {
+              const r = new FileReader()
+              r.onload = () => res(String(r.result))
+              r.readAsDataURL(f)
+            })
+            cmd.setNode(replace, { image: url })
+          } else await cmd.addImageFiles(files)
+        }}
       />
-      <div className="flex-1 min-h-0 flex">
-        {library && <ShapeLibrary cmd={cmd} themeId={settings.theme ?? 'plexii'} readOnly={readOnly} />}
-        <div className="flex-1 min-w-0 relative">
+      <OfficeShellLayout
+        testid="diagram-shell"
+        rightPane={
+          <ShellSidePane
+            testid="diagram-sidepane"
+            panes={[{ id: 'ai', title: 'AI diagram', icon: 'auto_awesome', testid: 'diagram-ai-pane', render: () => <AiPane cmd={cmd} /> }]}
+            activeId={sidePane}
+            onChange={(id) => setSidePane(id === 'ai' ? 'ai' : null)}
+          />
+        }
+        bar={
+          <ContextBar
+            testid="diagram-toolbar"
+            tabs={DIAGRAM_TABS}
+            ctx={ctx}
+            activeTab={tab}
+            onTabChange={changeTab}
+            collapsed={collapsed}
+            onCollapsedChange={changeCollapsed}
+            readOnly={readOnly}
+            menuBar={<DrawMenuBar actions={menus} />}
+            pinnedStart={
+              <>
+                <BarButton icon="undo" label="Undo" shortcut="⌘Z" disabled={!canUndo} onClick={cmd.undo} testid="diagram-undo" />
+                <BarButton icon="redo" label="Redo" shortcut="⇧⌘Z" disabled={!canRedo} onClick={cmd.redo} testid="diagram-redo" />
+              </>
+            }
+            rightSlot={
+              <>
+                <BarButton icon="search" label="Find and replace" shortcut="⌘F" onClick={() => setDialog('find')} testid="diagram-find" readOnlySafe />
+                <BarButton icon="remove" label="Zoom out" shortcut="⌘−" onClick={cmd.zoomOut} readOnlySafe />
+                <BarMenu
+                  label="Zoom"
+                  testid="diagram-zoom"
+                  readOnlySafe
+                  valueLabel={<span className="fb-tabular w-[38px] text-center">{Math.round(zoom * 100)}%</span>}
+                  items={[...zoomItems, 'sep', { label: 'Fit page', shortcut: '⇧1', run: cmd.fit }, { label: 'Zoom to selection', shortcut: '⇧2', run: cmd.zoomToSelection, disabled: !hasSel }]}
+                />
+                <BarButton icon="add" label="Zoom in" shortcut="⌘+" onClick={cmd.zoomIn} readOnlySafe />
+                <BarButton icon="fit_screen" label="Fit page" shortcut="⇧1" onClick={cmd.fit} testid="diagram-fit" readOnlySafe />
+                <BarToggle icon="right_panel_open" label="Side pane" pressed={sidePane !== null} onChange={(v) => setSidePane(v ? 'ai' : null)} controls={SIDE_PANE_DOM_ID} testid="diagram-sidepane-toggle" readOnlySafe />
+              </>
+            }
+          />
+        }
+        rail={
+          <ToolRail
+            testid="diagram-rail"
+            items={railItems}
+            ctx={ctx}
+            activeId={tool}
+            openPanels={sidePane ? [...open, sidePane] : open}
+            lastUsed={{ shapes: lastShape }}
+            onFlyoutPick={(_f, id) => setLastShape(id)}
+            readOnly={readOnly}
+            ariaLabel="Diagram tools"
+          />
+        }
+        bottom={<PagesBar cmd={cmd} pages={pages} pageIdx={pageIdx} sel={sel} page={page} status={status} layersOpen={isOpen('layers')} onLayers={() => togglePanel('layers')} readOnly={readOnly} />}
+        panels={
+          open.length ? (
+            <>
+              <ShellPanel {...panelProps('library')} title="Shape library" icon="category" fill>
+                <ShapeLibrary cmd={cmd} themeId={settings.theme ?? 'plexii'} readOnly={readOnly} />
+              </ShellPanel>
+              <ShellPanel {...panelProps('layers')} title="Layers" icon="layers">
+                <LayersPanel cmd={cmd} page={page} sel={sel} />
+              </ShellPanel>
+              <ShellPanel {...panelProps('icon')} title="Icon" icon="emoji_symbols">
+                <div className="p-2.5">
+                  <IconInput value={page.nodes.find((n) => sel.nodes.has(n.id))?.icon} onChange={(v) => cmd.setNodes({ icon: v || undefined })} />
+                </div>
+              </ShellPanel>
+              {one && (
+                <>
+                  <ShellPanel {...panelProps('label')} title="Label" icon="edit_note">
+                    <div className="p-2.5">
+                      <textarea
+                        value={one.label}
+                        onChange={(e) => cmd.setNode(one.id, { label: e.target.value }, `label:${one.id}`)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        rows={4}
+                        className="fb-field w-full px-1.5 py-1 text-[12px] resize-y"
+                        data-testid="diagram-label-field"
+                      />
+                    </div>
+                  </ShellPanel>
+                  <ShellPanel {...panelProps('link')} title="Link and notes" icon="link">
+                    <div className="p-2.5 space-y-2">
+                      <div className="flex items-center gap-1">
+                        <input
+                          value={one.link ?? ''}
+                          onChange={(e) => cmd.setNode(one.id, { link: e.target.value || undefined }, `link:${one.id}`)}
+                          onKeyDown={(e) => e.stopPropagation()}
+                          placeholder="https://… or plexii://…"
+                          className="fb-field h-7 px-1.5 text-[12px] flex-1 min-w-0"
+                          data-testid="diagram-link"
+                        />
+                        {one.link && /^https?:\/\//i.test(one.link) && (
+                          <button type="button" title="Open link" onClick={() => window.open(one.link, '_blank', 'noopener,noreferrer')} className="icon-btn">
+                            <Icon name="open_in_new" size={14} />
+                          </button>
+                        )}
+                      </div>
+                      <textarea
+                        value={one.description ?? ''}
+                        onChange={(e) => cmd.setNode(one.id, { description: e.target.value || undefined }, `desc:${one.id}`)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        rows={4}
+                        placeholder="Notes about this shape (searchable)"
+                        className="fb-field w-full px-1.5 py-1 text-[12px] resize-y"
+                        data-testid="diagram-notes"
+                      />
+                    </div>
+                  </ShellPanel>
+                  <ShellPanel {...panelProps('data-fields')} title="Custom data" icon="data_object">
+                    <div className="p-2.5">
+                      <CustomData cmd={cmd} node={one} />
+                    </div>
+                  </ShellPanel>
+                  <ShellPanel {...panelProps('binding')} title="Data source" icon="table_chart">
+                    <div className="p-2.5">
+                      <Binding cmd={cmd} node={one} />
+                    </div>
+                  </ShellPanel>
+                </>
+              )}
+            </>
+          ) : undefined
+        }
+      >
+        <div ref={canvasLeft} className="absolute inset-0">
           {children}
           {dialog === 'find' && <FindPanel cmd={cmd} onClose={() => setDialog(null)} />}
-          {layers && <LayersPanel cmd={cmd} page={page} sel={sel} onClose={() => setLayers(false)} />}
         </div>
-        {inspector && <Inspector cmd={cmd} page={page} sel={sel} settings={settings} readOnly={readOnly} />}
-      </div>
-      <PagesBar cmd={cmd} pages={pages} pageIdx={pageIdx} sel={sel} page={page} status={status} onLayers={() => setLayers((v) => !v)} readOnly={readOnly} />
-      {dialog === 'ai' && <AiDialog cmd={cmd} onClose={() => setDialog(null)} />}
+      </OfficeShellLayout>
       {(dialog === 'data' || dialog === 'data-widgets') && <DataDialog cmd={cmd} onClose={() => setDialog(null)} initialTab={dialog === 'data-widgets' ? 'widgets' : 'tables'} />}
       {dialog === 'templates' && <TemplatesDialog cmd={cmd} onClose={() => setDialog(null)} onMermaid={() => setDialog('mermaid')} />}
       {dialog === 'mermaid' && <MermaidDialog cmd={cmd} onClose={() => setDialog(null)} />}
@@ -334,6 +585,7 @@ function PagesBar({
   sel,
   page,
   status,
+  layersOpen,
   onLayers,
   readOnly
 }: {
@@ -343,6 +595,7 @@ function PagesBar({
   sel: Sel
   page: Graph
   status: string | null
+  layersOpen: boolean
   onLayers: () => void
   readOnly: boolean
 }): JSX.Element {
@@ -429,7 +682,16 @@ function PagesBar({
           {summary}
         </span>
       )}
-      <button type="button" onClick={onLayers} className="h-6 px-1.5 rounded inline-flex items-center gap-1 text-[var(--ink-60)] hover:bg-[var(--surface-raised)]" title="Layers" data-testid="diagram-layers-toggle">
+      {/* The same Layers panel the rail toggles: one state (SPEC §3.7). */}
+      <button
+        type="button"
+        onClick={onLayers}
+        aria-pressed={layersOpen}
+        aria-controls="shell-panel-layers"
+        className={`h-6 px-1.5 rounded inline-flex items-center gap-1 hover:bg-[var(--surface-raised)] ${layersOpen ? 'text-accent' : 'text-[var(--ink-60)]'}`}
+        title="Layers"
+        data-testid="diagram-layers-toggle"
+      >
         <Icon name="layers" size={14} />
         {page.layers?.length ? page.layers.length : ''}
       </button>
