@@ -443,6 +443,9 @@ test('NW-1 embedded in a 480px desk widget the studio is no wider than its host,
   await keepNoticesOutOfTheWay(window)
   await window.evaluate((id: string) => (window as unknown as { __fbView?: { getState: () => { goTask: (i: string) => void } } }).__fbView?.getState().goTask(id), taskId)
   await expect(t('draw-shell')).toBeVisible({ timeout: 15_000 })
+  // The case d8 hit: a fresh profile, so the one-time Illustrator-keys notice
+  // is showing above the canvas (285 px tall at this width) while it is measured.
+  await expect(t('draw-keys-notice')).toBeVisible()
   const widths = await window.evaluate(() => {
     const shell = document.querySelector('[data-testid="draw-shell"]') as HTMLElement
     const widget = shell.closest('[data-widget-id]') as HTMLElement
