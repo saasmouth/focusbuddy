@@ -13,8 +13,14 @@
 //
 // Invariants every algorithm upholds (tests assert them):
 //   • locked and hidden nodes never move; locked nodes are obstacles
-//   • containers (and their children) never move unless named in onlyIds; a
-//     container in onlyIds moves as one block and carries its children with it
+//   • containers stay where they are unless named in onlyIds (a container in
+//     onlyIds moves as one block and carries its children with it), or a
+//     sibling container beside or above them grew and pushed them aside
+//   • what is INSIDE a container is laid out inside it, with the same
+//     algorithm, below its header or beside its label band; the container
+//     grows to fit and never shrinks. Membership is parentId, or else the
+//     smallest container that fully contains the node (the app's own rule
+//     after a drag), so a template's or an AI diagram's lane contents count
 //   • no two visible non-container nodes overlap afterwards
 //   • output is deterministic and every moved coordinate is an integer
 
@@ -55,16 +61,262 @@ const DEFAULT_LAYER_GAP = 70
 
 export function layoutDiagram(nodes: MapNode[], edges: MapEdge[], opts: LayoutOptions): MapNode[] {
   if (!nodes.length) return nodes
+  // Containers first: lay out what is INSIDE each lane, pool or frame, inside
+  // it (innermost first, growing it to fit and pushing neighbours aside), then
+  // the free-standing nodes around them.
+  const { nodes: inner, placed } = layoutInsideContainers(nodes, edges, opts)
+  // Shapes already laid out inside their container are not laid out again by
+  // the free pass (with a selection they are in onlyIds too, and the free pass
+  // would carry them straight back out of the lane).
+  if (!placed.size) return layoutFree(inner, edges, opts)
+  if (opts.onlyIds) {
+    const rest = opts.onlyIds.filter((id) => !placed.has(id))
+    return rest.length ? layoutFree(inner, edges, { ...opts, onlyIds: rest }) : inner
+  }
+  return layoutFree(inner, edges, opts)
+}
+
+/** Membership is geometric in this app (assignContainers, after a drag): a node
+ *  without a parentId belongs to the smallest visible container that fully
+ *  contains it. A node never dragged (a template's lane contents, an AI or an
+ *  imported diagram) sits visibly in a lane with no parentId; treating it as
+ *  free carried it out of its lane, or with a selection onto another one. */
+function membership(nodes: MapNode[]): Map<string, MapNode> {
+  const byId = new Map(nodes.map((n) => [n.id, n]))
+  const isC = (n: MapNode): boolean => !!getShape(n.shape).container
+  const containers = nodes.filter((n) => isC(n) && !n.hidden)
+  const out = new Map<string, MapNode>()
+  for (const n of nodes) {
+    if (n.parentId) {
+      const p = byId.get(n.parentId)
+      if (p && p !== n && isC(p)) out.set(n.id, p)
+      continue
+    }
+    const b = boxOfNode(n)
+    let best: { c: MapNode; area: number } | null = null
+    for (const c of containers) {
+      if (c === n) continue
+      const cb = boxOfNode(c)
+      const holds = b.x >= cb.x && b.y >= cb.y && b.x + b.w <= cb.x + cb.w && b.y + b.h <= cb.y + cb.h
+      const area = cb.w * cb.h
+      if (holds && area > b.w * b.h && (!best || area < best.area)) best = { c, area }
+    }
+    if (best) out.set(n.id, best.c)
+  }
+  // Break any cycle (a container geometrically inside its own descendant).
+  for (const [id] of out) {
+    const seen = new Set<string>([id])
+    let c = out.get(id)
+    while (c) {
+      if (seen.has(c.id)) {
+        out.delete(id)
+        break
+      }
+      seen.add(c.id)
+      c = out.get(c.id)
+    }
+  }
+  return out
+}
+
+function boxOfNode(n: MapNode): Rect {
+  const s = nodeSize(n)
+  return { x: n.x, y: n.y, w: s.w, h: s.h }
+}
+
+/** A container's free interior: inside its label band or header, with a margin. */
+function interiorInsets(c: MapNode): { left: number; top: number; right: number; bottom: number } {
+  const { w, h } = nodeSize(c)
+  const m = 16
+  const ins = { left: m, top: m, right: m, bottom: m }
+  let t: Rect | undefined
+  try {
+    t = getShape(c.shape).draw(w, h).text
+  } catch {
+    t = undefined
+  }
+  if (!t) return ins
+  if (t.x <= 1 && t.h >= h * 0.8 && t.w < w * 0.5) ins.left = Math.ceil(t.w + 12) // a label band down the left (lane)
+  else if (t.y <= 1 && t.w >= w * 0.8 && t.h < h * 0.5) ins.top = Math.ceil(t.h + 8) // a header across the top (pool, frame)
+  else if (t.y + t.h >= h - 1 && t.w >= w * 0.8 && t.h < h * 0.5) ins.bottom = Math.ceil(t.h + 8) // a caption along the bottom
+  else if (t.x + t.w >= w - 1 && t.h >= h * 0.8 && t.w < w * 0.5) ins.right = Math.ceil(t.w + 12) // a band down the right
+  else ins.top = Math.max(ins.top, Math.ceil(Math.min(t.y + t.h, h * 0.25) + 8)) // a centred title: keep it clear
+  return ins
+}
+
+function runAlgorithm(
+  algorithm: LayoutAlgorithm,
+  ids: string[],
+  nodesFor: MapNode[],
+  sizes: Map<string, Sz>,
+  graphEdges: [string, string][],
+  dir: LayoutDirection,
+  nodeGap: number,
+  layerGap: number
+): PosMap {
+  switch (algorithm) {
+    case 'tree':
+      return treeLayout(ids, sizes, graphEdges, dir, nodeGap, layerGap)
+    case 'radial':
+      return radialLayout(ids, sizes, graphEdges, nodeGap, layerGap)
+    case 'grid':
+      return gridLayout(nodesFor, sizes, nodeGap)
+    case 'organic':
+      return organicLayout(ids, sizes, graphEdges, nodeGap)
+    case 'mindmap':
+      return mindmapLayout(ids, sizes, graphEdges, nodeGap, layerGap)
+    case 'layered':
+    default:
+      return layeredLayout(ids, sizes, graphEdges, dir, nodeGap, layerGap)
+  }
+}
+
+/**
+ * Lay out each container's direct children inside it, innermost container
+ * first, with the chosen algorithm. The container grows to fit (it never
+ * shrinks) and containers that sat beside or below it move aside by the growth,
+ * so stacked swimlanes stay stacked. Without onlyIds every unlocked container
+ * with two or more unlocked visible children is laid out; with onlyIds, only a
+ * container whose children are ALL among the selection (or that is selected).
+ */
+function layoutInsideContainers(nodes: MapNode[], edges: MapEdge[], opts: LayoutOptions): { nodes: MapNode[]; placed: Set<string> } {
+  const isC = (n: MapNode): boolean => !!getShape(n.shape).container
+  const placedIds = new Set<string>()
+  if (!nodes.some((n) => isC(n) && !n.hidden)) return { nodes, placed: placedIds }
   const dir: LayoutDirection = opts.direction ?? 'TB'
   const nodeGap = finiteOr(opts.nodeGap, DEFAULT_NODE_GAP, 0)
   const layerGap = finiteOr(opts.layerGap, DEFAULT_LAYER_GAP, 0)
-  const byId = new Map(nodes.map((n) => [n.id, n]))
+  const only = opts.onlyIds ? new Set(opts.onlyIds) : null
+  let cur = nodes.map((n) => ({ ...n }))
+  const byId = (): Map<string, MapNode> => new Map(cur.map((n) => [n.id, n]))
+  const parentOf = membership(cur)
+  const depth = (n: MapNode): number => {
+    let d = 0
+    for (let c = parentOf.get(n.id); c && d < 50; c = parentOf.get(c.id)) d++
+    return d
+  }
+  const childrenOf = (cid: string): MapNode[] => cur.filter((n) => parentOf.get(n.id)?.id === cid)
+  const descendantsOf = (cid: string): string[] => {
+    const out: string[] = []
+    const walk = (id: string): void => {
+      for (const k of cur) if (parentOf.get(k.id)?.id === id) {
+        out.push(k.id)
+        walk(k.id)
+      }
+    }
+    walk(cid)
+    return out
+  }
+  const containers = cur.filter((n) => isC(n) && !n.hidden && !n.locked).sort((a, b) => depth(b) - depth(a) || cmpStr(a.id, b.id))
+  for (const c0 of containers) {
+    const c = byId().get(c0.id)!
+    const kids = childrenOf(c.id).filter((k) => !k.hidden)
+    if (kids.length < 2 || kids.some((k) => k.locked)) continue
+    if (only && !only.has(c.id) && !kids.every((k) => only.has(k.id))) continue
+    const ids = kids.map((k) => k.id)
+    const sizes = new Map<string, Sz>(kids.map((k) => [k.id, nodeSize(k)]))
+    // Edges among this container's subtree, attached to its direct children.
+    const top = new Map<string, string>()
+    for (const k of kids) {
+      top.set(k.id, k.id)
+      for (const dId of descendantsOf(k.id)) top.set(dId, k.id)
+    }
+    const ge: [string, string][] = []
+    const seen = new Set<string>()
+    for (const e of edges) {
+      const s = top.get(e.source)
+      const t = top.get(e.target)
+      if (!s || !t || s === t) continue
+      const key = `${s}\u0000${t}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      ge.push([s, t])
+    }
+    const pos = runAlgorithm(opts.algorithm, ids, kids, sizes, ge, dir, nodeGap, layerGap)
+    const bb = boundsOfPos(pos, sizes)
+    const ins = interiorInsets(c)
+    const placed: Rect[] = []
+    const moves = new Map<string, { dx: number; dy: number }>()
+    for (const k of [...kids].sort((a, b) => {
+      const pa = pos.get(a.id)!
+      const pb = pos.get(b.id)!
+      return pa.y - pb.y || pa.x - pb.x || cmpStr(a.id, b.id)
+    })) {
+      const p = pos.get(k.id)!
+      const s = sizes.get(k.id)!
+      const r = { x: Math.round(c.x + ins.left + (p.x - bb.x)), y: Math.round(c.y + ins.top + (p.y - bb.y)), w: s.w, h: s.h }
+      resolveOverlap(r, placed, nodeGap)
+      placed.push(r)
+      moves.set(k.id, { dx: r.x - k.x, dy: r.y - k.y })
+      placedIds.add(k.id)
+    }
+    // Grow the container to hold the block (never shrink).
+    const cs = nodeSize(c)
+    const needW = Math.max(...placed.map((r) => r.x + r.w)) - c.x + ins.right
+    const needH = Math.max(...placed.map((r) => r.y + r.h)) - c.y + ins.bottom
+    const dw = Math.max(0, Math.ceil(needW - cs.w))
+    const dh = Math.max(0, Math.ceil(needH - cs.h))
+    // Apply: children and their descendants move; the container may grow.
+    const shift = new Map<string, { dx: number; dy: number }>()
+    for (const [kid, d] of moves) {
+      shift.set(kid, d)
+      for (const dId of descendantsOf(kid)) shift.set(dId, d)
+    }
+    const oldBox = { x: c.x, y: c.y, w: cs.w, h: cs.h }
+    cur = cur.map((n) => {
+      const d = shift.get(n.id)
+      if (d) return { ...n, x: Math.round(n.x + d.dx), y: Math.round(n.y + d.dy) }
+      if (n.id === c.id && (dw || dh)) return { ...n, width: cs.w + dw, height: cs.h + dh }
+      return n
+    })
+    if (dw || dh) cur = pushNeighbours(cur, c.id, oldBox, dw, dh, parentOf, descendantsOf)
+  }
+  return { nodes: cur, placed: placedIds }
+}
+
+/** A container grew by (dw, dh): siblings that sat wholly below it (overlapping
+ *  its columns) move down by dh, those wholly to its right (overlapping its
+ *  rows) move right by dw, each with everything inside them. */
+function pushNeighbours(
+  nodes: MapNode[],
+  grownId: string,
+  old: Rect,
+  dw: number,
+  dh: number,
+  parentOf: Map<string, MapNode>,
+  descendantsOf: (id: string) => string[]
+): MapNode[] {
+  const parent = parentOf.get(grownId)?.id
+  const shift = new Map<string, { dx: number; dy: number }>()
+  for (const n of nodes) {
+    if (n.id === grownId || parentOf.get(n.id)?.id !== parent) continue
+    const b = boxOfNode(n)
+    const below = dh > 0 && b.y >= old.y + old.h - 1 && b.x < old.x + old.w && b.x + b.w > old.x
+    const right = dw > 0 && b.x >= old.x + old.w - 1 && b.y < old.y + old.h && b.y + b.h > old.y
+    if (!below && !right) continue
+    const d = { dx: right ? dw : 0, dy: below ? dh : 0 }
+    shift.set(n.id, d)
+    for (const dId of descendantsOf(n.id)) shift.set(dId, d)
+  }
+  if (!shift.size) return nodes
+  return nodes.map((n) => {
+    const d = shift.get(n.id)
+    return d ? { ...n, x: n.x + d.dx, y: n.y + d.dy } : n
+  })
+}
+
+function layoutFree(nodes: MapNode[], edges: MapEdge[], opts: LayoutOptions): MapNode[] {
+  if (!nodes.length) return nodes
+  const dir: LayoutDirection = opts.direction ?? 'TB'
+  const nodeGap = finiteOr(opts.nodeGap, DEFAULT_NODE_GAP, 0)
+  const layerGap = finiteOr(opts.layerGap, DEFAULT_LAYER_GAP, 0)
   const only = opts.onlyIds ? new Set(opts.onlyIds) : null
 
   const isContainer = (n: MapNode): boolean => !!getShape(n.shape).container
+  const parentOf = membership(nodes)
   // The container a node sits in (nearest ancestor that exists and is a container).
   const containerOf = (n: MapNode): MapNode | undefined => {
-    const p = n.parentId ? byId.get(n.parentId) : undefined
+    const p = parentOf.get(n.id)
     return p && p !== n && isContainer(p) ? p : undefined
   }
   // Every ancestor container, nearest first (guards against parent cycles).
@@ -131,28 +383,7 @@ export function layoutDiagram(nodes: MapNode[], edges: MapEdge[], opts: LayoutOp
   const ids = movable.map((n) => n.id)
   const sizes = new Map<string, Sz>(movable.map((n) => [n.id, nodeSize(n)]))
 
-  let pos: PosMap
-  switch (opts.algorithm) {
-    case 'tree':
-      pos = treeLayout(ids, sizes, graphEdges, dir, nodeGap, layerGap)
-      break
-    case 'radial':
-      pos = radialLayout(ids, sizes, graphEdges, nodeGap, layerGap)
-      break
-    case 'grid':
-      pos = gridLayout(movable, sizes, nodeGap)
-      break
-    case 'organic':
-      pos = organicLayout(ids, sizes, graphEdges, nodeGap)
-      break
-    case 'mindmap':
-      pos = mindmapLayout(ids, sizes, graphEdges, nodeGap, layerGap)
-      break
-    case 'layered':
-    default:
-      pos = layeredLayout(ids, sizes, graphEdges, dir, nodeGap, layerGap)
-      break
-  }
+  const pos: PosMap = runAlgorithm(opts.algorithm, ids, movable, sizes, graphEdges, dir, nodeGap, layerGap)
 
   // Translate the block so its top-left lands on the origin (default: where the
   // moving nodes currently start, so a re-layout stays in place).

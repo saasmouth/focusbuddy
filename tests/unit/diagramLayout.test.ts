@@ -257,18 +257,29 @@ describe('layoutDiagram — fixed nodes', () => {
     expect([h.x, h.y]).toEqual([123.5, 77])
   })
 
-  it('containers and their children stay put unless named in onlyIds', () => {
+  it('containers stay put; their children are laid out INSIDE them', () => {
     const lane = node('lane1', { shape: 'lane', x: 0, y: 0, width: 600, height: 200 })
     const kid1 = node('k1', { parentId: 'lane1', x: 60, y: 40 })
     const kid2 = node('k2', { parentId: 'lane1', x: 260, y: 40 })
-    const free = [node('f1'), node('f2'), node('f3')]
+    // Free nodes start BELOW the lane: a node fully inside a lane belongs to it
+    // (the app's geometric membership), and (0,0) is inside this one.
+    const free = [node('f1', { x: 0, y: 400 }), node('f2', { x: 200, y: 400 }), node('f3', { x: 400, y: 400 })]
     const nodes = [lane, kid1, kid2, ...free]
-    const edges = [edge('f1', 'f2'), edge('f2', 'f3'), edge('k1', 'f1')]
+    const edges = [edge('f1', 'f2'), edge('f2', 'f3'), edge('k1', 'f1'), edge('k1', 'k2')]
     const out = layoutDiagram(nodes, edges, { algorithm: 'layered' })
     const get = (id: string): MapNode => out.find((n) => n.id === id)!
     expect([get('lane1').x, get('lane1').y]).toEqual([0, 0])
-    expect([get('k1').x, get('k1').y]).toEqual([60, 40])
-    expect([get('k2').x, get('k2').y]).toEqual([260, 40])
+    const L = get('lane1')
+    for (const id of ['k1', 'k2']) {
+      const k = get(id)
+      // inside the lane, clear of its 28px label band
+      expect(k.x).toBeGreaterThanOrEqual(28)
+      expect(k.y).toBeGreaterThanOrEqual(0)
+      expect(k.x + nodeSize(k).w).toBeLessThanOrEqual(L.x + nodeSize(L).w)
+      expect(k.y + nodeSize(k).h).toBeLessThanOrEqual(L.y + nodeSize(L).h)
+    }
+    // the layered algorithm ran inside: k1 → k2 are in successive layers (TB)
+    expect(get('k2').y).toBeGreaterThan(get('k1').y)
     expect(overlapPairs(out)).toEqual([])
     // free nodes must not land inside the lane either
     for (const id of ['f1', 'f2', 'f3']) {
@@ -393,3 +404,78 @@ describe('layoutDiagram — algorithm character', () => {
     expect(overlapPairs(out)).toEqual([])
   })
 })
+
+describe('layoutDiagram — contents of containers (owner test, 4.3.41)', () => {
+  // A template's (or an AI or imported diagram's) lane contents sit visibly in
+  // their lanes with NO parentId: they were never dragged, and membership is
+  // assigned after a drag. They must still count as the lane's.
+  const swim = (): { nodes: MapNode[]; edges: MapEdge[] } => {
+    const nodes = [
+      node('lane1', { shape: 'lane', x: 0, y: 0, width: 780, height: 150, label: 'Requester' }),
+      node('lane2', { shape: 'lane', x: 0, y: 160, width: 780, height: 150, label: 'Approver' }),
+      node('lane3', { shape: 'lane', x: 0, y: 320, width: 780, height: 150, label: 'System' }),
+      node('s1', { shape: 'terminator', x: 60, y: 52 }),
+      node('s2', { shape: 'data', x: 220, y: 50 }),
+      node('s4', { x: 430, y: 52 }),
+      node('s3', { shape: 'decision', x: 250, y: 208 }),
+      node('s5', { shape: 'database', x: 430, y: 372 }),
+      node('s6', { shape: 'terminator', x: 620, y: 378 })
+    ]
+    const edges = [edge('s1', 's2'), edge('s2', 's3'), edge('s3', 's4'), edge('s4', 's2'), edge('s3', 's5'), edge('s5', 's6')]
+    return { nodes, edges }
+  }
+  const laneOf: Record<string, string> = { s1: 'lane1', s2: 'lane1', s4: 'lane1', s3: 'lane2', s5: 'lane3', s6: 'lane3' }
+  const box = (n: MapNode): { x: number; y: number; w: number; h: number } => ({ x: n.x, y: n.y, ...nodeSize(n) })
+  const within = (a: ReturnType<typeof box>, c: ReturnType<typeof box>): boolean => a.x >= c.x && a.y >= c.y && a.x + a.w <= c.x + c.w && a.y + a.h <= c.y + c.h
+  const lap = (a: ReturnType<typeof box>, b: ReturnType<typeof box>): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+
+  it.each(['layered', 'tree', 'mindmap', 'radial', 'organic', 'grid'] as const)('%s: every shape stays in its own lane, something moves, nothing overlaps, lanes stay stacked', (algorithm) => {
+    const { nodes, edges } = swim()
+    const out = layoutDiagram(nodes, edges, { algorithm, direction: algorithm === 'mindmap' ? 'LR' : 'TB' })
+    const get = (id: string): MapNode => out.find((n) => n.id === id)!
+    const moved = out.filter((n) => {
+      const b = nodes.find((m) => m.id === n.id)!
+      return b.x !== n.x || b.y !== n.y
+    })
+    expect(moved.length, 'the layout did something').toBeGreaterThan(0)
+    for (const [id, lane] of Object.entries(laneOf)) expect(within(box(get(id)), box(get(lane))), `${id} inside ${lane}`).toBe(true)
+    expect(overlapPairs(out)).toEqual([])
+    // lanes never overlap one another (a lane that grew pushed the ones below it)
+    const lanes = ['lane1', 'lane2', 'lane3'].map((id) => box(get(id)))
+    for (let i = 0; i < lanes.length; i++) for (let j = i + 1; j < lanes.length; j++) expect(lap(lanes[i]!, lanes[j]!), 'lanes overlap').toBe(false)
+    // and no shape sits on a lane it does not belong to
+    for (const [id, lane] of Object.entries(laneOf)) for (const other of ['lane1', 'lane2', 'lane3']) if (other !== lane) expect(lap(box(get(id)), box(get(other))), `${id} on ${other}`).toBe(false)
+  })
+
+  it('a lane grows to fit its laid-out contents and pushes the lane below it down by the same amount', () => {
+    const nodes = [
+      node('a', { shape: 'lane', x: 0, y: 0, width: 300, height: 120 }),
+      node('b', { shape: 'lane', x: 0, y: 130, width: 300, height: 120 }),
+      ...['p1', 'p2', 'p3', 'p4'].map((id, i) => node(id, { x: 40 + i * 10, y: 20 + i * 5, parentId: 'a' })),
+      node('q', { x: 60, y: 160, parentId: 'b' })
+    ]
+    const edges = [edge('p1', 'p2'), edge('p2', 'p3'), edge('p3', 'p4')]
+    const out = layoutDiagram(nodes, edges, { algorithm: 'layered', direction: 'TB' })
+    const get = (id: string): MapNode => out.find((n) => n.id === id)!
+    const grew = nodeSize(get('a')).h - 120
+    expect(grew).toBeGreaterThan(0)
+    expect(get('b').y).toBe(130 + grew)
+    expect(get('q').y).toBe(160 + grew) // the pushed lane carries its contents
+  })
+
+  it('a selection made only of one lane\'s shapes is laid out inside that lane', () => {
+    const { nodes, edges } = swim()
+    const out = layoutDiagram(nodes, edges, { algorithm: 'grid', onlyIds: ['s1', 's2', 's4'] })
+    const get = (id: string): MapNode => out.find((n) => n.id === id)!
+    for (const id of ['s1', 's2', 's4']) expect(within(box(get(id)), box(get('lane1'))), `${id} still in its lane`).toBe(true)
+    // the other lanes' shapes were not part of the selection: they keep their place IN
+    // their lane (a lane above that grew pushes the whole lane down, contents and all)
+    for (const id of ['s3', 's5', 's6']) {
+      const lane = laneOf[id]!
+      const was = nodes.find((n) => n.id === id)!
+      const wasLane = nodes.find((n) => n.id === lane)!
+      expect([get(id).x - get(lane).x, get(id).y - get(lane).y]).toEqual([was.x - wasLane.x, was.y - wasLane.y])
+    }
+  })
+})
+

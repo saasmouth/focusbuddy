@@ -469,7 +469,16 @@ function makeCommands(d: Deps) {
       d.update((pg) => {
         const pos = new Map(laid.map((n) => [n.id, n]))
         // A re-layout makes manual bends meaningless; let the router redo them.
-        return { ...pg, nodes: pg.nodes.map((n) => (pos.has(n.id) ? { ...n, x: pos.get(n.id)!.x, y: pos.get(n.id)!.y } : n)), edges: pg.edges.map((e) => ({ ...e, waypoints: undefined })) }
+        // Position, and size for a container the layout grew to hold what is inside it.
+        const apply = (n: MapNode): MapNode => {
+          const l = pos.get(n.id)
+          if (!l) return n
+          const out: MapNode = { ...n, x: l.x, y: l.y }
+          if (l.width !== n.width) out.width = l.width
+          if (l.height !== n.height) out.height = l.height
+          return out
+        }
+        return { ...pg, nodes: pg.nodes.map(apply), edges: pg.edges.map((e) => ({ ...e, waypoints: undefined })) }
       })
       window.setTimeout(fit, 60)
     },
