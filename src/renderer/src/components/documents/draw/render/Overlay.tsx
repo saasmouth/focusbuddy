@@ -10,7 +10,7 @@ import { HANDLES, handlePoint, selectionBox } from '../tools/helpers'
 
 const GRID = 50
 
-export default function Overlay({ state, board, stageW, stageH }: { state: EditorState; board: DrawArtboard; stageW: number; stageH: number }): JSX.Element {
+export default function Overlay({ state, board, frame = board, stageW, stageH }: { state: EditorState; board: DrawArtboard; frame?: { x: number; y: number; w: number; h: number }; stageW: number; stageH: number }): JSX.Element {
   const k = 1 / state.zoom
   const selBox = selectionBox(state.doc, state.selection)
   const overlays = drawTools()
@@ -20,7 +20,7 @@ export default function Overlay({ state, board, stageW, stageH }: { state: Edito
     <svg
       width={stageW}
       height={stageH}
-      viewBox={`${board.x} ${board.y} ${board.w} ${board.h}`}
+      viewBox={`${frame.x} ${frame.y} ${frame.w} ${frame.h}`}
       className="absolute left-0 top-0 pointer-events-none"
       data-testid="draw-overlay"
     >
@@ -37,9 +37,9 @@ export default function Overlay({ state, board, stageW, stageH }: { state: Edito
 
       {state.guides.map((g, i) =>
         g.axis === 'x' ? (
-          <line key={i} x1={g.at} y1={board.y} x2={g.at} y2={board.y + board.h} stroke="#ec4899" strokeWidth={k} />
+          <line key={i} x1={g.at} y1={frame.y} x2={g.at} y2={frame.y + frame.h} stroke="#ec4899" strokeWidth={k} />
         ) : (
-          <line key={i} x1={board.x} y1={g.at} x2={board.x + board.w} y2={g.at} stroke="#ec4899" strokeWidth={k} />
+          <line key={i} x1={frame.x} y1={g.at} x2={frame.x + frame.w} y2={g.at} stroke="#ec4899" strokeWidth={k} />
         )
       )}
 

@@ -309,6 +309,23 @@ export function toolShortcutLabel(id: string): string | null {
   return k ? formatKey(k) : null
 }
 
+// ── Keys pressed in a text field ─────────────────────────────────────────────
+
+/** ⌘/Ctrl keys a text field uses for editing text: select all, the clipboard, undo, caret and word moves. */
+const FIELD_MOD_KEYS = new Set(['a', 'c', 'v', 'x', 'z', 'y', 'arrowleft', 'arrowright', 'arrowup', 'arrowdown', 'backspace', 'delete', 'home', 'end'])
+
+/**
+ * Whether a key pressed in a PlexiiDraw text field (a panel's number, a colour,
+ * a name) belongs to the field. Plain keys and Shift keys are typing; ⌘/Ctrl
+ * keys that edit text stay with the field. Every other ⌘/Ctrl chord -- ⇧⌘P
+ * Place, ⌘O, ⌘0 -- is a command and runs: before 4.3.41 a focused field
+ * swallowed them all, so a shortcut "did nothing" after touching a panel.
+ */
+export function fieldKeepsKey(e: KeyEventLike): boolean {
+  if (!(e.metaKey || e.ctrlKey)) return true
+  return FIELD_MOD_KEYS.has(baseKey(e))
+}
+
 // ── Resolving a key press ────────────────────────────────────────────────────
 
 export type KeyResolution =

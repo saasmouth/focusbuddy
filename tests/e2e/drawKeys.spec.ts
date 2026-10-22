@@ -243,11 +243,15 @@ test('KEY-6 the menus show Illustrator’s keys', async () => {
     'Delete=⌫',
     'Select all=⌘A',
     'Deselect=⇧⌘A',
+    'Select all on active artboard=⌥⌘A',
     'Keyboard shortcuts…=⌥⇧⌘K'
   ])
   expect(await shortcuts('view')).toEqual([
-    'Fit to window=⌘0',
+    'Fit Artboard in Window=⌘0',
+    'Fit All in Window=⌥⌘0',
     'Zoom to 100%=⌘1',
+    'Next Artboard=',
+    'Previous Artboard=',
     "Grid=⌘'",
     'Snap to edges=⌘U'
   ])

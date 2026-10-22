@@ -10,7 +10,7 @@ import type { MenuItem } from '../../../src/renderer/src/components/documents/ed
 import { blank, harness, rect } from './harness'
 
 describe('registries', () => {
-  it('every one of the 28 tools is registered, in toolbox order, with no clashing ids or letters', () => {
+  it('every one of the 29 tools is registered, in toolbox order, with no clashing ids or letters', () => {
     // Hidden tools are modes a command switches to (the Place cursor), not toolbox buttons.
     expect(drawTools().filter((t) => t.hidden).map((t) => t.id)).toEqual(['place'])
     expect(drawTools().filter((t) => !t.hidden).map((t) => `${t.id}:${t.key ?? ''}`)).toEqual([
@@ -47,6 +47,7 @@ describe('registries', () => {
       'eraser:Shift+E',
       'bucket:K',
       'eyedropper:I',
+      'artboard:Shift+O',
       'hand:H'
     ])
     expect(toolRegistryProblems()).toEqual([])
@@ -71,10 +72,13 @@ describe('registries', () => {
   })
 
   it('panels and dialogs are discovered', () => {
-    expect(drawPanels().map((p) => p.id)).toEqual(['inspector', 'anchors', 'transform', 'align', 'layers'])
+    expect(drawPanels().map((p) => p.id)).toEqual(['inspector', 'anchors', 'transform', 'align', 'artboards', 'layers'])
     expect(drawDialogs().map((d) => d.id).sort()).toEqual([
+      'artboard-options',
+      'artboard-rearrange',
       'artboard-size',
       'average',
+      'export-artboards',
       'help',
       'import-report',
       'keyboard-shortcuts',
@@ -172,11 +176,14 @@ describe('the menu bar is built from commands', () => {
         'Paste in Back|flip_to_back|⌘B||',
         'Paste in Place|place_item|⇧⌘V||',
         'Paste on All Artboards|dashboard|⌥⇧⌘V||',
+        'Copy As|content_copy|>',
+        '  SVG Code|code||off|',
         'Duplicate|file_copy||off|',
         'Delete|delete|⌫|off|',
         '---',
         'Select all|select_all|⌘A||',
         'Deselect|deselect|⇧⌘A|off|',
+        'Select all on active artboard|select_all|⌥⌘A||',
         '---',
         'Keyboard shortcuts…|keyboard|⌥⇧⌘K||',
         '',
@@ -257,6 +264,16 @@ describe('the menu bar is built from commands', () => {
         '---',
         'Isolate selected group|center_focus_strong||off|',
         'Exit isolation mode|filter_center_focus||off|',
+        '---',
+        'Artboards|dashboard_customize|>',
+        '  New Artboard|add_box|||',
+        '  Duplicate Artboard|library_add|||',
+        '  Delete Artboard|delete||off|',
+        '  Rename…|edit|||',
+        '  Artboard Options…|tune|||',
+        '  Fit to Artwork Bounds|fit_screen|||',
+        '  Fit to Selected Art|crop_free||off|',
+        '  Rearrange All Artboards…|grid_view||off|',
         '',
         'layer',
         'New vector layer|shapes|⌘L||',
@@ -273,8 +290,11 @@ describe('the menu bar is built from commands', () => {
         'Meeting|videocam|||',
         '',
         'view',
-        'Fit to window|fit_screen|⌘0||',
+        'Fit Artboard in Window|fit_screen|⌘0||',
+        'Fit All in Window|zoom_out_map|⌥⌘0||',
         'Zoom to 100%|zoom_in|⌘1||',
+        'Next Artboard|navigate_next||off|',
+        'Previous Artboard|navigate_before||off|',
         '---',
         "Grid|grid_4x4|⌘'||",
         'Snap to edges|straighten|⌘U||on',

@@ -3037,6 +3037,9 @@ const api = {
       draw: import('@shared/draw').DrawBody
       title: string
       format: 'png' | 'svg' | 'pdf'
+      // With several artboards: one artboard, each artboard to its own file, the whole canvas, or (PDF) a page per artboard.
+      scope?: 'artboard' | 'each' | 'canvas' | 'pages'
+      artboardId?: string
     }): Promise<{ ok: boolean; path?: string; error?: string }> => ipcRenderer.invoke('draw:export', input),
     // File › Place / Open / Import: the native Open dialog and the picked files' bytes.
     pickImportFiles: (input: {
@@ -3050,8 +3053,9 @@ const api = {
     }): Promise<{ ok: boolean; dataUrl?: string; w?: number; h?: number; pages?: number; error?: string }> =>
       ipcRenderer.invoke('draw:pdfPage', input),
     // The system clipboard: native JSON + SVG + PNG out, and back (src/main/drawClipboard.ts).
-    clipboardWrite: (input: { json: string; svg: string; png?: string; pngScale: number }): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('draw:clipboardWrite', input),
-    clipboardRead: (): Promise<{ native?: string; svg?: string; image?: { dataUrl: string; w: number; h: number }; text?: string; error?: string }> => ipcRenderer.invoke('draw:clipboardRead')
+    clipboardWrite: (input: { json: string; svg: string; png?: string; pngScale: number; svgAsText?: boolean }): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('draw:clipboardWrite', input),
+    // Files copied in Finder come back as their bytes (files), never as their names.
+    clipboardRead: (): Promise<{ files?: Array<{ name: string; bytes: Uint8Array }>; skippedFiles?: Array<{ name: string; reason: string }>; native?: string; svg?: string; image?: { dataUrl: string; w: number; h: number }; text?: string; error?: string }> => ipcRenderer.invoke('draw:clipboardRead')
   },
   // PlexiDiagrams export — one diagram out to .svg / .png / .jpg / .pdf. The IPC
   // channel keeps its historic 'map:' prefix; only the product name changed.

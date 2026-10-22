@@ -5,12 +5,19 @@ import { openDocHistory } from '../../DocHistoryPanel'
 import { confirmDialog, promptText } from '../../../plexi/PromptDialog'
 import { useDocumentsStore } from '../../../../stores/documents'
 import { useViewStore } from '../../../../stores/view'
-import type { Command, EditorCtx, MenuSpec } from '../editor/types'
+import type { Command, EditorCtx, ExportOptions, MenuSpec } from '../editor/types'
 
 const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 
 function title(): string {
   return useDocumentsStore.getState().active?.title ?? 'Untitled artwork'
+}
+
+/** Export: straight away with one artboard; with several, ask what to export unless the caller said. */
+function exportFormat(ctx: EditorCtx, format: 'png' | 'svg' | 'pdf', args: unknown): Promise<void> | void {
+  const opts = args && typeof args === 'object' && 'scope' in (args as object) ? (args as ExportOptions) : undefined
+  if (opts || ctx.doc().artboards.length < 2) return ctx.host.exportAs(format, opts)
+  ctx.set({ dialog: { id: 'export-artboards', props: { format } } })
 }
 
 export const menus: MenuSpec[] = [
@@ -52,9 +59,10 @@ export const commands: Command[] = [
     })
   ),
   // Off when read-only: the file would leave out what a newer app added.
-  { id: 'file.exportPng', label: 'Export PNG…', icon: 'image', menu: { path: 'file', order: 300 }, enabled: writable, run: (ctx) => ctx.host.exportAs('png') },
-  { id: 'file.exportSvg', label: 'Export SVG…', icon: 'polyline', menu: { path: 'file', order: 310 }, enabled: writable, run: (ctx) => ctx.host.exportAs('svg') },
-  { id: 'file.exportPdf', label: 'Export PDF…', icon: 'picture_as_pdf', menu: { path: 'file', order: 320 }, enabled: writable, run: (ctx) => ctx.host.exportAs('pdf') },
+  // With several artboards, the export asks what it covers (dialogs/exportArtboards.dialog.tsx).
+  { id: 'file.exportPng', label: 'Export PNG…', icon: 'image', menu: { path: 'file', order: 300 }, enabled: writable, run: (ctx, args) => exportFormat(ctx, 'png', args) },
+  { id: 'file.exportSvg', label: 'Export SVG…', icon: 'polyline', menu: { path: 'file', order: 310 }, enabled: writable, run: (ctx, args) => exportFormat(ctx, 'svg', args) },
+  { id: 'file.exportPdf', label: 'Export PDF…', icon: 'picture_as_pdf', menu: { path: 'file', order: 320 }, enabled: writable, run: (ctx, args) => exportFormat(ctx, 'pdf', args) },
   {
     id: 'file.rename',
     label: 'Rename',

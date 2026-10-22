@@ -133,6 +133,12 @@ export interface KeyInput {
   altKey: boolean
   /** True when the event came from a text field (it is then left to the field). */
   inField: boolean
+  /**
+   * The field is one of PlexiiDraw's own (a panel, the options bar). Its
+   * command chords that are not text editing (⇧⌘P, ⌘O, ⌘0...) still run, as
+   * in Illustrator; see fieldKeepsKey in commands/keys.ts.
+   */
+  inStudioField?: boolean
   preventDefault(): void
 }
 
@@ -197,10 +203,22 @@ export interface TextService {
 export interface ViewportService {
   getScroll(): { left: number; top: number }
   setScroll(left: number, top: number): void
-  /** Fit the artboard to the window. */
+  /** Fit the active artboard to the window. */
   fit(): void
+  /** Zoom and scroll so a document rectangle fills the window (Fit All, an artboard). Optional: absent in headless runs. */
+  fitBox?(box: import('@shared/drawGeometry').Box): void
   /** The part of the document the window shows, in document units (where Paste centres art). Optional: absent in headless runs. */
   visibleRect?(): import('@shared/drawGeometry').Box | null
+}
+
+/**
+ * What an export covers when a drawing has several artboards: one artboard
+ * (the active one unless named), each artboard to its own file, the whole
+ * canvas, or -- for PDF -- every artboard as a page.
+ */
+export interface ExportOptions {
+  scope?: 'artboard' | 'each' | 'canvas' | 'pages'
+  artboardId?: string
 }
 
 /** Where edits go, and the co-editing undo stack when there is one. */
@@ -210,7 +228,7 @@ export interface HostService {
   /** The own-change undo stack, in a live co-editing session. */
   liveUndo(): import('../../../../lib/yjsKeyedJson').LiveUndo | undefined
   /** Export through the main process. */
-  exportAs(format: 'png' | 'svg' | 'pdf'): Promise<void>
+  exportAs(format: 'png' | 'svg' | 'pdf', opts?: ExportOptions): Promise<void>
 }
 
 // ── The context ──────────────────────────────────────────────────────────────

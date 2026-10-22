@@ -156,10 +156,11 @@ export function snapDelta(ctx: EditorCtx, box: Box, dx: number, dy: number, igno
   const s = ctx.get()
   if (!s.snapOn) return { dx, dy, guides: [] }
   const doc = s.doc
-  const board = primaryArtboard(doc)
   const tol = 6 / s.zoom
-  const xs: number[] = [board.x, board.x + board.w / 2, board.x + board.w]
-  const ys: number[] = [board.y, board.y + board.h / 2, board.y + board.h]
+  // Every artboard's edges and centre (the active one first, as before).
+  const boards = [primaryArtboard(doc), ...doc.artboards.filter((a) => a.id !== primaryArtboard(doc).id)]
+  const xs: number[] = boards.flatMap((b) => [b.x, b.x + b.w / 2, b.x + b.w])
+  const ys: number[] = boards.flatMap((b) => [b.y, b.y + b.h / 2, b.y + b.h])
   for (const l of doc.layers) {
     if (l.kind !== 'vector' || !l.visible) continue
     for (const o of l.objects) {

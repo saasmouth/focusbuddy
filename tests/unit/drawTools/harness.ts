@@ -172,7 +172,7 @@ export interface Harness {
   up(x: number, y: number, m?: Mods): void
   click(x: number, y: number, m?: Mods): void
   drag(from: [number, number], to: [number, number], m?: Mods, steps?: number): void
-  key(key: string, m?: Mods & { code?: string; inField?: boolean }): { prevented: boolean }
+  key(key: string, m?: Mods & { code?: string; inField?: boolean; inStudioField?: boolean }): { prevented: boolean }
   keyUp(code: string): void
   dblclick(): void
   run(commandId: string, args?: unknown): void
@@ -246,7 +246,8 @@ export function harness(content: unknown = blank(), opts: { liveUndo?: LiveUndo;
         ctrlKey: !!m.ctrl,
         shiftKey: !!m.shift,
         altKey: !!m.alt,
-        inField: !!m.inField,
+        inField: !!m.inField || !!m.inStudioField,
+        inStudioField: !!m.inStudioField,
         preventDefault: () => {
           prevented = true
         }

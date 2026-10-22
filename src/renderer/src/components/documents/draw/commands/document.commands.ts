@@ -3,7 +3,7 @@
 import { solid } from '@shared/draw'
 import { assetSrc, putAsset } from '@shared/draw/assets'
 import type { DrawDocPaint } from '@shared/draw/model'
-import { artboardResizeOffset, primaryArtboard, resizeArtboard, setArtboardBackground, type ArtboardAnchor } from '@shared/draw/ops'
+import { artboardResizeOffset, primaryArtboard, rasterArtboard, resizeArtboard, setArtboardBackground, type ArtboardAnchor } from '@shared/draw/ops'
 import { launchMeeting } from '../../../../lib/startMeeting'
 import { useDocumentsStore } from '../../../../stores/documents'
 import * as raster from '../raster'
@@ -27,12 +27,17 @@ export async function resizeArtboardTo(ctx: EditorCtx, w: number, h: number, anc
   if (ctx.get().readOnly || (w === board.w && h === board.h)) return
   const { dx, dy } = artboardResizeOffset({ w: board.w, h: board.h }, { w, h }, anchor)
   const relaid: Record<string, string> = {}
-  const painted = doc.layers.filter((l) => l.kind === 'raster' && assetSrc(doc.assets, l.assetId))
+  // Paint layers are pictures of the first page: only resizing THAT artboard
+  // re-lays them. With several artboards the page moves rather than the art,
+  // so the pixels stay where they are (offset 0).
+  const paintsHere = rasterArtboard(doc).id === board.id
+  const multi = doc.artboards.length > 1
+  const painted = paintsHere ? doc.layers.filter((l) => l.kind === 'raster' && assetSrc(doc.assets, l.assetId)) : []
   if (painted.length) ctx.busy('Resizing…')
   try {
     for (const l of painted) {
       if (l.kind !== 'raster') continue
-      relaid[l.id] = await raster.reframeRaster(assetSrc(doc.assets, l.assetId) ?? '', { w: board.w, h: board.h }, { w, h }, dx, dy)
+      relaid[l.id] = await raster.reframeRaster(assetSrc(doc.assets, l.assetId) ?? '', { w: board.w, h: board.h }, { w, h }, multi ? 0 : dx, multi ? 0 : dy)
     }
   } finally {
     if (painted.length) ctx.busy(null)

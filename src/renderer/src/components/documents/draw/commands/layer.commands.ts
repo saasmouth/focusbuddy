@@ -9,7 +9,8 @@ import {
   mergeVectorLayerDown,
   moveLayer,
   patchLayer,
-  primaryArtboard,
+  rasterArtboard,
+  rasterFrame,
   rasterLayerV2,
   removeLayer,
   vectorLayerV2,
@@ -32,7 +33,8 @@ export function addLayerOfKind(ctx: EditorCtx, kind: 'vector' | 'raster'): void 
 
 /** The document with only `layer`, at full strength, on a transparent page -- for flattening it. */
 function isolated(doc: DrawDoc, layer: DrawDocLayer): DrawDoc {
-  const board = primaryArtboard(doc)
+  // Framed on the paint layers' own frame (the first page, at the origin).
+  const board = { ...rasterArtboard(doc), ...rasterFrame(doc) }
   return {
     ...doc,
     artboards: [{ ...board, background: { type: 'none' } }],
@@ -46,7 +48,7 @@ export async function rasterizeLayer(ctx: EditorCtx, layerId: string): Promise<v
   const doc = ctx.doc()
   const layer = doc.layers.find((l) => l.id === layerId)
   if (!layer || layer.kind !== 'vector') return
-  const board = primaryArtboard(doc)
+  const board = rasterFrame(doc)
   ctx.busy('Rasterizing…')
   try {
     const canvas = await raster.svgToCanvas(drawDocToSvg(isolated(doc, layer)), board.w, board.h)
@@ -73,7 +75,7 @@ export async function mergeDown(ctx: EditorCtx, layerId: string): Promise<void> 
     ctx.history.commit(mergeVectorLayerDown(doc, layerId), 'Merge down')
     return
   }
-  const board = primaryArtboard(doc)
+  const board = rasterFrame(doc)
   ctx.busy('Merging…')
   try {
     const render = async (layer: DrawDocLayer): Promise<HTMLCanvasElement> => {

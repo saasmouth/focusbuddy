@@ -5,13 +5,13 @@
 import { drawId } from '@shared/draw'
 import { drawDocForStorage } from '@shared/draw/compat'
 import { putAsset } from '@shared/draw/assets'
-import type { DrawDoc, DrawImageNode } from '@shared/draw/model'
+import type { DrawAsset, DrawDoc, DrawImageNode, DrawNode } from '@shared/draw/model'
 import { editableIds, getObject, mapObject, primaryArtboard } from '@shared/draw/ops'
 import { useViewStore } from '../../../../stores/view'
 import { domImportDeps, importStructure, newDocStructure, openSvgAsDoc, prepareFile, prepareFiles, type ImportDeps, type ImportFile } from '../editor/importFiles'
-import { registerSvgPasteImporter, type SvgPasteImporter } from '../editor/clipboard'
+import { copySvgCode, copyableIds, registerFilePasteImporter, registerSvgPasteImporter, type FilePasteImporter, type SvgPasteImporter } from '../editor/clipboard'
 import { loadPlaceCursor, placeIntoDoc, showImportReport } from '../editor/place'
-import type { Command, EditorCtx } from '../editor/types'
+import type { Command, EditorCtx, MenuSpec } from '../editor/types'
 
 /** What the commands need from the app; tests replace it (setImportHost). */
 export interface ImportHost {
@@ -209,6 +209,36 @@ export const pasteSvgImporter: SvgPasteImporter = async (svg, target, info) => {
 
 registerSvgPasteImporter(pasteSvgImporter)
 
+/** Gap between several pasted files, laid side by side. */
+const FILE_PASTE_GAP = 16
+
+/**
+ * Files copied in Finder paste exactly as File › Place would place them --
+ * an image, an SVG as editable art, a PDF's first page as an image -- each at
+ * its actual size, several side by side (the paste then centres them in the
+ * window). Never their names: that was all a Finder copy used to paste.
+ */
+export const pasteFileImporter: FilePasteImporter = async (files, target, info) => {
+  const opts = { structure: importStructure({ storedSchema: info.storedSchema, doc: target, v2Writes: info.v2Writes }), docDpi: target.settings.dpi, newId: drawId }
+  const { items, errors } = await prepareFiles(files, host.deps(), opts)
+  if (!items.length) return { error: errors.join(' ') || 'Nothing in the copied files can be placed.' }
+  const nodes: DrawNode[] = []
+  let assets: Record<string, DrawAsset> = {}
+  let x = 0
+  for (const item of items) {
+    const made = item.make({ x, y: 0, w: item.size.w, h: item.size.h })
+    nodes.push(...made.nodes)
+    assets = { ...assets, ...made.assets }
+    x += item.size.w + FILE_PASTE_GAP
+  }
+  const lines = [...items.flatMap((it) => it.report ?? []), ...errors]
+  return { nodes, assets, note: lines.length ? lines.join(' ') : `Pasted ${items.length === 1 ? items[0].name : `${items.length} files`}.` }
+}
+
+registerFilePasteImporter(pasteFileImporter)
+
+export const menus: MenuSpec[] = [{ path: 'edit/Copy As', label: 'Copy As', icon: 'content_copy', order: 207 }]
+
 export const commands: Command[] = [
   {
     id: 'file.openSvg',
@@ -250,5 +280,14 @@ export const commands: Command[] = [
     enabled: (ctx) => writable(ctx) && selectedImage(ctx) !== null,
     run: (ctx) => replaceImage(ctx)
   },
-  { id: 'file.placePdfPage', label: 'Place PDF page', enabled: writable, run: (ctx, args) => placePdfPage(ctx, args) }
+  { id: 'file.placePdfPage', label: 'Place PDF page', enabled: writable, run: (ctx, args) => placePdfPage(ctx, args) },
+  {
+    id: 'edit.copySvgCode',
+    label: 'SVG Code',
+    icon: 'code',
+    menu: { path: 'edit/Copy As', order: 0 },
+    // Copying never edits: allowed on a read-only drawing too.
+    enabled: (ctx) => copyableIds(ctx).length > 0,
+    run: (ctx) => copySvgCode(ctx).then(() => undefined)
+  }
 ]
