@@ -366,7 +366,7 @@ test('SR2-4 — click col-select-0 then shift-click col-select-2 extends selecti
 
 // ── 5. Default row height + row-resize drag ──────────────────────────────────
 
-test('SR2-5 — default row height is ~28px; dragging the row-resize handle increases it', async () => {
+test('SR2-5 — default row height matches Excel (20px); dragging the row-resize handle increases it', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
@@ -376,8 +376,15 @@ test('SR2-5 — default row height is ~28px; dragging the row-resize handle incr
     const defaultHeight = await window
       .locator('[data-testid="cell-0-0"]')
       .evaluate((el) => (el as HTMLElement).offsetHeight)
-    expect(defaultHeight, `default row height should be ~28px, got ${defaultHeight}px`).toBeGreaterThanOrEqual(24)
-    expect(defaultHeight, `default row height should be ~28px, got ${defaultHeight}px`).toBeLessThanOrEqual(34)
+    // Excel's default row height is 15pt, which is 20px at 96dpi (15/72*96).
+    // `DEFAULT_ROW_PX = 20` is deliberate: 416e3d36 introduced 28, then
+    // b63d8053 ("Sheets: Excel cell sizing + arrow-key commit navigation")
+    // changed it to 20 for Excel parity, which is the owner's decision. This
+    // spec predated that and expected ~28, so the SPEC moved, not the app.
+    // Google Sheets uses 21px, for reference — a band of 18-22 accepts either
+    // without accepting the old 28.
+    expect(defaultHeight, `default row height should be ~20px (Excel parity), got ${defaultHeight}px`).toBeGreaterThanOrEqual(18)
+    expect(defaultHeight, `default row height should be ~20px (Excel parity), got ${defaultHeight}px`).toBeLessThanOrEqual(22)
 
     // Drag the row-0 bottom resize handle down by 30px.
     const handle = window.locator('[data-testid="row-header-0"] span[title="Drag to resize row"]')

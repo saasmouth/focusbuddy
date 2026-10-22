@@ -99,7 +99,9 @@ interface Props {
 
 export const ROW_HEADER_W = 44
 // The column-label header row is a fixed height so frozen-row sticky offsets are
-// deterministic. DEFAULT_ROW_PX mirrors the 0.75cm default used by the editor.
+// deterministic. (The old note here said DEFAULT_ROW_PX mirrored the editor's
+// 0.75cm default, which is ~28px — that described the pre-b63d8053 value and
+// contradicted the line below it.)
 export const HEADER_H = 30
 export const DEFAULT_ROW_PX = 20 // Excel default row height (15pt at 96dpi)
 
