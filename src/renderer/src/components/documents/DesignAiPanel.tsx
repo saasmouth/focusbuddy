@@ -57,7 +57,6 @@ interface Props {
   onInsertText: (text: string) => void
   // Greet by name when signed in; a neutral greeting otherwise (no fabricated name).
   userName?: string | null
-  onCollapse: () => void
 }
 
 // Reduce a constrained HTML fragment to plain text, one line per block. The AI
@@ -79,8 +78,7 @@ export default function DesignAiPanel({
   selectedText,
   onApplyText,
   onInsertText,
-  userName,
-  onCollapse
+  userName
 }: Props): JSX.Element {
   // Recomputed on every document change. It is arithmetic over the elements,
   // with no I/O and no model call, so this is cheap enough to do inline — the
@@ -288,34 +286,17 @@ export default function DesignAiPanel({
   const actionClass =
     'fb-card flex items-center gap-2 w-full text-left px-3 py-2 text-[12.5px] text-[var(--ink-80)] hover:border-[rgb(var(--accent)/0.5)] hover:bg-[rgb(var(--accent)/0.06)] disabled:opacity-50 fb-spring-soft'
 
+  // A pane BODY, not a panel: the shared ShellSidePane (SPEC §2.5a) draws the
+  // frame, the title and the collapse control, and carries the pane's testid.
+  // Drawing any of that here would duplicate the title and, because the pane
+  // sets data-testid on its tabpanel, give two elements the same id.
   return (
-    <aside
-      className="flex h-full w-80 shrink-0 flex-col border-l border-[var(--edge-soft)] bg-[var(--surface-raised)]"
-      aria-label="Design assistant panel"
-      data-testid="design-ai-panel"
-    >
-      {/* Header */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-[var(--edge-soft)] px-3 py-2.5">
-        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))]">
-          <Icon name="auto_awesome" size={14} />
-        </span>
-        <span className="text-[13px] font-semibold text-[var(--ink-90)]">PlexiiAssist</span>
-        <span className="rounded bg-[rgb(var(--accent)/0.14)] px-1 text-[9px] uppercase tracking-wide text-[rgb(var(--accent))]">
-          Beta
-        </span>
-        <button
-          onClick={onCollapse}
-          className="ml-auto icon-btn"
-          aria-label="Collapse assistant"
-          title="Collapse assistant"
-          data-testid="design-ai-collapse"
-        >
-          <Icon name="chevron_right" size={16} />
-        </button>
-      </div>
-
+    <div className="flex h-full flex-col" aria-label="Design assistant">
       <div className="min-h-0 flex-1 overflow-auto">
         <div className="flex flex-col gap-3 p-3">
+          <span className="self-start rounded bg-[rgb(var(--accent)/0.14)] px-1 text-[9px] uppercase tracking-wide text-[rgb(var(--accent))]">
+            Beta
+          </span>
           <WorkspaceAsk />
           <div className="flex items-start gap-2">
             <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))]">
@@ -591,6 +572,6 @@ export default function DesignAiPanel({
           )}
         </div>
       </div>
-    </aside>
+    </div>
   )
 }

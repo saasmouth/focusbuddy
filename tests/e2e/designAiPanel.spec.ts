@@ -107,12 +107,19 @@ test.describe('PlexiDesign AI panel', () => {
     await expect(window.locator('[data-testid="design-ai-panel"]')).toBeVisible()
     await expect(window.locator('[data-testid="design-ai-improve"]')).toBeVisible()
 
-    // Collapse via the panel's own button.
-    await window.locator('[data-testid="design-ai-collapse"]').click()
+    // Collapse via the pane's own button. PlexiiAssist is a pane of the shared
+    // ShellSidePane now, so this is the PANE's collapse and carries the pane's
+    // id: its meaning changed — it may be putting the story editor away, not
+    // the assistant — and SPEC §4.1 wants a new id when the meaning moves, so
+    // a spec written against the old one fails loudly instead of passing by
+    // luck. It is also what officeShellLayout's shared check looks for.
+    await window.locator('[data-testid="design-sidepane-collapse"]').click()
     await expect(window.locator('[data-testid="design-ai-panel"]')).toHaveCount(0)
 
-    // Reopen via the toolbar toggle.
-    await window.locator('[data-testid="design-ai-toggle"]').click()
+    // Reopen from the bar. The rail's old assist toggle is gone: the rail is
+    // tools (SPEC §3.1), and a content pane's toggle belongs in the bar, which
+    // is where Write's and Diagrams' are.
+    await window.locator('[data-testid="design-sidepane-toggle"]').click()
     await expect(window.locator('[data-testid="design-ai-panel"]')).toBeVisible()
   })
 

@@ -60,7 +60,7 @@ import { useElementClipboard } from './slides/useElementClipboard'
 import StylesPanel from './design/StylesPanel'
 import StartFromMenu from './design/StartFromMenu'
 import { DESIGN_TABS, type DesignCtx, type DesignPanelId } from './design/ribbon'
-import { ContextBar, OfficeShellLayout, ShellPanel, ToolRail, type RailItem } from '../office/shell'
+import { BarButton, ContextBar, OfficeShellLayout, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail, type RailItem, type SidePane } from '../office/shell'
 import SwatchesPanel from './design/SwatchesPanel'
 import { preflight, preflightSummary } from '@shared/designPreflight'
 import DesignRulers from './design/DesignRulers'
@@ -96,6 +96,10 @@ interface Props {
 
 
 
+
+// Which right-hand pane was last open, remembered per app like the other
+// office editors' (plexii.diagram.sidePane, plexii.slides.pinnedPanels).
+const SIDE_PANE_KEY = 'plexii.design.sidePane'
 
 // Glyph measurement for the flow engine, using the browser's own font engine
 // through one reused offscreen context. Returning 0 without a DOM (tests, the
@@ -209,9 +213,29 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   // When the last keystroke landed, so a run of typing is one undo step.
   const lastTypedAt = useRef(0)
   const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
-  // The right-side AI Assistant panel, persistent and collapsible to match the
-  // other Office editors. Open by default so the assistant is discoverable.
-  const [aiPanelOpen, setAiPanelOpen] = useState(true)
+  // Which of the shared right pane's panes is showing, or null for collapsed
+  // (SPEC §2.5a). The host owns it and remembers it per app, exactly as
+  // Diagrams and Write do; PlexiiAssist is the default so the assistant stays
+  // discoverable.
+  const [sidePane, setSidePane] = useState<string | null>(() => {
+    try {
+      const v = localStorage.getItem(SIDE_PANE_KEY)
+      return v === null ? 'assist' : (JSON.parse(v) as string | null)
+    } catch {
+      return 'assist'
+    }
+  })
+  const changeSidePane = (id: string | null): void => {
+    // Collapsing the story pane closes the story: the chain would otherwise
+    // stay "open" with nothing on screen to show or close it.
+    if (id === null && sidePane === 'story') setOpenStoryId(null)
+    setSidePane(id)
+    try {
+      localStorage.setItem(SIDE_PANE_KEY, JSON.stringify(id))
+    } catch {
+      /* the remembered pane is a convenience */
+    }
+  }
   // The signed-in user's name for the assistant greeting. Falls back to a neutral
   // greeting when signed out (no fabricated name).
   const account = useAccountStore((s) => s.account)
@@ -1255,10 +1279,12 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     { id: 'image', label: 'Image', icon: 'image', kind: 'action', group: 2, order: 0, onSelect: () => void addImageFromFile(), testid: 'design-add-image' },
     { id: 'logo', label: 'Logo', icon: 'badge', kind: 'action', group: 2, order: 1, onSelect: () => placeLogo(), testid: 'design-add-logo' },
     { id: 'widget', label: 'Work widget from a desk', icon: 'widgets', kind: 'action', group: 2, order: 2, onSelect: () => setWidgetPickerOpen(true), testid: 'design-add-widget' },
-    // Bottom group: the panels (SPEC §3.1). PlexiiAssist stays a toggle here
-    // until chunk 6 moves it into the shared right-hand ShellSidePane.
-    { id: 'ai-generate', label: 'AI design', icon: 'auto_awesome', kind: 'panel', group: 9, order: 0, pinned: 'bottom', onSelect: () => setPanel((p) => (p === 'ai' ? 'none' : 'ai')), testid: 'design-ai-btn' },
-    { id: 'assist', label: 'PlexiiAssist', icon: 'auto_awesome', kind: 'panel', group: 9, order: 1, pinned: 'bottom', onSelect: () => setAiPanelOpen((v) => !v), testid: 'design-ai-toggle' }
+    // Bottom group: the overlay panels (SPEC §3.1). The rail holds tools and
+    // tool panels only — PlexiiAssist is content you read and type in, so it
+    // lives in the shared right pane and its toggle is in the bar, like
+    // Write's and Diagrams'. "AI design" stays: it generates a whole layout
+    // from a prompt, which is a tool.
+    { id: 'ai-generate', label: 'AI design', icon: 'auto_awesome', kind: 'panel', group: 9, order: 0, pinned: 'bottom', onSelect: () => setPanel((p) => (p === 'ai' ? 'none' : 'ai')), testid: 'design-ai-btn' }
   ]
 
   // ── The ContextBar's context ──────────────────────────────────────────────
@@ -1339,7 +1365,11 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
       },
       openStory: () => {
         const el = selectedEls[0] as { storyId?: string } | undefined
-        if (el?.storyId) setOpenStoryId(el.storyId)
+        if (!el?.storyId) return
+        setOpenStoryId(el.storyId)
+        // Asking to edit a story IS the request to see it, so this one does
+        // switch the pane — unlike a selection, which never does (D3).
+        changeSidePane('story')
       },
       linkFrames: linkSelectedFrames,
       unlinkFrame: unlinkSelected,
@@ -1416,6 +1446,51 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
           }}
         />
   )
+
+  // The shared right pane's panes (SPEC §2.5a): the assistant always, and the
+  // story editor while a threaded story is open. Both are content you read and
+  // type in, which is what this pane is for — the property controls are
+  // ContextBar tabs and the tool panels are ShellPanel overlays.
+  const sidePanes: SidePane[] = [
+    {
+      id: 'assist',
+      title: 'PlexiiAssist',
+      icon: 'auto_awesome',
+      testid: 'design-ai-panel',
+      render: () => (
+        <DesignAiPanel
+          body={design}
+          selectedText={selectedTextValue}
+          onApplyText={applyAiText}
+          onInsertText={insertAiText}
+          userName={userName}
+        />
+      )
+    }
+  ]
+  if (openStoryId && design.stories?.[openStoryId]) {
+    const storyId = openStoryId
+    sidePanes.push({
+      id: 'story',
+      title: 'Story',
+      icon: 'edit_note',
+      testid: 'design-story-editor',
+      render: () => (
+        <StoryEditor
+          design={design}
+          storyId={storyId}
+          text={storyText(design, storyId)}
+          overset={storyFrames(design, storyId).some((f) => f.element.overset === true)}
+          onChange={(t) => setStoryText(storyId, t)}
+          onClose={() => {
+            setOpenStoryId(null)
+            changeSidePane('assist')
+          }}
+          onAddPage={() => continueStoryOnNewPage(storyId)}
+        />
+      )
+    })
+  }
 
   const shellPanels = (
     <>
@@ -1763,7 +1838,22 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
               </button>
             </>
           }
-          rightSlot={<span className="px-1.5 text-[11px] text-[var(--ink-50)] fb-tabular" data-testid="design-status-slot">{status}</span>}
+          rightSlot={
+            <>
+              <span className="px-1.5 text-[11px] text-[var(--ink-50)] fb-tabular" data-testid="design-status-slot">{status}</span>
+              {/* The side pane's toggle belongs in the bar, not the rail: the
+                  rail is tools (SPEC §3.1), and this is where Write's and
+                  Diagrams' live, so the shell reads the same in every app. */}
+              <BarButton
+                icon="right_panel_open"
+                label={sidePane ? 'Hide the side pane' : 'Show the side pane'}
+                onClick={() => changeSidePane(sidePane ? null : 'assist')}
+                controls={SIDE_PANE_DOM_ID}
+                readOnlySafe
+                testid="design-sidepane-toggle"
+              />
+            </>
+          }
           testid="design-toolbar"
         />
         }
@@ -1771,29 +1861,17 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
         bottom={pageRail}
         panels={shellPanels}
         rightPane={
-          <>
-            {openStoryId && design.stories?.[openStoryId] && (
-              <StoryEditor
-                design={design}
-                storyId={openStoryId}
-                text={storyText(design, openStoryId)}
-                overset={storyFrames(design, openStoryId).some((f) => f.element.overset === true)}
-                onChange={(t) => setStoryText(openStoryId, t)}
-                onClose={() => setOpenStoryId(null)}
-                onAddPage={() => continueStoryOnNewPage(openStoryId)}
-              />
-            )}
-            {aiPanelOpen && (
-              <DesignAiPanel
-                body={design}
-                selectedText={selectedTextValue}
-                onApplyText={applyAiText}
-                onInsertText={insertAiText}
-                userName={userName}
-                onCollapse={() => setAiPanelOpen(false)}
-              />
-            )}
-          </>
+          <ShellSidePane
+            testid="design-sidepane"
+            panes={sidePanes}
+            // The story pane goes away whenever its story does — typing on the
+            // page closes it, and so does the redesign wizard. Fall back to the
+            // assistant rather than to collapsed: those paths used to close the
+            // story editor and LEAVE the assistant up, and collapsing the whole
+            // pane because a story ended would take away more than was asked.
+            activeId={sidePanes.some((p) => p.id === sidePane) ? sidePane : sidePane === null ? null : 'assist'}
+            onChange={changeSidePane}
+          />
         }
       >
         <div className="h-full min-h-0 flex flex-col">

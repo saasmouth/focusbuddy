@@ -21,6 +21,7 @@ interface Props {
   /** Set when the last frame of the chain still has text waiting. */
   overset: boolean
   onChange: (text: string) => void
+  /** Finish with the story: the host closes this pane. */
   onClose: () => void
   onAddPage: () => void
 }
@@ -80,15 +81,14 @@ export default function StoryEditor({ design, storyId, text, overset, onChange, 
     0
   )
 
+  // A pane BODY: the shared ShellSidePane draws the frame, the "Story" title
+  // and the collapse control, and carries the design-story-editor testid on its
+  // tabpanel (SPEC §2.5a). So the close that used to sit in this component's
+  // own header is now "Done" in the footer instead: a second close up top
+  // would have titled the pane twice, and collapsing the pane — which also
+  // ends the story — is not something anyone would discover.
   return (
-    <div className="w-72 shrink-0 border-l border-[var(--edge-soft)] flex flex-col text-[12px]" data-testid="design-story-editor">
-      <div className="shrink-0 flex items-center gap-1.5 px-2 py-1.5 border-b border-[var(--edge-soft)]">
-        <Icon name="edit_note" size={15} className="text-accent" />
-        <span className="flex-1 text-[11px] font-medium text-[var(--ink-80)]">Story editor</span>
-        <button onClick={onClose} className="icon-btn !h-6 !w-6" title="Close the story editor" aria-label="Close the story editor">
-          <Icon name="close" size={14} />
-        </button>
-      </div>
+    <div className="flex h-full flex-col text-[12px]">
 
       <textarea
         ref={ref}
@@ -119,6 +119,14 @@ export default function StoryEditor({ design, storyId, text, overset, onChange, 
           </div>
         )}
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={onClose}
+            className="fb-btn-surface px-2 py-1 text-[11px] hover:border-accent"
+            data-testid="design-story-close"
+            title="Finish with this story and close its pane"
+          >
+            Done
+          </button>
           <button
             onClick={insertFootnote}
             className="fb-btn-surface px-2 py-1 text-[11px] hover:border-accent"

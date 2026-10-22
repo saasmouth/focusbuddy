@@ -9,7 +9,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, chooseCloudAiSource } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, chooseCloudAiSource, selectBarTab } from './_helpers'
 import { existsSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -99,6 +99,11 @@ test.describe('PlexiDesign redesign wizard', () => {
   })
 
   test('RW-1 the wizard opens and reads the pasted document', async () => {
+    // Redesign… sits on the Brand tab of the ContextBar now, and a tab's
+    // controls are only in the DOM while that tab is active (SPEC §2.2), so the
+    // spec has to ask for the tab — clicking blind waits out its timeout on an
+    // element that was never rendered.
+    await selectBarTab(window, 'design-toolbar', 'brand')
     await window.locator('[data-testid="design-redesign-btn"]').click()
     await expect(window.locator('[data-testid="design-redesign-wizard"]')).toBeVisible()
     await window.locator('[data-testid="design-wizard-text"]').fill(articleText(9))
@@ -136,10 +141,13 @@ test.describe('PlexiDesign redesign wizard', () => {
     await expect(window.locator('[data-testid="design-overset"]')).toHaveCount(0)
   })
 
-  test('RW-6 the story editor is still reachable from the inspector', async () => {
-    // Clicking a frame selects it; the inspector then offers the story editor for
-    // people who would rather write in a panel than on the page.
+  test('RW-6 the story editor is still reachable from the toolbar', async () => {
+    // Clicking a frame selects it; the Text tab then offers the story editor for
+    // people who would rather write in a pane than on the page.
     await clickInBodyText(window)
+    // Threading and the story editor are on the contextual Text tab, which
+    // never switches itself on selection (owner ruling D3).
+    await selectBarTab(window, 'design-toolbar', 'text')
     await window.locator('[data-testid="design-open-story"]').click()
     const editor = window.locator('[data-testid="design-story-editor"]')
     await expect(editor).toBeVisible({ timeout: 5_000 })
@@ -160,12 +168,16 @@ test.describe('PlexiDesign redesign wizard', () => {
     const box = window.locator('[data-testid="design-story-text"]')
     await box.fill(articleText(6))
     await expect.poll(async () => await setText(window), { timeout: 8_000 }).toContain('quarterly numbers landed')
-    // Close the panel so the following tests work on the page itself.
-    await window.locator('[data-testid="design-story-editor"] button').first().click()
+    // Close the pane so the following tests work on the page itself. The story
+    // editor's close is an explicit "Done" in its footer now: it is a pane of
+    // the shared ShellSidePane, whose header carries the title and a collapse,
+    // so a close button up there would have titled the pane twice.
+    await window.locator('[data-testid="design-story-close"]').click()
     await expect(window.locator('[data-testid="design-story-editor"]')).toHaveCount(0)
   })
 
   test('RW-9 re-running the wizard keeps the document, headline included', async () => {
+    await selectBarTab(window, 'design-toolbar', 'brand')
     await window.locator('[data-testid="design-redesign-btn"]').click()
     const text = await window.locator('[data-testid="design-wizard-text"]').inputValue()
     expect(text).toContain('A Quarter Worth Reading About')

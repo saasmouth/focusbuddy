@@ -110,10 +110,8 @@ const APPS: AppCase[] = [
     undo: 'design-undo',
     // Design's bottom strip is the page rail; its add control is the furthest
     // right thing in it, so it is what the Plexii pill would cover.
-    corner: 'design-page-add'
-    // sidePane: PlexiiAssist moves into the shared pane in the next chunk;
-    // until then it is still Design's own right-hand column, and claiming a
-    // ShellSidePane here would assert something that does not exist.
+    corner: 'design-page-add',
+    sidePane: { toggle: 'design-sidepane-toggle', pane: 'design-sidepane', content: 'design-ai-panel' }
   }
 ]
 

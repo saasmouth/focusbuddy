@@ -188,6 +188,7 @@ test.describe('PlexiDesign baseline grid', () => {
   })
 
   test('BG-1 the grid can be turned on, and draws on the page', async () => {
+    await selectBarTab(window, 'design-toolbar', 'layout')
     await window.locator('[data-testid="design-layout-btn"]').click()
     await expect(window.locator('[data-testid="design-layout-panel"]')).toBeVisible({ timeout: 5_000 })
     // Nothing drawn until there is a grid.

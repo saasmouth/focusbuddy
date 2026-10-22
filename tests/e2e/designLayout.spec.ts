@@ -24,6 +24,10 @@ async function openPublication(window: Page): Promise<void> {
 }
 
 async function openLayoutPanel(window: Page): Promise<void> {
+  // Ask for the Layout tab rather than relying on it: a new design happens to
+  // open on it, so these clicks landed by luck, and a change of default tab
+  // would have turned this whole file red for no reason of its own.
+  await selectBarTab(window, 'design-toolbar', 'layout')
   if (!(await window.locator('[data-testid="design-layout-panel"]').isVisible().catch(() => false))) {
     await window.locator('[data-testid="design-layout-btn"]').click()
   }
@@ -95,6 +99,7 @@ test.describe('PlexiDesign page layout', () => {
   })
 
   test('DL-5 toggling the layout aids hides the grid without touching the content', async () => {
+    await selectBarTab(window, 'design-toolbar', 'layout')
     await window.locator('[data-testid="design-aids-toggle"]').click()
     await expect(window.locator('[data-testid="design-margin-box"]')).toHaveCount(0)
     await window.locator('[data-testid="design-aids-toggle"]').click()
