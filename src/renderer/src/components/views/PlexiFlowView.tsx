@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
 import { DashboardHeader, StatusPill, PLEXI_CARD } from '../plexi'
 import ModuleDashboard from '../ModuleDashboard'
 import { useQuickCreate } from '../../stores/quickCreate'
@@ -96,7 +97,7 @@ export default function PlexiFlowView(): JSX.Element {
       <div className="w-[300px] shrink-0 border-r border-[var(--edge-soft)] flex flex-col">
         <div className="px-4 py-3.5 border-b border-[var(--edge-soft)]">
           <div className="flex items-center gap-2">
-            <Icon name="account_tree" size={18} className="text-[rgb(var(--accent))]" filled />
+            <PlexiiIcon kind="tool" id="flows" size={20} fallback="account_tree" fallbackFilled fallbackClassName="text-[rgb(var(--accent))]" className="shrink-0" />
             <h1 className="fb-display text-[15px] font-bold tracking-tight">PlexiiFlow</h1>
           </div>
           <p className="mt-0.5 text-[11.5px] text-[var(--ink-70)]">When this happens, do that.</p>
@@ -129,7 +130,7 @@ export default function PlexiFlowView(): JSX.Element {
             <p className="px-3 py-6 text-[12px] text-[var(--ink-70)]">Loading…</p>
           ) : flows.length === 0 ? (
             <div className="px-3 py-10 text-center" data-testid="flows-empty">
-              <Icon name="account_tree" size={24} className="text-[var(--ink-30)]" />
+              <PlexiiIcon kind="tool" id="flows" size={30} fallback="account_tree" fallbackClassName="text-[var(--ink-30)]" className="mx-auto block" />
             </div>
           ) : (
             flows.map((f) => (

@@ -5,6 +5,8 @@ import { useSignInPrompt } from '../../stores/signInPrompt'
 import { listLiveDocs, type LiveDocListItem } from '../../lib/docCollabClient'
 import { convertLiveCanvasToDesk } from '../../lib/liveCanvasMigrate'
 import Icon from '../Icon'
+import { PlexiiChipIcon } from '../PlexiiIcon'
+import { docTypeEntity } from '../../lib/plexiiIconMap'
 
 // Collaborations — the home for everything shared LIVE with you: desks
 // (canvases), folders, and documents under the check-out model. Its own
@@ -146,9 +148,13 @@ export default function CollaborationsView(): JSX.Element {
                   data-testid="collaboration-item"
                   className="fb-card fb-press fb-lift flex items-center gap-3 px-3.5 py-3 cursor-pointer"
                 >
-                  <div className="h-9 w-9 rounded-lg bg-accent/10 text-accent inline-flex items-center justify-center shrink-0">
-                    <Icon name={meta.icon} size={17} />
-                  </div>
+                  <PlexiiChipIcon
+                    entity={docTypeEntity(d.docType)}
+                    fallback={meta.icon}
+                    size={36}
+                    glyphSize={17}
+                    chipClassName="h-9 w-9 rounded-lg bg-accent/10 text-accent inline-flex items-center justify-center shrink-0"
+                  />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-medium text-[var(--ink-100)] truncate">
                       {d.title || `Untitled ${meta.label.toLowerCase()}`}

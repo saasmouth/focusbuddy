@@ -2,6 +2,8 @@ import type { DocType } from '@shared/types'
 import { useViewStore } from '../../../stores/view'
 import { useDocMetas } from '../../../lib/docMetaCache'
 import Icon from '../../Icon'
+import { PlexiiDocIcon } from '../../PlexiiIcon'
+import { docTypeEntity } from '../../../lib/plexiiIconMap'
 
 // The read-only card shown for a PlexiOffice document embedded inside another
 // document. It resolves the referenced document's live title/type from the
@@ -43,8 +45,8 @@ export default function DocEmbed({ documentId }: { documentId: string }): JSX.El
 
   return (
     <div className="fb-card flex items-center gap-3 px-3 py-2.5">
-      <span className="h-9 w-9 rounded-lg bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))] inline-flex items-center justify-center shrink-0">
-        <Icon name={meta ? TYPE_ICON[meta.docType] : 'description'} size={18} />
+      <span className={`h-9 w-9 rounded-lg inline-flex items-center justify-center shrink-0 ${docTypeEntity(meta?.docType) ? '' : 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))]'}`}>
+        <PlexiiDocIcon docType={meta?.docType} size={34} fallback={meta ? TYPE_ICON[meta.docType] : 'description'} />
       </span>
       <div className="flex-1 min-w-0">
         <div className="text-[13px] font-medium text-[var(--ink-100)] truncate">

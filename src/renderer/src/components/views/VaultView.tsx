@@ -5,6 +5,7 @@ import { useVaultStore } from '../../stores/vault'
 import { generateTotp, looksLikeTotpSecret } from '../../lib/totp'
 import { chimeIn, chimeOut } from '../../lib/audioBeep'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
 
 // Vault — master-password-encrypted credentials with TOTP. Three states:
 //   1. No vault yet → "Create your vault" form (set master password)
@@ -24,7 +25,7 @@ export default function VaultView(): JSX.Element {
   if (initStatus !== 'ready' || meta === null) {
     return (
       <div className="h-full flex items-center justify-center desk-paper no-tod">
-        <Icon name="lock" size={28} className="text-[var(--ink-40)] animate-pulse" />
+        <PlexiiIcon kind="app" id="vault" size={32} fallback="lock" fallbackClassName="text-[var(--ink-40)]" className="animate-pulse" />
       </div>
     )
   }
@@ -309,7 +310,7 @@ function UnlockVaultPanel(): JSX.Element {
     <div className="h-full flex items-center justify-center desk-paper no-tod px-6">
       <div className="w-full max-w-sm fb-card p-6">
         <div className="text-center mb-5">
-          <Icon name="lock" size={28} className="text-accent mx-auto mb-2" />
+          <PlexiiIcon kind="app" id="vault" size={36} fallback="lock" fallbackClassName="text-accent" className="mx-auto mb-2 block" />
           <h1 className="text-lg font-semibold text-[var(--ink-100)]">
             Unlock vault
           </h1>

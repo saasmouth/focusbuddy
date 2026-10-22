@@ -11,6 +11,7 @@ import type { DocType } from '@shared/types'
 import { useTablesStore } from '../../stores/tables'
 import { useViewStore } from '../../stores/view'
 import Icon from '../Icon'
+import { PlexiiDocIcon } from '../PlexiiIcon'
 import DocPickerModal from '../DocPickerModal'
 import { useDocMetas, primeDocMeta } from '../../lib/docMetaCache'
 import { fileSrc } from '../../lib/fileUrl'
@@ -140,10 +141,12 @@ function DocRefField(props: FieldEditorProps & { value: string[] }): JSX.Element
               className="inline-flex items-center gap-1 min-w-0"
               title={meta ? `Open ${meta.title}` : 'Open document'}
             >
-              <Icon
-                name={meta ? DOC_TYPE_ICON[meta.docType] : 'description'}
-                size={12}
-                className="text-[rgb(var(--accent))] shrink-0"
+              <PlexiiDocIcon
+                docType={meta?.docType}
+                size={14}
+                fallback={meta ? DOC_TYPE_ICON[meta.docType] : 'description'}
+                fallbackClassName="text-[rgb(var(--accent))]"
+                className="shrink-0"
               />
               <span className="text-[11.5px] text-[var(--ink-80)] truncate">
                 {meta ? meta.title || 'Untitled' : 'Document'}

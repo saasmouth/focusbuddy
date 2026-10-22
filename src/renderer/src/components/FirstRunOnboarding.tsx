@@ -4,6 +4,8 @@ import { useOnboarding, CORE_MODULE_ID } from '../stores/onboarding'
 import { useNodeStore } from '../stores/nodes'
 import { useViewStore } from '../stores/view'
 import Icon from './Icon'
+import PlexiiIcon from './PlexiiIcon'
+import type { EntityRef } from '../lib/plexiiIconMap'
 import PlexiiMark from './brand/PlexiiMark'
 import { findStarterTemplate } from '../lib/starterTemplates'
 
@@ -259,21 +261,21 @@ export default function FirstRunOnboarding(): JSX.Element | null {
               the sidebar swaps the whole workspace between them.
             </p>
             <div className="grid grid-cols-2 gap-2.5" data-testid="onboarding-tour">
-              {[
+              {([
                 // Keep this map in step with the live 3-segment IA (PlexiDesk /
                 // PlexiOffice / PlexiBrain); the review flagged that it had
                 // fallen behind the suite and newer surfaces were undiscoverable.
-                { icon: 'dashboard', name: 'Home & Tasks', blurb: 'Your desks and to-dos, each with its own glass canvas.' },
-                { icon: 'description', name: 'Documents', blurb: 'Word, Excel and PowerPoint-class docs, sheets and slides.' },
-                { icon: 'folder', name: 'Files', blurb: 'A folder library for any file, with views and sorting.' },
-                { icon: 'calendar_month', name: 'Calendar', blurb: 'Time-block your day and plan focus sessions.' },
-                { icon: 'mail', name: 'Mail', blurb: 'Read and reply to email, and turn any message into a task.' },
-                { icon: 'forum', name: 'Chat, calls & meetings', blurb: 'Message teammates, jump on a call, meet from any document.' },
-                { icon: 'public', name: 'People Map', blurb: 'See who is online across your organisation, and where.' },
-                { icon: 'lock', name: 'PlexiiVault & Sign', blurb: 'Encrypted passwords, plus documents sent for signature.' }
-              ].map((s) => (
+                { icon: 'dashboard', entity: { kind: 'app', id: 'plexidesk' }, name: 'Home & Tasks', blurb: 'Your desks and to-dos, each with its own glass canvas.' },
+                { icon: 'description', entity: { kind: 'app', id: 'docs' }, name: 'Documents', blurb: 'Word, Excel and PowerPoint-class docs, sheets and slides.' },
+                { icon: 'folder', entity: { kind: 'app', id: 'files' }, name: 'Files', blurb: 'A folder library for any file, with views and sorting.' },
+                { icon: 'calendar_month', entity: { kind: 'app', id: 'calendar' }, name: 'Calendar', blurb: 'Time-block your day and plan focus sessions.' },
+                { icon: 'mail', entity: { kind: 'app', id: 'mail' }, name: 'Mail', blurb: 'Read and reply to email, and turn any message into a task.' },
+                { icon: 'forum', entity: { kind: 'app', id: 'chat' }, name: 'Chat, calls & meetings', blurb: 'Message teammates, jump on a call, meet from any document.' },
+                { icon: 'public', entity: { kind: 'tool', id: 'people-map' }, name: 'People Map', blurb: 'See who is online across your organisation, and where.' },
+                { icon: 'lock', entity: { kind: 'app', id: 'vault' }, name: 'PlexiiVault & Sign', blurb: 'Encrypted passwords, plus documents sent for signature.' }
+              ] satisfies { icon: string; entity: EntityRef; name: string; blurb: string }[]).map((s) => (
                 <div key={s.name} className="flex gap-2.5 rounded-lg bg-white/5 border border-white/10 px-3 py-2.5">
-                  <Icon name={s.icon} size={18} className="text-accent shrink-0 mt-0.5" />
+                  <PlexiiIcon kind={s.entity.kind} id={s.entity.id} size={22} fallback={s.icon} fallbackClassName="text-accent" className="shrink-0 mt-0.5" />
                   <div className="min-w-0">
                     <div className="text-[13px] font-medium text-stone-100">{s.name}</div>
                     <div className="text-[11px] text-stone-400 leading-snug">{s.blurb}</div>

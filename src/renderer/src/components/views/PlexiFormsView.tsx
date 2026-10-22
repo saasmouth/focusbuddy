@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
 import { PLEXI_CARD } from '../plexi'
 import ModuleDashboard from '../ModuleDashboard'
 import { useQuickCreate } from '../../stores/quickCreate'
@@ -61,7 +62,7 @@ export default function PlexiFormsView(): JSX.Element {
       <div className="w-[280px] shrink-0 border-r border-[var(--edge-soft)] flex flex-col">
         <div className="px-4 py-3.5 border-b border-[var(--edge-soft)]">
           <div className="flex items-center gap-2">
-            <Icon name="dynamic_form" size={18} className="text-fuchsia-500" filled />
+            <PlexiiIcon kind="tool" id="forms" size={20} fallback="dynamic_form" fallbackFilled fallbackClassName="text-fuchsia-500" className="shrink-0" />
             <h1 className="text-[15px] font-bold tracking-tight text-[var(--ink-100)]">PlexiiForms</h1>
           </div>
           <p className="mt-0.5 text-[11.5px] text-[var(--ink-70)]">Capture requests, leads and data.</p>
@@ -95,7 +96,7 @@ export default function PlexiFormsView(): JSX.Element {
             </div>
           ) : forms.length === 0 ? (
             <div className="px-3 py-10 text-center" data-testid="forms-empty">
-              <Icon name="dynamic_form" size={26} className="text-[var(--ink-30)]" />
+              <PlexiiIcon kind="tool" id="forms" size={32} fallback="dynamic_form" fallbackClassName="text-[var(--ink-30)]" className="mx-auto block" />
             </div>
           ) : (
             forms.map((f) => (

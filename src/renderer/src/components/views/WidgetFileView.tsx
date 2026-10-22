@@ -11,6 +11,8 @@
 
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
+import { resolveEntityIcon } from '../../lib/plexiiIconMap'
 import DocFiledInChip from '../DocFiledInChip'
 import { renderWidget } from '../widgets/renderWidget'
 import { WidgetSurfaceContext } from '../../lib/widgetSurface'
@@ -111,9 +113,11 @@ export default function WidgetFileView({ fileId }: { fileId: string }): JSX.Elem
           onDragStart={(e) => writeWidgetFileDrag(e.dataTransfer, { id: file.id, title: file.title })}
           title="Drag onto a desk to place a linked copy — edits sync both ways"
           data-testid="widget-file-drag"
-          className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-[var(--surface-sunken)] text-accent cursor-grab active:cursor-grabbing shrink-0"
+          className={`inline-flex items-center justify-center w-7 h-7 rounded-lg cursor-grab active:cursor-grabbing shrink-0 ${
+            resolveEntityIcon('widget', file.kind).asset ? '' : 'bg-[var(--surface-sunken)] text-accent'
+          }`}
         >
-          <Icon name={icon} size={16} filled />
+          <PlexiiIcon kind="widget" id={file.kind} size={28} fallback={icon} fallbackFilled />
         </span>
         <TitleField value={file.title} onCommit={(t) => void rename(file.id, t)} />
         <span

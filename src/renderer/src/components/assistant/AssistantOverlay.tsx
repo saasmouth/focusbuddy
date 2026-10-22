@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import ChatPanel from '../ChatPanel'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
+import { resolveEntityIcon, type EntityRef } from '../../lib/plexiiIconMap'
 import WebPanel from '../browser/WebPanel'
 import PlexiiMark from '../brand/PlexiiMark'
 import { FLOATING_MENU_INSET_RIGHT, FLOATING_MENU_STYLE } from '../chrome/floatingMenu'
@@ -89,6 +91,17 @@ const TAB_META: { id: AssistantTab; label: string; icon?: string; mark?: boolean
   { id: 'messages', label: 'Message', icon: 'chat' },
   { id: 'agent', label: 'Agents', icon: 'rocket_launch' }
 ]
+
+// The owner's icon set (2026-10-22): each tab that IS an app or work widget
+// wears its Plexii icon; the glyphs above stay the fallback. Agents has no
+// icon in the set.
+const TAB_ENTITY: Partial<Record<AssistantTab, EntityRef>> = {
+  chat: { kind: 'app', id: 'assist' },
+  // DEC-144: Attention is the Focus work widget.
+  attention: { kind: 'widget', id: 'attention' },
+  calendar: { kind: 'app', id: 'calendar' },
+  messages: { kind: 'app', id: 'chat' }
+}
 
 // The always-mounted web panel (A2, R4): it rides this component because it
 // is the one assistant surface App.tsx always renders — the panel must
@@ -540,12 +553,20 @@ function AssistantOverlayChrome(): JSX.Element {
                 }`}
               >
                 {t.mark ? (
-                  /* The mark IS the label: the brand's sign for the AI, animated
-                     the brand way — and breathing while a reply is in flight. */
-                  <PlexiiMark height={16} motion={'once+hover'} title={null} className="shrink-0" />
+                  /* The PlexiiAssist icon IS the label (the owner's icon set,
+                     2026-10-22); the ii mark stays the fallback. */
+                  TAB_ENTITY[t.id] && resolveEntityIcon(TAB_ENTITY[t.id]!.kind, TAB_ENTITY[t.id]!.id).asset ? (
+                    <PlexiiIcon kind={TAB_ENTITY[t.id]!.kind} id={TAB_ENTITY[t.id]!.id} size={18} fallback="auto_awesome" className="shrink-0" />
+                  ) : (
+                    <PlexiiMark height={16} motion={'once+hover'} title={null} className="shrink-0" />
+                  )
                 ) : (
                   <>
-                    <Icon name={t.icon!} size={14} className="shrink-0" />
+                    {TAB_ENTITY[t.id] ? (
+                      <PlexiiIcon kind={TAB_ENTITY[t.id]!.kind} id={TAB_ENTITY[t.id]!.id} size={16} fallback={t.icon!} className="shrink-0" />
+                    ) : (
+                      <Icon name={t.icon!} size={14} className="shrink-0" />
+                    )}
                     <span className="truncate">{t.label}</span>
                   </>
                 )}

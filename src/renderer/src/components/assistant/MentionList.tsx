@@ -5,6 +5,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
 import { mentionKindLabel, type MentionRef } from '../../lib/assistantMentions'
 
 export interface MentionListHandle {
@@ -118,7 +119,11 @@ const MentionList = forwardRef<MentionListHandle, Props>(function MentionList(
               : 'hover:bg-[var(--surface-sunken)]'
           }`}
         >
-          <Icon name={item.icon} size={15} className="shrink-0 text-[var(--ink-70)]" />
+          {item.entity ? (
+            <PlexiiIcon kind={item.entity.kind} id={item.entity.id} size={17} fallback={item.icon} fallbackClassName="text-[var(--ink-70)]" className="shrink-0" />
+          ) : (
+            <Icon name={item.icon} size={15} className="shrink-0 text-[var(--ink-70)]" />
+          )}
           <span className="min-w-0 flex-1">
             <span className="block text-[12.5px] text-[var(--ink-90)] truncate">{item.title}</span>
             <span className="block text-[10.5px] text-[var(--ink-40)]">

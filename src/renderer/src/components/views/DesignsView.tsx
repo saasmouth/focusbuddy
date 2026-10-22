@@ -13,6 +13,7 @@ import {
   type DesignCategory
 } from '@shared/design'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
 
 // PlexiDesign hub — its own top-level module (not a tab inside Documents). Start a
 // publication at a real page size, a design at any other size, or an on-brand
@@ -69,7 +70,7 @@ export default function DesignsView(): JSX.Element {
     <div className="h-full overflow-auto desk-paper no-tod">
       <div className="w-full px-8 py-6">
         <div className="flex items-center gap-2.5 mb-1">
-          <Icon name="palette" size={22} className="text-accent" />
+          <PlexiiIcon kind="app" id="design" size={28} fallback="palette" fallbackClassName="text-accent" className="shrink-0" />
           <h1 className="text-[20px] font-semibold text-[var(--ink-100)]">PlexiiDesign</h1>
         </div>
         <p className="text-[13px] text-[var(--ink-50)] mb-5 max-w-[760px]">
@@ -144,7 +145,7 @@ export default function DesignsView(): JSX.Element {
                   onClick={() => goDocument(d.id)}
                   data-testid={`designs-open-${d.id}`}
                 >
-                  <Icon name="palette" size={16} className="text-accent shrink-0" />
+                  <PlexiiIcon kind="app" id="design" size={18} fallback="palette" fallbackClassName="text-accent" className="shrink-0" />
                   <span className="flex-1 min-w-0 truncate text-[13px] text-[var(--ink-90)]">{d.title || 'Untitled design'}</span>
                   <button
                     onClick={(e) => {

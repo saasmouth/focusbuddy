@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from './Icon'
+import PlexiiIcon from './PlexiiIcon'
 import { useOrgStore } from '../stores/org'
 import { useViewStore } from '../stores/view'
 import { useAccountStore } from '../stores/account'
@@ -66,7 +67,7 @@ export default function WorkspaceSwitcher(): JSX.Element {
         title={`${orgName} — switch workspace`}
         className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[var(--radius-row)] border border-[var(--edge-soft)] bg-[var(--surface-raised)] hover:border-[rgb(var(--accent)/0.45)] transition-colors"
       >
-        <Icon name="apartment" size={15} className="text-accent shrink-0" />
+        <PlexiiIcon kind="tool" id="organisation" size={17} fallback="apartment" fallbackClassName="text-accent" className="shrink-0" />
         <span className="flex-1 min-w-0 text-left truncate text-[12px] font-medium text-[var(--ink-90)]">
           {orgName}
         </span>
@@ -99,7 +100,7 @@ export default function WorkspaceSwitcher(): JSX.Element {
                     : 'text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
                 }`}
               >
-                <Icon name="apartment" size={13} className="text-[var(--ink-50)] shrink-0" />
+                <PlexiiIcon kind="tool" id="organisation" size={15} fallback="apartment" fallbackClassName="text-[var(--ink-50)]" className="shrink-0" />
                 <span className="flex-1 min-w-0 truncate text-left">{o.name}</span>
                 {o.id === activeOrgId && <Icon name="check" size={12} className="text-accent shrink-0" />}
               </button>

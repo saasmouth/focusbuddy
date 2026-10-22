@@ -2,6 +2,8 @@ import type { AnswerGrounding } from '@shared/types'
 import { CheckedText, CheckSummary } from '../ai/CheckThis'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from '../Icon'
+import { PlexiiChipIcon } from '../PlexiiIcon'
+import { searchHitEntity } from '../../lib/plexiiIconMap'
 import { DashboardHeader, StatusPill, PLEXI_CARD } from '../plexi'
 import { useViewStore } from '../../stores/view'
 import { useNodeStore } from '../../stores/nodes'
@@ -400,9 +402,14 @@ function ResultRow({
           : 'border-transparent hover:bg-[var(--surface-sunken)]'
       }`}
     >
-      <span className="shrink-0 mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-md bg-[var(--surface-sunken)]">
-        <Icon name={meta.icon} size={15} className="text-[var(--ink-70)]" />
-      </span>
+      <PlexiiChipIcon
+        entity={searchHitEntity(hit)}
+        fallback={meta.icon}
+        size={28}
+        glyphSize={15}
+        className="mt-0.5"
+        chipClassName="shrink-0 mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-md bg-[var(--surface-sunken)] text-[var(--ink-70)]"
+      />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="text-[13.5px] font-semibold text-[var(--ink-100)] truncate">{hit.title}</span>

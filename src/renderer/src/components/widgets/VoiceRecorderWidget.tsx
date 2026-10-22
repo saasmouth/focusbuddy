@@ -3,6 +3,7 @@ import type { ActionProposal, AppliedProposal, Widget, WidgetKind } from '@share
 import ProposalCards from '../ProposalCards'
 import WidgetFrame from './WidgetFrame'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
 import { useWidgetStore } from '../../stores/widgets'
 import { useNodeStore } from '../../stores/nodes'
 import { useFilesStore } from '../../stores/files'
@@ -989,7 +990,7 @@ function DestinationPicker({
                 className="fb-btn-surface flex flex-col items-center gap-0.5 px-2 py-2 hover:border-accent hover:bg-accent/5 dark:hover:bg-accent/10 text-[var(--ink-70)]"
                 data-testid={`voice-dest-${d.kind}`}
               >
-                <Icon name={d.icon} size={16} className="text-[var(--ink-70)]" />
+                <PlexiiIcon kind="widget" id={d.kind} size={20} fallback={d.icon} fallbackClassName="text-[var(--ink-70)]" />
                 <span className="text-[10px] font-medium">{d.label}</span>
               </button>
             ))}
@@ -1003,10 +1004,13 @@ function DestinationPicker({
                 className="fb-btn-surface w-full flex items-center gap-1.5 px-2 py-1.5 hover:border-accent hover:bg-accent/5 dark:hover:bg-accent/10 text-left"
                 data-testid={`voice-dest-append-${w.id}`}
               >
-                <Icon
-                  name={iconForKind(w.kind)}
-                  size={13}
-                  className="text-[var(--ink-50)] shrink-0"
+                <PlexiiIcon
+                  kind="widget"
+                  id={w.kind}
+                  size={15}
+                  fallback={iconForKind(w.kind)}
+                  fallbackClassName="text-[var(--ink-50)]"
+                  className="shrink-0"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="text-[11px] font-medium text-[var(--ink-90)] truncate">

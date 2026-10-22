@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Icon from '../Icon'
+import PlexiiIcon, { PlexiiDocIcon } from '../PlexiiIcon'
 import { useNodeStore } from '../../stores/nodes'
 import { useDocumentsStore } from '../../stores/documents'
 import {
@@ -133,7 +134,11 @@ export default function FocusAddSurface({ onOpenWidget }: Props): JSX.Element {
                 className="fb-tile group flex flex-col items-start gap-2 hover:border-accent hover:bg-accent/5 px-3.5 py-3 text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span className="h-8 w-8 rounded-lg bg-[var(--surface-raised)] flex items-center justify-center text-[rgb(var(--accent))] group-hover:bg-accent/10 transition-colors">
-                  <Icon name={busy === opt.kind ? 'hourglass_top' : opt.icon} size={17} className={busy === opt.kind ? 'animate-spin' : ''} />
+                  {busy === opt.kind ? (
+                    <Icon name="hourglass_top" size={17} className="animate-spin" />
+                  ) : (
+                    <PlexiiIcon kind="widget" id={opt.kind} size={22} fallback={opt.icon} />
+                  )}
                 </span>
                 <span className="text-[13px] font-medium text-[var(--ink-100)]">{opt.label}</span>
               </button>
@@ -184,7 +189,11 @@ export default function FocusAddSurface({ onOpenWidget }: Props): JSX.Element {
                   className="flex items-center gap-2.5 rounded-lg border border-transparent hover:border-[var(--edge-soft)] hover:bg-[var(--surface-sunken)] px-2.5 py-2 text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <span className="h-7 w-7 rounded-md bg-[var(--surface-sunken)] flex items-center justify-center text-[var(--ink-50)] shrink-0">
-                    <Icon name={busy === d.id ? 'hourglass_top' : DOC_TYPE_ICON[d.docType] ?? 'description'} size={15} className={busy === d.id ? 'animate-spin' : ''} />
+                    {busy === d.id ? (
+                      <Icon name="hourglass_top" size={15} className="animate-spin" />
+                    ) : (
+                      <PlexiiDocIcon docType={d.docType} widgetKind={d.widgetKind} size={20} fallback={DOC_TYPE_ICON[d.docType] ?? 'description'} />
+                    )}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[13px] text-[var(--ink-100)] truncate">

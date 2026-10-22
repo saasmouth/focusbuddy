@@ -3,6 +3,7 @@ import { useDocumentsStore } from '../../stores/documents'
 import { useViewStore } from '../../stores/view'
 import { DashboardHeader } from '../plexi'
 import Icon from '../Icon'
+import { PlexiiDocIcon } from '../PlexiiIcon'
 import type { DocType } from '@shared/types'
 
 // Recent — the documents you last touched, newest first. Built only from real
@@ -74,7 +75,7 @@ export default function RecentView(): JSX.Element {
                   className="grid grid-cols-[1fr_auto_auto] gap-3 w-full px-4 py-2.5 items-center text-left border-b border-[color-mix(in_oklab,var(--edge-soft)_60%,transparent)] hover:bg-[var(--surface-sunken)] last:border-b-0"
                 >
                   <span className="flex items-center gap-2 min-w-0">
-                    <Icon name={ti.icon} size={16} className={ti.tint} />
+                    <PlexiiDocIcon docType={d.docType} size={18} fallback={ti.icon} fallbackClassName={ti.tint} className="shrink-0" />
                     <span className="truncate text-[13px]">{d.title || 'Untitled'}</span>
                   </span>
                   <span className="text-[12px] text-[var(--ink-60)] whitespace-nowrap">{ti.label}</span>

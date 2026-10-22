@@ -1,5 +1,6 @@
 import type { Widget } from '@shared/types'
 import Icon from '../Icon'
+import PlexiiIcon, { PlexiiChipIcon } from '../PlexiiIcon'
 import ViewSelector from './ViewSelector'
 import { catalogFor } from '../../lib/widgetCatalog'
 import { widgetDisplayName } from '../../lib/widgetDisplayName'
@@ -121,7 +122,7 @@ export default function DeskDataViews({
                     >
                       <td className="px-3 py-2 text-[13px] text-[var(--ink-100)]">
                         <span className="inline-flex items-center gap-2">
-                          <Icon name={m.icon} size={15} className="text-[var(--ink-40)]" />
+                          <PlexiiIcon kind="widget" id={w.kind} size={17} fallback={m.icon} fallbackClassName="text-[var(--ink-40)]" className="shrink-0" />
                           <span className="truncate">{widgetDisplayName(w)}</span>
                         </span>
                       </td>
@@ -147,9 +148,13 @@ export default function DeskDataViews({
                   data-testid={`data-item-${w.id}`}
                   className="fb-btn-surface flex flex-col items-start gap-2 p-3 text-left hover:border-[rgb(var(--accent))]/40"
                 >
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--surface-sunken)] text-[var(--ink-60)]">
-                    <Icon name={m.icon} size={18} />
-                  </span>
+                  <PlexiiChipIcon
+                    entity={{ kind: 'widget', id: w.kind }}
+                    fallback={m.icon}
+                    size={36}
+                    glyphSize={18}
+                    chipClassName="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--surface-sunken)] text-[var(--ink-60)]"
+                  />
                   <span className="block w-full truncate text-[13px] text-[var(--ink-100)]">{widgetDisplayName(w)}</span>
                   <span className="text-[11px] text-[var(--ink-50)]">{m.label}</span>
                 </button>
@@ -168,7 +173,7 @@ export default function DeskDataViews({
                   title={m.label}
                   className="inline-flex items-center gap-1.5 rounded-full bg-[var(--surface-sunken)] px-2.5 h-7 text-[12px] text-[var(--ink-90)] hover:text-[rgb(var(--accent))]"
                 >
-                  <Icon name={m.icon} size={13} className="text-[var(--ink-40)]" />
+                  <PlexiiIcon kind="widget" id={w.kind} size={15} fallback={m.icon} fallbackClassName="text-[var(--ink-40)]" className="shrink-0" />
                   <span className="max-w-[160px] truncate">{widgetDisplayName(w)}</span>
                 </button>
               )
@@ -186,7 +191,7 @@ export default function DeskDataViews({
                     data-testid={`data-item-${w.id}`}
                     className="fb-btn-surface w-full flex items-center gap-3 px-3 py-2 text-left hover:border-[rgb(var(--accent))]/40"
                   >
-                    <Icon name={m.icon} size={16} className="text-[var(--ink-40)] shrink-0" />
+                    <PlexiiIcon kind="widget" id={w.kind} size={18} fallback={m.icon} fallbackClassName="text-[var(--ink-40)]" className="shrink-0" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[13px] text-[var(--ink-100)]">{widgetDisplayName(w)}</span>
                       <span className="block text-[11px] text-[var(--ink-50)]">{m.label}</span>

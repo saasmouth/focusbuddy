@@ -44,6 +44,7 @@ import {
 import { applyProposal } from '../../lib/actionExecutor'
 import { listOrgs, type OrgMembership } from '../../lib/orgsClient'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
 import { ChatComposer } from './chat/ChatComposer'
 import ProposalCards from '../ProposalCards'
 import { useViewStore } from '../../stores/view'
@@ -697,7 +698,7 @@ export default function MessagesView({ compact = false }: { compact?: boolean } 
     return (
       <div className={`h-full flex items-center justify-center px-6 ${compact ? '' : 'desk-paper no-tod'}`}>
         <div className="text-center max-w-sm">
-          <Icon name="forum" size={32} className="text-stone-400 dark:text-stone-500 mx-auto mb-3" />
+          <PlexiiIcon kind="app" id="chat" size={40} fallback="forum" fallbackClassName="text-stone-400 dark:text-stone-500" className="mx-auto mb-3 block" />
           <h1 className="text-lg font-semibold text-stone-900 dark:text-stone-100 mb-1">Messages</h1>
           <p className="text-[13px] text-stone-500 dark:text-stone-400 mb-4">
             Sign in to message other people on PlexiiDesk and share folders and tasks to work

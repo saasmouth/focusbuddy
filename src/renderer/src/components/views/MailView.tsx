@@ -20,6 +20,7 @@ import type {
 } from '@shared/types'
 import { threadMailbox } from '../../lib/mailThreads'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
 import MailTriagePanel from '../mail/MailTriagePanel'
 import MailSearchBar from '../mail/MailSearchBar'
 import ComposeDialog from '../ComposeDialog'
@@ -185,9 +186,7 @@ function SetupForm({ onConnected }: { onConnected: () => void }): JSX.Element {
     <div className="h-full overflow-auto bg-[var(--surface-base)] text-[var(--ink-100)]">
       <div className="max-w-lg mx-auto px-6 py-10">
         <div className="flex items-center gap-3 mb-2">
-          <div className="fb-card inline-flex items-center justify-center h-11 w-11 rounded-[var(--radius-row)]">
-            <Icon name="mail" size={22} className="text-accent" />
-          </div>
+          <PlexiiIcon kind="app" id="mail" size={44} fallback="mail" fallbackClassName="text-accent" className="shrink-0" />
           <div>
             <h1 className="fb-t-hero text-[var(--ink-100)]">
               Connect your email
@@ -953,7 +952,7 @@ export default function MailView(): JSX.Element {
       {/* List */}
       <div className="w-80 shrink-0 border-r border-[var(--edge-soft)] flex flex-col">
         <div className="px-3 py-3 flex items-center gap-2 border-b border-[var(--edge-soft)]">
-          <Icon name="mail" size={16} className="text-accent shrink-0" />
+          <PlexiiIcon kind="app" id="mail" size={18} fallback="mail" fallbackClassName="text-accent" className="shrink-0" />
           <div className="min-w-0 flex-1">
             <h1 className="fb-t-body font-semibold text-[var(--ink-100)] truncate" data-testid="mail-scope-title">
               {scopeName}

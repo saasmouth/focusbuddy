@@ -8,6 +8,8 @@ import { SEGMENT_APPS } from '../../../lib/segmentApps'
 import { WIDGET_CATALOG } from '../../../lib/widgetCatalog'
 import WidgetPickerDialog from '../embed/WidgetPickerDialog'
 import Icon from '../../Icon'
+import PlexiiIcon from '../../PlexiiIcon'
+import { segmentAppEntity } from '../../../lib/plexiiIconMap'
 import AnsweredBy from '../../ai/AnsweredBy'
 import { useAiBusyLabel } from '../../../lib/localAiEngine'
 import * as ops from '@shared/diagram/ops'
@@ -551,9 +553,16 @@ function AppsTab({ cmd, onDone }: { cmd: Commands; onDone: () => void }): JSX.El
               }}
               className="accent-[#2563eb]"
             />
-            <span className="material-symbols-outlined" style={{ fontSize: 15 }}>
-              {a.icon}
-            </span>
+            {(() => {
+              const ent = segmentAppEntity(a.seg, a.id.slice(a.seg.length + 1))
+              return ent ? (
+                <PlexiiIcon kind={ent.kind} id={ent.id} size={17} fallback={a.icon} className="shrink-0" />
+              ) : (
+                <span className="material-symbols-outlined" style={{ fontSize: 15 }}>
+                  {a.icon}
+                </span>
+              )
+            })()}
             <span className="truncate">{a.label}</span>
           </label>
         ))}
@@ -603,7 +612,7 @@ function ToolsTab({ cmd, onDone }: { cmd: Commands; onDone: () => void }): JSX.E
               }}
               className="accent-[#2563eb]"
             />
-            <Icon name={t.icon} size={15} />
+            <PlexiiIcon kind="widget" id={t.kind} size={17} fallback={t.icon} className="shrink-0" />
             <span className="truncate">{t.label}</span>
           </label>
         ))}

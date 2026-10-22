@@ -7,6 +7,7 @@ import { useSharesStore } from '../../stores/shares'
 import { acceptShareIntoWorkspace } from '../../lib/acceptShare'
 import { useSignInPrompt } from '../../stores/signInPrompt'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
 import { DashboardHeader } from '../plexi'
 
 // PlexiInbox — your internal PlexiDesk notifications, and only those: direct
@@ -118,7 +119,7 @@ export default function InboxView(): JSX.Element {
     return (
       <div className="h-full flex items-center justify-center bg-[var(--surface-base)] px-6">
         <div className="text-center max-w-sm">
-          <Icon name="inbox" size={32} className="text-[var(--ink-40)] mx-auto mb-3" />
+          <PlexiiIcon kind="app" id="inbox" size={40} fallback="inbox" fallbackClassName="text-[var(--ink-40)]" className="mx-auto mb-3 block" />
           <h1 className="fb-t-title text-[var(--ink-100)] mb-1">PlexiiInbox</h1>
           <p className="fb-t-body text-[var(--ink-50)] mb-4">
             Sign in to see your PlexiiDesk notifications here, chat messages, shared folders and
@@ -152,7 +153,7 @@ export default function InboxView(): JSX.Element {
 
         {rows.length === 0 ? (
           <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--edge-firm)] p-10 text-center">
-            <Icon name="inbox" size={26} className="text-[var(--ink-40)] mx-auto mb-2" />
+            <PlexiiIcon kind="app" id="inbox" size={32} fallback="inbox" fallbackClassName="text-[var(--ink-40)]" className="mx-auto mb-2 block" />
             <p className="fb-t-body text-[var(--ink-70)]">Your PlexiiInbox is clear.</p>
             <p className="fb-t-label text-[var(--ink-50)] mt-1">
               No new chat, shared items, or contact requests right now. Email lives in Mail.

@@ -9,6 +9,7 @@ import { personDisplayName } from '../../lib/personName'
 import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor, DrawStudio } from '@office'
 import { promptText } from '../plexi/PromptDialog'
 import Icon from '../Icon'
+import { PlexiiDocIcon } from '../PlexiiIcon'
 import DocFiledInChip from '../DocFiledInChip'
 import ShareDialog from '../ShareDialog'
 
@@ -189,7 +190,7 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
         >
           <Icon name="arrow_back" size={17} />
         </button>
-        <Icon name={typeIcon} size={16} className="text-accent shrink-0" />
+        <PlexiiDocIcon docType={active.docType} size={18} fallback={typeIcon} fallbackClassName="text-accent" className="shrink-0" />
         <input
           value={active.title}
           onChange={(e) => void rename(e.target.value)}

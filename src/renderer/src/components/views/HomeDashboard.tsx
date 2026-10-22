@@ -53,8 +53,8 @@ import StandupHome from './StandupHome'
 import StartOrAskPlexi from './StartOrAskPlexi'
 import DashboardWizardOverlay from './DashboardWizardOverlay'
 import Icon from '../Icon'
-import PlexiiIcon from '../PlexiiIcon'
-import type { EntityRef } from '../../lib/plexiiIconMap'
+import PlexiiIcon, { PlexiiChipIcon } from '../PlexiiIcon'
+import { homeWidgetEntity, type EntityRef } from '../../lib/plexiiIconMap'
 import {
   AttentionPulseBlock,
   OverdueRadarBlock,
@@ -1902,9 +1902,7 @@ function WidgetPickerOverlay({
               >
                 <Icon name="arrow_back" size={17} />
               </button>
-              <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${def.tint}`}>
-                <Icon name={def.icon} size={17} />
-              </span>
+              <PlexiiChipIcon entity={homeWidgetEntity(def.id)} fallback={def.icon} size={32} glyphSize={17} chipClassName={`inline-flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${def.tint}`} />
               <div className="min-w-0 flex-1">
                 <div className="text-[13.5px] font-semibold text-[var(--ink-100)] truncate">{def.name}</div>
                 <div className="fb-t-caption truncate">{def.blurb}</div>
@@ -2057,9 +2055,7 @@ function WidgetPickerOverlay({
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg shrink-0 ${d.tint}`}>
-                          <Icon name={d.icon} size={15} />
-                        </span>
+                        <PlexiiChipIcon entity={homeWidgetEntity(d.id)} fallback={d.icon} size={28} glyphSize={15} chipClassName={`inline-flex h-7 w-7 items-center justify-center rounded-lg shrink-0 ${d.tint}`} />
                         <span className="fb-t-label font-semibold text-[var(--ink-100)] truncate">{d.name}</span>
                         {placed && (
                           <Icon name="check_circle" size={13} filled className="ml-auto text-emerald-600 dark:text-emerald-500 shrink-0" />
@@ -2176,9 +2172,7 @@ function WidgetConfigPicker({
       testId="home-widget-config"
     >
       <div className="px-4 py-3 border-b border-[var(--edge-soft)] flex items-center gap-2">
-        <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg ${def.tint}`}>
-          <Icon name={def.icon} size={15} />
-        </span>
+        <PlexiiChipIcon entity={homeWidgetEntity(def.id)} fallback={def.icon} size={28} glyphSize={15} chipClassName={`inline-flex h-7 w-7 items-center justify-center rounded-lg ${def.tint}`} />
         <span className="text-[13.5px] font-semibold text-[var(--ink-100)]">
           {kind === 'desk' ? 'Pin which desk?' : kind === 'room' ? 'Open which room?' : 'Pin who, or which chat?'}
         </span>

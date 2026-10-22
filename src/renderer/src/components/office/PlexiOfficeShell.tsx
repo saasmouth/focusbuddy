@@ -34,7 +34,7 @@ import PlexiSignView from '../views/PlexiSignView'
 import VaultView from '../views/VaultView'
 import { useSharesStore } from '../../stores/shares'
 import AreaAccordion from '../nav/AreaAccordion'
-import PlexiiIcon, { PlexiiTileIcon } from '../PlexiiIcon'
+import PlexiiIcon, { PlexiiTileIcon, PlexiiDocIcon } from '../PlexiiIcon'
 import Icon from '../Icon'
 import WorkspaceSwitcher from '../WorkspaceSwitcher'
 import {
@@ -672,7 +672,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                       className="fb-btn-surface group text-left overflow-hidden hover:border-[rgb(var(--accent)/0.5)] transition"
                     >
                       <div className={`h-24 ${tp.preview} flex items-center justify-center`}>
-                        <Icon name={TYPE_ICON[tp.docType]?.icon ?? 'description'} size={26} className="text-white/90" />
+                        <PlexiiDocIcon docType={tp.docType} size={36} fallback={TYPE_ICON[tp.docType]?.icon ?? 'description'} fallbackClassName="text-white/90" />
                       </div>
                       <div className="px-2.5 py-2">
                         <div className="text-[12px] font-medium truncate">{tp.label}</div>
@@ -728,7 +728,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                             className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-2 py-2 items-center border-b border-[color-mix(in_oklab,var(--edge-soft)_60%,transparent)] cursor-pointer hover:bg-[var(--surface-sunken)] rounded"
                           >
                             <span className="flex items-center gap-2 min-w-0">
-                              <Icon name={ti.icon} size={16} className={ti.tint} />
+                              <PlexiiDocIcon docType={d.docType} size={18} fallback={ti.icon} fallbackClassName={ti.tint} className="shrink-0" />
                               <span className="truncate">{d.title || 'Untitled'}</span>
                             </span>
                             <span className="text-[var(--ink-60)] whitespace-nowrap">{appLabel(d.docType).replace('Plexii', '')}</span>
@@ -829,7 +829,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                 ) : (
                   officeDocs.filter((d) => starred.has(d.id)).slice(0, 5).map((d) => (
                     <button key={d.id} {...docDragProps(d)} onClick={() => setOpenDocId(d.id)} className="flex items-center gap-2 w-full text-left py-1 hover:text-[rgb(var(--accent))]">
-                      <Icon name={(TYPE_ICON[d.docType] ?? { icon: 'description' }).icon} size={14} className={(TYPE_ICON[d.docType] ?? { tint: '' }).tint} />
+                      <PlexiiDocIcon docType={d.docType} size={16} fallback={(TYPE_ICON[d.docType] ?? { icon: 'description' }).icon} fallbackClassName={(TYPE_ICON[d.docType] ?? { tint: '' }).tint} className="shrink-0" />
                       <span className="truncate text-[12px]">{d.title || 'Untitled'}</span>
                     </button>
                   ))
@@ -953,7 +953,7 @@ function DocCard({
       className="fb-card p-3 cursor-pointer hover:bg-[var(--surface-sunken)] flex flex-col gap-2"
     >
       <div className="flex items-start gap-2">
-        <Icon name={ti.icon} size={18} filled className={ti.tint} />
+        <PlexiiDocIcon docType={doc.docType} size={20} fallback={ti.icon} fallbackFilled fallbackClassName={ti.tint} className="shrink-0" />
         <span className="text-[13px] font-medium leading-snug line-clamp-2 flex-1 min-w-0">
           {doc.title || 'Untitled'}
         </span>
@@ -1167,7 +1167,7 @@ function LibraryPage({
                 className="flex items-center gap-3 px-2 py-2 border-b border-[color-mix(in_oklab,var(--edge-soft)_60%,transparent)] last:border-b-0"
                 data-testid={`library-trashed-${d.id}`}
               >
-                <Icon name={ti.icon} size={16} filled className={`${ti.tint} shrink-0 opacity-60`} />
+                <PlexiiDocIcon docType={d.docType} size={18} fallback={ti.icon} fallbackFilled fallbackClassName={ti.tint} className="shrink-0 opacity-60" />
                 <span className="flex-1 min-w-0 truncate text-[var(--ink-70)]">
                   {d.title || 'Untitled'}
                 </span>
@@ -1290,7 +1290,7 @@ function OfficeSidebar({
         <div className="ml-auto flex items-center gap-1.5">
           <MenuMinimizeButton onClick={onMinimize} title="Minimise the PlexiiOffice menu" />
           <button onClick={onExit} className="text-[var(--ink-50)] hover:text-[var(--ink-90)]" title="Back to PlexiiDesk" data-testid="office-exit">
-            <Icon name="apps" size={18} />
+            <PlexiiIcon kind="app" id="plexidesk" size={20} label="Back to PlexiiDesk" fallback="apps" />
           </button>
         </div>
       </div>

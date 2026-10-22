@@ -6,6 +6,7 @@ import { useNodeStore } from '../../stores/nodes'
 import { useViewStore } from '../../stores/view'
 import { promptText } from '../plexi/PromptDialog'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
 import { DashboardHeader, PLEXI_CARD } from '../plexi'
 
 // The Shared index — rooms, desks and widgets other people have shared with you.
@@ -104,7 +105,7 @@ export default function SharedView(): JSX.Element {
 
         {inbox.length === 0 ? (
           <div className="py-16 text-center">
-            <Icon name="folder_shared" size={40} className="text-[var(--ink-40)] mb-3" />
+            <PlexiiIcon kind="tool" id="shared" size={44} fallback="folder_shared" fallbackClassName="text-[var(--ink-40)]" className="mb-3 mx-auto block" />
             <p className="text-[var(--ink-60)] text-[13px] max-w-md mx-auto leading-relaxed">
               Nothing shared with you yet. When a collaborator sends you a room or desk, get their
               link and paste it here.

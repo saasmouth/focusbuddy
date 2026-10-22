@@ -2,6 +2,7 @@ import { memo } from 'react'
 import type { Widget } from '@shared/types'
 import { WIDGET_CATALOG } from '../lib/widgetCatalog'
 import Icon from './Icon'
+import PlexiiIcon from './PlexiiIcon'
 import { useSiteIcon } from '../lib/siteIcon'
 
 // A read-only, content-aware preview of a widget. Fills its container, draws no
@@ -45,7 +46,7 @@ function Fallback({ widget, icon, label }: { widget: Widget; icon?: string; labe
   return (
     <div className="h-full w-full flex flex-col bg-[var(--surface-raised)] p-2 overflow-hidden">
       <div className="flex items-center gap-1.5 text-[var(--ink-50)]">
-        <Icon name={icon ?? entry?.icon ?? 'widgets'} size={16} />
+        {icon ? <Icon name={icon} size={16} /> : <PlexiiIcon kind="widget" id={widget.kind} size={18} fallback={entry?.icon ?? 'widgets'} className="shrink-0" />}
         <span className="text-[12px] font-medium truncate">
           {widget.title || label || entry?.label || widget.kind}
         </span>

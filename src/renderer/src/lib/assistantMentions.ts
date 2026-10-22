@@ -26,6 +26,7 @@ import type {
 } from '@shared/types'
 import { ATTACHABLE_WIDGET_KINDS } from '@shared/widgetText'
 import { catalogFor } from './widgetCatalog'
+import { searchHitEntity, type EntityRef } from './plexiiIconMap'
 
 // What can be mentioned. Every member of this union must have a main-process
 // resolver that can turn it into real text (see main/ai/mentionResolver) — a
@@ -42,6 +43,8 @@ export type MentionKind = ChatMentionKind
 
 export interface MentionRef extends ChatMentionRef {
   icon: string
+  /** Presentation only, like `icon`: the app or work widget whose Plexii icon the chip wears. */
+  entity?: EntityRef | null
   // The conversation this reference belongs to. Opaque on purpose (plan P6):
   // it is the per-screen thread key before unification and the persisted
   // conversation id after, so re-homing costs a value rather than a rewrite.
@@ -136,6 +139,7 @@ export function mentionFromWidget(w: Widget, conversationKey: string): MentionRe
     id: w.id,
     title: w.title || cat?.label || w.kind,
     icon: cat?.icon ?? 'widgets',
+    entity: { kind: 'widget', id: w.kind },
     taskId: w.taskId,
     conversationKey
   }
@@ -174,6 +178,7 @@ export function mentionFromSearchHit(
             : hit.docType === 'slides'
               ? 'slideshow'
               : 'description',
+        entity: searchHitEntity(hit),
         taskId: hit.taskId ?? null,
         conversationKey
       }
@@ -201,6 +206,7 @@ export function mentionFromSearchHit(
         id: hit.id,
         title: hit.title || 'Untitled work widget',
         icon: 'widgets',
+        entity: searchHitEntity(hit),
         taskId: hit.taskId ?? null,
         conversationKey
       }
@@ -219,6 +225,7 @@ export function mentionFromSearchHit(
         id: hit.id,
         title: hit.title || 'Untitled entry',
         icon: 'neurology',
+        entity: searchHitEntity(hit),
         taskId: null,
         conversationKey
       }

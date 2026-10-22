@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from 'react'
 import Icon from './Icon'
-import { resolveEntityIcon, type PlexiiIconKind } from '../lib/plexiiIconMap'
+import { resolveEntityIcon, docTypeEntity, type PlexiiIconKind } from '../lib/plexiiIconMap'
 import type { PlexiiIconAsset } from '../lib/plexiiIconAssets.generated'
 
 // The one way to draw an ENTITY's icon — an app, a work widget kind, a tool or
@@ -178,6 +178,86 @@ export function PlexiiTileIcon({
       style={{ background: 'color-mix(in srgb, currentColor 12%, transparent)' }}
     >
       <Icon name={fallback} size={22} />
+    </span>
+  )
+}
+
+/**
+ * A document's icon by its type: the app it belongs to (a PlexiiWrite doc wears
+ * PlexiiWrite), or the work widget kind for a widget file. A type with no
+ * entity draws `fallback` exactly as the call site drew it before.
+ */
+export function PlexiiDocIcon({
+  docType,
+  widgetKind,
+  size = 16,
+  fallback,
+  fallbackClassName = '',
+  fallbackFilled,
+  className = '',
+  label
+}: {
+  docType: string | null | undefined
+  widgetKind?: string | null
+  size?: number
+  fallback: string
+  fallbackClassName?: string
+  fallbackFilled?: boolean
+  className?: string
+  label?: string
+}): JSX.Element {
+  const ent = docTypeEntity(docType, widgetKind)
+  if (!ent) {
+    return <Icon name={fallback} size={size} filled={fallbackFilled} className={`${fallbackClassName} ${className}`.trim()} />
+  }
+  return (
+    <PlexiiIcon
+      kind={ent.kind}
+      id={ent.id}
+      size={size}
+      label={label}
+      fallback={fallback}
+      fallbackClassName={fallbackClassName}
+      fallbackFilled={fallbackFilled}
+      className={className}
+    />
+  )
+}
+
+/**
+ * The common "glyph in a tinted chip" pattern, made entity-aware: an entity
+ * with a Plexii asset wears its tile bare at the chip's size (the tile is its
+ * own coloured chip); anything else keeps the chip and glyph exactly as the
+ * call site drew it before.
+ */
+export function PlexiiChipIcon({
+  entity,
+  fallback,
+  size,
+  glyphSize,
+  chipClassName,
+  chipStyle,
+  className = '',
+  fallbackFilled
+}: {
+  entity: { kind: PlexiiIconKind; id: string } | null | undefined
+  fallback: string
+  /** The chip's edge in px; the tile is drawn at this size. */
+  size: number
+  glyphSize: number
+  /** Classes for the fallback chip (size, radius, tint). */
+  chipClassName: string
+  chipStyle?: CSSProperties
+  /** Classes applied to the bare tile (layout only, e.g. shrink-0, margins). */
+  className?: string
+  fallbackFilled?: boolean
+}): JSX.Element {
+  if (entity && resolveEntityIcon(entity.kind, entity.id).asset) {
+    return <PlexiiIcon kind={entity.kind} id={entity.id} size={size} fallback={fallback} className={`shrink-0 ${className}`.trim()} />
+  }
+  return (
+    <span className={chipClassName} style={chipStyle}>
+      <Icon name={fallback} size={glyphSize} filled={fallbackFilled} />
     </span>
   )
 }

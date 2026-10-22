@@ -34,6 +34,7 @@ import {
 } from '../lib/modelPrefs'
 import { haptic } from '../lib/haptics'
 import Icon from './Icon'
+import PlexiiIcon from './PlexiiIcon'
 import { useViewStore } from '../stores/view'
 import AccountSection from './settings/AccountSection'
 import OrganisationSection from './settings/OrganisationSection'
@@ -243,7 +244,11 @@ export default function SettingsPanel({
                   : 'border-transparent text-[var(--ink-70)] hover:bg-[var(--surface-raised)]'
               }`}
             >
-              <Icon name={t.icon} size={13} className={active ? 'text-accent' : 'text-[var(--ink-50)]'} />
+              {t.id === 'organisation' ? (
+                <PlexiiIcon kind="tool" id="organisation" size={15} fallback={t.icon} fallbackClassName={active ? 'text-accent' : 'text-[var(--ink-50)]'} />
+              ) : (
+                <Icon name={t.icon} size={13} className={active ? 'text-accent' : 'text-[var(--ink-50)]'} />
+              )}
               <span>{t.label}</span>
             </button>
           )

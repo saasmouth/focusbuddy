@@ -16,6 +16,7 @@ import Modal from '../plexi/Modal'
 import { renderMarkdown } from '../../lib/renderMarkdownLite'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
+import PlexiiIcon, { PlexiiDocIcon } from '../PlexiiIcon'
 import { areaTone } from '../../lib/areaTones'
 
 // Plain text out of a serialized Tiptap document, best-effort.
@@ -255,7 +256,7 @@ function KnowledgeMini({ title, body, tags }: { title: string; body: string; tag
   return (
     <div className="max-w-[280px] rounded-[var(--radius-chip)] bg-[var(--surface-raised)] shadow-[0_0_0_1px_var(--edge-hairline)] px-2.5 py-2 flex flex-col gap-1">
       <span className="flex items-center gap-1.5 fb-t-caption font-semibold text-[var(--ink-100)]">
-        <Icon name="neurology" size={12} className={`${areaTone('brain')} shrink-0`} />
+        <PlexiiIcon kind="app" id="plexibrain" size={14} fallback="neurology" fallbackClassName={areaTone('brain')} className="shrink-0" />
         <span className="truncate">{title}</span>
       </span>
       <span className="fb-t-caption text-[var(--ink-50)] line-clamp-2 leading-snug">{body}</span>
@@ -281,7 +282,7 @@ function DocumentMini({ docType, title }: { docType: string; title: string }): R
   const icon = docType === 'slides' ? 'slideshow' : docType === 'design' ? 'palette' : docType === 'draw' ? 'brush' : 'description'
   return (
     <div className="max-w-[260px] rounded-[var(--radius-chip)] bg-[var(--surface-raised)] shadow-[0_0_0_1px_var(--edge-hairline),var(--shadow-soft)] px-2.5 py-2 flex items-center gap-2">
-      <Icon name={icon} size={16} className={`${areaTone('office')} shrink-0`} />
+      <PlexiiDocIcon docType={docType} size={18} fallback={icon} fallbackClassName={areaTone('office')} className="shrink-0" />
       <span className="min-w-0">
         <span className="block fb-t-caption font-semibold text-[var(--ink-100)] truncate">{title}</span>
         <span className="block fb-t-caption text-[var(--ink-40)] capitalize">{docType}</span>

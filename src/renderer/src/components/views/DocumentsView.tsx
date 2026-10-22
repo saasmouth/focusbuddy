@@ -6,6 +6,8 @@ import { useViewStore } from '../../stores/view'
 import { useAccountStore } from '../../stores/account'
 import { createLiveDoc } from '../../lib/docCollabClient'
 import Icon from '../Icon'
+import { PlexiiDocIcon } from '../PlexiiIcon'
+import { docTypeEntity } from '../../lib/plexiiIconMap'
 import { DashboardHeader } from '../plexi'
 import DocFiledInChip from '../DocFiledInChip'
 import { setDocDrag } from '../../lib/docMetaCache'
@@ -150,7 +152,7 @@ export default function DocumentsView(): JSX.Element {
                     : 'border-[var(--edge-soft)] hover:border-[rgb(var(--accent)/0.5)]'
                 }`}
               >
-                <Icon name={t.icon} size={20} className={docType === t.type ? 'text-accent' : 'text-[var(--ink-40)]'} />
+                <PlexiiDocIcon docType={t.type} size={24} fallback={t.icon} fallbackClassName={docType === t.type ? 'text-accent' : 'text-[var(--ink-40)]'} />
                 <div className="fb-t-body font-medium text-[var(--ink-100)] mt-1.5">{t.label}</div>
                 <div className="fb-t-caption">{t.blurb}</div>
               </button>
@@ -186,7 +188,7 @@ export default function DocumentsView(): JSX.Element {
             <span>Or start blank:</span>
             {TYPES.map((t) => (
               <button key={t.type} onClick={() => void blank(t.type)} className="inline-flex items-center gap-1 fb-press hover:text-accent">
-                <Icon name={t.icon} size={13} />
+                <PlexiiDocIcon docType={t.type} size={15} fallback={t.icon} />
                 {t.label}
               </button>
             ))}
@@ -227,8 +229,8 @@ export default function DocumentsView(): JSX.Element {
                 style={{ animationDelay: `${Math.min(i * 35, 350)}ms` }}
                 className="group flex items-center gap-3 fb-tile fb-press fb-lift fb-fade-in-up px-3.5 py-3 cursor-pointer"
               >
-                <div className="h-9 w-9 rounded-[var(--radius-chip)] bg-accent/10 text-accent inline-flex items-center justify-center shrink-0">
-                  <Icon name={typeIcon(d.docType)} size={17} />
+                <div className={`h-9 w-9 rounded-[var(--radius-chip)] inline-flex items-center justify-center shrink-0 ${docTypeEntity(d.docType) ? '' : 'bg-accent/10 text-accent'}`}>
+                  <PlexiiDocIcon docType={d.docType} size={34} fallback={typeIcon(d.docType)} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="fb-t-body font-medium text-[var(--ink-100)] truncate">{d.title}</div>
@@ -287,8 +289,8 @@ export default function DocumentsView(): JSX.Element {
                     key={d.id}
                     className="flex items-center gap-3 rounded-[var(--radius-row)] border-dashed bg-[var(--surface-sunken)] px-3.5 py-3"
                   >
-                    <div className="h-9 w-9 rounded-[var(--radius-chip)] bg-[var(--surface-base)] text-[var(--ink-40)] inline-flex items-center justify-center shrink-0">
-                      <Icon name={typeIcon(d.docType)} size={17} />
+                    <div className={`h-9 w-9 rounded-[var(--radius-chip)] inline-flex items-center justify-center shrink-0 ${docTypeEntity(d.docType) ? 'opacity-60' : 'bg-[var(--surface-base)] text-[var(--ink-40)]'}`}>
+                      <PlexiiDocIcon docType={d.docType} size={34} fallback={typeIcon(d.docType)} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="fb-t-body font-medium text-[var(--ink-50)] truncate line-through decoration-[var(--edge-firm)]">

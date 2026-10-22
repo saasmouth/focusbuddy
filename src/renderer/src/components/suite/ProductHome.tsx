@@ -1,4 +1,6 @@
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
+import { suiteProductEntity } from '../../lib/plexiiIconMap'
 import { useViewStore } from '../../stores/view'
 import { productByKey, STATUS_LABEL } from '@shared/plexiSuite'
 import UpvoteButton from './UpvoteButton'
@@ -54,12 +56,16 @@ export default function ProductHome({ productKey }: { productKey: string }): JSX
           }}
         >
           <div className="flex items-start gap-4">
-            <span
-              className="shrink-0 inline-flex h-16 w-16 items-center justify-center rounded-2xl"
-              style={{ backgroundColor: `${product.accent}24`, color: product.accent }}
-            >
-              <Icon name={product.icon} size={32} filled />
-            </span>
+            {suiteProductEntity(product.key) ? (
+              <PlexiiIcon kind={suiteProductEntity(product.key)!.kind} id={suiteProductEntity(product.key)!.id} size={64} fallback={product.icon} fallbackFilled className="shrink-0" />
+            ) : (
+              <span
+                className="shrink-0 inline-flex h-16 w-16 items-center justify-center rounded-2xl"
+                style={{ backgroundColor: `${product.accent}24`, color: product.accent }}
+              >
+                <Icon name={product.icon} size={32} filled />
+              </span>
+            )}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-[24px] font-bold tracking-tight text-[var(--ink-100)]">{product.name}</h1>

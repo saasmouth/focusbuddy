@@ -17,6 +17,8 @@ import {
 import { catalogFor } from '../../lib/widgetCatalog'
 import { chimeOut } from '../../lib/audioBeep'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
+import { resolveEntityIcon } from '../../lib/plexiiIconMap'
 import AgeHalo from '../AgeHalo'
 import { SectionLayoutContext } from './sectionLayoutContext'
 import { confirmDialog } from '../plexi/PromptDialog'
@@ -698,12 +700,16 @@ function CompactChildView({
         onClick={handleOpen}
         title="Drag out of the section to move it back to the desk"
       >
-        <span
-          className="h-7 w-7 rounded inline-flex items-center justify-center shrink-0"
-          style={{ backgroundColor: `${color}22`, color }}
-        >
-          <Icon name={entry?.icon ?? 'apps'} size={16} className="" style={{ color }} />
-        </span>
+        {resolveEntityIcon('widget', child.kind).asset ? (
+          <PlexiiIcon kind="widget" id={child.kind} size={28} fallback={entry?.icon ?? 'apps'} className="shrink-0" />
+        ) : (
+          <span
+            className="h-7 w-7 rounded inline-flex items-center justify-center shrink-0"
+            style={{ backgroundColor: `${color}22`, color }}
+          >
+            <Icon name={entry?.icon ?? 'apps'} size={16} className="" style={{ color }} />
+          </span>
+        )}
         <span className="text-sm text-[var(--ink-100)] truncate flex-1 min-w-0">{title}</span>
         <button
           onClick={(e) => {
@@ -742,12 +748,16 @@ function CompactChildView({
         className="fb-btn-surface w-full h-full flex flex-col items-center justify-center gap-1 hover:border-[var(--edge-firm)] hover:shadow-md transition-colors p-2"
         title={title}
       >
-        <span
-          className="h-10 w-10 rounded inline-flex items-center justify-center"
-          style={{ backgroundColor: `${color}22`, color }}
-        >
-          <Icon name={entry?.icon ?? 'apps'} size={22} style={{ color }} />
-        </span>
+        {resolveEntityIcon('widget', child.kind).asset ? (
+          <PlexiiIcon kind="widget" id={child.kind} size={40} fallback={entry?.icon ?? 'apps'} />
+        ) : (
+          <span
+            className="h-10 w-10 rounded inline-flex items-center justify-center"
+            style={{ backgroundColor: `${color}22`, color }}
+          >
+            <Icon name={entry?.icon ?? 'apps'} size={22} style={{ color }} />
+          </span>
+        )}
         <span className="text-[10px] text-[var(--ink-70)] truncate w-full text-center">{title}</span>
       </button>
       <button

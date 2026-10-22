@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import type { DocumentMeta, FbNode, Widget, WidgetKind } from '@shared/types'
 import Icon from '../Icon'
+import PlexiiIcon, { PlexiiDocIcon } from '../PlexiiIcon'
 import Modal from '../plexi/Modal'
 import { renderWidget } from '../widgets/renderWidget'
 import { WidgetSurfaceContext } from '../../lib/widgetSurface'
@@ -105,7 +106,7 @@ function DeskObjectHeader({ widget, deskId }: { widget: Widget; deskId?: string 
   const label = catalogFor(widget.kind)?.label ?? widget.kind
   return (
     <div className="flex items-center gap-1.5 px-2 py-1 border-b border-[var(--edge-soft)] shrink-0">
-      <Icon name={catalogFor(widget.kind)?.icon ?? 'widgets'} size={13} className="text-[var(--ink-40)] shrink-0" />
+      <PlexiiIcon kind="widget" id={widget.kind} size={15} fallback={catalogFor(widget.kind)?.icon ?? 'widgets'} fallbackClassName="text-[var(--ink-40)]" className="shrink-0" />
       <span className="flex-1 min-w-0 truncate text-[11.5px] text-[var(--ink-80)]">
         {widgetDisplayName(widget)}
       </span>
@@ -352,10 +353,13 @@ export function DeskWidgetPicker({
                 data-testid={`dashboard-picker-object-${w.id}`}
                 className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-[var(--surface-sunken)]"
               >
-                <Icon
-                  name={catalogFor(w.kind)?.icon ?? 'widgets'}
-                  size={15}
-                  className="text-[var(--ink-50)] shrink-0"
+                <PlexiiIcon
+                  kind="widget"
+                  id={w.kind}
+                  size={17}
+                  fallback={catalogFor(w.kind)?.icon ?? 'widgets'}
+                  fallbackClassName="text-[var(--ink-50)]"
+                  className="shrink-0"
                 />
                 <span className="flex-1 min-w-0 truncate fb-t-body text-[var(--ink-100)]">
                   {widgetDisplayName(w)}
@@ -452,7 +456,7 @@ export function DocumentPicker({
                 data-testid={`dashboard-picker-doc-${d.id}`}
                 className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-[var(--surface-sunken)]"
               >
-                <Icon name={icon(d.docType)} size={15} className="text-[var(--ink-50)] shrink-0" />
+                <PlexiiDocIcon docType={d.docType} widgetKind={d.widgetKind} size={17} fallback={icon(d.docType)} fallbackClassName="text-[var(--ink-50)]" className="shrink-0" />
                 <span className="flex-1 min-w-0 truncate fb-t-body text-[var(--ink-100)]">
                   {d.title || 'Untitled'}
                 </span>

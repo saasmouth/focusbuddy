@@ -4,6 +4,7 @@ import type { ActionProposal, GoToTarget, Widget, WidgetKind } from '@shared/typ
 import WidgetFrame from './WidgetFrame'
 import UnifiedConnectedMenu from '../contextMenu/UnifiedConnectedMenu'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
 import { useWidgetStore } from '../../stores/widgets'
 import { useNodeStore } from '../../stores/nodes'
 import { applyProposal } from '../../lib/actionExecutor'
@@ -1569,10 +1570,13 @@ function SidePanel({
                   className="text-[11px] bg-[var(--surface-sunken)] rounded px-2 py-1 flex items-center gap-2"
                   data-testid={`mindmap-attached-${w.id}`}
                 >
-                  <Icon
-                    name={catalogFor(w.kind)?.icon ?? 'widgets'}
-                    size={12}
-                    className="text-[var(--ink-50)] shrink-0"
+                  <PlexiiIcon
+                    kind="widget"
+                    id={w.kind}
+                    size={14}
+                    fallback={catalogFor(w.kind)?.icon ?? 'widgets'}
+                    fallbackClassName="text-[var(--ink-50)]"
+                    className="shrink-0"
                   />
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-[var(--ink-90)] truncate">

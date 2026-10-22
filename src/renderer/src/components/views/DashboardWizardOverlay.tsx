@@ -16,6 +16,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import Icon from '../Icon'
+import { PlexiiChipIcon } from '../PlexiiIcon'
+import { homeWidgetEntity } from '../../lib/plexiiIconMap'
 import {
   WIZARD_QUESTIONS,
   EMPTY_ANSWERS,
@@ -577,9 +579,7 @@ export default function DashboardWizardOverlay({
                         animate={{ opacity: 1, x: 0 }}
                         className="flex items-start gap-2.5"
                       >
-                        <span className={`mt-[1px] h-6 w-6 shrink-0 rounded-lg inline-flex items-center justify-center ${def.tint}`}>
-                          <Icon name={def.icon} size={14} />
-                        </span>
+                        <PlexiiChipIcon entity={homeWidgetEntity(def.id)} fallback={def.icon} size={24} glyphSize={14} className="mt-[1px]" chipClassName={`mt-[1px] h-6 w-6 shrink-0 rounded-lg inline-flex items-center justify-center ${def.tint}`} />
                         <span className="min-w-0 flex-1">
                           <span className="text-[12.5px] font-medium text-[var(--ink-90)]">{def.name}</span>
                           <span className="fb-t-caption ml-1.5">{SIZE_LABEL[w.size] ?? w.size}</span>

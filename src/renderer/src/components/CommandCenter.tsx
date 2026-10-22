@@ -10,7 +10,7 @@ import { WIDGET_CATALOG, isAdvancedKind } from '../lib/widgetCatalog'
 import { getNavPrefs, setNavPrefs } from '../lib/navPrefs'
 import Icon from './Icon'
 import PlexiiIcon from './PlexiiIcon'
-import { WIDGET_ICON_ASSETS, type EntityRef } from '../lib/plexiiIconMap'
+import { WIDGET_ICON_ASSETS, searchHitEntity, type EntityRef } from '../lib/plexiiIconMap'
 import { parseAttentionCommand, hasAttentionCommand, isCapturePrefix, LEADING_CAPTURE_WORD } from '../lib/attentionCommand'
 import { useCapabilityEnabled, useCapabilityStore } from '../stores/capabilities'
 import { entitlementFor, capabilityForDocType, DOC_TYPE_LABEL } from '../lib/entitlementReason'
@@ -79,6 +79,8 @@ interface CommandResult {
   label: string
   hint: string
   icon: string
+  /** The app, tool or work widget the row is about, when its id does not say (search hits). */
+  entity?: EntityRef | null
   // 'jump' = navigate to a node, 'action' = run a function.
   kind: 'jump' | 'action'
   // Score for ranking — higher is better.
@@ -875,6 +877,7 @@ export default function CommandCenter({
         label: h.title,
         hint: h.snippet ? `${hitKindLabel(h)} · ${h.snippet}` : hitKindLabel(h),
         icon: hitIcon(h),
+        entity: searchHitEntity(h),
         kind: 'action',
         // h.score (0..1000+) scaled so a strong content/title match sits at the
         // top, a weak body match still above the static nav items.
@@ -1093,7 +1096,7 @@ export default function CommandCenter({
                       >
                         {(() => {
                           const tone = i === highlightIdx ? 'text-accent shrink-0' : 'text-[var(--ink-50)] shrink-0'
-                          const ent = commandEntity(r.id)
+                          const ent = r.entity ?? commandEntity(r.id)
                           return ent ? (
                             <PlexiiIcon kind={ent.kind} id={ent.id} size={18} fallback={r.icon} className="shrink-0" fallbackClassName={tone} />
                           ) : (

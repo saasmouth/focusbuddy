@@ -1,5 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
+import type { PlexiiIconKind } from '../../lib/plexiiIconMap'
 
 // ── Plexii dashboard primitives ──────────────────────────────────────────────
 // The shared component layer that makes every Plexii surface read as one suite:
@@ -136,6 +138,7 @@ export function StatTile({
 export function RailCard({
   title,
   icon,
+  entity,
   tone = 'accent',
   action,
   trailing,
@@ -147,6 +150,9 @@ export function RailCard({
 }: {
   title?: string
   icon?: string
+  /** The app, tool or work widget the panel is. Its Plexii icon replaces `icon`
+   *  (which stays the fallback). */
+  entity?: { kind: PlexiiIconKind; id: string }
   tone?: Tone
   action?: { label: string; onClick: () => void }
   trailing?: ReactNode
@@ -165,7 +171,11 @@ export function RailCard({
       {title && (
         <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-2 shrink-0">
           <h3 className="fb-t-title text-[var(--ink-90)] flex items-center gap-2">
-            {icon && <Icon name={icon} size={16} className={TONE_TEXT[tone]} />}
+            {entity ? (
+              <PlexiiIcon kind={entity.kind} id={entity.id} size={18} fallback={icon ?? 'apps'} fallbackClassName={TONE_TEXT[tone]} className="shrink-0" />
+            ) : (
+              icon && <Icon name={icon} size={16} className={TONE_TEXT[tone]} />
+            )}
             {title}
           </h3>
           {(action || trailing) && (

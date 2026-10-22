@@ -3,6 +3,7 @@ import { useDocumentsStore } from '../../stores/documents'
 import { useViewStore } from '../../stores/view'
 import { DRAW_SIZES, blankDrawBody, type DrawBody, type DrawSize } from '@shared/draw'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
 
 // PlexiDraw hub — the door into the vector + painting studio. Start an artwork
 // at any artboard size and it opens straight into the studio. Everything about
@@ -45,7 +46,7 @@ export default function DrawView(): JSX.Element {
     <div className="h-full overflow-auto desk-paper no-tod" data-testid="draw-hub">
       <div className="w-full px-8 py-6">
         <div className="flex items-center gap-2.5 mb-1">
-          <Icon name="brush" size={22} className="text-accent" />
+          <PlexiiIcon kind="app" id="draw" size={28} fallback="brush" fallbackClassName="text-accent" className="shrink-0" />
           <h1 className="text-[20px] font-semibold text-[var(--ink-100)]">PlexiiDraw</h1>
         </div>
         <p className="text-[13px] text-[var(--ink-50)] mb-5 max-w-[720px]">
@@ -97,7 +98,7 @@ export default function DrawView(): JSX.Element {
                   onClick={() => goDocument(d.id)}
                   data-testid={`draw-open-${d.id}`}
                 >
-                  <Icon name="brush" size={16} className="text-accent shrink-0" />
+                  <PlexiiIcon kind="app" id="draw" size={18} fallback="brush" fallbackClassName="text-accent" className="shrink-0" />
                   <span className="flex-1 min-w-0 truncate text-[13px] text-[var(--ink-90)]">{d.title || 'Untitled artwork'}</span>
                   <button
                     onClick={(e) => {

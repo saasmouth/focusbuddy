@@ -237,6 +237,84 @@ const SEGMENT_ENTITY: Record<string, EntityRef> = {
   'plexibrain:flows': { kind: 'tool', id: 'flows' }
 }
 
+/**
+ * The app a document type belongs to: a PlexiiWrite doc wears PlexiiWrite's
+ * icon wherever a document is listed (Recent, Office home, pickers, editor
+ * headers). A widget file wears its work widget kind's icon. Unknown or
+ * missing types return null, so the call site keeps its own glyph.
+ */
+export const DOC_TYPE_APP: Readonly<Record<string, PlexiiAppId>> = {
+  doc: 'docs',
+  sheet: 'sheets',
+  slides: 'slides',
+  map: 'diagrams',
+  design: 'design',
+  draw: 'draw'
+}
+
+export function docTypeEntity(docType: string | null | undefined, widgetKind?: string | null): EntityRef | null {
+  if (!docType) return null
+  if (docType === 'widget') return widgetKind ? { kind: 'widget', id: widgetKind } : null
+  const app = DOC_TYPE_APP[docType]
+  return app ? { kind: 'app', id: app } : null
+}
+
+/**
+ * The entity a Plexii Suite product card (shared/plexiSuite, keyed by product
+ * key) stands for. Products with no icon in the set (Agents, Dash, Tables,
+ * Reports, Build, Widgets, API, Marketplace, Ops) are absent on purpose and
+ * keep their Material glyph.
+ */
+export const SUITE_PRODUCT_ENTITY: Readonly<Record<string, EntityRef>> = {
+  plexidesk: { kind: 'app', id: 'plexidesk' },
+  plexidocs: { kind: 'app', id: 'docs' },
+  plexisheets: { kind: 'app', id: 'sheets' },
+  plexislides: { kind: 'app', id: 'slides' },
+  plexidiagrams: { kind: 'app', id: 'diagrams' },
+  plexidesign: { kind: 'app', id: 'design' },
+  plexidraw: { kind: 'app', id: 'draw' },
+  plexiforms: { kind: 'tool', id: 'forms' },
+  plexisign: { kind: 'app', id: 'sign' },
+  plexitasks: { kind: 'tool', id: 'all-tasks' },
+  plexiprojects: { kind: 'tool', id: 'projects' },
+  plexicalendar: { kind: 'app', id: 'calendar' },
+  pleximeet: { kind: 'app', id: 'meet' },
+  plexichat: { kind: 'app', id: 'chat' },
+  plexifiles: { kind: 'app', id: 'files' },
+  plexibrain: { kind: 'app', id: 'plexibrain' },
+  plexiflow: { kind: 'tool', id: 'flows' },
+  plexisearch: { kind: 'tool', id: 'search' },
+  pleximail: { kind: 'app', id: 'mail' },
+  plexivault: { kind: 'app', id: 'vault' }
+}
+
+export function suiteProductEntity(key: string): EntityRef | null {
+  return SUITE_PRODUCT_ENTITY[key] ?? null
+}
+
+/**
+ * The entity a dashboard (home) widget def stands for (views/homeWidgetDefs,
+ * keyed by HomeWidgetId). Only defs that ARE an app, tool or work widget are
+ * here; summaries (Standup, Pulse, Overdue radar, …) are not entities and keep
+ * their glyph.
+ */
+export const HOME_WIDGET_ENTITY: Readonly<Record<string, EntityRef>> = {
+  'app-mail': { kind: 'app', id: 'mail' },
+  'app-chat': { kind: 'app', id: 'chat' },
+  'app-calendar': { kind: 'app', id: 'calendar' },
+  'app-files': { kind: 'app', id: 'files' },
+  'app-vault': { kind: 'app', id: 'vault' },
+  'app-browser': { kind: 'app', id: 'browser' },
+  'new-meeting': { kind: 'app', id: 'meet' },
+  'pinned-conversation': { kind: 'app', id: 'chat' },
+  // DEC-144: the home "Focus" widget is the Focus (Attention) work widget.
+  attention: { kind: 'widget', id: 'attention' }
+}
+
+export function homeWidgetEntity(id: string): EntityRef | null {
+  return HOME_WIDGET_ENTITY[id] ?? null
+}
+
 /** The entity behind a top-level view kind (Forms, Collaborations, …), if it has one. */
 export function viewKindEntity(viewKind: string): EntityRef | null {
   return VIEW_ENTITY[viewKind] ?? null
@@ -249,4 +327,31 @@ const VIEW_ENTITY: Record<string, EntityRef> = {
   shared: { kind: 'tool', id: 'shared' },
   plexidesk: { kind: 'app', id: 'plexidesk' },
   plexibrain: { kind: 'app', id: 'plexibrain' }
+}
+
+/**
+ * The entity a search hit belongs to: a document wears its app, a widget hit
+ * its kind, and the app-owned hit types (PlexiiBrain knowledge, Calendar
+ * events, PlexiiCall meetings, PlexiiSign envelopes, Mail) their app. Tasks,
+ * folders, files and table rows are not entities and keep their glyph.
+ */
+export function searchHitEntity(hit: { type: string; docType?: string | null; widgetKind?: string | null }): EntityRef | null {
+  switch (hit.type) {
+    case 'document':
+      return docTypeEntity(hit.docType, hit.widgetKind)
+    case 'widget':
+      return hit.widgetKind && WIDGET_ICON_ASSETS[hit.widgetKind as WidgetKind]?.asset ? { kind: 'widget', id: hit.widgetKind } : null
+    case 'knowledge':
+      return { kind: 'app', id: 'plexibrain' }
+    case 'event':
+      return { kind: 'app', id: 'calendar' }
+    case 'meeting':
+      return { kind: 'app', id: 'meet' }
+    case 'sign':
+      return { kind: 'app', id: 'sign' }
+    case 'mail':
+      return { kind: 'app', id: 'mail' }
+    default:
+      return null
+  }
 }

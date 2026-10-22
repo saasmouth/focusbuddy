@@ -21,8 +21,8 @@ import { transcribeRecording } from '../../lib/transcribeRecording'
 import { saveTranscriptDoc } from '../../lib/meetingWrapup'
 import { RailCard } from '../plexi'
 import Modal from '../plexi/Modal'
-import PlexiiIcon from '../PlexiiIcon'
-import type { EntityRef } from '../../lib/plexiiIconMap'
+import PlexiiIcon, { PlexiiChipIcon } from '../PlexiiIcon'
+import { resolveEntityIcon, type EntityRef } from '../../lib/plexiiIconMap'
 import Icon from '../Icon'
 import AppLogo from '../AppLogo'
 import { useSiteIcon } from '../../lib/siteIcon'
@@ -260,8 +260,16 @@ const SECTION_ENTITY: Record<string, EntityRef> = {
   plans: { kind: 'tool', id: 'projects' },
   tasks: { kind: 'tool', id: 'all-tasks' },
   calendar: { kind: 'app', id: 'calendar' },
+  documents: { kind: 'app', id: 'docs' },
   files: { kind: 'app', id: 'files' },
   vault: { kind: 'app', id: 'vault' }
+}
+
+/** The app or tool a shortcut tile opens, when it is one. */
+function shortcutEntity(target: ShortcutTarget): EntityRef | undefined {
+  if (target.kind === 'section') return SECTION_ENTITY[target.id]
+  if (target.kind === 'action' && target.action === 'new-meeting') return { kind: 'app', id: 'meet' }
+  return undefined
 }
 
 // The visual for one shortcut: favicon for websites (globe fallback), the real
@@ -300,6 +308,8 @@ function ShortcutGlyph({
     const app = apps.find((a) => a.id === target.appId)
     if (app) return <AppLogo app={app} size={size + 8} glyphSize={size - 2} />
   }
+  const entity = shortcutEntity(target)
+  if (entity) return <PlexiiIcon kind={entity.kind} id={entity.id} size={size + 4} fallback={icon} fallbackClassName={tone} className="shrink-0" />
   return <Icon name={icon} size={size} className={`${tone} shrink-0`} />
 }
 
@@ -325,7 +335,7 @@ function ShortcutChip({
   // Entities with their own tile — a section that is an app or tool, or a
   // connected app — wear it bare at the chip's size: a tile inside a tinted
   // chip is a border around a border.
-  const entity = target.kind === 'section' ? SECTION_ENTITY[target.id] : undefined
+  const entity = shortcutEntity(target)
   const app = target.kind === 'connected-app' ? apps.find((a) => a.id === target.appId) : undefined
   if (entity || app) {
     return (
@@ -1098,6 +1108,7 @@ export function AppIconWidget({
   name,
   icon,
   surface,
+  entity,
   testId,
   buttonTestId,
   onPress,
@@ -1107,6 +1118,9 @@ export function AppIconWidget({
   icon: string
   // Tailwind classes for the colored icon surface (gradient).
   surface: string
+  /** The app this tile opens. Its Plexii icon is already a coloured tile, so it
+   *  sits on a quiet surface instead of the gradient. */
+  entity?: EntityRef
   testId: string
   buttonTestId: string
   onPress: () => void
@@ -1119,9 +1133,15 @@ export function AppIconWidget({
         data-testid={buttonTestId}
         aria-label={name}
         title={name}
-        className={`absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-2xl fb-press text-white ${surface}`}
+        className={`absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-2xl fb-press ${
+          entity && resolveEntityIcon(entity.kind, entity.id).asset ? 'fb-tile-lit text-[var(--ink-100)]' : `text-white ${surface}`
+        }`}
       >
-        <Icon name={icon} size={26} />
+        {entity && resolveEntityIcon(entity.kind, entity.id).asset ? (
+          <PlexiiIcon kind={entity.kind} id={entity.id} size={40} fallback={icon} />
+        ) : (
+          <Icon name={icon} size={26} />
+        )}
         <span className="max-w-full truncate px-2 text-[10.5px] font-semibold">{name}</span>
       </button>
       {children}
@@ -1136,6 +1156,7 @@ function ActionHeroCard({
   blurb,
   icon,
   chipClass,
+  entity,
   actionLabel,
   actionTone,
   testId,
@@ -1147,6 +1168,7 @@ function ActionHeroCard({
   blurb: string
   icon: string
   chipClass: string
+  entity?: EntityRef
   actionLabel: string
   actionTone: string
   testId: string
@@ -1162,9 +1184,7 @@ function ActionHeroCard({
           data-testid={buttonTestId}
           className="flex-1 flex w-full items-center gap-3 fb-tile-lit fb-press px-3 py-2.5 text-left"
         >
-          <span className={`inline-flex h-11 w-11 items-center justify-center rounded-xl shrink-0 ${chipClass}`}>
-            <Icon name={icon} size={21} />
-          </span>
+          <PlexiiChipIcon entity={entity} fallback={icon} size={44} glyphSize={21} chipClassName={`inline-flex h-11 w-11 items-center justify-center rounded-xl shrink-0 ${chipClass}`} />
           <span className="min-w-0 flex-1">
             <span className="block fb-t-body font-semibold text-[var(--ink-100)]">{title}</span>
             <span className="block fb-t-caption truncate">{blurb}</span>
@@ -1189,6 +1209,7 @@ export function NewMeetingWidget({ size = 'icon' }: { size?: WidgetSize } = {}):
         title="New meeting"
         blurb="Face to face beats forty messages"
         icon="plexii:meet"
+        entity={{ kind: 'app', id: 'meet' }}
         chipClass="bg-rose-500/10 text-rose-500"
         actionLabel="Start"
         actionTone="text-rose-500"
@@ -1203,6 +1224,7 @@ export function NewMeetingWidget({ size = 'icon' }: { size?: WidgetSize } = {}):
     <AppIconWidget
       name="New meeting"
       icon="plexii:meet"
+      entity={{ kind: 'app', id: 'meet' }}
       surface="bg-gradient-to-b from-rose-500 to-rose-600"
       testId="home-new-meeting"
       buttonTestId="home-new-meeting-start"
@@ -1348,7 +1370,7 @@ export function PinnedConversationWidget({
   const dead = !!config?.conversationId && !conv
 
   return (
-    <RailCard title="Pinned conversation" icon="plexii:chat" tone="sky">
+    <RailCard title="Pinned conversation" icon="plexii:chat" entity={{ kind: 'app', id: 'chat' }} tone="sky">
       {dead ? (
         <EmptyState text="This conversation is gone. Remove the widget or pin another." />
       ) : (

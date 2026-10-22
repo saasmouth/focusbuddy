@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
 import BrainBulkAdd from '../brain/BrainBulkAdd'
 import MemoryPanel from '../brain/MemoryPanel'
 import { useKnowledgeStore } from '../../stores/knowledge'
@@ -77,7 +78,7 @@ export default function KnowledgeView(): JSX.Element {
       <div className="w-[320px] shrink-0 border-r border-[var(--edge-soft)] flex flex-col">
         <div className="px-4 py-3.5 border-b border-[var(--edge-soft)]">
           <div className="flex items-center gap-2">
-            <Icon name="neurology" size={18} className="text-violet-500" filled />
+            <PlexiiIcon kind="app" id="plexibrain" size={20} fallback="neurology" fallbackFilled fallbackClassName="text-violet-500" className="shrink-0" />
             <h1 className="text-[15px] font-bold tracking-tight text-[var(--ink-100)]">PlexiiBrain</h1>
           </div>
           <p className="mt-0.5 text-[11.5px] text-[var(--ink-70)]">
@@ -143,7 +144,7 @@ export default function KnowledgeView(): JSX.Element {
           />
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-center px-6">
-            <Icon name="neurology" size={30} className="text-[var(--ink-30)]" />
+            <PlexiiIcon kind="app" id="plexibrain" size={36} fallback="neurology" fallbackClassName="text-[var(--ink-30)]" />
             <p className="mt-2 text-[13px] text-[var(--ink-70)] max-w-sm leading-relaxed">
               Select an entry to read or edit it, or add a new one. Everything here grounds the AI's answers in your own
               documented truth.

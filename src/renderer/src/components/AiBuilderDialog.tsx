@@ -3,6 +3,8 @@ import type { AiBuildSuggestion, WidgetKind } from '@shared/types'
 import { catalogFor } from '../lib/widgetCatalog'
 import { useMagneticHover } from '../lib/useMagneticHover'
 import Icon from './Icon'
+import PlexiiIcon from './PlexiiIcon'
+import { resolveEntityIcon } from '../lib/plexiiIconMap'
 import SuggestionPreview from './ai/SuggestionPreview'
 import CreditsMeter from './CreditsMeter'
 import { useAiBusyLabel } from '../lib/localAiEngine'
@@ -310,13 +312,17 @@ function SuggestionCard({
       }`}
     >
       <div className="flex items-start gap-2">
-        <span
-          className={`h-6 w-6 rounded-md inline-flex items-center justify-center shrink-0 ${
-            selected ? 'bg-accent text-white' : 'bg-accent/10 text-accent'
-          }`}
-        >
-          <Icon name={catalog?.icon ?? 'widgets'} size={13} />
-        </span>
+        {resolveEntityIcon('widget', suggestion.kind).asset ? (
+          <PlexiiIcon kind="widget" id={suggestion.kind} size={24} fallback={catalog?.icon ?? 'widgets'} className="shrink-0" />
+        ) : (
+          <span
+            className={`h-6 w-6 rounded-md inline-flex items-center justify-center shrink-0 ${
+              selected ? 'bg-accent text-white' : 'bg-accent/10 text-accent'
+            }`}
+          >
+            <Icon name={catalog?.icon ?? 'widgets'} size={13} />
+          </span>
+        )}
         <div className="flex-1 min-w-0">
           <div className="text-[10px] uppercase tracking-wider text-[var(--ink-50)]">
             {catalog?.label ?? suggestion.kind}

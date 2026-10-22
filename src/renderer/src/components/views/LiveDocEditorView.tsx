@@ -21,6 +21,7 @@ import type { Editor } from '@tiptap/react'
 import { listTeams, inviteTeamToDoc, type Team } from '../../lib/teamsClient'
 import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor, DrawStudio } from '@office'
 import Icon from '../Icon'
+import { PlexiiDocIcon } from '../PlexiiIcon'
 import CollaboratorBar from './CollaboratorBar'
 import { collaborators } from '../../lib/presence'
 import * as Y from 'yjs'
@@ -487,7 +488,7 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
         <button onClick={() => back()} className="icon-btn" title="Back">
           <Icon name="arrow_back" size={17} />
         </button>
-        <Icon name={typeIcon} size={16} className="text-accent shrink-0" />
+        <PlexiiDocIcon docType={meta.docType} size={18} fallback={typeIcon} fallbackClassName="text-accent" className="shrink-0" />
         <span className="flex-1 min-w-0 text-[14px] font-semibold text-[var(--ink-100)] truncate">
           {meta.title}
         </span>

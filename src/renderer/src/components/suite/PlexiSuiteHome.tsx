@@ -1,4 +1,6 @@
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
+import { suiteProductEntity } from '../../lib/plexiiIconMap'
 import { requestNewDesk } from '../../lib/newDesk'
 import { useViewStore } from '../../stores/view'
 import { useAccountStore } from '../../stores/account'
@@ -111,15 +113,26 @@ function ProductTile({ product }: { product: PlexiProduct }): JSX.Element {
         className="w-full text-left"
       >
         <div className="flex items-start gap-2.5">
-          <span
-            className={`shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg ${ready ? '' : 'opacity-50 grayscale'}`}
-            // Calm, unified icon treatment: a neutral glyph on a quiet accent-tinted
-            // chip, so each product keeps a whisper of its colour without the whole
-            // grid reading as a saturated rainbow.
-            style={{ backgroundColor: `${product.accent}26`, color: 'var(--ink-90)' }}
-          >
-            <Icon name={product.icon} size={18} filled />
-          </span>
+          {suiteProductEntity(product.key) ? (
+            // The product's own Plexii icon is already a coloured tile: no chip behind it.
+            <PlexiiIcon
+              kind={suiteProductEntity(product.key)!.kind}
+              id={suiteProductEntity(product.key)!.id}
+              size={36}
+              fallback={product.icon}
+              className={`shrink-0 ${ready ? '' : 'opacity-50 grayscale'}`}
+            />
+          ) : (
+            <span
+              className={`shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg ${ready ? '' : 'opacity-50 grayscale'}`}
+              // Calm, unified icon treatment: a neutral glyph on a quiet accent-tinted
+              // chip, so each product keeps a whisper of its colour without the whole
+              // grid reading as a saturated rainbow.
+              style={{ backgroundColor: `${product.accent}26`, color: 'var(--ink-90)' }}
+            >
+              <Icon name={product.icon} size={18} filled />
+            </span>
+          )}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <span
@@ -271,12 +284,7 @@ export default function PlexiSuiteHome(): JSX.Element {
             className="group w-full text-left"
           >
             <div className="flex items-center gap-4">
-              <span
-                className="shrink-0 inline-flex h-14 w-14 items-center justify-center rounded-2xl"
-                style={{ backgroundColor: `${PLEXI_DESK.accent}24`, color: PLEXI_DESK.accent }}
-              >
-                <Icon name={PLEXI_DESK.icon} size={28} filled />
-              </span>
+              <PlexiiIcon kind="app" id="plexidesk" size={56} fallback={PLEXI_DESK.icon} fallbackFilled className="shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <h2 className="text-[19px] font-bold text-[var(--ink-100)]">PlexiiDesk</h2>

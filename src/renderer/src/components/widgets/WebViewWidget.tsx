@@ -15,6 +15,7 @@ import BrowserSurface, {
   type WebviewEl
 } from '../browser/BrowserSurface'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
 import { useAppNotifications } from '../../stores/appNotifications'
 import { useSignInWatch } from '../../lib/signInWatch'
@@ -560,7 +561,7 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
           className="h-full w-full flex flex-col items-stretch justify-center gap-2 p-4"
         >
           <label className="text-xs uppercase tracking-wider text-[var(--ink-50)] flex items-center gap-1.5">
-            <Icon name={entry?.icon ?? 'public'} size={16} className="text-[var(--ink-70)]" />
+            <PlexiiIcon kind="widget" id={widget.kind} size={18} fallback={entry?.icon ?? 'public'} fallbackClassName="text-[var(--ink-70)]" />
             {entry?.label ?? 'URL'}
           </label>
           <input

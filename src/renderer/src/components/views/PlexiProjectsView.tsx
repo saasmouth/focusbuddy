@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
 import { DashboardHeader, StatusPill, StatTile, PLEXI_CARD, spawnSparkBurst } from '../plexi'
 import { useViewStore } from '../../stores/view'
 import { useNodeStore } from '../../stores/nodes'
@@ -140,7 +141,7 @@ export default function PlexiProjectsView(): JSX.Element {
           </div>
         ) : projects.length === 0 ? (
           <div className="px-3 py-16 text-center" data-testid="projects-empty">
-            <Icon name="account_tree" size={30} className="text-[var(--ink-30)]" />
+            <PlexiiIcon kind="tool" id="projects" size={36} fallback="account_tree" fallbackClassName="text-[var(--ink-30)]" className="mx-auto block" />
             <p className="mt-3 text-[14px] text-[var(--ink-70)] max-w-md mx-auto leading-relaxed">
               No plans yet. A plan is any folder that contains tasks. Create a folder, add tasks under it, and it
               shows up here with a timeline.
