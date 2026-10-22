@@ -8,7 +8,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign } from './_helpers'
 
 async function openDesignStudio(window: Page): Promise<void> {
   // PlexiDesign lives inside the PlexiOffice segment now.
@@ -50,7 +50,10 @@ test.describe('PlexiDesign studio', () => {
   test('DS-1 create a design and the studio opens with templates + tools', async () => {
     await openDesignStudio(window)
     // Toolbar tools present.
-    for (const t of ['design-start-btn', 'design-add-text', 'design-add-rect', 'design-ai-btn', 'design-brandify']) {
+    // The tools moved to the left rail as armed modes (SPEC §3.2): the ids
+    // say `tool`, not `add`, because clicking one arms it rather than placing
+    // anything — see §4.1 on ids whose meaning changed.
+    for (const t of ['design-start-btn', 'design-tool-select', 'design-tool-text', 'design-tool-rect', 'design-ai-btn', 'design-brandify']) {
       await expect(window.locator(`[data-testid="${t}"]`)).toBeVisible()
     }
   })
@@ -71,7 +74,7 @@ test.describe('PlexiDesign studio', () => {
 
   test('DS-4 add a text element grows the canvas', async () => {
     const before = await window.locator('[data-testid="slide-element"]').count()
-    await window.locator('[data-testid="design-add-text"]').click()
+    await placeDesign(window, 'text')
     await expect(window.locator('[data-testid="slide-element"]')).toHaveCount(before + 1)
     // The new text element is selected -> inspector shows.
     await expect(window.locator('[data-testid="design-inspector"]')).toBeVisible()
@@ -130,7 +133,7 @@ test.describe('PlexiDesign studio', () => {
 
   test('DS-8 undo and redo a change', async () => {
     const before = await window.locator('[data-testid="slide-element"]').count()
-    await window.locator('[data-testid="design-add-text"]').click()
+    await placeDesign(window, 'text')
     await expect(window.locator('[data-testid="slide-element"]')).toHaveCount(before + 1)
     await window.locator('[data-testid="design-undo"]').click()
     await expect(window.locator('[data-testid="slide-element"]')).toHaveCount(before)
@@ -140,7 +143,7 @@ test.describe('PlexiDesign studio', () => {
 
   test('DS-9 duplicate the selected element', async () => {
     // Adding a rectangle selects it; the inspector + duplicate become available.
-    await window.locator('[data-testid="design-add-rect"]').click()
+    await placeDesign(window, 'rect')
     await expect(window.locator('[data-testid="design-inspector"]')).toBeVisible()
     const before = await window.locator('[data-testid="slide-element"]').count()
     await window.locator('[data-testid="design-duplicate"]').click()
@@ -149,14 +152,14 @@ test.describe('PlexiDesign studio', () => {
 
   test('DS-10 add triangle, rounded rect and a line', async () => {
     const before = await window.locator('[data-testid="slide-element"]').count()
-    await window.locator('[data-testid="design-add-triangle"]').click()
-    await window.locator('[data-testid="design-add-roundrect"]').click()
-    await window.locator('[data-testid="design-add-line"]').click()
+    await placeDesign(window, 'triangle')
+    await placeDesign(window, 'roundRect')
+    await placeDesign(window, 'line')
     await expect(window.locator('[data-testid="slide-element"]')).toHaveCount(before + 3)
   })
 
   test('DS-11 font picker changes the selected text font', async () => {
-    await window.locator('[data-testid="design-add-text"]').click()
+    await placeDesign(window, 'text')
     await expect(window.locator('[data-testid="design-font-family"]')).toBeVisible()
     await window.locator('[data-testid="design-font-family"]').selectOption('Poppins')
     await expect(window.locator('[data-testid="design-font-family"]')).toHaveValue('Poppins')

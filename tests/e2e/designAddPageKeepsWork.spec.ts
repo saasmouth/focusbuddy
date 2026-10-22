@@ -11,7 +11,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, switchArea, chooseCloudAiSource } from './_helpers'
+import { launchApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign } from './_helpers'
 
 async function openDesignStudio(window: Page): Promise<void> {
   await switchArea(window, 'office')
@@ -95,7 +95,7 @@ test('DAP-PAGE — adding a page keeps the first page’s work, through a save a
     await openDesignStudio(window)
 
     // Something on page 1.
-    await window.locator('[data-testid="design-add-rect"]').click()
+    await placeDesign(window, 'rect')
     await expect.poll(() => elementCount(window), { timeout: 6_000 }).toBeGreaterThan(0)
 
     // Add the second page. The new page is empty; page 1 must not be.

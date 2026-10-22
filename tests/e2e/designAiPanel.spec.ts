@@ -19,7 +19,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign } from './_helpers'
 
 const REWRITE_HTML = '<p>Stubbed improved copy.</p>'
 const SUGGEST_HTML = '<p>Stubbed design idea.</p>'
@@ -67,7 +67,7 @@ async function openDesignStudio(window: Page): Promise<void> {
 
 /** Add a text element to the canvas and select it, via the toolbar. */
 async function addAndSelectText(window: Page): Promise<void> {
-  await window.locator('[data-testid="design-add-text"]').click()
+  await placeDesign(window, 'text')
   // Adding a text element selects it; the text inspector confirms a text selection.
   await expect(window.locator('[data-testid="design-font-family"]')).toBeVisible({ timeout: 5_000 })
 }

@@ -10,7 +10,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, chooseCloudAiSource } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, chooseCloudAiSource, placeDesign } from './_helpers'
 
 /** Start a real publication from the PlexiDesign hub, not a bare canvas. */
 async function openPublication(window: Page): Promise<void> {
@@ -108,7 +108,7 @@ test.describe('PlexiDesign page layout', () => {
     await editBtn.click()
     await expect(window.locator('[data-testid="design-master-banner"]')).toBeVisible()
 
-    await window.locator('[data-testid="design-add-text"]').click()
+    await placeDesign(window, 'text')
     // Leaving master-edit mode returns to the page, where the frame must now
     // render as inert underlay rather than as page content.
     await window.locator('[data-testid="design-master-banner"] button').click()
@@ -133,8 +133,8 @@ test.describe('PlexiDesign page layout', () => {
 
   test('DL-8 two text frames link into one story that flows through both', async () => {
     // Two frames on the page, then link them.
-    await window.locator('[data-testid="design-add-text"]').click()
-    await window.locator('[data-testid="design-add-text"]').click()
+    await placeDesign(window, 'text')
+    await placeDesign(window, 'text')
     await window.keyboard.press('Escape')
 
     // Select both by marquee over the whole canvas.

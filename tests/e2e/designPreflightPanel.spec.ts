@@ -17,7 +17,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign } from './_helpers'
 
 async function openDesignStudio(window: Page): Promise<void> {
   await switchArea(window, 'office')
@@ -72,7 +72,11 @@ test.describe('PlexiDesign preflight', () => {
 
   test('PF-3 an element against the trim is reported, measured from the real geometry', async () => {
     await openPreflight(window)
-    await window.locator('[data-testid="design-add-text"]').click()
+    // Placed in the MIDDLE on purpose: a text frame is 80% of the page wide,
+    // so a click near an edge is clamped flush against it — which is itself a
+    // trim-safety finding, and would make the assertion below pass for the
+    // wrong reason.
+    await placeDesign(window, 'text', { fx: 0.5, fy: 0.5 })
     // Adding a text element selects it and opens its editor; Escape leaves the
     // editor so the next drag moves the element instead of placing a caret.
     await window.keyboard.press('Escape')

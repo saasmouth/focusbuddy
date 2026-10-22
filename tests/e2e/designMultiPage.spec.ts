@@ -4,7 +4,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, switchArea, chooseCloudAiSource } from './_helpers'
+import { launchApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign } from './_helpers'
 
 async function openDesignStudio(window: Page): Promise<void> {
   await switchArea(window, 'office')
@@ -33,7 +33,7 @@ test('DMP-1 — add pages, per-page content, switching retains each page', async
     await expect(window.locator('[data-testid="design-page-0"]')).toBeVisible()
 
     // Add an element to page 1.
-    await window.locator('[data-testid="design-add-rect"]').click()
+    await placeDesign(window, 'rect')
     await window.waitForTimeout(200)
     const page1Count = await elementCount(window)
     expect(page1Count).toBeGreaterThan(0)
@@ -45,9 +45,9 @@ test('DMP-1 — add pages, per-page content, switching retains each page', async
     expect(await elementCount(window), 'a fresh page is empty').toBe(0)
 
     // Add an element to page 2.
-    await window.locator('[data-testid="design-add-rect"]').click()
+    await placeDesign(window, 'rect')
     await window.waitForTimeout(200)
-    await window.locator('[data-testid="design-add-rect"]').click()
+    await placeDesign(window, 'rect')
     await window.waitForTimeout(200)
     const page2Count = await elementCount(window)
     expect(page2Count).toBeGreaterThan(0)

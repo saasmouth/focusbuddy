@@ -57,6 +57,7 @@ import PreflightPanel from './design/PreflightPanel'
 import { useElementClipboard } from './slides/useElementClipboard'
 import StylesPanel from './design/StylesPanel'
 import StartFromMenu from './design/StartFromMenu'
+import { ToolRail, type RailItem } from '../office/shell'
 import SwatchesPanel from './design/SwatchesPanel'
 import { preflight, preflightSummary } from '@shared/designPreflight'
 import DesignRulers from './design/DesignRulers'
@@ -126,12 +127,41 @@ const NEUTRAL_THEME: DeckTheme = {
   bodyStyle: { fontSize: 24, color: '#44403c' }
 }
 
+/** The tools the rail can arm. 'select' is the resting state. */
+export type DesignTool = 'select' | 'text' | 'rect' | 'roundRect' | 'ellipse' | 'triangle' | 'line'
+
+/**
+ * What a plain click places, as a fraction of the canvas width — the same
+ * proportions the old one-shot buttons used, so a click still produces the
+ * element people were used to getting.
+ */
+const TOOL_DEFAULT: Record<Exclude<DesignTool, 'select'>, { w: number; h: number }> = {
+  text: { w: 0.8, h: 0.14 },
+  rect: { w: 0.3, h: 0.3 },
+  roundRect: { w: 0.3, h: 0.3 },
+  ellipse: { w: 0.3, h: 0.3 },
+  triangle: { w: 0.3, h: 0.3 },
+  line: { w: 0.6, h: 0 }
+}
+
 export default function DesignEditor({ content, title, onChange, foldExternal = false }: Props): JSX.Element {
   const [design, setDesign] = useState<DesignBody>(() => normalizeDesignBody(content))
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   // A brand-new, empty design: the Start-from menu opens itself once, which is
   // the first-run help the permanent chip grid used to provide.
   const [startEmpty] = useState(() => normalizeDesignBody(content).elements.length === 0)
+
+  // ── Armed tools (spec §3.2, owner decision D4) ─────────────────────────────
+  // A tool is armed until it places something, then the editor returns to
+  // Select — as PowerPoint and Canva do. Double-clicking a tool locks it, as
+  // Illustrator's tool lock does, and Esc always returns to Select.
+  const [tool, setTool] = useState<DesignTool>('select')
+  const [toolLocked, setToolLocked] = useState(false)
+  function armTool(next: DesignTool, lock = false): void {
+    setTool(next)
+    setToolLocked(lock && next !== 'select')
+    if (next !== 'select') setSelectedIds([])
+  }
   const [exportOpen, setExportOpen] = useState(false)
   const [panel, setPanel] = useState<
     | 'none'
@@ -504,6 +534,31 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
         return
       }
       if (editing) return
+
+      // Armed tools (D4). One key handler for the app, as the spec requires:
+      // the rail never listens for keys. Plain letters only — a modifier here
+      // would collide with Cut, Copy and the rest.
+      if (!mod) {
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          armTool('select')
+          return
+        }
+        const armed: Record<string, DesignTool> = {
+          v: 'select',
+          t: 'text',
+          m: 'rect',
+          l: 'ellipse',
+          '\\': 'line'
+        }
+        const next = armed[key]
+        if (next) {
+          e.preventDefault()
+          armTool(next)
+          return
+        }
+      }
+
       if (mod && key === 'd') {
         e.preventDefault()
         duplicateSelected()
@@ -565,6 +620,74 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     if (!onMaster) {
       setStatus('Placed on this page only. Put it on a master page to number every page automatically.')
     }
+  }
+
+  /**
+   * Build the element an armed tool places. One function for both paths: the
+   * rail's armed placement passes the rect the person drew, and the Insert
+   * menu passes nothing and gets the default placement it always had.
+   */
+  function placeTool(kind: string, rect?: { x: number; y: number; w: number; h: number }): void {
+    const d = designRef.current
+    const def = TOOL_DEFAULT[kind as Exclude<DesignTool, 'select'>]
+    if (!def) return
+    const w = rect ? Math.max(8, rect.w) : Math.round(d.width * def.w)
+    const h = rect ? Math.max(kind === 'line' ? 0 : 8, rect.h) : Math.round(kind === 'line' ? 0 : d.width * def.h)
+    // Keep what is placed ON the page. A click near an edge with a wide
+    // default — a text frame is 80% of the page — would otherwise land half
+    // off it, where it cannot be seen or clicked, and preflight would
+    // immediately report it as outside the trim. Anything larger than the
+    // page keeps its top-left corner on it so it can still be grabbed.
+    const fit = (want: number, size: number, limit: number): number =>
+      Math.max(0, Math.min(Math.round(want), Math.round(limit - size)))
+    const x = fit(rect ? rect.x : d.width * (kind === 'text' ? 0.1 : kind === 'line' ? 0.2 : 0.3), w, d.width)
+    const y = fit(rect ? rect.y : d.height * (kind === 'text' ? 0.1 : kind === 'line' ? 0.5 : 0.3), h, d.height)
+    const z = (d.elements ?? []).reduce((m, e) => Math.max(m, e.z ?? 0), 0) + 1
+
+    let el: SlideElement
+    if (kind === 'text') {
+      el = {
+        id: elementId(),
+        type: 'text',
+        x,
+        y,
+        w,
+        h,
+        z,
+        fontFamily: brand.fontBody,
+        paragraphs: [{ runs: [{ text: 'Your text', fontSize: Math.round(d.width * 0.05), color: '#1c1917' }] }]
+      }
+    } else if (kind === 'line') {
+      el = {
+        id: elementId(),
+        type: 'line',
+        x,
+        y,
+        w,
+        h: 0,
+        z,
+        x2: x + w,
+        y2: y + (rect ? rect.h : 0),
+        stroke: brand.colorPrimary,
+        strokeWidth: Math.max(2, Math.round(d.width * 0.004))
+      }
+    } else {
+      el = {
+        id: elementId(),
+        type: 'shape',
+        shape: kind as 'rect' | 'ellipse' | 'roundRect' | 'triangle',
+        x,
+        y,
+        w,
+        h,
+        z,
+        fill: { type: 'solid', color: brand.colorPrimary }
+      }
+    }
+    mutate((s) => addElement(s, el))
+    setSelectedIds([el.id])
+    // Back to Select unless the tool was locked with a double-click.
+    if (!toolLocked) setTool('select')
   }
 
   function addShape(shape: 'rect' | 'ellipse' | 'roundRect' | 'triangle'): void {
@@ -1080,6 +1203,24 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     setSelectedIds([el.id])
   }
 
+  // The rail's items, in the common order the spec fixes for every app
+  // (§3.1): Navigate, then Create, then Insert. Armed tools carry
+  // `design-tool-*` ids — the old `design-add-*` ids meant "adds one now" and
+  // keeping them on something that only arms a mode is how a test passes while
+  // placing nothing (§4.1).
+  const railItems: RailItem<null>[] = [
+    { id: 'select', label: 'Select', icon: 'arrow_selector_tool', kind: 'tool', group: 0, order: 0, shortcut: 'V', readOnlySafe: true, onSelect: () => armTool('select'), onOptions: () => armTool('select'), testid: 'design-tool-select' },
+    { id: 'tool-text', label: 'Text', icon: 'title', kind: 'tool', group: 1, order: 0, shortcut: 'T', onSelect: () => armTool('text'), onOptions: () => armTool('text', true), testid: 'design-tool-text' },
+    { id: 'tool-rect', label: 'Rectangle', icon: 'crop_square', kind: 'tool', group: 1, order: 1, shortcut: 'M', flyout: 'shapes', onSelect: () => armTool('rect'), onOptions: () => armTool('rect', true), testid: 'design-tool-rect' },
+    { id: 'tool-roundRect', label: 'Rounded rectangle', icon: 'rounded_corner', kind: 'tool', group: 1, order: 2, flyout: 'shapes', onSelect: () => armTool('roundRect'), onOptions: () => armTool('roundRect', true), testid: 'design-tool-roundRect' },
+    { id: 'tool-ellipse', label: 'Ellipse', icon: 'circle', kind: 'tool', group: 1, order: 3, shortcut: 'L', flyout: 'shapes', onSelect: () => armTool('ellipse'), onOptions: () => armTool('ellipse', true), testid: 'design-tool-ellipse' },
+    { id: 'tool-triangle', label: 'Triangle', icon: 'change_history', kind: 'tool', group: 1, order: 4, flyout: 'shapes', onSelect: () => armTool('triangle'), onOptions: () => armTool('triangle', true), testid: 'design-tool-triangle' },
+    { id: 'tool-line', label: 'Line', icon: 'horizontal_rule', kind: 'tool', group: 1, order: 5, shortcut: '\\', flyout: 'shapes', onSelect: () => armTool('line'), onOptions: () => armTool('line', true), testid: 'design-tool-line' },
+    { id: 'image', label: 'Image', icon: 'image', kind: 'action', group: 2, order: 0, onSelect: () => void addImageFromFile(), testid: 'design-add-image' },
+    { id: 'logo', label: 'Logo', icon: 'badge', kind: 'action', group: 2, order: 1, onSelect: () => placeLogo(), testid: 'design-add-logo' },
+    { id: 'widget', label: 'Work widget from a desk', icon: 'widgets', kind: 'action', group: 2, order: 2, onSelect: () => setWidgetPickerOpen(true), testid: 'design-add-widget' }
+  ]
+
   return (
     <div
       className="flex flex-col h-full"
@@ -1190,12 +1331,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
           testid="design-aids-toggle"
         />
         <span className="w-px h-5 bg-[var(--edge-soft)] mx-1" />
-        <ToolBtn icon="title" label="Text" onClick={addText} testid="design-add-text" />
-        <ToolBtn icon="rectangle" label="Rect" onClick={() => addShape('rect')} testid="design-add-rect" />
-        <ToolBtn icon="circle" label="Ellipse" onClick={() => addShape('ellipse')} testid="design-add-ellipse" />
-        <ToolBtn icon="change_history" label="Triangle" onClick={() => addShape('triangle')} testid="design-add-triangle" />
-        <ToolBtn icon="rounded_corner" label="Round" onClick={() => addShape('roundRect')} testid="design-add-roundrect" />
-        <ToolBtn icon="horizontal_rule" label="Line" onClick={addLine} testid="design-add-line" />
+
         <ToolBtn icon="image" label="Image" onClick={() => void addImageFromFile()} testid="design-add-image" />
         <span className="w-px h-5 bg-[var(--edge-soft)] mx-1" />
         <ToolBtn icon="auto_awesome" label="AI design" active={panel === 'ai'} onClick={() => setPanel((p) => (p === 'ai' ? 'none' : 'ai'))} testid="design-ai-btn" />
@@ -1425,6 +1561,16 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
 
       {/* Canvas + inspector */}
       <div className="flex-1 min-h-0 flex">
+        {/* The shared office ToolRail (spec §2.1). Tools arm a mode; the rail
+            shows which, and never listens for keys — this editor's one key
+            handler does that. */}
+        <ToolRail
+          items={railItems}
+          ctx={null}
+          activeId={tool === 'select' ? 'select' : `tool-${tool}`}
+          testid="design-rail"
+          ariaLabel="Design tools"
+        />
         <div className="flex-1 min-w-0 flex flex-col">
         <div ref={wrapRef} className="flex-1 min-w-0 overflow-auto bg-stone-200/50 dark:bg-black/30 flex items-start justify-center p-6">
           <div>
@@ -1558,6 +1704,18 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
                   })
                 }}
                 textOf={(el) => (el.storyId ? storyText(design, el.storyId) : elementText(el))}
+                placing={
+                  tool === 'select'
+                    ? null
+                    : {
+                        kind: tool,
+                        defaultW: Math.round(design.width * TOOL_DEFAULT[tool].w),
+                        defaultH: Math.round(
+                          tool === 'line' ? 0 : design.width * TOOL_DEFAULT[tool].h
+                        )
+                      }
+                }
+                onPlace={(kind, rect) => placeTool(kind, rect)}
                 onEditRequest={(el, point) => {
                   if (!el.storyId) return false
                   // Threaded copy is typed ON THE PAGE. The canvas hands the

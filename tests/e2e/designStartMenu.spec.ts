@@ -10,7 +10,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, switchArea, chooseCloudAiSource } from './_helpers'
+import { launchApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign } from './_helpers'
 
 test.describe.configure({ timeout: 90_000 })
 
@@ -90,7 +90,7 @@ test('SM-3 — picking a size resizes the page and keeps the artwork', async () 
     await openDesign(window)
     await window.keyboard.press('Escape')
 
-    await window.locator('[data-testid="design-add-rect"]').click()
+    await placeDesign(window, 'rect')
     await expect.poll(() => window.locator('[data-testid="slide-element"]').count(), { timeout: 6_000 }).toBe(1)
 
     await openMenu(window)

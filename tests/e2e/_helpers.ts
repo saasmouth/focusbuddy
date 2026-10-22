@@ -771,3 +771,30 @@ export async function placeSlide(
     ...(drag ? { drag } : {})
   })
 }
+
+/**
+ * placeElement for PlexiiDesign, with this app's canvas and shape flyout
+ * filled in — so a spec says `placeDesign(window, 'rect')` rather than
+ * repeating the same three options 27 times.
+ *
+ * `at` is a FRACTION of the canvas box, not pixels: the canvas is a scaled
+ * page, often about 400px wide in a test window, so absolute coordinates land
+ * outside it and place nothing — which reads exactly like the tool being
+ * broken.
+ */
+export async function placeDesign(
+  window: Page,
+  tool: string,
+  at?: { fx: number; fy: number },
+  drag?: { dx: number; dy: number }
+): Promise<{ x: number; y: number }> {
+  const canvas = '[data-testid="slide-canvas"]'
+  const box = await window.locator(canvas).boundingBox()
+  if (!box) throw new Error('placeDesign: the canvas was not laid out')
+  return placeElement(window, 'design', tool, {
+    canvas,
+    flyout: 'shapes',
+    ...(at ? { at: { x: box.width * at.fx, y: box.height * at.fy } } : {}),
+    ...(drag ? { drag } : {})
+  })
+}

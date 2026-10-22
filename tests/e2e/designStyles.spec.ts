@@ -10,7 +10,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign } from './_helpers'
 
 async function openPublication(window: Page): Promise<void> {
   await switchArea(window, 'office')
@@ -32,9 +32,9 @@ async function openStyles(window: Page): Promise<void> {
 
 /** A threaded frame carrying a story, so there is flowed text to re-set. */
 async function makeStory(window: Page): Promise<void> {
-  await window.locator('[data-testid="design-add-text"]').click()
+  await placeDesign(window, 'text')
   await window.keyboard.press('Escape')
-  await window.locator('[data-testid="design-add-text"]').click()
+  await placeDesign(window, 'text')
   await window.keyboard.press('Escape')
   const canvas = window.locator('[data-testid="slide-canvas"]')
   const cb = await canvas.boundingBox()
