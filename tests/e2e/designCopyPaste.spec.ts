@@ -10,11 +10,19 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign } from './_helpers'
+import { launchApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign, selectBarTab } from './_helpers'
 
 test.describe.configure({ timeout: 90_000 })
 
 const elementCount = (window: Page): Promise<number> => window.locator('[data-testid="slide-element"]').count()
+
+/** Every word the page actually sets, so two stories can be told apart. */
+const pageText = (window: Page): Promise<string> =>
+  window.evaluate(() =>
+    [...document.querySelectorAll('[data-testid="slide-canvas"] [data-testid="slide-element"]')]
+      .map((el) => el.textContent ?? '')
+      .join(' ')
+  )
 
 async function openDesign(window: Page): Promise<void> {
   await switchArea(window, 'office')
@@ -117,6 +125,62 @@ test('CP-3 — Design: an element copied on page 1 pastes onto page 2', async ()
     // Page 1 still has its own.
     await window.locator('[data-testid="design-page-0"]').click()
     await expect.poll(() => elementCount(window), { timeout: 6_000 }).toBe(1)
+  } finally {
+    await dispose()
+  }
+})
+
+test('CP-6 — Design: a copied threaded frame carries its OWN story, not the original', async () => {
+  const { window, dispose } = await launchApp()
+  try {
+    await waitForReady(window)
+    await chooseCloudAiSource(window)
+    await openDesign(window)
+
+    // Two frames threaded into one story. A threaded frame holds no words of
+    // its own — the text lives in the document's story and the frame only
+    // points at it — which is why copying one used to go wrong two ways:
+    // pasted here it JOINED the original chain, and pasted into another
+    // document its story id dangled and the frame came out empty.
+    await placeDesign(window, 'text', { fx: 0.3, fy: 0.2 })
+    await placeDesign(window, 'text', { fx: 0.3, fy: 0.6 })
+    await window.keyboard.press('Escape')
+    const cb = await window.locator('[data-testid="slide-canvas"]').boundingBox()
+    if (!cb) throw new Error('the canvas was not laid out')
+    await window.mouse.move(cb.x + cb.width - 6, cb.y + 6)
+    await window.mouse.down()
+    await window.mouse.move(cb.x + 4, cb.y + cb.height - 4, { steps: 8 })
+    await window.mouse.up()
+    await selectBarTab(window, 'design-toolbar', 'text')
+    await window.locator('[data-testid="design-link-frames"]').click()
+    await expect(window.locator('[data-testid="design-thread-port"]')).toHaveCount(2)
+
+    // Words in the story, so there is something to tell the two stories apart.
+    await window.locator('[data-testid="design-open-story"]').click()
+    const story = window.locator('[data-testid="design-story-text"]')
+    await expect(story).toBeVisible({ timeout: 5_000 })
+    await story.fill('ZZFIRSTZZ in the original story')
+    await expect.poll(() => pageText(window), { timeout: 8_000 }).toContain('ZZFIRSTZZ')
+    await window.locator('[data-testid="design-story-close"]').click()
+
+    // Copy the threaded frames and paste them.
+    const before = await elementCount(window)
+    await selectFirst(window)
+    await menu(window, 'design-menubar', 'edit', 'Copy')
+    await menu(window, 'design-menubar', 'edit', 'Paste')
+    await expect.poll(() => elementCount(window), { timeout: 8_000 }).toBeGreaterThan(before)
+
+    // Now rewrite the ORIGINAL story. The copy must not follow: it has its own
+    // story with the words it was copied with. Before the fix the pasted frame
+    // pointed at this very story, so this edit would have rewritten it too and
+    // ZZFIRSTZZ would have vanished from the page entirely.
+    await selectFirst(window)
+    await selectBarTab(window, 'design-toolbar', 'text')
+    await window.locator('[data-testid="design-open-story"]').click()
+    await expect(story).toBeVisible({ timeout: 5_000 })
+    await story.fill('ZZSECONDZZ, rewritten')
+    await expect.poll(() => pageText(window), { timeout: 8_000 }).toContain('ZZSECONDZZ')
+    expect(await pageText(window), 'the copy kept the words it was copied with').toContain('ZZFIRSTZZ')
   } finally {
     await dispose()
   }
