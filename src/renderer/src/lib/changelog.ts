@@ -39,15 +39,24 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '4.3.41',
-    date: '2026-10-21T22:23:00Z',
-    title: 'PlexiiDesk 4.3.41 \u2014 fixes, and old parts taken out',
-    tag: 'fix',
+    date: '2026-10-22T22:00:00Z',
+    title: 'PlexiiDesk 4.3.41 \u2014 one layout for every office app, saved snippets and new icons',
+    tag: 'feature',
     summary:
-      'A maintenance release on top of 4.3.40: a few fixes, and old screens and plumbing that nothing could reach have been removed. Nothing you use has moved.',
+      'Write, Cells, Deck, Design, Draw and Diagrams now share one layout: tools in a rail of icons on the left, settings in tabs along the top that follow what you select. You can save a selection as a snippet and use it again anywhere, PlexiiDesk has a new set of icons, and PlexiiAssist answers only from your documents.',
     highlights: [
-      'Fixed: Help \u2192 What\u2019s New and Help \u2192 Terms of Use in the menu bar did nothing. They open the right panel again.',
-      'Fixed: after you signed in, the sign-in window kept your password filled in, so it was still there if you signed out.',
-      'Removed: old screens and settings plumbing that no part of PlexiiDesk could open any more, including the retired standalone PlexiiOffice screens. The app is smaller and nothing you use has changed.'
+      'Every office app has the same layout. Tools sit in a rail of icons on the left, and settings sit in tabs along the top that change with what you select, like Canva or Microsoft Office. Panels such as Layers and Styles can be pinned, and PlexiiAssist sits in the same right-hand panel in every app.',
+      'Saved snippets: select something in PlexiiWrite, PlexiiDeck, PlexiiDesign, PlexiiDraw, PlexiiDiagrams or on a desk and save it as a snippet, then insert it again wherever you work. Snippets marked for your organisation are saved on this computer for now; sharing them with colleagues arrives with sync.',
+      'New icons throughout PlexiiDesk \u2014 the side menu, apps, work widgets, dashboards and search \u2014 and the purple Plexii logo.',
+      'PlexiiDraw: zoom to selection, Convert to Artboards, Show/Hide Artboards (\u21e7\u2318H), paint that moves and resizes with its artboard, and an unlimited pasteboard to work beyond the page.',
+      'PlexiiDesign and PlexiiDeck: Cut, Copy, Paste and Duplicate page or slide.',
+      'PlexiiAssist and PlexiiBrain answer only from your documents, say plainly when they don\u2019t know, and mark anything they couldn\u2019t find a source for. Those marks are saved with the answer and come back when you reopen a chat.',
+      'Fixed: the back button, the desk name and the desk view menu (Free canvas \u25be) in the title bar did not respond to clicks.',
+      'Fixed: on-device AI could refuse a first question about a desk with \u201cConversation hit the model context window\u201d. The desk is now fitted to what the model can read, and the answer says what was left out.',
+      'Fixed: in PlexiiDesign, adding a page to a design started from a template could lose the template\u2019s artwork, and the print bleed setting had gone missing from the toolbar.',
+      'Fixed: Focus\u2019s full view shows every kind of task, and assigning a task to a teammate works end to end.',
+      'Fixed: Help \u2192 What\u2019s New and Help \u2192 Terms of Use in the menu bar did nothing. After you signed in, the sign-in window kept your password filled in.',
+      'Removed: old screens and settings plumbing that nothing could open any more, including the retired standalone PlexiiOffice screens.'
     ]
   },
   {
