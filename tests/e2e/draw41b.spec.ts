@@ -9,7 +9,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { deflateSync } from 'zlib'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, suppressFeatureSpotlights, waitForReady } from './_helpers'
 import { keepNoticesOutOfTheWay, openDocument, openDrawPanel, readStored, rectObject, runMenu, seedDrawDoc, stagePoint, v1Body } from './_drawHelpers'
 
 let app: LaunchedApp
@@ -343,4 +343,57 @@ test('PF-1 paint follows its artboard: moved with the Artboard tool together wit
   await t('draw-undo').click()
   await expect.poll(async () => (await paint()).frame?.w).toBe(600)
   expect((await paint()).assetId).toBe(p1.assetId)
+})
+
+// ── Item 8: the host rule in a narrow desk widget (kept last: it reloads) ───
+
+test('NW-1 embedded in a 480px desk widget the studio is no wider than its host, nor is anything between them, and the canvas still draws', async () => {
+  const taskId = await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Narrow Draw' } as never)
+    const doc = await api.documents.create({ docType: 'draw', title: 'Narrow' } as never)
+    await api.widgets.create({ taskId: (task as { id: string }).id, kind: 'draw', content: (doc as { id: string }).id, x: 240, y: 160, width: 480, height: 380 } as never)
+    return (task as { id: string }).id
+  })
+  await suppressFeatureSpotlights(window)
+  await window.reload()
+  await waitForReady(window)
+  await keepNoticesOutOfTheWay(window)
+  await window.evaluate((id: string) => (window as unknown as { __fbView?: { getState: () => { goTask: (i: string) => void } } }).__fbView?.getState().goTask(id), taskId)
+  await expect(t('draw-shell')).toBeVisible({ timeout: 15_000 })
+  const widths = await window.evaluate(() => {
+    const shell = document.querySelector('[data-testid="draw-shell"]') as HTMLElement
+    const widget = shell.closest('[data-widget-id]') as HTMLElement
+    const w = widget.getBoundingClientRect()
+    const chain: Array<{ what: string; width: number; right: number }> = []
+    for (let a: HTMLElement | null = shell; a && a !== widget; a = a.parentElement) {
+      const r = a.getBoundingClientRect()
+      chain.push({ what: a.dataset.testid ?? `${a.tagName.toLowerCase()}.${String(a.className).slice(0, 60)}`, width: r.width, right: r.right })
+    }
+    return { widget: { width: w.width, right: w.right }, studio: (document.querySelector('[data-testid="draw-studio"]') as HTMLElement).getBoundingClientRect().width, chain }
+  })
+  expect(widths.studio).toBeLessThanOrEqual(widths.widget.width + 1)
+  for (const c of widths.chain) {
+    expect(c.width, `${c.what} is wider than the widget`).toBeLessThanOrEqual(widths.widget.width + 1)
+    expect(c.right, `${c.what} runs past the widget`).toBeLessThanOrEqual(widths.widget.right + 1)
+  }
+  // Row 2 scrolls rather than widening anything; the canvas is still there to draw on.
+  const bar = (await t('draw-bar').boundingBox())!
+  expect(bar.width).toBeLessThan(520)
+  const heights = await window.evaluate(() => {
+    const h = (sel: string): number => Math.round((document.querySelector(sel) as HTMLElement | null)?.getBoundingClientRect().height ?? 0)
+    const shell = document.querySelector('[data-testid="draw-shell"]') as HTMLElement
+    const widget = shell.closest('[data-widget-id]') as HTMLElement
+    return {
+      widget: Math.round(widget.getBoundingClientRect().height),
+      shell: h('[data-testid="draw-shell"]'),
+      bar: h('[data-testid="draw-bar"]'),
+      keysNotice: h('[data-testid="draw-keys-notice"]'),
+      readOnly: h('[data-testid="draw-readonly-banner"]'),
+      canvas: h('[data-testid="draw-canvas-scroll"]')
+    }
+  })
+  const canvas = (await t('draw-canvas-scroll').boundingBox())!
+  expect(canvas.width).toBeGreaterThan(200)
+  expect(canvas.height, `the canvas has room to draw in (${JSON.stringify(heights)})`).toBeGreaterThan(100)
 })

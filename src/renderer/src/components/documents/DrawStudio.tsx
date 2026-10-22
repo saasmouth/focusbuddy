@@ -495,7 +495,10 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   return (
     <div
       ref={rootRef}
-      className="h-full flex flex-col text-[13px]"
+      // Host rule (office-shell SPEC §6): `w-full min-w-0 min-h-0` let the
+      // studio shrink to whatever hosts it -- a flex row of an editor view or
+      // a 480px desk widget -- instead of growing to its widest toolbar.
+      className="h-full w-full min-w-0 min-h-0 flex flex-col text-[13px]"
       data-testid="draw-studio"
       onKeyDownCapture={(e) => {
         // The shell's own fields (bar numbers and menus) keep their keys from
@@ -587,7 +590,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
         }
         panels={panelEls.length ? <>{panelEls}</> : undefined}
       >
-      <div className="h-full flex flex-col min-h-0">
+      <div className="h-full min-w-0 flex flex-col min-h-0">
       {/* Notices sit beside a pinned panel, never under it. */}
       <div className="shrink-0" style={inset ? { paddingLeft: inset } : undefined}>
         {state.readOnly && <ReadOnlyBanner compat={state.compat} />}
