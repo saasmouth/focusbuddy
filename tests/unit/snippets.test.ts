@@ -8,6 +8,9 @@ import {
   snippetMatches,
   snippetSummary,
   targetAccepts,
+  canRenderNatively,
+  instanceModeFor,
+  primaryKindFor,
   type Snippet,
   type SnippetBody,
   type SnippetTarget
@@ -178,5 +181,70 @@ describe('an org snippet must not claim a reach it does not have', () => {
       expect(ORG_SNIPPET_REACH_NOTE.toLowerCase()).not.toContain('everyone')
       expect(ORG_SNIPPET_REACH_NOTE.toLowerCase()).not.toContain('shared with')
     }
+  })
+})
+
+describe('a host is never offered a link mode it cannot honour', () => {
+  const t = (over: Partial<SnippetTarget> = {}): SnippetTarget => ({
+    id: 'doc:1',
+    label: 'This document',
+    accepts: ['doc', 'widget', 'diagram'],
+    supports: ['duplicate', 'live'],
+    insert: () => true,
+    ...over
+  })
+
+  it('knows what each host renders as itself', () => {
+    // A doc renders a widget natively because it registers WidgetEmbedNode —
+    // the widget in a document is a real widget, not a picture of one.
+    expect(canRenderNatively('doc', 'doc')).toBe(true)
+    expect(canRenderNatively('widget', 'doc')).toBe(true)
+    expect(canRenderNatively('diagram', 'doc')).toBe(false)
+    expect(canRenderNatively('widget', 'desk')).toBe(true)
+    expect(canRenderNatively('sheet', 'sheet')).toBe(true)
+    expect(canRenderNatively('sheet', 'slide')).toBe(false)
+  })
+
+  it('offers both modes wherever the target supports them, converted or not', () => {
+    // An earlier version of this withheld 'live' for a converted pair. The owner
+    // ruled otherwise: such an instance is live and READ-ONLY, so the user still
+    // gets a placed copy that follows its source. The native/converted split
+    // decides EDITABILITY instead — see instanceModeFor below.
+    expect(linkModesFor(t({ host: 'doc' }), 'doc')).toEqual(['duplicate', 'live'])
+    expect(linkModesFor(t({ host: 'doc' }), 'diagram')).toEqual(['duplicate', 'live'])
+  })
+
+  it('still refuses a kind the target does not accept at all', () => {
+    expect(linkModesFor(t({ host: 'doc', accepts: ['doc'] }), 'diagram')).toEqual([])
+  })
+
+  it('never invents a mode the target did not support', () => {
+    expect(linkModesFor(t({ host: 'doc', supports: ['duplicate'] }), 'doc')).toEqual(['duplicate'])
+  })
+})
+
+describe('how a placed instance behaves', () => {
+  it('a live instance of a native kind is editable, and edits the master', () => {
+    expect(instanceModeFor('doc', 'doc', 'live')).toBe('editable')
+    expect(instanceModeFor('widget', 'doc', 'live')).toBe('editable')
+  })
+
+  it('a live instance of a converted kind is read-only, not editable', () => {
+    // It follows the master by re-converting on resolve, but must never be
+    // written back through: that would overwrite the master with its own lossy
+    // form — edit the image of a diagram and the diagram becomes an image.
+    expect(instanceModeFor('diagram', 'doc', 'live')).toBe('readonly')
+    expect(instanceModeFor('sheet', 'slide', 'live')).toBe('readonly')
+  })
+
+  it('a duplicate is detached whatever the kinds, native or not', () => {
+    expect(instanceModeFor('doc', 'doc', 'duplicate')).toBe('detached')
+    expect(instanceModeFor('diagram', 'doc', 'duplicate')).toBe('detached')
+  })
+
+  it('names the kind a converted insert must become, for the re-convert hook', () => {
+    expect(primaryKindFor('doc')).toBe('doc')
+    expect(primaryKindFor('desk')).toBe('widget')
+    expect(primaryKindFor('diagram')).toBe('diagram')
   })
 })
