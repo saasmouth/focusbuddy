@@ -5,7 +5,7 @@ import {
   type Locator,
   type Page
 } from '@playwright/test'
-import { mkdtempSync, rmSync } from 'fs'
+import { mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -213,8 +213,8 @@ export async function waitForReady(
   // reload. It docks bottom-right at z-[230], exactly over the assistant pill
   // and panel, and intercepts their clicks. Best-effort dismiss; it can also
   // appear a beat later (its init awaits two IPC calls), so specs that drive
-  // the bottom-right corner should additionally seed fb.onboarding.v2 with the
-  // tours skipped before reloading (see assistantPin.spec.ts).
+  // the bottom-right corner should additionally call suppressFeatureSpotlights
+  // before reloading.
   const spotlight = window.locator('[data-testid="feature-spotlight-dismiss"]')
   if (await spotlight.isVisible().catch(() => false)) {
     await spotlight.click(BEST_EFFORT).catch(() => {})
@@ -659,4 +659,28 @@ export async function placeElement(
   if (opts.drag) await window.mouse.move(x + opts.drag.dx, y + opts.drag.dy, { steps: 8 })
   await window.mouse.up()
   return { x, y }
+}
+
+/**
+ * Mark every registered onboarding tour as skipped, so the feature-spotlight
+ * card (bottom-right, z-[230]) is never offered on the next boot. Call it
+ * before window.reload() in specs that check or drive the bottom-right corner:
+ * the card mounts ~750ms after boot, so a reactive dismiss races the check.
+ * The module ids are read from the registry source, so new tours are covered
+ * without editing specs.
+ */
+export async function suppressFeatureSpotlights(window: Page): Promise<void> {
+  const src = readFileSync(join(__dirname, '../../src/renderer/src/lib/onboarding/registry.ts'), 'utf8')
+  const ids = [...src.matchAll(/^\s{4}id: '([\w-]+)'/gm)].map((m) => m[1]!)
+  if (!ids.length) throw new Error('suppressFeatureSpotlights: no onboarding module ids found in registry.ts')
+  await window.evaluate((list: string[]) => {
+    let p: { completed?: Record<string, number>; skipped?: Record<string, number> } = {}
+    try {
+      p = JSON.parse(localStorage.getItem('fb.onboarding.v2') ?? '{}')
+    } catch {
+      /* fresh profile */
+    }
+    p.skipped = { ...(p.skipped ?? {}), ...Object.fromEntries(list.map((id) => [id, 999])) }
+    localStorage.setItem('fb.onboarding.v2', JSON.stringify(p))
+  }, ids)
 }
