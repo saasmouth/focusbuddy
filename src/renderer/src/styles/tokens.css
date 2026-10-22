@@ -165,6 +165,10 @@
   /* Connected-app logos are square brand marks; this rounds them into tiles
      without altering the files. Matches the corner of the app tiles. */
   --plexii-logo-radius: 22%;
+  /* The Plexii logo's letterforms (components/brand/PlexiiMark). The approved
+     purple logo is navy "plex" on light surfaces and white "plex" (the
+     reversed file) on dark; the ii keeps its purple gradient on both. */
+  --plexii-logo-ink: #061c46;
 
   /* ── Spring easings ─────────────────────────────────────────────────────── */
   /* Snap: zero-overshoot decel — modal dismiss, button release */
@@ -243,6 +247,7 @@
 /* ── Dark theme overrides ─────────────────────────────────────────────────── */
 .dark {
   --plexii-glyph: #c4b5fd;
+  --plexii-logo-ink: #ffffff;
   --ink-100: oklch(96% 0.005 264);
   --ink-90: oklch(86% 0.006 264);
   --ink-70: oklch(72% 0.008 264);

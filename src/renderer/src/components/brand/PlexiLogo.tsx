@@ -10,7 +10,7 @@
  *   <PlexiWordmark style={{ width: 260 }} />
  *   <PlexiWordmark color="#FF6B35" letterColor="#111827" />
  *   <PlexiMark animated={false} />          // neutral, no motion
- *   <PlexiWordmark variant="gradient" />    // the master artwork's blue gradient
+ *   <PlexiWordmark variant="gradient" />    // the approved purple gradient (animated only; prefer iiGradient)
  *
  * Colour: `color` drives the ii, `letterColor` drives the letterforms. Both are
  * plain CSS colours and are applied as custom properties on the root <svg>, so
@@ -27,7 +27,7 @@
  *
  * Generated from the source SVGs - edit those and regenerate, not this file.
  */
-import type { CSSProperties, SVGProps } from "react"
+import { useId, type CSSProperties, type SVGProps } from "react"
 
 type Vars = { "--plexi-mark"?: string; "--plexi-wordmark"?: string }
 
@@ -40,6 +40,29 @@ export type PlexiLogoProps = Omit<SVGProps<SVGSVGElement>, "color"> & {
   animated?: boolean
   /** Accessible name. Pass null when the logo is purely decorative. */
   title?: string | null
+  /** Top and bottom colours of a vertical gradient across the whole ii (the
+   *  approved purple logo). Overrides `color`. */
+  iiGradient?: readonly [string, string]
+}
+
+/** The approved Plexii logo's ii gradient (Brand/Plexii-Purple-Logo, 2026-10-22). */
+export const PLEXII_II_GRADIENT = ["#A38CF3", "#7C66E8"] as const
+
+/** A per-instance gradient spanning the ii (y1..y2 in the artwork's user space). */
+function useIiGradient(stops: readonly [string, string] | undefined, y1: number, y2: number) {
+  const id = "plexii-ii-" + useId().replace(/[^a-zA-Z0-9_-]/g, "")
+  if (!stops) return { fill: undefined, defs: null }
+  return {
+    fill: `url(#${id})`,
+    defs: (
+      <defs>
+        <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="0" y1={y1} x2="0" y2={y2}>
+          <stop offset="0" stopColor={stops[0]} />
+          <stop offset="1" stopColor={stops[1]} />
+        </linearGradient>
+      </defs>
+    )
+  }
 }
 
 function vars(color?: string, letterColor?: string, style?: CSSProperties) {
@@ -430,16 +453,19 @@ const WORDMARK_GRADIENT_CSS = `
 
 /** The standalone double-i mark. */
 export function PlexiMark({
-  color, letterColor, animated = true, title, style, ...rest
+  color, letterColor, animated = true, title, style, iiGradient, ...rest
 }: PlexiLogoProps) {
+  // The ii spans y 189.9 (top of the dots) to 882.0 (foot of the stems).
+  const grad = useIiGradient(iiGradient, 189.9, 882.0)
   return (
     <svg
       viewBox="0 0 922 922"
       xmlns="http://www.w3.org/2000/svg"
-      style={vars(color, letterColor, style)}
+      style={vars(grad.fill ?? color, letterColor, style)}
       {...a11y(title, "Plexii")}
       {...rest}
     >
+      {grad.defs}
       {animated ? (
         <>
           <style dangerouslySetInnerHTML={{ __html: MARK_CSS }} />
@@ -467,23 +493,26 @@ export function PlexiMark({
 }
 
 export type PlexiWordmarkProps = PlexiLogoProps & {
-  /** "flat" uses the brand blue; "gradient" reproduces the master artwork. */
+  /** "flat" takes `color`; "gradient" is the approved purple ii, animated frames only (iiGradient covers both). */
   variant?: "flat" | "gradient"
 }
 
 /** The full plexii wordmark: traced letterforms plus the animated ii. */
 export function PlexiWordmark({
-  color, letterColor, animated = true, variant = "flat", title, style, ...rest
+  color, letterColor, animated = true, variant = "flat", title, style, iiGradient, ...rest
 }: PlexiWordmarkProps) {
   const gradient = variant === "gradient"
+  // The ii spans y 127.1 (top of the dots) to 653.1 (foot of the stems).
+  const grad = useIiGradient(iiGradient, 127.1, 653.1)
   return (
     <svg
       viewBox="0 0 1952.9 812.0"
       xmlns="http://www.w3.org/2000/svg"
-      style={vars(color, letterColor, style)}
+      style={vars(grad.fill ?? color, letterColor, style)}
       {...a11y(title, "Plexii")}
       {...rest}
     >
+      {grad.defs}
       {animated ? (
         gradient ? (
           <>
@@ -491,8 +520,8 @@ export function PlexiWordmark({
             <defs>
                 <linearGradient id="plexi-ii-grad-pwg" gradientUnits="userSpaceOnUse"
                                 x1="0" y1="127.1" x2="0" y2="652.1">
-                  <stop offset="0" stopColor="#4383F4"/>
-                  <stop offset="1" stopColor="#3068EA"/>
+                  <stop offset="0" stopColor="#A38CF3"/>
+                  <stop offset="1" stopColor="#7C66E8"/>
                 </linearGradient>
               </defs>
               <g className="pwg-plex" fillRule="evenodd">

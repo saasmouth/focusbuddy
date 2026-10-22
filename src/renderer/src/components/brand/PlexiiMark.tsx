@@ -3,10 +3,12 @@
 // double-i mark and the plexii wordmark, animation as pure CSS inside the
 // SVG) with two app-level laws:
 //
-//   Colour follows the theme (Caleb's ruling): the ii wears the accent, the
-//   letterforms wear ink, so the mark is native in every theme. Explicit
-//   colour props override for fixed-background surfaces; the gradient
-//   variant (master artwork's blue) is reserved for hero surfaces.
+//   Colour is the approved purple logo (owner's icon set, 2026-10-22,
+//   marketing/brand-assets Brand/Plexii-Purple-Logo): the ii wears its purple
+//   gradient everywhere, the letterforms wear --plexii-logo-ink, navy on light
+//   and white on dark (the reversed logo). This replaces the earlier ruling
+//   that the ii followed the theme accent. Explicit colour props still
+//   override for fixed-background surfaces.
 //
 //   Motion is earned, never ambient: static at rest, one blink cycle on
 //   mount, whole cycles while hovered, freeze only on a cycle boundary
@@ -19,7 +21,7 @@
 // surface at once: hosts that show PlexiiThinking render this mark with
 // motion="off" while work is in flight.
 import { useEffect, useRef, useState } from 'react'
-import { PlexiMark, PlexiWordmark } from './PlexiLogo'
+import { PlexiMark, PlexiWordmark, PLEXII_II_GRADIENT } from './PlexiLogo'
 import {
   type BrandMotionMode,
   type BrandMotionState,
@@ -37,11 +39,13 @@ interface Props {
   height?: number
   /** See brandMotion. Default: one blink on mount, replay on hover. */
   motion?: BrandMotionMode
-  /** The ii. Defaults to the theme accent. */
+  /** A flat ii colour (fixed-background surfaces, e.g. white on a purple disc).
+   *  Omitted: the approved logo's purple gradient. */
   color?: string
-  /** The letterforms (wordmark only). Defaults to theme ink. */
+  /** The letterforms (wordmark only). Defaults to the approved logo's ink:
+   *  navy on light, white (the reversed logo) on dark. */
   letterColor?: string
-  /** Master artwork's blue gradient on the ii (hero surfaces; wordmark only). */
+  /** Kept for callers; the approved purple gradient is now the default ii. */
   gradient?: boolean
   className?: string
   /** Accessible name; null marks the mark decorative. */
@@ -52,9 +56,8 @@ export default function PlexiiMark({
   wordmark = false,
   height = 20,
   motion = 'once+hover',
-  color = 'rgb(var(--accent))',
-  letterColor = 'var(--ink-100)',
-  gradient = false,
+  color,
+  letterColor = 'var(--plexii-logo-ink)',
   className = '',
   title = 'Plexii'
 }: Props): JSX.Element {
@@ -105,14 +108,15 @@ export default function PlexiiMark({
       {wordmark ? (
         <PlexiWordmark
           animated={animating}
-          variant={gradient ? 'gradient' : 'flat'}
+          variant="flat"
           color={color}
+          iiGradient={color ? undefined : PLEXII_II_GRADIENT}
           letterColor={letterColor}
           title={title}
           style={svgStyle}
         />
       ) : (
-        <PlexiMark animated={animating} color={color} title={title} style={svgStyle} />
+        <PlexiMark animated={animating} color={color} iiGradient={color ? undefined : PLEXII_II_GRADIENT} title={title} style={svgStyle} />
       )}
     </span>
   )
