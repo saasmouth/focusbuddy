@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Widget } from '@shared/types'
 import { WIDGET_CATALOG } from '../../../lib/widgetCatalog'
+import PlexiiIcon from '../../PlexiiIcon'
 import Icon from '../../Icon'
 import { listDesksWithWidgets, listDesklessWidgetFiles, type DeskWidgets } from './widgetLookup'
 
@@ -137,7 +138,7 @@ export default function WidgetPickerDialog({ onPick, onClose }: Props): JSX.Elem
                     data-testid={`widget-picker-item-${w.id}`}
                     className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-accent/[0.07]"
                   >
-                    <Icon name={entry?.icon ?? 'widgets'} size={15} className="text-[var(--ink-50)] shrink-0" />
+                    <PlexiiIcon kind="widget" id={w.kind} size={18} fallback={entry?.icon ?? 'widgets'} className="shrink-0" fallbackClassName="text-[var(--ink-50)]" />
                     <span className="flex-1 min-w-0">
                       <span className="block text-[13px] text-[var(--ink-90)] truncate">{widgetLabel(w)}</span>
                       <span className="block text-[10px] text-[var(--ink-40)]">{entry?.label ?? w.kind}</span>

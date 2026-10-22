@@ -56,6 +56,8 @@ import { PRIMARY_ACTION, queueOf } from '../../lib/attentionQueues'
 import { useCloseWorkItem } from '../attention/useCloseWorkItem'
 import BellIcon from '../attention/BellIcon'
 import CompleteCircle from '../attention/CompleteCircle'
+import PlexiiIcon from '../PlexiiIcon'
+import { resolveEntityIcon } from '../../lib/plexiiIconMap'
 import Icon from '../Icon'
 import AgeHalo from '../AgeHalo'
 import { SectionLayoutContext } from './sectionLayoutContext'
@@ -110,6 +112,9 @@ export default function WidgetFrame({
     () => WIDGET_CATALOG.find((e) => e.kind === widget.kind)?.icon ?? 'widgets',
     [widget.kind]
   )
+  // The kind's Plexii icon is its own coloured tile, so it replaces the chip's
+  // tint rather than sitting inside it.
+  const hasKindAsset = !!resolveEntityIcon('widget', widget.kind).asset
   const embedded = useWidgetSurface() === 'embedded'
   const linkedFileId = widgetFileIdFromGroup(widget.syncGroupId)
   // The header's link mark: only when the file is also on another desk (or a
@@ -1097,8 +1102,12 @@ export default function WidgetFrame({
           <span className="fb-widget-title text-[10px] uppercase tracking-[0.08em] font-medium text-[var(--ink-70)] truncate flex items-center gap-1.5">
             {/* The kind's own icon, in a tinted chip. Hidden in the classic
                 skin, which identifies a widget by its label alone. */}
-            <span className="fb-widget-chip" aria-hidden>
-              <Icon name={catalogIcon} size={11} />
+            <span className={`fb-widget-chip${hasKindAsset ? ' fb-widget-chip--asset' : ''}`} aria-hidden>
+              {hasKindAsset ? (
+                <PlexiiIcon kind="widget" id={widget.kind} size={18} fallback={catalogIcon} />
+              ) : (
+                <Icon name={catalogIcon} size={11} />
+              )}
             </span>
             {isActive && (
               <span

@@ -34,6 +34,7 @@ import PlexiSignView from '../views/PlexiSignView'
 import VaultView from '../views/VaultView'
 import { useSharesStore } from '../../stores/shares'
 import AreaAccordion from '../nav/AreaAccordion'
+import PlexiiIcon, { PlexiiTileIcon } from '../PlexiiIcon'
 import Icon from '../Icon'
 import WorkspaceSwitcher from '../WorkspaceSwitcher'
 import {
@@ -564,7 +565,11 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                     : 'border-[var(--edge-soft)] text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
                 }`}
               >
-                <Icon name={n.icon} size={15} filled className={page === n.id ? '' : n.tone} />
+                {n.id === 'shared' ? (
+                  <PlexiiIcon kind="tool" id="shared" size={16} fallback={n.icon} fallbackFilled />
+                ) : (
+                  <Icon name={n.icon} size={15} filled className={page === n.id ? '' : n.tone} />
+                )}
                 <span>{n.label}</span>
                 {n.id === 'starred' && starred.size > 0 && (
                   <span className="text-[11px] text-[var(--ink-50)] fb-tabular">{starred.size}</span>
@@ -590,9 +595,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                     title={ent.reason}
                     className="fb-btn-surface relative flex flex-col items-center gap-2 p-3.5 opacity-50 cursor-not-allowed"
                   >
-                    <span className={`inline-flex items-center justify-center w-11 h-11 rounded-xl ${a.tone}`} style={{ background: 'color-mix(in srgb, currentColor 12%, transparent)' }}>
-                      <Icon name={a.icon} size={22} />
-                    </span>
+                    <PlexiiTileIcon kind="app" id={a.key} fallback={a.icon} tone={a.tone} />
                     <span className="text-[12.5px] font-medium">{a.label}</span>
                     <span className="text-[10.5px] text-[var(--ink-50)] text-center leading-tight">{a.blurb}</span>
                     <Icon name="lock" size={11} className="absolute top-1.5 right-2 text-[var(--ink-40)]" />
@@ -606,9 +609,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                   data-testid={`office-app-${a.key}`}
                   className="fb-btn-surface flex flex-col items-center gap-2 p-3.5 hover:border-[rgb(var(--accent)/0.5)] hover:shadow-sm transition"
                 >
-                  <span className={`inline-flex items-center justify-center w-11 h-11 rounded-xl ${a.tone}`} style={{ background: 'color-mix(in srgb, currentColor 12%, transparent)' }}>
-                    <Icon name={a.icon} size={22} />
-                  </span>
+                  <PlexiiTileIcon kind="app" id={a.key} fallback={a.icon} tone={a.tone} />
                   <span className="text-[12.5px] font-medium">{a.label}</span>
                   <span className="text-[10.5px] text-[var(--ink-50)] text-center leading-tight">{a.blurb}</span>
                 </button>
@@ -620,9 +621,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                 data-testid="office-app-meet"
                 className="fb-btn-surface flex flex-col items-center gap-2 p-3.5 hover:border-[rgb(var(--accent)/0.5)] hover:shadow-sm transition"
               >
-                <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl text-violet-500" style={{ background: 'color-mix(in srgb, currentColor 12%, transparent)' }}>
-                  <Icon name="video_call" size={22} />
-                </span>
+                <PlexiiTileIcon kind="app" id="meet" fallback="video_call" tone="text-violet-500" />
                 <span className="text-[12.5px] font-medium">PlexiiCall</span>
                 <span className="text-[10.5px] text-[var(--ink-50)] text-center leading-tight">Start a meeting</span>
               </button>
@@ -638,9 +637,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                 data-testid={`office-app-${a.key}`}
                 className="fb-btn-surface flex flex-col items-center gap-2 p-3.5 hover:border-[rgb(var(--accent)/0.5)] hover:shadow-sm transition"
               >
-                <span className={`inline-flex items-center justify-center w-11 h-11 rounded-xl ${a.tone}`} style={{ background: 'color-mix(in srgb, currentColor 12%, transparent)' }}>
-                  <Icon name={a.icon} size={22} />
-                </span>
+                <PlexiiTileIcon kind="app" id={a.key} fallback={a.icon} tone={a.tone} />
                 <span className="text-[12.5px] font-medium">{a.label}</span>
                 <span className="text-[10.5px] text-[var(--ink-50)] text-center leading-tight">{a.blurb}</span>
               </button>

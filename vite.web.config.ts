@@ -11,6 +11,7 @@ import react from '@vitejs/plugin-react'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import type { Plugin } from 'vite'
+import { keepPlexiiIconsAsFiles } from './electron.vite.config'
 
 const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8')) as { version: string }
 
@@ -106,6 +107,7 @@ export default defineConfig({
     exclude: ['@sqlite.org/sqlite-wasm']
   },
   worker: { format: 'es', plugins: () => [swapModules(MODULE_SWAPS)] },
-  build: { outDir: '../../out/web', emptyOutDir: true, target: 'es2022' },
+  // Same rule as the desktop renderer (electron.vite.config.ts): icon files stay files.
+  build: { outDir: '../../out/web', emptyOutDir: true, target: 'es2022', assetsInlineLimit: keepPlexiiIconsAsFiles },
   server: { port: 5180 }
 })

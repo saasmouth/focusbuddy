@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Icon from '../Icon'
+import AppLogo from '../AppLogo'
 import { useConnectedAppsStore } from '../../stores/connectedApps'
 import AddConnectedAppDialog from '../AddConnectedAppDialog'
 
@@ -49,11 +50,9 @@ export default function ConnectedAppsSection(): JSX.Element {
               data-testid={`settings-connected-app-${app.id}`}
               className="flex items-center gap-2 px-1.5 py-1 rounded-[var(--radius-row)] hover:bg-[var(--surface-sunken)]"
             >
-              <Icon
-                name={app.kind === 'local' ? 'desktop_windows' : 'public'}
-                size={13}
-                className="shrink-0 text-[var(--ink-50)]"
-              />
+              {/* The app's own logo, as in the side menu (AppLogo's fallback
+                  chain), rather than a generic local/web glyph. */}
+              <AppLogo app={app} size={18} glyphSize={11} />
               <span className="flex-1 min-w-0 truncate text-[12px] text-[var(--ink-80)]">
                 {app.title}
               </span>

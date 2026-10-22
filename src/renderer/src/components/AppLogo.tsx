@@ -1,10 +1,12 @@
 import Icon from './Icon'
-import { logoForUrl } from '../lib/appLogos'
+import PlexiiIcon from './PlexiiIcon'
+import { standardIdForUrl } from '../lib/appLogos'
 import { useSiteIcon } from '../lib/siteIcon'
 
 // The one way to render a Connected App's icon. Fallback chain:
 //   1. iconPngBase64 — real macOS app icon captured at create-time (local apps)
-//   2. bundled catalog logo matched by URL — real brand logo, offline, crisp
+//   2. the owner's Connected-Apps logo for a catalog app matched by URL —
+//      real brand logo, offline, sized for the screen (<PlexiiIcon>)
 //   3. the site's own icon for custom web apps, fetched from that site and
 //      cached locally (lib/siteIcon → main/siteIcons.ts); no third party sees it
 //   4. the original tinted Material Symbols tile, so nothing ever renders blank
@@ -26,7 +28,7 @@ interface Props {
 }
 
 export default function AppLogo({ app, size, glyphSize, className = '' }: Props): JSX.Element {
-  const bundled = logoForUrl(app.url)
+  const bundled = standardIdForUrl(app.url)
   // Hooks before any early return. Only a custom web app with no bundled logo
   // asks for its site's icon; built-in apps never fetch anything.
   const favicon = useSiteIcon(
@@ -49,7 +51,7 @@ export default function AppLogo({ app, size, glyphSize, className = '' }: Props)
   }
 
   if (bundled) {
-    return <img src={bundled} alt="" style={box} className={imgClass} draggable={false} />
+    return <PlexiiIcon kind="connected" id={bundled} size={size} fallback={app.icon || 'apps'} className={`shrink-0 ${className}`} />
   }
 
   if (favicon) {

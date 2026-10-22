@@ -15,6 +15,15 @@ const APP_VERSION_DEFINE = {
   __APP_VERSION__: JSON.stringify(pkg.version)
 }
 
+// The Plexii entity icons (src/renderer/src/assets/plexii-icons, ~290 small
+// WebPs behind lib/plexiiIconAssets.generated.ts) stay hashed files. Under the
+// default 4 KB limit most would be inlined as base64 into whichever JS chunk
+// imports the index, ~0.5 MB of strings parsed on every launch for icons that
+// are cached files otherwise. Everything else keeps Vite's default.
+export function keepPlexiiIconsAsFiles(filePath: string): boolean | undefined {
+  return filePath.split('\\').join('/').includes('/assets/plexii-icons/') ? false : undefined
+}
+
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
@@ -60,6 +69,7 @@ export default defineConfig({
     define: APP_VERSION_DEFINE,
     build: {
       minify: 'esbuild',
+      assetsInlineLimit: keepPlexiiIconsAsFiles,
       rollupOptions: {
         input: {
           // One entry. The standalone PlexiiOffice renderer (plexioffice.html)

@@ -20,6 +20,8 @@ import AISetupDialog from './AISetupDialog'
 import AddConnectedAppDialog from './AddConnectedAppDialog'
 import { useSharesStore } from '../stores/shares'
 import Icon from './Icon'
+import PlexiiIcon from './PlexiiIcon'
+import type { EntityRef } from '../lib/plexiiIconMap'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 import AreaAccordion from './nav/AreaAccordion'
 import { WidgetsRail } from './nav/WidgetsSection'
@@ -281,6 +283,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
                 <CollapsedNavIcon
                   icon="neurology"
                   label="PlexiiBrain"
+                  entity={{ kind: 'app', id: 'plexibrain' }}
                   tone={AREA_TONES.brain}
                   active={view.kind === 'plexibrain'}
                   onClick={() => goPlexiBrain()}
@@ -297,7 +300,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
           <CollapsedNavIcon icon="notifications" label="Focus"    tone={AREA_TONES.attention}  active={viewIsActive({ kind: 'attention' })} onClick={() => { setActive(null); goAttention() }} />
           <CollapsedNavIcon icon="meeting_room"  label="Rooms"        tone={AREA_TONES.rooms}     active={viewIsActive({ kind: 'rooms' })}      onClick={() => { setActive(null); goRooms() }} />
           <CollapsedNavIcon icon="desk"          label="Desks"        tone={AREA_TONES.desks}    active={viewIsActive({ kind: 'desks' })}      onClick={() => { setActive(null); goDesks() }} />
-          <CollapsedNavIcon icon="folder_shared" label="Shared Desks" tone={AREA_TONES.shared} active={viewIsActive({ kind: 'shared' })}    onClick={() => { setActive(null); goShared() }} />
+          <CollapsedNavIcon icon="folder_shared" label="Shared Desks" entity={{ kind: 'tool', id: 'shared' }} tone={AREA_TONES.shared} active={viewIsActive({ kind: 'shared' })}    onClick={() => { setActive(null); goShared() }} />
           <CollapsedNavIcon icon="delete"        label="Trash"        tone={AREA_TONES.trash}  active={viewIsActive({ kind: 'trash' })}     onClick={() => { setActive(null); goTrash() }} />
           {/* DEC-020: Plans / Desks (flat) / Calendar tabs retired — Attention
               absorbed them (feeders carry desk + plan due dates). The views
@@ -493,6 +496,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
               <NavRow
                 icon="folder_shared"
                 label="Shared"
+                entity={{ kind: 'tool', id: 'shared' }}
                 tone={AREA_TONES.shared}
                 active={viewIsActive({ kind: 'shared' })}
                 badge={sharedInbox.length ? String(sharedInbox.length) : undefined}
@@ -638,6 +642,8 @@ interface CollapsedNavIconProps {
   tone?: string
   active: boolean
   onClick: () => void
+  /** The entity this opens, when it has a Plexii icon of its own (lib/plexiiIconMap). */
+  entity?: EntityRef
 }
 
 /** The rail icon's look, shared with the Widgets rail group so the two match. */
@@ -649,7 +655,7 @@ function railIconClass(active: boolean, tone?: string): string {
   }`
 }
 
-function CollapsedNavIcon({ icon, label, tone, active, onClick }: CollapsedNavIconProps): JSX.Element {
+function CollapsedNavIcon({ icon, label, tone, active, onClick, entity }: CollapsedNavIconProps): JSX.Element {
   // Coloured, matching the expanded NavRow — which is what the prop's own
   // comment above always claimed, while the code voided it. The rail is the
   // same menu at a narrower width, so a destination cannot change colour just
@@ -666,7 +672,7 @@ function CollapsedNavIcon({ icon, label, tone, active, onClick }: CollapsedNavIc
           : `${tone ?? 'text-[var(--ink-50)]'} hover:bg-[var(--surface-sunken)]`
       }`}
     >
-      <Icon name={icon} size={16} filled />
+      {entity ? <PlexiiIcon kind={entity.kind} id={entity.id} size={18} fallback={icon} fallbackFilled /> : <Icon name={icon} size={16} filled />}
     </button>
   )
 }
@@ -680,9 +686,11 @@ interface NavRowProps {
   onClick: () => void
   badge?: string
   testid?: string
+  /** The entity this row opens, when it has a Plexii icon of its own (lib/plexiiIconMap). */
+  entity?: EntityRef
 }
 
-function NavRow({ icon, label, tone, active, onClick, badge, testid }: NavRowProps): JSX.Element {
+function NavRow({ icon, label, tone, active, onClick, badge, testid, entity }: NavRowProps): JSX.Element {
   // COLOURED, and filled rather than outlined.
   //
   // This reverses an earlier decision in this same component, so both sides are
@@ -720,7 +728,7 @@ function NavRow({ icon, label, tone, active, onClick, badge, testid }: NavRowPro
           active ? '' : (tone ?? 'text-[var(--ink-50)]')
         }`}
       >
-        <Icon name={icon} size={17} filled />
+        {entity ? <PlexiiIcon kind={entity.kind} id={entity.id} size={18} fallback={icon} fallbackFilled /> : <Icon name={icon} size={17} filled />}
       </span>
       <span className="flex-1 min-w-0 truncate text-left leading-tight">{label}</span>
       {badge && (

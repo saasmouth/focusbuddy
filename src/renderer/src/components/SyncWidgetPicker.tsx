@@ -4,6 +4,7 @@ import type { FbNode, Widget } from '@shared/types'
 import { useNodeStore } from '../stores/nodes'
 import { useWidgetStore } from '../stores/widgets'
 import { catalogFor } from '../lib/widgetCatalog'
+import PlexiiIcon from './PlexiiIcon'
 import Icon from './Icon'
 
 // Phase 4 — "Bring a synced widget from another task/folder onto this canvas."
@@ -192,7 +193,7 @@ export default function SyncWidgetPicker({ targetTaskId, onClose }: Props): JSX.
                   className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[var(--surface-sunken)] text-left disabled:opacity-50"
                   data-testid={`sync-pick-widget-${w.id}`}
                 >
-                  <Icon name={entry?.icon ?? 'widgets'} size={15} className="text-accent shrink-0" />
+                  <PlexiiIcon kind="widget" id={w.kind} size={18} fallback={entry?.icon ?? 'widgets'} className="shrink-0" fallbackClassName="text-accent" />
                   <div className="flex-1 min-w-0">
                     <div className="text-[12px] text-[var(--ink-100)] truncate">
                       {label}

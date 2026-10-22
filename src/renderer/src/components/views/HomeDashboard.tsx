@@ -53,6 +53,8 @@ import StandupHome from './StandupHome'
 import StartOrAskPlexi from './StartOrAskPlexi'
 import DashboardWizardOverlay from './DashboardWizardOverlay'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
+import type { EntityRef } from '../../lib/plexiiIconMap'
 import {
   AttentionPulseBlock,
   OverdueRadarBlock,
@@ -119,6 +121,16 @@ import type { ActivityEvent, DocumentMeta, FbNode } from '@shared/types'
 //   quick actions       navigate to real destinations via the view store
 //   recent activity     window.api.trail.recent(null, ...) — the real activity log
 //   focus mode          the real 5-minute-promise focus session (useFocusSessionStore)
+
+/** The app a document type belongs to: a Continue tile wears that app's Plexii icon. */
+const DOC_TYPE_APP: Record<string, string> = {
+  doc: 'docs',
+  sheet: 'sheets',
+  slides: 'slides',
+  map: 'diagrams',
+  design: 'design',
+  draw: 'draw'
+}
 
 const DOC_TYPE_ICON: Record<string, { icon: string; tint: string; label: string }> = {
   doc: { icon: 'description', tint: 'text-sky-500', label: 'Document' },
@@ -1181,7 +1193,11 @@ export default function HomeDashboard({
                       data-testid={`home-continue-item-${d.id}`}
                       className="flex items-center gap-3 fb-tile-lit fb-press px-3 py-2.5 text-left"
                     >
-                      <Icon name={ti.icon} size={20} className={`${ti.tint} shrink-0`} />
+                      {DOC_TYPE_APP[d.docType] ? (
+                        <PlexiiIcon kind="app" id={DOC_TYPE_APP[d.docType]} size={24} fallback={ti.icon} fallbackClassName={`${ti.tint} shrink-0`} />
+                      ) : (
+                        <Icon name={ti.icon} size={20} className={`${ti.tint} shrink-0`} />
+                      )}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate fb-t-body text-[var(--ink-100)]">
                           {d.title || 'Untitled'}
@@ -1207,9 +1223,9 @@ export default function HomeDashboard({
           <RailCard title="Quick actions" icon="bolt" tone="emerald" fill>
             <div className={`grid auto-rows-fr flex-1 min-h-0 gap-2 ${size === 'md' ? 'grid-cols-4' : 'grid-cols-2'}`}>
               <QuickAction testid="home-quick-create" icon="add" tone="accent" title="Create" blurb="New document" onClick={() => void onCreate()} />
-              <QuickAction testid="home-quick-plan" icon="checklist" tone="sky" title="Plan" blurb="Plans and tasks" onClick={() => v.goPlexiDesk('plans')} />
-              <QuickAction testid="home-quick-collaborate" icon="group" tone="emerald" title="Collaborate" blurb="Shared work" onClick={() => v.goCollaborations()} />
-              <QuickAction testid="home-quick-automate" icon="bolt" tone="violet" title="Automate" blurb="PlexiiBrain flow" onClick={() => v.goPlexiBrain('flows')} />
+              <QuickAction testid="home-quick-plan" icon="checklist" entity={{ kind: 'tool', id: 'projects' }} tone="sky" title="Plan" blurb="Plans and tasks" onClick={() => v.goPlexiDesk('plans')} />
+              <QuickAction testid="home-quick-collaborate" icon="group" entity={{ kind: 'tool', id: 'collaborations' }} tone="emerald" title="Collaborate" blurb="Shared work" onClick={() => v.goCollaborations()} />
+              <QuickAction testid="home-quick-automate" icon="bolt" entity={{ kind: 'tool', id: 'flows' }} tone="violet" title="Automate" blurb="PlexiiBrain flow" onClick={() => v.goPlexiBrain('flows')} />
             </div>
           </RailCard>
         )
@@ -2291,10 +2307,13 @@ function QuickAction({
   tone,
   title,
   blurb,
-  onClick
+  onClick,
+  entity
 }: {
   testid: string
   icon: string
+  /** The tool this opens, when it has a Plexii icon (lib/plexiiIconMap). */
+  entity?: EntityRef
   tone: 'accent' | 'sky' | 'emerald' | 'violet'
   title: string
   blurb: string
@@ -2314,9 +2333,15 @@ function QuickAction({
       data-testid={testid}
       className="flex items-center gap-2.5 fb-tile-lit fb-press px-2.5 py-2 text-left"
     >
-      <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg shrink-0 ${chip}`}>
-        <Icon name={icon} size={15} />
-      </span>
+      {entity ? (
+        <span className="inline-flex h-7 w-7 items-center justify-center shrink-0">
+          <PlexiiIcon kind={entity.kind} id={entity.id} size={24} fallback={icon} />
+        </span>
+      ) : (
+        <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg shrink-0 ${chip}`}>
+          <Icon name={icon} size={15} />
+        </span>
+      )}
       <span className="min-w-0">
         <span className="block fb-t-label font-semibold text-[var(--ink-100)] truncate">{title}</span>
         <span className="block fb-t-caption truncate">{blurb}</span>

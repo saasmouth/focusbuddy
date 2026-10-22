@@ -15,6 +15,7 @@
 // The same kinds render as icons in the collapsed rail (WidgetsRail below).
 
 import { useEffect, useMemo, useState, type JSX } from 'react'
+import PlexiiIcon from '../PlexiiIcon'
 import Icon from '../Icon'
 import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
 import { SubHeading, Tile, TileGrid } from './menuParts'
@@ -165,11 +166,14 @@ export default function WidgetsSection(): JSX.Element {
             e.dataTransfer.effectAllowed = 'copyMove'
           }}
         >
-          <Icon
-            name={entry.icon}
+          <PlexiiIcon
+            kind="widget"
+            id={entry.kind}
             size={22}
-            filled
-            className={locked ? 'text-[var(--ink-40)] opacity-60' : widgetGroupTone(caseGroupOf(entry.kind))}
+            fallback={entry.icon}
+            fallbackFilled
+            className={locked ? 'opacity-60' : ''}
+            fallbackClassName={locked ? 'text-[var(--ink-40)]' : widgetGroupTone(caseGroupOf(entry.kind))}
           />
           {locked && (
             <span className="absolute -top-1 -right-1.5 text-accent" aria-hidden="true">
@@ -342,7 +346,7 @@ export function WidgetsRail({ iconClass }: { iconClass: (active: boolean, tone?:
         data-locked={locked ? 'true' : undefined}
         className={iconClass(false, locked ? 'text-[var(--ink-40)]' : widgetGroupTone(caseGroupOf(entry.kind)))}
       >
-        <Icon name={entry.icon} size={16} filled />
+        <PlexiiIcon kind="widget" id={entry.kind} size={18} fallback={entry.icon} fallbackFilled className={locked ? 'opacity-60' : ''} />
       </button>
     )
   }

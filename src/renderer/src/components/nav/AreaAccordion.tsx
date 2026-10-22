@@ -22,6 +22,8 @@
 import { useEffect, useState } from 'react'
 import Icon from '../Icon'
 import AppLogo from '../AppLogo'
+import PlexiiIcon from '../PlexiiIcon'
+import { segmentAppEntity, viewKindEntity, type EntityRef } from '../../lib/plexiiIconMap'
 import { SubHeading, Tile, TileGrid } from './menuParts'
 import { useViewStore } from '../../stores/view'
 
@@ -206,7 +208,7 @@ function Section({
           aria-disabled="true"
           className="w-full flex items-center gap-2 px-3 py-2 text-left opacity-50"
         >
-          <Icon name={icon} size={17} filled className={`shrink-0 ${SECTION_TONE[id]}`} />
+          <SectionIcon id={id} icon={icon} />
           <span className="flex-1 min-w-0 truncate text-[11px] uppercase tracking-[0.12em] font-semibold text-[var(--ink-60)]">
             {label}
           </span>
@@ -232,7 +234,7 @@ function Section({
           data-testid={`switch-${kind}`}
           className="flex-1 flex items-center gap-2 px-3 py-2 text-left min-w-0"
         >
-          <Icon name={icon} size={17} filled className={`shrink-0 ${SECTION_TONE[id]}`} />
+          <SectionIcon id={id} icon={icon} />
           <span className="flex-1 min-w-0 truncate text-[11px] uppercase tracking-[0.12em] font-semibold text-[var(--ink-60)]">
             {label}
           </span>
@@ -254,6 +256,19 @@ function Section({
       </div>
     </div>
   )
+}
+
+/**
+ * A section head's icon. The two areas that are apps in their own right
+ * (PlexiiDesk, PlexiiBrain) wear their Plexii tile; the rest are groupings,
+ * not entities, and keep their glyph in the area's hue.
+ */
+const SECTION_ENTITY: Partial<Record<SectionId, string>> = { desk: 'plexidesk', brain: 'plexibrain' }
+
+function SectionIcon({ id, icon }: { id: SectionId; icon: string }): JSX.Element {
+  const app = SECTION_ENTITY[id]
+  if (app) return <PlexiiIcon kind="app" id={app} size={18} fallback={icon} fallbackFilled fallbackClassName={`shrink-0 ${SECTION_TONE[id]}`} />
+  return <Icon name={icon} size={17} filled className={`shrink-0 ${SECTION_TONE[id]}`} />
 }
 
 /**
@@ -299,6 +314,7 @@ function Row({
   label,
   icon,
   tone,
+  entity,
   active,
   onClick,
   testid
@@ -307,6 +323,8 @@ function Row({
   icon: string
   /** The icon's colour. Every icon in this menu carries one. */
   tone?: string
+  /** The entity this row opens, when it has a Plexii icon of its own (lib/plexiiIconMap). */
+  entity?: EntityRef | null
   active: boolean
   onClick: () => void
   testid?: string
@@ -330,7 +348,7 @@ function Row({
           active ? '' : (tone ?? 'text-[var(--ink-60)]')
         }`}
       >
-        <Icon name={icon} size={17} filled />
+        {entity ? <PlexiiIcon kind={entity.kind} id={entity.id} size={18} fallback={icon} fallbackFilled /> : <Icon name={icon} size={17} filled />}
       </span>
       <span className="min-w-0 truncate text-left whitespace-nowrap">{label}</span>
     </button>
@@ -470,6 +488,7 @@ export default function AreaAccordion({
               label={d.label}
               icon={d.icon}
               tone={d.tone}
+              entity={viewKindEntity(d.kind)}
               active={activeArea === d.kind}
               onClick={() => d.go(useViewStore.getState())}
               testid={`nav-desk-${d.kind}`}
@@ -485,6 +504,7 @@ export default function AreaAccordion({
               label={a.label}
               icon={a.icon}
               tone={a.tone}
+              entity={segmentAppEntity('plexidesk', a.key)}
               active={isActive('plexidesk', a.key)}
               onClick={() => goPlexiDesk(a.key)}
               testid={`nav-plexidesk-${a.key}`}
@@ -517,14 +537,15 @@ export default function AreaAccordion({
               testid={`office-sideapp-${a.key}`}
               onDragStart={tileDrag(a.key)}
             >
-              {/* Filled, not outlined, and in the app's own colour. An outlined
-                  glyph reads as grey at this size no matter what colour it is
-                  given, which is why these looked monochrome. */}
-              <Icon
-                name={a.icon}
+              {/* The app's own Plexii tile; its registry glyph, in the app's
+                  colour, only where the set has none (lib/plexiiIconMap). */}
+              <PlexiiIcon
+                kind="app"
+                id={a.key}
                 size={22}
-                filled
-                className={isActive('office', a.key) ? '' : (a.tone ?? 'text-[var(--ink-70)]')}
+                fallback={a.icon}
+                fallbackFilled
+                fallbackClassName={isActive('office', a.key) ? '' : (a.tone ?? 'text-[var(--ink-70)]')}
               />
             </Tile>
             </AppTileMenu>
@@ -546,11 +567,13 @@ export default function AreaAccordion({
               testid={`office-comms-app-${a.key}`}
               onDragStart={tileDrag(a.key)}
             >
-              <Icon
-                name={a.icon}
+              <PlexiiIcon
+                kind="app"
+                id={a.key}
                 size={22}
-                filled
-                className={isActive('office', a.key) ? '' : (a.tone ?? 'text-[var(--ink-70)]')}
+                fallback={a.icon}
+                fallbackFilled
+                fallbackClassName={isActive('office', a.key) ? '' : (a.tone ?? 'text-[var(--ink-70)]')}
               />
             </Tile>
             </AppTileMenu>
@@ -675,6 +698,7 @@ export default function AreaAccordion({
               label={a.label}
               icon={a.icon}
               tone={a.tone}
+              entity={segmentAppEntity('plexipeople', a.key)}
               active={isActive('plexipeople', a.key)}
               onClick={() => goPlexiPeople(a.key)}
               testid={`nav-plexipeople-${a.key}`}
@@ -702,6 +726,7 @@ export default function AreaAccordion({
               label={a.label}
               icon={a.icon}
               tone={a.tone}
+              entity={segmentAppEntity('plexibrain', a.key)}
               active={isActive('plexibrain', a.key)}
               onClick={() => goPlexiBrain(a.key)}
               testid={`nav-plexibrain-${a.key}`}

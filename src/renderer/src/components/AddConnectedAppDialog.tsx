@@ -9,7 +9,8 @@ import {
   type StandardApp
 } from '../lib/standardApps'
 import Icon from './Icon'
-import { logoForStandardId } from '../lib/appLogos'
+import PlexiiIcon from './PlexiiIcon'
+import { CONNECTED_ICON_ASSETS } from '../lib/plexiiIconMap'
 
 interface Props {
   onClose: () => void
@@ -577,13 +578,8 @@ function PresetGrid({
                 : 'fb-tile fb-press'
             }`}
           >
-            {logoForStandardId(p.id) ? (
-              <img
-                src={logoForStandardId(p.id)!}
-                alt=""
-                className="h-8 w-8 rounded-md shrink-0 object-contain"
-                draggable={false}
-              />
+            {CONNECTED_ICON_ASSETS[p.id] ? (
+              <PlexiiIcon kind="connected" id={p.id} size={32} fallback={p.icon} />
             ) : (
               <span
                 className="h-8 w-8 rounded-md inline-flex items-center justify-center shrink-0"

@@ -2950,6 +2950,12 @@ html[data-widget-skin='studio'] [data-widget-id] > .fb-card {
 html.dark[data-widget-skin='studio'] .fb-widget-chip {
   background: rgb(var(--accent) / 0.18);
 }
+/* A kind with a Plexii icon: the icon is already a coloured tile, so no tint
+   behind it (components/PlexiiIcon). Both themes. */
+html[data-widget-skin='studio'] .fb-widget-chip--asset,
+html.dark[data-widget-skin='studio'] .fb-widget-chip--asset {
+  background: none;
+}
 html.dark[data-widget-skin='studio'] .fb-card,
 html.dark[data-widget-skin='studio'] [data-widget-id] > .fb-card {
   box-shadow:

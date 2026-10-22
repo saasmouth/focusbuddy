@@ -9,6 +9,8 @@ import type { WidgetKind, SearchHit } from '@shared/types'
 import { WIDGET_CATALOG, isAdvancedKind } from '../lib/widgetCatalog'
 import { getNavPrefs, setNavPrefs } from '../lib/navPrefs'
 import Icon from './Icon'
+import PlexiiIcon from './PlexiiIcon'
+import { WIDGET_ICON_ASSETS, type EntityRef } from '../lib/plexiiIconMap'
 import { parseAttentionCommand, hasAttentionCommand, isCapturePrefix, LEADING_CAPTURE_WORD } from '../lib/attentionCommand'
 import { useCapabilityEnabled, useCapabilityStore } from '../stores/capabilities'
 import { entitlementFor, capabilityForDocType, DOC_TYPE_LABEL } from '../lib/entitlementReason'
@@ -30,6 +32,46 @@ interface Props {
   onOpenBodyDouble: () => void
   onOpenSmartStack: () => void
   canSmartStack: boolean
+}
+
+/**
+ * The entity a palette row opens or creates, read off its id, so the row wears
+ * that entity's Plexii icon. Rows that are actions on no entity (reset view,
+ * snap, a desk) keep their glyph.
+ */
+const COMMAND_ENTITY: Record<string, EntityRef> = {
+  'go-all-tasks': { kind: 'tool', id: 'all-tasks' },
+  'go-plans': { kind: 'tool', id: 'projects' },
+  'go-calendar': { kind: 'app', id: 'calendar' },
+  'go-vault': { kind: 'app', id: 'vault' },
+  'go-plexidesk': { kind: 'app', id: 'plexidesk' },
+  'go-plexibrain': { kind: 'app', id: 'plexibrain' },
+  'go-design': { kind: 'app', id: 'design' },
+  'go-draw': { kind: 'app', id: 'draw' },
+  'go-diagrams': { kind: 'app', id: 'diagrams' },
+  'go-files': { kind: 'app', id: 'files' },
+  'go-mail': { kind: 'app', id: 'mail' },
+  'go-inbox': { kind: 'app', id: 'inbox' },
+  'go-messages': { kind: 'app', id: 'chat' },
+  'new-design': { kind: 'app', id: 'design' },
+  'new-draw': { kind: 'app', id: 'draw' },
+  'new-project': { kind: 'tool', id: 'projects' },
+  'new-flow': { kind: 'tool', id: 'flows' },
+  'new-meeting': { kind: 'app', id: 'meet' },
+  'new-form': { kind: 'tool', id: 'forms' },
+  'new-sign': { kind: 'app', id: 'sign' },
+  'compose-mail': { kind: 'app', id: 'mail' },
+  'new-document': { kind: 'app', id: 'docs' },
+  'new-sheet': { kind: 'app', id: 'sheets' },
+  'new-deck': { kind: 'app', id: 'slides' }
+}
+
+function commandEntity(id: string): EntityRef | null {
+  const fixed = COMMAND_ENTITY[id]
+  if (fixed) return fixed
+  const kind = id.startsWith('add-') ? id.slice(4) : id.startsWith('new-file-') ? id.slice(9) : null
+  // A kind with no asset keeps its 14px glyph like every other row.
+  return kind && WIDGET_ICON_ASSETS[kind as WidgetKind]?.asset ? { kind: 'widget', id: kind } : null
 }
 
 interface CommandResult {
@@ -1049,15 +1091,15 @@ export default function CommandCenter({
                             : 'hover:bg-[var(--surface-sunken)]'
                         }`}
                       >
-                        <Icon
-                          name={r.icon}
-                          size={14}
-                          className={
-                            i === highlightIdx
-                              ? 'text-accent shrink-0'
-                              : 'text-[var(--ink-50)] shrink-0'
-                          }
-                        />
+                        {(() => {
+                          const tone = i === highlightIdx ? 'text-accent shrink-0' : 'text-[var(--ink-50)] shrink-0'
+                          const ent = commandEntity(r.id)
+                          return ent ? (
+                            <PlexiiIcon kind={ent.kind} id={ent.id} size={18} fallback={r.icon} className="shrink-0" fallbackClassName={tone} />
+                          ) : (
+                            <Icon name={r.icon} size={14} className={tone} />
+                          )
+                        })()}
                         <div className="flex-1 min-w-0">
                           <div
                             className={`text-[13px] truncate ${
