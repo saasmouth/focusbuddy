@@ -634,3 +634,52 @@ export const PLEXII_ICON_ASSETS: Readonly<Record<string, PlexiiIconAsset>> = {
 /** Items in the source set with no usable file, and why (a truncated PNG needs a re-export). They render their declared fallback. */
 export const PLEXII_ICON_MISSING: Readonly<Record<string, string>> = {
 }
+
+/**
+ * Delivered glyphs whose marks are IDENTICAL to an app glyph (components/icons/plexiiIcons.ts),
+ * key -> that glyph. Where one replaces the glyph it duplicates, nothing on screen changes.
+ */
+export const PLEXII_ICON_SAME_AS_APP_GLYPH: Readonly<Record<string, string>> = {
+  'areas/office-area': 'office',
+  'areas/people-area': 'people',
+  'areas/recent': 'clock',
+  'areas/starred': 'star',
+  'areas/templates': 'templates',
+  'onboarding/body-doubling': 'people',
+  'onboarding/connected-office-files': 'docs',
+  'onboarding/rooms-desks-and-plans': 'rooms',
+  'onboarding/welcome-to-plexiidesk': 'ai',
+  'people/directory': 'directory',
+  'people/people-home': 'people',
+  'plexiibrain/agents': 'agents',
+  'plexiibrain/apis': 'api',
+  'plexiibrain/ask-plexiibrain': 'chat',
+  'plexiibrain/assemble-a-desk': 'assemble',
+  'plexiibrain/connect': 'connect',
+  'plexiibrain/decisions': 'decisions',
+  'plexiibrain/ops': 'flow',
+  'plexiibrain/plexiibrain-home': 'brain',
+  'plexiibrain/plexiibrain-map': 'graph',
+  'section-headers/apps': 'all-desks',
+  'section-headers/connected-apps': 'connect',
+  'section-headers/people': 'people',
+  'side-menu/all-desks': 'all-desks',
+  'side-menu/desks': 'desks',
+  'side-menu/home': 'home',
+  'side-menu/manage-organisation': 'org',
+  'side-menu/new-desk': 'new',
+  'side-menu/rooms': 'rooms',
+  'side-menu/trash': 'trash',
+  'tools/all-tasks': 'tasks',
+  'tools/collaborations': 'people',
+  'tools/flows': 'flow',
+  'tools/organisation': 'org',
+  'tools/people-map': 'people',
+  'tools/projects': 'plans',
+  'tools/search': 'search',
+  'tools/shared-with-me': 'shared',
+  'widgets/agent': 'agents',
+  'widgets/image-generation': 'ai',
+  'widgets/note': 'docs',
+  'widgets/stream-deck': 'all-desks',
+}

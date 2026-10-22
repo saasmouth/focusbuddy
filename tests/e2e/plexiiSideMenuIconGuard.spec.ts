@@ -28,6 +28,16 @@ import {
 // below as having no icon in the set is not an owner icon. So a row that loses
 // its icon, or a new row added without one, is caught here and not by eye.
 //
+// A second test per theme does the same for the COLLAPSED RAIL (the menu at
+// icon width), which the expanded walk never reaches. The workspace switcher
+// is covered by the first test (it opens the switcher's menu before auditing);
+// since c581655d it holds workspaces and Manage organisation, not the areas.
+//
+// Wearing the owner's asset is not the same as looking new: 30 of the 41 line
+// icons delivered on 22 Oct are the app's existing glyphs redrawn, so these
+// rows look as they did in 4.3.40. tests/unit/plexiiIconSameArt.test.ts holds
+// that list; this spec only proves the asset is the one drawn.
+//
 // PLEXII_ICON_AUDIT_ONLY=1 records without asserting (for auditing an older
 // build), and PLEXII_ICON_AUDIT_OUT=<file> writes the table as JSON. Light and
 // dark screenshots of the expanded menu, per area, go to SHOTS.
@@ -111,7 +121,7 @@ async function openWorkspaceMenu(window: Page): Promise<void> {
   }
 }
 
-async function audit(window: Page, area: Area): Promise<AuditRow[]> {
+async function audit(window: Page, area: Area, container: string = PANEL): Promise<AuditRow[]> {
   return window.evaluate(
     ([panelSel, a]) => {
       const panel = document.querySelector(panelSel)
@@ -136,15 +146,15 @@ async function audit(window: Page, area: Area): Promise<AuditRow[]> {
           }
         })
     },
-    [PANEL, area] as const
+    [container, area] as const
   )
 }
 
 /** Every owner icon in the panel actually loads (img decoded, glyph mask file fetchable). */
-async function brokenOwnerIcons(window: Page): Promise<string[]> {
+async function brokenOwnerIcons(window: Page, container: string = PANEL): Promise<string[]> {
   await window.waitForFunction(
     (sel) => Array.from(document.querySelectorAll<HTMLImageElement>(`${sel} img[data-plexii-icon]`)).every((i) => i.complete),
-    PANEL,
+    container,
     { timeout: 10_000 }
   )
   return window.evaluate(async (sel) => {
@@ -163,7 +173,7 @@ async function brokenOwnerIcons(window: Page): Promise<string[]> {
       if (!ok) broken.push(`${g.dataset.plexiiIcon} ${url}`)
     }
     return broken
-  }, PANEL)
+  }, container)
 }
 
 /** The panel scrolls; shoot it top to bottom, one file per screenful. */
@@ -271,6 +281,7 @@ for (const theme of ['light', 'dark'] as const) {
       ['nav-desk-attention', 'place:focus'],
       ['nav-desk-rooms', 'place:rooms'],
       ['nav-desk-desks', 'place:desks'],
+      ['nav-desk-shared', 'tool:shared'],
       ['nav-desk-trash', 'place:trash'],
       ['sidebar-attention-open', 'place:focus-open'],
       ['sidebar-attention-due-today', 'place:focus-due-today'],
@@ -306,6 +317,7 @@ for (const theme of ['light', 'dark'] as const) {
       ['Focus', 'place:focus'],
       ['Rooms', 'place:rooms'],
       ['All desks', 'place:all-desks'],
+      ['Shared', 'tool:shared'],
       ['Trash', 'place:trash']
     ] as const) {
       expect(rows.some((r) => r.area === 'desk' && r.id === label && r.owner?.startsWith(icon)), `desk sidebar ${label} wears ${icon}`).toBe(true)
@@ -322,5 +334,69 @@ for (const theme of ['light', 'dark'] as const) {
       return el ? getComputedStyle(el).backgroundColor : ''
     })
     expect(glyph).toBe(theme === 'dark' ? 'rgb(196, 181, 253)' : 'rgb(124, 58, 237)')
+  })
+}
+
+// The collapsed rail is the same menu at icon width, and it is where the owner
+// looks for these places with no label to help: Office / People / PlexiiBrain,
+// then Home, Focus, Rooms, Desks, Shared Desks, Trash, then the work widgets.
+// The expanded-menu test above never collapses the menu, so a rail row could
+// lose its owner icon (or never get one) with that test green.
+const RAIL = '[data-testid="desk-sidebar-collapsed"]'
+const RAIL_CHROME: RegExp[] = [
+  /^Expand menu$/, // the rail's own expand control
+  /^rail-other-widgets-toggle$/, // the widgets overflow toggle ("...")
+  /^Add app$/ // the dashed "+" under an opened Connected Apps group
+]
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`every collapsed-rail row wears an owner icon (${theme})`, async () => {
+    test.setTimeout(120_000)
+    mkdirSync(SHOTS, { recursive: true })
+    launched = await launchApp({ extraArgs: ['--force-device-scale-factor=2'] })
+    const { window } = launched
+    await waitForReady(window)
+    await window.setViewportSize({ width: 1440, height: 1400 })
+    await window.evaluate((m) => {
+      localStorage.setItem('fb.theme.mode', m)
+      localStorage.setItem('fb.sidebar.minimized', '1')
+    }, theme)
+    await suppressFeatureSpotlights(window)
+    await window.reload()
+    await waitForReady(window)
+    await chooseCloudAiSource(window)
+    for (const cap of ['product_office', 'product_people', 'product_brain']) await grantCapability(window, cap)
+    await window.evaluate(() => (window as unknown as { __fbView: { getState: () => { goHome: () => void } } }).__fbView.getState().goHome())
+    const rail = window.locator(RAIL)
+    await expect(rail).toBeVisible({ timeout: 10_000 })
+    await window.waitForTimeout(400)
+    const box = await rail.boundingBox()
+    if (box) await window.screenshot({ path: `${SHOTS}/${theme}-collapsed-rail.png`, clip: { x: 0, y: 0, width: box.x + box.width + 16, height: Math.min(1400, box.y + box.height + 16) } })
+
+    const rows = await audit(window, 'desk', RAIL)
+    console.log(`Collapsed-rail icon audit (${theme}):\n${rows.map((r) => `${r.icon.padEnd(6)} ${r.id.padEnd(30)} ${r.owner ?? r.glyphs.join(',')}`).join('\n')}`)
+    expect(await brokenOwnerIcons(window, RAIL), 'rail: owner icons that did not load').toEqual([])
+    if (AUDIT_ONLY) return
+
+    const offenders = rows
+      .filter((r) => r.icon !== 'owner' && !RAIL_CHROME.some((re) => re.test(r.id)))
+      .map((r) => `${r.id} (${r.icon}: ${r.glyphs.join(',') || 'no icon'})`)
+    expect(offenders, 'collapsed-rail rows without an owner icon').toEqual([])
+    for (const [title, icon] of [
+      ['Office', 'place:office-area'],
+      ['People', 'place:people-area'],
+      ['PlexiiBrain', 'app:plexibrain'],
+      ['Home', 'place:home'],
+      ['Focus', 'place:focus'],
+      ['Rooms', 'place:rooms'],
+      ['Desks', 'place:desks'],
+      ['Shared Desks', 'tool:shared'],
+      ['Trash', 'place:trash'],
+      ['Connected Apps', 'place:section-connected-apps']
+    ] as const) {
+      expect(rows.some((r) => r.id === title && r.owner?.startsWith(icon)), `rail ${title} wears ${icon}`).toBe(true)
+    }
+    // At least the main work widgets are on the rail, each wearing its kind's tile.
+    expect(rows.filter((r) => r.owner?.startsWith('widget:')).length, 'rail work widgets').toBeGreaterThan(3)
   })
 }

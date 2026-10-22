@@ -359,6 +359,35 @@ async function encode(pipeline, style) {
   return pipeline.webp({ quality: 88, alphaQuality: 100, effort: 6, smartSubsample: true }).toBuffer()
 }
 
+/**
+ * The app's own line glyphs (components/icons/plexiiIcons.ts), keyed by their
+ * inner markup. A delivered glyph whose marks are the SAME as one of these is
+ * the picture the app already drew: wiring it changes the element, not what
+ * anyone sees. 22 Oct 2026: 30 of the 41 delivered line icons were exactly
+ * that (Home, Rooms, Desks, Trash, People, the PlexiiBrain rows...), so the
+ * owner tested 4.3.41 and reported the icons "still missing". The build now
+ * says so per item and lists them in PLEXII_ICON_SAME_AS_APP_GLYPH, and
+ * tests/unit/plexiiIconSameArt.test.ts holds that list to a declared one.
+ */
+const APP_GLYPH_BY_MARKUP = (() => {
+  const src = readFileSync(join(ROOT, 'src/renderer/src/components/icons/plexiiIcons.ts'), 'utf8')
+  const table = src.slice(src.indexOf('export const PLEXII_ICONS'), src.indexOf('export const PLEXII_BY_MATERIAL'))
+  const map = new Map()
+  for (const m of table.matchAll(/'([\w-]+)':\s*'([^']+)'/g)) if (!map.has(norm(m[2]))) map.set(norm(m[2]), m[1])
+  return map
+})()
+
+/** Markup compared without whitespace differences. */
+function norm(markup) {
+  return markup.replace(/\s+/g, ' ').replace(/> </g, '><').trim()
+}
+
+/** The app glyph a delivered SVG duplicates, or null. Delivered glyphs wrap the 24px marks in a 32px box. */
+function sameAsAppGlyph(svgText) {
+  const inner = svgText.match(/<g transform="translate\(4 4\)">([\s\S]*)<\/g>\s*<\/svg>/)?.[1] ?? svgText.match(/<svg[^>]*>([\s\S]*)<\/svg>/)?.[1]
+  return inner ? (APP_GLYPH_BY_MARKUP.get(norm(inner)) ?? null) : null
+}
+
 async function buildItem(item, outDir) {
   const src = await loadSource(item)
   if (src.kind === 'none') return { ...item, missing: true, problem: src.problem }
@@ -435,7 +464,8 @@ async function buildItem(item, outDir) {
       checks[size] = strayPixels(data, info.width, info.height)
     }
   }
-  return { ...item, style, sizes, source: src.note, clean: cleanInfo, strays: checks }
+  const sameArt = style === 'glyph' ? sameAsAppGlyph(src.buf.toString('utf8')) : null
+  return { ...item, style, sizes, source: src.note, clean: cleanInfo, strays: checks, sameArt }
 }
 
 function svgViewBoxWidth(svgText) {
@@ -519,6 +549,14 @@ function writeIndex(results, indexPath, assetsDir) {
   for (const r of missing) lines.push(`  '${r.key}': ${JSON.stringify(r.problem)},`)
   lines.push('}')
   lines.push('')
+  lines.push('/**')
+  lines.push(" * Delivered glyphs whose marks are IDENTICAL to an app glyph (components/icons/plexiiIcons.ts),")
+  lines.push(' * key -> that glyph. Where one replaces the glyph it duplicates, nothing on screen changes.')
+  lines.push(' */')
+  lines.push('export const PLEXII_ICON_SAME_AS_APP_GLYPH: Readonly<Record<string, string>> = {')
+  for (const r of built.filter((x) => x.sameArt)) lines.push(`  '${r.key}': '${r.sameArt}',`)
+  lines.push('}')
+  lines.push('')
   writeFileSync(indexPath, lines.join('\n'))
 }
 
@@ -559,11 +597,16 @@ async function main() {
       .map(([s, n]) => `${s}:${n}`)
       .join(' ')
     strayTotal += Object.values(r.strays ?? {}).reduce((n, v) => n + v, 0)
-    const tag = 'ok       '
+    const tag = r.sameArt ? 'SAME-ART ' : 'ok       '
     console.log(
       `${tag} ${r.key.padEnd(30)} ${r.style.padEnd(5)} ${Object.keys(r.sizes).join('/').padEnd(10)} ${String(bytes).padStart(6)} B` +
-        (r.clean ? `  tile ${r.clean.tileBox}, ${r.clean.zeroedPixels} stray px zeroed, strays after: ${strays}` : '')
+        (r.clean ? `  tile ${r.clean.tileBox}, ${r.clean.zeroedPixels} stray px zeroed, strays after: ${strays}` : '') +
+        (r.sameArt ? `  same marks as the app's plexii:${r.sameArt}` : '')
     )
+  }
+  const same = results.filter((r) => r.sameArt)
+  if (same.length) {
+    console.log(`\n${same.length} delivered glyphs are the app's existing glyph (SAME-ART): wiring one where that glyph already showed changes nothing on screen.`)
   }
   console.log(`\n${results.filter((r) => !r.missing).length} icons, ${results.filter((r) => r.missing).length} missing, ${total} bytes of assets.`)
 
