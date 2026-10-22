@@ -263,6 +263,8 @@ These thresholds are constants in `office/shell/layout.ts`, so every app shares 
 
 ## 6. Per-app mapping (every toolbar AND inspector control)
 
+**Host rule (every app): the element that hosts `OfficeShellLayout` must be `flex-1 min-w-0` (and `min-h-0` in a column), as must every flex item between the app's root and the shell.** A flex item's default `min-width: auto` is its content's width, so one wrapper without `min-w-0` lets the editor grow to its widest toolbar instead of the space it was given. Full-window that can hide behind a wide screen; in a narrow desk widget it overflows the widget, the right slot and side pane fall off the edge, and Row 1 never folds because the bar thinks it has room. Write hit this, and so did Draw. The narrow-embed row of `officeShellLayout.spec` checks it and names each offending element with its classes and whether it is a flex item still at `min-width: auto` (§8).
+
 (R) = rail · Tab · Ctx = contextual tab · Pin = pinned in Row 2 · Panel = overlay panel · Menu = menu bar.
 
 ### 6.1 PlexiiDiagrams (lead)
