@@ -17,7 +17,21 @@ export interface MenuDef {
   build: () => MenuItem[]
 }
 
-export function MenuBarShell({ menus, testid }: { menus: MenuDef[]; testid: string }): JSX.Element {
+export function MenuBarShell({
+  menus,
+  testid,
+  itemTestid
+}: {
+  menus: MenuDef[]
+  testid: string
+  /**
+   * Prefix for the per-menu button and list testids. Defaults to `testid`.
+   * PlexiiWrite needs them to differ: its bar is `doc-menubar` while its menus
+   * are `doc-menu-file`, `doc-menu-file-list` and so on.
+   */
+  itemTestid?: string
+}): JSX.Element {
+  const itemId = itemTestid ?? testid
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const barRef = useRef<HTMLDivElement>(null)
 
@@ -49,7 +63,7 @@ export function MenuBarShell({ menus, testid }: { menus: MenuDef[]; testid: stri
           <button
             onClick={() => setOpenMenu((cur) => (cur === menu.id ? null : menu.id))}
             onMouseEnter={() => setOpenMenu((cur) => (cur ? menu.id : cur))}
-            data-testid={`${testid}-${menu.id}`}
+            data-testid={`${itemId}-${menu.id}`}
             className={`px-2 py-0.5 rounded text-[13px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)] ${
               openMenu === menu.id ? 'bg-[var(--surface-sunken)]' : ''
             }`}
@@ -57,7 +71,7 @@ export function MenuBarShell({ menus, testid }: { menus: MenuDef[]; testid: stri
             {menu.label}
           </button>
           {openMenu === menu.id && (
-            <MenuDropdown items={menu.build()} onRun={runItem} testid={`${testid}-${menu.id}-list`} />
+            <MenuDropdown items={menu.build()} onRun={runItem} testid={`${itemId}-${menu.id}-list`} />
           )}
         </div>
       ))}
