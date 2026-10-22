@@ -99,7 +99,9 @@ interface Props {
 
 export const ROW_HEADER_W = 44
 // The column-label header row is a fixed height so frozen-row sticky offsets are
-// deterministic. DEFAULT_ROW_PX mirrors the 0.75cm default used by the editor.
+// deterministic. (The old note here said DEFAULT_ROW_PX mirrored the editor's
+// 0.75cm default, which is ~28px — that described the pre-b63d8053 value and
+// contradicted the line below it.)
 export const HEADER_H = 30
 export const DEFAULT_ROW_PX = 20 // Excel default row height (15pt at 96dpi)
 
@@ -378,7 +380,15 @@ export default function SheetGrid(props: Props): JSX.Element {
                       props.onRowResizeStart?.(r, e)
                     }}
                     title="Drag to resize row"
-                    className="absolute bottom-0 left-0 right-0 h-[6px] translate-y-1/2 z-20 cursor-row-resize hover:bg-accent/40"
+                    // Sits INSIDE its own header cell. It used to carry
+                    // `translate-y-1/2`, which pushed half of it across the row
+                    // boundary — and because this span's z-20 lives inside a
+                    // `sticky z-10` <td>, it cannot paint above the NEXT row's
+                    // header, which is a sibling at the same z-10. So the strip
+                    // centred on the boundary was covered by row r+1 and only
+                    // the 3px above the line could be grabbed. Keeping it in
+                    // its own cell makes the whole 6px reachable.
+                    className="absolute bottom-0 left-0 right-0 h-[6px] z-20 cursor-row-resize hover:bg-accent/40"
                   />
                 )}
               </td>

@@ -364,7 +364,10 @@ export default function FloatingPill({
         </Tooltip>
 
         {timerText && (
-          <span className={`text-[10px] font-mono tabular-nums ${vertical ? 'px-1.5' : 'px-1'} ${timerOverdue ? 'text-red-500 animate-pulse' : 'text-[var(--ink-50)]'}`}>
+          <span
+            data-testid="pill-timer"
+            className={`text-[10px] font-mono tabular-nums ${vertical ? 'px-1.5' : 'px-1'} ${timerOverdue ? 'text-red-500 animate-pulse' : 'text-[var(--ink-50)]'}`}
+          >
             {timerText}
           </span>
         )}

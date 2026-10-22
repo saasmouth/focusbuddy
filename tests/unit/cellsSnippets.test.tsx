@@ -326,10 +326,16 @@ describe('insertion: insertSheetSnippet behaves like Cells’ paste', () => {
       })
     })
 
-    it('when a relative reference would point above row 1, naming the cell where it lands (paste would clamp it)', () => {
+    it('when a relative reference would point above row 1, naming the cell where it lands (paste instead yields #REF!)', () => {
       const t = tabWith({ C5: '=C4*2' })
       const b = sheetBodyFromSelection(t, { r0: 4, c0: 2, r1: 4, c1: 2 })!
-      expect(rewriteFormulaRefs('=C4*2', -4, -2)).toBe('=A1*2') // what paste does: C4 silently becomes A1
+      // Paste used to CLAMP this to =A1*2 — a formula that looked right and
+      // multiplied the wrong cell. It now breaks the reference, like Excel.
+      // A snippet insert still DECLINES up front rather than landing a broken
+      // formula: a paste is a direct action the user just performed and can see
+      // the result of, while inserting a saved block is offered by the picker,
+      // so refusing with a reason is better than placing something broken.
+      expect(rewriteFormulaRefs('=C4*2', -4, -2)).toBe('=#REF!*2')
       expect(insertSheetSnippet(t, snippetOf(b), at(0, 0))).toEqual({
         declined: 'Placed at A1, the formula landing in A1 would point above row 1 or left of column A. Insert the block lower down or further right.'
       })

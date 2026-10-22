@@ -8,7 +8,8 @@
  *   3. Column auto-fit on double-clicking the column resize handle.
  *   4. Shift-click header extend (regression check — was collapsing to a
  *      single column before the fix).
- *   5. Default row height (~28px / 0.75cm) and row-resize-handle drag.
+ *   5. Default row height (20px, Excel's 15pt at 96dpi) and row-resize-handle drag.
+ *   6. A pasted formula pushed off the grid shows #REF!, never a clamped ref.
  *
  * Navigation follows the exact pattern used by sheetEditorV2.spec.ts /
  * sheetRework.spec.ts (openDocumentsHub / startBlankSpreadsheet via the
@@ -366,7 +367,7 @@ test('SR2-4 — click col-select-0 then shift-click col-select-2 extends selecti
 
 // ── 5. Default row height + row-resize drag ──────────────────────────────────
 
-test('SR2-5 — default row height is ~28px; dragging the row-resize handle increases it', async () => {
+test('SR2-5 — default row height matches Excel (20px); dragging the row-resize handle increases it', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
@@ -376,21 +377,33 @@ test('SR2-5 — default row height is ~28px; dragging the row-resize handle incr
     const defaultHeight = await window
       .locator('[data-testid="cell-0-0"]')
       .evaluate((el) => (el as HTMLElement).offsetHeight)
-    expect(defaultHeight, `default row height should be ~28px, got ${defaultHeight}px`).toBeGreaterThanOrEqual(24)
-    expect(defaultHeight, `default row height should be ~28px, got ${defaultHeight}px`).toBeLessThanOrEqual(34)
+    // Excel's default row height is 15pt, which is 20px at 96dpi (15/72*96).
+    // `DEFAULT_ROW_PX = 20` is deliberate: 416e3d36 introduced 28, then
+    // b63d8053 ("Sheets: Excel cell sizing + arrow-key commit navigation")
+    // changed it to 20 for Excel parity, which is the owner's decision. This
+    // spec predated that and expected ~28, so the SPEC moved, not the app.
+    // Google Sheets uses 21px, for reference — a band of 18-22 accepts either
+    // without accepting the old 28.
+    expect(defaultHeight, `default row height should be ~20px (Excel parity), got ${defaultHeight}px`).toBeGreaterThanOrEqual(18)
+    expect(defaultHeight, `default row height should be ~20px (Excel parity), got ${defaultHeight}px`).toBeLessThanOrEqual(22)
 
     // Drag the row-0 bottom resize handle down by 30px.
+    //
+    // `hover()` rather than a bare mouse.move to the bounding box: it runs
+    // Playwright's actionability checks, so if anything covers this 6px strip
+    // the failure NAMES the obscuring element instead of the mousedown landing
+    // somewhere harmless and the drag silently doing nothing. That is what used
+    // to happen here, and the old `toBeAttached` could not see it — an attached
+    // handle and a reachable one are different claims.
     const handle = window.locator('[data-testid="row-header-0"] span[title="Drag to resize row"]')
     await expect(handle).toBeAttached({ timeout: 3_000 })
     const box = await handle.boundingBox()
     expect(box, 'row resize handle must have a bounding box').not.toBeNull()
 
-    if (box) {
-      await window.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-      await window.mouse.down()
-      await window.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 30, { steps: 8 })
-      await window.mouse.up()
-    }
+    await handle.hover({ timeout: 5_000 })
+    await window.mouse.down()
+    await window.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2 + 30, { steps: 8 })
+    await window.mouse.up()
     await window.waitForTimeout(250)
 
     const afterHeight = await window
@@ -399,16 +412,66 @@ test('SR2-5 — default row height is ~28px; dragging the row-resize handle incr
     // eslint-disable-next-line no-console
     console.log(`[SR2-5 evidence] row0 height default=${defaultHeight}px after-drag=${afterHeight}px`)
 
-    if (afterHeight > defaultHeight) {
-      expect(afterHeight, `row height should increase after drag (before=${defaultHeight}px, after=${afterHeight}px)`).toBeGreaterThan(
-        defaultHeight
-      )
-    } else {
-      // eslint-disable-next-line no-console
-      console.log(
-        `[SR2-5] row-resize drag did not register via synthetic mouse (before=${defaultHeight}px, after=${afterHeight}px). Default row height confirmed independently above.`
-      )
-    }
+    // Asserted unconditionally. This used to be wrapped in
+    // `if (afterHeight > defaultHeight)`, which only asserts the increase when
+    // it has already happened and logs a note otherwise — so the drag half of
+    // this test could never fail, while its title promised it was covered. A
+    // test that cannot fail is worse than a skipped one, because it reads as
+    // coverage.
+    expect(
+      afterHeight,
+      `row height should increase after dragging the handle down 30px (before=${defaultHeight}px, after=${afterHeight}px)`
+    ).toBeGreaterThan(defaultHeight)
+  } finally {
+    await dispose()
+  }
+})
+
+// ── SR2-6. A paste that pushes a reference off the grid ───────────────────────
+
+test('SR2-6 — a formula pasted above its referent shows #REF!, not a clamped reference', async () => {
+  const { window, dispose } = await launchApp()
+  try {
+    await waitForReady(window)
+    await openDocumentsHub(window)
+    await startBlankSpreadsheet(window)
+
+    // C4 = 7, C5 = =C4*2 -> 14. Copying C5 and pasting it at A1 shifts the
+    // relative C4 by (-4, -2), which lands above row 1 and left of column A.
+    await setViaFormulaBar(window, 3, 2, '7', [0, 0])
+    await setViaFormulaBar(window, 4, 2, '=C4*2', [0, 0])
+    expect(await cellText(window, 4, 2), 'C5 = C4*2 must show 14 before the copy').toBe('14')
+
+    const mod = process.platform === 'darwin' ? 'Meta' : 'Control'
+    await clickCell(window, 4, 2)
+    await window.keyboard.press(`${mod}+c`)
+    await window.waitForTimeout(150)
+    await clickCell(window, 0, 0)
+    await window.keyboard.press(`${mod}+v`)
+    await window.waitForTimeout(250)
+
+    // The whole point: a VISIBLE error. This used to clamp to =A1*2, which
+    // multiplied whatever happened to be in A1 and looked like a real result.
+    expect(await cellText(window, 0, 0), 'A1 must show #REF!, not a clamped value').toBe('#REF!')
+
+    const body = await getPersistedBody(window)
+    const a1 = body.sheets[0].rows[0][0]
+    // Only the broken reference is replaced, so the rest still reads as written.
+    expect(a1, 'the stored formula names the broken reference').toBe('=#REF!*2')
+    // eslint-disable-next-line no-console
+    console.log(`[SR2-6 evidence] pasted at A1: stored="${a1}" displays="${await cellText(window, 0, 0)}"`)
+
+    // Positive control, so the guard is not blanket-refusing every upward paste.
+    // Pasted at B2 the reference shifts by (-3, -1) and lands on B1, still on the
+    // grid. Deliberately NOT A2: that would reference A1, which the paste above
+    // just broke, and the error would propagate correctly — the app would be
+    // right and the assertion wrong.
+    await clickCell(window, 1, 1)
+    await window.keyboard.press(`${mod}+v`)
+    await window.waitForTimeout(250)
+    const b2 = (await getPersistedBody(window)).sheets[0].rows[1][1]
+    expect(b2, 'a paste that stays on the grid still shifts normally').toBe('=B1*2')
+    expect(await cellText(window, 1, 1), 'and it computes rather than erroring').not.toBe('#REF!')
   } finally {
     await dispose()
   }
