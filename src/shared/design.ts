@@ -21,7 +21,7 @@
 import type { SlideElement, SlideFill, SlideTextElement, SlideShapeElement } from './types'
 import { hasPageToken, resolvePageTokens } from './designFlow'
 import { normalizeContent, parsePlainText, type ContentDoc } from './designContent'
-import type { DesignStyleSheet } from './designStyles'
+import type { DesignCharacterStyle, DesignParagraphStyle, DesignStyleSheet } from './designStyles'
 import type { BaselineGrid } from './designFlow'
 import type { DesignSwatch } from './designSwatches'
 import { type OrgBrandKit, DEFAULT_BRAND_KIT, readableTextOn, contrastRatio, hexToRgb } from './brandKit'
@@ -218,6 +218,49 @@ export function findDesignSize(id: string): DesignSize | undefined {
 
 // Normalise a stored or partial body into a valid DesignBody. Bad sizes clamp to
 // a sane default; missing elements become an empty canvas.
+/**
+ * What the normaliser does with every field DesignBody declares.
+ *
+ * `kept` means a value in the stored body comes back out: the user put it
+ * there and losing it is data loss. `derived` means this function computes it
+ * (clamped, mirrored from the active page, or deliberately not persisted), so
+ * a stored value is not expected to survive verbatim.
+ *
+ * It is a Record over `keyof DesignBody`, so ADDING A FIELD TO DesignBody
+ * WITHOUT CLASSIFYING IT HERE IS A COMPILE ERROR — which is the gap that cost
+ * the palette: swatches, paragraphStyles and baselineGrid were added with
+ * their features (2026-10-21) and nobody thought about this function, so every
+ * read quietly deleted them. designNormalizeKeeps.test.ts then proves every
+ * `kept` field actually survives a round trip, so the classification cannot
+ * drift into a comment that lies.
+ */
+export const DESIGN_BODY_FIELDS: Record<keyof DesignBody, 'kept' | 'derived'> = {
+  schemaVersion: 'derived',
+  width: 'derived',
+  height: 'derived',
+  background: 'derived',
+  elements: 'derived',
+  activePage: 'derived',
+  editingMasterId: 'derived',
+  category: 'kept',
+  brandApplied: 'kept',
+  bleed: 'kept',
+  pages: 'kept',
+  masters: 'kept',
+  guides: 'kept',
+  margins: 'kept',
+  columns: 'kept',
+  layers: 'kept',
+  facing: 'kept',
+  stories: 'kept',
+  layoutStyleId: 'kept',
+  sourceContent: 'kept',
+  pageNumberStart: 'kept',
+  paragraphStyles: 'kept',
+  baselineGrid: 'kept',
+  swatches: 'kept'
+}
+
 export function normalizeDesignBody(raw: unknown): DesignBody {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
   const width = clampDim(r.width, 1080)
@@ -255,6 +298,58 @@ export function normalizeDesignBody(raw: unknown): DesignBody {
         ...(mr.side === 'left' || mr.side === 'right' ? { side: mr.side } : {})
       }
     })
+
+  // ── Document-level settings ────────────────────────────────────────────────
+  // These three are the user's own: a palette they named, a style sheet they
+  // edited, a grid they set. They were added with their features but never
+  // added here, and this function runs on EVERY read (parseBody in
+  // src/main/db/documents.ts), so reopening a design dropped all three and the
+  // next save wrote the stripped body back — the palette gone for good, and
+  // every swatchId on a fill left dangling while its cached colour stayed.
+  const swatches: DesignSwatch[] = (Array.isArray(r.swatches) ? (r.swatches as unknown[]) : [])
+    .map((v) => (v && typeof v === 'object' ? (v as Record<string, unknown>) : {}))
+    .filter((sw) => typeof sw.id === 'string' && sw.id !== '' && typeof sw.color === 'string' && sw.color !== '')
+    .map((sw, i) => {
+      const spot = (sw.spot && typeof sw.spot === 'object' ? (sw.spot as Record<string, unknown>) : null)
+      return {
+        id: sw.id as string,
+        name: typeof sw.name === 'string' && sw.name ? (sw.name as string) : `Colour ${i + 1}`,
+        color: sw.color as string,
+        ...(spot && typeof spot.inkName === 'string' && spot.inkName ? { spot: { inkName: spot.inkName } } : {}),
+        ...(sw.locked === true ? { locked: true } : {})
+      }
+    })
+
+  const rawSheet = (r.paragraphStyles && typeof r.paragraphStyles === 'object' ? (r.paragraphStyles as Record<string, unknown>) : null)
+  const paragraphStyles: DesignStyleSheet | null =
+    rawSheet && Array.isArray(rawSheet.paragraph)
+      ? {
+          paragraph: (rawSheet.paragraph as unknown[]).filter(
+            (st): st is DesignParagraphStyle =>
+              !!st && typeof st === 'object' && typeof (st as { id?: unknown }).id === 'string' && (st as { id: string }).id !== ''
+          ),
+          ...(Array.isArray(rawSheet.character)
+            ? {
+                character: (rawSheet.character as unknown[]).filter(
+                  (st): st is DesignCharacterStyle =>
+                    !!st && typeof st === 'object' && typeof (st as { id?: unknown }).id === 'string' && (st as { id: string }).id !== ''
+                )
+              }
+            : {}),
+          ...(rawSheet.blockMap && typeof rawSheet.blockMap === 'object'
+            ? { blockMap: rawSheet.blockMap as DesignStyleSheet['blockMap'] }
+            : {})
+        }
+      : null
+
+  const rawGrid = (r.baselineGrid && typeof r.baselineGrid === 'object' ? (r.baselineGrid as Record<string, unknown>) : null)
+  const baselineGrid: BaselineGrid | null =
+    rawGrid && typeof rawGrid.spacing === 'number' && Number.isFinite(rawGrid.spacing) && rawGrid.spacing > 0
+      ? {
+          spacing: Math.round(rawGrid.spacing * 100) / 100,
+          ...(typeof rawGrid.offset === 'number' && Number.isFinite(rawGrid.offset) ? { offset: Math.round(rawGrid.offset * 100) / 100 } : {})
+        }
+      : null
 
   const rawGuides = (r.guides && typeof r.guides === 'object' ? r.guides : {}) as Record<string, unknown>
   const guides: DesignGuides = {
@@ -322,6 +417,9 @@ export function normalizeDesignBody(raw: unknown): DesignBody {
     ...(Object.keys(stories).length ? { stories } : {}),
     ...(typeof r.pageNumberStart === 'number' ? { pageNumberStart: Math.round(r.pageNumberStart) } : {}),
     ...(typeof r.layoutStyleId === 'string' ? { layoutStyleId: r.layoutStyleId } : {}),
+    ...(swatches.length ? { swatches } : {}),
+    ...(paragraphStyles && paragraphStyles.paragraph.length ? { paragraphStyles } : {}),
+    ...(baselineGrid ? { baselineGrid } : {}),
     ...(r.sourceContent && typeof r.sourceContent === 'object' && normalizeContent(r.sourceContent).blocks.length
       ? { sourceContent: normalizeContent(r.sourceContent) }
       : {}),

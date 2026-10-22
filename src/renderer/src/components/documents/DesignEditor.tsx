@@ -489,7 +489,12 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
 
   // Run a slide-op against whatever surface is being edited — the page's own
   // elements, or the open master's furniture — and persist the result.
-  function mutate(fn: (s: Slide) => Slide): void {
+  //
+  // `body` carries document-level fields the same op has to write (pasting a
+  // threaded frame brings its story). Folded into the same commit on purpose:
+  // two commits would be two undo steps, and undoing half of a paste would
+  // leave a frame pointing at a story that is no longer there.
+  function mutate(fn: (s: Slide) => Slide, body?: Partial<DesignBody>): void {
     const d = designRef.current
     const editingId = d.editingMasterId
     if (editingId) {
@@ -498,13 +503,14 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
       const next = fn({ id: 'master', notes: '', elements: m.elements, background: m.background, schemaVersion: 2 })
       commit({
         ...d,
+        ...(body ?? {}),
         masters: (d.masters ?? []).map((x) => (x.id === editingId ? { ...x, elements: next.elements ?? [], background: next.background } : x))
       })
       return
     }
     const slide: Slide = { id: 'design', notes: '', elements: d.elements, background: d.background, schemaVersion: 2 }
     const next = fn(slide)
-    update({ elements: next.elements ?? [], background: next.background })
+    update({ ...(body ?? {}), elements: next.elements ?? [], background: next.background })
   }
 
   function undo(): void {
@@ -560,8 +566,20 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     },
     topZ: () => (designRef.current.elements ?? []).reduce((m, e) => Math.max(m, e.z ?? 0), 0),
     newId: elementId,
-    onPaste: (els) => {
-      mutate((s) => els.reduce((acc, el) => addElement(acc, el), s))
+    // A threaded frame's words live in design.stories, not on the element, so
+    // a copy has to take the story with it and a paste has to land it under a
+    // fresh id. Without this, pasting into the same document extended the
+    // ORIGINAL story (the article silently reflowed through the new frame) and
+    // pasting into another document left the id dangling and the frame empty.
+    stories: () => designRef.current.stories ?? {},
+    newStoryId: () => `st-${Math.random().toString(36).slice(2, 9)}`,
+    onPaste: (els, stories) => {
+      mutate(
+        (s) => els.reduce((acc, el) => addElement(acc, el), s),
+        stories
+          ? { stories: { ...(designRef.current.stories ?? {}), ...(stories as Record<string, ContentDoc>) } }
+          : undefined
+      )
       setSelectedIds(els.map((e) => e.id))
     },
     onCut: (ids) => {

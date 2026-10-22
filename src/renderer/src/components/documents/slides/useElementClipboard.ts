@@ -5,6 +5,7 @@ import {
   elementsPlainText,
   parseElementClipboard,
   pasteElements,
+  pasteStoryMap,
   serializeElementClipboard,
   type ElementClipboard
 } from '@shared/elementClipboard'
@@ -51,8 +52,21 @@ export interface ElementClipboardWiring {
   topZ: () => number
   /** A fresh element id, minted the way this editor mints them. */
   newId: () => string
-  /** Add the pasted elements and select them. */
-  onPaste: (elements: SlideElement[]) => void
+  /**
+   * Add the pasted elements and select them. `stories` is present only for an
+   * editor that supplied `stories` on copy: it is the copied stories under
+   * FRESH ids, which the elements already point at, and the editor must merge
+   * them into the document or those frames will have no words.
+   */
+  onPaste: (elements: SlideElement[], stories?: Record<string, unknown>) => void
+  /**
+   * The document's stories, so a copy can take the words a threaded frame only
+   * points at. PlexiiDeck has none and leaves this out, and a paste then cuts
+   * threaded frames loose instead of joining the source's chain.
+   */
+  stories?: () => Record<string, unknown>
+  /** A fresh story id, minted the way this editor mints them. */
+  newStoryId?: () => string
   /** Remove these ids, for a cut. */
   onCut: (ids: string[]) => void
   /**
@@ -81,7 +95,7 @@ export function useElementClipboard(wiring: ElementClipboardWiring): ElementClip
     const w = ref.current
     const els = w.selected()
     if (els.length === 0) return false
-    const clip = buildElementClipboard(els, w.canvas())
+    const clip = buildElementClipboard(els, w.canvas(), w.stories?.())
     lastClip = clip
     setHasClip(true)
     if (data) {
@@ -102,9 +116,14 @@ export function useElementClipboard(wiring: ElementClipboardWiring): ElementClip
   const applyPaste = useCallback((clip: ElementClipboard | null): boolean => {
     if (!clip) return false
     const w = ref.current
-    const els = pasteElements(clip, { canvas: w.canvas(), topZ: w.topZ(), newId: w.newId })
+    // Fresh story ids first: the elements are rewritten to point at them, and
+    // the editor gets the docs to merge under the same ids.
+    const { map, stories } = w.newStoryId
+      ? pasteStoryMap(clip, w.newStoryId)
+      : { map: {} as Record<string, string>, stories: {} as Record<string, unknown> }
+    const els = pasteElements(clip, { canvas: w.canvas(), topZ: w.topZ(), newId: w.newId, storyMap: map })
     if (els.length === 0) return false
-    w.onPaste(els)
+    w.onPaste(els, Object.keys(stories).length ? stories : undefined)
     return true
   }, [])
 

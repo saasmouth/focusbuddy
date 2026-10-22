@@ -40,18 +40,52 @@ export interface ElementClipboard {
   source: { w: number; h: number }
   /** The copied elements, in their original z order. Ids are the source's; a paste mints new ones. */
   elements: SlideElement[]
+  /**
+   * The stories the copied text frames belong to, keyed by the SOURCE story id.
+   *
+   * A threaded frame holds no words: its text lives in the document's story,
+   * and the frame only points at it with `storyId`. So a copy that takes the
+   * frame and not the story is a copy of nothing — paste it into another
+   * document and the id dangles and the frame renders empty. Carrying the
+   * story is what makes a threaded frame copyable at all.
+   */
+  stories?: Record<string, unknown>
 }
 
-/** Build the payload for a copy. */
-export function buildElementClipboard(elements: SlideElement[], source: { w: number; h: number }): ElementClipboard {
+/**
+ * Build the payload for a copy.
+ *
+ * `stories` is the document's story map; only the stories the copied frames
+ * actually reference are embedded, so copying one shape out of a 40-page
+ * publication does not put the whole book on the clipboard.
+ */
+export function buildElementClipboard(
+  elements: SlideElement[],
+  source: { w: number; h: number },
+  stories?: Record<string, unknown>
+): ElementClipboard {
+  const referenced = storyIdsOf(elements)
+  const embedded: Record<string, unknown> = {}
+  if (stories) for (const id of referenced) if (stories[id] !== undefined) embedded[id] = clone(stories[id])
   return {
     kind: ELEMENT_CLIP_KIND,
     version: ELEMENT_CLIP_VERSION,
     source: { w: Math.max(1, Math.round(source.w)), h: Math.max(1, Math.round(source.h)) },
     // Sorted by z so a paste can lay them back down in the same order whatever
     // order the selection was made in.
-    elements: [...elements].sort((a, b) => (a.z ?? 0) - (b.z ?? 0)).map((e) => clone(e))
+    elements: [...elements].sort((a, b) => (a.z ?? 0) - (b.z ?? 0)).map((e) => clone(e)),
+    ...(Object.keys(embedded).length ? { stories: embedded } : {})
   }
+}
+
+/** The distinct story ids these elements point at, in first-seen order. */
+export function storyIdsOf(elements: SlideElement[]): string[] {
+  const out: string[] = []
+  for (const e of elements) {
+    const id = (e as { storyId?: unknown }).storyId
+    if (typeof id === 'string' && id !== '' && !out.includes(id)) out.push(id)
+  }
+  return out
 }
 
 export function serializeElementClipboard(clip: ElementClipboard): string {
@@ -87,8 +121,42 @@ export function parseElementClipboard(text: string | null | undefined): ElementC
     kind: ELEMENT_CLIP_KIND,
     version: typeof o.version === 'number' ? o.version : ELEMENT_CLIP_VERSION,
     source: { w: w > 0 ? w : 0, h: h > 0 ? h : 0 },
-    elements: elements.map((e) => clone(e))
+    elements: elements.map((e) => clone(e)),
+    ...(o.stories && typeof o.stories === 'object' && !Array.isArray(o.stories)
+      ? { stories: clone(o.stories as Record<string, unknown>) }
+      : {})
   }
+}
+
+/**
+ * The story ids a paste should use, and the story docs to merge under them.
+ *
+ * Copying a threaded frame must not make the copy part of the original's
+ * chain: pasted into the same document that silently extends the story so the
+ * article reflows through the new frame, and pasted into another document the
+ * id points at nothing and the frame renders empty. Both were real: paste kept
+ * `storyId` verbatim.
+ *
+ * So every story in the paste becomes a NEW story with the same words, and
+ * frames that were threaded TOGETHER stay threaded together, because they map
+ * through the same entry. A story the clipboard did not carry gets no entry at
+ * all, and `pasteElements` then cuts those frames loose rather than pointing
+ * them at a story that is not there.
+ */
+export function pasteStoryMap(
+  clip: ElementClipboard,
+  newStoryId: () => string
+): { map: Record<string, string>; stories: Record<string, unknown> } {
+  const map: Record<string, string> = {}
+  const stories: Record<string, unknown> = {}
+  for (const old of storyIdsOf(clip.elements)) {
+    const doc = clip.stories?.[old]
+    if (doc === undefined) continue
+    const next = newStoryId()
+    map[old] = next
+    stories[next] = clone(doc)
+  }
+  return { map, stories }
 }
 
 /** The words in these elements, for the text/plain flavour of a copy. */
@@ -119,6 +187,15 @@ export interface PasteOptions {
   offset?: number
   /** A group id for pasted elements that were grouped. Defaults to a derived one. */
   newGroupId?: (oldId: string) => string
+  /**
+   * Source story id → the id the paste should use, from `pasteStoryMap`.
+   *
+   * Without it (PlexiiDeck, which has no stories, and any caller that has not
+   * merged the stories into its document) a threaded frame is CUT LOOSE:
+   * storyId and storyOrder are dropped rather than left pointing somewhere.
+   * Keeping them is the bug — never the default.
+   */
+  storyMap?: Record<string, string>
 }
 
 /**
@@ -151,6 +228,20 @@ export function pasteElements(clip: ElementClipboard, opts: PasteOptions): Slide
     return next
   }
 
+  // Story order within the paste: frames of one story numbered 1..n in the
+  // order they were threaded, so a two-frame copy reads as frame 1 then 2
+  // whatever the source's numbers were. ONE-based because that is the model's
+  // convention — designStories.renumber writes "1, 2, 3…" — and a 0-based
+  // paste would have quietly introduced a second convention. 2e's snippet test
+  // caught it, expecting [1, 2] where this produced [0, 1].
+  const order = new Map<string, number>()
+  for (const id of storyIdsOf(clip.elements)) {
+    clip.elements
+      .filter((e) => (e as { storyId?: unknown }).storyId === id)
+      .sort((a, b) => ((a as { storyOrder?: number }).storyOrder ?? 0) - ((b as { storyOrder?: number }).storyOrder ?? 0))
+      .forEach((e, i) => order.set(e.id, i + 1))
+  }
+
   // One nudge for the whole paste, not per element, so a group keeps its shape.
   const bounds = boundsOf(clip.elements)
   const dx = fitShift(bounds.x + nudge, bounds.w, opts.canvas.w) - bounds.x
@@ -164,6 +255,21 @@ export function pasteElements(clip: ElementClipboard, opts: PasteOptions): Slide
     // Relative order kept, all of it above whatever is already on the page.
     e.z = opts.topZ + 1 + i
     if (e.groupId) e.groupId = groupFor(e.groupId)
+    const story = (e as { storyId?: unknown }).storyId
+    if (typeof story === 'string' && story !== '') {
+      const next = opts.storyMap?.[story]
+      const t = e as { storyId?: string | undefined; storyOrder?: number | undefined }
+      if (next) {
+        t.storyId = next
+        // Re-sequenced within the paste, keeping the copied frames' relative
+        // order: the source's numbers belong to the source's chain, which may
+        // have frames this paste did not take.
+        t.storyOrder = order.get(src.id) ?? 1
+      } else {
+        delete t.storyId
+        delete t.storyOrder
+      }
+    }
     return e
   })
 }
