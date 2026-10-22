@@ -56,8 +56,12 @@ export default function LocalAiSection(): JSX.Element {
     } catch {
       setSt(null)
     }
-    // Coverage is reported separately: a failure here must leave the number
-    // ABSENT rather than showing a zero that reads like a real measurement.
+    await refreshCoverage()
+  }
+
+  // Coverage is reported separately: a failure here must leave the number
+  // ABSENT rather than showing a zero that reads like a real measurement.
+  async function refreshCoverage(): Promise<void> {
     try {
       setCoverage(await window.api.localAi.coverage())
     } catch {
@@ -69,9 +73,13 @@ export default function LocalAiSection(): JSX.Element {
     void refresh()
     const offP = window.api.localAi.onProgress((p) => setProgress(p))
     const offC = window.api.localAi.onChanged(() => void refresh())
+    // The counts fill in as the background sweep embeds and describes: without
+    // this, "Passages ranked by meaning" kept the figure the panel opened with.
+    const offV = window.api.localAi.onCoverageChanged?.(() => void refreshCoverage()) ?? (() => undefined)
     return () => {
       offP()
       offC()
+      offV()
     }
   }, [])
 

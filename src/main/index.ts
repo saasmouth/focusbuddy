@@ -37,7 +37,7 @@ import { installAutoUpdater, checkForUpdates } from './autoUpdate'
 import { detectOfficeBuild, detectPreviewBuild, productDisplayName } from './appMode'
 import { runDueFlows } from './db/flows'
 import { sweepDocumentChunks, sweepWidgetChunks, sweepChatChunks, sweepFileChunks } from './chunkIndex'
-import { sweepDocumentEnrichment, sweepDocumentMemory, sweepEmbeddings } from './ai/localAiSweeps'
+import { sweepDocumentEnrichment, sweepDocumentMemory, sweepEmbeddings, setCoverageSink, signalCoverageChanged } from './ai/localAiSweeps'
 import { runDueReports } from './db/reports'
 import { installMainCrashHandlers, recordCrash } from './db/crashLog'
 import { installIpcErrorBoundary } from './ipc/errorBoundary'
@@ -1003,6 +1003,10 @@ app.whenReady().then(() => {
   const LOCAL_AI_FIRST_RUN_MS = 45_000
   const LOCAL_AI_INTERVAL_MS = 5 * 60_000
   let localAiQuiet = false
+  // Settings › AI › Local reads its counts again when they move.
+  setCoverageSink(() => {
+    for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send('brain:coverageChanged', null)
+  })
   const runLocalAiPasses = async (): Promise<void> => {
     try {
       // Embeddings go FIRST. They are batched and fast, and they are what makes
@@ -1041,6 +1045,7 @@ app.whenReady().then(() => {
           `[local-ai] enriched ${e.processed} (${e.remaining} left), ` +
             `memory scanned ${m.processed} (+${m.added} remembered, ${m.remaining} left)`
         )
+        signalCoverageChanged()
       }
     } catch (err) {
       console.error('[local-ai] sweep failed:', err)

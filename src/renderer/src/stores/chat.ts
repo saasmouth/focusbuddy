@@ -1,3 +1,4 @@
+import { plainLocalFailure } from '@shared/localAiFailure'
 import { create } from 'zustand'
 import { useCompletionOffer } from './completionOffer'
 import { conversationForDesk } from '../lib/deskConversation'
@@ -296,7 +297,9 @@ function fromStoredTrace(t: StoredTrace | null): AssistantTrace | null {
     tools: t.tools ?? [],
     // A restored trace is finished work — there is no in-flight action to name.
     activity: null,
-    error: t.error
+    // Saved by an older version, a failure can carry the parser's technical
+    // reason ("no JSON object was found", 4.3.40) beside a real answer.
+    error: plainLocalFailure(t.error)
   }
 }
 
@@ -479,7 +482,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!conv) return
     const messages: ChatMessage[] = conv.messages.map((m) => ({
       role: m.role,
-      content: m.content,
+      // A turn that failed before any prose saved the failure line as its text.
+      content: m.role === 'assistant' && m.trace?.error && m.content === m.trace.error ? plainLocalFailure(m.content) : m.content,
       ts: m.ts
     }))
     const proposalsByMessage: Record<string, ActionProposal[]> = {}
@@ -903,7 +907,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       if (ts === null) {
         // Nothing has been shown yet: the finished reply (or the error) becomes
         // the turn.
-        ts = appendAnswer(resp.ok && resp.message ? resp.message.content : (resp.error ?? 'Something went wrong.'))
+        ts = appendAnswer(resp.ok && resp.message ? resp.message.content : plainLocalFailure(resp.error ?? 'Something went wrong.'))
       } else if (resp.ok && resp.message && resp.message.content !== '') {
         // Prose is already on screen. Rewrite it only when the finished response
         // differs — it gains a notice when the model was truncated mid-actions.
@@ -955,7 +959,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           [tsKey]: {
             ...live,
             status: resp.ok ? 'done' : 'error',
-            error: resp.ok ? live.error : (resp.error ?? 'Something went wrong.'),
+            error: resp.ok ? live.error : plainLocalFailure(resp.error ?? 'Something went wrong.'),
             completedAt: Date.now()
           }
         }

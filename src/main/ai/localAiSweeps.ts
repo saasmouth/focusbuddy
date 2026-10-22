@@ -146,6 +146,32 @@ export interface EmbeddingSweepResult {
 
 let embeddingSweep: Promise<EmbeddingSweepResult> | null = null
 
+// Who hears that coverage moved (index.ts: the 'brain:coverageChanged'
+// broadcast that Settings › AI › Local listens to). The panel used to read the
+// counts once, when it opened, so "Passages ranked by meaning: 0 of 40" stayed
+// 0 while every passage was embedded behind it (LBP-2 at 37115bfb). Throttled:
+// a large backlog writes many batches, and one refresh every two seconds plus
+// a final one is plenty to watch it fill.
+let coverageSink: (() => void) | null = null
+let lastCoverageSignal = 0
+export function setCoverageSink(fn: (() => void) | null): void {
+  coverageSink = fn
+}
+/** Coverage moved outside the embedding sweep (enrichment, memory): say so now. */
+export function signalCoverageChanged(): void {
+  coverageMoved(true)
+}
+function coverageMoved(final = false): void {
+  const now = Date.now()
+  if (!final && now - lastCoverageSignal < 2_000) return
+  lastCoverageSignal = now
+  try {
+    coverageSink?.()
+  } catch {
+    /* a listener must never break a sweep */
+  }
+}
+
 export function sweepEmbeddings(): Promise<EmbeddingSweepResult> {
   if (embeddingSweep) return embeddingSweep
   embeddingSweep = runEmbeddingSweep().finally(() => {
@@ -156,8 +182,11 @@ export function sweepEmbeddings(): Promise<EmbeddingSweepResult> {
 
 async function runEmbeddingSweep(): Promise<EmbeddingSweepResult> {
   const docs = await reindexDocuments(false)
+  if (docs.embedded > 0) coverageMoved()
   const knowledge = await reindexKnowledge(false)
-  const passages = await reindexChunkEmbeddings('document', false)
+  if (knowledge.embedded > 0) coverageMoved()
+  const passages = await reindexChunkEmbeddings('document', false, () => coverageMoved())
+  if (docs.embedded + knowledge.embedded + passages.embedded + passages.pruned > 0) coverageMoved(true)
   return {
     documents: docs.embedded,
     knowledge: knowledge.embedded,

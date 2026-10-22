@@ -18,7 +18,6 @@ import type { CoverageReport } from './ai/coverageMath'
 import { knowledgeCoverage } from './semanticRetrieval'
 import { documentCoverage } from './documentRetrieval'
 import { chunkEmbeddingCoverage, passageModelsBySource } from './chunkEmbeddings'
-import { chunkIndexActive } from './chunkIndex'
 
 export interface WorkspaceCoverage {
   /** PlexiiBrain entries. */
@@ -48,11 +47,11 @@ export async function workspaceCoverage(): Promise<WorkspaceCoverage> {
 /**
  * The share of what a chat turn searches that was ranked by meaning, 0..1.
  *
- * Not the same as the workspace figure: chat ranks documents through the chunk
- * index (BM25 over passages, workspaceSearch.retrieveSources) whenever that
- * index exists, and that path compares no vectors at all — so on such a
- * workspace documents count as keyword-ranked however many of them hold
- * vectors. Saying otherwise in the trace would claim a search that did not run.
+ * `documentsByMeaning` says whether the document pool compared vectors. Until
+ * 4.3.42 the chunk-index path (BM25 over passages) compared none, so documents
+ * counted as keyword-ranked however many held vectors; it now ranks the same
+ * passages by meaning too (passageRetrieval.ts), so documents count through
+ * their passage (or whole-document) vectors on both paths.
  */
 export function chatMeaningFraction(cov: WorkspaceCoverage, documentsByMeaning: boolean): number {
   const total = cov.knowledge.total + cov.documents.total
@@ -82,7 +81,9 @@ export function traceSemantic(
 export async function chatRetrievalCoverage(): Promise<{ fraction: number; model: string | null } | null> {
   try {
     const cov = await workspaceCoverage()
-    return { fraction: chatMeaningFraction(cov, !chunkIndexActive()), model: cov.model }
+    // Both document paths compare vectors now: the chunk index through
+    // passageSearchDocuments, the fallback through semanticSearchDocuments.
+    return { fraction: chatMeaningFraction(cov, true), model: cov.model }
   } catch {
     return null
   }
