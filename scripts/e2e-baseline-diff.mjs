@@ -92,8 +92,16 @@ function ids(path, pattern) {
 }
 
 const refuse = (problems) => {
-  console.log('REFUSING TO REPORT A VERDICT:\n')
-  for (const p of problems) console.log('  !!', p)
+  // Loud on purpose. The whole failure mode this guards is a result that LOOKS
+  // like a clean verdict, so the refusal must not look like a passing run with
+  // a note attached.
+  const bar = '='.repeat(72)
+  console.log(`\n${bar}`)
+  console.log('  NO VERDICT. These logs cannot support one.')
+  console.log(`${bar}`)
+  for (const p of problems) console.log(`\n  !! ${p}`)
+  console.log(`\n  Nothing below this line was computed. Do not report a result from this run.`)
+  console.log(`${bar}\n`)
   process.exit(1)
 }
 
