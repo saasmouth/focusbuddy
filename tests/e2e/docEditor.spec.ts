@@ -137,7 +137,7 @@ test('DE-1 — blank doc opens with editor surface and toolbar', async () => {
     await expect(window.getByRole('button', { name: /Redo/i })).toBeVisible()
 
     // Find & replace toolbar button present
-    await expect(window.getByTitle('Find & replace')).toBeVisible()
+    await expect(window.getByRole('button', { name: /Find & replace/i })).toBeVisible()
   } finally {
     await dispose()
   }
@@ -487,7 +487,7 @@ test('DE-8a — Office import: stubbed IPC importDocx inserts content into edito
     await stubIpcImportDocx(app, '<h2>Imported Heading</h2><p>Word paragraph content</p>')
 
     // Open Office menu via the folder-open toolbar button
-    await window.getByTitle('Open or export Office files').click()
+    await window.getByRole('button', { name: /Open or export Office files/i }).click()
     await expect(window.locator('text=Import Word (.docx)')).toBeVisible({ timeout: 3_000 })
     await window.locator('text=Import Word (.docx)').click()
 
@@ -520,7 +520,7 @@ test('DE-8b — Office export: stubbed IPC exportDocx + exportPdf show saved pat
     await stubIpcExportOffice(app, fakePath)
 
     // Export Word — open Office menu and click Export Word
-    await window.getByTitle('Open or export Office files').click()
+    await window.getByRole('button', { name: /Open or export Office files/i }).click()
     await expect(window.locator('text=Export Word (.docx)')).toBeVisible({ timeout: 3_000 })
     await window.locator('text=Export Word (.docx)').click()
 
@@ -538,7 +538,7 @@ test('DE-8b — Office export: stubbed IPC exportDocx + exportPdf show saved pat
     const fakePdfPath = '/tmp/MyDoc.pdf'
     await stubIpcExportOffice(app, fakePdfPath)
 
-    await window.getByTitle('Open or export Office files').click()
+    await window.getByRole('button', { name: /Open or export Office files/i }).click()
     await expect(window.locator('text=Export PDF')).toBeVisible({ timeout: 3_000 })
     await window.locator('text=Export PDF').click()
 

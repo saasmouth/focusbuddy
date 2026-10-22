@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useMinimizable } from '../chrome/floatingMenu'
 import DocMentionPicker from './editor/DocMentionPicker'
 import type { DocMentionQuery } from './editor/docMentions'
@@ -670,6 +670,30 @@ export default function DocEditor({
   // Which heading level the cursor sits in, and the friendly name of the block
   // style, for the Styles control. Both were computed inside Toolbar.tsx; the
   // ContextBar tabs read them from here now.
+  // The side panes are memoised on their real inputs. Built inline they were
+  // new objects with new render closures on every render, and WriteChrome
+  // re-renders on every editor transaction to keep the mark toggles accurate —
+  // so the pane content remounted on each keystroke. Anything inside it (the
+  // Add comment button, a reply field, its focus and selection) was replaced
+  // from under the user, and a click on it could never land.
+  const sidePanes = useMemo(
+    () =>
+      docSidePanes({
+        editor,
+        ai,
+        userName,
+        showAiTab: !hasGlobalAssistant,
+        comments,
+        canComment,
+        onAddComment,
+        onReply: onReplyComment,
+        onJumpComment,
+        mentionHandles,
+        myHandle
+      }),
+    [editor, ai, userName, hasGlobalAssistant, comments, canComment, onAddComment, onReplyComment, onJumpComment, mentionHandles, myHandle]
+  )
+
   const currentHeadingLevel = [1, 2, 3, 4, 5, 6].find((lvl) => editor.isActive('heading', { level: lvl })) ?? null
   const styleLabel = editor.isActive('bulletList')
     ? 'Bulleted'
@@ -924,19 +948,7 @@ export default function DocEditor({
               setPanelOpen(true)
             } else setPanelOpen(false)
           }}
-          panes={docSidePanes({
-            editor,
-            ai,
-            userName,
-            showAiTab: !hasGlobalAssistant,
-            comments,
-            canComment,
-            onAddComment,
-            onReply: onReplyComment,
-            onJumpComment,
-            mentionHandles,
-            myHandle
-          })}
+          panes={sidePanes}
           onInsertImage={() => void insertImage()}
           onInsertWidget={() => setWidgetPickerOpen(true)}
           onOpenLink={() => setFindOpen(false)}
@@ -944,6 +956,19 @@ export default function DocEditor({
           onExportDocx={() => void exportDocx()}
           onExportPdf={() => void exportPdf()}
           onAskAi={ai.openInsert}
+          onOpenAssistant={() => {
+            // The one assistant: with a global overlay present, open that,
+            // contextual to this document. Without one, Write's own AI pane.
+            if (hasGlobalAssistant) {
+              window.dispatchEvent(new CustomEvent('fb:open-assistant'))
+              return
+            }
+            if (panelOpen && panelTab === 'ai') setPanelOpen(false)
+            else {
+              setPanelTab('ai')
+              setPanelOpen(true)
+            }
+          }}
           onFocusMode={() => setFocusMode(true)}
           onFind={() => setFindOpen((v) => !v)}
           onWordCount={() => setFindOpen(false)}

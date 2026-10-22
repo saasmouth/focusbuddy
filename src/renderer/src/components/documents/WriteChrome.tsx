@@ -86,6 +86,8 @@ export interface WriteChromeProps {
   onExportDocx: () => void
   onExportPdf: () => void
   onAskAi: () => void
+  /** PlexiiAssist: the one assistant. See WCtx.openAssistant. */
+  onOpenAssistant: () => void
   onFocusMode: () => void
   onFind: () => void
   onWordCount: () => void
@@ -206,6 +208,7 @@ export default function WriteChrome(props: WriteChromeProps): JSX.Element {
       exportDocx: props.onExportDocx,
       exportPdf: props.onExportPdf,
       askAi: props.onAskAi,
+      openAssistant: props.onOpenAssistant,
       focusMode: props.onFocusMode
     }),
     [editor, readOnly, props, togglePanel, isPanelOpen, sidePane, toggleSidePane, openDialog]
@@ -277,7 +280,7 @@ export default function WriteChrome(props: WriteChromeProps): JSX.Element {
           rightSlot={
             <>
               <span className="shrink-0 px-1 text-[11px] text-[var(--ink-40)] fb-tabular">{props.wordCount} words</span>
-              <BarButton icon="search" label="Find and replace" shortcut="⌘F" onClick={props.onFind} readOnlySafe testid="doc-find" />
+              <BarButton icon="search" label="Find & replace" shortcut="⌘F" onClick={props.onFind} readOnlySafe testid="doc-find" />
               <BarButton
                 icon="right_panel_open"
                 label={sidePane ? 'Hide the side pane' : 'Show the side pane'}

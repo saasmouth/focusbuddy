@@ -67,6 +67,13 @@ export interface WCtx {
   exportDocx: () => void
   exportPdf: () => void
   askAi: () => void
+  /**
+   * PlexiiAssist — the ONE assistant. With a global assistant present this
+   * opens that overlay, contextual to this document; without one it opens the
+   * side pane's AI tab. Distinct from askAi, which is the in-document draft
+   * and rewrite panel.
+   */
+  openAssistant: () => void
   focusMode: () => void
 }
 
@@ -368,7 +375,7 @@ export function writeRailItems(): RailItem<WCtx>[] {
     },
     {
       id: 'find',
-      label: 'Find and replace',
+      label: 'Find & replace',
       icon: 'search',
       kind: 'action',
       group: 1,
@@ -401,14 +408,25 @@ export function writeRailItems(): RailItem<WCtx>[] {
       testid: 'doc-focus-toggle'
     },
     {
-      id: 'ai',
+      id: 'draft',
       label: 'Ask AI',
-      icon: 'auto_awesome',
+      icon: 'edit_note',
       kind: 'action',
       group: 2,
       order: 0,
+      onSelect: (c) => c.askAi()
+    },
+    {
+      // doc-assistant-toggle belongs to PlexiiAssist, not to the draft panel:
+      // docAssistantConsolidation clicks it and expects the one global overlay.
+      id: 'assistant',
+      label: 'Show PlexiiAssist',
+      icon: 'auto_awesome',
+      kind: 'action',
+      group: 2,
+      order: 1,
       pinned: 'bottom',
-      onSelect: (c) => c.askAi(),
+      onSelect: (c) => c.openAssistant(),
       testid: 'doc-assistant-toggle'
     }
   ]

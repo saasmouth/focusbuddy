@@ -325,7 +325,7 @@ test('DPS-4 — export wiring: exportDocx and exportPdf receive the page setup i
     })
 
     // Trigger exportDocx via the toolbar Office menu.
-    await window.getByTitle('Open or export Office files').click()
+    await window.getByRole('button', { name: /Open or export Office files/i }).click()
     await expect(window.locator('text=Export Word (.docx)')).toBeVisible({ timeout: 3_000 })
     await window.locator('text=Export Word (.docx)').click()
 
@@ -347,7 +347,7 @@ test('DPS-4 — export wiring: exportDocx and exportPdf receive the page setup i
     }
 
     // Trigger exportPdf.
-    await window.getByTitle('Open or export Office files').click()
+    await window.getByRole('button', { name: /Open or export Office files/i }).click()
     await expect(window.locator('text=Export PDF')).toBeVisible({ timeout: 3_000 })
     await window.locator('text=Export PDF').click()
 
