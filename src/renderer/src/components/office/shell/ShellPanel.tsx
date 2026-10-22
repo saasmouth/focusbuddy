@@ -37,30 +37,40 @@ export const shellPanelDomId = (id: string): string => `shell-panel-${id}`
 export default function ShellPanel({ id, title, icon, open, onClose, width, fill, pinnable, pinned = false, onPinnedChange, onRectChange, returnFocus, ignoreOutside, children, testid }: ShellPanelProps): JSX.Element | null {
   const ref = useRef<HTMLElement>(null)
   const opener = useRef<HTMLElement | null>(null)
-  const { sheetPanels } = useShellSize()
+  const { sheetPanels, raise } = useShellSize()
+  // Opening a panel brings the panels layer to the front (sheets, SPEC §2.6).
+  useEffect(() => {
+    if (open) raise('panels')
+  }, [open, raise])
 
   useEffect(() => {
     if (open) opener.current = document.activeElement as HTMLElement | null
   }, [open])
 
-  // Report the rect while pinned (and nothing otherwise).
+  // Report the rect while pinned (and nothing otherwise). The latest callback is
+  // read through a ref, so a host passing an inline arrow does not re-run this
+  // effect every render: its cleanup reports null, and a host that keeps the
+  // inset in state would otherwise loop (null → re-render → rect → re-render).
+  const rectCb = useRef(onRectChange)
+  rectCb.current = onRectChange
+  const reports = !!onRectChange
   useEffect(() => {
-    if (!onRectChange) return
+    if (!reports) return
     const el = ref.current
     if (!open || !pinned || !el) {
-      onRectChange(null)
+      rectCb.current?.(null)
       return
     }
-    const report = (): void => onRectChange(el.getBoundingClientRect())
+    const report = (): void => rectCb.current?.(el.getBoundingClientRect())
     report()
     if (typeof ResizeObserver === 'undefined') return
     const ro = new ResizeObserver(report)
     ro.observe(el)
     return () => {
       ro.disconnect()
-      onRectChange(null)
+      rectCb.current?.(null)
     }
-  }, [open, pinned, onRectChange])
+  }, [open, pinned, reports])
 
   // Unpinned panels close on a pointer press outside them.
   useEffect(() => {

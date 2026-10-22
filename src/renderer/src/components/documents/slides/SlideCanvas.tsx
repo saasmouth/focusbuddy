@@ -45,6 +45,16 @@ function bestSnap(moving: number[], targets: number[]): { delta: number; line: n
 }
 
 interface Props {
+  /**
+   * A tool is armed in the host (spec §3.2, D4): the empty stage PLACES a new
+   * element instead of marquee-selecting. The canvas owns the gesture — click
+   * for a default size, drag to size it — and the host owns the tool, the key
+   * that armed it and what the element actually is.
+   */
+  placing?: { kind: string; defaultW: number; defaultH: number } | null
+  /** A placement finished: the rect is in slide coordinates. */
+  onPlace?: (kind: string, rect: { x: number; y: number; w: number; h: number }) => void
+
   slide: Slide
   theme: DeckTheme
   width: number
@@ -125,7 +135,9 @@ export default function SlideCanvas({
   lockedIds,
   overlay,
   textOf,
-  onEditRequest
+  onEditRequest,
+  placing,
+  onPlace
 }: Props): JSX.Element {
   const lw = logicalW
   const lh = logicalH
@@ -191,8 +203,58 @@ export default function SlideCanvas({
 
   // Marquee select: begins only on the empty stage (not on an element). A tiny
   // drag is treated as a plain click and clears the selection.
+  /**
+   * Place a new element with an armed tool: press for the default size, drag
+   * to size it. The rubber band is the same rectangle the marquee draws, in
+   * the accent colour, because it means "this is what you are about to make"
+   * rather than "this is what you are selecting".
+   */
+  function beginPlacement(e: React.MouseEvent): void {
+    if (!placing || !onPlace) return
+    // No target check: the press may well be over an existing element.
+    const start = toSlide(e.clientX, e.clientY)
+    setMarquee({ x0: start.x, y0: start.y, x1: start.x, y1: start.y })
+    const onMove = (ev: MouseEvent): void => {
+      const p = toSlide(ev.clientX, ev.clientY)
+      setMarquee((m) => (m ? { ...m, x1: p.x, y1: p.y } : m))
+    }
+    const onUp = (ev: MouseEvent): void => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      setMarquee(null)
+      const p = toSlide(ev.clientX, ev.clientY)
+      const w = Math.abs(p.x - start.x)
+      const h = Math.abs(p.y - start.y)
+      // A click, or a drag too small to have been meant as a size: the
+      // default, centred on where the person pressed, as Canva and PowerPoint
+      // both do.
+      if (w < 6 && h < 6) {
+        onPlace(placing.kind, {
+          x: Math.round(start.x - placing.defaultW / 2),
+          y: Math.round(start.y - placing.defaultH / 2),
+          w: placing.defaultW,
+          h: placing.defaultH
+        })
+        return
+      }
+      onPlace(placing.kind, {
+        x: Math.round(Math.min(start.x, p.x)),
+        y: Math.round(Math.min(start.y, p.y)),
+        w: Math.round(w),
+        h: Math.round(h)
+      })
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
   function beginMarquee(e: React.MouseEvent): void {
     if (e.target !== e.currentTarget) return
+    // An armed tool takes the empty stage: pressing there means "put one here".
+    if (placing && onPlace) {
+      beginPlacement(e)
+      return
+    }
     const start = toSlide(e.clientX, e.clientY)
     setMarquee({ x0: start.x, y0: start.y, x1: start.x, y1: start.y })
     const onMove = (ev: MouseEvent): void => {
@@ -230,7 +292,35 @@ export default function SlideCanvas({
       <div
         ref={stageRef}
         onMouseDown={beginMarquee}
-        style={{ width: lw, height: lh, position: "absolute", top: 0, left: 0, transform: `scale(${scale})`, transformOrigin: 'top left', color: theme.textColor }}
+        // With a tool armed, a press ANYWHERE on the page places — including
+        // on top of an existing element, as Illustrator and Canva do. Without
+        // the capture phase the element's own drag handler wins and the armed
+        // tool silently does nothing, which is indistinguishable from the
+        // tool being broken.
+        onMouseDownCapture={
+          placing && onPlace
+            ? (e) => {
+                if (e.button !== 0) return
+                e.preventDefault()
+                e.stopPropagation()
+                beginPlacement(e)
+              }
+            : undefined
+        }
+        // Crosshair while a tool is armed: the only on-canvas sign that the
+        // next click makes something rather than selecting something.
+        data-placing={placing ? placing.kind : undefined}
+        style={{
+          width: lw,
+          height: lh,
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          color: theme.textColor,
+          ...(placing ? { cursor: 'crosshair' } : {})
+        }}
       >
         {/* Master furniture: painted first so it sits under the page's own
             content, and inert so a running head cannot be nudged by accident. */}

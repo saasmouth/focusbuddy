@@ -139,6 +139,7 @@ interface ShellPanelProps {
 - The panel floats over the canvas with `fb-glass-panel`, within the editor's bounds.
 - It never covers the rail or the bar, and is never under the floating menu.
 - Several pinned panels stack vertically.
+- **A pinned panel never covers the page (rule, every app).** A pinned panel stays while you work, so the content beside it must be reachable: a page-based app (Deck's slide, Design's page, Write's sheet) lays its page out past every pinned panel, using `onRectChange` (reported while open and pinned; measured from the panel, which is absolute, so the inset never moves it and cannot oscillate). An infinite canvas (Diagrams, Draw) insets Fit and zoom-to-selection instead. Unpinned panels are transient and may cover the canvas. `ShellPanel` reads `onRectChange` through a ref, so a host may pass an inline callback and keep the inset in state without a render loop. Guarded by `officeShellLayout.spec` (the AppCase `page` field: with the panel pinned, the page's left edge clears the panel's right edge) at the default and 480px sizes. Found in Design: a pinned Layout panel covered 113px of the A4 page, and a marquee started on it selected nothing while Playwright called the target visible.
 - Esc (while focus is in the panel) closes an unpinned panel and calls `returnFocus` (canvas), or else focuses the opener. Panel toggle chords (e.g. Illustrator's F7 for Layers) are the HOST's keymap's job. The panel registers no global key listener.
 
 ### 2.5a `ShellSidePane` (the ONE right content pane; owner: "keep panes on the right")
@@ -167,6 +168,8 @@ interface ShellSidePaneProps {
 - **Collapsed:** a 28px edge tab (`${testid}-edge`, DOM id `shell-sidepane`) with an expand chevron (`${testid}-expand`, reopens the pane you last had open) and one opener per pane (`${testid}-open-<id>`, badges kept). `doc-side-panel-expand` falls out of the naming.
 - **Only apps that HAVE content panes render one** (Draw has none: no ShellSidePane, no toggle, no edge tab; an app never fakes a pane to satisfy the shell). **Toggled from the top bar:** every app with panes puts a `BarToggle` in the ContextBar right slot (`<app>-sidepane-toggle`, `controls={SIDE_PANE_DOM_ID}`). A rail item may also open a pane: `kind: 'panel', sidePane: true` sets `aria-controls="shell-sidepane"`; the host lists that item id in `openPanels` while its pane shows, so it renders pressed. Bar buttons that open a pane (Insert › AI diagram) only open, never close.
 - **Narrow (§2.6):** below 520px of shell width it opens as a sheet over the canvas (`data-sheet="true"`, full height of the content row, leaving the 40px rail visible). Esc inside the sheet collapses it. Docked, Esc is left to the app.
+- **Sheets stack by recency (shell-owned):** an overlay panel and the side pane can both be sheets at once; whichever opened LAST is on top, so its close is reachable. `ShellPanel` and `ShellSidePane` report opening to `OfficeShellLayout` (`raise`), which lifts the panels column above the pane when a panel opened last. Apps do nothing. (Found in Design: the pane, z-40, covered a panel's close in a 480px widget.)
+- **Collapse id ruling:** the collapse button's test id is `${testid}-collapse` unless `collapseTestid` keeps a legacy id (`sheet-ai-collapse`). App-agnostic code (the §8 guard, helpers) finds it by the shell's structural hook `[data-shell-role="sidepane-collapse"]` inside the pane, never by deriving the id, so no per-app configuration is needed and none can drift.
 - **No focus grab and no global key listener.** A pane that reopens on load must not steal the keyboard or scroll its container (no `autoFocus` inside panes); focusing on an explicit open is the pane content's job.
 - **Remembered per app:** the host persists `activeId` (Diagrams: `plexii.diagram.sidePane`).
 
@@ -261,9 +264,27 @@ These thresholds are constants in `office/shell/layout.ts`, so every app shares 
 3. **Keys:** one app handler; the shell adds none.
 4. **Hit tests** at default size and narrow size (§8).
 
+### 5a. Converting an app: the checklist (learned converting Diagrams, Draw, Write, Design, Cells and Deck)
+
+Before handing a conversion back, every item, with evidence:
+
+1. **Baseline first, by test id not file name.** Sweep `tests/` for every testid the retired surfaces carried (half the affected specs are not named for the app), run them on the base in a worktree with its own fixed `out/`, and key results by test title.
+2. **Action parity.** Every callback the retired toolbar, inspector and panels had maps to a ribbon or rail action that calls the SAME editor function, not a rewritten lambda. Read each ported body against the original, line by line: nested shapes (gradients, crops, wrap modes, chart sources) are where ports go wrong while the testid survives (Design's wrap, Cells' Named ranges skipping the selection prefill).
+3. **A mapping unit test** renders every tab for the selection that makes it apply and finds every mapped control (Diagrams, Deck).
+4. **Armed tools are fully wired:** arm, place on click, size on drag, back to Select, lock on double-click, Esc, the suite keys, and the rail's last-used flyout member (host-owned `lastUsed` + `onFlyoutPick`). Placement must work over existing elements (capture phase).
+5. **Selection-driven panels open pinned** (an unpinned panel closes on the canvas click that is the job), and **a pinned panel never covers the page** (§2.4).
+6. **The host keeps `flex-1 min-w-0` and `min-h-0`** (§6), and nothing makes the desk widget's scroll container scroll.
+7. **One copy of every control:** no bespoke control left beside its ribbon twin (the duplicate-testid scan, §8).
+8. **No host outside-click or Escape handler** on anything inside a `BarPopover` or `ShellPanel`; they own both. Focus the popover's first control on open.
+9. **Specs follow controls to their tabs** with `selectBarTab` (contextual tabs never switch on their own, D3; folded tabs need More ▾), and scope menu clicks to the menu's own testid (side menus carry tiles named like insert items).
+10. **Specs that reach controls by TEXT are swept too:** a bar-scoped text locator (`slides-toolbar` › "Text") for a control that moved to the rail, or onto another tab, just times out. Check every text lookup against the tab and rail labels, as well as every testid (ec).
+11. **Baselines are comparable only on the same spec code and the same bundle.** Take the base pass from a pinned checkout at the base SHA before editing specs; a base pass on edited specs silently shrinks the baseline while every count gate passes. Between tips, read any "fixed" entry on a spec you edited with suspicion (ec; the baseline diff tool records rev, spec hash and bundle hash and refuses mismatches).
+12. **The tab sweep:** for every ribbon testid, every spec touching it selects its tab, even when it is green, because a new document can happen to open on that tab (f0).
+13. **Gates:** `npm run typecheck`, `npm run lint:hooks`, the app's unit tests, `npm run build` with its log read (tsc passing is not proof rollup does), `npx playwright test --list` count after any rebase (a duplicate helper makes every spec silently collect 0), then the app's specs and its `officeShellLayout` rows. Heavy runs go through the shared queue.
+
 ## 6. Per-app mapping (every toolbar AND inspector control)
 
-**Host rule (every app): the element that hosts `OfficeShellLayout` must be `flex-1 min-w-0` (and `min-h-0` in a column), as must every flex item between the app's root and the shell.** A flex item's default `min-width: auto` is its content's width, so one wrapper without `min-w-0` lets the editor grow to its widest toolbar instead of the space it was given. Full-window that can hide behind a wide screen; in a narrow desk widget it overflows the widget, the right slot and side pane fall off the edge, and Row 1 never folds because the bar thinks it has room. Write hit this, and so did Draw. The narrow-embed row of `officeShellLayout.spec` checks it and names each offending element with its classes and whether it is a flex item still at `min-width: auto` (§8).
+**Host rule (every app): the element that hosts `OfficeShellLayout` must be `flex-1 min-w-0` (and `min-h-0` in a column), as must every flex item between the app's root and the shell.** A flex item's default `min-width: auto` is its content's width, so one wrapper without `min-w-0` lets the editor grow to its widest toolbar instead of the space it was given. Full-window that can hide behind a wide screen; in a narrow desk widget it overflows the widget, the right slot and side pane fall off the edge, and Row 1 never folds because the bar thinks it has room. Write hit this, and so did Draw. The narrow-embed row of `officeShellLayout.spec` checks it and names each offending element with its classes and whether it is a flex item still at `min-width: auto` (§8). The same holds vertically: anything that makes the widget's scroll container scroll (a `shrink-0` notice, a column without `min-h-0`) lets focus slide the bar under the widget's header; the row names the elements past the bottom.
 
 (R) = rail · Tab · Ctx = contextual tab · Pin = pinned in Row 2 · Panel = overlay panel · Menu = menu bar.
 
@@ -342,36 +363,34 @@ These thresholds are constants in `office/shell/layout.ts`, so every app shares 
   - the AI right column becomes the PlexiiAssist pane in `ShellSidePane` (owner amendment).
 - **Kept:** the page rail (bottom); StoryEditor opens as a panel.
 
-### 6.4 PlexiiDeck (d2)
-- **Rail:**
-  - Select V `slides-tool-select` | Text T `slides-tool-text` · Shapes flyout (Rectangle M `slides-tool-rect`, Rounded `slides-tool-roundrect`, Ellipse L `slides-tool-ellipse`, Triangle `slides-tool-triangle`, Line \\ `slides-tool-line`; **armed**, D4; new `-tool-` ids per §4.1)
-  - | Image · Table · Chart · Work widget
-  - | bottom: AI (a rail `sidePane` item opening the AI pane).
-- **Side pane (§2.5a, `testid="slides-side-panel"`):** the SlidesSidePanel CONTENT panes — AI assistant (`slides-ai-panel`) and comments — keep their ids. Its old property tabs (Slide/Layout) are still mapped to the Design tab below.
-- **leftAside:** slide thumbnails, with `slides-add`.
-- **Pin:** `slides-undo`, `slides-redo`.
-- **Right slot:** Present.
+### 6.4 PlexiiDeck (d8, from d2's handoff)
+- **Bar:** `slides-toolbar` (the ContextBar keeps the old toolbar's id, so every spec's "editor is open" wait still holds); menu bar `slides-menubar` on Row 1.
+- **Rail** (`slides-rail`):
+  - Select V `slides-tool-select` | Text T `slides-tool-text` · Shapes flyout (Rectangle M `slides-tool-rect`, Rounded `slides-tool-roundrect`, Ellipse L `slides-tool-ellipse`, Triangle `slides-tool-triangle`, Line \\ `slides-tool-line`; **armed**, D4: click places the default size centred on the press, drag sizes, back to Select; double-click locks; Esc disarms; new `-tool-` ids per §4.1)
+  - | Image `slides-rail-image` · Table `slides-rail-table` · Chart `slides-rail-chart` · Work widget `slides-rail-widget`
+  - | bottom: Layouts and themes (panel `slides-rail-layouts`) · PlexiiAssist (`slides-rail-ai`, a `sidePane` item).
+- **Side pane (§2.5a, `slides-side-panel`):** PlexiiAssist (`slides-ai-assistant`; the per-slide actions keep `slides-ai-*`) · Generate deck (`slides-ai-generate`, holding the deck generator `slides-ai-panel`). Opens on first run when the editor is wide enough, never as a sheet over a narrow widget; remembered in `plexii.slides.sidePane`. Toggle `slides-sidepane-toggle` in the right slot.
+- **leftAside:** slide thumbnails `slides-thumbnails`, with `slides-add`, `slides-duplicate-<i>`, `slides-delete-<i>`.
+- **Pin:** `slides-undo`, `slides-redo`. **Right slot:** Present `slides-present` · side-pane toggle.
 - **Home** (selection-aware):
-  - text: B/I/U, Colour, Align, Size, Font, Lists
-  - shape: Fill, Border colour
-  - all: Opacity `element-opacity`, Rotation `element-rotation`
-- **Insert:** all inserts plus Templates… `slides-templates-btn` · New slide.
-- **Design** (slide; the old "nothing selected" inspector and the Slide/Layout side tabs):
-  - Layout ▾ (`slides-prop-layout`, `slides-layout-*`) · Theme (`slides-prop-theme`, `slides-theme-*`) · Background `slides-prop-background` · Transition · Master `slides-prop-master` · Slide font `slides-prop-font`
-- **Arrange:** Position & size x/y/w/h · Align ×6 / Distribute ×2 · Group `slides-group` / Ungroup `slides-ungroup` · Forward/Back · Duplicate/Delete.
-- **Ctx Shape:**
-  - Fill, Border · Gradient `shape-gradient`, `shape-gradient-toggle`
-  - Frame: Radius, Shadow `inspector-shadow`
-- **Ctx Line:** Stroke, Arrow toggle.
-- **Ctx Image:**
-  - Alt `element-alt` · Fit mode · Lock aspect · Crop `inspector-crop` / Remove crop / Reset proportions
-  - Frame: radius, shadow, border colour
-- **Ctx Table:** +Row `table-add-row` / +Col `table-add-col` / −Row / −Col · Header row · Edit cells… (a panel holding `table-cells`).
-- **Ctx Chart:** Title · Stacked · Type `chart-type` · Link a sheet range… `chart-link` · Refresh `chart-refresh`.
-- **Animations** (a tab, enabled when something is selected): Entrance `element-anim` · Order.
-- **Review:** Accessibility check · Speaker notes (`slides-notes-editor`). **Speaker notes stay under the canvas** (owner clarification); they are not a side pane.
-- **File menu:** Import/Export (the Folder ▾ items).
-- **Retired:** ElementInspector (`element-inspector`); its controls are mapped above. SlidesSidePanel's property parts are mapped above; its content panes move into `ShellSidePane` keeping `slides-side-panel`.
+  - nothing selected: New slide `slides-home-new-slide` · Duplicate slide · Layout ▾
+  - text: Font `slides-font` · Size `slides-font-size` (+ presets ▾) · B/I/U `slides-bold`/`-italic`/`-underline` · Colour `slides-text-color` · Align ×3 `slides-align-text-*` · Lists `slides-list-bullet`/`-number`
+  - shape: Fill `slides-fill`, Border colour `slides-border`
+  - every single element: Opacity `element-opacity`, Rotation `element-rotation`
+- **Insert:** one-shot Text box `slides-insert-text` · Image · Shape ▾ (incl. Line / arrow) `slides-insert-shape` · Table · Chart · Work widget · AI slides `slides-insert-ai` (the old toolbar's one-click deck generation: opens the side pane's Generate deck) · New slide · Templates… `slides-templates-btn`. These keep the old toolbar buttons' meaning (insert now, default position); the rail's tools are the armed versions.
+- **Design** (slide):
+  - Slide layout ▾ `slides-prop-layout` (items `slides-layout-*`) · Theme ▾ `slides-prop-theme` (items `slides-theme-*`, current one checked) · Background `slides-prop-background` · Transition `slides-prop-transition` · Slide font `slides-prop-font` (read from the theme) · Layouts and themes… `slides-prop-master` (the old "Master slides" button, which only ever showed the layouts; it opens the visual grids as a panel, `slides-panel-layout-*` / `slides-panel-theme-*`).
+- **Arrange:** X/Y/W/H `slides-x`/`-y`/`-w`/`-h` · Align ▾ `slides-align-menu` (×6, plus centre on slide ×2) · Distribute `slides-distribute-h`/`-v` · Group `slides-group` / Ungroup `slides-ungroup` · Front/Forward/Backward/Back · Duplicate `slides-el-duplicate` / Delete `slides-el-delete` · Frame: Radius `slides-radius`, Shadow `inspector-shadow` (every element but a line, as the inspector's Frame was). Disabled controls say why. The floating multi-select align bar (`slides-align-bar`) retired into this tab.
+- **Ctx Shape:** Fill · Border colour and width · Gradient `shape-gradient` (start, end, angle, back to solid) / `shape-gradient-toggle`.
+- **Ctx Line:** Colour `slides-line-stroke` · Width · Arrowhead `slides-line-arrow`.
+- **Ctx Image:** Alt `element-alt` · Fit `slides-image-fit` · Lock aspect · Crop `inspector-crop` / Remove crop / Reset proportions · Border colour.
+- **Ctx Table:** +Row `table-add-row` / +Col `table-add-col` / −Row / −Col · Header row · Edit cells… `table-edit-cells` (the "Table cells" panel holding `table-cells`, pinned by default because it is used with the selection).
+- **Ctx Chart:** Title · Type `chart-type` · Stacked (bar/area) · Link a sheet range… `chart-link` · Refresh `chart-refresh`.
+- **Animations:** Entrance `element-anim` · Order `slides-anim-order` · Slide transition (also on Design).
+- **Review:** Accessibility check `slides-a11y-btn` · Speaker notes `slides-notes-focus` · PlexiiAssist. **Speaker notes stay under the canvas** (`slides-notes-editor`, the one notes editor; owner clarification).
+- **File menu:** Import (.pptx) / Download ▸ PowerPoint, PDF (the toolbar's folder menu retired).
+- **Keys:** the editor's one handler arms V/T/M/L/\\ and Esc disarms; the shell adds none.
+- **Retired:** SlidesToolbar, ElementInspector (`element-inspector` and its section ids `inspector-table`/`-chart`/`-frame`/`-anim`), the side panel's Slide/Layout tabs (`slides-tab-slide`/`-layout`) and its second notes editor. `tests/unit/deckShellMapping.test.tsx` maps every old control to its new home.
 
 ### 6.5 PlexiiWrite (3e)
 - **Rail** (actions): Image · Table · Link · Divider · Table of contents · Footnote · Work widget · bottom: Find · Ask AI.

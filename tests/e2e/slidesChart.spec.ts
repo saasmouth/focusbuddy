@@ -6,7 +6,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, gotoView } from './_helpers'
+import { launchApp, waitForReady, gotoView, selectBarTab } from './_helpers'
 
 async function openDocumentsHub(window: Page): Promise<void> {
   await gotoView(window, 'goDocuments')
@@ -102,7 +102,8 @@ test('SC-2 — linking a chart to a sheet range pulls the live computed values',
     // dialog. The rendered element layer is pointer-events:none (the Rnd wrapper
     // beneath handles selection), so force the click through to it.
     await window.locator('[data-testid="slide-element"][data-eltype="chart"]').first().click({ force: true })
-    await expect(window.locator('[data-testid="inspector-chart"]')).toBeVisible({ timeout: 4_000 })
+    // Its controls are on the contextual Chart tab (D3: select it).
+    await selectBarTab(window, 'slides-toolbar', 'chart')
     await window.locator('[data-testid="chart-link"]').click()
 
     const dialog = window.locator('[data-testid="chart-link-dialog"]')

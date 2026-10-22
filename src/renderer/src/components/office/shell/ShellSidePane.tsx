@@ -33,13 +33,18 @@ export interface ShellSidePaneProps {
 }
 
 export default function ShellSidePane({ panes, activeId, onChange, width = SIDE_PANE_WIDTH, testid, collapseTestid }: ShellSidePaneProps): JSX.Element | null {
-  const { sheetPanels, pillCorner } = useShellSize()
+  const { sheetPanels, pillCorner, raise } = useShellSize()
   const active = panes.find((p) => p.id === activeId) ?? null
   // The edge's expand chevron brings back the pane you last had open.
   const last = useRef<string | null>(null)
   useEffect(() => {
     if (active) last.current = active.id
   }, [active])
+  // Opening (or switching) a pane brings the side pane to the front over any sheet panel.
+  const activeKey = active?.id ?? null
+  useEffect(() => {
+    if (activeKey) raise('side')
+  }, [activeKey, raise])
   if (!panes.length) return null
 
   // Collapsed: a slim edge tab with one button per pane.
@@ -131,7 +136,8 @@ export default function ShellSidePane({ panes, activeId, onChange, width = SIDE_
           </span>
         )}
         <span className="flex-1" />
-        <button type="button" aria-label="Collapse the side pane" data-testid={collapseTestid ?? `${testid}-collapse`} onClick={() => onChange(null)} className="icon-btn !h-6 !w-6 shrink-0">
+        <button type="button" aria-label="Collapse the side pane" data-testid={collapseTestid ?? `${testid}-collapse`}
+          data-shell-role="sidepane-collapse" onClick={() => onChange(null)} className="icon-btn !h-6 !w-6 shrink-0">
           <Icon name="right_panel_close" size={15} />
         </button>
       </header>

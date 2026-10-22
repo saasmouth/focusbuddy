@@ -1,7 +1,9 @@
 /**
- * E2E for the persistent right-side panel in PlexiSlides (AI Assistant + Slide /
- * Layout properties). Opens a fresh presentation through the PlexiOffice shell and
- * exercises the panel.
+ * E2E for PlexiiDeck's AI side pane and the slide properties that used to sit
+ * under it. On the office shell (SPEC §2.5a, §6.4) the assistant is the AI pane
+ * of the shared right ShellSidePane (switcher: PlexiiAssist / Generate deck),
+ * the slide's layout, theme, background and font are on the Design tab, and the
+ * speaker notes stay under the canvas.
  *
  * The AI actions are made deterministic and offline by stubbing the real IPC
  * channels (ai:rewriteSelection, ai:suggestDocContent) at the ipcMain level, the
@@ -10,18 +12,18 @@
  * renderer, so the stub must live in the main process.
  *
  * Coverage:
- *  1. The panel renders (slides-side-panel) with the AI Assistant heading and the
- *     six action buttons, plus the Slide / Layout tabs.
- *  2. Slide / Layout tabs switch the visible content.
+ *  1. The side pane renders (slides-side-panel) with PlexiiAssist and its six
+ *     action buttons, and a switcher to deck generation.
+ *  2. The switcher swaps panes; it collapses to an edge tab and reopens.
  *  3. An AI action (Improve slide) calls the stubbed rewriteSelection and shows
  *     the real result in slides-ai-result.
- *  4. The properties panel reflects the REAL slide state: the actual layout name,
- *     the real theme swatches, and the real font.
- *  5. Typing in the notes editor updates the slide's notes in the stored body.
+ *  4. The Design tab reflects the REAL slide state: the actual layout name, the
+ *     real theme, and the real font; Layouts and themes opens as a panel.
+ *  5. Typing in the notes editor (under the canvas) updates the stored notes.
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, selectBarTab } from './_helpers'
 
 const REWRITE_HTML = '<p>Sharper rewritten slide line.</p>'
 
@@ -71,10 +73,10 @@ test.describe('PlexiSlides side panel', () => {
     await app.dispose()
   })
 
-  test('SP-1 — the panel renders with the AI Assistant and the Slide / Layout tabs', async () => {
+  test('SP-1 — the side pane renders with PlexiiAssist and a switcher to deck generation', async () => {
     const panel = window.locator('[data-testid="slides-side-panel"]')
     await expect(panel).toBeVisible()
-    await expect(panel.getByText('PlexiiAssist')).toBeVisible()
+    await expect(panel.locator('[data-testid="slides-ai-assistant"]')).toBeVisible()
     await expect(panel.getByText('Here are some ideas for your slide')).toBeVisible()
 
     // The six per-slide actions.
@@ -89,21 +91,24 @@ test.describe('PlexiSlides side panel', () => {
       await expect(window.locator(`[data-testid="${id}"]`)).toBeVisible()
     }
 
-    await expect(window.locator('[data-testid="slides-tab-slide"]')).toBeVisible()
-    await expect(window.locator('[data-testid="slides-tab-layout"]')).toBeVisible()
+    await expect(window.locator('[data-testid="slides-side-panel-tab-ai"]')).toHaveAttribute('aria-selected', 'true')
+    await expect(window.locator('[data-testid="slides-side-panel-tab-generate"]')).toBeVisible()
+    // The top bar's toggle and the rail's AI item both point at it.
+    await expect(window.locator('[data-testid="slides-sidepane-toggle"]')).toHaveAttribute('aria-pressed', 'true')
+    await expect(window.locator('[data-testid="slides-rail-ai"]')).toHaveAttribute('aria-controls', 'shell-sidepane')
   })
 
-  test('SP-2 — Slide / Layout tabs switch the visible content', async () => {
-    // The Slide tab is the default; its layout property row is visible.
-    await window.locator('[data-testid="slides-tab-slide"]').click()
-    await expect(window.locator('[data-testid="slides-prop-layout"]')).toBeVisible()
-    // The Layout tab swaps in the layout/theme grids (and hides the prop rows).
-    await window.locator('[data-testid="slides-tab-layout"]').click()
-    await expect(window.locator('[data-testid="slides-layout-title"]')).toBeVisible()
-    await expect(window.locator('[data-testid="slides-prop-layout"]')).toHaveCount(0)
-    // Back to Slide.
-    await window.locator('[data-testid="slides-tab-slide"]').click()
-    await expect(window.locator('[data-testid="slides-prop-layout"]')).toBeVisible()
+  test('SP-2 — the switcher swaps panes; the pane collapses to an edge tab and comes back', async () => {
+    await window.locator('[data-testid="slides-side-panel-tab-generate"]').click()
+    await expect(window.locator('[data-testid="slides-ai-panel"]')).toBeVisible()
+    await expect(window.locator('[data-testid="slides-ai-improve"]')).toHaveCount(0)
+    await window.locator('[data-testid="slides-side-panel-tab-ai"]').click()
+    await expect(window.locator('[data-testid="slides-ai-improve"]')).toBeVisible()
+    // Collapse, then the edge tab's chevron brings back the pane last open.
+    await window.locator('[data-testid="slides-side-panel-collapse"]').click()
+    await expect(window.locator('[data-testid="slides-side-panel-edge"]')).toBeVisible()
+    await window.locator('[data-testid="slides-side-panel-expand"]').click()
+    await expect(window.locator('[data-testid="slides-ai-improve"]')).toBeVisible()
   })
 
   test('SP-3 — an AI action calls the real (stubbed) API and shows the result', async () => {
@@ -116,27 +121,36 @@ test.describe('PlexiSlides side panel', () => {
     await expect(window.locator('[data-testid="slides-ai-result-copy"]')).toBeVisible()
   })
 
-  test('SP-4 — the properties panel reflects the real slide layout, theme, and font', async () => {
-    await window.locator('[data-testid="slides-tab-slide"]').click()
+  test('SP-4 — the Design tab reflects the real slide layout, theme, and font; Layouts and themes opens as a panel', async () => {
+    await selectBarTab(window, 'slides-toolbar', 'design')
     // A fresh deck's first slide uses the 'title' layout (emptyBody seeds it).
     await expect(window.locator('[data-testid="slides-prop-layout"]')).toContainText('Title')
-    // The theme swatches reflect the resolved deck theme (5 colour dots).
-    const swatches = window.locator('[data-testid="slides-prop-theme"] span[style*="background"]')
-    await expect(swatches.first()).toBeVisible()
-    expect(await swatches.count()).toBeGreaterThanOrEqual(3)
-    // The font row shows the real heading font family's first name (default: Inter).
+    // The theme control names the resolved deck theme, and its menu marks it.
+    const themeName = await window.evaluate(async () => {
+      const api = (window as unknown as { api: typeof window.api }).api
+      const docs = await api.documents.list()
+      const doc = docs.length ? await api.documents.get(docs[0].id) : null
+      return ((doc?.body as { theme?: string } | undefined)?.theme ?? 'plexi-default') as string
+    })
+    await window.locator('[data-testid="slides-prop-theme"]').click()
+    await expect(window.locator(`[data-testid="slides-theme-${themeName}"]`)).toHaveAttribute('aria-checked', 'true')
+    await window.keyboard.press('Escape')
+    // The font shows the real heading font family's first name (default: Inter).
     await expect(window.locator('[data-testid="slides-prop-font"]')).toContainText('Inter')
-    // Background row is present and reflects the real fill.
     await expect(window.locator('[data-testid="slides-prop-background"]')).toBeVisible()
+    // "Layouts and themes" (the old Master slides button) opens the visual grids as a panel.
+    await window.locator('[data-testid="slides-prop-master"]').click()
+    await expect(window.locator('[data-testid="slides-panel-layouts"] [data-testid="slides-panel-layout-title"]')).toBeVisible()
+    await window.locator('[data-testid="slides-panel-layouts-close"]').click()
+    await expect(window.locator('[data-testid="slides-panel-layouts"]')).toHaveCount(0)
   })
 
-  test('SP-5 — typing in the notes editor updates the slide notes', async () => {
-    await window.locator('[data-testid="slides-tab-slide"]').click()
+  test('SP-5 — typing in the notes editor under the canvas updates the slide notes', async () => {
     const notes = window.locator('[data-testid="slides-notes-editor"]')
+    await expect(notes).toHaveCount(1) // one notes editor: under the canvas
     await notes.click()
     await notes.fill('Remember to greet the audience.')
-    // Blur and let autosave debounce flush.
-    await window.locator('[data-testid="slides-tab-slide"]').click()
+    await notes.press('Tab') // blur, then let the autosave debounce flush
     await window.waitForTimeout(1_200)
     const body = (await readBody(window)) as { slides: Array<{ notes?: string }> } | null
     expect(body?.slides?.[0]?.notes).toBe('Remember to greet the audience.')

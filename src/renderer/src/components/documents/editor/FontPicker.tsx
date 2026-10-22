@@ -2,8 +2,14 @@
 // Google Fonts families served from the app itself, never a font CDN) plus the
 // generic stacks. Each family is previewed in its own typeface. Shared by the
 // document, spreadsheet and slide editors.
+//
+// The panel is portalled to <body> and positioned from the trigger. Inside the
+// office shell the picker sits in the ContextBar's Row 2, which scrolls sideways
+// (overflow-x: auto, and so clips vertically too): an absolutely positioned
+// panel was cut to the 36px row and could not be used.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Icon from '../../Icon'
 import { GENERIC_FONTS, GOOGLE_FONTS, loadGoogleFont, fontFamilyValue, familyLabel } from '../../../lib/googleFonts'
 
@@ -19,15 +25,41 @@ export default function FontPicker({ value, onChange, compact }: Props): JSX.Ele
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const ref = useRef<HTMLDivElement | null>(null)
+  const panelRef = useRef<HTMLDivElement | null>(null)
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
   const current = familyLabel(value)
 
   useEffect(() => {
+    if (!open) return
     function onDown(e: MouseEvent): void {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+      const t = e.target as Node
+      if (!ref.current?.contains(t) && !panelRef.current?.contains(t)) setOpen(false)
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
-  }, [])
+  }, [open])
+
+  // Anchor under the trigger, clamped to the window (224px wide, ~300 tall).
+  useLayoutEffect(() => {
+    if (!open) return
+    const place = (): void => {
+      const r = ref.current?.getBoundingClientRect()
+      if (!r) return
+      const w = 224
+      const h = 300
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8))
+      const below = r.bottom + 4
+      const top = below + h > window.innerHeight - 8 && r.top - h - 4 > 8 ? r.top - h - 4 : below
+      setPos({ left, top })
+    }
+    place()
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
+  }, [open])
 
   // Ensure the current font is loaded so the trigger shows it correctly.
   useEffect(() => {
@@ -56,8 +88,21 @@ export default function FontPicker({ value, onChange, compact }: Props): JSX.Ele
         <span className="truncate flex-1 min-w-0 text-left" style={{ fontFamily: value || undefined }}>{current}</span>
         <Icon name="expand_more" size={12} />
       </button>
-      {open && (
-        <div data-testid="font-picker-panel" className="fb-glass-panel rounded-[var(--radius-row)] fb-pop-in absolute z-50 mt-1 left-0 w-56 p-1.5">
+      {open && pos && createPortal(
+        <div
+          ref={panelRef}
+          data-testid="font-picker-panel"
+          role="dialog"
+          aria-label="Font"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.stopPropagation()
+              setOpen(false)
+            }
+          }}
+          className="fb-glass-panel rounded-[var(--radius-row)] fb-pop-in fixed z-[80] w-56 p-1.5"
+          style={{ left: pos.left, top: pos.top }}
+        >
           <input
             autoFocus
             value={query}
@@ -89,7 +134,8 @@ export default function FontPicker({ value, onChange, compact }: Props): JSX.Ele
             ))}
             {results.length === 0 && <div className="px-2 py-2 text-[12px] text-[var(--ink-40)]">No matching font</div>}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

@@ -21,7 +21,7 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, gotoView } from './_helpers'
+import { launchApp, waitForReady, gotoView, selectBarTab } from './_helpers'
 
 // ── Shared setup ──────────────────────────────────────────────────────────────
 
@@ -62,7 +62,8 @@ test('boot smoke — app loads and slides toolbar is visible without uncaught er
     await waitForReady(window)
     await openSlidesDoc(window)
 
-    // Toolbar with Templates button
+    // Insert tab with the Templates button
+    await selectBarTab(window, 'slides-toolbar', 'insert')
     await expect(window.locator('[data-testid="slides-templates-btn"]')).toBeVisible()
 
     // slides-add dashed button in the rail
@@ -123,6 +124,7 @@ test('slides-templates-btn opens the gallery', async () => {
     await waitForReady(window)
     await openSlidesDoc(window)
 
+    await selectBarTab(window, 'slides-toolbar', 'insert')
     await window.locator('[data-testid="slides-templates-btn"]').click()
     await expect(window.locator('[data-testid="slide-template-gallery"]')).toBeVisible({ timeout: 4_000 })
   } finally {

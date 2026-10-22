@@ -4,7 +4,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, gotoView } from './_helpers'
+import { launchApp, waitForReady, gotoView, selectBarTab } from './_helpers'
 
 async function openDocumentsHub(window: Page): Promise<void> {
   await gotoView(window, 'goDocuments')
@@ -51,7 +51,10 @@ test('ST-1 — insert a table, render it, edit a cell and add a row', async () =
 
     // Select it (element layer is pointer-events:none; force through to the Rnd).
     await tableEl.first().click({ force: true })
-    await expect(window.locator('[data-testid="inspector-table"]')).toBeVisible({ timeout: 4_000 })
+    // Its controls are on the contextual Table tab (D3: select it); the cells open in a panel.
+    await selectBarTab(window, 'slides-toolbar', 'table')
+    await window.locator('[data-testid="table-edit-cells"]').click()
+    await expect(window.locator('[data-testid="slides-panel-cells"]')).toBeVisible({ timeout: 4_000 })
 
     // Edit the first cell.
     const firstCell = window.locator('[data-testid="table-cells"] input').first()
