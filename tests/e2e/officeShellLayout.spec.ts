@@ -461,6 +461,40 @@ for (const app of APPS) {
       const intro = window.locator('[data-testid="local-ai-intro-dismiss"]')
       if (await intro.isVisible().catch(() => false)) await intro.click()
       const bar = await box(window, `[data-testid="${app.bar}"]`)
+      // Host rule (SPEC §6): nothing between the widget and the shell may be wider than the widget.
+      // A flex item left at min-width:auto grows to its content (the widest toolbar) and overflows;
+      // name each offender with its classes so the fix is one look away.
+      const overflow = await window.evaluate((shellSel: string) => {
+        const shell = document.querySelector(shellSel) as HTMLElement | null
+        if (!shell) return [`no ${shellSel}`]
+        const widget = shell.closest('[data-widget-id]') as HTMLElement | null
+        if (!widget) return ['shell is not inside a [data-widget-id] widget']
+        const w = widget.getBoundingClientRect()
+        const describe = (el: HTMLElement): string => {
+          const cs = getComputedStyle(el)
+          const parent = el.parentElement ? getComputedStyle(el.parentElement) : null
+          const flexItem = !!parent && (parent.display === 'flex' || parent.display === 'inline-flex')
+          const tid = el.dataset.testid ? `[data-testid="${el.dataset.testid}"] ` : ''
+          const hint = flexItem && cs.minWidth === 'auto' ? ' — flex item at min-width:auto: add min-w-0' : ''
+          return `${tid}<${el.tagName.toLowerCase()} class="${String(el.className).slice(0, 120)}"> width ${Math.round(el.getBoundingClientRect().width)} > widget ${Math.round(w.width)}${hint}`
+        }
+        const bad: string[] = []
+        // The shell and every ancestor up to the widget, outermost first: the outermost offender is usually the one to fix.
+        const chain: HTMLElement[] = []
+        for (let a: HTMLElement | null = shell; a && a !== widget; a = a.parentElement) chain.unshift(a)
+        for (const el of chain) {
+          const r = el.getBoundingClientRect()
+          if (r.width > w.width + 1 || r.right > w.right + 1) bad.push(describe(el))
+        }
+        // The shell's own frame: bar, content row and its columns stay inside the shell.
+        const s = shell.getBoundingClientRect()
+        for (const el of Array.from(shell.querySelectorAll<HTMLElement>(':scope > *, :scope > * > *'))) {
+          const r = el.getBoundingClientRect()
+          if (r.width && r.right > s.right + 1) bad.push(`inside the shell: ${describe(el)}`)
+        }
+        return bad
+      }, `[data-testid="${app.shell}"]`)
+      expect(overflow, `the editor overflows its desk widget (SPEC §6 host rule):\n${overflow.join('\n')}`).toEqual([])
       expect(bar.width, 'the embedded editor is narrow').toBeLessThan(520)
       // Menus fold into "≡" (and tabs into More if needed); nothing in Row 1 is clipped.
       await expect(window.locator(`[data-testid="${app.bar}-menus"]`)).toBeVisible()
