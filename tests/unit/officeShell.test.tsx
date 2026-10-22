@@ -16,6 +16,7 @@ vi.mock('../../src/renderer/src/components/Tooltip', () => ({
 import {
   BarButton,
   BarDialogButton,
+  BarNumber,
   BarToggle,
   ContextBar,
   OfficeShellLayout,
@@ -548,5 +549,33 @@ describe('keyboard scope (binding): the shell adds no document or window key lis
       undoWin()
     }
     expect(calls.filter((c) => /key(down|up|press)$/.test(c))).toEqual([])
+  })
+})
+
+describe('bar primitives: BarNumber reports only real changes', () => {
+  // A field focused and left unchanged must not report a change: every blur
+  // used to add an empty undo step in each app, so Undo seemed to do nothing.
+  it('blur and Enter with the value unchanged do not call onChange; a real edit calls it once', () => {
+    const onChange = vi.fn()
+    render(<BarNumber label="Opacity" value={50} onChange={onChange} testid="n" />)
+    const input = host.querySelector('[data-testid="n"]') as HTMLInputElement
+    act(() => {
+      input.focus()
+      input.blur()
+    })
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    })
+    expect(onChange).not.toHaveBeenCalled()
+    act(() => {
+      const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+      set.call(input, '60')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    })
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange).toHaveBeenCalledWith(60)
   })
 })
