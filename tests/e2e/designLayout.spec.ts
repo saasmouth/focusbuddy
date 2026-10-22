@@ -39,6 +39,13 @@ test.describe('PlexiDesign page layout', () => {
   let window: Page
 
   test.beforeAll(async () => {
+    // The 30s default (playwright.config.ts) is the TEST budget, and this hook
+    // does a cold app launch, the AI-source choice, navigation and content
+    // setup inside it. On a machine running several suites at once that is a
+    // coin flip: the failure then reads "beforeAll hook timeout" with whatever
+    // it happened to be waiting for, which looks like the app being broken.
+    // The hook gets its own budget; every TEST still has 30s.
+    test.setTimeout(90_000)
     app = await launchApp()
     window = app.window
     await waitForReady(window)
