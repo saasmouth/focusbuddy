@@ -8,7 +8,8 @@
  *   3. Column auto-fit on double-clicking the column resize handle.
  *   4. Shift-click header extend (regression check — was collapsing to a
  *      single column before the fix).
- *   5. Default row height (~28px / 0.75cm) and row-resize-handle drag.
+ *   5. Default row height (20px, Excel's 15pt at 96dpi) and row-resize-handle drag.
+ *   6. A pasted formula pushed off the grid shows #REF!, never a clamped ref.
  *
  * Navigation follows the exact pattern used by sheetEditorV2.spec.ts /
  * sheetRework.spec.ts (openDocumentsHub / startBlankSpreadsheet via the
@@ -421,6 +422,56 @@ test('SR2-5 — default row height matches Excel (20px); dragging the row-resize
       afterHeight,
       `row height should increase after dragging the handle down 30px (before=${defaultHeight}px, after=${afterHeight}px)`
     ).toBeGreaterThan(defaultHeight)
+  } finally {
+    await dispose()
+  }
+})
+
+// ── SR2-6. A paste that pushes a reference off the grid ───────────────────────
+
+test('SR2-6 — a formula pasted above its referent shows #REF!, not a clamped reference', async () => {
+  const { window, dispose } = await launchApp()
+  try {
+    await waitForReady(window)
+    await openDocumentsHub(window)
+    await startBlankSpreadsheet(window)
+
+    // C4 = 7, C5 = =C4*2 -> 14. Copying C5 and pasting it at A1 shifts the
+    // relative C4 by (-4, -2), which lands above row 1 and left of column A.
+    await setViaFormulaBar(window, 3, 2, '7', [0, 0])
+    await setViaFormulaBar(window, 4, 2, '=C4*2', [0, 0])
+    expect(await cellText(window, 4, 2), 'C5 = C4*2 must show 14 before the copy').toBe('14')
+
+    const mod = process.platform === 'darwin' ? 'Meta' : 'Control'
+    await clickCell(window, 4, 2)
+    await window.keyboard.press(`${mod}+c`)
+    await window.waitForTimeout(150)
+    await clickCell(window, 0, 0)
+    await window.keyboard.press(`${mod}+v`)
+    await window.waitForTimeout(250)
+
+    // The whole point: a VISIBLE error. This used to clamp to =A1*2, which
+    // multiplied whatever happened to be in A1 and looked like a real result.
+    expect(await cellText(window, 0, 0), 'A1 must show #REF!, not a clamped value').toBe('#REF!')
+
+    const body = await getPersistedBody(window)
+    const a1 = body.sheets[0].rows[0][0]
+    // Only the broken reference is replaced, so the rest still reads as written.
+    expect(a1, 'the stored formula names the broken reference').toBe('=#REF!*2')
+    // eslint-disable-next-line no-console
+    console.log(`[SR2-6 evidence] pasted at A1: stored="${a1}" displays="${await cellText(window, 0, 0)}"`)
+
+    // Positive control, so the guard is not blanket-refusing every upward paste.
+    // Pasted at B2 the reference shifts by (-3, -1) and lands on B1, still on the
+    // grid. Deliberately NOT A2: that would reference A1, which the paste above
+    // just broke, and the error would propagate correctly — the app would be
+    // right and the assertion wrong.
+    await clickCell(window, 1, 1)
+    await window.keyboard.press(`${mod}+v`)
+    await window.waitForTimeout(250)
+    const b2 = (await getPersistedBody(window)).sheets[0].rows[1][1]
+    expect(b2, 'a paste that stays on the grid still shifts normally').toBe('=B1*2')
+    expect(await cellText(window, 1, 1), 'and it computes rather than erroring').not.toBe('#REF!')
   } finally {
     await dispose()
   }

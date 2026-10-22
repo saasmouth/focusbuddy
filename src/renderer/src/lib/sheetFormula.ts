@@ -347,6 +347,14 @@ type Tok =
   | { t: 'rp' }
   | { t: 'comma' }
   | { t: 'colon' }
+  | { t: 'err'; v: FormulaErrorCode }
+
+// An error code written INTO a formula, e.g. =#REF!*2. Both rewriters emit this
+// when a reference is broken — pasted off the grid, or its row deleted — so the
+// code has to survive a round trip through parse and serialize, or the formula
+// becomes unparseable and the cell shows the generic #ERR instead of naming the
+// problem. Ordered longest-first so #NUM! cannot shadow a longer code.
+const ERROR_LITERAL = /^#(?:DIV\/0!|VALUE!|NAME\?|N\/A|NUM!|REF!|ERR)/
 
 function tokenize(s: string): Tok[] {
   const toks: Tok[] = []
@@ -356,6 +364,14 @@ function tokenize(s: string): Tok[] {
     if (/\s/.test(ch)) {
       i++
       continue
+    }
+    if (ch === '#') {
+      const err = s.slice(i).match(ERROR_LITERAL)
+      if (err) {
+        toks.push({ t: 'err', v: err[0] as FormulaErrorCode })
+        i += err[0].length
+        continue
+      }
     }
     if (ch === '"') {
       let str = ''
@@ -425,6 +441,7 @@ type Node =
   | { k: 'num'; v: number }
   | { k: 'str'; v: string }
   | { k: 'bool'; v: boolean }
+  | { k: 'err'; code: FormulaErrorCode }
   | { k: 'ref'; r: number; c: number; absR?: boolean; absC?: boolean; sheet?: string }
   | {
       k: 'range'
@@ -538,6 +555,7 @@ function parse(src: string): Node {
     if (!tok) throw new Error('unexpected end')
     if (tok.t === 'num') { next(); return { k: 'num', v: tok.v } }
     if (tok.t === 'str') { next(); return { k: 'str', v: tok.v } }
+    if (tok.t === 'err') { next(); return { k: 'err', code: tok.v } }
     if (tok.t === 'lp') {
       next()
       const e = parseExpr()
@@ -653,6 +671,8 @@ function sheetPrefix(sheet?: string): string {
 
 function nodeToString(node: Node): string {
   switch (node.k) {
+    case 'err':
+      return node.code
     case 'num':
       return String(node.v)
     case 'str':
@@ -694,11 +714,28 @@ function nodeToString(node: Node): string {
   }
 }
 
+// A broken reference is carried through the AST as a sentinel string node and
+// swapped for a bare #REF! after serialization, because the AST has no dedicated
+// error node. Shared by both rewriters so a reference broken by a paste and one
+// broken by a deleted row produce the identical formula text.
+// NUL-delimited because a NUL cannot occur in user-entered formula text,
+// whereas a plain word could: ="A REF B" would otherwise be mangled.
+const BROKEN_REF = '\u0000REF\u0000'
+const unwrapBrokenRefs = (serialized: string): string =>
+  serialized.split(`"${BROKEN_REF}"`).join('#REF!')
+
 // Shift every RELATIVE reference in a formula by (dRow, dCol); absolute ($) parts
-// stay pinned. Coordinates clamp at 0 so a fill near the top edge can't go
-// negative. Used when a formula is dragged with the fill handle or pasted to a
+// stay pinned. Used when a formula is dragged with the fill handle or pasted to a
 // new origin, so =B2 dragged one row down becomes =B3, exactly like Excel/Sheets.
 // `formula` may include the leading '='. Unparseable input is returned unchanged.
+//
+// A reference pushed off the top or left edge becomes #REF!, not A1. It used to
+// clamp at 0, which produced a formula that looked right and computed something
+// else: =C4*2 pasted four rows up became =A1*2, silently multiplying the wrong
+// cell. Excel shows #REF! for the same move, and a visible error beats a
+// plausible wrong answer. Only the broken reference is replaced, so the rest of
+// the formula still reads as written (=C4*2 becomes =#REF!*2), which is also
+// what Excel does and tells the user which part to repair.
 export function rewriteFormulaRefs(formula: string, dRow: number, dCol: number): string {
   if (dRow === 0 && dCol === 0) return formula
   const hadEquals = formula.startsWith('=')
@@ -710,20 +747,33 @@ export function rewriteFormulaRefs(formula: string, dRow: number, dCol: number):
   } catch {
     return formula
   }
-  const shift = (coord: number, abs: boolean | undefined, delta: number): number =>
-    abs ? coord : Math.max(0, coord + delta)
+  // Null marks a coordinate that fell off the grid; the reference carrying it is
+  // swapped for the sentinel node and serialized to #REF!, the same mechanism
+  // remapFormulaRefs uses for a reference whose row or column was deleted.
+  const shift = (coord: number, abs: boolean | undefined, delta: number): number | null => {
+    if (abs) return coord
+    const next = coord + delta
+    return next < 0 ? null : next
+  }
+  const broken = (): Node => ({ k: 'str', v: BROKEN_REF })
   const rewrite = (n: Node): Node => {
     switch (n.k) {
-      case 'ref':
-        return { ...n, r: shift(n.r, n.absR, dRow), c: shift(n.c, n.absC, dCol) }
-      case 'range':
-        return {
-          ...n,
-          r1: shift(n.r1, n.absR1, dRow),
-          c1: shift(n.c1, n.absC1, dCol),
-          r2: shift(n.r2, n.absR2, dRow),
-          c2: shift(n.c2, n.absC2, dCol)
-        }
+      case 'ref': {
+        const r = shift(n.r, n.absR, dRow)
+        const c = shift(n.c, n.absC, dCol)
+        if (r === null || c === null) return broken()
+        return { ...n, r, c }
+      }
+      case 'range': {
+        const r1 = shift(n.r1, n.absR1, dRow)
+        const c1 = shift(n.c1, n.absC1, dCol)
+        const r2 = shift(n.r2, n.absR2, dRow)
+        const c2 = shift(n.c2, n.absC2, dCol)
+        // Any endpoint off the grid breaks the whole range: unlike a structural
+        // delete, nothing here survived to shrink the range toward.
+        if (r1 === null || c1 === null || r2 === null || c2 === null) return broken()
+        return { ...n, r1, c1, r2, c2 }
+      }
       case 'unary':
         return { ...n, x: rewrite(n.x) }
       case 'binary':
@@ -734,7 +784,7 @@ export function rewriteFormulaRefs(formula: string, dRow: number, dCol: number):
         return n
     }
   }
-  return (hadEquals ? '=' : '') + nodeToString(rewrite(ast))
+  return (hadEquals ? '=' : '') + unwrapBrokenRefs(nodeToString(rewrite(ast)))
 }
 
 // Remap references through row/column INDEX maps, for structural edits: inserting,
@@ -761,10 +811,7 @@ export function remapFormulaRefs(
   } catch {
     return formula
   }
-  // A broken reference is carried as a sentinel string node and swapped for a
-  // bare #REF! after serialization (there is no dedicated error node).
-  const BROKE = ' REF '
-  const broken = (): Node => ({ k: 'str', v: BROKE })
+  const broken = (): Node => ({ k: 'str', v: BROKEN_REF })
   const remap = (n: Node): Node => {
     switch (n.k) {
       case 'ref': {
@@ -807,7 +854,7 @@ export function remapFormulaRefs(
         return n
     }
   }
-  const out = nodeToString(remap(ast)).split(`"${BROKE}"`).join('#REF!')
+  const out = unwrapBrokenRefs(nodeToString(remap(ast)))
   return (hadEquals ? '=' : '') + out
 }
 
@@ -911,6 +958,12 @@ function matchCriteria(value: CellValue, criterion: CellValue): boolean {
 
 function evalNode(node: Node, grid: Grid, seen: Set<string>): CellValue {
   switch (node.k) {
+    case 'err':
+      // An error written into the formula evaluates to itself, so =#REF!*2
+      // shows #REF! rather than the generic #ERR an unparseable formula gives.
+      // It propagates like any other error: anything built on it is also in
+      // error, which is what Excel does.
+      throw new FormulaError(node.code)
     case 'num':
       return node.v
     case 'str':

@@ -192,8 +192,31 @@ describe('rewriteFormulaRefs — relative/absolute reference shifting (autofill)
   it('shifts both endpoints of a range', () => {
     expect(rewriteFormulaRefs('=SUM(A1:A3)', 1, 0)).toBe('=SUM(A2:A4)')
   })
-  it('clamps at the top-left edge instead of going negative', () => {
-    expect(rewriteFormulaRefs('=A1', -5, -5)).toBe('=A1')
+  // A reference pushed off the top or left edge is BROKEN, not clamped. It used
+  // to clamp at 0, which is the bug this replaced: =C4*2 pasted four rows and two
+  // columns up became =A1*2 — a formula that looks right and multiplies the wrong
+  // cell. Excel shows #REF! for the same move, and only the broken reference is
+  // replaced so the rest of the formula still reads as written.
+  it('breaks a reference pushed off the top-left edge, rather than clamping it to A1', () => {
+    expect(rewriteFormulaRefs('=A1', -5, -5)).toBe('=#REF!')
+  })
+  it('breaks only the offending reference, leaving the rest of the formula readable', () => {
+    expect(rewriteFormulaRefs('=C4*2', -4, -2)).toBe('=#REF!*2')
+  })
+  it('breaks on a row overflow alone, with the column still in range', () => {
+    expect(rewriteFormulaRefs('=C4', -4, 0)).toBe('=#REF!')
+  })
+  it('leaves an absolute reference alone while breaking the relative one beside it', () => {
+    // $A$1 is pinned, so it cannot fall off the edge and must survive intact.
+    expect(rewriteFormulaRefs('=B2+$A$1', -5, 0)).toBe('=#REF!+$A$1')
+  })
+  it('breaks a whole range when an endpoint falls off, since nothing survived to shrink to', () => {
+    expect(rewriteFormulaRefs('=SUM(A1:B2)', -1, 0)).toBe('=SUM(#REF!)')
+  })
+  it('still shifts normally when the result stays on the grid', () => {
+    // The guard must not fire on ordinary in-range movement, including upward.
+    expect(rewriteFormulaRefs('=B5', -3, 0)).toBe('=B2')
+    expect(rewriteFormulaRefs('=C4*2', -3, -2)).toBe('=A1*2')
   })
   it('round-trips a complex formula through parse/serialize', () => {
     const out = rewriteFormulaRefs('=IF(A1>B1, A1*2, (A1+B1)/2)', 1, 0)
@@ -838,5 +861,41 @@ describe('LAMBDA + the array-lambda family', () => {
   it('using a lambda where a scalar is expected is #VALUE!', () => {
     const g = grid([['=LET(f, LAMBDA(x, x), f+1)']])
     expect(displayCell(g, 0, 0)).toBe('#VALUE!')
+  })
+})
+
+describe('a broken reference is visible, not silently wrong', () => {
+  const show = (formula: string): string => {
+    const g: Grid = {
+      columns: ['A', 'B', 'C'],
+      rows: [[formula, '', ''], ['', '', ''], ['', '', ''], ['', '', '5']]
+    }
+    return String(displayCell(g, 0, 0, makeWorkbook([{ name: 'S', grid: g }])))
+  }
+
+  // The point of emitting #REF! is that the USER sees it. That needs the code to
+  // survive a round trip through parse and serialize: before the engine learned
+  // to parse an error literal, `=#REF!*2` was simply unparseable and the cell
+  // showed the generic #ERR, which names nothing.
+  it('a paste pushed off the grid shows #REF! in the cell', () => {
+    expect(show(rewriteFormulaRefs('=C4*2', -4, -2))).toBe('#REF!')
+  })
+  it('a reference whose row was deleted shows #REF! too', () => {
+    // remapFormulaRefs already emitted #REF! text; it displayed as #ERR for the
+    // same parsing reason, so this path is fixed by the same change.
+    expect(show(remapFormulaRefs('=A2', () => null, (c) => c))).toBe('#REF!')
+  })
+  it('a hand-typed error code round-trips', () => {
+    expect(show('=#REF!')).toBe('#REF!')
+    expect(show('=#N/A')).toBe('#N/A')
+    expect(show('=#DIV/0!')).toBe('#DIV/0!')
+    expect(show('=#NAME?')).toBe('#NAME?')
+  })
+  it('an error propagates through the expression it sits in', () => {
+    expect(show('=#REF!*2')).toBe('#REF!')
+    expect(show('=SUM(#REF!, 1)')).toBe('#REF!')
+  })
+  it('leaves an ordinary formula alone', () => {
+    expect(show('=1+2')).toBe('3')
   })
 })
