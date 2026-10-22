@@ -65,7 +65,9 @@ function report(dir = join(process.cwd(), 'test-results', 'office-shell-fp')) {
     const missing = apps.filter((a) => !list.some((f) => f.app === a))
     const lines = []
     for (const [prop, get] of Object.entries(SAME)) {
-      const vals = list.map((f) => [f.app, get(f)]).filter(([, v]) => v !== undefined)
+      // undefined and null both mean "not applicable here" (an action-only rail has no pressed
+      // item at rest; an app without a side pane has no pane width), never a divergence.
+      const vals = list.map((f) => [f.app, get(f)]).filter(([, v]) => v !== undefined && v !== null)
       if (vals.length < 2) continue
       const counts = new Map()
       for (const [, v] of vals) counts.set(JSON.stringify(v), (counts.get(JSON.stringify(v)) ?? 0) + 1)

@@ -442,6 +442,13 @@ async function checkConsistency(window: Page, app: AppCase, theme: Theme, size: 
   )
   expect(dupes, `${label}: test ids that appear twice in the chrome:\n${dupes.join('\n')}`).toEqual([])
 
+  // Let colour transitions finish first: the tabs have transition-colors, and the checks above
+  // just switched tabs, so an unsettled tab reads as a different colour per app (the first
+  // final cross-app report showed "active tab colour" varying even within one app).
+  await window.evaluate(() =>
+    Promise.race([Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined))), new Promise((r) => setTimeout(r, 1_500))])
+  )
+
   // D. Contrast and the style fingerprint, read from one frame. Colours are resolved through a canvas so
   // oklch/color-mix tokens compare like rgb; translucent backgrounds are composited up the ancestor chain.
   const fp = await window.evaluate(
