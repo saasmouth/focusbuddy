@@ -7,13 +7,14 @@ import { loadGoogleFont, familyLabel } from '../../lib/googleFonts'
 import DrawStudioMenuBar from './editor/DrawStudioMenuBar'
 import { MenuModal } from './editor/menuBarKit'
 import * as raster from './draw/raster'
-import { scrollToKeepPoint, wheelZoom } from './draw/viewport'
+import { renderWindow, scrollToKeepPoint, wheelZoom } from './draw/viewport'
 import { drawId } from '@shared/draw'
 import { assetSrc } from '@shared/draw/assets'
 import { DRAW_V2_WRITES } from '@shared/draw/compat'
 import { docPaintToCss } from '@shared/draw/svg'
 import type { DrawWidgetNode } from '@shared/draw/model'
-import { addObject, artboardsBounds, primaryArtboard, rasterFrame, rasterLayerFrame, targetLayerId } from '@shared/draw/ops'
+import { addObject, artboardsBounds, pasteboardBounds, primaryArtboard, rasterFrame, rasterLayerFrame, targetLayerId } from '@shared/draw/ops'
+import type { Box } from '@shared/drawGeometry'
 import { walkNodes } from '@shared/draw/tree'
 import { createDrawEditor, type DrawEditor } from './draw/editor/editor'
 import { clipboardEventInfo, handleClipboardEvent, type ClipboardEventKind } from './draw/editor/menuClipboard'
@@ -157,6 +158,12 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   // union (with one artboard, exactly that artboard, as always).
   const frame = artboardsBounds(doc)
   const multi = doc.artboards.length > 1
+  // The pasteboard (4.3.41): Illustrator's 227-inch canvas around the
+  // artboards, grown to take in everything in the drawing (ops/pasteboard.ts).
+  // It is one empty element sized for the scrollbars; the stage (the
+  // artboards' union, where document coordinates are anchored) sits in it.
+  const extent = useMemo(() => pasteboardBounds(doc), [doc])
+  const pasteRef = useRef<HTMLDivElement | null>(null)
 
   // Fold a peer's merge (or an own-change undo coming back) in live co-editing.
   // Never pushed onto undo -- another person's edit is not ours to take back.
@@ -323,6 +330,67 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     sc.scrollTop = next.scrollTop
   }, [zoom])
 
+  // ── Pasteboard: keep the view still, draw only the visible part ───────────
+
+  // A document point sits at (p - extent) * zoom inside the pasteboard, so
+  // when the pasteboard grows or shifts (art placed far out, an artboard
+  // moved), the scroll moves by the same amount and nothing on screen jumps.
+  const lastExtent = useRef<Box | null>(null)
+  useLayoutEffect(() => {
+    const prev = lastExtent.current
+    lastExtent.current = extent
+    const sc = scrollRef.current
+    if (!prev || !sc || (prev.x === extent.x && prev.y === extent.y)) return
+    const z = store.getState().zoom
+    sc.scrollLeft += (prev.x - extent.x) * z
+    sc.scrollTop += (prev.y - extent.y) * z
+  }, [extent, store])
+
+  // The window of the pasteboard the art and the overlay are drawn in: the
+  // visible part plus a margin (viewport.ts renderWindow). Their SVGs are
+  // sized to it, never to the whole pasteboard, and it only moves when the
+  // view leaves it, so scrolling inside it re-renders nothing.
+  const [view, setView] = useState<Box | null>(null)
+  const viewZoom = useRef(zoom)
+  const extentRef = useRef(extent)
+  extentRef.current = extent
+  const frameRef = useRef(frame)
+  frameRef.current = frame
+  const updateView = useCallback(() => {
+    const sc = scrollRef.current
+    const st = stageRef.current
+    const z = store.getState().zoom
+    let visible: Box | null = null
+    if (sc && st && sc.clientWidth > 0 && sc.clientHeight > 0) {
+      const r = sc.getBoundingClientRect()
+      const s = st.getBoundingClientRect()
+      const f = frameRef.current
+      visible = { x: (r.left + sc.clientLeft - s.left) / z + f.x, y: (r.top + sc.clientTop - s.top) / z + f.y, w: sc.clientWidth / z, h: sc.clientHeight / z }
+    }
+    const zoomChanged = viewZoom.current !== z
+    viewZoom.current = z
+    setView((cur) => {
+      const next = renderWindow({ visible, current: cur, extent: extentRef.current, fallback: frameRef.current, zoomChanged })
+      return cur && next.x === cur.x && next.y === cur.y && next.w === cur.w && next.h === cur.h ? cur : next
+    })
+  }, [store])
+  useLayoutEffect(updateView, [updateView, zoom, extent, frame.x, frame.y, frame.w, frame.h])
+  const viewFrame = useRef(0)
+  const onCanvasScroll = useCallback(() => {
+    if (viewFrame.current) return
+    viewFrame.current = requestAnimationFrame(() => {
+      viewFrame.current = 0
+      updateView()
+    })
+  }, [updateView])
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => updateView())
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [updateView])
+
   // The app's zoom keys and View › Zoom items zoom the DRAWING while it is
   // open (⌘0 fits the active artboard, as in Illustrator), even when the app
   // menu takes the key before the page sees it (lib/zoomCommands.ts).
@@ -400,6 +468,9 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
 
   const stageW = frame.w * zoom
   const stageH = frame.h * zoom
+  // The art's and the overlay's SVG window, placed relative to the stage.
+  const win = view ?? frame
+  const winAt = { left: (win.x - frame.x) * zoom, top: (win.y - frame.y) * zoom }
   // Each paint layer's pixels lie in its own frame (rasterLayerFrame: the
   // first page at the origin unless it has followed an artboard).
   const boxStyle = (f: { x: number; y: number; w: number; h: number }) => ({ left: (f.x - frame.x) * zoom, top: (f.y - frame.y) * zoom, width: f.w * zoom, height: f.h * zoom })
@@ -609,30 +680,38 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
         <div
           ref={scrollRef}
           tabIndex={-1}
-          className="flex-1 min-w-0 overflow-auto bg-stone-200/60 dark:bg-black/40 p-6 outline-none"
-          style={inset ? { paddingLeft: 24 + inset } : undefined}
+          className="flex-1 min-w-0 flex overflow-auto bg-stone-200/60 dark:bg-black/40 outline-none"
           data-testid="draw-canvas-scroll"
+          onScroll={onCanvasScroll}
           onPointerDown={(e) => {
             const el = e.currentTarget
-            if (e.target !== el || e.button === 2) return
+            if ((e.target !== el && e.target !== pasteRef.current) || e.button === 2) return
             const r = el.getBoundingClientRect()
             if (e.clientX - r.left - el.clientLeft >= el.clientWidth || e.clientY - r.top - el.clientTop >= el.clientHeight) return
             el.setPointerCapture(e.pointerId)
             editor.pointerDown(toolPointer(e))
           }}
           onPointerMove={(e) => {
-            if (e.target === e.currentTarget) editor.pointerMove(toolPointer(e))
+            if (e.target === e.currentTarget || e.target === pasteRef.current) editor.pointerMove(toolPointer(e))
           }}
           onPointerUp={(e) => {
-            if (e.target === e.currentTarget) editor.pointerUp(toolPointer(e))
+            if (e.target === e.currentTarget || e.target === pasteRef.current) editor.pointerUp(toolPointer(e))
           }}
           onPointerCancel={(e) => {
-            if (e.target === e.currentTarget) editor.pointerUp(toolPointer(e))
+            if (e.target === e.currentTarget || e.target === pasteRef.current) editor.pointerUp(toolPointer(e))
           }}
           onContextMenu={(e) => {
-            if (e.target === e.currentTarget) onContextMenu(e)
+            if (e.target === e.currentTarget || e.target === pasteRef.current) onContextMenu(e)
           }}
         >
+          {/* The pasteboard: one empty element, its size giving the scroll
+              range; centred when smaller than the window (zoomed far out). */}
+          <div
+            ref={pasteRef}
+            data-testid="draw-pasteboard"
+            className="relative shrink-0 m-auto"
+            style={{ width: extent.w * zoom, height: extent.h * zoom }}
+          >
           <div
             ref={stageRef}
             onPointerDown={onPointerDown}
@@ -644,8 +723,10 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
             onContextMenu={onContextMenu}
             data-testid="draw-stage"
             data-artboards-hidden={hideBoards ? '1' : undefined}
-            className={`relative mx-auto touch-none select-none${multi || hideBoards ? '' : ' shadow-lg'}`}
+            className={`absolute touch-none select-none${multi || hideBoards ? '' : ' shadow-lg'}`}
             style={{
+              left: (frame.x - extent.x) * zoom,
+              top: (frame.y - extent.y) * zoom,
               width: stageW,
               height: stageH,
               cursor,
@@ -676,9 +757,10 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
                 <VectorLayerView
                   key={l.id}
                   layer={l}
-                  board={frame}
-                  stageW={stageW}
-                  stageH={stageH}
+                  board={win}
+                  stageW={win.w * zoom}
+                  stageH={win.h * zoom}
+                  at={winAt}
                   assets={doc.assets}
                   swatches={doc.swatches}
                   hiddenId={state.editingText}
@@ -690,9 +772,10 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
               <ScratchView canvas={scratch.current} box={scratchStyle} opacity={state.brush.opacity} blend={tool === 'eraser' ? 'normal' : state.brush.blend} />
             )}
 
-            <Overlay state={state} board={board} frame={frame} stageW={stageW} stageH={stageH} />
+            <Overlay state={state} board={board} frame={win} stageW={win.w * zoom} stageH={win.h * zoom} at={winAt} />
 
             <TextEditor ctx={ctx} />
+          </div>
           </div>
         </div>
 

@@ -362,6 +362,17 @@ means.
   all artboards (`artboardsBounds`); its top-left is that union's top-left,
   so `ToolPointer.p` is always document space. The grey around the stage is
   pasteboard and takes presses too.
+- **The pasteboard** (4.3.41, `ops/pasteboard.ts`) is Illustrator's canvas: a
+  16383-unit (about 227 in) square centred on the artboards, grown to take in
+  every artboard, object and paint layer, so scrolling reaches everything.
+  It is one empty element (`draw-pasteboard`) whose size gives the scroll
+  range; the stage sits in it at `(frame - pasteboard) × zoom`, and a
+  document point is at `(p - pasteboard) × zoom`, so when the pasteboard
+  shifts the scroll shifts with it. The art's and the overlay's SVGs are
+  sized to the visible part plus half a window each side
+  (`viewport.ts renderWindow`), never to the pasteboard, and only move when
+  the view leaves that window. Art outside every artboard stays in the
+  drawing and is left out of export.
 - **The active artboard** is `doc.activeArtboardId` (`primaryArtboard`). A
   press on a page makes it active (`editor/artboards.ts` `activateArtboard`):
   no undo step and no save of its own. New art, pastes, Paste in Place,

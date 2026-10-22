@@ -41,3 +41,44 @@ export function scrollToKeepPoint(input: {
   const nowY = input.stageTop + input.docY * input.zoom
   return { scrollLeft: input.scrollLeft + (nowX - input.clientX), scrollTop: input.scrollTop + (nowY - input.clientY) }
 }
+
+type Rect = { x: number; y: number; w: number; h: number }
+
+const inside = (a: Rect, b: Rect): boolean => a.x >= b.x && a.y >= b.y && a.x + a.w <= b.x + b.w && a.y + a.h <= b.y + b.h
+
+function intersect(a: Rect, b: Rect): Rect | null {
+  const x = Math.max(a.x, b.x)
+  const y = Math.max(a.y, b.y)
+  const r = Math.min(a.x + a.w, b.x + b.w)
+  const btm = Math.min(a.y + a.h, b.y + b.h)
+  return r > x && btm > y ? { x, y, w: r - x, h: btm - y } : null
+}
+
+/** How far past the visible part the drawn window reaches, as a fraction of the visible size on each side. */
+export const RENDER_OVERSCAN = 0.5
+
+/**
+ * The part of the pasteboard the canvas actually draws (4.3.41): the visible
+ * part of the window, in document units, plus RENDER_OVERSCAN of it on every
+ * side, inside the pasteboard. The art's SVG layers and the overlay are sized
+ * to this window, never to the whole 227-inch pasteboard, so zooming in on a
+ * huge canvas never makes a huge element.
+ *
+ * The window only moves when the visible part leaves it (or the zoom
+ * changes, which changes its size on screen), so scrolling within it
+ * re-renders nothing. Before the canvas is laid out (`visible` null) it is
+ * the artboards (`fallback`), as the stage always was.
+ */
+export function renderWindow(input: { visible: Rect | null; current: Rect | null; extent: Rect; fallback: Rect; zoomChanged: boolean }): Rect {
+  const { visible, current, extent, fallback, zoomChanged } = input
+  if (!visible || !(visible.w > 0) || !(visible.h > 0)) return current ?? intersect(fallback, extent) ?? fallback
+  if (current && !zoomChanged && inside(visible, current)) return current
+  const ox = visible.w * RENDER_OVERSCAN
+  const oy = visible.h * RENDER_OVERSCAN
+  const grown = { x: visible.x - ox, y: visible.y - oy, w: visible.w + 2 * ox, h: visible.h + 2 * oy }
+  const w = intersect(grown, extent) ?? intersect(fallback, extent) ?? fallback
+  // Whole document units, outwards, so the window never cuts a pixel row.
+  const x = Math.floor(w.x)
+  const y = Math.floor(w.y)
+  return { x, y, w: Math.ceil(w.x + w.w) - x, h: Math.ceil(w.y + w.h) - y }
+}

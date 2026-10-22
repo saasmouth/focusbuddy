@@ -10,7 +10,7 @@ import { HANDLES, handlePoint, selectionBox } from '../tools/helpers'
 
 const GRID = 50
 
-export default function Overlay({ state, board, frame = board, stageW, stageH }: { state: EditorState; board: DrawArtboard; frame?: { x: number; y: number; w: number; h: number }; stageW: number; stageH: number }): JSX.Element {
+export default function Overlay({ state, board, frame = board, stageW, stageH, at }: { state: EditorState; board: DrawArtboard; frame?: { x: number; y: number; w: number; h: number }; stageW: number; stageH: number; at?: { left: number; top: number } }): JSX.Element {
   const k = 1 / state.zoom
   const selBox = selectionBox(state.doc, state.selection)
   const overlays = drawTools()
@@ -22,6 +22,7 @@ export default function Overlay({ state, board, frame = board, stageW, stageH }:
       height={stageH}
       viewBox={`${frame.x} ${frame.y} ${frame.w} ${frame.h}`}
       className="absolute left-0 top-0 pointer-events-none"
+      style={at ? { left: at.left, top: at.top } : undefined}
       data-testid="draw-overlay"
     >
       {state.showGrid && (

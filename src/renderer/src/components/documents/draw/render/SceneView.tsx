@@ -277,7 +277,7 @@ export const NodeView = memo(function NodeView({ o, assets, swatches }: NodeProp
 
 interface LayerProps {
   layer: DrawDocVectorLayer
-  /** The document rectangle the stage shows (every artboard's union). */
+  /** The document rectangle this layer's SVG shows (the pasteboard window the canvas draws, 4.3.41). */
   board: Pick<DrawArtboard, 'x' | 'y' | 'w' | 'h'>
   stageW: number
   stageH: number
@@ -285,6 +285,8 @@ interface LayerProps {
   swatches: DrawSwatch[]
   /** The object currently being typed into, hidden so its text is not drawn twice. */
   hiddenId?: string | null
+  /** Where the SVG sits on the stage, in screen px (absent: the stage's top-left). */
+  at?: { left: number; top: number }
 }
 
 /**
@@ -293,7 +295,7 @@ interface LayerProps {
  * array from the children, which render after their parent returns, so the
  * defs were always empty). Memoised on the layer's identity.
  */
-export const VectorLayerView = memo(function VectorLayerView({ layer, board, stageW, stageH, assets, swatches, hiddenId }: LayerProps): JSX.Element {
+export const VectorLayerView = memo(function VectorLayerView({ layer, board, stageW, stageH, assets, swatches, hiddenId, at }: LayerProps): JSX.Element {
   const visible = layer.objects.filter((o) => o.id !== hiddenId)
   const sw = { swatches }
   const gradients = visible.flatMap((o) => nodeGradients(o, sw))
@@ -304,7 +306,7 @@ export const VectorLayerView = memo(function VectorLayerView({ layer, board, sta
       viewBox={`${board.x} ${board.y} ${board.w} ${board.h}`}
       data-testid={`draw-vector-${layer.id}`}
       className="absolute left-0 top-0 pointer-events-none"
-      style={{ opacity: layer.template ? 0.5 * layer.opacity : layer.opacity, mixBlendMode: layer.blend as never }}
+      style={{ ...(at ? { left: at.left, top: at.top } : {}), opacity: layer.template ? 0.5 * layer.opacity : layer.opacity, mixBlendMode: layer.blend as never }}
     >
       <defs>
         {gradients.map((g, i) => (

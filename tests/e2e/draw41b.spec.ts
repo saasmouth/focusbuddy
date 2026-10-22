@@ -345,6 +345,85 @@ test('PF-1 paint follows its artboard: moved with the Artboard tool together wit
   expect((await paint()).assetId).toBe(p1.assetId)
 })
 
+// ── The unlimited pasteboard ─────────────────────────────────────────────────
+
+/** Every SVG the canvas draws, in screen px, against the window it sits in. */
+async function svgSizes(): Promise<{ vw: number; vh: number; svgs: Array<{ w: number; h: number }>; nodes: number }> {
+  return window.evaluate(() => {
+    const sc = document.querySelector('[data-testid="draw-canvas-scroll"]') as HTMLElement
+    const stage = document.querySelector('[data-testid="draw-stage"]') as HTMLElement
+    const svgs = Array.from(stage.querySelectorAll(':scope > svg')).map((el) => {
+      const r = el.getBoundingClientRect()
+      return { w: r.width, h: r.height }
+    })
+    return { vw: sc.clientWidth, vh: sc.clientHeight, svgs, nodes: stage.querySelectorAll('*').length }
+  })
+}
+
+test('PB-1 the pasteboard: draw beyond the artboard and see it, scroll to the far edge of a 227-inch canvas, only the visible part is drawn, and Fit All still frames the artboards', async () => {
+  const id = await seedDrawDoc(window, v1Body([rectObject('r', 100, 100, 200, 150)]), 'Pasteboard')
+  await openDocument(window, id)
+  const read = async () => (await readStored(window, id)).raw as { layers: Array<{ kind: string; objects?: Array<{ id: string; path?: { subpaths: Array<{ nodes: Array<{ x: number; y: number }> }> } }> }> }
+
+  // The scroll range is Illustrator's canvas: about 16383 document units each way.
+  const zoom = (await zoomPct()) / 100
+  const pb = (await t('draw-pasteboard').boundingBox())!
+  expect(pb.width / zoom).toBeGreaterThan(16000)
+  expect(pb.height / zoom).toBeGreaterThan(16000)
+
+  // Draw a rectangle on the grey, right of the page: it is kept and drawn there.
+  await t('draw-canvas-scroll').focus()
+  await window.keyboard.press('m')
+  const stage = (await t('draw-stage').boundingBox())!
+  const x0 = stage.x + stage.width + 30
+  await window.mouse.move(x0, stage.y + 40)
+  await window.mouse.down()
+  await window.mouse.move(x0 + 30, stage.y + 70)
+  await window.mouse.move(x0 + 60, stage.y + 100)
+  await window.mouse.up()
+  await expect.poll(async () => (await read()).layers[0].objects!.length).toBe(2)
+  const made = (await read()).layers[0].objects![1]
+  expect(made.path!.subpaths[0].nodes[0].x).toBeGreaterThan(800)
+  await expect(window.locator('[data-testid="draw-vector-L1"] path')).toHaveCount(2)
+  const drawn = (await window.locator('[data-testid="draw-vector-L1"] path').nth(1).boundingBox())!
+  expect(drawn.x).toBeGreaterThan(stage.x + stage.width)
+
+  // The SVGs are sized to the visible part (plus a margin), never the pasteboard.
+  const bound = async (): Promise<void> => {
+    const s = await svgSizes()
+    for (const v of s.svgs) {
+      expect(v.w).toBeLessThanOrEqual(s.vw * 2 + 2)
+      expect(v.h).toBeLessThanOrEqual(s.vh * 2 + 2)
+    }
+  }
+  await bound()
+  const before = (await svgSizes()).nodes
+
+  // Scroll to the pasteboard's far corner: reachable, and still a bounded window.
+  await t('draw-canvas-scroll').evaluate((el) => {
+    el.scrollLeft = el.scrollWidth
+    el.scrollTop = el.scrollHeight
+  })
+  await expect.poll(async () => t('draw-canvas-scroll').evaluate((el) => el.scrollLeft > 0 && el.scrollLeft + el.clientWidth >= el.scrollWidth - 1)).toBe(true)
+  await bound()
+  // Zoomed far in, the same: no element grows with the zoom.
+  for (let i = 0; i < 10; i++) await window.keyboard.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+=`)
+  await expect.poll(zoomPct).toBeGreaterThan(zoom * 100 * 5)
+  await bound()
+  expect((await svgSizes()).nodes).toBe(before)
+
+  // ⌥⌘0 Fit All still frames every artboard, and the art beyond it is still there.
+  await window.keyboard.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+Alt+0`)
+  const sc = (await t('draw-canvas-scroll').boundingBox())!
+  await expect
+    .poll(async () => {
+      const st = (await t('draw-stage').boundingBox())!
+      return st.x >= sc.x - 1 && st.y >= sc.y - 1 && st.x + st.width <= sc.x + sc.width + 1 && st.y + st.height <= sc.y + sc.height + 1
+    })
+    .toBe(true)
+  await expect(window.locator('[data-testid="draw-vector-L1"] path')).toHaveCount(2)
+})
+
 // ── Item 8: the host rule in a narrow desk widget (kept last: it reloads) ───
 
 test('NW-1 embedded in a 480px desk widget the studio is no wider than its host, nor is anything between them, and the canvas still draws', async () => {
