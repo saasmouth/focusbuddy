@@ -62,6 +62,10 @@ export interface WCtx {
   // Host-owned flows
   insertImage: () => void
   insertWidget: () => void
+  /** Open the saved-snippet library, to insert one at the cursor. */
+  insertSnippet: () => void
+  /** Keep the current selection as a reusable snippet. */
+  saveSnippet: () => void
   openLink: () => void
   importDocx: () => void
   exportDocx: () => void
@@ -184,6 +188,12 @@ const insertTab: BarTab<WCtx> = {
       <BarButton icon="horizontal_rule" label="Divider" onClick={() => chain(c).setHorizontalRule().run()} />
       <BarSep />
       <BarButton icon="widgets" label="Insert work widget" onClick={c.insertWidget} />
+      <BarSep />
+      {/* Saved snippets: insert one from the library, or keep the selection as
+          a new one. Both open a React dialog the host owns, so they are ctx
+          callbacks rather than editor commands. */}
+      <BarButton icon="bookmarks" label="Insert saved snippet" onClick={c.insertSnippet} testid="doc-insert-snippet" />
+      <BarButton icon="bookmark_add" label="Save selection as snippet" onClick={c.saveSnippet} testid="doc-save-snippet" />
       <BarSep />
       <BarButton icon="web_asset" label="Header & footer" onClick={() => c.togglePanel('headerfooter')} controls={shellPanelDomId('headerfooter')} testid="doc-headerfooter-btn" />
     </>

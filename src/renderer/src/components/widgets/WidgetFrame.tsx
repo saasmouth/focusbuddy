@@ -1,4 +1,7 @@
 import { WIDGET_CATALOG } from '../../lib/widgetCatalog'
+import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
+import { widgetBodyFromWidget } from '../desk/deskSnippets'
+import type { WidgetSnippetBody } from '@shared/snippets'
 import { GRID } from '../../lib/canvasGrid'
 import { stripMentions } from '@shared/mentionText'
 import { snapEnabled } from '../../lib/gridPref'
@@ -209,6 +212,9 @@ export default function WidgetFrame({
   // closes on outside-click / Esc (handled by CanvasContextMenu).
   const [headerCtxMenu, setHeaderCtxMenu] = useState<{ x: number; y: number } | null>(null)
   const [makeTaskOpen, setMakeTaskOpen] = useState(false)
+  // The snippet body is captured when the menu item is chosen, because the
+  // dialog needs it after the menu has closed.
+  const [snippetDraft, setSnippetDraft] = useState<WidgetSnippetBody | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
   const isActive = useWidgetStore((s) => s.activeWidgetId === widget.id)
   const zoom = useWidgetStore((s) => s.zoom)
@@ -506,7 +512,12 @@ export default function WidgetFrame({
     onSaveAsFile:
       !linkedFileId && !isWidgetFilePaneId(widget.id) && isStandaloneWidgetKind(widget.kind)
         ? () => void useWidgetFilesStore.getState().promote(widget.id)
-        : undefined
+        : undefined,
+    // Keep this widget's shape and content as a reusable snippet. Offered for
+    // any widget, including a file instance: a snippet is a template for making
+    // new widgets, which is a different want from this widget appearing in two
+    // places, and both are legitimate for the same widget.
+    onSaveAsSnippet: () => setSnippetDraft(widgetBodyFromWidget(widget))
   }
 
   function commitDrop(newX: number, newY: number): void {
@@ -1405,6 +1416,14 @@ export default function WidgetFrame({
           onClose={() => setHeaderCtxMenu(null)}
         />
       )}
+      {snippetDraft && (
+        <SaveSnippetDialog
+          body={snippetDraft}
+          suggestedName={widget.title || ''}
+          onClose={() => setSnippetDraft(null)}
+        />
+      )}
+
       {makeTaskOpen && (
         <MakeTaskDialog
           // Seed the task title from whatever the widget already has —

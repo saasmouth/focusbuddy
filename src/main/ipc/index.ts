@@ -346,6 +346,7 @@ import {
   restoreSnapshot
 } from '../db/canvasSnapshots'
 import {
+  accountEmail,
   clearSession,
   loadAccountState,
   anonymousLaunchAllowed,
@@ -375,6 +376,16 @@ import {
   deleteTemplate,
   listTemplates
 } from '../db/templates'
+import {
+  createSnippet,
+  deleteSnippet,
+  forkSnippet,
+  getSnippet,
+  listSnippets,
+  recordSnippetUse,
+  updateSnippet
+} from '../db/snippets'
+import type { SnippetDraft, SnippetPatch, SnippetQuery } from '@shared/snippets'
 import { getRecentHistory, recordVisit } from '../db/browsing'
 import {
   createConnectedApp,
@@ -1725,6 +1736,20 @@ export function registerIpcHandlers(): void {
     ) => createTemplateFromTask(taskId, name, description, widgetIds)
   )
   ipcMain.handle('templates:delete', (_e, id: string) => deleteTemplate(id))
+
+  // Saved snippets. The author is the signed-in email, which is all the main
+  // process has to identify a user locally; anonymous workspaces save with a
+  // null author, which is the normal local-first case and not an error.
+  ipcMain.handle('snippets:list', (_e, query?: SnippetQuery) => listSnippets(query ?? {}))
+  ipcMain.handle('snippets:get', (_e, id: string) => getSnippet(id))
+  ipcMain.handle('snippets:create', (_e, draft: SnippetDraft) => createSnippet(draft, accountEmail()))
+  ipcMain.handle('snippets:update', (_e, id: string, patch: SnippetPatch) => updateSnippet(id, patch))
+  ipcMain.handle('snippets:delete', (_e, id: string) => deleteSnippet(id))
+  ipcMain.handle('snippets:recordUse', (_e, id: string) => {
+    recordSnippetUse(id)
+    return { ok: true }
+  })
+  ipcMain.handle('snippets:fork', (_e, id: string) => forkSnippet(id, accountEmail()))
 
   ipcMain.handle('chat:send', (_e, req: ChatRequest) => {
     recordAiCall()

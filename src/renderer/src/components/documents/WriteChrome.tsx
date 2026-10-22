@@ -81,6 +81,8 @@ export interface WriteChromeProps {
   // ── host-owned flows
   onInsertImage: () => void
   onInsertWidget: () => void
+  onInsertSnippet: () => void
+  onSaveSnippet: () => void
   onOpenLink: () => void
   onImportDocx: () => void
   onExportDocx: () => void
@@ -203,6 +205,8 @@ export default function WriteChrome(props: WriteChromeProps): JSX.Element {
       openDialog,
       insertImage: props.onInsertImage,
       insertWidget: props.onInsertWidget,
+      insertSnippet: props.onInsertSnippet,
+      saveSnippet: props.onSaveSnippet,
       openLink: props.onOpenLink,
       importDocx: props.onImportDocx,
       exportDocx: props.onExportDocx,

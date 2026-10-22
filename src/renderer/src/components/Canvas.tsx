@@ -21,6 +21,8 @@ import AiBuilderDialog from './AiBuilderDialog'
 import ViewSelector from './views/ViewSelector'
 import type { AiBuildSuggestion } from '@shared/types'
 import CanvasContextMenu, { type CtxMenuItem } from './CanvasContextMenu'
+import SnippetLibrary from './snippets/SnippetLibrary'
+import { deskSnippetTargetId, useDeskSnippetTarget } from './desk/deskSnippets'
 import WidgetSetupPreview from './contextMenu/WidgetSetupPreview'
 import BrowserContextMenu from './contextMenu/BrowserContextMenu'
 // Side-effect import registers the core widget context-action providers (sticky
@@ -458,6 +460,11 @@ export default function Canvas(): JSX.Element {
   } | null>(null)
 
   const activeTask = activeTaskId ? nodes.find((n) => n.id === activeTaskId) ?? null : null
+
+  // This desk is a snippet destination while it is open, so a saved work
+  // widget can be placed on it from the library.
+  useDeskSnippetTarget(activeTaskId, activeTask?.title ?? '')
+  const [snippetLibraryOpen, setSnippetLibraryOpen] = useState(false)
   const { assignToRoom, createRoomAndAssign } = useFreeDesk()
   const focusSessionActive = useFocusSessionStore((s) => !!activeTaskId && s.active?.taskId === activeTaskId)
   const startFocusSession = useFocusSessionStore((s) => s.start)
@@ -1993,7 +2000,18 @@ export default function Canvas(): JSX.Element {
     const addWidget: CtxMenuItem = {
       label: 'Add object',
       icon: 'add',
-      children: [...coreGroups, ...advancedGroup]
+      children: [
+        ...coreGroups,
+        ...advancedGroup,
+        // Place a work widget that was saved as a reusable snippet. Sits with
+        // the other ways to add an object rather than in its own menu, because
+        // that is what the user is doing.
+        {
+          label: 'From a saved snippet…',
+          icon: 'bookmarks',
+          onClick: () => setSnippetLibraryOpen(true)
+        }
+      ]
     }
     const arrange: CtxMenuItem = {
       label: 'Auto-arrange',
@@ -3313,6 +3331,14 @@ export default function Canvas(): JSX.Element {
           onClose={() => setOfficeAdd(null)}
         />
       )}
+      {snippetLibraryOpen && activeTaskId && (
+        <SnippetLibrary
+          kinds={['widget']}
+          targetId={deskSnippetTargetId(activeTaskId)}
+          onClose={() => setSnippetLibraryOpen(false)}
+        />
+      )}
+
       {ctxMenu && (
         <CanvasContextMenu
           x={ctxMenu.screenX}

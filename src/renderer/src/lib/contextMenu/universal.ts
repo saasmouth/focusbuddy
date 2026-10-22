@@ -379,6 +379,16 @@ export function buildAdvanced(ctx: MenuContext): MenuContribution[] {
         onSelect: (c) => c.frame?.onSaveAsFile?.()
       })
     }
+    if (ctx.frame.onSaveAsSnippet) {
+      out.push({
+        id: 'core/advanced/save-as-snippet',
+        section: MenuSection.Advanced,
+        priority: 3.6,
+        label: 'Save as snippet',
+        icon: 'bookmark_add',
+        onSelect: (c) => c.frame?.onSaveAsSnippet?.()
+      })
+    }
     if (ctx.frame.onOpenFile) {
       out.push({
         id: 'core/advanced/open-file',

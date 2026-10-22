@@ -21,6 +21,10 @@ import {
 } from './editor/headingStyles'
 import DocMenuBar from './editor/DocMenuBar'
 import WriteChrome from './WriteChrome'
+import SnippetLibrary from '../snippets/SnippetLibrary'
+import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
+import { docBodyFromSelection, docSnippetTargetId, suggestedSnippetName, useDocSnippetTarget } from './editor/docSnippets'
+import type { DocSnippetBody } from '@shared/snippets'
 import { setPaginationConfig } from './editor/pagination'
 import DocBubbleMenu from './editor/DocBubbleMenu'
 import FindReplace from './editor/FindReplace'
@@ -311,6 +315,11 @@ export default function DocEditor({
   const [officeMsg, setOfficeMsg] = useState<string | null>(null)
   const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
   const [docPickerOpen, setDocPickerOpen] = useState(false)
+  // Saved snippets: the library (insert) and the save dialog (capture). The
+  // body is held rather than recomputed, because the selection is gone by the
+  // time the dialog is on screen.
+  const [snippetLibraryOpen, setSnippetLibraryOpen] = useState(false)
+  const [snippetDraftBody, setSnippetDraftBody] = useState<DocSnippetBody | null>(null)
 
   // Parse the (possibly legacy) body once into the Tiptap doc + named heading
   // styles + page setup. The body is persisted wrapped as { doc, headingStyles,
@@ -429,11 +438,12 @@ export default function DocEditor({
   useEffect(() => {
     if (!editor) return
     const store = (editor.storage as unknown as Record<string, unknown>).slashCommand as
-      | { onInsertWidget?: (() => void) | null; onInsertDoc?: (() => void) | null }
+      | { onInsertWidget?: (() => void) | null; onInsertDoc?: (() => void) | null; onInsertSnippet?: (() => void) | null }
       | undefined
     if (store) {
       store.onInsertWidget = () => setWidgetPickerOpen(true)
       store.onInsertDoc = () => setDocPickerOpen(true)
+      store.onInsertSnippet = () => setSnippetLibraryOpen(true)
     }
   }, [editor])
 
@@ -696,6 +706,10 @@ export default function DocEditor({
 
   // The persistent right panel sits next to the writing column in a flex row. It
   // is never shown in focus mode, which keeps its calm single-column feel.
+  // This document is a snippet destination while it is open. Keyed by id, so
+  // two open documents are two distinct destinations in the picker.
+  useDocSnippetTarget(editor, scopeClass, title)
+
   const showPanel = panelOpen && !focusMode
 
   // Which heading level the cursor sits in, and the friendly name of the block
@@ -921,6 +935,15 @@ export default function DocEditor({
               title={title}
               onInsertImage={() => void insertImage()}
               onInsertWidget={() => setWidgetPickerOpen(true)}
+              onInsertSnippet={() => setSnippetLibraryOpen(true)}
+              onSaveSnippet={() => {
+                // An empty selection still opens the dialog, with an empty
+                // body: it then says there is nothing to save, which is clearer
+                // than a menu item that appears to do nothing.
+                setSnippetDraftBody(
+                  (editor && docBodyFromSelection(editor)) ?? { kind: 'doc', content: [], text: '' }
+                )
+              }}
               onExportDocx={() => void exportDocx()}
               onExportPdf={() => void exportPdf()}
               onFind={() => setFindOpen(true)}
@@ -972,6 +995,14 @@ export default function DocEditor({
           panes={sidePanes}
           onInsertImage={() => void insertImage()}
           onInsertWidget={() => setWidgetPickerOpen(true)}
+          onInsertSnippet={() => setSnippetLibraryOpen(true)}
+          onSaveSnippet={() => {
+            // Empty selection still opens the dialog, which then says there
+            // is nothing to save — clearer than a control that does nothing.
+            setSnippetDraftBody(
+              (editor && docBodyFromSelection(editor)) ?? { kind: 'doc', content: [], text: '' }
+            )
+          }}
           onOpenLink={() => setFindOpen(false)}
           onImportDocx={() => void importDocx()}
           onExportDocx={() => void exportDocx()}
@@ -1010,6 +1041,22 @@ export default function DocEditor({
           <div className="relative h-full overflow-auto">{docBody}</div>
         </WriteChrome>
         </div>
+      )}
+
+      {snippetLibraryOpen && (
+        <SnippetLibrary
+          kinds={['doc']}
+          targetId={docSnippetTargetId(scopeClass)}
+          onClose={() => setSnippetLibraryOpen(false)}
+        />
+      )}
+
+      {snippetDraftBody && (
+        <SaveSnippetDialog
+          body={snippetDraftBody}
+          suggestedName={suggestedSnippetName(snippetDraftBody)}
+          onClose={() => setSnippetDraftBody(null)}
+        />
       )}
 
       {widgetPickerOpen && (
