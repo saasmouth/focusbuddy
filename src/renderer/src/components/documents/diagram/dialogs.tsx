@@ -53,8 +53,10 @@ function ModeToggle({ mode, setMode }: { mode: 'add' | 'replace'; setMode: (m: '
   )
 }
 
-export function AiDialog({ cmd, onClose }: { cmd: Commands; onClose: () => void }): JSX.Element {
+/** AI generation, rendered in the shared right side pane (owner: AI panels live in ShellSidePane). */
+export function AiPane({ cmd }: { cmd: Commands }): JSX.Element {
   const [prompt, setPrompt] = useState('')
+  const [done, setDone] = useState<string | null>(null)
   const warmLabel = useAiBusyLabel()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -63,10 +65,11 @@ export function AiDialog({ cmd, onClose }: { cmd: Commands; onClose: () => void 
     if (!prompt.trim() || busy) return
     setBusy(true)
     setError(null)
+    setDone(null)
     try {
       const err = await cmd.aiGenerate(prompt.trim(), mode)
       if (err) setError(err)
-      else onClose()
+      else setDone(mode === 'replace' ? 'Diagram generated. Undo (⌘Z) restores the previous page.' : 'Added to the page. Undo (⌘Z) removes it.')
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -74,10 +77,9 @@ export function AiDialog({ cmd, onClose }: { cmd: Commands; onClose: () => void 
     }
   }
   return (
-    <Modal title="Generate a diagram with AI" icon="auto_awesome" onClose={onClose}>
+    <div className="p-3 flex flex-col gap-2">
       <p className="text-[11px] text-[var(--ink-50)]">Describe a process, decision flow, system or structure. The model returns the steps and connections; PlexiiDiagrams lays them out.</p>
       <textarea
-        autoFocus
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         onKeyDown={(e) => {
@@ -91,17 +93,15 @@ export function AiDialog({ cmd, onClose }: { cmd: Commands; onClose: () => void 
       />
       <ModeToggle mode={mode} setMode={setMode} />
       {error && <div className="text-[11px] text-red-600">{error}</div>}
+      {done && <div role="status" className="text-[11px] text-[var(--ink-60)]" data-testid="diagram-ai-done">{done}</div>}
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onClose} className="text-[12px] px-3 py-1.5 text-[var(--ink-50)]">
-          Cancel
-        </button>
         <button type="button" onClick={() => void run()} disabled={busy || !prompt.trim()} className="btn-primary text-[12px] px-3 py-1.5 disabled:opacity-50" data-testid="map-ai-run">
           {busy ? warmLabel('Generating…') : 'Generate'}
         </button>
       </div>
       <AnsweredBy feature="office" className="mt-1" />
       <p className="text-[10px] text-[var(--ink-40)]">⌘/Ctrl+Enter to run. Undo (⌘Z) restores the previous page.</p>
-    </Modal>
+    </div>
   )
 }
 
@@ -204,8 +204,7 @@ export function FindPanel({ cmd, onClose }: { cmd: Commands; onClose: () => void
     <div className="absolute top-2 right-2 z-30 fb-glass-panel rounded-[var(--radius-row)] p-2 w-[300px] space-y-1.5 shadow-lg" data-testid="diagram-find-panel">
       <div className="flex items-center gap-1">
         <input
-          autoFocus
-          value={q}
+            value={q}
           onChange={(e) => {
             setQ(e.target.value)
             setI(0)

@@ -75,7 +75,7 @@ test('MIV-1 — import a .vsdx: shapes and connector land in a new PlexiMap', as
   await window.locator('[data-testid="documents-import-vsdx"]').click()
 
   // The imported map opens in the editor (its toolbar is the definitive signal).
-  await expect(window.locator('[data-testid="map-add-process"]')).toBeVisible({ timeout: 10_000 })
+  await expect(window.locator('[data-testid="diagram-tool-select"]')).toBeVisible({ timeout: 10_000 })
 
   // Both 2-D shapes imported as nodes (the connector is an edge, not a node).
   await expect(window.locator('.react-flow__node')).toHaveCount(2, { timeout: 6_000 })

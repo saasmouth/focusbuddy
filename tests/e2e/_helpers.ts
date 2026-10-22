@@ -627,3 +627,36 @@ export async function addWidgetToDesk(window: Page, kind: string): Promise<void>
     )
     .toBeGreaterThan(before)
 }
+
+/**
+ * Arm an office-shell rail tool and place an element with it (SPEC §3.2, the
+ * shared helper for armed modes in Deck, Design, Diagrams and Draw). Arms
+ * `${app}-tool-${tool}`, opening its flyout first when the tool is not the
+ * group's visible member, then clicks the canvas (or drags, to size it). One
+ * line per call site, instead of a bespoke gesture in every spec.
+ */
+export async function placeElement(
+  window: Page,
+  app: string,
+  tool: string,
+  opts: { canvas: string; railTestid?: string; flyout?: string; at?: { x: number; y: number }; drag?: { dx: number; dy: number } }
+): Promise<{ x: number; y: number }> {
+  const armId = `${app}-tool-${tool}`
+  const arm = window.locator(`[data-testid="${armId}"]`)
+  if (await arm.isVisible().catch(() => false)) {
+    await arm.click()
+  } else {
+    if (!opts.flyout) throw new Error(`placeElement: ${armId} is not on the rail and no flyout was given`)
+    await window.locator(`[data-testid="${opts.railTestid ?? `${app}-rail`}-flyout-${opts.flyout}"]`).click()
+    await window.locator(`[data-testid="${armId}-flyout"]`).click()
+  }
+  const box = await window.locator(opts.canvas).boundingBox()
+  if (!box) throw new Error(`placeElement: canvas ${opts.canvas} not found`)
+  const x = box.x + (opts.at?.x ?? box.width * 0.7)
+  const y = box.y + (opts.at?.y ?? box.height * 0.3)
+  await window.mouse.move(x, y)
+  await window.mouse.down()
+  if (opts.drag) await window.mouse.move(x + opts.drag.dx, y + opts.drag.dy, { steps: 8 })
+  await window.mouse.up()
+  return { x, y }
+}

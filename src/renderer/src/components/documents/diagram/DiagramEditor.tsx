@@ -64,7 +64,8 @@ const NO_SETTINGS: MapSettings = {}
 const nodeTypes = { shape: ShapeNode }
 const edgeTypes = { diagram: DiagramEdge }
 
-export type Tool = 'select' | 'pan' | 'text'
+// 'shape:<id>' arms a shape: click places it, drag sizes it (SPEC §3.2).
+export type Tool = 'select' | 'pan' | 'text' | `shape:${string}`
 
 export default function DiagramEditor({ body: bodyProp, title, onChange, foldExternal = false, readOnly = false, liveUndo }: DiagramEditorProps): JSX.Element {
   const rf = useReactFlow()
@@ -80,7 +81,16 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   const [sel, setSelState] = useState<ops.Sel>(ops.emptySel)
   const selRef = useRef(sel)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [tool, setTool] = useState<Tool>('select')
+  const [tool, setToolState] = useState<Tool>('select')
+  // A double-clicked rail tool stays armed after placing (Illustrator's tool lock).
+  const [toolLocked, setToolLocked] = useState(false)
+  const setTool = useCallback((t: Tool, lock = false) => {
+    setToolState(t)
+    setToolLocked(lock && t !== 'select')
+  }, [])
+  const fitInset = useRef(0)
+  const [drawRect, setDrawRect] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
+  const drawStart = useRef<{ sx: number; sy: number } | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [guides, setGuides] = useState<GuideLine[]>([])
   const [quickMenu, setQuickMenu] = useState<{ screen: { x: number; y: number }; flow: { x: number; y: number }; sourceId: string; sourceHandle: string | null } | null>(null)
@@ -471,6 +481,7 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   // ── commands (menus, toolbar, shortcuts and inspector all call these) ───
   const cmd: Commands = useDiagramCommands({
     rf,
+    fitInset,
     liveUndo: liveUndoRef,
     flush: () => flushRef.current(),
     styleClip,
@@ -559,7 +570,7 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
     const inEditor = (): boolean => wrap.contains(document.activeElement) || document.activeElement === document.body
     const onKey = (e: KeyboardEvent): void => {
       if (!inEditor() || isTyping(e.target) || editingId) return
-      if (cmd.handleKey(e, { setTool })) {
+      if (cmd.handleKey(e, { setTool, tool })) {
         e.preventDefault()
         e.stopPropagation()
       }
@@ -590,7 +601,23 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
       window.removeEventListener('cut', onCut)
       window.removeEventListener('paste', onPaste)
     }
-  }, [cmd, editingId, readOnly])
+  }, [cmd, editingId, readOnly, tool, setTool])
+
+  // Armed shape: press on the empty canvas, drag to size (or just click for the
+  // default size), release to place. Then back to Select unless the tool is locked.
+  const placeArmed = useCallback(
+    (sx0: number, sy0: number, sx1: number, sy1: number) => {
+      if (!tool.startsWith('shape:') || readOnly) return
+      const shapeId = tool.slice('shape:'.length)
+      const a = rf.screenToFlowPosition({ x: sx0, y: sy0 })
+      const b = rf.screenToFlowPosition({ x: sx1, y: sy1 })
+      const dragged = Math.abs(sx1 - sx0) > 4 || Math.abs(sy1 - sy0) > 4
+      if (dragged) cmd.addShape(shapeId, { center: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, size: { w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) } })
+      else cmd.addShape(shapeId, { center: a })
+      if (!toolLocked) setTool('select')
+    },
+    [tool, toolLocked, readOnly, rf, cmd, setTool]
+  )
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
@@ -645,7 +672,9 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
         pages={pages}
         sel={sel}
         tool={tool}
+        toolLocked={toolLocked}
         setTool={setTool}
+        onPanelInset={(px) => (fitInset.current = px)}
         zoom={zoom}
         canUndo={liveUndo ? liveUndo.canUndo() : history.current.canUndo}
         canRedo={liveUndo ? liveUndo.canRedo() : history.current.canRedo}
@@ -653,10 +682,32 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
       >
         <div
           ref={wrapRef}
-          className={`pd-canvas relative h-full w-full outline-none ${tool === 'pan' ? 'pd-tool-pan' : ''} ${tool === 'text' ? 'pd-tool-text' : ''}`}
+          className={`pd-canvas relative h-full w-full outline-none ${tool === 'pan' ? 'pd-tool-pan' : ''} ${tool === 'text' ? 'pd-tool-text' : ''} ${tool.startsWith('shape:') ? 'pd-tool-shape' : ''}`}
           tabIndex={0}
+          data-tool={tool}
           onPointerDown={(e) => {
             if (!isTyping(e.target)) wrapRef.current?.focus({ preventScroll: true })
+          }}
+          onPointerDownCapture={(e) => {
+            if (!tool.startsWith('shape:') || e.button !== 0 || readOnly) return
+            if (!(e.target as HTMLElement).closest('.react-flow__pane')) return
+            const r = wrapRef.current!.getBoundingClientRect()
+            drawStart.current = { sx: e.clientX, sy: e.clientY }
+            setDrawRect({ x0: e.clientX - r.left, y0: e.clientY - r.top, x1: e.clientX - r.left, y1: e.clientY - r.top })
+            ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+            e.stopPropagation()
+          }}
+          onPointerMove={(e) => {
+            if (!drawStart.current) return
+            const r = wrapRef.current!.getBoundingClientRect()
+            setDrawRect((d) => (d ? { ...d, x1: e.clientX - r.left, y1: e.clientY - r.top } : d))
+          }}
+          onPointerUp={(e) => {
+            const s = drawStart.current
+            if (!s) return
+            drawStart.current = null
+            setDrawRect(null)
+            placeArmed(s.sx, s.sy, e.clientX, e.clientY)
           }}
           onDragOver={(e) => {
             e.preventDefault()
@@ -753,6 +804,22 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
                 generate a diagram from a Plexii table, or ask AI to draw one.
               </span>
             </div>
+          )}
+
+          {drawRect && (
+            <div
+              className="pointer-events-none absolute z-10"
+              data-testid="diagram-draw-rect"
+              style={{
+                left: Math.min(drawRect.x0, drawRect.x1),
+                top: Math.min(drawRect.y0, drawRect.y1),
+                width: Math.abs(drawRect.x1 - drawRect.x0),
+                height: Math.abs(drawRect.y1 - drawRect.y0),
+                border: `1.5px dashed ${SELECT_COLOR}`,
+                background: `${SELECT_COLOR}10`,
+                borderRadius: 4
+              }}
+            />
           )}
 
           {quickMenu && (

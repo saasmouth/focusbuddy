@@ -96,6 +96,10 @@
 .pd-tool-text .react-flow__pane {
   cursor: text;
 }
+/* An armed shape tool (SPEC §3.2): click to place, drag to size. */
+.pd-tool-shape .react-flow__pane {
+  cursor: crosshair;
+}
 
 /* Library thumbnails. */
 .pd-thumb {

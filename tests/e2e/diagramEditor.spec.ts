@@ -14,7 +14,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady } from './_helpers'
+import { launchApp, placeElement, waitForReady } from './_helpers'
 
 interface SavedNode {
   id: string
@@ -110,7 +110,9 @@ test('DGM-1 — selecting a shape shows a clear selection frame and status; clic
     await window.waitForTimeout(300)
     expect(await screenBorder()).toBeGreaterThanOrEqual(1.5)
     await expect(summary).toHaveText('1 shape selected')
-    await expect(window.locator('[data-testid="diagram-inspector-heading"]')).toBeVisible()
+    // The contextual Shape tab appears with the selection (office shell, D3: it does not steal focus).
+    await expect(window.locator('[data-testid="diagram-toolbar-tab-shape"]')).toBeVisible()
+    await expect(window.locator('[data-testid="diagram-toolbar-tab-home"]')).toHaveAttribute('aria-selected', 'true')
 
     // Click a point that really is bare canvas (not a node, minimap or control).
     const spot = await window.evaluate(() => {
@@ -139,7 +141,8 @@ test('DGM-2 — library inserts shapes across categories, search finds one, sele
   try {
     const before = (await readBody(window, id)).nodes?.length ?? 0
 
-    // Flowchart is open by default.
+    // The library is an overlay panel opened from the rail; Flowchart is open in it by default.
+    await window.locator('[data-testid="diagram-toggle-library"]').click()
     await window.locator('[data-testid="map-add-decision"]').click()
     // Search reaches shapes in closed categories.
     await window.locator('[data-testid="diagram-shape-search"]').fill('cylinder')
@@ -152,7 +155,9 @@ test('DGM-2 — library inserts shapes across categories, search finds one, sele
     expect(body.nodes!.some((n) => n.shape === 'decision')).toBe(true)
 
     // Select all from the canvas.
-    await window.locator('.react-flow__pane').click({ position: { x: 20, y: 20 } })
+    // Click bare canvas: top-right, clear of the library panel (left) and the minimap (bottom-right).
+    const paneBox = (await window.locator('.react-flow__pane').boundingBox())!
+    await window.locator('.react-flow__pane').click({ position: { x: paneBox.width - 40, y: 40 } })
     await window.keyboard.press(process.platform === 'darwin' ? 'Meta+a' : 'Control+a')
     const total = body.nodes!.length
     await expect(window.locator('[data-testid="diagram-selection-summary"]')).toContainText(`${total} shapes`)
@@ -196,6 +201,7 @@ test('DGM-3 — quick-add creates a connected shape, Tidy reroutes cleanly, and 
 test('DGM-4 — Data dialog offers Tables, Widgets, Apps and Tools; an app tile is inserted and bound', async () => {
   const { window, id, errors, dispose } = await openEditor('Data sources')
   try {
+    await window.locator('[data-testid="diagram-toolbar-tab-insert"]').click()
     await window.locator('[data-testid="diagram-data"]').click()
     for (const tab of ['tables', 'widgets', 'apps', 'tools']) {
       await expect(window.locator(`[data-testid="diagram-data-tab-${tab}"]`)).toBeVisible()
@@ -219,7 +225,9 @@ test('DGM-5 — copy style / paste style shortcuts (⌥⌘C / ⌥⌘V) carry a s
   try {
     const mod = process.platform === 'darwin' ? 'Meta' : 'Control'
     // A second shape to paste onto.
+    await window.locator('[data-testid="diagram-toggle-library"]').click()
     await window.locator('[data-testid="map-add-decision"]').click()
+    await window.locator('[data-testid="diagram-toggle-library"]').click()
     const both = await waitForSaved(window, id, (b) => (b.nodes?.length ?? 0) >= 2)
     const [first, second] = [both.nodes![0]!, both.nodes![1]!]
     const nodeEl = (nid: string) => window.locator(`.react-flow__node[data-id="${nid}"]`)
@@ -243,7 +251,9 @@ test('DGM-6 — Edit → Copy style / Paste style carry a style to another shape
   const { window, id, errors, dispose } = await openEditor('Style menu')
   try {
     const mod = process.platform === 'darwin' ? 'Meta' : 'Control'
+    await window.locator('[data-testid="diagram-toggle-library"]').click()
     await window.locator('[data-testid="map-add-decision"]').click()
+    await window.locator('[data-testid="diagram-toggle-library"]').click()
     const both = await waitForSaved(window, id, (b) => (b.nodes?.length ?? 0) >= 2)
     const [first, second] = [both.nodes![0]!, both.nodes![1]!]
     const nodeEl = (nid: string) => window.locator(`.react-flow__node[data-id="${nid}"]`)
@@ -309,3 +319,98 @@ test('DGM-8 — Insert › Work widget from a desk… opens the Data dialog on t
   }
 })
 
+test('DGM-9 — armed shape tools (office shell D4): click places, drag sizes, back to Select; double-click locks; Esc and M', async () => {
+  const { window, id, errors, dispose } = await openEditor('Armed tools')
+  try {
+    const canvas = window.locator('[data-testid="diagram-canvas"]')
+    const tool = (): Promise<string | null> => canvas.getAttribute('data-tool')
+    const count = async (): Promise<number> => (await readBody(window, id)).nodes?.length ?? 0
+    const start = await count()
+
+    // Click to place: the rail's shapes flyout shows Process; one click arms it.
+    await placeElement(window, 'diagram', 'process', { canvas: '[data-testid="diagram-canvas"]' })
+    await waitForSaved(window, id, (b) => (b.nodes?.length ?? 0) === start + 1)
+    expect(await tool()).toBe('select') // returns to Select after placing
+
+    // Drag to size, with a tool picked from the flyout (it becomes the visible member).
+    await placeElement(window, 'diagram', 'circle', { canvas: '[data-testid="diagram-canvas"]', railTestid: 'diagram-rail', flyout: 'shapes', at: { x: 300, y: 120 }, drag: { dx: 180, dy: 90 } })
+    const sized = await waitForSaved(window, id, (b) => (b.nodes?.length ?? 0) === start + 2)
+    const circle = sized.nodes!.find((n) => n.shape === 'circle')!
+    const zoom = await window.evaluate(() => {
+      const vp = document.querySelector('.react-flow__viewport') as HTMLElement
+      return new DOMMatrixReadOnly(getComputedStyle(vp).transform).a
+    })
+    const w = (circle as { width?: number }).width!
+    const h = (circle as { height?: number }).height!
+    expect(Math.abs(w - 180 / zoom)).toBeLessThan(6)
+    expect(Math.abs(h - 90 / zoom)).toBeLessThan(6)
+    await expect(window.locator('[data-testid="diagram-tool-circle"]')).toBeVisible() // last-used shows on the rail
+
+    // Double-click keeps the tool armed (tool lock) until Esc.
+    await window.locator('[data-testid="diagram-tool-circle"]').dblclick()
+    await expect(canvas).toHaveAttribute('data-tool', 'shape:circle')
+    const box = (await canvas.boundingBox())!
+    await window.mouse.click(box.x + box.width * 0.75, box.y + box.height * 0.6)
+    await window.mouse.click(box.x + box.width * 0.6, box.y + box.height * 0.7)
+    await waitForSaved(window, id, (b) => (b.nodes?.length ?? 0) === start + 4)
+    expect(await tool()).toBe('shape:circle')
+    await canvas.focus()
+    await window.keyboard.press('Escape')
+    expect(await tool()).toBe('select')
+
+    // The suite shape letter arms Process (M), and the rail shows it pressed.
+    await window.keyboard.press('m')
+    await expect(canvas).toHaveAttribute('data-tool', 'shape:process')
+    await expect(window.locator('[data-testid="diagram-tool-process"]')).toHaveAttribute('aria-pressed', 'true')
+    await window.keyboard.press('Escape')
+    expect(errors).toEqual([])
+  } finally {
+    await dispose()
+  }
+})
+
+
+test('DGM-10 — the AI lives in the shared right side pane: rail, Insert tab and top-bar toggle open it; it collapses to an edge tab and is remembered', async () => {
+  const { window, id, errors, dispose } = await openEditor('Side pane')
+  try {
+    const pane = window.locator('[data-testid="diagram-sidepane"]')
+    const edge = window.locator('[data-testid="diagram-sidepane-edge"]')
+    await expect(edge).toBeVisible() // collapsed by default: a slim edge tab, the canvas keeps its width
+    await expect(pane).toHaveCount(0)
+
+    // The rail's AI item opens it and shows pressed; the prompt keeps its testid.
+    await window.locator('[data-testid="map-ai"]').click()
+    await expect(window.locator('[data-testid="diagram-ai-pane"] [data-testid="diagram-ai-prompt"]')).toBeVisible()
+    await expect(window.locator('[data-testid="map-ai"]')).toHaveAttribute('aria-pressed', 'true')
+    await expect(window.locator('[data-testid="diagram-sidepane-toggle"]')).toHaveAttribute('aria-pressed', 'true')
+    // It does not take focus on its own (a pane that reopens on load must not steal the keyboard).
+    expect(await window.evaluate(() => document.activeElement?.getAttribute('data-testid'))).not.toBe('diagram-ai-prompt')
+
+    // Collapse from its header, reopen from the edge tab, collapse from the top-bar toggle.
+    await window.locator('[data-testid="diagram-sidepane-collapse"]').click()
+    await expect(edge).toBeVisible()
+    await expect(window.locator('[data-testid="map-ai"]')).toHaveAttribute('aria-pressed', 'false')
+    await window.locator('[data-testid="diagram-sidepane-open-ai"]').click()
+    await expect(pane).toBeVisible()
+    await window.locator('[data-testid="diagram-sidepane-toggle"]').click()
+    await expect(edge).toBeVisible()
+
+    // Insert › AI diagram opens it (and never closes it if already open).
+    await window.locator('[data-testid="diagram-toolbar-tab-insert"]').click()
+    await window.locator('[data-testid="diagram-insert-ai"]').click()
+    await expect(pane).toBeVisible()
+    await window.locator('[data-testid="diagram-insert-ai"]').click()
+    await expect(pane).toBeVisible()
+
+    // Remembered per app: reopen the diagram after a reload and the pane is still open.
+    await window.reload()
+    await waitForReady(window)
+    await window.evaluate((docId: string) => (window as unknown as { __fbView?: { getState: () => { goDocument: (i: string) => void } } }).__fbView?.getState().goDocument(docId), id)
+    await expect(window.locator('[data-testid="diagram-editor"]')).toBeVisible({ timeout: 12_000 })
+    await expect(pane).toBeVisible()
+    await expect(window.locator('[data-testid="diagram-ai-prompt"]')).toBeVisible()
+    expect(errors).toEqual([])
+  } finally {
+    await dispose()
+  }
+})

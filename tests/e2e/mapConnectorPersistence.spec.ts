@@ -54,8 +54,13 @@ test('PlexiiDiagrams: two shapes, a drag-connected line and an inline rename sur
   await openDoc(window, id)
   // A new diagram starts with one shape; add a second from the library.
   await expect(window.locator('.react-flow__node')).toHaveCount(1, { timeout: 8_000 })
+  // The library opens from the rail as an overlay panel; close it again so it
+  // does not cover the shapes being dragged.
+  await window.locator('[data-testid="diagram-toggle-library"]').click()
   await window.locator('[data-testid="map-add-process"]').click()
   await expect(window.locator('.react-flow__node')).toHaveCount(2, { timeout: 5_000 })
+  await window.locator('[data-testid="diagram-toggle-library"]').click()
+  await expect(window.locator('[data-testid="diagram-panel-library"]')).toHaveCount(0)
 
   const nodes = window.locator('.react-flow__node')
   const idA = (await nodes.nth(0).getAttribute('data-id'))!

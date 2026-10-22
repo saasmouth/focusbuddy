@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEve
 import { createPortal } from 'react-dom'
 import Icon from '../../Icon'
 import Tooltip from '../../Tooltip'
+import { SIDE_PANE_DOM_ID } from './layout'
 
 // The office ToolRail: the left strip of tool icons every office app shares
 // (spec: /private/tmp/claude-501/office-shell/SPEC.md §2.1–2.2), extracted from
@@ -33,8 +34,14 @@ export interface RailItem<C> {
   flyout?: string
   badge?: 'dot' | string
   pinned?: 'bottom'
+  /** For kind 'panel': the ShellPanel id it toggles (default: this item's id); sets aria-controls. */
+  controls?: string
+  /** For kind 'panel': it toggles a pane in the right ShellSidePane, not an overlay ShellPanel. The host lists the item id in openPanels while that pane shows. */
+  sidePane?: boolean
   onSelect: (c: C) => void
   onOptions?: (c: C) => void
+  /** Tooltip hint for the double-click (default "double-click for options"); e.g. armed shapes say "double-click to keep it selected" (SPEC §3.2). */
+  optionsHint?: string
   testid?: string
 }
 
@@ -95,10 +102,10 @@ export function railSlots<C>(items: RailItem<C>[], ctx: C, lastUsed: Record<stri
 }
 
 /** Tooltip text: "Label (Key)" plus the options or disabled suffix. Pure, for tests. */
-export function railTooltip(label: string, shortcut: string | undefined, opts: { options?: boolean; disabledReason?: string }): string {
+export function railTooltip(label: string, shortcut: string | undefined, opts: { options?: boolean; optionsHint?: string; disabledReason?: string }): string {
   let t = shortcut ? `${label} (${shortcut})` : label
   if (opts.disabledReason) return `${label} — ${opts.disabledReason}`
-  if (opts.options) t += ' — double-click for options'
+  if (opts.options) t += ` — ${opts.optionsHint ?? 'double-click for options'}`
   return t
 }
 
@@ -175,7 +182,7 @@ export default function ToolRail<C>({ items, ctx, activeId, openPanels = [], las
     const { disabled, reason } = stateOf(item)
     const pressed = slot.members.some((m) => (m.kind === 'panel' ? openPanels.includes(m.id) : m.kind === 'tool' && m.id === activeId))
     const shownActive = slot.members.find((m) => m.id === activeId) ?? item
-    const tip = railTooltip(shownActive.label, shownActive.shortcut, { options: !!shownActive.onOptions, disabledReason: reason })
+    const tip = railTooltip(shownActive.label, shownActive.shortcut, { options: !!shownActive.onOptions, optionsHint: shownActive.optionsHint, disabledReason: reason })
     const sep = prev && (prev.group !== slot.group || prev.pinned !== slot.pinned)
     const isFlyout = slot.members.length > 1
     return (
@@ -189,6 +196,7 @@ export default function ToolRail<C>({ items, ctx, activeId, openPanels = [], las
             aria-label={tip}
             aria-pressed={item.kind === 'action' ? undefined : pressed}
             aria-haspopup={isFlyout ? 'menu' : undefined}
+            aria-controls={shownActive.kind === 'panel' ? (shownActive.sidePane ? SIDE_PANE_DOM_ID : `shell-panel-${shownActive.controls ?? shownActive.id}`) : undefined}
             aria-expanded={isFlyout ? openFlyout === slot.key : undefined}
             disabled={disabled}
             data-testid={shownActive.testid ?? `${testid}-${shownActive.id}`}
@@ -203,7 +211,7 @@ export default function ToolRail<C>({ items, ctx, activeId, openPanels = [], las
               activate(shownActive)
             }}
             onDoubleClick={() => shownActive.onOptions && !disabled && shownActive.onOptions(ctx)}
-            className={`relative w-8 h-8 mx-1 rounded flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+            className={`relative w-8 h-8 mx-auto rounded flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
               pressed ? 'bg-accent/15 text-accent' : 'text-[var(--ink-60)] hover:bg-[var(--surface-sunken)]'
             }`}
           >
@@ -270,7 +278,7 @@ export default function ToolRail<C>({ items, ctx, activeId, openPanels = [], las
       aria-orientation="vertical"
       aria-label={ariaLabel}
       data-testid={testid}
-      className="shrink-0 w-10 h-full flex flex-col py-1 border-r border-[var(--edge-soft)] overflow-y-auto overflow-x-visible bg-[var(--surface-raised)]"
+      className="shrink-0 w-10 h-full flex flex-col py-1 border-r border-[var(--edge-soft)] overflow-y-auto overflow-x-hidden [scrollbar-width:none] bg-[var(--surface-raised)]"
     >
       {slots.map((slot, i) => renderSlot(slot, i, slots[i - 1]))}
       {footer && <div className="mt-auto pt-1 border-t border-[var(--edge-soft)] flex flex-col items-center gap-1 py-1">{footer}</div>}
