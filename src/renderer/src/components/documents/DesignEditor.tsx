@@ -19,7 +19,6 @@ import {
 } from './slides/slideOps'
 import {
   BASE_LAYER_ID,
-  DESIGN_SIZES,
   DESIGN_TEMPLATES,
   composeDesign,
   buildDesignVariations,
@@ -37,9 +36,7 @@ import {
   snapTargets,
   spreadsOf,
   storyFrames,
-  templatesForCategory,
   type DesignBody,
-  type DesignCategory,
   type DesignLayer,
   type DesignMaster,
   type DesignSize,
@@ -59,6 +56,7 @@ import LayoutPanel from './design/LayoutPanel'
 import PreflightPanel from './design/PreflightPanel'
 import { useElementClipboard } from './slides/useElementClipboard'
 import StylesPanel from './design/StylesPanel'
+import StartFromMenu from './design/StartFromMenu'
 import SwatchesPanel from './design/SwatchesPanel'
 import { preflight, preflightSummary } from '@shared/designPreflight'
 import DesignRulers from './design/DesignRulers'
@@ -98,13 +96,6 @@ const EXPORT_FORMATS: { id: 'png' | 'pdf'; label: string }[] = [
 ]
 
 
-const CATEGORIES: { id: DesignCategory; label: string }[] = [
-  { id: 'publication', label: 'Publication' },
-  { id: 'social', label: 'Social' },
-  { id: 'marketing', label: 'Marketing' },
-  { id: 'presentation', label: 'Presentation' },
-  { id: 'logo', label: 'Logo & brand' }
-]
 
 // Glyph measurement for the flow engine, using the browser's own font engine
 // through one reused offscreen context. Returning 0 without a DOM (tests, the
@@ -138,11 +129,12 @@ const NEUTRAL_THEME: DeckTheme = {
 export default function DesignEditor({ content, title, onChange, foldExternal = false }: Props): JSX.Element {
   const [design, setDesign] = useState<DesignBody>(() => normalizeDesignBody(content))
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  // A brand-new, empty design: the Start-from menu opens itself once, which is
+  // the first-run help the permanent chip grid used to provide.
+  const [startEmpty] = useState(() => normalizeDesignBody(content).elements.length === 0)
   const [exportOpen, setExportOpen] = useState(false)
   const [panel, setPanel] = useState<
     | 'none'
-    | 'templates'
-    | 'size'
     | 'ai'
     | 'stock'
     | 'layout'
@@ -151,7 +143,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     | 'styles'
     | 'swatches'
   >(
-    () => (normalizeDesignBody(content).elements.length === 0 ? 'templates' : 'none')
+    () => 'none'
   )
   const [aiPrompt, setAiPrompt] = useState('')
   const [imgPrompt, setImgPrompt] = useState('')
@@ -1172,8 +1164,16 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
           <Icon name="redo" size={15} />
         </button>
         <span className="w-px h-5 bg-[var(--edge-soft)] mx-1" />
-        <ToolBtn icon="plexii:templates" label="Templates" active={panel === 'templates'} onClick={() => setPanel((p) => (p === 'templates' ? 'none' : 'templates'))} testid="design-templates-btn" />
-        <ToolBtn icon="aspect_ratio" label={size.label} active={panel === 'size'} onClick={() => setPanel((p) => (p === 'size' ? 'none' : 'size'))} testid="design-size-btn" />
+        {/* One control for the template AND the page size. It replaces a grid
+            of chips that stood permanently on the canvas and a second panel
+            for sizes; it is self-contained so it can move into the shared
+            office top bar unchanged. */}
+        <StartFromMenu
+          size={{ w: design.width, h: design.height }}
+          onTemplate={applyTemplate}
+          onSize={changeSize}
+          autoOpen={startEmpty}
+        />
         <ToolBtn
           icon="auto_fix_high"
           label="Redesign"
@@ -1279,48 +1279,6 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
       </div>
 
       {/* Panels */}
-      {panel === 'templates' && (
-        <Panel title="Start from a template">
-          {CATEGORIES.map((cat) => (
-            <div key={cat.id} className="mb-2">
-              <div className="text-[10px] uppercase tracking-wide text-[var(--ink-40)] mb-1">{cat.label}</div>
-              <div className="flex flex-wrap gap-1.5">
-                {templatesForCategory(cat.id).map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => applyTemplate(t.id)}
-                    data-testid={`design-template-${t.id}`}
-                    className="fb-btn-surface px-2.5 py-1.5 hover:border-accent hover:bg-accent/5 text-[12px]"
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </Panel>
-      )}
-      {panel === 'size' && (
-        <Panel title="Canvas size">
-          {CATEGORIES.map((cat) => (
-            <div key={cat.id} className="mb-2">
-              <div className="text-[10px] uppercase tracking-wide text-[var(--ink-40)] mb-1">{cat.label}</div>
-              <div className="flex flex-wrap gap-1.5">
-                {DESIGN_SIZES.filter((s) => s.category === cat.id).map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => changeSize(s)}
-                    data-testid={`design-size-${s.id}`}
-                    className="fb-btn-surface px-2.5 py-1.5 hover:border-accent hover:bg-accent/5 text-[12px]"
-                  >
-                    {s.label} <span className="text-[var(--ink-40)]">{s.w}×{s.h}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </Panel>
-      )}
       {panel === 'ai' && (
         <Panel title="Generate with AI">
           <div className="space-y-2">

@@ -23,7 +23,7 @@ async function openDesignStudio(window: Page): Promise<void> {
 async function ensureTemplatesOpen(window: Page): Promise<void> {
   const tpl = window.locator('[data-testid="design-template-social-quote"]')
   if (!(await tpl.isVisible().catch(() => false))) {
-    await window.locator('[data-testid="design-templates-btn"]').click()
+    await window.locator('[data-testid="design-start-btn"]').click()
   }
   await expect(tpl).toBeVisible({ timeout: 5_000 })
 }
@@ -50,7 +50,7 @@ test.describe('PlexiDesign studio', () => {
   test('DS-1 create a design and the studio opens with templates + tools', async () => {
     await openDesignStudio(window)
     // Toolbar tools present.
-    for (const t of ['design-templates-btn', 'design-size-btn', 'design-add-text', 'design-add-rect', 'design-ai-btn', 'design-brandify']) {
+    for (const t of ['design-start-btn', 'design-add-text', 'design-add-rect', 'design-ai-btn', 'design-brandify']) {
       await expect(window.locator(`[data-testid="${t}"]`)).toBeVisible()
     }
   })
@@ -63,7 +63,7 @@ test.describe('PlexiDesign studio', () => {
   })
 
   test('DS-3 changing the size repaints the canvas', async () => {
-    await window.locator('[data-testid="design-size-btn"]').click()
+    await window.locator('[data-testid="design-start-btn"]').click()
     await window.locator('[data-testid="design-size-poster-a4"]').click()
     // Canvas still present and elements remain.
     await expect(window.locator('[data-testid="slide-canvas"]')).toBeVisible()

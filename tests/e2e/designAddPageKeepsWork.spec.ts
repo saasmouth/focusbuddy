@@ -63,7 +63,7 @@ test('DAP-TPL \u2014 a template\u2019s artwork survives adding a page', async ()
 
     const tpl = window.locator('[data-testid="design-template-social-quote"]')
     if (!(await tpl.isVisible().catch(() => false))) {
-      await window.locator('[data-testid="design-templates-btn"]').click()
+      await window.locator('[data-testid="design-start-btn"]').click()
     }
     await expect(tpl).toBeVisible({ timeout: 6_000 })
     await tpl.click()
