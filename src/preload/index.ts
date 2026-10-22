@@ -2672,6 +2672,7 @@ const api = {
         trace?: import('@shared/types').StoredTrace | null
         mentions?: import('@shared/types').ChatMentionRef[]
         blocks?: import('@shared/types').ChatUiBlock[]
+        grounding?: import('@shared/types').AnswerGrounding | null
       }
     ): Promise<import('@shared/types').AiChatStoredMessage> =>
       ipcRenderer.invoke('aiChat:appendMessage', conversationId, message),

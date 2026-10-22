@@ -83,7 +83,8 @@ interface ChatStore {
   sourcesByMessage: Record<string, ChatSource[]>
   // What the grounding check found in each answer (specifics its sources do
   // not support), keyed by message timestamp, for the "check this" marks.
-  // In-session: a reopened conversation keeps the repaired prose, not the marks.
+  // Saved with the turn and restored as saved when the conversation reopens;
+  // never recomputed (the sources may have changed since the answer was given).
   groundingByMessage: Record<string, AnswerGrounding>
   // Interactive UI blocks each assistant turn carried (Plexii P4), keyed by the
   // message timestamp. Rendered inside the turn; a tap sends the selection back
@@ -484,6 +485,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const proposalsByMessage: Record<string, ActionProposal[]> = {}
     const appliedProposals: Record<string, AppliedProposal> = { ...get().appliedProposals }
     const sourcesByMessage: Record<string, ChatSource[]> = { ...get().sourcesByMessage }
+    const groundingByMessage: Record<string, AnswerGrounding> = { ...get().groundingByMessage }
     const blocksByMessage: Record<string, ChatUiBlock[]> = { ...get().blocksByMessage }
     const questionByMessage: Record<string, ChatQuestion> = { ...get().questionByMessage }
     const traceByMessage: Record<string, AssistantTrace> = { ...get().traceByMessage }
@@ -504,6 +506,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         appliedProposals[appliedKey(m.ts, proposalId)] = applied
       }
       if (m.sources?.length) sourcesByMessage[k] = m.sources
+      // The marks the answer had when it was given, exactly as saved. A turn
+      // saved without them (before they were stored, or clean) shows none.
+      if (m.grounding) groundingByMessage[k] = m.grounding
       if (m.blocks?.length) blocksByMessage[k] = m.blocks
       if (m.question) questionByMessage[k] = m.question
       const restored = fromStoredTrace(m.trace ?? null)
@@ -530,6 +535,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       proposalsByMessage: { ...get().proposalsByMessage, ...proposalsByMessage },
       appliedProposals,
       sourcesByMessage,
+      groundingByMessage,
       blocksByMessage,
       questionByMessage,
       traceByMessage,
@@ -990,7 +996,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             sources: resp.ok ? resp.sources : undefined,
             question: resp.ok ? (resp.question ?? null) : null,
             trace: storedTrace,
-            blocks: resp.ok ? resp.blocks : undefined
+            blocks: resp.ok ? resp.blocks : undefined,
+            grounding: resp.ok ? (resp.grounding ?? null) : null
           })
           .then((saved) => {
             if (saved) {
