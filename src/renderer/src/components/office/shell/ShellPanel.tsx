@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import Icon from '../../Icon'
 import { useShellSize } from './OfficeShellLayout'
 
@@ -38,8 +38,11 @@ export default function ShellPanel({ id, title, icon, open, onClose, width, fill
   const ref = useRef<HTMLElement>(null)
   const opener = useRef<HTMLElement | null>(null)
   const { sheetPanels, raise } = useShellSize()
-  // Opening a panel brings the panels layer to the front (sheets, SPEC §2.6).
-  useEffect(() => {
+  // Opening a panel brings the panels layer to the front (sheets, SPEC §2.6). A
+  // LAYOUT effect, so the raise re-renders before the first paint: as a passive
+  // effect there was a frame (longer under load) in which the new panel was
+  // drawn under the side pane, and a click there landed on the pane.
+  useLayoutEffect(() => {
     if (open) raise('panels')
   }, [open, raise])
 
