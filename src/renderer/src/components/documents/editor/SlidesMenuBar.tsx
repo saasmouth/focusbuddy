@@ -39,6 +39,10 @@ export interface SlidesMenuActions {
   canPaste: boolean
   hasSelection: boolean
   deleteSelection: () => void
+  /** Save the selected elements as a reusable snippet. */
+  saveSelectionAsSnippet: () => void
+  /** Open the saved-snippets library to insert one onto the current slide. */
+  insertSnippet: () => void
   insertText: () => void
   insertImage: () => void
   insertShape: (shape: 'rect' | 'ellipse' | 'roundRect' | 'triangle') => void
@@ -127,7 +131,16 @@ export default function SlidesMenuBar({ actions }: { actions: SlidesMenuActions 
         { kind: 'item', label: 'Copy', shortcut: '⌘C', icon: 'content_copy', run: a.copySelection, disabled: !a.hasSelection },
         { kind: 'item', label: 'Paste', shortcut: '⌘V', icon: 'content_paste', run: a.pasteClipboard, disabled: !a.canPaste },
         { kind: 'item', label: 'Duplicate selection', shortcut: '⌘D', icon: 'file_copy', run: a.duplicateSelection, disabled: !a.hasSelection },
-        { kind: 'item', label: 'Delete selection', shortcut: '⌫', icon: 'delete', run: a.deleteSelection }
+        { kind: 'item', label: 'Delete selection', shortcut: '⌫', icon: 'delete', run: a.deleteSelection },
+        { kind: 'sep' },
+        {
+          kind: 'item',
+          label: 'Save selection as snippet…',
+          icon: 'bookmark_add',
+          hint: 'Keep it for reuse in any deck',
+          run: a.saveSelectionAsSnippet,
+          disabled: !a.hasSelection
+        }
       ]
     },
     {
@@ -159,6 +172,7 @@ export default function SlidesMenuBar({ actions }: { actions: SlidesMenuActions 
         { kind: 'item', label: 'Chart', icon: 'bar_chart', run: a.insertChart },
         { kind: 'item', label: 'Table', icon: 'table_chart', run: a.insertTable },
         { kind: 'item', label: 'Work widget from a desk', icon: 'widgets', run: a.insertWidget },
+        { kind: 'item', label: 'Insert snippet…', icon: 'bookmarks', run: a.insertSnippet },
         { kind: 'sep' },
         { kind: 'item', label: 'Meeting', icon: 'videocam', run: () => void launchMeeting({ kind: 'slides', id: active?.id ?? '', title: a.title || 'Presentation meeting' }) }
       ]
