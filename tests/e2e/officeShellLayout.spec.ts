@@ -648,6 +648,8 @@ for (const app of APPS) {
         // Checked at once, not polled: the raise happens in the commit that shows the panel (a layout
         // effect), so the first frame already has it on top. A polled check would pass the old
         // passive-effect code, which drew the panel under the pane for a frame (longer under load).
+        // This row only rarely catches that defect, so green here proves nothing about it:
+        // tests/unit/officeShellStackingGuard.test.ts is the protection.
         expect(await onTop(window, `[data-testid="${app.panel}-close"]`), 'a panel opened over the side pane: its close is on top').toBe(true)
         await window.locator(`[data-testid="${app.panel}-close"]`).click()
         await expect(window.locator(`[data-testid="${app.panel}"]`)).toHaveCount(0)

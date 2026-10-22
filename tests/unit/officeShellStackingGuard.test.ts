@@ -11,6 +11,12 @@
 // A DOM test cannot tell the two apart: render() wraps in act(), which flushes
 // passive effects too, so both versions look right afterwards. So this reads
 // the source, which fails on the old code by construction.
+//
+// THIS file is the protection, not the e2e rows. officeShellLayout's "a panel
+// opened over the side pane: its close is on top" is a low-yield detector for
+// this defect (one red in three long runs, none in two more): a red there does
+// not mean the regression is back, and a GREEN there is no evidence the raise is
+// still synchronous. Only this guard says that.
 
 import { readFileSync } from 'fs'
 import { join } from 'path'
