@@ -12,6 +12,13 @@ import { MenuBarShell, MenuModal, type MenuDef } from './menuBarKit'
 // Capabilities the editor does not have (merge, freeze, cell find/replace) are
 // simply not listed rather than shown as dead items.
 
+/**
+ * The chart kinds SheetEditor.insertChart actually accepts. This was declared
+ * as the three the Format menu offers, which under-typed the operation: the
+ * toolbar has always passed area and scatter too.
+ */
+export type SheetChartType = 'bar' | 'line' | 'pie' | 'area' | 'scatter'
+
 export interface SheetMenuActions {
   title: string
   activeFormat: SheetCellFormat | undefined
@@ -30,7 +37,7 @@ export interface SheetMenuActions {
   sort: (dir: 'asc' | 'desc') => void
   toggleFilter: () => void
   filterActive: boolean
-  insertChart: (t: 'bar' | 'line' | 'pie') => void
+  insertChart: (t: SheetChartType) => void
   insertSparkline: () => void
   insertPivot: () => void
   conditionalFormat: () => void

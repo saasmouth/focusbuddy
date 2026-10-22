@@ -76,11 +76,8 @@ export interface WriteChromeProps {
   // ── the one right content pane
   sidePane: WriteSidePane | null
   onSidePane: (p: WriteSidePane | null) => void
-  /** Content for each pane, rendered lazily by ShellSidePane. */
-  renderOutline: () => ReactNode
-  renderComments: () => ReactNode
-  renderAssistant: () => ReactNode
-  commentCount?: number
+  /** Write's content panes — build them with docSidePanes() from DocSidePanel. */
+  panes: SidePane[]
   // ── host-owned flows
   onInsertImage: () => void
   onInsertWidget: () => void
@@ -205,22 +202,6 @@ export default function WriteChrome(props: WriteChromeProps): JSX.Element {
   // Which tab is really showing: the remembered one while it is visible, else Home.
   const activeTab = resolveActiveTab(WRITE_TABS, ctx, tab)
 
-  const panes: SidePane[] = useMemo(
-    () => [
-      { id: 'outline', title: 'Outline', icon: 'toc', tabTestid: 'doc-tab-outline', render: props.renderOutline },
-      {
-        id: 'comments',
-        title: 'Comments',
-        icon: 'comment',
-        tabTestid: 'doc-tab-comments',
-        badge: props.commentCount ? String(props.commentCount) : undefined,
-        render: props.renderComments
-      },
-      { id: 'ai', title: 'Assistant', icon: 'auto_awesome', tabTestid: 'doc-tab-ai', render: props.renderAssistant }
-    ],
-    [props.renderOutline, props.renderComments, props.renderAssistant, props.commentCount]
-  )
-
   function panelBody(p: WritePanel): ReactNode {
     if (p === 'styles')
       return (
@@ -309,7 +290,7 @@ export default function WriteChrome(props: WriteChromeProps): JSX.Element {
       rightPane={
         <ShellSidePane
           testid="doc-side-panel"
-          panes={panes}
+          panes={props.panes}
           activeId={sidePane}
           onChange={(id) => onSidePane((id as WriteSidePane | null) ?? null)}
         />
