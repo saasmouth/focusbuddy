@@ -389,11 +389,14 @@ test('PB-1 the pasteboard: draw beyond the artboard and see it, scroll to the fa
   expect(drawn.x).toBeGreaterThan(stage.x + stage.width)
 
   // The SVGs are sized to the visible part (plus a margin), never the pasteboard.
+  // Twice the window (half a window of margin each side), plus the window's
+  // rounding outwards to whole document units (one unit, at this zoom, each side).
   const bound = async (): Promise<void> => {
     const s = await svgSizes()
+    const unit = (await zoomPct()) / 100
     for (const v of s.svgs) {
-      expect(v.w).toBeLessThanOrEqual(s.vw * 2 + 2)
-      expect(v.h).toBeLessThanOrEqual(s.vh * 2 + 2)
+      expect(v.w).toBeLessThanOrEqual(s.vw * 2 + 2 * unit + 2)
+      expect(v.h).toBeLessThanOrEqual(s.vh * 2 + 2 * unit + 2)
     }
   }
   await bound()
