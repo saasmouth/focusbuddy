@@ -9,6 +9,8 @@ import {
   addArtboard,
   artboardById,
   artworkBounds,
+  convertibleRectangles,
+  convertToArtboards,
   deleteArtboards,
   duplicateArtboard,
   fitArtboardTo,
@@ -27,6 +29,7 @@ import {
 import {
   activateArtboard,
   allArtboardsBox,
+  artboardsBlockedReason,
   artboardsEditable,
   copyNode,
   guardArtboards,
@@ -185,6 +188,26 @@ export const commands: Command[] = [
       if (!b) return ctx.status('Select the artwork to fit the artboard to.')
       const next = fitArtboardTo(ctx.doc(), target(ctx, args).id, b)
       if (next !== ctx.doc()) ctx.history.commit(next, 'Fit Artboard to Selected Art')
+    }
+  },
+  {
+    // Illustrator's Object › Artboards › Convert to Artboards: the selected
+    // rectangles become artboards (named in reading order) and the shapes go.
+    id: 'artboard.convert',
+    label: 'Convert to Artboards',
+    icon: 'transform',
+    menu: { path: 'object/Artboards', order: 102 },
+    enabled: (ctx) => editable(ctx) && convertibleRectangles(ctx.doc(), ctx.get().selection).length > 0,
+    disabledReason: (ctx) => artboardsBlockedReason(ctx.get()) ?? (convertibleRectangles(ctx.doc(), ctx.get().selection).length ? null : 'select one or more rectangles'),
+    explainsWhenDisabled: true,
+    run: (ctx) => {
+      if (!guardArtboards(ctx)) return
+      const r = convertToArtboards(ctx.doc(), ctx.get().selection, newArtboardId)
+      if (!r.created.length) return ctx.status('Select one or more rectangles to convert to artboards.')
+      ctx.history.commit(r.doc, r.created.length === 1 ? 'Convert to Artboard' : 'Convert to Artboards')
+      ctx.select(ctx.get().selection.filter((id) => !r.removed.includes(id)))
+      const names = r.created.map((id) => artboardById(ctx.doc(), id)?.name).filter(Boolean)
+      ctx.status(`${names.length === 1 ? 'Made artboard' : `Made ${names.length} artboards`}: ${names.join(', ')}.`)
     }
   },
   {

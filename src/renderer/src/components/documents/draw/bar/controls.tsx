@@ -56,8 +56,9 @@ interface CmdProps {
 }
 
 /** Why a command is off: its own pending note, the caller's reason, or a plain fallback. */
-function offReason(id: string, reason?: string): string {
-  return commandById(id)?.pending ?? reason ?? 'not available for this selection'
+function offReason(id: string, reason?: string, ctx?: EditorCtx): string {
+  const c = commandById(id)
+  return c?.pending ?? reason ?? (ctx && c?.disabledReason?.(ctx)) ?? 'not available for this selection'
 }
 
 export function CmdButton({ ctx, id, icon, label, showLabel, args, reason, readOnlySafe, testid, off }: CmdProps): JSX.Element {
@@ -70,7 +71,7 @@ export function CmdButton({ ctx, id, icon, label, showLabel, args, reason, readO
       showLabel={showLabel}
       shortcut={keyOf(id)}
       disabled={!on}
-      disabledReason={on ? undefined : offReason(id, reason)}
+      disabledReason={on ? undefined : offReason(id, reason, ctx)}
       readOnlySafe={readOnlySafe}
       testid={testid}
       onClick={() => ctx.run(id, args)}
@@ -90,7 +91,7 @@ export function CmdToggle({ ctx, id, icon, label, showLabel, args, reason, readO
       shortcut={keyOf(id)}
       pressed={pressed ?? !!c?.checked?.(ctx)}
       disabled={!on}
-      disabledReason={on ? undefined : offReason(id, reason)}
+      disabledReason={on ? undefined : offReason(id, reason, ctx)}
       readOnlySafe={readOnlySafe}
       testid={testid}
       onChange={() => ctx.run(id, args)}

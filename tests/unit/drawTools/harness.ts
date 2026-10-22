@@ -178,7 +178,15 @@ export interface Harness {
   run(commandId: string, args?: unknown): void
 }
 
-export function harness(content: unknown = blank(), opts: { liveUndo?: LiveUndo; zoom?: number } = {}): Harness {
+export function harness(
+  content: unknown = blank(),
+  opts: {
+    liveUndo?: LiveUndo
+    zoom?: number
+    /** Give the viewport a fitBox (absent by default, as in the oldest headless runs); called with what was asked for. */
+    fitBox?: (box: { x: number; y: number; w: number; h: number }, o?: { pad?: number; maxZoom?: number }) => void
+  } = {}
+): Harness {
   const emitted: unknown[] = []
   const scroll = { left: 0, top: 0 }
   // The fake raster needs the artboard size; the editor exists by the time it asks.
@@ -196,7 +204,8 @@ export function harness(content: unknown = blank(), opts: { liveUndo?: LiveUndo;
         scroll.left = l
         scroll.top = t
       },
-      fit: () => ed.store.setState({ zoom: 1 })
+      fit: () => ed.store.setState({ zoom: 1 }),
+      ...(opts.fitBox ? { fitBox: opts.fitBox } : {})
     },
     host: { emit: (s) => emitted.push(s), liveUndo: () => opts.liveUndo, exportAs: async () => {} }
   })

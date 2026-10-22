@@ -18,12 +18,12 @@ function itemFor(ctx: EditorCtx, c: Command): MenuItem {
   const disabled = c.enabled ? !c.enabled(ctx) : false
   return {
     kind: 'item',
-    label: c.label,
+    label: c.menuLabel?.(ctx) ?? c.label,
     ...(c.icon ? { icon: c.icon } : {}),
     ...(shortcut ? { shortcut } : {}),
     run: () => ctx.run(c.id),
     ...(c.enabled ? { disabled } : {}),
-    ...(disabled && c.pending ? { hint: c.pending } : {}),
+    ...(disabled && (c.pending || c.disabledReason?.(ctx)) ? { hint: c.pending ?? c.disabledReason?.(ctx) ?? undefined } : {}),
     ...(c.checked ? { active: c.checked(ctx) } : {})
   }
 }

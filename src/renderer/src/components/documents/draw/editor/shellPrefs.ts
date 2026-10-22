@@ -15,10 +15,18 @@ export interface ShellPrefs {
   pinned: string[]
   /** Flyout id -> the tool shown on its rail button (the last one picked). */
   lastUsed: Record<string, string>
+  /**
+   * View › Hide Artboards (⇧⌘H): the artboards' edges and fill are not drawn,
+   * so the art shows on the pasteboard. A view preference of the person, not
+   * of the drawing: it never edits or saves a drawing (a v1 drawing stays v1,
+   * co-editors keep their own view, a read-only drawing can be looked at
+   * either way), and export is unaffected.
+   */
+  hideArtboards: boolean
 }
 
 // Direct Selection fronts its flyout (Group Selection sits behind it), as in Illustrator's toolbar.
-export const SHELL_PREF_DEFAULTS: ShellPrefs = { tab: 'home', collapsed: false, pinned: [], lastUsed: { direct: 'direct' } }
+export const SHELL_PREF_DEFAULTS: ShellPrefs = { tab: 'home', collapsed: false, pinned: [], lastUsed: { direct: 'direct' }, hideArtboards: false }
 
 const KEY = 'plexii.draw.shell'
 
@@ -36,7 +44,8 @@ function load(): ShellPrefs {
       tab: isStr(v.tab) ? v.tab : SHELL_PREF_DEFAULTS.tab,
       collapsed: v.collapsed === true,
       pinned: Array.isArray(v.pinned) ? [...new Set(v.pinned.filter(isStr))] : [],
-      lastUsed
+      lastUsed,
+      hideArtboards: v.hideArtboards === true
     }
   } catch {
     return SHELL_PREF_DEFAULTS
