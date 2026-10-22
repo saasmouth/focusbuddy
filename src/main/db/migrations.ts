@@ -27,6 +27,7 @@ import { ensureMailStoreSchema } from './mailStore'
 import { reconcileNodeOrphans } from './reconcileOrphans'
 import { ensureWorkItemSchema } from './workItems'
 import { ensureNotificationSchema } from '../notifications/substrate'
+import { ensureSnippetSchema } from './snippets'
 
 
 // primaries + the intent_sub reserved column (migrateIntentTaxonomyV2).
@@ -95,6 +96,11 @@ export function applySchemaAndMigrations(db: Database.Database): NodesKindMigrat
   }
   // The notification substrate's durable store (S4, §5).
   ensureNotificationSchema(db)
+  // Saved snippets: the reusable-component library, org-scoped like documents.
+  // Its own module owns the DDL so the cloud runtime gets the table too — a
+  // browser database built from SCHEMA alone would otherwise drop every
+  // snippet row that arrives in a sync body.
+  ensureSnippetSchema(db)
   // Taxonomy alignment: rewrite legacy intent_class values to the eight
   // primaries (pre-imaged in wi_intent_taxonomy_backup; idempotent; re-run
   // every startup so peer-pushed legacy values converge). After BOTH ensure

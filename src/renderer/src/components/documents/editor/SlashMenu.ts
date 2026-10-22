@@ -41,6 +41,15 @@ const ITEMS: SlashItem[] = [
       editor.chain().focus().deleteRange(range).run()
       ;(editor.storage.slashCommand as SlashInsertHooks | undefined)?.onInsertDoc?.()
     }
+  },
+  {
+    title: 'Insert saved snippet',
+    subtitle: 'A reusable block from your library, as a copy or live',
+    icon: 'bookmarks',
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).run()
+      ;(editor.storage.slashCommand as SlashInsertHooks | undefined)?.onInsertSnippet?.()
+    }
   }
 ]
 
@@ -49,12 +58,14 @@ const ITEMS: SlashItem[] = [
 export interface SlashInsertHooks {
   onInsertWidget?: (() => void) | null
   onInsertDoc?: (() => void) | null
+  /** Opens the saved-snippet library so one can be inserted at the caret. */
+  onInsertSnippet?: (() => void) | null
 }
 
 export const SlashCommand = Extension.create({
   name: 'slashCommand',
   addStorage() {
-    return { onInsertWidget: null, onInsertDoc: null } as SlashInsertHooks
+    return { onInsertWidget: null, onInsertDoc: null, onInsertSnippet: null } as SlashInsertHooks
   },
   addOptions() {
     return {

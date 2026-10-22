@@ -32,6 +32,7 @@ import { createLowlight, common } from 'lowlight'
 import { ResizableImage } from './ResizableImage'
 import { WidgetEmbedNode } from '../embed/WidgetEmbedNode'
 import { DocEmbedNode } from '../embed/DocEmbedNode'
+import { SnippetEmbedNode } from '../embed/SnippetEmbedNode'
 import { SlashCommand } from './SlashMenu'
 import { SearchHighlight } from './searchHighlight'
 import { FocusBlock } from './focusBlock'
@@ -138,6 +139,10 @@ export function buildDocExtensions(opts: BuildOptions = {}): AnyExt[] {
     // doc). Same shared-schema requirement as widget embeds so it round-trips
     // through the headless HTML / .docx converters.
     DocEmbedNode as AnyExt,
+    // Live saved-snippet instances. Same shared-schema requirement as the two
+    // embeds above: a document holding a live snippet must keep it through the
+    // headless HTML / .docx converters rather than losing the reference.
+    SnippetEmbedNode as AnyExt,
     // A Word-style Table of Contents built from the document's headings.
     TableOfContents as AnyExt,
     // Auto-numbered inline footnotes with editable note text.

@@ -28,6 +28,10 @@ interface Props {
   // the office export busy indicator). The menu just triggers them.
   onInsertImage: () => void
   onInsertWidget: () => void
+  // Saved snippets: open the library to insert one, or capture the selection
+  // as a new one. Both are host flows because both open a React dialog.
+  onInsertSnippet: () => void
+  onSaveSnippet: () => void
   onExportDocx: () => void
   onExportPdf: () => void
   onFind: () => void
@@ -43,6 +47,8 @@ export default function DocMenuBar({
   title,
   onInsertImage,
   onInsertWidget,
+  onInsertSnippet,
+  onSaveSnippet,
   onExportDocx,
   onExportPdf,
   onFind,
@@ -189,6 +195,7 @@ export default function DocMenuBar({
         { kind: 'item', label: 'Table of contents', icon: 'toc', run: () => chain().insertTableOfContents().run() },
         { kind: 'item', label: 'Footnote', icon: 'superscript', run: () => chain().insertFootnote().run() },
         { kind: 'item', label: 'Work widget from a desk', icon: 'widgets', run: onInsertWidget },
+        { kind: 'item', label: 'Saved snippet', icon: 'bookmarks', run: onInsertSnippet },
         { kind: 'item', label: 'Link', shortcut: '⌘K', icon: 'link', run: insertLink },
         { kind: 'item', label: 'Horizontal line', icon: 'horizontal_rule', run: () => chain().setHorizontalRule().run() },
         { kind: 'sep' },
@@ -251,7 +258,15 @@ export default function DocMenuBar({
       label: 'Tools',
       build: () => [
         { kind: 'item', label: 'Word count', shortcut: '⌘⇧C', icon: 'tag', run: () => setWordCountOpen(true) },
-        { kind: 'item', label: 'Check accessibility', icon: 'accessibility_new', run: () => setA11yOpen(true) }
+        { kind: 'item', label: 'Check accessibility', icon: 'accessibility_new', run: () => setA11yOpen(true) },
+        { kind: 'sep' },
+        {
+          kind: 'item',
+          label: 'Save selection as snippet',
+          icon: 'bookmark_add',
+          hint: 'Keep it for reuse in any document',
+          run: onSaveSnippet
+        }
       ]
     },
     {

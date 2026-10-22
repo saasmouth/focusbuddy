@@ -1,0 +1,178 @@
+import { create } from 'zustand'
+import {
+  snippetMatches,
+  targetAccepts,
+  type Snippet,
+  type SnippetDraft,
+  type SnippetLink,
+  type SnippetPatch,
+  type SnippetQuery,
+  type SnippetTarget
+} from '@shared/snippets'
+
+// The saved-snippets store: the library the user reads, plus the registry of
+// places a snippet can currently go.
+//
+// The registry is renderer state rather than anything persisted, because a
+// target is a mounted surface. A document that is open can take a doc snippet;
+// the same document closed cannot. Registering on mount and withdrawing on
+// unmount means the picker offers exactly what is really on screen, so the user
+// is never offered a destination that would quietly do nothing.
+//
+// Insertion delegates to the target. The target returns false when it declined
+// — a sheet with no selection, a read-only document — and this store reports
+// that refusal rather than counting a use that did not happen.
+
+export interface SnippetsState {
+  snippets: Snippet[]
+  loading: boolean
+  /** The last error from a write, for the surface to show. Cleared on success. */
+  error: string | null
+  /** Mounted insertion targets, keyed by SnippetTarget.id. */
+  targets: Record<string, SnippetTarget>
+
+  refresh: (query?: SnippetQuery) => Promise<void>
+  save: (draft: SnippetDraft) => Promise<Snippet | null>
+  update: (id: string, patch: SnippetPatch) => Promise<Snippet | null>
+  remove: (id: string) => Promise<boolean>
+  /** Copy an org snippet into the personal library so it can be changed freely. */
+  fork: (id: string) => Promise<Snippet | null>
+
+  registerTarget: (target: SnippetTarget) => void
+  unregisterTarget: (id: string) => void
+  /** Targets that can take this snippet right now. */
+  targetsFor: (snippet: Snippet) => SnippetTarget[]
+
+  /**
+   * Insert a snippet into a target. Returns true only when the target actually
+   * took it; a use is counted only then.
+   */
+  insert: (snippet: Snippet, link: SnippetLink, targetId: string) => Promise<boolean>
+
+  /** Client-side filter over the loaded list, using the shared matcher. */
+  filter: (query: SnippetQuery) => Snippet[]
+}
+
+export const useSnippetsStore = create<SnippetsState>((set, get) => ({
+  snippets: [],
+  loading: false,
+  error: null,
+  targets: {},
+
+  refresh: async (query) => {
+    set({ loading: true })
+    try {
+      const snippets = await window.api.snippets.list(query)
+      set({ snippets, loading: false, error: null })
+    } catch (e) {
+      // An unreadable library is reported as empty-and-errored, never as an
+      // empty library that looks fine.
+      set({ loading: false, error: (e as Error).message || 'The snippet library could not be read.' })
+    }
+  },
+
+  save: async (draft) => {
+    const res = await window.api.snippets.create(draft)
+    if (!res.ok || !res.snippet) {
+      set({ error: res.error ?? 'The snippet could not be saved.' })
+      return null
+    }
+    set((s) => ({ snippets: [res.snippet!, ...s.snippets], error: null }))
+    return res.snippet
+  },
+
+  update: async (id, patch) => {
+    const res = await window.api.snippets.update(id, patch)
+    if (!res.ok || !res.snippet) {
+      set({ error: res.error ?? 'The snippet could not be updated.' })
+      return null
+    }
+    set((s) => ({
+      snippets: s.snippets.map((x) => (x.id === res.snippet!.id ? res.snippet! : x)),
+      error: null
+    }))
+    return res.snippet
+  },
+
+  remove: async (id) => {
+    const res = await window.api.snippets.delete(id)
+    if (!res.ok) {
+      set({ error: res.error ?? 'The snippet could not be deleted.' })
+      return false
+    }
+    set((s) => ({ snippets: s.snippets.filter((x) => x.id !== id), error: null }))
+    return true
+  },
+
+  fork: async (id) => {
+    const res = await window.api.snippets.fork(id)
+    if (!res.ok || !res.snippet) {
+      set({ error: res.error ?? 'The snippet could not be copied.' })
+      return null
+    }
+    set((s) => ({ snippets: [res.snippet!, ...s.snippets], error: null }))
+    return res.snippet
+  },
+
+  registerTarget: (target) => set((s) => ({ targets: { ...s.targets, [target.id]: target } })),
+
+  unregisterTarget: (id) =>
+    set((s) => {
+      if (!(id in s.targets)) return s
+      const next = { ...s.targets }
+      delete next[id]
+      return { targets: next }
+    }),
+
+  targetsFor: (snippet) => Object.values(get().targets).filter((t) => targetAccepts(t, snippet)),
+
+  insert: async (snippet, link, targetId) => {
+    const target = get().targets[targetId]
+    if (!target) {
+      set({ error: 'That place is no longer open.' })
+      return false
+    }
+    if (!target.supports.includes(link)) {
+      set({ error: `${target.label} cannot take a ${link} snippet.` })
+      return false
+    }
+    if (!target.accepts.includes(snippet.kind)) {
+      set({ error: `${target.label} cannot take a ${snippet.kind} snippet.` })
+      return false
+    }
+    let took = false
+    try {
+      took = await target.insert(snippet, link)
+    } catch (e) {
+      set({ error: (e as Error).message || 'The snippet could not be inserted.' })
+      return false
+    }
+    if (!took) {
+      // The surface declined. It knows why (no selection, read-only); say so
+      // plainly rather than reporting a success.
+      set({ error: `${target.label} did not take the snippet.` })
+      return false
+    }
+    set({ error: null })
+    // Counted only on a real insertion, so usage figures mean something.
+    void window.api.snippets.recordUse(snippet.id).catch(() => undefined)
+    set((s) => ({
+      snippets: s.snippets.map((x) => (x.id === snippet.id ? { ...x, usageCount: x.usageCount + 1 } : x))
+    }))
+    return true
+  },
+
+  filter: (query) => get().snippets.filter((s) => snippetMatches(s, query))
+}))
+
+/**
+ * Register an insertion target for as long as a surface is mounted.
+ *
+ * Call from a `useEffect` whose deps include everything the target's `insert`
+ * closes over, so the registry never holds a stale closure writing into a
+ * document that has since been replaced.
+ */
+export function registerSnippetTarget(target: SnippetTarget): () => void {
+  useSnippetsStore.getState().registerTarget(target)
+  return () => useSnippetsStore.getState().unregisterTarget(target.id)
+}
