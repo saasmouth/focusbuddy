@@ -78,6 +78,10 @@ test('PP-1 pinning Layers while looking at art at the page’s left edge keeps t
   await expect.poll(async () => besidePanel(await pathBox(), g)).toBe(true)
   const after = await pathBox()
   expect(Math.abs(after.width - before.width)).toBeLessThan(1)
+  // Only as far as needed: the page's right edge never leaves the window
+  // (the grey there is where the Artboard tool draws a new artboard, AB-1).
+  const st = (await t('draw-stage').boundingBox())!
+  expect(st.x + st.width).toBeLessThanOrEqual(g.canvas.x + g.canvas.width + 1)
   // The view did not keep drifting (the inset does not feed back into itself).
   await window.waitForTimeout(400)
   expect(Math.abs((await pathBox()).x - after.x)).toBeLessThan(1)

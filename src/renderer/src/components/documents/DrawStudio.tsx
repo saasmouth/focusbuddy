@@ -526,6 +526,32 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     insetRef.current = next
     setInset(next)
   }, [])
+  // Pinning a panel: it floats over the canvas's left edge. If the artboards
+  // are partly under it and there is grey to spare on the right, pan once --
+  // just enough, and never so far that their right edge leaves the window --
+  // so what you were looking at stays visible beside the panel. Unpinning
+  // pans back. Decided from the UN-inset geometry (the stage against the
+  // scroll element; neither moves with the inset), so it cannot oscillate.
+  const pinPan = useRef(0)
+  useLayoutEffect(() => {
+    const sc = scrollRef.current
+    const st = stageRef.current
+    if (!sc || !st) return
+    if (pinPan.current) {
+      sc.scrollLeft += pinPan.current
+      pinPan.current = 0
+    }
+    if (!inset) return
+    const r = sc.getBoundingClientRect()
+    const s = st.getBoundingClientRect()
+    const left = s.left - r.left - sc.clientLeft
+    const room = sc.clientWidth - (left + s.width)
+    const shift = Math.min(inset - left, room)
+    if (shift <= 0) return
+    const before = sc.scrollLeft
+    sc.scrollLeft = before - shift
+    pinPan.current = before - sc.scrollLeft
+  }, [inset])
   const setPinned = useCallback((id: string, pin: boolean) => {
     const cur = shellPrefs.getState().pinned
     setShellPrefs({ pinned: pin ? [...new Set([...cur, id])] : cur.filter((p) => p !== id) })
@@ -686,14 +712,6 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
           ref={scrollRef}
           tabIndex={-1}
           className="flex-1 min-w-0 flex overflow-auto bg-stone-200/60 dark:bg-black/40 outline-none"
-          // A pinned panel floats over the canvas's left edge. Its width
-          // (onRectChange -> inset) is padding here, so pinning shifts the
-          // pasteboard right by exactly that much: the art you were looking
-          // at stays visible beside the panel, with no pan and nothing left
-          // under it. The inset is measured from the panel's own rect against
-          // this element's left edge, neither of which the padding moves, so
-          // it cannot feed back into itself.
-          style={inset ? { paddingLeft: inset } : undefined}
           data-testid="draw-canvas-scroll"
           onScroll={onCanvasScroll}
           onPointerDown={(e) => {
