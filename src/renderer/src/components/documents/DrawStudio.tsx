@@ -122,13 +122,15 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   const barHandle = useRef<ContextBarHandle | null>(null)
   /** Screen px of the viewport's left edge that pinned overlay panels cover (domServices: Fit, Paste). */
   const insetRef = useRef(0)
+  /** A fit waiting for its new zoom to be laid out (domServices fitBox); run in a layout effect. */
+  const pendingCentre = useRef<(() => void) | null>(null)
   const focusCanvas = useCallback(() => scrollRef.current?.focus({ preventScroll: true }), [])
 
   // One editor per mounted studio. Services read through refs, so they always
   // see the current DOM and props.
   const editorRef = useRef<DrawEditor | null>(null)
   if (!editorRef.current) {
-    const refs = { canvases: canvases.current, loaded: loaded.current, scratch, scroll: scrollRef, onChange: onChangeRef, title: titleRef, liveUndo: liveUndoRef, inset: insetRef }
+    const refs = { canvases: canvases.current, loaded: loaded.current, scratch, scroll: scrollRef, onChange: onChangeRef, title: titleRef, liveUndo: liveUndoRef, inset: insetRef, pendingCentre }
     // ⌥F6 (window.focusNext): the canvas, then the top bar, then the tool rail.
     const ui = {
       cycleFocus: (): void => {
@@ -333,6 +335,13 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     sc.scrollTop = next.scrollTop
   }, [zoom])
 
+  // A fit (⌘0, Fit All, Zoom to Selection, opening) scrolls in the same frame
+  // its zoom is laid out, never a frame later.
+  useLayoutEffect(() => {
+    const f = pendingCentre.current
+    if (f) f()
+  }, [zoom])
+
   // ── Pasteboard: keep the view still, draw only the visible part ───────────
 
   // A document point sits at (p - extent) * zoom inside the pasteboard, so
@@ -408,7 +417,8 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
 
   // Fit the artboard on first paint so a 4K canvas is not opened at 1:1.
   const fitted = useRef(false)
-  useEffect(() => {
+  // A layout effect, so the first frame painted is already fitted and centred.
+  useLayoutEffect(() => {
     if (fitted.current) return
     fitted.current = true
     ctx.viewport.fit()
