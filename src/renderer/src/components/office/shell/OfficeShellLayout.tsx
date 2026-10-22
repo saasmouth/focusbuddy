@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import Icon from '../../Icon'
 import { ASIDE_COLLAPSE_BELOW, PANEL_SHEET_BELOW, PANEL_WIDTH } from './layout'
 
@@ -16,8 +16,15 @@ interface ShellSize {
   sheetPanels: boolean
   /** The shell reaches the window's bottom-right corner, where the Plexii pill floats; corner content keeps clear of it. */
   pillCorner: boolean
+  /**
+   * Below PANEL_SHEET_BELOW an overlay panel and the side pane both cover the
+   * canvas as sheets. Whichever opened last is on top, so its close button is
+   * reachable (a side pane over a panel left the panel's close unclickable in a
+   * 480px widget). Panels and the side pane call this when they open.
+   */
+  raise: (layer: 'panels' | 'side') => void
 }
-const ShellSizeContext = createContext<ShellSize>({ width: Infinity, height: Infinity, sheetPanels: false, pillCorner: false })
+const ShellSizeContext = createContext<ShellSize>({ width: Infinity, height: Infinity, sheetPanels: false, pillCorner: false, raise: () => {} })
 
 // The Plexii pill (AssistantOverlay) floats 14px right of the window edge and
 // within ~120px of its bottom. It publishes --fb-pill-clear-right and
@@ -58,8 +65,10 @@ export default function OfficeShellLayout({ bar, rail, children, leftAside, asid
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+  const [front, setFront] = useState<'panels' | 'side' | null>(null)
+  const raise = useCallback((layer: 'panels' | 'side') => setFront((f) => (f === layer ? f : layer)), [])
   const asideCollapsed = !!leftAside && size.width < ASIDE_COLLAPSE_BELOW
-  const ctx: ShellSize = { ...size, sheetPanels: size.width < PANEL_SHEET_BELOW }
+  const ctx: ShellSize = { ...size, sheetPanels: size.width < PANEL_SHEET_BELOW, raise }
   return (
     <ShellSizeContext.Provider value={ctx}>
       <div ref={root} data-testid={testid} className="h-full min-h-0 flex flex-col">
@@ -92,7 +101,9 @@ export default function OfficeShellLayout({ bar, rail, children, leftAside, asid
             {panels && (
               <div
                 data-testid={`${testid}-panels`}
-                className={`absolute z-30 pointer-events-none flex flex-col gap-2 ${ctx.sheetPanels ? 'inset-0' : 'top-2 left-2 bottom-2'}`}
+                data-front={ctx.sheetPanels && front === 'panels' ? 'true' : undefined}
+                // As sheets, a panel opened after the side pane sits above it (the pane is z-40).
+                className={`absolute ${ctx.sheetPanels && front === 'panels' ? 'z-50' : 'z-30'} pointer-events-none flex flex-col gap-2 ${ctx.sheetPanels ? 'inset-0' : 'top-2 left-2 bottom-2'}`}
                 style={ctx.sheetPanels ? undefined : { width: `min(${PANEL_WIDTH}px, calc(100% - 16px))` }}
               >
                 {panels}

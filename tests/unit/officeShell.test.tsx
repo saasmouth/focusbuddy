@@ -1,7 +1,7 @@
 // The shared office shell (SPEC §2, §9): ToolRail, flyouts, ContextBar, the
 // bar primitives, ShellPanel, ShellSidePane and the Row 1 folding plan.
 
-import { act } from 'react'
+import { act, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -16,6 +16,7 @@ vi.mock('../../src/renderer/src/components/Tooltip', () => ({
 import {
   BarButton,
   BarDialogButton,
+  BarMenu,
   BarNumber,
   BarToggle,
   ContextBar,
@@ -577,5 +578,118 @@ describe('bar primitives: BarNumber reports only real changes', () => {
     })
     expect(onChange).toHaveBeenCalledTimes(1)
     expect(onChange).toHaveBeenCalledWith(60)
+  })
+})
+
+describe('BarMenu: the current choice is announced, not only bolded', () => {
+  it('items with an active value are menuitemradio with aria-checked; plain items stay menuitem; a check shows beside an icon', () => {
+    render(
+      <BarMenu
+        label="Layout"
+        testid="m"
+        items={[
+          { label: 'Title', icon: 'title', run: noop, active: true, testid: 'm-title' },
+          { label: 'Blank', icon: 'crop_square', run: noop, active: false, testid: 'm-blank' },
+          'sep',
+          { label: 'Reset', run: noop, testid: 'm-reset' }
+        ]}
+      />
+    )
+    act(() => tid('m').click())
+    expect(tid('m-title').getAttribute('role')).toBe('menuitemradio')
+    expect(tid('m-title').getAttribute('aria-checked')).toBe('true')
+    expect(tid('m-blank').getAttribute('aria-checked')).toBe('false')
+    expect(tid('m-reset').getAttribute('role')).toBe('menuitem')
+    expect(tid('m-reset').hasAttribute('aria-checked')).toBe(false)
+    // The icon takes the leading slot, so the check is drawn at the end.
+    expect(tid('m-title').querySelectorAll('[data-icon="check"]').length).toBe(1)
+    expect(tid('m-blank').querySelectorAll('[data-icon="check"]').length).toBe(0)
+  })
+})
+
+describe('ShellPanel onRectChange: a host keeping the inset in state does not loop', () => {
+  it('an inline callback that sets state settles (no null/rect ping-pong per render)', () => {
+    const calls: (DOMRect | null)[] = []
+    function Host(): JSX.Element {
+      const [inset, setInset] = useState(0)
+      return (
+        <>
+          <span data-testid="inset">{inset}</span>
+          <ShellPanel
+            id="l"
+            title="L"
+            open
+            pinned
+            onClose={noop}
+            onRectChange={(r) => {
+              calls.push(r)
+              setInset(r ? Math.round(r.right) + 1 : 0) // a new value each time it reports
+            }}
+            testid="p"
+          >
+            <div />
+          </ShellPanel>
+        </>
+      )
+    }
+    render(<Host />)
+    // One report on mount; re-renders caused by the host's own state do not re-run it.
+    expect(calls.length).toBeLessThanOrEqual(2)
+    expect(calls.every((c) => c !== null)).toBe(true)
+    expect(tid('inset').textContent).toBe('1')
+  })
+})
+
+describe('sheets: whichever of a panel and the side pane opened last is on top (SPEC §2.6)', () => {
+  const narrow = (): (() => void) => {
+    const Orig = globalThis.ResizeObserver
+    class RO {
+      constructor(private cb: ResizeObserverCallback) {}
+      observe(): void {
+        this.cb([{ contentRect: { width: 420, height: 380 } } as ResizeObserverEntry], this as unknown as ResizeObserver)
+      }
+      disconnect(): void {}
+      unobserve(): void {}
+    }
+    globalThis.ResizeObserver = RO as unknown as typeof ResizeObserver
+    return () => {
+      globalThis.ResizeObserver = Orig
+    }
+  }
+  const panes = [{ id: 'ai', title: 'AI', icon: 'x', render: () => <p /> }]
+  const frame = (panelOpen: boolean, paneOpen: boolean): JSX.Element => (
+    <OfficeShellLayout
+      testid="s"
+      bar={<div />}
+      rail={<div />}
+      panels={<ShellPanel id="lib" title="Library" open={panelOpen} onClose={noop} testid="p"><div /></ShellPanel>}
+      rightPane={<ShellSidePane testid="sp" panes={panes} activeId={paneOpen ? 'ai' : null} onChange={noop} />}
+    >
+      <div />
+    </OfficeShellLayout>
+  )
+  it('a panel opened after the side pane rises above it; reopening the pane puts the pane back on top', () => {
+    const restore = narrow()
+    try {
+      render(frame(false, true)) // side pane first
+      expect(tid('s-panels').dataset.front).toBeUndefined()
+      render(frame(true, true)) // then a panel
+      expect(tid('s-panels').dataset.front).toBe('true')
+      expect(tid('s-panels').className).toContain('z-50')
+      render(frame(true, false))
+      render(frame(true, true)) // the pane opened again, last
+      expect(tid('s-panels').dataset.front).toBeUndefined()
+      expect(tid('s-panels').className).toContain('z-30')
+    } finally {
+      restore()
+    }
+  })
+  it('wide, nothing is raised: panels stay in their column below the side pane', () => {
+    render(frame(true, true))
+    expect(tid('s-panels').dataset.front).toBeUndefined()
+  })
+  it('the collapse control carries the structural hook whatever its test id (collapseTestid keeps legacy ids)', () => {
+    render(<ShellSidePane testid="sheet-ai-panel" collapseTestid="sheet-ai-collapse" panes={panes} activeId="ai" onChange={noop} />)
+    expect(tid('sheet-ai-collapse').getAttribute('data-shell-role')).toBe('sidepane-collapse')
   })
 })

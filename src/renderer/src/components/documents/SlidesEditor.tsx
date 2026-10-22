@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DeckTheme, Slide, SlideElement, SlideLayout, SlidesBody, SlideTransition } from '@shared/types'
 import { resolveTheme, layoutElements, applyThemeToDeck, BUILTIN_THEMES } from '@shared/slideThemes'
 import { SLIDE_TEMPLATES } from '@shared/slideTemplates'
@@ -6,13 +6,13 @@ import { migrateSlidesBody } from '@shared/slidesMigrate'
 import SlideFace from './slides/SlideFace'
 import SlideCanvas from './slides/SlideCanvas'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
-import ElementInspector from './slides/ElementInspector'
-import SlidesToolbar from './slides/SlidesToolbar'
 import SlidesMenuBar from './editor/SlidesMenuBar'
 import SlideTemplateGallery from './slides/SlideTemplateGallery'
 import PresentOverlay from './slides/PresentOverlay'
 import AiSlidePanel from './slides/AiSlidePanel'
-import SlidesSidePanel, { type SlidesPanelTab } from './slides/SlidesSidePanel'
+import SlideAssistantPane, { LayoutsAndThemes } from './slides/SlidesSidePanel'
+import { BarButton, BarToggle, ContextBar, OfficeShellLayout, PANEL_SHEET_BELOW, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail } from '../office/shell'
+import { DECK_TABS, deckRailItems, railIdForTool, TOOL_DEFAULT, type DeckCtx, type DeckPanel, type DeckSidePane, type DeckTool } from './slides/ribbon'
 import { useSlideAi } from './slides/useSlideAi'
 import CropDialog from './slides/CropDialog'
 import ChartLinkDialog from './slides/ChartLinkDialog'
@@ -44,10 +44,32 @@ import { useRegisterEditorCommands, type EditorCommand } from '../../stores/edit
 import Icon from '../Icon'
 import WidgetPickerDialog from './embed/WidgetPickerDialog'
 
-// PowerPoint-class slides editor. The deck is held as v2 (element-based) in local
-// state; legacy decks migrate on mount. The rail manages slides, the canvas edits
-// the selected slide's elements, the inspector edits the selection, and Present
-// runs the deck. Edits flow to onChange (debounced autosave).
+// PowerPoint-class slides editor on the office shell (SPEC §6.4). The deck is
+// held as v2 (element-based) in local state; legacy decks migrate on mount. The
+// ToolRail arms tools, the ContextBar's tabs hold every setting (the right
+// inspector is retired, D1), the slide thumbnails are the navigator, the canvas
+// edits the selected slide, PlexiiAssist sits in the shared right side pane and
+// speaker notes stay under the canvas. Edits flow to onChange (debounced autosave).
+
+const TAB_KEY = 'plexii.slides.ribbonTab'
+const COLLAPSE_KEY = 'plexii.slides.ribbonCollapsed'
+const PINS_KEY = 'plexii.slides.pinnedPanels'
+const SIDE_KEY = 'plexii.slides.sidePane'
+const readPref = <T,>(k: string, fallback: T): T => {
+  try {
+    const v = localStorage.getItem(k)
+    return v === null ? fallback : (JSON.parse(v) as T)
+  } catch {
+    return fallback
+  }
+}
+const writePref = (k: string, v: unknown): void => {
+  try {
+    localStorage.setItem(k, JSON.stringify(v))
+  } catch {
+    /* preferences are a convenience */
+  }
+}
 
 interface Props {
   body: SlidesBody
@@ -70,12 +92,46 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
   const [cropId, setCropId] = useState<string | null>(null)
   const [chartLinkFor, setChartLinkFor] = useState<string | null>(null)
   const [a11yIssues, setA11yIssues] = useState<A11yIssue[] | null>(null)
-  const [aiOpen, setAiOpen] = useState(false)
   const [galleryOpen, setGalleryOpen] = useState(false)
   const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
   const [canvasW, setCanvasW] = useState(720)
-  const [panelTab, setPanelTab] = useState<SlidesPanelTab>('slide')
+  // Shell state: the active tab, Row 2 collapse (D5), the overlay panels and the
+  // right side pane, each remembered per app.
+  const [tab, setTab] = useState<string>(() => readPref(TAB_KEY, 'home'))
+  const [collapsed, setCollapsed] = useState<boolean>(() => readPref(COLLAPSE_KEY, false))
+  const [openPanels, setOpenPanels] = useState<DeckPanel[]>([])
+  // Selection-driven panels (Edit cells) are used WITH a selection, so they
+  // start pinned: an unpinned panel closes on the canvas click that is the job.
+  const [pinned, setPinned] = useState<DeckPanel[]>(() => readPref<DeckPanel[]>(PINS_KEY, ['cells']))
+  // The assistant was a permanent column before the shell; it starts open the
+  // first time and is remembered after that.
+  const sidePaneUnset = useRef(readPref<string | null | undefined>(SIDE_KEY, undefined) === undefined)
+  const [sidePane, setSidePaneState] = useState<DeckSidePane | null>(() => {
+    const v = readPref<string | null>(SIDE_KEY, 'ai')
+    return v === 'ai' || v === 'generate' ? v : null
+  })
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  // ...but never as a sheet over the slide: in a narrow desk widget the first-run
+  // default stays collapsed to its edge tab (an explicit choice is honoured).
+  useEffect(() => {
+    if (sidePaneUnset.current && (rootRef.current?.getBoundingClientRect().width ?? Infinity) < PANEL_SHEET_BELOW) setSidePaneState(null)
+  }, [])
+  const setSidePane = useCallback((p: DeckSidePane | null) => {
+    setSidePaneState(p)
+    writePref(SIDE_KEY, p)
+  }, [])
+  // Armed tools (D4): armed until it places something, then back to Select, as
+  // PowerPoint and Canva do. Double-click a rail tool to lock it; Esc disarms.
+  const [tool, setToolState] = useState<DeckTool>('select')
+  const [toolLocked, setToolLocked] = useState(false)
+  // The shapes flyout shows the last shape used as the group's visible member (host-owned, SPEC §2.2).
+  const [lastShape, setLastShape] = useState('tool-rect')
+  // Pinned overlay panels float over the canvas's left edge (SPEC §2.4); the slide
+  // is laid out past them so nothing on it sits under a panel you cannot click through.
+  const panelRects = useRef<Record<string, DOMRect | null>>({})
+  const [panelInset, setPanelInset] = useState(0)
+  const notesRef = useRef<HTMLTextAreaElement | null>(null)
 
   const undo = useRef<SlidesBody[]>([])
   const redo = useRef<SlidesBody[]>([])
@@ -122,6 +178,12 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
   }
   function selectMany(ids: string[]): void {
     setSelectedIds(ids.length ? withGroupMembers(slide, ids) : [])
+  }
+  function setTool(next: DeckTool, lock = false): void {
+    setToolState(next)
+    setToolLocked(lock && next !== 'select')
+    if (next !== 'select') setSelectedIds([])
+    if (next !== 'select' && next !== 'text') setLastShape(`tool-${next}`)
   }
 
   // Measure the canvas column so the slide scales to fit.
@@ -352,6 +414,47 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
     mutateSlide((s) => addElement(s, el))
     setSelectedIds([el.id])
   }
+  /**
+   * Place what an armed tool makes, in the rect the person drew on the canvas
+   * (slide coordinates; a plain click gives the default size centred on the
+   * press). The same elements the Insert tab's one-shot buttons make, so a tool
+   * and its button can never drift apart in what they create.
+   */
+  function placeTool(kind: string, rect: { x: number; y: number; w: number; h: number }): void {
+    const def = TOOL_DEFAULT[kind as Exclude<DeckTool, 'select'>]
+    if (!def) return
+    const pageW = body.size?.w ?? 1280
+    const pageH = body.size?.h ?? 720
+    const w = Math.max(kind === 'line' ? 8 : 16, Math.round(rect.w))
+    const h = kind === 'line' ? Math.round(rect.h) : Math.max(16, Math.round(rect.h))
+    // Keep what is placed ON the slide: a click near an edge with a wide default
+    // (a text box is 800 wide) would otherwise land half off it.
+    const fit = (want: number, size: number, limit: number): number => Math.max(0, Math.min(Math.round(want), Math.round(limit - size)))
+    const x = fit(rect.x, w, pageW)
+    const y = fit(rect.y, kind === 'line' ? 0 : h, pageH)
+    let el: SlideElement
+    if (kind === 'text') {
+      el = {
+        id: elementId(),
+        type: 'text',
+        x,
+        y,
+        w,
+        h,
+        z: 10,
+        fontFamily: theme.fontBody,
+        vAlign: 'top',
+        paragraphs: [{ runs: [{ text: 'Text', fontSize: theme.bodyStyle.fontSize, color: theme.textColor }], align: 'left' }]
+      }
+    } else if (kind === 'line') {
+      el = { id: elementId(), type: 'line', x, y, w, h: 0, z: 10, x2: x + w, y2: y + h, stroke: theme.accent, strokeWidth: 4, arrowEnd: true }
+    } else {
+      el = { id: elementId(), type: 'shape', shape: kind as 'rect' | 'ellipse' | 'roundRect' | 'triangle', x, y, w, h, z: 10, fill: { type: 'solid', color: theme.accent } }
+    }
+    mutateSlide((s) => addElement(s, el))
+    setSelectedIds([el.id])
+    if (!toolLocked) setToolState('select')
+  }
   // Resolve a sheet document's first tab and build ChartData from a range on it.
   async function dataFromSource(source: { sheetDocId: string; range: string; headerRow?: boolean; headerCol?: boolean }): Promise<ReturnType<typeof buildChartData> | null> {
     const doc = await window.api.documents.get(source.sheetDocId)
@@ -443,7 +546,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
       const redesigned = migrated.slides[0]
       if (redesigned) mutateSlide((s) => ({ ...s, elements: redesigned.elements, background: redesigned.background ?? s.background }))
     }
-    setAiOpen(false)
+    setSidePane('ai')
     setSelectedIds([])
   }
 
@@ -554,15 +657,31 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
   // field is focused, so typing and the notes box are unaffected.
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
-      if (!selectedIds.length) return
       const tag = (document.activeElement?.tagName ?? '').toLowerCase()
-      if (tag === 'input' || tag === 'textarea') return
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || (document.activeElement as HTMLElement | null)?.isContentEditable) return
+      const mod = e.metaKey || e.ctrlKey
+      // Armed tools (D4). This is the app's one key handler; the rail never
+      // listens for keys. Plain letters only, so Cut/Copy/Group keep theirs.
+      if (!mod && !e.altKey) {
+        if (e.key === 'Escape' && tool !== 'select') {
+          e.preventDefault()
+          setTool('select')
+          return
+        }
+        const arm: Record<string, DeckTool> = { v: 'select', t: 'text', m: 'rect', l: 'ellipse', '\\': 'line' }
+        const next = arm[e.key.toLowerCase()]
+        if (next) {
+          e.preventDefault()
+          setTool(next)
+          return
+        }
+      }
+      if (!selectedIds.length) return
       if (e.key === 'Escape') {
         e.preventDefault()
         setSelectedIds([])
         return
       }
-      const mod = e.metaKey || e.ctrlKey
       if (mod && e.key.toLowerCase() === 'g') {
         e.preventDefault()
         if (e.shiftKey) doUngroup()
@@ -593,7 +712,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds, slideIdx, body])
+  }, [selectedIds, slideIdx, body, tool])
 
   // Publish the deck's commands to the Cmd+K palette under the 'Slides' scope.
   // Selection-only actions appear with a selection; align/distribute/group only
@@ -614,7 +733,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
         { id: 'sl-table', label: 'Insert table', icon: 'table_chart', group: 'Insert', keywords: 'grid rows columns cells', run: insertTable },
         { id: 'sl-new', label: 'New slide', icon: 'add_to_photos', group: 'Slide', keywords: 'add template', run: () => setGalleryOpen(true) },
         { id: 'sl-present', label: 'Present deck', icon: 'play_arrow', group: 'Slide', keywords: 'slideshow play', run: () => setPresenting(true) },
-        { id: 'sl-ai', label: 'AI: generate or redesign slides', icon: 'auto_awesome', group: 'AI', keywords: 'design make beautiful', run: () => setAiOpen(true) },
+        { id: 'sl-ai', label: 'AI: generate or redesign slides', icon: 'auto_awesome', group: 'AI', keywords: 'design make beautiful', run: () => setSidePane('generate') },
         { id: 'sl-undo', label: 'Undo', icon: 'undo', shortcut: '⌘Z', group: 'Edit', run: undoLast },
         { id: 'sl-redo', label: 'Redo', icon: 'redo', shortcut: '⇧⌘Z', group: 'Edit', run: redoLast },
         { id: 'sl-import', label: 'Import PowerPoint (.pptx)', icon: 'upload_file', group: 'File', keywords: 'open pptx', run: () => void importFile() },
@@ -658,13 +777,117 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
     [selectedIds, slideIdx, body, anyGrouped]
   )
 
+  // The bar's and the rail's view of the editor, rebuilt each render.
+  const isPanelOpen = (p: DeckPanel): boolean => openPanels.includes(p)
+  const openPanel = (p: DeckPanel): void => setOpenPanels((o) => (o.includes(p) ? o : [...o, p]))
+  const closePanel = (p: DeckPanel): void => setOpenPanels((o) => o.filter((x) => x !== p))
+  const togglePanel = (p: DeckPanel): void => setOpenPanels((o) => (o.includes(p) ? o.filter((x) => x !== p) : [...o, p]))
+  const setPin = (p: DeckPanel, v: boolean): void =>
+    setPinned((cur) => {
+      const next = v ? [...new Set([...cur, p])] : cur.filter((x) => x !== p)
+      writePref(PINS_KEY, next)
+      return next
+    })
+  const selectedEls = (slide?.elements ?? []).filter((e) => selectedIds.includes(e.id))
+  const textUpdate = (id: string, fn: (e: Extract<SlideElement, { type: 'text' }>) => Partial<SlideElement>): void =>
+    mutateSlide((s) =>
+      updateElement(s, id, (() => {
+        const e = (s.elements ?? []).find((x) => x.id === id)
+        return e && e.type === 'text' ? fn(e) : {}
+      })())
+    )
+  const ctx: DeckCtx = {
+    slide,
+    theme,
+    selected: selectedEls,
+    el: selectedEl,
+    anyGrouped,
+    readOnly: false,
+    tool,
+    setTool,
+    isPanelOpen,
+    togglePanel,
+    openPanel,
+    sidePane,
+    openSidePane: (p) => setSidePane(p),
+    toggleSidePane: (p) => setSidePane(sidePane === p ? null : p),
+    ed: {
+      insertText,
+      insertShape,
+      insertLine,
+      insertImage: () => void insertImage(),
+      insertTable,
+      insertChart,
+      insertWidget: () => setWidgetPickerOpen(true),
+      openGallery: () => setGalleryOpen(true),
+      duplicateSlide: () => duplicateSlide(slideIdx),
+      applyLayout,
+      applyTheme,
+      setBackground: (color) => mutateSlide((s) => ({ ...s, background: { type: 'solid', color } })),
+      setTransition: (t: SlideTransition) => mutateSlide((s) => ({ ...s, transition: t })),
+      updateEl,
+      styleText: (id, patch) => textUpdate(id, (e) => styleTextElement(e, patch)),
+      alignText: (id, align) => textUpdate(id, (e) => setParagraphAlign(e, align)),
+      setList: (id, style) => textUpdate(id, (e) => setListStyle(e, style)),
+      align: doAlign,
+      distribute: doDistribute,
+      centre: centreSelection,
+      group: doGroup,
+      ungroup: doUngroup,
+      reorder: reorderSelection,
+      duplicateSelection,
+      deleteSelection,
+      crop: (id) => setCropId(id),
+      linkChart: (id) => setChartLinkFor(id),
+      refreshChart: (id) => void refreshChart(id),
+      checkA11y: () => setA11yIssues(checkSlidesA11y(body)),
+      focusNotes: () => {
+        notesRef.current?.scrollIntoView({ block: 'nearest' })
+        notesRef.current?.focus()
+      }
+    }
+  }
+  const railItems = useMemo(() => deckRailItems(), [])
+  // A pinned panel reports its rect; the inset is its right edge measured from the
+  // canvas column's own left (the panel is absolute, so the padding never moves it:
+  // no feedback loop). Unpinned panels are transient and may cover the canvas.
+  // Stable per panel: ShellPanel re-runs its rect effect when this identity changes,
+  // and its cleanup reports null, so an inline arrow here would loop through state.
+  const reportPanelRect = useMemo(() => {
+    const report = (id: string, rect: DOMRect | null): void => {
+      panelRects.current[id] = rect
+      const left = canvasWrap.current?.parentElement?.getBoundingClientRect().left ?? 0
+      const right = Math.max(0, ...Object.values(panelRects.current).map((r) => (r ? Math.ceil(r.right - left) : 0)))
+      setPanelInset((cur) => (cur === right ? cur : right))
+    }
+    return { layouts: (r: DOMRect | null) => report('layouts', r), cells: (r: DOMRect | null) => report('cells', r) }
+  }, [])
+  const tableEl = selectedEl?.type === 'table' ? selectedEl : null
+
   if (!slide) return <div className="p-6 text-[var(--ink-40)]">Empty deck.</div>
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Google-Slides-style menu bar above the toolbar, wired to real deck ops. */}
-      <div className="px-2 pt-1.5 pb-1 border-b border-[var(--edge-soft)]">
-        <SlidesMenuBar
+    <div ref={rootRef} className="h-full min-w-0 flex flex-col">
+      <OfficeShellLayout
+        testid="slides-shell"
+        asideLabel="Slides"
+        bar={
+          <ContextBar<DeckCtx>
+            testid="slides-toolbar"
+            tabs={DECK_TABS}
+            ctx={ctx}
+            activeTab={tab}
+            onTabChange={(t) => {
+              setTab(t)
+              writePref(TAB_KEY, t)
+            }}
+            collapsed={collapsed}
+            onCollapsedChange={(v) => {
+              setCollapsed(v)
+              writePref(COLLAPSE_KEY, v)
+            }}
+            menuBar={
+              <SlidesMenuBar
           actions={{
             title,
             undo: undoLast,
@@ -698,50 +921,144 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
             exportFile: (f) => void exportFile(f),
             importFile: () => void importFile()
           }}
-        />
-      </div>
-      <SlidesToolbar
-        onInsertText={insertText}
-        onInsertImage={() => void insertImage()}
-        onInsertShape={insertShape}
-        onInsertLine={insertLine}
-        onApplyLayout={applyLayout}
-        onTemplates={() => setGalleryOpen(true)}
-        onUndo={undoLast}
-        onRedo={redoLast}
-        canUndo={undo.current.length > 0}
-        canRedo={redo.current.length > 0}
-        onPresent={() => setPresenting(true)}
-        onAi={() => setAiOpen((v) => !v)}
-        onImport={() => void importFile()}
-        onExport={(f) => void exportFile(f)}
-      />
-
-      <div className="flex-1 flex min-h-0">
-        {/* Rail */}
-        <div className="w-40 shrink-0 border-r border-[var(--edge-soft)] overflow-auto p-2 space-y-2">
-          {slides.map((s, i) => (
-            <div key={s.id} className="group relative">
-              <button
-                onClick={() => { setSel(i); setSelectedIds([]) }}
-                className={`block w-full rounded-md overflow-hidden border-2 ${i === slideIdx ? 'border-accent' : 'border-[var(--edge-soft)]'}`}
-              >
-                <SlideFace slide={s} theme={theme} width={140} />
-              </button>
-              <span className="absolute top-1 left-1 text-[9px] font-semibold text-white bg-black/40 rounded px-1">{i + 1}</span>
-              <div className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 flex flex-col gap-0.5">
-                <button onClick={() => moveSlide(i, -1)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5" title="Move up"><Icon name="keyboard_arrow_up" size={12} /></button>
-                <button onClick={() => moveSlide(i, 1)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5" title="Move down"><Icon name="keyboard_arrow_down" size={12} /></button>
-                <button onClick={() => duplicateSlide(i)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5" title="Duplicate this slide" data-testid={`slides-duplicate-${i}`}><Icon name="file_copy" size={12} /></button>
-                <button onClick={() => deleteSlide(i)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5 text-red-500" title="Delete" data-testid={`slides-delete-${i}`}><Icon name="close" size={12} /></button>
+              />
+            }
+            pinnedStart={
+              <>
+                <BarButton icon="undo" label="Undo" shortcut="⌘Z" disabled={undo.current.length === 0} onClick={undoLast} testid="slides-undo" />
+                <BarButton icon="redo" label="Redo" shortcut="⇧⌘Z" disabled={redo.current.length === 0} onClick={redoLast} testid="slides-redo" />
+              </>
+            }
+            rightSlot={
+              <>
+                <BarButton icon="play_arrow" label="Present" showLabel onClick={() => setPresenting(true)} testid="slides-present" readOnlySafe />
+                <BarToggle icon="right_panel_open" label="Side pane" pressed={sidePane !== null} onChange={(v) => setSidePane(v ? 'ai' : null)} controls={SIDE_PANE_DOM_ID} testid="slides-sidepane-toggle" readOnlySafe />
+              </>
+            }
+          />
+        }
+        rail={
+          <ToolRail<DeckCtx>
+            testid="slides-rail"
+            items={railItems}
+            ctx={ctx}
+            activeId={railIdForTool(tool)}
+            openPanels={[...openPanels, ...(sidePane === 'ai' ? ['ai'] : [])]}
+            lastUsed={{ shapes: lastShape }}
+            onFlyoutPick={(_f, id) => setLastShape(id)}
+            ariaLabel="Slide tools"
+          />
+        }
+        leftAside={
+          // The navigator (SPEC §1): slide thumbnails, not tools or settings, as in PowerPoint.
+          <div className="w-40 h-full overflow-auto p-2 space-y-2" data-testid="slides-thumbnails">
+            {slides.map((s, i) => (
+              <div key={s.id} className="group relative">
+                <button
+                  onClick={() => { setSel(i); setSelectedIds([]) }}
+                  className={`block w-full rounded-md overflow-hidden border-2 ${i === slideIdx ? 'border-accent' : 'border-[var(--edge-soft)]'}`}
+                  aria-label={`Slide ${i + 1}`}
+                  aria-current={i === slideIdx ? 'true' : undefined}
+                >
+                  <SlideFace slide={s} theme={theme} width={140} />
+                </button>
+                <span className="absolute top-1 left-1 text-[9px] font-semibold text-white bg-black/40 rounded px-1">{i + 1}</span>
+                <div className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 flex flex-col gap-0.5">
+                  <button onClick={() => moveSlide(i, -1)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5" title="Move up"><Icon name="keyboard_arrow_up" size={12} /></button>
+                  <button onClick={() => moveSlide(i, 1)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5" title="Move down"><Icon name="keyboard_arrow_down" size={12} /></button>
+                  <button onClick={() => duplicateSlide(i)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5" title="Duplicate this slide" data-testid={`slides-duplicate-${i}`}><Icon name="file_copy" size={12} /></button>
+                  <button onClick={() => deleteSlide(i)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5 text-red-500" title="Delete" data-testid={`slides-delete-${i}`}><Icon name="close" size={12} /></button>
+                </div>
               </div>
-            </div>
-          ))}
-          <button onClick={() => setGalleryOpen(true)} className="w-full aspect-video rounded-md border-2 border-dashed border-[var(--edge-firm)] text-[var(--ink-40)] hover:text-accent hover:border-accent flex items-center justify-center" data-testid="slides-add">
-            <Icon name="add" size={20} />
-          </button>
-        </div>
-
+            ))}
+            <button onClick={() => setGalleryOpen(true)} className="w-full aspect-video rounded-md border-2 border-dashed border-[var(--edge-firm)] text-[var(--ink-40)] hover:text-accent hover:border-accent flex items-center justify-center" data-testid="slides-add" aria-label="New slide">
+              <Icon name="add" size={20} />
+            </button>
+          </div>
+        }
+        panels={
+          openPanels.length ? (
+            <>
+              <ShellPanel
+                id="layouts"
+                title="Layouts and themes"
+                icon="view_quilt"
+                open={isPanelOpen('layouts')}
+                onClose={() => closePanel('layouts')}
+                pinnable
+                pinned={pinned.includes('layouts')}
+                onPinnedChange={(v) => setPin('layouts', v)}
+                onRectChange={reportPanelRect.layouts}
+                fill
+                testid="slides-panel-layouts"
+              >
+                <LayoutsAndThemes slide={slide} theme={theme} onApplyLayout={applyLayout} onApplyTheme={applyTheme} />
+              </ShellPanel>
+              <ShellPanel
+                id="cells"
+                title="Table cells"
+                icon="edit_note"
+                open={isPanelOpen('cells') && !!tableEl}
+                onClose={() => closePanel('cells')}
+                pinnable
+                pinned={pinned.includes('cells')}
+                onPinnedChange={(v) => setPin('cells', v)}
+                onRectChange={reportPanelRect.cells}
+                testid="slides-panel-cells"
+              >
+                {tableEl && (
+                  <div className="space-y-1 max-h-72 overflow-auto p-2" data-testid="table-cells">
+                    {tableEl.cells.map((row, r) => (
+                      <div key={r} className="flex gap-1">
+                        {row.map((cell, c) => (
+                          <input
+                            key={c}
+                            aria-label={`Row ${r + 1}, column ${c + 1}`}
+                            className="fb-field min-w-0 flex-1 px-1 py-0.5 text-[11px]"
+                            value={cell}
+                            onChange={(e) => {
+                              const next = tableEl.cells.map((rr) => rr.slice())
+                              next[r][c] = e.target.value
+                              updateEl(tableEl.id, { cells: next })
+                            }}
+                          />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ShellPanel>
+            </>
+          ) : undefined
+        }
+        rightPane={
+          <ShellSidePane
+            testid="slides-side-panel"
+            panes={[
+              {
+                id: 'ai',
+                title: 'PlexiiAssist',
+                icon: 'auto_awesome',
+                testid: 'slides-ai-assistant',
+                render: () => <SlideAssistantPane slide={slide} ai={ai} onApplyAi={applyAiResult} onDeckGenerate={() => setSidePane('generate')} />
+              },
+              {
+                id: 'generate',
+                title: 'Generate deck',
+                icon: 'slideshow',
+                testid: 'slides-ai-generate',
+                render: () => (
+                  <div className="p-3">
+                    <AiSlidePanel theme={theme} slideSummary={slideSummary} onApply={applyAi} onClose={() => setSidePane('ai')} />
+                  </div>
+                )
+              }
+            ]}
+            activeId={sidePane}
+            onChange={(id) => setSidePane(id === 'ai' || id === 'generate' ? id : null)}
+          />
+        }
+      >
         {/* Canvas column */}
         <div
           ref={canvasWrap}
@@ -749,7 +1066,8 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
           // no testid, which is why a test aimed at a neighbouring element
           // and reported a working drop as broken.
           data-testid="slides-canvas"
-          className="flex-1 min-w-0 overflow-auto bg-stone-100 dark:bg-stone-950/40 p-4"
+          className="absolute inset-0 min-w-0 overflow-auto bg-stone-100 dark:bg-stone-950/40 p-4"
+          style={panelInset ? { paddingLeft: panelInset + 16 } : undefined}
           // Drag a work widget from the side menu straight onto the slide.
           // Until now the only way in was "Insert work widget from a desk",
           // which could not reach a widget that has no desk — i.e. most of
@@ -773,35 +1091,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
               <button onClick={() => setStatus(null)} className="text-[var(--ink-40)] hover:text-[var(--ink-70)]"><Icon name="close" size={12} /></button>
             </div>
           )}
-          {aiOpen && <AiSlidePanel theme={theme} slideSummary={slideSummary} onApply={applyAi} onClose={() => setAiOpen(false)} />}
-          {selectedIds.length >= 2 && (
-            <div className="mb-2 flex justify-center">
-              <div
-                className="inline-flex items-center gap-0.5 fb-glass-panel rounded-full border border-[color:var(--glass-panel-border)] px-1.5 py-1 shadow-sm"
-                data-testid="slides-align-bar"
-              >
-                <span className="text-[10px] text-[var(--ink-50)] px-1.5">{selectedIds.length} selected</span>
-                <AlignBtn icon="align_horizontal_left" title="Align left edges" onClick={() => doAlign('left')} />
-                <AlignBtn icon="align_horizontal_center" title="Align horizontal centres" onClick={() => doAlign('centerX')} />
-                <AlignBtn icon="align_horizontal_right" title="Align right edges" onClick={() => doAlign('right')} />
-                <span className="w-px h-4 bg-[color-mix(in_oklab,var(--edge-firm)_50%,transparent)] mx-0.5" />
-                <AlignBtn icon="align_vertical_top" title="Align top edges" onClick={() => doAlign('top')} />
-                <AlignBtn icon="align_vertical_center" title="Align vertical centres" onClick={() => doAlign('middleY')} />
-                <AlignBtn icon="align_vertical_bottom" title="Align bottom edges" onClick={() => doAlign('bottom')} />
-                {selectedIds.length >= 3 && (
-                  <>
-                    <span className="w-px h-4 bg-[color-mix(in_oklab,var(--edge-firm)_50%,transparent)] mx-0.5" />
-                    <AlignBtn icon="horizontal_distribute" title="Distribute horizontally" onClick={() => doDistribute('h')} />
-                    <AlignBtn icon="vertical_distribute" title="Distribute vertically" onClick={() => doDistribute('v')} />
-                  </>
-                )}
-                <span className="w-px h-4 bg-[color-mix(in_oklab,var(--edge-firm)_50%,transparent)] mx-0.5" />
-                <AlignBtn icon="group_work" title="Group (⌘G)" onClick={doGroup} testid="slides-group" />
-                {anyGrouped && <AlignBtn icon="category" title="Ungroup (⇧⌘G)" onClick={doUngroup} testid="slides-ungroup" />}
-              </div>
-            </div>
-          )}
-          <div className="flex justify-center">
+          <div className="flex justify-center" data-tool={tool}>
             <SlideCanvas
               slide={slide}
               theme={theme}
@@ -817,12 +1107,17 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
                   return e && e.type === 'text' ? setElementText(e, text) : {}
                 })()))
               }
+              placing={tool === 'select' ? null : { kind: tool, defaultW: TOOL_DEFAULT[tool].w, defaultH: TOOL_DEFAULT[tool].h }}
+              onPlace={placeTool}
             />
           </div>
-          {/* Speaker notes */}
+          {/* Speaker notes stay under the canvas (owner ruling, SPEC §6.4). */}
           <div className="max-w-3xl mx-auto mt-3">
-            <div className="text-[11px] uppercase tracking-wide text-[var(--ink-40)] mb-1">Speaker notes</div>
+            <label htmlFor="slides-notes" className="block text-[11px] uppercase tracking-wide text-[var(--ink-40)] mb-1">Speaker notes</label>
             <textarea
+              id="slides-notes"
+              ref={notesRef}
+              data-testid="slides-notes-editor"
               value={slide.notes}
               onChange={(e) => mutateSlide((s) => ({ ...s, notes: e.target.value }))}
               rows={2}
@@ -831,60 +1126,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
             />
           </div>
         </div>
-
-        {/* Inspector */}
-        <ElementInspector
-          slide={slide}
-          selected={selectedEl}
-          currentThemeId={theme.id}
-          onUpdateElement={updateEl}
-          onStyleText={(id, patch) =>
-            mutateSlide((s) => updateElement(s, id, (() => {
-              const e = (s.elements ?? []).find((x) => x.id === id)
-              return e && e.type === 'text' ? styleTextElement(e, patch) : {}
-            })()))
-          }
-          onAlign={(id, align) =>
-            mutateSlide((s) => updateElement(s, id, (() => {
-              const e = (s.elements ?? []).find((x) => x.id === id)
-              return e && e.type === 'text' ? setParagraphAlign(e, align) : {}
-            })()))
-          }
-          onSetList={(id, style) =>
-            mutateSlide((s) => updateElement(s, id, (() => {
-              const e = (s.elements ?? []).find((x) => x.id === id)
-              return e && e.type === 'text' ? setListStyle(e, style) : {}
-            })()))
-          }
-          onDelete={(id) => { mutateSlide((s) => deleteElement(s, id)); setSelectedIds([]) }}
-          onDuplicate={(id) => {
-            const { slide: ns, newId } = duplicateElement(slide, id)
-            mutateSlide(() => ns)
-            setSelectedIds([newId])
-          }}
-          onReorderZ={(id, dir) => mutateSlide((s) => reorderZ(s, id, dir))}
-          onSetTransition={(t: SlideTransition) => mutateSlide((s) => ({ ...s, transition: t }))}
-          onSetBackground={(color) => mutateSlide((s) => ({ ...s, background: { type: 'solid', color } }))}
-          onApplyTheme={applyTheme}
-          onCrop={(id) => setCropId(id)}
-          onEditChart={(id) => setChartLinkFor(id)}
-          onRefreshChart={(id) => void refreshChart(id)}
-        />
-
-        {/* Persistent AI + properties panel */}
-        <SlidesSidePanel
-          slide={slide}
-          theme={theme}
-          ai={ai}
-          tab={panelTab}
-          onTab={setPanelTab}
-          onApplyLayout={applyLayout}
-          onApplyTheme={applyTheme}
-          onChangeNotes={(notes) => mutateSlide((s) => ({ ...s, notes }))}
-          onApplyAi={applyAiResult}
-          onDeckGenerate={() => setAiOpen(true)}
-        />
-      </div>
+      </OfficeShellLayout>
 
       {galleryOpen && (
         <SlideTemplateGallery theme={theme} onPick={addSlideFromTemplate} onClose={() => setGalleryOpen(false)} />
@@ -967,29 +1209,5 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
         </div>
       )}
     </div>
-  )
-}
-
-// A compact icon button for the multi-select align/distribute toolbar.
-function AlignBtn({
-  icon,
-  title,
-  onClick,
-  testid
-}: {
-  icon: string
-  title: string
-  onClick: () => void
-  testid?: string
-}): JSX.Element {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      data-testid={testid}
-      className="h-6 w-6 inline-flex items-center justify-center rounded-full text-[var(--ink-70)] hover:bg-accent/10 hover:text-accent fb-spring-soft"
-    >
-      <Icon name={icon} size={14} />
-    </button>
   )
 }

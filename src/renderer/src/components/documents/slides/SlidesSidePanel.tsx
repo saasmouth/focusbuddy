@@ -5,18 +5,10 @@ import Icon from '../../Icon'
 import WorkspaceAsk from '../editor/WorkspaceAsk'
 import type { SlideAi } from './useSlideAi'
 
-// The persistent right-side panel for PlexiSlides. It has two parts stacked in
-// one column. The top is an AI Assistant that runs the REAL per-slide assistant
-// (via the SlideAi hook -> window.api.ai) and shows the real result with Apply
-// and Copy. Below it, a Slide | Layout tab pair surfaces the slide's REAL
-// properties (its actual layout, theme colours from the resolved theme, font)
-// and a speaker-notes editor bound to the current slide's notes.
-//
-// Nothing here is fabricated. The properties read the live deck/slide state and
-// the AI actions surface the real model output or the real error. The controls
-// reuse the editor's own applyLayout / applyTheme so there is no duplicated logic.
-
-export type SlidesPanelTab = 'slide' | 'layout'
+// PlexiiDeck's content panes. The AI assistant runs the REAL per-slide
+// assistant (via the SlideAi hook -> window.api.ai) and shows the real result
+// with Apply and Copy; LayoutsAndThemes reuses the editor's own applyLayout /
+// applyTheme. Nothing here is fabricated.
 
 // Human labels for the layout ids, matching the toolbar's Layout menu.
 const LAYOUT_LABELS: Record<SlideLayout, string> = {
@@ -30,23 +22,6 @@ const LAYOUT_LABELS: Record<SlideLayout, string> = {
 }
 
 const LAYOUT_OPTIONS: SlideLayout[] = ['title', 'title-content', 'two-content', 'section', 'image-caption', 'blank']
-
-interface Props {
-  slide: Slide
-  theme: DeckTheme
-  ai: SlideAi
-  tab: SlidesPanelTab
-  onTab: (tab: SlidesPanelTab) => void
-  // Reuse the editor's real mutations rather than re-implementing them here.
-  onApplyLayout: (layout: SlideLayout) => void
-  onApplyTheme: (theme: DeckTheme) => void
-  onChangeNotes: (notes: string) => void
-  // Apply the AI result. The host routes this to the right real mutation based on
-  // the action kind (replace slide text, write notes, or switch theme).
-  onApplyAi: () => void
-  // Open the existing deck-generation panel (AiSlidePanel), kept working.
-  onDeckGenerate: () => void
-}
 
 const actionClass =
   'fb-card flex items-center gap-2 w-full text-left px-3 py-2 text-[12.5px] text-[var(--ink-80)] hover:border-[rgb(var(--accent)/0.5)] hover:bg-[rgb(var(--accent)/0.06)] disabled:opacity-50 fb-spring-soft'
@@ -245,127 +220,10 @@ function AiAssistant({
   )
 }
 
-// A small labelled property row used by the Slide tab.
-function PropRow({
-  label,
-  value,
-  action,
-  onAction,
-  testid
-}: {
-  label: string
-  value: string
-  action: string
-  onAction: () => void
-  testid: string
-}): JSX.Element {
-  return (
-    <div className="flex flex-col gap-1" data-testid={testid}>
-      <span className="text-[10px] uppercase tracking-[0.08em] text-[var(--ink-40)] font-semibold">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--ink-90)]">{value}</span>
-        <button
-          onClick={onAction}
-          className="fb-btn-surface shrink-0 px-2.5 py-1 text-[11.5px] text-[var(--ink-80)] hover:border-[rgb(var(--accent)/0.5)] hover:bg-[rgb(var(--accent)/0.06)]"
-        >
-          {action}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// The Slide tab: the slide's real properties plus the notes editor.
-function SlideTab({
-  slide,
-  theme,
-  onApplyTheme,
-  onChangeNotes,
-  onScrollToLayout
-}: {
-  slide: Slide
-  theme: DeckTheme
-  onApplyTheme: (theme: DeckTheme) => void
-  onChangeNotes: (notes: string) => void
-  onScrollToLayout: () => void
-}): JSX.Element {
-  // The slide's real background label, derived from its actual fill.
-  const bg = slide.background
-  const bgLabel = !bg || bg.type === 'none'
-    ? 'None'
-    : bg.type === 'gradient'
-      ? `Gradient ${bg.color ?? ''}`.trim()
-      : (bg.color ?? theme.background)
-  const layout = (slide.layout ?? 'title-content') as SlideLayout
-
-  return (
-    <div className="flex flex-col gap-4 p-3">
-      <PropRow
-        label="Slide layout"
-        value={LAYOUT_LABELS[layout]}
-        action="Change layout"
-        onAction={onScrollToLayout}
-        testid="slides-prop-layout"
-      />
-      <PropRow
-        label="Background"
-        value={bgLabel}
-        action="Change background"
-        onAction={() => onApplyTheme(theme)}
-        testid="slides-prop-background"
-      />
-
-      <div className="flex flex-col gap-1.5" data-testid="slides-prop-theme">
-        <span className="text-[10px] uppercase tracking-[0.08em] text-[var(--ink-40)] font-semibold">Theme colors</span>
-        <div className="flex items-center gap-2">
-          {[
-            { c: theme.background, t: 'Background' },
-            { c: theme.textColor, t: 'Text' },
-            { c: theme.accent, t: 'Accent' },
-            { c: theme.titleStyle.color ?? theme.textColor, t: 'Title' },
-            { c: theme.bodyStyle.color ?? theme.textColor, t: 'Body' }
-          ].map((s, i) => (
-            <span
-              key={i}
-              title={`${s.t} ${s.c}`}
-              className="h-6 w-6 rounded-full border border-[var(--edge-soft)]"
-              style={{ background: s.c }}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1" data-testid="slides-prop-font">
-        <span className="text-[10px] uppercase tracking-[0.08em] text-[var(--ink-40)] font-semibold">Font</span>
-        <span className="text-[13px] text-[var(--ink-90)]">{theme.fontHeading.split(',')[0].replace(/['"]/g, '')}</span>
-      </div>
-
-      <button
-        onClick={onScrollToLayout}
-        className="fb-btn-surface self-start px-2.5 py-1 text-[11.5px] text-[var(--ink-80)] hover:border-[rgb(var(--accent)/0.5)] hover:bg-[rgb(var(--accent)/0.06)]"
-        data-testid="slides-prop-master"
-      >
-        Master slides
-      </button>
-
-      <div className="flex flex-col gap-1.5 border-t border-[var(--edge-soft)] pt-3">
-        <span className="text-[10px] uppercase tracking-[0.08em] text-[var(--ink-40)] font-semibold">Notes</span>
-        <textarea
-          value={slide.notes}
-          onChange={(e) => onChangeNotes(e.target.value)}
-          rows={4}
-          placeholder="What to actually say on this slide"
-          className="fb-field w-full resize-none px-2.5 py-2 text-[13px]"
-          data-testid="slides-notes-editor"
-        />
-      </div>
-    </div>
-  )
-}
-
-// The Layout tab: the layout presets and the deck themes, both wired to the
-// editor's real applyLayout / applyTheme.
-function LayoutTab({
+// Layouts and themes as visual cards, both wired to the editor's real
+// applyLayout / applyTheme. Shown in the "Layouts and themes" overlay panel
+// (the Design tab's menus are the quick path to the same two actions).
+export function LayoutsAndThemes({
   slide,
   theme,
   onApplyLayout,
@@ -391,7 +249,7 @@ function LayoutTab({
                   ? 'border-[rgb(var(--accent))] bg-[rgb(var(--accent)/0.08)] text-[rgb(var(--accent))]'
                   : 'border-[var(--edge-soft)] text-[var(--ink-80)] hover:border-[rgb(var(--accent)/0.5)] hover:bg-[rgb(var(--accent)/0.06)]'
               }`}
-              data-testid={`slides-layout-${l}`}
+              data-testid={`slides-panel-layout-${l}`}
             >
               {LAYOUT_LABELS[l]}
             </button>
@@ -411,7 +269,7 @@ function LayoutTab({
                   ? 'border-[rgb(var(--accent))] bg-[rgb(var(--accent)/0.08)]'
                   : 'border-[var(--edge-soft)] hover:border-[rgb(var(--accent)/0.5)]'
               }`}
-              data-testid={`slides-theme-${t.id}`}
+              data-testid={`slides-panel-theme-${t.id}`}
             >
               <span className="h-5 w-5 shrink-0 rounded-full border border-[var(--edge-soft)]" style={{ background: t.background }}>
                 <span className="block h-full w-full rounded-full" style={{ boxShadow: `inset 0 0 0 3px ${t.accent}` }} />
@@ -425,56 +283,22 @@ function LayoutTab({
   )
 }
 
-export default function SlidesSidePanel({
+/**
+ * PlexiiAssist for the deck: the per-slide assistant, shown as the AI pane of
+ * the shared right ShellSidePane (owner: AI panels live in the side pane). The
+ * slide's properties that used to sit below it are ContextBar tabs now (D1):
+ * layout, theme, background and font on Design; notes stay under the canvas.
+ */
+export default function SlideAssistantPane({
   slide,
-  theme,
   ai,
-  tab,
-  onTab,
-  onApplyLayout,
-  onApplyTheme,
-  onChangeNotes,
   onApplyAi,
   onDeckGenerate
-}: Props): JSX.Element {
-  const tabBtn = (id: SlidesPanelTab, label: string, testid: string): JSX.Element => (
-    <button
-      onClick={() => onTab(id)}
-      data-testid={testid}
-      className={`flex-1 px-2.5 py-2 text-[12px] font-medium border-b-2 fb-spring-soft ${
-        tab === id
-          ? 'border-[rgb(var(--accent))] text-[rgb(var(--accent))]'
-          : 'border-transparent text-[var(--ink-60)] hover:text-[var(--ink-90)]'
-      }`}
-    >
-      {label}
-    </button>
-  )
-
-  return (
-    <aside
-      className="flex h-full w-80 shrink-0 flex-col overflow-y-auto border-l border-[var(--edge-soft)] bg-[var(--surface-raised)]"
-      aria-label="Slide assistant and properties panel"
-      data-testid="slides-side-panel"
-    >
-      <AiAssistant slide={slide} ai={ai} onApplyAi={onApplyAi} onDeckGenerate={onDeckGenerate} />
-
-      <div className="flex shrink-0 items-center border-b border-[var(--edge-soft)]">
-        {tabBtn('slide', 'Slide', 'slides-tab-slide')}
-        {tabBtn('layout', 'Layout', 'slides-tab-layout')}
-      </div>
-
-      {tab === 'slide' ? (
-        <SlideTab
-          slide={slide}
-          theme={theme}
-          onApplyTheme={onApplyTheme}
-          onChangeNotes={onChangeNotes}
-          onScrollToLayout={() => onTab('layout')}
-        />
-      ) : (
-        <LayoutTab slide={slide} theme={theme} onApplyLayout={onApplyLayout} onApplyTheme={onApplyTheme} />
-      )}
-    </aside>
-  )
+}: {
+  slide: Slide
+  ai: SlideAi
+  onApplyAi: () => void
+  onDeckGenerate: () => void
+}): JSX.Element {
+  return <AiAssistant slide={slide} ai={ai} onApplyAi={onApplyAi} onDeckGenerate={onDeckGenerate} />
 }

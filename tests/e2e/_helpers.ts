@@ -746,3 +746,28 @@ export async function showDocStyles(window: Page): Promise<void> {
   await window.locator('[data-testid="doc-styles-btn"]').click()
   await expect(panel).toBeVisible({ timeout: 5_000 })
 }
+
+/**
+ * PlexiiDeck's wrapper for placeElement (as placeDesign is Design's). Positions
+ * are FRACTIONS of the slide: the canvas is a scaled page, and an absolute
+ * pixel lands outside it and places nothing, which reads exactly like a broken
+ * tool. Coordinates are taken from `slide-canvas` (the shared SlideCanvas's own
+ * stage, where placement and the element boxes live), not `slides-canvas`, the
+ * editor's scrolling wrapper around it.
+ */
+export async function placeSlide(
+  window: Page,
+  tool: string,
+  at?: { fx: number; fy: number },
+  drag?: { dx: number; dy: number }
+): Promise<{ x: number; y: number }> {
+  const canvas = '[data-testid="slide-canvas"]'
+  const box = await window.locator(canvas).boundingBox()
+  if (!box) throw new Error('placeSlide: the slide canvas was not laid out')
+  return placeElement(window, 'slides', tool, {
+    canvas,
+    flyout: 'shapes',
+    ...(at ? { at: { x: box.width * at.fx, y: box.height * at.fy } } : {}),
+    ...(drag ? { drag } : {})
+  })
+}

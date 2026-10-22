@@ -32,6 +32,8 @@ interface AppCase {
   panel: string // that panel's testid
   undo: string
   corner?: string // a control at the bottom-right of the editor (pages bar), which must stay clear of the Plexii pill
+  /** The page the app lays out (a slide, an A4 sheet). With the panel PINNED, none of it may sit under the panel (SPEC §2.4). Infinite canvases omit it (they inset Fit instead). */
+  page?: string
   sidePane?: { toggle: string; pane: string; content: string } // the shared right content pane (ShellSidePane)
 }
 
@@ -77,6 +79,22 @@ const APPS: AppCase[] = [
     // under the Plexii pill, and Write's bottom strip holds only the reading
     // meta, on the left. Naming it here would pass without testing anything.
     sidePane: { toggle: 'doc-sidepane-toggle', pane: 'doc-side-panel', content: 'doc-comments-tab' }
+  },
+  {
+    // PlexiiDeck: the thumbnails are the navigator (leftAside); speaker notes
+    // sit inside the canvas column, not in a bottom strip, so there is no
+    // bottom-right corner control to check; PlexiiAssist is the side pane.
+    name: 'PlexiiDeck',
+    docType: 'slides',
+    shell: 'slides-shell',
+    bar: 'slides-toolbar',
+    rail: 'slides-rail',
+    canvas: 'slides-canvas',
+    panelOpener: 'slides-rail-layouts',
+    panel: 'slides-panel-layouts',
+    undo: 'slides-undo',
+    page: 'slide-canvas',
+    sidePane: { toggle: 'slides-sidepane-toggle', pane: 'slides-side-panel', content: 'slides-ai-assistant' }
   }
 ]
 
@@ -175,6 +193,20 @@ async function checkShell(window: Page, app: AppCase, label: string): Promise<vo
   expect(panel.x, `${label}: panel clear of the rail`).toBeGreaterThanOrEqual(railNow.x + railNow.width - 1)
   expect(panel.y, `${label}: panel below the bar`).toBeGreaterThanOrEqual(barNow.y + barNow.height - 1)
   expect(await onTop(window, t(`${app.panel}-close`)), `${label}: panel close on top`).toBe(true)
+  // A PINNED panel stays while you work, so the page is laid out past it: nothing on the
+  // page sits under it (a marquee started there would hit the panel). SPEC §2.4.
+  if (app.page && (await window.locator(t(`${app.panel}-pin`)).count())) {
+    const pin = window.locator(t(`${app.panel}-pin`))
+    const wasPinned = (await pin.getAttribute('aria-pressed')) === 'true'
+    if (!wasPinned) await pin.click()
+    await expect
+      .poll(async () => {
+        const [pg, pn] = await boxes(window, [t(app.page!), t(app.panel)])
+        return Math.round(pg.x - (pn.x + pn.width))
+      }, { message: `${label}: the page clears a pinned panel`, timeout: 4_000 })
+      .toBeGreaterThanOrEqual(0)
+    if (!wasPinned) await pin.click()
+  }
   await window.locator(t(`${app.panel}-close`)).click()
   await expect(window.locator(t(app.panel))).toHaveCount(0)
 
@@ -184,9 +216,16 @@ async function checkShell(window: Page, app: AppCase, label: string): Promise<vo
   }
 }
 
+/**
+ * The side pane's collapse control, found by the shell's structural hook rather than a
+ * test id: apps may keep a legacy collapse id via ShellSidePane's collapseTestid
+ * (sheet-ai-collapse), so the app-agnostic guard must not assume `${pane}-collapse` (SPEC §2.5a).
+ */
+const collapseSel = (pane: string): string => `[data-testid="${pane}"] [data-shell-role="sidepane-collapse"]`
+
 async function checkSidePane(window: Page, app: AppCase, sp: NonNullable<AppCase['sidePane']>, label: string): Promise<void> {
   const t = (id: string): string => `[data-testid="${id}"]`
-  if (await window.locator(t(sp.pane)).count()) await window.locator(t(`${sp.pane}-collapse`)).click()
+  if (await window.locator(t(sp.pane)).count()) await window.locator(collapseSel(sp.pane)).click()
   await expect(window.locator(t(`${sp.pane}-edge`))).toBeVisible()
   expect(await onTop(window, `${t(`${sp.pane}-edge`)} button`), `${label}: edge tab on top`).toBe(true)
   expect(await onTop(window, t(sp.toggle)), `${label}: side pane toggle on top`).toBe(true)
@@ -198,7 +237,7 @@ async function checkSidePane(window: Page, app: AppCase, sp: NonNullable<AppCase
   if (!(await window.locator(t(sp.pane)).getAttribute('data-sheet'))) {
     expect(pane.x, `${label}: docked side pane sits right of the canvas`).toBeGreaterThanOrEqual(main.x + main.width - 1)
   }
-  expect(await onTop(window, t(`${sp.pane}-collapse`)), `${label}: side pane collapse on top`).toBe(true)
+  expect(await onTop(window, collapseSel(sp.pane)), `${label}: side pane collapse on top`).toBe(true)
   // The pane's bottom-right content area is not under the Plexii pill (it reserves the corner in a full editor).
   const inner = await window.evaluate((sel) => {
     const el = document.querySelector(sel) as HTMLElement
@@ -213,7 +252,7 @@ async function checkSidePane(window: Page, app: AppCase, sp: NonNullable<AppCase
   // The rail stays usable while the pane is open.
   await window.locator(`${t(app.rail)} button[data-rail-kind]`).first().scrollIntoViewIfNeeded() // the rail scrolls at small heights
   expect(await onTop(window, `${t(app.rail)} button[data-rail-kind]`), `${label}: rail on top with the pane open`).toBe(true)
-  await window.locator(t(`${sp.pane}-collapse`)).click()
+  await window.locator(collapseSel(sp.pane)).click()
   await expect(window.locator(t(`${sp.pane}-edge`))).toBeVisible()
 }
 
@@ -337,6 +376,30 @@ async function checkConsistency(window: Page, app: AppCase, theme: Theme, size: 
     expect(await window.locator('#shell-sidepane').count(), `${label}: no side pane in an app without content panes`).toBe(0)
   }
   expect(await window.locator(`${t(app.shell)} [data-testid*="inspector"]:visible`).count(), `${label}: no right inspector left in the shell`).toBe(0)
+
+  // No test id twice in the chrome (bar, rail, navigator, panels, side pane, and any portalled
+  // bar popover). A bespoke control left beside its ribbon twin makes every strict locator time
+  // out. Canvas content repeats ids by design (one slide-element per element) and is not scanned.
+  const dupes = await window.evaluate(
+    ({ shellSel, barSel, railSel }) => {
+      const shell = document.querySelector(shellSel)
+      if (!shell) return [`no ${shellSel}`]
+      const roots: Element[] = [document.querySelector(barSel), document.querySelector(railSel), shell.querySelector('#shell-sidepane'), shell.querySelector('[data-testid$="-panels"]')].filter(
+        (e): e is Element => !!e
+      )
+      // The navigator column (leftAside) is the shell row's child before the main column.
+      const main = shell.querySelector('[data-testid$="-main"]')
+      for (let sib = main?.previousElementSibling; sib; sib = sib.previousElementSibling) if (!sib.matches(railSel)) roots.push(sib)
+      const seen = new Map<string, number>()
+      for (const r of roots) for (const el of [r, ...Array.from(r.querySelectorAll('[data-testid]'))]) {
+        const id = el.getAttribute('data-testid')
+        if (id) seen.set(id, (seen.get(id) ?? 0) + 1)
+      }
+      return [...seen].filter(([, n]) => n > 1).map(([id, n]) => `${id} ×${n}`)
+    },
+    { shellSel: t(app.shell), barSel: t(app.bar), railSel: t(app.rail) }
+  )
+  expect(dupes, `${label}: test ids that appear twice in the chrome:\n${dupes.join('\n')}`).toEqual([])
 
   // D. Contrast and the style fingerprint, read from one frame. Colours are resolved through a canvas so
   // oklch/color-mix tokens compare like rgb; translucent backgrounds are composited up the ancestor chain.
@@ -492,6 +555,23 @@ for (const app of APPS) {
           const r = el.getBoundingClientRect()
           if (r.width && r.right > s.right + 1) bad.push(`inside the shell: ${describe(el)}`)
         }
+        // Vertically too (min-h-0, the same rule): nothing makes a scroll container between the
+        // shell and the widget scroll. If one does, focus scrolls it and the bar slides under the
+        // widget's header (Draw's keys notice did this). Name the deepest elements past its bottom.
+        for (let a: HTMLElement | null = shell.parentElement; a && a !== widget.parentElement; a = a.parentElement) {
+          const oy = getComputedStyle(a).overflowY
+          if ((oy === 'auto' || oy === 'scroll') && a.scrollHeight > a.clientHeight + 1) {
+            const ab = a.getBoundingClientRect()
+            const past = Array.from(shell.querySelectorAll<HTMLElement>('*'))
+              .filter((el) => {
+                const r = el.getBoundingClientRect()
+                return r.height > 0 && r.bottom - ab.top + a!.scrollTop > a!.clientHeight + 1 && getComputedStyle(el).position !== 'absolute'
+              })
+              .slice(0, 3)
+              .map((el) => `${el.dataset.testid ? `[data-testid="${el.dataset.testid}"] ` : ''}<${el.tagName.toLowerCase()} class="${String(el.className).slice(0, 90)}"> ${Math.round(el.getBoundingClientRect().height)}px tall`)
+            bad.push(`the editor is ${a.scrollHeight - a.clientHeight}px taller than its widget, so <${a.tagName.toLowerCase()} class="${String(a.className).slice(0, 60)}"> scrolls (focus can slide the bar under the header); first elements past the bottom: ${past.join(' · ')}`)
+          }
+        }
         return bad
       }, `[data-testid="${app.shell}"]`)
       expect(overflow, `the editor overflows its desk widget (SPEC §6 host rule):\n${overflow.join('\n')}`).toEqual([])
@@ -517,6 +597,19 @@ for (const app of APPS) {
       await window.locator(`[data-testid="${app.panel}-close"]`).click()
       // The side pane opens as a sheet over the narrow canvas, never over the rail or the bar.
       if (app.sidePane) await checkSidePane(window, app, app.sidePane, `${theme} narrow`)
+      // As sheets, whichever opened LAST is on top: a panel opened over the open side pane has a
+      // reachable close, and reopening the side pane puts its collapse back on top (SPEC §2.6).
+      if (app.sidePane) {
+        await window.locator(`[data-testid="${app.sidePane.toggle}"]`).click()
+        await expect(window.locator(`[data-testid="${app.sidePane.content}"]`)).toBeVisible()
+        await window.locator(`[data-testid="${app.panelOpener}"]`).click()
+        await expect(window.locator(`[data-testid="${app.panel}"]`)).toBeVisible()
+        expect(await onTop(window, `[data-testid="${app.panel}-close"]`), 'a panel opened over the side pane: its close is on top').toBe(true)
+        await window.locator(`[data-testid="${app.panel}-close"]`).click()
+        await expect(window.locator(`[data-testid="${app.panel}"]`)).toHaveCount(0)
+        expect(await onTop(window, collapseSel(app.sidePane.pane)), 'with the panel closed, the side pane is usable again').toBe(true)
+        await window.locator(collapseSel(app.sidePane.pane)).click()
+      }
       await checkConsistency(window, app, theme, 'narrow')
     })
   }

@@ -343,7 +343,10 @@ export function BarMenu({ icon, label, showLabel = true, valueLabel, items, ...c
                 <button
                   key={`${it.label}-${i}`}
                   type="button"
-                  role="menuitem"
+                  // An item that can be the current choice (a layout, a theme, a zoom level)
+                  // says so to assistive tech, not only in bold.
+                  role={it.active === undefined ? 'menuitem' : 'menuitemradio'}
+                  aria-checked={it.active === undefined ? undefined : it.active}
                   disabled={it.disabled}
                   data-testid={it.testid}
                   onClick={() => {
@@ -355,6 +358,7 @@ export function BarMenu({ icon, label, showLabel = true, valueLabel, items, ...c
                   <span className="min-w-4 inline-flex justify-center">{it.preview ?? (it.icon ? <Icon name={it.icon} size={15} /> : it.active ? <Icon name="check" size={14} /> : null)}</span>
                   <span className="flex-1">{it.label}</span>
                   {it.shortcut && <span className="text-[var(--ink-40)] fb-tabular">{it.shortcut}</span>}
+                  {it.active && (it.icon || it.preview) && <Icon name="check" size={14} className="text-accent" />}
                 </button>
               )
             )}

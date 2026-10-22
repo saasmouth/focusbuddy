@@ -31,12 +31,18 @@
  * app.evaluate → ipcMain so no live Anthropic calls and no native file dialogs.
  *
  * Drag/move via react-rnd is flaky in headless Electron; position changes are
- * instead exercised through the inspector's numeric inputs (which call the same
- * onUpdateElement code path). This is noted per test where it applies.
+ * instead exercised through the Arrange tab's X/Y/W/H fields (which call the
+ * same onUpdateElement code path). This is noted per test where it applies.
+ *
+ * Office shell (SPEC §6.4): the toolbar and the right inspector are retired.
+ * `slides-toolbar` is now the ContextBar; inserts live on its Insert tab (and as
+ * armed tools on the rail), slide settings on Design, position and order on
+ * Arrange, per-type settings on contextual tabs, and the AI in the right side
+ * pane. Contextual tabs never switch on their own (D3), so tests select them.
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, gotoView } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, gotoView, selectBarTab, placeSlide } from './_helpers'
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -73,6 +79,31 @@ async function waitAndReadBody(window: Page): Promise<unknown> {
   return readBodyFromStore(window)
 }
 
+/** One-shot insert from the Insert tab (the button keeps the old toolbar's meaning). */
+async function insertVia(window: Page, what: 'text' | 'image' | 'table' | 'chart'): Promise<void> {
+  await selectBarTab(window, 'slides-toolbar', 'insert')
+  await window.locator(`[data-testid="slides-insert-${what}"]`).click()
+}
+/** Insert › Shape › <item> ("Rectangle", "Line / arrow", …). */
+async function insertShapeVia(window: Page, item: string): Promise<void> {
+  await selectBarTab(window, 'slides-toolbar', 'insert')
+  await window.locator('[data-testid="slides-insert-shape"]').click()
+  await window.getByRole('menuitem', { name: item, exact: true }).click()
+}
+/** Design › Slide layout › <layout id>. */
+async function applyLayoutVia(window: Page, layout: string): Promise<void> {
+  await selectBarTab(window, 'slides-toolbar', 'design')
+  await window.locator('[data-testid="slides-prop-layout"]').click()
+  await window.locator(`[data-testid="slides-layout-${layout}"]`).click()
+}
+/** The deck-generation pane of the right side pane (it holds slides-ai-panel). */
+async function openDeckGeneration(window: Page): Promise<void> {
+  const pane = window.locator('[data-testid="slides-side-panel"]')
+  if (await pane.isVisible().catch(() => false)) await window.locator('[data-testid="slides-side-panel-tab-generate"]').click()
+  else await window.locator('[data-testid="slides-side-panel-open-generate"]').click()
+  await expect(window.locator('[data-testid="slides-ai-panel"]')).toBeVisible({ timeout: 4_000 })
+}
+
 // ── IPC stubs ─────────────────────────────────────────────────────────────────
 
 async function stubGenerateSlides(
@@ -101,33 +132,34 @@ async function stubSlidesImport(app: LaunchedApp['app'], body: object): Promise<
 
 // ── SL-1: Basic layout ────────────────────────────────────────────────────────
 
-test('SL-1 — blank deck opens with toolbar, slide-canvas, rail, and inspector', async () => {
+test('SL-1 — blank deck opens on the office shell: bar with tabs, rail, slide-canvas, thumbnails, side pane', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
     await openDocumentsHub(window)
     await startBlankSlides(window)
 
-    // Toolbar
-    await expect(window.locator('[data-testid="slides-toolbar"]')).toBeVisible()
-
-    // Canvas
+    const bar = window.locator('[data-testid="slides-toolbar"]')
+    await expect(bar).toBeVisible()
     await expect(window.locator('[data-testid="slide-canvas"]')).toBeVisible()
-
-    // Rail: the add-slide button marks the rail's presence
-    await expect(window.locator('[data-testid="slides-add"]')).toBeVisible()
-
-    // Inspector (no element selected — shows slide-level controls)
-    // The inspector panel has a "Slide transition" select when nothing is selected.
-    await expect(window.locator('text=Slide transition')).toBeVisible({ timeout: 5_000 })
-
-    // Toolbar buttons: Text, Image, Shape, Layout, Present, AI
-    const toolbar = window.locator('[data-testid="slides-toolbar"]')
-    await expect(toolbar.locator('button', { hasText: 'Text' })).toBeVisible()
-    await expect(toolbar.locator('button', { hasText: 'Shape' })).toBeVisible()
-    await expect(toolbar.locator('button', { hasText: 'Layout' })).toBeVisible()
-    await expect(toolbar.locator('button', { hasText: 'Present' })).toBeVisible()
-    await expect(toolbar.locator('button', { hasText: 'AI' })).toBeVisible()
+    // The navigator: thumbnails with the add-slide button.
+    await expect(window.locator('[data-testid="slides-thumbnails"] [data-testid="slides-add"]')).toBeVisible()
+    // The tabs (D2: menus and tabs on one row), Undo/Redo pinned, Present in the right slot.
+    for (const t of ['home', 'insert', 'design', 'arrange', 'animations', 'review']) {
+      await expect(window.locator(`[data-testid="slides-toolbar-tab-${t}"]`)).toBeVisible()
+    }
+    await expect(window.locator('[data-testid="slides-undo"]')).toBeVisible()
+    await expect(bar.locator('button', { hasText: 'Present' })).toBeVisible()
+    // The rail: Select and the armed Text tool.
+    await expect(window.locator('[data-testid="slides-rail"] [data-testid="slides-tool-select"]')).toBeVisible()
+    await expect(window.locator('[data-testid="slides-tool-text"]')).toBeVisible()
+    // The retired inspector is gone (D1); PlexiiAssist is the right side pane.
+    await expect(window.locator('[data-testid="element-inspector"]')).toHaveCount(0)
+    await expect(window.locator('[data-testid="slides-side-panel"] [data-testid="slides-ai-assistant"]')).toBeVisible()
+    // Slide-level settings live on Design now.
+    await selectBarTab(window, 'slides-toolbar', 'design')
+    await expect(window.locator('[data-testid="slides-prop-transition"]')).toBeVisible()
+    await expect(window.locator('[data-testid="slides-prop-theme"]')).toBeVisible()
   } finally {
     await dispose()
   }
@@ -151,9 +183,8 @@ test('SL-2 — insert text box via toolbar; slide-element appears and persists t
     const beforeCount = ((before as { slides?: Array<{ elements?: unknown[] }> })?.slides?.[0]?.elements ?? []).length
     expect(beforeCount, 'blank deck starts with placeholder elements').toBeGreaterThan(0)
 
-    // Click the Text button in the toolbar
-    const toolbar = window.locator('[data-testid="slides-toolbar"]')
-    await toolbar.locator('button', { hasText: 'Text' }).first().click()
+    // Insert › Text box
+    await insertVia(window, 'text')
     await window.waitForTimeout(300)
 
     // A new slide-element with eltype="text" should appear on the canvas.
@@ -181,7 +212,7 @@ test('SL-2 — insert text box via toolbar; slide-element appears and persists t
 
 // ── SL-3: Insert shape and line ───────────────────────────────────────────────
 
-test('SL-3 — insert Rectangle shape and line via Shape menu; elements added with correct eltype', async () => {
+test('SL-3 — insert Rectangle shape and line via Insert › Shape; elements added with correct eltype', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
@@ -189,24 +220,16 @@ test('SL-3 — insert Rectangle shape and line via Shape menu; elements added wi
     await startBlankSlides(window)
     await window.waitForTimeout(500)
 
-    const toolbar = window.locator('[data-testid="slides-toolbar"]')
-
-    // Open Shape menu
-    await toolbar.locator('button', { hasText: 'Shape' }).first().click()
-    await expect(window.locator('text=Rectangle')).toBeVisible({ timeout: 3_000 })
-
-    // Click Rectangle
-    await window.locator('text=Rectangle').click()
+    // Insert › Shape › Rectangle
+    await insertShapeVia(window, 'Rectangle')
     await window.waitForTimeout(300)
 
     // A shape element should appear
     const shapeEls = window.locator('[data-testid="slide-element"][data-eltype="shape"]')
     await expect(shapeEls.first()).toBeVisible({ timeout: 3_000 })
 
-    // Open Shape menu again and insert a line
-    await toolbar.locator('button', { hasText: 'Shape' }).first().click()
-    await expect(window.locator('text=Line / arrow')).toBeVisible({ timeout: 3_000 })
-    await window.locator('text=Line / arrow').click()
+    // Insert › Shape › Line / arrow
+    await insertShapeVia(window, 'Line / arrow')
     await window.waitForTimeout(300)
 
     // Line elements are inserted with h:0 (a horizontal line), which means their
@@ -231,7 +254,7 @@ test('SL-3 — insert Rectangle shape and line via Shape menu; elements added wi
 
 // ── SL-4: Inspector — select element, change position ─────────────────────────
 
-test('SL-4 — select element; inspector shows controls; change x via inspector input and it persists', async () => {
+test('SL-4 — select element; Arrange shows its position; change X and it persists', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
@@ -240,32 +263,21 @@ test('SL-4 — select element; inspector shows controls; change x via inspector 
     await window.waitForTimeout(400)
 
     // Insert a shape so we have a clean, user-inserted element to target.
-    const toolbar = window.locator('[data-testid="slides-toolbar"]')
-    await toolbar.locator('button', { hasText: 'Shape' }).first().click()
-    await window.locator('text=Rectangle').click()
+    await insertShapeVia(window, 'Rectangle')
     await window.waitForTimeout(300)
 
-    // The newly-inserted shape is auto-selected (insertShape calls setSelectedElId).
-    // The element-inspector should now be visible with numeric inputs.
-    const inspector = window.locator('[data-testid="element-inspector"]')
-    await expect(inspector).toBeVisible({ timeout: 4_000 })
-
-    // Inspector shows "Position & size" section with 4 number inputs (x, y, w, h).
-    const numInputs = inspector.locator('input[type="number"]')
-    await expect(numInputs.first()).toBeVisible({ timeout: 3_000 })
-
-    // Read the current x value from the first input (x position).
-    const xInput = numInputs.nth(0)
+    // The new shape is auto-selected; its position and size are on the Arrange tab.
+    await selectBarTab(window, 'slides-toolbar', 'arrange')
+    const xInput = window.locator('[data-testid="slides-x"]')
+    await expect(xInput).toBeEnabled({ timeout: 4_000 })
     const originalX = await xInput.inputValue()
 
     // Set a new x value (300 is distinctly different from the default 440).
     await xInput.fill('300')
-    await xInput.press('Tab') // blur triggers onChange
+    await xInput.press('Tab') // blur commits the field
     await window.waitForTimeout(300)
 
-    // The input should now show 300.
-    const updatedX = await xInput.inputValue()
-    expect(Number(updatedX), 'inspector x input updated to 300').toBe(300)
+    expect(Number(await xInput.inputValue()), 'Arrange X field shows 300').toBe(300)
     expect(Number(originalX), 'original x was different from 300').not.toBe(300)
 
     // Wait for autosave and confirm persistence.
@@ -411,7 +423,7 @@ test('SL-6 — add slide via slides-add gallery; body.slides length increases; s
 
 // ── SL-7: Apply theme ─────────────────────────────────────────────────────────
 
-test('SL-7 — apply a theme from the inspector (no element selected); body.theme changes', async () => {
+test('SL-7 — apply a theme from Design › Theme; body.theme changes', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
@@ -428,11 +440,6 @@ test('SL-7 — apply a theme from the inspector (no element selected); body.them
     }
     await window.waitForTimeout(200)
 
-    // The slide-level inspector should be showing (no element-inspector testid).
-    // Scope to the inspector's exact "Theme" label so the side panel's
-    // "Theme colors" property heading does not make this an ambiguous match.
-    await expect(window.getByText('Theme', { exact: true })).toBeVisible({ timeout: 4_000 })
-
     // Read the current theme from the body.
     const bodyBefore = (await readBodyFromStore(window)) as {
       theme?: string
@@ -440,8 +447,10 @@ test('SL-7 — apply a theme from the inspector (no element selected); body.them
     // Default theme is 'plexi-default'.
     const beforeTheme = bodyBefore?.theme ?? 'plexi-default'
 
-    // Click the "Midnight" theme button. BUILTIN_THEMES has id='midnight', name='Midnight'.
-    await window.locator('button', { hasText: 'Midnight' }).first().click()
+    // Design › Theme › Midnight (BUILTIN_THEMES id 'midnight').
+    await selectBarTab(window, 'slides-toolbar', 'design')
+    await window.locator('[data-testid="slides-prop-theme"]').click()
+    await window.locator('[data-testid="slides-theme-midnight"]').click()
     await window.waitForTimeout(300)
 
     // Wait for autosave then check the persisted body.theme.
@@ -455,7 +464,7 @@ test('SL-7 — apply a theme from the inspector (no element selected); body.them
 
 // ── SL-8: Apply layout ────────────────────────────────────────────────────────
 
-test('SL-8 — apply Layout from toolbar; slide elements change to layout presets', async () => {
+test('SL-8 — apply a layout from Design › Slide layout; slide elements change to layout presets', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
@@ -472,10 +481,7 @@ test('SL-8 — apply Layout from toolbar; slide elements change to layout preset
 
     // Open the Layout menu and choose "Blank" — blank layout produces 0 elements,
     // which is a deterministic outcome we can assert without ambiguity.
-    const toolbar = window.locator('[data-testid="slides-toolbar"]')
-    await toolbar.locator('button', { hasText: 'Layout' }).first().click()
-    await expect(window.locator('text=Blank')).toBeVisible({ timeout: 3_000 })
-    await window.locator('text=Blank').click()
+    await applyLayoutVia(window, 'blank')
     await window.waitForTimeout(300)
 
     // After "Blank" layout the slide should have 0 elements.
@@ -515,8 +521,7 @@ test('SL-9 — Cmd/Ctrl+Z undoes the last change', async () => {
     expect(beforeCount, 'blank deck has placeholder elements').toBeGreaterThan(0)
 
     // Insert a text element — this is the operation we will undo.
-    const toolbar = window.locator('[data-testid="slides-toolbar"]')
-    await toolbar.locator('button', { hasText: 'Text' }).first().click()
+    await insertVia(window, 'text')
 
     // Confirm via the React state that a new element was committed — we check
     // the stored body after insert (debounce fires after 600ms).
@@ -618,7 +623,7 @@ test('SL-10 — Present mode: overlay appears, arrow key advances slides, Escape
 
 // ── SL-11: AI slide generation (stubbed) ─────────────────────────────────────
 
-test('SL-11 — AI stub: open slides-ai-panel, generate, thumbnails show, Apply replaces deck', async () => {
+test('SL-11 — AI stub: open deck generation in the side pane, generate, thumbnails show, Apply replaces deck', async () => {
   const { app, window, dispose } = await launchApp()
   try {
     await waitForReady(window)
@@ -694,10 +699,8 @@ test('SL-11 — AI stub: open slides-ai-panel, generate, thumbnails show, Apply 
     // Stub the IPC handler before opening the AI panel.
     await stubGenerateSlides(app, fakeDeckBody)
 
-    // Open the AI panel by clicking the AI button.
-    const toolbar = window.locator('[data-testid="slides-toolbar"]')
-    await toolbar.locator('button', { hasText: 'AI' }).first().click()
-    await expect(window.locator('[data-testid="slides-ai-panel"]')).toBeVisible({ timeout: 4_000 })
+    // Open deck generation in the right side pane (AI lives in ShellSidePane).
+    await openDeckGeneration(window)
 
     // Fill the prompt textarea.
     const aiPanel = window.locator('[data-testid="slides-ai-panel"]')
@@ -718,8 +721,9 @@ test('SL-11 — AI stub: open slides-ai-panel, generate, thumbnails show, Apply 
     await window.locator('[data-testid="slides-ai-apply"]').click()
     await window.waitForTimeout(300)
 
-    // Panel closes.
+    // The generation pane hands back to PlexiiAssist.
     await expect(window.locator('[data-testid="slides-ai-panel"]')).not.toBeVisible({ timeout: 3_000 })
+    await expect(window.locator('[data-testid="slides-ai-assistant"]')).toBeVisible()
 
     // The deck is now the AI-generated one — body.theme should be 'midnight'
     // and body.slides should have 2 slides.
@@ -748,30 +752,16 @@ test('SL-12 — interop: export stub shows path in slides-status; import stub lo
     const fakePath = '/tmp/MyPresentation.pptx'
     await stubSlidesExport(app, fakePath)
 
-    // The IO menu button in SlidesToolbar is inside the ml-auto container, before
-    // the AI and Present buttons. It renders no visible text — just a Material
-    // Symbols icon glyph. In the DOM: it's the first button child of the div
-    // that has class "ml-auto". Use evaluate to find it and click programmatically.
-    const toolbar = window.locator('[data-testid="slides-toolbar"]')
-
-    // Helper: open the IO dropdown and assert a menu item is visible.
-    async function openIoMenu(): Promise<void> {
-      // The IO button is the first button in the ml-auto flex container in the toolbar.
-      await window.evaluate(() => {
-        const tb = document.querySelector('[data-testid="slides-toolbar"]')
-        if (!tb) throw new Error('toolbar not found')
-        const mlAuto = tb.querySelector('.ml-auto')
-        if (!mlAuto) throw new Error('ml-auto container not found in toolbar')
-        const btn = mlAuto.querySelector('button') as HTMLButtonElement | null
-        if (!btn) throw new Error('IO button not found in ml-auto')
-        btn.click()
-      })
-      await window.waitForTimeout(200)
+    // Import and export live in the menu bar's File menu (the toolbar's folder
+    // menu retired with the toolbar).
+    async function fileMenu(): Promise<void> {
+      await window.locator('[data-testid="slides-menubar-file"]').click()
+      await expect(window.locator('[data-testid="slides-menubar-file-list"]')).toBeVisible({ timeout: 4_000 })
     }
 
-    await openIoMenu()
-    await expect(window.locator('text=Export .pptx')).toBeVisible({ timeout: 4_000 })
-    await window.locator('text=Export .pptx').click()
+    await fileMenu()
+    await window.locator('[data-testid="slides-menubar-file-list"]').getByText('Download', { exact: true }).hover()
+    await window.getByText('PowerPoint (.pptx)', { exact: true }).click()
     await window.waitForTimeout(300)
 
     // slides-status should show the exported path.
@@ -822,9 +812,8 @@ test('SL-12 — interop: export stub shows path in slides-status; import stub lo
     await stubSlidesImport(app, importBody)
 
     // Open IO menu again and click Import.
-    await openIoMenu()
-    await expect(window.locator('text=Import .pptx')).toBeVisible({ timeout: 4_000 })
-    await window.locator('text=Import .pptx').click()
+    await fileMenu()
+    await window.locator('[data-testid="slides-menubar-file-list"]').getByText('Import (.pptx)', { exact: true }).click()
     await window.waitForTimeout(500)
 
     // Status should mention "Imported".
@@ -919,16 +908,13 @@ test('SL-14 — smart guides: slide-guide appears when element is near snap targ
     await startBlankSlides(window)
     await window.waitForTimeout(400)
 
-    const toolbar = window.locator('[data-testid="slides-toolbar"]')
 
     // Insert a first shape (rect at default 440, 240).
-    await toolbar.locator('button', { hasText: 'Shape' }).first().click()
-    await window.locator('text=Rectangle').click()
+    await insertShapeVia(window, 'Rectangle')
     await window.waitForTimeout(300)
 
     // Insert a second shape by clicking Shape again.
-    await toolbar.locator('button', { hasText: 'Shape' }).first().click()
-    await window.locator('text=Rectangle').click()
+    await insertShapeVia(window, 'Rectangle')
     await window.waitForTimeout(400)
 
     // We now have at least two shape elements on the canvas. Use evaluate to
@@ -996,22 +982,17 @@ test('SL-15 — keyboard: ArrowRight nudges selected element; Cmd+D duplicates; 
     await startBlankSlides(window)
 
     // Apply a blank layout to get a clean slate with zero elements.
-    const toolbar = window.locator('[data-testid="slides-toolbar"]')
-    await toolbar.locator('button', { hasText: 'Layout' }).first().click()
-    await expect(window.locator('text=Blank')).toBeVisible({ timeout: 3_000 })
-    await window.locator('text=Blank').click()
+    await applyLayoutVia(window, 'blank')
     await window.waitForTimeout(300)
 
     // Insert one shape — it gets auto-selected (insertShape calls setSelectedElId).
-    await toolbar.locator('button', { hasText: 'Shape' }).first().click()
-    await window.locator('text=Rectangle').click()
+    await insertShapeVia(window, 'Rectangle')
     await window.waitForTimeout(400)
 
-    // Read its initial x from the inspector.
-    const inspector = window.locator('[data-testid="element-inspector"]')
-    await expect(inspector).toBeVisible({ timeout: 4_000 })
-    const xInput = inspector.locator('input[type="number"]').nth(0)
-    await expect(xInput).toBeVisible({ timeout: 3_000 })
+    // Read its initial x from the Arrange tab.
+    await selectBarTab(window, 'slides-toolbar', 'arrange')
+    const xInput = window.locator('[data-testid="slides-x"]')
+    await expect(xInput).toBeEnabled({ timeout: 4_000 })
     const initX = Number(await xInput.inputValue())
 
     // Dispatch ArrowRight 5 times via document keydown to the slides editor.
@@ -1025,7 +1006,7 @@ test('SL-15 — keyboard: ArrowRight nudges selected element; Cmd+D duplicates; 
     }
     await window.waitForTimeout(500)
 
-    // Inspector x should have increased by 5.
+    // The Arrange X field should have increased by 5.
     const afterX = Number(await xInput.inputValue())
     expect(afterX, 'ArrowRight nudged x by 5').toBe(initX + 5)
 
@@ -1105,9 +1086,7 @@ test('SL-16 — palette: scope chip reads "Slides"; "present" and "insert" surfa
     await expect(palette).not.toBeVisible({ timeout: 3_000 })
 
     // Insert a shape to get a selection, then re-open palette and test selection-only commands.
-    const toolbar = window.locator('[data-testid="slides-toolbar"]')
-    await toolbar.locator('button', { hasText: 'Shape' }).first().click()
-    await window.locator('text=Rectangle').click()
+    await insertShapeVia(window, 'Rectangle')
     await window.waitForTimeout(400)
 
     await window.keyboard.press('Meta+k')
@@ -1137,7 +1116,7 @@ test('SL-16 — palette: scope chip reads "Slides"; "present" and "insert" surfa
 
 // ── Wave: multi-select, align/distribute, grouping ───────────────────────────
 
-test('SL-17 — multi-select via marquee, align left, and group round-trip', async () => {
+test('SL-17 — multi-select via marquee, Arrange › Align left, and group round-trip', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
@@ -1145,15 +1124,11 @@ test('SL-17 — multi-select via marquee, align left, and group round-trip', asy
     await startBlankSlides(window)
 
     // Clean slate: a blank layout with no elements.
-    const toolbar = window.locator('[data-testid="slides-toolbar"]')
-    await toolbar.locator('button', { hasText: 'Layout' }).first().click()
-    await expect(window.locator('text=Blank')).toBeVisible({ timeout: 3_000 })
-    await window.locator('text=Blank').click()
+    await applyLayoutVia(window, 'blank')
     await window.waitForTimeout(300)
 
     // Shape 1, nudged +100 in x so the two shapes sit at different left edges.
-    await toolbar.locator('button', { hasText: 'Shape' }).first().click()
-    await window.locator('text=Rectangle').click()
+    await insertShapeVia(window, 'Rectangle')
     await window.waitForTimeout(300)
     for (let i = 0; i < 10; i++) {
       await window.evaluate(() =>
@@ -1162,8 +1137,7 @@ test('SL-17 — multi-select via marquee, align left, and group round-trip', asy
       await window.waitForTimeout(20)
     }
     // Shape 2 at the default position.
-    await toolbar.locator('button', { hasText: 'Shape' }).first().click()
-    await window.locator('text=Rectangle').click()
+    await insertShapeVia(window, 'Rectangle')
     await window.waitForTimeout(300)
     await expect(window.locator('[data-testid="slide-element"]')).toHaveCount(2)
 
@@ -1175,12 +1149,14 @@ test('SL-17 — multi-select via marquee, align left, and group round-trip', asy
     await window.mouse.move(box.x + box.width - 4, box.y + box.height - 4, { steps: 10 })
     await window.mouse.up()
 
-    const alignBar = window.locator('[data-testid="slides-align-bar"]')
-    await expect(alignBar).toBeVisible({ timeout: 3_000 })
-    await expect(alignBar).toContainText('2 selected')
+    // Both are selected: Arrange's Group needs two or more.
+    await selectBarTab(window, 'slides-toolbar', 'arrange')
+    const group = window.locator('[data-testid="slides-group"]')
+    await expect(group).toBeEnabled({ timeout: 3_000 })
 
     // Align left: the two elements should end with the same left edge.
-    await window.getByTitle('Align left edges').click()
+    await window.locator('[data-testid="slides-align-menu"]').click()
+    await window.getByRole('menuitem', { name: 'Align left edges', exact: true }).click()
     await window.waitForTimeout(300)
     const els = window.locator('[data-testid="slide-element"]')
     const b0 = (await els.nth(0).boundingBox())!
@@ -1188,15 +1164,15 @@ test('SL-17 — multi-select via marquee, align left, and group round-trip', asy
     expect(Math.abs(b0.x - b1.x), 'left edges aligned').toBeLessThan(3)
 
     // Group the two, deselect, then a single click on one selects the whole group.
-    await window.locator('[data-testid="slides-group"]').click()
+    await group.click()
     await window.waitForTimeout(200)
     await window.evaluate(() =>
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     ) // Escape clears the selection
-    await expect(alignBar).toHaveCount(0)
+    await expect(window.locator('[data-testid="slides-el-delete"]')).toBeDisabled()
     await els.first().click({ force: true })
-    await expect(alignBar).toBeVisible({ timeout: 3_000 })
-    await expect(alignBar).toContainText('2 selected')
+    await expect(group).toBeEnabled({ timeout: 3_000 }) // two selected again: the whole group
+    await expect(window.locator('[data-testid="slides-ungroup"]')).toBeEnabled()
   } finally {
     await dispose()
   }
@@ -1208,13 +1184,9 @@ test('SL-18 — element framing: drop shadow and corner radius render on a shape
     await waitForReady(window)
     await openDocumentsHub(window)
     await startBlankSlides(window)
-    const toolbar = window.locator('[data-testid="slides-toolbar"]')
-    await toolbar.locator('button', { hasText: 'Layout' }).first().click()
-    await expect(window.locator('text=Blank')).toBeVisible({ timeout: 3_000 })
-    await window.locator('text=Blank').click()
+    await applyLayoutVia(window, 'blank')
     await window.waitForTimeout(200)
-    await toolbar.locator('button', { hasText: 'Shape' }).first().click()
-    await window.locator('text=Rectangle').click()
+    await insertShapeVia(window, 'Rectangle')
     await window.waitForTimeout(300)
 
     const el = window.locator('[data-testid="slide-element"]').first()
@@ -1226,11 +1198,14 @@ test('SL-18 — element framing: drop shadow and corner radius render on a shape
       )
     expect(await anyShadow(), 'no shadow before').toBe(false)
 
+    // Frame controls are on the Arrange tab.
+    await selectBarTab(window, 'slides-toolbar', 'arrange')
     await window.locator('[data-testid="inspector-shadow"]').selectOption('lg')
     await window.waitForTimeout(250)
     expect(await anyShadow(), 'shadow renders after selecting lg').toBe(true)
 
-    await window.locator('[data-testid="inspector-frame"] input[type="number"]').fill('40')
+    await window.locator('[data-testid="slides-radius"]').fill('40')
+    await window.locator('[data-testid="slides-radius"]').press('Enter')
     await window.waitForTimeout(250)
     const hasRadius = await el.evaluate((node) =>
       [node, ...Array.from(node.querySelectorAll('*'))].some(
@@ -1259,10 +1234,11 @@ test('SL-19b — image crop: insert an image, crop it with the drag-handle dialo
     })
 
     // Insert the image via the toolbar; it auto-selects, so the inspector shows.
-    await window.locator('[data-testid="slides-toolbar"]').locator('button', { hasText: 'Image' }).first().click()
+    await insertVia(window, 'image')
     await expect(window.locator('[data-testid="slide-element"][data-eltype="image"]')).toBeVisible({ timeout: 8_000 })
 
-    // Open the crop editor from the inspector.
+    // Open the crop editor from the contextual Image tab (D3: it does not open itself).
+    await selectBarTab(window, 'slides-toolbar', 'image')
     await window.locator('[data-testid="inspector-crop"]').click()
     await expect(window.locator('[data-testid="slides-crop-dialog"]')).toBeVisible({ timeout: 4_000 })
 
@@ -1325,9 +1301,7 @@ test('SL-20 — AI: "Make this slide beautiful" redesigns the current slide via 
     await stubGenerateSlides(app, redesigned)
 
     // Open the AI panel, switch to redesign, click the one-click beautify.
-    const toolbar = window.locator('[data-testid="slides-toolbar"]')
-    await toolbar.locator('button', { hasText: 'AI' }).first().click()
-    await expect(window.locator('[data-testid="slides-ai-panel"]')).toBeVisible({ timeout: 4_000 })
+    await openDeckGeneration(window)
     await window.locator('[data-testid="slides-ai-panel"]').locator('button', { hasText: 'redesign' }).first().click()
 
     await window.locator('[data-testid="slides-ai-beautify"]').click()
@@ -1341,3 +1315,55 @@ test('SL-20 — AI: "Make this slide beautiful" redesigns the current slide via 
     await dispose()
   }
 })
+
+// ── SL-21: armed tools (office shell, D4) ────────────────────────────────────
+
+test('SL-21 — armed tools: click places, drag sizes, back to Select; double-click locks; Esc and the suite keys', async () => {
+  const { window, dispose } = await launchApp()
+  try {
+    await waitForReady(window)
+    await openDocumentsHub(window)
+    await startBlankSlides(window)
+    await applyLayoutVia(window, 'blank') // an empty slide, so every element counted is one we placed
+    await expect(window.locator('[data-testid="slide-element"]')).toHaveCount(0)
+    const placing = (): Promise<string | null> => window.locator('[data-testid="slide-canvas"] [data-placing]').first().getAttribute('data-placing').catch(() => null)
+
+    // Click to place: the rail's Rectangle (the shapes group's visible member) arms; one click places the default size.
+    await placeSlide(window, 'rect', { fx: 0.5, fy: 0.5 })
+    await expect(window.locator('[data-testid="slide-element"][data-eltype="shape"]')).toHaveCount(1)
+    await expect(window.locator('[data-testid="slide-canvas"] [data-placing]')).toHaveCount(0) // back to Select
+    await expect(window.locator('[data-testid="slides-tool-select"]')).toHaveAttribute('aria-pressed', 'true')
+
+    // Drag to size, with a tool picked from the flyout (it becomes the group's visible member).
+    const box = (await window.locator('[data-testid="slide-canvas"]').boundingBox())!
+    await placeSlide(window, 'ellipse', { fx: 0.1, fy: 0.1 }, { dx: box.width * 0.25, dy: box.height * 0.2 })
+    await expect(window.locator('[data-testid="slide-element"][data-eltype="shape"]')).toHaveCount(2)
+    await expect(window.locator('[data-testid="slides-tool-ellipse"]')).toBeVisible()
+    const body = (await waitAndReadBody(window)) as { slides?: Array<{ elements?: Array<{ shape?: string; w: number; h: number }> }> }
+    const ellipse = body.slides![0]!.elements!.find((e) => e.shape === 'ellipse')!
+    // 1280 logical px across the canvas: the drawn size, not the 400×240 default.
+    expect(Math.abs(ellipse.w - 1280 * 0.25)).toBeLessThan(24)
+    expect(Math.abs(ellipse.h - 720 * 0.2)).toBeLessThan(24)
+
+    // Double-click locks the tool until Esc: two clicks, two text boxes, still armed.
+    await window.locator('[data-testid="slides-tool-text"]').dblclick()
+    await expect.poll(placing).toBe('text')
+    await window.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.75)
+    await window.mouse.click(box.x + box.width * 0.6, box.y + box.height * 0.9)
+    await expect(window.locator('[data-testid="slide-element"][data-eltype="text"]')).toHaveCount(2)
+    expect(await placing()).toBe('text')
+    await window.keyboard.press('Escape')
+    await expect(window.locator('[data-testid="slide-canvas"] [data-placing]')).toHaveCount(0)
+
+    // The suite keys: M arms Rectangle (and the rail shows it), V returns to Select.
+    await window.locator('[data-testid="slide-canvas"]').hover()
+    await window.keyboard.press('m')
+    await expect.poll(placing).toBe('rect')
+    await expect(window.locator('[data-testid="slides-tool-rect"]')).toHaveAttribute('aria-pressed', 'true')
+    await window.keyboard.press('v')
+    await expect(window.locator('[data-testid="slide-canvas"] [data-placing]')).toHaveCount(0)
+  } finally {
+    await dispose()
+  }
+})
+
