@@ -2,8 +2,11 @@
 // there is none.
 //
 // Entities are the things with a name a person would point at: an app, a work
-// widget kind, a tool, a connected app. Generic glyphs (close, chevrons, edit,
-// section furniture) are not entities and keep their Material Symbols.
+// widget kind, a tool, a connected app. Since the owner's 22 Oct 2026 delivery
+// the set also draws PLACES (side-menu destinations, Focus filters, section
+// heads, People and PlexiiBrain rows, Bring-in actions, hubs, tour modules),
+// Suite PRODUCTS and Home ACTION tiles. Generic glyphs (close, chevrons,
+// collapse, edit) are none of these and keep their Material Symbols.
 //
 // Every entry is DECLARED. An entity either names an asset key from the
 // generated index (lib/plexiiIconAssets.generated.ts, built by
@@ -23,7 +26,7 @@ import { catalogFor } from './widgetCatalog'
 import { findStandardApp } from './standardApps'
 import type { SegmentKind } from './segmentApps'
 
-export type PlexiiIconKind = 'app' | 'widget' | 'tool' | 'connected'
+export type PlexiiIconKind = 'app' | 'widget' | 'tool' | 'connected' | 'place' | 'product' | 'action'
 
 export interface EntityIconEntry {
   /** Key into PLEXII_ICON_ASSETS, or null: the current glyph is kept on purpose. */
@@ -80,6 +83,144 @@ export const TOOL_ICONS = {
 
 export type PlexiiToolId = keyof typeof TOOL_ICONS
 
+// ── Places ───────────────────────────────────────────────────────────────────
+//
+// Where the menus and hubs go, and the menu actions that are not an entity
+// (New desk, Import…). All line glyphs, tinted per theme like the tools. Ids
+// here are this map's own; they are never shown and never stored.
+
+export const PLACE_ICONS = {
+  // Side menu: Desk section, header and workspace switcher.
+  home: { asset: 'side-menu/home', fallback: 'plexii:home', label: 'Home' },
+  focus: { asset: 'side-menu/focus', fallback: 'notifications', label: 'Focus' },
+  rooms: { asset: 'side-menu/rooms', fallback: 'meeting_room', label: 'Rooms' },
+  desks: { asset: 'side-menu/desks', fallback: 'desk', label: 'Desks' },
+  'all-desks': { asset: 'side-menu/all-desks', fallback: 'desk', label: 'All desks' },
+  trash: { asset: 'side-menu/trash', fallback: 'delete', label: 'Trash' },
+  'new-desk': { asset: 'side-menu/new-desk', fallback: 'add', label: 'New desk' },
+  'manage-organisation': { asset: 'side-menu/manage-organisation', fallback: 'settings', label: 'Manage organisation' },
+  // Focus filters (lib/attentionQueues ATTENTION_FILTERS).
+  'focus-open': { asset: 'focus-filters/open', fallback: 'radio_button_unchecked', label: 'Open' },
+  'focus-due-today': { asset: 'focus-filters/due-today', fallback: 'today', label: 'Due today' },
+  'focus-overdue': { asset: 'focus-filters/overdue', fallback: 'alarm', label: 'Overdue' },
+  'focus-in-progress': { asset: 'focus-filters/in-progress', fallback: 'pending', label: 'In progress' },
+  'focus-waiting': { asset: 'focus-filters/waiting', fallback: 'hourglass_empty', label: 'Waiting' },
+  'focus-closed-7d': { asset: 'focus-filters/closed-in-the-last-7-days', fallback: 'check_circle', label: 'Closed in the last 7 days' },
+  // Side-menu section heads that are groupings, not apps (Desk and PlexiiBrain
+  // heads wear their app tiles).
+  'section-apps': { asset: 'section-headers/apps', fallback: 'apps', label: 'Apps' },
+  'section-widgets': { asset: 'section-headers/work-widgets', fallback: 'widgets', label: 'Work widgets' },
+  'section-connected-apps': { asset: 'section-headers/connected-apps', fallback: 'hub', label: 'Connected apps' },
+  'section-people': { asset: 'section-headers/people', fallback: 'groups', label: 'People' },
+  // People area rows.
+  'people-home': { asset: 'people/people-home', fallback: 'groups', label: 'People Home' },
+  'people-directory': { asset: 'people/directory', fallback: 'badge', label: 'Directory' },
+  // PlexiiBrain area rows.
+  'brain-home': { asset: 'plexiibrain/plexiibrain-home', fallback: 'plexii:home', label: 'PlexiiBrain Home' },
+  'brain-ask': { asset: 'plexiibrain/ask-plexiibrain', fallback: 'neurology', label: 'Ask PlexiiBrain' },
+  'brain-map': { asset: 'plexiibrain/plexiibrain-map', fallback: 'bubble_chart', label: 'PlexiiBrain Map' },
+  'brain-decisions': { asset: 'plexiibrain/decisions', fallback: 'gavel', label: 'Decisions' },
+  'brain-assemble': { asset: 'plexiibrain/assemble-a-desk', fallback: 'dashboard_customize', label: 'Assemble a desk' },
+  'brain-agents': { asset: 'plexiibrain/agents', fallback: 'smart_toy', label: 'Agents' },
+  'brain-ops': { asset: 'plexiibrain/ops', fallback: 'monitoring', label: 'Agentic Ops' },
+  'brain-connect': { asset: 'plexiibrain/connect', fallback: 'hub', label: 'Connect' },
+  'brain-api': { asset: 'plexiibrain/apis', fallback: 'api', label: 'APIs' },
+  'brain-insights': { asset: 'plexiibrain/insights', fallback: 'insights', label: 'Insights' },
+  // Work widgets section, "Bring in".
+  'import-widget-file': { asset: 'bring-in/import-work-widget-file', fallback: 'upload_file', label: 'Import work widget file' },
+  'import-file': { asset: 'bring-in/import-file-to-this-desk', fallback: 'description', label: 'Import file to this desk' },
+  // Areas and hubs.
+  'office-area': { asset: 'areas/office-area', fallback: 'plexii:office', label: 'Office' },
+  'people-area': { asset: 'areas/people-area', fallback: 'diversity_3', label: 'People' },
+  recent: { asset: 'areas/recent', fallback: 'schedule', label: 'Recent' },
+  templates: { asset: 'areas/templates', fallback: 'plexii:templates', label: 'Templates' },
+  starred: { asset: 'areas/starred', fallback: 'star', label: 'Starred' },
+  // Onboarding tour modules (lib/onboarding/registry, by module id).
+  'tour-core': { asset: 'onboarding/welcome-to-plexiidesk', fallback: 'auto_awesome', label: 'Welcome to PlexiiDesk' },
+  'tour-rooms-desks': { asset: 'onboarding/rooms-desks-and-plans', fallback: 'meeting_room', label: 'Rooms, Desks and Plans' },
+  'tour-office-connect': { asset: 'onboarding/connected-office-files', fallback: 'description', label: 'Connected office files' },
+  'tour-body-double': { asset: 'onboarding/body-doubling', fallback: 'diversity_3', label: 'Body doubling' }
+} as const satisfies Record<string, EntityIconEntry>
+
+export type PlexiiPlaceId = keyof typeof PLACE_ICONS
+
+const place = (id: PlexiiPlaceId): EntityRef => ({ kind: 'place', id })
+
+/**
+ * The Focus filters (lib/attentionQueues). Keyed by the filter id, typed as a
+ * full record: a new filter does not compile until its icon is decided.
+ */
+export const ATTENTION_FILTER_PLACE: Readonly<Record<'open' | 'due-today' | 'overdue' | 'in-progress' | 'waiting' | 'closed-7d', PlexiiPlaceId>> = {
+  open: 'focus-open',
+  'due-today': 'focus-due-today',
+  overdue: 'focus-overdue',
+  'in-progress': 'focus-in-progress',
+  waiting: 'focus-waiting',
+  'closed-7d': 'focus-closed-7d'
+}
+
+export function attentionFilterEntity(filter: string): EntityRef | null {
+  const id = (ATTENTION_FILTER_PLACE as Record<string, PlexiiPlaceId | undefined>)[filter]
+  return id ? place(id) : null
+}
+
+/** Side-menu section heads (components/nav/AreaAccordion SectionId). Desk and PlexiiBrain are apps. */
+export const NAV_SECTION_ENTITY: Readonly<Record<'desk' | 'apps' | 'widgets' | 'connected' | 'people' | 'brain', EntityRef>> = {
+  desk: { kind: 'app', id: 'plexidesk' },
+  apps: place('section-apps'),
+  widgets: place('section-widgets'),
+  connected: place('section-connected-apps'),
+  people: place('section-people'),
+  brain: { kind: 'app', id: 'plexibrain' }
+}
+
+/** The Office document library's pages (PlexiOfficeShell LIBRARY_PAGES). "All" keeps its glyph. */
+export const OFFICE_LIBRARY_ENTITY: Readonly<Record<string, EntityRef>> = {
+  recent: place('recent'),
+  starred: place('starred'),
+  shared: { kind: 'tool', id: 'shared' },
+  templates: place('templates'),
+  trash: place('trash')
+}
+
+/** An onboarding tour module (lib/onboarding/registry), by module id. */
+export const TOUR_MODULE_ENTITY: Readonly<Record<string, EntityRef>> = {
+  core: place('tour-core'),
+  'rooms-desks': place('tour-rooms-desks'),
+  'office-connect': place('tour-office-connect'),
+  'body-double': place('tour-body-double')
+}
+
+export function tourModuleEntity(id: string): EntityRef | null {
+  return TOUR_MODULE_ENTITY[id] ?? null
+}
+
+// ── Suite products and Home actions ──────────────────────────────────────────
+//
+// Full-colour tiles. Products are the Plexii Suite cards that are neither an
+// app nor a tool; actions are the Home dashboard's one-tap tiles.
+
+export const PRODUCT_ICONS = {
+  agents: { asset: 'suite/agents', fallback: 'smart_toy', label: 'Agents' },
+  dash: { asset: 'suite/dash', fallback: 'dashboard', label: 'Dash' },
+  tables: { asset: 'suite/tables', fallback: 'table_view', label: 'Tables' },
+  reports: { asset: 'suite/reports', fallback: 'summarize', label: 'Reports' },
+  build: { asset: 'suite/build', fallback: 'construction', label: 'Build' },
+  // The card is PlexiiWidgets (shared/plexiSuite); a bare "Widgets" is not a
+  // name the app uses (user-facing text says "work widget").
+  widgets: { asset: 'suite/widgets', fallback: 'widgets', label: 'PlexiiWidgets' },
+  api: { asset: 'suite/api', fallback: 'api', label: 'API' },
+  marketplace: { asset: 'suite/marketplace', fallback: 'storefront', label: 'Marketplace' },
+  ops: { asset: 'suite/ops', fallback: 'monitoring', label: 'Ops' }
+} as const satisfies Record<string, EntityIconEntry>
+
+export const ACTION_ICONS = {
+  'new-desk': { asset: 'home-actions/new-desk', fallback: 'desk', label: 'New desk' },
+  discover: { asset: 'home-actions/discover', fallback: 'plexii:discover', label: 'Discover' },
+  transcribe: { asset: 'home-actions/transcribe', fallback: 'plexii:mic', label: 'Transcribe' },
+  'focus-timer': { asset: 'home-actions/focus-timer', fallback: 'timer', label: 'Focus timer' }
+} as const satisfies Record<string, EntityIconEntry>
+
 // ── Work widget kinds ────────────────────────────────────────────────────────
 //
 // `Record<WidgetKind, …>`: adding a kind to the union without deciding its icon
@@ -114,8 +255,8 @@ export const WIDGET_ICON_ASSETS: Record<WidgetKind, { asset: string | null; note
   video: W('widgets/video'),
   timer: W('widgets/timer'),
   section: W('widgets/section'),
-  'task-link': W(null, 'no Task link icon in the set'),
-  'local-app-launcher': W(null, 'no App launcher icon in the set'),
+  'task-link': W('widgets/task-link'),
+  'local-app-launcher': W('widgets/app-launcher'),
   file: W('widgets/file'),
   drive: W('widgets/drive-folder'),
   field: W('widgets/field'),
@@ -129,7 +270,7 @@ export const WIDGET_ICON_ASSETS: Record<WidgetKind, { asset: string | null; note
   draw: W('apps/plexiidraw', 'no Artwork work widget icon in the set; a draw work widget IS a PlexiiDraw document'),
   'meeting-record': W('apps/plexiicall', 'a meeting record is PlexiiCall\'s work widget (segmentApps meet.widgetKinds)'),
   streamdeck: W('widgets/stream-deck'),
-  minimap: W(null, 'no Minimap icon in the set'),
+  minimap: W('widgets/minimap'),
   // DEC-144: Attention is "Focus" in display text only; the asset keeps its name.
   attention: W('widgets/attention'),
   'voice-recorder': W('widgets/voice-note'),
@@ -140,7 +281,8 @@ export const WIDGET_ICON_ASSETS: Record<WidgetKind, { asset: string | null; note
   card: W('widgets/card'),
   chart: W('widgets/chart'),
   'custom-block': W('widgets/custom-block'),
-  custom: W(null, 'no Custom work widget icon in the set (Custom block is a different kind)'),
+  // Custom work widget: its own icon, distinct from Custom block.
+  custom: W('widgets/custom-work-widget'),
   agent: W('widgets/agent'),
   portal: W('widgets/portal'),
   'living-doc': W('widgets/living-doc'),
@@ -208,6 +350,13 @@ export function resolveEntityIcon(kind: PlexiiIconKind, id: string): ResolvedEnt
       const std = findStandardApp(id)
       return { asset: assetFor(CONNECTED_ICON_ASSETS[id]), fallback: std?.icon ?? 'apps', label: std?.title ?? id }
     }
+    case 'place':
+    case 'product':
+    case 'action': {
+      const table = (kind === 'place' ? PLACE_ICONS : kind === 'product' ? PRODUCT_ICONS : ACTION_ICONS) as Record<string, EntityIconEntry>
+      const e = table[id]
+      return e ? { asset: assetFor(e.asset), fallback: e.fallback, label: e.label } : { asset: null, fallback: 'apps', label: id }
+    }
   }
 }
 
@@ -217,9 +366,8 @@ export interface EntityRef {
 }
 
 /**
- * The entity a `lib/segmentApps` registry row stands for, or null when the row
- * is a place rather than an entity with its own icon (hubs, Recent, Insights…),
- * which keeps its registry glyph.
+ * The entity (or place) a `lib/segmentApps` registry row stands for, or null
+ * when the set has no icon for it and the row keeps its registry glyph.
  */
 export function segmentAppEntity(segment: SegmentKind | string, key: string): EntityRef | null {
   if (segment === 'office') return key in APP_ICONS ? { kind: 'app', id: key } : null
@@ -231,10 +379,24 @@ const SEGMENT_ENTITY: Record<string, EntityRef> = {
   'plexidesk:desk': { kind: 'app', id: 'plexidesk' },
   'plexidesk:plans': { kind: 'tool', id: 'projects' },
   'plexidesk:tasks': { kind: 'tool', id: 'all-tasks' },
+  'plexidesk:home': place('home'),
+  'plexidesk:recent': place('recent'),
+  'plexipeople:home': place('people-home'),
+  'plexipeople:directory': place('people-directory'),
   'plexipeople:workspaces': { kind: 'tool', id: 'organisation' },
   'plexipeople:map': { kind: 'tool', id: 'people-map' },
+  'plexibrain:home': place('brain-home'),
+  'plexibrain:ask': place('brain-ask'),
   'plexibrain:search': { kind: 'tool', id: 'search' },
-  'plexibrain:flows': { kind: 'tool', id: 'flows' }
+  'plexibrain:map': place('brain-map'),
+  'plexibrain:decisions': place('brain-decisions'),
+  'plexibrain:assemble': place('brain-assemble'),
+  'plexibrain:flows': { kind: 'tool', id: 'flows' },
+  'plexibrain:agents': place('brain-agents'),
+  'plexibrain:ops': place('brain-ops'),
+  'plexibrain:connect': place('brain-connect'),
+  'plexibrain:api': place('brain-api'),
+  'plexibrain:insights': place('brain-insights')
 }
 
 /**
@@ -261,9 +423,8 @@ export function docTypeEntity(docType: string | null | undefined, widgetKind?: s
 
 /**
  * The entity a Plexii Suite product card (shared/plexiSuite, keyed by product
- * key) stands for. Products with no icon in the set (Agents, Dash, Tables,
- * Reports, Build, Widgets, API, Marketplace, Ops) are absent on purpose and
- * keep their Material glyph.
+ * key) stands for: its app or tool, or (Agents, Dash, Tables, Reports, Build,
+ * Widgets, API, Marketplace, Ops) its own product tile.
  */
 export const SUITE_PRODUCT_ENTITY: Readonly<Record<string, EntityRef>> = {
   plexidesk: { kind: 'app', id: 'plexidesk' },
@@ -285,7 +446,16 @@ export const SUITE_PRODUCT_ENTITY: Readonly<Record<string, EntityRef>> = {
   plexiflow: { kind: 'tool', id: 'flows' },
   plexisearch: { kind: 'tool', id: 'search' },
   pleximail: { kind: 'app', id: 'mail' },
-  plexivault: { kind: 'app', id: 'vault' }
+  plexivault: { kind: 'app', id: 'vault' },
+  plexiagents: { kind: 'product', id: 'agents' },
+  plexidash: { kind: 'product', id: 'dash' },
+  plexitables: { kind: 'product', id: 'tables' },
+  plexireports: { kind: 'product', id: 'reports' },
+  plexibuild: { kind: 'product', id: 'build' },
+  plexiwidgets: { kind: 'product', id: 'widgets' },
+  plexiapi: { kind: 'product', id: 'api' },
+  pleximarketplace: { kind: 'product', id: 'marketplace' },
+  plexiops: { kind: 'product', id: 'ops' }
 }
 
 export function suiteProductEntity(key: string): EntityRef | null {
@@ -294,9 +464,9 @@ export function suiteProductEntity(key: string): EntityRef | null {
 
 /**
  * The entity a dashboard (home) widget def stands for (views/homeWidgetDefs,
- * keyed by HomeWidgetId). Only defs that ARE an app, tool or work widget are
- * here; summaries (Standup, Pulse, Overdue radar, …) are not entities and keep
- * their glyph.
+ * keyed by HomeWidgetId). Only defs that ARE an app, tool, work widget or
+ * Home action are here; summaries (Standup, Pulse, Overdue radar, …) are not
+ * entities and keep their glyph.
  */
 export const HOME_WIDGET_ENTITY: Readonly<Record<string, EntityRef>> = {
   'app-mail': { kind: 'app', id: 'mail' },
@@ -308,7 +478,12 @@ export const HOME_WIDGET_ENTITY: Readonly<Record<string, EntityRef>> = {
   'new-meeting': { kind: 'app', id: 'meet' },
   'pinned-conversation': { kind: 'app', id: 'chat' },
   // DEC-144: the home "Focus" widget is the Focus (Attention) work widget.
-  attention: { kind: 'widget', id: 'attention' }
+  attention: { kind: 'widget', id: 'attention' },
+  // The one-tap action tiles: the owner's Home-Actions set.
+  'new-desk': { kind: 'action', id: 'new-desk' },
+  discover: { kind: 'action', id: 'discover' },
+  transcribe: { kind: 'action', id: 'transcribe' },
+  'focus-timer': { kind: 'action', id: 'focus-timer' }
 }
 
 export function homeWidgetEntity(id: string): EntityRef | null {
@@ -321,6 +496,13 @@ export function viewKindEntity(viewKind: string): EntityRef | null {
 }
 
 const VIEW_ENTITY: Record<string, EntityRef> = {
+  home: place('home'),
+  attention: place('focus'),
+  rooms: place('rooms'),
+  desks: place('desks'),
+  trash: place('trash'),
+  office: place('office-area'),
+  plexipeople: place('people-area'),
   forms: { kind: 'tool', id: 'forms' },
   collaborations: { kind: 'tool', id: 'collaborations' },
   'people-map': { kind: 'tool', id: 'people-map' },

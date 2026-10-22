@@ -21,7 +21,7 @@ import AddConnectedAppDialog from './AddConnectedAppDialog'
 import { useSharesStore } from '../stores/shares'
 import Icon from './Icon'
 import PlexiiIcon from './PlexiiIcon'
-import type { EntityRef } from '../lib/plexiiIconMap'
+import { attentionFilterEntity, viewKindEntity, type EntityRef } from '../lib/plexiiIconMap'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 import AreaAccordion from './nav/AreaAccordion'
 import { WidgetsRail } from './nav/WidgetsSection'
@@ -265,6 +265,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
                 <CollapsedNavIcon
                   icon="plexii:office"
                   label="Office"
+                  entity={{ kind: 'place', id: 'office-area' }}
                   tone={AREA_TONES.office}
                   active={view.kind === 'office'}
                   onClick={() => goOffice()}
@@ -274,6 +275,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
                 <CollapsedNavIcon
                   icon="diversity_3"
                   label="People"
+                  entity={{ kind: 'place', id: 'people-area' }}
                   tone={AREA_TONES.people}
                   active={view.kind === 'plexipeople'}
                   onClick={() => goPlexiPeople()}
@@ -295,13 +297,13 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
           {/* ── Desk navigation ── */}
           <div className="w-6 h-px bg-[var(--edge-soft)] shrink-0 my-1" />
 
-          <CollapsedNavIcon icon="plexii:home"  label="Home"         tone={AREA_TONES.home}  active={viewIsActive({ kind: 'home' })}       onClick={() => { setActive(null); goHome() }} />
+          <CollapsedNavIcon icon="plexii:home"  label="Home"         tone={AREA_TONES.home} entity={{ kind: 'place', id: 'home' }}  active={viewIsActive({ kind: 'home' })}       onClick={() => { setActive(null); goHome() }} />
           {/* Monochrome by plexidesk-75's rail rule: no tone, accent only when active. */}
-          <CollapsedNavIcon icon="notifications" label="Focus"    tone={AREA_TONES.attention}  active={viewIsActive({ kind: 'attention' })} onClick={() => { setActive(null); goAttention() }} />
-          <CollapsedNavIcon icon="meeting_room"  label="Rooms"        tone={AREA_TONES.rooms}     active={viewIsActive({ kind: 'rooms' })}      onClick={() => { setActive(null); goRooms() }} />
-          <CollapsedNavIcon icon="desk"          label="Desks"        tone={AREA_TONES.desks}    active={viewIsActive({ kind: 'desks' })}      onClick={() => { setActive(null); goDesks() }} />
+          <CollapsedNavIcon icon="notifications" label="Focus"    tone={AREA_TONES.attention} entity={{ kind: 'place', id: 'focus' }}  active={viewIsActive({ kind: 'attention' })} onClick={() => { setActive(null); goAttention() }} />
+          <CollapsedNavIcon icon="meeting_room"  label="Rooms"        tone={AREA_TONES.rooms} entity={{ kind: 'place', id: 'rooms' }}     active={viewIsActive({ kind: 'rooms' })}      onClick={() => { setActive(null); goRooms() }} />
+          <CollapsedNavIcon icon="desk"          label="Desks"        tone={AREA_TONES.desks} entity={{ kind: 'place', id: 'desks' }}    active={viewIsActive({ kind: 'desks' })}      onClick={() => { setActive(null); goDesks() }} />
           <CollapsedNavIcon icon="folder_shared" label="Shared Desks" entity={{ kind: 'tool', id: 'shared' }} tone={AREA_TONES.shared} active={viewIsActive({ kind: 'shared' })}    onClick={() => { setActive(null); goShared() }} />
-          <CollapsedNavIcon icon="delete"        label="Trash"        tone={AREA_TONES.trash}  active={viewIsActive({ kind: 'trash' })}     onClick={() => { setActive(null); goTrash() }} />
+          <CollapsedNavIcon icon="delete"        label="Trash"        tone={AREA_TONES.trash} entity={{ kind: 'place', id: 'trash' }}  active={viewIsActive({ kind: 'trash' })}     onClick={() => { setActive(null); goTrash() }} />
           {/* DEC-020: Plans / Desks (flat) / Calendar tabs retired — Attention
               absorbed them (feeders carry desk + plan due dates). The views
               stay reachable via the ⌘K palette; engines untouched (DEC-009). */}
@@ -323,7 +325,8 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
                 : 'text-[var(--ink-50)] hover:text-[var(--ink-90)] hover:bg-[var(--surface-sunken)]'
             }`}
           >
-            <Icon name="apps" size={16} />
+            {/* The same owner glyph as the expanded menu's Connected apps head. */}
+            <PlexiiIcon kind="place" id="section-connected-apps" size={18} fallback="apps" />
           </button>
 
           {appsExpanded && (
@@ -395,6 +398,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
           <NavRow
             icon="plexii:home"
             label="Home"
+            entity={viewKindEntity('home') ?? undefined}
             tone={AREA_TONES.home}
             active={viewIsActive({ kind: 'home' })}
             onClick={() => {
@@ -409,6 +413,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
               <NavRow
                 icon="notifications"
                 label="Focus"
+                entity={viewKindEntity('attention') ?? undefined}
                 tone={AREA_TONES.attention}
                 active={viewIsActive({ kind: 'attention' })}
                 onClick={() => {
@@ -437,6 +442,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
                   key={f.id}
                   icon={f.icon}
                   label={f.label}
+                  entity={attentionFilterEntity(f.id) ?? undefined}
                   tone={attentionFilterTone(f.id)}
                   active={viewIsActive({ kind: 'attention' }) && activeAttentionFilter === f.id}
                   testid={`sidebar-attention-${f.id}`}
@@ -465,6 +471,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
               <NavRow
                 icon="meeting_room"
                 label="Rooms"
+                entity={viewKindEntity('rooms') ?? undefined}
                 tone={AREA_TONES.rooms}
                 active={viewIsActive({ kind: 'rooms' }) || viewIsActive({ kind: 'desks' })}
                 onClick={() => {
@@ -486,6 +493,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
               <NavRow
                 icon="desk"
                 label="All desks"
+                entity={{ kind: 'place', id: 'all-desks' }}
                 tone={AREA_TONES.desks}
                 active={viewIsActive({ kind: 'desks' })}
                 onClick={() => {
@@ -508,6 +516,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
               <NavRow
                 icon="delete"
                 label="Trash"
+                entity={viewKindEntity('trash') ?? undefined}
                 tone={AREA_TONES.trash}
                 active={viewIsActive({ kind: 'trash' })}
                 onClick={() => {
@@ -549,7 +558,9 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
             title="New desk — opens set-up with today's date pre-filled; Enter creates and opens it"
             className="inline-flex items-center gap-1 h-7 px-2 rounded-lg bg-[rgb(var(--accent))] text-white text-[12px] font-medium whitespace-nowrap shrink-0 hover:bg-[rgb(var(--accent-hover))]"
           >
-            <Icon name="add" size={14} className="shrink-0" />
+            {/* The owner's New desk glyph, in the button's own white: the
+                default violet would vanish on the accent fill. */}
+            <PlexiiIcon kind="place" id="new-desk" size={14} fallback="add" glyphColor="currentColor" className="shrink-0" />
             <span>New desk</span>
           </button>
           {/* The minimise control is window chrome, not a desk action — a

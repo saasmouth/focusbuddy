@@ -6,6 +6,7 @@ import { mappedBox, mappedScale, viewportIndicator } from '../lib/minimapGeometr
 import WidgetPreview from './WidgetPreview'
 import DeskJumpList from './DeskJumpList'
 import Icon from './Icon'
+import PlexiiIcon from './PlexiiIcon'
 
 const PANEL_W = 160
 const PANEL_H = 100
@@ -366,7 +367,9 @@ export default function CanvasMinimapFAB(): JSX.Element {
             title="Show minimap"
             className="fb-glass-chrome w-8 h-8 rounded-full flex items-center justify-center text-[var(--ink-50)] hover:text-[var(--ink-100)] transition-colors shadow-md"
           >
-            <Icon name="map" size={16} />
+            {/* The Minimap work widget's own tile: this button is where that
+                kind lives now (a minimap widget on a desk is retired on load). */}
+            <PlexiiIcon kind="widget" id="minimap" size={20} fallback="map" />
           </motion.button>
         )}
       </AnimatePresence>

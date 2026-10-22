@@ -1,6 +1,6 @@
 import Icon from '../Icon'
 import PlexiiIcon from '../PlexiiIcon'
-import { suiteProductEntity } from '../../lib/plexiiIconMap'
+import { suiteProductEntity, type PlexiiPlaceId } from '../../lib/plexiiIconMap'
 import { requestNewDesk } from '../../lib/newDesk'
 import { useViewStore } from '../../stores/view'
 import { useAccountStore } from '../../stores/account'
@@ -234,11 +234,11 @@ export default function PlexiSuiteHome(): JSX.Element {
 
   // Calendar is dropped from the quick actions when time_blocking is off, so the
   // launcher never offers a jump into a locked surface. The rest are core.
-  const quickActions: { icon: string; label: string; onClick: () => void }[] = [
+  const quickActions: { icon: string; label: string; place?: PlexiiPlaceId; onClick: () => void }[] = [
     { icon: 'dashboard', label: 'Open my desk', onClick: () => v.goHome() },
-    { icon: 'add', label: 'New desk', onClick: () => void newDesk() },
-    { icon: 'plexii:templates', label: 'Templates', onClick: () => v.goMarketplace() },
-    { icon: 'check_circle', label: 'All desks', onClick: () => v.goAllTasks() },
+    { icon: 'add', label: 'New desk', place: 'new-desk', onClick: () => void newDesk() },
+    { icon: 'plexii:templates', label: 'Templates', place: 'templates', onClick: () => v.goMarketplace() },
+    { icon: 'check_circle', label: 'All desks', place: 'all-desks', onClick: () => v.goAllTasks() },
     ...(viewEnabled('calendar')
       ? [{ icon: 'calendar_today', label: 'Calendar', onClick: () => v.goCalendar() }]
       : [])
@@ -308,7 +308,12 @@ export default function PlexiSuiteHome(): JSX.Element {
                 data-testid={`hero-action-${a.label.toLowerCase().replace(/\s+/g, '-')}`}
                 className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-indigo-300/30 dark:border-indigo-400/20 bg-white/40 dark:bg-white/[0.06] hover:bg-white/60 dark:hover:bg-white/10 text-[12px] font-medium text-[var(--ink-90)] hover:text-[var(--ink-100)] transition-colors"
               >
-                <Icon name={a.icon} size={14} /> {a.label}
+                {a.place ? (
+                  <PlexiiIcon kind="place" id={a.place} size={15} fallback={a.icon} className="shrink-0" />
+                ) : (
+                  <Icon name={a.icon} size={14} />
+                )}
+                {a.label}
               </button>
             ))}
           </div>

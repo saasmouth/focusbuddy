@@ -56,6 +56,27 @@ import apps_plexiivault_128 from '../assets/plexii-icons/apps/plexiivault.128.we
 import apps_plexiiwrite_32 from '../assets/plexii-icons/apps/plexiiwrite.32.webp'
 import apps_plexiiwrite_64 from '../assets/plexii-icons/apps/plexiiwrite.64.webp'
 import apps_plexiiwrite_128 from '../assets/plexii-icons/apps/plexiiwrite.128.webp'
+import areas_office_area_32 from '../assets/plexii-icons/areas/office-area.32.webp'
+import areas_office_area_64 from '../assets/plexii-icons/areas/office-area.64.webp'
+import areas_office_area_128 from '../assets/plexii-icons/areas/office-area.128.webp'
+import areas_people_area_32 from '../assets/plexii-icons/areas/people-area.32.webp'
+import areas_people_area_64 from '../assets/plexii-icons/areas/people-area.64.webp'
+import areas_people_area_128 from '../assets/plexii-icons/areas/people-area.128.webp'
+import areas_recent_32 from '../assets/plexii-icons/areas/recent.32.webp'
+import areas_recent_64 from '../assets/plexii-icons/areas/recent.64.webp'
+import areas_recent_128 from '../assets/plexii-icons/areas/recent.128.webp'
+import areas_starred_32 from '../assets/plexii-icons/areas/starred.32.webp'
+import areas_starred_64 from '../assets/plexii-icons/areas/starred.64.webp'
+import areas_starred_128 from '../assets/plexii-icons/areas/starred.128.webp'
+import areas_templates_32 from '../assets/plexii-icons/areas/templates.32.webp'
+import areas_templates_64 from '../assets/plexii-icons/areas/templates.64.webp'
+import areas_templates_128 from '../assets/plexii-icons/areas/templates.128.webp'
+import bring_in_import_file_to_this_desk_32 from '../assets/plexii-icons/bring-in/import-file-to-this-desk.32.webp'
+import bring_in_import_file_to_this_desk_64 from '../assets/plexii-icons/bring-in/import-file-to-this-desk.64.webp'
+import bring_in_import_file_to_this_desk_128 from '../assets/plexii-icons/bring-in/import-file-to-this-desk.128.webp'
+import bring_in_import_work_widget_file_32 from '../assets/plexii-icons/bring-in/import-work-widget-file.32.webp'
+import bring_in_import_work_widget_file_64 from '../assets/plexii-icons/bring-in/import-work-widget-file.64.webp'
+import bring_in_import_work_widget_file_128 from '../assets/plexii-icons/bring-in/import-work-widget-file.128.webp'
 import connected_chatgpt_32 from '../assets/plexii-icons/connected/chatgpt.32.webp'
 import connected_chatgpt_64 from '../assets/plexii-icons/connected/chatgpt.64.webp'
 import connected_chatgpt_128 from '../assets/plexii-icons/connected/chatgpt.128.webp'
@@ -116,6 +137,147 @@ import connected_youtube_128 from '../assets/plexii-icons/connected/youtube.128.
 import connected_youtube_music_32 from '../assets/plexii-icons/connected/youtube-music.32.webp'
 import connected_youtube_music_64 from '../assets/plexii-icons/connected/youtube-music.64.webp'
 import connected_youtube_music_128 from '../assets/plexii-icons/connected/youtube-music.128.webp'
+import focus_filters_closed_in_the_last_7_days_32 from '../assets/plexii-icons/focus-filters/closed-in-the-last-7-days.32.webp'
+import focus_filters_closed_in_the_last_7_days_64 from '../assets/plexii-icons/focus-filters/closed-in-the-last-7-days.64.webp'
+import focus_filters_closed_in_the_last_7_days_128 from '../assets/plexii-icons/focus-filters/closed-in-the-last-7-days.128.webp'
+import focus_filters_due_today_32 from '../assets/plexii-icons/focus-filters/due-today.32.webp'
+import focus_filters_due_today_64 from '../assets/plexii-icons/focus-filters/due-today.64.webp'
+import focus_filters_due_today_128 from '../assets/plexii-icons/focus-filters/due-today.128.webp'
+import focus_filters_in_progress_32 from '../assets/plexii-icons/focus-filters/in-progress.32.webp'
+import focus_filters_in_progress_64 from '../assets/plexii-icons/focus-filters/in-progress.64.webp'
+import focus_filters_in_progress_128 from '../assets/plexii-icons/focus-filters/in-progress.128.webp'
+import focus_filters_open_32 from '../assets/plexii-icons/focus-filters/open.32.webp'
+import focus_filters_open_64 from '../assets/plexii-icons/focus-filters/open.64.webp'
+import focus_filters_open_128 from '../assets/plexii-icons/focus-filters/open.128.webp'
+import focus_filters_overdue_32 from '../assets/plexii-icons/focus-filters/overdue.32.webp'
+import focus_filters_overdue_64 from '../assets/plexii-icons/focus-filters/overdue.64.webp'
+import focus_filters_overdue_128 from '../assets/plexii-icons/focus-filters/overdue.128.webp'
+import focus_filters_waiting_32 from '../assets/plexii-icons/focus-filters/waiting.32.webp'
+import focus_filters_waiting_64 from '../assets/plexii-icons/focus-filters/waiting.64.webp'
+import focus_filters_waiting_128 from '../assets/plexii-icons/focus-filters/waiting.128.webp'
+import home_actions_discover_32 from '../assets/plexii-icons/home-actions/discover.32.webp'
+import home_actions_discover_64 from '../assets/plexii-icons/home-actions/discover.64.webp'
+import home_actions_discover_128 from '../assets/plexii-icons/home-actions/discover.128.webp'
+import home_actions_focus_timer_32 from '../assets/plexii-icons/home-actions/focus-timer.32.webp'
+import home_actions_focus_timer_64 from '../assets/plexii-icons/home-actions/focus-timer.64.webp'
+import home_actions_focus_timer_128 from '../assets/plexii-icons/home-actions/focus-timer.128.webp'
+import home_actions_new_desk_32 from '../assets/plexii-icons/home-actions/new-desk.32.webp'
+import home_actions_new_desk_64 from '../assets/plexii-icons/home-actions/new-desk.64.webp'
+import home_actions_new_desk_128 from '../assets/plexii-icons/home-actions/new-desk.128.webp'
+import home_actions_transcribe_32 from '../assets/plexii-icons/home-actions/transcribe.32.webp'
+import home_actions_transcribe_64 from '../assets/plexii-icons/home-actions/transcribe.64.webp'
+import home_actions_transcribe_128 from '../assets/plexii-icons/home-actions/transcribe.128.webp'
+import onboarding_body_doubling_32 from '../assets/plexii-icons/onboarding/body-doubling.32.webp'
+import onboarding_body_doubling_64 from '../assets/plexii-icons/onboarding/body-doubling.64.webp'
+import onboarding_body_doubling_128 from '../assets/plexii-icons/onboarding/body-doubling.128.webp'
+import onboarding_connected_office_files_32 from '../assets/plexii-icons/onboarding/connected-office-files.32.webp'
+import onboarding_connected_office_files_64 from '../assets/plexii-icons/onboarding/connected-office-files.64.webp'
+import onboarding_connected_office_files_128 from '../assets/plexii-icons/onboarding/connected-office-files.128.webp'
+import onboarding_rooms_desks_and_plans_32 from '../assets/plexii-icons/onboarding/rooms-desks-and-plans.32.webp'
+import onboarding_rooms_desks_and_plans_64 from '../assets/plexii-icons/onboarding/rooms-desks-and-plans.64.webp'
+import onboarding_rooms_desks_and_plans_128 from '../assets/plexii-icons/onboarding/rooms-desks-and-plans.128.webp'
+import onboarding_welcome_to_plexiidesk_32 from '../assets/plexii-icons/onboarding/welcome-to-plexiidesk.32.webp'
+import onboarding_welcome_to_plexiidesk_64 from '../assets/plexii-icons/onboarding/welcome-to-plexiidesk.64.webp'
+import onboarding_welcome_to_plexiidesk_128 from '../assets/plexii-icons/onboarding/welcome-to-plexiidesk.128.webp'
+import people_directory_32 from '../assets/plexii-icons/people/directory.32.webp'
+import people_directory_64 from '../assets/plexii-icons/people/directory.64.webp'
+import people_directory_128 from '../assets/plexii-icons/people/directory.128.webp'
+import people_people_home_32 from '../assets/plexii-icons/people/people-home.32.webp'
+import people_people_home_64 from '../assets/plexii-icons/people/people-home.64.webp'
+import people_people_home_128 from '../assets/plexii-icons/people/people-home.128.webp'
+import plexiibrain_agents_32 from '../assets/plexii-icons/plexiibrain/agents.32.webp'
+import plexiibrain_agents_64 from '../assets/plexii-icons/plexiibrain/agents.64.webp'
+import plexiibrain_agents_128 from '../assets/plexii-icons/plexiibrain/agents.128.webp'
+import plexiibrain_apis_32 from '../assets/plexii-icons/plexiibrain/apis.32.webp'
+import plexiibrain_apis_64 from '../assets/plexii-icons/plexiibrain/apis.64.webp'
+import plexiibrain_apis_128 from '../assets/plexii-icons/plexiibrain/apis.128.webp'
+import plexiibrain_ask_plexiibrain_32 from '../assets/plexii-icons/plexiibrain/ask-plexiibrain.32.webp'
+import plexiibrain_ask_plexiibrain_64 from '../assets/plexii-icons/plexiibrain/ask-plexiibrain.64.webp'
+import plexiibrain_ask_plexiibrain_128 from '../assets/plexii-icons/plexiibrain/ask-plexiibrain.128.webp'
+import plexiibrain_assemble_a_desk_32 from '../assets/plexii-icons/plexiibrain/assemble-a-desk.32.webp'
+import plexiibrain_assemble_a_desk_64 from '../assets/plexii-icons/plexiibrain/assemble-a-desk.64.webp'
+import plexiibrain_assemble_a_desk_128 from '../assets/plexii-icons/plexiibrain/assemble-a-desk.128.webp'
+import plexiibrain_connect_32 from '../assets/plexii-icons/plexiibrain/connect.32.webp'
+import plexiibrain_connect_64 from '../assets/plexii-icons/plexiibrain/connect.64.webp'
+import plexiibrain_connect_128 from '../assets/plexii-icons/plexiibrain/connect.128.webp'
+import plexiibrain_decisions_32 from '../assets/plexii-icons/plexiibrain/decisions.32.webp'
+import plexiibrain_decisions_64 from '../assets/plexii-icons/plexiibrain/decisions.64.webp'
+import plexiibrain_decisions_128 from '../assets/plexii-icons/plexiibrain/decisions.128.webp'
+import plexiibrain_insights_32 from '../assets/plexii-icons/plexiibrain/insights.32.webp'
+import plexiibrain_insights_64 from '../assets/plexii-icons/plexiibrain/insights.64.webp'
+import plexiibrain_insights_128 from '../assets/plexii-icons/plexiibrain/insights.128.webp'
+import plexiibrain_ops_32 from '../assets/plexii-icons/plexiibrain/ops.32.webp'
+import plexiibrain_ops_64 from '../assets/plexii-icons/plexiibrain/ops.64.webp'
+import plexiibrain_ops_128 from '../assets/plexii-icons/plexiibrain/ops.128.webp'
+import plexiibrain_plexiibrain_home_32 from '../assets/plexii-icons/plexiibrain/plexiibrain-home.32.webp'
+import plexiibrain_plexiibrain_home_64 from '../assets/plexii-icons/plexiibrain/plexiibrain-home.64.webp'
+import plexiibrain_plexiibrain_home_128 from '../assets/plexii-icons/plexiibrain/plexiibrain-home.128.webp'
+import plexiibrain_plexiibrain_map_32 from '../assets/plexii-icons/plexiibrain/plexiibrain-map.32.webp'
+import plexiibrain_plexiibrain_map_64 from '../assets/plexii-icons/plexiibrain/plexiibrain-map.64.webp'
+import plexiibrain_plexiibrain_map_128 from '../assets/plexii-icons/plexiibrain/plexiibrain-map.128.webp'
+import section_headers_apps_32 from '../assets/plexii-icons/section-headers/apps.32.webp'
+import section_headers_apps_64 from '../assets/plexii-icons/section-headers/apps.64.webp'
+import section_headers_apps_128 from '../assets/plexii-icons/section-headers/apps.128.webp'
+import section_headers_connected_apps_32 from '../assets/plexii-icons/section-headers/connected-apps.32.webp'
+import section_headers_connected_apps_64 from '../assets/plexii-icons/section-headers/connected-apps.64.webp'
+import section_headers_connected_apps_128 from '../assets/plexii-icons/section-headers/connected-apps.128.webp'
+import section_headers_people_32 from '../assets/plexii-icons/section-headers/people.32.webp'
+import section_headers_people_64 from '../assets/plexii-icons/section-headers/people.64.webp'
+import section_headers_people_128 from '../assets/plexii-icons/section-headers/people.128.webp'
+import section_headers_work_widgets_32 from '../assets/plexii-icons/section-headers/work-widgets.32.webp'
+import section_headers_work_widgets_64 from '../assets/plexii-icons/section-headers/work-widgets.64.webp'
+import section_headers_work_widgets_128 from '../assets/plexii-icons/section-headers/work-widgets.128.webp'
+import side_menu_all_desks_32 from '../assets/plexii-icons/side-menu/all-desks.32.webp'
+import side_menu_all_desks_64 from '../assets/plexii-icons/side-menu/all-desks.64.webp'
+import side_menu_all_desks_128 from '../assets/plexii-icons/side-menu/all-desks.128.webp'
+import side_menu_desks_32 from '../assets/plexii-icons/side-menu/desks.32.webp'
+import side_menu_desks_64 from '../assets/plexii-icons/side-menu/desks.64.webp'
+import side_menu_desks_128 from '../assets/plexii-icons/side-menu/desks.128.webp'
+import side_menu_focus_32 from '../assets/plexii-icons/side-menu/focus.32.webp'
+import side_menu_focus_64 from '../assets/plexii-icons/side-menu/focus.64.webp'
+import side_menu_focus_128 from '../assets/plexii-icons/side-menu/focus.128.webp'
+import side_menu_home_32 from '../assets/plexii-icons/side-menu/home.32.webp'
+import side_menu_home_64 from '../assets/plexii-icons/side-menu/home.64.webp'
+import side_menu_home_128 from '../assets/plexii-icons/side-menu/home.128.webp'
+import side_menu_manage_organisation_32 from '../assets/plexii-icons/side-menu/manage-organisation.32.webp'
+import side_menu_manage_organisation_64 from '../assets/plexii-icons/side-menu/manage-organisation.64.webp'
+import side_menu_manage_organisation_128 from '../assets/plexii-icons/side-menu/manage-organisation.128.webp'
+import side_menu_new_desk_32 from '../assets/plexii-icons/side-menu/new-desk.32.webp'
+import side_menu_new_desk_64 from '../assets/plexii-icons/side-menu/new-desk.64.webp'
+import side_menu_new_desk_128 from '../assets/plexii-icons/side-menu/new-desk.128.webp'
+import side_menu_rooms_32 from '../assets/plexii-icons/side-menu/rooms.32.webp'
+import side_menu_rooms_64 from '../assets/plexii-icons/side-menu/rooms.64.webp'
+import side_menu_rooms_128 from '../assets/plexii-icons/side-menu/rooms.128.webp'
+import side_menu_trash_32 from '../assets/plexii-icons/side-menu/trash.32.webp'
+import side_menu_trash_64 from '../assets/plexii-icons/side-menu/trash.64.webp'
+import side_menu_trash_128 from '../assets/plexii-icons/side-menu/trash.128.webp'
+import suite_agents_32 from '../assets/plexii-icons/suite/agents.32.webp'
+import suite_agents_64 from '../assets/plexii-icons/suite/agents.64.webp'
+import suite_agents_128 from '../assets/plexii-icons/suite/agents.128.webp'
+import suite_api_32 from '../assets/plexii-icons/suite/api.32.webp'
+import suite_api_64 from '../assets/plexii-icons/suite/api.64.webp'
+import suite_api_128 from '../assets/plexii-icons/suite/api.128.webp'
+import suite_build_32 from '../assets/plexii-icons/suite/build.32.webp'
+import suite_build_64 from '../assets/plexii-icons/suite/build.64.webp'
+import suite_build_128 from '../assets/plexii-icons/suite/build.128.webp'
+import suite_dash_32 from '../assets/plexii-icons/suite/dash.32.webp'
+import suite_dash_64 from '../assets/plexii-icons/suite/dash.64.webp'
+import suite_dash_128 from '../assets/plexii-icons/suite/dash.128.webp'
+import suite_marketplace_32 from '../assets/plexii-icons/suite/marketplace.32.webp'
+import suite_marketplace_64 from '../assets/plexii-icons/suite/marketplace.64.webp'
+import suite_marketplace_128 from '../assets/plexii-icons/suite/marketplace.128.webp'
+import suite_ops_32 from '../assets/plexii-icons/suite/ops.32.webp'
+import suite_ops_64 from '../assets/plexii-icons/suite/ops.64.webp'
+import suite_ops_128 from '../assets/plexii-icons/suite/ops.128.webp'
+import suite_reports_32 from '../assets/plexii-icons/suite/reports.32.webp'
+import suite_reports_64 from '../assets/plexii-icons/suite/reports.64.webp'
+import suite_reports_128 from '../assets/plexii-icons/suite/reports.128.webp'
+import suite_tables_32 from '../assets/plexii-icons/suite/tables.32.webp'
+import suite_tables_64 from '../assets/plexii-icons/suite/tables.64.webp'
+import suite_tables_128 from '../assets/plexii-icons/suite/tables.128.webp'
+import suite_widgets_32 from '../assets/plexii-icons/suite/widgets.32.webp'
+import suite_widgets_64 from '../assets/plexii-icons/suite/widgets.64.webp'
+import suite_widgets_128 from '../assets/plexii-icons/suite/widgets.128.webp'
 import tools_all_tasks_32 from '../assets/plexii-icons/tools/all-tasks.32.webp'
 import tools_all_tasks_64 from '../assets/plexii-icons/tools/all-tasks.64.webp'
 import tools_all_tasks_128 from '../assets/plexii-icons/tools/all-tasks.128.webp'
@@ -146,6 +308,9 @@ import tools_shared_with_me_128 from '../assets/plexii-icons/tools/shared-with-m
 import widgets_agent_32 from '../assets/plexii-icons/widgets/agent.32.webp'
 import widgets_agent_64 from '../assets/plexii-icons/widgets/agent.64.webp'
 import widgets_agent_128 from '../assets/plexii-icons/widgets/agent.128.webp'
+import widgets_app_launcher_32 from '../assets/plexii-icons/widgets/app-launcher.32.webp'
+import widgets_app_launcher_64 from '../assets/plexii-icons/widgets/app-launcher.64.webp'
+import widgets_app_launcher_128 from '../assets/plexii-icons/widgets/app-launcher.128.webp'
 import widgets_attention_32 from '../assets/plexii-icons/widgets/attention.32.webp'
 import widgets_attention_64 from '../assets/plexii-icons/widgets/attention.64.webp'
 import widgets_attention_128 from '../assets/plexii-icons/widgets/attention.128.webp'
@@ -176,6 +341,9 @@ import widgets_contacts_128 from '../assets/plexii-icons/widgets/contacts.128.we
 import widgets_custom_block_32 from '../assets/plexii-icons/widgets/custom-block.32.webp'
 import widgets_custom_block_64 from '../assets/plexii-icons/widgets/custom-block.64.webp'
 import widgets_custom_block_128 from '../assets/plexii-icons/widgets/custom-block.128.webp'
+import widgets_custom_work_widget_32 from '../assets/plexii-icons/widgets/custom-work-widget.32.webp'
+import widgets_custom_work_widget_64 from '../assets/plexii-icons/widgets/custom-work-widget.64.webp'
+import widgets_custom_work_widget_128 from '../assets/plexii-icons/widgets/custom-work-widget.128.webp'
 import widgets_design_32 from '../assets/plexii-icons/widgets/design.32.webp'
 import widgets_design_64 from '../assets/plexii-icons/widgets/design.64.webp'
 import widgets_design_128 from '../assets/plexii-icons/widgets/design.128.webp'
@@ -233,6 +401,9 @@ import widgets_metrics_128 from '../assets/plexii-icons/widgets/metrics.128.webp
 import widgets_mind_map_32 from '../assets/plexii-icons/widgets/mind-map.32.webp'
 import widgets_mind_map_64 from '../assets/plexii-icons/widgets/mind-map.64.webp'
 import widgets_mind_map_128 from '../assets/plexii-icons/widgets/mind-map.128.webp'
+import widgets_minimap_32 from '../assets/plexii-icons/widgets/minimap.32.webp'
+import widgets_minimap_64 from '../assets/plexii-icons/widgets/minimap.64.webp'
+import widgets_minimap_128 from '../assets/plexii-icons/widgets/minimap.128.webp'
 import widgets_note_32 from '../assets/plexii-icons/widgets/note.32.webp'
 import widgets_note_64 from '../assets/plexii-icons/widgets/note.64.webp'
 import widgets_note_128 from '../assets/plexii-icons/widgets/note.128.webp'
@@ -275,6 +446,9 @@ import widgets_stream_deck_128 from '../assets/plexii-icons/widgets/stream-deck.
 import widgets_table_32 from '../assets/plexii-icons/widgets/table.32.webp'
 import widgets_table_64 from '../assets/plexii-icons/widgets/table.64.webp'
 import widgets_table_128 from '../assets/plexii-icons/widgets/table.128.webp'
+import widgets_task_link_32 from '../assets/plexii-icons/widgets/task-link.32.webp'
+import widgets_task_link_64 from '../assets/plexii-icons/widgets/task-link.64.webp'
+import widgets_task_link_128 from '../assets/plexii-icons/widgets/task-link.128.webp'
 import widgets_tasks_32 from '../assets/plexii-icons/widgets/tasks.32.webp'
 import widgets_tasks_64 from '../assets/plexii-icons/widgets/tasks.64.webp'
 import widgets_tasks_128 from '../assets/plexii-icons/widgets/tasks.128.webp'
@@ -288,7 +462,7 @@ import widgets_voice_note_32 from '../assets/plexii-icons/widgets/voice-note.32.
 import widgets_voice_note_64 from '../assets/plexii-icons/widgets/voice-note.64.webp'
 import widgets_voice_note_128 from '../assets/plexii-icons/widgets/voice-note.128.webp'
 
-export type PlexiiIconCategory = 'apps' | 'widgets' | 'tools' | 'connected'
+export type PlexiiIconCategory = 'apps' | 'tools' | 'widgets' | 'connected' | 'side-menu' | 'focus-filters' | 'section-headers' | 'people' | 'plexiibrain' | 'bring-in' | 'areas' | 'onboarding' | 'suite' | 'home-actions'
 /** tile: full-colour rounded tile. glyph: single-colour mark used as a mask. logo: third-party brand mark. */
 export type PlexiiIconStyle = 'tile' | 'glyph' | 'logo'
 export interface PlexiiIconAsset {
@@ -298,8 +472,6 @@ export interface PlexiiIconAsset {
   style: PlexiiIconStyle
   /** Pixel width -> URL. Sizes above the source resolution are not generated. */
   src: Partial<Record<32 | 64 | 128, string>>
-  /** Recovered from the SVG-embedded original because the supplied PNG is truncated. */
-  recovered?: true
 }
 
 export const PLEXII_ICON_ASSETS: Readonly<Record<string, PlexiiIconAsset>> = {
@@ -312,7 +484,7 @@ export const PLEXII_ICON_ASSETS: Readonly<Record<string, PlexiiIconAsset>> = {
   'apps/plexiibrain': { category: 'apps', slug: 'plexiibrain', title: "PlexiiBrain", style: 'tile', src: { 32: apps_plexiibrain_32, 64: apps_plexiibrain_64, 128: apps_plexiibrain_128 } },
   'apps/plexiicall': { category: 'apps', slug: 'plexiicall', title: "PlexiiCall", style: 'tile', src: { 32: apps_plexiicall_32, 64: apps_plexiicall_64, 128: apps_plexiicall_128 } },
   'apps/plexiicells': { category: 'apps', slug: 'plexiicells', title: "PlexiiCells", style: 'tile', src: { 32: apps_plexiicells_32, 64: apps_plexiicells_64, 128: apps_plexiicells_128 } },
-  'apps/plexiichat': { category: 'apps', slug: 'plexiichat', title: "PlexiiChat", style: 'tile', src: { 32: apps_plexiichat_32, 64: apps_plexiichat_64, 128: apps_plexiichat_128 }, recovered: true },
+  'apps/plexiichat': { category: 'apps', slug: 'plexiichat', title: "PlexiiChat", style: 'tile', src: { 32: apps_plexiichat_32, 64: apps_plexiichat_64, 128: apps_plexiichat_128 } },
   'apps/plexiideck': { category: 'apps', slug: 'plexiideck', title: "PlexiiDeck", style: 'tile', src: { 32: apps_plexiideck_32, 64: apps_plexiideck_64, 128: apps_plexiideck_128 } },
   'apps/plexiidesign': { category: 'apps', slug: 'plexiidesign', title: "PlexiiDesign", style: 'tile', src: { 32: apps_plexiidesign_32, 64: apps_plexiidesign_64, 128: apps_plexiidesign_128 } },
   'apps/plexiidesk': { category: 'apps', slug: 'plexiidesk', title: "PlexiiDesk", style: 'tile', src: { 32: apps_plexiidesk_32, 64: apps_plexiidesk_64, 128: apps_plexiidesk_128 } },
@@ -321,6 +493,13 @@ export const PLEXII_ICON_ASSETS: Readonly<Record<string, PlexiiIconAsset>> = {
   'apps/plexiisign': { category: 'apps', slug: 'plexiisign', title: "PlexiiSign", style: 'tile', src: { 32: apps_plexiisign_32, 64: apps_plexiisign_64, 128: apps_plexiisign_128 } },
   'apps/plexiivault': { category: 'apps', slug: 'plexiivault', title: "PlexiiVault", style: 'tile', src: { 32: apps_plexiivault_32, 64: apps_plexiivault_64, 128: apps_plexiivault_128 } },
   'apps/plexiiwrite': { category: 'apps', slug: 'plexiiwrite', title: "PlexiiWrite", style: 'tile', src: { 32: apps_plexiiwrite_32, 64: apps_plexiiwrite_64, 128: apps_plexiiwrite_128 } },
+  'areas/office-area': { category: 'areas', slug: 'office-area', title: "Office area", style: 'glyph', src: { 32: areas_office_area_32, 64: areas_office_area_64, 128: areas_office_area_128 } },
+  'areas/people-area': { category: 'areas', slug: 'people-area', title: "People area", style: 'glyph', src: { 32: areas_people_area_32, 64: areas_people_area_64, 128: areas_people_area_128 } },
+  'areas/recent': { category: 'areas', slug: 'recent', title: "Recent", style: 'glyph', src: { 32: areas_recent_32, 64: areas_recent_64, 128: areas_recent_128 } },
+  'areas/starred': { category: 'areas', slug: 'starred', title: "Starred", style: 'glyph', src: { 32: areas_starred_32, 64: areas_starred_64, 128: areas_starred_128 } },
+  'areas/templates': { category: 'areas', slug: 'templates', title: "Templates", style: 'glyph', src: { 32: areas_templates_32, 64: areas_templates_64, 128: areas_templates_128 } },
+  'bring-in/import-file-to-this-desk': { category: 'bring-in', slug: 'import-file-to-this-desk', title: "Import file to this desk", style: 'glyph', src: { 32: bring_in_import_file_to_this_desk_32, 64: bring_in_import_file_to_this_desk_64, 128: bring_in_import_file_to_this_desk_128 } },
+  'bring-in/import-work-widget-file': { category: 'bring-in', slug: 'import-work-widget-file', title: "Import work widget file", style: 'glyph', src: { 32: bring_in_import_work_widget_file_32, 64: bring_in_import_work_widget_file_64, 128: bring_in_import_work_widget_file_128 } },
   'connected/chatgpt': { category: 'connected', slug: 'chatgpt', title: "ChatGPT", style: 'logo', src: { 32: connected_chatgpt_32, 64: connected_chatgpt_64, 128: connected_chatgpt_128 } },
   'connected/claude': { category: 'connected', slug: 'claude', title: "Claude", style: 'logo', src: { 32: connected_claude_32, 64: connected_claude_64, 128: connected_claude_128 } },
   'connected/discord': { category: 'connected', slug: 'discord', title: "Discord", style: 'logo', src: { 32: connected_discord_32, 64: connected_discord_64, 128: connected_discord_128 } },
@@ -341,6 +520,53 @@ export const PLEXII_ICON_ASSETS: Readonly<Record<string, PlexiiIconAsset>> = {
   'connected/whatsapp': { category: 'connected', slug: 'whatsapp', title: "WhatsApp", style: 'logo', src: { 32: connected_whatsapp_32, 64: connected_whatsapp_64, 128: connected_whatsapp_128 } },
   'connected/youtube': { category: 'connected', slug: 'youtube', title: "YouTube", style: 'logo', src: { 32: connected_youtube_32, 64: connected_youtube_64, 128: connected_youtube_128 } },
   'connected/youtube-music': { category: 'connected', slug: 'youtube-music', title: "YouTube Music", style: 'logo', src: { 32: connected_youtube_music_32, 64: connected_youtube_music_64, 128: connected_youtube_music_128 } },
+  'focus-filters/closed-in-the-last-7-days': { category: 'focus-filters', slug: 'closed-in-the-last-7-days', title: "Closed in the last 7 days", style: 'glyph', src: { 32: focus_filters_closed_in_the_last_7_days_32, 64: focus_filters_closed_in_the_last_7_days_64, 128: focus_filters_closed_in_the_last_7_days_128 } },
+  'focus-filters/due-today': { category: 'focus-filters', slug: 'due-today', title: "Due today", style: 'glyph', src: { 32: focus_filters_due_today_32, 64: focus_filters_due_today_64, 128: focus_filters_due_today_128 } },
+  'focus-filters/in-progress': { category: 'focus-filters', slug: 'in-progress', title: "In progress", style: 'glyph', src: { 32: focus_filters_in_progress_32, 64: focus_filters_in_progress_64, 128: focus_filters_in_progress_128 } },
+  'focus-filters/open': { category: 'focus-filters', slug: 'open', title: "Open", style: 'glyph', src: { 32: focus_filters_open_32, 64: focus_filters_open_64, 128: focus_filters_open_128 } },
+  'focus-filters/overdue': { category: 'focus-filters', slug: 'overdue', title: "Overdue", style: 'glyph', src: { 32: focus_filters_overdue_32, 64: focus_filters_overdue_64, 128: focus_filters_overdue_128 } },
+  'focus-filters/waiting': { category: 'focus-filters', slug: 'waiting', title: "Waiting", style: 'glyph', src: { 32: focus_filters_waiting_32, 64: focus_filters_waiting_64, 128: focus_filters_waiting_128 } },
+  'home-actions/discover': { category: 'home-actions', slug: 'discover', title: "Discover", style: 'tile', src: { 32: home_actions_discover_32, 64: home_actions_discover_64, 128: home_actions_discover_128 } },
+  'home-actions/focus-timer': { category: 'home-actions', slug: 'focus-timer', title: "Focus timer", style: 'tile', src: { 32: home_actions_focus_timer_32, 64: home_actions_focus_timer_64, 128: home_actions_focus_timer_128 } },
+  'home-actions/new-desk': { category: 'home-actions', slug: 'new-desk', title: "New desk", style: 'tile', src: { 32: home_actions_new_desk_32, 64: home_actions_new_desk_64, 128: home_actions_new_desk_128 } },
+  'home-actions/transcribe': { category: 'home-actions', slug: 'transcribe', title: "Transcribe", style: 'tile', src: { 32: home_actions_transcribe_32, 64: home_actions_transcribe_64, 128: home_actions_transcribe_128 } },
+  'onboarding/body-doubling': { category: 'onboarding', slug: 'body-doubling', title: "Body doubling", style: 'glyph', src: { 32: onboarding_body_doubling_32, 64: onboarding_body_doubling_64, 128: onboarding_body_doubling_128 } },
+  'onboarding/connected-office-files': { category: 'onboarding', slug: 'connected-office-files', title: "Connected office files", style: 'glyph', src: { 32: onboarding_connected_office_files_32, 64: onboarding_connected_office_files_64, 128: onboarding_connected_office_files_128 } },
+  'onboarding/rooms-desks-and-plans': { category: 'onboarding', slug: 'rooms-desks-and-plans', title: "Rooms Desks and Plans", style: 'glyph', src: { 32: onboarding_rooms_desks_and_plans_32, 64: onboarding_rooms_desks_and_plans_64, 128: onboarding_rooms_desks_and_plans_128 } },
+  'onboarding/welcome-to-plexiidesk': { category: 'onboarding', slug: 'welcome-to-plexiidesk', title: "Welcome to PlexiiDesk", style: 'glyph', src: { 32: onboarding_welcome_to_plexiidesk_32, 64: onboarding_welcome_to_plexiidesk_64, 128: onboarding_welcome_to_plexiidesk_128 } },
+  'people/directory': { category: 'people', slug: 'directory', title: "Directory", style: 'glyph', src: { 32: people_directory_32, 64: people_directory_64, 128: people_directory_128 } },
+  'people/people-home': { category: 'people', slug: 'people-home', title: "People Home", style: 'glyph', src: { 32: people_people_home_32, 64: people_people_home_64, 128: people_people_home_128 } },
+  'plexiibrain/agents': { category: 'plexiibrain', slug: 'agents', title: "Agents", style: 'glyph', src: { 32: plexiibrain_agents_32, 64: plexiibrain_agents_64, 128: plexiibrain_agents_128 } },
+  'plexiibrain/apis': { category: 'plexiibrain', slug: 'apis', title: "APIs", style: 'glyph', src: { 32: plexiibrain_apis_32, 64: plexiibrain_apis_64, 128: plexiibrain_apis_128 } },
+  'plexiibrain/ask-plexiibrain': { category: 'plexiibrain', slug: 'ask-plexiibrain', title: "Ask PlexiiBrain", style: 'glyph', src: { 32: plexiibrain_ask_plexiibrain_32, 64: plexiibrain_ask_plexiibrain_64, 128: plexiibrain_ask_plexiibrain_128 } },
+  'plexiibrain/assemble-a-desk': { category: 'plexiibrain', slug: 'assemble-a-desk', title: "Assemble a desk", style: 'glyph', src: { 32: plexiibrain_assemble_a_desk_32, 64: plexiibrain_assemble_a_desk_64, 128: plexiibrain_assemble_a_desk_128 } },
+  'plexiibrain/connect': { category: 'plexiibrain', slug: 'connect', title: "Connect", style: 'glyph', src: { 32: plexiibrain_connect_32, 64: plexiibrain_connect_64, 128: plexiibrain_connect_128 } },
+  'plexiibrain/decisions': { category: 'plexiibrain', slug: 'decisions', title: "Decisions", style: 'glyph', src: { 32: plexiibrain_decisions_32, 64: plexiibrain_decisions_64, 128: plexiibrain_decisions_128 } },
+  'plexiibrain/insights': { category: 'plexiibrain', slug: 'insights', title: "Insights", style: 'glyph', src: { 32: plexiibrain_insights_32, 64: plexiibrain_insights_64, 128: plexiibrain_insights_128 } },
+  'plexiibrain/ops': { category: 'plexiibrain', slug: 'ops', title: "Ops", style: 'glyph', src: { 32: plexiibrain_ops_32, 64: plexiibrain_ops_64, 128: plexiibrain_ops_128 } },
+  'plexiibrain/plexiibrain-home': { category: 'plexiibrain', slug: 'plexiibrain-home', title: "PlexiiBrain Home", style: 'glyph', src: { 32: plexiibrain_plexiibrain_home_32, 64: plexiibrain_plexiibrain_home_64, 128: plexiibrain_plexiibrain_home_128 } },
+  'plexiibrain/plexiibrain-map': { category: 'plexiibrain', slug: 'plexiibrain-map', title: "PlexiiBrain Map", style: 'glyph', src: { 32: plexiibrain_plexiibrain_map_32, 64: plexiibrain_plexiibrain_map_64, 128: plexiibrain_plexiibrain_map_128 } },
+  'section-headers/apps': { category: 'section-headers', slug: 'apps', title: "Apps", style: 'glyph', src: { 32: section_headers_apps_32, 64: section_headers_apps_64, 128: section_headers_apps_128 } },
+  'section-headers/connected-apps': { category: 'section-headers', slug: 'connected-apps', title: "Connected apps", style: 'glyph', src: { 32: section_headers_connected_apps_32, 64: section_headers_connected_apps_64, 128: section_headers_connected_apps_128 } },
+  'section-headers/people': { category: 'section-headers', slug: 'people', title: "People", style: 'glyph', src: { 32: section_headers_people_32, 64: section_headers_people_64, 128: section_headers_people_128 } },
+  'section-headers/work-widgets': { category: 'section-headers', slug: 'work-widgets', title: "Work widgets", style: 'glyph', src: { 32: section_headers_work_widgets_32, 64: section_headers_work_widgets_64, 128: section_headers_work_widgets_128 } },
+  'side-menu/all-desks': { category: 'side-menu', slug: 'all-desks', title: "All desks", style: 'glyph', src: { 32: side_menu_all_desks_32, 64: side_menu_all_desks_64, 128: side_menu_all_desks_128 } },
+  'side-menu/desks': { category: 'side-menu', slug: 'desks', title: "Desks", style: 'glyph', src: { 32: side_menu_desks_32, 64: side_menu_desks_64, 128: side_menu_desks_128 } },
+  'side-menu/focus': { category: 'side-menu', slug: 'focus', title: "Focus", style: 'glyph', src: { 32: side_menu_focus_32, 64: side_menu_focus_64, 128: side_menu_focus_128 } },
+  'side-menu/home': { category: 'side-menu', slug: 'home', title: "Home", style: 'glyph', src: { 32: side_menu_home_32, 64: side_menu_home_64, 128: side_menu_home_128 } },
+  'side-menu/manage-organisation': { category: 'side-menu', slug: 'manage-organisation', title: "Manage organisation", style: 'glyph', src: { 32: side_menu_manage_organisation_32, 64: side_menu_manage_organisation_64, 128: side_menu_manage_organisation_128 } },
+  'side-menu/new-desk': { category: 'side-menu', slug: 'new-desk', title: "New desk", style: 'glyph', src: { 32: side_menu_new_desk_32, 64: side_menu_new_desk_64, 128: side_menu_new_desk_128 } },
+  'side-menu/rooms': { category: 'side-menu', slug: 'rooms', title: "Rooms", style: 'glyph', src: { 32: side_menu_rooms_32, 64: side_menu_rooms_64, 128: side_menu_rooms_128 } },
+  'side-menu/trash': { category: 'side-menu', slug: 'trash', title: "Trash", style: 'glyph', src: { 32: side_menu_trash_32, 64: side_menu_trash_64, 128: side_menu_trash_128 } },
+  'suite/agents': { category: 'suite', slug: 'agents', title: "Agents", style: 'tile', src: { 32: suite_agents_32, 64: suite_agents_64, 128: suite_agents_128 } },
+  'suite/api': { category: 'suite', slug: 'api', title: "API", style: 'tile', src: { 32: suite_api_32, 64: suite_api_64, 128: suite_api_128 } },
+  'suite/build': { category: 'suite', slug: 'build', title: "Build", style: 'tile', src: { 32: suite_build_32, 64: suite_build_64, 128: suite_build_128 } },
+  'suite/dash': { category: 'suite', slug: 'dash', title: "Dash", style: 'tile', src: { 32: suite_dash_32, 64: suite_dash_64, 128: suite_dash_128 } },
+  'suite/marketplace': { category: 'suite', slug: 'marketplace', title: "Marketplace", style: 'tile', src: { 32: suite_marketplace_32, 64: suite_marketplace_64, 128: suite_marketplace_128 } },
+  'suite/ops': { category: 'suite', slug: 'ops', title: "Ops", style: 'tile', src: { 32: suite_ops_32, 64: suite_ops_64, 128: suite_ops_128 } },
+  'suite/reports': { category: 'suite', slug: 'reports', title: "Reports", style: 'tile', src: { 32: suite_reports_32, 64: suite_reports_64, 128: suite_reports_128 } },
+  'suite/tables': { category: 'suite', slug: 'tables', title: "Tables", style: 'tile', src: { 32: suite_tables_32, 64: suite_tables_64, 128: suite_tables_128 } },
+  'suite/widgets': { category: 'suite', slug: 'widgets', title: "Widgets", style: 'tile', src: { 32: suite_widgets_32, 64: suite_widgets_64, 128: suite_widgets_128 } },
   'tools/all-tasks': { category: 'tools', slug: 'all-tasks', title: "All Tasks", style: 'glyph', src: { 32: tools_all_tasks_32, 64: tools_all_tasks_64, 128: tools_all_tasks_128 } },
   'tools/collaborations': { category: 'tools', slug: 'collaborations', title: "Collaborations", style: 'glyph', src: { 32: tools_collaborations_32, 64: tools_collaborations_64, 128: tools_collaborations_128 } },
   'tools/flows': { category: 'tools', slug: 'flows', title: "Flows", style: 'glyph', src: { 32: tools_flows_32, 64: tools_flows_64, 128: tools_flows_128 } },
@@ -351,8 +577,9 @@ export const PLEXII_ICON_ASSETS: Readonly<Record<string, PlexiiIconAsset>> = {
   'tools/search': { category: 'tools', slug: 'search', title: "Search", style: 'glyph', src: { 32: tools_search_32, 64: tools_search_64, 128: tools_search_128 } },
   'tools/shared-with-me': { category: 'tools', slug: 'shared-with-me', title: "Shared with me", style: 'glyph', src: { 32: tools_shared_with_me_32, 64: tools_shared_with_me_64, 128: tools_shared_with_me_128 } },
   'widgets/agent': { category: 'widgets', slug: 'agent', title: "Agent", style: 'glyph', src: { 32: widgets_agent_32, 64: widgets_agent_64, 128: widgets_agent_128 } },
-  'widgets/attention': { category: 'widgets', slug: 'attention', title: "Attention", style: 'tile', src: { 32: widgets_attention_32, 64: widgets_attention_64, 128: widgets_attention_128 }, recovered: true },
-  'widgets/browser': { category: 'widgets', slug: 'browser', title: "Browser", style: 'tile', src: { 32: widgets_browser_32, 64: widgets_browser_64, 128: widgets_browser_128 }, recovered: true },
+  'widgets/app-launcher': { category: 'widgets', slug: 'app-launcher', title: "App launcher", style: 'tile', src: { 32: widgets_app_launcher_32, 64: widgets_app_launcher_64, 128: widgets_app_launcher_128 } },
+  'widgets/attention': { category: 'widgets', slug: 'attention', title: "Attention", style: 'tile', src: { 32: widgets_attention_32, 64: widgets_attention_64, 128: widgets_attention_128 } },
+  'widgets/browser': { category: 'widgets', slug: 'browser', title: "Browser", style: 'tile', src: { 32: widgets_browser_32, 64: widgets_browser_64, 128: widgets_browser_128 } },
   'widgets/calculator': { category: 'widgets', slug: 'calculator', title: "Calculator", style: 'glyph', src: { 32: widgets_calculator_32, 64: widgets_calculator_64, 128: widgets_calculator_128 } },
   'widgets/calendar': { category: 'widgets', slug: 'calendar', title: "Calendar", style: 'tile', src: { 32: widgets_calendar_32, 64: widgets_calendar_64, 128: widgets_calendar_128 } },
   'widgets/card': { category: 'widgets', slug: 'card', title: "Card", style: 'tile', src: { 32: widgets_card_32, 64: widgets_card_64, 128: widgets_card_128 } },
@@ -360,7 +587,8 @@ export const PLEXII_ICON_ASSETS: Readonly<Record<string, PlexiiIconAsset>> = {
   'widgets/chat-thread': { category: 'widgets', slug: 'chat-thread', title: "Chat thread", style: 'tile', src: { 32: widgets_chat_thread_32, 64: widgets_chat_thread_64, 128: widgets_chat_thread_128 } },
   'widgets/colour': { category: 'widgets', slug: 'colour', title: "Colour", style: 'tile', src: { 32: widgets_colour_32, 64: widgets_colour_64, 128: widgets_colour_128 } },
   'widgets/contacts': { category: 'widgets', slug: 'contacts', title: "Contacts", style: 'tile', src: { 32: widgets_contacts_32, 64: widgets_contacts_64, 128: widgets_contacts_128 } },
-  'widgets/custom-block': { category: 'widgets', slug: 'custom-block', title: "Custom block", style: 'tile', src: { 32: widgets_custom_block_32, 64: widgets_custom_block_64, 128: widgets_custom_block_128 }, recovered: true },
+  'widgets/custom-block': { category: 'widgets', slug: 'custom-block', title: "Custom block", style: 'tile', src: { 32: widgets_custom_block_32, 64: widgets_custom_block_64, 128: widgets_custom_block_128 } },
+  'widgets/custom-work-widget': { category: 'widgets', slug: 'custom-work-widget', title: "Custom work widget", style: 'tile', src: { 32: widgets_custom_work_widget_32, 64: widgets_custom_work_widget_64, 128: widgets_custom_work_widget_128 } },
   'widgets/design': { category: 'widgets', slug: 'design', title: "Design", style: 'tile', src: { 32: widgets_design_32, 64: widgets_design_64, 128: widgets_design_128 } },
   'widgets/document': { category: 'widgets', slug: 'document', title: "Document", style: 'tile', src: { 32: widgets_document_32, 64: widgets_document_64, 128: widgets_document_128 } },
   'widgets/drive-folder': { category: 'widgets', slug: 'drive-folder', title: "Drive folder", style: 'tile', src: { 32: widgets_drive_folder_32, 64: widgets_drive_folder_64, 128: widgets_drive_folder_128 } },
@@ -378,9 +606,10 @@ export const PLEXII_ICON_ASSETS: Readonly<Record<string, PlexiiIconAsset>> = {
   'widgets/incoming-webhook': { category: 'widgets', slug: 'incoming-webhook', title: "Incoming webhook", style: 'glyph', src: { 32: widgets_incoming_webhook_32, 64: widgets_incoming_webhook_64, 128: widgets_incoming_webhook_128 } },
   'widgets/living-doc': { category: 'widgets', slug: 'living-doc', title: "Living Doc", style: 'tile', src: { 32: widgets_living_doc_32, 64: widgets_living_doc_64, 128: widgets_living_doc_128 } },
   'widgets/map': { category: 'widgets', slug: 'map', title: "Map", style: 'tile', src: { 32: widgets_map_32, 64: widgets_map_64, 128: widgets_map_128 } },
-  'widgets/markdown': { category: 'widgets', slug: 'markdown', title: "Markdown", style: 'tile', src: { 32: widgets_markdown_32, 64: widgets_markdown_64, 128: widgets_markdown_128 }, recovered: true },
+  'widgets/markdown': { category: 'widgets', slug: 'markdown', title: "Markdown", style: 'tile', src: { 32: widgets_markdown_32, 64: widgets_markdown_64, 128: widgets_markdown_128 } },
   'widgets/metrics': { category: 'widgets', slug: 'metrics', title: "Metrics", style: 'tile', src: { 32: widgets_metrics_32, 64: widgets_metrics_64, 128: widgets_metrics_128 } },
   'widgets/mind-map': { category: 'widgets', slug: 'mind-map', title: "Mind map", style: 'tile', src: { 32: widgets_mind_map_32, 64: widgets_mind_map_64, 128: widgets_mind_map_128 } },
+  'widgets/minimap': { category: 'widgets', slug: 'minimap', title: "Minimap", style: 'tile', src: { 32: widgets_minimap_32, 64: widgets_minimap_64, 128: widgets_minimap_128 } },
   'widgets/note': { category: 'widgets', slug: 'note', title: "Note", style: 'glyph', src: { 32: widgets_note_32, 64: widgets_note_64, 128: widgets_note_128 } },
   'widgets/outgoing-webhook': { category: 'widgets', slug: 'outgoing-webhook', title: "Outgoing webhook", style: 'glyph', src: { 32: widgets_outgoing_webhook_32, 64: widgets_outgoing_webhook_64, 128: widgets_outgoing_webhook_128 } },
   'widgets/page': { category: 'widgets', slug: 'page', title: "Page", style: 'tile', src: { 32: widgets_page_32, 64: widgets_page_64, 128: widgets_page_128 } },
@@ -395,21 +624,13 @@ export const PLEXII_ICON_ASSETS: Readonly<Record<string, PlexiiIconAsset>> = {
   'widgets/sticky': { category: 'widgets', slug: 'sticky', title: "Sticky", style: 'tile', src: { 32: widgets_sticky_32, 64: widgets_sticky_64, 128: widgets_sticky_128 } },
   'widgets/stream-deck': { category: 'widgets', slug: 'stream-deck', title: "Stream Deck", style: 'glyph', src: { 32: widgets_stream_deck_32, 64: widgets_stream_deck_64, 128: widgets_stream_deck_128 } },
   'widgets/table': { category: 'widgets', slug: 'table', title: "Table", style: 'tile', src: { 32: widgets_table_32, 64: widgets_table_64, 128: widgets_table_128 } },
+  'widgets/task-link': { category: 'widgets', slug: 'task-link', title: "Task link", style: 'tile', src: { 32: widgets_task_link_32, 64: widgets_task_link_64, 128: widgets_task_link_128 } },
   'widgets/tasks': { category: 'widgets', slug: 'tasks', title: "Tasks", style: 'tile', src: { 32: widgets_tasks_32, 64: widgets_tasks_64, 128: widgets_tasks_128 } },
   'widgets/timer': { category: 'widgets', slug: 'timer', title: "Timer", style: 'tile', src: { 32: widgets_timer_32, 64: widgets_timer_64, 128: widgets_timer_128 } },
   'widgets/video': { category: 'widgets', slug: 'video', title: "Video", style: 'glyph', src: { 32: widgets_video_32, 64: widgets_video_64, 128: widgets_video_128 } },
   'widgets/voice-note': { category: 'widgets', slug: 'voice-note', title: "Voice note", style: 'tile', src: { 32: widgets_voice_note_32, 64: widgets_voice_note_64, 128: widgets_voice_note_128 } },
 }
 
-/** Items in the source set with no usable file, and why. They render their declared fallback. */
+/** Items in the source set with no usable file, and why (a truncated PNG needs a re-export). They render their declared fallback. */
 export const PLEXII_ICON_MISSING: Readonly<Record<string, string>> = {
 }
-
-/** Items whose supplied PNG is truncated and needs re-exporting by the owner. */
-export const PLEXII_ICON_NEEDS_REEXPORT: readonly string[] = [
-  'apps/plexiichat',
-  'widgets/attention',
-  'widgets/browser',
-  'widgets/custom-block',
-  'widgets/markdown',
-]

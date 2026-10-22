@@ -14,8 +14,8 @@ const ROOT = process.cwd()
 const ASSETS = join(ROOT, 'src/renderer/src/assets/plexii-icons')
 const INDEX = join(ROOT, 'src/renderer/src/lib/plexiiIconAssets.generated.ts')
 
-/** Whole set, all sizes. 0.49 MB when built; the budget leaves room for a few more icons. */
-const TOTAL_BUDGET_BYTES = 640 * 1024
+/** Whole set, all sizes. 0.60 MB when built (154 icons, 22 Oct 2026); the budget leaves room for a few more. */
+const TOTAL_BUDGET_BYTES = 768 * 1024
 /** Any one file. The largest 128px tile is ~6 KB. */
 const FILE_BUDGET_BYTES = 12 * 1024
 
@@ -84,10 +84,26 @@ describe('generated Plexii icon assets', () => {
     }
   })
 
-  it('records the five truncated source PNGs as needing re-export', () => {
+  it('builds the five once-truncated tiles from the owner re-exports, with no recovery path left', () => {
+    // The re-exports (22 Oct 2026) replaced the truncated PNGs; the build no
+    // longer recovers a tile from the copy embedded in its SVG.
+    expect(indexSrc).not.toMatch(/recovered/)
+    expect(indexSrc).not.toMatch(/NEEDS_REEXPORT/)
     for (const key of ['apps/plexiichat', 'widgets/attention', 'widgets/browser', 'widgets/custom-block', 'widgets/markdown']) {
-      expect(indexSrc).toContain(`'${key}',`)
-      expect(indexSrc).toMatch(new RegExp(`'${key}': \\{[^\\n]*recovered: true`))
+      expect(indexSrc).toMatch(new RegExp(`'${key}': \\{[^\\n]*style: 'tile'`))
     }
+    expect(indexSrc).toMatch(/PLEXII_ICON_MISSING: Readonly<Record<string, string>> = \{\n\}/)
+  })
+
+  it('builds the place sets as glyphs and the product/action sets as tiles', () => {
+    const entries = [...indexSrc.matchAll(/^ {2}'([a-z-]+)\/([a-z0-9-]+)': \{[^\n]*style: '(\w+)'/gm)].map((m) => ({ cat: m[1], style: m[3] }))
+    const by = (cat: string): string[] => [...new Set(entries.filter((e) => e.cat === cat).map((e) => e.style))]
+    for (const cat of ['side-menu', 'focus-filters', 'section-headers', 'people', 'plexiibrain', 'bring-in', 'areas', 'onboarding']) {
+      expect(by(cat), cat).toEqual(['glyph'])
+    }
+    for (const cat of ['suite', 'home-actions']) expect(by(cat), cat).toEqual(['tile'])
+    const count = (cat: string): number => entries.filter((e) => e.cat === cat).length
+    expect(count('side-menu') + count('focus-filters') + count('section-headers') + count('people') + count('plexiibrain') + count('bring-in') + count('areas') + count('onboarding')).toBe(41)
+    expect(count('suite') + count('home-actions')).toBe(13)
   })
 })

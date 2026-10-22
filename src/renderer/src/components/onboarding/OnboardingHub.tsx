@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useOnboarding, ONBOARDING_MODULES } from '../../stores/onboarding'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
+import { tourModuleEntity } from '../../lib/plexiiIconMap'
 
 // The tour hub: a small modal listing every onboarding module so a user can
 // replay any of them at ANY time as a refresher, not just on first run. Opened
@@ -63,8 +65,13 @@ export default function OnboardingHub(): JSX.Element | null {
                 data-testid={`onboarding-hub-start-${m.id}`}
                 className="w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left hover:bg-white/5 transition-colors"
               >
-                <span className="h-10 w-10 rounded-xl bg-accent/15 text-accent inline-flex items-center justify-center shrink-0">
-                  <Icon name={m.icon} size={20} />
+                {/* The module's own line icon from the owner's set, in the
+                    dark-stage violet (the card is dark in every theme). */}
+                <span className="plexii-on-dark h-10 w-10 rounded-xl bg-accent/15 text-accent inline-flex items-center justify-center shrink-0">
+                  {(() => {
+                    const ent = tourModuleEntity(m.id)
+                    return ent ? <PlexiiIcon kind={ent.kind} id={ent.id} size={22} fallback={m.icon} /> : <Icon name={m.icon} size={20} />
+                  })()}
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">

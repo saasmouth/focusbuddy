@@ -1118,8 +1118,8 @@ export function AppIconWidget({
   icon: string
   // Tailwind classes for the colored icon surface (gradient).
   surface: string
-  /** The app this tile opens. Its Plexii icon is already a coloured tile, so it
-   *  sits on a quiet surface instead of the gradient. */
+  /** The app or Home action this tile is. Its Plexii icon is already a
+   *  coloured tile, so it sits on a quiet surface instead of the gradient. */
   entity?: EntityRef
   testId: string
   buttonTestId: string
@@ -1254,6 +1254,7 @@ export function NewDeskWidget(): JSX.Element {
     <AppIconWidget
       name="New desk"
       icon="desk"
+      entity={{ kind: 'action', id: 'new-desk' }}
       surface="bg-gradient-to-b from-teal-500 to-teal-600"
       testId="home-new-desk"
       buttonTestId="home-new-desk-create"
@@ -1287,6 +1288,7 @@ export function DiscoverWidget(): JSX.Element {
     <AppIconWidget
       name="Discover"
       icon="plexii:discover"
+      entity={{ kind: 'action', id: 'discover' }}
       surface="bg-gradient-to-b from-indigo-500 to-indigo-600"
       testId="home-discover"
       buttonTestId="home-discover-start"
@@ -1433,6 +1435,7 @@ export function TranscribeWidget({ size = 'icon' }: { size?: WidgetSize } = {}):
         title="Transcribe"
         blurb="Say it once. Keep it forever"
         icon="plexii:mic"
+        entity={{ kind: 'action', id: 'transcribe' }}
         chipClass="bg-violet-500/10 text-violet-500"
         actionLabel="Record"
         actionTone="text-violet-500"
@@ -1447,6 +1450,7 @@ export function TranscribeWidget({ size = 'icon' }: { size?: WidgetSize } = {}):
     <AppIconWidget
       name="Transcribe"
       icon="plexii:mic"
+      entity={{ kind: 'action', id: 'transcribe' }}
       surface="bg-gradient-to-b from-violet-500 to-violet-600"
       testId="home-transcribe"
       buttonTestId="home-transcribe-start"
@@ -1923,7 +1927,10 @@ export function FocusTimerWidget({ size = 'sm' }: { size?: WidgetSize } = {}): J
           data-testid={active ? 'home-focus-timer-stop' : 'home-focus-timer-start'}
           aria-label={active ? 'End focus session' : 'Start 5 minute focus'}
           title={active ? 'End focus session' : 'Start 5 minute focus'}
-          className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-2xl fb-press text-white bg-gradient-to-b from-emerald-500 to-emerald-600"
+          // The neutral lit tile every Home icon with a Plexii asset sits on
+          // (AppIconWidget): the owner's Focus timer tile carries the colour,
+          // and the running countdown reads in ink rather than white on green.
+          className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-2xl fb-press fb-tile-lit text-[var(--ink-100)]"
         >
           {active ? (
             <>
@@ -1934,7 +1941,7 @@ export function FocusTimerWidget({ size = 'sm' }: { size?: WidgetSize } = {}): J
             </>
           ) : (
             <>
-              <Icon name="timer" size={26} />
+              <PlexiiIcon kind="action" id="focus-timer" size={40} fallback="timer" />
               <span className="max-w-full truncate px-2 text-[10.5px] font-semibold">Focus</span>
             </>
           )}
@@ -1943,7 +1950,7 @@ export function FocusTimerWidget({ size = 'sm' }: { size?: WidgetSize } = {}): J
     )
   }
   return (
-    <RailCard title="Focus timer" icon="timer" tone="violet">
+    <RailCard title="Focus timer" icon="timer" entity={{ kind: 'action', id: 'focus-timer' }} tone="violet">
       <div className="flex-1 flex items-center gap-3" data-testid="home-focus-timer">
         {active ? (
           <>

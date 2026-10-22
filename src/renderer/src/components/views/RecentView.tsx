@@ -2,8 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useDocumentsStore } from '../../stores/documents'
 import { useViewStore } from '../../stores/view'
 import { DashboardHeader } from '../plexi'
-import Icon from '../Icon'
-import { PlexiiDocIcon } from '../PlexiiIcon'
+import PlexiiIcon, { PlexiiDocIcon } from '../PlexiiIcon'
 import type { DocType } from '@shared/types'
 
 // Recent — the documents you last touched, newest first. Built only from real
@@ -52,7 +51,7 @@ export default function RecentView(): JSX.Element {
 
         {recent.length === 0 ? (
           <div className="px-3 py-16 text-center" data-testid="recent-empty">
-            <Icon name="schedule" size={30} className="text-[var(--ink-30)]" />
+            <PlexiiIcon kind="place" id="recent" size={30} fallback="schedule" fallbackClassName="text-[var(--ink-30)]" />
             <p className="mt-3 text-[14px] text-[var(--ink-70)] max-w-md mx-auto leading-relaxed">
               Nothing here yet. Open or create a document and it will show up here so you can jump
               back to it quickly.

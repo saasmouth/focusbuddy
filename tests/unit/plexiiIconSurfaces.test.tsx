@@ -51,10 +51,12 @@ describe('Plexii icon surfaces: declared maps', () => {
       expect(resolveEntityIcon(ent.kind, ent.id).asset, key).toBeTruthy()
     }
     expect(suiteProductEntity('plexidocs')).toEqual({ kind: 'app', id: 'docs' })
-    // Products with no icon in the set keep their glyph rather than borrowing one.
+    // The nine products that are neither an app nor a tool wear their own
+    // product tiles (22 Oct 2026), never a borrowed app icon.
     for (const key of ['plexiagents', 'plexidash', 'plexitables', 'plexireports', 'plexibuild', 'plexiwidgets', 'plexiapi', 'pleximarketplace', 'plexiops']) {
-      expect(suiteProductEntity(key), key).toBeNull()
+      expect(suiteProductEntity(key)?.kind, key).toBe('product')
     }
+    expect(suiteProductEntity('no-such-product')).toBeNull()
   })
 
   it('maps dashboard widget defs only to real defs, each with an asset', () => {
@@ -78,8 +80,9 @@ describe('Plexii icon surfaces: declared maps', () => {
     expect(searchHitEntity({ type: 'meeting' })).toEqual({ kind: 'app', id: 'meet' })
     expect(searchHitEntity({ type: 'sign' })).toEqual({ kind: 'app', id: 'sign' })
     expect(searchHitEntity({ type: 'mail' })).toEqual({ kind: 'app', id: 'mail' })
-    // A widget kind with no asset, and the non-entity hit types, keep their glyph.
-    expect(searchHitEntity({ type: 'widget', widgetKind: 'minimap' })).toBeNull()
+    // Minimap has its own icon now; an unknown kind and the non-entity hit types keep their glyph.
+    expect(searchHitEntity({ type: 'widget', widgetKind: 'minimap' })).toEqual({ kind: 'widget', id: 'minimap' })
+    expect(searchHitEntity({ type: 'widget', widgetKind: 'no-such-kind' })).toBeNull()
     for (const type of ['task', 'folder', 'file', 'table-row']) expect(searchHitEntity({ type }), type).toBeNull()
   })
 })
@@ -131,7 +134,7 @@ describe('PlexiiChipIcon', () => {
   it('keeps the tinted chip and glyph for a non-entity or an entity with no asset', () => {
     render(<PlexiiChipIcon entity={null} fallback="bolt" size={28} glyphSize={15} chipClassName="chip" />)
     expect(host.querySelector('.chip i')!.getAttribute('data-icon')).toBe('bolt')
-    render(<PlexiiChipIcon entity={{ kind: 'widget', id: 'minimap' }} fallback="map" size={28} glyphSize={15} chipClassName="chip" />)
+    render(<PlexiiChipIcon entity={{ kind: 'widget', id: 'no-such-kind' }} fallback="map" size={28} glyphSize={15} chipClassName="chip" />)
     expect(host.querySelector('.chip i')!.getAttribute('data-icon')).toBe('map')
   })
 })

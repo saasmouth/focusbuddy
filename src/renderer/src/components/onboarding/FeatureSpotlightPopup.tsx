@@ -2,6 +2,8 @@ import { createPortal } from 'react-dom'
 import { useOnboarding } from '../../stores/onboarding'
 import { moduleById } from '../../lib/onboarding/registry'
 import Icon from '../Icon'
+import PlexiiIcon from '../PlexiiIcon'
+import { tourModuleEntity } from '../../lib/plexiiIconMap'
 import { useInterruptionClear } from '../../lib/useInterruptionClear'
 
 // A small, non-intrusive corner popup that offers a short tour of a NEW feature
@@ -36,8 +38,11 @@ export default function FeatureSpotlightPopup(): JSX.Element | null {
       data-testid="feature-spotlight-popup"
     >
       <div className="flex items-start gap-3">
-        <span className="h-10 w-10 rounded-xl bg-accent/15 text-accent inline-flex items-center justify-center shrink-0">
-          <Icon name={mod.icon} size={20} />
+        <span className="plexii-on-dark h-10 w-10 rounded-xl bg-accent/15 text-accent inline-flex items-center justify-center shrink-0">
+          {(() => {
+            const ent = tourModuleEntity(mod.id)
+            return ent ? <PlexiiIcon kind={ent.kind} id={ent.id} size={22} fallback={mod.icon} /> : <Icon name={mod.icon} size={20} />
+          })()}
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[10px] uppercase tracking-[0.14em] text-accent font-semibold mb-0.5">New</div>
