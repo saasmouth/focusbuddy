@@ -656,6 +656,37 @@ export default function DocEditor({
     setTableMenu(null)
   }
 
+  // The side panes are memoised on their real inputs. Built inline they were
+  // new objects with new render closures on every render, and WriteChrome
+  // re-renders on every editor transaction to keep the mark toggles accurate —
+  // so the pane content remounted on each keystroke. Anything inside it (the
+  // Add comment button, a reply field, its focus and selection) was replaced
+  // from under the user, and a click on it could never land.
+  // Declared ABOVE the `if (!editor)` early return: a hook after a conditional
+  // return changes the hook count between renders (Rules of Hooks), and React
+  // throws "Rendered more hooks than during the previous render" the first
+  // time useEditor goes from null to an editor. lint:hooks guards this.
+  const sidePanes = useMemo(
+    () =>
+      editor
+        ? docSidePanes({
+        editor,
+        ai,
+        userName,
+        showAiTab: !hasGlobalAssistant,
+        comments,
+        canComment,
+        onAddComment,
+        onReply: onReplyComment,
+        onJumpComment,
+        mentionHandles,
+        myHandle
+      })
+        : [],
+    [editor, ai, userName, hasGlobalAssistant, comments, canComment, onAddComment, onReplyComment, onJumpComment, mentionHandles, myHandle]
+  )
+
+
   if (!editor) return <div />
 
   // Continuous flow keeps its comfortable reading measure; page view hands the
@@ -670,30 +701,6 @@ export default function DocEditor({
   // Which heading level the cursor sits in, and the friendly name of the block
   // style, for the Styles control. Both were computed inside Toolbar.tsx; the
   // ContextBar tabs read them from here now.
-  // The side panes are memoised on their real inputs. Built inline they were
-  // new objects with new render closures on every render, and WriteChrome
-  // re-renders on every editor transaction to keep the mark toggles accurate —
-  // so the pane content remounted on each keystroke. Anything inside it (the
-  // Add comment button, a reply field, its focus and selection) was replaced
-  // from under the user, and a click on it could never land.
-  const sidePanes = useMemo(
-    () =>
-      docSidePanes({
-        editor,
-        ai,
-        userName,
-        showAiTab: !hasGlobalAssistant,
-        comments,
-        canComment,
-        onAddComment,
-        onReply: onReplyComment,
-        onJumpComment,
-        mentionHandles,
-        myHandle
-      }),
-    [editor, ai, userName, hasGlobalAssistant, comments, canComment, onAddComment, onReplyComment, onJumpComment, mentionHandles, myHandle]
-  )
-
   const currentHeadingLevel = [1, 2, 3, 4, 5, 6].find((lvl) => editor.isActive('heading', { level: lvl })) ?? null
   const styleLabel = editor.isActive('bulletList')
     ? 'Bulleted'
