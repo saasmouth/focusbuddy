@@ -60,6 +60,12 @@ INTERSECTION of two passes. This is not caution, it is the difference between a
 real regression and noise — an earlier report of mine was wrong in both
 directions until I did this.
 
+**If you write a guarded job, beware `grep -c`.** It exits 1 when the count is
+zero. Under `set -e` that kills the script, and the obvious `|| echo 0` makes
+the value `"0\n0"`, which compares unequal to `"0"`. That is how a base-baseline
+job here aborted *because* the tree was correctly at base state. Count with
+`|| true`, never `|| echo`.
+
 **Wrap heavy runs in the shared queue.** One at a time, across all sessions:
 
 ```
@@ -158,10 +164,30 @@ node scripts/check-converted-app.mjs \
   --removed <wiring-commit>^:<path/to/DeletedBar.tsx>
 ```
 
-It exits 1 on a duplicate testid and prints pass 2 as advisory. Verified
-against the real Cells bug: run over the pre-fix commit it names
-`sheet-ai-toggle` at both sites and exits 1. Pass 3 is a human read; no script
-does it.
+Add `--bar <bar-testid>` and it also runs the TAB SWEEP: every tab-scoped
+control mapped to its tab, and every spec that touches one checked for a
+`selectBarTab` of that tab. It exits 1 on a cross-file duplicate testid or a
+sweep gap; same-file duplicates and pass 2 are advisory, because both have
+legitimate forms and a hard check that cries wolf gets ignored.
+
+**The sweep has a blind spot, and it cost a real regression.** It only sees
+controls that HAVE a testid. Cells' SE-12 reached the AI fill panel with
+`toolbar.locator('button', { hasText: /AI fill/i })`, and the conversion had
+moved AI fill out of the bar entirely into a RAIL action — so no tab selection
+could reach it. Because `.click()` auto-waits, it failed as a 30s test timeout,
+which on this machine is indistinguishable at a glance from the genuinely slow
+tests, and was very nearly written off as the SE-V2-4 pattern. The script now
+also compares bar-scoped TEXT lookups against the tab labels and the rail
+labels and names which one the text really matches, but the general lesson
+stands: **a timeout is not evidence of slowness.** Read where it hung.
+
+**Put `officeShellLayout.spec.ts` in your spec set.** Cells' row was added to it
+and never run, because the spec was not in the 15. The shared check also derives
+the side-pane collapse id as `<pane>-collapse`; if your app passes
+`collapseTestid` to ShellSidePane to keep an existing id, name it on the APPS
+row as `collapse` rather than renaming your app's id.
+
+Pass 4 is a human read; no script does it.
 
 **1. Scan the WHOLE surface for duplicate testids.** Not a hand-picked list of
 the ids you expect to move; that found nothing on Cells. Extract every static
