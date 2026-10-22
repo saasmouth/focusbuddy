@@ -74,8 +74,9 @@ describe('a threaded frame on the clipboard', () => {
     expect(pasted.storyId).toBeDefined()
     expect(pasted.storyId).not.toBe('st-a')
     expect(stories[pasted.storyId!]).toEqual(STORIES['st-a'])
-    // Numbered from the start of the paste, not from the source's chain.
-    expect(pasted.storyOrder).toBe(0)
+    // Numbered from the start of the paste, not from the source's chain, and
+    // 1-based like designStories.renumber writes them.
+    expect(pasted.storyOrder).toBe(1)
   })
 
   it('keeps frames that were threaded together threaded together, in order', () => {
@@ -92,7 +93,7 @@ describe('a threaded frame on the clipboard', () => {
     // by relative y, not by the source's coordinates: a paste nudges and clamps
     // onto the page, so the pasted copies are not at the originals' y.
     const byY = [...out].sort((a, b) => a.y - b.y)
-    expect(byY.map((e) => e.storyOrder)).toEqual([0, 1])
+    expect(byY.map((e) => e.storyOrder)).toEqual([1, 2])
   })
 
   it('cuts a threaded frame loose when the caller cannot take stories', () => {

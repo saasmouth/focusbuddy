@@ -228,15 +228,18 @@ export function pasteElements(clip: ElementClipboard, opts: PasteOptions): Slide
     return next
   }
 
-  // Story order within the paste: frames of one story numbered 0..n-1 in the
+  // Story order within the paste: frames of one story numbered 1..n in the
   // order they were threaded, so a two-frame copy reads as frame 1 then 2
-  // whatever the source's numbers were.
+  // whatever the source's numbers were. ONE-based because that is the model's
+  // convention — designStories.renumber writes "1, 2, 3…" — and a 0-based
+  // paste would have quietly introduced a second convention. 2e's snippet test
+  // caught it, expecting [1, 2] where this produced [0, 1].
   const order = new Map<string, number>()
   for (const id of storyIdsOf(clip.elements)) {
     clip.elements
       .filter((e) => (e as { storyId?: unknown }).storyId === id)
       .sort((a, b) => ((a as { storyOrder?: number }).storyOrder ?? 0) - ((b as { storyOrder?: number }).storyOrder ?? 0))
-      .forEach((e, i) => order.set(e.id, i))
+      .forEach((e, i) => order.set(e.id, i + 1))
   }
 
   // One nudge for the whole paste, not per element, so a group keeps its shape.
@@ -261,7 +264,7 @@ export function pasteElements(clip: ElementClipboard, opts: PasteOptions): Slide
         // Re-sequenced within the paste, keeping the copied frames' relative
         // order: the source's numbers belong to the source's chain, which may
         // have frames this paste did not take.
-        t.storyOrder = order.get(src.id) ?? 0
+        t.storyOrder = order.get(src.id) ?? 1
       } else {
         delete t.storyId
         delete t.storyOrder
